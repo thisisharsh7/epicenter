@@ -54,12 +54,12 @@ export function createGroqTranscriptionService() {
 					},
 				});
 			}
-
-			if (!options.apiKey.startsWith('gsk_')) {
+			
+			if (!options.apiKey.startsWith('gsk') && !options.apiKey.startsWith('xai')) {
 				return WhisperingErr({
 					title: '🔑 Invalid API Key Format',
 					description:
-						'Your Groq API key should start with "gsk_". Please check and update your API key.',
+						'Your API key should start with "gsk" or "xai". Please check and update your API key.',
 					action: {
 						type: 'link',
 						label: 'Update API key',
