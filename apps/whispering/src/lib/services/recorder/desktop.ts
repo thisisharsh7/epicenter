@@ -66,10 +66,10 @@ export function createDesktopRecorderService(): RecorderService {
 			params: StartRecordingParams,
 			{ sendStatus },
 		): Promise<Result<DeviceAcquisitionOutcome, RecorderServiceError>> => {
-			// Desktop implementation only handles desktop params
-			if (params.platform !== 'desktop') {
+			// CPAL implementation only handles CPAL params
+			if (params.implementation !== 'cpal') {
 				return RecorderServiceErr({
-					message: 'Desktop recorder received non-desktop parameters',
+					message: 'CPAL recorder received non-CPAL parameters',
 					context: { params },
 					cause: undefined,
 				});

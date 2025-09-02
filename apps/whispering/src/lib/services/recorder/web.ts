@@ -53,10 +53,10 @@ export function createWebRecorderService(): RecorderService {
 			params: StartRecordingParams,
 			{ sendStatus },
 		): Promise<Result<DeviceAcquisitionOutcome, RecorderServiceError>> => {
-			// Web implementation only handles web params
-			if (params.platform !== 'web') {
+			// Navigator implementation only handles navigator params
+			if (params.implementation !== 'navigator') {
 				return RecorderServiceErr({
-					message: 'Web recorder received non-web parameters',
+					message: 'Navigator recorder received non-navigator parameters',
 					context: { params },
 					cause: undefined,
 				});

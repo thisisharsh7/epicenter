@@ -14,6 +14,7 @@ import type {
 import { settings } from '$lib/stores/settings.svelte';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, isErr } from 'wellcrafted/result';
+import { interpolateTemplate, asTemplateString, type TemplateString } from '$lib/utils/template';
 import { defineMutation, queryClient } from './_client';
 import { transformationRunKeys } from './transformation-runs';
 import { transformationsKeys } from './transformations';
@@ -169,12 +170,13 @@ async function handleStep({
 
 		case 'prompt_transform': {
 			const provider = step['prompt_transform.inference.provider'];
-			const systemPrompt = step[
-				'prompt_transform.systemPromptTemplate'
-			].replace('{{input}}', input);
-			const userPrompt = step['prompt_transform.userPromptTemplate'].replace(
-				'{{input}}',
-				input,
+			const systemPrompt = interpolateTemplate(
+				asTemplateString(step['prompt_transform.systemPromptTemplate']),
+				{ input }
+			);
+			const userPrompt = interpolateTemplate(
+				asTemplateString(step['prompt_transform.userPromptTemplate']),
+				{ input }
 			);
 
 			switch (provider) {
