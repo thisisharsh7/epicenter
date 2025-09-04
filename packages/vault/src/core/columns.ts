@@ -6,22 +6,49 @@ import {
 	numeric as drizzleNumeric,
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import type { Brand } from 'wellcrafted/brand';
+import { customAlphabet } from 'nanoid';
+
+export type Id = string & Brand<'Id'>;
+
+/**
+ * Generates a nano ID - 21 character alphanumeric string
+ */
+function generateNanoId(): Id {
+	const nanoid = customAlphabet(
+		'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+		21,
+	);
+	return nanoid() as Id;
+}
+
+/**
+ * Creates an ID column - always primary key with nano ID generation
+ * This is the only column type that can be a primary key.
+ * @example
+ * id() // Primary key ID column with nano ID generation
+ */
+export function id() {
+	return drizzleText()
+		.notNull()
+		.primaryKey()
+		.$type<Id>()
+		.$defaultFn(() => generateNanoId());
+}
 
 /**
  * Creates a text column (NOT NULL by default)
+ * Note: Only id() columns can be primary keys
  * @example
  * text() // NOT NULL text
  * text({ nullable: true }) // Nullable text
- * text({ primaryKey: true }) // Primary key text
  * text({ unique: true, default: 'unnamed' }) // Unique with default
  */
 export function text({
-	primaryKey = false,
 	nullable = false,
 	unique = false,
 	default: defaultValue,
 }: {
-	primaryKey?: boolean;
 	nullable?: boolean;
 	unique?: boolean;
 	default?: string | (() => string);
@@ -31,7 +58,6 @@ export function text({
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
-	if (primaryKey) column = column.primaryKey();
 	if (unique) column = column.unique();
 	if (defaultValue !== undefined) {
 		column =
@@ -45,31 +71,26 @@ export function text({
 
 /**
  * Creates an integer column (NOT NULL by default)
+ * Note: Only id() columns can be primary keys
  * @example
  * integer() // NOT NULL integer
  * integer({ nullable: true }) // Nullable integer
- * integer({ primaryKey: true, autoincrement: true }) // Auto-incrementing PK
  * integer({ default: 0 }) // NOT NULL with default
  */
 export function integer({
-	primaryKey = false,
 	nullable = false,
 	unique = false,
 	default: defaultValue,
-	autoincrement = false,
 }: {
-	primaryKey?: boolean;
 	nullable?: boolean;
 	unique?: boolean;
 	default?: number | (() => number);
-	autoincrement?: boolean;
 } = {}) {
 	let column = drizzleInteger();
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
-	if (primaryKey) column = column.primaryKey({ autoIncrement: autoincrement });
 	if (unique) column = column.unique();
 	if (defaultValue !== undefined) {
 		column =
@@ -176,6 +197,7 @@ export function boolean({
 
 /**
  * Creates a timestamp column (stored as integer, NOT NULL by default)
+ * Note: Only id() columns can be primary keys
  * @example
  * date() // NOT NULL timestamp
  * date({ nullable: true }) // Nullable timestamp
@@ -183,12 +205,10 @@ export function boolean({
  * date({ default: new Date('2024-01-01') }) // NOT NULL with specific date
  */
 export function date({
-	primaryKey = false,
 	nullable = false,
 	unique = false,
 	default: defaultValue,
 }: {
-	primaryKey?: boolean;
 	nullable?: boolean;
 	unique?: boolean;
 	default?: Date | 'NOW' | (() => Date);
@@ -198,7 +218,6 @@ export function date({
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
-	if (primaryKey) column = column.primaryKey();
 	if (unique) column = column.unique();
 
 	if (defaultValue === 'NOW') {
