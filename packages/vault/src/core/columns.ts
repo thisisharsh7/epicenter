@@ -226,6 +226,14 @@ export function date({
 	};
 }
 
+type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [k: string]: JsonValue };
+
 /**
  * Creates a JSON column (stored as text, NOT NULL by default)
  * @example
@@ -234,7 +242,7 @@ export function date({
  * json({ default: { tags: [] } }) // NOT NULL with default object
  * json({ default: () => ({ id: Date.now() }) }) // NOT NULL with dynamic default
  */
-export function json<T = any>({
+export function json<T extends JsonValue>({
 	nullable = false,
 	default: defaultValue,
 }: {
@@ -250,8 +258,8 @@ export function json<T = any>({
 		if (defaultValue !== undefined) {
 			column =
 				typeof defaultValue === 'function'
-					? column.$defaultFn(() => JSON.stringify(defaultValue()))
-					: column.default(JSON.stringify(defaultValue));
+					? column.$defaultFn(defaultValue)
+					: column.default(defaultValue);
 		}
 
 		return column;
