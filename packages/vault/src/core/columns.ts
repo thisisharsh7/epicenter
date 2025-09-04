@@ -26,23 +26,21 @@ export function text({
 	unique?: boolean;
 	default?: string | (() => string);
 } = {}) {
-	return (name: string) => {
-		let column = drizzleText(name);
+	let column = drizzleText();
 
-		// NOT NULL by default
-		if (!nullable) column = column.notNull();
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
 
-		if (primaryKey) column = column.primaryKey();
-		if (unique) column = column.unique();
-		if (defaultValue !== undefined) {
-			column =
-				typeof defaultValue === 'function'
-					? column.$defaultFn(defaultValue)
-					: column.default(defaultValue);
-		}
+	if (primaryKey) column = column.primaryKey();
+	if (unique) column = column.unique();
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
 
-		return column;
-	};
+	return column;
 }
 
 /**
@@ -66,24 +64,21 @@ export function integer({
 	default?: number | (() => number);
 	autoincrement?: boolean;
 } = {}) {
-	return (name: string) => {
-		let column = drizzleInteger(name);
+	let column = drizzleInteger();
 
-		// NOT NULL by default
-		if (!nullable) column = column.notNull();
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
 
-		if (primaryKey)
-			column = column.primaryKey({ autoIncrement: autoincrement });
-		if (unique) column = column.unique();
-		if (defaultValue !== undefined) {
-			column =
-				typeof defaultValue === 'function'
-					? column.$defaultFn(defaultValue)
-					: column.default(defaultValue);
-		}
+	if (primaryKey) column = column.primaryKey({ autoIncrement: autoincrement });
+	if (unique) column = column.unique();
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
 
-		return column;
-	};
+	return column;
 }
 
 /**
@@ -102,22 +97,20 @@ export function real({
 	unique?: boolean;
 	default?: number | (() => number);
 } = {}) {
-	return (name: string) => {
-		let column = drizzleReal(name);
+	let column = drizzleReal();
 
-		// NOT NULL by default
-		if (!nullable) column = column.notNull();
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
 
-		if (unique) column = column.unique();
-		if (defaultValue !== undefined) {
-			column =
-				typeof defaultValue === 'function'
-					? column.$defaultFn(defaultValue)
-					: column.default(defaultValue);
-		}
+	if (unique) column = column.unique();
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
 
-		return column;
-	};
+	return column;
 }
 
 /**
@@ -136,22 +129,20 @@ export function numeric({
 	unique?: boolean;
 	default?: string | (() => string);
 } = {}) {
-	return (name: string) => {
-		let column = drizzleNumeric(name);
+	let column = drizzleNumeric();
 
-		// NOT NULL by default
-		if (!nullable) column = column.notNull();
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
 
-		if (unique) column = column.unique();
-		if (defaultValue !== undefined) {
-			column =
-				typeof defaultValue === 'function'
-					? column.$defaultFn(defaultValue)
-					: column.default(defaultValue);
-		}
+	if (unique) column = column.unique();
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
 
-		return column;
-	};
+	return column;
 }
 
 /**
@@ -168,21 +159,19 @@ export function boolean({
 	nullable?: boolean;
 	default?: boolean | (() => boolean);
 } = {}) {
-	return (name: string) => {
-		let column = drizzleInteger(name, { mode: 'boolean' });
+	let column = drizzleInteger({ mode: 'boolean' });
 
-		// NOT NULL by default
-		if (!nullable) column = column.notNull();
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
 
-		if (defaultValue !== undefined) {
-			column =
-				typeof defaultValue === 'function'
-					? column.$defaultFn(defaultValue)
-					: column.default(defaultValue);
-		}
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
 
-		return column;
-	};
+	return column;
 }
 
 /**
@@ -204,26 +193,24 @@ export function date({
 	unique?: boolean;
 	default?: Date | 'NOW' | (() => Date);
 } = {}) {
-	return (name: string) => {
-		let column = drizzleInteger(name, { mode: 'timestamp' });
+	let column = drizzleInteger({ mode: 'timestamp' });
 
-		// NOT NULL by default
-		if (!nullable) column = column.notNull();
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
 
-		if (primaryKey) column = column.primaryKey();
-		if (unique) column = column.unique();
+	if (primaryKey) column = column.primaryKey();
+	if (unique) column = column.unique();
 
-		if (defaultValue === 'NOW') {
-			column = column.default(sql`CURRENT_TIMESTAMP`);
-		} else if (defaultValue !== undefined) {
-			column =
-				typeof defaultValue === 'function'
-					? column.$defaultFn(defaultValue)
-					: column.default(defaultValue);
-		}
+	if (defaultValue === 'NOW') {
+		column = column.default(sql`CURRENT_TIMESTAMP`);
+	} else if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
 
-		return column;
-	};
+	return column;
 }
 
 type JsonValue =
@@ -249,21 +236,19 @@ export function json<T extends JsonValue>({
 	nullable?: boolean;
 	default?: T | (() => T);
 } = {}) {
-	return (name: string) => {
-		let column = drizzleText(name, { mode: 'json' }).$type<T>();
+	let column = drizzleText({ mode: 'json' }).$type<T>();
 
-		// NOT NULL by default
-		if (!nullable) column = column.notNull();
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
 
-		if (defaultValue !== undefined) {
-			column =
-				typeof defaultValue === 'function'
-					? column.$defaultFn(defaultValue)
-					: column.default(defaultValue);
-		}
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
 
-		return column;
-	};
+	return column;
 }
 
 /**
@@ -280,14 +265,12 @@ export function blob({
 	nullable?: boolean;
 	mode?: 'buffer' | 'json';
 } = {}) {
-	return (name: string) => {
-		let column = drizzleBlob(name, { mode });
+	let column = drizzleBlob({ mode });
 
-		// Blob is nullable by default (different from other types)
-		if (!nullable) column = column.notNull();
+	// Blob is nullable by default (different from other types)
+	if (!nullable) column = column.notNull();
 
-		return column;
-	};
+	return column;
 }
 
 // Re-export Drizzle utilities
