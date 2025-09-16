@@ -4,6 +4,7 @@ import {
 	real as drizzleReal,
 	blob as drizzleBlob,
 	numeric as drizzleNumeric,
+	customType,
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import type { Brand } from 'wellcrafted/brand';
@@ -196,13 +197,56 @@ export function boolean({
 }
 
 /**
- * Creates a timestamp column (stored as integer, NOT NULL by default)
+ * Date with timezone stored as "ISO_UTC|TIMEZONE" format
+ * Example: "2024-01-01T20:00:00.000Z|America/New_York"
+ */
+export type DateWithTimezone = string & Brand<'DateWithTimezone'>;
+
+/**
+ * Creates a DateWithTimezone from a Date object and timezone
+ */
+export function createDateWithTimezone(
+	date: Date,
+	timezone: string,
+): DateWithTimezone {
+	const isoUtc = date.toISOString();
+	return `${isoUtc}|${timezone}` as DateWithTimezone;
+}
+
+/**
+ * Parses a DateWithTimezone back to Date object and timezone
+ */
+export function parseDateWithTimezone(value: DateWithTimezone): {
+	date: Date;
+	timezone: string;
+} {
+	const [isoUtc, timezone] = value.split('|');
+	if (!isoUtc || !timezone) {
+		throw new Error(`Invalid DateWithTimezone format: ${value}`);
+	}
+	return {
+		date: new Date(isoUtc),
+		timezone,
+	};
+}
+
+/**
+ * Type assertion function for DateWithTimezone
+ * Pass-through function that asserts a string as DateWithTimezone
+ */
+export function asDateWithTimezone(value: string): DateWithTimezone {
+	return value as DateWithTimezone;
+}
+
+/**
+ * Creates a date with timezone column (stored as text, NOT NULL by default)
+ * Stores dates in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
  * Note: Only id() columns can be primary keys
  * @example
- * date() // NOT NULL timestamp
- * date({ nullable: true }) // Nullable timestamp
- * date({ default: 'NOW' }) // NOT NULL with CURRENT_TIMESTAMP
- * date({ default: new Date('2024-01-01') }) // NOT NULL with specific date
+ * date() // NOT NULL date with timezone
+ * date({ nullable: true }) // Nullable date with timezone
+ * date({ default: new Date() }) // NOT NULL with specific date
+ * date({ default: () => new Date() }) // NOT NULL with dynamic current date
  */
 export function date({
 	nullable = false,
@@ -211,18 +255,37 @@ export function date({
 }: {
 	nullable?: boolean;
 	unique?: boolean;
-	default?: Date | 'NOW' | (() => Date);
+	default?: Date | (() => Date);
 } = {}) {
-	let column = drizzleInteger({ mode: 'timestamp' });
+	/**
+	 * Custom Drizzle type for date with timezone storage
+	 * Stores as text in format "ISO_UTC|TIMEZONE"
+	 */
+	const dateWithTimezoneType = customType<{
+		data: Date;
+		driverData: DateWithTimezone;
+	}>({
+		dataType() {
+			return 'text';
+		},
+		toDriver(value: Date): DateWithTimezone {
+			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			return createDateWithTimezone(value, timezone);
+		},
+		fromDriver(value: DateWithTimezone): Date {
+			const parsed = parseDateWithTimezone(value);
+			return parsed.date;
+		},
+	});
+
+	let column = dateWithTimezoneType();
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
 	if (unique) column = column.unique();
 
-	if (defaultValue === 'NOW') {
-		column = column.default(sql`CURRENT_TIMESTAMP`);
-	} else if (defaultValue !== undefined) {
+	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
 				? column.$defaultFn(defaultValue)
