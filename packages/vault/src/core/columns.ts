@@ -196,11 +196,15 @@ export function boolean({
 	return column;
 }
 
+export type IsoUtcString = string & Brand<'IsoUtcString'>;
+export type TimezoneId = string & Brand<'TimezoneId'>;
+
 /**
  * Date with timezone stored as "ISO_UTC|TIMEZONE" format
  * Example: "2024-01-01T20:00:00.000Z|America/New_York"
  */
-export type DateWithTimezoneString = string & Brand<'DateWithTimezoneString'>;
+export type DateWithTimezoneString = `${IsoUtcString}|${TimezoneId}` &
+	Brand<'DateWithTimezoneString'>;
 
 export type DateWithTimezoneType = { date: Date; timezone: string };
 
