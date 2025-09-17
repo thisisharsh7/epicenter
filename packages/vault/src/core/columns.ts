@@ -215,25 +215,25 @@ export type TimezoneId = string & Brand<'TimezoneId'>;
 /**
  * Database storage format combining UTC datetime and timezone
  * @example "2024-01-01T20:00:00.000Z|America/New_York"
- * @internal Storage format - use DateTimeWithTimezone in application code
+ * @internal Storage format - use DateWithTimezone in application code
  */
-export type DateTimeWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
-	Brand<'DateTimeWithTimezoneString'>;
+export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
+	Brand<'DateWithTimezoneString'>;
 
 /**
  * A datetime value that knows its timezone
  * @property date - JavaScript Date object (internally stored as UTC)
  * @property timezone - IANA timezone identifier
  */
-export type DateTimeWithTimezone = { date: Date; timezone: string };
+export type DateWithTimezone = { date: Date; timezone: string };
 
 /**
- * Normalizes Date or DateTimeWithTimezone to DateTimeWithTimezone
+ * Normalizes Date or DateWithTimezone to DateWithTimezone
  * If Date is passed, uses system timezone
  */
-function normalizeToDateTimeWithTimezone(
-	value: Date | DateTimeWithTimezone,
-): DateTimeWithTimezone {
+function normalizeToDateWithTimezone(
+	value: Date | DateWithTimezone,
+): DateWithTimezone {
 	if (value instanceof Date) {
 		const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 		return { date: value, timezone };
@@ -252,19 +252,19 @@ export function Serializer<TStorage, TInput extends any[], TOutput>(config: {
 }
 
 /**
- * Serializer for DateTimeWithTimezone - converts between application objects and storage strings
+ * Serializer for DateWithTimezone - converts between application objects and storage strings
  */
-export const DateTimeWithTimezoneSerializer = Serializer({
-	serialize(value: Date | DateTimeWithTimezone): DateTimeWithTimezoneString {
-		const { date, timezone } = normalizeToDateTimeWithTimezone(value);
+export const DateWithTimezoneSerializer = Serializer({
+	serialize(value: Date | DateWithTimezone): DateWithTimezoneString {
+		const { date, timezone } = normalizeToDateWithTimezone(value);
 		const isoUtc = date.toISOString();
-		return asDateTimeWithTimezoneString(`${isoUtc}|${timezone}`);
+		return asDateWithTimezoneString(`${isoUtc}|${timezone}`);
 	},
 
-	deserialize(storage: DateTimeWithTimezoneString): DateTimeWithTimezone {
+	deserialize(storage: DateWithTimezoneString): DateWithTimezone {
 		const [isoUtc, timezone] = storage.split('|');
 		if (!isoUtc || !timezone) {
-			throw new Error(`Invalid DateTimeWithTimezone format: ${storage}`);
+			throw new Error(`Invalid DateWithTimezone format: ${storage}`);
 		}
 		return {
 			date: new Date(isoUtc),
@@ -274,13 +274,13 @@ export const DateTimeWithTimezoneSerializer = Serializer({
 });
 
 /**
- * Type assertion function for DateTimeWithTimezoneString
- * Pass-through function that asserts a string as DateTimeWithTimezoneString
+ * Type assertion function for DateWithTimezoneString
+ * Pass-through function that asserts a string as DateWithTimezoneString
  */
-export function asDateTimeWithTimezoneString(
+export function asDateWithTimezoneString(
 	value: string,
-): DateTimeWithTimezoneString {
-	return value as DateTimeWithTimezoneString;
+): DateWithTimezoneString {
+	return value as DateWithTimezoneString;
 }
 
 /**
@@ -293,31 +293,31 @@ export function asDateTimeWithTimezoneString(
  * datetime({ default: new Date() }) // NOT NULL with system timezone
  * datetime({ default: () => new Date() }) // NOT NULL with dynamic current date
  */
-export function datetime({
+export function date({
 	nullable = false,
 	unique = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
 	unique?: boolean;
-	default?: Date | DateTimeWithTimezone | (() => Date | DateTimeWithTimezone);
+	default?: Date | DateWithTimezone | (() => Date | DateWithTimezone);
 } = {}) {
 	/**
 	 * Custom Drizzle type for datetime with timezone storage
 	 * Stores as text in format "ISO_UTC|TIMEZONE"
 	 */
-	const dateTimeWithTimezoneType = customType<{
-		data: DateTimeWithTimezone;
-		driverData: DateTimeWithTimezoneString;
+	const dateWithTimezoneType = customType<{
+		data: DateWithTimezone;
+		driverData: DateWithTimezoneString;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: DateTimeWithTimezone): DateTimeWithTimezoneString =>
-			DateTimeWithTimezoneSerializer.serialize(value),
-		fromDriver: (value: DateTimeWithTimezoneString): DateTimeWithTimezone =>
-			DateTimeWithTimezoneSerializer.deserialize(value),
+		toDriver: (value: DateWithTimezone): DateWithTimezoneString =>
+			DateWithTimezoneSerializer.serialize(value),
+		fromDriver: (value: DateWithTimezoneString): DateWithTimezone =>
+			DateWithTimezoneSerializer.deserialize(value),
 	});
 
-	let column = dateTimeWithTimezoneType();
+	let column = dateWithTimezoneType();
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
@@ -327,20 +327,12 @@ export function datetime({
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(() =>
-						normalizeToDateTimeWithTimezone(defaultValue()),
-					)
-				: column.default(normalizeToDateTimeWithTimezone(defaultValue));
+				? column.$defaultFn(() => normalizeToDateWithTimezone(defaultValue()))
+				: column.default(normalizeToDateWithTimezone(defaultValue));
 	}
 
 	return column;
 }
-
-/**
- * Alias for datetime() - for backwards compatibility
- * @deprecated Use datetime() instead
- */
-export const date = datetime;
 
 type JsonValue =
 	| string
