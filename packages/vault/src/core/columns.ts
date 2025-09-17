@@ -202,34 +202,53 @@ export function boolean({
  */
 export type DateWithTimezoneString = string & Brand<'DateWithTimezoneString'>;
 
-export type DateWithTimezone = { date: Date; timezone: string };
+export type DateWithTimezoneType = { date: Date; timezone: string };
 
 /**
- * Creates a DateWithTimezone from a Date object and timezone
+ * Normalizes Date or DateWithTimezoneType to DateWithTimezoneType
+ * If Date is passed, uses system timezone
  */
-export function createDateWithTimezone(
-	date: Date,
-	timezone: string,
-): DateWithTimezoneString {
-	const isoUtc = date.toISOString();
-	return asDateWithTimezone(`${isoUtc}|${timezone}`);
-}
-
-/**
- * Parses a DateWithTimezone back to Date object and timezone
- */
-export function parseDateWithTimezone(
-	value: DateWithTimezoneString,
-): DateWithTimezone {
-	const [isoUtc, timezone] = value.split('|');
-	if (!isoUtc || !timezone) {
-		throw new Error(`Invalid DateWithTimezone format: ${value}`);
+function normalizeDateWithTimezone(
+	value: Date | DateWithTimezoneType,
+): DateWithTimezoneType {
+	if (value instanceof Date) {
+		const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		return { date: value, timezone };
 	}
-	return {
-		date: new Date(isoUtc),
-		timezone,
-	};
+	return value;
 }
+
+/**
+ * Factory function to create a serializer with inferred types
+ */
+export function Serializer<TStorage, TInput extends any[], TOutput>(config: {
+	serialize(...args: TInput): TStorage;
+	deserialize(storage: TStorage): TOutput;
+}) {
+	return config;
+}
+
+/**
+ * Serializer for DateWithTimezone - converts between application objects and storage strings
+ */
+export const DateWithTimezone = Serializer({
+	serialize(value: Date | DateWithTimezoneType): DateWithTimezoneString {
+		const { date, timezone } = normalizeDateWithTimezone(value);
+		const isoUtc = date.toISOString();
+		return asDateWithTimezone(`${isoUtc}|${timezone}`);
+	},
+
+	deserialize(storage: DateWithTimezoneString): DateWithTimezoneType {
+		const [isoUtc, timezone] = storage.split('|');
+		if (!isoUtc || !timezone) {
+			throw new Error(`Invalid DateWithTimezone format: ${storage}`);
+		}
+		return {
+			date: new Date(isoUtc),
+			timezone,
+		};
+	},
+});
 
 /**
  * Type assertion function for DateWithTimezone
@@ -240,15 +259,6 @@ export function asDateWithTimezone(value: string): DateWithTimezoneString {
 }
 
 /**
- * Creates a DateWithTimezone with UTC timezone
- * @example
- * dateUTC(new Date()) // Shorthand for { date, timezone: 'UTC' }
- */
-export function dateUTC(date: Date): DateWithTimezone {
-	return { date, timezone: 'UTC' };
-}
-
-/**
  * Creates a date with timezone column (stored as text, NOT NULL by default)
  * Stores dates in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
  * Note: Only id() columns can be primary keys
@@ -256,7 +266,6 @@ export function dateUTC(date: Date): DateWithTimezone {
  * date() // NOT NULL date with timezone
  * date({ nullable: true }) // Nullable date with timezone
  * date({ default: new Date() }) // NOT NULL with system timezone
- * date({ default: dateUTC(new Date()) }) // NOT NULL with UTC timezone
  * date({ default: () => new Date() }) // NOT NULL with dynamic current date
  */
 export function date({
@@ -266,37 +275,26 @@ export function date({
 }: {
 	nullable?: boolean;
 	unique?: boolean;
-	default?: Date | DateWithTimezone | (() => Date | DateWithTimezone);
+	default?: Date | DateWithTimezoneType | (() => Date | DateWithTimezoneType);
 } = {}) {
 	/**
 	 * Custom Drizzle type for date with timezone storage
 	 * Stores as text in format "ISO_UTC|TIMEZONE"
 	 */
 	const dateWithTimezoneType = customType<{
-		data: DateWithTimezone;
+		data: DateWithTimezoneType;
 		driverData: DateWithTimezoneString;
 	}>({
 		dataType() {
 			return 'text';
 		},
-		toDriver(value: DateWithTimezone): DateWithTimezoneString {
-			return createDateWithTimezone(value.date, value.timezone);
+		toDriver(value: DateWithTimezoneType): DateWithTimezoneString {
+			return DateWithTimezone.serialize(value);
 		},
-		fromDriver(value: DateWithTimezoneString): DateWithTimezone {
-			return parseDateWithTimezone(value);
+		fromDriver(value: DateWithTimezoneString): DateWithTimezoneType {
+			return DateWithTimezone.deserialize(value);
 		},
 	});
-
-	// Helper to normalize Date to DateWithTimezone
-	function normalizeDateInput(
-		value: Date | DateWithTimezone,
-	): DateWithTimezone {
-		if (value instanceof Date) {
-			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-			return { date: value, timezone };
-		}
-		return value;
-	}
 
 	let column = dateWithTimezoneType();
 
@@ -308,8 +306,8 @@ export function date({
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(() => normalizeDateInput(defaultValue()))
-				: column.default(normalizeDateInput(defaultValue));
+				? column.$defaultFn(() => normalizeDateWithTimezone(defaultValue()))
+				: column.default(normalizeDateWithTimezone(defaultValue));
 	}
 
 	return column;
