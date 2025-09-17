@@ -200,7 +200,9 @@ export function boolean({
  * Date with timezone stored as "ISO_UTC|TIMEZONE" format
  * Example: "2024-01-01T20:00:00.000Z|America/New_York"
  */
-export type DateWithTimezone = string & Brand<'DateWithTimezone'>;
+export type DateWithTimezoneString = string & Brand<'DateWithTimezoneString'>;
+
+export type DateWithTimezone = { date: Date; timezone: string };
 
 /**
  * Creates a DateWithTimezone from a Date object and timezone
@@ -208,18 +210,17 @@ export type DateWithTimezone = string & Brand<'DateWithTimezone'>;
 export function createDateWithTimezone(
 	date: Date,
 	timezone: string,
-): DateWithTimezone {
+): DateWithTimezoneString {
 	const isoUtc = date.toISOString();
-	return `${isoUtc}|${timezone}` as DateWithTimezone;
+	return asDateWithTimezone(`${isoUtc}|${timezone}`);
 }
 
 /**
  * Parses a DateWithTimezone back to Date object and timezone
  */
-export function parseDateWithTimezone(value: DateWithTimezone): {
-	date: Date;
-	timezone: string;
-} {
+export function parseDateWithTimezone(
+	value: DateWithTimezoneString,
+): DateWithTimezone {
 	const [isoUtc, timezone] = value.split('|');
 	if (!isoUtc || !timezone) {
 		throw new Error(`Invalid DateWithTimezone format: ${value}`);
@@ -234,8 +235,17 @@ export function parseDateWithTimezone(value: DateWithTimezone): {
  * Type assertion function for DateWithTimezone
  * Pass-through function that asserts a string as DateWithTimezone
  */
-export function asDateWithTimezone(value: string): DateWithTimezone {
-	return value as DateWithTimezone;
+export function asDateWithTimezone(value: string): DateWithTimezoneString {
+	return value as DateWithTimezoneString;
+}
+
+/**
+ * Creates a DateWithTimezone with UTC timezone
+ * @example
+ * dateUTC(new Date()) // Shorthand for { date, timezone: 'UTC' }
+ */
+export function dateUTC(date: Date): DateWithTimezone {
+	return { date, timezone: 'UTC' };
 }
 
 /**
@@ -245,7 +255,8 @@ export function asDateWithTimezone(value: string): DateWithTimezone {
  * @example
  * date() // NOT NULL date with timezone
  * date({ nullable: true }) // Nullable date with timezone
- * date({ default: new Date() }) // NOT NULL with specific date
+ * date({ default: new Date() }) // NOT NULL with system timezone
+ * date({ default: dateUTC(new Date()) }) // NOT NULL with UTC timezone
  * date({ default: () => new Date() }) // NOT NULL with dynamic current date
  */
 export function date({
@@ -255,28 +266,37 @@ export function date({
 }: {
 	nullable?: boolean;
 	unique?: boolean;
-	default?: Date | (() => Date);
+	default?: Date | DateWithTimezone | (() => Date | DateWithTimezone);
 } = {}) {
 	/**
 	 * Custom Drizzle type for date with timezone storage
 	 * Stores as text in format "ISO_UTC|TIMEZONE"
 	 */
 	const dateWithTimezoneType = customType<{
-		data: Date;
-		driverData: DateWithTimezone;
+		data: DateWithTimezone;
+		driverData: DateWithTimezoneString;
 	}>({
 		dataType() {
 			return 'text';
 		},
-		toDriver(value: Date): DateWithTimezone {
-			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-			return createDateWithTimezone(value, timezone);
+		toDriver(value: DateWithTimezone): DateWithTimezoneString {
+			return createDateWithTimezone(value.date, value.timezone);
 		},
-		fromDriver(value: DateWithTimezone): Date {
-			const parsed = parseDateWithTimezone(value);
-			return parsed.date;
+		fromDriver(value: DateWithTimezoneString): DateWithTimezone {
+			return parseDateWithTimezone(value);
 		},
 	});
+
+	// Helper to normalize Date to DateWithTimezone
+	function normalizeDateInput(
+		value: Date | DateWithTimezone,
+	): DateWithTimezone {
+		if (value instanceof Date) {
+			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			return { date: value, timezone };
+		}
+		return value;
+	}
 
 	let column = dateWithTimezoneType();
 
@@ -288,8 +308,8 @@ export function date({
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
+				? column.$defaultFn(() => normalizeDateInput(defaultValue()))
+				: column.default(normalizeDateInput(defaultValue));
 	}
 
 	return column;
