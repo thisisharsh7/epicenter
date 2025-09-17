@@ -285,15 +285,11 @@ export function date({
 		data: DateWithTimezoneType;
 		driverData: DateWithTimezoneString;
 	}>({
-		dataType() {
-			return 'text';
-		},
-		toDriver(value: DateWithTimezoneType): DateWithTimezoneString {
-			return DateWithTimezone.serialize(value);
-		},
-		fromDriver(value: DateWithTimezoneString): DateWithTimezoneType {
-			return DateWithTimezone.deserialize(value);
-		},
+		dataType: () => 'text',
+		toDriver: (value: DateWithTimezoneType): DateWithTimezoneString =>
+			DateWithTimezone.serialize(value),
+		fromDriver: (value: DateWithTimezoneString): DateWithTimezoneType =>
+			DateWithTimezone.deserialize(value),
 	});
 
 	let column = dateWithTimezoneType();
