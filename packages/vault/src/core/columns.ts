@@ -244,9 +244,9 @@ function normalizeToDateWithTimezone(
 /**
  * Factory function to create a serializer with inferred types
  */
-export function Serializer<TStorage, TInput extends any[], TOutput>(config: {
-	serialize(...args: TInput): TStorage;
-	deserialize(storage: TStorage): TOutput;
+export function Serializer<TValue, TSerialized>(config: {
+	serialize(value: TValue): TSerialized;
+	deserialize(storage: TSerialized): TValue;
 }) {
 	return config;
 }
@@ -255,8 +255,7 @@ export function Serializer<TStorage, TInput extends any[], TOutput>(config: {
  * Serializer for DateWithTimezone - converts between application objects and storage strings
  */
 export const DateWithTimezoneSerializer = Serializer({
-	serialize(value: Date | DateWithTimezone): DateWithTimezoneString {
-		const { date, timezone } = normalizeToDateWithTimezone(value);
+	serialize({ date, timezone }: DateWithTimezone): DateWithTimezoneString {
 		const isoUtc = date.toISOString();
 		return asDateWithTimezoneString(`${isoUtc}|${timezone}`);
 	},
