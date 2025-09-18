@@ -5,6 +5,29 @@ import type {
 import type { Id } from './columns';
 
 /**
+ * Table schema definitions for a plugin
+ * First level: table names (e.g., "posts", "comments")
+ * Second level: column names (e.g., "id", "title", "createdAt")
+ * Values: SQLite column builder definitions
+ * @example
+ * {
+ *   posts: {
+ *     id: id(),
+ *     title: text(),
+ *     createdAt: date()
+ *   },
+ *   comments: {
+ *     id: id(),
+ *     postId: text()
+ *   }
+ * }
+ */
+type TableSchemaDefinitions = Record<
+	string,
+	Record<string, SQLiteColumnBuilderBase>
+>;
+
+/**
  * Helper type to check if a table has at least one ID column
  */
 type HasIdColumn<TColumns extends Record<string, SQLiteColumnBuilderBase>> = {
@@ -16,22 +39,18 @@ type HasIdColumn<TColumns extends Record<string, SQLiteColumnBuilderBase>> = {
 /**
  * Helper type to ensure all tables have at least one ID column
  */
-type TablesWithId<
-	TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>,
-> = {
+type TablesWithId<TTables extends TableSchemaDefinitions> = {
 	[K in keyof TTables]: HasIdColumn<TTables[K]> extends true
 		? TTables[K]
 		: never;
-} extends Record<string, Record<string, SQLiteColumnBuilderBase>>
+} extends TableSchemaDefinitions
 	? TTables
 	: never;
 
 /**
  * Helper type to convert column builders to SQLite tables
  */
-type ExtractDrizzleTables<
-	TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>,
-> = {
+type ExtractDrizzleTables<TTables extends TableSchemaDefinitions> = {
 	[K in keyof TTables]: SQLiteTable;
 };
 
@@ -62,7 +81,7 @@ type VaultContext<
 export type AnyPlugin = {
 	id: string;
 	dependencies?: readonly AnyPlugin[];
-	tables: TablesWithId<Record<string, Record<string, SQLiteColumnBuilderBase>>>;
+	tables: TablesWithId<TableSchemaDefinitions>;
 	methods: (vault: any) => Record<string, any>;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
@@ -75,9 +94,8 @@ export type AnyPlugin = {
  */
 export type Plugin<
 	TId extends string = string,
-	TTables extends TablesWithId<
-		Record<string, Record<string, SQLiteColumnBuilderBase>>
-	> = TablesWithId<Record<string, Record<string, SQLiteColumnBuilderBase>>>,
+	TTables extends
+		TablesWithId<TableSchemaDefinitions> = TablesWithId<TableSchemaDefinitions>,
 	TMethods extends Record<string, any> = {},
 	TDeps extends readonly AnyPlugin[] = readonly [],
 > = {
@@ -163,7 +181,7 @@ export type Plugin<
  */
 export function definePlugin<
 	TId extends string,
-	TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>,
+	TTables extends TableSchemaDefinitions,
 	TMethods extends Record<string, any>,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 >(
