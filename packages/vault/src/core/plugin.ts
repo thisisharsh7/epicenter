@@ -1,8 +1,10 @@
 import type {
 	SQLiteColumnBuilderBase,
 	SQLiteTable,
+	SQLiteTableWithColumns,
 } from 'drizzle-orm/sqlite-core';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import type { BuildColumns } from 'drizzle-orm/column-builder';
 import type { id } from './columns';
 
 /**
@@ -84,15 +86,60 @@ type TableHelperMethods<T extends SQLiteTable> = {
 };
 
 /**
- * Enhanced table type that includes both Drizzle table columns and helper methods
+ * Enhanced table type that includes both Drizzle table columns and helper methods.
+ *
+ * This type represents the dual nature of vault tables:
+ * 1. **Column Access**: For use in Drizzle operations like `eq(table.columnName, value)`
+ * 2. **Helper Methods**: For CRUD operations like `table.getById(id)`
+ *
+ * @example
+ * ```typescript
+ * // Column access for Drizzle operations
+ * vault.posts.posts
+ *   .select()
+ *   .where(eq(vault.posts.posts.title, 'Hello')) // Accessing .title column
+ *   .all();
+ *
+ * // Helper method access
+ * const post = await vault.posts.posts.getById('123'); // Calling helper method
+ * ```
  */
 type EnhancedTableType<T extends SQLiteTable> = T & TableHelperMethods<T>;
 
 /**
- * Helper type to convert column builders to enhanced SQLite tables with methods
+ * Maps column definitions (from definePlugin) to the SQLite table type that
+ * would be produced by Drizzle's sqliteTable() function.
+ *
+ * This preserves all column type information for IntelliSense.
+ *
+ * @template TTableName - The name of the table
+ * @template TColumns - The column definitions (matches what sqliteTable expects)
+ */
+type ColumnDefsToSQLiteTable<
+	TTableName extends string,
+	TColumns extends TableWithId,
+> = SQLiteTableWithColumns<{
+	name: TTableName;
+	schema: undefined;
+	columns: BuildColumns<TTableName, TColumns, 'sqlite'>;
+	dialect: 'sqlite';
+}>;
+
+/**
+ * Helper type to convert column builders to enhanced SQLite tables with methods.
+ *
+ * This transformation:
+ * 1. Takes column definitions from TableSchemaDefinitions
+ * 2. Converts them to properly typed SQLite tables using ColumnDefsToSQLiteTable
+ * 3. Enhances them with helper methods
+ *
+ * The result is a table that has both column properties and helper methods,
+ * with full type information preserved.
  */
 type ExtractDrizzleTables<TTables extends TableSchemaDefinitions> = {
-	[K in keyof TTables]: EnhancedTableType<SQLiteTable>;
+	[K in keyof TTables]: EnhancedTableType<
+		ColumnDefsToSQLiteTable<K & string, TTables[K]>
+	>;
 };
 
 /**
@@ -138,12 +185,13 @@ type ExtractPluginNamespaces<TDeps extends readonly AnyPlugin[]> = {
 /**
  * The vault context passed to plugin methods.
  *
- * Structure:
- * - Current plugin's namespace: Contains tables and will contain methods
- * - Dependencies' namespaces: Each dependency plugin gets its own namespace
+ * This context provides namespaced access to:
+ * - **Own tables**: Via `vault.[pluginId].[tableName]` with full column access and helper methods
+ * - **Own methods**: Will be available at `vault.[pluginId].[methodName]()` after initialization
+ * - **Dependency plugins**: Complete access to their tables and methods
  *
  * @template TSelfId - The current plugin's ID
- * @template TTables - The current plugin's tables
+ * @template TTables - The current plugin's table definitions (column builders)
  * @template TDeps - The plugin's dependencies
  *
  * @example
@@ -151,16 +199,26 @@ type ExtractPluginNamespaces<TDeps extends readonly AnyPlugin[]> = {
  * // In a plugin with id 'posts' that depends on 'comments':
  * methods: (vault) => ({
  *   async getPostWithComments(postId: string) {
- *     // Access own tables via vault.[pluginId].[tableName]
+ *     // Access own tables with full column types
  *     const post = await vault.posts.posts.getById(postId);
  *
- *     // Access dependency methods via vault.[dependencyId].[methodName]
+ *     // Use columns in Drizzle operations
+ *     const published = await vault.posts.posts
+ *       .select()
+ *       .where(eq(vault.posts.posts.publishedAt, new Date()))
+ *       .all();
+ *
+ *     // Access dependency methods
  *     const comments = await vault.comments.getCommentsForPost(postId);
  *
  *     return { ...post, comments };
  *   }
  * })
  * ```
+ *
+ * The tables in the vault context are "enhanced" - they work as both:
+ * 1. **Drizzle tables**: Access columns for queries `table.columnName`
+ * 2. **Helper objects**: Call CRUD methods like `table.getById()`
  */
 type VaultContext<
 	TSelfId extends string,
@@ -168,6 +226,7 @@ type VaultContext<
 	TDeps extends readonly AnyPlugin[] = readonly [],
 > = ExtractPluginNamespaces<TDeps> & {
 	// The current plugin's tables are added to its namespace
+	// These are properly typed with all column information preserved
 	[K in TSelfId]: ExtractDrizzleTables<TTables>;
 };
 
