@@ -2,10 +2,20 @@ import type {
 	SQLiteColumnBuilderBase,
 	SQLiteTable,
 } from 'drizzle-orm/sqlite-core';
+import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import type { id } from './columns';
 
 /**
  * A single table definition that must have an 'id' column created with id()
+ *
+ * @example
+ * ```typescript
+ * {
+ *   id: id(),           // Required: auto-generated nanoid
+ *   title: text(),      // Other columns
+ *   createdAt: date()
+ * }
+ * ```
  */
 type TableWithId = {
 	id: ReturnType<typeof id>;
@@ -13,61 +23,163 @@ type TableWithId = {
 };
 
 /**
- * Table schema definitions for a plugin
- * First level: table names (e.g., "posts", "comments")
- * Second level: column names (e.g., "id", "title", "createdAt")
- * Values: SQLite column builder definitions
+ * Table schema definitions for a plugin.
+ *
+ * Structure:
+ * - First level: table names (e.g., "posts", "comments")
+ * - Second level: column definitions with required 'id' column
+ *
  * @example
- * {
+ * ```typescript
+ * const tables = {
  *   posts: {
- *     id: id(),
- *     title: text(),
- *     createdAt: date()
+ *     id: id(),           // Required: auto-generated ID
+ *     title: text(),      // String column
+ *     score: integer(),   // Number column
+ *     createdAt: date()   // Date column
  *   },
  *   comments: {
  *     id: id(),
- *     postId: text()
+ *     postId: text(),     // Foreign key reference
+ *     content: text()
  *   }
  * }
+ * ```
  */
 type TableSchemaDefinitions = Record<string, TableWithId>;
 
 /**
- * Helper type to convert column builders to SQLite tables
+ * Built-in helper methods available on each table.
+ * These are automatically added to every table in the vault.
  */
-type ExtractDrizzleTables<TTables extends TableSchemaDefinitions> = {
-	[K in keyof TTables]: SQLiteTable;
+type TableHelperMethods<T extends SQLiteTable> = {
+	// Fast read operations (from SQLite)
+	getById(id: string): Promise<InferSelectModel<T> | null>;
+	findById(id: string): Promise<InferSelectModel<T> | null>; // Alias for getById
+	get(id: string): Promise<InferSelectModel<T> | null>;
+	get(ids: string[]): Promise<InferSelectModel<T>[]>;
+	getAll(): Promise<InferSelectModel<T>[]>;
+	count(): Promise<number>;
+
+	// Write operations (sync to both SQLite and markdown)
+	create(
+		data: InferInsertModel<T> & { id: string },
+	): Promise<InferSelectModel<T>>;
+	create(
+		data: (InferInsertModel<T> & { id: string })[],
+	): Promise<InferSelectModel<T>[]>;
+	update(
+		id: string,
+		data: Partial<InferInsertModel<T>>,
+	): Promise<InferSelectModel<T> | null>;
+	delete(id: string): Promise<boolean>;
+	delete(ids: string[]): Promise<boolean>;
+	upsert(
+		data: InferInsertModel<T> & { id: string },
+	): Promise<InferSelectModel<T>>;
+
+	// Drizzle query builder for advanced queries
+	select(): any; // Returns Drizzle select query builder
+	query?: any; // Drizzle relational query API if available
 };
 
 /**
- * Helper type to extract methods from plugin dependencies
+ * Enhanced table type that includes both Drizzle table columns and helper methods
  */
-type ExtractPluginMethods<TDeps extends readonly AnyPlugin[]> = {
+type EnhancedTableType<T extends SQLiteTable> = T & TableHelperMethods<T>;
+
+/**
+ * Helper type to convert column builders to enhanced SQLite tables with methods
+ */
+type ExtractDrizzleTables<TTables extends TableSchemaDefinitions> = {
+	[K in keyof TTables]: EnhancedTableType<SQLiteTable>;
+};
+
+/**
+ * Constraint for plugin methods - must be functions
+ */
+type PluginMethodsConstraint = Record<string, (...args: any[]) => any>;
+
+/**
+ * Extract a specific plugin from dependencies by ID
+ */
+type GetPluginById<
+	TDeps extends readonly AnyPlugin[],
+	TId extends string,
+> = TDeps extends readonly [...infer Rest, infer Last]
+	? Last extends AnyPlugin
+		? Last['id'] extends TId
+			? Last
+			: GetPluginById<
+					Rest extends readonly AnyPlugin[] ? Rest : readonly [],
+					TId
+				>
+		: never
+	: never;
+
+/**
+ * Extract the complete plugin namespace (tables + methods) for a single plugin
+ */
+type ExtractPluginNamespace<TPlugin extends AnyPlugin> = ExtractDrizzleTables<
+	TPlugin['tables']
+> &
+	ReturnType<TPlugin['methods']>;
+
+/**
+ * Helper type to extract all plugin namespaces from dependencies.
+ * Each plugin gets its own namespace with both tables and methods.
+ */
+type ExtractPluginNamespaces<TDeps extends readonly AnyPlugin[]> = {
 	[K in TDeps[number]['id']]: TDeps[number] extends { id: K }
-		? ReturnType<TDeps[number]['methods']>
+		? ExtractPluginNamespace<TDeps[number]>
 		: never;
 };
 
 /**
- * Vault context passed to plugin methods
+ * The vault context passed to plugin methods.
+ *
+ * Structure:
+ * - Current plugin's namespace: Contains tables and will contain methods
+ * - Dependencies' namespaces: Each dependency plugin gets its own namespace
+ *
+ * @template TSelfId - The current plugin's ID
+ * @template TTables - The current plugin's tables
+ * @template TDeps - The plugin's dependencies
+ *
+ * @example
+ * ```typescript
+ * // In a plugin with id 'posts' that depends on 'comments':
+ * methods: (vault) => ({
+ *   async getPostWithComments(postId: string) {
+ *     // Access own tables via vault.[pluginId].[tableName]
+ *     const post = await vault.posts.posts.getById(postId);
+ *
+ *     // Access dependency methods via vault.[dependencyId].[methodName]
+ *     const comments = await vault.comments.getCommentsForPost(postId);
+ *
+ *     return { ...post, comments };
+ *   }
+ * })
+ * ```
  */
 type VaultContext<
-	TTables extends Record<string, SQLiteTable>,
-	TPlugins extends Record<string, any> = {},
-> = {
-	[K in keyof TTables]: any; // TableContext will be defined in vault.ts
-} & {
-	plugins: TPlugins;
+	TSelfId extends string,
+	TTables extends TableSchemaDefinitions,
+	TDeps extends readonly AnyPlugin[] = readonly [],
+> = ExtractPluginNamespaces<TDeps> & {
+	// The current plugin's tables are added to its namespace
+	[K in TSelfId]: ExtractDrizzleTables<TTables>;
 };
 
 /**
- * Base plugin type for dependencies
+ * Base plugin type for dependencies.
+ * Used when we don't need specific type information.
  */
 export type AnyPlugin = {
 	id: string;
 	dependencies?: readonly AnyPlugin[];
 	tables: TableSchemaDefinitions;
-	methods: (vault: any) => Record<string, any>;
+	methods: (vault: any) => PluginMethodsConstraint;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;
@@ -75,98 +187,241 @@ export type AnyPlugin = {
 };
 
 /**
- * Plugin definition
- */
-export type Plugin<
-	TId extends string = string,
-	TTables extends TableSchemaDefinitions = TableSchemaDefinitions,
-	TMethods extends Record<string, any> = {},
-	TDeps extends readonly AnyPlugin[] = readonly [],
-> = {
-	id: TId;
-	dependencies?: TDeps;
-	tables: TTables;
-	methods: (
-		vault: VaultContext<
-			ExtractDrizzleTables<TTables>,
-			ExtractPluginMethods<TDeps>
-		>,
-	) => TMethods;
-	hooks?: {
-		beforeInit?: () => Promise<void>;
-		afterInit?: () => Promise<void>;
-	};
-};
-
-/**
- * Define a vault plugin with type safety
+ * Plugin definition with strongly typed vault context.
+ *
+ * @template TId - Unique plugin identifier (lowercase, alphanumeric)
+ * @template TTables - Table definitions for this plugin
+ * @template TMethods - Methods exposed by this plugin (must be functions)
+ * @template TDeps - Other plugins this plugin depends on
+ *
+ * Key features:
+ * - **Namespaced access**: Each plugin gets its own namespace in the vault
+ * - **Circular dependencies**: Plugins can have circular dependencies
+ * - **Type safety**: Full TypeScript inference for tables and methods
+ * - **Helper methods**: Every table gets CRUD helpers automatically
  *
  * @example
  * ```typescript
- * // Posts plugin can depend on comments
- * const postsPlugin = definePlugin({
- *   id: 'posts',
- *   dependencies: [commentsPlugin], // OK even if comments depends on posts!
+ * const blogPlugin = definePlugin({
+ *   id: 'blog',
+ *   dependencies: [usersPlugin], // Can depend on other plugins
+ *
  *   tables: {
  *     posts: {
- *       id: id(),                  // Auto-generates nanoid, always primary key
- *       title: text(),              // NOT NULL by default
- *       author: text(),
- *       score: integer()
- *     }
- *   },
- *   methods: (vault) => ({
- *     async getTopPosts(limit = 10) {
- *       return vault.posts.select()
- *         .orderBy(desc(vault.posts.score))
- *         .limit(limit);
- *     },
- *     async getPostWithComments(postId: string) {
- *       const post = await vault.posts.findById(postId);
- *       // Can safely call comments methods even with circular dependency
- *       const comments = await vault.plugins.comments.getCommentsForPost(postId);
- *       return { ...post, comments };
- *     }
- *   })
- * });
- *
- * // Comments plugin can also depend on posts - circular dependency!
- * const commentsPlugin = definePlugin({
- *   id: 'comments',
- *   dependencies: [postsPlugin], // Circular dependency works!
- *   tables: {
- *     comments: {
  *       id: id(),
- *       postId: text(),
- *       author: text(),
- *       content: text(),
- *       createdAt: date()
+ *       title: text(),
+ *       authorId: text(),
+ *       content: text({ nullable: true }),
+ *       publishedAt: date({ nullable: true })
+ *     },
+ *     tags: {
+ *       id: id(),
+ *       name: text(),
+ *       postId: text()
  *     }
  *   },
- *   methods: (vault) => ({
- *     async getCommentsForPost(postId: string) {
- *       // Can access posts table safely
- *       const post = await vault.posts.findById(postId);
- *       if (!post) return [];
  *
- *       return vault.comments.select()
- *         .where(eq(vault.comments.postId, postId))
- *         .orderBy(desc(vault.comments.createdAt))
+ *   methods: (vault) => ({
+ *     // Access own tables via vault.blog.posts, vault.blog.tags
+ *     async getPublishedPosts() {
+ *       return vault.blog.posts
+ *         .select()
+ *         .where(isNotNull(vault.blog.posts.publishedAt))
+ *         .orderBy(desc(vault.blog.posts.publishedAt))
  *         .all();
  *     },
- *     async getCommentsForTopPosts() {
- *       // Can call posts plugin methods
- *       const topPosts = await vault.plugins.posts.getTopPosts();
- *       // ... fetch comments for those posts
+ *
+ *     // Access dependency plugins via vault.users
+ *     async getPostsByAuthor(authorId: string) {
+ *       const author = await vault.users.users.getById(authorId);
+ *       if (!author) return [];
+ *
+ *       return vault.blog.posts
+ *         .select()
+ *         .where(eq(vault.blog.posts.authorId, authorId))
+ *         .all();
+ *     },
+ *
+ *     // Use table helper methods
+ *     async createPost(data: PostInput) {
+ *       return vault.blog.posts.create({
+ *         id: generateId(),
+ *         ...data
+ *       });
  *     }
  *   })
  * });
  * ```
  */
+export type Plugin<
+	TId extends string = string,
+	TTables extends TableSchemaDefinitions = TableSchemaDefinitions,
+	TMethods extends PluginMethodsConstraint = PluginMethodsConstraint,
+	TDeps extends readonly AnyPlugin[] = readonly [],
+> = {
+	id: TId;
+	dependencies?: TDeps;
+	tables: TTables;
+	methods: (vault: VaultContext<TId, TTables, TDeps>) => TMethods;
+	hooks?: {
+		beforeInit?: () => Promise<void>;
+		afterInit?: () => Promise<void>;
+	};
+};
+
+/**
+ * Define a vault plugin with full type safety and IntelliSense support.
+ *
+ * This function validates plugin configuration and provides TypeScript inference
+ * for the vault context passed to plugin methods.
+ *
+ * ## Key Concepts
+ *
+ * ### Plugin Namespacing
+ * Each plugin gets its own namespace in the vault context:
+ * - Tables: `vault.[pluginId].[tableName]`
+ * - Methods: `vault.[pluginId].[methodName]()`
+ *
+ * ### Table Helper Methods
+ * Every table automatically gets these helper methods:
+ * - `getById(id)` - Get a single record by ID
+ * - `create(data)` - Create a new record
+ * - `update(id, data)` - Update an existing record
+ * - `delete(id)` - Delete a record
+ * - `select()` - Access Drizzle query builder for complex queries
+ * - And more...
+ *
+ * ### Circular Dependencies
+ * Plugins can have circular dependencies! The vault uses a two-phase
+ * initialization that allows plugins to reference each other:
+ * 1. First phase: All tables are created
+ * 2. Second phase: All methods are initialized with access to all tables
+ *
+ * @param plugin - The plugin configuration object
+ * @returns The same plugin object with validated configuration
+ *
+ * @example
+ * ```typescript
+ * // Example: Blog system with circular dependencies
+ *
+ * // Posts plugin can depend on comments
+ * const postsPlugin = definePlugin({
+ *   id: 'posts',
+ *   dependencies: [commentsPlugin], // OK even if comments also depends on posts!
+ *
+ *   tables: {
+ *     posts: {
+ *       id: id(),                  // Required: auto-generated ID
+ *       title: text(),             // String column
+ *       author: text(),
+ *       score: integer(),          // Number column
+ *       publishedAt: date({ nullable: true }) // Optional date
+ *     }
+ *   },
+ *
+ *   methods: (vault) => ({
+ *     // Access own tables via vault.posts.posts
+ *     async getTopPosts(limit = 10) {
+ *       return vault.posts.posts
+ *         .select()
+ *         .orderBy(desc(vault.posts.posts.score))
+ *         .limit(limit)
+ *         .all();
+ *     },
+ *
+ *     // Use table helper methods
+ *     async getPostById(postId: string) {
+ *       return vault.posts.posts.getById(postId);
+ *     },
+ *
+ *     // Access dependency plugins
+ *     async getPostWithComments(postId: string) {
+ *       const post = await vault.posts.posts.getById(postId);
+ *       if (!post) return null;
+ *
+ *       // Call methods from the comments plugin
+ *       const comments = await vault.comments.getCommentsForPost(postId);
+ *       return { ...post, comments };
+ *     },
+ *
+ *     // Create new records with helper methods
+ *     async createPost(title: string, author: string) {
+ *       return vault.posts.posts.create({
+ *         id: generateId(), // You provide the ID
+ *         title,
+ *         author,
+ *         score: 0,
+ *         publishedAt: null
+ *       });
+ *     }
+ *   })
+ * });
+ *
+ * // Comments plugin can also depend on posts - circular dependency works!
+ * const commentsPlugin = definePlugin({
+ *   id: 'comments',
+ *   dependencies: [postsPlugin], // Circular dependency is fine!
+ *
+ *   tables: {
+ *     comments: {
+ *       id: id(),
+ *       postId: text(),            // Foreign key to posts
+ *       author: text(),
+ *       content: text(),
+ *       createdAt: date()
+ *     }
+ *   },
+ *
+ *   methods: (vault) => ({
+ *     // Access dependency's tables
+ *     async getCommentsForPost(postId: string) {
+ *       // Can access posts table from the posts plugin
+ *       const post = await vault.posts.posts.getById(postId);
+ *       if (!post) return [];
+ *
+ *       // Use own tables with query builder
+ *       return vault.comments.comments
+ *         .select()
+ *         .where(eq(vault.comments.comments.postId, postId))
+ *         .orderBy(desc(vault.comments.comments.createdAt))
+ *         .all();
+ *     },
+ *
+ *     // Call dependency's methods
+ *     async getCommentsForTopPosts() {
+ *       // Call posts plugin method
+ *       const topPosts = await vault.posts.getTopPosts();
+ *
+ *       // Fetch comments for all top posts
+ *       const allComments = [];
+ *       for (const post of topPosts) {
+ *         const comments = await this.getCommentsForPost(post.id);
+ *         allComments.push(...comments);
+ *       }
+ *       return allComments;
+ *     },
+ *
+ *     // Use table helper methods
+ *     async createComment(postId: string, author: string, content: string) {
+ *       return vault.comments.comments.create({
+ *         id: generateId(),
+ *         postId,
+ *         author,
+ *         content,
+ *         createdAt: new Date()
+ *       });
+ *     }
+ *   })
+ * });
+ * ```
+ *
+ * @throws {Error} If plugin ID contains invalid characters (must be lowercase alphanumeric with optional hyphens/underscores)
+ * @throws {Error} If any dependency is not a valid plugin object
+ */
 export function definePlugin<
 	TId extends string,
 	TTables extends TableSchemaDefinitions,
-	TMethods extends Record<string, any>,
+	TMethods extends PluginMethodsConstraint,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 >(
 	plugin: Plugin<TId, TTables, TMethods, TDeps>,
@@ -194,29 +449,70 @@ export function definePlugin<
 }
 
 /**
- * Helper type to extract the ID from a plugin
+ * Helper type to extract the ID from a plugin.
+ * @example
+ * ```typescript
+ * type PostsId = PluginId<typeof postsPlugin>; // "posts"
+ * ```
  */
 export type PluginId<T> = T extends Plugin<infer Id, any, any, any>
 	? Id
 	: never;
 
 /**
- * Helper type to extract the tables from a plugin
+ * Helper type to extract the tables from a plugin.
+ * @example
+ * ```typescript
+ * type PostsTables = PluginTables<typeof postsPlugin>;
+ * // { posts: { id: ..., title: ..., ... } }
+ * ```
  */
 export type PluginTables<T> = T extends Plugin<any, infer Tables, any, any>
 	? Tables
 	: never;
 
 /**
- * Helper type to extract the methods from a plugin
+ * Helper type to extract the methods from a plugin.
+ * @example
+ * ```typescript
+ * type PostsMethods = PluginMethods<typeof postsPlugin>;
+ * // { getTopPosts: ..., createPost: ..., ... }
+ * ```
  */
 export type PluginMethods<T> = T extends Plugin<any, any, infer Methods, any>
 	? Methods
 	: never;
 
 /**
- * Helper type to extract dependencies from a plugin
+ * Helper type to extract dependencies from a plugin.
+ * @example
+ * ```typescript
+ * type PostsDeps = PluginDeps<typeof postsPlugin>;
+ * // readonly [typeof commentsPlugin]
+ * ```
  */
 export type PluginDeps<T> = T extends Plugin<any, any, any, infer Deps>
 	? Deps
+	: never;
+
+/**
+ * Helper type to get the complete vault context type for a plugin.
+ * This shows what the `vault` parameter looks like in plugin methods.
+ *
+ * @example
+ * ```typescript
+ * type PostsVaultContext = PluginVaultContext<typeof postsPlugin>;
+ * // {
+ * //   posts: { posts: TableWithHelpers, getTopPosts: Function, ... },
+ * //   comments: { comments: TableWithHelpers, getCommentsForPost: Function, ... }
+ * // }
+ * ```
+ */
+export type PluginVaultContext<T> = T extends Plugin<
+	infer Id,
+	infer Tables,
+	any,
+	infer Deps
+>
+	? VaultContext<Id, Tables, Deps>
 	: never;
