@@ -18,7 +18,9 @@ type HasIdColumn<TColumns extends Record<string, SQLiteColumnBuilderBase>> = {
 /**
  * Helper type to ensure all tables have at least one ID column
  */
-type TablesWithId<TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>> = {
+type TablesWithId<
+	TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>,
+> = {
 	[K in keyof TTables]: HasIdColumn<TTables[K]> extends true
 		? TTables[K]
 		: never;
@@ -136,7 +138,9 @@ export type AnyPlugin = {
  */
 export type Plugin<
 	TId extends string = string,
-	TTables extends TablesWithId<Record<string, Record<string, SQLiteColumnBuilderBase>>> = TablesWithId<Record<string, Record<string, SQLiteColumnBuilderBase>>>,
+	TTables extends TablesWithId<
+		Record<string, Record<string, SQLiteColumnBuilderBase>>
+	> = TablesWithId<Record<string, Record<string, SQLiteColumnBuilderBase>>>,
 	TMethods extends Record<string, any> = {},
 	TDeps extends readonly AnyPlugin[] = readonly [],
 > = {
