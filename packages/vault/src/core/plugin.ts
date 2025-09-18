@@ -97,41 +97,6 @@ export function definePlugin<
 }
 
 /**
- * Create a plugin factory function for plugins that need configuration
- *
- * @example
- * ```typescript
- * const createRedditPlugin = definePluginFactory((config: { apiKey: string }) => ({
- *   id: 'reddit',
- *   dependencies: [authPlugin],
- *   tables: { ... },
- *   methods: (vault) => ({
- *     async fetchFromAPI() {
- *       // Use config.apiKey here
- *     }
- *   })
- * }));
- *
- * // Usage
- * const redditPlugin = createRedditPlugin({ apiKey: 'xxx' });
- * ```
- */
-export function definePluginFactory<
-	TConfig,
-	TId extends string,
-	TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>,
-	TMethods extends Record<string, any>,
-	TDeps extends readonly AnyPlugin[] = readonly [],
->(
-	factory: (config: TConfig) => Plugin<TId, TTables, TMethods, TDeps>,
-): (config: TConfig) => Plugin<TId, TTables, TMethods, TDeps> {
-	return (config: TConfig) => {
-		const plugin = factory(config);
-		return definePlugin(plugin);
-	};
-}
-
-/**
  * Helper type to extract the ID from a plugin
  */
 export type PluginId<T> = T extends Plugin<infer Id, any, any, any>
