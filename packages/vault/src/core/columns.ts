@@ -1,16 +1,46 @@
+import type {
+	ColumnBuilderBase,
+	ColumnBuilderBaseConfig,
+	ColumnDataType,
+	HasDefault,
+	HasRuntimeDefault,
+	NotNull,
+} from 'drizzle-orm';
 import {
-	text as drizzleText,
-	integer as drizzleInteger,
-	real as drizzleReal,
-	blob as drizzleBlob,
-	numeric as drizzleNumeric,
 	customType,
+	blob as drizzleBlob,
+	integer as drizzleInteger,
+	numeric as drizzleNumeric,
+	real as drizzleReal,
+	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
-import { sql } from 'drizzle-orm';
-import type { Brand } from 'wellcrafted/brand';
 import { customAlphabet } from 'nanoid';
+import type { Brand } from 'wellcrafted/brand';
 
 export type Id = string & Brand<'Id'>;
+
+/**
+ * Type helper that composes Drizzle column modifiers based on options
+ * Builds the type step by step for cleaner composition
+ */
+type ApplyColumnModifiers<
+	TBase extends ColumnBuilderBase<
+		ColumnBuilderBaseConfig<ColumnDataType, string>,
+		object
+	>,
+	TNullable extends boolean,
+	TDefault,
+> = TDefault extends (...args: any[]) => any
+	? TNullable extends false
+		? HasRuntimeDefault<HasDefault<NotNull<TBase>>>
+		: HasRuntimeDefault<HasDefault<TBase>>
+	: TDefault extends undefined
+		? TNullable extends false
+			? NotNull<TBase>
+			: TBase
+		: TNullable extends false
+			? HasDefault<NotNull<TBase>>
+			: HasDefault<TBase>;
 
 /**
  * Generates a nano ID - 21 character alphanumeric string
@@ -45,14 +75,17 @@ export function id() {
  * text({ nullable: true }) // Nullable text
  * text({ unique: true, default: 'unnamed' }) // Unique with default
  */
-export function text({
-	nullable = false,
+export function text<
+	TNullable extends boolean = false,
+	TDefault extends string | (() => string) | undefined = undefined,
+>({
+	nullable = false as TNullable,
 	unique = false,
 	default: defaultValue,
 }: {
-	nullable?: boolean;
+	nullable?: TNullable;
 	unique?: boolean;
-	default?: string | (() => string);
+	default?: TDefault;
 } = {}) {
 	let column = drizzleText();
 
@@ -67,7 +100,7 @@ export function text({
 				: column.default(defaultValue);
 	}
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
 /**
@@ -78,14 +111,17 @@ export function text({
  * integer({ nullable: true }) // Nullable integer
  * integer({ default: 0 }) // NOT NULL with default
  */
-export function integer({
-	nullable = false,
+export function integer<
+	TNullable extends boolean = false,
+	TDefault extends number | (() => number) | undefined = undefined,
+>({
+	nullable = false as TNullable,
 	unique = false,
 	default: defaultValue,
 }: {
-	nullable?: boolean;
+	nullable?: TNullable;
 	unique?: boolean;
-	default?: number | (() => number);
+	default?: TDefault;
 } = {}) {
 	let column = drizzleInteger();
 
@@ -100,7 +136,7 @@ export function integer({
 				: column.default(defaultValue);
 	}
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
 /**
@@ -110,14 +146,17 @@ export function integer({
  * real({ nullable: true }) // Nullable real
  * real({ default: 0.0 }) // NOT NULL with default
  */
-export function real({
-	nullable = false,
+export function real<
+	TNullable extends boolean = false,
+	TDefault extends number | (() => number) | undefined = undefined,
+>({
+	nullable = false as TNullable,
 	unique = false,
 	default: defaultValue,
 }: {
-	nullable?: boolean;
+	nullable?: TNullable;
 	unique?: boolean;
-	default?: number | (() => number);
+	default?: TDefault;
 } = {}) {
 	let column = drizzleReal();
 
@@ -132,7 +171,7 @@ export function real({
 				: column.default(defaultValue);
 	}
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
 /**
@@ -142,14 +181,17 @@ export function real({
  * numeric({ nullable: true }) // Nullable numeric
  * numeric({ default: '100.50' }) // NOT NULL with default
  */
-export function numeric({
-	nullable = false,
+export function numeric<
+	TNullable extends boolean = false,
+	TDefault extends string | (() => string) | undefined = undefined,
+>({
+	nullable = false as TNullable,
 	unique = false,
 	default: defaultValue,
 }: {
-	nullable?: boolean;
+	nullable?: TNullable;
 	unique?: boolean;
-	default?: string | (() => string);
+	default?: TDefault;
 } = {}) {
 	let column = drizzleNumeric();
 
@@ -164,7 +206,7 @@ export function numeric({
 				: column.default(defaultValue);
 	}
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
 /**
@@ -174,12 +216,15 @@ export function numeric({
  * boolean({ nullable: true }) // Nullable boolean
  * boolean({ default: false }) // NOT NULL with default false
  */
-export function boolean({
-	nullable = false,
+export function boolean<
+	TNullable extends boolean = false,
+	TDefault extends boolean | (() => boolean) | undefined = undefined,
+>({
+	nullable = false as TNullable,
 	default: defaultValue,
 }: {
-	nullable?: boolean;
-	default?: boolean | (() => boolean);
+	nullable?: TNullable;
+	default?: TDefault;
 } = {}) {
 	let column = drizzleInteger({ mode: 'boolean' });
 
@@ -193,7 +238,7 @@ export function boolean({
 				: column.default(defaultValue);
 	}
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
 /**
@@ -292,14 +337,21 @@ export function asDateWithTimezoneString(
  * datetime({ default: new Date() }) // NOT NULL with system timezone
  * datetime({ default: () => new Date() }) // NOT NULL with dynamic current date
  */
-export function date({
-	nullable = false,
+export function date<
+	TNullable extends boolean = false,
+	TDefault extends
+		| Date
+		| DateWithTimezone
+		| (() => Date | DateWithTimezone)
+		| undefined = undefined,
+>({
+	nullable = false as TNullable,
 	unique = false,
 	default: defaultValue,
 }: {
-	nullable?: boolean;
+	nullable?: TNullable;
 	unique?: boolean;
-	default?: Date | DateWithTimezone | (() => Date | DateWithTimezone);
+	default?: TDefault;
 } = {}) {
 	/**
 	 * Custom Drizzle type for datetime with timezone storage
@@ -330,7 +382,7 @@ export function date({
 				: column.default(normalizeToDateWithTimezone(defaultValue));
 	}
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
 type JsonValue =
@@ -349,12 +401,16 @@ type JsonValue =
  * json({ default: { tags: [] } }) // NOT NULL with default object
  * json({ default: () => ({ id: Date.now() }) }) // NOT NULL with dynamic default
  */
-export function json<T extends JsonValue>({
-	nullable = false,
+export function json<
+	T extends JsonValue,
+	TNullable extends boolean = false,
+	TDefault extends T | (() => T) | undefined = undefined,
+>({
+	nullable = false as TNullable,
 	default: defaultValue,
 }: {
-	nullable?: boolean;
-	default?: T | (() => T);
+	nullable?: TNullable;
+	default?: TDefault;
 } = {}) {
 	let column = drizzleText({ mode: 'json' }).$type<T>();
 
@@ -368,7 +424,7 @@ export function json<T extends JsonValue>({
 				: column.default(defaultValue);
 	}
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
 /**
@@ -378,19 +434,17 @@ export function json<T extends JsonValue>({
  * blob({ nullable: false }) // NOT NULL blob
  * blob({ mode: 'json' }) // JSON blob
  */
-export function blob({
-	nullable = true,
-	mode = 'buffer' as 'buffer' | 'json',
+export function blob<TNullable extends boolean = false>({
+	nullable = false as TNullable,
 }: {
-	nullable?: boolean;
-	mode?: 'buffer' | 'json';
+	nullable?: TNullable;
 } = {}) {
-	let column = drizzleBlob({ mode });
+	let column = drizzleBlob({ mode: 'buffer' });
 
 	// Blob is nullable by default (different from other types)
 	if (!nullable) column = column.notNull();
 
-	return column;
+	return column as ApplyColumnModifiers<typeof column, TNullable, undefined>;
 }
 
 // Re-export Drizzle utilities
