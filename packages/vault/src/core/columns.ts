@@ -430,9 +430,8 @@ export function json<
 /**
  * Creates a blob column (nullable by default for compatibility)
  * @example
- * blob() // Nullable blob
- * blob({ nullable: false }) // NOT NULL blob
- * blob({ mode: 'json' }) // JSON blob
+ * blob() // NOT NULL blob
+ * blob({ nullable: true }) // Nullable blob
  */
 export function blob<TNullable extends boolean = false>({
 	nullable = false as TNullable,
@@ -441,7 +440,7 @@ export function blob<TNullable extends boolean = false>({
 } = {}) {
 	let column = drizzleBlob({ mode: 'buffer' });
 
-	// Blob is nullable by default (different from other types)
+	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
 	return column as ApplyColumnModifiers<typeof column, TNullable, undefined>;
