@@ -2,7 +2,15 @@ import type {
 	SQLiteColumnBuilderBase,
 	SQLiteTable,
 } from 'drizzle-orm/sqlite-core';
-import type { Id } from './columns';
+import type { id } from './columns';
+
+/**
+ * A single table definition that must have an 'id' column created with id()
+ */
+type TableWithId = {
+	id: ReturnType<typeof id>;
+	[key: string]: SQLiteColumnBuilderBase;
+};
 
 /**
  * Table schema definitions for a plugin
@@ -22,30 +30,7 @@ import type { Id } from './columns';
  *   }
  * }
  */
-type TableSchemaDefinitions = Record<
-	string,
-	Record<string, SQLiteColumnBuilderBase>
->;
-
-/**
- * Helper type to check if a table has at least one ID column
- */
-type HasIdColumn<TColumns extends Record<string, SQLiteColumnBuilderBase>> = {
-	[K in keyof TColumns]: TColumns[K]['_']['data'] extends Id ? true : never;
-}[keyof TColumns] extends never
-	? false
-	: true;
-
-/**
- * Helper type to ensure all tables have at least one ID column
- */
-type TablesWithId<TTables extends TableSchemaDefinitions> = {
-	[K in keyof TTables]: HasIdColumn<TTables[K]> extends true
-		? TTables[K]
-		: never;
-} extends TableSchemaDefinitions
-	? TTables
-	: never;
+type TableSchemaDefinitions = Record<string, TableWithId>;
 
 /**
  * Helper type to convert column builders to SQLite tables
@@ -81,7 +66,7 @@ type VaultContext<
 export type AnyPlugin = {
 	id: string;
 	dependencies?: readonly AnyPlugin[];
-	tables: TablesWithId<TableSchemaDefinitions>;
+	tables: TableSchemaDefinitions;
 	methods: (vault: any) => Record<string, any>;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
@@ -94,8 +79,7 @@ export type AnyPlugin = {
  */
 export type Plugin<
 	TId extends string = string,
-	TTables extends
-		TablesWithId<TableSchemaDefinitions> = TablesWithId<TableSchemaDefinitions>,
+	TTables extends TableSchemaDefinitions = TableSchemaDefinitions,
 	TMethods extends Record<string, any> = {},
 	TDeps extends readonly AnyPlugin[] = readonly [],
 > = {
