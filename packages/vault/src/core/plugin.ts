@@ -1,5 +1,5 @@
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
-import type { Plugin, VaultContext, AnyPlugin } from '../types/plugin';
+import type { SQLiteColumnBuilderBase } from 'drizzle-orm/sqlite-core';
+import type { AnyPlugin, Plugin } from '../types/plugin';
 
 /**
  * Define a vault plugin with type safety
@@ -68,7 +68,7 @@ import type { Plugin, VaultContext, AnyPlugin } from '../types/plugin';
  */
 export function definePlugin<
 	TId extends string,
-	TTables extends Record<string, SQLiteTable>,
+	TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>,
 	TMethods extends Record<string, any>,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 >(
@@ -119,7 +119,7 @@ export function definePlugin<
 export function definePluginFactory<
 	TConfig,
 	TId extends string,
-	TTables extends Record<string, SQLiteTable>,
+	TTables extends Record<string, Record<string, SQLiteColumnBuilderBase>>,
 	TMethods extends Record<string, any>,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 >(
