@@ -329,8 +329,27 @@ type VaultContext<
 };
 
 /**
- * Base plugin type for dependencies.
- * Used when we don't need specific type information.
+ * Base plugin constraint for use in generic type parameters.
+ *
+ * IMPORTANT: This type is never used for direct assignment. Instead, it serves
+ * as a constraint in generic contexts to enable circular dependencies and
+ * type-safe plugin composition.
+ *
+ * ## Primary Usage: Generic Constraints
+ *
+ * ```typescript
+ * // Used as a constraint in dependency arrays:
+ * TDeps extends readonly AnyPlugin[]
+ *
+ * // This allows plugins to reference each other without knowing exact types:
+ * const blogPlugin = definePlugin({
+ *   dependencies: [commentsPlugin], // commentsPlugin extends AnyPlugin
+ *   ...
+ * });
+ * ```
+ *
+ * By constraining to `AnyPlugin`, we ensure all plugins
+ *    have the required shape while still preserving their specific types.
  */
 export type AnyPlugin = {
 	id: string;
