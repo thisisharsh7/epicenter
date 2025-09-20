@@ -1,105 +1,91 @@
-import matter from 'gray-matter';
-import { promises as fs } from 'node:fs';
+import { tryAsync, Ok, type Result } from 'wellcrafted/result';
+import { createTaggedError } from 'wellcrafted/error';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import path from 'node:path';
+import { readdir } from 'node:fs/promises';
 
 /**
  * Result of parsing a markdown file
  */
-export type MarkdownParseResult<T = any> =
-	| { success: true; data: T; content: string; excerpt?: string }
-	| { success: false; error: MarkdownParseError };
+export type MarkdownData<T = any> = {
+	data: T;
+	content: string;
+	excerpt?: string;
+};
 
 /**
- * Types of errors that can occur during markdown parsing
+ * Error types for markdown operations
  */
-export type MarkdownParseError =
-	| { type: 'file-not-found'; path: string; error: Error }
-	| { type: 'read-error'; path: string; error: Error }
-	| { type: 'parse-error'; path: string; error: Error }
-	| { type: 'frontmatter-invalid'; path: string; error: Error };
+export const { MarkdownError, MarkdownErr } =
+	createTaggedError('MarkdownError');
+export type MarkdownError = ReturnType<typeof MarkdownError>;
 
 /**
  * Parse a markdown file with frontmatter
  */
-export async function parseMarkdownFile<T = any>(
+export async function parseMarkdownFile<T>(
 	filePath: string,
-): Promise<MarkdownParseResult<T>> {
-	try {
-		// Check if file exists
-		try {
-			await fs.access(filePath);
-		} catch (error) {
-			return {
-				success: false,
-				error: {
-					type: 'file-not-found',
-					path: filePath,
-					error: error as Error,
-				},
-			};
-		}
+): Promise<Result<MarkdownData<T>, MarkdownError>> {
+	return tryAsync({
+		try: async () => {
+			const file = Bun.file(filePath);
 
-		// Read file content
-		let content: string;
-		try {
-			content = await fs.readFile(filePath, 'utf-8');
-		} catch (error) {
-			return {
-				success: false,
-				error: {
-					type: 'read-error',
-					path: filePath,
-					error: error as Error,
-				},
-			};
-		}
+			// Check if file exists
+			const exists = await file.exists();
+			if (!exists) {
+				throw new Error(`File not found: ${filePath}`);
+			}
 
-		// Parse with gray-matter
-		let parsed: matter.GrayMatterFile<string>;
-		try {
-			parsed = matter(content, {
-				excerpt: true,
-				excerpt_separator: '<!-- more -->',
-			});
-		} catch (error) {
-			return {
-				success: false,
-				error: {
-					type: 'parse-error',
-					path: filePath,
-					error: error as Error,
-				},
-			};
-		}
+			// Read file content
+			const content = await file.text();
 
-		// Validate frontmatter exists
-		if (!parsed.data || Object.keys(parsed.data).length === 0) {
-			return {
-				success: false,
-				error: {
-					type: 'frontmatter-invalid',
-					path: filePath,
-					error: new Error('No frontmatter found in markdown file'),
-				},
-			};
-		}
+			// Parse frontmatter manually
+			// Check if file starts with ---
+			if (!content.startsWith('---\n')) {
+				throw new Error(`No frontmatter found in markdown file: ${filePath}`);
+			}
 
-		return {
-			success: true,
-			data: parsed.data as T,
-			content: parsed.content,
-			excerpt: parsed.excerpt,
-		};
-	} catch (error) {
-		return {
-			success: false,
-			error: {
-				type: 'parse-error',
-				path: filePath,
-				error: error as Error,
-			},
-		};
-	}
+			// Find the end of frontmatter
+			const endIndex = content.indexOf('\n---\n', 4);
+			if (endIndex === -1) {
+				throw new Error(`Invalid frontmatter format in file: ${filePath}`);
+			}
+
+			// Extract frontmatter and content
+			const frontmatterYaml = content.slice(4, endIndex);
+			const markdownContent = content.slice(endIndex + 5).trim();
+
+			// Parse YAML frontmatter
+			const data = parseYaml(frontmatterYaml) as T;
+
+			if (
+				!data ||
+				(typeof data === 'object' && Object.keys(data).length === 0)
+			) {
+				throw new Error(`No frontmatter data found in file: ${filePath}`);
+			}
+
+			// Extract excerpt if separator exists
+			let excerpt: string | undefined;
+			const excerptSeparator = '<!-- more -->';
+			const excerptIndex = markdownContent.indexOf(excerptSeparator);
+			if (excerptIndex !== -1) {
+				excerpt = markdownContent.slice(0, excerptIndex).trim();
+			}
+
+			return {
+				data,
+				content: markdownContent,
+				excerpt,
+			};
+		},
+		catch: (error) =>
+			MarkdownErr({
+				message: `Failed to parse markdown file ${filePath}: ${error}`,
+				context: { filePath },
+				cause: error,
+			}),
+	});
 }
 
 /**
@@ -109,25 +95,33 @@ export async function writeMarkdownFile<T = any>(
 	filePath: string,
 	data: T,
 	content = '',
-): Promise<{ success: boolean; error?: Error }> {
-	try {
-		// Ensure directory exists
-		const dir = path.dirname(filePath);
-		await fs.mkdir(dir, { recursive: true });
+): Promise<Result<void, MarkdownError>> {
+	return tryAsync({
+		try: async () => {
+			// Ensure directory exists
+			const dir = path.dirname(filePath);
+			await tryAsync({
+				try: async () => {
+					// Try to create directory if it doesn't exist
+					await Bun.$`mkdir -p ${dir}`.quiet();
+				},
+				catch: () => Ok(undefined), // Directory might already exist, that's fine
+			});
 
-		// Create markdown content with frontmatter
-		const markdown = matter.stringify(content, data);
+			// Create markdown content with frontmatter
+			const yamlContent = stringifyYaml(data);
+			const markdown = `---\n${yamlContent}---\n${content}`;
 
-		// Write file
-		await fs.writeFile(filePath, markdown, 'utf-8');
-
-		return { success: true };
-	} catch (error) {
-		return {
-			success: false,
-			error: error as Error,
-		};
-	}
+			// Write file using Bun.write
+			await Bun.write(filePath, markdown);
+		},
+		catch: (error) =>
+			MarkdownErr({
+				message: `Failed to write markdown file ${filePath}: ${error}`,
+				context: { filePath },
+				cause: error,
+			}),
+	});
 }
 
 /**
@@ -136,31 +130,39 @@ export async function writeMarkdownFile<T = any>(
 export async function updateMarkdownFile<T = any>(
 	filePath: string,
 	data: Partial<T>,
-): Promise<{ success: boolean; error?: Error }> {
-	try {
-		// Read existing file
-		const existing = await parseMarkdownFile<T>(filePath);
+): Promise<Result<void, MarkdownError>> {
+	return tryAsync({
+		try: async () => {
+			// Read existing file
+			const existingResult = await parseMarkdownFile<T>(filePath);
 
-		if (!existing.success) {
-			return {
-				success: false,
-				error: new Error(
-					`Failed to read existing file: ${existing.error.type}`,
-				),
-			};
-		}
+			if (existingResult.error) {
+				throw new Error(`Failed to read existing file: ${filePath}`);
+			}
 
-		// Merge data
-		const newData = { ...existing.data, ...data };
+			const existing = existingResult.data;
 
-		// Write back
-		return await writeMarkdownFile(filePath, newData, existing.content);
-	} catch (error) {
-		return {
-			success: false,
-			error: error as Error,
-		};
-	}
+			// Merge data
+			const newData = { ...existing.data, ...data };
+
+			// Write back
+			const writeResult = await writeMarkdownFile(
+				filePath,
+				newData,
+				existing.content,
+			);
+			if (writeResult.error) {
+				throw new Error(`Failed to write file: ${writeResult.error.message}`);
+			}
+			// writeResult.data is void, so just return success (implicitly returns undefined)
+		},
+		catch: (error) =>
+			MarkdownErr({
+				message: `Failed to update markdown file ${filePath}: ${error}`,
+				context: { filePath },
+				cause: error,
+			}),
+	});
 }
 
 /**
@@ -168,20 +170,31 @@ export async function updateMarkdownFile<T = any>(
  */
 export async function deleteMarkdownFile(
 	filePath: string,
-): Promise<{ success: boolean; error?: Error }> {
-	try {
-		await fs.unlink(filePath);
-		return { success: true };
-	} catch (error) {
-		// If file doesn't exist, consider it a success
-		if ((error as any).code === 'ENOENT') {
-			return { success: true };
-		}
-		return {
-			success: false,
-			error: error as Error,
-		};
-	}
+): Promise<Result<void, MarkdownError>> {
+	return tryAsync({
+		try: async () => {
+			const file = Bun.file(filePath);
+			const exists = await file.exists();
+
+			if (!exists) {
+				// File doesn't exist, consider it a success - just return
+				return;
+			}
+
+			// Use Bun.$ to remove the file
+			await Bun.$`rm -f ${filePath}`.quiet();
+		},
+		catch: (error) => {
+			// If file doesn't exist, consider it a success
+			if ((error as any)?.code === 'ENOENT') {
+				return Ok(undefined);
+			}
+
+			console.warn(`Could not delete markdown file ${filePath}:`, error);
+			// Return Ok anyway as deletion failures are often not critical
+			return Ok(undefined);
+		},
+	});
 }
 
 /**
@@ -190,30 +203,34 @@ export async function deleteMarkdownFile(
 export async function listMarkdownFiles(
 	directory: string,
 	recursive = true,
-): Promise<string[]> {
+): Promise<Result<string[], MarkdownError>> {
 	const files: string[] = [];
 
 	async function scanDir(dir: string) {
-		try {
-			const entries = await fs.readdir(dir, { withFileTypes: true });
+		await tryAsync({
+			try: async () => {
+				const entries = await readdir(dir, { withFileTypes: true });
 
-			for (const entry of entries) {
-				const fullPath = path.join(dir, entry.name);
+				for (const entry of entries) {
+					const fullPath = path.join(dir, entry.name);
 
-				if (entry.isDirectory() && recursive) {
-					await scanDir(fullPath);
-				} else if (entry.isFile() && entry.name.endsWith('.md')) {
-					files.push(fullPath);
+					if (entry.isDirectory() && recursive) {
+						await scanDir(fullPath);
+					} else if (entry.isFile() && entry.name.endsWith('.md')) {
+						files.push(fullPath);
+					}
 				}
-			}
-		} catch (error) {
-			// Ignore errors for inaccessible directories
-			console.warn(`Could not read directory ${dir}:`, error);
-		}
+			},
+			catch: (error) => {
+				// Ignore errors for inaccessible directories
+				console.warn(`Could not read directory ${dir}:`, error);
+				return Ok(undefined);
+			},
+		});
 	}
 
 	await scanDir(directory);
-	return files;
+	return Ok(files);
 }
 
 /**
