@@ -128,39 +128,6 @@ export type TableHelpers<T extends SQLiteTable> = {
 };
 
 /**
- * Enhanced table type that combines Drizzle table columns with helper methods.
- *
- * This type represents the dual nature of vault tables:
- * 1. **Column Access**: For use in Drizzle operations like `eq(table.columnName, value)`
- * 2. **Helper Methods**: For CRUD operations like `table.getById(id)`
- *
- * The combination allows tables to be used both as Drizzle schema objects
- * (accessing columns for queries) and as high-level data access objects
- * (calling methods for common operations).
- *
- * @template T - The SQLite table type from Drizzle ORM
- *
- * @example
- * ```typescript
- * // The same table object can be used in two ways:
- * type PostsTable = EnhancedTableType<SQLiteTable>;
- *
- * // 1. Column access for Drizzle operations (table acts as schema)
- * vault.posts.posts
- *   .select()
- *   .where(eq(vault.posts.posts.title, 'Hello')) // .title is a column
- *   .orderBy(desc(vault.posts.posts.createdAt))  // .createdAt is a column
- *   .all();
- *
- * // 2. Helper method access (table acts as DAO)
- * const post = await vault.posts.posts.getById('123');      // method call
- * const created = await vault.posts.posts.create({...});    // method call
- * const count = await vault.posts.posts.count();            // method call
- * ```
- */
-type EnhancedTableType<T extends SQLiteTable> = T & TableHelpers<T>;
-
-/**
  * Type-level equivalent of Drizzle's `sqliteTable()` function.
  *
  * Produces the exact same type that would be returned by:
@@ -211,7 +178,7 @@ type SQLiteTableType<
  * This type transformation pipeline:
  * 1. Takes simple column definitions from TableSchemaDefinitions
  * 2. Converts each to a properly typed SQLite table using SQLiteTableType
- * 3. Enhances each table with CRUD helper methods via EnhancedTableType
+ * 3. Enhances each table with CRUD helper methods by adding TableHelpers
  *
  * The result is a set of tables that can be used both for Drizzle queries
  * (accessing columns) and high-level operations (calling helper methods),
@@ -227,7 +194,7 @@ type SQLiteTableType<
  *   comments: { id: ReturnType<typeof id>; content: ReturnType<typeof text>; };
  * }
  *
- * // Output: Enhanced tables with both columns and methods
+ * // Output: Tables with both columns and methods
  * type EnhancedBlogTables = BuildEnhancedTables<BlogTables>;
  * // Result: {
  * //   posts: PostsTable & TableHelpers<PostsTable>;
@@ -241,9 +208,8 @@ type SQLiteTableType<
  * ```
  */
 type BuildEnhancedTables<TTables extends TableSchemaDefinitions> = {
-	[K in keyof TTables]: EnhancedTableType<
-		SQLiteTableType<K & string, TTables[K]>
-	>;
+	[K in keyof TTables]: SQLiteTableType<K & string, TTables[K]> &
+		TableHelpers<SQLiteTableType<K & string, TTables[K]>>;
 };
 
 /**
