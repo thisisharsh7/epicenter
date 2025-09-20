@@ -2,7 +2,7 @@ import { tryAsync, Ok, type Result } from 'wellcrafted/result';
 import { createTaggedError } from 'wellcrafted/error';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import path from 'node:path';
-import { readdir } from 'node:fs/promises';
+import { readdir, mkdir } from 'node:fs/promises';
 
 /**
  * Result of parsing a markdown file
@@ -103,7 +103,7 @@ export async function writeMarkdownFile<T = any>(
 			await tryAsync({
 				try: async () => {
 					// Try to create directory if it doesn't exist
-					await Bun.$`mkdir -p ${dir}`.quiet();
+					await mkdir(dir, { recursive: true });
 				},
 				catch: () => Ok(undefined), // Directory might already exist, that's fine
 			});
