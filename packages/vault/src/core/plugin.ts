@@ -9,6 +9,7 @@ import type { Result } from 'wellcrafted/result';
 import type { id } from './columns';
 import type { VaultOperationError } from './errors';
 import type { TableSelectBuilder } from '../types/drizzle-helpers';
+import type { PluginMethod } from './method-helpers';
 
 /**
  * A single table definition that must have an 'id' column created with id().
@@ -45,7 +46,7 @@ type TableWithId = {
  *
  * @example
  * ```typescript
- * const blogTables: TableSchemaDefinitions = {
+ * const blogTables: TableMap = {
  *   posts: {
  *     id: id(),           // Required: auto-generated ID
  *     title: text(),      // String column
@@ -62,7 +63,7 @@ type TableWithId = {
  * // Results in two tables: 'posts' and 'comments'
  * ```
  */
-type TableSchemaDefinitions = Record<string, TableWithId>;
+type TableMap = Record<string, TableWithId>;
 
 /**
  * Helper methods automatically added to every table in the vault.
@@ -176,7 +177,7 @@ type SQLiteTableType<
  * Builds enhanced Drizzle tables from plugin table definitions.
  *
  * This type transformation pipeline:
- * 1. Takes simple column definitions from TableSchemaDefinitions
+ * 1. Takes simple column definitions from TableMap
  * 2. Converts each to a properly typed SQLite table using SQLiteTableType
  * 3. Enhances each table with CRUD helper methods by adding TableHelpers
  *
@@ -184,7 +185,7 @@ type SQLiteTableType<
  * (accessing columns) and high-level operations (calling helper methods),
  * with complete type safety and IntelliSense support.
  *
- * @template TTables - The table schema definitions from a plugin
+ * @template TTableMap - The table schema definitions from a plugin
  *
  * @example
  * ```typescript
@@ -207,9 +208,9 @@ type SQLiteTableType<
  * vault.blog.comments.select()     // query builder access
  * ```
  */
-type BuildEnhancedTables<TTables extends TableSchemaDefinitions> = {
-	[K in keyof TTables]: SQLiteTableType<K & string, TTables[K]> &
-		TableHelpers<SQLiteTableType<K & string, TTables[K]>>;
+type BuildEnhancedTables<TTableMap extends TableMap> = {
+	[K in keyof TTableMap]: SQLiteTableType<K & string, TTableMap[K]> &
+		TableHelpers<SQLiteTableType<K & string, TTableMap[K]>>;
 };
 
 /**
@@ -288,7 +289,7 @@ type BuildDependencyNamespaces<TDeps extends readonly AnyPlugin[]> = {
  * - **Dependency plugins**: Complete access to their tables and methods
  *
  * @template TSelfId - The current plugin's ID
- * @template TTables - The current plugin's table definitions (column builders)
+ * @template TTableMap - The current plugin's table definitions (column builders)
  * @template TDeps - The plugin's dependencies
  *
  * @example
@@ -319,12 +320,12 @@ type BuildDependencyNamespaces<TDeps extends readonly AnyPlugin[]> = {
  */
 type VaultContext<
 	TSelfId extends string,
-	TTables extends TableSchemaDefinitions,
+	TTableMap extends TableMap,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 > = BuildDependencyNamespaces<TDeps> & {
 	// The current plugin's tables are added to its namespace
 	// These are properly typed with all column information preserved
-	[K in TSelfId]: BuildEnhancedTables<TTables>;
+	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
 };
 
 /**
@@ -334,8 +335,8 @@ type VaultContext<
 export type AnyPlugin = {
 	id: string;
 	dependencies?: readonly AnyPlugin[];
-	tables: TableSchemaDefinitions;
-	methods: (vault: any) => Record<string, unknown>;
+	tables: TableMap;
+	methods: (vault: any) => Record<string, PluginMethod>;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;
@@ -346,7 +347,7 @@ export type AnyPlugin = {
  * Plugin definition with strongly typed vault context.
  *
  * @template TId - Unique plugin identifier (lowercase, alphanumeric)
- * @template TTables - Table definitions for this plugin
+ * @template TTableMap - Table definitions for this plugin
  * @template TMethods - Methods exposed by this plugin (must be functions)
  * @template TDeps - Other plugins this plugin depends on
  *
@@ -411,14 +412,14 @@ export type AnyPlugin = {
  */
 export type Plugin<
 	TId extends string = string,
-	TTables extends TableSchemaDefinitions = TableSchemaDefinitions,
-	TMethods extends Record<string, unknown> = Record<string, unknown>,
+	TTableMap extends TableMap = TableMap,
+	TMethods extends Record<string, PluginMethod> = Record<string, PluginMethod>,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 > = {
 	id: TId;
 	dependencies?: TDeps;
-	tables: TTables;
-	methods: (vault: VaultContext<TId, TTables, TDeps>) => TMethods;
+	tables: TTableMap;
+	methods: (vault: VaultContext<TId, TTableMap, TDeps>) => TMethods;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;
@@ -576,12 +577,12 @@ export type Plugin<
  */
 export function definePlugin<
 	TId extends string,
-	TTables extends TableSchemaDefinitions,
-	TMethods extends Record<string, unknown>,
+	TTableMap extends TableMap,
+	TMethods extends Record<string, PluginMethod>,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 >(
-	plugin: Plugin<TId, TTables, TMethods, TDeps>,
-): Plugin<TId, TTables, TMethods, TDeps> {
+	plugin: Plugin<TId, TTableMap, TMethods, TDeps>,
+): Plugin<TId, TTableMap, TMethods, TDeps> {
 	// Validate plugin ID (alphanumeric, lowercase, no spaces)
 	if (!/^[a-z0-9_-]+$/.test(plugin.id)) {
 		throw new Error(
