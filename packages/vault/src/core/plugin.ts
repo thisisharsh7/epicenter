@@ -8,6 +8,7 @@ import type { BuildColumns } from 'drizzle-orm/column-builder';
 import type { Result } from 'wellcrafted/result';
 import type { id } from './columns';
 import type { VaultOperationError } from './errors';
+import type { TableSelectBuilder } from '../types/drizzle-helpers';
 
 /**
  * A single table definition that must have an 'id' column created with id()
@@ -91,8 +92,7 @@ type TableHelperMethods<T extends SQLiteTable> = {
 	): Promise<Result<InferSelectModel<T>, VaultOperationError>>;
 
 	// Drizzle query builder for advanced queries
-	select(): any; // Returns Drizzle select query builder
-	query?: any; // Drizzle relational query API if available
+	select(): TableSelectBuilder<T>;
 };
 
 /**
