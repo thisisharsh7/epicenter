@@ -5,11 +5,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 /**
- * Handler function type that takes validated input and returns output
+ * Union type for all method types
  */
-export type MethodHandler<TInput, TOutput> = (
-	input: TInput,
-) => TOutput | Promise<TOutput>;
+export type PluginMethod<
+	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TOutput = unknown,
+> = QueryMethod<TSchema, TOutput> | MutationMethod<TSchema, TOutput>;
 
 /**
  * Query method structure with schema validation
@@ -36,21 +37,19 @@ export type MutationMethod<
 };
 
 /**
- * Union type for all method types
+ * Handler function type that takes validated input and returns output
  */
-export type PluginMethod<
-	TSchema extends StandardSchemaV1 = StandardSchemaV1,
-	TOutput = unknown,
-> = QueryMethod<TSchema, TOutput> | MutationMethod<TSchema, TOutput>;
+export type MethodHandler<TInput, TOutput> = (
+	input: TInput,
+) => TOutput | Promise<TOutput>;
 
 /**
  * Helper function to define a query method
  * Pass-through function that adds type discrimination
  */
-export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(config: {
-	input: TSchema;
-	handler: MethodHandler<StandardSchemaV1.InferOutput<TSchema>, TOutput>;
-}): QueryMethod<TSchema, TOutput> {
+export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
+	config: Omit<QueryMethod<TSchema, TOutput>, 'type'>,
+): QueryMethod<TSchema, TOutput> {
 	return {
 		type: 'query' as const,
 		input: config.input,
@@ -62,13 +61,9 @@ export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(config: {
  * Helper function to define a mutation method
  * Pass-through function that adds type discrimination
  */
-export function defineMutation<
-	TSchema extends StandardSchemaV1,
-	TOutput,
->(config: {
-	input: TSchema;
-	handler: MethodHandler<StandardSchemaV1.InferOutput<TSchema>, TOutput>;
-}): MutationMethod<TSchema, TOutput> {
+export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
+	config: Omit<MutationMethod<TSchema, TOutput>, 'type'>,
+): MutationMethod<TSchema, TOutput> {
 	return {
 		type: 'mutation' as const,
 		input: config.input,
@@ -118,18 +113,4 @@ export function isMutation<T extends PluginMethod>(
 export async function validateInput<TSchema extends StandardSchemaV1>(
 	schema: TSchema,
 	input: unknown,
-): Promise<StandardSchemaV1.InferOutput<TSchema>> {
-	// Standard Schema v1 validation
-	if (schema['~standard']?.validate) {
-		const result = await schema['~standard'].validate(input);
-		if (result.issues) {
-			throw new Error(
-				`Validation failed: ${result.issues.map((i) => i.message).join(', ')}`,
-			);
-		}
-		return result.value as StandardSchemaV1.InferOutput<TSchema>;
-	}
-
-	// Fallback for schemas without validation (type-only)
-	return input as StandardSchemaV1.InferOutput<TSchema>;
-}
+): Promise<StandardSchemaV1.InferOutput<TSchema>> {}
