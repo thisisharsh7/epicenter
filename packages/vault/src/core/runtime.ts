@@ -30,20 +30,179 @@ import type { PluginMethod } from './method-helpers';
 import type { Plugin, TableHelpers } from './plugin';
 
 /**
- * Runtime configuration provided by the CLI
+ * Run a plugin with runtime injection
+ * Returns the plugin instance directly for single plugins,
+ * or an aggregated namespace for aggregator plugins
  */
-export type RuntimeConfig = {
-	databaseUrl?: string;
-	storagePath?: string;
-};
+export async function runPlugin<T = unknown>(
+	plugin: Plugin,
+	config: RuntimeConfig = {},
+): Promise<T> {
+	// Create database connection
+	const db = drizzle(
+		createClient({
+			url: config.databaseUrl || ':memory:',
+		}),
+	);
+
+	// Create storage handlers
+	const storage = createStorage(config.storagePath);
+
+	// Create runtime context
+	const runtime: RuntimeContext = {
+		db,
+		storage,
+	};
+
+	// Initialize plugin tree
+	const pluginInstances = new Map<string, unknown>();
+	const rootInstance = await initializePlugin(plugin, runtime, pluginInstances);
+
+	// If this is a vault-style aggregator plugin with no methods,
+	// return all dependencies flattened
+	if (
+		Object.keys(plugin.tables).length === 0 &&
+		Object.keys(rootInstance).length === 0
+	) {
+		// This is an aggregator plugin, return the aggregated namespace
+		const aggregated: AggregatedPluginNamespace = {};
+		for (const dep of plugin.dependencies || []) {
+			aggregated[dep.id] = pluginInstances.get(dep.id);
+		}
+		return aggregated as T;
+	}
+
+	// Single plugin: return the instance directly
+	return rootInstance as T;
+}
 
 /**
- * Runtime context provided to plugins
+ * Initialize a plugin with runtime context
  */
-export type RuntimeContext = {
-	db: LibSQLDatabase;
-	storage: StorageOperations;
-};
+async function initializePlugin(
+	plugin: Plugin,
+	runtime: RuntimeContext,
+	pluginInstances: Map<string, unknown>,
+): Promise<unknown> {
+	// If already initialized, return cached instance
+	if (pluginInstances.has(plugin.id)) {
+		return pluginInstances.get(plugin.id);
+	}
+
+	// Initialize dependencies first
+	const dependencies: Record<string, unknown> = {};
+	for (const dep of plugin.dependencies || []) {
+		dependencies[dep.id] = await initializePlugin(
+			dep,
+			runtime,
+			pluginInstances,
+		);
+	}
+
+	// Create SQLite tables for this plugin
+	const tables: Record<string, TableHelpers<SQLiteTable> & SQLiteTable> = {};
+	for (const [tableName, columns] of Object.entries(plugin.tables)) {
+		// Create SQLite table
+		const drizzleTable = sqliteTable(
+			tableName,
+			columns as Record<string, SQLiteColumnBuilderBase>,
+		);
+
+		// Create table in database if not exists
+		await createTableIfNotExists(runtime.db, tableName, columns);
+
+		// Create enhanced table with helpers
+		tables[tableName] = createTableHelpers(
+			runtime.db,
+			runtime.storage,
+			drizzleTable,
+			tableName,
+		);
+	}
+
+	// Build vault context for this plugin
+	const vault: VaultContext = {
+		...dependencies,
+		[plugin.id]: tables,
+	};
+
+	// Initialize plugin methods
+	const rawMethods = plugin.methods(vault);
+
+	// Process methods to add execute wrapper
+	const methods = processPluginMethods(rawMethods);
+
+	// Combine tables and methods into plugin namespace
+	const pluginInstance = {
+		...tables,
+		...methods,
+	};
+
+	// Cache the instance
+	pluginInstances.set(plugin.id, pluginInstance);
+
+	return pluginInstance;
+}
+
+/**
+ * Process plugin methods to make them directly callable
+ */
+function processPluginMethods(
+	methods: Record<string, PluginMethod>,
+): Record<string, PluginMethod> {
+	const processed: Record<string, unknown> = {};
+
+	for (const [key, method] of Object.entries(methods)) {
+		// Check if it's a plugin method (has type and handler)
+		if (
+			method &&
+			typeof method === 'object' &&
+			'type' in method &&
+			'handler' in method
+		) {
+			processed[key] = makeMethodDirectlyCallable(method);
+		} else {
+			// Pass through non-method properties
+			processed[key] = method;
+		}
+	}
+
+	return processed;
+}
+
+/**
+ * Wrap a plugin method to make it directly callable
+ * The function validates input and executes the handler
+ */
+function makeMethodDirectlyCallable<
+	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TOutput = unknown,
+>(
+	method: PluginMethod<TSchema, TOutput>,
+): PluginMethod<TSchema, TOutput> &
+	((
+		input: StandardSchemaV1.InferOutput<TSchema>,
+	) => TOutput | Promise<TOutput>) {
+	// Create a callable function that validates and executes
+	const callableMethod = (input: StandardSchemaV1.InferOutput<TSchema>) => {
+		// Validate input using the schema
+		const result = method.input['~standard'].validate(input);
+		if (result instanceof Promise) {
+			throw new TypeError('Schema validation must be synchronous');
+		}
+		if (result.issues) {
+			throw new Error(
+				`Validation failed: ${result.issues.map((i) => i.message).join(', ')}`,
+			);
+		}
+		const validatedInput =
+			result.value as StandardSchemaV1.InferOutput<TSchema>;
+		return method.handler(validatedInput);
+	};
+
+	// Attach the method properties to the function for introspection if needed
+	return Object.assign(callableMethod, method);
+}
 
 /**
  * Create table helpers for a given table
@@ -299,71 +458,30 @@ function createTableHelpers<T extends SQLiteTable>(
 }
 
 /**
- * Initialize a plugin with runtime context
+ * Create storage handlers for markdown files
  */
-async function initializePlugin(
-	plugin: Plugin,
-	runtime: RuntimeContext,
-	pluginInstances: Map<string, unknown>,
-): Promise<unknown> {
-	// If already initialized, return cached instance
-	if (pluginInstances.has(plugin.id)) {
-		return pluginInstances.get(plugin.id);
-	}
+function createStorage(storagePath?: string): RuntimeContext['storage'] {
+	return {
+		path: storagePath,
 
-	// Initialize dependencies first
-	const dependencies: Record<string, unknown> = {};
-	for (const dep of plugin.dependencies || []) {
-		dependencies[dep.id] = await initializePlugin(
-			dep,
-			runtime,
-			pluginInstances,
-		);
-	}
+		async write(table: string, id: string, data: StorageData) {
+			if (!storagePath) return;
+			const filePath = getMarkdownPath(storagePath, table, id);
+			await writeMarkdownFile(filePath, data);
+		},
 
-	// Create SQLite tables for this plugin
-	const tables: Record<string, TableHelpers<SQLiteTable> & SQLiteTable> = {};
-	for (const [tableName, columns] of Object.entries(plugin.tables)) {
-		// Create SQLite table
-		const drizzleTable = sqliteTable(
-			tableName,
-			columns as Record<string, SQLiteColumnBuilderBase>,
-		);
+		async update(table: string, id: string, data: StorageData) {
+			if (!storagePath) return;
+			const filePath = getMarkdownPath(storagePath, table, id);
+			await updateMarkdownFile(filePath, data);
+		},
 
-		// Create table in database if not exists
-		await createTableIfNotExists(runtime.db, tableName, columns);
-
-		// Create enhanced table with helpers
-		tables[tableName] = createTableHelpers(
-			runtime.db,
-			runtime.storage,
-			drizzleTable,
-			tableName,
-		);
-	}
-
-	// Build vault context for this plugin
-	const vault: VaultContext = {
-		...dependencies,
-		[plugin.id]: tables,
+		async delete(table: string, id: string) {
+			if (!storagePath) return;
+			const filePath = getMarkdownPath(storagePath, table, id);
+			await deleteMarkdownFile(filePath);
+		},
 	};
-
-	// Initialize plugin methods
-	const rawMethods = plugin.methods(vault);
-
-	// Process methods to add execute wrapper
-	const methods = processPluginMethods(rawMethods);
-
-	// Combine tables and methods into plugin namespace
-	const pluginInstance = {
-		...tables,
-		...methods,
-	};
-
-	// Cache the instance
-	pluginInstances.set(plugin.id, pluginInstance);
-
-	return pluginInstance;
 }
 
 /**
@@ -414,135 +532,17 @@ async function createTableIfNotExists(
 }
 
 /**
- * Wrap a plugin method to make it directly callable
- * The function validates input and executes the handler
+ * Runtime configuration provided by the CLI
  */
-function makeMethodDirectlyCallable<
-	TSchema extends StandardSchemaV1 = StandardSchemaV1,
-	TOutput = unknown,
->(
-	method: PluginMethod<TSchema, TOutput>,
-): PluginMethod<TSchema, TOutput> &
-	((
-		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => TOutput | Promise<TOutput>) {
-	// Create a callable function that validates and executes
-	const callableMethod = (input: StandardSchemaV1.InferOutput<TSchema>) => {
-		// Validate input using the schema
-		const result = method.input['~standard'].validate(input);
-		if (result instanceof Promise) {
-			throw new TypeError('Schema validation must be synchronous');
-		}
-		if (result.issues) {
-			throw new Error(
-				`Validation failed: ${result.issues.map((i) => i.message).join(', ')}`,
-			);
-		}
-		const validatedInput =
-			result.value as StandardSchemaV1.InferOutput<TSchema>;
-		return method.handler(validatedInput);
-	};
-
-	// Attach the method properties to the function for introspection if needed
-	return Object.assign(callableMethod, method);
-}
+export type RuntimeConfig = {
+	databaseUrl?: string;
+	storagePath?: string;
+};
 
 /**
- * Process plugin methods to make them directly callable
+ * Runtime context provided to plugins
  */
-function processPluginMethods(
-	methods: Record<string, PluginMethod>,
-): Record<string, PluginMethod> {
-	const processed: Record<string, unknown> = {};
-
-	for (const [key, method] of Object.entries(methods)) {
-		// Check if it's a plugin method (has type and handler)
-		if (
-			method &&
-			typeof method === 'object' &&
-			'type' in method &&
-			'handler' in method
-		) {
-			processed[key] = makeMethodDirectlyCallable(method);
-		} else {
-			// Pass through non-method properties
-			processed[key] = method;
-		}
-	}
-
-	return processed;
-}
-
-/**
- * Create storage handlers for markdown files
- */
-function createStorage(storagePath?: string): RuntimeContext['storage'] {
-	return {
-		path: storagePath,
-
-		async write(table: string, id: string, data: StorageData) {
-			if (!storagePath) return;
-			const filePath = getMarkdownPath(storagePath, table, id);
-			await writeMarkdownFile(filePath, data);
-		},
-
-		async update(table: string, id: string, data: StorageData) {
-			if (!storagePath) return;
-			const filePath = getMarkdownPath(storagePath, table, id);
-			await updateMarkdownFile(filePath, data);
-		},
-
-		async delete(table: string, id: string) {
-			if (!storagePath) return;
-			const filePath = getMarkdownPath(storagePath, table, id);
-			await deleteMarkdownFile(filePath);
-		},
-	};
-}
-
-/**
- * Run a plugin with runtime injection
- * Returns the plugin instance directly for single plugins,
- * or an aggregated namespace for aggregator plugins
- */
-export async function runPlugin<T = unknown>(
-	plugin: Plugin,
-	config: RuntimeConfig = {},
-): Promise<T> {
-	// Create database connection
-	const db = drizzle(
-		createClient({
-			url: config.databaseUrl || ':memory:',
-		}),
-	);
-
-	// Create storage handlers
-	const storage = createStorage(config.storagePath);
-
-	// Create runtime context
-	const runtime: RuntimeContext = {
-		db,
-		storage,
-	};
-
-	// Initialize plugin tree
-	const pluginInstances = new Map<string, unknown>();
-	const rootInstance = await initializePlugin(plugin, runtime, pluginInstances);
-
-	// If this is a vault-style aggregator plugin with no methods,
-	// return all dependencies flattened
-	if (
-		Object.keys(plugin.tables).length === 0 &&
-		Object.keys(rootInstance).length === 0
-	) {
-		// This is an aggregator plugin, return the aggregated namespace
-		const aggregated: AggregatedPluginNamespace = {};
-		for (const dep of plugin.dependencies || []) {
-			aggregated[dep.id] = pluginInstances.get(dep.id);
-		}
-		return aggregated as T;
-	}
-
-	// Single plugin: return the instance directly
-	return rootInstance as T;
-}
+export type RuntimeContext = {
+	db: LibSQLDatabase;
+	storage: StorageOperations;
+};
