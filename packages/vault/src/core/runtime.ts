@@ -1,36 +1,33 @@
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
+import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import {
 	sqliteTable,
-	type SQLiteTable,
 	type SQLiteColumnBuilderBase,
+	type SQLiteTable,
 } from 'drizzle-orm/sqlite-core';
-import { eq, inArray, sql } from 'drizzle-orm';
-import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { tryAsync, type Result } from 'wellcrafted/result';
-import path from 'node:path';
-import * as fs from 'node:fs/promises';
 
-import type { AnyPlugin, Plugin, TableHelpers } from './plugin';
-import { VaultOperationErr, type VaultOperationError } from './errors';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import {
-	writeMarkdownFile,
-	updateMarkdownFile,
 	deleteMarkdownFile,
 	getMarkdownPath,
+	updateMarkdownFile,
+	writeMarkdownFile,
 } from '../storage/markdown-parser';
 import type {
-	StorageData,
-	TableSelectBuilder,
-	CountResult,
 	AffectedRowsResult,
-	TableWithId,
-	StorageOperations,
-	VaultContext,
 	AggregatedPluginNamespace,
+	CountResult,
+	StorageData,
+	StorageOperations,
+	TableWithId,
+	VaultContext,
 } from '../types/drizzle-helpers';
-import { validateInput, type PluginMethod } from './method-helpers';
-import { StandardSchemaV1 } from '@standard-schema/spec';
+import { VaultOperationErr, type VaultOperationError } from './errors';
+import type { PluginMethod } from './method-helpers';
+import type { Plugin, TableHelpers } from './plugin';
 
 /**
  * Runtime configuration provided by the CLI
@@ -305,7 +302,7 @@ function createTableHelpers<T extends SQLiteTable>(
  * Initialize a plugin with runtime context
  */
 async function initializePlugin(
-	plugin: AnyPlugin,
+	plugin: Plugin,
 	runtime: RuntimeContext,
 	pluginInstances: Map<string, unknown>,
 ): Promise<unknown> {
@@ -509,7 +506,7 @@ function createStorage(storagePath?: string): RuntimeContext['storage'] {
  * or an aggregated namespace for aggregator plugins
  */
 export async function runPlugin<T = unknown>(
-	plugin: AnyPlugin,
+	plugin: Plugin,
 	config: RuntimeConfig = {},
 ): Promise<T> {
 	// Create database connection
