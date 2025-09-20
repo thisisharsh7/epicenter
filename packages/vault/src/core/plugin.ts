@@ -11,14 +11,19 @@ import type { VaultOperationError } from './errors';
 import type { TableSelectBuilder } from '../types/drizzle-helpers';
 
 /**
- * A single table definition that must have an 'id' column created with id()
+ * A single table definition that must have an 'id' column created with id().
+ *
+ * This type ensures every table in the vault has a unique identifier column,
+ * which is essential for the document-based storage system and markdown sync.
+ * The id column uses nanoid for URL-safe, collision-resistant identifiers.
  *
  * @example
  * ```typescript
- * {
+ * const postColumns: TableWithId = {
  *   id: id(),           // Required: auto-generated nanoid
- *   title: text(),      // Other columns
- *   createdAt: date()
+ *   title: text(),      // String column
+ *   score: integer(),   // Number column
+ *   createdAt: date()   // Date column
  * }
  * ```
  */
@@ -30,34 +35,61 @@ type TableWithId = {
 /**
  * Table schema definitions for a plugin.
  *
+ * Maps table names to their column definitions. Each plugin can define multiple
+ * tables, and each table must have an 'id' column. These definitions are used
+ * to create both SQLite tables and markdown storage structures.
+ *
  * Structure:
  * - First level: table names (e.g., "posts", "comments")
  * - Second level: column definitions with required 'id' column
  *
  * @example
  * ```typescript
- * const tables = {
+ * const blogTables: TableSchemaDefinitions = {
  *   posts: {
  *     id: id(),           // Required: auto-generated ID
  *     title: text(),      // String column
  *     score: integer(),   // Number column
- *     createdAt: date()   // Date column
+ *     publishedAt: date({ nullable: true })  // Optional date
  *   },
  *   comments: {
  *     id: id(),
  *     postId: text(),     // Foreign key reference
- *     content: text()
+ *     content: text(),
+ *     createdAt: date()
  *   }
  * }
+ * // Results in two tables: 'posts' and 'comments'
  * ```
  */
 type TableSchemaDefinitions = Record<string, TableWithId>;
 
 /**
- * Built-in helper methods available on each table.
- * These are automatically added to every table in the vault.
+ * Helper methods automatically added to every table in the vault.
+ *
+ * These methods provide a high-level API for common database operations,
+ * handling both SQLite storage and markdown file synchronization. All methods
+ * return Result types for explicit error handling.
+ *
+ * @template T - The SQLite table type from Drizzle ORM
+ *
+ * @example
+ * ```typescript
+ * // Every table gets these methods automatically:
+ * const post = await vault.posts.posts.getById('abc123');
+ * const allPosts = await vault.posts.posts.getAll();
+ * const created = await vault.posts.posts.create({ id: 'xyz', title: 'Hello' });
+ * const updated = await vault.posts.posts.update('abc123', { title: 'Updated' });
+ * const deleted = await vault.posts.posts.delete('abc123');
+ *
+ * // Plus access to Drizzle query builder:
+ * const published = await vault.posts.posts
+ *   .select()
+ *   .where(isNotNull(vault.posts.posts.publishedAt))
+ *   .all();
+ * ```
  */
-type TableHelperMethods<T extends SQLiteTable> = {
+export type TableHelpers<T extends SQLiteTable> = {
 	// Fast read operations (from SQLite)
 	getById(
 		id: string,
@@ -96,36 +128,74 @@ type TableHelperMethods<T extends SQLiteTable> = {
 };
 
 /**
- * Enhanced table type that includes both Drizzle table columns and helper methods.
+ * Enhanced table type that combines Drizzle table columns with helper methods.
  *
  * This type represents the dual nature of vault tables:
  * 1. **Column Access**: For use in Drizzle operations like `eq(table.columnName, value)`
  * 2. **Helper Methods**: For CRUD operations like `table.getById(id)`
  *
+ * The combination allows tables to be used both as Drizzle schema objects
+ * (accessing columns for queries) and as high-level data access objects
+ * (calling methods for common operations).
+ *
+ * @template T - The SQLite table type from Drizzle ORM
+ *
  * @example
  * ```typescript
- * // Column access for Drizzle operations
+ * // The same table object can be used in two ways:
+ * type PostsTable = EnhancedTableType<SQLiteTable>;
+ *
+ * // 1. Column access for Drizzle operations (table acts as schema)
  * vault.posts.posts
  *   .select()
- *   .where(eq(vault.posts.posts.title, 'Hello')) // Accessing .title column
+ *   .where(eq(vault.posts.posts.title, 'Hello')) // .title is a column
+ *   .orderBy(desc(vault.posts.posts.createdAt))  // .createdAt is a column
  *   .all();
  *
- * // Helper method access
- * const post = await vault.posts.posts.getById('123'); // Calling helper method
+ * // 2. Helper method access (table acts as DAO)
+ * const post = await vault.posts.posts.getById('123');      // method call
+ * const created = await vault.posts.posts.create({...});    // method call
+ * const count = await vault.posts.posts.count();            // method call
  * ```
  */
-type EnhancedTableType<T extends SQLiteTable> = T & TableHelperMethods<T>;
+type EnhancedTableType<T extends SQLiteTable> = T & TableHelpers<T>;
 
 /**
- * Maps column definitions (from definePlugin) to the SQLite table type that
- * would be produced by Drizzle's sqliteTable() function.
+ * Type-level equivalent of Drizzle's `sqliteTable()` function.
  *
- * This preserves all column type information for IntelliSense.
+ * Produces the exact same type that would be returned by:
+ * ```typescript
+ * sqliteTable(tableName, columns)
+ * ```
  *
- * @template TTableName - The name of the table
- * @template TColumns - The column definitions (matches what sqliteTable expects)
+ * This allows the plugin system to have full type safety for tables
+ * before they're actually created at runtime.
+ *
+ * @template TTableName - The table name
+ * @template TColumns - The column definitions (same format as sqliteTable's second parameter)
+ *
+ * @example
+ * ```typescript
+ * // These produce the exact same type:
+ *
+ * // Runtime (using sqliteTable):
+ * const posts = sqliteTable('posts', {
+ *   id: id(),
+ *   title: text(),
+ *   score: integer()
+ * });
+ *
+ * // Type-level (using SQLiteTableType):
+ * type PostsTable = SQLiteTableType<'posts', {
+ *   id: ReturnType<typeof id>;
+ *   title: ReturnType<typeof text>;
+ *   score: ReturnType<typeof integer>;
+ * }>;
+ *
+ * // Both result in: SQLiteTableWithColumns<...> with identical structure
+ * ```
  */
-type ColumnDefsToSQLiteTable<
+type SQLiteTableType<
 	TTableName extends string,
 	TColumns extends TableWithId,
 > = SQLiteTableWithColumns<{
@@ -136,59 +206,110 @@ type ColumnDefsToSQLiteTable<
 }>;
 
 /**
- * Helper type to convert column builders to enhanced SQLite tables with methods.
+ * Builds enhanced Drizzle tables from plugin table definitions.
  *
- * This transformation:
- * 1. Takes column definitions from TableSchemaDefinitions
- * 2. Converts them to properly typed SQLite tables using ColumnDefsToSQLiteTable
- * 3. Enhances them with helper methods
+ * This type transformation pipeline:
+ * 1. Takes simple column definitions from TableSchemaDefinitions
+ * 2. Converts each to a properly typed SQLite table using SQLiteTableType
+ * 3. Enhances each table with CRUD helper methods via EnhancedTableType
  *
- * The result is a table that has both column properties and helper methods,
- * with full type information preserved.
+ * The result is a set of tables that can be used both for Drizzle queries
+ * (accessing columns) and high-level operations (calling helper methods),
+ * with complete type safety and IntelliSense support.
+ *
+ * @template TTables - The table schema definitions from a plugin
+ *
+ * @example
+ * ```typescript
+ * // Input: Plugin table definitions
+ * type BlogTables = {
+ *   posts: { id: ReturnType<typeof id>; title: ReturnType<typeof text>; };
+ *   comments: { id: ReturnType<typeof id>; content: ReturnType<typeof text>; };
+ * }
+ *
+ * // Output: Enhanced tables with both columns and methods
+ * type EnhancedBlogTables = BuildEnhancedTables<BlogTables>;
+ * // Result: {
+ * //   posts: PostsTable & TableHelpers<PostsTable>;
+ * //   comments: CommentsTable & TableHelpers<CommentsTable>;
+ * // }
+ *
+ * // Usage in vault context:
+ * vault.blog.posts.title           // column access
+ * vault.blog.posts.getById('123')  // method access
+ * vault.blog.comments.select()     // query builder access
+ * ```
  */
-type ExtractDrizzleTables<TTables extends TableSchemaDefinitions> = {
+type BuildEnhancedTables<TTables extends TableSchemaDefinitions> = {
 	[K in keyof TTables]: EnhancedTableType<
-		ColumnDefsToSQLiteTable<K & string, TTables[K]>
+		SQLiteTableType<K & string, TTables[K]>
 	>;
 };
 
 /**
- * Constraint for plugin methods - must be functions
+ * Builds the complete namespace for a single plugin (tables + methods).
+ *
+ * Combines the plugin's enhanced tables with its custom methods into a single
+ * namespace. This is what gets mounted at `vault.[pluginId]` in the vault context.
+ *
+ * @template TPlugin - A plugin conforming to the AnyPlugin type
+ *
+ * @example
+ * ```typescript
+ * // For a blog plugin:
+ * type BlogNamespace = BuildPluginNamespace<BlogPlugin>;
+ * // Result: {
+ * //   // Tables (enhanced with helpers)
+ * //   posts: EnhancedPostsTable;
+ * //   comments: EnhancedCommentsTable;
+ * //
+ * //   // Custom methods
+ * //   getPublishedPosts(): Promise<Post[]>;
+ * //   getPostsByAuthor(authorId: string): Promise<Post[]>;
+ * // }
+ *
+ * // Accessed in vault as:
+ * vault.blog.posts.getById('123');        // table helper
+ * vault.blog.getPublishedPosts();         // custom method
+ * ```
  */
-type PluginMethodsConstraint = Record<string, (...args: any[]) => any>;
-
-/**
- * Extract a specific plugin from dependencies by ID
- */
-type GetPluginById<
-	TDeps extends readonly AnyPlugin[],
-	TId extends string,
-> = TDeps extends readonly [...infer Rest, infer Last]
-	? Last extends AnyPlugin
-		? Last['id'] extends TId
-			? Last
-			: GetPluginById<
-					Rest extends readonly AnyPlugin[] ? Rest : readonly [],
-					TId
-				>
-		: never
-	: never;
-
-/**
- * Extract the complete plugin namespace (tables + methods) for a single plugin
- */
-type ExtractPluginNamespace<TPlugin extends AnyPlugin> = ExtractDrizzleTables<
+type BuildPluginNamespace<TPlugin extends AnyPlugin> = BuildEnhancedTables<
 	TPlugin['tables']
 > &
 	ReturnType<TPlugin['methods']>;
 
 /**
- * Helper type to extract all plugin namespaces from dependencies.
- * Each plugin gets its own namespace with both tables and methods.
+ * Builds namespaces for all dependency plugins.
+ *
+ * Creates a mapping from plugin IDs to their complete namespaces (tables + methods).
+ * This type is used to provide typed access to all dependency plugins within
+ * a plugin's vault context.
+ *
+ * @template TDeps - Array of dependency plugins
+ *
+ * @example
+ * ```typescript
+ * // With dependencies: [usersPlugin, commentsPlugin]
+ * type DependencyNamespaces = BuildDependencyNamespaces<[UsersPlugin, CommentsPlugin]>;
+ * // Result: {
+ * //   users: {
+ * //     users: EnhancedUsersTable;      // users plugin's table
+ * //     getUserById(id): Promise<User>; // users plugin's method
+ * //   },
+ * //   comments: {
+ * //     comments: EnhancedCommentsTable;           // comments plugin's table
+ * //     getCommentsForPost(id): Promise<Comment[]>; // comments plugin's method
+ * //   }
+ * // }
+ *
+ * // In vault context, accessed as:
+ * vault.users.users.getById('123');
+ * vault.comments.getCommentsForPost('456');
+ * ```
  */
-type ExtractPluginNamespaces<TDeps extends readonly AnyPlugin[]> = {
+type BuildDependencyNamespaces<TDeps extends readonly AnyPlugin[]> = {
 	[K in TDeps[number]['id']]: TDeps[number] extends { id: K }
-		? ExtractPluginNamespace<TDeps[number]>
+		? BuildPluginNamespace<TDeps[number]>
 		: never;
 };
 
@@ -234,10 +355,10 @@ type VaultContext<
 	TSelfId extends string,
 	TTables extends TableSchemaDefinitions,
 	TDeps extends readonly AnyPlugin[] = readonly [],
-> = ExtractPluginNamespaces<TDeps> & {
+> = BuildDependencyNamespaces<TDeps> & {
 	// The current plugin's tables are added to its namespace
 	// These are properly typed with all column information preserved
-	[K in TSelfId]: ExtractDrizzleTables<TTables>;
+	[K in TSelfId]: BuildEnhancedTables<TTables>;
 };
 
 /**
@@ -248,7 +369,7 @@ export type AnyPlugin = {
 	id: string;
 	dependencies?: readonly AnyPlugin[];
 	tables: TableSchemaDefinitions;
-	methods: (vault: any) => PluginMethodsConstraint;
+	methods: (vault: any) => Record<string, unknown>;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;
@@ -325,7 +446,7 @@ export type AnyPlugin = {
 export type Plugin<
 	TId extends string = string,
 	TTables extends TableSchemaDefinitions = TableSchemaDefinitions,
-	TMethods extends PluginMethodsConstraint = PluginMethodsConstraint,
+	TMethods extends Record<string, unknown> = Record<string, unknown>,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 > = {
 	id: TId;
@@ -490,7 +611,7 @@ export type Plugin<
 export function definePlugin<
 	TId extends string,
 	TTables extends TableSchemaDefinitions,
-	TMethods extends PluginMethodsConstraint,
+	TMethods extends Record<string, unknown>,
 	TDeps extends readonly AnyPlugin[] = readonly [],
 >(
 	plugin: Plugin<TId, TTables, TMethods, TDeps>,
