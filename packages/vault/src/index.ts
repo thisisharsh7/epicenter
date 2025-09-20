@@ -12,7 +12,6 @@ export type {
 	QueryMethod,
 	MutationMethod,
 	PluginMethod,
-	MethodHandler,
 	InferMethodInput,
 	InferMethodOutput,
 } from './core/method-helpers';

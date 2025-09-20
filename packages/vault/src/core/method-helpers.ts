@@ -21,7 +21,9 @@ export type QueryMethod<
 > = {
 	type: 'query';
 	input: TSchema;
-	handler: MethodHandler<StandardSchemaV1.InferOutput<TSchema>, TOutput>;
+	handler: (
+		input: StandardSchemaV1.InferOutput<TSchema>,
+	) => TOutput | Promise<TOutput>;
 };
 
 /**
@@ -33,15 +35,10 @@ export type MutationMethod<
 > = {
 	type: 'mutation';
 	input: TSchema;
-	handler: MethodHandler<StandardSchemaV1.InferOutput<TSchema>, TOutput>;
+	handler: (
+		input: StandardSchemaV1.InferOutput<TSchema>,
+	) => TOutput | Promise<TOutput>;
 };
-
-/**
- * Handler function type that takes validated input and returns output
- */
-export type MethodHandler<TInput, TOutput> = (
-	input: TInput,
-) => TOutput | Promise<TOutput>;
 
 /**
  * Helper function to define a query method
@@ -105,12 +102,3 @@ export function isMutation<T extends PluginMethod>(
 ): method is T & MutationMethod {
 	return method.type === 'mutation';
 }
-
-/**
- * Validate input using a Standard Schema
- * Returns validated and transformed output
- */
-export async function validateInput<TSchema extends StandardSchemaV1>(
-	schema: TSchema,
-	input: unknown,
-): Promise<StandardSchemaV1.InferOutput<TSchema>> {}
