@@ -219,7 +219,7 @@ type BuildEnhancedTables<TTableMap extends TableMap> = {
  * Combines the plugin's enhanced tables with its custom methods into a single
  * namespace. This is what gets mounted at `vault.[pluginId]` in the vault context.
  *
- * @template TPlugin - A plugin conforming to the AnyPlugin type
+ * @template TPlugin - A plugin conforming to the Plugin type
  *
  * @example
  * ```typescript
@@ -240,7 +240,7 @@ type BuildEnhancedTables<TTableMap extends TableMap> = {
  * vault.blog.getPublishedPosts();         // custom method
  * ```
  */
-type BuildPluginNamespace<TPlugin extends AnyPlugin> = BuildEnhancedTables<
+type BuildPluginNamespace<TPlugin extends Plugin> = BuildEnhancedTables<
 	TPlugin['tables']
 > &
 	ReturnType<TPlugin['methods']>;
@@ -274,7 +274,7 @@ type BuildPluginNamespace<TPlugin extends AnyPlugin> = BuildEnhancedTables<
  * vault.comments.getCommentsForPost('456');
  * ```
  */
-type BuildDependencyNamespaces<TDeps extends readonly AnyPlugin[]> = {
+type BuildDependencyNamespaces<TDeps extends readonly Plugin[]> = {
 	[K in TDeps[number]['id']]: TDeps[number] extends { id: K }
 		? BuildPluginNamespace<TDeps[number]>
 		: never;
@@ -321,45 +321,11 @@ type BuildDependencyNamespaces<TDeps extends readonly AnyPlugin[]> = {
 type VaultContext<
 	TSelfId extends string,
 	TTableMap extends TableMap,
-	TDeps extends readonly AnyPlugin[] = readonly [],
+	TDeps extends readonly Plugin[] = readonly [],
 > = BuildDependencyNamespaces<TDeps> & {
 	// The current plugin's tables are added to its namespace
 	// These are properly typed with all column information preserved
 	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
-};
-
-/**
- * Base plugin constraint for use in generic type parameters.
- *
- * IMPORTANT: This type is never used for direct assignment. Instead, it serves
- * as a constraint in generic contexts to enable circular dependencies and
- * type-safe plugin composition.
- *
- * ## Primary Usage: Generic Constraints
- *
- * ```typescript
- * // Used as a constraint in dependency arrays:
- * TDeps extends readonly AnyPlugin[]
- *
- * // This allows plugins to reference each other without knowing exact types:
- * const blogPlugin = definePlugin({
- *   dependencies: [commentsPlugin], // commentsPlugin extends AnyPlugin
- *   ...
- * });
- * ```
- *
- * By constraining to `AnyPlugin`, we ensure all plugins
- *    have the required shape while still preserving their specific types.
- */
-export type AnyPlugin = {
-	id: string;
-	dependencies?: readonly AnyPlugin[];
-	tables: TableMap;
-	methods: (vault: any) => Record<string, PluginMethod>;
-	hooks?: {
-		beforeInit?: () => Promise<void>;
-		afterInit?: () => Promise<void>;
-	};
 };
 
 /**
@@ -372,7 +338,7 @@ export type AnyPlugin = {
  *
  * Key features:
  * - **Namespaced access**: Each plugin gets its own namespace in the vault
- * - **Circular dependencies**: Plugins can have circular dependencies
+ * - **Dependency management**: Plugins can depend on other plugins for composition
  * - **Type safety**: Full TypeScript inference for tables and methods
  * - **Helper methods**: Every table gets CRUD helpers automatically
  *
@@ -433,7 +399,7 @@ export type Plugin<
 	TId extends string = string,
 	TTableMap extends TableMap = TableMap,
 	TMethods extends Record<string, PluginMethod> = Record<string, PluginMethod>,
-	TDeps extends readonly AnyPlugin[] = readonly [],
+	TDeps extends readonly Plugin[] = readonly [],
 > = {
 	id: TId;
 	dependencies?: TDeps;
@@ -467,23 +433,23 @@ export type Plugin<
  * - `select()` - Access Drizzle query builder for complex queries
  * - And more...
  *
- * ### Circular Dependencies
- * Plugins can have circular dependencies! The vault uses a two-phase
- * initialization that allows plugins to reference each other:
+ * ### Dependency Management
+ * Plugins can depend on other plugins to access their tables and methods.
+ * The vault uses a two-phase initialization:
  * 1. First phase: All tables are created
- * 2. Second phase: All methods are initialized with access to all tables
+ * 2. Second phase: All methods are initialized with access to dependency tables
  *
  * @param plugin - The plugin configuration object
  * @returns The same plugin object with validated configuration
  *
  * @example
  * ```typescript
- * // Example: Blog system with circular dependencies
+ * // Example: Blog system with plugin dependencies
  *
  * // Posts plugin can depend on comments
  * const postsPlugin = definePlugin({
  *   id: 'posts',
- *   dependencies: [commentsPlugin], // OK even if comments also depends on posts!
+ *   dependencies: [commentsPlugin], // Depend on comments plugin
  *
  *   tables: {
  *     posts: {
@@ -533,10 +499,10 @@ export type Plugin<
  *   })
  * });
  *
- * // Comments plugin can also depend on posts - circular dependency works!
+ * // Comments plugin for handling blog comments
  * const commentsPlugin = definePlugin({
  *   id: 'comments',
- *   dependencies: [postsPlugin], // Circular dependency is fine!
+ *   dependencies: [], // Can add dependencies as needed
  *
  *   tables: {
  *     comments: {
@@ -598,7 +564,7 @@ export function definePlugin<
 	TId extends string,
 	TTableMap extends TableMap,
 	TMethods extends Record<string, PluginMethod>,
-	TDeps extends readonly AnyPlugin[] = readonly [],
+	TDeps extends readonly Plugin[] = readonly [],
 >(
 	plugin: Plugin<TId, TTableMap, TMethods, TDeps>,
 ): Plugin<TId, TTableMap, TMethods, TDeps> {

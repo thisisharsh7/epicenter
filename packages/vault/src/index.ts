@@ -1,7 +1,25 @@
 // Core exports
-export { definePlugin, definePluginFactory } from './core/plugin';
-export { defineVault } from './core/define-vault';
-export { createVault } from './core/vault';
+export { definePlugin } from './core/plugin';
+
+// Method helpers
+export {
+	defineQuery,
+	defineMutation,
+	isQuery,
+	isMutation,
+} from './core/method-helpers';
+export type {
+	QueryMethod,
+	MutationMethod,
+	PluginMethod,
+	MethodHandler,
+	InferMethodInput,
+	InferMethodOutput,
+} from './core/method-helpers';
+
+// Runtime for plugin execution
+export { runPlugin } from './core/runtime';
+export type { RuntimeConfig, RuntimeContext } from './core/runtime';
 
 // Column helpers
 export {
@@ -11,7 +29,6 @@ export {
 	real,
 	boolean,
 	date,
-	date as timestamp, // timestamp is an alias for date
 	json,
 	blob,
 } from './core/columns';
@@ -19,30 +36,11 @@ export {
 // Column types
 export type { Id } from './core/columns';
 
-// Dependency resolution
-export {
-	resolvePluginDependencies,
-	CircularDependencyError,
-	MissingDependencyError,
-} from './core/dependency-resolver';
+// Plugin types
+export type { Plugin } from './core/plugin';
 
-// Types
-export type {
-	Plugin,
-	AnyPlugin,
-	TableContext,
-	VaultContext,
-	WriteResult,
-	ParseError,
-	SyncResult,
-} from './types/plugin';
-
-export type { VaultConfig } from './core/vault';
-
-export type {
-	EnhancedTable,
-	EnhancedTableMethods,
-} from './types/enhanced-table';
+// Error types
+export type { VaultOperationError } from './core/errors';
 
 // Re-export commonly used Drizzle utilities for convenience
 export {
