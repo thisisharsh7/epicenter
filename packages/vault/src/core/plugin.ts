@@ -5,7 +5,9 @@ import type {
 } from 'drizzle-orm/sqlite-core';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import type { BuildColumns } from 'drizzle-orm/column-builder';
+import type { Result } from 'wellcrafted/result';
 import type { id } from './columns';
+import type { VaultOperationError } from './errors';
 
 /**
  * A single table definition that must have an 'id' column created with id()
@@ -56,29 +58,37 @@ type TableSchemaDefinitions = Record<string, TableWithId>;
  */
 type TableHelperMethods<T extends SQLiteTable> = {
 	// Fast read operations (from SQLite)
-	getById(id: string): Promise<InferSelectModel<T> | null>;
-	findById(id: string): Promise<InferSelectModel<T> | null>; // Alias for getById
-	get(id: string): Promise<InferSelectModel<T> | null>;
-	get(ids: string[]): Promise<InferSelectModel<T>[]>;
-	getAll(): Promise<InferSelectModel<T>[]>;
-	count(): Promise<number>;
+	getById(
+		id: string,
+	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
+	findById(
+		id: string,
+	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>; // Alias for getById
+	get(
+		id: string,
+	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
+	get(
+		ids: string[],
+	): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
+	getAll(): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
+	count(): Promise<Result<number, VaultOperationError>>;
 
 	// Write operations (sync to both SQLite and markdown)
 	create(
 		data: InferInsertModel<T> & { id: string },
-	): Promise<InferSelectModel<T>>;
+	): Promise<Result<InferSelectModel<T>, VaultOperationError>>;
 	create(
 		data: (InferInsertModel<T> & { id: string })[],
-	): Promise<InferSelectModel<T>[]>;
+	): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
 	update(
 		id: string,
 		data: Partial<InferInsertModel<T>>,
-	): Promise<InferSelectModel<T> | null>;
-	delete(id: string): Promise<boolean>;
-	delete(ids: string[]): Promise<boolean>;
+	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
+	delete(id: string): Promise<Result<boolean, VaultOperationError>>;
+	delete(ids: string[]): Promise<Result<boolean, VaultOperationError>>;
 	upsert(
 		data: InferInsertModel<T> & { id: string },
-	): Promise<InferSelectModel<T>>;
+	): Promise<Result<InferSelectModel<T>, VaultOperationError>>;
 
 	// Drizzle query builder for advanced queries
 	select(): any; // Returns Drizzle select query builder
@@ -506,4 +516,3 @@ export function definePlugin<
 	// Return the plugin as-is (it's already properly typed)
 	return plugin;
 }
-
