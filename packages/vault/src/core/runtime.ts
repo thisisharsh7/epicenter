@@ -1,13 +1,17 @@
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
-import { sqliteTable, type SQLiteTable, type SQLiteColumnBuilderBase } from 'drizzle-orm/sqlite-core';
+import {
+	sqliteTable,
+	type SQLiteTable,
+	type SQLiteColumnBuilderBase,
+} from 'drizzle-orm/sqlite-core';
 import { eq, inArray, sql } from 'drizzle-orm';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { tryAsync, type Result } from 'wellcrafted/result';
 import path from 'node:path';
 import * as fs from 'node:fs/promises';
 
-import type { AnyPlugin } from './plugin';
+import type { AnyPlugin, Plugin, TableHelpers } from './plugin';
 import { VaultOperationErr, type VaultOperationError } from './errors';
 import {
 	writeMarkdownFile,
@@ -25,6 +29,8 @@ import type {
 	VaultContext,
 	AggregatedPluginNamespace,
 } from '../types/drizzle-helpers';
+import { validateInput, type PluginMethod } from './method-helpers';
+import { StandardSchemaV1 } from '@standard-schema/spec';
 
 /**
  * Runtime configuration provided by the CLI
@@ -43,26 +49,6 @@ export type RuntimeContext = {
 };
 
 /**
- * Enhanced table with CRUD methods
- * This is what plugins expose for each table
- */
-type TableHelpers<T extends SQLiteTable> = {
-	getById(id: string): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
-	findById(id: string): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
-	get(id: string): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
-	get(ids: string[]): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
-	getAll(): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
-	count(): Promise<Result<number, VaultOperationError>>;
-	create(data: InferInsertModel<T> & { id: string }): Promise<Result<InferSelectModel<T>, VaultOperationError>>;
-	create(data: (InferInsertModel<T> & { id: string })[]): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
-	update(id: string, data: Partial<InferInsertModel<T>>): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
-	delete(id: string): Promise<Result<boolean, VaultOperationError>>;
-	delete(ids: string[]): Promise<Result<boolean, VaultOperationError>>;
-	upsert(data: InferInsertModel<T> & { id: string }): Promise<Result<InferSelectModel<T>, VaultOperationError>>;
-	select(): TableSelectBuilder<T>;
-};
-
-/**
  * Create table helpers for a given table
  */
 function createTableHelpers<T extends SQLiteTable>(
@@ -72,15 +58,26 @@ function createTableHelpers<T extends SQLiteTable>(
 	tableName: string,
 ): TableHelpers<T> & T {
 	const helpers: TableHelpers<T> = {
-		async getById(id: string): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
+		async getById(
+			id: string,
+		): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
 			return this.get(id);
 		},
 
-		async findById(id: string): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
+		async findById(
+			id: string,
+		): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
 			return this.get(id);
 		},
 
-		async get(idOrIds: string | string[]): Promise<Result<InferSelectModel<T> | null | InferSelectModel<T>[], VaultOperationError>> {
+		async get(
+			idOrIds: string | string[],
+		): Promise<
+			Result<
+				InferSelectModel<T> | null | InferSelectModel<T>[],
+				VaultOperationError
+			>
+		> {
 			return tryAsync({
 				try: async () => {
 					if (Array.isArray(idOrIds)) {
@@ -108,7 +105,9 @@ function createTableHelpers<T extends SQLiteTable>(
 			});
 		},
 
-		async getAll(): Promise<Result<InferSelectModel<T>[], VaultOperationError>> {
+		async getAll(): Promise<
+			Result<InferSelectModel<T>[], VaultOperationError>
+		> {
 			return tryAsync({
 				try: async () => {
 					return db.select().from(table).all();
@@ -125,10 +124,10 @@ function createTableHelpers<T extends SQLiteTable>(
 		async count(): Promise<Result<number, VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
-					const result = await db
+					const result = (await db
 						.select({ count: sql<number>`count(*)` })
 						.from(table)
-						.get() as CountResult | undefined;
+						.get()) as CountResult | undefined;
 					return result?.count || 0;
 				},
 				catch: (error) =>
@@ -140,7 +139,13 @@ function createTableHelpers<T extends SQLiteTable>(
 			});
 		},
 
-		async create(data: InferInsertModel<T> & { id: string } | (InferInsertModel<T> & { id: string })[]): Promise<Result<InferSelectModel<T> | InferSelectModel<T>[], VaultOperationError>> {
+		async create(
+			data:
+				| (InferInsertModel<T> & { id: string })
+				| (InferInsertModel<T> & { id: string })[],
+		): Promise<
+			Result<InferSelectModel<T> | InferSelectModel<T>[], VaultOperationError>
+		> {
 			return tryAsync({
 				try: async () => {
 					const isArray = Array.isArray(data);
@@ -152,13 +157,20 @@ function createTableHelpers<T extends SQLiteTable>(
 							try {
 								await storage.write(tableName, item.id, item);
 							} catch (error) {
-								console.warn(`Warning writing to storage for ${tableName}/${item.id}:`, error);
+								console.warn(
+									`Warning writing to storage for ${tableName}/${item.id}:`,
+									error,
+								);
 							}
 						}
 					}
 
 					// Insert into SQLite
-					const inserted = await db.insert(table).values(items).returning().all();
+					const inserted = await db
+						.insert(table)
+						.values(items)
+						.returning()
+						.all();
 					return isArray ? inserted : inserted[0];
 				},
 				catch: (error) =>
@@ -170,7 +182,10 @@ function createTableHelpers<T extends SQLiteTable>(
 			});
 		},
 
-		async update(id: string, data: Partial<InferInsertModel<T>>): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
+		async update(
+			id: string,
+			data: Partial<InferInsertModel<T>>,
+		): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
 					const [updated] = await db
@@ -183,7 +198,10 @@ function createTableHelpers<T extends SQLiteTable>(
 						try {
 							await storage.update(tableName, id, updated);
 						} catch (error) {
-							console.warn(`Warning updating storage for ${tableName}/${id}:`, error);
+							console.warn(
+								`Warning updating storage for ${tableName}/${id}:`,
+								error,
+							);
 						}
 					}
 
@@ -198,7 +216,9 @@ function createTableHelpers<T extends SQLiteTable>(
 			});
 		},
 
-		async delete(idOrIds: string | string[]): Promise<Result<boolean, VaultOperationError>> {
+		async delete(
+			idOrIds: string | string[],
+		): Promise<Result<boolean, VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
 					const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
@@ -209,15 +229,18 @@ function createTableHelpers<T extends SQLiteTable>(
 							try {
 								await storage.delete(tableName, id);
 							} catch (error) {
-								console.warn(`Warning deleting from storage ${tableName}/${id}:`, error);
+								console.warn(
+									`Warning deleting from storage ${tableName}/${id}:`,
+									error,
+								);
 							}
 						}
 					}
 
-					const result = await db
+					const result = (await db
 						.delete(table)
 						.where(inArray((table as TableWithId).id, ids))
-						.run() as AffectedRowsResult;
+						.run()) as AffectedRowsResult;
 
 					return result.rowsAffected > 0;
 				},
@@ -230,7 +253,9 @@ function createTableHelpers<T extends SQLiteTable>(
 			});
 		},
 
-		async upsert(data: InferInsertModel<T> & { id: string }): Promise<Result<InferSelectModel<T>, VaultOperationError>> {
+		async upsert(
+			data: InferInsertModel<T> & { id: string },
+		): Promise<Result<InferSelectModel<T>, VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
 					// Try update first, then insert if not found
@@ -292,20 +317,32 @@ async function initializePlugin(
 	// Initialize dependencies first
 	const dependencies: Record<string, unknown> = {};
 	for (const dep of plugin.dependencies || []) {
-		dependencies[dep.id] = await initializePlugin(dep, runtime, pluginInstances);
+		dependencies[dep.id] = await initializePlugin(
+			dep,
+			runtime,
+			pluginInstances,
+		);
 	}
 
 	// Create SQLite tables for this plugin
 	const tables: Record<string, TableHelpers<SQLiteTable> & SQLiteTable> = {};
 	for (const [tableName, columns] of Object.entries(plugin.tables)) {
 		// Create SQLite table
-		const drizzleTable = sqliteTable(tableName, columns as Record<string, SQLiteColumnBuilderBase>);
+		const drizzleTable = sqliteTable(
+			tableName,
+			columns as Record<string, SQLiteColumnBuilderBase>,
+		);
 
 		// Create table in database if not exists
 		await createTableIfNotExists(runtime.db, tableName, columns);
 
 		// Create enhanced table with helpers
-		tables[tableName] = createTableHelpers(runtime.db, runtime.storage, drizzleTable, tableName);
+		tables[tableName] = createTableHelpers(
+			runtime.db,
+			runtime.storage,
+			drizzleTable,
+			tableName,
+		);
 	}
 
 	// Build vault context for this plugin
@@ -315,7 +352,10 @@ async function initializePlugin(
 	};
 
 	// Initialize plugin methods
-	const methods = plugin.methods(vault);
+	const rawMethods = plugin.methods(vault);
+
+	// Process methods to add execute wrapper
+	const methods = processPluginMethods(rawMethods);
 
 	// Combine tables and methods into plugin namespace
 	const pluginInstance = {
@@ -344,7 +384,11 @@ async function createTableIfNotExists(
 		const columnType = config.columnType;
 
 		let sqlType = 'TEXT';
-		if (columnType === 'SQLiteInteger' || columnType === 'SQLiteTimestamp' || columnType === 'SQLiteBoolean') {
+		if (
+			columnType === 'SQLiteInteger' ||
+			columnType === 'SQLiteTimestamp' ||
+			columnType === 'SQLiteBoolean'
+		) {
 			sqlType = 'INTEGER';
 		} else if (columnType === 'SQLiteReal') {
 			sqlType = 'REAL';
@@ -370,6 +414,66 @@ async function createTableIfNotExists(
 
 	const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableName} (${columnDefs.join(', ')})`;
 	await db.run(sql.raw(createTableSQL));
+}
+
+/**
+ * Wrap a plugin method to make it directly callable
+ * The function validates input and executes the handler
+ */
+function makeMethodDirectlyCallable<
+	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TOutput = unknown,
+>(
+	method: PluginMethod<TSchema, TOutput>,
+): PluginMethod<TSchema, TOutput> &
+	((
+		input: StandardSchemaV1.InferOutput<TSchema>,
+	) => TOutput | Promise<TOutput>) {
+	// Create a callable function that validates and executes
+	const callableMethod = (input: StandardSchemaV1.InferOutput<TSchema>) => {
+		// Validate input using the schema
+		const result = method.input['~standard'].validate(input);
+		if (result instanceof Promise) {
+			throw new TypeError('Schema validation must be synchronous');
+		}
+		if (result.issues) {
+			throw new Error(
+				`Validation failed: ${result.issues.map((i) => i.message).join(', ')}`,
+			);
+		}
+		const validatedInput =
+			result.value as StandardSchemaV1.InferOutput<TSchema>;
+		return method.handler(validatedInput);
+	};
+
+	// Attach the method properties to the function for introspection if needed
+	return Object.assign(callableMethod, method);
+}
+
+/**
+ * Process plugin methods to make them directly callable
+ */
+function processPluginMethods(
+	methods: Record<string, PluginMethod>,
+): Record<string, PluginMethod> {
+	const processed: Record<string, unknown> = {};
+
+	for (const [key, method] of Object.entries(methods)) {
+		// Check if it's a plugin method (has type and handler)
+		if (
+			method &&
+			typeof method === 'object' &&
+			'type' in method &&
+			'handler' in method
+		) {
+			processed[key] = makeMethodDirectlyCallable(method);
+		} else {
+			// Pass through non-method properties
+			processed[key] = method;
+		}
+	}
+
+	return processed;
 }
 
 /**
@@ -401,16 +505,19 @@ function createStorage(storagePath?: string): RuntimeContext['storage'] {
 
 /**
  * Run a plugin with runtime injection
- * This is what the Epicenter CLI would call
+ * Returns the plugin instance directly for single plugins,
+ * or an aggregated namespace for aggregator plugins
  */
-export async function runPlugin(
+export async function runPlugin<T = unknown>(
 	plugin: AnyPlugin,
 	config: RuntimeConfig = {},
-): Promise<any> {
+): Promise<T> {
 	// Create database connection
-	const db = drizzle(createClient({
-		url: config.databaseUrl || ':memory:',
-	}));
+	const db = drizzle(
+		createClient({
+			url: config.databaseUrl || ':memory:',
+		}),
+	);
 
 	// Create storage handlers
 	const storage = createStorage(config.storagePath);
@@ -427,17 +534,18 @@ export async function runPlugin(
 
 	// If this is a vault-style aggregator plugin with no methods,
 	// return all dependencies flattened
-	if (Object.keys(plugin.tables).length === 0 && Object.keys(rootInstance).length === 0) {
+	if (
+		Object.keys(plugin.tables).length === 0 &&
+		Object.keys(rootInstance).length === 0
+	) {
 		// This is an aggregator plugin, return the aggregated namespace
 		const aggregated: AggregatedPluginNamespace = {};
 		for (const dep of plugin.dependencies || []) {
 			aggregated[dep.id] = pluginInstances.get(dep.id);
 		}
-		return aggregated;
+		return aggregated as T;
 	}
 
-	// Single plugin: return it under its own namespace
-	return {
-		[plugin.id]: rootInstance
-	};
+	// Single plugin: return the instance directly
+	return rootInstance as T;
 }
