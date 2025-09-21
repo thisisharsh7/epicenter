@@ -381,7 +381,7 @@ type VaultContext<
 > = {
 	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
 		? BuildEnhancedTables<TDeps[number]['tables']> &
-				ReturnType<TDeps[number]['methods']>
+				ExtractHandlers<ReturnType<TDeps[number]['methods']>>
 		: never;
 } & {
 	// The current plugin's tables are added to its namespace
@@ -473,6 +473,34 @@ type SQLiteTableType<
 	columns: BuildColumns<TTableName, TColumns, 'sqlite'>;
 	dialect: 'sqlite';
 }>;
+
+/**
+ * Extracts just the handler functions from a PluginMethodMap.
+ *
+ * This type transforms method objects (which have properties like type, input, handler)
+ * into just their handler functions, so they can be called directly in the vault context.
+ *
+ * @template T - A PluginMethodMap containing method definitions
+ *
+ * @example
+ * ```typescript
+ * // Input: Method objects with handler properties
+ * type Methods = {
+ *   getUser: QueryMethod<UserSchema, User>;
+ *   createUser: MutationMethod<CreateUserSchema, User>;
+ * }
+ *
+ * // Output: Just the handler functions
+ * type Handlers = ExtractHandlers<Methods>;
+ * // Result: {
+ * //   getUser: (input: UserInput) => User | Promise<User>;
+ * //   createUser: (input: CreateUserInput) => User | Promise<User>;
+ * // }
+ * ```
+ */
+type ExtractHandlers<T extends PluginMethodMap> = {
+	[K in keyof T]: T[K]['handler'];
+};
 
 /**
  * Table schema definitions for a plugin.
