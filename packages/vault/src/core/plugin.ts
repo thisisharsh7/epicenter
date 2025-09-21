@@ -421,12 +421,39 @@ type PluginAPI<
 	TSelfId extends string,
 	TTableMap extends PluginTableMap,
 	TDeps extends readonly Plugin[] = readonly [],
-> = {
+> = BuildDependencyNamespaces<TDeps> &
+	BuildInitialPluginNamespace<TSelfId, TTableMap>;
+
+/**
+ * Builds namespaces for dependency plugins.
+ *
+ * Aggregates the finalized methods from all dependency plugins into their
+ * respective namespaces. Each dependency plugin's methods are accessible
+ * via `api.[dependencyId].[methodName]()`.
+ *
+ * @template TDeps - Array of dependency plugins
+ */
+type BuildDependencyNamespaces<TDeps extends readonly Plugin[]> = {
 	// Dependencies: Get their methods
 	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
 		? ExtractHandlers<ReturnType<TDeps[number]['methods']>>
 		: never;
-} & {
+};
+
+/**
+ * Builds the initial namespace for the current plugin.
+ *
+ * Provides the foundational namespace with table helper methods before
+ * custom methods are defined. Tables come with helper methods like
+ * getById, create, update, delete, etc.
+ *
+ * @template TSelfId - The current plugin's ID
+ * @template TTableMap - The current plugin's table definitions
+ */
+type BuildInitialPluginNamespace<
+	TSelfId extends string,
+	TTableMap extends PluginTableMap,
+> = {
 	// Current plugin: Get initial methods from tables
 	// Tables come with helper methods like getById, create, update, delete, etc.
 	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
