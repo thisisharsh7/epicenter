@@ -34,7 +34,7 @@ import type { PluginMethodMap } from './methods';
  * - And more...
  *
  * ### Dependency Management
- * Plugins can depend on other plugins to access both their tables AND methods.
+ * Plugins can depend on other plugins to access their methods
  *
  * @param plugin - The plugin configuration object
  * @returns The same plugin object with validated configuration
@@ -112,10 +112,10 @@ import type { PluginMethodMap } from './methods';
  *   },
  *
  *   methods: (api) => ({
- *     // Access dependency's tables
+ *     // Access dependency methods
  *     async getCommentsForPost(postId: string) {
- *       // Can access posts table from the posts plugin
- *       const post = await api.posts.posts.getById(postId);
+ *       // Call posts plugin method to verify post exists
+ *       const post = await api.posts.getPostById(postId);
  *       if (!post) return [];
  *
  *       // Use own tables with query builder
@@ -232,9 +232,9 @@ export function definePlugin<
  *         .all();
  *     },
  *
- *     // Access dependency plugins via api.users
+ *     // Access dependency methods
  *     async getPostsByAuthor(authorId: string) {
- *       const author = await api.users.users.getById(authorId);
+ *       const author = await api.users.getUserById(authorId);
  *       if (!author) return [];
  *
  *       return api.blog.posts
@@ -338,9 +338,30 @@ export type TableHelpers<T extends SQLiteTable> = {
  *
  * This API provides namespaced access to:
  * - **Own tables**: Via `api.[pluginId].[tableName]` with full column access and helper methods
- * - **Dependency plugins**: Complete access to their tables and methods
+ * - **Dependency plugins**: Access to their exposed methods
  *
- * ## Reusing Methods Within Your Plugin
+ * ## Method Composition Patterns
+ *
+ * You can compose methods in several ways:
+ *
+ * ### Pass Through Dependency Methods
+ * Spread the API to expose dependency methods directly:
+ *
+ * ```typescript
+ * methods: (api) => ({
+ *   // Pass through all methods
+ *   ...api,
+ *
+ *   // Add your own custom methods
+ *   async createPostWithAuthor(title: string, authorId: string) {
+ *     // Use the passed-through method or compose with API
+ *     const author = await api.users.getUserById(authorId);
+ *     return api.blog.posts.create({ id: generateId(), title, authorId });
+ *   }
+ * })
+ * ```
+ *
+ * ### Reusing Methods Within Your Plugin
  *
  * To reuse logic between methods, define helper functions in the plugin scope:
  *
@@ -401,15 +422,13 @@ type PluginAPI<
 	TTableMap extends PluginTableMap,
 	TDeps extends readonly Plugin[] = readonly [],
 > = {
-	// Dependencies: Get BOTH tables AND methods
+	// Dependencies: Get their methods
 	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
-		? BuildEnhancedTables<TDeps[number]['tables']> & // Dependency tables with CRUD helpers
-				ExtractHandlers<ReturnType<TDeps[number]['methods']>> // + their custom methods
+		? ExtractHandlers<ReturnType<TDeps[number]['methods']>>
 		: never;
 } & {
-	// Current plugin: Get ONLY tables, NOT methods (prevents circular dependency)
-	// The methods are being defined right now using this API, so they can't be part of it
-	// See "Reusing Methods Within Your Plugin" section above for how to share logic between methods
+	// Current plugin: Get initial methods from tables
+	// Tables come with helper methods like getById, create, update, delete, etc.
 	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
 };
 
