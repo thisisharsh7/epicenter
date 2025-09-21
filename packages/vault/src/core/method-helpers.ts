@@ -18,14 +18,7 @@ export type PluginMethod<
 export type QueryMethod<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
-> = {
-	type: 'query';
-	input: TSchema;
-	handler: (
-		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => TOutput | Promise<TOutput>;
-	description?: string;
-};
+> = BaseMethod<TSchema, TOutput> & { type: 'query' };
 
 /**
  * Mutation method structure with schema validation
@@ -33,8 +26,15 @@ export type QueryMethod<
 export type MutationMethod<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
+> = BaseMethod<TSchema, TOutput> & { type: 'mutation' };
+
+/**
+ * Base method structure with shared properties
+ */
+type BaseMethod<
+	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TOutput = unknown,
 > = {
-	type: 'mutation';
 	input: TSchema;
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
@@ -49,12 +49,7 @@ export type MutationMethod<
 export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
 	config: Omit<QueryMethod<TSchema, TOutput>, 'type'>,
 ): QueryMethod<TSchema, TOutput> {
-	return {
-		type: 'query' as const,
-		input: config.input,
-		handler: config.handler,
-		description: config.description,
-	};
+	return { type: 'query' as const, ...config };
 }
 
 /**
@@ -64,12 +59,7 @@ export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
 export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
 	config: Omit<MutationMethod<TSchema, TOutput>, 'type'>,
 ): MutationMethod<TSchema, TOutput> {
-	return {
-		type: 'mutation' as const,
-		input: config.input,
-		handler: config.handler,
-		description: config.description,
-	};
+	return { type: 'mutation' as const, ...config };
 }
 
 /**
