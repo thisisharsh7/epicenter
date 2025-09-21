@@ -36,16 +36,17 @@ const posts = await api.blog.posts.select().where(eq(api.blog.posts.published, t
 ### Installation
 
 ```bash
-bun add @vault/core
+bun add @repo/vault
 # or
-npm install @vault/core
+npm install @repo/vault
 ```
 
 ### Basic Usage
 
 ```typescript
-import { definePlugin, runPlugin, text, integer, boolean, date } from '@vault/core';
+import { definePlugin, runPlugin, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/vault';
 import { eq, desc, gte } from 'drizzle-orm';
+import { z } from 'zod';
 
 // 1. Define your plugin
 const blogPlugin = definePlugin({
@@ -53,7 +54,7 @@ const blogPlugin = definePlugin({
 
   tables: {
     posts: {
-      id: text({ primaryKey: true }),
+      id: id(),                         // Auto-generated ID
       title: text(),                    // NOT NULL by default
       content: text({ nullable: true }), // Explicitly nullable
       published: boolean({ default: false }),
@@ -63,12 +64,34 @@ const blogPlugin = definePlugin({
   },
 
   methods: (api) => ({
-    async getPopularPosts(minViews = 100) {
-      return api.blog.posts.select()
-        .where(gte(api.blog.posts.views, minViews))
-        .orderBy(desc(api.blog.posts.views))
-        .all();
-    }
+    getPopularPosts: defineQuery({
+      input: z.object({
+        minViews: z.number().default(100)
+      }),
+      handler: async (input) => {
+        return api.blog.posts.select()
+          .where(gte(api.blog.posts.views, input.minViews))
+          .orderBy(desc(api.blog.posts.views))
+          .all();
+      }
+    }),
+
+    createPost: defineMutation({
+      input: z.object({
+        title: z.string().min(1),
+        content: z.string().optional(),
+        published: z.boolean().default(false)
+      }),
+      handler: async (input) => {
+        return api.blog.posts.create({
+          title: input.title,
+          content: input.content || null,
+          published: input.published,
+          views: 0,
+          createdAt: new Date()
+        });
+      }
+    })
   })
 });
 
@@ -86,7 +109,7 @@ const runtime = await runPlugin(app, {
   storagePath: './my-vault'       // Markdown storage directory
 });
 
-// 4. Use enhanced tables
+// 4. Use enhanced table helpers
 const { data: post } = await runtime.blog.posts.create({
   id: 'first-post',
   title: 'Welcome!',
@@ -102,8 +125,15 @@ const publishedPosts = await runtime.blog.posts.select()
   .orderBy(desc(runtime.blog.posts.createdAt))
   .limit(10);
 
-// 6. Use plugin methods
-const popular = await runtime.blog.getPopularPosts(50);
+// 6. Use plugin methods with validation
+const popular = await runtime.blog.getPopularPosts({ minViews: 50 });
+
+// 7. Create posts with validated input
+const newPost = await runtime.blog.createPost({
+  title: 'My Second Post',
+  content: 'Content here...',
+  published: false
+});
 ```
 
 ## 📖 API Reference
@@ -195,7 +225,7 @@ await api.db.execute(sql`
 Vault provides NOT NULL by default column helpers that map directly to Drizzle:
 
 ```typescript
-import { text, integer, real, boolean, date, json, blob } from '@vault/core';
+import { text, integer, real, boolean, date, json, blob } from '@repo/vault';
 
 tables: {
   posts: {
@@ -227,6 +257,9 @@ All column types support these options:
 Plugins can depend on other plugins using type-safe references:
 
 ```typescript
+import { z } from 'zod';
+import { defineQuery } from '@repo/vault';
+
 const blogPlugin = definePlugin({ /* ... */ });
 
 const analyticsPlugin = definePlugin({
@@ -243,21 +276,120 @@ const analyticsPlugin = definePlugin({
   },
   
   methods: (api) => ({
-    async calculateTopPosts() {
-      // Access dependent plugin methods (fully typed!)
-      const posts = await api.plugins.blog.getPublishedPosts();
+    calculateTopPosts: defineQuery({
+      input: z.object({
+        limit: z.number().optional().default(10)
+      }),
+      handler: async (input) => {
+        // Access dependent plugin methods (fully typed!)
+        const posts = await api.blog.getPublishedPosts({ minViews: 0 });
 
-      // Access dependent plugin tables
-      const allPosts = await api.posts.getAll();
+        // Access dependent plugin tables
+        const allPosts = await api.posts.getAll();
 
-      // Use your own tables
-      const stats = await api.stats.select()
-        .groupBy(api.stats.postId);
+        // Use your own tables
+        const stats = await api.stats.select()
+          .groupBy(api.stats.postId)
+          .limit(input.limit);
 
-      return combineData(posts, stats);
-    }
+        return combineData(posts, stats);
+      }
+    })
   })
 });
+```
+
+### Plugin Methods with Input Validation
+
+Vault supports two types of plugin methods with automatic input validation using Standard Schema:
+
+#### Query Methods
+
+For read operations that don't modify state:
+
+```typescript
+import { z } from 'zod';
+import { defineQuery } from '@repo/vault';
+
+const blogPlugin = definePlugin({
+  id: 'blog',
+  tables: { /* ... */ },
+  methods: (api) => ({
+    getPostsByAuthor: defineQuery({
+      input: z.object({
+        authorId: z.string(),
+        limit: z.number().optional().default(10)
+      }),
+      handler: async (input) => {
+        // input is automatically validated and typed
+        return api.blog.posts
+          .select()
+          .where(eq(api.blog.posts.authorId, input.authorId))
+          .limit(input.limit)
+          .all();
+      },
+      description: 'Get posts by author with optional limit'
+    }),
+  })
+});
+```
+
+#### Mutation Methods
+
+For operations that modify state:
+
+```typescript
+import { defineMutation } from '@repo/vault';
+
+const blogPlugin = definePlugin({
+  id: 'blog',
+  tables: { /* ... */ },
+  methods: (api) => ({
+    createPost: defineMutation({
+      input: z.object({
+        title: z.string().min(1),
+        content: z.string(),
+        authorId: z.string()
+      }),
+      handler: async (input) => {
+        // Input is validated and fully typed
+        return api.blog.posts.create({
+          id: generateId(),
+          title: input.title,
+          content: input.content,
+          authorId: input.authorId,
+          publishedAt: null
+        });
+      },
+      description: 'Create a new blog post'
+    }),
+  })
+});
+```
+
+#### Standard Schema Support
+
+Methods support any validation library that implements the [Standard Schema](https://github.com/standard-schema/standard-schema) specification:
+
+- **Zod**: `z.object({ name: z.string() })`
+- **Valibot**: `v.object({ name: v.string() })`
+- **ArkType**: `type({ name: 'string' })`
+- **Yup**: `yup.object({ name: yup.string() })`
+
+#### Method Properties
+
+Each method has additional properties for introspection:
+
+```typescript
+// Check method type
+console.log(runtime.blog.createPost.type); // 'mutation'
+console.log(runtime.blog.getPostsByAuthor.type); // 'query'
+
+// Access input schema
+console.log(runtime.blog.createPost.input); // The Zod schema
+
+// Access handler function
+console.log(runtime.blog.createPost.handler); // The handler function
 ```
 
 ### The Magic: `.select()` Returns Drizzle
@@ -363,30 +495,6 @@ await api.posts.update([
 await api.posts.delete(['1', '2', '3']);
 ```
 
-### Factory Plugins
-
-For plugins that need configuration:
-
-```typescript
-import { definePluginFactory } from '@repo/vault';
-
-const createApiPlugin = definePluginFactory((config: { apiKey: string }) => ({
-  id: 'api',
-  tables: { /* ... */ },
-  methods: (api) => ({
-    async fetchData() {
-      // Use config.apiKey here
-      const response = await fetch('/api', {
-        headers: { 'X-API-Key': config.apiKey }
-      });
-      // ...
-    }
-  })
-}));
-
-// Usage
-const apiPlugin = createApiPlugin({ apiKey: 'secret-key' });
-```
 
 ### Direct Drizzle Access
 
@@ -408,13 +516,51 @@ const results = await api.posts.select()
 
 ## API Reference
 
-### `definePlugin(config)`
+### Core Functions
+
+#### `definePlugin(config)`
 
 Create a plugin with tables and methods.
 
-### `runPlugin(plugin, config)`
+#### `runPlugin(plugin, config)`
 
 Run a plugin with runtime injection of database and storage.
+
+### Method Helpers
+
+#### `defineQuery(config)`
+
+Create a query method with input validation and type safety.
+
+```typescript
+defineQuery({
+  input: z.object({ id: z.string() }),
+  handler: async (input) => { /* ... */ },
+  description?: 'Optional description'
+})
+```
+
+#### `defineMutation(config)`
+
+Create a mutation method with input validation and type safety.
+
+```typescript
+defineMutation({
+  input: z.object({ title: z.string() }),
+  handler: async (input) => { /* ... */ },
+  description?: 'Optional description'
+})
+```
+
+#### `isQuery(method)` / `isMutation(method)`
+
+Type guards to check if a method is a query or mutation.
+
+```typescript
+if (isQuery(someMethod)) {
+  // method is typed as QueryMethod
+}
+```
 
 ### Column Helpers
 
