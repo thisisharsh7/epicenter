@@ -1,15 +1,15 @@
+import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import type { BuildColumns } from 'drizzle-orm/column-builder';
 import type {
 	SQLiteColumnBuilderBase,
 	SQLiteTable,
 	SQLiteTableWithColumns,
 } from 'drizzle-orm/sqlite-core';
-import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import type { BuildColumns } from 'drizzle-orm/column-builder';
 import type { Result } from 'wellcrafted/result';
+import type { TableSelectBuilder } from '../types/drizzle-helpers';
 import type { id } from './columns';
 import type { VaultOperationError } from './errors';
-import type { TableSelectBuilder } from '../types/drizzle-helpers';
-import type { PluginMethod } from './methods';
+import type { PluginMethodMap } from './methods';
 
 /**
  * Define a vault plugin with full type safety and IntelliSense support.
@@ -163,11 +163,11 @@ import type { PluginMethod } from './methods';
 export function definePlugin<
 	TId extends string,
 	TTableMap extends TableMap,
-	TMethods extends Record<string, PluginMethod>,
+	TMethodMap extends PluginMethodMap,
 	TDeps extends readonly Plugin[] = readonly [],
 >(
-	plugin: Plugin<TId, TTableMap, TMethods, TDeps>,
-): Plugin<TId, TTableMap, TMethods, TDeps> {
+	plugin: Plugin<TId, TTableMap, TMethodMap, TDeps>,
+): Plugin<TId, TTableMap, TMethodMap, TDeps> {
 	// Validate plugin ID (alphanumeric, lowercase, no spaces)
 	if (!/^[a-z0-9_-]+$/.test(plugin.id)) {
 		throw new Error(
@@ -195,7 +195,7 @@ export function definePlugin<
  *
  * @template TId - Unique plugin identifier (lowercase, alphanumeric)
  * @template TTableMap - Table definitions for this plugin
- * @template TMethods - Methods exposed by this plugin (must be functions)
+ * @template TMethodMap - Methods exposed by this plugin (must be functions)
  * @template TDeps - Other plugins this plugin depends on
  *
  * Key features:
@@ -260,13 +260,13 @@ export function definePlugin<
 export type Plugin<
 	TId extends string = string,
 	TTableMap extends TableMap = TableMap,
-	TMethods extends Record<string, PluginMethod> = Record<string, PluginMethod>,
+	TMethodMap extends PluginMethodMap = PluginMethodMap,
 	TDeps extends readonly Plugin[] = readonly [],
 > = {
 	id: TId;
 	dependencies?: TDeps;
 	tables: TTableMap;
-	methods: (vault: VaultContext<TId, TTableMap, TDeps>) => TMethods;
+	methods: (vault: VaultContext<TId, TTableMap, TDeps>) => TMethodMap;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;

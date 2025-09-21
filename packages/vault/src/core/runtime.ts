@@ -26,7 +26,7 @@ import type {
 	VaultContext,
 } from '../types/drizzle-helpers';
 import { VaultOperationErr, type VaultOperationError } from './errors';
-import type { PluginMethod } from './methods';
+import type { PluginMethod, PluginMethodMap } from './methods';
 import type { Plugin, TableHelpers } from './plugin';
 
 /**
@@ -147,9 +147,7 @@ async function initializePlugin(
 /**
  * Process plugin methods to make them directly callable
  */
-function processPluginMethods(
-	methods: Record<string, PluginMethod>,
-): Record<string, PluginMethod> {
+function processPluginMethods(methods: PluginMethodMap): PluginMethodMap {
 	const processed: Record<string, unknown> = {};
 
 	for (const [key, method] of Object.entries(methods)) {

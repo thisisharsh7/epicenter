@@ -5,6 +5,11 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 /**
+ * A collection of plugin methods indexed by method name
+ */
+export type PluginMethodMap = Record<string, PluginMethod>;
+
+/**
  * Union type for all method types
  */
 export type PluginMethod<
