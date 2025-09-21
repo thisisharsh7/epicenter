@@ -12,7 +12,7 @@ import type { VaultOperationError } from './errors';
 import type { PluginMethodMap } from './methods';
 
 /**
- * Define a vault plugin with full type safety and IntelliSense support.
+ * Define a plugin with full type safety and IntelliSense support.
  *
  * This function validates plugin configuration and provides TypeScript inference
  * for the plugin API passed to plugin methods.
@@ -25,7 +25,7 @@ import type { PluginMethodMap } from './methods';
  * - Methods: `api.[pluginId].[methodName]()`
  *
  * ### Table Helper Methods
- * Every table automatically gets these helper methods:
+ * Every table you define automatically gets a complete set of API methods:
  * - `getById(id)` - Get a single record by ID
  * - `create(data)` - Create a new record
  * - `update(id, data)` - Update an existing record
@@ -34,10 +34,7 @@ import type { PluginMethodMap } from './methods';
  * - And more...
  *
  * ### Dependency Management
- * Plugins can depend on other plugins to access their tables and methods.
- * The vault uses a two-phase initialization:
- * 1. First phase: All tables are created
- * 2. Second phase: All methods are initialized with access to dependency tables
+ * Plugins can depend on other plugins to access both their tables AND methods.
  *
  * @param plugin - The plugin configuration object
  * @returns The same plugin object with validated configuration
@@ -341,8 +338,33 @@ export type TableHelpers<T extends SQLiteTable> = {
  *
  * This API provides namespaced access to:
  * - **Own tables**: Via `api.[pluginId].[tableName]` with full column access and helper methods
- * - **Own methods**: Will be available at `api.[pluginId].[methodName]()` after initialization
  * - **Dependency plugins**: Complete access to their tables and methods
+ *
+ * ## Reusing Methods Within Your Plugin
+ *
+ * To reuse logic between methods, define helper functions in the plugin scope:
+ *
+ * ```typescript
+ * methods: (api) => {
+ *   // Define reusable helper
+ *   const getPostsByAuthor = async (authorId: string) => {
+ *     return api.blog.posts
+ *       .select()
+ *       .where(eq(api.blog.posts.authorId, authorId));
+ *   };
+ *
+ *   return {
+ *     // Export the helper as a method
+ *     getPostsByAuthor,
+ *
+ *     // Reuse the helper in other methods
+ *     async getPopularPostsByAuthor(authorId: string, minViews: number) {
+ *       const posts = await getPostsByAuthor(authorId);
+ *       return posts.filter(post => post.views >= minViews);
+ *     }
+ *   };
+ * }
+ * ```
  *
  * @template TSelfId - The current plugin's ID
  * @template TTableMap - The current plugin's table definitions (column builders)
@@ -379,13 +401,15 @@ type PluginAPI<
 	TTableMap extends PluginTableMap,
 	TDeps extends readonly Plugin[] = readonly [],
 > = {
+	// Dependencies: Get BOTH tables AND methods
 	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
-		? BuildEnhancedTables<TDeps[number]['tables']> &
-				ExtractHandlers<ReturnType<TDeps[number]['methods']>>
+		? BuildEnhancedTables<TDeps[number]['tables']> & // Dependency tables with CRUD helpers
+				ExtractHandlers<ReturnType<TDeps[number]['methods']>> // + their custom methods
 		: never;
 } & {
-	// The current plugin's tables are added to its namespace
-	// These are properly typed with all column information preserved
+	// Current plugin: Get ONLY tables, NOT methods (prevents circular dependency)
+	// The methods are being defined right now using this API, so they can't be part of it
+	// See "Reusing Methods Within Your Plugin" section above for how to share logic between methods
 	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
 };
 
