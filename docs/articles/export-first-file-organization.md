@@ -36,13 +36,13 @@ export function definePlugin<T>(config: PluginConfig<T>): Plugin<T> {
 
 export type Plugin<T = unknown> = {
   id: string;
-  tables: TableMap;
+  tables: PluginTableMap;
   dependencies?: Plugin[];
-  methods: (vault: VaultContext) => Record<string, PluginMethod>;
+  methods: (api: PluginAPI) => Record<string, PluginMethod>;
 };
 
 // 2. Composed types - higher-level abstractions
-type VaultContext = BuildDependencyNamespaces & {
+type PluginAPI = BuildDependencyNamespaces & {
   [key: string]: BuildPluginNamespace;
 };
 
@@ -96,9 +96,9 @@ Here's how I reorganized one of my plugin files:
 **Before (dependency order):**
 ```typescript
 type TableWithId = SQLiteTable & { id: SQLiteColumn };
-type TableMap = Record<string, ColumnBuilderBase>;
+type PluginTableMap = Record<string, ColumnBuilderBase>;
 type BuildPluginNamespace = Record<string, EnhancedTableType>;
-type VaultContext = BuildDependencyNamespaces & { [key: string]: BuildPluginNamespace };
+type PluginAPI = BuildDependencyNamespaces & { [key: string]: BuildPluginNamespace };
 type Plugin<T> = { /* ... */ };
 export function definePlugin<T>(config: PluginConfig<T>): Plugin<T> { /* ... */ }
 ```
@@ -107,9 +107,9 @@ export function definePlugin<T>(config: PluginConfig<T>): Plugin<T> { /* ... */ 
 ```typescript
 export function definePlugin<T>(config: PluginConfig<T>): Plugin<T> { /* ... */ }
 export type Plugin<T> = { /* ... */ };
-type VaultContext = BuildDependencyNamespaces & { [key: string]: BuildPluginNamespace };
+type PluginAPI = BuildDependencyNamespaces & { [key: string]: BuildPluginNamespace };
 type BuildPluginNamespace = Record<string, EnhancedTableType>;
-type TableMap = Record<string, ColumnBuilderBase>;
+type PluginTableMap = Record<string, ColumnBuilderBase>;
 type TableWithId = SQLiteTable & { id: SQLiteColumn };
 ```
 
