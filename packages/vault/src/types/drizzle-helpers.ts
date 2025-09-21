@@ -62,11 +62,6 @@ export type AffectedRowsResult = {
 export type PluginMethod = (...args: unknown[]) => unknown;
 
 /**
- * Type for a collection of plugin methods
- */
-export type PluginMethods = Record<string, PluginMethod>;
-
-/**
  * Type for plugin dependencies map
  */
 export type PluginDependencies = Record<string, unknown>;
@@ -100,10 +95,10 @@ export function countExpression(): SQL<number> {
 }
 
 /**
- * Type for the vault context passed to plugin methods
+ * Type for the plugin API passed to plugin methods
  * This is a recursive type that builds up based on plugin dependencies
  */
-export type VaultContext<
+export type PluginAPI<
 	TPlugins extends Record<string, unknown> = Record<string, unknown>,
 > = TPlugins;
 

@@ -15,14 +15,14 @@ import type { PluginMethodMap } from './methods';
  * Define a vault plugin with full type safety and IntelliSense support.
  *
  * This function validates plugin configuration and provides TypeScript inference
- * for the vault context passed to plugin methods.
+ * for the plugin API passed to plugin methods.
  *
  * ## Key Concepts
  *
  * ### Plugin Namespacing
- * Each plugin gets its own namespace in the vault context:
- * - Tables: `vault.[pluginId].[tableName]`
- * - Methods: `vault.[pluginId].[methodName]()`
+ * Each plugin gets its own namespace in the plugin API:
+ * - Tables: `api.[pluginId].[tableName]`
+ * - Methods: `api.[pluginId].[methodName]()`
  *
  * ### Table Helper Methods
  * Every table automatically gets these helper methods:
@@ -61,34 +61,34 @@ import type { PluginMethodMap } from './methods';
  *     }
  *   },
  *
- *   methods: (vault) => ({
- *     // Access own tables via vault.posts.posts
+ *   methods: (api) => ({
+ *     // Access own tables via api.posts.posts
  *     async getTopPosts(limit = 10) {
- *       return vault.posts.posts
+ *       return api.posts.posts
  *         .select()
- *         .orderBy(desc(vault.posts.posts.score))
+ *         .orderBy(desc(api.posts.posts.score))
  *         .limit(limit)
  *         .all();
  *     },
  *
  *     // Use table helper methods
  *     async getPostById(postId: string) {
- *       return vault.posts.posts.getById(postId);
+ *       return api.posts.posts.getById(postId);
  *     },
  *
  *     // Access dependency plugins
  *     async getPostWithComments(postId: string) {
- *       const post = await vault.posts.posts.getById(postId);
+ *       const post = await api.posts.posts.getById(postId);
  *       if (!post) return null;
  *
  *       // Call methods from the comments plugin
- *       const comments = await vault.comments.getCommentsForPost(postId);
+ *       const comments = await api.comments.getCommentsForPost(postId);
  *       return { ...post, comments };
  *     },
  *
  *     // Create new records with helper methods
  *     async createPost(title: string, author: string) {
- *       return vault.posts.posts.create({
+ *       return api.posts.posts.create({
  *         id: generateId(), // You provide the ID
  *         title,
  *         author,
@@ -114,25 +114,25 @@ import type { PluginMethodMap } from './methods';
  *     }
  *   },
  *
- *   methods: (vault) => ({
+ *   methods: (api) => ({
  *     // Access dependency's tables
  *     async getCommentsForPost(postId: string) {
  *       // Can access posts table from the posts plugin
- *       const post = await vault.posts.posts.getById(postId);
+ *       const post = await api.posts.posts.getById(postId);
  *       if (!post) return [];
  *
  *       // Use own tables with query builder
- *       return vault.comments.comments
+ *       return api.comments.comments
  *         .select()
- *         .where(eq(vault.comments.comments.postId, postId))
- *         .orderBy(desc(vault.comments.comments.createdAt))
+ *         .where(eq(api.comments.comments.postId, postId))
+ *         .orderBy(desc(api.comments.comments.createdAt))
  *         .all();
  *     },
  *
  *     // Call dependency's methods
  *     async getCommentsForTopPosts() {
  *       // Call posts plugin method
- *       const topPosts = await vault.posts.getTopPosts();
+ *       const topPosts = await api.posts.getTopPosts();
  *
  *       // Fetch comments for all top posts
  *       const allComments = [];
@@ -145,7 +145,7 @@ import type { PluginMethodMap } from './methods';
  *
  *     // Use table helper methods
  *     async createComment(postId: string, author: string, content: string) {
- *       return vault.comments.comments.create({
+ *       return api.comments.comments.create({
  *         id: generateId(),
  *         postId,
  *         author,
@@ -225,30 +225,30 @@ export function definePlugin<
  *     }
  *   },
  *
- *   methods: (vault) => ({
- *     // Access own tables via vault.blog.posts, vault.blog.tags
+ *   methods: (api) => ({
+ *     // Access own tables via api.blog.posts, api.blog.tags
  *     async getPublishedPosts() {
- *       return vault.blog.posts
+ *       return api.blog.posts
  *         .select()
- *         .where(isNotNull(vault.blog.posts.publishedAt))
- *         .orderBy(desc(vault.blog.posts.publishedAt))
+ *         .where(isNotNull(api.blog.posts.publishedAt))
+ *         .orderBy(desc(api.blog.posts.publishedAt))
  *         .all();
  *     },
  *
- *     // Access dependency plugins via vault.users
+ *     // Access dependency plugins via api.users
  *     async getPostsByAuthor(authorId: string) {
- *       const author = await vault.users.users.getById(authorId);
+ *       const author = await api.users.users.getById(authorId);
  *       if (!author) return [];
  *
- *       return vault.blog.posts
+ *       return api.blog.posts
  *         .select()
- *         .where(eq(vault.blog.posts.authorId, authorId))
+ *         .where(eq(api.blog.posts.authorId, authorId))
  *         .all();
  *     },
  *
  *     // Use table helper methods
  *     async createPost(data: PostInput) {
- *       return vault.blog.posts.create({
+ *       return api.blog.posts.create({
  *         id: generateId(),
  *         ...data
  *       });
@@ -266,7 +266,7 @@ export type Plugin<
 	id: TId;
 	dependencies?: TDeps;
 	tables: TTableMap;
-	methods: (vault: VaultContext<TId, TTableMap, TDeps>) => TMethodMap;
+	methods: (api: PluginAPI<TId, TTableMap, TDeps>) => TMethodMap;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;
@@ -285,16 +285,16 @@ export type Plugin<
  * @example
  * ```typescript
  * // Every table gets these methods automatically:
- * const post = await vault.posts.posts.getById('abc123');
- * const allPosts = await vault.posts.posts.getAll();
- * const created = await vault.posts.posts.create({ id: 'xyz', title: 'Hello' });
- * const updated = await vault.posts.posts.update('abc123', { title: 'Updated' });
- * const deleted = await vault.posts.posts.delete('abc123');
+ * const post = await api.posts.posts.getById('abc123');
+ * const allPosts = await api.posts.posts.getAll();
+ * const created = await api.posts.posts.create({ id: 'xyz', title: 'Hello' });
+ * const updated = await api.posts.posts.update('abc123', { title: 'Updated' });
+ * const deleted = await api.posts.posts.delete('abc123');
  *
  * // Plus access to Drizzle query builder:
- * const published = await vault.posts.posts
+ * const published = await api.posts.posts
  *   .select()
- *   .where(isNotNull(vault.posts.posts.publishedAt))
+ *   .where(isNotNull(api.posts.posts.publishedAt))
  *   .all();
  * ```
  */
@@ -337,11 +337,11 @@ export type TableHelpers<T extends SQLiteTable> = {
 };
 
 /**
- * The vault context passed to plugin methods.
+ * The plugin API passed to plugin methods.
  *
- * This context provides namespaced access to:
- * - **Own tables**: Via `vault.[pluginId].[tableName]` with full column access and helper methods
- * - **Own methods**: Will be available at `vault.[pluginId].[methodName]()` after initialization
+ * This API provides namespaced access to:
+ * - **Own tables**: Via `api.[pluginId].[tableName]` with full column access and helper methods
+ * - **Own methods**: Will be available at `api.[pluginId].[methodName]()` after initialization
  * - **Dependency plugins**: Complete access to their tables and methods
  *
  * @template TSelfId - The current plugin's ID
@@ -351,30 +351,30 @@ export type TableHelpers<T extends SQLiteTable> = {
  * @example
  * ```typescript
  * // In a plugin with id 'posts' that depends on 'comments':
- * methods: (vault) => ({
+ * methods: (api) => ({
  *   async getPostWithComments(postId: string) {
  *     // Access own tables with full column types
- *     const post = await vault.posts.posts.getById(postId);
+ *     const post = await api.posts.posts.getById(postId);
  *
  *     // Use columns in Drizzle operations
- *     const published = await vault.posts.posts
+ *     const published = await api.posts.posts
  *       .select()
- *       .where(eq(vault.posts.posts.publishedAt, new Date()))
+ *       .where(eq(api.posts.posts.publishedAt, new Date()))
  *       .all();
  *
  *     // Access dependency methods
- *     const comments = await vault.comments.getCommentsForPost(postId);
+ *     const comments = await api.comments.getCommentsForPost(postId);
  *
  *     return { ...post, comments };
  *   }
  * })
  * ```
  *
- * The tables in the vault context are "enhanced" - they work as both:
+ * The tables in the plugin API are "enhanced" - they work as both:
  * 1. **Drizzle tables**: Access columns for queries `table.columnName`
  * 2. **Helper objects**: Call CRUD methods like `table.getById()`
  */
-type VaultContext<
+type PluginAPI<
 	TSelfId extends string,
 	TTableMap extends PluginTableMap,
 	TDeps extends readonly Plugin[] = readonly [],
@@ -419,9 +419,9 @@ type VaultContext<
  * // }
  *
  * // Usage in vault context:
- * vault.blog.posts.title           // column access
- * vault.blog.posts.getById('123')  // method access
- * vault.blog.comments.select()     // query builder access
+ * api.blog.posts.title           // column access
+ * api.blog.posts.getById('123')  // method access
+ * api.blog.comments.select()     // query builder access
  * ```
  */
 type BuildEnhancedTables<TTableMap extends PluginTableMap> = {

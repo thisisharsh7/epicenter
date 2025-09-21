@@ -23,7 +23,7 @@ import type {
 	StorageData,
 	StorageOperations,
 	TableWithId,
-	VaultContext,
+	PluginAPI,
 } from '../types/drizzle-helpers';
 import { VaultOperationErr, type VaultOperationError } from './errors';
 import type { PluginMethod, PluginMethodMap } from './methods';
@@ -58,7 +58,7 @@ export async function runPlugin<T = unknown>(
 	const pluginInstances = new Map<string, unknown>();
 	const rootInstance = await initializePlugin(plugin, runtime, pluginInstances);
 
-	// If this is a vault-style aggregator plugin with no methods,
+	// If this is an aggregator plugin with no methods,
 	// return all dependencies flattened
 	if (
 		Object.keys(plugin.tables).length === 0 &&
@@ -120,14 +120,14 @@ async function initializePlugin(
 		);
 	}
 
-	// Build vault context for this plugin
-	const vault: VaultContext = {
+	// Build plugin API for this plugin
+	const api: PluginAPI = {
 		...dependencies,
 		[plugin.id]: tables,
 	};
 
 	// Initialize plugin methods
-	const rawMethods = plugin.methods(vault);
+	const rawMethods = plugin.methods(api);
 
 	// Process methods to add execute wrapper
 	const methods = processPluginMethods(rawMethods);
