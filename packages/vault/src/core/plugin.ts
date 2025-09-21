@@ -378,45 +378,14 @@ type VaultContext<
 	TSelfId extends string,
 	TTableMap extends PluginTableMap,
 	TDeps extends readonly Plugin[] = readonly [],
-> = BuildDependencyNamespaces<TDeps> & {
+> = {
+	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
+		? BuildPluginNamespace<TDeps[number]>
+		: never;
+} & {
 	// The current plugin's tables are added to its namespace
 	// These are properly typed with all column information preserved
 	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
-};
-
-/**
- * Builds namespaces for all dependency plugins.
- *
- * Creates a mapping from plugin IDs to their complete namespaces (tables + methods).
- * This type is used to provide typed access to all dependency plugins within
- * a plugin's vault context.
- *
- * @template TDeps - Array of dependency plugins
- *
- * @example
- * ```typescript
- * // With dependencies: [usersPlugin, commentsPlugin]
- * type DependencyNamespaces = BuildDependencyNamespaces<[UsersPlugin, CommentsPlugin]>;
- * // Result: {
- * //   users: {
- * //     users: EnhancedUsersTable;      // users plugin's table
- * //     getUserById(id): Promise<User>; // users plugin's method
- * //   },
- * //   comments: {
- * //     comments: EnhancedCommentsTable;           // comments plugin's table
- * //     getCommentsForPost(id): Promise<Comment[]>; // comments plugin's method
- * //   }
- * // }
- *
- * // In vault context, accessed as:
- * vault.users.users.getById('123');
- * vault.comments.getCommentsForPost('456');
- * ```
- */
-type BuildDependencyNamespaces<TDeps extends readonly Plugin[]> = {
-	[K in TDeps[number]['id']]: TDeps[number] extends { id: K }
-		? BuildPluginNamespace<TDeps[number]>
-		: never;
 };
 
 /**
