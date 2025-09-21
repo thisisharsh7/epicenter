@@ -24,6 +24,7 @@ export type QueryMethod<
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
 	) => TOutput | Promise<TOutput>;
+	description?: string;
 };
 
 /**
@@ -38,6 +39,7 @@ export type MutationMethod<
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
 	) => TOutput | Promise<TOutput>;
+	description?: string;
 };
 
 /**
@@ -51,6 +53,7 @@ export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
 		type: 'query' as const,
 		input: config.input,
 		handler: config.handler,
+		description: config.description,
 	};
 }
 
@@ -65,6 +68,7 @@ export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
 		type: 'mutation' as const,
 		input: config.input,
 		handler: config.handler,
+		description: config.description,
 	};
 }
 
