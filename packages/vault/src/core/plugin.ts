@@ -162,7 +162,7 @@ import type { PluginMethodMap } from './methods';
  */
 export function definePlugin<
 	TId extends string,
-	TTableMap extends TableMap,
+	TTableMap extends PluginTableMap,
 	TMethodMap extends PluginMethodMap,
 	TDeps extends readonly Plugin[] = readonly [],
 >(
@@ -259,7 +259,7 @@ export function definePlugin<
  */
 export type Plugin<
 	TId extends string = string,
-	TTableMap extends TableMap = TableMap,
+	TTableMap extends PluginTableMap = PluginTableMap,
 	TMethodMap extends PluginMethodMap = PluginMethodMap,
 	TDeps extends readonly Plugin[] = readonly [],
 > = {
@@ -376,7 +376,7 @@ export type TableHelpers<T extends SQLiteTable> = {
  */
 type VaultContext<
 	TSelfId extends string,
-	TTableMap extends TableMap,
+	TTableMap extends PluginTableMap,
 	TDeps extends readonly Plugin[] = readonly [],
 > = BuildDependencyNamespaces<TDeps> & {
 	// The current plugin's tables are added to its namespace
@@ -455,7 +455,7 @@ type BuildPluginNamespace<TPlugin extends Plugin> = BuildEnhancedTables<
  * Builds enhanced Drizzle tables from plugin table definitions.
  *
  * This type transformation pipeline:
- * 1. Takes simple column definitions from TableMap
+ * 1. Takes simple column definitions from PluginTableMap
  * 2. Converts each to a properly typed SQLite table using SQLiteTableType
  * 3. Enhances each table with CRUD helper methods by adding TableHelpers
  *
@@ -486,7 +486,7 @@ type BuildPluginNamespace<TPlugin extends Plugin> = BuildEnhancedTables<
  * vault.blog.comments.select()     // query builder access
  * ```
  */
-type BuildEnhancedTables<TTableMap extends TableMap> = {
+type BuildEnhancedTables<TTableMap extends PluginTableMap> = {
 	[K in keyof TTableMap]: SQLiteTableType<K & string, TTableMap[K]> &
 		TableHelpers<SQLiteTableType<K & string, TTableMap[K]>>;
 };
@@ -549,7 +549,7 @@ type SQLiteTableType<
  *
  * @example
  * ```typescript
- * const blogTables: TableMap = {
+ * const blogTables: PluginTableMap = {
  *   posts: {
  *     id: id(),           // Required: auto-generated ID
  *     title: text(),      // String column
@@ -566,7 +566,7 @@ type SQLiteTableType<
  * // Results in two tables: 'posts' and 'comments'
  * ```
  */
-type TableMap = Record<string, TableWithId>;
+type PluginTableMap = Record<string, TableWithId>;
 
 /**
  * A single table definition that must have an 'id' column created with id().
