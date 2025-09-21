@@ -18,7 +18,14 @@ export type PluginMethod<
 export type QueryMethod<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
-> = BaseMethod<TSchema, TOutput> & { type: 'query' };
+> = {
+	type: 'query';
+	input: TSchema;
+	handler: (
+		input: StandardSchemaV1.InferOutput<TSchema>,
+	) => TOutput | Promise<TOutput>;
+	description?: string;
+};
 
 /**
  * Mutation method structure with schema validation
@@ -26,15 +33,8 @@ export type QueryMethod<
 export type MutationMethod<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
-> = BaseMethod<TSchema, TOutput> & { type: 'mutation' };
-
-/**
- * Base method structure with shared properties
- */
-type BaseMethod<
-	TSchema extends StandardSchemaV1 = StandardSchemaV1,
-	TOutput = unknown,
 > = {
+	type: 'mutation';
 	input: TSchema;
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
