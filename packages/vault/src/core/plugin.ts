@@ -443,9 +443,13 @@ type BuildDependencyNamespaces<TDeps extends readonly Plugin[]> = {
 /**
  * Builds the initial namespace for the current plugin.
  *
- * Provides the foundational namespace with table helper methods before
- * custom methods are defined. Tables come with helper methods like
- * getById, create, update, delete, etc.
+ * Provides the namespace with table helper methods before custom methods are
+ * defined. Tables come with helper methods like getById, create, update,
+ * delete, select, etc., plus access to the underlying Drizzle table instance.
+ *
+ * This allows you to access columns for queries (`api.posts.posts.title`), call
+ * helper methods (`api.posts.posts.getById('123')`), and use the query builder
+ * (`api.posts.posts.select().where(...)`).
  *
  * @template TSelfId - The current plugin's ID
  * @template TTableMap - The current plugin's table definitions
@@ -455,48 +459,13 @@ type BuildInitialPluginNamespace<
 	TTableMap extends PluginTableMap,
 > = {
 	// Current plugin: Get initial methods from tables
-	// Tables come with helper methods like getById, create, update, delete, etc.
-	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
-};
-
-/**
- * Builds enhanced Drizzle tables from plugin table definitions.
- *
- * This type transformation pipeline:
- * 1. Takes simple column definitions from PluginTableMap
- * 2. Converts each to a properly typed SQLite table using SQLiteTableType
- * 3. Enhances each table with CRUD helper methods by adding TableHelpers
- *
- * The result is a set of tables that can be used both for Drizzle queries
- * (accessing columns) and high-level operations (calling helper methods),
- * with complete type safety and IntelliSense support.
- *
- * @template TTableMap - The table schema definitions from a plugin
- *
- * @example
- * ```typescript
- * // Input: Plugin table definitions
- * type BlogTables = {
- *   posts: { id: ReturnType<typeof id>; title: ReturnType<typeof text>; };
- *   comments: { id: ReturnType<typeof id>; content: ReturnType<typeof text>; };
- * }
- *
- * // Output: Tables with both columns and methods
- * type EnhancedBlogTables = BuildEnhancedTables<BlogTables>;
- * // Result: {
- * //   posts: PostsTable & TableHelpers<PostsTable>;
- * //   comments: CommentsTable & TableHelpers<CommentsTable>;
- * // }
- *
- * // Usage in vault context:
- * api.blog.posts.title           // column access
- * api.blog.posts.getById('123')  // method access
- * api.blog.comments.select()     // query builder access
- * ```
- */
-type BuildEnhancedTables<TTableMap extends PluginTableMap> = {
-	[K in keyof TTableMap]: SQLiteTableType<K & string, TTableMap[K]> &
-		TableHelpers<SQLiteTableType<K & string, TTableMap[K]>>;
+	// Each table gets both SQLite table access and helper methods like getById, create, update, delete, etc.
+	[K in TSelfId]: {
+		[TableName in keyof TTableMap]: TableHelpers<
+			SQLiteTableType<TableName & string, TTableMap[TableName]>
+		> &
+			SQLiteTableType<TableName & string, TTableMap[TableName]>;
+	};
 };
 
 /**
