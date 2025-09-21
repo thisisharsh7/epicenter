@@ -6,7 +6,7 @@
   
   onMount(async () => {
     try {
-      const response = await fetch('https://api.github.com/repos/epicenter-so/epicenter');
+      const response = await fetch('https://api.github.com/repos/epicenter-md/epicenter');
       const data = await response.json();
       
       // Format the star count
