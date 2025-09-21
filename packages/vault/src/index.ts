@@ -7,14 +7,14 @@ export {
 	defineMutation,
 	isQuery,
 	isMutation,
-} from './core/method-helpers';
+} from './core/methods';
 export type {
 	QueryMethod,
 	MutationMethod,
 	PluginMethod,
 	InferMethodInput,
 	InferMethodOutput,
-} from './core/method-helpers';
+} from './core/methods';
 
 // Runtime for plugin execution
 export { runPlugin } from './core/runtime';

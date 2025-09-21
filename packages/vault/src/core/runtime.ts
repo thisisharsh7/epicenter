@@ -26,7 +26,7 @@ import type {
 	VaultContext,
 } from '../types/drizzle-helpers';
 import { VaultOperationErr, type VaultOperationError } from './errors';
-import type { PluginMethod } from './method-helpers';
+import type { PluginMethod } from './methods';
 import type { Plugin, TableHelpers } from './plugin';
 
 /**

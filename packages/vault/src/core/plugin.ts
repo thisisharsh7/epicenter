@@ -9,7 +9,7 @@ import type { Result } from 'wellcrafted/result';
 import type { id } from './columns';
 import type { VaultOperationError } from './errors';
 import type { TableSelectBuilder } from '../types/drizzle-helpers';
-import type { PluginMethod } from './method-helpers';
+import type { PluginMethod } from './methods';
 
 /**
  * Define a vault plugin with full type safety and IntelliSense support.
