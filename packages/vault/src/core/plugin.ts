@@ -380,45 +380,14 @@ type VaultContext<
 	TDeps extends readonly Plugin[] = readonly [],
 > = {
 	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
-		? BuildPluginNamespace<TDeps[number]>
+		? BuildEnhancedTables<TDeps[number]['tables']> &
+				ReturnType<TDeps[number]['methods']>
 		: never;
 } & {
 	// The current plugin's tables are added to its namespace
 	// These are properly typed with all column information preserved
 	[K in TSelfId]: BuildEnhancedTables<TTableMap>;
 };
-
-/**
- * Builds the complete namespace for a single plugin (tables + methods).
- *
- * Combines the plugin's enhanced tables with its custom methods into a single
- * namespace. This is what gets mounted at `vault.[pluginId]` in the vault context.
- *
- * @template TPlugin - A plugin conforming to the Plugin type
- *
- * @example
- * ```typescript
- * // For a blog plugin:
- * type BlogNamespace = BuildPluginNamespace<BlogPlugin>;
- * // Result: {
- * //   // Tables (enhanced with helpers)
- * //   posts: EnhancedPostsTable;
- * //   comments: EnhancedCommentsTable;
- * //
- * //   // Custom methods
- * //   getPublishedPosts(): Promise<Post[]>;
- * //   getPostsByAuthor(authorId: string): Promise<Post[]>;
- * // }
- *
- * // Accessed in vault as:
- * vault.blog.posts.getById('123');        // table helper
- * vault.blog.getPublishedPosts();         // custom method
- * ```
- */
-type BuildPluginNamespace<TPlugin extends Plugin> = BuildEnhancedTables<
-	TPlugin['tables']
-> &
-	ReturnType<TPlugin['methods']>;
 
 /**
  * Builds enhanced Drizzle tables from plugin table definitions.
