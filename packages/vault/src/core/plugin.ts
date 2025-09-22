@@ -1,18 +1,16 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import type { BuildColumns } from 'drizzle-orm/column-builder';
 import type {
-	SelectedFields,
 	SQLiteColumnBuilderBase,
+	SQLiteSelectBase,
 	SQLiteTable,
 	SQLiteTableWithColumns,
-	SQLiteSelectBase,
+	SelectedFields,
 } from 'drizzle-orm/sqlite-core';
 import type { Result } from 'wellcrafted/result';
-import { z } from 'zod';
 import type { id } from './columns';
 import type { VaultOperationError } from './errors';
 import type { PluginMethodMap } from './methods';
-import { defineMutation, defineQuery } from './methods';
 
 /**
  * Define a plugin with full type safety and IntelliSense support.

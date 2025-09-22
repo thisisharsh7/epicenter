@@ -3,6 +3,8 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { Result } from 'wellcrafted/result';
+import type { VaultOperationError } from './errors';
 
 /**
  * A collection of plugin methods indexed by method name
@@ -28,7 +30,7 @@ export type QueryMethod<
 	input: TSchema;
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => TOutput | Promise<TOutput>;
+	) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>;
 	description?: string;
 };
 
@@ -43,7 +45,7 @@ export type MutationMethod<
 	input: TSchema;
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => TOutput | Promise<TOutput>;
+	) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>;
 	description?: string;
 };
 
@@ -82,6 +84,24 @@ export type InferMethodOutput<T> = T extends PluginMethod<
 	infer O
 >
 	? O
+	: never;
+
+/**
+ * Type helper to extract the unwrapped output type from a method handler
+ * This unwraps the Result type to get the actual success value type
+ */
+export type InferMethodOutputUnwrapped<T> = T extends PluginMethod<
+	StandardSchemaV1,
+	infer O
+>
+	? O
+	: never;
+
+/**
+ * Type helper to extract the handler function with Result return type
+ */
+export type InferMethodHandler<T> = T extends PluginMethod<infer TSchema, infer TOutput>
+	? (input: StandardSchemaV1.InferOutput<TSchema>) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>
 	: never;
 
 /**

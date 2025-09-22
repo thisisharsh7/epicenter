@@ -174,7 +174,7 @@ function processPluginMethods(methods: PluginMethodMap): PluginMethodMap {
 
 /**
  * Wrap a plugin method to make it directly callable
- * The function validates input and executes the handler
+ * The function validates input, executes the handler, and returns the Result
  */
 function makeMethodDirectlyCallable<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
@@ -184,22 +184,24 @@ function makeMethodDirectlyCallable<
 ): PluginMethod<TSchema, TOutput> &
 	((
 		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => TOutput | Promise<TOutput>) {
+	) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>) {
 	// Create a callable function that validates and executes
-	const callableMethod = (input: StandardSchemaV1.InferOutput<TSchema>) => {
+	const callableMethod = async (input: StandardSchemaV1.InferOutput<TSchema>) => {
 		// Validate input using the schema
-		const result = method.input['~standard'].validate(input);
-		if (result instanceof Promise) {
+		const validationResult = method.input['~standard'].validate(input);
+		if (validationResult instanceof Promise) {
 			throw new TypeError('Schema validation must be synchronous');
 		}
-		if (result.issues) {
+		if (validationResult.issues) {
 			throw new Error(
-				`Validation failed: ${result.issues.map((i) => i.message).join(', ')}`,
+				`Validation failed: ${validationResult.issues.map((i) => i.message).join(', ')}`,
 			);
 		}
 		const validatedInput =
-			result.value as StandardSchemaV1.InferOutput<TSchema>;
-		return method.handler(validatedInput);
+			validationResult.value as StandardSchemaV1.InferOutput<TSchema>;
+
+		// Execute handler and return the Result directly
+		return await method.handler(validatedInput);
 	};
 
 	// Attach the method properties to the function for introspection if needed
