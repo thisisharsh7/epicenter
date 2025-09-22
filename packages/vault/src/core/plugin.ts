@@ -161,11 +161,11 @@ import { defineMutation, defineQuery } from './methods';
  *
  *     // Call dependency's methods
  *     getCommentsForTopPosts: defineQuery({
- *       input: z.object({}),
+ *       input: z.void(),
  *       description: 'Get comments from all top posts',
- *       handler: async ({}) => {
+ *       handler: async () => {
  *         // Call posts plugin method
- *         const topPosts = await api.posts.getTopPosts({});
+ *         const topPosts = await api.posts.getTopPosts();
  *
  *         // Fetch comments for all top posts
  *         const allComments = [];
@@ -230,9 +230,7 @@ export function definePlugin<
 
 	// Return the plugin as-is (it's already properly typed)
 	return plugin;
-}
-
-/**
+} /**
  * Plugin definition with strongly typed API context.
  *
  * A plugin is a self-contained module that defines data tables and business logic.
@@ -252,11 +250,9 @@ export function definePlugin<
  * methods: (api) => ({
  *   // Your plugin's methods go here
  *   doSomething: defineQuery({
- *     input: z.object({
- *       // Define your input schema here
- *     }),
+ *     input: z.void(),
  *     description: 'Does something useful',
- *     handler: async ({}) => {
+ *     handler: async () => {
  *       // Use the api to access tables and other plugins
  *     }
  *   })
@@ -293,9 +289,9 @@ export function definePlugin<
  * // Automatically available in your methods:
  * methods: (api) => ({
  *   exampleUsage: defineQuery({
- *     input: z.object({}),
+ *     input: z.void(),
  *     description: 'Demonstrates various table operations',
- *     handler: async ({}) => {
+ *     handler: async () => {
  *       // Read operations
  *       const post = await api.blog.posts.getById('abc123');
  *       const allPosts = await api.blog.posts.getAll();
@@ -409,17 +405,17 @@ export function definePlugin<
  *   return {
  *     // Public methods that use the helper
  *     getPublishedPosts: defineQuery({
- *       input: z.object({}),
+ *       input: z.void(),
  *       description: 'Get all published posts',
- *       handler: async ({}) => {
+ *       handler: async () => {
  *         return getPostsByStatus('published');
  *       }
  *     }),
  *
  *     getDraftPosts: defineQuery({
- *       input: z.object({}),
+ *       input: z.void(),
  *       description: 'Get all draft posts',
- *       handler: async ({}) => {
+ *       handler: async () => {
  *         return getPostsByStatus('draft');
  *       }
  *     })
@@ -536,9 +532,9 @@ export function definePlugin<
  *     }),
  *
  *     getPostsWithTags: defineQuery({
- *       input: z.object({}),
+ *       input: z.void(),
  *       description: 'Get all posts with their associated tags',
- *       handler: async ({}) => {
+ *       handler: async () => {
  *         // Complex query using multiple tables
  *         const posts = await api.blog.posts.getAll();
  *
