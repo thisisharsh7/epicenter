@@ -1,13 +1,14 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import type { BuildColumns } from 'drizzle-orm/column-builder';
 import type {
+	SelectedFields,
 	SQLiteColumnBuilderBase,
 	SQLiteTable,
 	SQLiteTableWithColumns,
+	SQLiteSelectBase,
 } from 'drizzle-orm/sqlite-core';
 import type { Result } from 'wellcrafted/result';
 import { z } from 'zod';
-import type { TableSelectBuilder } from '../types/drizzle-helpers';
 import type { id } from './columns';
 import type { VaultOperationError } from './errors';
 import type { PluginMethodMap } from './methods';
@@ -29,11 +30,13 @@ import { defineMutation, defineQuery } from './methods';
  * ### Table Helper Methods
  * Every table you define automatically gets a complete set of API methods:
  * - `getById(id)` - Get a single record by ID
- * - `create(data)` - Create a new record
- * - `update(id, data)` - Update an existing record
- * - `delete(id)` - Delete a record
+ * - `getByIds(ids)` - Get multiple records by IDs
+ * - `getAll()` - Get all records from the table
+ * - `count()` - Count total records in the table
+ * - `upsert(data)` - Create or update a record (idempotent)
+ * - `deleteById(id)` - Delete a single record
+ * - `deleteByIds(ids)` - Delete multiple records
  * - `select()` - Access Drizzle query builder for complex queries
- * - And more...
  *
  * ### Dependency Management
  * Plugins can depend on other plugins to access their methods
@@ -111,7 +114,7 @@ import { defineMutation, defineQuery } from './methods';
  *       }),
  *       description: 'Create a new blog post',
  *       handler: async ({ title, author }) => {
- *         return tables.posts.create({
+ *         return tables.posts.upsert({
  *           id: generateId(), // You provide the ID
  *           title,
  *           author,
@@ -186,7 +189,7 @@ import { defineMutation, defineQuery } from './methods';
  *       }),
  *       description: 'Create a new comment on a post',
  *       handler: async ({ postId, author, content }) => {
- *         return tables.comments.create({
+ *         return tables.comments.upsert({
  *           id: generateId(),
  *           postId,
  *           author,
@@ -294,10 +297,12 @@ export function definePlugin<
  *     handler: async () => {
  *       // Read operations
  *       const post = await tables.posts.getById('abc123');
+ *       const posts = await tables.posts.getByIds(['abc123', 'def456']);
  *       const allPosts = await tables.posts.getAll();
+ *       const count = await tables.posts.count();
  *
  *       // Write operations
- *       const newPost = await tables.posts.create({
+ *       const newPost = await tables.posts.upsert({
  *         id: generateId(),
  *         title: 'Hello World',
  *         content: 'This is my first post'
@@ -344,7 +349,7 @@ export function definePlugin<
  *         if (!author) throw new Error('User not found');
  *
  *         // Use our own table helpers
- *         return tables.comments.create({
+ *         return tables.comments.upsert({
  *           id: generateId(),
  *           postId,
  *           authorId,
@@ -377,7 +382,7 @@ export function definePlugin<
  *     handler: async ({ userId, title }) => {
  *       const user = await plugins.users.getUserById({ userId }); // From dependency
  *       if (!user) throw new Error('User not found');
- *       return tables.posts.create({
+ *       return tables.posts.upsert({
  *         id: generateId(),
  *         title,
  *         authorId: userId,
@@ -452,7 +457,7 @@ export function definePlugin<
  *       }),
  *       description: 'Create a new tag with optional color',
  *       handler: async ({ name, color }) => {
- *         return tables.tags.create({
+ *         return tables.tags.upsert({
  *           id: generateId(),
  *           name,
  *           color: color || null
@@ -505,7 +510,7 @@ export function definePlugin<
  *       description: 'Create a new post with tags',
  *       handler: async ({ title, content, tagNames }) => {
  *         // Create the post
- *         const post = await tables.posts.create({
+ *         const post = await tables.posts.upsert({
  *           id: generateId(),
  *           title,
  *           content,
@@ -520,7 +525,7 @@ export function definePlugin<
  *             tag = await plugins.tags.createTag({ name: tagName }); // Dependency method
  *           }
  *
- *           await tables.postTags.create({
+ *           await tables.postTags.upsert({
  *             id: generateId(),
  *             postId: post.id,
  *             tagId: tag.id
@@ -592,10 +597,16 @@ export type Plugin<
  * ```typescript
  * // Every table gets these methods automatically:
  * const post = await tables.posts.getById('abc123');
+ * const posts = await tables.posts.getByIds(['abc123', 'def456']);
  * const allPosts = await tables.posts.getAll();
- * const created = await tables.posts.create({ id: 'xyz', title: 'Hello' });
- * const updated = await tables.posts.update('abc123', { title: 'Updated' });
- * const deleted = await tables.posts.delete('abc123');
+ * const count = await tables.posts.count();
+ *
+ * // Create or update with upsert:
+ * const upserted = await tables.posts.upsert({ id: 'xyz', title: 'Hello' });
+ *
+ * // Delete operations:
+ * const deleted = await tables.posts.deleteById('abc123'); // returns boolean
+ * const deletedCount = await tables.posts.deleteByIds(['abc123', 'def456']); // returns count
  *
  * // Plus access to Drizzle query builder:
  * const published = await tables.posts
@@ -605,41 +616,55 @@ export type Plugin<
  * ```
  */
 export type TableHelpers<T extends SQLiteTable> = {
-	// Fast read operations (from SQLite)
+	// Read operations
 	getById(
 		id: string,
 	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
-	findById(
-		id: string,
-	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>; // Alias for getById
-	get(
-		id: string,
-	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
-	get(
+	getByIds(
 		ids: string[],
 	): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
 	getAll(): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
 	count(): Promise<Result<number, VaultOperationError>>;
 
 	// Write operations (sync to both SQLite and markdown)
-	create(
-		data: InferInsertModel<T> & { id: string },
-	): Promise<Result<InferSelectModel<T>, VaultOperationError>>;
-	create(
-		data: (InferInsertModel<T> & { id: string })[],
-	): Promise<Result<InferSelectModel<T>[], VaultOperationError>>;
-	update(
-		id: string,
-		data: Partial<InferInsertModel<T>>,
-	): Promise<Result<InferSelectModel<T> | null, VaultOperationError>>;
-	delete(id: string): Promise<Result<boolean, VaultOperationError>>;
-	delete(ids: string[]): Promise<Result<boolean, VaultOperationError>>;
 	upsert(
 		data: InferInsertModel<T> & { id: string },
 	): Promise<Result<InferSelectModel<T>, VaultOperationError>>;
+	deleteById(id: string): Promise<Result<boolean, VaultOperationError>>;
+	deleteByIds(ids: string[]): Promise<Result<number, VaultOperationError>>;
 
-	// Drizzle query builder for advanced queries
-	select(): TableSelectBuilder<T>;
+	/**
+	 * Creates a select query builder for this table.
+	 *
+	 * Calling this method with no arguments will select all columns from the table.
+	 * Pass a selection object to specify which columns you want to select.
+	 *
+	 * Returns the equivalent of `db.select().from(table)` or `db.select(fields).from(table)`.
+	 *
+	 * @param fields Optional selection object to specify which columns to select
+	 *
+	 * @example
+	 * ```typescript
+	 * // Select all columns
+	 * const allPosts = await tables.posts.select().where(gt(tables.posts.score, 10)).all();
+	 *
+	 * // Select specific columns
+	 * const postTitles = await tables.posts
+	 *   .select({ id: tables.posts.id, title: tables.posts.title })
+	 *   .where(isNotNull(tables.posts.publishedAt))
+	 *   .all();
+	 * ```
+	 */
+	select(): SQLiteSelectBase<
+		T['_']['name'],
+		'async',
+		unknown,
+		InferSelectModel<T>,
+		'single'
+	>;
+	select<TSelection extends SelectedFields>(
+		fields: TSelection,
+	): SQLiteSelectBase<T['_']['name'], 'async', unknown, TSelection, 'partial'>;
 };
 
 /**

@@ -1,5 +1,9 @@
 import { createClient } from '@libsql/client';
-import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import type {
+	InferInsertModel,
+	InferSelectModel,
+	SelectedFields,
+} from 'drizzle-orm';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import {
@@ -120,14 +124,14 @@ async function initializePlugin(
 		);
 	}
 
-	// Build plugin API for this plugin
-	const api: PluginAPI = {
-		...dependencies,
-		[plugin.id]: tables,
+	// Build plugin context for this plugin
+	const context = {
+		plugins: dependencies,
+		tables: tables,
 	};
 
 	// Initialize plugin methods
-	const rawMethods = plugin.methods(api);
+	const rawMethods = plugin.methods(context);
 
 	// Process methods to add execute wrapper
 	const methods = processPluginMethods(rawMethods);
@@ -205,7 +209,7 @@ function makeMethodDirectlyCallable<
 /**
  * Create table helpers for a given table
  */
-function createTableHelpers<T extends SQLiteTable>(
+function createTableHelpers<T extends TableWithId>(
 	db: LibSQLDatabase,
 	storage: RuntimeContext['storage'],
 	table: T,
@@ -215,45 +219,40 @@ function createTableHelpers<T extends SQLiteTable>(
 		async getById(
 			id: string,
 		): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
-			return this.get(id);
-		},
-
-		async findById(
-			id: string,
-		): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
-			return this.get(id);
-		},
-
-		async get(
-			idOrIds: string | string[],
-		): Promise<
-			Result<
-				InferSelectModel<T> | null | InferSelectModel<T>[],
-				VaultOperationError
-			>
-		> {
 			return tryAsync({
 				try: async () => {
-					if (Array.isArray(idOrIds)) {
-						return db
-							.select()
-							.from(table)
-							.where(inArray((table as TableWithId).id, idOrIds))
-							.all();
-					}
-
 					const [record] = await db
 						.select()
 						.from(table)
-						.where(eq((table as TableWithId).id, idOrIds))
+						.where(eq(table.id, id))
 						.limit(1);
 
-					return record || null;
+					return record ?? null;
 				},
 				catch: (error) =>
 					VaultOperationErr({
-						message: `Failed to get record(s) from table ${tableName}`,
-						context: { tableName, idOrIds },
+						message: `Failed to get record from table ${tableName}`,
+						context: { tableName, id },
+						cause: error,
+					}),
+			});
+		},
+
+		async getByIds(
+			ids: string[],
+		): Promise<Result<InferSelectModel<T>[], VaultOperationError>> {
+			return tryAsync({
+				try: async () => {
+					return db
+						.select()
+						.from(table)
+						.where(inArray((table as TableWithId).id, ids))
+						.all();
+				},
+				catch: (error) =>
+					VaultOperationErr({
+						message: `Failed to get records from table ${tableName}`,
+						context: { tableName, ids },
 						cause: error,
 					}),
 			});
@@ -293,90 +292,98 @@ function createTableHelpers<T extends SQLiteTable>(
 			});
 		},
 
-		async create(
-			data:
-				| (InferInsertModel<T> & { id: string })
-				| (InferInsertModel<T> & { id: string })[],
-		): Promise<
-			Result<InferSelectModel<T> | InferSelectModel<T>[], VaultOperationError>
-		> {
+		async upsert(
+			data: InferInsertModel<T> & { id: string },
+		): Promise<Result<InferSelectModel<T>, VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
-					const isArray = Array.isArray(data);
-					const items = isArray ? data : [data];
+					// Try update first, then insert if not found
+					const existing = await this.getById(data.id);
 
-					// Try to write to storage first if configured
-					if (storage.path) {
-						for (const item of items) {
+					if (existing.data) {
+						// Update existing record
+						const [updated] = await db
+							.update(table)
+							.set(data)
+							.where(eq((table as TableWithId).id, data.id))
+							.returning();
+
+						if (updated && storage.path) {
 							try {
-								await storage.write(tableName, item.id, item);
+								await storage.update(tableName, data.id, updated);
 							} catch (error) {
 								console.warn(
-									`Warning writing to storage for ${tableName}/${item.id}:`,
+									`Warning updating storage for ${tableName}/${data.id}:`,
 									error,
 								);
 							}
 						}
+
+						return updated;
+					}
+					// Create new record
+					if (storage.path) {
+						try {
+							await storage.write(tableName, data.id, data);
+						} catch (error) {
+							console.warn(
+								`Warning writing to storage for ${tableName}/${data.id}:`,
+								error,
+							);
+						}
 					}
 
-					// Insert into SQLite
-					const inserted = await db
-						.insert(table)
-						.values(items)
-						.returning()
-						.all();
-					return isArray ? inserted : inserted[0];
+					const [inserted] = await db.insert(table).values(data).returning();
+
+					return inserted;
 				},
 				catch: (error) =>
 					VaultOperationErr({
-						message: `Failed to create record(s) in table ${tableName}`,
+						message: `Failed to upsert record in table ${tableName}`,
 						context: { tableName, data },
 						cause: error,
 					}),
 			});
 		},
 
-		async update(
+		async deleteById(
 			id: string,
-			data: Partial<InferInsertModel<T>>,
-		): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
+		): Promise<Result<boolean, VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
-					const [updated] = await db
-						.update(table)
-						.set(data)
-						.where(eq((table as TableWithId).id, id))
-						.returning();
-
-					if (updated && storage.path) {
+					// Try to delete from storage first if configured
+					if (storage.path) {
 						try {
-							await storage.update(tableName, id, updated);
+							await storage.delete(tableName, id);
 						} catch (error) {
 							console.warn(
-								`Warning updating storage for ${tableName}/${id}:`,
+								`Warning deleting from storage ${tableName}/${id}:`,
 								error,
 							);
 						}
 					}
 
-					return updated || null;
+					const result = (await db
+						.delete(table)
+						.where(eq((table as TableWithId).id, id))
+						.run()) as AffectedRowsResult;
+
+					return result.rowsAffected > 0;
 				},
 				catch: (error) =>
 					VaultOperationErr({
-						message: `Failed to update record ${id} in table ${tableName}`,
-						context: { tableName, id, data },
+						message: `Failed to delete record from table ${tableName}`,
+						context: { tableName, id },
 						cause: error,
 					}),
 			});
 		},
 
-		async delete(
-			idOrIds: string | string[],
-		): Promise<Result<boolean, VaultOperationError>> {
+		async deleteByIds(
+			ids: string[],
+		): Promise<Result<number, VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
-					const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
-
 					// Try to delete from storage first if configured
 					if (storage.path) {
 						for (const id of ids) {
@@ -396,46 +403,19 @@ function createTableHelpers<T extends SQLiteTable>(
 						.where(inArray((table as TableWithId).id, ids))
 						.run()) as AffectedRowsResult;
 
-					return result.rowsAffected > 0;
+					return result.rowsAffected;
 				},
 				catch: (error) =>
 					VaultOperationErr({
-						message: `Failed to delete record(s) from table ${tableName}`,
-						context: { tableName, idOrIds },
+						message: `Failed to delete records from table ${tableName}`,
+						context: { tableName, ids },
 						cause: error,
 					}),
 			});
 		},
 
-		async upsert(
-			data: InferInsertModel<T> & { id: string },
-		): Promise<Result<InferSelectModel<T>, VaultOperationError>> {
-			return tryAsync({
-				try: async () => {
-					// Try update first, then insert if not found
-					const existing = await this.get(data.id);
-
-					if (existing.data) {
-						const updated = await this.update(data.id, data);
-						if (updated.error) throw updated.error;
-						return updated.data!;
-					} else {
-						const created = await this.create(data);
-						if (created.error) throw created.error;
-						return created.data;
-					}
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to upsert record in table ${tableName}`,
-						context: { tableName, data },
-						cause: error,
-					}),
-			});
-		},
-
-		select() {
-			return db.select().from(table);
+		select(fields?: any) {
+			return fields ? db.select(fields).from(table) : db.select().from(table);
 		},
 	};
 
