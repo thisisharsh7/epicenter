@@ -60,17 +60,17 @@ import { defineMutation, defineQuery } from './methods';
  *     }
  *   },
  *
- *   methods: (api) => ({
- *     // Access own tables via api.posts.posts
+ *   methods: ({ plugins, tables }) => ({
+ *     // Access own tables via tables.posts
  *     getTopPosts: defineQuery({
  *       input: z.object({
  *         limit: z.number().optional().default(10)
  *       }),
  *       description: 'Get the top posts ordered by score',
  *       handler: async ({ limit }) => {
- *         return api.posts.posts
+ *         return tables.posts
  *           .select()
- *           .orderBy(desc(api.posts.posts.score))
+ *           .orderBy(desc(tables.posts.score))
  *           .limit(limit)
  *           .all();
  *       }
@@ -83,7 +83,7 @@ import { defineMutation, defineQuery } from './methods';
  *       }),
  *       description: 'Get a single post by its ID',
  *       handler: async ({ postId }) => {
- *         return api.posts.posts.getById(postId);
+ *         return tables.posts.getById(postId);
  *       }
  *     }),
  *
@@ -94,11 +94,11 @@ import { defineMutation, defineQuery } from './methods';
  *       }),
  *       description: 'Get a post with all its comments',
  *       handler: async ({ postId }) => {
- *         const post = await api.posts.posts.getById(postId);
+ *         const post = await tables.posts.getById(postId);
  *         if (!post) return null;
  *
  *         // Call methods from the comments plugin
- *         const comments = await api.comments.getCommentsForPost({ postId });
+ *         const comments = await plugins.comments.getCommentsForPost({ postId });
  *         return { ...post, comments };
  *       }
  *     }),
@@ -111,7 +111,7 @@ import { defineMutation, defineQuery } from './methods';
  *       }),
  *       description: 'Create a new blog post',
  *       handler: async ({ title, author }) => {
- *         return api.posts.posts.create({
+ *         return tables.posts.create({
  *           id: generateId(), // You provide the ID
  *           title,
  *           author,
@@ -138,7 +138,7 @@ import { defineMutation, defineQuery } from './methods';
  *     }
  *   },
  *
- *   methods: (api) => ({
+ *   methods: ({ plugins, tables }) => ({
  *     // Access dependency methods
  *     getCommentsForPost: defineQuery({
  *       input: z.object({
@@ -147,14 +147,14 @@ import { defineMutation, defineQuery } from './methods';
  *       description: 'Get all comments for a specific post',
  *       handler: async ({ postId }) => {
  *         // Call posts plugin method to verify post exists
- *         const post = await api.posts.getPostById({ postId });
+ *         const post = await plugins.posts.getPostById({ postId });
  *         if (!post) return [];
  *
  *         // Use own tables with query builder
- *         return api.comments.comments
+ *         return tables.comments
  *           .select()
- *           .where(eq(api.comments.comments.postId, postId))
- *           .orderBy(desc(api.comments.comments.createdAt))
+ *           .where(eq(tables.comments.postId, postId))
+ *           .orderBy(desc(tables.comments.createdAt))
  *           .all();
  *       }
  *     }),
@@ -165,12 +165,12 @@ import { defineMutation, defineQuery } from './methods';
  *       description: 'Get comments from all top posts',
  *       handler: async () => {
  *         // Call posts plugin method
- *         const topPosts = await api.posts.getTopPosts();
+ *         const topPosts = await plugins.posts.getTopPosts();
  *
  *         // Fetch comments for all top posts
  *         const allComments = [];
  *         for (const post of topPosts) {
- *           const comments = await api.comments.getCommentsForPost({ postId: post.id });
+ *           const comments = await plugins.comments.getCommentsForPost({ postId: post.id });
  *           allComments.push(...comments);
  *         }
  *         return allComments;
@@ -186,7 +186,7 @@ import { defineMutation, defineQuery } from './methods';
  *       }),
  *       description: 'Create a new comment on a post',
  *       handler: async ({ postId, author, content }) => {
- *         return api.comments.comments.create({
+ *         return tables.comments.create({
  *           id: generateId(),
  *           postId,
  *           author,
@@ -247,13 +247,13 @@ export function definePlugin<
  * parameter and returns an object containing your plugin's functionality.
  *
  * ```typescript
- * methods: (api) => ({
+ * methods: ({ plugins, tables }) => ({
  *   // Your plugin's methods go here
  *   doSomething: defineQuery({
  *     input: z.void(),
  *     description: 'Does something useful',
  *     handler: async () => {
- *       // Use the api to access tables and other plugins
+ *       // Use plugins and tables to access other plugins and own tables
  *     }
  *   })
  * })
@@ -268,7 +268,7 @@ export function definePlugin<
  *
  * **1. Dependency Plugin Methods**
  * Every plugin listed in your `dependencies` array contributes its methods to your API.
- * If you depend on a `users` plugin, you can call `api.users.getAllUsers()`.
+ * If you depend on a `users` plugin, you can call `plugins.users.getAllUsers()`.
  *
  * **2. Table Helper Methods**
  * Every table you define in `tables` gets a complete set of helper methods automatically.
@@ -287,27 +287,27 @@ export function definePlugin<
  * }
  *
  * // Automatically available in your methods:
- * methods: (api) => ({
+ * methods: ({ plugins, tables }) => ({
  *   exampleUsage: defineQuery({
  *     input: z.void(),
  *     description: 'Demonstrates various table operations',
  *     handler: async () => {
  *       // Read operations
- *       const post = await api.blog.posts.getById('abc123');
- *       const allPosts = await api.blog.posts.getAll();
+ *       const post = await tables.posts.getById('abc123');
+ *       const allPosts = await tables.posts.getAll();
  *
  *       // Write operations
- *       const newPost = await api.blog.posts.create({
+ *       const newPost = await tables.posts.create({
  *         id: generateId(),
  *         title: 'Hello World',
  *         content: 'This is my first post'
  *       });
  *
  *       // Complex queries (full Drizzle power)
- *       const recentPosts = await api.blog.posts
+ *       const recentPosts = await tables.posts
  *         .select()
- *         .where(gt(api.blog.posts.createdAt, lastWeek))
- *         .orderBy(desc(api.blog.posts.createdAt))
+ *         .where(gt(tables.posts.createdAt, lastWeek))
+ *         .orderBy(desc(tables.posts.createdAt))
  *         .limit(10)
  *         .all();
  *
@@ -330,7 +330,7 @@ export function definePlugin<
  *   id: 'comments',
  *   dependencies: [usersPlugin], // Now we can use user methods
  *
- *   methods: (api) => ({
+ *   methods: ({ plugins, tables }) => ({
  *     createComment: defineMutation({
  *       input: z.object({
  *         postId: z.string(),
@@ -340,11 +340,11 @@ export function definePlugin<
  *       description: 'Create a new comment with user validation',
  *       handler: async ({ postId, authorId, content }) => {
  *         // Use dependency method to validate user exists
- *         const author = await api.users.getUserById({ userId: authorId });
+ *         const author = await plugins.users.getUserById({ userId: authorId });
  *         if (!author) throw new Error('User not found');
  *
  *         // Use our own table helpers
- *         return api.comments.comments.create({
+ *         return tables.comments.create({
  *           id: generateId(),
  *           postId,
  *           authorId,
@@ -363,9 +363,9 @@ export function definePlugin<
  * You can re-export methods from dependencies alongside your own:
  *
  * ```typescript
- * methods: (api) => ({
+ * methods: ({ plugins, tables }) => ({
  *   // Spread dependency methods to expose them
- *   ...api.users,
+ *   ...plugins.users,
  *
  *   // Add your own methods
  *   createUserPost: defineMutation({
@@ -375,9 +375,9 @@ export function definePlugin<
  *     }),
  *     description: 'Create a post for a specific user',
  *     handler: async ({ userId, title }) => {
- *       const user = await api.users.getUserById({ userId }); // From dependency
+ *       const user = await plugins.users.getUserById({ userId }); // From dependency
  *       if (!user) throw new Error('User not found');
- *       return api.blog.posts.create({
+ *       return tables.posts.create({
  *         id: generateId(),
  *         title,
  *         authorId: userId,
@@ -393,12 +393,12 @@ export function definePlugin<
  * Define reusable helpers within your plugin scope:
  *
  * ```typescript
- * methods: (api) => {
+ * methods: ({ plugins, tables }) => {
  *   // Internal helper (not exported)
  *   const getPostsByStatus = async (status: string) => {
- *     return api.blog.posts
+ *     return tables.posts
  *       .select()
- *       .where(eq(api.blog.posts.status, status))
+ *       .where(eq(tables.posts.status, status))
  *       .all();
  *   };
  *
@@ -443,7 +443,7 @@ export function definePlugin<
  *     }
  *   },
  *
- *   methods: (api) => ({
+ *   methods: ({ plugins, tables }) => ({
  *     // Use table helpers
  *     createTag: defineMutation({
  *       input: z.object({
@@ -452,7 +452,7 @@ export function definePlugin<
  *       }),
  *       description: 'Create a new tag with optional color',
  *       handler: async ({ name, color }) => {
- *         return api.tags.tags.create({
+ *         return tables.tags.create({
  *           id: generateId(),
  *           name,
  *           color: color || null
@@ -466,9 +466,9 @@ export function definePlugin<
  *       }),
  *       description: 'Find a tag by its name',
  *       handler: async ({ name }) => {
- *         return api.tags.tags
+ *         return tables.tags
  *           .select()
- *           .where(eq(api.tags.tags.name, name))
+ *           .where(eq(tables.tags.name, name))
  *           .get();
  *       }
  *     })
@@ -495,7 +495,7 @@ export function definePlugin<
  *     }
  *   },
  *
- *   methods: (api) => ({
+ *   methods: ({ plugins, tables }) => ({
  *     createPost: defineMutation({
  *       input: z.object({
  *         title: z.string().min(1),
@@ -505,7 +505,7 @@ export function definePlugin<
  *       description: 'Create a new post with tags',
  *       handler: async ({ title, content, tagNames }) => {
  *         // Create the post
- *         const post = await api.blog.posts.create({
+ *         const post = await tables.posts.create({
  *           id: generateId(),
  *           title,
  *           content,
@@ -515,12 +515,12 @@ export function definePlugin<
  *
  *         // Create tags and associations using dependency methods
  *         for (const tagName of tagNames) {
- *           let tag = await api.tags.getTagByName({ name: tagName }); // Dependency method
+ *           let tag = await plugins.tags.getTagByName({ name: tagName }); // Dependency method
  *           if (!tag) {
- *             tag = await api.tags.createTag({ name: tagName }); // Dependency method
+ *             tag = await plugins.tags.createTag({ name: tagName }); // Dependency method
  *           }
  *
- *           await api.blog.postTags.create({
+ *           await tables.postTags.create({
  *             id: generateId(),
  *             postId: post.id,
  *             tagId: tag.id
@@ -536,18 +536,18 @@ export function definePlugin<
  *       description: 'Get all posts with their associated tags',
  *       handler: async () => {
  *         // Complex query using multiple tables
- *         const posts = await api.blog.posts.getAll();
+ *         const posts = await tables.posts.getAll();
  *
  *         return Promise.all(
  *           posts.map(async (post) => {
- *             const postTagLinks = await api.blog.postTags
+ *             const postTagLinks = await tables.postTags
  *               .select()
- *               .where(eq(api.blog.postTags.postId, post.id))
+ *               .where(eq(tables.postTags.postId, post.id))
  *               .all();
  *
  *             const tags = await Promise.all(
  *               postTagLinks.map(link =>
- *                 api.tags.tags.getById(link.tagId)
+ *                 plugins.tags.tags.getById(link.tagId)
  *               )
  *             );
  *
@@ -569,10 +569,10 @@ export type Plugin<
 	id: TId;
 	dependencies?: TDeps;
 	tables: TTableMap;
-	methods: (
-		api: BuildDependencyNamespaces<TDeps> &
-			BuildInitialPluginNamespace<TId, TTableMap>,
-	) => TMethodMap;
+	methods: (context: {
+		plugins: DependencyPluginsAPI<TDeps>;
+		tables: PluginTablesAPI<TTableMap>;
+	}) => TMethodMap;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;
@@ -591,16 +591,16 @@ export type Plugin<
  * @example
  * ```typescript
  * // Every table gets these methods automatically:
- * const post = await api.posts.posts.getById('abc123');
- * const allPosts = await api.posts.posts.getAll();
- * const created = await api.posts.posts.create({ id: 'xyz', title: 'Hello' });
- * const updated = await api.posts.posts.update('abc123', { title: 'Updated' });
- * const deleted = await api.posts.posts.delete('abc123');
+ * const post = await tables.posts.getById('abc123');
+ * const allPosts = await tables.posts.getAll();
+ * const created = await tables.posts.create({ id: 'xyz', title: 'Hello' });
+ * const updated = await tables.posts.update('abc123', { title: 'Updated' });
+ * const deleted = await tables.posts.delete('abc123');
  *
  * // Plus access to Drizzle query builder:
- * const published = await api.posts.posts
+ * const published = await tables.posts
  *   .select()
- *   .where(isNotNull(api.posts.posts.publishedAt))
+ *   .where(isNotNull(tables.posts.publishedAt))
  *   .all();
  * ```
  */
@@ -643,15 +643,15 @@ export type TableHelpers<T extends SQLiteTable> = {
 };
 
 /**
- * Builds namespaces for dependency plugins.
+ * API surface for dependency plugins.
  *
  * Aggregates the finalized methods from all dependency plugins into their
  * respective namespaces. Each dependency plugin's methods are accessible
- * via `api.[dependencyId].[methodName]()`.
+ * via `plugins.[dependencyId].[methodName]()`.
  *
  * @template TDeps - Array of dependency plugins
  */
-type BuildDependencyNamespaces<TDeps extends readonly Plugin[]> = {
+type DependencyPluginsAPI<TDeps extends readonly Plugin[]> = {
 	// Dependencies: Get their methods
 	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
 		? ExtractHandlers<ReturnType<TDeps[number]['methods']>>
@@ -659,31 +659,25 @@ type BuildDependencyNamespaces<TDeps extends readonly Plugin[]> = {
 };
 
 /**
- * Builds the initial namespace for the current plugin.
+ * API surface for plugin's own tables.
  *
- * Provides the namespace with table helper methods before custom methods are
- * defined. Tables come with helper methods like getById, create, update,
- * delete, select, etc., plus access to the underlying Drizzle table instance.
+ * Provides direct access to table helper methods without plugin ID nesting.
+ * Tables come with helper methods like getById, create, update, delete, select,
+ * etc., plus access to the underlying Drizzle table instance.
  *
- * This allows you to access columns for queries (`api.posts.posts.title`), call
- * helper methods (`api.posts.posts.getById('123')`), and use the query builder
- * (`api.posts.posts.select().where(...)`).
+ * This allows you to access columns for queries (`tables.posts.title`), call
+ * helper methods (`tables.posts.getById('123')`), and use the query builder
+ * (`tables.posts.select().where(...)`).
  *
- * @template TSelfId - The current plugin's ID
  * @template TTableMap - The current plugin's table definitions
  */
-type BuildInitialPluginNamespace<
-	TSelfId extends string,
-	TTableMap extends PluginTableMap,
-> = {
+type PluginTablesAPI<TTableMap extends PluginTableMap> = {
 	// Current plugin: Get initial methods from tables
 	// Each table gets both SQLite table access and helper methods like getById, create, update, delete, etc.
-	[K in TSelfId]: {
-		[TableName in keyof TTableMap]: TableHelpers<
-			SQLiteTableType<TableName & string, TTableMap[TableName]>
-		> &
-			SQLiteTableType<TableName & string, TTableMap[TableName]>;
-	};
+	[TableName in keyof TTableMap]: TableHelpers<
+		SQLiteTableType<TableName & string, TTableMap[TableName]>
+	> &
+		SQLiteTableType<TableName & string, TTableMap[TableName]>;
 };
 
 /**
