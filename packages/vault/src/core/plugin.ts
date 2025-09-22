@@ -67,11 +67,11 @@ import { defineMutation, defineQuery } from './methods';
  *         limit: z.number().optional().default(10)
  *       }),
  *       description: 'Get the top posts ordered by score',
- *       handler: async (input) => {
+ *       handler: async ({ limit }) => {
  *         return api.posts.posts
  *           .select()
  *           .orderBy(desc(api.posts.posts.score))
- *           .limit(input.limit)
+ *           .limit(limit)
  *           .all();
  *       }
  *     }),
@@ -82,8 +82,8 @@ import { defineMutation, defineQuery } from './methods';
  *         postId: z.string()
  *       }),
  *       description: 'Get a single post by its ID',
- *       handler: async (input) => {
- *         return api.posts.posts.getById(input.postId);
+ *       handler: async ({ postId }) => {
+ *         return api.posts.posts.getById(postId);
  *       }
  *     }),
  *
@@ -93,12 +93,12 @@ import { defineMutation, defineQuery } from './methods';
  *         postId: z.string()
  *       }),
  *       description: 'Get a post with all its comments',
- *       handler: async (input) => {
- *         const post = await api.posts.posts.getById(input.postId);
+ *       handler: async ({ postId }) => {
+ *         const post = await api.posts.posts.getById(postId);
  *         if (!post) return null;
  *
  *         // Call methods from the comments plugin
- *         const comments = await api.comments.getCommentsForPost({ postId: input.postId });
+ *         const comments = await api.comments.getCommentsForPost({ postId });
  *         return { ...post, comments };
  *       }
  *     }),
@@ -110,11 +110,11 @@ import { defineMutation, defineQuery } from './methods';
  *         author: z.string().min(1)
  *       }),
  *       description: 'Create a new blog post',
- *       handler: async (input) => {
+ *       handler: async ({ title, author }) => {
  *         return api.posts.posts.create({
  *           id: generateId(), // You provide the ID
- *           title: input.title,
- *           author: input.author,
+ *           title,
+ *           author,
  *           score: 0,
  *           publishedAt: null
  *         });
@@ -145,15 +145,15 @@ import { defineMutation, defineQuery } from './methods';
  *         postId: z.string()
  *       }),
  *       description: 'Get all comments for a specific post',
- *       handler: async (input) => {
+ *       handler: async ({ postId }) => {
  *         // Call posts plugin method to verify post exists
- *         const post = await api.posts.getPostById({ postId: input.postId });
+ *         const post = await api.posts.getPostById({ postId });
  *         if (!post) return [];
  *
  *         // Use own tables with query builder
  *         return api.comments.comments
  *           .select()
- *           .where(eq(api.comments.comments.postId, input.postId))
+ *           .where(eq(api.comments.comments.postId, postId))
  *           .orderBy(desc(api.comments.comments.createdAt))
  *           .all();
  *       }
@@ -163,7 +163,7 @@ import { defineMutation, defineQuery } from './methods';
  *     getCommentsForTopPosts: defineQuery({
  *       input: z.object({}),
  *       description: 'Get comments from all top posts',
- *       handler: async (input) => {
+ *       handler: async ({}) => {
  *         // Call posts plugin method
  *         const topPosts = await api.posts.getTopPosts({});
  *
@@ -185,12 +185,12 @@ import { defineMutation, defineQuery } from './methods';
  *         content: z.string().min(1)
  *       }),
  *       description: 'Create a new comment on a post',
- *       handler: async (input) => {
+ *       handler: async ({ postId, author, content }) => {
  *         return api.comments.comments.create({
  *           id: generateId(),
- *           postId: input.postId,
- *           author: input.author,
- *           content: input.content,
+ *           postId,
+ *           author,
+ *           content,
  *           createdAt: new Date()
  *         });
  *       }
@@ -256,7 +256,7 @@ export function definePlugin<
  *       // Define your input schema here
  *     }),
  *     description: 'Does something useful',
- *     handler: async (input) => {
+ *     handler: async ({}) => {
  *       // Use the api to access tables and other plugins
  *     }
  *   })
@@ -295,7 +295,7 @@ export function definePlugin<
  *   exampleUsage: defineQuery({
  *     input: z.object({}),
  *     description: 'Demonstrates various table operations',
- *     handler: async (input) => {
+ *     handler: async ({}) => {
  *       // Read operations
  *       const post = await api.blog.posts.getById('abc123');
  *       const allPosts = await api.blog.posts.getAll();
@@ -342,17 +342,17 @@ export function definePlugin<
  *         content: z.string().min(1)
  *       }),
  *       description: 'Create a new comment with user validation',
- *       handler: async (input) => {
+ *       handler: async ({ postId, authorId, content }) => {
  *         // Use dependency method to validate user exists
- *         const author = await api.users.getUserById({ userId: input.authorId });
+ *         const author = await api.users.getUserById({ userId: authorId });
  *         if (!author) throw new Error('User not found');
  *
  *         // Use our own table helpers
  *         return api.comments.comments.create({
  *           id: generateId(),
- *           postId: input.postId,
- *           authorId: input.authorId,
- *           content: input.content,
+ *           postId,
+ *           authorId,
+ *           content,
  *           createdAt: new Date()
  *         });
  *       }
@@ -378,13 +378,13 @@ export function definePlugin<
  *       title: z.string().min(1)
  *     }),
  *     description: 'Create a post for a specific user',
- *     handler: async (input) => {
- *       const user = await api.users.getUserById({ userId: input.userId }); // From dependency
+ *     handler: async ({ userId, title }) => {
+ *       const user = await api.users.getUserById({ userId }); // From dependency
  *       if (!user) throw new Error('User not found');
  *       return api.blog.posts.create({
  *         id: generateId(),
- *         title: input.title,
- *         authorId: input.userId,
+ *         title,
+ *         authorId: userId,
  *         content: '',
  *         publishedAt: null
  *       }); // From own tables
@@ -411,7 +411,7 @@ export function definePlugin<
  *     getPublishedPosts: defineQuery({
  *       input: z.object({}),
  *       description: 'Get all published posts',
- *       handler: async (input) => {
+ *       handler: async ({}) => {
  *         return getPostsByStatus('published');
  *       }
  *     }),
@@ -419,7 +419,7 @@ export function definePlugin<
  *     getDraftPosts: defineQuery({
  *       input: z.object({}),
  *       description: 'Get all draft posts',
- *       handler: async (input) => {
+ *       handler: async ({}) => {
  *         return getPostsByStatus('draft');
  *       }
  *     })
@@ -455,11 +455,11 @@ export function definePlugin<
  *         color: z.string().optional()
  *       }),
  *       description: 'Create a new tag with optional color',
- *       handler: async (input) => {
+ *       handler: async ({ name, color }) => {
  *         return api.tags.tags.create({
  *           id: generateId(),
- *           name: input.name,
- *           color: input.color || null
+ *           name,
+ *           color: color || null
  *         });
  *       }
  *     }),
@@ -469,10 +469,10 @@ export function definePlugin<
  *         name: z.string()
  *       }),
  *       description: 'Find a tag by its name',
- *       handler: async (input) => {
+ *       handler: async ({ name }) => {
  *         return api.tags.tags
  *           .select()
- *           .where(eq(api.tags.tags.name, input.name))
+ *           .where(eq(api.tags.tags.name, name))
  *           .get();
  *       }
  *     })
@@ -507,18 +507,18 @@ export function definePlugin<
  *         tagNames: z.array(z.string())
  *       }),
  *       description: 'Create a new post with tags',
- *       handler: async (input) => {
+ *       handler: async ({ title, content, tagNames }) => {
  *         // Create the post
  *         const post = await api.blog.posts.create({
  *           id: generateId(),
- *           title: input.title,
- *           content: input.content,
+ *           title,
+ *           content,
  *           authorId: 'current-user',
  *           publishedAt: null
  *         });
  *
  *         // Create tags and associations using dependency methods
- *         for (const tagName of input.tagNames) {
+ *         for (const tagName of tagNames) {
  *           let tag = await api.tags.getTagByName({ name: tagName }); // Dependency method
  *           if (!tag) {
  *             tag = await api.tags.createTag({ name: tagName }); // Dependency method
@@ -538,7 +538,7 @@ export function definePlugin<
  *     getPostsWithTags: defineQuery({
  *       input: z.object({}),
  *       description: 'Get all posts with their associated tags',
- *       handler: async (input) => {
+ *       handler: async ({}) => {
  *         // Complex query using multiple tables
  *         const posts = await api.blog.posts.getAll();
  *
