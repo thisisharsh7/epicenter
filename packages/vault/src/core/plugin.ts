@@ -6,10 +6,12 @@ import type {
 	SQLiteTableWithColumns,
 } from 'drizzle-orm/sqlite-core';
 import type { Result } from 'wellcrafted/result';
+import { z } from 'zod';
 import type { TableSelectBuilder } from '../types/drizzle-helpers';
 import type { id } from './columns';
 import type { VaultOperationError } from './errors';
 import type { PluginMethodMap } from './methods';
+import { defineMutation, defineQuery } from './methods';
 
 /**
  * Define a plugin with full type safety and IntelliSense support.
@@ -60,39 +62,64 @@ import type { PluginMethodMap } from './methods';
  *
  *   methods: (api) => ({
  *     // Access own tables via api.posts.posts
- *     async getTopPosts(limit = 10) {
- *       return api.posts.posts
- *         .select()
- *         .orderBy(desc(api.posts.posts.score))
- *         .limit(limit)
- *         .all();
- *     },
+ *     getTopPosts: defineQuery({
+ *       input: z.object({
+ *         limit: z.number().optional().default(10)
+ *       }),
+ *       description: 'Get the top posts ordered by score',
+ *       handler: async (input) => {
+ *         return api.posts.posts
+ *           .select()
+ *           .orderBy(desc(api.posts.posts.score))
+ *           .limit(input.limit)
+ *           .all();
+ *       }
+ *     }),
  *
  *     // Use table helper methods
- *     async getPostById(postId: string) {
- *       return api.posts.posts.getById(postId);
- *     },
+ *     getPostById: defineQuery({
+ *       input: z.object({
+ *         postId: z.string()
+ *       }),
+ *       description: 'Get a single post by its ID',
+ *       handler: async (input) => {
+ *         return api.posts.posts.getById(input.postId);
+ *       }
+ *     }),
  *
  *     // Access dependency plugins
- *     async getPostWithComments(postId: string) {
- *       const post = await api.posts.posts.getById(postId);
- *       if (!post) return null;
+ *     getPostWithComments: defineQuery({
+ *       input: z.object({
+ *         postId: z.string()
+ *       }),
+ *       description: 'Get a post with all its comments',
+ *       handler: async (input) => {
+ *         const post = await api.posts.posts.getById(input.postId);
+ *         if (!post) return null;
  *
- *       // Call methods from the comments plugin
- *       const comments = await api.comments.getCommentsForPost(postId);
- *       return { ...post, comments };
- *     },
+ *         // Call methods from the comments plugin
+ *         const comments = await api.comments.getCommentsForPost({ postId: input.postId });
+ *         return { ...post, comments };
+ *       }
+ *     }),
  *
  *     // Create new records with helper methods
- *     async createPost(title: string, author: string) {
- *       return api.posts.posts.create({
- *         id: generateId(), // You provide the ID
- *         title,
- *         author,
- *         score: 0,
- *         publishedAt: null
- *       });
- *     }
+ *     createPost: defineMutation({
+ *       input: z.object({
+ *         title: z.string().min(1),
+ *         author: z.string().min(1)
+ *       }),
+ *       description: 'Create a new blog post',
+ *       handler: async (input) => {
+ *         return api.posts.posts.create({
+ *           id: generateId(), // You provide the ID
+ *           title: input.title,
+ *           author: input.author,
+ *           score: 0,
+ *           publishedAt: null
+ *         });
+ *       }
+ *     })
  *   })
  * });
  *
@@ -113,43 +140,61 @@ import type { PluginMethodMap } from './methods';
  *
  *   methods: (api) => ({
  *     // Access dependency methods
- *     async getCommentsForPost(postId: string) {
- *       // Call posts plugin method to verify post exists
- *       const post = await api.posts.getPostById(postId);
- *       if (!post) return [];
+ *     getCommentsForPost: defineQuery({
+ *       input: z.object({
+ *         postId: z.string()
+ *       }),
+ *       description: 'Get all comments for a specific post',
+ *       handler: async (input) => {
+ *         // Call posts plugin method to verify post exists
+ *         const post = await api.posts.getPostById({ postId: input.postId });
+ *         if (!post) return [];
  *
- *       // Use own tables with query builder
- *       return api.comments.comments
- *         .select()
- *         .where(eq(api.comments.comments.postId, postId))
- *         .orderBy(desc(api.comments.comments.createdAt))
- *         .all();
- *     },
+ *         // Use own tables with query builder
+ *         return api.comments.comments
+ *           .select()
+ *           .where(eq(api.comments.comments.postId, input.postId))
+ *           .orderBy(desc(api.comments.comments.createdAt))
+ *           .all();
+ *       }
+ *     }),
  *
  *     // Call dependency's methods
- *     async getCommentsForTopPosts() {
- *       // Call posts plugin method
- *       const topPosts = await api.posts.getTopPosts();
+ *     getCommentsForTopPosts: defineQuery({
+ *       input: z.object({}),
+ *       description: 'Get comments from all top posts',
+ *       handler: async (input) => {
+ *         // Call posts plugin method
+ *         const topPosts = await api.posts.getTopPosts({});
  *
- *       // Fetch comments for all top posts
- *       const allComments = [];
- *       for (const post of topPosts) {
- *         const comments = await this.getCommentsForPost(post.id);
- *         allComments.push(...comments);
+ *         // Fetch comments for all top posts
+ *         const allComments = [];
+ *         for (const post of topPosts) {
+ *           const comments = await api.comments.getCommentsForPost({ postId: post.id });
+ *           allComments.push(...comments);
+ *         }
+ *         return allComments;
  *       }
- *       return allComments;
- *     },
+ *     }),
  *
  *     // Use table helper methods
- *     async createComment(postId: string, author: string, content: string) {
- *       return api.comments.comments.create({
- *         id: generateId(),
- *         postId,
- *         author,
- *         content,
- *         createdAt: new Date()
- *       });
- *     }
+ *     createComment: defineMutation({
+ *       input: z.object({
+ *         postId: z.string(),
+ *         author: z.string().min(1),
+ *         content: z.string().min(1)
+ *       }),
+ *       description: 'Create a new comment on a post',
+ *       handler: async (input) => {
+ *         return api.comments.comments.create({
+ *           id: generateId(),
+ *           postId: input.postId,
+ *           author: input.author,
+ *           content: input.content,
+ *           createdAt: new Date()
+ *         });
+ *       }
+ *     })
  *   })
  * });
  * ```
@@ -206,9 +251,15 @@ export function definePlugin<
  * ```typescript
  * methods: (api) => ({
  *   // Your plugin's methods go here
- *   async doSomething() {
- *     // Use the api to access tables and other plugins
- *   }
+ *   doSomething: defineQuery({
+ *     input: z.object({
+ *       // Define your input schema here
+ *     }),
+ *     description: 'Does something useful',
+ *     handler: async (input) => {
+ *       // Use the api to access tables and other plugins
+ *     }
+ *   })
  * })
  * ```
  *
@@ -241,26 +292,32 @@ export function definePlugin<
  *
  * // Automatically available in your methods:
  * methods: (api) => ({
- *   async exampleUsage() {
- *     // Read operations
- *     const post = await api.blog.posts.getById('abc123');
- *     const allPosts = await api.blog.posts.getAll();
+ *   exampleUsage: defineQuery({
+ *     input: z.object({}),
+ *     description: 'Demonstrates various table operations',
+ *     handler: async (input) => {
+ *       // Read operations
+ *       const post = await api.blog.posts.getById('abc123');
+ *       const allPosts = await api.blog.posts.getAll();
  *
- *     // Write operations
- *     const newPost = await api.blog.posts.create({
- *       id: generateId(),
- *       title: 'Hello World',
- *       content: 'This is my first post'
- *     });
+ *       // Write operations
+ *       const newPost = await api.blog.posts.create({
+ *         id: generateId(),
+ *         title: 'Hello World',
+ *         content: 'This is my first post'
+ *       });
  *
- *     // Complex queries (full Drizzle power)
- *     const recentPosts = await api.blog.posts
- *       .select()
- *       .where(gt(api.blog.posts.createdAt, lastWeek))
- *       .orderBy(desc(api.blog.posts.createdAt))
- *       .limit(10)
- *       .all();
- *   }
+ *       // Complex queries (full Drizzle power)
+ *       const recentPosts = await api.blog.posts
+ *         .select()
+ *         .where(gt(api.blog.posts.createdAt, lastWeek))
+ *         .orderBy(desc(api.blog.posts.createdAt))
+ *         .limit(10)
+ *         .all();
+ *
+ *       return { post, allPosts, newPost, recentPosts };
+ *     }
+ *   })
  * })
  * ```
  *
@@ -278,20 +335,28 @@ export function definePlugin<
  *   dependencies: [usersPlugin], // Now we can use user methods
  *
  *   methods: (api) => ({
- *     async createComment(postId: string, authorId: string, content: string) {
- *       // Use dependency method to validate user exists
- *       const author = await api.users.getUserById(authorId);
- *       if (!author) throw new Error('User not found');
+ *     createComment: defineMutation({
+ *       input: z.object({
+ *         postId: z.string(),
+ *         authorId: z.string(),
+ *         content: z.string().min(1)
+ *       }),
+ *       description: 'Create a new comment with user validation',
+ *       handler: async (input) => {
+ *         // Use dependency method to validate user exists
+ *         const author = await api.users.getUserById({ userId: input.authorId });
+ *         if (!author) throw new Error('User not found');
  *
- *       // Use our own table helpers
- *       return api.comments.comments.create({
- *         id: generateId(),
- *         postId,
- *         authorId,
- *         content,
- *         createdAt: new Date()
- *       });
- *     }
+ *         // Use our own table helpers
+ *         return api.comments.comments.create({
+ *           id: generateId(),
+ *           postId: input.postId,
+ *           authorId: input.authorId,
+ *           content: input.content,
+ *           createdAt: new Date()
+ *         });
+ *       }
+ *     })
  *   })
  * });
  * ```
@@ -307,10 +372,24 @@ export function definePlugin<
  *   ...api.users,
  *
  *   // Add your own methods
- *   async createUserPost(userId: string, title: string) {
- *     const user = await api.users.getUserById(userId); // From dependency
- *     return api.blog.posts.create({ ...data });      // From own tables
- *   }
+ *   createUserPost: defineMutation({
+ *     input: z.object({
+ *       userId: z.string(),
+ *       title: z.string().min(1)
+ *     }),
+ *     description: 'Create a post for a specific user',
+ *     handler: async (input) => {
+ *       const user = await api.users.getUserById({ userId: input.userId }); // From dependency
+ *       if (!user) throw new Error('User not found');
+ *       return api.blog.posts.create({
+ *         id: generateId(),
+ *         title: input.title,
+ *         authorId: input.userId,
+ *         content: '',
+ *         publishedAt: null
+ *       }); // From own tables
+ *     }
+ *   })
  * })
  * ```
  *
@@ -329,13 +408,21 @@ export function definePlugin<
  *
  *   return {
  *     // Public methods that use the helper
- *     async getPublishedPosts() {
- *       return getPostsByStatus('published');
- *     },
+ *     getPublishedPosts: defineQuery({
+ *       input: z.object({}),
+ *       description: 'Get all published posts',
+ *       handler: async (input) => {
+ *         return getPostsByStatus('published');
+ *       }
+ *     }),
  *
- *     async getDraftPosts() {
- *       return getPostsByStatus('draft');
- *     }
+ *     getDraftPosts: defineQuery({
+ *       input: z.object({}),
+ *       description: 'Get all draft posts',
+ *       handler: async (input) => {
+ *         return getPostsByStatus('draft');
+ *       }
+ *     })
  *   };
  * }
  * ```
@@ -362,20 +449,33 @@ export function definePlugin<
  *
  *   methods: (api) => ({
  *     // Use table helpers
- *     async createTag(name: string, color?: string) {
- *       return api.tags.tags.create({
- *         id: generateId(),
- *         name,
- *         color: color || null
- *       });
- *     },
+ *     createTag: defineMutation({
+ *       input: z.object({
+ *         name: z.string().min(1),
+ *         color: z.string().optional()
+ *       }),
+ *       description: 'Create a new tag with optional color',
+ *       handler: async (input) => {
+ *         return api.tags.tags.create({
+ *           id: generateId(),
+ *           name: input.name,
+ *           color: input.color || null
+ *         });
+ *       }
+ *     }),
  *
- *     async getTagByName(name: string) {
- *       return api.tags.tags
- *         .select()
- *         .where(eq(api.tags.tags.name, name))
- *         .get();
- *     }
+ *     getTagByName: defineQuery({
+ *       input: z.object({
+ *         name: z.string()
+ *       }),
+ *       description: 'Find a tag by its name',
+ *       handler: async (input) => {
+ *         return api.tags.tags
+ *           .select()
+ *           .where(eq(api.tags.tags.name, input.name))
+ *           .get();
+ *       }
+ *     })
  *   })
  * });
  *
@@ -400,54 +500,66 @@ export function definePlugin<
  *   },
  *
  *   methods: (api) => ({
- *     async createPost(title: string, content: string, tagNames: string[]) {
- *       // Create the post
- *       const post = await api.blog.posts.create({
- *         id: generateId(),
- *         title,
- *         content,
- *         authorId: 'current-user',
- *         publishedAt: null
- *       });
+ *     createPost: defineMutation({
+ *       input: z.object({
+ *         title: z.string().min(1),
+ *         content: z.string(),
+ *         tagNames: z.array(z.string())
+ *       }),
+ *       description: 'Create a new post with tags',
+ *       handler: async (input) => {
+ *         // Create the post
+ *         const post = await api.blog.posts.create({
+ *           id: generateId(),
+ *           title: input.title,
+ *           content: input.content,
+ *           authorId: 'current-user',
+ *           publishedAt: null
+ *         });
  *
- *       // Create tags and associations using dependency methods
- *       for (const tagName of tagNames) {
- *         let tag = await api.tags.getTagByName(tagName); // Dependency method
- *         if (!tag) {
- *           tag = await api.tags.createTag(tagName); // Dependency method
+ *         // Create tags and associations using dependency methods
+ *         for (const tagName of input.tagNames) {
+ *           let tag = await api.tags.getTagByName({ name: tagName }); // Dependency method
+ *           if (!tag) {
+ *             tag = await api.tags.createTag({ name: tagName }); // Dependency method
+ *           }
+ *
+ *           await api.blog.postTags.create({
+ *             id: generateId(),
+ *             postId: post.id,
+ *             tagId: tag.id
+ *           });
  *         }
  *
- *         await api.blog.postTags.create({
- *           id: generateId(),
- *           postId: post.id,
- *           tagId: tag.id
- *         });
+ *         return post;
  *       }
+ *     }),
  *
- *       return post;
- *     },
+ *     getPostsWithTags: defineQuery({
+ *       input: z.object({}),
+ *       description: 'Get all posts with their associated tags',
+ *       handler: async (input) => {
+ *         // Complex query using multiple tables
+ *         const posts = await api.blog.posts.getAll();
  *
- *     async getPostsWithTags() {
- *       // Complex query using multiple tables
- *       const posts = await api.blog.posts.getAll();
+ *         return Promise.all(
+ *           posts.map(async (post) => {
+ *             const postTagLinks = await api.blog.postTags
+ *               .select()
+ *               .where(eq(api.blog.postTags.postId, post.id))
+ *               .all();
  *
- *       return Promise.all(
- *         posts.map(async (post) => {
- *           const postTagLinks = await api.blog.postTags
- *             .select()
- *             .where(eq(api.blog.postTags.postId, post.id))
- *             .all();
+ *             const tags = await Promise.all(
+ *               postTagLinks.map(link =>
+ *                 api.tags.tags.getById(link.tagId)
+ *               )
+ *             );
  *
- *           const tags = await Promise.all(
- *             postTagLinks.map(link =>
- *               api.tags.tags.getById(link.tagId)
- *             )
- *           );
- *
- *           return { ...post, tags: tags.filter(Boolean) };
- *         })
- *       );
- *     }
+ *             return { ...post, tags: tags.filter(Boolean) };
+ *           })
+ *         );
+ *       }
+ *     })
  *   })
  * });
  * ```
