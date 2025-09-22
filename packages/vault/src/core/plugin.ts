@@ -190,8 +190,6 @@ export function definePlugin<
 /**
  * Plugin definition with strongly typed API context.
  *
- * ## What is a Plugin?
- *
  * A plugin is a self-contained module that defines data tables and business logic.
  * Think of it as a mini-application that can interact with other plugins through
  * a shared API. Every plugin has four essential parts:
