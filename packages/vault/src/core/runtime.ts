@@ -243,11 +243,7 @@ function createTableHelpers<T extends TableWithId>(
 		): Promise<Result<InferSelectModel<T>[], VaultOperationError>> {
 			return tryAsync({
 				try: async () => {
-					return db
-						.select()
-						.from(table)
-						.where(inArray((table as TableWithId).id, ids))
-						.all();
+					return db.select().from(table).where(inArray(table.id, ids)).all();
 				},
 				catch: (error) =>
 					VaultOperationErr({
@@ -305,7 +301,7 @@ function createTableHelpers<T extends TableWithId>(
 						const [updated] = await db
 							.update(table)
 							.set(data)
-							.where(eq((table as TableWithId).id, data.id))
+							.where(eq(table.id, data.id))
 							.returning();
 
 						if (updated && storage.path) {
@@ -363,10 +359,7 @@ function createTableHelpers<T extends TableWithId>(
 						}
 					}
 
-					const result = (await db
-						.delete(table)
-						.where(eq((table as TableWithId).id, id))
-						.run()) as AffectedRowsResult;
+					const result = await db.delete(table).where(eq(table.id, id));
 
 					return result.rowsAffected > 0;
 				},
@@ -398,10 +391,7 @@ function createTableHelpers<T extends TableWithId>(
 						}
 					}
 
-					const result = (await db
-						.delete(table)
-						.where(inArray((table as TableWithId).id, ids))
-						.run()) as AffectedRowsResult;
+					const result = await db.delete(table).where(inArray(table.id, ids));
 
 					return result.rowsAffected;
 				},
