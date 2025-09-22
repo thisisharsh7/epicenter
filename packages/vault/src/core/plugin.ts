@@ -188,67 +188,267 @@ export function definePlugin<
 }
 
 /**
- * Plugin definition with strongly typed vault context.
+ * Plugin definition with strongly typed API context.
+ *
+ * ## What is a Plugin?
+ *
+ * A plugin is a self-contained module that defines data tables and business logic.
+ * Think of it as a mini-application that can interact with other plugins through
+ * a shared API. Every plugin has four essential parts:
+ * - `id`: A unique identifier for your plugin
+ * - `dependencies`: Other plugins your plugin needs to work with
+ * - `tables`: Database tables your plugin manages
+ * - `methods`: Functions that define what your plugin can do
+ *
+ * ## The Methods Function (Core Concept)
+ *
+ * The `methods` function is the heart of your plugin. It receives a single `api`
+ * parameter and returns an object containing your plugin's functionality.
+ *
+ * ```typescript
+ * methods: (api) => ({
+ *   // Your plugin's methods go here
+ *   async doSomething() {
+ *     // Use the api to access tables and other plugins
+ *   }
+ * })
+ * ```
+ *
+ * The `api` parameter is dynamically constructed and contains everything your
+ * plugin needs to interact with the vault system.
+ *
+ * ## How Your API is Constructed
+ *
+ * The magic happens in how the `api` parameter is built. It combines two sources:
+ *
+ * **1. Dependency Plugin Methods**
+ * Every plugin listed in your `dependencies` array contributes its methods to your API.
+ * If you depend on a `users` plugin, you can call `api.users.getAllUsers()`.
+ *
+ * **2. Table Helper Methods**
+ * Every table you define in `tables` gets a complete set of helper methods automatically.
+ * A `posts` table becomes `api.[pluginId].posts` with methods like `getById()`, `create()`, etc.
+ *
+ * This creates a unified interface: **dependencies + tables = your API**
+ *
+ * ## Table Helpers (Automatic Superpowers)
+ *
+ * When you define a table, you automatically get powerful helper methods:
+ *
+ * ```typescript
+ * // Your table definition:
+ * tables: {
+ *   posts: { id: id(), title: text(), content: text() }
+ * }
+ *
+ * // Automatically available in your methods:
+ * methods: (api) => ({
+ *   async exampleUsage() {
+ *     // Read operations
+ *     const post = await api.blog.posts.getById('abc123');
+ *     const allPosts = await api.blog.posts.getAll();
+ *
+ *     // Write operations
+ *     const newPost = await api.blog.posts.create({
+ *       id: generateId(),
+ *       title: 'Hello World',
+ *       content: 'This is my first post'
+ *     });
+ *
+ *     // Complex queries (full Drizzle power)
+ *     const recentPosts = await api.blog.posts
+ *       .select()
+ *       .where(gt(api.blog.posts.createdAt, lastWeek))
+ *       .orderBy(desc(api.blog.posts.createdAt))
+ *       .limit(10)
+ *       .all();
+ *   }
+ * })
+ * ```
+ *
+ * Your tables work as both Drizzle tables (for columns and queries) and helper
+ * objects (for convenient methods). This gives you the best of both worlds.
+ *
+ * ## Dependency System (Plugin Composition)
+ *
+ * Plugins can depend on other plugins to access their functionality. This enables
+ * building complex features by composing simpler, focused plugins.
+ *
+ * ```typescript
+ * const commentsPlugin = definePlugin({
+ *   id: 'comments',
+ *   dependencies: [usersPlugin], // Now we can use user methods
+ *
+ *   methods: (api) => ({
+ *     async createComment(postId: string, authorId: string, content: string) {
+ *       // Use dependency method to validate user exists
+ *       const author = await api.users.getUserById(authorId);
+ *       if (!author) throw new Error('User not found');
+ *
+ *       // Use our own table helpers
+ *       return api.comments.comments.create({
+ *         id: generateId(),
+ *         postId,
+ *         authorId,
+ *         content,
+ *         createdAt: new Date()
+ *       });
+ *     }
+ *   })
+ * });
+ * ```
+ *
+ * ## Method Composition Patterns
+ *
+ * ### Exposing Dependency Methods
+ * You can re-export methods from dependencies alongside your own:
+ *
+ * ```typescript
+ * methods: (api) => ({
+ *   // Spread dependency methods to expose them
+ *   ...api.users,
+ *
+ *   // Add your own methods
+ *   async createUserPost(userId: string, title: string) {
+ *     const user = await api.users.getUserById(userId); // From dependency
+ *     return api.blog.posts.create({ ...data });      // From own tables
+ *   }
+ * })
+ * ```
+ *
+ * ### Internal Helper Functions
+ * Define reusable helpers within your plugin scope:
+ *
+ * ```typescript
+ * methods: (api) => {
+ *   // Internal helper (not exported)
+ *   const getPostsByStatus = async (status: string) => {
+ *     return api.blog.posts
+ *       .select()
+ *       .where(eq(api.blog.posts.status, status))
+ *       .all();
+ *   };
+ *
+ *   return {
+ *     // Public methods that use the helper
+ *     async getPublishedPosts() {
+ *       return getPostsByStatus('published');
+ *     },
+ *
+ *     async getDraftPosts() {
+ *       return getPostsByStatus('draft');
+ *     }
+ *   };
+ * }
+ * ```
  *
  * @template TId - Unique plugin identifier (lowercase, alphanumeric)
  * @template TTableMap - Table definitions for this plugin
  * @template TMethodMap - Methods exposed by this plugin (must be functions)
  * @template TDeps - Other plugins this plugin depends on
  *
- * Key features:
- * - **Namespaced access**: Each plugin gets its own namespace in the vault
- * - **Dependency management**: Plugins can depend on other plugins for composition
- * - **Type safety**: Full TypeScript inference for tables and methods
- * - **Helper methods**: Every table gets CRUD helpers automatically
- *
  * @example
  * ```typescript
+ * // Simple plugin with just tables
+ * const tagsPlugin = definePlugin({
+ *   id: 'tags',
+ *   dependencies: [],
+ *
+ *   tables: {
+ *     tags: {
+ *       id: id(),
+ *       name: text(),
+ *       color: text({ nullable: true })
+ *     }
+ *   },
+ *
+ *   methods: (api) => ({
+ *     // Use table helpers
+ *     async createTag(name: string, color?: string) {
+ *       return api.tags.tags.create({
+ *         id: generateId(),
+ *         name,
+ *         color: color || null
+ *       });
+ *     },
+ *
+ *     async getTagByName(name: string) {
+ *       return api.tags.tags
+ *         .select()
+ *         .where(eq(api.tags.tags.name, name))
+ *         .get();
+ *     }
+ *   })
+ * });
+ *
+ * // Complex plugin with dependencies
  * const blogPlugin = definePlugin({
  *   id: 'blog',
- *   dependencies: [usersPlugin], // Can depend on other plugins
+ *   dependencies: [tagsPlugin], // Can use tag methods
  *
  *   tables: {
  *     posts: {
  *       id: id(),
  *       title: text(),
+ *       content: text(),
  *       authorId: text(),
- *       content: text({ nullable: true }),
  *       publishedAt: date({ nullable: true })
  *     },
- *     tags: {
+ *     postTags: {
  *       id: id(),
- *       name: text(),
- *       postId: text()
+ *       postId: text(),
+ *       tagId: text()
  *     }
  *   },
  *
  *   methods: (api) => ({
- *     // Access own tables via api.blog.posts, api.blog.tags
- *     async getPublishedPosts() {
- *       return api.blog.posts
- *         .select()
- *         .where(isNotNull(api.blog.posts.publishedAt))
- *         .orderBy(desc(api.blog.posts.publishedAt))
- *         .all();
- *     },
- *
- *     // Access dependency methods
- *     async getPostsByAuthor(authorId: string) {
- *       const author = await api.users.getUserById(authorId);
- *       if (!author) return [];
- *
- *       return api.blog.posts
- *         .select()
- *         .where(eq(api.blog.posts.authorId, authorId))
- *         .all();
- *     },
- *
- *     // Use table helper methods
- *     async createPost(data: PostInput) {
- *       return api.blog.posts.create({
+ *     async createPost(title: string, content: string, tagNames: string[]) {
+ *       // Create the post
+ *       const post = await api.blog.posts.create({
  *         id: generateId(),
- *         ...data
+ *         title,
+ *         content,
+ *         authorId: 'current-user',
+ *         publishedAt: null
  *       });
+ *
+ *       // Create tags and associations using dependency methods
+ *       for (const tagName of tagNames) {
+ *         let tag = await api.tags.getTagByName(tagName); // Dependency method
+ *         if (!tag) {
+ *           tag = await api.tags.createTag(tagName); // Dependency method
+ *         }
+ *
+ *         await api.blog.postTags.create({
+ *           id: generateId(),
+ *           postId: post.id,
+ *           tagId: tag.id
+ *         });
+ *       }
+ *
+ *       return post;
+ *     },
+ *
+ *     async getPostsWithTags() {
+ *       // Complex query using multiple tables
+ *       const posts = await api.blog.posts.getAll();
+ *
+ *       return Promise.all(
+ *         posts.map(async (post) => {
+ *           const postTagLinks = await api.blog.postTags
+ *             .select()
+ *             .where(eq(api.blog.postTags.postId, post.id))
+ *             .all();
+ *
+ *           const tags = await Promise.all(
+ *             postTagLinks.map(link =>
+ *               api.tags.tags.getById(link.tagId)
+ *             )
+ *           );
+ *
+ *           return { ...post, tags: tags.filter(Boolean) };
+ *         })
+ *       );
  *     }
  *   })
  * });
@@ -263,7 +463,10 @@ export type Plugin<
 	id: TId;
 	dependencies?: TDeps;
 	tables: TTableMap;
-	methods: (api: PluginAPI<TId, TTableMap, TDeps>) => TMethodMap;
+	methods: (
+		api: BuildDependencyNamespaces<TDeps> &
+			BuildInitialPluginNamespace<TId, TTableMap>,
+	) => TMethodMap;
 	hooks?: {
 		beforeInit?: () => Promise<void>;
 		afterInit?: () => Promise<void>;
@@ -332,97 +535,6 @@ export type TableHelpers<T extends SQLiteTable> = {
 	// Drizzle query builder for advanced queries
 	select(): TableSelectBuilder<T>;
 };
-
-/**
- * The plugin API passed to plugin methods.
- *
- * This API provides namespaced access to:
- * - **Own tables**: Via `api.[pluginId].[tableName]` with full column access and helper methods
- * - **Dependency plugins**: Access to their exposed methods
- *
- * ## Method Composition Patterns
- *
- * You can compose methods in several ways:
- *
- * ### Pass Through Dependency Methods
- * Spread the API to expose dependency methods directly:
- *
- * ```typescript
- * methods: (api) => ({
- *   // Pass through all methods
- *   ...api,
- *
- *   // Add your own custom methods
- *   async createPostWithAuthor(title: string, authorId: string) {
- *     // Use the passed-through method or compose with API
- *     const author = await api.users.getUserById(authorId);
- *     return api.blog.posts.create({ id: generateId(), title, authorId });
- *   }
- * })
- * ```
- *
- * ### Reusing Methods Within Your Plugin
- *
- * To reuse logic between methods, define helper functions in the plugin scope:
- *
- * ```typescript
- * methods: (api) => {
- *   // Define reusable helper
- *   const getPostsByAuthor = async (authorId: string) => {
- *     return api.blog.posts
- *       .select()
- *       .where(eq(api.blog.posts.authorId, authorId));
- *   };
- *
- *   return {
- *     // Export the helper as a method
- *     getPostsByAuthor,
- *
- *     // Reuse the helper in other methods
- *     async getPopularPostsByAuthor(authorId: string, minViews: number) {
- *       const posts = await getPostsByAuthor(authorId);
- *       return posts.filter(post => post.views >= minViews);
- *     }
- *   };
- * }
- * ```
- *
- * @template TSelfId - The current plugin's ID
- * @template TTableMap - The current plugin's table definitions (column builders)
- * @template TDeps - The plugin's dependencies
- *
- * @example
- * ```typescript
- * // In a plugin with id 'posts' that depends on 'comments':
- * methods: (api) => ({
- *   async getPostWithComments(postId: string) {
- *     // Access own tables with full column types
- *     const post = await api.posts.posts.getById(postId);
- *
- *     // Use columns in Drizzle operations
- *     const published = await api.posts.posts
- *       .select()
- *       .where(eq(api.posts.posts.publishedAt, new Date()))
- *       .all();
- *
- *     // Access dependency methods
- *     const comments = await api.comments.getCommentsForPost(postId);
- *
- *     return { ...post, comments };
- *   }
- * })
- * ```
- *
- * The tables in the plugin API are "enhanced" - they work as both:
- * 1. **Drizzle tables**: Access columns for queries `table.columnName`
- * 2. **Helper objects**: Call CRUD methods like `table.getById()`
- */
-type PluginAPI<
-	TSelfId extends string,
-	TTableMap extends PluginTableMap,
-	TDeps extends readonly Plugin[] = readonly [],
-> = BuildDependencyNamespaces<TDeps> &
-	BuildInitialPluginNamespace<TSelfId, TTableMap>;
 
 /**
  * Builds namespaces for dependency plugins.
