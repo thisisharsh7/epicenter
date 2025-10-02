@@ -3,16 +3,10 @@ import type { Result } from 'wellcrafted/result';
 import { tryAsync } from 'wellcrafted/result';
 import type { TableSchema } from './column-schemas';
 import { VaultOperationErr, type VaultOperationError } from './errors';
+import type { RowData } from './indexes';
 import type { PluginMethod } from './methods';
 import type { Plugin } from './plugin';
-import type { RowData } from './indexes';
-import {
-	convertPlainToYMap,
-	getTableRowOrder,
-	getTableRowsById,
-	initWorkspaceDoc,
-	observeTable,
-} from './yjsdoc';
+import { createYjsDocument } from './yjsdoc';
 
 /**
  * Runtime configuration provided by the user
@@ -37,11 +31,11 @@ export async function runPlugin<T = unknown>(
 	config: RuntimeConfig = {},
 ): Promise<T> {
 	// 1. Initialize YJS document
-	const ydoc = initWorkspaceDoc(plugin.id, plugin.tables);
+	const doc = createYjsDocument(plugin.id, plugin.tables);
 
 	// 2. Initialize indexes
 	const indexContext = {
-		ydoc,
+		ydoc: doc.ydoc,
 		tableSchemas: plugin.tables,
 		workspaceId: plugin.id,
 	};
@@ -59,12 +53,15 @@ export async function runPlugin<T = unknown>(
 
 	// 3. Set up observers for all tables
 	for (const tableName of Object.keys(plugin.tables)) {
-		observeTable(ydoc, tableName, {
+		doc.observeTable(tableName, {
 			onAdd: async (id, data) => {
 				for (const index of Object.values(indexes)) {
 					const result = await index.onAdd(tableName, id, data);
 					if (result.error) {
-						console.error(`Index onAdd failed for ${tableName}/${id}:`, result.error);
+						console.error(
+							`Index onAdd failed for ${tableName}/${id}:`,
+							result.error,
+						);
 					}
 				}
 			},
@@ -94,7 +91,7 @@ export async function runPlugin<T = unknown>(
 	}
 
 	// 4. Create table helpers (write-only to YJS)
-	const tables = createTableHelpers(ydoc, plugin.tables);
+	const tables = createTableHelpers(doc, plugin.tables);
 
 	// 5. Initialize dependencies (if any)
 	const dependencies: Record<string, unknown> = {};
@@ -124,7 +121,7 @@ export async function runPlugin<T = unknown>(
 		...tables,
 		...processedMethods,
 		indexes,
-		ydoc,
+		ydoc: doc.ydoc,
 	};
 
 	return workspaceInstance as T;
@@ -145,24 +142,26 @@ type TableHelper = {
  * These helpers write to YJS, which triggers index updates
  */
 function createTableHelpers(
-	ydoc: Y.Doc,
+	doc: ReturnType<typeof createYjsDocument>,
 	tableSchemas: Record<string, TableSchema>,
 ): Record<string, TableHelper> {
 	const helpers: Record<string, TableHelper> = {};
 
-	for (const [tableName, columnSchemas] of Object.entries(tableSchemas)) {
+	for (const [tableName] of Object.entries(tableSchemas)) {
 		helpers[tableName] = {
-			async upsert(data: RowData): Promise<Result<RowData, VaultOperationError>> {
+			async upsert(
+				data: RowData,
+			): Promise<Result<RowData, VaultOperationError>> {
 				return tryAsync({
 					try: async () => {
-						const rowsById = getTableRowsById(ydoc, tableName);
-						const rowOrder = getTableRowOrder(ydoc, tableName);
+						const rowsById = doc.getTableRowsById(tableName);
+						const rowOrder = doc.getTableRowOrder(tableName);
 
 						// Convert plain data to Y.Map
-						const ymap = convertPlainToYMap(data, columnSchemas);
+						const ymap = doc.convertPlainToYMap(tableName, data);
 
 						// Update in transaction
-						ydoc.transact(() => {
+						doc.ydoc.transact(() => {
 							rowsById.set(data.id, ymap);
 
 							// Add to rowOrder if new
@@ -188,13 +187,13 @@ function createTableHelpers(
 			): Promise<Result<boolean, VaultOperationError>> {
 				return tryAsync({
 					try: async () => {
-						const rowsById = getTableRowsById(ydoc, tableName);
-						const rowOrder = getTableRowOrder(ydoc, tableName);
+						const rowsById = doc.getTableRowsById(tableName);
+						const rowOrder = doc.getTableRowOrder(tableName);
 
 						const exists = rowsById.has(id);
 						if (!exists) return false;
 
-						ydoc.transact(() => {
+						doc.ydoc.transact(() => {
 							rowsById.delete(id);
 
 							// Remove from rowOrder
@@ -221,12 +220,12 @@ function createTableHelpers(
 			): Promise<Result<number, VaultOperationError>> {
 				return tryAsync({
 					try: async () => {
-						const rowsById = getTableRowsById(ydoc, tableName);
-						const rowOrder = getTableRowOrder(ydoc, tableName);
+						const rowsById = doc.getTableRowsById(tableName);
+						const rowOrder = doc.getTableRowOrder(tableName);
 
 						let count = 0;
 
-						ydoc.transact(() => {
+						doc.ydoc.transact(() => {
 							for (const id of ids) {
 								if (rowsById.has(id)) {
 									rowsById.delete(id);
