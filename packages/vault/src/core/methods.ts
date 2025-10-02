@@ -1,13 +1,12 @@
-/**
- * Helper functions for defining plugin methods with proper typing and discrimination
- */
-
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Result } from 'wellcrafted/result';
 import type { VaultOperationError } from './errors';
 
 /**
- * A collection of plugin methods indexed by method name
+ * A collection of workspace methods indexed by method name.
+ *
+ * Each workspace exposes its functionality through a set of typed methods
+ * that can be called by other workspaces or external consumers.
  */
 export type PluginMethodMap = Record<string, PluginMethod>;
 

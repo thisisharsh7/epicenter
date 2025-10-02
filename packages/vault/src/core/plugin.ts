@@ -13,17 +13,41 @@ import type { VaultOperationError } from './errors';
 import type { PluginMethodMap } from './methods';
 
 /**
- * Define a plugin with full type safety and IntelliSense support.
+ * Define a collaborative workspace with full type safety and IntelliSense support.
  *
- * This function validates plugin configuration and provides TypeScript inference
- * for the plugin API passed to plugin methods.
+ * Each folder containing an `epicenter.config.ts` file becomes a self-contained,
+ * globally synchronizable workspace. The workspace ID serves as a globally unique
+ * identifier for Yjs document synchronization, enabling real-time collaboration
+ * across multiple users.
  *
- * ## Key Concepts
+ * ## Collaborative Workspace Model
  *
- * ### Plugin Namespacing
- * Each plugin gets its own namespace in the plugin API:
- * - Tables: `api.[pluginId].[tableName]`
- * - Methods: `api.[pluginId].[methodName]()`
+ * ### Globally Unique Workspace ID
+ * The `id` field is a globally unique identifier (UUID or nanoid) that:
+ * - Uniquely identifies this workspace across all instances
+ * - Serves as the Yjs document ID for real-time collaboration
+ * - Enables stable cross-workspace dependencies
+ * - Allows workspace portability and sharing
+ *
+ * ```typescript
+ * definePlugin({
+ *   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Globally unique ID
+ *   tables: { ... },
+ *   methods: ({ tables }) => ({ ... })
+ * })
+ * ```
+ *
+ * ### Folder Structure
+ * Organize workspaces as independent folders:
+ * ```
+ * my-project/
+ *   users/
+ *     epicenter.config.ts    # Users workspace
+ *     data/                  # Local storage
+ *   posts/
+ *     epicenter.config.ts    # Posts workspace
+ *     data/
+ * ```
  *
  * ### Table Helper Methods
  * Every table you define automatically gets a complete set of API methods:
@@ -36,10 +60,25 @@ import type { PluginMethodMap } from './methods';
  * - `deleteByIds(ids)` - Delete multiple records
  * - `select()` - Access Drizzle query builder for complex queries
  *
- * ### Dependency Management
- * Plugins can depend on other plugins to access their methods
+ * ### Cross-Workspace Dependencies
+ * Workspaces can depend on other workspaces via imports:
+ * ```typescript
+ * import usersPlugin from '../users/epicenter.config';
  *
- * @param plugin - The plugin configuration object
+ * definePlugin({
+ *   id: 'workspace-id',
+ *   dependencies: [usersPlugin],
+ *   methods: ({ plugins }) => ({
+ *     // Access users workspace methods
+ *     async createComment({ userId }) {
+ *       const user = await plugins.users.getUserById({ userId });
+ *       // ...
+ *     }
+ *   })
+ * })
+ * ```
+ *
+ * @param plugin - The workspace configuration object
  * @returns The same plugin object with validated configuration
  *
  * @example
@@ -232,48 +271,49 @@ export function definePlugin<
 	// Return the plugin as-is (it's already properly typed)
 	return plugin;
 } /**
- * Plugin definition with strongly typed API context.
+ * Collaborative workspace definition with strongly typed API context.
  *
- * A plugin is a self-contained module that defines data tables and business logic.
- * Think of it as a mini-application that can interact with other plugins through
- * a shared API. Every plugin has four essential parts:
- * - `id`: A unique identifier for your plugin
- * - `dependencies`: Other plugins your plugin needs to work with
- * - `tables`: Database tables your plugin manages
- * - `methods`: Functions that define what your plugin can do
+ * A workspace is a self-contained, globally synchronizable module that defines
+ * data tables and business logic. Each workspace lives in its own folder with
+ * an `epicenter.config.ts` file and can be shared, synced, and collaborated on
+ * in real-time using Yjs. Every workspace has four essential parts:
+ * - `id`: A globally unique identifier (UUID/nanoid) used as the Yjs document ID
+ * - `dependencies`: Other workspaces this workspace imports and depends on
+ * - `tables`: Database tables this workspace manages
+ * - `methods`: Functions that define what this workspace can do
  *
  * ## The Methods Function (Core Concept)
  *
- * The `methods` function is the heart of your plugin. It receives a single `api`
- * parameter and returns an object containing your plugin's functionality.
+ * The `methods` function is the heart of your workspace. It receives a single `api`
+ * parameter and returns an object containing your workspace's functionality.
  *
  * ```typescript
  * methods: ({ plugins, tables }) => ({
- *   // Your plugin's methods go here
+ *   // Your workspace's methods go here
  *   doSomething: defineQuery({
  *     input: z.void(),
  *     description: 'Does something useful',
  *     handler: async () => {
- *       // Use plugins and tables to access other plugins and own tables
+ *       // Use plugins and tables to access other workspaces and own tables
  *     }
  *   })
  * })
  * ```
  *
  * The `api` parameter is dynamically constructed and contains everything your
- * plugin needs to interact with the vault system.
+ * workspace needs to interact with other workspaces and the vault system.
  *
  * ## How Your API is Constructed
  *
  * The magic happens in how the `api` parameter is built. It combines two sources:
  *
- * **1. Dependency Plugin Methods**
- * Every plugin listed in your `dependencies` array contributes its methods to your API.
- * If you depend on a `users` plugin, you can call `plugins.users.getAllUsers()`.
+ * **1. Dependency Workspace Methods**
+ * Every workspace listed in your `dependencies` array contributes its methods to your API.
+ * If you depend on a `users` workspace, you can call `plugins.users.getAllUsers()`.
  *
  * **2. Table Helper Methods**
  * Every table you define in `tables` gets a complete set of helper methods automatically.
- * A `posts` table becomes `api.[pluginId].posts` with methods like `getById()`, `create()`, etc.
+ * A `posts` table becomes `tables.posts` with methods like `getById()`, `upsert()`, etc.
  *
  * This creates a unified interface: **dependencies + tables = your API**
  *
@@ -323,10 +363,11 @@ export function definePlugin<
  * Your tables work as both Drizzle tables (for columns and queries) and helper
  * objects (for convenient methods). This gives you the best of both worlds.
  *
- * ## Dependency System (Plugin Composition)
+ * ## Dependency System (Workspace Composition)
  *
- * Plugins can depend on other plugins to access their functionality. This enables
- * building complex features by composing simpler, focused plugins.
+ * Workspaces can depend on other workspaces to access their functionality. This enables
+ * building complex features by composing simpler, focused workspaces. Dependencies are
+ * imported from sibling folders, creating an explicit dependency graph.
  *
  * ```typescript
  * const commentsPlugin = definePlugin({

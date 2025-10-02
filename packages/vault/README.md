@@ -1,24 +1,148 @@
-# Plugin System - Enhanced Drizzle Tables with Runtime Injection
+# Vault: Collaborative Workspace System
 
-A unified plugin architecture that combines **Drizzle ORM** with **dual storage** (markdown files + SQLite database). Everything is a plugin - there's no special "vault" concept. The runtime injects database and storage dependencies when plugins are executed.
+A unified workspace architecture that combines **Drizzle ORM** with **dual storage** (markdown files + SQLite database) and **real-time collaboration** via Yjs. Each folder containing an `epicenter.config.ts` file becomes a self-contained, globally synchronizable workspace.
+
+## 🤝 Collaborative Workspaces
+
+### Folder-Based Organization
+
+Each workspace lives in its own folder with a globally unique ID:
+
+```
+my-project/
+  users/
+    epicenter.config.ts    # Users workspace (UUID: a1b2c3d4-...)
+    data/                  # Local SQLite + markdown storage
+  posts/
+    epicenter.config.ts    # Posts workspace (UUID: e5f6g7h8-...)
+    data/
+  comments/
+    epicenter.config.ts    # Comments workspace (UUID: i9j0k1l2-...)
+    data/
+```
+
+### Globally Unique Workspace IDs
+
+Each workspace has a globally unique ID (UUID or nanoid) that:
+- Uniquely identifies the workspace across all instances
+- Serves as the Yjs document ID for real-time collaboration
+- Enables stable cross-workspace dependencies
+- Allows workspace portability and sharing
+
+```typescript
+// users/epicenter.config.ts
+import { definePlugin, id, text } from '@epicenter/vault';
+
+export default definePlugin({
+  id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Globally unique ID
+  tables: {
+    users: {
+      id: id(),
+      name: text(),
+      email: text()
+    }
+  },
+  methods: ({ tables }) => ({
+    // Workspace methods...
+  })
+});
+```
+
+### Real-Time Collaboration (Conceptual)
+
+Workspaces can be synchronized in real-time using Yjs:
+
+```typescript
+import * as Y from 'yjs';
+import { HocuspocusProvider } from '@hocuspocus/provider';
+import { runPlugin } from '@epicenter/vault';
+import workspace from './users/epicenter.config';
+
+// Create Yjs document with workspace ID
+const ydoc = new Y.Doc({ guid: workspace.id });
+
+// Connect to collaboration server
+const provider = new HocuspocusProvider({
+  url: 'wss://collab.example.com',
+  name: workspace.id,
+  document: ydoc
+});
+
+// Run workspace with sync enabled
+const api = await runPlugin(workspace, {
+  databaseUrl: './users/data/db.sqlite',
+  storagePath: './users/data',
+  yjsDoc: ydoc // Enable Yjs sync (future feature)
+});
+```
+
+### Cross-Workspace Dependencies
+
+Workspaces can depend on other workspaces:
+
+```typescript
+// comments/epicenter.config.ts
+import usersPlugin from '../users/epicenter.config';
+import postsPlugin from '../posts/epicenter.config';
+
+export default definePlugin({
+  id: 'f7g8h9i0-j1k2-3456-lmno-pq7890123456',
+  dependencies: [usersPlugin, postsPlugin],
+
+  tables: {
+    comments: { /* ... */ }
+  },
+
+  methods: ({ plugins, tables }) => ({
+    createComment: defineMutation({
+      handler: async ({ userId, postId, content }) => {
+        // Access users workspace
+        const user = await plugins.users.getUserById({ userId });
+
+        // Access posts workspace
+        const post = await plugins.posts.getPostById({ postId });
+
+        // Create comment in local workspace
+        return tables.comments.upsert({ /* ... */ });
+      }
+    })
+  })
+});
+```
+
+### Workspace Portability
+
+Each workspace folder is completely portable:
+- Copy/paste folders between projects
+- Share folders via git, sync services, or direct transfer
+- Collaborate on individual workspaces without sharing the entire project
+- Version control each workspace independently
 
 ## 🎯 Core Philosophy
 
-**Your tables ARE Drizzle tables** - just enhanced with dual-storage superpowers.
+**Folders are workspaces** - Self-contained, collaborative, and portable.
+
+Each folder with `epicenter.config.ts` is a complete workspace with:
+- A globally unique ID for synchronization
+- Its own tables, methods, and storage
+- The ability to depend on other workspaces
+- Real-time collaboration support (via Yjs)
+
+**Your tables ARE Drizzle tables** - Enhanced with dual-storage and collaboration.
 
 ```typescript
-// Plugin tables map directly to Drizzle
+// Workspace tables map directly to Drizzle
 tables: {
   posts: {
-    id: text({ primaryKey: true }),
+    id: id(),
     title: text(),
     content: text({ nullable: true })
   }
 }
 
 // Enhanced table with dual storage
-await api.blog.posts.create({ id: '1', title: 'Hello' });  // → markdown + SQLite
-const posts = await api.blog.posts.select().where(eq(api.blog.posts.published, true));  // → pure Drizzle
+await tables.posts.upsert({ id: '1', title: 'Hello' });  // → markdown + SQLite
+const posts = await tables.posts.select().where(eq(tables.posts.published, true));  // → pure Drizzle
 ```
 
 ## ✨ Features
@@ -44,13 +168,14 @@ npm install @repo/vault
 ### Basic Usage
 
 ```typescript
+// blog/epicenter.config.ts
 import { definePlugin, runPlugin, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/vault';
 import { eq, desc, gte } from 'drizzle-orm';
 import { z } from 'zod';
 
-// 1. Define your plugin
+// 1. Define your workspace
 const blogPlugin = definePlugin({
-  id: 'blog',
+  id: 'b1c2d3e4-f5g6-7890-hijk-lm1234567890', // Globally unique workspace ID
 
   tables: {
     posts: {
@@ -63,15 +188,15 @@ const blogPlugin = definePlugin({
     }
   },
 
-  methods: (api) => ({
+  methods: ({ tables }) => ({
     getPopularPosts: defineQuery({
       input: z.object({
         minViews: z.number().default(100)
       }),
       handler: async (input) => {
-        return api.blog.posts.select()
-          .where(gte(api.blog.posts.views, input.minViews))
-          .orderBy(desc(api.blog.posts.views))
+        return tables.posts.select()
+          .where(gte(tables.posts.views, input.minViews))
+          .orderBy(desc(tables.posts.views))
           .all();
       }
     }),
@@ -83,7 +208,8 @@ const blogPlugin = definePlugin({
         published: z.boolean().default(false)
       }),
       handler: async (input) => {
-        return api.blog.posts.create({
+        return tables.posts.upsert({
+          id: generateId(),
           title: input.title,
           content: input.content || null,
           published: input.published,
@@ -95,22 +221,16 @@ const blogPlugin = definePlugin({
   })
 });
 
-// 2. Create an app plugin that aggregates others (optional)
-const app = definePlugin({
-  id: 'app',
-  dependencies: [blogPlugin],
-  tables: {}, // No tables of its own
-  methods: () => ({}) // No methods needed
+export default blogPlugin;
+
+// 2. Run the workspace
+const runtime = await runPlugin(blogPlugin, {
+  databaseUrl: './blog/data/db.sqlite',
+  storagePath: './blog/data'
 });
 
-// 3. Run the plugin with runtime injection
-const runtime = await runPlugin(app, {
-  databaseUrl: './my-app.db',    // SQLite database
-  storagePath: './my-vault'       // Markdown storage directory
-});
-
-// 4. Use enhanced table helpers
-const { data: post } = await runtime.blog.posts.create({
+// 3. Use enhanced table helpers
+const { data: post } = await runtime.posts.upsert({
   id: 'first-post',
   title: 'Welcome!',
   content: 'This gets saved to both markdown and SQLite!',
@@ -119,17 +239,17 @@ const { data: post } = await runtime.blog.posts.create({
   createdAt: new Date()
 });
 
-// 5. Query with pure Drizzle
-const publishedPosts = await runtime.blog.posts.select()
-  .where(eq(runtime.blog.posts.published, true))
-  .orderBy(desc(runtime.blog.posts.createdAt))
+// 4. Query with pure Drizzle
+const publishedPosts = await runtime.posts.select()
+  .where(eq(runtime.posts.published, true))
+  .orderBy(desc(runtime.posts.createdAt))
   .limit(10);
 
-// 6. Use plugin methods with validation
-const popular = await runtime.blog.getPopularPosts({ minViews: 50 });
+// 5. Use workspace methods with validation
+const popular = await runtime.getPopularPosts({ minViews: 50 });
 
-// 7. Create posts with validated input
-const newPost = await runtime.blog.createPost({
+// 6. Create posts with validated input
+const newPost = await runtime.createPost({
   title: 'My Second Post',
   content: 'Content here...',
   published: false
