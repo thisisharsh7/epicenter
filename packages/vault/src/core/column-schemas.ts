@@ -116,15 +116,6 @@ export type ColumnSchema =
 export type ColumnType = ColumnSchema['type'];
 
 /**
- * Helper type to check if a column type requires options
- */
-export type RequiresOptions<T extends ColumnType> = T extends
-	| 'select'
-	| 'multi-select'
-	? true
-	: false;
-
-/**
  * Table schema - maps column names to their schemas
  */
 export type TableSchema = Record<string, ColumnSchema>;

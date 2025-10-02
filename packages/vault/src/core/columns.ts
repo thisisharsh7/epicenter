@@ -289,7 +289,7 @@ function normalizeToDateWithTimezone(
 /**
  * Factory function to create a serializer with inferred types
  */
-export function Serializer<TValue, TSerialized>(config: {
+function Serializer<TValue, TSerialized>(config: {
 	serialize(value: TValue): TSerialized;
 	deserialize(storage: TSerialized): TValue;
 }) {
@@ -299,7 +299,7 @@ export function Serializer<TValue, TSerialized>(config: {
 /**
  * Serializer for DateWithTimezone - converts between application objects and storage strings
  */
-export const DateWithTimezoneSerializer = Serializer({
+const DateWithTimezoneSerializer = Serializer({
 	serialize({ date, timezone }: DateWithTimezone): DateWithTimezoneString {
 		const isoUtc = date.toISOString();
 		return asDateWithTimezoneString(`${isoUtc}|${timezone}`);
@@ -321,9 +321,7 @@ export const DateWithTimezoneSerializer = Serializer({
  * Type assertion function for DateWithTimezoneString
  * Pass-through function that asserts a string as DateWithTimezoneString
  */
-export function asDateWithTimezoneString(
-	value: string,
-): DateWithTimezoneString {
+function asDateWithTimezoneString(value: string): DateWithTimezoneString {
 	return value as DateWithTimezoneString;
 }
 
