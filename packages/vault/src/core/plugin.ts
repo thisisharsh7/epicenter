@@ -2,7 +2,7 @@ import type { Result } from 'wellcrafted/result';
 import type { VaultOperationError } from './errors';
 import type { PluginMethodMap } from './methods';
 import type { TableSchema } from './column-schemas';
-import type { IndexMap, IndexesDefinition } from './indexes';
+import type { Index, IndexesDefinition, RowData } from './indexes';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -212,7 +212,7 @@ export type PluginMethodContext<
 	 * Indexes for this workspace
 	 * Read operations (select, search, etc.)
 	 */
-	indexes: IndexMap;
+	indexes: Record<string, Index>;
 };
 
 /**
@@ -220,9 +220,7 @@ export type PluginMethodContext<
  */
 export type WorkspaceTablesAPI<TTableSchemas extends Record<string, TableSchema>> = {
 	[TableName in keyof TTableSchemas]: {
-		upsert(
-			data: Record<string, any>,
-		): Promise<Result<Record<string, any>, VaultOperationError>>;
+		upsert(data: RowData): Promise<Result<RowData, VaultOperationError>>;
 		deleteById(id: string): Promise<Result<boolean, VaultOperationError>>;
 		deleteByIds(ids: string[]): Promise<Result<number, VaultOperationError>>;
 	};

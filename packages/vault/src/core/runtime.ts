@@ -5,6 +5,7 @@ import type { TableSchema } from './column-schemas';
 import { VaultOperationErr, type VaultOperationError } from './errors';
 import type { PluginMethod } from './methods';
 import type { Plugin } from './plugin';
+import type { RowData } from './indexes';
 import {
 	convertPlainToYMap,
 	getTableRowOrder,
@@ -134,9 +135,7 @@ export async function runPlugin<T = unknown>(
  * Reads should go through indexes (e.g., indexes.sqlite.posts.select())
  */
 type TableHelper = {
-	upsert(
-		data: Record<string, any>,
-	): Promise<Result<Record<string, any>, VaultOperationError>>;
+	upsert(data: RowData): Promise<Result<RowData, VaultOperationError>>;
 	deleteById(id: string): Promise<Result<boolean, VaultOperationError>>;
 	deleteByIds(ids: string[]): Promise<Result<number, VaultOperationError>>;
 };
@@ -153,9 +152,7 @@ function createTableHelpers(
 
 	for (const [tableName, columnSchemas] of Object.entries(tableSchemas)) {
 		helpers[tableName] = {
-			async upsert(
-				data: Record<string, any>,
-			): Promise<Result<Record<string, any>, VaultOperationError>> {
+			async upsert(data: RowData): Promise<Result<RowData, VaultOperationError>> {
 				return tryAsync({
 					try: async () => {
 						const rowsById = getTableRowsById(ydoc, tableName);

@@ -65,7 +65,13 @@ export { runPlugin } from './core/runtime';
 export type { RuntimeConfig } from './core/runtime';
 
 // Index system
-export type { Index, IndexContext, IndexMap, IndexesDefinition } from './core/indexes';
+export type {
+	Index,
+	IndexContext,
+	IndexesDefinition,
+	CellValue,
+	RowData,
+} from './core/indexes';
 
 // Indexes (implementations)
 export { createSQLiteIndex } from './indexes/sqlite-index';

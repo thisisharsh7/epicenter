@@ -1,12 +1,29 @@
 import type { Result } from 'wellcrafted/result';
 import type * as Y from 'yjs';
-import type { TableSchema } from './column-schemas';
+import type { DateWithTimezone, TableSchema } from './column-schemas';
 import type { IndexError } from './errors';
 
 /**
  * Index type system for vault.
  * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
  */
+
+/**
+ * A single cell value in a row
+ * Represents the runtime value after YJS → plain conversion
+ */
+export type CellValue =
+	| string // id, text, rich-text (as string), select
+	| number // integer, real
+	| boolean // boolean
+	| DateWithTimezone // date with timezone
+	| string[] // multi-select
+	| null; // nullable fields
+
+/**
+ * A row of data with typed cell values
+ */
+export type RowData = Record<string, CellValue>;
 
 /**
  * Index interface - all indexes must implement these methods
@@ -33,7 +50,7 @@ export type Index = {
 	onAdd(
 		tableName: string,
 		id: string,
-		data: Record<string, any>,
+		data: RowData,
 	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
@@ -43,7 +60,7 @@ export type Index = {
 	onUpdate(
 		tableName: string,
 		id: string,
-		data: Record<string, any>,
+		data: RowData,
 	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
@@ -94,13 +111,7 @@ export type IndexContext = {
 export type IndexFactory = (context: IndexContext) => Index;
 
 /**
- * Map of index names to Index instances
- * Example: { sqlite: SQLiteIndex, markdown: MarkdownIndex, vector: VectorIndex }
- */
-export type IndexMap = Record<string, Index>;
-
-/**
  * Indexes definition function signature
  * Receives context and returns a map of index instances
  */
-export type IndexesDefinition = (context: IndexContext) => IndexMap;
+export type IndexesDefinition = (context: IndexContext) => Record<string, Index>;

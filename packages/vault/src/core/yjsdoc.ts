@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import type { ColumnSchema, TableSchema, DateWithTimezone } from './column-schemas';
+import type { RowData } from './indexes';
 
 /**
  * YJS document utilities for vault.
@@ -40,8 +41,8 @@ export function initWorkspaceDoc(
  * - Y.Map → nested plain object (recursive)
  * - Primitives → as-is
  */
-export function convertYMapToPlain(ymap: Y.Map<any>): Record<string, any> {
-	const obj: Record<string, any> = {};
+export function convertYMapToPlain(ymap: Y.Map<any>): RowData {
+	const obj: RowData = {};
 
 	for (const [key, value] of ymap.entries()) {
 		if (value instanceof Y.Text) {
@@ -67,7 +68,7 @@ export function convertYMapToPlain(ymap: Y.Map<any>): Record<string, any> {
  * Uses column schemas to determine which fields should be Y.Text
  */
 export function convertPlainToYMap(
-	data: Record<string, any>,
+	data: RowData,
 	columnSchemas: TableSchema,
 ): Y.Map<any> {
 	const ymap = new Y.Map();
@@ -78,36 +79,13 @@ export function convertPlainToYMap(
 		if (schema?.type === 'rich-text') {
 			// Rich text column → Y.Text for collaborative editing
 			ymap.set(key, new Y.Text(value as string));
-		} else if (schema?.type === 'multi-select') {
-			// Multi-select → Y.Array for potential collaborative editing
-			// (or plain array if collaboration not needed)
-			ymap.set(key, value);
-		} else if (schema?.type === 'date' && value) {
-			// Date → serialize to storage format
-			const dateValue = value as DateWithTimezone;
-			const serialized = `${dateValue.date.toISOString()}|${dateValue.timezone}`;
-			ymap.set(key, serialized);
 		} else {
-			// All other types → store as-is
+			// All other types → store as-is (including DateWithTimezone objects)
 			ymap.set(key, value);
 		}
 	}
 
 	return ymap;
-}
-
-/**
- * Deserialize a date string back to DateWithTimezone
- */
-export function deserializeDate(serialized: string): DateWithTimezone {
-	const [isoUtc, timezone] = serialized.split('|');
-	if (!isoUtc || !timezone) {
-		throw new Error(`Invalid date format: ${serialized}`);
-	}
-	return {
-		date: new Date(isoUtc),
-		timezone,
-	};
 }
 
 /**
@@ -118,8 +96,8 @@ export function observeTable(
 	ydoc: Y.Doc,
 	tableName: string,
 	handlers: {
-		onAdd: (id: string, data: Record<string, any>) => void | Promise<void>;
-		onUpdate: (id: string, data: Record<string, any>) => void | Promise<void>;
+		onAdd: (id: string, data: RowData) => void | Promise<void>;
+		onUpdate: (id: string, data: RowData) => void | Promise<void>;
 		onDelete: (id: string) => void | Promise<void>;
 	},
 ) {
