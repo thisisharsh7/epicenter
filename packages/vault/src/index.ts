@@ -1,5 +1,49 @@
-// Core exports
+/**
+ * Vault: YJS-First Collaborative Workspace System
+ *
+ * A unified architecture for building self-contained, globally synchronizable workspaces
+ * with real-time collaboration via YJS.
+ *
+ * ## Core Concepts
+ *
+ * - **YJS Document**: Source of truth (CRDT, collaborative)
+ * - **Indexes**: Synchronized snapshots for different query patterns
+ * - **Column Schemas**: Pure JSON definitions (no Drizzle builders)
+ *
+ * ## Data Flow
+ *
+ * Write to YJS → Indexes auto-sync → Query indexes
+ */
+
+// Core workspace definition
 export { defineWorkspace, definePlugin } from './core/plugin';
+export type { Plugin, PluginMethodContext } from './core/plugin';
+
+// Column schema system
+export {
+	id,
+	text,
+	richText,
+	integer,
+	real,
+	boolean,
+	date,
+	select,
+	multiSelect,
+	json,
+	blob,
+	generateId,
+} from './core/column-schemas';
+export type {
+	ColumnSchema,
+	ColumnType,
+	TableSchema,
+	Id,
+	DateWithTimezone,
+	DateWithTimezoneString,
+	DateIsoString,
+	TimezoneId,
+} from './core/column-schemas';
 
 // Method helpers
 export {
@@ -16,32 +60,24 @@ export type {
 	InferMethodOutput,
 } from './core/methods';
 
-// Runtime for plugin execution
+// Runtime
 export { runPlugin } from './core/runtime';
-export type { RuntimeConfig, RuntimeContext } from './core/runtime';
+export type { RuntimeConfig } from './core/runtime';
 
-// Column helpers
-export {
-	id,
-	text,
-	integer,
-	real,
-	boolean,
-	date,
-	json,
-	blob,
-} from './core/columns';
+// Index system
+export type { Index, IndexContext, IndexMap, IndexesDefinition } from './core/indexes';
 
-// Column types
-export type { Id } from './core/columns';
+// Indexes (implementations)
+export { createSQLiteIndex } from './indexes/sqlite-index';
+export type { SQLiteIndexConfig } from './indexes/sqlite-index';
 
-// Plugin types
-export type { Plugin } from './core/plugin';
+export { createMarkdownIndex } from './indexes/markdown-index';
+export type { MarkdownIndexConfig } from './indexes/markdown-index';
 
 // Error types
 export type { VaultOperationError } from './core/errors';
 
-// Re-export commonly used Drizzle utilities for convenience
+// Re-export commonly used Drizzle utilities for querying indexes
 export {
 	eq,
 	ne,
@@ -54,6 +90,8 @@ export {
 	not,
 	like,
 	inArray,
+	isNull,
+	isNotNull,
 	sql,
 	desc,
 	asc,

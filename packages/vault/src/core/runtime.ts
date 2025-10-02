@@ -1,518 +1,253 @@
-import { createClient } from '@libsql/client';
-import type {
-	InferInsertModel,
-	InferSelectModel,
-	SelectedFields,
-} from 'drizzle-orm';
-import { eq, inArray, sql } from 'drizzle-orm';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
-import {
-	sqliteTable,
-	type SQLiteColumnBuilderBase,
-	type SQLiteTable,
-} from 'drizzle-orm/sqlite-core';
-import { tryAsync, type Result } from 'wellcrafted/result';
-
-import type { StandardSchemaV1 } from '@standard-schema/spec';
-import {
-	deleteMarkdownFile,
-	getMarkdownPath,
-	updateMarkdownFile,
-	writeMarkdownFile,
-} from '../storage/markdown-parser';
-import type {
-	AffectedRowsResult,
-	AggregatedPluginNamespace,
-	CountResult,
-	StorageData,
-	StorageOperations,
-	TableWithId,
-	PluginAPI,
-} from '../types/drizzle-helpers';
+import type { Result } from 'wellcrafted/result';
+import { Ok, tryAsync } from 'wellcrafted/result';
+import type { Plugin } from './plugin';
+import type { Index, IndexMap } from './indexes';
 import { VaultOperationErr, type VaultOperationError } from './errors';
-import type { PluginMethod, PluginMethodMap } from './methods';
-import type { Plugin, TableHelpers } from './plugin';
+import {
+	initWorkspaceDoc,
+	observeTable,
+	getTableRowsById,
+	getTableRowOrder,
+	convertPlainToYMap,
+} from './yjsdoc';
+import type { TableSchema } from './column-schemas';
 
 /**
- * Run a plugin with runtime injection
- * Returns the plugin instance directly for single plugins,
- * or an aggregated namespace for aggregator plugins
+ * Runtime configuration provided by the user
+ */
+export type RuntimeConfig = {
+	/**
+	 * YJS persistence options (optional)
+	 * If not provided, document lives in memory
+	 */
+	yjsPersistence?: {
+		path?: string;
+		// Future: other persistence strategies
+	};
+};
+
+/**
+ * Run a workspace with YJS-first architecture
+ * Returns the workspace instance with tables, methods, and indexes
  */
 export async function runPlugin<T = unknown>(
 	plugin: Plugin,
 	config: RuntimeConfig = {},
 ): Promise<T> {
-	// Create database connection
-	const db = drizzle(
-		createClient({
-			url: config.databaseUrl || ':memory:',
-		}),
-	);
+	// 1. Initialize YJS document
+	const ydoc = initWorkspaceDoc(plugin.id, plugin.tables);
 
-	// Create storage handlers
-	const storage = createStorage(config.storagePath);
-
-	// Create runtime context
-	const runtime: RuntimeContext = {
-		db,
-		storage,
+	// 2. Initialize indexes
+	const indexContext = {
+		ydoc,
+		tableSchemas: plugin.tables,
+		workspaceId: plugin.id,
 	};
 
-	// Initialize plugin tree
-	const pluginInstances = new Map<string, unknown>();
-	const rootInstance = await initializePlugin(plugin, runtime, pluginInstances);
+	const indexes = plugin.indexes(indexContext);
 
-	// If this is an aggregator plugin with no methods,
-	// return all dependencies flattened
-	if (
-		Object.keys(plugin.tables).length === 0 &&
-		Object.keys(rootInstance).length === 0
-	) {
-		// This is an aggregator plugin, return the aggregated namespace
-		const aggregated: AggregatedPluginNamespace = {};
-		for (const dep of plugin.dependencies || []) {
-			aggregated[dep.id] = pluginInstances.get(dep.id);
+	// Initialize each index
+	for (const [indexName, index] of Object.entries(indexes)) {
+		try {
+			await index.init?.();
+		} catch (error) {
+			console.error(`Failed to initialize index "${indexName}":`, error);
 		}
-		return aggregated as T;
 	}
 
-	// Single plugin: return the instance directly
-	return rootInstance as T;
-}
-
-/**
- * Initialize a plugin with runtime context
- */
-async function initializePlugin(
-	plugin: Plugin,
-	runtime: RuntimeContext,
-	pluginInstances: Map<string, unknown>,
-): Promise<unknown> {
-	// If already initialized, return cached instance
-	if (pluginInstances.has(plugin.id)) {
-		return pluginInstances.get(plugin.id);
+	// 3. Set up observers for all tables
+	for (const tableName of Object.keys(plugin.tables)) {
+		observeTable(ydoc, tableName, {
+			onAdd: async (id, data) => {
+				for (const index of Object.values(indexes)) {
+					try {
+						await index.onAdd(tableName, id, data);
+					} catch (error) {
+						console.error(`Index onAdd failed for ${tableName}/${id}:`, error);
+					}
+				}
+			},
+			onUpdate: async (id, data) => {
+				for (const index of Object.values(indexes)) {
+					try {
+						await index.onUpdate(tableName, id, data);
+					} catch (error) {
+						console.error(
+							`Index onUpdate failed for ${tableName}/${id}:`,
+							error,
+						);
+					}
+				}
+			},
+			onDelete: async (id) => {
+				for (const index of Object.values(indexes)) {
+					try {
+						await index.onDelete(tableName, id);
+					} catch (error) {
+						console.error(
+							`Index onDelete failed for ${tableName}/${id}:`,
+							error,
+						);
+					}
+				}
+			},
+		});
 	}
 
-	// Initialize dependencies first
+	// 4. Create table helpers (write-only to YJS)
+	const tables = createTableHelpers(ydoc, plugin.tables);
+
+	// 5. Initialize dependencies (if any)
 	const dependencies: Record<string, unknown> = {};
-	for (const dep of plugin.dependencies || []) {
-		dependencies[dep.id] = await initializePlugin(
-			dep,
-			runtime,
-			pluginInstances,
-		);
-	}
+	// TODO: Handle dependencies
 
-	// Create SQLite tables for this plugin
-	const tables: Record<string, TableHelpers<SQLiteTable> & SQLiteTable> = {};
-	for (const [tableName, columns] of Object.entries(plugin.tables)) {
-		// Create SQLite table
-		const drizzleTable = sqliteTable(
-			tableName,
-			columns as Record<string, SQLiteColumnBuilderBase>,
-		);
-
-		// Create table in database if not exists
-		await createTableIfNotExists(runtime.db, tableName, columns);
-
-		// Create enhanced table with helpers
-		tables[tableName] = createTableHelpers(
-			runtime.db,
-			runtime.storage,
-			drizzleTable,
-			tableName,
-		);
-	}
-
-	// Build plugin context for this plugin
-	const context = {
+	// 6. Initialize methods with full context
+	const methodContext = {
 		plugins: dependencies,
-		tables: tables,
+		tables,
+		indexes,
 	};
+	const methods = plugin.methods(methodContext);
 
-	// Initialize plugin methods
-	const rawMethods = plugin.methods(context);
-
-	// Process methods to add execute wrapper
-	const methods = processPluginMethods(rawMethods);
-
-	// Combine tables and methods into plugin namespace
-	const pluginInstance = {
+	// 7. Return workspace instance
+	const workspaceInstance = {
 		...tables,
 		...methods,
+		indexes,
+		ydoc,
 	};
 
-	// Cache the instance
-	pluginInstances.set(plugin.id, pluginInstance);
-
-	return pluginInstance;
+	return workspaceInstance as T;
 }
 
 /**
- * Process plugin methods to make them directly callable
+ * Table helpers that write to YJS
+ * Reads should go through indexes (e.g., indexes.sqlite.posts.select())
  */
-function processPluginMethods(methods: PluginMethodMap): PluginMethodMap {
-	const processed: Record<string, unknown> = {};
-
-	for (const [key, method] of Object.entries(methods)) {
-		// Check if it's a plugin method (has type and handler)
-		if (
-			method &&
-			typeof method === 'object' &&
-			'type' in method &&
-			'handler' in method
-		) {
-			processed[key] = makeMethodDirectlyCallable(method);
-		} else {
-			// Pass through non-method properties
-			processed[key] = method;
-		}
-	}
-
-	return processed;
-}
-
-/**
- * Wrap a plugin method to make it directly callable
- * The function validates input, executes the handler, and returns the Result
- */
-function makeMethodDirectlyCallable<
-	TSchema extends StandardSchemaV1 = StandardSchemaV1,
-	TOutput = unknown,
->(
-	method: PluginMethod<TSchema, TOutput>,
-): PluginMethod<TSchema, TOutput> &
-	((
-		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>) {
-	// Create a callable function that validates and executes
-	const callableMethod = async (input: StandardSchemaV1.InferOutput<TSchema>) => {
-		// Validate input using the schema
-		const validationResult = method.input['~standard'].validate(input);
-		if (validationResult instanceof Promise) {
-			throw new TypeError('Schema validation must be synchronous');
-		}
-		if (validationResult.issues) {
-			throw new Error(
-				`Validation failed: ${validationResult.issues.map((i) => i.message).join(', ')}`,
-			);
-		}
-		const validatedInput =
-			validationResult.value as StandardSchemaV1.InferOutput<TSchema>;
-
-		// Execute handler and return the Result directly
-		return await method.handler(validatedInput);
-	};
-
-	// Attach the method properties to the function for introspection if needed
-	return Object.assign(callableMethod, method);
-}
-
-/**
- * Create table helpers for a given table
- */
-function createTableHelpers<T extends TableWithId>(
-	db: LibSQLDatabase,
-	storage: RuntimeContext['storage'],
-	table: T,
-	tableName: string,
-): TableHelpers<T> & T {
-	const helpers: TableHelpers<T> = {
-		async getById(
-			id: string,
-		): Promise<Result<InferSelectModel<T> | null, VaultOperationError>> {
-			return tryAsync({
-				try: async () => {
-					const [record] = await db
-						.select()
-						.from(table)
-						.where(eq(table.id, id))
-						.limit(1);
-
-					return record ?? null;
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to get record from table ${tableName}`,
-						context: { tableName, id },
-						cause: error,
-					}),
-			});
-		},
-
-		async getByIds(
-			ids: string[],
-		): Promise<Result<InferSelectModel<T>[], VaultOperationError>> {
-			return tryAsync({
-				try: async () => {
-					return db.select().from(table).where(inArray(table.id, ids)).all();
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to get records from table ${tableName}`,
-						context: { tableName, ids },
-						cause: error,
-					}),
-			});
-		},
-
-		async getAll(): Promise<
-			Result<InferSelectModel<T>[], VaultOperationError>
-		> {
-			return tryAsync({
-				try: async () => {
-					return db.select().from(table).all();
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to get all records from table ${tableName}`,
-						context: { tableName },
-						cause: error,
-					}),
-			});
-		},
-
-		async count(): Promise<Result<number, VaultOperationError>> {
-			return tryAsync({
-				try: async () => {
-					const result = (await db
-						.select({ count: sql<number>`count(*)` })
-						.from(table)
-						.get()) as CountResult | undefined;
-					return result?.count || 0;
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to count records in table ${tableName}`,
-						context: { tableName },
-						cause: error,
-					}),
-			});
-		},
-
-		async upsert(
-			data: InferInsertModel<T> & { id: string },
-		): Promise<Result<InferSelectModel<T>, VaultOperationError>> {
-			return tryAsync({
-				try: async () => {
-					// Try update first, then insert if not found
-					const existing = await this.getById(data.id);
-
-					if (existing.data) {
-						// Update existing record
-						const [updated] = await db
-							.update(table)
-							.set(data)
-							.where(eq(table.id, data.id))
-							.returning();
-
-						if (updated && storage.path) {
-							try {
-								await storage.update(tableName, data.id, updated);
-							} catch (error) {
-								console.warn(
-									`Warning updating storage for ${tableName}/${data.id}:`,
-									error,
-								);
-							}
-						}
-
-						return updated;
-					}
-					// Create new record
-					if (storage.path) {
-						try {
-							await storage.write(tableName, data.id, data);
-						} catch (error) {
-							console.warn(
-								`Warning writing to storage for ${tableName}/${data.id}:`,
-								error,
-							);
-						}
-					}
-
-					const [inserted] = await db.insert(table).values(data).returning();
-
-					return inserted;
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to upsert record in table ${tableName}`,
-						context: { tableName, data },
-						cause: error,
-					}),
-			});
-		},
-
-		async deleteById(
-			id: string,
-		): Promise<Result<boolean, VaultOperationError>> {
-			return tryAsync({
-				try: async () => {
-					// Try to delete from storage first if configured
-					if (storage.path) {
-						try {
-							await storage.delete(tableName, id);
-						} catch (error) {
-							console.warn(
-								`Warning deleting from storage ${tableName}/${id}:`,
-								error,
-							);
-						}
-					}
-
-					const result = await db.delete(table).where(eq(table.id, id));
-
-					return result.rowsAffected > 0;
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to delete record from table ${tableName}`,
-						context: { tableName, id },
-						cause: error,
-					}),
-			});
-		},
-
-		async deleteByIds(
-			ids: string[],
-		): Promise<Result<number, VaultOperationError>> {
-			return tryAsync({
-				try: async () => {
-					// Try to delete from storage first if configured
-					if (storage.path) {
-						for (const id of ids) {
-							try {
-								await storage.delete(tableName, id);
-							} catch (error) {
-								console.warn(
-									`Warning deleting from storage ${tableName}/${id}:`,
-									error,
-								);
-							}
-						}
-					}
-
-					const result = await db.delete(table).where(inArray(table.id, ids));
-
-					return result.rowsAffected;
-				},
-				catch: (error) =>
-					VaultOperationErr({
-						message: `Failed to delete records from table ${tableName}`,
-						context: { tableName, ids },
-						cause: error,
-					}),
-			});
-		},
-
-		select(fields?: any) {
-			return fields ? db.select(fields).from(table) : db.select().from(table);
-		},
-	};
-
-	// Use Proxy to merge table columns and helper methods
-	return new Proxy(helpers, {
-		get(target, prop) {
-			// Check helpers first
-			if (prop in target) {
-				return target[prop as keyof typeof target];
-			}
-			// Then check table columns
-			if (prop in table) {
-				return table[prop as keyof typeof table];
-			}
-			return undefined;
-		},
-	}) as TableHelpers<T> & T;
-}
-
-/**
- * Create storage handlers for markdown files
- */
-function createStorage(storagePath?: string): RuntimeContext['storage'] {
-	return {
-		path: storagePath,
-
-		async write(table: string, id: string, data: StorageData) {
-			if (!storagePath) return;
-			const filePath = getMarkdownPath(storagePath, table, id);
-			await writeMarkdownFile(filePath, data);
-		},
-
-		async update(table: string, id: string, data: StorageData) {
-			if (!storagePath) return;
-			const filePath = getMarkdownPath(storagePath, table, id);
-			await updateMarkdownFile(filePath, data);
-		},
-
-		async delete(table: string, id: string) {
-			if (!storagePath) return;
-			const filePath = getMarkdownPath(storagePath, table, id);
-			await deleteMarkdownFile(filePath);
-		},
-	};
-}
-
-/**
- * Create a table in SQLite if it doesn't exist
- */
-async function createTableIfNotExists(
-	db: LibSQLDatabase,
-	tableName: string,
-	columns: Record<string, SQLiteColumnBuilderBase>,
-): Promise<void> {
-	const columnDefs: string[] = [];
-
-	for (const [columnName, column] of Object.entries(columns)) {
-		const config = (column as SQLiteColumnBuilderBase & { config: any }).config;
-		const columnType = config.columnType;
-
-		let sqlType = 'TEXT';
-		if (
-			columnType === 'SQLiteInteger' ||
-			columnType === 'SQLiteTimestamp' ||
-			columnType === 'SQLiteBoolean'
-		) {
-			sqlType = 'INTEGER';
-		} else if (columnType === 'SQLiteReal') {
-			sqlType = 'REAL';
-		} else if (columnType === 'SQLiteNumeric') {
-			sqlType = 'NUMERIC';
-		} else if (columnType === 'SQLiteBlob') {
-			sqlType = 'BLOB';
-		}
-
-		let constraints = '';
-		if (config.notNull === true) {
-			constraints += ' NOT NULL';
-		}
-		if (config.primaryKey === true) {
-			constraints += ' PRIMARY KEY';
-		}
-		if (config.isUnique === true) {
-			constraints += ' UNIQUE';
-		}
-
-		columnDefs.push(`${columnName} ${sqlType}${constraints}`);
-	}
-
-	const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableName} (${columnDefs.join(', ')})`;
-	await db.run(sql.raw(createTableSQL));
-}
-
-/**
- * Runtime configuration provided by the CLI
- */
-export type RuntimeConfig = {
-	databaseUrl?: string;
-	storagePath?: string;
+type TableHelper = {
+	upsert(
+		data: Record<string, any>,
+	): Promise<Result<Record<string, any>, VaultOperationError>>;
+	deleteById(id: string): Promise<Result<boolean, VaultOperationError>>;
+	deleteByIds(ids: string[]): Promise<Result<number, VaultOperationError>>;
 };
 
 /**
- * Runtime context provided to plugins
+ * Create table helpers for all tables
+ * These helpers write to YJS, which triggers index updates
  */
-export type RuntimeContext = {
-	db: LibSQLDatabase;
-	storage: StorageOperations;
-};
+function createTableHelpers(
+	ydoc: Y.Doc,
+	tableSchemas: Record<string, TableSchema>,
+): Record<string, TableHelper> {
+	const helpers: Record<string, TableHelper> = {};
+
+	for (const [tableName, columnSchemas] of Object.entries(tableSchemas)) {
+		helpers[tableName] = {
+			async upsert(
+				data: Record<string, any>,
+			): Promise<Result<Record<string, any>, VaultOperationError>> {
+				return tryAsync({
+					try: async () => {
+						const rowsById = getTableRowsById(ydoc, tableName);
+						const rowOrder = getTableRowOrder(ydoc, tableName);
+
+						// Convert plain data to Y.Map
+						const ymap = convertPlainToYMap(data, columnSchemas);
+
+						// Update in transaction
+						ydoc.transact(() => {
+							rowsById.set(data.id, ymap);
+
+							// Add to rowOrder if new
+							const orderArray = rowOrder.toArray();
+							if (!orderArray.includes(data.id)) {
+								rowOrder.push([data.id]);
+							}
+						});
+
+						return data;
+					},
+					catch: (error) =>
+						VaultOperationErr({
+							message: `Failed to upsert record in table ${tableName}`,
+							context: { tableName, data },
+							cause: error,
+						}),
+				});
+			},
+
+			async deleteById(
+				id: string,
+			): Promise<Result<boolean, VaultOperationError>> {
+				return tryAsync({
+					try: async () => {
+						const rowsById = getTableRowsById(ydoc, tableName);
+						const rowOrder = getTableRowOrder(ydoc, tableName);
+
+						const exists = rowsById.has(id);
+						if (!exists) return false;
+
+						ydoc.transact(() => {
+							rowsById.delete(id);
+
+							// Remove from rowOrder
+							const orderArray = rowOrder.toArray();
+							const index = orderArray.indexOf(id);
+							if (index !== -1) {
+								rowOrder.delete(index, 1);
+							}
+						});
+
+						return true;
+					},
+					catch: (error) =>
+						VaultOperationErr({
+							message: `Failed to delete record from table ${tableName}`,
+							context: { tableName, id },
+							cause: error,
+						}),
+				});
+			},
+
+			async deleteByIds(
+				ids: string[],
+			): Promise<Result<number, VaultOperationError>> {
+				return tryAsync({
+					try: async () => {
+						const rowsById = getTableRowsById(ydoc, tableName);
+						const rowOrder = getTableRowOrder(ydoc, tableName);
+
+						let count = 0;
+
+						ydoc.transact(() => {
+							for (const id of ids) {
+								if (rowsById.has(id)) {
+									rowsById.delete(id);
+									count++;
+
+									// Remove from rowOrder
+									const orderArray = rowOrder.toArray();
+									const index = orderArray.indexOf(id);
+									if (index !== -1) {
+										rowOrder.delete(index, 1);
+									}
+								}
+							}
+						});
+
+						return count;
+					},
+					catch: (error) =>
+						VaultOperationErr({
+							message: `Failed to delete records from table ${tableName}`,
+							context: { tableName, ids },
+							cause: error,
+						}),
+				});
+			},
+		};
+	}
+
+	return helpers;
+}
