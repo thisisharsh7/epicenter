@@ -61,7 +61,7 @@
 			const value = getValue();
 			if (!value) return '';
 			const date = new Date(value);
-			if (isNaN(date.getTime())) return value;
+			if (Number.isNaN(date.getTime())) return value;
 			try {
 				return format(date, formatString);
 			} catch {
@@ -81,7 +81,7 @@
 	);
 	const copyToClipboard = createMutation(rpc.text.copyToClipboard.options);
 
-	const DATE_FORMAT = "PP p"; // e.g., Aug 13, 2025, 10:00 AM
+	const DATE_FORMAT = 'PP p'; // e.g., Aug 13, 2025, 10:00 AM
 
 	const columns: ColumnDef<Recording>[] = [
 		{
@@ -362,7 +362,7 @@
 </svelte:head>
 
 <main class="flex w-full flex-1 flex-col gap-2 px-4 py-4 sm:px-8 mx-auto">
-	<h1 class="scroll-m=20 text-4xl font-bold tracking-tight lg:text-5xl">
+	<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
 		Recordings
 	</h1>
 	<p class="text-muted-foreground">
@@ -374,8 +374,7 @@
 				placeholder="Filter transcripts..."
 				type="text"
 				class="w-full md:max-w-sm"
-				value={globalFilter}
-				oninput={(e) => (globalFilter = e.currentTarget.value)}
+				bind:value={globalFilter}
 			/>
 			<div class="flex w-full items-center justify-between gap-2">
 				{#if selectedRecordingRows.length > 0}
@@ -579,8 +578,10 @@
 							.getAllColumns()
 							.filter((c) => c.getCanHide()) as column (column.id)}
 							<DropdownMenu.CheckboxItem
-								checked={column.getIsVisible()}
-								onCheckedChange={(value) => column.toggleVisibility(!!value)}
+								bind:checked={
+									() => column.getIsVisible(),
+									(value) => column.toggleVisibility(!!value)
+								}
 							>
 								{column.columnDef.id}
 							</DropdownMenu.CheckboxItem>

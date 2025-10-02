@@ -27,11 +27,14 @@
     "fs:allow-create",
     "fs:allow-mkdir",
     "fs:allow-remove",
+    "fs:allow-stat",
     "dialog:allow-open",
     {
       "identifier": "fs:scope",
       "allow": [
-        { "path": "**" }
+        { "path": "**" },
+        { "path": "$APPLOCALDATA/**" },
+        { "path": "$LOCALDATA/**" }
       ]
     },
     {

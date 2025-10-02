@@ -16,6 +16,40 @@
   }
   ```
 
+# Type Co-location Principles
+
+## Never Use Generic Type Buckets
+Don't create generic type files like `$lib/types/models.ts`. This creates unclear dependencies and makes code harder to maintain.
+
+### Bad Pattern
+```typescript
+// $lib/types/models.ts - Generic bucket for unrelated types
+export type LocalModelConfig = { ... };
+export type UserModel = { ... };
+export type SessionModel = { ... };
+```
+
+### Good Pattern
+```typescript
+// $lib/services/transcription/local/types.ts - Co-located with service
+export type LocalModelConfig = { ... };
+
+// $lib/services/user/types.ts - Co-located with user service
+export type UserModel = { ... };
+```
+
+## Co-location Rules
+1. **Service-specific types**: Place in `[service-folder]/types.ts`
+2. **Component-specific types**: Define directly in the component file
+3. **Shared domain types**: Place in the domain folder's `types.ts`
+4. **Cross-domain types**: Only if truly shared across multiple domains, place in `$lib/types/[specific-name].ts`
+
+## Benefits
+- Clear ownership and dependencies
+- Easier refactoring and deletion
+- Better code organization
+- Reduces coupling between unrelated features
+
 # Mutation Pattern Preference
 
 ## In Svelte Files (.svelte)
@@ -122,6 +156,17 @@ When a handler function only calls `.mutate()`, inline it directly:
 6. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
 7. Finally, add a review section to the .md file with a summary of the changes you made and any other relevant information.
 
+# Expensive/destructive actions
+1. Always get prior approval before performing expensive/destructive actions (tool calls).
+   - Expensive actions require extended time to complete. Examples: test, build.
+     - Why: Unexpected tests/builds just waste time and tokens. The test results are often innaccurate ("It works!" when it doesn't.)
+   - Destructive actions result in permanant changes to project files. Examples: commit to git, push changes, edit a GitHub PR description.
+      - Why: changes should be verified before adding to permanent project history. Often additional changes are needed.
+2. Instead, you may automatically show a plan for the tool call you would like to make.
+   - Commit messages should follow the conventional commits specification.
+3. Then either the plan will be explicitly approved or changes to the plan will be requested.
+4. Unless otherwise stated, any approval applies only to the plan directly before it. So any future action will require a new plan with associated approval.
+
 
 # Human-Readable Control Flow
 When refactoring complex control flow, mirror natural human reasoning patterns:
@@ -139,6 +184,287 @@ Into this: linear flow that mirrors human decision-making
 Be brutally honest, don't be a yes man. 
 If I am wrong, point it out bluntly. 
 I need honest feedback on my code.
+
+# Error Handling with wellcrafted trySync and tryAsync
+
+## Use trySync/tryAsync Instead of try-catch for Graceful Error Handling
+
+When handling errors that can be gracefully recovered from, use `trySync` (for synchronous code) or `tryAsync` (for asynchronous code) from wellcrafted instead of traditional try-catch blocks. This provides better type safety and explicit error handling.
+
+### The Pattern
+
+```typescript
+import { trySync, tryAsync, Ok, Err } from 'wellcrafted/result';
+
+// SYNCHRONOUS: Use trySync for sync operations
+const { data, error } = trySync({
+  try: () => {
+    const parsed = JSON.parse(jsonString);
+    return validateData(parsed); // Automatically wrapped in Ok()
+  },
+  catch: (e) => {
+    // Gracefully handle parsing/validation errors
+    console.log('Using default configuration');
+    return Ok(defaultConfig); // Return Ok with fallback
+  },
+});
+
+// ASYNCHRONOUS: Use tryAsync for async operations
+await tryAsync({
+  try: async () => {
+    const child = new Child(session.pid);
+    await child.kill();
+    console.log(`Process killed successfully`);
+  },
+  catch: (e) => {
+    // Gracefully handle the error
+    console.log(`Process was already terminated`);
+    return Ok(undefined); // Return Ok(undefined) for void functions
+  },
+});
+
+// Both support the same catch patterns
+const syncResult = trySync({
+  try: () => riskyOperation(),
+  catch: (error) => {
+    // For recoverable errors, return Ok with fallback value
+    return Ok('fallback-value');
+    // For unrecoverable errors, return Err
+    return ServiceErr({
+      message: 'Operation failed',
+      cause: error,
+    });
+  },
+});
+```
+
+### Key Rules
+
+1. **Choose the right function** - Use `trySync` for synchronous code, `tryAsync` for asynchronous code
+2. **Always await tryAsync** - Unlike try-catch, tryAsync returns a Promise and must be awaited
+3. **trySync returns immediately** - No await needed for synchronous operations
+4. **Match return types** - If the try block returns `T`, the catch should return `Ok<T>` for graceful handling
+5. **Use Ok(undefined) for void** - When the function returns void, use `Ok(undefined)` in the catch
+6. **Return Err for propagation** - Use custom error constructors that return `Err` when you want to propagate the error
+
+### Examples
+
+```typescript
+// SYNCHRONOUS: JSON parsing with fallback
+const { data: config } = trySync({
+  try: () => JSON.parse(configString),
+  catch: (e) => {
+    console.log('Invalid config, using defaults');
+    return Ok({ theme: 'dark', autoSave: true });
+  },
+});
+
+// SYNCHRONOUS: File system check
+const { data: exists } = trySync({
+  try: () => fs.existsSync(path),
+  catch: () => Ok(false), // Assume doesn't exist if check fails
+});
+
+// ASYNCHRONOUS: Graceful process termination
+await tryAsync({
+  try: async () => {
+    await process.kill();
+  },
+  catch: (e) => {
+    console.log('Process already dead, continuing...');
+    return Ok(undefined);
+  },
+});
+
+// ASYNCHRONOUS: File operations with fallback
+const { data: content } = await tryAsync({
+  try: () => readFile(path),
+  catch: (e) => {
+    console.log('File not found, using default');
+    return Ok('default content');
+  },
+});
+
+// EITHER: Error propagation (works with both)
+const { data, error } = await tryAsync({
+  try: () => criticalOperation(),
+  catch: (error) =>
+    ServiceErr({
+      message: 'Critical operation failed',
+      cause: error,
+    }),
+});
+if (error) return Err(error);
+```
+
+### When to Use trySync vs tryAsync vs try-catch
+
+- **Use trySync when**:
+  - Working with synchronous operations (JSON parsing, validation, calculations)
+  - You need immediate Result types without promises
+  - Handling errors in synchronous utility functions
+  - Working with filesystem sync operations
+
+- **Use tryAsync when**:
+  - Working with async/await operations
+  - Making network requests or database calls
+  - Reading/writing files asynchronously
+  - Any operation that returns a Promise
+
+- **Use traditional try-catch when**:
+  - In module-level initialization code where you can't await
+  - For simple fire-and-forget operations
+  - When you're outside of a function context
+  - When integrating with code that expects thrown exceptions
+
+# Rust to TypeScript Error Handling
+
+## Discriminated Union Pattern for Errors
+
+When passing errors from Rust to TypeScript through Tauri commands, use internally-tagged enums to create discriminated unions that TypeScript can handle naturally.
+
+### Rust Error Definition
+
+```rust
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+#[derive(Error, Debug, Serialize, Deserialize)]
+#[serde(tag = "name")]
+pub enum TranscriptionError {
+    #[error("Audio read error: {message}")]
+    AudioReadError { message: String },
+
+    #[error("GPU error: {message}")]
+    GpuError { message: String },
+
+    #[error("Model load error: {message}")]
+    ModelLoadError { message: String },
+
+    #[error("Transcription error: {message}")]
+    TranscriptionError { message: String },
+}
+```
+
+### Key Rust Patterns
+
+1. **Use internally tagged enums**: `#[serde(tag = "name")]` creates a discriminator field
+2. **Follow naming conventions**: Enum variants should be PascalCase
+3. **Include structured data**: Each variant can have fields like `message: String`
+4. **Single-variant enums are okay**: Use when you want consistent error structure
+
+```rust
+// Single-variant enum for consistency
+#[derive(Error, Debug, Serialize, Deserialize)]
+#[serde(tag = "name")]
+enum ArchiveExtractionError {
+    #[error("Archive extraction failed: {message}")]
+    ArchiveExtractionError { message: String },
+}
+```
+
+### TypeScript Error Handling
+
+```typescript
+import { type } from 'arktype';
+
+// Define the error type to match Rust serialization
+const TranscriptionErrorType = type({
+    name: "'AudioReadError' | 'GpuError' | 'ModelLoadError' | 'TranscriptionError'",
+    message: 'string',
+});
+
+// Use in error handling
+const result = await tryAsync({
+    try: () => invoke('transcribe_audio_whisper', params),
+    catch: (unknownError) => {
+        const result = TranscriptionErrorType(unknownError);
+        if (result instanceof type.errors) {
+            // Handle unexpected error shape
+            return WhisperingErr({
+                title: '❌ Unexpected Error',
+                description: extractErrorMessage(unknownError),
+                action: { type: 'more-details', error: unknownError },
+            });
+        }
+
+        const error = result;
+        // Now we have properly typed discriminated union
+        switch (error.name) {
+            case 'ModelLoadError':
+                return WhisperingErr({
+                    title: '🤖 Model Loading Error',
+                    description: error.message,
+                    action: {
+                        type: 'more-details',
+                        error: new Error(error.message),
+                    },
+                });
+
+            case 'GpuError':
+                return WhisperingErr({
+                    title: '🎮 GPU Error',
+                    description: error.message,
+                    action: {
+                        type: 'link',
+                        label: 'Configure settings',
+                        href: '/settings/transcription',
+                    },
+                });
+
+            // Handle other cases...
+        }
+    },
+});
+```
+
+### Serialization Format
+
+The Rust enum serializes to this TypeScript-friendly format:
+
+```json
+// AudioReadError variant
+{ "name": "AudioReadError", "message": "Failed to decode audio file" }
+
+// GpuError variant
+{ "name": "GpuError", "message": "GPU acceleration failed" }
+```
+
+### Best Practices
+
+1. **Consistent error structure**: All errors have the same shape with `name` and `message`
+2. **TypeScript type safety**: Use runtime validation with arktype to ensure type safety
+3. **Exhaustive handling**: Switch statements provide compile-time exhaustiveness checking
+4. **Don't use `content` attribute**: Avoid `#[serde(tag = "name", content = "data")]` as it creates nested structures
+5. **Keep enums private when possible**: Only make public if used across modules
+
+### Anti-Patterns to Avoid
+
+```rust
+// DON'T: External tagging (default behavior)
+#[derive(Serialize)]
+pub enum BadError {
+    ModelLoadError { message: String }
+}
+// Produces: { "ModelLoadError": { "message": "..." } }
+
+// DON'T: Adjacent tagging with content
+#[derive(Serialize)]
+#[serde(tag = "type", content = "data")]
+pub enum BadError {
+    ModelLoadError { message: String }
+}
+// Produces: { "type": "ModelLoadError", "data": { "message": "..." } }
+
+// DON'T: Manual Serialize implementation when derive works
+impl Serialize for MyError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        // Unnecessary complexity
+    }
+}
+```
+
+This pattern ensures clean, type-safe error handling across the Rust-TypeScript boundary with minimal boilerplate and maximum type safety.
 
 # Styling Best Practices
 
@@ -404,7 +730,7 @@ Whispering now supports direct file uploads! 🎙️
 
 Simply drag and drop (or click to browse) your audio files for instant transcription, with your model of choice.
 
-Free open-source app: https://github.com/epicenter-so/epicenter
+Free open-source app: https://github.com/epicenter-md/epicenter
 ```
 
 ### Bad (AI-Generated Feel)
@@ -420,7 +746,7 @@ Built with the same philosophy of transparency and user control, you pay only ac
 
 Ready to revolutionize your workflow? Try it now!
 
-🔗 GitHub: https://github.com/epicenter-so/epicenter
+🔗 GitHub: https://github.com/epicenter-md/epicenter
 
 #OpenSource #Productivity #Innovation #DeveloperTools #Transcription
 ```
@@ -450,12 +776,12 @@ The component handles web drag-and-drop, but since Whispering is a Tauri desktop
 
 You can see the [full implementation here](link) (note that the code is still somewhat messy by my standards; it is slated for cleanup!).
 
-Whispering is a large, open-source, production Svelte 5 + Tauri app: https://github.com/epicenter-so/epicenter
+Whispering is a large, open-source, production Svelte 5 + Tauri app: https://github.com/epicenter-md/epicenter
 
 Feel free to check it out for more patterns! If you're building Svelte 5 apps and need file uploads, definitely check out shadcn-svelte-extras. Not affiliated, it just saved me hours of implementation time.
 
 Happy to answer any questions about the implementation!
-```
+``` 
 
 ### Bad (Marketing-Focused)
 ```
@@ -815,6 +1141,56 @@ src/
 - Use PostHog's autocapture for basic interaction tracking
 - Implement custom events for business-specific actions
 - Use feature flags for A/B testing and gradual rollouts
+
+# README and Documentation Guidelines
+
+## Focus on "Why", Not "What"
+
+READMEs and documentation should explain design decisions and organizational principles, not duplicate information that's already visible in the codebase.
+
+### Avoid
+- Directory structure listings (users can see this with `ls`)
+- Exhaustive lists of current files or providers (creates maintenance burden)
+- Obvious information that's self-evident from reading the code
+- Implementation details better expressed in code comments
+
+### Include
+- Reasoning behind organizational choices
+- Architectural principles that aren't obvious from structure alone
+- Conceptual groupings and their purposes
+- Trade-offs and design decisions
+
+### Example: Good README
+```markdown
+# Transcription Services
+
+This directory organizes transcription providers by deployment model.
+
+## Organization
+
+### `/cloud`
+API-based services that send audio to external providers. These require API keys and an internet connection.
+
+### `/local`
+On-device processing that runs entirely on the user's machine. These require downloading model files but work offline.
+
+### `/self-hosted`
+Services that connect to servers you deploy yourself. You provide the base URL of your own instance.
+```
+
+### Example: Bad README
+```markdown
+# Transcription Services
+
+## Directory Structure
+- `/cloud`
+  - `openai.ts`: OpenAI Whisper API
+  - `groq.ts`: Groq transcription
+  - `deepgram.ts`: Deepgram API
+  [... exhaustive listing of every file]
+```
+
+The good example explains the reasoning (deployment model categorization) without listing specifics. The bad example duplicates what's already visible and requires updates whenever files change.
 
 ---
 

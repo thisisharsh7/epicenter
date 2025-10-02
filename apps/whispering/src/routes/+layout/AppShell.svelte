@@ -22,10 +22,14 @@
 		syncLocalShortcutsWithSettings,
 	} from './register-commands';
 	import { registerOnboarding } from './register-onboarding';
-	import { checkFfmpeg } from './check-ffmpeg';
-	import { 
+	import {
+		checkFfmpegRecordingMethodCompatibility,
+		checkLocalTranscriptionCompatibility,
+		checkCompressionRecommendation,
+	} from './check-ffmpeg';
+	import {
 		registerAccessibilityPermission,
-		registerMicrophonePermission 
+		registerMicrophonePermission,
 	} from './register-permissions';
 	import { syncIconWithRecorderState } from './syncIconWithRecorderState.svelte';
 
@@ -42,7 +46,9 @@
 		window.goto = goto;
 		syncLocalShortcutsWithSettings();
 		resetLocalShortcutsToDefaultIfDuplicates();
-		await checkFfmpeg();
+		await checkFfmpegRecordingMethodCompatibility();
+		await checkLocalTranscriptionCompatibility();
+		await checkCompressionRecommendation();
 		if (window.__TAURI_INTERNALS__) {
 			syncGlobalShortcutsWithSettings();
 			resetGlobalShortcutsToDefaultIfDuplicates();
@@ -52,7 +58,7 @@
 			// await extension.notifyWhisperingTabReady(undefined);
 		}
 		registerOnboarding();
-		
+
 		// Register permission checkers separately
 		cleanupAccessibilityPermission = registerAccessibilityPermission();
 		cleanupMicrophonePermission = registerMicrophonePermission();
@@ -113,7 +119,7 @@
 	</span>
 </button>
 
-<div class="xxs:flex hidden flex-col items-center gap-2">
+<div class="hidden flex-col items-center gap-2 xxs:flex min-w-0">
 	{@render children()}
 </div>
 

@@ -9,7 +9,7 @@
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
-	let { data }: { data: PageData } = $props();
+	let { data } = $props();
 	const isAccessibilityGranted = $derived(data.isAccessibilityGranted);
 
 	async function requestPermissionOrShowGuidance() {
@@ -85,7 +85,7 @@
 					<!-- Direct video for web version -->
 					<video
 						class="max-w-md rounded-lg border"
-						src="https://github.com/epicenter-so/epicenter/releases/download/_assets/macos_enable_accessibility.mp4"
+						src="https://github.com/epicenter-md/epicenter/releases/download/_assets/macos_enable_accessibility.mp4"
 						autoplay
 						loop
 						controls

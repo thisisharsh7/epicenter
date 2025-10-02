@@ -1,4 +1,8 @@
-import { WhisperingErr, type WhisperingError } from '$lib/result';
+import {
+	WhisperingErr,
+	WhisperingWarningErr,
+	type WhisperingError,
+} from '$lib/result';
 import * as services from '$lib/services';
 import type { Recording } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
@@ -7,6 +11,11 @@ import { defineMutation, queryClient } from './_client';
 import { notify } from './notify';
 import { recordings } from './recordings';
 import { rpc } from './';
+import {
+	RECORDING_COMPATIBILITY_MESSAGE,
+	hasLocalTranscriptionCompatibilityIssue,
+} from '../../routes/+layout/check-ffmpeg';
+import { goto } from '$app/navigation';
 
 const transcriptionKeys = {
 	isTranscribing: ['transcription', 'isTranscribing'] as const,
@@ -123,57 +132,156 @@ async function transcribeBlob(
 		provider: selectedService,
 	});
 
+	// Compress audio if enabled, else pass through original blob
+	let audioToTranscribe = blob;
+	if (settings.value['transcription.compressionEnabled']) {
+		const { data: compressedBlob, error: compressionError } =
+			await services.ffmpeg.compressAudioBlob(
+				blob,
+				settings.value['transcription.compressionOptions'],
+			);
+
+		if (compressionError) {
+			// Log compression failure but continue with original blob
+			console.warn(
+				'Audio compression failed, using original audio:',
+				compressionError,
+			);
+			rpc.analytics.logEvent.execute({
+				type: 'compression_failed',
+				provider: selectedService,
+				error_message: compressionError.message,
+			});
+		} else {
+			// Use compressed blob and log success
+			audioToTranscribe = compressedBlob;
+			console.log(
+				`Audio compressed successfully: ${blob.size} bytes → ${compressedBlob.size} bytes (${Math.round((1 - compressedBlob.size / blob.size) * 100)}% reduction)`,
+			);
+			rpc.analytics.logEvent.execute({
+				type: 'compression_completed',
+				provider: selectedService,
+				original_size: blob.size,
+				compressed_size: compressedBlob.size,
+				compression_ratio: Math.round(
+					(1 - compressedBlob.size / blob.size) * 100,
+				),
+			});
+		}
+	}
+
 	const transcriptionResult: Result<string, WhisperingError> =
 		await (async () => {
 			switch (selectedService) {
 				case 'OpenAI':
-					return await services.transcriptions.openai.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						prompt: settings.value['transcription.prompt'],
-						temperature: settings.value['transcription.temperature'],
-						apiKey: settings.value['apiKeys.openai'],
-						modelName: settings.value['transcription.openai.model'],
-					});
+					return await services.transcriptions.openai.transcribe(
+						audioToTranscribe,
+						{
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							prompt: settings.value['transcription.prompt'],
+							temperature: settings.value['transcription.temperature'],
+							apiKey: settings.value['apiKeys.openai'],
+							modelName: settings.value['transcription.openai.model'],
+						},
+					);
 				case 'Groq':
-					return await services.transcriptions.groq.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						prompt: settings.value['transcription.prompt'],
-						temperature: settings.value['transcription.temperature'],
-						apiKey: settings.value['apiKeys.groq'],
-						modelName: settings.value['transcription.groq.model'],
-					});
+					return await services.transcriptions.groq.transcribe(
+						audioToTranscribe,
+						{
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							prompt: settings.value['transcription.prompt'],
+							temperature: settings.value['transcription.temperature'],
+							apiKey: settings.value['apiKeys.groq'],
+							modelName: settings.value['transcription.groq.model'],
+						},
+					);
 				case 'speaches':
-					return await services.transcriptions.speaches.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						prompt: settings.value['transcription.prompt'],
-						temperature: settings.value['transcription.temperature'],
-						modelId: settings.value['transcription.speaches.modelId'],
-						baseUrl: settings.value['transcription.speaches.baseUrl'],
-					});
+					return await services.transcriptions.speaches.transcribe(
+						audioToTranscribe,
+						{
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							prompt: settings.value['transcription.prompt'],
+							temperature: settings.value['transcription.temperature'],
+							modelId: settings.value['transcription.speaches.modelId'],
+							baseUrl: settings.value['transcription.speaches.baseUrl'],
+						},
+					);
 				case 'ElevenLabs':
-					return await services.transcriptions.elevenlabs.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						prompt: settings.value['transcription.prompt'],
-						temperature: settings.value['transcription.temperature'],
-						apiKey: settings.value['apiKeys.elevenlabs'],
-						modelName: settings.value['transcription.elevenlabs.model'],
-					});
+					return await services.transcriptions.elevenlabs.transcribe(
+						audioToTranscribe,
+						{
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							prompt: settings.value['transcription.prompt'],
+							temperature: settings.value['transcription.temperature'],
+							apiKey: settings.value['apiKeys.elevenlabs'],
+							modelName: settings.value['transcription.elevenlabs.model'],
+						},
+					);
 				case 'Deepgram':
-					return await services.transcriptions.deepgram.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						prompt: settings.value['transcription.prompt'],
-						temperature: settings.value['transcription.temperature'],
-						apiKey: settings.value['apiKeys.deepgram'],
-						modelName: settings.value['transcription.deepgram.model'],
-					});
-				case 'whispercpp':
-					return await services.transcriptions.whispercpp.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						prompt: settings.value['transcription.prompt'],
-						temperature: settings.value['transcription.temperature'],
-						modelPath: settings.value['transcription.whispercpp.modelPath'],
-						useGpu: settings.value['transcription.whispercpp.useGpu'],
-					});
+					return await services.transcriptions.deepgram.transcribe(
+						audioToTranscribe,
+						{
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							prompt: settings.value['transcription.prompt'],
+							temperature: settings.value['transcription.temperature'],
+							apiKey: settings.value['apiKeys.deepgram'],
+							modelName: settings.value['transcription.deepgram.model'],
+						},
+					);
+				case 'Mistral':
+					return await services.transcriptions.mistral.transcribe(
+						audioToTranscribe,
+						{
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							prompt: settings.value['transcription.prompt'],
+							temperature: settings.value['transcription.temperature'],
+							apiKey: settings.value['apiKeys.mistral'],
+							modelName: settings.value['transcription.mistral.model'],
+						},
+					);
+				case 'whispercpp': {
+					const { data: isFFmpegInstalled, error: checkFfmpegInstalledError } =
+						await rpc.ffmpeg.checkFfmpegInstalled.ensure();
+					if (checkFfmpegInstalledError) return Err(checkFfmpegInstalledError);
+					if (hasLocalTranscriptionCompatibilityIssue({ isFFmpegInstalled })) {
+						return WhisperingErr({
+							title: 'Recording Settings Incompatible',
+							description: RECORDING_COMPATIBILITY_MESSAGE,
+							action: {
+								type: 'link',
+								label: 'Go to Recording Settings',
+								href: '/settings/recording',
+							},
+						});
+					}
+					return await services.transcriptions.whispercpp.transcribe(
+						audioToTranscribe,
+						{
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							modelPath: settings.value['transcription.whispercpp.modelPath'],
+						},
+					);
+				}
+				case 'parakeet': {
+					const { data: isFFmpegInstalled, error: checkFfmpegInstalledError } =
+						await rpc.ffmpeg.checkFfmpegInstalled.ensure();
+					if (checkFfmpegInstalledError) return Err(checkFfmpegInstalledError);
+					if (hasLocalTranscriptionCompatibilityIssue({ isFFmpegInstalled })) {
+						return WhisperingErr({
+							title: 'Recording Settings Incompatible',
+							description: RECORDING_COMPATIBILITY_MESSAGE,
+							action: {
+								type: 'link',
+								label: 'Go to Recording Settings',
+								href: '/settings/recording',
+							},
+						});
+					}
+					return await services.transcriptions.parakeet.transcribe(
+						audioToTranscribe,
+						{ modelPath: settings.value['transcription.parakeet.modelPath'] },
+					);
+				}
 				default:
 					return WhisperingErr({
 						title: '⚠️ No transcription service selected',
