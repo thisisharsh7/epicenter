@@ -76,78 +76,60 @@ function createPlugin(id, tables) {
 
 But in TypeScript's type system, this doesn't exist. There's no equivalent to closures for types. Every type stands alone, which means context must be explicitly passed down through generic parameters.
 
-So what looks like this conceptually:
+## Real Examples of Generic Drilling
 
+Let's look at some common patterns where this bites you:
+
+**API Response Types:**
 ```typescript
-// What we wish we could write
-type Plugin<TId, TTableMap> = {
-  id: TId;
-  tables: TTableMap;
-  methods: (api: BuildNamespace) => // BuildNamespace knows TId and TTableMap
+// You have an API response with user info
+type ApiResponse<TUser, TMetadata> = {
+  data: TUser;
+  metadata: TMetadata;
+  // ... other fields
+}
+
+// You want a helper to extract just the user data
+type ExtractUser<TUser, TMetadata> = ApiResponse<TUser, TMetadata>['data'];
+//                 ^^^^^ ^^^^^^^^^
+// Why does extracting user data need to know about metadata?
+// Because the helper type can't "see" the original generics
+```
+
+**Form Validation:**
+```typescript
+// A form with validation rules
+type FormConfig<TFields, TValidation> = {
+  fields: TFields;
+  validation: TValidation;
+}
+
+// Helper to get field names
+type FieldNames<TFields, TValidation> = keyof TFields;
+//              ^^^^^^^^ ^^^^^^^^^^^
+// Getting field names shouldn't need validation info,
+// but the helper type must receive both generics
+```
+
+**Database Queries:**
+```typescript
+// A query builder with table and column info
+type QueryBuilder<TTable, TColumns> = {
+  table: TTable;
+  columns: TColumns;
+  // ... query methods
+}
+
+// Helper to build WHERE clauses
+type WhereClause<TTable, TColumns> = {
+//               ^^^^^^ ^^^^^^^^
+// WHERE clauses only care about columns,
+// but we have to pass the table type too
+  [K in keyof TColumns]: // ... condition logic
 }
 ```
 
-Actually becomes this:
-
-```typescript
-// What we have to write
-type Plugin<TId, TTableMap> = {
-  id: TId;
-  tables: TTableMap;
-  methods: (api: BuildNamespace<TId, TTableMap>) => // Must drill generics
-}
-```
-
-Every. Single. Time.
-
-## The Cascading Effect
-
-Let me show you how this plays out in the vault codebase. The `Plugin` type takes four generics:
-
-```typescript
-export type Plugin<
-  TId extends string = string,
-  TTableMap extends PluginTableMap = PluginTableMap,
-  TMethodMap extends PluginMethodMap = PluginMethodMap,
-  TDeps extends readonly Plugin[] = readonly [],
-> = {
-  id: TId;
-  dependencies?: TDeps;
-  tables: TTableMap;
-  methods: (
-    api: BuildDependencyNamespaces<TDeps> &
-      BuildInitialPluginNamespace<TId, TTableMap>,
-  ) => TMethodMap;
-}
-```
-
-Now watch what happens. `BuildInitialPluginNamespace` only needs two of those four generics, but it has to receive them explicitly:
-
-```typescript
-type BuildInitialPluginNamespace<
-  TSelfId extends string,
-  TTableMap extends PluginTableMap,
-> = {
-  [K in TSelfId]: {
-    [TableName in keyof TTableMap]: TableHelpers<
-      SQLiteTableType<TableName & string, TTableMap[TableName]>
-    > &
-      SQLiteTableType<TableName & string, TTableMap[TableName]>;
-  };
-};
-```
-
-And `BuildDependencyNamespaces` needs the full dependency plugin types:
-
-```typescript
-type BuildDependencyNamespaces<TDeps extends readonly Plugin[]> = {
-  [K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
-    ? ExtractHandlers<ReturnType<TDeps[number]['methods']>>
-    : never;
-};
-```
-
-This is generic drilling in action. Each helper type must explicitly declare which pieces of context it needs, even if that context was already available higher up in the type hierarchy.
+This is the pattern. Helper types end up needing context they don't conceptually use, just because TypeScript can't automatically inherit it.
 
 ## A Clearer Comparison: Function Scope vs Generic Scope
 
@@ -203,9 +185,8 @@ type ValidateUser<TPermissions> = () => boolean;
 
 Notice how every helper type must explicitly receive the generics it needs? That's generic drilling.
 
-## Why This Happens: TypeScript's Design
-
-This isn't a bug or oversight. It's a fundamental consequence of how TypeScript's type system works:
+## Why This Happens: TypeScript's Design (Maybe delete this)
+This is a fundamental consequence of how TypeScript's type system works:
 
 **1. Types are compile-time constructs**
 Types don't exist at runtime, so they can't capture runtime context like closures do.
