@@ -23,14 +23,12 @@ export type MarkdownIndexConfig = IndexContext & {
  */
 export function createMarkdownIndex(config: MarkdownIndexConfig): Index {
 	return {
-		// No init needed - files created on demand
 		async init() {},
 
-		async onAdd(tableName: string, id: string, data: Record<string, any>) {
-			try {
-				const filePath = getMarkdownPath(config.storagePath, tableName, id);
-				await writeMarkdownFile(filePath, data);
-			} catch (error) {
+		async onAdd(tableName, id, data) {
+			const filePath = getMarkdownPath(config.storagePath, tableName, id);
+			const { error } = await writeMarkdownFile(filePath, data);
+			if (error) {
 				console.error(
 					`Markdown index onAdd failed for ${tableName}/${id}:`,
 					error,
@@ -38,11 +36,10 @@ export function createMarkdownIndex(config: MarkdownIndexConfig): Index {
 			}
 		},
 
-		async onUpdate(tableName: string, id: string, data: Record<string, any>) {
-			try {
-				const filePath = getMarkdownPath(config.storagePath, tableName, id);
-				await writeMarkdownFile(filePath, data);
-			} catch (error) {
+		async onUpdate(tableName, id, data) {
+			const filePath = getMarkdownPath(config.storagePath, tableName, id);
+			const { error } = await writeMarkdownFile(filePath, data);
+			if (error) {
 				console.error(
 					`Markdown index onUpdate failed for ${tableName}/${id}:`,
 					error,
@@ -50,11 +47,10 @@ export function createMarkdownIndex(config: MarkdownIndexConfig): Index {
 			}
 		},
 
-		async onDelete(tableName: string, id: string) {
-			try {
-				const filePath = getMarkdownPath(config.storagePath, tableName, id);
-				await deleteMarkdownFile(filePath);
-			} catch (error) {
+		async onDelete(tableName, id) {
+			const filePath = getMarkdownPath(config.storagePath, tableName, id);
+			const { error } = await deleteMarkdownFile(filePath);
+			if (error) {
 				console.error(
 					`Markdown index onDelete failed for ${tableName}/${id}:`,
 					error,
@@ -62,8 +58,6 @@ export function createMarkdownIndex(config: MarkdownIndexConfig): Index {
 			}
 		},
 
-		async destroy() {
-			// Cleanup if needed
-		},
+		async destroy() {},
 	};
 }

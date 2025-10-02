@@ -2,6 +2,7 @@ import { createClient } from '@libsql/client';
 import { eq, sql } from 'drizzle-orm';
 import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
+import { tryAsync } from 'wellcrafted/result';
 import type { Index, IndexContext } from '../core/indexes';
 import { convertYMapToPlain } from '../core/yjsdoc';
 import { convertAllTableSchemasToDrizzle } from './schema-converter';
@@ -98,9 +99,14 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 
 				for (const [id, rowMap] of rowsById.entries()) {
 					const data = convertYMapToPlain(rowMap);
-					try {
-						await db.insert(drizzleTables[tableName]).values(data);
-					} catch (error) {
+					const { error } = await tryAsync({
+						try: async () => {
+							await db.insert(drizzleTables[tableName]).values(data);
+						},
+						catch: (err) => err,
+					});
+
+					if (error) {
 						console.warn(
 							`Failed to sync row ${id} to SQLite during init:`,
 							error,
@@ -110,10 +116,15 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			}
 		},
 
-		async onAdd(tableName: string, id: string, data: Record<string, any>) {
-			try {
-				await db.insert(drizzleTables[tableName]).values(data);
-			} catch (error) {
+		async onAdd(tableName, id, data) {
+			const { error } = await tryAsync({
+				try: async () => {
+					await db.insert(drizzleTables[tableName]).values(data);
+				},
+				catch: (err) => err,
+			});
+
+			if (error) {
 				console.error(
 					`SQLite index onAdd failed for ${tableName}/${id}:`,
 					error,
@@ -121,13 +132,18 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			}
 		},
 
-		async onUpdate(tableName: string, id: string, data: Record<string, any>) {
-			try {
-				await db
-					.update(drizzleTables[tableName])
-					.set(data)
-					.where(eq((drizzleTables[tableName] as any).id, id));
-			} catch (error) {
+		async onUpdate(tableName, id, data) {
+			const { error } = await tryAsync({
+				try: async () => {
+					await db
+						.update(drizzleTables[tableName])
+						.set(data)
+						.where(eq((drizzleTables[tableName] as any).id, id));
+				},
+				catch: (err) => err,
+			});
+
+			if (error) {
 				console.error(
 					`SQLite index onUpdate failed for ${tableName}/${id}:`,
 					error,
@@ -135,12 +151,17 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			}
 		},
 
-		async onDelete(tableName: string, id: string) {
-			try {
-				await db
-					.delete(drizzleTables[tableName])
-					.where(eq((drizzleTables[tableName] as any).id, id));
-			} catch (error) {
+		async onDelete(tableName, id) {
+			const { error } = await tryAsync({
+				try: async () => {
+					await db
+						.delete(drizzleTables[tableName])
+						.where(eq((drizzleTables[tableName] as any).id, id));
+				},
+				catch: (err) => err,
+			});
+
+			if (error) {
 				console.error(
 					`SQLite index onDelete failed for ${tableName}/${id}:`,
 					error,
