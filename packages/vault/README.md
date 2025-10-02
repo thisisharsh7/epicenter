@@ -31,9 +31,9 @@ Each workspace has a globally unique ID (UUID or nanoid) that:
 
 ```typescript
 // users/epicenter.config.ts
-import { definePlugin, id, text } from '@epicenter/vault';
+import { defineWorkspace, id, text } from '@epicenter/vault';
 
-export default definePlugin({
+export default defineWorkspace({
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Globally unique ID
   tables: {
     users: {
@@ -82,12 +82,12 @@ Workspaces can depend on other workspaces:
 
 ```typescript
 // comments/epicenter.config.ts
-import usersPlugin from '../users/epicenter.config';
-import postsPlugin from '../posts/epicenter.config';
+import usersWorkspace from '../users/epicenter.config';
+import postsWorkspace from '../posts/epicenter.config';
 
-export default definePlugin({
+export default defineWorkspace({
   id: 'f7g8h9i0-j1k2-3456-lmno-pq7890123456',
-  dependencies: [usersPlugin, postsPlugin],
+  dependencies: [usersWorkspace, postsWorkspace],
 
   tables: {
     comments: { /* ... */ }
@@ -169,12 +169,12 @@ npm install @repo/vault
 
 ```typescript
 // blog/epicenter.config.ts
-import { definePlugin, runPlugin, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/vault';
+import { defineWorkspace, runPlugin, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/vault';
 import { eq, desc, gte } from 'drizzle-orm';
 import { z } from 'zod';
 
 // 1. Define your workspace
-const blogPlugin = definePlugin({
+const blogWorkspace = defineWorkspace({
   id: 'b1c2d3e4-f5g6-7890-hijk-lm1234567890', // Globally unique workspace ID
 
   tables: {
@@ -221,10 +221,10 @@ const blogPlugin = definePlugin({
   })
 });
 
-export default blogPlugin;
+export default blogWorkspace;
 
 // 2. Run the workspace
-const runtime = await runPlugin(blogPlugin, {
+const runtime = await runPlugin(blogWorkspace, {
   databaseUrl: './blog/data/db.sqlite',
   storagePath: './blog/data'
 });
@@ -380,11 +380,11 @@ Plugins can depend on other plugins using type-safe references:
 import { z } from 'zod';
 import { defineQuery } from '@repo/vault';
 
-const blogPlugin = definePlugin({ /* ... */ });
+const blogWorkspace = defineWorkspace({ /* ... */ });
 
-const analyticsPlugin = definePlugin({
-  id: 'analytics',
-  dependencies: [blogPlugin], // Actual plugin object, not string!
+const analyticsWorkspace = defineWorkspace({
+  id: 'x1y2z3a4-b5c6-7890-defg-hi1234567890',
+  dependencies: [blogWorkspace], // Actual workspace object, not string!
   
   tables: {
     stats: {
@@ -431,8 +431,8 @@ For read operations that don't modify state:
 import { z } from 'zod';
 import { defineQuery } from '@repo/vault';
 
-const blogPlugin = definePlugin({
-  id: 'blog',
+const blogWorkspace = defineWorkspace({
+  id: 'j1k2l3m4-n5o6-7890-pqrs-tu1234567890',
   tables: { /* ... */ },
   methods: (api) => ({
     getPostsByAuthor: defineQuery({
@@ -461,8 +461,8 @@ For operations that modify state:
 ```typescript
 import { defineMutation } from '@repo/vault';
 
-const blogPlugin = definePlugin({
-  id: 'blog',
+const blogWorkspace = defineWorkspace({
+  id: 'v1w2x3y4-z5a6-7890-bcde-fg1234567890',
   tables: { /* ... */ },
   methods: (api) => ({
     createPost: defineMutation({
@@ -638,9 +638,11 @@ const results = await api.posts.select()
 
 ### Core Functions
 
-#### `definePlugin(config)`
+#### `defineWorkspace(config)`
 
-Create a plugin with tables and methods.
+Create a workspace with tables and methods.
+
+**Note**: `definePlugin` is still available as an alias for backwards compatibility but is deprecated.
 
 #### `runPlugin(plugin, config)`
 

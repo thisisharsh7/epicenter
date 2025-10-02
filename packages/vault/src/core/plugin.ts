@@ -78,17 +78,17 @@ import type { PluginMethodMap } from './methods';
  * })
  * ```
  *
- * @param plugin - The workspace configuration object
- * @returns The same plugin object with validated configuration
+ * @param workspace - The workspace configuration object
+ * @returns The same workspace object with validated configuration
  *
  * @example
  * ```typescript
- * // Example: Blog system with plugin dependencies
+ * // Example: Blog system with workspace dependencies
  *
- * // Posts plugin can depend on comments
- * const postsPlugin = definePlugin({
- *   id: 'posts',
- *   dependencies: [commentsPlugin], // Depend on comments plugin
+ * // Posts workspace can depend on comments
+ * const postsWorkspace = defineWorkspace({
+ *   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Globally unique ID
+ *   dependencies: [commentsWorkspace], // Depend on comments workspace
  *
  *   tables: {
  *     posts: {
@@ -127,7 +127,7 @@ import type { PluginMethodMap } from './methods';
  *       }
  *     }),
  *
- *     // Access dependency plugins
+ *     // Access dependency workspaces
  *     getPostWithComments: defineQuery({
  *       input: z.object({
  *         postId: z.string()
@@ -137,7 +137,7 @@ import type { PluginMethodMap } from './methods';
  *         const post = await tables.posts.getById(postId);
  *         if (!post) return null;
  *
- *         // Call methods from the comments plugin
+ *         // Call methods from the comments workspace
  *         const comments = await plugins.comments.getCommentsForPost({ postId });
  *         return { ...post, comments };
  *       }
@@ -163,9 +163,9 @@ import type { PluginMethodMap } from './methods';
  *   })
  * });
  *
- * // Comments plugin for handling blog comments
- * const commentsPlugin = definePlugin({
- *   id: 'comments',
+ * // Comments workspace for handling blog comments
+ * const commentsWorkspace = defineWorkspace({
+ *   id: 'f7g8h9i0-j1k2-3456-lmno-pq7890123456', // Globally unique ID
  *   dependencies: [], // Can add dependencies as needed
  *
  *   tables: {
@@ -186,7 +186,7 @@ import type { PluginMethodMap } from './methods';
  *       }),
  *       description: 'Get all comments for a specific post',
  *       handler: async ({ postId }) => {
- *         // Call posts plugin method to verify post exists
+ *         // Call posts workspace method to verify post exists
  *         const post = await plugins.posts.getPostById({ postId });
  *         if (!post) return [];
  *
@@ -204,7 +204,7 @@ import type { PluginMethodMap } from './methods';
  *       input: z.void(),
  *       description: 'Get comments from all top posts',
  *       handler: async () => {
- *         // Call posts plugin method
+ *         // Call posts workspace method
  *         const topPosts = await plugins.posts.getTopPosts();
  *
  *         // Fetch comments for all top posts
@@ -239,10 +239,10 @@ import type { PluginMethodMap } from './methods';
  * });
  * ```
  *
- * @throws {Error} If plugin ID contains invalid characters (must be lowercase alphanumeric with optional hyphens/underscores)
- * @throws {Error} If any dependency is not a valid plugin object
+ * @throws {Error} If workspace ID is invalid (must be a non-empty string)
+ * @throws {Error} If any dependency is not a valid workspace object
  */
-export function definePlugin<
+export function defineWorkspace<
 	TId extends string,
 	TTableMap extends PluginTableMap,
 	TMethodMap extends PluginMethodMap,
@@ -250,27 +250,32 @@ export function definePlugin<
 >(
 	plugin: Plugin<TId, TTableMap, TMethodMap, TDeps>,
 ): Plugin<TId, TTableMap, TMethodMap, TDeps> {
-	// Validate plugin ID (alphanumeric, lowercase, no spaces)
-	if (!/^[a-z0-9_-]+$/.test(plugin.id)) {
+	// Validate workspace ID (can be UUID, nanoid, or simple identifier)
+	if (!plugin.id || typeof plugin.id !== 'string') {
 		throw new Error(
-			`Invalid plugin ID "${plugin.id}". Plugin IDs must be lowercase, alphanumeric, and may contain underscores or hyphens.`,
+			`Invalid workspace ID "${plugin.id}". Workspace IDs must be non-empty strings (UUID, nanoid, or simple identifier).`,
 		);
 	}
 
-	// Validate dependencies are plugin objects with IDs
+	// Validate dependencies are workspace objects with IDs
 	if (plugin.dependencies) {
 		for (const dep of plugin.dependencies) {
 			if (!dep || typeof dep !== 'object' || !dep.id) {
 				throw new Error(
-					`Invalid dependency in plugin "${plugin.id}": dependencies must be plugin objects`,
+					`Invalid dependency in workspace "${plugin.id}": dependencies must be workspace objects`,
 				);
 			}
 		}
 	}
 
-	// Return the plugin as-is (it's already properly typed)
+	// Return the workspace as-is (it's already properly typed)
 	return plugin;
-} /**
+}
+
+/**
+ * @deprecated Use `defineWorkspace` instead. This alias exists for backwards compatibility.
+ */
+export const definePlugin = defineWorkspace; /**
  * Collaborative workspace definition with strongly typed API context.
  *
  * A workspace is a self-contained, globally synchronizable module that defines
@@ -370,9 +375,9 @@ export function definePlugin<
  * imported from sibling folders, creating an explicit dependency graph.
  *
  * ```typescript
- * const commentsPlugin = definePlugin({
- *   id: 'comments',
- *   dependencies: [usersPlugin], // Now we can use user methods
+ * const commentsWorkspace = defineWorkspace({
+ *   id: 'i9j0k1l2-m3n4-5678-opqr-st9012345678',
+ *   dependencies: [usersWorkspace], // Now we can use user methods
  *
  *   methods: ({ plugins, tables }) => ({
  *     createComment: defineMutation({
@@ -434,7 +439,7 @@ export function definePlugin<
  * ```
  *
  * ### Internal Helper Functions
- * Define reusable helpers within your plugin scope:
+ * Define reusable helpers within your workspace scope:
  *
  * ```typescript
  * methods: ({ plugins, tables }) => {
@@ -467,16 +472,16 @@ export function definePlugin<
  * }
  * ```
  *
- * @template TId - Unique plugin identifier (lowercase, alphanumeric)
- * @template TTableMap - Table definitions for this plugin
- * @template TMethodMap - Methods exposed by this plugin (must be functions)
- * @template TDeps - Other plugins this plugin depends on
+ * @template TId - Unique workspace identifier (UUID, nanoid, or simple string)
+ * @template TTableMap - Table definitions for this workspace
+ * @template TMethodMap - Methods exposed by this workspace (must be functions)
+ * @template TDeps - Other workspaces this workspace depends on
  *
  * @example
  * ```typescript
- * // Simple plugin with just tables
- * const tagsPlugin = definePlugin({
- *   id: 'tags',
+ * // Simple workspace with just tables
+ * const tagsWorkspace = defineWorkspace({
+ *   id: 'm1n2o3p4-q5r6-7890-stuv-wx1234567890',
  *   dependencies: [],
  *
  *   tables: {
@@ -519,10 +524,10 @@ export function definePlugin<
  *   })
  * });
  *
- * // Complex plugin with dependencies
- * const blogPlugin = definePlugin({
- *   id: 'blog',
- *   dependencies: [tagsPlugin], // Can use tag methods
+ * // Complex workspace with dependencies
+ * const blogWorkspace = defineWorkspace({
+ *   id: 'y1z2a3b4-c5d6-7890-efgh-ij1234567890',
+ *   dependencies: [tagsWorkspace], // Can use tag methods
  *
  *   tables: {
  *     posts: {
@@ -707,13 +712,13 @@ export type TableHelpers<T extends SQLiteTable> = {
 };
 
 /**
- * API surface for dependency plugins.
+ * API surface for dependency workspaces.
  *
- * Aggregates the finalized methods from all dependency plugins into their
- * respective namespaces. Each dependency plugin's methods are accessible
- * via `plugins.[dependencyId].[methodName]()`.
+ * Aggregates the finalized methods from all dependency workspaces into their
+ * respective namespaces. Each dependency workspace's methods are accessible
+ * via `plugins.[workspaceId].[methodName]()`.
  *
- * @template TDeps - Array of dependency plugins
+ * @template TDeps - Array of dependency workspaces
  */
 type DependencyPluginsAPI<TDeps extends readonly Plugin[]> = {
 	// Dependencies: Get their methods
@@ -723,9 +728,9 @@ type DependencyPluginsAPI<TDeps extends readonly Plugin[]> = {
 };
 
 /**
- * API surface for plugin's own tables.
+ * API surface for workspace's own tables.
  *
- * Provides direct access to table helper methods without plugin ID nesting.
+ * Provides direct access to table helper methods without workspace ID nesting.
  * Tables come with helper methods like getById, create, update, delete, select,
  * etc., plus access to the underlying Drizzle table instance.
  *
@@ -733,7 +738,7 @@ type DependencyPluginsAPI<TDeps extends readonly Plugin[]> = {
  * helper methods (`tables.posts.getById('123')`), and use the query builder
  * (`tables.posts.select().where(...)`).
  *
- * @template TTableMap - The current plugin's table definitions
+ * @template TTableMap - The current workspace's table definitions
  */
 type PluginTablesAPI<TTableMap extends PluginTableMap> = {
 	// Current plugin: Get initial methods from tables
@@ -752,7 +757,7 @@ type PluginTablesAPI<TTableMap extends PluginTableMap> = {
  * sqliteTable(tableName, columns)
  * ```
  *
- * This allows the plugin system to have full type safety for tables
+ * This allows the workspace system to have full type safety for tables
  * before they're actually created at runtime.
  *
  * @template TTableName - The table name
@@ -818,9 +823,9 @@ type ExtractHandlers<T extends PluginMethodMap> = {
 };
 
 /**
- * Table schema definitions for a plugin.
+ * Table schema definitions for a workspace.
  *
- * Maps table names to their column definitions. Each plugin can define multiple
+ * Maps table names to their column definitions. Each workspace can define multiple
  * tables, and each table must have an 'id' column. These definitions are used
  * to create both SQLite tables and markdown storage structures.
  *

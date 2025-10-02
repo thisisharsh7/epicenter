@@ -1,5 +1,5 @@
 // Core exports
-export { definePlugin } from './core/plugin';
+export { defineWorkspace, definePlugin } from './core/plugin';
 
 // Method helpers
 export {
