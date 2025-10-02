@@ -1,16 +1,17 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Result } from 'wellcrafted/result';
-import { Ok, tryAsync } from 'wellcrafted/result';
-import type { Plugin } from './plugin';
-import type { Index, IndexMap } from './indexes';
+import { tryAsync } from 'wellcrafted/result';
+import type { TableSchema } from './column-schemas';
 import { VaultOperationErr, type VaultOperationError } from './errors';
+import type { PluginMethod } from './methods';
+import type { Plugin } from './plugin';
 import {
+	convertPlainToYMap,
+	getTableRowOrder,
+	getTableRowsById,
 	initWorkspaceDoc,
 	observeTable,
-	getTableRowsById,
-	getTableRowOrder,
-	convertPlainToYMap,
 } from './yjsdoc';
-import type { TableSchema } from './column-schemas';
 
 /**
  * Runtime configuration provided by the user
@@ -107,12 +108,23 @@ export async function runPlugin<T = unknown>(
 		tables,
 		indexes,
 	};
-	const methods = plugin.methods(methodContext);
+
+	// Process methods to extract handlers and make them directly callable
+	const processedMethods = Object.entries(plugin.methods(methodContext)).reduce(
+		(acc, [methodName, method]) => {
+			acc[methodName] = method.handler;
+			return acc;
+		},
+		{} as Record<
+			string,
+			PluginMethod<StandardSchemaV1<unknown, unknown>, unknown>['handler']
+		>,
+	);
 
 	// 7. Return workspace instance
 	const workspaceInstance = {
 		...tables,
-		...methods,
+		...processedMethods,
 		indexes,
 		ydoc,
 	};

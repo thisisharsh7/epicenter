@@ -1,15 +1,15 @@
 import { createClient } from '@libsql/client';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { eq, sql } from 'drizzle-orm';
+import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import type { Index, IndexContext } from '../core/indexes';
-import { convertAllTableSchemasToDrizzle } from './schema-converter';
 import { convertYMapToPlain } from '../core/yjsdoc';
+import { convertAllTableSchemasToDrizzle } from './schema-converter';
 
 /**
  * SQLite index configuration
  */
-export type SQLiteIndexConfig = {
+export type SQLiteIndexConfig = IndexContext & {
 	/**
 	 * Database URL for SQLite
 	 * Can be a file path (./data/db.sqlite) or :memory: for in-memory
@@ -71,96 +71,95 @@ async function createTablesIfNotExist(
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
-export function createSQLiteIndex(
-	config: SQLiteIndexConfig = {},
-): (context: IndexContext) => Index {
-	return (context: IndexContext) => {
-		// Convert table schemas to Drizzle tables
-		const drizzleTables = convertAllTableSchemasToDrizzle(context.tableSchemas);
+export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
+	// Convert table schemas to Drizzle tables
+	const drizzleTables = convertAllTableSchemasToDrizzle(config.tableSchemas);
 
-		// Create database connection
-		const db = drizzle(
-			createClient({
-				url: config.databaseUrl || ':memory:',
-			}),
-		);
+	// Create database connection
+	const db = drizzle(
+		createClient({
+			url: config.databaseUrl || ':memory:',
+		}),
+	);
 
-		const index: Index & {
-			db: LibSQLDatabase;
-			[tableName: string]: any;
-		} = {
-			async init() {
-				// Create tables
-				await createTablesIfNotExist(db, drizzleTables);
+	const index: Index & {
+		db: LibSQLDatabase;
+		[tableName: string]: any;
+	} = {
+		async init() {
+			// Create tables
+			await createTablesIfNotExist(db, drizzleTables);
 
-				// Initial sync: YJS → SQLite
-				const tablesMap = context.ydoc.getMap('tables');
-				for (const [tableName, tableMap] of tablesMap.entries()) {
-					const rowsById = tableMap.get('rowsById');
-					if (!rowsById) continue;
+			// Initial sync: YJS → SQLite
+			const tablesMap = config.ydoc.getMap('tables');
+			for (const [tableName, tableMap] of tablesMap.entries()) {
+				const rowsById = tableMap.get('rowsById');
+				if (!rowsById) continue;
 
-					for (const [id, rowMap] of rowsById.entries()) {
-						const data = convertYMapToPlain(rowMap);
-						try {
-							await db.insert(drizzleTables[tableName]).values(data);
-						} catch (error) {
-							console.warn(
-								`Failed to sync row ${id} to SQLite during init:`,
-								error,
-							);
-						}
+				for (const [id, rowMap] of rowsById.entries()) {
+					const data = convertYMapToPlain(rowMap);
+					try {
+						await db.insert(drizzleTables[tableName]).values(data);
+					} catch (error) {
+						console.warn(
+							`Failed to sync row ${id} to SQLite during init:`,
+							error,
+						);
 					}
 				}
-			},
+			}
+		},
 
-			async onAdd(tableName: string, id: string, data: Record<string, any>) {
-				try {
-					await db.insert(drizzleTables[tableName]).values(data);
-				} catch (error) {
-					console.error(`SQLite index onAdd failed for ${tableName}/${id}:`, error);
-				}
-			},
+		async onAdd(tableName: string, id: string, data: Record<string, any>) {
+			try {
+				await db.insert(drizzleTables[tableName]).values(data);
+			} catch (error) {
+				console.error(
+					`SQLite index onAdd failed for ${tableName}/${id}:`,
+					error,
+				);
+			}
+		},
 
-			async onUpdate(tableName: string, id: string, data: Record<string, any>) {
-				try {
-					await db
-						.update(drizzleTables[tableName])
-						.set(data)
-						.where(eq((drizzleTables[tableName] as any).id, id));
-				} catch (error) {
-					console.error(
-						`SQLite index onUpdate failed for ${tableName}/${id}:`,
-						error,
-					);
-				}
-			},
+		async onUpdate(tableName: string, id: string, data: Record<string, any>) {
+			try {
+				await db
+					.update(drizzleTables[tableName])
+					.set(data)
+					.where(eq((drizzleTables[tableName] as any).id, id));
+			} catch (error) {
+				console.error(
+					`SQLite index onUpdate failed for ${tableName}/${id}:`,
+					error,
+				);
+			}
+		},
 
-			async onDelete(tableName: string, id: string) {
-				try {
-					await db
-						.delete(drizzleTables[tableName])
-						.where(eq((drizzleTables[tableName] as any).id, id));
-				} catch (error) {
-					console.error(
-						`SQLite index onDelete failed for ${tableName}/${id}:`,
-						error,
-					);
-				}
-			},
+		async onDelete(tableName: string, id: string) {
+			try {
+				await db
+					.delete(drizzleTables[tableName])
+					.where(eq((drizzleTables[tableName] as any).id, id));
+			} catch (error) {
+				console.error(
+					`SQLite index onDelete failed for ${tableName}/${id}:`,
+					error,
+				);
+			}
+		},
 
-			async destroy() {
-				// Cleanup if needed
-			},
+		async destroy() {
+			// Cleanup if needed
+		},
 
-			// Expose database and tables for queries
-			db,
-		};
-
-		// Add each table as a property for clean API: indexes.sqlite.posts.select()
-		for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
-			index[tableName] = drizzleTable;
-		}
-
-		return index;
+		// Expose database and tables for queries
+		db,
 	};
+
+	// Add each table as a property for clean API: indexes.sqlite.posts.select()
+	for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
+		index[tableName] = drizzleTable;
+	}
+
+	return index;
 }
