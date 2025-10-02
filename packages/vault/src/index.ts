@@ -75,7 +75,8 @@ export { createMarkdownIndex } from './indexes/markdown-index';
 export type { MarkdownIndexConfig } from './indexes/markdown-index';
 
 // Error types
-export type { VaultOperationError } from './core/errors';
+export { IndexErr } from './core/errors';
+export type { VaultOperationError, IndexError } from './core/errors';
 
 // Re-export commonly used Drizzle utilities for querying indexes
 export {

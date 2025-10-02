@@ -2,7 +2,8 @@ import { createClient } from '@libsql/client';
 import { eq, sql } from 'drizzle-orm';
 import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
-import { tryAsync } from 'wellcrafted/result';
+import { Ok, tryAsync } from 'wellcrafted/result';
+import { IndexErr } from '../core/errors';
 import type { Index, IndexContext } from '../core/indexes';
 import { convertYMapToPlain } from '../core/yjsdoc';
 import { convertAllTableSchemasToDrizzle } from './schema-converter';
@@ -125,11 +126,13 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			});
 
 			if (error) {
-				console.error(
-					`SQLite index onAdd failed for ${tableName}/${id}:`,
-					error,
-				);
+				return IndexErr({
+					message: `SQLite index onAdd failed for ${tableName}/${id}`,
+					context: { tableName, id, data },
+					cause: error,
+				});
 			}
+			return Ok(undefined);
 		},
 
 		async onUpdate(tableName, id, data) {
@@ -144,11 +147,13 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			});
 
 			if (error) {
-				console.error(
-					`SQLite index onUpdate failed for ${tableName}/${id}:`,
-					error,
-				);
+				return IndexErr({
+					message: `SQLite index onUpdate failed for ${tableName}/${id}`,
+					context: { tableName, id, data },
+					cause: error,
+				});
 			}
+			return Ok(undefined);
 		},
 
 		async onDelete(tableName, id) {
@@ -162,11 +167,13 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			});
 
 			if (error) {
-				console.error(
-					`SQLite index onDelete failed for ${tableName}/${id}:`,
-					error,
-				);
+				return IndexErr({
+					message: `SQLite index onDelete failed for ${tableName}/${id}`,
+					context: { tableName, id },
+					cause: error,
+				});
 			}
+			return Ok(undefined);
 		},
 
 		async destroy() {

@@ -61,33 +61,30 @@ export async function runPlugin<T = unknown>(
 		observeTable(ydoc, tableName, {
 			onAdd: async (id, data) => {
 				for (const index of Object.values(indexes)) {
-					try {
-						await index.onAdd(tableName, id, data);
-					} catch (error) {
-						console.error(`Index onAdd failed for ${tableName}/${id}:`, error);
+					const result = await index.onAdd(tableName, id, data);
+					if (result.error) {
+						console.error(`Index onAdd failed for ${tableName}/${id}:`, result.error);
 					}
 				}
 			},
 			onUpdate: async (id, data) => {
 				for (const index of Object.values(indexes)) {
-					try {
-						await index.onUpdate(tableName, id, data);
-					} catch (error) {
+					const result = await index.onUpdate(tableName, id, data);
+					if (result.error) {
 						console.error(
 							`Index onUpdate failed for ${tableName}/${id}:`,
-							error,
+							result.error,
 						);
 					}
 				}
 			},
 			onDelete: async (id) => {
 				for (const index of Object.values(indexes)) {
-					try {
-						await index.onDelete(tableName, id);
-					} catch (error) {
+					const result = await index.onDelete(tableName, id);
+					if (result.error) {
 						console.error(
 							`Index onDelete failed for ${tableName}/${id}:`,
-							error,
+							result.error,
 						);
 					}
 				}

@@ -1,5 +1,7 @@
+import type { Result } from 'wellcrafted/result';
 import type * as Y from 'yjs';
 import type { TableSchema } from './column-schemas';
+import type { IndexError } from './errors';
 
 /**
  * Index type system for vault.
@@ -32,7 +34,7 @@ export type Index = {
 		tableName: string,
 		id: string,
 		data: Record<string, any>,
-	): void | Promise<void>;
+	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
 	 * Handle a row being updated in a table
@@ -42,13 +44,16 @@ export type Index = {
 		tableName: string,
 		id: string,
 		data: Record<string, any>,
-	): void | Promise<void>;
+	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
 	 * Handle a row being deleted from a table
 	 * Called when observeDeep detects a row deletion in YJS
 	 */
-	onDelete(tableName: string, id: string): void | Promise<void>;
+	onDelete(
+		tableName: string,
+		id: string,
+	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
 	 * Index-specific query methods and APIs

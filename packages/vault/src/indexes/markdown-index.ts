@@ -1,3 +1,5 @@
+import { Ok } from 'wellcrafted/result';
+import { IndexErr } from '../core/errors';
 import type { Index, IndexContext } from '../core/indexes';
 import {
 	deleteMarkdownFile,
@@ -29,33 +31,39 @@ export function createMarkdownIndex(config: MarkdownIndexConfig): Index {
 			const filePath = getMarkdownPath(config.storagePath, tableName, id);
 			const { error } = await writeMarkdownFile(filePath, data);
 			if (error) {
-				console.error(
-					`Markdown index onAdd failed for ${tableName}/${id}:`,
-					error,
-				);
+				return IndexErr({
+					message: `Markdown index onAdd failed for ${tableName}/${id}`,
+					context: { tableName, id, filePath },
+					cause: error,
+				});
 			}
+			return Ok(undefined);
 		},
 
 		async onUpdate(tableName, id, data) {
 			const filePath = getMarkdownPath(config.storagePath, tableName, id);
 			const { error } = await writeMarkdownFile(filePath, data);
 			if (error) {
-				console.error(
-					`Markdown index onUpdate failed for ${tableName}/${id}:`,
-					error,
-				);
+				return IndexErr({
+					message: `Markdown index onUpdate failed for ${tableName}/${id}`,
+					context: { tableName, id, filePath },
+					cause: error,
+				});
 			}
+			return Ok(undefined);
 		},
 
 		async onDelete(tableName, id) {
 			const filePath = getMarkdownPath(config.storagePath, tableName, id);
 			const { error } = await deleteMarkdownFile(filePath);
 			if (error) {
-				console.error(
-					`Markdown index onDelete failed for ${tableName}/${id}:`,
-					error,
-				);
+				return IndexErr({
+					message: `Markdown index onDelete failed for ${tableName}/${id}`,
+					context: { tableName, id, filePath },
+					cause: error,
+				});
 			}
+			return Ok(undefined);
 		},
 
 		async destroy() {},
