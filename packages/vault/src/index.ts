@@ -64,6 +64,9 @@ export type {
 export { runPlugin } from './core/runtime';
 export type { RuntimeConfig } from './core/runtime';
 
+// YJS utilities
+export type { YjsValue } from './core/yjsdoc';
+
 // Index system
 export type {
 	Index,

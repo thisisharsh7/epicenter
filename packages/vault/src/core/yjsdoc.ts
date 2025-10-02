@@ -1,11 +1,29 @@
 import * as Y from 'yjs';
-import type { ColumnSchema, TableSchema, DateWithTimezone } from './column-schemas';
+import type {
+	ColumnSchema,
+	DateWithTimezone,
+	TableSchema,
+} from './column-schemas';
 import type { RowData } from './indexes';
 
 /**
  * YJS document utilities for vault.
  * Handles initialization, conversion, and observation of YJS documents.
  */
+
+/**
+ * A value stored in a YJS Map before conversion to plain
+ * Represents the mix of YJS shared types and primitives
+ */
+export type YjsValue =
+	| Y.Text // rich-text
+	| Y.Array<string> // multi-select (string arrays)
+	| Y.Array<number> // potential number arrays
+	| string // id, text, select
+	| number // integer, real
+	| boolean // boolean
+	| DateWithTimezone // date with timezone
+	| null; // nullable fields
 
 /**
  * Initialize a YJS document for a workspace with the given table schemas
@@ -41,7 +59,7 @@ export function initWorkspaceDoc(
  * - Y.Map → nested plain object (recursive)
  * - Primitives → as-is
  */
-export function convertYMapToPlain(ymap: Y.Map<any>): RowData {
+export function convertYMapToPlain(ymap: Y.Map<YjsValue>): RowData {
 	const obj: RowData = {};
 
 	for (const [key, value] of ymap.entries()) {
@@ -70,7 +88,7 @@ export function convertYMapToPlain(ymap: Y.Map<any>): RowData {
 export function convertPlainToYMap(
 	data: RowData,
 	columnSchemas: TableSchema,
-): Y.Map<any> {
+): Y.Map<YjsValue> {
 	const ymap = new Y.Map();
 
 	for (const [key, value] of Object.entries(data)) {
@@ -108,7 +126,7 @@ export function observeTable(
 		throw new Error(`Table "${tableName}" not found in YJS document`);
 	}
 
-	const rowsById = tableMap.get('rowsById') as Y.Map<Y.Map<any>>;
+	const rowsById = tableMap.get('rowsById') as Y.Map<Y.Map<YjsValue>>;
 
 	// Use observeDeep to catch nested changes (fields inside rows)
 	rowsById.observeDeep((events) => {
@@ -141,7 +159,7 @@ export function observeTable(
 export function getTableRowsById(
 	ydoc: Y.Doc,
 	tableName: string,
-): Y.Map<Y.Map<any>> {
+): Y.Map<Y.Map<YjsValue>> {
 	const tablesMap = ydoc.getMap('tables');
 	const tableMap = tablesMap.get(tableName);
 
@@ -149,13 +167,16 @@ export function getTableRowsById(
 		throw new Error(`Table "${tableName}" not found in YJS document`);
 	}
 
-	return tableMap.get('rowsById') as Y.Map<Y.Map<any>>;
+	return tableMap.get('rowsById') as Y.Map<Y.Map<YjsValue>>;
 }
 
 /**
  * Get the rowOrder array for a table
  */
-export function getTableRowOrder(ydoc: Y.Doc, tableName: string): Y.Array<string> {
+export function getTableRowOrder(
+	ydoc: Y.Doc,
+	tableName: string,
+): Y.Array<string> {
 	const tablesMap = ydoc.getMap('tables');
 	const tableMap = tablesMap.get(tableName);
 
