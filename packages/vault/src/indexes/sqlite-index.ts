@@ -5,7 +5,6 @@ import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { IndexErr } from '../core/errors';
 import type { Index, IndexContext } from '../core/indexes';
-import { convertYMapToPlain } from '../core/yjsdoc';
 import { convertAllTableSchemasToDrizzle } from './schema-converter';
 
 /**
@@ -93,13 +92,10 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			await createTablesIfNotExist(db, drizzleTables);
 
 			// Initial sync: YJS → SQLite
-			const tablesMap = config.ydoc.getMap('tables');
-			for (const [tableName, tableMap] of tablesMap.entries()) {
-				const rowsById = tableMap.get('rowsById');
-				if (!rowsById) continue;
+			for (const tableName of config.doc.getTableNames()) {
+				const rows = config.doc.getAllRows(tableName);
 
-				for (const [id, rowMap] of rowsById.entries()) {
-					const data = convertYMapToPlain(rowMap);
+				for (const data of rows) {
 					const { error } = await tryAsync({
 						try: async () => {
 							await db.insert(drizzleTables[tableName]).values(data);
@@ -109,7 +105,7 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 
 					if (error) {
 						console.warn(
-							`Failed to sync row ${id} to SQLite during init:`,
+							`Failed to sync row ${data.id} to SQLite during init:`,
 							error,
 						);
 					}

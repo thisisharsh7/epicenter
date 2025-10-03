@@ -1,7 +1,7 @@
 import type { Result } from 'wellcrafted/result';
-import type * as Y from 'yjs';
 import type { DateWithTimezone, TableSchema } from './column-schemas';
 import type { IndexError } from './errors';
+import type { createYjsDocument } from './yjsdoc';
 
 /**
  * Index type system for vault.
@@ -88,9 +88,10 @@ export type Index = {
  */
 export type IndexContext = {
 	/**
-	 * The YJS document for this workspace
+	 * The YJS document object with high-level CRUD methods
+	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
 	 */
-	ydoc: Y.Doc;
+	doc: ReturnType<typeof createYjsDocument>;
 
 	/**
 	 * Table schemas for all tables in this workspace
