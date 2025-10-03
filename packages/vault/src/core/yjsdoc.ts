@@ -26,6 +26,12 @@ export type YjsValue =
 	| null; // nullable fields
 
 /**
+ * Type alias for a table: Y.Map<RowYMap> where keys are row IDs and values are row Y.Maps
+ * Note: Y.Map only accepts one generic parameter for the value type
+ */
+type TableMap = Y.Map<Y.Map<YjsValue>>;
+
+/**
  * Convert a Y.Map (row) to a plain JavaScript object
  * Handles special types:
  * - Y.Text → string
@@ -63,10 +69,15 @@ export function convertYMapToPlain(ymap: Y.Map<YjsValue>): RowData {
  *
  * Creates the structure:
  *   ydoc
- *     └─ tables (Y.Map)
- *         └─ tableName (Y.Map)
- *             ├─ rowsById (Y.Map<id, Y.Map<field, value>>)
- *             └─ rowOrder (Y.Array<id>)
+ *     └─ tables (Y.Map<TableMap>)
+ *         └─ tableName (Y.Map<Y.Map<YjsValue>>)
+ *
+ * Each table is directly a Y.Map<Y.Map<YjsValue>> where:
+ * - Keys are row IDs (string)
+ * - Values are Y.Map<YjsValue> representing each row
+ *
+ * Note: Y.Map only accepts one generic parameter for the value type.
+ * The key type is always string.
  *
  * @example
  * ```typescript
@@ -81,21 +92,50 @@ export function createYjsDocument(
 ) {
 	// Initialize Y.Doc
 	const ydoc = new Y.Doc({ guid: workspaceId });
-	const tablesMap = ydoc.getMap('tables');
+	const tables = ydoc.getMap<TableMap>('tables');
 
+	// Initialize each table as a Y.Map<id, row>
 	for (const tableName of Object.keys(tableSchemas)) {
-		const tableMap = new Y.Map();
-		tableMap.set('rowsById', new Y.Map());
-		tableMap.set('rowOrder', new Y.Array());
-		tablesMap.set(tableName, tableMap);
+		tables.set(tableName, new Y.Map<Y.Map<YjsValue>>());
 	}
 
 	return {
 		/**
-		 * Raw YJS document
-		 * Exposed for advanced use cases (e.g., passing to indexes)
+		 * The underlying YJS document
+		 * Exposed for persistence and sync providers
 		 */
 		ydoc,
+
+		/**
+		 * Execute a function within a YJS transaction
+		 * Transactions bundle changes and ensure atomic updates
+		 */
+		transact(fn: () => void): void {
+			ydoc.transact(fn);
+		},
+
+		/**
+		 * Get a table's Y.Map
+		 * Returns Y.Map<Y.Map<YjsValue>> where:
+		 * - Keys are row IDs (string)
+		 * - Values are Y.Map<YjsValue> representing each row
+		 */
+		getTable(tableName: string): TableMap {
+			const table = tables.get(tableName);
+
+			if (!table) {
+				throw new Error(`Table "${tableName}" not found in YJS document`);
+			}
+
+			return table;
+		},
+
+		/**
+		 * Get all table names in the document
+		 */
+		getTableNames(): string[] {
+			return Array.from(tables.keys());
+		},
 
 		/**
 		 * Convert a Y.Map (row) to a plain JavaScript object
@@ -111,7 +151,7 @@ export function createYjsDocument(
 		 */
 		convertPlainToYMap(tableName: string, data: RowData): Y.Map<YjsValue> {
 			const columnSchemas = tableSchemas[tableName];
-			const ymap = new Y.Map();
+			const ymap = new Y.Map<YjsValue>();
 
 			for (const [key, value] of Object.entries(data)) {
 				const schema = columnSchemas[key];
@@ -140,27 +180,24 @@ export function createYjsDocument(
 				onDelete: (id: string) => void | Promise<void>;
 			},
 		) {
-			const tableMap = tablesMap.get(tableName);
+			const table = tables.get(tableName);
 
-			if (!tableMap) {
+			if (!table) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
 
-			const rowsById = tableMap.get('rowsById') as Y.Map<Y.Map<YjsValue>>;
-
 			// Use observeDeep to catch nested changes (fields inside rows)
-			rowsById.observeDeep((events) => {
+			table.observeDeep((events) => {
 				for (const event of events) {
-					// @ts-expect-error - YJS types don't expose changes.keys properly
 					event.changes.keys.forEach((change: any, key: string) => {
 						if (change.action === 'add') {
-							const rowMap = rowsById.get(key);
+							const rowMap = table.get(key);
 							if (rowMap) {
 								const data = convertYMapToPlain(rowMap);
 								handlers.onAdd(key, data);
 							}
 						} else if (change.action === 'update') {
-							const rowMap = rowsById.get(key);
+							const rowMap = table.get(key);
 							if (rowMap) {
 								const data = convertYMapToPlain(rowMap);
 								handlers.onUpdate(key, data);
@@ -171,32 +208,6 @@ export function createYjsDocument(
 					});
 				}
 			});
-		},
-
-		/**
-		 * Get the rowsById map for a table
-		 */
-		getTableRowsById(tableName: string): Y.Map<Y.Map<YjsValue>> {
-			const tableMap = tablesMap.get(tableName);
-
-			if (!tableMap) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			return tableMap.get('rowsById') as Y.Map<Y.Map<YjsValue>>;
-		},
-
-		/**
-		 * Get the rowOrder array for a table
-		 */
-		getTableRowOrder(tableName: string): Y.Array<string> {
-			const tableMap = tablesMap.get(tableName);
-
-			if (!tableMap) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			return tableMap.get('rowOrder') as Y.Array<string>;
 		},
 	};
 }
