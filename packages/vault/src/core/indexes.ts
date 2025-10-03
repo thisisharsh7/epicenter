@@ -1,30 +1,12 @@
 import type { Result } from 'wellcrafted/result';
-import type { DateWithTimezone, TableSchema } from './column-schemas';
+import type { TableSchema } from './column-schemas';
 import type { IndexError } from './errors';
-import type { createYjsDocument } from './yjsdoc';
+import type { createYjsDocument, RowData } from './yjsdoc';
 
 /**
  * Index type system for vault.
  * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
  */
-
-/**
- * A single cell value in a row
- * Represents the runtime value after YJS → plain conversion
- */
-type CellValue =
-	| string // id, text, rich-text (as string), select
-	| number // integer, real
-	| boolean // boolean
-	| DateWithTimezone // date with timezone
-	| string[] // multi-select (strings)
-	| number[] // multi-select (numbers)
-	| null; // nullable fields
-
-/**
- * A row of data with typed cell values
- */
-export type RowData = Record<string, CellValue>;
 
 /**
  * Index interface - all indexes must implement these methods

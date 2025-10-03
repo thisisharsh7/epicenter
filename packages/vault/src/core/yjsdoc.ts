@@ -1,22 +1,34 @@
 import * as Y from 'yjs';
 import type {
-	ColumnSchema,
 	DateWithTimezone,
 	TableSchema,
 } from './column-schemas';
 import { Serializer } from './columns';
-import type { RowData } from './indexes';
 
 /**
  * YJS document utilities for vault.
  * Handles initialization, conversion, and observation of YJS documents.
  */
 
+
 /**
- * A value stored in a YJS Map before conversion to plain
- * Represents the mix of YJS shared types and primitives
+ * A row of data with typed cell values
  */
-export type YjsValue =
+export type RowData = Record<string,
+	| string // id, text, rich-text (as string), select
+	| number // integer, real
+	| boolean // boolean
+	| DateWithTimezone // date with timezone
+	| string[] // multi-select (strings)
+	| number[] // multi-select (numbers)
+	| null // nullable fields
+>;
+
+/**
+ * YJS representation of a row
+ * Maps column names to YJS shared types or primitives
+ */
+type YjsRowData = Y.Map<
 	| Y.Text // rich-text
 	| Y.Array<string> // multi-select (string arrays)
 	| Y.Array<number> // potential number arrays
@@ -24,13 +36,8 @@ export type YjsValue =
 	| number // integer, real
 	| boolean // boolean
 	| DateWithTimezone // date with timezone
-	| null; // nullable fields
-
-/**
- * Type alias for a table: Y.Map<RowYMap> where keys are row IDs and values are row Y.Maps
- * Note: Y.Map only accepts one generic parameter for the value type
- */
-type TableMap = Y.Map<Y.Map<YjsValue>>;
+	| null // nullable fields
+>;
 
 /**
  * Create a YJS document for a workspace with encapsulated state.
@@ -41,7 +48,7 @@ type TableMap = Y.Map<Y.Map<YjsValue>>;
  *
  * Creates the structure:
  *   ydoc
- *     └─ tables (Y.Map<TableMap>)
+ *     └─ tables (Y.Map<Y.Map<YjsRowData>>)
  *         └─ tableName (Y.Map<Y.Map<YjsValue>>)
  *
  * Each table is directly a Y.Map<Y.Map<YjsValue>> where:
@@ -84,11 +91,11 @@ export function createYjsDocument(
 ) {
 	// Initialize Y.Doc
 	const ydoc = new Y.Doc({ guid: workspaceId });
-	const tables = ydoc.getMap<TableMap>('tables');
+	const tables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
 
 	// Initialize each table as a Y.Map<id, row>
 	for (const tableName of Object.keys(tableSchemas)) {
-		tables.set(tableName, new Y.Map<Y.Map<YjsValue>>());
+		tables.set(tableName, new Y.Map<YjsRowData>());
 	}
 
 	/**
@@ -99,8 +106,8 @@ export function createYjsDocument(
 		const columnSchemas = tableSchemas[tableName];
 
 		return Serializer({
-			serialize(value: RowData): Y.Map<YjsValue> {
-				const ymap = new Y.Map<YjsValue>();
+			serialize(value: RowData): YjsRowData {
+				const ymap = new Y.Map();
 
 				for (const [key, val] of Object.entries(value)) {
 					const schema = columnSchemas[key];
@@ -112,10 +119,10 @@ export function createYjsDocument(
 					}
 				}
 
-				return ymap;
+				return ymap as YjsRowData;
 			},
 
-			deserialize(ymap: Y.Map<YjsValue>): RowData {
+			deserialize(ymap: YjsRowData): RowData {
 				const obj: RowData = {};
 
 				for (const [key, value] of ymap.entries()) {
