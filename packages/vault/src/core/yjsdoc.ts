@@ -10,25 +10,22 @@ import { Serializer } from './columns';
  * Handles initialization, conversion, and observation of YJS documents.
  */
 
-
 /**
- * A row of data with typed cell values
+ * A single cell value in its plain JavaScript form
  */
-export type RowData = Record<string,
+type CellValue =
 	| string // id, text, rich-text (as string), select
 	| number // integer, real
 	| boolean // boolean
 	| DateWithTimezone // date with timezone
 	| string[] // multi-select (strings)
 	| number[] // multi-select (numbers)
-	| null // nullable fields
->;
+	| null; // nullable fields
 
 /**
- * YJS representation of a row
- * Maps column names to YJS shared types or primitives
+ * A single cell value in its YJS form
  */
-type YjsRowData = Y.Map<
+type YjsCellValue =
 	| Y.Text // rich-text
 	| Y.Array<string> // multi-select (string arrays)
 	| Y.Array<number> // potential number arrays
@@ -36,8 +33,18 @@ type YjsRowData = Y.Map<
 	| number // integer, real
 	| boolean // boolean
 	| DateWithTimezone // date with timezone
-	| null // nullable fields
->;
+	| null; // nullable fields
+
+/**
+ * A row of data with typed cell values
+ */
+export type RowData = Record<string, CellValue>;
+
+/**
+ * YJS representation of a row
+ * Maps column names to YJS shared types or primitives
+ */
+type YjsRowData = Y.Map<YjsCellValue>;
 
 /**
  * Create a YJS document for a workspace with encapsulated state.
@@ -99,6 +106,31 @@ export function createYjsDocument(
 	}
 
 	/**
+	 * Serializer for converting between plain CellValue and YJS CellValue
+	 * Handles conversion of rich-text strings to Y.Text and array unwrapping
+	 */
+	const CellSerializer = (columnType: string) => {
+		return Serializer({
+			serialize(value: CellValue): YjsCellValue {
+				if (columnType === 'rich-text' && typeof value === 'string') {
+					return new Y.Text(value);
+				}
+				return value as YjsCellValue;
+			},
+
+			deserialize(value: YjsCellValue): CellValue {
+				if (value instanceof Y.Text) {
+					return value.toString();
+				}
+				if (value instanceof Y.Array) {
+					return value.toArray();
+				}
+				return value
+			},
+		});
+	};
+
+	/**
 	 * Factory function to create a row serializer for a specific table
 	 * Serializes between plain RowData objects and Y.Map YJS structures
 	 */
@@ -111,12 +143,8 @@ export function createYjsDocument(
 
 				for (const [key, val] of Object.entries(value)) {
 					const schema = columnSchemas[key];
-
-					if (schema.type === 'rich-text' && typeof val === 'string') {
-						ymap.set(key, new Y.Text(val));
-					} else {
-						ymap.set(key, val);
-					}
+					const cellSerializer = CellSerializer(schema.type);
+					ymap.set(key, cellSerializer.serialize(val));
 				}
 
 				return ymap as YjsRowData;
@@ -126,13 +154,9 @@ export function createYjsDocument(
 				const obj: RowData = {};
 
 				for (const [key, value] of ymap.entries()) {
-					if (value instanceof Y.Text) {
-						obj[key] = value.toString();
-					} else if (value instanceof Y.Array) {
-						obj[key] = value.toArray();
-					} else {
-						obj[key] = value;
-					}
+					const schema = columnSchemas[key];
+					const cellSerializer = CellSerializer(schema.type);
+					obj[key] = cellSerializer.deserialize(value);
 				}
 
 				return obj;
