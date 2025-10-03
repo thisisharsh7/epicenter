@@ -12,12 +12,13 @@ import type { createYjsDocument } from './yjsdoc';
  * A single cell value in a row
  * Represents the runtime value after YJS → plain conversion
  */
-export type CellValue =
+type CellValue =
 	| string // id, text, rich-text (as string), select
 	| number // integer, real
 	| boolean // boolean
 	| DateWithTimezone // date with timezone
-	| string[] // multi-select
+	| string[] // multi-select (strings)
+	| number[] // multi-select (numbers)
 	| null; // nullable fields
 
 /**

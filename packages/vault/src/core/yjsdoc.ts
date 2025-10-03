@@ -4,6 +4,7 @@ import type {
 	DateWithTimezone,
 	TableSchema,
 } from './column-schemas';
+import { Serializer } from './columns';
 import type { RowData } from './indexes';
 
 /**
@@ -91,51 +92,47 @@ export function createYjsDocument(
 	}
 
 	/**
-	 * Internal: Convert a Y.Map (row) to a plain JavaScript object
-	 * Handles special types:
-	 * - Y.Text → string
-	 * - Y.Array → plain array
-	 * - Y.Map → nested plain object (recursive)
-	 * - Primitives → as-is
+	 * Factory function to create a row serializer for a specific table
+	 * Serializes between plain RowData objects and Y.Map YJS structures
 	 */
-	const _convertYMapToPlain = (ymap: Y.Map<YjsValue>): RowData => {
-		const obj: RowData = {};
-
-		for (const [key, value] of ymap.entries()) {
-			if (value instanceof Y.Text) {
-				obj[key] = value.toString();
-			} else if (value instanceof Y.Array) {
-				obj[key] = value.toArray();
-			} else if (value instanceof Y.Map) {
-				obj[key] = _convertYMapToPlain(value);
-			} else {
-				obj[key] = value;
-			}
-		}
-
-		return obj;
-	};
-
-	/**
-	 * Internal: Convert a plain JavaScript object to a Y.Map (row)
-	 * Uses table schemas to determine which fields should be Y.Text
-	 */
-	const _convertPlainToYMap = (tableName: string, data: RowData): Y.Map<YjsValue> => {
+	const RowSerializer = (tableName: string) => {
 		const columnSchemas = tableSchemas[tableName];
-		const ymap = new Y.Map<YjsValue>();
 
-		for (const [key, value] of Object.entries(data)) {
-			const schema = columnSchemas[key];
+		return Serializer({
+			serialize(value: RowData): Y.Map<YjsValue> {
+				const ymap = new Y.Map<YjsValue>();
 
-			if (schema.type === 'rich-text' && typeof value === 'string') {
-				ymap.set(key, new Y.Text(value));
-			} else {
-				ymap.set(key, value);
-			}
-		}
+				for (const [key, val] of Object.entries(value)) {
+					const schema = columnSchemas[key];
 
-		return ymap;
+					if (schema.type === 'rich-text' && typeof val === 'string') {
+						ymap.set(key, new Y.Text(val));
+					} else {
+						ymap.set(key, val);
+					}
+				}
+
+				return ymap;
+			},
+
+			deserialize(ymap: Y.Map<YjsValue>): RowData {
+				const obj: RowData = {};
+
+				for (const [key, value] of ymap.entries()) {
+					if (value instanceof Y.Text) {
+						obj[key] = value.toString();
+					} else if (value instanceof Y.Array) {
+						obj[key] = value.toArray();
+					} else {
+						obj[key] = value;
+					}
+				}
+
+				return obj;
+			},
+		});
 	};
+
 
 	return {
 		/**
@@ -200,7 +197,7 @@ export function createYjsDocument(
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
 
-			const ymap = _convertPlainToYMap(tableName, data);
+			const ymap = RowSerializer(tableName).serialize(data);
 
 			ydoc.transact(() => {
 				table.set(data.id as string, ymap);
@@ -219,7 +216,7 @@ export function createYjsDocument(
 
 			ydoc.transact(() => {
 				for (const row of rows) {
-					const ymap = _convertPlainToYMap(tableName, row);
+					const ymap = RowSerializer(tableName).serialize(row);
 					table.set(row.id as string, ymap);
 				}
 			});
@@ -284,7 +281,7 @@ export function createYjsDocument(
 			const rowMap = table.get(id);
 			if (!rowMap) return undefined;
 
-			return _convertYMapToPlain(rowMap);
+			return RowSerializer(tableName).deserialize(rowMap);
 		},
 
 		/**
@@ -301,7 +298,7 @@ export function createYjsDocument(
 			for (const id of ids) {
 				const rowMap = table.get(id);
 				if (rowMap) {
-					rows.push(_convertYMapToPlain(rowMap));
+					rows.push(RowSerializer(tableName).deserialize(rowMap));
 				}
 			}
 
@@ -319,7 +316,7 @@ export function createYjsDocument(
 
 			const rows: RowData[] = [];
 			for (const [id, rowMap] of table.entries()) {
-				rows.push(_convertYMapToPlain(rowMap));
+				rows.push(RowSerializer(tableName).deserialize(rowMap));
 			}
 
 			return rows;
@@ -390,13 +387,13 @@ export function createYjsDocument(
 						if (change.action === 'add') {
 							const rowMap = table.get(key);
 							if (rowMap) {
-								const data = _convertYMapToPlain(rowMap);
+								const data = RowSerializer(tableName).deserialize(rowMap);
 								handlers.onAdd(key, data);
 							}
 						} else if (change.action === 'update') {
 							const rowMap = table.get(key);
 							if (rowMap) {
-								const data = _convertYMapToPlain(rowMap);
+								const data = RowSerializer(tableName).deserialize(rowMap);
 								handlers.onUpdate(key, data);
 							}
 						} else if (change.action === 'delete') {

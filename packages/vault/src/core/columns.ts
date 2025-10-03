@@ -289,7 +289,7 @@ function normalizeToDateWithTimezone(
 /**
  * Factory function to create a serializer with inferred types
  */
-function Serializer<TValue, TSerialized>(config: {
+export function Serializer<TValue, TSerialized>(config: {
 	serialize(value: TValue): TSerialized;
 	deserialize(storage: TSerialized): TValue;
 }) {
