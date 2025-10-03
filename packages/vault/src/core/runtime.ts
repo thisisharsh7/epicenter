@@ -122,6 +122,7 @@ export async function runPlugin<T = unknown>(
 		...processedMethods,
 		indexes,
 		ydoc: doc.ydoc,
+		transact: (fn: () => void, origin?: string) => doc.transact(fn, origin),
 	};
 
 	return workspaceInstance as T;
@@ -130,11 +131,24 @@ export async function runPlugin<T = unknown>(
 /**
  * Table helpers that write to YJS
  * Reads should go through indexes (e.g., indexes.sqlite.posts.select())
+ * All operations are synchronous since YJS operations are synchronous
  */
 type TableHelper = {
-	upsert(data: RowData): Promise<Result<RowData, VaultOperationError>>;
-	deleteById(id: string): Promise<Result<boolean, VaultOperationError>>;
-	deleteByIds(ids: string[]): Promise<Result<number, VaultOperationError>>;
+	// Single row operations
+	set(data: RowData): void;
+	get(id: string): RowData | undefined;
+	has(id: string): boolean;
+	delete(id: string): boolean;
+
+	// Batch operations (transactional)
+	setMany(rows: RowData[]): void;
+	getMany(ids: string[]): RowData[];
+	deleteMany(ids: string[]): number;
+
+	// Bulk operations
+	getAll(): RowData[];
+	clear(): void;
+	count(): number;
 };
 
 /**
@@ -149,107 +163,44 @@ function createTableHelpers(
 
 	for (const [tableName] of Object.entries(tableSchemas)) {
 		helpers[tableName] = {
-			async upsert(
-				data: RowData,
-			): Promise<Result<RowData, VaultOperationError>> {
-				return tryAsync({
-					try: async () => {
-						const rowsById = doc.getTableRowsById(tableName);
-						const rowOrder = doc.getTableRowOrder(tableName);
-
-						// Convert plain data to Y.Map
-						const ymap = doc.convertPlainToYMap(tableName, data);
-
-						// Update in transaction
-						doc.ydoc.transact(() => {
-							rowsById.set(data.id, ymap);
-
-							// Add to rowOrder if new
-							const orderArray = rowOrder.toArray();
-							if (!orderArray.includes(data.id)) {
-								rowOrder.push([data.id]);
-							}
-						});
-
-						return data;
-					},
-					catch: (error) =>
-						VaultOperationErr({
-							message: `Failed to upsert record in table ${tableName}`,
-							context: { tableName, data },
-							cause: error,
-						}),
-				});
+			set(data: RowData): void {
+				doc.setRow(tableName, data);
 			},
 
-			async deleteById(
-				id: string,
-			): Promise<Result<boolean, VaultOperationError>> {
-				return tryAsync({
-					try: async () => {
-						const rowsById = doc.getTableRowsById(tableName);
-						const rowOrder = doc.getTableRowOrder(tableName);
-
-						const exists = rowsById.has(id);
-						if (!exists) return false;
-
-						doc.ydoc.transact(() => {
-							rowsById.delete(id);
-
-							// Remove from rowOrder
-							const orderArray = rowOrder.toArray();
-							const index = orderArray.indexOf(id);
-							if (index !== -1) {
-								rowOrder.delete(index, 1);
-							}
-						});
-
-						return true;
-					},
-					catch: (error) =>
-						VaultOperationErr({
-							message: `Failed to delete record from table ${tableName}`,
-							context: { tableName, id },
-							cause: error,
-						}),
-				});
+			setMany(rows: RowData[]): void {
+				doc.setRows(tableName, rows);
 			},
 
-			async deleteByIds(
-				ids: string[],
-			): Promise<Result<number, VaultOperationError>> {
-				return tryAsync({
-					try: async () => {
-						const rowsById = doc.getTableRowsById(tableName);
-						const rowOrder = doc.getTableRowOrder(tableName);
+			get(id: string): RowData | undefined {
+				return doc.getRow(tableName, id);
+			},
 
-						let count = 0;
+			getMany(ids: string[]): RowData[] {
+				return doc.getRows(tableName, ids);
+			},
 
-						doc.ydoc.transact(() => {
-							for (const id of ids) {
-								if (rowsById.has(id)) {
-									rowsById.delete(id);
-									count++;
+			getAll(): RowData[] {
+				return doc.getAllRows(tableName);
+			},
 
-									// Remove from rowOrder
-									const orderArray = rowOrder.toArray();
-									const index = orderArray.indexOf(id);
-									if (index !== -1) {
-										rowOrder.delete(index, 1);
-									}
-								}
-							}
-						});
+			has(id: string): boolean {
+				return doc.hasRow(tableName, id);
+			},
 
-						return count;
-					},
-					catch: (error) =>
-						VaultOperationErr({
-							message: `Failed to delete records from table ${tableName}`,
-							context: { tableName, ids },
-							cause: error,
-						}),
-				});
+			delete(id: string): boolean {
+				return doc.deleteRow(tableName, id);
+			},
+
+			deleteMany(ids: string[]): number {
+				return doc.deleteRows(tableName, ids);
+			},
+
+			clear(): void {
+				doc.clearTable(tableName);
+			},
+
+			count(): number {
+				return doc.countRows(tableName);
 			},
 		};
 	}
