@@ -35,6 +35,9 @@ type TableMap = Y.Map<Y.Map<YjsValue>>;
  * Create a YJS document for a workspace with encapsulated state.
  * Returns an object with methods for working with the document.
  *
+ * All methods accept and return plain JavaScript objects - YJS conversion
+ * is handled automatically internally.
+ *
  * Creates the structure:
  *   ydoc
  *     └─ tables (Y.Map<TableMap>)
@@ -48,13 +51,27 @@ type TableMap = Y.Map<Y.Map<YjsValue>>;
  * ```typescript
  * const doc = createYjsDocument('workspace-id', { posts: { id: id(), ... } });
  *
- * // Write operations (plain objects in)
- * doc.upsertRow('posts', { id: '1', title: 'Hello' });
+ * // Single row operations
+ * doc.setRow('posts', { id: '1', title: 'Hello' });
+ * const row = doc.getRow('posts', '1');
+ * const exists = doc.hasRow('posts', '1');
  * doc.deleteRow('posts', '1');
  *
- * // Read operations (plain objects out)
- * const row = doc.getRow('posts', '1');
+ * // Batch operations (transactional)
+ * doc.setRows('posts', [{ id: '1', ... }, { id: '2', ... }]);
+ * const rows = doc.getRows('posts', ['1', '2']);
+ * doc.deleteRows('posts', ['1', '2']);
+ *
+ * // Bulk operations
  * const allRows = doc.getAllRows('posts');
+ * const count = doc.countRows('posts');
+ * doc.clearTable('posts');
+ *
+ * // Transactions (safe to nest)
+ * doc.transact(() => {
+ *   doc.setRow('posts', { ... });
+ *   doc.setRow('comments', { ... });
+ * }, 'bulk-import');
  *
  * // Observe changes (plain objects in callbacks)
  * doc.observeTable('posts', { onAdd, onUpdate, onDelete });
@@ -129,10 +146,40 @@ export function createYjsDocument(
 
 		/**
 		 * Execute a function within a YJS transaction
-		 * Transactions bundle changes and ensure atomic updates
+		 *
+		 * Transactions bundle changes and ensure atomic updates. All changes within
+		 * a transaction are sent as a single update to collaborators.
+		 *
+		 * **Nested Transactions:**
+		 * YJS handles nested transact() calls safely by reusing the outer transaction.
+		 *
+		 * - First transact() creates a transaction (sets doc._transaction, initialCall = true)
+		 * - Nested transact() calls check if doc._transaction exists and reuse it
+		 * - Inner transact() calls are essentially no-ops - they just execute their function
+		 * - Only the outermost transaction (where initialCall = true) triggers cleanup and events
+		 *
+		 * This means it's safe to:
+		 * - Call setRow() inside a transaction (setRow uses transact internally)
+		 * - Call setRows() inside a transaction (setRows uses transact internally)
+		 * - Nest transactions for cross-table operations
+		 *
+		 * @example
+		 * ```typescript
+		 * // Single operation - automatically transactional
+		 * doc.setRow('posts', { id: '1', title: 'Hello' });
+		 *
+		 * // Batch operation - wrapped in transaction
+		 * doc.setRows('posts', [{ id: '1', ... }, { id: '2', ... }]);
+		 *
+		 * // Cross-table transaction - safe nesting
+		 * doc.transact(() => {
+		 *   doc.setRows('posts', [...]); // reuses outer transaction
+		 *   doc.setRow('users', { ... }); // also reuses outer transaction
+		 * }, 'bulk-import');
+		 * ```
 		 */
-		transact(fn: () => void): void {
-			ydoc.transact(fn);
+		transact(fn: () => void, origin?: string): void {
+			ydoc.transact(fn, origin);
 		},
 
 		/**
@@ -143,11 +190,11 @@ export function createYjsDocument(
 		},
 
 		/**
-		 * Insert or update a row in a table
+		 * Set a row in a table (replaces if exists, creates if not)
 		 * Accepts a plain object and converts to YJS internally
 		 * Wrapped in a transaction automatically
 		 */
-		upsertRow(tableName: string, data: RowData): void {
+		setRow(tableName: string, data: RowData): void {
 			const table = tables.get(tableName);
 			if (!table) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
@@ -157,6 +204,24 @@ export function createYjsDocument(
 
 			ydoc.transact(() => {
 				table.set(data.id as string, ymap);
+			});
+		},
+
+		/**
+		 * Set multiple rows in a table (batch operation)
+		 * All rows are set atomically within a single transaction
+		 */
+		setRows(tableName: string, rows: RowData[]): void {
+			const table = tables.get(tableName);
+			if (!table) {
+				throw new Error(`Table "${tableName}" not found in YJS document`);
+			}
+
+			ydoc.transact(() => {
+				for (const row of rows) {
+					const ymap = _convertPlainToYMap(tableName, row);
+					table.set(row.id as string, ymap);
+				}
 			});
 		},
 
@@ -223,6 +288,27 @@ export function createYjsDocument(
 		},
 
 		/**
+		 * Get multiple rows from a table by their IDs
+		 * Returns an array of plain objects (only includes rows that exist)
+		 */
+		getRows(tableName: string, ids: string[]): RowData[] {
+			const table = tables.get(tableName);
+			if (!table) {
+				throw new Error(`Table "${tableName}" not found in YJS document`);
+			}
+
+			const rows: RowData[] = [];
+			for (const id of ids) {
+				const rowMap = table.get(id);
+				if (rowMap) {
+					rows.push(_convertYMapToPlain(rowMap));
+				}
+			}
+
+			return rows;
+		},
+
+		/**
 		 * Get all rows from a table as an array of plain objects
 		 */
 		getAllRows(tableName: string): RowData[] {
@@ -249,6 +335,33 @@ export function createYjsDocument(
 			}
 
 			return table.has(id);
+		},
+
+		/**
+		 * Get the count of rows in a table
+		 */
+		countRows(tableName: string): number {
+			const table = tables.get(tableName);
+			if (!table) {
+				throw new Error(`Table "${tableName}" not found in YJS document`);
+			}
+
+			return table.size;
+		},
+
+		/**
+		 * Clear all rows from a table
+		 * Wrapped in a transaction automatically
+		 */
+		clearTable(tableName: string): void {
+			const table = tables.get(tableName);
+			if (!table) {
+				throw new Error(`Table "${tableName}" not found in YJS document`);
+			}
+
+			ydoc.transact(() => {
+				table.clear();
+			});
 		},
 
 		/**

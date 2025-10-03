@@ -1,5 +1,3 @@
-import type { Result } from 'wellcrafted/result';
-import type { VaultOperationError } from './errors';
 import type { PluginMethodMap } from './methods';
 import type { TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition, RowData } from './indexes';
@@ -18,7 +16,7 @@ import type { Index, IndexesDefinition, RowData } from './indexes';
  *
  * **Writes**: Go to YJS document → auto-sync to all indexes
  * ```typescript
- * await tables.posts.upsert({ id: '1', title: 'Hello' });
+ * tables.posts.set({ id: '1', title: 'Hello' });
  * // YJS updated → SQLite synced → Markdown synced → Vector synced
  * ```
  *
@@ -62,13 +60,15 @@ import type { Index, IndexesDefinition, RowData } from './indexes';
  *     createPost: defineMutation({
  *       input: z.object({ title: z.string() }),
  *       handler: async ({ title }) => {
- *         return tables.posts.upsert({
+ *         const post = {
  *           id: generateId(),
  *           title,
  *           content: null,
  *           category: 'tech',
  *           views: 0,
- *         });
+ *         };
+ *         tables.posts.set(post);
+ *         return post;
  *       }
  *     })
  *   })
@@ -163,7 +163,9 @@ export type Plugin<
 	 *   createPost: defineMutation({
 	 *     input: z.object({ title: z.string() }),
 	 *     handler: async ({ title }) => {
-	 *       return tables.posts.upsert({ ... });
+	 *       const post = { id: generateId(), title, ... };
+	 *       tables.posts.set(post);
+	 *       return post;
 	 *     }
 	 *   }),
 	 *   getPublishedPosts: defineQuery({
@@ -204,25 +206,38 @@ export type PluginMethodContext<
 
 	/**
 	 * Table helpers for this workspace
-	 * Write operations only (upsert, deleteById, etc.)
+	 * Synchronous write/read operations to YJS
 	 */
 	tables: WorkspaceTablesAPI<TTableSchemas>;
 
 	/**
 	 * Indexes for this workspace
-	 * Read operations (select, search, etc.)
+	 * Async read operations (select, search, etc.)
 	 */
 	indexes: Record<string, Index>;
 };
 
 /**
- * Table helper API - write operations to YJS
+ * Table helper API - synchronous operations to YJS
+ * All operations are synchronous since YJS operations are synchronous
  */
 export type WorkspaceTablesAPI<TTableSchemas extends Record<string, TableSchema>> = {
 	[TableName in keyof TTableSchemas]: {
-		upsert(data: RowData): Promise<Result<RowData, VaultOperationError>>;
-		deleteById(id: string): Promise<Result<boolean, VaultOperationError>>;
-		deleteByIds(ids: string[]): Promise<Result<number, VaultOperationError>>;
+		// Single row operations
+		set(data: RowData): void;
+		get(id: string): RowData | undefined;
+		has(id: string): boolean;
+		delete(id: string): boolean;
+
+		// Batch operations (transactional)
+		setMany(rows: RowData[]): void;
+		getMany(ids: string[]): RowData[];
+		deleteMany(ids: string[]): number;
+
+		// Bulk operations
+		getAll(): RowData[];
+		clear(): void;
+		count(): number;
 	};
 };
 
