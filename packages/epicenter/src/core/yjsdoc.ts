@@ -204,14 +204,14 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 					throw new Error(`Table "${tableName}" not found in YJS document`);
 				}
 
-				type TRow = Row<TSchemas[typeof tableName]>;
-
-				const tableHelper: TableHelper<TRow> = {
-					insert(data: TRow) {
+				const tableHelper: TableHelper<Row> = {
+					insert(data: Row) {
 						ydoc.transact(() => {
 							const id = data.id as string;
 							if (ytable.has(id)) {
-								throw new Error(`Row with id "${id}" already exists in table "${tableName}"`);
+								throw new Error(
+									`Row with id "${id}" already exists in table "${tableName}"`,
+								);
 							}
 							const ymap = new Y.Map<CellValue>();
 							for (const [key, value] of Object.entries(data)) {
@@ -221,11 +221,13 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						});
 					},
 
-					update(id: string, partial: Partial<TRow>) {
+					update(id: string, partial: Partial<Row>) {
 						ydoc.transact(() => {
 							const ymap = ytable.get(id);
 							if (!ymap) {
-								throw new Error(`Row with id "${id}" not found in table "${tableName}"`);
+								throw new Error(
+									`Row with id "${id}" not found in table "${tableName}"`,
+								);
 							}
 							for (const [key, value] of Object.entries(partial)) {
 								ymap.set(key, value);
@@ -233,7 +235,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						});
 					},
 
-					upsert(data: TRow) {
+					upsert(data: Row) {
 						ydoc.transact(() => {
 							const id = data.id as string;
 							let ymap = ytable.get(id);
@@ -247,12 +249,14 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						});
 					},
 
-					insertMany(rows: TRow[]) {
+					insertMany(rows: Row[]) {
 						ydoc.transact(() => {
 							for (const row of rows) {
 								const id = row.id as string;
 								if (ytable.has(id)) {
-									throw new Error(`Row with id "${id}" already exists in table "${tableName}"`);
+									throw new Error(
+										`Row with id "${id}" already exists in table "${tableName}"`,
+									);
 								}
 								const ymap = new Y.Map<CellValue>();
 								for (const [key, value] of Object.entries(row)) {
@@ -263,7 +267,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						});
 					},
 
-					upsertMany(rows: TRow[]) {
+					upsertMany(rows: Row[]) {
 						ydoc.transact(() => {
 							for (const row of rows) {
 								const id = row.id as string;
@@ -279,12 +283,14 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						});
 					},
 
-					updateMany(updates: Array<{ id: string; data: Partial<TRow> }>) {
+					updateMany(updates: Array<{ id: string; data: Partial<Row> }>) {
 						ydoc.transact(() => {
 							for (const { id, data } of updates) {
 								const ymap = ytable.get(id);
 								if (!ymap) {
-									throw new Error(`Row with id "${id}" not found in table "${tableName}"`);
+									throw new Error(
+										`Row with id "${id}" not found in table "${tableName}"`,
+									);
 								}
 								for (const [key, value] of Object.entries(data)) {
 									ymap.set(key, value);
@@ -296,24 +302,24 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 					get(id: string) {
 						const ymap = ytable.get(id);
 						if (!ymap) return undefined;
-						return Object.fromEntries(ymap.entries()) as TRow;
+						return Object.fromEntries(ymap.entries()) as Row;
 					},
 
 					getMany(ids: string[]) {
-						const rows: TRow[] = [];
+						const rows: Row[] = [];
 						for (const id of ids) {
 							const ymap = ytable.get(id);
 							if (ymap) {
-								rows.push(Object.fromEntries(ymap.entries()) as TRow);
+								rows.push(Object.fromEntries(ymap.entries()) as Row);
 							}
 						}
 						return rows;
 					},
 
 					getAll() {
-						const rows: TRow[] = [];
+						const rows: Row[] = [];
 						for (const ymap of ytable.values()) {
-							rows.push(Object.fromEntries(ymap.entries()) as TRow);
+							rows.push(Object.fromEntries(ymap.entries()) as Row);
 						}
 						return rows;
 					},
@@ -346,7 +352,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						return ytable.size;
 					},
 
-					observe(handlers: ObserveHandlers<TRow>) {
+					observe(handlers: ObserveHandlers<Row>) {
 						// Use observeDeep to catch nested changes (fields inside rows)
 						const observer = (events: Y.YEvent<any>[]) => {
 							for (const event of events) {
@@ -354,13 +360,13 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 									if (change.action === 'add') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = Object.fromEntries(ymap.entries()) as TRow;
+											const data = Object.fromEntries(ymap.entries()) as Row;
 											handlers.onAdd(key, data);
 										}
 									} else if (change.action === 'update') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = Object.fromEntries(ymap.entries()) as TRow;
+											const data = Object.fromEntries(ymap.entries()) as Row;
 											handlers.onUpdate(key, data);
 										}
 									} else if (change.action === 'delete') {
@@ -378,10 +384,10 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						};
 					},
 
-					filter(predicate: (row: TRow) => boolean) {
-						const results: TRow[] = [];
+					filter(predicate: (row: Row) => boolean) {
+						const results: Row[] = [];
 						for (const ymap of ytable.values()) {
-							const row = Object.fromEntries(ymap.entries()) as TRow;
+							const row = Object.fromEntries(ymap.entries()) as Row;
 							if (predicate(row)) {
 								results.push(row);
 							}
@@ -389,9 +395,9 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						return results;
 					},
 
-					find(predicate: (row: TRow) => boolean) {
+					find(predicate: (row: Row) => boolean) {
 						for (const ymap of ytable.values()) {
-							const row = Object.fromEntries(ymap.entries()) as TRow;
+							const row = Object.fromEntries(ymap.entries()) as Row;
 							if (predicate(row)) {
 								return row;
 							}
