@@ -54,18 +54,10 @@ export function generateId(): Id {
 }
 
 /**
- * Base column schema - all columns must have type and nullable
- */
-type BaseColumnSchema = {
-	type: string;
-	nullable: boolean;
-};
-
-/**
  * Discriminated union of all column types
  */
 export type ColumnSchema =
-	| { type: 'id'; nullable: false }
+	| { type: 'id' }
 	| {
 			type: 'text';
 			nullable: boolean;
@@ -205,11 +197,12 @@ export type RowData<S extends TableSchema> = SchemaToRow<S>;
 
 /**
  * Creates an ID column schema - always primary key with auto-generation
+ * IDs are always NOT NULL (cannot be nullable)
  * @example
- * id() // → { type: 'id', nullable: false }
+ * id() // → { type: 'id' }
  */
 export function id(): ColumnSchema {
-	return { type: 'id', nullable: false };
+	return { type: 'id' };
 }
 
 /**
