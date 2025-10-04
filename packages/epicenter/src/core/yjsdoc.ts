@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { CellValue, SchemaToRow, TableSchema } from './column-schemas';
+import type { CellValue, Row, TableSchema } from './column-schemas';
 import { Serializer } from './columns';
 
 /**
@@ -11,7 +11,7 @@ type YjsRowData = Y.Map<CellValue>;
 /**
  * Observer handlers for table changes
  */
-type ObserveHandlers<TRow extends Record<string, CellValue>> = {
+type ObserveHandlers<TRow extends Row> = {
 	onAdd: (id: string, data: TRow) => void | Promise<void>;
 	onUpdate: (id: string, data: TRow) => void | Promise<void>;
 	onDelete: (id: string) => void | Promise<void>;
@@ -20,7 +20,7 @@ type ObserveHandlers<TRow extends Record<string, CellValue>> = {
 /**
  * Type-safe table helper with operations for a specific table schema
  */
-export type TableHelper<TRow extends Record<string, CellValue>> = {
+export type TableHelper<TRow extends Row> = {
 	set(data: TRow): void;
 	setMany(rows: TRow[]): void;
 	get(id: string): TRow | undefined;
@@ -171,24 +171,20 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 	 * Factory function to create a table helper for a specific table
 	 * Encapsulates all CRUD operations for a single table
 	 */
-	const createTableHelper = <TKey extends keyof TSchemas>(
-		tableName: TKey,
+	const createTableHelper = <TRow extends Row>(
+		row: TRow,
 		ytable: Y.Map<YjsRowData>,
-	): TableHelper<TSchemas[TKey]> => {
-		// Scoped type aliases for better readability
-		type Schema = TSchemas[TKey];
-		type Row = SchemaToRow<Schema>;
-
+	): TableHelper<TRow> => {
 		const RowSerializer = Serializer({
-			serialize(value: Row): YjsRowData {
+			serialize(value: TRow): YjsRowData {
 				const ymap = new Y.Map();
 				for (const [key, val] of Object.entries(value)) {
 					ymap.set(key, val);
 				}
 				return ymap as YjsRowData;
 			},
-			deserialize(ymap: YjsRowData): Row {
-				const obj = {} as Row;
+			deserialize(ymap: YjsRowData): TRow {
+				const obj = {} as TRow;
 				for (const [key, value] of ymap.entries()) {
 					obj[key] = value;
 				}
@@ -197,14 +193,14 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		});
 
 		return {
-			set(data: Row): void {
+			set(data: TRow): void {
 				const ymap = RowSerializer.serialize(data);
 				ydoc.transact(() => {
 					ytable.set(data.id as string, ymap);
 				});
 			},
 
-			setMany(rows: Row[]): void {
+			setMany(rows: TRow[]): void {
 				ydoc.transact(() => {
 					for (const row of rows) {
 						const ymap = RowSerializer.serialize(row);
@@ -213,14 +209,14 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				});
 			},
 
-			get(id: string): Row | undefined {
+			get(id: string): TRow | undefined {
 				const ymap = ytable.get(id);
 				if (!ymap) return undefined;
 				return RowSerializer.deserialize(ymap);
 			},
 
-			getMany(ids: string[]): Row[] {
-				const rows: Row[] = [];
+			getMany(ids: string[]): TRow[] {
+				const rows: TRow[] = [];
 				for (const id of ids) {
 					const ymap = ytable.get(id);
 					if (ymap) {
@@ -230,8 +226,8 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				return rows;
 			},
 
-			getAll(): Row[] {
-				const rows: Row[] = [];
+			getAll(): TRow[] {
+				const rows: TRow[] = [];
 				for (const [id, ymap] of ytable.entries()) {
 					rows.push(RowSerializer.deserialize(ymap));
 				}
@@ -266,7 +262,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				return ytable.size;
 			},
 
-			observe(handlers: ObserveHandlers<Row>): () => void {
+			observe(handlers: ObserveHandlers<TRow>): () => void {
 				// Use observeDeep to catch nested changes (fields inside rows)
 				const observer = (events: Y.YEvent<any>[]) => {
 					for (const event of events) {
@@ -274,13 +270,13 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 							if (change.action === 'add') {
 								const ymap = ytable.get(key);
 								if (ymap) {
-									const data = RowSerializer.deserialize(ymap) as Row;
+									const data = RowSerializer.deserialize(ymap) as TRow;
 									handlers.onAdd(key, data);
 								}
 							} else if (change.action === 'update') {
 								const ymap = ytable.get(key);
 								if (ymap) {
-									const data = RowSerializer.deserialize(ymap) as Row;
+									const data = RowSerializer.deserialize(ymap) as TRow;
 									handlers.onUpdate(key, data);
 								}
 							} else if (change.action === 'delete') {
@@ -298,8 +294,8 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				};
 			},
 
-			filter(predicate: (row: Row) => boolean): Row[] {
-				const results: Row[] = [];
+			filter(predicate: (row: TRow) => boolean): TRow[] {
+				const results: TRow[] = [];
 				for (const [id, ymap] of ytable.entries()) {
 					const row = RowSerializer.deserialize(ymap);
 					if (predicate(row)) {
@@ -309,7 +305,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				return results;
 			},
 
-			find(predicate: (row: Row) => boolean): Row | undefined {
+			find(predicate: (row: TRow) => boolean): TRow | undefined {
 				for (const [id, ymap] of ytable.entries()) {
 					const row = RowSerializer.deserialize(ymap);
 					if (predicate(row)) {
@@ -338,12 +334,10 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				}
 				return [
 					tableName,
-					createTableHelper(tableName as keyof TSchemas, ytable),
+					createTableHelper({} as Row<TSchemas[typeof tableName]>, ytable),
 				];
 			}),
-		) as {
-			[TTableName in keyof TSchemas]: TableHelper<TSchemas[TTableName]>;
-		},
+		),
 
 		/**
 		 * The underlying YJS document
