@@ -72,7 +72,9 @@ export type ColumnSchema =
 			unique?: boolean;
 			default?: string | (() => string);
 	  }
-	| { type: 'rich-text'; nullable: boolean; default?: string }
+	| 
+	| { type: 'ytext'; nullable: boolean }
+	| { type: 'yxmlfragment'; nullable: boolean; default?: string }
 	| {
 			type: 'integer';
 			nullable: boolean;
@@ -131,40 +133,47 @@ export type TableSchema = Record<string, ColumnSchema>;
  * type MultiSelectField = ColumnToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * ```
  */
-export type ColumnToType<C extends ColumnSchema> =
-	C extends { type: 'id' }
-		? string
-		: C extends { type: 'text' }
+export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
+	? string
+	: C extends { type: 'text' }
+		? C extends { nullable: true }
+			? string | null
+			: string
+		: C extends { type: 'rich-text' }
 			? C extends { nullable: true }
-				? string | null
-				: string
-			: C extends { type: 'rich-text' }
+				? Y.XmlFragment | null
+				: Y.XmlFragment
+			: C extends { type: 'ytext' }
 				? C extends { nullable: true }
-					? Y.XmlFragment | null
-					: Y.XmlFragment
-				: C extends { type: 'integer' }
+					? Y.Text | null
+					: Y.Text
+				: C extends { type: 'yxmlfragment' }
 					? C extends { nullable: true }
-						? number | null
-						: number
-					: C extends { type: 'real' }
+						? Y.XmlFragment | null
+						: Y.XmlFragment
+					: C extends { type: 'integer' }
 						? C extends { nullable: true }
 							? number | null
 							: number
-						: C extends { type: 'boolean' }
+						: C extends { type: 'real' }
 							? C extends { nullable: true }
-								? boolean | null
-								: boolean
-							: C extends { type: 'date' }
+								? number | null
+								: number
+							: C extends { type: 'boolean' }
 								? C extends { nullable: true }
-									? DateWithTimezone | null
-									: DateWithTimezone
-								: C extends { type: 'select' }
+									? boolean | null
+									: boolean
+								: C extends { type: 'date' }
 									? C extends { nullable: true }
-										? string | null
-										: string
-									: C extends { type: 'multi-select' }
-										? Y.Array<string>
-										: never;
+										? DateWithTimezone | null
+										: DateWithTimezone
+									: C extends { type: 'select' }
+										? C extends { nullable: true }
+											? string | null
+											: string
+										: C extends { type: 'multi-select' }
+											? Y.Array<string>
+											: never;
 
 /**
  * Maps a TableSchema to a row type with properly typed fields.
@@ -228,17 +237,79 @@ export function text(opts?: {
 }
 
 /**
- * Creates a rich text column schema (stored as Y.Text in YJS, string in indexes)
+ * Collaborative text editor column - stored as Y.Text (YJS shared type)
+ *
+ * Y.Text is a flat/linear text structure that supports inline formatting.
+ * **Primary use case: Code editors** (Monaco, CodeMirror) with syntax highlighting.
+ * Also works for: simple rich text (Quill), formatted comments, chat messages.
+ *
+ * **What Y.Text supports:**
+ * - Inline formatting: bold, italic, underline, links, colors
+ * - No block-level structure (no paragraphs, lists, or tables)
+ *
+ * **Most common editor bindings:**
+ * - CodeMirror (code editing) - PRIMARY USE CASE
+ * - Monaco Editor (code editing) - PRIMARY USE CASE
+ * - Quill (simple WYSIWYG with inline formatting)
+ *
+ * **Common use cases:**
+ * - SQL/JavaScript/Python code editors with syntax highlighting
+ * - Code snippets in documentation
+ * - Formatted comments or chat messages
+ *
  * @example
- * richText() // → { type: 'rich-text', nullable: false }
- * richText({ nullable: true })
+ * query: ytext() // → Y.Text binded to CodeMirror/Monaco for storing SQL queries
+ * snippet: ytext() // → Y.Text binded to CodeMirror for code examples
+ * comment: ytext({ nullable: true }) // → Y.Text binded to Quill editor for comments
  */
-export function richText(opts?: {
+export function ytext(opts?: {
+	nullable?: boolean;
+}): ColumnSchema {
+	return {
+		type: 'ytext',
+		nullable: opts?.nullable ?? false,
+	};
+}
+
+/**
+ * Collaborative rich document column - stored as Y.XmlFragment (YJS shared type)
+ *
+ * Y.XmlFragment is a tree-structured format that supports full block-level formatting.
+ * Use this for articles, documentation, or any content needing complex structure.
+ *
+ * **What Y.XmlFragment supports:**
+ * - All inline formatting (from Y.Text)
+ * - Block-level structure: paragraphs, headings (h1-h6)
+ * - Lists: bullet lists, numbered lists, task lists
+ * - Tables, blockquotes, code blocks
+ * - Images, embeds, custom blocks
+ * - Nested structure (lists within lists, etc.)
+ *
+ * **Editor bindings:**
+ * - TipTap (ProseMirror-based, recommended)
+ * - ProseMirror (lower-level)
+ * - Any Y.XmlFragment-compatible editor
+ *
+ * **Use cases:**
+ * - Article content with full formatting
+ * - Documentation with headings and lists
+ * - Long-form content editing
+ * - Content management system pages
+ *
+ * @example
+ * // Article editor
+ * content: yxmlfragment() // → TipTap for full document editing
+ *
+ * @example
+ * // Documentation
+ * docs: yxmlfragment() // → TipTap with headings, lists, tables
+ */
+export function yxmlfragment(opts?: {
 	nullable?: boolean;
 	default?: string;
 }): ColumnSchema {
 	return {
-		type: 'rich-text',
+		type: 'yxmlfragment',
 		nullable: opts?.nullable ?? false,
 		default: opts?.default,
 	};
@@ -356,4 +427,3 @@ export function multiSelect(opts: {
 		default: opts.default,
 	};
 }
-
