@@ -162,10 +162,9 @@ type TableHelper<S extends TableSchema> = {
  * }, 'bulk-import');
  * ```
  */
-export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
-	workspaceId: string,
-	tableSchemas: TSchemas,
-) {
+export function createYjsDocument<
+	TSchemas extends Record<string, TableSchema & { id: { type: 'id' } }>,
+>(workspaceId: string, tableSchemas: TSchemas) {
 	// Initialize Y.Doc
 	const ydoc = new Y.Doc({ guid: workspaceId });
 	const ytables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
@@ -175,26 +174,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		ytables.set(tableName, new Y.Map<YjsRowData>());
 	}
 
-	/**
-	 * Row serializer for converting between plain RowData objects and Y.Map YJS structures
-	 */
-	const RowSerializer = Serializer({
-		serialize(value: RowData<TableSchema>): YjsRowData {
-			const ymap = new Y.Map();
-			for (const [key, val] of Object.entries(value)) {
-				ymap.set(key, val);
-			}
-			return ymap as YjsRowData;
-		},
-
-		deserialize(ymap: YjsRowData): RowData<TableSchema> {
-			const obj = {} as RowData<TableSchema>;
-			for (const [key, value] of ymap.entries()) {
-				obj[key] = value;
-			}
-			return obj;
-		},
-	});
+	// Serializer is now scoped per table below to preserve Row type
 
 	/**
 	 * Factory function to create a table helper for a specific table
@@ -208,9 +188,26 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		type Schema = TSchemas[TKey];
 		type Row = RowData<Schema>;
 
+		const RowSerializer = Serializer({
+			serialize(value: Row): YjsRowData {
+				const ymap = new Y.Map();
+				for (const [key, val] of Object.entries(value)) {
+					ymap.set(key, val);
+				}
+				return ymap as YjsRowData;
+			},
+			deserialize(ymap: YjsRowData): Row {
+				const obj = {} as Row;
+				for (const [key, value] of ymap.entries()) {
+					obj[key] = value;
+				}
+				return obj;
+			},
+		});
+
 		return {
 			set(data: Row): void {
-				const ymap = RowSerializer.serialize(data as RowData<TableSchema>);
+				const ymap = RowSerializer.serialize(data);
 				ydoc.transact(() => {
 					ytable.set(data.id as string, ymap);
 				});
@@ -219,7 +216,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 			setMany(rows: Row[]): void {
 				ydoc.transact(() => {
 					for (const row of rows) {
-						const ymap = RowSerializer.serialize(row as RowData<TableSchema>);
+						const ymap = RowSerializer.serialize(row);
 						ytable.set(row.id as string, ymap);
 					}
 				});
@@ -228,7 +225,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 			get(id: string): Row | undefined {
 				const ymap = ytable.get(id);
 				if (!ymap) return undefined;
-				return RowSerializer.deserialize(ymap) as Row;
+				return RowSerializer.deserialize(ymap);
 			},
 
 			getMany(ids: string[]): Row[] {
@@ -236,7 +233,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				for (const id of ids) {
 					const ymap = ytable.get(id);
 					if (ymap) {
-						rows.push(RowSerializer.deserialize(ymap) as Row);
+						rows.push(RowSerializer.deserialize(ymap));
 					}
 				}
 				return rows;
@@ -245,7 +242,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 			getAll(): Row[] {
 				const rows: Row[] = [];
 				for (const [id, ymap] of ytable.entries()) {
-					rows.push(RowSerializer.deserialize(ymap) as Row);
+					rows.push(RowSerializer.deserialize(ymap));
 				}
 				return rows;
 			},
@@ -313,7 +310,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 			filter(predicate: (row: Row) => boolean): Row[] {
 				const results: Row[] = [];
 				for (const [id, ymap] of ytable.entries()) {
-					const row = RowSerializer.deserialize(ymap) as Row;
+					const row = RowSerializer.deserialize(ymap);
 					if (predicate(row)) {
 						results.push(row);
 					}
@@ -323,7 +320,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 
 			find(predicate: (row: Row) => boolean): Row | undefined {
 				for (const [id, ymap] of ytable.entries()) {
-					const row = RowSerializer.deserialize(ymap) as Row;
+					const row = RowSerializer.deserialize(ymap);
 					if (predicate(row)) {
 						return row;
 					}
