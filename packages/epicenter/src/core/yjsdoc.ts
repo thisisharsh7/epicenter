@@ -204,7 +204,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 					throw new Error(`Table "${tableName}" not found in YJS document`);
 				}
 
-				const tableHelper: TableHelper<Row> = {
+				const tableHelper = {
 					insert(data: Row) {
 						ydoc.transact(() => {
 							const id = data.id as string;
@@ -404,7 +404,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						}
 						return undefined;
 					},
-				};
+				} satisfies TableHelper<Row>;
 
 				return [tableName, tableHelper];
 			}),
