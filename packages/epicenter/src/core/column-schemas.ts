@@ -139,29 +139,29 @@ export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
 				? C extends { nullable: true }
 					? Y.XmlFragment | null
 					: Y.XmlFragment
-					: C extends { type: 'integer' }
+				: C extends { type: 'integer' }
+					? C extends { nullable: true }
+						? number | null
+						: number
+					: C extends { type: 'real' }
 						? C extends { nullable: true }
 							? number | null
 							: number
-						: C extends { type: 'real' }
+						: C extends { type: 'boolean' }
 							? C extends { nullable: true }
-								? number | null
-								: number
-							: C extends { type: 'boolean' }
+								? boolean | null
+								: boolean
+							: C extends { type: 'date' }
 								? C extends { nullable: true }
-									? boolean | null
-									: boolean
-								: C extends { type: 'date' }
+									? DateWithTimezone | null
+									: DateWithTimezone
+								: C extends { type: 'select' }
 									? C extends { nullable: true }
-										? DateWithTimezone | null
-										: DateWithTimezone
-									: C extends { type: 'select' }
-										? C extends { nullable: true }
-											? string | null
-											: string
-										: C extends { type: 'multi-select' }
-											? Y.Array<string>
-											: never;
+										? string | null
+										: string
+									: C extends { type: 'multi-select' }
+										? Y.Array<string>
+										: never;
 
 /**
  * Maps a TableSchema to a row type with properly typed fields.
@@ -194,6 +194,13 @@ export type SchemaToRow<S extends TableSchema> = {
  * ```
  */
 export type RowData<S extends TableSchema> = SchemaToRow<S>;
+
+/**
+ * Union of all possible cell values across all column types.
+ * Derived from ColumnToType to ensure consistency.
+ * Used for Y.Map value types in YJS documents.
+ */
+export type CellValue = ColumnToType<ColumnSchema>;
 
 /**
  * Creates an ID column schema - always primary key with auto-generation

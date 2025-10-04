@@ -1,26 +1,11 @@
 import * as Y from 'yjs';
-import type { DateWithTimezone, RowData, TableSchema } from './column-schemas';
+import type { CellValue, DateWithTimezone, RowData, TableSchema } from './column-schemas';
 import { Serializer } from './columns';
 
 /**
  * YJS document utilities for vault.
  * Handles initialization, conversion, and observation of YJS documents.
  */
-
-/**
- * A single cell value in its YJS or primitive form.
- * Text types use Y.Text or Y.XmlFragment for collaborative editing,
- * multi-select fields use Y.Array, and all other types use primitives.
- */
-type CellValue =
-	| Y.Text // ytext - collaborative text editor (code, comments, simple formatting)
-	| Y.XmlFragment // yxmlfragment and rich-text - collaborative rich document (articles, docs)
-	| Y.Array<string> // multi-select
-	| string // id, text, select
-	| number // integer, real
-	| boolean // boolean
-	| DateWithTimezone // date with timezone
-	| null; // nullable fields
 
 /**
  * YJS representation of a row
@@ -35,6 +20,25 @@ type ObserveHandlers<S extends TableSchema> = {
 	onAdd: (id: string, data: RowData<S>) => void | Promise<void>;
 	onUpdate: (id: string, data: RowData<S>) => void | Promise<void>;
 	onDelete: (id: string) => void | Promise<void>;
+};
+
+/**
+ * Type-safe table helper with operations for a specific table schema
+ */
+type TableHelper<S extends TableSchema> = {
+	set(data: RowData<S>): void;
+	setMany(rows: RowData<S>[]): void;
+	get(id: string): RowData<S> | undefined;
+	getMany(ids: string[]): RowData<S>[];
+	getAll(): RowData<S>[];
+	has(id: string): boolean;
+	delete(id: string): void;
+	deleteMany(ids: string[]): void;
+	clear(): void;
+	count(): number;
+	observe(handlers: ObserveHandlers<S>): () => void;
+	filter(predicate: (row: RowData<S>) => boolean): RowData<S>[];
+	find(predicate: (row: RowData<S>) => boolean): RowData<S> | undefined;
 };
 
 /**
@@ -191,44 +195,47 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 	 * Factory function to create a table helper for a specific table
 	 * Encapsulates all CRUD operations for a single table
 	 */
-	const createTableHelper = (tableName: string, ytable: Y.Map<YjsRowData>) => ({
-		set(data: RowData<TableSchema>): void {
-			const ymap = RowSerializer.serialize(data);
+	const createTableHelper = <K extends keyof T>(
+		tableName: K,
+		ytable: Y.Map<YjsRowData>,
+	): TableHelper<T[K]> => ({
+		set(data: RowData<T[K]>): void {
+			const ymap = RowSerializer.serialize(data as RowData<TableSchema>);
 			ydoc.transact(() => {
 				ytable.set(data.id as string, ymap);
 			});
 		},
 
-		setMany(rows: RowData<TableSchema>[]): void {
+		setMany(rows: RowData<T[K]>[]): void {
 			ydoc.transact(() => {
 				for (const row of rows) {
-					const ymap = RowSerializer.serialize(row);
+					const ymap = RowSerializer.serialize(row as RowData<TableSchema>);
 					ytable.set(row.id as string, ymap);
 				}
 			});
 		},
 
-		get(id: string): RowData<TableSchema> | undefined {
+		get(id: string): RowData<T[K]> | undefined {
 			const ymap = ytable.get(id);
 			if (!ymap) return undefined;
-			return RowSerializer.deserialize(ymap);
+			return RowSerializer.deserialize(ymap) as RowData<T[K]>;
 		},
 
-		getMany(ids: string[]): RowData<TableSchema>[] {
-			const rows: RowData<TableSchema>[] = [];
+		getMany(ids: string[]): RowData<T[K]>[] {
+			const rows: RowData<T[K]>[] = [];
 			for (const id of ids) {
 				const ymap = ytable.get(id);
 				if (ymap) {
-					rows.push(RowSerializer.deserialize(ymap));
+					rows.push(RowSerializer.deserialize(ymap) as RowData<T[K]>);
 				}
 			}
 			return rows;
 		},
 
-		getAll(): RowData<TableSchema>[] {
-			const rows: RowData<TableSchema>[] = [];
+		getAll(): RowData<T[K]>[] {
+			const rows: RowData<T[K]>[] = [];
 			for (const [id, ymap] of ytable.entries()) {
-				rows.push(RowSerializer.deserialize(ymap));
+				rows.push(RowSerializer.deserialize(ymap) as RowData<T[K]>);
 			}
 			return rows;
 		},
@@ -261,7 +268,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			return ytable.size;
 		},
 
-		observe(handlers: ObserveHandlers<TableSchema>): () => void {
+		observe(handlers: ObserveHandlers<T[K]>): () => void {
 			// Use observeDeep to catch nested changes (fields inside rows)
 			const observer = (events: Y.YEvent<any>[]) => {
 				for (const event of events) {
@@ -269,13 +276,13 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 						if (change.action === 'add') {
 							const ymap = ytable.get(key);
 							if (ymap) {
-								const data = RowSerializer.deserialize(ymap);
+								const data = RowSerializer.deserialize(ymap) as RowData<T[K]>;
 								handlers.onAdd(key, data);
 							}
 						} else if (change.action === 'update') {
 							const ymap = ytable.get(key);
 							if (ymap) {
-								const data = RowSerializer.deserialize(ymap);
+								const data = RowSerializer.deserialize(ymap) as RowData<T[K]>;
 								handlers.onUpdate(key, data);
 							}
 						} else if (change.action === 'delete') {
@@ -293,12 +300,10 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			};
 		},
 
-		filter(
-			predicate: (row: RowData<TableSchema>) => boolean,
-		): RowData<TableSchema>[] {
-			const results: RowData<TableSchema>[] = [];
+		filter(predicate: (row: RowData<T[K]>) => boolean): RowData<T[K]>[] {
+			const results: RowData<T[K]>[] = [];
 			for (const [id, ymap] of ytable.entries()) {
-				const row = RowSerializer.deserialize(ymap);
+				const row = RowSerializer.deserialize(ymap) as RowData<T[K]>;
 				if (predicate(row)) {
 					results.push(row);
 				}
@@ -306,11 +311,9 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			return results;
 		},
 
-		find(
-			predicate: (row: RowData<TableSchema>) => boolean,
-		): RowData<TableSchema> | undefined {
+		find(predicate: (row: RowData<T[K]>) => boolean): RowData<T[K]> | undefined {
 			for (const [id, ymap] of ytable.entries()) {
-				const row = RowSerializer.deserialize(ymap);
+				const row = RowSerializer.deserialize(ymap) as RowData<T[K]>;
 				if (predicate(row)) {
 					return row;
 				}
@@ -326,9 +329,9 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			if (!ytable) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
-			return [tableName, createTableHelper(tableName, ytable)];
+			return [tableName, createTableHelper(tableName as keyof T, ytable)];
 		}),
-	) as { [K in keyof T]: ReturnType<typeof createTableHelper> };
+	) as { [K in keyof T]: TableHelper<T[K]> };
 
 	return {
 		/**
