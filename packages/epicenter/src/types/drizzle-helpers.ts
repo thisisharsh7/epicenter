@@ -6,11 +6,15 @@
 import type {
 	SQLiteTable,
 	SQLiteColumn,
-	SQLiteSelectQueryBuilder,
-	SQLiteSelectQueryBuilderHKT,
+	SQLiteSelectBase,
+	SelectedFields,
 } from 'drizzle-orm/sqlite-core';
-import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import type { SQL } from 'drizzle-orm';
+import type { InferSelectModel, InferInsertModel, SQL } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+import {
+	generateSQLiteDrizzleJson,
+	generateSQLiteMigration,
+} from 'drizzle-kit/api';
 
 /**
  * Constraint for tables that have an id column
@@ -24,21 +28,6 @@ export type TableWithId<T extends SQLiteTable = SQLiteTable> = T & {
  * Generic data record type for storage operations
  */
 export type StorageData = Record<string, unknown>;
-
-/**
- * Select query builder type for a specific table
- * This is the return type of table.select()
- */
-export type TableSelectBuilder<T extends SQLiteTable> =
-	SQLiteSelectQueryBuilder<
-		SQLiteSelectQueryBuilderHKT,
-		string, // table name
-		'sync', // result type
-		void, // run result
-		InferSelectModel<T>, // selection
-		'single', // select mode
-		Record<string, 'not-null'> // nullability map
-	>;
 
 /**
  * Result type for database operations that return a count
@@ -56,10 +45,10 @@ export type AffectedRowsResult = {
 };
 
 /**
- * Type for workspace method signatures
+ * Type for workspace action signatures
  * More specific than `any` but still flexible
  */
-export type WorkspaceMethod = (...args: unknown[]) => unknown;
+export type WorkspaceAction = (...args: unknown[]) => unknown;
 
 /**
  * Type for workspace dependencies map
@@ -95,7 +84,7 @@ export function countExpression(): SQL<number> {
 }
 
 /**
- * Type for the workspace API passed to workspace methods
+ * Type for the workspace API passed to workspace actions
  * This is a recursive type that builds up based on workspace dependencies
  */
 export type WorkspaceAPI<
