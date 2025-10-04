@@ -1,12 +1,12 @@
-# Vault Workspace API
+# Epicenter Workspace API
 
 ## Clean, Direct API
 
-The vault workspace system provides a clean API where methods are directly callable functions:
+The epicenter workspace system provides a clean API where methods are directly callable functions:
 
 ```typescript
 import { z } from 'zod';
-import { defineWorkspace, defineQuery, defineMutation, runWorkspace } from '@repo/vault';
+import { defineWorkspace, defineQuery, defineMutation, runWorkspace } from '@repo/epicenter';
 
 // Define your workspace
 const todosWorkspace = defineWorkspace({
@@ -45,7 +45,7 @@ const todosWorkspace = defineWorkspace({
 const todos = await runWorkspace(todosWorkspace);
 
 // Methods are directly callable - no .execute() needed!
-await todos.createTodo({ title: 'Learn Vault' });
+await todos.createTodo({ title: 'Learn Epicenter' });
 const allTodos = await todos.getTodos({});
 
 // Methods still have properties for introspection

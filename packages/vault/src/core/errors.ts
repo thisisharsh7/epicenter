@@ -1,12 +1,13 @@
 import { createTaggedError } from 'wellcrafted/error';
 
 /**
- * Base error type for vault operations
+ * Base error type for epicenter operations
  */
-export const { VaultOperationError, VaultOperationErr } = createTaggedError(
-	'VaultOperationError',
-);
-export type VaultOperationError = ReturnType<typeof VaultOperationError>;
+export const { EpicenterOperationError, EpicenterOperationErr } =
+	createTaggedError('EpicenterOperationError');
+export type EpicenterOperationError = ReturnType<
+	typeof EpicenterOperationError
+>;
 
 /**
  * Error type for index operations

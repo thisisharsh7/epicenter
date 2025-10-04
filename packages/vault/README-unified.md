@@ -1,17 +1,17 @@
 # Unified Workspace Architecture
 
-Everything is a workspace. The vault is just a workspace that aggregates other workspaces.
+Everything is a workspace. The epicenter is just a workspace that aggregates other workspaces.
 
 ## Core Concept
 
 ```typescript
-// Before: Two concepts (workspaces and vault)
+// Before: Two concepts (workspaces and epicenter)
 const workspace = defineWorkspace({...});
-const vault = createVault({ workspaces: [...], path: '...', databaseUrl: '...' });
+const epicenter = createEpicenter({ workspaces: [...], path: '...', databaseUrl: '...' });
 
 // After: One concept (just workspaces)
-const vault = defineWorkspace({
-  id: 'vault',
+const epicenter = defineWorkspace({
+  id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
   methods: (api) => ({})
@@ -25,7 +25,7 @@ const vault = defineWorkspace({
 Each workspace defines its tables and methods:
 
 ```typescript
-import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/vault';
+import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/epicenter';
 import { z } from 'zod';
 
 const usersWorkspace = defineWorkspace({
@@ -62,11 +62,11 @@ const usersWorkspace = defineWorkspace({
 
 ### 2. Compose Workspaces
 
-The "vault" is just a workspace that lists others as dependencies:
+The "epicenter" is just a workspace that lists others as dependencies:
 
 ```typescript
-const vault = defineWorkspace({
-  id: 'vault',
+const epicenter = defineWorkspace({
+  id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace, commentsWorkspace],
   tables: {}, // No tables of its own
   methods: (api) => ({
@@ -76,7 +76,7 @@ const vault = defineWorkspace({
 });
 
 // epicenter.config.ts
-export default vault;
+export default epicenter;
 ```
 
 ### 3. Runtime Injection
@@ -85,7 +85,7 @@ The Epicenter CLI provides the database and storage:
 
 ```typescript
 // The CLI does this internally:
-const app = await runWorkspace(vault, {
+const app = await runWorkspace(epicenter, {
   databaseUrl: './data/app.db',
   storagePath: './data'
 });
@@ -118,7 +118,7 @@ app.posts.posts
 ## Key Benefits
 
 ### 1. **Single Concept**
-No distinction between "vault" and "workspace". Everything is a workspace.
+No distinction between "epicenter" and "workspace". Everything is a workspace.
 
 ### 2. **Automatic Table Helpers**
 Every table automatically gets:
@@ -162,15 +162,15 @@ const postsWorkspace = defineWorkspace({
 No more initialization waiting. The runtime handles everything.
 
 ### 5. **True Modularity**
-Any workspace can be the root. You could have multiple "vaults" for different parts of your app.
+Any workspace can be the root. You could have multiple "epicenters" for different parts of your app.
 
 ## Migration from Old Architecture
 
 ### Before
 ```typescript
-import { createVault } from '@vault/core';
+import { createEpicenter } from '@epicenter/core';
 
-const vault = createVault({
+const epicenter = createEpicenter({
   path: './data',
   databaseUrl: './data.db',
   workspaces: [usersWorkspace, postsWorkspace]
@@ -181,18 +181,18 @@ await app.ready;
 
 ### After
 ```typescript
-import { defineWorkspace } from '@vault/core';
-import { runWorkspace } from '@vault/runtime';
+import { defineWorkspace } from '@epicenter/core';
+import { runWorkspace } from '@epicenter/runtime';
 
-const vault = defineWorkspace({
-  id: 'vault',
+const epicenter = defineWorkspace({
+  id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
   methods: () => ({})
 });
 
 // Runtime injection (handled by CLI)
-const app = await runWorkspace(vault, {
+const app = await runWorkspace(epicenter, {
   databaseUrl: './data.db',
   storagePath: './data'
 });
@@ -282,10 +282,10 @@ const { data: users } = await app.users.users.getAll();
 
 ## Architecture Benefits
 
-1. **Simplicity**: One concept (workspaces) instead of two (workspaces + vault)
+1. **Simplicity**: One concept (workspaces) instead of two (workspaces + epicenter)
 2. **Composability**: Workspaces can aggregate other workspaces naturally
-3. **Flexibility**: Runtime provides database/storage, not hardcoded in vault
+3. **Flexibility**: Runtime provides database/storage, not hardcoded in epicenter
 4. **Type Safety**: Full TypeScript inference throughout
 5. **Clean API**: Clear namespace pattern without surprises
 
-The vault is dead. Long live workspaces!
+The vault is dead. Long live epicenters!

@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Result } from 'wellcrafted/result';
-import type { VaultOperationError } from './errors';
+import type { EpicenterOperationError } from './errors';
 
 /**
  * A collection of workspace methods indexed by method name.
@@ -30,8 +30,8 @@ export type QueryMethod<
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
 	) =>
-		| Result<TOutput, VaultOperationError>
-		| Promise<Result<TOutput, VaultOperationError>>;
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
 };
 
@@ -47,8 +47,8 @@ export type MutationMethod<
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
 	) =>
-		| Result<TOutput, VaultOperationError>
-		| Promise<Result<TOutput, VaultOperationError>>;
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
 };
 
@@ -113,8 +113,8 @@ export type InferMethodHandler<T> = T extends WorkspaceMethod<
 	? (
 			input: StandardSchemaV1.InferOutput<TSchema>,
 		) =>
-			| Result<TOutput, VaultOperationError>
-			| Promise<Result<TOutput, VaultOperationError>>
+			| Result<TOutput, EpicenterOperationError>
+			| Promise<Result<TOutput, EpicenterOperationError>>
 	: never;
 
 /**

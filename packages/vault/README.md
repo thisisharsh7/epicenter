@@ -1,4 +1,4 @@
-# Vault: Collaborative Workspace System
+# Epicenter: Collaborative Workspace System
 
 A unified workspace architecture that combines **Drizzle ORM** with **dual storage** (markdown files + SQLite database) and **real-time collaboration** via Yjs. Each folder containing an `epicenter.config.ts` file becomes a self-contained, globally synchronizable workspace.
 
@@ -31,7 +31,7 @@ Each workspace has a globally unique ID (UUID or nanoid) that:
 
 ```typescript
 // users/epicenter.config.ts
-import { defineWorkspace, id, text } from '@epicenter/vault';
+import { defineWorkspace, id, text } from '@epicenter/epicenter';
 
 export default defineWorkspace({
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Globally unique ID
@@ -55,7 +55,7 @@ Workspaces can be synchronized in real-time using Yjs:
 ```typescript
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
-import { runWorkspace } from '@epicenter/vault';
+import { runWorkspace } from '@epicenter/epicenter';
 import workspace from './users/epicenter.config';
 
 // Create Yjs document with workspace ID
@@ -162,16 +162,16 @@ const posts = await tables.posts.select().where(eq(tables.posts.published, true)
 ### Installation
 
 ```bash
-bun add @repo/vault
+bun add @repo/epicenter
 # or
-npm install @repo/vault
+npm install @repo/epicenter
 ```
 
 ### Basic Usage
 
 ```typescript
 // blog/epicenter.config.ts
-import { defineWorkspace, runWorkspace, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/vault';
+import { defineWorkspace, runWorkspace, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/epicenter';
 import { eq, desc, gte } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -274,7 +274,7 @@ Creates a new record in both markdown and SQLite storage.
 ```typescript
 const post = await api.blog.posts.create({
   id: 'first-post',
-  title: 'Welcome to Vault',
+  title: 'Welcome to Epicenter',
   content: 'This gets saved to both markdown and SQLite!',
   published: true,
   views: 0,
@@ -347,10 +347,10 @@ await api.db.execute(sql`
 
 ## 🏗️ Column Types
 
-Vault provides NOT NULL by default column helpers that map directly to Drizzle:
+Epicenter provides NOT NULL by default column helpers that map directly to Drizzle:
 
 ```typescript
-import { text, integer, real, boolean, date, json, blob } from '@repo/vault';
+import { text, integer, real, boolean, date, json, blob } from '@repo/epicenter';
 
 tables: {
   posts: {
@@ -383,7 +383,7 @@ Plugins can depend on other plugins using type-safe references:
 
 ```typescript
 import { z } from 'zod';
-import { defineQuery } from '@repo/vault';
+import { defineQuery } from '@repo/epicenter';
 
 const blogWorkspace = defineWorkspace({ /* ... */ });
 
@@ -426,7 +426,7 @@ const analyticsWorkspace = defineWorkspace({
 
 ### Plugin Methods with Input Validation
 
-Vault supports two types of plugin methods with automatic input validation using Standard Schema:
+Epicenter supports two types of workspace methods with automatic input validation using Standard Schema:
 
 #### Query Methods
 
@@ -434,7 +434,7 @@ For read operations that don't modify state:
 
 ```typescript
 import { z } from 'zod';
-import { defineQuery } from '@repo/vault';
+import { defineQuery } from '@repo/epicenter';
 
 const blogWorkspace = defineWorkspace({
   id: 'j1k2l3m4-n5o6-7890-pqrs-tu1234567890',
@@ -464,7 +464,7 @@ const blogWorkspace = defineWorkspace({
 For operations that modify state:
 
 ```typescript
-import { defineMutation } from '@repo/vault';
+import { defineMutation } from '@repo/epicenter';
 
 const blogWorkspace = defineWorkspace({
   id: 'v1w2x3y4-z5a6-7890-bcde-fg1234567890',

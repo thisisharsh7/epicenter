@@ -1,5 +1,5 @@
 /**
- * Vault: YJS-First Collaborative Workspace System
+ * Epicenter: YJS-First Collaborative Workspace System
  *
  * A unified architecture for building self-contained, globally synchronizable workspaces
  * with real-time collaboration via YJS.
@@ -92,7 +92,7 @@ export type { MarkdownIndexConfig } from './indexes/markdown-index';
 
 // Error types
 export { IndexErr } from './core/errors';
-export type { VaultOperationError, IndexError } from './core/errors';
+export type { EpicenterOperationError, IndexError } from './core/errors';
 
 // Re-export commonly used Drizzle utilities for querying indexes
 export {

@@ -1,5 +1,5 @@
 /**
- * Test the new YJS-first vault architecture
+ * Test the new YJS-first epicenter architecture
  */
 
 import { z } from 'zod';
@@ -14,7 +14,7 @@ import {
 	id,
 	integer,
 	isNotNull,
-	runPlugin,
+	runWorkspace,
 	select,
 	text,
 } from './src/index';
@@ -96,12 +96,12 @@ const blogWorkspace = defineWorkspace({
 
 // Run the test
 async function test() {
-	console.log('🚀 Starting Vault v2 test...\n');
+	console.log('🚀 Starting Epicenter v2 test...\n');
 
 	try {
 		// 1. Initialize the workspace
 		console.log('📦 Initializing workspace...');
-		const workspace = await runPlugin(blogWorkspace);
+		const workspace = await runWorkspace(blogWorkspace);
 		console.log('✅ Workspace initialized\n');
 
 		// 2. Create some posts
