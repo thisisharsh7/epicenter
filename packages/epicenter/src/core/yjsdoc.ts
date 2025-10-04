@@ -6,6 +6,7 @@ import type {
 	TableSchema,
 } from './column-schemas';
 import { Serializer } from './columns';
+import type { WorkspaceTablesAPI } from './workspace';
 
 /**
  * YJS document utilities for vault.
@@ -30,20 +31,24 @@ type ObserveHandlers<S extends TableSchema> = {
 /**
  * Type-safe table helper with operations for a specific table schema
  */
-type TableHelper<S extends TableSchema> = {
-	set(data: RowData<S>): void;
-	setMany(rows: RowData<S>[]): void;
-	get(id: string): RowData<S> | undefined;
-	getMany(ids: string[]): RowData<S>[];
-	getAll(): RowData<S>[];
+export type TableHelper<TTableSchema extends TableSchema> = {
+	set(data: RowData<TTableSchema>): void;
+	setMany(rows: RowData<TTableSchema>[]): void;
+	get(id: string): RowData<TTableSchema> | undefined;
+	getMany(ids: string[]): RowData<TTableSchema>[];
+	getAll(): RowData<TTableSchema>[];
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;
 	clear(): void;
 	count(): number;
-	observe(handlers: ObserveHandlers<S>): () => void;
-	filter(predicate: (row: RowData<S>) => boolean): RowData<S>[];
-	find(predicate: (row: RowData<S>) => boolean): RowData<S> | undefined;
+	observe(handlers: ObserveHandlers<TTableSchema>): () => void;
+	filter(
+		predicate: (row: RowData<TTableSchema>) => boolean,
+	): RowData<TTableSchema>[];
+	find(
+		predicate: (row: RowData<TTableSchema>) => boolean,
+	): RowData<TTableSchema> | undefined;
 };
 
 /**
@@ -162,9 +167,10 @@ type TableHelper<S extends TableSchema> = {
  * }, 'bulk-import');
  * ```
  */
-export function createYjsDocument<
-	TSchemas extends Record<string, TableSchema & { id: { type: 'id' } }>,
->(workspaceId: string, tableSchemas: TSchemas) {
+export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
+	workspaceId: string,
+	tableSchemas: TSchemas,
+) {
 	// Initialize Y.Doc
 	const ydoc = new Y.Doc({ guid: workspaceId });
 	const ytables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
@@ -330,26 +336,29 @@ export function createYjsDocument<
 		};
 	};
 
-	// Create table helpers for each table
-	const tables = Object.fromEntries(
-		Object.keys(tableSchemas).map((tableName) => {
-			const ytable = ytables.get(tableName);
-			if (!ytable) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-			return [
-				tableName,
-				createTableHelper(tableName as keyof TSchemas, ytable),
-			];
-		}),
-	) as { [TKey in keyof TSchemas]: TableHelper<TSchemas[TKey]> };
-
 	return {
 		/**
 		 * Table helpers organized by table name
 		 * Each table has methods for CRUD operations
 		 */
-		tables,
+		/**
+		 * Table helpers organized by table name
+		 * Each table has methods for CRUD operations
+		 */
+		tables: Object.fromEntries(
+			Object.keys(tableSchemas).map((tableName) => {
+				const ytable = ytables.get(tableName);
+				if (!ytable) {
+					throw new Error(`Table "${tableName}" not found in YJS document`);
+				}
+				return [
+					tableName,
+					createTableHelper(tableName as keyof TSchemas, ytable),
+				];
+			}),
+		) as {
+			[TTableName in keyof TSchemas]: TableHelper<TSchemas[TTableName]>;
+		},
 
 		/**
 		 * The underlying YJS document
@@ -398,7 +407,22 @@ export function createYjsDocument<
 		 * Get all table names in the document
 		 */
 		getTableNames(): string[] {
-			return Object.keys(tables);
+			return Object.keys(
+				Object.fromEntries(
+					Object.keys(tableSchemas).map((tableName) => {
+						const ytable = ytables.get(tableName);
+						if (!ytable) {
+							throw new Error(`Table "${tableName}" not found in YJS document`);
+						}
+						return [
+							tableName,
+							createTableHelper(tableName as keyof TSchemas, ytable),
+						];
+					}),
+				) as {
+					[TTableName in keyof TSchemas]: TableHelper<TSchemas[TTableName]>;
+				},
+			);
 		},
 	};
 }
