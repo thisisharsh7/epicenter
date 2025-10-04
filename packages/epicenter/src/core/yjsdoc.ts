@@ -1,8 +1,5 @@
 import * as Y from 'yjs';
-import type {
-	DateWithTimezone,
-	TableSchema,
-} from './column-schemas';
+import type { DateWithTimezone, TableSchema } from './column-schemas';
 import { Serializer } from './columns';
 
 /**
@@ -47,8 +44,42 @@ export type RowData = Record<string, CellValue>;
 type YjsRowData = Y.Map<YjsCellValue>;
 
 /**
+ * Observer handlers for table changes
+ */
+type ObserveHandlers = {
+	onAdd: (id: string, data: RowData) => void | Promise<void>;
+	onUpdate: (id: string, data: RowData) => void | Promise<void>;
+	onDelete: (id: string) => void | Promise<void>;
+};
+
+/**
+ * Table helper methods for a single table
+ * Provides CRUD operations without needing to pass table name
+ */
+type TableHelper = {
+	// Single row operations
+	set(data: RowData): void;
+	get(id: string): RowData | undefined;
+	has(id: string): boolean;
+	delete(id: string): boolean;
+
+	// Batch operations (transactional)
+	setMany(rows: RowData[]): void;
+	getMany(ids: string[]): RowData[];
+	deleteMany(ids: string[]): number;
+
+	// Bulk operations
+	getAll(): RowData[];
+	clear(): void;
+	count(): number;
+
+	// Observation
+	observe(handlers: ObserveHandlers): () => void;
+};
+
+/**
  * Create a YJS document for a workspace with encapsulated state.
- * Returns an object with methods for working with the document.
+ * Returns an object with namespaced table methods and document utilities.
  *
  * All methods accept and return plain JavaScript objects - YJS conversion
  * is handled automatically internally.
@@ -66,43 +97,55 @@ type YjsRowData = Y.Map<YjsCellValue>;
  * ```typescript
  * const doc = createYjsDocument('workspace-id', { posts: { id: id(), ... } });
  *
- * // Single row operations
- * doc.setRow('posts', { id: '1', title: 'Hello' });
- * const row = doc.getRow('posts', '1');
- * const exists = doc.hasRow('posts', '1');
- * doc.deleteRow('posts', '1');
+ * // Table operations (namespaced)
+ * doc.tables.posts.set({ id: '1', title: 'Hello' });
+ * const row = doc.tables.posts.get('1');
+ * const exists = doc.tables.posts.has('1');
+ * doc.tables.posts.delete('1');
  *
  * // Batch operations (transactional)
- * doc.setRows('posts', [{ id: '1', ... }, { id: '2', ... }]);
- * const rows = doc.getRows('posts', ['1', '2']);
- * doc.deleteRows('posts', ['1', '2']);
+ * doc.tables.posts.setMany([{ id: '1', ... }, { id: '2', ... }]);
+ * const rows = doc.tables.posts.getMany(['1', '2']);
+ * doc.tables.posts.deleteMany(['1', '2']);
  *
  * // Bulk operations
- * const allRows = doc.getAllRows('posts');
- * const count = doc.countRows('posts');
- * doc.clearTable('posts');
+ * const allRows = doc.tables.posts.getAll();
+ * const count = doc.tables.posts.count();
+ * doc.tables.posts.clear();
  *
- * // Transactions (safe to nest)
+ * // Observation
+ * const unsubscribe = doc.tables.posts.observe({ onAdd, onUpdate, onDelete });
+ *
+ * // Document utilities
  * doc.transact(() => {
- *   doc.setRow('posts', { ... });
- *   doc.setRow('comments', { ... });
+ *   doc.tables.posts.set({ ... });
+ *   doc.tables.comments.set({ ... });
  * }, 'bulk-import');
- *
- * // Observe changes (plain objects in callbacks)
- * doc.observeTable('posts', { onAdd, onUpdate, onDelete });
  * ```
  */
-export function createYjsDocument(
+export function createYjsDocument<T extends Record<string, TableSchema>>(
 	workspaceId: string,
-	tableSchemas: Record<string, TableSchema>,
+	tableSchemas: T,
 ) {
+	// Reserved names that cannot be used for tables
+	const RESERVED_NAMES = ['tables', 'ydoc', 'transact', 'getTableNames'];
+
+	// Validate table names
+	for (const tableName of Object.keys(tableSchemas)) {
+		if (RESERVED_NAMES.includes(tableName)) {
+			throw new Error(
+				`Table name "${tableName}" is reserved. Reserved names: ${RESERVED_NAMES.join(', ')}`,
+			);
+		}
+	}
+
 	// Initialize Y.Doc
 	const ydoc = new Y.Doc({ guid: workspaceId });
-	const tables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
+	const ytables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
 
 	// Initialize each table as a Y.Map<id, row>
 	for (const tableName of Object.keys(tableSchemas)) {
-		tables.set(tableName, new Y.Map<YjsRowData>());
+		ytables.set(tableName, new Y.Map<YjsRowData>());
 	}
 
 	/**
@@ -125,7 +168,7 @@ export function createYjsDocument(
 				if (value instanceof Y.Array) {
 					return value.toArray();
 				}
-				return value
+				return value;
 			},
 		});
 	};
@@ -164,8 +207,138 @@ export function createYjsDocument(
 		});
 	};
 
+	// Create table helpers for each table
+	const tables = {} as { [K in keyof T]: TableHelper };
+
+	for (const tableName of Object.keys(tableSchemas)) {
+		const ytable = ytables.get(tableName);
+		if (!ytable) {
+			throw new Error(`Table "${tableName}" not found in YJS document`);
+		}
+
+		tables[tableName as keyof T] = {
+			set(data: RowData): void {
+				const ymap = RowSerializer(tableName).serialize(data);
+				ydoc.transact(() => {
+					ytable.set(data.id as string, ymap);
+				});
+			},
+
+			setMany(rows: RowData[]): void {
+				ydoc.transact(() => {
+					for (const row of rows) {
+						const ymap = RowSerializer(tableName).serialize(row);
+						ytable.set(row.id as string, ymap);
+					}
+				});
+			},
+
+			get(id: string): RowData | undefined {
+				const rowMap = ytable.get(id);
+				if (!rowMap) return undefined;
+				return RowSerializer(tableName).deserialize(rowMap);
+			},
+
+			getMany(ids: string[]): RowData[] {
+				const rows: RowData[] = [];
+				for (const id of ids) {
+					const rowMap = ytable.get(id);
+					if (rowMap) {
+						rows.push(RowSerializer(tableName).deserialize(rowMap));
+					}
+				}
+				return rows;
+			},
+
+			getAll(): RowData[] {
+				const rows: RowData[] = [];
+				for (const [id, rowMap] of ytable.entries()) {
+					rows.push(RowSerializer(tableName).deserialize(rowMap));
+				}
+				return rows;
+			},
+
+			has(id: string): boolean {
+				return ytable.has(id);
+			},
+
+			delete(id: string): boolean {
+				const exists = ytable.has(id);
+				if (!exists) return false;
+
+				ydoc.transact(() => {
+					ytable.delete(id);
+				});
+
+				return true;
+			},
+
+			deleteMany(ids: string[]): number {
+				let count = 0;
+
+				ydoc.transact(() => {
+					for (const id of ids) {
+						if (ytable.has(id)) {
+							ytable.delete(id);
+							count++;
+						}
+					}
+				});
+
+				return count;
+			},
+
+			clear(): void {
+				ydoc.transact(() => {
+					ytable.clear();
+				});
+			},
+
+			count(): number {
+				return ytable.size;
+			},
+
+			observe(handlers: ObserveHandlers): () => void {
+				// Use observeDeep to catch nested changes (fields inside rows)
+				const observer = (events: Y.YEvent<any>[]) => {
+					for (const event of events) {
+						event.changes.keys.forEach((change: any, key: string) => {
+							if (change.action === 'add') {
+								const rowMap = ytable.get(key);
+								if (rowMap) {
+									const data = RowSerializer(tableName).deserialize(rowMap);
+									handlers.onAdd(key, data);
+								}
+							} else if (change.action === 'update') {
+								const rowMap = ytable.get(key);
+								if (rowMap) {
+									const data = RowSerializer(tableName).deserialize(rowMap);
+									handlers.onUpdate(key, data);
+								}
+							} else if (change.action === 'delete') {
+								handlers.onDelete(key);
+							}
+						});
+					}
+				};
+
+				ytable.observeDeep(observer);
+
+				// Return unsubscribe function
+				return () => {
+					ytable.unobserveDeep(observer);
+				};
+			},
+		};
+	}
 
 	return {
+		/**
+		 * Table helpers organized by table name
+		 * Each table has methods for CRUD operations
+		 */
+		tables,
+
 		/**
 		 * The underlying YJS document
 		 * Exposed for persistence and sync providers
@@ -187,22 +360,21 @@ export function createYjsDocument(
 		 * - Only the outermost transaction (where initialCall = true) triggers cleanup and events
 		 *
 		 * This means it's safe to:
-		 * - Call setRow() inside a transaction (setRow uses transact internally)
-		 * - Call setRows() inside a transaction (setRows uses transact internally)
+		 * - Call table methods inside a transaction (they use transact internally)
 		 * - Nest transactions for cross-table operations
 		 *
 		 * @example
 		 * ```typescript
 		 * // Single operation - automatically transactional
-		 * doc.setRow('posts', { id: '1', title: 'Hello' });
+		 * doc.tables.posts.set({ id: '1', title: 'Hello' });
 		 *
 		 * // Batch operation - wrapped in transaction
-		 * doc.setRows('posts', [{ id: '1', ... }, { id: '2', ... }]);
+		 * doc.tables.posts.setMany([{ id: '1', ... }, { id: '2', ... }]);
 		 *
 		 * // Cross-table transaction - safe nesting
 		 * doc.transact(() => {
-		 *   doc.setRows('posts', [...]); // reuses outer transaction
-		 *   doc.setRow('users', { ... }); // also reuses outer transaction
+		 *   doc.tables.posts.setMany([...]); // reuses outer transaction
+		 *   doc.tables.users.set({ ... }); // also reuses outer transaction
 		 * }, 'bulk-import');
 		 * ```
 		 */
@@ -214,225 +386,7 @@ export function createYjsDocument(
 		 * Get all table names in the document
 		 */
 		getTableNames(): string[] {
-			return Array.from(tables.keys());
-		},
-
-		/**
-		 * Set a row in a table (replaces if exists, creates if not)
-		 * Accepts a plain object and converts to YJS internally
-		 * Wrapped in a transaction automatically
-		 */
-		setRow(tableName: string, data: RowData): void {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			const ymap = RowSerializer(tableName).serialize(data);
-
-			ydoc.transact(() => {
-				table.set(data.id as string, ymap);
-			});
-		},
-
-		/**
-		 * Set multiple rows in a table (batch operation)
-		 * All rows are set atomically within a single transaction
-		 */
-		setRows(tableName: string, rows: RowData[]): void {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			ydoc.transact(() => {
-				for (const row of rows) {
-					const ymap = RowSerializer(tableName).serialize(row);
-					table.set(row.id as string, ymap);
-				}
-			});
-		},
-
-		/**
-		 * Delete a single row from a table
-		 * Returns true if the row existed and was deleted, false otherwise
-		 * Wrapped in a transaction automatically
-		 */
-		deleteRow(tableName: string, id: string): boolean {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			const exists = table.has(id);
-			if (!exists) return false;
-
-			ydoc.transact(() => {
-				table.delete(id);
-			});
-
-			return true;
-		},
-
-		/**
-		 * Delete multiple rows from a table
-		 * Returns the number of rows that were deleted
-		 * Wrapped in a transaction automatically
-		 */
-		deleteRows(tableName: string, ids: string[]): number {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			let count = 0;
-
-			ydoc.transact(() => {
-				for (const id of ids) {
-					if (table.has(id)) {
-						table.delete(id);
-						count++;
-					}
-				}
-			});
-
-			return count;
-		},
-
-		/**
-		 * Get a single row from a table as a plain object
-		 * Returns undefined if the row doesn't exist
-		 */
-		getRow(tableName: string, id: string): RowData | undefined {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			const rowMap = table.get(id);
-			if (!rowMap) return undefined;
-
-			return RowSerializer(tableName).deserialize(rowMap);
-		},
-
-		/**
-		 * Get multiple rows from a table by their IDs
-		 * Returns an array of plain objects (only includes rows that exist)
-		 */
-		getRows(tableName: string, ids: string[]): RowData[] {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			const rows: RowData[] = [];
-			for (const id of ids) {
-				const rowMap = table.get(id);
-				if (rowMap) {
-					rows.push(RowSerializer(tableName).deserialize(rowMap));
-				}
-			}
-
-			return rows;
-		},
-
-		/**
-		 * Get all rows from a table as an array of plain objects
-		 */
-		getAllRows(tableName: string): RowData[] {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			const rows: RowData[] = [];
-			for (const [id, rowMap] of table.entries()) {
-				rows.push(RowSerializer(tableName).deserialize(rowMap));
-			}
-
-			return rows;
-		},
-
-		/**
-		 * Check if a row exists in a table
-		 */
-		hasRow(tableName: string, id: string): boolean {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			return table.has(id);
-		},
-
-		/**
-		 * Get the count of rows in a table
-		 */
-		countRows(tableName: string): number {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			return table.size;
-		},
-
-		/**
-		 * Clear all rows from a table
-		 * Wrapped in a transaction automatically
-		 */
-		clearTable(tableName: string): void {
-			const table = tables.get(tableName);
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			ydoc.transact(() => {
-				table.clear();
-			});
-		},
-
-		/**
-		 * Set up observers for a table to trigger index updates
-		 * Callbacks receive plain objects, not YJS types
-		 * Uses observeDeep to catch both row-level and field-level changes
-		 */
-		observeTable(
-			tableName: string,
-			handlers: {
-				onAdd: (id: string, data: RowData) => void | Promise<void>;
-				onUpdate: (id: string, data: RowData) => void | Promise<void>;
-				onDelete: (id: string) => void | Promise<void>;
-			},
-		) {
-			const table = tables.get(tableName);
-
-			if (!table) {
-				throw new Error(`Table "${tableName}" not found in YJS document`);
-			}
-
-			// Use observeDeep to catch nested changes (fields inside rows)
-			table.observeDeep((events) => {
-				for (const event of events) {
-					event.changes.keys.forEach((change: any, key: string) => {
-						if (change.action === 'add') {
-							const rowMap = table.get(key);
-							if (rowMap) {
-								const data = RowSerializer(tableName).deserialize(rowMap);
-								handlers.onAdd(key, data);
-							}
-						} else if (change.action === 'update') {
-							const rowMap = table.get(key);
-							if (rowMap) {
-								const data = RowSerializer(tableName).deserialize(rowMap);
-								handlers.onUpdate(key, data);
-							}
-						} else if (change.action === 'delete') {
-							handlers.onDelete(key);
-						}
-					});
-				}
-			});
+			return Object.keys(tables);
 		},
 	};
 }

@@ -93,7 +93,7 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 
 			// Initial sync: YJS → SQLite
 			for (const tableName of config.doc.getTableNames()) {
-				const rows = config.doc.getAllRows(tableName);
+				const rows = config.doc.tables[tableName].getAll();
 
 				for (const data of rows) {
 					const { error } = await tryAsync({
