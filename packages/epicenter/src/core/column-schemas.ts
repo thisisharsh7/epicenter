@@ -72,9 +72,8 @@ export type ColumnSchema =
 			unique?: boolean;
 			default?: string | (() => string);
 	  }
-	| 
 	| { type: 'ytext'; nullable: boolean }
-	| { type: 'yxmlfragment'; nullable: boolean; default?: string }
+	| { type: 'yxmlfragment'; nullable: boolean }
 	| {
 			type: 'integer';
 			nullable: boolean;
@@ -123,13 +122,14 @@ export type TableSchema = Record<string, ColumnSchema>;
 
 /**
  * Maps a ColumnSchema to its YJS or primitive TypeScript type.
- * Handles nullable fields and returns YJS types for rich-text and multi-select.
+ * Handles nullable fields and returns YJS types for ytext, yxmlfragment, and multi-select.
  *
  * @example
  * ```typescript
  * type IdType = ColumnToType<{ type: 'id'; nullable: false }>; // string
  * type TextField = ColumnToType<{ type: 'text'; nullable: true }>; // string | null
- * type RichTextField = ColumnToType<{ type: 'rich-text'; nullable: false }>; // Y.XmlFragment
+ * type YtextField = ColumnToType<{ type: 'ytext'; nullable: false }>; // Y.Text
+ * type YxmlField = ColumnToType<{ type: 'yxmlfragment'; nullable: false }>; // Y.XmlFragment
  * type MultiSelectField = ColumnToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * ```
  */
@@ -139,18 +139,14 @@ export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
 		? C extends { nullable: true }
 			? string | null
 			: string
-		: C extends { type: 'rich-text' }
+		: C extends { type: 'ytext' }
 			? C extends { nullable: true }
-				? Y.XmlFragment | null
-				: Y.XmlFragment
-			: C extends { type: 'ytext' }
+				? Y.Text | null
+				: Y.Text
+			: C extends { type: 'yxmlfragment' }
 				? C extends { nullable: true }
-					? Y.Text | null
-					: Y.Text
-				: C extends { type: 'yxmlfragment' }
-					? C extends { nullable: true }
-						? Y.XmlFragment | null
-						: Y.XmlFragment
+					? Y.XmlFragment | null
+					: Y.XmlFragment
 					: C extends { type: 'integer' }
 						? C extends { nullable: true }
 							? number | null
@@ -275,43 +271,49 @@ export function ytext(opts?: {
  * Collaborative rich document column - stored as Y.XmlFragment (YJS shared type)
  *
  * Y.XmlFragment is a tree-structured format that supports full block-level formatting.
- * Use this for articles, documentation, or any content needing complex structure.
+ * **Primary use case: Rich document editing** with TipTap (ProseMirror-based).
  *
  * **What Y.XmlFragment supports:**
- * - All inline formatting (from Y.Text)
- * - Block-level structure: paragraphs, headings (h1-h6)
- * - Lists: bullet lists, numbered lists, task lists
- * - Tables, blockquotes, code blocks
- * - Images, embeds, custom blocks
+ * - All inline formatting (bold, italic, links, etc.)
+ * - Block-level structure: paragraphs, headings (h1-h6), lists
+ * - Tables, blockquotes, code blocks, images, embeds
  * - Nested structure (lists within lists, etc.)
  *
- * **Editor bindings:**
- * - TipTap (ProseMirror-based, recommended)
- * - ProseMirror (lower-level)
- * - Any Y.XmlFragment-compatible editor
+ * **Most common editor bindings:**
+ * - **TipTap** (ProseMirror-based) - PRIMARY, RECOMMENDED
+ * - ProseMirror (lower-level alternative)
  *
- * **Use cases:**
- * - Article content with full formatting
+ * **Common use cases:**
+ * - Article/blog content with full formatting
  * - Documentation with headings and lists
- * - Long-form content editing
- * - Content management system pages
+ * - Long-form content editing (like Notion pages)
+ * - CMS page content
+ *
+ * **Important:** You must provide Y.XmlFragment instances when setting values.
+ * The Y.XmlFragment instance must be created from the same Y.Doc as your table.
  *
  * @example
- * // Article editor
+ * // Article content (most common)
  * content: yxmlfragment() // → TipTap for full document editing
  *
  * @example
- * // Documentation
- * docs: yxmlfragment() // → TipTap with headings, lists, tables
+ * // Optional description field
+ * description: yxmlfragment({ nullable: true }) // → Can be null or Y.XmlFragment
+ *
+ * @example
+ * // Setting a value
+ * const fragment = new Y.XmlFragment()
+ * doc.tables.posts.set({
+ *   id: '1',
+ *   content: fragment // Must provide Y.XmlFragment instance
+ * })
  */
 export function yxmlfragment(opts?: {
 	nullable?: boolean;
-	default?: string;
 }): ColumnSchema {
 	return {
 		type: 'yxmlfragment',
 		nullable: opts?.nullable ?? false,
-		default: opts?.default,
 	};
 }
 

@@ -9,11 +9,12 @@ import { Serializer } from './columns';
 
 /**
  * A single cell value in its YJS or primitive form.
- * Rich-text fields use Y.XmlFragment, multi-select fields use Y.Array,
- * and all other types use primitives.
+ * Text types use Y.Text or Y.XmlFragment for collaborative editing,
+ * multi-select fields use Y.Array, and all other types use primitives.
  */
 type CellValue =
-	| Y.XmlFragment // rich-text
+	| Y.Text // ytext - collaborative text editor (code, comments, simple formatting)
+	| Y.XmlFragment // yxmlfragment and rich-text - collaborative rich document (articles, docs)
 	| Y.Array<string> // multi-select
 	| string // id, text, select
 	| number // integer, real
