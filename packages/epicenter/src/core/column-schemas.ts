@@ -135,8 +135,9 @@ export type ColumnType = ColumnSchema['type'];
 
 /**
  * Table schema - maps column names to their schemas
+ * Must always include an 'id' column with IdColumnSchema
  */
-export type TableSchema = Record<string, ColumnSchema>;
+export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
 
 /**
  * Maps a ColumnSchema to its YJS or primitive TypeScript type.
@@ -144,7 +145,7 @@ export type TableSchema = Record<string, ColumnSchema>;
  *
  * @example
  * ```typescript
- * type IdType = ColumnToType<{ type: 'id'; nullable: false }>; // string
+ * type IdType = ColumnToType<{ type: 'id' }>; // string
  * type TextField = ColumnToType<{ type: 'text'; nullable: true }>; // string | null
  * type YtextField = ColumnToType<{ type: 'ytext'; nullable: false }>; // Y.Text
  * type YxmlField = ColumnToType<{ type: 'yxmlfragment'; nullable: false }>; // Y.XmlFragment
@@ -198,7 +199,7 @@ export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
  * @example
  * ```typescript
  * type PostSchema = {
- *   id: { type: 'id'; nullable: false };
+ *   id: { type: 'id' };
  *   title: { type: 'text'; nullable: false };
  *   content: { type: 'yxmlfragment'; nullable: true };
  *   viewCount: { type: 'integer'; nullable: false };
