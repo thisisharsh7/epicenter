@@ -11,12 +11,9 @@ type YjsRowData = Y.Map<CellValue>;
 /**
  * Observer handlers for table changes
  */
-type ObserveHandlers<TTableSchema extends TableSchema> = {
-	onAdd: (id: string, data: SchemaToRow<TTableSchema>) => void | Promise<void>;
-	onUpdate: (
-		id: string,
-		data: SchemaToRow<TTableSchema>,
-	) => void | Promise<void>;
+type ObserveHandlers<TRow extends Record<string, CellValue>> = {
+	onAdd: (id: string, data: TRow) => void | Promise<void>;
+	onUpdate: (id: string, data: TRow) => void | Promise<void>;
 	onDelete: (id: string) => void | Promise<void>;
 };
 
@@ -34,7 +31,7 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	deleteMany(ids: string[]): void;
 	clear(): void;
 	count(): number;
-	observe(handlers: ObserveHandlers<TTableSchema>): () => void;
+	observe(handlers: ObserveHandlers<SchemaToRow<TTableSchema>>): () => void;
 	filter(
 		predicate: (row: SchemaToRow<TTableSchema>) => boolean,
 	): SchemaToRow<TTableSchema>[];
@@ -184,7 +181,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 	): TableHelper<TSchemas[TKey]> => {
 		// Scoped type aliases for better readability
 		type Schema = TSchemas[TKey];
-		type Row = SchemaToRow<TTableSchema>;
+		type Row = SchemaToRow<Schema>;
 
 		const RowSerializer = Serializer({
 			serialize(value: Row): YjsRowData {
@@ -273,7 +270,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				return ytable.size;
 			},
 
-			observe(handlers: ObserveHandlers<Schema>): () => void {
+			observe(handlers: ObserveHandlers<Row>): () => void {
 				// Use observeDeep to catch nested changes (fields inside rows)
 				const observer = (events: Y.YEvent<any>[]) => {
 					for (const event of events) {
