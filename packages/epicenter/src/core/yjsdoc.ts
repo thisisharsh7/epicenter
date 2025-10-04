@@ -53,31 +53,6 @@ type ObserveHandlers = {
 };
 
 /**
- * Table helper methods for a single table
- * Provides CRUD operations without needing to pass table name
- */
-type TableHelper = {
-	// Single row operations
-	set(data: RowData): void;
-	get(id: string): RowData | undefined;
-	has(id: string): boolean;
-	delete(id: string): void;
-
-	// Batch operations (transactional)
-	setMany(rows: RowData[]): void;
-	getMany(ids: string[]): RowData[];
-	deleteMany(ids: string[]): void;
-
-	// Bulk operations
-	getAll(): RowData[];
-	clear(): void;
-	count(): number;
-
-	// Observation
-	observe(handlers: ObserveHandlers): () => void;
-};
-
-/**
  * Create a YJS document for a workspace with encapsulated state.
  * Returns an object with namespaced table methods and document utilities.
  *
@@ -211,10 +186,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 	 * Factory function to create a table helper for a specific table
 	 * Encapsulates all CRUD operations for a single table
 	 */
-	const createTableHelper = (
-		tableName: string,
-		ytable: Y.Map<YjsRowData>,
-	): TableHelper => ({
+	const createTableHelper = (tableName: string, ytable: Y.Map<YjsRowData>) => ({
 		set(data: RowData): void {
 			const ymap = RowSerializer(tableName).serialize(data);
 			ydoc.transact(() => {
@@ -315,6 +287,27 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 				ytable.unobserveDeep(observer);
 			};
 		},
+
+		filter(predicate: (row: RowData) => boolean): RowData[] {
+			const results: RowData[] = [];
+			for (const [id, rowMap] of ytable.entries()) {
+				const row = RowSerializer(tableName).deserialize(rowMap);
+				if (predicate(row)) {
+					results.push(row);
+				}
+			}
+			return results;
+		},
+
+		find(predicate: (row: RowData) => boolean): RowData | undefined {
+			for (const [id, rowMap] of ytable.entries()) {
+				const row = RowSerializer(tableName).deserialize(rowMap);
+				if (predicate(row)) {
+					return row;
+				}
+			}
+			return undefined;
+		},
 	});
 
 	// Create table helpers for each table
@@ -326,7 +319,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			}
 			return [tableName, createTableHelper(tableName, ytable)];
 		}),
-	) as { [K in keyof T]: TableHelper };
+	) as { [K in keyof T]: ReturnType<typeof createTableHelper> };
 
 	return {
 		/**
