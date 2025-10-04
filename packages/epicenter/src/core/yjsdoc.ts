@@ -162,9 +162,10 @@ type TableHelper<S extends TableSchema> = {
  * }, 'bulk-import');
  * ```
  */
-export function createYjsDocument<
-	TTableSchemas extends Record<string, TableSchema>,
->(workspaceId: string, tableSchemas: TTableSchemas) {
+export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
+	workspaceId: string,
+	tableSchemas: TSchemas,
+) {
 	// Initialize Y.Doc
 	const ydoc = new Y.Doc({ guid: workspaceId });
 	const ytables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
@@ -199,146 +200,138 @@ export function createYjsDocument<
 	 * Factory function to create a table helper for a specific table
 	 * Encapsulates all CRUD operations for a single table
 	 */
-	const createTableHelper = <K extends keyof TTableSchemas>(
-		tableName: K,
+	const createTableHelper = <TKey extends keyof TSchemas>(
+		tableName: TKey,
 		ytable: Y.Map<YjsRowData>,
-	): TableHelper<TTableSchemas[K]> => ({
-		set(data: RowData<TTableSchemas[K]>): void {
-			const ymap = RowSerializer.serialize(data as RowData<TableSchema>);
-			ydoc.transact(() => {
-				ytable.set(data.id as string, ymap);
-			});
-		},
+	): TableHelper<TSchemas[TKey]> => {
+		// Scoped type aliases for better readability
+		type Schema = TSchemas[TKey];
+		type Row = RowData<Schema>;
 
-		setMany(rows: RowData<TTableSchemas[K]>[]): void {
-			ydoc.transact(() => {
-				for (const row of rows) {
-					const ymap = RowSerializer.serialize(row as RowData<TableSchema>);
-					ytable.set(row.id as string, ymap);
-				}
-			});
-		},
+		return {
+			set(data: Row): void {
+				const ymap = RowSerializer.serialize(data as RowData<TableSchema>);
+				ydoc.transact(() => {
+					ytable.set(data.id as string, ymap);
+				});
+			},
 
-		get(id: string): RowData<TTableSchemas[K]> | undefined {
-			const ymap = ytable.get(id);
-			if (!ymap) return undefined;
-			return RowSerializer.deserialize(ymap) as RowData<TTableSchemas[K]>;
-		},
+			setMany(rows: Row[]): void {
+				ydoc.transact(() => {
+					for (const row of rows) {
+						const ymap = RowSerializer.serialize(row as RowData<TableSchema>);
+						ytable.set(row.id as string, ymap);
+					}
+				});
+			},
 
-		getMany(ids: string[]): RowData<TTableSchemas[K]>[] {
-			const rows: RowData<TTableSchemas[K]>[] = [];
-			for (const id of ids) {
+			get(id: string): Row | undefined {
 				const ymap = ytable.get(id);
-				if (ymap) {
-					rows.push(
-						RowSerializer.deserialize(ymap) as RowData<TTableSchemas[K]>,
-					);
-				}
-			}
-			return rows;
-		},
+				if (!ymap) return undefined;
+				return RowSerializer.deserialize(ymap) as Row;
+			},
 
-		getAll(): RowData<TTableSchemas[K]>[] {
-			const rows: RowData<TTableSchemas[K]>[] = [];
-			for (const [id, ymap] of ytable.entries()) {
-				rows.push(RowSerializer.deserialize(ymap) as RowData<TTableSchemas[K]>);
-			}
-			return rows;
-		},
-
-		has(id: string): boolean {
-			return ytable.has(id);
-		},
-
-		delete(id: string): void {
-			ydoc.transact(() => {
-				ytable.delete(id);
-			});
-		},
-
-		deleteMany(ids: string[]): void {
-			ydoc.transact(() => {
+			getMany(ids: string[]): Row[] {
+				const rows: Row[] = [];
 				for (const id of ids) {
+					const ymap = ytable.get(id);
+					if (ymap) {
+						rows.push(RowSerializer.deserialize(ymap) as Row);
+					}
+				}
+				return rows;
+			},
+
+			getAll(): Row[] {
+				const rows: Row[] = [];
+				for (const [id, ymap] of ytable.entries()) {
+					rows.push(RowSerializer.deserialize(ymap) as Row);
+				}
+				return rows;
+			},
+
+			has(id: string): boolean {
+				return ytable.has(id);
+			},
+
+			delete(id: string): void {
+				ydoc.transact(() => {
 					ytable.delete(id);
-				}
-			});
-		},
+				});
+			},
 
-		clear(): void {
-			ydoc.transact(() => {
-				ytable.clear();
-			});
-		},
+			deleteMany(ids: string[]): void {
+				ydoc.transact(() => {
+					for (const id of ids) {
+						ytable.delete(id);
+					}
+				});
+			},
 
-		count(): number {
-			return ytable.size;
-		},
+			clear(): void {
+				ydoc.transact(() => {
+					ytable.clear();
+				});
+			},
 
-		observe(handlers: ObserveHandlers<TTableSchemas[K]>): () => void {
-			// Use observeDeep to catch nested changes (fields inside rows)
-			const observer = (events: Y.YEvent<any>[]) => {
-				for (const event of events) {
-					event.changes.keys.forEach((change: any, key: string) => {
-						if (change.action === 'add') {
-							const ymap = ytable.get(key);
-							if (ymap) {
-								const data = RowSerializer.deserialize(ymap) as RowData<
-									TTableSchemas[K]
-								>;
-								handlers.onAdd(key, data);
+			count(): number {
+				return ytable.size;
+			},
+
+			observe(handlers: ObserveHandlers<Schema>): () => void {
+				// Use observeDeep to catch nested changes (fields inside rows)
+				const observer = (events: Y.YEvent<any>[]) => {
+					for (const event of events) {
+						event.changes.keys.forEach((change: any, key: string) => {
+							if (change.action === 'add') {
+								const ymap = ytable.get(key);
+								if (ymap) {
+									const data = RowSerializer.deserialize(ymap) as Row;
+									handlers.onAdd(key, data);
+								}
+							} else if (change.action === 'update') {
+								const ymap = ytable.get(key);
+								if (ymap) {
+									const data = RowSerializer.deserialize(ymap) as Row;
+									handlers.onUpdate(key, data);
+								}
+							} else if (change.action === 'delete') {
+								handlers.onDelete(key);
 							}
-						} else if (change.action === 'update') {
-							const ymap = ytable.get(key);
-							if (ymap) {
-								const data = RowSerializer.deserialize(ymap) as RowData<
-									TTableSchemas[K]
-								>;
-								handlers.onUpdate(key, data);
-							}
-						} else if (change.action === 'delete') {
-							handlers.onDelete(key);
-						}
-					});
+						});
+					}
+				};
+
+				ytable.observeDeep(observer);
+
+				// Return unsubscribe function
+				return () => {
+					ytable.unobserveDeep(observer);
+				};
+			},
+
+			filter(predicate: (row: Row) => boolean): Row[] {
+				const results: Row[] = [];
+				for (const [id, ymap] of ytable.entries()) {
+					const row = RowSerializer.deserialize(ymap) as Row;
+					if (predicate(row)) {
+						results.push(row);
+					}
 				}
-			};
+				return results;
+			},
 
-			ytable.observeDeep(observer);
-
-			// Return unsubscribe function
-			return () => {
-				ytable.unobserveDeep(observer);
-			};
-		},
-
-		filter(
-			predicate: (row: RowData<TTableSchemas[K]>) => boolean,
-		): RowData<TTableSchemas[K]>[] {
-			const results: RowData<TTableSchemas[K]>[] = [];
-			for (const [id, ymap] of ytable.entries()) {
-				const row = RowSerializer.deserialize(ymap) as RowData<
-					TTableSchemas[K]
-				>;
-				if (predicate(row)) {
-					results.push(row);
+			find(predicate: (row: Row) => boolean): Row | undefined {
+				for (const [id, ymap] of ytable.entries()) {
+					const row = RowSerializer.deserialize(ymap) as Row;
+					if (predicate(row)) {
+						return row;
+					}
 				}
-			}
-			return results;
-		},
-
-		find(
-			predicate: (row: RowData<TTableSchemas[K]>) => boolean,
-		): RowData<TTableSchemas[K]> | undefined {
-			for (const [id, ymap] of ytable.entries()) {
-				const row = RowSerializer.deserialize(ymap) as RowData<
-					TTableSchemas[K]
-				>;
-				if (predicate(row)) {
-					return row;
-				}
-			}
-			return undefined;
-		},
-	});
+				return undefined;
+			},
+		};
+	};
 
 	// Create table helpers for each table
 	const tables = Object.fromEntries(
@@ -349,10 +342,10 @@ export function createYjsDocument<
 			}
 			return [
 				tableName,
-				createTableHelper(tableName as keyof TTableSchemas, ytable),
+				createTableHelper(tableName as keyof TSchemas, ytable),
 			];
 		}),
-	) as { [K in keyof TTableSchemas]: TableHelper<TTableSchemas[K]> };
+	) as { [TKey in keyof TSchemas]: TableHelper<TSchemas[TKey]> };
 
 	return {
 		/**
