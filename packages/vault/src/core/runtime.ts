@@ -1,25 +1,70 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { Result } from 'wellcrafted/result';
-import { tryAsync } from 'wellcrafted/result';
 import type { TableSchema } from './column-schemas';
-import { VaultOperationErr, type VaultOperationError } from './errors';
-import type { RowData } from './indexes';
 import type { PluginMethod } from './methods';
 import type { Plugin } from './plugin';
-import { createYjsDocument } from './yjsdoc';
+import { createYjsDocument, type RowData } from './yjsdoc';
 
 /**
  * Runtime configuration provided by the user
+ *
+ * ## Workspace File Structure
+ *
+ * Workspaces use a `.epicenter/` folder for all system-managed data:
+ *
+ * ```
+ * workspace-root/
+ *   epicenter.config.ts       # Workspace definition
+ *
+ *   .epicenter/               # System-managed folder (auto-created)
+ *     assets/                 # Binary blobs (audio, video, images)
+ *                            # Referenced by YJS data, not directly edited by users
+ *                            # Example: audio files in a transcription app
+ *
+ *     indexes/                # Index storage (SQLite DBs, vector DBs, etc.)
+ *                            # Synchronized snapshots for querying
+ *                            # Can be rebuilt from YJS document
+ *
+ *     ydoc.bin                # YJS document persistence file
+ *                            # Source of truth for all structured data
+ *
+ *     .gitignore              # Auto-generated, typically ignores:
+ *                            # - assets/ (large binaries)
+ *                            # - indexes/ (rebuildable)
+ *                            # - ydoc.bin (depends on sync strategy)
+ * ```
+ *
+ * ## Assets
+ *
+ * Binary files (audio, video, images) are stored in `.epicenter/assets/` and referenced
+ * by structured data in the YJS document. These are app-managed blobs that users interact
+ * with through the application, not directly through the file system.
+ *
+ * Example: In a transcription app, audio recordings are stored as blobs in `assets/` while
+ * the recording metadata (title, date, duration) lives in YJS tables that reference these files
+ * by path (e.g., `.epicenter/assets/rec-001.mp3`).
+ *
+ * ## Indexes
+ *
+ * Indexes are synchronized snapshots of YJS data optimized for different query patterns.
+ * They live in `.epicenter/indexes/` and can be rebuilt from the YJS document, so they
+ * are typically gitignored.
+ *
+ * ## YJS Persistence
+ *
+ * The `ydoc.bin` file persists the YJS document to disk. This is the source of truth for
+ * all structured data in the workspace. Whether to gitignore this depends on your sync
+ * strategy (local-only vs. collaborative).
+ *
+ * ## Future Configuration Options
+ *
+ * Currently, RuntimeConfig is empty. Future options may include:
+ * - YJS persistence strategies (filesystem, IndexedDB, remote sync)
+ * - Custom asset storage locations
+ * - Index rebuild strategies
+ * - Collaboration providers
  */
 export type RuntimeConfig = {
-	/**
-	 * YJS persistence options (optional)
-	 * If not provided, document lives in memory
-	 */
-	yjsPersistence?: {
-		path?: string;
-		// Future: other persistence strategies
-	};
+	// Empty for now - configuration will be added as needed
 };
 
 /**
@@ -35,7 +80,7 @@ export async function runPlugin<T = unknown>(
 
 	// 2. Initialize indexes
 	const indexContext = {
-		ydoc: doc.ydoc,
+		doc,
 		tableSchemas: plugin.tables,
 		workspaceId: plugin.id,
 	};
