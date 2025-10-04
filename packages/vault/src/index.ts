@@ -17,7 +17,7 @@
 
 // Core workspace definition
 export { defineWorkspace } from './core/workspace';
-export type { Workspace, WorkspaceMethodContext } from './core/workspace';
+export type { Workspace, WorkspaceActionContext } from './core/workspace';
 
 // Column schema system
 export {
@@ -45,20 +45,20 @@ export type {
 	TimezoneId,
 } from './core/column-schemas';
 
-// Method helpers
+// Action helpers
 export {
 	defineQuery,
 	defineMutation,
 	isQuery,
 	isMutation,
-} from './core/methods';
+} from './core/actions';
 export type {
-	QueryMethod,
-	MutationMethod,
-	WorkspaceMethod,
-	InferMethodInput,
-	InferMethodOutput,
-} from './core/methods';
+	QueryAction,
+	MutationAction,
+	WorkspaceAction,
+	InferActionInput,
+	InferActionOutput,
+} from './core/actions';
 
 // Runtime
 export { runWorkspace } from './core/runtime';

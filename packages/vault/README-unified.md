@@ -14,7 +14,7 @@ const epicenter = defineWorkspace({
   id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
-  methods: (api) => ({})
+  actions: (api) => ({})
 });
 ```
 
@@ -22,7 +22,7 @@ const epicenter = defineWorkspace({
 
 ### 1. Define Workspaces
 
-Each workspace defines its tables and methods:
+Each workspace defines its tables and actions:
 
 ```typescript
 import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/epicenter';
@@ -39,7 +39,7 @@ const usersWorkspace = defineWorkspace({
     }
   },
 
-  methods: (api) => ({
+  actions: (api) => ({
     createUser: defineMutation({
       input: z.object({
         name: z.string().min(1),
@@ -69,8 +69,8 @@ const epicenter = defineWorkspace({
   id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace, commentsWorkspace],
   tables: {}, // No tables of its own
-  methods: (api) => ({
-    // Optional: Add app-level orchestration methods
+  actions: (api) => ({
+    // Optional: Add app-level orchestration actions
     // Or just return empty object
   })
 });
@@ -95,7 +95,7 @@ const app = await runWorkspace(epicenter, {
 
 ## API Shape
 
-The namespace pattern is: `app.workspaceId.tableName.method()`
+The namespace pattern is: `app.workspaceId.tableName.action()`
 
 ```typescript
 // Table helpers (auto-injected)
@@ -104,7 +104,7 @@ app.users.users.create(data)      // Result<User, Error>
 app.posts.posts.update(id, data)  // Result<Post | null, Error>
 app.posts.comments.delete(id)     // Result<boolean, Error>
 
-// Workspace methods
+// Workspace actions
 app.users.createUser(name, email)
 app.posts.createPost(authorId, title)
 
@@ -134,7 +134,7 @@ Workspaces declare dependencies and access them through the api parameter:
 const postsWorkspace = defineWorkspace({
   dependencies: [usersWorkspace],
 
-  methods: (api) => ({
+  actions: (api) => ({
     createPost: defineMutation({
       input: z.object({
         authorId: z.string(),
@@ -188,7 +188,7 @@ const epicenter = defineWorkspace({
   id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
-  methods: () => ({})
+  actions: () => ({})
 });
 
 // Runtime injection (handled by CLI)
@@ -211,7 +211,7 @@ export const usersWorkspace = defineWorkspace({
       email: text(),
     }
   },
-  methods: (api) => ({
+  actions: (api) => ({
     createUser: defineMutation({
       input: z.object({
         name: z.string().min(1),
@@ -241,7 +241,7 @@ export const postsWorkspace = defineWorkspace({
       authorId: text(),
     }
   },
-  methods: (api) => ({
+  actions: (api) => ({
     createPost: defineMutation({
       input: z.object({
         authorId: z.string(),
@@ -268,7 +268,7 @@ export default defineWorkspace({
   id: 'app',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
-  methods: () => ({})
+  actions: () => ({})
 });
 
 // Usage (in your app)

@@ -1,4 +1,4 @@
-import type { WorkspaceMethodMap } from './methods';
+import type { WorkspaceActionMap } from './actions';
 import type { TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition, RowData } from './indexes';
 
@@ -10,7 +10,7 @@ import type { Index, IndexesDefinition, RowData } from './indexes';
  * Each workspace is a self-contained module with:
  * - **tables**: Column schemas (pure JSON, no Drizzle)
  * - **indexes**: Synchronized snapshots for querying (SQLite, markdown, vector, etc.)
- * - **methods**: Business logic with access to tables and indexes
+ * - **actions**: Business logic with access to tables and indexes
  *
  * ## Data Flow
  *
@@ -46,7 +46,7 @@ import type { Index, IndexesDefinition, RowData } from './indexes';
  *     markdown: createMarkdownIndex({ ydoc, tableSchemas, path: './data' }),
  *   }),
  *
- *   methods: ({ tables, indexes }) => ({
+ *   actions: ({ tables, indexes }) => ({
  *     getPublishedPosts: defineQuery({
  *       input: z.void(),
  *       handler: async () => {
@@ -78,11 +78,11 @@ import type { Index, IndexesDefinition, RowData } from './indexes';
 export function defineWorkspace<
 	TId extends string,
 	TTableSchemas extends Record<string, TableSchema>,
-	TMethodMap extends WorkspaceMethodMap,
+	TActionMap extends WorkspaceActionMap,
 	TDeps extends readonly Workspace[] = readonly [],
 >(
-	workspace: Workspace<TId, TTableSchemas, TMethodMap, TDeps>,
-): Workspace<TId, TTableSchemas, TMethodMap, TDeps> {
+	workspace: Workspace<TId, TTableSchemas, TActionMap, TDeps>,
+): Workspace<TId, TTableSchemas, TActionMap, TDeps> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error(
@@ -113,7 +113,7 @@ export type Workspace<
 		string,
 		TableSchema
 	>,
-	TMethodMap extends WorkspaceMethodMap = WorkspaceMethodMap,
+	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TDeps extends readonly Workspace[] = readonly [],
 > = {
 	/**
@@ -148,13 +148,13 @@ export type Workspace<
 	indexes: IndexesDefinition;
 
 	/**
-	 * Workspace methods - business logic with access to tables and indexes
+	 * Workspace actions - business logic with access to tables and indexes
 	 * @param context - Tables (write), indexes (read), and dependency workspaces
-	 * @returns Map of method name → method implementation
+	 * @returns Map of action name → action implementation
 	 *
 	 * @example
 	 * ```typescript
-	 * methods: ({ tables, indexes, workspaces }) => ({
+	 * actions: ({ tables, indexes, workspaces }) => ({
 	 *   createPost: defineMutation({
 	 *     input: z.object({ title: z.string() }),
 	 *     handler: async ({ title }) => {
@@ -172,7 +172,7 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	methods: (context: WorkspaceMethodContext<TDeps, TTableSchemas>) => TMethodMap;
+	actions: (context: WorkspaceActionContext<TDeps, TTableSchemas>) => TActionMap;
 
 	/**
 	 * Lifecycle hooks (optional)
@@ -184,9 +184,9 @@ export type Workspace<
 };
 
 /**
- * Context passed to the methods function
+ * Context passed to the actions function
  */
-export type WorkspaceMethodContext<
+export type WorkspaceActionContext<
 	TDeps extends readonly Workspace[] = readonly [],
 	TTableSchemas extends Record<string, TableSchema> = Record<
 		string,
@@ -195,7 +195,7 @@ export type WorkspaceMethodContext<
 > = {
 	/**
 	 * Dependency workspaces
-	 * Access methods from other workspaces
+	 * Access actions from other workspaces
 	 */
 	workspaces: DependencyWorkspacesAPI<TDeps>;
 
@@ -237,17 +237,17 @@ export type WorkspaceTablesAPI<TTableSchemas extends Record<string, TableSchema>
 };
 
 /**
- * Dependency workspaces API - methods from dependency workspaces
+ * Dependency workspaces API - actions from dependency workspaces
  */
 type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> = {
 	[K in TDeps[number]['id']]: TDeps[number] extends Workspace<K>
-		? ExtractHandlers<ReturnType<TDeps[number]['methods']>>
+		? ExtractHandlers<ReturnType<TDeps[number]['actions']>>
 		: never;
 };
 
 /**
- * Extract handler functions from method map
+ * Extract handler functions from action map
  */
-type ExtractHandlers<T extends WorkspaceMethodMap> = {
+type ExtractHandlers<T extends WorkspaceActionMap> = {
 	[K in keyof T]: T[K]['handler'];
 };

@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TableSchema } from './column-schemas';
-import type { WorkspaceMethod } from './methods';
+import type { WorkspaceAction } from './actions';
 import type { Workspace } from './workspace';
 import { createYjsDocument, type RowData } from './yjsdoc';
 
@@ -69,7 +69,7 @@ export type RuntimeConfig = {
 
 /**
  * Run a workspace with YJS-first architecture
- * Returns the workspace instance with tables, methods, and indexes
+ * Returns the workspace instance with tables, actions, and indexes
  */
 export async function runWorkspace<T = unknown>(
 	workspace: Workspace,
@@ -142,29 +142,29 @@ export async function runWorkspace<T = unknown>(
 	const dependencies: Record<string, unknown> = {};
 	// TODO: Handle dependencies
 
-	// 6. Initialize methods with full context
-	const methodContext = {
+	// 6. Initialize actions with full context
+	const actionContext = {
 		workspaces: dependencies,
 		tables,
 		indexes,
 	};
 
-	// Process methods to extract handlers and make them directly callable
-	const processedMethods = Object.entries(workspace.methods(methodContext)).reduce(
-		(acc, [methodName, method]) => {
-			acc[methodName] = method.handler;
+	// Process actions to extract handlers and make them directly callable
+	const processedActions = Object.entries(workspace.actions(actionContext)).reduce(
+		(acc, [actionName, action]) => {
+			acc[actionName] = action.handler;
 			return acc;
 		},
 		{} as Record<
 			string,
-			WorkspaceMethod<StandardSchemaV1<unknown, unknown>, unknown>['handler']
+			WorkspaceAction<StandardSchemaV1<unknown, unknown>, unknown>['handler']
 		>,
 	);
 
 	// 7. Return workspace instance
 	const workspaceInstance = {
 		...tables,
-		...processedMethods,
+		...processedActions,
 		indexes,
 		ydoc: doc.ydoc,
 		transact: (fn: () => void, origin?: string) => doc.transact(fn, origin),

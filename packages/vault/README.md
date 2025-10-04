@@ -42,8 +42,8 @@ export default defineWorkspace({
       email: text()
     }
   },
-  methods: ({ tables }) => ({
-    // Workspace methods...
+  actions: ({ tables }) => ({
+    // Workspace actions...
   })
 });
 ```
@@ -93,7 +93,7 @@ export default defineWorkspace({
     comments: { /* ... */ }
   },
 
-  methods: ({ plugins, tables }) => ({
+  actions: ({ plugins, tables }) => ({
     createComment: defineMutation({
       handler: async ({ userId, postId, content }) => {
         // Access users workspace
@@ -126,7 +126,7 @@ Each workspace folder is completely portable:
 
 Each folder with `epicenter.config.ts` is a complete workspace with:
 - A globally unique ID for synchronization
-- Its own tables, methods, and storage
+- Its own tables, actions, and storage
 - The ability to depend on other workspaces
 - Real-time collaboration support (via Yjs)
 
@@ -149,11 +149,11 @@ const posts = await tables.posts.select().where(eq(tables.posts.published, true)
 
 ## ✨ Features
 
-- 🎛️ **Enhanced Drizzle Tables** - True Drizzle tables with custom methods via Proxy
+- 🎛️ **Enhanced Drizzle Tables** - True Drizzle tables with custom actions via Proxy
 - 📝 **Dual storage** - Markdown files as source of truth, SQLite for performance  
 - 🔍 **Pure Drizzle compatibility** - Full query builder, joins, and SQL power
 - 🎯 **Type-safe dependencies** - Plugin system with dependency injection
-- 🚀 **Built-in CRUD** - Enhanced methods for dual-storage operations
+- 🚀 **Built-in CRUD** - Enhanced actions for dual-storage operations
 - 🔒 **NOT NULL by default** - Safe column definitions with explicit nullable option
 - 🔄 **Native file watching** - Bun's fs.watch for real-time sync
 
@@ -190,7 +190,7 @@ const blogWorkspace = defineWorkspace({
     }
   },
 
-  methods: ({ tables }) => ({
+  actions: ({ tables }) => ({
     getPopularPosts: defineQuery({
       input: z.object({
         minViews: z.number().default(100)
@@ -250,7 +250,7 @@ const publishedPosts = await runtime.posts.select()
   .orderBy(desc(runtime.posts.createdAt))
   .limit(10);
 
-// 5. Use workspace methods with validation
+// 5. Use workspace actions with validation
 const popular = await runtime.getPopularPosts({ minViews: 50 });
 
 // 6. Create posts with validated input
@@ -263,9 +263,9 @@ const newPost = await runtime.createPost({
 
 ## 📖 API Reference
 
-### Enhanced Table Methods
+### Enhanced Table Actions
 
-Each `api.pluginId.tableName` provides these enhanced methods:
+Each `api.pluginId.tableName` provides these enhanced actions:
 
 #### `create(data)` → `Promise<Record>`
 
@@ -400,13 +400,13 @@ const analyticsWorkspace = defineWorkspace({
     }
   },
   
-  methods: (api) => ({
+  actions: (api) => ({
     calculateTopPosts: defineQuery({
       input: z.object({
         limit: z.number().optional().default(10)
       }),
       handler: async (input) => {
-        // Access dependent plugin methods (fully typed!)
+        // Access dependent plugin actions (fully typed!)
         const posts = await api.blog.getPublishedPosts({ minViews: 0 });
 
         // Access dependent plugin tables
@@ -424,11 +424,11 @@ const analyticsWorkspace = defineWorkspace({
 });
 ```
 
-### Plugin Methods with Input Validation
+### Plugin Actions with Input Validation
 
-Epicenter supports two types of workspace methods with automatic input validation using Standard Schema:
+Epicenter supports two types of workspace actions with automatic input validation using Standard Schema:
 
-#### Query Methods
+#### Query Actions
 
 For read operations that don't modify state:
 
@@ -439,7 +439,7 @@ import { defineQuery } from '@repo/epicenter';
 const blogWorkspace = defineWorkspace({
   id: 'j1k2l3m4-n5o6-7890-pqrs-tu1234567890',
   tables: { /* ... */ },
-  methods: (api) => ({
+  actions: (api) => ({
     getPostsByAuthor: defineQuery({
       input: z.object({
         authorId: z.string(),
@@ -459,7 +459,7 @@ const blogWorkspace = defineWorkspace({
 });
 ```
 
-#### Mutation Methods
+#### Mutation Actions
 
 For operations that modify state:
 
@@ -469,7 +469,7 @@ import { defineMutation } from '@repo/epicenter';
 const blogWorkspace = defineWorkspace({
   id: 'v1w2x3y4-z5a6-7890-bcde-fg1234567890',
   tables: { /* ... */ },
-  methods: (api) => ({
+  actions: (api) => ({
     createPost: defineMutation({
       input: z.object({
         title: z.string().min(1),
@@ -494,19 +494,19 @@ const blogWorkspace = defineWorkspace({
 
 #### Standard Schema Support
 
-Methods support any validation library that implements the [Standard Schema](https://github.com/standard-schema/standard-schema) specification:
+Actions support any validation library that implements the [Standard Schema](https://github.com/standard-schema/standard-schema) specification:
 
 - **Zod**: `z.object({ name: z.string() })`
 - **Valibot**: `v.object({ name: v.string() })`
 - **ArkType**: `type({ name: 'string' })`
 - **Yup**: `yup.object({ name: yup.string() })`
 
-#### Method Properties
+#### Action Properties
 
-Each method has additional properties for introspection:
+Each action has additional properties for introspection:
 
 ```typescript
-// Check method type
+// Check action type
 console.log(runtime.blog.createPost.type); // 'mutation'
 console.log(runtime.blog.getPostsByAuthor.type); // 'query'
 
@@ -519,7 +519,7 @@ console.log(runtime.blog.createPost.handler); // The handler function
 
 ### The Magic: `.select()` Returns Drizzle
 
-The `.select()` method on any table returns the full Drizzle query builder:
+The `.select()` action on any table returns the full Drizzle query builder:
 
 ```typescript
 // Simple query
@@ -605,7 +605,7 @@ const table = {
 ### Batch Operations
 
 ```typescript
-// All CRUD methods support arrays
+// All CRUD actions support arrays
 await api.posts.create([
   { id: '1', title: 'Post 1', ... },
   { id: '2', title: 'Post 2', ... },
@@ -645,17 +645,17 @@ const results = await api.posts.select()
 
 #### `defineWorkspace(config)`
 
-Create a workspace with tables and methods.
+Create a workspace with tables and actions.
 
 #### `runWorkspace(workspace, config)`
 
 Run a workspace with runtime injection of database and storage.
 
-### Method Helpers
+### Action Helpers
 
 #### `defineQuery(config)`
 
-Create a query method with input validation and type safety.
+Create a query action with input validation and type safety.
 
 ```typescript
 defineQuery({
@@ -667,7 +667,7 @@ defineQuery({
 
 #### `defineMutation(config)`
 
-Create a mutation method with input validation and type safety.
+Create a mutation action with input validation and type safety.
 
 ```typescript
 defineMutation({
@@ -677,13 +677,13 @@ defineMutation({
 })
 ```
 
-#### `isQuery(method)` / `isMutation(method)`
+#### `isQuery(action)` / `isMutation(action)`
 
-Type guards to check if a method is a query or mutation.
+Type guards to check if a action is a query or mutation.
 
 ```typescript
-if (isQuery(someMethod)) {
-  // method is typed as QueryMethod
+if (isQuery(someAction)) {
+  // action is typed as QueryAction
 }
 ```
 
@@ -700,7 +700,7 @@ if (isQuery(someMethod)) {
 - `blob(name, mode?, nullable?)` - Binary data column
 - `id(name?)` - Auto-incrementing primary key
 
-### Built-in Table Methods
+### Built-in Table Actions
 
 - `get(id | ids[])` - Get by ID(s)
 - `getAll()` - Get all records

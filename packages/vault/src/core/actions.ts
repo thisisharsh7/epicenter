@@ -3,25 +3,25 @@ import type { Result } from 'wellcrafted/result';
 import type { EpicenterOperationError } from './errors';
 
 /**
- * A collection of workspace methods indexed by method name.
+ * A collection of workspace actions indexed by action name.
  *
- * Each workspace exposes its functionality through a set of typed methods
+ * Each workspace exposes its functionality through a set of typed actions
  * that can be called by other workspaces or external consumers.
  */
-export type WorkspaceMethodMap = Record<string, WorkspaceMethod>;
+export type WorkspaceActionMap = Record<string, WorkspaceAction>;
 
 /**
- * Union type for all method types
+ * Union type for all action types
  */
-export type WorkspaceMethod<
+export type WorkspaceAction<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
-> = QueryMethod<TSchema, TOutput> | MutationMethod<TSchema, TOutput>;
+> = QueryAction<TSchema, TOutput> | MutationAction<TSchema, TOutput>;
 
 /**
- * Query method structure with schema validation
+ * Query action structure with schema validation
  */
-export type QueryMethod<
+export type QueryAction<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
 > = {
@@ -36,9 +36,9 @@ export type QueryMethod<
 };
 
 /**
- * Mutation method structure with schema validation
+ * Mutation action structure with schema validation
  */
-export type MutationMethod<
+export type MutationAction<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
 > = {
@@ -53,29 +53,29 @@ export type MutationMethod<
 };
 
 /**
- * Helper function to define a query method
+ * Helper function to define a query action
  * Pass-through function that adds type discrimination
  */
 export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
-	config: Omit<QueryMethod<TSchema, TOutput>, 'type'>,
-): QueryMethod<TSchema, TOutput> {
+	config: Omit<QueryAction<TSchema, TOutput>, 'type'>,
+): QueryAction<TSchema, TOutput> {
 	return { type: 'query' as const, ...config };
 }
 
 /**
- * Helper function to define a mutation method
+ * Helper function to define a mutation action
  * Pass-through function that adds type discrimination
  */
 export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
-	config: Omit<MutationMethod<TSchema, TOutput>, 'type'>,
-): MutationMethod<TSchema, TOutput> {
+	config: Omit<MutationAction<TSchema, TOutput>, 'type'>,
+): MutationAction<TSchema, TOutput> {
 	return { type: 'mutation' as const, ...config };
 }
 
 /**
- * Type helper to extract the input type from a method
+ * Type helper to extract the input type from an action
  */
-export type InferMethodInput<T> = T extends WorkspaceMethod<
+export type InferActionInput<T> = T extends WorkspaceAction<
 	infer TSchema,
 	unknown
 >
@@ -83,9 +83,9 @@ export type InferMethodInput<T> = T extends WorkspaceMethod<
 	: never;
 
 /**
- * Type helper to extract the output type from a method
+ * Type helper to extract the output type from an action
  */
-export type InferMethodOutput<T> = T extends WorkspaceMethod<
+export type InferActionOutput<T> = T extends WorkspaceAction<
 	StandardSchemaV1,
 	infer O
 >
@@ -93,10 +93,10 @@ export type InferMethodOutput<T> = T extends WorkspaceMethod<
 	: never;
 
 /**
- * Type helper to extract the unwrapped output type from a method handler
+ * Type helper to extract the unwrapped output type from an action handler
  * This unwraps the Result type to get the actual success value type
  */
-export type InferMethodOutputUnwrapped<T> = T extends WorkspaceMethod<
+export type InferActionOutputUnwrapped<T> = T extends WorkspaceAction<
 	StandardSchemaV1,
 	infer O
 >
@@ -106,7 +106,7 @@ export type InferMethodOutputUnwrapped<T> = T extends WorkspaceMethod<
 /**
  * Type helper to extract the handler function with Result return type
  */
-export type InferMethodHandler<T> = T extends WorkspaceMethod<
+export type InferActionHandler<T> = T extends WorkspaceAction<
 	infer TSchema,
 	infer TOutput
 >
@@ -118,19 +118,19 @@ export type InferMethodHandler<T> = T extends WorkspaceMethod<
 	: never;
 
 /**
- * Type helper to check if a method is a query
+ * Type helper to check if an action is a query
  */
-export function isQuery<T extends WorkspaceMethod>(
-	method: T,
-): method is T & QueryMethod {
-	return method.type === 'query';
+export function isQuery<T extends WorkspaceAction>(
+	action: T,
+): action is T & QueryAction {
+	return action.type === 'query';
 }
 
 /**
- * Type helper to check if a method is a mutation
+ * Type helper to check if an action is a mutation
  */
-export function isMutation<T extends WorkspaceMethod>(
-	method: T,
-): method is T & MutationMethod {
-	return method.type === 'mutation';
+export function isMutation<T extends WorkspaceAction>(
+	action: T,
+): action is T & MutationAction {
+	return action.type === 'mutation';
 }

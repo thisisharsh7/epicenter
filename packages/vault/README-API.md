@@ -2,7 +2,7 @@
 
 ## Clean, Direct API
 
-The epicenter workspace system provides a clean API where methods are directly callable functions:
+The epicenter workspace system provides a clean API where actions are directly callable functions:
 
 ```typescript
 import { z } from 'zod';
@@ -18,7 +18,7 @@ const todosWorkspace = defineWorkspace({
       completed: integer(),
     },
   },
-  methods: () => ({
+  actions: () => ({
     getTodos: defineQuery({
       input: z.object({}),
       handler: async () => {
@@ -44,33 +44,33 @@ const todosWorkspace = defineWorkspace({
 // Use your workspace - clean, direct API!
 const todos = await runWorkspace(todosWorkspace);
 
-// Methods are directly callable - no .execute() needed!
+// Actions are directly callable - no .execute() needed!
 await todos.createTodo({ title: 'Learn Epicenter' });
 const allTodos = await todos.getTodos({});
 
-// Methods still have properties for introspection
+// Actions still have properties for introspection
 console.log(todos.createTodo.type); // 'mutation'
 console.log(todos.getTodos.type);   // 'query'
 ```
 
 ## Key Features
 
-1. **Direct method calls**: `todos.createTodo()` not `todos.createTodo.execute()`
+1. **Direct action calls**: `todos.createTodo()` not `todos.createTodo.execute()`
 2. **Automatic validation**: Input schemas are validated using Standard Schema
 3. **Full type safety**: Input types are inferred from schemas
 4. **Simple workspace return**: `runWorkspace` returns the workspace instance directly
-5. **Method introspection**: Access `type`, `input`, and `handler` properties when needed
+5. **Action introspection**: Access `type`, `input`, and `handler` properties when needed
 
 ## Input Validation with Standard Schema
 
-Methods use the [Standard Schema](https://github.com/standard-schema/standard-schema) specification, making them compatible with popular validation libraries:
+Actions use the [Standard Schema](https://github.com/standard-schema/standard-schema) specification, making them compatible with popular validation libraries:
 
 - **Zod**: `z.object({ name: z.string() })`
 - **Valibot**: `v.object({ name: v.string() })`
 - **ArkType**: `type({ name: 'string' })`
 - Any other Standard Schema compliant library
 
-## Method Types
+## Action Types
 
 ### Queries
 For read operations that don't modify state:

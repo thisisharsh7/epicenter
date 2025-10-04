@@ -49,7 +49,7 @@ const blogWorkspace = defineWorkspace({
 		}),
 	}),
 
-	methods: ({ tables, indexes }) => ({
+	actions: ({ tables, indexes }) => ({
 		createPost: defineMutation({
 			input: z.object({
 				title: z.string().min(1),
