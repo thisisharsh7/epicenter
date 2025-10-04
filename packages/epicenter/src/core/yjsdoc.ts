@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { DateWithTimezone, TableSchema } from './column-schemas';
+import type { DateWithTimezone, RowData, TableSchema } from './column-schemas';
 import { Serializer } from './columns';
 
 /**
@@ -8,24 +8,13 @@ import { Serializer } from './columns';
  */
 
 /**
- * A single cell value in its plain JavaScript form
+ * A single cell value in its YJS or primitive form.
+ * Rich-text fields use Y.XmlFragment, multi-select fields use Y.Array,
+ * and all other types use primitives.
  */
 type CellValue =
-	| string // id, text, rich-text (as string), select
-	| number // integer, real
-	| boolean // boolean
-	| DateWithTimezone // date with timezone
-	| string[] // multi-select (strings)
-	| number[] // multi-select (numbers)
-	| null; // nullable fields
-
-/**
- * A single cell value in its YJS form
- */
-type YjsCellValue =
-	| Y.Text // rich-text
-	| Y.Array<string> // multi-select (string arrays)
-	| Y.Array<number> // potential number arrays
+	| Y.XmlFragment // rich-text
+	| Y.Array<string> // multi-select
 	| string // id, text, select
 	| number // integer, real
 	| boolean // boolean
@@ -33,23 +22,38 @@ type YjsCellValue =
 	| null; // nullable fields
 
 /**
- * A row of data with typed cell values
- */
-export type RowData = Record<string, CellValue>;
-
-/**
  * YJS representation of a row
  * Maps column names to YJS shared types or primitives
  */
-type YjsRowData = Y.Map<YjsCellValue>;
+type YjsRowData = Y.Map<CellValue>;
 
 /**
  * Observer handlers for table changes
  */
-type ObserveHandlers = {
-	onAdd: (id: string, data: RowData) => void | Promise<void>;
-	onUpdate: (id: string, data: RowData) => void | Promise<void>;
+type ObserveHandlers<S extends TableSchema> = {
+	onAdd: (id: string, data: RowData<S>) => void | Promise<void>;
+	onUpdate: (id: string, data: RowData<S>) => void | Promise<void>;
 	onDelete: (id: string) => void | Promise<void>;
+};
+
+/**
+ * Methods available on each table helper.
+ * Provides type-safe CRUD operations for a specific table schema.
+ */
+type TableHelperMethods<S extends TableSchema> = {
+	set(data: RowData<S>): void;
+	setMany(rows: RowData<S>[]): void;
+	get(id: string): RowData<S> | undefined;
+	getMany(ids: string[]): RowData<S>[];
+	getAll(): RowData<S>[];
+	has(id: string): boolean;
+	delete(id: string): void;
+	deleteMany(ids: string[]): void;
+	clear(): void;
+	count(): number;
+	observe(handlers: ObserveHandlers<S>): () => void;
+	filter(predicate: (row: RowData<S>) => boolean): RowData<S>[];
+	find(predicate: (row: RowData<S>) => boolean): RowData<S> | undefined;
 };
 
 /**
@@ -70,31 +74,101 @@ type ObserveHandlers = {
  *
  * @example
  * ```typescript
- * const doc = createYjsDocument('workspace-id', { posts: { id: id(), ... } });
+ * // Define schemas with type inference
+ * const doc = createYjsDocument('workspace-id', {
+ *   posts: {
+ *     id: id(),
+ *     title: text(),
+ *     content: richText({ nullable: true }),
+ *     tags: multiSelect({ options: ['tech', 'personal', 'work'] as const }),
+ *     viewCount: integer(),
+ *     published: boolean(),
+ *   },
+ *   comments: {
+ *     id: id(),
+ *     postId: text(),
+ *     text: text(),
+ *   }
+ * });
  *
- * // Table operations (namespaced)
- * doc.tables.posts.set({ id: '1', title: 'Hello' });
+ * // Create YJS types directly
+ * const content = new Y.XmlFragment();
+ * const paragraph = new Y.XmlElement('p');
+ * const textNode = new Y.XmlText();
+ * textNode.insert(0, 'Hello World');
+ * paragraph.insert(0, [textNode]);
+ * content.insert(0, [paragraph]);
+ *
+ * const tags = new Y.Array<string>();
+ * tags.push(['tech', 'personal']);
+ *
+ * // Type-safe table operations with YJS types
+ * doc.tables.posts.set({
+ *   id: '1',
+ *   title: 'My First Post',
+ *   content: content,      // Y.XmlFragment instance
+ *   tags: tags,            // Y.Array instance
+ *   viewCount: 0,
+ *   published: false
+ * }); // All fields are typed and required
+ *
+ * // Typed return values with YJS types
  * const row = doc.tables.posts.get('1');
+ * // row: { id: string; title: string; content: Y.XmlFragment | null; tags: Y.Array<string>; viewCount: number; published: boolean } | undefined
+ *
+ * // Mutations work because YJS types are passed by reference
+ * if (row) {
+ *   row.content?.insert(0, [new Y.XmlElement('p')]); // ✅ Mutates the document
+ *   row.tags.push(['work']);                          // ✅ Mutates the document
+ *
+ *   // Observe individual field changes
+ *   row.content?.observe((event) => {
+ *     console.log('Content changed:', event.changes);
+ *   });
+ * }
+ *
  * const exists = doc.tables.posts.has('1');
  * doc.tables.posts.delete('1');
  *
  * // Batch operations (transactional)
- * doc.tables.posts.setMany([{ id: '1', ... }, { id: '2', ... }]);
+ * const content2 = new Y.XmlFragment();
+ * const tags2 = new Y.Array<string>();
+ * tags2.push(['tech']);
+ *
+ * doc.tables.posts.setMany([
+ *   { id: '1', title: 'Post 1', content: null, tags: new Y.Array(), viewCount: 0, published: false },
+ *   { id: '2', title: 'Post 2', content: content2, tags: tags2, viewCount: 10, published: true },
+ * ]);
  * const rows = doc.tables.posts.getMany(['1', '2']);
  * doc.tables.posts.deleteMany(['1', '2']);
  *
  * // Bulk operations
- * const allRows = doc.tables.posts.getAll();
+ * const allRows = doc.tables.posts.getAll(); // Array<{ id: string; title: string; content: Y.XmlFragment | null; ... }>
  * const count = doc.tables.posts.count();
  * doc.tables.posts.clear();
  *
- * // Observation
- * const unsubscribe = doc.tables.posts.observe({ onAdd, onUpdate, onDelete });
+ * // Typed observation
+ * const unsubscribe = doc.tables.posts.observe({
+ *   onAdd: (id, data) => {
+ *     // data is typed: { id: string; title: string; content: Y.XmlFragment | null; tags: Y.Array<string>; viewCount: number; published: boolean }
+ *     console.log(`Post ${data.title} added`);
+ *     data.content?.observe(() => console.log('Content modified'));
+ *   },
+ *   onUpdate: (id, data) => console.log(`Post ${id} updated`),
+ *   onDelete: (id) => console.log(`Post ${id} deleted`),
+ * });
+ *
+ * // Typed filtering
+ * const publishedPosts = doc.tables.posts.filter(post => post.published);
+ * const firstDraft = doc.tables.posts.find(post => !post.published);
  *
  * // Document utilities
  * doc.transact(() => {
- *   doc.tables.posts.set({ ... });
- *   doc.tables.comments.set({ ... });
+ *   const newContent = new Y.XmlFragment();
+ *   const newTags = new Y.Array<string>();
+ *   newTags.push(['tech']);
+ *   doc.tables.posts.set({ id: '1', title: 'Hello', content: newContent, tags: newTags, viewCount: 0, published: false });
+ *   doc.tables.comments.set({ id: '1', postId: '1', text: 'Great post!' });
  * }, 'bulk-import');
  * ```
  */
@@ -112,59 +186,24 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 	}
 
 	/**
-	 * Serializer for converting between plain CellValue and YJS CellValue
-	 * Handles conversion of rich-text strings to Y.Text and array unwrapping
-	 */
-	const CellSerializer = (columnType: string) => {
-		return Serializer({
-			serialize(value: CellValue): YjsCellValue {
-				if (columnType === 'rich-text' && typeof value === 'string') {
-					return new Y.Text(value);
-				}
-				return value as YjsCellValue;
-			},
-
-			deserialize(value: YjsCellValue): CellValue {
-				if (value instanceof Y.Text) {
-					return value.toString();
-				}
-				if (value instanceof Y.Array) {
-					return value.toArray();
-				}
-				return value;
-			},
-		});
-	};
-
-	/**
 	 * Factory function to create a row serializer for a specific table
-	 * Serializes between plain RowData objects and Y.Map YJS structures
+	 * Converts between plain RowData objects and Y.Map YJS structures
 	 */
 	const RowSerializer = (tableName: string) => {
-		const columnSchemas = tableSchemas[tableName];
-
 		return Serializer({
-			serialize(value: RowData): YjsRowData {
+			serialize(value: RowData<TableSchema>): YjsRowData {
 				const ymap = new Y.Map();
-
 				for (const [key, val] of Object.entries(value)) {
-					const schema = columnSchemas[key];
-					const cellSerializer = CellSerializer(schema.type);
-					ymap.set(key, cellSerializer.serialize(val));
+					ymap.set(key, val);
 				}
-
 				return ymap as YjsRowData;
 			},
 
-			deserialize(ymap: YjsRowData): RowData {
-				const obj: RowData = {};
-
+			deserialize(ymap: YjsRowData): RowData<TableSchema> {
+				const obj = {} as RowData<TableSchema>;
 				for (const [key, value] of ymap.entries()) {
-					const schema = columnSchemas[key];
-					const cellSerializer = CellSerializer(schema.type);
-					obj[key] = cellSerializer.deserialize(value);
+					obj[key] = value;
 				}
-
 				return obj;
 			},
 		});
@@ -175,14 +214,14 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 	 * Encapsulates all CRUD operations for a single table
 	 */
 	const createTableHelper = (tableName: string, ytable: Y.Map<YjsRowData>) => ({
-		set(data: RowData): void {
+		set(data: RowData<TableSchema>): void {
 			const ymap = RowSerializer(tableName).serialize(data);
 			ydoc.transact(() => {
 				ytable.set(data.id as string, ymap);
 			});
 		},
 
-		setMany(rows: RowData[]): void {
+		setMany(rows: RowData<TableSchema>[]): void {
 			ydoc.transact(() => {
 				for (const row of rows) {
 					const ymap = RowSerializer(tableName).serialize(row);
@@ -191,27 +230,27 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			});
 		},
 
-		get(id: string): RowData | undefined {
-			const rowMap = ytable.get(id);
-			if (!rowMap) return undefined;
-			return RowSerializer(tableName).deserialize(rowMap);
+		get(id: string): RowData<TableSchema> | undefined {
+			const ymap = ytable.get(id);
+			if (!ymap) return undefined;
+			return RowSerializer(tableName).deserialize(ymap);
 		},
 
-		getMany(ids: string[]): RowData[] {
-			const rows: RowData[] = [];
+		getMany(ids: string[]): RowData<TableSchema>[] {
+			const rows: RowData<TableSchema>[] = [];
 			for (const id of ids) {
-				const rowMap = ytable.get(id);
-				if (rowMap) {
-					rows.push(RowSerializer(tableName).deserialize(rowMap));
+				const ymap = ytable.get(id);
+				if (ymap) {
+					rows.push(RowSerializer(tableName).deserialize(ymap));
 				}
 			}
 			return rows;
 		},
 
-		getAll(): RowData[] {
-			const rows: RowData[] = [];
-			for (const [id, rowMap] of ytable.entries()) {
-				rows.push(RowSerializer(tableName).deserialize(rowMap));
+		getAll(): RowData<TableSchema>[] {
+			const rows: RowData<TableSchema>[] = [];
+			for (const [id, ymap] of ytable.entries()) {
+				rows.push(RowSerializer(tableName).deserialize(ymap));
 			}
 			return rows;
 		},
@@ -244,21 +283,21 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			return ytable.size;
 		},
 
-		observe(handlers: ObserveHandlers): () => void {
+		observe(handlers: ObserveHandlers<TableSchema>): () => void {
 			// Use observeDeep to catch nested changes (fields inside rows)
 			const observer = (events: Y.YEvent<any>[]) => {
 				for (const event of events) {
 					event.changes.keys.forEach((change: any, key: string) => {
 						if (change.action === 'add') {
-							const rowMap = ytable.get(key);
-							if (rowMap) {
-								const data = RowSerializer(tableName).deserialize(rowMap);
+							const ymap = ytable.get(key);
+							if (ymap) {
+								const data = RowSerializer(tableName).deserialize(ymap);
 								handlers.onAdd(key, data);
 							}
 						} else if (change.action === 'update') {
-							const rowMap = ytable.get(key);
-							if (rowMap) {
-								const data = RowSerializer(tableName).deserialize(rowMap);
+							const ymap = ytable.get(key);
+							if (ymap) {
+								const data = RowSerializer(tableName).deserialize(ymap);
 								handlers.onUpdate(key, data);
 							}
 						} else if (change.action === 'delete') {
@@ -276,10 +315,10 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			};
 		},
 
-		filter(predicate: (row: RowData) => boolean): RowData[] {
-			const results: RowData[] = [];
-			for (const [id, rowMap] of ytable.entries()) {
-				const row = RowSerializer(tableName).deserialize(rowMap);
+		filter(predicate: (row: RowData<TableSchema>) => boolean): RowData<TableSchema>[] {
+			const results: RowData<TableSchema>[] = [];
+			for (const [id, ymap] of ytable.entries()) {
+				const row = RowSerializer(tableName).deserialize(ymap);
 				if (predicate(row)) {
 					results.push(row);
 				}
@@ -287,9 +326,9 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			return results;
 		},
 
-		find(predicate: (row: RowData) => boolean): RowData | undefined {
-			for (const [id, rowMap] of ytable.entries()) {
-				const row = RowSerializer(tableName).deserialize(rowMap);
+		find(predicate: (row: RowData<TableSchema>) => boolean): RowData<TableSchema> | undefined {
+			for (const [id, ymap] of ytable.entries()) {
+				const row = RowSerializer(tableName).deserialize(ymap);
 				if (predicate(row)) {
 					return row;
 				}

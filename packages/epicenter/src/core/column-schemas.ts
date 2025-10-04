@@ -1,5 +1,6 @@
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
+import * as Y from 'yjs';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -106,9 +107,7 @@ export type ColumnSchema =
 			nullable: boolean;
 			options: readonly string[];
 			default?: string[];
-	  }
-	| { type: 'json'; nullable: boolean; default?: any }
-	| { type: 'blob'; nullable: boolean };
+	  };
 
 /**
  * Extract just the type names from ColumnSchema
@@ -119,6 +118,85 @@ export type ColumnType = ColumnSchema['type'];
  * Table schema - maps column names to their schemas
  */
 export type TableSchema = Record<string, ColumnSchema>;
+
+/**
+ * Maps a ColumnSchema to its YJS or primitive TypeScript type.
+ * Handles nullable fields and returns YJS types for rich-text and multi-select.
+ *
+ * @example
+ * ```typescript
+ * type IdType = ColumnToType<{ type: 'id'; nullable: false }>; // string
+ * type TextField = ColumnToType<{ type: 'text'; nullable: true }>; // string | null
+ * type RichTextField = ColumnToType<{ type: 'rich-text'; nullable: false }>; // Y.XmlFragment
+ * type MultiSelectField = ColumnToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
+ * ```
+ */
+export type ColumnToType<C extends ColumnSchema> =
+	C extends { type: 'id' }
+		? string
+		: C extends { type: 'text' }
+			? C extends { nullable: true }
+				? string | null
+				: string
+			: C extends { type: 'rich-text' }
+				? C extends { nullable: true }
+					? Y.XmlFragment | null
+					: Y.XmlFragment
+				: C extends { type: 'integer' }
+					? C extends { nullable: true }
+						? number | null
+						: number
+					: C extends { type: 'real' }
+						? C extends { nullable: true }
+							? number | null
+							: number
+						: C extends { type: 'boolean' }
+							? C extends { nullable: true }
+								? boolean | null
+								: boolean
+							: C extends { type: 'date' }
+								? C extends { nullable: true }
+									? DateWithTimezone | null
+									: DateWithTimezone
+								: C extends { type: 'select' }
+									? C extends { nullable: true }
+										? string | null
+										: string
+									: C extends { type: 'multi-select' }
+										? Y.Array<string>
+										: never;
+
+/**
+ * Maps a TableSchema to a row type with properly typed fields.
+ * Each column name becomes a property with its corresponding YJS or primitive type.
+ *
+ * @example
+ * ```typescript
+ * type PostSchema = {
+ *   id: { type: 'id'; nullable: false };
+ *   title: { type: 'text'; nullable: false };
+ *   content: { type: 'rich-text'; nullable: true };
+ *   viewCount: { type: 'integer'; nullable: false };
+ * };
+ * type PostRow = SchemaToRow<PostSchema>;
+ * // { id: string; title: string; content: Y.XmlFragment | null; viewCount: number }
+ * ```
+ */
+export type SchemaToRow<S extends TableSchema> = {
+	[K in keyof S]: ColumnToType<S[K]>;
+};
+
+/**
+ * A row of data with typed cell values based on the table schema.
+ * Generic version that infers types from the provided schema.
+ *
+ * @example
+ * ```typescript
+ * const postSchema = { id: id(), title: text(), published: boolean() };
+ * type Post = RowData<typeof postSchema>; // { id: string; title: string; published: boolean }
+ * ```
+ */
+export type RowData<S extends TableSchema> = SchemaToRow<S>;
 
 /**
  * Creates an ID column schema - always primary key with auto-generation
@@ -279,32 +357,3 @@ export function multiSelect(opts: {
 	};
 }
 
-/**
- * Creates a JSON column schema (NOT NULL by default)
- * @example
- * json() // → { type: 'json', nullable: false }
- * json({ default: {} })
- */
-export function json<T = any>(opts?: {
-	nullable?: boolean;
-	default?: T;
-}): ColumnSchema {
-	return {
-		type: 'json',
-		nullable: opts?.nullable ?? false,
-		default: opts?.default,
-	};
-}
-
-/**
- * Creates a blob column schema (NOT NULL by default)
- * @example
- * blob() // → { type: 'blob', nullable: false }
- * blob({ nullable: true })
- */
-export function blob(opts?: { nullable?: boolean }): ColumnSchema {
-	return {
-		type: 'blob',
-		nullable: opts?.nullable ?? false,
-	};
-}
