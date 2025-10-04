@@ -1,6 +1,7 @@
 import type { WorkspaceActionMap } from './actions';
-import type { RowData, TableSchema } from './column-schemas';
+import type { TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition } from './indexes';
+import type { TableHelper } from './yjsdoc';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -214,23 +215,7 @@ export type WorkspaceActionContext<
 export type WorkspaceTablesAPI<
 	TTableSchemas extends Record<string, TableSchema>,
 > = {
-	[TableName in keyof TTableSchemas]: {
-		// Single row operations
-		set(data: RowData<TTableSchemas[TableName]>): void;
-		get(id: string): RowData<TTableSchemas[TableName]> | undefined;
-		has(id: string): boolean;
-		delete(id: string): boolean;
-
-		// Batch operations (transactional)
-		setMany(rows: RowData<TTableSchemas[TableName]>[]): void;
-		getMany(ids: string[]): RowData<TTableSchemas[TableName]>[];
-		deleteMany(ids: string[]): number;
-
-		// Bulk operations
-		getAll(): RowData<TTableSchemas[TableName]>[];
-		clear(): void;
-		count(): number;
-	};
+	[TableName in keyof TTableSchemas]: TableHelper<TTableSchemas[TableName]>;
 };
 
 /**

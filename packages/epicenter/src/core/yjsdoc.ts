@@ -1,17 +1,6 @@
 import * as Y from 'yjs';
-import type {
-	CellValue,
-	DateWithTimezone,
-	RowData,
-	TableSchema,
-} from './column-schemas';
+import type { CellValue, SchemaToRow, TableSchema } from './column-schemas';
 import { Serializer } from './columns';
-import type { WorkspaceTablesAPI } from './workspace';
-
-/**
- * YJS document utilities for vault.
- * Handles initialization, conversion, and observation of YJS documents.
- */
 
 /**
  * YJS representation of a row
@@ -22,9 +11,12 @@ type YjsRowData = Y.Map<CellValue>;
 /**
  * Observer handlers for table changes
  */
-type ObserveHandlers<S extends TableSchema> = {
-	onAdd: (id: string, data: RowData<S>) => void | Promise<void>;
-	onUpdate: (id: string, data: RowData<S>) => void | Promise<void>;
+type ObserveHandlers<TTableSchema extends TableSchema> = {
+	onAdd: (id: string, data: SchemaToRow<TTableSchema>) => void | Promise<void>;
+	onUpdate: (
+		id: string,
+		data: SchemaToRow<TTableSchema>,
+	) => void | Promise<void>;
 	onDelete: (id: string) => void | Promise<void>;
 };
 
@@ -32,11 +24,11 @@ type ObserveHandlers<S extends TableSchema> = {
  * Type-safe table helper with operations for a specific table schema
  */
 export type TableHelper<TTableSchema extends TableSchema> = {
-	set(data: RowData<TTableSchema>): void;
-	setMany(rows: RowData<TTableSchema>[]): void;
-	get(id: string): RowData<TTableSchema> | undefined;
-	getMany(ids: string[]): RowData<TTableSchema>[];
-	getAll(): RowData<TTableSchema>[];
+	set(data: SchemaToRow<TTableSchema>): void;
+	setMany(rows: SchemaToRow<TTableSchema>[]): void;
+	get(id: string): SchemaToRow<TTableSchema> | undefined;
+	getMany(ids: string[]): SchemaToRow<TTableSchema>[];
+	getAll(): SchemaToRow<TTableSchema>[];
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;
@@ -44,11 +36,11 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	count(): number;
 	observe(handlers: ObserveHandlers<TTableSchema>): () => void;
 	filter(
-		predicate: (row: RowData<TTableSchema>) => boolean,
-	): RowData<TTableSchema>[];
+		predicate: (row: SchemaToRow<TTableSchema>) => boolean,
+	): SchemaToRow<TTableSchema>[];
 	find(
-		predicate: (row: RowData<TTableSchema>) => boolean,
-	): RowData<TTableSchema> | undefined;
+		predicate: (row: SchemaToRow<TTableSchema>) => boolean,
+	): SchemaToRow<TTableSchema> | undefined;
 };
 
 /**
@@ -192,7 +184,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 	): TableHelper<TSchemas[TKey]> => {
 		// Scoped type aliases for better readability
 		type Schema = TSchemas[TKey];
-		type Row = RowData<Schema>;
+		type Row = SchemaToRow<TTableSchema>;
 
 		const RowSerializer = Serializer({
 			serialize(value: Row): YjsRowData {

@@ -172,28 +172,16 @@ export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
  * type PostSchema = {
  *   id: { type: 'id'; nullable: false };
  *   title: { type: 'text'; nullable: false };
- *   content: { type: 'rich-text'; nullable: true };
+ *   content: { type: 'yxmlfragment'; nullable: true };
  *   viewCount: { type: 'integer'; nullable: false };
  * };
  * type PostRow = SchemaToRow<PostSchema>;
  * // { id: string; title: string; content: Y.XmlFragment | null; viewCount: number }
  * ```
  */
-export type SchemaToRow<S extends TableSchema> = {
-	[K in keyof S]: ColumnToType<S[K]>;
+export type SchemaToRow<TTableSchema extends TableSchema> = {
+	[K in keyof TTableSchema]: ColumnToType<TTableSchema[K]>;
 };
-
-/**
- * A row of data with typed cell values based on the table schema.
- * Generic version that infers types from the provided schema.
- *
- * @example
- * ```typescript
- * const postSchema = { id: id(), title: text(), published: boolean() };
- * type Post = RowData<typeof postSchema>; // { id: string; title: string; published: boolean }
- * ```
- */
-export type RowData<S extends TableSchema> = SchemaToRow<S>;
 
 /**
  * Union of all possible cell values across all column types.
