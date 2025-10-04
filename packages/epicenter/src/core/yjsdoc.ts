@@ -1,6 +1,5 @@
 import * as Y from 'yjs';
 import type { CellValue, Row, TableSchema } from './column-schemas';
-import { Serializer } from './columns';
 
 /**
  * YJS representation of a row
@@ -21,8 +20,12 @@ type ObserveHandlers<TRow extends Row> = {
  * Type-safe table helper with operations for a specific table schema
  */
 export type TableHelper<TRow extends Row> = {
-	set(data: TRow): void;
-	setMany(rows: TRow[]): void;
+	insert(data: TRow): void;
+	update(id: string, partial: Partial<TRow>): void;
+	upsert(data: TRow): void;
+	insertMany(rows: TRow[]): void;
+	upsertMany(rows: TRow[]): void;
+	updateMany(updates: Array<{ id: string; data: Partial<TRow> }>): void;
 	get(id: string): TRow | undefined;
 	getMany(ids: string[]): TRow[];
 	getAll(): TRow[];
@@ -82,8 +85,8 @@ export type TableHelper<TRow extends Row> = {
  * const tags = new Y.Array<string>();
  * tags.push(['tech', 'personal']);
  *
- * // Type-safe table operations with YJS types
- * doc.tables.posts.set({
+ * // Insert a new row (errors if ID already exists)
+ * doc.tables.posts.insert({
  *   id: '1',
  *   title: 'My First Post',
  *   content: content,      // Y.XmlFragment instance
@@ -107,6 +110,19 @@ export type TableHelper<TRow extends Row> = {
  *   });
  * }
  *
+ * // Update partial fields (errors if row doesn't exist)
+ * doc.tables.posts.update('1', { title: 'Updated Title', viewCount: 100 });
+ *
+ * // Upsert - insert or update (never errors)
+ * doc.tables.posts.upsert({
+ *   id: '2',
+ *   title: 'Post 2',
+ *   content: null,
+ *   tags: new Y.Array(),
+ *   viewCount: 0,
+ *   published: false
+ * });
+ *
  * const exists = doc.tables.posts.has('1');
  * doc.tables.posts.delete('1');
  *
@@ -115,12 +131,23 @@ export type TableHelper<TRow extends Row> = {
  * const tags2 = new Y.Array<string>();
  * tags2.push(['tech']);
  *
- * doc.tables.posts.setMany([
- *   { id: '1', title: 'Post 1', content: null, tags: new Y.Array(), viewCount: 0, published: false },
- *   { id: '2', title: 'Post 2', content: content2, tags: tags2, viewCount: 10, published: true },
+ * doc.tables.posts.insertMany([
+ *   { id: '3', title: 'Post 3', content: null, tags: new Y.Array(), viewCount: 0, published: false },
+ *   { id: '4', title: 'Post 4', content: content2, tags: tags2, viewCount: 10, published: true },
  * ]);
- * const rows = doc.tables.posts.getMany(['1', '2']);
- * doc.tables.posts.deleteMany(['1', '2']);
+ *
+ * doc.tables.posts.upsertMany([
+ *   { id: '3', title: 'Updated Post 3', content: null, tags: new Y.Array(), viewCount: 5, published: false },
+ *   { id: '5', title: 'Post 5', content: null, tags: new Y.Array(), viewCount: 0, published: false },
+ * ]);
+ *
+ * doc.tables.posts.updateMany([
+ *   { id: '3', data: { viewCount: 10 } },
+ *   { id: '4', data: { published: false } },
+ * ]);
+ *
+ * const rows = doc.tables.posts.getMany(['3', '4']);
+ * doc.tables.posts.deleteMany(['3', '4']);
  *
  * // Bulk operations
  * const allRows = doc.tables.posts.getAll(); // Array<{ id: string; title: string; content: Y.XmlFragment | null; ... }>
@@ -147,8 +174,8 @@ export type TableHelper<TRow extends Row> = {
  *   const newContent = new Y.XmlFragment();
  *   const newTags = new Y.Array<string>();
  *   newTags.push(['tech']);
- *   doc.tables.posts.set({ id: '1', title: 'Hello', content: newContent, tags: newTags, viewCount: 0, published: false });
- *   doc.tables.comments.set({ id: '1', postId: '1', text: 'Great post!' });
+ *   doc.tables.posts.upsert({ id: '1', title: 'Hello', content: newContent, tags: newTags, viewCount: 0, published: false });
+ *   doc.tables.comments.insert({ id: '1', postId: '1', text: 'Great post!' });
  * }, 'bulk-import');
  * ```
  */
@@ -179,32 +206,89 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 
 				type TRow = Row<TSchemas[typeof tableName]>;
 
-				const RowSerializer = Serializer({
-					serialize(value: TRow): YjsRowData {
-						const ymap = new Y.Map<CellValue>();
-						for (const [key, val] of Object.entries(value)) {
-							ymap.set(key, val);
-						}
-						return ymap;
-					},
-					deserialize(ymap: YjsRowData): TRow {
-						return Object.fromEntries(ymap.entries()) as TRow;
-					},
-				});
-
 				const tableHelper: TableHelper<TRow> = {
-					set(data: TRow) {
-						const ymap = RowSerializer.serialize(data);
+					insert(data: TRow) {
 						ydoc.transact(() => {
-							ytable.set(data.id as string, ymap);
+							const id = data.id as string;
+							if (ytable.has(id)) {
+								throw new Error(`Row with id "${id}" already exists in table "${tableName}"`);
+							}
+							const ymap = new Y.Map<CellValue>();
+							for (const [key, value] of Object.entries(data)) {
+								ymap.set(key, value);
+							}
+							ytable.set(id, ymap);
 						});
 					},
 
-					setMany(rows: TRow[]) {
+					update(id: string, partial: Partial<TRow>) {
+						ydoc.transact(() => {
+							const ymap = ytable.get(id);
+							if (!ymap) {
+								throw new Error(`Row with id "${id}" not found in table "${tableName}"`);
+							}
+							for (const [key, value] of Object.entries(partial)) {
+								ymap.set(key, value);
+							}
+						});
+					},
+
+					upsert(data: TRow) {
+						ydoc.transact(() => {
+							const id = data.id as string;
+							let ymap = ytable.get(id);
+							if (!ymap) {
+								ymap = new Y.Map<CellValue>();
+								ytable.set(id, ymap);
+							}
+							for (const [key, value] of Object.entries(data)) {
+								ymap.set(key, value);
+							}
+						});
+					},
+
+					insertMany(rows: TRow[]) {
 						ydoc.transact(() => {
 							for (const row of rows) {
-								const ymap = RowSerializer.serialize(row);
-								ytable.set(row.id as string, ymap);
+								const id = row.id as string;
+								if (ytable.has(id)) {
+									throw new Error(`Row with id "${id}" already exists in table "${tableName}"`);
+								}
+								const ymap = new Y.Map<CellValue>();
+								for (const [key, value] of Object.entries(row)) {
+									ymap.set(key, value);
+								}
+								ytable.set(id, ymap);
+							}
+						});
+					},
+
+					upsertMany(rows: TRow[]) {
+						ydoc.transact(() => {
+							for (const row of rows) {
+								const id = row.id as string;
+								let ymap = ytable.get(id);
+								if (!ymap) {
+									ymap = new Y.Map<CellValue>();
+									ytable.set(id, ymap);
+								}
+								for (const [key, value] of Object.entries(row)) {
+									ymap.set(key, value);
+								}
+							}
+						});
+					},
+
+					updateMany(updates: Array<{ id: string; data: Partial<TRow> }>) {
+						ydoc.transact(() => {
+							for (const { id, data } of updates) {
+								const ymap = ytable.get(id);
+								if (!ymap) {
+									throw new Error(`Row with id "${id}" not found in table "${tableName}"`);
+								}
+								for (const [key, value] of Object.entries(data)) {
+									ymap.set(key, value);
+								}
 							}
 						});
 					},
@@ -212,7 +296,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 					get(id: string) {
 						const ymap = ytable.get(id);
 						if (!ymap) return undefined;
-						return RowSerializer.deserialize(ymap);
+						return Object.fromEntries(ymap.entries()) as TRow;
 					},
 
 					getMany(ids: string[]) {
@@ -220,7 +304,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						for (const id of ids) {
 							const ymap = ytable.get(id);
 							if (ymap) {
-								rows.push(RowSerializer.deserialize(ymap));
+								rows.push(Object.fromEntries(ymap.entries()) as TRow);
 							}
 						}
 						return rows;
@@ -228,8 +312,8 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 
 					getAll() {
 						const rows: TRow[] = [];
-						for (const [id, ymap] of ytable.entries()) {
-							rows.push(RowSerializer.deserialize(ymap));
+						for (const ymap of ytable.values()) {
+							rows.push(Object.fromEntries(ymap.entries()) as TRow);
 						}
 						return rows;
 					},
@@ -270,13 +354,13 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 									if (change.action === 'add') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = RowSerializer.deserialize(ymap) as TRow;
+											const data = Object.fromEntries(ymap.entries()) as TRow;
 											handlers.onAdd(key, data);
 										}
 									} else if (change.action === 'update') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = RowSerializer.deserialize(ymap) as TRow;
+											const data = Object.fromEntries(ymap.entries()) as TRow;
 											handlers.onUpdate(key, data);
 										}
 									} else if (change.action === 'delete') {
@@ -296,8 +380,8 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 
 					filter(predicate: (row: TRow) => boolean) {
 						const results: TRow[] = [];
-						for (const [id, ymap] of ytable.entries()) {
-							const row = RowSerializer.deserialize(ymap);
+						for (const ymap of ytable.values()) {
+							const row = Object.fromEntries(ymap.entries()) as TRow;
 							if (predicate(row)) {
 								results.push(row);
 							}
@@ -306,8 +390,8 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 					},
 
 					find(predicate: (row: TRow) => boolean) {
-						for (const [id, ymap] of ytable.entries()) {
-							const row = RowSerializer.deserialize(ymap);
+						for (const ymap of ytable.values()) {
+							const row = Object.fromEntries(ymap.entries()) as TRow;
 							if (predicate(row)) {
 								return row;
 							}
@@ -349,15 +433,15 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		 * @example
 		 * ```typescript
 		 * // Single operation - automatically transactional
-		 * doc.tables.posts.set({ id: '1', title: 'Hello' });
+		 * doc.tables.posts.insert({ id: '1', title: 'Hello', ... });
 		 *
 		 * // Batch operation - wrapped in transaction
-		 * doc.tables.posts.setMany([{ id: '1', ... }, { id: '2', ... }]);
+		 * doc.tables.posts.insertMany([{ id: '1', ... }, { id: '2', ... }]);
 		 *
 		 * // Cross-table transaction - safe nesting
 		 * doc.transact(() => {
-		 *   doc.tables.posts.setMany([...]); // reuses outer transaction
-		 *   doc.tables.users.set({ ... }); // also reuses outer transaction
+		 *   doc.tables.posts.upsertMany([...]); // reuses outer transaction
+		 *   doc.tables.users.insert({ ... }); // also reuses outer transaction
 		 * }, 'bulk-import');
 		 * ```
 		 */
