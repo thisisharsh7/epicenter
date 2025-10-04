@@ -102,18 +102,6 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 	workspaceId: string,
 	tableSchemas: T,
 ) {
-	// Reserved names that cannot be used for tables
-	const RESERVED_NAMES = ['tables', 'ydoc', 'transact', 'getTableNames'];
-
-	// Validate table names
-	for (const tableName of Object.keys(tableSchemas)) {
-		if (RESERVED_NAMES.includes(tableName)) {
-			throw new Error(
-				`Table name "${tableName}" is reserved. Reserved names: ${RESERVED_NAMES.join(', ')}`,
-			);
-		}
-	}
-
 	// Initialize Y.Doc
 	const ydoc = new Y.Doc({ guid: workspaceId });
 	const ytables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
