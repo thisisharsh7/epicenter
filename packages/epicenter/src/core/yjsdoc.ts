@@ -166,28 +166,25 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 	}
 
 	/**
-	 * Factory function to create a row serializer for a specific table
-	 * Converts between plain RowData objects and Y.Map YJS structures
+	 * Row serializer for converting between plain RowData objects and Y.Map YJS structures
 	 */
-	const RowSerializer = (tableName: string) => {
-		return Serializer({
-			serialize(value: RowData<TableSchema>): YjsRowData {
-				const ymap = new Y.Map();
-				for (const [key, val] of Object.entries(value)) {
-					ymap.set(key, val);
-				}
-				return ymap as YjsRowData;
-			},
+	const RowSerializer = Serializer({
+		serialize(value: RowData<TableSchema>): YjsRowData {
+			const ymap = new Y.Map();
+			for (const [key, val] of Object.entries(value)) {
+				ymap.set(key, val);
+			}
+			return ymap as YjsRowData;
+		},
 
-			deserialize(ymap: YjsRowData): RowData<TableSchema> {
-				const obj = {} as RowData<TableSchema>;
-				for (const [key, value] of ymap.entries()) {
-					obj[key] = value;
-				}
-				return obj;
-			},
-		});
-	};
+		deserialize(ymap: YjsRowData): RowData<TableSchema> {
+			const obj = {} as RowData<TableSchema>;
+			for (const [key, value] of ymap.entries()) {
+				obj[key] = value;
+			}
+			return obj;
+		},
+	});
 
 	/**
 	 * Factory function to create a table helper for a specific table
@@ -195,7 +192,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 	 */
 	const createTableHelper = (tableName: string, ytable: Y.Map<YjsRowData>) => ({
 		set(data: RowData<TableSchema>): void {
-			const ymap = RowSerializer(tableName).serialize(data);
+			const ymap = RowSerializer.serialize(data);
 			ydoc.transact(() => {
 				ytable.set(data.id as string, ymap);
 			});
@@ -204,7 +201,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 		setMany(rows: RowData<TableSchema>[]): void {
 			ydoc.transact(() => {
 				for (const row of rows) {
-					const ymap = RowSerializer(tableName).serialize(row);
+					const ymap = RowSerializer.serialize(row);
 					ytable.set(row.id as string, ymap);
 				}
 			});
@@ -213,7 +210,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 		get(id: string): RowData<TableSchema> | undefined {
 			const ymap = ytable.get(id);
 			if (!ymap) return undefined;
-			return RowSerializer(tableName).deserialize(ymap);
+			return RowSerializer.deserialize(ymap);
 		},
 
 		getMany(ids: string[]): RowData<TableSchema>[] {
@@ -221,7 +218,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			for (const id of ids) {
 				const ymap = ytable.get(id);
 				if (ymap) {
-					rows.push(RowSerializer(tableName).deserialize(ymap));
+					rows.push(RowSerializer.deserialize(ymap));
 				}
 			}
 			return rows;
@@ -230,7 +227,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 		getAll(): RowData<TableSchema>[] {
 			const rows: RowData<TableSchema>[] = [];
 			for (const [id, ymap] of ytable.entries()) {
-				rows.push(RowSerializer(tableName).deserialize(ymap));
+				rows.push(RowSerializer.deserialize(ymap));
 			}
 			return rows;
 		},
@@ -271,13 +268,13 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 						if (change.action === 'add') {
 							const ymap = ytable.get(key);
 							if (ymap) {
-								const data = RowSerializer(tableName).deserialize(ymap);
+								const data = RowSerializer.deserialize(ymap);
 								handlers.onAdd(key, data);
 							}
 						} else if (change.action === 'update') {
 							const ymap = ytable.get(key);
 							if (ymap) {
-								const data = RowSerializer(tableName).deserialize(ymap);
+								const data = RowSerializer.deserialize(ymap);
 								handlers.onUpdate(key, data);
 							}
 						} else if (change.action === 'delete') {
@@ -300,7 +297,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 		): RowData<TableSchema>[] {
 			const results: RowData<TableSchema>[] = [];
 			for (const [id, ymap] of ytable.entries()) {
-				const row = RowSerializer(tableName).deserialize(ymap);
+				const row = RowSerializer.deserialize(ymap);
 				if (predicate(row)) {
 					results.push(row);
 				}
@@ -312,7 +309,7 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			predicate: (row: RowData<TableSchema>) => boolean,
 		): RowData<TableSchema> | undefined {
 			for (const [id, ymap] of ytable.entries()) {
-				const row = RowSerializer(tableName).deserialize(ymap);
+				const row = RowSerializer.deserialize(ymap);
 				if (predicate(row)) {
 					return row;
 				}

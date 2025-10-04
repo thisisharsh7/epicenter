@@ -30,8 +30,6 @@ export {
 	date,
 	select,
 	multiSelect,
-	json,
-	blob,
 	generateId,
 } from './core/column-schemas';
 export type {
@@ -65,23 +63,10 @@ export { runWorkspace } from './core/runtime';
 export type { RuntimeConfig } from './core/runtime';
 
 // YJS utilities
-export type {
-	YjsValue,
-	YjsRowMap,
-	YjsRowsById,
-	YjsRowOrder,
-	YjsTableMap,
-	YjsTablesMap,
-} from './core/yjsdoc';
+export { createYjsDocument } from './core/yjsdoc';
 
 // Index system
-export type {
-	Index,
-	IndexContext,
-	IndexesDefinition,
-	CellValue,
-	RowData,
-} from './core/indexes';
+export type { Index, IndexContext, IndexesDefinition } from './core/indexes';
 
 // Indexes (implementations)
 export { createSQLiteIndex } from './indexes/sqlite-index';
