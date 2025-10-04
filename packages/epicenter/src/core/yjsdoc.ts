@@ -61,12 +61,12 @@ type TableHelper = {
 	set(data: RowData): void;
 	get(id: string): RowData | undefined;
 	has(id: string): boolean;
-	delete(id: string): boolean;
+	delete(id: string): void;
 
 	// Batch operations (transactional)
 	setMany(rows: RowData[]): void;
 	getMany(ids: string[]): RowData[];
-	deleteMany(ids: string[]): number;
+	deleteMany(ids: string[]): void;
 
 	// Bulk operations
 	getAll(): RowData[];
@@ -260,30 +260,18 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			return ytable.has(id);
 		},
 
-		delete(id: string): boolean {
-			const exists = ytable.has(id);
-			if (!exists) return false;
-
+		delete(id: string): void {
 			ydoc.transact(() => {
 				ytable.delete(id);
 			});
-
-			return true;
 		},
 
-		deleteMany(ids: string[]): number {
-			let count = 0;
-
+		deleteMany(ids: string[]): void {
 			ydoc.transact(() => {
 				for (const id of ids) {
-					if (ytable.has(id)) {
-						ytable.delete(id);
-						count++;
-					}
+					ytable.delete(id);
 				}
 			});
-
-			return count;
 		},
 
 		clear(): void {
