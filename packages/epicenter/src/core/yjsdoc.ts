@@ -188,11 +188,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						return ymap;
 					},
 					deserialize(ymap: YjsRowData): TRow {
-						const obj = {} as TRow;
-						for (const [key, value] of ymap.entries()) {
-							obj[key] = value;
-						}
-						return obj;
+						return Object.fromEntries(ymap.entries()) as TRow;
 					},
 				});
 
