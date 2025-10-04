@@ -8,12 +8,12 @@ import type { CellValue, Row, TableSchema } from './column-schemas';
 type YjsRowData = Y.Map<CellValue>;
 
 /**
- * Observer handlers for table changes
+ * Observer handlers for document-level table changes
  */
-type ObserveHandlers<TRow extends Row> = {
-	onAdd: (id: string, data: TRow) => void | Promise<void>;
-	onUpdate: (id: string, data: TRow) => void | Promise<void>;
-	onDelete: (id: string) => void | Promise<void>;
+type DocumentObserveHandlers = {
+	onAdd: (tableName: string, data: Row) => void | Promise<void>;
+	onUpdate: (tableName: string, data: Row) => void | Promise<void>;
+	onDelete: (tableName: string, id: string) => void | Promise<void>;
 };
 
 /**
@@ -34,7 +34,6 @@ export type TableHelper<TRow extends Row> = {
 	deleteMany(ids: string[]): void;
 	clear(): void;
 	count(): number;
-	observe(handlers: ObserveHandlers<TRow>): () => void;
 	filter(predicate: (row: TRow) => boolean): TRow[];
 	find(predicate: (row: TRow) => boolean): TRow | undefined;
 };
@@ -154,15 +153,21 @@ export type TableHelper<TRow extends Row> = {
  * const count = doc.tables.posts.count();
  * doc.tables.posts.clear();
  *
- * // Typed observation
- * const unsubscribe = doc.tables.posts.observe({
- *   onAdd: (id, data) => {
- *     // data is typed: { id: string; title: string; content: Y.XmlFragment | null; tags: Y.Array<string>; viewCount: number; published: boolean }
- *     console.log(`Post ${data.title} added`);
- *     data.content?.observe(() => console.log('Content modified'));
+ * // Document-level observation (observes all tables)
+ * const unsubscribe = doc.observe({
+ *   onAdd: (tableName, data) => {
+ *     console.log(`Row added to ${tableName}:`, data);
+ *     if (tableName === 'posts') {
+ *       // Can narrow to specific table logic
+ *       console.log(`Post ${data.title} added`);
+ *     }
  *   },
- *   onUpdate: (id, data) => console.log(`Post ${id} updated`),
- *   onDelete: (id) => console.log(`Post ${id} deleted`),
+ *   onUpdate: (tableName, data) => {
+ *     console.log(`Row in ${tableName} updated:`, data);
+ *   },
+ *   onDelete: (tableName, id) => {
+ *     console.log(`Row ${id} deleted from ${tableName}`);
+ *   },
  * });
  *
  * // Typed filtering
@@ -352,38 +357,6 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						return ytable.size;
 					},
 
-					observe(handlers: ObserveHandlers<Row>) {
-						// Use observeDeep to catch nested changes (fields inside rows)
-						const observer = (events: Y.YEvent<any>[]) => {
-							for (const event of events) {
-								event.changes.keys.forEach((change: any, key: string) => {
-									if (change.action === 'add') {
-										const ymap = ytable.get(key);
-										if (ymap) {
-											const data = Object.fromEntries(ymap.entries()) as Row;
-											handlers.onAdd(key, data);
-										}
-									} else if (change.action === 'update') {
-										const ymap = ytable.get(key);
-										if (ymap) {
-											const data = Object.fromEntries(ymap.entries()) as Row;
-											handlers.onUpdate(key, data);
-										}
-									} else if (change.action === 'delete') {
-										handlers.onDelete(key);
-									}
-								});
-							}
-						};
-
-						ytable.observeDeep(observer);
-
-						// Return unsubscribe function
-						return () => {
-							ytable.unobserveDeep(observer);
-						};
-					},
-
 					filter(predicate: (row: Row) => boolean) {
 						const results: Row[] = [];
 						for (const ymap of ytable.values()) {
@@ -460,6 +433,108 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		 */
 		getTableNames(): string[] {
 			return Object.keys(tableSchemas);
+		},
+
+		/**
+		 * Observe all table changes at the document level
+		 *
+		 * Registers a deep observer on the root tables YMap to intercept all
+		 * add, update, and delete operations across all tables.
+		 *
+		 * @example
+		 * ```typescript
+		 * const unsubscribe = doc.observe({
+		 *   onAdd: (tableName, data) => {
+		 *     console.log(`Row added to ${tableName}:`, data);
+		 *   },
+		 *   onUpdate: (tableName, data) => {
+		 *     console.log(`Row updated in ${tableName}:`, data);
+		 *   },
+		 *   onDelete: (tableName, id) => {
+		 *     console.log(`Row ${id} deleted from ${tableName}`);
+		 *   },
+		 * });
+		 *
+		 * // Later: unsubscribe when done
+		 * unsubscribe();
+		 * ```
+		 */
+		observe(handlers: DocumentObserveHandlers): () => void {
+			ytables.observeDeep((events: Y.YEvent<Y.Map<YjsRowData>>[]) => {
+				for (const event of events) {
+					// event.target is the specific table YMap that changed
+					// Find which table this is by comparing references
+					let changedTableName: string | undefined;
+					for (const tableName of Object.keys(tableSchemas)) {
+						if (ytables.get(tableName) === event.target) {
+							changedTableName = tableName;
+							break;
+						}
+					}
+
+					if (!changedTableName) continue;
+
+					// Process the changes on this table
+					event.changes.keys.forEach((change, rowId) => {
+						if (change.action === 'add') {
+							const ytable = ytables.get(changedTableName);
+							const ymap = ytable?.get(rowId);
+							if (ymap) {
+								const data = Object.fromEntries(ymap.entries()) as Row;
+								handlers.onAdd(changedTableName, data);
+							}
+						} else if (change.action === 'update') {
+							const ytable = ytables.get(changedTableName);
+							const ymap = ytable?.get(rowId);
+							if (ymap) {
+								const data = Object.fromEntries(ymap.entries()) as Row;
+								handlers.onUpdate(changedTableName, data);
+							}
+						} else if (change.action === 'delete') {
+							handlers.onDelete(changedTableName, rowId);
+						}
+					});
+				}
+			});
+
+			return () => {
+				ytables.unobserveDeep((events: Y.YEvent<Y.Map<YjsRowData>>[]) => {
+					for (const event of events) {
+						// event.target is the specific table YMap that changed
+						// Find which table this is by comparing references
+						let changedTableName: string | undefined;
+						for (const tableName of Object.keys(tableSchemas)) {
+							if (ytables.get(tableName) === event.target) {
+								changedTableName = tableName;
+								break;
+							}
+						}
+
+						if (!changedTableName) continue;
+
+						// Process the changes on this table
+						event.changes.keys.forEach((change, rowId) => {
+							if (change.action === 'add') {
+								const ytable = ytables.get(changedTableName);
+								const ymap = ytable?.get(rowId);
+								if (ymap) {
+									const data = Object.fromEntries(ymap.entries()) as Row;
+									handlers.onAdd(changedTableName, data);
+								}
+							} else if (change.action === 'update') {
+								const ytable = ytables.get(changedTableName);
+								const ymap = ytable?.get(rowId);
+								if (ymap) {
+									const data = Object.fromEntries(ymap.entries()) as Row;
+									handlers.onUpdate(changedTableName, data);
+								}
+							} else if (change.action === 'delete') {
+								handlers.onDelete(changedTableName, rowId);
+							}
+						});
+					}
+				});
+			};
 		},
 	};
 }
