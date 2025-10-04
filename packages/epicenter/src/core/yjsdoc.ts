@@ -165,12 +165,12 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		ytables.set(tableName, new Y.Map<YjsRowData>());
 	}
 
-	/**
-	 * Factory function to create table helpers for all tables
-	 * Encapsulates all CRUD operations for each table
-	 */
-	const createTableHelpers = () => {
-		return Object.fromEntries(
+	return {
+		/**
+		 * Table helpers organized by table name
+		 * Each table has methods for type-safe CRUD operations
+		 */
+		tables: Object.fromEntries(
 			Object.keys(tableSchemas).map((tableName) => {
 				const ytable = ytables.get(tableName);
 				if (!ytable) {
@@ -197,14 +197,14 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 				});
 
 				const tableHelper: TableHelper<TRow> = {
-					set(data: TRow): void {
+					set(data: TRow) {
 						const ymap = RowSerializer.serialize(data);
 						ydoc.transact(() => {
 							ytable.set(data.id as string, ymap);
 						});
 					},
 
-					setMany(rows: TRow[]): void {
+					setMany(rows: TRow[]) {
 						ydoc.transact(() => {
 							for (const row of rows) {
 								const ymap = RowSerializer.serialize(row);
@@ -213,13 +213,13 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						});
 					},
 
-					get(id: string): TRow | undefined {
+					get(id: string) {
 						const ymap = ytable.get(id);
 						if (!ymap) return undefined;
 						return RowSerializer.deserialize(ymap);
 					},
 
-					getMany(ids: string[]): TRow[] {
+					getMany(ids: string[]) {
 						const rows: TRow[] = [];
 						for (const id of ids) {
 							const ymap = ytable.get(id);
@@ -230,7 +230,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						return rows;
 					},
 
-					getAll(): TRow[] {
+					getAll() {
 						const rows: TRow[] = [];
 						for (const [id, ymap] of ytable.entries()) {
 							rows.push(RowSerializer.deserialize(ymap));
@@ -238,17 +238,17 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						return rows;
 					},
 
-					has(id: string): boolean {
+					has(id: string) {
 						return ytable.has(id);
 					},
 
-					delete(id: string): void {
+					delete(id: string) {
 						ydoc.transact(() => {
 							ytable.delete(id);
 						});
 					},
 
-					deleteMany(ids: string[]): void {
+					deleteMany(ids: string[]) {
 						ydoc.transact(() => {
 							for (const id of ids) {
 								ytable.delete(id);
@@ -256,17 +256,17 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						});
 					},
 
-					clear(): void {
+					clear() {
 						ydoc.transact(() => {
 							ytable.clear();
 						});
 					},
 
-					count(): number {
+					count() {
 						return ytable.size;
 					},
 
-					observe(handlers: ObserveHandlers<TRow>): () => void {
+					observe(handlers: ObserveHandlers<TRow>) {
 						// Use observeDeep to catch nested changes (fields inside rows)
 						const observer = (events: Y.YEvent<any>[]) => {
 							for (const event of events) {
@@ -298,7 +298,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						};
 					},
 
-					filter(predicate: (row: TRow) => boolean): TRow[] {
+					filter(predicate: (row: TRow) => boolean) {
 						const results: TRow[] = [];
 						for (const [id, ymap] of ytable.entries()) {
 							const row = RowSerializer.deserialize(ymap);
@@ -309,7 +309,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 						return results;
 					},
 
-					find(predicate: (row: TRow) => boolean): TRow | undefined {
+					find(predicate: (row: TRow) => boolean) {
 						for (const [id, ymap] of ytable.entries()) {
 							const row = RowSerializer.deserialize(ymap);
 							if (predicate(row)) {
@@ -324,15 +324,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 			}),
 		) as {
 			[TTableName in keyof TSchemas]: TableHelper<Row<TSchemas[TTableName]>>;
-		};
-	};
-
-	return {
-		/**
-		 * Table helpers organized by table name
-		 * Each table has methods for CRUD operations
-		 */
-		tables: createTableHelpers(),
+		},
 
 		/**
 		 * The underlying YJS document
