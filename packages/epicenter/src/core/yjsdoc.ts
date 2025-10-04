@@ -20,24 +20,20 @@ type ObserveHandlers<TRow extends Record<string, CellValue>> = {
 /**
  * Type-safe table helper with operations for a specific table schema
  */
-export type TableHelper<TTableSchema extends TableSchema> = {
-	set(data: SchemaToRow<TTableSchema>): void;
-	setMany(rows: SchemaToRow<TTableSchema>[]): void;
-	get(id: string): SchemaToRow<TTableSchema> | undefined;
-	getMany(ids: string[]): SchemaToRow<TTableSchema>[];
-	getAll(): SchemaToRow<TTableSchema>[];
+export type TableHelper<TRow extends Record<string, CellValue>> = {
+	set(data: TRow): void;
+	setMany(rows: TRow[]): void;
+	get(id: string): TRow | undefined;
+	getMany(ids: string[]): TRow[];
+	getAll(): TRow[];
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;
 	clear(): void;
 	count(): number;
-	observe(handlers: ObserveHandlers<SchemaToRow<TTableSchema>>): () => void;
-	filter(
-		predicate: (row: SchemaToRow<TTableSchema>) => boolean,
-	): SchemaToRow<TTableSchema>[];
-	find(
-		predicate: (row: SchemaToRow<TTableSchema>) => boolean,
-	): SchemaToRow<TTableSchema> | undefined;
+	observe(handlers: ObserveHandlers<TRow>): () => void;
+	filter(predicate: (row: TRow) => boolean): TRow[];
+	find(predicate: (row: TRow) => boolean): TRow | undefined;
 };
 
 /**
