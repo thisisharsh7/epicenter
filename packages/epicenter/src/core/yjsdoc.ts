@@ -37,26 +37,6 @@ type ObserveHandlers<S extends TableSchema> = {
 };
 
 /**
- * Methods available on each table helper.
- * Provides type-safe CRUD operations for a specific table schema.
- */
-type TableHelperMethods<S extends TableSchema> = {
-	set(data: RowData<S>): void;
-	setMany(rows: RowData<S>[]): void;
-	get(id: string): RowData<S> | undefined;
-	getMany(ids: string[]): RowData<S>[];
-	getAll(): RowData<S>[];
-	has(id: string): boolean;
-	delete(id: string): void;
-	deleteMany(ids: string[]): void;
-	clear(): void;
-	count(): number;
-	observe(handlers: ObserveHandlers<S>): () => void;
-	filter(predicate: (row: RowData<S>) => boolean): RowData<S>[];
-	find(predicate: (row: RowData<S>) => boolean): RowData<S> | undefined;
-};
-
-/**
  * Create a YJS document for a workspace with encapsulated state.
  * Returns an object with namespaced table methods and document utilities.
  *
@@ -315,7 +295,9 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			};
 		},
 
-		filter(predicate: (row: RowData<TableSchema>) => boolean): RowData<TableSchema>[] {
+		filter(
+			predicate: (row: RowData<TableSchema>) => boolean,
+		): RowData<TableSchema>[] {
 			const results: RowData<TableSchema>[] = [];
 			for (const [id, ymap] of ytable.entries()) {
 				const row = RowSerializer(tableName).deserialize(ymap);
@@ -326,7 +308,9 @@ export function createYjsDocument<T extends Record<string, TableSchema>>(
 			return results;
 		},
 
-		find(predicate: (row: RowData<TableSchema>) => boolean): RowData<TableSchema> | undefined {
+		find(
+			predicate: (row: RowData<TableSchema>) => boolean,
+		): RowData<TableSchema> | undefined {
 			for (const [id, ymap] of ytable.entries()) {
 				const row = RowSerializer(tableName).deserialize(ymap);
 				if (predicate(row)) {
