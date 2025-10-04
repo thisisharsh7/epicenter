@@ -63,7 +63,7 @@ export function id() {
 	return drizzleText()
 		.notNull()
 		.primaryKey()
-		.$type<Id>()
+		// .$type<Id>()
 		.$defaultFn(() => generateNanoId());
 }
 
