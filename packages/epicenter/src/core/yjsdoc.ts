@@ -165,155 +165,165 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		ytables.set(tableName, new Y.Map<YjsRowData>());
 	}
 
-	// Serializer is now scoped per table below to preserve Row type
-
 	/**
-	 * Factory function to create a table helper for a specific table
-	 * Encapsulates all CRUD operations for a single table
+	 * Factory function to create table helpers for all tables
+	 * Encapsulates all CRUD operations for each table
 	 */
-	const createTableHelper = <TRow extends Row>(
-		row: TRow,
-		ytable: Y.Map<YjsRowData>,
-	): TableHelper<TRow> => {
-		const RowSerializer = Serializer({
-			serialize(value: TRow): YjsRowData {
-				const ymap = new Y.Map();
-				for (const [key, val] of Object.entries(value)) {
-					ymap.set(key, val);
+	const createTableHelpers = () => {
+		return Object.fromEntries(
+			Object.keys(tableSchemas).map((tableName) => {
+				const ytable = ytables.get(tableName);
+				if (!ytable) {
+					throw new Error(`Table "${tableName}" not found in YJS document`);
 				}
-				return ymap as YjsRowData;
-			},
-			deserialize(ymap: YjsRowData): TRow {
-				const obj = {} as TRow;
-				for (const [key, value] of ymap.entries()) {
-					obj[key] = value;
-				}
-				return obj;
-			},
-		});
 
-		return {
-			set(data: TRow): void {
-				const ymap = RowSerializer.serialize(data);
-				ydoc.transact(() => {
-					ytable.set(data.id as string, ymap);
+				type TRow = Row<TSchemas[typeof tableName]>;
+
+				const RowSerializer = Serializer({
+					serialize(value: TRow): YjsRowData {
+						const ymap = new Y.Map();
+						for (const [key, val] of Object.entries(value)) {
+							ymap.set(key, val);
+						}
+						return ymap as YjsRowData;
+					},
+					deserialize(ymap: YjsRowData): TRow {
+						const obj = {} as TRow;
+						for (const [key, value] of ymap.entries()) {
+							obj[key] = value;
+						}
+						return obj;
+					},
 				});
-			},
 
-			setMany(rows: TRow[]): void {
-				ydoc.transact(() => {
-					for (const row of rows) {
-						const ymap = RowSerializer.serialize(row);
-						ytable.set(row.id as string, ymap);
-					}
-				});
-			},
+				const tableHelper: TableHelper<TRow> = {
+					set(data: TRow): void {
+						const ymap = RowSerializer.serialize(data);
+						ydoc.transact(() => {
+							ytable.set(data.id as string, ymap);
+						});
+					},
 
-			get(id: string): TRow | undefined {
-				const ymap = ytable.get(id);
-				if (!ymap) return undefined;
-				return RowSerializer.deserialize(ymap);
-			},
-
-			getMany(ids: string[]): TRow[] {
-				const rows: TRow[] = [];
-				for (const id of ids) {
-					const ymap = ytable.get(id);
-					if (ymap) {
-						rows.push(RowSerializer.deserialize(ymap));
-					}
-				}
-				return rows;
-			},
-
-			getAll(): TRow[] {
-				const rows: TRow[] = [];
-				for (const [id, ymap] of ytable.entries()) {
-					rows.push(RowSerializer.deserialize(ymap));
-				}
-				return rows;
-			},
-
-			has(id: string): boolean {
-				return ytable.has(id);
-			},
-
-			delete(id: string): void {
-				ydoc.transact(() => {
-					ytable.delete(id);
-				});
-			},
-
-			deleteMany(ids: string[]): void {
-				ydoc.transact(() => {
-					for (const id of ids) {
-						ytable.delete(id);
-					}
-				});
-			},
-
-			clear(): void {
-				ydoc.transact(() => {
-					ytable.clear();
-				});
-			},
-
-			count(): number {
-				return ytable.size;
-			},
-
-			observe(handlers: ObserveHandlers<TRow>): () => void {
-				// Use observeDeep to catch nested changes (fields inside rows)
-				const observer = (events: Y.YEvent<any>[]) => {
-					for (const event of events) {
-						event.changes.keys.forEach((change: any, key: string) => {
-							if (change.action === 'add') {
-								const ymap = ytable.get(key);
-								if (ymap) {
-									const data = RowSerializer.deserialize(ymap) as TRow;
-									handlers.onAdd(key, data);
-								}
-							} else if (change.action === 'update') {
-								const ymap = ytable.get(key);
-								if (ymap) {
-									const data = RowSerializer.deserialize(ymap) as TRow;
-									handlers.onUpdate(key, data);
-								}
-							} else if (change.action === 'delete') {
-								handlers.onDelete(key);
+					setMany(rows: TRow[]): void {
+						ydoc.transact(() => {
+							for (const row of rows) {
+								const ymap = RowSerializer.serialize(row);
+								ytable.set(row.id as string, ymap);
 							}
 						});
-					}
+					},
+
+					get(id: string): TRow | undefined {
+						const ymap = ytable.get(id);
+						if (!ymap) return undefined;
+						return RowSerializer.deserialize(ymap);
+					},
+
+					getMany(ids: string[]): TRow[] {
+						const rows: TRow[] = [];
+						for (const id of ids) {
+							const ymap = ytable.get(id);
+							if (ymap) {
+								rows.push(RowSerializer.deserialize(ymap));
+							}
+						}
+						return rows;
+					},
+
+					getAll(): TRow[] {
+						const rows: TRow[] = [];
+						for (const [id, ymap] of ytable.entries()) {
+							rows.push(RowSerializer.deserialize(ymap));
+						}
+						return rows;
+					},
+
+					has(id: string): boolean {
+						return ytable.has(id);
+					},
+
+					delete(id: string): void {
+						ydoc.transact(() => {
+							ytable.delete(id);
+						});
+					},
+
+					deleteMany(ids: string[]): void {
+						ydoc.transact(() => {
+							for (const id of ids) {
+								ytable.delete(id);
+							}
+						});
+					},
+
+					clear(): void {
+						ydoc.transact(() => {
+							ytable.clear();
+						});
+					},
+
+					count(): number {
+						return ytable.size;
+					},
+
+					observe(handlers: ObserveHandlers<TRow>): () => void {
+						// Use observeDeep to catch nested changes (fields inside rows)
+						const observer = (events: Y.YEvent<any>[]) => {
+							for (const event of events) {
+								event.changes.keys.forEach((change: any, key: string) => {
+									if (change.action === 'add') {
+										const ymap = ytable.get(key);
+										if (ymap) {
+											const data = RowSerializer.deserialize(ymap) as TRow;
+											handlers.onAdd(key, data);
+										}
+									} else if (change.action === 'update') {
+										const ymap = ytable.get(key);
+										if (ymap) {
+											const data = RowSerializer.deserialize(ymap) as TRow;
+											handlers.onUpdate(key, data);
+										}
+									} else if (change.action === 'delete') {
+										handlers.onDelete(key);
+									}
+								});
+							}
+						};
+
+						ytable.observeDeep(observer);
+
+						// Return unsubscribe function
+						return () => {
+							ytable.unobserveDeep(observer);
+						};
+					},
+
+					filter(predicate: (row: TRow) => boolean): TRow[] {
+						const results: TRow[] = [];
+						for (const [id, ymap] of ytable.entries()) {
+							const row = RowSerializer.deserialize(ymap);
+							if (predicate(row)) {
+								results.push(row);
+							}
+						}
+						return results;
+					},
+
+					find(predicate: (row: TRow) => boolean): TRow | undefined {
+						for (const [id, ymap] of ytable.entries()) {
+							const row = RowSerializer.deserialize(ymap);
+							if (predicate(row)) {
+								return row;
+							}
+						}
+						return undefined;
+					},
 				};
 
-				ytable.observeDeep(observer);
-
-				// Return unsubscribe function
-				return () => {
-					ytable.unobserveDeep(observer);
-				};
-			},
-
-			filter(predicate: (row: TRow) => boolean): TRow[] {
-				const results: TRow[] = [];
-				for (const [id, ymap] of ytable.entries()) {
-					const row = RowSerializer.deserialize(ymap);
-					if (predicate(row)) {
-						results.push(row);
-					}
-				}
-				return results;
-			},
-
-			find(predicate: (row: TRow) => boolean): TRow | undefined {
-				for (const [id, ymap] of ytable.entries()) {
-					const row = RowSerializer.deserialize(ymap);
-					if (predicate(row)) {
-						return row;
-					}
-				}
-				return undefined;
-			},
+				return [tableName, tableHelper];
+			}),
+		) as {
+			[TTableName in keyof TSchemas]: TableHelper<Row<TSchemas[TTableName]>>;
 		};
 	};
 
@@ -322,22 +332,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		 * Table helpers organized by table name
 		 * Each table has methods for CRUD operations
 		 */
-		/**
-		 * Table helpers organized by table name
-		 * Each table has methods for CRUD operations
-		 */
-		tables: Object.fromEntries(
-			Object.keys(tableSchemas).map((tableName) => {
-				const ytable = ytables.get(tableName);
-				if (!ytable) {
-					throw new Error(`Table "${tableName}" not found in YJS document`);
-				}
-				return [
-					tableName,
-					createTableHelper({} as Row<TSchemas[typeof tableName]>, ytable),
-				];
-			}),
-		),
+		tables: createTableHelpers(),
 
 		/**
 		 * The underlying YJS document
@@ -386,22 +381,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 		 * Get all table names in the document
 		 */
 		getTableNames(): string[] {
-			return Object.keys(
-				Object.fromEntries(
-					Object.keys(tableSchemas).map((tableName) => {
-						const ytable = ytables.get(tableName);
-						if (!ytable) {
-							throw new Error(`Table "${tableName}" not found in YJS document`);
-						}
-						return [
-							tableName,
-							createTableHelper(tableName as keyof TSchemas, ytable),
-						];
-					}),
-				) as {
-					[TTableName in keyof TSchemas]: TableHelper<TSchemas[TTableName]>;
-				},
-			);
+			return Object.keys(tableSchemas);
 		},
 	};
 }

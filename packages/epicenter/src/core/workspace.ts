@@ -1,5 +1,5 @@
 import type { WorkspaceActionMap } from './actions';
-import type { TableSchema } from './column-schemas';
+import type { Row, TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition } from './indexes';
 import type { TableHelper } from './yjsdoc';
 
@@ -215,7 +215,7 @@ export type WorkspaceActionContext<
 export type WorkspaceTablesAPI<
 	TTableSchemas extends Record<string, TableSchema>,
 > = {
-	[TableName in keyof TTableSchemas]: TableHelper<TTableSchemas[TableName]>;
+	[TableName in keyof TTableSchemas]: TableHelper<Row<TTableSchemas[TableName]>>;
 };
 
 /**
