@@ -8,12 +8,12 @@ import type { VaultOperationError } from './errors';
  * Each workspace exposes its functionality through a set of typed methods
  * that can be called by other workspaces or external consumers.
  */
-export type PluginMethodMap = Record<string, PluginMethod>;
+export type WorkspaceMethodMap = Record<string, WorkspaceMethod>;
 
 /**
  * Union type for all method types
  */
-export type PluginMethod<
+export type WorkspaceMethod<
 	TSchema extends StandardSchemaV1 = StandardSchemaV1,
 	TOutput = unknown,
 > = QueryMethod<TSchema, TOutput> | MutationMethod<TSchema, TOutput>;
@@ -29,7 +29,9 @@ export type QueryMethod<
 	input: TSchema;
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>;
+	) =>
+		| Result<TOutput, VaultOperationError>
+		| Promise<Result<TOutput, VaultOperationError>>;
 	description?: string;
 };
 
@@ -44,7 +46,9 @@ export type MutationMethod<
 	input: TSchema;
 	handler: (
 		input: StandardSchemaV1.InferOutput<TSchema>,
-	) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>;
+	) =>
+		| Result<TOutput, VaultOperationError>
+		| Promise<Result<TOutput, VaultOperationError>>;
 	description?: string;
 };
 
@@ -71,14 +75,17 @@ export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
 /**
  * Type helper to extract the input type from a method
  */
-export type InferMethodInput<T> = T extends PluginMethod<infer TSchema, unknown>
+export type InferMethodInput<T> = T extends WorkspaceMethod<
+	infer TSchema,
+	unknown
+>
 	? StandardSchemaV1.InferOutput<TSchema>
 	: never;
 
 /**
  * Type helper to extract the output type from a method
  */
-export type InferMethodOutput<T> = T extends PluginMethod<
+export type InferMethodOutput<T> = T extends WorkspaceMethod<
 	StandardSchemaV1,
 	infer O
 >
@@ -89,7 +96,7 @@ export type InferMethodOutput<T> = T extends PluginMethod<
  * Type helper to extract the unwrapped output type from a method handler
  * This unwraps the Result type to get the actual success value type
  */
-export type InferMethodOutputUnwrapped<T> = T extends PluginMethod<
+export type InferMethodOutputUnwrapped<T> = T extends WorkspaceMethod<
 	StandardSchemaV1,
 	infer O
 >
@@ -99,14 +106,21 @@ export type InferMethodOutputUnwrapped<T> = T extends PluginMethod<
 /**
  * Type helper to extract the handler function with Result return type
  */
-export type InferMethodHandler<T> = T extends PluginMethod<infer TSchema, infer TOutput>
-	? (input: StandardSchemaV1.InferOutput<TSchema>) => Result<TOutput, VaultOperationError> | Promise<Result<TOutput, VaultOperationError>>
+export type InferMethodHandler<T> = T extends WorkspaceMethod<
+	infer TSchema,
+	infer TOutput
+>
+	? (
+			input: StandardSchemaV1.InferOutput<TSchema>,
+		) =>
+			| Result<TOutput, VaultOperationError>
+			| Promise<Result<TOutput, VaultOperationError>>
 	: never;
 
 /**
  * Type helper to check if a method is a query
  */
-export function isQuery<T extends PluginMethod>(
+export function isQuery<T extends WorkspaceMethod>(
 	method: T,
 ): method is T & QueryMethod {
 	return method.type === 'query';
@@ -115,7 +129,7 @@ export function isQuery<T extends PluginMethod>(
 /**
  * Type helper to check if a method is a mutation
  */
-export function isMutation<T extends PluginMethod>(
+export function isMutation<T extends WorkspaceMethod>(
 	method: T,
 ): method is T & MutationMethod {
 	return method.type === 'mutation';

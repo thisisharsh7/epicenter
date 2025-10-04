@@ -1,15 +1,15 @@
-# Vault Plugin API
+# Vault Workspace API
 
 ## Clean, Direct API
 
-The vault plugin system provides a clean API where methods are directly callable functions:
+The vault workspace system provides a clean API where methods are directly callable functions:
 
 ```typescript
 import { z } from 'zod';
-import { definePlugin, defineQuery, defineMutation, runPlugin } from '@repo/vault';
+import { defineWorkspace, defineQuery, defineMutation, runWorkspace } from '@repo/vault';
 
-// Define your plugin
-const todosPlugin = definePlugin({
+// Define your workspace
+const todosWorkspace = defineWorkspace({
   id: 'todos',
   tables: {
     todos: {
@@ -41,8 +41,8 @@ const todosPlugin = definePlugin({
   }),
 });
 
-// Use your plugin - clean, direct API!
-const todos = await runPlugin(todosPlugin);
+// Use your workspace - clean, direct API!
+const todos = await runWorkspace(todosWorkspace);
 
 // Methods are directly callable - no .execute() needed!
 await todos.createTodo({ title: 'Learn Vault' });
@@ -58,7 +58,7 @@ console.log(todos.getTodos.type);   // 'query'
 1. **Direct method calls**: `todos.createTodo()` not `todos.createTodo.execute()`
 2. **Automatic validation**: Input schemas are validated using Standard Schema
 3. **Full type safety**: Input types are inferred from schemas
-4. **Simple plugin return**: `runPlugin` returns the plugin instance directly
+4. **Simple workspace return**: `runWorkspace` returns the workspace instance directly
 5. **Method introspection**: Access `type`, `input`, and `handler` properties when needed
 
 ## Input Validation with Standard Schema

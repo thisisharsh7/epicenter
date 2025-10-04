@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TableSchema } from './column-schemas';
-import type { PluginMethod } from './methods';
-import type { Plugin } from './plugin';
+import type { WorkspaceMethod } from './methods';
+import type { Workspace } from './workspace';
 import { createYjsDocument, type RowData } from './yjsdoc';
 
 /**
@@ -71,21 +71,21 @@ export type RuntimeConfig = {
  * Run a workspace with YJS-first architecture
  * Returns the workspace instance with tables, methods, and indexes
  */
-export async function runPlugin<T = unknown>(
-	plugin: Plugin,
+export async function runWorkspace<T = unknown>(
+	workspace: Workspace,
 	config: RuntimeConfig = {},
 ): Promise<T> {
 	// 1. Initialize YJS document
-	const doc = createYjsDocument(plugin.id, plugin.tables);
+	const doc = createYjsDocument(workspace.id, workspace.tables);
 
 	// 2. Initialize indexes
 	const indexContext = {
 		doc,
-		tableSchemas: plugin.tables,
-		workspaceId: plugin.id,
+		tableSchemas: workspace.tables,
+		workspaceId: workspace.id,
 	};
 
-	const indexes = plugin.indexes(indexContext);
+	const indexes = workspace.indexes(indexContext);
 
 	// Initialize each index
 	for (const [indexName, index] of Object.entries(indexes)) {
@@ -97,7 +97,7 @@ export async function runPlugin<T = unknown>(
 	}
 
 	// 3. Set up observers for all tables
-	for (const tableName of Object.keys(plugin.tables)) {
+	for (const tableName of Object.keys(workspace.tables)) {
 		doc.observeTable(tableName, {
 			onAdd: async (id, data) => {
 				for (const index of Object.values(indexes)) {
@@ -136,7 +136,7 @@ export async function runPlugin<T = unknown>(
 	}
 
 	// 4. Create table helpers (write-only to YJS)
-	const tables = createTableHelpers(doc, plugin.tables);
+	const tables = createTableHelpers(doc, workspace.tables);
 
 	// 5. Initialize dependencies (if any)
 	const dependencies: Record<string, unknown> = {};
@@ -144,20 +144,20 @@ export async function runPlugin<T = unknown>(
 
 	// 6. Initialize methods with full context
 	const methodContext = {
-		plugins: dependencies,
+		workspaces: dependencies,
 		tables,
 		indexes,
 	};
 
 	// Process methods to extract handlers and make them directly callable
-	const processedMethods = Object.entries(plugin.methods(methodContext)).reduce(
+	const processedMethods = Object.entries(workspace.methods(methodContext)).reduce(
 		(acc, [methodName, method]) => {
 			acc[methodName] = method.handler;
 			return acc;
 		},
 		{} as Record<
 			string,
-			PluginMethod<StandardSchemaV1<unknown, unknown>, unknown>['handler']
+			WorkspaceMethod<StandardSchemaV1<unknown, unknown>, unknown>['handler']
 		>,
 	);
 

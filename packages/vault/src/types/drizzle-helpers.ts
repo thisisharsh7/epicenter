@@ -56,20 +56,20 @@ export type AffectedRowsResult = {
 };
 
 /**
- * Type for plugin method signatures
+ * Type for workspace method signatures
  * More specific than `any` but still flexible
  */
-export type PluginMethod = (...args: unknown[]) => unknown;
+export type WorkspaceMethod = (...args: unknown[]) => unknown;
 
 /**
- * Type for plugin dependencies map
+ * Type for workspace dependencies map
  */
-export type PluginDependencies = Record<string, unknown>;
+export type WorkspaceDependencies = Record<string, unknown>;
 
 /**
- * Type for plugin tables map with enhanced helpers
+ * Type for workspace tables map with enhanced helpers
  */
-export type PluginTables = Record<
+export type WorkspaceTables = Record<
 	string,
 	SQLiteTable & Record<string, unknown>
 >;
@@ -91,16 +91,16 @@ export function hasIdColumn(table: SQLiteTable): table is TableWithId {
  * Helper to build a SQL count expression
  */
 export function countExpression(): SQL<number> {
-	return SQL`count(*)`;
+	return sql`count(*)`;
 }
 
 /**
- * Type for the plugin API passed to plugin methods
- * This is a recursive type that builds up based on plugin dependencies
+ * Type for the workspace API passed to workspace methods
+ * This is a recursive type that builds up based on workspace dependencies
  */
-export type PluginAPI<
-	TPlugins extends Record<string, unknown> = Record<string, unknown>,
-> = TPlugins;
+export type WorkspaceAPI<
+	TWorkspaces extends Record<string, unknown> = Record<string, unknown>,
+> = TWorkspaces;
 
 /**
  * Type for runtime storage operations
@@ -113,8 +113,24 @@ export type StorageOperations = {
 };
 
 /**
- * Type for aggregated plugin namespace
+ * Type for aggregated workspace namespace
  */
-export type AggregatedPluginNamespace<
-	TPlugins extends Record<string, unknown> = Record<string, unknown>,
-> = TPlugins;
+export type AggregatedWorkspaceNamespace<
+	TWorkspaces extends Record<string, unknown> = Record<string, unknown>,
+> = TWorkspaces;
+
+/**
+ * Generate CREATE TABLE statements for SQLite schema
+ */
+export async function exportSQLiteSchema(
+	schemaImports: Record<string, unknown>,
+): Promise<string[]> {
+	const currentSnapshot = await generateSQLiteDrizzleJson(schemaImports);
+	const emptySnapshot = await generateSQLiteDrizzleJson({}); // Empty schema for comparison
+
+	const sqlStatements = await generateSQLiteMigration(
+		emptySnapshot,
+		currentSnapshot,
+	);
+	return sqlStatements;
+}

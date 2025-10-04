@@ -16,8 +16,8 @@
  */
 
 // Core workspace definition
-export { defineWorkspace, definePlugin } from './core/plugin';
-export type { Plugin, PluginMethodContext } from './core/plugin';
+export { defineWorkspace } from './core/workspace';
+export type { Workspace, WorkspaceMethodContext } from './core/workspace';
 
 // Column schema system
 export {
@@ -55,13 +55,13 @@ export {
 export type {
 	QueryMethod,
 	MutationMethod,
-	PluginMethod,
+	WorkspaceMethod,
 	InferMethodInput,
 	InferMethodOutput,
 } from './core/methods';
 
 // Runtime
-export { runPlugin } from './core/runtime';
+export { runWorkspace } from './core/runtime';
 export type { RuntimeConfig } from './core/runtime';
 
 // YJS utilities

@@ -1,4 +1,4 @@
-import type { PluginMethodMap } from './methods';
+import type { WorkspaceMethodMap } from './methods';
 import type { TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition, RowData } from './indexes';
 
@@ -78,48 +78,43 @@ import type { Index, IndexesDefinition, RowData } from './indexes';
 export function defineWorkspace<
 	TId extends string,
 	TTableSchemas extends Record<string, TableSchema>,
-	TMethodMap extends PluginMethodMap,
-	TDeps extends readonly Plugin[] = readonly [],
+	TMethodMap extends WorkspaceMethodMap,
+	TDeps extends readonly Workspace[] = readonly [],
 >(
-	plugin: Plugin<TId, TTableSchemas, TMethodMap, TDeps>,
-): Plugin<TId, TTableSchemas, TMethodMap, TDeps> {
+	workspace: Workspace<TId, TTableSchemas, TMethodMap, TDeps>,
+): Workspace<TId, TTableSchemas, TMethodMap, TDeps> {
 	// Validate workspace ID
-	if (!plugin.id || typeof plugin.id !== 'string') {
+	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error(
-			`Invalid workspace ID "${plugin.id}". Workspace IDs must be non-empty strings.`,
+			`Invalid workspace ID "${workspace.id}". Workspace IDs must be non-empty strings.`,
 		);
 	}
 
 	// Validate dependencies
-	if (plugin.dependencies) {
-		for (const dep of plugin.dependencies) {
+	if (workspace.dependencies) {
+		for (const dep of workspace.dependencies) {
 			if (!dep || typeof dep !== 'object' || !dep.id) {
 				throw new Error(
-					`Invalid dependency in workspace "${plugin.id}": dependencies must be workspace objects`,
+					`Invalid dependency in workspace "${workspace.id}": dependencies must be workspace objects`,
 				);
 			}
 		}
 	}
 
-	return plugin;
+	return workspace;
 }
 
 /**
- * @deprecated Use `defineWorkspace` instead. This alias exists for backwards compatibility.
+ * Workspace definition
  */
-export const definePlugin = defineWorkspace;
-
-/**
- * Plugin/Workspace definition
- */
-export type Plugin<
+export type Workspace<
 	TId extends string = string,
 	TTableSchemas extends Record<string, TableSchema> = Record<
 		string,
 		TableSchema
 	>,
-	TMethodMap extends PluginMethodMap = PluginMethodMap,
-	TDeps extends readonly Plugin[] = readonly [],
+	TMethodMap extends WorkspaceMethodMap = WorkspaceMethodMap,
+	TDeps extends readonly Workspace[] = readonly [],
 > = {
 	/**
 	 * Globally unique workspace ID
@@ -154,12 +149,12 @@ export type Plugin<
 
 	/**
 	 * Workspace methods - business logic with access to tables and indexes
-	 * @param context - Tables (write), indexes (read), and dependency plugins
+	 * @param context - Tables (write), indexes (read), and dependency workspaces
 	 * @returns Map of method name → method implementation
 	 *
 	 * @example
 	 * ```typescript
-	 * methods: ({ tables, indexes, plugins }) => ({
+	 * methods: ({ tables, indexes, workspaces }) => ({
 	 *   createPost: defineMutation({
 	 *     input: z.object({ title: z.string() }),
 	 *     handler: async ({ title }) => {
@@ -177,7 +172,7 @@ export type Plugin<
 	 * })
 	 * ```
 	 */
-	methods: (context: PluginMethodContext<TDeps, TTableSchemas>) => TMethodMap;
+	methods: (context: WorkspaceMethodContext<TDeps, TTableSchemas>) => TMethodMap;
 
 	/**
 	 * Lifecycle hooks (optional)
@@ -191,8 +186,8 @@ export type Plugin<
 /**
  * Context passed to the methods function
  */
-export type PluginMethodContext<
-	TDeps extends readonly Plugin[] = readonly [],
+export type WorkspaceMethodContext<
+	TDeps extends readonly Workspace[] = readonly [],
 	TTableSchemas extends Record<string, TableSchema> = Record<
 		string,
 		TableSchema
@@ -202,7 +197,7 @@ export type PluginMethodContext<
 	 * Dependency workspaces
 	 * Access methods from other workspaces
 	 */
-	plugins: DependencyPluginsAPI<TDeps>;
+	workspaces: DependencyWorkspacesAPI<TDeps>;
 
 	/**
 	 * Table helpers for this workspace
@@ -242,10 +237,10 @@ export type WorkspaceTablesAPI<TTableSchemas extends Record<string, TableSchema>
 };
 
 /**
- * Dependency plugins API - methods from dependency workspaces
+ * Dependency workspaces API - methods from dependency workspaces
  */
-type DependencyPluginsAPI<TDeps extends readonly Plugin[]> = {
-	[K in TDeps[number]['id']]: TDeps[number] extends Plugin<K>
+type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> = {
+	[K in TDeps[number]['id']]: TDeps[number] extends Workspace<K>
 		? ExtractHandlers<ReturnType<TDeps[number]['methods']>>
 		: never;
 };
@@ -253,6 +248,6 @@ type DependencyPluginsAPI<TDeps extends readonly Plugin[]> = {
 /**
  * Extract handler functions from method map
  */
-type ExtractHandlers<T extends PluginMethodMap> = {
+type ExtractHandlers<T extends WorkspaceMethodMap> = {
 	[K in keyof T]: T[K]['handler'];
 };

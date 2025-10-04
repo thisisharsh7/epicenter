@@ -55,7 +55,7 @@ Workspaces can be synchronized in real-time using Yjs:
 ```typescript
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
-import { runPlugin } from '@epicenter/vault';
+import { runWorkspace } from '@epicenter/vault';
 import workspace from './users/epicenter.config';
 
 // Create Yjs document with workspace ID
@@ -69,7 +69,7 @@ const provider = new HocuspocusProvider({
 });
 
 // Run workspace with sync enabled
-const api = await runPlugin(workspace, {
+const api = await runWorkspace(workspace, {
   databaseUrl: './users/data/db.sqlite',
   storagePath: './users/data',
   yjsDoc: ydoc // Enable Yjs sync (future feature)
@@ -171,7 +171,7 @@ npm install @repo/vault
 
 ```typescript
 // blog/epicenter.config.ts
-import { defineWorkspace, runPlugin, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/vault';
+import { defineWorkspace, runWorkspace, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/vault';
 import { eq, desc, gte } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -228,7 +228,7 @@ const blogWorkspace = defineWorkspace({
 export default blogWorkspace;
 
 // 2. Run the workspace
-const runtime = await runPlugin(blogWorkspace, {
+const runtime = await runWorkspace(blogWorkspace, {
   databaseUrl: './blog/data/db.sqlite',
   storagePath: './blog/data'
 });
@@ -647,11 +647,9 @@ const results = await api.posts.select()
 
 Create a workspace with tables and methods.
 
-**Note**: `definePlugin` is still available as an alias for backwards compatibility but is deprecated.
+#### `runWorkspace(workspace, config)`
 
-#### `runPlugin(plugin, config)`
-
-Run a plugin with runtime injection of database and storage.
+Run a workspace with runtime injection of database and storage.
 
 ### Method Helpers
 
