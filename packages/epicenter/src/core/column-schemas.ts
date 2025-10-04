@@ -57,50 +57,76 @@ export function generateId(): Id {
  * Discriminated union of all column types
  */
 export type ColumnSchema =
-	| { type: 'id' }
-	| {
-			type: 'text';
-			nullable: boolean;
-			unique?: boolean;
-			default?: string | (() => string);
-	  }
-	| { type: 'ytext'; nullable: boolean }
-	| { type: 'yxmlfragment'; nullable: boolean }
-	| {
-			type: 'integer';
-			nullable: boolean;
-			unique?: boolean;
-			default?: number | (() => number);
-	  }
-	| {
-			type: 'real';
-			nullable: boolean;
-			unique?: boolean;
-			default?: number | (() => number);
-	  }
-	| {
-			type: 'boolean';
-			nullable: boolean;
-			default?: boolean | (() => boolean);
-	  }
-	| {
-			type: 'date';
-			nullable: boolean;
-			unique?: boolean;
-			default?: DateWithTimezone | (() => DateWithTimezone);
-	  }
-	| {
-			type: 'select';
-			nullable: boolean;
-			options: readonly string[];
-			default?: string;
-	  }
-	| {
-			type: 'multi-select';
-			nullable: boolean;
-			options: readonly string[];
-			default?: string[];
-	  };
+	| IdColumnSchema
+	| TextColumnSchema
+	| YtextColumnSchema
+	| YxmlfragmentColumnSchema
+	| IntegerColumnSchema
+	| RealColumnSchema
+	| BooleanColumnSchema
+	| DateColumnSchema
+	| SelectColumnSchema
+	| MultiSelectColumnSchema;
+
+/**
+ * Individual column schema types
+ */
+export type IdColumnSchema = { type: 'id' };
+
+export type TextColumnSchema = {
+	type: 'text';
+	nullable: boolean;
+	unique?: boolean;
+	default?: string | (() => string);
+};
+
+export type YtextColumnSchema = { type: 'ytext'; nullable: boolean };
+
+export type YxmlfragmentColumnSchema = {
+	type: 'yxmlfragment';
+	nullable: boolean;
+};
+
+export type IntegerColumnSchema = {
+	type: 'integer';
+	nullable: boolean;
+	unique?: boolean;
+	default?: number | (() => number);
+};
+
+export type RealColumnSchema = {
+	type: 'real';
+	nullable: boolean;
+	unique?: boolean;
+	default?: number | (() => number);
+};
+
+export type BooleanColumnSchema = {
+	type: 'boolean';
+	nullable: boolean;
+	default?: boolean | (() => boolean);
+};
+
+export type DateColumnSchema = {
+	type: 'date';
+	nullable: boolean;
+	unique?: boolean;
+	default?: DateWithTimezone | (() => DateWithTimezone);
+};
+
+export type SelectColumnSchema = {
+	type: 'select';
+	nullable: boolean;
+	options: readonly string[];
+	default?: string;
+};
+
+export type MultiSelectColumnSchema = {
+	type: 'multi-select';
+	nullable: boolean;
+	options: readonly string[];
+	default?: string[];
+};
 
 /**
  * Extract just the type names from ColumnSchema
@@ -199,7 +225,7 @@ export type CellValue = Row[keyof Row];
  * @example
  * id() // → { type: 'id' }
  */
-export function id(): ColumnSchema {
+export function id(): IdColumnSchema {
 	return { type: 'id' };
 }
 
@@ -214,7 +240,7 @@ export function text(opts?: {
 	nullable?: boolean;
 	unique?: boolean;
 	default?: string | (() => string);
-}): ColumnSchema {
+}): TextColumnSchema {
 	return {
 		type: 'text',
 		nullable: opts?.nullable ?? false,
@@ -251,7 +277,7 @@ export function text(opts?: {
  */
 export function ytext(opts?: {
 	nullable?: boolean;
-}): ColumnSchema {
+}): YtextColumnSchema {
 	return {
 		type: 'ytext',
 		nullable: opts?.nullable ?? false,
@@ -301,7 +327,7 @@ export function ytext(opts?: {
  */
 export function yxmlfragment(opts?: {
 	nullable?: boolean;
-}): ColumnSchema {
+}): YxmlfragmentColumnSchema {
 	return {
 		type: 'yxmlfragment',
 		nullable: opts?.nullable ?? false,
@@ -318,7 +344,7 @@ export function integer(opts?: {
 	nullable?: boolean;
 	unique?: boolean;
 	default?: number | (() => number);
-}): ColumnSchema {
+}): IntegerColumnSchema {
 	return {
 		type: 'integer',
 		nullable: opts?.nullable ?? false,
@@ -337,7 +363,7 @@ export function real(opts?: {
 	nullable?: boolean;
 	unique?: boolean;
 	default?: number | (() => number);
-}): ColumnSchema {
+}): RealColumnSchema {
 	return {
 		type: 'real',
 		nullable: opts?.nullable ?? false,
@@ -355,7 +381,7 @@ export function real(opts?: {
 export function boolean(opts?: {
 	nullable?: boolean;
 	default?: boolean | (() => boolean);
-}): ColumnSchema {
+}): BooleanColumnSchema {
 	return {
 		type: 'boolean',
 		nullable: opts?.nullable ?? false,
@@ -374,7 +400,7 @@ export function date(opts?: {
 	nullable?: boolean;
 	unique?: boolean;
 	default?: DateWithTimezone | (() => DateWithTimezone);
-}): ColumnSchema {
+}): DateColumnSchema {
 	return {
 		type: 'date',
 		nullable: opts?.nullable ?? false,
@@ -393,7 +419,7 @@ export function select(opts: {
 	options: readonly string[];
 	nullable?: boolean;
 	default?: string;
-}): ColumnSchema {
+}): SelectColumnSchema {
 	return {
 		type: 'select',
 		nullable: opts.nullable ?? false,
@@ -412,7 +438,7 @@ export function multiSelect(opts: {
 	options: readonly string[];
 	nullable?: boolean;
 	default?: string[];
-}): ColumnSchema {
+}): MultiSelectColumnSchema {
 	return {
 		type: 'multi-select',
 		nullable: opts.nullable ?? false,
