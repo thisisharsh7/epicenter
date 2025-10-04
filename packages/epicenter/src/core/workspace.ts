@@ -1,6 +1,7 @@
 import type { WorkspaceActionMap } from './actions';
 import type { TableSchema } from './column-schemas';
-import type { Index, IndexesDefinition, RowData } from './indexes';
+import type { Index, IndexesDefinition } from './indexes';
+import type { RowData } from './yjsdoc';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -172,7 +173,9 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	actions: (context: WorkspaceActionContext<TDeps, TTableSchemas>) => TActionMap;
+	actions: (
+		context: WorkspaceActionContext<TDeps, TTableSchemas>,
+	) => TActionMap;
 
 	/**
 	 * Lifecycle hooks (optional)
@@ -216,7 +219,9 @@ export type WorkspaceActionContext<
  * Table helper API - synchronous operations to YJS
  * All operations are synchronous since YJS operations are synchronous
  */
-export type WorkspaceTablesAPI<TTableSchemas extends Record<string, TableSchema>> = {
+export type WorkspaceTablesAPI<
+	TTableSchemas extends Record<string, TableSchema>,
+> = {
 	[TableName in keyof TTableSchemas]: {
 		// Single row operations
 		set(data: RowData): void;
