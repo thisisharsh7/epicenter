@@ -1,7 +1,6 @@
 import type { WorkspaceActionMap } from './actions';
-import type { TableSchema } from './column-schemas';
+import type { RowData, TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition } from './indexes';
-import type { RowData } from './yjsdoc';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -76,14 +75,7 @@ import type { RowData } from './yjsdoc';
  * });
  * ```
  */
-export function defineWorkspace<
-	TId extends string,
-	TTableSchemas extends Record<string, TableSchema>,
-	TActionMap extends WorkspaceActionMap,
-	TDeps extends readonly Workspace[] = readonly [],
->(
-	workspace: Workspace<TId, TTableSchemas, TActionMap, TDeps>,
-): Workspace<TId, TTableSchemas, TActionMap, TDeps> {
+export function defineWorkspace<W extends Workspace>(workspace: W): W {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error(
@@ -224,18 +216,18 @@ export type WorkspaceTablesAPI<
 > = {
 	[TableName in keyof TTableSchemas]: {
 		// Single row operations
-		set(data: RowData): void;
-		get(id: string): RowData | undefined;
+		set(data: RowData<TTableSchemas[TableName]>): void;
+		get(id: string): RowData<TTableSchemas[TableName]> | undefined;
 		has(id: string): boolean;
 		delete(id: string): boolean;
 
 		// Batch operations (transactional)
-		setMany(rows: RowData[]): void;
-		getMany(ids: string[]): RowData[];
+		setMany(rows: RowData<TTableSchemas[TableName]>[]): void;
+		getMany(ids: string[]): RowData<TTableSchemas[TableName]>[];
 		deleteMany(ids: string[]): number;
 
 		// Bulk operations
-		getAll(): RowData[];
+		getAll(): RowData<TTableSchemas[TableName]>[];
 		clear(): void;
 		count(): number;
 	};

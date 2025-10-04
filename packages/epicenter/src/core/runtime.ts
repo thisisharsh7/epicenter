@@ -70,8 +70,8 @@ export type RuntimeConfig = {
  * Run a workspace with YJS-first architecture
  * Returns the workspace instance with tables, actions, and indexes
  */
-export async function runWorkspace<T = unknown>(
-	workspace: Workspace,
+export async function runWorkspace<W extends Workspace, T = unknown>(
+	workspace: W,
 	config: RuntimeConfig = {},
 ): Promise<T> {
 	// 1. Initialize YJS document
