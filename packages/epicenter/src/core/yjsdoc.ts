@@ -181,11 +181,11 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 
 				const RowSerializer = Serializer({
 					serialize(value: TRow): YjsRowData {
-						const ymap = new Y.Map();
+						const ymap = new Y.Map<CellValue>();
 						for (const [key, val] of Object.entries(value)) {
 							ymap.set(key, val);
 						}
-						return ymap as YjsRowData;
+						return ymap;
 					},
 					deserialize(ymap: YjsRowData): TRow {
 						const obj = {} as TRow;
