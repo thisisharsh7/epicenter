@@ -103,7 +103,9 @@ export default defineWorkspace({
         const post = await plugins.posts.getPostById({ postId });
 
         // Create comment in local workspace
-        return tables.comments.upsert({ /* ... */ });
+        const comment = { /* ... */ };
+        tables.comments.set(comment);
+        return comment;
       }
     })
   })
@@ -141,7 +143,7 @@ tables: {
 }
 
 // Enhanced table with dual storage
-await tables.posts.upsert({ id: '1', title: 'Hello' });  // → markdown + SQLite
+tables.posts.set({ id: '1', title: 'Hello' });  // → markdown + SQLite (sync)
 const posts = await tables.posts.select().where(eq(tables.posts.published, true));  // → pure Drizzle
 ```
 
@@ -208,14 +210,16 @@ const blogWorkspace = defineWorkspace({
         published: z.boolean().default(false)
       }),
       handler: async (input) => {
-        return tables.posts.upsert({
+        const post = {
           id: generateId(),
           title: input.title,
           content: input.content || null,
           published: input.published,
           views: 0,
           createdAt: new Date()
-        });
+        };
+        tables.posts.set(post);
+        return post;
       }
     })
   })
@@ -230,14 +234,15 @@ const runtime = await runPlugin(blogWorkspace, {
 });
 
 // 3. Use enhanced table helpers
-const { data: post } = await runtime.posts.upsert({
+const post = {
   id: 'first-post',
   title: 'Welcome!',
   content: 'This gets saved to both markdown and SQLite!',
   published: true,
   views: 0,
   createdAt: new Date()
-});
+};
+runtime.posts.set(post);
 
 // 4. Query with pure Drizzle
 const publishedPosts = await runtime.posts.select()
