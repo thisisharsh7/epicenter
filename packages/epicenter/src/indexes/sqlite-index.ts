@@ -92,8 +92,8 @@ export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 			await createTablesIfNotExist(db, drizzleTables);
 
 			// Initial sync: YJS → SQLite
-			for (const tableName of config.doc.getTableNames()) {
-				const rows = config.doc.tables[tableName].getAll();
+			for (const tableName of config.db.getTableNames()) {
+				const rows = config.db.tables[tableName].getAll();
 
 				for (const data of rows) {
 					const { error } = await tryAsync({

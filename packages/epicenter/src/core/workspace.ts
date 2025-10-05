@@ -128,14 +128,14 @@ export type Workspace<
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
-	 * @param context - YJS document, table schemas, and workspace ID
+	 * @param context - Epicenter database, table schemas, and workspace ID
 	 * @returns Map of index name → Index instance
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ ydoc, tableSchemas }) => ({
-	 *   sqlite: createSQLiteIndex({ ydoc, tableSchemas }),
-	 *   markdown: createMarkdownIndex({ ydoc, tableSchemas, path: './data' }),
+	 * indexes: ({ db, tableSchemas }) => ({
+	 *   sqlite: createSQLiteIndex({ db, tableSchemas }),
+	 *   markdown: createMarkdownIndex({ db, tableSchemas, path: './data' }),
 	 * })
 	 * ```
 	 */

@@ -1,7 +1,7 @@
 import type { Result } from 'wellcrafted/result';
+import type { createEpicenterDb } from '../db/core';
 import type { Row, TableSchema } from './column-schemas';
 import type { IndexError } from './errors';
-import type { createEpicenterDb } from '../db/core';
 
 /**
  * Index type system for vault.
@@ -74,7 +74,7 @@ export type IndexContext = {
 	 * The Epicenter database object with high-level CRUD methods
 	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
 	 */
-	doc: ReturnType<typeof createEpicenterDb>;
+	db: ReturnType<typeof createEpicenterDb>;
 
 	/**
 	 * Table schemas for all tables in this workspace
@@ -98,4 +98,6 @@ export type IndexFactory = (context: IndexContext) => Index;
  * Indexes definition function signature
  * Receives context and returns a map of index instances
  */
-export type IndexesDefinition = (context: IndexContext) => Record<string, Index>;
+export type IndexesDefinition = (
+	context: IndexContext,
+) => Record<string, Index>;

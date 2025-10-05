@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { createEpicenterDb } from '../db/core';
 import type { WorkspaceAction } from './actions';
 import type { Workspace } from './workspace';
-import { createEpicenterDb } from '../db/core';
 
 /**
  * Runtime configuration provided by the user
@@ -75,11 +75,11 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 	config: RuntimeConfig = {},
 ): Promise<T> {
 	// 1. Initialize Epicenter database
-	const doc = createEpicenterDb(workspace.id, workspace.tables);
+	const db = createEpicenterDb(workspace.id, workspace.tables);
 
 	// 2. Initialize indexes
 	const indexContext = {
-		doc,
+		db,
 		tableSchemas: workspace.tables,
 		workspaceId: workspace.id,
 	};
@@ -97,7 +97,7 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 
 	// 3. Set up observers for all tables
 	for (const tableName of Object.keys(workspace.tables)) {
-		doc.tables[tableName].observe({
+		db.tables[tableName].observe({
 			onAdd: async (id, data) => {
 				for (const index of Object.values(indexes)) {
 					const result = await index.onAdd(tableName, id, data);
@@ -135,7 +135,7 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 	}
 
 	// 4. Get table helpers from doc
-	const tables = doc.tables;
+	const tables = db.tables;
 
 	// 5. Initialize dependencies (if any)
 	const dependencies: Record<string, unknown> = {};
@@ -167,8 +167,8 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 		...tables,
 		...processedActions,
 		indexes,
-		ydoc: doc.ydoc,
-		transact: (fn: () => void, origin?: string) => doc.transact(fn, origin),
+		ydoc: db.ydoc,
+		transact: (fn: () => void, origin?: string) => db.transact(fn, origin),
 	};
 
 	return workspaceInstance as T;
