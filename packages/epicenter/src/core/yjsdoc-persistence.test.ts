@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { createYjsDocumentFromDisk } from './yjsdoc';
+import { createEpicenterDbFromDisk } from './yjsdoc';
 import { id, text, integer, boolean } from './column-schemas';
 
 const TEST_STORAGE_PATH = './test-data/workspaces';
@@ -17,7 +17,7 @@ describe('YJS Document Persistence', () => {
 
 	test('should persist data to disk and reload it', () => {
 		// Create document with persistence
-		const doc1 = createYjsDocumentFromDisk(
+		const doc1 = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
 			{
 				users: {
@@ -53,7 +53,7 @@ describe('YJS Document Persistence', () => {
 		expect(fs.existsSync(filePath)).toBe(true);
 
 		// Create a new document instance (simulating reload)
-		const doc2 = createYjsDocumentFromDisk(
+		const doc2 = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
 			{
 				users: {
@@ -92,7 +92,7 @@ describe('YJS Document Persistence', () => {
 
 	test('should only initialize tables that do not exist when loading from disk', () => {
 		// Create document with one table
-		const doc1 = createYjsDocumentFromDisk(
+		const doc1 = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
 			{
 				todos: {
@@ -113,7 +113,7 @@ describe('YJS Document Persistence', () => {
 		});
 
 		// Reload with same schema - should preserve data
-		const doc2 = createYjsDocumentFromDisk(
+		const doc2 = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
 			{
 				todos: {
@@ -136,7 +136,7 @@ describe('YJS Document Persistence', () => {
 	});
 
 	test('should handle updates and persist them', () => {
-		const doc = createYjsDocumentFromDisk(
+		const doc = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
 			{
 				products: {
@@ -166,7 +166,7 @@ describe('YJS Document Persistence', () => {
 		});
 
 		// Reload and verify update was persisted
-		const doc2 = createYjsDocumentFromDisk(
+		const doc2 = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
 			{
 				products: {

@@ -41,7 +41,7 @@ export type TableHelper<TRow extends Row> = {
 };
 
 /**
- * Create a YJS document wrapper with table helpers from an existing Y.Doc.
+ * Create an Epicenter database wrapper with table helpers from an existing Y.Doc.
  * This is a pure function that doesn't handle persistence - it only wraps
  * the Y.Doc with type-safe table operations.
  *
@@ -53,7 +53,7 @@ export type TableHelper<TRow extends Row> = {
  * ```typescript
  * // With a fresh Y.Doc
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
- * const doc = createYjsDocument(ydoc, {
+ * const db = createEpicenterDb(ydoc, {
  *   posts: {
  *     id: id(),
  *     title: text(),
@@ -63,10 +63,10 @@ export type TableHelper<TRow extends Row> = {
  *
  * // Or with a Y.Doc from a network provider
  * const provider = new WebrtcProvider('room-name', ydoc);
- * const doc = createYjsDocument(ydoc, schemas);
+ * const db = createEpicenterDb(ydoc, schemas);
  * ```
  */
-export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
+export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 	ydoc: Y.Doc,
 	tableSchemas: TSchemas,
 ) {
@@ -427,8 +427,8 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 }
 
 /**
- * Create a YJS document with file persistence.
- * Loads the document from disk if it exists, otherwise creates a new one.
+ * Create an Epicenter database with file persistence.
+ * Loads the database from disk if it exists, otherwise creates a new one.
  * Automatically saves changes to disk.
  *
  * @param workspaceId - The workspace ID (used as Y.Doc GUID and filename)
@@ -438,7 +438,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
  *
  * @example
  * ```typescript
- * const doc = createYjsDocumentFromDisk('workspace-123', {
+ * const db = createEpicenterDbFromDisk('workspace-123', {
  *   posts: {
  *     id: id(),
  *     title: text(),
@@ -457,8 +457,8 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
  *   autoSave: true
  * });
  *
- * // Document is loaded from disk and ready to use
- * doc.tables.posts.insert({
+ * // Database is loaded from disk and ready to use
+ * db.tables.posts.insert({
  *   id: '1',
  *   title: 'My First Post',
  *   content: new Y.XmlFragment(),
@@ -468,7 +468,7 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
  * });
  * ```
  */
-export function createYjsDocumentFromDisk<
+export function createEpicenterDbFromDisk<
 	TSchemas extends Record<string, TableSchema>,
 >(
 	workspaceId: string,
@@ -479,5 +479,5 @@ export function createYjsDocumentFromDisk<
 	const ydoc = loadYDoc(workspaceId, options);
 
 	// Wrap with table helpers
-	return createYjsDocument(ydoc, tableSchemas);
+	return createEpicenterDb(ydoc, tableSchemas);
 }

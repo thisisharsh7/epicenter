@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { WorkspaceAction } from './actions';
 import type { Workspace } from './workspace';
-import { createYjsDocument } from './yjsdoc';
+import { createEpicenterDb } from './yjsdoc';
 
 /**
  * Runtime configuration provided by the user
@@ -74,8 +74,8 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 	workspace: W,
 	config: RuntimeConfig = {},
 ): Promise<T> {
-	// 1. Initialize YJS document
-	const doc = createYjsDocument(workspace.id, workspace.tables);
+	// 1. Initialize Epicenter database
+	const doc = createEpicenterDb(workspace.id, workspace.tables);
 
 	// 2. Initialize indexes
 	const indexContext = {

@@ -1,7 +1,7 @@
 import type { Result } from 'wellcrafted/result';
-import type { TableSchema } from './column-schemas';
+import type { Row, TableSchema } from './column-schemas';
 import type { IndexError } from './errors';
-import type { createYjsDocument, RowData } from './yjsdoc';
+import type { createEpicenterDb } from './yjsdoc';
 
 /**
  * Index type system for vault.
@@ -33,7 +33,7 @@ export type Index = {
 	onAdd(
 		tableName: string,
 		id: string,
-		data: RowData,
+		data: Row,
 	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
@@ -43,7 +43,7 @@ export type Index = {
 	onUpdate(
 		tableName: string,
 		id: string,
-		data: RowData,
+		data: Row,
 	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
@@ -71,10 +71,10 @@ export type Index = {
  */
 export type IndexContext = {
 	/**
-	 * The YJS document object with high-level CRUD methods
+	 * The Epicenter database object with high-level CRUD methods
 	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
 	 */
-	doc: ReturnType<typeof createYjsDocument>;
+	doc: ReturnType<typeof createEpicenterDb>;
 
 	/**
 	 * Table schemas for all tables in this workspace

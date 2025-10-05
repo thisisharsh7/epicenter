@@ -1,12 +1,12 @@
 import { describe, test, expect } from 'bun:test';
 import * as Y from 'yjs';
-import { createYjsDocument } from './yjsdoc';
+import { createEpicenterDb } from './yjsdoc';
 import { id, text, integer, boolean } from './column-schemas';
 
-describe('createYjsDocument', () => {
+describe('createEpicenterDb', () => {
 	test('should create and retrieve rows correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createYjsDocument(ydoc, {
+		const doc = createEpicenterDb(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -33,7 +33,7 @@ describe('createYjsDocument', () => {
 
 	test('should handle batch operations', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createYjsDocument(ydoc, {
+		const doc = createEpicenterDb(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -57,7 +57,7 @@ describe('createYjsDocument', () => {
 
 	test('should filter and find rows correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createYjsDocument(ydoc, {
+		const doc = createEpicenterDb(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
