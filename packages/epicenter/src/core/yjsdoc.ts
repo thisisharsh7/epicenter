@@ -1,5 +1,7 @@
 import * as Y from 'yjs';
 import type { CellValue, Row, TableSchema } from './column-schemas';
+import type { FilePersistenceConfig } from '../storage/file-persistence';
+import { loadYDoc } from '../storage/file-persistence';
 
 /**
  * YJS representation of a row
@@ -39,162 +41,43 @@ export type TableHelper<TRow extends Row> = {
 };
 
 /**
- * Create a YJS document for a workspace with encapsulated state.
- * Returns an object with namespaced table methods and document utilities.
+ * Create a YJS document wrapper with table helpers from an existing Y.Doc.
+ * This is a pure function that doesn't handle persistence - it only wraps
+ * the Y.Doc with type-safe table operations.
  *
- * All methods accept and return plain JavaScript objects - YJS conversion
- * is handled automatically internally.
- *
- * Creates the structure:
- *   ydoc
- *     └─ tables (Y.Map<Y.Map<YjsRowData>>)
- *         └─ tableName (Y.Map<Y.Map<YjsValue>>)
- *
- * Each table is directly a Y.Map<Y.Map<YjsValue>> where:
- * - Keys are row IDs (string)
- * - Values are Y.Map<YjsValue> representing each row
+ * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
+ * @param tableSchemas - Table schema definitions
+ * @returns Object with table helpers and document utilities
  *
  * @example
  * ```typescript
- * // Define schemas with type inference
- * const doc = createYjsDocument('workspace-id', {
+ * // With a fresh Y.Doc
+ * const ydoc = new Y.Doc({ guid: 'workspace-123' });
+ * const doc = createYjsDocument(ydoc, {
  *   posts: {
  *     id: id(),
  *     title: text(),
- *     content: richText({ nullable: true }),
- *     tags: multiSelect({ options: ['tech', 'personal', 'work'] as const }),
- *     viewCount: integer(),
  *     published: boolean(),
- *   },
- *   comments: {
- *     id: id(),
- *     postId: text(),
- *     text: text(),
  *   }
  * });
  *
- * // Create YJS types directly
- * const content = new Y.XmlFragment();
- * const paragraph = new Y.XmlElement('p');
- * const textNode = new Y.XmlText();
- * textNode.insert(0, 'Hello World');
- * paragraph.insert(0, [textNode]);
- * content.insert(0, [paragraph]);
- *
- * const tags = new Y.Array<string>();
- * tags.push(['tech', 'personal']);
- *
- * // Insert a new row (errors if ID already exists)
- * doc.tables.posts.insert({
- *   id: '1',
- *   title: 'My First Post',
- *   content: content,      // Y.XmlFragment instance
- *   tags: tags,            // Y.Array instance
- *   viewCount: 0,
- *   published: false
- * }); // All fields are typed and required
- *
- * // Typed return values with YJS types
- * const row = doc.tables.posts.get('1');
- * // row: { id: string; title: string; content: Y.XmlFragment | null; tags: Y.Array<string>; viewCount: number; published: boolean } | undefined
- *
- * // Mutations work because YJS types are passed by reference
- * if (row) {
- *   row.content?.insert(0, [new Y.XmlElement('p')]); // ✅ Mutates the document
- *   row.tags.push(['work']);                          // ✅ Mutates the document
- *
- *   // Observe individual field changes
- *   row.content?.observe((event) => {
- *     console.log('Content changed:', event.changes);
- *   });
- * }
- *
- * // Update partial fields (errors if row doesn't exist)
- * doc.tables.posts.update('1', { title: 'Updated Title', viewCount: 100 });
- *
- * // Upsert - insert or update (never errors)
- * doc.tables.posts.upsert({
- *   id: '2',
- *   title: 'Post 2',
- *   content: null,
- *   tags: new Y.Array(),
- *   viewCount: 0,
- *   published: false
- * });
- *
- * const exists = doc.tables.posts.has('1');
- * doc.tables.posts.delete('1');
- *
- * // Batch operations (transactional)
- * const content2 = new Y.XmlFragment();
- * const tags2 = new Y.Array<string>();
- * tags2.push(['tech']);
- *
- * doc.tables.posts.insertMany([
- *   { id: '3', title: 'Post 3', content: null, tags: new Y.Array(), viewCount: 0, published: false },
- *   { id: '4', title: 'Post 4', content: content2, tags: tags2, viewCount: 10, published: true },
- * ]);
- *
- * doc.tables.posts.upsertMany([
- *   { id: '3', title: 'Updated Post 3', content: null, tags: new Y.Array(), viewCount: 5, published: false },
- *   { id: '5', title: 'Post 5', content: null, tags: new Y.Array(), viewCount: 0, published: false },
- * ]);
- *
- * doc.tables.posts.updateMany([
- *   { id: '3', data: { viewCount: 10 } },
- *   { id: '4', data: { published: false } },
- * ]);
- *
- * const rows = doc.tables.posts.getMany(['3', '4']);
- * doc.tables.posts.deleteMany(['3', '4']);
- *
- * // Bulk operations
- * const allRows = doc.tables.posts.getAll(); // Array<{ id: string; title: string; content: Y.XmlFragment | null; ... }>
- * const count = doc.tables.posts.count();
- * doc.tables.posts.clear();
- *
- * // Document-level observation (observes all tables)
- * const unsubscribe = doc.observe({
- *   onAdd: (tableName, data) => {
- *     console.log(`Row added to ${tableName}:`, data);
- *     if (tableName === 'posts') {
- *       // Can narrow to specific table logic
- *       console.log(`Post ${data.title} added`);
- *     }
- *   },
- *   onUpdate: (tableName, data) => {
- *     console.log(`Row in ${tableName} updated:`, data);
- *   },
- *   onDelete: (tableName, id) => {
- *     console.log(`Row ${id} deleted from ${tableName}`);
- *   },
- * });
- *
- * // Typed filtering
- * const publishedPosts = doc.tables.posts.filter(post => post.published);
- * const firstDraft = doc.tables.posts.find(post => !post.published);
- *
- * // Document utilities
- * doc.transact(() => {
- *   const newContent = new Y.XmlFragment();
- *   const newTags = new Y.Array<string>();
- *   newTags.push(['tech']);
- *   doc.tables.posts.upsert({ id: '1', title: 'Hello', content: newContent, tags: newTags, viewCount: 0, published: false });
- *   doc.tables.comments.insert({ id: '1', postId: '1', text: 'Great post!' });
- * }, 'bulk-import');
+ * // Or with a Y.Doc from a network provider
+ * const provider = new WebrtcProvider('room-name', ydoc);
+ * const doc = createYjsDocument(ydoc, schemas);
  * ```
  */
 export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
-	workspaceId: string,
+	ydoc: Y.Doc,
 	tableSchemas: TSchemas,
 ) {
-	// Initialize Y.Doc
-	const ydoc = new Y.Doc({ guid: workspaceId });
 	const ytables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
 
-	// Initialize each table as a Y.Map<id, row>
+	// Initialize each table as a Y.Map<id, row> (only if not already present)
+	// When loading from disk or syncing from network, tables may already exist
 	for (const tableName of Object.keys(tableSchemas)) {
-		ytables.set(tableName, new Y.Map<YjsRowData>());
+		if (!ytables.has(tableName)) {
+			ytables.set(tableName, new Y.Map<YjsRowData>());
+		}
 	}
 
 	return {
@@ -235,7 +118,9 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 								);
 							}
 							for (const [key, value] of Object.entries(partial)) {
-								ymap.set(key, value);
+								if (value !== undefined) {
+									ymap.set(key, value);
+								}
 							}
 						});
 					},
@@ -298,7 +183,9 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 									);
 								}
 								for (const [key, value] of Object.entries(data)) {
-									ymap.set(key, value);
+									if (value !== undefined) {
+										ymap.set(key, value);
+									}
 								}
 							}
 						});
@@ -537,4 +424,60 @@ export function createYjsDocument<TSchemas extends Record<string, TableSchema>>(
 			};
 		},
 	};
+}
+
+/**
+ * Create a YJS document with file persistence.
+ * Loads the document from disk if it exists, otherwise creates a new one.
+ * Automatically saves changes to disk.
+ *
+ * @param workspaceId - The workspace ID (used as Y.Doc GUID and filename)
+ * @param tableSchemas - Table schema definitions
+ * @param options - Persistence configuration
+ * @returns Object with table helpers and document utilities
+ *
+ * @example
+ * ```typescript
+ * const doc = createYjsDocumentFromDisk('workspace-123', {
+ *   posts: {
+ *     id: id(),
+ *     title: text(),
+ *     content: richText({ nullable: true }),
+ *     tags: multiSelect({ options: ['tech', 'personal', 'work'] as const }),
+ *     viewCount: integer(),
+ *     published: boolean(),
+ *   },
+ *   comments: {
+ *     id: id(),
+ *     postId: text(),
+ *     text: text(),
+ *   }
+ * }, {
+ *   storagePath: './data/workspaces',
+ *   autoSave: true
+ * });
+ *
+ * // Document is loaded from disk and ready to use
+ * doc.tables.posts.insert({
+ *   id: '1',
+ *   title: 'My First Post',
+ *   content: new Y.XmlFragment(),
+ *   tags: new Y.Array(),
+ *   viewCount: 0,
+ *   published: false,
+ * });
+ * ```
+ */
+export function createYjsDocumentFromDisk<
+	TSchemas extends Record<string, TableSchema>,
+>(
+	workspaceId: string,
+	tableSchemas: TSchemas,
+	options?: FilePersistenceConfig,
+) {
+	// Load from disk (or create new if doesn't exist)
+	const ydoc = loadYDoc(workspaceId, options);
+
+	// Wrap with table helpers
+	return createYjsDocument(ydoc, tableSchemas);
 }

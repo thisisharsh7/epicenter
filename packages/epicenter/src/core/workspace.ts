@@ -215,7 +215,9 @@ export type WorkspaceActionContext<
 export type WorkspaceTablesAPI<
 	TTableSchemas extends Record<string, TableSchema>,
 > = {
-	[TableName in keyof TTableSchemas]: TableHelper<Row<TTableSchemas[TableName]>>;
+	[TableName in keyof TTableSchemas]: TableHelper<
+		Row<TTableSchemas[TableName]>
+	>;
 };
 
 /**

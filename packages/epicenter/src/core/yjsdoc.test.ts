@@ -1,10 +1,12 @@
 import { describe, test, expect } from 'bun:test';
+import * as Y from 'yjs';
 import { createYjsDocument } from './yjsdoc';
 import { id, text, integer, boolean } from './column-schemas';
 
-describe('createYjsDocument with simplified RowSerializer', () => {
+describe('createYjsDocument', () => {
 	test('should create and retrieve rows correctly', () => {
-		const doc = createYjsDocument('test-workspace', {
+		const ydoc = new Y.Doc({ guid: 'test-workspace' });
+		const doc = createYjsDocument(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -14,7 +16,7 @@ describe('createYjsDocument with simplified RowSerializer', () => {
 		});
 
 		// Create a row
-		doc.tables.posts.set({
+		doc.tables.posts.insert({
 			id: '1',
 			title: 'Test Post',
 			viewCount: 0,
@@ -30,7 +32,8 @@ describe('createYjsDocument with simplified RowSerializer', () => {
 	});
 
 	test('should handle batch operations', () => {
-		const doc = createYjsDocument('test-workspace', {
+		const ydoc = new Y.Doc({ guid: 'test-workspace' });
+		const doc = createYjsDocument(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -40,7 +43,7 @@ describe('createYjsDocument with simplified RowSerializer', () => {
 		});
 
 		// Create multiple rows
-		doc.tables.posts.setMany([
+		doc.tables.posts.insertMany([
 			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
 			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
 		]);
@@ -53,7 +56,8 @@ describe('createYjsDocument with simplified RowSerializer', () => {
 	});
 
 	test('should filter and find rows correctly', () => {
-		const doc = createYjsDocument('test-workspace', {
+		const ydoc = new Y.Doc({ guid: 'test-workspace' });
+		const doc = createYjsDocument(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -62,7 +66,7 @@ describe('createYjsDocument with simplified RowSerializer', () => {
 			},
 		});
 
-		doc.tables.posts.setMany([
+		doc.tables.posts.insertMany([
 			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
 			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
 			{ id: '3', title: 'Post 3', viewCount: 30, published: true },
