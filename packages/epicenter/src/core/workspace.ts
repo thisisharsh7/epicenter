@@ -117,6 +117,11 @@ export type Workspace<
 	ydoc: Y.Doc;
 
 	/**
+	 * Table schemas (column definitions as JSON)
+	 */
+	tables: TTableSchemas;
+
+	/**
 	 * Other workspaces this workspace depends on
 	 * Keys become the property names in the workspaces API
 	 * @example
@@ -131,11 +136,6 @@ export type Workspace<
 	 * ```
 	 */
 	dependencies?: TDeps;
-
-	/**
-	 * Table schemas (column definitions as JSON)
-	 */
-	tables: TTableSchemas;
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
