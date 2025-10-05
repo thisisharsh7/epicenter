@@ -25,6 +25,11 @@ export type TableHelper<TRow extends Row> = {
 	deleteMany(ids: string[]): void;
 	clear(): void;
 	count(): number;
+	observe(handlers: {
+		onAdd: (id: string, data: TRow) => void | Promise<void>;
+		onUpdate: (id: string, data: TRow) => void | Promise<void>;
+		onDelete: (id: string) => void | Promise<void>;
+	}): () => void;
 	filter(predicate: (row: TRow) => boolean): TRow[];
 	find(predicate: (row: TRow) => boolean): TRow | undefined;
 };
@@ -253,6 +258,40 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 						}
 						return undefined;
 					},
+
+					observe(handlers: {
+						onAdd: (id: string, data: Row) => void | Promise<void>;
+						onUpdate: (id: string, data: Row) => void | Promise<void>;
+						onDelete: (id: string) => void | Promise<void>;
+					}) {
+						const observer = (events: Y.YEvent<any>[]) => {
+							for (const event of events) {
+								event.changes.keys.forEach((change: any, key: string) => {
+									if (change.action === 'add') {
+										const ymap = ytable.get(key);
+										if (ymap) {
+											const data = Object.fromEntries(ymap.entries()) as Row;
+											handlers.onAdd(key, data);
+										}
+									} else if (change.action === 'update') {
+										const ymap = ytable.get(key);
+										if (ymap) {
+											const data = Object.fromEntries(ymap.entries()) as Row;
+											handlers.onUpdate(key, data);
+										}
+									} else if (change.action === 'delete') {
+										handlers.onDelete(key);
+									}
+								});
+							}
+						};
+
+						ytable.observeDeep(observer);
+
+						return () => {
+							ytable.unobserveDeep(observer);
+						};
+					},
 				} satisfies TableHelper<Row>;
 
 				return [tableName, tableHelper];
@@ -309,112 +348,6 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 		 */
 		getTableNames(): string[] {
 			return Object.keys(tableSchemas);
-		},
-
-		/**
-		 * Observe all table changes at the document level
-		 *
-		 * Registers a deep observer on the root tables YMap to intercept all
-		 * add, update, and delete operations across all tables.
-		 *
-		 * @example
-		 * ```typescript
-		 * const unsubscribe = doc.observe({
-		 *   onAdd: (tableName, data) => {
-		 *     console.log(`Row added to ${tableName}:`, data);
-		 *   },
-		 *   onUpdate: (tableName, data) => {
-		 *     console.log(`Row updated in ${tableName}:`, data);
-		 *   },
-		 *   onDelete: (tableName, id) => {
-		 *     console.log(`Row ${id} deleted from ${tableName}`);
-		 *   },
-		 * });
-		 *
-		 * // Later: unsubscribe when done
-		 * unsubscribe();
-		 * ```
-		 */
-		observe(handlers: {
-			onAdd: (tableName: string, data: Row) => void | Promise<void>;
-			onUpdate: (tableName: string, data: Row) => void | Promise<void>;
-			onDelete: (tableName: string, id: string) => void | Promise<void>;
-		}): () => void {
-			ytables.observeDeep((events: Y.YEvent<Y.Map<YjsRowData>>[]) => {
-				for (const event of events) {
-					// event.target is the specific table YMap that changed
-					// Find which table this is by comparing references
-					let changedTableName: string | undefined;
-					for (const tableName of Object.keys(tableSchemas)) {
-						if (ytables.get(tableName) === event.target) {
-							changedTableName = tableName;
-							break;
-						}
-					}
-
-					if (!changedTableName) continue;
-
-					// Process the changes on this table
-					event.changes.keys.forEach((change, rowId) => {
-						if (change.action === 'add') {
-							const ytable = ytables.get(changedTableName);
-							const ymap = ytable?.get(rowId);
-							if (ymap) {
-								const data = Object.fromEntries(ymap.entries()) as Row;
-								handlers.onAdd(changedTableName, data);
-							}
-						} else if (change.action === 'update') {
-							const ytable = ytables.get(changedTableName);
-							const ymap = ytable?.get(rowId);
-							if (ymap) {
-								const data = Object.fromEntries(ymap.entries()) as Row;
-								handlers.onUpdate(changedTableName, data);
-							}
-						} else if (change.action === 'delete') {
-							handlers.onDelete(changedTableName, rowId);
-						}
-					});
-				}
-			});
-
-			return () => {
-				ytables.unobserveDeep((events: Y.YEvent<Y.Map<YjsRowData>>[]) => {
-					for (const event of events) {
-						// event.target is the specific table YMap that changed
-						// Find which table this is by comparing references
-						let changedTableName: string | undefined;
-						for (const tableName of Object.keys(tableSchemas)) {
-							if (ytables.get(tableName) === event.target) {
-								changedTableName = tableName;
-								break;
-							}
-						}
-
-						if (!changedTableName) continue;
-
-						// Process the changes on this table
-						event.changes.keys.forEach((change, rowId) => {
-							if (change.action === 'add') {
-								const ytable = ytables.get(changedTableName);
-								const ymap = ytable?.get(rowId);
-								if (ymap) {
-									const data = Object.fromEntries(ymap.entries()) as Row;
-									handlers.onAdd(changedTableName, data);
-								}
-							} else if (change.action === 'update') {
-								const ytable = ytables.get(changedTableName);
-								const ymap = ytable?.get(rowId);
-								if (ymap) {
-									const data = Object.fromEntries(ymap.entries()) as Row;
-									handlers.onUpdate(changedTableName, data);
-								}
-							} else if (change.action === 'delete') {
-								handlers.onDelete(changedTableName, rowId);
-							}
-						});
-					}
-				});
-			};
 		},
 	};
 }
