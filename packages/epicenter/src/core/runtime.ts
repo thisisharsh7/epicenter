@@ -75,13 +75,13 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 	config: RuntimeConfig = {},
 ): Promise<T> {
 	// 1. Initialize Epicenter database
-	const db = createEpicenterDb(workspace.id, workspace.tables);
+	const db = createEpicenterDb(workspace.ydoc, workspace.tables);
 
 	// 2. Initialize indexes
 	const indexContext = {
 		db,
 		tableSchemas: workspace.tables,
-		workspaceId: workspace.id,
+		workspaceId: workspace.ydoc.guid,
 	};
 
 	const indexes = workspace.indexes(indexContext);
