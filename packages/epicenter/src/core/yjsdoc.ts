@@ -1,22 +1,13 @@
 import * as Y from 'yjs';
-import type { CellValue, Row, TableSchema } from './column-schemas';
 import type { FilePersistenceConfig } from '../storage/file-persistence';
 import { loadYDoc } from '../storage/file-persistence';
+import type { CellValue, Row, TableSchema } from './column-schemas';
 
 /**
  * YJS representation of a row
  * Maps column names to YJS shared types or primitives
  */
 type YjsRowData = Y.Map<CellValue>;
-
-/**
- * Observer handlers for document-level table changes
- */
-type DocumentObserveHandlers = {
-	onAdd: (tableName: string, data: Row) => void | Promise<void>;
-	onUpdate: (tableName: string, data: Row) => void | Promise<void>;
-	onDelete: (tableName: string, id: string) => void | Promise<void>;
-};
 
 /**
  * Type-safe table helper with operations for a specific table schema
@@ -346,7 +337,11 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 		 * unsubscribe();
 		 * ```
 		 */
-		observe(handlers: DocumentObserveHandlers): () => void {
+		observe(handlers: {
+			onAdd: (tableName: string, data: Row) => void | Promise<void>;
+			onUpdate: (tableName: string, data: Row) => void | Promise<void>;
+			onDelete: (tableName: string, id: string) => void | Promise<void>;
+		}): () => void {
 			ytables.observeDeep((events: Y.YEvent<Y.Map<YjsRowData>>[]) => {
 				for (const event of events) {
 					// event.target is the specific table YMap that changed
