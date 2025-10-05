@@ -1,7 +1,119 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as Y from 'yjs';
 import type { TableSchema } from '../core/column-schemas';
 import { createEpicenterDb } from './core';
-import type { FilePersistenceConfig } from './file-persistence';
-import { loadYDoc } from './file-persistence';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+// ============================================================================
+// FILE PERSISTENCE FACTORY
+// ============================================================================
+
+/**
+ * Create a file persistence manager for YJS documents.
+ * Encapsulates storage path and provides methods for loading, saving, and managing documents.
+ */
+function createFilePersistence(
+	config: {
+		/**
+		 * Directory where YJS documents are stored
+		 * @default './data/workspaces'
+		 */
+		storagePath?: string;
+	} = {},
+) {
+	const storagePath = config.storagePath ?? './data/workspaces';
+
+	// Ensure storage directory exists
+	if (!fs.existsSync(storagePath)) {
+		fs.mkdirSync(storagePath, { recursive: true });
+	}
+
+	function getPath(workspaceId: string): string {
+		return path.join(storagePath, `${workspaceId}.yjs`);
+	}
+
+	return {
+		/**
+		 * Load YDoc from disk (or create new). Sets up auto-save by default.
+		 */
+		load(workspaceId: string, opts?: { autoSave?: boolean }): Y.Doc {
+			const autoSave = opts?.autoSave ?? true;
+			const ydoc = new Y.Doc({ guid: workspaceId });
+
+			// Try to load from disk
+			try {
+				const savedState = fs.readFileSync(getPath(workspaceId));
+				Y.applyUpdate(ydoc, savedState);
+				console.log(
+					`[Persistence] Loaded workspace ${workspaceId} from ${getPath(workspaceId)}`,
+				);
+			} catch {
+				console.log(`[Persistence] Creating new workspace ${workspaceId}`);
+			}
+
+			if (autoSave) {
+				this.watch(ydoc);
+			}
+
+			return ydoc;
+		},
+
+		/**
+		 * Manually save a YDoc to disk
+		 */
+		save(ydoc: Y.Doc): void {
+			const state = Y.encodeStateAsUpdate(ydoc);
+			fs.writeFileSync(getPath(ydoc.guid), state);
+		},
+
+		/**
+		 * Setup auto-save observer (if you want manual control)
+		 */
+		watch(ydoc: Y.Doc): () => void {
+			const handler = () => this.save(ydoc);
+			ydoc.on('update', handler);
+			return () => ydoc.off('update', handler);
+		},
+
+		/**
+		 * Delete document from disk
+		 */
+		delete(workspaceId: string): boolean {
+			try {
+				fs.unlinkSync(getPath(workspaceId));
+				console.log(`[Persistence] Deleted workspace ${workspaceId}`);
+				return true;
+			} catch {
+				return false;
+			}
+		},
+
+		/**
+		 * Check if document exists
+		 */
+		exists(workspaceId: string): boolean {
+			return fs.existsSync(getPath(workspaceId));
+		},
+
+		/**
+		 * List all persisted workspace IDs
+		 */
+		list(): string[] {
+			return fs
+				.readdirSync(storagePath)
+				.filter((file) => file.endsWith('.yjs'))
+				.map((file) => file.replace('.yjs', ''));
+		},
+	};
+}
+
+// ============================================================================
+// PUBLIC API
+// ============================================================================
 
 /**
  * Create an Epicenter database with file persistence.
@@ -33,8 +145,7 @@ import { loadYDoc } from './file-persistence';
  *     text: text(),
  *   }
  * }, {
- *   storagePath: './data/workspaces',
- *   autoSave: true
+ *   storagePath: './data/workspaces'
  * });
  *
  * // Database is loaded from disk and ready to use
@@ -53,11 +164,15 @@ export function createEpicenterDbFromDisk<
 >(
 	workspaceId: string,
 	tableSchemas: TSchemas,
-	options?: FilePersistenceConfig,
+	options?: {
+		/**
+		 * Directory where YJS documents are stored
+		 * @default './data/workspaces'
+		 */
+		storagePath?: string;
+	},
 ) {
-	// Load from disk (or create new if doesn't exist)
-	const ydoc = loadYDoc(workspaceId, options);
-
-	// Wrap with table helpers
+	const persistence = createFilePersistence(options);
+	const ydoc = persistence.load(workspaceId);
 	return createEpicenterDb(ydoc, tableSchemas);
 }

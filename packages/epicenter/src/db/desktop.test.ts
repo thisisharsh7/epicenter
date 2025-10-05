@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { createEpicenterDbFromDisk } from '../db/desktop';
-import { id, text, integer, boolean } from './column-schemas';
+import { createEpicenterDbFromDisk } from './desktop';
+import { id, text, integer, boolean } from '../core/column-schemas';
 
 const TEST_STORAGE_PATH = './test-data/workspaces';
 const TEST_WORKSPACE_ID = 'test-workspace-persistence';
@@ -29,7 +29,6 @@ describe('YJS Document Persistence', () => {
 			},
 			{
 				storagePath: TEST_STORAGE_PATH,
-				autoSave: true,
 			},
 		);
 
@@ -65,7 +64,6 @@ describe('YJS Document Persistence', () => {
 			},
 			{
 				storagePath: TEST_STORAGE_PATH,
-				autoSave: true,
 			},
 		);
 
