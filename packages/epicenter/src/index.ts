@@ -23,7 +23,8 @@ export type { Workspace, WorkspaceActionContext } from './core/workspace';
 export {
 	id,
 	text,
-	richText,
+	ytext,
+	yxmlfragment,
 	integer,
 	real,
 	boolean,
