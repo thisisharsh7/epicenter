@@ -108,7 +108,7 @@ export type Workspace<
 		TableSchema
 	>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TDeps extends Record<string, Workspace> = Record<string, Workspace>,
+	TDeps extends Record<string, Workspace> = Record<string, never>,
 > = {
 	/**
 	 * YJS document for this workspace
