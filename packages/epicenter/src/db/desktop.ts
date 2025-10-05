@@ -80,20 +80,16 @@ export function createEpicenterDbFromDisk<
 		fs.mkdirSync(storagePath, { recursive: true });
 	}
 
-	function getPath(id: string): string {
-		return path.join(storagePath, `${id}.yjs`);
-	}
+	const filePath = path.join(storagePath, `${workspaceId}.yjs`);
 
 	// Create and load YDoc
 	const ydoc = new Y.Doc({ guid: workspaceId });
 
 	// Try to load from disk
 	try {
-		const savedState = fs.readFileSync(getPath(workspaceId));
+		const savedState = fs.readFileSync(filePath);
 		Y.applyUpdate(ydoc, savedState);
-		console.log(
-			`[Persistence] Loaded workspace ${workspaceId} from ${getPath(workspaceId)}`,
-		);
+		console.log(`[Persistence] Loaded workspace ${workspaceId} from ${filePath}`);
 	} catch {
 		console.log(`[Persistence] Creating new workspace ${workspaceId}`);
 	}
@@ -104,7 +100,7 @@ export function createEpicenterDbFromDisk<
 	// Save function (reused by both manual save and autosave)
 	function save(): void {
 		const state = Y.encodeStateAsUpdate(ydoc);
-		fs.writeFileSync(getPath(workspaceId), state);
+		fs.writeFileSync(filePath, state);
 	}
 
 	// Autosave management
