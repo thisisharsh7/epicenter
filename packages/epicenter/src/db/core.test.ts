@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test';
 import * as Y from 'yjs';
-import { createEpicenterDb } from '../db/core';
-import { id, text, integer, boolean } from './column-schemas';
+import { createEpicenterDb } from './core';
+import { id, text, integer, boolean } from '../core/column-schemas';
 
 describe('createEpicenterDb', () => {
 	test('should create and retrieve rows correctly', () => {

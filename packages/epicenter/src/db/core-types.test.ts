@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { createEpicenterDb } from '../db/core';
+import { createEpicenterDb } from './core';
 import {
 	id,
 	text,
@@ -9,7 +9,7 @@ import {
 	boolean,
 	select,
 	multiSelect,
-} from './column-schemas';
+} from '../core/column-schemas';
 import * as Y from 'yjs';
 
 /**
