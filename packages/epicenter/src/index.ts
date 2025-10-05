@@ -62,8 +62,10 @@ export type {
 export { runWorkspace } from './core/runtime';
 export type { RuntimeConfig } from './core/runtime';
 
-// YJS utilities
-export { createEpicenterDb, createEpicenterDbFromDisk } from './core/yjsdoc';
+// Database utilities
+export { createEpicenterDb } from './db/core';
+export { createEpicenterDbFromDisk } from './db/desktop';
+export type { TableHelper } from './db/core';
 
 // Index system
 export type { Index, IndexContext, IndexesDefinition } from './core/indexes';

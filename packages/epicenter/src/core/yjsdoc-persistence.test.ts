@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { createEpicenterDbFromDisk } from './yjsdoc';
+import { createEpicenterDbFromDisk } from '../db/desktop';
 import { id, text, integer, boolean } from './column-schemas';
 
 const TEST_STORAGE_PATH = './test-data/workspaces';

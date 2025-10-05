@@ -1,6 +1,6 @@
-import * as Y from 'yjs';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as Y from 'yjs';
 
 /**
  * Configuration for file-based YJS document persistence

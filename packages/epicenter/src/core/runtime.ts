@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { WorkspaceAction } from './actions';
 import type { Workspace } from './workspace';
-import { createEpicenterDb } from './yjsdoc';
+import { createEpicenterDb } from '../db/core';
 
 /**
  * Runtime configuration provided by the user

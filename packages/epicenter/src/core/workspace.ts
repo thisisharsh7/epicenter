@@ -1,7 +1,7 @@
 import type { WorkspaceActionMap } from './actions';
 import type { Row, TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition } from './indexes';
-import type { TableHelper } from './yjsdoc';
+import type { TableHelper } from '../db/core';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.

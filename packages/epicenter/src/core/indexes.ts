@@ -1,7 +1,7 @@
 import type { Result } from 'wellcrafted/result';
 import type { Row, TableSchema } from './column-schemas';
 import type { IndexError } from './errors';
-import type { createEpicenterDb } from './yjsdoc';
+import type { createEpicenterDb } from '../db/core';
 
 /**
  * Index type system for vault.

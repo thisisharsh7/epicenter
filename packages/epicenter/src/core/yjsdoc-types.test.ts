@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { createEpicenterDb } from './yjsdoc';
+import { createEpicenterDb } from '../db/core';
 import {
 	id,
 	text,
