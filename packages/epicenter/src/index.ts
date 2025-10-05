@@ -69,7 +69,7 @@ export { createEpicenterDbFromDisk } from './db/desktop';
 export type { TableHelper } from './db/core';
 
 // Index system
-export type { Index, IndexContext, IndexesDefinition } from './core/indexes';
+export type { Index, IndexContext } from './core/indexes';
 
 // Indexes (implementations)
 export { createSQLiteIndex } from './indexes/sqlite-index';

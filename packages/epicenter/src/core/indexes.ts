@@ -87,17 +87,3 @@ export type IndexContext = {
 	 */
 	workspaceId: string;
 };
-
-/**
- * Index factory function signature
- * Takes context and returns an Index implementation
- */
-export type IndexFactory = (context: IndexContext) => Index;
-
-/**
- * Indexes definition function signature
- * Receives context and returns a map of index instances
- */
-export type IndexesDefinition = (
-	context: IndexContext,
-) => Record<string, Index>;

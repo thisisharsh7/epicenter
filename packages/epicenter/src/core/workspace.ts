@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import type { TableHelper } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
 import type { Row, TableSchema } from './column-schemas';
-import type { Index, IndexesDefinition } from './indexes';
+import type { Index, IndexContext } from './indexes';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -150,7 +150,7 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	indexes: IndexesDefinition;
+	indexes: (context: IndexContext) => Record<string, Index>;
 
 	/**
 	 * Workspace actions - business logic with access to tables and indexes
