@@ -1,7 +1,8 @@
+import * as Y from 'yjs';
+import type { TableHelper } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
 import type { Row, TableSchema } from './column-schemas';
 import type { Index, IndexesDefinition } from './indexes';
-import type { TableHelper } from '../db/core';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -29,8 +30,10 @@ import type { TableHelper } from '../db/core';
  *
  * @example
  * ```typescript
+ * const ydoc = new Y.Doc({ guid: 'blog-uuid' });
+ *
  * const blogWorkspace = defineWorkspace({
- *   id: 'blog-uuid',
+ *   ydoc,
  *
  *   tables: {
  *     posts: {
@@ -42,9 +45,9 @@ import type { TableHelper } from '../db/core';
  *     }
  *   },
  *
- *   indexes: ({ ydoc, tableSchemas }) => ({
- *     sqlite: createSQLiteIndex({ ydoc, tableSchemas }),
- *     markdown: createMarkdownIndex({ ydoc, tableSchemas, path: './data' }),
+ *   indexes: ({ db, tableSchemas }) => ({
+ *     sqlite: createSQLiteIndex({ db, tableSchemas }),
+ *     markdown: createMarkdownIndex({ db, tableSchemas, path: './data' }),
  *   }),
  *
  *   actions: ({ tables, indexes }) => ({
@@ -77,19 +80,17 @@ import type { TableHelper } from '../db/core';
  * ```
  */
 export function defineWorkspace<W extends Workspace>(workspace: W): W {
-	// Validate workspace ID
-	if (!workspace.id || typeof workspace.id !== 'string') {
-		throw new Error(
-			`Invalid workspace ID "${workspace.id}". Workspace IDs must be non-empty strings.`,
-		);
+	// Validate YJS document
+	if (!workspace.ydoc || !(workspace.ydoc instanceof Y.Doc)) {
+		throw new Error('Workspace must have a valid YJS document (ydoc)');
 	}
 
 	// Validate dependencies
 	if (workspace.dependencies) {
-		for (const dep of workspace.dependencies) {
-			if (!dep || typeof dep !== 'object' || !dep.id) {
+		for (const [key, dep] of Object.entries(workspace.dependencies)) {
+			if (!dep || typeof dep !== 'object' || !dep.ydoc) {
 				throw new Error(
-					`Invalid dependency in workspace "${workspace.id}": dependencies must be workspace objects`,
+					`Invalid dependency "${key}": dependencies must be workspace objects with ydoc`,
 				);
 			}
 		}
@@ -102,22 +103,32 @@ export function defineWorkspace<W extends Workspace>(workspace: W): W {
  * Workspace definition
  */
 export type Workspace<
-	TId extends string = string,
 	TTableSchemas extends Record<string, TableSchema> = Record<
 		string,
 		TableSchema
 	>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TDeps extends readonly Workspace[] = readonly [],
+	TDeps extends Record<string, Workspace> = Record<string, Workspace>,
 > = {
 	/**
-	 * Globally unique workspace ID
-	 * Used as YJS document GUID
+	 * YJS document for this workspace
+	 * Must have a unique GUID set
 	 */
-	id: TId;
+	ydoc: Y.Doc;
 
 	/**
 	 * Other workspaces this workspace depends on
+	 * Keys become the property names in the workspaces API
+	 * @example
+	 * ```typescript
+	 * dependencies: {
+	 *   auth: authWorkspace,
+	 *   storage: storageWorkspace
+	 * }
+	 * // Later in actions:
+	 * workspaces.auth.login(...)
+	 * workspaces.storage.uploadFile(...)
+	 * ```
 	 */
 	dependencies?: TDeps;
 
@@ -183,7 +194,7 @@ export type Workspace<
  * Context passed to the actions function
  */
 export type WorkspaceActionContext<
-	TDeps extends readonly Workspace[] = readonly [],
+	TDeps extends Record<string, Workspace> = Record<string, Workspace>,
 	TTableSchemas extends Record<string, TableSchema> = Record<
 		string,
 		TableSchema
@@ -223,9 +234,9 @@ export type WorkspaceTablesAPI<
 /**
  * Dependency workspaces API - actions from dependency workspaces
  */
-type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> = {
-	[K in TDeps[number]['id']]: TDeps[number] extends Workspace<K>
-		? ExtractHandlers<ReturnType<TDeps[number]['actions']>>
+type DependencyWorkspacesAPI<TDeps extends Record<string, Workspace>> = {
+	[K in keyof TDeps]: TDeps[K] extends Workspace<infer _, infer TActionMap>
+		? ExtractHandlers<TActionMap>
 		: never;
 };
 
