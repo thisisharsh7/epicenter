@@ -16,17 +16,15 @@ import { createEpicenterDb } from './core';
  * Create a file persistence manager for YJS documents.
  * Encapsulates storage path and provides methods for loading, saving, and managing documents.
  */
-function createFilePersistence(
-	config: {
-		/**
-		 * Directory where YJS documents are stored
-		 * @default './data/workspaces'
-		 */
-		storagePath?: string;
-	} = {},
-) {
-	const storagePath = config.storagePath ?? './data/workspaces';
-
+function createFilePersistence({
+	storagePath = './data/workspaces',
+}: {
+	/**
+	 * Directory where YJS documents are stored
+	 * @default './data/workspaces'
+	 */
+	storagePath?: string;
+} = {}) {
 	// Ensure storage directory exists
 	if (!fs.existsSync(storagePath)) {
 		fs.mkdirSync(storagePath, { recursive: true });
@@ -40,8 +38,10 @@ function createFilePersistence(
 		/**
 		 * Load YDoc from disk (or create new). Sets up auto-save by default.
 		 */
-		load(workspaceId: string, opts?: { autoSave?: boolean }): Y.Doc {
-			const autoSave = opts?.autoSave ?? true;
+		load(
+			workspaceId: string,
+			{ autoSave = true }: { autoSave?: boolean } = {},
+		): Y.Doc {
 			const ydoc = new Y.Doc({ guid: workspaceId });
 
 			// Try to load from disk
