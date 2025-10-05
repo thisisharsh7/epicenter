@@ -55,7 +55,7 @@ import { createEpicenterDb } from './core';
  * db.enableAutoSave();
  * ```
  */
-export function createEpicenterDB<
+export function createEpicenterDbFromDisk<
 	TSchemas extends Record<string, TableSchema>,
 >(
 	workspaceId: string,
