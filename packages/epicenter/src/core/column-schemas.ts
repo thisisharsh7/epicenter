@@ -194,10 +194,12 @@ export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
  * Maps a TableSchema to a row type with properly typed fields.
  * Each column name becomes a property with its corresponding YJS or primitive type.
  *
- * When no generic is provided, defaults to the equivalent of `Record<string, CellValue>`.
+ * Since `TableSchema` always requires an `id` column, every row type includes a guaranteed `id: string` property
+ * plus an index signature for dynamic columns.
  *
  * @example
  * ```typescript
+ * // Specific schema with typed columns
  * type PostSchema = {
  *   id: { type: 'id' };
  *   title: { type: 'text'; nullable: false };
@@ -206,12 +208,15 @@ export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
  * };
  * type PostRow = Row<PostSchema>; // { id: string; title: string; content: Y.XmlFragment | null; viewCount: number }
  *
- * type GenericRow = Row; // Record<string, CellValue>
+ * // Generic row with default TableSchema
+ * // Note: This includes the guaranteed id property plus an index signature for other columns
+ * type GenericRow = Row; // { id: string; [x: string]: CellValue }
  * ```
  */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	[K in keyof TTableSchema]: ColumnToType<TTableSchema[K]>;
 };
+
 
 /**
  * Union of all possible cell values across all column types.
