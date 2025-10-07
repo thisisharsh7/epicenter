@@ -1,5 +1,16 @@
+import type { Result } from 'wellcrafted/result';
+import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type { CellValue, Row, TableSchema } from '../core/column-schemas';
+import {
+	RowNotFoundErr,
+	RowNotFoundError,
+	ValidationErr,
+	ValidationError,
+	type RowNotFoundError as RowNotFoundErrorType,
+	type ValidationError as ValidationErrorType,
+} from '../core/errors';
+import { validateRow } from '../core/validation';
 
 /**
  * YJS representation of a row
@@ -45,9 +56,12 @@ export type TableHelper<TRow extends Row> = {
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(partials: PartialRow<TRow>[]): void;
-	get(id: string): TRow | undefined;
-	getMany(ids: string[]): TRow[];
-	getAll(): TRow[];
+	get(id: string): Result<TRow, ValidationErrorType | RowNotFoundErrorType>;
+	getMany(ids: string[]): {
+		oks: TRow[];
+		errs: { validation: ValidationErrorType[]; notFound: RowNotFoundErrorType[] };
+	};
+	getAll(): { oks: TRow[]; errs: ValidationErrorType[] };
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;
@@ -58,8 +72,14 @@ export type TableHelper<TRow extends Row> = {
 		onUpdate: (id: string, data: TRow) => void | Promise<void>;
 		onDelete: (id: string) => void | Promise<void>;
 	}): () => void;
-	filter(predicate: (row: TRow) => boolean): TRow[];
-	find(predicate: (row: TRow) => boolean): TRow | undefined;
+	filter(predicate: (row: TRow) => boolean): {
+		oks: TRow[];
+		errs: ValidationErrorType[];
+	};
+	find(predicate: (row: TRow) => boolean): Result<
+		TRow | undefined,
+		ValidationErrorType
+	>;
 };
 
 /**
@@ -173,16 +193,26 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
  * @param ytables - The root YJS Map containing all table data
  * @returns Object mapping table names to their typed TableHelper instances
  */
-function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
-	{ ydoc, tableSchemas, ytables }: { ydoc: Y.Doc; tableSchemas: TSchemas; ytables: Y.Map<Y.Map<YRow>>; }
-) {
+function createTableHelpers<TSchemas extends Record<string, TableSchema>>({
+	ydoc,
+	tableSchemas,
+	ytables,
+}: {
+	ydoc: Y.Doc;
+	tableSchemas: TSchemas;
+	ytables: Y.Map<Y.Map<YRow>>;
+}) {
 	return Object.fromEntries(
 		Object.keys(tableSchemas).map((tableName) => {
 			const ytable = ytables.get(tableName);
 			if (!ytable) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
-			return [tableName, createTableHelper({ ydoc, tableName, ytable })];
+			const schema = tableSchemas[tableName];
+			return [
+				tableName,
+				createTableHelper({ ydoc, tableName, ytable, schema }),
+			];
 		}),
 	) as {
 		[TTableName in keyof TSchemas]: TableHelper<Row<TSchemas[TTableName]>>;
@@ -199,11 +229,20 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
  * @param ydoc - The YJS document instance (used for transactions)
  * @param tableName - Name of the table (used in error messages)
  * @param ytable - The YJS Map containing the table's row data
+ * @param schema - The table schema for validation
  * @returns A TableHelper instance with full CRUD operations
  */
-function createTableHelper<TRow extends Row>(
-{ ydoc, tableName, ytable }: { ydoc: Y.Doc; tableName: string; ytable: Y.Map<YRow>; }
-): TableHelper<TRow> {
+function createTableHelper<TRow extends Row>({
+	ydoc,
+	tableName,
+	ytable,
+	schema,
+}: {
+	ydoc: Y.Doc;
+	tableName: string;
+	ytable: Y.Map<YRow>;
+	schema: TableSchema;
+}): TableHelper<TRow> {
 	return {
 		insert(row: TRow) {
 			ydoc.transact(() => {
@@ -301,27 +340,84 @@ function createTableHelper<TRow extends Row>(
 
 		get(id: string) {
 			const yrow = ytable.get(id);
-			if (!yrow) return undefined;
-			return toRow(yrow) as TRow;
+			if (!yrow) {
+				return RowNotFoundErr({
+					message: `Row with id "${id}" not found in table "${tableName}"`,
+					cause: undefined,
+				});
+			}
+
+			const row = toRow(yrow);
+			const validated = validateRow(row, schema);
+
+			if (!validated) {
+				return ValidationErr({
+					message: `Row with id "${id}" failed validation in table "${tableName}"`,
+					cause: undefined,
+				});
+			}
+
+			return Ok(validated as TRow);
 		},
 
 		getMany(ids: string[]) {
-			const rows: TRow[] = [];
+			const oks: TRow[] = [];
+			const validation: ValidationErrorType[] = [];
+			const notFound: RowNotFoundErrorType[] = [];
+
 			for (const id of ids) {
 				const yrow = ytable.get(id);
-				if (yrow) {
-					rows.push(toRow(yrow) as TRow);
+				if (!yrow) {
+					notFound.push(
+						RowNotFoundError({
+							message: `Row with id "${id}" not found in table "${tableName}"`,
+							cause: undefined,
+						}),
+					);
+					continue;
 				}
+
+				const row = toRow(yrow);
+				const validated = validateRow(row, schema);
+
+				if (!validated) {
+					validation.push(
+						ValidationError({
+							message: `Row with id "${id}" failed validation in table "${tableName}"`,
+							cause: undefined,
+						}),
+					);
+					continue;
+				}
+
+				oks.push(validated as TRow);
 			}
-			return rows;
+
+			return { oks, errs: { validation, notFound } };
 		},
 
 		getAll() {
-			const rows: TRow[] = [];
-			for (const yrow of ytable.values()) {
-				rows.push(toRow(yrow) as TRow);
+			const oks: TRow[] = [];
+			const errs: ValidationErrorType[] = [];
+
+			for (const [id, yrow] of ytable.entries()) {
+				const row = toRow(yrow);
+				const validated = validateRow(row, schema);
+
+				if (!validated) {
+					errs.push(
+						ValidationError({
+							message: `Row with id "${id}" failed validation in table "${tableName}"`,
+							cause: undefined,
+						}),
+					);
+					continue;
+				}
+
+				oks.push(validated as TRow);
 			}
-			return rows;
+
+			return { oks, errs };
 		},
 
 		has(id: string) {
@@ -353,24 +449,50 @@ function createTableHelper<TRow extends Row>(
 		},
 
 		filter(predicate: (row: TRow) => boolean) {
-			const results: TRow[] = [];
-			for (const yrow of ytable.values()) {
-				const row = toRow(yrow) as TRow;
-				if (predicate(row)) {
-					results.push(row);
+			const oks: TRow[] = [];
+			const errs: ValidationErrorType[] = [];
+
+			for (const [id, yrow] of ytable.entries()) {
+				const row = toRow(yrow);
+				const validated = validateRow(row, schema);
+
+				if (!validated) {
+					errs.push(
+						ValidationError({
+							message: `Row with id "${id}" failed validation in table "${tableName}"`,
+							cause: undefined,
+						}),
+					);
+					continue;
+				}
+
+				const typedRow = validated as TRow;
+				if (predicate(typedRow)) {
+					oks.push(typedRow);
 				}
 			}
-			return results;
+
+			return { oks, errs };
 		},
 
 		find(predicate: (row: TRow) => boolean) {
 			for (const yrow of ytable.values()) {
-				const row = toRow(yrow) as TRow;
-				if (predicate(row)) {
-					return row;
+				const row = toRow(yrow);
+				const validated = validateRow(row, schema);
+
+				if (!validated) {
+					// Skip invalid rows silently (logged in validateRow)
+					continue;
+				}
+
+				const typedRow = validated as TRow;
+				if (predicate(typedRow)) {
+					return Ok(typedRow);
 				}
 			}
-			return undefined;
+
+			// No match found (not an error, just no matching row)
+			return Ok(undefined);
 		},
 
 		observe(handlers: {
@@ -384,14 +506,30 @@ function createTableHelper<TRow extends Row>(
 						if (change.action === 'add') {
 							const yrow = ytable.get(key);
 							if (yrow) {
-								const data = toRow(yrow) as TRow;
-								handlers.onAdd(key, data);
+								const row = toRow(yrow);
+								const validated = validateRow(row, schema);
+
+								if (validated) {
+									handlers.onAdd(key, validated as TRow);
+								} else {
+									console.warn(
+										`Skipping invalid row in ${tableName}/${key} (onAdd)`,
+									);
+								}
 							}
 						} else if (change.action === 'update') {
 							const yrow = ytable.get(key);
 							if (yrow) {
-								const data = toRow(yrow) as TRow;
-								handlers.onUpdate(key, data);
+								const row = toRow(yrow);
+								const validated = validateRow(row, schema);
+
+								if (validated) {
+									handlers.onUpdate(key, validated as TRow);
+								} else {
+									console.warn(
+										`Skipping invalid row in ${tableName}/${key} (onUpdate)`,
+									);
+								}
 							}
 						} else if (change.action === 'delete') {
 							handlers.onDelete(key);
