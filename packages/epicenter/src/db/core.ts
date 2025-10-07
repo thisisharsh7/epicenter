@@ -20,15 +20,31 @@ function toRow(yrow: YRow): Row {
 }
 
 /**
+ * Represents a partial row update where id is required but all other fields are optional.
+ *
+ * Only the fields you include will be updated - the rest remain unchanged. Each field is
+ * updated individually in the underlying YJS Map.
+ *
+ * @example
+ * // Update only the title field, leaving other fields unchanged
+ * db.tables.posts.update({ id: '123', title: 'New Title' });
+ *
+ * @example
+ * // Update multiple fields at once
+ * db.tables.posts.update({ id: '123', title: 'New Title', published: true });
+ */
+type PartialRow<TRow extends Row> = Pick<TRow, 'id'> & Partial<Omit<TRow, 'id'>>;
+
+/**
  * Type-safe table helper with operations for a specific table schema
  */
 export type TableHelper<TRow extends Row> = {
 	insert(row: TRow): void;
-	update(id: string, partial: Partial<TRow>): void;
+	update(partial: PartialRow<TRow>): void;
 	upsert(row: TRow): void;
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
-	updateMany(updates: Array<{ id: string; data: Partial<TRow> }>): void;
+	updateMany(partials: PartialRow<TRow>[]): void;
 	get(id: string): TRow | undefined;
 	getMany(ids: string[]): TRow[];
 	getAll(): TRow[];
@@ -204,12 +220,12 @@ function createTableHelper<TRow extends Row>(
 			});
 		},
 
-		update(id: string, partial: Partial<TRow>) {
+		update(partial: PartialRow<TRow>) {
 			ydoc.transact(() => {
-				const yrow = ytable.get(id);
+				const yrow = ytable.get(partial.id);
 				if (!yrow) {
 					throw new Error(
-						`Row with id "${id}" not found in table "${tableName}"`,
+						`Row with id "${partial.id}" not found in table "${tableName}"`,
 					);
 				}
 				for (const [key, value] of Object.entries(partial)) {
@@ -265,16 +281,16 @@ function createTableHelper<TRow extends Row>(
 			});
 		},
 
-		updateMany(updates: Array<{ id: string; data: Partial<TRow> }>) {
+		updateMany(partials: PartialRow<TRow>[]) {
 			ydoc.transact(() => {
-				for (const { id, data } of updates) {
-					const yrow = ytable.get(id);
+				for (const partial of partials) {
+					const yrow = ytable.get(partial.id);
 					if (!yrow) {
 						throw new Error(
-							`Row with id "${id}" not found in table "${tableName}"`,
+							`Row with id "${partial.id}" not found in table "${tableName}"`,
 						);
 					}
-					for (const [key, value] of Object.entries(data)) {
+					for (const [key, value] of Object.entries(partial)) {
 						if (value !== undefined) {
 							yrow.set(key, value);
 						}
