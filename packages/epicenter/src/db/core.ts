@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import type { CellValue, Row, TableSchema } from '../core/column-schemas';
-import { validateRow, type ValidationResult } from '../core/validation';
+import { validateRow, type RowValidationResult } from '../core/validation';
 
 /**
  * YJS representation of a row
@@ -46,7 +46,7 @@ export type TableHelper<TRow extends Row> = {
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(partials: PartialRow<TRow>[]): void;
-	get(id: string): ValidationResult<TRow> | null;
+	get(id: string): RowValidationResult<TRow> | null;
 	getMany(ids: string[]): { valid: TRow[]; invalid: Row[]; notFound: string[] };
 	getAll(): { valid: TRow[]; invalid: Row[] };
 	has(id: string): boolean;
@@ -60,7 +60,7 @@ export type TableHelper<TRow extends Row> = {
 		onDelete: (id: string) => void | Promise<void>;
 	}): () => void;
 	filter(predicate: (row: TRow) => boolean): { valid: TRow[]; invalid: Row[] };
-	find(predicate: (row: TRow) => boolean): ValidationResult<TRow> | null;
+	find(predicate: (row: TRow) => boolean): RowValidationResult<TRow> | null;
 };
 
 /**
@@ -226,12 +226,12 @@ function createTableHelper<TRow extends Row>({
 }): TableHelper<TRow> {
 	/**
 	 * Validates a row and returns validation result typed as TRow
-	 * The generic validateRow() returns ValidationResult<ValidatedRow<TableSchema>>,
+	 * The generic validateRow() returns RowValidationResult<ValidatedRow<TableSchema>>,
 	 * but we need the specific TRow type for this table. This wrapper narrows the type from
 	 * the generic schema to the concrete row type, enabling proper type inference throughout
 	 * the table helper.
 	 */
-	const validateTypedRow = (data: unknown): ValidationResult<TRow> => {
+	const validateTypedRow = (data: unknown): RowValidationResult<TRow> => {
 		const result = validateRow(data, schema);
 		if (result.status === 'valid') {
 			return { status: 'valid', data: result.data as TRow };
@@ -359,16 +359,18 @@ function createTableHelper<TRow extends Row>({
 				const row = toRow(yrow);
 				const result = validateTypedRow(row);
 
-				if (result.status === 'valid') {
-					valid.push(result.data);
-				} else if (result.status === 'schema_mismatch') {
-					invalid.push(result.data);
-				} else {
-					// invalid_structure - shouldn't happen since toRow creates objects,
-					// but include for completeness
-					console.warn(
-						`Row ${id} in table ${tableName} has invalid structure`,
-					);
+				switch (result.status) {
+					case 'valid':
+						valid.push(result.data);
+						break;
+					case 'schema_mismatch':
+						invalid.push(result.data);
+						break;
+					case 'invalid_structure':
+						console.warn(
+							`Row ${id} in table ${tableName} has invalid structure`,
+						);
+						break;
 				}
 			}
 
@@ -383,15 +385,18 @@ function createTableHelper<TRow extends Row>({
 				const row = toRow(yrow);
 				const result = validateTypedRow(row);
 
-				if (result.status === 'valid') {
-					valid.push(result.data);
-				} else if (result.status === 'schema_mismatch') {
-					invalid.push(result.data);
-				} else {
-					// invalid_structure - shouldn't happen since toRow creates objects
-					console.warn(
-						`Row in table ${tableName} has invalid structure`,
-					);
+				switch (result.status) {
+					case 'valid':
+						valid.push(result.data);
+						break;
+					case 'schema_mismatch':
+						invalid.push(result.data);
+						break;
+					case 'invalid_structure':
+						console.warn(
+							`Row in table ${tableName} has invalid structure`,
+						);
+						break;
 				}
 			}
 
@@ -437,15 +442,18 @@ function createTableHelper<TRow extends Row>({
 				if (predicate(row as TRow)) {
 					const result = validateTypedRow(row);
 
-					if (result.status === 'valid') {
-						valid.push(result.data);
-					} else if (result.status === 'schema_mismatch') {
-						invalid.push(result.data);
-					} else {
-						// invalid_structure - shouldn't happen since toRow creates objects
-						console.warn(
-							`Filtered row in table ${tableName} has invalid structure`,
-						);
+					switch (result.status) {
+						case 'valid':
+							valid.push(result.data);
+							break;
+						case 'schema_mismatch':
+							invalid.push(result.data);
+							break;
+						case 'invalid_structure':
+							console.warn(
+								`Filtered row in table ${tableName} has invalid structure`,
+							);
+							break;
 					}
 				}
 			}
@@ -481,12 +489,16 @@ function createTableHelper<TRow extends Row>({
 								const row = toRow(yrow);
 								const result = validateTypedRow(row);
 
-								if (result.status === 'valid') {
-									handlers.onAdd(key, result.data);
-								} else {
-									console.warn(
-										`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
-									);
+								switch (result.status) {
+									case 'valid':
+										handlers.onAdd(key, result.data);
+										break;
+									case 'schema_mismatch':
+									case 'invalid_structure':
+										console.warn(
+											`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
+										);
+										break;
 								}
 							}
 						} else if (change.action === 'update') {
@@ -495,12 +507,16 @@ function createTableHelper<TRow extends Row>({
 								const row = toRow(yrow);
 								const result = validateTypedRow(row);
 
-								if (result.status === 'valid') {
-									handlers.onUpdate(key, result.data);
-								} else {
-									console.warn(
-										`Skipping invalid row in ${tableName}/${key} (onUpdate): ${result.status}`,
-									);
+								switch (result.status) {
+									case 'valid':
+										handlers.onUpdate(key, result.data);
+										break;
+									case 'schema_mismatch':
+									case 'invalid_structure':
+										console.warn(
+											`Skipping invalid row in ${tableName}/${key} (onUpdate): ${result.status}`,
+										);
+										break;
 								}
 							}
 						} else if (change.action === 'delete') {
