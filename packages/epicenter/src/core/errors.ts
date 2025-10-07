@@ -22,11 +22,3 @@ export type IndexError = ReturnType<typeof IndexError>;
 export const { ValidationError, ValidationErr } =
 	createTaggedError('ValidationError');
 export type ValidationError = ReturnType<typeof ValidationError>;
-
-/**
- * Error type for row not found
- * Indicates that a requested row ID doesn't exist in the table
- */
-export const { RowNotFoundError, RowNotFoundErr } =
-	createTaggedError('RowNotFoundError');
-export type RowNotFoundError = ReturnType<typeof RowNotFoundError>;

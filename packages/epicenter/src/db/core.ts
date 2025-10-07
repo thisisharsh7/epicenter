@@ -1,13 +1,5 @@
-import type { Result } from 'wellcrafted/result';
-import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type { CellValue, Row, TableSchema } from '../core/column-schemas';
-import {
-	RowNotFoundErr,
-	RowNotFoundError,
-	ValidationErr,
-	ValidationError,
-} from '../core/errors';
 import { validateRow } from '../core/validation';
 
 /**
@@ -54,12 +46,11 @@ export type TableHelper<TRow extends Row> = {
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(partials: PartialRow<TRow>[]): void;
-	get(id: string): Result<TRow, ValidationError | RowNotFoundError>;
-	getMany(ids: string[]): {
-		oks: TRow[];
-		errs: { validation: ValidationError[]; notFound: RowNotFoundError[] };
-	};
-	getAll(): { oks: TRow[]; errs: ValidationError[] };
+	get(
+		id: string,
+	): { valid: TRow; invalid: null } | { valid: null; invalid: Row } | null;
+	getMany(ids: string[]): { valid: TRow[]; invalid: Row[]; notFound: string[] };
+	getAll(): { valid: TRow[]; invalid: Row[] };
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;
@@ -70,14 +61,10 @@ export type TableHelper<TRow extends Row> = {
 		onUpdate: (id: string, data: TRow) => void | Promise<void>;
 		onDelete: (id: string) => void | Promise<void>;
 	}): () => void;
-	filter(predicate: (row: TRow) => boolean): {
-		oks: TRow[];
-		errs: ValidationError[];
-	};
-	find(predicate: (row: TRow) => boolean): Result<
-		TRow | undefined,
-		ValidationError
-	>;
+	filter(predicate: (row: TRow) => boolean): { valid: TRow[]; invalid: Row[] };
+	find(
+		predicate: (row: TRow) => boolean,
+	): { valid: TRow; invalid: null } | { valid: null; invalid: Row } | null;
 };
 
 /**
@@ -350,39 +337,28 @@ function createTableHelper<TRow extends Row>({
 		get(id: string) {
 			const yrow = ytable.get(id);
 			if (!yrow) {
-				return RowNotFoundErr({
-					message: `Row with id "${id}" not found in table "${tableName}"`,
-					cause: undefined,
-				});
+				return null;
 			}
 
 			const row = toRow(yrow);
 			const validated = validateTypedRow(row);
 
 			if (!validated) {
-				return ValidationErr({
-					message: `Row with id "${id}" failed validation in table "${tableName}"`,
-					cause: undefined,
-				});
+				return { valid: null, invalid: row };
 			}
 
-			return Ok(validated);
+			return { valid: validated, invalid: null };
 		},
 
 		getMany(ids: string[]) {
-			const oks: TRow[] = [];
-			const validation: ValidationError[] = [];
-			const notFound: RowNotFoundError[] = [];
+			const valid: TRow[] = [];
+			const invalid: Row[] = [];
+			const notFound: string[] = [];
 
 			for (const id of ids) {
 				const yrow = ytable.get(id);
 				if (!yrow) {
-					notFound.push(
-						RowNotFoundError({
-							message: `Row with id "${id}" not found in table "${tableName}"`,
-							cause: undefined,
-						}),
-					);
+					notFound.push(id);
 					continue;
 				}
 
@@ -390,43 +366,33 @@ function createTableHelper<TRow extends Row>({
 				const validated = validateTypedRow(row);
 
 				if (!validated) {
-					validation.push(
-						ValidationError({
-							message: `Row with id "${id}" failed validation in table "${tableName}"`,
-							cause: undefined,
-						}),
-					);
+					invalid.push(row);
 					continue;
 				}
 
-				oks.push(validated);
+				valid.push(validated);
 			}
 
-			return { oks, errs: { validation, notFound } };
+			return { valid, invalid, notFound };
 		},
 
 		getAll() {
-			const oks: TRow[] = [];
-			const errs: ValidationError[] = [];
+			const valid: TRow[] = [];
+			const invalid: Row[] = [];
 
 			for (const [id, yrow] of ytable.entries()) {
 				const row = toRow(yrow);
 				const validated = validateTypedRow(row);
 
 				if (!validated) {
-					errs.push(
-						ValidationError({
-							message: `Row with id "${id}" failed validation in table "${tableName}"`,
-							cause: undefined,
-						}),
-					);
+					invalid.push(row);
 					continue;
 				}
 
-				oks.push(validated);
+				valid.push(validated);
 			}
 
-			return { oks, errs };
+			return { valid, invalid };
 		},
 
 		has(id: string) {
@@ -458,48 +424,45 @@ function createTableHelper<TRow extends Row>({
 		},
 
 		filter(predicate: (row: TRow) => boolean) {
-			const oks: TRow[] = [];
-			const errs: ValidationError[] = [];
+			const valid: TRow[] = [];
+			const invalid: Row[] = [];
 
 			for (const [id, yrow] of ytable.entries()) {
 				const row = toRow(yrow);
-				const validated = validateTypedRow(row);
 
-				if (!validated) {
-					errs.push(
-						ValidationError({
-							message: `Row with id "${id}" failed validation in table "${tableName}"`,
-							cause: undefined,
-						}),
-					);
-					continue;
-				}
+				// Check predicate first (even on unvalidated rows)
+				if (predicate(row as TRow)) {
+					const validated = validateTypedRow(row);
 
-				if (predicate(validated)) {
-					oks.push(validated);
+					if (validated) {
+						valid.push(validated);
+					} else {
+						invalid.push(row);
+					}
 				}
 			}
 
-			return { oks, errs };
+			return { valid, invalid };
 		},
 
 		find(predicate: (row: TRow) => boolean) {
 			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
-				const validated = validateTypedRow(row);
 
-				if (!validated) {
-					// Skip invalid rows silently (logged in validateRow)
-					continue;
-				}
+				// Check predicate first (even on unvalidated rows)
+				if (predicate(row as TRow)) {
+					const validated = validateTypedRow(row);
 
-				if (predicate(validated)) {
-					return Ok(validated);
+					if (validated) {
+						return { valid: validated, invalid: null };
+					} else {
+						return { valid: null, invalid: row };
+					}
 				}
 			}
 
 			// No match found (not an error, just no matching row)
-			return Ok(undefined);
+			return null;
 		},
 
 		observe(handlers: {
