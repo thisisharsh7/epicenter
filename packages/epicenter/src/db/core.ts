@@ -472,7 +472,7 @@ function createTableHelper<TRow extends Row>({
 		}) {
 			const observer = (events: Y.YEvent<any>[]) => {
 				for (const event of events) {
-					event.changes.keys.forEach((change: any, key: string) => {
+					event.changes.keys.forEach((change, key) => {
 						if (change.action === 'add') {
 							const yrow = ytable.get(key);
 							if (yrow) {
