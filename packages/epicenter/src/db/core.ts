@@ -5,7 +5,19 @@ import type { CellValue, Row, TableSchema } from '../core/column-schemas';
  * YJS representation of a row
  * Maps column names to YJS shared types or primitives
  */
-type YjsRowData = Y.Map<CellValue>;
+type YjsRow = Y.Map<CellValue>;
+
+/**
+ * Converts a YJS row to a plain Row object
+ *
+ * This is a one-way conversion. We don't need the reverse (Row to YjsRow) because:
+ * - Row updates are always granular (using ymap.set(key, value) for specific fields)
+ * - Full row conversions only happen when reading data (get, getAll, filter, etc.)
+ * - YJS handles the conversion from plain values to Y.Map internally during insert/update
+ */
+function yjsRowToRow(yjsRow: YjsRow): Row {
+	return Object.fromEntries(yjsRow.entries()) as Row;
+}
 
 /**
  * Type-safe table helper with operations for a specific table schema
@@ -64,13 +76,13 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 	ydoc: Y.Doc,
 	tableSchemas: TSchemas,
 ) {
-	const ytables = ydoc.getMap<Y.Map<YjsRowData>>('tables');
+	const ytables = ydoc.getMap<Y.Map<YjsRow>>('tables');
 
 	// Initialize each table as a Y.Map<id, row> (only if not already present)
 	// When loading from disk or syncing from network, tables may already exist
 	for (const tableName of Object.keys(tableSchemas)) {
 		if (!ytables.has(tableName)) {
-			ytables.set(tableName, new Y.Map<YjsRowData>());
+			ytables.set(tableName, new Y.Map<YjsRow>());
 		}
 	}
 
@@ -188,7 +200,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 					get(id: string) {
 						const ymap = ytable.get(id);
 						if (!ymap) return undefined;
-						return Object.fromEntries(ymap.entries()) as Row;
+						return yjsRowToRow(ymap);
 					},
 
 					getMany(ids: string[]) {
@@ -196,7 +208,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 						for (const id of ids) {
 							const ymap = ytable.get(id);
 							if (ymap) {
-								rows.push(Object.fromEntries(ymap.entries()) as Row);
+								rows.push(yjsRowToRow(ymap));
 							}
 						}
 						return rows;
@@ -205,7 +217,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 					getAll() {
 						const rows: Row[] = [];
 						for (const ymap of ytable.values()) {
-							rows.push(Object.fromEntries(ymap.entries()) as Row);
+							rows.push(yjsRowToRow(ymap));
 						}
 						return rows;
 					},
@@ -241,7 +253,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 					filter(predicate: (row: Row) => boolean) {
 						const results: Row[] = [];
 						for (const ymap of ytable.values()) {
-							const row = Object.fromEntries(ymap.entries()) as Row;
+							const row = yjsRowToRow(ymap);
 							if (predicate(row)) {
 								results.push(row);
 							}
@@ -251,7 +263,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 
 					find(predicate: (row: Row) => boolean) {
 						for (const ymap of ytable.values()) {
-							const row = Object.fromEntries(ymap.entries()) as Row;
+							const row = yjsRowToRow(ymap);
 							if (predicate(row)) {
 								return row;
 							}
@@ -270,13 +282,13 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 									if (change.action === 'add') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = Object.fromEntries(ymap.entries()) as Row;
+											const data = yjsRowToRow(ymap);
 											handlers.onAdd(key, data);
 										}
 									} else if (change.action === 'update') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = Object.fromEntries(ymap.entries()) as Row;
+											const data = yjsRowToRow(ymap);
 											handlers.onUpdate(key, data);
 										}
 									} else if (change.action === 'delete') {
