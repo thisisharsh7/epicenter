@@ -380,7 +380,7 @@ function createTableHelper<TRow extends Row>({
 			const valid: TRow[] = [];
 			const invalid: Row[] = [];
 
-			for (const [id, yrow] of ytable.entries()) {
+			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
 				const validated = validateTypedRow(row);
 
@@ -427,7 +427,7 @@ function createTableHelper<TRow extends Row>({
 			const valid: TRow[] = [];
 			const invalid: Row[] = [];
 
-			for (const [id, yrow] of ytable.entries()) {
+			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
 
 				// Check predicate first (even on unvalidated rows)
