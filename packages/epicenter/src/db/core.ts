@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import type { CellValue, Row, TableSchema } from '../core/column-schemas';
-import { validateRow } from '../core/validation';
+import { validateRow, type ValidationResult } from '../core/validation';
 
 /**
  * YJS representation of a row
@@ -46,9 +46,7 @@ export type TableHelper<TRow extends Row> = {
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(partials: PartialRow<TRow>[]): void;
-	get(
-		id: string,
-	): { valid: TRow; invalid: null } | { valid: null; invalid: Row } | null;
+	get(id: string): ValidationResult<TRow, Row> | null;
 	getMany(ids: string[]): { valid: TRow[]; invalid: Row[]; notFound: string[] };
 	getAll(): { valid: TRow[]; invalid: Row[] };
 	has(id: string): boolean;
@@ -62,9 +60,7 @@ export type TableHelper<TRow extends Row> = {
 		onDelete: (id: string) => void | Promise<void>;
 	}): () => void;
 	filter(predicate: (row: TRow) => boolean): { valid: TRow[]; invalid: Row[] };
-	find(
-		predicate: (row: TRow) => boolean,
-	): { valid: TRow; invalid: null } | { valid: null; invalid: Row } | null;
+	find(predicate: (row: TRow) => boolean): ValidationResult<TRow, Row> | null;
 };
 
 /**
@@ -235,9 +231,7 @@ function createTableHelper<TRow extends Row>({
 	 * the generic schema to the concrete row type, enabling proper type inference throughout
 	 * the table helper.
 	 */
-	const validateTypedRow = (
-		row: Row,
-	): { valid: TRow; invalid: null } | { valid: null; invalid: Row } => {
+	const validateTypedRow = (row: Row): ValidationResult<TRow, Row> => {
 		const result = validateRow(row, schema);
 		if (result.valid) {
 			return { valid: result.valid as TRow, invalid: null };
