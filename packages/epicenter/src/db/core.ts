@@ -229,14 +229,20 @@ function createTableHelper<TRow extends Row>({
 	schema: TableSchema;
 }): TableHelper<TRow> {
 	/**
-	 * Validates a row and returns it typed as TRow
-	 * The generic validateRow() returns ValidatedRow<TableSchema>, but we need the specific
-	 * TRow type for this table. This wrapper narrows the type from the generic schema to
-	 * the concrete row type, enabling proper type inference throughout the table helper.
+	 * Validates a row and returns validation result typed as TRow
+	 * The generic validateRow() returns ValidationResult<ValidatedRow<TableSchema>, Row>,
+	 * but we need the specific TRow type for this table. This wrapper narrows the type from
+	 * the generic schema to the concrete row type, enabling proper type inference throughout
+	 * the table helper.
 	 */
-	const validateTypedRow = (row: Row): TRow | undefined => {
-		const validated = validateRow(row, schema);
-		return validated ? (validated as TRow) : undefined;
+	const validateTypedRow = (
+		row: Row,
+	): { valid: TRow; invalid: null } | { valid: null; invalid: Row } => {
+		const result = validateRow(row, schema);
+		if (result.valid) {
+			return { valid: result.valid as TRow, invalid: null };
+		}
+		return { valid: null, invalid: result.invalid };
 	};
 
 	return {
@@ -341,13 +347,7 @@ function createTableHelper<TRow extends Row>({
 			}
 
 			const row = toRow(yrow);
-			const validated = validateTypedRow(row);
-
-			if (!validated) {
-				return { valid: null, invalid: row };
-			}
-
-			return { valid: validated, invalid: null };
+			return validateTypedRow(row);
 		},
 
 		getMany(ids: string[]) {
@@ -363,14 +363,13 @@ function createTableHelper<TRow extends Row>({
 				}
 
 				const row = toRow(yrow);
-				const validated = validateTypedRow(row);
+				const result = validateTypedRow(row);
 
-				if (!validated) {
-					invalid.push(row);
-					continue;
+				if (result.valid) {
+					valid.push(result.valid);
+				} else {
+					invalid.push(result.invalid);
 				}
-
-				valid.push(validated);
 			}
 
 			return { valid, invalid, notFound };
@@ -382,14 +381,13 @@ function createTableHelper<TRow extends Row>({
 
 			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
-				const validated = validateTypedRow(row);
+				const result = validateTypedRow(row);
 
-				if (!validated) {
-					invalid.push(row);
-					continue;
+				if (result.valid) {
+					valid.push(result.valid);
+				} else {
+					invalid.push(result.invalid);
 				}
-
-				valid.push(validated);
 			}
 
 			return { valid, invalid };
@@ -432,12 +430,12 @@ function createTableHelper<TRow extends Row>({
 
 				// Check predicate first (even on unvalidated rows)
 				if (predicate(row as TRow)) {
-					const validated = validateTypedRow(row);
+					const result = validateTypedRow(row);
 
-					if (validated) {
-						valid.push(validated);
+					if (result.valid) {
+						valid.push(result.valid);
 					} else {
-						invalid.push(row);
+						invalid.push(result.invalid);
 					}
 				}
 			}
@@ -451,13 +449,7 @@ function createTableHelper<TRow extends Row>({
 
 				// Check predicate first (even on unvalidated rows)
 				if (predicate(row as TRow)) {
-					const validated = validateTypedRow(row);
-
-					if (validated) {
-						return { valid: validated, invalid: null };
-					} else {
-						return { valid: null, invalid: row };
-					}
+					return validateTypedRow(row);
 				}
 			}
 
@@ -477,10 +469,10 @@ function createTableHelper<TRow extends Row>({
 							const yrow = ytable.get(key);
 							if (yrow) {
 								const row = toRow(yrow);
-								const validated = validateTypedRow(row);
+								const result = validateTypedRow(row);
 
-								if (validated) {
-									handlers.onAdd(key, validated);
+								if (result.valid) {
+									handlers.onAdd(key, result.valid);
 								} else {
 									console.warn(
 										`Skipping invalid row in ${tableName}/${key} (onAdd)`,
@@ -491,10 +483,10 @@ function createTableHelper<TRow extends Row>({
 							const yrow = ytable.get(key);
 							if (yrow) {
 								const row = toRow(yrow);
-								const validated = validateTypedRow(row);
+								const result = validateTypedRow(row);
 
-								if (validated) {
-									handlers.onUpdate(key, validated);
+								if (result.valid) {
+									handlers.onUpdate(key, result.valid);
 								} else {
 									console.warn(
 										`Skipping invalid row in ${tableName}/${key} (onUpdate)`,
