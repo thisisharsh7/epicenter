@@ -7,8 +7,6 @@ import {
 	RowNotFoundError,
 	ValidationErr,
 	ValidationError,
-	type RowNotFoundError as RowNotFoundErrorType,
-	type ValidationError as ValidationErrorType,
 } from '../core/errors';
 import { validateRow } from '../core/validation';
 
@@ -56,12 +54,12 @@ export type TableHelper<TRow extends Row> = {
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(partials: PartialRow<TRow>[]): void;
-	get(id: string): Result<TRow, ValidationErrorType | RowNotFoundErrorType>;
+	get(id: string): Result<TRow, ValidationError | RowNotFoundError>;
 	getMany(ids: string[]): {
 		oks: TRow[];
-		errs: { validation: ValidationErrorType[]; notFound: RowNotFoundErrorType[] };
+		errs: { validation: ValidationError[]; notFound: RowNotFoundError[] };
 	};
-	getAll(): { oks: TRow[]; errs: ValidationErrorType[] };
+	getAll(): { oks: TRow[]; errs: ValidationError[] };
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;
@@ -74,11 +72,11 @@ export type TableHelper<TRow extends Row> = {
 	}): () => void;
 	filter(predicate: (row: TRow) => boolean): {
 		oks: TRow[];
-		errs: ValidationErrorType[];
+		errs: ValidationError[];
 	};
 	find(predicate: (row: TRow) => boolean): Result<
 		TRow | undefined,
-		ValidationErrorType
+		ValidationError
 	>;
 };
 
@@ -362,8 +360,8 @@ function createTableHelper<TRow extends Row>({
 
 		getMany(ids: string[]) {
 			const oks: TRow[] = [];
-			const validation: ValidationErrorType[] = [];
-			const notFound: RowNotFoundErrorType[] = [];
+			const validation: ValidationError[] = [];
+			const notFound: RowNotFoundError[] = [];
 
 			for (const id of ids) {
 				const yrow = ytable.get(id);
@@ -398,7 +396,7 @@ function createTableHelper<TRow extends Row>({
 
 		getAll() {
 			const oks: TRow[] = [];
-			const errs: ValidationErrorType[] = [];
+			const errs: ValidationError[] = [];
 
 			for (const [id, yrow] of ytable.entries()) {
 				const row = toRow(yrow);
@@ -450,7 +448,7 @@ function createTableHelper<TRow extends Row>({
 
 		filter(predicate: (row: TRow) => boolean) {
 			const oks: TRow[] = [];
-			const errs: ValidationErrorType[] = [];
+			const errs: ValidationError[] = [];
 
 			for (const [id, yrow] of ytable.entries()) {
 				const row = toRow(yrow);
