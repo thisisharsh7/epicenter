@@ -166,7 +166,7 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 			if (!ytable) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
-			return [tableName, createTableHelper(ydoc, tableName, ytable)];
+			return [tableName, createTableHelper({ ydoc, tableName, ytable })];
 		}),
 	) as {
 		[TTableName in keyof TSchemas]: TableHelper<Row<TSchemas[TTableName]>>;
@@ -186,9 +186,7 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
  * @returns A TableHelper instance with full CRUD operations
  */
 function createTableHelper<TRow extends Row>(
-	ydoc: Y.Doc,
-	tableName: string,
-	ytable: Y.Map<YRow>,
+{ ydoc, tableName, ytable }: { ydoc: Y.Doc; tableName: string; ytable: Y.Map<YRow>; }
 ): TableHelper<TRow> {
 	return {
 		insert(data: TRow) {
