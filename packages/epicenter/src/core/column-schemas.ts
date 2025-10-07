@@ -43,6 +43,20 @@ export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
 export type DateWithTimezone = { date: Date; timezone: string };
 
 /**
+ * Type guard to check if a value is a valid DateWithTimezone
+ */
+export function isDateWithTimezone(value: unknown): value is DateWithTimezone {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'date' in value &&
+		value.date instanceof Date &&
+		'timezone' in value &&
+		typeof value.timezone === 'string'
+	);
+}
+
+/**
  * Generates a nano ID - 21 character alphanumeric string
  */
 export function generateId(): Id {

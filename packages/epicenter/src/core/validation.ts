@@ -1,5 +1,10 @@
 import * as Y from 'yjs';
-import type { CellValue, Row, TableSchema } from './column-schemas';
+import {
+	isDateWithTimezone,
+	type CellValue,
+	type Row,
+	type TableSchema,
+} from './column-schemas';
 
 /**
  * A row that has been validated against its table schema
@@ -31,15 +36,7 @@ function isValidCellValue(value: unknown): value is CellValue {
 	if (value instanceof Y.Text) return true;
 	if (value instanceof Y.XmlFragment) return true;
 	if (value instanceof Y.Array) return true;
-	if (
-		typeof value === 'object' &&
-		value !== null &&
-		'date' in value &&
-		value.date instanceof Date &&
-		'timezone' in value &&
-		typeof value.timezone === 'string'
-	)
-		return true;
+	if (isDateWithTimezone(value)) return true;
 	return false;
 }
 
@@ -176,14 +173,7 @@ export function validateRow<TSchema extends TableSchema>(
 				break;
 
 			case 'date':
-				if (
-					typeof value !== 'object' ||
-					value === null ||
-					!('date' in value) ||
-					!(value.date instanceof Date) ||
-					!('timezone' in value) ||
-					typeof value.timezone !== 'string'
-				) {
+				if (!isDateWithTimezone(value)) {
 					console.warn(
 						`Validation failed: field "${fieldName}" expected DateWithTimezone object, got ${typeof value}`,
 					);
