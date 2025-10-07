@@ -5,18 +5,18 @@ import type { CellValue, Row, TableSchema } from '../core/column-schemas';
  * YJS representation of a row
  * Maps column names to YJS shared types or primitives
  */
-type YjsRow = Y.Map<CellValue>;
+type YRow = Y.Map<CellValue>;
 
 /**
  * Converts a YJS row to a plain Row object
  *
- * This is a one-way conversion. We don't need the reverse (Row to YjsRow) because:
- * - Row updates are always granular (using ymap.set(key, value) for specific fields)
+ * This is a one-way conversion. We don't need the reverse (Row to YRow) because:
+ * - Row updates are always granular (using yrow.set(key, value) for specific fields)
  * - Full row conversions only happen when reading data (get, getAll, filter, etc.)
  * - YJS handles the conversion from plain values to Y.Map internally during insert/update
  */
-function toRow(yjsRow: YjsRow): Row {
-	return Object.fromEntries(yjsRow.entries()) as Row;
+function toRow(yrow: YRow): Row {
+	return Object.fromEntries(yrow.entries()) as Row;
 }
 
 /**
@@ -76,13 +76,13 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 	ydoc: Y.Doc,
 	tableSchemas: TSchemas,
 ) {
-	const ytables = ydoc.getMap<Y.Map<YjsRow>>('tables');
+	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
 	// Initialize each table as a Y.Map<id, row> (only if not already present)
 	// When loading from disk or syncing from network, tables may already exist
 	for (const tableName of Object.keys(tableSchemas)) {
 		if (!ytables.has(tableName)) {
-			ytables.set(tableName, new Y.Map<YjsRow>());
+			ytables.set(tableName, new Y.Map<YRow>());
 		}
 	}
 
@@ -146,7 +146,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 }
 
 function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
-	{ ydoc, tableSchemas, ytables }: { ydoc: Y.Doc; tableSchemas: TSchemas; ytables: Y.Map<Y.Map<YjsRow>>; }
+	{ ydoc, tableSchemas, ytables }: { ydoc: Y.Doc; tableSchemas: TSchemas; ytables: Y.Map<Y.Map<YRow>>; }
 ) {
 	return Object.fromEntries(
 		Object.keys(tableSchemas).map((tableName) => {
@@ -164,25 +164,25 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 								`Row with id "${id}" already exists in table "${tableName}"`,
 							);
 						}
-						const ymap = new Y.Map<CellValue>();
+						const yrow = new Y.Map<CellValue>();
 						for (const [key, value] of Object.entries(data)) {
-							ymap.set(key, value);
+							yrow.set(key, value);
 						}
-						ytable.set(id, ymap);
+						ytable.set(id, yrow);
 					});
 				},
 
 				update(id: string, partial: Partial<Row>) {
 					ydoc.transact(() => {
-						const ymap = ytable.get(id);
-						if (!ymap) {
+						const yrow = ytable.get(id);
+						if (!yrow) {
 							throw new Error(
 								`Row with id "${id}" not found in table "${tableName}"`,
 							);
 						}
 						for (const [key, value] of Object.entries(partial)) {
 							if (value !== undefined) {
-								ymap.set(key, value);
+								yrow.set(key, value);
 							}
 						}
 					});
@@ -191,13 +191,13 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 				upsert(data: Row) {
 					ydoc.transact(() => {
 						const id = data.id as string;
-						let ymap = ytable.get(id);
-						if (!ymap) {
-							ymap = new Y.Map<CellValue>();
-							ytable.set(id, ymap);
+						let yrow = ytable.get(id);
+						if (!yrow) {
+							yrow = new Y.Map<CellValue>();
+							ytable.set(id, yrow);
 						}
 						for (const [key, value] of Object.entries(data)) {
-							ymap.set(key, value);
+							yrow.set(key, value);
 						}
 					});
 				},
@@ -211,11 +211,11 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 									`Row with id "${id}" already exists in table "${tableName}"`,
 								);
 							}
-							const ymap = new Y.Map<CellValue>();
+							const yrow = new Y.Map<CellValue>();
 							for (const [key, value] of Object.entries(row)) {
-								ymap.set(key, value);
+								yrow.set(key, value);
 							}
-							ytable.set(id, ymap);
+							ytable.set(id, yrow);
 						}
 					});
 				},
@@ -224,13 +224,13 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 					ydoc.transact(() => {
 						for (const row of rows) {
 							const id = row.id as string;
-							let ymap = ytable.get(id);
-							if (!ymap) {
-								ymap = new Y.Map<CellValue>();
-								ytable.set(id, ymap);
+							let yrow = ytable.get(id);
+							if (!yrow) {
+								yrow = new Y.Map<CellValue>();
+								ytable.set(id, yrow);
 							}
 							for (const [key, value] of Object.entries(row)) {
-								ymap.set(key, value);
+								yrow.set(key, value);
 							}
 						}
 					});
@@ -239,15 +239,15 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 				updateMany(updates: Array<{ id: string; data: Partial<Row> }>) {
 					ydoc.transact(() => {
 						for (const { id, data } of updates) {
-							const ymap = ytable.get(id);
-							if (!ymap) {
+							const yrow = ytable.get(id);
+							if (!yrow) {
 								throw new Error(
 									`Row with id "${id}" not found in table "${tableName}"`,
 								);
 							}
 							for (const [key, value] of Object.entries(data)) {
 								if (value !== undefined) {
-									ymap.set(key, value);
+									yrow.set(key, value);
 								}
 							}
 						}
@@ -255,17 +255,17 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 				},
 
 				get(id: string) {
-					const ymap = ytable.get(id);
-					if (!ymap) return undefined;
-					return toRow(ymap);
+					const yrow = ytable.get(id);
+					if (!yrow) return undefined;
+					return toRow(yrow);
 				},
 
 				getMany(ids: string[]) {
 					const rows: Row[] = [];
 					for (const id of ids) {
-						const ymap = ytable.get(id);
-						if (ymap) {
-							rows.push(toRow(ymap));
+						const yrow = ytable.get(id);
+						if (yrow) {
+							rows.push(toRow(yrow));
 						}
 					}
 					return rows;
@@ -273,8 +273,8 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 
 				getAll() {
 					const rows: Row[] = [];
-					for (const ymap of ytable.values()) {
-						rows.push(toRow(ymap));
+					for (const yrow of ytable.values()) {
+						rows.push(toRow(yrow));
 					}
 					return rows;
 				},
@@ -309,8 +309,8 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 
 				filter(predicate: (row: Row) => boolean) {
 					const results: Row[] = [];
-					for (const ymap of ytable.values()) {
-						const row = toRow(ymap);
+					for (const yrow of ytable.values()) {
+						const row = toRow(yrow);
 						if (predicate(row)) {
 							results.push(row);
 						}
@@ -319,8 +319,8 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 				},
 
 				find(predicate: (row: Row) => boolean) {
-					for (const ymap of ytable.values()) {
-						const row = toRow(ymap);
+					for (const yrow of ytable.values()) {
+						const row = toRow(yrow);
 						if (predicate(row)) {
 							return row;
 						}
@@ -337,15 +337,15 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 						for (const event of events) {
 							event.changes.keys.forEach((change: any, key: string) => {
 								if (change.action === 'add') {
-									const ymap = ytable.get(key);
-									if (ymap) {
-										const data = toRow(ymap);
+									const yrow = ytable.get(key);
+									if (yrow) {
+										const data = toRow(yrow);
 										handlers.onAdd(key, data);
 									}
 								} else if (change.action === 'update') {
-									const ymap = ytable.get(key);
-									if (ymap) {
-										const data = toRow(ymap);
+									const yrow = ytable.get(key);
+									if (yrow) {
+										const data = toRow(yrow);
 										handlers.onUpdate(key, data);
 									}
 								} else if (change.action === 'delete') {
