@@ -241,6 +241,17 @@ function createTableHelper<TRow extends Row>({
 	ytable: Y.Map<YRow>;
 	schema: TableSchema;
 }): TableHelper<TRow> {
+	/**
+	 * Validates a row and returns it typed as TRow
+	 * The generic validateRow() returns ValidatedRow<TableSchema>, but we need the specific
+	 * TRow type for this table. This wrapper narrows the type from the generic schema to
+	 * the concrete row type, enabling proper type inference throughout the table helper.
+	 */
+	const validateTypedRow = (row: Row): TRow | undefined => {
+		const validated = validateRow(row, schema);
+		return validated ? (validated as TRow) : undefined;
+	};
+
 	return {
 		insert(row: TRow) {
 			ydoc.transact(() => {
@@ -346,7 +357,7 @@ function createTableHelper<TRow extends Row>({
 			}
 
 			const row = toRow(yrow);
-			const validated = validateRow(row, schema);
+			const validated = validateTypedRow(row);
 
 			if (!validated) {
 				return ValidationErr({
@@ -355,7 +366,7 @@ function createTableHelper<TRow extends Row>({
 				});
 			}
 
-			return Ok(validated as TRow);
+			return Ok(validated);
 		},
 
 		getMany(ids: string[]) {
@@ -376,7 +387,7 @@ function createTableHelper<TRow extends Row>({
 				}
 
 				const row = toRow(yrow);
-				const validated = validateRow(row, schema);
+				const validated = validateTypedRow(row);
 
 				if (!validated) {
 					validation.push(
@@ -388,7 +399,7 @@ function createTableHelper<TRow extends Row>({
 					continue;
 				}
 
-				oks.push(validated as TRow);
+				oks.push(validated);
 			}
 
 			return { oks, errs: { validation, notFound } };
@@ -400,7 +411,7 @@ function createTableHelper<TRow extends Row>({
 
 			for (const [id, yrow] of ytable.entries()) {
 				const row = toRow(yrow);
-				const validated = validateRow(row, schema);
+				const validated = validateTypedRow(row);
 
 				if (!validated) {
 					errs.push(
@@ -412,7 +423,7 @@ function createTableHelper<TRow extends Row>({
 					continue;
 				}
 
-				oks.push(validated as TRow);
+				oks.push(validated);
 			}
 
 			return { oks, errs };
@@ -452,7 +463,7 @@ function createTableHelper<TRow extends Row>({
 
 			for (const [id, yrow] of ytable.entries()) {
 				const row = toRow(yrow);
-				const validated = validateRow(row, schema);
+				const validated = validateTypedRow(row);
 
 				if (!validated) {
 					errs.push(
@@ -464,9 +475,8 @@ function createTableHelper<TRow extends Row>({
 					continue;
 				}
 
-				const typedRow = validated as TRow;
-				if (predicate(typedRow)) {
-					oks.push(typedRow);
+				if (predicate(validated)) {
+					oks.push(validated);
 				}
 			}
 
@@ -476,16 +486,15 @@ function createTableHelper<TRow extends Row>({
 		find(predicate: (row: TRow) => boolean) {
 			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
-				const validated = validateRow(row, schema);
+				const validated = validateTypedRow(row);
 
 				if (!validated) {
 					// Skip invalid rows silently (logged in validateRow)
 					continue;
 				}
 
-				const typedRow = validated as TRow;
-				if (predicate(typedRow)) {
-					return Ok(typedRow);
+				if (predicate(validated)) {
+					return Ok(validated);
 				}
 			}
 
@@ -505,10 +514,10 @@ function createTableHelper<TRow extends Row>({
 							const yrow = ytable.get(key);
 							if (yrow) {
 								const row = toRow(yrow);
-								const validated = validateRow(row, schema);
+								const validated = validateTypedRow(row);
 
 								if (validated) {
-									handlers.onAdd(key, validated as TRow);
+									handlers.onAdd(key, validated);
 								} else {
 									console.warn(
 										`Skipping invalid row in ${tableName}/${key} (onAdd)`,
@@ -519,10 +528,10 @@ function createTableHelper<TRow extends Row>({
 							const yrow = ytable.get(key);
 							if (yrow) {
 								const row = toRow(yrow);
-								const validated = validateRow(row, schema);
+								const validated = validateTypedRow(row);
 
 								if (validated) {
-									handlers.onUpdate(key, validated as TRow);
+									handlers.onUpdate(key, validated);
 								} else {
 									console.warn(
 										`Skipping invalid row in ${tableName}/${key} (onUpdate)`,
