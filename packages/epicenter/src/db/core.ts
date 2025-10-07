@@ -15,7 +15,7 @@ type YjsRow = Y.Map<CellValue>;
  * - Full row conversions only happen when reading data (get, getAll, filter, etc.)
  * - YJS handles the conversion from plain values to Y.Map internally during insert/update
  */
-function yjsRowToRow(yjsRow: YjsRow): Row {
+function toRow(yjsRow: YjsRow): Row {
 	return Object.fromEntries(yjsRow.entries()) as Row;
 }
 
@@ -200,7 +200,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 					get(id: string) {
 						const ymap = ytable.get(id);
 						if (!ymap) return undefined;
-						return yjsRowToRow(ymap);
+						return toRow(ymap);
 					},
 
 					getMany(ids: string[]) {
@@ -208,7 +208,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 						for (const id of ids) {
 							const ymap = ytable.get(id);
 							if (ymap) {
-								rows.push(yjsRowToRow(ymap));
+								rows.push(toRow(ymap));
 							}
 						}
 						return rows;
@@ -217,7 +217,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 					getAll() {
 						const rows: Row[] = [];
 						for (const ymap of ytable.values()) {
-							rows.push(yjsRowToRow(ymap));
+							rows.push(toRow(ymap));
 						}
 						return rows;
 					},
@@ -253,7 +253,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 					filter(predicate: (row: Row) => boolean) {
 						const results: Row[] = [];
 						for (const ymap of ytable.values()) {
-							const row = yjsRowToRow(ymap);
+							const row = toRow(ymap);
 							if (predicate(row)) {
 								results.push(row);
 							}
@@ -263,7 +263,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 
 					find(predicate: (row: Row) => boolean) {
 						for (const ymap of ytable.values()) {
-							const row = yjsRowToRow(ymap);
+							const row = toRow(ymap);
 							if (predicate(row)) {
 								return row;
 							}
@@ -282,13 +282,13 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 									if (change.action === 'add') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = yjsRowToRow(ymap);
+											const data = toRow(ymap);
 											handlers.onAdd(key, data);
 										}
 									} else if (change.action === 'update') {
 										const ymap = ytable.get(key);
 										if (ymap) {
-											const data = yjsRowToRow(ymap);
+											const data = toRow(ymap);
 											handlers.onUpdate(key, data);
 										}
 									} else if (change.action === 'delete') {
