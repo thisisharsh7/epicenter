@@ -154,218 +154,223 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 			if (!ytable) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
-
-			const tableHelper = {
-				insert(data: Row) {
-					ydoc.transact(() => {
-						const id = data.id as string;
-						if (ytable.has(id)) {
-							throw new Error(
-								`Row with id "${id}" already exists in table "${tableName}"`,
-							);
-						}
-						const yrow = new Y.Map<CellValue>();
-						for (const [key, value] of Object.entries(data)) {
-							yrow.set(key, value);
-						}
-						ytable.set(id, yrow);
-					});
-				},
-
-				update(id: string, partial: Partial<Row>) {
-					ydoc.transact(() => {
-						const yrow = ytable.get(id);
-						if (!yrow) {
-							throw new Error(
-								`Row with id "${id}" not found in table "${tableName}"`,
-							);
-						}
-						for (const [key, value] of Object.entries(partial)) {
-							if (value !== undefined) {
-								yrow.set(key, value);
-							}
-						}
-					});
-				},
-
-				upsert(data: Row) {
-					ydoc.transact(() => {
-						const id = data.id as string;
-						let yrow = ytable.get(id);
-						if (!yrow) {
-							yrow = new Y.Map<CellValue>();
-							ytable.set(id, yrow);
-						}
-						for (const [key, value] of Object.entries(data)) {
-							yrow.set(key, value);
-						}
-					});
-				},
-
-				insertMany(rows: Row[]) {
-					ydoc.transact(() => {
-						for (const row of rows) {
-							const id = row.id as string;
-							if (ytable.has(id)) {
-								throw new Error(
-									`Row with id "${id}" already exists in table "${tableName}"`,
-								);
-							}
-							const yrow = new Y.Map<CellValue>();
-							for (const [key, value] of Object.entries(row)) {
-								yrow.set(key, value);
-							}
-							ytable.set(id, yrow);
-						}
-					});
-				},
-
-				upsertMany(rows: Row[]) {
-					ydoc.transact(() => {
-						for (const row of rows) {
-							const id = row.id as string;
-							let yrow = ytable.get(id);
-							if (!yrow) {
-								yrow = new Y.Map<CellValue>();
-								ytable.set(id, yrow);
-							}
-							for (const [key, value] of Object.entries(row)) {
-								yrow.set(key, value);
-							}
-						}
-					});
-				},
-
-				updateMany(updates: Array<{ id: string; data: Partial<Row> }>) {
-					ydoc.transact(() => {
-						for (const { id, data } of updates) {
-							const yrow = ytable.get(id);
-							if (!yrow) {
-								throw new Error(
-									`Row with id "${id}" not found in table "${tableName}"`,
-								);
-							}
-							for (const [key, value] of Object.entries(data)) {
-								if (value !== undefined) {
-									yrow.set(key, value);
-								}
-							}
-						}
-					});
-				},
-
-				get(id: string) {
-					const yrow = ytable.get(id);
-					if (!yrow) return undefined;
-					return toRow(yrow);
-				},
-
-				getMany(ids: string[]) {
-					const rows: Row[] = [];
-					for (const id of ids) {
-						const yrow = ytable.get(id);
-						if (yrow) {
-							rows.push(toRow(yrow));
-						}
-					}
-					return rows;
-				},
-
-				getAll() {
-					const rows: Row[] = [];
-					for (const yrow of ytable.values()) {
-						rows.push(toRow(yrow));
-					}
-					return rows;
-				},
-
-				has(id: string) {
-					return ytable.has(id);
-				},
-
-				delete(id: string) {
-					ydoc.transact(() => {
-						ytable.delete(id);
-					});
-				},
-
-				deleteMany(ids: string[]) {
-					ydoc.transact(() => {
-						for (const id of ids) {
-							ytable.delete(id);
-						}
-					});
-				},
-
-				clear() {
-					ydoc.transact(() => {
-						ytable.clear();
-					});
-				},
-
-				count() {
-					return ytable.size;
-				},
-
-				filter(predicate: (row: Row) => boolean) {
-					const results: Row[] = [];
-					for (const yrow of ytable.values()) {
-						const row = toRow(yrow);
-						if (predicate(row)) {
-							results.push(row);
-						}
-					}
-					return results;
-				},
-
-				find(predicate: (row: Row) => boolean) {
-					for (const yrow of ytable.values()) {
-						const row = toRow(yrow);
-						if (predicate(row)) {
-							return row;
-						}
-					}
-					return undefined;
-				},
-
-				observe(handlers: {
-					onAdd: (id: string, data: Row) => void | Promise<void>;
-					onUpdate: (id: string, data: Row) => void | Promise<void>;
-					onDelete: (id: string) => void | Promise<void>;
-				}) {
-					const observer = (events: Y.YEvent<any>[]) => {
-						for (const event of events) {
-							event.changes.keys.forEach((change: any, key: string) => {
-								if (change.action === 'add') {
-									const yrow = ytable.get(key);
-									if (yrow) {
-										const data = toRow(yrow);
-										handlers.onAdd(key, data);
-									}
-								} else if (change.action === 'update') {
-									const yrow = ytable.get(key);
-									if (yrow) {
-										const data = toRow(yrow);
-										handlers.onUpdate(key, data);
-									}
-								} else if (change.action === 'delete') {
-									handlers.onDelete(key);
-								}
-							});
-						}
-					};
-
-					ytable.observeDeep(observer);
-
-					return () => {
-						ytable.unobserveDeep(observer);
-					};
-				},
-			} satisfies TableHelper<Row>;
-
-			return [tableName, tableHelper];
+			return [tableName, createTableHelper(ydoc, tableName, ytable)];
 		}),
 	) as {
-			[TTableName in keyof TSchemas]: TableHelper<Row<TSchemas[TTableName]>>;
-		};
+		[TTableName in keyof TSchemas]: TableHelper<Row<TSchemas[TTableName]>>;
+	};
+}
+
+function createTableHelper<TRow extends Row>(
+	ydoc: Y.Doc,
+	tableName: string,
+	ytable: Y.Map<YRow>,
+): TableHelper<TRow> {
+	return {
+		insert(data: TRow) {
+			ydoc.transact(() => {
+				const id = data.id as string;
+				if (ytable.has(id)) {
+					throw new Error(
+						`Row with id "${id}" already exists in table "${tableName}"`,
+					);
+				}
+				const yrow = new Y.Map<CellValue>();
+				for (const [key, value] of Object.entries(data)) {
+					yrow.set(key, value);
+				}
+				ytable.set(id, yrow);
+			});
+		},
+
+		update(id: string, partial: Partial<TRow>) {
+			ydoc.transact(() => {
+				const yrow = ytable.get(id);
+				if (!yrow) {
+					throw new Error(
+						`Row with id "${id}" not found in table "${tableName}"`,
+					);
+				}
+				for (const [key, value] of Object.entries(partial)) {
+					if (value !== undefined) {
+						yrow.set(key, value);
+					}
+				}
+			});
+		},
+
+		upsert(data: TRow) {
+			ydoc.transact(() => {
+				const id = data.id as string;
+				let yrow = ytable.get(id);
+				if (!yrow) {
+					yrow = new Y.Map<CellValue>();
+					ytable.set(id, yrow);
+				}
+				for (const [key, value] of Object.entries(data)) {
+					yrow.set(key, value);
+				}
+			});
+		},
+
+		insertMany(rows: TRow[]) {
+			ydoc.transact(() => {
+				for (const row of rows) {
+					const id = row.id as string;
+					if (ytable.has(id)) {
+						throw new Error(
+							`Row with id "${id}" already exists in table "${tableName}"`,
+						);
+					}
+					const yrow = new Y.Map<CellValue>();
+					for (const [key, value] of Object.entries(row)) {
+						yrow.set(key, value);
+					}
+					ytable.set(id, yrow);
+				}
+			});
+		},
+
+		upsertMany(rows: TRow[]) {
+			ydoc.transact(() => {
+				for (const row of rows) {
+					const id = row.id as string;
+					let yrow = ytable.get(id);
+					if (!yrow) {
+						yrow = new Y.Map<CellValue>();
+						ytable.set(id, yrow);
+					}
+					for (const [key, value] of Object.entries(row)) {
+						yrow.set(key, value);
+					}
+				}
+			});
+		},
+
+		updateMany(updates: Array<{ id: string; data: Partial<TRow> }>) {
+			ydoc.transact(() => {
+				for (const { id, data } of updates) {
+					const yrow = ytable.get(id);
+					if (!yrow) {
+						throw new Error(
+							`Row with id "${id}" not found in table "${tableName}"`,
+						);
+					}
+					for (const [key, value] of Object.entries(data)) {
+						if (value !== undefined) {
+							yrow.set(key, value);
+						}
+					}
+				}
+			});
+		},
+
+		get(id: string) {
+			const yrow = ytable.get(id);
+			if (!yrow) return undefined;
+			return toRow(yrow) as TRow;
+		},
+
+		getMany(ids: string[]) {
+			const rows: TRow[] = [];
+			for (const id of ids) {
+				const yrow = ytable.get(id);
+				if (yrow) {
+					rows.push(toRow(yrow) as TRow);
+				}
+			}
+			return rows;
+		},
+
+		getAll() {
+			const rows: TRow[] = [];
+			for (const yrow of ytable.values()) {
+				rows.push(toRow(yrow) as TRow);
+			}
+			return rows;
+		},
+
+		has(id: string) {
+			return ytable.has(id);
+		},
+
+		delete(id: string) {
+			ydoc.transact(() => {
+				ytable.delete(id);
+			});
+		},
+
+		deleteMany(ids: string[]) {
+			ydoc.transact(() => {
+				for (const id of ids) {
+					ytable.delete(id);
+				}
+			});
+		},
+
+		clear() {
+			ydoc.transact(() => {
+				ytable.clear();
+			});
+		},
+
+		count() {
+			return ytable.size;
+		},
+
+		filter(predicate: (row: TRow) => boolean) {
+			const results: TRow[] = [];
+			for (const yrow of ytable.values()) {
+				const row = toRow(yrow) as TRow;
+				if (predicate(row)) {
+					results.push(row);
+				}
+			}
+			return results;
+		},
+
+		find(predicate: (row: TRow) => boolean) {
+			for (const yrow of ytable.values()) {
+				const row = toRow(yrow) as TRow;
+				if (predicate(row)) {
+					return row;
+				}
+			}
+			return undefined;
+		},
+
+		observe(handlers: {
+			onAdd: (id: string, data: TRow) => void | Promise<void>;
+			onUpdate: (id: string, data: TRow) => void | Promise<void>;
+			onDelete: (id: string) => void | Promise<void>;
+		}) {
+			const observer = (events: Y.YEvent<any>[]) => {
+				for (const event of events) {
+					event.changes.keys.forEach((change: any, key: string) => {
+						if (change.action === 'add') {
+							const yrow = ytable.get(key);
+							if (yrow) {
+								const data = toRow(yrow) as TRow;
+								handlers.onAdd(key, data);
+							}
+						} else if (change.action === 'update') {
+							const yrow = ytable.get(key);
+							if (yrow) {
+								const data = toRow(yrow) as TRow;
+								handlers.onUpdate(key, data);
+							}
+						} else if (change.action === 'delete') {
+							handlers.onDelete(key);
+						}
+					});
+				}
+			};
+
+			ytable.observeDeep(observer);
+
+			return () => {
+				ytable.unobserveDeep(observer);
+			};
+		},
+	};
 }
