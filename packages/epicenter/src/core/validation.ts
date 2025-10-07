@@ -10,27 +10,73 @@ export type ValidatedRow<TSchema extends TableSchema = TableSchema> =
 
 /**
  * Discriminated union representing validation result
- * Either valid (typed data) or invalid (raw data)
+ * Three possible states:
+ * - valid: Data matches schema perfectly
+ * - schema_mismatch: Valid Row structure but doesn't match schema
+ * - invalid_structure: Not a valid Row structure
  */
-export type ValidationResult<TValid, TInvalid = unknown> =
-	| { valid: TValid; invalid: null }
-	| { valid: null; invalid: TInvalid };
+export type ValidationResult<T> =
+	| { status: 'valid'; data: T }
+	| { status: 'schema_mismatch'; data: Row }
+	| { status: 'invalid_structure'; data: unknown };
+
+/**
+ * Check if a value is a valid CellValue type
+ */
+function isValidCellValue(value: unknown): boolean {
+	if (value === null || value === undefined) return true;
+	if (typeof value === 'string') return true;
+	if (typeof value === 'number') return true;
+	if (typeof value === 'boolean') return true;
+	if (value instanceof Y.Text) return true;
+	if (value instanceof Y.XmlFragment) return true;
+	if (value instanceof Y.Array) return true;
+	if (
+		typeof value === 'object' &&
+		value !== null &&
+		'date' in value &&
+		'timezone' in value
+	)
+		return true;
+	return false;
+}
 
 /**
  * Validate a row against its table schema
- * Returns validation result with either valid typed row or invalid raw row
+ * Performs two-level validation:
+ * 1. Structural: Is the data a valid Row? (all values are valid CellValue types)
+ * 2. Schema: Does the Row match the specific table schema?
  *
- * @param data - The row data to validate
+ * @param data - The data to validate (can be anything)
  * @param schema - The table schema to validate against
- * @returns ValidationResult with valid typed row or invalid raw row
+ * @returns ValidationResult with status and typed/untyped data
  */
 export function validateRow<TSchema extends TableSchema>(
-	data: Row,
+	data: unknown,
 	schema: TSchema,
-): ValidationResult<ValidatedRow<TSchema>, Row> {
-	// Validate each field in schema
+): ValidationResult<ValidatedRow<TSchema>> {
+	// Step 1: Structural validation - is this even a valid Row?
+	if (typeof data !== 'object' || data === null) {
+		console.warn('Validation failed: data is not an object');
+		return { status: 'invalid_structure', data };
+	}
+
+	// Check all values are valid CellValue types
+	for (const [key, value] of Object.entries(data)) {
+		if (!isValidCellValue(value)) {
+			console.warn(
+				`Validation failed: field "${key}" has invalid type (${typeof value})`,
+			);
+			return { status: 'invalid_structure', data };
+		}
+	}
+
+	// At this point we know it's a valid Row structure
+	const row = data as Row;
+
+	// Step 2: Schema validation - validate each field in schema
 	for (const [fieldName, columnSchema] of Object.entries(schema)) {
-		const value = data[fieldName];
+		const value = row[fieldName];
 
 		// Check nullable
 		if (value === null || value === undefined) {
@@ -38,7 +84,7 @@ export function validateRow<TSchema extends TableSchema>(
 				console.warn(
 					`Validation failed: field "${fieldName}" is required but got null/undefined`,
 				);
-				return { valid: null, invalid: data };
+				return { status: 'schema_mismatch', data: row };
 			}
 			continue;
 		}
@@ -51,7 +97,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected string, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -60,7 +106,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected integer, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -69,7 +115,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected number, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -78,7 +124,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected boolean, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -87,7 +133,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected Y.Text, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -96,7 +142,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected Y.XmlFragment, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -105,7 +151,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected string, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				if (
 					'options' in columnSchema &&
@@ -114,7 +160,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" value "${value}" not in options`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -123,7 +169,7 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected Y.Array, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 
@@ -137,11 +183,11 @@ export function validateRow<TSchema extends TableSchema>(
 					console.warn(
 						`Validation failed: field "${fieldName}" expected DateWithTimezone object, got ${typeof value}`,
 					);
-					return { valid: null, invalid: data };
+					return { status: 'schema_mismatch', data: row };
 				}
 				break;
 		}
 	}
 
-	return { valid: data as ValidatedRow<TSchema>, invalid: null };
+	return { status: 'valid', data: row as ValidatedRow<TSchema> };
 }
