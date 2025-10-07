@@ -145,6 +145,18 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 	};
 }
 
+/**
+ * Creates a type-safe collection of table helpers for all tables in a schema.
+ *
+ * This function maps over the table schemas and creates a TableHelper for each table,
+ * returning an object where each key is a table name and each value is the corresponding
+ * typed helper with full CRUD operations.
+ *
+ * @param ydoc - The YJS document instance
+ * @param tableSchemas - Schema definitions for all tables
+ * @param ytables - The root YJS Map containing all table data
+ * @returns Object mapping table names to their typed TableHelper instances
+ */
 function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 	{ ydoc, tableSchemas, ytables }: { ydoc: Y.Doc; tableSchemas: TSchemas; ytables: Y.Map<Y.Map<YRow>>; }
 ) {
@@ -161,6 +173,18 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>(
 	};
 }
 
+/**
+ * Creates a single table helper with type-safe CRUD operations for a specific table.
+ *
+ * This is a pure function that wraps a YJS Map (representing a table) with methods
+ * for inserting, updating, deleting, and querying rows. All operations are properly
+ * typed based on the table's row type.
+ *
+ * @param ydoc - The YJS document instance (used for transactions)
+ * @param tableName - Name of the table (used in error messages)
+ * @param ytable - The YJS Map containing the table's row data
+ * @returns A TableHelper instance with full CRUD operations
+ */
 function createTableHelper<TRow extends Row>(
 	ydoc: Y.Doc,
 	tableName: string,
