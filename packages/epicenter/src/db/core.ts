@@ -23,9 +23,9 @@ function toRow(yrow: YRow): Row {
  * Type-safe table helper with operations for a specific table schema
  */
 export type TableHelper<TRow extends Row> = {
-	insert(data: TRow): void;
+	insert(row: TRow): void;
 	update(id: string, partial: Partial<TRow>): void;
-	upsert(data: TRow): void;
+	upsert(row: TRow): void;
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(updates: Array<{ id: string; data: Partial<TRow> }>): void;
@@ -189,19 +189,18 @@ function createTableHelper<TRow extends Row>(
 { ydoc, tableName, ytable }: { ydoc: Y.Doc; tableName: string; ytable: Y.Map<YRow>; }
 ): TableHelper<TRow> {
 	return {
-		insert(data: TRow) {
+		insert(row: TRow) {
 			ydoc.transact(() => {
-				const id = data.id as string;
-				if (ytable.has(id)) {
+				if (ytable.has(row.id)) {
 					throw new Error(
-						`Row with id "${id}" already exists in table "${tableName}"`,
+						`Row with id "${row.id}" already exists in table "${tableName}"`,
 					);
 				}
 				const yrow = new Y.Map<CellValue>();
-				for (const [key, value] of Object.entries(data)) {
+				for (const [key, value] of Object.entries(row)) {
 					yrow.set(key, value);
 				}
-				ytable.set(id, yrow);
+				ytable.set(row.id, yrow);
 			});
 		},
 
@@ -221,15 +220,14 @@ function createTableHelper<TRow extends Row>(
 			});
 		},
 
-		upsert(data: TRow) {
+		upsert(row: TRow) {
 			ydoc.transact(() => {
-				const id = data.id as string;
-				let yrow = ytable.get(id);
+				let yrow = ytable.get(row.id);
 				if (!yrow) {
 					yrow = new Y.Map<CellValue>();
-					ytable.set(id, yrow);
+					ytable.set(row.id, yrow);
 				}
-				for (const [key, value] of Object.entries(data)) {
+				for (const [key, value] of Object.entries(row)) {
 					yrow.set(key, value);
 				}
 			});
@@ -238,17 +236,16 @@ function createTableHelper<TRow extends Row>(
 		insertMany(rows: TRow[]) {
 			ydoc.transact(() => {
 				for (const row of rows) {
-					const id = row.id as string;
-					if (ytable.has(id)) {
+					if (ytable.has(row.id)) {
 						throw new Error(
-							`Row with id "${id}" already exists in table "${tableName}"`,
+							`Row with id "${row.id}" already exists in table "${tableName}"`,
 						);
 					}
 					const yrow = new Y.Map<CellValue>();
 					for (const [key, value] of Object.entries(row)) {
 						yrow.set(key, value);
 					}
-					ytable.set(id, yrow);
+					ytable.set(row.id, yrow);
 				}
 			});
 		},
@@ -256,11 +253,10 @@ function createTableHelper<TRow extends Row>(
 		upsertMany(rows: TRow[]) {
 			ydoc.transact(() => {
 				for (const row of rows) {
-					const id = row.id as string;
-					let yrow = ytable.get(id);
+					let yrow = ytable.get(row.id);
 					if (!yrow) {
 						yrow = new Y.Map<CellValue>();
-						ytable.set(id, yrow);
+						ytable.set(row.id, yrow);
 					}
 					for (const [key, value] of Object.entries(row)) {
 						yrow.set(key, value);
