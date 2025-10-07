@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { Row, TableSchema } from './column-schemas';
+import type { CellValue, Row, TableSchema } from './column-schemas';
 
 /**
  * A row that has been validated against its table schema
@@ -9,21 +9,21 @@ export type ValidatedRow<TSchema extends TableSchema = TableSchema> =
 	Row<TSchema>;
 
 /**
- * Discriminated union representing validation result
+ * Discriminated union representing row validation result
  * Three possible states:
  * - valid: Data matches schema perfectly
  * - schema_mismatch: Valid Row structure but doesn't match schema
  * - invalid_structure: Not a valid Row structure
  */
-export type ValidationResult<T> =
-	| { status: 'valid'; data: T }
+export type RowValidationResult<TRow extends Row> =
+	| { status: 'valid'; data: TRow }
 	| { status: 'schema_mismatch'; data: Row }
 	| { status: 'invalid_structure'; data: unknown };
 
 /**
  * Check if a value is a valid CellValue type
  */
-function isValidCellValue(value: unknown): boolean {
+function isValidCellValue(value: unknown): value is CellValue {
 	if (value === null || value === undefined) return true;
 	if (typeof value === 'string') return true;
 	if (typeof value === 'number') return true;
@@ -35,7 +35,9 @@ function isValidCellValue(value: unknown): boolean {
 		typeof value === 'object' &&
 		value !== null &&
 		'date' in value &&
-		'timezone' in value
+		value.date instanceof Date &&
+		'timezone' in value &&
+		typeof value.timezone === 'string'
 	)
 		return true;
 	return false;
@@ -49,12 +51,12 @@ function isValidCellValue(value: unknown): boolean {
  *
  * @param data - The data to validate (can be anything)
  * @param schema - The table schema to validate against
- * @returns ValidationResult with status and typed/untyped data
+ * @returns RowValidationResult with status and typed/untyped data
  */
 export function validateRow<TSchema extends TableSchema>(
 	data: unknown,
 	schema: TSchema,
-): ValidationResult<ValidatedRow<TSchema>> {
+): RowValidationResult<ValidatedRow<TSchema>> {
 	// Step 1: Structural validation - is this even a valid Row?
 	if (typeof data !== 'object' || data === null) {
 		console.warn('Validation failed: data is not an object');
@@ -178,7 +180,9 @@ export function validateRow<TSchema extends TableSchema>(
 					typeof value !== 'object' ||
 					value === null ||
 					!('date' in value) ||
-					!('timezone' in value)
+					!(value.date instanceof Date) ||
+					!('timezone' in value) ||
+					typeof value.timezone !== 'string'
 				) {
 					console.warn(
 						`Validation failed: field "${fieldName}" expected DateWithTimezone object, got ${typeof value}`,
