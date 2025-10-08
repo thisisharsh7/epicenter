@@ -48,14 +48,13 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	set(data: Row<TTableSchema>): void;
 	setMany(rows: Row<TTableSchema>[]): void;
 	get(id: string): Row<TTableSchema> | undefined;
-	getMany(ids: string[]): Row<TTableSchema>[];
 	getAll(): Row<TTableSchema>[];
 	observe(handlers: ObserveHandlers<TTableSchema>): () => void;
 	filter(predicate: (row: Row<TTableSchema>) => boolean): Row<TTableSchema>[];
 };
 ```
 
-Count them. `Row<TTableSchema>` appears **eight times**.
+Count them. `Row<TTableSchema>` appears **seven times**.
 
 The fix? Make the generic one level higher:
 
@@ -65,14 +64,13 @@ export type TableHelper<TRow extends Row> = {
 	set(data: TRow): void;
 	setMany(rows: TRow[]): void;
 	get(id: string): TRow | undefined;
-	getMany(ids: string[]): TRow[];
 	getAll(): TRow[];
 	observe(handlers: ObserveHandlers<TRow>): () => void;
 	filter(predicate: (row: TRow) => boolean): TRow[];
 };
 ```
 
-Now I pass `TableHelper<Row<MySchema>>` instead of `TableHelper<MySchema>`. The conversion happens once at the call site instead of eight times in the type definition.
+Now I pass `TableHelper<Row<MySchema>>` instead of `TableHelper<MySchema>`. The conversion happens once at the call site instead of seven times in the type definition.
 
 ### But Wait, Aren't We Losing Information?
 
