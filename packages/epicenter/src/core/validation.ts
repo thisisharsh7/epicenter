@@ -238,10 +238,7 @@ export function validateRow<TSchema extends TableSchema>(
 						},
 					};
 				}
-				if (
-					'options' in columnSchema &&
-					!columnSchema.options.includes(value)
-				) {
+				if (!columnSchema.options.includes(value)) {
 					return {
 						status: 'schema-mismatch',
 						data: row,
