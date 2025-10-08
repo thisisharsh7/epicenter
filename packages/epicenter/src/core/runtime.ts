@@ -3,9 +3,9 @@ import type * as Y from 'yjs';
 import { createEpicenterDb } from '../db/core';
 import type { TableHelper } from '../db/core';
 import type { WorkspaceAction, WorkspaceActionMap } from './actions';
-import type { Workspace } from './workspace';
-import type { Index } from './indexes';
 import type { TableSchema, ValidatedRow } from './column-schemas';
+import type { Index } from './indexes';
+import type { Workspace } from './workspace';
 
 /**
  * Runtime configuration provided by the user
@@ -75,18 +75,18 @@ export type RuntimeConfig = {
  * Combines typed table helpers and extracted action handlers.
  */
 export type WorkspaceRuntime<
-  TTableSchemas extends Record<string, TableSchema>,
-  TActionMap extends WorkspaceActionMap,
+	TTableSchemas extends Record<string, TableSchema>,
+	TActionMap extends WorkspaceActionMap,
 > = {
-  [TableName in keyof TTableSchemas]: TableHelper<
-    ValidatedRow<TTableSchemas[TableName]>
-  >;
+	[TableName in keyof TTableSchemas]: TableHelper<
+		ValidatedRow<TTableSchemas[TableName]>
+	>;
 } & {
-  [K in keyof TActionMap]: TActionMap[K]['handler'];
+	[K in keyof TActionMap]: TActionMap[K]['handler'];
 } & {
-  indexes: Record<string, Index>;
-  ydoc: Y.Doc;
-  transact: (fn: () => void, origin?: string) => void;
+	indexes: Record<string, Index>;
+	ydoc: Y.Doc;
+	transact: (fn: () => void, origin?: string) => void;
 };
 
 /**
@@ -94,9 +94,9 @@ export type WorkspaceRuntime<
  * Returns the workspace instance with tables, actions, and indexes
  */
 export async function runWorkspace<
-  TTableSchemas extends Record<string, TableSchema>,
-  TActionMap extends WorkspaceActionMap,
-  TDeps extends Record<string, Workspace>,
+	TTableSchemas extends Record<string, TableSchema>,
+	TActionMap extends WorkspaceActionMap,
+	TDeps extends Record<string, Workspace>,
 >(
 	workspace: Workspace<TTableSchemas, TActionMap, TDeps>,
 	config: RuntimeConfig = {},
@@ -105,13 +105,11 @@ export async function runWorkspace<
 	const db = createEpicenterDb(workspace.ydoc, workspace.tables);
 
 	// 2. Initialize indexes
-	const indexContext = {
+	const indexes = workspace.indexes({
 		db,
 		tableSchemas: workspace.tables,
 		workspaceId: workspace.ydoc.guid,
-	};
-
-	const indexes = workspace.indexes(indexContext);
+	});
 
 	// Initialize each index
 	for (const [indexName, index] of Object.entries(indexes)) {
