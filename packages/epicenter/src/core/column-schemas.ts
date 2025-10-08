@@ -128,18 +128,18 @@ export type DateColumnSchema = {
 	default?: DateWithTimezone | (() => DateWithTimezone);
 };
 
-export type SelectColumnSchema = {
+export type SelectColumnSchema<TOptions extends string = string> = {
 	type: 'select';
 	nullable: boolean;
-	options: readonly string[];
-	default?: string;
+	options: readonly TOptions[];
+	default?: TOptions;
 };
 
-export type MultiSelectColumnSchema = {
+export type MultiSelectColumnSchema<TOptions extends string = string> = {
 	type: 'multi-select';
 	nullable: boolean;
-	options: readonly string[];
-	default?: string[];
+	options: readonly TOptions[];
+	default?: TOptions[];
 };
 
 /**
@@ -166,42 +166,42 @@ export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
  * type MultiSelectField = ColumnToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * ```
  */
-export type ColumnToType<C extends ColumnSchema> = C extends { type: 'id' }
+export type ColumnToType<C extends ColumnSchema> = C extends IdColumnSchema
 	? string
-	: C extends { type: 'text' }
+	: C extends TextColumnSchema
 		? C extends { nullable: true }
 			? string | null
 			: string
-		: C extends { type: 'ytext' }
+		: C extends YtextColumnSchema
 			? C extends { nullable: true }
 				? Y.Text | null
 				: Y.Text
-			: C extends { type: 'yxmlfragment' }
+			: C extends YxmlfragmentColumnSchema
 				? C extends { nullable: true }
 					? Y.XmlFragment | null
 					: Y.XmlFragment
-				: C extends { type: 'integer' }
+				: C extends IntegerColumnSchema
 					? C extends { nullable: true }
 						? number | null
 						: number
-					: C extends { type: 'real' }
+					: C extends RealColumnSchema
 						? C extends { nullable: true }
 							? number | null
 							: number
-						: C extends { type: 'boolean' }
+						: C extends BooleanColumnSchema
 							? C extends { nullable: true }
 								? boolean | null
 								: boolean
-							: C extends { type: 'date' }
+							: C extends DateColumnSchema
 								? C extends { nullable: true }
 									? DateWithTimezone | null
 									: DateWithTimezone
-								: C extends { type: 'select' }
+								: C extends SelectColumnSchema<infer TOptions>
 									? C extends { nullable: true }
-										? string | null
-										: string
-									: C extends { type: 'multi-select' }
-										? Y.Array<string>
+										? TOptions | null
+										: TOptions
+									: C extends MultiSelectColumnSchema<infer TOptions>
+										? Y.Array<TOptions>
 										: never;
 
 /**
@@ -446,11 +446,11 @@ export function date(opts?: {
  * select({ options: ['draft', 'published', 'archived'] as const })
  * select({ options: ['tech', 'personal'], default: 'tech' })
  */
-export function select(opts: {
-	options: readonly string[];
+export function select<const TOptions extends readonly string[]>(opts: {
+	options: TOptions;
 	nullable?: boolean;
-	default?: string;
-}): SelectColumnSchema {
+	default?: TOptions[number];
+}): SelectColumnSchema<TOptions[number]> {
 	return {
 		type: 'select',
 		nullable: opts.nullable ?? false,
@@ -465,11 +465,11 @@ export function select(opts: {
  * multiSelect({ options: ['typescript', 'javascript', 'python'] as const })
  * multiSelect({ options: ['tag1', 'tag2'], default: [] })
  */
-export function multiSelect(opts: {
-	options: readonly string[];
+export function multiSelect<const TOptions extends readonly string[]>(opts: {
+	options: TOptions;
 	nullable?: boolean;
-	default?: string[];
-}): MultiSelectColumnSchema {
+	default?: TOptions[number][];
+}): MultiSelectColumnSchema<TOptions[number]> {
 	return {
 		type: 'multi-select',
 		nullable: opts.nullable ?? false,
