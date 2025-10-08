@@ -1,7 +1,11 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type * as Y from 'yjs';
 import { createEpicenterDb } from '../db/core';
-import type { WorkspaceAction } from './actions';
+import type { TableHelper } from '../db/core';
+import type { WorkspaceAction, WorkspaceActionMap } from './actions';
 import type { Workspace } from './workspace';
+import type { Index } from './indexes';
+import type { TableSchema, ValidatedRow } from './column-schemas';
 
 /**
  * Runtime configuration provided by the user
@@ -67,13 +71,36 @@ export type RuntimeConfig = {
 };
 
 /**
+ * Resolved runtime instance returned from runWorkspace
+ * Combines typed table helpers and extracted action handlers.
+ */
+export type WorkspaceRuntime<
+  TTableSchemas extends Record<string, TableSchema>,
+  TActionMap extends WorkspaceActionMap,
+> = {
+  [TableName in keyof TTableSchemas]: TableHelper<
+    ValidatedRow<TTableSchemas[TableName]>
+  >;
+} & {
+  [K in keyof TActionMap]: TActionMap[K]['handler'];
+} & {
+  indexes: Record<string, Index>;
+  ydoc: Y.Doc;
+  transact: (fn: () => void, origin?: string) => void;
+};
+
+/**
  * Run a workspace with YJS-first architecture
  * Returns the workspace instance with tables, actions, and indexes
  */
-export async function runWorkspace<W extends Workspace, T = unknown>(
-	workspace: W,
+export async function runWorkspace<
+  TTableSchemas extends Record<string, TableSchema>,
+  TActionMap extends WorkspaceActionMap,
+  TDeps extends Record<string, Workspace>,
+>(
+	workspace: Workspace<TTableSchemas, TActionMap, TDeps>,
 	config: RuntimeConfig = {},
-): Promise<T> {
+): Promise<WorkspaceRuntime<TTableSchemas, TActionMap>> {
 	// 1. Initialize Epicenter database
 	const db = createEpicenterDb(workspace.ydoc, workspace.tables);
 
@@ -149,17 +176,13 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 	};
 
 	// Process actions to extract handlers and make them directly callable
-	const processedActions = Object.entries(
-		workspace.actions(actionContext),
-	).reduce(
+	const actionMap = workspace.actions(actionContext) as TActionMap;
+	const processedActions = Object.entries(actionMap).reduce(
 		(acc, [actionName, action]) => {
-			acc[actionName] = action.handler;
+			(acc as any)[actionName] = (action as WorkspaceAction<any, any>).handler;
 			return acc;
 		},
-		{} as Record<
-			string,
-			WorkspaceAction<StandardSchemaV1<unknown, unknown>, unknown>['handler']
-		>,
+		{} as { [K in keyof TActionMap]: TActionMap[K]['handler'] },
 	);
 
 	// 7. Return workspace instance
@@ -169,7 +192,7 @@ export async function runWorkspace<W extends Workspace, T = unknown>(
 		indexes,
 		ydoc: db.ydoc,
 		transact: (fn: () => void, origin?: string) => db.transact(fn, origin),
-	};
+	} satisfies WorkspaceRuntime<TTableSchemas, TActionMap>;
 
-	return workspaceInstance as T;
+	return workspaceInstance;
 }

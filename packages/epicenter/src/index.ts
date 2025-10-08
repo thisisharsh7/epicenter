@@ -61,7 +61,7 @@ export type {
 
 // Runtime
 export { runWorkspace } from './core/runtime';
-export type { RuntimeConfig } from './core/runtime';
+export type { RuntimeConfig, WorkspaceRuntime } from './core/runtime';
 
 // Database utilities
 export { createEpicenterDb } from './db/core';
