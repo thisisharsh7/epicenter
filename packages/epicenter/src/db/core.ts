@@ -5,7 +5,11 @@ import type {
 	TableSchema,
 	ValidatedRow,
 } from '../core/column-schemas';
-import { validateRow, type RowValidationResult } from '../core/validation';
+import {
+	validateRow,
+	type GetRowResult,
+	type RowValidationResult,
+} from '../core/validation';
 
 /**
  * YJS representation of a row
@@ -51,8 +55,7 @@ export type TableHelper<TRow extends Row> = {
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(partials: PartialRow<TRow>[]): void;
-	get(id: string): RowValidationResult<TRow> | null;
-	getMany(ids: string[]): { valid: TRow[]; invalid: Row[]; notFound: string[] };
+	get(id: string): GetRowResult<TRow>;
 	getAll(): { valid: TRow[]; invalid: Row[] };
 	has(id: string): boolean;
 	delete(id: string): void;
@@ -65,7 +68,7 @@ export type TableHelper<TRow extends Row> = {
 		onDelete: (id: string) => void | Promise<void>;
 	}): () => void;
 	filter(predicate: (row: TRow) => boolean): { valid: TRow[]; invalid: Row[] };
-	find(predicate: (row: TRow) => boolean): RowValidationResult<TRow> | null;
+	find(predicate: (row: TRow) => boolean): GetRowResult<TRow>;
 };
 
 /**
@@ -339,47 +342,14 @@ function createTableHelper<TRow extends Row>({
 			});
 		},
 
-		get(id: string) {
+		get(id: string): GetRowResult<TRow> {
 			const yrow = ytable.get(id);
 			if (!yrow) {
-				return null;
+				return { status: 'not-found', row: null };
 			}
 
 			const row = toRow(yrow);
 			return validateTypedRow(row);
-		},
-
-		getMany(ids: string[]) {
-			const valid: TRow[] = [];
-			const invalid: Row[] = [];
-			const notFound: string[] = [];
-
-			for (const id of ids) {
-				const yrow = ytable.get(id);
-				if (!yrow) {
-					notFound.push(id);
-					continue;
-				}
-
-				const row = toRow(yrow);
-				const result = validateTypedRow(row);
-
-				switch (result.status) {
-					case 'valid':
-						valid.push(result.row);
-						break;
-					case 'schema-mismatch':
-						invalid.push(result.row);
-						break;
-					case 'invalid-structure':
-						console.warn(
-							`Row ${id} in table ${tableName} has invalid structure`,
-						);
-						break;
-				}
-			}
-
-			return { valid, invalid, notFound };
 		},
 
 		getAll() {
@@ -466,7 +436,7 @@ function createTableHelper<TRow extends Row>({
 			return { valid, invalid };
 		},
 
-		find(predicate: (row: TRow) => boolean) {
+		find(predicate: (row: TRow) => boolean): GetRowResult<TRow> {
 			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
 
@@ -477,7 +447,7 @@ function createTableHelper<TRow extends Row>({
 			}
 
 			// No match found (not an error, just no matching row)
-			return null;
+			return { status: 'not-found', row: null };
 		},
 
 		observe(handlers: {

@@ -60,6 +60,18 @@ export type RowValidationResult<TRow extends Row> =
 	};
 
 /**
+ * Discriminated union representing the result of getting a row by ID
+ * Four possible states:
+ * - valid: Row exists and matches schema perfectly
+ * - schema-mismatch: Row exists but doesn't match schema
+ * - invalid-structure: Row exists but has invalid structure
+ * - not-found: Row does not exist
+ */
+export type GetRowResult<TRow extends Row> =
+	| RowValidationResult<TRow>
+	| { status: 'not-found'; row: null };
+
+/**
  * Check if a value is a valid CellValue type
  */
 function isValidCellValue(value: unknown): value is CellValue {
