@@ -18,35 +18,35 @@ export type ValidatedRow<TSchema extends TableSchema = TableSchema> =
  */
 export type InvalidStructureReason =
 	| {
-			type: 'not-an-object';
-			actual: unknown;
-	  }
+		type: 'not-an-object';
+		actual: unknown;
+	}
 	| {
-			type: 'invalid-cell-value';
-			field: string;
-			actual: unknown;
-	  };
+		type: 'invalid-cell-value';
+		field: string;
+		actual: unknown;
+	};
 
 /**
  * Reasons why schema validation failed
  */
 export type SchemaMismatchReason =
 	| {
-			type: 'missing-required-field';
-			field: string;
-	  }
+		type: 'missing-required-field';
+		field: string;
+	}
 	| {
-			type: 'type-mismatch';
-			field: string;
-			expected: string;
-			actual: unknown;
-	  }
+		type: 'type-mismatch';
+		field: string;
+		expected: string;
+		actual: unknown;
+	}
 	| {
-			type: 'invalid-option';
-			field: string;
-			actual: string;
-			allowedOptions: readonly string[];
-	  };
+		type: 'invalid-option';
+		field: string;
+		actual: string;
+		allowedOptions: readonly string[];
+	};
 
 /**
  * Discriminated union representing row validation result
@@ -59,10 +59,10 @@ export type RowValidationResult<TRow extends Row> =
 	| { status: 'valid'; data: TRow }
 	| { status: 'schema-mismatch'; data: Row; reason: SchemaMismatchReason }
 	| {
-			status: 'invalid-structure';
-			data: unknown;
-			reason: InvalidStructureReason;
-	  };
+		status: 'invalid-structure';
+		data: unknown;
+		reason: InvalidStructureReason;
+	};
 
 /**
  * Check if a value is a valid CellValue type
@@ -122,7 +122,7 @@ export function validateRow<TSchema extends TableSchema>(
 
 		// Check if required field is null/undefined
 		if (value === null || value === undefined) {
-			if ('nullable' in columnSchema && !columnSchema.nullable) {
+			if (columnSchema.type === 'id' || !columnSchema.nullable) {
 				return {
 					status: 'schema-mismatch',
 					data: row,
