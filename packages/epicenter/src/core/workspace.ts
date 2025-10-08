@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import type { TableHelper } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { Row, TableSchema } from './column-schemas';
+import type { TableSchema, ValidatedRow } from './column-schemas';
 import type { Index, IndexContext } from './indexes';
 
 /**
@@ -227,7 +227,7 @@ export type WorkspaceTablesAPI<
 	TTableSchemas extends Record<string, TableSchema>,
 > = {
 	[TableName in keyof TTableSchemas]: TableHelper<
-		Row<TTableSchemas[TableName]>
+		ValidatedRow<TTableSchemas[TableName]>
 	>;
 };
 

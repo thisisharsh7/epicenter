@@ -1,5 +1,10 @@
 import * as Y from 'yjs';
-import type { CellValue, Row, TableSchema } from '../core/column-schemas';
+import type {
+	CellValue,
+	Row,
+	TableSchema,
+	ValidatedRow,
+} from '../core/column-schemas';
 import { validateRow, type RowValidationResult } from '../core/validation';
 
 /**
@@ -196,7 +201,7 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>({
 			];
 		}),
 	) as {
-		[TTableName in keyof TSchemas]: TableHelper<Row<TSchemas[TTableName]>>;
+		[TTableName in keyof TSchemas]: TableHelper<ValidatedRow<TSchemas[TTableName]>>;
 	};
 }
 
