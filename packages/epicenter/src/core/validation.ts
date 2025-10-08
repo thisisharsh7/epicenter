@@ -5,14 +5,8 @@ import {
 	type ColumnSchema,
 	type Row,
 	type TableSchema,
+	type ValidatedRow,
 } from './column-schemas';
-
-/**
- * A row that has been validated against its table schema
- * This is just a type alias - the validation happens at runtime
- */
-export type ValidatedRow<TSchema extends TableSchema = TableSchema> =
-	Row<TSchema>;
 
 /**
  * Reasons why structural validation failed
