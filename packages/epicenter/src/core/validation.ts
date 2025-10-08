@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import {
 	isDateWithTimezone,
 	type CellValue,
+	type ColumnSchema,
 	type Row,
 	type TableSchema,
 } from './column-schemas';
@@ -38,7 +39,7 @@ export type SchemaMismatchReason =
 	| {
 		type: 'type-mismatch';
 		field: string;
-		expected: string;
+		schemaType: ColumnSchema['type'];
 		actual: unknown;
 	}
 	| {
@@ -143,7 +144,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'string',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -158,7 +159,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'integer',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -173,7 +174,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'number',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -188,7 +189,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'boolean',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -203,7 +204,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'Y.Text',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -218,7 +219,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'Y.XmlFragment',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -233,7 +234,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'string',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -260,7 +261,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'Y.Array',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
@@ -302,7 +303,7 @@ export function validateRow<TSchema extends TableSchema>(
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
-							expected: 'DateWithTimezone',
+							schemaType: columnSchema.type,
 							actual: value,
 						},
 					};
