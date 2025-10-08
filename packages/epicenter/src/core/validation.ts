@@ -265,6 +265,33 @@ export function validateRow<TSchema extends TableSchema>(
 						},
 					};
 				}
+				// Validate each option in the array
+				for (const option of value.toArray()) {
+					if (typeof option !== 'string') {
+						return {
+							status: 'schema-mismatch',
+							data: row,
+							reason: {
+								type: 'type-mismatch',
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: option,
+							},
+						};
+					}
+					if (!columnSchema.options.includes(option)) {
+						return {
+							status: 'schema-mismatch',
+							data: row,
+							reason: {
+								type: 'invalid-option',
+								field: fieldName,
+								actual: option,
+								allowedOptions: columnSchema.options,
+							},
+						};
+					}
+				}
 				break;
 
 			case 'date':
