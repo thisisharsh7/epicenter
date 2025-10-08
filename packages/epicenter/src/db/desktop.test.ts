@@ -68,24 +68,30 @@ describe('YJS Document Persistence', () => {
 		);
 
 		// Verify data was loaded from disk
-		const users = doc2.tables.users.getAll();
+		const { valid: users } = doc2.tables.users.getAll();
 		expect(users).toHaveLength(2);
 
-		const alice = doc2.tables.users.get('user-1');
-		expect(alice).toEqual({
-			id: 'user-1',
-			name: 'Alice',
-			age: 30,
-			active: true,
-		});
+		const aliceResult = doc2.tables.users.get('user-1');
+		expect(aliceResult.status).toBe('valid');
+		if (aliceResult.status === 'valid') {
+			expect(aliceResult.row).toEqual({
+				id: 'user-1',
+				name: 'Alice',
+				age: 30,
+				active: true,
+			});
+		}
 
-		const bob = doc2.tables.users.get('user-2');
-		expect(bob).toEqual({
-			id: 'user-2',
-			name: 'Bob',
-			age: 25,
-			active: false,
-		});
+		const bobResult = doc2.tables.users.get('user-2');
+		expect(bobResult.status).toBe('valid');
+		if (bobResult.status === 'valid') {
+			expect(bobResult.row).toEqual({
+				id: 'user-2',
+				name: 'Bob',
+				age: 25,
+				active: false,
+			});
+		}
 	});
 
 	test('should only initialize tables that do not exist when loading from disk', () => {
@@ -125,12 +131,15 @@ describe('YJS Document Persistence', () => {
 			},
 		);
 
-		const todo = doc2.tables.todos.get('todo-1');
-		expect(todo).toEqual({
-			id: 'todo-1',
-			title: 'Buy groceries',
-			done: false,
-		});
+		const todoResult = doc2.tables.todos.get('todo-1');
+		expect(todoResult.status).toBe('valid');
+		if (todoResult.status === 'valid') {
+			expect(todoResult.row).toEqual({
+				id: 'todo-1',
+				title: 'Buy groceries',
+				done: false,
+			});
+		}
 	});
 
 	test('should handle updates and persist them', () => {
@@ -158,7 +167,8 @@ describe('YJS Document Persistence', () => {
 		});
 
 		// Update the product
-		doc.tables.products.update('prod-1', {
+		doc.tables.products.update({
+			id: 'prod-1',
 			price: 150,
 			inStock: false,
 		});
@@ -179,12 +189,15 @@ describe('YJS Document Persistence', () => {
 			},
 		);
 
-		const product = doc2.tables.products.get('prod-1');
-		expect(product).toEqual({
-			id: 'prod-1',
-			name: 'Widget',
-			price: 150,
-			inStock: false,
-		});
+		const productResult = doc2.tables.products.get('prod-1');
+		expect(productResult.status).toBe('valid');
+		if (productResult.status === 'valid') {
+			expect(productResult.row).toEqual({
+				id: 'prod-1',
+				name: 'Widget',
+				price: 150,
+				inStock: false,
+			});
+		}
 	});
 });

@@ -24,11 +24,13 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Retrieve the row
-		const row = doc.tables.posts.get('1');
-		expect(row).toBeDefined();
-		expect(row?.title).toBe('Test Post');
-		expect(row?.viewCount).toBe(0);
-		expect(row?.published).toBe(false);
+		const result = doc.tables.posts.get('1');
+		expect(result.status).toBe('valid');
+		if (result.status === 'valid') {
+			expect(result.row.title).toBe('Test Post');
+			expect(result.row.viewCount).toBe(0);
+			expect(result.row.published).toBe(false);
+		}
 	});
 
 	test('should handle batch operations', () => {
@@ -48,11 +50,17 @@ describe('createEpicenterDb', () => {
 			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
 		]);
 
-		// Retrieve multiple rows
-		const rows = doc.tables.posts.getMany(['1', '2']);
-		expect(rows).toHaveLength(2);
-		expect(rows[0].title).toBe('Post 1');
-		expect(rows[1].title).toBe('Post 2');
+		// Retrieve and verify rows
+		const row1 = doc.tables.posts.get('1');
+		const row2 = doc.tables.posts.get('2');
+		expect(row1.status).toBe('valid');
+		expect(row2.status).toBe('valid');
+		if (row1.status === 'valid') {
+			expect(row1.row.title).toBe('Post 1');
+		}
+		if (row2.status === 'valid') {
+			expect(row2.row.title).toBe('Post 2');
+		}
 	});
 
 	test('should filter and find rows correctly', () => {
@@ -73,11 +81,36 @@ describe('createEpicenterDb', () => {
 		]);
 
 		// Filter published posts
-		const publishedPosts = doc.tables.posts.filter((post) => post.published);
+		const { valid: publishedPosts } = doc.tables.posts.filter((post) => post.published);
 		expect(publishedPosts).toHaveLength(2);
 
 		// Find first unpublished post
 		const firstDraft = doc.tables.posts.find((post) => !post.published);
-		expect(firstDraft?.id).toBe('2');
+		expect(firstDraft.status).toBe('valid');
+		if (firstDraft.status === 'valid') {
+			expect(firstDraft.row.id).toBe('2');
+		}
+	});
+
+	test('should return not-found status for non-existent rows', () => {
+		const ydoc = new Y.Doc({ guid: 'test-workspace' });
+		const doc = createEpicenterDb(ydoc, {
+			posts: {
+				id: id(),
+				title: text(),
+				viewCount: integer(),
+				published: boolean(),
+			},
+		});
+
+		// Test get() with non-existent id
+		const getResult = doc.tables.posts.get('non-existent');
+		expect(getResult.status).toBe('not-found');
+		expect(getResult.row).toBeNull();
+
+		// Test find() with no matches
+		const findResult = doc.tables.posts.find((post) => post.id === 'non-existent');
+		expect(findResult.status).toBe('not-found');
+		expect(findResult.row).toBeNull();
 	});
 });

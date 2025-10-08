@@ -45,11 +45,12 @@ describe('YjsDoc Type Inference', () => {
 			published: false,
 		});
 
-		// Test get() - hover over 'row' to verify inferred type
-		const row = doc.tables.posts.get('1');
-		// Expected type: { id: string; title: string; content: Y.XmlFragment | null; tags: Y.Array<string>; viewCount: number; published: boolean } | undefined
+		// Test get() - hover over 'result' to verify inferred type
+		const result = doc.tables.posts.get('1');
+		// Expected type: GetRowResult<{ id: string; title: string; content: Y.XmlFragment | null; tags: Y.Array<string>; viewCount: number; published: boolean }>
 
-		if (row) {
+		if (result.status === 'valid') {
+			const row = result.row;
 			// Verify property access works
 			expect(row.id).toBe('1');
 			expect(row.title).toBe('Test Post');
@@ -62,31 +63,6 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should infer types for getMany()', () => {
-		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
-			users: {
-				id: id(),
-				name: text(),
-				email: text({ unique: true }),
-				age: integer({ nullable: true }),
-			},
-		});
-
-		doc.tables.users.setMany([
-			{ id: '1', name: 'Alice', email: 'alice@example.com', age: 25 },
-			{ id: '2', name: 'Bob', email: 'bob@example.com', age: null },
-		]);
-
-		// Hover over 'users' to verify array element type
-		const users = doc.tables.users.getMany(['1', '2']);
-		// Expected type: Array<{ id: string; name: string; email: string; age: number | null }>
-
-		expect(users).toHaveLength(2);
-		expect(users[0].name).toBe('Alice');
-		expect(users[0].age).toBe(25);
-		expect(users[1].age).toBeNull();
-	});
-
 	test('should infer types for getAll()', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			products: {
@@ -97,13 +73,13 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.products.setMany([
+		doc.tables.products.insertMany([
 			{ id: '1', name: 'Widget', price: 1000, inStock: true },
 			{ id: '2', name: 'Gadget', price: 2000, inStock: false },
 		]);
 
 		// Hover over 'products' to verify array element type
-		const products = doc.tables.products.getAll();
+		const { valid: products } = doc.tables.products.getAll();
 		// Expected type: Array<{ id: string; name: string; price: number; inStock: boolean }>
 
 		expect(products).toHaveLength(2);
@@ -119,13 +95,13 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.tasks.setMany([
+		doc.tables.tasks.insertMany([
 			{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
 			{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
 		]);
 
 		// Hover over 'task' parameter to verify inferred type
-		const incompleteTasks = doc.tables.tasks.filter((task) => !task.completed);
+		const { valid: incompleteTasks } = doc.tables.tasks.filter((task) => !task.completed);
 		// task type should be: { id: string; title: string; completed: boolean; priority: string }
 
 		expect(incompleteTasks).toHaveLength(1);
@@ -141,17 +117,19 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.items.setMany([
+		doc.tables.items.insertMany([
 			{ id: '1', name: 'Item 1', quantity: 5 },
 			{ id: '2', name: 'Item 2', quantity: 0 },
 		]);
 
 		// Hover over 'item' parameter to verify inferred type
-		const outOfStock = doc.tables.items.find((item) => item.quantity === 0);
+		const outOfStockResult = doc.tables.items.find((item) => item.quantity === 0);
 		// item type should be: { id: string; name: string; quantity: number }
 
-		expect(outOfStock).toBeDefined();
-		expect(outOfStock?.name).toBe('Item 2');
+		expect(outOfStockResult.status).toBe('valid');
+		if (outOfStockResult.status === 'valid') {
+			expect(outOfStockResult.row.name).toBe('Item 2');
+		}
 	});
 
 	test('should infer observer handler parameter types', () => {
@@ -183,7 +161,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.notifications.set({
+		doc.tables.notifications.insert({
 			id: '1',
 			message: 'Test notification',
 			read: false,
@@ -206,32 +184,37 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test with null values
-		doc.tables.articles.set({
+		doc.tables.articles.insert({
 			id: '1',
 			title: 'Article without content',
 			description: null,
 			content: null,
 		});
 
-		const article1 = doc.tables.articles.get('1');
-		expect(article1?.description).toBeNull();
-		expect(article1?.content).toBeNull();
+		const article1Result = doc.tables.articles.get('1');
+		expect(article1Result.status).toBe('valid');
+		if (article1Result.status === 'valid') {
+			expect(article1Result.row.description).toBeNull();
+			expect(article1Result.row.content).toBeNull();
+		}
 
 		// Test with YJS type values
 		const description = new Y.Text();
 		description.insert(0, 'A short description');
 		const content = new Y.XmlFragment();
 
-		doc.tables.articles.set({
+		doc.tables.articles.insert({
 			id: '2',
 			title: 'Article with content',
 			description: description,
 			content: content,
 		});
 
-		const article2 = doc.tables.articles.get('2');
-		expect(article2?.description).toBeInstanceOf(Y.Text);
-		expect(article2?.content).toBeInstanceOf(Y.XmlFragment);
+		const article2Result = doc.tables.articles.get('2');
+		if (article2Result.status === 'valid') {
+			expect(article2Result.row.description).toBeInstanceOf(Y.Text);
+			expect(article2Result.row.content).toBeInstanceOf(Y.XmlFragment);
+		}
 	});
 
 	test('should handle multi-table schemas with proper type inference', () => {
@@ -254,20 +237,20 @@ describe('YjsDoc Type Inference', () => {
 		const authorBio = new Y.Text();
 		authorBio.insert(0, 'Author bio');
 
-		doc.tables.authors.set({
+		doc.tables.authors.insert({
 			id: 'author-1',
 			name: 'John Doe',
 			bio: authorBio,
 		});
 
-		const author = doc.tables.authors.get('author-1');
-		// Hover to verify type: { id: string; name: string; bio: Y.Text | null } | undefined
+		const authorResult = doc.tables.authors.get('author-1');
+		// Hover to verify type: GetRowResult<{ id: string; name: string; bio: Y.Text | null }>
 
 		// Test books table
 		const chapters = new Y.Array<string>();
 		chapters.push(['Chapter 1', 'Chapter 2']);
 
-		doc.tables.books.set({
+		doc.tables.books.insert({
 			id: 'book-1',
 			authorId: 'author-1',
 			title: 'My Book',
@@ -275,14 +258,20 @@ describe('YjsDoc Type Inference', () => {
 			published: true,
 		});
 
-		const book = doc.tables.books.get('book-1');
-		// Hover to verify type: { id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean } | undefined
+		const bookResult = doc.tables.books.get('book-1');
+		// Hover to verify type: GetRowResult<{ id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean }>
 
-		expect(author?.name).toBe('John Doe');
-		expect(book?.title).toBe('My Book');
+		expect(authorResult.status).toBe('valid');
+		expect(bookResult.status).toBe('valid');
+		if (authorResult.status === 'valid') {
+			expect(authorResult.row.name).toBe('John Doe');
+		}
+		if (bookResult.status === 'valid') {
+			expect(bookResult.row.title).toBe('My Book');
+		}
 	});
 
-	test('should properly type setMany with array of rows', () => {
+	test('should properly type insertMany with array of rows', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			comments: {
 				id: id(),
@@ -297,9 +286,9 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		doc.tables.comments.setMany(commentsToAdd);
+		doc.tables.comments.insertMany(commentsToAdd);
 
-		const comments = doc.tables.comments.getAll();
+		const { valid: comments } = doc.tables.comments.getAll();
 		expect(comments).toHaveLength(2);
 	});
 
@@ -325,7 +314,7 @@ describe('YjsDoc Type Inference', () => {
 		const tags = new Y.Array<string>();
 		tags.push(['tag1', 'tag2']);
 
-		doc.tables.documents.set({
+		doc.tables.documents.insert({
 			id: 'doc-1',
 			title: 'My Document',
 			body: body,
@@ -334,9 +323,10 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test retrieval and mutations
-		const retrieved = doc.tables.documents.get('doc-1');
+		const retrievedResult = doc.tables.documents.get('doc-1');
 
-		if (retrieved) {
+		if (retrievedResult.status === 'valid') {
+			const retrieved = retrievedResult.row;
 			// These should all be properly typed
 			expect(retrieved.body).toBeInstanceOf(Y.XmlFragment);
 			expect(retrieved.tags).toBeInstanceOf(Y.Array);
