@@ -45,7 +45,7 @@ export type SchemaMismatchReason =
 			type: 'invalid-option';
 			field: string;
 			actual: string;
-			allowedOptions: string[];
+			allowedOptions: readonly string[];
 	  };
 
 /**
