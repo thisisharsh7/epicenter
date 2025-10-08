@@ -228,7 +228,7 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				authorId: text(),
 				title: text(),
-				chapters: multiSelect({ options: [] }),
+				chapters: multiSelect({ options: ['Chapter 1', 'Chapter 2', 'Chapter 3'] }),
 				published: boolean(),
 			},
 		});
