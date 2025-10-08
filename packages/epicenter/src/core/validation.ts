@@ -57,8 +57,8 @@ export type SchemaMismatchReason =
  * - invalid-structure: Not a valid Row structure
  */
 export type RowValidationResult<TRow extends Row> =
-	| { status: 'valid'; data: TRow }
-	| { status: 'schema-mismatch'; data: Row; reason: SchemaMismatchReason }
+	| { status: 'valid'; row: TRow }
+	| { status: 'schema-mismatch'; row: Row; reason: SchemaMismatchReason }
 	| {
 		status: 'invalid-structure';
 		data: unknown;
@@ -126,7 +126,7 @@ export function validateRow<TSchema extends TableSchema>(
 			if (columnSchema.type === 'id' || !columnSchema.nullable) {
 				return {
 					status: 'schema-mismatch',
-					data: row,
+					row,
 					reason: { type: 'missing-required-field', field: fieldName },
 				};
 			}
@@ -140,7 +140,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (typeof value !== 'string') {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -155,7 +155,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (typeof value !== 'number' || !Number.isInteger(value)) {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -170,7 +170,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (typeof value !== 'number') {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -185,7 +185,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (typeof value !== 'boolean') {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -200,7 +200,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (!(value instanceof Y.Text)) {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -215,7 +215,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (!(value instanceof Y.XmlFragment)) {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -230,7 +230,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (typeof value !== 'string') {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -242,7 +242,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (!columnSchema.options.includes(value)) {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'invalid-option',
 							field: fieldName,
@@ -257,7 +257,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (!(value instanceof Y.Array)) {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -271,7 +271,7 @@ export function validateRow<TSchema extends TableSchema>(
 					if (typeof option !== 'string') {
 						return {
 							status: 'schema-mismatch',
-							data: row,
+							row,
 							reason: {
 								type: 'type-mismatch',
 								field: fieldName,
@@ -283,7 +283,7 @@ export function validateRow<TSchema extends TableSchema>(
 					if (!columnSchema.options.includes(option)) {
 						return {
 							status: 'schema-mismatch',
-							data: row,
+							row,
 							reason: {
 								type: 'invalid-option',
 								field: fieldName,
@@ -299,7 +299,7 @@ export function validateRow<TSchema extends TableSchema>(
 				if (!isDateWithTimezone(value)) {
 					return {
 						status: 'schema-mismatch',
-						data: row,
+						row,
 						reason: {
 							type: 'type-mismatch',
 							field: fieldName,
@@ -312,5 +312,5 @@ export function validateRow<TSchema extends TableSchema>(
 		}
 	}
 
-	return { status: 'valid', data: row as ValidatedRow<TSchema> };
+	return { status: 'valid', row: row as ValidatedRow<TSchema> };
 }

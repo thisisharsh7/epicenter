@@ -234,7 +234,7 @@ function createTableHelper<TRow extends Row>({
 	const validateTypedRow = (data: unknown): RowValidationResult<TRow> => {
 		const result = validateRow(data, schema);
 		if (result.status === 'valid') {
-			return { status: 'valid', data: result.data as TRow };
+			return { status: 'valid', row: result.row as TRow };
 		}
 		return result;
 	};
@@ -361,10 +361,10 @@ function createTableHelper<TRow extends Row>({
 
 				switch (result.status) {
 					case 'valid':
-						valid.push(result.data);
+						valid.push(result.row);
 						break;
 					case 'schema-mismatch':
-						invalid.push(result.data);
+						invalid.push(result.row);
 						break;
 					case 'invalid-structure':
 						console.warn(
@@ -387,10 +387,10 @@ function createTableHelper<TRow extends Row>({
 
 				switch (result.status) {
 					case 'valid':
-						valid.push(result.data);
+						valid.push(result.row);
 						break;
 					case 'schema-mismatch':
-						invalid.push(result.data);
+						invalid.push(result.row);
 						break;
 					case 'invalid-structure':
 						console.warn(
@@ -444,10 +444,10 @@ function createTableHelper<TRow extends Row>({
 
 					switch (result.status) {
 						case 'valid':
-							valid.push(result.data);
+							valid.push(result.row);
 							break;
 						case 'schema-mismatch':
-							invalid.push(result.data);
+							invalid.push(result.row);
 							break;
 						case 'invalid-structure':
 							console.warn(
@@ -491,7 +491,7 @@ function createTableHelper<TRow extends Row>({
 
 								switch (result.status) {
 									case 'valid':
-										handlers.onAdd(key, result.data);
+										handlers.onAdd(key, result.row);
 										break;
 									case 'schema-mismatch':
 									case 'invalid-structure':
@@ -509,7 +509,7 @@ function createTableHelper<TRow extends Row>({
 
 								switch (result.status) {
 									case 'valid':
-										handlers.onUpdate(key, result.data);
+										handlers.onUpdate(key, result.row);
 										break;
 									case 'schema-mismatch':
 									case 'invalid-structure':
