@@ -363,10 +363,10 @@ function createTableHelper<TRow extends Row>({
 					case 'valid':
 						valid.push(result.data);
 						break;
-					case 'schema_mismatch':
+					case 'schema-mismatch':
 						invalid.push(result.data);
 						break;
-					case 'invalid_structure':
+					case 'invalid-structure':
 						console.warn(
 							`Row ${id} in table ${tableName} has invalid structure`,
 						);
@@ -389,10 +389,10 @@ function createTableHelper<TRow extends Row>({
 					case 'valid':
 						valid.push(result.data);
 						break;
-					case 'schema_mismatch':
+					case 'schema-mismatch':
 						invalid.push(result.data);
 						break;
-					case 'invalid_structure':
+					case 'invalid-structure':
 						console.warn(
 							`Row in table ${tableName} has invalid structure`,
 						);
@@ -446,10 +446,10 @@ function createTableHelper<TRow extends Row>({
 						case 'valid':
 							valid.push(result.data);
 							break;
-						case 'schema_mismatch':
+						case 'schema-mismatch':
 							invalid.push(result.data);
 							break;
-						case 'invalid_structure':
+						case 'invalid-structure':
 							console.warn(
 								`Filtered row in table ${tableName} has invalid structure`,
 							);
@@ -493,8 +493,8 @@ function createTableHelper<TRow extends Row>({
 									case 'valid':
 										handlers.onAdd(key, result.data);
 										break;
-									case 'schema_mismatch':
-									case 'invalid_structure':
+									case 'schema-mismatch':
+									case 'invalid-structure':
 										console.warn(
 											`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
 										);
@@ -511,8 +511,8 @@ function createTableHelper<TRow extends Row>({
 									case 'valid':
 										handlers.onUpdate(key, result.data);
 										break;
-									case 'schema_mismatch':
-									case 'invalid_structure':
+									case 'schema-mismatch':
+									case 'invalid-structure':
 										console.warn(
 											`Skipping invalid row in ${tableName}/${key} (onUpdate): ${result.status}`,
 										);
