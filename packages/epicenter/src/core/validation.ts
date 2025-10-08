@@ -55,7 +55,7 @@ export type RowValidationResult<TRow extends Row> =
 	| { status: 'schema-mismatch'; row: Row; reason: SchemaMismatchReason }
 	| {
 		status: 'invalid-structure';
-		data: unknown;
+		row: unknown;
 		reason: InvalidStructureReason;
 	};
 
@@ -92,7 +92,7 @@ export function validateRow<TSchema extends TableSchema>(
 	if (typeof data !== 'object' || data === null || Array.isArray(data)) {
 		return {
 			status: 'invalid-structure',
-			data,
+			row: data,
 			reason: { type: 'not-an-object', actual: data },
 		};
 	}
@@ -102,7 +102,7 @@ export function validateRow<TSchema extends TableSchema>(
 		if (!isValidCellValue(value)) {
 			return {
 				status: 'invalid-structure',
-				data,
+				row: data,
 				reason: { type: 'invalid-cell-value', field: key, actual: value },
 			};
 		}
