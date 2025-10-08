@@ -210,7 +210,11 @@ export type WorkspaceActionContext<
 	 * Table helpers for this workspace
 	 * Synchronous write/read operations to YJS
 	 */
-	tables: WorkspaceTablesAPI<TTableSchemas>;
+	tables: {
+		[TableName in keyof TTableSchemas]: TableHelper<
+			ValidatedRow<TTableSchemas[TableName]>
+		>;
+	};
 
 	/**
 	 * Indexes for this workspace
@@ -220,24 +224,12 @@ export type WorkspaceActionContext<
 };
 
 /**
- * Table helper API - synchronous operations to YJS
- * All operations are synchronous since YJS operations are synchronous
- */
-export type WorkspaceTablesAPI<
-	TTableSchemas extends Record<string, TableSchema>,
-> = {
-	[TableName in keyof TTableSchemas]: TableHelper<
-		ValidatedRow<TTableSchemas[TableName]>
-	>;
-};
-
-/**
  * Dependency workspaces API - actions from dependency workspaces
  */
 type DependencyWorkspacesAPI<TDeps extends Record<string, Workspace>> = {
 	[K in keyof TDeps]: TDeps[K] extends Workspace<infer _, infer TActionMap>
-		? ExtractHandlers<TActionMap>
-		: never;
+	? ExtractHandlers<TActionMap>
+	: never;
 };
 
 /**
