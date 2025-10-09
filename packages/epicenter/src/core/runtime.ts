@@ -1,10 +1,11 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type * as Y from 'yjs';
-import { createEpicenterDb } from '../db/core';
-import type { TableHelper } from '../db/core';
+import { createEpicenterDb, toRow } from '../db/core';
+import type { TableHelper, YRow } from '../db/core';
 import type { WorkspaceAction, WorkspaceActionMap } from './actions';
-import type { TableSchema, ValidatedRow } from './column-schemas';
+import type { Row, TableSchema, ValidatedRow } from './column-schemas';
 import type { Index } from './indexes';
+import { validateRow } from './validation';
 import type { Workspace } from './workspace';
 
 /**
@@ -120,43 +121,61 @@ export async function runWorkspace<
 		}
 	}
 
-	// 3. Set up observers for all tables
+	// 3. Set up observers for all tables (runtime-owned)
+	const ytables = workspace.ydoc.getMap<Y.Map<YRow>>('tables');
 	for (const tableName of Object.keys(workspace.tables)) {
-		db.tables[tableName].observe({
-			onAdd: async (id, data) => {
-				for (const index of Object.values(indexes)) {
-					const result = await index.onAdd(tableName, id, data);
-					if (result.error) {
-						console.error(
-							`Index onAdd failed for ${tableName}/${id}:`,
-							result.error,
-						);
+		const ytable = ytables.get(tableName);
+		if (!ytable) continue;
+
+		// Narrow validated row type for this table using its schema
+		const schema = workspace.tables[tableName];
+
+		const observer = async (events: Y.YEvent<any>[]) => {
+			for (const event of events) {
+				event.changes.keys.forEach(async (change, key) => {
+					if (change.action === 'add' || change.action === 'update') {
+						const yrow = ytable.get(key);
+						if (!yrow) return;
+						const row = toRow(yrow);
+						const result = validateRow(row, schema);
+						if (result.status === 'valid') {
+							for (const index of Object.values(indexes)) {
+								const r =
+									change.action === 'add'
+										? await index.onAdd(tableName, key, result.row)
+										: await index.onUpdate(tableName, key, result.row);
+								if (r.error) {
+									console.error(
+										`Index ${change.action} failed for ${tableName}/${key}:`,
+										r.error,
+									);
+								}
+							}
+						} else if (
+							result.status === 'schema-mismatch' ||
+							result.status === 'invalid-structure'
+						) {
+							console.warn(
+								`Skipping invalid row in ${tableName}/${key} (${change.action}): ${result.status}`,
+							);
+						}
+					} else if (change.action === 'delete') {
+						for (const index of Object.values(indexes)) {
+							const r = await index.onDelete(tableName, key);
+							if (r.error) {
+								console.error(
+									`Index onDelete failed for ${tableName}/${key}:`,
+									r.error,
+								);
+							}
+						}
 					}
-				}
-			},
-			onUpdate: async (id, data) => {
-				for (const index of Object.values(indexes)) {
-					const result = await index.onUpdate(tableName, id, data);
-					if (result.error) {
-						console.error(
-							`Index onUpdate failed for ${tableName}/${id}:`,
-							result.error,
-						);
-					}
-				}
-			},
-			onDelete: async (id) => {
-				for (const index of Object.values(indexes)) {
-					const result = await index.onDelete(tableName, id);
-					if (result.error) {
-						console.error(
-							`Index onDelete failed for ${tableName}/${id}:`,
-							result.error,
-						);
-					}
-				}
-			},
-		});
+				});
+			}
+		};
+
+		// Deeply observe table changes
+		ytable.observeDeep(observer);
 	}
 
 	// 4. Get table helpers from doc

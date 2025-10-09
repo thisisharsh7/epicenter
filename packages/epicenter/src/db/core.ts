@@ -6,16 +6,16 @@ import type {
 	ValidatedRow,
 } from '../core/column-schemas';
 import {
-	validateRow,
 	type GetRowResult,
 	type RowValidationResult,
+	validateRow,
 } from '../core/validation';
 
 /**
  * YJS representation of a row
  * Maps column names to YJS shared types or primitives
  */
-type YRow = Y.Map<CellValue>;
+export type YRow = Y.Map<CellValue>;
 
 /**
  * Converts a YJS row to a plain Row object
@@ -25,7 +25,7 @@ type YRow = Y.Map<CellValue>;
  * - Full row conversions only happen when reading data (get, getAll, filter, etc.)
  * - YJS handles the conversion from plain values to Y.Map internally during insert/update
  */
-function toRow(yrow: YRow): Row {
+export function toRow(yrow: YRow): Row {
 	return Object.fromEntries(yrow.entries()) as Row;
 }
 
@@ -43,7 +43,8 @@ function toRow(yrow: YRow): Row {
  * // Update multiple fields at once
  * db.tables.posts.update({ id: '123', title: 'New Title', published: true });
  */
-type PartialRow<TRow extends Row> = Pick<TRow, 'id'> & Partial<Omit<TRow, 'id'>>;
+type PartialRow<TRow extends Row> = Pick<TRow, 'id'> &
+	Partial<Omit<TRow, 'id'>>;
 
 /**
  * Type-safe table helper with operations for a specific table schema
@@ -62,11 +63,6 @@ export type TableHelper<TRow extends Row> = {
 	deleteMany(ids: string[]): void;
 	clear(): void;
 	count(): number;
-	observe(handlers: {
-		onAdd: (id: string, data: TRow) => void | Promise<void>;
-		onUpdate: (id: string, data: TRow) => void | Promise<void>;
-		onDelete: (id: string) => void | Promise<void>;
-	}): () => void;
 	filter(predicate: (row: TRow) => boolean): { valid: TRow[]; invalid: Row[] };
 	find(predicate: (row: TRow) => boolean): GetRowResult<TRow>;
 };
@@ -204,7 +200,9 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>({
 			];
 		}),
 	) as {
-		[TTableName in keyof TSchemas]: TableHelper<ValidatedRow<TSchemas[TTableName]>>;
+		[TTableName in keyof TSchemas]: TableHelper<
+			ValidatedRow<TSchemas[TTableName]>
+		>;
 	};
 }
 
@@ -221,7 +219,7 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>({
  * @param schema - The table schema for validation
  * @returns A TableHelper instance with full CRUD operations
  */
-function createTableHelper<TRow extends Row>({
+function createTableHelper<TSchema extends TableSchema, TRow extends Row>({
 	ydoc,
 	tableName,
 	ytable,
@@ -230,7 +228,7 @@ function createTableHelper<TRow extends Row>({
 	ydoc: Y.Doc;
 	tableName: string;
 	ytable: Y.Map<YRow>;
-	schema: TableSchema;
+	schema: TSchema;
 }): TableHelper<TRow> {
 	/**
 	 * Validates a row and returns validation result typed as TRow
@@ -368,9 +366,7 @@ function createTableHelper<TRow extends Row>({
 						invalid.push(result.row);
 						break;
 					case 'invalid-structure':
-						console.warn(
-							`Row in table ${tableName} has invalid structure`,
-						);
+						console.warn(`Row in table ${tableName} has invalid structure`);
 						break;
 				}
 			}
@@ -448,64 +444,6 @@ function createTableHelper<TRow extends Row>({
 
 			// No match found (not an error, just no matching row)
 			return { status: 'not-found', row: null };
-		},
-
-		observe(handlers: {
-			onAdd: (id: string, data: TRow) => void | Promise<void>;
-			onUpdate: (id: string, data: TRow) => void | Promise<void>;
-			onDelete: (id: string) => void | Promise<void>;
-		}) {
-			const observer = (events: Y.YEvent<any>[]) => {
-				for (const event of events) {
-					event.changes.keys.forEach((change, key) => {
-						if (change.action === 'add') {
-							const yrow = ytable.get(key);
-							if (yrow) {
-								const row = toRow(yrow);
-								const result = validateTypedRow(row);
-
-								switch (result.status) {
-									case 'valid':
-										handlers.onAdd(key, result.row);
-										break;
-									case 'schema-mismatch':
-									case 'invalid-structure':
-										console.warn(
-											`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
-										);
-										break;
-								}
-							}
-						} else if (change.action === 'update') {
-							const yrow = ytable.get(key);
-							if (yrow) {
-								const row = toRow(yrow);
-								const result = validateTypedRow(row);
-
-								switch (result.status) {
-									case 'valid':
-										handlers.onUpdate(key, result.row);
-										break;
-									case 'schema-mismatch':
-									case 'invalid-structure':
-										console.warn(
-											`Skipping invalid row in ${tableName}/${key} (onUpdate): ${result.status}`,
-										);
-										break;
-								}
-							}
-						} else if (change.action === 'delete') {
-							handlers.onDelete(key);
-						}
-					});
-				}
-			};
-
-			ytable.observeDeep(observer);
-
-			return () => {
-				ytable.unobserveDeep(observer);
-			};
 		},
 	};
 }
