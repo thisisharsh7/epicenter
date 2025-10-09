@@ -73,7 +73,7 @@ export type TableHelper<TRow extends Row> = {
  * the Y.Doc with type-safe table operations.
  *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
- * @param tableSchemas - Table schema definitions
+ * @param schema - Table schema definitions
  * @returns Object with table helpers and document utilities
  *
  * @example
@@ -95,13 +95,13 @@ export type TableHelper<TRow extends Row> = {
  */
 export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 	ydoc: Y.Doc,
-	tableSchemas: TSchemas,
+	schema: TSchemas,
 ) {
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
 	// Initialize each table as a Y.Map<id, row> (only if not already present)
 	// When loading from disk or syncing from network, tables may already exist
-	for (const tableName of Object.keys(tableSchemas)) {
+	for (const tableName of Object.keys(schema)) {
 		if (!ytables.has(tableName)) {
 			ytables.set(tableName, new Y.Map<YRow>());
 		}
@@ -112,7 +112,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 		 * Table helpers organized by table name
 		 * Each table has methods for type-safe CRUD operations
 		 */
-		tables: createTableHelpers({ ydoc, tableSchemas, ytables }),
+		tables: createTableHelpers({ ydoc, schema, ytables }),
 
 		/**
 		 * The underlying YJS document
@@ -161,7 +161,7 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 		 * Get all table names in the document
 		 */
 		getTableNames(): string[] {
-			return Object.keys(tableSchemas);
+			return Object.keys(schema);
 		},
 	};
 }
@@ -174,29 +174,29 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
  * typed helper with full CRUD operations.
  *
  * @param ydoc - The YJS document instance
- * @param tableSchemas - Schema definitions for all tables
+ * @param schema - Schema definitions for all tables
  * @param ytables - The root YJS Map containing all table data
  * @returns Object mapping table names to their typed TableHelper instances
  */
 function createTableHelpers<TSchemas extends Record<string, TableSchema>>({
 	ydoc,
-	tableSchemas,
+	schema,
 	ytables,
 }: {
 	ydoc: Y.Doc;
-	tableSchemas: TSchemas;
+	schema: TSchemas;
 	ytables: Y.Map<Y.Map<YRow>>;
 }) {
 	return Object.fromEntries(
-		Object.keys(tableSchemas).map((tableName) => {
+		Object.keys(schema).map((tableName) => {
 			const ytable = ytables.get(tableName);
 			if (!ytable) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
-			const schema = tableSchemas[tableName];
+			const tableSchema = schema[tableName];
 			return [
 				tableName,
-				createTableHelper({ ydoc, tableName, ytable, schema }),
+				createTableHelper({ ydoc, tableName, ytable, schema: tableSchema }),
 			];
 		}),
 	) as {

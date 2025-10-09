@@ -13,7 +13,7 @@ import { createEpicenterDb } from './core';
  * Uses filesystem for persistence. Not available in browser environments.
  *
  * @param workspaceId - The workspace ID (used as Y.Doc GUID and filename)
- * @param tableSchemas - Table schema definitions
+ * @param schema - Table schema definitions
  * @param options - Persistence configuration
  * @returns Database with table helpers and persistence control methods
  *
@@ -59,7 +59,7 @@ export function createEpicenterDbFromDisk<
 	TSchemas extends Record<string, TableSchema>,
 >(
 	workspaceId: string,
-	tableSchemas: TSchemas,
+	schema: TSchemas,
 	options?: {
 		/**
 		 * Directory where YJS documents are stored
@@ -95,7 +95,7 @@ export function createEpicenterDbFromDisk<
 	}
 
 	// Create database
-	const db = createEpicenterDb(ydoc, tableSchemas);
+	const db = createEpicenterDb(ydoc, schema);
 
 	// Save function (reused by both manual save and autosave)
 	function save(): void {

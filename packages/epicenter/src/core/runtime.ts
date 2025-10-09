@@ -76,11 +76,11 @@ export type RuntimeConfig = {
  * Combines typed table helpers and extracted action handlers.
  */
 export type WorkspaceRuntime<
-	TTableSchemas extends Record<string, TableSchema>,
+	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
 > = {
-	[TableName in keyof TTableSchemas]: TableHelper<
-		ValidatedRow<TTableSchemas[TableName]>
+	[TableName in keyof TSchema]: TableHelper<
+		ValidatedRow<TSchema[TableName]>
 	>;
 } & {
 	[K in keyof TActionMap]: TActionMap[K]['handler'];
@@ -95,20 +95,20 @@ export type WorkspaceRuntime<
  * Returns the workspace instance with tables, actions, and indexes
  */
 export async function runWorkspace<
-	TTableSchemas extends Record<string, TableSchema>,
+	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
 	TDeps extends Record<string, Workspace>,
 >(
-	workspace: Workspace<TTableSchemas, TActionMap, TDeps>,
+	workspace: Workspace<TSchema, TActionMap, TDeps>,
 	config: RuntimeConfig = {},
-): Promise<WorkspaceRuntime<TTableSchemas, TActionMap>> {
+): Promise<WorkspaceRuntime<TSchema, TActionMap>> {
 	// 1. Initialize Epicenter database
-	const db = createEpicenterDb(workspace.ydoc, workspace.tables);
+	const db = createEpicenterDb(workspace.ydoc, workspace.schema);
 
 	// 2. Initialize indexes
 	const indexes = workspace.indexes({
 		db,
-		tableSchemas: workspace.tables,
+		schema: workspace.schema,
 		workspaceId: workspace.ydoc.guid,
 	});
 
@@ -123,7 +123,7 @@ export async function runWorkspace<
 
 	// 3. Set up observers for all tables (runtime-owned)
 	const ytables = workspace.ydoc.getMap<Y.Map<YRow>>('tables');
-	for (const tableName of Object.keys(workspace.tables)) {
+	for (const tableName of Object.keys(workspace.schema)) {
 		const ytable = ytables.get(tableName);
 		if (!ytable) continue;
 
@@ -134,7 +134,7 @@ export async function runWorkspace<
 						const yrow = ytable.get(key);
 						if (!yrow) return;
 						const row = toRow(yrow);
-						const result = validateRow(row, workspace.tables[tableName]);
+						const result = validateRow(row, workspace.schema[tableName]);
 						if (result.status === 'valid') {
 							for (const index of Object.values(indexes)) {
 								const r =
@@ -202,7 +202,7 @@ export async function runWorkspace<
 		indexes,
 		ydoc: db.ydoc,
 		transact: (fn: () => void, origin?: string) => db.transact(fn, origin),
-	} satisfies WorkspaceRuntime<TTableSchemas, TActionMap>;
+	} satisfies WorkspaceRuntime<TSchema, TActionMap>;
 
 	return workspaceInstance;
 }

@@ -74,7 +74,7 @@ async function createTablesIfNotExist(
  */
 export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
 	// Convert table schemas to Drizzle tables
-	const drizzleTables = convertAllTableSchemasToDrizzle(config.tableSchemas);
+	const drizzleTables = convertAllTableSchemasToDrizzle(config.schema);
 
 	// Create database connection
 	const db = drizzle(

@@ -45,9 +45,9 @@ import type { Index, IndexContext } from './indexes';
  *     }
  *   },
  *
- *   indexes: ({ db, tableSchemas }) => ({
- *     sqlite: createSQLiteIndex({ db, tableSchemas }),
- *     markdown: createMarkdownIndex({ db, tableSchemas, path: './data' }),
+ *   indexes: ({ db, schema }) => ({
+ *     sqlite: createSQLiteIndex({ db, schema }),
+ *     markdown: createMarkdownIndex({ db, schema, path: './data' }),
  *   }),
  *
  *   actions: ({ tables, indexes }) => ({
@@ -103,10 +103,7 @@ export function defineWorkspace<W extends Workspace>(workspace: W): W {
  * Workspace definition
  */
 export type Workspace<
-	TTableSchemas extends Record<string, TableSchema> = Record<
-		string,
-		TableSchema
-	>,
+	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TDeps extends Record<string, Workspace> = Record<string, never>,
 > = {
@@ -119,7 +116,7 @@ export type Workspace<
 	/**
 	 * Table schemas (column definitions as JSON)
 	 */
-	tables: TTableSchemas;
+	schema: TSchema;
 
 	/**
 	 * Other workspaces this workspace depends on
@@ -144,9 +141,9 @@ export type Workspace<
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ db, tableSchemas }) => ({
-	 *   sqlite: createSQLiteIndex({ db, tableSchemas }),
-	 *   markdown: createMarkdownIndex({ db, tableSchemas, path: './data' }),
+	 * indexes: ({ db, schema }) => ({
+	 *   sqlite: createSQLiteIndex({ db, schema }),
+	 *   markdown: createMarkdownIndex({ db, schema, path: './data' }),
 	 * })
 	 * ```
 	 */
@@ -177,9 +174,7 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	actions: (
-		context: WorkspaceActionContext<TDeps, TTableSchemas>,
-	) => TActionMap;
+	actions: (context: WorkspaceActionContext<TDeps, TSchema>) => TActionMap;
 
 	/**
 	 * Lifecycle hooks (optional)
@@ -195,10 +190,7 @@ export type Workspace<
  */
 export type WorkspaceActionContext<
 	TDeps extends Record<string, Workspace> = Record<string, Workspace>,
-	TTableSchemas extends Record<string, TableSchema> = Record<
-		string,
-		TableSchema
-	>,
+	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 > = {
 	/**
 	 * Dependency workspaces
@@ -211,9 +203,7 @@ export type WorkspaceActionContext<
 	 * Synchronous write/read operations to YJS
 	 */
 	tables: {
-		[TableName in keyof TTableSchemas]: TableHelper<
-			ValidatedRow<TTableSchemas[TableName]>
-		>;
+		[TableName in keyof TSchema]: TableHelper<ValidatedRow<TSchema[TableName]>>;
 	};
 
 	/**
@@ -228,8 +218,8 @@ export type WorkspaceActionContext<
  */
 type DependencyWorkspacesAPI<TDeps extends Record<string, Workspace>> = {
 	[K in keyof TDeps]: TDeps[K] extends Workspace<infer _, infer TActionMap>
-	? ExtractHandlers<TActionMap>
-	: never;
+		? ExtractHandlers<TActionMap>
+		: never;
 };
 
 /**

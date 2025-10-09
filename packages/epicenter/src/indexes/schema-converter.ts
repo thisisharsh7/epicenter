@@ -141,11 +141,11 @@ export function convertTableSchemaToDrizzle(
  * Returns a map of table name → SQLiteTable
  */
 export function convertAllTableSchemasToDrizzle(
-	tableSchemas: Record<string, TableSchema>,
+	schema: Record<string, TableSchema>,
 ): Record<string, SQLiteTable> {
 	const drizzleTables: Record<string, SQLiteTable> = {};
 
-	for (const [tableName, tableSchema] of Object.entries(tableSchemas)) {
+	for (const [tableName, tableSchema] of Object.entries(schema)) {
 		drizzleTables[tableName] = convertTableSchemaToDrizzle(
 			tableName,
 			tableSchema,

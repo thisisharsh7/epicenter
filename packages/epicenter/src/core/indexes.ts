@@ -80,7 +80,7 @@ export type IndexContext = {
 	 * Table schemas for all tables in this workspace
 	 * Maps table name → column schemas
 	 */
-	tableSchemas: Record<string, TableSchema>;
+	schema: Record<string, TableSchema>;
 
 	/**
 	 * Globally unique workspace ID
