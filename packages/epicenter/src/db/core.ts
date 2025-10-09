@@ -219,7 +219,7 @@ function createTableHelpers<TSchemas extends Record<string, TableSchema>>({
  * @param schema - The table schema for validation
  * @returns A TableHelper instance with full CRUD operations
  */
-function createTableHelper<TSchema extends TableSchema, TRow extends Row>({
+function createTableHelper<TTableSchema extends TableSchema>({
 	ydoc,
 	tableName,
 	ytable,
@@ -228,8 +228,10 @@ function createTableHelper<TSchema extends TableSchema, TRow extends Row>({
 	ydoc: Y.Doc;
 	tableName: string;
 	ytable: Y.Map<YRow>;
-	schema: TSchema;
-}): TableHelper<TRow> {
+	schema: TTableSchema;
+}): TableHelper<ValidatedRow<TTableSchema>> {
+	type TRow = ValidatedRow<TTableSchema>;
+
 	/**
 	 * Validates a row and returns validation result typed as TRow
 	 * The generic validateRow() returns RowValidationResult<ValidatedRow<TableSchema>>,
