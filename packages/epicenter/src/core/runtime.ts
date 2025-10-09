@@ -127,9 +127,6 @@ export async function runWorkspace<
 		const ytable = ytables.get(tableName);
 		if (!ytable) continue;
 
-		// Narrow validated row type for this table using its schema
-		const schema = workspace.tables[tableName];
-
 		const observer = async (events: Y.YEvent<any>[]) => {
 			for (const event of events) {
 				event.changes.keys.forEach(async (change, key) => {
@@ -137,7 +134,7 @@ export async function runWorkspace<
 						const yrow = ytable.get(key);
 						if (!yrow) return;
 						const row = toRow(yrow);
-						const result = validateRow(row, schema);
+						const result = validateRow(row, workspace.tables[tableName]);
 						if (result.status === 'valid') {
 							for (const index of Object.values(indexes)) {
 								const r =
