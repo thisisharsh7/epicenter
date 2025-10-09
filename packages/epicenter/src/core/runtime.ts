@@ -183,20 +183,16 @@ export async function runWorkspace<
 
 	// 5. Initialize dependencies (if any)
 	const dependencies: Record<string, unknown> = {};
-	// TODO: Handle dependencies
 
-	// 6. Initialize actions with full context
-	const actionContext = {
+	// Process actions to extract handlers and make them directly callable
+	const actionMap = workspace.actions({
 		workspaces: dependencies,
 		tables,
 		indexes,
-	};
-
-	// Process actions to extract handlers and make them directly callable
-	const actionMap = workspace.actions(actionContext) as TActionMap;
+	}) as TActionMap;
 	const processedActions = Object.entries(actionMap).reduce(
 		(acc, [actionName, action]) => {
-			(acc as any)[actionName] = (action as WorkspaceAction<any, any>).handler;
+			(acc as any)[actionName] = action.handler;
 			return acc;
 		},
 		{} as { [K in keyof TActionMap]: TActionMap[K]['handler'] },
