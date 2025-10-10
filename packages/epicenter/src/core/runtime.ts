@@ -1,11 +1,9 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type * as Y from 'yjs';
-import { createEpicenterDb, toRow } from '../db/core';
-import type { TableHelper, YRow } from '../db/core';
+import { createEpicenterDb } from '../db/core';
+import type { TableHelper } from '../db/core';
 import type { WorkspaceAction, WorkspaceActionMap } from './actions';
-import type { Row, TableSchema, ValidatedRow } from './column-schemas';
+import type { TableSchema, ValidatedRow } from './column-schemas';
 import type { Index } from './indexes';
-import { validateRow } from './validation';
 import type { IndexesAPI, Workspace } from './workspace';
 
 /**
@@ -78,11 +76,12 @@ export type RuntimeConfig = {
 export type WorkspaceRuntime<
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TIndexes extends Record<string, Index<TSchema>> = Record<string, Index<TSchema>>,
+	TIndexes extends Record<string, Index<TSchema>> = Record<
+		string,
+		Index<TSchema>
+	>,
 > = {
-	[TableName in keyof TSchema]: TableHelper<
-		ValidatedRow<TSchema[TableName]>
-	>;
+	[TableName in keyof TSchema]: TableHelper<ValidatedRow<TSchema[TableName]>>;
 } & {
 	[K in keyof TActionMap]: TActionMap[K]['handler'];
 } & {
@@ -108,76 +107,22 @@ export async function runWorkspace<
 	// 1. Initialize Epicenter database
 	const db = createEpicenterDb(workspace.ydoc, workspace.schema);
 
-	// 2. Initialize indexes
-	const indexes = workspace.indexes({ db });
+	// 2. Call index functions with db to set up observers and get results
+	const indexFunctions = workspace.indexes({ db });
+	const indexes: Record<string, { destroy: () => void | Promise<void>; queries: any }> = {};
 
-	// Initialize each index
-	for (const [indexName, index] of Object.entries(indexes)) {
+	for (const [indexName, indexFn] of Object.entries(indexFunctions)) {
 		try {
-			await index.init?.();
+			indexes[indexName] = indexFn(db);
 		} catch (error) {
 			console.error(`Failed to initialize index "${indexName}":`, error);
 		}
 	}
 
-	// 3. Set up observers for all tables (runtime-owned)
-	const ytables = workspace.ydoc.getMap<Y.Map<YRow>>('tables');
-	for (const tableName of Object.keys(workspace.schema)) {
-		const ytable = ytables.get(tableName);
-		if (!ytable) continue;
-
-		const observer = async (events: Y.YEvent<any>[]) => {
-			for (const event of events) {
-				event.changes.keys.forEach(async (change, key) => {
-					if (change.action === 'add' || change.action === 'update') {
-						const yrow = ytable.get(key);
-						if (!yrow) return;
-						const row = toRow(yrow);
-						const result = validateRow(row, workspace.schema[tableName]);
-						if (result.status === 'valid') {
-							for (const index of Object.values(indexes)) {
-								const r =
-									change.action === 'add'
-										? await index.onAdd(tableName, key, result.row)
-										: await index.onUpdate(tableName, key, result.row);
-								if (r.error) {
-									console.error(
-										`Index ${change.action} failed for ${tableName}/${key}:`,
-										r.error,
-									);
-								}
-							}
-						} else if (
-							result.status === 'schema-mismatch' ||
-							result.status === 'invalid-structure'
-						) {
-							console.warn(
-								`Skipping invalid row in ${tableName}/${key} (${change.action}): ${result.status}`,
-							);
-						}
-					} else if (change.action === 'delete') {
-						for (const index of Object.values(indexes)) {
-							const r = await index.onDelete(tableName, key);
-							if (r.error) {
-								console.error(
-									`Index onDelete failed for ${tableName}/${key}:`,
-									r.error,
-								);
-							}
-						}
-					}
-				});
-			}
-		};
-
-		// Deeply observe table changes
-		ytable.observeDeep(observer);
-	}
-
-	// 4. Get table helpers from doc
+	// 3. Get table helpers from doc
 	const tables = db.tables;
 
-	// 5. Initialize dependencies and convert array to object keyed by workspace IDs
+	// 4. Initialize dependencies and convert array to object keyed by workspace IDs
 	const workspaces: Record<string, unknown> = {};
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
@@ -187,16 +132,16 @@ export async function runWorkspace<
 		}
 	}
 
-	// 6. Create IndexesAPI by extracting actions property from each index
+	// 5. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.entries(indexes).reduce(
 		(acc, [indexName, index]) => {
-			acc[indexName] = index.actions;
+			acc[indexName] = index.queries;
 			return acc;
 		},
 		{} as Record<string, any>,
 	) as IndexesAPI<TIndexes>;
 
-	// Process actions to extract handlers and make them directly callable
+	// 6. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		workspaces,
 		tables,

@@ -1,7 +1,5 @@
-import type { Result } from 'wellcrafted/result';
 import type { createEpicenterDb } from '../db/core';
-import type { Row, TableSchema, ValidatedRow } from './column-schemas';
-import type { IndexError } from './errors';
+import type { TableSchema } from './column-schemas';
 
 /**
  * Index type system for vault.
@@ -9,64 +7,47 @@ import type { IndexError } from './errors';
  */
 
 /**
- * Index interface - all indexes must implement these methods
- * Indexes observe YJS changes and keep their own storage in sync
+ * Index function that sets up observers and returns cleanup function + queries
+ *
+ * Indexes are lazy functions that:
+ * 1. Take the db object as parameter
+ * 2. Register observers using db.tables.X.observe()
+ * 3. Perform any initialization logic
+ * 4. Return an object with destroy function and query methods
+ *
+ * @example
+ * ```typescript
+ * function myIndex(db: ReturnType<typeof createEpicenterDb<MySchema>>) {
+ *   // Register observers
+ *   const unsubPosts = db.tables.posts.observe({
+ *     onAdd: (row) => { indexPost(row); },
+ *     onUpdate: (row) => { reindexPost(row); },
+ *     onDelete: (id) => { removePost(id); },
+ *   });
+ *
+ *   // Initialization
+ *   initializeIndex();
+ *
+ *   // Return cleanup function and query methods
+ *   return {
+ *     destroy() {
+ *       unsubPosts();
+ *       cleanupIndex();
+ *     },
+ *     queries: {
+ *       search: (query: string) => { ... },
+ *       getAll: () => { ... },
+ *     },
+ *   };
+ * }
+ * ```
  */
 export type Index<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
-	TActions = Record<string, any>,
-> = {
-	/**
-	 * Initialize the index (optional)
-	 * Called once during runtime initialization
-	 * Use this to set up storage, create tables, do initial sync, etc.
-	 */
-	init?(): Promise<void> | void;
-
-	/**
-	 * Destroy/cleanup the index (optional)
-	 * Called when the runtime shuts down
-	 */
-	destroy?(): Promise<void> | void;
-
-	/**
-	 * Handle a row being added to a table
-	 * Called when observeDeep detects a new row in YJS
-	 */
-	onAdd<TTableName extends keyof TSchema & string>(
-		tableName: TTableName,
-		id: string,
-		data: ValidatedRow<TSchema[TTableName]>,
-	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
-
-	/**
-	 * Handle a row being updated in a table
-	 * Called when observeDeep detects changes to a row in YJS
-	 */
-	onUpdate<TTableName extends keyof TSchema & string>(
-		tableName: TTableName,
-		id: string,
-		data: ValidatedRow<TSchema[TTableName]>,
-	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
-
-	/**
-	 * Handle a row being deleted from a table
-	 * Called when observeDeep detects a row deletion in YJS
-	 */
-	onDelete<TTableName extends keyof TSchema & string>(
-		tableName: TTableName,
-		id: string,
-	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
-
-	/**
-	 * Index-specific query methods and APIs
-	 * Each index can expose its own interface for querying
-	 * Examples:
-	 * - SQLite: select(), db, tables
-	 * - Vector: search(), embed()
-	 * - Search: search(), reindex()
-	 */
-	actions: TActions;
+	TQueries = Record<string, any>,
+> = (db: ReturnType<typeof createEpicenterDb<TSchema>>) => {
+	destroy: () => void | Promise<void>;
+	queries: TQueries;
 };
 
 /**

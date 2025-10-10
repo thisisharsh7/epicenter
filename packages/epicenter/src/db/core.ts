@@ -65,6 +65,11 @@ export type TableHelper<TRow extends Row> = {
 	count(): number;
 	filter(predicate: (row: TRow) => boolean): { valid: TRow[]; invalid: Row[] };
 	find(predicate: (row: TRow) => boolean): GetRowResult<TRow>;
+	observe(callbacks: {
+		onAdd?: (row: TRow) => void | Promise<void>;
+		onUpdate?: (row: TRow) => void | Promise<void>;
+		onDelete?: (id: string) => void | Promise<void>;
+	}): () => void;
 };
 
 /**
@@ -452,6 +457,64 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			// No match found (not an error, just no matching row)
 			return { status: 'not-found', row: null };
+		},
+
+		observe(callbacks: {
+			onAdd?: (row: TRow) => void | Promise<void>;
+			onUpdate?: (row: TRow) => void | Promise<void>;
+			onDelete?: (id: string) => void | Promise<void>;
+		}): () => void {
+			const observer = (events: Y.YEvent<any>[]) => {
+				for (const event of events) {
+					event.changes.keys.forEach((change, key) => {
+						if (change.action === 'add') {
+							const yrow = ytable.get(key);
+							if (yrow) {
+								const row = toRow(yrow);
+								const result = validateTypedRow(row);
+
+								switch (result.status) {
+									case 'valid':
+										callbacks.onAdd?.(result.row);
+										break;
+									case 'schema-mismatch':
+									case 'invalid-structure':
+										console.warn(
+											`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
+										);
+										break;
+								}
+							}
+						} else if (change.action === 'update') {
+							const yrow = ytable.get(key);
+							if (yrow) {
+								const row = toRow(yrow);
+								const result = validateTypedRow(row);
+
+								switch (result.status) {
+									case 'valid':
+										callbacks.onUpdate?.(result.row);
+										break;
+									case 'schema-mismatch':
+									case 'invalid-structure':
+										console.warn(
+											`Skipping invalid row in ${tableName}/${key} (onUpdate): ${result.status}`,
+										);
+										break;
+								}
+							}
+						} else if (change.action === 'delete') {
+							callbacks.onDelete?.(key);
+						}
+					});
+				}
+			};
+
+			ytable.observeDeep(observer);
+
+			return () => {
+				ytable.unobserveDeep(observer);
+			};
 		},
 	};
 }
