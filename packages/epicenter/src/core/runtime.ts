@@ -1,4 +1,4 @@
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import type { TableHelper } from '../db/core';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
@@ -101,10 +101,13 @@ export async function runWorkspace<
 	workspace: Workspace<TId, TSchema, TActionMap, TIndexes, TDeps>,
 	config: RuntimeConfig = {},
 ): Promise<WorkspaceRuntime<TSchema, TActionMap, TIndexes>> {
-	// 1. Initialize Epicenter database
-	const db = createEpicenterDb(workspace.ydoc, workspace.schema);
+	// 1. Create YJS document from workspace ID
+	const ydoc = new Y.Doc({ guid: workspace.id });
 
-	// 2. Validate no duplicate index IDs
+	// 2. Initialize Epicenter database
+	const db = createEpicenterDb(ydoc, workspace.schema);
+
+	// 3. Validate no duplicate index IDs
 	const indexIds = new Set<string>();
 	for (const index of workspace.indexes) {
 		if (indexIds.has(index.id)) {
@@ -113,7 +116,7 @@ export async function runWorkspace<
 		indexIds.add(index.id);
 	}
 
-	// 3. Call index init functions with db to set up observers and get results
+	// 4. Call index init functions with db to set up observers and get results
 	const indexes: Record<
 		string,
 		{ destroy: () => void | Promise<void>; queries: any }
@@ -127,10 +130,13 @@ export async function runWorkspace<
 		}
 	}
 
-	// 4. Get table helpers from doc
+	// 5. Set up YDoc synchronization and persistence (if provided)
+	workspace.setupYDoc?.(ydoc);
+
+	// 6. Get table helpers from doc
 	const tables = db.tables;
 
-	// 5. Initialize dependencies and convert array to object keyed by workspace IDs
+	// 7. Initialize dependencies and convert array to object keyed by workspace IDs
 	const workspaces: Record<string, unknown> = {};
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
@@ -140,7 +146,7 @@ export async function runWorkspace<
 		}
 	}
 
-	// 6. Create IndexesAPI by extracting queries from each index
+	// 8. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.entries(indexes).reduce(
 		(acc, [indexName, index]) => {
 			acc[indexName] = index.queries;
@@ -149,7 +155,7 @@ export async function runWorkspace<
 		{} as Record<string, any>,
 	) as IndexesAPI<TIndexes>;
 
-	// 7. Process actions to extract handlers and make them directly callable
+	// 9. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		workspaces,
 		tables,
@@ -163,7 +169,7 @@ export async function runWorkspace<
 		{} as { [K in keyof TActionMap]: TActionMap[K]['handler'] },
 	);
 
-	// 8. Return workspace instance
+	// 10. Return workspace instance
 	const workspaceInstance = {
 		...tables,
 		...processedActions,

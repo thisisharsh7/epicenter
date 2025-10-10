@@ -30,11 +30,8 @@ import type { Index } from './indexes';
  *
  * @example
  * ```typescript
- * const ydoc = new Y.Doc({ guid: 'blog-uuid' });
- *
  * const blogWorkspace = defineWorkspace({
  *   id: 'blog',
- *   ydoc,
  *
  *   schema: {
  *     posts: {
@@ -50,6 +47,12 @@ import type { Index } from './indexes';
  *     createSQLiteIndex({ databaseUrl: ':memory:' }),
  *     createMarkdownIndex({ storagePath: './data' }),
  *   ] as const,
+ *
+ *   setupYDoc: (ydoc) => {
+ *     // Optional: Set up persistence
+ *     new IndexeddbPersistence('blog', ydoc);
+ *     return ydoc;
+ *   },
  *
  *   actions: ({ tables, indexes }) => ({
  *     getPublishedPosts: defineQuery({
@@ -86,11 +89,6 @@ export function defineWorkspace<W extends Workspace>(workspace: W): W {
 		throw new Error('Workspace must have a valid string ID');
 	}
 
-	// Validate YJS document
-	if (!workspace.ydoc || !(workspace.ydoc instanceof Y.Doc)) {
-		throw new Error('Workspace must have a valid YJS document (ydoc)');
-	}
-
 	// Validate dependencies
 	if (workspace.dependencies) {
 		if (!Array.isArray(workspace.dependencies)) {
@@ -98,9 +96,9 @@ export function defineWorkspace<W extends Workspace>(workspace: W): W {
 		}
 
 		for (const dep of workspace.dependencies as readonly Workspace[]) {
-			if (!dep || typeof dep !== 'object' || !dep.id || !dep.ydoc) {
+			if (!dep || typeof dep !== 'object' || !dep.id) {
 				throw new Error(
-					'Invalid dependency: dependencies must be workspace objects with id and ydoc',
+					'Invalid dependency: dependencies must be workspace objects with id',
 				);
 			}
 		}
@@ -122,14 +120,9 @@ export type Workspace<
 	/**
 	 * Unique identifier for this workspace
 	 * Used as the property name when accessing workspace actions from dependencies
+	 * Also used as the GUID for the YJS document
 	 */
 	id: TId;
-
-	/**
-	 * YJS document for this workspace
-	 * Must have a unique GUID set
-	 */
-	ydoc: Y.Doc;
 
 	/**
 	 * Table schemas (column definitions as JSON)
@@ -162,6 +155,29 @@ export type Workspace<
 	 * ```
 	 */
 	indexes: TIndexes;
+
+	/**
+	 * Optional function to set up YDoc synchronization and persistence
+	 * Called after indexes are registered with the YDoc instance
+	 * Use this to register IndexedDB persistence, remote sync providers, etc.
+	 *
+	 * @param ydoc - The YJS document for this workspace
+	 * @returns The YDoc (for chaining)
+	 *
+	 * @example
+	 * ```typescript
+	 * setupYDoc: (ydoc) => {
+	 *   // Set up IndexedDB persistence
+	 *   new IndexeddbPersistence('my-workspace', ydoc);
+	 *
+	 *   // Set up WebRTC provider for collaboration
+	 *   new WebrtcProvider('my-workspace', ydoc);
+	 *
+	 *   return ydoc;
+	 * }
+	 * ```
+	 */
+	setupYDoc?: (ydoc: Y.Doc) => Y.Doc;
 
 	/**
 	 * Workspace actions - business logic with access to tables and indexes
