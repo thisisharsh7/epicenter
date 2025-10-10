@@ -117,7 +117,7 @@ export type Workspace<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TDeps extends readonly Workspace[] = readonly [],
-	TIndexes extends readonly Index[] = readonly [],
+	TIndexes extends Record<string, Index> = Record<string, Index>,
 > = {
 	/**
 	 * Unique identifier for this workspace
@@ -152,14 +152,14 @@ export type Workspace<
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
 	 * @param context - Epicenter database (includes schema and workspace ID via db.ydoc.guid)
-	 * @returns Array of Index instances
+	 * @returns Map of index name → Index instance
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ db }) => [
-	 *   createSQLiteIndex({ db }),
-	 *   createMarkdownIndex({ db, path: './data' }),
-	 * ]
+	 * indexes: ({ db }) => ({
+	 *   sqlite: createSQLiteIndex({ db }),
+	 *   markdown: createMarkdownIndex({ db, path: './data' }),
+	 * })
 	 * ```
 	 */
 	indexes: (context: IndexContext) => TIndexes;
@@ -206,7 +206,7 @@ export type Workspace<
 export type WorkspaceActionContext<
 	TDeps extends readonly Workspace[] = readonly [],
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
-	TIndexes extends readonly Index[] = readonly [],
+	TIndexes extends Record<string, Index> = Record<string, Index>,
 > = {
 	/**
 	 * Dependency workspaces
@@ -230,19 +230,12 @@ export type WorkspaceActionContext<
 };
 
 /**
- * Indexes API - actions from indexes
- * Converts array of indexes into an object keyed by index IDs
+ * Indexes API - extracts only the action methods from indexes
+ * Maps each index to its actions property
  */
-export type IndexesAPI<TIndexes extends readonly Index[]> = TIndexes extends readonly []
-	? Record<string, never>
-	: {
-			[I in TIndexes[number] as I extends Index<infer TId> ? TId : never]: I extends Index<
-				infer _,
-				infer TActions
-			>
-				? TActions
-				: never;
-		};
+export type IndexesAPI<TIndexes extends Record<string, Index>> = {
+	[K in keyof TIndexes]: TIndexes[K] extends Index<infer TActions> ? TActions : never;
+};
 
 /**
  * Dependency workspaces API - actions from dependency workspaces

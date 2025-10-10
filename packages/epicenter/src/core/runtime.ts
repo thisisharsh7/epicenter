@@ -78,7 +78,7 @@ export type RuntimeConfig = {
 export type WorkspaceRuntime<
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TIndexes extends readonly Index[] = readonly [],
+	TIndexes extends Record<string, Index> = Record<string, Index>,
 > = {
 	[TableName in keyof TSchema]: TableHelper<
 		ValidatedRow<TSchema[TableName]>
@@ -100,7 +100,7 @@ export async function runWorkspace<
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
 	TDeps extends readonly Workspace[],
-	TIndexes extends readonly Index[],
+	TIndexes extends Record<string, Index>,
 >(
 	workspace: Workspace<TId, TSchema, TActionMap, TDeps, TIndexes>,
 	config: RuntimeConfig = {},
@@ -109,14 +109,14 @@ export async function runWorkspace<
 	const db = createEpicenterDb(workspace.ydoc, workspace.schema);
 
 	// 2. Initialize indexes
-	const indexesArray = workspace.indexes({ db });
+	const indexes = workspace.indexes({ db });
 
 	// Initialize each index
-	for (const index of indexesArray) {
+	for (const [indexName, index] of Object.entries(indexes)) {
 		try {
 			await index.init?.();
 		} catch (error) {
-			console.error(`Failed to initialize index "${index.id}":`, error);
+			console.error(`Failed to initialize index "${indexName}":`, error);
 		}
 	}
 
@@ -135,7 +135,7 @@ export async function runWorkspace<
 						const row = toRow(yrow);
 						const result = validateRow(row, workspace.schema[tableName]);
 						if (result.status === 'valid') {
-							for (const index of indexesArray) {
+							for (const index of Object.values(indexes)) {
 								const r =
 									change.action === 'add'
 										? await index.onAdd(tableName, key, result.row)
@@ -156,7 +156,7 @@ export async function runWorkspace<
 							);
 						}
 					} else if (change.action === 'delete') {
-						for (const index of indexesArray) {
+						for (const index of Object.values(indexes)) {
 							const r = await index.onDelete(tableName, key);
 							if (r.error) {
 								console.error(
@@ -187,10 +187,10 @@ export async function runWorkspace<
 		}
 	}
 
-	// 6. Convert indexes array to object keyed by index IDs
-	const indexes = indexesArray.reduce(
-		(acc, index) => {
-			acc[index.id] = index.actions;
+	// 6. Create IndexesAPI by extracting actions property from each index
+	const indexesAPI = Object.entries(indexes).reduce(
+		(acc, [indexName, index]) => {
+			acc[indexName] = index.actions;
 			return acc;
 		},
 		{} as Record<string, any>,
@@ -200,7 +200,7 @@ export async function runWorkspace<
 	const actionMap = workspace.actions({
 		workspaces,
 		tables,
-		indexes,
+		indexes: indexesAPI,
 	}) as TActionMap;
 	const processedActions = Object.entries(actionMap).reduce(
 		(acc, [actionName, action]) => {
@@ -214,7 +214,7 @@ export async function runWorkspace<
 	const workspaceInstance = {
 		...tables,
 		...processedActions,
-		indexes,
+		indexes: indexesAPI,
 		ydoc: db.ydoc,
 		transact: (fn: () => void, origin?: string) => db.transact(fn, origin),
 	} satisfies WorkspaceRuntime<TSchema, TActionMap, TIndexes>;
