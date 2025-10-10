@@ -78,7 +78,7 @@ export type RuntimeConfig = {
 export type WorkspaceRuntime<
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TIndexes extends Record<string, Index> = Record<string, Index>,
+	TIndexes extends Record<string, Index<TSchema>> = Record<string, Index<TSchema>>,
 > = {
 	[TableName in keyof TSchema]: TableHelper<
 		ValidatedRow<TSchema[TableName]>
@@ -100,7 +100,7 @@ export async function runWorkspace<
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
 	TDeps extends readonly Workspace[],
-	TIndexes extends Record<string, Index>,
+	TIndexes extends Record<string, Index<TSchema>>,
 >(
 	workspace: Workspace<TId, TSchema, TActionMap, TDeps, TIndexes>,
 	config: RuntimeConfig = {},

@@ -117,7 +117,10 @@ export type Workspace<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TDeps extends readonly Workspace[] = readonly [],
-	TIndexes extends Record<string, Index> = Record<string, Index>,
+	TIndexes extends Record<string, Index<TSchema>> = Record<
+		string,
+		Index<TSchema>
+	>,
 > = {
 	/**
 	 * Unique identifier for this workspace
@@ -162,7 +165,7 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	indexes: (context: IndexContext) => TIndexes;
+	indexes: (context: IndexContext<TSchema>) => TIndexes;
 
 	/**
 	 * Workspace actions - business logic with access to tables and indexes
@@ -189,7 +192,9 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	actions: (context: WorkspaceActionContext<TDeps, TSchema, TIndexes>) => TActionMap;
+	actions: (
+		context: WorkspaceActionContext<TDeps, TSchema, TIndexes>,
+	) => TActionMap;
 
 	/**
 	 * Lifecycle hooks (optional)
@@ -206,7 +211,10 @@ export type Workspace<
 export type WorkspaceActionContext<
 	TDeps extends readonly Workspace[] = readonly [],
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
-	TIndexes extends Record<string, Index> = Record<string, Index>,
+	TIndexes extends Record<string, Index<TSchema>> = Record<
+		string,
+		Index<TSchema>
+	>,
 > = {
 	/**
 	 * Dependency workspaces
@@ -233,8 +241,10 @@ export type WorkspaceActionContext<
  * Indexes API - extracts only the action methods from indexes
  * Maps each index to its actions property
  */
-export type IndexesAPI<TIndexes extends Record<string, Index>> = {
-	[K in keyof TIndexes]: TIndexes[K] extends Index<infer TActions> ? TActions : never;
+export type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
+	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TActions>
+		? TActions
+		: never;
 };
 
 /**
@@ -245,11 +255,9 @@ type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
-				[W in TDeps[number] as W extends Workspace<infer TId> ? TId : never]: W extends Workspace<
-					infer _,
-					infer _,
-					infer TActionMap
-				>
+				[W in TDeps[number] as W extends Workspace<infer TId>
+					? TId
+					: never]: W extends Workspace<infer _, infer _, infer TActionMap>
 					? ExtractHandlers<TActionMap>
 					: never;
 			};

@@ -1,6 +1,6 @@
 import type { Result } from 'wellcrafted/result';
 import type { createEpicenterDb } from '../db/core';
-import type { Row } from './column-schemas';
+import type { Row, TableSchema, ValidatedRow } from './column-schemas';
 import type { IndexError } from './errors';
 
 /**
@@ -12,7 +12,10 @@ import type { IndexError } from './errors';
  * Index interface - all indexes must implement these methods
  * Indexes observe YJS changes and keep their own storage in sync
  */
-export type Index<TActions = Record<string, any>> = {
+export type Index<
+	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TActions = Record<string, any>,
+> = {
 	/**
 	 * Initialize the index (optional)
 	 * Called once during runtime initialization
@@ -30,28 +33,28 @@ export type Index<TActions = Record<string, any>> = {
 	 * Handle a row being added to a table
 	 * Called when observeDeep detects a new row in YJS
 	 */
-	onAdd(
-		tableName: string,
+	onAdd<TTableName extends keyof TSchema & string>(
+		tableName: TTableName,
 		id: string,
-		data: Row,
+		data: ValidatedRow<TSchema[TTableName]>,
 	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
 	 * Handle a row being updated in a table
 	 * Called when observeDeep detects changes to a row in YJS
 	 */
-	onUpdate(
-		tableName: string,
+	onUpdate<TTableName extends keyof TSchema & string>(
+		tableName: TTableName,
 		id: string,
-		data: Row,
+		data: ValidatedRow<TSchema[TTableName]>,
 	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
 	/**
 	 * Handle a row being deleted from a table
 	 * Called when observeDeep detects a row deletion in YJS
 	 */
-	onDelete(
-		tableName: string,
+	onDelete<TTableName extends keyof TSchema & string>(
+		tableName: TTableName,
 		id: string,
 	): Result<void, IndexError> | Promise<Result<void, IndexError>>;
 
@@ -69,12 +72,14 @@ export type Index<TActions = Record<string, any>> = {
 /**
  * Context passed to index factory functions
  */
-export type IndexContext = {
+export type IndexContext<
+	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+> = {
 	/**
 	 * The Epicenter database object with high-level CRUD methods
 	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
 	 * Table schemas are available via db.schema
 	 * Workspace ID is available via db.ydoc.guid
 	 */
-	db: ReturnType<typeof createEpicenterDb>;
+	db: ReturnType<typeof createEpicenterDb<TSchema>>;
 };
