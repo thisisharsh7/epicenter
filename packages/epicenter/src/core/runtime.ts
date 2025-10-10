@@ -128,10 +128,7 @@ export async function createWorkspaceClient<
 	// 5. Set up YDoc synchronization and persistence (if provided)
 	workspace.setupYDoc?.(ydoc);
 
-	// 6. Get table helpers from doc
-	const tables = db.tables;
-
-	// 7. Initialize dependencies and convert array to object keyed by workspace IDs
+	// 6. Initialize dependencies and convert array to object keyed by workspace IDs
 	const workspaces = {} as DependencyWorkspacesAPI<TDeps>;
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
@@ -141,7 +138,7 @@ export async function createWorkspaceClient<
 		}
 	}
 
-	// 8. Create IndexesAPI by extracting queries from each index
+	// 7. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.entries(indexes).reduce(
 		(acc, [indexName, index]) => {
 			acc[indexName] = index.queries;
@@ -150,10 +147,10 @@ export async function createWorkspaceClient<
 		{} as Record<string, any>,
 	) as IndexesAPI<TIndexes>;
 
-	// 9. Process actions to extract handlers and make them directly callable
+	// 8. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		workspaces,
-		tables,
+		db,
 		indexes: indexesAPI,
 	}) as TActionMap;
 

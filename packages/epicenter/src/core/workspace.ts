@@ -1,7 +1,7 @@
-import * as Y from 'yjs';
-import type { TableHelper } from '../db/core';
+import type * as Y from 'yjs';
+import type { Db } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { TableSchema, ValidatedRow } from './column-schemas';
+import type { TableSchema } from './column-schemas';
 import type { Index } from './indexes';
 
 /**
@@ -18,7 +18,7 @@ import type { Index } from './indexes';
  *
  * **Writes**: Go to YJS document → auto-sync to all indexes
  * ```typescript
- * tables.posts.set({ id: '1', title: 'Hello' });
+ * db.tables.posts.set({ id: '1', title: 'Hello' });
  * // YJS updated → SQLite synced → Markdown synced → Vector synced
  * ```
  *
@@ -54,7 +54,7 @@ import type { Index } from './indexes';
  *     return ydoc;
  *   },
  *
- *   actions: ({ tables, indexes }) => ({
+ *   actions: ({ db, indexes }) => ({
  *     getPublishedPosts: defineQuery({
  *       input: z.void(),
  *       handler: async () => {
@@ -75,7 +75,7 @@ import type { Index } from './indexes';
  *           category: 'tech',
  *           views: 0,
  *         };
- *         tables.posts.set(post);
+ *         db.tables.posts.set(post);
  *         return post;
  *       }
  *     })
@@ -182,18 +182,18 @@ export type WorkspaceConfig<
 	setupYDoc?: (ydoc: Y.Doc) => Y.Doc;
 
 	/**
-	 * Workspace actions - business logic with access to tables and indexes
-	 * @param context - Tables (write), indexes (read), and dependency workspaces
+	 * Workspace actions - business logic with access to db and indexes
+	 * @param context - Database instance (with tables, ydoc, transactions), indexes (read), and dependency workspaces
 	 * @returns Map of action name → action implementation
 	 *
 	 * @example
 	 * ```typescript
-	 * actions: ({ tables, indexes, workspaces }) => ({
+	 * actions: ({ db, indexes, workspaces }) => ({
 	 *   createPost: defineMutation({
 	 *     input: z.object({ title: z.string() }),
 	 *     handler: async ({ title }) => {
 	 *       const post = { id: generateId(), title, ... };
-	 *       tables.posts.set(post);
+	 *       db.tables.posts.set(post);
 	 *       return post;
 	 *     }
 	 *   }),
@@ -234,12 +234,10 @@ export type WorkspaceActionContext<
 	workspaces: DependencyWorkspacesAPI<TDeps>;
 
 	/**
-	 * Table helpers for this workspace
-	 * Synchronous write/read operations to YJS
+	 * Database instance with table helpers, ydoc, schema, and utilities
+	 * Provides full access to YJS document and transactional operations
 	 */
-	tables: {
-		[TableName in keyof TSchema]: TableHelper<ValidatedRow<TSchema[TableName]>>;
-	};
+	db: Db<TSchema>;
 
 	/**
 	 * Indexes for this workspace
@@ -296,7 +294,7 @@ export function extractHandlers<T extends WorkspaceActionMap>(
 ): ExtractHandlers<T> {
 	return Object.entries(actionMap).reduce(
 		(acc, [actionName, action]) => {
-			acc[actionName] = action.handler;
+			(acc as any)[actionName] = action.handler;
 			return acc;
 		},
 		{} as ExtractHandlers<T>,
