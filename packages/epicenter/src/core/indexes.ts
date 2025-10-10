@@ -74,11 +74,7 @@ export type IndexContext = {
 	 * The Epicenter database object with high-level CRUD methods
 	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
 	 * Table schemas are available via db.schema
+	 * Workspace ID is available via db.ydoc.guid
 	 */
 	db: ReturnType<typeof createEpicenterDb>;
-
-	/**
-	 * Globally unique workspace ID
-	 */
-	workspaceId: string;
 };

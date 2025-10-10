@@ -33,9 +33,10 @@ import type { Index, IndexContext } from './indexes';
  * const ydoc = new Y.Doc({ guid: 'blog-uuid' });
  *
  * const blogWorkspace = defineWorkspace({
+ *   id: 'blog',
  *   ydoc,
  *
- *   tables: {
+ *   schema: {
  *     posts: {
  *       id: id(),
  *       title: text(),
@@ -45,9 +46,9 @@ import type { Index, IndexContext } from './indexes';
  *     }
  *   },
  *
- *   indexes: ({ db, schema }) => ({
- *     sqlite: createSQLiteIndex({ db, schema }),
- *     markdown: createMarkdownIndex({ db, schema, path: './data' }),
+ *   indexes: ({ db }) => ({
+ *     sqlite: createSQLiteIndex({ db }),
+ *     markdown: createMarkdownIndex({ db, path: './data' }),
  *   }),
  *
  *   actions: ({ tables, indexes }) => ({
@@ -80,6 +81,11 @@ import type { Index, IndexContext } from './indexes';
  * ```
  */
 export function defineWorkspace<W extends Workspace>(workspace: W): W {
+	// Validate workspace ID
+	if (!workspace.id || typeof workspace.id !== 'string') {
+		throw new Error('Workspace must have a valid string ID');
+	}
+
 	// Validate YJS document
 	if (!workspace.ydoc || !(workspace.ydoc instanceof Y.Doc)) {
 		throw new Error('Workspace must have a valid YJS document (ydoc)');
@@ -87,10 +93,14 @@ export function defineWorkspace<W extends Workspace>(workspace: W): W {
 
 	// Validate dependencies
 	if (workspace.dependencies) {
-		for (const [key, dep] of Object.entries(workspace.dependencies)) {
-			if (!dep || typeof dep !== 'object' || !dep.ydoc) {
+		if (!Array.isArray(workspace.dependencies)) {
+			throw new Error('Dependencies must be an array of workspace objects');
+		}
+
+		for (const dep of workspace.dependencies as readonly Workspace[]) {
+			if (!dep || typeof dep !== 'object' || !dep.id || !dep.ydoc) {
 				throw new Error(
-					`Invalid dependency "${key}": dependencies must be workspace objects with ydoc`,
+					'Invalid dependency: dependencies must be workspace objects with id and ydoc',
 				);
 			}
 		}
@@ -103,10 +113,17 @@ export function defineWorkspace<W extends Workspace>(workspace: W): W {
  * Workspace definition
  */
 export type Workspace<
+	TId extends string = string,
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TDeps extends Record<string, Workspace> = Record<string, never>,
+	TDeps extends readonly Workspace[] = readonly [],
 > = {
+	/**
+	 * Unique identifier for this workspace
+	 * Used as the property name when accessing workspace actions from dependencies
+	 */
+	id: TId;
+
 	/**
 	 * YJS document for this workspace
 	 * Must have a unique GUID set
@@ -120,14 +137,11 @@ export type Workspace<
 
 	/**
 	 * Other workspaces this workspace depends on
-	 * Keys become the property names in the workspaces API
+	 * IDs become the property names in the workspaces API
 	 * @example
 	 * ```typescript
-	 * dependencies: {
-	 *   auth: authWorkspace,
-	 *   storage: storageWorkspace
-	 * }
-	 * // Later in actions:
+	 * dependencies: [authWorkspace, storageWorkspace]
+	 * // Later in actions (using workspace IDs as property names):
 	 * workspaces.auth.login(...)
 	 * workspaces.storage.uploadFile(...)
 	 * ```
@@ -136,14 +150,14 @@ export type Workspace<
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
-	 * @param context - Epicenter database, table schemas, and workspace ID
+	 * @param context - Epicenter database (includes schema and workspace ID via db.ydoc.guid)
 	 * @returns Map of index name → Index instance
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ db, schema }) => ({
-	 *   sqlite: createSQLiteIndex({ db, schema }),
-	 *   markdown: createMarkdownIndex({ db, schema, path: './data' }),
+	 * indexes: ({ db }) => ({
+	 *   sqlite: createSQLiteIndex({ db }),
+	 *   markdown: createMarkdownIndex({ db, path: './data' }),
 	 * })
 	 * ```
 	 */
@@ -189,7 +203,7 @@ export type Workspace<
  * Context passed to the actions function
  */
 export type WorkspaceActionContext<
-	TDeps extends Record<string, Workspace> = Record<string, Workspace>,
+	TDeps extends readonly Workspace[] = readonly [],
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 > = {
 	/**
@@ -215,12 +229,20 @@ export type WorkspaceActionContext<
 
 /**
  * Dependency workspaces API - actions from dependency workspaces
+ * Converts array of workspaces into an object keyed by workspace IDs
  */
-type DependencyWorkspacesAPI<TDeps extends Record<string, Workspace>> = {
-	[K in keyof TDeps]: TDeps[K] extends Workspace<infer _, infer TActionMap>
-		? ExtractHandlers<TActionMap>
-		: never;
-};
+type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> =
+	TDeps extends readonly []
+		? Record<string, never>
+		: {
+				[W in TDeps[number] as W extends Workspace<infer TId> ? TId : never]: W extends Workspace<
+					infer _,
+					infer _,
+					infer TActionMap
+				>
+					? ExtractHandlers<TActionMap>
+					: never;
+			};
 
 /**
  * Extract handler functions from action map

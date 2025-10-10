@@ -95,22 +95,19 @@ export type WorkspaceRuntime<
  * Returns the workspace instance with tables, actions, and indexes
  */
 export async function runWorkspace<
+	TId extends string,
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TDeps extends Record<string, Workspace>,
+	TDeps extends readonly Workspace[],
 >(
-	workspace: Workspace<TSchema, TActionMap, TDeps>,
+	workspace: Workspace<TId, TSchema, TActionMap, TDeps>,
 	config: RuntimeConfig = {},
 ): Promise<WorkspaceRuntime<TSchema, TActionMap>> {
 	// 1. Initialize Epicenter database
 	const db = createEpicenterDb(workspace.ydoc, workspace.schema);
 
 	// 2. Initialize indexes
-	const indexes = workspace.indexes({
-		db,
-		schema: workspace.schema,
-		workspaceId: workspace.ydoc.guid,
-	});
+	const indexes = workspace.indexes({ db });
 
 	// Initialize each index
 	for (const [indexName, index] of Object.entries(indexes)) {
@@ -178,12 +175,19 @@ export async function runWorkspace<
 	// 4. Get table helpers from doc
 	const tables = db.tables;
 
-	// 5. Initialize dependencies (if any)
-	const dependencies: Record<string, unknown> = {};
+	// 5. Initialize dependencies and convert array to object keyed by workspace IDs
+	const workspaces: Record<string, unknown> = {};
+	if (workspace.dependencies) {
+		for (const dep of workspace.dependencies) {
+			// Each dependency should have its actions available under its ID
+			// This would need to be implemented when dependencies are actually used
+			workspaces[dep.id] = {}; // Placeholder for now
+		}
+	}
 
 	// Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
-		workspaces: dependencies,
+		workspaces,
 		tables,
 		indexes,
 	}) as TActionMap;
