@@ -21,33 +21,29 @@ import {
 
 // Define a simple blog workspace
 const blogWorkspace = defineWorkspace({
-	id: 'test-blog-workspace',
+	id: 'blog',
 
-	tables: {
+	schema: {
 		posts: {
 			id: id(),
 			title: text(),
 			content: text({ nullable: true }),
 			category: select({
-				options: ['tech', 'personal', 'work'] as const,
+				options: ['tech', 'personal', 'work'],
 			}),
 			views: integer({ default: 0 }),
 			published: boolean({ default: false }),
 		},
 	},
 
-	indexes: ({ doc, tableSchemas }) => ({
-		sqlite: createSQLiteIndex({
-			doc,
-			tableSchemas,
+	indexes: [
+		createSQLiteIndex({
 			databaseUrl: ':memory:', // In-memory for testing
 		}),
-		markdown: createMarkdownIndex({
-			doc,
-			tableSchemas,
+		createMarkdownIndex({
 			storagePath: './test-data',
 		}),
-	}),
+	],
 
 	actions: ({ tables, indexes }) => ({
 		createPost: defineMutation({
@@ -66,7 +62,7 @@ const blogWorkspace = defineWorkspace({
 					views: 0,
 					published: false,
 				};
-				tables.posts.set(post);
+				tables.posts.insert(post);
 				return post;
 			},
 		}),

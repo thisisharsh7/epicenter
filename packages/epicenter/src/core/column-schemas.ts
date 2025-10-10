@@ -443,7 +443,7 @@ export function date(opts?: {
 /**
  * Creates a select (single choice) column schema
  * @example
- * select({ options: ['draft', 'published', 'archived'] as const })
+ * select({ options: ['draft', 'published', 'archived'] })
  * select({ options: ['tech', 'personal'], default: 'tech' })
  */
 export function select<const TOptions extends readonly string[]>(opts: {
@@ -462,7 +462,7 @@ export function select<const TOptions extends readonly string[]>(opts: {
 /**
  * Creates a multi-select (multiple choice) column schema
  * @example
- * multiSelect({ options: ['typescript', 'javascript', 'python'] as const })
+ * multiSelect({ options: ['typescript', 'javascript', 'python'] })
  * multiSelect({ options: ['tag1', 'tag2'], default: [] })
  */
 export function multiSelect<const TOptions extends readonly string[]>(opts: {

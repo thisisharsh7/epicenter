@@ -25,7 +25,7 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				title: text(),
 				content: yxmlfragment({ nullable: true }),
-				tags: multiSelect({ options: ['tech', 'personal', 'work'] as const }),
+				tags: multiSelect({ options: ['tech', 'personal', 'work'] }),
 				viewCount: integer(),
 				published: boolean(),
 			},
@@ -91,7 +91,7 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				title: text(),
 				completed: boolean(),
-				priority: select({ options: ['low', 'medium', 'high'] as const }),
+				priority: select({ options: ['low', 'medium', 'high'] }),
 			},
 		});
 
@@ -299,7 +299,7 @@ describe('YjsDoc Type Inference', () => {
 				title: text(),
 				body: yxmlfragment(),
 				notes: ytext({ nullable: true }),
-				tags: multiSelect({ options: ['tag1', 'tag2'] as const }),
+				tags: multiSelect({ options: ['tag1', 'tag2'] }),
 			},
 		});
 

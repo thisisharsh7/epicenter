@@ -95,8 +95,8 @@ export async function runWorkspace<
 	TId extends string,
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TIndexes extends readonly Index<TSchema>[],
-	TDeps extends readonly Workspace[],
+	const TIndexes extends readonly Index<TSchema>[],
+	const TDeps extends readonly Workspace[],
 >(
 	workspace: Workspace<TId, TSchema, TActionMap, TIndexes, TDeps>,
 	config: RuntimeConfig = {},

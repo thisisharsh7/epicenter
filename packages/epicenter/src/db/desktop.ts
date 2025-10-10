@@ -24,7 +24,7 @@ import { createEpicenterDb } from './core';
  *     id: id(),
  *     title: text(),
  *     content: richText({ nullable: true }),
- *     tags: multiSelect({ options: ['tech', 'personal', 'work'] as const }),
+ *     tags: multiSelect({ options: ['tech', 'personal', 'work'] }),
  *     viewCount: integer(),
  *     published: boolean(),
  *   },

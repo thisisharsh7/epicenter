@@ -38,7 +38,7 @@ import type { Index } from './indexes';
  *       id: id(),
  *       title: text(),
  *       content: richText({ nullable: true }),
- *       category: select({ options: ['tech', 'personal'] as const }),
+ *       category: select({ options: ['tech', 'personal'] }),
  *       views: integer({ default: 0 }),
  *     }
  *   },
@@ -46,7 +46,7 @@ import type { Index } from './indexes';
  *   indexes: [
  *     createSQLiteIndex({ databaseUrl: ':memory:' }),
  *     createMarkdownIndex({ storagePath: './data' }),
- *   ] as const,
+ *   ],
  *
  *   setupYDoc: (ydoc) => {
  *     // Optional: Set up persistence
@@ -83,7 +83,7 @@ import type { Index } from './indexes';
  * });
  * ```
  */
-export function defineWorkspace<W extends Workspace>(workspace: W): W {
+export function defineWorkspace<const W extends Workspace>(workspace: W): W {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -151,7 +151,7 @@ export type Workspace<
 	 * indexes: [
 	 *   createSQLiteIndex({ databaseUrl: ':memory:' }),
 	 *   createMarkdownIndex({ storagePath: './data' }),
-	 * ] as const
+	 * ]
 	 * ```
 	 */
 	indexes: TIndexes;
