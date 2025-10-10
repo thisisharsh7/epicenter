@@ -66,10 +66,11 @@ export type { RuntimeConfig, WorkspaceRuntime } from './core/runtime';
 // Database utilities
 export { createEpicenterDb } from './db/core';
 export { createEpicenterDbFromDisk } from './db/desktop';
-export type { TableHelper } from './db/core';
+export type { TableHelper, Db } from './db/core';
 
 // Index system
-export type { Index, IndexContext } from './core/indexes';
+export { defineIndex } from './core/indexes';
+export type { Index, IndexContext, InferIndexes } from './core/indexes';
 
 // Indexes (implementations)
 export { createSQLiteIndex } from './indexes/sqlite-index';

@@ -12,9 +12,9 @@ const epicenter = createEpicenter({ workspaces: [...], path: '...', databaseUrl:
 // After: One concept (just workspaces)
 const epicenter = defineWorkspace({
   id: 'epicenter',
-  dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
-  actions: (api) => ({})
+  actions: (api) => ({}),
+  dependencies: [usersWorkspace, postsWorkspace],
 });
 ```
 
@@ -67,12 +67,12 @@ The "epicenter" is just a workspace that lists others as dependencies:
 ```typescript
 const epicenter = defineWorkspace({
   id: 'epicenter',
-  dependencies: [usersWorkspace, postsWorkspace, commentsWorkspace],
   tables: {}, // No tables of its own
   actions: (api) => ({
     // Optional: Add app-level orchestration actions
     // Or just return empty object
-  })
+  }),
+  dependencies: [usersWorkspace, postsWorkspace, commentsWorkspace],
 });
 
 // epicenter.config.ts
@@ -132,8 +132,14 @@ Workspaces declare dependencies and access them through the api parameter:
 
 ```typescript
 const postsWorkspace = defineWorkspace({
-  dependencies: [usersWorkspace],
-
+  id: 'posts',
+  tables: {
+    posts: {
+      id: id(),
+      title: text(),
+      authorId: text(),
+    }
+  },
   actions: (api) => ({
     createPost: defineMutation({
       input: z.object({
@@ -154,7 +160,8 @@ const postsWorkspace = defineWorkspace({
         });
       }
     })
-  })
+  }),
+  dependencies: [usersWorkspace],
 });
 ```
 

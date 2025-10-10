@@ -98,9 +98,9 @@ export type TableHelper<TRow extends Row> = {
  * const db = createEpicenterDb(ydoc, schemas);
  * ```
  */
-export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
+export function createEpicenterDb<TSchema extends Record<string, TableSchema>>(
 	ydoc: Y.Doc,
-	schema: TSchemas,
+	schema: TSchema,
 ) {
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
@@ -176,6 +176,23 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 		},
 	};
 }
+
+/**
+ * Type alias for the return type of createEpicenterDb
+ * Useful for typing function parameters that accept a database instance
+ *
+ * @example
+ * ```typescript
+ * type MyDb = Db<typeof mySchema>;
+ *
+ * function doSomething(db: MyDb) {
+ *   db.tables.posts.insert(...);
+ * }
+ * ```
+ */
+export type Db<TSchema extends Record<string, TableSchema>> = ReturnType<
+	typeof createEpicenterDb<TSchema>
+>;
 
 /**
  * Creates a type-safe collection of table helpers for all tables in a schema.

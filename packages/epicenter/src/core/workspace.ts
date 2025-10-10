@@ -46,10 +46,10 @@ import type { Index } from './indexes';
  *     }
  *   },
  *
- *   indexes: {
- *     sqlite: createSQLiteIndex({ databaseUrl: ':memory:' }),
- *     markdown: createMarkdownIndex({ storagePath: './data' }),
- *   },
+ *   indexes: [
+ *     createSQLiteIndex({ databaseUrl: ':memory:' }),
+ *     createMarkdownIndex({ storagePath: './data' }),
+ *   ] as const,
  *
  *   actions: ({ tables, indexes }) => ({
  *     getPublishedPosts: defineQuery({
@@ -76,7 +76,7 @@ import type { Index } from './indexes';
  *         return post;
  *       }
  *     })
- *   })
+ *   }),
  * });
  * ```
  */
@@ -116,10 +116,7 @@ export type Workspace<
 	TId extends string = string,
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TIndexes extends Record<string, Index<TSchema>> = Record<
-		string,
-		Index<TSchema>
-	>,
+	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
 	TDeps extends readonly Workspace[] = readonly [],
 > = {
 	/**
@@ -154,15 +151,14 @@ export type Workspace<
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
-	 * @param context - Epicenter database (includes schema and workspace ID via db.ydoc.guid)
-	 * @returns Map of index name → Index instance
+	 * Readonly array of index objects with unique IDs
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ db }) => ({
-	 *   sqlite: createSQLiteIndex({ db }),
-	 *   markdown: createMarkdownIndex({ db, path: './data' }),
-	 * })
+	 * indexes: [
+	 *   createSQLiteIndex({ databaseUrl: ':memory:' }),
+	 *   createMarkdownIndex({ storagePath: './data' }),
+	 * ] as const
 	 * ```
 	 */
 	indexes: TIndexes;
@@ -210,10 +206,7 @@ export type Workspace<
  */
 export type WorkspaceActionContext<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
-	TIndexes extends Record<string, Index<TSchema>> = Record<
-		string,
-		Index<TSchema>
-	>,
+	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
 	TDeps extends readonly Workspace[] = readonly [],
 > = {
 	/**
@@ -238,12 +231,12 @@ export type WorkspaceActionContext<
 };
 
 /**
- * Indexes API - extracts only the action methods from indexes
- * Maps each index to its actions property
+ * Indexes API - extracts only the queries from indexes
+ * Converts readonly array of indexes to record keyed by ID
  */
-export type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
-	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TActions>
-		? TActions
+export type IndexesAPI<TIndexes extends readonly Index<any>[]> = {
+	[K in TIndexes[number] as K['id']]: K extends Index<any, any, infer TQueries>
+		? TQueries
 		: never;
 };
 

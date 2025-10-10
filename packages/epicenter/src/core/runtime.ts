@@ -76,10 +76,7 @@ export type RuntimeConfig = {
 export type WorkspaceRuntime<
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TIndexes extends Record<string, Index<TSchema>> = Record<
-		string,
-		Index<TSchema>
-	>,
+	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
 > = {
 	[TableName in keyof TSchema]: TableHelper<ValidatedRow<TSchema[TableName]>>;
 } & {
@@ -98,7 +95,7 @@ export async function runWorkspace<
 	TId extends string,
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TIndexes extends Record<string, Index<TSchema>>,
+	TIndexes extends readonly Index<TSchema>[],
 	TDeps extends readonly Workspace[],
 >(
 	workspace: Workspace<TId, TSchema, TActionMap, TIndexes, TDeps>,
@@ -107,24 +104,33 @@ export async function runWorkspace<
 	// 1. Initialize Epicenter database
 	const db = createEpicenterDb(workspace.ydoc, workspace.schema);
 
-	// 2. Call index functions with db to set up observers and get results
+	// 2. Validate no duplicate index IDs
+	const indexIds = new Set<string>();
+	for (const index of workspace.indexes) {
+		if (indexIds.has(index.id)) {
+			throw new Error(`Duplicate index ID detected: "${index.id}"`);
+		}
+		indexIds.add(index.id);
+	}
+
+	// 3. Call index init functions with db to set up observers and get results
 	const indexes: Record<
 		string,
 		{ destroy: () => void | Promise<void>; queries: any }
 	> = {};
 
-	for (const [indexName, indexFn] of Object.entries(workspace.indexes)) {
+	for (const index of workspace.indexes) {
 		try {
-			indexes[indexName] = indexFn(db);
+			indexes[index.id] = index.init(db);
 		} catch (error) {
-			console.error(`Failed to initialize index "${indexName}":`, error);
+			console.error(`Failed to initialize index "${index.id}":`, error);
 		}
 	}
 
-	// 3. Get table helpers from doc
+	// 4. Get table helpers from doc
 	const tables = db.tables;
 
-	// 4. Initialize dependencies and convert array to object keyed by workspace IDs
+	// 5. Initialize dependencies and convert array to object keyed by workspace IDs
 	const workspaces: Record<string, unknown> = {};
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
@@ -134,7 +140,7 @@ export async function runWorkspace<
 		}
 	}
 
-	// 5. Create IndexesAPI by extracting queries from each index
+	// 6. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.entries(indexes).reduce(
 		(acc, [indexName, index]) => {
 			acc[indexName] = index.queries;
@@ -143,7 +149,7 @@ export async function runWorkspace<
 		{} as Record<string, any>,
 	) as IndexesAPI<TIndexes>;
 
-	// 6. Process actions to extract handlers and make them directly callable
+	// 7. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		workspaces,
 		tables,
@@ -157,7 +163,7 @@ export async function runWorkspace<
 		{} as { [K in keyof TActionMap]: TActionMap[K]['handler'] },
 	);
 
-	// 7. Return workspace instance
+	// 8. Return workspace instance
 	const workspaceInstance = {
 		...tables,
 		...processedActions,
