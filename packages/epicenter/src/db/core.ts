@@ -121,6 +121,12 @@ export function createEpicenterDb<TSchemas extends Record<string, TableSchema>>(
 		ydoc,
 
 		/**
+		 * Table schemas for all tables
+		 * Maps table name to column schemas
+		 */
+		schema,
+
+		/**
 		 * Execute a function within a YJS transaction
 		 *
 		 * Transactions bundle changes and ensure atomic updates. All changes within

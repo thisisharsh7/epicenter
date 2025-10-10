@@ -1,6 +1,6 @@
 import type { Result } from 'wellcrafted/result';
 import type { createEpicenterDb } from '../db/core';
-import type { Row, TableSchema } from './column-schemas';
+import type { Row } from './column-schemas';
 import type { IndexError } from './errors';
 
 /**
@@ -73,14 +73,9 @@ export type IndexContext = {
 	/**
 	 * The Epicenter database object with high-level CRUD methods
 	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
+	 * Table schemas are available via db.schema
 	 */
 	db: ReturnType<typeof createEpicenterDb>;
-
-	/**
-	 * Table schemas for all tables in this workspace
-	 * Maps table name → column schemas
-	 */
-	schema: Record<string, TableSchema>;
 
 	/**
 	 * Globally unique workspace ID
