@@ -268,7 +268,11 @@ export type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 		: {
 				[W in TDeps[number] as W extends WorkspaceConfig<infer TId>
 					? TId
-					: never]: W extends WorkspaceConfig<infer _, infer _, infer TActionMap>
+					: never]: W extends WorkspaceConfig<
+					infer _,
+					infer _,
+					infer TActionMap
+				>
 					? ExtractHandlers<TActionMap>
 					: never;
 			};
@@ -279,3 +283,22 @@ export type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 export type ExtractHandlers<T extends WorkspaceActionMap> = {
 	[K in keyof T]: T[K]['handler'];
 };
+
+/**
+ * Extract handlers from a workspace action map at runtime
+ * Converts action objects to their handler functions
+ *
+ * @param actionMap - Map of action name to action object
+ * @returns Map of action name to handler function
+ */
+export function extractHandlers<T extends WorkspaceActionMap>(
+	actionMap: T,
+): ExtractHandlers<T> {
+	return Object.entries(actionMap).reduce(
+		(acc, [actionName, action]) => {
+			acc[actionName] = action.handler;
+			return acc;
+		},
+		{} as ExtractHandlers<T>,
+	);
+}

@@ -10,6 +10,7 @@ import type {
 	IndexesAPI,
 	WorkspaceConfig,
 } from './workspace';
+import { extractHandlers } from './workspace';
 
 /**
  * Runtime configuration provided by the user
@@ -155,14 +156,7 @@ export async function createWorkspaceClient<
 		tables,
 		indexes: indexesAPI,
 	}) as TActionMap;
-	const processedActions = Object.entries(actionMap).reduce(
-		(acc, [actionName, action]) => {
-			(acc as any)[actionName] = action.handler;
-			return acc;
-		},
-		{} as ExtractHandlers<TActionMap>,
-	);
 
 	// 10. Return workspace client instance (only action handlers)
-	return processedActions;
+	return extractHandlers(actionMap);
 }
