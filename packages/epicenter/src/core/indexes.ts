@@ -12,7 +12,13 @@ import type { IndexError } from './errors';
  * Index interface - all indexes must implement these methods
  * Indexes observe YJS changes and keep their own storage in sync
  */
-export type Index = {
+export type Index<TId extends string = string, TActions = Record<string, any>> = {
+	/**
+	 * Unique identifier for this index
+	 * Used as the property name when accessing index actions
+	 */
+	id: TId;
+
 	/**
 	 * Initialize the index (optional)
 	 * Called once during runtime initialization
@@ -63,7 +69,7 @@ export type Index = {
 	 * - Vector: search(), embed()
 	 * - Search: search(), reindex()
 	 */
-	[key: string]: any;
+	actions: TActions;
 };
 
 /**

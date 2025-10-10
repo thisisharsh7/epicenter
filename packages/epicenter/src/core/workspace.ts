@@ -117,6 +117,7 @@ export type Workspace<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TDeps extends readonly Workspace[] = readonly [],
+	TIndexes extends readonly Index[] = readonly [],
 > = {
 	/**
 	 * Unique identifier for this workspace
@@ -151,17 +152,17 @@ export type Workspace<
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
 	 * @param context - Epicenter database (includes schema and workspace ID via db.ydoc.guid)
-	 * @returns Map of index name → Index instance
+	 * @returns Array of Index instances
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ db }) => ({
-	 *   sqlite: createSQLiteIndex({ db }),
-	 *   markdown: createMarkdownIndex({ db, path: './data' }),
-	 * })
+	 * indexes: ({ db }) => [
+	 *   createSQLiteIndex({ db }),
+	 *   createMarkdownIndex({ db, path: './data' }),
+	 * ]
 	 * ```
 	 */
-	indexes: (context: IndexContext) => Record<string, Index>;
+	indexes: (context: IndexContext) => TIndexes;
 
 	/**
 	 * Workspace actions - business logic with access to tables and indexes
@@ -188,7 +189,7 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	actions: (context: WorkspaceActionContext<TDeps, TSchema>) => TActionMap;
+	actions: (context: WorkspaceActionContext<TDeps, TSchema, TIndexes>) => TActionMap;
 
 	/**
 	 * Lifecycle hooks (optional)
@@ -205,6 +206,7 @@ export type Workspace<
 export type WorkspaceActionContext<
 	TDeps extends readonly Workspace[] = readonly [],
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TIndexes extends readonly Index[] = readonly [],
 > = {
 	/**
 	 * Dependency workspaces
@@ -224,8 +226,23 @@ export type WorkspaceActionContext<
 	 * Indexes for this workspace
 	 * Async read operations (select, search, etc.)
 	 */
-	indexes: Record<string, Index>;
+	indexes: IndexesAPI<TIndexes>;
 };
+
+/**
+ * Indexes API - actions from indexes
+ * Converts array of indexes into an object keyed by index IDs
+ */
+export type IndexesAPI<TIndexes extends readonly Index[]> = TIndexes extends readonly []
+	? Record<string, never>
+	: {
+			[I in TIndexes[number] as I extends Index<infer TId> ? TId : never]: I extends Index<
+				infer _,
+				infer TActions
+			>
+				? TActions
+				: never;
+		};
 
 /**
  * Dependency workspaces API - actions from dependency workspaces
