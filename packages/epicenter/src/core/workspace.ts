@@ -31,7 +31,8 @@ import type { Index } from './indexes';
  * @example
  * ```typescript
  * const blogWorkspace = defineWorkspace({
- *   id: 'blog',
+ *   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Unique ID (UUID/nanoid)
+ *   name: 'blog', // Human-readable name for API access
  *
  *   schema: {
  *     posts: {
@@ -148,13 +149,13 @@ export type WorkspaceConfig<
 
 	/**
 	 * Other workspaces this workspace depends on
-	 * IDs become the property names in the workspaces API
+	 * Names become the property names in the workspaces API
 	 * @example
 	 * ```typescript
 	 * dependencies: [authWorkspace, storageWorkspace]
-	 * // Later in actions (using workspace IDs as property names):
-	 * workspaces.auth.login(...)
-	 * workspaces.storage.uploadFile(...)
+	 * // Later in actions (using workspace names as property names):
+	 * workspaces.auth.login(...)         // 'auth' is authWorkspace.name
+	 * workspaces.storage.uploadFile(...) // 'storage' is storageWorkspace.name
 	 * ```
 	 */
 	dependencies?: TDeps;
