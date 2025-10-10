@@ -111,18 +111,7 @@ export async function createWorkspaceClient<
 		indexIds.add(index.id);
 	}
 
-	// 4. Validate no duplicate dependency IDs (workspace IDs)
-	if (workspace.dependencies) {
-		const dependencyIds = new Set<string>();
-		for (const dep of workspace.dependencies) {
-			if (dependencyIds.has(dep.id)) {
-				throw new Error(`Duplicate dependency workspace ID detected: "${dep.id}"`);
-			}
-			dependencyIds.add(dep.id);
-		}
-	}
-
-	// 5. Call index init functions with db to set up observers and get results
+	// 4. Call index init functions with db to set up observers and get results
 	const indexes: Record<
 		string,
 		{ destroy: () => void | Promise<void>; queries: any }
@@ -136,20 +125,20 @@ export async function createWorkspaceClient<
 		}
 	}
 
-	// 6. Set up YDoc synchronization and persistence (if provided)
+	// 5. Set up YDoc synchronization and persistence (if provided)
 	workspace.setupYDoc?.(ydoc);
 
-	// 7. Initialize dependencies and convert array to object keyed by workspace IDs
+	// 6. Initialize dependencies and convert array to object keyed by workspace names
 	const workspaces = {} as DependencyWorkspacesAPI<TDeps>;
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
-			// Each dependency should have its actions available under its ID
+			// Each dependency should have its actions available under its name
 			// This would need to be implemented when dependencies are actually used
-			(workspaces as any)[dep.id] = {}; // Placeholder for now
+			(workspaces as any)[dep.name] = {}; // Placeholder for now
 		}
 	}
 
-	// 8. Create IndexesAPI by extracting queries from each index
+	// 7. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.entries(indexes).reduce(
 		(acc, [indexName, index]) => {
 			acc[indexName] = index.queries;
@@ -158,13 +147,13 @@ export async function createWorkspaceClient<
 		{} as Record<string, any>,
 	) as IndexesAPI<TIndexes>;
 
-	// 9. Process actions to extract handlers and make them directly callable
+	// 8. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		workspaces,
 		db,
 		indexes: indexesAPI,
 	}) as TActionMap;
 
-	// 10. Return workspace client instance (only action handlers)
+	// 9. Return workspace client instance (only action handlers)
 	return extractHandlers(actionMap);
 }
