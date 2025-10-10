@@ -1,4 +1,4 @@
-import type { TableSchema } from '../core/column-schemas';
+import type { Schema, TableSchema } from '../core/column-schemas';
 import { IndexErr } from '../core/errors';
 import type { Db } from '../db/core';
 import {
@@ -24,7 +24,7 @@ export type MarkdownIndexConfig = {
  * No query interface - just persistence
  */
 export function createMarkdownIndex<
-	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TSchema extends Schema = Schema,
 >(config: MarkdownIndexConfig) {
 	return {
 		id: 'markdown' as const,

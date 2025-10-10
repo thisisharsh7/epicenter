@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import type {
 	CellValue,
 	Row,
+	Schema,
 	TableSchema,
 	ValidatedRow,
 } from '../core/column-schemas';
@@ -98,7 +99,7 @@ export type TableHelper<TRow extends Row> = {
  * const db = createEpicenterDb(ydoc, schemas);
  * ```
  */
-export function createEpicenterDb<TSchema extends Record<string, TableSchema>>(
+export function createEpicenterDb<TSchema extends Schema>(
 	ydoc: Y.Doc,
 	schema: TSchema,
 ) {
@@ -190,7 +191,7 @@ export function createEpicenterDb<TSchema extends Record<string, TableSchema>>(
  * }
  * ```
  */
-export type Db<TSchema extends Record<string, TableSchema>> = ReturnType<
+export type Db<TSchema extends Schema> = ReturnType<
 	typeof createEpicenterDb<TSchema>
 >;
 
@@ -206,7 +207,7 @@ export type Db<TSchema extends Record<string, TableSchema>> = ReturnType<
  * @param ytables - The root YJS Map containing all table data
  * @returns Object mapping table names to their typed TableHelper instances
  */
-function createTableHelpers<TSchemas extends Record<string, TableSchema>>({
+function createTableHelpers<TSchemas extends Schema>({
 	ydoc,
 	schema,
 	ytables,

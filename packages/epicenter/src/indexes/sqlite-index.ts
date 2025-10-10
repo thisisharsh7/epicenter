@@ -3,7 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { tryAsync } from 'wellcrafted/result';
-import type { TableSchema } from '../core/column-schemas';
+import type { Schema, TableSchema } from '../core/column-schemas';
 import type { Db } from '../db/core';
 import { IndexErr } from '../core/errors';
 import type { Index } from '../core/indexes';
@@ -75,7 +75,7 @@ async function createTablesIfNotExist(
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
 export function createSQLiteIndex<
-	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TSchema extends Schema = Schema,
 >(config: SQLiteIndexConfig) {
 	return {
 		id: 'sqlite' as const,

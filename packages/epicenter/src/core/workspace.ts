@@ -1,7 +1,7 @@
 import type * as Y from 'yjs';
 import type { Db } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { TableSchema } from './column-schemas';
+import type { Schema, TableSchema } from './column-schemas';
 import type { Index } from './indexes';
 
 /**
@@ -91,6 +91,11 @@ export function defineWorkspace<const W extends WorkspaceConfig>(
 		throw new Error('Workspace must have a valid string ID');
 	}
 
+	// Validate workspace name
+	if (!workspace.name || typeof workspace.name !== 'string') {
+		throw new Error('Workspace must have a valid string name');
+	}
+
 	// Validate dependencies
 	if (workspace.dependencies) {
 		if (!Array.isArray(workspace.dependencies)) {
@@ -98,9 +103,9 @@ export function defineWorkspace<const W extends WorkspaceConfig>(
 		}
 
 		for (const dep of workspace.dependencies as readonly WorkspaceConfig[]) {
-			if (!dep || typeof dep !== 'object' || !dep.id) {
+			if (!dep || typeof dep !== 'object' || !dep.id || !dep.name) {
 				throw new Error(
-					'Invalid dependency: dependencies must be workspace objects with id',
+					'Invalid dependency: dependencies must be workspace objects with id and name',
 				);
 			}
 		}
@@ -114,17 +119,27 @@ export function defineWorkspace<const W extends WorkspaceConfig>(
  */
 export type WorkspaceConfig<
 	TId extends string = string,
-	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TSchema extends Schema = Schema,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
 	TDeps extends readonly WorkspaceConfig[] = readonly [],
+	TName extends string = string,
 > = {
 	/**
-	 * Unique identifier for this workspace
-	 * Used as the property name when accessing workspace actions from dependencies
-	 * Also used as the GUID for the YJS document
+	 * Unique internal identifier for this workspace (typically a UUID or nanoid)
+	 * Used as the GUID for the YJS document to ensure uniqueness
+	 * Should never conflict, even across different installations
 	 */
 	id: TId;
+
+	/**
+	 * Human-readable name for this workspace
+	 * Used as the property name when accessing workspace actions from dependencies
+	 * This is what you use in code: workspaces.myWorkspace.action()
+	 *
+	 * @example 'blog', 'auth', 'storage'
+	 */
+	name: TName;
 
 	/**
 	 * Table schemas (column definitions as JSON)
@@ -223,7 +238,7 @@ export type WorkspaceConfig<
  * Context passed to the actions function
  */
 export type WorkspaceActionContext<
-	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TSchema extends Schema = Schema,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
 	TDeps extends readonly WorkspaceConfig[] = readonly [],
 > = {
@@ -258,17 +273,24 @@ export type IndexesAPI<TIndexes extends readonly Index<any>[]> = {
 
 /**
  * Dependency workspaces API - actions from dependency workspaces
- * Converts array of workspaces into an object keyed by workspace IDs
+ * Converts array of workspaces into an object keyed by workspace names
  */
 export type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
-				[W in TDeps[number] as W extends WorkspaceConfig<infer TId>
-					? TId
+				[W in TDeps[number] as W extends WorkspaceConfig<
+					infer _TId,
+					infer _TSchema,
+					infer _TActionMap,
+					infer _TIndexes,
+					infer _TDeps,
+					infer TName
+				>
+					? TName
 					: never]: W extends WorkspaceConfig<
-					infer _,
-					infer _,
+					infer _TId2,
+					infer _TSchema2,
 					infer TActionMap
 				>
 					? ExtractHandlers<TActionMap>

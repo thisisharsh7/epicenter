@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as Y from 'yjs';
-import type { TableSchema } from '../core/column-schemas';
+import type { Schema, TableSchema } from '../core/column-schemas';
 import { createEpicenterDb } from './core';
 
 /**
@@ -56,7 +56,7 @@ import { createEpicenterDb } from './core';
  * ```
  */
 export function createEpicenterDbFromDisk<
-	TSchemas extends Record<string, TableSchema>,
+	TSchemas extends Schema,
 >(
 	workspaceId: string,
 	schema: TSchemas,

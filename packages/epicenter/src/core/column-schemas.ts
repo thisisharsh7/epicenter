@@ -148,6 +148,11 @@ export type MultiSelectColumnSchema<TOptions extends string = string> = {
 export type ColumnType = ColumnSchema['type'];
 
 /**
+ * Database schema - maps table names to their table schemas
+ */
+export type Schema = Record<string, TableSchema>;
+
+/**
  * Table schema - maps column names to their schemas
  * Must always include an 'id' column with IdColumnSchema
  */

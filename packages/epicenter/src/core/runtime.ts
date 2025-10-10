@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import type { TableHelper } from '../db/core';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { TableSchema, ValidatedRow } from './column-schemas';
+import type { Schema, TableSchema, ValidatedRow } from './column-schemas';
 import type { Index } from './indexes';
 import type {
 	DependencyWorkspacesAPI,
@@ -88,7 +88,7 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  */
 export async function createWorkspaceClient<
 	TId extends string,
-	TSchema extends Record<string, TableSchema>,
+	TSchema extends Schema,
 	TActionMap extends WorkspaceActionMap,
 	const TIndexes extends readonly Index<TSchema>[],
 	const TDeps extends readonly WorkspaceConfig[],
@@ -111,7 +111,18 @@ export async function createWorkspaceClient<
 		indexIds.add(index.id);
 	}
 
-	// 4. Call index init functions with db to set up observers and get results
+	// 4. Validate no duplicate dependency IDs (workspace IDs)
+	if (workspace.dependencies) {
+		const dependencyIds = new Set<string>();
+		for (const dep of workspace.dependencies) {
+			if (dependencyIds.has(dep.id)) {
+				throw new Error(`Duplicate dependency workspace ID detected: "${dep.id}"`);
+			}
+			dependencyIds.add(dep.id);
+		}
+	}
+
+	// 5. Call index init functions with db to set up observers and get results
 	const indexes: Record<
 		string,
 		{ destroy: () => void | Promise<void>; queries: any }
@@ -125,10 +136,10 @@ export async function createWorkspaceClient<
 		}
 	}
 
-	// 5. Set up YDoc synchronization and persistence (if provided)
+	// 6. Set up YDoc synchronization and persistence (if provided)
 	workspace.setupYDoc?.(ydoc);
 
-	// 6. Initialize dependencies and convert array to object keyed by workspace IDs
+	// 7. Initialize dependencies and convert array to object keyed by workspace IDs
 	const workspaces = {} as DependencyWorkspacesAPI<TDeps>;
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
@@ -138,7 +149,7 @@ export async function createWorkspaceClient<
 		}
 	}
 
-	// 7. Create IndexesAPI by extracting queries from each index
+	// 8. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.entries(indexes).reduce(
 		(acc, [indexName, index]) => {
 			acc[indexName] = index.queries;
@@ -147,7 +158,7 @@ export async function createWorkspaceClient<
 		{} as Record<string, any>,
 	) as IndexesAPI<TIndexes>;
 
-	// 8. Process actions to extract handlers and make them directly callable
+	// 9. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		workspaces,
 		db,

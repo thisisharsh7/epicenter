@@ -7,7 +7,7 @@ import {
 	type SQLiteTable,
 	type SQLiteColumnBuilderBase,
 } from 'drizzle-orm/sqlite-core';
-import type { ColumnSchema, TableSchema } from '../core/column-schemas';
+import type { ColumnSchema, Schema, TableSchema } from '../core/column-schemas';
 
 /**
  * Convert a ColumnSchema to a Drizzle column builder
@@ -141,7 +141,7 @@ export function convertTableSchemaToDrizzle(
  * Returns a map of table name → SQLiteTable
  */
 export function convertAllTableSchemasToDrizzle(
-	schema: Record<string, TableSchema>,
+	schema: Schema,
 ): Record<string, SQLiteTable> {
 	const drizzleTables: Record<string, SQLiteTable> = {};
 

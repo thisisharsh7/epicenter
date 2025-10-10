@@ -1,5 +1,5 @@
 import type { Db } from '../db/core';
-import type { TableSchema } from './column-schemas';
+import type { Schema, TableSchema } from './column-schemas';
 
 /**
  * Index type system for vault.
@@ -44,7 +44,7 @@ import type { TableSchema } from './column-schemas';
  * ```
  */
 export type Index<
-	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TSchema extends Schema = Schema,
 	TId extends string = string,
 	TQueries = Record<string, any>,
 > = {
@@ -59,7 +59,7 @@ export type Index<
  * Context passed to index factory functions
  */
 export type IndexContext<
-	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
+	TSchema extends Schema = Schema,
 > = {
 	/**
 	 * The Epicenter database object with high-level CRUD methods
@@ -87,7 +87,7 @@ export type IndexContext<
  * ```
  */
 export function defineIndex<
-	TSchema extends Record<string, TableSchema>,
+	TSchema extends Schema,
 	TId extends string,
 	TQueries = Record<string, any>,
 >(index: Index<TSchema, TId, TQueries>): Index<TSchema, TId, TQueries> {
