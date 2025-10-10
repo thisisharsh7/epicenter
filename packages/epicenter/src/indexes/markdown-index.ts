@@ -1,6 +1,5 @@
-import { Ok } from 'wellcrafted/result';
 import { IndexErr } from '../core/errors';
-import type { Index, IndexContext } from '../core/indexes';
+import type { Index } from '../core/indexes';
 import {
 	deleteMarkdownFile,
 	getMarkdownPath,
@@ -10,7 +9,7 @@ import {
 /**
  * Markdown index configuration
  */
-export type MarkdownIndexConfig = IndexContext & {
+export type MarkdownIndexConfig = {
 	/**
 	 * Path where markdown files should be stored
 	 * Example: './data/markdown'
@@ -24,48 +23,62 @@ export type MarkdownIndexConfig = IndexContext & {
  * No query interface - just persistence
  */
 export function createMarkdownIndex(config: MarkdownIndexConfig): Index {
-	return {
-		async init() {},
+	return (db) => {
+		// Set up observers for each table
+		const unsubscribers: Array<() => void> = [];
 
-		async onAdd(tableName, id, data) {
-			const filePath = getMarkdownPath(config.storagePath, tableName, id);
-			const { error } = await writeMarkdownFile(filePath, data);
-			if (error) {
-				return IndexErr({
-					message: `Markdown index onAdd failed for ${tableName}/${id}`,
-					context: { tableName, id, filePath },
-					cause: error,
-				});
-			}
-			return Ok(undefined);
-		},
+		for (const tableName of db.getTableNames()) {
+			const unsub = db.tables[tableName].observe({
+				onAdd: async (row) => {
+					const filePath = getMarkdownPath(config.storagePath, tableName, row.id);
+					const { error } = await writeMarkdownFile(filePath, row);
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
+								context: { tableName, id: row.id, filePath },
+								cause: error,
+							}),
+						);
+					}
+				},
+				onUpdate: async (row) => {
+					const filePath = getMarkdownPath(config.storagePath, tableName, row.id);
+					const { error } = await writeMarkdownFile(filePath, row);
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
+								context: { tableName, id: row.id, filePath },
+								cause: error,
+							}),
+						);
+					}
+				},
+				onDelete: async (id) => {
+					const filePath = getMarkdownPath(config.storagePath, tableName, id);
+					const { error } = await deleteMarkdownFile(filePath);
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `Markdown index onDelete failed for ${tableName}/${id}`,
+								context: { tableName, id, filePath },
+								cause: error,
+							}),
+						);
+					}
+				},
+			});
+			unsubscribers.push(unsub);
+		}
 
-		async onUpdate(tableName, id, data) {
-			const filePath = getMarkdownPath(config.storagePath, tableName, id);
-			const { error } = await writeMarkdownFile(filePath, data);
-			if (error) {
-				return IndexErr({
-					message: `Markdown index onUpdate failed for ${tableName}/${id}`,
-					context: { tableName, id, filePath },
-					cause: error,
-				});
-			}
-			return Ok(undefined);
-		},
-
-		async onDelete(tableName, id) {
-			const filePath = getMarkdownPath(config.storagePath, tableName, id);
-			const { error } = await deleteMarkdownFile(filePath);
-			if (error) {
-				return IndexErr({
-					message: `Markdown index onDelete failed for ${tableName}/${id}`,
-					context: { tableName, id, filePath },
-					cause: error,
-				});
-			}
-			return Ok(undefined);
-		},
-
-		async destroy() {},
+		return {
+			destroy() {
+				for (const unsub of unsubscribers) {
+					unsub();
+				}
+			},
+			queries: {},
+		};
 	};
 }

@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import type { TableHelper } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
 import type { TableSchema, ValidatedRow } from './column-schemas';
-import type { Index, IndexContext } from './indexes';
+import type { Index } from './indexes';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -46,10 +46,10 @@ import type { Index, IndexContext } from './indexes';
  *     }
  *   },
  *
- *   indexes: ({ db }) => ({
- *     sqlite: createSQLiteIndex({ db }),
- *     markdown: createMarkdownIndex({ db, path: './data' }),
- *   }),
+ *   indexes: {
+ *     sqlite: createSQLiteIndex({ databaseUrl: ':memory:' }),
+ *     markdown: createMarkdownIndex({ storagePath: './data' }),
+ *   },
  *
  *   actions: ({ tables, indexes }) => ({
  *     getPublishedPosts: defineQuery({
@@ -116,11 +116,11 @@ export type Workspace<
 	TId extends string = string,
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TDeps extends readonly Workspace[] = readonly [],
 	TIndexes extends Record<string, Index<TSchema>> = Record<
 		string,
 		Index<TSchema>
 	>,
+	TDeps extends readonly Workspace[] = readonly [],
 > = {
 	/**
 	 * Unique identifier for this workspace
@@ -165,7 +165,7 @@ export type Workspace<
 	 * })
 	 * ```
 	 */
-	indexes: (context: IndexContext<TSchema>) => TIndexes;
+	indexes: TIndexes;
 
 	/**
 	 * Workspace actions - business logic with access to tables and indexes
@@ -193,7 +193,7 @@ export type Workspace<
 	 * ```
 	 */
 	actions: (
-		context: WorkspaceActionContext<TDeps, TSchema, TIndexes>,
+		context: WorkspaceActionContext<TSchema, TIndexes, TDeps>,
 	) => TActionMap;
 
 	/**
@@ -209,12 +209,12 @@ export type Workspace<
  * Context passed to the actions function
  */
 export type WorkspaceActionContext<
-	TDeps extends readonly Workspace[] = readonly [],
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TIndexes extends Record<string, Index<TSchema>> = Record<
 		string,
 		Index<TSchema>
 	>,
+	TDeps extends readonly Workspace[] = readonly [],
 > = {
 	/**
 	 * Dependency workspaces

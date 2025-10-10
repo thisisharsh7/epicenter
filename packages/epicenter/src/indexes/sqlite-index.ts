@@ -2,15 +2,15 @@ import { createClient } from '@libsql/client';
 import { eq, sql } from 'drizzle-orm';
 import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
-import { Ok, tryAsync } from 'wellcrafted/result';
+import { tryAsync } from 'wellcrafted/result';
 import { IndexErr } from '../core/errors';
-import type { Index, IndexContext } from '../core/indexes';
+import type { Index } from '../core/indexes';
 import { convertAllTableSchemasToDrizzle } from './schema-converter';
 
 /**
  * SQLite index configuration
  */
-export type SQLiteIndexConfig = IndexContext & {
+export type SQLiteIndexConfig = {
 	/**
 	 * Database URL for SQLite
 	 * Can be a file path (./data/db.sqlite) or :memory: for in-memory
@@ -73,117 +73,127 @@ async function createTablesIfNotExist(
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
 export function createSQLiteIndex(config: SQLiteIndexConfig): Index {
-	// Convert table schemas to Drizzle tables
-	const drizzleTables = convertAllTableSchemasToDrizzle(config.db.schema);
+	return (epicenterDb) => {
+		// Convert table schemas to Drizzle tables
+		const drizzleTables = convertAllTableSchemasToDrizzle(epicenterDb.schema);
 
-	// Create database connection
-	const db = drizzle(
-		createClient({
-			url: config.databaseUrl || ':memory:',
-		}),
-	);
+		// Create database connection
+		const sqliteDb = drizzle(
+			createClient({
+				url: config.databaseUrl || ':memory:',
+			}),
+		);
 
-	const index: Index & {
-		db: LibSQLDatabase;
-		[tableName: string]: any;
-	} = {
-		async init() {
-			// Create tables
-			await createTablesIfNotExist(db, drizzleTables);
+		// Set up observers for each table
+		const unsubscribers: Array<() => void> = [];
 
-			// Initial sync: YJS → SQLite
-			for (const tableName of config.db.getTableNames()) {
-				const rows = config.db.tables[tableName].getAll();
-
-				for (const data of rows) {
+		for (const tableName of epicenterDb.getTableNames()) {
+			const unsub = epicenterDb.tables[tableName].observe({
+				onAdd: async (row) => {
 					const { error } = await tryAsync({
 						try: async () => {
-							await db.insert(drizzleTables[tableName]).values(data);
+							await sqliteDb.insert(drizzleTables[tableName]).values(row);
+						},
+						catch: (err) => err,
+					});
+
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `SQLite index onAdd failed for ${tableName}/${row.id}`,
+								context: { tableName, id: row.id, data: row },
+								cause: error,
+							}),
+						);
+					}
+				},
+				onUpdate: async (row) => {
+					const { error } = await tryAsync({
+						try: async () => {
+							await sqliteDb
+								.update(drizzleTables[tableName])
+								.set(row)
+								.where(eq((drizzleTables[tableName] as any).id, row.id));
+						},
+						catch: (err) => err,
+					});
+
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `SQLite index onUpdate failed for ${tableName}/${row.id}`,
+								context: { tableName, id: row.id, data: row },
+								cause: error,
+							}),
+						);
+					}
+				},
+				onDelete: async (id) => {
+					const { error } = await tryAsync({
+						try: async () => {
+							await sqliteDb
+								.delete(drizzleTables[tableName])
+								.where(eq((drizzleTables[tableName] as any).id, id));
+						},
+						catch: (err) => err,
+					});
+
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `SQLite index onDelete failed for ${tableName}/${id}`,
+								context: { tableName, id },
+								cause: error,
+							}),
+						);
+					}
+				},
+			});
+			unsubscribers.push(unsub);
+		}
+
+		// Initial sync: YJS → SQLite
+		(async () => {
+			await createTablesIfNotExist(sqliteDb, drizzleTables);
+
+			for (const tableName of epicenterDb.getTableNames()) {
+				const { valid: rows } = epicenterDb.tables[tableName].getAll();
+
+				for (const row of rows) {
+					const { error } = await tryAsync({
+						try: async () => {
+							await sqliteDb.insert(drizzleTables[tableName]).values(row);
 						},
 						catch: (err) => err,
 					});
 
 					if (error) {
 						console.warn(
-							`Failed to sync row ${data.id} to SQLite during init:`,
+							`Failed to sync row ${row.id} to SQLite during init:`,
 							error,
 						);
 					}
 				}
 			}
-		},
+		})();
 
-		async onAdd(tableName, id, data) {
-			const { error } = await tryAsync({
-				try: async () => {
-					await db.insert(drizzleTables[tableName]).values(data);
-				},
-				catch: (err) => err,
-			});
+		// Build queries object with db and table references
+		const queries: Record<string, any> = {
+			db: sqliteDb,
+		};
 
-			if (error) {
-				return IndexErr({
-					message: `SQLite index onAdd failed for ${tableName}/${id}`,
-					context: { tableName, id, data },
-					cause: error,
-				});
-			}
-			return Ok(undefined);
-		},
+		// Add each table as a property for clean API: indexes.sqlite.posts.select()
+		for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
+			queries[tableName] = drizzleTable;
+		}
 
-		async onUpdate(tableName, id, data) {
-			const { error } = await tryAsync({
-				try: async () => {
-					await db
-						.update(drizzleTables[tableName])
-						.set(data)
-						.where(eq((drizzleTables[tableName] as any).id, id));
-				},
-				catch: (err) => err,
-			});
-
-			if (error) {
-				return IndexErr({
-					message: `SQLite index onUpdate failed for ${tableName}/${id}`,
-					context: { tableName, id, data },
-					cause: error,
-				});
-			}
-			return Ok(undefined);
-		},
-
-		async onDelete(tableName, id) {
-			const { error } = await tryAsync({
-				try: async () => {
-					await db
-						.delete(drizzleTables[tableName])
-						.where(eq((drizzleTables[tableName] as any).id, id));
-				},
-				catch: (err) => err,
-			});
-
-			if (error) {
-				return IndexErr({
-					message: `SQLite index onDelete failed for ${tableName}/${id}`,
-					context: { tableName, id },
-					cause: error,
-				});
-			}
-			return Ok(undefined);
-		},
-
-		async destroy() {
-			// Cleanup if needed
-		},
-
-		// Expose database and tables for queries
-		db,
+		return {
+			destroy() {
+				for (const unsub of unsubscribers) {
+					unsub();
+				}
+			},
+			queries,
+		};
 	};
-
-	// Add each table as a property for clean API: indexes.sqlite.posts.select()
-	for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
-		index[tableName] = drizzleTable;
-	}
-
-	return index;
 }

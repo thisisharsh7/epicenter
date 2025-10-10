@@ -1,7 +1,7 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { createEpicenterDb } from '../db/core';
+import type * as Y from 'yjs';
 import type { TableHelper } from '../db/core';
-import type { WorkspaceAction, WorkspaceActionMap } from './actions';
+import { createEpicenterDb } from '../db/core';
+import type { WorkspaceActionMap } from './actions';
 import type { TableSchema, ValidatedRow } from './column-schemas';
 import type { Index } from './indexes';
 import type { IndexesAPI, Workspace } from './workspace';
@@ -98,20 +98,22 @@ export async function runWorkspace<
 	TId extends string,
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
-	TDeps extends readonly Workspace[],
 	TIndexes extends Record<string, Index<TSchema>>,
+	TDeps extends readonly Workspace[],
 >(
-	workspace: Workspace<TId, TSchema, TActionMap, TDeps, TIndexes>,
+	workspace: Workspace<TId, TSchema, TActionMap, TIndexes, TDeps>,
 	config: RuntimeConfig = {},
 ): Promise<WorkspaceRuntime<TSchema, TActionMap, TIndexes>> {
 	// 1. Initialize Epicenter database
 	const db = createEpicenterDb(workspace.ydoc, workspace.schema);
 
 	// 2. Call index functions with db to set up observers and get results
-	const indexFunctions = workspace.indexes({ db });
-	const indexes: Record<string, { destroy: () => void | Promise<void>; queries: any }> = {};
+	const indexes: Record<
+		string,
+		{ destroy: () => void | Promise<void>; queries: any }
+	> = {};
 
-	for (const [indexName, indexFn] of Object.entries(indexFunctions)) {
+	for (const [indexName, indexFn] of Object.entries(workspace.indexes)) {
 		try {
 			indexes[indexName] = indexFn(db);
 		} catch (error) {
