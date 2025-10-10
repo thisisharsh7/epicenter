@@ -71,7 +71,6 @@ export function generateId(): Id {
  * Discriminated union of all column types
  */
 export type ColumnSchema =
-	| IdColumnSchema
 	| TextColumnSchema
 	| YtextColumnSchema
 	| YxmlfragmentColumnSchema
