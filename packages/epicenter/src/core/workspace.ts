@@ -315,11 +315,10 @@ export type ExtractHandlers<T extends WorkspaceActionMap> = {
 export function extractHandlers<T extends WorkspaceActionMap>(
 	actionMap: T,
 ): ExtractHandlers<T> {
-	return Object.entries(actionMap).reduce(
-		(acc, [actionName, action]) => {
-			(acc as any)[actionName] = action.handler;
-			return acc;
-		},
-		{} as ExtractHandlers<T>,
-	);
+	return Object.fromEntries(
+		Object.entries(actionMap).map(([actionName, action]) => [
+			actionName,
+			action.handler,
+		]),
+	) as ExtractHandlers<T>;
 }
