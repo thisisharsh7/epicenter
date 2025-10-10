@@ -17,7 +17,10 @@
 
 // Core workspace definition
 export { defineWorkspace } from './core/workspace';
-export type { Workspace, WorkspaceActionContext } from './core/workspace';
+export type {
+	WorkspaceConfig,
+	WorkspaceActionContext,
+} from './core/workspace';
 
 // Column schema system
 export {
@@ -60,8 +63,8 @@ export type {
 } from './core/actions';
 
 // Runtime
-export { runWorkspace } from './core/runtime';
-export type { RuntimeConfig, WorkspaceRuntime } from './core/runtime';
+export { createWorkspaceClient } from './core/runtime';
+export type { RuntimeConfig, WorkspaceClient } from './core/runtime';
 
 // Database utilities
 export { createEpicenterDb } from './db/core';

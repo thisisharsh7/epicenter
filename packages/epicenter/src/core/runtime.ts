@@ -4,7 +4,12 @@ import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
 import type { TableSchema, ValidatedRow } from './column-schemas';
 import type { Index } from './indexes';
-import type { IndexesAPI, Workspace } from './workspace';
+import type {
+	DependencyWorkspacesAPI,
+	ExtractHandlers,
+	IndexesAPI,
+	WorkspaceConfig,
+} from './workspace';
 
 /**
  * Runtime configuration provided by the user
@@ -70,37 +75,26 @@ export type RuntimeConfig = {
 };
 
 /**
- * Resolved runtime instance returned from runWorkspace
- * Combines typed table helpers and extracted action handlers.
+ * Workspace client instance returned from createWorkspaceClient
+ * Contains only the extracted action handlers.
  */
-export type WorkspaceRuntime<
-	TSchema extends Record<string, TableSchema>,
-	TActionMap extends WorkspaceActionMap,
-	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
-> = {
-	[TableName in keyof TSchema]: TableHelper<ValidatedRow<TSchema[TableName]>>;
-} & {
-	[K in keyof TActionMap]: TActionMap[K]['handler'];
-} & {
-	indexes: IndexesAPI<TIndexes>;
-	ydoc: Y.Doc;
-	transact: (fn: () => void, origin?: string) => void;
-};
+export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
+	ExtractHandlers<TActionMap>;
 
 /**
- * Run a workspace with YJS-first architecture
- * Returns the workspace instance with tables, actions, and indexes
+ * Create a workspace client with YJS-first architecture
+ * Returns the workspace client instance containing only action handlers
  */
-export async function runWorkspace<
+export async function createWorkspaceClient<
 	TId extends string,
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
 	const TIndexes extends readonly Index<TSchema>[],
-	const TDeps extends readonly Workspace[],
+	const TDeps extends readonly WorkspaceConfig[],
 >(
-	workspace: Workspace<TId, TSchema, TActionMap, TIndexes, TDeps>,
+	workspace: WorkspaceConfig<TId, TSchema, TActionMap, TIndexes, TDeps>,
 	config: RuntimeConfig = {},
-): Promise<WorkspaceRuntime<TSchema, TActionMap, TIndexes>> {
+): Promise<WorkspaceClient<TActionMap>> {
 	// 1. Create YJS document from workspace ID
 	const ydoc = new Y.Doc({ guid: workspace.id });
 
@@ -137,12 +131,12 @@ export async function runWorkspace<
 	const tables = db.tables;
 
 	// 7. Initialize dependencies and convert array to object keyed by workspace IDs
-	const workspaces: Record<string, unknown> = {};
+	const workspaces = {} as DependencyWorkspacesAPI<TDeps>;
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
 			// Each dependency should have its actions available under its ID
 			// This would need to be implemented when dependencies are actually used
-			workspaces[dep.id] = {}; // Placeholder for now
+			(workspaces as any)[dep.id] = {}; // Placeholder for now
 		}
 	}
 
@@ -166,17 +160,9 @@ export async function runWorkspace<
 			(acc as any)[actionName] = action.handler;
 			return acc;
 		},
-		{} as { [K in keyof TActionMap]: TActionMap[K]['handler'] },
+		{} as ExtractHandlers<TActionMap>,
 	);
 
-	// 10. Return workspace instance
-	const workspaceInstance = {
-		...tables,
-		...processedActions,
-		indexes: indexesAPI,
-		ydoc: db.ydoc,
-		transact: (fn: () => void, origin?: string) => db.transact(fn, origin),
-	} satisfies WorkspaceRuntime<TSchema, TActionMap, TIndexes>;
-
-	return workspaceInstance;
+	// 10. Return workspace client instance (only action handlers)
+	return processedActions;
 }

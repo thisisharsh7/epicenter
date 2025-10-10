@@ -83,7 +83,9 @@ import type { Index } from './indexes';
  * });
  * ```
  */
-export function defineWorkspace<const W extends Workspace>(workspace: W): W {
+export function defineWorkspace<const W extends WorkspaceConfig>(
+	workspace: W,
+): W {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -95,7 +97,7 @@ export function defineWorkspace<const W extends Workspace>(workspace: W): W {
 			throw new Error('Dependencies must be an array of workspace objects');
 		}
 
-		for (const dep of workspace.dependencies as readonly Workspace[]) {
+		for (const dep of workspace.dependencies as readonly WorkspaceConfig[]) {
 			if (!dep || typeof dep !== 'object' || !dep.id) {
 				throw new Error(
 					'Invalid dependency: dependencies must be workspace objects with id',
@@ -108,14 +110,14 @@ export function defineWorkspace<const W extends Workspace>(workspace: W): W {
 }
 
 /**
- * Workspace definition
+ * Workspace configuration definition
  */
-export type Workspace<
+export type WorkspaceConfig<
 	TId extends string = string,
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
-	TDeps extends readonly Workspace[] = readonly [],
+	TDeps extends readonly WorkspaceConfig[] = readonly [],
 > = {
 	/**
 	 * Unique identifier for this workspace
@@ -223,7 +225,7 @@ export type Workspace<
 export type WorkspaceActionContext<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
-	TDeps extends readonly Workspace[] = readonly [],
+	TDeps extends readonly WorkspaceConfig[] = readonly [],
 > = {
 	/**
 	 * Dependency workspaces
@@ -260,13 +262,13 @@ export type IndexesAPI<TIndexes extends readonly Index<any>[]> = {
  * Dependency workspaces API - actions from dependency workspaces
  * Converts array of workspaces into an object keyed by workspace IDs
  */
-type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> =
+export type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
-				[W in TDeps[number] as W extends Workspace<infer TId>
+				[W in TDeps[number] as W extends WorkspaceConfig<infer TId>
 					? TId
-					: never]: W extends Workspace<infer _, infer _, infer TActionMap>
+					: never]: W extends WorkspaceConfig<infer _, infer _, infer TActionMap>
 					? ExtractHandlers<TActionMap>
 					: never;
 			};
@@ -274,6 +276,6 @@ type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> =
 /**
  * Extract handler functions from action map
  */
-type ExtractHandlers<T extends WorkspaceActionMap> = {
+export type ExtractHandlers<T extends WorkspaceActionMap> = {
 	[K in keyof T]: T[K]['handler'];
 };
