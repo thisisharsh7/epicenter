@@ -128,18 +128,28 @@ export type DateColumnSchema = {
 	default?: DateWithTimezone | (() => DateWithTimezone);
 };
 
-export type SelectColumnSchema<TOptions extends string = string> = {
+export type SelectColumnSchema<
+	TOptions extends readonly [string, ...string[]] = readonly [
+		string,
+		...string[],
+	],
+> = {
 	type: 'select';
 	nullable: boolean;
-	options: readonly TOptions[];
-	default?: TOptions;
+	options: TOptions;
+	default?: TOptions[number];
 };
 
-export type MultiSelectColumnSchema<TOptions extends string = string> = {
+export type MultiSelectColumnSchema<
+	TOptions extends readonly [string, ...string[]] = readonly [
+		string,
+		...string[],
+	],
+> = {
 	type: 'multi-select';
 	nullable: boolean;
-	options: readonly TOptions[];
-	default?: TOptions[];
+	options: TOptions;
+	default?: TOptions[number][];
 };
 
 /**
@@ -164,14 +174,14 @@ export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
  *
  * @example
  * ```typescript
- * type IdType = ColumnToType<{ type: 'id' }>; // string
- * type TextField = ColumnToType<{ type: 'text'; nullable: true }>; // string | null
- * type YtextField = ColumnToType<{ type: 'ytext'; nullable: false }>; // Y.Text
- * type YxmlField = ColumnToType<{ type: 'yxmlfragment'; nullable: false }>; // Y.XmlFragment
- * type MultiSelectField = ColumnToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
+ * type IdType = ColumnSchemaToType<{ type: 'id' }>; // string
+ * type TextField = ColumnSchemaToType<{ type: 'text'; nullable: true }>; // string | null
+ * type YtextField = ColumnSchemaToType<{ type: 'ytext'; nullable: false }>; // Y.Text
+ * type YxmlField = ColumnSchemaToType<{ type: 'yxmlfragment'; nullable: false }>; // Y.XmlFragment
+ * type MultiSelectField = ColumnSchemaToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * ```
  */
-export type ColumnToType<C extends ColumnSchema> = C extends IdColumnSchema
+export type ColumnSchemaToType<C extends ColumnSchema> = C extends IdColumnSchema
 	? string
 	: C extends TextColumnSchema
 		? C extends { nullable: true }
@@ -203,10 +213,10 @@ export type ColumnToType<C extends ColumnSchema> = C extends IdColumnSchema
 									: DateWithTimezone
 								: C extends SelectColumnSchema<infer TOptions>
 									? C extends { nullable: true }
-										? TOptions | null
-										: TOptions
+										? TOptions[number] | null
+										: TOptions[number]
 									: C extends MultiSelectColumnSchema<infer TOptions>
-										? Y.Array<TOptions>
+										? Y.Array<TOptions[number]>
 										: never;
 
 /**
@@ -227,7 +237,7 @@ export type ColumnToType<C extends ColumnSchema> = C extends IdColumnSchema
  * ```
  */
 export type ValidatedRow<TTableSchema extends TableSchema> = {
-	[K in keyof TTableSchema]: ColumnToType<TTableSchema[K]>;
+	[K in keyof TTableSchema]: ColumnSchemaToType<TTableSchema[K]>;
 };
 
 /**
@@ -249,7 +259,7 @@ export type Row = ValidatedRow<TableSchema>;
 
 /**
  * Union of all possible cell values across all column types.
- * Derived from ColumnToType to ensure consistency.
+ * Derived from ColumnSchemaToType to ensure consistency.
  * Used for Y.Map value types in YJS documents.
  */
 export type CellValue = Row[keyof Row];
@@ -450,11 +460,11 @@ export function date(opts?: {
  * select({ options: ['draft', 'published', 'archived'] })
  * select({ options: ['tech', 'personal'], default: 'tech' })
  */
-export function select<const TOptions extends readonly string[]>(opts: {
+export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
 	options: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number];
-}): SelectColumnSchema<TOptions[number]> {
+}): SelectColumnSchema<TOptions> {
 	return {
 		type: 'select',
 		nullable: opts.nullable ?? false,
@@ -469,11 +479,11 @@ export function select<const TOptions extends readonly string[]>(opts: {
  * multiSelect({ options: ['typescript', 'javascript', 'python'] })
  * multiSelect({ options: ['tag1', 'tag2'], default: [] })
  */
-export function multiSelect<const TOptions extends readonly string[]>(opts: {
+export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
 	options: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number][];
-}): MultiSelectColumnSchema<TOptions[number]> {
+}): MultiSelectColumnSchema<TOptions> {
 	return {
 		type: 'multi-select',
 		nullable: opts.nullable ?? false,
