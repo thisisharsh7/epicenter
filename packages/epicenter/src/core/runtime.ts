@@ -96,9 +96,8 @@ export async function runWorkspace<
 	TSchema extends Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap,
 	const TIndexes extends readonly Index<TSchema>[],
-	const TDeps extends readonly Workspace[],
 >(
-	workspace: Workspace<TId, TSchema, TActionMap, TIndexes, TDeps>,
+	workspace: Workspace<TId, TSchema, TActionMap, TIndexes>,
 	config: RuntimeConfig = {},
 ): Promise<WorkspaceRuntime<TSchema, TActionMap, TIndexes>> {
 	// 1. Create YJS document from workspace ID
@@ -136,17 +135,7 @@ export async function runWorkspace<
 	// 6. Get table helpers from doc
 	const tables = db.tables;
 
-	// 7. Initialize dependencies and convert array to object keyed by workspace IDs
-	const workspaces: Record<string, unknown> = {};
-	if (workspace.dependencies) {
-		for (const dep of workspace.dependencies) {
-			// Each dependency should have its actions available under its ID
-			// This would need to be implemented when dependencies are actually used
-			workspaces[dep.id] = {}; // Placeholder for now
-		}
-	}
-
-	// 8. Create IndexesAPI by extracting queries from each index
+	// 7. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.entries(indexes).reduce(
 		(acc, [indexName, index]) => {
 			acc[indexName] = index.queries;
@@ -155,9 +144,8 @@ export async function runWorkspace<
 		{} as Record<string, any>,
 	) as IndexesAPI<TIndexes>;
 
-	// 9. Process actions to extract handlers and make them directly callable
+	// 8. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
-		workspaces,
 		tables,
 		indexes: indexesAPI,
 	}) as TActionMap;
@@ -169,7 +157,7 @@ export async function runWorkspace<
 		{} as { [K in keyof TActionMap]: TActionMap[K]['handler'] },
 	);
 
-	// 10. Return workspace instance
+	// 9. Return workspace instance
 	const workspaceInstance = {
 		...tables,
 		...processedActions,

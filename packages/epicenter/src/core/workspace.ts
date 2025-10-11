@@ -89,21 +89,6 @@ export function defineWorkspace<const W extends Workspace>(workspace: W): W {
 		throw new Error('Workspace must have a valid string ID');
 	}
 
-	// Validate dependencies
-	if (workspace.dependencies) {
-		if (!Array.isArray(workspace.dependencies)) {
-			throw new Error('Dependencies must be an array of workspace objects');
-		}
-
-		for (const dep of workspace.dependencies as readonly Workspace[]) {
-			if (!dep || typeof dep !== 'object' || !dep.id) {
-				throw new Error(
-					'Invalid dependency: dependencies must be workspace objects with id',
-				);
-			}
-		}
-	}
-
 	return workspace;
 }
 
@@ -115,11 +100,9 @@ export type Workspace<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
-	TDeps extends readonly Workspace[] = readonly [],
 > = {
 	/**
 	 * Unique identifier for this workspace
-	 * Used as the property name when accessing workspace actions from dependencies
 	 * Also used as the GUID for the YJS document
 	 */
 	id: TId;
@@ -128,19 +111,6 @@ export type Workspace<
 	 * Table schemas (column definitions as JSON)
 	 */
 	schema: TSchema;
-
-	/**
-	 * Other workspaces this workspace depends on
-	 * IDs become the property names in the workspaces API
-	 * @example
-	 * ```typescript
-	 * dependencies: [authWorkspace, storageWorkspace]
-	 * // Later in actions (using workspace IDs as property names):
-	 * workspaces.auth.login(...)
-	 * workspaces.storage.uploadFile(...)
-	 * ```
-	 */
-	dependencies?: TDeps;
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
@@ -181,12 +151,12 @@ export type Workspace<
 
 	/**
 	 * Workspace actions - business logic with access to tables and indexes
-	 * @param context - Tables (write), indexes (read), and dependency workspaces
+	 * @param context - Tables (write) and indexes (read)
 	 * @returns Map of action name → action implementation
 	 *
 	 * @example
 	 * ```typescript
-	 * actions: ({ tables, indexes, workspaces }) => ({
+	 * actions: ({ tables, indexes }) => ({
 	 *   createPost: defineMutation({
 	 *     input: z.object({ title: z.string() }),
 	 *     handler: async ({ title }) => {
@@ -205,7 +175,7 @@ export type Workspace<
 	 * ```
 	 */
 	actions: (
-		context: WorkspaceActionContext<TSchema, TIndexes, TDeps>,
+		context: WorkspaceActionContext<TSchema, TIndexes>,
 	) => TActionMap;
 };
 
@@ -215,14 +185,7 @@ export type Workspace<
 export type WorkspaceActionContext<
 	TSchema extends Record<string, TableSchema> = Record<string, TableSchema>,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
-	TDeps extends readonly Workspace[] = readonly [],
 > = {
-	/**
-	 * Dependency workspaces
-	 * Access actions from other workspaces
-	 */
-	workspaces: DependencyWorkspacesAPI<TDeps>;
-
 	/**
 	 * Table helpers for this workspace
 	 * Synchronous write/read operations to YJS
@@ -246,26 +209,4 @@ export type IndexesAPI<TIndexes extends readonly Index<any>[]> = {
 	[K in TIndexes[number] as K['id']]: K extends Index<any, any, infer TQueries>
 		? TQueries
 		: never;
-};
-
-/**
- * Dependency workspaces API - actions from dependency workspaces
- * Converts array of workspaces into an object keyed by workspace IDs
- */
-type DependencyWorkspacesAPI<TDeps extends readonly Workspace[]> =
-	TDeps extends readonly []
-		? Record<string, never>
-		: {
-				[W in TDeps[number] as W extends Workspace<infer TId>
-					? TId
-					: never]: W extends Workspace<infer _, infer _, infer TActionMap>
-					? ExtractHandlers<TActionMap>
-					: never;
-			};
-
-/**
- * Extract handler functions from action map
- */
-type ExtractHandlers<T extends WorkspaceActionMap> = {
-	[K in keyof T]: T[K]['handler'];
 };
