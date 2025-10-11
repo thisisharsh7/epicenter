@@ -77,32 +77,76 @@ export type RuntimeConfig = {
 
 /**
  * Workspace client instance returned from createWorkspaceClient
- * Contains only the extracted action handlers.
+ * Contains action handlers and lifecycle management
  */
 export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
-	ExtractHandlers<TActionMap>;
+	ExtractHandlers<TActionMap> & {
+		/**
+		 * Cleanup function that destroys this workspace and all its dependencies
+		 * - Destroys all indexes
+		 * - Destroys the YJS document
+		 * - Recursively destroys dependency workspaces
+		 */
+		destroy: () => Promise<void>;
+	};
 
 /**
  * Create a workspace client with YJS-first architecture
- * Returns the workspace client instance containing only action handlers
+ * Handles recursive dependency initialization, version resolution, and lifecycle management
+ *
+ * @param workspace - Workspace configuration
+ * @param config - Runtime configuration options
+ * @param _initializedClients - Internal cache mapping workspace GUID (id.version) to initialized clients.
+ *                               Prevents duplicate initialization when the same workspace version is referenced multiple times
+ *                               within a single workspace tree. For example, if both auth and blog depend on storage,
+ *                               storage will only be initialized once and reused.
+ * @param _initializationChain - Internal stack tracking current initialization chain for circular dependency detection.
+ *                                Contains workspace GUIDs currently being initialized.
  */
 export async function createWorkspaceClient<
 	TId extends string,
+	TVersion extends string,
 	TSchema extends Schema,
 	TActionMap extends WorkspaceActionMap,
 	const TIndexes extends readonly Index<TSchema>[],
 	const TDeps extends readonly WorkspaceConfig[],
 >(
-	workspace: WorkspaceConfig<TId, TSchema, TActionMap, TIndexes, TDeps>,
+	workspace: WorkspaceConfig<
+		TId,
+		TVersion,
+		TSchema,
+		TActionMap,
+		TIndexes,
+		TDeps,
+		string
+	>,
 	config: RuntimeConfig = {},
+	_initializedClients: Map<string, WorkspaceClient<any>> = new Map(),
+	_initializationChain: Set<string> = new Set(),
 ): Promise<WorkspaceClient<TActionMap>> {
-	// 1. Create YJS document from workspace ID
-	const ydoc = new Y.Doc({ guid: workspace.id });
+	// Combine ID and version for Y.Doc GUID
+	const ydocGuid = `${workspace.id}.${workspace.version}` as const;
 
-	// 2. Initialize Epicenter database
+	// 1. Check for circular dependencies
+	if (_initializationChain.has(ydocGuid)) {
+		const path = Array.from(_initializationChain).join(' -> ');
+		throw new Error(`Circular dependency detected: ${path} -> ${ydocGuid}`);
+	}
+
+	// 2. Check cache - return existing client if already initialized
+	const existingClient = _initializedClients.get(ydocGuid);
+	if (existingClient) return existingClient;
+
+	// 3. Add to initialization stack for cycle detection
+	_initializationChain.add(ydocGuid);
+
+	// 4. Create YJS document with combined ID.version as GUID
+	const ydoc = new Y.Doc({ guid: ydocGuid });
+
+	// 5. Initialize Epicenter database
 	const db = createEpicenterDb(ydoc, workspace.schema);
 
-	// 3. Validate no duplicate index IDs
+	// 6. Validate no duplicate index IDs
 	const indexIds = new Set<string>();
 	for (const index of workspace.indexes) {
 		if (indexIds.has(index.id)) {
@@ -111,7 +155,7 @@ export async function createWorkspaceClient<
 		indexIds.add(index.id);
 	}
 
-	// 4. Call index init functions with db to set up observers and get results
+	// 7. Call index init functions with db to set up observers and get results
 	const indexes: Record<
 		string,
 		{ destroy: () => void | Promise<void>; queries: any }
@@ -125,35 +169,105 @@ export async function createWorkspaceClient<
 		}
 	}
 
-	// 5. Set up YDoc synchronization and persistence (if provided)
+	// 8. Set up YDoc synchronization and persistence (if provided)
 	workspace.setupYDoc?.(ydoc);
 
-	// 6. Initialize dependencies and convert array to object keyed by workspace names
+	// 9. Initialize dependencies with version resolution
 	const workspaces = {} as DependencyWorkspacesAPI<TDeps>;
-	if (workspace.dependencies) {
+	// Track direct dependencies for cleanup - when this workspace is destroyed,
+	// we recursively destroy all dependencies in this map
+	const dependencyClients = new Map<string, WorkspaceClient<any>>();
+
+	if (workspace.dependencies && workspace.dependencies.length > 0) {
+		// Group dependencies by workspace ID
+		const versionsByWorkspaceId = new Map<string, WorkspaceConfig[]>();
+
 		for (const dep of workspace.dependencies) {
-			// Each dependency should have its actions available under its name
-			// This would need to be implemented when dependencies are actually used
-			(workspaces as any)[dep.name] = {}; // Placeholder for now
+			if (!versionsByWorkspaceId.has(dep.id)) {
+				versionsByWorkspaceId.set(dep.id, []);
+			}
+			// biome-ignore lint/style/noNonNullAssertion: Guaranteed by the if-check above
+			versionsByWorkspaceId.get(dep.id)!.push(dep);
+		}
+
+		// For each workspace ID, initialize all versions
+		for (const [workspaceId, versions] of versionsByWorkspaceId) {
+			// Find latest version for short name (computed on-demand)
+			const latest = versions.reduce((a, b) =>
+				a.version.localeCompare(b.version, undefined, { numeric: true }) > 0
+					? a
+					: b,
+			);
+
+			// Initialize each version
+			for (const dep of versions) {
+				// Recursively initialize dependency (may return cached client if already initialized)
+				const depClient = await createWorkspaceClient(
+					dep,
+					config,
+					_initializedClients,
+					_initializationChain,
+				);
+
+				const depGuid = `${dep.id}.${dep.version}` as const;
+
+				// Track dependency client for cleanup (even if it was cached and shared with other workspaces)
+				dependencyClients.set(depGuid, depClient);
+
+				// Expose in workspaces API
+				if (dep === latest) {
+					// Latest version gets the short name
+					workspaces[dep.name] = depClient;
+				} else {
+					// Older versions get version suffix
+					workspaces[`${dep.name}:v${dep.version}`] = depClient;
+				}
+			}
 		}
 	}
 
-	// 7. Create IndexesAPI by extracting queries from each index
-	const indexesAPI = Object.entries(indexes).reduce(
-		(acc, [indexName, index]) => {
-			acc[indexName] = index.queries;
-			return acc;
-		},
-		{} as Record<string, any>,
+	// 10. Remove from stack (dependency fully initialized)
+	_initializationChain.delete(ydocGuid);
+
+	// 11. Create IndexesAPI by extracting queries from each index
+	const indexesAPI = Object.fromEntries(
+		Object.entries(indexes).map(([indexName, index]) => [
+			indexName,
+			index.queries,
+		]),
 	) as IndexesAPI<TIndexes>;
 
-	// 8. Process actions to extract handlers and make them directly callable
+	// 12. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		workspaces,
 		db,
 		indexes: indexesAPI,
 	}) as TActionMap;
 
-	// 9. Return workspace client instance (only action handlers)
-	return extractHandlers(actionMap);
+	// 13. Create client with destroy method
+	const client: WorkspaceClient<TActionMap> = {
+		...extractHandlers(actionMap),
+		destroy: async () => {
+			// Destroy indexes
+			for (const index of Object.values(indexes)) {
+				await index.destroy?.();
+			}
+
+			// Destroy YDoc (disconnects providers, cleans up)
+			ydoc.destroy();
+
+			// Recursively destroy dependencies
+			for (const depClient of dependencyClients.values()) {
+				await depClient.destroy();
+			}
+
+			// Remove from cache
+			_initializedClients.delete(ydocGuid);
+		},
+	};
+
+	// 14. Cache the client
+	_initializedClients.set(ydocGuid, client);
+
+	return client;
 }

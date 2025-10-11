@@ -31,14 +31,15 @@ import type { Index } from './indexes';
  * @example
  * ```typescript
  * const blogWorkspace = defineWorkspace({
- *   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Unique ID (UUID/nanoid)
+ *   id: 'blog',
+ *   version: '1',
  *   name: 'blog', // Human-readable name for API access
  *
  *   schema: {
  *     posts: {
- *       id: id(),
+ *       // id is auto-included, no need to specify
  *       title: text(),
- *       content: richText({ nullable: true }),
+ *       content: yxmlfragment({ nullable: true }),
  *       category: select({ options: ['tech', 'personal'] }),
  *       views: integer({ default: 0 }),
  *     }
@@ -92,6 +93,11 @@ export function defineWorkspace<const W extends WorkspaceConfig>(
 		throw new Error('Workspace must have a valid string ID');
 	}
 
+	// Validate workspace version
+	if (!workspace.version || typeof workspace.version !== 'string') {
+		throw new Error('Workspace must have a valid string version');
+	}
+
 	// Validate workspace name
 	if (!workspace.name || typeof workspace.name !== 'string') {
 		throw new Error('Workspace must have a valid string name');
@@ -104,9 +110,15 @@ export function defineWorkspace<const W extends WorkspaceConfig>(
 		}
 
 		for (const dep of workspace.dependencies as readonly WorkspaceConfig[]) {
-			if (!dep || typeof dep !== 'object' || !dep.id || !dep.name) {
+			if (
+				!dep ||
+				typeof dep !== 'object' ||
+				!dep.id ||
+				!dep.version ||
+				!dep.name
+			) {
 				throw new Error(
-					'Invalid dependency: dependencies must be workspace objects with id and name',
+					'Invalid dependency: dependencies must be workspace objects with id, version, and name',
 				);
 			}
 		}
@@ -120,6 +132,7 @@ export function defineWorkspace<const W extends WorkspaceConfig>(
  */
 export type WorkspaceConfig<
 	TId extends string = string,
+	TVersion extends string = string,
 	TSchema extends Schema = Schema,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
@@ -127,11 +140,21 @@ export type WorkspaceConfig<
 	TName extends string = string,
 > = {
 	/**
-	 * Unique internal identifier for this workspace (typically a UUID or nanoid)
-	 * Used as the GUID for the YJS document to ensure uniqueness
-	 * Should never conflict, even across different installations
+	 * Unique identifier for this workspace (base ID without version)
+	 * Used to group different versions of the same workspace
+	 *
+	 * @example 'blog', 'auth', 'storage'
 	 */
 	id: TId;
+
+	/**
+	 * Version of this workspace
+	 * Combined with ID to create Y.Doc GUID: `${id}.${version}`
+	 * Allows multiple versions of the same workspace to coexist
+	 *
+	 * @example '1', '2', '1.0.0', '2.0.0'
+	 */
+	version: TVersion;
 
 	/**
 	 * Human-readable name for this workspace
@@ -282,6 +305,7 @@ export type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 		: {
 				[W in TDeps[number] as W extends WorkspaceConfig<
 					infer _TId,
+					infer _TVersion,
 					infer _TSchema,
 					infer _TActionMap,
 					infer _TIndexes,
@@ -291,6 +315,7 @@ export type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 					? TName
 					: never]: W extends WorkspaceConfig<
 					infer _TId2,
+					infer _TVersion2,
 					infer _TSchema2,
 					infer TActionMap
 				>
@@ -322,3 +347,4 @@ export function extractHandlers<T extends WorkspaceActionMap>(
 		]),
 	) as ExtractHandlers<T>;
 }
+
