@@ -101,7 +101,9 @@ describe('YjsDoc Type Inference', () => {
 		]);
 
 		// Hover over 'task' parameter to verify inferred type
-		const { valid: incompleteTasks } = doc.tables.tasks.filter((task) => !task.completed);
+		const { valid: incompleteTasks } = doc.tables.tasks.filter(
+			(task) => !task.completed,
+		);
 		// task type should be: { id: string; title: string; completed: boolean; priority: string }
 
 		expect(incompleteTasks).toHaveLength(1);
@@ -123,7 +125,9 @@ describe('YjsDoc Type Inference', () => {
 		]);
 
 		// Hover over 'item' parameter to verify inferred type
-		const outOfStockResult = doc.tables.items.find((item) => item.quantity === 0);
+		const outOfStockResult = doc.tables.items.find(
+			(item) => item.quantity === 0,
+		);
 		// item type should be: { id: string; name: string; quantity: number }
 
 		expect(outOfStockResult.status).toBe('valid');
@@ -228,7 +232,9 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				authorId: text(),
 				title: text(),
-				chapters: multiSelect({ options: ['Chapter 1', 'Chapter 2', 'Chapter 3'] }),
+				chapters: multiSelect({
+					options: ['Chapter 1', 'Chapter 2', 'Chapter 3'],
+				}),
 				published: boolean(),
 			},
 		});

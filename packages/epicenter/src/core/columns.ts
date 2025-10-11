@@ -60,11 +60,13 @@ function generateNanoId(): Id {
  * id() // Primary key ID column with nano ID generation
  */
 export function id() {
-	return drizzleText()
-		.notNull()
-		.primaryKey()
-		// .$type<Id>()
-		.$defaultFn(() => generateNanoId());
+	return (
+		drizzleText()
+			.notNull()
+			.primaryKey()
+			// .$type<Id>()
+			.$defaultFn(() => generateNanoId())
+	);
 }
 
 /**
@@ -501,7 +503,10 @@ function createMultiSelectSerializer<
 export function multiSelect<
 	const TOptions extends readonly [string, ...string[]],
 	TNullable extends boolean = false,
-	TDefault extends TOptions[number][] | (() => TOptions[number][]) | undefined = undefined,
+	TDefault extends
+		| TOptions[number][]
+		| (() => TOptions[number][])
+		| undefined = undefined,
 >({
 	options,
 	nullable = false as TNullable,
@@ -518,8 +523,10 @@ export function multiSelect<
 		driverData: string;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: TOptions[number][]): string => serializer.serialize(value),
-		fromDriver: (value: string): TOptions[number][] => serializer.deserialize(value),
+		toDriver: (value: TOptions[number][]): string =>
+			serializer.serialize(value),
+		fromDriver: (value: string): TOptions[number][] =>
+			serializer.deserialize(value),
 	});
 
 	let column = multiSelectType();

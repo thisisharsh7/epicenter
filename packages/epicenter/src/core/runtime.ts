@@ -4,11 +4,7 @@ import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
 import type { Schema, TableSchema, ValidatedRow } from './column-schemas';
 import type { Index } from './indexes';
-import type {
-	ExtractHandlers,
-	IndexesAPI,
-	WorkspaceConfig,
-} from './workspace';
+import type { ExtractHandlers, IndexesAPI, WorkspaceConfig } from './workspace';
 import { extractHandlers } from './workspace';
 
 /**

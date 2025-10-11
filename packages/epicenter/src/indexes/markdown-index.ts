@@ -24,9 +24,9 @@ export type MarkdownIndexConfig = {
  * Syncs YJS changes to markdown files for git-friendly persistence
  * No query interface - just persistence
  */
-export function markdownIndex<
-	TSchema extends Schema = Schema,
->(config: MarkdownIndexConfig) {
+export function markdownIndex<TSchema extends Schema = Schema>(
+	config: MarkdownIndexConfig,
+) {
 	return defineIndex({
 		id: 'markdown',
 		init: (db: Db<TSchema>) => {

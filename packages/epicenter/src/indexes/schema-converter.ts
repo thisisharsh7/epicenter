@@ -10,7 +10,7 @@ import {
 	type SQLiteIntegerBuilderInitial,
 	type SQLiteRealBuilderInitial,
 	type SQLiteTable,
-	type SQLiteTextBuilderInitial
+	type SQLiteTextBuilderInitial,
 } from 'drizzle-orm/sqlite-core';
 import {
 	type BooleanColumnSchema,
@@ -73,7 +73,9 @@ export function convertTableSchemaToDrizzle<TTableSchema extends TableSchema>(
  * Maps a ColumnSchema to its corresponding Drizzle column builder type
  */
 type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
-	? IsPrimaryKey<NotNull<SQLiteTextBuilderInitial<"", [string, ...string[]], undefined>>>
+	? IsPrimaryKey<
+			NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
+		>
 	: C extends TextColumnSchema
 		? C extends { nullable: true }
 			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
@@ -81,64 +83,85 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 		: C extends YtextColumnSchema
 			? C extends { nullable: true }
 				? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-				: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
+				: NotNull<
+						SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
+					>
 			: C extends YxmlfragmentColumnSchema
 				? C extends { nullable: true }
 					? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-					: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
+					: NotNull<
+							SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
+						>
 				: C extends IntegerColumnSchema
 					? C extends { nullable: true }
-						? SQLiteIntegerBuilderInitial<"">
-						: NotNull<SQLiteIntegerBuilderInitial<"">>
+						? SQLiteIntegerBuilderInitial<''>
+						: NotNull<SQLiteIntegerBuilderInitial<''>>
 					: C extends RealColumnSchema
 						? C extends { nullable: true }
-							? SQLiteRealBuilderInitial<"">
-							: NotNull<SQLiteRealBuilderInitial<"">>
+							? SQLiteRealBuilderInitial<''>
+							: NotNull<SQLiteRealBuilderInitial<''>>
 						: C extends BooleanColumnSchema
 							? C extends { nullable: true }
-								? SQLiteBooleanBuilderInitial<"">
-								: NotNull<SQLiteBooleanBuilderInitial<"">>
+								? SQLiteBooleanBuilderInitial<''>
+								: NotNull<SQLiteBooleanBuilderInitial<''>>
 							: C extends DateColumnSchema
 								? C extends { nullable: true }
 									? SQLiteCustomColumnBuilder<{
-											name: "";
-											dataType: "custom";
-											columnType: "SQLiteCustomColumn";
+											name: '';
+											dataType: 'custom';
+											columnType: 'SQLiteCustomColumn';
 											data: DateWithTimezone;
 											driverParam: DateWithTimezoneString;
 											enumValues: undefined;
-									}>
-									: NotNull<SQLiteCustomColumnBuilder<{
-											name: "";
-											dataType: "custom";
-											columnType: "SQLiteCustomColumn";
-											data: DateWithTimezone;
-											driverParam: DateWithTimezoneString;
-											enumValues: undefined;
-									}>>
-								: C extends SelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
+										}>
+									: NotNull<
+											SQLiteCustomColumnBuilder<{
+												name: '';
+												dataType: 'custom';
+												columnType: 'SQLiteCustomColumn';
+												data: DateWithTimezone;
+												driverParam: DateWithTimezoneString;
+												enumValues: undefined;
+											}>
+										>
+								: C extends SelectColumnSchema<
+											infer TOptions extends readonly [string, ...string[]]
+									  >
 									? C extends { nullable: true }
-										? SQLiteTextBuilderInitial<'', [...TOptions], number | undefined>
-										: NotNull<SQLiteTextBuilderInitial<'', [...TOptions], number | undefined>>
-									: C extends MultiSelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
+										? SQLiteTextBuilderInitial<
+												'',
+												[...TOptions],
+												number | undefined
+											>
+										: NotNull<
+												SQLiteTextBuilderInitial<
+													'',
+													[...TOptions],
+													number | undefined
+												>
+											>
+									: C extends MultiSelectColumnSchema<
+												infer TOptions extends readonly [string, ...string[]]
+										  >
 										? C extends { nullable: true }
 											? SQLiteCustomColumnBuilder<{
-    name: "";
-    dataType: "custom";
-    columnType: "SQLiteCustomColumn";
-    data: (TOptions[number])[];
-    driverParam: string;
-    enumValues: undefined;
-}>
-
-											: NotNull<SQLiteCustomColumnBuilder<{
-    name: "";
-    dataType: "custom";
-    columnType: "SQLiteCustomColumn";
-    data: (TOptions[number])[];
-    driverParam: string;
-    enumValues: undefined;
-}>>
+													name: '';
+													dataType: 'custom';
+													columnType: 'SQLiteCustomColumn';
+													data: TOptions[number][];
+													driverParam: string;
+													enumValues: undefined;
+												}>
+											: NotNull<
+													SQLiteCustomColumnBuilder<{
+														name: '';
+														dataType: 'custom';
+														columnType: 'SQLiteCustomColumn';
+														data: TOptions[number][];
+														driverParam: string;
+														enumValues: undefined;
+													}>
+												>
 										: never;
 
 /**
@@ -234,7 +257,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 
 		case 'multi-select': {
 			// Multi-select stored as TEXT with JSON mode (array of strings)
-			let column = multiSelect({options: schema.options});
+			let column = multiSelect({ options: schema.options });
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);

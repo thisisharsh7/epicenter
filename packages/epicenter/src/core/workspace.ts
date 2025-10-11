@@ -93,7 +93,14 @@ export function defineWorkspace<
 	TActionMap extends WorkspaceActionMap,
 	const TName extends string,
 >(
-	workspace: WorkspaceConfig<TId, TVersion, TSchema, TActionMap, TIndexes, TName>,
+	workspace: WorkspaceConfig<
+		TId,
+		TVersion,
+		TSchema,
+		TActionMap,
+		TIndexes,
+		TName
+	>,
 ): WorkspaceConfig<TId, TVersion, TSchema, TActionMap, TIndexes, TName> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
@@ -217,9 +224,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	actions: (
-		context: WorkspaceActionContext<TSchema, TIndexes>,
-	) => TActionMap;
+	actions: (context: WorkspaceActionContext<TSchema, TIndexes>) => TActionMap;
 };
 
 /**

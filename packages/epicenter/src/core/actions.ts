@@ -79,47 +79,35 @@ export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
 /**
  * Type helper to extract the input type from an action
  */
-export type InferActionInput<T> = T extends WorkspaceAction<
-	infer TSchema,
-	unknown
->
-	? StandardSchemaV1.InferOutput<TSchema>
-	: never;
+export type InferActionInput<T> =
+	T extends WorkspaceAction<infer TSchema, unknown>
+		? StandardSchemaV1.InferOutput<TSchema>
+		: never;
 
 /**
  * Type helper to extract the output type from an action
  */
-export type InferActionOutput<T> = T extends WorkspaceAction<
-	StandardSchemaV1,
-	infer O
->
-	? O
-	: never;
+export type InferActionOutput<T> =
+	T extends WorkspaceAction<StandardSchemaV1, infer O> ? O : never;
 
 /**
  * Type helper to extract the unwrapped output type from an action handler
  * This unwraps the Result type to get the actual success value type
  */
-export type InferActionOutputUnwrapped<T> = T extends WorkspaceAction<
-	StandardSchemaV1,
-	infer O
->
-	? O
-	: never;
+export type InferActionOutputUnwrapped<T> =
+	T extends WorkspaceAction<StandardSchemaV1, infer O> ? O : never;
 
 /**
  * Type helper to extract the handler function with Result return type
  */
-export type InferActionHandler<T> = T extends WorkspaceAction<
-	infer TSchema,
-	infer TOutput
->
-	? (
-			input: StandardSchemaV1.InferOutput<TSchema>,
-		) =>
-			| Result<TOutput, EpicenterOperationError>
-			| Promise<Result<TOutput, EpicenterOperationError>>
-	: never;
+export type InferActionHandler<T> =
+	T extends WorkspaceAction<infer TSchema, infer TOutput>
+		? (
+				input: StandardSchemaV1.InferOutput<TSchema>,
+			) =>
+				| Result<TOutput, EpicenterOperationError>
+				| Promise<Result<TOutput, EpicenterOperationError>>
+		: never;
 
 /**
  * Type helper to check if an action is a query

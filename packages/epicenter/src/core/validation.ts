@@ -13,35 +13,35 @@ import {
  */
 export type InvalidStructureReason =
 	| {
-		type: 'not-an-object';
-		actual: unknown;
-	}
+			type: 'not-an-object';
+			actual: unknown;
+	  }
 	| {
-		type: 'invalid-cell-value';
-		field: string;
-		actual: unknown;
-	};
+			type: 'invalid-cell-value';
+			field: string;
+			actual: unknown;
+	  };
 
 /**
  * Reasons why schema validation failed
  */
 export type SchemaMismatchReason =
 	| {
-		type: 'missing-required-field';
-		field: string;
-	}
+			type: 'missing-required-field';
+			field: string;
+	  }
 	| {
-		type: 'type-mismatch';
-		field: string;
-		schemaType: ColumnSchema['type'];
-		actual: unknown;
-	}
+			type: 'type-mismatch';
+			field: string;
+			schemaType: ColumnSchema['type'];
+			actual: unknown;
+	  }
 	| {
-		type: 'invalid-option';
-		field: string;
-		actual: string;
-		allowedOptions: readonly string[];
-	};
+			type: 'invalid-option';
+			field: string;
+			actual: string;
+			allowedOptions: readonly string[];
+	  };
 
 /**
  * Discriminated union representing row validation result
@@ -54,10 +54,10 @@ export type RowValidationResult<TRow extends Row> =
 	| { status: 'valid'; row: TRow }
 	| { status: 'schema-mismatch'; row: Row; reason: SchemaMismatchReason }
 	| {
-		status: 'invalid-structure';
-		row: unknown;
-		reason: InvalidStructureReason;
-	};
+			status: 'invalid-structure';
+			row: unknown;
+			reason: InvalidStructureReason;
+	  };
 
 /**
  * Discriminated union representing the result of getting a row by ID

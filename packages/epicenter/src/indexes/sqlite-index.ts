@@ -4,7 +4,13 @@ import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import type { Row, Schema, TableSchema } from '../core/column-schemas';
+import type {
+	Row,
+	Schema,
+	TableSchema,
+	DateWithTimezone,
+	CellValue,
+} from '../core/column-schemas';
 import type { Db } from '../db/core';
 import { IndexErr } from '../core/errors';
 import { defineIndex, type Index } from '../core/indexes';
@@ -23,27 +29,49 @@ export type SQLiteIndexConfig = {
 
 /**
  * Maps a Row type to SQLite-compatible types
- * Converts Y.Text and Y.XmlFragment to string, preserves everything else
+ * Converts Y.Text, Y.XmlFragment, Y.Array<string>, and DateWithTimezone to string
  */
 export type SQLiteRow<T extends Row> = {
 	[K in keyof T]: T[K] extends Y.Text | Y.XmlFragment
-	? string
-	: T[K] extends Y.Text | Y.XmlFragment | null
-	? string | null
-	: T[K];
+		? string
+		: T[K] extends Y.Text | Y.XmlFragment | null
+			? string | null
+			: T[K] extends Y.Array<string>
+				? string
+				: T[K] extends Y.Array<string> | null
+					? string | null
+					: T[K] extends DateWithTimezone
+						? string
+						: T[K] extends DateWithTimezone | null
+							? string | null
+							: T[K];
 };
 
 /**
- * Serialize Y.js types to plain text for SQLite storage
- * Converts Y.Text and Y.XmlFragment to their string representations
+ * Serialize Y.js types and DateWithTimezone to plain text for SQLite storage
+ * Converts Y.Text, Y.XmlFragment, Y.Array<string>, and DateWithTimezone to their string representations
  */
 function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
 	const serialized: Record<string, any> = {};
 
-	for (const [key, value] of Object.entries(row)) {
+	for (const [key, v] of Object.entries(row)) {
+		const value = v as CellValue;
 		if (value instanceof Y.Text || value instanceof Y.XmlFragment) {
 			// Convert Y.js types to plain text (lossy conversion)
 			serialized[key] = value.toString();
+		} else if (value instanceof Y.Array) {
+			// Convert Y.Array to JSON string
+			serialized[key] = JSON.stringify(value.toArray());
+		} else if (
+			value &&
+			typeof value === 'object' &&
+			'date' in value &&
+			'timezone' in value
+		) {
+			// Convert DateWithTimezone to "ISO_UTC|TIMEZONE" format
+			const dateWithTz = value as DateWithTimezone;
+			serialized[key] =
+				`${dateWithTz.date.toISOString()}|${dateWithTz.timezone}`;
 		} else {
 			serialized[key] = value;
 		}
@@ -106,9 +134,9 @@ async function createTablesIfNotExist(
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
-export function sqliteIndex<
-	TSchema extends Schema = Schema,
->(config: SQLiteIndexConfig) {
+export function sqliteIndex<TSchema extends Schema = Schema>(
+	config: SQLiteIndexConfig,
+) {
 	return defineIndex({
 		id: 'sqlite',
 		init: (epicenterDb: Db<TSchema>) => {
@@ -131,7 +159,9 @@ export function sqliteIndex<
 						const { error } = await tryAsync({
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
-								await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
+								await sqliteDb
+									.insert(drizzleTables[tableName])
+									.values(serializedRow);
 							},
 							catch: (err) => err,
 						});
@@ -203,7 +233,9 @@ export function sqliteIndex<
 						const { error } = await tryAsync({
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
-								await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
+								await sqliteDb
+									.insert(drizzleTables[tableName])
+									.values(serializedRow);
 							},
 							catch: (err) => err,
 						});

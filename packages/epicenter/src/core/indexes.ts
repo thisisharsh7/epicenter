@@ -58,9 +58,7 @@ export type Index<
 /**
  * Context passed to index factory functions
  */
-export type IndexContext<
-	TSchema extends Schema = Schema,
-> = {
+export type IndexContext<TSchema extends Schema = Schema> = {
 	/**
 	 * The Epicenter database object with high-level CRUD methods
 	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access

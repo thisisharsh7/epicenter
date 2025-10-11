@@ -55,9 +55,7 @@ import { createEpicenterDb } from './core';
  * db.enableAutoSave();
  * ```
  */
-export function createEpicenterDbFromDisk<
-	TSchemas extends Schema,
->(
+export function createEpicenterDbFromDisk<TSchemas extends Schema>(
 	workspaceId: string,
 	schema: TSchemas,
 	options?: {
@@ -89,7 +87,9 @@ export function createEpicenterDbFromDisk<
 	try {
 		const savedState = fs.readFileSync(filePath);
 		Y.applyUpdate(ydoc, savedState);
-		console.log(`[Persistence] Loaded workspace ${workspaceId} from ${filePath}`);
+		console.log(
+			`[Persistence] Loaded workspace ${workspaceId} from ${filePath}`,
+		);
 	} catch {
 		console.log(`[Persistence] Creating new workspace ${workspaceId}`);
 	}

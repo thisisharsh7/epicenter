@@ -181,45 +181,50 @@ export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
  * type MultiSelectField = ColumnSchemaToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * ```
  */
-export type ColumnSchemaToType<C extends ColumnSchema> = C extends IdColumnSchema
-	? string
-	: C extends TextColumnSchema
-		? C['nullable'] extends true
-			? string | null
-			: string
-		: C extends YtextColumnSchema
+export type ColumnSchemaToType<C extends ColumnSchema> =
+	C extends IdColumnSchema
+		? string
+		: C extends TextColumnSchema
 			? C['nullable'] extends true
-				? Y.Text | null
-				: Y.Text
-			: C extends YxmlfragmentColumnSchema
+				? string | null
+				: string
+			: C extends YtextColumnSchema
 				? C['nullable'] extends true
-					? Y.XmlFragment | null
-					: Y.XmlFragment
-				: C extends IntegerColumnSchema
+					? Y.Text | null
+					: Y.Text
+				: C extends YxmlfragmentColumnSchema
 					? C['nullable'] extends true
-						? number | null
-						: number
-					: C extends RealColumnSchema
+						? Y.XmlFragment | null
+						: Y.XmlFragment
+					: C extends IntegerColumnSchema
 						? C['nullable'] extends true
 							? number | null
 							: number
-						: C extends BooleanColumnSchema
+						: C extends RealColumnSchema
 							? C['nullable'] extends true
-								? boolean | null
-								: boolean
-							: C extends DateColumnSchema
+								? number | null
+								: number
+							: C extends BooleanColumnSchema
 								? C['nullable'] extends true
-									? DateWithTimezone | null
-									: DateWithTimezone
-								: C extends SelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
+									? boolean | null
+									: boolean
+								: C extends DateColumnSchema
 									? C['nullable'] extends true
-										? TOptions[number] | null
-										: TOptions[number]
-									: C extends MultiSelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
+										? DateWithTimezone | null
+										: DateWithTimezone
+									: C extends SelectColumnSchema<
+												infer TOptions extends readonly [string, ...string[]]
+										  >
 										? C['nullable'] extends true
-											? Y.Array<TOptions[number]> | null
-											: Y.Array<TOptions[number]>
-										: never;
+											? TOptions[number] | null
+											: TOptions[number]
+										: C extends MultiSelectColumnSchema<
+													infer TOptions extends readonly [string, ...string[]]
+											  >
+											? C['nullable'] extends true
+												? Y.Array<TOptions[number]> | null
+												: Y.Array<TOptions[number]>
+											: never;
 
 /**
  * Maps a specific TableSchema to a validated row type with properly typed fields.
@@ -285,14 +290,14 @@ export type SerializableRow<TRow extends Row = Row> = {
 	[K in keyof TRow]: K extends 'id'
 		? string
 		: TRow[K] extends Y.Text | Y.XmlFragment
-		? string
-		: TRow[K] extends Y.Text | Y.XmlFragment | null
-		? string | null
-		: TRow[K] extends Y.Array<infer U>
-		? U[]
-		: TRow[K] extends Y.Array<infer U> | null
-		? U[] | null
-		: TRow[K];
+			? string
+			: TRow[K] extends Y.Text | Y.XmlFragment | null
+				? string | null
+				: TRow[K] extends Y.Array<infer U>
+					? U[]
+					: TRow[K] extends Y.Array<infer U> | null
+						? U[] | null
+						: TRow[K];
 };
 
 /**
@@ -358,9 +363,7 @@ export function text(opts?: {
  * snippet: ytext() // → Y.Text binded to CodeMirror for code examples
  * comment: ytext({ nullable: true }) // → Y.Text binded to Quill editor for comments
  */
-export function ytext(opts?: {
-	nullable?: boolean;
-}): YtextColumnSchema {
+export function ytext(opts?: { nullable?: boolean }): YtextColumnSchema {
 	return {
 		type: 'ytext',
 		nullable: opts?.nullable ?? false,
@@ -498,7 +501,9 @@ export function date(opts?: {
  * select({ options: ['draft', 'published', 'archived'] })
  * select({ options: ['tech', 'personal'], default: 'tech' })
  */
-export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
+export function select<
+	const TOptions extends readonly [string, ...string[]],
+>(opts: {
 	options: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number];
@@ -517,7 +522,9 @@ export function select<const TOptions extends readonly [string, ...string[]]>(op
  * multiSelect({ options: ['typescript', 'javascript', 'python'] })
  * multiSelect({ options: ['tag1', 'tag2'], default: [] })
  */
-export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
+export function multiSelect<
+	const TOptions extends readonly [string, ...string[]],
+>(opts: {
 	options: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number][];
