@@ -211,12 +211,14 @@ export type ColumnSchemaToType<C extends ColumnSchema> = C extends IdColumnSchem
 								? C extends { nullable: true }
 									? DateWithTimezone | null
 									: DateWithTimezone
-								: C extends SelectColumnSchema<infer TOptions>
+								: C extends SelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
 									? C extends { nullable: true }
 										? TOptions[number] | null
 										: TOptions[number]
-									: C extends MultiSelectColumnSchema<infer TOptions>
-										? Y.Array<TOptions[number]>
+									: C extends MultiSelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
+										? C extends { nullable: true }
+											? Y.Array<TOptions[number]> | null
+											: Y.Array<TOptions[number]>
 										: never;
 
 /**
