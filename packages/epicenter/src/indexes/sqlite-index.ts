@@ -3,7 +3,8 @@ import { eq, sql } from 'drizzle-orm';
 import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { tryAsync } from 'wellcrafted/result';
-import type { Schema, TableSchema } from '../core/column-schemas';
+import * as Y from 'yjs';
+import type { Row, Schema, TableSchema } from '../core/column-schemas';
 import type { Db } from '../db/core';
 import { IndexErr } from '../core/errors';
 import type { Index } from '../core/indexes';
@@ -19,6 +20,37 @@ export type SQLiteIndexConfig = {
 	 */
 	databaseUrl?: string;
 };
+
+/**
+ * Maps a Row type to SQLite-compatible types
+ * Converts Y.Text and Y.XmlFragment to string, preserves everything else
+ */
+export type SQLiteRow<T extends Row> = {
+	[K in keyof T]: T[K] extends Y.Text | Y.XmlFragment
+		? string
+		: T[K] extends Y.Text | Y.XmlFragment | null
+			? string | null
+			: T[K];
+};
+
+/**
+ * Serialize Y.js types to plain text for SQLite storage
+ * Converts Y.Text and Y.XmlFragment to their string representations
+ */
+function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
+	const serialized: Record<string, any> = {};
+
+	for (const [key, value] of Object.entries(row)) {
+		if (value instanceof Y.Text || value instanceof Y.XmlFragment) {
+			// Convert Y.js types to plain text (lossy conversion)
+			serialized[key] = value.toString();
+		} else {
+			serialized[key] = value;
+		}
+	}
+
+	return serialized as SQLiteRow<T>;
+}
 
 /**
  * Create SQLite tables if they don't exist
@@ -98,7 +130,8 @@ export function createSQLiteIndex<
 				onAdd: async (row) => {
 					const { error } = await tryAsync({
 						try: async () => {
-							await sqliteDb.insert(drizzleTables[tableName]).values(row);
+							const serializedRow = serializeRowForSQLite(row);
+							await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
 						},
 						catch: (err) => err,
 					});
@@ -116,9 +149,10 @@ export function createSQLiteIndex<
 				onUpdate: async (row) => {
 					const { error } = await tryAsync({
 						try: async () => {
+							const serializedRow = serializeRowForSQLite(row);
 							await sqliteDb
 								.update(drizzleTables[tableName])
-								.set(row)
+								.set(serializedRow)
 								.where(eq((drizzleTables[tableName] as any).id, row.id));
 						},
 						catch: (err) => err,
@@ -168,7 +202,8 @@ export function createSQLiteIndex<
 				for (const row of rows) {
 					const { error } = await tryAsync({
 						try: async () => {
-							await sqliteDb.insert(drizzleTables[tableName]).values(row);
+							const serializedRow = serializeRowForSQLite(row);
+							await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
 						},
 						catch: (err) => err,
 					});
@@ -184,14 +219,10 @@ export function createSQLiteIndex<
 		})();
 
 		// Build queries object with db and table references
-		const queries: Record<string, any> = {
+		const queries = {
 			db: sqliteDb,
+			...drizzleTables,
 		};
-
-		// Add each table as a property for clean API: indexes.sqlite.posts.select()
-		for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
-			queries[tableName] = drizzleTable;
-		}
 
 		return {
 			destroy() {

@@ -10,11 +10,49 @@ import {
 import type { ColumnSchema, Schema, TableSchema } from '../core/column-schemas';
 
 /**
+ * Convert all table schemas to Drizzle tables
+ * Returns a map of table name → SQLiteTable
+ */
+export function convertAllTableSchemasToDrizzle<S extends Schema>(
+	schema: S,
+): Record<keyof S, SQLiteTable> {
+	const drizzleTables = {} as Record<keyof S, SQLiteTable>;
+
+	for (const tableName of Object.keys(schema) as Array<keyof S>) {
+		drizzleTables[tableName] = convertTableSchemaToDrizzle(
+			String(tableName),
+			schema[tableName],
+		);
+	}
+
+	return drizzleTables;
+}
+
+/**
+ * Convert a table schema (all columns) to a Drizzle SQLiteTable
+ */
+export function convertTableSchemaToDrizzle<T extends TableSchema>(
+	tableName: string,
+	tableSchema: T,
+): SQLiteTable {
+	const columns: Record<string, SQLiteColumnBuilderBase> = {};
+
+	for (const columnName of Object.keys(tableSchema)) {
+		columns[columnName] = convertColumnSchemaToDrizzle(
+			columnName,
+			tableSchema[columnName],
+		);
+	}
+
+	return sqliteTable(tableName, columns);
+}
+
+/**
  * Convert a ColumnSchema to a Drizzle column builder
  */
-function convertColumnSchemaToDrizzle(
+function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 	columnName: string,
-	schema: ColumnSchema,
+	schema: C,
 ): SQLiteColumnBuilderBase {
 	let column: SQLiteColumnBuilderBase;
 
@@ -24,16 +62,27 @@ function convertColumnSchemaToDrizzle(
 			break;
 
 		case 'text':
-		case 'rich-text': // Rich text stored as TEXT in SQLite
 			column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			if (schema.type === 'text' && schema.unique) column = column.unique();
-			if (schema.type === 'text' && schema.default !== undefined) {
+			if (schema.unique) column = column.unique();
+			if (schema.default !== undefined) {
 				column =
 					typeof schema.default === 'function'
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
+			break;
+
+		case 'ytext':
+			// Y.Text stored as plain text (lossy conversion via toString())
+			column = text(columnName);
+			if (!schema.nullable) column = column.notNull();
+			break;
+
+		case 'yxmlfragment':
+			// Y.XmlFragment stored as plain text (lossy conversion via toString())
+			column = text(columnName);
+			if (!schema.nullable) column = column.notNull();
 			break;
 
 		case 'integer':
@@ -97,60 +146,10 @@ function convertColumnSchemaToDrizzle(
 			}
 			break;
 
-		case 'json':
-			// JSON stored as TEXT with JSON mode
-			column = text(columnName, { mode: 'json' });
-			if (!schema.nullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
-			}
-			break;
-
-		case 'blob':
-			// Blob stored as BLOB
-			column = blob(columnName, { mode: 'buffer' });
-			if (!schema.nullable) column = column.notNull();
-			break;
-
 		default:
 			// @ts-expect-error - exhaustive check
 			throw new Error(`Unknown column type: ${schema.type}`);
 	}
 
 	return column;
-}
-
-/**
- * Convert a table schema (all columns) to a Drizzle SQLiteTable
- */
-export function convertTableSchemaToDrizzle(
-	tableName: string,
-	tableSchema: TableSchema,
-): SQLiteTable {
-	const columns: Record<string, SQLiteColumnBuilderBase> = {};
-
-	for (const [columnName, columnSchema] of Object.entries(tableSchema)) {
-		columns[columnName] = convertColumnSchemaToDrizzle(columnName, columnSchema);
-	}
-
-	return sqliteTable(tableName, columns);
-}
-
-/**
- * Convert all table schemas to Drizzle tables
- * Returns a map of table name → SQLiteTable
- */
-export function convertAllTableSchemasToDrizzle(
-	schema: Schema,
-): Record<string, SQLiteTable> {
-	const drizzleTables: Record<string, SQLiteTable> = {};
-
-	for (const [tableName, tableSchema] of Object.entries(schema)) {
-		drizzleTables[tableName] = convertTableSchemaToDrizzle(
-			tableName,
-			tableSchema,
-		);
-	}
-
-	return drizzleTables;
 }
