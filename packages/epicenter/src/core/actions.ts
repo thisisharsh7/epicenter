@@ -63,7 +63,7 @@ export type MutationAction<
 export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
 	config: Omit<QueryAction<TSchema, TOutput>, 'type'>,
 ): QueryAction<TSchema, TOutput> {
-	return { type: 'query' as const, ...config };
+	return { type: 'query', ...config };
 }
 
 /**
@@ -73,7 +73,7 @@ export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
 export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
 	config: Omit<MutationAction<TSchema, TOutput>, 'type'>,
 ): MutationAction<TSchema, TOutput> {
-	return { type: 'mutation' as const, ...config };
+	return { type: 'mutation', ...config };
 }
 
 /**
