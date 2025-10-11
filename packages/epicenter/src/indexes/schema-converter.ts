@@ -54,64 +54,63 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 	columnName: string,
 	schema: C,
 ): SQLiteColumnBuilderBase {
-	let column: SQLiteColumnBuilderBase;
-
 	switch (schema.type) {
 		case 'id':
-			column = text(columnName).primaryKey().notNull();
-			break;
+			return text(columnName).primaryKey().notNull();
 
-		case 'text':
-			column = text(columnName);
+		case 'text': {
+			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			if (schema.unique) column = column.unique();
 			if (schema.default !== undefined) {
 				column =
 					typeof schema.default === 'function'
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			break;
+			return column;
+		}
 
-		case 'ytext':
+		case 'ytext': {
 			// Y.Text stored as plain text (lossy conversion via toString())
-			column = text(columnName);
+			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			break;
+			return column;
+		}
 
-		case 'yxmlfragment':
+		case 'yxmlfragment': {
 			// Y.XmlFragment stored as plain text (lossy conversion via toString())
-			column = text(columnName);
+			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			break;
+			return column;
+		}
 
-		case 'integer':
-			column = integer(columnName);
+		case 'integer': {
+			let column = integer(columnName);
 			if (!schema.nullable) column = column.notNull();
-			if (schema.unique) column = column.unique();
 			if (schema.default !== undefined) {
 				column =
 					typeof schema.default === 'function'
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			break;
+			return column;
+		}
 
-		case 'real':
-			column = real(columnName);
+		case 'real': {
+			let column = real(columnName);
 			if (!schema.nullable) column = column.notNull();
-			if (schema.unique) column = column.unique();
 			if (schema.default !== undefined) {
 				column =
 					typeof schema.default === 'function'
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			break;
+			return column;
+		}
 
-		case 'boolean':
+		case 'boolean': {
 			// Boolean stored as INTEGER (0 or 1) in SQLite
-			column = integer(columnName, { mode: 'boolean' });
+			let column = integer(columnName, { mode: 'boolean' });
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column =
@@ -119,37 +118,38 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			break;
+			return column;
+		}
 
-		case 'date':
+		case 'date': {
 			// Date stored as TEXT in format "ISO_UTC|TIMEZONE"
-			column = text(columnName);
+			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			if (schema.unique) column = column.unique();
-			break;
+			return column;
+		}
 
-		case 'select':
+		case 'select': {
 			// Select stored as TEXT (single value)
-			column = text(columnName);
+			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			break;
+			return column;
+		}
 
-		case 'multi-select':
+		case 'multi-select': {
 			// Multi-select stored as TEXT with JSON mode (array of strings)
-			column = text(columnName, { mode: 'json' });
+			let column = text(columnName, { mode: 'json' });
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			break;
+			return column;
+		}
 
 		default:
 			// @ts-expect-error - exhaustive check
 			throw new Error(`Unknown column type: ${schema.type}`);
 	}
-
-	return column;
 }
