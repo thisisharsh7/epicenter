@@ -7,7 +7,7 @@ import * as Y from 'yjs';
 import type { Row, Schema, TableSchema } from '../core/column-schemas';
 import type { Db } from '../db/core';
 import { IndexErr } from '../core/errors';
-import type { Index } from '../core/indexes';
+import { defineIndex, type Index } from '../core/indexes';
 import { convertAllTableSchemasToDrizzle } from './schema-converter';
 
 /**
@@ -27,10 +27,10 @@ export type SQLiteIndexConfig = {
  */
 export type SQLiteRow<T extends Row> = {
 	[K in keyof T]: T[K] extends Y.Text | Y.XmlFragment
-		? string
-		: T[K] extends Y.Text | Y.XmlFragment | null
-			? string | null
-			: T[K];
+	? string
+	: T[K] extends Y.Text | Y.XmlFragment | null
+	? string | null
+	: T[K];
 };
 
 /**
@@ -109,129 +109,129 @@ async function createTablesIfNotExist(
 export function createSQLiteIndex<
 	TSchema extends Schema = Schema,
 >(config: SQLiteIndexConfig) {
-	return {
+	return defineIndex({
 		id: 'sqlite' as const,
 		init: (epicenterDb: Db<TSchema>) => {
-		// Convert table schemas to Drizzle tables
-		const drizzleTables = convertAllTableSchemasToDrizzle(epicenterDb.schema);
+			// Convert table schemas to Drizzle tables
+			const drizzleTables = convertAllTableSchemasToDrizzle(epicenterDb.schema);
 
-		// Create database connection
-		const sqliteDb = drizzle(
-			createClient({
-				url: config.databaseUrl || ':memory:',
-			}),
-		);
+			// Create database connection
+			const sqliteDb = drizzle(
+				createClient({
+					url: config.databaseUrl || ':memory:',
+				}),
+			);
 
-		// Set up observers for each table
-		const unsubscribers: Array<() => void> = [];
-
-		for (const tableName of epicenterDb.getTableNames()) {
-			const unsub = epicenterDb.tables[tableName].observe({
-				onAdd: async (row) => {
-					const { error } = await tryAsync({
-						try: async () => {
-							const serializedRow = serializeRowForSQLite(row);
-							await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
-						},
-						catch: (err) => err,
-					});
-
-					if (error) {
-						console.error(
-							IndexErr({
-								message: `SQLite index onAdd failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id, data: row },
-								cause: error,
-							}),
-						);
-					}
-				},
-				onUpdate: async (row) => {
-					const { error } = await tryAsync({
-						try: async () => {
-							const serializedRow = serializeRowForSQLite(row);
-							await sqliteDb
-								.update(drizzleTables[tableName])
-								.set(serializedRow)
-								.where(eq((drizzleTables[tableName] as any).id, row.id));
-						},
-						catch: (err) => err,
-					});
-
-					if (error) {
-						console.error(
-							IndexErr({
-								message: `SQLite index onUpdate failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id, data: row },
-								cause: error,
-							}),
-						);
-					}
-				},
-				onDelete: async (id) => {
-					const { error } = await tryAsync({
-						try: async () => {
-							await sqliteDb
-								.delete(drizzleTables[tableName])
-								.where(eq((drizzleTables[tableName] as any).id, id));
-						},
-						catch: (err) => err,
-					});
-
-					if (error) {
-						console.error(
-							IndexErr({
-								message: `SQLite index onDelete failed for ${tableName}/${id}`,
-								context: { tableName, id },
-								cause: error,
-							}),
-						);
-					}
-				},
-			});
-			unsubscribers.push(unsub);
-		}
-
-		// Initial sync: YJS → SQLite
-		(async () => {
-			await createTablesIfNotExist(sqliteDb, drizzleTables);
+			// Set up observers for each table
+			const unsubscribers: Array<() => void> = [];
 
 			for (const tableName of epicenterDb.getTableNames()) {
-				const { valid: rows } = epicenterDb.tables[tableName].getAll();
+				const unsub = epicenterDb.tables[tableName].observe({
+					onAdd: async (row) => {
+						const { error } = await tryAsync({
+							try: async () => {
+								const serializedRow = serializeRowForSQLite(row);
+								await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
+							},
+							catch: (err) => err,
+						});
 
-				for (const row of rows) {
-					const { error } = await tryAsync({
-						try: async () => {
-							const serializedRow = serializeRowForSQLite(row);
-							await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
-						},
-						catch: (err) => err,
-					});
+						if (error) {
+							console.error(
+								IndexErr({
+									message: `SQLite index onAdd failed for ${tableName}/${row.id}`,
+									context: { tableName, id: row.id, data: row },
+									cause: error,
+								}),
+							);
+						}
+					},
+					onUpdate: async (row) => {
+						const { error } = await tryAsync({
+							try: async () => {
+								const serializedRow = serializeRowForSQLite(row);
+								await sqliteDb
+									.update(drizzleTables[tableName])
+									.set(serializedRow)
+									.where(eq((drizzleTables[tableName] as any).id, row.id));
+							},
+							catch: (err) => err,
+						});
 
-					if (error) {
-						console.warn(
-							`Failed to sync row ${row.id} to SQLite during init:`,
-							error,
-						);
+						if (error) {
+							console.error(
+								IndexErr({
+									message: `SQLite index onUpdate failed for ${tableName}/${row.id}`,
+									context: { tableName, id: row.id, data: row },
+									cause: error,
+								}),
+							);
+						}
+					},
+					onDelete: async (id) => {
+						const { error } = await tryAsync({
+							try: async () => {
+								await sqliteDb
+									.delete(drizzleTables[tableName])
+									.where(eq((drizzleTables[tableName] as any).id, id));
+							},
+							catch: (err) => err,
+						});
+
+						if (error) {
+							console.error(
+								IndexErr({
+									message: `SQLite index onDelete failed for ${tableName}/${id}`,
+									context: { tableName, id },
+									cause: error,
+								}),
+							);
+						}
+					},
+				});
+				unsubscribers.push(unsub);
+			}
+
+			// Initial sync: YJS → SQLite
+			(async () => {
+				await createTablesIfNotExist(sqliteDb, drizzleTables);
+
+				for (const tableName of epicenterDb.getTableNames()) {
+					const { valid: rows } = epicenterDb.tables[tableName].getAll();
+
+					for (const row of rows) {
+						const { error } = await tryAsync({
+							try: async () => {
+								const serializedRow = serializeRowForSQLite(row);
+								await sqliteDb.insert(drizzleTables[tableName]).values(serializedRow);
+							},
+							catch: (err) => err,
+						});
+
+						if (error) {
+							console.warn(
+								`Failed to sync row ${row.id} to SQLite during init:`,
+								error,
+							);
+						}
 					}
 				}
-			}
-		})();
+			})();
 
-		// Build queries object with db and table references
-		const queries = {
-			db: sqliteDb,
-			...drizzleTables,
-		};
+			// Build queries object with db and table references
+			const queries = {
+				db: sqliteDb,
+				...drizzleTables,
+			};
 
-		return {
-			destroy() {
-				for (const unsub of unsubscribers) {
-					unsub();
-				}
-			},
-			queries,
-		};
+			return {
+				destroy() {
+					for (const unsub of unsubscribers) {
+						unsub();
+					}
+				},
+				queries,
+			};
 		},
-	};
+	});
 }
