@@ -1,5 +1,6 @@
 import type { Schema, TableSchema } from '../core/column-schemas';
 import { IndexErr } from '../core/errors';
+import { defineIndex } from '../core/indexes';
 import type { Db } from '../db/core';
 import {
 	deleteMarkdownFile,
@@ -23,11 +24,11 @@ export type MarkdownIndexConfig = {
  * Syncs YJS changes to markdown files for git-friendly persistence
  * No query interface - just persistence
  */
-export function createMarkdownIndex<
+export function markdownIndex<
 	TSchema extends Schema = Schema,
 >(config: MarkdownIndexConfig) {
-	return {
-		id: 'markdown' as const,
+	return defineIndex({
+		id: 'markdown',
 		init: (db: Db<TSchema>) => {
 			// Set up observers for each table
 			const unsubscribers: Array<() => void> = [];
@@ -94,5 +95,5 @@ export function createMarkdownIndex<
 				queries: {},
 			};
 		},
-	};
+	});
 }

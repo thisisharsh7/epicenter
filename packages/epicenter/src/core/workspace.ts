@@ -46,8 +46,8 @@ import type { Index } from './indexes';
  *   },
  *
  *   indexes: [
- *     createSQLiteIndex({ databaseUrl: ':memory:' }),
- *     createMarkdownIndex({ storagePath: './data' }),
+ *     sqliteIndex({ databaseUrl: ':memory:' }),
+ *     markdownIndex({ storagePath: './data' }),
  *   ],
  *
  *   setupYDoc: (ydoc) => {
@@ -155,8 +155,8 @@ export type WorkspaceConfig<
 	 * @example
 	 * ```typescript
 	 * indexes: [
-	 *   createSQLiteIndex({ databaseUrl: ':memory:' }),
-	 *   createMarkdownIndex({ storagePath: './data' }),
+	 *   sqliteIndex({ databaseUrl: ':memory:' }),
+	 *   markdownIndex({ storagePath: './data' }),
 	 * ]
 	 * ```
 	 */

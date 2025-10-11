@@ -77,10 +77,10 @@ export { defineIndex } from './core/indexes';
 export type { Index, IndexContext, InferIndexes } from './core/indexes';
 
 // Indexes (implementations)
-export { createSQLiteIndex } from './indexes/sqlite-index';
+export { sqliteIndex } from './indexes/sqlite-index';
 export type { SQLiteIndexConfig } from './indexes/sqlite-index';
 
-export { createMarkdownIndex } from './indexes/markdown-index';
+export { markdownIndex } from './indexes/markdown-index';
 export type { MarkdownIndexConfig } from './indexes/markdown-index';
 
 // Error types

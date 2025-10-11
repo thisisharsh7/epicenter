@@ -106,11 +106,11 @@ async function createTablesIfNotExist(
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
-export function createSQLiteIndex<
+export function sqliteIndex<
 	TSchema extends Schema = Schema,
 >(config: SQLiteIndexConfig) {
 	return defineIndex({
-		id: 'sqlite' as const,
+		id: 'sqlite',
 		init: (epicenterDb: Db<TSchema>) => {
 			// Convert table schemas to Drizzle tables
 			const drizzleTables = convertAllTableSchemasToDrizzle(epicenterDb.schema);
