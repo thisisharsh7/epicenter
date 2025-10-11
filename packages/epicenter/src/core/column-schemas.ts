@@ -71,6 +71,7 @@ export function generateId(): Id {
  * Discriminated union of all column types
  */
 export type ColumnSchema =
+	| IdColumnSchema
 	| TextColumnSchema
 	| YtextColumnSchema
 	| YxmlfragmentColumnSchema
@@ -245,7 +246,6 @@ export type ValidatedRow<TTableSchema extends TableSchema> = {
  * ```
  */
 export type Row = ValidatedRow<TableSchema>;
-
 
 /**
  * Union of all possible cell values across all column types.
