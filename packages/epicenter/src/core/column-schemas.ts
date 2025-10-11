@@ -260,6 +260,42 @@ export type ValidatedRow<TTableSchema extends TableSchema> = {
 export type Row = ValidatedRow<TableSchema>;
 
 /**
+ * Maps a Row type to serializable input types for insert/upsert/update operations.
+ * Y.js types are converted to their serialized string representations:
+ * - Y.Text → string
+ * - Y.XmlFragment → string
+ * - Y.Array<T> → string[]
+ *
+ * Other types remain unchanged. This allows passing serialized Y.js data directly
+ * to insert/upsert/update operations without constructing Y.js objects first.
+ *
+ * @example
+ * ```typescript
+ * type PostSchema = {
+ *   id: { type: 'id' };
+ *   title: { type: 'ytext'; nullable: false };
+ *   content: { type: 'yxmlfragment'; nullable: true };
+ *   tags: { type: 'multi-select'; options: ['a', 'b']; nullable: false };
+ * };
+ * type PostInput = SerializableRow<ValidatedRow<PostSchema>>;
+ * // { id: string; title: string; content: string | null; tags: string }
+ * ```
+ */
+export type SerializableRow<TRow extends Row = Row> = {
+	[K in keyof TRow]: K extends 'id'
+		? string
+		: TRow[K] extends Y.Text | Y.XmlFragment
+		? string
+		: TRow[K] extends Y.Text | Y.XmlFragment | null
+		? string | null
+		: TRow[K] extends Y.Array<infer U>
+		? U[]
+		: TRow[K] extends Y.Array<infer U> | null
+		? U[] | null
+		: TRow[K];
+};
+
+/**
  * Union of all possible cell values across all column types.
  * Derived from ColumnSchemaToType to ensure consistency.
  * Used for Y.Map value types in YJS documents.
