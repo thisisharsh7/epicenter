@@ -103,27 +103,6 @@ export function defineWorkspace<const W extends WorkspaceConfig>(
 		throw new Error('Workspace must have a valid string name');
 	}
 
-	// Validate dependencies
-	if (workspace.dependencies) {
-		if (!Array.isArray(workspace.dependencies)) {
-			throw new Error('Dependencies must be an array of workspace objects');
-		}
-
-		for (const dep of workspace.dependencies as readonly WorkspaceConfig[]) {
-			if (
-				!dep ||
-				typeof dep !== 'object' ||
-				!dep.id ||
-				!dep.version ||
-				!dep.name
-			) {
-				throw new Error(
-					'Invalid dependency: dependencies must be workspace objects with id, version, and name',
-				);
-			}
-		}
-	}
-
 	return workspace;
 }
 
@@ -136,7 +115,6 @@ export type WorkspaceConfig<
 	TSchema extends Schema = Schema,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
-	TDeps extends readonly WorkspaceConfig[] = readonly [],
 	TName extends string = string,
 > = {
 	/**
@@ -169,19 +147,6 @@ export type WorkspaceConfig<
 	 * Table schemas (column definitions as JSON)
 	 */
 	schema: TSchema;
-
-	/**
-	 * Other workspaces this workspace depends on
-	 * Names become the property names in the workspaces API
-	 * @example
-	 * ```typescript
-	 * dependencies: [authWorkspace, storageWorkspace]
-	 * // Later in actions (using workspace names as property names):
-	 * workspaces.auth.login(...)         // 'auth' is authWorkspace.name
-	 * workspaces.storage.uploadFile(...) // 'storage' is storageWorkspace.name
-	 * ```
-	 */
-	dependencies?: TDeps;
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
@@ -222,12 +187,12 @@ export type WorkspaceConfig<
 
 	/**
 	 * Workspace actions - business logic with access to db and indexes
-	 * @param context - Database instance (with tables, ydoc, transactions), indexes (read), and dependency workspaces
+	 * @param context - Database instance (with tables, ydoc, transactions) and indexes (read)
 	 * @returns Map of action name → action implementation
 	 *
 	 * @example
 	 * ```typescript
-	 * actions: ({ db, indexes, workspaces }) => ({
+	 * actions: ({ db, indexes }) => ({
 	 *   createPost: defineMutation({
 	 *     input: z.object({ title: z.string() }),
 	 *     handler: async ({ title }) => {
@@ -246,16 +211,8 @@ export type WorkspaceConfig<
 	 * ```
 	 */
 	actions: (
-		context: WorkspaceActionContext<TSchema, TIndexes, TDeps>,
+		context: WorkspaceActionContext<TSchema, TIndexes>,
 	) => TActionMap;
-
-	/**
-	 * Lifecycle hooks (optional)
-	 */
-	hooks?: {
-		beforeInit?: () => Promise<void>;
-		afterInit?: () => Promise<void>;
-	};
 };
 
 /**
@@ -264,14 +221,7 @@ export type WorkspaceConfig<
 export type WorkspaceActionContext<
 	TSchema extends Schema = Schema,
 	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
-	TDeps extends readonly WorkspaceConfig[] = readonly [],
 > = {
-	/**
-	 * Dependency workspaces
-	 * Access actions from other workspaces
-	 */
-	workspaces: DependencyWorkspacesAPI<TDeps>;
-
 	/**
 	 * Database instance with table helpers, ydoc, schema, and utilities
 	 * Provides full access to YJS document and transactional operations
@@ -294,34 +244,6 @@ export type IndexesAPI<TIndexes extends readonly Index<any>[]> = {
 		? TQueries
 		: never;
 };
-
-/**
- * Dependency workspaces API - actions from dependency workspaces
- * Converts array of workspaces into an object keyed by workspace names
- */
-export type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
-	TDeps extends readonly []
-		? Record<string, never>
-		: {
-				[W in TDeps[number] as W extends WorkspaceConfig<
-					infer _TId,
-					infer _TVersion,
-					infer _TSchema,
-					infer _TActionMap,
-					infer _TIndexes,
-					infer _TDeps,
-					infer TName
-				>
-					? TName
-					: never]: W extends WorkspaceConfig<
-					infer _TId2,
-					infer _TVersion2,
-					infer _TSchema2,
-					infer TActionMap
-				>
-					? ExtractHandlers<TActionMap>
-					: never;
-			};
 
 /**
  * Extract handler functions from action map
@@ -347,4 +269,3 @@ export function extractHandlers<T extends WorkspaceActionMap>(
 		]),
 	) as ExtractHandlers<T>;
 }
-

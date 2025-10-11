@@ -5,7 +5,6 @@ import type { WorkspaceActionMap } from './actions';
 import type { Schema, TableSchema, ValidatedRow } from './column-schemas';
 import type { Index } from './indexes';
 import type {
-	DependencyWorkspacesAPI,
 	ExtractHandlers,
 	IndexesAPI,
 	WorkspaceConfig,
@@ -109,7 +108,6 @@ export async function createWorkspaceClient<
 	TSchema extends Schema,
 	TActionMap extends WorkspaceActionMap,
 	const TIndexes extends readonly Index<TSchema>[],
-	const TDeps extends readonly WorkspaceConfig[],
 >(
 	workspace: WorkspaceConfig<
 		TId,
@@ -117,7 +115,6 @@ export async function createWorkspaceClient<
 		TSchema,
 		TActionMap,
 		TIndexes,
-		TDeps,
 		string
 	>,
 	config: RuntimeConfig = {},
@@ -172,64 +169,10 @@ export async function createWorkspaceClient<
 	// 8. Set up YDoc synchronization and persistence (if provided)
 	workspace.setupYDoc?.(ydoc);
 
-	// 9. Initialize dependencies with version resolution
-	const workspaces = {} as DependencyWorkspacesAPI<TDeps>;
-	// Track direct dependencies for cleanup - when this workspace is destroyed,
-	// we recursively destroy all dependencies in this map
-	const dependencyClients = new Map<string, WorkspaceClient<any>>();
-
-	if (workspace.dependencies && workspace.dependencies.length > 0) {
-		// Group dependencies by workspace ID
-		const versionsByWorkspaceId = new Map<string, WorkspaceConfig[]>();
-
-		for (const dep of workspace.dependencies) {
-			if (!versionsByWorkspaceId.has(dep.id)) {
-				versionsByWorkspaceId.set(dep.id, []);
-			}
-			// biome-ignore lint/style/noNonNullAssertion: Guaranteed by the if-check above
-			versionsByWorkspaceId.get(dep.id)!.push(dep);
-		}
-
-		// For each workspace ID, initialize all versions
-		for (const [workspaceId, versions] of versionsByWorkspaceId) {
-			// Find latest version for short name (computed on-demand)
-			const latest = versions.reduce((a, b) =>
-				a.version.localeCompare(b.version, undefined, { numeric: true }) > 0
-					? a
-					: b,
-			);
-
-			// Initialize each version
-			for (const dep of versions) {
-				// Recursively initialize dependency (may return cached client if already initialized)
-				const depClient = await createWorkspaceClient(
-					dep,
-					config,
-					_initializedClients,
-					_initializationChain,
-				);
-
-				const depGuid = `${dep.id}.${dep.version}` as const;
-
-				// Track dependency client for cleanup (even if it was cached and shared with other workspaces)
-				dependencyClients.set(depGuid, depClient);
-
-				// Expose in workspaces API
-				if (dep === latest) {
-					// Latest version gets the short name
-					workspaces[dep.name] = depClient;
-				} else {
-					// Older versions get version suffix
-					workspaces[`${dep.name}:v${dep.version}`] = depClient;
-				}
-			}
-		}
-	}
-
-	// 10. Remove from stack (dependency fully initialized)
+	// 9. Remove from stack (dependency fully initialized)
 	_initializationChain.delete(ydocGuid);
 
-	// 11. Create IndexesAPI by extracting queries from each index
+	// 10. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.fromEntries(
 		Object.entries(indexes).map(([indexName, index]) => [
 			indexName,
@@ -237,14 +180,13 @@ export async function createWorkspaceClient<
 		]),
 	) as IndexesAPI<TIndexes>;
 
-	// 12. Process actions to extract handlers and make them directly callable
+	// 11. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
-		workspaces,
 		db,
 		indexes: indexesAPI,
 	}) as TActionMap;
 
-	// 13. Create client with destroy method
+	// 12. Create client with destroy method
 	const client: WorkspaceClient<TActionMap> = {
 		...extractHandlers(actionMap),
 		destroy: async () => {
@@ -256,17 +198,12 @@ export async function createWorkspaceClient<
 			// Destroy YDoc (disconnects providers, cleans up)
 			ydoc.destroy();
 
-			// Recursively destroy dependencies
-			for (const depClient of dependencyClients.values()) {
-				await depClient.destroy();
-			}
-
 			// Remove from cache
 			_initializedClients.delete(ydocGuid);
 		},
 	};
 
-	// 14. Cache the client
+	// 13. Cache the client
 	_initializedClients.set(ydocGuid, client);
 
 	return client;

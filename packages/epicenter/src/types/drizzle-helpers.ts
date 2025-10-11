@@ -51,11 +51,6 @@ export type AffectedRowsResult = {
 export type WorkspaceAction = (...args: unknown[]) => unknown;
 
 /**
- * Type for workspace dependencies map
- */
-export type WorkspaceDependencies = Record<string, unknown>;
-
-/**
  * Type for workspace tables map with enhanced helpers
  */
 export type WorkspaceTables = Record<
@@ -84,14 +79,6 @@ export function countExpression(): SQL<number> {
 }
 
 /**
- * Type for the workspace API passed to workspace actions
- * This is a recursive type that builds up based on workspace dependencies
- */
-export type WorkspaceAPI<
-	TWorkspaces extends Record<string, unknown> = Record<string, unknown>,
-> = TWorkspaces;
-
-/**
  * Type for runtime storage operations
  */
 export type StorageOperations = {
@@ -100,13 +87,6 @@ export type StorageOperations = {
 	update: (table: string, id: string, data: StorageData) => Promise<void>;
 	delete: (table: string, id: string) => Promise<void>;
 };
-
-/**
- * Type for aggregated workspace namespace
- */
-export type AggregatedWorkspaceNamespace<
-	TWorkspaces extends Record<string, unknown> = Record<string, unknown>,
-> = TWorkspaces;
 
 /**
  * Generate CREATE TABLE statements for SQLite schema
