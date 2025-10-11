@@ -30,7 +30,7 @@ export type QueryAction<
 	handler: (
 		...args: TSchema extends undefined
 			? []
-			: [input: StandardSchemaV1.InferOutput<TSchema>]
+			: [input: StandardSchemaV1.InferOutput<Exclude<TSchema, undefined>>]
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
@@ -49,7 +49,7 @@ export type MutationAction<
 	handler: (
 		...args: TSchema extends undefined
 			? []
-			: [input: StandardSchemaV1.InferOutput<TSchema>]
+			: [input: StandardSchemaV1.InferOutput<Exclude<TSchema, undefined>>]
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;

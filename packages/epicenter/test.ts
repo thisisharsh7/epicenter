@@ -71,7 +71,6 @@ const blogWorkspace = defineWorkspace({
 		}),
 
 		getPublishedPosts: defineQuery({
-			input: z.void(),
 			handler: async () => {
 				console.log('Querying published posts from SQLite index...');
 				const posts = indexes.sqlite.db
@@ -84,7 +83,6 @@ const blogWorkspace = defineWorkspace({
 		}),
 
 		getAllPosts: defineQuery({
-			input: z.void(),
 			handler: async () => {
 				console.log('Querying all posts from SQLite index...');
 				const posts = indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
