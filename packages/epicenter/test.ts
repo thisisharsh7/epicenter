@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod';
+import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
 	createMarkdownIndex,
@@ -14,7 +15,7 @@ import {
 	id,
 	integer,
 	isNotNull,
-	runWorkspace,
+	createWorkspaceClient,
 	select,
 	text,
 } from './src/index';
@@ -22,6 +23,8 @@ import {
 // Define a simple blog workspace
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
+	version: '1',
+	name: 'blog',
 
 	schema: {
 		posts: {
@@ -45,7 +48,7 @@ const blogWorkspace = defineWorkspace({
 		}),
 	],
 
-	actions: ({ tables, indexes }) => ({
+	actions: ({ db, indexes }) => ({
 		createPost: defineMutation({
 			input: z.object({
 				title: z.string().min(1),
@@ -57,13 +60,13 @@ const blogWorkspace = defineWorkspace({
 				const post = {
 					id: generateId(),
 					title: input.title,
-					content: input.content || null,
+					content: input.content ?? '',
 					category: input.category,
 					views: 0,
 					published: false,
 				};
-				tables.posts.insert(post);
-				return post;
+				db.tables.posts.insert(post);
+				return Ok(post);
 			},
 		}),
 
@@ -71,11 +74,12 @@ const blogWorkspace = defineWorkspace({
 			input: z.void(),
 			handler: async () => {
 				console.log('Querying published posts from SQLite index...');
-				return indexes.sqlite.db
+				const posts = indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
 					.where(isNotNull(indexes.sqlite.posts.published))
 					.all();
+				return Ok(posts);
 			},
 		}),
 
@@ -83,8 +87,19 @@ const blogWorkspace = defineWorkspace({
 			input: z.void(),
 			handler: async () => {
 				console.log('Querying all posts from SQLite index...');
-				// @ts-expect-error - need to fix types
-				return indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
+				const posts = indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
+				return Ok(posts);
+			},
+		}),
+
+		deletePost: defineMutation({
+			input: z.object({
+				id: z.string(),
+			}),
+			handler: async ({ id }) => {
+				console.log('Deleting post:', id);
+				db.tables.posts.delete(id);
+				return Ok(undefined);
 			},
 		}),
 	}),
@@ -97,7 +112,7 @@ async function test() {
 	try {
 		// 1. Initialize the workspace
 		console.log('📦 Initializing workspace...');
-		const workspace = await runWorkspace(blogWorkspace);
+		const workspace = await createWorkspaceClient(blogWorkspace);
 		console.log('✅ Workspace initialized\n');
 
 		// 2. Create some posts
@@ -129,10 +144,10 @@ async function test() {
 		console.log('All posts:', allPostsResult);
 		console.log('✅ Query successful\n');
 
-		// 4. Test direct table operations
+		// 4. Test delete operation
 		console.log('🗑️  Testing delete operation...');
 		if (post1Result.data) {
-			const deleteResult = workspace.posts.delete(post1Result.data.id);
+			const deleteResult = await workspace.deletePost({ id: post1Result.data.id });
 			console.log('Delete result:', deleteResult);
 		}
 		console.log('✅ Delete successful\n');

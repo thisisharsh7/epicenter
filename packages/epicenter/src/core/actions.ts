@@ -8,7 +8,7 @@ import type { EpicenterOperationError } from './errors';
  * Each workspace exposes its functionality through a set of typed actions
  * that can be called by other workspaces or external consumers.
  */
-export type WorkspaceActionMap = Record<string, WorkspaceAction>;
+export type WorkspaceActionMap = Record<string, WorkspaceAction<any, any>>;
 
 /**
  * Union type for all action types
@@ -22,13 +22,15 @@ export type WorkspaceAction<
  * Query action structure with schema validation
  */
 export type QueryAction<
-	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TSchema extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 	TOutput = unknown,
 > = {
 	type: 'query';
-	input: TSchema;
+	input?: TSchema;
 	handler: (
-		input: StandardSchemaV1.InferOutput<TSchema>,
+		...args: TSchema extends undefined
+			? []
+			: [input: StandardSchemaV1.InferOutput<TSchema>]
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
@@ -39,13 +41,15 @@ export type QueryAction<
  * Mutation action structure with schema validation
  */
 export type MutationAction<
-	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TSchema extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 	TOutput = unknown,
 > = {
 	type: 'mutation';
-	input: TSchema;
+	input?: TSchema;
 	handler: (
-		input: StandardSchemaV1.InferOutput<TSchema>,
+		...args: TSchema extends undefined
+			? []
+			: [input: StandardSchemaV1.InferOutput<TSchema>]
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;

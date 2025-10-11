@@ -1,0 +1,169 @@
+import { z } from 'zod';
+import { Ok } from 'wellcrafted/result';
+import {
+	defineWorkspace,
+	id,
+	text,
+	integer,
+	select,
+	generateId,
+	createSQLiteIndex,
+	defineQuery,
+	defineMutation,
+	isNotNull,
+	eq,
+} from '../../packages/epicenter/src/index';
+
+/**
+ * Example blog workspace
+ * Demonstrates the basic structure of an Epicenter workspace
+ */
+
+export default defineWorkspace({
+	id: 'blog',
+	version: '1',
+	name: 'blog',
+
+	schema: {
+		posts: {
+			id: id(),
+			title: text(),
+			content: text({ nullable: true }),
+			category: select({ options: ['tech', 'personal', 'tutorial'] as const }),
+			views: integer({ default: 0 }),
+			publishedAt: text({ nullable: true }),
+		},
+		comments: {
+			id: id(),
+			postId: text(),
+			author: text(),
+			content: text(),
+			createdAt: text(),
+		},
+	},
+
+	indexes: [
+		createSQLiteIndex({
+			databaseUrl: ':memory:',
+		}),
+	],
+
+	actions: ({ db, indexes }) => ({
+		// Query: Get all published posts
+		getPublishedPosts: defineQuery({
+			input: z.void(),
+			handler: async () => {
+				// @ts-expect-error - need to fix types
+				const posts = indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.posts)
+					.where(isNotNull(indexes.sqlite.posts.publishedAt))
+					.all();
+				return Ok(posts);
+			},
+		}),
+
+		// Query: Get post by ID
+		getPost: defineQuery({
+			input: z.object({ id: z.string() }),
+			handler: async ({ id }) => {
+				// @ts-expect-error - need to fix types
+				const post = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.posts)
+					.where(eq(indexes.sqlite.posts.id, id))
+					.get();
+				return Ok(post);
+			},
+		}),
+
+		// Query: Get comments for a post
+		getPostComments: defineQuery({
+			input: z.object({ postId: z.string() }),
+			handler: async ({ postId }) => {
+				// @ts-expect-error - need to fix types
+				const comments = indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.comments)
+					.where(eq(indexes.sqlite.comments.postId, postId))
+					.all();
+				return Ok(comments);
+			},
+		}),
+
+		// Mutation: Create a new post
+		createPost: defineMutation({
+			input: z.object({
+				title: z.string(),
+				content: z.string().optional(),
+				category: z.enum(['tech', 'personal', 'tutorial']),
+			}),
+			handler: async ({ title, content, category }) => {
+				const post = {
+					id: generateId(),
+					title,
+					content: content ?? '',
+					category,
+					views: 0,
+					publishedAt: '',
+				};
+				db.tables.posts.insert(post);
+				return Ok(post);
+			},
+		}),
+
+		// Mutation: Publish a post
+		publishPost: defineMutation({
+			input: z.object({ id: z.string() }),
+			handler: async ({ id }) => {
+				const result = db.tables.posts.get(id);
+				if (!result.row) {
+					throw new Error(`Post ${id} not found`);
+				}
+				db.tables.posts.update({
+					id,
+					publishedAt: new Date().toISOString(),
+				});
+				const updatedPost = db.tables.posts.get(id).row!;
+				return Ok(updatedPost);
+			},
+		}),
+
+		// Mutation: Add a comment
+		addComment: defineMutation({
+			input: z.object({
+				postId: z.string(),
+				author: z.string(),
+				content: z.string(),
+			}),
+			handler: async ({ postId, author, content }) => {
+				const comment = {
+					id: generateId(),
+					postId,
+					author,
+					content,
+					createdAt: new Date().toISOString(),
+				};
+				db.tables.comments.insert(comment);
+				return Ok(comment);
+			},
+		}),
+
+		// Mutation: Increment post views
+		incrementViews: defineMutation({
+			input: z.object({ id: z.string() }),
+			handler: async ({ id }) => {
+				const result = db.tables.posts.get(id);
+				if (!result.row) {
+					throw new Error(`Post ${id} not found`);
+				}
+				db.tables.posts.update({
+					id,
+					views: result.row.views + 1,
+				});
+				const updatedPost = db.tables.posts.get(id).row!;
+				return Ok(updatedPost);
+			},
+		}),
+	}),
+});
