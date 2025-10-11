@@ -184,39 +184,39 @@ export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
 export type ColumnSchemaToType<C extends ColumnSchema> = C extends IdColumnSchema
 	? string
 	: C extends TextColumnSchema
-		? C extends { nullable: true }
+		? C['nullable'] extends true
 			? string | null
 			: string
 		: C extends YtextColumnSchema
-			? C extends { nullable: true }
+			? C['nullable'] extends true
 				? Y.Text | null
 				: Y.Text
 			: C extends YxmlfragmentColumnSchema
-				? C extends { nullable: true }
+				? C['nullable'] extends true
 					? Y.XmlFragment | null
 					: Y.XmlFragment
 				: C extends IntegerColumnSchema
-					? C extends { nullable: true }
+					? C['nullable'] extends true
 						? number | null
 						: number
 					: C extends RealColumnSchema
-						? C extends { nullable: true }
+						? C['nullable'] extends true
 							? number | null
 							: number
 						: C extends BooleanColumnSchema
-							? C extends { nullable: true }
+							? C['nullable'] extends true
 								? boolean | null
 								: boolean
 							: C extends DateColumnSchema
-								? C extends { nullable: true }
+								? C['nullable'] extends true
 									? DateWithTimezone | null
 									: DateWithTimezone
 								: C extends SelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
-									? C extends { nullable: true }
+									? C['nullable'] extends true
 										? TOptions[number] | null
 										: TOptions[number]
 									: C extends MultiSelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
-										? C extends { nullable: true }
+										? C['nullable'] extends true
 											? Y.Array<TOptions[number]> | null
 											: Y.Array<TOptions[number]>
 										: never;
