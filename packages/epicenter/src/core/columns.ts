@@ -444,5 +444,98 @@ export function blob<TNullable extends boolean = false>({
 	return column as ApplyColumnModifiers<typeof column, TNullable, undefined>;
 }
 
+/**
+ * Serializer for multi-select arrays - converts between arrays and JSON strings
+ * Validates that all values are in the allowed options set
+ */
+function createMultiSelectSerializer<
+	const TOptions extends readonly [string, ...string[]],
+>(options: TOptions) {
+	const optionsSet = new Set(options);
+
+	return Serializer({
+		serialize(value: TOptions[number][]): string {
+			// Validate that all values are in the options
+			for (const item of value) {
+				if (!optionsSet.has(item)) {
+					throw new Error(
+						`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
+					);
+				}
+			}
+			return JSON.stringify(value);
+		},
+		deserialize(storage: string): TOptions[number][] {
+			try {
+				const parsed = JSON.parse(storage);
+				if (!Array.isArray(parsed)) {
+					throw new Error('Stored value is not an array');
+				}
+				// Validate that all values are in the options
+				for (const item of parsed) {
+					if (!optionsSet.has(item)) {
+						throw new Error(
+							`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
+						);
+					}
+				}
+				return parsed as TOptions[number][];
+			} catch (error) {
+				throw new Error(
+					`Invalid MultiSelect format: ${storage}. ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		},
+	});
+}
+
+/**
+ * Creates a multi-select column (stored as JSON text, NOT NULL by default)
+ * Uses non-empty array constraint [string, ...string[]] to ensure at least one option
+ * @example
+ * multiSelect({ options: ['admin', 'user', 'guest'] as const })
+ * multiSelect({ options: ['red', 'blue'] as const, nullable: true })
+ * multiSelect({ options: ['tag1', 'tag2'] as const, default: [] })
+ * multiSelect({ options: ['a', 'b'] as const, default: ['a'] })
+ */
+export function multiSelect<
+	const TOptions extends readonly [string, ...string[]],
+	TNullable extends boolean = false,
+	TDefault extends TOptions[number][] | (() => TOptions[number][]) | undefined = undefined,
+>({
+	options,
+	nullable = false as TNullable,
+	default: defaultValue,
+}: {
+	options: TOptions;
+	nullable?: TNullable;
+	default?: TDefault;
+}) {
+	const serializer = createMultiSelectSerializer(options);
+
+	const multiSelectType = customType<{
+		data: TOptions[number][];
+		driverData: string;
+	}>({
+		dataType: () => 'text',
+		toDriver: (value: TOptions[number][]): string => serializer.serialize(value),
+		fromDriver: (value: string): TOptions[number][] => serializer.deserialize(value),
+	});
+
+	let column = multiSelectType();
+
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
+
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue);
+	}
+
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
+}
+
 // Re-export Drizzle utilities
 export { sql } from 'drizzle-orm';
