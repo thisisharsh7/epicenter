@@ -6,8 +6,28 @@ import {
 	blob,
 	type SQLiteTable,
 	type SQLiteColumnBuilderBase,
+	type SQLiteTextBuilderInitial,
+	type SQLiteIntegerBuilderInitial,
+	type SQLiteRealBuilderInitial,
+	SQLiteBooleanBuilderInitial,
+	SQLiteTextJsonBuilderInitial,
 } from 'drizzle-orm/sqlite-core';
-import type { ColumnSchema, Schema, TableSchema } from '../core/column-schemas';
+import type {
+	ColumnSchema,
+	Schema,
+	TableSchema,
+	IdColumnSchema,
+	TextColumnSchema,
+	YtextColumnSchema,
+	YxmlfragmentColumnSchema,
+	IntegerColumnSchema,
+	RealColumnSchema,
+	BooleanColumnSchema,
+	DateColumnSchema,
+	SelectColumnSchema,
+	MultiSelectColumnSchema,
+} from '../core/column-schemas';
+import { IsPrimaryKey, NotNull } from 'drizzle-orm';
 
 /**
  * Convert all table schemas to Drizzle tables
@@ -48,15 +68,58 @@ export function convertTableSchemaToDrizzle<T extends TableSchema>(
 }
 
 /**
+ * Maps a ColumnSchema to its corresponding Drizzle column builder type
+ */
+type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
+	? IsPrimaryKey<NotNull<SQLiteTextBuilderInitial<"", [string, ...string[]], undefined>>>
+	: C extends TextColumnSchema
+		? C extends { nullable: true }
+			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
+			: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
+		: C extends YtextColumnSchema
+			? C extends { nullable: true }
+				? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
+				: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
+			: C extends YxmlfragmentColumnSchema
+				? C extends { nullable: true }
+					? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
+					: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
+				: C extends IntegerColumnSchema
+					? C extends { nullable: true }
+						? SQLiteIntegerBuilderInitial<"">
+						: NotNull<SQLiteIntegerBuilderInitial<"">>
+					: C extends RealColumnSchema
+						? C extends { nullable: true }
+							? SQLiteRealBuilderInitial<"">
+							: NotNull<SQLiteRealBuilderInitial<"">>
+						: C extends BooleanColumnSchema
+							? C extends { nullable: true }
+								? SQLiteBooleanBuilderInitial<"">
+								: NotNull<SQLiteBooleanBuilderInitial<"">>
+							: C extends DateColumnSchema
+								? C extends { nullable: true }
+									? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
+									: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
+								: C extends SelectColumnSchema<infer TOptions extends readonly [string, ...string[]]>
+									? C extends { nullable: true }
+										? SQLiteTextBuilderInitial<'', [...TOptions], number | undefined>
+										: NotNull<SQLiteTextBuilderInitial<'', [...TOptions], number | undefined>>
+									: C extends MultiSelectColumnSchema
+										? C extends { nullable: true }
+											? SQLiteTextJsonBuilderInitial<''>
+											: NotNull<SQLiteTextJsonBuilderInitial<''>>
+										: never;
+
+/**
  * Convert a ColumnSchema to a Drizzle column builder
  */
 function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 	columnName: string,
 	schema: C,
-): SQLiteColumnBuilderBase {
+): ColumnToDrizzle<C> {
 	switch (schema.type) {
 		case 'id':
-			return text(columnName).primaryKey().notNull();
+			return text(columnName).primaryKey().notNull() as ColumnToDrizzle<C>;
 
 		case 'text': {
 			let column = text(columnName);
@@ -67,21 +130,21 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'ytext': {
 			// Y.Text stored as plain text (lossy conversion via toString())
 			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'yxmlfragment': {
 			// Y.XmlFragment stored as plain text (lossy conversion via toString())
 			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'integer': {
@@ -93,7 +156,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'real': {
@@ -105,7 +168,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'boolean': {
@@ -118,14 +181,14 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 						? column.$defaultFn(schema.default)
 						: column.default(schema.default);
 			}
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'date': {
 			// Date stored as TEXT in format "ISO_UTC|TIMEZONE"
 			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'select': {
@@ -135,7 +198,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'multi-select': {
@@ -145,7 +208,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			return column;
+			return column as ColumnToDrizzle<C>;
 		}
 
 		default:
