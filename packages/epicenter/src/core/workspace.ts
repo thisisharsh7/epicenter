@@ -207,14 +207,6 @@ export type Workspace<
 	actions: (
 		context: WorkspaceActionContext<TSchema, TIndexes, TDeps>,
 	) => TActionMap;
-
-	/**
-	 * Lifecycle hooks (optional)
-	 */
-	hooks?: {
-		beforeInit?: () => Promise<void>;
-		afterInit?: () => Promise<void>;
-	};
 };
 
 /**
