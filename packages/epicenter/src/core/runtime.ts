@@ -103,8 +103,8 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  *                                Contains workspace GUIDs currently being initialized.
  */
 export async function createWorkspaceClient<
-	TId extends string,
-	TVersion extends string,
+	const TId extends string,
+	const TVersion extends string,
 	TSchema extends Schema,
 	TActionMap extends WorkspaceActionMap,
 	const TIndexes extends readonly Index<TSchema>[],

@@ -88,7 +88,7 @@ export type IndexContext<
  */
 export function defineIndex<
 	TSchema extends Schema,
-	TId extends string,
+	const TId extends string,
 	TQueries = Record<string, any>,
 >(index: Index<TSchema, TId, TQueries>): Index<TSchema, TId, TQueries> {
 	return index;
