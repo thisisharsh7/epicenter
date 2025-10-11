@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
-	createMarkdownIndex,
-	createSQLiteIndex,
+	markdownIndex,
+	sqliteIndex,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -40,10 +40,10 @@ const blogWorkspace = defineWorkspace({
 	},
 
 	indexes: [
-		createSQLiteIndex({
+		sqliteIndex({
 			databaseUrl: ':memory:', // In-memory for testing
 		}),
-		createMarkdownIndex({
+		markdownIndex({
 			storagePath: './test-data',
 		}),
 	],
