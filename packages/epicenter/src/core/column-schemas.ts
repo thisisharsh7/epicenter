@@ -267,24 +267,16 @@ export function id(): IdColumnSchema {
  * text({ nullable: true }) // → { type: 'text', nullable: true }
  * text({ unique: true, default: 'unnamed' })
  */
-// Overload: nullable explicitly true
 export function text(opts: {
 	nullable: true;
 	unique?: boolean;
 	default?: string | (() => string);
 }): TextColumnSchema<true>;
-// Overload: nullable explicitly false
-export function text(opts: {
-	nullable: false;
-	unique?: boolean;
-	default?: string | (() => string);
-}): TextColumnSchema<false>;
-// Overload: nullable not provided (defaults to false)
 export function text(opts?: {
+	nullable?: false;
 	unique?: boolean;
 	default?: string | (() => string);
 }): TextColumnSchema<false>;
-// Implementation
 export function text({
 	nullable = false,
 	unique,
@@ -329,8 +321,7 @@ export function text({
  * comment: ytext({ nullable: true }) // → Y.Text binded to Quill editor for comments
  */
 export function ytext(opts: { nullable: true }): YtextColumnSchema<true>;
-export function ytext(opts: { nullable: false }): YtextColumnSchema<false>;
-export function ytext(opts?: {}): YtextColumnSchema<false>;
+export function ytext(opts?: { nullable?: false }): YtextColumnSchema<false>;
 export function ytext({
 	nullable = false,
 }: {
@@ -384,8 +375,7 @@ export function ytext({
  * })
  */
 export function yxmlfragment(opts: { nullable: true }): YxmlfragmentColumnSchema<true>;
-export function yxmlfragment(opts: { nullable: false }): YxmlfragmentColumnSchema<false>;
-export function yxmlfragment(opts?: {}): YxmlfragmentColumnSchema<false>;
+export function yxmlfragment(opts?: { nullable?: false }): YxmlfragmentColumnSchema<false>;
 export function yxmlfragment({
 	nullable = false,
 }: {
@@ -408,12 +398,8 @@ export function integer(opts: {
 	unique?: boolean;
 	default?: number | (() => number);
 }): IntegerColumnSchema<true>;
-export function integer(opts: {
-	nullable: false;
-	unique?: boolean;
-	default?: number | (() => number);
-}): IntegerColumnSchema<false>;
 export function integer(opts?: {
+	nullable?: false;
 	unique?: boolean;
 	default?: number | (() => number);
 }): IntegerColumnSchema<false>;
@@ -445,12 +431,8 @@ export function real(opts: {
 	unique?: boolean;
 	default?: number | (() => number);
 }): RealColumnSchema<true>;
-export function real(opts: {
-	nullable: false;
-	unique?: boolean;
-	default?: number | (() => number);
-}): RealColumnSchema<false>;
 export function real(opts?: {
+	nullable?: false;
 	unique?: boolean;
 	default?: number | (() => number);
 }): RealColumnSchema<false>;
@@ -481,11 +463,8 @@ export function boolean(opts: {
 	nullable: true;
 	default?: boolean | (() => boolean);
 }): BooleanColumnSchema<true>;
-export function boolean(opts: {
-	nullable: false;
-	default?: boolean | (() => boolean);
-}): BooleanColumnSchema<false>;
 export function boolean(opts?: {
+	nullable?: false;
 	default?: boolean | (() => boolean);
 }): BooleanColumnSchema<false>;
 export function boolean({
@@ -514,12 +493,8 @@ export function date(opts: {
 	unique?: boolean;
 	default?: DateWithTimezone | (() => DateWithTimezone);
 }): DateColumnSchema<true>;
-export function date(opts: {
-	nullable: false;
-	unique?: boolean;
-	default?: DateWithTimezone | (() => DateWithTimezone);
-}): DateColumnSchema<false>;
 export function date(opts?: {
+	nullable?: false;
 	unique?: boolean;
 	default?: DateWithTimezone | (() => DateWithTimezone);
 }): DateColumnSchema<false>;
@@ -553,11 +528,7 @@ export function select<const TOptions extends readonly [string, ...string[]]>(op
 }): SelectColumnSchema<TOptions, true>;
 export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
 	options: TOptions;
-	nullable: false;
-	default?: TOptions[number];
-}): SelectColumnSchema<TOptions, false>;
-export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
-	options: TOptions;
+	nullable?: false;
 	default?: TOptions[number];
 }): SelectColumnSchema<TOptions, false>;
 export function select<const TOptions extends readonly [string, ...string[]]>({
@@ -590,11 +561,7 @@ export function multiSelect<const TOptions extends readonly [string, ...string[]
 }): MultiSelectColumnSchema<TOptions, true>;
 export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
 	options: TOptions;
-	nullable: false;
-	default?: TOptions[number][];
-}): MultiSelectColumnSchema<TOptions, false>;
-export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
-	options: TOptions;
+	nullable?: false;
 	default?: TOptions[number][];
 }): MultiSelectColumnSchema<TOptions, false>;
 export function multiSelect<const TOptions extends readonly [string, ...string[]]>({
