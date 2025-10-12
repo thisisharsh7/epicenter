@@ -212,15 +212,11 @@ export type ColumnSchemaToType<C extends ColumnSchema> =
 									? C['nullable'] extends true
 										? DateWithTimezone | null
 										: DateWithTimezone
-									: C extends SelectColumnSchema<
-												infer TOptions extends readonly [string, ...string[]]
-										  >
+									: C extends SelectColumnSchema<infer TOptions>
 										? C['nullable'] extends true
 											? TOptions[number] | null
 											: TOptions[number]
-										: C extends MultiSelectColumnSchema<
-													infer TOptions extends readonly [string, ...string[]]
-											  >
+										: C extends MultiSelectColumnSchema<infer TOptions>
 											? C['nullable'] extends true
 												? Y.Array<TOptions[number]> | null
 												: Y.Array<TOptions[number]>

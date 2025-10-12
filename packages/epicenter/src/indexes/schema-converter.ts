@@ -124,9 +124,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 												enumValues: undefined;
 											}>
 										>
-								: C extends SelectColumnSchema<
-											infer TOptions extends readonly [string, ...string[]]
-									  >
+								: C extends SelectColumnSchema<infer TOptions>
 									? C extends { nullable: true }
 										? SQLiteTextBuilderInitial<
 												'',
@@ -140,9 +138,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 													number | undefined
 												>
 											>
-									: C extends MultiSelectColumnSchema<
-												infer TOptions extends readonly [string, ...string[]]
-										  >
+									: C extends MultiSelectColumnSchema<infer TOptions>
 										? C extends { nullable: true }
 											? SQLiteCustomColumnBuilder<{
 													name: '';
