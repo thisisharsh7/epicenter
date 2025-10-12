@@ -54,24 +54,17 @@ export type SQLiteRow<T extends Row = Row> = {
 function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
 	const serialized: Record<string, any> = {};
 
-	for (const [key, v] of Object.entries(row)) {
-		const value = v as CellValue;
+	for (const [key, value] of Object.entries(row)) {
 		if (value instanceof Y.Text || value instanceof Y.XmlFragment) {
 			// Convert Y.js types to plain text (lossy conversion)
 			serialized[key] = value.toString();
 		} else if (value instanceof Y.Array) {
 			// Convert Y.Array to JSON string
 			serialized[key] = JSON.stringify(value.toArray());
-		} else if (
-			value &&
-			typeof value === 'object' &&
-			'date' in value &&
-			'timezone' in value
-		) {
+		// Equivalent to isDateWithTimezone(value) but faster due to above checks that narrow value type
+		} else if (typeof value === 'object') {
 			// Convert DateWithTimezone to "ISO_UTC|TIMEZONE" format
-			const dateWithTz = value as DateWithTimezone;
-			serialized[key] =
-				`${dateWithTz.date.toISOString()}|${dateWithTz.timezone}`;
+			serialized[key] = DateWithTimezoneSerializer.serialize(value);
 		} else {
 			serialized[key] = value;
 		}

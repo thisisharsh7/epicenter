@@ -301,7 +301,7 @@ export function Serializer<TValue, TSerialized>(config: {
 /**
  * Serializer for DateWithTimezone - converts between application objects and storage strings
  */
-const DateWithTimezoneSerializer = Serializer({
+export const DateWithTimezoneSerializer = Serializer({
 	serialize({ date, timezone }: DateWithTimezone): DateWithTimezoneString {
 		const isoUtc = date.toISOString();
 		return asDateWithTimezoneString(`${isoUtc}|${timezone}`);
