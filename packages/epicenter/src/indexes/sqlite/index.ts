@@ -11,14 +11,22 @@ import type {
 } from '../../core/column-schemas';
 import { DateWithTimezoneSerializer } from './columns';
 import { IndexErr } from '../../core/errors';
-import { defineIndex } from '../../core/indexes';
+import { defineIndex, type Index } from '../../core/indexes';
 import type { Db } from '../../db/core';
-import { convertAllTableSchemasToDrizzle } from './schema-converter';
+import {
+	convertAllTableSchemasToDrizzle,
+	type SchemaToDrizzleTables,
+} from './schema-converter';
 
 /**
  * SQLite index configuration
  */
-export type SQLiteIndexConfig = {
+export type SQLiteIndexConfig<TSchema extends Schema = Schema> = {
+	/**
+	 * Database instance with schema
+	 * Required for type inference
+	 */
+	db: Db<TSchema>;
 	/**
 	 * Database URL for SQLite
 	 * Can be a file path (./data/db.sqlite) or :memory: for in-memory
@@ -61,7 +69,7 @@ function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
 			// Convert Y.Array to JSON string
 			serialized[key] = JSON.stringify(value.toArray());
 			// Equivalent to isDateWithTimezone(value) but faster due to above checks that narrow value type
-		} else if (typeof value === 'object') {
+		} else if (typeof value === 'object' && value !== null) {
 			// Convert DateWithTimezone to "ISO_UTC|TIMEZONE" format
 			serialized[key] = DateWithTimezoneSerializer.serialize(value);
 		} else {
@@ -126,12 +134,24 @@ async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
-export function sqliteIndex<TSchema extends Schema = Schema>(
-	{ databaseUrl = ':memory:' }: SQLiteIndexConfig,
-) {
+export function sqliteIndex<TSchema extends Schema>({
+	db: _db,
+	databaseUrl = ':memory:',
+}: SQLiteIndexConfig<TSchema>): Index<
+	TSchema,
+	'sqlite',
+	{
+		db: LibSQLDatabase<SchemaToDrizzleTables<TSchema>> & { $client: any };
+	} & SchemaToDrizzleTables<TSchema>
+> {
 	return defineIndex({
 		id: 'sqlite',
-		init: (epicenterDb: Db<TSchema>) => {
+		init: (epicenterDb: Db<TSchema>): {
+			destroy: () => void;
+			queries: {
+				db: LibSQLDatabase<SchemaToDrizzleTables<TSchema>> & { $client: any };
+			} & SchemaToDrizzleTables<TSchema>;
+		} => {
 			// Convert table schemas to Drizzle tables
 			const drizzleTables = convertAllTableSchemasToDrizzle(epicenterDb.schema);
 
@@ -155,7 +175,7 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 						const { error } = await tryAsync({
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
-								await sqliteDb.insert(drizzleTable).values(serializedRow);
+								await sqliteDb.insert(drizzleTable as any).values(serializedRow);
 							},
 							catch: () => Ok(undefined),
 						});
@@ -175,7 +195,7 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
 								await sqliteDb
-									.update(drizzleTable)
+									.update(drizzleTable as any)
 									.set(serializedRow)
 									.where(eq((drizzleTable as any).id, row.id));
 							},
@@ -196,7 +216,7 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 						const { error } = await tryAsync({
 							try: async () => {
 								await sqliteDb
-									.delete(drizzleTable)
+									.delete(drizzleTable as any)
 									.where(eq((drizzleTable as any).id, id));
 							},
 							catch: () => Ok(undefined),
@@ -233,7 +253,7 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
 								await sqliteDb
-									.insert(drizzleTable)
+									.insert(drizzleTable as any)
 									.values(serializedRow);
 							},
 							catch: () => Ok(undefined),

@@ -89,7 +89,7 @@ export function defineWorkspace<
 	const TId extends string,
 	const TVersion extends string,
 	const TSchema extends Schema,
-	const TIndexes extends readonly Index<TSchema>[],
+	const TIndexes extends Record<string, Index<TSchema>>,
 	const TActionMap extends WorkspaceActionMap,
 	const TName extends string,
 >(
@@ -128,7 +128,7 @@ export type WorkspaceConfig<
 	TVersion extends string = string,
 	TSchema extends Schema = Schema,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
+	TIndexes extends Record<string, Index<TSchema>> = Record<string, Index<TSchema>>,
 	TName extends string = string,
 > = {
 	/**
@@ -164,17 +164,17 @@ export type WorkspaceConfig<
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
-	 * Readonly array of index objects with unique IDs
+	 * Factory function that receives database context and returns index objects
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: [
-	 *   sqliteIndex({ databaseUrl: ':memory:' }),
-	 *   markdownIndex({ storagePath: './data' }),
-	 * ]
+	 * indexes: ({ db }) => ({
+	 *   sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
+	 *   markdown: markdownIndex({ db, storagePath: './data' }),
+	 * })
 	 * ```
 	 */
-	indexes: TIndexes;
+	indexes: (context: { db: Db<TSchema> }) => TIndexes;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -232,7 +232,7 @@ export type WorkspaceConfig<
  */
 export type WorkspaceActionContext<
 	TSchema extends Schema = Schema,
-	TIndexes extends readonly Index<TSchema>[] = readonly Index<TSchema>[],
+	TIndexes extends Record<string, Index<TSchema>> = Record<string, Index<TSchema>>,
 > = {
 	/**
 	 * Database instance with table helpers, ydoc, schema, and utilities
@@ -244,15 +244,23 @@ export type WorkspaceActionContext<
 	 * Indexes for this workspace
 	 * Async read operations (select, search, etc.)
 	 */
-	indexes: IndexesAPI<TIndexes>;
+	indexes: IndexesAPI<TSchema, TIndexes>;
 };
 
 /**
  * Indexes API - extracts only the queries from indexes
- * Converts readonly array of indexes to record keyed by ID
+ * Converts record of indexes to record of queries keyed by same keys
+ * Preserves the schema type to maintain type safety
  */
-export type IndexesAPI<TIndexes extends readonly Index<any>[]> = {
-	[K in TIndexes[number] as K['id']]: K extends Index<any, any, infer TQueries>
+export type IndexesAPI<
+	TSchema extends Schema,
+	TIndexes extends Record<string, Index<TSchema>>,
+> = {
+	[K in keyof TIndexes]: TIndexes[K] extends Index<
+		TSchema,
+		any,
+		infer TQueries
+	>
 		? TQueries
 		: never;
 };

@@ -42,9 +42,9 @@ export default defineWorkspace({
 		},
 	},
 
-	indexes: [
-		sqliteIndex({ databaseUrl: 'file:test-data/blog.db' }),
-	],
+	indexes: ({ db }) => ({
+		sqlite: sqliteIndex({ db, databaseUrl: 'file:test-data/blog.db' }),
+	}),
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all published posts

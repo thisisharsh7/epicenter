@@ -103,7 +103,7 @@ export async function createWorkspaceClient<
 	const TVersion extends string,
 	TSchema extends Schema,
 	TActionMap extends WorkspaceActionMap,
-	const TIndexes extends readonly Index<TSchema>[],
+	const TIndexes extends Record<string, Index<TSchema>>,
 >(
 	workspace: WorkspaceConfig<
 		TId,
@@ -139,50 +139,50 @@ export async function createWorkspaceClient<
 	// 5. Initialize Epicenter database
 	const db = createEpicenterDb(ydoc, workspace.schema);
 
-	// 6. Validate no duplicate index IDs
-	const indexIds = new Set<string>();
-	for (const index of workspace.indexes) {
-		if (indexIds.has(index.id)) {
-			throw new Error(`Duplicate index ID detected: "${index.id}"`);
-		}
-		indexIds.add(index.id);
+	// 6. Call indexes factory function with db
+	const indexesObject = workspace.indexes({ db });
+
+	// 7. Validate no duplicate index IDs (keys of returned object)
+	const indexIds = Object.keys(indexesObject);
+	if (new Set(indexIds).size !== indexIds.length) {
+		throw new Error('Duplicate index IDs detected');
 	}
 
-	// 7. Call index init functions with db to set up observers and get results
+	// 8. Call index init functions with db to set up observers and get results
 	const indexes: Record<
 		string,
 		{ destroy: () => void | Promise<void>; queries: any }
 	> = {};
 
-	for (const index of workspace.indexes) {
+	for (const [indexKey, index] of Object.entries(indexesObject)) {
 		try {
-			indexes[index.id] = index.init(db);
+			indexes[indexKey] = index.init(db);
 		} catch (error) {
-			console.error(`Failed to initialize index "${index.id}":`, error);
+			console.error(`Failed to initialize index "${indexKey}":`, error);
 		}
 	}
 
-	// 8. Set up YDoc synchronization and persistence (if provided)
+	// 9. Set up YDoc synchronization and persistence (if provided)
 	workspace.setupYDoc?.(ydoc);
 
-	// 9. Remove from stack (dependency fully initialized)
+	// 10. Remove from stack (dependency fully initialized)
 	_initializationChain.delete(ydocGuid);
 
-	// 10. Create IndexesAPI by extracting queries from each index
+	// 11. Create IndexesAPI by extracting queries from each index
 	const indexesAPI = Object.fromEntries(
 		Object.entries(indexes).map(([indexName, index]) => [
 			indexName,
 			index.queries,
 		]),
-	) as IndexesAPI<TIndexes>;
+	) as IndexesAPI<TSchema, TIndexes>;
 
-	// 11. Process actions to extract handlers and make them directly callable
+	// 12. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({
 		db,
 		indexes: indexesAPI,
 	}) as TActionMap;
 
-	// 12. Create client with destroy method
+	// 13. Create client with destroy method
 	const client: WorkspaceClient<TActionMap> = {
 		...extractHandlers(actionMap),
 		destroy: async () => {
@@ -199,7 +199,7 @@ export async function createWorkspaceClient<
 		},
 	};
 
-	// 13. Cache the client
+	// 14. Cache the client
 	_initializedClients.set(ydocGuid, client);
 
 	return client;

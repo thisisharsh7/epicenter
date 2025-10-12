@@ -1,6 +1,6 @@
 import type { Schema, TableSchema } from '../core/column-schemas';
 import { IndexErr } from '../core/errors';
-import { defineIndex } from '../core/indexes';
+import { defineIndex, type Index } from '../core/indexes';
 import type { Db } from '../db/core';
 import {
 	deleteMarkdownFile,
@@ -11,7 +11,12 @@ import {
 /**
  * Markdown index configuration
  */
-export type MarkdownIndexConfig = {
+export type MarkdownIndexConfig<TSchema extends Schema = Schema> = {
+	/**
+	 * Database instance with schema
+	 * Required for type inference
+	 */
+	db: Db<TSchema>;
 	/**
 	 * Path where markdown files should be stored
 	 * Example: './data/markdown'
@@ -24,9 +29,10 @@ export type MarkdownIndexConfig = {
  * Syncs YJS changes to markdown files for git-friendly persistence
  * No query interface - just persistence
  */
-export function markdownIndex<TSchema extends Schema = Schema>(
-	config: MarkdownIndexConfig,
-) {
+export function markdownIndex<TSchema extends Schema>({
+	db: _db,
+	storagePath,
+}: MarkdownIndexConfig<TSchema>): Index<TSchema, 'markdown', {}> {
 	return defineIndex({
 		id: 'markdown',
 		init: (db: Db<TSchema>) => {
@@ -34,10 +40,14 @@ export function markdownIndex<TSchema extends Schema = Schema>(
 			const unsubscribers: Array<() => void> = [];
 
 			for (const tableName of db.getTableNames()) {
-				const unsub = db.tables[tableName].observe({
+				const table = db.tables[tableName];
+				if (!table) {
+					throw new Error(`Table "${tableName}" not found`);
+				}
+				const unsub = table.observe({
 					onAdd: async (row) => {
 						const filePath = getMarkdownPath(
-							config.storagePath,
+							storagePath,
 							tableName,
 							row.id,
 						);
@@ -54,7 +64,7 @@ export function markdownIndex<TSchema extends Schema = Schema>(
 					},
 					onUpdate: async (row) => {
 						const filePath = getMarkdownPath(
-							config.storagePath,
+							storagePath,
 							tableName,
 							row.id,
 						);
@@ -70,7 +80,7 @@ export function markdownIndex<TSchema extends Schema = Schema>(
 						}
 					},
 					onDelete: async (id) => {
-						const filePath = getMarkdownPath(config.storagePath, tableName, id);
+						const filePath = getMarkdownPath(storagePath, tableName, id);
 						const { error } = await deleteMarkdownFile(filePath);
 						if (error) {
 							console.error(

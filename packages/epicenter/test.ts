@@ -18,6 +18,7 @@ import {
 	createWorkspaceClient,
 	select,
 	text,
+	multiSelect,
 } from './src/index';
 
 // Define a simple blog workspace
@@ -34,19 +35,25 @@ const blogWorkspace = defineWorkspace({
 			category: select({
 				options: ['tech', 'personal', 'work'],
 			}),
+			tags: multiSelect({
+				options: ['typescript', 'javascript', 'svelte', 'react', 'vue'] as const,
+				default: [],
+			}),
 			views: integer({ default: 0 }),
 			published: boolean({ default: false }),
 		},
 	},
 
-	indexes: [
-		sqliteIndex({
+	indexes: ({ db }) => ({
+		sqlite: sqliteIndex({
+			db,
 			databaseUrl: ':memory:', // In-memory for testing
 		}),
-		markdownIndex({
+		markdown: markdownIndex({
+			db,
 			storagePath: './test-data',
 		}),
-	],
+	}),
 
 	actions: ({ db, indexes }) => ({
 		createPost: defineMutation({
@@ -54,6 +61,7 @@ const blogWorkspace = defineWorkspace({
 				title: z.string().min(1),
 				content: z.string().optional(),
 				category: z.enum(['tech', 'personal', 'work']),
+				tags: z.array(z.enum(['typescript', 'javascript', 'svelte', 'react', 'vue'])).optional(),
 			}),
 			handler: async (input) => {
 				console.log('Creating post:', input);
@@ -62,9 +70,10 @@ const blogWorkspace = defineWorkspace({
 					title: input.title,
 					content: input.content ?? '',
 					category: input.category,
+					tags: input.tags ?? [],
 					views: 0,
 					published: false,
-				};
+				} as const;
 				db.tables.posts.insert(post);
 				return Ok(post);
 			},
@@ -119,6 +128,7 @@ async function test() {
 			title: 'First Post',
 			content: 'This is the first post',
 			category: 'tech',
+			tags: ['typescript', 'svelte'],
 		});
 		console.log('Post 1 created:', post1Result);
 
@@ -126,12 +136,14 @@ async function test() {
 			title: 'Second Post',
 			content: 'This is the second post',
 			category: 'personal',
+			tags: ['javascript', 'react'],
 		});
 		console.log('Post 2 created:', post2Result);
 
 		const post3Result = await workspace.createPost({
 			title: 'Third Post',
 			category: 'work',
+			tags: ['typescript', 'vue'],
 		});
 		console.log('Post 3 created:', post3Result);
 		console.log('✅ Posts created\n');
