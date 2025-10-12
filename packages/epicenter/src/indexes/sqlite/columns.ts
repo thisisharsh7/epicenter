@@ -453,54 +453,42 @@ export function multiSelect<
 	nullable?: TNullable;
 	default?: TDefault;
 }) {
-	/**
-	 * Serializer for multi-select arrays - converts between arrays and JSON strings
-	 * Validates that all values are in the allowed options set
-	 */
-	const createMultiSelectSerializer = <
-		const TOptions extends readonly [string, ...string[]],
-	>(
-		options: TOptions,
-	) => {
-		const optionsSet = new Set(options);
+	const optionsSet = new Set(options);
 
-		return Serializer({
-			serialize(value: TOptions[number][]): string {
+	const multiSelectSerializer = Serializer({
+		serialize(value: TOptions[number][]): string {
+			// Validate that all values are in the options
+			for (const item of value) {
+				if (!optionsSet.has(item)) {
+					throw new Error(
+						`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
+					);
+				}
+			}
+			return JSON.stringify(value);
+		},
+		deserialize(storage: string): TOptions[number][] {
+			try {
+				const parsed = JSON.parse(storage);
+				if (!Array.isArray(parsed)) {
+					throw new Error('Stored value is not an array');
+				}
 				// Validate that all values are in the options
-				for (const item of value) {
+				for (const item of parsed) {
 					if (!optionsSet.has(item)) {
 						throw new Error(
 							`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
 						);
 					}
 				}
-				return JSON.stringify(value);
-			},
-			deserialize(storage: string): TOptions[number][] {
-				try {
-					const parsed = JSON.parse(storage);
-					if (!Array.isArray(parsed)) {
-						throw new Error('Stored value is not an array');
-					}
-					// Validate that all values are in the options
-					for (const item of parsed) {
-						if (!optionsSet.has(item)) {
-							throw new Error(
-								`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
-							);
-						}
-					}
-					return parsed as TOptions[number][];
-				} catch (error) {
-					throw new Error(
-						`Invalid MultiSelect format: ${storage}. ${error instanceof Error ? error.message : String(error)}`,
-					);
-				}
-			},
-		});
-	};
-
-	const serializer = createMultiSelectSerializer(options);
+				return parsed as TOptions[number][];
+			} catch (error) {
+				throw new Error(
+					`Invalid MultiSelect format: ${storage}. ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		},
+	});
 
 	const multiSelectType = customType<{
 		data: TOptions[number][];
@@ -508,9 +496,9 @@ export function multiSelect<
 	}>({
 		dataType: () => 'text',
 		toDriver: (value: TOptions[number][]): string =>
-			serializer.serialize(value),
+			multiSelectSerializer.serialize(value),
 		fromDriver: (value: string): TOptions[number][] =>
-			serializer.deserialize(value),
+			multiSelectSerializer.deserialize(value),
 	});
 
 	let column = multiSelectType();
