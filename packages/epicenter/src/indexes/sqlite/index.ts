@@ -60,7 +60,7 @@ function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
 		} else if (value instanceof Y.Array) {
 			// Convert Y.Array to JSON string
 			serialized[key] = JSON.stringify(value.toArray());
-		// Equivalent to isDateWithTimezone(value) but faster due to above checks that narrow value type
+			// Equivalent to isDateWithTimezone(value) but faster due to above checks that narrow value type
 		} else if (typeof value === 'object') {
 			// Convert DateWithTimezone to "ISO_UTC|TIMEZONE" format
 			serialized[key] = DateWithTimezoneSerializer.serialize(value);
@@ -127,7 +127,7 @@ async function createTablesIfNotExist(
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
 export function sqliteIndex<TSchema extends Schema = Schema>(
-	config: SQLiteIndexConfig,
+	{ databaseUrl = ':memory:' }: SQLiteIndexConfig,
 ) {
 	return defineIndex({
 		id: 'sqlite',
@@ -137,9 +137,7 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 
 			// Create database connection
 			const sqliteDb = drizzle(
-				createClient({
-					url: config.databaseUrl || ':memory:',
-				}),
+				createClient({ url: databaseUrl }),
 			);
 
 			// Set up observers for each table
