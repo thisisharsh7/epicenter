@@ -92,6 +92,7 @@ export function defineWorkspace<
 	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
 	const TActionMap extends WorkspaceActionMap,
 	const TName extends string,
+	const TDeps extends readonly WorkspaceConfig[] = readonly [],
 >(
 	workspace: WorkspaceConfig<
 		TId,
@@ -99,9 +100,10 @@ export function defineWorkspace<
 		TWorkspaceSchema,
 		TActionMap,
 		TIndexes,
-		TName
+		TName,
+		TDeps
 	>,
-): WorkspaceConfig<TId, TVersion, TWorkspaceSchema, TActionMap, TIndexes, TName> {
+): WorkspaceConfig<TId, TVersion, TWorkspaceSchema, TActionMap, TIndexes, TName, TDeps> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -117,6 +119,21 @@ export function defineWorkspace<
 		throw new Error('Workspace must have a valid string name');
 	}
 
+	// Validate dependencies
+	if (workspace.dependencies) {
+		if (!Array.isArray(workspace.dependencies)) {
+			throw new Error('Dependencies must be an array of workspace configs');
+		}
+
+		for (const dep of workspace.dependencies as readonly WorkspaceConfig[]) {
+			if (!dep || typeof dep !== 'object' || !dep.id) {
+				throw new Error(
+					'Invalid dependency: dependencies must be workspace configs with id',
+				);
+			}
+		}
+	}
+
 	return workspace;
 }
 
@@ -130,6 +147,7 @@ export type WorkspaceConfig<
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
 	TName extends string = string,
+	TDeps extends readonly WorkspaceConfig[] = readonly [],
 > = {
 	/**
 	 * Unique identifier for this workspace (base ID without version)
@@ -161,6 +179,19 @@ export type WorkspaceConfig<
 	 * Table schemas (column definitions as JSON)
 	 */
 	schema: TWorkspaceSchema;
+
+	/**
+	 * Other workspaces this workspace depends on
+	 * Names become the property names in the workspaces API
+	 * @example
+	 * ```typescript
+	 * dependencies: [authWorkspace, storageWorkspace]
+	 * // Later in actions (using workspace names as property names):
+	 * workspaces.auth.login(...)
+	 * workspaces.storage.uploadFile(...)
+	 * ```
+	 */
+	dependencies?: TDeps;
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
@@ -200,13 +231,13 @@ export type WorkspaceConfig<
 	setupYDoc?: (ydoc: Y.Doc) => Y.Doc;
 
 	/**
-	 * Workspace actions - business logic with access to db and indexes
-	 * @param context - Database instance (with tables, ydoc, transactions) and indexes (read)
+	 * Workspace actions - business logic with access to db, indexes, and dependency workspaces
+	 * @param context - Database instance (with tables, ydoc, transactions), indexes (read), and dependency workspaces
 	 * @returns Map of action name → action implementation
 	 *
 	 * @example
 	 * ```typescript
-	 * actions: ({ db, indexes }) => ({
+	 * actions: ({ db, indexes, workspaces }) => ({
 	 *   createPost: defineMutation({
 	 *     input: z.object({ title: z.string() }),
 	 *     handler: async ({ title }) => {
@@ -224,7 +255,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	actions: (context: WorkspaceActionContext<TWorkspaceSchema, TIndexes>) => TActionMap;
+	actions: (context: WorkspaceActionContext<TWorkspaceSchema, TIndexes, TDeps>) => TActionMap;
 };
 
 /**
@@ -233,7 +264,14 @@ export type WorkspaceConfig<
 export type WorkspaceActionContext<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
+	TDeps extends readonly WorkspaceConfig[] = readonly [],
 > = {
+	/**
+	 * Dependency workspaces
+	 * Access actions from other workspaces
+	 */
+	workspaces: DependencyWorkspacesAPI<TDeps>;
+
 	/**
 	 * Database instance with table helpers, ydoc, schema, and utilities
 	 * Provides full access to YJS document and transactional operations
@@ -256,6 +294,36 @@ export type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
 		? TQueries
 		: never;
 };
+
+/**
+ * Dependency workspaces API - actions from dependency workspaces
+ * Converts array of workspaces into an object keyed by workspace names
+ */
+type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
+	TDeps extends readonly []
+		? Record<string, never>
+		: {
+				[W in TDeps[number] as W extends WorkspaceConfig<
+					infer _,
+					infer _,
+					infer _,
+					infer _,
+					infer _,
+					infer TName
+				>
+					? TName
+					: never]: W extends WorkspaceConfig<
+					infer _,
+					infer _,
+					infer _,
+					infer TActionMap,
+					infer _,
+					infer _,
+					infer _
+				>
+					? ExtractHandlers<TActionMap>
+					: never;
+			};
 
 /**
  * Extract handler functions from action map
