@@ -261,6 +261,9 @@ export function parseMarkdownPath(
 	}
 
 	const [tableName, filename] = parts;
+	if (!tableName || !filename) {
+		return null;
+	}
 	const id = filename.replace(/\.md$/, '');
 
 	return { tableName, id };

@@ -44,12 +44,12 @@ export type SchemaToDrizzleTables<TSchema extends Schema> = {
  * Convert all table schemas to Drizzle tables
  * Returns a map of table name → SQLiteTable with preserved types
  */
-export function convertAllTableSchemasToDrizzle<S extends Schema>(
-	schema: S,
-): SchemaToDrizzleTables<S> {
+export function convertAllTableSchemasToDrizzle<TSchema extends Schema>(
+	schema: TSchema,
+): SchemaToDrizzleTables<TSchema> {
 	const result: Record<string, SQLiteTable> = {};
 
-	for (const tableName of Object.keys(schema) as Array<keyof S & string>) {
+	for (const tableName of Object.keys(schema) as Array<keyof TSchema & string>) {
 		const tableSchema = schema[tableName];
 		if (!tableSchema) {
 			throw new Error(`Table schema for "${String(tableName)}" is undefined`);
@@ -57,7 +57,7 @@ export function convertAllTableSchemasToDrizzle<S extends Schema>(
 		result[tableName] = convertTableSchemaToDrizzle(tableName, tableSchema);
 	}
 
-	return result as SchemaToDrizzleTables<S>;
+	return result as SchemaToDrizzleTables<TSchema>;
 }
 
 /**
