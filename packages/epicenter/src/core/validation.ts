@@ -6,7 +6,7 @@ import {
 	type Row,
 	type TableSchema,
 	type ValidatedRow,
-} from './column-schemas';
+} from './schema';
 
 /**
  * Reasons why structural validation failed

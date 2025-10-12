@@ -8,8 +8,8 @@ import type {
 	DateWithTimezone,
 	Row,
 	WorkspaceSchema,
-} from '../../core/column-schemas';
-import { DateWithTimezoneSerializer } from './columns';
+} from '../../core/schema';
+import { DateWithTimezoneSerializer } from './builders';
 import { IndexErr } from '../../core/errors';
 import { defineIndex, type Index } from '../../core/indexes';
 import type { Db } from '../../db/core';

@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
-import type { DateWithTimezone, Id } from '../../core/column-schemas';
+import type { DateWithTimezone, Id } from '../../core/schema';
 
 /**
  * ISO 8601 UTC datetime string from Date.toISOString()

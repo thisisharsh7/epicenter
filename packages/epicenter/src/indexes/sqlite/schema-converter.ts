@@ -28,8 +28,8 @@ import type {
 	TextColumnSchema,
 	YtextColumnSchema,
 	YxmlfragmentColumnSchema,
-} from '../../core/column-schemas';
-import { date, multiSelect, type DateWithTimezoneString } from './columns';
+} from '../../core/schema';
+import { date, multiSelect, type DateWithTimezoneString } from './builders';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations

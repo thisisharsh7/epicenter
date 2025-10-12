@@ -36,14 +36,14 @@ export {
 	select,
 	multiSelect,
 	generateId,
-} from './core/column-schemas';
+} from './core/schema';
 export type {
 	ColumnSchema,
 	ColumnType,
 	TableSchema,
 	Id,
 	DateWithTimezone,
-} from './core/column-schemas';
+} from './core/schema';
 
 // Action helpers
 export {
@@ -77,8 +77,8 @@ export type { Index, IndexContext } from './core/indexes';
 export { sqliteIndex } from './indexes/sqlite';
 export type { SQLiteIndexConfig } from './indexes/sqlite';
 
-export { markdownIndex } from './indexes/markdown-index';
-export type { MarkdownIndexConfig } from './indexes/markdown-index';
+export { markdownIndex } from './indexes/markdown';
+export type { MarkdownIndexConfig } from './indexes/markdown';
 
 // Error types
 export { IndexErr } from './core/errors';

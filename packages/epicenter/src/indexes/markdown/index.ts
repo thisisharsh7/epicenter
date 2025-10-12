@@ -1,12 +1,12 @@
-import type { WorkspaceSchema, TableSchema } from '../core/column-schemas';
-import { IndexErr } from '../core/errors';
-import { defineIndex, type Index } from '../core/indexes';
-import type { Db } from '../db/core';
+import type { WorkspaceSchema, TableSchema } from '../../core/schema';
+import { IndexErr } from '../../core/errors';
+import { defineIndex, type Index } from '../../core/indexes';
+import type { Db } from '../../db/core';
 import {
 	deleteMarkdownFile,
 	getMarkdownPath,
 	writeMarkdownFile,
-} from '../storage/markdown-parser';
+} from './parser';
 
 /**
  * Markdown index configuration

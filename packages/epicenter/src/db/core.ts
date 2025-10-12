@@ -5,7 +5,7 @@ import type {
 	WorkspaceSchema,
 	TableSchema,
 	ValidatedRow,
-} from '../core/column-schemas';
+} from '../core/schema';
 import {
 	type GetRowResult,
 	type RowValidationResult,

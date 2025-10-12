@@ -8,7 +8,7 @@ import {
 	boolean,
 	ytext,
 	multiSelect,
-} from '../core/column-schemas';
+} from '../core/schema';
 
 describe('createEpicenterDb', () => {
 	test('should create and retrieve rows correctly', () => {

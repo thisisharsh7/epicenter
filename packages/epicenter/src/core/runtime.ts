@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { WorkspaceSchema } from './column-schemas';
+import type { WorkspaceSchema } from './schema';
 import type { Index } from './indexes';
 import type { ExtractHandlers, IndexesAPI, WorkspaceConfig } from './workspace';
 import { extractHandlers } from './workspace';

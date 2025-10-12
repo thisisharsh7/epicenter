@@ -9,7 +9,7 @@ import {
 	boolean,
 	select,
 	multiSelect,
-} from '../core/column-schemas';
+} from '../core/schema';
 import * as Y from 'yjs';
 
 /**

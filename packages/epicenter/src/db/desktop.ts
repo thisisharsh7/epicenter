@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as Y from 'yjs';
-import type { WorkspaceSchema, TableSchema } from '../core/column-schemas';
+import type { WorkspaceSchema, TableSchema } from '../core/schema';
 import { createEpicenterDb } from './core';
 
 /**

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createEpicenterDbFromDisk } from './desktop';
-import { id, text, integer, boolean } from '../core/column-schemas';
+import { id, text, integer, boolean } from '../core/schema';
 
 const TEST_STORAGE_PATH = './test-data/workspaces';
 const TEST_WORKSPACE_ID = 'test-workspace-persistence';
