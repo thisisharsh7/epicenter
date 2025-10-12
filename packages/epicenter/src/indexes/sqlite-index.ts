@@ -31,7 +31,7 @@ export type SQLiteIndexConfig = {
  * Maps a Row type to SQLite-compatible types
  * Converts Y.Text, Y.XmlFragment, Y.Array<string>, and DateWithTimezone to string
  */
-export type SQLiteRow<T extends Row> = {
+export type SQLiteRow<T extends Row = Row> = {
 	[K in keyof T]: T[K] extends Y.Text | Y.XmlFragment
 		? string
 		: T[K] extends Y.Text | Y.XmlFragment | null
