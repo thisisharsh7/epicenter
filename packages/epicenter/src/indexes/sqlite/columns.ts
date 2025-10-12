@@ -8,9 +8,7 @@ import type {
 } from 'drizzle-orm';
 import {
 	customType,
-	blob as drizzleBlob,
 	integer as drizzleInteger,
-	numeric as drizzleNumeric,
 	real as drizzleReal,
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
@@ -198,41 +196,6 @@ export function real<
 }
 
 /**
- * Creates a numeric column for decimals (NOT NULL by default)
- * @example
- * numeric() // NOT NULL numeric
- * numeric({ nullable: true }) // Nullable numeric
- * numeric({ default: '100.50' }) // NOT NULL with default
- */
-export function numeric<
-	TNullable extends boolean = false,
-	TDefault extends string | (() => string) | undefined = undefined,
->({
-	nullable = false as TNullable,
-	unique = false,
-	default: defaultValue,
-}: {
-	nullable?: TNullable;
-	unique?: boolean;
-	default?: TDefault;
-} = {}) {
-	let column = drizzleNumeric();
-
-	// NOT NULL by default
-	if (!nullable) column = column.notNull();
-
-	if (unique) column = column.unique();
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
-	}
-
-	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
-}
-
-/**
  * Creates a boolean column (stored as integer 0/1, NOT NULL by default)
  * @example
  * boolean() // NOT NULL boolean
@@ -365,67 +328,6 @@ export function date<
 	}
 
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
-}
-
-type JsonValue =
-	| string
-	| number
-	| boolean
-	| null
-	| JsonValue[]
-	| { [k: string]: JsonValue };
-
-/**
- * Creates a JSON column (stored as text, NOT NULL by default)
- * @example
- * json() // NOT NULL json
- * json({ nullable: true }) // Nullable json
- * json({ default: { tags: [] } }) // NOT NULL with default object
- * json({ default: () => ({ id: Date.now() }) }) // NOT NULL with dynamic default
- */
-export function json<
-	T extends JsonValue,
-	TNullable extends boolean = false,
-	TDefault extends T | (() => T) | undefined = undefined,
->({
-	nullable = false as TNullable,
-	default: defaultValue,
-}: {
-	nullable?: TNullable;
-	default?: TDefault;
-} = {}) {
-	let column = drizzleText({ mode: 'json' }).$type<T>();
-
-	// NOT NULL by default
-	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
-	}
-
-	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
-}
-
-/**
- * Creates a blob column (nullable by default for compatibility)
- * @example
- * blob() // NOT NULL blob
- * blob({ nullable: true }) // Nullable blob
- */
-export function blob<TNullable extends boolean = false>({
-	nullable = false as TNullable,
-}: {
-	nullable?: TNullable;
-} = {}) {
-	let column = drizzleBlob({ mode: 'buffer' });
-
-	// NOT NULL by default
-	if (!nullable) column = column.notNull();
-
-	return column as ApplyColumnModifiers<typeof column, TNullable, undefined>;
 }
 
 /**
