@@ -88,9 +88,9 @@ import type { Index } from './indexes';
 export function defineWorkspace<
 	const TId extends string,
 	const TVersion extends string,
-	TSchema extends Schema,
-	TIndexes extends readonly Index<TSchema>[],
-	TActionMap extends WorkspaceActionMap,
+	const TSchema extends Schema,
+	const TIndexes extends readonly Index<TSchema>[],
+	const TActionMap extends WorkspaceActionMap,
 	const TName extends string,
 >(
 	workspace: WorkspaceConfig<

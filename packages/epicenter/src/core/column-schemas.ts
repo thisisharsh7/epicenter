@@ -267,15 +267,33 @@ export function id(): IdColumnSchema {
  * text({ nullable: true }) // → { type: 'text', nullable: true }
  * text({ unique: true, default: 'unnamed' })
  */
-export function text<TNullable extends boolean = false>({
-	nullable = false as TNullable,
+// Overload: nullable explicitly true
+export function text(opts: {
+	nullable: true;
+	unique?: boolean;
+	default?: string | (() => string);
+}): TextColumnSchema<true>;
+// Overload: nullable explicitly false
+export function text(opts: {
+	nullable: false;
+	unique?: boolean;
+	default?: string | (() => string);
+}): TextColumnSchema<false>;
+// Overload: nullable not provided (defaults to false)
+export function text(opts?: {
+	unique?: boolean;
+	default?: string | (() => string);
+}): TextColumnSchema<false>;
+// Implementation
+export function text({
+	nullable = false,
 	unique,
 	default: defaultValue,
 }: {
-	nullable?: TNullable;
+	nullable?: boolean;
 	unique?: boolean;
 	default?: string | (() => string);
-} = {}): TextColumnSchema<TNullable> {
+} = {}): TextColumnSchema<boolean> {
 	return {
 		type: 'text',
 		nullable,
@@ -310,15 +328,18 @@ export function text<TNullable extends boolean = false>({
  * snippet: ytext() // → Y.Text binded to CodeMirror for code examples
  * comment: ytext({ nullable: true }) // → Y.Text binded to Quill editor for comments
  */
-export function ytext<TNullable extends boolean = false>({
-	nullable = false as TNullable,
+export function ytext(opts: { nullable: true }): YtextColumnSchema<true>;
+export function ytext(opts: { nullable: false }): YtextColumnSchema<false>;
+export function ytext(opts?: {}): YtextColumnSchema<false>;
+export function ytext({
+	nullable = false,
 }: {
-	nullable?: TNullable;
-} = {}): YtextColumnSchema<TNullable> {
+	nullable?: boolean;
+} = {}): YtextColumnSchema<boolean> {
 	return {
 		type: 'ytext',
 		nullable,
-	} as YtextColumnSchema<TNullable>;
+	};
 }
 
 /**
@@ -362,11 +383,14 @@ export function ytext<TNullable extends boolean = false>({
  *   content: fragment // Must provide Y.XmlFragment instance
  * })
  */
-export function yxmlfragment<TNullable extends boolean = false>({
-	nullable = false as TNullable,
+export function yxmlfragment(opts: { nullable: true }): YxmlfragmentColumnSchema<true>;
+export function yxmlfragment(opts: { nullable: false }): YxmlfragmentColumnSchema<false>;
+export function yxmlfragment(opts?: {}): YxmlfragmentColumnSchema<false>;
+export function yxmlfragment({
+	nullable = false,
 }: {
-	nullable?: TNullable;
-} = {}): YxmlfragmentColumnSchema<TNullable> {
+	nullable?: boolean;
+} = {}): YxmlfragmentColumnSchema<boolean> {
 	return {
 		type: 'yxmlfragment',
 		nullable,
@@ -379,15 +403,29 @@ export function yxmlfragment<TNullable extends boolean = false>({
  * integer() // → { type: 'integer', nullable: false }
  * integer({ default: 0 })
  */
-export function integer<TNullable extends boolean = false>({
-	nullable = false as TNullable,
+export function integer(opts: {
+	nullable: true;
+	unique?: boolean;
+	default?: number | (() => number);
+}): IntegerColumnSchema<true>;
+export function integer(opts: {
+	nullable: false;
+	unique?: boolean;
+	default?: number | (() => number);
+}): IntegerColumnSchema<false>;
+export function integer(opts?: {
+	unique?: boolean;
+	default?: number | (() => number);
+}): IntegerColumnSchema<false>;
+export function integer({
+	nullable = false,
 	unique,
 	default: defaultValue,
 }: {
-	nullable?: TNullable;
+	nullable?: boolean;
 	unique?: boolean;
 	default?: number | (() => number);
-} = {}): IntegerColumnSchema<TNullable> {
+} = {}): IntegerColumnSchema<boolean> {
 	return {
 		type: 'integer',
 		nullable,
@@ -402,15 +440,29 @@ export function integer<TNullable extends boolean = false>({
  * real() // → { type: 'real', nullable: false }
  * real({ default: 0.0 })
  */
-export function real<TNullable extends boolean = false>({
-	nullable = false as TNullable,
+export function real(opts: {
+	nullable: true;
+	unique?: boolean;
+	default?: number | (() => number);
+}): RealColumnSchema<true>;
+export function real(opts: {
+	nullable: false;
+	unique?: boolean;
+	default?: number | (() => number);
+}): RealColumnSchema<false>;
+export function real(opts?: {
+	unique?: boolean;
+	default?: number | (() => number);
+}): RealColumnSchema<false>;
+export function real({
+	nullable = false,
 	unique,
 	default: defaultValue,
 }: {
-	nullable?: TNullable;
+	nullable?: boolean;
 	unique?: boolean;
 	default?: number | (() => number);
-} = {}): RealColumnSchema<TNullable> {
+} = {}): RealColumnSchema<boolean> {
 	return {
 		type: 'real',
 		nullable,
@@ -425,13 +477,24 @@ export function real<TNullable extends boolean = false>({
  * boolean() // → { type: 'boolean', nullable: false }
  * boolean({ default: false })
  */
-export function boolean<TNullable extends boolean = false>({
-	nullable = false as TNullable,
+export function boolean(opts: {
+	nullable: true;
+	default?: boolean | (() => boolean);
+}): BooleanColumnSchema<true>;
+export function boolean(opts: {
+	nullable: false;
+	default?: boolean | (() => boolean);
+}): BooleanColumnSchema<false>;
+export function boolean(opts?: {
+	default?: boolean | (() => boolean);
+}): BooleanColumnSchema<false>;
+export function boolean({
+	nullable = false,
 	default: defaultValue,
 }: {
-	nullable?: TNullable;
+	nullable?: boolean;
 	default?: boolean | (() => boolean);
-} = {}): BooleanColumnSchema<TNullable> {
+} = {}): BooleanColumnSchema<boolean> {
 	return {
 		type: 'boolean',
 		nullable,
@@ -446,15 +509,29 @@ export function boolean<TNullable extends boolean = false>({
  * date({ nullable: true })
  * date({ default: () => ({ date: new Date(), timezone: 'UTC' }) })
  */
-export function date<TNullable extends boolean = false>({
-	nullable = false as TNullable,
+export function date(opts: {
+	nullable: true;
+	unique?: boolean;
+	default?: DateWithTimezone | (() => DateWithTimezone);
+}): DateColumnSchema<true>;
+export function date(opts: {
+	nullable: false;
+	unique?: boolean;
+	default?: DateWithTimezone | (() => DateWithTimezone);
+}): DateColumnSchema<false>;
+export function date(opts?: {
+	unique?: boolean;
+	default?: DateWithTimezone | (() => DateWithTimezone);
+}): DateColumnSchema<false>;
+export function date({
+	nullable = false,
 	unique,
 	default: defaultValue,
 }: {
-	nullable?: TNullable;
+	nullable?: boolean;
 	unique?: boolean;
 	default?: DateWithTimezone | (() => DateWithTimezone);
-} = {}): DateColumnSchema<TNullable> {
+} = {}): DateColumnSchema<boolean> {
 	return {
 		type: 'date',
 		nullable,
@@ -469,18 +546,29 @@ export function date<TNullable extends boolean = false>({
  * select({ options: ['draft', 'published', 'archived'] })
  * select({ options: ['tech', 'personal'], default: 'tech' })
  */
-export function select<
-	const TOptions extends readonly [string, ...string[]],
-	TNullable extends boolean = false,
->({
+export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
+	options: TOptions;
+	nullable: true;
+	default?: TOptions[number];
+}): SelectColumnSchema<TOptions, true>;
+export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
+	options: TOptions;
+	nullable: false;
+	default?: TOptions[number];
+}): SelectColumnSchema<TOptions, false>;
+export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
+	options: TOptions;
+	default?: TOptions[number];
+}): SelectColumnSchema<TOptions, false>;
+export function select<const TOptions extends readonly [string, ...string[]]>({
 	options,
-	nullable = false as TNullable,
+	nullable = false,
 	default: defaultValue,
 }: {
 	options: TOptions;
-	nullable?: TNullable;
+	nullable?: boolean;
 	default?: TOptions[number];
-}): SelectColumnSchema<TOptions, TNullable> {
+}): SelectColumnSchema<TOptions, boolean> {
 	return {
 		type: 'select',
 		nullable,
@@ -495,22 +583,33 @@ export function select<
  * multiSelect({ options: ['typescript', 'javascript', 'python'] })
  * multiSelect({ options: ['tag1', 'tag2'], default: [] })
  */
-export function multiSelect<
-	const TOptions extends readonly [string, ...string[]],
-	TNullable extends boolean = false,
->({
+export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
+	options: TOptions;
+	nullable: true;
+	default?: TOptions[number][];
+}): MultiSelectColumnSchema<TOptions, true>;
+export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
+	options: TOptions;
+	nullable: false;
+	default?: TOptions[number][];
+}): MultiSelectColumnSchema<TOptions, false>;
+export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
+	options: TOptions;
+	default?: TOptions[number][];
+}): MultiSelectColumnSchema<TOptions, false>;
+export function multiSelect<const TOptions extends readonly [string, ...string[]]>({
 	options,
-	nullable = false as TNullable,
+	nullable = false,
 	default: defaultValue,
 }: {
 	options: TOptions;
-	nullable?: TNullable;
+	nullable?: boolean;
 	default?: TOptions[number][];
-}): MultiSelectColumnSchema<TOptions, TNullable> {
+}): MultiSelectColumnSchema<TOptions, boolean> {
 	return {
 		type: 'multi-select',
 		nullable,
 		options,
 		default: defaultValue,
-	}
+	};
 }
