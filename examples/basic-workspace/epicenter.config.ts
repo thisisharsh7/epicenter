@@ -11,8 +11,6 @@ import {
 	defineQuery,
 	defineMutation,
 	isNotNull,
-	ne,
-	and,
 	eq,
 } from '../../packages/epicenter/src/index';
 
@@ -56,12 +54,7 @@ export default defineWorkspace({
 				const posts = indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(
-						and(
-							isNotNull(indexes.sqlite.posts.publishedAt),
-							ne(indexes.sqlite.posts.publishedAt, '')
-						)
-					)
+					.where(isNotNull(indexes.sqlite.posts.publishedAt))
 					.all();
 				return Ok(posts);
 			},
@@ -107,7 +100,7 @@ export default defineWorkspace({
 					content: content ?? '',
 					category,
 					views: 0,
-					publishedAt: '',
+					publishedAt: null,
 				};
 				db.tables.posts.insert(post);
 				return Ok(post);
