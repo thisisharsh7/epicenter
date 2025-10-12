@@ -1,19 +1,18 @@
 import { createClient } from '@libsql/client';
 import { eq, sql } from 'drizzle-orm';
-import { type LibSQLDatabase, drizzle } from 'drizzle-orm/libsql';
+import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import type {
-	Row,
-	Schema,
-	TableSchema,
-	DateWithTimezone,
-	CellValue,
+import {
+	type DateWithTimezone,
+	type Row,
+	type Schema
 } from '../core/column-schemas';
-import type { Db } from '../db/core';
+import { DateWithTimezoneSerializer } from '../core/columns';
 import { IndexErr } from '../core/errors';
-import { defineIndex, type Index } from '../core/indexes';
+import { defineIndex } from '../core/indexes';
+import type { Db } from '../db/core';
 import { convertAllTableSchemasToDrizzle } from './schema-converter';
 
 /**
