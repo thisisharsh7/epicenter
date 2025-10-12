@@ -323,12 +323,11 @@ function createTableHelpers<TSchemas extends Schema>({
 	ytables: Y.Map<Y.Map<YRow>>;
 }) {
 	return Object.fromEntries(
-		Object.keys(schema).map((tableName) => {
+		Object.entries(schema).map(([tableName, tableSchema]) => {
 			const ytable = ytables.get(tableName);
 			if (!ytable) {
 				throw new Error(`Table "${tableName}" not found in YJS document`);
 			}
-			const tableSchema = schema[tableName];
 			return [
 				tableName,
 				createTableHelper({ ydoc, tableName, ytable, schema: tableSchema }),
