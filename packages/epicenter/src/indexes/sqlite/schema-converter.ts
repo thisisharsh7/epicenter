@@ -33,10 +33,11 @@ import { date, multiSelect, type DateWithTimezoneString } from './columns';
 
 /**
  * Maps a Schema to its Drizzle table representations
- * Returns a Record with type-safe table names but widened SQLiteTable type for Drizzle compatibility
  */
-export type SchemaToDrizzleTables<S extends Schema> = {
-	[K in keyof S & string]: SQLiteTable;
+export type SchemaToDrizzleTables<TSchema extends Schema> = {
+	[K in keyof TSchema & string]: ReturnType<
+		typeof convertTableSchemaToDrizzle<K, TSchema[K]>
+	>;
 };
 
 /**
