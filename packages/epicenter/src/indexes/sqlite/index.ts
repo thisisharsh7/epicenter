@@ -4,15 +4,15 @@ import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import {
-	type DateWithTimezone,
-	type Row,
-	type Schema
-} from '../core/column-schemas';
-import { DateWithTimezoneSerializer } from '../core/columns';
-import { IndexErr } from '../core/errors';
-import { defineIndex } from '../core/indexes';
-import type { Db } from '../db/core';
+import type {
+	DateWithTimezone,
+	Row,
+	Schema,
+} from '../../core/column-schemas';
+import { DateWithTimezoneSerializer } from './columns';
+import { IndexErr } from '../../core/errors';
+import { defineIndex } from '../../core/indexes';
+import type { Db } from '../../db/core';
 import { convertAllTableSchemasToDrizzle } from './schema-converter';
 
 /**

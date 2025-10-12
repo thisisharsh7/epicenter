@@ -15,9 +15,13 @@ import {
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
 import { customAlphabet } from 'nanoid';
-import type { Brand } from 'wellcrafted/brand';
-
-export type Id = string & Brand<'Id'>;
+import type {
+	DateIsoString,
+	DateWithTimezone,
+	DateWithTimezoneString,
+	Id,
+	TimezoneId,
+} from '../../core/column-schemas';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
@@ -242,37 +246,6 @@ export function boolean<
 
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
-
-/**
- * ISO 8601 UTC datetime string from Date.toISOString()
- * @example "2024-01-01T20:00:00.000Z"
- */
-export type DateIsoString = string & Brand<'UtcIsoString'>;
-
-/**
- * IANA timezone identifier
- * @example "America/New_York"
- * @example "Europe/London"
- * @example "Asia/Tokyo"
- * @example "UTC"
- * @see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
- */
-export type TimezoneId = string & Brand<'TimezoneId'>;
-
-/**
- * Database storage format combining UTC datetime and timezone
- * @example "2024-01-01T20:00:00.000Z|America/New_York"
- * @internal Storage format - use DateWithTimezone in application code
- */
-export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
-	Brand<'DateWithTimezoneString'>;
-
-/**
- * A datetime value that knows its timezone
- * @property date - JavaScript Date object (internally stored as UTC)
- * @property timezone - IANA timezone identifier
- */
-export type DateWithTimezone = { date: Date; timezone: string };
 
 /**
  * Normalizes Date or DateWithTimezone to DateWithTimezone

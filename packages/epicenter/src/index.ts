@@ -77,8 +77,8 @@ export { defineIndex } from './core/indexes';
 export type { Index, IndexContext, InferIndexes } from './core/indexes';
 
 // Indexes (implementations)
-export { sqliteIndex } from './indexes/sqlite-index';
-export type { SQLiteIndexConfig } from './indexes/sqlite-index';
+export { sqliteIndex } from './indexes/sqlite';
+export type { SQLiteIndexConfig } from './indexes/sqlite';
 
 export { markdownIndex } from './indexes/markdown-index';
 export type { MarkdownIndexConfig } from './indexes/markdown-index';

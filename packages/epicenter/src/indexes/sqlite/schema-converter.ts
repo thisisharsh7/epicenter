@@ -12,24 +12,24 @@ import {
 	type SQLiteTable,
 	type SQLiteTextBuilderInitial,
 } from 'drizzle-orm/sqlite-core';
-import {
-	type BooleanColumnSchema,
-	type ColumnSchema,
-	type DateColumnSchema,
-	type DateWithTimezone,
-	type DateWithTimezoneString,
-	type IdColumnSchema,
-	type IntegerColumnSchema,
-	type MultiSelectColumnSchema,
-	type RealColumnSchema,
-	type Schema,
-	type SelectColumnSchema,
-	type TableSchema,
-	type TextColumnSchema,
-	type YtextColumnSchema,
-	type YxmlfragmentColumnSchema,
-} from '../core/column-schemas';
-import { date, multiSelect } from '../core/columns';
+import type {
+	BooleanColumnSchema,
+	ColumnSchema,
+	DateColumnSchema,
+	DateWithTimezone,
+	DateWithTimezoneString,
+	IdColumnSchema,
+	IntegerColumnSchema,
+	MultiSelectColumnSchema,
+	RealColumnSchema,
+	Schema,
+	SelectColumnSchema,
+	TableSchema,
+	TextColumnSchema,
+	YtextColumnSchema,
+	YxmlfragmentColumnSchema,
+} from '../../core/column-schemas';
+import { date, multiSelect } from './columns';
 
 /**
  * Convert all table schemas to Drizzle tables
