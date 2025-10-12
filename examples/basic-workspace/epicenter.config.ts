@@ -7,10 +7,12 @@ import {
 	integer,
 	select,
 	generateId,
-	createSQLiteIndex,
+	sqliteIndex,
 	defineQuery,
 	defineMutation,
 	isNotNull,
+	ne,
+	and,
 	eq,
 } from '../../packages/epicenter/src/index';
 
@@ -43,9 +45,7 @@ export default defineWorkspace({
 	},
 
 	indexes: [
-		createSQLiteIndex({
-			databaseUrl: ':memory:',
-		}),
+		sqliteIndex({ databaseUrl: 'file:test-data/blog.db' }),
 	],
 
 	actions: ({ db, indexes }) => ({
@@ -53,11 +53,15 @@ export default defineWorkspace({
 		getPublishedPosts: defineQuery({
 			input: z.void(),
 			handler: async () => {
-				// @ts-expect-error - need to fix types
 				const posts = indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(isNotNull(indexes.sqlite.posts.publishedAt))
+					.where(
+						and(
+							isNotNull(indexes.sqlite.posts.publishedAt),
+							ne(indexes.sqlite.posts.publishedAt, '')
+						)
+					)
 					.all();
 				return Ok(posts);
 			},
@@ -67,7 +71,6 @@ export default defineWorkspace({
 		getPost: defineQuery({
 			input: z.object({ id: z.string() }),
 			handler: async ({ id }) => {
-				// @ts-expect-error - need to fix types
 				const post = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
@@ -81,7 +84,6 @@ export default defineWorkspace({
 		getPostComments: defineQuery({
 			input: z.object({ postId: z.string() }),
 			handler: async ({ postId }) => {
-				// @ts-expect-error - need to fix types
 				const comments = indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)

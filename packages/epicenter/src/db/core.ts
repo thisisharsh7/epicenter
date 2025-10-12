@@ -590,47 +590,55 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		}): () => void {
 			const observer = (events: Y.YEvent<any>[]) => {
 				for (const event of events) {
-					event.changes.keys.forEach((change, key) => {
-						if (change.action === 'add') {
-							const yrow = ytable.get(key);
-							if (yrow) {
-								const row = toRow(yrow);
-								const result = validateTypedRow(row);
+					// Check if this is a top-level ytable event (row add/delete)
+					// or a nested yrow event (field updates)
+					if (event.target === ytable) {
+						// Top-level changes: row additions/deletions
+						event.changes.keys.forEach((change, key) => {
+							if (change.action === 'add') {
+								const yrow = ytable.get(key);
+								if (yrow) {
+									const row = toRow(yrow);
+									const result = validateTypedRow(row);
 
-								switch (result.status) {
-									case 'valid':
-										callbacks.onAdd?.(result.row);
-										break;
-									case 'schema-mismatch':
-									case 'invalid-structure':
-										console.warn(
-											`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
-										);
-										break;
+									switch (result.status) {
+										case 'valid':
+											callbacks.onAdd?.(result.row);
+											break;
+										case 'schema-mismatch':
+										case 'invalid-structure':
+											console.warn(
+												`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
+											);
+											break;
+									}
 								}
+							} else if (change.action === 'delete') {
+								callbacks.onDelete?.(key);
 							}
-						} else if (change.action === 'update') {
-							const yrow = ytable.get(key);
-							if (yrow) {
-								const row = toRow(yrow);
-								const result = validateTypedRow(row);
+						});
+					} else if (event.path.length === 1 && event.changes.keys.size > 0) {
+						// Nested change: field updates within a row
+						// event.path[0] is the row ID
+						const rowId = event.path[0] as string;
+						const yrow = ytable.get(rowId);
+						if (yrow) {
+							const row = toRow(yrow);
+							const result = validateTypedRow(row);
 
-								switch (result.status) {
-									case 'valid':
-										callbacks.onUpdate?.(result.row);
-										break;
-									case 'schema-mismatch':
-									case 'invalid-structure':
-										console.warn(
-											`Skipping invalid row in ${tableName}/${key} (onUpdate): ${result.status}`,
-										);
-										break;
-								}
+							switch (result.status) {
+								case 'valid':
+									callbacks.onUpdate?.(result.row);
+									break;
+								case 'schema-mismatch':
+								case 'invalid-structure':
+									console.warn(
+										`Skipping invalid row in ${tableName}/${rowId} (onUpdate): ${result.status}`,
+									);
+									break;
 							}
-						} else if (change.action === 'delete') {
-							callbacks.onDelete?.(key);
 						}
-					});
+					}
 				}
 			};
 
