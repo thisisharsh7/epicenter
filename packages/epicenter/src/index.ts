@@ -71,7 +71,7 @@ export type { TableHelper, Db } from './db/core';
 
 // Index system
 export { defineIndex } from './core/indexes';
-export type { Index, IndexContext, InferIndexes } from './core/indexes';
+export type { Index, IndexContext } from './core/indexes';
 
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';

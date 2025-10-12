@@ -244,23 +244,15 @@ export type WorkspaceActionContext<
 	 * Indexes for this workspace
 	 * Async read operations (select, search, etc.)
 	 */
-	indexes: IndexesAPI<TSchema, TIndexes>;
+	indexes: IndexesAPI<TIndexes>;
 };
 
 /**
  * Indexes API - extracts only the queries from indexes
  * Converts record of indexes to record of queries keyed by same keys
- * Preserves the schema type to maintain type safety
  */
-export type IndexesAPI<
-	TSchema extends Schema,
-	TIndexes extends Record<string, Index<TSchema>>,
-> = {
-	[K in keyof TIndexes]: TIndexes[K] extends Index<
-		TSchema,
-		any,
-		infer TQueries
-	>
+export type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
+	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TQueries>
 		? TQueries
 		: never;
 };

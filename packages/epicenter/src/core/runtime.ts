@@ -174,7 +174,7 @@ export async function createWorkspaceClient<
 			indexName,
 			index.queries,
 		]),
-	) as IndexesAPI<TSchema, TIndexes>;
+	) as IndexesAPI<TIndexes>;
 
 	// 12. Process actions to extract handlers and make them directly callable
 	const actionMap = workspace.actions({

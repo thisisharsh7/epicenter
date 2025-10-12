@@ -89,36 +89,36 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 	? IsPrimaryKey<
 			NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
 		>
-	: C extends TextColumnSchema
-		? C extends { nullable: true }
+	: C extends TextColumnSchema<infer TNullable>
+		? TNullable extends true
 			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 			: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
-		: C extends YtextColumnSchema
-			? C extends { nullable: true }
+		: C extends YtextColumnSchema<infer TNullable>
+			? TNullable extends true
 				? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 				: NotNull<
 						SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 					>
-			: C extends YxmlfragmentColumnSchema
-				? C extends { nullable: true }
+			: C extends YxmlfragmentColumnSchema<infer TNullable>
+				? TNullable extends true
 					? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 					: NotNull<
 							SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 						>
-				: C extends IntegerColumnSchema
-					? C extends { nullable: true }
+				: C extends IntegerColumnSchema<infer TNullable>
+					? TNullable extends true
 						? SQLiteIntegerBuilderInitial<''>
 						: NotNull<SQLiteIntegerBuilderInitial<''>>
-					: C extends RealColumnSchema
-						? C extends { nullable: true }
+					: C extends RealColumnSchema<infer TNullable>
+						? TNullable extends true
 							? SQLiteRealBuilderInitial<''>
 							: NotNull<SQLiteRealBuilderInitial<''>>
-						: C extends BooleanColumnSchema
-							? C extends { nullable: true }
+						: C extends BooleanColumnSchema<infer TNullable>
+							? TNullable extends true
 								? SQLiteBooleanBuilderInitial<''>
 								: NotNull<SQLiteBooleanBuilderInitial<''>>
-							: C extends DateColumnSchema
-								? C extends { nullable: true }
+							: C extends DateColumnSchema<infer TNullable>
+								? TNullable extends true
 									? SQLiteCustomColumnBuilder<{
 											name: '';
 											dataType: 'custom';
@@ -137,8 +137,8 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 												enumValues: undefined;
 											}>
 										>
-								: C extends SelectColumnSchema<infer TOptions>
-									? C extends { nullable: true }
+								: C extends SelectColumnSchema<infer TOptions, infer TNullable>
+									? TNullable extends true
 										? SQLiteTextBuilderInitial<
 												'',
 												[...TOptions],
@@ -151,8 +151,8 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 													number | undefined
 												>
 											>
-									: C extends MultiSelectColumnSchema<infer TOptions>
-										? C extends { nullable: true }
+									: C extends MultiSelectColumnSchema<infer TOptions, infer TNullable>
+										? TNullable extends true
 											? SQLiteCustomColumnBuilder<{
 													name: '';
 													dataType: 'custom';
