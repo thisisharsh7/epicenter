@@ -9,10 +9,10 @@
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@libsql/client": "^0.14.0",
+		"@libsql/client": "^0.15.15",
 		"@standard-schema/spec": "^1.0.0",
 		"chokidar": "^3.6.0",
-		"drizzle-orm": "^0.38.2",
+		"drizzle-orm": "^0.44.6",
 		"nanoid": "^5.1.5",
 		"wellcrafted": "^0.22.0",
 		"yaml": "^2.6.0",
@@ -20,6 +20,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.5",
+		"drizzle-kit": "^0.31.5",
 		"typescript": "^5.7.3"
 	}
 }
