@@ -64,23 +64,23 @@ type ApplyColumnModifiers<
 			: HasDefault<TBase>;
 
 /**
- * Generates a nano ID - 21 character alphanumeric string
- */
-function generateNanoId(): Id {
-	const nanoid = customAlphabet(
-		'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-		21,
-	);
-	return nanoid() as Id;
-}
-
-/**
  * Creates an ID column - always primary key with nano ID generation
  * This is the only column type that can be a primary key.
  * @example
  * id() // Primary key ID column with nano ID generation
  */
 export function id() {
+	/**
+	 * Generates a nano ID - 21 character alphanumeric string
+	 */
+	const generateNanoId = (): Id => {
+		const nanoid = customAlphabet(
+			'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+			21,
+		);
+		return nanoid() as Id;
+	};
+
 	return (
 		drizzleText()
 			.notNull()
@@ -265,20 +265,6 @@ export function boolean<
 }
 
 /**
- * Normalizes Date or DateWithTimezone to DateWithTimezone
- * If Date is passed, uses system timezone
- */
-function normalizeToDateWithTimezone(
-	value: Date | DateWithTimezone,
-): DateWithTimezone {
-	if (value instanceof Date) {
-		const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		return { date: value, timezone };
-	}
-	return value;
-}
-
-/**
  * Factory function to create a serializer with inferred types
  */
 export function Serializer<TValue, TSerialized>(config: {
@@ -294,7 +280,7 @@ export function Serializer<TValue, TSerialized>(config: {
 export const DateWithTimezoneSerializer = Serializer({
 	serialize({ date, timezone }: DateWithTimezone): DateWithTimezoneString {
 		const isoUtc = date.toISOString();
-		return asDateWithTimezoneString(`${isoUtc}|${timezone}`);
+		return `${isoUtc}|${timezone}` as DateWithTimezoneString;
 	},
 
 	deserialize(storage: DateWithTimezoneString): DateWithTimezone {
@@ -308,14 +294,6 @@ export const DateWithTimezoneSerializer = Serializer({
 		};
 	},
 });
-
-/**
- * Type assertion function for DateWithTimezoneString
- * Pass-through function that asserts a string as DateWithTimezoneString
- */
-function asDateWithTimezoneString(value: string): DateWithTimezoneString {
-	return value as DateWithTimezoneString;
-}
 
 /**
  * Creates a datetime with timezone column (stored as text, NOT NULL by default)
@@ -343,6 +321,20 @@ export function date<
 	unique?: boolean;
 	default?: TDefault;
 } = {}) {
+	/**
+	 * Normalizes Date or DateWithTimezone to DateWithTimezone
+	 * If Date is passed, uses system timezone
+	 */
+	const normalizeToDateWithTimezone = (
+		value: Date | DateWithTimezone,
+	): DateWithTimezone => {
+		if (value instanceof Date) {
+			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			return { date: value, timezone };
+		}
+		return value;
+	};
+
 	/**
 	 * Custom Drizzle type for datetime with timezone storage
 	 * Stores as text in format "ISO_UTC|TIMEZONE"
@@ -437,51 +429,6 @@ export function blob<TNullable extends boolean = false>({
 }
 
 /**
- * Serializer for multi-select arrays - converts between arrays and JSON strings
- * Validates that all values are in the allowed options set
- */
-function createMultiSelectSerializer<
-	const TOptions extends readonly [string, ...string[]],
->(options: TOptions) {
-	const optionsSet = new Set(options);
-
-	return Serializer({
-		serialize(value: TOptions[number][]): string {
-			// Validate that all values are in the options
-			for (const item of value) {
-				if (!optionsSet.has(item)) {
-					throw new Error(
-						`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
-					);
-				}
-			}
-			return JSON.stringify(value);
-		},
-		deserialize(storage: string): TOptions[number][] {
-			try {
-				const parsed = JSON.parse(storage);
-				if (!Array.isArray(parsed)) {
-					throw new Error('Stored value is not an array');
-				}
-				// Validate that all values are in the options
-				for (const item of parsed) {
-					if (!optionsSet.has(item)) {
-						throw new Error(
-							`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
-						);
-					}
-				}
-				return parsed as TOptions[number][];
-			} catch (error) {
-				throw new Error(
-					`Invalid MultiSelect format: ${storage}. ${error instanceof Error ? error.message : String(error)}`,
-				);
-			}
-		},
-	});
-}
-
-/**
  * Creates a multi-select column (stored as JSON text, NOT NULL by default)
  * Uses non-empty array constraint [string, ...string[]] to ensure at least one option
  * @example
@@ -506,6 +453,53 @@ export function multiSelect<
 	nullable?: TNullable;
 	default?: TDefault;
 }) {
+	/**
+	 * Serializer for multi-select arrays - converts between arrays and JSON strings
+	 * Validates that all values are in the allowed options set
+	 */
+	const createMultiSelectSerializer = <
+		const TOptions extends readonly [string, ...string[]],
+	>(
+		options: TOptions,
+	) => {
+		const optionsSet = new Set(options);
+
+		return Serializer({
+			serialize(value: TOptions[number][]): string {
+				// Validate that all values are in the options
+				for (const item of value) {
+					if (!optionsSet.has(item)) {
+						throw new Error(
+							`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
+						);
+					}
+				}
+				return JSON.stringify(value);
+			},
+			deserialize(storage: string): TOptions[number][] {
+				try {
+					const parsed = JSON.parse(storage);
+					if (!Array.isArray(parsed)) {
+						throw new Error('Stored value is not an array');
+					}
+					// Validate that all values are in the options
+					for (const item of parsed) {
+						if (!optionsSet.has(item)) {
+							throw new Error(
+								`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
+							);
+						}
+					}
+					return parsed as TOptions[number][];
+				} catch (error) {
+					throw new Error(
+						`Invalid MultiSelect format: ${storage}. ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
+			},
+		});
+	};
+
 	const serializer = createMultiSelectSerializer(options);
 
 	const multiSelectType = customType<{
