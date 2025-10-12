@@ -32,9 +32,8 @@ export type MarkdownIndexConfig<TSchema extends Schema = Schema> = {
 export function markdownIndex<TSchema extends Schema>({
 	db: _db,
 	storagePath,
-}: MarkdownIndexConfig<TSchema>): Index<TSchema, 'markdown', {}> {
+}: MarkdownIndexConfig<TSchema>): Index<TSchema, {}> {
 	return defineIndex({
-		id: 'markdown',
 		init: (db: Db<TSchema>) => {
 			// Set up observers for each table
 			const unsubscribers: Array<() => void> = [];

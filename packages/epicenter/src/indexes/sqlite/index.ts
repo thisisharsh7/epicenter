@@ -139,13 +139,11 @@ export function sqliteIndex<TSchema extends Schema>({
 	databaseUrl = ':memory:',
 }: SQLiteIndexConfig<TSchema>): Index<
 	TSchema,
-	'sqlite',
 	{
 		db: LibSQLDatabase<SchemaToDrizzleTables<TSchema>> & { $client: any };
 	} & SchemaToDrizzleTables<TSchema>
 > {
 	return defineIndex({
-		id: 'sqlite',
 		init: (epicenterDb: Db<TSchema>): {
 			destroy: () => void;
 			queries: {

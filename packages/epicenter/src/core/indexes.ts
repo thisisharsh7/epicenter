@@ -7,16 +7,14 @@ import type { Schema, TableSchema } from './column-schemas';
  */
 
 /**
- * Index object with ID and initialization function
+ * Index object with initialization function
  *
- * Indexes are objects with:
- * 1. An `id` property for unique identification
- * 2. An `init` function that sets up observers and returns cleanup + queries
+ * Indexes are objects with an `init` function that sets up observers and returns cleanup + queries
+ * The index name/ID is provided by the object key in the workspace configuration
  *
  * @example
  * ```typescript
- * const sqliteIndex: Index<MySchema, 'sqlite'> = {
- *   id: 'sqlite',
+ * const sqliteIndex: Index<MySchema> = {
  *   init(db) {
  *     // Register observers
  *     const unsubPosts = db.tables.posts.observe({
@@ -45,10 +43,8 @@ import type { Schema, TableSchema } from './column-schemas';
  */
 export type Index<
 	TSchema extends Schema = Schema,
-	TId extends string = string,
 	TQueries = Record<string, any>,
 > = {
-	id: TId;
 	init: (db: Db<TSchema>) => {
 		destroy: () => void | Promise<void>;
 		queries: TQueries;
@@ -74,7 +70,6 @@ export type IndexContext<TSchema extends Schema = Schema> = {
  * @example
  * ```typescript
  * const sqliteIndex = defineIndex({
- *   id: 'sqlite',
  *   init: (db) => ({
  *     queries: {
  *       findById: async (id: string) => { ... }
@@ -86,18 +81,8 @@ export type IndexContext<TSchema extends Schema = Schema> = {
  */
 export function defineIndex<
 	TSchema extends Schema,
-	const TId extends string,
 	TQueries = Record<string, any>,
->(index: Index<TSchema, TId, TQueries>): Index<TSchema, TId, TQueries> {
+>(index: Index<TSchema, TQueries>): Index<TSchema, TQueries> {
 	return index;
 }
 
-/**
- * Infer indexes object from readonly array of indexes
- * Converts array to record keyed by index IDs with queries as values
- */
-export type InferIndexes<T extends readonly Index<any, string, any>[]> = {
-	[K in T[number] as K['id']]: K extends Index<any, any, infer TQueries>
-		? TQueries
-		: never;
-};
