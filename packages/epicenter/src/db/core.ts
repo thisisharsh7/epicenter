@@ -30,6 +30,7 @@ export function toRow(yrow: YRow): Row {
 	return Object.fromEntries(yrow.entries()) as Row;
 }
 
+
 /**
  * Represents a partial row update where id is required but all other fields are optional.
  *
@@ -44,21 +45,126 @@ export function toRow(yrow: YRow): Row {
  * // Update multiple fields at once
  * db.tables.posts.update({ id: '123', title: 'New Title', published: true });
  */
-type PartialRow<TRow extends Row> = Pick<TRow, 'id'> &
-	Partial<Omit<TRow, 'id'>>;
+type PartialRow<TRow extends Row = Row> =
+	Pick<TRow, 'id'> & Partial<Omit<TRow, 'id'>>;
 
 /**
  * Type-safe table helper with operations for a specific table schema
  */
 export type TableHelper<TRow extends Row> = {
+	/**
+	 * Insert a new row into the table.
+	 *
+	 * For Y.js columns (ytext, yxmlfragment, multi-select), you must provide
+	 * Y.js type instances (Y.Text, Y.XmlFragment, Y.Array). For plain columns
+	 * (text, integer, boolean, etc.), provide primitive values.
+	 *
+	 * Once inserted, you can retrieve the row and mutate Y.js fields directly.
+	 * Changes to Y.js objects are automatically synced without calling `.update()`.
+	 *
+	 * @example
+	 * // Insert with Y.js types
+	 * const title = new Y.Text();
+	 * title.insert(0, 'Hello World');
+	 * const tags = new Y.Array();
+	 * tags.push(['typescript', 'react']);
+	 *
+	 * table.insert({
+	 *   id: '123',
+	 *   title: title,        // Y.Text
+	 *   content: content,    // Y.XmlFragment
+	 *   tags: tags,          // Y.Array
+	 *   viewCount: 0         // primitive number
+	 * });
+	 *
+	 * @example
+	 * // For collaborative editing, get the reference and mutate
+	 * const row = table.get('123');
+	 * if (row.status === 'valid') {
+	 *   editor.bindYText(row.row.title);  // Bind to editor
+	 *   row.row.title.insert(0, 'prefix: '); // Direct mutation syncs automatically
+	 * }
+	 */
 	insert(row: TRow): void;
+
+	/**
+	 * Update specific fields of an existing row.
+	 *
+	 * **Important:** This method replaces entire field values. For Y.js columns,
+	 * you must provide new Y.js type instances. Only the fields you include will be updated.
+	 *
+	 * If you need to collaboratively edit Y.js fields (like making granular text edits),
+	 * use `.get()` to retrieve the Y.js objects and mutate them directly instead.
+	 *
+	 * @example
+	 * // Replace entire field values
+	 * const newTitle = new Y.Text();
+	 * newTitle.insert(0, 'New Title');
+	 * const newTags = new Y.Array();
+	 * newTags.push(['updated']);
+	 *
+	 * table.update({
+	 *   id: '123',
+	 *   title: newTitle,  // Replaces entire Y.Text
+	 *   tags: newTags     // Replaces entire Y.Array
+	 * });
+	 *
+	 * @example
+	 * // For granular edits, mutate Y.js objects directly
+	 * const row = table.get('123');
+	 * if (row.status === 'valid') {
+	 *   row.row.title.insert(0, 'Updated: '); // Granular edit
+	 *   row.row.tags.push(['new-tag']);       // Granular array change
+	 * }
+	 */
 	update(partial: PartialRow<TRow>): void;
+
+	/**
+	 * Insert or update a row (insert if doesn't exist, update if exists).
+	 *
+	 * **Important:** For Y.js columns, you must provide Y.js type instances. This method
+	 * replaces entire field values. For collaborative editing, use `.get()` and mutate directly.
+	 *
+	 * @example
+	 * const title = new Y.Text();
+	 * title.insert(0, 'Hello');
+	 * const content = new Y.XmlFragment();
+	 *
+	 * table.upsert({
+	 *   id: '123',
+	 *   title: title,
+	 *   content: content
+	 * });
+	 */
 	upsert(row: TRow): void;
+
 	insertMany(rows: TRow[]): void;
 	upsertMany(rows: TRow[]): void;
 	updateMany(partials: PartialRow<TRow>[]): void;
+
+	/**
+	 * Get a row by ID, returning Y.js objects for collaborative editing.
+	 *
+	 * Returns Y.Text, Y.XmlFragment, and Y.Array objects that can be:
+	 * - Bound to collaborative editors (TipTap, CodeMirror, etc.)
+	 * - Mutated directly for automatic sync across clients
+	 *
+	 * @example
+	 * const result = table.get('123');
+	 * if (result.status === 'valid') {
+	 *   const row = result.row;
+	 *   row.title // Y.Text - bind to editor
+	 *   row.content // Y.XmlFragment - bind to TipTap
+	 *   row.tags // Y.Array<string> - mutate directly
+	 * }
+	 */
 	get(id: string): GetRowResult<TRow>;
+
+	/**
+	 * Get all rows with Y.js objects for collaborative editing.
+	 */
 	getAll(): { valid: TRow[]; invalid: Row[] };
+
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;

@@ -125,7 +125,7 @@ describe('createEpicenterDb', () => {
 		expect(findResult.row).toBeNull();
 	});
 
-	test('should serialize Y.js types with getSerialized and getAllSerialized', () => {
+	test('should store and retrieve Y.js types correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createEpicenterDb(ydoc, {
 			posts: {
@@ -135,50 +135,46 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		// Insert with serialized values
+		// Insert with Y.js types
+		const title1 = new Y.Text();
+		title1.insert(0, 'Hello World');
+		const tags1 = new Y.Array<'typescript' | 'javascript' | 'python'>();
+		tags1.push(['typescript', 'javascript']);
+
 		doc.tables.posts.insert({
 			id: '1',
-			title: 'Hello World',
-			tags: ['typescript', 'javascript'],
+			title: title1,
+			tags: tags1,
 		});
 
 		// Get returns Y.js objects
-		const rawResult = doc.tables.posts.get('1');
-		expect(rawResult.status).toBe('valid');
-		if (rawResult.status === 'valid') {
-			expect(rawResult.row.title).toBeInstanceOf(Y.Text);
-			expect(rawResult.row.tags).toBeInstanceOf(Y.Array);
-		}
-
-		// getSerialized returns plain types
-		const serializedResult = doc.tables.posts.getSerialized('1');
-		expect(serializedResult.status).toBe('valid');
-		if (serializedResult.status === 'valid') {
-			expect(typeof serializedResult.row.title).toBe('string');
-			expect(serializedResult.row.title).toBe('Hello World');
-			expect(Array.isArray(serializedResult.row.tags)).toBe(true);
-			expect(serializedResult.row.tags).toEqual(['typescript', 'javascript']);
+		const result1 = doc.tables.posts.get('1');
+		expect(result1.status).toBe('valid');
+		if (result1.status === 'valid') {
+			expect(result1.row.title).toBeInstanceOf(Y.Text);
+			expect(result1.row.tags).toBeInstanceOf(Y.Array);
+			expect(result1.row.title.toString()).toBe('Hello World');
+			expect(result1.row.tags.toArray()).toEqual(['typescript', 'javascript']);
 		}
 
 		// Insert another post
+		const title2 = new Y.Text();
+		title2.insert(0, 'Second Post');
+		const tags2 = new Y.Array<'typescript' | 'javascript' | 'python'>();
+		tags2.push(['python']);
+
 		doc.tables.posts.insert({
 			id: '2',
-			title: 'Second Post',
-			tags: ['python'],
+			title: title2,
+			tags: tags2,
 		});
 
 		// getAll returns Y.js objects
-		const { valid: rawRows } = doc.tables.posts.getAll();
-		expect(rawRows).toHaveLength(2);
-		expect(rawRows[0].title).toBeInstanceOf(Y.Text);
-		expect(rawRows[0].tags).toBeInstanceOf(Y.Array);
-
-		// getAllSerialized returns plain types
-		const { valid: serializedRows } = doc.tables.posts.getAllSerialized();
-		expect(serializedRows).toHaveLength(2);
-		expect(typeof serializedRows[0].title).toBe('string');
-		expect(Array.isArray(serializedRows[0].tags)).toBe(true);
-		expect(serializedRows[0].title).toBe('Hello World');
-		expect(serializedRows[1].title).toBe('Second Post');
+		const { valid: rows } = doc.tables.posts.getAll();
+		expect(rows).toHaveLength(2);
+		expect(rows[0].title).toBeInstanceOf(Y.Text);
+		expect(rows[0].tags).toBeInstanceOf(Y.Array);
+		expect(rows[0].title.toString()).toBe('Hello World');
+		expect(rows[1].title.toString()).toBe('Second Post');
 	});
 });

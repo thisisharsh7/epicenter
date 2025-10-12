@@ -151,14 +151,14 @@ describe('YjsDoc Type Inference', () => {
 			read: boolean;
 		}> = [];
 
-		// Hover over 'data' parameter to verify inferred type
+		// Hover over 'row' parameter to verify inferred type
 		const unsubscribe = doc.tables.notifications.observe({
-			onAdd: (id, data) => {
-				// data type should be: { id: string; message: string; read: boolean }
-				addedNotifications.push(data);
+			onAdd: (row) => {
+				// row type should be: { id: string; message: string; read: boolean }
+				addedNotifications.push(row);
 			},
-			onUpdate: (id, data) => {
-				// data type should be: { id: string; message: string; read: boolean }
+			onUpdate: (row) => {
+				// row type should be: { id: string; message: string; read: boolean }
 			},
 			onDelete: (id) => {
 				// id type should be: string
