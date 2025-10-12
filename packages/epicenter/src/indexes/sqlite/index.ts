@@ -2,7 +2,7 @@ import { createClient } from '@libsql/client';
 import { eq, sql } from 'drizzle-orm';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
-import { tryAsync } from 'wellcrafted/result';
+import { tryAsync, Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type {
 	DateWithTimezone,
@@ -75,9 +75,9 @@ function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
 /**
  * Create SQLite tables if they don't exist
  */
-async function createTablesIfNotExist(
-	db: LibSQLDatabase,
-	drizzleTables: Record<string, SQLiteTable>,
+async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable>>(
+	db: LibSQLDatabase<TSchema>,
+	drizzleTables: TSchema,
 ): Promise<void> {
 	for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
 		// Extract column definitions from Drizzle table
@@ -135,25 +135,29 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 			// Convert table schemas to Drizzle tables
 			const drizzleTables = convertAllTableSchemasToDrizzle(epicenterDb.schema);
 
-			// Create database connection
+			// Create database connection with schema for proper type inference
 			const sqliteDb = drizzle(
 				createClient({ url: databaseUrl }),
+				{ schema: drizzleTables },
 			);
 
 			// Set up observers for each table
 			const unsubscribers: Array<() => void> = [];
 
 			for (const tableName of epicenterDb.getTableNames()) {
-				const unsub = epicenterDb.tables[tableName].observe({
+				const drizzleTable = drizzleTables[tableName];
+				if (!drizzleTable) {
+					throw new Error(`Drizzle table for "${tableName}" not found`);
+				}
+
+				const unsub = epicenterDb.tables[tableName]!.observe({
 					onAdd: async (row) => {
 						const { error } = await tryAsync({
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
-								await sqliteDb
-									.insert(drizzleTables[tableName])
-									.values(serializedRow);
+								await sqliteDb.insert(drizzleTable).values(serializedRow);
 							},
-							catch: (err) => err,
+							catch: () => Ok(undefined),
 						});
 
 						if (error) {
@@ -171,11 +175,11 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
 								await sqliteDb
-									.update(drizzleTables[tableName])
+									.update(drizzleTable)
 									.set(serializedRow)
-									.where(eq((drizzleTables[tableName] as any).id, row.id));
+									.where(eq((drizzleTable as any).id, row.id));
 							},
-							catch: (err) => err,
+							catch: () => Ok(undefined),
 						});
 
 						if (error) {
@@ -192,10 +196,10 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 						const { error } = await tryAsync({
 							try: async () => {
 								await sqliteDb
-									.delete(drizzleTables[tableName])
-									.where(eq((drizzleTables[tableName] as any).id, id));
+									.delete(drizzleTable)
+									.where(eq((drizzleTable as any).id, id));
 							},
-							catch: (err) => err,
+							catch: () => Ok(undefined),
 						});
 
 						if (error) {
@@ -217,17 +221,22 @@ export function sqliteIndex<TSchema extends Schema = Schema>(
 				await createTablesIfNotExist(sqliteDb, drizzleTables);
 
 				for (const tableName of epicenterDb.getTableNames()) {
-					const { valid: rows } = epicenterDb.tables[tableName].getAll();
+					const drizzleTable = drizzleTables[tableName];
+				if (!drizzleTable) {
+					throw new Error(`Drizzle table for "${tableName}" not found`);
+				}
+
+				const { valid: rows } = epicenterDb.tables[tableName]!.getAll();
 
 					for (const row of rows) {
 						const { error } = await tryAsync({
 							try: async () => {
 								const serializedRow = serializeRowForSQLite(row);
 								await sqliteDb
-									.insert(drizzleTables[tableName])
+									.insert(drizzleTable)
 									.values(serializedRow);
 							},
-							catch: (err) => err,
+							catch: () => Ok(undefined),
 						});
 
 						if (error) {

@@ -1,4 +1,4 @@
-import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
+import type { BuildColumns, IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,
 	real,
@@ -10,6 +10,7 @@ import {
 	type SQLiteIntegerBuilderInitial,
 	type SQLiteRealBuilderInitial,
 	type SQLiteTable,
+	type SQLiteTableWithColumns,
 	type SQLiteTextBuilderInitial,
 } from 'drizzle-orm/sqlite-core';
 import type {
@@ -31,41 +32,54 @@ import type {
 import { date, multiSelect, type DateWithTimezoneString } from './columns';
 
 /**
+ * Maps a Schema to its Drizzle table representations
+ * Returns a Record with type-safe table names but widened SQLiteTable type for Drizzle compatibility
+ */
+export type SchemaToDrizzleTables<S extends Schema> = {
+	[K in keyof S & string]: SQLiteTable;
+};
+
+/**
  * Convert all table schemas to Drizzle tables
- * Returns a map of table name → SQLiteTable
+ * Returns a map of table name → SQLiteTable with preserved types
  */
 export function convertAllTableSchemasToDrizzle<S extends Schema>(
 	schema: S,
-): Record<keyof S, SQLiteTable> {
-	const drizzleTables = {} as Record<keyof S, SQLiteTable>;
+): SchemaToDrizzleTables<S> {
+	const result: Record<string, SQLiteTable> = {};
 
-	for (const tableName of Object.keys(schema) as Array<keyof S>) {
-		drizzleTables[tableName] = convertTableSchemaToDrizzle(
-			String(tableName),
-			schema[tableName],
-		);
+	for (const tableName of Object.keys(schema) as Array<keyof S & string>) {
+		const tableSchema = schema[tableName];
+		if (!tableSchema) {
+			throw new Error(`Table schema for "${String(tableName)}" is undefined`);
+		}
+		result[tableName] = convertTableSchemaToDrizzle(tableName, tableSchema);
 	}
 
-	return drizzleTables;
+	return result as SchemaToDrizzleTables<S>;
 }
 
 /**
- * Convert a table schema (all columns) to a Drizzle SQLiteTable
+ * Convert a table schema (all columns) to a Drizzle SQLiteTable with precise types
  */
-export function convertTableSchemaToDrizzle<TTableSchema extends TableSchema>(
-	tableName: string,
+export function convertTableSchemaToDrizzle<
+	TTableName extends string,
+	TTableSchema extends TableSchema,
+>(
+	tableName: TTableName,
 	tableSchema: TTableSchema,
-): SQLiteTable {
-	const columns: Record<string, SQLiteColumnBuilderBase> = {};
-
-	for (const columnName of Object.keys(tableSchema)) {
-		columns[columnName] = convertColumnSchemaToDrizzle(
+) {
+	const columns = Object.fromEntries(
+		Object.keys(tableSchema).map((columnName) => [
 			columnName,
-			tableSchema[columnName as keyof TTableSchema],
-		);
-	}
+			convertColumnSchemaToDrizzle(
+				columnName,
+				tableSchema[columnName as keyof TTableSchema],
+			),
+		]),
+	) as {[Key in keyof TTableSchema]: ColumnToDrizzle<TTableSchema[Key]>};
 
-	return sqliteTable(tableName, columns);
+	return sqliteTable(tableName, columns) 
 }
 
 /**
