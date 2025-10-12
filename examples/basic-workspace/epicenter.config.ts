@@ -29,7 +29,7 @@ export default defineWorkspace({
 			id: id(),
 			title: text(),
 			content: text({ nullable: true }),
-			category: select({ options: ['tech', 'personal', 'tutorial'] as const }),
+			category: select({ options: ['tech', 'personal', 'tutorial'] }),
 			views: integer({ default: 0 }),
 			publishedAt: text({ nullable: true }),
 		},
