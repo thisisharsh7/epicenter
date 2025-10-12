@@ -141,9 +141,9 @@ export type MultiSelectColumnSchema<
 export type ColumnType = ColumnSchema['type'];
 
 /**
- * Database schema - maps table names to their table schemas
+ * Workspace schema - maps table names to their table schemas
  */
-export type Schema = Record<string, TableSchema>;
+export type WorkspaceSchema = Record<string, TableSchema>;
 
 /**
  * Table schema - maps column names to their schemas

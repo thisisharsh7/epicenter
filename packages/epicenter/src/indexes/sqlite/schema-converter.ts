@@ -22,7 +22,7 @@ import type {
 	IntegerColumnSchema,
 	MultiSelectColumnSchema,
 	RealColumnSchema,
-	Schema,
+	WorkspaceSchema,
 	SelectColumnSchema,
 	TableSchema,
 	TextColumnSchema,
@@ -32,24 +32,24 @@ import type {
 import { date, multiSelect, type DateWithTimezoneString } from './columns';
 
 /**
- * Maps a Schema to its Drizzle table representations
+ * Maps a WorkspaceSchema to its Drizzle table representations
  */
-export type SchemaToDrizzleTables<TSchema extends Schema> = {
-	[K in keyof TSchema & string]: ReturnType<
-		typeof convertTableSchemaToDrizzle<K, TSchema[K]>
+export type WorkspaceSchemaToDrizzleTables<TWorkspaceSchema extends WorkspaceSchema> = {
+	[K in keyof TWorkspaceSchema & string]: ReturnType<
+		typeof convertTableSchemaToDrizzle<K, TWorkspaceSchema[K]>
 	>;
 };
 
 /**
- * Convert all table schemas to Drizzle tables
+ * Convert workspace schema to Drizzle tables
  * Returns a map of table name → SQLiteTable with preserved types
  */
-export function convertAllTableSchemasToDrizzle<TSchema extends Schema>(
-	schema: TSchema,
-): SchemaToDrizzleTables<TSchema> {
+export function convertWorkspaceSchemaToDrizzle<TWorkspaceSchema extends WorkspaceSchema>(
+	schema: TWorkspaceSchema,
+): WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> {
 	const result: Record<string, SQLiteTable> = {};
 
-	for (const tableName of Object.keys(schema) as Array<keyof TSchema & string>) {
+	for (const tableName of Object.keys(schema) as Array<keyof TWorkspaceSchema & string>) {
 		const tableSchema = schema[tableName];
 		if (!tableSchema) {
 			throw new Error(`Table schema for "${String(tableName)}" is undefined`);
@@ -57,7 +57,7 @@ export function convertAllTableSchemasToDrizzle<TSchema extends Schema>(
 		result[tableName] = convertTableSchemaToDrizzle(tableName, tableSchema);
 	}
 
-	return result as SchemaToDrizzleTables<TSchema>;
+	return result as WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>;
 }
 
 /**

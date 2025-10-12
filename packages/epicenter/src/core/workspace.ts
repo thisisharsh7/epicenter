@@ -1,7 +1,7 @@
 import type * as Y from 'yjs';
 import type { Db } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { Schema, TableSchema } from './column-schemas';
+import type { WorkspaceSchema } from './column-schemas';
 import type { Index } from './indexes';
 
 /**
@@ -88,20 +88,20 @@ import type { Index } from './indexes';
 export function defineWorkspace<
 	const TId extends string,
 	const TVersion extends string,
-	const TSchema extends Schema,
-	const TIndexes extends Record<string, Index<TSchema>>,
+	const TWorkspaceSchema extends WorkspaceSchema,
+	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
 	const TActionMap extends WorkspaceActionMap,
 	const TName extends string,
 >(
 	workspace: WorkspaceConfig<
 		TId,
 		TVersion,
-		TSchema,
+		TWorkspaceSchema,
 		TActionMap,
 		TIndexes,
 		TName
 	>,
-): WorkspaceConfig<TId, TVersion, TSchema, TActionMap, TIndexes, TName> {
+): WorkspaceConfig<TId, TVersion, TWorkspaceSchema, TActionMap, TIndexes, TName> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -126,9 +126,9 @@ export function defineWorkspace<
 export type WorkspaceConfig<
 	TId extends string = string,
 	TVersion extends string = string,
-	TSchema extends Schema = Schema,
+	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TIndexes extends Record<string, Index<TSchema>> = Record<string, Index<TSchema>>,
+	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
 	TName extends string = string,
 > = {
 	/**
@@ -160,7 +160,7 @@ export type WorkspaceConfig<
 	/**
 	 * Table schemas (column definitions as JSON)
 	 */
-	schema: TSchema;
+	schema: TWorkspaceSchema;
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
@@ -174,7 +174,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	indexes: (context: { db: Db<TSchema> }) => TIndexes;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexes;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -224,21 +224,21 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	actions: (context: WorkspaceActionContext<TSchema, TIndexes>) => TActionMap;
+	actions: (context: WorkspaceActionContext<TWorkspaceSchema, TIndexes>) => TActionMap;
 };
 
 /**
  * Context passed to the actions function
  */
 export type WorkspaceActionContext<
-	TSchema extends Schema = Schema,
-	TIndexes extends Record<string, Index<TSchema>> = Record<string, Index<TSchema>>,
+	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
+	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
 > = {
 	/**
 	 * Database instance with table helpers, ydoc, schema, and utilities
 	 * Provides full access to YJS document and transactional operations
 	 */
-	db: Db<TSchema>;
+	db: Db<TWorkspaceSchema>;
 
 	/**
 	 * Indexes for this workspace

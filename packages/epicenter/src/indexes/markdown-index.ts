@@ -1,4 +1,4 @@
-import type { Schema, TableSchema } from '../core/column-schemas';
+import type { WorkspaceSchema, TableSchema } from '../core/column-schemas';
 import { IndexErr } from '../core/errors';
 import { defineIndex, type Index } from '../core/indexes';
 import type { Db } from '../db/core';
@@ -11,12 +11,12 @@ import {
 /**
  * Markdown index configuration
  */
-export type MarkdownIndexConfig<TSchema extends Schema = Schema> = {
+export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	/**
 	 * Database instance with schema
 	 * Required for type inference
 	 */
-	db: Db<TSchema>;
+	db: Db<TWorkspaceSchema>;
 	/**
 	 * Path where markdown files should be stored
 	 * Example: './data/markdown'
@@ -29,12 +29,12 @@ export type MarkdownIndexConfig<TSchema extends Schema = Schema> = {
  * Syncs YJS changes to markdown files for git-friendly persistence
  * No query interface - just persistence
  */
-export function markdownIndex<TSchema extends Schema>({
+export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema>({
 	db: _db,
 	storagePath,
-}: MarkdownIndexConfig<TSchema>): Index<TSchema, {}> {
+}: MarkdownIndexConfig<TWorkspaceSchema>): Index<TWorkspaceSchema, {}> {
 	return defineIndex({
-		init: (db: Db<TSchema>) => {
+		init: (db: Db<TWorkspaceSchema>) => {
 			// Set up observers for each table
 			const unsubscribers: Array<() => void> = [];
 

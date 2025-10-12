@@ -7,26 +7,26 @@ import * as Y from 'yjs';
 import type {
 	DateWithTimezone,
 	Row,
-	Schema,
+	WorkspaceSchema,
 } from '../../core/column-schemas';
 import { DateWithTimezoneSerializer } from './columns';
 import { IndexErr } from '../../core/errors';
 import { defineIndex, type Index } from '../../core/indexes';
 import type { Db } from '../../db/core';
 import {
-	convertAllTableSchemasToDrizzle,
-	type SchemaToDrizzleTables,
+	convertWorkspaceSchemaToDrizzle,
+	type WorkspaceSchemaToDrizzleTables,
 } from './schema-converter';
 
 /**
  * SQLite index configuration
  */
-export type SQLiteIndexConfig<TSchema extends Schema = Schema> = {
+export type SQLiteIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	/**
 	 * Database instance with schema
 	 * Required for type inference
 	 */
-	db: Db<TSchema>;
+	db: Db<TWorkspaceSchema>;
 	/**
 	 * Database URL for SQLite
 	 * Can be a file path (./data/db.sqlite) or :memory: for in-memory
@@ -134,24 +134,24 @@ async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
-export function sqliteIndex<TSchema extends Schema>({
+export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 	db: _db,
 	databaseUrl = ':memory:',
-}: SQLiteIndexConfig<TSchema>): Index<
-	TSchema,
+}: SQLiteIndexConfig<TWorkspaceSchema>): Index<
+	TWorkspaceSchema,
 	{
-		db: LibSQLDatabase<SchemaToDrizzleTables<TSchema>> & { $client: any };
-	} & SchemaToDrizzleTables<TSchema>
+		db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>> & { $client: any };
+	} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
 > {
 	return defineIndex({
-		init: (epicenterDb: Db<TSchema>): {
+		init: (epicenterDb: Db<TWorkspaceSchema>): {
 			destroy: () => void;
 			queries: {
-				db: LibSQLDatabase<SchemaToDrizzleTables<TSchema>> & { $client: any };
-			} & SchemaToDrizzleTables<TSchema>;
+				db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>> & { $client: any };
+			} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>;
 		} => {
 			// Convert table schemas to Drizzle tables
-			const drizzleTables = convertAllTableSchemasToDrizzle(epicenterDb.schema);
+			const drizzleTables = convertWorkspaceSchemaToDrizzle(epicenterDb.schema);
 
 			// Create database connection with schema for proper type inference
 			const sqliteDb = drizzle(

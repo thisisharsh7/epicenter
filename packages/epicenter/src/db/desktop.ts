@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as Y from 'yjs';
-import type { Schema, TableSchema } from '../core/column-schemas';
+import type { WorkspaceSchema, TableSchema } from '../core/column-schemas';
 import { createEpicenterDb } from './core';
 
 /**
@@ -55,9 +55,9 @@ import { createEpicenterDb } from './core';
  * db.enableAutoSave();
  * ```
  */
-export function createEpicenterDbFromDisk<TSchemas extends Schema>(
+export function createEpicenterDbFromDisk<TWorkspaceSchema extends WorkspaceSchema>(
 	workspaceId: string,
-	schema: TSchemas,
+	schema: TWorkspaceSchema,
 	options?: {
 		/**
 		 * Directory where YJS documents are stored

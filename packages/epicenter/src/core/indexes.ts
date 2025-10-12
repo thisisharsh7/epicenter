@@ -1,5 +1,5 @@
 import type { Db } from '../db/core';
-import type { Schema, TableSchema } from './column-schemas';
+import type { WorkspaceSchema } from './column-schemas';
 
 /**
  * Index type system for vault.
@@ -42,10 +42,10 @@ import type { Schema, TableSchema } from './column-schemas';
  * ```
  */
 export type Index<
-	TSchema extends Schema = Schema,
+	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TQueries = Record<string, any>,
 > = {
-	init: (db: Db<TSchema>) => {
+	init: (db: Db<TWorkspaceSchema>) => {
 		destroy: () => void | Promise<void>;
 		queries: TQueries;
 	};
@@ -54,14 +54,14 @@ export type Index<
 /**
  * Context passed to index factory functions
  */
-export type IndexContext<TSchema extends Schema = Schema> = {
+export type IndexContext<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	/**
 	 * The Epicenter database object with high-level CRUD methods
 	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
 	 * Table schemas are available via db.schema
 	 * Workspace ID is available via db.ydoc.guid
 	 */
-	db: Db<TSchema>;
+	db: Db<TWorkspaceSchema>;
 };
 
 /**
@@ -80,9 +80,9 @@ export type IndexContext<TSchema extends Schema = Schema> = {
  * ```
  */
 export function defineIndex<
-	TSchema extends Schema,
+	TWorkspaceSchema extends WorkspaceSchema,
 	TQueries = Record<string, any>,
->(index: Index<TSchema, TQueries>): Index<TSchema, TQueries> {
+>(index: Index<TWorkspaceSchema, TQueries>): Index<TWorkspaceSchema, TQueries> {
 	return index;
 }
 

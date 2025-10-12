@@ -1,8 +1,7 @@
 import * as Y from 'yjs';
-import type { TableHelper } from '../db/core';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { Schema, TableSchema, ValidatedRow } from './column-schemas';
+import type { WorkspaceSchema } from './column-schemas';
 import type { Index } from './indexes';
 import type { ExtractHandlers, IndexesAPI, WorkspaceConfig } from './workspace';
 import { extractHandlers } from './workspace';
@@ -101,14 +100,14 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
 export async function createWorkspaceClient<
 	const TId extends string,
 	const TVersion extends string,
-	TSchema extends Schema,
+	TWorkspaceSchema extends WorkspaceSchema,
 	TActionMap extends WorkspaceActionMap,
-	const TIndexes extends Record<string, Index<TSchema>>,
+	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
 >(
 	workspace: WorkspaceConfig<
 		TId,
 		TVersion,
-		TSchema,
+		TWorkspaceSchema,
 		TActionMap,
 		TIndexes,
 		string
