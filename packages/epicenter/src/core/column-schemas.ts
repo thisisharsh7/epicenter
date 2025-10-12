@@ -14,28 +14,6 @@ import * as Y from 'yjs';
 export type Id = string & Brand<'Id'>;
 
 /**
- * ISO 8601 UTC datetime string from Date.toISOString()
- * @example "2024-01-01T20:00:00.000Z"
- */
-export type DateIsoString = string & Brand<'UtcIsoString'>;
-
-/**
- * IANA timezone identifier
- * @example "America/New_York"
- * @example "Europe/London"
- * @example "Asia/Tokyo"
- * @example "UTC"
- */
-export type TimezoneId = string & Brand<'TimezoneId'>;
-
-/**
- * Database storage format combining UTC datetime and timezone
- * @example "2024-01-01T20:00:00.000Z|America/New_York"
- */
-export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
-	Brand<'DateWithTimezoneString'>;
-
-/**
  * A datetime value that knows its timezone
  * @property date - JavaScript Date object (internally stored as UTC)
  * @property timezone - IANA timezone identifier

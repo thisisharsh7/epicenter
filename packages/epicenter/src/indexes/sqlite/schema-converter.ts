@@ -17,7 +17,6 @@ import type {
 	ColumnSchema,
 	DateColumnSchema,
 	DateWithTimezone,
-	DateWithTimezoneString,
 	IdColumnSchema,
 	IntegerColumnSchema,
 	MultiSelectColumnSchema,
@@ -29,7 +28,7 @@ import type {
 	YtextColumnSchema,
 	YxmlfragmentColumnSchema,
 } from '../../core/column-schemas';
-import { date, multiSelect } from './columns';
+import { date, multiSelect, type DateWithTimezoneString } from './columns';
 
 /**
  * Convert all table schemas to Drizzle tables
