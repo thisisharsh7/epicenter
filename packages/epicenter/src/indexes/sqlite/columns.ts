@@ -457,35 +457,18 @@ export function multiSelect<
 
 	const multiSelectSerializer = Serializer({
 		serialize(value: TOptions[number][]): string {
-			// Validate that all values are in the options
-			for (const item of value) {
-				if (!optionsSet.has(item)) {
-					throw new Error(
-						`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
-					);
-				}
-			}
 			return JSON.stringify(value);
 		},
 		deserialize(storage: string): TOptions[number][] {
 			try {
 				const parsed = JSON.parse(storage);
 				if (!Array.isArray(parsed)) {
-					throw new Error('Stored value is not an array');
+					return [];
 				}
-				// Validate that all values are in the options
-				for (const item of parsed) {
-					if (!optionsSet.has(item)) {
-						throw new Error(
-							`Invalid value "${item}" for multiSelect. Must be one of: ${options.join(', ')}`,
-						);
-					}
-				}
-				return parsed as TOptions[number][];
+				// Filter out items not in the options set
+				return parsed.filter((item) => optionsSet.has(item)) as TOptions[number][];
 			} catch (error) {
-				throw new Error(
-					`Invalid MultiSelect format: ${storage}. ${error instanceof Error ? error.message : String(error)}`,
-				);
+				return [];
 			}
 		},
 	});
