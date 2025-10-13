@@ -144,7 +144,7 @@ export type WorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TDeps extends readonly AnyWorkspaceConfig[] = readonly [],
+	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
@@ -268,11 +268,19 @@ export type WorkspaceConfig<
  * Represents any workspace, regardless of its specific types.
  *
  * This type allows workspaces to depend on other workspaces without TypeScript
- * complaining about type mismatches. Using `any` for all type parameters tells
- * TypeScript: "accept any workspace here." This is safe because at runtime,
- * all workspaces have the same structure.
+ * complaining about type mismatches. Uses self-referential type parameters to
+ * maintain full type intelligence without requiring `any`. TypeScript handles
+ * this circular reference naturally when wrapped in readonly arrays.
  */
-export type AnyWorkspaceConfig = WorkspaceConfig<any, any, any, any, any, any, any>;
+export type AnyWorkspaceConfig = WorkspaceConfig<
+	string,
+	number,
+	string,
+	WorkspaceSchema,
+	readonly AnyWorkspaceConfig[],
+	WorkspaceIndexMap<WorkspaceSchema>,
+	WorkspaceActionMap
+>;
 
 /**
  * Dependency workspaces API - actions from dependency workspaces

@@ -173,7 +173,7 @@ export async function createWorkspaceClient<
 	}
 
 	// Register the root workspace itself
-	registerWorkspace(workspace as AnyWorkspaceConfig);
+	registerWorkspace(workspace as unknown as AnyWorkspaceConfig);
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 2: BUILD DEPENDENCY GRAPH
