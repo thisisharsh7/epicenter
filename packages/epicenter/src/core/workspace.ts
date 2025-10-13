@@ -213,7 +213,6 @@ export type WorkspaceConfig<
 	 * Use this to register IndexedDB persistence, remote sync providers, etc.
 	 *
 	 * @param ydoc - The YJS document for this workspace
-	 * @returns The YDoc (for chaining)
 	 *
 	 * @example
 	 * ```typescript
@@ -223,12 +222,10 @@ export type WorkspaceConfig<
 	 *
 	 *   // Set up WebRTC provider for collaboration
 	 *   new WebrtcProvider('my-workspace', ydoc);
-	 *
-	 *   return ydoc;
 	 * }
 	 * ```
 	 */
-	setupYDoc?: (ydoc: Y.Doc) => Y.Doc;
+	setupYDoc?: (ydoc: Y.Doc) => void;
 
 	/**
 	 * Workspace actions - business logic with access to db, indexes, and dependency workspaces
