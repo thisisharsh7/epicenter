@@ -1,6 +1,5 @@
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './workspace';
-import { createWorkspaceClient, type RuntimeConfig, type WorkspaceClient } from './runtime';
-import type { WorkspaceActionMap } from './actions';
+import { createWorkspaceClient, type RuntimeConfig, type WorkspaceClient } from './workspace';
 
 /**
  * Epicenter configuration
