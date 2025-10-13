@@ -193,7 +193,9 @@ export async function createWorkspaceClient<
 				if (!workspaceConfigs.has(dep.id)) {
 					throw new Error(
 						`Missing dependency: workspace "${id}" depends on "${dep.id}", ` +
-							`but it was not found in root workspace.dependencies`,
+							`but it was not found in root workspace.dependencies.\n\n` +
+							`Fix: Add "${dep.id}" to the root workspace's dependencies array (flat/hoisted resolution).\n` +
+							`All transitive dependencies must be declared at the root level.`,
 					);
 				}
 
@@ -287,24 +289,41 @@ export async function createWorkspaceClient<
 		const workspaces: Record<string, any> = {};
 
 		if (ws.dependencies && ws.dependencies.length > 0) {
-			// Validate that all dependency names are unique
-			const depNames = ws.dependencies.map((dep) => dep.name);
-			if (new Set(depNames).size !== depNames.length) {
-				throw new Error(
-					`Duplicate dependency names detected in workspace "${ws.id}". ` +
-						`All dependency names must be unique.`,
-				);
-			}
+			// Resolve dependencies from the registered configs (handles version resolution)
+			// Build set of unique dependency IDs
+			const uniqueDepIds = new Set(ws.dependencies.map((dep) => dep.id));
 
-			// Inject dependency clients (already initialized in topological order)
-			for (const dep of ws.dependencies) {
-				const depClient = clients.get(dep.id);
-				if (!depClient) {
+			// Inject dependency clients using resolved configs
+			const depNames = new Set<string>();
+			for (const depId of uniqueDepIds) {
+				// Get the resolved config (might be a different version than originally specified)
+				const resolvedConfig = workspaceConfigs.get(depId);
+				if (!resolvedConfig) {
 					throw new Error(
-						`Internal error: dependency "${dep.id}" should have been initialized before "${ws.id}"`,
+						`Internal error: dependency "${depId}" not found in registered configs`,
 					);
 				}
-				workspaces[dep.name] = depClient;
+
+				// Check for duplicate names after version resolution
+				if (depNames.has(resolvedConfig.name)) {
+					throw new Error(
+						`Duplicate dependency names detected in workspace "${ws.id}": ` +
+							`multiple dependencies resolve to name "${resolvedConfig.name}". ` +
+							`Each dependency must have a unique name.`,
+					);
+				}
+				depNames.add(resolvedConfig.name);
+
+				// Get the initialized client
+				const depClient = clients.get(depId);
+				if (!depClient) {
+					throw new Error(
+						`Internal error: dependency "${depId}" should have been initialized before "${ws.id}"`,
+					);
+				}
+
+				// Inject using the resolved config's name
+				workspaces[resolvedConfig.name] = depClient;
 			}
 		}
 
