@@ -350,7 +350,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			indexes: () => ({}),
 			actions: () => ({
 				getValue: defineQuery({
-					input: z.void(),
 					handler: () => {
 						return Ok('value-from-a');
 					},
@@ -373,7 +372,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			indexes: () => ({}),
 			actions: ({ workspaces }) => ({
 				getValueFromA: defineQuery({
-					input: z.void(),
 					handler: async () => {
 						// Access workspace A's action
 						const result = await workspaces.workspaceA.getValue();

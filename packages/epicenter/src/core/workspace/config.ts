@@ -57,7 +57,6 @@ import type { Index, WorkspaceIndexMap } from '../indexes';
  *
  *   actions: ({ db, indexes }) => ({
  *     getPublishedPosts: defineQuery({
- *       input: z.void(),
  *       handler: async () => {
  *         return indexes.sqlite.posts
  *           .select()
@@ -124,7 +123,7 @@ export function defineWorkspace<
 			throw new Error('Dependencies must be an array of workspace configs');
 		}
 
-		for (const dep of workspace.dependencies as readonly WorkspaceConfig[]) {
+		for (const dep of workspace.dependencies) {
 			if (!dep || typeof dep !== 'object' || !dep.id) {
 				throw new Error(
 					'Invalid dependency: dependencies must be workspace configs with id',

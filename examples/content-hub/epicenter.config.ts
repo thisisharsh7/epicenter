@@ -42,7 +42,6 @@ export const pages = defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		// Query: Get all pages
 		getPages: defineQuery({
-			input: z.void(),
 			handler: async () => {
 				const pages = indexes.sqlite.db.select().from(indexes.sqlite.pages).all();
 				return Ok(pages);

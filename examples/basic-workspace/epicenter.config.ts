@@ -50,7 +50,6 @@ export default defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
-			input: z.void(),
 			handler: async () => {
 				const posts = indexes.sqlite.db
 					.select()
