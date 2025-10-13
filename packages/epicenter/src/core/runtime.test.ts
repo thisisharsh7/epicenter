@@ -21,7 +21,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: workspaceId,
 			name: workspaceId,
 			version: '1',
-			dependencies: deps as any,
+			dependencies: deps,
 			schema: {
 				items: {
 					id: id(),

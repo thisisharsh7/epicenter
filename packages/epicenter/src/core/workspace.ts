@@ -144,7 +144,7 @@ export type WorkspaceConfig<
 	TVersion extends string = string,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TDeps extends readonly WorkspaceConfig[] = readonly WorkspaceConfig[],
+	TDeps extends readonly WorkspaceConfig[] = readonly [],
 	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
@@ -301,7 +301,7 @@ type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
 /**
  * Extract handler functions from action map
  */
-type ExtractHandlers<T extends WorkspaceActionMap> = {
+export type ExtractHandlers<T extends WorkspaceActionMap> = {
 	[K in keyof T]: T[K]['handler'];
 };
 

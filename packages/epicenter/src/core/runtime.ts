@@ -1,9 +1,9 @@
 import * as Y from 'yjs';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
-import type { WorkspaceSchema } from './schema';
 import type { Index } from './indexes';
-import type { ExtractHandlers, IndexesAPI, WorkspaceConfig } from './workspace';
+import type { WorkspaceSchema } from './schema';
+import type { ExtractHandlers, WorkspaceConfig } from './workspace';
 import { extractHandlers } from './workspace';
 
 /**
@@ -157,7 +157,7 @@ export async function createWorkspaceClient<
 	}
 
 	// Register the root workspace itself
-	registerWorkspace(workspace as AnyWorkspace);
+	registerWorkspace(workspace);
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 2: BUILD DEPENDENCY GRAPH
