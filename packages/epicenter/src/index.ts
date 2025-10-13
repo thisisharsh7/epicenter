@@ -64,6 +64,10 @@ export type {
 export { createWorkspaceClient } from './core/runtime';
 export type { RuntimeConfig, WorkspaceClient } from './core/runtime';
 
+// Epicenter - compose multiple workspaces
+export { defineEpicenter, createEpicenterClient } from './core/epicenter';
+export type { EpicenterConfig, EpicenterClient } from './core/epicenter';
+
 // Database utilities
 export { createEpicenterDb } from './db/core';
 export { createEpicenterDbFromDisk } from './db/desktop';
@@ -83,6 +87,19 @@ export type { MarkdownIndexConfig } from './indexes/markdown';
 // Error types
 export { IndexErr } from './core/errors';
 export type { EpicenterOperationError, IndexError } from './core/errors';
+
+// Schema adapters - generate Zod/ArkType schemas from table schemas
+export {
+	createInsertSchema as createInsertSchemaZod,
+	createSelectSchema as createSelectSchemaZod,
+	createUpdateSchema as createUpdateSchemaZod,
+} from './adapters/zod';
+
+export {
+	createInsertSchema as createInsertSchemaArkType,
+	createSelectSchema as createSelectSchemaArkType,
+	createUpdateSchema as createUpdateSchemaArkType,
+} from './adapters/arktype';
 
 // Re-export commonly used Drizzle utilities for querying indexes
 export {

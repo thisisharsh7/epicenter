@@ -3,7 +3,7 @@ import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
 import type { Index } from './indexes';
 import type { WorkspaceSchema } from './schema';
-import type { ExtractHandlers, WorkspaceConfig } from './workspace';
+import type { AnyWorkspaceConfig, ExtractHandlers, WorkspaceConfig } from './workspace';
 import { extractHandlers } from './workspace';
 
 /**
@@ -97,7 +97,7 @@ export async function createWorkspaceClient<
 	const TId extends string,
 	const TVersion extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TDeps extends readonly WorkspaceConfig[],
+	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
 	TActionMap extends WorkspaceActionMap,
 >(
@@ -112,9 +112,6 @@ export async function createWorkspaceClient<
 	>,
 	config: RuntimeConfig = {},
 ): Promise<WorkspaceClient<TActionMap>> {
-	// Type alias for any workspace config (since we store multiple workspace types)
-	type AnyWorkspace = WorkspaceConfig<any, any, any, any, any, any, any>;
-
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -126,14 +123,14 @@ export async function createWorkspaceClient<
 	 * we keep only the highest version (version compared as integers).
 	 * Example: If both workspaceA v1 and workspaceA v3 are registered, we keep v3.
 	 */
-	const workspaceConfigs = new Map<string, AnyWorkspace>();
+	const workspaceConfigs = new Map<string, AnyWorkspaceConfig>();
 
 	/**
 	 * Register a workspace config, automatically resolving version conflicts.
 	 * If a workspace with the same ID is already registered, compares versions
 	 * and keeps the highest one. Versions are compared as integers.
 	 */
-	const registerWorkspace = (ws: AnyWorkspace) => {
+	const registerWorkspace = (ws: AnyWorkspaceConfig) => {
 		const existing = workspaceConfigs.get(ws.id);
 		if (!existing) {
 			workspaceConfigs.set(ws.id, ws);
@@ -157,7 +154,7 @@ export async function createWorkspaceClient<
 	}
 
 	// Register the root workspace itself
-	registerWorkspace(workspace);
+	registerWorkspace(workspace as AnyWorkspaceConfig);
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 2: BUILD DEPENDENCY GRAPH
@@ -282,7 +279,7 @@ export async function createWorkspaceClient<
 	 * 3. Returns the initialized workspace client
 	 */
 	const initializeWorkspace = async (
-		ws: AnyWorkspace,
+		ws: AnyWorkspaceConfig,
 	): Promise<WorkspaceClient<any>> => {
 		// Build the workspaces object by injecting already-initialized dependencies
 		// Key: dependency name, Value: initialized client

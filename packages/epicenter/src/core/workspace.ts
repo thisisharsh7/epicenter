@@ -89,7 +89,7 @@ export function defineWorkspace<
 	const TVersion extends string,
 	const TName extends string,
 	const TWorkspaceSchema extends WorkspaceSchema,
-	const TDeps extends readonly WorkspaceConfig[],
+	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
 	const TActionMap extends WorkspaceActionMap,
 >(
@@ -144,7 +144,7 @@ export type WorkspaceConfig<
 	TVersion extends string = string,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TDeps extends readonly WorkspaceConfig[] = readonly [],
+	TDeps extends readonly AnyWorkspaceConfig[] = readonly [],
 	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
@@ -262,10 +262,20 @@ export type WorkspaceConfig<
 };
 
 /**
+ * Represents any workspace, regardless of its specific types.
+ *
+ * This type allows workspaces to depend on other workspaces without TypeScript
+ * complaining about type mismatches. Using `any` for all type parameters tells
+ * TypeScript: "accept any workspace here." This is safe because at runtime,
+ * all workspaces have the same structure.
+ */
+export type AnyWorkspaceConfig = WorkspaceConfig<any, any, any, any, any, any, any>;
+
+/**
  * Dependency workspaces API - actions from dependency workspaces
  * Converts array of workspaces into an object keyed by workspace names
  */
-type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
+type DependencyWorkspacesAPI<TDeps extends readonly AnyWorkspaceConfig[]> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
