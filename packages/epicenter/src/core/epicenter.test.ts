@@ -21,7 +21,7 @@ import { Ok } from 'wellcrafted/result';
  */
 const pages = defineWorkspace({
 	id: 'pages',
-	version: '1',
+	version: 1,
 	name: 'pages',
 
 	schema: {
@@ -103,7 +103,7 @@ const niche = multiSelect({
 
 const contentHub = defineWorkspace({
 	id: 'content-hub',
-	version: '1',
+	version: 1,
 	name: 'contentHub',
 
 	dependencies: [pages],

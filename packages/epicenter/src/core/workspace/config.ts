@@ -32,7 +32,7 @@ import type { Index, WorkspaceIndexMap } from '../indexes';
  * ```typescript
  * const blogWorkspace = defineWorkspace({
  *   id: 'blog',
- *   version: '1',
+ *   version: 1,
  *   name: 'blog', // Human-readable name for API access
  *
  *   schema: {
@@ -86,7 +86,7 @@ import type { Index, WorkspaceIndexMap } from '../indexes';
  */
 export function defineWorkspace<
 	const TId extends string,
-	const TVersion extends string,
+	const TVersion extends number,
 	const TName extends string,
 	const TWorkspaceSchema extends WorkspaceSchema,
 	const TDeps extends readonly AnyWorkspaceConfig[],
@@ -109,8 +109,8 @@ export function defineWorkspace<
 	}
 
 	// Validate workspace version
-	if (!workspace.version || typeof workspace.version !== 'string') {
-		throw new Error('Workspace must have a valid string version');
+	if (!workspace.version || typeof workspace.version !== 'number') {
+		throw new Error('Workspace must have a valid number version');
 	}
 
 	// Validate workspace name
@@ -141,7 +141,7 @@ export function defineWorkspace<
  */
 export type WorkspaceConfig<
 	TId extends string = string,
-	TVersion extends string = string,
+	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly [],
@@ -159,9 +159,12 @@ export type WorkspaceConfig<
 	/**
 	 * Version of this workspace
 	 * Combined with ID to create Y.Doc GUID: `${id}.${version}`
-	 * Allows multiple versions of the same workspace to coexist
 	 *
-	 * @example '1', '2', '1.0.0', '2.0.0'
+	 * When multiple workspaces with the same ID are registered, only the highest
+	 * version is kept. Increment the version whenever you change the schema or
+	 * actions, as these are breaking changes to the API surface.
+	 *
+	 * @example 1, 2, 3, 4
 	 */
 	version: TVersion;
 

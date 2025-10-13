@@ -116,7 +116,7 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  */
 export async function createWorkspaceClient<
 	const TId extends string,
-	const TVersion extends string,
+	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
@@ -156,10 +156,8 @@ export async function createWorkspaceClient<
 		if (!existing) {
 			workspaceConfigs.set(ws.id, ws);
 		} else {
-			// Compare versions as integers
-			const wsVersion = parseInt(ws.version, 10);
-			const existingVersion = parseInt(existing.version, 10);
-			if (wsVersion > existingVersion) {
+			// Compare versions as numbers
+			if (ws.version > existing.version) {
 				// New version is higher, replace
 				workspaceConfigs.set(ws.id, ws);
 			}

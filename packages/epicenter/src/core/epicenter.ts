@@ -193,7 +193,7 @@ export async function createEpicenterClient<
 
 	const compositeWorkspace: AnyWorkspaceConfig = {
 		id: `${config.id}-composite`,
-		version: '1',
+		version: 1,
 		name: `${config.id}-composite`,
 		schema: {},
 		dependencies: config.workspaces as any,
