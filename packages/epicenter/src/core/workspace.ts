@@ -144,7 +144,7 @@ export type WorkspaceConfig<
 	TVersion extends string = string,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TDeps extends readonly WorkspaceConfig[] = readonly [],
+	TDeps extends readonly WorkspaceConfig[] = readonly WorkspaceConfig[],
 	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
@@ -251,44 +251,14 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	actions: (context: WorkspaceActionContext<TWorkspaceSchema, TIndexes, TDeps>) => TActionMap;
-};
-
-/**
- * Context passed to the actions function
- */
-export type WorkspaceActionContext<
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
-	TDeps extends readonly WorkspaceConfig[] = readonly [],
-> = {
-	/**
-	 * Dependency workspaces
-	 * Access actions from other workspaces
-	 */
-	workspaces: DependencyWorkspacesAPI<TDeps>;
-
-	/**
-	 * Database instance with table helpers, ydoc, schema, and utilities
-	 * Provides full access to YJS document and transactional operations
-	 */
-	db: Db<TWorkspaceSchema>;
-
-	/**
-	 * Indexes for this workspace
-	 * Async read operations (select, search, etc.)
-	 */
-	indexes: IndexesAPI<TIndexes>;
-};
-
-/**
- * Indexes API - extracts only the queries from indexes
- * Converts record of indexes to record of queries keyed by same keys
- */
-export type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
-	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TQueries>
-		? TQueries
-		: never;
+	actions: (context: {
+		/** Dependency workspaces - access actions from other workspaces */
+		workspaces: DependencyWorkspacesAPI<TDeps>;
+		/** Database instance with table helpers, ydoc, schema, and utilities */
+		db: Db<TWorkspaceSchema>;
+		/** Indexes for this workspace - async read operations (select, search, etc.) */
+		indexes: IndexesAPI<TIndexes>;
+	}) => TActionMap;
 };
 
 /**
@@ -319,9 +289,19 @@ type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 			};
 
 /**
+ * Indexes API - extracts only the queries from indexes
+ * Converts record of indexes to record of queries keyed by same keys
+ */
+type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
+	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TQueries>
+		? TQueries
+		: never;
+};
+
+/**
  * Extract handler functions from action map
  */
-export type ExtractHandlers<T extends WorkspaceActionMap> = {
+type ExtractHandlers<T extends WorkspaceActionMap> = {
 	[K in keyof T]: T[K]['handler'];
 };
 
