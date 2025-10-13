@@ -53,7 +53,6 @@ import type { Index } from './indexes';
  *   setupYDoc: (ydoc) => {
  *     // Optional: Set up persistence
  *     new IndexeddbPersistence('blog', ydoc);
- *     return ydoc;
  *   },
  *
  *   actions: ({ db, indexes }) => ({
@@ -88,22 +87,22 @@ import type { Index } from './indexes';
 export function defineWorkspace<
 	const TId extends string,
 	const TVersion extends string,
+	const TName extends string,
 	const TWorkspaceSchema extends WorkspaceSchema,
+	const TDeps extends readonly WorkspaceConfig[],
 	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
 	const TActionMap extends WorkspaceActionMap,
-	const TName extends string,
-	const TDeps extends readonly WorkspaceConfig[] = readonly [],
 >(
 	workspace: WorkspaceConfig<
 		TId,
 		TVersion,
-		TWorkspaceSchema,
-		TActionMap,
-		TIndexes,
 		TName,
-		TDeps
+		TWorkspaceSchema,
+		TDeps,
+		TIndexes,
+		TActionMap
 	>,
-): WorkspaceConfig<TId, TVersion, TWorkspaceSchema, TActionMap, TIndexes, TName, TDeps> {
+): WorkspaceConfig<TId, TVersion, TName, TWorkspaceSchema, TDeps, TIndexes, TActionMap> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -143,11 +142,11 @@ export function defineWorkspace<
 export type WorkspaceConfig<
 	TId extends string = string,
 	TVersion extends string = string,
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
 	TName extends string = string,
+	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TDeps extends readonly WorkspaceConfig[] = readonly [],
+	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
+	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	/**
 	 * Unique identifier for this workspace (base ID without version)
@@ -303,9 +302,6 @@ type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 				[W in TDeps[number] as W extends WorkspaceConfig<
 					infer _,
 					infer _,
-					infer _,
-					infer _,
-					infer _,
 					infer TName
 				>
 					? TName
@@ -313,10 +309,10 @@ type DependencyWorkspacesAPI<TDeps extends readonly WorkspaceConfig[]> =
 					infer _,
 					infer _,
 					infer _,
-					infer TActionMap,
 					infer _,
 					infer _,
-					infer _
+					infer _,
+					infer TActionMap
 				>
 					? ExtractHandlers<TActionMap>
 					: never;

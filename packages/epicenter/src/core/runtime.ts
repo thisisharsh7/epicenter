@@ -97,18 +97,18 @@ export async function createWorkspaceClient<
 	const TId extends string,
 	const TVersion extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TActionMap extends WorkspaceActionMap,
+	const TDeps extends readonly WorkspaceConfig[],
 	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
-	const TDeps extends readonly WorkspaceConfig[] = readonly [],
+	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
 		TId,
 		TVersion,
-		TWorkspaceSchema,
-		TActionMap,
-		TIndexes,
 		string,
-		TDeps
+		TWorkspaceSchema,
+		TDeps,
+		TIndexes,
+		TActionMap
 	>,
 	config: RuntimeConfig = {},
 ): Promise<WorkspaceClient<TActionMap>> {
