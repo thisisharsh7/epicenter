@@ -1,6 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { createWorkspaceClient } from './runtime';
-import { defineWorkspace } from './workspace';
+import { createWorkspaceClient, defineWorkspace } from './workspace';
 import { id, text } from './schema';
 
 /**

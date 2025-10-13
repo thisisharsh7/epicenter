@@ -62,8 +62,8 @@ export type {
 } from './core/actions';
 
 // Runtime
-export { createWorkspaceClient } from './core/runtime';
-export type { RuntimeConfig, WorkspaceClient } from './core/runtime';
+export { createWorkspaceClient } from './core/workspace';
+export type { RuntimeConfig, WorkspaceClient } from './core/workspace';
 
 // Epicenter - compose multiple workspaces
 export { defineEpicenter, createEpicenterClient } from './core/epicenter';
