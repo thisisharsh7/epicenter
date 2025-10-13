@@ -3,7 +3,7 @@ import { createEpicenterDb } from '../db/core';
 import type { Db } from '../db/core';
 import type { WorkspaceActionMap } from './actions';
 import type { WorkspaceSchema } from './schema';
-import type { Index } from './indexes';
+import type { Index, WorkspaceIndexMap } from './indexes';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -91,7 +91,7 @@ export function defineWorkspace<
 	const TName extends string,
 	const TWorkspaceSchema extends WorkspaceSchema,
 	const TDeps extends readonly AnyWorkspaceConfig[],
-	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
+	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
 	const TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
@@ -146,7 +146,7 @@ export type WorkspaceConfig<
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly [],
-	TIndexes extends Record<string, Index<TWorkspaceSchema>> = Record<string, Index<TWorkspaceSchema>>,
+	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	/**
@@ -303,7 +303,7 @@ type DependencyWorkspacesAPI<TDeps extends readonly AnyWorkspaceConfig[]> =
  * Indexes API - extracts only the queries from indexes
  * Converts record of indexes to record of queries keyed by same keys
  */
-type IndexesAPI<TIndexes extends Record<string, Index<any>>> = {
+type IndexesAPI<TIndexes extends WorkspaceIndexMap<any>> = {
 	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TQueries>
 		? TQueries
 		: never;
@@ -426,7 +426,7 @@ export async function createWorkspaceClient<
 	const TVersion extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TDeps extends readonly AnyWorkspaceConfig[],
-	const TIndexes extends Record<string, Index<TWorkspaceSchema>>,
+	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
