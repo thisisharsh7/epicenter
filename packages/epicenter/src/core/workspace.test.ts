@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'bun:test';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
 import { id, text } from './schema';
+import { defineQuery } from './actions';
+import { z } from 'zod';
+import { Ok } from 'wellcrafted/result';
 
 /**
  * Test suite for workspace initialization with topological sort
@@ -346,11 +349,12 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: () => ({}),
 			actions: () => ({
-				getValue: {
+				getValue: defineQuery({
+					input: z.void(),
 					handler: () => {
-						return 'value-from-a';
+						return Ok('value-from-a');
 					},
-				},
+				}),
 			}),
 		});
 
@@ -368,19 +372,21 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: () => ({}),
 			actions: ({ workspaces }) => ({
-				getValueFromA: {
-					handler: () => {
+				getValueFromA: defineQuery({
+					input: z.void(),
+					handler: async () => {
 						// Access workspace A's action
-						return workspaces.workspaceA.getValue();
+						const result = await workspaces.workspaceA.getValue();
+						return result;
 					},
-				},
+				}),
 			}),
 		});
 
 		const client = await createWorkspaceClient(workspaceB);
 
 		// Verify that B can call A's action
-		const result = client.getValueFromA();
-		expect(result).toBe('value-from-a');
+		const result = await client.getValueFromA();
+		expect(result.data).toBe('value-from-a');
 	});
 });
