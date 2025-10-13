@@ -87,7 +87,7 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  * Create a workspace client with YJS-first architecture
  * Uses flat dependency resolution with VS Code-style peer dependency model
  * All transitive dependencies must be present in workspace.dependencies (hoisted to root)
- * Lazy initialization: workspaces are initialized on-demand when their dependents need them
+ * Initialization uses topological sort for deterministic, predictable order
  *
  * @param workspace - Workspace configuration to initialize
  * @param config - Runtime configuration options
@@ -112,99 +112,182 @@ export async function createWorkspaceClient<
 	>,
 	config: RuntimeConfig = {},
 ): Promise<WorkspaceClient<TActionMap>> {
-	// 1. Pre-populate Maps with root workspace.dependencies (already flat!)
-	// We maintain two maps:
-	// - workspaceConfigs: tracks the highest version of each workspace to use
-	// - clients: tracks initialization state (null = not initialized, WorkspaceClient = initialized)
-	const workspaceConfigs = new Map<
-		string,
-		WorkspaceConfig<any, any, any, any, any, any, readonly WorkspaceConfig[]>
-	>();
-	const clients = new Map<string, WorkspaceClient<any> | null>();
+	// Type alias for any workspace config (since we store multiple workspace types)
+	type AnyWorkspace = WorkspaceConfig<any, any, any, any, any, any, any>;
 
-	// Track workspaces currently being initialized to detect circular dependencies
-	const initializing = new Set<string>();
+	// ═══════════════════════════════════════════════════════════════════════════
+	// PHASE 1: REGISTRATION
+	// Register all workspace configs with version resolution
+	// ═══════════════════════════════════════════════════════════════════════════
 
-	// Pre-populate with dependencies, keeping the highest version of each workspace
-	// Versions are compared as integers (e.g., "1", "2", "3")
-	// If you need semantic versioning (major.minor.patch), use a semver library
+	/**
+	 * Registry mapping workspace ID to the highest version of that workspace's config.
+	 * When the same workspace appears multiple times with different versions,
+	 * we keep only the highest version (version compared as integers).
+	 * Example: If both workspaceA v1 and workspaceA v3 are registered, we keep v3.
+	 */
+	const workspaceConfigs = new Map<string, AnyWorkspace>();
+
+	/**
+	 * Register a workspace config, automatically resolving version conflicts.
+	 * If a workspace with the same ID is already registered, compares versions
+	 * and keeps the highest one. Versions are compared as integers.
+	 */
+	const registerWorkspace = (ws: AnyWorkspace) => {
+		const existing = workspaceConfigs.get(ws.id);
+		if (!existing) {
+			workspaceConfigs.set(ws.id, ws);
+		} else {
+			// Compare versions as integers
+			const wsVersion = parseInt(ws.version, 10);
+			const existingVersion = parseInt(existing.version, 10);
+			if (wsVersion > existingVersion) {
+				// New version is higher, replace
+				workspaceConfigs.set(ws.id, ws);
+			}
+			// Otherwise keep existing (higher or equal version)
+		}
+	};
+
+	// Register all dependencies from root workspace
 	if (workspace.dependencies) {
 		for (const dep of workspace.dependencies) {
-			const existing = workspaceConfigs.get(dep.id);
-			if (!existing) {
-				// First time seeing this workspace ID
-				workspaceConfigs.set(dep.id, dep);
-				clients.set(dep.id, null);
-			} else {
-				// Already seen this workspace ID, compare versions as integers
-				const depVersionNum = parseInt(dep.version, 10);
-				const existingVersionNum = parseInt(existing.version, 10);
+			registerWorkspace(dep);
+		}
+	}
 
-				if (depVersionNum > existingVersionNum) {
-					// New version is higher, replace it
-					workspaceConfigs.set(dep.id, dep);
-					// Note: client stays null, will be re-initialized with new version
+	// Register the root workspace itself
+	registerWorkspace(workspace as AnyWorkspace);
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// PHASE 2: BUILD DEPENDENCY GRAPH
+	// Create adjacency list and in-degree map for topological sort
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Adjacency list mapping workspace ID to dependent workspace IDs.
+	 * Example: If workspace B depends on workspace A, then dependents[A] contains [B]
+	 * This represents the "outgoing edges" in the dependency graph.
+	 */
+	const dependents = new Map<string, string[]>();
+
+	/**
+	 * In-degree map tracking the number of dependencies for each workspace.
+	 * In-degree is the count of "incoming edges" (dependencies).
+	 * Example: If workspace C depends on A and B, then inDegree[C] = 2
+	 * Workspaces with in-degree 0 have no dependencies and can be initialized first.
+	 */
+	const inDegree = new Map<string, number>();
+
+	// Initialize structures for all registered workspaces
+	for (const id of workspaceConfigs.keys()) {
+		dependents.set(id, []);
+		inDegree.set(id, 0);
+	}
+
+	// Build the graph by processing each workspace's dependencies
+	for (const [id, ws] of workspaceConfigs) {
+		if (ws.dependencies && ws.dependencies.length > 0) {
+			for (const dep of ws.dependencies) {
+				// Verify dependency exists in registry
+				if (!workspaceConfigs.has(dep.id)) {
+					throw new Error(
+						`Missing dependency: workspace "${id}" depends on "${dep.id}", ` +
+							`but it was not found in root workspace.dependencies`,
+					);
 				}
-				// If existing version is higher or equal, keep it
+
+				// Add edge: dep.id -> id (id depends on dep.id)
+				dependents.get(dep.id)!.push(id);
+
+				// Increment in-degree for the dependent workspace
+				inDegree.set(id, inDegree.get(id)! + 1);
 			}
 		}
 	}
 
-	// 2. Helper function: Ensure a workspace is initialized (idempotent)
-	// This function can be called multiple times safely. If the workspace is already
-	// initialized, it returns the existing client. Otherwise, it initializes the workspace
-	// by recursively ensuring all its dependencies are initialized first.
-	// Version resolution: Always uses the highest version available in workspaceConfigs
-	const ensureWorkspace = async (
-		ws: WorkspaceConfig<any, any, any, any, any, any, readonly WorkspaceConfig[]>,
-	): Promise<WorkspaceClient<any>> => {
-		// Check if we have a higher version of this workspace already registered
-		const configInMap = workspaceConfigs.get(ws.id);
-		if (configInMap) {
-			// Compare versions as integers and use the higher one
-			const wsVersionNum = parseInt(ws.version, 10);
-			const configVersionNum = parseInt(configInMap.version, 10);
+	// ═══════════════════════════════════════════════════════════════════════════
+	// PHASE 3: TOPOLOGICAL SORT (Kahn's Algorithm)
+	// Sort workspaces by dependency order
+	// ═══════════════════════════════════════════════════════════════════════════
 
-			if (wsVersionNum > configVersionNum) {
-				// Passed-in version is higher, update the map
-				workspaceConfigs.set(ws.id, ws);
-				// Force re-initialization by removing any existing client
-				clients.set(ws.id, null);
-			} else {
-				// Existing version is higher or equal, use it instead
-				ws = configInMap;
+	/**
+	 * Queue of workspace IDs ready to be added to the sorted list.
+	 * Starts with all workspaces that have zero dependencies (in-degree = 0).
+	 * As we process each workspace, we add new workspaces whose dependencies are satisfied.
+	 */
+	const queue: string[] = [];
+	for (const [id, degree] of inDegree) {
+		if (degree === 0) {
+			queue.push(id);
+		}
+	}
+
+	/**
+	 * Sorted list of workspace IDs in topological order.
+	 * This is the initialization order: dependencies come before their dependents.
+	 * Example: If B depends on A, then sorted = [A, B] (not [B, A])
+	 */
+	const sorted: string[] = [];
+
+	// Process the queue
+	while (queue.length > 0) {
+		const currentId = queue.shift()!;
+		sorted.push(currentId);
+
+		// For each workspace that depends on the current workspace
+		for (const dependentId of dependents.get(currentId)!) {
+			// Decrement in-degree (one dependency satisfied)
+			const newDegree = inDegree.get(dependentId)! - 1;
+			inDegree.set(dependentId, newDegree);
+
+			// If all dependencies are satisfied, add to queue
+			if (newDegree === 0) {
+				queue.push(dependentId);
 			}
-		} else {
-			// First time seeing this workspace, add it to the map
-			workspaceConfigs.set(ws.id, ws);
-			clients.set(ws.id, null);
 		}
+	}
 
-		// Return existing client if already initialized (idempotent behavior)
-		const existingClient = clients.get(ws.id);
-		if (existingClient) return existingClient;
+	// Check for circular dependencies
+	if (sorted.length !== workspaceConfigs.size) {
+		const unsorted = Array.from(workspaceConfigs.keys()).filter(
+			(id) => !sorted.includes(id),
+		);
+		throw new Error(
+			`Circular dependency detected. The following workspaces form a cycle: ${unsorted.join(', ')}`,
+		);
+	}
 
-		// Detect circular dependencies (A depends on B, B depends on A)
-		// If we're already in the process of initializing this workspace, it means
-		// we hit a circular dependency chain
-		if (initializing.has(ws.id)) {
-			throw new Error(
-				`Circular dependency detected: workspace "${ws.id}" depends on itself (directly or transitively)`,
-			);
-		}
+	// ═══════════════════════════════════════════════════════════════════════════
+	// PHASE 4: INITIALIZE IN TOPOLOGICAL ORDER
+	// Initialize workspaces one by one in dependency order
+	// ═══════════════════════════════════════════════════════════════════════════
 
-		// Mark this workspace as currently being initialized
-		initializing.add(ws.id);
-		
+	/**
+	 * Map of workspace ID to initialized workspace client.
+	 * Populated as we initialize each workspace in topological order.
+	 * When initializing workspace B that depends on A, we can safely
+	 * inject clients[A] because A was initialized earlier in the sorted order.
+	 */
+	const clients = new Map<string, WorkspaceClient<any>>();
 
-		// Ensure all dependencies are initialized first (recursive + lazy)
-		// Dependencies are initialized in parallel for better performance.
-		// Each dependency may have its own dependencies, which will be recursively
-		// ensured by the ensureWorkspace call.
+	/**
+	 * Initialize a single workspace (non-recursive).
+	 * All dependencies are guaranteed to be already initialized because we're
+	 * processing workspaces in topological order. This function:
+	 * 1. Injects already-initialized dependency clients
+	 * 2. Creates YDoc, DB, indexes, and actions
+	 * 3. Returns the initialized workspace client
+	 */
+	const initializeWorkspace = async (
+		ws: AnyWorkspace,
+	): Promise<WorkspaceClient<any>> => {
+		// Build the workspaces object by injecting already-initialized dependencies
+		// Key: dependency name, Value: initialized client
 		const workspaces: Record<string, any> = {};
+
 		if (ws.dependencies && ws.dependencies.length > 0) {
-			// Validate that all dependency names are unique to prevent collisions
-			// in the workspaces object (keyed by dep.name)
+			// Validate that all dependency names are unique
 			const depNames = ws.dependencies.map((dep) => dep.name);
 			if (new Set(depNames).size !== depNames.length) {
 				throw new Error(
@@ -213,29 +296,15 @@ export async function createWorkspaceClient<
 				);
 			}
 
-			// Initialize all dependencies in parallel for better performance
-			// Independent dependencies can be initialized concurrently
-			const depClients = await Promise.all(
-				ws.dependencies.map(async (dep) => {
-					// Verify dependency exists in root dependencies (flat resolution)
-					if (!clients.has(dep.id)) {
-						throw new Error(
-							`Missing dependency: workspace "${ws.id}" depends on "${dep.id}", ` +
-								`but it was not found in root workspace.dependencies. Please add it to the root dependencies array.`,
-						);
-					}
-
-					// Recursively ensure this dependency is initialized
-					// (if already initialized, returns immediately)
-					const client = await ensureWorkspace(dep);
-					return { name: dep.name, client };
-				}),
-			);
-
-			// Build the workspaces object that will be passed to actions
-			// Key: dependency name, Value: initialized client
-			for (const { name, client } of depClients) {
-				workspaces[name] = client;
+			// Inject dependency clients (already initialized in topological order)
+			for (const dep of ws.dependencies) {
+				const depClient = clients.get(dep.id);
+				if (!depClient) {
+					throw new Error(
+						`Internal error: dependency "${dep.id}" should have been initialized before "${ws.id}"`,
+					);
+				}
+				workspaces[dep.name] = depClient;
 			}
 		}
 
@@ -308,18 +377,23 @@ export async function createWorkspaceClient<
 			},
 		};
 
-		// Store the initialized client in the Map
-		clients.set(ws.id, client);
-
-		// Remove from initializing Set (no longer "in progress")
-		initializing.delete(ws.id);
-
 		return client;
 	};
 
-	// 3. Ensure the root workspace is initialized and return it
-	// This call will recursively ensure all dependencies are initialized via ensureWorkspace
-	// Version resolution happens automatically: ensureWorkspace will use the highest version
-	// available in workspaceConfigs, or add it if this is the first time seeing it
-	return await ensureWorkspace(workspace);
+	// Initialize all workspaces in topological order
+	for (const workspaceId of sorted) {
+		const ws = workspaceConfigs.get(workspaceId)!;
+		const client = await initializeWorkspace(ws);
+		clients.set(workspaceId, client);
+	}
+
+	// Return the client for the root workspace
+	const rootClient = clients.get(workspace.id);
+	if (!rootClient) {
+		throw new Error(
+			`Internal error: root workspace "${workspace.id}" was not initialized`,
+		);
+	}
+
+	return rootClient;
 }
