@@ -88,7 +88,7 @@ export function defineWorkspace<
 	const TVersion extends number,
 	const TName extends string,
 	const TWorkspaceSchema extends WorkspaceSchema,
-	const TDeps extends readonly AnyWorkspaceConfig[],
+	const TDeps extends readonly ShallowWorkspaceConfig[], // ← Changed to ShallowWorkspaceConfig
 	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
 	const TActionMap extends WorkspaceActionMap,
 >(
@@ -143,7 +143,7 @@ export type WorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
+	TDeps extends readonly ShallowWorkspaceConfig[] = readonly ShallowWorkspaceConfig[], // ← Changed to ShallowWorkspaceConfig
 	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
@@ -264,46 +264,75 @@ export type WorkspaceConfig<
 };
 
 /**
+ * Shallow workspace config - used as the constraint for dependencies.
+ *
+ * This type prevents recursive type inference by omitting the nested dependencies field.
+ * When you define a workspace with dependencies: [workspaceA, workspaceB], TypeScript
+ * only needs to infer the properties of A and B themselves, not their dependencies.
+ *
+ * This solves two problems:
+ * 1. Prevents deep recursive type inference that slows down TypeScript
+ * 2. Stops TypeScript from trying to validate the entire dependency tree
+ *
+ * @example
+ * ```typescript
+ * const workspaceB = defineWorkspace({
+ *   dependencies: [workspaceA],  // ← TypeScript infers workspaceA as ShallowWorkspaceConfig
+ *   // ...
+ * });
+ * ```
+ */
+export type ShallowWorkspaceConfig = {
+	id: string;
+	version: number;
+	name: string;
+	schema: WorkspaceSchema;
+	indexes: (context: { db: Db<any> }) => WorkspaceIndexMap<any>;
+	setupYDoc?: (ydoc: Y.Doc) => void;
+	actions: (context: {
+		db: Db<any>;
+		workspaces: any;
+		indexes: any;
+	}) => WorkspaceActionMap;
+	// NOTE: No dependencies field - this prevents recursive type inference
+};
+
+/**
  * Represents any workspace, regardless of its specific types.
  *
- * This type allows workspaces to depend on other workspaces without TypeScript
- * complaining about type mismatches. Uses self-referential type parameters to
- * maintain full type intelligence without requiring `any`. TypeScript handles
- * this circular reference naturally when wrapped in readonly arrays.
+ * This is the "wide" type used at runtime in createWorkspaceClient().
+ * It's permissive and accepts any valid workspace structure, allowing
+ * the runtime to handle complex dependency graphs.
+ *
+ * Note: Uses ShallowWorkspaceConfig[] for dependencies (not any[]) to maintain
+ * compatibility with WorkspaceConfig returned by defineWorkspace().
  */
 export type AnyWorkspaceConfig = WorkspaceConfig<
 	string,
 	number,
 	string,
-	WorkspaceSchema,
-	readonly AnyWorkspaceConfig[],
-	WorkspaceIndexMap<WorkspaceSchema>,
-	WorkspaceActionMap
+	any, // ← Permissive for schema
+	readonly ShallowWorkspaceConfig[], // ← Use ShallowWorkspaceConfig for compatibility
+	any, // ← Permissive for indexes
+	any // ← Permissive for actions
 >;
 
 /**
  * Dependency workspaces API - actions from dependency workspaces
  * Converts array of workspaces into an object keyed by workspace names
+ *
+ * Extracts only the necessary information (name and actions) from dependencies
+ * without recursively inferring their nested dependency types.
  */
-export type DependencyWorkspacesAPI<TDeps extends readonly AnyWorkspaceConfig[]> =
+export type DependencyWorkspacesAPI<TDeps extends readonly ShallowWorkspaceConfig[]> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
-				[W in TDeps[number] as W extends WorkspaceConfig<
-					infer _,
-					infer _,
-					infer TName
-				>
+				[W in TDeps[number] as W extends { name: infer TName extends string }
 					? TName
-					: never]: W extends WorkspaceConfig<
-					infer _,
-					infer _,
-					infer _,
-					infer _,
-					infer _,
-					infer _,
-					infer TActionMap
-				>
+					: never]: W extends {
+					actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+				}
 					? ExtractHandlers<TActionMap>
 					: never;
 			};

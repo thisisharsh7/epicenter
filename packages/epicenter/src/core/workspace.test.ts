@@ -18,12 +18,15 @@ describe('createWorkspaceClient - Topological Sort', () => {
 	/**
 	 * Helper to create a minimal test workspace with tracking
 	 */
-	const createTestWorkspace = (workspaceId: string, deps: any[] = []) => {
+	const createTestWorkspace = <const TDeps extends readonly any[]>(
+		workspaceId: string,
+		deps?: TDeps,
+	) => {
 		return defineWorkspace({
 			id: workspaceId,
 			name: workspaceId,
 			version: 1,
-			dependencies: deps,
+			...(deps && { dependencies: deps }),
 			schema: {
 				items: {
 					id: id(),
@@ -52,7 +55,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'workspace-c',
 			name: 'workspace-c',
 			version: 1,
-			dependencies: [workspaceA, workspaceB] as any, // Hoisted/flat dependencies
+			dependencies: [workspaceA, workspaceB], // Hoisted/flat dependencies
 			schema: {
 				items: {
 					id: id(),
@@ -88,7 +91,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'workspace-c',
 			name: 'workspace-c',
 			version: 1,
-			dependencies: [workspaceD, workspaceA, workspaceB] as any, // All hoisted
+			dependencies: [workspaceD, workspaceA, workspaceB], // All hoisted
 			schema: {
 				items: {
 					id: id(),
@@ -144,7 +147,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'workspace-a',
 			name: 'workspace-a',
 			version: 1,
-			dependencies: [] as any,
+			dependencies: [],
 			schema: {
 				items: {
 					id: id(),
@@ -163,7 +166,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'workspace-a',
 			name: 'workspace-a',
 			version: 3,
-			dependencies: [] as any,
+			dependencies: [],
 			schema: {
 				items: {
 					id: id(),
@@ -186,7 +189,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'root',
 			name: 'root',
 			version: 1,
-			dependencies: [workspaceA_v1, workspaceA_v3, workspaceB, workspaceC] as any,
+			dependencies: [workspaceA_v1, workspaceA_v3, workspaceB, workspaceC],
 			schema: {
 				items: {
 					id: id(),
@@ -293,7 +296,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				workspaceC,
 				workspaceD,
 				workspaceE,
-			] as any,
+			],
 			schema: {
 				items: {
 					id: id(),
@@ -340,7 +343,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'workspace-a',
 			name: 'workspaceA',
 			version: 1,
-			dependencies: [] as any,
 			schema: {
 				items: {
 					id: id(),
@@ -362,7 +364,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'workspace-b',
 			name: 'workspaceB',
 			version: 1,
-			dependencies: [workspaceA] as any,
+			dependencies: [workspaceA],
 			schema: {
 				items: {
 					id: id(),

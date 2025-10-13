@@ -3,6 +3,7 @@ export { defineWorkspace } from './config';
 export type {
 	WorkspaceConfig,
 	AnyWorkspaceConfig,
+	ShallowWorkspaceConfig,
 	DependencyWorkspacesAPI,
 	IndexesAPI,
 	ExtractHandlers,
