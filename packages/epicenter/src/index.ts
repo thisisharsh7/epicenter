@@ -41,6 +41,7 @@ export type {
 	ColumnSchema,
 	ColumnType,
 	TableSchema,
+	ValidatedRow,
 	Id,
 	DateWithTimezone,
 } from './core/schema';

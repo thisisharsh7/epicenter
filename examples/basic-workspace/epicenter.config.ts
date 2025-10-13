@@ -12,6 +12,7 @@ import {
 	defineMutation,
 	isNotNull,
 	eq,
+	type ValidatedRow,
 } from '../../packages/epicenter/src/index';
 
 /**
@@ -101,7 +102,7 @@ export default defineWorkspace({
 					category,
 					views: 0,
 					publishedAt: null,
-				};
+				} satisfies ValidatedRow<typeof db.schema.posts>;
 				db.tables.posts.insert(post);
 				return Ok(post);
 			},
@@ -138,7 +139,7 @@ export default defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				};
+				} satisfies ValidatedRow<typeof db.schema.comments>;
 				db.tables.comments.insert(comment);
 				return Ok(comment);
 			},

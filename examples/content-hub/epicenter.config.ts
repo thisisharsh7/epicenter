@@ -12,11 +12,75 @@ import {
 	defineQuery,
 	defineMutation,
 	eq,
+	createInsertSchemaZod,
+	type ValidatedRow,
 } from '../../packages/epicenter/src/index';
 
 /**
+ * Pages workspace
+ * Manages page content (blogs, articles, guides, tutorials, news)
+ */
+export const pages = defineWorkspace({
+	id: 'pages',
+	version: '1',
+	name: 'pages',
+
+	schema: {
+		pages: {
+			id: id(),
+			title: text(),
+			content: text(),
+			type: select({ options: ['blog', 'article', 'guide', 'tutorial', 'news'] }),
+			tags: select({ options: ['tech', 'lifestyle', 'business', 'education', 'entertainment'] }),
+		},
+	},
+
+	indexes: ({ db }) => ({
+		sqlite: sqliteIndex({ db, databaseUrl: 'file:test-data/pages.db' }),
+	}),
+
+	actions: ({ db, indexes }) => ({
+		// Query: Get all pages
+		getPages: defineQuery({
+			input: z.void(),
+			handler: async () => {
+				const pages = indexes.sqlite.db.select().from(indexes.sqlite.pages).all();
+				return Ok(pages);
+			},
+		}),
+
+		// Query: Get page by ID
+		getPage: defineQuery({
+			input: z.object({ id: z.string() }),
+			handler: async ({ id }) => {
+				const page = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.pages)
+					.where(eq(indexes.sqlite.pages.id, id))
+					.get();
+				return Ok(page);
+			},
+		}),
+
+		// Mutation: Create a page
+		// Using generated schema from table definition - no more manual duplication!
+		createPage: defineMutation({
+			input: createInsertSchemaZod(db.schema.pages),
+			handler: async (data) => {
+				const page = {
+					id: generateId(),
+					...data,
+				} satisfies ValidatedRow<typeof db.schema.pages>;
+				db.tables.pages.insert(page);
+				return Ok(page);
+			},
+		}),
+	}),
+});
+
+/**
  * Content hub workspace
- * Manages pages and their distribution across social media platforms
+ * Manages distribution of pages across social media platforms
  */
 
 const niche = multiSelect({
@@ -39,14 +103,9 @@ export default defineWorkspace({
 	version: '1',
 	name: 'content-hub',
 
+	dependencies: [pages],
+
 	schema: {
-		pages: {
-			id: id(),
-			title: text(),
-			content: text(),
-			type: select({ options: ['blog', 'article', 'guide', 'tutorial', 'news'] }),
-			tags: select({ options: ['tech', 'lifestyle', 'business', 'education', 'entertainment'] }),
-		},
 		youtube: {
 			id: id(),
 			page_id: text(),
@@ -107,50 +166,9 @@ export default defineWorkspace({
 	}),
 
 	actions: ({ db, indexes }) => ({
-		// Query: Get all pages
-		getPages: defineQuery({
-			input: z.void(),
-			handler: async () => {
-				const pages = indexes.sqlite.db.select().from(indexes.sqlite.pages).all();
-				return Ok(pages);
-			},
-		}),
-
-		// Query: Get page by ID
-		getPage: defineQuery({
-			input: z.object({ id: z.string() }),
-			handler: async ({ id }) => {
-				const page = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.pages)
-					.where(eq(indexes.sqlite.pages.id, id))
-					.get();
-				return Ok(page);
-			},
-		}),
-
-		// Mutation: Create a page
-		createPage: defineMutation({
-			input: z.object({
-				title: z.string(),
-				content: z.string(),
-				type: z.enum(['blog', 'article', 'guide', 'tutorial', 'news']),
-				tags: z.enum(['tech', 'lifestyle', 'business', 'education', 'entertainment']),
-			}),
-			handler: async ({ title, content, type, tags }) => {
-				const page = {
-					id: generateId(),
-					title,
-					content,
-					type,
-					tags,
-				};
-				db.tables.pages.insert(page);
-				return Ok(page);
-			},
-		}),
-
 		// Mutation: Create YouTube post
+		// Note: Manual schema here for API design reasons (camelCase, omitting date fields)
+		// Alternative with adapter: createInsertSchemaZod(db.schema.youtube).omit({ posted_at: true, updated_at: true })
 		createYouTubePost: defineMutation({
 			input: z.object({
 				pageId: z.string(),
@@ -180,13 +198,15 @@ export default defineWorkspace({
 					niche,
 					posted_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
-				};
+				} satisfies ValidatedRow<typeof db.schema.youtube>;
 				db.tables.youtube.insert(post);
 				return Ok(post);
 			},
 		}),
 
 		// Mutation: Create Twitter post
+		// Note: Manual schema here because API uses camelCase (pageId) while DB uses snake_case (page_id)
+		// For schemas where API matches DB field names, use createInsertSchemaZod(db.schema.twitter)
 		createTwitterPost: defineMutation({
 			input: z.object({
 				pageId: z.string(),
@@ -199,7 +219,7 @@ export default defineWorkspace({
 					page_id: pageId,
 					content,
 					title: title ?? null,
-				};
+				} satisfies ValidatedRow<typeof db.schema.twitter>;
 				db.tables.twitter.insert(post);
 				return Ok(post);
 			},
