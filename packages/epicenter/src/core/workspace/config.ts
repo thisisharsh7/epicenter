@@ -304,18 +304,21 @@ export type ShallowWorkspaceConfig = {
  * It's permissive and accepts any valid workspace structure, allowing
  * the runtime to handle complex dependency graphs.
  *
- * Note: Uses ShallowWorkspaceConfig[] for dependencies (not any[]) to maintain
- * compatibility with WorkspaceConfig returned by defineWorkspace().
+ * Note: This is NOT an instance of WorkspaceConfig because function parameter
+ * contravariance makes it impossible to have a single WorkspaceConfig type that
+ * accepts all variations of actions context types. Instead, this is a separate
+ * interface that structurally matches WorkspaceConfig but with looser types.
  */
-export type AnyWorkspaceConfig = WorkspaceConfig<
-	string,
-	number,
-	string,
-	any, // ← Permissive for schema
-	readonly ShallowWorkspaceConfig[], // ← Use ShallowWorkspaceConfig for compatibility
-	any, // ← Permissive for indexes
-	any // ← Permissive for actions
->;
+export type AnyWorkspaceConfig = {
+	id: string;
+	version: number;
+	name: string;
+	schema: any;
+	dependencies?: readonly any[];
+	indexes: (context: any) => any;
+	setupYDoc?: (ydoc: Y.Doc) => void;
+	actions: (context: any) => any;
+};
 
 /**
  * Dependency workspaces API - actions from dependency workspaces
