@@ -15,18 +15,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 	 */
 	const initOrder: string[] = [];
 
-	/**
-	 * Helper to create a minimal test workspace with tracking
-	 */
-	const createTestWorkspace = <const TDeps extends readonly any[]>(
-		workspaceId: string,
-		deps?: TDeps,
-	) => {
-		return defineWorkspace({
-			id: workspaceId,
-			name: workspaceId,
+	test('linear dependency chain: A -> B -> C', async () => {
+		initOrder.length = 0;
+
+		// Create workspaces: C depends on B, B depends on A
+		const workspaceA = defineWorkspace({
+			id: 'workspace-a',
+			name: 'workspace-a',
 			version: 1,
-			...(deps && { dependencies: deps }),
 			schema: {
 				items: {
 					id: id(),
@@ -36,18 +32,26 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			indexes: () => ({}),
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
-				// Track initialization order
-				initOrder.push(workspaceId);
+				initOrder.push('workspace-a');
 			},
 		});
-	};
-
-	test('linear dependency chain: A -> B -> C', async () => {
-		initOrder.length = 0;
-
-		// Create workspaces: C depends on B, B depends on A
-		const workspaceA = createTestWorkspace('workspace-a');
-		const workspaceB = createTestWorkspace('workspace-b', [workspaceA]);
+		const workspaceB = defineWorkspace({
+			id: 'workspace-b',
+			name: 'workspace-b',
+			version: 1,
+			dependencies: [workspaceA],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-b');
+			},
+		});
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
 		// C depends on B (direct), and A (transitive through B)
@@ -81,9 +85,56 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		// Create diamond dependency structure
 		// D is the base, A and B depend on D, C depends on both A and B
-		const workspaceD = createTestWorkspace('workspace-d');
-		const workspaceA = createTestWorkspace('workspace-a', [workspaceD]);
-		const workspaceB = createTestWorkspace('workspace-b', [workspaceD]);
+		const workspaceD = defineWorkspace({
+			id: 'workspace-d',
+			name: 'workspace-d',
+			version: 1,
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-d');
+			},
+		});
+		const workspaceA = defineWorkspace({
+			id: 'workspace-a',
+			name: 'workspace-a',
+			version: 1,
+			dependencies: [workspaceD],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-a');
+			},
+		});
+		const workspaceB = defineWorkspace({
+			id: 'workspace-b',
+			name: 'workspace-b',
+			version: 1,
+			dependencies: [workspaceD],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-b');
+			},
+		});
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
 		// C depends on A, B (direct), and D (transitive through A and B)
@@ -122,12 +173,55 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		initOrder.length = 0;
 
 		// Create three independent workspaces (no dependencies)
-		const workspaceX = createTestWorkspace('workspace-x');
-		const workspaceY = createTestWorkspace('workspace-y');
-		const workspaceZ = createTestWorkspace('workspace-z', [
-			workspaceX,
-			workspaceY,
-		]);
+		const workspaceX = defineWorkspace({
+			id: 'workspace-x',
+			name: 'workspace-x',
+			version: 1,
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-x');
+			},
+		});
+		const workspaceY = defineWorkspace({
+			id: 'workspace-y',
+			name: 'workspace-y',
+			version: 1,
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-y');
+			},
+		});
+		const workspaceZ = defineWorkspace({
+			id: 'workspace-z',
+			name: 'workspace-z',
+			version: 1,
+			dependencies: [workspaceX, workspaceY],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-z');
+			},
+		});
 
 		await createWorkspaceClient(workspaceZ);
 
@@ -181,8 +275,40 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// B depends on v1, C depends on v3
-		const workspaceB = createTestWorkspace('workspace-b', [workspaceA_v1]);
-		const workspaceC = createTestWorkspace('workspace-c', [workspaceA_v3]);
+		const workspaceB = defineWorkspace({
+			id: 'workspace-b',
+			name: 'workspace-b',
+			version: 1,
+			dependencies: [workspaceA_v1],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-b');
+			},
+		});
+		const workspaceC = defineWorkspace({
+			id: 'workspace-c',
+			name: 'workspace-c',
+			version: 1,
+			dependencies: [workspaceA_v3],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-c');
+			},
+		});
 
 		// Root depends on both B and C (flat resolution: include ALL transitive deps)
 		const root = defineWorkspace({
@@ -197,7 +323,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: () => ({}),
-			actions: () => ({}),
+			actions: ({ workspaces }) => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('root');
 			},
@@ -271,19 +397,90 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		//      \ /
 		//       A
 
-		const workspaceA = createTestWorkspace('workspace-a');
-		const workspaceB = createTestWorkspace('workspace-b', [workspaceA]);
-		const workspaceC = createTestWorkspace('workspace-c', [workspaceA]);
-		const workspaceD = createTestWorkspace('workspace-d', [
-			workspaceA,
-			workspaceB,
-			workspaceC,
-		]);
-		const workspaceE = createTestWorkspace('workspace-e', [
-			workspaceA,
-			workspaceB,
-			workspaceC,
-		]);
+		const workspaceA = defineWorkspace({
+			id: 'workspace-a',
+			name: 'workspace-a',
+			version: 1,
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-a');
+			},
+		});
+		const workspaceB = defineWorkspace({
+			id: 'workspace-b',
+			name: 'workspace-b',
+			version: 1,
+			dependencies: [workspaceA],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-b');
+			},
+		});
+		const workspaceC = defineWorkspace({
+			id: 'workspace-c',
+			name: 'workspace-c',
+			version: 1,
+			dependencies: [workspaceA],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-c');
+			},
+		});
+		const workspaceD = defineWorkspace({
+			id: 'workspace-d',
+			name: 'workspace-d',
+			version: 1,
+			dependencies: [workspaceA, workspaceB, workspaceC],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-d');
+			},
+		});
+		const workspaceE = defineWorkspace({
+			id: 'workspace-e',
+			name: 'workspace-e',
+			version: 1,
+			dependencies: [workspaceA, workspaceB, workspaceC],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({}),
+			setupYDoc: (ydoc) => {
+				initOrder.push('workspace-e');
+			},
+		});
 
 		// F must declare ALL transitive dependencies (flat resolution)
 		const workspaceF = defineWorkspace({
