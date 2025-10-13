@@ -186,65 +186,12 @@ export async function createEpicenterClient<
 	config: EpicenterConfig<TId, TWorkspaces>,
 	runtimeConfig: RuntimeConfig = {},
 ): Promise<EpicenterClient<TWorkspaces>> {
-	// Build a flat list of all unique workspaces (including dependencies)
-	// This ensures each workspace is only initialized once
-	const allWorkspaces = new Map<string, AnyWorkspaceConfig>();
+	// Create a composite workspace that has all top-level workspaces as dependencies
+	// The runtime's createWorkspaceClient will handle dependency resolution and version management
+	// This ensures all workspaces share the same YDoc instances for their dependencies
+	let workspacesObject: Record<string, any> | null = null;
+	let compositeDestroyFn: (() => Promise<void>) | null = null;
 
-	const collectWorkspaces = (workspace: AnyWorkspaceConfig) => {
-		// If already collected, skip (handles duplicate dependencies)
-		if (allWorkspaces.has(workspace.id)) {
-			return;
-		}
-
-		// Collect dependencies first (depth-first)
-		if (workspace.dependencies) {
-			for (const dep of workspace.dependencies) {
-				collectWorkspaces(dep);
-			}
-		}
-
-		// Then add this workspace
-		allWorkspaces.set(workspace.id, workspace);
-	};
-
-	// Collect all workspaces starting from the top-level ones
-	for (const workspace of config.workspaces) {
-		collectWorkspaces(workspace);
-	}
-
-	// Now we have all unique workspaces in dependency order
-	// Create a composite workspace that includes all of them
-	// This ensures they all share the same initialization context
-	const rootWorkspace: AnyWorkspaceConfig = {
-		id: `${config.id}-root`,
-		version: '1',
-		name: `${config.id}-root`,
-		schema: {},
-		dependencies: Array.from(allWorkspaces.values()),
-		indexes: () => ({}),
-		actions: () => ({}),
-	};
-
-	// Initialize the root workspace, which will initialize all dependencies
-	let rootClient: WorkspaceClient<any>;
-	try {
-		rootClient = await createWorkspaceClient(rootWorkspace, runtimeConfig);
-	} catch (error) {
-		throw new Error(
-			`Failed to initialize epicenter: ${error instanceof Error ? error.message : String(error)}`,
-		);
-	}
-
-	// Build the epicenter client by extracting workspace clients from the root
-	// We need to call createWorkspaceClient again for each top-level workspace
-	// but this time they'll reuse the already-initialized dependencies
-
-	// Actually, the issue is that createWorkspaceClient initializes everything fresh.
-	// We need a different approach: initialize a single composite workspace with all dependencies,
-	// then extract the individual workspace clients from it.
-
-	// Better approach: Create a root workspace that has all workspaces as dependencies,
-	// then access them through the workspaces API
 	const compositeWorkspace: AnyWorkspaceConfig = {
 		id: `${config.id}-composite`,
 		version: '1',
@@ -253,28 +200,33 @@ export async function createEpicenterClient<
 		dependencies: config.workspaces as any,
 		indexes: () => ({}),
 		actions: ({ workspaces }) => {
-			// Return a special marker that gives us access to the workspaces
-			return { __workspaces: workspaces } as any;
+			// Capture the workspaces object so we can access it outside
+			workspacesObject = workspaces;
+			// Return empty actions
+			return {};
 		},
 	};
 
-	let compositeClient: any;
+	let compositeClient: WorkspaceClient<any>;
 	try {
 		compositeClient = await createWorkspaceClient(compositeWorkspace, runtimeConfig);
+		compositeDestroyFn = compositeClient.destroy;
 	} catch (error) {
 		throw new Error(
 			`Failed to initialize epicenter: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 
-	// Extract the workspaces object from the composite client
-	const workspaces = compositeClient.__workspaces;
+	// workspacesObject should now be populated by the actions function
+	if (!workspacesObject) {
+		throw new Error('Internal error: workspaces object was not captured');
+	}
 
 	// Build the epicenter client object with workspace clients keyed by name
 	const epicenterClient: Record<string, any> = {};
 
 	for (const workspace of config.workspaces) {
-		const client = workspaces[workspace.name];
+		const client = workspacesObject[workspace.name];
 		if (!client) {
 			throw new Error(
 				`Internal error: workspace "${workspace.name}" was not found in composite workspace`,
@@ -285,8 +237,11 @@ export async function createEpicenterClient<
 
 	// Add destroy method that cleans up the composite workspace
 	epicenterClient.destroy = async () => {
+		if (!compositeDestroyFn) {
+			throw new Error('Internal error: composite destroy function not set');
+		}
 		try {
-			await compositeClient.destroy();
+			await compositeDestroyFn();
 		} catch (error) {
 			throw new Error(
 				`Failed to destroy epicenter: ${error instanceof Error ? error.message : String(error)}`,
