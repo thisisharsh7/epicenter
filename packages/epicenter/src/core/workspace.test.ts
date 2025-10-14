@@ -74,7 +74,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// Initialize workspace C
-		await createWorkspaceClient(workspaceC);
+		createWorkspaceClient(workspaceC);
 
 		// Verify initialization order: A -> B -> C
 		expect(initOrder).toEqual(['workspace-a', 'workspace-b', 'workspace-c']);
@@ -156,7 +156,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		await createWorkspaceClient(workspaceC);
+		createWorkspaceClient(workspaceC);
 
 		// D must be initialized first
 		expect(initOrder[0]).toBe('workspace-d');
@@ -223,7 +223,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		await createWorkspaceClient(workspaceZ);
+		createWorkspaceClient(workspaceZ);
 
 		// X and Y can be in any order (both have no dependencies)
 		expect(initOrder.slice(0, 2)).toContain('workspace-x');
@@ -329,7 +329,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		await createWorkspaceClient(root);
+		createWorkspaceClient(root);
 
 		// Should only initialize v3 (highest version)
 		expect(initOrder).toContain('workspace-a-v3');
@@ -378,7 +378,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		workspaceA.dependencies = [workspaceB];
 
 		// Should throw error about circular dependency
-		await expect(createWorkspaceClient(workspaceA)).rejects.toThrow(
+		expect(() => createWorkspaceClient(workspaceA)).toThrow(
 			/Circular dependency/,
 		);
 	});
@@ -507,7 +507,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		await createWorkspaceClient(workspaceF);
+		createWorkspaceClient(workspaceF);
 
 		// A must be first (no dependencies)
 		expect(initOrder[0]).toBe('workspace-a');
@@ -580,7 +580,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = await createWorkspaceClient(workspaceB);
+		const client = createWorkspaceClient(workspaceB);
 
 		// Verify that B can call A's action
 		const result = await client.getValueFromA();

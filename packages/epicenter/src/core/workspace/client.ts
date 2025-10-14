@@ -114,7 +114,7 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  * @param config - Runtime configuration options
  * @returns Initialized workspace client
  */
-export async function createWorkspaceClient<
+export function createWorkspaceClient<
 	const TId extends string,
 	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,
@@ -132,7 +132,7 @@ export async function createWorkspaceClient<
 		TActionMap
 	>,
 	config: RuntimeConfig = {},
-): Promise<WorkspaceClient<TActionMap>> {
+): WorkspaceClient<TActionMap> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -297,9 +297,9 @@ export async function createWorkspaceClient<
 	 * 2. Creates YDoc, DB, indexes, and actions
 	 * 3. Returns the initialized workspace client
 	 */
-	const initializeWorkspace = async (
+	const initializeWorkspace = (
 		ws: AnyWorkspaceConfig,
-	): Promise<WorkspaceClient<any>> => {
+	): WorkspaceClient<any> => {
 		// Build the workspaces object by injecting already-initialized dependencies
 		// Key: dependency name, Value: initialized client
 		const workspaces: Record<string, any> = {};
@@ -418,7 +418,7 @@ export async function createWorkspaceClient<
 	// Initialize all workspaces in topological order
 	for (const workspaceId of sorted) {
 		const ws = workspaceConfigs.get(workspaceId)!;
-		const client = await initializeWorkspace(ws);
+		const client = initializeWorkspace(ws);
 		clients.set(workspaceId, client);
 	}
 

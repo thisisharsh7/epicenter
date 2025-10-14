@@ -24,7 +24,7 @@ import {
 // Define a simple blog workspace
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
-	version: '1',
+	version: 1,
 	name: 'blog',
 
 	schema: {
@@ -119,7 +119,7 @@ async function test() {
 	try {
 		// 1. Initialize the workspace
 		console.log('📦 Initializing workspace...');
-		const workspace = await createWorkspaceClient(blogWorkspace);
+		const workspace = createWorkspaceClient(blogWorkspace);
 		console.log('✅ Workspace initialized\n');
 
 		// 2. Create some posts

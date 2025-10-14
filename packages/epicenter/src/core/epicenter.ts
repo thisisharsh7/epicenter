@@ -208,7 +208,7 @@ export async function createEpicenterClient<
 
 	let compositeClient: WorkspaceClient<any>;
 	try {
-		compositeClient = await createWorkspaceClient(compositeWorkspace, runtimeConfig);
+		compositeClient = createWorkspaceClient(compositeWorkspace, runtimeConfig);
 		compositeDestroyFn = compositeClient.destroy;
 	} catch (error) {
 		throw new Error(
