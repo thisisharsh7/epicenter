@@ -102,6 +102,12 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
 		 * - Destroys the YJS document
 		 */
 		destroy: () => Promise<void>;
+
+		/**
+		 * Async dispose for explicit resource management (enables `await using`)
+		 * Alias for destroy()
+		 */
+		[Symbol.asyncDispose]: () => Promise<void>;
 	};
 
 /**
@@ -397,19 +403,23 @@ export function createWorkspaceClient<
 			indexes: indexesAPI,
 		});
 
+		// Create cleanup function
+		const cleanup = async () => {
+			// Clean up indexes first
+			for (const index of Object.values(indexes)) {
+				await index.destroy?.();
+			}
+
+			// Clean up YDoc (disconnects providers, cleans up observers)
+			ydoc.destroy();
+		};
+
 		// Create the workspace client by extracting handlers from actions
-		// and adding a destroy method for cleanup
+		// and adding cleanup methods
 		const client: WorkspaceClient<any> = {
 			...extractHandlers(actionMap),
-			destroy: async () => {
-				// Clean up indexes first
-				for (const index of Object.values(indexes)) {
-					await index.destroy?.();
-				}
-
-				// Clean up YDoc (disconnects providers, cleans up observers)
-				ydoc.destroy();
-			},
+			destroy: cleanup,
+			[Symbol.asyncDispose]: cleanup,
 		};
 
 		return client;

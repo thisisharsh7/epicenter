@@ -145,6 +145,12 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 	 * Calls destroy() on each workspace client
 	 */
 	destroy: () => Promise<void>;
+
+	/**
+	 * Async dispose for explicit resource management (enables `await using`)
+	 * Alias for destroy()
+	 */
+	[Symbol.asyncDispose]: () => Promise<void>;
 };
 
 /**
@@ -157,6 +163,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  *
  * @example
  * ```typescript
+ * // Long-lived usage (web app, desktop app)
  * const client = await createEpicenterClient(epicenter);
  *
  * // Access workspace actions by workspace name
@@ -174,8 +181,12 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  *   niche: ['Coding', 'Productivity'],
  * });
  *
- * // Cleanup when done
+ * // Explicit cleanup when done
  * await client.destroy();
+ *
+ * // Or use explicit resource management (tests, scripts)
+ * await using client = await createEpicenterClient(epicenter);
+ * // automatically disposed at end of scope
  * ```
  */
 export async function createEpicenterClient<
@@ -185,16 +196,20 @@ export async function createEpicenterClient<
 	config: EpicenterConfig<TId, TWorkspaces>,
 	runtimeConfig: RuntimeConfig = {},
 ): Promise<EpicenterClient<TWorkspaces>> {
-	const epicenterClient = Object.fromEntries(
+	const workspaceClients = Object.fromEntries(
 		config.workspaces.map((workspace) => [
 			workspace.name,
 			createWorkspaceClient(workspace, runtimeConfig),
 		]),
 	);
 
-	epicenterClient.destroy = async () => {
-		await Promise.all(Object.values(epicenterClient).map((client) => client.destroy()));
+	const cleanup = async () => {
+		await Promise.all(Object.values(workspaceClients).map((client) => client.destroy()));
 	};
 
-	return epicenterClient as EpicenterClient<TWorkspaces>;
+	return {
+		...workspaceClients,
+		destroy: cleanup,
+		[Symbol.asyncDispose]: cleanup,
+	} as EpicenterClient<TWorkspaces>;
 }
