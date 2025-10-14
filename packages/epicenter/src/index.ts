@@ -102,6 +102,15 @@ export {
 	createUpdateSchema as createUpdateSchemaArkType,
 } from './adapters/arktype';
 
+// Server - expose workspaces as REST API and MCP servers
+export { createEpicenterServer, createWorkspaceServer } from './server';
+export type {
+	MCPTool,
+	MCPToolsListResponse,
+	MCPToolCallRequest,
+	MCPToolCallResponse,
+} from './server';
+
 // Re-export commonly used Drizzle utilities for querying indexes
 export {
 	eq,
