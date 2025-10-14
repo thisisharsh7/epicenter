@@ -8,6 +8,7 @@ import {
 	select,
 	generateId,
 	sqliteIndex,
+	markdownIndex,
 	defineQuery,
 	defineMutation,
 	isNotNull,
@@ -22,7 +23,7 @@ import {
 
 export default defineWorkspace({
 	id: 'blog',
-	version: '1',
+	version: 1,
 	name: 'blog',
 
 	schema: {
@@ -45,6 +46,7 @@ export default defineWorkspace({
 
 	indexes: ({ db }) => ({
 		sqlite: sqliteIndex({ db, databaseUrl: 'file:test-data/blog.db' }),
+		markdown: markdownIndex({ db, storagePath: './test-data/content' }),
 	}),
 
 	actions: ({ db, indexes }) => ({
@@ -111,15 +113,15 @@ export default defineWorkspace({
 		publishPost: defineMutation({
 			input: z.object({ id: z.string() }),
 			handler: async ({ id }) => {
-				const result = db.tables.posts.get(id);
-				if (!result.row) {
+				const { status, row } = db.tables.posts.get(id);
+				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
 				db.tables.posts.update({
 					id,
 					publishedAt: new Date().toISOString(),
 				});
-				const updatedPost = db.tables.posts.get(id).row!;
+				const { row: updatedPost } = db.tables.posts.get(id);
 				return Ok(updatedPost);
 			},
 		}),
@@ -148,15 +150,15 @@ export default defineWorkspace({
 		incrementViews: defineMutation({
 			input: z.object({ id: z.string() }),
 			handler: async ({ id }) => {
-				const result = db.tables.posts.get(id);
-				if (!result.row) {
+				const { status, row } = db.tables.posts.get(id);
+				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
 				db.tables.posts.update({
 					id,
-					views: result.row.views + 1,
+					views: row.views + 1,
 				});
-				const updatedPost = db.tables.posts.get(id).row!;
+				const { row: updatedPost } = db.tables.posts.get(id);
 				return Ok(updatedPost);
 			},
 		}),
