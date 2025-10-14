@@ -62,23 +62,26 @@ export function createCLI(
 		.usage('Usage: $0 <workspace> <action> [options]')
 		.help()
 		.version()
-		.demandCommand(2, 2, 'You must specify a workspace and an action')
-		.strict();
+		.strictCommands(false)
+		.strictOptions(false);
 
 	// Add a command that handles all workspace/action combinations
 	cli.command(
-		'<workspace> <action>',
+		'$0 <workspace> <action>',
 		'Execute a workspace action',
 		(yargs) => {
 			return yargs
 				.positional('workspace', {
 					type: 'string',
 					describe: 'The workspace name',
+					demandOption: true,
 				})
 				.positional('action', {
 					type: 'string',
 					describe: 'The action to execute',
-				});
+					demandOption: true,
+				})
+				.strictOptions(false);
 		},
 		async (argv) => {
 			const workspaceName = argv.workspace as string;
@@ -147,17 +150,25 @@ export function createCLI(
 				if (result && typeof result === 'object' && 'data' in result && 'error' in result) {
 					if (result.error) {
 						console.error('Error:', result.error);
+						await client.destroy();
 						process.exit(1);
 					} else {
-						console.log('Success:', result.data);
+						// If data is a Promise (from queries), await it
+						const data = result.data instanceof Promise ? await result.data : result.data;
+						console.log('Success:', data);
 					}
 				} else {
 					// If it's not a Result type, just log it
 					console.log('Result:', result);
 				}
 
-				// Cleanup
+				// HACK: Give observers time to process YJS changes
+				// TODO: Make observers awaitable to eliminate this race condition
+				await new Promise(resolve => setTimeout(resolve, 100));
+
+				// Cleanup and exit
 				await client.destroy();
+				process.exit(0);
 			} catch (error) {
 				console.error('Error executing action:', error);
 				process.exit(1);
