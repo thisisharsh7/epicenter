@@ -185,67 +185,15 @@ export async function createEpicenterClient<
 	config: EpicenterConfig<TId, TWorkspaces>,
 	runtimeConfig: RuntimeConfig = {},
 ): Promise<EpicenterClient<TWorkspaces>> {
-	// Create a composite workspace that has all top-level workspaces as dependencies
-	// The runtime's createWorkspaceClient will handle dependency resolution and version management
-	// This ensures all workspaces share the same YDoc instances for their dependencies
-	let workspacesObject: Record<string, any> | null = null;
-	let compositeDestroyFn: (() => Promise<void>) | null = null;
+	const epicenterClient = Object.fromEntries(
+		config.workspaces.map((workspace) => [
+			workspace.name,
+			createWorkspaceClient(workspace, runtimeConfig),
+		]),
+	);
 
-	const compositeWorkspace: AnyWorkspaceConfig = {
-		id: `${config.id}-composite`,
-		version: 1,
-		name: `${config.id}-composite`,
-		schema: {},
-		dependencies: config.workspaces as any,
-		indexes: () => ({}),
-		actions: ({ workspaces }) => {
-			// Capture the workspaces object so we can access it outside
-			workspacesObject = workspaces;
-			// Return empty actions
-			return {};
-		},
-	};
-
-	let compositeClient: WorkspaceClient<any>;
-	try {
-		compositeClient = createWorkspaceClient(compositeWorkspace, runtimeConfig);
-		compositeDestroyFn = compositeClient.destroy;
-	} catch (error) {
-		throw new Error(
-			`Failed to initialize epicenter: ${error instanceof Error ? error.message : String(error)}`,
-		);
-	}
-
-	// workspacesObject should now be populated by the actions function
-	if (!workspacesObject) {
-		throw new Error('Internal error: workspaces object was not captured');
-	}
-
-	// Build the epicenter client object with workspace clients keyed by name
-	const epicenterClient: Record<string, any> = {};
-
-	for (const workspace of config.workspaces) {
-		const client = workspacesObject[workspace.name];
-		if (!client) {
-			throw new Error(
-				`Internal error: workspace "${workspace.name}" was not found in composite workspace`,
-			);
-		}
-		epicenterClient[workspace.name] = client;
-	}
-
-	// Add destroy method that cleans up the composite workspace
 	epicenterClient.destroy = async () => {
-		if (!compositeDestroyFn) {
-			throw new Error('Internal error: composite destroy function not set');
-		}
-		try {
-			await compositeDestroyFn();
-		} catch (error) {
-			throw new Error(
-				`Failed to destroy epicenter: ${error instanceof Error ? error.message : String(error)}`,
-			);
-		}
+		await Promise.all(Object.values(epicenterClient).map((client) => client.destroy()));
 	};
 
 	return epicenterClient as EpicenterClient<TWorkspaces>;
