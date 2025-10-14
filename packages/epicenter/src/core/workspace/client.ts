@@ -341,6 +341,11 @@ export function initializeWorkspaces(
 		// Create YJS document with workspace ID as the document GUID
 		const ydoc = new Y.Doc({ guid: ws.id });
 
+		// Set up YDoc synchronization and persistence (if user provided a setupYDoc function)
+		// IMPORTANT: This must run BEFORE createEpicenterDb so that persisted data is loaded
+		// into the YDoc before table initialization
+		ws.setupYDoc?.(ydoc);
+
 		// Initialize Epicenter database (wraps YJS with table/record API)
 		const db = createEpicenterDb(ydoc, ws.schema);
 
@@ -367,9 +372,6 @@ export function initializeWorkspaces(
 				console.error(`Failed to initialize index "${indexKey}":`, error);
 			}
 		}
-
-		// Set up YDoc synchronization and persistence (if user provided a setupYDoc function)
-		ws.setupYDoc?.(ydoc);
 
 		// Create the IndexesAPI object that will be passed to actions
 		// Extract just the query functions from each index (hide internal details)
