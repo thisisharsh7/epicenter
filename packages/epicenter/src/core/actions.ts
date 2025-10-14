@@ -28,9 +28,7 @@ export type QueryAction<
 	type: 'query';
 	input?: TSchema;
 	handler: (
-		...args: TSchema extends undefined
-			? []
-			: [input: StandardSchemaV1.InferOutput<Exclude<TSchema, undefined>>]
+		input: TSchema extends StandardSchemaV1 ? StandardSchemaV1.InferOutput<TSchema> : undefined,
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
@@ -47,9 +45,7 @@ export type MutationAction<
 	type: 'mutation';
 	input?: TSchema;
 	handler: (
-		...args: TSchema extends undefined
-			? []
-			: [input: StandardSchemaV1.InferOutput<Exclude<TSchema, undefined>>]
+		input: TSchema extends StandardSchemaV1 ? StandardSchemaV1.InferOutput<TSchema> : undefined,
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
@@ -60,9 +56,18 @@ export type MutationAction<
  * Helper function to define a query action
  * Pass-through function that adds type discrimination
  */
-export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
-	config: Omit<QueryAction<TSchema, TOutput>, 'type'>,
-): QueryAction<TSchema, TOutput> {
+export function defineQuery<
+	TOutput,
+	TSchema extends StandardSchemaV1 | undefined = undefined,
+>(config: {
+	input?: TSchema;
+	handler: (
+		input: TSchema extends StandardSchemaV1 ? StandardSchemaV1.InferOutput<TSchema> : undefined,
+	) =>
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
+	description?: string;
+}): QueryAction<TSchema, TOutput> {
 	return { type: 'query', ...config };
 }
 
@@ -70,9 +75,18 @@ export function defineQuery<TSchema extends StandardSchemaV1, TOutput>(
  * Helper function to define a mutation action
  * Pass-through function that adds type discrimination
  */
-export function defineMutation<TSchema extends StandardSchemaV1, TOutput>(
-	config: Omit<MutationAction<TSchema, TOutput>, 'type'>,
-): MutationAction<TSchema, TOutput> {
+export function defineMutation<
+	TOutput,
+	TSchema extends StandardSchemaV1 | undefined = undefined,
+>(config: {
+	input?: TSchema;
+	handler: (
+		input: TSchema extends StandardSchemaV1 ? StandardSchemaV1.InferOutput<TSchema> : undefined,
+	) =>
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
+	description?: string;
+}): MutationAction<TSchema, TOutput> {
 	return { type: 'mutation', ...config };
 }
 
