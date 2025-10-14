@@ -31,9 +31,7 @@ describe('Blog Workspace Integration', () => {
 				id: id(),
 				title: text(),
 				content: text({ nullable: true }),
-				category: select({
-					options: ['tech', 'personal', 'work'],
-				}),
+				category: select({ options: ['tech', 'personal', 'work'] }),
 				tags: multiSelect({
 					options: ['typescript', 'javascript', 'svelte', 'react', 'vue'],
 					default: [],
