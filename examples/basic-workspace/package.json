@@ -1,0 +1,11 @@
+{
+	"name": "basic-workspace-example",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"cli": "bun ../../packages/epicenter/src/cli/bin.ts"
+	},
+	"dependencies": {
+		"@repo/epicenter": "workspace:*"
+	}
+}

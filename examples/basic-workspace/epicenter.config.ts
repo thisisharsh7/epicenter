@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { Ok } from 'wellcrafted/result';
+import * as Y from 'yjs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
+	defineEpicenter,
 	defineWorkspace,
 	id,
 	text,
@@ -21,7 +25,7 @@ import {
  * Demonstrates the basic structure of an Epicenter workspace
  */
 
-export default defineWorkspace({
+const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	version: 1,
 	name: 'blog',
@@ -163,4 +167,38 @@ export default defineWorkspace({
 			},
 		}),
 	}),
+
+	/**
+	 * Set up YJS document persistence to disk
+	 * This enables state to persist across CLI invocations and programmatic runs
+	 */
+	setupYDoc: (ydoc) => {
+		const storagePath = './.epicenter';
+		const filePath = path.join(storagePath, 'blog.yjs');
+
+		// Ensure .epicenter directory exists
+		if (!fs.existsSync(storagePath)) {
+			fs.mkdirSync(storagePath, { recursive: true });
+		}
+
+		// Try to load existing state from disk
+		try {
+			const savedState = fs.readFileSync(filePath);
+			Y.applyUpdate(ydoc, savedState);
+			console.log(`[Persistence] Loaded workspace from ${filePath}`);
+		} catch {
+			console.log(`[Persistence] Creating new workspace at ${filePath}`);
+		}
+
+		// Auto-save on every update
+		ydoc.on('update', () => {
+			const state = Y.encodeStateAsUpdate(ydoc);
+			fs.writeFileSync(filePath, state);
+		});
+	},
+});
+
+export default defineEpicenter({
+	id: 'basic-workspace-example',
+	workspaces: [blogWorkspace],
 });
