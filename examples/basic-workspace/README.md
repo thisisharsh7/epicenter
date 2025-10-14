@@ -1,26 +1,35 @@
 # Basic Workspace Example
 
-This is a simple example demonstrating how to define and run an Epicenter workspace.
+This example demonstrates how to define and run an Epicenter workspace with full CLI support and markdown persistence.
 
 ## What's This?
 
-This folder simulates what it's like for a user to:
+This folder shows you how to:
 1. Define a workspace using `epicenter.config.ts`
-2. Run the Epicenter runtime against that workspace
-3. Execute actions (queries and mutations) on the workspace
+2. Run the workspace programmatically with the client API
+3. Use the CLI to execute actions from the command line
+4. Persist data to markdown files for git-friendly storage
 
 ## Structure
 
 ```
 basic-workspace/
-├── epicenter.config.ts   # Workspace definition
-├── test.ts              # Test script that runs the workspace
-└── README.md           # This file
+├── .epicenter/              # YJS binary persistence (internal state)
+│   └── blog.yjs            # Binary YJS document (CRDT source of truth)
+├── epicenter.config.ts      # Workspace definition (with setupYDoc)
+├── test.ts                  # Programmatic test script
+├── package.json             # CLI scripts
+├── test-data/
+│   ├── blog.db              # SQLite index database
+│   └── content/             # Markdown files (git-friendly storage)
+│       ├── posts/           # Blog posts as .md files
+│       └── comments/        # Comments as .md files
+└── README.md                # This file
 ```
 
-## The Workspace
+## The Blog Workspace
 
-This example implements a simple blog workspace with:
+This example implements a blog workspace with:
 
 ### Tables
 - **posts**: Blog posts with title, content, category, views, and publish date
@@ -37,39 +46,182 @@ This example implements a simple blog workspace with:
 
 ### Indexes
 - **sqlite**: SQLite index for querying posts and comments
+- **markdown**: Markdown persistence for git-friendly storage
 
-## Running the Test
+## Running the Workspace
+
+### Option 1: Programmatic API (test.ts)
+
+Run the test script to see the workspace in action:
 
 ```bash
-# From the root of the repo
+# From the repository root
 bun run examples/basic-workspace/test.ts
+
+# Or from this directory
+bun test.ts
 ```
 
-This will:
-1. Initialize the workspace
-2. Create sample posts
-3. Publish a post
-4. Add comments
-5. Query the data
-6. Display the results
+This demonstrates the programmatic API by:
+1. Initializing the workspace
+2. Creating sample posts
+3. Publishing a post
+4. Adding comments
+5. Querying the data
+6. Displaying results
+
+### Option 2: CLI Commands
+
+Use the Epicenter CLI to interact with the workspace:
+
+```bash
+# From this directory
+bun cli
+
+# Create a new post
+bun cli blog createPost --title "My First Post" --content "Hello World" --category tech
+
+# Publish a post (you'll need the ID from the previous command)
+bun cli blog publishPost --id <post-id>
+
+# Add a comment
+bun cli blog addComment --postId <post-id> --author "Alice" --content "Great post!"
+
+# Increment views
+bun cli blog incrementViews --id <post-id>
+
+# Query published posts
+bun cli blog getPublishedPosts
+
+# Get a specific post
+bun cli blog getPost --id <post-id>
+
+# Get comments for a post
+bun cli blog getPostComments --postId <post-id>
+```
+
+### CLI Help
+
+Get help for any action:
+
+```bash
+# See all available workspaces and actions
+bun cli --help
+
+# Get help for a specific action
+bun cli blog createPost --help
+```
+
+## Working with Markdown Files
+
+The markdown index creates human-readable files in `test-data/content/`:
+
+```
+test-data/content/
+├── posts/
+│   └── <post-id>.md
+└── comments/
+    └── <comment-id>.md
+```
+
+### Example Post File
+
+```markdown
+---
+id: abc123
+title: My First Post
+content: Hello World
+category: tech
+views: 5
+publishedAt: "2024-01-15T10:30:00.000Z"
+---
+```
+
+### Editing Markdown Files
+
+You can edit these files directly:
+1. Open a `.md` file in your text editor
+2. Modify the YAML frontmatter
+3. Save the file
+4. Changes automatically sync back to the workspace
+
+This makes your data:
+- **Git-friendly**: Easy to diff, merge, and version control
+- **Human-readable**: No special tools needed to view or edit
+- **Portable**: Just plain text files
 
 ## Key Concepts Demonstrated
 
-1. **YJS Document**: The source of truth for all data
-2. **Table Schemas**: Define column structure with pure JSON
-3. **Indexes**: Synchronized snapshots for querying (SQLite in this case)
-4. **Actions**: Business logic with access to tables (write) and indexes (read)
-5. **Runtime**: `runWorkspace()` initializes everything and returns a typed API
+1. **YJS Document**: The source of truth for all data (CRDT for collaboration)
+2. **YJS Persistence**: Binary `.yjs` file in `.epicenter/` persists state across sessions
+3. **Table Schemas**: Define column structure with pure JSON
+4. **Indexes**:
+   - SQLite for querying
+   - Markdown for git-friendly persistence
+5. **Actions**: Business logic with access to tables (write) and indexes (read)
+6. **CLI**: Auto-generated command-line interface from workspace actions
+7. **Bidirectional Sync**: Edit data through the app or markdown files
 
 ## Data Flow
 
-**Writes** go through table helpers:
+### Writes (Through Actions or Tables)
 ```typescript
-tables.posts.set({ id: '1', title: 'Hello' });
-// YJS updated → SQLite synced automatically
+// Through action
+await blog.createPost({ title: 'Hello', content: 'World', category: 'tech' });
+
+// Through table helper
+db.tables.posts.insert({ id: '1', title: 'Hello', /* ... */ });
+
+// Result: YJS updated → Saved to .epicenter/blog.yjs → SQLite synced → Markdown file created
 ```
 
-**Reads** query indexes:
+### Reads (Through Queries)
 ```typescript
-await indexes.sqlite.posts.select().where(...).all();
+// Query the SQLite index
+const { data } = await blog.getPublishedPosts();
+
+// Result: Fast queries from SQLite snapshot
 ```
+
+### Manual Edits (Through Markdown Files)
+```bash
+# Edit a markdown file
+vim test-data/content/posts/abc123.md
+
+# Result: File watcher detects change → YJS updated → Saved to .yjs → SQLite synced
+```
+
+### Persistence Across Sessions
+```bash
+# Session 1: Create a post
+bun cli blog createPost --title "My Post" --category tech
+# YJS state saved to .epicenter/blog.yjs
+
+# Session 2: Query the post (it persists!)
+bun cli blog getPublishedPosts
+# YJS state loaded from .epicenter/blog.yjs
+
+# Session 3: Update views (works across sessions!)
+bun cli blog incrementViews --id <post-id>
+# Changes saved back to .epicenter/blog.yjs
+```
+
+## Testing Your Changes
+
+1. **Run the programmatic test**:
+   ```bash
+   bun test.ts
+   ```
+
+2. **Use the CLI to create data**:
+   ```bash
+   bun cli blog createPost --title "CLI Test" --category personal
+   ```
+
+3. **Check the markdown files**:
+   ```bash
+   ls test-data/content/posts/
+   cat test-data/content/posts/<post-id>.md
+   ```
+
+4. **Edit a markdown file manually** and verify the changes sync back to the database
