@@ -1,5 +1,6 @@
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './workspace';
-import { createWorkspaceClient, type RuntimeConfig, type WorkspaceClient } from './workspace';
+import { type RuntimeConfig, type WorkspaceClient } from './workspace';
+import { initializeWorkspaces } from './workspace/client';
 
 /**
  * Epicenter configuration
@@ -155,7 +156,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 
 /**
  * Create an epicenter client with all workspace clients initialized
- * Initializes each workspace independently and composes them into a single client object
+ * Uses shared initialization logic to ensure workspace instances are properly shared
  *
  * @param config - Epicenter configuration with workspaces to initialize
  * @param runtimeConfig - Optional runtime configuration
@@ -196,15 +197,24 @@ export async function createEpicenterClient<
 	config: EpicenterConfig<TId, TWorkspaces>,
 	runtimeConfig: RuntimeConfig = {},
 ): Promise<EpicenterClient<TWorkspaces>> {
-	const workspaceClients = Object.fromEntries(
-		config.workspaces.map((workspace) => [
-			workspace.name,
-			createWorkspaceClient(workspace, runtimeConfig),
-		]),
-	);
+	// Initialize all workspaces using shared initialization logic
+	// This ensures workspace instances are properly shared across dependencies
+	const clients = initializeWorkspaces(config.workspaces, runtimeConfig);
+
+	// Build the epicenter client object by mapping workspace names to their clients
+	const workspaceClients: Record<string, WorkspaceClient<any>> = {};
+	for (const workspace of config.workspaces) {
+		const client = clients.get(workspace.id);
+		if (!client) {
+			throw new Error(
+				`Internal error: workspace "${workspace.id}" was not initialized`,
+			);
+		}
+		workspaceClients[workspace.name] = client;
+	}
 
 	const cleanup = async () => {
-		await Promise.all(Object.values(workspaceClients).map((client) => client.destroy()));
+		await Promise.all(Array.from(clients.values()).map((client) => client.destroy()));
 	};
 
 	return {

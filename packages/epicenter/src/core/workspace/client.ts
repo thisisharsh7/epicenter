@@ -111,34 +111,19 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
 	};
 
 /**
- * Create a workspace client with YJS-first architecture
- * Uses flat dependency resolution with VS Code-style peer dependency model
- * All transitive dependencies must be present in workspace.dependencies (hoisted to root)
- * Initialization uses topological sort for deterministic, predictable order
+ * Internal function that initializes multiple workspaces with shared dependency resolution.
+ * Uses flat dependency resolution with VS Code-style peer dependency model.
+ * All transitive dependencies must be present in the root workspaces' dependencies (hoisted to root).
+ * Initialization uses topological sort for deterministic, predictable order.
  *
- * @param workspace - Workspace configuration to initialize
+ * @param rootWorkspaces - Array of root workspace configurations to initialize
  * @param config - Runtime configuration options
- * @returns Initialized workspace client
+ * @returns Map of workspace ID to initialized workspace client
  */
-export function createWorkspaceClient<
-	const TId extends string,
-	const TVersion extends number,
-	TWorkspaceSchema extends WorkspaceSchema,
-	const TDeps extends readonly AnyWorkspaceConfig[],
-	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
-	TActionMap extends WorkspaceActionMap,
->(
-	workspace: WorkspaceConfig<
-		TId,
-		TVersion,
-		string,
-		TWorkspaceSchema,
-		TDeps,
-		TIndexes,
-		TActionMap
-	>,
+export function initializeWorkspaces(
+	rootWorkspaces: readonly AnyWorkspaceConfig[],
 	config: RuntimeConfig = {},
-): WorkspaceClient<TActionMap> {
+): Map<string, WorkspaceClient<any>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -171,15 +156,17 @@ export function createWorkspaceClient<
 		}
 	};
 
-	// Register all dependencies from root workspace
-	if (workspace.dependencies) {
-		for (const dep of workspace.dependencies) {
-			registerWorkspace(dep);
+	// Register all root workspaces and their dependencies
+	for (const workspace of rootWorkspaces) {
+		// Register dependencies first
+		if (workspace.dependencies) {
+			for (const dep of workspace.dependencies) {
+				registerWorkspace(dep);
+			}
 		}
+		// Then register the root workspace itself
+		registerWorkspace(workspace);
 	}
-
-	// Register the root workspace itself
-	registerWorkspace(workspace as unknown as AnyWorkspaceConfig);
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 2: BUILD DEPENDENCY GRAPH
@@ -431,6 +418,42 @@ export function createWorkspaceClient<
 		const client = initializeWorkspace(ws);
 		clients.set(workspaceId, client);
 	}
+
+	// Return all initialized clients
+	return clients;
+}
+
+/**
+ * Create a workspace client with YJS-first architecture
+ * Uses flat dependency resolution with VS Code-style peer dependency model
+ * All transitive dependencies must be present in workspace.dependencies (hoisted to root)
+ * Initialization uses topological sort for deterministic, predictable order
+ *
+ * @param workspace - Workspace configuration to initialize
+ * @param config - Runtime configuration options
+ * @returns Initialized workspace client
+ */
+export function createWorkspaceClient<
+	const TId extends string,
+	const TVersion extends number,
+	TWorkspaceSchema extends WorkspaceSchema,
+	const TDeps extends readonly AnyWorkspaceConfig[],
+	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
+	TActionMap extends WorkspaceActionMap,
+>(
+	workspace: WorkspaceConfig<
+		TId,
+		TVersion,
+		string,
+		TWorkspaceSchema,
+		TDeps,
+		TIndexes,
+		TActionMap
+	>,
+	config: RuntimeConfig = {},
+): WorkspaceClient<TActionMap> {
+	// Use the shared initialization logic with a single root workspace
+	const clients = initializeWorkspaces([workspace], config);
 
 	// Return the client for the root workspace
 	const rootClient = clients.get(workspace.id);
