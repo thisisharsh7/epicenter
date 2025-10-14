@@ -94,18 +94,16 @@ export function id() {
  * @example
  * text() // NOT NULL text
  * text({ nullable: true }) // Nullable text
- * text({ unique: true, default: 'unnamed' }) // Unique with default
+ * text({ default: 'unnamed' }) // NOT NULL with default
  */
 export function text<
 	TNullable extends boolean = false,
 	TDefault extends string | (() => string) | undefined = undefined,
 >({
 	nullable = false as TNullable,
-	unique = false,
 	default: defaultValue,
 }: {
 	nullable?: TNullable;
-	unique?: boolean;
 	default?: TDefault;
 } = {}) {
 	let column = drizzleText();
@@ -113,7 +111,6 @@ export function text<
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
-	if (unique) column = column.unique();
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
@@ -137,11 +134,9 @@ export function integer<
 	TDefault extends number | (() => number) | undefined = undefined,
 >({
 	nullable = false as TNullable,
-	unique = false,
 	default: defaultValue,
 }: {
 	nullable?: TNullable;
-	unique?: boolean;
 	default?: TDefault;
 } = {}) {
 	let column = drizzleInteger();
@@ -149,7 +144,6 @@ export function integer<
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
-	if (unique) column = column.unique();
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
@@ -172,11 +166,9 @@ export function real<
 	TDefault extends number | (() => number) | undefined = undefined,
 >({
 	nullable = false as TNullable,
-	unique = false,
 	default: defaultValue,
 }: {
 	nullable?: TNullable;
-	unique?: boolean;
 	default?: TDefault;
 } = {}) {
 	let column = drizzleReal();
@@ -184,7 +176,6 @@ export function real<
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
 
-	if (unique) column = column.unique();
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
@@ -277,11 +268,9 @@ export function date<
 		| undefined = undefined,
 >({
 	nullable = false as TNullable,
-	unique = false,
 	default: defaultValue,
 }: {
 	nullable?: TNullable;
-	unique?: boolean;
 	default?: TDefault;
 } = {}) {
 	/**
@@ -317,8 +306,6 @@ export function date<
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
-
-	if (unique) column = column.unique();
 
 	if (defaultValue !== undefined) {
 		column =
