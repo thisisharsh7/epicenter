@@ -45,7 +45,10 @@ export type Index<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TQueries = Record<string, any>,
 > = {
-	init: (db: Db<TWorkspaceSchema>) => {
+	init: (db: Db<TWorkspaceSchema>) => Promise<{
+		destroy: () => void | Promise<void>;
+		queries: TQueries;
+	}> | {
 		destroy: () => void | Promise<void>;
 		queries: TQueries;
 	};

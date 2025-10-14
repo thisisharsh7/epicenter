@@ -3,6 +3,9 @@ import { createTaggedError } from 'wellcrafted/error';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import path from 'node:path';
 import { readdir, mkdir } from 'node:fs/promises';
+import * as Y from 'yjs';
+import type { TableSchema, Row } from '../../core/schema';
+import type { RowValidationResult } from '../../core/validation';
 
 /**
  * Result of parsing a markdown file
@@ -108,8 +111,20 @@ export async function writeMarkdownFile<T = any>(
 				catch: () => Ok(undefined), // Directory might already exist, that's fine
 			});
 
+			// Serialize YJS types to plain values before writing to YAML
+			const serializedData: Record<string, any> = {};
+			for (const [key, value] of Object.entries(data as Record<string, any>)) {
+				if (value instanceof Y.Text || value instanceof Y.XmlFragment) {
+					serializedData[key] = value.toString();
+				} else if (value instanceof Y.Array) {
+					serializedData[key] = value.toArray();
+				} else {
+					serializedData[key] = value;
+				}
+			}
+
 			// Create markdown content with frontmatter
-			const yamlContent = stringifyYaml(data);
+			const yamlContent = stringifyYaml(serializedData);
 			const markdown = `---\n${yamlContent}---\n${content}`;
 
 			// Write file using Bun.write
@@ -267,4 +282,214 @@ export function parseMarkdownPath(
 	const id = filename.replace(/\.md$/, '');
 
 	return { tableName, id };
+}
+
+/**
+ * Result of parsing and validating a markdown file
+ * Three possible outcomes:
+ * - failed-to-parse: YAML frontmatter has invalid syntax or file is malformed
+ * - failed-to-validate: YAML parsed successfully but doesn't match table schema
+ * - success: File parsed and validated successfully
+ */
+export type ParseMarkdownResult<T extends Row = Row> =
+	| {
+			status: 'failed-to-parse';
+			error: MarkdownError;
+	  }
+	| {
+			status: 'failed-to-validate';
+			validationResult: RowValidationResult<T>;
+			data: unknown;
+	  }
+	| {
+			status: 'success';
+			data: T;
+			content: string;
+	  };
+
+/**
+ * Parse and validate a markdown file against a table schema
+ * Returns a discriminated union indicating success or specific failure mode
+ *
+ * @param filePath - Path to the markdown file
+ * @param schema - Table schema to validate against
+ * @returns ParseMarkdownResult with status and data/error
+ */
+export async function parseMarkdownWithValidation<T extends Row>(
+	filePath: string,
+	schema: TableSchema,
+): Promise<ParseMarkdownResult<T>> {
+	// Step 1: Parse the markdown file
+	const parseResult = await parseMarkdownFile<unknown>(filePath);
+
+	if (parseResult.error) {
+		return {
+			status: 'failed-to-parse',
+			error: parseResult.error,
+		};
+	}
+
+	const { data, content } = parseResult.data;
+
+	// Step 2: Validate structural correctness (not schema)
+	// We validate that data is an object with basic types, but we allow plain values
+	// for ytext and multi-select columns (strings and arrays) because that's what YAML gives us
+	if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+		return {
+			status: 'failed-to-validate',
+			validationResult: {
+				status: 'invalid-structure',
+				row: data,
+				reason: { type: 'not-an-object', actual: data },
+			},
+			data,
+		};
+	}
+
+	// Step 3: Validate required fields and types, accepting plain values for YJS types
+	const row = data as Record<string, any>;
+	for (const [fieldName, columnSchema] of Object.entries(schema)) {
+		const value = row[fieldName];
+
+		// Check required fields
+		if (value === null || value === undefined) {
+			if (columnSchema.type === 'id' || !columnSchema.nullable) {
+				return {
+					status: 'failed-to-validate',
+					validationResult: {
+						status: 'schema-mismatch',
+						row: row as Row,
+						reason: { type: 'missing-required-field', field: fieldName },
+					},
+					data,
+				};
+			}
+			continue;
+		}
+
+		// Type validation (accept plain values for ytext and multi-select)
+		switch (columnSchema.type) {
+			case 'id':
+			case 'text':
+				if (typeof value !== 'string') {
+					return {
+						status: 'failed-to-validate',
+						validationResult: {
+							status: 'schema-mismatch',
+							row: row as Row,
+							reason: {
+								type: 'type-mismatch',
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: value,
+							},
+						},
+						data,
+					};
+				}
+				break;
+
+			case 'ytext':
+				// Accept both Y.Text and plain string
+				if (!(value instanceof Y.Text) && typeof value !== 'string') {
+					return {
+						status: 'failed-to-validate',
+						validationResult: {
+							status: 'schema-mismatch',
+							row: row as Row,
+							reason: {
+								type: 'type-mismatch',
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: value,
+							},
+						},
+						data,
+					};
+				}
+				break;
+
+			case 'multi-select':
+				// Accept both Y.Array and plain array
+				if (!(value instanceof Y.Array) && !Array.isArray(value)) {
+					return {
+						status: 'failed-to-validate',
+						validationResult: {
+							status: 'schema-mismatch',
+							row: row as Row,
+							reason: {
+								type: 'type-mismatch',
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: value,
+							},
+						},
+						data,
+					};
+				}
+				// If it's a plain array, validate options
+				if (Array.isArray(value)) {
+					for (const option of value) {
+						if (typeof option !== 'string') {
+							return {
+								status: 'failed-to-validate',
+								validationResult: {
+									status: 'schema-mismatch',
+									row: row as Row,
+									reason: {
+										type: 'type-mismatch',
+										field: fieldName,
+										schemaType: columnSchema.type,
+										actual: option,
+									},
+								},
+								data,
+							};
+						}
+						if (!columnSchema.options.includes(option)) {
+							return {
+								status: 'failed-to-validate',
+								validationResult: {
+									status: 'schema-mismatch',
+									row: row as Row,
+									reason: {
+										type: 'invalid-option',
+										field: fieldName,
+										actual: option,
+										allowedOptions: columnSchema.options,
+									},
+								},
+								data,
+							};
+						}
+					}
+				}
+				break;
+
+			case 'integer':
+				if (typeof value !== 'number' || !Number.isInteger(value)) {
+					return {
+						status: 'failed-to-validate',
+						validationResult: {
+							status: 'schema-mismatch',
+							row: row as Row,
+							reason: {
+								type: 'type-mismatch',
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: value,
+							},
+						},
+						data,
+					};
+				}
+				break;
+		}
+	}
+
+	return {
+		status: 'success',
+		data: row as T,
+		content,
+	};
 }
