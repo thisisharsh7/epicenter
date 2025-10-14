@@ -586,4 +586,145 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		const result = await client.getValueFromA();
 		expect(result.data).toBe('value-from-a');
 	});
+
+	test('exposes only root workspace actions, not dependencies', async () => {
+		const workspaceA = defineWorkspace({
+			id: 'a',
+			name: 'workspaceA',
+			version: 1,
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({
+				getValueFromA: defineQuery({
+					handler: () => Ok('value-from-a'),
+				}),
+			}),
+		});
+
+		const workspaceB = defineWorkspace({
+			id: 'b',
+			name: 'workspaceB',
+			version: 1,
+			dependencies: [workspaceA],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: ({ workspaces }) => ({
+				getValueFromB: defineQuery({
+					handler: () => Ok('value-from-b'),
+				}),
+				callA: defineQuery({
+					handler: async () => workspaces.workspaceA.getValueFromA(),
+				}),
+			}),
+		});
+
+		const client = createWorkspaceClient(workspaceB);
+
+		// Root workspace B's actions ARE exposed
+		expect(client.getValueFromB).toBeDefined();
+		expect(typeof client.getValueFromB).toBe('function');
+		expect(client.callA).toBeDefined();
+
+		// Dependency workspace A's actions are NOT exposed on the client
+		expect((client as any).workspaceA).toBeUndefined();
+
+		// But B can call A's actions internally via workspaces parameter
+		const result = await client.callA();
+		expect(result.data).toBe('value-from-a');
+
+		await client.destroy();
+	});
+
+	test('root with multiple dependencies - only root actions exposed', async () => {
+		const workspaceA = defineWorkspace({
+			id: 'a',
+			name: 'workspaceA',
+			version: 1,
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({
+				getValue: defineQuery({
+					handler: () => Ok('value-from-a'),
+				}),
+			}),
+		});
+
+		const workspaceB = defineWorkspace({
+			id: 'b',
+			name: 'workspaceB',
+			version: 1,
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: () => ({
+				getValue: defineQuery({
+					handler: () => Ok('value-from-b'),
+				}),
+			}),
+		});
+
+		const workspaceC = defineWorkspace({
+			id: 'c',
+			name: 'workspaceC',
+			version: 1,
+			dependencies: [workspaceA, workspaceB],
+			schema: {
+				items: {
+					id: id(),
+					name: text(),
+				},
+			},
+			indexes: () => ({}),
+			actions: ({ workspaces }) => ({
+				getValue: defineQuery({
+					handler: () => Ok('value-from-c'),
+				}),
+				getFromA: defineQuery({
+					handler: async () => workspaces.workspaceA.getValue(),
+				}),
+				getFromB: defineQuery({
+					handler: async () => workspaces.workspaceB.getValue(),
+				}),
+			}),
+		});
+
+		const client = createWorkspaceClient(workspaceC);
+
+		// Only C's actions are exposed
+		expect(client.getValue).toBeDefined();
+		expect(client.getFromA).toBeDefined();
+		expect(client.getFromB).toBeDefined();
+
+		// A and B are NOT exposed
+		expect((client as any).workspaceA).toBeUndefined();
+		expect((client as any).workspaceB).toBeUndefined();
+
+		// But C can access A and B internally
+		const resultA = await client.getFromA();
+		expect(resultA.data).toBe('value-from-a');
+
+		const resultB = await client.getFromB();
+		expect(resultB.data).toBe('value-from-b');
+
+		await client.destroy();
+	});
 });

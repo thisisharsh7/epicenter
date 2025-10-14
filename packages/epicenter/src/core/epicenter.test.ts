@@ -424,4 +424,134 @@ describe('Epicenter', () => {
 		// Destroy should not throw
 		await client.destroy();
 	});
+
+	describe('Action Exposure', () => {
+		/**
+		 * Helper to create a simple workspace with actions for testing action exposure
+		 */
+		const createTestWorkspace = (workspaceId: string, name: string, deps: any[] = []) => {
+			return defineWorkspace({
+				id: workspaceId,
+				version: 1,
+				name,
+				dependencies: deps,
+				schema: {
+					items: {
+						id: id(),
+						value: text(),
+					},
+				},
+				indexes: ({ db }) => ({
+					sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
+				}),
+				actions: ({ workspaces }) => ({
+					getValue: defineQuery({
+						handler: () => Ok(`value-from-${name}`),
+					}),
+					...(deps.length > 0
+						? {
+								getValueFromDependency: defineQuery({
+									handler: async () => {
+										// Access the first dependency's action
+										const depName = deps[0].name;
+										const result = await (workspaces as any)[depName].getValue();
+										return result;
+									},
+								}),
+							}
+						: {}),
+				}),
+			});
+		};
+
+		test('exposes all workspaces in the workspaces array by name', async () => {
+			const workspaceA = createTestWorkspace('a', 'workspaceA');
+			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
+
+			const epicenter = defineEpicenter({
+				id: 'test',
+				workspaces: [workspaceA, workspaceB],
+			});
+
+			const client = await createEpicenterClient(epicenter);
+
+			// BOTH workspaces are exposed by their names
+			expect(client.workspaceA).toBeDefined();
+			expect(client.workspaceB).toBeDefined();
+
+			// Both have their actions
+			expect(client.workspaceA.getValue).toBeDefined();
+			expect(client.workspaceB.getValue).toBeDefined();
+			expect(client.workspaceB.getValueFromDependency).toBeDefined();
+
+			// Can call actions on both
+			const resultA = await client.workspaceA.getValue();
+			expect(resultA.data).toBe('value-from-workspaceA');
+
+			const resultB = await client.workspaceB.getValue();
+			expect(resultB.data).toBe('value-from-workspaceB');
+
+			await client.destroy();
+		});
+
+		test('only workspaces in config.workspaces array are exposed', async () => {
+			const workspaceA = createTestWorkspace('a', 'workspaceA');
+			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
+			const workspaceC = createTestWorkspace('c', 'workspaceC', [
+				workspaceA,
+				workspaceB,
+			]);
+
+			// Only include B and C in epicenter, not A
+			const epicenter = defineEpicenter({
+				id: 'test',
+				workspaces: [workspaceB, workspaceC],
+			});
+
+			const client = await createEpicenterClient(epicenter);
+
+			// B and C are exposed
+			expect(client.workspaceB).toBeDefined();
+			expect(client.workspaceC).toBeDefined();
+
+			// A is NOT exposed (even though it's a dependency)
+			expect((client as any).workspaceA).toBeUndefined();
+
+			// But B and C can still access A internally
+			const resultFromB = await client.workspaceB.getValueFromDependency();
+			expect(resultFromB.data).toBe('value-from-workspaceA');
+
+			await client.destroy();
+		});
+
+		test('multiple workspaces with no dependencies - all exposed', async () => {
+			const workspaceA = createTestWorkspace('a', 'workspaceA');
+			const workspaceB = createTestWorkspace('b', 'workspaceB');
+			const workspaceC = createTestWorkspace('c', 'workspaceC');
+
+			const epicenter = defineEpicenter({
+				id: 'test',
+				workspaces: [workspaceA, workspaceB, workspaceC],
+			});
+
+			const client = await createEpicenterClient(epicenter);
+
+			// All three workspaces exposed
+			expect(client.workspaceA).toBeDefined();
+			expect(client.workspaceB).toBeDefined();
+			expect(client.workspaceC).toBeDefined();
+
+			// All have their actions
+			const resultA = await client.workspaceA.getValue();
+			expect(resultA.data).toBe('value-from-workspaceA');
+
+			const resultB = await client.workspaceB.getValue();
+			expect(resultB.data).toBe('value-from-workspaceB');
+
+			const resultC = await client.workspaceC.getValue();
+			expect(resultC.data).toBe('value-from-workspaceC');
+
+			await client.destroy();
+		});
+	});
 });
