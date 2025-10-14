@@ -334,10 +334,10 @@ export function date<
  * Creates a multi-select column (stored as JSON text, NOT NULL by default)
  * Uses non-empty array constraint [string, ...string[]] to ensure at least one option
  * @example
- * multiSelect({ options: ['admin', 'user', 'guest'] as const })
- * multiSelect({ options: ['red', 'blue'] as const, nullable: true })
- * multiSelect({ options: ['tag1', 'tag2'] as const, default: [] })
- * multiSelect({ options: ['a', 'b'] as const, default: ['a'] })
+ * multiSelect({ options: ['admin', 'user', 'guest'] })
+ * multiSelect({ options: ['red', 'blue'], nullable: true })
+ * multiSelect({ options: ['tag1', 'tag2'], default: [] })
+ * multiSelect({ options: ['a', 'b'], default: ['a'] })
  */
 export function multiSelect<
 	const TOptions extends readonly [string, ...string[]],
