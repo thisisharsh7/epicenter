@@ -118,41 +118,51 @@ export function defineEpicenter<
 }
 
 /**
+ * Helper type that extracts the name and WorkspaceClient type for a single workspace
+ * Returns a single-entry object type: { [name]: WorkspaceClient<TActionMap> }
+ */
+type WorkspaceToClientEntry<W> = W extends WorkspaceConfig<
+	infer _Id,
+	infer _Version,
+	infer TName,
+	infer _Schema,
+	infer _Deps,
+	infer _Indexes,
+	infer TActionMap
+>
+	? { [K in TName]: WorkspaceClient<TActionMap> }
+	: never;
+
+/**
+ * Helper type that recursively processes a tuple of workspaces and merges them into a single object type
+ * Distributes over each tuple element and combines all workspace client entries
+ */
+type WorkspacesToClientObject<WS extends readonly AnyWorkspaceConfig[]> = WS extends readonly [
+	infer First,
+	...infer Rest extends readonly AnyWorkspaceConfig[],
+]
+	? WorkspaceToClientEntry<First> & WorkspacesToClientObject<Rest>
+	: {};
+
+/**
  * Epicenter client type
  * Maps workspace names to their action handlers
  * Provides typed access to all workspace actions
  */
-export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> = {
-	[W in TWorkspaces[number] as W extends WorkspaceConfig<
-		infer _Id,
-		infer _Version,
-		infer TName
-	>
-		? TName
-		: never]: W extends WorkspaceConfig<
-		infer _Id,
-		infer _Version,
-		infer _Name,
-		infer _Schema,
-		infer _Deps,
-		infer _Indexes,
-		infer TActionMap
-	>
-		? WorkspaceClient<TActionMap>
-		: never;
-} & {
-	/**
-	 * Cleanup function that destroys all workspaces in this epicenter
-	 * Calls destroy() on each workspace client
-	 */
-	destroy: () => Promise<void>;
+export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
+	WorkspacesToClientObject<TWorkspaces> & {
+		/**
+		 * Cleanup function that destroys all workspaces in this epicenter
+		 * Calls destroy() on each workspace client
+		 */
+		destroy: () => Promise<void>;
 
-	/**
-	 * Async dispose for explicit resource management (enables `await using`)
-	 * Alias for destroy()
-	 */
-	[Symbol.asyncDispose]: () => Promise<void>;
-};
+		/**
+		 * Async dispose for explicit resource management (enables `await using`)
+		 * Alias for destroy()
+		 */
+		[Symbol.asyncDispose]: () => Promise<void>;
+	};
 
 /**
  * Create an epicenter client with all workspace clients initialized
