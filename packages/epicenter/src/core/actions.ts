@@ -54,21 +54,34 @@ export type Mutation<
 };
 
 /**
- * Helper function to define a query action
+ * Helper function to define a query action with input schema
  * Returns a callable function with metadata properties attached
  */
-export function defineQuery<
-	TOutput,
-	TInput extends TSchema | undefined = undefined,
->(config: {
-	input?: TInput;
+export function defineQuery<TOutput, TInput extends TSchema>(config: {
+	input: TInput;
 	handler: (
-		input: TInput extends TSchema ? Static<TInput> : undefined,
+		input: Static<NoInfer<TInput>>,
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): Query<TInput, TOutput> {
+}): Query<TInput, TOutput>;
+
+/**
+ * Helper function to define a query action without input
+ * Returns a callable function with metadata properties attached
+ */
+export function defineQuery<TOutput>(config: {
+	handler: () =>
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
+	description?: string;
+}): Query<undefined, TOutput>;
+
+/**
+ * Implementation for defineQuery
+ */
+export function defineQuery(config: any): any {
 	return Object.assign(config.handler, {
 		type: 'query' as const,
 		input: config.input,
@@ -77,21 +90,34 @@ export function defineQuery<
 }
 
 /**
- * Helper function to define a mutation action
+ * Helper function to define a mutation action with input schema
  * Returns a callable function with metadata properties attached
  */
-export function defineMutation<
-	TOutput,
-	TInput extends TSchema | undefined = undefined,
->(config: {
-	input?: TInput;
+export function defineMutation<TOutput, TInput extends TSchema>(config: {
+	input: TInput;
 	handler: (
-		input: TInput extends TSchema ? Static<TInput> : undefined,
+		input: Static<NoInfer<TInput>>,
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): Mutation<TInput, TOutput> {
+}): Mutation<TInput, TOutput>;
+
+/**
+ * Helper function to define a mutation action without input
+ * Returns a callable function with metadata properties attached
+ */
+export function defineMutation<TOutput>(config: {
+	handler: () =>
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
+	description?: string;
+}): Mutation<undefined, TOutput>;
+
+/**
+ * Implementation for defineMutation
+ */
+export function defineMutation(config: any): any {
 	return Object.assign(config.handler, {
 		type: 'mutation' as const,
 		input: config.input,
