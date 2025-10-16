@@ -206,7 +206,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexes;
+	indexes: (context: { db: Db<NoInfer<TWorkspaceSchema>> }) => TIndexes;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -255,11 +255,11 @@ export type WorkspaceConfig<
 	 */
 	actions: (context: {
 		/** Database instance with table helpers, ydoc, schema, and utilities */
-		db: Db<TWorkspaceSchema>;
+		db: Db<NoInfer<TWorkspaceSchema>>;
 		/** Dependency workspaces - access actions from other workspaces */
-		workspaces: DependencyWorkspacesAPI<TDeps>;
+		workspaces: DependencyWorkspacesAPI<NoInfer<TDeps>>;
 		/** Indexes for this workspace - async read operations (select, search, etc.) */
-		indexes: IndexesAPI<TIndexes>;
+		indexes: IndexesAPI<NoInfer<TIndexes>>;
 	}) => TActionMap;
 };
 
