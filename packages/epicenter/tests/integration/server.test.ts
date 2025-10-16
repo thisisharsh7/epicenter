@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll } from 'bun:test';
-import { z } from 'zod';
+import { Type } from '@sinclair/typebox';
 import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
@@ -46,10 +46,14 @@ describe('Server Integration Tests', () => {
 
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({
-				input: z.object({
-					title: z.string().min(1),
-					content: z.string().optional(),
-					category: z.enum(['tech', 'personal', 'work']),
+				input: Type.Object({
+					title: Type.String({ minLength: 1 }),
+					content: Type.Optional(Type.String()),
+					category: Type.Union([
+						Type.Literal('tech'),
+						Type.Literal('personal'),
+						Type.Literal('work'),
+					]),
 				}),
 				description: 'Create a new blog post',
 				handler: async (input) => {
@@ -78,8 +82,12 @@ describe('Server Integration Tests', () => {
 			}),
 
 			getPostsByCategory: defineQuery({
-				input: z.object({
-					category: z.enum(['tech', 'personal', 'work']),
+				input: Type.Object({
+					category: Type.Union([
+						Type.Literal('tech'),
+						Type.Literal('personal'),
+						Type.Literal('work'),
+					]),
 				}),
 				description: 'Get posts by category',
 				handler: async ({ category }) => {
@@ -222,9 +230,9 @@ describe('Server Integration Tests', () => {
 
 			actions: ({ db }) => ({
 				createUser: defineMutation({
-					input: z.object({
-						email: z.string().email(),
-						name: z.string(),
+					input: Type.Object({
+						email: Type.String({ format: 'email' }),
+						name: Type.String(),
 					}),
 					description: 'Create a new user',
 					handler: async (input) => {

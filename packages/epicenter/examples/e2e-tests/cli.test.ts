@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { createCLI } from '../../packages/epicenter/src/cli/create-cli';
-import { createZodConverter } from '../../packages/epicenter/src/cli/converters/zod';
+import { createTypeBoxConverter } from '../../packages/epicenter/src/cli/converters/typebox';
 import epicenterConfig from './epicenter.config';
 
 describe('E2E CLI Tests', () => {
 	test('creates CLI from epicenter config', () => {
 		const cli = createCLI(epicenterConfig, {
 			argv: [],
-			schemaConverters: [createZodConverter()],
+			schemaConverters: [createTypeBoxConverter()],
 		});
 
 		expect(cli).toBeDefined();
@@ -16,7 +16,7 @@ describe('E2E CLI Tests', () => {
 	});
 
 	test('CLI is configured with schema converters', () => {
-		const converter = createZodConverter();
+		const converter = createTypeBoxConverter();
 		const cli = createCLI(epicenterConfig, {
 			argv: [],
 			schemaConverters: [converter],
@@ -29,7 +29,7 @@ describe('E2E CLI Tests', () => {
 	test('CLI can parse arguments', () => {
 		const cli = createCLI(epicenterConfig, {
 			argv: ['--help'],
-			schemaConverters: [createZodConverter()],
+			schemaConverters: [createTypeBoxConverter()],
 		});
 
 		expect(cli).toBeDefined();

@@ -49,7 +49,9 @@ export const pages = defineWorkspace({
 
 		// Query: Get page by ID
 		getPage: defineQuery({
-			input: Type.Script(`{ id: string }`),
+			input: Type.Object({
+				id: Type.String(),
+			}),
 			handler: async ({ id }) => {
 				const page = await indexes.sqlite.db
 					.select()
@@ -62,12 +64,24 @@ export const pages = defineWorkspace({
 
 		// Mutation: Create a page
 		createPage: defineMutation({
-			input: Type.Script(`{
-				title: string,
-				content: string,
-				type: 'blog' | 'article' | 'guide' | 'tutorial' | 'news',
-				tags: 'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'
-			}`),
+			input: Type.Object({
+				title: Type.String(),
+				content: Type.String(),
+				type: Type.Union([
+					Type.Literal('blog'),
+					Type.Literal('article'),
+					Type.Literal('guide'),
+					Type.Literal('tutorial'),
+					Type.Literal('news'),
+				]),
+				tags: Type.Union([
+					Type.Literal('tech'),
+					Type.Literal('lifestyle'),
+					Type.Literal('business'),
+					Type.Literal('education'),
+					Type.Literal('entertainment'),
+				]),
+			}),
 			handler: async (data) => {
 				const page = {
 					id: generateId(),
@@ -170,24 +184,23 @@ export default defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		// Mutation: Create YouTube post
 		// Note: Manual schema here for API design reasons (camelCase, omitting date fields)
-		// Alternative with adapter: createInsertSchemaZod(db.schema.youtube).omit({ posted_at: true, updated_at: true })
 		createYouTubePost: defineMutation({
-			input: z.object({
-				pageId: z.string(),
-				title: z.string(),
-				description: z.string(),
-				niche: z.array(
-					z.enum([
-						'Braden',
-						'Epicenter',
-						'YC',
-						'Yale',
-						'College Students',
-						'High School Students',
-						'Coding',
-						'Productivity',
-						'Ethics',
-						'Writing',
+			input: Type.Object({
+				pageId: Type.String(),
+				title: Type.String(),
+				description: Type.String(),
+				niche: Type.Array(
+					Type.Union([
+						Type.Literal('Braden'),
+						Type.Literal('Epicenter'),
+						Type.Literal('YC'),
+						Type.Literal('Yale'),
+						Type.Literal('College Students'),
+						Type.Literal('High School Students'),
+						Type.Literal('Coding'),
+						Type.Literal('Productivity'),
+						Type.Literal('Ethics'),
+						Type.Literal('Writing'),
 					]),
 				),
 			}),
@@ -208,12 +221,11 @@ export default defineWorkspace({
 
 		// Mutation: Create Twitter post
 		// Note: Manual schema here because API uses camelCase (pageId) while DB uses snake_case (page_id)
-		// For schemas where API matches DB field names, use createInsertSchemaZod(db.schema.twitter)
 		createTwitterPost: defineMutation({
-			input: z.object({
-				pageId: z.string(),
-				content: z.string(),
-				title: z.string().optional(),
+			input: Type.Object({
+				pageId: Type.String(),
+				content: Type.String(),
+				title: Type.Optional(Type.String()),
 			}),
 			handler: async ({ pageId, content, title }) => {
 				const post = {
