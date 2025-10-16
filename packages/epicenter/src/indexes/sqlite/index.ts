@@ -146,10 +146,9 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 	return defineIndex({
 		init: (epicenterDb: Db<TWorkspaceSchema>): {
 			destroy: () => void;
-			queries: {
-				db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>> & { $client: any };
-			} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>;
-		} => {
+		} & {
+			db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>> & { $client: any };
+		} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> => {
 			// Convert table schemas to Drizzle tables
 			const drizzleTables = convertWorkspaceSchemaToDrizzle(epicenterDb.schema);
 
@@ -267,19 +266,15 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 				}
 			})();
 
-			// Build queries object with db and table references
-			const queries = {
-				db: sqliteDb,
-				...drizzleTables,
-			};
-
+			// Return destroy function alongside exported resources (flattened structure)
 			return {
 				destroy() {
 					for (const unsub of unsubscribers) {
 						unsub();
 					}
 				},
-				queries,
+				db: sqliteDb,
+				...drizzleTables,
 			};
 		},
 	});

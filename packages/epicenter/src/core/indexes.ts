@@ -7,9 +7,19 @@ import type { WorkspaceSchema } from './schema';
  */
 
 /**
+ * A collection of index exports indexed by export name.
+ *
+ * Index exports provide access to the synchronized snapshot data and can include
+ * database instances, query functions, table references, or any other tools needed
+ * to interact with the indexed data.
+ */
+type WorkspaceIndexExportsMap = Record<string, any>;
+
+/**
  * Index object with initialization function
  *
- * Indexes are objects with an `init` function that sets up observers and returns cleanup + queries
+ * Indexes are objects with an `init` function that sets up observers and returns
+ * a cleanup function (`destroy`) alongside any exported resources (databases, queries, etc.)
  * The index name/ID is provided by the object key in the workspace configuration
  *
  * @example
@@ -26,16 +36,15 @@ import type { WorkspaceSchema } from './schema';
  *     // Initialization
  *     initializeIndex();
  *
- *     // Return cleanup function and query methods
+ *     // Return cleanup function and exported resources (all at top level)
  *     return {
  *       destroy() {
  *         unsubPosts();
  *         cleanupIndex();
  *       },
- *       queries: {
- *         search: (query: string) => { ... },
- *         getAll: () => { ... },
- *       },
+ *       db: sqliteDb,
+ *       search: (query: string) => { ... },
+ *       getAll: () => { ... },
  *     };
  *   }
  * };
@@ -43,22 +52,20 @@ import type { WorkspaceSchema } from './schema';
  */
 export type Index<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TQueries = Record<string, any>,
+	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
 > = {
 	init: (db: Db<TWorkspaceSchema>) => Promise<{
 		destroy: () => void | Promise<void>;
-		queries: TQueries;
-	}> | {
+	} & TExportsMap> | {
 		destroy: () => void | Promise<void>;
-		queries: TQueries;
-	};
+	} & TExportsMap;
 };
 
 /**
  * A collection of workspace indexes indexed by index name.
  *
  * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
- * that sync with the YJS document and provide different query patterns.
+ * that sync with the YJS document and provide different access patterns to the data.
  */
 export type WorkspaceIndexMap<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = Record<
 	string,
@@ -85,18 +92,17 @@ export type IndexContext<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSch
  * ```typescript
  * const sqliteIndex = defineIndex({
  *   init: (db) => ({
- *     queries: {
- *       findById: async (id: string) => { ... }
- *     },
- *     destroy: () => { ... }
+ *     destroy: () => { ... },
+ *     db: sqliteDb,
+ *     findById: async (id: string) => { ... }
  *   })
  * })
  * ```
  */
 export function defineIndex<
 	TWorkspaceSchema extends WorkspaceSchema,
-	TQueries = Record<string, any>,
->(index: Index<TWorkspaceSchema, TQueries>): Index<TWorkspaceSchema, TQueries> {
+	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
+>(index: Index<TWorkspaceSchema, TExportsMap>): Index<TWorkspaceSchema, TExportsMap> {
 	return index;
 }
 

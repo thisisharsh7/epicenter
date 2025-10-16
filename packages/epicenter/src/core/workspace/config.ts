@@ -293,7 +293,7 @@ export type ShallowWorkspaceConfig = {
 		db: Db<any>;
 		workspaces: any;
 		indexes: any;
-	}) => WorkspaceActionMap;
+	}) => Record<string, any>; // Changed from WorkspaceActionMap - prevents deep type inference
 	// NOTE: No dependencies field - this prevents recursive type inference
 };
 
@@ -345,8 +345,8 @@ export type DependencyWorkspacesAPI<TDeps extends readonly ShallowWorkspaceConfi
  * Converts record of indexes to record of queries keyed by same keys
  */
 export type IndexesAPI<TIndexes extends WorkspaceIndexMap<any>> = {
-	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TQueries>
-		? TQueries
+	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TQueryMap>
+		? TQueryMap
 		: never;
 };
 

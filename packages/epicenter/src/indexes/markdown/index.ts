@@ -388,7 +388,6 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema>({
 					}
 					watcher.close();
 				},
-				queries: {},
 			};
 		},
 	});

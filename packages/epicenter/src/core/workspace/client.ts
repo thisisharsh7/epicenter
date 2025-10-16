@@ -340,10 +340,10 @@ export function initializeWorkspaces(
 		}
 
 		// Initialize each index by calling its init function
-		// Indexes set up observers on the YJS document and return query functions
+		// Indexes set up observers on the YJS document and return exported resources
 		const indexes: Record<
 			string,
-			{ destroy: () => void | Promise<void>; queries: any }
+			{ destroy: () => void | Promise<void> } & Record<string, any>
 		> = {};
 
 		for (const [indexKey, index] of Object.entries(indexesObject)) {
@@ -354,23 +354,14 @@ export function initializeWorkspaces(
 			}
 		}
 
-		// Create the IndexesAPI object that will be passed to actions
-		// Extract just the query functions from each index (hide internal details)
-		const indexesAPI = Object.fromEntries(
-			Object.entries(indexes).map(([indexName, index]) => [
-				indexName,
-				index.queries,
-			]),
-		);
-
 		// Call the actions factory to get action definitions, passing:
 		// - workspaces: initialized dependency clients (keyed by dep.name)
 		// - db: Epicenter database API
-		// - indexes: query functions for each index
+		// - indexes: exported resources from each index (db, queries, etc.)
 		const actionMap = ws.actions({
 			workspaces,
 			db,
-			indexes: indexesAPI,
+			indexes,
 		});
 
 		// Create cleanup function
