@@ -8,22 +8,21 @@ import type { EpicenterOperationError } from './errors';
  * Each workspace exposes its functionality through a set of typed actions
  * that can be called by other workspaces or external consumers.
  */
-export type WorkspaceActionMap = Record<string, WorkspaceAction<any, any>>;
+export type WorkspaceActionMap = Record<string, Action<any, any>>;
 
 /**
- * Union type for all action types
- */
-export type WorkspaceAction<
-	TInput extends TSchema = TSchema,
-	TOutput = unknown,
-> = QueryAction<TInput, TOutput> | MutationAction<TInput, TOutput>;
-
-/**
- * Base action type - callable function with metadata properties
- * Unified for both queries and mutations
+ * Action type - callable function with metadata properties
+ * Can be either a query or mutation
  */
 export type Action<
-	TType extends 'query' | 'mutation',
+	TInput extends TSchema | undefined = TSchema | undefined,
+	TOutput = unknown,
+> = Query<TInput, TOutput> | Mutation<TInput, TOutput>;
+
+/**
+ * Query action - read operation with no side effects
+ */
+export type Query<
 	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
 > = {
@@ -32,26 +31,27 @@ export type Action<
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	// Metadata properties
-	type: TType;
+	type: 'query';
 	input?: TInput;
 	description?: string;
 };
 
 /**
- * Query action - specialization of Action with type='query'
+ * Mutation action - write operation that modifies state
  */
-export type QueryAction<
+export type Mutation<
 	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
-> = Action<'query', TInput, TOutput>;
-
-/**
- * Mutation action - specialization of Action with type='mutation'
- */
-export type MutationAction<
-	TInput extends TSchema | undefined = TSchema | undefined,
-	TOutput = unknown,
-> = Action<'mutation', TInput, TOutput>;
+> = {
+	// Callable signature - properly infers input based on whether TInput is TSchema or undefined
+	(input: TInput extends TSchema ? Static<TInput> : undefined):
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
+	// Metadata properties
+	type: 'mutation';
+	input?: TInput;
+	description?: string;
+};
 
 /**
  * Helper function to define a query action
@@ -68,7 +68,7 @@ export function defineQuery<
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): QueryAction<TInput, TOutput> {
+}): Query<TInput, TOutput> {
 	return Object.assign(config.handler, {
 		type: 'query' as const,
 		input: config.input,
@@ -91,7 +91,7 @@ export function defineMutation<
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): MutationAction<TInput, TOutput> {
+}): Mutation<TInput, TOutput> {
 	return Object.assign(config.handler, {
 		type: 'mutation' as const,
 		input: config.input,
@@ -103,30 +103,30 @@ export function defineMutation<
  * Type helper to extract the input type from an action
  */
 export type InferActionInput<T> =
-	T extends WorkspaceAction<infer TInput, unknown>
-		? Static<TInput>
+	T extends Action<infer TInput, unknown>
+		? TInput extends TSchema ? Static<TInput> : undefined
 		: never;
 
 /**
  * Type helper to extract the output type from an action
  */
 export type InferActionOutput<T> =
-	T extends WorkspaceAction<TSchema, infer O> ? O : never;
+	T extends Action<TSchema | undefined, infer O> ? O : never;
 
 /**
  * Type helper to extract the unwrapped output type from an action handler
  * This unwraps the Result type to get the actual success value type
  */
 export type InferActionOutputUnwrapped<T> =
-	T extends WorkspaceAction<TSchema, infer O> ? O : never;
+	T extends Action<TSchema | undefined, infer O> ? O : never;
 
 /**
  * Type helper to extract the handler function with Result return type
  */
 export type InferActionHandler<T> =
-	T extends WorkspaceAction<infer TInput, infer TOutput>
+	T extends Action<infer TInput, infer TOutput>
 		? (
-				input: Static<TInput>,
+				input: TInput extends TSchema ? Static<TInput> : undefined,
 			) =>
 				| Result<TOutput, EpicenterOperationError>
 				| Promise<Result<TOutput, EpicenterOperationError>>
@@ -135,17 +135,17 @@ export type InferActionHandler<T> =
 /**
  * Type helper to check if an action is a query
  */
-export function isQuery<T extends WorkspaceAction>(
+export function isQuery<T extends Action>(
 	action: T,
-): action is T & QueryAction {
+): action is T & Query {
 	return action.type === 'query';
 }
 
 /**
  * Type helper to check if an action is a mutation
  */
-export function isMutation<T extends WorkspaceAction>(
+export function isMutation<T extends Action>(
 	action: T,
-): action is T & MutationAction {
+): action is T & Mutation {
 	return action.type === 'mutation';
 }
