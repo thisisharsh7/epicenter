@@ -1,0 +1,204 @@
+import Type from 'typebox';
+import { Ok } from 'wellcrafted/result';
+import * as Y from 'yjs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {
+	defineEpicenter,
+	defineWorkspace,
+	id,
+	text,
+	integer,
+	select,
+	generateId,
+	sqliteIndex,
+	markdownIndex,
+	defineQuery,
+	defineMutation,
+	isNotNull,
+	eq,
+	type ValidatedRow,
+} from '../../src/index';
+
+/**
+ * Example blog workspace
+ * Demonstrates the basic structure of an Epicenter workspace
+ */
+
+const blogWorkspace = defineWorkspace({
+	id: 'blog',
+	version: 1,
+	name: 'blog',
+
+	schema: {
+		posts: {
+			id: id(),
+			title: text(),
+			content: text({ nullable: true }),
+			category: select({ options: ['tech', 'personal', 'tutorial'] }),
+			views: integer({ default: 0 }),
+			publishedAt: text({ nullable: true }),
+		},
+		comments: {
+			id: id(),
+			postId: text(),
+			author: text(),
+			content: text(),
+			createdAt: text(),
+		},
+	},
+
+	indexes: ({ db }) => ({
+		sqlite: sqliteIndex({ db, databaseUrl: 'file:test-data/blog.db' }),
+		markdown: markdownIndex({ db, storagePath: './test-data/content' }),
+	}),
+
+	actions: ({ db, indexes }) => ({
+		// Query: Get all published posts
+		getPublishedPosts: defineQuery({
+			handler: async () => {
+				const posts = indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.posts)
+					.where(isNotNull(indexes.sqlite.posts.publishedAt))
+					.all();
+				return Ok(posts);
+			},
+		}),
+
+		// Query: Get post by ID
+		getPost: defineQuery({
+			input: Type.Script(`{ id: string }`),
+			handler: async ({ id }) => {
+				const post = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.posts)
+					.where(eq(indexes.sqlite.posts.id, id))
+					.get();
+				return Ok(post);
+			},
+		}),
+
+		// Query: Get comments for a post
+		getPostComments: defineQuery({
+			input: Type.Script(`{ postId: string }`),
+			handler: async ({ postId }) => {
+				const comments = indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.comments)
+					.where(eq(indexes.sqlite.comments.postId, postId))
+					.all();
+				return Ok(comments);
+			},
+		}),
+
+		// Mutation: Create a new post
+		createPost: defineMutation({
+			input: Type.Script(`{
+				title: string,
+				content?: string,
+				category: 'tech' | 'personal' | 'tutorial'
+			}`),
+			handler: async ({ title, content, category }) => {
+				const post = {
+					id: generateId(),
+					title,
+					content: content ?? '',
+					category,
+					views: 0,
+					publishedAt: null,
+				} satisfies ValidatedRow<typeof db.schema.posts>;
+				db.tables.posts.insert(post);
+				return Ok(post);
+			},
+		}),
+
+		// Mutation: Publish a post
+		publishPost: defineMutation({
+			input: Type.Script(`{ id: string }`),
+			handler: async ({ id }) => {
+				const { status, row } = db.tables.posts.get(id);
+				if (status !== 'valid') {
+					throw new Error(`Post ${id} not found`);
+				}
+				db.tables.posts.update({
+					id,
+					publishedAt: new Date().toISOString(),
+				});
+				const { row: updatedPost } = db.tables.posts.get(id);
+				return Ok(updatedPost);
+			},
+		}),
+
+		// Mutation: Add a comment
+		addComment: defineMutation({
+			input: Type.Script(`{
+				postId: string,
+				author: string,
+				content: string
+			}`),
+			handler: async ({ postId, author, content }) => {
+				const comment = {
+					id: generateId(),
+					postId,
+					author,
+					content,
+					createdAt: new Date().toISOString(),
+				} satisfies ValidatedRow<typeof db.schema.comments>;
+				db.tables.comments.insert(comment);
+				return Ok(comment);
+			},
+		}),
+
+		// Mutation: Increment post views
+		incrementViews: defineMutation({
+			input: Type.Script(`{ id: string }`),
+			handler: async ({ id }) => {
+				const { status, row } = db.tables.posts.get(id);
+				if (status !== 'valid') {
+					throw new Error(`Post ${id} not found`);
+				}
+				db.tables.posts.update({
+					id,
+					views: row.views + 1,
+				});
+				const { row: updatedPost } = db.tables.posts.get(id);
+				return Ok(updatedPost);
+			},
+		}),
+	}),
+
+	/**
+	 * Set up YJS document persistence to disk
+	 * This enables state to persist across CLI invocations and programmatic runs
+	 */
+	setupYDoc: (ydoc) => {
+		const storagePath = './.epicenter';
+		const filePath = path.join(storagePath, 'blog.yjs');
+
+		// Ensure .epicenter directory exists
+		if (!fs.existsSync(storagePath)) {
+			fs.mkdirSync(storagePath, { recursive: true });
+		}
+
+		// Try to load existing state from disk
+		try {
+			const savedState = fs.readFileSync(filePath);
+			Y.applyUpdate(ydoc, savedState);
+			console.log(`[Persistence] Loaded workspace from ${filePath}`);
+		} catch {
+			console.log(`[Persistence] Creating new workspace at ${filePath}`);
+		}
+
+		// Auto-save on every update
+		ydoc.on('update', () => {
+			const state = Y.encodeStateAsUpdate(ydoc);
+			fs.writeFileSync(filePath, state);
+		});
+	},
+});
+
+export default defineEpicenter({
+	id: 'basic-workspace-example',
+	workspaces: [blogWorkspace],
+});

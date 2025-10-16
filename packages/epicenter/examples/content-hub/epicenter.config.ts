@@ -13,7 +13,7 @@ import {
 	defineMutation,
 	eq,
 	type ValidatedRow,
-} from '../../packages/epicenter/src/index';
+} from '../../src/index';
 
 /**
  * Pages workspace
@@ -49,7 +49,7 @@ export const pages = defineWorkspace({
 
 		// Query: Get page by ID
 		getPage: defineQuery({
-			input: Type.Script(`{ id: string }`),
+			input: Type.Object({ id: Type.String() }),
 			handler: async ({ id }) => {
 				const page = await indexes.sqlite.db
 					.select()
@@ -62,12 +62,24 @@ export const pages = defineWorkspace({
 
 		// Mutation: Create a page
 		createPage: defineMutation({
-			input: Type.Script(`{
-				title: string,
-				content: string,
-				type: 'blog' | 'article' | 'guide' | 'tutorial' | 'news',
-				tags: 'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'
-			}`),
+			input: Type.Object({
+				title: Type.String(),
+				content: Type.String(),
+				type: Type.Union([
+					Type.Literal('blog'),
+					Type.Literal('article'),
+					Type.Literal('guide'),
+					Type.Literal('tutorial'),
+					Type.Literal('news'),
+				]),
+				tags: Type.Union([
+					Type.Literal('tech'),
+					Type.Literal('lifestyle'),
+					Type.Literal('business'),
+					Type.Literal('education'),
+					Type.Literal('entertainment'),
+				]),
+			}),
 			handler: async (data) => {
 				const page = {
 					id: generateId(),

@@ -2,7 +2,6 @@ import { describe, test, expect } from 'bun:test';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
 import { id, text } from './schema';
 import { defineQuery } from './actions';
-import { z } from 'zod';
 import { Ok } from 'wellcrafted/result';
 
 /**

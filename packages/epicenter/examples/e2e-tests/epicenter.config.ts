@@ -1,8 +1,5 @@
-import { z } from 'zod';
+import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
-import * as Y from 'yjs';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import {
 	defineEpicenter,
 	defineWorkspace,
@@ -10,6 +7,7 @@ import {
 	text,
 	integer,
 	select,
+	boolean,
 	generateId,
 	sqliteIndex,
 	markdownIndex,
@@ -18,11 +16,11 @@ import {
 	isNotNull,
 	eq,
 	type ValidatedRow,
-} from '../../packages/epicenter/src/index';
+} from '../../src/index';
 
 /**
- * Example blog workspace
- * Demonstrates the basic structure of an Epicenter workspace
+ * Comprehensive E2E test workspace
+ * Demonstrates all Epicenter features: schema types, indexes, queries, mutations
  */
 
 const blogWorkspace = defineWorkspace({
@@ -37,6 +35,7 @@ const blogWorkspace = defineWorkspace({
 			content: text({ nullable: true }),
 			category: select({ options: ['tech', 'personal', 'tutorial'] }),
 			views: integer({ default: 0 }),
+			published: boolean({ default: false }),
 			publishedAt: text({ nullable: true }),
 		},
 		comments: {
@@ -56,6 +55,7 @@ const blogWorkspace = defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
+			description: 'Get all published blog posts',
 			handler: async () => {
 				const posts = indexes.sqlite.db
 					.select()
@@ -66,9 +66,19 @@ const blogWorkspace = defineWorkspace({
 			},
 		}),
 
+		// Query: Get all posts
+		getAllPosts: defineQuery({
+			description: 'Get all blog posts',
+			handler: async () => {
+				const posts = indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
+				return Ok(posts);
+			},
+		}),
+
 		// Query: Get post by ID
 		getPost: defineQuery({
-			input: z.object({ id: z.string() }),
+			input: Type.Script(`{ id: string }`),
+			description: 'Get a single post by ID',
 			handler: async ({ id }) => {
 				const post = await indexes.sqlite.db
 					.select()
@@ -79,9 +89,24 @@ const blogWorkspace = defineWorkspace({
 			},
 		}),
 
+		// Query: Get posts by category
+		getPostsByCategory: defineQuery({
+			input: Type.Script(`{ category: 'tech' | 'personal' | 'tutorial' }`),
+			description: 'Get all posts in a specific category',
+			handler: async ({ category }) => {
+				const posts = indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.posts)
+					.where(eq(indexes.sqlite.posts.category, category))
+					.all();
+				return Ok(posts);
+			},
+		}),
+
 		// Query: Get comments for a post
 		getPostComments: defineQuery({
-			input: z.object({ postId: z.string() }),
+			input: Type.Script(`{ postId: string }`),
+			description: 'Get all comments for a post',
 			handler: async ({ postId }) => {
 				const comments = indexes.sqlite.db
 					.select()
@@ -94,11 +119,12 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Create a new post
 		createPost: defineMutation({
-			input: z.object({
-				title: z.string(),
-				content: z.string().optional(),
-				category: z.enum(['tech', 'personal', 'tutorial']),
-			}),
+			input: Type.Script(`{
+				title: string,
+				content?: string,
+				category: 'tech' | 'personal' | 'tutorial'
+			}`),
+			description: 'Create a new blog post',
 			handler: async ({ title, content, category }) => {
 				const post = {
 					id: generateId(),
@@ -106,6 +132,7 @@ const blogWorkspace = defineWorkspace({
 					content: content ?? '',
 					category,
 					views: 0,
+					published: false,
 					publishedAt: null,
 				} satisfies ValidatedRow<typeof db.schema.posts>;
 				db.tables.posts.insert(post);
@@ -115,14 +142,16 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Publish a post
 		publishPost: defineMutation({
-			input: z.object({ id: z.string() }),
+			input: Type.Script(`{ id: string }`),
+			description: 'Publish a blog post',
 			handler: async ({ id }) => {
-				const { status, row } = db.tables.posts.get(id);
+				const { status } = db.tables.posts.get(id);
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
 				db.tables.posts.update({
 					id,
+					published: true,
 					publishedAt: new Date().toISOString(),
 				});
 				const { row: updatedPost } = db.tables.posts.get(id);
@@ -130,13 +159,43 @@ const blogWorkspace = defineWorkspace({
 			},
 		}),
 
+		// Mutation: Unpublish a post
+		unpublishPost: defineMutation({
+			input: Type.Script(`{ id: string }`),
+			description: 'Unpublish a blog post',
+			handler: async ({ id }) => {
+				const { status } = db.tables.posts.get(id);
+				if (status !== 'valid') {
+					throw new Error(`Post ${id} not found`);
+				}
+				db.tables.posts.update({
+					id,
+					published: false,
+					publishedAt: null,
+				});
+				const { row: updatedPost } = db.tables.posts.get(id);
+				return Ok(updatedPost);
+			},
+		}),
+
+		// Mutation: Delete a post
+		deletePost: defineMutation({
+			input: Type.Script(`{ id: string }`),
+			description: 'Delete a blog post',
+			handler: async ({ id }) => {
+				db.tables.posts.delete(id);
+				return Ok(undefined);
+			},
+		}),
+
 		// Mutation: Add a comment
 		addComment: defineMutation({
-			input: z.object({
-				postId: z.string(),
-				author: z.string(),
-				content: z.string(),
-			}),
+			input: Type.Script(`{
+				postId: string,
+				author: string,
+				content: string
+			}`),
+			description: 'Add a comment to a post',
 			handler: async ({ postId, author, content }) => {
 				const comment = {
 					id: generateId(),
@@ -152,7 +211,8 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Increment post views
 		incrementViews: defineMutation({
-			input: z.object({ id: z.string() }),
+			input: Type.Script(`{ id: string }`),
+			description: 'Increment view count for a post',
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);
 				if (status !== 'valid') {
@@ -167,38 +227,9 @@ const blogWorkspace = defineWorkspace({
 			},
 		}),
 	}),
-
-	/**
-	 * Set up YJS document persistence to disk
-	 * This enables state to persist across CLI invocations and programmatic runs
-	 */
-	setupYDoc: (ydoc) => {
-		const storagePath = './.epicenter';
-		const filePath = path.join(storagePath, 'blog.yjs');
-
-		// Ensure .epicenter directory exists
-		if (!fs.existsSync(storagePath)) {
-			fs.mkdirSync(storagePath, { recursive: true });
-		}
-
-		// Try to load existing state from disk
-		try {
-			const savedState = fs.readFileSync(filePath);
-			Y.applyUpdate(ydoc, savedState);
-			console.log(`[Persistence] Loaded workspace from ${filePath}`);
-		} catch {
-			console.log(`[Persistence] Creating new workspace at ${filePath}`);
-		}
-
-		// Auto-save on every update
-		ydoc.on('update', () => {
-			const state = Y.encodeStateAsUpdate(ydoc);
-			fs.writeFileSync(filePath, state);
-		});
-	},
 });
 
 export default defineEpicenter({
-	id: 'basic-workspace-example',
+	id: 'e2e-test-workspace',
 	workspaces: [blogWorkspace],
 });
