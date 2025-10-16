@@ -88,7 +88,7 @@ export function defineWorkspace<
 	const TVersion extends number,
 	const TName extends string,
 	const TWorkspaceSchema extends WorkspaceSchema,
-	const TDeps extends readonly ShallowWorkspaceConfig[], // ← Changed to ShallowWorkspaceConfig
+	const TDeps extends readonly DependencyWorkspaceConfig[],
 	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
 	const TActionMap extends WorkspaceActionMap,
 >(
@@ -143,7 +143,7 @@ export type WorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TDeps extends readonly ShallowWorkspaceConfig[] = readonly ShallowWorkspaceConfig[], // ← Changed to ShallowWorkspaceConfig
+	TDeps extends readonly DependencyWorkspaceConfig[] = readonly DependencyWorkspaceConfig[],
 	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
@@ -264,7 +264,7 @@ export type WorkspaceConfig<
 };
 
 /**
- * Shallow workspace config - used as the constraint for dependencies.
+ * Dependency workspace config - used as the constraint for dependencies.
  *
  * This type prevents recursive type inference by omitting the nested dependencies field.
  * When you define a workspace with dependencies: [workspaceA, workspaceB], TypeScript
@@ -277,15 +277,18 @@ export type WorkspaceConfig<
  * @example
  * ```typescript
  * const workspaceB = defineWorkspace({
- *   dependencies: [workspaceA],  // ← TypeScript infers workspaceA as ShallowWorkspaceConfig
+ *   dependencies: [workspaceA],  // ← TypeScript infers workspaceA as DependencyWorkspaceConfig
  *   // ...
  * });
  * ```
  */
-export type ShallowWorkspaceConfig = {
+export type DependencyWorkspaceConfig<
+	TName extends string = string,
+	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
+> = {
 	id: string;
 	version: number;
-	name: string;
+	name: TName;
 	schema: WorkspaceSchema;
 	indexes: (context: { db: Db<any> }) => WorkspaceIndexMap<any>;
 	setupYDoc?: (ydoc: Y.Doc) => void;
@@ -293,7 +296,7 @@ export type ShallowWorkspaceConfig = {
 		db: Db<any>;
 		workspaces: any;
 		indexes: any;
-	}) => Record<string, any>; // Changed from WorkspaceActionMap - prevents deep type inference
+	}) => TActionMap;
 	// NOTE: No dependencies field - this prevents recursive type inference
 };
 
@@ -327,7 +330,7 @@ export type AnyWorkspaceConfig = {
  * Extracts only the necessary information (name and actions) from dependencies
  * without recursively inferring their nested dependency types.
  */
-export type DependencyWorkspacesAPI<TDeps extends readonly ShallowWorkspaceConfig[]> =
+export type DependencyWorkspacesAPI<TDeps extends readonly DependencyWorkspaceConfig[]> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
