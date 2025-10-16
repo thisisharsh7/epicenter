@@ -26,8 +26,10 @@ export type Query<
 	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
 > = {
-	// Callable signature - properly infers input based on whether TInput is TSchema or undefined
-	(input: TInput extends TSchema ? Static<TInput> : undefined):
+	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is TSchema
+	(
+		...args: TInput extends TSchema ? [input: Static<TInput>] : []
+	):
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	// Metadata properties
@@ -43,8 +45,10 @@ export type Mutation<
 	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
 > = {
-	// Callable signature - properly infers input based on whether TInput is TSchema or undefined
-	(input: TInput extends TSchema ? Static<TInput> : undefined):
+	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is TSchema
+	(
+		...args: TInput extends TSchema ? [input: Static<TInput>] : []
+	):
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	// Metadata properties
