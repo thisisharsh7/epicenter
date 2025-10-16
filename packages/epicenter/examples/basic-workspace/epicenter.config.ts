@@ -68,7 +68,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get post by ID
 		getPost: defineQuery({
-			input: Type.Script(`{ id: string }`),
+			input: Type.Object({ id: Type.String() }),
 			handler: async ({ id }) => {
 				const post = await indexes.sqlite.db
 					.select()
@@ -81,7 +81,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get comments for a post
 		getPostComments: defineQuery({
-			input: Type.Script(`{ postId: string }`),
+			input: Type.Object({ postId: Type.String() }),
 			handler: async ({ postId }) => {
 				const comments = indexes.sqlite.db
 					.select()
@@ -94,11 +94,15 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Create a new post
 		createPost: defineMutation({
-			input: Type.Script(`{
-				title: string,
-				content?: string,
-				category: 'tech' | 'personal' | 'tutorial'
-			}`),
+			input: Type.Object({
+				title: Type.String(),
+				content: Type.Optional(Type.String()),
+				category: Type.Union([
+					Type.Literal('tech'),
+					Type.Literal('personal'),
+					Type.Literal('tutorial'),
+				]),
+			}),
 			handler: async ({ title, content, category }) => {
 				const post = {
 					id: generateId(),
@@ -115,7 +119,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Publish a post
 		publishPost: defineMutation({
-			input: Type.Script(`{ id: string }`),
+			input: Type.Object({ id: Type.String() }),
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);
 				if (status !== 'valid') {
@@ -132,11 +136,11 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Add a comment
 		addComment: defineMutation({
-			input: Type.Script(`{
-				postId: string,
-				author: string,
-				content: string
-			}`),
+			input: Type.Object({
+				postId: Type.String(),
+				author: Type.String(),
+				content: Type.String(),
+			}),
 			handler: async ({ postId, author, content }) => {
 				const comment = {
 					id: generateId(),
@@ -152,7 +156,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Increment post views
 		incrementViews: defineMutation({
-			input: Type.Script(`{ id: string }`),
+			input: Type.Object({ id: Type.String() }),
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);
 				if (status !== 'valid') {

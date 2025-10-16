@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import {
