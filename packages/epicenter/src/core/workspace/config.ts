@@ -264,21 +264,30 @@ export type WorkspaceConfig<
 };
 
 /**
- * Dependency workspace config - used as the constraint for dependencies.
+ * Dependency workspace config - a lightweight constraint for workspace dependencies.
  *
- * This type prevents recursive type inference by omitting the nested dependencies field.
- * When you define a workspace with dependencies: [workspaceA, workspaceB], TypeScript
- * only needs to infer the properties of A and B themselves, not their dependencies.
+ * This type is intentionally minimal, containing only the properties needed for type extraction:
+ * - `name`: Used to create property names in the `workspaces` API (e.g., `workspaces.auth.login()`)
+ * - `actions`: Used to infer action maps that are merged in `DependencyWorkspacesAPI`
  *
- * This solves two problems:
- * 1. Prevents deep recursive type inference that slows down TypeScript
- * 2. Stops TypeScript from trying to validate the entire dependency tree
+ * All other workspace properties (`id`, `version`, `schema`, `indexes`, `setupYDoc`) don't need to be part of this
+ * constraint type since they're not used in type-level operations.
+ *
+ * By omitting the `dependencies` field, this type prevents recursive type inference that would
+ * otherwise slow down TypeScript or cause infinite depth errors when workspaces depend on each other.
  *
  * @example
  * ```typescript
  * const workspaceB = defineWorkspace({
  *   dependencies: [workspaceA],  // ← TypeScript infers workspaceA as DependencyWorkspaceConfig
- *   // ...
+ *   actions: ({ workspaces }) => ({
+ *     doSomething: defineQuery({
+ *       handler: async () => {
+ *         // Access inferred actions from workspaceA
+ *         await workspaces.workspaceA.someAction();
+ *       }
+ *     })
+ *   })
  * });
  * ```
  */
@@ -286,17 +295,8 @@ export type DependencyWorkspaceConfig<
 	TName extends string = string,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
-	id: string;
-	version: number;
 	name: TName;
-	schema: WorkspaceSchema;
-	indexes: (context: { db: Db<any> }) => WorkspaceIndexMap<any>;
-	setupYDoc?: (ydoc: Y.Doc) => void;
-	actions: (context: {
-		db: Db<any>;
-		workspaces: any;
-		indexes: any;
-	}) => TActionMap;
+	actions: (context: any) => TActionMap;
 	// NOTE: No dependencies field - this prevents recursive type inference
 };
 
