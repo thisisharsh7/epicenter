@@ -6,26 +6,7 @@ import type { WorkspaceIndexMap } from '../indexes';
 import type {
 	WorkspaceConfig,
 	AnyWorkspaceConfig,
-	ExtractHandlers,
 } from './config';
-
-/**
- * Extract handlers from a workspace action map at runtime
- * Converts action objects to their handler functions
- *
- * @param actionMap - Map of action name to action object
- * @returns Map of action name to handler function
- */
-export function extractHandlers<T extends WorkspaceActionMap>(
-	actionMap: T,
-): ExtractHandlers<T> {
-	return Object.fromEntries(
-		Object.entries(actionMap).map(([actionName, action]) => [
-			actionName,
-			action.handler,
-		]),
-	) as ExtractHandlers<T>;
-}
 
 /**
  * Runtime configuration provided by the user
@@ -92,10 +73,10 @@ export type RuntimeConfig = {
 
 /**
  * Workspace client instance returned from createWorkspaceClient
- * Contains action handlers and lifecycle management
+ * Contains callable actions and lifecycle management
  */
 export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
-	ExtractHandlers<TActionMap> & {
+	TActionMap & {
 		/**
 		 * Cleanup function that destroys this workspace
 		 * - Destroys all indexes
@@ -403,10 +384,10 @@ export function initializeWorkspaces(
 			ydoc.destroy();
 		};
 
-		// Create the workspace client by extracting handlers from actions
-		// and adding cleanup methods
+		// Create the workspace client with callable actions
+		// Actions are already callable, no extraction needed
 		const client: WorkspaceClient<any> = {
-			...extractHandlers(actionMap),
+			...actionMap,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		};

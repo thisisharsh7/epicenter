@@ -336,7 +336,7 @@ export type DependencyWorkspacesAPI<TDeps extends readonly ShallowWorkspaceConfi
 					: never]: W extends {
 					actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
 				}
-					? ExtractHandlers<TActionMap>
+					? TActionMap
 					: never;
 			};
 
@@ -350,9 +350,3 @@ export type IndexesAPI<TIndexes extends WorkspaceIndexMap<any>> = {
 		: never;
 };
 
-/**
- * Extract handler functions from action map
- */
-export type ExtractHandlers<T extends WorkspaceActionMap> = {
-	[K in keyof T]: T[K]['handler'];
-};

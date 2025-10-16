@@ -93,9 +93,9 @@ export async function handleMCPToolCall(
 	}
 
 	try {
-		// Execute the action handler
-		// Workspace handlers return { data, error } format
-		const result = await actionEntry.handler(request.arguments || {});
+		// Execute the action (actions are now callable directly)
+		// Workspace actions return { data, error } format
+		const result = await actionEntry(request.arguments || {});
 
 		// Check for error
 		if (result.error) {

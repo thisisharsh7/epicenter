@@ -19,42 +19,43 @@ export type WorkspaceAction<
 > = QueryAction<TInput, TOutput> | MutationAction<TInput, TOutput>;
 
 /**
- * Query action structure with schema validation
+ * Base action type - callable function with metadata properties
+ * Unified for both queries and mutations
+ */
+export type Action<
+	TType extends 'query' | 'mutation',
+	TInput extends TSchema | undefined = TSchema | undefined,
+	TOutput = unknown,
+> = {
+	// Callable signature - properly infers input based on whether TInput is TSchema or undefined
+	(input: TInput extends TSchema ? Static<TInput> : undefined):
+		| Result<TOutput, EpicenterOperationError>
+		| Promise<Result<TOutput, EpicenterOperationError>>;
+	// Metadata properties
+	type: TType;
+	input?: TInput;
+	description?: string;
+};
+
+/**
+ * Query action - specialization of Action with type='query'
  */
 export type QueryAction<
 	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
-> = {
-	type: 'query';
-	input?: TInput;
-	handler: (
-		input: TInput extends TSchema ? Static<TInput> : undefined,
-	) =>
-		| Result<TOutput, EpicenterOperationError>
-		| Promise<Result<TOutput, EpicenterOperationError>>;
-	description?: string;
-};
+> = Action<'query', TInput, TOutput>;
 
 /**
- * Mutation action structure with schema validation
+ * Mutation action - specialization of Action with type='mutation'
  */
 export type MutationAction<
 	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
-> = {
-	type: 'mutation';
-	input?: TInput;
-	handler: (
-		input: TInput extends TSchema ? Static<TInput> : undefined,
-	) =>
-		| Result<TOutput, EpicenterOperationError>
-		| Promise<Result<TOutput, EpicenterOperationError>>;
-	description?: string;
-};
+> = Action<'mutation', TInput, TOutput>;
 
 /**
  * Helper function to define a query action
- * Pass-through function that adds type discrimination
+ * Returns a callable function with metadata properties attached
  */
 export function defineQuery<
 	TOutput,
@@ -68,12 +69,16 @@ export function defineQuery<
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
 }): QueryAction<TInput, TOutput> {
-	return { type: 'query', ...config };
+	return Object.assign(config.handler, {
+		type: 'query' as const,
+		input: config.input,
+		description: config.description,
+	});
 }
 
 /**
  * Helper function to define a mutation action
- * Pass-through function that adds type discrimination
+ * Returns a callable function with metadata properties attached
  */
 export function defineMutation<
 	TOutput,
@@ -87,7 +92,11 @@ export function defineMutation<
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
 }): MutationAction<TInput, TOutput> {
-	return { type: 'mutation', ...config };
+	return Object.assign(config.handler, {
+		type: 'mutation' as const,
+		input: config.input,
+		description: config.description,
+	});
 }
 
 /**

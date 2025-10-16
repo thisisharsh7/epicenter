@@ -6,9 +6,8 @@ export type {
 	ShallowWorkspaceConfig,
 	DependencyWorkspacesAPI,
 	IndexesAPI,
-	ExtractHandlers,
 } from './config';
 
 // Runtime (client side)
-export { createWorkspaceClient, extractHandlers } from './client';
+export { createWorkspaceClient } from './client';
 export type { WorkspaceClient, RuntimeConfig } from './client';
