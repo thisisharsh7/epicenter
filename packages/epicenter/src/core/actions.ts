@@ -130,39 +130,6 @@ export function defineMutation(config: any): any {
 }
 
 /**
- * Type helper to extract the input type from an action
- */
-export type InferActionInput<T> =
-	T extends Action<unknown, infer TInput>
-		? TInput extends TSchema ? Static<TInput> : undefined
-		: never;
-
-/**
- * Type helper to extract the output type from an action
- */
-export type InferActionOutput<T> =
-	T extends Action<infer O, TSchema | undefined> ? O : never;
-
-/**
- * Type helper to extract the unwrapped output type from an action handler
- * This unwraps the Result type to get the actual success value type
- */
-export type InferActionOutputUnwrapped<T> =
-	T extends Action<infer O, TSchema | undefined> ? O : never;
-
-/**
- * Type helper to extract the handler function with Result return type
- */
-export type InferActionHandler<T> =
-	T extends Action<infer TOutput, infer TInput>
-		? (
-				input: TInput extends TSchema ? Static<TInput> : undefined,
-			) =>
-				| Result<TOutput, EpicenterOperationError>
-				| Promise<Result<TOutput, EpicenterOperationError>>
-		: never;
-
-/**
  * Type helper to check if an action is a query
  */
 export function isQuery<T extends Action>(

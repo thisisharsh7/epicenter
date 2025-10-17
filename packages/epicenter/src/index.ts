@@ -57,8 +57,6 @@ export type {
 	Mutation,
 	Action,
 	WorkspaceActionMap,
-	InferActionInput,
-	InferActionOutput,
 } from './core/actions';
 
 // Runtime
