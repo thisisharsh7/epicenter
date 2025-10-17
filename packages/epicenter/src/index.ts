@@ -17,11 +17,7 @@
 
 // Core workspace definition
 export { defineWorkspace } from './core/workspace';
-export type {
-	WorkspaceConfig,
-	WorkspaceActionContext,
-	ExtractHandlers,
-} from './core/workspace';
+export type { WorkspaceConfig } from './core/workspace';
 
 // Column schema system
 export {
