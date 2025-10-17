@@ -2,19 +2,6 @@ import type { Db } from '../db/core';
 import type { WorkspaceSchema } from './schema';
 
 /**
- * Index type system for vault.
- * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
- */
-
-/**
- * A collection of workspace indexes indexed by index name.
- *
- * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
- * that sync with the YJS document and provide different access patterns to the data.
- */
-export type WorkspaceIndexMap = Record<string, Index>;
-
-/**
  * Factory function type that creates a WorkspaceIndexMap for a given workspace schema.
  * Takes a database context and returns a map of indexes.
  *
@@ -33,6 +20,19 @@ export type WorkspaceIndexMapConstructor<
 	TWorkspaceSchema extends WorkspaceSchema,
 	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
 > = (context: { db: Db<TWorkspaceSchema> }) => TIndexMap;
+
+/**
+ * Index type system for vault.
+ * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
+ */
+
+/**
+ * A collection of workspace indexes indexed by index name.
+ *
+ * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
+ * that sync with the YJS document and provide different access patterns to the data.
+ */
+export type WorkspaceIndexMap = Record<string, Index>;
 
 /**
  * Index type - an object with cleanup function and any exported resources
