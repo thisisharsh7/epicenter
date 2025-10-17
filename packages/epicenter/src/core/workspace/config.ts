@@ -284,7 +284,7 @@ export type WorkspaceConfig<
  *
  * ## Why Minimal?
  *
- * By including only `id`, `version`, `name`, and `actions` (and crucially, omitting the `dependencies` field),
+ * By including only `id`, `name`, and `actions` (and crucially, omitting the `dependencies` field),
  * this type stops the recursive type inference chain. Without this constraint, TypeScript would
  * try to infer dependencies of dependencies of dependencies infinitely, causing compilation to
  * slow down or fail with "Type instantiation is excessively deep" errors.
@@ -309,12 +309,10 @@ export type WorkspaceConfig<
  */
 export type DependencyWorkspaceConfig<
 	TId extends string = string,
-	TVersion extends number = number,
 	TName extends string = string,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	id: TId;
-	version: TVersion;
 	name: TName;
 	actions: (context: any) => TActionMap;
 	// NOTE: No dependencies field - this prevents recursive type inference
