@@ -1,19 +1,17 @@
 import { Hono } from 'hono';
-import { sValidator } from '@hono/standard-validator';
-import type { WorkspaceConfig, AnyWorkspaceConfig, RuntimeConfig } from '../core/workspace';
-import { createWorkspaceClient } from '../core/workspace';
-import type { WorkspaceSchema } from '../core/schema';
+import type { WorkspaceActionMap } from '../core/actions';
 import type { WorkspaceIndexMap } from '../core/indexes';
-import type { WorkspaceAction, WorkspaceActionMap } from '../core/actions';
+import type { WorkspaceSchema } from '../core/schema';
+import type { ImmediateDependencyWorkspaceConfig, WorkspaceConfig } from '../core/workspace';
+import { createWorkspaceClient } from '../core/workspace';
+import { createMCPTools, handleMCPToolCall, handleMCPToolsList, type MCPToolCallRequest } from './mcp';
 import { executeAction } from './utils';
-import { createMCPTools, handleMCPToolsList, handleMCPToolCall, type MCPToolCallRequest } from './mcp';
 
 /**
  * Create a Hono server from a Workspace configuration
  * Exposes all workspace actions as REST endpoints and MCP tools
  *
  * @param config - Workspace configuration
- * @param runtimeConfig - Optional runtime configuration for workspace initialization
  * @returns Hono app instance
  *
  * @example
@@ -33,29 +31,28 @@ import { createMCPTools, handleMCPToolsList, handleMCPToolCall, type MCPToolCall
  * ```
  */
 export async function createWorkspaceServer<
+	TDeps extends readonly ImmediateDependencyWorkspaceConfig[],
 	TId extends string,
 	TVersion extends number,
 	TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TDeps extends readonly AnyWorkspaceConfig[],
 	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap,
 >(
 	config: WorkspaceConfig<
+		TDeps,
 		TId,
 		TVersion,
 		TName,
 		TWorkspaceSchema,
-		TDeps,
 		TIndexes,
 		TActionMap
 	>,
-	runtimeConfig?: RuntimeConfig,
 ): Promise<Hono> {
 	const app = new Hono();
 
 	// Initialize workspace client
-	const client = createWorkspaceClient(config, runtimeConfig);
+	const client = createWorkspaceClient(config);
 
 	// Collect all actions for MCP
 	const allActions: Record<

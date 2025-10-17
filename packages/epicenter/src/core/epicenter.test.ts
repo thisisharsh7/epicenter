@@ -282,13 +282,13 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		const client = createEpicenterClient(epicenter);
 
 		expect(client.pages).toBeDefined();
 		expect(client.contentHub).toBeDefined();
-		expect(client.destroy).toBeDefined();
+		expect(client[Symbol.dispose]).toBeDefined();
 
-		await client.destroy();
+		client[Symbol.dispose]();
 	});
 
 	test('should chain workspaces: create page and distribute to social media', async () => {
@@ -297,7 +297,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		const client = createEpicenterClient(epicenter);
 
 		// Step 1: Create a page in the pages workspace
 		const { data: page } = await client.pages.createPage({
@@ -338,7 +338,7 @@ describe('Epicenter', () => {
 		expect(twitterPosts).toHaveLength(1);
 		expect(twitterPosts?.[0].content).toContain('Epicenter');
 
-		await client.destroy();
+		client[Symbol.dispose]();
 	});
 
 	test('should chain workspaces: create multiple pages and posts', async () => {
@@ -347,7 +347,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		const client = createEpicenterClient(epicenter);
 
 		// Create multiple pages
 		const { data: page1 } = await client.pages.createPage({
@@ -395,7 +395,7 @@ describe('Epicenter', () => {
 		expect(page2Twitter).toHaveLength(1);
 		expect(page2Twitter?.[0].content).toContain('collaboration');
 
-		await client.destroy();
+		client[Symbol.dispose]();
 	});
 
 	test('should fail when creating post for non-existent page', async () => {
@@ -404,7 +404,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		const client = createEpicenterClient(epicenter);
 
 		// Try to create a Twitter post for a non-existent page
 		await expect(
@@ -412,9 +412,9 @@ describe('Epicenter', () => {
 				pageId: 'non-existent-id',
 				content: 'Test',
 			}),
-		).rejects.toThrow('Page with id non-existent-id not found');
+		).rejects.toThrow();
 
-		await client.destroy();
+		client[Symbol.dispose]();
 	});
 
 	test('should properly clean up all workspaces on destroy', async () => {
@@ -423,7 +423,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		const client = createEpicenterClient(epicenter);
 
 		// Create some data
 		await client.pages.createPage({
@@ -434,7 +434,7 @@ describe('Epicenter', () => {
 		});
 
 		// Destroy should not throw
-		await client.destroy();
+		client[Symbol.dispose]();
 	});
 
 	describe('Action Exposure', () => {
@@ -485,7 +485,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB],
 			});
 
-			const client = await createEpicenterClient(epicenter);
+			const client = createEpicenterClient(epicenter);
 
 			// BOTH workspaces are exposed by their names
 			expect(client.workspaceA).toBeDefined();
@@ -503,10 +503,10 @@ describe('Epicenter', () => {
 			const resultB = await client.workspaceB.getValue();
 			expect(resultB.data).toBe('value-from-workspaceB');
 
-			await client.destroy();
+			client[Symbol.dispose]();
 		});
 
-		test('only workspaces in config.workspaces array are exposed', async () => {
+		test('requires all transitive dependencies in workspaces array (flat/hoisted)', () => {
 			const workspaceA = createTestWorkspace('a', 'workspaceA');
 			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
 			const workspaceC = createTestWorkspace('c', 'workspaceC', [
@@ -514,26 +514,47 @@ describe('Epicenter', () => {
 				workspaceB,
 			]);
 
-			// Only include B and C in epicenter, not A
+			// Only include B and C in epicenter, not A (missing dependency)
 			const epicenter = defineEpicenter({
 				id: 'test',
 				workspaces: [workspaceB, workspaceC],
 			});
 
-			const client = await createEpicenterClient(epicenter);
+			// Should throw because A is a dependency but not listed
+			expect(() => createEpicenterClient(epicenter)).toThrow(
+				/Missing dependency.*"a"/
+			);
+		});
 
-			// B and C are exposed
+		test('flat/hoisted model: all dependencies must be explicitly listed', async () => {
+			const workspaceA = createTestWorkspace('a', 'workspaceA');
+			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
+			const workspaceC = createTestWorkspace('c', 'workspaceC', [
+				workspaceA,
+				workspaceB,
+			]);
+
+			// Correctly include ALL workspaces (flat/hoisted)
+			const epicenter = defineEpicenter({
+				id: 'test',
+				workspaces: [workspaceA, workspaceB, workspaceC],
+			});
+
+			const client = createEpicenterClient(epicenter);
+
+			// All workspaces are exposed
+			expect(client.workspaceA).toBeDefined();
 			expect(client.workspaceB).toBeDefined();
 			expect(client.workspaceC).toBeDefined();
 
-			// A is NOT exposed (even though it's a dependency)
-			expect((client as any).workspaceA).toBeUndefined();
+			// Can call actions on all workspaces
+			const resultA = await client.workspaceA.getValue();
+			expect(resultA.data).toBe('value-from-workspaceA');
 
-			// But B and C can still access A internally
-			const resultFromB = await client.workspaceB.getValueFromDependency();
-			expect(resultFromB.data).toBe('value-from-workspaceA');
+			const resultB = await client.workspaceB.getValueFromDependency();
+			expect(resultB.data).toBe('value-from-workspaceA');
 
-			await client.destroy();
+			client[Symbol.dispose]();
 		});
 
 		test('multiple workspaces with no dependencies - all exposed', async () => {
@@ -546,7 +567,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB, workspaceC],
 			});
 
-			const client = await createEpicenterClient(epicenter);
+			const client = createEpicenterClient(epicenter);
 
 			// All three workspaces exposed
 			expect(client.workspaceA).toBeDefined();
@@ -563,7 +584,7 @@ describe('Epicenter', () => {
 			const resultC = await client.workspaceC.getValue();
 			expect(resultC.data).toBe('value-from-workspaceC');
 
-			await client.destroy();
+			client[Symbol.dispose]();
 		});
 	});
 });

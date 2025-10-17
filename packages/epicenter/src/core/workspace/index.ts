@@ -11,4 +11,4 @@ export type {
 
 // Runtime (client side)
 export { createWorkspaceClient } from './client';
-export type { WorkspaceClient, RuntimeConfig } from './client';
+export type { WorkspaceClient } from './client';

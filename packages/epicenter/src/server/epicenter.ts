@@ -2,8 +2,7 @@ import { Hono } from 'hono';
 import { sValidator } from '@hono/standard-validator';
 import type { EpicenterConfig, AnyWorkspaceConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
-import type { RuntimeConfig } from '../core/workspace';
-import type { WorkspaceAction } from '../core/actions';
+import type { Action } from '../core/actions';
 import { executeAction } from './utils';
 import { createMCPTools, handleMCPToolsList, handleMCPToolCall, type MCPToolCallRequest } from './mcp';
 
@@ -12,7 +11,6 @@ import { createMCPTools, handleMCPToolsList, handleMCPToolCall, type MCPToolCall
  * Exposes all workspace actions as REST endpoints and MCP tools
  *
  * @param config - Epicenter configuration with workspaces
- * @param runtimeConfig - Optional runtime configuration for workspace initialization
  * @returns Hono app instance
  *
  * @example
@@ -41,12 +39,11 @@ export async function createEpicenterServer<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
-	runtimeConfig?: RuntimeConfig,
 ): Promise<Hono> {
 	const app = new Hono();
 
 	// Initialize epicenter client
-	const client = await createEpicenterClient(config, runtimeConfig);
+	const client = await createEpicenterClient(config);
 
 	// Collect all actions from all workspaces for MCP
 	const allActions: Record<

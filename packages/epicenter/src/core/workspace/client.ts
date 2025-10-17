@@ -8,68 +8,6 @@ import type {
 	WorkspaceConfig
 } from './config';
 
-/**
- * Runtime configuration provided by the user
- *
- * ## Workspace File Structure
- *
- * Workspaces use a `.epicenter/` folder for all system-managed data:
- *
- * ```
- * workspace-root/
- *   epicenter.config.ts       # Workspace definition
- *
- *   .epicenter/               # System-managed folder (auto-created)
- *     assets/                 # Binary blobs (audio, video, images)
- *                            # Referenced by YJS data, not directly edited by users
- *                            # Example: audio files in a transcription app
- *
- *     indexes/                # Index storage (SQLite DBs, vector DBs, etc.)
- *                            # Synchronized snapshots for querying
- *                            # Can be rebuilt from YJS document
- *
- *     ydoc.bin                # YJS document persistence file
- *                            # Source of truth for all structured data
- *
- *     .gitignore              # Auto-generated, typically ignores:
- *                            # - assets/ (large binaries)
- *                            # - indexes/ (rebuildable)
- *                            # - ydoc.bin (depends on sync strategy)
- * ```
- *
- * ## Assets
- *
- * Binary files (audio, video, images) are stored in `.epicenter/assets/` and referenced
- * by structured data in the YJS document. These are app-managed blobs that users interact
- * with through the application, not directly through the file system.
- *
- * Example: In a transcription app, audio recordings are stored as blobs in `assets/` while
- * the recording metadata (title, date, duration) lives in YJS tables that reference these files
- * by path (e.g., `.epicenter/assets/rec-001.mp3`).
- *
- * ## Indexes
- *
- * Indexes are synchronized snapshots of YJS data optimized for different query patterns.
- * They live in `.epicenter/indexes/` and can be rebuilt from the YJS document, so they
- * are typically gitignored.
- *
- * ## YJS Persistence
- *
- * The `ydoc.bin` file persists the YJS document to disk. This is the source of truth for
- * all structured data in the workspace. Whether to gitignore this depends on your sync
- * strategy (local-only vs. collaborative).
- *
- * ## Future Configuration Options
- *
- * Currently, RuntimeConfig is empty. Future options may include:
- * - YJS persistence strategies (filesystem, IndexedDB, remote sync)
- * - Custom asset storage locations
- * - Index rebuild strategies
- * - Collaboration providers
- */
-export type RuntimeConfig = {
-	// Empty for now - configuration will be added as needed
-};
 
 /**
  * Workspace client instance returned from createWorkspaceClient
@@ -78,17 +16,11 @@ export type RuntimeConfig = {
 export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
 	TActionMap & {
 		/**
-		 * Cleanup function that destroys this workspace
+		 * Dispose for explicit resource management (enables `using`)
 		 * - Destroys all indexes
 		 * - Destroys the YJS document
 		 */
-		destroy: () => Promise<void>;
-
-		/**
-		 * Async dispose for explicit resource management (enables `await using`)
-		 * Alias for destroy()
-		 */
-		[Symbol.asyncDispose]: () => Promise<void>;
+		[Symbol.dispose]: () => void;
 	};
 
 /**
@@ -127,14 +59,12 @@ export type InitializedWorkspaces<
  * Initialization uses topological sort for deterministic, predictable order.
  *
  * @param rootWorkspaceConfigs - Array of root workspace configurations to initialize
- * @param config - Runtime configuration options
  * @returns Object mapping workspace names to initialized workspace clients
  */
 export function initializeWorkspaces<
 	const TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
 >(
 	rootWorkspaceConfigs: TConfigs,
-	config: RuntimeConfig = {},
 ): InitializedWorkspaces<TConfigs> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
@@ -394,7 +324,7 @@ export function initializeWorkspaces<
 		// Indexes set up observers on the YJS document and return exported resources
 		const indexes: Record<
 			string,
-			{ destroy: () => void | Promise<void> } & Record<string, any>
+			{ [Symbol.dispose]: () => void } & Record<string, any>
 		> = {};
 
 		for (const [indexKey, index] of Object.entries(indexesObject)) {
@@ -416,10 +346,10 @@ export function initializeWorkspaces<
 		});
 
 		// Create cleanup function
-		const cleanup = async () => {
+		const cleanup = () => {
 			// Clean up indexes first
 			for (const index of Object.values(indexes)) {
-				await index.destroy?.();
+				index[Symbol.dispose]?.();
 			}
 
 			// Clean up YDoc (disconnects providers, cleans up observers)
@@ -430,8 +360,7 @@ export function initializeWorkspaces<
 		// Actions are already callable, no extraction needed
 		const client: WorkspaceClient<any> = {
 			...actionMap,
-			destroy: cleanup,
-			[Symbol.asyncDispose]: cleanup,
+			[Symbol.dispose]: cleanup,
 		};
 
 		return client;
@@ -461,7 +390,6 @@ export function initializeWorkspaces<
  * Initialization uses topological sort for deterministic, predictable order
  *
  * @param workspace - Workspace configuration to initialize
- * @param config - Runtime configuration options
  * @returns Initialized workspace client
  */
 export function createWorkspaceClient<
@@ -481,7 +409,6 @@ export function createWorkspaceClient<
 		TIndexes,
 		TActionMap
 	>,
-	config: RuntimeConfig = {},
 ): WorkspaceClient<TActionMap> {
 	// Collect all workspace configs (root + dependencies) for flat/hoisted initialization
 	const allWorkspaceConfigs: ImmediateDependencyWorkspaceConfig[] = [];
@@ -495,7 +422,7 @@ export function createWorkspaceClient<
 	allWorkspaceConfigs.push(workspace as any);
 
 	// Use the shared initialization logic with flat dependency array
-	const clients = initializeWorkspaces(allWorkspaceConfigs, config);
+	const clients = initializeWorkspaces(allWorkspaceConfigs);
 
 	// Return the client for the root workspace (access by name, not id)
 	const rootClient = clients[workspace.name as keyof typeof clients];

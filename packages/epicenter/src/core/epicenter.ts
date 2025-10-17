@@ -1,5 +1,5 @@
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './workspace';
-import { type RuntimeConfig, type WorkspaceClient } from './workspace';
+import { type WorkspaceClient } from './workspace';
 import { initializeWorkspaces } from './workspace/client';
 
 /**
@@ -152,16 +152,10 @@ type WorkspacesToClientObject<WS extends readonly AnyWorkspaceConfig[]> = WS ext
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 	WorkspacesToClientObject<TWorkspaces> & {
 		/**
-		 * Cleanup function that destroys all workspaces in this epicenter
-		 * Calls destroy() on each workspace client
+		 * Dispose for explicit resource management (enables `using`)
+		 * Destroys all workspaces in this epicenter
 		 */
-		destroy: () => Promise<void>;
-
-		/**
-		 * Async dispose for explicit resource management (enables `await using`)
-		 * Alias for destroy()
-		 */
-		[Symbol.asyncDispose]: () => Promise<void>;
+		[Symbol.dispose]: () => void;
 	};
 
 /**
@@ -169,7 +163,6 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * Uses shared initialization logic to ensure workspace instances are properly shared
  *
  * @param config - Epicenter configuration with workspaces to initialize
- * @param runtimeConfig - Optional runtime configuration
  * @returns Initialized epicenter client with access to all workspace actions
  *
  * @example
@@ -193,32 +186,32 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * });
  *
  * // Explicit cleanup when done
- * await client.destroy();
+ * client[Symbol.dispose]();
  *
  * // Or use explicit resource management (tests, scripts)
- * await using client = await createEpicenterClient(epicenter);
+ * using client = createEpicenterClient(epicenter);
  * // automatically disposed at end of scope
  * ```
  */
-export async function createEpicenterClient<
+export function createEpicenterClient<
 	const TId extends string,
 	const TWorkspaces extends readonly Omit<WorkspaceConfig, 'dependencies'>[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
-	runtimeConfig: RuntimeConfig = {},
-): Promise<EpicenterClient<TWorkspaces>> {
-	// Initialize all workspaces using shared initialization logic
-	// This ensures workspace instances are properly shared across dependencies
-	// Returns an object keyed by workspace name
-	const clients = initializeWorkspaces(config.workspaces, runtimeConfig);
+): EpicenterClient<TWorkspaces> {
+	// Initialize workspaces using flat/hoisted resolution model
+	// All transitive dependencies must be explicitly listed in config.workspaces
+	// initializeWorkspaces will validate this and throw if dependencies are missing
+	const clients = initializeWorkspaces(config.workspaces);
 
-	const cleanup = async () => {
-		await Promise.all(Object.values(clients).map((client: WorkspaceClient<any>) => client.destroy()));
+	const cleanup = () => {
+		for (const client of Object.values(clients)) {
+			client[Symbol.dispose]();
+		}
 	};
 
 	return {
 		...clients,
-		destroy: cleanup,
-		[Symbol.asyncDispose]: cleanup,
+		[Symbol.dispose]: cleanup,
 	} as EpicenterClient<TWorkspaces>;
 }

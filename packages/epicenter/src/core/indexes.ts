@@ -19,7 +19,7 @@ type WorkspaceIndexExportsMap = Record<string, any>;
  * Index object with initialization function
  *
  * Indexes are objects with an `init` function that sets up observers and returns
- * a cleanup function (`destroy`) alongside any exported resources (databases, queries, etc.)
+ * a cleanup function (`Symbol.dispose`) alongside any exported resources (databases, queries, etc.)
  * The index name/ID is provided by the object key in the workspace configuration
  *
  * @example
@@ -38,7 +38,7 @@ type WorkspaceIndexExportsMap = Record<string, any>;
  *
  *     // Return cleanup function and exported resources (all at top level)
  *     return {
- *       destroy() {
+ *       [Symbol.dispose]() {
  *         unsubPosts();
  *         cleanupIndex();
  *       },
@@ -54,10 +54,8 @@ export type Index<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
 > = {
-	init: (db: Db<TWorkspaceSchema>) => Promise<{
-		destroy: () => void | Promise<void>;
-	} & TExportsMap> | {
-		destroy: () => void | Promise<void>;
+	init: (db: Db<TWorkspaceSchema>) => {
+		[Symbol.dispose]: () => void;
 	} & TExportsMap;
 };
 
@@ -92,7 +90,7 @@ export type IndexContext<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSch
  * ```typescript
  * const sqliteIndex = defineIndex({
  *   init: (db) => ({
- *     destroy: () => { ... },
+ *     [Symbol.dispose]: () => { ... },
  *     db: sqliteDb,
  *     findById: async (id: string) => { ... }
  *   })
