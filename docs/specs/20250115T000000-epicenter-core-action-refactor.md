@@ -48,7 +48,7 @@ type Index<TWorkspaceSchema, TQueries> = {
 }
 
 // Example: SQLite index (sqlite/index.ts:137-152)
-sqliteIndex({ db }): Index<Schema, {
+sqliteIndex(db, config?): Index<Schema, {
   db: LibSQLDatabase<...>;
 } & WorkspaceSchemaToDrizzleTables<Schema>>
 
@@ -218,7 +218,7 @@ deps.auth.login.description // 'Authenticate user'
 ```typescript
 // Indexes expose raw Drizzle ORM (sqlite/index.ts:140-152)
 indexes: ({ db }) => ({
-  sqlite: sqliteIndex({ db }),
+  sqlite: sqliteIndex(db),
 })
 
 // Returns: { db: LibSQLDatabase, posts: DrizzleTable, comments: DrizzleTable, ... }

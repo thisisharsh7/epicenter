@@ -37,11 +37,11 @@ describe('Server Integration Tests', () => {
 			},
 		},
 
-		indexes: {
-			sqlite: sqliteIndex({
+		indexes: ({ db }) => ({
+			sqlite: sqliteIndex(db, {
 				databaseUrl: ':memory:',
 			}),
-		},
+		}),
 
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({
@@ -220,11 +220,11 @@ describe('Server Integration Tests', () => {
 				},
 			},
 
-			indexes: {
-				sqlite: sqliteIndex({
+			indexes: ({ db }) => ({
+				sqlite: sqliteIndex(db, {
 					databaseUrl: ':memory:',
 				}),
-			},
+			}),
 
 			actions: ({ db }) => ({
 				createUser: defineMutation({

@@ -1,9 +1,11 @@
-import type { WorkspaceSchema, TableSchema, Row } from '../../core/schema';
+import { mkdirSync, watch } from 'node:fs';
+import { Ok, trySync } from 'wellcrafted/result';
+import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
 import { defineIndex, type Index } from '../../core/indexes';
+import type { Row, TableSchema, WorkspaceSchema } from '../../core/schema';
 import type { Db } from '../../db/core';
-import * as Y from 'yjs';
-import { syncYTextToDiff, syncYArrayToDiff } from '../../utils/yjs';
+import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import {
 	deleteMarkdownFile,
 	getMarkdownPath,
@@ -11,9 +13,6 @@ import {
 	parseMarkdownWithValidation,
 	writeMarkdownFile,
 } from './parser';
-import { watch } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
-import { tryAsync, Ok } from 'wellcrafted/result';
 
 /**
  * Markdown index configuration
@@ -145,12 +144,17 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
  * Create a markdown index
  * Syncs YJS changes to markdown files for git-friendly persistence
  * No query interface - just persistence
+ *
+ * @param db - Epicenter database instance (for type inference only)
+ * @param config - Markdown configuration options
  */
-export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema>({
-	storagePath,
-}: MarkdownIndexConfig): Index<TWorkspaceSchema, {}> {
+export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema>(
+	db: Db<TWorkspaceSchema>,
+	config: MarkdownIndexConfig
+): Index<TWorkspaceSchema, {}> {
+	const { storagePath } = config;
 	return defineIndex({
-		init: async (db: Db<TWorkspaceSchema>) => {
+		init: () => {
 			// Loop prevention: Track whether we're currently syncing
 			// to avoid infinite loops between YJS observer and file watcher
 			let isProcessingFileChange = false;
@@ -248,9 +252,9 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 
 			// Set up file watcher for bidirectional sync
 			// Ensure the directory exists before watching
-			await tryAsync({
-				try: async () => {
-					await mkdir(storagePath, { recursive: true });
+			trySync({
+				try: () => {
+					mkdirSync(storagePath, { recursive: true });
 				},
 				catch: () => Ok(undefined),
 			});

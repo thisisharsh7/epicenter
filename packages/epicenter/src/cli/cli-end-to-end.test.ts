@@ -40,10 +40,10 @@ describe('CLI End-to-End Tests', () => {
 			},
 		},
 
-		indexes: {
-			sqlite: sqliteIndex({ databaseUrl: `file:${TEST_DB}` }),
-			markdown: markdownIndex({ storagePath: TEST_MARKDOWN }),
-		},
+		indexes: ({ db }) => ({
+			sqlite: sqliteIndex(db, { databaseUrl: `file:${TEST_DB}` }),
+			markdown: markdownIndex(db, { storagePath: TEST_MARKDOWN }),
+		}),
 
 		actions: ({ db, indexes }) => ({
 			listPosts: defineQuery({

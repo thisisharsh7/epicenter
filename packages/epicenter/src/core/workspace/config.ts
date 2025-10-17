@@ -45,10 +45,10 @@ import type { Index, WorkspaceIndexMap } from '../indexes';
  *     }
  *   },
  *
- *   indexes: [
- *     sqliteIndex({ databaseUrl: ':memory:' }),
- *     markdownIndex({ storagePath: './data' }),
- *   ],
+ *   indexes: ({ db }) => ({
+ *     sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+ *     markdown: markdownIndex(db, { storagePath: './data' }),
+ *   }),
  *
  *   setupYDoc: (ydoc) => {
  *     // Optional: Set up persistence
@@ -213,13 +213,13 @@ export type WorkspaceConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: {
-	 *   sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
-	 *   markdown: markdownIndex({ storagePath: './data' }),
-	 * }
+	 * indexes: ({ db }) => ({
+	 *   sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+	 *   markdown: markdownIndex(db, { storagePath: './data' }),
+	 * })
 	 * ```
 	 */
-	indexes: TIndexMap;
+	indexes: (context: { db: Db<NoInfer<TWorkspaceSchema>> }) => TIndexMap;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence

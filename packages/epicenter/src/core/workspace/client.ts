@@ -311,8 +311,8 @@ export function initializeWorkspaces<
 		// Initialize Epicenter database (wraps YJS with table/record API)
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
-		// Get index definitions from workspace config
-		const indexesObject = workspaceConfig.indexes;
+		// Get index definitions from workspace config by calling the indexes callback
+		const indexesObject = workspaceConfig.indexes({ db });
 
 		// Validate no duplicate index IDs (keys of returned object)
 		const indexIds = Object.keys(indexesObject);
@@ -329,7 +329,7 @@ export function initializeWorkspaces<
 
 		for (const [indexKey, index] of Object.entries(indexesObject)) {
 			try {
-				indexes[indexKey] = index.init(db);
+				indexes[indexKey] = index.init();
 			} catch (error) {
 				console.error(`Failed to initialize index "${indexKey}":`, error);
 			}

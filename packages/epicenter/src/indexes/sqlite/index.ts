@@ -113,10 +113,16 @@ async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable
 /**
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
+ *
+ * @param db - Epicenter database instance (for type inference only)
+ * @param config - SQLite configuration options
  */
-export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
-	databaseUrl = ':memory:',
-}: SQLiteIndexConfig = {}): Index<
+export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
+	db: Db<TWorkspaceSchema>,
+	{
+		databaseUrl = ':memory:',
+	}: SQLiteIndexConfig = {}
+): Index<
 	TWorkspaceSchema,
 	{
 		[Symbol.dispose]: () => void;
@@ -124,9 +130,9 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 	} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
 > {
 	return defineIndex({
-		init: (epicenterDb: Db<TWorkspaceSchema>) => {
+		init: () => {
 			// Convert table schemas to Drizzle tables
-			const drizzleTables = convertWorkspaceSchemaToDrizzle(epicenterDb.schema);
+			const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
 			// Create database connection with schema for proper type inference
 			const sqliteDb = drizzle(
@@ -137,13 +143,13 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 			// Set up observers for each table
 			const unsubscribers: Array<() => void> = [];
 
-			for (const tableName of epicenterDb.getTableNames()) {
+			for (const tableName of db.getTableNames()) {
 				const drizzleTable = drizzleTables[tableName];
 				if (!drizzleTable) {
 					throw new Error(`Drizzle table for "${tableName}" not found`);
 				}
 
-				const unsub = epicenterDb.tables[tableName]!.observe({
+				const unsub = db.tables[tableName]!.observe({
 					onAdd: async (row) => {
 						const { error } = await tryAsync({
 							try: async () => {
@@ -213,13 +219,13 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 			(async () => {
 				await createTablesIfNotExist(sqliteDb, drizzleTables);
 
-				for (const tableName of epicenterDb.getTableNames()) {
+				for (const tableName of db.getTableNames()) {
 					const drizzleTable = drizzleTables[tableName];
-				if (!drizzleTable) {
-					throw new Error(`Drizzle table for "${tableName}" not found`);
-				}
+					if (!drizzleTable) {
+						throw new Error(`Drizzle table for "${tableName}" not found`);
+					}
 
-				const { valid: rows } = epicenterDb.tables[tableName]!.getAll();
+					const { valid: rows } = db.tables[tableName]!.getAll();
 
 					for (const row of rows) {
 						const { error } = await tryAsync({

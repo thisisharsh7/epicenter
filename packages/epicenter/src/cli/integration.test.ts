@@ -26,9 +26,9 @@ describe('CLI Integration', () => {
 			},
 		},
 
-		indexes: {
-			sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
-		},
+		indexes: ({ db }) => ({
+			sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+		}),
 
 		actions: ({ db }) => ({
 			createItem: defineMutation({

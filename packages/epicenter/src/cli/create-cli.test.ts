@@ -25,9 +25,9 @@ describe('createCLI', () => {
 			},
 		},
 
-		indexes: {
-			sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
-		},
+		indexes: ({ db }) => ({
+			sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+		}),
 
 		actions: ({ db, indexes }) => ({
 			getItems: defineQuery({

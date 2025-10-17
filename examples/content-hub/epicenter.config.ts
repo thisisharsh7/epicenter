@@ -34,9 +34,9 @@ export const pages = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: sqliteIndex({ databaseUrl: 'file:test-data/pages.db' }),
-	},
+	indexes: ({ db }) => ({
+		sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/pages.db' }),
+	}),
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all pages
@@ -178,7 +178,7 @@ export default defineWorkspace({
 	},
 
 	indexes: ({ db }) => ({
-		sqlite: sqliteIndex({ databaseUrl: 'file:test-data/content-hub.db' }),
+		sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/content-hub.db' }),
 	}),
 
 	actions: ({ db, indexes }) => ({

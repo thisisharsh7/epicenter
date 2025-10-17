@@ -62,7 +62,7 @@ export type Index<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
 > = {
-	init: (db: Db<TWorkspaceSchema>) => {
+	init: () => {
 		[Symbol.dispose]: () => void;
 	} & TExportsMap;
 };
