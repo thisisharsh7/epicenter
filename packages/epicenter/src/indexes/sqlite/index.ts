@@ -140,15 +140,12 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 }: SQLiteIndexConfig<TWorkspaceSchema>): Index<
 	TWorkspaceSchema,
 	{
-		db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>> & { $client: any };
+		[Symbol.dispose]: () => void;
+		db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>>;
 	} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
 > {
 	return defineIndex({
-		init: (epicenterDb: Db<TWorkspaceSchema>): {
-			destroy: () => void;
-		} & {
-			db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>> & { $client: any };
-		} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> => {
+		init: (epicenterDb: Db<TWorkspaceSchema>) => {
 			// Convert table schemas to Drizzle tables
 			const drizzleTables = convertWorkspaceSchemaToDrizzle(epicenterDb.schema);
 
@@ -266,9 +263,9 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
 				}
 			})();
 
-			// Return destroy function alongside exported resources (flattened structure)
+			// Return dispose function alongside exported resources (flattened structure)
 			return {
-				destroy() {
+				[Symbol.dispose]() {
 					for (const unsub of unsubscribers) {
 						unsub();
 					}
