@@ -38,7 +38,7 @@ You get rich autocomplete and type safety for:
 - Your direct dependencies' queries, mutations, and subscriptions
 - Your direct dependencies' direct dependencies (one more level)
 
-Beyond that, you can still access deeper dependencies, but TypeScript treats them as "some workspace" rather than providing specific type information about their actions and schema.
+Beyond that, you can still access deeper dependencies, but TypeScript treats them as "some workspace" rather than providing specific type information about their actions and schema. But that's fine, because those deeper dependencies must be registered as direct dependencies anyways!
 
 In practice, this is rarely a limitation. You typically interact most heavily with your direct dependencies. If you find yourself reaching three or four levels deep into a dependency chain, that's often a signal to restructure your workspace relationships.
 
