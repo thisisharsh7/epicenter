@@ -15,16 +15,16 @@ export type WorkspaceActionMap = Record<string, Action<any, any>>;
  * Can be either a query or mutation
  */
 export type Action<
-	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
-> = Query<TInput, TOutput> | Mutation<TInput, TOutput>;
+	TInput extends TSchema | undefined = TSchema | undefined,
+> = Query<TOutput, TInput> | Mutation<TOutput, TInput>;
 
 /**
  * Query action - read operation with no side effects
  */
 export type Query<
-	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
+	TInput extends TSchema | undefined = TSchema | undefined,
 > = {
 	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is TSchema
 	(
@@ -42,8 +42,8 @@ export type Query<
  * Mutation action - write operation that modifies state
  */
 export type Mutation<
-	TInput extends TSchema | undefined = TSchema | undefined,
 	TOutput = unknown,
+	TInput extends TSchema | undefined = TSchema | undefined,
 > = {
 	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is TSchema
 	(
@@ -69,7 +69,7 @@ export function defineQuery<TOutput, TInput extends TSchema>(config: {
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): Query<TInput, TOutput>;
+}): Query<TOutput, TInput>;
 
 /**
  * Helper function to define a query action without input
@@ -80,7 +80,7 @@ export function defineQuery<TOutput>(config: {
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): Query<undefined, TOutput>;
+}): Query<TOutput, undefined>;
 
 /**
  * Implementation for defineQuery
@@ -105,7 +105,7 @@ export function defineMutation<TOutput, TInput extends TSchema>(config: {
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): Mutation<TInput, TOutput>;
+}): Mutation<TOutput, TInput>;
 
 /**
  * Helper function to define a mutation action without input
@@ -116,7 +116,7 @@ export function defineMutation<TOutput>(config: {
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
 	description?: string;
-}): Mutation<undefined, TOutput>;
+}): Mutation<TOutput, undefined>;
 
 /**
  * Implementation for defineMutation
@@ -133,7 +133,7 @@ export function defineMutation(config: any): any {
  * Type helper to extract the input type from an action
  */
 export type InferActionInput<T> =
-	T extends Action<infer TInput, unknown>
+	T extends Action<unknown, infer TInput>
 		? TInput extends TSchema ? Static<TInput> : undefined
 		: never;
 
@@ -141,20 +141,20 @@ export type InferActionInput<T> =
  * Type helper to extract the output type from an action
  */
 export type InferActionOutput<T> =
-	T extends Action<TSchema | undefined, infer O> ? O : never;
+	T extends Action<infer O, TSchema | undefined> ? O : never;
 
 /**
  * Type helper to extract the unwrapped output type from an action handler
  * This unwraps the Result type to get the actual success value type
  */
 export type InferActionOutputUnwrapped<T> =
-	T extends Action<TSchema | undefined, infer O> ? O : never;
+	T extends Action<infer O, TSchema | undefined> ? O : never;
 
 /**
  * Type helper to extract the handler function with Result return type
  */
 export type InferActionHandler<T> =
-	T extends Action<infer TInput, infer TOutput>
+	T extends Action<infer TOutput, infer TInput>
 		? (
 				input: TInput extends TSchema ? Static<TInput> : undefined,
 			) =>
