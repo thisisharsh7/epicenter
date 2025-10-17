@@ -210,7 +210,7 @@ deps.auth.login.description // 'Authenticate user'
 **Implementation Change:**
 - **Remove** `extractHandlers()` function entirely
 - **Update** `WorkspaceClient` type to use `TActionMap` directly instead of `ExtractHandlers<TActionMap>`
-- **Update** `DependencyWorkspacesAPI` to not extract handlers
+- **Update** `DependencyActionsMap` to not extract handlers
 
 #### 2. Indexes
 
@@ -509,7 +509,7 @@ action.type;  // Should be 'query'
 - [ ] Remove `extractHandlers` function from `client.ts`
 - [ ] Remove `ExtractHandlers` type from `config.ts`
 - [ ] Update `WorkspaceClient` type: Change from `ExtractHandlers<TActionMap>` to `TActionMap`
-- [ ] Update `DependencyWorkspacesAPI` type: Remove handler extraction
+- [ ] Update `DependencyActionsMap` type: Remove handler extraction
 
 **Changes:**
 ```typescript
@@ -520,12 +520,12 @@ export type WorkspaceClient<TActionMap> = ExtractHandlers<TActionMap> & { ... }
 export type WorkspaceClient<TActionMap> = TActionMap & { ... }
 
 // Before
-export type DependencyWorkspacesAPI<TDeps> = {
+export type DependencyActionsMap<TDeps> = {
   [W in TDeps[number] as W['name']]: ExtractHandlers<ReturnType<W['actions']>>
 }
 
 // After
-export type DependencyWorkspacesAPI<TDeps> = {
+export type DependencyActionsMap<TDeps> = {
   [W in TDeps[number] as W['name']]: ReturnType<W['actions']>
 }
 ```

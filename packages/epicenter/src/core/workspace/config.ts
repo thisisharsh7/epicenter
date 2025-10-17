@@ -270,7 +270,7 @@ export type WorkspaceConfig<
 		/** Database instance with table helpers, ydoc, schema, and utilities */
 		db: Db<TWorkspaceSchema>;
 		/** Dependency workspaces - access actions from other workspaces */
-		workspaces: DependencyWorkspacesAPI<TDeps>;
+		workspaces: DependencyActionsMap<TDeps>;
 		/** Indexes for this workspace - async read operations (select, search, etc.) */
 		indexes: TIndexMap;
 	}) => TActionMap;
@@ -372,7 +372,7 @@ export type ImmediateDependencyWorkspaceConfig<
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: {
 		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyWorkspacesAPI<TDeps>;
+		workspaces: DependencyActionsMap<TDeps>;
 		indexes: TIndexMap;
 	}) => TActionMap;
 };
@@ -401,16 +401,25 @@ export type AnyWorkspaceConfig = {
 };
 
 /**
- * Dependency workspaces API - actions from dependency workspaces
- * Converts array of workspaces into an object keyed by workspace names
+ * Maps workspace dependencies to their action maps.
  *
- * Extracts only the necessary information (name and actions) from dependencies
- * without recursively inferring their nested dependency types.
+ * Takes an array of workspace dependencies and merges them into a single object where:
+ * - Each key is a dependency name
+ * - Each value is the action map exported from that dependency
  *
- * This type works with both DependencyWorkspaceConfig and ImmediateDependencyWorkspaceConfig
- * by constraining to the common structure (name + actions).
+ * This allows accessing dependency actions as `workspaces.dependencyName.actionName()`.
+ *
+ * @example
+ * ```typescript
+ * // Given dependencies: [authWorkspace, storageWorkspace]
+ * // Results in type: { auth: AuthActions, storage: StorageActions }
+ * // Used as: workspaces.auth.login(), workspaces.storage.uploadFile()
+ * ```
+ *
+ * Works with both DependencyWorkspaceConfig and ImmediateDependencyWorkspaceConfig
+ * by constraining to the common structure (name + actions), avoiding recursive type inference.
  */
-export type DependencyWorkspacesAPI<
+export type DependencyActionsMap<
 	TDeps extends readonly { name: string; actions: (context: any) => WorkspaceActionMap }[],
 > =
 	TDeps extends readonly []
