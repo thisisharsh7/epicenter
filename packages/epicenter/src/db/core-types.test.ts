@@ -4,7 +4,6 @@ import {
 	id,
 	text,
 	ytext,
-	yxmlfragment,
 	integer,
 	boolean,
 	select,
@@ -24,7 +23,7 @@ describe('YjsDoc Type Inference', () => {
 			posts: {
 				id: id(),
 				title: text(),
-				content: yxmlfragment({ nullable: true }),
+				content: ytext({ nullable: true }),
 				tags: multiSelect({ options: ['tech', 'personal', 'work'] }),
 				viewCount: integer(),
 				published: boolean(),
@@ -32,14 +31,15 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test set() - should require all fields with correct types
-		const content = new Y.XmlFragment();
-		const tags = new Y.Array<string>();
+		const content = new Y.Text();
+		content.insert(0, 'Post content');
+		const tags = new Y.Array<'tech' | 'personal' | 'work'>();
 		tags.push(['tech']);
 
 		doc.tables.posts.insert({
 			id: '1',
 			title: 'Test Post',
-			content: content, // Y.XmlFragment | null
+			content: content, // Y.Text | null
 			tags: tags, // Y.Array<string>
 			viewCount: 0,
 			published: false,
@@ -47,7 +47,7 @@ describe('YjsDoc Type Inference', () => {
 
 		// Test get() - hover over 'result' to verify inferred type
 		const result = doc.tables.posts.get('1');
-		// Expected type: GetRowResult<{ id: string; title: string; content: Y.XmlFragment | null; tags: Y.Array<string>; viewCount: number; published: boolean }>
+		// Expected type: GetRowResult<{ id: string; title: string; content: Y.Text | null; tags: Y.Array<string>; viewCount: number; published: boolean }>
 
 		if (result.status === 'valid') {
 			const row = result.row;
@@ -58,7 +58,7 @@ describe('YjsDoc Type Inference', () => {
 			expect(row.published).toBe(false);
 
 			// Verify YJS types are properly inferred
-			expect(row.content).toBeInstanceOf(Y.XmlFragment);
+			expect(row.content).toBeInstanceOf(Y.Text);
 			expect(row.tags).toBeInstanceOf(Y.Array);
 		}
 	});
@@ -177,13 +177,13 @@ describe('YjsDoc Type Inference', () => {
 		unsubscribe();
 	});
 
-	test('should handle nullable YJS types correctly', () => {
+		test('should handle nullable YJS types correctly', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			articles: {
 				id: id(),
 				title: text(),
 				description: ytext({ nullable: true }), // Y.Text | null
-				content: yxmlfragment({ nullable: true }), // Y.XmlFragment | null
+				content: ytext({ nullable: true }), // Y.Text | null
 			},
 		});
 
@@ -205,7 +205,8 @@ describe('YjsDoc Type Inference', () => {
 		// Test with YJS type values
 		const description = new Y.Text();
 		description.insert(0, 'A short description');
-		const content = new Y.XmlFragment();
+		const content = new Y.Text();
+		content.insert(0, 'Article content');
 
 		doc.tables.articles.insert({
 			id: '2',
@@ -217,7 +218,7 @@ describe('YjsDoc Type Inference', () => {
 		const article2Result = doc.tables.articles.get('2');
 		if (article2Result.status === 'valid') {
 			expect(article2Result.row.description).toBeInstanceOf(Y.Text);
-			expect(article2Result.row.content).toBeInstanceOf(Y.XmlFragment);
+			expect(article2Result.row.content).toBeInstanceOf(Y.Text);
 		}
 	});
 
@@ -303,19 +304,15 @@ describe('YjsDoc Type Inference', () => {
 			documents: {
 				id: id(),
 				title: text(),
-				body: yxmlfragment(),
+				body: ytext(),
 				notes: ytext({ nullable: true }),
 				tags: multiSelect({ options: ['tag1', 'tag2'] }),
 			},
 		});
 
 		// Create YJS instances
-		const body = new Y.XmlFragment();
-		const paragraph = new Y.XmlElement('p');
-		const textNode = new Y.XmlText();
-		textNode.insert(0, 'Hello World');
-		paragraph.insert(0, [textNode]);
-		body.insert(0, [paragraph]);
+		const body = new Y.Text();
+		body.insert(0, 'Hello World');
 
 		const tags = new Y.Array<string>();
 		tags.push(['tag1', 'tag2']);
@@ -334,7 +331,7 @@ describe('YjsDoc Type Inference', () => {
 		if (retrievedResult.status === 'valid') {
 			const retrieved = retrievedResult.row;
 			// These should all be properly typed
-			expect(retrieved.body).toBeInstanceOf(Y.XmlFragment);
+			expect(retrieved.body).toBeInstanceOf(Y.Text);
 			expect(retrieved.tags).toBeInstanceOf(Y.Array);
 			expect(retrieved.notes).toBeNull();
 
@@ -343,4 +340,5 @@ describe('YjsDoc Type Inference', () => {
 			expect(retrieved.tags.length).toBe(3);
 		}
 	});
+
 });

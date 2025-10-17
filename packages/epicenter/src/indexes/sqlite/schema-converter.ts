@@ -27,7 +27,6 @@ import type {
 	TableSchema,
 	TextColumnSchema,
 	YtextColumnSchema,
-	YxmlfragmentColumnSchema,
 } from '../../core/schema';
 import { date, multiSelect, type DateWithTimezoneString } from './builders';
 
@@ -100,13 +99,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 				: NotNull<
 						SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 					>
-			: C extends YxmlfragmentColumnSchema<infer TNullable>
-				? TNullable extends true
-					? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-					: NotNull<
-							SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-						>
-				: C extends IntegerColumnSchema<infer TNullable>
+			: C extends IntegerColumnSchema<infer TNullable>
 					? TNullable extends true
 						? SQLiteIntegerBuilderInitial<''>
 						: NotNull<SQLiteIntegerBuilderInitial<''>>
@@ -199,13 +192,6 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 
 		case 'ytext': {
 			// Y.Text stored as plain text (lossy conversion via toString())
-			let column = text(columnName);
-			if (!schema.nullable) column = column.notNull();
-			return column as ColumnToDrizzle<C>;
-		}
-
-		case 'yxmlfragment': {
-			// Y.XmlFragment stored as plain text (lossy conversion via toString())
 			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
 			return column as ColumnToDrizzle<C>;

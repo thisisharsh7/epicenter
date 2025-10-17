@@ -114,7 +114,7 @@ export async function writeMarkdownFile<T = any>(
 			// Serialize YJS types to plain values before writing to YAML
 			const serializedData: Record<string, any> = {};
 			for (const [key, value] of Object.entries(data as Record<string, any>)) {
-				if (value instanceof Y.Text || value instanceof Y.XmlFragment) {
+				if (value instanceof Y.Text) {
 					serializedData[key] = value.toString();
 				} else if (value instanceof Y.Array) {
 					serializedData[key] = value.toArray();

@@ -80,7 +80,6 @@ function isValidCellValue(value: unknown): value is CellValue {
 	if (typeof value === 'number') return true;
 	if (typeof value === 'boolean') return true;
 	if (value instanceof Y.Text) return true;
-	if (value instanceof Y.XmlFragment) return true;
 	if (value instanceof Y.Array) return true;
 	if (isDateWithTimezone(value)) return true;
 	return false;
@@ -204,21 +203,6 @@ export function validateRow<TTableSchema extends TableSchema>(
 
 			case 'ytext':
 				if (!(value instanceof Y.Text)) {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'yxmlfragment':
-				if (!(value instanceof Y.XmlFragment)) {
 					return {
 						status: 'schema-mismatch',
 						row,

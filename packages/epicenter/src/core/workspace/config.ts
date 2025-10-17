@@ -39,7 +39,7 @@ import type { Index, WorkspaceIndexMap } from '../indexes';
  *     posts: {
  *       // id is auto-included, no need to specify
  *       title: text(),
- *       content: yxmlfragment({ nullable: true }),
+ *       content: ytext({ nullable: true }),
  *       category: select({ options: ['tech', 'personal'] }),
  *       views: integer({ default: 0 }),
  *     }

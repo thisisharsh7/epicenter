@@ -23,7 +23,7 @@ import { createEpicenterDb } from './core';
  *   posts: {
  *     id: id(),
  *     title: text(),
- *     content: richText({ nullable: true }),
+ *     content: ytext({ nullable: true }),
  *     tags: multiSelect({ options: ['tech', 'personal', 'work'] }),
  *     viewCount: integer(),
  *     published: boolean(),
@@ -39,11 +39,15 @@ import { createEpicenterDb } from './core';
  * });
  *
  * // Database is loaded from disk and ready to use
+ * const content = new Y.Text();
+ * content.insert(0, 'My First Post');
+ * const tags = new Y.Array();
+ *
  * db.tables.posts.insert({
  *   id: '1',
  *   title: 'My First Post',
- *   content: new Y.XmlFragment(),
- *   tags: new Y.Array(),
+ *   content: content,
+ *   tags: tags,
  *   viewCount: 0,
  *   published: false,
  * });

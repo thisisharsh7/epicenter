@@ -52,7 +52,6 @@ export type ColumnSchema =
 	| IdColumnSchema
 	| TextColumnSchema
 	| YtextColumnSchema
-	| YxmlfragmentColumnSchema
 	| IntegerColumnSchema
 	| RealColumnSchema
 	| BooleanColumnSchema
@@ -76,10 +75,6 @@ export type YtextColumnSchema<TNullable extends boolean = boolean> = {
 	nullable: TNullable;
 };
 
-export type YxmlfragmentColumnSchema<TNullable extends boolean = boolean> = {
-	type: 'yxmlfragment';
-	nullable: TNullable;
-};
 
 export type IntegerColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'integer';
@@ -156,7 +151,6 @@ export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
  * type IdType = ColumnSchemaToType<{ type: 'id' }>; // string
  * type TextField = ColumnSchemaToType<{ type: 'text'; nullable: true }>; // string | null
  * type YtextField = ColumnSchemaToType<{ type: 'ytext'; nullable: false }>; // Y.Text
- * type YxmlField = ColumnSchemaToType<{ type: 'yxmlfragment'; nullable: false }>; // Y.XmlFragment
  * type MultiSelectField = ColumnSchemaToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * ```
  */
@@ -171,11 +165,7 @@ export type ColumnSchemaToType<C extends ColumnSchema> =
 				? TNullable extends true
 					? Y.Text | null
 					: Y.Text
-				: C extends YxmlfragmentColumnSchema<infer TNullable>
-					? TNullable extends true
-						? Y.XmlFragment | null
-						: Y.XmlFragment
-					: C extends IntegerColumnSchema<infer TNullable>
+				: C extends IntegerColumnSchema<infer TNullable>
 						? TNullable extends true
 							? number | null
 							: number
@@ -212,10 +202,9 @@ export type ColumnSchemaToType<C extends ColumnSchema> =
  * type PostSchema = {
  *   id: { type: 'id' };
  *   title: { type: 'text'; nullable: false };
- *   content: { type: 'yxmlfragment'; nullable: true };
  *   viewCount: { type: 'integer'; nullable: false };
  * };
- * type PostRow = ValidatedRow<PostSchema>; // { id: string; title: string; content: Y.XmlFragment | null; viewCount: number }
+ * type PostRow = ValidatedRow<PostSchema>; // { id: string; title: string; viewCount: number }
  * ```
  */
 export type ValidatedRow<TTableSchema extends TableSchema> = {
@@ -324,59 +313,6 @@ export function ytext({
 	};
 }
 
-/**
- * Collaborative rich document column - stored as Y.XmlFragment (YJS shared type)
- *
- * Y.XmlFragment is a tree-structured format that supports full block-level formatting.
- * **Primary use case: Rich document editing** with TipTap (ProseMirror-based).
- *
- * **What Y.XmlFragment supports:**
- * - All inline formatting (bold, italic, links, etc.)
- * - Block-level structure: paragraphs, headings (h1-h6), lists
- * - Tables, blockquotes, code blocks, images, embeds
- * - Nested structure (lists within lists, etc.)
- *
- * **Most common editor bindings:**
- * - **TipTap** (ProseMirror-based) - PRIMARY, RECOMMENDED
- * - ProseMirror (lower-level alternative)
- *
- * **Common use cases:**
- * - Article/blog content with full formatting
- * - Documentation with headings and lists
- * - Long-form content editing (like Notion pages)
- * - CMS page content
- *
- * **Important:** You must provide Y.XmlFragment instances when setting values.
- * The Y.XmlFragment instance must be created from the same Y.Doc as your table.
- *
- * @example
- * // Article content (most common)
- * content: yxmlfragment() // → TipTap for full document editing
- *
- * @example
- * // Optional description field
- * description: yxmlfragment({ nullable: true }) // → Can be null or Y.XmlFragment
- *
- * @example
- * // Setting a value
- * const fragment = new Y.XmlFragment()
- * doc.tables.posts.set({
- *   id: '1',
- *   content: fragment // Must provide Y.XmlFragment instance
- * })
- */
-export function yxmlfragment(opts: { nullable: true }): YxmlfragmentColumnSchema<true>;
-export function yxmlfragment(opts?: { nullable?: false }): YxmlfragmentColumnSchema<false>;
-export function yxmlfragment({
-	nullable = false,
-}: {
-	nullable?: boolean;
-} = {}): YxmlfragmentColumnSchema<boolean> {
-	return {
-		type: 'yxmlfragment',
-		nullable,
-	};
-}
 
 /**
  * Creates an integer column schema (NOT NULL by default)

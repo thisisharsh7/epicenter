@@ -16,7 +16,7 @@
  */
 
 // Core workspace definition
-export { defineWorkspace, extractHandlers } from './core/workspace';
+export { defineWorkspace } from './core/workspace';
 export type {
 	WorkspaceConfig,
 	WorkspaceActionContext,
@@ -28,7 +28,6 @@ export {
 	id,
 	text,
 	ytext,
-	yxmlfragment,
 	integer,
 	real,
 	boolean,
@@ -54,16 +53,17 @@ export {
 	isMutation,
 } from './core/actions';
 export type {
-	QueryAction,
-	MutationAction,
-	WorkspaceAction,
+	Query,
+	Mutation,
+	Action,
+	WorkspaceActionMap,
 	InferActionInput,
 	InferActionOutput,
 } from './core/actions';
 
 // Runtime
 export { createWorkspaceClient } from './core/workspace';
-export type { RuntimeConfig, WorkspaceClient } from './core/workspace';
+export type { WorkspaceClient } from './core/workspace';
 
 // Epicenter - compose multiple workspaces
 export { defineEpicenter, createEpicenterClient } from './core/epicenter';
@@ -88,19 +88,6 @@ export type { MarkdownIndexConfig } from './indexes/markdown';
 // Error types
 export { IndexErr } from './core/errors';
 export type { EpicenterOperationError, IndexError } from './core/errors';
-
-// Schema adapters - generate Zod/ArkType schemas from table schemas
-export {
-	createInsertSchema as createInsertSchemaZod,
-	createSelectSchema as createSelectSchemaZod,
-	createUpdateSchema as createUpdateSchemaZod,
-} from './adapters/zod';
-
-export {
-	createInsertSchema as createInsertSchemaArkType,
-	createSelectSchema as createSelectSchemaArkType,
-	createUpdateSchema as createUpdateSchemaArkType,
-} from './adapters/arktype';
 
 // Server - expose workspaces as REST API and MCP servers
 export { createEpicenterServer, createWorkspaceServer } from './server';

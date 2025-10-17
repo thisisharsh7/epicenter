@@ -36,12 +36,12 @@ export type SQLiteIndexConfig<TWorkspaceSchema extends WorkspaceSchema = Workspa
 
 /**
  * Maps a Row type to SQLite-compatible types
- * Converts Y.Text, Y.XmlFragment, Y.Array<string>, and DateWithTimezone to string
+ * Converts Y.Text, Y.Array<string>, and DateWithTimezone to string
  */
 export type SQLiteRow<T extends Row = Row> = {
-	[K in keyof T]: T[K] extends Y.Text | Y.XmlFragment
+	[K in keyof T]: T[K] extends Y.Text
 		? string
-		: T[K] extends Y.Text | Y.XmlFragment | null
+		: T[K] extends Y.Text | null
 			? string | null
 			: T[K] extends Y.Array<string>
 				? string
@@ -56,13 +56,13 @@ export type SQLiteRow<T extends Row = Row> = {
 
 /**
  * Serialize Y.js types and DateWithTimezone to plain text for SQLite storage
- * Converts Y.Text, Y.XmlFragment, Y.Array<string>, and DateWithTimezone to their string representations
+ * Converts Y.Text, Y.Array<string>, and DateWithTimezone to their string representations
  */
 function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
 	const serialized: Record<string, any> = {};
 
 	for (const [key, value] of Object.entries(row)) {
-		if (value instanceof Y.Text || value instanceof Y.XmlFragment) {
+		if (value instanceof Y.Text) {
 			// Convert Y.js types to plain text (lossy conversion)
 			serialized[key] = value.toString();
 		} else if (value instanceof Y.Array) {

@@ -37,7 +37,6 @@ export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = Works
  * For primitive columns (text, integer, boolean, etc.), directly overwrites values.
  * For Y.Text columns, uses syncYTextToDiff() for granular character-level updates.
  * For Y.Array columns, uses syncYArrayToDiff() for granular element-level updates.
- * Skips Y.XmlFragment columns (future work).
  *
  * @param db - Database instance
  * @param tableName - Name of the table
@@ -134,12 +133,6 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
 					} else if (newValue === null && columnSchema.nullable) {
 						table.update({ id: rowId, [columnName]: null } as any);
 					}
-					break;
-				}
-
-				case 'yxmlfragment': {
-					// Skip Y.XmlFragment for now (future work)
-					// Would require proper HTML/XML parsing and diffing
 					break;
 				}
 

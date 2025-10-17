@@ -55,8 +55,8 @@ export type TableHelper<TRow extends Row> = {
 	/**
 	 * Insert a new row into the table.
 	 *
-	 * For Y.js columns (ytext, yxmlfragment, multi-select), you must provide
-	 * Y.js type instances (Y.Text, Y.XmlFragment, Y.Array). For plain columns
+	 * For Y.js columns (ytext, multi-select), you must provide
+	 * Y.js type instances (Y.Text, Y.Array). For plain columns
 	 * (text, integer, boolean, etc.), provide primitive values.
 	 *
 	 * Once inserted, you can retrieve the row and mutate Y.js fields directly.
@@ -72,7 +72,6 @@ export type TableHelper<TRow extends Row> = {
 	 * table.insert({
 	 *   id: '123',
 	 *   title: title,        // Y.Text
-	 *   content: content,    // Y.XmlFragment
 	 *   tags: tags,          // Y.Array
 	 *   viewCount: 0         // primitive number
 	 * });
@@ -128,12 +127,10 @@ export type TableHelper<TRow extends Row> = {
 	 * @example
 	 * const title = new Y.Text();
 	 * title.insert(0, 'Hello');
-	 * const content = new Y.XmlFragment();
 	 *
 	 * table.upsert({
 	 *   id: '123',
-	 *   title: title,
-	 *   content: content
+	 *   title: title
 	 * });
 	 */
 	upsert(row: TRow): void;
@@ -145,8 +142,8 @@ export type TableHelper<TRow extends Row> = {
 	/**
 	 * Get a row by ID, returning Y.js objects for collaborative editing.
 	 *
-	 * Returns Y.Text, Y.XmlFragment, and Y.Array objects that can be:
-	 * - Bound to collaborative editors (TipTap, CodeMirror, etc.)
+	 * Returns Y.Text and Y.Array objects that can be:
+	 * - Bound to collaborative editors (CodeMirror, etc.)
 	 * - Mutated directly for automatic sync across clients
 	 *
 	 * @example
@@ -154,7 +151,6 @@ export type TableHelper<TRow extends Row> = {
 	 * if (result.status === 'valid') {
 	 *   const row = result.row;
 	 *   row.title // Y.Text - bind to editor
-	 *   row.content // Y.XmlFragment - bind to TipTap
 	 *   row.tags // Y.Array<string> - mutate directly
 	 * }
 	 */
