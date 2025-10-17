@@ -87,10 +87,10 @@ export function defineWorkspace<
 	const TId extends string,
 	const TVersion extends number,
 	const TName extends string,
-	const TWorkspaceSchema extends WorkspaceSchema,
+	TWorkspaceSchema extends WorkspaceSchema,
 	const TDeps extends readonly DependencyWorkspaceConfig[],
-	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
-	const TActionMap extends WorkspaceActionMap,
+	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
+	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
 		TId,
