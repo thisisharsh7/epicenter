@@ -4,10 +4,8 @@ import type { WorkspaceActionMap } from '../actions';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 import type {
-	AnyWorkspaceConfig,
-	DependencyWorkspaceConfig,
 	ImmediateDependencyWorkspaceConfig,
-	WorkspaceConfig,
+	WorkspaceConfig
 } from './config';
 
 /**
@@ -94,6 +92,35 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
 	};
 
 /**
+ * Mapped type that converts array of workspace configs to object of initialized clients.
+ * Extracts workspace names and ActionMaps to create fully-typed client object.
+ *
+ * @example
+ * ```typescript
+ * // Given configs:
+ * const workspaceA = defineWorkspace({ id: 'workspace-a', name: 'workspaceA', actions: { foo: ... } })
+ * const workspaceB = defineWorkspace({ id: 'workspace-b', name: 'workspaceB', actions: { bar: ... } })
+ *
+ * // Returns type:
+ * {
+ *   workspaceA: WorkspaceClient<{ foo: ... }>,
+ *   workspaceB: WorkspaceClient<{ bar: ... }>
+ * }
+ * ```
+ */
+export type InitializedWorkspaces<
+	TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
+> = {
+	[W in TConfigs[number] as W extends { name: infer TName extends string }
+		? TName
+		: never]: W extends {
+		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+	}
+		? WorkspaceClient<TActionMap>
+		: never;
+};
+
+/**
  * Internal function that initializes multiple workspaces with shared dependency resolution.
  * Uses flat dependency resolution with VS Code-style peer dependency model.
  * All transitive dependencies must be present in the root workspaces' dependencies (hoisted to root).
@@ -101,12 +128,14 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  *
  * @param rootWorkspaceConfigs - Array of root workspace configurations to initialize
  * @param config - Runtime configuration options
- * @returns Map of workspace ID to initialized workspace client
+ * @returns Object mapping workspace names to initialized workspace clients
  */
-export function initializeWorkspaces(
-	rootWorkspaceConfigs: readonly ImmediateDependencyWorkspaceConfig[],
+export function initializeWorkspaces<
+	const TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
+>(
+	rootWorkspaceConfigs: TConfigs,
 	config: RuntimeConfig = {},
-): Map<string, WorkspaceClient<any>> {
+): InitializedWorkspaces<TConfigs> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -415,8 +444,14 @@ export function initializeWorkspaces(
 		clients.set(workspaceId, client);
 	}
 
-	// Return all initialized clients
-	return clients;
+	// Convert Map to typed object keyed by workspace name (not id)
+	const initializedWorkspaces = {} as InitializedWorkspaces<TConfigs>;
+	for (const [workspaceId, client] of clients) {
+		const workspaceConfig = workspaceConfigs.get(workspaceId)!;
+		(initializedWorkspaces as any)[workspaceConfig.name] = client;
+	}
+
+	return initializedWorkspaces;
 }
 
 /**
@@ -462,13 +497,14 @@ export function createWorkspaceClient<
 	// Use the shared initialization logic with flat dependency array
 	const clients = initializeWorkspaces(allWorkspaceConfigs, config);
 
-	// Return the client for the root workspace
-	const rootClient = clients.get(workspace.id);
+	// Return the client for the root workspace (access by name, not id)
+	const rootClient = clients[workspace.name as keyof typeof clients];
 	if (!rootClient) {
 		throw new Error(
-			`Internal error: root workspace "${workspace.id}" was not initialized`,
+			`Internal error: root workspace "${workspace.name}" was not initialized`,
 		);
 	}
 
-	return rootClient;
+	// Type assertion is safe because we know the workspace was initialized with the correct action map
+	return rootClient as WorkspaceClient<TActionMap>;
 }
