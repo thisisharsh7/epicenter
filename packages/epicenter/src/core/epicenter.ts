@@ -122,11 +122,11 @@ export function defineEpicenter<
  * Returns a single-entry object type: { [name]: WorkspaceClient<TActionMap> }
  */
 type WorkspaceToClientEntry<W> = W extends WorkspaceConfig<
+	infer _Deps,
 	infer _Id,
 	infer _Version,
 	infer TName,
 	infer _Schema,
-	infer _Deps,
 	infer _Indexes,
 	infer TActionMap
 >
@@ -202,7 +202,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  */
 export async function createEpicenterClient<
 	const TId extends string,
-	const TWorkspaces extends readonly AnyWorkspaceConfig[],
+	const TWorkspaces extends readonly Omit<WorkspaceConfig, 'dependencies'>[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
 	runtimeConfig: RuntimeConfig = {},

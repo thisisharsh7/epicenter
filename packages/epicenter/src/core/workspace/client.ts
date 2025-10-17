@@ -1,11 +1,13 @@
 import * as Y from 'yjs';
 import { createEpicenterDb } from '../../db/core';
 import type { WorkspaceActionMap } from '../actions';
-import type { WorkspaceSchema } from '../schema';
 import type { WorkspaceIndexMap } from '../indexes';
+import type { WorkspaceSchema } from '../schema';
 import type {
-	WorkspaceConfig,
 	AnyWorkspaceConfig,
+	DependencyWorkspaceConfig,
+	ImmediateDependencyWorkspaceConfig,
+	WorkspaceConfig,
 } from './config';
 
 /**
@@ -97,12 +99,12 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  * All transitive dependencies must be present in the root workspaces' dependencies (hoisted to root).
  * Initialization uses topological sort for deterministic, predictable order.
  *
- * @param rootWorkspaces - Array of root workspace configurations to initialize
+ * @param rootWorkspaceConfigs - Array of root workspace configurations to initialize
  * @param config - Runtime configuration options
  * @returns Map of workspace ID to initialized workspace client
  */
 export function initializeWorkspaces(
-	rootWorkspaces: readonly AnyWorkspaceConfig[],
+	rootWorkspaceConfigs: readonly ImmediateDependencyWorkspaceConfig[],
 	config: RuntimeConfig = {},
 ): Map<string, WorkspaceClient<any>> {
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -116,41 +118,68 @@ export function initializeWorkspaces(
 	 * we keep only the highest version (version compared as integers).
 	 * Example: If both workspaceA v1 and workspaceA v3 are registered, we keep v3.
 	 */
-	const workspaceConfigs = new Map<string, AnyWorkspaceConfig>();
+	const workspaceConfigs = new Map<string, ImmediateDependencyWorkspaceConfig>();
 
 	/**
 	 * Register a workspace config, automatically resolving version conflicts.
 	 * If a workspace with the same ID is already registered, compares versions
 	 * and keeps the highest one. Versions are compared as integers.
 	 */
-	const registerWorkspace = (ws: AnyWorkspaceConfig) => {
-		const existing = workspaceConfigs.get(ws.id);
+	const registerWorkspaceConfig = (
+		workspaceConfig: ImmediateDependencyWorkspaceConfig,
+	) => {
+		const existing = workspaceConfigs.get(workspaceConfig.id);
 		if (!existing) {
-			workspaceConfigs.set(ws.id, ws);
+			workspaceConfigs.set(workspaceConfig.id, workspaceConfig);
 		} else {
 			// Compare versions as numbers
-			if (ws.version > existing.version) {
+			if (workspaceConfig.version > existing.version) {
 				// New version is higher, replace
-				workspaceConfigs.set(ws.id, ws);
+				workspaceConfigs.set(workspaceConfig.id, workspaceConfig);
 			}
 			// Otherwise keep existing (higher or equal version)
 		}
 	};
 
-	// Register all root workspaces and their dependencies
-	for (const workspace of rootWorkspaces) {
-		// Register dependencies first
-		if (workspace.dependencies) {
-			for (const dep of workspace.dependencies) {
-				registerWorkspace(dep);
-			}
-		}
-		// Then register the root workspace itself
-		registerWorkspace(workspace);
+	// Register all root workspace configs (flat/hoisted model: all workspaces are in rootWorkspaceConfigs array)
+	for (const workspaceConfig of rootWorkspaceConfigs) {
+		registerWorkspaceConfig(workspaceConfig);
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// PHASE 2: BUILD DEPENDENCY GRAPH
+	// PHASE 2: DEPENDENCY VERIFICATION
+	// Verify that all dependencies exist in registered workspaces (flat/hoisted model)
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Verify that a dependency exists in the registered workspace configs.
+	 * In the flat/hoisted model, all transitive dependencies must be present in rootWorkspaceConfigs.
+	 */
+	const verifyDependency = (workspaceId: string, depId: string) => {
+		if (!workspaceConfigs.has(depId)) {
+			throw new Error(
+				`Missing dependency: workspace "${workspaceId}" depends on "${depId}", ` +
+					`but it was not found in rootWorkspaceConfigs.\n\n` +
+					`Fix: Add "${depId}" to rootWorkspaceConfigs array (flat/hoisted resolution).\n` +
+					`All transitive dependencies must be declared at the root level.`,
+			);
+		}
+	};
+
+	// Verify all dependencies for ALL registered workspace configs (not just root-level ones)
+	// This ensures the flat/hoisted model is correctly followed at every level:
+	// - If A depends on B and B depends on C, both B and C must be in rootWorkspaceConfigs
+	// - By checking every workspace in the map, we verify the entire dependency tree
+	for (const [workspaceId, workspaceConfig] of workspaceConfigs) {
+		if (workspaceConfig.dependencies) {
+			for (const dep of workspaceConfig.dependencies) {
+				verifyDependency(workspaceId, dep.id);
+			}
+		}
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// PHASE 3: BUILD DEPENDENCY GRAPH
 	// Create adjacency list and in-degree map for topological sort
 	// ═══════════════════════════════════════════════════════════════════════════
 
@@ -175,21 +204,12 @@ export function initializeWorkspaces(
 		inDegree.set(id, 0);
 	}
 
-	// Build the graph by processing each workspace's dependencies
-	for (const [id, ws] of workspaceConfigs) {
-		if (ws.dependencies && ws.dependencies.length > 0) {
-			for (const dep of ws.dependencies) {
-				// Verify dependency exists in registry
-				if (!workspaceConfigs.has(dep.id)) {
-					throw new Error(
-						`Missing dependency: workspace "${id}" depends on "${dep.id}", ` +
-							`but it was not found in root workspace.dependencies.\n\n` +
-							`Fix: Add "${dep.id}" to the root workspace's dependencies array (flat/hoisted resolution).\n` +
-							`All transitive dependencies must be declared at the root level.`,
-					);
-				}
-
+	// Build the graph by processing each workspace config's dependencies
+	for (const [id, workspaceConfig] of workspaceConfigs) {
+		if (workspaceConfig.dependencies && workspaceConfig.dependencies.length > 0) {
+			for (const dep of workspaceConfig.dependencies) {
 				// Add edge: dep.id -> id (id depends on dep.id)
+				// Note: Dependencies are already verified in Phase 2
 				dependents.get(dep.id)!.push(id);
 
 				// Increment in-degree for the dependent workspace
@@ -199,7 +219,7 @@ export function initializeWorkspaces(
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// PHASE 3: TOPOLOGICAL SORT (Kahn's Algorithm)
+	// PHASE 4: TOPOLOGICAL SORT (Kahn's Algorithm)
 	// Sort workspaces by dependency order
 	// ═══════════════════════════════════════════════════════════════════════════
 
@@ -251,7 +271,7 @@ export function initializeWorkspaces(
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// PHASE 4: INITIALIZE IN TOPOLOGICAL ORDER
+	// PHASE 5: INITIALIZE IN TOPOLOGICAL ORDER
 	// Initialize workspaces one by one in dependency order
 	// ═══════════════════════════════════════════════════════════════════════════
 
@@ -272,16 +292,18 @@ export function initializeWorkspaces(
 	 * 3. Returns the initialized workspace client
 	 */
 	const initializeWorkspace = (
-		ws: AnyWorkspaceConfig,
+		workspaceConfig: ImmediateDependencyWorkspaceConfig,
 	): WorkspaceClient<any> => {
 		// Build the workspaces object by injecting already-initialized dependencies
 		// Key: dependency name, Value: initialized client
 		const workspaces: Record<string, any> = {};
 
-		if (ws.dependencies && ws.dependencies.length > 0) {
+		if (workspaceConfig.dependencies && workspaceConfig.dependencies.length > 0) {
 			// Resolve dependencies from the registered configs (handles version resolution)
 			// Build set of unique dependency IDs
-			const uniqueDepIds = new Set(ws.dependencies.map((dep) => dep.id));
+			const uniqueDepIds = new Set(
+				workspaceConfig.dependencies.map((dep) => dep.id),
+			);
 
 			// Inject dependency clients using resolved configs
 			const depNames = new Set<string>();
@@ -297,7 +319,7 @@ export function initializeWorkspaces(
 				// Check for duplicate names after version resolution
 				if (depNames.has(resolvedConfig.name)) {
 					throw new Error(
-						`Duplicate dependency names detected in workspace "${ws.id}": ` +
+						`Duplicate dependency names detected in workspace "${workspaceConfig.id}": ` +
 							`multiple dependencies resolve to name "${resolvedConfig.name}". ` +
 							`Each dependency must have a unique name.`,
 					);
@@ -308,7 +330,7 @@ export function initializeWorkspaces(
 				const depClient = clients.get(depId);
 				if (!depClient) {
 					throw new Error(
-						`Internal error: dependency "${depId}" should have been initialized before "${ws.id}"`,
+						`Internal error: dependency "${depId}" should have been initialized before "${workspaceConfig.id}"`,
 					);
 				}
 
@@ -320,18 +342,18 @@ export function initializeWorkspaces(
 		// Now that all dependencies are ready, initialize this workspace's core components
 
 		// Create YJS document with workspace ID as the document GUID
-		const ydoc = new Y.Doc({ guid: ws.id });
+		const ydoc = new Y.Doc({ guid: workspaceConfig.id });
 
 		// Set up YDoc synchronization and persistence (if user provided a setupYDoc function)
 		// IMPORTANT: This must run BEFORE createEpicenterDb so that persisted data is loaded
 		// into the YDoc before table initialization
-		ws.setupYDoc?.(ydoc);
+		workspaceConfig.setupYDoc?.(ydoc);
 
 		// Initialize Epicenter database (wraps YJS with table/record API)
-		const db = createEpicenterDb(ydoc, ws.schema);
+		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
 		// Call the indexes factory function to get index definitions
-		const indexesObject = ws.indexes({ db });
+		const indexesObject = workspaceConfig.indexes({ db });
 
 		// Validate no duplicate index IDs (keys of returned object)
 		const indexIds = Object.keys(indexesObject);
@@ -358,7 +380,7 @@ export function initializeWorkspaces(
 		// - workspaces: initialized dependency clients (keyed by dep.name)
 		// - db: Epicenter database API
 		// - indexes: exported resources from each index (db, queries, etc.)
-		const actionMap = ws.actions({
+		const actionMap = workspaceConfig.actions({
 			workspaces,
 			db,
 			indexes,
@@ -388,8 +410,8 @@ export function initializeWorkspaces(
 
 	// Initialize all workspaces in topological order
 	for (const workspaceId of sorted) {
-		const ws = workspaceConfigs.get(workspaceId)!;
-		const client = initializeWorkspace(ws);
+		const workspaceConfig = workspaceConfigs.get(workspaceId)!;
+		const client = initializeWorkspace(workspaceConfig);
 		clients.set(workspaceId, client);
 	}
 
@@ -408,26 +430,37 @@ export function initializeWorkspaces(
  * @returns Initialized workspace client
  */
 export function createWorkspaceClient<
+	const TDeps extends readonly ImmediateDependencyWorkspaceConfig[],
 	const TId extends string,
 	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
+		TDeps,
 		TId,
 		TVersion,
 		string,
 		TWorkspaceSchema,
-		TDeps,
 		TIndexes,
 		TActionMap
 	>,
 	config: RuntimeConfig = {},
 ): WorkspaceClient<TActionMap> {
-	// Use the shared initialization logic with a single root workspace
-	const clients = initializeWorkspaces([workspace], config);
+	// Collect all workspace configs (root + dependencies) for flat/hoisted initialization
+	const allWorkspaceConfigs: ImmediateDependencyWorkspaceConfig[] = [];
+
+	// Add all dependencies first
+	if (workspace.dependencies) {
+		allWorkspaceConfigs.push(...workspace.dependencies);
+	}
+
+	// Add root workspace last
+	allWorkspaceConfigs.push(workspace as any);
+
+	// Use the shared initialization logic with flat dependency array
+	const clients = initializeWorkspaces(allWorkspaceConfigs, config);
 
 	// Return the client for the root workspace
 	const rootClient = clients.get(workspace.id);

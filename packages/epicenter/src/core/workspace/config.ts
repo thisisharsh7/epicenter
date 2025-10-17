@@ -84,24 +84,24 @@ import type { Index, WorkspaceIndexMap } from '../indexes';
  * ```
  */
 export function defineWorkspace<
+	const TDeps extends readonly ImmediateDependencyWorkspaceConfig[],
 	const TId extends string,
 	const TVersion extends number,
 	const TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TDeps extends readonly DependencyWorkspaceConfig[],
 	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
+		TDeps,
 		TId,
 		TVersion,
 		TName,
 		TWorkspaceSchema,
-		TDeps,
 		TIndexes,
 		TActionMap
 	>,
-): WorkspaceConfig<TId, TVersion, TName, TWorkspaceSchema, TDeps, TIndexes, TActionMap> {
+): WorkspaceConfig<TDeps, TId, TVersion, TName, TWorkspaceSchema, TIndexes, TActionMap> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -136,14 +136,28 @@ export function defineWorkspace<
 }
 
 /**
- * Workspace configuration definition
+ * Workspace configuration definition (Root/Top-level workspace)
+ *
+ * This is the root workspace type in a three-tier dependency hierarchy designed to
+ * prevent infinite type recursion while preserving full type information for immediate dependencies.
+ *
+ * ## Three-Tier Type Hierarchy
+ *
+ * ```
+ * Layer 1 (Root): WorkspaceConfig
+ *   dependencies: ImmediateDependencyWorkspaceConfig[] ← Full type info
+ *     dependencies: DependencyWorkspaceConfig[] ← Minimal constraint
+ * ```
+ *
+ * @see ImmediateDependencyWorkspaceConfig for Layer 2 (immediate dependencies)
+ * @see DependencyWorkspaceConfig for Layer 3 (transitive dependencies, minimal constraint)
  */
 export type WorkspaceConfig<
+	TDeps extends readonly ImmediateDependencyWorkspaceConfig[] = readonly ImmediateDependencyWorkspaceConfig[],
 	TId extends string = string,
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TDeps extends readonly DependencyWorkspaceConfig[] = readonly DependencyWorkspaceConfig[],
 	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
@@ -264,40 +278,102 @@ export type WorkspaceConfig<
 };
 
 /**
- * Dependency workspace config - a lightweight constraint for workspace dependencies.
+ * Dependency workspace config (Layer 3: Transitive dependencies, minimal constraint)
  *
- * This type is intentionally minimal, containing only the properties needed for type extraction:
- * - `name`: Used to create property names in the `workspaces` API (e.g., `workspaces.auth.login()`)
- * - `actions`: Used to infer action maps that are merged in `DependencyWorkspacesAPI`
+ * This is the minimal constraint type for transitive dependencies, designed to prevent
+ * infinite type recursion while still providing type information for action access.
  *
- * All other workspace properties (`id`, `version`, `schema`, `indexes`, `setupYDoc`) don't need to be part of this
- * constraint type since they're not used in type-level operations.
+ * ## Why Minimal?
  *
- * By omitting the `dependencies` field, this type prevents recursive type inference that would
- * otherwise slow down TypeScript or cause infinite depth errors when workspaces depend on each other.
+ * By including only `id`, `version`, and `actions` (and crucially, omitting the `dependencies` field),
+ * this type stops the recursive type inference chain. Without this constraint, TypeScript would
+ * try to infer dependencies of dependencies of dependencies infinitely, causing compilation to
+ * slow down or fail with "Type instantiation is excessively deep" errors.
  *
- * @example
- * ```typescript
- * const workspaceB = defineWorkspace({
- *   dependencies: [workspaceA],  // ← TypeScript infers workspaceA as DependencyWorkspaceConfig
- *   actions: ({ workspaces }) => ({
- *     doSomething: defineQuery({
- *       handler: async () => {
- *         // Access inferred actions from workspaceA
- *         await workspaces.workspaceA.someAction();
- *       }
- *     })
- *   })
- * });
+ * ## Runtime vs Type-level
+ *
+ * At runtime, objects passed as dependencies are full workspace configs with all properties.
+ * This type is purely a type-level constraint for type inference. The flat dependency resolution
+ * (hoisted dependencies at root level) ensures all transitive dependencies are available during
+ * initialization, even though the type system treats them as minimal constraints.
+ *
+ * ## Three-Tier Hierarchy Position
+ *
  * ```
+ * Layer 1: WorkspaceConfig                     ← Full workspace
+ *   dependencies: ImmediateDependencyWorkspaceConfig[]
+ *     dependencies: DependencyWorkspaceConfig[] ← You are here (minimal)
+ * ```
+ *
+ * @see WorkspaceConfig for Layer 1 (root workspace)
+ * @see ImmediateDependencyWorkspaceConfig for Layer 2 (immediate dependencies)
  */
 export type DependencyWorkspaceConfig<
-	TName extends string = string,
+	TId extends string = string,
+	TVersion extends number = number,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
-	name: TName;
+	id: TId;
+	version: TVersion;
 	actions: (context: any) => TActionMap;
 	// NOTE: No dependencies field - this prevents recursive type inference
+};
+
+/**
+ * Immediate dependency workspace config (Layer 2: Direct dependencies, full-featured)
+ *
+ * This is a fully-featured workspace configuration for workspaces that are direct dependencies
+ * of the root workspace. It's identical to WorkspaceConfig in structure except for its
+ * dependencies constraint.
+ *
+ * ## Key Difference from WorkspaceConfig
+ *
+ * While WorkspaceConfig allows dependencies of type `ImmediateDependencyWorkspaceConfig[]`,
+ * this type constrains dependencies to `DependencyWorkspaceConfig[]` (the minimal type).
+ * This two-level depth limit prevents infinite type recursion while still providing full
+ * type information for the most common use case: root workspace depending on immediate dependencies.
+ *
+ * ## Why Two Levels?
+ *
+ * Most applications have dependency graphs 1-2 levels deep. This type system provides:
+ * - **Level 1 (Root → Immediate)**: Full type inference with all workspace properties
+ * - **Level 2 (Immediate → Transitive)**: Minimal constraint to stop recursion
+ *
+ * The flat/hoisted dependency resolution at runtime ensures all workspaces are initialized
+ * correctly, regardless of the type-level constraints.
+ *
+ * ## Three-Tier Hierarchy Position
+ *
+ * ```
+ * Layer 1: WorkspaceConfig
+ *   dependencies: ImmediateDependencyWorkspaceConfig[] ← You are here (full-featured)
+ *     dependencies: DependencyWorkspaceConfig[]          ← Minimal constraint
+ * ```
+ *
+ * @see WorkspaceConfig for Layer 1 (root workspace)
+ * @see DependencyWorkspaceConfig for Layer 3 (transitive dependencies, minimal constraint)
+ */
+export type ImmediateDependencyWorkspaceConfig<
+	TDeps extends readonly DependencyWorkspaceConfig[] = readonly DependencyWorkspaceConfig[],
+	TId extends string = string,
+	TVersion extends number = number,
+	TName extends string = string,
+	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
+	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
+	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
+> = {
+	id: TId;
+	version: TVersion;
+	name: TName;
+	schema: TWorkspaceSchema;
+	dependencies?: TDeps;
+	indexes: (context: { db: Db<NoInfer<TWorkspaceSchema>> }) => TIndexes;
+	setupYDoc?: (ydoc: Y.Doc) => void;
+	actions: (context: {
+		db: Db<NoInfer<TWorkspaceSchema>>;
+		workspaces: DependencyWorkspacesAPI<NoInfer<TDeps>>;
+		indexes: IndexesAPI<NoInfer<TIndexes>>;
+	}) => TActionMap;
 };
 
 /**
@@ -329,8 +405,13 @@ export type AnyWorkspaceConfig = {
  *
  * Extracts only the necessary information (name and actions) from dependencies
  * without recursively inferring their nested dependency types.
+ *
+ * This type works with both DependencyWorkspaceConfig and ImmediateDependencyWorkspaceConfig
+ * by constraining to the common structure (name + actions).
  */
-export type DependencyWorkspacesAPI<TDeps extends readonly DependencyWorkspaceConfig[]> =
+export type DependencyWorkspacesAPI<
+	TDeps extends readonly { name: string; actions: (context: any) => WorkspaceActionMap }[],
+> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
