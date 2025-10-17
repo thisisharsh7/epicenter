@@ -15,74 +15,78 @@ import type { WorkspaceSchema } from './schema';
 export type WorkspaceIndexMap = Record<string, Index>;
 
 /**
- * A collection of index exports indexed by export name.
+ * Factory function type that creates a WorkspaceIndexMap for a given workspace schema.
+ * Takes a database context and returns a map of indexes.
  *
- * Index exports provide access to the synchronized snapshot data and can include
- * database instances, query functions, table references, or any other tools needed
- * to interact with the indexed data.
- */
-type WorkspaceIndexExportsMap = Record<string, any>;
-
-/**
- * Index object with initialization function
- *
- * Indexes are objects with an `init` function that sets up observers and returns
- * a cleanup function (`Symbol.dispose`) alongside any exported resources (databases, queries, etc.)
- * The index name/ID is provided by the object key in the workspace configuration
+ * The second generic parameter captures the specific return type so it can flow into
+ * the actions context with full type information.
  *
  * @example
  * ```typescript
- * const sqliteIndex: Index = {
- *   init(db) {
- *     // Register observers
- *     const unsubPosts = db.tables.posts.observe({
- *       onAdd: (row) => { indexPost(row); },
- *       onUpdate: (row) => { reindexPost(row); },
- *       onDelete: (id) => { removePost(id); },
- *     });
- *
- *     // Initialization
- *     initializeIndex();
- *
- *     // Return cleanup function and exported resources (all at top level)
- *     return {
- *       [Symbol.dispose]() {
- *         unsubPosts();
- *         cleanupIndex();
- *       },
- *       db: sqliteDb,
- *       search: (query: string) => { ... },
- *       getAll: () => { ... },
- *     };
- *   }
- * };
+ * const createIndexes: WorkspaceIndexMapConstructor<MySchema, MyIndexMap> = ({ db }) => ({
+ *   sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+ *   markdown: markdownIndex(db, { storagePath: './data' }),
+ * });
  * ```
  */
-export type Index<
-	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
-> = {
-	init: () => {
-		[Symbol.dispose]: () => void;
-	} & TExportsMap;
-};
+export type WorkspaceIndexMapConstructor<
+	TWorkspaceSchema extends WorkspaceSchema,
+	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
+> = (context: { db: Db<TWorkspaceSchema> }) => TIndexMap;
 
 /**
- * Define an index with type safety
+ * Index type - an object with cleanup function and any exported resources
+ *
+ * Indexes set up observers on YJS documents and export resources like:
+ * - Database instances (SQLite, etc.)
+ * - Query functions
+ * - Table references
+ * - Any other tools needed to interact with the indexed data
+ *
+ * All indexes must include Symbol.dispose for cleanup.
+ *
+ * @example
+ * ```typescript
+ * function sqliteIndex(db, config): Index<{ db: Database, posts: Table }> {
+ *   // Register observers
+ *   const unsubPosts = db.tables.posts.observe({
+ *     onAdd: (row) => { indexPost(row); },
+ *     onUpdate: (row) => { reindexPost(row); },
+ *     onDelete: (id) => { removePost(id); },
+ *   });
+ *
+ *   // Initialization
+ *   initializeIndex();
+ *
+ *   // Return cleanup function and exported resources
+ *   return {
+ *     [Symbol.dispose]() {
+ *       unsubPosts();
+ *       cleanupIndex();
+ *     },
+ *     db: sqliteDb,
+ *     posts: postsTable,
+ *   };
+ * }
+ * ```
+ */
+export type Index<TExports = {}> = {
+	[Symbol.dispose]: () => void;
+} & TExports;
+
+/**
+ * Define an index with type safety (identity function)
  *
  * @example
  * ```typescript
  * const sqliteIndex = defineIndex({
- *   init: (db) => ({
- *     [Symbol.dispose]: () => { ... },
- *     db: sqliteDb,
- *     findById: async (id: string) => { ... }
- *   })
+ *   [Symbol.dispose]: () => { ... },
+ *   db: sqliteDb,
+ *   findById: async (id: string) => { ... }
  * })
  * ```
  */
-export function defineIndex<
-	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
->(index: Index<TExportsMap>): Index<TExportsMap> {
+export function defineIndex<TExports = {}>(index: Index<TExports>): Index<TExports> {
 	return index;
 }
 

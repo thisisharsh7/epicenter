@@ -1,8 +1,8 @@
 import type * as Y from 'yjs';
 import type { Db } from '../../db/core';
 import type { WorkspaceActionMap } from '../actions';
+import type { WorkspaceIndexMap, WorkspaceIndexMapConstructor } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
-import type { Index, WorkspaceIndexMap } from '../indexes';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -219,7 +219,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	indexes: (context: { db: Db<NoInfer<TWorkspaceSchema>> }) => TIndexMap;
+	indexes: WorkspaceIndexMapConstructor<TWorkspaceSchema, TIndexMap>;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -268,11 +268,11 @@ export type WorkspaceConfig<
 	 */
 	actions: (context: {
 		/** Database instance with table helpers, ydoc, schema, and utilities */
-		db: Db<NoInfer<TWorkspaceSchema>>;
+		db: Db<TWorkspaceSchema>;
 		/** Dependency workspaces - access actions from other workspaces */
-		workspaces: DependencyWorkspacesAPI<NoInfer<TDeps>>;
+		workspaces: DependencyWorkspacesAPI<TDeps>;
 		/** Indexes for this workspace - async read operations (select, search, etc.) */
-		indexes: IndexesAPI<NoInfer<TIndexMap>>;
+		indexes: IndexesAPI<TIndexMap>;
 	}) => TActionMap;
 };
 
@@ -368,12 +368,12 @@ export type ImmediateDependencyWorkspaceConfig<
 	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: TIndexMap;
+	indexes: WorkspaceIndexMapConstructor<TWorkspaceSchema, TIndexMap>;
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: {
-		db: Db<NoInfer<TWorkspaceSchema>>;
-		workspaces: DependencyWorkspacesAPI<NoInfer<TDeps>>;
-		indexes: IndexesAPI<NoInfer<TIndexMap>>;
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyWorkspacesAPI<TDeps>;
+		indexes: IndexesAPI<TIndexMap>;
 	}) => TActionMap;
 };
 
@@ -426,12 +426,10 @@ export type DependencyWorkspacesAPI<
 			};
 
 /**
- * Indexes API - extracts only the queries from indexes
- * Converts record of indexes to record of queries keyed by same keys
+ * Indexes API - extracts index exports without Symbol.dispose
+ * Strips the Symbol.dispose cleanup function while preserving all other exports
  */
 export type IndexesAPI<TIndexMap extends WorkspaceIndexMap> = {
-	[K in keyof TIndexMap]: TIndexMap[K] extends Index<infer TQueryMap>
-		? TQueryMap
-		: never;
+	[K in keyof TIndexMap]: Omit<TIndexMap[K], typeof Symbol.dispose>;
 };
 
