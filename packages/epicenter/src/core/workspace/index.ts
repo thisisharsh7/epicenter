@@ -6,7 +6,6 @@ export type {
 	ImmediateDependencyWorkspaceConfig,
 	DependencyWorkspaceConfig,
 	DependencyWorkspacesAPI,
-	IndexesAPI,
 } from './config';
 
 // Runtime (client side)

@@ -272,7 +272,7 @@ export type WorkspaceConfig<
 		/** Dependency workspaces - access actions from other workspaces */
 		workspaces: DependencyWorkspacesAPI<TDeps>;
 		/** Indexes for this workspace - async read operations (select, search, etc.) */
-		indexes: IndexesAPI<TIndexMap>;
+		indexes: TIndexMap;
 	}) => TActionMap;
 };
 
@@ -373,7 +373,7 @@ export type ImmediateDependencyWorkspaceConfig<
 	actions: (context: {
 		db: Db<TWorkspaceSchema>;
 		workspaces: DependencyWorkspacesAPI<TDeps>;
-		indexes: IndexesAPI<TIndexMap>;
+		indexes: TIndexMap;
 	}) => TActionMap;
 };
 
@@ -424,12 +424,4 @@ export type DependencyWorkspacesAPI<
 					? TActionMap
 					: never;
 			};
-
-/**
- * Indexes API - extracts index exports without Symbol.dispose
- * Strips the Symbol.dispose cleanup function while preserving all other exports
- */
-export type IndexesAPI<TIndexMap extends WorkspaceIndexMap> = {
-	[K in keyof TIndexMap]: Omit<TIndexMap[K], typeof Symbol.dispose>;
-};
 
