@@ -18,7 +18,7 @@ const blogWorkspace = defineWorkspace({
   version: 1,
   name: 'blog',
   schema: { /* your schema */ },
-  indexes: ({ db }) => ({ /* your indexes */ }),
+  indexes: { /* your indexes */ },
   actions: ({ db, indexes }) => ({
     createPost: defineMutation({
       input: z.object({ title: z.string() }),
@@ -158,9 +158,9 @@ const notesWorkspace = defineWorkspace({
       tags: multiSelect({ options: ['work', 'personal', 'ideas'] }),
     }
   },
-  indexes: ({ db }) => ({
-    sqlite: sqliteIndex({ db, databaseUrl: './data/notes.db' })
-  }),
+  indexes: {
+    sqlite: sqliteIndex({ databaseUrl: './data/notes.db' })
+  },
   actions: ({ db, indexes }) => ({
     createNote: defineMutation({
       input: z.object({

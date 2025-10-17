@@ -36,9 +36,9 @@ const pages = defineWorkspace({
 		},
 	},
 
-	indexes: ({ db }) => ({
-		sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
-	}),
+	indexes: {
+		sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
+	},
 
 	actions: ({ db, indexes }) => ({
 		getPages: defineQuery({
@@ -137,9 +137,9 @@ const contentHub = defineWorkspace({
 		},
 	},
 
-	indexes: ({ db }) => ({
-		sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
-	}),
+	indexes: {
+		sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
+	},
 
 	actions: ({ db, indexes, workspaces }) => ({
 		createYouTubePost: defineMutation({
@@ -453,9 +453,9 @@ describe('Epicenter', () => {
 						value: text(),
 					},
 				},
-				indexes: ({ db }) => ({
-					sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
-				}),
+				indexes: {
+					sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
+				},
 				actions: ({ workspaces }) => ({
 					getValue: defineQuery({
 						handler: () => Ok(`value-from-${name}`),

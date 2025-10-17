@@ -89,7 +89,7 @@ export function defineWorkspace<
 	const TVersion extends number,
 	const TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
+	TIndexMap extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
@@ -98,10 +98,10 @@ export function defineWorkspace<
 		TVersion,
 		TName,
 		TWorkspaceSchema,
-		TIndexes,
+		TIndexMap,
 		TActionMap
 	>,
-): WorkspaceConfig<TDeps, TId, TVersion, TName, TWorkspaceSchema, TIndexes, TActionMap> {
+): WorkspaceConfig<TDeps, TId, TVersion, TName, TWorkspaceSchema, TIndexMap, TActionMap> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -158,7 +158,7 @@ export type WorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
+	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	/**
@@ -210,17 +210,16 @@ export type WorkspaceConfig<
 
 	/**
 	 * Indexes definition - creates synchronized snapshots for querying
-	 * Factory function that receives database context and returns index objects
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ db }) => ({
-	 *   sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
-	 *   markdown: markdownIndex({ db, storagePath: './data' }),
-	 * })
+	 * indexes: {
+	 *   sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
+	 *   markdown: markdownIndex({ storagePath: './data' }),
+	 * }
 	 * ```
 	 */
-	indexes: (context: { db: Db<NoInfer<TWorkspaceSchema>> }) => TIndexes;
+	indexes: TIndexMap;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -273,7 +272,7 @@ export type WorkspaceConfig<
 		/** Dependency workspaces - access actions from other workspaces */
 		workspaces: DependencyWorkspacesAPI<NoInfer<TDeps>>;
 		/** Indexes for this workspace - async read operations (select, search, etc.) */
-		indexes: IndexesAPI<NoInfer<TIndexes>>;
+		indexes: IndexesAPI<NoInfer<TIndexMap>>;
 	}) => TActionMap;
 };
 
@@ -361,7 +360,7 @@ export type ImmediateDependencyWorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema> = WorkspaceIndexMap<TWorkspaceSchema>,
+	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	id: TId;
@@ -369,12 +368,12 @@ export type ImmediateDependencyWorkspaceConfig<
 	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: (context: { db: Db<NoInfer<TWorkspaceSchema>> }) => TIndexes;
+	indexes: TIndexMap;
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: {
 		db: Db<NoInfer<TWorkspaceSchema>>;
 		workspaces: DependencyWorkspacesAPI<NoInfer<TDeps>>;
-		indexes: IndexesAPI<NoInfer<TIndexes>>;
+		indexes: IndexesAPI<NoInfer<TIndexMap>>;
 	}) => TActionMap;
 };
 
@@ -396,7 +395,7 @@ export type AnyWorkspaceConfig = {
 	name: string;
 	schema: any;
 	dependencies?: readonly any[];
-	indexes: (context: any) => any;
+	indexes: any;
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: any) => any;
 };
@@ -430,8 +429,8 @@ export type DependencyWorkspacesAPI<
  * Indexes API - extracts only the queries from indexes
  * Converts record of indexes to record of queries keyed by same keys
  */
-export type IndexesAPI<TIndexes extends WorkspaceIndexMap<any>> = {
-	[K in keyof TIndexes]: TIndexes[K] extends Index<any, infer TQueryMap>
+export type IndexesAPI<TIndexMap extends WorkspaceIndexMap> = {
+	[K in keyof TIndexMap]: TIndexMap[K] extends Index<any, infer TQueryMap>
 		? TQueryMap
 		: never;
 };

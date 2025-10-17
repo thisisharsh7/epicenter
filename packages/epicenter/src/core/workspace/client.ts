@@ -311,8 +311,8 @@ export function initializeWorkspaces<
 		// Initialize Epicenter database (wraps YJS with table/record API)
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
-		// Call the indexes factory function to get index definitions
-		const indexesObject = workspaceConfig.indexes({ db });
+		// Get index definitions from workspace config
+		const indexesObject = workspaceConfig.indexes;
 
 		// Validate no duplicate index IDs (keys of returned object)
 		const indexIds = Object.keys(indexesObject);
@@ -397,7 +397,7 @@ export function createWorkspaceClient<
 	const TId extends string,
 	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
+	const TIndexMap extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
@@ -406,7 +406,7 @@ export function createWorkspaceClient<
 		TVersion,
 		string,
 		TWorkspaceSchema,
-		TIndexes,
+		TIndexMap,
 		TActionMap
 	>,
 ): WorkspaceClient<TActionMap> {

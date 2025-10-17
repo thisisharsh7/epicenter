@@ -18,12 +18,7 @@ import { tryAsync, Ok } from 'wellcrafted/result';
 /**
  * Markdown index configuration
  */
-export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
-	/**
-	 * Database instance with schema
-	 * Required for type inference
-	 */
-	db: Db<TWorkspaceSchema>;
+export type MarkdownIndexConfig = {
 	/**
 	 * Path where markdown files should be stored
 	 * Example: './data/markdown'
@@ -151,10 +146,9 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
  * Syncs YJS changes to markdown files for git-friendly persistence
  * No query interface - just persistence
  */
-export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema>({
-	db: _db,
+export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema>({
 	storagePath,
-}: MarkdownIndexConfig<TWorkspaceSchema>): Index<TWorkspaceSchema, {}> {
+}: MarkdownIndexConfig): Index<TWorkspaceSchema, {}> {
 	return defineIndex({
 		init: async (db: Db<TWorkspaceSchema>) => {
 			// Loop prevention: Track whether we're currently syncing

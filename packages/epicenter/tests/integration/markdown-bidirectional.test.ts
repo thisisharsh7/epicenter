@@ -41,12 +41,11 @@ describe('Markdown Bidirectional Sync', () => {
 			},
 		},
 
-		indexes: ({ db }) => ({
+		indexes: {
 			markdown: markdownIndex({
-				db,
 				storagePath: testStoragePath,
 			}),
-		}),
+		},
 
 		actions: ({ db }) => ({
 			createNote: defineMutation({

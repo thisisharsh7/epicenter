@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { z } from 'zod';
+import Type from 'typebox';
 import { defineEpicenter, createEpicenterClient } from '../core/epicenter';
 import {
 	defineWorkspace,
@@ -11,7 +11,6 @@ import {
 } from '../index';
 import { Ok } from 'wellcrafted/result';
 import { createCLI } from './create-cli';
-import { createZodConverter } from './converters/zod';
 
 describe('CLI Integration', () => {
 	const testWorkspace = defineWorkspace({
@@ -27,15 +26,15 @@ describe('CLI Integration', () => {
 			},
 		},
 
-		indexes: ({ db }) => ({
-			sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
-		}),
+		indexes: {
+			sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
+		},
 
 		actions: ({ db }) => ({
 			createItem: defineMutation({
-				input: z.object({
-					name: z.string().describe('Item name'),
-					count: z.number().default(1).describe('Item count'),
+				input: Type.Object({
+					name: Type.String({ description: 'Item name' }),
+					count: Type.Number({ description: 'Item count', default: 1 }),
 				}),
 				handler: async ({ name, count }) => {
 					const item = {
@@ -60,21 +59,9 @@ describe('CLI Integration', () => {
 		expect(cli).toBeDefined();
 	});
 
-	test('Zod converter extracts schema fields for CLI flags', () => {
-		const converter = createZodConverter();
-		const schema = z.object({
-			name: z.string().describe('Item name'),
-			count: z.number().default(1),
-		});
-
-		// Verify converter detects Zod schemas
-		expect(converter.condition(schema as any)).toBe(true);
-	});
-
 	test('creates CLI with proper command structure', () => {
 		const cli = createCLI(epicenter, {
 			argv: [],
-			schemaConverters: [createZodConverter()],
 		});
 
 		// Verify CLI has basic yargs structure

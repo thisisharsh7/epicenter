@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { z } from 'zod';
+import Type from 'typebox';
 import { defineEpicenter } from '../core/epicenter';
 import {
 	defineWorkspace,
@@ -25,9 +25,9 @@ describe('createCLI', () => {
 			},
 		},
 
-		indexes: ({ db }) => ({
-			sqlite: sqliteIndex({ db, databaseUrl: ':memory:' }),
-		}),
+		indexes: {
+			sqlite: sqliteIndex({ databaseUrl: ':memory:' }),
+		},
 
 		actions: ({ db, indexes }) => ({
 			getItems: defineQuery({
@@ -41,8 +41,8 @@ describe('createCLI', () => {
 			}),
 
 			createItem: defineMutation({
-				input: z.object({
-					name: z.string().describe('The item name'),
+				input: Type.Object({
+					name: Type.String({ description: 'The item name' }),
 				}),
 				handler: async ({ name }) => {
 					const item = { id: `item-${Date.now()}`, name };

@@ -65,10 +65,7 @@ export type Index<
  * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
  * that sync with the YJS document and provide different access patterns to the data.
  */
-export type WorkspaceIndexMap<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = Record<
-	string,
-	Index<TWorkspaceSchema>
->;
+export type WorkspaceIndexMap = Record<string, Index<WorkspaceSchema>>;
 
 /**
  * Context passed to index factory functions

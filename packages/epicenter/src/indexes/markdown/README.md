@@ -97,12 +97,11 @@ const workspace = defineWorkspace({
     },
   },
 
-  indexes: ({ db }) => ({
+  indexes: {
     markdown: markdownIndex({
-      db,
       storagePath: './content', // Where markdown files will be stored
     }),
-  }),
+  },
 });
 ```
 

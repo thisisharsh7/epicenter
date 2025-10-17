@@ -1,7 +1,7 @@
 import { createClient } from '@libsql/client';
 import { eq, sql } from 'drizzle-orm';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
+import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { tryAsync, Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type {
@@ -21,12 +21,7 @@ import {
 /**
  * SQLite index configuration
  */
-export type SQLiteIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
-	/**
-	 * Database instance with schema
-	 * Required for type inference
-	 */
-	db: Db<TWorkspaceSchema>;
+export type SQLiteIndexConfig = {
 	/**
 	 * Database URL for SQLite
 	 * Can be a file path (./data/db.sqlite) or :memory: for in-memory
@@ -82,50 +77,35 @@ function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
 
 /**
  * Create SQLite tables if they don't exist
+ * Uses Drizzle's official getTableConfig API for introspection
  */
 async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable>>(
 	db: LibSQLDatabase<TSchema>,
 	drizzleTables: TSchema,
 ): Promise<void> {
-	for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
-		// Extract column definitions from Drizzle table
-		const columns = (drizzleTable as any)[Symbol.for('drizzle:Columns')];
+	for (const drizzleTable of Object.values(drizzleTables)) {
+		const tableConfig = getTableConfig(drizzleTable);
 		const columnDefs: string[] = [];
 
-		for (const [columnName, column] of Object.entries(columns)) {
-			const config = (column as any).config;
-			const columnType = config.columnType;
-
-			let sqlType = 'TEXT';
-			if (
-				columnType === 'SQLiteInteger' ||
-				columnType === 'SQLiteTimestamp' ||
-				columnType === 'SQLiteBoolean'
-			) {
-				sqlType = 'INTEGER';
-			} else if (columnType === 'SQLiteReal') {
-				sqlType = 'REAL';
-			} else if (columnType === 'SQLiteNumeric') {
-				sqlType = 'NUMERIC';
-			} else if (columnType === 'SQLiteBlob') {
-				sqlType = 'BLOB';
-			}
+		for (const column of tableConfig.columns) {
+			// Use column.getSQLType() to get the SQL type directly
+			const sqlType = column.getSQLType();
 
 			let constraints = '';
-			if (config.notNull === true) {
+			if (column.notNull) {
 				constraints += ' NOT NULL';
 			}
-			if (config.primaryKey === true) {
+			if (column.primary) {
 				constraints += ' PRIMARY KEY';
 			}
-			if (config.isUnique === true) {
+			if (column.isUnique) {
 				constraints += ' UNIQUE';
 			}
 
-			columnDefs.push(`${columnName} ${sqlType}${constraints}`);
+			columnDefs.push(`${column.name} ${sqlType}${constraints}`);
 		}
 
-		const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableName} (${columnDefs.join(', ')})`;
+		const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableConfig.name} (${columnDefs.join(', ')})`;
 		await db.run(sql.raw(createTableSQL));
 	}
 }
@@ -135,9 +115,8 @@ async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  */
 export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>({
-	db: _db,
 	databaseUrl = ':memory:',
-}: SQLiteIndexConfig<TWorkspaceSchema>): Index<
+}: SQLiteIndexConfig = {}): Index<
 	TWorkspaceSchema,
 	{
 		[Symbol.dispose]: () => void;
