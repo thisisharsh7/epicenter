@@ -36,7 +36,7 @@ export async function createWorkspaceServer<
 	TVersion extends number,
 	TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
+	TIndexes extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
 >(
 	config: WorkspaceConfig<

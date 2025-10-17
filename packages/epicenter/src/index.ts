@@ -70,7 +70,7 @@ export type { TableHelper, Db } from './db/core';
 
 // Index system
 export { defineIndex } from './core/indexes';
-export type { Index, IndexContext, WorkspaceIndexMap } from './core/indexes';
+export type { Index, WorkspaceIndexMap } from './core/indexes';
 
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';

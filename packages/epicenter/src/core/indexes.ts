@@ -7,6 +7,14 @@ import type { WorkspaceSchema } from './schema';
  */
 
 /**
+ * A collection of workspace indexes indexed by index name.
+ *
+ * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
+ * that sync with the YJS document and provide different access patterns to the data.
+ */
+export type WorkspaceIndexMap = Record<string, Index<WorkspaceSchema>>;
+
+/**
  * A collection of index exports indexed by export name.
  *
  * Index exports provide access to the synchronized snapshot data and can include
@@ -57,27 +65,6 @@ export type Index<
 	init: (db: Db<TWorkspaceSchema>) => {
 		[Symbol.dispose]: () => void;
 	} & TExportsMap;
-};
-
-/**
- * A collection of workspace indexes indexed by index name.
- *
- * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
- * that sync with the YJS document and provide different access patterns to the data.
- */
-export type WorkspaceIndexMap = Record<string, Index<WorkspaceSchema>>;
-
-/**
- * Context passed to index factory functions
- */
-export type IndexContext<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
-	/**
-	 * The Epicenter database object with high-level CRUD methods
-	 * Use methods like getAllRows(), getRow(), etc. instead of raw YJS access
-	 * Table schemas are available via db.schema
-	 * Workspace ID is available via db.ydoc.guid
-	 */
-	db: Db<TWorkspaceSchema>;
 };
 
 /**

@@ -1,6 +1,4 @@
 import type { Context } from 'hono';
-import type { WorkspaceAction, WorkspaceActionMap } from '../core/actions';
-import { executeAction } from './utils';
 
 /**
  * MCP Tool definition following Model Context Protocol spec
