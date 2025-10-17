@@ -119,144 +119,135 @@ async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable
  */
 export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	db: Db<TWorkspaceSchema>,
-	{
-		databaseUrl = ':memory:',
-	}: SQLiteIndexConfig = {}
+	{ databaseUrl = ':memory:' }: SQLiteIndexConfig = {},
 ): Index<
 	{
-		[Symbol.dispose]: () => void;
 		db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>>;
 	} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
 > {
-	return defineIndex({
-		init: () => {
-			// Convert table schemas to Drizzle tables
-			const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
+	// Convert table schemas to Drizzle tables
+	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
-			// Create database connection with schema for proper type inference
-			const sqliteDb = drizzle(
-				createClient({ url: databaseUrl }),
-				{ schema: drizzleTables },
-			);
+	// Create database connection with schema for proper type inference
+	const sqliteDb = drizzle(
+		createClient({ url: databaseUrl }),
+		{ schema: drizzleTables },
+	);
 
-			// Set up observers for each table
-			const unsubscribers: Array<() => void> = [];
+	// Set up observers for each table
+	const unsubscribers: Array<() => void> = [];
 
-			for (const tableName of db.getTableNames()) {
-				const drizzleTable = drizzleTables[tableName];
-				if (!drizzleTable) {
-					throw new Error(`Drizzle table for "${tableName}" not found`);
-				}
+	for (const tableName of db.getTableNames()) {
+		const drizzleTable = drizzleTables[tableName];
+		if (!drizzleTable) {
+			throw new Error(`Drizzle table for "${tableName}" not found`);
+		}
 
-				const unsub = db.tables[tableName]!.observe({
-					onAdd: async (row) => {
-						const { error } = await tryAsync({
-							try: async () => {
-								const serializedRow = serializeRowForSQLite(row);
-								await sqliteDb.insert(drizzleTable as any).values(serializedRow);
-							},
-							catch: () => Ok(undefined),
-						});
-
-						if (error) {
-							console.error(
-								IndexErr({
-									message: `SQLite index onAdd failed for ${tableName}/${row.id}`,
-									context: { tableName, id: row.id, data: row },
-									cause: error,
-								}),
-							);
-						}
+		const unsub = db.tables[tableName]!.observe({
+			onAdd: async (row) => {
+				const { error } = await tryAsync({
+					try: async () => {
+						const serializedRow = serializeRowForSQLite(row);
+						await sqliteDb.insert(drizzleTable as any).values(serializedRow);
 					},
-					onUpdate: async (row) => {
-						const { error } = await tryAsync({
-							try: async () => {
-								const serializedRow = serializeRowForSQLite(row);
-								await sqliteDb
-									.update(drizzleTable as any)
-									.set(serializedRow)
-									.where(eq((drizzleTable as any).id, row.id));
-							},
-							catch: () => Ok(undefined),
-						});
-
-						if (error) {
-							console.error(
-								IndexErr({
-									message: `SQLite index onUpdate failed for ${tableName}/${row.id}`,
-									context: { tableName, id: row.id, data: row },
-									cause: error,
-								}),
-							);
-						}
-					},
-					onDelete: async (id) => {
-						const { error } = await tryAsync({
-							try: async () => {
-								await sqliteDb
-									.delete(drizzleTable as any)
-									.where(eq((drizzleTable as any).id, id));
-							},
-							catch: () => Ok(undefined),
-						});
-
-						if (error) {
-							console.error(
-								IndexErr({
-									message: `SQLite index onDelete failed for ${tableName}/${id}`,
-									context: { tableName, id },
-									cause: error,
-								}),
-							);
-						}
-					},
+					catch: () => Ok(undefined),
 				});
-				unsubscribers.push(unsub);
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `SQLite index onAdd failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id, data: row },
+							cause: error,
+						}),
+					);
+				}
+			},
+			onUpdate: async (row) => {
+				const { error } = await tryAsync({
+					try: async () => {
+						const serializedRow = serializeRowForSQLite(row);
+						await sqliteDb
+							.update(drizzleTable as any)
+							.set(serializedRow)
+							.where(eq((drizzleTable as any).id, row.id));
+					},
+					catch: () => Ok(undefined),
+				});
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `SQLite index onUpdate failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id, data: row },
+							cause: error,
+						}),
+					);
+				}
+			},
+			onDelete: async (id) => {
+				const { error } = await tryAsync({
+					try: async () => {
+						await sqliteDb
+							.delete(drizzleTable as any)
+							.where(eq((drizzleTable as any).id, id));
+					},
+					catch: () => Ok(undefined),
+				});
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `SQLite index onDelete failed for ${tableName}/${id}`,
+							context: { tableName, id },
+							cause: error,
+						}),
+					);
+				}
+			},
+		});
+		unsubscribers.push(unsub);
+	}
+
+	// Initial sync: YJS → SQLite
+	(async () => {
+		await createTablesIfNotExist(sqliteDb, drizzleTables);
+
+		for (const tableName of db.getTableNames()) {
+			const drizzleTable = drizzleTables[tableName];
+			if (!drizzleTable) {
+				throw new Error(`Drizzle table for "${tableName}" not found`);
 			}
 
-			// Initial sync: YJS → SQLite
-			(async () => {
-				await createTablesIfNotExist(sqliteDb, drizzleTables);
+			const { valid: rows } = db.tables[tableName]!.getAll();
 
-				for (const tableName of db.getTableNames()) {
-					const drizzleTable = drizzleTables[tableName];
-					if (!drizzleTable) {
-						throw new Error(`Drizzle table for "${tableName}" not found`);
-					}
+			for (const row of rows) {
+				const { error } = await tryAsync({
+					try: async () => {
+						const serializedRow = serializeRowForSQLite(row);
+						await sqliteDb.insert(drizzleTable as any).values(serializedRow);
+					},
+					catch: () => Ok(undefined),
+				});
 
-					const { valid: rows } = db.tables[tableName]!.getAll();
-
-					for (const row of rows) {
-						const { error } = await tryAsync({
-							try: async () => {
-								const serializedRow = serializeRowForSQLite(row);
-								await sqliteDb
-									.insert(drizzleTable as any)
-									.values(serializedRow);
-							},
-							catch: () => Ok(undefined),
-						});
-
-						if (error) {
-							console.warn(
-								`Failed to sync row ${row.id} to SQLite during init:`,
-								error,
-							);
-						}
-					}
+				if (error) {
+					console.warn(
+						`Failed to sync row ${row.id} to SQLite during init:`,
+						error,
+					);
 				}
-			})();
+			}
+		}
+	})();
 
-			// Return dispose function alongside exported resources (flattened structure)
-			return {
-				[Symbol.dispose]() {
-					for (const unsub of unsubscribers) {
-						unsub();
-					}
-				},
-				db: sqliteDb,
-				...drizzleTables,
-			};
+	// Return dispose function alongside exported resources (flattened structure)
+	return {
+		[Symbol.dispose]() {
+			for (const unsub of unsubscribers) {
+				unsub();
+			}
 		},
-	});
+		db: sqliteDb,
+		...drizzleTables,
+	};
 }

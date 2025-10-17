@@ -312,27 +312,12 @@ export function initializeWorkspaces<
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
 		// Get index definitions from workspace config by calling the indexes callback
-		const indexesObject = workspaceConfig.indexes({ db });
+		const indexes = workspaceConfig.indexes({ db });
 
 		// Validate no duplicate index IDs (keys of returned object)
-		const indexIds = Object.keys(indexesObject);
+		const indexIds = Object.keys(indexes);
 		if (new Set(indexIds).size !== indexIds.length) {
 			throw new Error('Duplicate index IDs detected');
-		}
-
-		// Initialize each index by calling its init function
-		// Indexes set up observers on the YJS document and return exported resources
-		const indexes: Record<
-			string,
-			{ [Symbol.dispose]: () => void } & Record<string, any>
-		> = {};
-
-		for (const [indexKey, index] of Object.entries(indexesObject)) {
-			try {
-				indexes[indexKey] = index.init();
-			} catch (error) {
-				console.error(`Failed to initialize index "${indexKey}":`, error);
-			}
 		}
 
 		// Call the actions factory to get action definitions, passing:
