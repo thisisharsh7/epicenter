@@ -4,13 +4,13 @@ description: Stage modified tracked files for commit
 model: claude-sonnet-4-5
 ---
 
-# Stage Modified Files
+# Stage Session Files
 
-Stage all modified tracked files (excluding untracked files) for the next commit.
+Stage only the files that were edited by Claude Code in the current session.
 
 ## Instructions
-1. Check `git status` to see what files are modified
-2. Run `git add -u` to stage all modified and deleted tracked files
-3. Show the final staged status
+1. Identify all files that were modified using Edit or Write tools in this session
+2. Stage each file individually using `git add <file>`
+3. Show the final staged status with `git status`
 
-This command is designed to run before `/commit-message` to stage only the files you've edited in this session, without staging new untracked files.
+IMPORTANT: Do NOT use `git add -u` or `git add .` as these stage all modified files in the repository, including changes made outside this session. Only stage the specific files that Claude Code edited during this conversation.
