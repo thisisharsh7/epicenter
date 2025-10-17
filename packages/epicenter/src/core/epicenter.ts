@@ -209,26 +209,15 @@ export async function createEpicenterClient<
 ): Promise<EpicenterClient<TWorkspaces>> {
 	// Initialize all workspaces using shared initialization logic
 	// This ensures workspace instances are properly shared across dependencies
+	// Returns an object keyed by workspace name
 	const clients = initializeWorkspaces(config.workspaces, runtimeConfig);
 
-	// Build the epicenter client object by mapping workspace names to their clients
-	const workspaceClients: Record<string, WorkspaceClient<any>> = {};
-	for (const workspace of config.workspaces) {
-		const client = clients.get(workspace.id);
-		if (!client) {
-			throw new Error(
-				`Internal error: workspace "${workspace.id}" was not initialized`,
-			);
-		}
-		workspaceClients[workspace.name] = client;
-	}
-
 	const cleanup = async () => {
-		await Promise.all(Array.from(clients.values()).map((client) => client.destroy()));
+		await Promise.all(Object.values(clients).map((client: WorkspaceClient<any>) => client.destroy()));
 	};
 
 	return {
-		...workspaceClients,
+		...clients,
 		destroy: cleanup,
 		[Symbol.asyncDispose]: cleanup,
 	} as EpicenterClient<TWorkspaces>;
