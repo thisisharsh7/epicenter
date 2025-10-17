@@ -12,7 +12,7 @@ import type { WorkspaceSchema } from './schema';
  * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
  * that sync with the YJS document and provide different access patterns to the data.
  */
-export type WorkspaceIndexMap = Record<string, Index<WorkspaceSchema>>;
+export type WorkspaceIndexMap = Record<string, Index>;
 
 /**
  * A collection of index exports indexed by export name.
@@ -32,7 +32,7 @@ type WorkspaceIndexExportsMap = Record<string, any>;
  *
  * @example
  * ```typescript
- * const sqliteIndex: Index<MySchema> = {
+ * const sqliteIndex: Index = {
  *   init(db) {
  *     // Register observers
  *     const unsubPosts = db.tables.posts.observe({
@@ -59,7 +59,6 @@ type WorkspaceIndexExportsMap = Record<string, any>;
  * ```
  */
 export type Index<
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
 > = {
 	init: () => {
@@ -82,9 +81,8 @@ export type Index<
  * ```
  */
 export function defineIndex<
-	TWorkspaceSchema extends WorkspaceSchema,
 	TExportsMap extends WorkspaceIndexExportsMap = WorkspaceIndexExportsMap,
->(index: Index<TWorkspaceSchema, TExportsMap>): Index<TWorkspaceSchema, TExportsMap> {
+>(index: Index<TExportsMap>): Index<TExportsMap> {
 	return index;
 }
 

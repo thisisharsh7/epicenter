@@ -123,7 +123,6 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 		databaseUrl = ':memory:',
 	}: SQLiteIndexConfig = {}
 ): Index<
-	TWorkspaceSchema,
 	{
 		[Symbol.dispose]: () => void;
 		db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>>;

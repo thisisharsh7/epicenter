@@ -430,7 +430,7 @@ export type DependencyWorkspacesAPI<
  * Converts record of indexes to record of queries keyed by same keys
  */
 export type IndexesAPI<TIndexMap extends WorkspaceIndexMap> = {
-	[K in keyof TIndexMap]: TIndexMap[K] extends Index<any, infer TQueryMap>
+	[K in keyof TIndexMap]: TIndexMap[K] extends Index<infer TQueryMap>
 		? TQueryMap
 		: never;
 };

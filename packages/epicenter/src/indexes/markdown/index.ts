@@ -151,7 +151,7 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
 export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema>(
 	db: Db<TWorkspaceSchema>,
 	config: MarkdownIndexConfig
-): Index<TWorkspaceSchema, {}> {
+): Index<{}> {
 	const { storagePath } = config;
 	return defineIndex({
 		init: () => {
@@ -373,7 +373,7 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 			);
 
 			return {
-				destroy() {
+				[Symbol.dispose]() {
 					for (const unsub of unsubscribers) {
 						unsub();
 					}
