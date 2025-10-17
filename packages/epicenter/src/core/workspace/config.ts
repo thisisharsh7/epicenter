@@ -1,7 +1,7 @@
 import type * as Y from 'yjs';
 import type { Db } from '../../db/core';
 import type { WorkspaceActionMap } from '../actions';
-import type { WorkspaceIndexMap, WorkspaceIndexMapConstructor } from '../indexes';
+import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 
 /**
@@ -219,7 +219,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	indexes: WorkspaceIndexMapConstructor<TWorkspaceSchema, TIndexMap>;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -366,7 +366,7 @@ export type ImmediateDependencyWorkspaceConfig<
 	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: WorkspaceIndexMapConstructor<TWorkspaceSchema, TIndexMap>;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap;
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: {
 		db: Db<TWorkspaceSchema>;

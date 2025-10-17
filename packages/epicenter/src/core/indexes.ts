@@ -2,26 +2,6 @@ import type { Db } from '../db/core';
 import type { WorkspaceSchema } from './schema';
 
 /**
- * Factory function type that creates a WorkspaceIndexMap for a given workspace schema.
- * Takes a database context and returns a map of indexes.
- *
- * The second generic parameter captures the specific return type so it can flow into
- * the actions context with full type information.
- *
- * @example
- * ```typescript
- * const createIndexes: WorkspaceIndexMapConstructor<MySchema, MyIndexMap> = ({ db }) => ({
- *   sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
- *   markdown: markdownIndex(db, { storagePath: './data' }),
- * });
- * ```
- */
-export type WorkspaceIndexMapConstructor<
-	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
-> = (context: { db: Db<TWorkspaceSchema> }) => TIndexMap;
-
-/**
  * Index type system for vault.
  * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
  */
