@@ -19,14 +19,44 @@ import {
 } from './schema-converter';
 
 /**
+ * Database filename for SQLite.
+ *
+ * Must be one of:
+ * - ':memory:' - For in-memory database
+ * - A filename ending in '.db' that follows these rules:
+ *   - Cannot start with '.' (no hidden files)
+ *   - Cannot start with '/' (no absolute paths - use filename only)
+ *   - Can only contain: a-z, A-Z, 0-9, _ (underscore), - (hyphen), . (period)
+ *
+ * Valid examples:
+ * - ':memory:'
+ * - 'app.db'
+ * - 'my_database.db'
+ * - 'test-data.db'
+ * - 'cache.v2.db'
+ *
+ * Invalid examples:
+ * - '.hidden.db' (starts with '.')
+ * - '/path/to/db.db' (starts with '/')
+ * - 'database' (missing '.db' extension)
+ * - 'my@db.db' (contains invalid character '@')
+ */
+type DatabaseFilename = ':memory:' | `${string}.db`;
+
+/**
  * SQLite index configuration
  */
 export type SQLiteIndexConfig = {
 	/**
-	 * Database URL for SQLite
-	 * Can be a file path (./data/db.sqlite) or :memory: for in-memory
+	 * Database filename for SQLite.
+	 *
+	 * Defaults to ':memory:' for in-memory database.
+	 * Use a filename ending in '.db' for persistent storage.
+	 *
+	 * @see DatabaseFilename for validation rules and examples
+	 * @default ':memory:'
 	 */
-	databaseUrl?: string;
+	databaseUrl?: DatabaseFilename;
 };
 
 /**
