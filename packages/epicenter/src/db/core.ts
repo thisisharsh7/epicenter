@@ -417,7 +417,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					ytable.set(row.id, yrow);
 				}
 				for (const [key, value] of Object.entries(row)) {
-					yrow.set(key, value);
+					setRowValue({ yrow, key, value });
 				}
 			});
 		},

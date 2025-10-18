@@ -2,10 +2,9 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import type { Argv } from 'yargs';
 import type { EpicenterConfig } from '../core/epicenter';
-import type { WorkspaceMetadata, ActionMetadata } from './metadata';
-import { extractWorkspaceMetadata } from './metadata';
 import { createWorkspaceClient } from '../core/workspace/client';
 import { typeboxToYargs } from './typebox-to-yargs';
+import { createMockContext } from './mock-context';
 
 /**
  * Options for generating the CLI
@@ -23,7 +22,7 @@ export type GenerateCLIOptions = {
  * Returns a yargs instance with all workspace and action commands.
  *
  * This function:
- * 1. Extracts metadata using mock context (fast, no YJS loading)
+ * 1. Uses mock context to introspect actions (fast, no YJS loading)
  * 2. Generates yargs command hierarchy (workspace → action)
  * 3. Sets up handlers that initialize real workspaces on execution
  *
@@ -43,9 +42,6 @@ export function generateCLI(
 ): Argv {
 	const { argv = process.argv } = options;
 
-	// Extract metadata using mock context (fast)
-	const workspaces = extractWorkspaceMetadata(config);
-
 	// Create yargs instance
 	let cli = yargs(hideBin(argv))
 		.scriptName('bun cli')
@@ -56,25 +52,29 @@ export function generateCLI(
 		.strict();
 
 	// Register each workspace as a command
-	for (const workspace of workspaces) {
+	for (const workspaceConfig of config.workspaces) {
+		// Create mock context to introspect actions (fast, no YJS loading)
+		const mockContext = createMockContext(workspaceConfig.schema);
+		const actionMap = workspaceConfig.actions(mockContext);
+
 		cli = cli.command(
-			workspace.name,
-			`Commands for ${workspace.name} workspace`,
+			workspaceConfig.name,
+			`Commands for ${workspaceConfig.name} workspace`,
 			(yargs) => {
 				let workspaceCli = yargs
-					.usage(`Usage: $0 ${workspace.name} <action> [options]`)
+					.usage(`Usage: $0 ${workspaceConfig.name} <action> [options]`)
 					.demandCommand(1, 'You must specify an action')
 					.strict();
 
 				// Register each action as a subcommand
-				for (const action of workspace.actions) {
+				for (const [actionName, action] of Object.entries(actionMap)) {
 					workspaceCli = workspaceCli.command(
-						action.name,
-						action.description || `Execute ${action.name} ${action.type}`,
+						actionName,
+						action.description || `Execute ${actionName} ${action.type}`,
 						(yargs) => {
 							// Convert input schema to yargs options
-							if (action.inputSchema) {
-								return typeboxToYargs(action.inputSchema, yargs);
+							if (action.input) {
+								return typeboxToYargs(action.input, yargs);
 							}
 							return yargs;
 						},
@@ -82,8 +82,8 @@ export function generateCLI(
 							// Handler: initialize real workspace and execute action
 							await executeAction(
 								config,
-								workspace.name,
-								action.name,
+								workspaceConfig.name,
+								actionName,
 								argv,
 							);
 						},
