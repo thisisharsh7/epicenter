@@ -13,6 +13,7 @@ import {
 	validateRow,
 } from '../core/validation';
 import { syncYTextToDiff, syncYArrayToDiff } from '../utils/yjs';
+import { is } from 'drizzle-orm';
 
 /**
 	* YJS representation of a row
@@ -434,6 +435,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	}): void => {
 		const isYArray = (value: unknown): value is Y.Array<any> => value instanceof Y.Array
 		const isYText = (value: unknown): value is Y.Text => value instanceof Y.Text
+		const isNullableString = (value: unknown): value is string | null => value === null || typeof value === 'string'
+		const isNullableStringArray = (value: unknown): value is string[] | null => value === null || (Array.isArray(value) && value.every(v => typeof v === 'string'))
 
 		for (const [key, value] of Object.entries(inputRow)) {
 			// Skip undefined values (used in partial updates to leave fields unchanged)
@@ -442,7 +445,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const columnSchema = schema[key];
 			if (!columnSchema) continue;
 
-			if (columnSchema.type === 'ytext') {
+			if (columnSchema.type === 'ytext' && isNullableString(value)) {
 				// For non-nullable columns: value is string (null is impossible by type system)
 				// For nullable columns: value can be string | null
 				if (columnSchema.nullable && value === null) {
@@ -454,9 +457,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						ytext = new Y.Text();
 						yrow.set(key, ytext);
 					}
-					syncYTextToDiff(ytext, value as string);
+					syncYTextToDiff(ytext, value);
 				}
-			} else if (columnSchema.type === 'multi-select') {
+			} else if (columnSchema.type === 'multi-select' && isNullableStringArray(value)) {
 				// For non-nullable columns: value is string[] (null is impossible by type system)
 				// For nullable columns: value can be string[] | null
 				if (columnSchema.nullable && value === null) {
@@ -465,10 +468,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					// At this point, value must be string[] (either non-nullable, or nullable but not null)
 					let yarray = yrow.get(key)
 					if (!isYArray(yarray)) {
-						yarray = new Y.Array();
+						yarray = new Y.Array<string>();
 						yrow.set(key, yarray);
 					}
-					syncYArrayToDiff(yarray, value as string[]);
+					syncYArrayToDiff(yarray, value);
 				}
 			} else {
 				// For all other types (text, integer, boolean, date, select),
