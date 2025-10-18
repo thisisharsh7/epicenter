@@ -418,9 +418,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 	/**
 	* Syncs an InputRow (or partial InputRow) to a YRow, converting plain JS values to Y.js types.
-	* - For ytext columns: creates/gets Y.Text and syncs with string value
-	* - For multi-select columns: creates/gets Y.Array and syncs with array value
-	* - For other columns: sets the value directly
+	*
+	* Type conversion rules:
+	* - string[] → Y.Array: ALWAYS converted, regardless of schema type (YJS cannot store plain arrays)
+	* - string → Y.Text: Only when columnSchema.type === 'ytext' (other string columns stay as primitives)
+	* - Other types (number, boolean, etc.): Set directly as primitives
 	*
 	* This function handles both new and existing rows:
 	* - For new rows, Y.js objects are created fresh
@@ -435,8 +437,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	}): void => {
 		const isYArray = (value: unknown): value is Y.Array<any> => value instanceof Y.Array
 		const isYText = (value: unknown): value is Y.Text => value instanceof Y.Text
-		const isNullableString = (value: unknown): value is string | null => value === null || typeof value === 'string'
-		const isNullableStringArray = (value: unknown): value is string[] | null => value === null || (Array.isArray(value) && value.every(v => typeof v === 'string'))
+		const isArray = (value: unknown): value is unknown[] => Array.isArray(value)
 
 		for (const [key, value] of Object.entries(inputRow)) {
 			// Skip undefined values (used in partial updates to leave fields unchanged)
@@ -445,37 +446,32 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const columnSchema = schema[key];
 			if (!columnSchema) continue;
 
-			if (columnSchema.type === 'ytext' && isNullableString(value)) {
-				// For non-nullable columns: value is string (null is impossible by type system)
-				// For nullable columns: value can be string | null
-				if (columnSchema.nullable && value === null) {
-					yrow.set(key, null);
-				} else {
-					// At this point, value must be string (either non-nullable, or nullable but not null)
-					let ytext = yrow.get(key)
-					if (!isYText(ytext)) {
-						ytext = new Y.Text();
-						yrow.set(key, ytext);
-					}
-					syncYTextToDiff(ytext, value);
+			// Handle null early - always write null regardless of type
+			if (value === null) {
+				yrow.set(key, null);
+				continue;
+			}
+
+			// At this point, value is definitely not null or undefined
+			// Reverse serialize: convert serialized input types back to YJS types
+			if (columnSchema.type === 'ytext' && typeof value === 'string') {
+				// Reverse: string → Y.Text (only for ytext columns)
+				let ytext = yrow.get(key)
+				if (!isYText(ytext)) {
+					ytext = new Y.Text();
+					yrow.set(key, ytext);
 				}
-			} else if (columnSchema.type === 'multi-select' && isNullableStringArray(value)) {
-				// For non-nullable columns: value is string[] (null is impossible by type system)
-				// For nullable columns: value can be string[] | null
-				if (columnSchema.nullable && value === null) {
-					yrow.set(key, null);
-				} else {
-					// At this point, value must be string[] (either non-nullable, or nullable but not null)
-					let yarray = yrow.get(key)
-					if (!isYArray(yarray)) {
-						yarray = new Y.Array<string>();
-						yrow.set(key, yarray);
-					}
-					syncYArrayToDiff(yarray, value);
+				syncYTextToDiff(ytext, value);
+			} else if (isArray(value)) {
+				// Reverse: string[] → Y.Array (always)
+				let yarray = yrow.get(key)
+				if (!isYArray(yarray)) {
+					yarray = new Y.Array();
+					yrow.set(key, yarray);
 				}
+				syncYArrayToDiff(yarray, value);
 			} else {
-				// For all other types (text, integer, boolean, date, select),
-				// value is already in the correct format (string, number, boolean, etc.)
+				// Primitives (string, number, boolean, date) stored as-is
 				yrow.set(key, value);
 			}
 		}
