@@ -78,6 +78,9 @@ export type InputRow<TRow extends Row = Row> = {
 /**
 	* Represents a partial row update where id is required but all other fields are optional.
 	*
+	* Takes a regular Row type (TRow), wraps it with InputRow<TRow> to get the input variant,
+	* then makes all fields except 'id' optional.
+	*
 	* Only the fields you include will be updated - the rest remain unchanged. Each field is
 	* updated individually in the underlying YJS Map.
 	*
@@ -89,8 +92,8 @@ export type InputRow<TRow extends Row = Row> = {
 	* // Update multiple fields at once
 	* db.tables.posts.update({ id: '123', title: 'New Title', published: true });
 	*/
-type PartialRow<TRow extends InputRow = InputRow> =
-	Pick<TRow, 'id'> & Partial<Omit<TRow, 'id'>>;
+type PartialInputRow<TRow extends Row = Row> =
+	Pick<InputRow<TRow>, 'id'> & Partial<Omit<InputRow<TRow>, 'id'>>;
 
 /**
 	* Type-safe table helper with operations for a specific table schema
@@ -153,7 +156,7 @@ export type TableHelper<TRow extends Row> = {
 		*   row.row.tags.push(['new-tag']);        // Granular array change
 		* }
 		*/
-	update(partial: PartialRow<InputRow<TRow>>): void;
+	update(partial: PartialInputRow<TRow>): void;
 
 	/**
 		* Insert or update a row (insert if doesn't exist, update if exists).
@@ -172,7 +175,7 @@ export type TableHelper<TRow extends Row> = {
 
 	insertMany(rows: InputRow<TRow>[]): void;
 	upsertMany(rows: InputRow<TRow>[]): void;
-	updateMany(partials: PartialRow<InputRow<TRow>>[]): void;
+	updateMany(partials: PartialInputRow<TRow>[]): void;
 
 	/**
 		* Get a row by ID, returning Y.js objects for collaborative editing.
@@ -427,7 +430,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		inputRow,
 	}: {
 		yrow: YRow;
-		inputRow: PartialRow<InputRow<TRow>>;
+		inputRow: PartialInputRow<TRow>;
 	}): void => {
 		const isYArray = (value: unknown): value is Y.Array<any> => value instanceof Y.Array
 		const isYText = (value: unknown): value is Y.Text => value instanceof Y.Text
@@ -489,7 +492,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			});
 		},
 
-		update(partial: PartialRow<InputRow<TRow>>) {
+		update(partial: PartialInputRow<TRow>) {
 			ydoc.transact(() => {
 				const yrow = ytable.get(partial.id);
 				if (!yrow) {
@@ -540,7 +543,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			});
 		},
 
-		updateMany(partials: PartialRow<InputRow<TRow>>[]) {
+		updateMany(partials: PartialInputRow<TRow>[]) {
 			ydoc.transact(() => {
 				for (const partial of partials) {
 					const yrow = ytable.get(partial.id);
