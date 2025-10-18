@@ -567,8 +567,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		getAll() {
+			// Functional equivalent (slower, multiple passes):
+			// return Array.from(ytable.values()).map(toRow).map(validateTypedRow);
 			const results: RowValidationResult<TRow>[] = [];
-
 			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
 				const result = validateTypedRow(row);
@@ -607,6 +608,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		filter(predicate: (row: TRow) => boolean) {
+			// Functional equivalent (slower, multiple passes):
+			// return Array.from(ytable.values())
+			//     .map(toRow)
+			//     .filter((row) => predicate(row as TRow))
+			//     .map(validateTypedRow);
 			const results: RowValidationResult<TRow>[] = [];
 
 			for (const yrow of ytable.values()) {
