@@ -411,7 +411,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	const validateTypedRow = (data: unknown): RowValidationResult<TRow> => {
 		const result = validateRow(data, schema);
 		if (result.status === 'valid') {
-			return { status: 'valid', row: result.row as TRow };
+			return { status: 'valid', row: result.row };
 		}
 		return result;
 	};
