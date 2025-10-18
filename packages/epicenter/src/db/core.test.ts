@@ -88,9 +88,10 @@ describe('createEpicenterDb', () => {
 		]);
 
 		// Filter published posts
-		const { valid: publishedPosts } = doc.tables.posts.filter(
-			(post) => post.published,
-		);
+		const filterResults = doc.tables.posts.filter((post) => post.published);
+		const publishedPosts = filterResults
+			.filter((r) => r.status === 'valid')
+			.map((r) => r.row);
 		expect(publishedPosts).toHaveLength(2);
 
 		// Find first unpublished post
@@ -160,7 +161,8 @@ describe('createEpicenterDb', () => {
 		});
 
 		// getAll returns Y.js objects
-		const { valid: rows } = doc.tables.posts.getAll();
+		const results = doc.tables.posts.getAll();
+		const rows = results.filter((r) => r.status === 'valid').map((r) => r.row);
 		expect(rows).toHaveLength(2);
 		expect(rows[0].title).toBeInstanceOf(Y.Text);
 		expect(rows[0].tags).toBeInstanceOf(Y.Array);

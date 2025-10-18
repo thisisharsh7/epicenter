@@ -198,14 +198,14 @@ export type TableHelper<TRow extends Row> = {
 	/**
 		* Get all rows with Y.js objects for collaborative editing.
 		*/
-	getAll(): { valid: TRow[]; invalid: Row[] };
+	getAll(): RowValidationResult<TRow>[];
 
 	has(id: string): boolean;
 	delete(id: string): void;
 	deleteMany(ids: string[]): void;
 	clear(): void;
 	count(): number;
-	filter(predicate: (row: TRow) => boolean): { valid: TRow[]; invalid: Row[] };
+	filter(predicate: (row: TRow) => boolean): RowValidationResult<TRow>[];
 	find(predicate: (row: TRow) => boolean): GetRowResult<TRow>;
 	observe(callbacks: {
 		onAdd?: (row: TRow) => void | Promise<void>;
@@ -567,27 +567,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		getAll() {
-			const valid: TRow[] = [];
-			const invalid: Row[] = [];
+			const results: RowValidationResult<TRow>[] = [];
 
 			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
 				const result = validateTypedRow(row);
-
-				switch (result.status) {
-					case 'valid':
-						valid.push(result.row);
-						break;
-					case 'schema-mismatch':
-						invalid.push(result.row);
-						break;
-					case 'invalid-structure':
-						console.warn(`Row in table ${tableName} has invalid structure`);
-						break;
-				}
+				results.push(result);
 			}
 
-			return { valid, invalid };
+			return results;
 		},
 
 		has(id: string) {
@@ -619,8 +607,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		filter(predicate: (row: TRow) => boolean) {
-			const valid: TRow[] = [];
-			const invalid: Row[] = [];
+			const results: RowValidationResult<TRow>[] = [];
 
 			for (const yrow of ytable.values()) {
 				const row = toRow(yrow);
@@ -628,24 +615,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				// Check predicate first (even on unvalidated rows)
 				if (predicate(row as TRow)) {
 					const result = validateTypedRow(row);
-
-					switch (result.status) {
-						case 'valid':
-							valid.push(result.row);
-							break;
-						case 'schema-mismatch':
-							invalid.push(result.row);
-							break;
-						case 'invalid-structure':
-							console.warn(
-								`Filtered row in table ${tableName} has invalid structure`,
-							);
-							break;
-					}
+					results.push(result);
 				}
 			}
 
-			return { valid, invalid };
+			return results;
 		},
 
 		find(predicate: (row: TRow) => boolean): GetRowResult<TRow> {

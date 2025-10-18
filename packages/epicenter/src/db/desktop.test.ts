@@ -68,7 +68,8 @@ describe('YJS Document Persistence', () => {
 		);
 
 		// Verify data was loaded from disk
-		const { valid: users } = doc2.tables.users.getAll();
+		const results = doc2.tables.users.getAll();
+		const users = results.filter((r) => r.status === 'valid').map((r) => r.row);
 		expect(users).toHaveLength(2);
 
 		const aliceResult = doc2.tables.users.get('user-1');

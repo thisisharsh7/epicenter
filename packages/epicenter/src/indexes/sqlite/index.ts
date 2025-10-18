@@ -252,7 +252,8 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 			throw new Error(`Drizzle table for "${tableName}" not found`);
 		}
 
-		const { valid: rows } = db.tables[tableName]!.getAll();
+		const results = db.tables[tableName]!.getAll();
+		const rows = results.filter((r) => r.status === 'valid').map((r) => r.row);
 
 		for (const row of rows) {
 			const { error } = await tryAsync({

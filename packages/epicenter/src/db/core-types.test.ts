@@ -79,7 +79,10 @@ describe('YjsDoc Type Inference', () => {
 		]);
 
 		// Hover over 'products' to verify array element type
-		const { valid: products } = doc.tables.products.getAll();
+		const results = doc.tables.products.getAll();
+		const products = results
+			.filter((r) => r.status === 'valid')
+			.map((r) => r.row);
 		// Expected type: Array<{ id: string; name: string; price: number; inStock: boolean }>
 
 		expect(products).toHaveLength(2);
@@ -101,9 +104,10 @@ describe('YjsDoc Type Inference', () => {
 		]);
 
 		// Hover over 'task' parameter to verify inferred type
-		const { valid: incompleteTasks } = doc.tables.tasks.filter(
-			(task) => !task.completed,
-		);
+		const filterResults = doc.tables.tasks.filter((task) => !task.completed);
+		const incompleteTasks = filterResults
+			.filter((r) => r.status === 'valid')
+			.map((r) => r.row);
 		// task type should be: { id: string; title: string; completed: boolean; priority: string }
 
 		expect(incompleteTasks).toHaveLength(1);
@@ -295,7 +299,8 @@ describe('YjsDoc Type Inference', () => {
 
 		doc.tables.comments.insertMany(commentsToAdd);
 
-		const { valid: comments } = doc.tables.comments.getAll();
+		const results = doc.tables.comments.getAll();
+		const comments = results.filter((r) => r.status === 'valid').map((r) => r.row);
 		expect(comments).toHaveLength(2);
 	});
 
