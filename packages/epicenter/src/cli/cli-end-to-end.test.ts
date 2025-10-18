@@ -40,8 +40,8 @@ describe('CLI End-to-End Tests', () => {
 			},
 		},
 
-		indexes: ({ db }) => ({
-			sqlite: sqliteIndex(db, { databaseUrl: `file:${TEST_DB}` }),
+		indexes: async ({ db }) => ({
+			sqlite: await sqliteIndex(db, { database: `${TEST_DB}` }),
 			markdown: markdownIndex(db, { storagePath: TEST_MARKDOWN }),
 		}),
 

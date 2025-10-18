@@ -36,8 +36,8 @@ const pages = defineWorkspace({
 		},
 	},
 
-	indexes: ({ db }) => ({
-		sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+	indexes: async ({ db }) => ({
+		sqlite: await sqliteIndex(db, { database: ':memory:' }),
 	}),
 
 	actions: ({ db, indexes }) => ({
@@ -137,8 +137,8 @@ const contentHub = defineWorkspace({
 		},
 	},
 
-	indexes: ({ db }) => ({
-		sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+	indexes: async ({ db }) => ({
+		sqlite: await sqliteIndex(db, { database: ':memory:' }),
 	}),
 
 	actions: ({ db, indexes, workspaces }) => ({
@@ -282,7 +282,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = createEpicenterClient(epicenter);
+		const client = await createEpicenterClient(epicenter);
 
 		expect(client.pages).toBeDefined();
 		expect(client.contentHub).toBeDefined();
@@ -297,7 +297,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = createEpicenterClient(epicenter);
+		const client = await createEpicenterClient(epicenter);
 
 		// Step 1: Create a page in the pages workspace
 		const { data: page } = await client.pages.createPage({
@@ -347,7 +347,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = createEpicenterClient(epicenter);
+		const client = await createEpicenterClient(epicenter);
 
 		// Create multiple pages
 		const { data: page1 } = await client.pages.createPage({
@@ -404,7 +404,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = createEpicenterClient(epicenter);
+		const client = await createEpicenterClient(epicenter);
 
 		// Try to create a Twitter post for a non-existent page
 		await expect(
@@ -423,7 +423,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = createEpicenterClient(epicenter);
+		const client = await createEpicenterClient(epicenter);
 
 		// Create some data
 		await client.pages.createPage({
@@ -453,8 +453,8 @@ describe('Epicenter', () => {
 						value: text(),
 					},
 				},
-				indexes: ({ db }) => ({
-					sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+				indexes: async ({ db }) => ({
+					sqlite: await sqliteIndex(db, { database: ':memory:' }),
 				}),
 				actions: ({ workspaces }) => ({
 					getValue: defineQuery({
@@ -485,7 +485,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB],
 			});
 
-			const client = createEpicenterClient(epicenter);
+			const client = await createEpicenterClient(epicenter);
 
 			// BOTH workspaces are exposed by their names
 			expect(client.workspaceA).toBeDefined();
@@ -540,7 +540,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB, workspaceC],
 			});
 
-			const client = createEpicenterClient(epicenter);
+			const client = await createEpicenterClient(epicenter);
 
 			// All workspaces are exposed
 			expect(client.workspaceA).toBeDefined();
@@ -567,7 +567,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB, workspaceC],
 			});
 
-			const client = createEpicenterClient(epicenter);
+			const client = await createEpicenterClient(epicenter);
 
 			// All three workspaces exposed
 			expect(client.workspaceA).toBeDefined();

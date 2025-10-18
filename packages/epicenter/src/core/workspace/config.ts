@@ -45,8 +45,8 @@ import type { WorkspaceSchema } from '../schema';
  *     }
  *   },
  *
- *   indexes: ({ db }) => ({
- *     sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+ *   indexes: async ({ db }) => ({
+ *     sqlite: await sqliteIndex(db, { database: ':memory:' }),
  *     markdown: markdownIndex(db, { storagePath: './data' }),
  *   }),
  *
@@ -213,13 +213,13 @@ export type WorkspaceConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * indexes: ({ db }) => ({
-	 *   sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+	 * indexes: async ({ db }) => ({
+	 *   sqlite: await sqliteIndex(db, { database: ':memory:' }),
 	 *   markdown: markdownIndex(db, { storagePath: './data' }),
 	 * })
 	 * ```
 	 */
-	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap | Promise<TIndexMap>;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -366,7 +366,7 @@ export type ImmediateDependencyWorkspaceConfig<
 	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap | Promise<TIndexMap>;
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: {
 		db: Db<TWorkspaceSchema>;

@@ -1,18 +1,18 @@
-import { createClient } from '@libsql/client';
+import { Database } from '@tursodatabase/database';
 import { eq, sql } from 'drizzle-orm';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
+import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core';
-import { tryAsync, Ok } from 'wellcrafted/result';
+import { Ok, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
+import { IndexErr } from '../../core/errors';
+import { type Index } from '../../core/indexes';
 import type {
 	DateWithTimezone,
 	Row,
 	WorkspaceSchema,
 } from '../../core/schema';
-import { DateWithTimezoneSerializer } from './builders';
-import { IndexErr } from '../../core/errors';
-import { defineIndex, type Index } from '../../core/indexes';
 import type { Db } from '../../db/core';
+import { DateWithTimezoneSerializer } from './builders';
 import {
 	convertWorkspaceSchemaToDrizzle,
 	type WorkspaceSchemaToDrizzleTables,
@@ -56,7 +56,7 @@ export type SQLiteIndexConfig = {
 	 * @see DatabaseFilename for validation rules and examples
 	 * @default ':memory:'
 	 */
-	databaseUrl?: DatabaseFilename;
+	database?: DatabaseFilename;
 };
 
 /**
@@ -110,7 +110,7 @@ function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
  * Uses Drizzle's official getTableConfig API for introspection
  */
 async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable>>(
-	db: LibSQLDatabase<TSchema>,
+	db: BetterSQLite3Database<TSchema>,
 	drizzleTables: TSchema,
 ): Promise<void> {
 	for (const drizzleTable of Object.values(drizzleTables)) {
@@ -147,22 +147,23 @@ async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable
  * @param db - Epicenter database instance (for type inference only)
  * @param config - SQLite configuration options
  */
-export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
+export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	db: Db<TWorkspaceSchema>,
-	{ databaseUrl = ':memory:' }: SQLiteIndexConfig = {},
-): Index<
-	{
-		db: LibSQLDatabase<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>>;
-	} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
+	{ database = ':memory:' }: SQLiteIndexConfig = {},
+): Promise<
+	Index<
+		{
+			db: BetterSQLite3Database<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>>;
+		} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
+	>
 > {
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
 	// Create database connection with schema for proper type inference
-	const sqliteDb = drizzle(
-		createClient({ url: databaseUrl }),
-		{ schema: drizzleTables },
-	);
+	// Using lazy connection - Database will auto-connect on first query
+	const connection = new Database(database);
+	const sqliteDb = drizzle(connection, { schema: drizzleTables });
 
 	// Set up observers for each table
 	const unsubscribers: Array<() => void> = [];
@@ -239,36 +240,37 @@ export function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 		unsubscribers.push(unsub);
 	}
 
-	// Initial sync: YJS → SQLite
-	(async () => {
-		await createTablesIfNotExist(sqliteDb, drizzleTables);
+	// Initial sync: YJS → SQLite (blocking to ensure tables exist before queries)
+	// Explicitly connect to surface any connection errors immediately
+	await connection.connect();
 
-		for (const tableName of db.getTableNames()) {
-			const drizzleTable = drizzleTables[tableName];
-			if (!drizzleTable) {
-				throw new Error(`Drizzle table for "${tableName}" not found`);
-			}
+	await createTablesIfNotExist(sqliteDb, drizzleTables);
 
-			const { valid: rows } = db.tables[tableName]!.getAll();
+	for (const tableName of db.getTableNames()) {
+		const drizzleTable = drizzleTables[tableName];
+		if (!drizzleTable) {
+			throw new Error(`Drizzle table for "${tableName}" not found`);
+		}
 
-			for (const row of rows) {
-				const { error } = await tryAsync({
-					try: async () => {
-						const serializedRow = serializeRowForSQLite(row);
-						await sqliteDb.insert(drizzleTable as any).values(serializedRow);
-					},
-					catch: () => Ok(undefined),
-				});
+		const { valid: rows } = db.tables[tableName]!.getAll();
 
-				if (error) {
-					console.warn(
-						`Failed to sync row ${row.id} to SQLite during init:`,
-						error,
-					);
-				}
+		for (const row of rows) {
+			const { error } = await tryAsync({
+				try: async () => {
+					const serializedRow = serializeRowForSQLite(row);
+					await sqliteDb.insert(drizzleTable as any).values(serializedRow);
+				},
+				catch: () => Ok(undefined),
+			});
+
+			if (error) {
+				console.warn(
+					`Failed to sync row ${row.id} to SQLite during init:`,
+					error,
+				);
 			}
 		}
-	})();
+	}
 
 	// Return dispose function alongside exported resources (flattened structure)
 	return {

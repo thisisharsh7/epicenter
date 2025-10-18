@@ -193,16 +193,16 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * // automatically disposed at end of scope
  * ```
  */
-export function createEpicenterClient<
+export async function createEpicenterClient<
 	const TId extends string,
 	const TWorkspaces extends readonly Omit<WorkspaceConfig, 'dependencies'>[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
-): EpicenterClient<TWorkspaces> {
+): Promise<EpicenterClient<TWorkspaces>> {
 	// Initialize workspaces using flat/hoisted resolution model
 	// All transitive dependencies must be explicitly listed in config.workspaces
 	// initializeWorkspaces will validate this and throw if dependencies are missing
-	const clients = initializeWorkspaces(config.workspaces);
+	const clients = await initializeWorkspaces(config.workspaces);
 
 	const cleanup = () => {
 		for (const client of Object.values(clients)) {

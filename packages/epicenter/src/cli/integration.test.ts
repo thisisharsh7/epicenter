@@ -25,8 +25,8 @@ describe('CLI Integration', () => {
 			},
 		},
 
-		indexes: ({ db }) => ({
-			sqlite: sqliteIndex(db, { databaseUrl: ':memory:' }),
+		indexes: async ({ db }) => ({
+			sqlite: await sqliteIndex(db, { database: ':memory:' }),
 		}),
 
 		actions: ({ db }) => ({

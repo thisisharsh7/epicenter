@@ -41,9 +41,9 @@ describe('Blog Workspace Integration', () => {
 			},
 		},
 
-		indexes: ({ db }) => ({
-			sqlite: sqliteIndex(db, {
-				databaseUrl: ':memory:', // In-memory for testing
+		indexes: async ({ db }) => ({
+			sqlite: await sqliteIndex(db, {
+				database: ':memory:', // In-memory for testing
 			}),
 			markdown: markdownIndex(db, {
 				storagePath: './test-data',

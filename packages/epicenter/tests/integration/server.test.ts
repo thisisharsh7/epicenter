@@ -37,9 +37,9 @@ describe('Server Integration Tests', () => {
 			},
 		},
 
-		indexes: ({ db }) => ({
-			sqlite: sqliteIndex(db, {
-				databaseUrl: ':memory:',
+		indexes: async ({ db }) => ({
+			sqlite: await sqliteIndex(db, {
+				database: ':memory:',
 			}),
 		}),
 
@@ -220,9 +220,9 @@ describe('Server Integration Tests', () => {
 				},
 			},
 
-			indexes: ({ db }) => ({
-				sqlite: sqliteIndex(db, {
-					databaseUrl: ':memory:',
+			indexes: async ({ db }) => ({
+				sqlite: await sqliteIndex(db, {
+					database: ':memory:',
 				}),
 			}),
 

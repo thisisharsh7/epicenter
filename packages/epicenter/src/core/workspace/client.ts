@@ -61,11 +61,11 @@ export type InitializedWorkspaces<
  * @param rootWorkspaceConfigs - Array of root workspace configurations to initialize
  * @returns Object mapping workspace names to initialized workspace clients
  */
-export function initializeWorkspaces<
+export async function initializeWorkspaces<
 	const TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
 >(
 	rootWorkspaceConfigs: TConfigs,
-): InitializedWorkspaces<TConfigs> {
+): Promise<InitializedWorkspaces<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -250,9 +250,9 @@ export function initializeWorkspaces<
 	 * 2. Creates YDoc, DB, indexes, and actions
 	 * 3. Returns the initialized workspace client
 	 */
-	const initializeWorkspace = (
+	const initializeWorkspace = async (
 		workspaceConfig: ImmediateDependencyWorkspaceConfig,
-	): WorkspaceClient<any> => {
+	): Promise<WorkspaceClient<any>> => {
 		// Build the workspaces object by injecting already-initialized dependencies
 		// Key: dependency name, Value: initialized client
 		const workspaces: Record<string, any> = {};
@@ -312,7 +312,8 @@ export function initializeWorkspaces<
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
 		// Get index definitions from workspace config by calling the indexes callback
-		const indexes = workspaceConfig.indexes({ db });
+		// Support both sync and async indexes functions
+		const indexes = await workspaceConfig.indexes({ db });
 
 		// Validate no duplicate index IDs (keys of returned object)
 		const indexIds = Object.keys(indexes);
@@ -354,7 +355,7 @@ export function initializeWorkspaces<
 	// Initialize all workspaces in topological order
 	for (const workspaceId of sorted) {
 		const workspaceConfig = workspaceConfigs.get(workspaceId)!;
-		const client = initializeWorkspace(workspaceConfig);
+		const client = await initializeWorkspace(workspaceConfig);
 		clients.set(workspaceId, client);
 	}
 
@@ -377,7 +378,7 @@ export function initializeWorkspaces<
  * @param workspace - Workspace configuration to initialize
  * @returns Initialized workspace client
  */
-export function createWorkspaceClient<
+export async function createWorkspaceClient<
 	const TDeps extends readonly ImmediateDependencyWorkspaceConfig[],
 	const TId extends string,
 	const TVersion extends number,
@@ -394,7 +395,7 @@ export function createWorkspaceClient<
 		TIndexMap,
 		TActionMap
 	>,
-): WorkspaceClient<TActionMap> {
+): Promise<WorkspaceClient<TActionMap>> {
 	// Collect all workspace configs (root + dependencies) for flat/hoisted initialization
 	const allWorkspaceConfigs: ImmediateDependencyWorkspaceConfig[] = [];
 
@@ -407,7 +408,7 @@ export function createWorkspaceClient<
 	allWorkspaceConfigs.push(workspace as any);
 
 	// Use the shared initialization logic with flat dependency array
-	const clients = initializeWorkspaces(allWorkspaceConfigs);
+	const clients = await initializeWorkspaces(allWorkspaceConfigs);
 
 	// Return the client for the root workspace (access by name, not id)
 	const rootClient = clients[workspace.name as keyof typeof clients];

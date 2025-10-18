@@ -158,8 +158,8 @@ const notesWorkspace = defineWorkspace({
       tags: multiSelect({ options: ['work', 'personal', 'ideas'] }),
     }
   },
-  indexes: ({ db }) => ({
-    sqlite: sqliteIndex(db, { databaseUrl: './data/notes.db' })
+  indexes: async ({ db }) => ({
+    sqlite: await sqliteIndex(db, { database: './data/notes.db' })
   }),
   actions: ({ db, indexes }) => ({
     createNote: defineMutation({
