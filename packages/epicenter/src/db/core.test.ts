@@ -135,16 +135,11 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		// Insert with Y.js types
-		const title1 = new Y.Text();
-		title1.insert(0, 'Hello World');
-		const tags1 = new Y.Array<'typescript' | 'javascript' | 'python'>();
-		tags1.push(['typescript', 'javascript']);
-
+		// Insert with plain strings and arrays (the documented API)
 		doc.tables.posts.insert({
 			id: '1',
-			title: title1,
-			tags: tags1,
+			title: 'Hello World',
+			tags: ['typescript', 'javascript'],
 		});
 
 		// Get returns Y.js objects
@@ -158,15 +153,10 @@ describe('createEpicenterDb', () => {
 		}
 
 		// Insert another post
-		const title2 = new Y.Text();
-		title2.insert(0, 'Second Post');
-		const tags2 = new Y.Array<'typescript' | 'javascript' | 'python'>();
-		tags2.push(['python']);
-
 		doc.tables.posts.insert({
 			id: '2',
-			title: title2,
-			tags: tags2,
+			title: 'Second Post',
+			tags: ['python'],
 		});
 
 		// getAll returns Y.js objects
