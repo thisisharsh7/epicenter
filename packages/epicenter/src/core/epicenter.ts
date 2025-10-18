@@ -1,4 +1,4 @@
-import type { AnyWorkspaceConfig, WorkspaceConfig } from './workspace';
+import type { ImmediateDependencyWorkspaceConfig } from './workspace';
 import { type WorkspaceClient } from './workspace';
 import { initializeWorkspaces } from './workspace/client';
 
@@ -23,7 +23,7 @@ import { initializeWorkspaces } from './workspace/client';
  */
 export type EpicenterConfig<
 	TId extends string = string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
+	TWorkspaces extends readonly ImmediateDependencyWorkspaceConfig[] = readonly ImmediateDependencyWorkspaceConfig[],
 > = {
 	/**
 	 * Unique identifier for this epicenter instance
@@ -67,7 +67,7 @@ export type EpicenterConfig<
  */
 export function defineEpicenter<
 	const TId extends string,
-	const TWorkspaces extends readonly AnyWorkspaceConfig[],
+	const TWorkspaces extends readonly ImmediateDependencyWorkspaceConfig[],
 >(config: EpicenterConfig<TId, TWorkspaces>): EpicenterConfig<TId, TWorkspaces> {
 	// Validate epicenter ID
 	if (!config.id || typeof config.id !== 'string') {
@@ -121,7 +121,7 @@ export function defineEpicenter<
  * Helper type that extracts the name and WorkspaceClient type for a single workspace
  * Returns a single-entry object type: { [name]: WorkspaceClient<TActionMap> }
  */
-type WorkspaceToClientEntry<W> = W extends WorkspaceConfig<
+type WorkspaceToClientEntry<W> = W extends ImmediateDependencyWorkspaceConfig<
 	infer _Deps,
 	infer _Id,
 	infer _Version,
@@ -137,9 +137,9 @@ type WorkspaceToClientEntry<W> = W extends WorkspaceConfig<
  * Helper type that recursively processes a tuple of workspaces and merges them into a single object type
  * Distributes over each tuple element and combines all workspace client entries
  */
-type WorkspacesToClientObject<WS extends readonly AnyWorkspaceConfig[]> = WS extends readonly [
+type WorkspacesToClientObject<WS extends readonly ImmediateDependencyWorkspaceConfig[]> = WS extends readonly [
 	infer First,
-	...infer Rest extends readonly AnyWorkspaceConfig[],
+	...infer Rest extends readonly ImmediateDependencyWorkspaceConfig[],
 ]
 	? WorkspaceToClientEntry<First> & WorkspacesToClientObject<Rest>
 	: {};
@@ -149,7 +149,7 @@ type WorkspacesToClientObject<WS extends readonly AnyWorkspaceConfig[]> = WS ext
  * Maps workspace names to their action handlers
  * Provides typed access to all workspace actions
  */
-export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
+export type EpicenterClient<TWorkspaces extends readonly ImmediateDependencyWorkspaceConfig[]> =
 	WorkspacesToClientObject<TWorkspaces> & {
 		/**
 		 * Dispose for explicit resource management (enables `using`)
@@ -195,7 +195,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  */
 export async function createEpicenterClient<
 	const TId extends string,
-	const TWorkspaces extends readonly Omit<WorkspaceConfig, 'dependencies'>[],
+	const TWorkspaces extends readonly ImmediateDependencyWorkspaceConfig[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
 ): Promise<EpicenterClient<TWorkspaces>> {
