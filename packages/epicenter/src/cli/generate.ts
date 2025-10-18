@@ -131,7 +131,7 @@ async function executeAction(
 	}
 
 	// Initialize real workspace (with YJS docs, indexes, etc.)
-	await using client = createWorkspaceClient(workspaceConfig);
+	await using client = await createWorkspaceClient(workspaceConfig);
 
 	// Get the action handler
 	const handler = (client as any)[actionName];
