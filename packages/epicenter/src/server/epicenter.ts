@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { sValidator } from '@hono/standard-validator';
-import type { EpicenterConfig, AnyWorkspaceConfig } from '../core/epicenter';
+import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
+import type { ImmediateDependencyWorkspaceConfig } from '../core/workspace';
 import type { Action } from '../core/actions';
 import { executeAction } from './utils';
 import { createMCPTools, handleMCPToolsList, handleMCPToolCall, type MCPToolCallRequest } from './mcp';
@@ -36,7 +37,7 @@ import { createMCPTools, handleMCPToolsList, handleMCPToolCall, type MCPToolCall
  */
 export async function createEpicenterServer<
 	TId extends string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
+	TWorkspaces extends readonly ImmediateDependencyWorkspaceConfig[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
 ): Promise<Hono> {

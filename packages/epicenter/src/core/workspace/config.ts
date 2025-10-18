@@ -376,29 +376,6 @@ export type ImmediateDependencyWorkspaceConfig<
 };
 
 /**
- * Represents any workspace, regardless of its specific types.
- *
- * This is the "wide" type used at runtime in createWorkspaceClient().
- * It's permissive and accepts any valid workspace structure, allowing
- * the runtime to handle complex dependency graphs.
- *
- * Note: This is NOT an instance of WorkspaceConfig because function parameter
- * contravariance makes it impossible to have a single WorkspaceConfig type that
- * accepts all variations of actions context types. Instead, this is a separate
- * interface that structurally matches WorkspaceConfig but with looser types.
- */
-export type AnyWorkspaceConfig = {
-	id: string;
-	version: number;
-	name: string;
-	schema: any;
-	dependencies?: readonly any[];
-	indexes: any;
-	setupYDoc?: (ydoc: Y.Doc) => void;
-	actions: (context: any) => any;
-};
-
-/**
  * Maps workspace dependencies to their action maps.
  *
  * Takes an array of workspace dependencies and merges them into a single object where:
