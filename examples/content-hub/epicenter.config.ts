@@ -34,8 +34,8 @@ export const pages = defineWorkspace({
 		},
 	},
 
-	indexes: ({ db }) => ({
-		sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/pages.db' }),
+	indexes: async ({ db }) => ({
+		sqlite: await sqliteIndex(db, { database: 'pages.db' }),
 	}),
 
 	actions: ({ db, indexes }) => ({
@@ -177,8 +177,8 @@ export default defineWorkspace({
 		},
 	},
 
-	indexes: ({ db }) => ({
-		sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/content-hub.db' }),
+	indexes: async ({ db }) => ({
+		sqlite: await sqliteIndex(db, { database: 'content-hub.db' }),
 	}),
 
 	actions: ({ db, indexes }) => ({
