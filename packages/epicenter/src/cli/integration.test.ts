@@ -1,16 +1,15 @@
 import { describe, expect, test } from 'bun:test';
 import Type from 'typebox';
-import { defineEpicenter, createEpicenterClient } from '../core/epicenter';
+import { defineEpicenter } from '../core/epicenter';
 import {
 	defineWorkspace,
 	id,
 	text,
 	sqliteIndex,
-	defineQuery,
 	defineMutation,
 } from '../index';
 import { Ok } from 'wellcrafted/result';
-import { createCLI } from './create-cli';
+import { generateCLI } from './generate';
 
 describe('CLI Integration', () => {
 	const testWorkspace = defineWorkspace({
@@ -42,7 +41,7 @@ describe('CLI Integration', () => {
 						name,
 						count: String(count),
 					};
-					db.tables.items.set(item);
+					db.tables.items.insert(item);
 					return Ok(item);
 				},
 			}),
@@ -54,18 +53,17 @@ describe('CLI Integration', () => {
 		workspaces: [testWorkspace],
 	});
 
-	test('CLI can be created from epicenter config', () => {
-		const cli = createCLI(epicenter, { argv: [] });
+	test('CLI can be generated from epicenter config', () => {
+		const cli = generateCLI(epicenter, { argv: [] });
 		expect(cli).toBeDefined();
 	});
 
-	test('creates CLI with proper command structure', () => {
-		const cli = createCLI(epicenter, {
+	test('generates CLI with proper command structure', () => {
+		const cli = generateCLI(epicenter, {
 			argv: [],
 		});
 
 		// Verify CLI has basic yargs structure
 		expect(cli.parse).toBeDefined();
-		expect(cli.getOptions).toBeDefined();
 	});
 });

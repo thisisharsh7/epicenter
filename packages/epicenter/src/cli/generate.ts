@@ -5,7 +5,18 @@ import type { EpicenterConfig } from '../core/epicenter';
 import type { WorkspaceMetadata, ActionMetadata } from './metadata';
 import { extractWorkspaceMetadata } from './metadata';
 import { createWorkspaceClient } from '../core/workspace/client';
-import { standardSchemaToYargsOptions } from './schema-to-yargs';
+import { typeboxToYargs } from './typebox-to-yargs';
+
+/**
+ * Options for generating the CLI
+ */
+export type GenerateCLIOptions = {
+	/**
+	 * Custom argv to parse (useful for testing)
+	 * Defaults to process.argv
+	 */
+	argv?: string[];
+};
 
 /**
  * Generate CLI from Epicenter config.
@@ -17,6 +28,7 @@ import { standardSchemaToYargsOptions } from './schema-to-yargs';
  * 3. Sets up handlers that initialize real workspaces on execution
  *
  * @param config - Epicenter configuration
+ * @param options - CLI generation options
  * @returns Yargs instance ready to parse arguments
  *
  * @example
@@ -27,12 +39,15 @@ import { standardSchemaToYargsOptions } from './schema-to-yargs';
  */
 export function generateCLI(
 	config: EpicenterConfig,
+	options: GenerateCLIOptions = {},
 ): Argv {
+	const { argv = process.argv } = options;
+
 	// Extract metadata using mock context (fast)
 	const workspaces = extractWorkspaceMetadata(config);
 
 	// Create yargs instance
-	let cli = yargs(hideBin(process.argv))
+	let cli = yargs(hideBin(argv))
 		.scriptName('bun cli')
 		.usage('Usage: $0 <workspace> <action> [options]')
 		.help()
@@ -59,10 +74,7 @@ export function generateCLI(
 						(yargs) => {
 							// Convert input schema to yargs options
 							if (action.inputSchema) {
-								return standardSchemaToYargsOptions(
-									yargs,
-									action.inputSchema,
-								);
+								return typeboxToYargs(action.inputSchema, yargs);
 							}
 							return yargs;
 						},

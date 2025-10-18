@@ -1,8 +1,8 @@
-export { createCLI, type CreateCLIOptions } from './create-cli';
 export { loadEpicenterConfig } from './load-config';
-export {
-	createSchemaConverter,
-	applySchemaConverters,
-	type SchemaConverter,
-} from './schema-converters';
-export { createZodConverter, createArktypeConverter } from './converters';
+
+// Programmatic CLI generation
+export { generateCLI, type GenerateCLIOptions } from './generate';
+export { extractWorkspaceMetadata, extractWorkspaceMetadataForWorkspace } from './metadata';
+export type { ActionMetadata, WorkspaceMetadata } from './metadata';
+export { typeboxToYargs } from './typebox-to-yargs';
+export { createMockContext, createMockDb, createMockIndexes, createMockWorkspaces } from './mock-context';

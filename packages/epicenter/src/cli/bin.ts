@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
 
 import { loadEpicenterConfig } from './load-config';
-import { createCLI } from './create-cli';
+import { generateCLI } from './generate';
 
 /**
  * CLI entry point
- * Loads the epicenter config and creates the CLI
+ * Loads the epicenter config and generates the CLI
  */
 async function main() {
 	try {
 		// Load the config from the current directory
 		const config = await loadEpicenterConfig();
 
-		// Create and run the CLI
-		const cli = createCLI(config);
+		// Generate and run the CLI
+		const cli = generateCLI(config);
 		await cli.parse();
 	} catch (error) {
 		if (error instanceof Error) {

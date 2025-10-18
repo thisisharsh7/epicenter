@@ -1,5 +1,6 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
+import * as fs from 'node:fs';
 import {
 	defineWorkspace,
 	id,
@@ -37,6 +38,13 @@ export const pages = defineWorkspace({
 	indexes: ({ db }) => ({
 		sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/pages.db' }),
 	}),
+
+	setupYDoc: () => {
+		// Ensure test-data directory exists for SQLite database
+		if (!fs.existsSync('test-data')) {
+			fs.mkdirSync('test-data', { recursive: true });
+		}
+	},
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all pages
@@ -178,6 +186,13 @@ export default defineWorkspace({
 	indexes: ({ db }) => ({
 		sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/content-hub.db' }),
 	}),
+
+	setupYDoc: () => {
+		// Ensure test-data directory exists for SQLite database
+		if (!fs.existsSync('test-data')) {
+			fs.mkdirSync('test-data', { recursive: true });
+		}
+	},
 
 	actions: ({ db, indexes }) => ({
 		// Mutation: Create YouTube post

@@ -15,7 +15,7 @@ import {
 	type ValidatedRow,
 } from '../index';
 import { Ok } from 'wellcrafted/result';
-import { createCLI } from './create-cli';
+import { generateCLI } from './generate';
 import { rm, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 
@@ -127,7 +127,7 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI can create a post', async () => {
-		const cli = createCLI(epicenter, {
+		const cli = generateCLI(epicenter, {
 			argv: [
 				'posts',
 				'createPost',
@@ -151,7 +151,7 @@ describe('CLI End-to-End Tests', () => {
 
 	test('CLI can query posts', async () => {
 		// First create a post
-		const createCli = createCLI(epicenter, {
+		const createCli = generateCLI(epicenter, {
 			argv: [
 				'posts',
 				'createPost',
@@ -167,14 +167,14 @@ describe('CLI End-to-End Tests', () => {
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Now query all posts
-		const listCli = createCLI(epicenter, {
+		const listCli = generateCLI(epicenter, {
 			argv: ['posts', 'listPosts'],
 		});
 		await listCli.parse();
 	});
 
 	test('CLI handles missing required options', async () => {
-		const cli = createCLI(epicenter, {
+		const cli = generateCLI(epicenter, {
 			argv: ['posts', 'createPost', '--title', 'Missing Category'],
 		});
 
@@ -188,7 +188,7 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI properly formats success output', async () => {
-		const cli = createCLI(epicenter, {
+		const cli = generateCLI(epicenter, {
 			argv: [
 				'posts',
 				'createPost',
