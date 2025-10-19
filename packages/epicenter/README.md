@@ -173,7 +173,7 @@ npm install @repo/epicenter
 // blog/epicenter.config.ts
 import { defineWorkspace, runWorkspace, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/epicenter';
 import { eq, desc, gte } from 'drizzle-orm';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 // 1. Define your workspace
 const blogWorkspace = defineWorkspace({
@@ -382,7 +382,7 @@ All column types support these options:
 Plugins can depend on other plugins using type-safe references:
 
 ```typescript
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import { defineQuery } from '@repo/epicenter';
 
 const blogWorkspace = defineWorkspace({ /* ... */ });
@@ -433,7 +433,7 @@ Epicenter supports two types of workspace actions with automatic input validatio
 For read operations that don't modify state:
 
 ```typescript
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import { defineQuery } from '@repo/epicenter';
 
 const blogWorkspace = defineWorkspace({

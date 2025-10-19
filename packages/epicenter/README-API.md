@@ -5,7 +5,7 @@
 The epicenter workspace system provides a clean API where actions are directly callable functions:
 
 ```typescript
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import { defineWorkspace, defineQuery, defineMutation, runWorkspace } from '@repo/epicenter';
 
 // Define your workspace

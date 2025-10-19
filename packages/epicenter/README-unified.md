@@ -26,7 +26,7 @@ Each workspace defines its tables and actions:
 
 ```typescript
 import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/epicenter';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 const usersWorkspace = defineWorkspace({
   id: 'users',
