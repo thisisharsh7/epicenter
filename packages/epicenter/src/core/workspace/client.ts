@@ -4,11 +4,10 @@ import type { WorkspaceActionMap } from '../actions';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 import type {
+	AnyWorkspaceConfig,
 	ImmediateDependencyWorkspaceConfig,
 	WorkspaceConfig,
-	AnyWorkspaceConfig,
 } from './config';
-
 
 /**
  * Workspace client instance returned from createWorkspaceClient
@@ -41,9 +40,7 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  * }
  * ```
  */
-export type InitializedWorkspaces<
-	TConfigs extends readonly AnyWorkspaceConfig[],
-> = {
+type InitializedWorkspaces<TConfigs extends readonly AnyWorkspaceConfig[]> = {
 	[W in TConfigs[number] as W extends { name: infer TName extends string }
 		? TName
 		: never]: W extends {
@@ -63,10 +60,8 @@ export type InitializedWorkspaces<
  * @returns Object mapping workspace names to initialized workspace clients
  */
 export async function initializeWorkspaces<
-	const TConfigs extends readonly AnyWorkspaceConfig[],
->(
-	rootWorkspaceConfigs: TConfigs,
-): Promise<InitializedWorkspaces<TConfigs>> {
+	const TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
+>(rootWorkspaceConfigs: TConfigs): Promise<InitializedWorkspaces<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -78,7 +73,10 @@ export async function initializeWorkspaces<
 	 * we keep only the highest version (version compared as integers).
 	 * Example: If both workspaceA v1 and workspaceA v3 are registered, we keep v3.
 	 */
-	const workspaceConfigs = new Map<string, ImmediateDependencyWorkspaceConfig>();
+	const workspaceConfigs = new Map<
+		string,
+		ImmediateDependencyWorkspaceConfig
+	>();
 
 	/**
 	 * Register a workspace config, automatically resolving version conflicts.
@@ -166,7 +164,10 @@ export async function initializeWorkspaces<
 
 	// Build the graph by processing each workspace config's dependencies
 	for (const [id, workspaceConfig] of workspaceConfigs) {
-		if (workspaceConfig.dependencies && workspaceConfig.dependencies.length > 0) {
+		if (
+			workspaceConfig.dependencies &&
+			workspaceConfig.dependencies.length > 0
+		) {
 			for (const dep of workspaceConfig.dependencies) {
 				// Add edge: dep.id -> id (id depends on dep.id)
 				// Note: Dependencies are already verified in Phase 2
@@ -258,7 +259,10 @@ export async function initializeWorkspaces<
 		// Key: dependency name, Value: initialized client
 		const workspaces: Record<string, any> = {};
 
-		if (workspaceConfig.dependencies && workspaceConfig.dependencies.length > 0) {
+		if (
+			workspaceConfig.dependencies &&
+			workspaceConfig.dependencies.length > 0
+		) {
 			// Resolve dependencies from the registered configs (handles version resolution)
 			// Build set of unique dependency IDs
 			const uniqueDepIds = new Set(
