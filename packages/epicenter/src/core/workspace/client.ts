@@ -78,51 +78,21 @@ export async function initializeWorkspaces<
 		ImmediateDependencyWorkspaceConfig
 	>();
 
-	/**
-	 * Register a workspace config, automatically resolving version conflicts.
-	 * If a workspace with the same ID is already registered, compares versions
-	 * and keeps the highest one. Versions are compared as integers.
-	 */
-	const registerWorkspaceConfig = (
-		workspaceConfig: ImmediateDependencyWorkspaceConfig,
-	) => {
-		const existing = workspaceConfigs.get(workspaceConfig.id);
-		if (!existing) {
-			workspaceConfigs.set(workspaceConfig.id, workspaceConfig);
-		} else {
-			// Compare versions as numbers
-			if (workspaceConfig.version > existing.version) {
-				// New version is higher, replace
-				workspaceConfigs.set(workspaceConfig.id, workspaceConfig);
-			}
-			// Otherwise keep existing (higher or equal version)
-		}
-	};
-
-	// Register all root workspace configs (flat/hoisted model: all workspaces are in rootWorkspaceConfigs array)
+	// Register all root workspace configs with automatic version resolution
+	// If the same workspace ID appears multiple times, keep the highest version
 	for (const workspaceConfig of rootWorkspaceConfigs) {
-		registerWorkspaceConfig(workspaceConfig);
+		const existing = workspaceConfigs.get(workspaceConfig.id);
+		if (!existing || workspaceConfig.version > existing.version) {
+			// Either first time seeing this workspace, or this version is higher
+			workspaceConfigs.set(workspaceConfig.id, workspaceConfig);
+		}
+		// Otherwise keep existing (higher or equal version)
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 2: DEPENDENCY VERIFICATION
 	// Verify that all dependencies exist in registered workspaces (flat/hoisted model)
 	// ═══════════════════════════════════════════════════════════════════════════
-
-	/**
-	 * Verify that a dependency exists in the registered workspace configs.
-	 * In the flat/hoisted model, all transitive dependencies must be present in rootWorkspaceConfigs.
-	 */
-	const verifyDependency = (workspaceId: string, depId: string) => {
-		if (!workspaceConfigs.has(depId)) {
-			throw new Error(
-				`Missing dependency: workspace "${workspaceId}" depends on "${depId}", ` +
-					`but it was not found in rootWorkspaceConfigs.\n\n` +
-					`Fix: Add "${depId}" to rootWorkspaceConfigs array (flat/hoisted resolution).\n` +
-					`All transitive dependencies must be declared at the root level.`,
-			);
-		}
-	};
 
 	// Verify all dependencies for ALL registered workspace configs (not just root-level ones)
 	// This ensures the flat/hoisted model is correctly followed at every level:
@@ -131,7 +101,15 @@ export async function initializeWorkspaces<
 	for (const [workspaceId, workspaceConfig] of workspaceConfigs) {
 		if (workspaceConfig.dependencies) {
 			for (const dep of workspaceConfig.dependencies) {
-				verifyDependency(workspaceId, dep.id);
+				// Verify the dependency exists in registered configs (flat/hoisted model)
+				if (!workspaceConfigs.has(dep.id)) {
+					throw new Error(
+						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", ` +
+							`but it was not found in rootWorkspaceConfigs.\n\n` +
+							`Fix: Add "${dep.id}" to rootWorkspaceConfigs array (flat/hoisted resolution).\n` +
+							`All transitive dependencies must be declared at the root level.`,
+					);
+				}
 			}
 		}
 	}
