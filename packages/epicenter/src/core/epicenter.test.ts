@@ -1,20 +1,20 @@
 import { describe, expect, test } from 'bun:test';
-import { defineEpicenter, createEpicenterClient } from './epicenter';
-import {
-	defineWorkspace,
-	id,
-	text,
-	select,
-	multiSelect,
-	date,
-	generateId,
-	sqliteIndex,
-	defineQuery,
-	defineMutation,
-	eq,
-} from '../index';
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
+import {
+	date,
+	defineMutation,
+	defineQuery,
+	defineWorkspace,
+	eq,
+	generateId,
+	id,
+	multiSelect,
+	select,
+	sqliteIndex,
+	text,
+} from '../index';
+import { createEpicenterClient, defineEpicenter } from './epicenter';
 
 /**
  * Pages workspace - manages page content
@@ -29,9 +29,17 @@ const pages = defineWorkspace({
 			id: id(),
 			title: text(),
 			content: text(),
-			type: select({ options: ['blog', 'article', 'guide', 'tutorial', 'news'] }),
+			type: select({
+				options: ['blog', 'article', 'guide', 'tutorial', 'news'],
+			}),
 			tags: select({
-				options: ['tech', 'lifestyle', 'business', 'education', 'entertainment'],
+				options: [
+					'tech',
+					'lifestyle',
+					'business',
+					'education',
+					'entertainment',
+				],
 			}),
 		},
 	},
@@ -43,7 +51,10 @@ const pages = defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		getPages: defineQuery({
 			handler: async () => {
-				const pages = await indexes.sqlite.db.select().from(indexes.sqlite.pages).all();
+				const pages = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.pages)
+					.all();
 				return Ok(pages);
 			},
 		}),
@@ -312,7 +323,9 @@ describe('Epicenter', () => {
 		expect(page?.type).toBe('blog');
 
 		// Step 2: Verify we can query the page
-		const { data: retrievedPage } = await client.pages.getPage({ id: page!.id });
+		const { data: retrievedPage } = await client.pages.getPage({
+			id: page!.id,
+		});
 		expect(retrievedPage).toBeDefined();
 		expect(retrievedPage?.title).toBe('Building with Epicenter');
 
@@ -352,7 +365,8 @@ describe('Epicenter', () => {
 		// Create multiple pages
 		const { data: page1 } = await client.pages.createPage({
 			title: 'Introduction to YJS',
-			content: 'YJS is a CRDT library for building collaborative applications...',
+			content:
+				'YJS is a CRDT library for building collaborative applications...',
 			type: 'tutorial',
 			tags: 'tech',
 		});
@@ -441,7 +455,11 @@ describe('Epicenter', () => {
 		/**
 		 * Helper to create a simple workspace with actions for testing action exposure
 		 */
-		const createTestWorkspace = (workspaceId: string, name: string, deps: any[] = []) => {
+		const createTestWorkspace = (
+			workspaceId: string,
+			name: string,
+			deps: any[] = [],
+		) => {
 			return defineWorkspace({
 				id: workspaceId,
 				version: 1,
@@ -466,7 +484,9 @@ describe('Epicenter', () => {
 									handler: async () => {
 										// Access the first dependency's action
 										const depName = deps[0].name;
-										const result = await (workspaces as any)[depName].getValue();
+										const result = await (workspaces as any)[
+											depName
+										].getValue();
 										return result;
 									},
 								}),
@@ -522,7 +542,7 @@ describe('Epicenter', () => {
 
 			// Should throw because A is a dependency but not listed
 			expect(() => createEpicenterClient(epicenter)).toThrow(
-				/Missing dependency.*"a"/
+				/Missing dependency.*"a"/,
 			);
 		});
 
