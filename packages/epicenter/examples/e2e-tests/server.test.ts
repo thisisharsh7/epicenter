@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { createEpicenterServer } from '../../packages/epicenter/src/index';
+import { createEpicenterServer } from '../../src/index';
 import epicenterConfig from './epicenter.config';
 
 describe('E2E Server Tests', () => {
