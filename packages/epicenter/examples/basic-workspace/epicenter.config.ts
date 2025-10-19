@@ -1,11 +1,9 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
-import * as Y from 'yjs';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import {
 	defineEpicenter,
 	defineWorkspace,
+	setupPersistenceDesktop,
 	id,
 	text,
 	integer,
@@ -172,34 +170,9 @@ const blogWorkspace = defineWorkspace({
 		}),
 	}),
 
-	/**
-	 * Set up YJS document persistence to disk
-	 * This enables state to persist across CLI invocations and programmatic runs
-	 */
-	setupYDoc: (ydoc) => {
-		const storagePath = './.epicenter';
-		const filePath = path.join(storagePath, 'blog.yjs');
-
-		// Ensure .epicenter directory exists
-		if (!fs.existsSync(storagePath)) {
-			fs.mkdirSync(storagePath, { recursive: true });
-		}
-
-		// Try to load existing state from disk
-		try {
-			const savedState = fs.readFileSync(filePath);
-			Y.applyUpdate(ydoc, savedState);
-			console.log(`[Persistence] Loaded workspace from ${filePath}`);
-		} catch {
-			console.log(`[Persistence] Creating new workspace at ${filePath}`);
-		}
-
-		// Auto-save on every update
-		ydoc.on('update', () => {
-			const state = Y.encodeStateAsUpdate(ydoc);
-			fs.writeFileSync(filePath, state);
-		});
-	},
+	// Use desktop filesystem persistence helper
+	// Stores YJS document at ./.epicenter/blog.yjs
+	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
 });
 
 export default defineEpicenter({

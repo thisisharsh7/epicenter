@@ -68,6 +68,13 @@ export { createEpicenterDb } from './db/core';
 export { createEpicenterDbFromDisk } from './db/desktop';
 export type { TableHelper, Db } from './db/core';
 
+// Persistence helpers
+// Note: Import the appropriate one for your platform
+// - persistence/desktop: Node.js, Tauri, Electron (filesystem)
+// - persistence/web: Browser (IndexedDB)
+export { setupPersistence as setupPersistenceDesktop } from './persistence/desktop';
+export { setupPersistence as setupPersistenceWeb } from './persistence/web';
+
 // Index system
 export { defineIndex } from './core/indexes';
 export type { Index, WorkspaceIndexMap } from './core/indexes';

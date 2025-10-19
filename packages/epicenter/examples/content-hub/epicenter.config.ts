@@ -1,8 +1,8 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
-import * as fs from 'node:fs';
 import {
 	defineWorkspace,
+	setupPersistenceDesktop,
 	id,
 	text,
 	select,
@@ -39,12 +39,9 @@ export const pages = defineWorkspace({
 		sqlite: await sqliteIndex(db, { database: 'test-data/pages.db' }),
 	}),
 
-	setupYDoc: () => {
-		// Ensure test-data directory exists for SQLite database
-		if (!fs.existsSync('test-data')) {
-			fs.mkdirSync('test-data', { recursive: true });
-		}
-	},
+	// Use desktop filesystem persistence helper
+	// Stores YJS document at ./.epicenter/pages.yjs
+	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all pages
@@ -187,12 +184,9 @@ export default defineWorkspace({
 		sqlite: await sqliteIndex(db, { database: 'test-data/content-hub.db' }),
 	}),
 
-	setupYDoc: () => {
-		// Ensure test-data directory exists for SQLite database
-		if (!fs.existsSync('test-data')) {
-			fs.mkdirSync('test-data', { recursive: true });
-		}
-	},
+	// Use desktop filesystem persistence helper
+	// Stores YJS document at ./.epicenter/content-hub.yjs
+	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
 
 	actions: ({ db, indexes }) => ({
 		// Mutation: Create YouTube post

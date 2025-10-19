@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Epicenter Web App Example</title>
+	<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+	<div class="container">
+		<header>
+			<h1>📝 Epicenter Web Persistence Demo</h1>
+			<p class="subtitle">Data persists across page refreshes using IndexedDB</p>
+		</header>
+
+		<main>
+			<section class="card">
+				<h2>Create Post</h2>
+				<form id="create-form">
+					<input
+						type="text"
+						id="title-input"
+						placeholder="Post title"
+						required
+					/>
+					<textarea
+						id="content-input"
+						placeholder="Post content (optional)"
+						rows="4"
+					></textarea>
+					<select id="category-input" required>
+						<option value="">Select category</option>
+						<option value="tech">Tech</option>
+						<option value="personal">Personal</option>
+						<option value="tutorial">Tutorial</option>
+					</select>
+					<button type="submit">Create Post</button>
+				</form>
+			</section>
+
+			<section class="card">
+				<h2>Posts</h2>
+				<div id="posts-list" class="posts-list">
+					<p class="empty-state">No posts yet. Create one above!</p>
+				</div>
+			</section>
+
+			<section class="card info">
+				<h3>💡 How This Works</h3>
+				<ul>
+					<li><strong>IndexedDB Persistence:</strong> Posts are stored in your browser's IndexedDB</li>
+					<li><strong>Refresh the page:</strong> Your data persists!</li>
+					<li><strong>Inspect storage:</strong> Open DevTools → Application → IndexedDB → "blog"</li>
+					<li><strong>Clear data:</strong> Delete the IndexedDB database in DevTools to reset</li>
+				</ul>
+			</section>
+		</main>
+
+		<footer>
+			<p>Using <code>setupPersistenceWeb</code> from <code>@repo/epicenter/persistence/web</code></p>
+		</footer>
+	</div>
+
+	<script type="module" src="./app.js"></script>
+</body>
+</html>
