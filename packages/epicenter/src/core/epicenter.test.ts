@@ -297,9 +297,9 @@ describe('Epicenter', () => {
 
 		expect(client.pages).toBeDefined();
 		expect(client.contentHub).toBeDefined();
-		expect(client[Symbol.dispose]).toBeDefined();
+		expect(client.destroy).toBeDefined();
 
-		client[Symbol.dispose]();
+		client.destroy();
 	});
 
 	test('should chain workspaces: create page and distribute to social media', async () => {
@@ -351,7 +351,7 @@ describe('Epicenter', () => {
 		expect(twitterPosts).toHaveLength(1);
 		expect(twitterPosts?.[0].content).toContain('Epicenter');
 
-		client[Symbol.dispose]();
+		client.destroy();
 	});
 
 	test('should chain workspaces: create multiple pages and posts', async () => {
@@ -409,7 +409,7 @@ describe('Epicenter', () => {
 		expect(page2Twitter).toHaveLength(1);
 		expect(page2Twitter?.[0].content).toContain('collaboration');
 
-		client[Symbol.dispose]();
+		client.destroy();
 	});
 
 	test('should fail when creating post for non-existent page', async () => {
@@ -428,7 +428,7 @@ describe('Epicenter', () => {
 			}),
 		).rejects.toThrow();
 
-		client[Symbol.dispose]();
+		client.destroy();
 	});
 
 	test('should properly clean up all workspaces on destroy', async () => {
@@ -448,7 +448,7 @@ describe('Epicenter', () => {
 		});
 
 		// Destroy should not throw
-		client[Symbol.dispose]();
+		client.destroy();
 	});
 
 	describe('Action Exposure', () => {
@@ -523,7 +523,7 @@ describe('Epicenter', () => {
 			const resultB = await client.workspaceB.getValue();
 			expect(resultB.data).toBe('value-from-workspaceB');
 
-			client[Symbol.dispose]();
+			client.destroy();
 		});
 
 		test('requires all transitive dependencies in workspaces array (flat/hoisted)', () => {
@@ -574,7 +574,7 @@ describe('Epicenter', () => {
 			const resultB = await client.workspaceB.getValueFromDependency();
 			expect(resultB.data).toBe('value-from-workspaceA');
 
-			client[Symbol.dispose]();
+			client.destroy();
 		});
 
 		test('multiple workspaces with no dependencies - all exposed', async () => {
@@ -604,7 +604,7 @@ describe('Epicenter', () => {
 			const resultC = await client.workspaceC.getValue();
 			expect(resultC.data).toBe('value-from-workspaceC');
 
-			client[Symbol.dispose]();
+			client.destroy();
 		});
 	});
 });

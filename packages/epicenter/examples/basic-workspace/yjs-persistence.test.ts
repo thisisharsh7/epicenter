@@ -44,7 +44,7 @@ test('YJS file is created on first session', async () => {
 	expect(existsSync('./.epicenter/blog.yjs')).toBe(true);
 	console.log('   ✅ YJS file created at .epicenter/blog.yjs');
 
-	client[Symbol.dispose]();
+	client.destroy();
 	console.log('   Session 1 closed\n');
 });
 
@@ -69,7 +69,7 @@ test('data persists across sessions', async () => {
 	expect(comments.length).toBeGreaterThan(0);
 	console.log(`   ✅ Found ${comments.length} comment(s)`);
 
-	client[Symbol.dispose]();
+	client.destroy();
 	console.log('   Session 2 closed\n');
 });
 
@@ -84,7 +84,7 @@ test('updates persist across sessions', async () => {
 	await blog.incrementViews({ id: post1Id });
 	console.log(`   Incremented views on post: ${post1Id}`);
 
-	client[Symbol.dispose]();
+	client.destroy();
 	console.log('   Session 3 closed\n');
 
 	console.log('🔄 Session 4: Verifying updates persisted...');
@@ -98,7 +98,7 @@ test('updates persist across sessions', async () => {
 	expect(finalPost.views).toBe(2);
 	console.log(`   ✅ Views: ${finalPost.views}`);
 
-	client[Symbol.dispose]();
+	client.destroy();
 	console.log('   Session 4 closed\n');
 });
 
@@ -113,7 +113,7 @@ test('can query all posts after multiple sessions', async () => {
 	expect(allPosts.length).toBeGreaterThan(0);
 	console.log(`   ✅ Posts queryable: ${allPosts.length} post(s)\n`);
 
-	client[Symbol.dispose]();
+	client.destroy();
 	console.log('   Session 5 closed\n');
 
 	console.log('✅ All persistence tests passed!');

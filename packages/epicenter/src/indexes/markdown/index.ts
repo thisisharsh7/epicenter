@@ -372,7 +372,7 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 	);
 
 	return {
-		[Symbol.dispose]() {
+		destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
 			}

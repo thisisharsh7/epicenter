@@ -1,3 +1,4 @@
+import type { WorkspaceActionMap } from './actions';
 import type { WorkspaceConfig, AnyWorkspaceConfig } from './workspace';
 import { type WorkspaceClient } from './workspace';
 import { initializeWorkspaces } from './workspace/client';
@@ -147,10 +148,10 @@ type WorkspacesToClientObject<WS extends readonly AnyWorkspaceConfig[]> = WS ext
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 	WorkspacesToClientObject<TWorkspaces> & {
 		/**
-		 * Dispose for explicit resource management (enables `using`)
+		 * Cleanup method for resource management
 		 * Destroys all workspaces in this epicenter
 		 */
-		[Symbol.dispose]: () => void;
+		destroy: () => void;
 	};
 
 /**
@@ -181,11 +182,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * });
  *
  * // Explicit cleanup when done
- * client[Symbol.dispose]();
- *
- * // Or use explicit resource management (tests, scripts)
- * using client = createEpicenterClient(epicenter);
- * // automatically disposed at end of scope
+ * client.destroy();
  * ```
  */
 export async function createEpicenterClient<
@@ -201,12 +198,12 @@ export async function createEpicenterClient<
 
 	const cleanup = () => {
 		for (const client of Object.values(clients)) {
-			client[Symbol.dispose]();
+			client.destroy();
 		}
 	};
 
 	return {
 		...clients,
-		[Symbol.dispose]: cleanup,
+		destroy: cleanup,
 	} as EpicenterClient<TWorkspaces>;
 }

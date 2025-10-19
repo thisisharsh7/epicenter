@@ -641,7 +641,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		const result = await client.callA();
 		expect(result.data).toBe('value-from-a');
 
-		client[Symbol.dispose]();
+		client.destroy();
 	});
 
 	test('root with multiple dependencies - only root actions exposed', async () => {
@@ -724,6 +724,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		const resultB = await client.getFromB();
 		expect(resultB.data).toBe('value-from-b');
 
-		client[Symbol.dispose]();
+		client.destroy();
 	});
 });

@@ -23,7 +23,7 @@ export type WorkspaceIndexMap = Record<string, Index>;
  * - Table references
  * - Any other tools needed to interact with the indexed data
  *
- * All indexes must include Symbol.dispose for cleanup.
+ * All indexes must include destroy() for cleanup.
  *
  * @example
  * ```typescript
@@ -40,7 +40,7 @@ export type WorkspaceIndexMap = Record<string, Index>;
  *
  *   // Return cleanup function and exported resources
  *   return {
- *     [Symbol.dispose]() {
+ *     destroy() {
  *       unsubPosts();
  *       cleanupIndex();
  *     },
@@ -51,7 +51,7 @@ export type WorkspaceIndexMap = Record<string, Index>;
  * ```
  */
 export type Index<TExports = {}> = {
-	[Symbol.dispose]: () => void;
+	destroy: () => void;
 } & TExports;
 
 /**
@@ -60,7 +60,7 @@ export type Index<TExports = {}> = {
  * @example
  * ```typescript
  * const sqliteIndex = defineIndex({
- *   [Symbol.dispose]: () => { ... },
+ *   destroy: () => { ... },
  *   db: sqliteDb,
  *   findById: async (id: string) => { ... }
  * })

@@ -15,11 +15,11 @@ import type {
 export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
 	TActionMap & {
 		/**
-		 * Dispose for explicit resource management (enables `using`)
+		 * Cleanup method for resource management
 		 * - Destroys all indexes
 		 * - Destroys the YJS document
 		 */
-		[Symbol.dispose]: () => void;
+		destroy: () => void;
 	};
 
 /**
@@ -330,7 +330,7 @@ export async function initializeWorkspaces<
 		const cleanup = () => {
 			// Clean up indexes first
 			for (const index of Object.values(indexes)) {
-				index[Symbol.dispose]?.();
+				index.destroy?.();
 			}
 
 			// Clean up YDoc (disconnects providers, cleans up observers)
@@ -341,7 +341,7 @@ export async function initializeWorkspaces<
 		// Actions are already callable, no extraction needed
 		const client: WorkspaceClient<any> = {
 			...actionMap,
-			[Symbol.dispose]: cleanup,
+			destroy: cleanup,
 		};
 
 		return client;

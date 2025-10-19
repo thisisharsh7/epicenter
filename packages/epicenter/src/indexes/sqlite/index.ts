@@ -273,9 +273,9 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 		}
 	}
 
-	// Return dispose function alongside exported resources (flattened structure)
+	// Return destroy function alongside exported resources (flattened structure)
 	return {
-		[Symbol.dispose]() {
+		destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
 			}

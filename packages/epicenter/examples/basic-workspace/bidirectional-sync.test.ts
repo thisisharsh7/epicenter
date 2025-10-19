@@ -72,5 +72,5 @@ test('markdown file edits sync back to YJS', async () => {
 
 	console.log('\n✅ Bidirectional sync is working! Changes from markdown file synced to YJS.');
 
-	client[Symbol.dispose]();
+	client.destroy();
 });
