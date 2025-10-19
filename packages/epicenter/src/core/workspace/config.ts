@@ -89,8 +89,14 @@ export function defineWorkspace<
 	const TVersion extends number,
 	const TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexMap extends WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap,
+	TIndexesFn extends (context: {
+		db: Db<TWorkspaceSchema>;
+	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>,
+	TActionsFn extends (context: {
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyActionsMap<TDeps>;
+		indexes: Awaited<ReturnType<TIndexesFn>>;
+	}) => WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -98,10 +104,10 @@ export function defineWorkspace<
 		TVersion,
 		TName,
 		TWorkspaceSchema,
-		TIndexMap,
-		TActionMap
+		TIndexesFn,
+		TActionsFn
 	>,
-): WorkspaceConfig<TDeps, TId, TVersion, TName, TWorkspaceSchema, TIndexMap, TActionMap> {
+): WorkspaceConfig<TDeps, TId, TVersion, TName, TWorkspaceSchema, TIndexesFn, TActionsFn> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -158,8 +164,20 @@ export type WorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
+	TIndexesFn extends (context: {
+		db: Db<TWorkspaceSchema>;
+	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap> = (context: {
+		db: Db<TWorkspaceSchema>;
+	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>,
+	TActionsFn extends (context: {
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyActionsMap<TDeps>;
+		indexes: Awaited<ReturnType<TIndexesFn>>;
+	}) => WorkspaceActionMap = (context: {
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyActionsMap<TDeps>;
+		indexes: Awaited<ReturnType<TIndexesFn>>;
+	}) => WorkspaceActionMap,
 > = {
 	/**
 	 * Unique identifier for this workspace (base ID without version)
@@ -219,7 +237,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap | Promise<TIndexMap>;
+	indexes: TIndexesFn;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -266,14 +284,7 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	actions: (context: {
-		/** Database instance with table helpers, ydoc, schema, and utilities */
-		db: Db<TWorkspaceSchema>;
-		/** Dependency workspaces - access actions from other workspaces */
-		workspaces: DependencyActionsMap<TDeps>;
-		/** Indexes for this workspace - async read operations (select, search, etc.) */
-		indexes: TIndexMap;
-	}) => TActionMap;
+	actions: TActionsFn;
 };
 
 /**
@@ -373,21 +384,29 @@ export type ImmediateDependencyWorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
+	TIndexesFn extends (context: {
+		db: Db<TWorkspaceSchema>;
+	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap> = (context: {
+		db: Db<TWorkspaceSchema>;
+	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>,
+	TActionsFn extends (context: {
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyActionsMap<TDeps>;
+		indexes: Awaited<ReturnType<TIndexesFn>>;
+	}) => WorkspaceActionMap = (context: {
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyActionsMap<TDeps>;
+		indexes: Awaited<ReturnType<TIndexesFn>>;
+	}) => WorkspaceActionMap,
 > = {
 	id: TId;
 	version: TVersion;
 	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: (context: { db: Db<TWorkspaceSchema> }) => TIndexMap | Promise<TIndexMap>;
+	indexes: TIndexesFn;
 	setupYDoc?: (ydoc: Y.Doc) => void;
-	actions: (context: {
-		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyActionsMap<TDeps>;
-		indexes: TIndexMap;
-	}) => TActionMap;
+	actions: TActionsFn;
 };
 
 /**
