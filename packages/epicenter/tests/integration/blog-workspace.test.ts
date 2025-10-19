@@ -17,6 +17,7 @@ import {
 	text,
 	select,
 	multiSelect,
+	type WorkspaceClient,
 } from '../../src/index';
 
 describe('Blog Workspace Integration', () => {
@@ -117,10 +118,10 @@ describe('Blog Workspace Integration', () => {
 		}),
 	});
 
-	let workspace: ReturnType<typeof createWorkspaceClient<typeof blogWorkspace>>;
+	let workspace!: WorkspaceClient<any>;
 
-	beforeEach(() => {
-		workspace = createWorkspaceClient(blogWorkspace);
+	beforeEach(async () => {
+		workspace = await createWorkspaceClient(blogWorkspace);
 	});
 
 	test('creates posts successfully', async () => {

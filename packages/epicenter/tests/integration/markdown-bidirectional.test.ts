@@ -14,6 +14,7 @@ import {
 	createWorkspaceClient,
 	text,
 	multiSelect,
+	type WorkspaceClient,
 } from '../../src/index';
 import { parseMarkdownWithValidation } from '../../src/indexes/markdown/parser';
 import { writeFile, rm } from 'node:fs/promises';
@@ -41,11 +42,11 @@ describe('Markdown Bidirectional Sync', () => {
 			},
 		},
 
-		indexes: {
-			markdown: markdownIndex({
+		indexes: ({ db }) => ({
+			markdown: markdownIndex(db, {
 				storagePath: testStoragePath,
 			}),
-		},
+		}),
 
 		actions: ({ db }) => ({
 			createNote: defineMutation({
@@ -90,10 +91,10 @@ describe('Markdown Bidirectional Sync', () => {
 		}),
 	});
 
-	let workspace: ReturnType<typeof createWorkspaceClient<typeof testWorkspace>>;
+	let workspace!: WorkspaceClient<any>;
 
-	beforeEach(() => {
-		workspace = createWorkspaceClient(testWorkspace);
+	beforeEach(async () => {
+		workspace = await createWorkspaceClient(testWorkspace);
 	});
 
 	afterEach(async () => {
