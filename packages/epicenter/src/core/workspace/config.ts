@@ -107,7 +107,15 @@ export function defineWorkspace<
 		TIndexesFn,
 		TActionsFn
 	>,
-): WorkspaceConfig<TDeps, TId, TVersion, TName, TWorkspaceSchema, TIndexesFn, TActionsFn> {
+): WorkspaceConfig<
+	TDeps,
+	TId,
+	TVersion,
+	TName,
+	TWorkspaceSchema,
+	TIndexesFn,
+	TActionsFn
+> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -142,6 +150,26 @@ export function defineWorkspace<
 }
 
 /**
+ * Function signature for defining workspace indexes
+ */
+export type IndexesFn<TWorkspaceSchema extends WorkspaceSchema> = (context: {
+	db: Db<TWorkspaceSchema>;
+}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>;
+
+/**
+ * Function signature for defining workspace actions
+ */
+export type ActionsFn<
+	TWorkspaceSchema extends WorkspaceSchema,
+	TDeps extends readonly AnyWorkspaceConfig[],
+	TIndexesFn extends IndexesFn<TWorkspaceSchema>,
+> = (context: {
+	db: Db<TWorkspaceSchema>;
+	workspaces: DependencyActionsMap<TDeps>;
+	indexes: Awaited<ReturnType<TIndexesFn>>;
+}) => WorkspaceActionMap;
+
+/**
  * Workspace configuration definition (Root/Top-level workspace)
  *
  * This is the root workspace type in a three-tier dependency hierarchy designed to
@@ -164,20 +192,12 @@ export type WorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexesFn extends (context: {
-		db: Db<TWorkspaceSchema>;
-	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap> = (context: {
-		db: Db<TWorkspaceSchema>;
-	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>,
-	TActionsFn extends (context: {
-		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyActionsMap<TDeps>;
-		indexes: Awaited<ReturnType<TIndexesFn>>;
-	}) => WorkspaceActionMap = (context: {
-		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyActionsMap<TDeps>;
-		indexes: Awaited<ReturnType<TIndexesFn>>;
-	}) => WorkspaceActionMap,
+	TIndexesFn extends IndexesFn<TWorkspaceSchema> = IndexesFn<TWorkspaceSchema>,
+	TActionsFn extends ActionsFn<TWorkspaceSchema, TDeps, TIndexesFn> = ActionsFn<
+		TWorkspaceSchema,
+		TDeps,
+		TIndexesFn
+	>,
 > = {
 	/**
 	 * Unique identifier for this workspace (base ID without version)
@@ -428,18 +448,17 @@ export type ImmediateDependencyWorkspaceConfig<
  * Works with both DependencyWorkspaceConfig and ImmediateDependencyWorkspaceConfig
  * by constraining to the common structure (name + actions), avoiding recursive type inference.
  */
-export type DependencyActionsMap<
-	TDeps extends readonly AnyWorkspaceConfig[],
-> =
+export type DependencyActionsMap<TDeps extends readonly AnyWorkspaceConfig[]> =
 	TDeps extends readonly []
 		? Record<string, never>
 		: {
 				[W in TDeps[number] as W extends { name: infer TName extends string }
 					? TName
 					: never]: W extends {
-					actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+					actions: (
+						context: any,
+					) => infer TActionMap extends WorkspaceActionMap;
 				}
 					? TActionMap
 					: never;
 			};
-
