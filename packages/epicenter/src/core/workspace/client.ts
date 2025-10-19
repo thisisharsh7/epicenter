@@ -97,6 +97,19 @@ export async function initializeWorkspaces<
 	// This ensures the flat/hoisted model is correctly followed at every level:
 	// - If A depends on B and B depends on C, both B and C must be in rootWorkspaceConfigs
 	// - By checking every workspace in the map, we verify the entire dependency tree
+	//
+	// Note: We only check direct dependencies (not recursive) because the flat/hoisted model
+	// guarantees complete validation in a single pass. Example:
+	// - Root config contains: [A, B, C]
+	// - A.dependencies = [B]
+	// - B.dependencies = [C]
+	// - C.dependencies = []
+	// Since each dependent workspace also has their transitive dependencies hoisted to the root,
+	// we don't need recursion. Each workspace's direct dependencies are sufficient.
+	// When we iterate:
+	// - Check A: verify B exists ✓
+	// - Check B: verify C exists ✓
+	// - Check C: no dependencies ✓
 	for (const [workspaceId, workspaceConfig] of workspaceConfigs) {
 		if (workspaceConfig.dependencies) {
 			for (const dep of workspaceConfig.dependencies) {
