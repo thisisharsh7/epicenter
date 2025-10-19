@@ -36,7 +36,7 @@ export const pages = defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'test-data/pages.db' }),
+		sqlite: await sqliteIndex(db, { database: '.data/pages.db' }),
 	}),
 
 	// Use desktop filesystem persistence helper
@@ -181,7 +181,7 @@ export default defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'test-data/content-hub.db' }),
+		sqlite: await sqliteIndex(db, { database: '.data/content-hub.db' }),
 	}),
 
 	// Use desktop filesystem persistence helper

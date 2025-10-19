@@ -1,4 +1,4 @@
-import type { ImmediateDependencyWorkspaceConfig, AnyWorkspaceConfig } from './workspace';
+import type { WorkspaceConfig, AnyWorkspaceConfig } from './workspace';
 import { type WorkspaceClient } from './workspace';
 import { initializeWorkspaces } from './workspace/client';
 
@@ -23,7 +23,7 @@ import { initializeWorkspaces } from './workspace/client';
  */
 export type EpicenterConfig<
 	TId extends string = string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
+	TWorkspaces extends readonly WorkspaceConfig[] = readonly WorkspaceConfig[],
 > = {
 	/**
 	 * Unique identifier for this epicenter instance
@@ -190,7 +190,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  */
 export async function createEpicenterClient<
 	const TId extends string,
-	const TWorkspaces extends readonly AnyWorkspaceConfig[],
+	const TWorkspaces extends readonly WorkspaceConfig[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
 ): Promise<EpicenterClient<TWorkspaces>> {

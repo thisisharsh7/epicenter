@@ -1,21 +1,21 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	defineEpicenter,
-	defineWorkspace,
-	setupPersistenceDesktop,
-	id,
-	text,
-	integer,
-	select,
-	generateId,
-	sqliteIndex,
-	markdownIndex,
-	defineQuery,
-	defineMutation,
-	isNotNull,
-	eq,
 	type ValidatedRow,
+	defineEpicenter,
+	defineMutation,
+	defineQuery,
+	defineWorkspace,
+	eq,
+	generateId,
+	id,
+	integer,
+	isNotNull,
+	markdownIndex,
+	select,
+	setupPersistenceDesktop,
+	sqliteIndex,
+	text,
 } from '../../src/index';
 
 /**
@@ -47,15 +47,15 @@ const blogWorkspace = defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'test-data/blog.db' }),
-		markdown: markdownIndex(db, { storagePath: './test-data/content' }),
+		sqlite: await sqliteIndex(db, { database: '.data/blog.db' }),
+		markdown: markdownIndex(db, { storagePath: './.data/content' }),
 	}),
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
 			handler: async () => {
-				const posts = await indexes.sqlite.db
+				const posts = indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
 					.where(isNotNull(indexes.sqlite.posts.publishedAt))
@@ -81,7 +81,7 @@ const blogWorkspace = defineWorkspace({
 		getPostComments: defineQuery({
 			input: Type.Object({ postId: Type.String() }),
 			handler: async ({ postId }) => {
-				const comments = await indexes.sqlite.db
+				const comments = indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)
 					.where(eq(indexes.sqlite.comments.postId, postId))

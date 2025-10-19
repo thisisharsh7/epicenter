@@ -25,7 +25,7 @@ test('markdown file edits sync back to YJS', async () => {
 	// Verify markdown file exists
 	const markdownPath = join(
 		process.cwd(),
-		'test-data/content/posts',
+		'.data/content/posts',
 		`${post.id}.md`,
 	);
 	const fileExists = (() => {

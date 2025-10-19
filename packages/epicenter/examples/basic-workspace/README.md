@@ -21,7 +21,7 @@ basic-workspace/
 ├── yjs-persistence.test.ts      # Automated test: YJS persistence across sessions
 ├── bidirectional-sync.test.ts   # Automated test: markdown file bidirectional sync
 ├── package.json                 # Scripts
-├── test-data/
+├── .data/
 │   ├── blog.db                  # SQLite index database
 │   └── content/                 # Markdown files (git-friendly storage)
 │       ├── posts/               # Blog posts as .md files
@@ -114,10 +114,10 @@ bun cli blog createPost --help
 
 ## Working with Markdown Files
 
-The markdown index creates human-readable files in `test-data/content/`:
+The markdown index creates human-readable files in `.data/content/`:
 
 ```
-test-data/content/
+.data/content/
 ├── posts/
 │   └── <post-id>.md
 └── comments/
@@ -186,7 +186,7 @@ const { data } = await blog.getPublishedPosts();
 ### Manual Edits (Through Markdown Files)
 ```bash
 # Edit a markdown file
-vim test-data/content/posts/abc123.md
+vim .data/content/posts/abc123.md
 
 # Result: File watcher detects change → YJS updated → Saved to .yjs → SQLite synced
 ```
@@ -220,8 +220,8 @@ bun cli blog incrementViews --id <post-id>
 
 3. **Check the markdown files**:
    ```bash
-   ls test-data/content/posts/
-   cat test-data/content/posts/<post-id>.md
+   ls .data/content/posts/
+   cat .data/content/posts/<post-id>.md
    ```
 
 4. **Edit a markdown file manually** and verify the changes sync back (or run the bidirectional-sync test)
