@@ -2,8 +2,6 @@
 export { defineWorkspace } from './config';
 export type {
 	WorkspaceConfig,
-	ImmediateDependencyWorkspaceConfig,
-	DependencyWorkspaceConfig,
 	DependencyActionsMap,
 	AnyWorkspaceConfig,
 } from './config';

@@ -5,7 +5,6 @@ import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 import type {
 	AnyWorkspaceConfig,
-	ImmediateDependencyWorkspaceConfig,
 	WorkspaceConfig,
 } from './config';
 
@@ -60,7 +59,7 @@ type InitializedWorkspaces<TConfigs extends readonly AnyWorkspaceConfig[]> = {
  * @returns Object mapping workspace names to initialized workspace clients
  */
 export async function initializeWorkspaces<
-	const TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
+	const TConfigs extends readonly WorkspaceConfig[],
 >(rootWorkspaceConfigs: TConfigs): Promise<InitializedWorkspaces<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
@@ -75,7 +74,7 @@ export async function initializeWorkspaces<
 	 */
 	const workspaceConfigs = new Map<
 		string,
-		ImmediateDependencyWorkspaceConfig
+		WorkspaceConfig
 	>();
 
 	// Register all root workspace configs with automatic version resolution
@@ -231,7 +230,7 @@ export async function initializeWorkspaces<
 	 * 3. Returns the initialized workspace client
 	 */
 	const initializeWorkspace = async (
-		workspaceConfig: ImmediateDependencyWorkspaceConfig,
+		workspaceConfig: WorkspaceConfig,
 	): Promise<WorkspaceClient<any>> => {
 		// Build the workspaces object by injecting already-initialized dependencies
 		// Key: dependency name, Value: initialized client
@@ -380,7 +379,7 @@ export async function createWorkspaceClient<
 	>,
 ): Promise<WorkspaceClient<TActionMap>> {
 	// Collect all workspace configs (root + dependencies) for flat/hoisted initialization
-	const allWorkspaceConfigs: ImmediateDependencyWorkspaceConfig[] = [];
+	const allWorkspaceConfigs: WorkspaceConfig[] = [];
 
 	// Add all dependencies first
 	if (workspace.dependencies) {
