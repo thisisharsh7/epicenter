@@ -355,13 +355,13 @@ export async function initializeWorkspaces<
 	}
 
 	// Convert Map to typed object keyed by workspace name (not id)
-	const initializedWorkspaces = {} as InitializedWorkspaces<TConfigs>;
+	const initializedWorkspaces: Record<string, WorkspaceClient<WorkspaceActionMap>> = {};
 	for (const [workspaceId, client] of clients) {
 		const workspaceConfig = workspaceConfigs.get(workspaceId)!;
-		(initializedWorkspaces as any)[workspaceConfig.name] = client;
+		initializedWorkspaces[workspaceConfig.name] = client;
 	}
 
-	return initializedWorkspaces;
+	return initializedWorkspaces as InitializedWorkspaces<TConfigs>;
 }
 
 /**
@@ -396,11 +396,16 @@ export async function createWorkspaceClient<
 
 	// Add all dependencies first
 	if (workspace.dependencies) {
-		allWorkspaceConfigs.push(...workspace.dependencies);
+		// Dependencies are constrained to AnyWorkspaceConfig at the type level to prevent
+		// infinite recursion, but at runtime they're full WorkspaceConfig objects
+		allWorkspaceConfigs.push(...(workspace.dependencies as unknown as WorkspaceConfig[]));
 	}
 
 	// Add root workspace last
-	allWorkspaceConfigs.push(workspace as any);
+	// This cast is safe because WorkspaceConfig<...generics...> is structurally compatible
+	// with WorkspaceConfig (the type with default generics). We use unknown as intermediate
+	// to satisfy TypeScript's strict checking while maintaining runtime safety.
+	allWorkspaceConfigs.push(workspace as unknown as WorkspaceConfig);
 
 	// Use the shared initialization logic with flat dependency array
 	const clients = await initializeWorkspaces(allWorkspaceConfigs);
