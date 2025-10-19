@@ -89,8 +89,8 @@ export function defineWorkspace<
 	const TVersion extends number,
 	const TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexesFn extends IndexesFn<TWorkspaceSchema>,
-	TActionsFn extends ActionsFn<TWorkspaceSchema, TDeps, TIndexesFn>,
+	TIndexMap extends WorkspaceIndexMap,
+	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -98,8 +98,8 @@ export function defineWorkspace<
 		TVersion,
 		TName,
 		TWorkspaceSchema,
-		TIndexesFn,
-		TActionsFn
+		TIndexMap,
+		TActionMap
 	>,
 ): WorkspaceConfig<
 	TDeps,
@@ -107,8 +107,8 @@ export function defineWorkspace<
 	TVersion,
 	TName,
 	TWorkspaceSchema,
-	TIndexesFn,
-	TActionsFn
+	TIndexMap,
+	TActionMap
 > {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
@@ -144,26 +144,6 @@ export function defineWorkspace<
 }
 
 /**
- * Function signature for defining workspace indexes
- */
-export type IndexesFn<TWorkspaceSchema extends WorkspaceSchema> = (context: {
-	db: Db<TWorkspaceSchema>;
-}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>;
-
-/**
- * Function signature for defining workspace actions
- */
-export type ActionsFn<
-	TWorkspaceSchema extends WorkspaceSchema,
-	TDeps extends readonly AnyWorkspaceConfig[],
-	TIndexesFn extends IndexesFn<TWorkspaceSchema>,
-> = (context: {
-	db: Db<TWorkspaceSchema>;
-	workspaces: DependencyActionsMap<TDeps>;
-	indexes: Awaited<ReturnType<TIndexesFn>>;
-}) => WorkspaceActionMap;
-
-/**
  * Workspace configuration definition (Root/Top-level workspace)
  *
  * This is the root workspace type in a three-tier dependency hierarchy designed to
@@ -181,17 +161,13 @@ export type ActionsFn<
  * @see DependencyWorkspaceConfig for Layer 3 (transitive dependencies, minimal constraint)
  */
 export type WorkspaceConfig<
-	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
-	TId extends string = string,
-	TVersion extends number = number,
-	TName extends string = string,
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexesFn extends IndexesFn<TWorkspaceSchema> = IndexesFn<TWorkspaceSchema>,
-	TActionsFn extends ActionsFn<TWorkspaceSchema, TDeps, TIndexesFn> = ActionsFn<
-		TWorkspaceSchema,
-		TDeps,
-		TIndexesFn
-	>,
+	TDeps extends readonly AnyWorkspaceConfig[],
+	TId extends string,
+	TVersion extends number,
+	TName extends string,
+	TWorkspaceSchema extends WorkspaceSchema,
+	TIndexMap extends WorkspaceIndexMap,
+	TActionMap extends WorkspaceActionMap,
 > = {
 	/**
 	 * Unique identifier for this workspace (base ID without version)
@@ -251,7 +227,9 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	indexes: TIndexesFn;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) =>
+		| TIndexMap
+		| Promise<TIndexMap>;
 
 	/**
 	 * Optional function to set up YDoc synchronization and persistence
@@ -298,7 +276,11 @@ export type WorkspaceConfig<
 	 * })
 	 * ```
 	 */
-	actions: TActionsFn;
+	actions: (context: {
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyActionsMap<TDeps>;
+		indexes: TIndexMap;
+	}) => TActionMap;
 };
 
 /**
@@ -393,26 +375,28 @@ export type DependencyWorkspaceConfig<
  * @see DependencyWorkspaceConfig for Layer 3 (transitive dependencies, minimal constraint)
  */
 export type ImmediateDependencyWorkspaceConfig<
-	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
-	TId extends string = string,
-	TVersion extends number = number,
-	TName extends string = string,
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexesFn extends IndexesFn<TWorkspaceSchema> = IndexesFn<TWorkspaceSchema>,
-	TActionsFn extends ActionsFn<TWorkspaceSchema, TDeps, TIndexesFn> = ActionsFn<
-		TWorkspaceSchema,
-		TDeps,
-		TIndexesFn
-	>,
+	TDeps extends readonly AnyWorkspaceConfig[],
+	TId extends string,
+	TVersion extends number,
+	TName extends string,
+	TWorkspaceSchema extends WorkspaceSchema,
+	TIndexMap extends WorkspaceIndexMap,
+	TActionMap extends WorkspaceActionMap,
 > = {
 	id: TId;
 	version: TVersion;
 	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: TIndexesFn;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) =>
+		| TIndexMap
+		| Promise<TIndexMap>;
 	setupYDoc?: (ydoc: Y.Doc) => void;
-	actions: TActionsFn;
+	actions: (context: {
+		db: Db<TWorkspaceSchema>;
+		workspaces: DependencyActionsMap<TDeps>;
+		indexes: TIndexMap;
+	}) => TActionMap;
 };
 
 /**
