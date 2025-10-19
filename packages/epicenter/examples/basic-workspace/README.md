@@ -14,17 +14,19 @@ This folder shows you how to:
 
 ```
 basic-workspace/
-├── .epicenter/              # YJS binary persistence (internal state)
-│   └── blog.yjs            # Binary YJS document (CRDT source of truth)
-├── epicenter.config.ts      # Workspace definition (with setupYDoc)
-├── test.ts                  # Programmatic test script
-├── package.json             # CLI scripts
+├── .epicenter/                  # YJS binary persistence (internal state)
+│   └── blog.yjs                # Binary YJS document (CRDT source of truth)
+├── epicenter.config.ts          # Workspace definition (with setupYDoc)
+├── cli.ts                       # CLI entry point
+├── yjs-persistence.test.ts      # Automated test: YJS persistence across sessions
+├── bidirectional-sync.test.ts   # Automated test: markdown file bidirectional sync
+├── package.json                 # Scripts
 ├── test-data/
-│   ├── blog.db              # SQLite index database
-│   └── content/             # Markdown files (git-friendly storage)
-│       ├── posts/           # Blog posts as .md files
-│       └── comments/        # Comments as .md files
-└── README.md                # This file
+│   ├── blog.db                  # SQLite index database
+│   └── content/                 # Markdown files (git-friendly storage)
+│       ├── posts/               # Blog posts as .md files
+│       └── comments/            # Comments as .md files
+└── README.md                    # This file
 ```
 
 ## The Blog Workspace
@@ -50,25 +52,23 @@ This example implements a blog workspace with:
 
 ## Running the Workspace
 
-### Option 1: Programmatic API (test.ts)
+### Option 1: Automated Tests
 
-Run the test script to see the workspace in action:
+Run the automated test suite to see the workspace in action:
 
 ```bash
-# From the repository root
-bun run examples/basic-workspace/test.ts
+# From this directory
+bun test
 
-# Or from this directory
-bun test.ts
+# Or from the repository root
+bun test examples/basic-workspace
 ```
 
-This demonstrates the programmatic API by:
-1. Initializing the workspace
-2. Creating sample posts
-3. Publishing a post
-4. Adding comments
-5. Querying the data
-6. Displaying results
+The tests demonstrate:
+1. YJS persistence across multiple sessions
+2. Bidirectional markdown file sync
+3. CRUD operations (create, read, update)
+4. Index synchronization
 
 ### Option 2: CLI Commands
 
@@ -208,9 +208,9 @@ bun cli blog incrementViews --id <post-id>
 
 ## Testing Your Changes
 
-1. **Run the programmatic test**:
+1. **Run the automated tests**:
    ```bash
-   bun test.ts
+   bun test
    ```
 
 2. **Use the CLI to create data**:
@@ -224,4 +224,4 @@ bun cli blog incrementViews --id <post-id>
    cat test-data/content/posts/<post-id>.md
    ```
 
-4. **Edit a markdown file manually** and verify the changes sync back to the database
+4. **Edit a markdown file manually** and verify the changes sync back (or run the bidirectional-sync test)
