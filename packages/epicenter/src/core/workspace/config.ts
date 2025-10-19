@@ -89,14 +89,8 @@ export function defineWorkspace<
 	const TVersion extends number,
 	const TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexesFn extends (context: {
-		db: Db<TWorkspaceSchema>;
-	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>,
-	TActionsFn extends (context: {
-		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyActionsMap<TDeps>;
-		indexes: Awaited<ReturnType<TIndexesFn>>;
-	}) => WorkspaceActionMap,
+	TIndexesFn extends IndexesFn<TWorkspaceSchema>,
+	TActionsFn extends ActionsFn<TWorkspaceSchema, TDeps, TIndexesFn>,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -404,20 +398,12 @@ export type ImmediateDependencyWorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexesFn extends (context: {
-		db: Db<TWorkspaceSchema>;
-	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap> = (context: {
-		db: Db<TWorkspaceSchema>;
-	}) => WorkspaceIndexMap | Promise<WorkspaceIndexMap>,
-	TActionsFn extends (context: {
-		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyActionsMap<TDeps>;
-		indexes: Awaited<ReturnType<TIndexesFn>>;
-	}) => WorkspaceActionMap = (context: {
-		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyActionsMap<TDeps>;
-		indexes: Awaited<ReturnType<TIndexesFn>>;
-	}) => WorkspaceActionMap,
+	TIndexesFn extends IndexesFn<TWorkspaceSchema> = IndexesFn<TWorkspaceSchema>,
+	TActionsFn extends ActionsFn<TWorkspaceSchema, TDeps, TIndexesFn> = ActionsFn<
+		TWorkspaceSchema,
+		TDeps,
+		TIndexesFn
+	>,
 > = {
 	id: TId;
 	version: TVersion;
