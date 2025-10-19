@@ -1,7 +1,7 @@
-import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { EpicenterConfig } from '../core/epicenter';
-import type { ImmediateDependencyWorkspaceConfig } from '../core/workspace';
+import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
  * Load the epicenter configuration from the current directory
@@ -13,7 +13,7 @@ import type { ImmediateDependencyWorkspaceConfig } from '../core/workspace';
  */
 export async function loadEpicenterConfig(
 	cwd: string = process.cwd(),
-): Promise<EpicenterConfig<string, readonly ImmediateDependencyWorkspaceConfig[]>> {
+): Promise<EpicenterConfig> {
 	// Try different config file extensions
 	const configFiles = [
 		'epicenter.config.ts',

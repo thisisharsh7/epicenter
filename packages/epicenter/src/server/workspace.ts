@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { WorkspaceActionMap } from '../core/actions';
 import type { WorkspaceIndexMap } from '../core/indexes';
 import type { WorkspaceSchema } from '../core/schema';
-import type { ImmediateDependencyWorkspaceConfig, WorkspaceConfig } from '../core/workspace';
+import type { AnyWorkspaceConfig, WorkspaceConfig } from '../core/workspace';
 import { createWorkspaceClient } from '../core/workspace';
 import { createMCPTools, handleMCPToolCall, handleMCPToolsList, type MCPToolCallRequest } from './mcp';
 import { executeAction } from './utils';
@@ -31,7 +31,7 @@ import { executeAction } from './utils';
  * ```
  */
 export async function createWorkspaceServer<
-	TDeps extends readonly ImmediateDependencyWorkspaceConfig[],
+	TDeps extends readonly AnyWorkspaceConfig[],
 	TId extends string,
 	TVersion extends number,
 	TName extends string,

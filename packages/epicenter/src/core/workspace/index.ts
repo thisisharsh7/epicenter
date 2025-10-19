@@ -5,6 +5,7 @@ export type {
 	ImmediateDependencyWorkspaceConfig,
 	DependencyWorkspaceConfig,
 	DependencyActionsMap,
+	AnyWorkspaceConfig,
 } from './config';
 
 // Runtime (client side)

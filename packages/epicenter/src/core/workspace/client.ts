@@ -5,7 +5,8 @@ import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 import type {
 	ImmediateDependencyWorkspaceConfig,
-	WorkspaceConfig
+	WorkspaceConfig,
+	AnyWorkspaceConfig,
 } from './config';
 
 
@@ -41,7 +42,7 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
  * ```
  */
 export type InitializedWorkspaces<
-	TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
+	TConfigs extends readonly AnyWorkspaceConfig[],
 > = {
 	[W in TConfigs[number] as W extends { name: infer TName extends string }
 		? TName
@@ -62,7 +63,7 @@ export type InitializedWorkspaces<
  * @returns Object mapping workspace names to initialized workspace clients
  */
 export async function initializeWorkspaces<
-	const TConfigs extends readonly ImmediateDependencyWorkspaceConfig[],
+	const TConfigs extends readonly AnyWorkspaceConfig[],
 >(
 	rootWorkspaceConfigs: TConfigs,
 ): Promise<InitializedWorkspaces<TConfigs>> {
@@ -379,7 +380,7 @@ export async function initializeWorkspaces<
  * @returns Initialized workspace client
  */
 export async function createWorkspaceClient<
-	const TDeps extends readonly ImmediateDependencyWorkspaceConfig[],
+	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,

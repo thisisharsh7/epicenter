@@ -84,7 +84,7 @@ import type { WorkspaceSchema } from '../schema';
  * ```
  */
 export function defineWorkspace<
-	const TDeps extends readonly ImmediateDependencyWorkspaceConfig[],
+	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	const TVersion extends number,
 	const TName extends string,
@@ -153,7 +153,7 @@ export function defineWorkspace<
  * @see DependencyWorkspaceConfig for Layer 3 (transitive dependencies, minimal constraint)
  */
 export type WorkspaceConfig<
-	TDeps extends readonly ImmediateDependencyWorkspaceConfig[] = readonly ImmediateDependencyWorkspaceConfig[],
+	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TVersion extends number = number,
 	TName extends string = string,
@@ -277,6 +277,21 @@ export type WorkspaceConfig<
 };
 
 /**
+ * Minimal workspace constraint for generic bounds
+ * Use this in `extends` clauses to avoid contravariance issues
+ *
+ * @example
+ * ```typescript
+ * function foo<T extends readonly AnyWorkspaceConfig[]>(configs: T) { ... }
+ * ```
+ */
+export type AnyWorkspaceConfig = {
+	id: string;
+	name: string;
+	actions: (context: any) => WorkspaceActionMap;
+};
+
+/**
  * Dependency workspace config (Layer 3: Transitive dependencies, minimal constraint)
  *
  * This is the minimal constraint type for transitive dependencies, designed to prevent
@@ -353,7 +368,7 @@ export type DependencyWorkspaceConfig<
  * @see DependencyWorkspaceConfig for Layer 3 (transitive dependencies, minimal constraint)
  */
 export type ImmediateDependencyWorkspaceConfig<
-	TDeps extends readonly DependencyWorkspaceConfig[] = readonly DependencyWorkspaceConfig[],
+	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TVersion extends number = number,
 	TName extends string = string,
@@ -395,7 +410,7 @@ export type ImmediateDependencyWorkspaceConfig<
  * by constraining to the common structure (name + actions), avoiding recursive type inference.
  */
 export type DependencyActionsMap<
-	TDeps extends readonly { name: string; actions: (context: any) => WorkspaceActionMap }[],
+	TDeps extends readonly AnyWorkspaceConfig[],
 > =
 	TDeps extends readonly []
 		? Record<string, never>
