@@ -1,4 +1,4 @@
-import Type from 'typebox';
+import { Type } from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
 	defineWorkspace,
@@ -193,22 +193,22 @@ export default defineWorkspace({
 		// Note: Manual schema here for API design reasons (camelCase, omitting date fields)
 		// Alternative with adapter: createInsertSchemaZod(db.schema.youtube).omit({ posted_at: true, updated_at: true })
 		createYouTubePost: defineMutation({
-			input: z.object({
-				pageId: z.string(),
-				title: z.string(),
-				description: z.string(),
-				niche: z.array(
-					z.enum([
-						'Braden',
-						'Epicenter',
-						'YC',
-						'Yale',
-						'College Students',
-						'High School Students',
-						'Coding',
-						'Productivity',
-						'Ethics',
-						'Writing',
+			input: Type.Object({
+				pageId: Type.String(),
+				title: Type.String(),
+				description: Type.String(),
+				niche: Type.Array(
+					Type.Union([
+						Type.Literal('Braden'),
+						Type.Literal('Epicenter'),
+						Type.Literal('YC'),
+						Type.Literal('Yale'),
+						Type.Literal('College Students'),
+						Type.Literal('High School Students'),
+						Type.Literal('Coding'),
+						Type.Literal('Productivity'),
+						Type.Literal('Ethics'),
+						Type.Literal('Writing'),
 					]),
 				),
 			}),
@@ -231,10 +231,10 @@ export default defineWorkspace({
 		// Note: Manual schema here because API uses camelCase (pageId) while DB uses snake_case (page_id)
 		// For schemas where API matches DB field names, use createInsertSchemaZod(db.schema.twitter)
 		createTwitterPost: defineMutation({
-			input: z.object({
-				pageId: z.string(),
-				content: z.string(),
-				title: z.string().optional(),
+			input: Type.Object({
+				pageId: Type.String(),
+				content: Type.String(),
+				title: Type.Optional(Type.String()),
 			}),
 			handler: async ({ pageId, content, title }) => {
 				const post = {

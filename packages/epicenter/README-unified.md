@@ -7,7 +7,7 @@ Everything is a workspace. The epicenter is just a workspace that aggregates oth
 ```typescript
 // Before: Two concepts (workspaces and epicenter)
 const workspace = defineWorkspace({...});
-const epicenter = createEpicenter({ workspaces: [...], path: '...', databaseUrl: '...' });
+const epicenter = createEpicenter({ workspaces: [...], path: '...', database: '...' });
 
 // After: One concept (just workspaces)
 const epicenter = defineWorkspace({
@@ -26,7 +26,7 @@ Each workspace defines its tables and actions:
 
 ```typescript
 import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/epicenter';
-import { z } from 'zod';
+import { Type } from '@sinclair/typebox';
 
 const usersWorkspace = defineWorkspace({
   id: 'users',
@@ -41,9 +41,9 @@ const usersWorkspace = defineWorkspace({
 
   actions: (api) => ({
     createUser: defineMutation({
-      input: z.object({
-        name: z.string().min(1),
-        email: z.string().email()
+      input: Type.Object({
+        name: Type.String({ minLength: 1 }),
+        email: Type.String({ format: 'email' })
       }),
       description: 'Create a new user with name and email',
       handler: async ({ name, email }) => {
@@ -86,7 +86,7 @@ The Epicenter CLI provides the database and storage:
 ```typescript
 // The CLI does this internally:
 const app = await runWorkspace(epicenter, {
-  databaseUrl: './data/app.db',
+  database: './data/app.db',
   storagePath: './data'
 });
 
@@ -142,9 +142,9 @@ const postsWorkspace = defineWorkspace({
   },
   actions: (api) => ({
     createPost: defineMutation({
-      input: z.object({
-        authorId: z.string(),
-        title: z.string().min(1)
+      input: Type.Object({
+        authorId: Type.String(),
+        title: Type.String({ minLength: 1 })
       }),
       description: 'Create a new post for a user',
       handler: async ({ authorId, title }) => {
@@ -179,7 +179,7 @@ import { createEpicenter } from '@epicenter/core';
 
 const epicenter = createEpicenter({
   path: './data',
-  databaseUrl: './data.db',
+  database: './data.db',
   workspaces: [usersWorkspace, postsWorkspace]
 });
 
@@ -200,7 +200,7 @@ const epicenter = defineWorkspace({
 
 // Runtime injection (handled by CLI)
 const app = await runWorkspace(epicenter, {
-  databaseUrl: './data.db',
+  database: './data.db',
   storagePath: './data'
 });
 ```
@@ -220,9 +220,9 @@ export const usersWorkspace = defineWorkspace({
   },
   actions: (api) => ({
     createUser: defineMutation({
-      input: z.object({
-        name: z.string().min(1),
-        email: z.string().email()
+      input: Type.Object({
+        name: Type.String({ minLength: 1 }),
+        email: Type.String({ format: 'email' })
       }),
       description: 'Create a new user',
       handler: async ({ name, email }) => {
@@ -250,9 +250,9 @@ export const postsWorkspace = defineWorkspace({
   },
   actions: (api) => ({
     createPost: defineMutation({
-      input: z.object({
-        authorId: z.string(),
-        title: z.string().min(1)
+      input: Type.Object({
+        authorId: Type.String(),
+        title: Type.String({ minLength: 1 })
       }),
       description: 'Create a new post for a user',
       handler: async ({ authorId, title }) => {

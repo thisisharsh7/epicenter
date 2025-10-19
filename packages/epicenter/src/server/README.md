@@ -21,7 +21,7 @@ const blogWorkspace = defineWorkspace({
   indexes: { /* your indexes */ },
   actions: ({ db, indexes }) => ({
     createPost: defineMutation({
-      input: z.object({ title: z.string() }),
+      input: Type.Object({ title: Type.String() }),
       handler: async ({ title }) => {
         // Your logic here
         return Ok(post);
@@ -163,10 +163,10 @@ const notesWorkspace = defineWorkspace({
   }),
   actions: ({ db, indexes }) => ({
     createNote: defineMutation({
-      input: z.object({
-        title: z.string(),
-        content: z.string(),
-        tags: z.array(z.string()).optional(),
+      input: Type.Object({
+        title: Type.String(),
+        content: Type.String(),
+        tags: Type.Optional(Type.Array(Type.String())),
       }),
       handler: async (input) => {
         const note = { id: generateId(), ...input };
@@ -175,7 +175,7 @@ const notesWorkspace = defineWorkspace({
       }
     }),
     searchNotes: defineQuery({
-      input: z.object({ query: z.string() }),
+      input: Type.Object({ query: Type.String() }),
       handler: async ({ query }) => {
         const results = await indexes.sqlite.db
           .select()

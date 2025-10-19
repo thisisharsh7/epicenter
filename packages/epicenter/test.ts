@@ -2,7 +2,7 @@
  * Test the new YJS-first epicenter architecture
  */
 
-import { z } from 'zod';
+import { Type } from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
@@ -57,11 +57,21 @@ const blogWorkspace = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		createPost: defineMutation({
-			input: z.object({
-				title: z.string().min(1),
-				content: z.string().optional(),
-				category: z.enum(['tech', 'personal', 'work']),
-				tags: z.array(z.enum(['typescript', 'javascript', 'svelte', 'react', 'vue'])).optional(),
+			input: Type.Object({
+				title: Type.String({ minLength: 1 }),
+				content: Type.Optional(Type.String()),
+				category: Type.Union([
+					Type.Literal('tech'),
+					Type.Literal('personal'),
+					Type.Literal('work'),
+				]),
+				tags: Type.Optional(Type.Array(Type.Union([
+					Type.Literal('typescript'),
+					Type.Literal('javascript'),
+					Type.Literal('svelte'),
+					Type.Literal('react'),
+					Type.Literal('vue'),
+				]))),
 			}),
 			handler: async (input) => {
 				console.log('Creating post:', input);
@@ -100,8 +110,8 @@ const blogWorkspace = defineWorkspace({
 		}),
 
 		deletePost: defineMutation({
-			input: z.object({
-				id: z.string(),
+			input: Type.Object({
+				id: Type.String(),
 			}),
 			handler: async ({ id }) => {
 				console.log('Deleting post:', id);

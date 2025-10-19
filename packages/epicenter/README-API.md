@@ -5,7 +5,7 @@
 The epicenter workspace system provides a clean API where actions are directly callable functions:
 
 ```typescript
-import { z } from 'zod';
+import { Type } from '@sinclair/typebox';
 import { defineWorkspace, defineQuery, defineMutation, runWorkspace } from '@repo/epicenter';
 
 // Define your workspace
@@ -20,7 +20,7 @@ const todosWorkspace = defineWorkspace({
   },
   actions: () => ({
     getTodos: defineQuery({
-      input: z.object({}),
+      input: Type.Object({}),
       handler: async () => {
         // Your logic here
         return todos;
@@ -28,8 +28,8 @@ const todosWorkspace = defineWorkspace({
     }),
 
     createTodo: defineMutation({
-      input: z.object({
-        title: z.string().min(1),
+      input: Type.Object({
+        title: Type.String({ minLength: 1 }),
       }),
       handler: async (input) => {
         // Input is validated and typed!
@@ -65,7 +65,7 @@ console.log(todos.getTodos.type);   // 'query'
 
 Actions use the [Standard Schema](https://github.com/standard-schema/standard-schema) specification, making them compatible with popular validation libraries:
 
-- **Zod**: `z.object({ name: z.string() })`
+- **TypeBox**: `Type.Object({ name: Type.String() })`
 - **Valibot**: `v.object({ name: v.string() })`
 - **ArkType**: `type({ name: 'string' })`
 - Any other Standard Schema compliant library
@@ -77,7 +77,7 @@ For read operations that don't modify state:
 
 ```typescript
 defineQuery({
-  input: z.object({ id: z.string() }),
+  input: Type.Object({ id: Type.String() }),
   handler: async (input) => {
     // input.id is typed as string
     return findById(input.id);
@@ -90,9 +90,9 @@ For operations that modify state:
 
 ```typescript
 defineMutation({
-  input: z.object({
-    title: z.string(),
-    completed: z.boolean(),
+  input: Type.Object({
+    title: Type.String(),
+    completed: Type.Boolean(),
   }),
   handler: async (input) => {
     // input is fully typed

@@ -66,7 +66,7 @@ import type { WorkspaceSchema } from '../schema';
  *     }),
  *
  *     createPost: defineMutation({
- *       input: z.object({ title: z.string() }),
+ *       input: Type.Object({ title: Type.String() }),
  *       handler: async ({ title }) => {
  *         const post = {
  *           id: generateId(),
