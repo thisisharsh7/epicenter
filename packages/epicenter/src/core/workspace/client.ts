@@ -232,9 +232,9 @@ export async function initializeWorkspaces<
 	const initializeWorkspace = async (
 		workspaceConfig: WorkspaceConfig,
 	): Promise<WorkspaceClient<any>> => {
-		// Build the workspaces object by injecting already-initialized dependencies
+		// Build the workspaceClients object by injecting already-initialized dependencies
 		// Key: dependency name, Value: initialized client
-		const workspaces: Record<string, any> = {};
+		const workspaceClients: Record<string, WorkspaceClient<WorkspaceActionMap>> = {};
 
 		if (
 			workspaceConfig.dependencies &&
@@ -276,7 +276,7 @@ export async function initializeWorkspaces<
 				}
 
 				// Inject using the resolved config's name
-				workspaces[resolvedConfig.name] = depClient;
+				workspaceClients[resolvedConfig.name] = depClient;
 			}
 		}
 
@@ -304,11 +304,11 @@ export async function initializeWorkspaces<
 		}
 
 		// Call the actions factory to get action definitions, passing:
-		// - workspaces: initialized dependency clients (keyed by dep.name)
+		// - workspaceClients: initialized dependency clients (keyed by dep.name)
 		// - db: Epicenter database API
 		// - indexes: exported resources from each index (db, queries, etc.)
 		const actionMap = workspaceConfig.actions({
-			workspaces,
+			workspaces: workspaceClients,
 			db,
 			indexes,
 		});
