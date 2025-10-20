@@ -11,7 +11,7 @@
  * Then test with: curl http://localhost:3000/pages/getPages
  */
 
-import { createEpicenterServer } from '../../src/index';
+import { createHttpServer } from '../../src/index';
 import { defineEpicenter } from '../../src/core/epicenter';
 import { pages } from './epicenter.config';
 
@@ -22,7 +22,7 @@ const contentHub = defineEpicenter({
 });
 
 // Create and start the server
-const app = await createEpicenterServer(contentHub);
+const app = await createHttpServer(contentHub);
 
 const PORT = process.env.PORT || 3000;
 

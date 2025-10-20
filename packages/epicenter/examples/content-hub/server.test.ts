@@ -10,7 +10,7 @@
  */
 
 import { test, expect, describe, beforeAll } from 'bun:test';
-import { createEpicenterServer } from '../../src/index';
+import { createHttpServer } from '../../src/index';
 import { defineEpicenter } from '../../src/core/epicenter';
 import { pages } from './epicenter.config';
 
@@ -26,7 +26,7 @@ describe('Content Hub Server', () => {
 		});
 
 		// Create the server
-		const app = await createEpicenterServer(contentHub);
+		const app = await createHttpServer(contentHub);
 
 		// Start server on random port
 		server = Bun.serve({

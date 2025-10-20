@@ -91,7 +91,12 @@ export { IndexErr } from './core/errors';
 export type { EpicenterOperationError, IndexError } from './core/errors';
 
 // Server - expose workspaces as REST API and MCP servers
-export { createEpicenterServer, createWorkspaceServer } from './server';
+export {
+	createHttpServer,
+	createStdioServer,
+	createEpicenterServer, // deprecated, use createHttpServer
+	createWorkspaceServer,
+} from './server';
 export type {
 	MCPTool,
 	MCPToolsListResponse,

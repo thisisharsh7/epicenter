@@ -1,0 +1,401 @@
+# Using Epicenter as an MCP Server
+
+This guide shows how to connect your Epicenter server to Claude Code as an MCP (Model Context Protocol) server.
+
+## What You'll Get
+
+Once connected, Claude Code can:
+- List all your workspace actions as tools
+- Execute queries (read operations)
+- Execute mutations (write operations)
+- Validate inputs using your TypeBox schemas
+- Return structured data from your indexes
+
+## Two Transport Options
+
+MCP supports two ways to communicate with servers:
+
+1. **stdio Transport** (Recommended) - Server runs as a child process, communicating via stdin/stdout
+   - Simpler setup, no server management
+   - Standard way for local MCP servers
+   - Use `mcp-stdio.ts`
+
+2. **HTTP Transport** - Server runs as HTTP service, communicating via Server-Sent Events
+   - Good for remote servers or existing HTTP services
+   - Requires managing server lifecycle
+   - Use `start-mcp.ts`
+
+## Quick Start
+
+### Option A: stdio Transport (Recommended)
+
+This is the simpler and more standard approach.
+
+#### 1. Make the script executable
+
+```bash
+cd packages/epicenter/examples/content-hub
+chmod +x mcp-stdio.ts
+```
+
+#### 2. Add to Claude Code
+
+Using the CLI:
+```bash
+claude mcp add epicenter-content-hub --scope user -- bun $(pwd)/mcp-stdio.ts
+```
+
+Or add manually to `~/.claude.json`:
+```json
+{
+  "mcpServers": {
+    "epicenter-content-hub": {
+      "command": "bun",
+      "args": ["/absolute/path/to/mcp-stdio.ts"]
+    }
+  }
+}
+```
+
+That's it! No server to manage, Claude Code will start/stop the process automatically.
+
+### Option B: HTTP Transport
+
+Use this if you need a standalone HTTP server or want to access the MCP server remotely.
+
+#### 1. Start Your Epicenter Server
+
+```bash
+cd packages/epicenter/examples/content-hub
+bun run start-mcp.ts
+```
+
+The server will start on http://localhost:3000 with:
+- REST API endpoints at `/{workspace}/{action}`
+- MCP endpoint at `/mcp`
+
+#### 2. Add to Claude Code
+
+Using the CLI:
+```bash
+claude mcp add epicenter-content-hub --scope user -- \
+  curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  --data-binary "@-" --no-buffer
+```
+
+Or add manually to `~/.claude.json`:
+```json
+{
+  "mcpServers": {
+    "epicenter-content-hub": {
+      "command": "curl",
+      "args": [
+        "-X", "POST",
+        "http://localhost:3000/mcp",
+        "-H", "Content-Type: application/json",
+        "-H", "Accept: application/json, text/event-stream",
+        "--data-binary", "@-",
+        "--no-buffer"
+      ]
+    }
+  }
+}
+```
+
+**Note**: The `--no-buffer` flag is important for streaming responses, and the `Accept` header must include `text/event-stream` as MCP uses Server-Sent Events (SSE) for responses.
+
+### 3. Test the Connection
+
+In Claude Code, you can now:
+
+```
+List available tools:
+@epicenter-content-hub what tools do you have?
+
+Query pages:
+@epicenter-content-hub get all pages
+
+Create a page:
+@epicenter-content-hub create a new blog post titled "Hello World" with content "My first post" tagged as tech
+```
+
+## How It Works
+
+### Server Architecture
+
+The `createEpicenterServer()` function:
+
+1. **Exposes REST endpoints** for each action:
+   ```
+   GET/POST /{workspace}/{action}
+   ```
+
+2. **Exposes MCP endpoint** using StreamableHTTPTransport:
+   ```
+   POST /mcp
+   ```
+
+   The MCP endpoint communicates using Server-Sent Events (SSE):
+   - Client sends JSON-RPC requests via HTTP POST
+   - Server responds with SSE stream (`event: message\ndata: {...}`)
+   - Each event contains a JSON-RPC response
+   - This allows for bidirectional communication over HTTP
+
+3. **Registers all actions as MCP tools** with:
+   - Input validation via TypeBox schemas
+   - Output validation
+   - Error handling with proper MCP error codes
+
+### Example Actions
+
+From the content-hub example:
+
+**Query (Read Operation):**
+```typescript
+getPages: defineQuery({
+  handler: async () => {
+    const pages = await indexes.sqlite.db
+      .select()
+      .from(indexes.sqlite.pages)
+      .all();
+    return Ok(pages);
+  },
+})
+```
+
+**Mutation (Write Operation):**
+```typescript
+createPage: defineMutation({
+  input: Type.Object({
+    title: Type.String(),
+    content: Type.String(),
+    type: Type.Union([
+      Type.Literal('blog'),
+      Type.Literal('article'),
+      // ...
+    ]),
+  }),
+  handler: async (data) => {
+    const page = {
+      id: generateId(),
+      ...data,
+    };
+    db.tables.pages.insert(page);
+    return Ok(page);
+  },
+})
+```
+
+### MCP Tool Format
+
+Each action becomes an MCP tool with:
+- **Name**: `{workspace}_{action}` (e.g., `pages_getPages`, `pages_createPage`)
+- **Input Schema**: Derived from `defineQuery`/`defineMutation` input
+- **Description**: From action metadata
+- **Validation**: Automatic via TypeBox
+
+## Running Your Own Server
+
+### 1. Define Your Workspace
+
+```typescript
+import {
+  defineWorkspace,
+  defineQuery,
+  defineMutation,
+  sqliteIndex,
+  id,
+  text,
+} from '@epicenter/epicenter';
+
+export const myWorkspace = defineWorkspace({
+  id: 'my-workspace',
+  version: 1,
+  name: 'my-workspace',
+
+  schema: {
+    items: {
+      id: id(),
+      title: text(),
+    },
+  },
+
+  indexes: async ({ db }) => ({
+    sqlite: await sqliteIndex(db, { database: 'my-workspace.db' }),
+  }),
+
+  actions: ({ db, indexes }) => ({
+    getItems: defineQuery({
+      handler: async () => {
+        const items = await indexes.sqlite.db
+          .select()
+          .from(indexes.sqlite.items)
+          .all();
+        return Ok(items);
+      },
+    }),
+  }),
+});
+```
+
+### 2. Create Server
+
+```typescript
+import { createEpicenterServer, defineEpicenter } from '@epicenter/epicenter';
+import { myWorkspace } from './workspace';
+
+const app = await createEpicenterServer(
+  defineEpicenter({
+    id: 'my-app',
+    workspaces: [myWorkspace],
+  })
+);
+
+Bun.serve({
+  fetch: app.fetch,
+  port: 3000,
+});
+```
+
+### 3. Add to Claude Code
+
+```bash
+claude mcp add my-app --scope user -- curl -X POST http://localhost:3000/mcp -H "Content-Type: application/json" --data-binary "@-"
+```
+
+## Advanced Usage
+
+### Multiple Workspaces
+
+```typescript
+const app = await createEpicenterServer(
+  defineEpicenter({
+    id: 'multi-workspace-app',
+    workspaces: [workspace1, workspace2, workspace3],
+  })
+);
+```
+
+All actions from all workspaces become available as MCP tools with the naming pattern `{workspace}_{action}`.
+
+### Custom Port
+
+```typescript
+const PORT = 4000;
+
+Bun.serve({
+  fetch: app.fetch,
+  port: PORT,
+});
+
+// Update Claude Code config:
+claude mcp add my-app --scope user -- curl -X POST http://localhost:4000/mcp -H "Content-Type: application/json" --data-binary "@-"
+```
+
+### Environment Variables
+
+Pass environment variables to your actions:
+
+```typescript
+actions: ({ db, indexes }) => ({
+  fetchExternalData: defineQuery({
+    handler: async () => {
+      const apiKey = process.env.API_KEY;
+      // use apiKey...
+    },
+  }),
+})
+```
+
+Then configure in Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "my-app": {
+      "command": "curl",
+      "args": [
+        "-X",
+        "POST",
+        "http://localhost:3000/mcp",
+        "-H",
+        "Content-Type: application/json",
+        "--data-binary",
+        "@-"
+      ],
+      "env": {
+        "API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+### Server Not Starting
+- Check port availability: `lsof -i :3000`
+- Verify workspace configuration is valid
+- Check for TypeBox schema errors
+
+### Claude Code Can't Connect
+- Ensure server is running: `curl http://localhost:3000/mcp`
+- Check `~/.claude.json` syntax
+- Restart Claude Code after config changes
+- Use `claude mcp list` to verify server is registered
+
+### Tools Not Appearing
+- Verify actions are defined with `defineQuery` or `defineMutation`
+- Check server logs for errors
+- Restart Claude Code
+- Try: `@epicenter-content-hub list available tools`
+
+### Validation Errors
+- Review TypeBox schema definitions
+- Check input format matches schema
+- Look for MCP error messages in Claude Code
+
+## Reference
+
+### MCP Endpoint Behavior
+
+The `/mcp` endpoint handles two request types:
+
+1. **List Tools** (`tools/list`):
+   - Returns all workspace actions as tools
+   - Includes input schemas and descriptions
+
+2. **Call Tool** (`tools/call`):
+   - Validates input against TypeBox schema
+   - Executes the action
+   - Validates output (if schema provided)
+   - Returns structured result or error
+
+### Error Handling
+
+The server returns proper MCP error codes:
+- `InvalidParams`: Unknown tool or validation error
+- `InternalError`: Output validation failure or execution error
+
+### Data Flow
+
+```
+Claude Code → POST /mcp → MCP Server → StreamableHTTPTransport
+                                      ↓
+                               Validate Input (TypeBox)
+                                      ↓
+                               Execute Action
+                                      ↓
+                               Validate Output (TypeBox)
+                                      ↓
+                            Return Result/Error ← Claude Code
+```
+
+## Next Steps
+
+- Explore the [content-hub example](./server.ts)
+- Review [workspace configuration](./epicenter.config.ts)
+- Learn about [indexes](../../src/indexes/sqlite/index.ts)
+- Read [action definitions](../../src/core/actions.ts)

@@ -1,13 +1,22 @@
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { createEpicenterServer } from '../../src/index';
+import { createHttpServer } from '../../src/index';
 import epicenterConfig from './epicenter.config';
+
+// Helper to parse SSE response from MCP endpoint
+async function parseMcpResponse(response: Response): Promise<any> {
+	const text = await response.text();
+	// SSE format: "event: message\ndata: {json}\n\n"
+	const dataLine = text.split('\n').find(line => line.startsWith('data: '));
+	if (!dataLine) throw new Error('No data in SSE response');
+	return JSON.parse(dataLine.substring(6)); // Remove "data: " prefix
+}
 
 describe('E2E Server Tests', () => {
 	let server: any;
 	let baseUrl: string;
 
 	beforeAll(async () => {
-		const app = await createEpicenterServer(epicenterConfig);
+		const app = await createHttpServer(epicenterConfig);
 		server = Bun.serve({
 			fetch: app.fetch,
 			port: 0, // Random available port
@@ -73,79 +82,114 @@ describe('E2E Server Tests', () => {
 
 	describe('MCP Protocol', () => {
 		test('lists all available MCP tools', async () => {
-			const response = await fetch(`${baseUrl}/mcp/tools/list`, {
+			const response = await fetch(`${baseUrl}/mcp`, {
 				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Accept': 'application/json, text/event-stream',
+				},
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					id: 1,
+					method: 'tools/list',
+				}),
 			});
 
 			expect(response.status).toBe(200);
-			const data = await response.json();
-			expect(data.tools).toBeDefined();
-			expect(Array.isArray(data.tools)).toBe(true);
+			const data = await parseMcpResponse(response);
+			expect(data.result).toBeDefined();
+			expect(data.result.tools).toBeDefined();
+			expect(Array.isArray(data.result.tools)).toBe(true);
 
-			const toolNames = data.tools.map((t: any) => t.name);
+			const toolNames = data.result.tools.map((t: any) => t.name);
 			expect(toolNames).toContain('blog_createPost');
 			expect(toolNames).toContain('blog_getAllPosts');
 			expect(toolNames).toContain('blog_publishPost');
 		});
 
 		test('calls MCP tool to create a post', async () => {
-			const response = await fetch(`${baseUrl}/mcp/tools/call`, {
+			const response = await fetch(`${baseUrl}/mcp`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					'Accept': 'application/json, text/event-stream',
+				},
 				body: JSON.stringify({
-					name: 'blog_createPost',
-					arguments: {
-						title: 'MCP Test Post',
-						category: 'tutorial',
+					jsonrpc: '2.0',
+					id: 2,
+					method: 'tools/call',
+					params: {
+						name: 'blog_createPost',
+						arguments: {
+							title: 'MCP Test Post',
+							category: 'tutorial',
+						},
 					},
 				}),
 			});
 
 			expect(response.status).toBe(200);
-			const data = await response.json();
-			expect(data.content).toBeDefined();
-			expect(data.content[0].type).toBe('text');
-			expect(data.isError).toBeUndefined();
+			const data = await parseMcpResponse(response);
+			expect(data.result).toBeDefined();
+			expect(data.result.content).toBeDefined();
+			expect(data.result.content[0].type).toBe('text');
+			expect(data.result.isError).toBeUndefined();
 
-			const result = JSON.parse(data.content[0].text);
+			const result = JSON.parse(data.result.content[0].text);
 			expect(result.title).toBe('MCP Test Post');
 			expect(result.category).toBe('tutorial');
 		});
 
 		test('calls MCP tool to add a comment', async () => {
 			// Create a post first
-			const postResponse = await fetch(`${baseUrl}/mcp/tools/call`, {
+			const postResponse = await fetch(`${baseUrl}/mcp`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					'Accept': 'application/json, text/event-stream',
+				},
 				body: JSON.stringify({
-					name: 'blog_createPost',
-					arguments: {
-						title: 'Post for MCP Comment',
-						category: 'tech',
+					jsonrpc: '2.0',
+					id: 3,
+					method: 'tools/call',
+					params: {
+						name: 'blog_createPost',
+						arguments: {
+							title: 'Post for MCP Comment',
+							category: 'tech',
+						},
 					},
 				}),
 			});
-			const postData = await postResponse.json();
-			const post = JSON.parse(postData.content[0].text);
+			const postData = await parseMcpResponse(postResponse);
+			const post = JSON.parse(postData.result.content[0].text);
 
 			// Add comment via MCP
-			const response = await fetch(`${baseUrl}/mcp/tools/call`, {
+			const response = await fetch(`${baseUrl}/mcp`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					'Accept': 'application/json, text/event-stream',
+				},
 				body: JSON.stringify({
-					name: 'blog_addComment',
-					arguments: {
-						postId: post.id,
-						author: 'MCP User',
-						content: 'Comment via MCP',
+					jsonrpc: '2.0',
+					id: 4,
+					method: 'tools/call',
+					params: {
+						name: 'blog_addComment',
+						arguments: {
+							postId: post.id,
+							author: 'MCP User',
+							content: 'Comment via MCP',
+						},
 					},
 				}),
 			});
 
 			expect(response.status).toBe(200);
-			const data = await response.json();
-			expect(data.isError).toBeUndefined();
-			const comment = JSON.parse(data.content[0].text);
+			const data = await parseMcpResponse(response);
+			expect(data.result.isError).toBeUndefined();
+			const comment = JSON.parse(data.result.content[0].text);
 			expect(comment.author).toBe('MCP User');
 		});
 	});
