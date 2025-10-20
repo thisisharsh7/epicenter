@@ -7,18 +7,37 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Value } from 'typebox/value';
 import type { Action } from '../core/actions';
-import type { EpicenterConfig } from '../core/epicenter';
+import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
- * Collect all actions from all workspaces into a Map
+ * Collect all actions from all workspaces and prepare them for MCP server registration.
+ *
+ * @returns An object containing:
+ * - `client`: The structured, hierarchical EpicenterClient with workspace namespaces.
+ *   This provides type-safe access to workspace methods (e.g., `client.contentHub.createItem()`)
+ *   and is needed for lifecycle management (e.g., calling `client.destroy()` on shutdown).
+ *
+ * - `actions`: A flat Map of MCP-compatible tool names to action functions.
+ *   Keys are formatted as `${workspaceName}_${actionName}` (e.g., "contentHub_createItem").
+ *   This flat structure makes it easy to iterate and register tools with the MCP server.
+ *
+ * @example
+ * const { client, actions } = await collectActions(config);
+ *
+ * // Use actions for MCP registration
+ * setupMcpHandlers(mcpServer, actions);
+ *
+ * // Use client for direct access or lifecycle management
+ * await client.contentHub.createItem({ ... });
+ * await client.destroy();
  */
 export async function collectActions<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(config: EpicenterConfig<TId, TWorkspaces>): Promise<{
-	client: Awaited<ReturnType<typeof createEpicenterClient<TId, TWorkspaces>>>;
+	client: EpicenterClient<TWorkspaces>;
 	actions: Map<string, Action>;
 }> {
 	const client = await createEpicenterClient(config);
@@ -42,7 +61,12 @@ export async function collectActions<
 }
 
 /**
- * Configure MCP server with request handlers for tools/list and tools/call
+ * Configure MCP server with request handlers for tools/list and tools/call.
+ *
+ * @param mcpServer - The MCP server instance to configure
+ * @param actions - A flat Map of MCP tool names to action functions.
+ *   Each entry represents a callable tool that will be exposed via the MCP protocol.
+ *   Keys should be in the format `${workspaceName}_${actionName}`.
  */
 export function setupMcpHandlers(
 	mcpServer: McpServer,
