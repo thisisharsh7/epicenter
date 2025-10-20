@@ -1,21 +1,22 @@
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { Database } from '@tursodatabase/database';
 import { eq, sql } from 'drizzle-orm';
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core';
+import {
+	type BetterSQLite3Database,
+	drizzle,
+} from 'drizzle-orm/better-sqlite3';
+import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
 import { type Index } from '../../core/indexes';
-import type {
-	DateWithTimezone,
-	Row,
-	WorkspaceSchema,
-} from '../../core/schema';
+import type { DateWithTimezone, Row, WorkspaceSchema } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { DateWithTimezoneSerializer } from './builders';
 import {
-	convertWorkspaceSchemaToDrizzle,
 	type WorkspaceSchemaToDrizzleTables,
+	convertWorkspaceSchemaToDrizzle,
 } from './schema-converter';
 
 /**
@@ -26,7 +27,11 @@ import {
  * - A filename ending in '.db' that follows these rules:
  *   - Cannot start with '.' (no hidden files)
  *   - Cannot start with '/' (no absolute paths - use filename only)
+ *   - Cannot contain path separators (no folders - filename only)
  *   - Can only contain: a-z, A-Z, 0-9, _ (underscore), - (hyphen), . (period)
+ *
+ * Note: All database files are automatically stored in the .data directory.
+ * The .data directory is created automatically if it doesn't exist.
  *
  * Valid examples:
  * - ':memory:'
@@ -37,7 +42,8 @@ import {
  *
  * Invalid examples:
  * - '.hidden.db' (starts with '.')
- * - '/path/to/db.db' (starts with '/')
+ * - '/path/to/db.db' (contains path separator)
+ * - '.data/pages.db' (contains path separator)
  * - 'database' (missing '.db' extension)
  * - 'my@db.db' (contains invalid character '@')
  */
@@ -51,7 +57,13 @@ export type SQLiteIndexConfig = {
 	 * Database filename for SQLite.
 	 *
 	 * Defaults to ':memory:' for in-memory database.
-	 * Use a filename ending in '.db' for persistent storage.
+	 * Use a filename ending in '.db' for persistent storage in the .data directory.
+	 * The .data directory is created automatically if it doesn't exist.
+	 *
+	 * Examples:
+	 * - ':memory:' - In-memory database
+	 * - 'pages.db' - Stored at .data/pages.db
+	 * - 'content-hub.db' - Stored at .data/content-hub.db
 	 *
 	 * @see DatabaseFilename for validation rules and examples
 	 * @default ':memory:'
@@ -109,10 +121,9 @@ function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
  * Create SQLite tables if they don't exist
  * Uses Drizzle's official getTableConfig API for introspection
  */
-async function createTablesIfNotExist<TSchema extends Record<string, SQLiteTable>>(
-	db: BetterSQLite3Database<TSchema>,
-	drizzleTables: TSchema,
-): Promise<void> {
+async function createTablesIfNotExist<
+	TSchema extends Record<string, SQLiteTable>,
+>(db: BetterSQLite3Database<TSchema>, drizzleTables: TSchema): Promise<void> {
 	for (const drizzleTable of Object.values(drizzleTables)) {
 		const tableConfig = getTableConfig(drizzleTable);
 		const columnDefs: string[] = [];
@@ -153,16 +164,27 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 ): Promise<
 	Index<
 		{
-			db: BetterSQLite3Database<WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>>;
+			db: BetterSQLite3Database<
+				WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
+			>;
 		} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
 	>
 > {
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
+	// Resolve database path: join with .data directory if not :memory:
+	let resolvedDatabasePath = database;
+	if (database !== ':memory:') {
+		// Create .data directory if it doesn't exist
+		await mkdir('.data', { recursive: true });
+		// Join filename with .data directory
+		resolvedDatabasePath = join('.data', database) as DatabaseFilename;
+	}
+
 	// Create database connection with schema for proper type inference
 	// Using lazy connection - Database will auto-connect on first query
-	const connection = new Database(database);
+	const connection = new Database(resolvedDatabasePath);
 	const sqliteDb = drizzle(connection, { schema: drizzleTables });
 
 	// Set up observers for each table
