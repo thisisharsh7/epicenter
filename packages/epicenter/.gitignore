@@ -36,3 +36,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Epicenter runtime artifacts
 examples/**/.epicenter/
 examples/**/.data/
+examples/**/*.db
+examples/**/*.db-wal
+examples/**/*.db-shm
+*.db
+*.db-wal
+*.db-shm
