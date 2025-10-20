@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Database } from '@tursodatabase/database';
+import { connect } from '@tursodatabase/database';
 import { eq, sql } from 'drizzle-orm';
 import {
 	type BetterSQLite3Database,
@@ -183,8 +183,7 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	}
 
 	// Create database connection with schema for proper type inference
-	// Using lazy connection - Database will auto-connect on first query
-	const connection = new Database(resolvedDatabasePath);
+	const connection = await connect(resolvedDatabasePath);
 	const sqliteDb = drizzle(connection, { schema: drizzleTables });
 
 	// Set up observers for each table
@@ -263,9 +262,6 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	}
 
 	// Initial sync: YJS → SQLite (blocking to ensure tables exist before queries)
-	// Explicitly connect to surface any connection errors immediately
-	await connection.connect();
-
 	await createTablesIfNotExist(sqliteDb, drizzleTables);
 
 	for (const tableName of db.getTableNames()) {
