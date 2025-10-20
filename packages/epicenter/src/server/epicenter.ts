@@ -1,11 +1,9 @@
 import { Hono } from 'hono';
-import { sValidator } from '@hono/standard-validator';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import type { Action } from '../core/actions';
+import { createMCPTools, handleMCPToolCall, handleMCPToolsList, type MCPToolCallRequest } from './mcp';
 import { executeAction } from './utils';
-import { createMCPTools, handleMCPToolsList, handleMCPToolCall, type MCPToolCallRequest } from './mcp';
 
 /**
  * Create a Hono server from an Epicenter configuration

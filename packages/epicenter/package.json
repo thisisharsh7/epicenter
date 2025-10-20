@@ -18,6 +18,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@hono/mcp": "^0.1.4",
 		"@hono/standard-validator": "^0.1.5",
 		"@modelcontextprotocol/sdk": "^1.20.1",
 		"@standard-schema/spec": "^1.0.0",

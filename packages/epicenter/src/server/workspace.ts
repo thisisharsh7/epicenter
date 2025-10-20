@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPTransport } from '@hono/mcp';
 import {
 	ListToolsRequestSchema,
 	CallToolRequestSchema,
@@ -17,7 +17,7 @@ import { executeAction } from './utils';
 
 /**
  * Create a Hono HTTP server from a Workspace configuration
- * Exposes all workspace actions as REST endpoints
+ * Exposes all workspace actions as REST endpoints AND MCP protocol endpoint
  *
  * @param config - Workspace configuration
  * @returns Hono app instance
@@ -31,9 +31,11 @@ import { executeAction } from './utils';
  *   port: 3001,
  * });
  *
- * // Routes:
+ * // REST endpoints:
  * // GET  /getAllPosts
  * // POST /createPost
+ * // MCP endpoint:
+ * // POST /mcp (handles MCP protocol over HTTP)
  * ```
  */
 export async function createWorkspaceServer<
@@ -58,7 +60,7 @@ export async function createWorkspaceServer<
 	const app = new Hono();
 
 	// Initialize workspace client (already has all actions with metadata)
-	const client = createWorkspaceClient(config);
+	const client = await createWorkspaceClient(config);
 
 	// Register each action as a REST endpoint
 	for (const [actionName, handler] of Object.entries(client)) {
@@ -81,46 +83,8 @@ export async function createWorkspaceServer<
 		});
 	}
 
-	return app;
-}
-
-/**
- * Create an MCP stdio server from a Workspace configuration
- * Exposes all workspace actions as MCP tools for Claude Desktop
- *
- * @param config - Workspace configuration
- * @returns Promise that resolves when server is connected
- *
- * @example
- * ```typescript
- * // In your MCP server entry point:
- * await createWorkspaceMCPServer(blogWorkspace);
- * ```
- */
-export async function createWorkspaceMCPServer<
-	TDeps extends readonly AnyWorkspaceConfig[],
-	TId extends string,
-	TVersion extends number,
-	TName extends string,
-	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexes extends WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap,
->(
-	config: WorkspaceConfig<
-		TDeps,
-		TId,
-		TVersion,
-		TName,
-		TWorkspaceSchema,
-		TIndexes,
-		TActionMap
-	>,
-): Promise<void> {
-	// Initialize workspace client (already has all actions with metadata)
-	const client = await createWorkspaceClient(config);
-
-	// Create MCP server
-	const server = new McpServer(
+	// Create MCP server for /mcp endpoint
+	const mcpServer = new McpServer(
 		{
 			name: config.name,
 			version: `${config.version}`,
@@ -135,7 +99,7 @@ export async function createWorkspaceMCPServer<
 	);
 
 	// List tools - iterate over client's action methods
-	server.setRequestHandler(ListToolsRequestSchema, async () => ({
+	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
 		tools: Object.entries(client)
 			.filter(([key, value]) => typeof value === 'function' && key !== 'destroy')
 			.map(([name, action]) => ({
@@ -147,7 +111,7 @@ export async function createWorkspaceMCPServer<
 	}));
 
 	// Call tool - validate with TypeBox, execute action
-	server.setRequestHandler(CallToolRequestSchema, async (request) => {
+	mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
 		const action = (client as any)[request.params.name];
 
 		// Check if action exists and is valid
@@ -214,7 +178,12 @@ export async function createWorkspaceMCPServer<
 		};
 	});
 
-	// Connect to stdio
-	const transport = new StdioServerTransport();
-	await server.connect(transport);
+	// Register MCP endpoint using StreamableHTTPTransport
+	app.all('/mcp', async (c) => {
+		const transport = new StreamableHTTPTransport();
+		await mcpServer.connect(transport);
+		return transport.handleRequest(c);
+	});
+
+	return app;
 }

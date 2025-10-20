@@ -1,2 +1,2 @@
 export { createEpicenterServer } from './epicenter';
-export { createWorkspaceServer, createWorkspaceMCPServer } from './workspace';
+export { createWorkspaceServer } from './workspace';
