@@ -11,95 +11,18 @@ import type { EpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
- * Flatten workspace actions into a Map suitable for MCP server registration.
- *
- * Takes a hierarchical EpicenterClient and flattens all workspace actions into a Map
- * with MCP-compatible tool names. This is specifically for the MCP protocol which requires
- * a flat list of tools.
- *
- * @param client - The hierarchical EpicenterClient with workspace namespaces
- * @param workspaces - Array of workspace configurations
- * @returns Flat Map where keys are `${workspaceName}_${actionName}` and values are action functions
- *
- * @example
- * const client = await createEpicenterClient(config);
- * const actions = flattenActionsForMCP(client, config.workspaces);
- * setupMcpHandlers(mcpServer, actions);
- */
-export function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
-	client: EpicenterClient<TWorkspaces>,
-	workspaces: TWorkspaces
-): Map<string, Action> {
-	const actions = new Map<string, Action>();
-
-	for (const workspace of workspaces) {
-		const workspaceClient = client[workspace.name as keyof typeof client];
-
-		const handlerNames = Object.keys(workspaceClient as any).filter(
-			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
-		);
-
-		for (const actionName of handlerNames) {
-			const action = workspaceClient[actionName];
-			const mcpToolName = `${workspace.name}_${actionName}`;
-			actions.set(mcpToolName, action);
-		}
-	}
-
-	return actions;
-}
-
-/**
- * Derives a semantic collection key from an MCP tool name for wrapping array responses.
- *
- * MCP protocol requires `structuredContent` to be an object, not an array. When an action
- * returns an array, we wrap it in an object with a semantically meaningful key derived from
- * the action name using deterministic transformation rules.
- *
- * @param mcpToolName - The full MCP tool name in format `${workspaceName}_${actionName}`
- * @returns A camelCase key for wrapping arrays, or "items" if derivation fails
- *
- * @example
- * deriveCollectionKey("pages_getPages")           // → "pages"
- * deriveCollectionKey("content_listArticles")     // → "articles"
- * deriveCollectionKey("users_fetchActiveUsers")   // → "activeUsers"
- * deriveCollectionKey("posts_searchByTag")        // → "byTag"
- * deriveCollectionKey("workspace_get")            // → "items" (empty after prefix removal)
- * deriveCollectionKey("invalid")                  // → "items" (no underscore separator)
- *
- * Transformation rules:
- * 1. Extract action name by taking everything after the last underscore
- * 2. Remove common query verb prefixes: get, list, fetch, find, search, query
- * 3. Convert first character to lowercase for camelCase convention
- * 4. Return "items" as fallback for edge cases (no action name or empty result)
- */
-function deriveCollectionKey(mcpToolName: string): string {
-	const DEFAULT_KEY = 'items';
-
-	// Extract action name after workspace prefix (e.g., "pages_getPages" → "getPages")
-	const actionName = mcpToolName.split('_').pop();
-	if (!actionName) return DEFAULT_KEY;
-
-	// Remove common query/fetch verb prefixes
-	const cleaned = actionName.replace(/^(get|list|fetch|find|search|query)/, '');
-	if (!cleaned) return DEFAULT_KEY;
-
-	// Lowercase first character
-	return cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
-}
-
-/**
  * Configure MCP server with request handlers for tools/list and tools/call.
  *
  * @param mcpServer - The MCP server instance to configure
- * @param actions - A flat Map of MCP tool names to action functions.
- *   Each entry represents a callable tool that will be exposed via the MCP protocol.
- *   Keys should be in the format `${workspaceName}_${actionName}`.
+ * @param client - The hierarchical EpicenterClient with workspace namespaces
+ * @param workspaces - Array of workspace configurations
  */
-export function setupMcpHandlers(
+export function setupMcpHandlers<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	mcpServer: McpServer,
-	actions: Map<string, Action>
+	client: EpicenterClient<TWorkspaces>,
+	workspaces: TWorkspaces
 ): void {
+	const actions = flattenActionsForMCP(client, workspaces);
 	// List tools handler
 	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
 		tools: Array.from(actions.entries()).map(([name, action]) => ({
@@ -192,4 +115,73 @@ export function setupMcpHandlers(
 			structuredContent,
 		};
 	});
+}
+
+/**
+ * Flatten workspace actions into a Map suitable for MCP server registration.
+ *
+ * Takes a hierarchical EpicenterClient and flattens all workspace actions into a Map
+ * with MCP-compatible tool names. This is specifically for the MCP protocol which requires
+ * a flat list of tools.
+ */
+function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
+	client: EpicenterClient<TWorkspaces>,
+	workspaces: TWorkspaces
+): Map<string, Action> {
+	const actions = new Map<string, Action>();
+
+	for (const workspace of workspaces) {
+		const workspaceClient = client[workspace.name as keyof typeof client];
+
+		const handlerNames = Object.keys(workspaceClient as any).filter(
+			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
+		);
+
+		for (const actionName of handlerNames) {
+			const action = workspaceClient[actionName];
+			const mcpToolName = `${workspace.name}_${actionName}`;
+			actions.set(mcpToolName, action);
+		}
+	}
+
+	return actions;
+}
+
+/**
+ * Derives a semantic collection key from an MCP tool name for wrapping array responses.
+ *
+ * MCP protocol requires `structuredContent` to be an object, not an array. When an action
+ * returns an array, we wrap it in an object with a semantically meaningful key derived from
+ * the action name using deterministic transformation rules.
+ *
+ * @param mcpToolName - The full MCP tool name in format `${workspaceName}_${actionName}`
+ * @returns A camelCase key for wrapping arrays, or "items" if derivation fails
+ *
+ * @example
+ * deriveCollectionKey("pages_getPages")           // → "pages"
+ * deriveCollectionKey("content_listArticles")     // → "articles"
+ * deriveCollectionKey("users_fetchActiveUsers")   // → "activeUsers"
+ * deriveCollectionKey("posts_searchByTag")        // → "byTag"
+ * deriveCollectionKey("workspace_get")            // → "items" (empty after prefix removal)
+ * deriveCollectionKey("invalid")                  // → "items" (no underscore separator)
+ *
+ * Transformation rules:
+ * 1. Extract action name by taking everything after the last underscore
+ * 2. Remove common query verb prefixes: get, list, fetch, find, search, query
+ * 3. Convert first character to lowercase for camelCase convention
+ * 4. Return "items" as fallback for edge cases (no action name or empty result)
+ */
+function deriveCollectionKey(mcpToolName: string): string {
+	const DEFAULT_KEY = 'items';
+
+	// Extract action name after workspace prefix (e.g., "pages_getPages" → "getPages")
+	const actionName = mcpToolName.split('_').pop();
+	if (!actionName) return DEFAULT_KEY;
+
+	// Remove common query/fetch verb prefixes
+	const cleaned = actionName.replace(/^(get|list|fetch|find|search|query)/, '');
+	if (!cleaned) return DEFAULT_KEY;
+
+	// Lowercase first character
+	return cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
 }

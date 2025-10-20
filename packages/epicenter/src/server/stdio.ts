@@ -3,7 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import { flattenActionsForMCP, setupMcpHandlers } from './mcp-handlers';
+import { setupMcpHandlers } from './mcp-handlers';
 
 /**
  * Create and run an MCP server using stdio transport
@@ -33,9 +33,8 @@ export async function createStdioServer<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(config: EpicenterConfig<TId, TWorkspaces>): Promise<void> {
-	// Create client and flatten actions for MCP
+	// Create client
 	const client = await createEpicenterClient(config);
-	const actions = flattenActionsForMCP(client, config.workspaces);
 
 	// Create MCP server
 	const mcpServer = new McpServer(
@@ -53,7 +52,7 @@ export async function createStdioServer<
 	);
 
 	// Setup MCP handlers (tools/list and tools/call)
-	setupMcpHandlers(mcpServer, actions);
+	setupMcpHandlers(mcpServer, client, config.workspaces);
 
 	// Connect to stdio transport
 	const transport = new StdioServerTransport();
