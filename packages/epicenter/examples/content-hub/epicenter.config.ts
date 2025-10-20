@@ -36,7 +36,7 @@ export const pages = defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: '.data/pages.db' }),
+		sqlite: await sqliteIndex(db, { database: 'pages.db' }),
 	}),
 
 	// Use desktop filesystem persistence helper
@@ -47,7 +47,8 @@ export const pages = defineWorkspace({
 		// Query: Get all pages
 		getPages: defineQuery({
 			handler: async () => {
-				const pages = indexes.sqlite.db.select().from(indexes.sqlite.pages).all();
+				console.log('Fetched pages:', indexes.sqlite.pages);
+				const pages = await indexes.sqlite.db.select().from(indexes.sqlite.pages);
 				return Ok(pages);
 			},
 		}),
@@ -59,8 +60,7 @@ export const pages = defineWorkspace({
 				const page = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.pages)
-					.where(eq(indexes.sqlite.pages.id, id))
-					.get();
+					.where(eq(indexes.sqlite.pages.id, id));
 				return Ok(page);
 			},
 		}),
@@ -181,7 +181,7 @@ export default defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: '.data/content-hub.db' }),
+		sqlite: await sqliteIndex(db, { database: 'content-hub.db' }),
 	}),
 
 	// Use desktop filesystem persistence helper
