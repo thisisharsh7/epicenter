@@ -1,11 +1,13 @@
 {
-	"name": "@repo/epicenter",
+	"name": "@epicenter/hq",
 	"version": "0.0.1",
 	"main": "./src/index.ts",
 	"types": "./src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
-		"./cli": "./src/cli/index.ts"
+		"./cli": "./src/cli/index.ts",
+		"./desktop": "./src/desktop/index.ts",
+		"./web": "./src/web/index.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
@@ -17,6 +19,7 @@
 	},
 	"dependencies": {
 		"@hono/standard-validator": "^0.1.5",
+		"@modelcontextprotocol/sdk": "^1.20.1",
 		"@standard-schema/spec": "^1.0.0",
 		"@tursodatabase/database": "^0.2.2",
 		"arktype": "^2.1.22",
