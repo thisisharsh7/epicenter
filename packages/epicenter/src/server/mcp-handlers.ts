@@ -11,18 +11,34 @@ import type { EpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
- * Configure MCP server with request handlers for tools/list and tools/call.
+ * Create and configure an MCP server with tool handlers.
  *
- * @param mcpServer - The MCP server instance to configure
+ * @param serverId - The MCP server identifier (typically config.id)
  * @param client - The hierarchical EpicenterClient with workspace namespaces
  * @param workspaces - Array of workspace configurations
+ * @returns Configured MCP server instance ready to connect to a transport
  */
-export function setupMcpHandlers<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
-	mcpServer: McpServer,
+export function createMcpServer<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
+	serverId: string,
 	client: EpicenterClient<TWorkspaces>,
 	workspaces: TWorkspaces
-): void {
+): McpServer {
+	const mcpServer = new McpServer(
+		{
+			name: serverId,
+			version: '1.0.0',
+		},
+		{
+			capabilities: {
+				tools: {
+					listChanged: false,
+				},
+			},
+		}
+	);
+
 	const actions = flattenActionsForMCP(client, workspaces);
+
 	// List tools handler
 	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
 		tools: Array.from(actions.entries()).map(([name, action]) => ({
@@ -115,6 +131,8 @@ export function setupMcpHandlers<TWorkspaces extends readonly AnyWorkspaceConfig
 			structuredContent,
 		};
 	});
+
+	return mcpServer;
 }
 
 /**

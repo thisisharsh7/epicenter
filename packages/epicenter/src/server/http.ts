@@ -1,10 +1,9 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
-import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
 import { Hono } from 'hono';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import { setupMcpHandlers } from './mcp-handlers';
+import { createMcpServer } from './mcp-handlers';
 import { executeAction } from './utils';
 
 /**
@@ -68,23 +67,8 @@ export async function createHttpServer<
 		}
 	}
 
-	// Create MCP server for /mcp endpoint using StreamableHTTPTransport (SSE)
-	const mcpServer = new McpServer(
-		{
-			name: config.id,
-			version: '1.0.0',
-		},
-		{
-			capabilities: {
-				tools: {
-					listChanged: false,
-				},
-			},
-		}
-	);
-
-	// Setup MCP handlers (tools/list and tools/call)
-	setupMcpHandlers(mcpServer, client, config.workspaces);
+	// Create and configure MCP server for /mcp endpoint
+	const mcpServer = createMcpServer(config.id, client, config.workspaces);
 
 	// Register MCP endpoint using StreamableHTTPTransport
 	app.all('/mcp', async (c) => {
