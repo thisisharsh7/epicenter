@@ -94,7 +94,6 @@ export type { EpicenterOperationError, IndexError } from './core/errors';
 export {
 	createHttpServer,
 	createStdioServer,
-	createEpicenterServer, // deprecated, use createHttpServer
 	createWorkspaceServer,
 } from './server';
 export type {

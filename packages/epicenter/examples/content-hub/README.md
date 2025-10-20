@@ -6,15 +6,16 @@ A practical example demonstrating how to build a content management system with 
 
 - **`epicenter.config.ts`**: Workspace definitions for managing pages and social media content
 - **`cli.ts`**: Command-line interface for interacting with your data
-- **`server.ts`**: HTTP server exposing REST and MCP endpoints
+- **`server-http.ts`**: HTTP server exposing REST and MCP endpoints
+- **`server-stdio.ts`**: stdio MCP server for Claude Code integration
 - **`server.test.ts`**: Tests demonstrating how to test your server
 
 ## Quick Start
 
-### 1. Run the Server
+### 1. Run the HTTP Server
 
 ```bash
-bun run server.ts
+bun run server-http.ts
 ```
 
 This starts an HTTP server on port 3000 with:
@@ -67,7 +68,7 @@ bun test
 
 ### Server Architecture
 
-The server is created using `createEpicenterServer()`:
+The server is created using `createHttpServer()`:
 
 ```typescript
 const contentHub = defineEpicenter({
@@ -75,7 +76,7 @@ const contentHub = defineEpicenter({
   workspaces: [pages, contentHub],
 });
 
-const app = await createEpicenterServer(contentHub);
+const app = await createHttpServer(contentHub);
 
 Bun.serve({
   fetch: app.fetch,
@@ -106,7 +107,7 @@ The tests demonstrate the recommended pattern:
 
 ```typescript
 // 1. Create server
-const app = await createEpicenterServer(epicenter);
+const app = await createHttpServer(epicenter);
 
 // 2. Start on random port
 const server = Bun.serve({

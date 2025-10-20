@@ -94,8 +94,3 @@ export async function createHttpServer<
 
 	return app;
 }
-
-/**
- * @deprecated Use createHttpServer instead
- */
-export const createEpicenterServer = createHttpServer;

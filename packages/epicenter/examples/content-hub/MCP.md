@@ -18,12 +18,12 @@ MCP supports two ways to communicate with servers:
 1. **stdio Transport** (Recommended) - Server runs as a child process, communicating via stdin/stdout
    - Simpler setup, no server management
    - Standard way for local MCP servers
-   - Use `mcp-stdio.ts`
+   - Use `server-stdio.ts`
 
 2. **HTTP Transport** - Server runs as HTTP service, communicating via Server-Sent Events
    - Good for remote servers or existing HTTP services
    - Requires managing server lifecycle
-   - Use `start-mcp.ts`
+   - Use `server-http.ts`
 
 ## Quick Start
 
@@ -35,23 +35,23 @@ This is the simpler and more standard approach.
 
 ```bash
 cd packages/epicenter/examples/content-hub
-chmod +x mcp-stdio.ts
+chmod +x server-stdio.ts
 ```
 
 #### 2. Add to Claude Code
 
 Using the CLI:
 ```bash
-claude mcp add epicenter-content-hub --scope user -- bun $(pwd)/mcp-stdio.ts
+claude mcp add content-hub --scope user -- bun $(pwd)/server-stdio.ts
 ```
 
 Or add manually to `~/.claude.json`:
 ```json
 {
   "mcpServers": {
-    "epicenter-content-hub": {
+    "content-hub": {
       "command": "bun",
-      "args": ["/absolute/path/to/mcp-stdio.ts"]
+      "args": ["/absolute/path/to/server-stdio.ts"]
     }
   }
 }
@@ -67,7 +67,7 @@ Use this if you need a standalone HTTP server or want to access the MCP server r
 
 ```bash
 cd packages/epicenter/examples/content-hub
-bun run start-mcp.ts
+bun run server-http.ts
 ```
 
 The server will start on http://localhost:3000 with:
@@ -78,7 +78,7 @@ The server will start on http://localhost:3000 with:
 
 Using the CLI:
 ```bash
-claude mcp add epicenter-content-hub --scope user -- \
+claude mcp add content-hub --scope user -- \
   curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -89,7 +89,7 @@ Or add manually to `~/.claude.json`:
 ```json
 {
   "mcpServers": {
-    "epicenter-content-hub": {
+    "content-hub": {
       "command": "curl",
       "args": [
         "-X", "POST",
@@ -125,7 +125,7 @@ Create a page:
 
 ### Server Architecture
 
-The `createEpicenterServer()` function:
+The `createHttpServer()` function:
 
 1. **Exposes REST endpoints** for each action:
    ```
@@ -243,10 +243,10 @@ export const myWorkspace = defineWorkspace({
 ### 2. Create Server
 
 ```typescript
-import { createEpicenterServer, defineEpicenter } from '@epicenter/epicenter';
+import { createHttpServer, defineEpicenter } from '@epicenter/epicenter';
 import { myWorkspace } from './workspace';
 
-const app = await createEpicenterServer(
+const app = await createHttpServer(
   defineEpicenter({
     id: 'my-app',
     workspaces: [myWorkspace],
@@ -270,7 +270,7 @@ claude mcp add my-app --scope user -- curl -X POST http://localhost:3000/mcp -H 
 ### Multiple Workspaces
 
 ```typescript
-const app = await createEpicenterServer(
+const app = await createHttpServer(
   defineEpicenter({
     id: 'multi-workspace-app',
     workspaces: [workspace1, workspace2, workspace3],
@@ -395,7 +395,7 @@ Claude Code → POST /mcp → MCP Server → StreamableHTTPTransport
 
 ## Next Steps
 
-- Explore the [content-hub example](./server.ts)
+- Explore the [HTTP server](./server-http.ts) or [stdio server](./server-stdio.ts)
 - Review [workspace configuration](./epicenter.config.ts)
 - Learn about [indexes](../../src/indexes/sqlite/index.ts)
 - Read [action definitions](../../src/core/actions.ts)

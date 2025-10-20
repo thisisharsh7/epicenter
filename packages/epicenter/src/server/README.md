@@ -52,14 +52,14 @@ Now your actions are available as HTTP endpoints:
 ### Multiple Workspaces (Epicenter)
 
 ```typescript
-import { defineEpicenter, createEpicenterServer } from '@repo/epicenter';
+import { defineEpicenter, createHttpServer } from '@repo/epicenter';
 
 const epicenter = defineEpicenter({
   id: 'my-app',
   workspaces: [blogWorkspace, authWorkspace, storageWorkspace],
 });
 
-const app = await createEpicenterServer(epicenter);
+const app = await createHttpServer(epicenter);
 
 Bun.serve({
   fetch: app.fetch,
@@ -223,7 +223,7 @@ Now you have a fully functional notes API:
 Both functions accept an optional `RuntimeConfig` parameter (same as workspace clients):
 
 ```typescript
-const app = await createEpicenterServer(epicenter, {
+const app = await createHttpServer(epicenter, {
   // Future: persistence options, sync providers, etc.
 });
 ```
