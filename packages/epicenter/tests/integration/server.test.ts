@@ -13,7 +13,6 @@ import {
 	integer,
 	text,
 	select,
-	createWorkspaceServer,
 	createHttpServer,
 	defineEpicenter,
 } from '../../src/index';
@@ -109,20 +108,25 @@ describe('Server Integration Tests', () => {
 		}),
 	});
 
-	describe('Workspace Server', () => {
-		let app: Awaited<ReturnType<typeof createWorkspaceServer>>;
+	describe('Single Workspace Server', () => {
+		const singleWorkspaceEpicenter = defineEpicenter({
+			id: 'single-workspace-test',
+			workspaces: [blogWorkspace],
+		});
+
+		let app: Awaited<ReturnType<typeof createHttpServer>>;
 		let server: any;
 
 		beforeAll(async () => {
-			app = await createWorkspaceServer(blogWorkspace);
+			app = await createHttpServer(singleWorkspaceEpicenter);
 			server = Bun.serve({
 				fetch: app.fetch,
 				port: 0, // Random available port
 			});
 		});
 
-		test('creates post via POST /createPost', async () => {
-			const response = await fetch(`http://localhost:${server.port}/createPost`, {
+		test('creates post via POST /blog/createPost', async () => {
+			const response = await fetch(`http://localhost:${server.port}/blog/createPost`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -139,8 +143,8 @@ describe('Server Integration Tests', () => {
 			expect(data.data.category).toBe('tech');
 		});
 
-		test('gets all posts via GET /getAllPosts', async () => {
-			const response = await fetch(`http://localhost:${server.port}/getAllPosts`);
+		test('gets all posts via GET /blog/getAllPosts', async () => {
+			const response = await fetch(`http://localhost:${server.port}/blog/getAllPosts`);
 
 			expect(response.status).toBe(200);
 			const data = await response.json();
@@ -148,9 +152,9 @@ describe('Server Integration Tests', () => {
 			expect(Array.isArray(data.data)).toBe(true);
 		});
 
-		test('gets posts by category via GET /getPostsByCategory', async () => {
+		test('gets posts by category via GET /blog/getPostsByCategory', async () => {
 			const response = await fetch(
-				`http://localhost:${server.port}/getPostsByCategory?category=tech`,
+				`http://localhost:${server.port}/blog/getPostsByCategory?category=tech`,
 			);
 
 			expect(response.status).toBe(200);
@@ -180,7 +184,7 @@ describe('Server Integration Tests', () => {
 			expect(Array.isArray(data.result.tools)).toBe(true);
 			expect(data.result.tools.length).toBeGreaterThan(0);
 
-			const createPostTool = data.result.tools.find((t: any) => t.name === 'createPost');
+			const createPostTool = data.result.tools.find((t: any) => t.name === 'blog_createPost');
 			expect(createPostTool).toBeDefined();
 		});
 
@@ -196,7 +200,7 @@ describe('Server Integration Tests', () => {
 					id: 2,
 					method: 'tools/call',
 					params: {
-						name: 'createPost',
+						name: 'blog_createPost',
 						arguments: {
 							title: 'MCP Test Post',
 							category: 'tech',
@@ -219,7 +223,7 @@ describe('Server Integration Tests', () => {
 		// TODO: Input validation with sValidator isn't working in the simplified version
 		// because we're registering both GET and POST without proper schema middleware
 		// test('returns 400 for invalid input', async () => {
-		// 	const response = await fetch(`http://localhost:${server.port}/createPost`, {
+		// 	const response = await fetch(`http://localhost:${server.port}/blog/createPost`, {
 		// 		method: 'POST',
 		// 		headers: { 'Content-Type': 'application/json' },
 		// 		body: JSON.stringify({

@@ -94,7 +94,6 @@ export type { EpicenterOperationError, IndexError } from './core/errors';
 export {
 	createHttpServer,
 	createStdioServer,
-	createWorkspaceServer,
 } from './server';
 export type {
 	MCPTool,
