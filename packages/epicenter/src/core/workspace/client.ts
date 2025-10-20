@@ -59,7 +59,7 @@ type InitializedWorkspaces<TConfigs extends readonly AnyWorkspaceConfig[]> = {
  * @returns Object mapping workspace names to initialized workspace clients
  */
 export async function initializeWorkspaces<
-	const TConfigs extends readonly WorkspaceConfig[],
+	const TConfigs extends readonly AnyWorkspaceConfig[],
 >(rootWorkspaceConfigs: TConfigs): Promise<InitializedWorkspaces<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
@@ -80,10 +80,13 @@ export async function initializeWorkspaces<
 	// Register all root workspace configs with automatic version resolution
 	// If the same workspace ID appears multiple times, keep the highest version
 	for (const workspaceConfig of rootWorkspaceConfigs) {
-		const existing = workspaceConfigs.get(workspaceConfig.id);
-		if (!existing || workspaceConfig.version > existing.version) {
+		// At runtime, all workspace configs have full WorkspaceConfig properties
+		// The AnyWorkspaceConfig constraint is only for type inference
+		const config = workspaceConfig as unknown as WorkspaceConfig;
+		const existing = workspaceConfigs.get(config.id);
+		if (!existing || config.version > existing.version) {
 			// Either first time seeing this workspace, or this version is higher
-			workspaceConfigs.set(workspaceConfig.id, workspaceConfig);
+			workspaceConfigs.set(config.id, config);
 		}
 		// Otherwise keep existing (higher or equal version)
 	}

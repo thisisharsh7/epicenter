@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, expectTypeOf, test } from 'bun:test';
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
@@ -298,6 +298,33 @@ describe('Epicenter', () => {
 		expect(client.pages).toBeDefined();
 		expect(client.contentHub).toBeDefined();
 		expect(client.destroy).toBeDefined();
+
+		client.destroy();
+	});
+
+	test('client types are correctly inferred and non-nullable', async () => {
+		const epicenter = defineEpicenter({
+			id: 'content-platform',
+			workspaces: [pages, contentHub],
+		});
+
+		const client = await createEpicenterClient(epicenter);
+
+		// Type-level assertions using expectTypeOf (compile-time checks)
+		// These verify TypeScript correctly infers the types
+		expectTypeOf(client).toHaveProperty('pages');
+		expectTypeOf(client).toHaveProperty('contentHub');
+		expectTypeOf(client).toHaveProperty('destroy');
+
+		expectTypeOf(client.pages).toHaveProperty('createPage');
+		expectTypeOf(client.pages).toHaveProperty('getPage');
+		expectTypeOf(client.pages).toHaveProperty('getPages');
+		expectTypeOf(client.contentHub).toHaveProperty('createYouTubePost');
+		expectTypeOf(client.contentHub).toHaveProperty('createTwitterPost');
+
+		// Runtime assertions to verify the properties actually exist
+		expect(client.pages).toBeDefined();
+		expect(client.contentHub).toBeDefined();
 
 		client.destroy();
 	});

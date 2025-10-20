@@ -1,5 +1,5 @@
 import type { WorkspaceActionMap } from './actions';
-import type { WorkspaceConfig, AnyWorkspaceConfig } from './workspace';
+import type { AnyWorkspaceConfig } from './workspace';
 import { type WorkspaceClient } from './workspace';
 import { initializeWorkspaces } from './workspace/client';
 
@@ -24,7 +24,7 @@ import { initializeWorkspaces } from './workspace/client';
  */
 export type EpicenterConfig<
 	TId extends string = string,
-	TWorkspaces extends readonly WorkspaceConfig[] = readonly WorkspaceConfig[],
+	TWorkspaces extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 > = {
 	/**
 	 * Unique identifier for this epicenter instance
@@ -124,7 +124,7 @@ export function defineEpicenter<
  */
 type WorkspaceToClientEntry<W> = W extends {
 	name: infer TName extends string;
-	actions: (context: any) => infer TActionMap;
+	actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
 }
 	? { [K in TName]: WorkspaceClient<TActionMap> }
 	: never;
@@ -187,7 +187,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  */
 export async function createEpicenterClient<
 	const TId extends string,
-	const TWorkspaces extends readonly WorkspaceConfig[],
+	const TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
 ): Promise<EpicenterClient<TWorkspaces>> {
@@ -197,7 +197,7 @@ export async function createEpicenterClient<
 	const clients = await initializeWorkspaces(config.workspaces);
 
 	const cleanup = () => {
-		for (const client of Object.values(clients)) {
+		for (const client of Object.values(clients) as Array<{ destroy: () => void }>) {
 			client.destroy();
 		}
 	};
