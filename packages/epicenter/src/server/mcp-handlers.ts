@@ -7,25 +7,26 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Value } from 'typebox/value';
 import type { Action } from '../core/actions';
-import type { EpicenterClient } from '../core/epicenter';
+import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
  * Create and configure an MCP server with tool handlers.
  *
- * @param serverId - The MCP server identifier (typically config.id)
  * @param client - The hierarchical EpicenterClient with workspace namespaces
- * @param workspaces - Array of workspace configurations
+ * @param config - Epicenter configuration containing server ID and workspaces
  * @returns Configured MCP server instance ready to connect to a transport
  */
-export function createMcpServer<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
-	serverId: string,
+export function createMcpServer<
+	TId extends string,
+	TWorkspaces extends readonly AnyWorkspaceConfig[],
+>(
 	client: EpicenterClient<TWorkspaces>,
-	workspaces: TWorkspaces
+	config: EpicenterConfig<TId, TWorkspaces>
 ): McpServer {
 	const mcpServer = new McpServer(
 		{
-			name: serverId,
+			name: config.id,
 			version: '1.0.0',
 		},
 		{
@@ -37,7 +38,7 @@ export function createMcpServer<TWorkspaces extends readonly AnyWorkspaceConfig[
 		}
 	);
 
-	const actions = flattenActionsForMCP(client, workspaces);
+	const actions = flattenActionsForMCP(client, config.workspaces);
 
 	// List tools handler
 	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({

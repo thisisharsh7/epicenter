@@ -36,7 +36,7 @@ export async function createStdioServer<
 	const client = await createEpicenterClient(config);
 
 	// Create and configure MCP server
-	const mcpServer = createMcpServer(config.id, client, config.workspaces);
+	const mcpServer = createMcpServer(client, config);
 
 	// Connect to stdio transport
 	const transport = new StdioServerTransport();

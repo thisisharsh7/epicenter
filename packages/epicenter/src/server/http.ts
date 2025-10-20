@@ -68,7 +68,7 @@ export async function createHttpServer<
 	}
 
 	// Create and configure MCP server for /mcp endpoint
-	const mcpServer = createMcpServer(config.id, client, config.workspaces);
+	const mcpServer = createMcpServer(client, config);
 
 	// Register MCP endpoint using StreamableHTTPTransport
 	app.all('/mcp', async (c) => {
