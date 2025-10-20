@@ -4,6 +4,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
 	ListToolsRequestSchema,
 	CallToolRequestSchema,
+	McpError,
+	ErrorCode,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Value } from 'typebox/value';
 import type { WorkspaceActionMap } from '../core/actions';
@@ -150,7 +152,10 @@ export async function createWorkspaceMCPServer<
 
 		// Check if action exists and is valid
 		if (!action || typeof action !== 'function' || request.params.name === 'destroy') {
-			throw new Error(`Unknown tool: ${request.params.name}`);
+			throw new McpError(
+				ErrorCode.InvalidParams,
+				`Unknown tool: ${request.params.name}`
+			);
 		}
 
 		const args = request.params.arguments || {};
@@ -159,15 +164,35 @@ export async function createWorkspaceMCPServer<
 		if (action.input) {
 			if (!Value.Check(action.input, args)) {
 				const errors = [...Value.Errors(action.input, args)];
-				throw new Error(`Invalid input: ${JSON.stringify(errors.map(e => ({
-					path: e.path,
-					message: e.message
-				})))}`);
+				throw new McpError(
+					ErrorCode.InvalidParams,
+					`Invalid input for ${request.params.name}: ${JSON.stringify(errors.map(e => ({
+						path: e.path,
+						message: e.message
+					})))}`
+				);
 			}
 		}
 
 		// Execute action (already bound to client)
 		const result = action.input ? await action(args) : await action();
+
+		// Validate output schema if present
+		if (action.output) {
+			// Check if result follows Result<T, E> pattern with data
+			if (result.data !== undefined) {
+				if (!Value.Check(action.output, result.data)) {
+					const errors = [...Value.Errors(action.output, result.data)];
+					throw new McpError(
+						ErrorCode.InternalError,
+						`Output validation failed for ${request.params.name}: ${JSON.stringify(errors.map(e => ({
+							path: e.path,
+							message: e.message
+						})))}`
+					);
+				}
+			}
+		}
 
 		// Handle Result<T, E> format
 		if (result.error) {
