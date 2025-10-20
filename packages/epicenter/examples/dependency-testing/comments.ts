@@ -54,10 +54,9 @@ export const comments = defineWorkspace({
 		// Query: Get all comments
 		getAllComments: defineQuery({
 			handler: async () => {
-				const comments = indexes.sqlite.db
+				const comments = await indexes.sqlite.db
 					.select()
-					.from(indexes.sqlite.comments)
-					.all();
+					.from(indexes.sqlite.comments);
 				return Ok(comments);
 			},
 		}),
@@ -71,8 +70,7 @@ export const comments = defineWorkspace({
 				const comment = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)
-					.where(eq(indexes.sqlite.comments.id, id))
-					.get();
+					.where(eq(indexes.sqlite.comments.id, id));
 				return Ok(comment);
 			},
 		}),
@@ -83,11 +81,10 @@ export const comments = defineWorkspace({
 				postId: Type.String(),
 			}),
 			handler: async ({ postId }) => {
-				const comments = indexes.sqlite.db
+				const comments = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)
-					.where(eq(indexes.sqlite.comments.postId, postId))
-					.all();
+					.where(eq(indexes.sqlite.comments.postId, postId));
 				return Ok(comments);
 			},
 		}),
@@ -102,8 +99,7 @@ export const comments = defineWorkspace({
 				const comment = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)
-					.where(eq(indexes.sqlite.comments.id, id))
-					.get();
+					.where(eq(indexes.sqlite.comments.id, id));
 
 				if (!comment) {
 					return Ok(null);
@@ -138,11 +134,10 @@ export const comments = defineWorkspace({
 			}),
 			handler: async ({ authorId }) => {
 				// Direct query on our own table
-				const comments = indexes.sqlite.db
+				const comments = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)
-					.where(eq(indexes.sqlite.comments.authorId, authorId))
-					.all();
+					.where(eq(indexes.sqlite.comments.authorId, authorId));
 
 				// ✅ Could enrich with post data using workspaces.posts
 				// ❌ CANNOT directly access workspaces.users.getUser

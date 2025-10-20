@@ -93,15 +93,14 @@ describe('Blog Workspace Integration', () => {
 					const posts = await indexes.sqlite.db
 						.select()
 						.from(indexes.sqlite.posts)
-						.where(isNotNull(indexes.sqlite.posts.published))
-						.all();
+						.where(isNotNull(indexes.sqlite.posts.published));
 					return Ok(posts);
 				},
 			}),
 
 			getAllPosts: defineQuery({
 				handler: async () => {
-					const posts = await indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
+					const posts = await indexes.sqlite.db.select().from(indexes.sqlite.posts);
 					return Ok(posts);
 				},
 			}),

@@ -74,8 +74,7 @@ describe('Server Integration Tests', () => {
 				handler: async () => {
 					const posts = await indexes.sqlite.db
 						.select()
-						.from(indexes.sqlite.posts)
-						.all();
+						.from(indexes.sqlite.posts);
 					return Ok(posts);
 				},
 			}),
@@ -93,8 +92,7 @@ describe('Server Integration Tests', () => {
 					const posts = await indexes.sqlite.db
 						.select()
 						.from(indexes.sqlite.posts)
-						.where((table) => table.category === category)
-						.all();
+						.where((table) => table.category === category);
 					return Ok(posts);
 				},
 			}),

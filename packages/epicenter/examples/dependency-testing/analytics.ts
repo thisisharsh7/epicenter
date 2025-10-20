@@ -218,11 +218,10 @@ export const analytics = defineWorkspace({
 				const totalComments = commentsResult.data?.length ?? 0;
 
 				// Check if stats exist
-				const existingStats = indexes.sqlite.db
+				const existingStats = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.userStats)
-					.where(eq(indexes.sqlite.userStats.userId, userId))
-					.get();
+					.where(eq(indexes.sqlite.userStats.userId, userId));
 
 				if (existingStats) {
 					// Update existing
@@ -271,11 +270,10 @@ export const analytics = defineWorkspace({
 						: null;
 
 				// Check if stats exist
-				const existingStats = indexes.sqlite.db
+				const existingStats = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.postStats)
-					.where(eq(indexes.sqlite.postStats.postId, postId))
-					.get();
+					.where(eq(indexes.sqlite.postStats.postId, postId));
 
 				if (existingStats) {
 					// Update existing

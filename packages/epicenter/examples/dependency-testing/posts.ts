@@ -1,17 +1,17 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	defineWorkspace,
-	id,
-	text,
-	select,
-	date,
-	generateId,
-	sqliteIndex,
-	defineQuery,
-	defineMutation,
-	eq,
 	type ValidatedRow,
+	date,
+	defineMutation,
+	defineQuery,
+	defineWorkspace,
+	eq,
+	generateId,
+	id,
+	select,
+	sqliteIndex,
+	text,
 } from '../../src/index';
 import { users } from './users';
 
@@ -55,7 +55,7 @@ export const posts = defineWorkspace({
 		// Query: Get all posts
 		getAllPosts: defineQuery({
 			handler: async () => {
-				const posts = indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
+				const posts = await indexes.sqlite.db.select().from(indexes.sqlite.posts);
 				return Ok(posts);
 			},
 		}),
@@ -69,8 +69,7 @@ export const posts = defineWorkspace({
 				const post = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.id, id))
-					.get();
+					.where(eq(indexes.sqlite.posts.id, id));
 				return Ok(post);
 			},
 		}),
@@ -85,11 +84,10 @@ export const posts = defineWorkspace({
 				]),
 			}),
 			handler: async ({ status }) => {
-				const posts = indexes.sqlite.db
+				const posts = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.status, status))
-					.all();
+					.where(eq(indexes.sqlite.posts.status, status));
 				return Ok(posts);
 			},
 		}),
@@ -104,8 +102,7 @@ export const posts = defineWorkspace({
 				const post = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.id, id))
-					.get();
+					.where(eq(indexes.sqlite.posts.id, id));
 
 				if (!post) {
 					return Ok(null);
@@ -129,11 +126,10 @@ export const posts = defineWorkspace({
 				authorId: Type.String(),
 			}),
 			handler: async ({ authorId }) => {
-				const posts = indexes.sqlite.db
+				const posts = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.authorId, authorId))
-					.all();
+					.where(eq(indexes.sqlite.posts.authorId, authorId));
 
 				// Could also fetch author details here using workspaces.users.getUser
 				return Ok(posts);

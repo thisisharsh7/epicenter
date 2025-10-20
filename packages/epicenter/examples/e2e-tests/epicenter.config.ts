@@ -62,11 +62,10 @@ const blogWorkspace = defineWorkspace({
 		getPublishedPosts: defineQuery({
 			description: 'Get all published blog posts',
 			handler: async () => {
-				const posts = indexes.sqlite.db
+				const posts = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(isNotNull(indexes.sqlite.posts.publishedAt))
-					.all();
+					.where(isNotNull(indexes.sqlite.posts.publishedAt));
 				return Ok(posts);
 			},
 		}),
@@ -75,7 +74,7 @@ const blogWorkspace = defineWorkspace({
 		getAllPosts: defineQuery({
 			description: 'Get all blog posts',
 			handler: async () => {
-				const posts = indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
+				const posts = await indexes.sqlite.db.select().from(indexes.sqlite.posts);
 				return Ok(posts);
 			},
 		}),
@@ -88,8 +87,7 @@ const blogWorkspace = defineWorkspace({
 				const post = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.id, id))
-					.get();
+					.where(eq(indexes.sqlite.posts.id, id));
 				return Ok(post);
 			},
 		}),
@@ -105,11 +103,10 @@ const blogWorkspace = defineWorkspace({
 			}),
 			description: 'Get all posts in a specific category',
 			handler: async ({ category }) => {
-				const posts = indexes.sqlite.db
+				const posts = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.category, category))
-					.all();
+					.where(eq(indexes.sqlite.posts.category, category));
 				return Ok(posts);
 			},
 		}),
@@ -119,11 +116,10 @@ const blogWorkspace = defineWorkspace({
 			input: Type.Object({ postId: Type.String() }),
 			description: 'Get all comments for a post',
 			handler: async ({ postId }) => {
-				const comments = indexes.sqlite.db
+				const comments = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)
-					.where(eq(indexes.sqlite.comments.postId, postId))
-					.all();
+					.where(eq(indexes.sqlite.comments.postId, postId));
 				return Ok(comments);
 			},
 		}),

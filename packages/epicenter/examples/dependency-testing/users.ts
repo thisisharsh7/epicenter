@@ -43,7 +43,7 @@ export const users = defineWorkspace({
 		// Query: Get all users
 		getAllUsers: defineQuery({
 			handler: async () => {
-				const users = indexes.sqlite.db.select().from(indexes.sqlite.users).all();
+				const users = await indexes.sqlite.db.select().from(indexes.sqlite.users);
 				return Ok(users);
 			},
 		}),
@@ -57,8 +57,7 @@ export const users = defineWorkspace({
 				const user = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.users)
-					.where(eq(indexes.sqlite.users.id, id))
-					.get();
+					.where(eq(indexes.sqlite.users.id, id));
 				return Ok(user);
 			},
 		}),
@@ -73,11 +72,10 @@ export const users = defineWorkspace({
 				]),
 			}),
 			handler: async ({ role }) => {
-				const users = indexes.sqlite.db
+				const users = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.users)
-					.where(eq(indexes.sqlite.users.role, role))
-					.all();
+					.where(eq(indexes.sqlite.users.role, role));
 				return Ok(users);
 			},
 		}),

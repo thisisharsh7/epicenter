@@ -55,11 +55,10 @@ const blogWorkspace = defineWorkspace({
 		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
 			handler: async () => {
-				const posts = indexes.sqlite.db
+				const posts = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(isNotNull(indexes.sqlite.posts.publishedAt))
-					.all();
+					.where(isNotNull(indexes.sqlite.posts.publishedAt));
 				return Ok(posts);
 			},
 		}),
@@ -71,8 +70,7 @@ const blogWorkspace = defineWorkspace({
 				const post = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.id, id))
-					.get();
+					.where(eq(indexes.sqlite.posts.id, id));
 				return Ok(post);
 			},
 		}),
@@ -81,11 +79,10 @@ const blogWorkspace = defineWorkspace({
 		getPostComments: defineQuery({
 			input: Type.Object({ postId: Type.String() }),
 			handler: async ({ postId }) => {
-				const comments = indexes.sqlite.db
+				const comments = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.comments)
-					.where(eq(indexes.sqlite.comments.postId, postId))
-					.all();
+					.where(eq(indexes.sqlite.comments.postId, postId));
 				return Ok(comments);
 			},
 		}),

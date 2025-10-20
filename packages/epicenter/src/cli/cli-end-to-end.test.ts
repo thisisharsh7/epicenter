@@ -1,23 +1,23 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import Type from 'typebox';
+import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
 import {
-	defineWorkspace,
-	id,
-	text,
-	integer,
-	sqliteIndex,
-	markdownIndex,
-	defineQuery,
-	defineMutation,
-	generateId,
-	eq,
 	type ValidatedRow,
+	defineMutation,
+	defineQuery,
+	defineWorkspace,
+	eq,
+	generateId,
+	id,
+	integer,
+	markdownIndex,
+	sqliteIndex,
+	text,
 } from '../index';
-import { Ok } from 'wellcrafted/result';
 import { generateCLI } from './generate';
-import { rm, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 
 describe('CLI End-to-End Tests', () => {
 	const TEST_DIR = './test-data/cli-e2e-test';
@@ -48,10 +48,9 @@ describe('CLI End-to-End Tests', () => {
 		actions: ({ db, indexes }) => ({
 			listPosts: defineQuery({
 				handler: async () => {
-					const posts = indexes.sqlite.db
+					const posts = await indexes.sqlite.db
 						.select()
-						.from(indexes.sqlite.posts)
-						.all();
+						.from(indexes.sqlite.posts);
 					return Ok(posts);
 				},
 			}),
@@ -59,11 +58,10 @@ describe('CLI End-to-End Tests', () => {
 			getPost: defineQuery({
 				input: Type.Object({ id: Type.String() }),
 				handler: async ({ id }) => {
-					const post = indexes.sqlite.db
+					const post = await indexes.sqlite.db
 						.select()
 						.from(indexes.sqlite.posts)
-						.where(eq(indexes.sqlite.posts.id, id))
-						.get();
+						.where(eq(indexes.sqlite.posts.id, id));
 					return Ok(post);
 				},
 			}),

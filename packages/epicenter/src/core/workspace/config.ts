@@ -24,7 +24,7 @@ import type { WorkspaceSchema } from '../schema';
  *
  * **Reads**: Query indexes directly
  * ```typescript
- * await indexes.sqlite.posts.select().where(...).all();
+ * await indexes.sqlite.posts.select().where(...);
  * await indexes.vector.search('semantic query');
  * ```
  *
@@ -58,10 +58,9 @@ import type { WorkspaceSchema } from '../schema';
  *   actions: ({ db, indexes }) => ({
  *     getPublishedPosts: defineQuery({
  *       handler: async () => {
- *         return indexes.sqlite.posts
+ *         return await indexes.sqlite.posts
  *           .select()
  *           .where(isNotNull(indexes.sqlite.posts.publishedAt))
- *           .all();
  *       }
  *     }),
  *

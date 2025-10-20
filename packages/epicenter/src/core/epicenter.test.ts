@@ -53,8 +53,7 @@ const pages = defineWorkspace({
 			handler: async () => {
 				const pages = await indexes.sqlite.db
 					.select()
-					.from(indexes.sqlite.pages)
-					.all();
+					.from(indexes.sqlite.pages);
 				return Ok(pages);
 			},
 		}),
@@ -65,8 +64,7 @@ const pages = defineWorkspace({
 				const page = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.pages)
-					.where(eq(indexes.sqlite.pages.id, id))
-					.get();
+					.where(eq(indexes.sqlite.pages.id, id));
 				return Ok(page);
 			},
 		}),
@@ -225,8 +223,7 @@ const contentHub = defineWorkspace({
 				const posts = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.youtube)
-					.where(eq(indexes.sqlite.youtube.page_id, pageId))
-					.all();
+					.where(eq(indexes.sqlite.youtube.page_id, pageId));
 				return Ok(posts);
 			},
 		}),
@@ -237,8 +234,7 @@ const contentHub = defineWorkspace({
 				const posts = await indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.twitter)
-					.where(eq(indexes.sqlite.twitter.page_id, pageId))
-					.all();
+					.where(eq(indexes.sqlite.twitter.page_id, pageId));
 				return Ok(posts);
 			},
 		}),
