@@ -74,7 +74,7 @@ export function createMcpServer<
 					ErrorCode.InvalidParams,
 					`Invalid input for ${request.params.name}: ${JSON.stringify(
 						errors.map((e) => ({
-							path: e.path,
+							path: e.instancePath,
 							message: e.message,
 						}))
 					)}`
@@ -93,7 +93,7 @@ export function createMcpServer<
 					ErrorCode.InternalError,
 					`Output validation failed for ${request.params.name}: ${JSON.stringify(
 						errors.map((e) => ({
-							path: e.path,
+							path: e.instancePath,
 							message: e.message,
 						}))
 					)}`

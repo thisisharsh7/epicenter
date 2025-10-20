@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Epicenter MCP Server - stdio Transport
+ * Epicenter stdio Server
  *
  * This is the standard way to run an MCP server using stdin/stdout communication.
  * Unlike the HTTP transport, this doesn't require managing a separate server process.
@@ -10,15 +10,15 @@
  * Add to ~/.claude.json:
  * {
  *   "mcpServers": {
- *     "epicenter-content-hub": {
+ *     "content-hub": {
  *       "command": "bun",
- *       "args": ["/path/to/mcp-stdio.ts"]
+ *       "args": ["/absolute/path/to/server-stdio.ts"]
  *     }
  *   }
  * }
  *
  * Or using the CLI:
- * claude mcp add epicenter-content-hub --scope user -- bun /path/to/mcp-stdio.ts
+ * claude mcp add content-hub --scope user -- bun /absolute/path/to/server-stdio.ts
  */
 
 import { createStdioServer, defineEpicenter } from '../../src/index';

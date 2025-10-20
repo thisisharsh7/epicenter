@@ -4,7 +4,7 @@
 cd "$(dirname "$0")"
 
 echo "Starting server..."
-bun run server.ts &
+bun run server-http.ts &
 SERVER_PID=$!
 
 sleep 2
