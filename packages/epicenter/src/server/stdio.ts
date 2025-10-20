@@ -1,8 +1,9 @@
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { EpicenterConfig } from '../core/epicenter';
+import { createEpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import { collectActions, setupMcpHandlers } from './mcp-handlers';
+import { flattenActionsForMCP, setupMcpHandlers } from './mcp-handlers';
 
 /**
  * Create and run an MCP server using stdio transport
@@ -32,8 +33,9 @@ export async function createStdioServer<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(config: EpicenterConfig<TId, TWorkspaces>): Promise<void> {
-	// Collect actions from all workspaces
-	const { actions } = await collectActions(config);
+	// Create client and flatten actions for MCP
+	const client = await createEpicenterClient(config);
+	const actions = flattenActionsForMCP(client, config.workspaces);
 
 	// Create MCP server
 	const mcpServer = new McpServer(

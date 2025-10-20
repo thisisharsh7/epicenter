@@ -2,8 +2,9 @@ import { StreamableHTTPTransport } from '@hono/mcp';
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
 import { Hono } from 'hono';
 import type { EpicenterConfig } from '../core/epicenter';
+import { createEpicenterClient } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import { collectActions, setupMcpHandlers } from './mcp-handlers';
+import { flattenActionsForMCP, setupMcpHandlers } from './mcp-handlers';
 import { executeAction } from './utils';
 
 /**
@@ -37,8 +38,8 @@ export async function createHttpServer<
 >(config: EpicenterConfig<TId, TWorkspaces>): Promise<Hono> {
 	const app = new Hono();
 
-	// Collect actions from all workspaces
-	const { client, actions } = await collectActions(config);
+	// Create client
+	const client = await createEpicenterClient(config);
 
 	// Register REST endpoints for each workspace action
 	for (const workspace of config.workspaces) {
@@ -66,6 +67,9 @@ export async function createHttpServer<
 			});
 		}
 	}
+
+	// Flatten actions for MCP endpoint
+	const actions = flattenActionsForMCP(client, config.workspaces);
 
 	// Create MCP server for /mcp endpoint using StreamableHTTPTransport (SSE)
 	const mcpServer = new McpServer(
