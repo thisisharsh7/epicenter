@@ -3,6 +3,7 @@ export { defineWorkspace } from './config';
 export type {
 	WorkspaceConfig,
 	AnyWorkspaceConfig,
+	WorkspacesToActionMaps,
 } from './config';
 
 // Runtime (client side)
@@ -10,5 +11,4 @@ export { createWorkspaceClient } from './client';
 export type {
 	WorkspaceClient,
 	WorkspacesToClients,
-	WorkspacesToActionMaps,
-} from './types';
+} from './client';

@@ -7,10 +7,51 @@ import type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
 } from './config';
-import type {
-	WorkspaceClient,
-	WorkspacesToClients,
-} from './types';
+
+/**
+ * Workspace client instance returned from createWorkspaceClient
+ * Contains callable actions and lifecycle management
+ */
+export type WorkspaceClient<TActionMap extends WorkspaceActionMap> = TActionMap & {
+	/**
+	 * Cleanup method for resource management
+	 * - Destroys all indexes
+	 * - Destroys the YJS document
+	 */
+	destroy: () => void;
+};
+
+/**
+ * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace name.
+ *
+ * Takes an array of workspace configs and merges them into a single object where:
+ * - Each key is a workspace name
+ * - Each value is a WorkspaceClient with callable actions and lifecycle management
+ *
+ * This allows accessing workspace actions as `client.workspaceName.actionName()`.
+ *
+ * @example
+ * ```typescript
+ * // Given workspace configs:
+ * const authWorkspace = defineWorkspace({ name: 'auth', actions: () => ({ login: ..., logout: ... }) })
+ * const storageWorkspace = defineWorkspace({ name: 'storage', actions: () => ({ upload: ..., download: ... }) })
+ *
+ * // WorkspacesToClients<[typeof authWorkspace, typeof storageWorkspace]> produces:
+ * {
+ *   auth: WorkspaceClient<{ login: ..., logout: ... }>,
+ *   storage: WorkspaceClient<{ upload: ..., download: ... }>
+ * }
+ * ```
+ */
+export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
+	[W in WS[number] as W extends { name: infer TName extends string }
+		? TName
+		: never]: W extends {
+		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+	}
+		? WorkspaceClient<TActionMap>
+		: never;
+};
 
 /**
  * Internal function that initializes multiple workspaces with shared dependency resolution.

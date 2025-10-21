@@ -3,7 +3,6 @@ import type { Db } from '../../db/core';
 import type { WorkspaceActionMap } from '../actions';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
-import type { WorkspacesToActionMaps } from './types';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -144,21 +143,6 @@ export function defineWorkspace<
 }
 
 
-/**
- * Minimal workspace constraint for generic bounds
- * Use this in `extends` clauses to avoid contravariance issues
- *
- * @example
- * ```typescript
- * function foo<T extends readonly AnyWorkspaceConfig[]>(configs: T) { ... }
- * ```
- */
-export type AnyWorkspaceConfig = {
-	id: string;
-	name: string;
-	actions: (context: any) => WorkspaceActionMap;
-};
-
 
 /**
  * Workspace configuration
@@ -203,5 +187,52 @@ export type WorkspaceConfig<
 		workspaces: WorkspacesToActionMaps<TDeps>;
 		indexes: TIndexMap;
 	}) => TActionMap;
+};
+
+/**
+ * Minimal workspace constraint for generic bounds
+ * Use this in `extends` clauses to avoid contravariance issues
+ *
+ * @example
+ * ```typescript
+ * function foo<T extends readonly AnyWorkspaceConfig[]>(configs: T) { ... }
+ * ```
+ */
+export type AnyWorkspaceConfig = {
+	id: string;
+	name: string;
+	actions: (context: any) => WorkspaceActionMap;
+};
+
+/**
+ * Maps an array of workspace configs to an object of ActionMaps keyed by workspace name.
+ *
+ * Takes an array of workspace dependencies and merges them into a single object where:
+ * - Each key is a dependency name
+ * - Each value is the action map exported from that dependency
+ *
+ * This allows accessing dependency actions as `workspaces.dependencyName.actionName()`.
+ *
+ * @example
+ * ```typescript
+ * // Given dependency configs:
+ * const authWorkspace = defineWorkspace({ name: 'auth', actions: () => ({ login: ..., logout: ... }) })
+ * const storageWorkspace = defineWorkspace({ name: 'storage', actions: () => ({ upload: ..., download: ... }) })
+ *
+ * // WorkspacesToActionMaps<[typeof authWorkspace, typeof storageWorkspace]> produces:
+ * {
+ *   auth: { login: ..., logout: ... },
+ *   storage: { upload: ..., download: ... }
+ * }
+ * ```
+ */
+export type WorkspacesToActionMaps<WS extends readonly AnyWorkspaceConfig[]> = {
+	[W in WS[number] as W extends { name: infer TName extends string }
+		? TName
+		: never]: W extends {
+		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+	}
+		? TActionMap
+		: never;
 };
 
