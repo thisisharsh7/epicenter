@@ -1,28 +1,28 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { describe, expect, test, beforeEach } from 'bun:test';
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import {
 	boolean,
-	createEpicenterClient,
-	defineEpicenter,
+	markdownIndex,
+	sqliteIndex,
 	defineMutation,
 	defineQuery,
+	defineWorkspace,
 	generateId,
 	id,
 	integer,
 	isNotNull,
-	markdownIndex,
-	multiSelect,
-	select,
-	sqliteIndex,
+	createWorkspaceClient,
 	text,
-	type EpicenterClient,
+	select,
+	multiSelect,
+	type WorkspaceClient,
 } from '../../src/index';
 
 describe('Blog Workspace Integration', () => {
 	// Define a simple blog workspace
-	const blogWorkspace = defineEpicenter({
+	const blogWorkspace = defineWorkspace({
 		id: 'blog',
 		version: 1,
 		name: 'blog',
@@ -117,18 +117,14 @@ describe('Blog Workspace Integration', () => {
 		}),
 	});
 
-	let client!: EpicenterClient<any>;
+	let workspace!: WorkspaceClient<any>;
 
 	beforeEach(async () => {
-		client = await createEpicenterClient(blogWorkspace);
-	});
-
-	afterEach(() => {
-		client.destroy();
+		workspace = await createWorkspaceClient(blogWorkspace);
 	});
 
 	test('creates posts successfully', async () => {
-		const { data: post1 } = await client.blog.createPost({
+		const { data: post1 } = await workspace.createPost({
 			title: 'First Post',
 			content: 'This is the first post',
 			category: 'tech',
@@ -145,7 +141,7 @@ describe('Blog Workspace Integration', () => {
 	});
 
 	test('creates post without optional tags', async () => {
-		const { data: post3 } = await client.blog.createPost({
+		const { data: post3 } = await workspace.createPost({
 			title: 'Third Post',
 			category: 'work',
 		});
@@ -159,28 +155,28 @@ describe('Blog Workspace Integration', () => {
 
 	test('queries all posts from SQLite index', async () => {
 		// Create multiple posts
-		await client.blog.createPost({
+		await workspace.createPost({
 			title: 'First Post',
 			content: 'This is the first post',
 			category: 'tech',
 			tags: ['typescript', 'svelte'],
 		});
 
-		await client.blog.createPost({
+		await workspace.createPost({
 			title: 'Second Post',
 			content: 'This is the second post',
 			category: 'personal',
 			tags: ['javascript', 'react'],
 		});
 
-		await client.blog.createPost({
+		await workspace.createPost({
 			title: 'Third Post',
 			category: 'work',
 			tags: ['typescript', 'vue'],
 		});
 
 		// Query all posts
-		const { data: allPosts } = await client.blog.getAllPosts();
+		const { data: allPosts } = await workspace.getAllPosts();
 
 		expect(allPosts).toBeDefined();
 		expect(allPosts?.length).toBe(3);
@@ -188,7 +184,7 @@ describe('Blog Workspace Integration', () => {
 
 	test('deletes post successfully', async () => {
 		// Create a post
-		const { data: post1 } = await client.blog.createPost({
+		const { data: post1 } = await workspace.createPost({
 			title: 'First Post',
 			content: 'This is the first post',
 			category: 'tech',
@@ -199,34 +195,34 @@ describe('Blog Workspace Integration', () => {
 		const postId = post1!.id;
 
 		// Verify post exists
-		const { data: allPostsBeforeDelete } = await client.blog.getAllPosts();
+		const { data: allPostsBeforeDelete } = await workspace.getAllPosts();
 		expect(allPostsBeforeDelete?.length).toBe(1);
 
 		// Delete the post
-		await client.blog.deletePost({ id: postId });
+		await workspace.deletePost({ id: postId });
 
 		// Verify deletion in index
-		const { data: postsAfterDelete } = await client.blog.getAllPosts();
+		const { data: postsAfterDelete } = await workspace.getAllPosts();
 		expect(postsAfterDelete?.length).toBe(0);
 	});
 
 	test('full workflow: create, query, delete, verify', async () => {
 		// Create posts
-		const { data: post1 } = await client.blog.createPost({
+		const { data: post1 } = await workspace.createPost({
 			title: 'First Post',
 			content: 'This is the first post',
 			category: 'tech',
 			tags: ['typescript', 'svelte'],
 		});
 
-		const { data: post2 } = await client.blog.createPost({
+		const { data: post2 } = await workspace.createPost({
 			title: 'Second Post',
 			content: 'This is the second post',
 			category: 'personal',
 			tags: ['javascript', 'react'],
 		});
 
-		const { data: post3 } = await client.blog.createPost({
+		const { data: post3 } = await workspace.createPost({
 			title: 'Third Post',
 			category: 'work',
 			tags: ['typescript', 'vue'],
@@ -238,16 +234,16 @@ describe('Blog Workspace Integration', () => {
 		expect(post3).toBeDefined();
 
 		// Query all posts
-		const { data: allPosts } = await client.blog.getAllPosts();
+		const { data: allPosts } = await workspace.getAllPosts();
 		expect(allPosts?.length).toBe(3);
 
 		// Delete first post
 		if (post1) {
-			await client.blog.deletePost({ id: post1.id });
+			await workspace.deletePost({ id: post1.id });
 		}
 
 		// Verify deletion
-		const { data: postsAfterDelete } = await client.blog.getAllPosts();
+		const { data: postsAfterDelete } = await workspace.getAllPosts();
 		expect(postsAfterDelete?.length).toBe(2);
 
 		// Verify remaining posts are correct

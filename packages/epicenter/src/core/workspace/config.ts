@@ -5,15 +5,14 @@ import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 
 /**
- * Define an Epicenter with YJS-first architecture.
+ * Define a collaborative workspace with YJS-first architecture.
  *
- * ## Epicenter Structure
+ * ## Workspace Structure
  *
- * Each Epicenter is a self-contained module that can:
- * - Have its own **tables**: Column schemas (pure JSON, no Drizzle)
- * - Have its own **indexes**: Synchronized snapshots for querying (SQLite, markdown, vector, etc.)
- * - Have its own **actions**: Business logic with access to tables and indexes
- * - Compose other Epicenters via the **workspaces** array
+ * Each workspace is a self-contained module with:
+ * - **tables**: Column schemas (pure JSON, no Drizzle)
+ * - **indexes**: Synchronized snapshots for querying (SQLite, markdown, vector, etc.)
+ * - **actions**: Business logic with access to tables and indexes
  *
  * ## Data Flow
  *
@@ -31,7 +30,7 @@ import type { WorkspaceSchema } from '../schema';
  *
  * @example
  * ```typescript
- * const blogEpicenter = defineEpicenter({
+ * const blogWorkspace = defineWorkspace({
  *   id: 'blog',
  *   version: 1,
  *   name: 'blog', // Human-readable name for API access
@@ -83,8 +82,8 @@ import type { WorkspaceSchema } from '../schema';
  * });
  * ```
  */
-export function defineEpicenter<
-	const TWorkspaces extends readonly AnyEpicenterConfig[],
+export function defineWorkspace<
+	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	const TVersion extends number,
 	const TName extends string,
@@ -92,8 +91,8 @@ export function defineEpicenter<
 	TIndexMap extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
 >(
-	input: EpicenterConfigInput<
-		TWorkspaces,
+	workspace: WorkspaceConfig<
+		TDeps,
 		TId,
 		TVersion,
 		TName,
@@ -101,8 +100,8 @@ export function defineEpicenter<
 		TIndexMap,
 		TActionMap
 	>,
-): EpicenterConfig<
-	TWorkspaces,
+): WorkspaceConfig<
+	TDeps,
 	TId,
 	TVersion,
 	TName,
@@ -110,128 +109,78 @@ export function defineEpicenter<
 	TIndexMap,
 	TActionMap
 > {
-	// Validate epicenter ID
-	if (!input.id || typeof input.id !== 'string') {
-		throw new Error('Epicenter must have a valid string ID');
+	// Validate workspace ID
+	if (!workspace.id || typeof workspace.id !== 'string') {
+		throw new Error('Workspace must have a valid string ID');
 	}
 
-	// Apply defaults
-	const version = input.version ?? (1 as TVersion);
-	const name = input.name ?? (input.id as TName);
-
-	// Validate version after applying default
-	if (typeof version !== 'number') {
-		throw new Error('Epicenter version must be a number');
+	// Validate workspace version
+	if (!workspace.version || typeof workspace.version !== 'number') {
+		throw new Error('Workspace must have a valid number version');
 	}
 
-	// Validate workspaces
-	if (input.workspaces) {
-		if (!Array.isArray(input.workspaces)) {
-			throw new Error('Workspaces must be an array of epicenter configs');
+	// Validate workspace name
+	if (!workspace.name || typeof workspace.name !== 'string') {
+		throw new Error('Workspace must have a valid string name');
+	}
+
+	// Validate dependencies
+	if (workspace.dependencies) {
+		if (!Array.isArray(workspace.dependencies)) {
+			throw new Error('Dependencies must be an array of workspace configs');
 		}
 
-		// Basic validation - just check each workspace has an id
-		for (const ws of input.workspaces) {
-			if (!ws || typeof ws !== 'object' || !ws.id) {
+		for (const dep of workspace.dependencies) {
+			if (!dep || typeof dep !== 'object' || !dep.id) {
 				throw new Error(
-					'Invalid workspace: workspaces must be epicenter configs with id',
+					'Invalid dependency: dependencies must be workspace configs with id',
 				);
 			}
 		}
 	}
 
-	return {
-		...input,
-		version,
-		name,
-	} as EpicenterConfig<
-		TWorkspaces,
-		TId,
-		TVersion,
-		TName,
-		TWorkspaceSchema,
-		TIndexMap,
-		TActionMap
-	>;
+	return workspace;
 }
 
 
 /**
- * Minimal epicenter constraint for generic bounds
+ * Minimal workspace constraint for generic bounds
  * Use this in `extends` clauses to avoid contravariance issues
  *
  * @example
  * ```typescript
- * function foo<T extends readonly AnyEpicenterConfig[]>(configs: T) { ... }
+ * function foo<T extends readonly AnyWorkspaceConfig[]>(configs: T) { ... }
  * ```
  */
-export type AnyEpicenterConfig = {
+export type AnyWorkspaceConfig = {
 	id: string;
-	version: number;
 	name: string;
-	actions?: (context: any) => WorkspaceActionMap;
+	actions: (context: any) => WorkspaceActionMap;
 };
 
 
 /**
- * Input type for defineEpicenter function
- * Allows optional version and name (defaults applied in defineEpicenter)
- */
-export type EpicenterConfigInput<
-	TWorkspaces extends readonly AnyEpicenterConfig[] = readonly AnyEpicenterConfig[],
-	TId extends string = string,
-	TVersion extends number = number,
-	TName extends string = string,
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
-> = {
-	id: TId;
-	version?: TVersion;
-	name?: TName;
-	workspaces?: TWorkspaces;
-	schema?: TWorkspaceSchema;
-	indexes?: (context: { db: Db<TWorkspaceSchema> }) =>
-		| TIndexMap
-		| Promise<TIndexMap>;
-	setupYDoc?: (ydoc: Y.Doc) => void;
-	actions?: (context: {
-		db: Db<TWorkspaceSchema>;
-		workspaces: WorkspaceActionsMap<TWorkspaces>;
-		indexes: TIndexMap;
-	}) => TActionMap;
-};
-
-/**
- * Epicenter configuration
+ * Workspace configuration
  *
- * Fully-featured epicenter configuration used for defining epicenters and their composed workspaces.
+ * Fully-featured workspace configuration used for defining workspaces and their dependencies.
  *
- * ## Workspace Constraint
+ * ## Dependency Constraint
  *
- * The `workspaces` field uses `AnyEpicenterConfig[]` as a minimal constraint.
+ * The `dependencies` field uses `AnyWorkspaceConfig[]` as a minimal constraint.
  * This prevents infinite type recursion while providing type information for action access.
  *
- * By using `AnyEpicenterConfig` (which only includes `id`, `name`, and optional `actions`), we stop
- * recursive type inference. Without this constraint, TypeScript would try to infer workspaces
- * of workspaces infinitely, causing "Type instantiation is excessively deep" errors.
+ * By using `AnyWorkspaceConfig` (which only includes `id`, `name`, and `actions`), we stop
+ * recursive type inference. Without this constraint, TypeScript would try to infer dependencies
+ * of dependencies infinitely, causing "Type instantiation is excessively deep" errors.
  *
  * ## Runtime vs Type-level
  *
- * At runtime, all epicenter configs have full properties (schema, indexes, etc.).
- * The minimal constraint is purely for type inference. The flat/hoisted workspace resolution
- * ensures all epicenters are initialized correctly.
- *
- * ## Optional Features
- *
- * Schema, indexes, and actions are optional to support pure composition use cases.
- * An epicenter can be:
- * - Pure composition: only `workspaces` array (no schema/indexes/actions)
- * - Pure features: schema/indexes/actions (no workspaces)
- * - Hybrid: both workspaces AND its own features
+ * At runtime, all workspace configs have full properties (schema, indexes, etc.).
+ * The minimal constraint is purely for type inference. The flat/hoisted dependency resolution
+ * ensures all workspaces are initialized correctly.
  */
-export type EpicenterConfig<
-	TWorkspaces extends readonly AnyEpicenterConfig[] = readonly AnyEpicenterConfig[],
+export type WorkspaceConfig<
+	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TVersion extends number = number,
 	TName extends string = string,
@@ -242,50 +191,48 @@ export type EpicenterConfig<
 	id: TId;
 	version: TVersion;
 	name: TName;
-	workspaces?: TWorkspaces;
-	schema?: TWorkspaceSchema;
-	indexes?: (context: { db: Db<TWorkspaceSchema> }) =>
+	schema: TWorkspaceSchema;
+	dependencies?: TDeps;
+	indexes: (context: { db: Db<TWorkspaceSchema> }) =>
 		| TIndexMap
 		| Promise<TIndexMap>;
 	setupYDoc?: (ydoc: Y.Doc) => void;
-	actions?: (context: {
+	actions: (context: {
 		db: Db<TWorkspaceSchema>;
-		workspaces: WorkspaceActionsMap<TWorkspaces>;
+		workspaces: DependencyActionsMap<TDeps>;
 		indexes: TIndexMap;
 	}) => TActionMap;
 };
 
-
 /**
- * Maps workspace epicenters to their action maps.
+ * Maps workspace dependencies to their action maps.
  *
- * Takes an array of epicenter workspaces and merges them into a single object where:
- * - Each key is a workspace name
- * - Each value is the action map exported from that workspace
+ * Takes an array of workspace dependencies and merges them into a single object where:
+ * - Each key is a dependency name
+ * - Each value is the action map exported from that dependency
  *
- * This allows accessing workspace actions as `workspaces.workspaceName.actionName()`.
+ * This allows accessing dependency actions as `workspaces.dependencyName.actionName()`.
  *
  * @example
  * ```typescript
- * // Given workspaces: [authEpicenter, storageEpicenter]
+ * // Given dependencies: [authWorkspace, storageWorkspace]
  * // Results in type: { auth: AuthActions, storage: StorageActions }
  * // Used as: workspaces.auth.login(), workspaces.storage.uploadFile()
  * ```
  *
- * Constrains to `AnyEpicenterConfig` (name + optional actions) to avoid recursive type inference.
+ * Constrains to `AnyWorkspaceConfig` (name + actions only) to avoid recursive type inference.
  */
-export type WorkspaceActionsMap<TWorkspaces extends readonly AnyEpicenterConfig[]> =
-	TWorkspaces extends readonly []
+export type DependencyActionsMap<TDeps extends readonly AnyWorkspaceConfig[]> =
+	TDeps extends readonly []
 		? Record<string, never>
 		: {
-				[W in TWorkspaces[number] as W extends { name: infer TName extends string }
+				[W in TDeps[number] as W extends { name: infer TName extends string }
 					? TName
 					: never]: W extends {
-					actions?: (
+					actions: (
 						context: any,
 					) => infer TActionMap extends WorkspaceActionMap;
 				}
 					? TActionMap
 					: never;
 			};
-

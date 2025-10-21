@@ -7,11 +7,11 @@ import { analytics } from './analytics';
 /**
  * Dependency Testing Example
  *
- * This example demonstrates comprehensive epicenter workspace dependency patterns:
+ * This example demonstrates comprehensive workspace dependency patterns:
  *
- * ## Workspace Dependency Chain
+ * ## Dependency Chain
  * ```
- * users (no workspace deps)
+ * users (no deps)
  *   ↓
  * posts (depends on users)
  *   ↓
@@ -20,38 +20,38 @@ import { analytics } from './analytics';
  * analytics (depends on users, posts, comments)
  * ```
  *
- * ## What Each Epicenter Tests
+ * ## What Each Workspace Tests
  *
- * ### users epicenter
- * - Foundation epicenter with no workspace dependencies
+ * ### users workspace
+ * - Foundation workspace with no dependencies
  * - Basic CRUD operations for user management
  *
- * ### posts epicenter (Single Workspace Dependency)
+ * ### posts workspace (Single Dependency)
  * - Depends on: users
  * - ✅ Can access workspaces.users.* actions
- * - ✅ Type-safe cross-epicenter queries (getPostWithAuthor)
- * - ✅ Validation using workspace actions (verify author exists)
+ * - ✅ Type-safe cross-workspace queries (getPostWithAuthor)
+ * - ✅ Validation using dependency actions (verify author exists)
  *
- * ### comments epicenter (Chained Workspace Dependency)
+ * ### comments workspace (Chained Dependency)
  * - Depends on: posts (which depends on users)
  * - ✅ Can access workspaces.posts.* actions
- * - ❌ CANNOT access workspaces.users.* directly (not a direct workspace dependency)
+ * - ❌ CANNOT access workspaces.users.* directly (not a direct dependency)
  * - ✅ Can access user data indirectly through posts.getPostWithAuthor
- * - Tests non-transitive workspace dependency access
+ * - Tests non-transitive dependency access
  *
- * ### analytics epicenter (Multiple Workspace Dependencies)
+ * ### analytics workspace (Multiple Dependencies)
  * - Depends on: users, posts, comments
  * - ✅ Can access workspaces.users.*, workspaces.posts.*, workspaces.comments.*
- * - ✅ Cross-epicenter aggregation and analytics
- * - ✅ Full type safety across all three workspace dependencies
+ * - ✅ Cross-workspace aggregation and analytics
+ * - ✅ Full type safety across all three dependencies
  *
  * ## Type Safety Features Demonstrated
  *
- * 1. **Autocomplete**: All workspace actions have full autocomplete
- * 2. **Type Inference**: Return types from workspace actions are properly inferred
- * 3. **Compile-time Safety**: Invalid workspace access causes TypeScript errors
+ * 1. **Autocomplete**: All dependency actions have full autocomplete
+ * 2. **Type Inference**: Return types from dependency actions are properly inferred
+ * 3. **Compile-time Safety**: Invalid dependency access causes TypeScript errors
  * 4. **Parameter Validation**: Action parameters are type-checked
- * 5. **Non-transitive Access**: Chained workspace dependencies don't expose transitive epicenters
+ * 5. **Non-transitive Access**: Chained dependencies don't expose transitive workspaces
  *
  * ## Testing the Examples
  *

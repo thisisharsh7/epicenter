@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { generateCLI } from '../../src/cli/index';
-import { defineEpicenter } from '../../src/index';
+import { defineEpicenter } from '../../src/core/epicenter';
 import { pages } from './epicenter.config';
 
 // Note: Only using pages workspace because content-hub has Zod schemas

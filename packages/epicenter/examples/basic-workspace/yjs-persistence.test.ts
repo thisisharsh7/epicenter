@@ -1,14 +1,16 @@
 import { test, expect, beforeAll, afterAll } from 'bun:test';
-import { createEpicenterClient, type EpicenterClient } from '../../src/index';
+import { createEpicenterClient } from '../../src/index';
+import type { EpicenterClient } from '../../src/index';
 import epicenterConfig from './epicenter.config';
 import { existsSync } from 'node:fs';
 
+let client: EpicenterClient;
 let post1Id: string;
 let post2Id: string;
 
 test('YJS file is created on first session', async () => {
 	console.log('📝 Session 1: Creating initial data...');
-	const client = await createEpicenterClient(epicenterConfig);
+	client = await createEpicenterClient(epicenterConfig);
 	const blog = client.blog;
 
 	const { data: post1 } = await blog.createPost({
@@ -48,7 +50,7 @@ test('YJS file is created on first session', async () => {
 
 test('data persists across sessions', async () => {
 	console.log('🔄 Session 2: Loading from persisted state...');
-	const client = await createEpicenterClient(epicenterConfig);
+	client = await createEpicenterClient(epicenterConfig);
 	const blog = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));
@@ -73,7 +75,7 @@ test('data persists across sessions', async () => {
 
 test('updates persist across sessions', async () => {
 	console.log('📝 Session 3: Making updates...');
-	const client = await createEpicenterClient(epicenterConfig);
+	client = await createEpicenterClient(epicenterConfig);
 	const blog = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));
@@ -86,7 +88,7 @@ test('updates persist across sessions', async () => {
 	console.log('   Session 3 closed\n');
 
 	console.log('🔄 Session 4: Verifying updates persisted...');
-	const client = await createEpicenterClient(epicenterConfig);
+	client = await createEpicenterClient(epicenterConfig);
 	const blog2 = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));
@@ -102,7 +104,7 @@ test('updates persist across sessions', async () => {
 
 test('can query all posts after multiple sessions', async () => {
 	console.log('🔍 Session 5: Final verification...');
-	const client = await createEpicenterClient(epicenterConfig);
+	client = await createEpicenterClient(epicenterConfig);
 	const blog = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));

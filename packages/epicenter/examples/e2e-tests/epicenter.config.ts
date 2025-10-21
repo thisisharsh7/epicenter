@@ -2,6 +2,7 @@ import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
 	defineEpicenter,
+	defineWorkspace,
 	setupPersistenceDesktop,
 	id,
 	text,
@@ -19,11 +20,11 @@ import {
 } from '../../src/index';
 
 /**
- * Comprehensive E2E test epicenter
+ * Comprehensive E2E test workspace
  * Demonstrates all Epicenter features: schema types, indexes, queries, mutations
  */
 
-const blog = defineEpicenter({
+const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	version: 1,
 	name: 'blog',
@@ -241,5 +242,5 @@ const blog = defineEpicenter({
 
 export default defineEpicenter({
 	id: 'e2e-test-workspace',
-	workspaces: [blog],
+	workspaces: [blogWorkspace],
 });

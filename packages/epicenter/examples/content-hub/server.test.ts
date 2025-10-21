@@ -10,7 +10,8 @@
  */
 
 import { test, expect, describe, beforeAll } from 'bun:test';
-import { createHttpServer, defineEpicenter } from '../../src/index';
+import { createHttpServer } from '../../src/index';
+import { defineEpicenter } from '../../src/core/epicenter';
 import { pages } from './epicenter.config';
 
 describe('Content Hub Server', () => {

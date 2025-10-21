@@ -1,8 +1,8 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import type { Argv } from 'yargs';
-import type { EpicenterConfig } from '../core/workspace';
-import { createEpicenterClient } from '../core/workspace/client';
+import type { EpicenterConfig } from '../core/epicenter';
+import { createWorkspaceClient } from '../core/workspace/client';
 import { typeboxToYargs } from './typebox-to-yargs';
 import { createMockContext } from './mock-context';
 
@@ -120,19 +120,21 @@ async function executeAction(
 	actionName: string,
 	args: any,
 ) {
-	// Initialize full epicenter client (all workspaces)
-	await using fullClient = await createEpicenterClient(config);
+	// Find workspace config
+	const workspaceConfig = config.workspaces.find(
+		(ws) => ws.name === workspaceName,
+	);
 
-	// Get the specific workspace client
-	const workspaceClient = (fullClient as any)[workspaceName];
-
-	if (!workspaceClient) {
+	if (!workspaceConfig) {
 		console.error(`❌ Workspace "${workspaceName}" not found`);
 		process.exit(1);
 	}
 
-	// Get the action handler from the workspace
-	const handler = workspaceClient[actionName];
+	// Initialize real workspace (with YJS docs, indexes, etc.)
+	await using client = await createWorkspaceClient(workspaceConfig);
+
+	// Get the action handler
+	const handler = (client as any)[actionName];
 
 	if (!handler) {
 		console.error(

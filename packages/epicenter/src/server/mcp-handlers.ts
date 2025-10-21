@@ -7,8 +7,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Value } from 'typebox/value';
 import type { Action } from '../core/actions';
-import type { EpicenterClient, EpicenterConfig } from '../core/workspace';
-import type { AnyEpicenterConfig } from '../core/workspace';
+import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
+import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
  * Create and configure an MCP server with tool handlers.
@@ -19,10 +19,10 @@ import type { AnyEpicenterConfig } from '../core/workspace';
  */
 export function createMcpServer<
 	TId extends string,
-	TWorkspaces extends readonly AnyEpicenterConfig[],
+	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(
 	client: EpicenterClient<TWorkspaces>,
-	config: EpicenterConfig<TWorkspaces, TId>
+	config: EpicenterConfig<TId, TWorkspaces>
 ): McpServer {
 	const mcpServer = new McpServer(
 		{
@@ -143,7 +143,7 @@ export function createMcpServer<
  * with MCP-compatible tool names. This is specifically for the MCP protocol which requires
  * a flat list of tools.
  */
-function flattenActionsForMCP<TWorkspaces extends readonly AnyEpicenterConfig[]>(
+function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	client: EpicenterClient<TWorkspaces>,
 	workspaces: TWorkspaces
 ): Map<string, Action> {

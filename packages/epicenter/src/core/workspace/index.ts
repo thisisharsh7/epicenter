@@ -1,12 +1,11 @@
 // Definition (config side)
-export { defineEpicenter } from './config';
+export { defineWorkspace } from './config';
 export type {
-	EpicenterConfig,
-	EpicenterConfigInput,
-	WorkspaceActionsMap,
-	AnyEpicenterConfig,
+	WorkspaceConfig,
+	DependencyActionsMap,
+	AnyWorkspaceConfig,
 } from './config';
 
 // Runtime (client side)
-export { createEpicenterClient } from './client';
-export type { EpicenterClient, WorkspaceNamespace } from './client';
+export { createWorkspaceClient } from './client';
+export type { WorkspaceClient } from './client';

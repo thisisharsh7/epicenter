@@ -2,24 +2,24 @@ import { describe, expect, expectTypeOf, test } from 'bun:test';
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	createEpicenterClient,
 	date,
-	defineEpicenter,
 	defineMutation,
 	defineQuery,
+	defineWorkspace,
 	eq,
 	generateId,
 	id,
 	multiSelect,
 	select,
 	sqliteIndex,
-	text
+	text,
 } from '../index';
+import { createEpicenterClient, defineEpicenter } from './epicenter';
 
 /**
  * Pages workspace - manages page content
  */
-const pages = defineEpicenter({
+const pages = defineWorkspace({
 	id: 'pages',
 	version: 1,
 	name: 'pages',
@@ -61,10 +61,11 @@ const pages = defineEpicenter({
 		getPage: defineQuery({
 			input: Type.Object({ id: Type.String() }),
 			handler: async ({ id }) => {
-				const pages = await indexes.sqlite.db.query.pages.findFirst({
-					where: (pages, { eq }) => eq(pages.id, id),
-				})
-				return Ok(pages);
+				const page = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.pages)
+					.where(eq(indexes.sqlite.pages.id, id));
+				return Ok(page);
 			},
 		}),
 
@@ -120,12 +121,12 @@ const niche = multiSelect({
 	],
 });
 
-const contentHub = defineEpicenter({
+const contentHub = defineWorkspace({
 	id: 'content-hub',
 	version: 1,
 	name: 'contentHub',
 
-	workspaces: [pages],
+	dependencies: [pages],
 
 	schema: {
 		youtube: {
@@ -253,6 +254,35 @@ describe('Epicenter', () => {
 		expect(epicenter.workspaces[1].name).toBe('contentHub');
 	});
 
+	test('should throw on duplicate workspace names', () => {
+		const pages2 = defineWorkspace({
+			...pages,
+			id: 'pages2',
+			name: 'pages', // Same name!
+		});
+
+		expect(() =>
+			defineEpicenter({
+				id: 'test',
+				workspaces: [pages, pages2],
+			}),
+		).toThrow('Duplicate workspace names detected');
+	});
+
+	test('should throw on duplicate workspace IDs', () => {
+		const pages2 = defineWorkspace({
+			...pages,
+			name: 'pages2',
+		});
+
+		expect(() =>
+			defineEpicenter({
+				id: 'test',
+				workspaces: [pages, pages2],
+			}),
+		).toThrow('Duplicate workspace IDs detected');
+	});
+
 	test('should create epicenter client with all workspaces', async () => {
 		const epicenter = defineEpicenter({
 			id: 'content-platform',
@@ -314,9 +344,6 @@ describe('Epicenter', () => {
 		expect(page).toBeDefined();
 		expect(page?.title).toBe('Building with Epicenter');
 		expect(page?.type).toBe('blog');
-
-		// Wait for SQLite sync to complete
-		await new Promise((resolve) => setTimeout(resolve, 100));
 
 		// Step 2: Verify we can query the page
 		const { data: retrievedPage } = await client.pages.getPage({
@@ -456,11 +483,11 @@ describe('Epicenter', () => {
 			name: string,
 			deps: any[] = [],
 		) => {
-			return defineEpicenter({
+			return defineWorkspace({
 				id: workspaceId,
 				version: 1,
 				name,
-				workspaces: deps,
+				dependencies: deps,
 				schema: {
 					items: {
 						id: id(),
@@ -522,7 +549,7 @@ describe('Epicenter', () => {
 			client.destroy();
 		});
 
-		test('requires all transitive dependencies in workspaces array (flat/hoisted)', async () => {
+		test('requires all transitive dependencies in workspaces array (flat/hoisted)', () => {
 			const workspaceA = createTestWorkspace('a', 'workspaceA');
 			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
 			const workspaceC = createTestWorkspace('c', 'workspaceC', [
@@ -536,9 +563,9 @@ describe('Epicenter', () => {
 				workspaces: [workspaceB, workspaceC],
 			});
 
-			// Should throw because A is a workspace dependency but not listed
-			await expect(createEpicenterClient(epicenter)).rejects.toThrow(
-				/Missing workspace.*"a"/,
+			// Should throw because A is a dependency but not listed
+			expect(() => createEpicenterClient(epicenter)).toThrow(
+				/Missing dependency.*"a"/,
 			);
 		});
 

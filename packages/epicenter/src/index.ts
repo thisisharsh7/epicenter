@@ -15,9 +15,9 @@
  * Write to YJS → Indexes auto-sync → Query indexes
  */
 
-// Core epicenter definition
-export { defineEpicenter } from './core/workspace';
-export type { EpicenterConfig, EpicenterConfigInput } from './core/workspace';
+// Core workspace definition
+export { defineWorkspace } from './core/workspace';
+export type { WorkspaceConfig } from './core/workspace';
 
 // Column schema system
 export {
@@ -55,9 +55,13 @@ export type {
 	WorkspaceActionMap,
 } from './core/actions';
 
-// Runtime - create epicenter clients with all workspaces exposed by name
-export { createEpicenterClient } from './core/workspace';
-export type { EpicenterClient, WorkspaceNamespace } from './core/workspace';
+// Runtime
+export { createWorkspaceClient } from './core/workspace';
+export type { WorkspaceClient } from './core/workspace';
+
+// Epicenter - compose multiple workspaces
+export { defineEpicenter, createEpicenterClient } from './core/epicenter';
+export type { EpicenterConfig, EpicenterClient } from './core/epicenter';
 
 // Database utilities
 export { createEpicenterDb } from './db/core';
@@ -90,6 +94,12 @@ export type { EpicenterOperationError, IndexError } from './core/errors';
 export {
 	createHttpServer,
 	createStdioServer,
+} from './server';
+export type {
+	MCPTool,
+	MCPToolsListResponse,
+	MCPToolCallRequest,
+	MCPToolCallResponse,
 } from './server';
 
 // Re-export commonly used Drizzle utilities for querying indexes

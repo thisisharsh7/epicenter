@@ -5,7 +5,7 @@ import {
 	date,
 	defineMutation,
 	defineQuery,
-	defineEpicenter,
+	defineWorkspace,
 	eq,
 	generateId,
 	id,
@@ -16,22 +16,22 @@ import {
 import { users } from './users';
 
 /**
- * Posts epicenter (Single Workspace Dependency)
+ * Posts workspace (Single Dependency)
  * Depends on: users
  *
- * This epicenter demonstrates:
- * - Single workspace dependency pattern
- * - Accessing workspace actions via `workspaces.users`
- * - Type safety when calling workspace actions
- * - Cross-epicenter queries (fetching author data from users epicenter)
+ * This workspace demonstrates:
+ * - Single dependency pattern
+ * - Accessing dependency actions via `workspaces.users`
+ * - Type safety when calling dependency actions
+ * - Cross-workspace queries (fetching author data from users workspace)
  */
-export const posts = defineEpicenter({
+export const posts = defineWorkspace({
 	id: 'posts',
 	version: 1,
 	name: 'posts',
 
-	// Single workspace dependency on users epicenter
-	workspaces: [users],
+	// Single dependency on users workspace
+	dependencies: [users],
 
 	schema: {
 		posts: {
@@ -50,7 +50,7 @@ export const posts = defineEpicenter({
 		sqlite: await sqliteIndex(db, { database: '.data/posts.db' }),
 	}),
 
-	// NOTE: workspaces parameter provides typed access to workspace actions
+	// NOTE: workspaces parameter provides typed access to dependency actions
 	actions: ({ db, indexes, workspaces }) => ({
 		// Query: Get all posts
 		getAllPosts: defineQuery({
@@ -93,7 +93,7 @@ export const posts = defineEpicenter({
 		}),
 
 		// Query: Get post with author details
-		// Demonstrates cross-epicenter query with type safety
+		// Demonstrates cross-workspace query with type safety
 		getPostWithAuthor: defineQuery({
 			input: Type.Object({
 				id: Type.String(),
@@ -108,7 +108,7 @@ export const posts = defineEpicenter({
 					return Ok(null);
 				}
 
-				// ✅ Type-safe access to users epicenter action
+				// ✅ Type-safe access to users workspace action
 				// workspaces.users.getUser is fully typed with autocomplete
 				const authorResult = await workspaces.users.getUser({ id: post.authorId });
 

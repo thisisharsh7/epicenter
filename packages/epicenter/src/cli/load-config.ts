@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { EpicenterConfig } from '../core/workspace';
+import type { EpicenterConfig } from '../core/epicenter';
+import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
  * Load the epicenter configuration from the current directory

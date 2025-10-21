@@ -10,19 +10,19 @@ import {
 	sqliteIndex,
 	defineMutation,
 	defineQuery,
-	defineEpicenter,
+	defineWorkspace,
 	generateId,
 	id,
 	integer,
 	isNotNull,
-	createEpicenterClient,
+	createWorkspaceClient,
 	select,
 	text,
 	multiSelect,
 } from './src/index';
 
-// Define a simple blog epicenter
-const blogWorkspace = defineEpicenter({
+// Define a simple blog workspace
+const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	version: 1,
 	name: 'blog',
@@ -45,8 +45,9 @@ const blogWorkspace = defineEpicenter({
 	},
 
 	indexes: ({ db }) => ({
-		sqlite: sqliteIndex(db, {
-			database: ':memory:', // In-memory for testing
+		sqlite: sqliteIndex({
+			db,
+			databaseUrl: ':memory:', // In-memory for testing
 		}),
 		markdown: markdownIndex({
 			db,
@@ -91,10 +92,11 @@ const blogWorkspace = defineEpicenter({
 		getPublishedPosts: defineQuery({
 			handler: async () => {
 				console.log('Querying published posts from SQLite index...');
-				const posts = await indexes.sqlite.db
+				const posts = indexes.sqlite.db
 					.select()
 					.from(indexes.sqlite.posts)
-					.where(isNotNull(indexes.sqlite.posts.published));
+					.where(isNotNull(indexes.sqlite.posts.published))
+					.all();
 				return Ok(posts);
 			},
 		}),
@@ -102,7 +104,7 @@ const blogWorkspace = defineEpicenter({
 		getAllPosts: defineQuery({
 			handler: async () => {
 				console.log('Querying all posts from SQLite index...');
-				const posts = await indexes.sqlite.db.select().from(indexes.sqlite.posts);
+				const posts = indexes.sqlite.db.select().from(indexes.sqlite.posts).all();
 				return Ok(posts);
 			},
 		}),
@@ -125,14 +127,14 @@ async function test() {
 	console.log('🚀 Starting Epicenter v2 test...\n');
 
 	try {
-		// 1. Initialize the epicenter
-		console.log('📦 Initializing epicenter...');
-		const client = await createEpicenterClient(blogWorkspace);
-		console.log('✅ Epicenter initialized\n');
+		// 1. Initialize the workspace
+		console.log('📦 Initializing workspace...');
+		const workspace = createWorkspaceClient(blogWorkspace);
+		console.log('✅ Workspace initialized\n');
 
 		// 2. Create some posts
 		console.log('📝 Creating posts...');
-		const post1Result = await client.blog.createPost({
+		const post1Result = await workspace.createPost({
 			title: 'First Post',
 			content: 'This is the first post',
 			category: 'tech',
@@ -140,7 +142,7 @@ async function test() {
 		});
 		console.log('Post 1 created:', post1Result);
 
-		const post2Result = await client.blog.createPost({
+		const post2Result = await workspace.createPost({
 			title: 'Second Post',
 			content: 'This is the second post',
 			category: 'personal',
@@ -148,7 +150,7 @@ async function test() {
 		});
 		console.log('Post 2 created:', post2Result);
 
-		const post3Result = await client.blog.createPost({
+		const post3Result = await workspace.createPost({
 			title: 'Third Post',
 			category: 'work',
 			tags: ['typescript', 'vue'],
@@ -158,21 +160,21 @@ async function test() {
 
 		// 3. Query posts from SQLite index
 		console.log('🔍 Querying posts from SQLite index...');
-		const allPostsResult = await client.blog.getAllPosts();
+		const allPostsResult = await workspace.getAllPosts();
 		console.log('All posts:', allPostsResult);
 		console.log('✅ Query successful\n');
 
 		// 4. Test delete operation
 		console.log('🗑️  Testing delete operation...');
 		if (post1Result.data) {
-			const deleteResult = await client.blog.deletePost({ id: post1Result.data.id });
+			const deleteResult = await workspace.deletePost({ id: post1Result.data.id });
 			console.log('Delete result:', deleteResult);
 		}
 		console.log('✅ Delete successful\n');
 
 		// 5. Verify deletion in index
 		console.log('🔍 Verifying deletion in SQLite index...');
-		const postsAfterDelete = await client.blog.getAllPosts();
+		const postsAfterDelete = await workspace.getAllPosts();
 		console.log('Posts after delete:', postsAfterDelete);
 		console.log('✅ Verification successful\n');
 

@@ -7,13 +7,14 @@ import {
 	sqliteIndex,
 	defineMutation,
 	defineQuery,
-	defineEpicenter,
+	defineWorkspace,
 	generateId,
 	id,
 	integer,
 	text,
 	select,
 	createHttpServer,
+	defineEpicenter,
 } from '../../src/index';
 
 // Helper to parse SSE response from MCP endpoint
@@ -27,7 +28,7 @@ async function parseMcpResponse(response: Response): Promise<any> {
 
 describe('Server Integration Tests', () => {
 	// Define a simple blog workspace
-	const blog = defineEpicenter({
+	const blogWorkspace = defineWorkspace({
 		id: 'blog',
 		version: 1,
 		name: 'blog',
@@ -110,7 +111,7 @@ describe('Server Integration Tests', () => {
 	describe('Single Workspace Server', () => {
 		const singleWorkspaceEpicenter = defineEpicenter({
 			id: 'single-workspace-test',
-			workspaces: [blog],
+			workspaces: [blogWorkspace],
 		});
 
 		let app: Awaited<ReturnType<typeof createHttpServer>>;
@@ -236,7 +237,7 @@ describe('Server Integration Tests', () => {
 	});
 
 	describe('Epicenter Server', () => {
-		const auth = defineEpicenter({
+		const authWorkspace = defineWorkspace({
 			id: 'auth',
 			version: 1,
 			name: 'auth',
@@ -276,7 +277,7 @@ describe('Server Integration Tests', () => {
 
 		const epicenter = defineEpicenter({
 			id: 'test-app',
-			workspaces: [blog, auth],
+			workspaces: [blogWorkspace, authWorkspace],
 		});
 
 		let app: Awaited<ReturnType<typeof createHttpServer>>;

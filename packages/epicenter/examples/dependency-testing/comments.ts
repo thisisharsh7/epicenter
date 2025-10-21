@@ -1,7 +1,7 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	defineEpicenter,
+	defineWorkspace,
 	id,
 	text,
 	date,
@@ -15,23 +15,23 @@ import {
 import { posts } from './posts';
 
 /**
- * Comments epicenter (Chained Workspace Dependency)
+ * Comments workspace (Chained Dependency)
  * Depends on: posts (which depends on users)
  *
- * This epicenter demonstrates:
- * - Chained/transitive workspace dependencies
- * - Access to immediate workspace (posts) but NOT transitive workspace (users)
+ * This workspace demonstrates:
+ * - Chained/transitive dependencies
+ * - Access to immediate dependency (posts) but NOT transitive dependency (users)
  * - Type safety: `workspaces.posts` exists, `workspaces.users` does NOT
  * - How to access users data indirectly through posts actions
  */
-export const comments = defineEpicenter({
+export const comments = defineWorkspace({
 	id: 'comments',
 	version: 1,
 	name: 'comments',
 
-	// Only direct workspace dependency on posts
-	// NOTE: Users epicenter is NOT directly accessible even though posts depends on it
-	workspaces: [posts],
+	// Only direct dependency on posts
+	// NOTE: Users workspace is NOT directly accessible even though posts depends on it
+	dependencies: [posts],
 
 	schema: {
 		comments: {
@@ -49,7 +49,7 @@ export const comments = defineEpicenter({
 	}),
 
 	// NOTE: Only workspaces.posts is available, NOT workspaces.users
-	// This demonstrates that workspace dependencies are NOT transitive
+	// This demonstrates that dependencies are NOT transitive
 	actions: ({ db, indexes, workspaces }) => ({
 		// Query: Get all comments
 		getAllComments: defineQuery({
@@ -90,7 +90,7 @@ export const comments = defineEpicenter({
 		}),
 
 		// Query: Get comment with post details
-		// Demonstrates accessing posts epicenter action
+		// Demonstrates accessing posts workspace action
 		getCommentWithPost: defineQuery({
 			input: Type.Object({
 				id: Type.String(),
@@ -105,10 +105,10 @@ export const comments = defineEpicenter({
 					return Ok(null);
 				}
 
-				// ✅ Can access posts epicenter (direct workspace dependency)
+				// ✅ Can access posts workspace (direct dependency)
 				const postResult = await workspaces.posts.getPost({ id: comment.postId });
 
-				// ❌ CANNOT access workspaces.users directly (not a direct workspace dependency)
+				// ❌ CANNOT access workspaces.users directly (not a direct dependency)
 				// This would cause a TypeScript error:
 				// await workspaces.users.getUser({ id: comment.authorId });
 				//                ^^^^^ Property 'users' does not exist
@@ -139,8 +139,8 @@ export const comments = defineEpicenter({
 					.from(indexes.sqlite.comments)
 					.where(eq(indexes.sqlite.comments.authorId, authorId));
 
-				// ✅ Could enrich with post data using workspaces.posts epicenter
-				// ❌ CANNOT directly access workspaces.users.getUser epicenter
+				// ✅ Could enrich with post data using workspaces.posts
+				// ❌ CANNOT directly access workspaces.users.getUser
 
 				return Ok(comments);
 			},
@@ -154,14 +154,14 @@ export const comments = defineEpicenter({
 				content: Type.String(),
 			}),
 			handler: async ({ postId, authorId, content }) => {
-				// ✅ Can validate post exists using workspaces.posts epicenter
+				// ✅ Can validate post exists using workspaces.posts
 				const postResult = await workspaces.posts.getPost({ id: postId });
 				if (!postResult.data) {
 					throw new Error(`Post with id ${postId} not found`);
 				}
 
-				// ❌ CANNOT directly validate author using workspaces.users epicenter
-				// Would need to add users as a direct workspace dependency or trust the authorId
+				// ❌ CANNOT directly validate author using workspaces.users
+				// Would need to add users as a direct dependency or trust the authorId
 
 				const comment = {
 					id: generateId(),
