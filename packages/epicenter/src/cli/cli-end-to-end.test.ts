@@ -3,12 +3,11 @@ import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
-import { defineEpicenter } from '../core/epicenter';
 import {
 	type ValidatedRow,
 	defineMutation,
 	defineQuery,
-	defineWorkspace,
+	defineEpicenter,
 	eq,
 	generateId,
 	id,
@@ -25,7 +24,7 @@ describe('CLI End-to-End Tests', () => {
 	const TEST_MARKDOWN = `${TEST_DIR}/content`;
 
 	// Define a test workspace
-	const testWorkspace = defineWorkspace({
+	const testWorkspace = defineEpicenter({
 		id: 'cli-test-workspace',
 		version: 1,
 		name: 'posts',

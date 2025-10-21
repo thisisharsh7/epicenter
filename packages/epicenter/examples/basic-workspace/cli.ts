@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { generateCLI } from '../../packages/epicenter/src/cli/index.ts';
+import { generateCLI } from '../../src/cli/index';
 import config from './epicenter.config';
 
 // Generate and run CLI

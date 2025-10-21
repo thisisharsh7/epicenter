@@ -30,9 +30,9 @@ import { IndexeddbPersistence } from 'y-indexeddb';
  *
  * @example Basic usage in a browser app
  * ```typescript
- * import { defineWorkspace, setupPersistenceWeb } from '@repo/epicenter';
+ * import { defineEpicenter, setupPersistenceWeb } from '@repo/epicenter';
  *
- * const workspace = defineWorkspace({
+ * const workspace = defineEpicenter({
  *   id: 'blog',  // This becomes the IndexedDB database name
  *   setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
  *   // ... schema, indexes, actions
@@ -41,25 +41,25 @@ import { IndexeddbPersistence } from 'y-indexeddb';
  *
  * @example In a Svelte/React component
  * ```typescript
- * import { createWorkspaceClient } from '@repo/epicenter';
- * import { workspace } from './workspace-config';
+ * import { createEpicenterClient } from '@repo/epicenter';
+ * import { epicenter } from './epicenter-config';
  *
  * // Inside component setup/onMount:
- * const client = await createWorkspaceClient(workspace);
+ * const client = await createEpicenterClient(epicenter);
  *
  * // Data persists across page refreshes!
  * // Check DevTools → Application → IndexedDB to see the database
  * ```
  *
- * @example Multi-workspace setup
+ * @example Multi-epicenter setup
  * ```typescript
- * // Each workspace gets its own IndexedDB database
- * const blog = defineWorkspace({
+ * // Each epicenter gets its own IndexedDB database
+ * const blog = defineEpicenter({
  *   id: 'blog',  // → IndexedDB database named 'blog'
  *   setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
  * });
  *
- * const notes = defineWorkspace({
+ * const notes = defineEpicenter({
  *   id: 'notes',  // → IndexedDB database named 'notes'
  *   setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
  * });

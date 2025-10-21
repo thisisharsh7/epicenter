@@ -1,7 +1,7 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	defineWorkspace,
+	defineEpicenter,
 	id,
 	text,
 	select,
@@ -14,14 +14,14 @@ import {
 } from '../../src/index';
 
 /**
- * Users workspace (Foundation)
- * No dependencies - serves as base for other workspaces
+ * Users epicenter (Foundation)
+ * No workspaces - serves as base for other epicenters
  *
- * This workspace demonstrates:
- * - Basic workspace structure without dependencies
- * - Foundation that other workspaces will depend on
+ * This epicenter demonstrates:
+ * - Basic epicenter structure without workspaces
+ * - Foundation that other epicenters will depend on
  */
-export const users = defineWorkspace({
+export const users = defineEpicenter({
 	id: 'users',
 	version: 1,
 	name: 'users',

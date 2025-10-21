@@ -1,14 +1,14 @@
 import { describe, test, expect } from 'bun:test';
-import { createWorkspaceClient, defineWorkspace } from './workspace';
+import { createEpicenterClient, defineEpicenter } from './workspace';
 import { id, text } from './schema';
 import { defineQuery } from './actions';
 import { Ok } from 'wellcrafted/result';
 
 /**
- * Test suite for workspace initialization with topological sort
- * Tests various dependency scenarios to ensure correct initialization order
+ * Test suite for epicenter initialization with topological sort
+ * Tests various workspace dependency scenarios to ensure correct initialization order
  */
-describe('createWorkspaceClient - Topological Sort', () => {
+describe('createEpicenterClient - Topological Sort', () => {
 	/**
 	 * Track initialization order to verify topological sorting
 	 */
@@ -18,7 +18,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		initOrder.length = 0;
 
 		// Create workspaces: C depends on B, B depends on A
-		const workspaceA = defineWorkspace({
+		const workspaceA = defineEpicenter({
 			id: 'workspace-a',
 			name: 'workspace-a',
 			version: 1,
@@ -34,11 +34,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-a');
 			},
 		});
-		const workspaceB = defineWorkspace({
+		const workspaceB = defineEpicenter({
 			id: 'workspace-b',
 			name: 'workspace-b',
 			version: 1,
-			dependencies: [workspaceA],
+			workspaces: [workspaceA],
 			schema: {
 				items: {
 					id: id(),
@@ -54,11 +54,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
 		// C depends on B (direct), and A (transitive through B)
-		const workspaceC = defineWorkspace({
+		const workspaceC = defineEpicenter({
 			id: 'workspace-c',
 			name: 'workspace-c',
 			version: 1,
-			dependencies: [workspaceA, workspaceB], // Hoisted/flat dependencies
+			workspaces: [workspaceA, workspaceB], // Hoisted/flat dependencies
 			schema: {
 				items: {
 					id: id(),
@@ -73,7 +73,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// Initialize workspace C
-		createWorkspaceClient(workspaceC);
+		await createEpicenterClient(workspaceC);
 
 		// Verify initialization order: A -> B -> C
 		expect(initOrder).toEqual(['workspace-a', 'workspace-b', 'workspace-c']);
@@ -84,7 +84,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		// Create diamond dependency structure
 		// D is the base, A and B depend on D, C depends on both A and B
-		const workspaceD = defineWorkspace({
+		const workspaceD = defineEpicenter({
 			id: 'workspace-d',
 			name: 'workspace-d',
 			version: 1,
@@ -100,11 +100,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-d');
 			},
 		});
-		const workspaceA = defineWorkspace({
+		const workspaceA = defineEpicenter({
 			id: 'workspace-a',
 			name: 'workspace-a',
 			version: 1,
-			dependencies: [workspaceD],
+			workspaces: [workspaceD],
 			schema: {
 				items: {
 					id: id(),
@@ -117,11 +117,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-a');
 			},
 		});
-		const workspaceB = defineWorkspace({
+		const workspaceB = defineEpicenter({
 			id: 'workspace-b',
 			name: 'workspace-b',
 			version: 1,
-			dependencies: [workspaceD],
+			workspaces: [workspaceD],
 			schema: {
 				items: {
 					id: id(),
@@ -137,11 +137,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
 		// C depends on A, B (direct), and D (transitive through A and B)
-		const workspaceC = defineWorkspace({
+		const workspaceC = defineEpicenter({
 			id: 'workspace-c',
 			name: 'workspace-c',
 			version: 1,
-			dependencies: [workspaceD, workspaceA, workspaceB], // All hoisted
+			workspaces: [workspaceD, workspaceA, workspaceB], // All hoisted
 			schema: {
 				items: {
 					id: id(),
@@ -155,7 +155,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(workspaceC);
+		await createEpicenterClient(workspaceC);
 
 		// D must be initialized first
 		expect(initOrder[0]).toBe('workspace-d');
@@ -172,7 +172,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		initOrder.length = 0;
 
 		// Create three independent workspaces (no dependencies)
-		const workspaceX = defineWorkspace({
+		const workspaceX = defineEpicenter({
 			id: 'workspace-x',
 			name: 'workspace-x',
 			version: 1,
@@ -188,7 +188,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-x');
 			},
 		});
-		const workspaceY = defineWorkspace({
+		const workspaceY = defineEpicenter({
 			id: 'workspace-y',
 			name: 'workspace-y',
 			version: 1,
@@ -204,11 +204,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-y');
 			},
 		});
-		const workspaceZ = defineWorkspace({
+		const workspaceZ = defineEpicenter({
 			id: 'workspace-z',
 			name: 'workspace-z',
 			version: 1,
-			dependencies: [workspaceX, workspaceY],
+			workspaces: [workspaceX, workspaceY],
 			schema: {
 				items: {
 					id: id(),
@@ -222,7 +222,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(workspaceZ);
+		await createEpicenterClient(workspaceZ);
 
 		// X and Y can be in any order (both have no dependencies)
 		expect(initOrder.slice(0, 2)).toContain('workspace-x');
@@ -236,11 +236,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		initOrder.length = 0;
 
 		// Create workspace A with version 1
-		const workspaceA_v1 = defineWorkspace({
+		const workspaceA_v1 = defineEpicenter({
 			id: 'workspace-a',
 			name: 'workspace-a',
 			version: 1,
-			dependencies: [],
+			workspaces: [],
 			schema: {
 				items: {
 					id: id(),
@@ -255,11 +255,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// Create workspace A with version 3 (higher)
-		const workspaceA_v3 = defineWorkspace({
+		const workspaceA_v3 = defineEpicenter({
 			id: 'workspace-a',
 			name: 'workspace-a',
 			version: 3,
-			dependencies: [],
+			workspaces: [],
 			schema: {
 				items: {
 					id: id(),
@@ -274,11 +274,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// B depends on v1, C depends on v3
-		const workspaceB = defineWorkspace({
+		const workspaceB = defineEpicenter({
 			id: 'workspace-b',
 			name: 'workspace-b',
 			version: 1,
-			dependencies: [workspaceA_v1],
+			workspaces: [workspaceA_v1],
 			schema: {
 				items: {
 					id: id(),
@@ -291,11 +291,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-b');
 			},
 		});
-		const workspaceC = defineWorkspace({
+		const workspaceC = defineEpicenter({
 			id: 'workspace-c',
 			name: 'workspace-c',
 			version: 1,
-			dependencies: [workspaceA_v3],
+			workspaces: [workspaceA_v3],
 			schema: {
 				items: {
 					id: id(),
@@ -310,11 +310,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// Root depends on both B and C (flat resolution: include ALL transitive deps)
-		const root = defineWorkspace({
+		const root = defineEpicenter({
 			id: 'root',
 			name: 'root',
 			version: 1,
-			dependencies: [workspaceA_v1, workspaceA_v3, workspaceB, workspaceC],
+			workspaces: [workspaceA_v1, workspaceA_v3, workspaceB, workspaceC],
 			schema: {
 				items: {
 					id: id(),
@@ -328,7 +328,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(root);
+		await createEpicenterClient(root);
 
 		// Should only initialize v3 (highest version)
 		expect(initOrder).toContain('workspace-a-v3');
@@ -362,7 +362,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			id: 'workspace-b',
 			name: 'workspace-b',
 			version: 1,
-			dependencies: [workspaceA],
+			workspaces: [workspaceA],
 			schema: {
 				items: {
 					id: id(),
@@ -374,11 +374,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		};
 
 		// Create circular reference
-		workspaceA.dependencies = [workspaceB];
+		workspaceA.workspaces = [workspaceB];
 
 		// Should throw error about circular dependency
-		expect(() => createWorkspaceClient(workspaceA)).toThrow(
-			/Circular dependency/,
+		await expect(createEpicenterClient(workspaceA)).rejects.toThrow(
+			/Circular/,
 		);
 	});
 
@@ -396,7 +396,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		//      \ /
 		//       A
 
-		const workspaceA = defineWorkspace({
+		const workspaceA = defineEpicenter({
 			id: 'workspace-a',
 			name: 'workspace-a',
 			version: 1,
@@ -412,11 +412,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-a');
 			},
 		});
-		const workspaceB = defineWorkspace({
+		const workspaceB = defineEpicenter({
 			id: 'workspace-b',
 			name: 'workspace-b',
 			version: 1,
-			dependencies: [workspaceA],
+			workspaces: [workspaceA],
 			schema: {
 				items: {
 					id: id(),
@@ -429,11 +429,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-b');
 			},
 		});
-		const workspaceC = defineWorkspace({
+		const workspaceC = defineEpicenter({
 			id: 'workspace-c',
 			name: 'workspace-c',
 			version: 1,
-			dependencies: [workspaceA],
+			workspaces: [workspaceA],
 			schema: {
 				items: {
 					id: id(),
@@ -446,11 +446,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-c');
 			},
 		});
-		const workspaceD = defineWorkspace({
+		const workspaceD = defineEpicenter({
 			id: 'workspace-d',
 			name: 'workspace-d',
 			version: 1,
-			dependencies: [workspaceA, workspaceB, workspaceC],
+			workspaces: [workspaceA, workspaceB, workspaceC],
 			schema: {
 				items: {
 					id: id(),
@@ -463,11 +463,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				initOrder.push('workspace-d');
 			},
 		});
-		const workspaceE = defineWorkspace({
+		const workspaceE = defineEpicenter({
 			id: 'workspace-e',
 			name: 'workspace-e',
 			version: 1,
-			dependencies: [workspaceA, workspaceB, workspaceC],
+			workspaces: [workspaceA, workspaceB, workspaceC],
 			schema: {
 				items: {
 					id: id(),
@@ -482,11 +482,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// F must declare ALL transitive dependencies (flat resolution)
-		const workspaceF = defineWorkspace({
+		const workspaceF = defineEpicenter({
 			id: 'workspace-f',
 			name: 'workspace-f',
 			version: 1,
-			dependencies: [
+			workspaces: [
 				workspaceA,
 				workspaceB,
 				workspaceC,
@@ -506,7 +506,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(workspaceF);
+		await createEpicenterClient(workspaceF);
 
 		// A must be first (no dependencies)
 		expect(initOrder[0]).toBe('workspace-a');
@@ -535,7 +535,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 	test('workspace can access initialized dependencies', async () => {
 		// Create workspace A that exposes an action
-		const workspaceA = defineWorkspace({
+		const workspaceA = defineEpicenter({
 			id: 'workspace-a',
 			name: 'workspaceA',
 			version: 1,
@@ -556,11 +556,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// Create workspace B that depends on A and uses its action
-		const workspaceB = defineWorkspace({
+		const workspaceB = defineEpicenter({
 			id: 'workspace-b',
 			name: 'workspaceB',
 			version: 1,
-			dependencies: [workspaceA],
+			workspaces: [workspaceA],
 			schema: {
 				items: {
 					id: id(),
@@ -579,15 +579,21 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = createWorkspaceClient(workspaceB);
+		const client = await createEpicenterClient(workspaceB);
 
-		// Verify that B can call A's action
-		const result = await client.getValueFromA();
+		// All workspaces are exposed by name (flat/hoisted model)
+		expect(client.workspaceA).toBeDefined();
+		expect(client.workspaceB).toBeDefined();
+
+		// Can call B's action which internally calls A
+		const result = await client.workspaceB.getValueFromA();
 		expect(result.data).toBe('value-from-a');
+
+		client.destroy();
 	});
 
-	test('exposes only root workspace actions, not dependencies', async () => {
-		const workspaceA = defineWorkspace({
+	test('exposes all workspaces by name, including dependencies', async () => {
+		const workspaceA = defineEpicenter({
 			id: 'a',
 			name: 'workspaceA',
 			version: 1,
@@ -605,11 +611,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const workspaceB = defineWorkspace({
+		const workspaceB = defineEpicenter({
 			id: 'b',
 			name: 'workspaceB',
 			version: 1,
-			dependencies: [workspaceA],
+			workspaces: [workspaceA],
 			schema: {
 				items: {
 					id: id(),
@@ -627,25 +633,30 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = createWorkspaceClient(workspaceB);
+		const client = await createEpicenterClient(workspaceB);
 
-		// Root workspace B's actions ARE exposed
-		expect(client.getValueFromB).toBeDefined();
-		expect(typeof client.getValueFromB).toBe('function');
-		expect(client.callA).toBeDefined();
+		// All workspaces ARE exposed by name (transparent dependencies)
+		expect(client.workspaceA).toBeDefined();
+		expect(client.workspaceB).toBeDefined();
 
-		// Dependency workspace A's actions are NOT exposed on the client
-		expect((client as any).workspaceA).toBeUndefined();
+		// Can access both workspaces' actions
+		expect(client.workspaceA.getValueFromA).toBeDefined();
+		expect(client.workspaceB.getValueFromB).toBeDefined();
+		expect(client.workspaceB.callA).toBeDefined();
 
-		// But B can call A's actions internally via workspaces parameter
-		const result = await client.callA();
-		expect(result.data).toBe('value-from-a');
+		// Can call A's actions directly
+		const resultA = await client.workspaceA.getValueFromA();
+		expect(resultA.data).toBe('value-from-a');
+
+		// Can call B's action that internally calls A
+		const resultB = await client.workspaceB.callA();
+		expect(resultB.data).toBe('value-from-a');
 
 		client.destroy();
 	});
 
-	test('root with multiple dependencies - only root actions exposed', async () => {
-		const workspaceA = defineWorkspace({
+	test('multiple workspaces - all exposed by name', async () => {
+		const workspaceA = defineEpicenter({
 			id: 'a',
 			name: 'workspaceA',
 			version: 1,
@@ -663,7 +674,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const workspaceB = defineWorkspace({
+		const workspaceB = defineEpicenter({
 			id: 'b',
 			name: 'workspaceB',
 			version: 1,
@@ -681,11 +692,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const workspaceC = defineWorkspace({
+		const workspaceC = defineEpicenter({
 			id: 'c',
 			name: 'workspaceC',
 			version: 1,
-			dependencies: [workspaceA, workspaceB],
+			workspaces: [workspaceA, workspaceB],
 			schema: {
 				items: {
 					id: id(),
@@ -706,23 +717,31 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = createWorkspaceClient(workspaceC);
+		const client = await createEpicenterClient(workspaceC);
 
-		// Only C's actions are exposed
-		expect(client.getValue).toBeDefined();
-		expect(client.getFromA).toBeDefined();
-		expect(client.getFromB).toBeDefined();
+		// All workspaces are exposed by name
+		expect(client.workspaceA).toBeDefined();
+		expect(client.workspaceB).toBeDefined();
+		expect(client.workspaceC).toBeDefined();
 
-		// A and B are NOT exposed
-		expect((client as any).workspaceA).toBeUndefined();
-		expect((client as any).workspaceB).toBeUndefined();
+		// Can access all workspace actions
+		expect(client.workspaceC.getValue).toBeDefined();
+		expect(client.workspaceC.getFromA).toBeDefined();
+		expect(client.workspaceC.getFromB).toBeDefined();
 
-		// But C can access A and B internally
-		const resultA = await client.getFromA();
+		// Can call C's actions that access A and B
+		const resultA = await client.workspaceC.getFromA();
 		expect(resultA.data).toBe('value-from-a');
 
-		const resultB = await client.getFromB();
+		const resultB = await client.workspaceC.getFromB();
 		expect(resultB.data).toBe('value-from-b');
+
+		// Can also call A and B directly
+		const directA = await client.workspaceA.getValue();
+		expect(directA.data).toBe('value-from-a');
+
+		const directB = await client.workspaceB.getValue();
+		expect(directB.data).toBe('value-from-b');
 
 		client.destroy();
 	});

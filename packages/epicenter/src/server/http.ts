@@ -1,10 +1,10 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
-import type { EpicenterConfig } from '../core/epicenter';
-import { createEpicenterClient } from '../core/epicenter';
+import type { EpicenterConfig } from '../core/workspace';
+import { createEpicenterClient } from '../core/workspace';
 import type { EpicenterOperationError } from '../core/errors';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import type { AnyEpicenterConfig } from '../core/workspace';
 import { createMcpServer } from './mcp-handlers';
 
 /**
@@ -34,8 +34,8 @@ import { createMcpServer } from './mcp-handlers';
  */
 export async function createHttpServer<
 	TId extends string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(config: EpicenterConfig<TId, TWorkspaces>): Promise<Hono> {
+	TWorkspaces extends readonly AnyEpicenterConfig[],
+>(config: EpicenterConfig<TWorkspaces, TId>): Promise<Hono> {
 	const app = new Hono();
 
 	// Create client

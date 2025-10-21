@@ -1,7 +1,7 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { EpicenterConfig } from '../core/epicenter';
-import { createEpicenterClient } from '../core/epicenter';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import type { EpicenterConfig } from '../core/workspace';
+import { createEpicenterClient } from '../core/workspace';
+import type { AnyEpicenterConfig } from '../core/workspace';
 import { createMcpServer } from './mcp-handlers';
 
 /**
@@ -30,8 +30,8 @@ import { createMcpServer } from './mcp-handlers';
  */
 export async function createStdioServer<
 	TId extends string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(config: EpicenterConfig<TId, TWorkspaces>): Promise<void> {
+	TWorkspaces extends readonly AnyEpicenterConfig[],
+>(config: EpicenterConfig<TWorkspaces, TId>): Promise<void> {
 	// Create client
 	const client = await createEpicenterClient(config);
 

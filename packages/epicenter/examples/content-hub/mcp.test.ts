@@ -3,7 +3,6 @@ import type { Server } from 'bun';
 import {
 	createHttpServer,
 	defineEpicenter,
-	defineWorkspace,
 	setupPersistenceDesktop,
 	id,
 	text,
@@ -36,7 +35,7 @@ const PORT = 3123;
 const BASE_URL = `http://localhost:${PORT}`;
 
 // Create a test workspace with its own database to avoid locking issues
-const testPages = defineWorkspace({
+const testPages = defineEpicenter({
 	id: 'test-pages',
 	version: 1,
 	name: 'pages',

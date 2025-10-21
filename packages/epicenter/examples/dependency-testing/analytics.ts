@@ -1,7 +1,7 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	defineWorkspace,
+	defineEpicenter,
 	id,
 	text,
 	integer,
@@ -18,22 +18,22 @@ import { posts } from './posts';
 import { comments } from './comments';
 
 /**
- * Analytics workspace (Multiple Dependencies)
+ * Analytics epicenter (Multiple Workspace Dependencies)
  * Depends on: users, posts, comments
  *
- * This workspace demonstrates:
- * - Multiple dependencies in a single workspace
- * - Type-safe access to ALL dependency actions
- * - Cross-workspace aggregation and analytics
- * - Full autocomplete for all three workspaces
+ * This epicenter demonstrates:
+ * - Multiple workspace dependencies in a single epicenter
+ * - Type-safe access to ALL workspace actions
+ * - Cross-epicenter aggregation and analytics
+ * - Full autocomplete for all three workspace epicenters
  */
-export const analytics = defineWorkspace({
+export const analytics = defineEpicenter({
 	id: 'analytics',
 	version: 1,
 	name: 'analytics',
 
-	// Multiple dependencies: all three workspaces
-	dependencies: [users, posts, comments],
+	// Multiple workspace dependencies: all three epicenters
+	workspaces: [users, posts, comments],
 
 	schema: {
 		userStats: {
@@ -55,31 +55,31 @@ export const analytics = defineWorkspace({
 		sqlite: await sqliteIndex(db, { database: '.data/analytics.db' }),
 	}),
 
-	// NOTE: workspaces has ALL three dependencies with full type safety
+	// NOTE: workspaces has ALL three workspace dependencies with full type safety
 	// ✅ workspaces.users - all user actions
 	// ✅ workspaces.posts - all post actions
 	// ✅ workspaces.comments - all comment actions
 	actions: ({ db, indexes, workspaces }) => ({
 		// Query: Get user statistics
-		// Demonstrates accessing multiple dependencies
+		// Demonstrates accessing multiple workspace epicenters
 		getUserStats: defineQuery({
 			input: Type.Object({
 				userId: Type.String(),
 			}),
 			handler: async ({ userId }) => {
-				// ✅ Access users workspace
+				// ✅ Access users epicenter
 				const userResult = await workspaces.users.getUser({ id: userId });
 				if (!userResult.data) {
 					throw new Error(`User ${userId} not found`);
 				}
 
-				// ✅ Access posts workspace
+				// ✅ Access posts epicenter
 				const postsResult = await workspaces.posts.getPostsByAuthor({
 					authorId: userId,
 				});
 				const totalPosts = postsResult.data?.length ?? 0;
 
-				// ✅ Access comments workspace
+				// ✅ Access comments epicenter
 				const commentsResult = await workspaces.comments.getCommentsByAuthor({
 					authorId: userId,
 				});
@@ -96,25 +96,25 @@ export const analytics = defineWorkspace({
 		}),
 
 		// Query: Get post statistics
-		// Demonstrates aggregating data from multiple workspaces
+		// Demonstrates aggregating data from multiple epicenters
 		getPostStats: defineQuery({
 			input: Type.Object({
 				postId: Type.String(),
 			}),
 			handler: async ({ postId }) => {
-				// ✅ Access posts workspace (with author details)
+				// ✅ Access posts epicenter (with author details)
 				const postResult = await workspaces.posts.getPostWithAuthor({ id: postId });
 				if (!postResult.data) {
 					throw new Error(`Post ${postId} not found`);
 				}
 
-				// ✅ Access comments workspace
+				// ✅ Access comments epicenter
 				const commentsResult = await workspaces.comments.getCommentsByPost({
 					postId,
 				});
 				const totalComments = commentsResult.data?.length ?? 0;
 
-				// Could also access users workspace to get commenter details
+				// Could also access users epicenter to get commenter details
 				// ✅ workspaces.users.getUser({ id: comment.authorId })
 
 				return Ok({
@@ -157,13 +157,13 @@ export const analytics = defineWorkspace({
 		}),
 
 		// Query: Get top content creators
-		// Demonstrates complex cross-workspace analytics
+		// Demonstrates complex cross-epicenter analytics
 		getTopContentCreators: defineQuery({
 			input: Type.Object({
 				limit: Type.Number(),
 			}),
 			handler: async ({ limit }) => {
-				// ✅ Access all three workspaces
+				// ✅ Access all three workspace epicenters
 				const usersResult = await workspaces.users.getUsersByRole({
 					role: 'author',
 				});
@@ -206,7 +206,7 @@ export const analytics = defineWorkspace({
 				userId: Type.String(),
 			}),
 			handler: async ({ userId }) => {
-				// ✅ Fetch fresh data from all dependencies
+				// ✅ Fetch fresh data from all workspace dependencies
 				const postsResult = await workspaces.posts.getPostsByAuthor({
 					authorId: userId,
 				});
@@ -255,7 +255,7 @@ export const analytics = defineWorkspace({
 				postId: Type.String(),
 			}),
 			handler: async ({ postId }) => {
-				// ✅ Access comments workspace
+				// ✅ Access comments epicenter
 				const commentsResult = await workspaces.comments.getCommentsByPost({
 					postId,
 				});

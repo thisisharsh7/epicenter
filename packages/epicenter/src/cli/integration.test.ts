@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import Type from 'typebox';
-import { defineEpicenter } from '../core/epicenter';
 import {
-	defineWorkspace,
+	defineEpicenter,
 	id,
 	text,
 	sqliteIndex,
@@ -12,7 +11,7 @@ import { Ok } from 'wellcrafted/result';
 import { generateCLI } from './generate';
 
 describe('CLI Integration', () => {
-	const testWorkspace = defineWorkspace({
+	const testWorkspace = defineEpicenter({
 		id: 'test-cli-workspace',
 		version: 1,
 		name: 'test',

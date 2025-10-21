@@ -5,7 +5,6 @@ import {
 	defineEpicenter,
 	defineMutation,
 	defineQuery,
-	defineWorkspace,
 	eq,
 	generateId,
 	id,
@@ -19,11 +18,11 @@ import {
 } from '../../src/index';
 
 /**
- * Example blog workspace
- * Demonstrates the basic structure of an Epicenter workspace
+ * Example blog epicenter
+ * Demonstrates the basic structure of an Epicenter
  */
 
-const blogWorkspace = defineWorkspace({
+const blog = defineEpicenter({
 	id: 'blog',
 	version: 1,
 	name: 'blog',
@@ -174,5 +173,5 @@ const blogWorkspace = defineWorkspace({
 
 export default defineEpicenter({
 	id: 'basic-workspace-example',
-	workspaces: [blogWorkspace],
+	workspaces: [blog],
 });

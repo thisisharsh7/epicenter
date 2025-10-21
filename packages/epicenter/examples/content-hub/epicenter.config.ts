@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	defineWorkspace,
+	defineEpicenter,
 	setupPersistenceDesktop,
 	id,
 	text,
@@ -17,10 +17,10 @@ import {
 } from '../../src/index';
 
 /**
- * Pages workspace
+ * Pages epicenter
  * Manages page content (blogs, articles, guides, tutorials, news)
  */
-export const pages = defineWorkspace({
+export const pages = defineEpicenter({
 	id: 'pages',
 	version: 1,
 	name: 'pages',
@@ -47,7 +47,6 @@ export const pages = defineWorkspace({
 		// Query: Get all pages
 		getPages: defineQuery({
 			handler: async () => {
-				console.log('Fetched pages:', indexes.sqlite.pages);
 				const pages = await indexes.sqlite.db.select().from(indexes.sqlite.pages);
 				return Ok(pages);
 			},
@@ -98,7 +97,7 @@ export const pages = defineWorkspace({
 });
 
 /**
- * Content hub workspace
+ * Content hub epicenter
  * Manages distribution of pages across social media platforms
  */
 
@@ -117,12 +116,12 @@ const niche = multiSelect({
 	],
 });
 
-export default defineWorkspace({
+export default defineEpicenter({
 	id: 'content-hub',
 	version: 1,
 	name: 'content-hub',
 
-	dependencies: [pages],
+	workspaces: [pages],
 
 	schema: {
 		youtube: {

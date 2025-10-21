@@ -1,6 +1,6 @@
 import {
-	defineWorkspace,
-	createWorkspaceClient,
+	defineEpicenter,
+	createEpicenterClient,
 	setupPersistenceWeb,
 	id,
 	text,
@@ -10,9 +10,9 @@ import {
 } from '@repo/epicenter';
 
 /**
- * Define a simple blog workspace with web persistence
+ * Define a simple blog epicenter with web persistence
  */
-const blogWorkspace = defineWorkspace({
+const blogWorkspace = defineEpicenter({
 	id: 'blog',
 	version: 1,
 	name: 'blog',
@@ -66,11 +66,12 @@ const blogWorkspace = defineWorkspace({
  * Initialize the app
  */
 async function initApp() {
-	console.log('[App] Initializing workspace...');
+	console.log('[App] Initializing epicenter...');
 
-	// Create workspace client
-	const client = await createWorkspaceClient(blogWorkspace);
-	console.log('[App] Workspace ready! Data persists in IndexedDB "blog"');
+	// Create epicenter client
+	const fullClient = await createEpicenterClient(blogWorkspace);
+	const client = fullClient.blog;
+	console.log('[App] Epicenter ready! Data persists in IndexedDB "blog"');
 
 	// DOM elements
 	const form = document.getElementById('create-form');
