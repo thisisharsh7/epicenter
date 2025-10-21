@@ -3,6 +3,7 @@ import type { Db } from '../../db/core';
 import type { WorkspaceActionMap } from '../actions';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
+import type { WorkspacesToActionMaps } from './types';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -199,40 +200,8 @@ export type WorkspaceConfig<
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: {
 		db: Db<TWorkspaceSchema>;
-		workspaces: DependencyActionsMap<TDeps>;
+		workspaces: WorkspacesToActionMaps<TDeps>;
 		indexes: TIndexMap;
 	}) => TActionMap;
 };
 
-/**
- * Maps workspace dependencies to their action maps.
- *
- * Takes an array of workspace dependencies and merges them into a single object where:
- * - Each key is a dependency name
- * - Each value is the action map exported from that dependency
- *
- * This allows accessing dependency actions as `workspaces.dependencyName.actionName()`.
- *
- * @example
- * ```typescript
- * // Given dependencies: [authWorkspace, storageWorkspace]
- * // Results in type: { auth: AuthActions, storage: StorageActions }
- * // Used as: workspaces.auth.login(), workspaces.storage.uploadFile()
- * ```
- *
- * Constrains to `AnyWorkspaceConfig` (name + actions only) to avoid recursive type inference.
- */
-export type DependencyActionsMap<TDeps extends readonly AnyWorkspaceConfig[]> =
-	TDeps extends readonly []
-		? Record<string, never>
-		: {
-				[W in TDeps[number] as W extends { name: infer TName extends string }
-					? TName
-					: never]: W extends {
-					actions: (
-						context: any,
-					) => infer TActionMap extends WorkspaceActionMap;
-				}
-					? TActionMap
-					: never;
-			};

@@ -7,47 +7,10 @@ import type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
 } from './config';
-
-/**
- * Workspace client instance returned from createWorkspaceClient
- * Contains callable actions and lifecycle management
- */
-export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
-	TActionMap & {
-		/**
-		 * Cleanup method for resource management
-		 * - Destroys all indexes
-		 * - Destroys the YJS document
-		 */
-		destroy: () => void;
-	};
-
-/**
- * Mapped type that converts array of workspace configs to object of initialized clients.
- * Extracts workspace names and ActionMaps to create fully-typed client object.
- *
- * @example
- * ```typescript
- * // Given configs:
- * const workspaceA = defineWorkspace({ id: 'workspace-a', name: 'workspaceA', actions: { foo: ... } })
- * const workspaceB = defineWorkspace({ id: 'workspace-b', name: 'workspaceB', actions: { bar: ... } })
- *
- * // Returns type:
- * {
- *   workspaceA: WorkspaceClient<{ foo: ... }>,
- *   workspaceB: WorkspaceClient<{ bar: ... }>
- * }
- * ```
- */
-type InitializedWorkspaces<TConfigs extends readonly AnyWorkspaceConfig[]> = {
-	[W in TConfigs[number] as W extends { name: infer TName extends string }
-		? TName
-		: never]: W extends {
-		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
-	}
-		? WorkspaceClient<TActionMap>
-		: never;
-};
+import type {
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './types';
 
 /**
  * Internal function that initializes multiple workspaces with shared dependency resolution.
@@ -60,7 +23,7 @@ type InitializedWorkspaces<TConfigs extends readonly AnyWorkspaceConfig[]> = {
  */
 export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
->(rootWorkspaceConfigs: TConfigs): Promise<InitializedWorkspaces<TConfigs>> {
+>(rootWorkspaceConfigs: TConfigs): Promise<WorkspacesToClients<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -364,7 +327,7 @@ export async function initializeWorkspaces<
 		initializedWorkspaces[workspaceConfig.name] = client;
 	}
 
-	return initializedWorkspaces as InitializedWorkspaces<TConfigs>;
+	return initializedWorkspaces as WorkspacesToClients<TConfigs>;
 }
 
 /**

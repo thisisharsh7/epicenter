@@ -1,7 +1,6 @@
-import type { WorkspaceActionMap } from './actions';
 import type { AnyWorkspaceConfig } from './workspace';
-import { type WorkspaceClient } from './workspace';
 import { initializeWorkspaces } from './workspace/client';
+import type { WorkspacesToClients } from './workspace/types';
 
 /**
  * Epicenter configuration
@@ -119,34 +118,12 @@ export function defineEpicenter<
 }
 
 /**
- * Helper type that extracts the name and WorkspaceClient type for a single workspace
- * Returns a single-entry object type: { [name]: WorkspaceClient<TActionMap> }
- */
-type WorkspaceToClientEntry<W> = W extends {
-	name: infer TName extends string;
-	actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
-}
-	? { [K in TName]: WorkspaceClient<TActionMap> }
-	: never;
-
-/**
- * Helper type that recursively processes a tuple of workspaces and merges them into a single object type
- * Distributes over each tuple element and combines all workspace client entries
- */
-type WorkspacesToClientObject<WS extends readonly AnyWorkspaceConfig[]> = WS extends readonly [
-	infer First,
-	...infer Rest extends readonly AnyWorkspaceConfig[],
-]
-	? WorkspaceToClientEntry<First> & WorkspacesToClientObject<Rest>
-	: {};
-
-/**
  * Epicenter client type
  * Maps workspace names to their action handlers
  * Provides typed access to all workspace actions
  */
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
-	WorkspacesToClientObject<TWorkspaces> & {
+	WorkspacesToClients<TWorkspaces> & {
 		/**
 		 * Cleanup method for resource management
 		 * Destroys all workspaces in this epicenter
