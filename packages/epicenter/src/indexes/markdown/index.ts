@@ -151,7 +151,7 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
 export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema>(
 	db: Db<TWorkspaceSchema>,
 	config: MarkdownIndexConfig,
-): Index<{}> {
+) {
 	const { storagePath } = config;
 
 	// Loop prevention: Track whether we're currently syncing
@@ -371,12 +371,12 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 		},
 	);
 
-	return {
+	return defineIndex({
 		destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
 			}
 			watcher.close();
 		},
-	};
+	});
 }

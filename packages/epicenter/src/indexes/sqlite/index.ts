@@ -10,7 +10,7 @@ import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
-import { type Index } from '../../core/indexes';
+import { defineIndex } from '../../core/indexes';
 import type { DateWithTimezone, Row, WorkspaceSchema } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { DateWithTimezoneSerializer } from './builders';
@@ -161,15 +161,7 @@ async function createTablesIfNotExist<
 export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	db: Db<TWorkspaceSchema>,
 	{ database = ':memory:' }: SQLiteIndexConfig = {},
-): Promise<
-	Index<
-		{
-			db: BetterSQLite3Database<
-				WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
-			>;
-		} & WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>
-	>
-> {
+) {
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
@@ -293,7 +285,7 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	}
 
 	// Return destroy function alongside exported resources (flattened structure)
-	return {
+	return defineIndex({
 		destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
@@ -301,5 +293,5 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 		},
 		db: sqliteDb,
 		...drizzleTables,
-	};
+	});
 }

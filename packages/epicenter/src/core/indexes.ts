@@ -1,5 +1,3 @@
-import type { Db } from '../db/core';
-import type { WorkspaceSchema } from './schema';
 
 /**
  * Index type system for vault.
