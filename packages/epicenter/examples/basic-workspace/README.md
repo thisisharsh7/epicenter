@@ -14,18 +14,18 @@ This folder shows you how to:
 
 ```
 basic-workspace/
-├── .epicenter/                  # YJS binary persistence (internal state)
-│   └── blog.yjs                # Binary YJS document (CRDT source of truth)
+├── .epicenter/                  # YJS and SQLite persistence (internal state)
+│   ├── blog.yjs                # Binary YJS document (CRDT source of truth)
+│   └── blog.db                  # SQLite index database
+├── .data/
+│   └── content/                 # Markdown files (git-friendly storage)
+│       ├── posts/               # Blog posts as .md files
+│       └── comments/            # Comments as .md files
 ├── epicenter.config.ts          # Workspace definition (with setupYDoc)
 ├── cli.ts                       # CLI entry point
 ├── yjs-persistence.test.ts      # Automated test: YJS persistence across sessions
 ├── bidirectional-sync.test.ts   # Automated test: markdown file bidirectional sync
 ├── package.json                 # Scripts
-├── .data/
-│   ├── blog.db                  # SQLite index database
-│   └── content/                 # Markdown files (git-friendly storage)
-│       ├── posts/               # Blog posts as .md files
-│       └── comments/            # Comments as .md files
 └── README.md                    # This file
 ```
 

@@ -7,7 +7,8 @@ End-to-end test suite for Epicenter that serves as both comprehensive examples a
 - `epicenter.config.ts` - Full-featured blog workspace demonstrating all Epicenter capabilities
 - `server.test.ts` - Tests for REST endpoints and MCP protocol
 - `cli.test.ts` - Tests for CLI generation and configuration
-- `.data/` - Test fixtures and SQLite database
+- `.epicenter/` - YJS and SQLite database storage
+- `.data/` - Markdown content files (git-friendly storage)
 
 ## Running Tests
 
