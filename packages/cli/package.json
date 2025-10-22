@@ -5,6 +5,9 @@
 	"bin": {
 		"epicenter": "./src/index.ts"
 	},
+	"scripts": {
+		"dev": "bun src/index.ts"
+	},
 	"dependencies": {
 		"@epicenter/hq": "workspace:*",
 		"yargs": "^18.0.0"

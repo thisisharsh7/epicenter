@@ -39,11 +39,13 @@ epicenter serve [options]
 ```
 
 **Options:**
+
 - `--port=<number>`: Port to run the server on (default: 3000)
 - `--dev`: Run in development mode (default)
 - `--prod`: Run in production mode
 
 **Example:**
+
 ```bash
 epicenter serve --port=8080 --prod
 ```
@@ -59,6 +61,7 @@ epicenter <workspace> <action> [flags]
 Your action's TypeBox input schema automatically becomes CLI flags. The CLI handles validation, type conversion, and result display.
 
 **Example:**
+
 ```bash
 epicenter pages createPage \
   --title "My First Post" \
@@ -70,6 +73,26 @@ epicenter pages getPages
 epicenter pages getPage --id abc123
 ```
 
+## Local Development/Testing
+
+To test the CLI during development, link it globally once:
+
+```bash
+cd packages/cli
+bun link
+```
+
+Now you can use `epicenter` from any folder with an `epicenter.config.ts`:
+
+```bash
+cd packages/epicenter/examples/content-hub
+epicenter --help
+epicenter serve --port=3001
+epicenter pages getPages
+```
+
+The CLI automatically discovers the `epicenter.config.ts` file in your current working directory.
+
 ## Configuration File
 
 Your `epicenter.config.ts` should export your Epicenter app as the default export:
@@ -79,8 +102,8 @@ import { defineEpicenter } from '@epicenter/hq';
 import { pages } from './workspaces/pages';
 
 export default defineEpicenter({
-  id: 'my-app',
-  workspaces: [pages],
+	id: 'my-app',
+	workspaces: [pages],
 });
 ```
 
@@ -110,12 +133,3 @@ epicenter pages createPage --help   # Show action flags
 ## Architecture
 
 This package is a thin wrapper around `@epicenter/hq/cli`, which contains the core CLI generation logic. The architecture allows:
-
-- **Reusable CLI generation**: Other tools can programmatically use the CLI
-- **Consistent behavior**: All CLI features share the same implementation
-- **Easy maintenance**: Core logic lives with the framework
-- **Extensibility**: New commands can be added by updating the framework
-
-## Requirements
-
-- Bun >= 1.0.0
