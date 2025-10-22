@@ -49,32 +49,10 @@ console.log('    -H "Content-Type: application/json" \\');
 console.log('    -d \'{"title":"My First Post","content":"Hello world","type":"blog","tags":"tech"}\'\n');
 
 console.log('🔧 Connect to Claude Code:\n');
-console.log('  Option 1: Using CLI (Recommended)');
-console.log('  ────────────────────────────────────────────────');
-console.log(`  claude mcp add content-hub --scope user -- \\`);
-console.log(`    curl -X POST http://localhost:${PORT}/mcp \\`);
-console.log('    -H "Content-Type: application/json" \\');
-console.log('    -H "Accept: application/json, text/event-stream" \\');
-console.log('    --data-binary "@-" --no-buffer\n');
-
-console.log('  Option 2: Manual Configuration');
-console.log('  ────────────────────────────────────────────────');
-console.log('  Edit ~/.claude.json and add:\n');
-console.log('  {');
-console.log('    "mcpServers": {');
-console.log('      "content-hub": {');
-console.log('        "command": "curl",');
-console.log('        "args": [');
-console.log('          "-X", "POST",');
-console.log(`          "http://localhost:${PORT}/mcp",`);
-console.log('          "-H", "Content-Type: application/json",');
-console.log('          "-H", "Accept: application/json, text/event-stream",');
-console.log('          "--data-binary", "@-",');
-console.log('          "--no-buffer"');
-console.log('        ]');
-console.log('      }');
-console.log('    }');
-console.log('  }\n');
+console.log(`  claude mcp add content-hub --transport http --scope user http://localhost:${PORT}/mcp\n`);
+console.log('  For authentication, add headers with --header flag:');
+console.log(`  claude mcp add content-hub --transport http --scope user http://localhost:${PORT}/mcp \\`);
+console.log('    --header "Authorization: Bearer your-token"\n');
 
 console.log('📦 Available Tools:\n');
 for (const workspace of contentHub.workspaces) {

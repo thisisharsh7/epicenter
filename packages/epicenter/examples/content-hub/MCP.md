@@ -76,13 +76,9 @@ The server will start on http://localhost:3000 with:
 
 #### 2. Add to Claude Code
 
-Using the CLI:
+Using the CLI (recommended):
 ```bash
-claude mcp add content-hub --scope user -- \
-  curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  --data-binary "@-" --no-buffer
+claude mcp add content-hub --transport http --scope user http://localhost:3000/mcp
 ```
 
 Or add manually to `~/.claude.json`:
@@ -90,21 +86,14 @@ Or add manually to `~/.claude.json`:
 {
   "mcpServers": {
     "content-hub": {
-      "command": "curl",
-      "args": [
-        "-X", "POST",
-        "http://localhost:3000/mcp",
-        "-H", "Content-Type: application/json",
-        "-H", "Accept: application/json, text/event-stream",
-        "--data-binary", "@-",
-        "--no-buffer"
-      ]
+      "transport": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-**Note**: The `--no-buffer` flag is important for streaming responses, and the `Accept` header must include `text/event-stream` as MCP uses Server-Sent Events (SSE) for responses.
+**Note**: Claude Code automatically handles the required headers (`Accept: application/json, text/event-stream`) and streaming configuration. For servers requiring authentication, use the `--header` flag.
 
 ### 3. Test the Connection
 
@@ -262,7 +251,7 @@ Bun.serve({
 ### 3. Add to Claude Code
 
 ```bash
-claude mcp add my-app --scope user -- curl -X POST http://localhost:3000/mcp -H "Content-Type: application/json" --data-binary "@-"
+claude mcp add my-app --transport http --scope user http://localhost:3000/mcp
 ```
 
 ## Advanced Usage
@@ -291,7 +280,7 @@ Bun.serve({
 });
 
 // Update Claude Code config:
-claude mcp add my-app --scope user -- curl -X POST http://localhost:4000/mcp -H "Content-Type: application/json" --data-binary "@-"
+claude mcp add my-app --transport http --scope user http://localhost:4000/mcp
 ```
 
 ### Environment Variables
@@ -311,20 +300,20 @@ actions: ({ db, indexes }) => ({
 
 Then configure in Claude Code:
 
+```bash
+# Using CLI with environment variable
+claude mcp add my-app --transport http --scope user http://localhost:3000/mcp \
+  --env API_KEY=your-key-here
+```
+
+Or manually in `~/.claude.json`:
+
 ```json
 {
   "mcpServers": {
     "my-app": {
-      "command": "curl",
-      "args": [
-        "-X",
-        "POST",
-        "http://localhost:3000/mcp",
-        "-H",
-        "Content-Type: application/json",
-        "--data-binary",
-        "@-"
-      ],
+      "transport": "http",
+      "url": "http://localhost:3000/mcp",
       "env": {
         "API_KEY": "your-key-here"
       }
