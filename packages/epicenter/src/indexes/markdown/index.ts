@@ -25,6 +25,14 @@ export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * If undefined, markdown body will be empty and only frontmatter fields are synced
 	 */
 	contentField?: keyof TTableSchema & string;
+
+	/**
+	 * Whether to omit null/undefined values from frontmatter when writing markdown files
+	 * If true, fields with null or undefined values won't be written to frontmatter
+	 * When reading, missing schema fields will be populated with null
+	 * Default: false
+	 */
+	omitNullValues?: boolean;
 };
 
 
@@ -127,9 +135,20 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 						: '';
 
 					// Remove content field from frontmatter if it's configured (to avoid duplication)
-					const frontmatter = contentField
+					// The content field value goes into markdown body, so we set it to undefined here
+					// so it gets filtered out below (either by omitNullValues or by YAML serialization)
+					let frontmatter = contentField
 						? { ...row, [contentField]: undefined }
-						: row;
+						: { ...row };
+
+					// Omit null/undefined values if configured
+					if (tableConfig?.omitNullValues) {
+						frontmatter = Object.fromEntries(
+							Object.entries(frontmatter).filter(([_, value]) =>
+								value !== null && value !== undefined
+							)
+						);
+					}
 
 					const { error } = await writeMarkdownFile(filePath, frontmatter, content);
 					if (error) {
@@ -166,9 +185,20 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 						: '';
 
 					// Remove content field from frontmatter if it's configured (to avoid duplication)
-					const frontmatter = contentField
+					// The content field value goes into markdown body, so we set it to undefined here
+					// so it gets filtered out below (either by omitNullValues or by YAML serialization)
+					let frontmatter = contentField
 						? { ...row, [contentField]: undefined }
-						: row;
+						: { ...row };
+
+					// Omit null/undefined values if configured
+					if (tableConfig?.omitNullValues) {
+						frontmatter = Object.fromEntries(
+							Object.entries(frontmatter).filter(([_, value]) =>
+								value !== null && value !== undefined
+							)
+						);
+					}
 
 					const { error } = await writeMarkdownFile(filePath, frontmatter, content);
 					if (error) {
@@ -356,6 +386,7 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 			watcher.close();
 		},
 	});
+}
 
 /**
  * Update a YJS row from markdown file data using granular diffs

@@ -342,13 +342,13 @@ export async function parseMarkdownWithValidation<T extends Row>(
 	}
 
 	// Step 3: Validate required fields and types, accepting plain values for YJS types
-	// Only validate fields that are in the schema (ignore extra fields in the markdown)
+	// Preserve all fields from frontmatter (including extra fields not in schema)
 	const row = data as Record<string, any>;
-	const validatedRow: Record<string, any> = {};
+	const validatedRow: Record<string, any> = { ...row };
 
+	// Validate schema fields
 	for (const [fieldName, columnSchema] of Object.entries(schema)) {
 		const value = row[fieldName];
-		validatedRow[fieldName] = value;
 
 		// Check required fields
 		if (value === null || value === undefined) {
@@ -483,6 +483,14 @@ export async function parseMarkdownWithValidation<T extends Row>(
 					};
 				}
 				break;
+		}
+	}
+
+	// Ensure all schema fields exist in the validated row
+	// If a field is missing from frontmatter, set it to null
+	for (const fieldName of Object.keys(schema)) {
+		if (!(fieldName in validatedRow)) {
+			validatedRow[fieldName] = null;
 		}
 	}
 
