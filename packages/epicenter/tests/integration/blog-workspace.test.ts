@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach } from 'bun:test';
+import path from 'node:path';
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
@@ -47,7 +48,7 @@ describe('Blog Workspace Integration', () => {
 				database: ':memory:', // In-memory for testing
 			}),
 			markdown: markdownIndex(db, {
-				storagePath: './test-data',
+				storagePath: path.join(import.meta.dir, '../../test-data'),
 			}),
 		}),
 

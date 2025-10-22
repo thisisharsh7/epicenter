@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
+import path from 'node:path';
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
@@ -20,9 +21,9 @@ import {
 import { generateCLI } from './generate';
 
 describe('CLI End-to-End Tests', () => {
-	const TEST_DIR = './test-data/cli-e2e-test';
-	const TEST_DB = `${TEST_DIR}/test.db`;
-	const TEST_MARKDOWN = `${TEST_DIR}/content`;
+	const TEST_DIR = path.join(import.meta.dir, '.data');
+	const TEST_DB = path.join(TEST_DIR, 'test.db');
+	const TEST_MARKDOWN = path.join(TEST_DIR, 'content');
 
 	// Define a test workspace
 	const testWorkspace = defineWorkspace({
