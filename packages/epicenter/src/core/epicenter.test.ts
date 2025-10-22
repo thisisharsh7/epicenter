@@ -14,7 +14,7 @@ import {
 	sqliteIndex,
 	text,
 } from '../index';
-import { createEpicenterClient, defineEpicenter } from './epicenter';
+import { createEpicenterClient, defineEpicenter } from './epicenter/index';
 
 /**
  * Pages workspace - manages page content
