@@ -6,10 +6,12 @@
 		"epicenter": "./src/index.ts"
 	},
 	"dependencies": {
-		"@epicenter/hq": "workspace:*"
+		"@epicenter/hq": "workspace:*",
+		"yargs": "^18.0.0"
 	},
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "latest",
+		"@types/yargs": "^17.0.33"
 	},
 	"files": ["src"],
 	"engines": {

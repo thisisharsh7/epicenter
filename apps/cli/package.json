@@ -1,5 +1,5 @@
 {
-	"name": "@epicenter/cli",
+	"name": "@epicenter/code",
 	"version": "0.0.5",
 	"description": "Epicenter CLI designed for seamless integration with opencode and epicenter.sh",
 	"type": "module",

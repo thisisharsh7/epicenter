@@ -9,12 +9,14 @@ Command-line interface for Epicenter applications.
 ```bash
 bun install -g @epicenter/cli
 epicenter serve
+epicenter pages createPage --title "My Post" --content "Hello" --type blog --tags tech
 ```
 
 ### Use with bunx (no installation)
 
 ```bash
 bunx @epicenter/cli serve
+bunx @epicenter/cli pages createPage --title "My Post"
 ```
 
 ### Local Project Installation
@@ -24,34 +26,48 @@ bun add -D @epicenter/cli
 bunx epicenter serve
 ```
 
-## Usage
+## Commands
 
-### Starting the Server
+The CLI provides two types of commands:
 
-The CLI looks for an `epicenter.config.ts` file in your current directory and starts an HTTP server.
+### 1. HTTP Server
+
+Start an HTTP server with REST API and MCP endpoints:
 
 ```bash
-epicenter serve
+epicenter serve [options]
 ```
 
-#### Options
-
-- `--port=<number>`: Specify the port (default: 3000)
+**Options:**
+- `--port=<number>`: Port to run the server on (default: 3000)
 - `--dev`: Run in development mode (default)
 - `--prod`: Run in production mode
-- `--help`: Show help information
 
-#### Examples
+**Example:**
+```bash
+epicenter serve --port=8080 --prod
+```
+
+### 2. Workspace Actions
+
+Execute workspace actions directly from the command line:
 
 ```bash
-# Start on default port (3000)
-epicenter serve
+epicenter <workspace> <action> [flags]
+```
 
-# Start on custom port
-epicenter serve --port=8080
+Your action's TypeBox input schema automatically becomes CLI flags. The CLI handles validation, type conversion, and result display.
 
-# Run in production mode
-epicenter serve --prod
+**Example:**
+```bash
+epicenter pages createPage \
+  --title "My First Post" \
+  --content "Hello world" \
+  --type blog \
+  --tags tech
+
+epicenter pages getPages
+epicenter pages getPage --id abc123
 ```
 
 ## Configuration File
@@ -59,7 +75,7 @@ epicenter serve --prod
 Your `epicenter.config.ts` should export your Epicenter app as the default export:
 
 ```typescript
-import { defineEpicenter } from 'epicenter';
+import { defineEpicenter } from '@epicenter/hq';
 import { pages } from './workspaces/pages';
 
 export default defineEpicenter({
@@ -68,16 +84,37 @@ export default defineEpicenter({
 });
 ```
 
-## What Gets Started
+## Schema-Driven CLI Flags
 
-When you run `epicenter serve`, the CLI:
+TypeBox schemas automatically become CLI options:
 
-1. Finds your `epicenter.config.ts`
-2. Creates an HTTP server with:
-   - REST API endpoints for all workspace actions
-   - MCP (Model Context Protocol) endpoint at `/mcp`
-3. Displays available endpoints and tools
-4. Shows the command to connect to Claude Code
+- `Type.String()` → `--flag <value>`
+- `Type.Number()` → `--flag <number>`
+- `Type.Boolean()` → `--flag` (presence = true)
+- `Type.Array(Type.String())` → `--flag item1 item2` (space-separated)
+- `Type.Union([Literal('a'), Literal('b')])` → `--flag <choice>` (validated)
+- `Type.Optional()` → flag is optional
+- `{ description }` → shows in `--help`
+
+## Help System
+
+Get help for any command:
+
+```bash
+epicenter --help                    # Show all commands
+epicenter serve --help              # Show serve options
+epicenter pages --help              # Show pages actions
+epicenter pages createPage --help   # Show action flags
+```
+
+## Architecture
+
+This package is a thin wrapper around `@epicenter/hq/cli`, which contains the core CLI generation logic. The architecture allows:
+
+- **Reusable CLI generation**: Other tools can programmatically use the CLI
+- **Consistent behavior**: All CLI features share the same implementation
+- **Easy maintenance**: Core logic lives with the framework
+- **Extensibility**: New commands can be added by updating the framework
 
 ## Requirements
 

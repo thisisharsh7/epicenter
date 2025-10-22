@@ -5,6 +5,7 @@ import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
 import { typeboxToYargs } from './typebox-to-yargs';
 import { createMockContext } from './mock-context';
+import { serveCommand } from './commands/serve';
 
 /**
  * Options for generating the CLI
@@ -44,12 +45,42 @@ export function generateCLI(
 
 	// Create yargs instance
 	let cli = yargs(hideBin(argv))
-		.scriptName('bun cli')
-		.usage('Usage: $0 <workspace> <action> [options]')
+		.scriptName('epicenter')
+		.usage('Usage: $0 <command> [options]')
 		.help()
 		.version()
-		.demandCommand(1, 'You must specify a workspace')
+		.demandCommand(1, 'You must specify a command')
 		.strict();
+
+	// Add serve command
+	cli = cli.command(
+		'serve',
+		'Start HTTP server with REST and MCP endpoints',
+		(yargs) => {
+			return yargs
+				.option('port', {
+					type: 'number',
+					description: 'Port to run the server on',
+					default: 3000,
+				})
+				.option('dev', {
+					type: 'boolean',
+					description: 'Run in development mode',
+					default: true,
+				})
+				.option('prod', {
+					type: 'boolean',
+					description: 'Run in production mode',
+					default: false,
+				});
+		},
+		async (argv) => {
+			await serveCommand(config, {
+				port: argv.port,
+				dev: argv.prod ? false : argv.dev,
+			});
+		},
+	);
 
 	// Register each workspace as a command
 	for (const workspaceConfig of config.workspaces) {
@@ -131,23 +162,23 @@ async function executeAction(
 	}
 
 	// Initialize real workspace (with YJS docs, indexes, etc.)
-	await using client = await createWorkspaceClient(workspaceConfig);
+	const client = await createWorkspaceClient(workspaceConfig);
 
-	// Get the action handler
-	const handler = (client as any)[actionName];
-
-	if (!handler) {
-		console.error(
-			`❌ Action "${actionName}" not found in workspace "${workspaceName}"`,
-		);
-		process.exit(1);
-	}
-
-	// Extract input from args (remove yargs metadata)
-	const { _, $0, ...input } = args;
-
-	// Execute the action
 	try {
+		// Get the action handler
+		const handler = (client as any)[actionName];
+
+		if (!handler) {
+			console.error(
+				`❌ Action "${actionName}" not found in workspace "${workspaceName}"`,
+			);
+			process.exit(1);
+		}
+
+		// Extract input from args (remove yargs metadata)
+		const { _, $0, ...input } = args;
+
+		// Execute the action
 		const result = await handler(input);
 
 		// Handle Result type
@@ -171,5 +202,8 @@ async function executeAction(
 	} catch (error) {
 		console.error('❌ Unexpected error:', error);
 		process.exit(1);
+	} finally {
+		// Cleanup workspace resources
+		client.destroy();
 	}
 }
