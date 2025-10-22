@@ -9,7 +9,7 @@ import {
 	defineMutation,
 } from '../index';
 import { Ok } from 'wellcrafted/result';
-import { generateCLI } from './generate';
+import { createCLI } from './generate';
 
 describe('CLI Integration', () => {
 	const testWorkspace = defineWorkspace({
@@ -53,13 +53,13 @@ describe('CLI Integration', () => {
 		workspaces: [testWorkspace],
 	});
 
-	test('CLI can be generated from epicenter config', () => {
-		const cli = generateCLI({ config: epicenter, argv: [] });
+	test('CLI can be created from epicenter config', () => {
+		const cli = createCLI({ config: epicenter, argv: [] });
 		expect(cli).toBeDefined();
 	});
 
-	test('generates CLI with proper command structure', () => {
-		const cli = generateCLI({ config: epicenter, argv: [] });
+	test('creates CLI with proper command structure', () => {
+		const cli = createCLI({ config: epicenter, argv: [] });
 
 		// Verify CLI has basic yargs structure
 		expect(cli.parse).toBeDefined();

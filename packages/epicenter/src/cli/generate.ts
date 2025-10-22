@@ -7,7 +7,7 @@ import { createMockContext } from './mock-context';
 import { serveCommand } from './commands/serve';
 
 /**
- * Generate CLI from Epicenter config.
+ * Create CLI from Epicenter config.
  * Returns a yargs instance with all workspace and action commands.
  *
  * This function:
@@ -23,15 +23,15 @@ import { serveCommand } from './commands/serve';
  * ```typescript
  * // In production (bin.ts)
  * import { hideBin } from 'yargs/helpers';
- * const cli = generateCLI({ config, argv: hideBin(process.argv) });
+ * const cli = createCLI({ config, argv: hideBin(process.argv) });
  * await cli.parse();
  *
  * // In tests
- * const cli = generateCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
+ * const cli = createCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
  * await cli.parse();
  * ```
  */
-export function generateCLI({
+export function createCLI({
 	config,
 	argv,
 }: {

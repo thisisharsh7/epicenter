@@ -2,19 +2,19 @@
 
 import { hideBin } from 'yargs/helpers';
 import { loadEpicenterConfig } from './load-config';
-import { generateCLI } from './generate';
+import { createCLI } from './generate';
 
 /**
  * CLI entry point
- * Loads the epicenter config and generates the CLI
+ * Loads the epicenter config and creates the CLI
  */
 async function main() {
 	try {
 		// Load the config from the current directory
 		const config = await loadEpicenterConfig();
 
-		// Generate and run the CLI
-		const cli = generateCLI({ config, argv: hideBin(process.argv) });
+		// Create and run the CLI
+		const cli = createCLI({ config, argv: hideBin(process.argv) });
 		await cli.parse();
 	} catch (error) {
 		if (error instanceof Error) {

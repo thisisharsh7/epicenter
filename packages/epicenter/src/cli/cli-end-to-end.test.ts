@@ -18,7 +18,7 @@ import {
 	sqliteIndex,
 	text,
 } from '../index';
-import { generateCLI } from './generate';
+import { createCLI } from './generate';
 
 /**
  * CLI End-to-End Tests
@@ -131,18 +131,19 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI can create a post', async () => {
-		const cli = generateCLI({
-				config: epicenter, argv: [
-					'posts',
-					'createPost',
-					'--title',
-					'Test Post',
-					'--content',
-					'Test content',
-					'--category',
-					'tech',
-				]
-			});
+		const cli = createCLI({
+			config: epicenter,
+			argv: [
+				'posts',
+				'createPost',
+				'--title',
+				'Test Post',
+				'--content',
+				'Test content',
+				'--category',
+				'tech',
+			],
+		});
 
 		// Parse will execute the command
 		await cli.parse();
@@ -155,35 +156,28 @@ describe('CLI End-to-End Tests', () => {
 
 	test('CLI can query posts', async () => {
 		// First create a post
-		const createCli = generateCLI({
-				config: epicenter, argv: [
-					'posts',
-					'createPost',
-					'--title',
-					'Query Test',
-					'--category',
-					'tech',
-				]
-			});
+		const createCli = createCLI({
+			config: epicenter,
+			argv: ['posts', 'createPost', '--title', 'Query Test', '--category', 'tech'],
+		});
 		await createCli.parse();
 
 		// Wait for the post to be created
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Now query all posts
-		const listCli = generateCLI({ config: epicenter, argv: ['posts', 'listPosts'] });
+		const listCli = createCLI({
+			config: epicenter,
+			argv: ['posts', 'listPosts'],
+		});
 		await listCli.parse();
 	});
 
 	test('CLI handles missing required options', async () => {
-		const cli = generateCLI({
-				config: epicenter, argv: [
-					'posts',
-					'createPost',
-					'--title',
-					'Missing Category',
-				]
-			});
+		const cli = createCLI({
+			config: epicenter,
+			argv: ['posts', 'createPost', '--title', 'Missing Category'],
+		});
 
 		try {
 			await cli.parse();
@@ -195,16 +189,10 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI properly formats success output', async () => {
-		const cli = generateCLI({
-				config: epicenter, argv: [
-					'posts',
-					'createPost',
-					'--title',
-					'Output Test',
-					'--category',
-					'test',
-				]
-			});
+		const cli = createCLI({
+			config: epicenter,
+			argv: ['posts', 'createPost', '--title', 'Output Test', '--category', 'test'],
+		});
 
 		// Capture console output
 		const logs: string[] = [];
