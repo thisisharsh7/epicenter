@@ -123,17 +123,36 @@ client.invalid.action   // ✗ Compile error
 
 The client type is inferred from the workspace configs, so you get full autocomplete and type checking.
 
-## When to Use Epicenter
+## Epicenter vs createWorkspaceClient
 
-Use Epicenter when:
-- You have multiple workspaces that need to work together
-- You want a unified client interface for your entire application
-- You need lifecycle management for multiple workspaces
+Both `createEpicenterClient` and `createWorkspaceClient` use the same initialization logic under the hood (`initializeWorkspaces`), which returns an object of all initialized workspace clients:
 
-Use a single workspace when:
-- You're building a standalone module or library
-- You only have one domain
-- You want maximum flexibility in how the workspace is used
+```typescript
+// What happens internally for BOTH functions:
+const allClients = initializeWorkspaces([A, B, C]);
+// => { workspaceA: clientA, workspaceB: clientB, workspaceC: clientC }
+```
+
+All workspaces are initialized in both cases. **The only difference is what they return.**
+
+- **createEpicenterClient**: Returns the entire object of workspace clients
+  ```typescript
+  const client = await createEpicenterClient({ workspaces: [A, B, C] });
+  // Returns: { workspaceA: clientA, workspaceB: clientB, workspaceC: clientC }
+  client.workspaceA.doSomething(); // ✓ All workspaces accessible
+  client.workspaceB.doSomething(); // ✓
+  client.workspaceC.doSomething(); // ✓
+  ```
+
+- **createWorkspaceClient**: Returns only the specified workspace client from the object
+  ```typescript
+  const client = await createWorkspaceClient(workspaceC); // C depends on A, B
+  // Returns: clientC (accessed from the full object)
+  client.doSomething(); // ✓ Only C's actions available
+  client.workspaceA; // undefined - other workspaces not exposed on return value
+  ```
+
+In other words, **createWorkspaceClient** returns a subset of **createEpicenterClient**.
 
 ## Architecture
 
