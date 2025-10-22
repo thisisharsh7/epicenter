@@ -54,14 +54,12 @@ describe('CLI Integration', () => {
 	});
 
 	test('CLI can be generated from epicenter config', () => {
-		const cli = generateCLI(epicenter, { argv: [] });
+		const cli = generateCLI({ config: epicenter, argv: [] });
 		expect(cli).toBeDefined();
 	});
 
 	test('generates CLI with proper command structure', () => {
-		const cli = generateCLI(epicenter, {
-			argv: [],
-		});
+		const cli = generateCLI({ config: epicenter, argv: [] });
 
 		// Verify CLI has basic yargs structure
 		expect(cli.parse).toBeDefined();

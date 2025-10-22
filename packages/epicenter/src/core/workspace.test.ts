@@ -1,7 +1,9 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import path from 'node:path';
+import Type from 'typebox';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
-import { id, text } from './schema';
-import { defineQuery } from './actions';
+import { id, text, integer } from './schema';
+import { defineQuery, defineMutation } from './actions';
 import { Ok } from 'wellcrafted/result';
 
 /**
@@ -725,6 +727,251 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		const resultB = await client.getFromB();
 		expect(resultB.data).toBe('value-from-b');
+
+		client.destroy();
+	});
+});
+
+/**
+ * Test suite for workspace action handlers
+ * Tests actions directly without CLI layer
+ */
+describe('Workspace Action Handlers', () => {
+	const TEST_DIR = path.join(import.meta.dir, '.data/action-handler-test');
+	const TEST_DB = path.join(TEST_DIR, 'test.db');
+	const TEST_MARKDOWN = path.join(TEST_DIR, 'content');
+
+	// Define a test workspace with CRUD operations
+	const postsWorkspace = defineWorkspace({
+		id: 'posts-test',
+		version: 1,
+		name: 'posts',
+
+		schema: {
+			posts: {
+				id: id(),
+				title: text(),
+				content: text({ nullable: true }),
+				category: text(),
+				views: integer({ default: 0 }),
+			},
+		},
+
+		indexes: async ({ db }) => {
+			const { sqliteIndex, markdownIndex } = await import('../index');
+			return {
+				sqlite: await sqliteIndex(db, { database: `${TEST_DB}` }),
+				markdown: markdownIndex(db, { storagePath: TEST_MARKDOWN }),
+			};
+		},
+
+		actions: ({ db, indexes }) => {
+			const { defineMutation, defineQuery, eq } = require('../index');
+			return {
+				listPosts: defineQuery({
+					handler: async () => {
+						const posts = await indexes.sqlite.db
+							.select()
+							.from(indexes.sqlite.posts);
+						return Ok(posts);
+					},
+				}),
+
+				getPost: defineQuery({
+					input: Type.Object({ id: Type.String() }),
+					handler: async ({ id }) => {
+						const post = await indexes.sqlite.db
+							.select()
+							.from(indexes.sqlite.posts)
+							.where(eq(indexes.sqlite.posts.id, id));
+						return Ok(post);
+					},
+				}),
+
+				createPost: defineMutation({
+					input: Type.Object({
+						title: Type.String({ description: 'Post title' }),
+						content: Type.Optional(Type.String({ description: 'Post content' })),
+						category: Type.String({ description: 'Post category' }),
+					}),
+					handler: async ({ title, content, category }) => {
+						const { generateId } = require('../index');
+						const post = {
+							id: generateId(),
+							title,
+							content: content ?? null,
+							category,
+							views: 0,
+						};
+						db.tables.posts.insert(post);
+						return Ok(post);
+					},
+				}),
+
+				updateViews: defineMutation({
+					input: Type.Object({
+						id: Type.String({ description: 'Post ID' }),
+						views: Type.Number({ description: 'New view count' }),
+					}),
+					handler: async ({ id, views }) => {
+						const { status, row } = db.tables.posts.get(id);
+						if (status !== 'valid') {
+							throw new Error(`Post ${id} not found`);
+						}
+						db.tables.posts.update({ id, views });
+						const { row: updatedPost } = db.tables.posts.get(id);
+						return Ok(updatedPost);
+					},
+				}),
+			};
+		},
+	});
+
+	beforeEach(async () => {
+		const { existsSync } = await import('node:fs');
+		const { mkdir, rm } = await import('node:fs/promises');
+		// Clean up test data
+		if (existsSync(TEST_DIR)) {
+			await rm(TEST_DIR, { recursive: true, force: true });
+		}
+		await mkdir(TEST_DIR, { recursive: true });
+		await mkdir(TEST_MARKDOWN, { recursive: true });
+	});
+
+	afterEach(async () => {
+		const { existsSync } = await import('node:fs');
+		const { rm } = await import('node:fs/promises');
+		// Clean up test data
+		if (existsSync(TEST_DIR)) {
+			await rm(TEST_DIR, { recursive: true, force: true });
+		}
+	});
+
+	test('createPost mutation creates a post', async () => {
+		const client = await createWorkspaceClient(postsWorkspace);
+
+		const result = await client.createPost({
+			title: 'Test Post',
+			content: 'Test content',
+			category: 'tech',
+		});
+
+		expect(result.error).toBeUndefined();
+		expect(result.data?.title).toBe('Test Post');
+		expect(result.data?.content).toBe('Test content');
+		expect(result.data?.category).toBe('tech');
+		expect(result.data?.views).toBe(0);
+		expect(result.data?.id).toBeDefined();
+
+		client.destroy();
+	});
+
+	test('listPosts query returns created posts', async () => {
+		const client = await createWorkspaceClient(postsWorkspace);
+
+		// Create a post first
+		await client.createPost({
+			title: 'Query Test',
+			category: 'tech',
+		});
+
+		// Wait for indexes to sync
+		await new Promise((resolve) => setTimeout(resolve, 200));
+
+		// List all posts
+		const result = await client.listPosts({});
+
+		expect(result.error).toBeUndefined();
+		expect(result.data).toBeDefined();
+		expect(Array.isArray(result.data)).toBe(true);
+		expect(result.data?.length).toBe(1);
+		expect(result.data?.[0]?.title).toBe('Query Test');
+
+		client.destroy();
+	});
+
+	test('getPost query retrieves specific post', async () => {
+		const client = await createWorkspaceClient(postsWorkspace);
+
+		// Create a post
+		const createResult = await client.createPost({
+			title: 'Specific Post',
+			category: 'tech',
+		});
+
+		expect(createResult.data).toBeDefined();
+		const postId = createResult.data!.id;
+
+		// Wait for indexes to sync
+		await new Promise((resolve) => setTimeout(resolve, 200));
+
+		// Get the specific post
+		const result = await client.getPost({ id: postId });
+
+		expect(result.error).toBeUndefined();
+		expect(result.data).toBeDefined();
+		expect(Array.isArray(result.data)).toBe(true);
+		expect(result.data?.length).toBe(1);
+		expect(result.data?.[0]?.id).toBe(postId);
+		expect(result.data?.[0]?.title).toBe('Specific Post');
+
+		client.destroy();
+	});
+
+	test('updateViews mutation updates post view count', async () => {
+		const client = await createWorkspaceClient(postsWorkspace);
+
+		// Create a post
+		const createResult = await client.createPost({
+			title: 'Views Test',
+			category: 'tech',
+		});
+
+		expect(createResult.data).toBeDefined();
+		const postId = createResult.data!.id;
+
+		// Update views
+		const updateResult = await client.updateViews({
+			id: postId,
+			views: 42,
+		});
+
+		expect(updateResult.error).toBeUndefined();
+		expect(updateResult.data?.views).toBe(42);
+
+		client.destroy();
+	});
+
+	test('updateViews throws error for non-existent post', async () => {
+		const client = await createWorkspaceClient(postsWorkspace);
+
+		// Try to update views on non-existent post
+		try {
+			await client.updateViews({
+				id: 'non-existent-id',
+				views: 42,
+			});
+			expect(false).toBe(true); // Should not reach here
+		} catch (error) {
+			expect(error).toBeDefined();
+			expect((error as Error).message).toContain('not found');
+		}
+
+		client.destroy();
+	});
+
+	test('createPost with optional content field', async () => {
+		const client = await createWorkspaceClient(postsWorkspace);
+
+		const result = await client.createPost({
+			title: 'No Content Post',
+			category: 'tech',
+		});
+
+		expect(result.error).toBeUndefined();
+		expect(result.data?.title).toBe('No Content Post');
+		expect(result.data?.content).toBe(null);
+		expect(result.data?.category).toBe('tech');
 
 		client.destroy();
 	});

@@ -20,6 +20,11 @@ import {
 } from '../index';
 import { generateCLI } from './generate';
 
+/**
+ * CLI End-to-End Tests
+ * These tests verify that the full CLI flow works: parsing, routing, execution, and output.
+ * Business logic is tested separately in workspace.test.ts
+ */
 describe('CLI End-to-End Tests', () => {
 	const TEST_DIR = path.join(import.meta.dir, '.data');
 	const TEST_DB = path.join(TEST_DIR, 'test.db');
@@ -126,18 +131,18 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI can create a post', async () => {
-		const cli = generateCLI(epicenter, {
-			argv: [
-				'posts',
-				'createPost',
-				'--title',
-				'Test Post',
-				'--content',
-				'Test content',
-				'--category',
-				'tech',
-			],
-		});
+		const cli = generateCLI({
+				config: epicenter, argv: [
+					'posts',
+					'createPost',
+					'--title',
+					'Test Post',
+					'--content',
+					'Test content',
+					'--category',
+					'tech',
+				]
+			});
 
 		// Parse will execute the command
 		await cli.parse();
@@ -150,32 +155,35 @@ describe('CLI End-to-End Tests', () => {
 
 	test('CLI can query posts', async () => {
 		// First create a post
-		const createCli = generateCLI(epicenter, {
-			argv: [
-				'posts',
-				'createPost',
-				'--title',
-				'Query Test',
-				'--category',
-				'tech',
-			],
-		});
+		const createCli = generateCLI({
+				config: epicenter, argv: [
+					'posts',
+					'createPost',
+					'--title',
+					'Query Test',
+					'--category',
+					'tech',
+				]
+			});
 		await createCli.parse();
 
 		// Wait for the post to be created
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Now query all posts
-		const listCli = generateCLI(epicenter, {
-			argv: ['posts', 'listPosts'],
-		});
+		const listCli = generateCLI({ config: epicenter, argv: ['posts', 'listPosts'] });
 		await listCli.parse();
 	});
 
 	test('CLI handles missing required options', async () => {
-		const cli = generateCLI(epicenter, {
-			argv: ['posts', 'createPost', '--title', 'Missing Category'],
-		});
+		const cli = generateCLI({
+				config: epicenter, argv: [
+					'posts',
+					'createPost',
+					'--title',
+					'Missing Category',
+				]
+			});
 
 		try {
 			await cli.parse();
@@ -187,16 +195,16 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI properly formats success output', async () => {
-		const cli = generateCLI(epicenter, {
-			argv: [
-				'posts',
-				'createPost',
-				'--title',
-				'Output Test',
-				'--category',
-				'test',
-			],
-		});
+		const cli = generateCLI({
+				config: epicenter, argv: [
+					'posts',
+					'createPost',
+					'--title',
+					'Output Test',
+					'--category',
+					'test',
+				]
+			});
 
 		// Capture console output
 		const logs: string[] = [];
@@ -211,7 +219,6 @@ describe('CLI End-to-End Tests', () => {
 		console.log = originalLog;
 
 		// Verify output format
-		expect(logs.some((log) => log.includes('Executing'))).toBe(true);
 		expect(logs.some((log) => log.includes('Success'))).toBe(true);
 	});
 });

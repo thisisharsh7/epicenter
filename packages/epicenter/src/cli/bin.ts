@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { hideBin } from 'yargs/helpers';
 import { loadEpicenterConfig } from './load-config';
 import { generateCLI } from './generate';
 
@@ -13,7 +14,7 @@ async function main() {
 		const config = await loadEpicenterConfig();
 
 		// Generate and run the CLI
-		const cli = generateCLI(config);
+		const cli = generateCLI({ config, argv: hideBin(process.argv) });
 		await cli.parse();
 	} catch (error) {
 		if (error instanceof Error) {

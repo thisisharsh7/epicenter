@@ -1,22 +1,10 @@
 import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
 import type { Argv } from 'yargs';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
 import { typeboxToYargs } from './typebox-to-yargs';
 import { createMockContext } from './mock-context';
 import { serveCommand } from './commands/serve';
-
-/**
- * Options for generating the CLI
- */
-export type GenerateCLIOptions = {
-	/**
-	 * Custom argv to parse (useful for testing)
-	 * Defaults to process.argv
-	 */
-	argv?: string[];
-};
 
 /**
  * Generate CLI from Epicenter config.
@@ -28,23 +16,30 @@ export type GenerateCLIOptions = {
  * 3. Sets up handlers that initialize real workspaces on execution
  *
  * @param config - Epicenter configuration
- * @param options - CLI generation options
+ * @param argv - Array of command-line arguments to parse
  * @returns Yargs instance ready to parse arguments
  *
  * @example
  * ```typescript
- * const cli = generateCLI(config);
+ * // In production (bin.ts)
+ * import { hideBin } from 'yargs/helpers';
+ * const cli = generateCLI({ config, argv: hideBin(process.argv) });
+ * await cli.parse();
+ *
+ * // In tests
+ * const cli = generateCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
  * await cli.parse();
  * ```
  */
-export function generateCLI(
-	config: EpicenterConfig,
-	options: GenerateCLIOptions = {},
-): Argv {
-	const { argv = process.argv } = options;
-
+export function generateCLI({
+	config,
+	argv,
+}: {
+	config: EpicenterConfig;
+	argv: string[];
+}): Argv {
 	// Create yargs instance
-	let cli = yargs(hideBin(argv))
+	let cli = yargs(argv)
 		.scriptName('epicenter')
 		.usage('Usage: $0 <command> [options]')
 		.help()
