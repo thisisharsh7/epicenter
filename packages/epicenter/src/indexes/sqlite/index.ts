@@ -13,15 +13,11 @@ import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
 import type { DateWithTimezone, Row, WorkspaceSchema } from '../../core/schema';
 import type { Db } from '../../db/core';
+import { EPICENTER_STORAGE_DIR } from '../../persistence/desktop';
 import { DateWithTimezoneSerializer } from './builders';
 import {
 	convertWorkspaceSchemaToDrizzle
 } from './schema-converter';
-
-/**
- * Directory where Epicenter stores persistent data (YJS files and SQLite databases)
- */
-const EPICENTER_STORAGE_DIR = '.epicenter';
 
 /**
  * Database filename for SQLite.
