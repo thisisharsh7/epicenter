@@ -18,7 +18,7 @@ import {
 	sqliteIndex,
 	text,
 } from '../index';
-import { createCLI } from './generate';
+import { createCLI } from './cli';
 
 /**
  * CLI End-to-End Tests

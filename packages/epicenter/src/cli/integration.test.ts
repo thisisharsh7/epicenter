@@ -9,7 +9,7 @@ import {
 	defineMutation,
 } from '../index';
 import { Ok } from 'wellcrafted/result';
-import { createCLI } from './generate';
+import { createCLI } from './cli';
 
 describe('CLI Integration', () => {
 	const testWorkspace = defineWorkspace({

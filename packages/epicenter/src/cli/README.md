@@ -170,7 +170,7 @@ This keeps help commands instant while deferring real initialization until comma
 ### File Organization
 
 - `bin.ts`: Entry point for CLI executable
-- `generate.ts`: Core CLI generation logic
+- `cli.ts`: Core CLI creation logic
 - `metadata.ts`: Fast metadata extraction using mocks
 - `typebox-to-yargs.ts`: Schema to CLI flag conversion
 - `load-config.ts`: Config file discovery and loading

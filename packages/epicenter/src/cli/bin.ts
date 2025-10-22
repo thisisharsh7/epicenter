@@ -2,7 +2,7 @@
 
 import { hideBin } from 'yargs/helpers';
 import { loadEpicenterConfig } from './load-config';
-import { createCLI } from './generate';
+import { createCLI } from './cli';
 
 /**
  * CLI entry point
