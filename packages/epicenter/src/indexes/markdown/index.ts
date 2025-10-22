@@ -15,14 +15,34 @@ import {
 } from './parser';
 
 /**
+ * Per-table markdown configuration
+ */
+export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
+	/**
+	 * Field name to map markdown body content to for this table
+	 * Must be a valid field name from the table's schema
+	 * Default: 'content'
+	 */
+	contentField?: keyof TTableSchema & string;
+};
+
+/**
  * Markdown index configuration
  */
-export type MarkdownIndexConfig = {
+export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	/**
 	 * Path where markdown files should be stored
 	 * Example: './data/markdown'
 	 */
 	storagePath: string;
+	/**
+	 * Per-table configuration
+	 * Keys must be valid table names from the workspace schema
+	 * Example: { pages: { contentField: 'body' }, posts: { contentField: 'content' } }
+	 */
+	tables: {
+		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
+	};
 };
 
 /**
@@ -150,9 +170,16 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
  */
 export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema>(
 	db: Db<TWorkspaceSchema>,
-	config: MarkdownIndexConfig,
+	config: MarkdownIndexConfig<TWorkspaceSchema>,
 ) {
-	const { storagePath } = config;
+	const { storagePath, tables: tableConfigs } = config;
+
+	// Helper to get contentField for a specific table
+	const getContentField = (tableName: string): string => {
+		const tableConfig = tableConfigs[tableName as keyof TWorkspaceSchema];
+		// Default to 'content' if not specified
+		return tableConfig?.contentField ?? 'content';
+	};
 
 	// Loop prevention: Track whether we're currently syncing
 	// to avoid infinite loops between YJS observer and file watcher
@@ -167,6 +194,8 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 		if (!table) {
 			throw new Error(`Table "${tableName}" not found`);
 		}
+		const contentField = getContentField(tableName);
+
 		const unsub = table.observe({
 			onAdd: async (row) => {
 				// Loop prevention: Skip if we're processing a file change
@@ -181,7 +210,10 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 						tableName,
 						row.id,
 					);
-					const { error } = await writeMarkdownFile(filePath, row);
+					// Extract content field for markdown body
+					const content = (row as any)[contentField] ?? '';
+					const frontmatter = { ...row, [contentField]: undefined };
+					const { error } = await writeMarkdownFile(filePath, frontmatter, content);
 					if (error) {
 						console.error(
 							IndexErr({
@@ -208,7 +240,10 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 						tableName,
 						row.id,
 					);
-					const { error } = await writeMarkdownFile(filePath, row);
+					// Extract content field for markdown body
+					const content = (row as any)[contentField] ?? '';
+					const frontmatter = { ...row, [contentField]: undefined };
+					const { error } = await writeMarkdownFile(filePath, frontmatter, content);
 					if (error) {
 						console.error(
 							IndexErr({
@@ -338,19 +373,27 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 										id,
 										filePath,
 										validationResult: parseResult.validationResult,
+										rawData: parseResult.data,
 									},
 								}),
 							);
+							console.error('Validation details:', JSON.stringify(parseResult.validationResult, null, 2));
 							break;
 
 						case 'success':
 							// Update YJS document with granular diffs
 							try {
+								// Add markdown body content to the content field
+								const tableContentField = getContentField(tableName);
+								const rowData = tableContentField
+									? { ...parseResult.data, [tableContentField]: parseResult.content }
+									: parseResult.data;
+
 								updateYJSRowFromMarkdown(
 									db,
 									tableName,
 									id,
-									parseResult.data,
+									rowData,
 									tableSchema,
 								);
 							} catch (error) {
