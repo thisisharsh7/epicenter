@@ -229,6 +229,182 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
 export type CellValue = Row[keyof Row];
 
 /**
+ * ISO 8601 UTC datetime string from Date.toISOString()
+ * @example "2024-01-01T20:00:00.000Z"
+ */
+export type DateIsoString = string & Brand<'DateIsoString'>;
+
+/**
+ * IANA timezone identifier
+ * @example "America/New_York"
+ * @example "Europe/London"
+ * @example "Asia/Tokyo"
+ * @example "UTC"
+ */
+export type TimezoneId = string & Brand<'TimezoneId'>;
+
+/**
+ * Database storage format combining UTC datetime and timezone
+ * @example "2024-01-01T20:00:00.000Z|America/New_York"
+ */
+export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` & Brand<'DateWithTimezoneString'>;
+
+/**
+ * Factory function to create a serializer with inferred types
+ */
+export function Serializer<TValue, TSerialized>(config: {
+	serialize(value: TValue): TSerialized;
+	deserialize(storage: TSerialized): TValue;
+}) {
+	return config;
+}
+
+/**
+ * Serializer for DateWithTimezone - converts between application objects and storage strings
+ */
+export const DateWithTimezoneSerializer = Serializer({
+	serialize({ date, timezone }: DateWithTimezone): DateWithTimezoneString {
+		const isoUtc = date.toISOString();
+		return `${isoUtc}|${timezone}` as DateWithTimezoneString;
+	},
+
+	deserialize(storage: DateWithTimezoneString): DateWithTimezone {
+		const [isoUtc, timezone] = storage.split('|');
+		if (!isoUtc || !timezone) {
+			throw new Error(`Invalid DateWithTimezone format: ${storage}`);
+		}
+		return {
+			date: new Date(isoUtc),
+			timezone,
+		};
+	},
+});
+
+/**
+ * Converts a cell value to its serialized equivalent for storage/transport
+ * - Y.Text → string
+ * - Y.Array<T> → T[]
+ * - DateWithTimezone → DateWithTimezoneString
+ * - Other types → unchanged
+ *
+ * Handles nullable types automatically due to distributive conditional types:
+ * - SerializedCellValue<Y.Text | null> = string | null
+ * - SerializedCellValue<Y.Array<string> | null> = string[] | null
+ */
+export type SerializedCellValue<T extends CellValue = CellValue> = T extends Y.Text
+	? string
+	: T extends Y.Text | null
+		? string | null
+		: T extends Y.Array<infer U>
+			? U[]
+			: T extends Y.Array<infer U> | null
+				? U[] | null
+				: T extends DateWithTimezone
+					? DateWithTimezoneString
+					: T extends DateWithTimezone | null
+						? DateWithTimezoneString | null
+						: T;
+
+/**
+ * Serialized row - all cell values converted to plain JavaScript types.
+ * This type is useful for:
+ * - Storing data in formats that don't support YJS types (SQLite, markdown, JSON APIs)
+ * - Passing data across boundaries where YJS types aren't available
+ * - Input validation before converting to YJS types
+ *
+ * @example
+ * ```typescript
+ * type PostSchema = {
+ *   id: { type: 'id' };
+ *   title: { type: 'ytext'; nullable: false };
+ *   tags: { type: 'multi-select'; options: ['a', 'b']; nullable: false };
+ *   publishedAt: { type: 'date'; nullable: false };
+ * };
+ *
+ * type PostRow = Row<PostSchema>;
+ * // { id: string; title: Y.Text; tags: Y.Array<string>; publishedAt: DateWithTimezone }
+ *
+ * type SerializedPost = SerializedRow<PostRow>;
+ * // { id: string; title: string; tags: string[]; publishedAt: DateWithTimezoneString }
+ * ```
+ */
+export type SerializedRow<TRow extends Row = Row> = {
+	[K in keyof TRow]: SerializedCellValue<TRow[K]>;
+};
+
+/**
+ * Serializes a single cell value to its plain JavaScript equivalent.
+ * - Y.Text → string
+ * - Y.Array<T> → T[]
+ * - DateWithTimezone → DateWithTimezoneString ("ISO_UTC|TIMEZONE" format)
+ * - Other types → unchanged (primitives, null, undefined)
+ *
+ * @example
+ * ```typescript
+ * const ytext = new Y.Text();
+ * ytext.insert(0, 'Hello');
+ * serializeCellValue(ytext); // 'Hello'
+ *
+ * const yarray = Y.Array.from(['a', 'b', 'c']);
+ * serializeCellValue(yarray); // ['a', 'b', 'c']
+ *
+ * const date = { date: new Date('2024-01-01'), timezone: 'America/New_York' };
+ * serializeCellValue(date); // '2024-01-01T00:00:00.000Z|America/New_York'
+ *
+ * serializeCellValue(null); // null
+ * serializeCellValue(42); // 42
+ * serializeCellValue('text'); // 'text'
+ * ```
+ */
+export function serializeCellValue<T extends CellValue>(
+	value: T,
+): SerializedCellValue<T> {
+	if (value instanceof Y.Text) {
+		return value.toString() as SerializedCellValue<T>;
+	}
+	if (value instanceof Y.Array) {
+		return value.toArray() as SerializedCellValue<T>;
+	}
+	if (isDateWithTimezone(value)) {
+		return DateWithTimezoneSerializer.serialize(value) as SerializedCellValue<T>;
+	}
+	return value as SerializedCellValue<T>;
+}
+
+/**
+ * Serializes an entire row to plain JavaScript values.
+ * Converts all YJS types and DateWithTimezone to their serialized equivalents.
+ *
+ * @example
+ * ```typescript
+ * const row: Row = {
+ *   id: '123',
+ *   title: ytext,  // Y.Text instance
+ *   tags: yarray,  // Y.Array instance
+ *   publishedAt: { date: new Date(), timezone: 'UTC' },
+ *   viewCount: 42
+ * };
+ *
+ * const serialized = serializeRow(row);
+ * // {
+ * //   id: '123',
+ * //   title: 'Hello',           // string
+ * //   tags: ['a', 'b'],         // string[]
+ * //   publishedAt: '2024...|UTC', // DateWithTimezoneString
+ * //   viewCount: 42             // number (unchanged)
+ * // }
+ * ```
+ */
+export function serializeRow<T extends Row>(row: T): SerializedRow<T> {
+	return Object.fromEntries(
+		Object.entries(row).map(([key, value]) => [
+			key,
+			serializeCellValue(value as CellValue),
+		]),
+	) as SerializedRow<T>;
+}
+
+/**
  * Creates an ID column schema - always primary key with auto-generation
  * IDs are always NOT NULL (cannot be nullable)
  * @example

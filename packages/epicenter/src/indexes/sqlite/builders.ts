@@ -13,30 +13,12 @@ import {
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
 import { customAlphabet } from 'nanoid';
-import type { Brand } from 'wellcrafted/brand';
-import type { DateWithTimezone, Id } from '../../core/schema';
-
-/**
- * ISO 8601 UTC datetime string from Date.toISOString()
- * @example "2024-01-01T20:00:00.000Z"
- */
-export type DateIsoString = string & Brand<'UtcIsoString'>;
-
-/**
- * IANA timezone identifier
- * @example "America/New_York"
- * @example "Europe/London"
- * @example "Asia/Tokyo"
- * @example "UTC"
- */
-export type TimezoneId = string & Brand<'TimezoneId'>;
-
-/**
- * Database storage format combining UTC datetime and timezone
- * @example "2024-01-01T20:00:00.000Z|America/New_York"
- */
-export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
-	Brand<'DateWithTimezoneString'>;
+import type {
+	DateWithTimezone,
+	DateWithTimezoneString,
+	Id,
+} from '../../core/schema';
+import { DateWithTimezoneSerializer } from '../../core/schema';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
@@ -218,36 +200,6 @@ export function boolean<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
-/**
- * Factory function to create a serializer with inferred types
- */
-export function Serializer<TValue, TSerialized>(config: {
-	serialize(value: TValue): TSerialized;
-	deserialize(storage: TSerialized): TValue;
-}) {
-	return config;
-}
-
-/**
- * Serializer for DateWithTimezone - converts between application objects and storage strings
- */
-export const DateWithTimezoneSerializer = Serializer({
-	serialize({ date, timezone }: DateWithTimezone): DateWithTimezoneString {
-		const isoUtc = date.toISOString();
-		return `${isoUtc}|${timezone}` as DateWithTimezoneString;
-	},
-
-	deserialize(storage: DateWithTimezoneString): DateWithTimezone {
-		const [isoUtc, timezone] = storage.split('|');
-		if (!isoUtc || !timezone) {
-			throw new Error(`Invalid DateWithTimezone format: ${storage}`);
-		}
-		return {
-			date: new Date(isoUtc),
-			timezone,
-		};
-	},
-});
 
 /**
  * Creates a datetime with timezone column (stored as text, NOT NULL by default)

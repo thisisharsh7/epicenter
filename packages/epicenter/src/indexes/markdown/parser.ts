@@ -4,7 +4,8 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import path from 'node:path';
 import { readdir, mkdir } from 'node:fs/promises';
 import * as Y from 'yjs';
-import type { TableSchema, Row } from '../../core/schema';
+import type { CellValue, TableSchema, Row } from '../../core/schema';
+import { serializeCellValue } from '../../core/schema';
 import type { RowValidationResult } from '../../core/validation';
 
 /**
@@ -114,13 +115,7 @@ export async function writeMarkdownFile<T = any>(
 			// Serialize YJS types to plain values before writing to YAML
 			const serializedData: Record<string, any> = {};
 			for (const [key, value] of Object.entries(data as Record<string, any>)) {
-				if (value instanceof Y.Text) {
-					serializedData[key] = value.toString();
-				} else if (value instanceof Y.Array) {
-					serializedData[key] = value.toArray();
-				} else {
-					serializedData[key] = value;
-				}
+				serializedData[key] = serializeCellValue(value as CellValue);
 			}
 
 			// Create markdown content with frontmatter

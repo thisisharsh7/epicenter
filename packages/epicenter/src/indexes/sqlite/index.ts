@@ -11,13 +11,15 @@ import { Ok, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
-import type { DateWithTimezone, Row, WorkspaceSchema } from '../../core/schema';
+import type {
+	Row,
+	SerializedRow,
+	WorkspaceSchema
+} from '../../core/schema';
+import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { EPICENTER_STORAGE_DIR } from '../../persistence/desktop';
-import { DateWithTimezoneSerializer } from './builders';
-import {
-	convertWorkspaceSchemaToDrizzle
-} from './schema-converter';
+import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
 /**
  * Database filename for SQLite.
@@ -73,48 +75,34 @@ export type SQLiteIndexConfig = {
 
 /**
  * Maps a Row type to SQLite-compatible types
- * Converts Y.Text, Y.Array<string>, and DateWithTimezone to string
+ * SQLite stores Y.Array as JSON strings, while other types use SerializedRow conversions
+ *
+ * Note: This differs slightly from SerializedRow because:
+ * - SerializedRow: Y.Array<string> → string[] (plain array)
+ * - SQLiteRow: Y.Array<string> → string (JSON-serialized array)
  */
 export type SQLiteRow<T extends Row = Row> = {
-	[K in keyof T]: T[K] extends Y.Text
+	[K in keyof T]: T[K] extends Y.Array<infer U>
 		? string
-		: T[K] extends Y.Text | null
+		: T[K] extends Y.Array<infer U> | null
 			? string | null
-			: T[K] extends Y.Array<string>
-				? string
-				: T[K] extends Y.Array<string> | null
-					? string | null
-					: T[K] extends DateWithTimezone
-						? string
-						: T[K] extends DateWithTimezone | null
-							? string | null
-							: T[K];
+			: SerializedRow<T>[K];
 };
 
 /**
- * Serialize Y.js types and DateWithTimezone to plain text for SQLite storage
- * Converts Y.Text, Y.Array<string>, and DateWithTimezone to their string representations
+ * Serialize a row for SQLite storage
+ * Uses serializeRow() from core/schema, but JSON-stringifies arrays for SQLite TEXT columns
  */
 function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
-	const serialized: Record<string, any> = {};
+	const serialized = serializeRow(row);
 
-	for (const [key, value] of Object.entries(row)) {
-		if (value instanceof Y.Text) {
-			// Convert Y.js types to plain text (lossy conversion)
-			serialized[key] = value.toString();
-		} else if (value instanceof Y.Array) {
-			// Convert Y.Array to JSON string
-			serialized[key] = JSON.stringify(value.toArray());
-			// Equivalent to isDateWithTimezone(value) but faster due to above checks that narrow value type
-		} else if (typeof value === 'object' && value !== null) {
-			// Convert DateWithTimezone to "ISO_UTC|TIMEZONE" format
-			serialized[key] = DateWithTimezoneSerializer.serialize(value);
-		} else {
-			serialized[key] = value;
-		}
-	}
-
-	return serialized as SQLiteRow<T>;
+	// Convert arrays to JSON strings for SQLite TEXT storage
+	return Object.fromEntries(
+		Object.entries(serialized).map(([key, value]) => [
+			key,
+			Array.isArray(value) ? JSON.stringify(value) : value,
+		]),
+	) as SQLiteRow<T>;
 }
 
 /**
