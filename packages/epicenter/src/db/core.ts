@@ -1,9 +1,8 @@
 import * as Y from 'yjs';
-import type { ValidatedRow, WorkspaceSchema } from '../core/schema';
+import type { WorkspaceSchema } from '../core/schema';
 import {
-	type TableHelper,
 	type YRow,
-	createTableHelpers,
+	createTableHelpers
 } from './table-helper';
 
 // Re-export TableHelper for public API

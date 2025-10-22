@@ -11,7 +11,7 @@ import {
 	defineQuery,
 	defineMutation,
 	eq,
-	type ValidatedRow,
+	type Row,
 } from '../../src/index';
 import { users } from './users';
 import { posts } from './posts';
@@ -242,7 +242,7 @@ export const analytics = defineWorkspace({
 					totalPosts,
 					totalComments,
 					lastActivityAt: new Date().toISOString(),
-				} satisfies ValidatedRow<typeof db.schema.userStats>;
+				} satisfies Row<typeof db.schema.userStats>;
 
 				db.tables.userStats.insert(stats);
 				return Ok(stats);
@@ -292,7 +292,7 @@ export const analytics = defineWorkspace({
 					postId,
 					totalComments,
 					lastCommentAt,
-				} satisfies ValidatedRow<typeof db.schema.postStats>;
+				} satisfies Row<typeof db.schema.postStats>;
 
 				db.tables.postStats.insert(stats);
 				return Ok(stats);

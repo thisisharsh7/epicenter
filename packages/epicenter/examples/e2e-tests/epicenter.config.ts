@@ -16,7 +16,7 @@ import {
 	defineMutation,
 	isNotNull,
 	eq,
-	type ValidatedRow,
+	type Row,
 } from '../../src/index';
 
 /**
@@ -145,7 +145,7 @@ const blogWorkspace = defineWorkspace({
 					views: 0,
 					published: false,
 					publishedAt: null,
-				} satisfies ValidatedRow<typeof db.schema.posts>;
+				} satisfies Row<typeof db.schema.posts>;
 				db.tables.posts.insert(post);
 				return Ok(post);
 			},
@@ -214,7 +214,7 @@ const blogWorkspace = defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				} satisfies ValidatedRow<typeof db.schema.comments>;
+				} satisfies Row<typeof db.schema.comments>;
 				db.tables.comments.insert(comment);
 				return Ok(comment);
 			},

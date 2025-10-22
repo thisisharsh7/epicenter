@@ -1,7 +1,7 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	type ValidatedRow,
+	type Row,
 	date,
 	defineMutation,
 	defineQuery,
@@ -163,7 +163,7 @@ export const posts = defineWorkspace({
 					status,
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
-				} satisfies ValidatedRow<typeof db.schema.posts>;
+				} satisfies Row<typeof db.schema.posts>;
 
 				db.tables.posts.insert(post);
 				return Ok(post);

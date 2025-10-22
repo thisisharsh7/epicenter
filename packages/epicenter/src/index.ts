@@ -36,7 +36,7 @@ export type {
 	ColumnSchema,
 	ColumnType,
 	TableSchema,
-	ValidatedRow,
+	Row,
 	Id,
 	DateWithTimezone,
 } from './core/schema';

@@ -5,7 +5,7 @@ import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
 import {
-	type ValidatedRow,
+	type Row,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -79,7 +79,7 @@ describe('CLI End-to-End Tests', () => {
 						content: content ?? null,
 						category,
 						views: 0,
-					} satisfies ValidatedRow<typeof db.schema.posts>;
+					} satisfies Row<typeof db.schema.posts>;
 					db.tables.posts.insert(post);
 					return Ok(post);
 				},

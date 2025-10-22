@@ -192,45 +192,38 @@ export type ColumnSchemaToType<C extends ColumnSchema> =
 											: never;
 
 /**
- * Maps a specific TableSchema to a validated row type with properly typed fields.
+ * Maps a TableSchema to a row type with properly typed fields.
  * Each column name becomes a property with its corresponding YJS or primitive type.
  *
  * Since `TableSchema` always requires an `id` column, every row type includes a guaranteed `id: string` property.
  *
+ * When provided with a specific schema, Row<TTableSchema> gives you fully typed rows with proper field types.
+ * Without a schema, Row represents a dynamic row as a record with a required id field and any CellValue fields.
+ *
  * @example
  * ```typescript
+ * // Type-safe with specific schema (recommended for application code)
  * type PostSchema = {
  *   id: { type: 'id' };
  *   title: { type: 'text'; nullable: false };
  *   viewCount: { type: 'integer'; nullable: false };
  * };
- * type PostRow = ValidatedRow<PostSchema>; // { id: string; title: string; viewCount: number }
- * ```
- */
-export type ValidatedRow<TTableSchema extends TableSchema> = {
-	[K in keyof TTableSchema]: ColumnSchemaToType<TTableSchema[K]>;
-};
-
-/**
- * A row type that works with any TableSchema (untyped, dynamic).
- * Useful for internal implementations that need to handle rows generically without knowing the specific schema at compile time.
+ * type PostRow = Row<PostSchema>; // { id: string; title: string; viewCount: number }
  *
- * In most application code, prefer using ValidatedRow<TTableSchema> for type-safe, schema-specific rows.
- *
- * @example
- * ```typescript
- * // Internal utility that works with any row
+ * // Generic/dynamic (for internal utilities that handle any row)
  * function logRow(row: Row) {
  *   console.log(row.id); // guaranteed to exist
  *   console.log(row); // { id: string; [x: string]: CellValue }
  * }
  * ```
  */
-export type Row = ValidatedRow<TableSchema>;
+export type Row<TTableSchema extends TableSchema = TableSchema> = {
+	[K in keyof TTableSchema]: ColumnSchemaToType<TTableSchema[K]>;
+};
 
 /**
  * Union of all possible cell values across all column types.
- * Derived from ColumnSchemaToType to ensure consistency.
+ * Derived from Row to ensure consistency with all column types.
  * Used for Y.Map value types in YJS documents.
  */
 export type CellValue = Row[keyof Row];

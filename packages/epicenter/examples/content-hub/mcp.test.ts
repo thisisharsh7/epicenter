@@ -13,7 +13,7 @@ import {
 	defineMutation,
 	generateId,
 	eq,
-	type ValidatedRow,
+	type Row,
 } from '../../src/index';
 import { Type } from 'typebox';
 import { Ok } from 'wellcrafted/result';
@@ -99,7 +99,7 @@ const testPages = defineWorkspace({
 				const page = {
 					id: generateId(),
 					...data,
-				} satisfies ValidatedRow<typeof db.schema.pages>;
+				} satisfies Row<typeof db.schema.pages>;
 				db.tables.pages.insert(page);
 				return Ok(page);
 			},

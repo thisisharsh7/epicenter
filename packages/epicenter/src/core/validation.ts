@@ -5,7 +5,6 @@ import {
 	type ColumnSchema,
 	type Row,
 	type TableSchema,
-	type ValidatedRow,
 } from './schema';
 
 /**
@@ -98,7 +97,7 @@ function isValidCellValue(value: unknown): value is CellValue {
 export function validateRow<TTableSchema extends TableSchema>(
 	data: unknown,
 	schema: TTableSchema,
-): RowValidationResult<ValidatedRow<TTableSchema>> {
+): RowValidationResult<Row<TTableSchema>> {
 	// Step 1: Structural validation - check if data is a valid object (not null, array, or primitive)
 	if (typeof data !== 'object' || data === null || Array.isArray(data)) {
 		return {
@@ -302,5 +301,5 @@ export function validateRow<TTableSchema extends TableSchema>(
 		}
 	}
 
-	return { status: 'valid', row: row as ValidatedRow<TTableSchema> };
+	return { status: 'valid', row: row as Row<TTableSchema> };
 }

@@ -1,7 +1,7 @@
 import Type from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
-	type ValidatedRow,
+	type Row,
 	defineEpicenter,
 	defineMutation,
 	defineQuery,
@@ -106,7 +106,7 @@ const blogWorkspace = defineWorkspace({
 					category,
 					views: 0,
 					publishedAt: null,
-				} satisfies ValidatedRow<typeof db.schema.posts>;
+				} satisfies Row<typeof db.schema.posts>;
 				db.tables.posts.insert(post);
 				return Ok(post);
 			},
@@ -143,7 +143,7 @@ const blogWorkspace = defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				} satisfies ValidatedRow<typeof db.schema.comments>;
+				} satisfies Row<typeof db.schema.comments>;
 				db.tables.comments.insert(comment);
 				return Ok(comment);
 			},

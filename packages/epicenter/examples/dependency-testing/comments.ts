@@ -10,7 +10,7 @@ import {
 	defineQuery,
 	defineMutation,
 	eq,
-	type ValidatedRow,
+	type Row,
 } from '../../src/index';
 import { posts } from './posts';
 
@@ -170,7 +170,7 @@ export const comments = defineWorkspace({
 					content,
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
-				} satisfies ValidatedRow<typeof db.schema.comments>;
+				} satisfies Row<typeof db.schema.comments>;
 
 				db.tables.comments.insert(comment);
 				return Ok(comment);

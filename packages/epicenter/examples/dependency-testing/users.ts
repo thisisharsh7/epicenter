@@ -10,7 +10,7 @@ import {
 	defineQuery,
 	defineMutation,
 	eq,
-	type ValidatedRow,
+	type Row,
 } from '../../src/index';
 
 /**
@@ -97,7 +97,7 @@ export const users = defineWorkspace({
 					name,
 					email,
 					role,
-				} satisfies ValidatedRow<typeof db.schema.users>;
+				} satisfies Row<typeof db.schema.users>;
 				db.tables.users.insert(user);
 				return Ok(user);
 			},

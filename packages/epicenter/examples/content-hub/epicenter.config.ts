@@ -13,7 +13,7 @@ import {
 	defineQuery,
 	defineMutation,
 	eq,
-	type ValidatedRow,
+	type Row,
 } from '../../src/index';
 
 /**
@@ -89,7 +89,7 @@ export const pages = defineWorkspace({
 				const page = {
 					id: generateId(),
 					...data,
-				} satisfies ValidatedRow<typeof db.schema.pages>;
+				} satisfies Row<typeof db.schema.pages>;
 				db.tables.pages.insert(page);
 				return Ok(page);
 			},
@@ -221,7 +221,7 @@ export default defineWorkspace({
 					niche,
 					posted_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
-				} satisfies ValidatedRow<typeof db.schema.youtube>;
+				} satisfies Row<typeof db.schema.youtube>;
 				db.tables.youtube.insert(post);
 				return Ok(post);
 			},
@@ -242,7 +242,7 @@ export default defineWorkspace({
 					page_id: pageId,
 					content,
 					title: title ?? null,
-				} satisfies ValidatedRow<typeof db.schema.twitter>;
+				} satisfies Row<typeof db.schema.twitter>;
 				db.tables.twitter.insert(post);
 				return Ok(post);
 			},

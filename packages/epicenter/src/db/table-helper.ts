@@ -3,7 +3,6 @@ import type {
 	CellValue,
 	Row,
 	TableSchema,
-	ValidatedRow,
 	WorkspaceSchema,
 } from '../core/schema';
 import {
@@ -61,8 +60,8 @@ type SerializeYjsType<T> = T extends Y.Text
  *   tags: MultiSelectColumnSchema<['a', 'b'], false>;
  * };
  *
- * // ValidatedRow has Y.js types
- * type Row = ValidatedRow<Schema>;
+ * // Row has Y.js types
+ * type Row = Row<Schema>;
  * // { id: string; content: Y.Text; tags: Y.Array<'a' | 'b'> }
  *
  * // InputRow has serializable types
@@ -246,7 +245,7 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 		}),
 	) as {
 		[TTableName in keyof TWorkspaceSchema]: TableHelper<
-			ValidatedRow<TWorkspaceSchema[TTableName]>
+			Row<TWorkspaceSchema[TTableName]>
 		>;
 	};
 }
@@ -274,12 +273,12 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	tableName: string;
 	ytable: Y.Map<YRow>;
 	schema: TTableSchema;
-}): TableHelper<ValidatedRow<TTableSchema>> {
-	type TRow = ValidatedRow<TTableSchema>;
+}): TableHelper<Row<TTableSchema>> {
+	type TRow = Row<TTableSchema>;
 
 	/**
 	 * Validates a row and returns validation result typed as TRow
-	 * The generic validateRow() returns RowValidationResult<ValidatedRow<TableSchema>>,
+	 * The generic validateRow() returns RowValidationResult<Row<TableSchema>>,
 	 * but we need the specific TRow type for this table. This wrapper narrows the type from
 	 * the generic schema to the concrete row type, enabling proper type inference throughout
 	 * the table helper.
