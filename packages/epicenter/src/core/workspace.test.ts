@@ -73,7 +73,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 
 		// Initialize workspace C
-		createWorkspaceClient(workspaceC);
+		await createWorkspaceClient(workspaceC);
 
 		// Verify initialization order: A -> B -> C
 		expect(initOrder).toEqual(['workspace-a', 'workspace-b', 'workspace-c']);
@@ -155,7 +155,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(workspaceC);
+		await createWorkspaceClient(workspaceC);
 
 		// D must be initialized first
 		expect(initOrder[0]).toBe('workspace-d');
@@ -222,7 +222,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(workspaceZ);
+		await createWorkspaceClient(workspaceZ);
 
 		// X and Y can be in any order (both have no dependencies)
 		expect(initOrder.slice(0, 2)).toContain('workspace-x');
@@ -328,7 +328,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(root);
+		await createWorkspaceClient(root);
 
 		// Should only initialize v3 (highest version)
 		expect(initOrder).toContain('workspace-a-v3');
@@ -506,7 +506,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 		});
 
-		createWorkspaceClient(workspaceF);
+		await createWorkspaceClient(workspaceF);
 
 		// A must be first (no dependencies)
 		expect(initOrder[0]).toBe('workspace-a');
@@ -579,14 +579,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = createWorkspaceClient(workspaceB);
+		const client = await createWorkspaceClient(workspaceB);
 
 		// Verify that B can call A's action
 		const result = await client.getValueFromA();
 		expect(result.data).toBe('value-from-a');
 	});
 
-	test('exposes only root workspace actions, not dependencies', async () => {
+	test('createWorkspaceClient returns only the specified workspace', async () => {
 		const workspaceA = defineWorkspace({
 			id: 'a',
 			name: 'workspaceA',
@@ -627,24 +627,25 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = createWorkspaceClient(workspaceB);
+		const client = await createWorkspaceClient(workspaceB);
 
-		// Root workspace B's actions ARE exposed
+		// createWorkspaceClient returns workspace B's actions
 		expect(client.getValueFromB).toBeDefined();
 		expect(typeof client.getValueFromB).toBe('function');
 		expect(client.callA).toBeDefined();
 
-		// Dependency workspace A's actions are NOT exposed on the client
+		// All workspaces are initialized, but createWorkspaceClient only returns B's client
+		// Dependency workspace A is not accessible on this return value
 		expect((client as any).workspaceA).toBeUndefined();
 
-		// But B can call A's actions internally via workspaces parameter
+		// B can call A's actions internally via workspaces parameter
 		const result = await client.callA();
 		expect(result.data).toBe('value-from-a');
 
 		client.destroy();
 	});
 
-	test('root with multiple dependencies - only root actions exposed', async () => {
+	test('createWorkspaceClient with multiple dependencies returns only specified workspace', async () => {
 		const workspaceA = defineWorkspace({
 			id: 'a',
 			name: 'workspaceA',
@@ -706,18 +707,19 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = createWorkspaceClient(workspaceC);
+		const client = await createWorkspaceClient(workspaceC);
 
-		// Only C's actions are exposed
+		// createWorkspaceClient returns only C's actions
 		expect(client.getValue).toBeDefined();
 		expect(client.getFromA).toBeDefined();
 		expect(client.getFromB).toBeDefined();
 
-		// A and B are NOT exposed
+		// All workspaces are initialized, but createWorkspaceClient only returns C's client
+		// A and B are not accessible on this return value
 		expect((client as any).workspaceA).toBeUndefined();
 		expect((client as any).workspaceB).toBeUndefined();
 
-		// But C can access A and B internally
+		// C can access A and B internally via workspaces parameter
 		const resultA = await client.getFromA();
 		expect(resultA.data).toBe('value-from-a');
 
