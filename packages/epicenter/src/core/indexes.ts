@@ -23,34 +23,59 @@ export type WorkspaceIndexMap = Record<string, Index>;
  *
  * All indexes must include destroy() for cleanup.
  *
+ * You can export anything from an index and it will be fully typed in the actions context.
+ * This pattern allows indexes to expose queryable interfaces, helper functions, or any
+ * other resources needed by your actions.
+ *
  * @example
  * ```typescript
- * function sqliteIndex(db, config): Index<{ db: Database, posts: Table }> {
- *   // Register observers
+ * // Creating an index - internal resources become exports
+ * function sqliteIndex(db, config) {
+ *   // 1. Create internal resources
+ *   const sqliteDb = drizzle({ client, schema: drizzleTables });
+ *   const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
+ *
+ *   // 2. Set up YJS observers
  *   const unsubPosts = db.tables.posts.observe({
  *     onAdd: (row) => { indexPost(row); },
  *     onUpdate: (row) => { reindexPost(row); },
  *     onDelete: (id) => { removePost(id); },
  *   });
  *
- *   // Initialization
- *   initializeIndex();
- *
- *   // Return cleanup function and exported resources
- *   return {
+ *   // 3. Export resources via defineIndex()
+ *   return defineIndex({
  *     destroy() {
  *       unsubPosts();
  *       cleanupIndex();
  *     },
- *     db: sqliteDb,
- *     posts: postsTable,
- *   };
+ *     db: sqliteDb,        // Exported as indexes.sqlite.db
+ *     posts: postsTable,   // Exported as indexes.sqlite.posts
+ *   });
  * }
+ *
+ * // Using exported resources in actions
+ * const workspace = defineWorkspace({
+ *   indexes: async ({ db }) => ({
+ *     sqlite: await sqliteIndex(db, { database: 'app.db' }),
+ *   }),
+ *
+ *   actions: ({ indexes }) => ({
+ *     getPost: defineQuery({
+ *       handler: async ({ id }) => {
+ *         // All exported properties are fully typed and available here
+ *         return await indexes.sqlite.db
+ *           .select()
+ *           .from(indexes.sqlite.posts)
+ *           .where(eq(indexes.sqlite.posts.id, id));
+ *       }
+ *     })
+ *   })
+ * });
  * ```
  */
-export type Index<TExports = {}> = {
+export type Index = {
 	destroy: () => void;
-} & TExports;
+};
 
 /**
  * Define an index with type safety (identity function)
@@ -62,9 +87,10 @@ export type Index<TExports = {}> = {
  *   db: sqliteDb,
  *   findById: async (id: string) => { ... }
  * })
+ * // Type is inferred as { destroy: () => void, db: typeof sqliteDb, findById: (id: string) => Promise<...> }
  * ```
  */
-export function defineIndex<TExports = {}>(index: Index<TExports>): Index<TExports> {
+export function defineIndex<T extends Index>(index: T): T {
 	return index;
 }
 

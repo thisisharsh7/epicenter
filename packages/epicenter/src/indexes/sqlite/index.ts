@@ -1,5 +1,3 @@
-import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { Database } from '@tursodatabase/database/compat';
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -7,6 +5,8 @@ import {
 	drizzle,
 } from 'drizzle-orm/better-sqlite3';
 import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
@@ -15,8 +15,7 @@ import type { DateWithTimezone, Row, WorkspaceSchema } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { DateWithTimezoneSerializer } from './builders';
 import {
-	type WorkspaceSchemaToDrizzleTables,
-	convertWorkspaceSchemaToDrizzle,
+	convertWorkspaceSchemaToDrizzle
 } from './schema-converter';
 
 /**
@@ -155,8 +154,34 @@ async function createTablesIfNotExist<
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
  *
+ * This index creates internal resources (sqliteDb, drizzleTables) and exports them
+ * via defineIndex(). All exported resources become available in your workspace actions
+ * via the `indexes` parameter.
+ *
  * @param db - Epicenter database instance (for type inference only)
  * @param config - SQLite configuration options
+ *
+ * @example
+ * ```typescript
+ * // In workspace definition:
+ * indexes: async ({ db }) => ({
+ *   sqlite: await sqliteIndex(db, { database: 'app.db' }),
+ * }),
+ *
+ * actions: ({ indexes }) => ({
+ *   // Access exported resources from the index
+ *   getPost: defineQuery({
+ *     handler: async ({ id }) => {
+ *       // indexes.sqlite.db is the exported Drizzle database instance
+ *       // indexes.sqlite.posts is the exported Drizzle table
+ *       return await indexes.sqlite.db
+ *         .select()
+ *         .from(indexes.sqlite.posts)
+ *         .where(eq(indexes.sqlite.posts.id, id));
+ *     }
+ *   })
+ * })
+ * ```
  */
 export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	db: Db<TWorkspaceSchema>,
