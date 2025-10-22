@@ -166,7 +166,7 @@ async function executeAction(
 
 	try {
 		// Get the action handler
-		const handler = (client as any)[actionName];
+		const handler = client[actionName];
 
 		if (!handler) {
 			console.error(
@@ -181,24 +181,16 @@ async function executeAction(
 		// Execute the action
 		const result = await handler(input);
 
-		// Handle Result type
-		if (result && typeof result === 'object' && 'error' in result) {
-			if (result.error) {
-				console.error('❌ Error:', result.error.message);
-				if (result.error.description) {
-					console.error('  ', result.error.description);
-				}
-				process.exit(1);
-			}
-
-			// Success with data
-			console.log('✅ Success:');
-			console.log(JSON.stringify(result.data, null, 2));
-		} else {
-			// Non-Result return value
-			console.log('✅ Success:');
-			console.log(JSON.stringify(result, null, 2));
+		// Handle errors
+		if (result.error) {
+			console.error('❌ Error:', result.error.message);
+			process.exit(1);
 		}
+
+		// Handle success
+		console.log('✅ Success:');
+		const output = result?.data ?? result;
+		console.log(JSON.stringify(output, null, 2));
 	} catch (error) {
 		console.error('❌ Unexpected error:', error);
 		process.exit(1);
