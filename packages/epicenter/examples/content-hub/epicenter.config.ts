@@ -2,6 +2,7 @@ import { Type } from 'typebox';
 import { Ok } from 'wellcrafted/result';
 import {
 	defineWorkspace,
+	defineEpicenter,
 	setupPersistenceDesktop,
 	id,
 	text,
@@ -117,7 +118,7 @@ const niche = multiSelect({
 	],
 });
 
-export default defineWorkspace({
+export const contentHub = defineWorkspace({
 	id: 'content-hub',
 	version: 1,
 	name: 'content-hub',
@@ -248,4 +249,13 @@ export default defineWorkspace({
 			},
 		}),
 	}),
+});
+
+/**
+ * Default export for CLI usage
+ * The CLI expects the config to export the Epicenter app directly
+ */
+export default defineEpicenter({
+	id: 'content-hub',
+	workspaces: [pages, contentHub],
 });
