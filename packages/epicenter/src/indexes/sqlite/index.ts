@@ -19,6 +19,11 @@ import {
 } from './schema-converter';
 
 /**
+ * Directory where Epicenter stores persistent data (YJS files and SQLite databases)
+ */
+const EPICENTER_STORAGE_DIR = '.epicenter';
+
+/**
  * Database filename for SQLite.
  *
  * Must be one of:
@@ -29,8 +34,8 @@ import {
  *   - Cannot contain path separators (no folders - filename only)
  *   - Can only contain: a-z, A-Z, 0-9, _ (underscore), - (hyphen), . (period)
  *
- * Note: All database files are automatically stored in the .data directory.
- * The .data directory is created automatically if it doesn't exist.
+ * Note: All database files are automatically stored in the .epicenter directory.
+ * The .epicenter directory is created automatically if it doesn't exist.
  *
  * Valid examples:
  * - ':memory:'
@@ -42,7 +47,7 @@ import {
  * Invalid examples:
  * - '.hidden.db' (starts with '.')
  * - '/path/to/db.db' (contains path separator)
- * - '.data/pages.db' (contains path separator)
+ * - '.epicenter/pages.db' (contains path separator)
  * - 'database' (missing '.db' extension)
  * - 'my@db.db' (contains invalid character '@')
  */
@@ -56,13 +61,13 @@ export type SQLiteIndexConfig = {
 	 * Database filename for SQLite.
 	 *
 	 * Defaults to ':memory:' for in-memory database.
-	 * Use a filename ending in '.db' for persistent storage in the .data directory.
-	 * The .data directory is created automatically if it doesn't exist.
+	 * Use a filename ending in '.db' for persistent storage in the .epicenter directory.
+	 * The .epicenter directory is created automatically if it doesn't exist.
 	 *
 	 * Examples:
 	 * - ':memory:' - In-memory database
-	 * - 'pages.db' - Stored at .data/pages.db
-	 * - 'content-hub.db' - Stored at .data/content-hub.db
+	 * - 'pages.db' - Stored at .epicenter/pages.db
+	 * - 'content-hub.db' - Stored at .epicenter/content-hub.db
 	 *
 	 * @see DatabaseFilename for validation rules and examples
 	 * @default ':memory:'
@@ -190,13 +195,13 @@ export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
-	// Resolve database path: join with .data directory if not :memory:
+	// Resolve database path: join with .epicenter directory if not :memory:
 	let resolvedDatabasePath = database;
 	if (database !== ':memory:') {
-		// Create .data directory if it doesn't exist
-		await mkdir('.data', { recursive: true });
-		// Join filename with .data directory
-		resolvedDatabasePath = join('.data', database) as DatabaseFilename;
+		// Create .epicenter directory if it doesn't exist
+		await mkdir(EPICENTER_STORAGE_DIR, { recursive: true });
+		// Join filename with .epicenter directory
+		resolvedDatabasePath = join(EPICENTER_STORAGE_DIR, database) as DatabaseFilename;
 	}
 
 	// Create database connection with schema for proper type inference

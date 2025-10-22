@@ -47,7 +47,7 @@ const blogWorkspace = defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: '.data/blog.db' }),
+		sqlite: await sqliteIndex(db, { database: 'blog.db' }),
 		markdown: markdownIndex(db, { storagePath: './.data/content' }),
 	}),
 

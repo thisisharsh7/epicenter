@@ -36,7 +36,7 @@ export const users = defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: '.data/users.db' }),
+		sqlite: await sqliteIndex(db, { database: 'users.db' }),
 	}),
 
 	actions: ({ db, indexes }) => ({

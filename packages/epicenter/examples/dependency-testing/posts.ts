@@ -47,7 +47,7 @@ export const posts = defineWorkspace({
 	},
 
 	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: '.data/posts.db' }),
+		sqlite: await sqliteIndex(db, { database: 'posts.db' }),
 	}),
 
 	// NOTE: workspaces parameter provides typed access to dependency actions

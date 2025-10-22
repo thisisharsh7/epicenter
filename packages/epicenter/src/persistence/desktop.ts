@@ -3,6 +3,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /**
+ * Directory where Epicenter stores persistent data (YJS files and SQLite databases)
+ */
+const EPICENTER_STORAGE_DIR = '.epicenter';
+
+/**
  * Set up YJS document persistence using the filesystem.
  * Stores the YDoc as a binary file in the .epicenter directory.
  *
@@ -66,7 +71,7 @@ import * as path from 'node:path';
  * @see {@link setupPersistence} from `@repo/epicenter/persistence/web` for browser/IndexedDB version
  */
 export function setupPersistence(ydoc: Y.Doc): void {
-	const storagePath = './.epicenter' as const;
+	const storagePath = `./${EPICENTER_STORAGE_DIR}` as const;
 	const filePath = path.join(storagePath, `${ydoc.guid}.yjs`);
 
 	// Ensure .epicenter directory exists
