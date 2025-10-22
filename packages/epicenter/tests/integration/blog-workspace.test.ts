@@ -48,7 +48,7 @@ describe('Blog Workspace Integration', () => {
 				database: ':memory:', // In-memory for testing
 			}),
 			markdown: markdownIndex(db, {
-				storagePath: path.join(import.meta.dir, '../../test-data'),
+				storagePath: path.join(import.meta.dir, '.data'),
 			}),
 		}),
 

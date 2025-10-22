@@ -21,7 +21,7 @@ import { writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 describe('Markdown Bidirectional Sync', () => {
-	const testStoragePath = path.join(import.meta.dir, '../../test-data/markdown-bidirectional');
+	const testStoragePath = path.join(import.meta.dir, '.data');
 
 	// Define a simple workspace for testing
 	const testWorkspace = defineWorkspace({
