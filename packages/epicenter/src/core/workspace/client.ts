@@ -9,8 +9,10 @@ import type {
 } from './config';
 
 /**
- * Workspace client instance returned from createWorkspaceClient
- * Contains callable actions and lifecycle management
+ * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
+ *
+ * An Epicenter client is an object of workspace clients: `{ workspaceName: WorkspaceClient }`.
+ * `createEpicenterClient()` returns the full object. `createWorkspaceClient()` returns one workspace from that object.
  */
 export type WorkspaceClient<TActionMap extends WorkspaceActionMap> = TActionMap & {
 	/**
@@ -56,15 +58,15 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 /**
  * Internal function that initializes multiple workspaces with shared dependency resolution.
  * Uses flat dependency resolution with VS Code-style peer dependency model.
- * All transitive dependencies must be present in the root workspaces' dependencies (hoisted to root).
+ * All transitive dependencies must be present in the provided workspaces array (flat/hoisted).
  * Initialization uses topological sort for deterministic, predictable order.
  *
- * @param rootWorkspaceConfigs - Array of root workspace configurations to initialize
+ * @param workspaceConfigs - Array of workspace configurations to initialize
  * @returns Object mapping workspace names to initialized workspace clients
  */
 export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
->(rootWorkspaceConfigs: TConfigs): Promise<WorkspacesToClients<TConfigs>> {
+>(workspaceConfigs: TConfigs): Promise<WorkspacesToClients<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs with version resolution
@@ -76,21 +78,21 @@ export async function initializeWorkspaces<
 	 * we keep only the highest version (version compared as integers).
 	 * Example: If both workspaceA v1 and workspaceA v3 are registered, we keep v3.
 	 */
-	const workspaceConfigs = new Map<
+	const workspaceConfigsMap = new Map<
 		string,
 		WorkspaceConfig
 	>();
 
-	// Register all root workspace configs with automatic version resolution
+	// Register all workspace configs with automatic version resolution
 	// If the same workspace ID appears multiple times, keep the highest version
-	for (const workspaceConfig of rootWorkspaceConfigs) {
+	for (const workspaceConfig of workspaceConfigs) {
 		// At runtime, all workspace configs have full WorkspaceConfig properties
 		// The AnyWorkspaceConfig constraint is only for type inference
 		const config = workspaceConfig as unknown as WorkspaceConfig;
-		const existing = workspaceConfigs.get(config.id);
+		const existing = workspaceConfigsMap.get(config.id);
 		if (!existing || config.version > existing.version) {
 			// Either first time seeing this workspace, or this version is higher
-			workspaceConfigs.set(config.id, config);
+			workspaceConfigsMap.set(config.id, config);
 		}
 		// Otherwise keep existing (higher or equal version)
 	}
@@ -117,11 +119,11 @@ export async function initializeWorkspaces<
 	// - Check A: verify B exists ✓
 	// - Check B: verify C exists ✓
 	// - Check C: no dependencies ✓
-	for (const [workspaceId, workspaceConfig] of workspaceConfigs) {
+	for (const [workspaceId, workspaceConfig] of workspaceConfigsMap) {
 		if (workspaceConfig.dependencies) {
 			for (const dep of workspaceConfig.dependencies) {
 				// Verify the dependency exists in registered configs (flat/hoisted model)
-				if (!workspaceConfigs.has(dep.id)) {
+				if (!workspaceConfigsMap.has(dep.id)) {
 					throw new Error(
 						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", ` +
 							`but it was not found in rootWorkspaceConfigs.\n\n` +
@@ -154,13 +156,13 @@ export async function initializeWorkspaces<
 	const inDegree = new Map<string, number>();
 
 	// Initialize structures for all registered workspaces
-	for (const id of workspaceConfigs.keys()) {
+	for (const id of workspaceConfigsMap.keys()) {
 		dependents.set(id, []);
 		inDegree.set(id, 0);
 	}
 
 	// Build the graph by processing each workspace config's dependencies
-	for (const [id, workspaceConfig] of workspaceConfigs) {
+	for (const [id, workspaceConfig] of workspaceConfigsMap) {
 		if (
 			workspaceConfig.dependencies &&
 			workspaceConfig.dependencies.length > 0
@@ -219,8 +221,8 @@ export async function initializeWorkspaces<
 	}
 
 	// Check for circular dependencies
-	if (sorted.length !== workspaceConfigs.size) {
-		const unsorted = Array.from(workspaceConfigs.keys()).filter(
+	if (sorted.length !== workspaceConfigsMap.size) {
+		const unsorted = Array.from(workspaceConfigsMap.keys()).filter(
 			(id) => !sorted.includes(id),
 		);
 		throw new Error(
@@ -270,7 +272,7 @@ export async function initializeWorkspaces<
 			const depNames = new Set<string>();
 			for (const depId of uniqueDepIds) {
 				// Get the resolved config (might be a different version than originally specified)
-				const resolvedConfig = workspaceConfigs.get(depId);
+				const resolvedConfig = workspaceConfigsMap.get(depId);
 				if (!resolvedConfig) {
 					throw new Error(
 						`Internal error: dependency "${depId}" not found in registered configs`,
@@ -356,7 +358,7 @@ export async function initializeWorkspaces<
 
 	// Initialize all workspaces in topological order
 	for (const workspaceId of sorted) {
-		const workspaceConfig = workspaceConfigs.get(workspaceId)!;
+		const workspaceConfig = workspaceConfigsMap.get(workspaceId)!;
 		const client = await initializeWorkspace(workspaceConfig);
 		clients.set(workspaceId, client);
 	}
@@ -364,7 +366,7 @@ export async function initializeWorkspaces<
 	// Convert Map to typed object keyed by workspace name (not id)
 	const initializedWorkspaces: Record<string, WorkspaceClient<WorkspaceActionMap>> = {};
 	for (const [workspaceId, client] of clients) {
-		const workspaceConfig = workspaceConfigs.get(workspaceId)!;
+		const workspaceConfig = workspaceConfigsMap.get(workspaceId)!;
 		initializedWorkspaces[workspaceConfig.name] = client;
 	}
 
@@ -372,13 +374,13 @@ export async function initializeWorkspaces<
 }
 
 /**
- * Create a workspace client with YJS-first architecture
- * Uses flat dependency resolution with VS Code-style peer dependency model
- * All transitive dependencies must be present in workspace.dependencies (hoisted to root)
- * Initialization uses topological sort for deterministic, predictable order
+ * Creates a workspace client by initializing the workspace and its dependencies.
  *
- * @param workspace - Workspace configuration to initialize
- * @returns Initialized workspace client
+ * This collects the workspace plus its dependencies, calls `initializeWorkspaces()` to create
+ * the full object of clients (`{ workspaceA: clientA, workspaceB: clientB, ... }`), then
+ * returns only the specified workspace's client. All dependencies are initialized but not exposed.
+ *
+ * Contrast with `createEpicenterClient()` which returns the full object of all workspace clients.
  */
 export async function createWorkspaceClient<
 	const TDeps extends readonly AnyWorkspaceConfig[],
@@ -398,7 +400,7 @@ export async function createWorkspaceClient<
 		TActionMap
 	>,
 ): Promise<WorkspaceClient<TActionMap>> {
-	// Collect all workspace configs (root + dependencies) for flat/hoisted initialization
+	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization
 	const allWorkspaceConfigs: WorkspaceConfig[] = [];
 
 	// Add all dependencies first
@@ -408,23 +410,24 @@ export async function createWorkspaceClient<
 		allWorkspaceConfigs.push(...(workspace.dependencies as unknown as WorkspaceConfig[]));
 	}
 
-	// Add root workspace last
+	// Add target workspace last
 	// This cast is safe because WorkspaceConfig<...generics...> is structurally compatible
 	// with WorkspaceConfig (the type with default generics). We use unknown as intermediate
 	// to satisfy TypeScript's strict checking while maintaining runtime safety.
 	allWorkspaceConfigs.push(workspace as unknown as WorkspaceConfig);
 
 	// Use the shared initialization logic with flat dependency array
+	// This initializes ALL workspaces and returns an object keyed by workspace name
 	const clients = await initializeWorkspaces(allWorkspaceConfigs);
 
-	// Return the client for the root workspace (access by name, not id)
-	const rootClient = clients[workspace.name as keyof typeof clients];
-	if (!rootClient) {
+	// Return the specified workspace's client from the initialized workspaces object
+	const workspaceClient = clients[workspace.name as keyof typeof clients];
+	if (!workspaceClient) {
 		throw new Error(
-			`Internal error: root workspace "${workspace.name}" was not initialized`,
+			`Internal error: workspace "${workspace.name}" was not initialized`,
 		);
 	}
 
 	// Type assertion is safe because we know the workspace was initialized with the correct action map
-	return rootClient as WorkspaceClient<TActionMap>;
+	return workspaceClient as WorkspaceClient<TActionMap>;
 }

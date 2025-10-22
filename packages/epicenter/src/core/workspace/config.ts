@@ -7,6 +7,24 @@ import type { WorkspaceSchema } from '../schema';
 /**
  * Define a collaborative workspace with YJS-first architecture.
  *
+ * ## What is a Workspace?
+ *
+ * A workspace is a self-contained domain module that gets composed into an Epicenter.
+ * When you create an Epicenter client, each workspace becomes a property on that client:
+ *
+ * ```typescript
+ * const blogWorkspace = defineWorkspace({ name: 'blog', ... });
+ * const authWorkspace = defineWorkspace({ name: 'auth', ... });
+ *
+ * const epicenter = await createEpicenterClient({
+ *   workspaces: [blogWorkspace, authWorkspace]
+ * });
+ *
+ * // Each workspace is accessible by its name:
+ * epicenter.blog.createPost(...)  // blogWorkspace actions
+ * epicenter.auth.login(...)       // authWorkspace actions
+ * ```
+ *
  * ## Workspace Structure
  *
  * Each workspace is a self-contained module with:

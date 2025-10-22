@@ -1,3 +1,52 @@
+# Workspace
+
+A workspace is a self-contained domain module with its own schema, indexes, and actions. Workspaces are composed into an Epicenter to create your application.
+
+## What is a Workspace?
+
+When you create an Epicenter client, each workspace becomes a property on that client:
+
+```typescript
+const blogWorkspace = defineWorkspace({ name: 'blog', ... });
+const authWorkspace = defineWorkspace({ name: 'auth', ... });
+
+const epicenter = await createEpicenterClient({
+  workspaces: [blogWorkspace, authWorkspace]
+});
+
+// Each workspace is accessible by its name:
+epicenter.blog.createPost(...)  // blogWorkspace actions
+epicenter.auth.login(...)       // authWorkspace actions
+```
+
+Each workspace has:
+- **Schema**: Define your data structure with typed columns
+- **Indexes**: Synchronized snapshots for querying (SQLite, markdown, vector, etc.)
+- **Actions**: Business logic (queries and mutations) with access to db and indexes
+
+## Workspace Clients
+
+A **workspace client** is not a standalone concept. It's a single workspace extracted from an **Epicenter client**.
+
+```typescript
+// An Epicenter client is an object of workspace clients:
+type EpicenterClient = {
+  [workspaceName: string]: WorkspaceClient
+}
+
+// createEpicenterClient returns the full object:
+const epicenter = await createEpicenterClient({ workspaces: [A, B, C] });
+// => { workspaceA: clientA, workspaceB: clientB, workspaceC: clientC }
+
+// createWorkspaceClient returns one workspace from that object:
+const client = await createWorkspaceClient(workspaceC);
+// => clientC (equivalent to epicenter.workspaceC)
+```
+
+Both `createEpicenterClient` and `createWorkspaceClient` use the same initialization logic. They initialize all workspaces, including dependencies. The only difference is what they return: the full object vs. a single workspace client.
+
+---
+
 # Workspace Dependencies
 
 When you have workspaces that depend on other workspaces, you hit a type recursion problem. If workspace A depends on B, which depends on C, which depends on D, and TypeScript tries to infer the full dependency chain recursively, the type system eventually gives up with "Type instantiation is excessively deep and possibly infinite."
@@ -96,7 +145,7 @@ const authWorkspace = defineWorkspace({
   })
 });
 
-// Root workspace with flat/hoisted dependencies
+// Example workspace with flat/hoisted dependencies
 const rootWorkspace = defineWorkspace({
   id: 'root',
   name: 'root',
