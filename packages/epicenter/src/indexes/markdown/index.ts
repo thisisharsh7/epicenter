@@ -181,97 +181,92 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			const filePath = path.join(storagePath, relativePath);
 
 			isProcessingFileChange = true;
-			try {
-				// Handle file changes
-				// Note: On some filesystems (like macOS), file writes generate 'rename' events
-				// instead of 'change' events due to atomic rename operations.
-				// Therefore 'rename' can mean either deletion or modification.
-				if (eventType === 'rename') {
-					// Distinguish between deletion and modification by checking file existence
-					const file = Bun.file(filePath);
-					const exists = await file.exists();
-					if (!exists) {
-						// File no longer exists -> this is a deletion
-						const table = db.tables[tableName];
-						if (table?.has(id)) {
-							table.delete(id);
-						}
-						return; // Exit early for deletions
-					}
-					// File still exists -> this is a modification, fall through to change handling below
+			// Handle file changes
+			// Note: On some filesystems (like macOS), file writes generate 'rename' events
+			// instead of 'change' events due to atomic rename operations.
+			// Therefore 'rename' can mean either deletion or modification.
+			if (eventType === 'rename') {
+				// Distinguish between deletion and modification by checking file existence
+				const file = Bun.file(filePath);
+				const exists = await file.exists();
+				if (!exists) {
+					// File no longer exists -> this is a deletion
+					const table = db.tables[tableName];
+					if (table?.has(id)) table.delete(id);
+					return; // Exit early for deletions
 				}
-
-				// Process file change (works for both 'change' and 'rename' with existing file)
-				if (eventType === 'change' || eventType === 'rename') {
-					// Get the table schema
-					const tableSchema = db.schema[tableName];
-					if (!tableSchema) {
-						console.warn(
-							`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
-						);
-						return;
-					}
-
-					// File was modified, parse and update YJS
-					const parseResult = await parseMarkdownWithValidation(
-						filePath,
-						tableSchema,
-					);
-
-					switch (parseResult.status) {
-						case 'failed-to-parse':
-							console.error(
-								IndexErr({
-									message: `Failed to parse markdown file ${tableName}/${id}`,
-									context: { tableName, id, filePath },
-									cause: parseResult.error,
-								}),
-							);
-							break;
-
-						case 'failed-to-validate':
-							console.error(
-								IndexErr({
-									message: `Failed to validate markdown file ${tableName}/${id}`,
-									context: {
-										tableName,
-										id,
-										filePath,
-										validationResult: parseResult.validationResult,
-										rawData: parseResult.data,
-									cause: undefined,									},
-								}),
-							);
-							console.error('Validation details:', JSON.stringify(parseResult.validationResult, null, 2));
-							break;
-
-						case 'success':
-							// Update YJS document with granular diffs
-							try {
-								// Reconstruct the full row data by merging:
-								// - parseResult.data (frontmatter fields)
-								// - parseResult.content (markdown body) -> stored in the configured bodyField (if any)
-								const tableConfig = tables[tableName as keyof TSchema];
-								const rowData = tableConfig?.bodyField
-									? { ...parseResult.data, [tableConfig.bodyField]: parseResult.content }
-									: parseResult.data;
-
-								updateYJSRowFromMarkdown({ db, tableName, rowId: id, newData: rowData });
-							} catch (error) {
-								console.error(
-									IndexErr({
-										message: `Failed to update YJS from markdown file ${tableName}/${id}`,
-										context: { tableName, id, filePath },
-										cause: error,
-									}),
-								);
-							}
-							break;
-					}
-				}
-			} finally {
-				isProcessingFileChange = false;
+				// File still exists -> this is a modification, fall through to change handling below
 			}
+
+			// Process file change (works for both 'change' and 'rename' with existing file)
+			if (eventType === 'change' || eventType === 'rename') {
+				// Get the table schema
+				const tableSchema = db.schema[tableName];
+				if (!tableSchema) {
+					console.warn(
+						`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
+					);
+					return;
+				}
+
+				// File was modified, parse and update YJS
+				const parseResult = await parseMarkdownWithValidation(
+					filePath,
+					tableSchema,
+				);
+
+				switch (parseResult.status) {
+					case 'failed-to-parse':
+						console.error(
+							IndexErr({
+								message: `Failed to parse markdown file ${tableName}/${id}`,
+								context: { tableName, id, filePath },
+								cause: parseResult.error,
+							}),
+						);
+						break;
+
+					case 'failed-to-validate':
+						console.error(
+							IndexErr({
+								message: `Failed to validate markdown file ${tableName}/${id}`,
+								context: {
+									tableName,
+									id,
+									filePath,
+									validationResult: parseResult.validationResult,
+									rawData: parseResult.data,
+								cause: undefined,									},
+							}),
+						);
+						console.error('Validation details:', JSON.stringify(parseResult.validationResult, null, 2));
+						break;
+
+					case 'success':
+						// Update YJS document with granular diffs
+						try {
+							// Reconstruct the full row data by merging:
+							// - parseResult.data (frontmatter fields)
+							// - parseResult.content (markdown body) -> stored in the configured bodyField (if any)
+							const tableConfig = tables[tableName as keyof TSchema];
+							const rowData = tableConfig?.bodyField
+								? { ...parseResult.data, [tableConfig.bodyField]: parseResult.content }
+								: parseResult.data;
+
+							updateYJSRowFromMarkdown({ db, tableName, rowId: id, newData: rowData });
+						} catch (error) {
+							console.error(
+								IndexErr({
+									message: `Failed to update YJS from markdown file ${tableName}/${id}`,
+									context: { tableName, id, filePath },
+									cause: error,
+								}),
+							);
+						}
+						break;
+				}
+			}
+			isProcessingFileChange = false;
 		},
 	);
 
