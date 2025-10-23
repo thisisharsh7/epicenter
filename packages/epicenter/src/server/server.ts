@@ -55,12 +55,16 @@ export async function createServer<
 	forEachAction(client, ({ workspaceName, actionName, action }) => {
 		const path = `/${workspaceName}/${actionName}`;
 
+		// Tag with both workspace and operation type for multi-dimensional grouping
+		const operationType = ({ query: 'queries', mutation: 'mutations'} as const)[action.type];
+		const tags = [workspaceName, operationType];
+
 		// Register GET endpoint
 		app.get(
 			path,
 			describeRoute({
 				description: action.description,
-				tags: [workspaceName],
+				tags,
 			}),
 			action.input ? validator('query', action.input) : undefined,
 			async (c) => {
@@ -77,7 +81,7 @@ export async function createServer<
 			path,
 			describeRoute({
 				description: action.description,
-				tags: [workspaceName],
+				tags,
 			}),
 			action.input ? validator('json', action.input) : undefined,
 			async (c) => {
