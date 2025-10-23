@@ -603,32 +603,23 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			/**
 			 * Parse the relative path from the watcher to extract table name and row ID
 			 *
-			 * The watcher provides relativePath relative to storagePath.
 			 * Expected directory structure:
-			 *   {storagePath}/
-			 *     {tableName}/
-			 *       {id}.md
+			 *   {storagePath}/{tableName}/{id}.md
 			 *
 			 * Example:
-			 *   storagePath = "/Users/name/vault"
 			 *   relativePath = "pages/my-page.md"
 			 *   Result: tableName = "pages", id = "my-page"
 			 *
-			 * We strictly enforce this 2-level structure and ignore any files that don't match
-			 * (e.g., files in the root or nested deeper than 2 levels).
+			 * We strictly enforce this 2-level structure and ignore any files that don't match.
 			 */
 			const parts = relativePath.split(path.sep);
-			if (parts.length !== 2) return; // Ignore files that don't match our expected structure
+			if (parts.length !== 2) return;
 
 			// Extract the tableName and row ID (filename without the .md) from the parts
-			const [tableName, filenameWithExt] = parts as [string, string]
-			const id = path.basename(filenameWithExt, '.md');
-
+			const [tableName, filename] = parts as [string, `${string}.md`];
+			const id = path.basename(filename, '.md');
 			/**
 			 * Construct the full absolute path to the file
-			 *
-			 * We use storagePath (not the original storagePath parameter) to ensure
-			 * we always work with absolute paths, preventing issues when the working directory changes.
 			 */
 			const filePath = path.join(storagePath, relativePath);
 
