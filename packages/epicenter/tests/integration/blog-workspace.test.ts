@@ -43,14 +43,14 @@ describe('Blog Workspace Integration', () => {
 			},
 		},
 
-		indexes: async ({ db }) => ({
-			sqlite: await sqliteIndex(db, {
+		indexes: {
+			sqlite: (db) => sqliteIndex(db, {
 				database: ':memory:', // In-memory for testing
 			}),
-			markdown: markdownIndex(db, {
+			markdown: (db) => markdownIndex(db, {
 				storagePath: path.join(import.meta.dir, '.data'),
 			}),
-		}),
+		},
 
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({

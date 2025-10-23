@@ -46,11 +46,11 @@ describe('Server Integration Tests', () => {
 			},
 		},
 
-		indexes: async ({ db }) => ({
-			sqlite: await sqliteIndex(db, {
+		indexes: {
+			sqlite: (db) => sqliteIndex(db, {
 				database: ':memory:',
 			}),
-		}),
+		},
 
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({
@@ -250,11 +250,11 @@ describe('Server Integration Tests', () => {
 				},
 			},
 
-			indexes: async ({ db }) => ({
-				sqlite: await sqliteIndex(db, {
+			indexes: {
+				sqlite: (db) => sqliteIndex(db, {
 					database: ':memory:',
 				}),
-			}),
+			},
 
 			actions: ({ db }) => ({
 				createUser: defineMutation({
