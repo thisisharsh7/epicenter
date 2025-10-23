@@ -160,19 +160,17 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				}
 
 				isProcessingYJSChange = true;
-				try {
-					const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
-					if (error) {
-						console.error(
-							IndexErr({
-								message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id },
-								cause: error,
-							}),
-						);
-					}
-				} finally {
-					isProcessingYJSChange = false;
+				const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
+				isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id },
+							cause: error,
+						}),
+					);
 				}
 			},
 			onUpdate: async (row) => {
@@ -183,19 +181,17 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				}
 
 				isProcessingYJSChange = true;
-				try {
-					const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
-					if (error) {
-						console.error(
-							IndexErr({
-								message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id },
-								cause: error,
-							}),
-						);
-					}
-				} finally {
-					isProcessingYJSChange = false;
+				const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
+				isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id },
+							cause: error,
+						}),
+					);
 				}
 			},
 			onDelete: async (id) => {
@@ -206,20 +202,18 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				}
 
 				isProcessingYJSChange = true;
-				try {
-					const filePath = getMarkdownPath(storagePath, tableName, id);
-					const { error } = await deleteMarkdownFile(filePath);
-					if (error) {
-						console.error(
-							IndexErr({
-								message: `Markdown index onDelete failed for ${tableName}/${id}`,
-								context: { tableName, id, filePath },
-								cause: error,
-							}),
-						);
-					}
-				} finally {
-					isProcessingYJSChange = false;
+				const filePath = getMarkdownPath(storagePath, tableName, id);
+				const { error } = await deleteMarkdownFile(filePath);
+				isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onDelete failed for ${tableName}/${id}`,
+							context: { tableName, id, filePath },
+							cause: error,
+						}),
+					);
 				}
 			},
 		});
