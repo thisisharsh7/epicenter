@@ -5,14 +5,6 @@ import * as Y from 'yjs';
 import type { Row, TableSchema } from '../../core/schema';
 import type { RowValidationResult } from '../../core/validation';
 
-/**
- * Result of parsing a markdown file
- */
-export type MarkdownData<T = any> = {
-	data: T;
-	content: string;
-	excerpt?: string;
-};
 
 /**
  * Error types for markdown operations
@@ -58,7 +50,7 @@ export async function parseMarkdownWithValidation<T extends Row>(
 	schema: TableSchema,
 ): Promise<ParseMarkdownResult<T>> {
 	// Step 1: Parse the markdown file
-	const parseResult = await parseMarkdownFile<unknown>(filePath);
+	const parseResult = await parseMarkdownFile(filePath);
 
 	if (parseResult.error) {
 		return {
@@ -245,11 +237,15 @@ export async function parseMarkdownWithValidation<T extends Row>(
 }
 
 /**
- * Parse a markdown file with frontmatter
+ * Parse a markdown file with optional frontmatter
+ * If file has no frontmatter (doesn't start with ---), treats entire file as content
  */
-export async function parseMarkdownFile<T>(
+async function parseMarkdownFile(
 	filePath: string,
-): Promise<Result<MarkdownData<T>, MarkdownError>> {
+): Promise<Result<{
+	data: unknown;
+	content: string;
+}, MarkdownError>> {
 	return tryAsync({
 		try: async () => {
 			const file = Bun.file(filePath);
@@ -263,10 +259,13 @@ export async function parseMarkdownFile<T>(
 			// Read file content
 			const content = await file.text();
 
-			// Parse frontmatter manually
-			// Check if file starts with ---
+			// Check if file has frontmatter
 			if (!content.startsWith('---\n')) {
-				throw new Error(`No frontmatter found in markdown file: ${filePath}`);
+				// No frontmatter: treat entire file as content
+				return {
+					data: {},
+					content: content.trim(),
+				};
 			}
 
 			// Find the end of frontmatter
@@ -280,27 +279,12 @@ export async function parseMarkdownFile<T>(
 			const markdownContent = content.slice(endIndex + 5).trim();
 
 			// Parse YAML frontmatter using Bun's built-in YAML parser
-			const data = Bun.YAML.parse(frontmatterYaml) as T;
-
-			if (
-				!data ||
-				(typeof data === 'object' && Object.keys(data).length === 0)
-			) {
-				throw new Error(`No frontmatter data found in file: ${filePath}`);
-			}
-
-			// Extract excerpt if separator exists
-			let excerpt: string | undefined;
-			const excerptSeparator = '<!-- more -->';
-			const excerptIndex = markdownContent.indexOf(excerptSeparator);
-			if (excerptIndex !== -1) {
-				excerpt = markdownContent.slice(0, excerptIndex).trim();
-			}
+			// Allow empty frontmatter (will be validated later)
+			const data = Bun.YAML.parse(frontmatterYaml);
 
 			return {
-				data,
+				data: data ?? {},
 				content: markdownContent,
-				excerpt,
 			};
 		},
 		catch: (error) =>
