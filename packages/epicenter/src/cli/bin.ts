@@ -14,7 +14,7 @@ async function main() {
 		const config = await loadEpicenterConfig();
 
 		// Create and run the CLI
-		const cli = createCLI({ config, argv: hideBin(process.argv) });
+		const cli = await createCLI({ config, argv: hideBin(process.argv) });
 		await cli.parse();
 	} catch (error) {
 		if (error instanceof Error) {

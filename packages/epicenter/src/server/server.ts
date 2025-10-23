@@ -1,5 +1,6 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
 import { Hono } from 'hono';
+import { describeRoute, validator } from 'hono-openapi';
 import { Err, Ok } from 'wellcrafted/result';
 import { createEpicenterClient, forEachAction, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
@@ -54,22 +55,39 @@ export async function createServer<
 	forEachAction(client, ({ workspaceName, actionName, action }) => {
 		const path = `/${workspaceName}/${actionName}`;
 
-		// Register as both GET and POST
-		app.get(path, async (c) => {
-			const query = c.req.query();
-			const input = Object.keys(query).length > 0 ? query : undefined;
-			const { data, error } = await action(input);
-			if (error) return c.json(Err(error), 500);
-			return c.json(Ok(data));
-		});
+		// Register GET endpoint
+		app.get(
+			path,
+			describeRoute({
+				description: action.description,
+				tags: [workspaceName],
+			}),
+			action.input ? validator('query', action.input) : undefined,
+			async (c) => {
+				const query = c.req.query();
+				const input = Object.keys(query).length > 0 ? query : undefined;
+				const { data, error } = await action(input);
+				if (error) return c.json(Err(error), 500);
+				return c.json(Ok(data));
+			},
+		);
 
-		app.post(path, async (c) => {
-			const body = await c.req.json().catch(() => ({}));
-			const input = Object.keys(body).length > 0 ? body : undefined;
-			const { data, error } = await action(input);
-			if (error) return c.json(Err(error), 500);
-			return c.json(Ok(data));
-		});
+		// Register POST endpoint
+		app.post(
+			path,
+			describeRoute({
+				description: action.description,
+				tags: [workspaceName],
+			}),
+			action.input ? validator('json', action.input) : undefined,
+			async (c) => {
+				const body = await c.req.json().catch(() => ({}));
+				const input = Object.keys(body).length > 0 ? body : undefined;
+				const { data, error } = await action(input);
+				if (error) return c.json(Err(error), 500);
+				return c.json(Ok(data));
+			},
+		);
 	});
 
 	// Create and configure MCP server for /mcp endpoint

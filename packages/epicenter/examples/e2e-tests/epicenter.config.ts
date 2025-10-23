@@ -1,4 +1,4 @@
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	defineEpicenter,
@@ -81,7 +81,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get post by ID
 		getPost: defineQuery({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			description: 'Get a single post by ID',
 			handler: async ({ id }) => {
 				const post = await indexes.sqlite.db
@@ -94,12 +94,8 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get posts by category
 		getPostsByCategory: defineQuery({
-			input: Type.Object({
-				category: Type.Union([
-					Type.Literal('tech'),
-					Type.Literal('personal'),
-					Type.Literal('tutorial'),
-				]),
+			input: type({
+				category: "'tech' | 'personal' | 'tutorial'",
 			}),
 			description: 'Get all posts in a specific category',
 			handler: async ({ category }) => {
@@ -113,7 +109,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get comments for a post
 		getPostComments: defineQuery({
-			input: Type.Object({ postId: Type.String() }),
+			input: type({ postId: "string" }),
 			description: 'Get all comments for a post',
 			handler: async ({ postId }) => {
 				const comments = await indexes.sqlite.db
@@ -126,14 +122,10 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Create a new post
 		createPost: defineMutation({
-			input: Type.Object({
-				title: Type.String(),
-				content: Type.Optional(Type.String()),
-				category: Type.Union([
-					Type.Literal('tech'),
-					Type.Literal('personal'),
-					Type.Literal('tutorial'),
-				]),
+			input: type({
+				title: "string",
+				content: "string?",
+				category: "'tech' | 'personal' | 'tutorial'",
 			}),
 			description: 'Create a new blog post',
 			handler: async ({ title, content, category }) => {
@@ -153,7 +145,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Publish a post
 		publishPost: defineMutation({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			description: 'Publish a blog post',
 			handler: async ({ id }) => {
 				const { status } = db.tables.posts.get(id);
@@ -172,7 +164,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Unpublish a post
 		unpublishPost: defineMutation({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			description: 'Unpublish a blog post',
 			handler: async ({ id }) => {
 				const { status } = db.tables.posts.get(id);
@@ -191,7 +183,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Delete a post
 		deletePost: defineMutation({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			description: 'Delete a blog post',
 			handler: async ({ id }) => {
 				db.tables.posts.delete(id);
@@ -201,10 +193,10 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Add a comment
 		addComment: defineMutation({
-			input: Type.Object({
-				postId: Type.String(),
-				author: Type.String(),
-				content: Type.String(),
+			input: type({
+				postId: "string",
+				author: "string",
+				content: "string",
 			}),
 			description: 'Add a comment to a post',
 			handler: async ({ postId, author, content }) => {
@@ -222,7 +214,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Increment post views
 		incrementViews: defineMutation({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			description: 'Increment view count for a post',
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);

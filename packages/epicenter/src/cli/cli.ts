@@ -2,7 +2,7 @@ import yargs from 'yargs';
 import type { Argv } from 'yargs';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
-import { typeboxToYargs } from './typebox-to-yargs';
+import { standardSchemaToYargs } from './standardschema-to-yargs';
 import { createMockContext } from './mock-context';
 import { serveCommand, DEFAULT_PORT } from './commands/serve';
 
@@ -23,21 +23,21 @@ import { serveCommand, DEFAULT_PORT } from './commands/serve';
  * ```typescript
  * // In production (bin.ts)
  * import { hideBin } from 'yargs/helpers';
- * const cli = createCLI({ config, argv: hideBin(process.argv) });
+ * const cli = await createCLI({ config, argv: hideBin(process.argv) });
  * await cli.parse();
  *
  * // In tests
- * const cli = createCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
+ * const cli = await createCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
  * await cli.parse();
  * ```
  */
-export function createCLI({
+export async function createCLI({
 	config,
 	argv,
 }: {
 	config: EpicenterConfig;
 	argv: string[];
-}): Argv {
+}): Promise<Argv> {
 	// Create yargs instance
 	let cli = yargs(argv)
 		.scriptName('epicenter')
@@ -97,10 +97,10 @@ export function createCLI({
 					workspaceCli = workspaceCli.command(
 						actionName,
 						action.description || `Execute ${actionName} ${action.type}`,
-						(yargs) => {
+						async (yargs) => {
 							// Convert input schema to yargs options
 							if (action.input) {
-								return typeboxToYargs(action.input, yargs);
+								return await standardSchemaToYargs(action.input, yargs);
 							}
 							return yargs;
 						},

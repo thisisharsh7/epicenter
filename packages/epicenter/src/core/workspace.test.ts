@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import path from 'node:path';
-import Type from 'typebox';
+import { type } from 'arktype';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
 import { id, text, integer } from './schema';
 import { defineQuery, defineMutation } from './actions';
@@ -777,7 +777,7 @@ describe('Workspace Action Handlers', () => {
 				}),
 
 				getPost: defineQuery({
-					input: Type.Object({ id: Type.String() }),
+					input: type({ id: "string" }),
 					handler: async ({ id }) => {
 						const post = await indexes.sqlite.db
 							.select()
@@ -788,10 +788,10 @@ describe('Workspace Action Handlers', () => {
 				}),
 
 				createPost: defineMutation({
-					input: Type.Object({
-						title: Type.String({ description: 'Post title' }),
-						content: Type.Optional(Type.String({ description: 'Post content' })),
-						category: Type.String({ description: 'Post category' }),
+					input: type({
+						title: "string",
+						content: "string?",
+						category: "string",
 					}),
 					handler: async ({ title, content, category }) => {
 						const { generateId } = require('../index');
@@ -808,9 +808,9 @@ describe('Workspace Action Handlers', () => {
 				}),
 
 				updateViews: defineMutation({
-					input: Type.Object({
-						id: Type.String({ description: 'Post ID' }),
-						views: Type.Number({ description: 'New view count' }),
+					input: type({
+						id: "string",
+						views: "number",
 					}),
 					handler: async ({ id, views }) => {
 						const { status, row } = db.tables.posts.get(id);

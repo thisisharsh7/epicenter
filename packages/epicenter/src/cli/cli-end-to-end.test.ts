@@ -131,7 +131,7 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI can create a post', async () => {
-		const cli = createCLI({
+		const cli = await createCLI({
 			config: epicenter,
 			argv: [
 				'posts',
@@ -156,7 +156,7 @@ describe('CLI End-to-End Tests', () => {
 
 	test('CLI can query posts', async () => {
 		// First create a post
-		const createCli = createCLI({
+		const createCli = await createCLI({
 			config: epicenter,
 			argv: ['posts', 'createPost', '--title', 'Query Test', '--category', 'tech'],
 		});
@@ -166,7 +166,7 @@ describe('CLI End-to-End Tests', () => {
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Now query all posts
-		const listCli = createCLI({
+		const listCli = await createCLI({
 			config: epicenter,
 			argv: ['posts', 'listPosts'],
 		});
@@ -174,7 +174,7 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI handles missing required options', async () => {
-		const cli = createCLI({
+		const cli = await createCLI({
 			config: epicenter,
 			argv: ['posts', 'createPost', '--title', 'Missing Category'],
 		});
@@ -189,7 +189,7 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI properly formats success output', async () => {
-		const cli = createCLI({
+		const cli = await createCLI({
 			config: epicenter,
 			argv: ['posts', 'createPost', '--title', 'Output Test', '--category', 'test'],
 		});

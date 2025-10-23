@@ -1,4 +1,4 @@
-import type { TSchema, Static } from 'typebox';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Result } from 'wellcrafted/result';
 import type { EpicenterOperationError } from './errors';
 
@@ -16,7 +16,7 @@ export type WorkspaceActionMap = Record<string, Action<any, any>>;
  */
 export type Action<
 	TOutput = unknown,
-	TInput extends TSchema | undefined = TSchema | undefined,
+	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 > = Query<TOutput, TInput> | Mutation<TOutput, TInput>;
 
 /**
@@ -24,11 +24,13 @@ export type Action<
  */
 export type Query<
 	TOutput = unknown,
-	TInput extends TSchema | undefined = TSchema | undefined,
+	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 > = {
-	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is TSchema
+	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is StandardSchemaV1
 	(
-		...args: TInput extends TSchema ? [input: Static<TInput>] : []
+		...args: TInput extends StandardSchemaV1
+			? [input: StandardSchemaV1.InferOutput<TInput>]
+			: []
 	):
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
@@ -43,11 +45,13 @@ export type Query<
  */
 export type Mutation<
 	TOutput = unknown,
-	TInput extends TSchema | undefined = TSchema | undefined,
+	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 > = {
-	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is TSchema
+	// Callable signature - no parameter when TInput is undefined, required parameter when TInput is StandardSchemaV1
 	(
-		...args: TInput extends TSchema ? [input: Static<TInput>] : []
+		...args: TInput extends StandardSchemaV1
+			? [input: StandardSchemaV1.InferOutput<TInput>]
+			: []
 	):
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
@@ -61,10 +65,10 @@ export type Mutation<
  * Helper function to define a query action with input schema
  * Returns a callable function with metadata properties attached
  */
-export function defineQuery<TOutput, TInput extends TSchema>(config: {
+export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
-		input: Static<NoInfer<TInput>>,
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;
@@ -97,10 +101,10 @@ export function defineQuery(config: any): any {
  * Helper function to define a mutation action with input schema
  * Returns a callable function with metadata properties attached
  */
-export function defineMutation<TOutput, TInput extends TSchema>(config: {
+export function defineMutation<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
-		input: Static<NoInfer<TInput>>,
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) =>
 		| Result<TOutput, EpicenterOperationError>
 		| Promise<Result<TOutput, EpicenterOperationError>>;

@@ -2,7 +2,7 @@ export { loadEpicenterConfig } from './load-config';
 
 // Programmatic CLI generation
 export { createCLI } from './cli';
-export { typeboxToYargs } from './typebox-to-yargs';
+export { standardSchemaToYargs } from './standardschema-to-yargs';
 export { createMockContext, createMockDb, createMockIndexes, createMockWorkspaces } from './mock-context';
 
 // Commands

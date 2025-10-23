@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, test } from 'bun:test';
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	date,
@@ -59,7 +59,7 @@ const pages = defineWorkspace({
 		}),
 
 		getPage: defineQuery({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			handler: async ({ id }) => {
 				const page = await indexes.sqlite.db
 					.select()
@@ -70,23 +70,11 @@ const pages = defineWorkspace({
 		}),
 
 		createPage: defineMutation({
-			input: Type.Object({
-				title: Type.String(),
-				content: Type.String(),
-				type: Type.Union([
-					Type.Literal('blog'),
-					Type.Literal('article'),
-					Type.Literal('guide'),
-					Type.Literal('tutorial'),
-					Type.Literal('news'),
-				]),
-				tags: Type.Union([
-					Type.Literal('tech'),
-					Type.Literal('lifestyle'),
-					Type.Literal('business'),
-					Type.Literal('education'),
-					Type.Literal('entertainment'),
-				]),
+			input: type({
+				title: "string",
+				content: "string",
+				type: "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
+				tags: "'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
 			}),
 			handler: async ({ title, content, type, tags }) => {
 				const page = {
@@ -152,24 +140,11 @@ const contentHub = defineWorkspace({
 
 	actions: ({ db, indexes, workspaces }) => ({
 		createYouTubePost: defineMutation({
-			input: Type.Object({
-				pageId: Type.String(),
-				title: Type.String(),
-				description: Type.String(),
-				niche: Type.Array(
-					Type.Union([
-						Type.Literal('Braden'),
-						Type.Literal('Epicenter'),
-						Type.Literal('YC'),
-						Type.Literal('Yale'),
-						Type.Literal('College Students'),
-						Type.Literal('High School Students'),
-						Type.Literal('Coding'),
-						Type.Literal('Productivity'),
-						Type.Literal('Ethics'),
-						Type.Literal('Writing'),
-					]),
-				),
+			input: type({
+				pageId: "string",
+				title: "string",
+				description: "string",
+				niche: "('Braden' | 'Epicenter' | 'YC' | 'Yale' | 'College Students' | 'High School Students' | 'Coding' | 'Productivity' | 'Ethics' | 'Writing')[]",
 			}),
 			handler: async ({ pageId, title, description, niche }) => {
 				// Verify page exists by querying pages workspace
@@ -194,10 +169,10 @@ const contentHub = defineWorkspace({
 		}),
 
 		createTwitterPost: defineMutation({
-			input: Type.Object({
-				pageId: Type.String(),
-				content: Type.String(),
-				title: Type.Optional(Type.String()),
+			input: type({
+				pageId: "string",
+				content: "string",
+				title: "string?",
 			}),
 			handler: async ({ pageId, content, title }) => {
 				// Verify page exists by querying pages workspace
@@ -218,7 +193,7 @@ const contentHub = defineWorkspace({
 		}),
 
 		getYouTubePosts: defineQuery({
-			input: Type.Object({ pageId: Type.String() }),
+			input: type({ pageId: "string" }),
 			handler: async ({ pageId }) => {
 				const posts = await indexes.sqlite.db
 					.select()
@@ -229,7 +204,7 @@ const contentHub = defineWorkspace({
 		}),
 
 		getTwitterPosts: defineQuery({
-			input: Type.Object({ pageId: Type.String() }),
+			input: type({ pageId: "string" }),
 			handler: async ({ pageId }) => {
 				const posts = await indexes.sqlite.db
 					.select()
