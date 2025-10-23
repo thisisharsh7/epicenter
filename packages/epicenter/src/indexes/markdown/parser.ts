@@ -1,9 +1,8 @@
-import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createTaggedError } from 'wellcrafted/error';
-import { Ok, tryAsync, type Result } from 'wellcrafted/result';
+import { tryAsync, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import type { Row, SerializedRow, TableSchema } from '../../core/schema';
+import type { Row, TableSchema } from '../../core/schema';
 import type { RowValidationResult } from '../../core/validation';
 
 /**
@@ -22,157 +21,6 @@ export const { MarkdownError, MarkdownErr } =
 	createTaggedError('MarkdownError');
 export type MarkdownError = ReturnType<typeof MarkdownError>;
 
-/**
- * Parse a markdown file with frontmatter
- */
-export async function parseMarkdownFile<T>(
-	filePath: string,
-): Promise<Result<MarkdownData<T>, MarkdownError>> {
-	return tryAsync({
-		try: async () => {
-			const file = Bun.file(filePath);
-
-			// Check if file exists
-			const exists = await file.exists();
-			if (!exists) {
-				throw new Error(`File not found: ${filePath}`);
-			}
-
-			// Read file content
-			const content = await file.text();
-
-			// Parse frontmatter manually
-			// Check if file starts with ---
-			if (!content.startsWith('---\n')) {
-				throw new Error(`No frontmatter found in markdown file: ${filePath}`);
-			}
-
-			// Find the end of frontmatter
-			const endIndex = content.indexOf('\n---\n', 4);
-			if (endIndex === -1) {
-				throw new Error(`Invalid frontmatter format in file: ${filePath}`);
-			}
-
-			// Extract frontmatter and content
-			const frontmatterYaml = content.slice(4, endIndex);
-			const markdownContent = content.slice(endIndex + 5).trim();
-
-			// Parse YAML frontmatter using Bun's built-in YAML parser
-			const data = Bun.YAML.parse(frontmatterYaml) as T;
-
-			if (
-				!data ||
-				(typeof data === 'object' && Object.keys(data).length === 0)
-			) {
-				throw new Error(`No frontmatter data found in file: ${filePath}`);
-			}
-
-			// Extract excerpt if separator exists
-			let excerpt: string | undefined;
-			const excerptSeparator = '<!-- more -->';
-			const excerptIndex = markdownContent.indexOf(excerptSeparator);
-			if (excerptIndex !== -1) {
-				excerpt = markdownContent.slice(0, excerptIndex).trim();
-			}
-
-			return {
-				data,
-				content: markdownContent,
-				excerpt,
-			};
-		},
-		catch: (error) =>
-			MarkdownErr({
-				message: `Failed to parse markdown file ${filePath}: ${error}`,
-				context: { filePath },
-				cause: error,
-			}),
-	});
-}
-
-/**
- * Write a markdown file with frontmatter
- * Accepts already-serialized data (plain JavaScript values, no YJS types)
- */
-export async function writeMarkdownFile(
-	filePath: string,
-	frontmatter: SerializedRow,
-	content: string
-): Promise<Result<void, MarkdownError>> {
-	return tryAsync({
-		try: async () => {
-			// Ensure directory exists
-			const _ensureDir = await tryAsync({
-				try: async () => {
-					// Try to create directory if it doesn't exist
-					await mkdir(path.dirname(filePath), { recursive: true });
-				},
-				catch: () => Ok(undefined), // Directory might already exist, that's fine
-			});
-
-			// Create markdown content with frontmatter
-			// frontmatter is already serialized (plain JS values), so just stringify to YAML
-			const yamlContent = Bun.YAML.stringify(frontmatter, null, 2)
-			const markdown = `---\n${yamlContent}\n---\n${content}`;
-
-			// Write file using Bun.write
-			await Bun.write(filePath, markdown);
-		},
-		catch: (error) =>
-			MarkdownErr({
-				message: `Failed to write markdown file ${filePath}: ${error}`,
-				context: { filePath },
-				cause: error,
-			}),
-	});
-}
-
-
-/**
- * List all markdown files in a directory
- */
-export async function listMarkdownFiles(
-	directory: string,
-	recursive = true,
-): Promise<Result<string[], MarkdownError>> {
-	const files: string[] = [];
-
-	async function scanDir(dir: string) {
-		await tryAsync({
-			try: async () => {
-				const entries = await readdir(dir, { withFileTypes: true });
-
-				for (const entry of entries) {
-					const fullPath = path.join(dir, entry.name);
-
-					if (entry.isDirectory() && recursive) {
-						await scanDir(fullPath);
-					} else if (entry.isFile() && entry.name.endsWith('.md')) {
-						files.push(fullPath);
-					}
-				}
-			},
-			catch: (error) => {
-				// Ignore errors for inaccessible directories
-				console.warn(`Could not read directory ${dir}:`, error);
-				return Ok(undefined);
-			},
-		});
-	}
-
-	await scanDir(directory);
-	return Ok(files);
-}
-
-/**
- * Get the file path for a table record
- * Assumes the ID is already filesystem-safe
- */
-export function getMarkdownPath(
-{ vaultPath, tableName, id }: { vaultPath: string; tableName: string; id: string; },
-): string {
-	return path.join(vaultPath, tableName, `${id}.md`);
-}
 
 /**
  * Extract table name and ID from a markdown file path
@@ -417,4 +265,72 @@ export async function parseMarkdownWithValidation<T extends Row>(
 		data: validatedRow as T,
 		content,
 	};
+}
+
+/**
+ * Parse a markdown file with frontmatter
+ */
+export async function parseMarkdownFile<T>(
+	filePath: string,
+): Promise<Result<MarkdownData<T>, MarkdownError>> {
+	return tryAsync({
+		try: async () => {
+			const file = Bun.file(filePath);
+
+			// Check if file exists
+			const exists = await file.exists();
+			if (!exists) {
+				throw new Error(`File not found: ${filePath}`);
+			}
+
+			// Read file content
+			const content = await file.text();
+
+			// Parse frontmatter manually
+			// Check if file starts with ---
+			if (!content.startsWith('---\n')) {
+				throw new Error(`No frontmatter found in markdown file: ${filePath}`);
+			}
+
+			// Find the end of frontmatter
+			const endIndex = content.indexOf('\n---\n', 4);
+			if (endIndex === -1) {
+				throw new Error(`Invalid frontmatter format in file: ${filePath}`);
+			}
+
+			// Extract frontmatter and content
+			const frontmatterYaml = content.slice(4, endIndex);
+			const markdownContent = content.slice(endIndex + 5).trim();
+
+			// Parse YAML frontmatter using Bun's built-in YAML parser
+			const data = Bun.YAML.parse(frontmatterYaml) as T;
+
+			if (
+				!data ||
+				(typeof data === 'object' && Object.keys(data).length === 0)
+			) {
+				throw new Error(`No frontmatter data found in file: ${filePath}`);
+			}
+
+			// Extract excerpt if separator exists
+			let excerpt: string | undefined;
+			const excerptSeparator = '<!-- more -->';
+			const excerptIndex = markdownContent.indexOf(excerptSeparator);
+			if (excerptIndex !== -1) {
+				excerpt = markdownContent.slice(0, excerptIndex).trim();
+			}
+
+			return {
+				data,
+				content: markdownContent,
+				excerpt,
+			};
+		},
+		catch: (error) =>
+			MarkdownErr({
+				message: `Failed to parse markdown file ${filePath}: ${error}`,
+				context: { filePath },
+				cause: error,
+			}),
+	});
 }
