@@ -8,12 +8,9 @@ import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Ok, tryAsync } from 'wellcrafted/result';
-import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
 import type {
-	Row,
-	SerializedRow,
 	WorkspaceSchema
 } from '../../core/schema';
 import { serializeRow } from '../../core/schema';
@@ -37,37 +34,6 @@ export type SQLiteIndexConfig = {
 	inMemory?: boolean;
 };
 
-/**
- * Maps a Row type to SQLite-compatible types
- * SQLite stores Y.Array as JSON strings, while other types use SerializedRow conversions
- *
- * Note: This differs slightly from SerializedRow because:
- * - SerializedRow: Y.Array<string> → string[] (plain array)
- * - SQLiteRow: Y.Array<string> → string (JSON-serialized array)
- */
-export type SQLiteRow<T extends Row = Row> = {
-	[K in keyof T]: T[K] extends Y.Array<infer U>
-		? string
-		: T[K] extends Y.Array<infer U> | null
-			? string | null
-			: SerializedRow<T>[K];
-};
-
-/**
- * Serialize a row for SQLite storage
- * Uses serializeRow() from core/schema, but JSON-stringifies arrays for SQLite TEXT columns
- */
-function serializeRowForSQLite<T extends Row>(row: T): SQLiteRow<T> {
-	const serialized = serializeRow(row);
-
-	// Convert arrays to JSON strings for SQLite TEXT storage
-	return Object.fromEntries(
-		Object.entries(serialized).map(([key, value]) => [
-			key,
-			Array.isArray(value) ? JSON.stringify(value) : value,
-		]),
-	) as SQLiteRow<T>;
-}
 
 /**
  * Create SQLite tables if they don't exist
@@ -180,7 +146,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 			onAdd: async (row) => {
 				const { error } = await tryAsync({
 					try: async () => {
-						const serializedRow = serializeRowForSQLite(row);
+						const serializedRow = serializeRow(row);
 						await sqliteDb.insert(drizzleTable as any).values(serializedRow);
 					},
 					catch: () => Ok(undefined),
@@ -199,7 +165,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 			onUpdate: async (row) => {
 				const { error } = await tryAsync({
 					try: async () => {
-						const serializedRow = serializeRowForSQLite(row);
+						const serializedRow = serializeRow(row);
 						await sqliteDb
 							.update(drizzleTable as any)
 							.set(serializedRow)
@@ -257,7 +223,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 		for (const row of rows) {
 			const { error } = await tryAsync({
 				try: async () => {
-					const serializedRow = serializeRowForSQLite(row);
+					const serializedRow = serializeRow(row);
 					await sqliteDb.insert(drizzleTable as any).values(serializedRow);
 				},
 				catch: () => Ok(undefined),
