@@ -18,7 +18,7 @@ import type {
 	DateWithTimezoneString,
 	Id,
 } from '../../core/schema';
-import { DateWithTimezoneSerializer } from '../../core/schema';
+import { DateWithTimezoneSerializer, Serializer } from '../../core/schema';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
