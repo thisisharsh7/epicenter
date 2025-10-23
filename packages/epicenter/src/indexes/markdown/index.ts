@@ -4,13 +4,12 @@ import path from 'node:path';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
-import { defineIndex, type Index } from '../../core/indexes';
+import { type Index, defineIndex } from '../../core/indexes';
 import type { Row, TableSchema, WorkspaceSchema } from '../../core/schema';
 import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import { parseMarkdownWithValidation } from './parser';
-
 
 /**
  * Per-table markdown configuration
@@ -56,13 +55,31 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  *
  * The flags break the cycle by ensuring changes only flow in one direction at a time.
  *
+ * Expected directory structure:
+ * ```
+ * {storagePath}/
+ *   {tableName}/
+ *     {row-id}.md
+ *     {row-id}.md
+ *   {tableName}/
+ *     {row-id}.md
+ * ```
+ *
  * @param db - Epicenter database instance
  * @param config - Markdown configuration options
+ * @param config.storagePath - Path where markdown files should be stored (relative or absolute).
+ *                              Will be converted to absolute path internally. Defaults to current directory.
+ * @param config.tables - Per-table configuration for bodyField and other options
  */
 export function markdownIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
-	{ storagePath = '.', tables = {} }: MarkdownIndexConfig<TSchema> = {},
+	{ storagePath: relativeStoragePath = '.', tables = {} }: MarkdownIndexConfig<TSchema> = {},
 ) {
+	/**
+	 * Convert storagePath to absolute path immediately to ensure consistency
+	 * even if the working directory changes during execution.
+	 */
+	const absoluteStoragePath = path.resolve(relativeStoragePath);
 
 	/**
 	 * Loop prevention flags to avoid infinite sync cycles
@@ -86,7 +103,11 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		}
 
 		const tableConfig = tables[tableName];
-		const markdown = createTableMarkdownOperations({ tableName, storagePath, tableConfig });
+		const markdown = createTableMarkdownOperations({
+			tableName,
+			storagePath: absoluteStoragePath,
+			tableConfig,
+		});
 
 		const unsub = table.observe({
 			onAdd: async (row) => {
@@ -154,51 +175,102 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	// Ensure the directory exists before watching
 	trySync({
 		try: () => {
-			mkdirSync(storagePath, { recursive: true });
+			mkdirSync(absoluteStoragePath, { recursive: true });
 		},
 		catch: () => Ok(undefined),
 	});
 
 	const watcher = watch(
-		storagePath,
+		absoluteStoragePath,
 		{ recursive: true },
 		async (eventType, relativePath) => {
 			// Skip if this file change was triggered by a YJS change we're processing
 			// (prevents YJS -> markdown -> YJS infinite loop)
 			if (isProcessingYJSChange) return;
 
+			// Skip non-markdown files
 			if (!relativePath || !relativePath.endsWith('.md')) return;
 
-			// Parse relative path from watcher
-			// filename is already relative to storagePath (e.g., "pages/my-page.md")
-			// Expected format: [tableName]/[id].md
+			/**
+			 * Parse the relative path from the watcher to extract table name and row ID
+			 *
+			 * The watcher provides relativePath relative to absoluteStoragePath.
+			 * Expected directory structure:
+			 *   {absoluteStoragePath}/
+			 *     {tableName}/
+			 *       {id}.md
+			 *
+			 * Example:
+			 *   absoluteStoragePath = "/Users/name/vault"
+			 *   relativePath = "pages/my-page.md"
+			 *   Result: tableName = "pages", id = "my-page"
+			 *
+			 * We strictly enforce this 2-level structure and ignore any files that don't match
+			 * (e.g., files in the root or nested deeper than 2 levels).
+			 */
 			const parts = relativePath.split(path.sep);
 			if (parts.length !== 2) return; // Ignore files that don't match our expected structure
 			const [tableName, filenameWithExt] = parts;
 			if (!tableName || !filenameWithExt) return;
 
+			// Extract the row ID from the filename (without .md extension)
 			const id = path.basename(filenameWithExt, '.md');
-			const filePath = path.join(storagePath, relativePath);
+
+			/**
+			 * Construct the full absolute path to the file
+			 *
+			 * We use absoluteStoragePath (not the original storagePath parameter) to ensure
+			 * we always work with absolute paths, preventing issues when the working directory changes.
+			 */
+			const filePath = path.join(absoluteStoragePath, relativePath);
 
 			isProcessingFileChange = true;
-			// Handle file changes
-			// Note: On some filesystems (like macOS), file writes generate 'rename' events
-			// instead of 'change' events due to atomic rename operations.
-			// Therefore 'rename' can mean either deletion or modification.
+
+			/**
+			 * Handle file system events
+			 *
+			 * Event types:
+			 * - 'change': File content was modified
+			 * - 'rename': File was renamed, moved, created, or deleted
+			 *
+			 * Important: On some filesystems (especially macOS), file writes generate 'rename'
+			 * events instead of 'change' events due to atomic rename operations. This means
+			 * 'rename' can indicate either deletion OR modification.
+			 *
+			 * To distinguish between deletion and modification:
+			 * - Check if file exists
+			 * - If not exists: deletion (remove from YJS)
+			 * - If exists: modification (parse and update YJS)
+			 */
 			if (eventType === 'rename') {
-				// Distinguish between deletion and modification by checking file existence
+				// Check if the file still exists to distinguish between deletion and modification
 				const file = Bun.file(filePath);
 				const exists = await file.exists();
 				if (!exists) {
-					// File no longer exists -> this is a deletion
+					/**
+					 * File was deleted: Remove the row from YJS
+					 *
+					 * We only delete if the row exists in the table to avoid
+					 * unnecessary operations and potential errors.
+					 */
 					const table = db.tables[tableName];
 					if (table?.has(id)) table.delete(id);
 					return; // Exit early for deletions
 				}
-				// File still exists -> this is a modification, fall through to change handling below
+				/**
+				 * File still exists: This is a modification, not a deletion.
+				 * Fall through to the change handling logic below.
+				 */
 			}
 
-			// Process file change (works for both 'change' and 'rename' with existing file)
+			/**
+			 * Process file modification (works for both 'change' and 'rename' with existing file)
+			 *
+			 * Steps:
+			 * 1. Validate that the table exists in the schema
+			 * 2. Parse and validate the markdown file
+			 * 3. Update YJS with the parsed data using granular diffs
+			 */
 			if (eventType === 'change' || eventType === 'rename') {
 				// Get the table schema
 				const tableSchema = db.schema[tableName];
@@ -240,7 +312,10 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 								},
 							}),
 						);
-						console.error('Validation details:', JSON.stringify(parseResult.validationResult, null, 2));
+						console.error(
+							'Validation details:',
+							JSON.stringify(parseResult.validationResult, null, 2),
+						);
 						break;
 
 					case 'success':
@@ -251,10 +326,18 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 							// - parseResult.content (markdown body) -> stored in the configured bodyField (if any)
 							const tableConfig = tables[tableName as keyof TSchema];
 							const rowData = tableConfig?.bodyField
-								? { ...parseResult.data, [tableConfig.bodyField]: parseResult.content }
+								? {
+										...parseResult.data,
+										[tableConfig.bodyField]: parseResult.content,
+									}
 								: parseResult.data;
 
-							updateYJSRowFromMarkdown({ db, tableName, rowId: id, newData: rowData });
+							updateYJSRowFromMarkdown({
+								db,
+								tableName,
+								rowId: id,
+								newData: rowData,
+							});
 						} catch (error) {
 							console.error(
 								IndexErr({
@@ -297,9 +380,17 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
  * @param rowId - ID of the row to update or insert
  * @param newData - Plain JavaScript object from markdown file (already validated against schema)
  */
-function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
-	{ db, tableName, rowId, newData }: { db: Db<TWorkspaceSchema>; tableName: string; rowId: string; newData: Row; },
-): void {
+function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>({
+	db,
+	tableName,
+	rowId,
+	newData,
+}: {
+	db: Db<TWorkspaceSchema>;
+	tableName: string;
+	rowId: string;
+	newData: Row;
+}): void {
 	const table = db.tables[tableName];
 	if (!table) {
 		throw new Error(`Table "${tableName}" not found`);
@@ -391,10 +482,7 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
 					// Use granular element-level diffs instead of replacing entire array
 					// This preserves array positions and reduces conflicts in collaborative scenarios
 					// syncYArrayToDiff calculates the minimal insertions/deletions needed
-					if (
-						existingValue instanceof Y.Array &&
-						Array.isArray(newValue)
-					) {
+					if (existingValue instanceof Y.Array && Array.isArray(newValue)) {
 						syncYArrayToDiff(existingValue, newValue);
 					} else if (newValue === null && columnSchema.nullable) {
 						table.update({ id: rowId, [columnName]: null } as any);
@@ -421,24 +509,44 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
  * to pass them on every operation call.
  *
  * @param tableName - Name of the table to create operations for
- * @param storagePath - Path where markdown files are stored
+ * @param storagePath - Absolute path where markdown files are stored. Should be pre-resolved to absolute.
  * @param tableConfig - Optional table-specific markdown configuration
  * @returns Object with write and delete methods
  *
  * @example
  * ```typescript
- * const markdown = createTableMarkdownOperations('pages', './vault', { bodyField: 'content' });
+ * const absolutePath = path.resolve('./vault');
+ * const markdown = createTableMarkdownOperations({
+ *   tableName: 'pages',
+ *   storagePath: absolutePath,
+ *   tableConfig: { bodyField: 'content' }
+ * });
  * await markdown.write(row);
  * await markdown.delete('row-id');
  * ```
  */
-function createTableMarkdownOperations<TTableSchema extends TableSchema>(
-	{ tableName, storagePath, tableConfig }: { tableName: string; storagePath: string; tableConfig?: TableMarkdownConfig<TTableSchema>; },
-) {
+function createTableMarkdownOperations<TTableSchema extends TableSchema>({
+	tableName,
+	storagePath,
+	tableConfig,
+}: {
+	tableName: string;
+	storagePath: string;
+	tableConfig?: TableMarkdownConfig<TTableSchema>;
+}) {
 	const bodyFieldKey = tableConfig?.bodyField;
 
-	// Helper to construct file path for a given row ID
-	const getFilePath = (id: string) => path.join(storagePath, tableName, `${id}.md`);
+	/**
+	 * Helper to construct the full file path for a given row ID
+	 *
+	 * File structure: {storagePath}/{tableName}/{id}.md
+	 * Example: /Users/name/vault/pages/my-page.md
+	 *
+	 * @param id - The row ID (becomes the markdown filename without extension)
+	 * @returns Absolute path to the markdown file
+	 */
+	const getFilePath = (id: string) =>
+		path.join(storagePath, tableName, `${id}.md`);
 
 	// Helper to determine if a field should be included in frontmatter
 
@@ -461,13 +569,13 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>(
 
 					// If omitNullValues is enabled, exclude null/undefined values
 					if (tableConfig?.omitNullValues) {
-						const isValueNullOrUndefined = value === null || value === undefined
+						const isValueNullOrUndefined =
+							value === null || value === undefined;
 						if (isValueNullOrUndefined) return false;
 					}
 
 					return true;
-				}
-				)
+				}),
 			);
 
 			// Extract content from configured body field
@@ -511,24 +619,45 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>(
 					return Ok(undefined);
 				},
 			});
-		}
+		},
 	};
 }
 
 /**
  * Markdown index configuration
  */
-export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
+export type MarkdownIndexConfig<
+	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
+> = {
 	/**
 	 * Path where markdown files should be stored
-	 * Example: './data/markdown'
+	 *
+	 * Can be relative or absolute. Will be converted to absolute path internally
+	 * using `path.resolve()` to ensure consistency even if the working directory changes.
+	 *
+	 * Examples:
+	 * - './vault' (relative, will be resolved to absolute)
+	 * - '../data/markdown' (relative, will be resolved to absolute)
+	 * - '/Users/name/vault' (already absolute, will be used as-is)
+	 *
 	 * Default: '.' (current directory)
 	 */
 	storagePath?: string;
 	/**
 	 * Per-table configuration
-	 * Keys must be valid table names from the workspace schema
-	 * Example: { pages: { bodyField: 'body' }, posts: { bodyField: 'content' } }
+	 *
+	 * Keys must be valid table names from the workspace schema.
+	 * Each table can specify which field should contain the markdown body content
+	 * and whether to omit null values from frontmatter.
+	 *
+	 * Example:
+	 * ```typescript
+	 * {
+	 *   pages: { bodyField: 'body', omitNullValues: true },
+	 *   posts: { bodyField: 'content' }
+	 * }
+	 * ```
+	 *
 	 * If omitted, all tables will use default configuration (no bodyField, include null values)
 	 */
 	tables?: {
