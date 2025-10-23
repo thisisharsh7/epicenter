@@ -24,13 +24,14 @@ export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = Works
 	/**
 	 * Path where markdown files should be stored
 	 * Example: './data/markdown'
+	 * Default: '.' (current directory)
 	 */
-	storagePath: string;
+	storagePath?: string;
 	/**
 	 * Per-table configuration
 	 * Keys must be valid table names from the workspace schema
-	 * Example: { pages: { contentField: 'body' }, posts: { contentField: 'content' } }
-	 * If omitted, all tables will use default configuration (no contentField, include null values)
+	 * Example: { pages: { bodyField: 'body' }, posts: { bodyField: 'content' } }
+	 * If omitted, all tables will use default configuration (no bodyField, include null values)
 	 */
 	tables?: {
 		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
@@ -46,7 +47,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * Must be a valid field name from the table's schema
 	 * If undefined, markdown body will be empty and only frontmatter fields are synced
 	 */
-	contentField?: keyof TTableSchema & string;
+	bodyField?: keyof TTableSchema & string;
 
 	/**
 	 * Whether to omit null/undefined values from frontmatter when writing markdown files
@@ -64,13 +65,13 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  *
  * Direction 1: YJS → Markdown (via observers)
  * - When a row is added/updated/deleted in YJS
- * - Extract the contentField value as markdown body
+ * - Extract the bodyField value as markdown body
  * - Write/update/delete the corresponding .md file
  *
  * Direction 2: Markdown → YJS (via file watcher)
  * - When a .md file is created/modified/deleted
  * - Parse frontmatter as row fields
- * - Parse body content and insert into contentField
+ * - Parse body content and insert into bodyField
  * - Update YJS with granular diffs
  *
  * Loop prevention flags ensure these two directions don't trigger each other infinitely.
@@ -86,9 +87,8 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  */
 export function markdownIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
-	config: MarkdownIndexConfig<TSchema>,
+	{ storagePath = '.', tables = {} }: MarkdownIndexConfig<TSchema> = {},
 ) {
-	const { storagePath, tables: tableConfigs = {} } = config;
 
 	/**
 	 * Loop prevention flags to avoid infinite sync cycles
@@ -111,17 +111,17 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		// This happens at the YJS boundary
 		const serialized = serializeRow(row);
 
-		const tableConfig = tableConfigs[tableName];
+		const tableConfig = tables[tableName];
 		const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id: row.id });
-		const contentField = tableConfig?.contentField;
+		const bodyField = tableConfig?.bodyField;
 
-		// Extract content field value for markdown body (if configured)
-		const content = contentField ? (serialized[contentField as string] ?? '') : '';
+		// Extract body field value for markdown body (if configured)
+		const content = bodyField ? (serialized[bodyField as string] ?? '') : '';
 
 		// Build frontmatter from serialized data
-		// Remove content field from frontmatter to avoid duplication (it goes in body)
-		let frontmatter = contentField
-			? { ...serialized, [contentField as string]: undefined }
+		// Remove body field from frontmatter to avoid duplication (it goes in body)
+		let frontmatter = bodyField
+			? { ...serialized, [bodyField as string]: undefined }
 			: serialized;
 
 		// Omit null/undefined values if configured
@@ -316,10 +316,10 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 							try {
 								// Reconstruct the full row data by merging:
 								// - parseResult.data (frontmatter fields)
-								// - parseResult.content (markdown body) -> stored in the configured contentField (if any)
-								const tableConfig = tableConfigs[tableName as keyof TSchema];
-								const rowData = tableConfig?.contentField
-									? { ...parseResult.data, [tableConfig.contentField]: parseResult.content }
+								// - parseResult.content (markdown body) -> stored in the configured bodyField (if any)
+								const tableConfig = tables[tableName as keyof TSchema];
+								const rowData = tableConfig?.bodyField
+									? { ...parseResult.data, [tableConfig.bodyField]: parseResult.content }
 									: parseResult.data;
 
 								updateYJSRowFromMarkdown({ db, tableName, rowId: id, newData: rowData });
