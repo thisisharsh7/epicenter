@@ -1,6 +1,7 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
+import type { Action } from '../core/actions';
 import { createEpicenterClient, forEachAction, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
 import type { EpicenterOperationError } from '../core/errors';
 import type { AnyWorkspaceConfig } from '../core/workspace';
@@ -59,13 +60,13 @@ export async function createServer<
 		app.get(path, async (c) => {
 			const query = c.req.query();
 			const input = Object.keys(query).length > 0 ? query : undefined;
-			return executeAction(c, action as any, input);
+			return executeAction({ c, action: action as any, input });
 		});
 
 		app.post(path, async (c) => {
 			const body = await c.req.json().catch(() => ({}));
 			const input = Object.keys(body).length > 0 ? body : undefined;
-			return executeAction(c, action as any, input);
+			return executeAction({ c, action: action as any, input });
 		});
 	});
 
@@ -87,42 +88,27 @@ export async function createServer<
  * Execute an action handler and format the response
  * Workspace client handlers return { data, error } format
  */
-async function executeAction<T>(
-	c: Context,
-	handler: (input: any) => Promise<{ data?: T; error?: EpicenterOperationError }>,
-	input: any,
+async function executeAction<TAction extends Action>(
+	{ c, action, input }: { c: Context; action: TAction; input: any; },
 ) {
-	try {
-		const result = await handler(input);
+	const { data, error } = await action(input);
 
-		// Workspace handlers return { data, error } format
-		if (result.error) {
-			const status = getStatusCodeForError(result.error);
-			return c.json(
-				{
-					error: {
-						message: result.error.message || 'An error occurred',
-						...(result.error.cause && { cause: String(result.error.cause) }),
-					},
-				},
-				status,
-			);
-		}
-
-		// Success case
-		return c.json({ data: result.data });
-	} catch (error) {
-		// Handle unexpected errors that weren't wrapped properly
-		console.error('Unexpected error in action handler:', error);
+	// Workspace handlers return { data, error } format
+	if (error) {
+		const status = getStatusCodeForError(error);
 		return c.json(
 			{
 				error: {
-					message: error instanceof Error ? error.message : 'An unexpected error occurred',
+					message: error.message || 'An error occurred',
+					...(error.cause && { cause: String(error.cause) }),
 				},
 			},
-			500,
+			status,
 		);
 	}
+
+	// Success case
+	return c.json({ data });
 }
 
 /**
