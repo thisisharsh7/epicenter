@@ -115,7 +115,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		// This happens at the YJS boundary
 		const serialized = serializeRow(row);
 
-		const filePath = getMarkdownPath(storagePath, tableName, row.id);
+		const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id: row.id });
 		const contentField = tableConfig?.contentField;
 
 		// Extract content field value for markdown body (if configured)
@@ -155,9 +155,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			onAdd: async (row) => {
 				// Skip if this YJS change was triggered by a file change we're processing
 				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (isProcessingFileChange) {
-					return;
-				}
+				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
 				const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
@@ -176,9 +174,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			onUpdate: async (row) => {
 				// Skip if this YJS change was triggered by a file change we're processing
 				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (isProcessingFileChange) {
-					return;
-				}
+				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
 				const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
@@ -197,12 +193,10 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			onDelete: async (id) => {
 				// Skip if this YJS change was triggered by a file change we're processing
 				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (isProcessingFileChange) {
-					return;
-				}
+				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const filePath = getMarkdownPath(storagePath, tableName, id);
+				const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id });
 				const { error } = await deleteMarkdownFile(filePath);
 				isProcessingYJSChange = false;
 

@@ -143,16 +143,10 @@ export async function deleteMarkdownFile(
 				// File doesn't exist, consider it a success - just return
 				return;
 			}
-
-			// Use Bun.$ to remove the file
-			await Bun.$`rm -f ${filePath}`.quiet();
+			// Delete the file
+			await file.delete()
 		},
 		catch: (error) => {
-			// If file doesn't exist, consider it a success
-			if ((error as any)?.code === 'ENOENT') {
-				return Ok(undefined);
-			}
-
 			console.warn(`Could not delete markdown file ${filePath}:`, error);
 			// Return Ok anyway as deletion failures are often not critical
 			return Ok(undefined);
@@ -200,9 +194,7 @@ export async function listMarkdownFiles(
  * Get the file path for a table record
  */
 export function getMarkdownPath(
-	vaultPath: string,
-	tableName: string,
-	id: string,
+{ vaultPath, tableName, id }: { vaultPath: string; tableName: string; id: string; },
 ): string {
 	// Sanitize ID for filesystem
 	const safeId = id.replace(/[^a-zA-Z0-9-_]/g, '_');
