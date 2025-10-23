@@ -325,7 +325,11 @@ export async function initializeWorkspaces<
 					await indexFn(db),
 				]),
 			),
-		);
+		) as {
+			[K in keyof typeof workspaceConfig.indexes]: Awaited<
+				ReturnType<(typeof workspaceConfig.indexes)[K]>
+			>;
+		};
 
 		// Call the actions factory to get action definitions, passing:
 		// - workspaceClients: initialized dependency clients (keyed by dep.name)
