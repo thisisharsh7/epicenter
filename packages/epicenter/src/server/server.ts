@@ -12,7 +12,7 @@ import { createMcpServer } from './mcp';
  * Create a unified server with REST, MCP, and API documentation endpoints
  *
  * This creates a Hono server that exposes workspace actions through multiple interfaces:
- * - REST endpoints: GET/POST `/{workspace}/{action}` for direct HTTP access
+ * - REST endpoints: GET `/{workspace}/{action}` for queries, POST for mutations
  * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
  * - API documentation: `/swagger-ui` (Swagger UI) and `/scalar` (Scalar)
  * - OpenAPI spec: `/openapi.json`
@@ -67,39 +67,44 @@ export async function createServer<
 		const operationType = ({ query: 'queries', mutation: 'mutations' } as const)[action.type];
 		const tags = [workspaceName, operationType];
 
-		// Register GET endpoint
-		app.get(
-			path,
-			describeRoute({
-				description: action.description,
-				tags,
-			}),
-			...(action.input ? [validator('query', action.input)] : []),
-			async (c) => {
-				const query = c.req.query();
-				const input = Object.keys(query).length > 0 ? query : undefined;
-				const { data, error } = await action(input);
-				if (error) return c.json(Err(error), 500);
-				return c.json(Ok(data));
-			},
-		);
-
-		// Register POST endpoint
-		app.post(
-			path,
-			describeRoute({
-				description: action.description,
-				tags,
-			}),
-			...(action.input ? [validator('json', action.input)] : []),
-			async (c) => {
-				const body = await c.req.json().catch(() => ({}));
-				const input = Object.keys(body).length > 0 ? body : undefined;
-				const { data, error } = await action(input);
-				if (error) return c.json(Err(error), 500);
-				return c.json(Ok(data));
-			},
-		);
+		switch (action.type) {
+			case 'query':
+				// Queries use GET with query parameters
+				app.get(
+					path,
+					describeRoute({
+						description: action.description,
+						tags,
+					}),
+					...(action.input ? [validator('query', action.input)] : []),
+					async (c) => {
+						const query = c.req.query();
+						const input = Object.keys(query).length > 0 ? query : undefined;
+						const { data, error } = await action(input);
+						if (error) return c.json(Err(error), 500);
+						return c.json(Ok(data));
+					},
+				);
+				break;
+			case 'mutation':
+				// Mutations use POST with JSON body
+				app.post(
+					path,
+					describeRoute({
+						description: action.description,
+						tags,
+					}),
+					...(action.input ? [validator('json', action.input)] : []),
+					async (c) => {
+						const body = await c.req.json().catch(() => ({}));
+						const input = Object.keys(body).length > 0 ? body : undefined;
+						const { data, error } = await action(input);
+						if (error) return c.json(Err(error), 500);
+						return c.json(Ok(data));
+					},
+				);
+				break;
+		}
 	});
 
 	// Create and configure MCP server for /mcp endpoint
