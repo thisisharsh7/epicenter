@@ -279,11 +279,16 @@ async function parseMarkdownFile(
 			const markdownContent = content.slice(endIndex + 5).trim();
 
 			// Parse YAML frontmatter using Bun's built-in YAML parser
-			// Allow empty frontmatter (will be validated later)
+			// Bun.YAML.parse can return:
+			// - Object: normal case with frontmatter fields (e.g., { title: "...", tags: [...] })
+			// - null: empty YAML, whitespace-only, or no content between --- delimiters
+			// - Primitives: number, string, boolean (if YAML is just a scalar value)
+			// - Array: if YAML is just an array
+			// For now, return whatever YAML gives us and validate structure later
 			const data = Bun.YAML.parse(frontmatterYaml);
 
 			return {
-				data: data ?? {},
+				data,
 				content: markdownContent,
 			};
 		},

@@ -236,7 +236,8 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 									filePath,
 									validationResult: parseResult.validationResult,
 									rawData: parseResult.data,
-								cause: undefined,									},
+									cause: undefined,
+								},
 							}),
 						);
 						console.error('Validation details:', JSON.stringify(parseResult.validationResult, null, 2));
