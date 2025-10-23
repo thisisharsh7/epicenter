@@ -39,13 +39,11 @@ export async function serveCommand(
 	console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
 
 	console.log('📚 REST API Endpoints:\n');
-	for (const [workspaceName, workspaceClient] of Object.entries(client)) {
-		if (workspaceName === 'destroy') continue;
-		const actionKeys = Object.keys(workspaceClient as any).filter(
-			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
-		);
-		for (const actionName of actionKeys) {
-			const method = actionName.startsWith('get') ? 'GET ' : 'POST';
+	const { destroy: _destroy, ...workspaceClients } = client;
+	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
+		const { destroy, ...actions } = workspaceClient;
+		for (const [actionName, action] of Object.entries(actions)) {
+			const method = ({query: "GET", mutation: "POST"} as const)[action.type];
 			console.log(
 				`  ${method} http://localhost:${port}/${workspaceName}/${actionName}`,
 			);
@@ -58,13 +56,10 @@ export async function serveCommand(
 	);
 
 	console.log('📦 Available Tools:\n');
-	for (const [workspaceName, workspaceClient] of Object.entries(client)) {
-		if (workspaceName === 'destroy') continue;
+	for (const [workspaceName, workspaceClient] of Object.entries((workspaceClients))) {
 		console.log(`  • ${workspaceName}`);
-		const actionKeys = Object.keys(workspaceClient).filter(
-			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
-		);
-		for (const actionName of actionKeys) {
+		const { destroy, ...actions } = workspaceClient;
+		for (const actionName of Object.keys(actions)) {
 			console.log(`    └─ ${workspaceName}_${actionName}`);
 		}
 		console.log();

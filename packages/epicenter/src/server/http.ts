@@ -1,11 +1,11 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
-import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
-import { createEpicenterClient } from '../core/epicenter';
+import { createEpicenterClient, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
 import type { EpicenterOperationError } from '../core/errors';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import type { AnyWorkspaceConfig, WorkspaceClient } from '../core/workspace';
 import { createMcpServer } from './mcp-handlers';
+import type { WorkspaceActionMap } from '../core/actions';
 
 /**
  * Create an HTTP server with REST and MCP endpoints
@@ -48,28 +48,24 @@ export async function createHttpServer<
 	const client = await createEpicenterClient(config);
 
 	// Register REST endpoints for each workspace action
-	for (const workspace of config.workspaces) {
-		const workspaceClient = client[workspace.name as keyof typeof client];
+	const { destroy, ...workspaceClients } = client;
+	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
+		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
 
-		const handlerNames = Object.keys(workspaceClient as any).filter(
-			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
-		);
-
-		for (const actionName of handlerNames) {
-			const action = workspaceClient[actionName];
-			const path = `/${workspace.name}/${actionName}`;
+		for (const [actionName, action] of Object.entries(workspaceActions)) {
+			const path = `/${workspaceName}/${actionName}`;
 
 			// Register as both GET and POST
 			app.get(path, async (c) => {
 				const query = c.req.query();
 				const input = Object.keys(query).length > 0 ? query : undefined;
-				return executeAction(c, action, input);
+				return executeAction(c, action as any, input);
 			});
 
 			app.post(path, async (c) => {
 				const body = await c.req.json().catch(() => ({}));
 				const input = Object.keys(body).length > 0 ? body : undefined;
-				return executeAction(c, action, input);
+				return executeAction(c, action as any, input);
 			});
 		}
 	}

@@ -6,9 +6,9 @@ import {
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Value } from 'typebox/value';
-import type { Action } from '../core/actions';
+import type { Action, WorkspaceActionMap } from '../core/actions';
 import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import type { AnyWorkspaceConfig, WorkspaceClient } from '../core/workspace';
 
 /**
  * Create and configure an MCP server with tool handlers.
@@ -38,7 +38,7 @@ export function createMcpServer<
 		}
 	);
 
-	const actions = flattenActionsForMCP(client, config.workspaces);
+	const actions = flattenActionsForMCP(client);
 
 	// List tools handler
 	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -145,20 +145,16 @@ export function createMcpServer<
  */
 function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	client: EpicenterClient<TWorkspaces>,
-	workspaces: TWorkspaces
 ): Map<string, Action> {
 	const actions = new Map<string, Action>();
 
-	for (const workspace of workspaces) {
-		const workspaceClient = client[workspace.name as keyof typeof client];
+	const { destroy, ...workspaceClients } = client;
+	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
+		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
 
-		const handlerNames = Object.keys(workspaceClient as any).filter(
-			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
-		);
+		for (const [actionName, action] of Object.entries(workspaceActions)) {
+			const mcpToolName = `${workspaceName}_${actionName}`;
 
-		for (const actionName of handlerNames) {
-			const action = workspaceClient[actionName];
-			const mcpToolName = `${workspace.name}_${actionName}`;
 			actions.set(mcpToolName, action);
 		}
 	}

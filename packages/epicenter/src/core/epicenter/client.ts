@@ -1,6 +1,5 @@
 import type { AnyWorkspaceConfig } from '../workspace';
-import { initializeWorkspaces } from '../workspace/client';
-import type { WorkspacesToClients } from '../workspace/client';
+import { initializeWorkspaces, type WorkspacesToClients } from '../workspace/client';
 import type { EpicenterConfig } from './config';
 
 /**
@@ -60,8 +59,8 @@ export async function createEpicenterClient<
 	const clients = await initializeWorkspaces(config.workspaces);
 
 	const cleanup = () => {
-		for (const client of Object.values(clients) as Array<{ destroy: () => void }>) {
-			client.destroy();
+		for (const workspace of Object.values(clients)) {
+			workspace.destroy();
 		}
 	};
 
