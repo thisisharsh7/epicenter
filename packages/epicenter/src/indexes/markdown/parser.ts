@@ -1,11 +1,9 @@
-import { tryAsync, Ok, type Result } from 'wellcrafted/result';
-import { createTaggedError } from 'wellcrafted/error';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { readdir, mkdir } from 'node:fs/promises';
+import { createTaggedError } from 'wellcrafted/error';
+import { Ok, tryAsync, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import type { CellValue, TableSchema, Row } from '../../core/schema';
-import { serializeCellValue } from '../../core/schema';
+import type { Row, SerializedRow, TableSchema } from '../../core/schema';
 import type { RowValidationResult } from '../../core/validation';
 
 /**
@@ -59,8 +57,8 @@ export async function parseMarkdownFile<T>(
 			const frontmatterYaml = content.slice(4, endIndex);
 			const markdownContent = content.slice(endIndex + 5).trim();
 
-			// Parse YAML frontmatter
-			const data = parseYaml(frontmatterYaml) as T;
+			// Parse YAML frontmatter using Bun's built-in YAML parser
+			const data = Bun.YAML.parse(frontmatterYaml) as T;
 
 			if (
 				!data ||
@@ -94,33 +92,28 @@ export async function parseMarkdownFile<T>(
 
 /**
  * Write a markdown file with frontmatter
+ * Accepts already-serialized data (plain JavaScript values, no YJS types)
  */
-export async function writeMarkdownFile<T = any>(
+export async function writeMarkdownFile(
 	filePath: string,
-	data: T,
+	frontmatter: SerializedRow,
 	content = '',
 ): Promise<Result<void, MarkdownError>> {
 	return tryAsync({
 		try: async () => {
 			// Ensure directory exists
-			const dir = path.dirname(filePath);
-			await tryAsync({
+			const _ensureDir = await tryAsync({
 				try: async () => {
 					// Try to create directory if it doesn't exist
-					await mkdir(dir, { recursive: true });
+					await mkdir(path.dirname(filePath), { recursive: true });
 				},
 				catch: () => Ok(undefined), // Directory might already exist, that's fine
 			});
 
-			// Serialize YJS types to plain values before writing to YAML
-			const serializedData: Record<string, any> = {};
-			for (const [key, value] of Object.entries(data as Record<string, any>)) {
-				serializedData[key] = serializeCellValue(value as CellValue);
-			}
-
 			// Create markdown content with frontmatter
-			const yamlContent = stringifyYaml(serializedData);
-			const markdown = `---\n${yamlContent}---\n${content}`;
+			// frontmatter is already serialized (plain JS values), so just stringify to YAML
+			const yamlContent = Bun.YAML.stringify(frontmatter, null, 2)
+			const markdown = `---\n${yamlContent}\n---\n${content}`;
 
 			// Write file using Bun.write
 			await Bun.write(filePath, markdown);
@@ -134,46 +127,6 @@ export async function writeMarkdownFile<T = any>(
 	});
 }
 
-/**
- * Update a markdown file's frontmatter while preserving content
- */
-export async function updateMarkdownFile<T = any>(
-	filePath: string,
-	data: Partial<T>,
-): Promise<Result<void, MarkdownError>> {
-	return tryAsync({
-		try: async () => {
-			// Read existing file
-			const existingResult = await parseMarkdownFile<T>(filePath);
-
-			if (existingResult.error) {
-				throw new Error(`Failed to read existing file: ${filePath}`);
-			}
-
-			const existing = existingResult.data;
-
-			// Merge data
-			const newData = { ...existing.data, ...data };
-
-			// Write back
-			const writeResult = await writeMarkdownFile(
-				filePath,
-				newData,
-				existing.content,
-			);
-			if (writeResult.error) {
-				throw new Error(`Failed to write file: ${writeResult.error.message}`);
-			}
-			// writeResult.data is void, so just return success (implicitly returns undefined)
-		},
-		catch: (error) =>
-			MarkdownErr({
-				message: `Failed to update markdown file ${filePath}: ${error}`,
-				context: { filePath },
-				cause: error,
-			}),
-	});
-}
 
 /**
  * Delete a markdown file

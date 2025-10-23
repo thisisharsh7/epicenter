@@ -4,6 +4,7 @@ import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
 import { defineIndex, type Index } from '../../core/indexes';
 import type { Row, TableSchema, WorkspaceSchema } from '../../core/schema';
+import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import {
@@ -49,8 +50,9 @@ export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = Works
 	 * Per-table configuration
 	 * Keys must be valid table names from the workspace schema
 	 * Example: { pages: { contentField: 'body' }, posts: { contentField: 'content' } }
+	 * If omitted, all tables will use default configuration (no contentField, include null values)
 	 */
-	tables: {
+	tables?: {
 		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
 	};
 };
@@ -86,7 +88,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
 	config: MarkdownIndexConfig<TSchema>,
 ) {
-	const { storagePath, tables: tableConfigs } = config;
+	const { storagePath, tables: tableConfigs = {} } = config;
 
 	/**
 	 * Loop prevention flags to avoid infinite sync cycles
@@ -100,6 +102,43 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	let isProcessingFileChange = false;
 	let isProcessingYJSChange = false;
 
+	/**
+	 * Helper to write a YJS row to markdown file
+	 * Handles serialization and frontmatter/content extraction
+	 */
+	async function writeRowToMarkdown(
+		row: Row,
+		tableName: string,
+		tableConfig: TableMarkdownConfig<any> | undefined,
+	) {
+		// Serialize YJS types (Y.Text, Y.Array) to plain values (string, array)
+		// This happens at the YJS boundary
+		const serialized = serializeRow(row);
+
+		const filePath = getMarkdownPath(storagePath, tableName, row.id);
+		const contentField = tableConfig?.contentField;
+
+		// Extract content field value for markdown body (if configured)
+		const content = contentField ? (serialized[contentField as string] ?? '') : '';
+
+		// Build frontmatter from serialized data
+		// Remove content field from frontmatter to avoid duplication (it goes in body)
+		let frontmatter = contentField
+			? { ...serialized, [contentField as string]: undefined }
+			: serialized;
+
+		// Omit null/undefined values if configured
+		if (tableConfig?.omitNullValues) {
+			frontmatter = Object.fromEntries(
+				Object.entries(frontmatter).filter(([_, value]) =>
+					value !== null && value !== undefined
+				)
+			);
+		}
+
+		return writeMarkdownFile(filePath, frontmatter, content as string);
+	}
+
 	// Set up observers for each table
 	const unsubscribers: Array<() => void> = [];
 
@@ -109,9 +148,8 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			throw new Error(`Table "${tableName}" not found`);
 		}
 
-		// Get the table config and content field (if configured)
+		// Get the table config (if configured)
 		const tableConfig = tableConfigs[tableName];
-		const contentField = tableConfig?.contentField;
 
 		const unsub = table.observe({
 			onAdd: async (row) => {
@@ -123,39 +161,12 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 
 				isProcessingYJSChange = true;
 				try {
-					const filePath = getMarkdownPath(
-						storagePath,
-						tableName,
-						row.id,
-					);
-					// Extract the content field value to use as markdown body (if configured)
-					// If no contentField, markdown body will be empty
-					const content = contentField
-						? ((row as any)[contentField] ?? '')
-						: '';
-
-					// Remove content field from frontmatter if it's configured (to avoid duplication)
-					// The content field value goes into markdown body, so we set it to undefined here
-					// so it gets filtered out below (either by omitNullValues or by YAML serialization)
-					let frontmatter = contentField
-						? { ...row, [contentField]: undefined }
-						: { ...row };
-
-					// Omit null/undefined values if configured
-					if (tableConfig?.omitNullValues) {
-						frontmatter = Object.fromEntries(
-							Object.entries(frontmatter).filter(([_, value]) =>
-								value !== null && value !== undefined
-							)
-						);
-					}
-
-					const { error } = await writeMarkdownFile(filePath, frontmatter, content);
+					const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
 					if (error) {
 						console.error(
 							IndexErr({
 								message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id, filePath },
+								context: { tableName, id: row.id },
 								cause: error,
 							}),
 						);
@@ -173,39 +184,12 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 
 				isProcessingYJSChange = true;
 				try {
-					const filePath = getMarkdownPath(
-						storagePath,
-						tableName,
-						row.id,
-					);
-					// Extract the content field value to use as markdown body (if configured)
-					// If no contentField, markdown body will be empty
-					const content = contentField
-						? ((row as any)[contentField] ?? '')
-						: '';
-
-					// Remove content field from frontmatter if it's configured (to avoid duplication)
-					// The content field value goes into markdown body, so we set it to undefined here
-					// so it gets filtered out below (either by omitNullValues or by YAML serialization)
-					let frontmatter = contentField
-						? { ...row, [contentField]: undefined }
-						: { ...row };
-
-					// Omit null/undefined values if configured
-					if (tableConfig?.omitNullValues) {
-						frontmatter = Object.fromEntries(
-							Object.entries(frontmatter).filter(([_, value]) =>
-								value !== null && value !== undefined
-							)
-						);
-					}
-
-					const { error } = await writeMarkdownFile(filePath, frontmatter, content);
+					const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
 					if (error) {
 						console.error(
 							IndexErr({
 								message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id, filePath },
+								context: { tableName, id: row.id },
 								cause: error,
 							}),
 						);
