@@ -1,6 +1,6 @@
 # Using Epicenter as an MCP Server
 
-This guide shows how to connect your Epicenter server to Claude Code as an MCP (Model Context Protocol) server.
+This guide shows how to connect your Epicenter server to Claude Code as an MCP (Model Context Protocol) server using HTTP transport.
 
 ## What You'll Get
 
@@ -11,59 +11,9 @@ Once connected, Claude Code can:
 - Validate inputs using your TypeBox schemas
 - Return structured data from your indexes
 
-## Two Transport Options
-
-MCP supports two ways to communicate with servers:
-
-1. **stdio Transport** (Recommended) - Server runs as a child process, communicating via stdin/stdout
-   - Simpler setup, no server management
-   - Standard way for local MCP servers
-   - Use `server-stdio.ts`
-
-2. **HTTP Transport** - Server runs as HTTP service, communicating via Server-Sent Events
-   - Good for remote servers or existing HTTP services
-   - Requires managing server lifecycle
-   - Use `server-http.ts`
-
 ## Quick Start
 
-### Option A: stdio Transport (Recommended)
-
-This is the simpler and more standard approach.
-
-#### 1. Make the script executable
-
-```bash
-cd packages/epicenter/examples/content-hub
-chmod +x server-stdio.ts
-```
-
-#### 2. Add to Claude Code
-
-Using the CLI:
-```bash
-claude mcp add content-hub --scope user -- bun $(pwd)/server-stdio.ts
-```
-
-Or add manually to `~/.claude.json`:
-```json
-{
-  "mcpServers": {
-    "content-hub": {
-      "command": "bun",
-      "args": ["/absolute/path/to/server-stdio.ts"]
-    }
-  }
-}
-```
-
-That's it! No server to manage, Claude Code will start/stop the process automatically.
-
-### Option B: HTTP Transport
-
-Use this if you need a standalone HTTP server or want to access the MCP server remotely.
-
-#### 1. Start Your Epicenter Server
+### 1. Start Your Epicenter Server
 
 ```bash
 cd packages/epicenter/examples/content-hub
@@ -74,7 +24,7 @@ The server will start on http://localhost:3913 with:
 - REST API endpoints at `/{workspace}/{action}`
 - MCP endpoint at `/mcp`
 
-#### 2. Add to Claude Code
+### 2. Add to Claude Code
 
 Using the CLI (recommended):
 ```bash
@@ -384,7 +334,7 @@ Claude Code → POST /mcp → MCP Server → StreamableHTTPTransport
 
 ## Next Steps
 
-- Explore the [HTTP server](./server-http.ts) or [stdio server](./server-stdio.ts)
+- Explore the [HTTP server](./server-http.ts)
 - Review [workspace configuration](./epicenter.config.ts)
 - Learn about [indexes](../../src/indexes/sqlite/index.ts)
 - Read [action definitions](../../src/core/actions.ts)

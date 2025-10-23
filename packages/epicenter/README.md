@@ -714,6 +714,60 @@ if (isQuery(someAction)) {
 - `getAllFromDisk()` - Read all from markdown
 - `sync()` - Rebuild SQLite from markdown
 
+## MCP Servers: HTTP Transport Only
+
+Epicenter supports exposing workspaces as MCP (Model Context Protocol) servers for AI assistant integration, using HTTP transport exclusively.
+
+### Why HTTP-Only?
+
+Epicenter does not support stdio transport for MCP servers. This is an intentional architectural decision based on how Epicenter workspaces function.
+
+**The Problem with stdio**
+
+stdio servers spawn a new process for each AI assistant session. With Epicenter's architecture, this creates serious issues:
+
+1. **Expensive Cold Starts**: Every session must:
+   - Initialize YJS documents
+   - Build all indexes (markdown, SQLite, etc.)
+   - Set up file watchers
+   - Parse and index all existing files
+
+2. **File System Conflicts**: Multiple concurrent sessions create:
+   - Multiple file watchers on the same directories
+   - Potential race conditions when writing files
+   - SQLite database lock contention
+
+3. **No Shared State**: Each session maintains its own copy of:
+   - YJS documents in memory
+   - Parsed indexes
+   - SQLite databases
+   - Leading to linear memory growth and wasted resources
+
+**The HTTP Approach**
+
+A long-running HTTP server models the goal of Epicenter being a single folder or instance that you can connect to via MCP or HTTP alike. It:
+
+- Initializes once (fast subsequent operations)
+- Shares state across all AI assistant sessions
+- Handles file watching without conflicts
+- Maintains consistent indexes
+- Scales efficiently
+
+**One-Time Setup**:
+```bash
+# Terminal: Start server once
+bun cli.ts serve
+
+# AI assistant connects instantly, anytime
+# No cold start penalty
+```
+
+This architecture is designed for production use with real workspaces containing hundreds or thousands of items.
+
+### Using Epicenter with Claude Code
+
+See the [MCP Integration Guide](./examples/content-hub/MCP.md) for detailed instructions on connecting your Epicenter server to Claude Code via HTTP transport.
+
 ## Contributing
 
 ### Local Development

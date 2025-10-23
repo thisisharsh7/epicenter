@@ -254,6 +254,5 @@ This is a v1 implementation focused on simplicity. Future enhancements might inc
 - Action descriptions in MCP tool definitions
 - Separate GET/POST routing based on query vs mutation types
 - WebSocket support for real-time YJS sync
-- stdio transport for local MCP usage
 
 The foundation is solid and extensible.

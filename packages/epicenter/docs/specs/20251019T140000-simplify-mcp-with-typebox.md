@@ -142,7 +142,7 @@ const result = await action(request.arguments);
 
 2. **Simplified workspace.ts**
    - `createWorkspaceServer()` - HTTP REST API (unchanged)
-   - `createWorkspaceMCPServer()` - MCP stdio for Claude Desktop (NEW)
+   - `createWorkspaceMCPServer()` - MCP server for Claude Desktop (NEW)
    - Direct action-to-tool mapping using `Object.entries`
 
 3. **Removed All Custom Code**
@@ -201,7 +201,7 @@ const result = await action(request.arguments);
 - ✅ **No custom abstractions** - actions already have metadata
 - ✅ **Official protocol compliance** - using SDK
 - ✅ **TypeBox validation** - built-in with Value.Check
-- ✅ **Dual transport** - HTTP REST + stdio MCP
+- ✅ **HTTP transport** - HTTP REST + MCP
 - ✅ **Zero helper functions** - direct mapping
 
 ### Usage

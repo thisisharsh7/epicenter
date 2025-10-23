@@ -93,7 +93,6 @@ export type { EpicenterOperationError, IndexError } from './core/errors';
 // Server - expose workspaces as REST API and MCP servers
 export {
 	createHttpServer,
-	createStdioServer,
 } from './server';
 
 // Re-export commonly used Drizzle utilities for querying indexes

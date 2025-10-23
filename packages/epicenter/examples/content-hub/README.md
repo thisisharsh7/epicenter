@@ -7,7 +7,6 @@ A practical example demonstrating how to build a content management system with 
 - **`epicenter.config.ts`**: Workspace definitions for managing pages and social media content
 - **`cli.ts`**: Command-line interface for interacting with your data
 - **`server-http.ts`**: HTTP server exposing REST and MCP endpoints
-- **`server-stdio.ts`**: stdio MCP server for Claude Code integration
 - **`server.test.ts`**: Tests demonstrating how to test your server
 
 ## Quick Start
