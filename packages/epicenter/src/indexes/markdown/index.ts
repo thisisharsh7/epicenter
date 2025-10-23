@@ -16,26 +16,6 @@ import {
 } from './parser';
 
 
-/**
- * Per-table markdown configuration
- */
-export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
-	/**
-	 * Field name to map markdown body content to for this table
-	 * Must be a valid field name from the table's schema
-	 * If undefined, markdown body will be empty and only frontmatter fields are synced
-	 */
-	contentField?: keyof TTableSchema & string;
-
-	/**
-	 * Whether to omit null/undefined values from frontmatter when writing markdown files
-	 * If true, fields with null or undefined values won't be written to frontmatter
-	 * When reading, missing schema fields will be populated with null
-	 * Default: false
-	 */
-	omitNullValues?: boolean;
-};
-
 
 /**
  * Markdown index configuration
@@ -55,6 +35,26 @@ export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = Works
 	tables?: {
 		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
 	};
+};
+
+/**
+ * Per-table markdown configuration
+ */
+type TableMarkdownConfig<TTableSchema extends TableSchema> = {
+	/**
+	 * Field name to map markdown body content to for this table
+	 * Must be a valid field name from the table's schema
+	 * If undefined, markdown body will be empty and only frontmatter fields are synced
+	 */
+	contentField?: keyof TTableSchema & string;
+
+	/**
+	 * Whether to omit null/undefined values from frontmatter when writing markdown files
+	 * If true, fields with null or undefined values won't be written to frontmatter
+	 * When reading, missing schema fields will be populated with null
+	 * Default: false
+	 */
+	omitNullValues?: boolean;
 };
 
 /**
@@ -111,7 +111,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		// This happens at the YJS boundary
 		const serialized = serializeRow(row);
 
-		const tableConfig = tableConfigs[tableName as keyof TSchema];
+		const tableConfig = tableConfigs[tableName];
 		const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id: row.id });
 		const contentField = tableConfig?.contentField;
 
