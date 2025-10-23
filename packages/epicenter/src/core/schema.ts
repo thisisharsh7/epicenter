@@ -399,7 +399,7 @@ export function serializeRow<T extends Row>(row: T): SerializedRow<T> {
 	return Object.fromEntries(
 		Object.entries(row).map(([key, value]) => [
 			key,
-			serializeCellValue(value as CellValue),
+			serializeCellValue(value),
 		]),
 	) as SerializedRow<T>;
 }
