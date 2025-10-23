@@ -716,7 +716,48 @@ if (isQuery(someAction)) {
 
 ## Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup and guidelines.
+### Local Development
+
+If you're working on the Epicenter CLI, test it locally using `bun link`:
+
+```bash
+# One-time setup: Link the package globally
+cd packages/epicenter
+bun link
+
+# Now use the CLI from any directory
+cd examples/basic-workspace
+epicenter --help
+epicenter blog createPost --title "Test" --category tech
+epicenter serve
+
+# When done testing
+cd packages/epicenter
+bun unlink
+```
+
+**Alternative:** Use local `cli.ts` files in examples:
+
+```bash
+cd examples/basic-workspace
+bun cli.ts --help
+bun cli.ts blog createPost --title "Test" --category tech
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+bun test
+
+# Run specific example tests
+cd examples/basic-workspace
+bun test
+```
+
+### More Information
+
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for complete development setup and guidelines.
 
 ## License
 

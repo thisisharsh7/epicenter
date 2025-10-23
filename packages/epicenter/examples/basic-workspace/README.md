@@ -76,28 +76,28 @@ Use the Epicenter CLI to interact with the workspace:
 
 ```bash
 # From this directory
-bun cli
+bun cli.ts
 
 # Create a new post
-bun cli blog createPost --title "My First Post" --content "Hello World" --category tech
+bun cli.ts blog createPost --title "My First Post" --content "Hello World" --category tech
 
 # Publish a post (you'll need the ID from the previous command)
-bun cli blog publishPost --id <post-id>
+bun cli.ts blog publishPost --id <post-id>
 
 # Add a comment
-bun cli blog addComment --postId <post-id> --author "Alice" --content "Great post!"
+bun cli.ts blog addComment --postId <post-id> --author "Alice" --content "Great post!"
 
 # Increment views
-bun cli blog incrementViews --id <post-id>
+bun cli.ts blog incrementViews --id <post-id>
 
 # Query published posts
-bun cli blog getPublishedPosts
+bun cli.ts blog getPublishedPosts
 
 # Get a specific post
-bun cli blog getPost --id <post-id>
+bun cli.ts blog getPost --id <post-id>
 
 # Get comments for a post
-bun cli blog getPostComments --postId <post-id>
+bun cli.ts blog getPostComments --postId <post-id>
 ```
 
 ### CLI Help
@@ -106,10 +106,10 @@ Get help for any action:
 
 ```bash
 # See all available workspaces and actions
-bun cli --help
+bun cli.ts --help
 
 # Get help for a specific action
-bun cli blog createPost --help
+bun cli.ts blog createPost --help
 ```
 
 ## Working with Markdown Files
@@ -194,15 +194,15 @@ vim .data/content/posts/abc123.md
 ### Persistence Across Sessions
 ```bash
 # Session 1: Create a post
-bun cli blog createPost --title "My Post" --category tech
+bun cli.ts blog createPost --title "My Post" --category tech
 # YJS state saved to .epicenter/blog.yjs
 
 # Session 2: Query the post (it persists!)
-bun cli blog getPublishedPosts
+bun cli.ts blog getPublishedPosts
 # YJS state loaded from .epicenter/blog.yjs
 
 # Session 3: Update views (works across sessions!)
-bun cli blog incrementViews --id <post-id>
+bun cli.ts blog incrementViews --id <post-id>
 # Changes saved back to .epicenter/blog.yjs
 ```
 
@@ -215,7 +215,7 @@ bun cli blog incrementViews --id <post-id>
 
 2. **Use the CLI to create data**:
    ```bash
-   bun cli blog createPost --title "CLI Test" --category personal
+   bun cli.ts blog createPost --title "CLI Test" --category personal
    ```
 
 3. **Check the markdown files**:

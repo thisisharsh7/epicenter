@@ -5,8 +5,7 @@
 	"scripts": {
 		"test": "bun test",
 		"test:server": "bun test server.test.ts",
-		"test:cli": "bun test cli.test.ts",
-		"cli": "bun ../../packages/epicenter/src/cli/bin.ts"
+		"test:cli": "bun test cli.test.ts"
 	},
 	"dependencies": {
 		"@repo/epicenter": "workspace:*"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { hideBin } from 'yargs/helpers';
-import { createCLI } from '../../packages/epicenter/src/cli/index.ts';
+import { createCLI } from '../../src/cli/index.ts';
 import config from './epicenter.config';
 
 // Create and run CLI
