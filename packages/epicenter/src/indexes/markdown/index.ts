@@ -2,6 +2,7 @@ import type { FSWatcher } from 'node:fs';
 import { mkdirSync, watch } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import type { Brand } from 'wellcrafted/brand';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
@@ -11,6 +12,19 @@ import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import { parseMarkdownWithValidation } from './parser';
+
+/**
+ * Branded type for absolute file system paths
+ *
+ * This brand ensures that we only work with absolute paths in functions that require them,
+ * preventing bugs from accidentally passing relative paths where absolute paths are expected.
+ *
+ * Use `path.resolve()` to convert relative paths to absolute paths and assert the brand:
+ * ```typescript
+ * const absolutePath = path.resolve('./relative/path') as AbsolutePath;
+ * ```
+ */
+type AbsolutePath = string & Brand<'AbsolutePath'>;
 
 /**
  * Bidirectional sync coordination state
@@ -110,7 +124,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	 * Convert storagePath to absolute path immediately to ensure consistency
 	 * even if the working directory changes during execution.
 	 */
-	const storagePath = path.resolve(relativeStoragePath);
+	const storagePath = path.resolve(relativeStoragePath) as AbsolutePath;
 
 	/**
 	 * Coordination state to prevent infinite sync loops
@@ -319,7 +333,7 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>({
 	tableConfig,
 }: {
 	tableName: string;
-	storagePath: string;
+	storagePath: AbsolutePath;
 	tableConfig?: TableMarkdownConfig<TTableSchema>;
 }) {
 	const bodyFieldKey = tableConfig?.bodyField;
@@ -330,11 +344,14 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>({
 	 * File structure: {storagePath}/{tableName}/{id}.md
 	 * Example: /Users/name/vault/pages/my-page.md
 	 *
+	 * The brand assertion is safe because path.join() with an absolute path as the first
+	 * argument always produces an absolute path.
+	 *
 	 * @param id - The row ID (becomes the markdown filename without extension)
 	 * @returns Absolute path to the markdown file
 	 */
-	const getFilePath = (id: string) =>
-		path.join(storagePath, tableName, `${id}.md`);
+	const getFilePath = (id: string): AbsolutePath =>
+		path.join(storagePath, tableName, `${id}.md`) as AbsolutePath;
 
 	// Helper to determine if a field should be included in frontmatter
 
@@ -473,7 +490,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
-	storagePath: string;
+	storagePath: AbsolutePath;
 	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
 	syncCoordination: SyncCoordination;
 }): Array<() => void> {
@@ -577,7 +594,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
-	storagePath: string;
+	storagePath: AbsolutePath;
 	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
 	syncCoordination: SyncCoordination;
 }): FSWatcher {
@@ -618,10 +635,14 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			// Extract the tableName and row ID (filename without the .md) from the parts
 			const [tableName, filename] = parts as [string, `${string}.md`];
 			const id = path.basename(filename, '.md');
+
 			/**
 			 * Construct the full absolute path to the file
+			 *
+			 * Since storagePath is already absolute (guaranteed by AbsolutePath brand),
+			 * joining it with relativePath produces an absolute path.
 			 */
-			const filePath = path.join(storagePath, relativePath);
+			const filePath = path.join(storagePath, relativePath) as AbsolutePath;
 
 			// Get table and schema once for this file event
 			const table = db.tables[tableName];
