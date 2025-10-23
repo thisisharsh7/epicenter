@@ -106,13 +106,12 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	 * Helper to write a YJS row to markdown file
 	 * Handles serialization and frontmatter/content extraction
 	 */
-	async function writeRowToMarkdown(
-{ row, tableName, tableConfig }: { row: Row; tableName: string; tableConfig: TableMarkdownConfig<any> | undefined; },
-	) {
+	async function writeRowToMarkdown({ row, tableName }: { row: Row; tableName: string }) {
 		// Serialize YJS types (Y.Text, Y.Array) to plain values (string, array)
 		// This happens at the YJS boundary
 		const serialized = serializeRow(row);
 
+		const tableConfig = tableConfigs[tableName as keyof TSchema];
 		const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id: row.id });
 		const contentField = tableConfig?.contentField;
 
@@ -137,6 +136,14 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		return writeMarkdownFile(filePath, frontmatter, content as string);
 	}
 
+	/**
+	 * Helper to delete a markdown file for a row
+	 */
+	async function deleteRowMarkdown({ tableName, id }: { tableName: string; id: string }) {
+		const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id });
+		return await deleteMarkdownFile(filePath);
+	}
+
 	// Set up observers for each table
 	const unsubscribers: Array<() => void> = [];
 
@@ -146,9 +153,6 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			throw new Error(`Table "${tableName}" not found`);
 		}
 
-		// Get the table config (if configured)
-		const tableConfig = tableConfigs[tableName];
-
 		const unsub = table.observe({
 			onAdd: async (row) => {
 				// Skip if this YJS change was triggered by a file change we're processing
@@ -156,7 +160,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown({ row, tableName, tableConfig });
+				const { error } = await writeRowToMarkdown({ row, tableName });
 				isProcessingYJSChange = false;
 
 				if (error) {
@@ -175,7 +179,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown({ row, tableName, tableConfig });
+				const { error } = await writeRowToMarkdown({ row, tableName });
 				isProcessingYJSChange = false;
 
 				if (error) {
@@ -194,15 +198,14 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id });
-				const { error } = await deleteMarkdownFile(filePath);
+				const { error } = await deleteRowMarkdown({ tableName, id });
 				isProcessingYJSChange = false;
 
 				if (error) {
 					console.error(
 						IndexErr({
 							message: `Markdown index onDelete failed for ${tableName}/${id}`,
-							context: { tableName, id, filePath },
+							context: { tableName, id },
 							cause: error,
 						}),
 					);
@@ -243,15 +246,6 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 
 			const { tableName, id } = parsed;
 
-			// Get the table schema
-			const tableSchema = db.schema[tableName];
-			if (!tableSchema) {
-				console.warn(
-					`File watcher: Unknown table "${tableName}" from file ${filename}`,
-				);
-				return;
-			}
-
 			isProcessingFileChange = true;
 			try {
 				// Handle file changes
@@ -275,6 +269,15 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 
 				// Process file change (works for both 'change' and 'rename' with existing file)
 				if (eventType === 'change' || eventType === 'rename') {
+					// Get the table schema
+					const tableSchema = db.schema[tableName];
+					if (!tableSchema) {
+						console.warn(
+							`File watcher: Unknown table "${tableName}" from file ${filename}`,
+						);
+						return;
+					}
+
 					// File was modified, parse and update YJS
 					const parseResult = await parseMarkdownWithValidation(
 						filePath,
@@ -319,9 +322,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 									? { ...parseResult.data, [tableConfig.contentField]: parseResult.content }
 									: parseResult.data;
 
-								updateYJSRowFromMarkdown(
-									{ db, tableName, rowId: id, newData: rowData, schema: tableSchema },
-								);
+								updateYJSRowFromMarkdown({ db, tableName, rowId: id, newData: rowData });
 							} catch (error) {
 								console.error(
 									IndexErr({
@@ -365,14 +366,18 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
  * @param tableName - Name of the table to update
  * @param rowId - ID of the row to update or insert
  * @param newData - Plain JavaScript object from markdown file (already validated against schema)
- * @param schema - Table schema for type information (determines which columns need YJS conversion)
  */
 function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
-{ db, tableName, rowId, newData, schema }: { db: Db<TWorkspaceSchema>; tableName: string; rowId: string; newData: Row; schema: TableSchema; },
+{ db, tableName, rowId, newData }: { db: Db<TWorkspaceSchema>; tableName: string; rowId: string; newData: Row; },
 ): void {
 	const table = db.tables[tableName];
 	if (!table) {
 		throw new Error(`Table "${tableName}" not found`);
+	}
+
+	const schema = db.schema[tableName];
+	if (!schema) {
+		throw new Error(`Schema for table "${tableName}" not found`);
 	}
 
 	// Get the existing row
