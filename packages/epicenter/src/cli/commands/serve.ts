@@ -24,11 +24,11 @@ export async function serveCommand(
 ): Promise<void> {
 	console.log(`🔨 Creating HTTP server for app: ${config.id}`);
 
-	const httpApp = await createHttpServer(config);
+	const { app, client } = await createHttpServer(config);
 	const port = options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT));
 
 	const server = Bun.serve({
-		fetch: httpApp.fetch,
+		fetch: app.fetch,
 		port,
 		development: options.dev ?? true,
 	});
@@ -39,14 +39,15 @@ export async function serveCommand(
 	console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
 
 	console.log('📚 REST API Endpoints:\n');
-	for (const workspace of config.workspaces) {
-		const actionKeys = Object.keys(
-			workspace.actions({ db: {} as any, indexes: {} as any, workspaces: {} as any }),
+	for (const [workspaceName, workspaceClient] of Object.entries(client)) {
+		if (workspaceName === 'destroy') continue;
+		const actionKeys = Object.keys(workspaceClient as any).filter(
+			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
 		);
 		for (const actionName of actionKeys) {
 			const method = actionName.startsWith('get') ? 'GET ' : 'POST';
 			console.log(
-				`  ${method} http://localhost:${port}/${workspace.name}/${actionName}`,
+				`  ${method} http://localhost:${port}/${workspaceName}/${actionName}`,
 			);
 		}
 	}
@@ -57,13 +58,14 @@ export async function serveCommand(
 	);
 
 	console.log('📦 Available Tools:\n');
-	for (const workspace of config.workspaces) {
-		console.log(`  • ${workspace.name}`);
-		const actionKeys = Object.keys(
-			workspace.actions({ db: {} as any, indexes: {} as any, workspaces: {} as any }),
+	for (const [workspaceName, workspaceClient] of Object.entries(client)) {
+		if (workspaceName === 'destroy') continue;
+		console.log(`  • ${workspaceName}`);
+		const actionKeys = Object.keys(workspaceClient).filter(
+			(key) => typeof workspaceClient[key] === 'function' && key !== 'destroy'
 		);
 		for (const actionName of actionKeys) {
-			console.log(`    └─ ${workspace.name}_${actionName}`);
+			console.log(`    └─ ${workspaceName}_${actionName}`);
 		}
 		console.log();
 	}

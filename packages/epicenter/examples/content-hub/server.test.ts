@@ -26,7 +26,7 @@ describe('Content Hub Server', () => {
 		});
 
 		// Create the server
-		const app = await createHttpServer(contentHub);
+		const { app } = await createHttpServer(contentHub);
 
 		// Start server on random port
 		server = Bun.serve({

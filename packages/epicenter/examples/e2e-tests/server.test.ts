@@ -16,7 +16,7 @@ describe('E2E Server Tests', () => {
 	let baseUrl: string;
 
 	beforeAll(async () => {
-		const app = await createHttpServer(epicenterConfig);
+		const { app } = await createHttpServer(epicenterConfig);
 		server = Bun.serve({
 			fetch: app.fetch,
 			port: 0, // Random available port

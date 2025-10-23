@@ -113,7 +113,7 @@ beforeAll(async () => {
 		workspaces: [testPages],
 	});
 
-	const app = await createHttpServer(contentHub);
+	const { app } = await createHttpServer(contentHub);
 
 	server = Bun.serve({
 		fetch: app.fetch,

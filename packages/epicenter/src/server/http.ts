@@ -1,7 +1,7 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
-import type { EpicenterConfig } from '../core/epicenter';
+import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
 import type { EpicenterOperationError } from '../core/errors';
 import type { AnyWorkspaceConfig } from '../core/workspace';
@@ -15,7 +15,7 @@ import { createMcpServer } from './mcp-handlers';
  * - MCP endpoint: POST /mcp (using Server-Sent Events)
  *
  * @param config - Epicenter configuration with workspaces
- * @returns Hono app instance
+ * @returns Object containing the Hono app and initialized Epicenter client
  *
  * @example
  * ```typescript
@@ -24,8 +24,9 @@ import { createMcpServer } from './mcp-handlers';
  *   workspaces: [blogWorkspace],
  * });
  *
- * const app = await createHttpServer(epicenter);
+ * const { app, client } = await createHttpServer(epicenter);
  *
+ * // Use app for serving
  * Bun.serve({
  *   fetch: app.fetch,
  *   port: 3913,
@@ -35,7 +36,12 @@ import { createMcpServer } from './mcp-handlers';
 export async function createHttpServer<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(config: EpicenterConfig<TId, TWorkspaces>): Promise<Hono> {
+>(config: EpicenterConfig<TId, TWorkspaces>): Promise<{
+	/** Hono web server instance ready to serve with `Bun.serve({ fetch: app.fetch })` */
+	app: Hono;
+	/** Epicenter client with initialized workspaces and actions */
+	client: EpicenterClient<TWorkspaces>;
+}> {
 	const app = new Hono();
 
 	// Create client
@@ -78,7 +84,7 @@ export async function createHttpServer<
 		return transport.handleRequest(c);
 	});
 
-	return app;
+	return { app, client };
 }
 
 

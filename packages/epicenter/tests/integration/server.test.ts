@@ -114,11 +114,11 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace],
 		});
 
-		let app: Awaited<ReturnType<typeof createHttpServer>>;
+		let app: Awaited<ReturnType<typeof createHttpServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {
-			app = await createHttpServer(singleWorkspaceEpicenter);
+			const { app } = await createHttpServer(singleWorkspaceEpicenter);
 			server = Bun.serve({
 				fetch: app.fetch,
 				port: 0, // Random available port
@@ -280,11 +280,11 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace, authWorkspace],
 		});
 
-		let app: Awaited<ReturnType<typeof createHttpServer>>;
+		let app: Awaited<ReturnType<typeof createHttpServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {
-			app = await createHttpServer(epicenter);
+			const { app } = await createHttpServer(epicenter);
 			server = Bun.serve({
 				fetch: app.fetch,
 				port: 0,
