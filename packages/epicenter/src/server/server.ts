@@ -1,17 +1,21 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
+import { swaggerUI } from '@hono/swagger-ui';
+import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
-import { describeRoute, validator } from 'hono-openapi';
+import { describeRoute, openAPIRouteHandler, validator } from 'hono-openapi';
 import { Err, Ok } from 'wellcrafted/result';
 import { createEpicenterClient, forEachAction, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createMcpServer } from './mcp';
 
 /**
- * Create a unified server with REST and MCP endpoints
+ * Create a unified server with REST, MCP, and API documentation endpoints
  *
  * This creates a Hono server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET/POST `/{workspace}/{action}` for direct HTTP access
  * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
+ * - API documentation: `/swagger-ui` (Swagger UI) and `/scalar` (Scalar)
+ * - OpenAPI spec: `/openapi.json`
  *
  * The function initializes the Epicenter client, registers REST routes for all workspace actions,
  * and configures an MCP server instance for protocol-based access.
@@ -35,6 +39,10 @@ import { createMcpServer } from './mcp';
  *   fetch: app.fetch,
  *   port: 3913,
  * });
+ *
+ * // Access documentation at:
+ * // - http://localhost:3913/swagger-ui (Swagger UI)
+ * // - http://localhost:3913/scalar (Scalar)
  * ```
  */
 export async function createServer<
@@ -56,7 +64,7 @@ export async function createServer<
 		const path = `/${workspaceName}/${actionName}`;
 
 		// Tag with both workspace and operation type for multi-dimensional grouping
-		const operationType = ({ query: 'queries', mutation: 'mutations'} as const)[action.type];
+		const operationType = ({ query: 'queries', mutation: 'mutations' } as const)[action.type];
 		const tags = [workspaceName, operationType];
 
 		// Register GET endpoint
@@ -103,6 +111,26 @@ export async function createServer<
 		await mcpServer.connect(transport);
 		return transport.handleRequest(c);
 	});
+
+	// OpenAPI specification endpoint
+	app.get(
+		'/openapi.json',
+		openAPIRouteHandler(app, {
+			documentation: {
+				info: {
+					title: `${config.id} API`,
+					version: '1.0.0',
+					description: 'API documentation for Epicenter workspaces',
+				},
+			},
+		}),
+	);
+
+	// Swagger UI endpoint
+	app.get('/swagger-ui', swaggerUI({ url: '/openapi.json' }));
+
+	// Scalar UI endpoint
+	app.get('/scalar', Scalar({ url: '/openapi.json' }));
 
 	return { app, client };
 }
