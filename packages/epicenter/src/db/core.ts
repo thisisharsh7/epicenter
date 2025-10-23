@@ -107,8 +107,8 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		/**
 		 * Get all table names in the document
 		 */
-		getTableNames(): (keyof TWorkspaceSchema)[] {
-			return Object.keys(schema);
+		getTableNames(): (keyof TWorkspaceSchema & string)[] {
+			return Object.keys(schema) as (keyof TWorkspaceSchema & string)[];
 		},
 	};
 }
