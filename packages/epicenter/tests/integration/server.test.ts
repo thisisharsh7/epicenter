@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeAll } from 'bun:test';
 import { eq } from 'drizzle-orm';
-import { Type } from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
@@ -54,14 +54,10 @@ describe('Server Integration Tests', () => {
 
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({
-				input: Type.Object({
-					title: Type.String({ minLength: 1 }),
-					content: Type.Optional(Type.String()),
-					category: Type.Union([
-						Type.Literal('tech'),
-						Type.Literal('personal'),
-						Type.Literal('work'),
-					]),
+				input: type({
+					title: "string >= 1",
+					"content?": "string",
+					category: "'tech' | 'personal' | 'work'",
 				}),
 				description: 'Create a new blog post',
 				handler: async (input) => {
@@ -89,12 +85,8 @@ describe('Server Integration Tests', () => {
 			}),
 
 			getPostsByCategory: defineQuery({
-				input: Type.Object({
-					category: Type.Union([
-						Type.Literal('tech'),
-						Type.Literal('personal'),
-						Type.Literal('work'),
-					]),
+				input: type({
+					category: "'tech' | 'personal' | 'work'",
 				}),
 				description: 'Get posts by category',
 				handler: async ({ category }) => {

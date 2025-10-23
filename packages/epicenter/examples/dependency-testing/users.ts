@@ -1,4 +1,4 @@
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	defineWorkspace,
@@ -50,8 +50,8 @@ export const users = defineWorkspace({
 
 		// Query: Get user by ID
 		getUser: defineQuery({
-			input: Type.Object({
-				id: Type.String(),
+			input: type({
+				id: "string",
 			}),
 			handler: async ({ id }) => {
 				const user = await indexes.sqlite.db
@@ -64,12 +64,8 @@ export const users = defineWorkspace({
 
 		// Query: Get users by role
 		getUsersByRole: defineQuery({
-			input: Type.Object({
-				role: Type.Union([
-					Type.Literal('admin'),
-					Type.Literal('author'),
-					Type.Literal('reader'),
-				]),
+			input: type({
+				role: "'admin' | 'author' | 'reader'",
 			}),
 			handler: async ({ role }) => {
 				const users = await indexes.sqlite.db
@@ -82,14 +78,10 @@ export const users = defineWorkspace({
 
 		// Mutation: Create a user
 		createUser: defineMutation({
-			input: Type.Object({
-				name: Type.String(),
-				email: Type.String(),
-				role: Type.Union([
-					Type.Literal('admin'),
-					Type.Literal('author'),
-					Type.Literal('reader'),
-				]),
+			input: type({
+				name: "string",
+				email: "string",
+				role: "'admin' | 'author' | 'reader'",
 			}),
 			handler: async ({ name, email, role }) => {
 				const user = {

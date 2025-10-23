@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach } from 'bun:test';
 import path from 'node:path';
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import {
@@ -54,25 +54,11 @@ describe('Blog Workspace Integration', () => {
 
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({
-				input: Type.Object({
-					title: Type.String({ minLength: 1 }),
-					content: Type.Optional(Type.String()),
-					category: Type.Union([
-						Type.Literal('tech'),
-						Type.Literal('personal'),
-						Type.Literal('work'),
-					]),
-					tags: Type.Optional(
-						Type.Array(
-							Type.Union([
-								Type.Literal('typescript'),
-								Type.Literal('javascript'),
-								Type.Literal('svelte'),
-								Type.Literal('react'),
-								Type.Literal('vue'),
-							]),
-						),
-					),
+				input: type({
+					title: "string >= 1",
+					"content?": "string",
+					category: "'tech' | 'personal' | 'work'",
+					"tags?": "('typescript' | 'javascript' | 'svelte' | 'react' | 'vue')[]",
 				}),
 				handler: async (input) => {
 					const post = {
@@ -107,8 +93,8 @@ describe('Blog Workspace Integration', () => {
 			}),
 
 			deletePost: defineMutation({
-				input: Type.Object({
-					id: Type.String(),
+				input: type({
+					id: "string",
 				}),
 				handler: async ({ id }) => {
 					db.tables.posts.delete(id);

@@ -1,4 +1,4 @@
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	defineWorkspace,
@@ -63,8 +63,8 @@ export const comments = defineWorkspace({
 
 		// Query: Get comment by ID
 		getComment: defineQuery({
-			input: Type.Object({
-				id: Type.String(),
+			input: type({
+				id: "string",
 			}),
 			handler: async ({ id }) => {
 				const comment = await indexes.sqlite.db
@@ -77,8 +77,8 @@ export const comments = defineWorkspace({
 
 		// Query: Get comments for a post
 		getCommentsByPost: defineQuery({
-			input: Type.Object({
-				postId: Type.String(),
+			input: type({
+				postId: "string",
 			}),
 			handler: async ({ postId }) => {
 				const comments = await indexes.sqlite.db
@@ -92,8 +92,8 @@ export const comments = defineWorkspace({
 		// Query: Get comment with post details
 		// Demonstrates accessing posts workspace action
 		getCommentWithPost: defineQuery({
-			input: Type.Object({
-				id: Type.String(),
+			input: type({
+				id: "string",
 			}),
 			handler: async ({ id }) => {
 				const comment = await indexes.sqlite.db
@@ -129,8 +129,8 @@ export const comments = defineWorkspace({
 
 		// Query: Get comments by author (indirect access to user data)
 		getCommentsByAuthor: defineQuery({
-			input: Type.Object({
-				authorId: Type.String(),
+			input: type({
+				authorId: "string",
 			}),
 			handler: async ({ authorId }) => {
 				// Direct query on our own table
@@ -148,10 +148,10 @@ export const comments = defineWorkspace({
 
 		// Mutation: Create a comment
 		createComment: defineMutation({
-			input: Type.Object({
-				postId: Type.String(),
-				authorId: Type.String(),
-				content: Type.String(),
+			input: type({
+				postId: "string",
+				authorId: "string",
+				content: "string",
 			}),
 			handler: async ({ postId, authorId, content }) => {
 				// ✅ Can validate post exists using workspaces.posts
@@ -179,9 +179,9 @@ export const comments = defineWorkspace({
 
 		// Mutation: Update comment
 		updateComment: defineMutation({
-			input: Type.Object({
-				id: Type.String(),
-				content: Type.String(),
+			input: type({
+				id: "string",
+				content: "string",
 			}),
 			handler: async ({ id, content }) => {
 				const { status } = db.tables.comments.get(id);
@@ -202,8 +202,8 @@ export const comments = defineWorkspace({
 
 		// Mutation: Delete comment
 		deleteComment: defineMutation({
-			input: Type.Object({
-				id: Type.String(),
+			input: type({
+				id: "string",
 			}),
 			handler: async ({ id }) => {
 				db.tables.comments.delete(id);

@@ -1,4 +1,4 @@
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	type Row,
@@ -65,7 +65,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get post by ID
 		getPost: defineQuery({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			handler: async ({ id }) => {
 				const post = await indexes.sqlite.db
 					.select()
@@ -77,7 +77,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get comments for a post
 		getPostComments: defineQuery({
-			input: Type.Object({ postId: Type.String() }),
+			input: type({ postId: "string" }),
 			handler: async ({ postId }) => {
 				const comments = await indexes.sqlite.db
 					.select()
@@ -89,14 +89,10 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Create a new post
 		createPost: defineMutation({
-			input: Type.Object({
-				title: Type.String(),
-				content: Type.Optional(Type.String()),
-				category: Type.Union([
-					Type.Literal('tech'),
-					Type.Literal('personal'),
-					Type.Literal('tutorial'),
-				]),
+			input: type({
+				title: "string",
+				"content?": "string",
+				category: "'tech' | 'personal' | 'tutorial'",
 			}),
 			handler: async ({ title, content, category }) => {
 				const post = {
@@ -114,7 +110,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Publish a post
 		publishPost: defineMutation({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);
 				if (status !== 'valid') {
@@ -131,10 +127,10 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Add a comment
 		addComment: defineMutation({
-			input: Type.Object({
-				postId: Type.String(),
-				author: Type.String(),
-				content: Type.String(),
+			input: type({
+				postId: "string",
+				author: "string",
+				content: "string",
 			}),
 			handler: async ({ postId, author, content }) => {
 				const comment = {
@@ -151,7 +147,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Increment post views
 		incrementViews: defineMutation({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);
 				if (status !== 'valid') {

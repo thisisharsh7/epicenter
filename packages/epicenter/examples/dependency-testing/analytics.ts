@@ -1,4 +1,4 @@
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	defineWorkspace,
@@ -63,8 +63,8 @@ export const analytics = defineWorkspace({
 		// Query: Get user statistics
 		// Demonstrates accessing multiple dependencies
 		getUserStats: defineQuery({
-			input: Type.Object({
-				userId: Type.String(),
+			input: type({
+				userId: "string",
 			}),
 			handler: async ({ userId }) => {
 				// ✅ Access users workspace
@@ -98,8 +98,8 @@ export const analytics = defineWorkspace({
 		// Query: Get post statistics
 		// Demonstrates aggregating data from multiple workspaces
 		getPostStats: defineQuery({
-			input: Type.Object({
-				postId: Type.String(),
+			input: type({
+				postId: "string",
 			}),
 			handler: async ({ postId }) => {
 				// ✅ Access posts workspace (with author details)
@@ -159,8 +159,8 @@ export const analytics = defineWorkspace({
 		// Query: Get top content creators
 		// Demonstrates complex cross-workspace analytics
 		getTopContentCreators: defineQuery({
-			input: Type.Object({
-				limit: Type.Number(),
+			input: type({
+				limit: "number",
 			}),
 			handler: async ({ limit }) => {
 				// ✅ Access all three workspaces
@@ -202,8 +202,8 @@ export const analytics = defineWorkspace({
 
 		// Mutation: Update user stats (cached analytics)
 		updateUserStats: defineMutation({
-			input: Type.Object({
-				userId: Type.String(),
+			input: type({
+				userId: "string",
 			}),
 			handler: async ({ userId }) => {
 				// ✅ Fetch fresh data from all dependencies
@@ -251,8 +251,8 @@ export const analytics = defineWorkspace({
 
 		// Mutation: Update post stats
 		updatePostStats: defineMutation({
-			input: Type.Object({
-				postId: Type.String(),
+			input: type({
+				postId: "string",
 			}),
 			handler: async ({ postId }) => {
 				// ✅ Access comments workspace

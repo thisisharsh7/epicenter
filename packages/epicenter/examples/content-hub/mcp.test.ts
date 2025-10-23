@@ -15,7 +15,7 @@ import {
 	eq,
 	type Row,
 } from '../../src/index';
-import { Type } from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 
 /**
@@ -66,7 +66,7 @@ const testPages = defineWorkspace({
 		}),
 
 		getPage: defineQuery({
-			input: Type.Object({ id: Type.String() }),
+			input: type({ id: "string" }),
 			handler: async ({ id }) => {
 				const page = await indexes.sqlite.db
 					.select()
@@ -77,23 +77,11 @@ const testPages = defineWorkspace({
 		}),
 
 		createPage: defineMutation({
-			input: Type.Object({
-				title: Type.String(),
-				content: Type.String(),
-				type: Type.Union([
-					Type.Literal('blog'),
-					Type.Literal('article'),
-					Type.Literal('guide'),
-					Type.Literal('tutorial'),
-					Type.Literal('news'),
-				]),
-				tags: Type.Union([
-					Type.Literal('tech'),
-					Type.Literal('lifestyle'),
-					Type.Literal('business'),
-					Type.Literal('education'),
-					Type.Literal('entertainment'),
-				]),
+			input: type({
+				title: "string",
+				content: "string",
+				type: "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
+				tags: "'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
 			}),
 			handler: async (data) => {
 				const page = {

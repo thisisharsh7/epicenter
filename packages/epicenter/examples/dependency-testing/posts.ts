@@ -1,4 +1,4 @@
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	type Row,
@@ -62,8 +62,8 @@ export const posts = defineWorkspace({
 
 		// Query: Get post by ID
 		getPost: defineQuery({
-			input: Type.Object({
-				id: Type.String(),
+			input: type({
+				id: "string",
 			}),
 			handler: async ({ id }) => {
 				const post = await indexes.sqlite.db
@@ -76,12 +76,8 @@ export const posts = defineWorkspace({
 
 		// Query: Get posts by status
 		getPostsByStatus: defineQuery({
-			input: Type.Object({
-				status: Type.Union([
-					Type.Literal('draft'),
-					Type.Literal('published'),
-					Type.Literal('archived'),
-				]),
+			input: type({
+				status: "'draft' | 'published' | 'archived'",
 			}),
 			handler: async ({ status }) => {
 				const posts = await indexes.sqlite.db
@@ -95,8 +91,8 @@ export const posts = defineWorkspace({
 		// Query: Get post with author details
 		// Demonstrates cross-workspace query with type safety
 		getPostWithAuthor: defineQuery({
-			input: Type.Object({
-				id: Type.String(),
+			input: type({
+				id: "string",
 			}),
 			handler: async ({ id }) => {
 				const post = await indexes.sqlite.db
@@ -122,8 +118,8 @@ export const posts = defineWorkspace({
 		// Query: Get posts by author
 		// Demonstrates filtering by author with dependency access
 		getPostsByAuthor: defineQuery({
-			input: Type.Object({
-				authorId: Type.String(),
+			input: type({
+				authorId: "string",
 			}),
 			handler: async ({ authorId }) => {
 				const posts = await indexes.sqlite.db
@@ -138,15 +134,11 @@ export const posts = defineWorkspace({
 
 		// Mutation: Create a post
 		createPost: defineMutation({
-			input: Type.Object({
-				title: Type.String(),
-				content: Type.String(),
-				authorId: Type.String(),
-				status: Type.Union([
-					Type.Literal('draft'),
-					Type.Literal('published'),
-					Type.Literal('archived'),
-				]),
+			input: type({
+				title: "string",
+				content: "string",
+				authorId: "string",
+				status: "'draft' | 'published' | 'archived'",
 			}),
 			handler: async ({ title, content, authorId, status }) => {
 				// ✅ Could validate author exists using workspaces.users.getUser here
@@ -172,17 +164,11 @@ export const posts = defineWorkspace({
 
 		// Mutation: Update post
 		updatePost: defineMutation({
-			input: Type.Object({
-				id: Type.String(),
-				title: Type.Optional(Type.String()),
-				content: Type.Optional(Type.String()),
-				status: Type.Optional(
-					Type.Union([
-						Type.Literal('draft'),
-						Type.Literal('published'),
-						Type.Literal('archived'),
-					]),
-				),
+			input: type({
+				id: "string",
+				"title?": "string",
+				"content?": "string",
+				"status?": "'draft' | 'published' | 'archived'",
 			}),
 			handler: async ({ id, title, content, status }) => {
 				const { status: rowStatus } = db.tables.posts.get(id);

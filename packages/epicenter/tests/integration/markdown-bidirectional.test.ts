@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { Type } from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import {
@@ -50,18 +50,10 @@ describe('Markdown Bidirectional Sync', () => {
 
 		actions: ({ db }) => ({
 			createNote: defineMutation({
-				input: Type.Object({
-					title: Type.String({ minLength: 1 }),
-					content: Type.Optional(Type.String()),
-					tags: Type.Optional(
-						Type.Array(
-							Type.Union([
-								Type.Literal('important'),
-								Type.Literal('draft'),
-								Type.Literal('archived'),
-							]),
-						),
-					),
+				input: type({
+					title: "string >= 1",
+					"content?": "string",
+					"tags?": "('important' | 'draft' | 'archived')[]",
 				}),
 				handler: async (input) => {
 					const note = {
@@ -77,8 +69,8 @@ describe('Markdown Bidirectional Sync', () => {
 			}),
 
 			getNote: defineQuery({
-				input: Type.Object({
-					id: Type.String(),
+				input: type({
+					id: "string",
 				}),
 				handler: async ({ id }) => {
 					const result = db.tables.notes.get(id);

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import Type from 'typebox';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
 import {
@@ -62,7 +62,7 @@ describe('CLI End-to-End Tests', () => {
 			}),
 
 			getPost: defineQuery({
-				input: Type.Object({ id: Type.String() }),
+				input: type({ id: "string" }),
 				handler: async ({ id }) => {
 					const post = await indexes.sqlite.db
 						.select()
@@ -73,10 +73,10 @@ describe('CLI End-to-End Tests', () => {
 			}),
 
 			createPost: defineMutation({
-				input: Type.Object({
-					title: Type.String({ description: 'Post title' }),
-					content: Type.Optional(Type.String({ description: 'Post content' })),
-					category: Type.String({ description: 'Post category' }),
+				input: type({
+					title: "string",
+					"content?": "string",
+					category: "string",
 				}),
 				handler: async ({ title, content, category }) => {
 					const post = {
@@ -92,9 +92,9 @@ describe('CLI End-to-End Tests', () => {
 			}),
 
 			updateViews: defineMutation({
-				input: Type.Object({
-					id: Type.String({ description: 'Post ID' }),
-					views: Type.Number({ description: 'New view count' }),
+				input: type({
+					id: "string",
+					views: "number",
 				}),
 				handler: async ({ id, views }) => {
 					const { status, row } = db.tables.posts.get(id);
