@@ -13,10 +13,29 @@ import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import { parseMarkdownWithValidation } from './parser';
 
 /**
- * Loop prevention flags shared between YJS observers and file watcher
+ * Bidirectional sync coordination state
+ *
+ * Prevents infinite loops during two-way synchronization between YJS (in-memory)
+ * and markdown files (on disk). Without this coordination:
+ *
+ * 1. YJS change → writes markdown file → triggers file watcher
+ * 2. File watcher → updates YJS → triggers YJS observer
+ * 3. YJS observer → writes markdown file → back to step 1 (infinite loop)
+ *
+ * The state ensures changes only flow in one direction at a time by tracking
+ * which system is currently processing changes.
  */
-type MarkdownIndexFlags = {
+type SyncCoordination = {
+	/**
+	 * True when the file watcher is currently processing a change from disk
+	 * YJS observers check this and skip processing to avoid the loop
+	 */
 	isProcessingFileChange: boolean;
+
+	/**
+	 * True when YJS observers are currently processing a change from memory
+	 * File watcher checks this and skips processing to avoid the loop
+	 */
 	isProcessingYJSChange: boolean;
 };
 
@@ -94,15 +113,15 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	const storagePath = path.resolve(relativeStoragePath);
 
 	/**
-	 * Loop prevention flags to avoid infinite sync cycles
+	 * Coordination state to prevent infinite sync loops
 	 *
 	 * How it works:
 	 * - Before YJS observers write files: set isProcessingYJSChange = true
-	 *   - File watcher checks this flag and skips processing
+	 *   - File watcher checks this and skips processing
 	 * - Before file watcher updates YJS: set isProcessingFileChange = true
-	 *   - YJS observers check this flag and skip processing
+	 *   - YJS observers check this and skip processing
 	 */
-	const flags: MarkdownIndexFlags = {
+	const syncCoordination: SyncCoordination = {
 		isProcessingFileChange: false,
 		isProcessingYJSChange: false,
 	};
@@ -112,7 +131,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		db,
 		storagePath,
 		tableConfigs,
-		flags,
+		syncCoordination,
 	});
 
 	// Set up file watcher for bidirectional sync
@@ -120,7 +139,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		db,
 		storagePath,
 		tableConfigs,
-		flags,
+		syncCoordination,
 	});
 
 	return defineIndex({
@@ -438,24 +457,25 @@ export type MarkdownIndexConfig<
  * Register YJS observers to sync changes from YJS to markdown files
  *
  * When rows are added/updated/deleted in YJS, this writes the changes to corresponding
- * markdown files on disk. Uses the flags object to prevent infinite sync loops.
+ * markdown files on disk. Coordinates with the file watcher through shared state to
+ * prevent infinite sync loops.
  *
  * @param db - Database instance
  * @param storagePath - Absolute path where markdown files are stored
  * @param tableConfigs - Per-table configuration
- * @param flags - Shared loop prevention flags
+ * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns Array of unsubscribe functions for cleanup
  */
 function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	db,
 	storagePath,
 	tableConfigs,
-	flags,
+	syncCoordination,
 }: {
 	db: Db<TSchema>;
 	storagePath: string;
 	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
-	flags: MarkdownIndexFlags;
+	syncCoordination: SyncCoordination;
 }): Array<() => void> {
 	const unsubscribers: Array<() => void> = [];
 
@@ -476,11 +496,11 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			onAdd: async (row) => {
 				// Skip if this YJS change was triggered by a file change we're processing
 				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (flags.isProcessingFileChange) return;
+				if (syncCoordination.isProcessingFileChange) return;
 
-				flags.isProcessingYJSChange = true;
+				syncCoordination.isProcessingYJSChange = true;
 				const { error } = await markdown.write(row);
-				flags.isProcessingYJSChange = false;
+				syncCoordination.isProcessingYJSChange = false;
 
 				if (error) {
 					console.error(
@@ -495,11 +515,11 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			onUpdate: async (row) => {
 				// Skip if this YJS change was triggered by a file change we're processing
 				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (flags.isProcessingFileChange) return;
+				if (syncCoordination.isProcessingFileChange) return;
 
-				flags.isProcessingYJSChange = true;
+				syncCoordination.isProcessingYJSChange = true;
 				const { error } = await markdown.write(row);
-				flags.isProcessingYJSChange = false;
+				syncCoordination.isProcessingYJSChange = false;
 
 				if (error) {
 					console.error(
@@ -514,11 +534,11 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			onDelete: async (id) => {
 				// Skip if this YJS change was triggered by a file change we're processing
 				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (flags.isProcessingFileChange) return;
+				if (syncCoordination.isProcessingFileChange) return;
 
-				flags.isProcessingYJSChange = true;
+				syncCoordination.isProcessingYJSChange = true;
 				const { error } = await markdown.delete(id);
-				flags.isProcessingYJSChange = false;
+				syncCoordination.isProcessingYJSChange = false;
 
 				if (error) {
 					console.error(
@@ -541,24 +561,25 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
  * Register file watcher to sync changes from markdown files to YJS
  *
  * When markdown files are created/modified/deleted on disk, this updates the
- * corresponding YJS rows. Uses the flags object to prevent infinite sync loops.
+ * corresponding YJS rows. Coordinates with YJS observers through shared state to
+ * prevent infinite sync loops.
  *
  * @param db - Database instance
  * @param storagePath - Absolute path where markdown files are stored
  * @param tableConfigs - Per-table configuration
- * @param flags - Shared loop prevention flags
+ * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns File watcher instance for cleanup
  */
 function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	db,
 	storagePath,
 	tableConfigs,
-	flags,
+	syncCoordination,
 }: {
 	db: Db<TSchema>;
 	storagePath: string;
 	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
-	flags: MarkdownIndexFlags;
+	syncCoordination: SyncCoordination;
 }): FSWatcher {
 	// Ensure the directory exists before watching
 	trySync({
@@ -574,7 +595,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 		async (eventType, relativePath) => {
 			// Skip if this file change was triggered by a YJS change we're processing
 			// (prevents YJS -> markdown -> YJS infinite loop)
-			if (flags.isProcessingYJSChange) return;
+			if (syncCoordination.isProcessingYJSChange) return;
 
 			// Skip non-markdown files
 			if (!relativePath || !relativePath.endsWith('.md')) return;
@@ -612,7 +633,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			 */
 			const filePath = path.join(storagePath, relativePath);
 
-			flags.isProcessingFileChange = true;
+			syncCoordination.isProcessingFileChange = true;
 
 			/**
 			 * Handle file system events
@@ -738,7 +759,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 						break;
 				}
 			}
-			flags.isProcessingFileChange = false;
+			syncCoordination.isProcessingFileChange = false;
 		},
 	);
 
