@@ -22,55 +22,19 @@ import { EPICENTER_STORAGE_DIR } from '../../persistence/desktop';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
 /**
- * Database filename for SQLite.
- *
- * Must be one of:
- * - ':memory:' - For in-memory database
- * - A filename ending in '.db' that follows these rules:
- *   - Cannot start with '.' (no hidden files)
- *   - Cannot start with '/' (no absolute paths - use filename only)
- *   - Cannot contain path separators (no folders - filename only)
- *   - Can only contain: a-z, A-Z, 0-9, _ (underscore), - (hyphen), . (period)
- *
- * Note: All database files are automatically stored in the .epicenter directory.
- * The .epicenter directory is created automatically if it doesn't exist.
- *
- * Valid examples:
- * - ':memory:'
- * - 'app.db'
- * - 'my_database.db'
- * - 'test-data.db'
- * - 'cache.v2.db'
- *
- * Invalid examples:
- * - '.hidden.db' (starts with '.')
- * - '/path/to/db.db' (contains path separator)
- * - '.epicenter/pages.db' (contains path separator)
- * - 'database' (missing '.db' extension)
- * - 'my@db.db' (contains invalid character '@')
- */
-type DatabaseFilename = ':memory:' | `${string}.db`;
-
-/**
  * SQLite index configuration
  */
 export type SQLiteIndexConfig = {
 	/**
-	 * Database filename for SQLite.
+	 * Use in-memory database instead of persistent file storage.
 	 *
-	 * Defaults to ':memory:' for in-memory database.
-	 * Use a filename ending in '.db' for persistent storage in the .epicenter directory.
-	 * The .epicenter directory is created automatically if it doesn't exist.
+	 * By default, the SQLite index uses the workspace ID as the database filename
+	 * (stored in .epicenter/[workspace-id].db). Set this to true to use an in-memory
+	 * database instead, which is useful for testing or temporary data.
 	 *
-	 * Examples:
-	 * - ':memory:' - In-memory database
-	 * - 'pages.db' - Stored at .epicenter/pages.db
-	 * - 'content-hub.db' - Stored at .epicenter/content-hub.db
-	 *
-	 * @see DatabaseFilename for validation rules and examples
-	 * @default ':memory:'
+	 * @default false
 	 */
-	database?: DatabaseFilename;
+	inMemory?: boolean;
 };
 
 /**
@@ -143,6 +107,9 @@ async function createTablesIfNotExist<
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface.
  *
+ * The database is automatically named using the workspace ID, ensuring uniqueness
+ * across workspaces. The file is stored at `.epicenter/[workspace-id].db`.
+ *
  * This index creates internal resources (sqliteDb, drizzleTables) and exports them
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
@@ -154,7 +121,7 @@ async function createTablesIfNotExist<
  * ```typescript
  * // In workspace definition:
  * indexes: {
- *   sqlite: (db) => sqliteIndex(db, { database: 'app.db' }),
+ *   sqlite: (db) => sqliteIndex(db),  // Uses workspace ID automatically
  * },
  *
  * actions: ({ indexes }) => ({
@@ -174,18 +141,25 @@ async function createTablesIfNotExist<
  */
 export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
-	{ database = ':memory:' }: SQLiteIndexConfig = {},
+	{ inMemory = false }: SQLiteIndexConfig = {},
 ) {
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
-	// Resolve database path: join with .epicenter directory if not :memory:
-	let resolvedDatabasePath = database;
-	if (database !== ':memory:') {
+	// Determine database path: use workspace ID for uniqueness
+	let resolvedDatabasePath: string;
+	if (inMemory) {
+		resolvedDatabasePath = ':memory:';
+	} else {
+		// Use workspace ID (from ydoc.guid) as the database filename
+		const workspaceId = db.ydoc.guid;
+		const databaseFilename = `${workspaceId}.db`;
+
 		// Create .epicenter directory if it doesn't exist
 		await mkdir(EPICENTER_STORAGE_DIR, { recursive: true });
+
 		// Join filename with .epicenter directory
-		resolvedDatabasePath = join(EPICENTER_STORAGE_DIR, database) as DatabaseFilename;
+		resolvedDatabasePath = join(EPICENTER_STORAGE_DIR, databaseFilename);
 	}
 
 	// Create database connection with schema for proper type inference

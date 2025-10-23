@@ -47,7 +47,7 @@ describe('CLI End-to-End Tests', () => {
 		},
 
 		indexes: {
-			sqlite: (db) => sqliteIndex(db, { database: `${TEST_DB}` }),
+			sqlite: (db) => sqliteIndex(db),
 			markdown: (db) => markdownIndex(db, { storagePath: TEST_MARKDOWN }),
 		},
 

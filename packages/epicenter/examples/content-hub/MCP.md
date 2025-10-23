@@ -156,7 +156,7 @@ export const myWorkspace = defineWorkspace({
   },
 
   indexes: async ({ db }) => ({
-    sqlite: await sqliteIndex(db, { database: 'my-workspace.db' }),
+    sqlite: await sqliteIndex(db),
   }),
 
   actions: ({ db, indexes }) => ({

@@ -45,7 +45,7 @@ export const comments = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: 'comments.db' }),
+		sqlite: (db) => sqliteIndex(db),
 	},
 
 	// NOTE: Only workspaces.posts is available, NOT workspaces.users

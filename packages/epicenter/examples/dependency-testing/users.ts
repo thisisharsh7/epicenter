@@ -36,7 +36,7 @@ export const users = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: 'users.db' }),
+		sqlite: (db) => sqliteIndex(db),
 	},
 
 	actions: ({ db, indexes }) => ({

@@ -52,7 +52,7 @@ const testPages = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: 'test-pages.db' }),
+		sqlite: (db) => sqliteIndex(db),
 	},
 
 	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),

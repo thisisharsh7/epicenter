@@ -26,7 +26,7 @@ describe('CLI Integration', () => {
 		},
 
 		indexes: {
-			sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+			sqlite: (db) => sqliteIndex(db, { inMemory: true }),
 		},
 
 		actions: ({ db }) => ({

@@ -760,7 +760,7 @@ describe('Workspace Action Handlers', () => {
 		},
 
 		indexes: {
-			sqlite: (db) => sqliteIndex(db, { database: `${TEST_DB}` }),
+			sqlite: (db) => sqliteIndex(db),
 			markdown: (db) => markdownIndex(db, { storagePath: TEST_MARKDOWN }),
 		},
 

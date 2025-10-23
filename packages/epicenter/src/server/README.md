@@ -158,9 +158,9 @@ const notesWorkspace = defineWorkspace({
       tags: multiSelect({ options: ['work', 'personal', 'ideas'] }),
     }
   },
-  indexes: async ({ db }) => ({
-    sqlite: await sqliteIndex(db, { database: './data/notes.db' })
-  }),
+  indexes: {
+    sqlite: (db) => sqliteIndex(db)
+  },
   actions: ({ db, indexes }) => ({
     createNote: defineMutation({
       input: Type.Object({

@@ -64,7 +64,7 @@ import type { WorkspaceSchema } from '../schema';
  *   },
  *
  *   indexes: {
- *     sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+ *     sqlite: (db) => sqliteIndex(db),
  *     markdown: (db) => markdownIndex(db, { storagePath: './data' }),
  *   },
  *

@@ -45,7 +45,7 @@ const pages = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+		sqlite: (db) => sqliteIndex(db, { inMemory: true }),
 	},
 
 	actions: ({ db, indexes }) => ({
@@ -147,7 +147,7 @@ const contentHub = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+		sqlite: (db) => sqliteIndex(db, { inMemory: true }),
 	},
 
 	actions: ({ db, indexes, workspaces }) => ({
@@ -495,7 +495,7 @@ describe('Epicenter', () => {
 					},
 				},
 				indexes: {
-					sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+					sqlite: (db) => sqliteIndex(db, { inMemory: true }),
 				},
 				actions: ({ workspaces }) => ({
 					getValue: defineQuery({

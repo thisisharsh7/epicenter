@@ -56,7 +56,7 @@ export type WorkspaceIndexMap = Record<string, Index>;
  * // Using exported resources in actions
  * const workspace = defineWorkspace({
  *   indexes: async ({ db }) => ({
- *     sqlite: await sqliteIndex(db, { database: 'app.db' }),
+ *     sqlite: await sqliteIndex(db),
  *   }),
  *
  *   actions: ({ indexes }) => ({

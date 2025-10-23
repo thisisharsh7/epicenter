@@ -52,7 +52,7 @@ export const analytics = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: 'analytics.db' }),
+		sqlite: (db) => sqliteIndex(db),
 	},
 
 	// NOTE: workspaces has ALL three dependencies with full type safety

@@ -40,7 +40,7 @@ export const pages = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: 'pages.db' }),
+		sqlite: (db) => sqliteIndex(db),
 	},
 
 	// Use desktop filesystem persistence helper
@@ -185,7 +185,7 @@ export const contentHub = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { database: 'content-hub.db' }),
+		sqlite: (db) => sqliteIndex(db),
 	},
 
 	// Use desktop filesystem persistence helper
