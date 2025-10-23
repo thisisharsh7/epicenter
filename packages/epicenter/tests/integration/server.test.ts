@@ -13,7 +13,7 @@ import {
 	integer,
 	text,
 	select,
-	createHttpServer,
+	createServer,
 	defineEpicenter,
 } from '../../src/index';
 
@@ -114,11 +114,11 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace],
 		});
 
-		let app: Awaited<ReturnType<typeof createHttpServer>>['app'];
+		let app: Awaited<ReturnType<typeof createServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {
-			const { app } = await createHttpServer(singleWorkspaceEpicenter);
+			const { app } = await createServer(singleWorkspaceEpicenter);
 			server = Bun.serve({
 				fetch: app.fetch,
 				port: 0, // Random available port
@@ -280,11 +280,11 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace, authWorkspace],
 		});
 
-		let app: Awaited<ReturnType<typeof createHttpServer>>['app'];
+		let app: Awaited<ReturnType<typeof createServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {
-			const { app } = await createHttpServer(epicenter);
+			const { app } = await createServer(epicenter);
 			server = Bun.serve({
 				fetch: app.fetch,
 				port: 0,

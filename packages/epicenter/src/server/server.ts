@@ -4,18 +4,23 @@ import { Hono } from 'hono';
 import { createEpicenterClient, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
 import type { EpicenterOperationError } from '../core/errors';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../core/workspace';
-import { createMcpServer } from './mcp-handlers';
+import { createMcpServer } from './mcp';
 import type { WorkspaceActionMap } from '../core/actions';
 
 /**
- * Create an HTTP server with REST and MCP endpoints
+ * Create a unified server with REST and MCP endpoints
  *
- * This creates a Hono server that exposes:
- * - REST endpoints: GET/POST /{workspace}/{action}
- * - MCP endpoint: POST /mcp (using Server-Sent Events)
+ * This creates a Hono server that exposes workspace actions through multiple interfaces:
+ * - REST endpoints: GET/POST `/{workspace}/{action}` for direct HTTP access
+ * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
+ *
+ * The function initializes the Epicenter client, registers REST routes for all workspace actions,
+ * and configures an MCP server instance for protocol-based access.
  *
  * @param config - Epicenter configuration with workspaces
  * @returns Object containing the Hono app and initialized Epicenter client
+ *
+ * @see {@link createMcpServer} in mcp.ts for the MCP server implementation
  *
  * @example
  * ```typescript
@@ -24,7 +29,7 @@ import type { WorkspaceActionMap } from '../core/actions';
  *   workspaces: [blogWorkspace],
  * });
  *
- * const { app, client } = await createHttpServer(epicenter);
+ * const { app, client } = await createServer(epicenter);
  *
  * // Use app for serving
  * Bun.serve({
@@ -33,7 +38,7 @@ import type { WorkspaceActionMap } from '../core/actions';
  * });
  * ```
  */
-export async function createHttpServer<
+export async function createServer<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(config: EpicenterConfig<TId, TWorkspaces>): Promise<{
@@ -48,10 +53,19 @@ export async function createHttpServer<
 	const client = await createEpicenterClient(config);
 
 	// Register REST endpoints for each workspace action
+	// This iteration pattern mirrors flattenActionsForMCP in mcp.ts, but instead of
+	// building a flat Map, we register HTTP routes for each workspace action.
+	// @see flattenActionsForMCP in mcp.ts for the similar pattern used in MCP tool registration
+
+	// Extract workspace clients (excluding the destroy method from the client interface)
 	const { destroy, ...workspaceClients } = client;
+
+	// Iterate over each workspace and its actions to register REST routes
 	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
+		// Extract actions (excluding the destroy method from the workspace interface)
 		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
 
+		// Register REST routes for each action
 		for (const [actionName, action] of Object.entries(workspaceActions)) {
 			const path = `/${workspaceName}/${actionName}`;
 

@@ -1,5 +1,5 @@
 import type { EpicenterConfig } from '../../core/epicenter';
-import { createHttpServer } from '../../server/http';
+import { createServer } from '../../server/server';
 
 export const DEFAULT_PORT = 3913;
 
@@ -24,7 +24,7 @@ export async function serveCommand(
 ): Promise<void> {
 	console.log(`🔨 Creating HTTP server for app: ${config.id}`);
 
-	const { app, client } = await createHttpServer(config);
+	const { app, client } = await createServer(config);
 	const port = options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT));
 
 	const server = Bun.serve({

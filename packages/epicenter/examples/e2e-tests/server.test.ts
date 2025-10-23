@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { createHttpServer } from '../../src/index';
+import { createServer } from '../../src/index';
 import epicenterConfig from './epicenter.config';
 
 // Helper to parse SSE response from MCP endpoint
@@ -16,7 +16,7 @@ describe('E2E Server Tests', () => {
 	let baseUrl: string;
 
 	beforeAll(async () => {
-		const { app } = await createHttpServer(epicenterConfig);
+		const { app } = await createServer(epicenterConfig);
 		server = Bun.serve({
 			fetch: app.fetch,
 			port: 0, // Random available port

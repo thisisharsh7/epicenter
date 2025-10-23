@@ -1,7 +1,7 @@
 import { test, expect, beforeAll, afterAll } from 'bun:test';
 import type { Server } from 'bun';
 import {
-	createHttpServer,
+	createServer,
 	defineEpicenter,
 	defineWorkspace,
 	setupPersistenceDesktop,
@@ -113,7 +113,7 @@ beforeAll(async () => {
 		workspaces: [testPages],
 	});
 
-	const { app } = await createHttpServer(contentHub);
+	const { app } = await createServer(contentHub);
 
 	server = Bun.serve({
 		fetch: app.fetch,

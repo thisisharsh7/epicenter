@@ -9,13 +9,20 @@ import { Value } from 'typebox/value';
 import type { Action, WorkspaceActionMap } from '../core/actions';
 import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../core/workspace';
+import { createServer } from './server';
 
 /**
  * Create and configure an MCP server with tool handlers.
  *
+ * This creates a protocol-level MCP server that can be connected to any transport
+ * (HTTP, stdio, etc.). The server exposes all workspace actions as MCP tools using
+ * a flat namespace (e.g., `workspace_action`).
+ *
  * @param client - The hierarchical EpicenterClient with workspace namespaces
  * @param config - Epicenter configuration containing server ID and workspaces
  * @returns Configured MCP server instance ready to connect to a transport
+ *
+ * @see {@link createServer} for how the MCP server is registered on `/mcp` in the Hono web server.
  */
 export function createMcpServer<
 	TId extends string,
@@ -141,20 +148,30 @@ export function createMcpServer<
  *
  * Takes a hierarchical EpicenterClient and flattens all workspace actions into a Map
  * with MCP-compatible tool names. This is specifically for the MCP protocol which requires
- * a flat list of tools.
+ * a flat list of tools (no hierarchical namespacing).
+ *
+ * This function iterates over all workspaces and their actions, creating MCP tool names
+ * in the format `${workspaceName}_${actionName}`. The pattern of extracting workspaces
+ * and actions is shared with HTTP server creation, though the purposes differ:
+ * - Here: Build a flat Map for MCP tool registration
+ * - In server.ts: Register individual REST endpoints for each action
  */
 function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	client: EpicenterClient<TWorkspaces>,
 ): Map<string, Action> {
 	const actions = new Map<string, Action>();
 
+	// Extract workspace clients (excluding the destroy method from the client interface)
 	const { destroy, ...workspaceClients } = client;
+
+	// Iterate over each workspace and its actions to register MCP tools
 	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
+		// Extract actions (excluding the destroy method from the workspace interface)
 		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
 
+		// Register each action with an MCP-compatible flat tool name
 		for (const [actionName, action] of Object.entries(workspaceActions)) {
 			const mcpToolName = `${workspaceName}_${actionName}`;
-
 			actions.set(mcpToolName, action);
 		}
 	}
