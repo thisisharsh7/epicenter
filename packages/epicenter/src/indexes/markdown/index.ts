@@ -619,9 +619,9 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			 */
 			const parts = relativePath.split(path.sep);
 			if (parts.length !== 2) return; // Ignore files that don't match our expected structure
-			const [tableName, filenameWithExt] = parts as [string, string];
 
-			// Extract the row ID from the filename (without .md extension)
+			// Extract the tableName and row ID (filename without the .md) from the parts
+			const [tableName, filenameWithExt] = parts as [string, string]
 			const id = path.basename(filenameWithExt, '.md');
 
 			/**
