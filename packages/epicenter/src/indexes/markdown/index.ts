@@ -73,13 +73,16 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  */
 export function markdownIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
-	{ storagePath: relativeStoragePath = '.', tables = {} }: MarkdownIndexConfig<TSchema> = {},
+	{
+		storagePath: relativeStoragePath = '.',
+		tables = {},
+	}: MarkdownIndexConfig<TSchema> = {},
 ) {
 	/**
 	 * Convert storagePath to absolute path immediately to ensure consistency
 	 * even if the working directory changes during execution.
 	 */
-	const absoluteStoragePath = path.resolve(relativeStoragePath);
+	const storagePath = path.resolve(relativeStoragePath);
 
 	/**
 	 * Loop prevention flags to avoid infinite sync cycles
@@ -105,7 +108,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		const tableConfig = tables[tableName];
 		const markdown = createTableMarkdownOperations({
 			tableName,
-			storagePath: absoluteStoragePath,
+			storagePath,
 			tableConfig,
 		});
 
@@ -175,13 +178,13 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	// Ensure the directory exists before watching
 	trySync({
 		try: () => {
-			mkdirSync(absoluteStoragePath, { recursive: true });
+			mkdirSync(storagePath, { recursive: true });
 		},
 		catch: () => Ok(undefined),
 	});
 
 	const watcher = watch(
-		absoluteStoragePath,
+		storagePath,
 		{ recursive: true },
 		async (eventType, relativePath) => {
 			// Skip if this file change was triggered by a YJS change we're processing
@@ -194,14 +197,14 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			/**
 			 * Parse the relative path from the watcher to extract table name and row ID
 			 *
-			 * The watcher provides relativePath relative to absoluteStoragePath.
+			 * The watcher provides relativePath relative to storagePath.
 			 * Expected directory structure:
-			 *   {absoluteStoragePath}/
+			 *   {storagePath}/
 			 *     {tableName}/
 			 *       {id}.md
 			 *
 			 * Example:
-			 *   absoluteStoragePath = "/Users/name/vault"
+			 *   storagePath = "/Users/name/vault"
 			 *   relativePath = "pages/my-page.md"
 			 *   Result: tableName = "pages", id = "my-page"
 			 *
@@ -219,10 +222,10 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			/**
 			 * Construct the full absolute path to the file
 			 *
-			 * We use absoluteStoragePath (not the original storagePath parameter) to ensure
+			 * We use storagePath (not the original storagePath parameter) to ensure
 			 * we always work with absolute paths, preventing issues when the working directory changes.
 			 */
-			const filePath = path.join(absoluteStoragePath, relativePath);
+			const filePath = path.join(storagePath, relativePath);
 
 			isProcessingFileChange = true;
 
