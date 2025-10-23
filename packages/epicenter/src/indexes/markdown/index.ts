@@ -227,13 +227,9 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		async (eventType, filename) => {
 			// Skip if this file change was triggered by a YJS change we're processing
 			// (prevents YJS -> markdown -> YJS infinite loop)
-			if (isProcessingYJSChange) {
-				return;
-			}
+			if (isProcessingYJSChange) return;
 
-			if (!filename || !filename.endsWith('.md')) {
-				return;
-			}
+			if (!filename || !filename.endsWith('.md')) return;
 
 			const filePath = `${storagePath}/${filename}`;
 
@@ -324,11 +320,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 									: parseResult.data;
 
 								updateYJSRowFromMarkdown(
-									db,
-									tableName,
-									id,
-									rowData,
-									tableSchema,
+									{ db, tableName, rowId: id, newData: rowData, schema: tableSchema },
 								);
 							} catch (error) {
 								console.error(
@@ -376,11 +368,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
  * @param schema - Table schema for type information (determines which columns need YJS conversion)
  */
 function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
-	db: Db<TWorkspaceSchema>,
-	tableName: string,
-	rowId: string,
-	newData: Row,
-	schema: TableSchema,
+{ db, tableName, rowId, newData, schema }: { db: Db<TWorkspaceSchema>; tableName: string; rowId: string; newData: Row; schema: TableSchema; },
 ): void {
 	const table = db.tables[tableName];
 	if (!table) {
