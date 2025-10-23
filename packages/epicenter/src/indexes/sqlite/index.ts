@@ -141,21 +141,21 @@ async function createTablesIfNotExist<
 
 /**
  * Create a SQLite index
- * Syncs YJS changes to a SQLite database and exposes Drizzle query interface
+ * Syncs YJS changes to a SQLite database and exposes Drizzle query interface.
  *
  * This index creates internal resources (sqliteDb, drizzleTables) and exports them
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
  *
- * @param db - Epicenter database instance (for type inference only)
+ * @param db - Epicenter database instance
  * @param config - SQLite configuration options
  *
  * @example
  * ```typescript
  * // In workspace definition:
- * indexes: async ({ db }) => ({
- *   sqlite: await sqliteIndex(db, { database: 'app.db' }),
- * }),
+ * indexes: {
+ *   sqlite: (db) => sqliteIndex(db, { database: 'app.db' }),
+ * },
  *
  * actions: ({ indexes }) => ({
  *   // Access exported resources from the index
@@ -172,8 +172,8 @@ async function createTablesIfNotExist<
  * })
  * ```
  */
-export async function sqliteIndex<TWorkspaceSchema extends WorkspaceSchema>(
-	db: Db<TWorkspaceSchema>,
+export async function sqliteIndex<TSchema extends WorkspaceSchema>(
+	db: Db<TSchema>,
 	{ database = ':memory:' }: SQLiteIndexConfig = {},
 ) {
 	// Convert table schemas to Drizzle tables

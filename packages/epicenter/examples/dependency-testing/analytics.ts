@@ -51,9 +51,9 @@ export const analytics = defineWorkspace({
 		},
 	},
 
-	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'analytics.db' }),
-	}),
+	indexes: {
+		sqlite: (db) => sqliteIndex(db, { database: 'analytics.db' }),
+	},
 
 	// NOTE: workspaces has ALL three dependencies with full type safety
 	// ✅ workspaces.users - all user actions
@@ -298,5 +298,5 @@ export const analytics = defineWorkspace({
 				return Ok(stats);
 			},
 		}),
-	}),
+	},
 });

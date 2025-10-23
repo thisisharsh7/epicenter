@@ -79,12 +79,12 @@ export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = Works
  *
  * The flags break the cycle by ensuring changes only flow in one direction at a time.
  *
- * @param db - Epicenter database instance (for type inference only)
+ * @param db - Epicenter database instance
  * @param config - Markdown configuration options
  */
-export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema>(
-	db: Db<TWorkspaceSchema>,
-	config: MarkdownIndexConfig<TWorkspaceSchema>,
+export function markdownIndex<TSchema extends WorkspaceSchema>(
+	db: Db<TSchema>,
+	config: MarkdownIndexConfig<TSchema>,
 ) {
 	const { storagePath, tables: tableConfigs } = config;
 
@@ -348,7 +348,7 @@ export function markdownIndex<TWorkspaceSchema extends WorkspaceSchema = Workspa
 								// Reconstruct the full row data by merging:
 								// - parseResult.data (frontmatter fields)
 								// - parseResult.content (markdown body) -> stored in the configured contentField (if any)
-								const tableConfig = tableConfigs[tableName as keyof TWorkspaceSchema];
+								const tableConfig = tableConfigs[tableName as keyof TSchema];
 								const rowData = tableConfig?.contentField
 									? { ...parseResult.data, [tableConfig.contentField]: parseResult.content }
 									: parseResult.data;

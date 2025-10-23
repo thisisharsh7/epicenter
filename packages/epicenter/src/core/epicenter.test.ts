@@ -44,9 +44,9 @@ const pages = defineWorkspace({
 		},
 	},
 
-	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: ':memory:' }),
-	}),
+	indexes: {
+		sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+	},
 
 	actions: ({ db, indexes }) => ({
 		getPages: defineQuery({
@@ -146,9 +146,9 @@ const contentHub = defineWorkspace({
 		},
 	},
 
-	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: ':memory:' }),
-	}),
+	indexes: {
+		sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+	},
 
 	actions: ({ db, indexes, workspaces }) => ({
 		createYouTubePost: defineMutation({
@@ -494,9 +494,9 @@ describe('Epicenter', () => {
 						value: text(),
 					},
 				},
-				indexes: async ({ db }) => ({
-					sqlite: await sqliteIndex(db, { database: ':memory:' }),
-				}),
+				indexes: {
+					sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+				},
 				actions: ({ workspaces }) => ({
 					getValue: defineQuery({
 						handler: () => Ok(`value-from-${name}`),

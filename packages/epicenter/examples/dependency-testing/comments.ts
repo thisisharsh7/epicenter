@@ -44,9 +44,9 @@ export const comments = defineWorkspace({
 		},
 	},
 
-	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'comments.db' }),
-	}),
+	indexes: {
+		sqlite: (db) => sqliteIndex(db, { database: 'comments.db' }),
+	},
 
 	// NOTE: Only workspaces.posts is available, NOT workspaces.users
 	// This demonstrates that dependencies are NOT transitive
@@ -210,5 +210,5 @@ export const comments = defineWorkspace({
 				return Ok(undefined);
 			},
 		}),
-	}),
+	},
 });

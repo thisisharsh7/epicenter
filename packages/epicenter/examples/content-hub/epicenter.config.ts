@@ -15,7 +15,10 @@ import {
 	defineMutation,
 	eq,
 	type Row,
+	type Db,
+	defineIndex,
 } from '../../src/index';
+import type { WorkspaceSchema } from '../../src/core/schema';
 
 /**
  * Pages workspace
@@ -36,9 +39,9 @@ export const pages = defineWorkspace({
 		},
 	},
 
-	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'pages.db' }),
-	}),
+	indexes: {
+		sqlite: (db) => sqliteIndex(db, { database: 'pages.db' }),
+	},
 
 	// Use desktop filesystem persistence helper
 	// Stores YJS document at ./.epicenter/pages.yjs
@@ -181,9 +184,9 @@ export const contentHub = defineWorkspace({
 		},
 	},
 
-	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'content-hub.db' }),
-	}),
+	indexes: {
+		sqlite: (db) => sqliteIndex(db, { database: 'content-hub.db' }),
+	},
 
 	// Use desktop filesystem persistence helper
 	// Stores YJS document at ./.epicenter/content-hub.yjs

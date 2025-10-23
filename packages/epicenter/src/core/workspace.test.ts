@@ -5,6 +5,8 @@ import { createWorkspaceClient, defineWorkspace } from './workspace';
 import { id, text, integer } from './schema';
 import { defineQuery, defineMutation } from './actions';
 import { Ok } from 'wellcrafted/result';
+import { sqliteIndex } from '../indexes/sqlite';
+import { markdownIndex } from '../indexes/markdown';
 
 /**
  * Test suite for workspace initialization with topological sort
@@ -30,7 +32,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-a');
@@ -47,7 +49,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-b');
@@ -67,7 +69,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-c');
@@ -96,7 +98,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-d');
@@ -113,7 +115,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-a');
@@ -130,7 +132,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-b');
@@ -150,7 +152,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-c');
@@ -184,7 +186,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-x');
@@ -200,7 +202,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-y');
@@ -217,7 +219,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-z');
@@ -249,7 +251,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					value: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-a-v1');
@@ -268,7 +270,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					value: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-a-v3');
@@ -287,7 +289,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-b');
@@ -304,7 +306,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-c');
@@ -323,7 +325,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: ({ workspaces }) => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('root');
@@ -356,7 +358,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 		};
 
@@ -371,7 +373,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 		};
 
@@ -408,7 +410,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-a');
@@ -425,7 +427,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-b');
@@ -442,7 +444,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-c');
@@ -459,7 +461,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-d');
@@ -476,7 +478,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-e');
@@ -501,7 +503,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({}),
 			setupYDoc: (ydoc) => {
 				initOrder.push('workspace-f');
@@ -547,7 +549,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({
 				getValue: defineQuery({
 					handler: () => {
@@ -569,7 +571,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: ({ workspaces }) => ({
 				getValueFromA: defineQuery({
 					handler: async () => {
@@ -599,7 +601,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({
 				getValueFromA: defineQuery({
 					handler: () => Ok('value-from-a'),
@@ -618,7 +620,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: ({ workspaces }) => ({
 				getValueFromB: defineQuery({
 					handler: () => Ok('value-from-b'),
@@ -658,7 +660,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-a'),
@@ -676,7 +678,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: () => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-b'),
@@ -695,7 +697,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					name: text(),
 				},
 			},
-			indexes: () => ({}),
+			indexes: {},
 			actions: ({ workspaces }) => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-c'),
@@ -757,12 +759,9 @@ describe('Workspace Action Handlers', () => {
 			},
 		},
 
-		indexes: async ({ db }) => {
-			const { sqliteIndex, markdownIndex } = await import('../index');
-			return {
-				sqlite: await sqliteIndex(db, { database: `${TEST_DB}` }),
-				markdown: markdownIndex(db, { storagePath: TEST_MARKDOWN }),
-			};
+		indexes: {
+			sqlite: (db) => sqliteIndex(db, { database: `${TEST_DB}` }),
+			markdown: (db) => markdownIndex(db, { storagePath: TEST_MARKDOWN }),
 		},
 
 		actions: ({ db, indexes }) => {

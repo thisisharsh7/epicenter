@@ -25,9 +25,9 @@ describe('CLI Integration', () => {
 			},
 		},
 
-		indexes: async ({ db }) => ({
-			sqlite: await sqliteIndex(db, { database: ':memory:' }),
-		}),
+		indexes: {
+			sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+		},
 
 		actions: ({ db }) => ({
 			createItem: defineMutation({

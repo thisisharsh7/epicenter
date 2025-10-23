@@ -63,10 +63,10 @@ import type { WorkspaceSchema } from '../schema';
  *     }
  *   },
  *
- *   indexes: async ({ db }) => ({
- *     sqlite: await sqliteIndex(db, { database: ':memory:' }),
- *     markdown: markdownIndex(db, { storagePath: './data' }),
- *   }),
+ *   indexes: {
+ *     sqlite: (db) => sqliteIndex(db, { database: ':memory:' }),
+ *     markdown: (db) => markdownIndex(db, { storagePath: './data' }),
+ *   },
  *
  *   setupYDoc: (ydoc) => {
  *     // Optional: Set up persistence
@@ -106,7 +106,7 @@ export function defineWorkspace<
 	const TVersion extends number,
 	const TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	TIndexMap extends WorkspaceIndexMap,
+	const TIndexResults extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
@@ -115,7 +115,7 @@ export function defineWorkspace<
 		TVersion,
 		TName,
 		TWorkspaceSchema,
-		TIndexMap,
+		TIndexResults,
 		TActionMap
 	>,
 ): WorkspaceConfig<
@@ -124,7 +124,7 @@ export function defineWorkspace<
 	TVersion,
 	TName,
 	TWorkspaceSchema,
-	TIndexMap,
+	TIndexResults,
 	TActionMap
 > {
 	// Validate workspace ID
@@ -188,7 +188,7 @@ export type WorkspaceConfig<
 	TVersion extends number = number,
 	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexMap extends WorkspaceIndexMap = WorkspaceIndexMap,
+	TIndexResults extends WorkspaceIndexMap = WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	id: TId;
@@ -196,14 +196,16 @@ export type WorkspaceConfig<
 	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: (context: { db: Db<TWorkspaceSchema> }) =>
-		| TIndexMap
-		| Promise<TIndexMap>;
+	indexes: {
+		[K in keyof TIndexResults]: (db: Db<TWorkspaceSchema>) =>
+			| TIndexResults[K]
+			| Promise<TIndexResults[K]>;
+	};
 	setupYDoc?: (ydoc: Y.Doc) => void;
 	actions: (context: {
 		db: Db<TWorkspaceSchema>;
 		workspaces: WorkspacesToActionMaps<TDeps>;
-		indexes: TIndexMap;
+		indexes: TIndexResults;
 	}) => TActionMap;
 };
 

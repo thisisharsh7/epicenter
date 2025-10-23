@@ -48,10 +48,10 @@ const blogWorkspace = defineWorkspace({
 		},
 	},
 
-	indexes: async ({ db }) => ({
-		sqlite: await sqliteIndex(db, { database: 'blog.db' }),
-		markdown: markdownIndex(db, { storagePath: './.data/content' }),
-	}),
+	indexes: {
+		sqlite: (db) => sqliteIndex(db, { database: 'blog.db' }),
+		markdown: (db) => markdownIndex(db, { storagePath: './.data/content' }),
+	},
 
 	// Use desktop filesystem persistence helper
 	// Stores YJS document at ./.epicenter/blog.yjs
@@ -237,7 +237,7 @@ const blogWorkspace = defineWorkspace({
 				return Ok(updatedPost);
 			},
 		}),
-	}),
+	},
 });
 
 export default defineEpicenter({

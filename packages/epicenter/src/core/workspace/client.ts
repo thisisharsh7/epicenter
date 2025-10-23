@@ -315,15 +315,17 @@ export async function initializeWorkspaces<
 		// Initialize Epicenter database (wraps YJS with table/record API)
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
-		// Get index definitions from workspace config by calling the indexes callback
-		// Support both sync and async indexes functions
-		const indexes = await workspaceConfig.indexes({ db });
-
-		// Validate no duplicate index IDs (keys of returned object)
-		const indexIds = Object.keys(indexes);
-		if (new Set(indexIds).size !== indexIds.length) {
-			throw new Error('Duplicate index IDs detected');
-		}
+		// Initialize each index by calling its factory function with the db
+		// Each index function receives the db and returns an index object
+		// Initialize all indexes in parallel for better performance
+		const indexes = Object.fromEntries(
+			await Promise.all(
+				Object.entries(workspaceConfig.indexes).map(async ([indexId, indexFn]) => [
+					indexId,
+					await indexFn(db),
+				]),
+			),
+		);
 
 		// Call the actions factory to get action definitions, passing:
 		// - workspaceClients: initialized dependency clients (keyed by dep.name)
@@ -387,7 +389,7 @@ export async function createWorkspaceClient<
 	const TId extends string,
 	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TIndexMap extends WorkspaceIndexMap,
+	const TIndexResults extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
 >(
 	workspace: WorkspaceConfig<
@@ -396,7 +398,7 @@ export async function createWorkspaceClient<
 		TVersion,
 		string,
 		TWorkspaceSchema,
-		TIndexMap,
+		TIndexResults,
 		TActionMap
 	>,
 ): Promise<WorkspaceClient<TActionMap>> {

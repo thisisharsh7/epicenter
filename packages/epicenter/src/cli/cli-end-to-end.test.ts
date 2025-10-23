@@ -46,10 +46,10 @@ describe('CLI End-to-End Tests', () => {
 			},
 		},
 
-		indexes: async ({ db }) => ({
-			sqlite: await sqliteIndex(db, { database: `${TEST_DB}` }),
-			markdown: markdownIndex(db, { storagePath: TEST_MARKDOWN }),
-		}),
+		indexes: {
+			sqlite: (db) => sqliteIndex(db, { database: `${TEST_DB}` }),
+			markdown: (db) => markdownIndex(db, { storagePath: TEST_MARKDOWN }),
+		},
 
 		actions: ({ db, indexes }) => ({
 			listPosts: defineQuery({
