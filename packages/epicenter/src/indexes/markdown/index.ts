@@ -619,8 +619,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			 */
 			const parts = relativePath.split(path.sep);
 			if (parts.length !== 2) return; // Ignore files that don't match our expected structure
-			const [tableName, filenameWithExt] = parts;
-			if (!tableName || !filenameWithExt) return;
+			const [tableName, filenameWithExt] = parts as [string, string];
 
 			// Extract the row ID from the filename (without .md extension)
 			const id = path.basename(filenameWithExt, '.md');
@@ -692,7 +691,6 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			 * 3. Update YJS with the parsed data using granular diffs
 			 */
 			if (eventType === 'change' || eventType === 'rename') {
-
 				// File was modified, parse and update YJS
 				const parseResult = await parseMarkdownWithValidation(
 					filePath,
