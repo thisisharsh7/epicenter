@@ -107,9 +107,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	 * Handles serialization and frontmatter/content extraction
 	 */
 	async function writeRowToMarkdown(
-		row: Row,
-		tableName: string,
-		tableConfig: TableMarkdownConfig<any> | undefined,
+{ row, tableName, tableConfig }: { row: Row; tableName: string; tableConfig: TableMarkdownConfig<any> | undefined; },
 	) {
 		// Serialize YJS types (Y.Text, Y.Array) to plain values (string, array)
 		// This happens at the YJS boundary
@@ -158,7 +156,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
+				const { error } = await writeRowToMarkdown({ row, tableName, tableConfig });
 				isProcessingYJSChange = false;
 
 				if (error) {
@@ -177,7 +175,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown(row, tableName, tableConfig);
+				const { error } = await writeRowToMarkdown({ row, tableName, tableConfig });
 				isProcessingYJSChange = false;
 
 				if (error) {
