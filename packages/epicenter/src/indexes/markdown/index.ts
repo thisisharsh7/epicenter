@@ -177,7 +177,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			// Parse the file path to extract table name and row ID
 			// Expected format: {storagePath}/{tableName}/{id}.md
 			// Returns null if path doesn't match this structure
-			const parsed = parseMarkdownPath(storagePath, filePath);
+			const parsed = parseMarkdownPath({ storagePath, filePath });
 			if (!parsed) {
 				return; // Ignore files that don't match our expected structure
 			}

@@ -26,10 +26,9 @@ export type MarkdownError = ReturnType<typeof MarkdownError>;
  * Extract table name and ID from a markdown file path
  */
 export function parseMarkdownPath(
-	vaultPath: string,
-	filePath: string,
+{ storagePath, filePath }: { storagePath: string; filePath: string; },
 ): { tableName: string; id: string } | null {
-	const relative = path.relative(vaultPath, filePath);
+	const relative = path.relative(storagePath, filePath);
 	const parts = relative.split(path.sep);
 
 	if (parts.length !== 2) {
