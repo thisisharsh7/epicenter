@@ -66,7 +66,7 @@ export async function createServer<
 				description: action.description,
 				tags,
 			}),
-			action.input ? validator('query', action.input) : undefined,
+			...(action.input ? [validator('query', action.input)] : []),
 			async (c) => {
 				const query = c.req.query();
 				const input = Object.keys(query).length > 0 ? query : undefined;
@@ -83,7 +83,7 @@ export async function createServer<
 				description: action.description,
 				tags,
 			}),
-			action.input ? validator('json', action.input) : undefined,
+			...(action.input ? [validator('json', action.input)] : []),
 			async (c) => {
 				const body = await c.req.json().catch(() => ({}));
 				const input = Object.keys(body).length > 0 ? body : undefined;
