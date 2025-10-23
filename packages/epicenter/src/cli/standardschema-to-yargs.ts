@@ -54,6 +54,10 @@ export async function standardSchemaToYargs(
 
 /**
  * Add a single JSON Schema field to yargs as an option
+ *
+ * Philosophy: Be permissive. If we can't perfectly represent the schema in yargs,
+ * still create the CLI option - just be more lenient. Let Standard Schema validation
+ * happen when the action actually runs.
  */
 function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 	key: string;
@@ -63,8 +67,14 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 }): void {
 
 	// JSONSchema7 properties can be boolean or JSONSchema7Definition
-	// We only handle object schemas, not boolean schemas (which accept anything)
-	if (typeof fieldSchema === 'boolean') return;
+	// For boolean schemas (true/false), accept any value (no type specified)
+	if (typeof fieldSchema === 'boolean') {
+		yargs.option(key, {
+			description: 'Any value',
+			demandOption: isRequired,
+		});
+		return;
+	}
 
 	// Handle explicit enum property
 	if (fieldSchema.enum) {
@@ -102,16 +112,12 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 			return;
 		}
 
-		// For other unions, fall back to the first type
-		const firstVariant = variants[0];
-		if (firstVariant && typeof firstVariant !== 'boolean' && firstVariant.type) {
-			const firstType = Array.isArray(firstVariant.type)
-				? firstVariant.type[0]
-				: firstVariant.type;
-			if (firstType) {
-				addFieldByType({ key, type: firstType, description: fieldSchema.description, isRequired, yargs });
-			}
-		}
+		// For any other union (string | number, string | null, etc),
+		// just accept any value - let Standard Schema validate at runtime
+		yargs.option(key, {
+			description: fieldSchema.description ?? 'Union type (validation at runtime)',
+			demandOption: isRequired,
+		});
 		return;
 	}
 
@@ -121,13 +127,25 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 		const primaryType = Array.isArray(fieldSchema.type) ? fieldSchema.type[0] : fieldSchema.type;
 		if (primaryType) {
 			addFieldByType({ key, type: primaryType, description: fieldSchema.description, isRequired, yargs });
+			return;
 		}
 	}
+
+	// Ultimate fallback: no type info, but still create the option
+	// Accept any value and let Standard Schema validate when action runs
+	yargs.option(key, {
+		description: fieldSchema.description || 'Any value (validation at runtime)',
+		demandOption: isRequired,
+	});
 }
 
 
 /**
  * Add a field to yargs based on JSON Schema type
+ *
+ * Even for complex types like objects, we still create CLI options.
+ * For unsupported types, we accept them as strings and rely on
+ * Standard Schema validation at runtime.
  */
 function addFieldByType({ key, type, description, isRequired, yargs }: {
 	key: string;
@@ -171,9 +189,15 @@ function addFieldByType({ key, type, description, isRequired, yargs }: {
 			});
 			break;
 
-		case 'null':
 		case 'object':
-			// Skip null and object types - not supported as CLI options
+		case 'null':
+		default:
+			// For complex types, omit 'type' - yargs accepts any value
+			// Validation happens via Standard Schema at runtime
+			yargs.option(key, {
+				description: description || `${type} type (validation at runtime)`,
+				demandOption: isRequired,
+			});
 			break;
 	}
 }
