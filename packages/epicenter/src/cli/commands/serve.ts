@@ -68,4 +68,22 @@ export async function serveCommand(
 
 	console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 	console.log('Server is running. Press Ctrl+C to stop.\n');
+
+	let isShuttingDown = false;
+
+	const shutdown = async (signal: string) => {
+		if (isShuttingDown) return;
+		isShuttingDown = true;
+
+		console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+
+		server.stop();
+		client.destroy();
+
+		console.log('✅ Server stopped cleanly\n');
+		process.exit(0);
+	};
+
+	process.on('SIGINT', () => shutdown('SIGINT'));
+	process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
