@@ -17,7 +17,7 @@ Once connected, Claude Code can:
 
 ```bash
 cd packages/epicenter/examples/content-hub
-bun run server-http.ts
+bun ../../src/cli/bin.ts serve
 ```
 
 The server will start on http://localhost:3913 with:
@@ -62,9 +62,7 @@ Create a page:
 
 ## How It Works
 
-### Server Architecture
-
-The `createHttpServer()` function:
+The `epicenter serve` command automatically:
 
 1. **Exposes REST endpoints** for each action:
    ```
@@ -76,11 +74,7 @@ The `createHttpServer()` function:
    POST /mcp
    ```
 
-   The MCP endpoint communicates using Server-Sent Events (SSE):
-   - Client sends JSON-RPC requests via HTTP POST
-   - Server responds with SSE stream (`event: message\ndata: {...}`)
-   - Each event contains a JSON-RPC response
-   - This allows for bidirectional communication over HTTP
+   The MCP endpoint communicates using Server-Sent Events (SSE), allowing bidirectional communication over HTTP.
 
 3. **Registers all actions as MCP tools** with:
    - Input validation via TypeBox schemas
@@ -179,23 +173,23 @@ export const myWorkspace = defineWorkspace({
 });
 ```
 
-### 2. Create Server
+### 2. Export Config with Default Export
 
 ```typescript
-import { createHttpServer, defineEpicenter } from '@epicenter/epicenter';
+// epicenter.config.ts
+import { defineEpicenter } from '@epicenter/epicenter';
 import { myWorkspace } from './workspace';
 
-const app = await createHttpServer(
-  defineEpicenter({
-    id: 'my-app',
-    workspaces: [myWorkspace],
-  })
-);
-
-Bun.serve({
-  fetch: app.fetch,
-  port: 3913,
+export default defineEpicenter({
+  id: 'my-app',
+  workspaces: [myWorkspace],
 });
+```
+
+Then run the server:
+
+```bash
+bun ../../src/cli/bin.ts serve
 ```
 
 ### 3. Add to Claude Code

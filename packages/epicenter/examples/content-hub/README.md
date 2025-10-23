@@ -14,10 +14,11 @@ A practical example demonstrating how to build a content management system with 
 ### 1. Run the HTTP Server
 
 ```bash
-bun run server-http.ts
+bun ../../src/cli/bin.ts serve
 ```
 
 This starts an HTTP server on port 3913 with:
+
 - REST API endpoints for your workspace actions
 - MCP (Model Context Protocol) integration
 - Automatic data persistence
@@ -65,76 +66,19 @@ bun test
 
 ## How It Works
 
-### Server Architecture
+The `epicenter serve` command reads your `epicenter.config.ts` and automatically:
 
-The server is created using `createHttpServer()`:
-
-```typescript
-const contentHub = defineEpicenter({
-  id: 'content-hub',
-  workspaces: [pages, contentHub],
-});
-
-const app = await createHttpServer(contentHub);
-
-Bun.serve({
-  fetch: app.fetch,
-  port: 3913,
-});
-```
-
-This automatically:
 - Creates REST endpoints for each workspace action
-- Exposes MCP protocol endpoints
+- Exposes MCP protocol endpoints at `/mcp`
 - Handles request validation and error responses
 - Manages data persistence
 
-### Endpoint Patterns
+**Endpoint Patterns:**
 
-**REST Endpoints:**
 - `GET/POST /<workspace>/<action>`: Call workspace actions directly
 - Query parameters or JSON body for input
 - Returns `{ data: <result> }` or `{ error: <error> }`
 
-**MCP Endpoints:**
-- `POST /mcp/tools/list`: List all available tools (workspace actions)
-- `POST /mcp/tools/call`: Call a tool with arguments
-
-### Testing Pattern
-
-The tests demonstrate the recommended pattern:
-
-```typescript
-// 1. Create server
-const app = await createHttpServer(epicenter);
-
-// 2. Start on random port
-const server = Bun.serve({
-  fetch: app.fetch,
-  port: 0,
-});
-
-// 3. Make requests
-const response = await fetch(`http://localhost:${server.port}/pages/getPages`);
-
-// 4. Verify responses
-expect(response.status).toBe(200);
-const data = await response.json();
-expect(data.data).toBeDefined();
-```
-
-## What's Next
-
-This example shows the basics. You can extend it with:
-
-1. **Authentication**: Add auth middleware to protect endpoints
-2. **Rate limiting**: Add rate limiting for production use
-3. **WebSockets**: Add real-time updates for collaborative editing
-4. **File uploads**: Handle media uploads for your content
-5. **Search**: Add full-text search across pages
-
 ## Learn More
 
 - [Epicenter Documentation](../../README.md)
-- [Workspace Guide](../../docs/workspaces.md)
-- [Server API Reference](../../docs/server-api.md)
