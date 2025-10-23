@@ -167,143 +167,6 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 }
 
 /**
- * Update a YJS row from markdown file data using granular diffs
- *
- * This function handles two scenarios:
- * 1. Row doesn't exist: Converts plain values to YJS types and inserts new row
- * 2. Row exists: Applies granular diffs to minimize changes
- *
- * For primitive columns (text, integer, boolean, etc.), directly overwrites values.
- * For Y.Text columns, uses syncYTextToDiff() for granular character-level updates.
- * For Y.Array columns, uses syncYArrayToDiff() for granular element-level updates.
- *
- * @param db - Database instance
- * @param tableName - Name of the table to update
- * @param rowId - ID of the row to update or insert
- * @param newData - Plain JavaScript object from markdown file (already validated against schema)
- */
-function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>({
-	db,
-	tableName,
-	rowId,
-	newData,
-}: {
-	db: Db<TWorkspaceSchema>;
-	tableName: string;
-	rowId: string;
-	newData: Row;
-}): void {
-	const table = db.tables[tableName];
-	if (!table) {
-		throw new Error(`Table "${tableName}" not found`);
-	}
-
-	const schema = db.schema[tableName];
-	if (!schema) {
-		throw new Error(`Schema for table "${tableName}" not found`);
-	}
-
-	// Get the existing row
-	const rowResult = table.get(rowId);
-	if (rowResult.status === 'not-found') {
-		// Row doesn't exist yet in YJS
-		// Markdown files contain plain JavaScript values (strings, arrays, etc.)
-		// but YJS needs specialized types (Y.Text, Y.Array) for CRDT collaboration.
-		// Convert plain values to their YJS equivalents before inserting.
-		const convertedRow: Record<string, any> = {};
-		for (const [columnName, columnSchema] of Object.entries(schema)) {
-			const value = newData[columnName];
-			switch (columnSchema.type) {
-				case 'ytext':
-					// Convert plain string to Y.Text for collaborative editing
-					if (typeof value === 'string') {
-						const ytext = new Y.Text();
-						ytext.insert(0, value);
-						convertedRow[columnName] = ytext;
-					} else {
-						convertedRow[columnName] = value;
-					}
-					break;
-
-				case 'multi-select':
-					// Convert plain array to Y.Array for collaborative list editing
-					if (Array.isArray(value)) {
-						convertedRow[columnName] = Y.Array.from(value);
-					} else {
-						convertedRow[columnName] = value;
-					}
-					break;
-
-				default:
-					// Primitive types (string, number, boolean) don't need conversion
-					convertedRow[columnName] = value;
-					break;
-			}
-		}
-		table.insert(convertedRow as any);
-		return;
-	}
-
-	if (rowResult.status !== 'valid') {
-		console.warn(
-			`Cannot update invalid row ${tableName}/${rowId}: ${rowResult.status}`,
-		);
-		return;
-	}
-
-	const existingRow = rowResult.row;
-
-	// Group all updates in a single YJS transaction
-	// This ensures atomicity and generates only one update event for observers
-	db.transact(() => {
-		for (const [columnName, columnSchema] of Object.entries(schema)) {
-			const newValue = newData[columnName];
-			const existingValue = existingRow[columnName];
-
-			// Skip if values are identical (primitives only - object references won't match)
-			// This optimization avoids unnecessary update() calls for unchanged fields
-			if (newValue === existingValue) {
-				continue;
-			}
-
-			// Handle different column types
-			switch (columnSchema.type) {
-				case 'ytext': {
-					// Use granular character-level diffs instead of replacing entire content
-					// This preserves cursor positions and reduces network traffic in collaborative scenarios
-					// syncYTextToDiff calculates the minimal insertions/deletions needed
-					if (existingValue instanceof Y.Text && typeof newValue === 'string') {
-						syncYTextToDiff(existingValue, newValue);
-					} else if (newValue === null && columnSchema.nullable) {
-						table.update({ id: rowId, [columnName]: null } as any);
-					}
-					break;
-				}
-
-				case 'multi-select': {
-					// Use granular element-level diffs instead of replacing entire array
-					// This preserves array positions and reduces conflicts in collaborative scenarios
-					// syncYArrayToDiff calculates the minimal insertions/deletions needed
-					if (existingValue instanceof Y.Array && Array.isArray(newValue)) {
-						syncYArrayToDiff(existingValue, newValue);
-					} else if (newValue === null && columnSchema.nullable) {
-						table.update({ id: rowId, [columnName]: null } as any);
-					}
-					break;
-				}
-
-				default: {
-					// For all other types (primitives: string, number, boolean, etc.)
-					// No special YJS types needed, just update directly
-					table.update({ id: rowId, [columnName]: newValue } as any);
-					break;
-				}
-			}
-		}
-	});
-}
-
-/**
  * Creates table-specific markdown operations with captured context
  *
  * Returns an object with methods to write and delete markdown files for a specific table.
@@ -776,4 +639,141 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	);
 
 	return watcher;
+}
+
+/**
+ * Update a YJS row from markdown file data using granular diffs
+ *
+ * This function handles two scenarios:
+ * 1. Row doesn't exist: Converts plain values to YJS types and inserts new row
+ * 2. Row exists: Applies granular diffs to minimize changes
+ *
+ * For primitive columns (text, integer, boolean, etc.), directly overwrites values.
+ * For Y.Text columns, uses syncYTextToDiff() for granular character-level updates.
+ * For Y.Array columns, uses syncYArrayToDiff() for granular element-level updates.
+ *
+ * @param db - Database instance
+ * @param tableName - Name of the table to update
+ * @param rowId - ID of the row to update or insert
+ * @param newData - Plain JavaScript object from markdown file (already validated against schema)
+ */
+function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>({
+	db,
+	tableName,
+	rowId,
+	newData,
+}: {
+	db: Db<TWorkspaceSchema>;
+	tableName: string;
+	rowId: string;
+	newData: Row;
+}): void {
+	const table = db.tables[tableName];
+	if (!table) {
+		throw new Error(`Table "${tableName}" not found`);
+	}
+
+	const schema = db.schema[tableName];
+	if (!schema) {
+		throw new Error(`Schema for table "${tableName}" not found`);
+	}
+
+	// Get the existing row
+	const rowResult = table.get(rowId);
+	if (rowResult.status === 'not-found') {
+		// Row doesn't exist yet in YJS
+		// Markdown files contain plain JavaScript values (strings, arrays, etc.)
+		// but YJS needs specialized types (Y.Text, Y.Array) for CRDT collaboration.
+		// Convert plain values to their YJS equivalents before inserting.
+		const convertedRow: Record<string, any> = {};
+		for (const [columnName, columnSchema] of Object.entries(schema)) {
+			const value = newData[columnName];
+			switch (columnSchema.type) {
+				case 'ytext':
+					// Convert plain string to Y.Text for collaborative editing
+					if (typeof value === 'string') {
+						const ytext = new Y.Text();
+						ytext.insert(0, value);
+						convertedRow[columnName] = ytext;
+					} else {
+						convertedRow[columnName] = value;
+					}
+					break;
+
+				case 'multi-select':
+					// Convert plain array to Y.Array for collaborative list editing
+					if (Array.isArray(value)) {
+						convertedRow[columnName] = Y.Array.from(value);
+					} else {
+						convertedRow[columnName] = value;
+					}
+					break;
+
+				default:
+					// Primitive types (string, number, boolean) don't need conversion
+					convertedRow[columnName] = value;
+					break;
+			}
+		}
+		table.insert(convertedRow as any);
+		return;
+	}
+
+	if (rowResult.status !== 'valid') {
+		console.warn(
+			`Cannot update invalid row ${tableName}/${rowId}: ${rowResult.status}`,
+		);
+		return;
+	}
+
+	const existingRow = rowResult.row;
+
+	// Group all updates in a single YJS transaction
+	// This ensures atomicity and generates only one update event for observers
+	db.transact(() => {
+		for (const [columnName, columnSchema] of Object.entries(schema)) {
+			const newValue = newData[columnName];
+			const existingValue = existingRow[columnName];
+
+			// Skip if values are identical (primitives only - object references won't match)
+			// This optimization avoids unnecessary update() calls for unchanged fields
+			if (newValue === existingValue) {
+				continue;
+			}
+
+			// Handle different column types
+			switch (columnSchema.type) {
+				case 'ytext': {
+					// Use granular character-level diffs instead of replacing entire content
+					// This preserves cursor positions and reduces network traffic in collaborative scenarios
+					// syncYTextToDiff calculates the minimal insertions/deletions needed
+					if (existingValue instanceof Y.Text && typeof newValue === 'string') {
+						syncYTextToDiff(existingValue, newValue);
+					} else if (newValue === null && columnSchema.nullable) {
+						table.update({ id: rowId, [columnName]: null } as any);
+					}
+					break;
+				}
+
+				case 'multi-select': {
+					// Use granular element-level diffs instead of replacing entire array
+					// This preserves array positions and reduces conflicts in collaborative scenarios
+					// syncYArrayToDiff calculates the minimal insertions/deletions needed
+					if (existingValue instanceof Y.Array && Array.isArray(newValue)) {
+						syncYArrayToDiff(existingValue, newValue);
+					} else if (newValue === null && columnSchema.nullable) {
+						table.update({ id: rowId, [columnName]: null } as any);
+					}
+					break;
+				}
+
+				default: {
+					// For all other types (primitives: string, number, boolean, etc.)
+					// No special YJS types needed, just update directly
+					table.update({ id: rowId, [columnName]: newValue } as any);
+					break;
+				}
+			}
+		}
+	});
 }
