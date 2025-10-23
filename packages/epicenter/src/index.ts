@@ -95,12 +95,6 @@ export {
 	createHttpServer,
 	createStdioServer,
 } from './server';
-export type {
-	MCPTool,
-	MCPToolsListResponse,
-	MCPToolCallRequest,
-	MCPToolCallResponse,
-} from './server';
 
 // Re-export commonly used Drizzle utilities for querying indexes
 export {
