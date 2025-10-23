@@ -9,10 +9,7 @@ import type { Row, TableSchema, WorkspaceSchema } from '../../core/schema';
 import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
-import {
-	parseMarkdownPath,
-	parseMarkdownWithValidation,
-} from './parser';
+import { parseMarkdownWithValidation } from './parser';
 
 
 /**
@@ -165,24 +162,23 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	const watcher = watch(
 		storagePath,
 		{ recursive: true },
-		async (eventType, filename) => {
+		async (eventType, relativePath) => {
 			// Skip if this file change was triggered by a YJS change we're processing
 			// (prevents YJS -> markdown -> YJS infinite loop)
 			if (isProcessingYJSChange) return;
 
-			if (!filename || !filename.endsWith('.md')) return;
+			if (!relativePath || !relativePath.endsWith('.md')) return;
 
-			const filePath = `${storagePath}/${filename}`;
+			// Parse relative path from watcher
+			// filename is already relative to storagePath (e.g., "pages/my-page.md")
+			// Expected format: [tableName]/[id].md
+			const parts = relativePath.split(path.sep);
+			if (parts.length !== 2) return; // Ignore files that don't match our expected structure
+			const [tableName, filenameWithExt] = parts;
+			if (!tableName || !filenameWithExt) return;
 
-			// Parse the file path to extract table name and row ID
-			// Expected format: {storagePath}/{tableName}/{id}.md
-			// Returns null if path doesn't match this structure
-			const parsed = parseMarkdownPath({ storagePath, filePath });
-			if (!parsed) {
-				return; // Ignore files that don't match our expected structure
-			}
-
-			const { tableName, id } = parsed;
+			const id = path.basename(filenameWithExt, '.md');
+			const filePath = path.join(storagePath, relativePath);
 
 			isProcessingFileChange = true;
 			try {
@@ -211,7 +207,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 					const tableSchema = db.schema[tableName];
 					if (!tableSchema) {
 						console.warn(
-							`File watcher: Unknown table "${tableName}" from file ${filename}`,
+							`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
 						);
 						return;
 					}
@@ -243,7 +239,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 										filePath,
 										validationResult: parseResult.validationResult,
 										rawData: parseResult.data,
-									},
+									cause: undefined,									},
 								}),
 							);
 							console.error('Validation details:', JSON.stringify(parseResult.validationResult, null, 2));

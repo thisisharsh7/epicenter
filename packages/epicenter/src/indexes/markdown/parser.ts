@@ -23,28 +23,6 @@ export type MarkdownError = ReturnType<typeof MarkdownError>;
 
 
 /**
- * Extract table name and ID from a markdown file path
- */
-export function parseMarkdownPath(
-{ storagePath, filePath }: { storagePath: string; filePath: string; },
-): { tableName: string; id: string } | null {
-	const relative = path.relative(storagePath, filePath);
-	const parts = relative.split(path.sep);
-
-	if (parts.length !== 2) {
-		return null;
-	}
-
-	const [tableName, filename] = parts;
-	if (!tableName || !filename) {
-		return null;
-	}
-	const id = filename.replace(/\.md$/, '');
-
-	return { tableName, id };
-}
-
-/**
  * Result of parsing and validating a markdown file
  * Three possible outcomes:
  * - failed-to-parse: YAML frontmatter has invalid syntax or file is malformed
@@ -53,19 +31,19 @@ export function parseMarkdownPath(
  */
 export type ParseMarkdownResult<T extends Row = Row> =
 	| {
-			status: 'failed-to-parse';
-			error: MarkdownError;
-	  }
+		status: 'failed-to-parse';
+		error: MarkdownError;
+	}
 	| {
-			status: 'failed-to-validate';
-			validationResult: RowValidationResult<T>;
-			data: unknown;
-	  }
+		status: 'failed-to-validate';
+		validationResult: RowValidationResult<T>;
+		data: unknown;
+	}
 	| {
-			status: 'success';
-			data: T;
-			content: string;
-	  };
+		status: 'success';
+		data: T;
+		content: string;
+	};
 
 /**
  * Parse and validate a markdown file against a table schema
