@@ -1,15 +1,24 @@
+import type { FSWatcher } from 'node:fs';
 import { mkdirSync, watch } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
-import { type Index, defineIndex } from '../../core/indexes';
+import { defineIndex } from '../../core/indexes';
 import type { Row, TableSchema, WorkspaceSchema } from '../../core/schema';
 import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import { parseMarkdownWithValidation } from './parser';
+
+/**
+ * Loop prevention flags shared between YJS observers and file watcher
+ */
+type MarkdownIndexFlags = {
+	isProcessingFileChange: boolean;
+	isProcessingYJSChange: boolean;
+};
 
 /**
  * Per-table markdown configuration
@@ -69,13 +78,13 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  * @param config - Markdown configuration options
  * @param config.storagePath - Path where markdown files should be stored (relative or absolute).
  *                              Will be converted to absolute path internally. Defaults to current directory.
- * @param config.tables - Per-table configuration for bodyField and other options
+ * @param config.tableConfigs - Per-table configuration for bodyField and other options
  */
 export function markdownIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
 	{
 		storagePath: relativeStoragePath = '.',
-		tables = {},
+		tableConfigs = {},
 	}: MarkdownIndexConfig<TSchema> = {},
 ) {
 	/**
@@ -93,269 +102,26 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	 * - Before file watcher updates YJS: set isProcessingFileChange = true
 	 *   - YJS observers check this flag and skip processing
 	 */
-	let isProcessingFileChange = false;
-	let isProcessingYJSChange = false;
+	const flags: MarkdownIndexFlags = {
+		isProcessingFileChange: false,
+		isProcessingYJSChange: false,
+	};
 
 	// Set up observers for each table
-	const unsubscribers: Array<() => void> = [];
-
-	for (const tableName of db.getTableNames()) {
-		const table = db.tables[tableName];
-		if (!table) {
-			throw new Error(`Table "${tableName}" not found`);
-		}
-
-		const tableConfig = tables[tableName];
-		const markdown = createTableMarkdownOperations({
-			tableName,
-			storagePath,
-			tableConfig,
-		});
-
-		const unsub = table.observe({
-			onAdd: async (row) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (isProcessingFileChange) return;
-
-				isProcessingYJSChange = true;
-				const { error } = await markdown.write(row);
-				isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id },
-							cause: error,
-						}),
-					);
-				}
-			},
-			onUpdate: async (row) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (isProcessingFileChange) return;
-
-				isProcessingYJSChange = true;
-				const { error } = await markdown.write(row);
-				isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id },
-							cause: error,
-						}),
-					);
-				}
-			},
-			onDelete: async (id) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (isProcessingFileChange) return;
-
-				isProcessingYJSChange = true;
-				const { error } = await markdown.delete(id);
-				isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onDelete failed for ${tableName}/${id}`,
-							context: { tableName, id },
-							cause: error,
-						}),
-					);
-				}
-			},
-		});
-		unsubscribers.push(unsub);
-	}
-
-	// Set up file watcher for bidirectional sync
-	// Ensure the directory exists before watching
-	trySync({
-		try: () => {
-			mkdirSync(storagePath, { recursive: true });
-		},
-		catch: () => Ok(undefined),
+	const unsubscribers = registerYJSObservers({
+		db,
+		storagePath,
+		tableConfigs,
+		flags,
 	});
 
-	const watcher = watch(
+	// Set up file watcher for bidirectional sync
+	const watcher = registerFileWatcher({
+		db,
 		storagePath,
-		{ recursive: true },
-		async (eventType, relativePath) => {
-			// Skip if this file change was triggered by a YJS change we're processing
-			// (prevents YJS -> markdown -> YJS infinite loop)
-			if (isProcessingYJSChange) return;
-
-			// Skip non-markdown files
-			if (!relativePath || !relativePath.endsWith('.md')) return;
-
-			/**
-			 * Parse the relative path from the watcher to extract table name and row ID
-			 *
-			 * The watcher provides relativePath relative to storagePath.
-			 * Expected directory structure:
-			 *   {storagePath}/
-			 *     {tableName}/
-			 *       {id}.md
-			 *
-			 * Example:
-			 *   storagePath = "/Users/name/vault"
-			 *   relativePath = "pages/my-page.md"
-			 *   Result: tableName = "pages", id = "my-page"
-			 *
-			 * We strictly enforce this 2-level structure and ignore any files that don't match
-			 * (e.g., files in the root or nested deeper than 2 levels).
-			 */
-			const parts = relativePath.split(path.sep);
-			if (parts.length !== 2) return; // Ignore files that don't match our expected structure
-			const [tableName, filenameWithExt] = parts;
-			if (!tableName || !filenameWithExt) return;
-
-			// Extract the row ID from the filename (without .md extension)
-			const id = path.basename(filenameWithExt, '.md');
-
-			/**
-			 * Construct the full absolute path to the file
-			 *
-			 * We use storagePath (not the original storagePath parameter) to ensure
-			 * we always work with absolute paths, preventing issues when the working directory changes.
-			 */
-			const filePath = path.join(storagePath, relativePath);
-
-			isProcessingFileChange = true;
-
-			/**
-			 * Handle file system events
-			 *
-			 * Event types:
-			 * - 'change': File content was modified
-			 * - 'rename': File was renamed, moved, created, or deleted
-			 *
-			 * Important: On some filesystems (especially macOS), file writes generate 'rename'
-			 * events instead of 'change' events due to atomic rename operations. This means
-			 * 'rename' can indicate either deletion OR modification.
-			 *
-			 * To distinguish between deletion and modification:
-			 * - Check if file exists
-			 * - If not exists: deletion (remove from YJS)
-			 * - If exists: modification (parse and update YJS)
-			 */
-			if (eventType === 'rename') {
-				// Check if the file still exists to distinguish between deletion and modification
-				const file = Bun.file(filePath);
-				const exists = await file.exists();
-				if (!exists) {
-					/**
-					 * File was deleted: Remove the row from YJS
-					 *
-					 * We only delete if the row exists in the table to avoid
-					 * unnecessary operations and potential errors.
-					 */
-					const table = db.tables[tableName];
-					if (table?.has(id)) table.delete(id);
-					return; // Exit early for deletions
-				}
-				/**
-				 * File still exists: This is a modification, not a deletion.
-				 * Fall through to the change handling logic below.
-				 */
-			}
-
-			/**
-			 * Process file modification (works for both 'change' and 'rename' with existing file)
-			 *
-			 * Steps:
-			 * 1. Validate that the table exists in the schema
-			 * 2. Parse and validate the markdown file
-			 * 3. Update YJS with the parsed data using granular diffs
-			 */
-			if (eventType === 'change' || eventType === 'rename') {
-				// Get the table schema
-				const tableSchema = db.schema[tableName];
-				if (!tableSchema) {
-					console.warn(
-						`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
-					);
-					return;
-				}
-
-				// File was modified, parse and update YJS
-				const parseResult = await parseMarkdownWithValidation(
-					filePath,
-					tableSchema,
-				);
-
-				switch (parseResult.status) {
-					case 'failed-to-parse':
-						console.error(
-							IndexErr({
-								message: `Failed to parse markdown file ${tableName}/${id}`,
-								context: { tableName, id, filePath },
-								cause: parseResult.error,
-							}),
-						);
-						break;
-
-					case 'failed-to-validate':
-						console.error(
-							IndexErr({
-								message: `Failed to validate markdown file ${tableName}/${id}`,
-								context: {
-									tableName,
-									id,
-									filePath,
-									validationResult: parseResult.validationResult,
-									rawData: parseResult.data,
-									cause: undefined,
-								},
-							}),
-						);
-						console.error(
-							'Validation details:',
-							JSON.stringify(parseResult.validationResult, null, 2),
-						);
-						break;
-
-					case 'success':
-						// Update YJS document with granular diffs
-						try {
-							// Reconstruct the full row data by merging:
-							// - parseResult.data (frontmatter fields)
-							// - parseResult.content (markdown body) -> stored in the configured bodyField (if any)
-							const tableConfig = tables[tableName as keyof TSchema];
-							const rowData = tableConfig?.bodyField
-								? {
-										...parseResult.data,
-										[tableConfig.bodyField]: parseResult.content,
-									}
-								: parseResult.data;
-
-							updateYJSRowFromMarkdown({
-								db,
-								tableName,
-								rowId: id,
-								newData: rowData,
-							});
-						} catch (error) {
-							console.error(
-								IndexErr({
-									message: `Failed to update YJS from markdown file ${tableName}/${id}`,
-									context: { tableName, id, filePath },
-									cause: error,
-								}),
-							);
-						}
-						break;
-				}
-			}
-			isProcessingFileChange = false;
-		},
-	);
+		tableConfigs,
+		flags,
+	});
 
 	return defineIndex({
 		destroy() {
@@ -663,7 +429,318 @@ export type MarkdownIndexConfig<
 	 *
 	 * If omitted, all tables will use default configuration (no bodyField, include null values)
 	 */
-	tables?: {
+	tableConfigs?: {
 		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
 	};
 };
+
+/**
+ * Register YJS observers to sync changes from YJS to markdown files
+ *
+ * When rows are added/updated/deleted in YJS, this writes the changes to corresponding
+ * markdown files on disk. Uses the flags object to prevent infinite sync loops.
+ *
+ * @param db - Database instance
+ * @param storagePath - Absolute path where markdown files are stored
+ * @param tableConfigs - Per-table configuration
+ * @param flags - Shared loop prevention flags
+ * @returns Array of unsubscribe functions for cleanup
+ */
+function registerYJSObservers<TSchema extends WorkspaceSchema>({
+	db,
+	storagePath,
+	tableConfigs,
+	flags,
+}: {
+	db: Db<TSchema>;
+	storagePath: string;
+	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
+	flags: MarkdownIndexFlags;
+}): Array<() => void> {
+	const unsubscribers: Array<() => void> = [];
+
+	for (const tableName of db.getTableNames()) {
+		const table = db.tables[tableName];
+		if (!table) {
+			throw new Error(`Table "${tableName}" not found`);
+		}
+
+		const tableConfig = tableConfigs?.[tableName];
+		const markdown = createTableMarkdownOperations({
+			tableName,
+			storagePath,
+			tableConfig,
+		});
+
+		const unsub = table.observe({
+			onAdd: async (row) => {
+				// Skip if this YJS change was triggered by a file change we're processing
+				// (prevents markdown -> YJS -> markdown infinite loop)
+				if (flags.isProcessingFileChange) return;
+
+				flags.isProcessingYJSChange = true;
+				const { error } = await markdown.write(row);
+				flags.isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id },
+							cause: error,
+						}),
+					);
+				}
+			},
+			onUpdate: async (row) => {
+				// Skip if this YJS change was triggered by a file change we're processing
+				// (prevents markdown -> YJS -> markdown infinite loop)
+				if (flags.isProcessingFileChange) return;
+
+				flags.isProcessingYJSChange = true;
+				const { error } = await markdown.write(row);
+				flags.isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id },
+							cause: error,
+						}),
+					);
+				}
+			},
+			onDelete: async (id) => {
+				// Skip if this YJS change was triggered by a file change we're processing
+				// (prevents markdown -> YJS -> markdown infinite loop)
+				if (flags.isProcessingFileChange) return;
+
+				flags.isProcessingYJSChange = true;
+				const { error } = await markdown.delete(id);
+				flags.isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onDelete failed for ${tableName}/${id}`,
+							context: { tableName, id },
+							cause: error,
+						}),
+					);
+				}
+			},
+		});
+		unsubscribers.push(unsub);
+	}
+
+	return unsubscribers;
+}
+
+/**
+ * Register file watcher to sync changes from markdown files to YJS
+ *
+ * When markdown files are created/modified/deleted on disk, this updates the
+ * corresponding YJS rows. Uses the flags object to prevent infinite sync loops.
+ *
+ * @param db - Database instance
+ * @param storagePath - Absolute path where markdown files are stored
+ * @param tableConfigs - Per-table configuration
+ * @param flags - Shared loop prevention flags
+ * @returns File watcher instance for cleanup
+ */
+function registerFileWatcher<TSchema extends WorkspaceSchema>({
+	db,
+	storagePath,
+	tableConfigs,
+	flags,
+}: {
+	db: Db<TSchema>;
+	storagePath: string;
+	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
+	flags: MarkdownIndexFlags;
+}): FSWatcher {
+	// Ensure the directory exists before watching
+	trySync({
+		try: () => {
+			mkdirSync(storagePath, { recursive: true });
+		},
+		catch: () => Ok(undefined),
+	});
+
+	const watcher = watch(
+		storagePath,
+		{ recursive: true },
+		async (eventType, relativePath) => {
+			// Skip if this file change was triggered by a YJS change we're processing
+			// (prevents YJS -> markdown -> YJS infinite loop)
+			if (flags.isProcessingYJSChange) return;
+
+			// Skip non-markdown files
+			if (!relativePath || !relativePath.endsWith('.md')) return;
+
+			/**
+			 * Parse the relative path from the watcher to extract table name and row ID
+			 *
+			 * The watcher provides relativePath relative to storagePath.
+			 * Expected directory structure:
+			 *   {storagePath}/
+			 *     {tableName}/
+			 *       {id}.md
+			 *
+			 * Example:
+			 *   storagePath = "/Users/name/vault"
+			 *   relativePath = "pages/my-page.md"
+			 *   Result: tableName = "pages", id = "my-page"
+			 *
+			 * We strictly enforce this 2-level structure and ignore any files that don't match
+			 * (e.g., files in the root or nested deeper than 2 levels).
+			 */
+			const parts = relativePath.split(path.sep);
+			if (parts.length !== 2) return; // Ignore files that don't match our expected structure
+			const [tableName, filenameWithExt] = parts;
+			if (!tableName || !filenameWithExt) return;
+
+			// Extract the row ID from the filename (without .md extension)
+			const id = path.basename(filenameWithExt, '.md');
+
+			/**
+			 * Construct the full absolute path to the file
+			 *
+			 * We use storagePath (not the original storagePath parameter) to ensure
+			 * we always work with absolute paths, preventing issues when the working directory changes.
+			 */
+			const filePath = path.join(storagePath, relativePath);
+
+			flags.isProcessingFileChange = true;
+
+			/**
+			 * Handle file system events
+			 *
+			 * Event types:
+			 * - 'change': File content was modified
+			 * - 'rename': File was renamed, moved, created, or deleted
+			 *
+			 * Important: On some filesystems (especially macOS), file writes generate 'rename'
+			 * events instead of 'change' events due to atomic rename operations. This means
+			 * 'rename' can indicate either deletion OR modification.
+			 *
+			 * To distinguish between deletion and modification:
+			 * - Check if file exists
+			 * - If not exists: deletion (remove from YJS)
+			 * - If exists: modification (parse and update YJS)
+			 */
+			if (eventType === 'rename') {
+				// Check if the file still exists to distinguish between deletion and modification
+				const file = Bun.file(filePath);
+				const exists = await file.exists();
+				if (!exists) {
+					/**
+					 * File was deleted: Remove the row from YJS
+					 *
+					 * We only delete if the row exists in the table to avoid
+					 * unnecessary operations and potential errors.
+					 */
+					const table = db.tables[tableName];
+					if (table?.has(id)) table.delete(id);
+					return; // Exit early for deletions
+				}
+				/**
+				 * File still exists: This is a modification, not a deletion.
+				 * Fall through to the change handling logic below.
+				 */
+			}
+
+			/**
+			 * Process file modification (works for both 'change' and 'rename' with existing file)
+			 *
+			 * Steps:
+			 * 1. Validate that the table exists in the schema
+			 * 2. Parse and validate the markdown file
+			 * 3. Update YJS with the parsed data using granular diffs
+			 */
+			if (eventType === 'change' || eventType === 'rename') {
+				// Get the table schema
+				const tableSchema = db.schema[tableName];
+				if (!tableSchema) {
+					console.warn(
+						`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
+					);
+					return;
+				}
+
+				// File was modified, parse and update YJS
+				const parseResult = await parseMarkdownWithValidation(
+					filePath,
+					tableSchema,
+				);
+
+				switch (parseResult.status) {
+					case 'failed-to-parse':
+						console.error(
+							IndexErr({
+								message: `Failed to parse markdown file ${tableName}/${id}`,
+								context: { tableName, id, filePath },
+								cause: parseResult.error,
+							}),
+						);
+						break;
+
+					case 'failed-to-validate':
+						console.error(
+							IndexErr({
+								message: `Failed to validate markdown file ${tableName}/${id}`,
+								context: {
+									tableName,
+									id,
+									filePath,
+									validationResult: parseResult.validationResult,
+									rawData: parseResult.data,
+									cause: undefined,
+								},
+							}),
+						);
+						console.error(
+							'Validation details:',
+							JSON.stringify(parseResult.validationResult, null, 2),
+						);
+						break;
+
+					case 'success':
+						// Update YJS document with granular diffs
+						try {
+							// Reconstruct the full row data by merging:
+							// - parseResult.data (frontmatter fields)
+							// - parseResult.content (markdown body) -> stored in the configured bodyField (if any)
+							const tableConfig = tableConfigs?.[tableName as keyof TSchema];
+							const rowData = tableConfig?.bodyField
+								? {
+										...parseResult.data,
+										[tableConfig.bodyField]: parseResult.content,
+									}
+								: parseResult.data;
+
+							updateYJSRowFromMarkdown({
+								db,
+								tableName,
+								rowId: id,
+								newData: rowData,
+							});
+						} catch (error) {
+							console.error(
+								IndexErr({
+									message: `Failed to update YJS from markdown file ${tableName}/${id}`,
+									context: { tableName, id, filePath },
+									cause: error,
+								}),
+							);
+						}
+						break;
+				}
+			}
+			flags.isProcessingFileChange = false;
+		},
+	);
+
+	return watcher;
+}
