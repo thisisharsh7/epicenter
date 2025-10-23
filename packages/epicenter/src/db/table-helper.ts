@@ -43,8 +43,8 @@ export function toRow(yrow: YRow): Row {
 type SerializeYjsType<T> = T extends Y.Text
 	? string
 	: T extends Y.Array<infer U>
-	? U[]
-	: T;
+		? U[]
+		: T;
 
 /**
  * Input row type for insert/update operations.
@@ -90,8 +90,8 @@ type InputRow<TRow extends Row = Row> = {
  * // Update multiple fields at once
  * db.tables.posts.update({ id: '123', title: 'New Title', published: true });
  */
-type PartialInputRow<TRow extends Row = Row> =
-	Pick<InputRow<TRow>, 'id'> & Partial<Omit<InputRow<TRow>, 'id'>>;
+type PartialInputRow<TRow extends Row = Row> = Pick<InputRow<TRow>, 'id'> &
+	Partial<Omit<InputRow<TRow>, 'id'>>;
 
 /**
  * Type-safe table helper with operations for a specific table schema
@@ -285,9 +285,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	 */
 	const validateTypedRow = (data: unknown): RowValidationResult<TRow> => {
 		const result = validateRow(data, schema);
-		if (result.status === 'valid') {
-			return { status: 'valid', row: result.row };
-		}
 		return result;
 	};
 
@@ -312,7 +309,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	}): void => {
 		const isYArray = (value: unknown): value is Y.Array<any> =>
 			value instanceof Y.Array;
-		const isYText = (value: unknown): value is Y.Text => value instanceof Y.Text;
+		const isYText = (value: unknown): value is Y.Text =>
+			value instanceof Y.Text;
 		const isArray = (value: unknown): value is unknown[] =>
 			Array.isArray(value);
 
