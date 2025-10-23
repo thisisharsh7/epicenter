@@ -74,6 +74,48 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 };
 
 /**
+ * Markdown index configuration
+ */
+export type MarkdownIndexConfig<
+	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
+> = {
+	/**
+	 * Path where markdown files should be stored
+	 *
+	 * Can be relative or absolute. Will be converted to absolute path internally
+	 * using `path.resolve()` to ensure consistency even if the working directory changes.
+	 *
+	 * Examples:
+	 * - './vault' (relative, will be resolved to absolute)
+	 * - '../data/markdown' (relative, will be resolved to absolute)
+	 * - '/Users/name/vault' (already absolute, will be used as-is)
+	 *
+	 * Default: '.' (current directory)
+	 */
+	storagePath?: string;
+	/**
+	 * Per-table configuration
+	 *
+	 * Keys must be valid table names from the workspace schema.
+	 * Each table can specify which field should contain the markdown body content
+	 * and whether to omit null values from frontmatter.
+	 *
+	 * Example:
+	 * ```typescript
+	 * {
+	 *   pages: { bodyField: 'body', omitNullValues: true },
+	 *   posts: { bodyField: 'content' }
+	 * }
+	 * ```
+	 *
+	 * If omitted, all tables will use default configuration (no bodyField, include null values)
+	 */
+	tableConfigs?: {
+		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
+	};
+};
+
+/**
  * Create a markdown index
  *
  * This index maintains two-way synchronization between YJS (in-memory) and markdown files (on disk):
@@ -164,6 +206,110 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			watcher.close();
 		},
 	});
+}
+
+/**
+ * Register YJS observers to sync changes from YJS to markdown files
+ *
+ * When rows are added/updated/deleted in YJS, this writes the changes to corresponding
+ * markdown files on disk. Coordinates with the file watcher through shared state to
+ * prevent infinite sync loops.
+ *
+ * @param db - Database instance
+ * @param storagePath - Absolute path where markdown files are stored
+ * @param tableConfigs - Per-table configuration
+ * @param syncCoordination - Shared coordination state to prevent infinite loops
+ * @returns Array of unsubscribe functions for cleanup
+ */
+function registerYJSObservers<TSchema extends WorkspaceSchema>({
+	db,
+	storagePath,
+	tableConfigs,
+	syncCoordination,
+}: {
+	db: Db<TSchema>;
+	storagePath: AbsolutePath;
+	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
+	syncCoordination: SyncCoordination;
+}): Array<() => void> {
+	const unsubscribers: Array<() => void> = [];
+
+	for (const tableName of db.getTableNames()) {
+		const table = db.tables[tableName];
+		if (!table) {
+			throw new Error(`Table "${tableName}" not found`);
+		}
+
+		const tableConfig = tableConfigs?.[tableName];
+		const markdown = createTableMarkdownOperations({
+			tableName,
+			storagePath,
+			tableConfig,
+		});
+
+		const unsub = table.observe({
+			onAdd: async (row) => {
+				// Skip if this YJS change was triggered by a file change we're processing
+				// (prevents markdown -> YJS -> markdown infinite loop)
+				if (syncCoordination.isProcessingFileChange) return;
+
+				syncCoordination.isProcessingYJSChange = true;
+				const { error } = await markdown.write(row);
+				syncCoordination.isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id },
+							cause: error,
+						}),
+					);
+				}
+			},
+			onUpdate: async (row) => {
+				// Skip if this YJS change was triggered by a file change we're processing
+				// (prevents markdown -> YJS -> markdown infinite loop)
+				if (syncCoordination.isProcessingFileChange) return;
+
+				syncCoordination.isProcessingYJSChange = true;
+				const { error } = await markdown.write(row);
+				syncCoordination.isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
+							context: { tableName, id: row.id },
+							cause: error,
+						}),
+					);
+				}
+			},
+			onDelete: async (id) => {
+				// Skip if this YJS change was triggered by a file change we're processing
+				// (prevents markdown -> YJS -> markdown infinite loop)
+				if (syncCoordination.isProcessingFileChange) return;
+
+				syncCoordination.isProcessingYJSChange = true;
+				const { error } = await markdown.delete(id);
+				syncCoordination.isProcessingYJSChange = false;
+
+				if (error) {
+					console.error(
+						IndexErr({
+							message: `Markdown index onDelete failed for ${tableName}/${id}`,
+							context: { tableName, id },
+							cause: error,
+						}),
+					);
+				}
+			},
+		});
+		unsubscribers.push(unsub);
+	}
+
+	return unsubscribers;
 }
 
 /**
@@ -289,152 +435,6 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>({
 			});
 		},
 	};
-}
-
-/**
- * Markdown index configuration
- */
-export type MarkdownIndexConfig<
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-> = {
-	/**
-	 * Path where markdown files should be stored
-	 *
-	 * Can be relative or absolute. Will be converted to absolute path internally
-	 * using `path.resolve()` to ensure consistency even if the working directory changes.
-	 *
-	 * Examples:
-	 * - './vault' (relative, will be resolved to absolute)
-	 * - '../data/markdown' (relative, will be resolved to absolute)
-	 * - '/Users/name/vault' (already absolute, will be used as-is)
-	 *
-	 * Default: '.' (current directory)
-	 */
-	storagePath?: string;
-	/**
-	 * Per-table configuration
-	 *
-	 * Keys must be valid table names from the workspace schema.
-	 * Each table can specify which field should contain the markdown body content
-	 * and whether to omit null values from frontmatter.
-	 *
-	 * Example:
-	 * ```typescript
-	 * {
-	 *   pages: { bodyField: 'body', omitNullValues: true },
-	 *   posts: { bodyField: 'content' }
-	 * }
-	 * ```
-	 *
-	 * If omitted, all tables will use default configuration (no bodyField, include null values)
-	 */
-	tableConfigs?: {
-		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
-	};
-};
-
-/**
- * Register YJS observers to sync changes from YJS to markdown files
- *
- * When rows are added/updated/deleted in YJS, this writes the changes to corresponding
- * markdown files on disk. Coordinates with the file watcher through shared state to
- * prevent infinite sync loops.
- *
- * @param db - Database instance
- * @param storagePath - Absolute path where markdown files are stored
- * @param tableConfigs - Per-table configuration
- * @param syncCoordination - Shared coordination state to prevent infinite loops
- * @returns Array of unsubscribe functions for cleanup
- */
-function registerYJSObservers<TSchema extends WorkspaceSchema>({
-	db,
-	storagePath,
-	tableConfigs,
-	syncCoordination,
-}: {
-	db: Db<TSchema>;
-	storagePath: AbsolutePath;
-	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
-	syncCoordination: SyncCoordination;
-}): Array<() => void> {
-	const unsubscribers: Array<() => void> = [];
-
-	for (const tableName of db.getTableNames()) {
-		const table = db.tables[tableName];
-		if (!table) {
-			throw new Error(`Table "${tableName}" not found`);
-		}
-
-		const tableConfig = tableConfigs?.[tableName];
-		const markdown = createTableMarkdownOperations({
-			tableName,
-			storagePath,
-			tableConfig,
-		});
-
-		const unsub = table.observe({
-			onAdd: async (row) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (syncCoordination.isProcessingFileChange) return;
-
-				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await markdown.write(row);
-				syncCoordination.isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id },
-							cause: error,
-						}),
-					);
-				}
-			},
-			onUpdate: async (row) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (syncCoordination.isProcessingFileChange) return;
-
-				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await markdown.write(row);
-				syncCoordination.isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id },
-							cause: error,
-						}),
-					);
-				}
-			},
-			onDelete: async (id) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (syncCoordination.isProcessingFileChange) return;
-
-				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await markdown.delete(id);
-				syncCoordination.isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onDelete failed for ${tableName}/${id}`,
-							context: { tableName, id },
-							cause: error,
-						}),
-					);
-				}
-			},
-		});
-		unsubscribers.push(unsub);
-	}
-
-	return unsubscribers;
 }
 
 /**
