@@ -718,6 +718,20 @@ if (isQuery(someAction)) {
 
 Epicenter supports exposing workspaces as MCP (Model Context Protocol) servers for AI assistant integration, using HTTP transport exclusively.
 
+### Route Handling Details
+
+Workspaces expose actions via RESTful HTTP endpoints with distinct method handling:
+
+- **Query Actions**: Use HTTP GET method
+  - Path: `/{workspaceName}/{actionName}`
+  - Input parameters passed via query string
+  - Designed for read-only operations that retrieve data
+
+- **Mutation Actions**: Use HTTP POST method
+  - Path: `/{workspaceName}/{actionName}`
+  - Input parameters passed via JSON request body
+  - Designed for operations that modify state
+
 ### Why HTTP-Only?
 
 Epicenter does not support stdio transport for MCP servers. This is an intentional architectural decision based on how Epicenter workspaces function.
