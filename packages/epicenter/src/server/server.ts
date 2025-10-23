@@ -1,11 +1,10 @@
 import { StreamableHTTPTransport } from '@hono/mcp';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
-import { createEpicenterClient, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
+import { createEpicenterClient, forEachAction, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
 import type { EpicenterOperationError } from '../core/errors';
-import type { AnyWorkspaceConfig, WorkspaceClient } from '../core/workspace';
+import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createMcpServer } from './mcp';
-import type { WorkspaceActionMap } from '../core/actions';
 
 /**
  * Create a unified server with REST and MCP endpoints
@@ -53,36 +52,22 @@ export async function createServer<
 	const client = await createEpicenterClient(config);
 
 	// Register REST endpoints for each workspace action
-	// This iteration pattern mirrors flattenActionsForMCP in mcp.ts, but instead of
-	// building a flat Map, we register HTTP routes for each workspace action.
-	// @see flattenActionsForMCP in mcp.ts for the similar pattern used in MCP tool registration
+	forEachAction(client, ({ workspaceName, actionName, action }) => {
+		const path = `/${workspaceName}/${actionName}`;
 
-	// Extract workspace clients (excluding the destroy method from the client interface)
-	const { destroy, ...workspaceClients } = client;
+		// Register as both GET and POST
+		app.get(path, async (c) => {
+			const query = c.req.query();
+			const input = Object.keys(query).length > 0 ? query : undefined;
+			return executeAction(c, action as any, input);
+		});
 
-	// Iterate over each workspace and its actions to register REST routes
-	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
-		// Extract actions (excluding the destroy method from the workspace interface)
-		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
-
-		// Register REST routes for each action
-		for (const [actionName, action] of Object.entries(workspaceActions)) {
-			const path = `/${workspaceName}/${actionName}`;
-
-			// Register as both GET and POST
-			app.get(path, async (c) => {
-				const query = c.req.query();
-				const input = Object.keys(query).length > 0 ? query : undefined;
-				return executeAction(c, action as any, input);
-			});
-
-			app.post(path, async (c) => {
-				const body = await c.req.json().catch(() => ({}));
-				const input = Object.keys(body).length > 0 ? body : undefined;
-				return executeAction(c, action as any, input);
-			});
-		}
-	}
+		app.post(path, async (c) => {
+			const body = await c.req.json().catch(() => ({}));
+			const input = Object.keys(body).length > 0 ? body : undefined;
+			return executeAction(c, action as any, input);
+		});
+	});
 
 	// Create and configure MCP server for /mcp endpoint
 	const mcpServer = createMcpServer(client, config);

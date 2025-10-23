@@ -1,4 +1,5 @@
-import type { AnyWorkspaceConfig } from '../workspace';
+import type { Action, WorkspaceActionMap } from '../actions';
+import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
 import { initializeWorkspaces, type WorkspacesToClients } from '../workspace/client';
 import type { EpicenterConfig } from './config';
 
@@ -68,4 +69,50 @@ export async function createEpicenterClient<
 		...clients,
 		destroy: cleanup,
 	} as EpicenterClient<TWorkspaces>;
+}
+
+/**
+ * Iterate over all workspace actions in an Epicenter client.
+ *
+ * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
+ * This utility traverses all layers and invokes the callback for each action.
+ * The `destroy` methods at client and workspace levels are automatically excluded.
+ *
+ * @param client - The Epicenter client with workspace namespaces
+ * @param callback - Function invoked for each action with `{ workspaceName, actionName, action }`
+ *
+ * @example
+ * ```typescript
+ * // Register MCP tools
+ * forEachAction(client, ({ workspaceName, actionName, action }) => {
+ *   actions.set(`${workspaceName}_${actionName}`, action);
+ * });
+ *
+ * // Register REST routes
+ * forEachAction(client, ({ workspaceName, actionName, action }) => {
+ *   app.get(`/${workspaceName}/${actionName}`, handler);
+ * });
+ * ```
+ */
+export function forEachAction<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
+	client: EpicenterClient<TWorkspaces>,
+	callback: (params: {
+		workspaceName: TWorkspaces[number]['name'];
+		actionName: string;
+		action: Action;
+	}) => void,
+): void {
+	// Extract workspace clients (excluding the destroy method from the client interface)
+	const { destroy, ...workspaceClients } = client;
+
+	// Iterate over each workspace and its actions
+	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
+		// Extract actions (excluding the destroy method from the workspace interface)
+		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
+
+		// Invoke callback for each action
+		for (const [actionName, action] of Object.entries(workspaceActions)) {
+			callback({ workspaceName, actionName, action });
+		}
+	}
 }

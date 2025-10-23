@@ -6,9 +6,9 @@ import {
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Value } from 'typebox/value';
-import type { Action, WorkspaceActionMap } from '../core/actions';
-import type { EpicenterClient, EpicenterConfig } from '../core/epicenter';
-import type { AnyWorkspaceConfig, WorkspaceClient } from '../core/workspace';
+import type { Action } from '../core/actions';
+import { forEachAction, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
+import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createServer } from './server';
 
 /**
@@ -150,31 +150,18 @@ export function createMcpServer<
  * with MCP-compatible tool names. This is specifically for the MCP protocol which requires
  * a flat list of tools (no hierarchical namespacing).
  *
- * This function iterates over all workspaces and their actions, creating MCP tool names
- * in the format `${workspaceName}_${actionName}`. The pattern of extracting workspaces
- * and actions is shared with HTTP server creation, though the purposes differ:
- * - Here: Build a flat Map for MCP tool registration
- * - In server.ts: Register individual REST endpoints for each action
+ * This function uses `forEachAction` to iterate over all workspaces and their actions,
+ * creating MCP tool names in the format `${workspaceName}_${actionName}`.
  */
 function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	client: EpicenterClient<TWorkspaces>,
 ): Map<string, Action> {
 	const actions = new Map<string, Action>();
 
-	// Extract workspace clients (excluding the destroy method from the client interface)
-	const { destroy, ...workspaceClients } = client;
-
-	// Iterate over each workspace and its actions to register MCP tools
-	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
-		// Extract actions (excluding the destroy method from the workspace interface)
-		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
-
-		// Register each action with an MCP-compatible flat tool name
-		for (const [actionName, action] of Object.entries(workspaceActions)) {
-			const mcpToolName = `${workspaceName}_${actionName}`;
-			actions.set(mcpToolName, action);
-		}
-	}
+	forEachAction(client, ({ workspaceName, actionName, action }) => {
+		const mcpToolName = `${workspaceName}_${actionName}` as const;
+		actions.set(mcpToolName, action);
+	});
 
 	return actions;
 }
