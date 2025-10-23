@@ -23,7 +23,7 @@ const contentHub = defineEpicenter({
 // Create and start the server
 const app = await createHttpServer(contentHub);
 
-const PORT = process.env.PORT || DEFAULT_PORT;
+const PORT = process.env.PORT ?? DEFAULT_PORT;
 
 const server = Bun.serve({
 	fetch: app.fetch,
