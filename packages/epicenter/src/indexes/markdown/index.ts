@@ -633,6 +633,18 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			 */
 			const filePath = path.join(storagePath, relativePath);
 
+			// Get table and schema once for this file event
+			const table = db.tables[tableName];
+			const tableSchema = db.schema[tableName];
+			const tableConfig = tableConfigs?.[tableName as keyof TSchema];
+
+			if (!table || !tableSchema) {
+				console.warn(
+					`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
+				);
+				return;
+			}
+
 			syncCoordination.isProcessingFileChange = true;
 
 			/**
@@ -662,8 +674,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 					 * We only delete if the row exists in the table to avoid
 					 * unnecessary operations and potential errors.
 					 */
-					const table = db.tables[tableName];
-					if (table?.has(id)) table.delete(id);
+					if (table.has(id)) table.delete(id);
 					return; // Exit early for deletions
 				}
 				/**
@@ -681,14 +692,6 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			 * 3. Update YJS with the parsed data using granular diffs
 			 */
 			if (eventType === 'change' || eventType === 'rename') {
-				// Get the table schema
-				const tableSchema = db.schema[tableName];
-				if (!tableSchema) {
-					console.warn(
-						`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
-					);
-					return;
-				}
 
 				// File was modified, parse and update YJS
 				const parseResult = await parseMarkdownWithValidation(
@@ -733,7 +736,6 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 							// Reconstruct the full row data by merging:
 							// - parseResult.data (frontmatter fields)
 							// - parseResult.content (markdown body) -> stored in the configured bodyField (if any)
-							const tableConfig = tableConfigs?.[tableName as keyof TSchema];
 							const rowData = tableConfig?.bodyField
 								? {
 										...parseResult.data,
