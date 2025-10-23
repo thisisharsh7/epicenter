@@ -1,5 +1,7 @@
 import { mkdirSync, watch } from 'node:fs';
-import { Ok, trySync } from 'wellcrafted/result';
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
 import { defineIndex, type Index } from '../../core/indexes';
@@ -8,35 +10,10 @@ import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import {
-	deleteMarkdownFile,
-	getMarkdownPath,
 	parseMarkdownPath,
 	parseMarkdownWithValidation,
-	writeMarkdownFile,
 } from './parser';
 
-
-
-/**
- * Markdown index configuration
- */
-export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
-	/**
-	 * Path where markdown files should be stored
-	 * Example: './data/markdown'
-	 * Default: '.' (current directory)
-	 */
-	storagePath?: string;
-	/**
-	 * Per-table configuration
-	 * Keys must be valid table names from the workspace schema
-	 * Example: { pages: { bodyField: 'body' }, posts: { bodyField: 'content' } }
-	 * If omitted, all tables will use default configuration (no bodyField, include null values)
-	 */
-	tables?: {
-		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
-	};
-};
 
 /**
  * Per-table markdown configuration
@@ -102,48 +79,6 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	let isProcessingFileChange = false;
 	let isProcessingYJSChange = false;
 
-	/**
-	 * Helper to write a YJS row to markdown file
-	 * Handles serialization and frontmatter/content extraction
-	 */
-	async function writeRowToMarkdown({ row, tableName }: { row: Row; tableName: string }) {
-		// Serialize YJS types (Y.Text, Y.Array) to plain values (string, array)
-		// This happens at the YJS boundary
-		const serialized = serializeRow(row);
-
-		const tableConfig = tables[tableName];
-		const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id: row.id });
-		const bodyField = tableConfig?.bodyField;
-
-		// Extract body field value for markdown body (if configured)
-		const content = bodyField ? (serialized[bodyField as string] ?? '') : '';
-
-		// Build frontmatter from serialized data
-		// Remove body field from frontmatter to avoid duplication (it goes in body)
-		let frontmatter = bodyField
-			? { ...serialized, [bodyField as string]: undefined }
-			: serialized;
-
-		// Omit null/undefined values if configured
-		if (tableConfig?.omitNullValues) {
-			frontmatter = Object.fromEntries(
-				Object.entries(frontmatter).filter(([_, value]) =>
-					value !== null && value !== undefined
-				)
-			);
-		}
-
-		return writeMarkdownFile(filePath, frontmatter, content as string);
-	}
-
-	/**
-	 * Helper to delete a markdown file for a row
-	 */
-	async function deleteRowMarkdown({ tableName, id }: { tableName: string; id: string }) {
-		const filePath = getMarkdownPath({ vaultPath: storagePath, tableName, id });
-		return await deleteMarkdownFile(filePath);
-	}
-
 	// Set up observers for each table
 	const unsubscribers: Array<() => void> = [];
 
@@ -153,6 +88,9 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 			throw new Error(`Table "${tableName}" not found`);
 		}
 
+		const tableConfig = tables[tableName];
+		const markdown = createTableMarkdownOperations({ tableName, storagePath, tableConfig });
+
 		const unsub = table.observe({
 			onAdd: async (row) => {
 				// Skip if this YJS change was triggered by a file change we're processing
@@ -160,7 +98,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown({ row, tableName });
+				const { error } = await markdown.write(row);
 				isProcessingYJSChange = false;
 
 				if (error) {
@@ -179,7 +117,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown({ row, tableName });
+				const { error } = await markdown.write(row);
 				isProcessingYJSChange = false;
 
 				if (error) {
@@ -198,7 +136,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 				if (isProcessingFileChange) return;
 
 				isProcessingYJSChange = true;
-				const { error } = await deleteRowMarkdown({ tableName, id });
+				const { error } = await markdown.delete(id);
 				isProcessingYJSChange = false;
 
 				if (error) {
@@ -368,7 +306,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
  * @param newData - Plain JavaScript object from markdown file (already validated against schema)
  */
 function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
-{ db, tableName, rowId, newData }: { db: Db<TWorkspaceSchema>; tableName: string; rowId: string; newData: Row; },
+	{ db, tableName, rowId, newData }: { db: Db<TWorkspaceSchema>; tableName: string; rowId: string; newData: Row; },
 ): void {
 	const table = db.tables[tableName];
 	if (!table) {
@@ -482,3 +420,126 @@ function updateYJSRowFromMarkdown<TWorkspaceSchema extends WorkspaceSchema>(
 		}
 	});
 }
+
+/**
+ * Creates table-specific markdown operations with captured context
+ *
+ * Returns an object with methods to write and delete markdown files for a specific table.
+ * The table name, configuration, and storage path are captured, eliminating the need
+ * to pass them on every operation call.
+ *
+ * @param tableName - Name of the table to create operations for
+ * @param storagePath - Path where markdown files are stored
+ * @param tableConfig - Optional table-specific markdown configuration
+ * @returns Object with write and delete methods
+ *
+ * @example
+ * ```typescript
+ * const markdown = createTableMarkdownOperations('pages', './vault', { bodyField: 'content' });
+ * await markdown.write(row);
+ * await markdown.delete('row-id');
+ * ```
+ */
+function createTableMarkdownOperations<TTableSchema extends TableSchema>(
+	{ tableName, storagePath, tableConfig }: { tableName: string; storagePath: string; tableConfig?: TableMarkdownConfig<TTableSchema>; },
+) {
+	const bodyFieldKey = tableConfig?.bodyField;
+
+	// Helper to construct file path for a given row ID
+	const getFilePath = (id: string) => path.join(storagePath, tableName, `${id}.md`);
+
+	// Helper to determine if a field should be included in frontmatter
+
+	return {
+		/**
+		 * Write a YJS row to markdown file
+		 * Handles serialization and frontmatter/content extraction
+		 */
+		write: async (row: Row) => {
+			// Serialize YJS types (Y.Text, Y.Array) to plain values (string, array)
+			const serialized = serializeRow(row);
+			const filePath = getFilePath(row.id);
+
+			// Build frontmatter by filtering serialized data
+			const frontmatter = Object.fromEntries(
+				Object.entries(serialized).filter(([key, value]) => {
+					// Filter out body field since it goes in markdown content
+					const isBodyField = key === bodyFieldKey;
+					if (isBodyField) return false;
+
+					// If omitNullValues is enabled, exclude null/undefined values
+					if (tableConfig?.omitNullValues) {
+						const isValueNullOrUndefined = value === null || value === undefined
+						if (isValueNullOrUndefined) return false;
+					}
+
+					return true;
+				}
+				)
+			);
+
+			// Extract content from configured body field
+			const content = bodyFieldKey ? serialized[bodyFieldKey] : '';
+
+			// Write markdown file with frontmatter
+			return tryAsync({
+				try: async () => {
+					// Ensure directory exists
+					await tryAsync({
+						try: () => mkdir(path.dirname(filePath), { recursive: true }),
+						catch: () => Ok(undefined), // Directory might already exist
+					});
+
+					// Create markdown content with frontmatter
+					const yamlContent = Bun.YAML.stringify(frontmatter, null, 2);
+					const markdown = `---\n${yamlContent}\n---\n${content}`;
+
+					// Write file
+					await Bun.write(filePath, markdown);
+				},
+				catch: (error) =>
+					IndexErr({
+						message: `Failed to write markdown file ${filePath}`,
+						context: { filePath, tableName },
+						cause: error,
+					}),
+			});
+		},
+
+		/**
+		 * Delete a markdown file for a row
+		 */
+		delete: async (id: string) => {
+			const filePath = getFilePath(id);
+			return tryAsync({
+				try: () => Bun.file(filePath).delete(),
+				catch: (error) => {
+					console.warn(`Could not delete markdown file ${filePath}:`, error);
+					// Return Ok anyway as deletion failures are often not critical
+					return Ok(undefined);
+				},
+			});
+		}
+	};
+}
+
+/**
+ * Markdown index configuration
+ */
+export type MarkdownIndexConfig<TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema> = {
+	/**
+	 * Path where markdown files should be stored
+	 * Example: './data/markdown'
+	 * Default: '.' (current directory)
+	 */
+	storagePath?: string;
+	/**
+	 * Per-table configuration
+	 * Keys must be valid table names from the workspace schema
+	 * Example: { pages: { bodyField: 'body' }, posts: { bodyField: 'content' } }
+	 * If omitted, all tables will use default configuration (no bodyField, include null values)
+	 */
+	tables?: {
+		[K in keyof TWorkspaceSchema]?: TableMarkdownConfig<TWorkspaceSchema[K]>;
+	};
+};

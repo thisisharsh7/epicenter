@@ -97,7 +97,7 @@ export async function parseMarkdownFile<T>(
 export async function writeMarkdownFile(
 	filePath: string,
 	frontmatter: SerializedRow,
-	content = '',
+	content: string
 ): Promise<Result<void, MarkdownError>> {
 	return tryAsync({
 		try: async () => {
@@ -127,32 +127,6 @@ export async function writeMarkdownFile(
 	});
 }
 
-
-/**
- * Delete a markdown file
- */
-export async function deleteMarkdownFile(
-	filePath: string,
-): Promise<Result<void, MarkdownError>> {
-	return tryAsync({
-		try: async () => {
-			const file = Bun.file(filePath);
-			const exists = await file.exists();
-
-			if (!exists) {
-				// File doesn't exist, consider it a success - just return
-				return;
-			}
-			// Delete the file
-			await file.delete()
-		},
-		catch: (error) => {
-			console.warn(`Could not delete markdown file ${filePath}:`, error);
-			// Return Ok anyway as deletion failures are often not critical
-			return Ok(undefined);
-		},
-	});
-}
 
 /**
  * List all markdown files in a directory
@@ -192,13 +166,12 @@ export async function listMarkdownFiles(
 
 /**
  * Get the file path for a table record
+ * Assumes the ID is already filesystem-safe
  */
 export function getMarkdownPath(
 { vaultPath, tableName, id }: { vaultPath: string; tableName: string; id: string; },
 ): string {
-	// Sanitize ID for filesystem
-	const safeId = id.replace(/[^a-zA-Z0-9-_]/g, '_');
-	return path.join(vaultPath, tableName, `${safeId}.md`);
+	return path.join(vaultPath, tableName, `${id}.md`);
 }
 
 /**
