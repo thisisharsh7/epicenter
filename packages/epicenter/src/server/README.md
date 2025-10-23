@@ -41,13 +41,13 @@ const app = await createWorkspaceServer(blogWorkspace);
 // Start it with Bun
 Bun.serve({
   fetch: app.fetch,
-  port: 3000,
+  port: 3913,
 });
 ```
 
 Now your actions are available as HTTP endpoints:
-- `GET http://localhost:3000/getAllPosts`
-- `POST http://localhost:3000/createPost` with JSON body `{ "title": "My Post" }`
+- `GET http://localhost:3913/getAllPosts`
+- `POST http://localhost:3913/createPost` with JSON body `{ "title": "My Post" }`
 
 ### Multiple Workspaces (Epicenter)
 
@@ -63,14 +63,14 @@ const app = await createHttpServer(epicenter);
 
 Bun.serve({
   fetch: app.fetch,
-  port: 3000,
+  port: 3913,
 });
 ```
 
 Actions from each workspace get their own namespace:
-- `GET http://localhost:3000/blog/getAllPosts`
-- `POST http://localhost:3000/auth/login`
-- `GET http://localhost:3000/storage/listFiles`
+- `GET http://localhost:3913/blog/getAllPosts`
+- `POST http://localhost:3913/auth/login`
+- `GET http://localhost:3913/storage/listFiles`
 
 ## How It Works
 
@@ -124,12 +124,12 @@ Every server automatically exposes MCP endpoints for AI integration:
 
 **List available tools:**
 ```bash
-POST http://localhost:3000/mcp/tools/list
+POST http://localhost:3913/mcp/tools/list
 ```
 
 **Call a tool:**
 ```bash
-POST http://localhost:3000/mcp/tools/call
+POST http://localhost:3913/mcp/tools/call
 Content-Type: application/json
 
 {
@@ -241,7 +241,7 @@ app.get('/health', (c) => c.text('OK'));
 // Configure Bun.serve however you want
 Bun.serve({
   fetch: app.fetch,
-  port: process.env.PORT || 3000,
+  port: process.env.PORT ?? 3913,
   hostname: '0.0.0.0',
   development: true,
 });

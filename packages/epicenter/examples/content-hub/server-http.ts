@@ -11,6 +11,7 @@
  */
 
 import { createHttpServer, defineEpicenter } from '../../src/index';
+import { DEFAULT_PORT } from '../../src/cli/commands/serve';
 import { pages } from './epicenter.config';
 
 // Define your Epicenter app with all workspaces
@@ -22,7 +23,7 @@ const contentHub = defineEpicenter({
 // Create and start the server
 const app = await createHttpServer(contentHub);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || DEFAULT_PORT;
 
 const server = Bun.serve({
 	fetch: app.fetch,

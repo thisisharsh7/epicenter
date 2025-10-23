@@ -28,7 +28,7 @@ import { createMcpServer } from './mcp-handlers';
  *
  * Bun.serve({
  *   fetch: app.fetch,
- *   port: 3000,
+ *   port: 3913,
  * });
  * ```
  */

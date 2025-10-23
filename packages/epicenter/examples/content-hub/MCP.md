@@ -70,7 +70,7 @@ cd packages/epicenter/examples/content-hub
 bun run server-http.ts
 ```
 
-The server will start on http://localhost:3000 with:
+The server will start on http://localhost:3913 with:
 - REST API endpoints at `/{workspace}/{action}`
 - MCP endpoint at `/mcp`
 
@@ -78,7 +78,7 @@ The server will start on http://localhost:3000 with:
 
 Using the CLI (recommended):
 ```bash
-claude mcp add content-hub --transport http --scope user http://localhost:3000/mcp
+claude mcp add content-hub --transport http --scope user http://localhost:3913/mcp
 ```
 
 Or add manually to `~/.claude.json`:
@@ -87,7 +87,7 @@ Or add manually to `~/.claude.json`:
   "mcpServers": {
     "content-hub": {
       "transport": "http",
-      "url": "http://localhost:3000/mcp"
+      "url": "http://localhost:3913/mcp"
     }
   }
 }
@@ -244,14 +244,14 @@ const app = await createHttpServer(
 
 Bun.serve({
   fetch: app.fetch,
-  port: 3000,
+  port: 3913,
 });
 ```
 
 ### 3. Add to Claude Code
 
 ```bash
-claude mcp add my-app --transport http --scope user http://localhost:3000/mcp
+claude mcp add my-app --transport http --scope user http://localhost:3913/mcp
 ```
 
 ## Advanced Usage
@@ -302,7 +302,7 @@ Then configure in Claude Code:
 
 ```bash
 # Using CLI with environment variable
-claude mcp add my-app --transport http --scope user http://localhost:3000/mcp \
+claude mcp add my-app --transport http --scope user http://localhost:3913/mcp \
   --env API_KEY=your-key-here
 ```
 
@@ -313,7 +313,7 @@ Or manually in `~/.claude.json`:
   "mcpServers": {
     "my-app": {
       "transport": "http",
-      "url": "http://localhost:3000/mcp",
+      "url": "http://localhost:3913/mcp",
       "env": {
         "API_KEY": "your-key-here"
       }
@@ -325,12 +325,12 @@ Or manually in `~/.claude.json`:
 ## Troubleshooting
 
 ### Server Not Starting
-- Check port availability: `lsof -i :3000`
+- Check port availability: `lsof -i :3913`
 - Verify workspace configuration is valid
 - Check for TypeBox schema errors
 
 ### Claude Code Can't Connect
-- Ensure server is running: `curl http://localhost:3000/mcp`
+- Ensure server is running: `curl http://localhost:3913/mcp`
 - Check `~/.claude.json` syntax
 - Restart Claude Code after config changes
 - Use `claude mcp list` to verify server is registered

@@ -18,7 +18,7 @@ A practical example demonstrating how to build a content management system with 
 bun run server-http.ts
 ```
 
-This starts an HTTP server on port 3000 with:
+This starts an HTTP server on port 3913 with:
 - REST API endpoints for your workspace actions
 - MCP (Model Context Protocol) integration
 - Automatic data persistence
@@ -27,7 +27,7 @@ This starts an HTTP server on port 3000 with:
 
 ```bash
 # Create a page
-curl -X POST http://localhost:3000/pages/createPage \
+curl -X POST http://localhost:3913/pages/createPage \
   -H "Content-Type: application/json" \
   -d '{
     "title": "My First Post",
@@ -37,10 +37,10 @@ curl -X POST http://localhost:3000/pages/createPage \
   }'
 
 # Get all pages
-curl http://localhost:3000/pages/getPages
+curl http://localhost:3913/pages/getPages
 
 # Get a specific page
-curl "http://localhost:3000/pages/getPage?id=<page-id>"
+curl "http://localhost:3913/pages/getPage?id=<page-id>"
 ```
 
 ### 3. Use the CLI
@@ -80,7 +80,7 @@ const app = await createHttpServer(contentHub);
 
 Bun.serve({
   fetch: app.fetch,
-  port: 3000,
+  port: 3913,
 });
 ```
 

@@ -4,7 +4,7 @@ import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
 import { typeboxToYargs } from './typebox-to-yargs';
 import { createMockContext } from './mock-context';
-import { serveCommand } from './commands/serve';
+import { serveCommand, DEFAULT_PORT } from './commands/serve';
 
 /**
  * Create CLI from Epicenter config.
@@ -56,7 +56,7 @@ export function createCLI({
 				.option('port', {
 					type: 'number',
 					description: 'Port to run the server on',
-					default: 3000,
+					default: DEFAULT_PORT,
 				})
 				.option('dev', {
 					type: 'boolean',

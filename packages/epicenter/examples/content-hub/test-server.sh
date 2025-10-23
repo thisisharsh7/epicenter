@@ -14,7 +14,7 @@ echo "Testing endpoints..."
 echo ""
 
 echo "1. Creating a page..."
-RESPONSE=$(curl -s -X POST http://localhost:3000/pages/createPage \
+RESPONSE=$(curl -s -X POST http://localhost:3913/pages/createPage \
   -H "Content-Type: application/json" \
   -d '{"title":"Test Post","content":"Hello world","type":"blog","tags":"tech"}')
 
@@ -29,12 +29,12 @@ fi
 
 echo ""
 echo "2. Getting all pages..."
-PAGES=$(curl -s http://localhost:3000/pages/getPages)
+PAGES=$(curl -s http://localhost:3913/pages/getPages)
 echo "✓ Got pages: $(echo $PAGES | grep -o '"data":\[[^]]*\]')"
 
 echo ""
 echo "3. Listing MCP tools..."
-TOOLS=$(curl -s -X POST http://localhost:3000/mcp/tools/list)
+TOOLS=$(curl -s -X POST http://localhost:3913/mcp/tools/list)
 echo "✓ Got $(echo $TOOLS | grep -o '"name":"[^"]*"' | wc -l | tr -d ' ') tools"
 
 echo ""
