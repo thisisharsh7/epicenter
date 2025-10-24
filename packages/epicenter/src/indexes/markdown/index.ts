@@ -8,7 +8,6 @@ import * as Y from 'yjs';
 import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
 import type { Row, TableSchema, WorkspaceSchema } from '../../core/schema';
-import { serializeRow } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { syncYArrayToDiff, syncYTextToDiff } from '../../utils/yjs';
 import { parseMarkdownWithValidation } from './parser';
@@ -371,7 +370,7 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>({
 		 */
 		write: async (row: Row) => {
 			// Serialize YJS types (Y.Text, Y.Array) to plain values (string, array)
-			const serialized = serializeRow(row);
+			const serialized = row.toJSON();
 			const filePath = getFilePath(row.id);
 
 			// Build frontmatter by filtering serialized data

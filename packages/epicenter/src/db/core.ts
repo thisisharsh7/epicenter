@@ -1,9 +1,6 @@
 import * as Y from 'yjs';
-import type { WorkspaceSchema } from '../core/schema';
-import {
-	type YRow,
-	createTableHelpers
-} from './table-helper';
+import type { CellValue, WorkspaceSchema } from '../core/schema';
+import { createTableHelpers, type YRow } from './table-helper';
 
 // Re-export TableHelper for public API
 export type { TableHelper } from './table-helper';

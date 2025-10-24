@@ -1,6 +1,8 @@
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
+import type { RowValidationResult, SchemaMismatchReason } from './validation';
+import type { YRow } from '../db/table-helper';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -75,7 +77,6 @@ export type YtextColumnSchema<TNullable extends boolean = boolean> = {
 	nullable: TNullable;
 };
 
-
 export type IntegerColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'integer';
 	nullable: TNullable;
@@ -143,18 +144,18 @@ export type WorkspaceSchema = Record<string, TableSchema>;
 export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
 
 /**
- * Maps a ColumnSchema to its YJS or primitive TypeScript type.
- * Handles nullable fields and returns YJS types for ytext, yxmlfragment, and multi-select.
+ * Maps a ColumnSchema to its cell value type (Y.js types or primitives).
+ * Handles nullable fields and returns Y.js types for ytext and multi-select.
  *
  * @example
  * ```typescript
- * type IdType = ColumnSchemaToType<{ type: 'id' }>; // string
- * type TextField = ColumnSchemaToType<{ type: 'text'; nullable: true }>; // string | null
- * type YtextField = ColumnSchemaToType<{ type: 'ytext'; nullable: false }>; // Y.Text
- * type MultiSelectField = ColumnSchemaToType<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
+ * type IdValue = ColumnSchemaToCellValue<{ type: 'id' }>; // string
+ * type TextField = ColumnSchemaToCellValue<{ type: 'text'; nullable: true }>; // string | null
+ * type YtextField = ColumnSchemaToCellValue<{ type: 'ytext'; nullable: false }>; // Y.Text
+ * type MultiSelectField = ColumnSchemaToCellValue<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * ```
  */
-export type ColumnSchemaToType<C extends ColumnSchema> =
+export type ColumnSchemaToCellValue<C extends ColumnSchema> =
 	C extends IdColumnSchema
 		? string
 		: C extends TextColumnSchema<infer TNullable>
@@ -166,67 +167,381 @@ export type ColumnSchemaToType<C extends ColumnSchema> =
 					? Y.Text | null
 					: Y.Text
 				: C extends IntegerColumnSchema<infer TNullable>
+					? TNullable extends true
+						? number | null
+						: number
+					: C extends RealColumnSchema<infer TNullable>
 						? TNullable extends true
 							? number | null
 							: number
-						: C extends RealColumnSchema<infer TNullable>
+						: C extends BooleanColumnSchema<infer TNullable>
 							? TNullable extends true
-								? number | null
-								: number
-							: C extends BooleanColumnSchema<infer TNullable>
+								? boolean | null
+								: boolean
+							: C extends DateColumnSchema<infer TNullable>
 								? TNullable extends true
-									? boolean | null
-									: boolean
-								: C extends DateColumnSchema<infer TNullable>
+									? DateWithTimezone | null
+									: DateWithTimezone
+								: C extends SelectColumnSchema<infer TOptions, infer TNullable>
 									? TNullable extends true
-										? DateWithTimezone | null
-										: DateWithTimezone
-									: C extends SelectColumnSchema<infer TOptions, infer TNullable>
+										? TOptions[number] | null
+										: TOptions[number]
+									: C extends MultiSelectColumnSchema<
+												infer TOptions,
+												infer TNullable
+											>
 										? TNullable extends true
-											? TOptions[number] | null
-											: TOptions[number]
-										: C extends MultiSelectColumnSchema<infer TOptions, infer TNullable>
-											? TNullable extends true
-												? Y.Array<TOptions[number]> | null
-												: Y.Array<TOptions[number]>
-											: never;
+											? Y.Array<TOptions[number]> | null
+											: Y.Array<TOptions[number]>
+										: never;
 
 /**
- * Maps a TableSchema to a row type with properly typed fields.
+ * Maps a TableSchema to a row type with properly typed fields AND Proxy methods.
+ * This is a Proxy-wrapped Y.Map that provides:
+ * - Type-safe property access: `row.title`, `row.content`, etc.
+ * - `.toJSON()` method: Convert to fully serialized object (Y.Text → string, Y.Array → array[], etc.)
+ * - `.$yMap` property: Access underlying Y.Map when needed
+ *
  * Each column name becomes a property with its corresponding YJS or primitive type.
- *
  * Since `TableSchema` always requires an `id` column, every row type includes a guaranteed `id: string` property.
- *
- * When provided with a specific schema, Row<TTableSchema> gives you fully typed rows with proper field types.
- * Without a schema, Row represents a dynamic row as a record with a required id field and any CellValue fields.
  *
  * @example
  * ```typescript
- * // Type-safe with specific schema (recommended for application code)
+ * // Type-safe with specific schema
  * type PostSchema = {
  *   id: { type: 'id' };
  *   title: { type: 'text'; nullable: false };
+ *   content: { type: 'ytext'; nullable: false };
  *   viewCount: { type: 'integer'; nullable: false };
  * };
- * type PostRow = Row<PostSchema>; // { id: string; title: string; viewCount: number }
  *
- * // Generic/dynamic (for internal utilities that handle any row)
- * function logRow(row: Row) {
- *   console.log(row.id); // guaranteed to exist
- *   console.log(row); // { id: string; [x: string]: CellValue }
- * }
+ * const row: Row<PostSchema> = table.get('123').row;
+ *
+ * // Type-safe property access (returns Y.js types)
+ * console.log(row.title);         // string
+ * console.log(row.content);       // Y.Text
+ * console.log(row.viewCount);     // number
+ *
+ * // Convert to fully serialized object (Y.Text → string, etc.)
+ * const serialized = row.toJSON();     // SerializedRow<PostSchema>
+ * // { id: string, title: string, content: string, viewCount: number }
+ *
+ * // Access underlying Y.Map
+ * const ymap = row.$yMap;         // YRow
  * ```
  */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: ColumnSchemaToType<TTableSchema[K]>;
+	readonly [K in keyof TTableSchema]: ColumnSchemaToCellValue<TTableSchema[K]>;
+} & {
+	/**
+	 * Convert the row to a fully serialized plain object.
+	 * Y.Text → string, Y.Array → array[], DateWithTimezone → string, etc.
+	 */
+	toJSON(): SerializedRow<TTableSchema>;
+
+	/**
+	 * Validate the row against its schema.
+	 * Checks for missing required fields, type mismatches, and invalid options.
+	 * Returns validation result including the row for convenience.
+	 */
+	validate(): RowValidationResult<Row<TTableSchema>>;
+
+	/**
+	 * Access the underlying Y.Map for advanced YJS operations.
+	 * Use this when you need direct Y.Map API access.
+	 */
+	readonly $yMap: YRow;
 };
 
 /**
+ * Creates a Proxy-wrapped Y.Map that provides type-safe property access.
+ * This is what implements the `Row<T>` type - a Proxy that looks like a plain object
+ * but delegates to the underlying Y.Map.
+ *
+ * The Proxy intercepts property access and delegates to the Y.Map:
+ * - `row.content` → `ymap.get('content')`
+ * - `row.toJSON()` → converts Y.Map to fully serialized object using schema
+ * - `row.$yMap` → returns the underlying Y.Map
+ *
+ * @param ymap - The Y.Map to wrap
+ * @param schema - The table schema for proper serialization
+ * @returns A Proxy that implements Row<TTableSchema> with type-safe access to the Y.Map
+ */
+export function createRow<TTableSchema extends TableSchema>({
+	ymap,
+	schema,
+}: {
+	ymap: YRow;
+	schema: TTableSchema;
+}): Row<TTableSchema> {
+	const proxy: Row<TTableSchema> = new Proxy(
+		{},
+		{
+			get(_target, prop) {
+				if (prop === 'toJSON') {
+					return () => {
+						// Inline serialization: convert Y.Map to plain object, then serialize each value
+						const result: Record<string, unknown> = {};
+
+						for (const key in schema) {
+							const value = ymap.get(key);
+							if (value !== undefined) {
+								// Serialize the value based on its type
+								if (value instanceof Y.Text) {
+									result[key] = value.toString();
+								} else if (value instanceof Y.Array) {
+									result[key] = value.toArray();
+								} else if (isDateWithTimezone(value)) {
+									result[key] = DateWithTimezoneSerializer.serialize(value);
+								} else {
+									result[key] = value;
+								}
+							}
+						}
+
+						return result as SerializedRow<TTableSchema>;
+					};
+				}
+
+				if (prop === 'validate') {
+					return (): RowValidationResult<Row<TTableSchema>> => {
+						// Schema validation - validate each field against schema constraints
+						for (const [fieldName, columnSchema] of Object.entries(schema)) {
+							const value = ymap.get(fieldName);
+
+							// Check if required field is null/undefined
+							if (value === null || value === undefined) {
+								if (columnSchema.type === 'id' || !columnSchema.nullable) {
+									return {
+										status: 'schema-mismatch' as const,
+										row: proxy as Row,
+										reason: {
+											type: 'missing-required-field' as const,
+											field: fieldName,
+										},
+									};
+								}
+								continue;
+							}
+
+							// Type-specific validation
+							switch (columnSchema.type) {
+								case 'id':
+								case 'text':
+									if (typeof value !== 'string') {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									break;
+
+								case 'integer':
+									if (typeof value !== 'number' || !Number.isInteger(value)) {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									break;
+
+								case 'real':
+									if (typeof value !== 'number') {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									break;
+
+								case 'boolean':
+									if (typeof value !== 'boolean') {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									break;
+
+								case 'ytext':
+									if (!(value instanceof Y.Text)) {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									break;
+
+								case 'select':
+									if (typeof value !== 'string') {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									if (!columnSchema.options.includes(value)) {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'invalid-option' as const,
+												field: fieldName,
+												actual: value,
+												allowedOptions: columnSchema.options,
+											},
+										};
+									}
+									break;
+
+								case 'multi-select':
+									if (!(value instanceof Y.Array)) {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									// Validate each option in the array
+									for (const option of value.toArray()) {
+										if (typeof option !== 'string') {
+											return {
+												status: 'schema-mismatch' as const,
+												row: proxy as Row,
+												reason: {
+													type: 'type-mismatch' as const,
+													field: fieldName,
+													schemaType: columnSchema.type,
+													actual: option,
+												},
+											};
+										}
+										if (!columnSchema.options.includes(option)) {
+											return {
+												status: 'schema-mismatch' as const,
+												row: proxy as Row,
+												reason: {
+													type: 'invalid-option' as const,
+													field: fieldName,
+													actual: option,
+													allowedOptions: columnSchema.options,
+												},
+											};
+										}
+									}
+									break;
+
+								case 'date':
+									if (!isDateWithTimezone(value)) {
+										return {
+											status: 'schema-mismatch' as const,
+											row: proxy as Row,
+											reason: {
+												type: 'type-mismatch' as const,
+												field: fieldName,
+												schemaType: columnSchema.type,
+												actual: value,
+											},
+										};
+									}
+									break;
+							}
+						}
+
+						return { status: 'valid' as const, row: proxy };
+					};
+				}
+
+				if (prop === '$yMap') {
+					return ymap;
+				}
+
+				// Get value from Y.Map
+				if (typeof prop === 'string') {
+					return ymap.get(prop);
+				}
+
+				return undefined;
+			},
+
+			has(_target, prop) {
+				if (prop === 'toJSON' || prop === 'validate' || prop === '$yMap')
+					return true;
+				return ymap.has(prop as string);
+			},
+
+			ownKeys(_target) {
+				return [...ymap.keys(), 'toJSON', 'validate', '$yMap'];
+			},
+
+			getOwnPropertyDescriptor(_target, prop) {
+				if (prop === 'toJSON' || prop === 'validate' || prop === '$yMap') {
+					return {
+						configurable: true,
+						enumerable: false,
+						writable: false,
+					};
+				}
+				if (typeof prop === 'string' && ymap.has(prop)) {
+					return {
+						configurable: true,
+						enumerable: true,
+						writable: false,
+					};
+				}
+				return undefined;
+			},
+		},
+	) as Row<TTableSchema>;
+
+	return proxy;
+}
+
+/**
  * Union of all possible cell values across all column types.
- * Derived from Row to ensure consistency with all column types.
  * Used for Y.Map value types in YJS documents.
  */
-export type CellValue = Row[keyof Row];
+export type CellValue = ColumnSchemaToCellValue<TableSchema[keyof TableSchema]>;
 
 /**
  * ISO 8601 UTC datetime string from Date.toISOString()
@@ -247,7 +562,8 @@ export type TimezoneId = string & Brand<'TimezoneId'>;
  * Database storage format combining UTC datetime and timezone
  * @example "2024-01-01T20:00:00.000Z|America/New_York"
  */
-export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` & Brand<'DateWithTimezoneString'>;
+export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
+	Brand<'DateWithTimezoneString'>;
 
 /**
  * Factory function to create a serializer with inferred types
@@ -291,19 +607,20 @@ export const DateWithTimezoneSerializer = Serializer({
  * - SerializedCellValue<Y.Text | null> = string | null
  * - SerializedCellValue<Y.Array<string> | null> = string[] | null
  */
-export type SerializedCellValue<T extends CellValue = CellValue> = T extends Y.Text
-	? string
-	: T extends Y.Text | null
-		? string | null
-		: T extends Y.Array<infer U>
-			? U[]
-			: T extends Y.Array<infer U> | null
-				? U[] | null
-				: T extends DateWithTimezone
-					? DateWithTimezoneString
-					: T extends DateWithTimezone | null
-						? DateWithTimezoneString | null
-						: T;
+export type SerializedCellValue<T extends CellValue = CellValue> =
+	T extends Y.Text
+		? string
+		: T extends Y.Text | null
+			? string | null
+			: T extends Y.Array<infer U>
+				? U[]
+				: T extends Y.Array<infer U> | null
+					? U[] | null
+					: T extends DateWithTimezone
+						? DateWithTimezoneString
+						: T extends DateWithTimezone | null
+							? DateWithTimezoneString | null
+							: T;
 
 /**
  * Serialized row - all cell values converted to plain JavaScript types.
@@ -321,15 +638,14 @@ export type SerializedCellValue<T extends CellValue = CellValue> = T extends Y.T
  *   publishedAt: { type: 'date'; nullable: false };
  * };
  *
- * type PostRow = Row<PostSchema>;
- * // { id: string; title: Y.Text; tags: Y.Array<string>; publishedAt: DateWithTimezone }
- *
- * type SerializedPost = SerializedRow<PostRow>;
+ * type SerializedPost = SerializedRow<PostSchema>;
  * // { id: string; title: string; tags: string[]; publishedAt: DateWithTimezoneString }
  * ```
  */
-export type SerializedRow<TRow extends Row = Row> = {
-	[K in keyof TRow]: SerializedCellValue<TRow[K]>;
+export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
+	[K in keyof TTableSchema]: SerializedCellValue<
+		ColumnSchemaToCellValue<TTableSchema[K]>
+	>;
 };
 
 /**
@@ -366,42 +682,11 @@ export function serializeCellValue<T extends CellValue>(
 		return value.toArray() as SerializedCellValue<T>;
 	}
 	if (isDateWithTimezone(value)) {
-		return DateWithTimezoneSerializer.serialize(value) as SerializedCellValue<T>;
+		return DateWithTimezoneSerializer.serialize(
+			value,
+		) as SerializedCellValue<T>;
 	}
 	return value as SerializedCellValue<T>;
-}
-
-/**
- * Serializes an entire row to plain JavaScript values.
- * Converts all YJS types and DateWithTimezone to their serialized equivalents.
- *
- * @example
- * ```typescript
- * const row: Row = {
- *   id: '123',
- *   title: ytext,  // Y.Text instance
- *   tags: yarray,  // Y.Array instance
- *   publishedAt: { date: new Date(), timezone: 'UTC' },
- *   viewCount: 42
- * };
- *
- * const serialized = serializeRow(row);
- * // {
- * //   id: '123',
- * //   title: 'Hello',           // string
- * //   tags: ['a', 'b'],         // string[]
- * //   publishedAt: '2024...|UTC', // DateWithTimezoneString
- * //   viewCount: 42             // number (unchanged)
- * // }
- * ```
- */
-export function serializeRow<T extends Row>(row: T): SerializedRow<T> {
-	return Object.fromEntries(
-		Object.entries(row).map(([key, value]) => [
-			key,
-			serializeCellValue(value),
-		]),
-	) as SerializedRow<T>;
 }
 
 /**
@@ -481,7 +766,6 @@ export function ytext({
 		nullable,
 	};
 }
-
 
 /**
  * Creates an integer column schema (NOT NULL by default)
@@ -602,12 +886,16 @@ export function date({
  * select({ options: ['draft', 'published', 'archived'] })
  * select({ options: ['tech', 'personal'], default: 'tech' })
  */
-export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
+export function select<
+	const TOptions extends readonly [string, ...string[]],
+>(opts: {
 	options: TOptions;
 	nullable: true;
 	default?: TOptions[number];
 }): SelectColumnSchema<TOptions, true>;
-export function select<const TOptions extends readonly [string, ...string[]]>(opts: {
+export function select<
+	const TOptions extends readonly [string, ...string[]],
+>(opts: {
 	options: TOptions;
 	nullable?: false;
 	default?: TOptions[number];
@@ -635,17 +923,23 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
  * multiSelect({ options: ['typescript', 'javascript', 'python'] })
  * multiSelect({ options: ['tag1', 'tag2'], default: [] })
  */
-export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
+export function multiSelect<
+	const TOptions extends readonly [string, ...string[]],
+>(opts: {
 	options: TOptions;
 	nullable: true;
 	default?: TOptions[number][];
 }): MultiSelectColumnSchema<TOptions, true>;
-export function multiSelect<const TOptions extends readonly [string, ...string[]]>(opts: {
+export function multiSelect<
+	const TOptions extends readonly [string, ...string[]],
+>(opts: {
 	options: TOptions;
 	nullable?: false;
 	default?: TOptions[number][];
 }): MultiSelectColumnSchema<TOptions, false>;
-export function multiSelect<const TOptions extends readonly [string, ...string[]]>({
+export function multiSelect<
+	const TOptions extends readonly [string, ...string[]],
+>({
 	options,
 	nullable = false,
 	default: defaultValue,

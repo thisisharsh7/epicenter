@@ -1,10 +1,10 @@
 import * as Y from 'yjs';
 import {
-	isDateWithTimezone,
 	type CellValue,
 	type ColumnSchema,
 	type Row,
 	type TableSchema,
+	isDateWithTimezone,
 } from './schema';
 
 /**

@@ -5,11 +5,8 @@ import type {
 	TableSchema,
 	WorkspaceSchema,
 } from '../core/schema';
-import {
-	type GetRowResult,
-	type RowValidationResult,
-	validateRow,
-} from '../core/validation';
+import { createRow } from '../core/schema';
+import type { GetRowResult, RowValidationResult } from '../core/validation';
 import { syncYArrayToDiff, syncYTextToDiff } from '../utils/yjs';
 
 /**
@@ -17,18 +14,6 @@ import { syncYArrayToDiff, syncYTextToDiff } from '../utils/yjs';
  * Maps column names to YJS shared types or primitives
  */
 export type YRow = Y.Map<CellValue>;
-
-/**
- * Converts a YJS row to a plain Row object
- *
- * This is a one-way conversion. We don't need the reverse (Row to YRow) because:
- * - Row updates are always granular (using yrow.set(key, value) for specific fields)
- * - Full row conversions only happen when reading data (get, getAll, filter, etc.)
- * - YJS handles the conversion from plain values to Y.Map internally during insert/update
- */
-export function toRow(yrow: YRow): Row {
-	return Object.fromEntries(yrow.entries()) as Row;
-}
 
 /**
  * Transform Y.js types to their serializable equivalents for input operations.
@@ -277,18 +262,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	type TRow = Row<TTableSchema>;
 
 	/**
-	 * Validates a row and returns validation result typed as TRow
-	 * The generic validateRow() returns RowValidationResult<Row<TableSchema>>,
-	 * but we need the specific TRow type for this table. This wrapper narrows the type from
-	 * the generic schema to the concrete row type, enabling proper type inference throughout
-	 * the table helper.
-	 */
-	const validateTypedRow = (data: unknown): RowValidationResult<TRow> => {
-		const result = validateRow(data, schema);
-		return result;
-	};
-
-	/**
 	 * Syncs an InputRow (or partial InputRow) to a YRow, converting plain JS values to Y.js types.
 	 *
 	 * Type conversion rules:
@@ -437,17 +410,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				return { status: 'not-found', row: null };
 			}
 
-			const row = toRow(yrow);
-			return validateTypedRow(row);
+			const row = createRow({ ymap: yrow, schema });
+			return row.validate();
 		},
 
 		getAll() {
-			// Functional equivalent (slower, multiple passes):
-			// return Array.from(ytable.values()).map(toRow).map(validateTypedRow);
 			const results: RowValidationResult<TRow>[] = [];
 			for (const yrow of ytable.values()) {
-				const row = toRow(yrow);
-				const result = validateTypedRow(row);
+				const row = createRow({ ymap: yrow, schema });
+				const result = row.validate();
 				results.push(result);
 			}
 
@@ -483,19 +454,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		filter(predicate: (row: TRow) => boolean) {
-			// Functional equivalent (slower, multiple passes):
-			// return Array.from(ytable.values())
-			//     .map(toRow)
-			//     .filter((row) => predicate(row as TRow))
-			//     .map(validateTypedRow);
 			const results: RowValidationResult<TRow>[] = [];
 
 			for (const yrow of ytable.values()) {
-				const row = toRow(yrow);
+				const row = createRow({ ymap: yrow, schema });
 
 				// Check predicate first (even on unvalidated rows)
 				if (predicate(row as TRow)) {
-					const result = validateTypedRow(row);
+					const result = row.validate();
 					results.push(result);
 				}
 			}
@@ -505,11 +471,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		find(predicate: (row: TRow) => boolean): GetRowResult<TRow> {
 			for (const yrow of ytable.values()) {
-				const row = toRow(yrow);
+				const row = createRow({ ymap: yrow, schema });
 
 				// Check predicate first (even on unvalidated rows)
 				if (predicate(row as TRow)) {
-					return validateTypedRow(row);
+					return row.validate();
 				}
 			}
 
@@ -525,15 +491,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const observer = (events: Y.YEvent<any>[]) => {
 				for (const event of events) {
 					// Check if this is a top-level ytable event (row add/delete)
-					// or a nested yrow event (field updates)
+					// or a nested row event (field updates)
 					if (event.target === ytable) {
 						// Top-level changes: row additions/deletions
 						event.changes.keys.forEach((change, key) => {
 							if (change.action === 'add') {
-								const yrow = ytable.get(key);
-								if (yrow) {
-									const row = toRow(yrow);
-									const result = validateTypedRow(row);
+								const ymap = ytable.get(key);
+								if (ymap) {
+									const row = createRow({ ymap, schema });
+									const result = row.validate();
 
 									switch (result.status) {
 										case 'valid':
@@ -557,8 +523,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						const rowId = event.path[0] as string;
 						const yrow = ytable.get(rowId);
 						if (yrow) {
-							const row = toRow(yrow);
-							const result = validateTypedRow(row);
+							const row = createRow({ ymap: yrow, schema });
+							const result = row.validate();
 
 							switch (result.status) {
 								case 'valid':

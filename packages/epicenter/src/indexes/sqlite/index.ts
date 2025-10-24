@@ -10,10 +10,7 @@ import { join } from 'node:path';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
-import type {
-	WorkspaceSchema
-} from '../../core/schema';
-import { serializeRow } from '../../core/schema';
+import type { WorkspaceSchema } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { EPICENTER_STORAGE_DIR } from '../../persistence/desktop';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
@@ -146,7 +143,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 			onAdd: async (row) => {
 				const { error } = await tryAsync({
 					try: async () => {
-						const serializedRow = serializeRow(row);
+						const serializedRow = row.toJSON();
 						await sqliteDb.insert(drizzleTable as any).values(serializedRow);
 					},
 					catch: () => Ok(undefined),
@@ -165,7 +162,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 			onUpdate: async (row) => {
 				const { error } = await tryAsync({
 					try: async () => {
-						const serializedRow = serializeRow(row);
+						const serializedRow = row.toJSON();
 						await sqliteDb
 							.update(drizzleTable as any)
 							.set(serializedRow)
@@ -223,7 +220,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 		for (const row of rows) {
 			const { error } = await tryAsync({
 				try: async () => {
-					const serializedRow = serializeRow(row);
+					const serializedRow = row.toJSON();
 					await sqliteDb.insert(drizzleTable as any).values(serializedRow);
 				},
 				catch: () => Ok(undefined),
