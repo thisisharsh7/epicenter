@@ -4,7 +4,12 @@ import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
 import { describeRoute, openAPIRouteHandler, validator } from 'hono-openapi';
 import { Err, Ok } from 'wellcrafted/result';
-import { createEpicenterClient, forEachAction, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
+import {
+	type EpicenterClient,
+	type EpicenterConfig,
+	createEpicenterClient,
+	forEachAction,
+} from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createMcpServer } from './mcp';
 
@@ -48,7 +53,9 @@ import { createMcpServer } from './mcp';
 export async function createServer<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(config: EpicenterConfig<TId, TWorkspaces>): Promise<{
+>(
+	config: EpicenterConfig<TId, TWorkspaces>,
+): Promise<{
 	/** Hono web server instance ready to serve with `Bun.serve({ fetch: app.fetch })` */
 	app: Hono;
 	/** Epicenter client with initialized workspaces and actions */
@@ -64,7 +71,9 @@ export async function createServer<
 		const path = `/${workspaceName}/${actionName}`;
 
 		// Tag with both workspace and operation type for multi-dimensional grouping
-		const operationType = ({ query: 'queries', mutation: 'mutations' } as const)[action.type];
+		const operationType = (
+			{ query: 'queries', mutation: 'mutations' } as const
+		)[action.type];
 		const tags = [workspaceName, operationType];
 
 		switch (action.type) {
