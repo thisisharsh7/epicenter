@@ -685,30 +685,36 @@ export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
 	Brand<'DateWithTimezoneString'>;
 
 /**
- * Converts a cell value to its serialized equivalent for storage/transport
+ * Maps a ColumnSchema to its serialized cell value type.
+ * This is the serialized equivalent of CellValue - what you get after calling serializeCellValue().
  * - Y.Text → string
  * - Y.Array<T> → T[]
  * - DateWithTimezone → DateWithTimezoneString
  * - Other types → unchanged
  *
- * Handles nullable types automatically due to distributive conditional types:
- * - SerializedCellValue<Y.Text | null> = string | null
- * - SerializedCellValue<Y.Array<string> | null> = string[] | null
+ * @example
+ * ```typescript
+ * type IdSerialized = SerializedCellValue<{ type: 'id' }>; // string
+ * type YtextSerialized = SerializedCellValue<{ type: 'ytext'; nullable: false }>; // string
+ * type YtextNullable = SerializedCellValue<{ type: 'ytext'; nullable: true }>; // string | null
+ * type MultiSelect = SerializedCellValue<{ type: 'multi-select'; nullable: false; options: readonly ['a', 'b'] }>; // string[]
+ * type AnySerialized = SerializedCellValue; // Union of all possible serialized values
+ * ```
  */
-export type SerializedCellValue<T extends CellValue = CellValue> =
-	T extends Y.Text
+export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
+	CellValue<C> extends Y.Text
 		? string
-		: T extends Y.Text | null
+		: CellValue<C> extends Y.Text | null
 			? string | null
-			: T extends Y.Array<infer U>
+			: CellValue<C> extends Y.Array<infer U>
 				? U[]
-				: T extends Y.Array<infer U> | null
+				: CellValue<C> extends Y.Array<infer U> | null
 					? U[] | null
-					: T extends DateWithTimezone
+					: CellValue<C> extends DateWithTimezone
 						? DateWithTimezoneString
-						: T extends DateWithTimezone | null
+						: CellValue<C> extends DateWithTimezone | null
 							? DateWithTimezoneString | null
-							: T;
+							: CellValue<C>;
 
 /**
  * Serialized row - all cell values converted to plain JavaScript types.
@@ -731,7 +737,7 @@ export type SerializedCellValue<T extends CellValue = CellValue> =
  * ```
  */
 export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: SerializedCellValue<CellValue<TTableSchema[K]>>;
+	[K in keyof TTableSchema]: SerializedCellValue<TTableSchema[K]>;
 };
 
 /**
@@ -758,8 +764,8 @@ export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
  * serializeCellValue('text'); // 'text'
  * ```
  */
-export function serializeCellValue<T extends CellValue>(
-	value: T,
+export function serializeCellValue<T extends ColumnSchema>(
+	value: CellValue<T>,
 ): SerializedCellValue<T> {
 	if (value instanceof Y.Text) {
 		return value.toString() as SerializedCellValue<T>;
