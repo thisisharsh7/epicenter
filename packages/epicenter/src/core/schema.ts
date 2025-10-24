@@ -1,8 +1,8 @@
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
-import type { RowValidationResult, SchemaMismatchReason } from './validation';
 import type { YRow } from '../db/table-helper';
+import type { RowValidationResult, SchemaMismatchReason } from './validation';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -16,11 +16,16 @@ import type { YRow } from '../db/table-helper';
 export type Id = string & Brand<'Id'>;
 
 /**
- * A datetime value that knows its timezone
+ * A datetime value that knows its timezone and can serialize itself
  * @property date - JavaScript Date object (internally stored as UTC)
  * @property timezone - IANA timezone identifier
+ * @property toJSON - Method to serialize to DateWithTimezoneString format
  */
-export type DateWithTimezone = { date: Date; timezone: string };
+export type DateWithTimezone = {
+	date: Date;
+	timezone: string;
+	toJSON(): DateWithTimezoneString;
+};
 
 /**
  * Type guard to check if a value is a valid DateWithTimezone
@@ -32,8 +37,65 @@ export function isDateWithTimezone(value: unknown): value is DateWithTimezone {
 		'date' in value &&
 		value.date instanceof Date &&
 		'timezone' in value &&
-		typeof value.timezone === 'string'
+		typeof value.timezone === 'string' &&
+		'toJSON' in value &&
+		typeof value.toJSON === 'function'
 	);
+}
+
+/**
+ * Creates a DateWithTimezone object from a Date and timezone.
+ * The returned object includes a toJSON() method for serialization.
+ *
+ * @param params.date - JavaScript Date object
+ * @param params.timezone - IANA timezone identifier (e.g., "America/New_York", "UTC")
+ * @returns DateWithTimezone object with toJSON method
+ * @example
+ * ```typescript
+ * const now = DateWithTimezone({ date: new Date(), timezone: 'America/New_York' });
+ * console.log(now.date);       // Date object
+ * console.log(now.timezone);   // "America/New_York"
+ * console.log(now.toJSON());   // "2024-01-01T20:00:00.000Z|America/New_York"
+ * ```
+ */
+export function DateWithTimezone({
+	date,
+	timezone,
+}: {
+	date: Date;
+	timezone: string;
+}): DateWithTimezone {
+	return {
+		date,
+		timezone,
+		toJSON() {
+			return `${date.toISOString()}|${timezone}` as DateWithTimezoneString;
+		},
+	};
+}
+
+/**
+ * Parses a DateWithTimezone object from a serialized string.
+ * The returned object includes a toJSON() method for serialization.
+ *
+ * @param serialized - String in format "ISO_UTC|TIMEZONE"
+ * @returns DateWithTimezone object with toJSON method
+ * @throws Error if the serialized string is not in the correct format
+ * @example
+ * ```typescript
+ * const parsed = DateWithTimezoneFromString("2024-01-01T20:00:00.000Z|America/New_York" as DateWithTimezoneString);
+ * console.log(parsed.date);    // Date object for 2024-01-01T20:00:00.000Z
+ * console.log(parsed.timezone);// "America/New_York"
+ * ```
+ */
+export function DateWithTimezoneFromString(
+	serialized: DateWithTimezoneString,
+): DateWithTimezone {
+	const [isoUtc, timezone] = serialized.split('|');
+	if (!isoUtc || !timezone) {
+		throw new Error(`Invalid DateWithTimezone format: ${serialized}`);
+	}
+	return DateWithTimezone({ date: new Date(isoUtc), timezone });
 }
 
 /**
@@ -292,7 +354,7 @@ export function createRow<TTableSchema extends TableSchema>({
 								} else if (value instanceof Y.Array) {
 									result[key] = value.toArray();
 								} else if (isDateWithTimezone(value)) {
-									result[key] = DateWithTimezoneSerializer.serialize(value);
+									result[key] = value.toJSON();
 								} else {
 									result[key] = value;
 								}
@@ -566,37 +628,6 @@ export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
 	Brand<'DateWithTimezoneString'>;
 
 /**
- * Factory function to create a serializer with inferred types
- */
-export function Serializer<TValue, TSerialized>(config: {
-	serialize(value: TValue): TSerialized;
-	deserialize(storage: TSerialized): TValue;
-}) {
-	return config;
-}
-
-/**
- * Serializer for DateWithTimezone - converts between application objects and storage strings
- */
-export const DateWithTimezoneSerializer = Serializer({
-	serialize({ date, timezone }: DateWithTimezone): DateWithTimezoneString {
-		const isoUtc = date.toISOString();
-		return `${isoUtc}|${timezone}` as DateWithTimezoneString;
-	},
-
-	deserialize(storage: DateWithTimezoneString): DateWithTimezone {
-		const [isoUtc, timezone] = storage.split('|');
-		if (!isoUtc || !timezone) {
-			throw new Error(`Invalid DateWithTimezone format: ${storage}`);
-		}
-		return {
-			date: new Date(isoUtc),
-			timezone,
-		};
-	},
-});
-
-/**
  * Converts a cell value to its serialized equivalent for storage/transport
  * - Y.Text → string
  * - Y.Array<T> → T[]
@@ -682,9 +713,7 @@ export function serializeCellValue<T extends CellValue>(
 		return value.toArray() as SerializedCellValue<T>;
 	}
 	if (isDateWithTimezone(value)) {
-		return DateWithTimezoneSerializer.serialize(
-			value,
-		) as SerializedCellValue<T>;
+		return value.toJSON() as SerializedCellValue<T>;
 	}
 	return value as SerializedCellValue<T>;
 }
@@ -856,7 +885,7 @@ export function boolean({
  * @example
  * date() // → { type: 'date', nullable: false }
  * date({ nullable: true })
- * date({ default: () => ({ date: new Date(), timezone: 'UTC' }) })
+ * date({ default: () => DateWithTimezone({ date: new Date(), timezone: 'UTC' }) })
  */
 export function date(opts: {
 	nullable: true;

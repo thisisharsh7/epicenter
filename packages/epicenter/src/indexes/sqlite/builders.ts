@@ -14,11 +14,14 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { customAlphabet } from 'nanoid';
 import type {
-	DateWithTimezone,
 	DateWithTimezoneString,
+	DateWithTimezone as DateWithTimezoneType,
 	Id,
 } from '../../core/schema';
-import { DateWithTimezoneSerializer, Serializer } from '../../core/schema';
+import {
+	DateWithTimezone,
+	DateWithTimezoneFromString,
+} from '../../core/schema';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
@@ -200,7 +203,6 @@ export function boolean<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
-
 /**
  * Creates a datetime with timezone column (stored as text, NOT NULL by default)
  * Stores dates in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
@@ -226,38 +228,37 @@ export function date<
 	default?: TDefault;
 } = {}) {
 	/**
-	 * Normalizes Date or DateWithTimezone to DateWithTimezone
-	 * If Date is passed, uses system timezone
-	 */
-	const normalizeToDateWithTimezone = (
-		value: Date | DateWithTimezone,
-	): DateWithTimezone => {
-		if (value instanceof Date) {
-			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-			return { date: value, timezone };
-		}
-		return value;
-	};
-
-	/**
 	 * Custom Drizzle type for datetime with timezone storage
 	 * Stores as text in format "ISO_UTC|TIMEZONE"
 	 */
 	const dateWithTimezoneType = customType<{
-		data: DateWithTimezone;
+		data: DateWithTimezoneType;
 		driverData: DateWithTimezoneString;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: DateWithTimezone): DateWithTimezoneString =>
-			DateWithTimezoneSerializer.serialize(value),
-		fromDriver: (value: DateWithTimezoneString): DateWithTimezone =>
-			DateWithTimezoneSerializer.deserialize(value),
+		toDriver: (value: DateWithTimezoneType): DateWithTimezoneString =>
+			value.toJSON(),
+		fromDriver: (value: DateWithTimezoneString): DateWithTimezoneType =>
+			DateWithTimezoneFromString(value),
 	});
 
 	let column = dateWithTimezoneType();
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
+	/**
+	 * Normalizes Date or DateWithTimezone to DateWithTimezone
+	 * If Date is passed, uses system timezone
+	 */
+	const normalizeToDateWithTimezone = (
+		value: Date | DateWithTimezoneType,
+	): DateWithTimezoneType => {
+		if (value instanceof Date) {
+			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			return DateWithTimezone({ date: value, timezone });
+		}
+		return value;
+	};
 
 	if (defaultValue !== undefined) {
 		column =
@@ -296,33 +297,26 @@ export function multiSelect<
 }) {
 	const optionsSet = new Set(options);
 
-	const multiSelectSerializer = Serializer({
-		serialize(value: TOptions[number][]): string {
-			return JSON.stringify(value);
-		},
-		deserialize(storage: string): TOptions[number][] {
-			try {
-				const parsed = JSON.parse(storage);
-				if (!Array.isArray(parsed)) {
-					return [];
-				}
-				// Filter out items not in the options set
-				return parsed.filter((item) => optionsSet.has(item)) as TOptions[number][];
-			} catch (error) {
-				return [];
-			}
-		},
-	});
-
 	const multiSelectType = customType<{
 		data: TOptions[number][];
 		driverData: string;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: TOptions[number][]): string =>
-			multiSelectSerializer.serialize(value),
-		fromDriver: (value: string): TOptions[number][] =>
-			multiSelectSerializer.deserialize(value),
+		toDriver: (value: TOptions[number][]): string => JSON.stringify(value),
+		fromDriver: (value: string): TOptions[number][] => {
+			try {
+				const parsed = JSON.parse(value);
+				if (!Array.isArray(parsed)) {
+					return [];
+				}
+				// Filter out items not in the options set
+				return parsed.filter((item) =>
+					optionsSet.has(item),
+				) as TOptions[number][];
+			} catch (error) {
+				return [];
+			}
+		},
 	});
 
 	let column = multiSelectType();

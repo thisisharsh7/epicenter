@@ -1,39 +1,40 @@
-import type { BuildColumns, IsPrimaryKey, NotNull } from 'drizzle-orm';
+import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
-	integer,
-	real,
-	SQLiteCustomColumnBuilder,
-	sqliteTable,
-	text,
 	type SQLiteBooleanBuilderInitial,
-	type SQLiteColumnBuilderBase,
+	type SQLiteCustomColumnBuilder,
 	type SQLiteIntegerBuilderInitial,
 	type SQLiteRealBuilderInitial,
 	type SQLiteTable,
-	type SQLiteTableWithColumns,
 	type SQLiteTextBuilderInitial,
+	integer,
+	real,
+	sqliteTable,
+	text,
 } from 'drizzle-orm/sqlite-core';
 import type {
 	BooleanColumnSchema,
 	ColumnSchema,
 	DateColumnSchema,
 	DateWithTimezone,
+	DateWithTimezoneString,
 	IdColumnSchema,
 	IntegerColumnSchema,
 	MultiSelectColumnSchema,
 	RealColumnSchema,
-	WorkspaceSchema,
 	SelectColumnSchema,
 	TableSchema,
 	TextColumnSchema,
+	WorkspaceSchema,
 	YtextColumnSchema,
 } from '../../core/schema';
-import { date, multiSelect, type DateWithTimezoneString } from './builders';
+import { date, multiSelect } from './builders';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations
  */
-export type WorkspaceSchemaToDrizzleTables<TWorkspaceSchema extends WorkspaceSchema> = {
+export type WorkspaceSchemaToDrizzleTables<
+	TWorkspaceSchema extends WorkspaceSchema,
+> = {
 	[K in keyof TWorkspaceSchema & string]: ReturnType<
 		typeof convertTableSchemaToDrizzle<K, TWorkspaceSchema[K]>
 	>;
@@ -43,12 +44,14 @@ export type WorkspaceSchemaToDrizzleTables<TWorkspaceSchema extends WorkspaceSch
  * Convert workspace schema to Drizzle tables
  * Returns a map of table name → SQLiteTable with preserved types
  */
-export function convertWorkspaceSchemaToDrizzle<TWorkspaceSchema extends WorkspaceSchema>(
-	schema: TWorkspaceSchema,
-): WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> {
+export function convertWorkspaceSchemaToDrizzle<
+	TWorkspaceSchema extends WorkspaceSchema,
+>(schema: TWorkspaceSchema): WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> {
 	const result: Record<string, SQLiteTable> = {};
 
-	for (const tableName of Object.keys(schema) as Array<keyof TWorkspaceSchema & string>) {
+	for (const tableName of Object.keys(schema) as Array<
+		keyof TWorkspaceSchema & string
+	>) {
 		const tableSchema = schema[tableName];
 		if (!tableSchema) {
 			throw new Error(`Table schema for "${String(tableName)}" is undefined`);
@@ -65,10 +68,7 @@ export function convertWorkspaceSchemaToDrizzle<TWorkspaceSchema extends Workspa
 export function convertTableSchemaToDrizzle<
 	TTableName extends string,
 	TTableSchema extends TableSchema,
->(
-	tableName: TTableName,
-	tableSchema: TTableSchema,
-) {
+>(tableName: TTableName, tableSchema: TTableSchema) {
 	const columns = Object.fromEntries(
 		Object.keys(tableSchema).map((columnName) => [
 			columnName,
@@ -77,9 +77,9 @@ export function convertTableSchemaToDrizzle<
 				tableSchema[columnName as keyof TTableSchema],
 			),
 		]),
-	) as {[Key in keyof TTableSchema]: ColumnToDrizzle<TTableSchema[Key]>};
+	) as { [Key in keyof TTableSchema]: ColumnToDrizzle<TTableSchema[Key]> };
 
-	return sqliteTable(tableName, columns) 
+	return sqliteTable(tableName, columns);
 }
 
 /**
@@ -100,20 +100,29 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 						SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 					>
 			: C extends IntegerColumnSchema<infer TNullable>
+				? TNullable extends true
+					? SQLiteIntegerBuilderInitial<''>
+					: NotNull<SQLiteIntegerBuilderInitial<''>>
+				: C extends RealColumnSchema<infer TNullable>
 					? TNullable extends true
-						? SQLiteIntegerBuilderInitial<''>
-						: NotNull<SQLiteIntegerBuilderInitial<''>>
-					: C extends RealColumnSchema<infer TNullable>
+						? SQLiteRealBuilderInitial<''>
+						: NotNull<SQLiteRealBuilderInitial<''>>
+					: C extends BooleanColumnSchema<infer TNullable>
 						? TNullable extends true
-							? SQLiteRealBuilderInitial<''>
-							: NotNull<SQLiteRealBuilderInitial<''>>
-						: C extends BooleanColumnSchema<infer TNullable>
+							? SQLiteBooleanBuilderInitial<''>
+							: NotNull<SQLiteBooleanBuilderInitial<''>>
+						: C extends DateColumnSchema<infer TNullable>
 							? TNullable extends true
-								? SQLiteBooleanBuilderInitial<''>
-								: NotNull<SQLiteBooleanBuilderInitial<''>>
-							: C extends DateColumnSchema<infer TNullable>
-								? TNullable extends true
-									? SQLiteCustomColumnBuilder<{
+								? SQLiteCustomColumnBuilder<{
+										name: '';
+										dataType: 'custom';
+										columnType: 'SQLiteCustomColumn';
+										data: DateWithTimezone;
+										driverParam: DateWithTimezoneString;
+										enumValues: undefined;
+									}>
+								: NotNull<
+										SQLiteCustomColumnBuilder<{
 											name: '';
 											dataType: 'custom';
 											columnType: 'SQLiteCustomColumn';
@@ -121,33 +130,36 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 											driverParam: DateWithTimezoneString;
 											enumValues: undefined;
 										}>
-									: NotNull<
-											SQLiteCustomColumnBuilder<{
-												name: '';
-												dataType: 'custom';
-												columnType: 'SQLiteCustomColumn';
-												data: DateWithTimezone;
-												driverParam: DateWithTimezoneString;
-												enumValues: undefined;
-											}>
+									>
+							: C extends SelectColumnSchema<infer TOptions, infer TNullable>
+								? TNullable extends true
+									? SQLiteTextBuilderInitial<
+											'',
+											[...TOptions],
+											number | undefined
 										>
-								: C extends SelectColumnSchema<infer TOptions, infer TNullable>
-									? TNullable extends true
-										? SQLiteTextBuilderInitial<
+									: NotNull<
+											SQLiteTextBuilderInitial<
 												'',
 												[...TOptions],
 												number | undefined
 											>
+										>
+								: C extends MultiSelectColumnSchema<
+											infer TOptions,
+											infer TNullable
+										>
+									? TNullable extends true
+										? SQLiteCustomColumnBuilder<{
+												name: '';
+												dataType: 'custom';
+												columnType: 'SQLiteCustomColumn';
+												data: TOptions[number][];
+												driverParam: string;
+												enumValues: undefined;
+											}>
 										: NotNull<
-												SQLiteTextBuilderInitial<
-													'',
-													[...TOptions],
-													number | undefined
-												>
-											>
-									: C extends MultiSelectColumnSchema<infer TOptions, infer TNullable>
-										? TNullable extends true
-											? SQLiteCustomColumnBuilder<{
+												SQLiteCustomColumnBuilder<{
 													name: '';
 													dataType: 'custom';
 													columnType: 'SQLiteCustomColumn';
@@ -155,17 +167,8 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 													driverParam: string;
 													enumValues: undefined;
 												}>
-											: NotNull<
-													SQLiteCustomColumnBuilder<{
-														name: '';
-														dataType: 'custom';
-														columnType: 'SQLiteCustomColumn';
-														data: TOptions[number][];
-														driverParam: string;
-														enumValues: undefined;
-													}>
-												>
-										: never;
+											>
+									: never;
 
 /**
  * Convert a ColumnSchema to a Drizzle column builder
