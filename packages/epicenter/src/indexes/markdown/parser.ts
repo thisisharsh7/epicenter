@@ -4,14 +4,12 @@ import { type Result, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type { Row, RowValidationResult, TableSchema } from '../../core/schema';
 
-
 /**
  * Error types for markdown operations
  */
 export const { MarkdownError, MarkdownErr } =
 	createTaggedError('MarkdownError');
 export type MarkdownError = ReturnType<typeof MarkdownError>;
-
 
 /**
  * Result of parsing and validating a markdown file
@@ -22,19 +20,46 @@ export type MarkdownError = ReturnType<typeof MarkdownError>;
  */
 export type ParseMarkdownResult<T extends Row = Row> =
 	| {
-		status: 'failed-to-parse';
-		error: MarkdownError;
-	}
+			/**
+			 * Failed to parse the markdown file or YAML frontmatter
+			 */
+			status: 'failed-to-parse';
+			/**
+			 * Error containing details about the parse failure
+			 * (e.g., invalid YAML syntax, file not found, malformed frontmatter)
+			 */
+			error: MarkdownError;
+	  }
 	| {
-		status: 'failed-to-validate';
-		validationResult: RowValidationResult<T>;
-		data: unknown;
-	}
+			/**
+			 * Successfully parsed YAML but it doesn't match the table schema
+			 */
+			status: 'failed-to-validate';
+			/**
+			 * Structured validation errors explaining what doesn't match the schema
+			 * (e.g., missing required fields, type mismatches, invalid options)
+			 */
+			validationResult: RowValidationResult<T>;
+			/**
+			 * The raw parsed YAML data that failed validation
+			 * Typed as unknown because schema validation failed, so we can't guarantee its shape
+			 */
+			data: unknown;
+	  }
 	| {
-		status: 'success';
-		data: T;
-		content: string;
-	};
+			/**
+			 * Successfully parsed and validated
+			 */
+			status: 'success';
+			/**
+			 * The validated, typed row data
+			 */
+			data: T;
+			/**
+			 * The markdown content (everything after the frontmatter)
+			 */
+			content: string;
+	  };
 
 /**
  * Parse and validate a markdown file against a table schema
@@ -239,12 +264,15 @@ export async function parseMarkdownWithValidation<T extends Row>(
  * Parse a markdown file with optional frontmatter
  * If file has no frontmatter (doesn't start with ---), treats entire file as content
  */
-async function parseMarkdownFile(
-	filePath: string,
-): Promise<Result<{
-	data: unknown;
-	content: string;
-}, MarkdownError>> {
+async function parseMarkdownFile(filePath: string): Promise<
+	Result<
+		{
+			data: unknown;
+			content: string;
+		},
+		MarkdownError
+	>
+> {
 	return tryAsync({
 		try: async () => {
 			const file = Bun.file(filePath);
