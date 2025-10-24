@@ -565,15 +565,16 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			if (eventType === 'change' || eventType === 'rename') {
 				// File was modified, parse and update YJS
 				// Get existing YRow if the row already exists
-				const existingYRow = table.has(id) ? table.get(id) : undefined;
-				const yrow =
-					existingYRow?.status === 'valid' ? existingYRow.row.$yRow : undefined;
-
+				const existingRowResult = table.get(id);
+				const existingYRow =
+					existingRowResult?.status === 'valid'
+						? existingRowResult.row.$yRow
+						: undefined;
 				const parseResult = await parseMarkdownWithValidation({
 					filePath,
 					schema: tableSchema,
 					bodyField: tableConfig?.bodyField,
-					yrow,
+					existingYRow,
 				});
 
 				switch (parseResult.status) {

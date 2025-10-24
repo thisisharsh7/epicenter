@@ -56,9 +56,9 @@ export type ParseMarkdownResult<T extends Row = Row> =
  *
  * @param filePath - Path to the markdown file
  * @param schema - Table schema to validate against
- * @param bodyField - Optional field name to store markdown body content
- * @param yrow - Optional existing YRow to update (if omitted, creates new YRow)
- * @returns ParseMarkdownResult with status and data/error
+ * @param bodyField - If provided, merges markdown body content into this field. Otherwise only frontmatter is parsed.
+ * @param existingYRow - If provided, updates this YRow with minimal diffs. Otherwise creates new YRow.
+ * @returns ParseMarkdownResult with status (failed-to-parse | invalid-structure | schema-mismatch | valid)
  */
 export async function parseMarkdownWithValidation<
 	TTableSchema extends TableSchema,
@@ -66,12 +66,12 @@ export async function parseMarkdownWithValidation<
 	filePath,
 	schema,
 	bodyField,
-	yrow,
+	existingYRow,
 }: {
 	filePath: string;
 	schema: TTableSchema;
 	bodyField?: string;
-	yrow?: YRow;
+	existingYRow?: YRow;
 }): Promise<ParseMarkdownResult<Row<TTableSchema>>> {
 	// Step 1: Parse the markdown file
 	const parseResult = await parseMarkdownFile(filePath);
@@ -101,7 +101,7 @@ export async function parseMarkdownWithValidation<
 	const serializedRow = bodyField ? { ...data, [bodyField]: content } : data;
 
 	// Step 4: Update existing YRow or create a new one
-	const targetYRow = yrow ?? new Y.Map<CellValue>();
+	const targetYRow = existingYRow ?? new Y.Map<CellValue>();
 	updateYRowFromSerializedRow({ yrow: targetYRow, serializedRow, schema });
 
 	// Step 5: Create Row proxy and validate
