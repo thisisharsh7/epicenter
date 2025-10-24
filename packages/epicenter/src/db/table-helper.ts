@@ -410,14 +410,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				return { status: 'not-found', row: null };
 			}
 
-			const row = createRow({ ymap: yrow, schema });
+			const row = createRow({ yrow, schema });
 			return row.validate();
 		},
 
 		getAll() {
 			const results: RowValidationResult<TRow>[] = [];
 			for (const yrow of ytable.values()) {
-				const row = createRow({ ymap: yrow, schema });
+				const row = createRow({ yrow, schema });
 				const result = row.validate();
 				results.push(result);
 			}
@@ -457,7 +457,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const results: RowValidationResult<TRow>[] = [];
 
 			for (const yrow of ytable.values()) {
-				const row = createRow({ ymap: yrow, schema });
+				const row = createRow({ yrow, schema });
 
 				// Check predicate first (even on unvalidated rows)
 				if (predicate(row as TRow)) {
@@ -471,7 +471,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		find(predicate: (row: TRow) => boolean): GetRowResult<TRow> {
 			for (const yrow of ytable.values()) {
-				const row = createRow({ ymap: yrow, schema });
+				const row = createRow({ yrow, schema });
 
 				// Check predicate first (even on unvalidated rows)
 				if (predicate(row as TRow)) {
@@ -496,9 +496,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						// Top-level changes: row additions/deletions
 						event.changes.keys.forEach((change, key) => {
 							if (change.action === 'add') {
-								const ymap = ytable.get(key);
-								if (ymap) {
-									const row = createRow({ ymap, schema });
+								const yrow = ytable.get(key);
+								if (yrow) {
+									const row = createRow({ yrow, schema });
 									const result = row.validate();
 
 									switch (result.status) {
@@ -523,7 +523,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						const rowId = event.path[0] as string;
 						const yrow = ytable.get(rowId);
 						if (yrow) {
-							const row = createRow({ ymap: yrow, schema });
+							const row = createRow({ yrow, schema });
 							const result = row.validate();
 
 							switch (result.status) {

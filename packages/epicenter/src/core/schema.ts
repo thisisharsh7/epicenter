@@ -259,10 +259,10 @@ export type ColumnSchemaToCellValue<C extends ColumnSchema> =
 
 /**
  * Maps a TableSchema to a row type with properly typed fields AND Proxy methods.
- * This is a Proxy-wrapped Y.Map that provides:
+ * This is a Proxy-wrapped YRow that provides:
  * - Type-safe property access: `row.title`, `row.content`, etc.
  * - `.toJSON()` method: Convert to fully serialized object (Y.Text → string, Y.Array → array[], etc.)
- * - `.$yMap` property: Access underlying Y.Map when needed
+ * - `.$yRow` property: Access underlying YRow when needed
  *
  * Each column name becomes a property with its corresponding YJS or primitive type.
  * Since `TableSchema` always requires an `id` column, every row type includes a guaranteed `id: string` property.
@@ -288,8 +288,8 @@ export type ColumnSchemaToCellValue<C extends ColumnSchema> =
  * const serialized = row.toJSON();     // SerializedRow<PostSchema>
  * // { id: string, title: string, content: string, viewCount: number }
  *
- * // Access underlying Y.Map
- * const ymap = row.$yMap;         // YRow
+ * // Access underlying YRow
+ * const yrow = row.$yRow;         // YRow
  * ```
  */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
@@ -309,31 +309,31 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	validate(): RowValidationResult<Row<TTableSchema>>;
 
 	/**
-	 * Access the underlying Y.Map for advanced YJS operations.
+	 * Access the underlying YRow for advanced YJS operations.
 	 * Use this when you need direct Y.Map API access.
 	 */
-	readonly $yMap: YRow;
+	readonly $yRow: YRow;
 };
 
 /**
- * Creates a Proxy-wrapped Y.Map that provides type-safe property access.
+ * Creates a Proxy-wrapped YRow that provides type-safe property access.
  * This is what implements the `Row<T>` type - a Proxy that looks like a plain object
- * but delegates to the underlying Y.Map.
+ * but delegates to the underlying YRow.
  *
- * The Proxy intercepts property access and delegates to the Y.Map:
- * - `row.content` → `ymap.get('content')`
- * - `row.toJSON()` → converts Y.Map to fully serialized object using schema
- * - `row.$yMap` → returns the underlying Y.Map
+ * The Proxy intercepts property access and delegates to the YRow:
+ * - `row.content` → `yrow.get('content')`
+ * - `row.toJSON()` → converts YRow to fully serialized object using schema
+ * - `row.$yRow` → returns the underlying YRow
  *
- * @param ymap - The Y.Map to wrap
+ * @param yrow - The YRow to wrap
  * @param schema - The table schema for proper serialization
- * @returns A Proxy that implements Row<TTableSchema> with type-safe access to the Y.Map
+ * @returns A Proxy that implements Row<TTableSchema> with type-safe access to the YRow
  */
 export function createRow<TTableSchema extends TableSchema>({
-	ymap,
+	yrow,
 	schema,
 }: {
-	ymap: YRow;
+	yrow: YRow;
 	schema: TTableSchema;
 }): Row<TTableSchema> {
 	const proxy: Row<TTableSchema> = new Proxy(
@@ -346,7 +346,7 @@ export function createRow<TTableSchema extends TableSchema>({
 						const result: Record<string, unknown> = {};
 
 						for (const key in schema) {
-							const value = ymap.get(key);
+							const value = yrow.get(key);
 							if (value !== undefined) {
 								// Serialize the value based on its type
 								if (value instanceof Y.Text) {
@@ -369,7 +369,7 @@ export function createRow<TTableSchema extends TableSchema>({
 					return (): RowValidationResult<Row<TTableSchema>> => {
 						// Schema validation - validate each field against schema constraints
 						for (const [fieldName, columnSchema] of Object.entries(schema)) {
-							const value = ymap.get(fieldName);
+							const value = yrow.get(fieldName);
 
 							// Check if required field is null/undefined
 							if (value === null || value === undefined) {
@@ -554,37 +554,37 @@ export function createRow<TTableSchema extends TableSchema>({
 					};
 				}
 
-				if (prop === '$yMap') {
-					return ymap;
+				if (prop === '$yRow') {
+					return yrow;
 				}
 
 				// Get value from Y.Map
 				if (typeof prop === 'string') {
-					return ymap.get(prop);
+					return yrow.get(prop);
 				}
 
 				return undefined;
 			},
 
 			has(_target, prop) {
-				if (prop === 'toJSON' || prop === 'validate' || prop === '$yMap')
+				if (prop === 'toJSON' || prop === 'validate' || prop === '$yRow')
 					return true;
-				return ymap.has(prop as string);
+				return yrow.has(prop as string);
 			},
 
 			ownKeys(_target) {
-				return [...ymap.keys(), 'toJSON', 'validate', '$yMap'];
+				return [...yrow.keys(), 'toJSON', 'validate', '$yRow'];
 			},
 
 			getOwnPropertyDescriptor(_target, prop) {
-				if (prop === 'toJSON' || prop === 'validate' || prop === '$yMap') {
+				if (prop === 'toJSON' || prop === 'validate' || prop === '$yRow') {
 					return {
 						configurable: true,
 						enumerable: false,
 						writable: false,
 					};
 				}
-				if (typeof prop === 'string' && ymap.has(prop)) {
+				if (typeof prop === 'string' && yrow.has(prop)) {
 					return {
 						configurable: true,
 						enumerable: true,
