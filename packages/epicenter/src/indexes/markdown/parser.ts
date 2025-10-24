@@ -1,9 +1,8 @@
 import path from 'node:path';
 import { createTaggedError } from 'wellcrafted/error';
-import { tryAsync, type Result } from 'wellcrafted/result';
+import { type Result, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import type { Row, TableSchema } from '../../core/schema';
-import type { RowValidationResult } from '../../core/validation';
+import type { Row, RowValidationResult, TableSchema } from '../../core/schema';
 
 
 /**

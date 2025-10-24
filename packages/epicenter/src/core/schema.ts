@@ -2,7 +2,6 @@ import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
 import type { YRow } from '../db/table-helper';
-import type { RowValidationResult, SchemaMismatchReason } from './validation';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -256,6 +255,69 @@ export type ColumnSchemaToCellValue<C extends ColumnSchema> =
 											? Y.Array<TOptions[number]> | null
 											: Y.Array<TOptions[number]>
 										: never;
+
+/**
+ * Discriminated union representing row validation result
+ * Three possible states:
+ * - valid: Data matches schema perfectly
+ * - schema-mismatch: Valid Row structure but doesn't match schema
+ * - invalid-structure: Not a valid Row structure
+ */
+export type RowValidationResult<TRow extends Row> =
+	| { status: 'valid'; row: TRow }
+	| { status: 'schema-mismatch'; row: Row; reason: SchemaMismatchReason }
+	| {
+			status: 'invalid-structure';
+			row: unknown;
+			reason: InvalidStructureReason;
+	  };
+
+/**
+ * Reasons why structural validation failed
+ */
+export type InvalidStructureReason =
+	| {
+			type: 'not-an-object';
+			actual: unknown;
+	  }
+	| {
+			type: 'invalid-cell-value';
+			field: string;
+			actual: unknown;
+	  };
+
+/**
+ * Reasons why schema validation failed
+ */
+export type SchemaMismatchReason =
+	| {
+			type: 'missing-required-field';
+			field: string;
+	  }
+	| {
+			type: 'type-mismatch';
+			field: string;
+			schemaType: ColumnSchema['type'];
+			actual: unknown;
+	  }
+	| {
+			type: 'invalid-option';
+			field: string;
+			actual: string;
+			allowedOptions: readonly string[];
+	  };
+
+/**
+ * Discriminated union representing the result of getting a row by ID
+ * Four possible states:
+ * - valid: Row exists and matches schema perfectly
+ * - schema-mismatch: Row exists but doesn't match schema
+ * - invalid-structure: Row exists but has invalid structure
+ * - not-found: Row does not exist
+ */
+export type GetRowResult<TRow extends Row> =
+	| RowValidationResult<TRow>
+	| { status: 'not-found'; row: null };
 
 /**
  * Maps a TableSchema to a row type with properly typed fields AND Proxy methods.

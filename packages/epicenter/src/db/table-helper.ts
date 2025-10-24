@@ -1,12 +1,13 @@
 import * as Y from 'yjs';
 import type {
 	CellValue,
+	GetRowResult,
 	Row,
+	RowValidationResult,
 	TableSchema,
 	WorkspaceSchema,
 } from '../core/schema';
 import { createRow } from '../core/schema';
-import type { GetRowResult, RowValidationResult } from '../core/validation';
 import { syncYArrayToDiff, syncYTextToDiff } from '../utils/yjs';
 
 /**
