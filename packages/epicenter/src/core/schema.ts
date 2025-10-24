@@ -411,16 +411,7 @@ export function createRow<TTableSchema extends TableSchema>({
 						for (const key in schema) {
 							const value = yrow.get(key);
 							if (value !== undefined) {
-								// Serialize the value based on its type
-								if (value instanceof Y.Text) {
-									result[key] = value.toString();
-								} else if (value instanceof Y.Array) {
-									result[key] = value.toArray();
-								} else if (isDateWithTimezone(value)) {
-									result[key] = value.toJSON();
-								} else {
-									result[key] = value;
-								}
+								result[key] = serializeCellValue(value);
 							}
 						}
 
@@ -687,6 +678,7 @@ export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
 /**
  * Maps a ColumnSchema to its serialized cell value type.
  * This is the serialized equivalent of CellValue - what you get after calling serializeCellValue().
+ * Uses a distributive conditional type to transform Y.js types to their serialized equivalents.
  * - Y.Text → string
  * - Y.Array<T> → T[]
  * - DateWithTimezone → DateWithTimezoneString
@@ -702,19 +694,15 @@ export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
  * ```
  */
 export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
-	CellValue<C> extends Y.Text
-		? string
-		: CellValue<C> extends Y.Text | null
-			? string | null
-			: CellValue<C> extends Y.Array<infer U>
+	CellValue<C> extends infer T
+		? T extends Y.Text
+			? string
+			: T extends Y.Array<infer U>
 				? U[]
-				: CellValue<C> extends Y.Array<infer U> | null
-					? U[] | null
-					: CellValue<C> extends DateWithTimezone
-						? DateWithTimezoneString
-						: CellValue<C> extends DateWithTimezone | null
-							? DateWithTimezoneString | null
-							: CellValue<C>;
+				: T extends DateWithTimezone
+					? DateWithTimezoneString
+					: T
+		: never;
 
 /**
  * Serialized row - all cell values converted to plain JavaScript types.
