@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
+import type { ProviderContext } from '../core/workspace/config';
 
 /**
  * Set up YJS document persistence using IndexedDB.
@@ -34,7 +35,7 @@ import { IndexeddbPersistence } from 'y-indexeddb';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
- *   setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
+ *   providers: [setupPersistenceWeb],
  *   // ... schema, indexes, actions
  * });
  * ```
@@ -56,12 +57,12 @@ import { IndexeddbPersistence } from 'y-indexeddb';
  * // Each workspace gets its own IndexedDB database
  * const blog = defineWorkspace({
  *   id: 'blog',  // → IndexedDB database named 'blog'
- *   setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
+ *   providers: [setupPersistenceWeb],
  * });
  *
  * const notes = defineWorkspace({
  *   id: 'notes',  // → IndexedDB database named 'notes'
- *   setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
+ *   providers: [setupPersistenceWeb],
  * });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage
@@ -78,7 +79,7 @@ import { IndexeddbPersistence } from 'y-indexeddb';
  *
  * @see {@link setupPersistence} from `@repo/epicenter/persistence/desktop` for Node.js/filesystem version
  */
-export function setupPersistence(ydoc: Y.Doc): void {
+export function setupPersistence({ ydoc }: ProviderContext): void {
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
 	new IndexeddbPersistence(ydoc.guid, ydoc);

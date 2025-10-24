@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { ProviderContext } from '../core/workspace/config';
 
 /**
  * Directory where Epicenter stores persistent data (YJS files and SQLite databases)
@@ -35,7 +36,7 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the filename: .epicenter/blog.yjs
- *   setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
+ *   providers: [setupPersistenceDesktop],
  *   // ... schema, indexes, actions
  * });
  * ```
@@ -45,13 +46,13 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * // Pages workspace
  * const pages = defineWorkspace({
  *   id: 'pages',  // → .epicenter/pages.yjs
- *   setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
+ *   providers: [setupPersistenceDesktop],
  * });
  *
  * // Content-hub workspace
  * const contentHub = defineWorkspace({
  *   id: 'content-hub',  // → .epicenter/content-hub.yjs
- *   setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
+ *   providers: [setupPersistenceDesktop],
  * });
  *
  * // Both workspaces share .epicenter/ but have separate state
@@ -70,7 +71,7 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  *
  * @see {@link setupPersistence} from `@repo/epicenter/persistence/web` for browser/IndexedDB version
  */
-export function setupPersistence(ydoc: Y.Doc): void {
+export function setupPersistence({ ydoc }: ProviderContext): void {
 	const storagePath = `./${EPICENTER_STORAGE_DIR}` as const;
 	const filePath = path.join(storagePath, `${ydoc.guid}.yjs`);
 

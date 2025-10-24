@@ -307,10 +307,14 @@ export async function initializeWorkspaces<
 		// Create YJS document with workspace ID as the document GUID
 		const ydoc = new Y.Doc({ guid: workspaceConfig.id });
 
-		// Set up YDoc synchronization and persistence (if user provided a setupYDoc function)
+		// Set up YDoc providers (persistence, synchronization, observability)
 		// IMPORTANT: This must run BEFORE createEpicenterDb so that persisted data is loaded
 		// into the YDoc before table initialization
-		workspaceConfig.setupYDoc?.(ydoc);
+		if (workspaceConfig.providers) {
+			for (const provider of workspaceConfig.providers) {
+				provider({ ydoc });
+			}
+		}
 
 		// Initialize Epicenter database (wraps YJS with table/record API)
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);

@@ -165,7 +165,7 @@ const blogWorkspace = defineWorkspace({
 
 	// Use desktop filesystem persistence helper
 	// Stores YJS document at ./.epicenter/blog.yjs
-	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
+	providers: [setupPersistenceDesktop],
 });
 
 export default defineEpicenter({

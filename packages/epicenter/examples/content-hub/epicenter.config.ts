@@ -45,7 +45,7 @@ export const pages = defineWorkspace({
 
 	// Use desktop filesystem persistence helper
 	// Stores YJS document at ./.epicenter/pages.yjs
-	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
+	providers: [setupPersistenceDesktop],
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all pages
@@ -178,7 +178,7 @@ export const contentHub = defineWorkspace({
 
 	// Use desktop filesystem persistence helper
 	// Stores YJS document at ./.epicenter/content-hub.yjs
-	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
+	providers: [setupPersistenceDesktop],
 
 	actions: ({ db, indexes }) => ({
 		// Mutation: Create YouTube post

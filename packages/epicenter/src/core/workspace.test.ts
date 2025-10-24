@@ -34,9 +34,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-a');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-a');
+				},
+			],
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
@@ -51,9 +53,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-b');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-b');
+				},
+			],
 		});
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
@@ -71,9 +75,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-c');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-c');
+				},
+			],
 		});
 
 		// Initialize workspace C
@@ -100,9 +106,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-d');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-d');
+				},
+			],
 		});
 		const workspaceA = defineWorkspace({
 			id: 'workspace-a',
@@ -117,9 +125,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-a');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-a');
+				},
+			],
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
@@ -134,9 +144,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-b');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-b');
+				},
+			],
 		});
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
@@ -154,9 +166,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-c');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-c');
+				},
+			],
 		});
 
 		await createWorkspaceClient(workspaceC);
@@ -188,9 +202,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-x');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-x');
+				},
+			],
 		});
 		const workspaceY = defineWorkspace({
 			id: 'workspace-y',
@@ -204,9 +220,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-y');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-y');
+				},
+			],
 		});
 		const workspaceZ = defineWorkspace({
 			id: 'workspace-z',
@@ -221,9 +239,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-z');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-z');
+				},
+			],
 		});
 
 		await createWorkspaceClient(workspaceZ);
@@ -253,9 +273,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-a-v1');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-a-v1');
+				},
+			],
 		});
 
 		// Create workspace A with version 3 (higher)
@@ -272,9 +294,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-a-v3');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-a-v3');
+				},
+			],
 		});
 
 		// B depends on v1, C depends on v3
@@ -291,9 +315,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-b');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-b');
+				},
+			],
 		});
 		const workspaceC = defineWorkspace({
 			id: 'workspace-c',
@@ -308,9 +334,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-c');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-c');
+				},
+			],
 		});
 
 		// Root depends on both B and C (flat resolution: include ALL transitive deps)
@@ -327,9 +355,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: ({ workspaces }) => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('root');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('root');
+				},
+			],
 		});
 
 		await createWorkspaceClient(root);
@@ -412,9 +442,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-a');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-a');
+				},
+			],
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
@@ -429,9 +461,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-b');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-b');
+				},
+			],
 		});
 		const workspaceC = defineWorkspace({
 			id: 'workspace-c',
@@ -446,9 +480,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-c');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-c');
+				},
+			],
 		});
 		const workspaceD = defineWorkspace({
 			id: 'workspace-d',
@@ -463,9 +499,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-d');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-d');
+				},
+			],
 		});
 		const workspaceE = defineWorkspace({
 			id: 'workspace-e',
@@ -480,9 +518,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-e');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-e');
+				},
+			],
 		});
 
 		// F must declare ALL transitive dependencies (flat resolution)
@@ -505,9 +545,11 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			},
 			indexes: {},
 			actions: () => ({}),
-			setupYDoc: (ydoc) => {
-				initOrder.push('workspace-f');
-			},
+			providers: [
+				({ ydoc }) => {
+					initOrder.push('workspace-f');
+				},
+			],
 		});
 
 		await createWorkspaceClient(workspaceF);

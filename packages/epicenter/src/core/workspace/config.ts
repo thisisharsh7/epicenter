@@ -5,6 +5,50 @@ import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 
 /**
+ * Context provided to each YJS provider function.
+ *
+ * Currently contains only the YJS document, but designed as an object for future extensibility.
+ * Future versions may add workspace configuration, database access, or other contextual data.
+ *
+ * @property ydoc - The YJS document that providers attach to. Has a `guid` property set to the workspace ID.
+ *
+ * @example Accessing the workspace ID
+ * ```typescript
+ * const myProvider: Provider = ({ ydoc }) => {
+ *   console.log(`Setting up provider for workspace: ${ydoc.guid}`);
+ *   // ydoc.guid is the workspace ID (e.g., 'blog', 'content-hub')
+ * };
+ * ```
+ */
+export type ProviderContext = {
+	ydoc: Y.Doc;
+};
+
+/**
+ * A YJS provider function that attaches external capabilities to a YDoc.
+ *
+ * Providers can be:
+ * - **Persistence**: Save/load YDoc state (filesystem, IndexedDB)
+ * - **Synchronization**: Real-time collaboration (WebSocket, WebRTC)
+ * - **Observability**: Logging, debugging, analytics
+ *
+ * @example Persistence provider
+ * ```typescript
+ * const persistenceProvider: Provider = ({ ydoc }) => {
+ *   new IndexeddbPersistence('my-db', ydoc);
+ * };
+ * ```
+ *
+ * @example Sync provider
+ * ```typescript
+ * const syncProvider: Provider = ({ ydoc }) => {
+ *   new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc);
+ * };
+ * ```
+ */
+export type Provider = (context: ProviderContext) => void;
+
+/**
  * Define a collaborative workspace with YJS-first architecture.
  *
  * ## What is a Workspace?
@@ -68,10 +112,12 @@ import type { WorkspaceSchema } from '../schema';
  *     markdown: (db) => markdownIndex(db, { storagePath: './data' }),
  *   },
  *
- *   setupYDoc: (ydoc) => {
- *     // Optional: Set up persistence
- *     new IndexeddbPersistence('blog', ydoc);
- *   },
+ *   providers: [
+ *     ({ ydoc }) => {
+ *       // Set up persistence
+ *       new IndexeddbPersistence('blog', ydoc);
+ *     },
+ *   ],
  *
  *   actions: ({ db, indexes }) => ({
  *     getPublishedPosts: defineQuery({
@@ -201,7 +247,7 @@ export type WorkspaceConfig<
 			| TIndexResults[K]
 			| Promise<TIndexResults[K]>;
 	};
-	setupYDoc?: (ydoc: Y.Doc) => void;
+	providers?: Provider[];
 	actions: (context: {
 		db: Db<TWorkspaceSchema>;
 		workspaces: WorkspacesToActionMaps<TDeps>;

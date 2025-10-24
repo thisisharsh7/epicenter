@@ -4,6 +4,8 @@ export type {
 	WorkspaceConfig,
 	AnyWorkspaceConfig,
 	WorkspacesToActionMaps,
+	Provider,
+	ProviderContext,
 } from './config';
 
 // Runtime (client side)
