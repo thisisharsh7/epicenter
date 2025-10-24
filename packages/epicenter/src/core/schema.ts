@@ -2,6 +2,7 @@ import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
 import type { YRow } from '../db/table-helper';
+import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -74,6 +75,36 @@ export function DateWithTimezone({
 }
 
 /**
+ * Type guard to check if a string is a valid DateWithTimezoneString.
+ * Validates format: "ISO_UTC|TIMEZONE" where ISO string is exactly 24 chars.
+ *
+ * ISO 8601 UTC format from Date.toISOString() is always 24 characters:
+ * "YYYY-MM-DDTHH:mm:ss.sssZ" (e.g., "2024-01-01T20:00:00.000Z")
+ *
+ * This is a fast structural check - it doesn't validate that the ISO date is valid
+ * or that the timezone is a real IANA identifier, just that the format is correct.
+ *
+ * @param value - Value to check
+ * @returns true if value is a valid DateWithTimezoneString format
+ *
+ * @example
+ * ```typescript
+ * isDateWithTimezoneString("2024-01-01T20:00:00.000Z|America/New_York") // true
+ * isDateWithTimezoneString("2024-01-01T20:00:00.000Z|") // false (empty timezone)
+ * isDateWithTimezoneString("2024-01-01") // false (no pipe separator)
+ * ```
+ */
+export function isDateWithTimezoneString(
+	value: unknown,
+): value is DateWithTimezoneString {
+	if (typeof value !== 'string') return false;
+
+	// ISO 8601 UTC string is always 24 chars with 'Z' at position 23, pipe at 24
+	// Format: "YYYY-MM-DDTHH:mm:ss.sssZ|timezone"
+	return value.length > 25 && value[23] === 'Z' && value[24] === '|';
+}
+
+/**
  * Parses a DateWithTimezone object from a serialized string.
  * The returned object includes a toJSON() method for serialization.
  *
@@ -90,10 +121,14 @@ export function DateWithTimezone({
 export function DateWithTimezoneFromString(
 	serialized: DateWithTimezoneString,
 ): DateWithTimezone {
-	const [isoUtc, timezone] = serialized.split('|');
-	if (!isoUtc || !timezone) {
+	if (!isDateWithTimezoneString(serialized)) {
 		throw new Error(`Invalid DateWithTimezone format: ${serialized}`);
 	}
+
+	// ISO string is always first 24 characters, pipe at index 24, timezone after
+	const isoUtc = serialized.slice(0, 24);
+	const timezone = serialized.slice(25);
+
 	return DateWithTimezone({ date: new Date(isoUtc), timezone });
 }
 
@@ -727,6 +762,36 @@ export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
 export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
 	[K in keyof TTableSchema]: SerializedCellValue<TTableSchema[K]>;
 };
+
+/**
+ * Type guard to check if a value is a valid SerializedCellValue.
+ * Validates that the value is a plain JavaScript type (not a Y.js type).
+ */
+export function isSerializedCellValue(
+	value: unknown,
+): value is SerializedCellValue {
+	// string | number | boolean | string[] | DateWithTimezoneString | null
+	return (
+		value === null ||
+		typeof value === 'string' ||
+		typeof value === 'number' ||
+		typeof value === 'boolean' ||
+		(Array.isArray(value) && value.every((item) => typeof item === 'string'))
+	);
+}
+
+/**
+ * Type guard to check if an object is a valid SerializedRow.
+ * Validates that all values are SerializedCellValue types.
+ */
+export function isSerializedRow(value: unknown): value is SerializedRow {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return false;
+	}
+
+	// Check that all values are valid SerializedCellValue
+	return Object.values(value).every(isSerializedCellValue);
+}
 
 /**
  * Serializes a single cell value to its plain JavaScript equivalent.

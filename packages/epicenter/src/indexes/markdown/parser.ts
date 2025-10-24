@@ -2,7 +2,16 @@ import path from 'node:path';
 import { createTaggedError } from 'wellcrafted/error';
 import { type Result, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import type { Row, RowValidationResult, TableSchema } from '../../core/schema';
+import type {
+	CellValue,
+	Row,
+	RowValidationResult,
+	SerializedRow,
+	TableSchema,
+} from '../../core/schema';
+import { createRow, isSerializedRow } from '../../core/schema';
+import type { YRow } from '../../db/table-helper';
+import { updateYRowFromSerializedRow } from '../../utils/yjs';
 
 /**
  * Error types for markdown operations
@@ -12,11 +21,14 @@ export const { MarkdownError, MarkdownErr } =
 export type MarkdownError = ReturnType<typeof MarkdownError>;
 
 /**
- * Result of parsing and validating a markdown file
- * Three possible outcomes:
+ * Result of parsing and validating a markdown file.
+ * Combines parse errors with row validation results.
+ *
+ * Four possible outcomes:
  * - failed-to-parse: YAML frontmatter has invalid syntax or file is malformed
- * - failed-to-validate: YAML parsed successfully but doesn't match table schema
- * - success: File parsed and validated successfully
+ * - invalid-structure: YAML parsed but not a valid object structure
+ * - schema-mismatch: Valid structure but doesn't match table schema
+ * - valid: File parsed and validated successfully
  */
 export type ParseMarkdownResult<T extends Row = Row> =
 	| {
@@ -30,49 +42,37 @@ export type ParseMarkdownResult<T extends Row = Row> =
 			 */
 			error: MarkdownError;
 	  }
-	| {
-			/**
-			 * Successfully parsed YAML but it doesn't match the table schema
-			 */
-			status: 'failed-to-validate';
-			/**
-			 * Structured validation errors explaining what doesn't match the schema
-			 * (e.g., missing required fields, type mismatches, invalid options)
-			 */
-			validationResult: RowValidationResult<T>;
-			/**
-			 * The raw parsed YAML data that failed validation
-			 * Typed as unknown because schema validation failed, so we can't guarantee its shape
-			 */
-			data: unknown;
-	  }
-	| {
-			/**
-			 * Successfully parsed and validated
-			 */
-			status: 'success';
-			/**
-			 * The validated, typed row data
-			 */
-			data: T;
-			/**
-			 * The markdown content (everything after the frontmatter)
-			 */
-			content: string;
-	  };
+	| RowValidationResult<T>;
 
 /**
- * Parse and validate a markdown file against a table schema
- * Returns a discriminated union indicating success or specific failure mode
+ * Parse and validate a markdown file against a table schema.
+ * Returns a discriminated union indicating success or specific failure mode.
+ *
+ * If a bodyField is provided, the markdown content (after frontmatter) will be
+ * merged into the row data at that field name before validation.
+ *
+ * If an existing yrow is provided, it will be updated with minimal diffs.
+ * Otherwise, a new YRow is created.
  *
  * @param filePath - Path to the markdown file
  * @param schema - Table schema to validate against
+ * @param bodyField - Optional field name to store markdown body content
+ * @param yrow - Optional existing YRow to update (if omitted, creates new YRow)
  * @returns ParseMarkdownResult with status and data/error
  */
-export async function parseMarkdownWithValidation<T extends Row>(
-	filePath: string,
-	schema: TableSchema,
-): Promise<ParseMarkdownResult<T>> {
+export async function parseMarkdownWithValidation<
+	TTableSchema extends TableSchema,
+>({
+	filePath,
+	schema,
+	bodyField,
+	yrow,
+}: {
+	filePath: string;
+	schema: TTableSchema;
+	bodyField?: string;
+	yrow?: YRow;
+}): Promise<ParseMarkdownResult<Row<TTableSchema>>> {
 	// Step 1: Parse the markdown file
 	const parseResult = await parseMarkdownFile(filePath);
 
@@ -85,179 +85,28 @@ export async function parseMarkdownWithValidation<T extends Row>(
 
 	const { data, content } = parseResult.data;
 
-	// Step 2: Validate structural correctness (not schema)
-	// We validate that data is an object with basic types, but we allow plain values
-	// for ytext and multi-select columns (strings and arrays) because that's what YAML gives us
-	if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+	// Step 2: Validate that parsed data is a valid SerializedRow
+	if (!isSerializedRow(data)) {
 		return {
-			status: 'failed-to-validate',
-			validationResult: {
-				status: 'invalid-structure',
-				row: data,
-				reason: { type: 'not-an-object', actual: data },
+			status: 'invalid-structure',
+			row: data,
+			reason: {
+				type: 'not-an-object',
+				actual: data,
 			},
-			data,
 		};
 	}
 
-	// Step 3: Validate required fields and types, accepting plain values for YJS types
-	// Preserve all fields from frontmatter (including extra fields not in schema)
-	const row = data as Record<string, any>;
-	const validatedRow: Record<string, any> = { ...row };
+	// Step 3: Merge markdown body content into row data at the bodyField (if provided)
+	const serializedRow = bodyField ? { ...data, [bodyField]: content } : data;
 
-	// Validate schema fields
-	for (const [fieldName, columnSchema] of Object.entries(schema)) {
-		const value = row[fieldName];
+	// Step 4: Update existing YRow or create a new one
+	const targetYRow = yrow ?? new Y.Map<CellValue>();
+	updateYRowFromSerializedRow({ yrow: targetYRow, serializedRow, schema });
 
-		// Check required fields
-		if (value === null || value === undefined) {
-			if (columnSchema.type === 'id' || !columnSchema.nullable) {
-				return {
-					status: 'failed-to-validate',
-					validationResult: {
-						status: 'schema-mismatch',
-						row: row as Row,
-						reason: { type: 'missing-required-field', field: fieldName },
-					},
-					data,
-				};
-			}
-			continue;
-		}
-
-		// Type validation (accept plain values for ytext and multi-select)
-		switch (columnSchema.type) {
-			case 'id':
-			case 'text':
-				if (typeof value !== 'string') {
-					return {
-						status: 'failed-to-validate',
-						validationResult: {
-							status: 'schema-mismatch',
-							row: row as Row,
-							reason: {
-								type: 'type-mismatch',
-								field: fieldName,
-								schemaType: columnSchema.type,
-								actual: value,
-							},
-						},
-						data,
-					};
-				}
-				break;
-
-			case 'ytext':
-				// Accept both Y.Text and plain string
-				if (!(value instanceof Y.Text) && typeof value !== 'string') {
-					return {
-						status: 'failed-to-validate',
-						validationResult: {
-							status: 'schema-mismatch',
-							row: row as Row,
-							reason: {
-								type: 'type-mismatch',
-								field: fieldName,
-								schemaType: columnSchema.type,
-								actual: value,
-							},
-						},
-						data,
-					};
-				}
-				break;
-
-			case 'multi-select':
-				// Accept both Y.Array and plain array
-				if (!(value instanceof Y.Array) && !Array.isArray(value)) {
-					return {
-						status: 'failed-to-validate',
-						validationResult: {
-							status: 'schema-mismatch',
-							row: row as Row,
-							reason: {
-								type: 'type-mismatch',
-								field: fieldName,
-								schemaType: columnSchema.type,
-								actual: value,
-							},
-						},
-						data,
-					};
-				}
-				// If it's a plain array, validate options
-				if (Array.isArray(value)) {
-					for (const option of value) {
-						if (typeof option !== 'string') {
-							return {
-								status: 'failed-to-validate',
-								validationResult: {
-									status: 'schema-mismatch',
-									row: row as Row,
-									reason: {
-										type: 'type-mismatch',
-										field: fieldName,
-										schemaType: columnSchema.type,
-										actual: option,
-									},
-								},
-								data,
-							};
-						}
-						if (!columnSchema.options.includes(option)) {
-							return {
-								status: 'failed-to-validate',
-								validationResult: {
-									status: 'schema-mismatch',
-									row: row as Row,
-									reason: {
-										type: 'invalid-option',
-										field: fieldName,
-										actual: option,
-										allowedOptions: columnSchema.options,
-									},
-								},
-								data,
-							};
-						}
-					}
-				}
-				break;
-
-			case 'integer':
-				if (typeof value !== 'number' || !Number.isInteger(value)) {
-					return {
-						status: 'failed-to-validate',
-						validationResult: {
-							status: 'schema-mismatch',
-							row: row as Row,
-							reason: {
-								type: 'type-mismatch',
-								field: fieldName,
-								schemaType: columnSchema.type,
-								actual: value,
-							},
-						},
-						data,
-					};
-				}
-				break;
-		}
-	}
-
-	// Ensure all schema fields exist in the validated row
-	// If a field is missing from frontmatter, set it to null
-	for (const fieldName of Object.keys(schema)) {
-		if (!(fieldName in validatedRow)) {
-			validatedRow[fieldName] = null;
-		}
-	}
-
-	return {
-		status: 'success',
-		data: validatedRow as T,
-		content,
-	};
+	// Step 5: Create Row proxy and validate
+	const row = createRow({ yrow: targetYRow, schema });
+	return row.validate();
 }
 
 /**

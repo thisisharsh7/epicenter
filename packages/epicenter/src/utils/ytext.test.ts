@@ -1,14 +1,14 @@
-import { test, expect, describe } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { syncYTextToDiff } from './yjs';
+import { updateYTextFromString } from './yjs';
 
-describe('syncYTextToDiff', () => {
+describe('updateYTextFromString', () => {
 	test('handles identical strings (no changes needed)', () => {
 		const ydoc = new Y.Doc();
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello World');
-		syncYTextToDiff(ytext, 'Hello World');
+		updateYTextFromString(ytext, 'Hello World');
 
 		expect(ytext.toString()).toBe('Hello World');
 	});
@@ -18,7 +18,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello World');
-		syncYTextToDiff(ytext, 'Hello Beautiful World');
+		updateYTextFromString(ytext, 'Hello Beautiful World');
 
 		expect(ytext.toString()).toBe('Hello Beautiful World');
 	});
@@ -28,7 +28,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello Beautiful World');
-		syncYTextToDiff(ytext, 'Hello World');
+		updateYTextFromString(ytext, 'Hello World');
 
 		expect(ytext.toString()).toBe('Hello World');
 	});
@@ -38,7 +38,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello World');
-		syncYTextToDiff(ytext, 'Hi World');
+		updateYTextFromString(ytext, 'Hi World');
 
 		expect(ytext.toString()).toBe('Hi World');
 	});
@@ -48,7 +48,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello World');
-		syncYTextToDiff(ytext, 'Hello Everyone');
+		updateYTextFromString(ytext, 'Hello Everyone');
 
 		expect(ytext.toString()).toBe('Hello Everyone');
 	});
@@ -58,7 +58,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello World');
-		syncYTextToDiff(ytext, 'Goodbye Universe');
+		updateYTextFromString(ytext, 'Goodbye Universe');
 
 		expect(ytext.toString()).toBe('Goodbye Universe');
 	});
@@ -67,7 +67,7 @@ describe('syncYTextToDiff', () => {
 		const ydoc = new Y.Doc();
 		const ytext = ydoc.getText('content');
 
-		syncYTextToDiff(ytext, 'Hello World');
+		updateYTextFromString(ytext, 'Hello World');
 
 		expect(ytext.toString()).toBe('Hello World');
 	});
@@ -77,7 +77,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello World');
-		syncYTextToDiff(ytext, '');
+		updateYTextFromString(ytext, '');
 
 		expect(ytext.toString()).toBe('');
 	});
@@ -87,7 +87,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'The quick brown fox');
-		syncYTextToDiff(ytext, 'A slow red wolf');
+		updateYTextFromString(ytext, 'A slow red wolf');
 
 		expect(ytext.toString()).toBe('A slow red wolf');
 	});
@@ -97,7 +97,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello\nWorld');
-		syncYTextToDiff(ytext, 'Hello\tWorld!');
+		updateYTextFromString(ytext, 'Hello\tWorld!');
 
 		expect(ytext.toString()).toBe('Hello\tWorld!');
 	});
@@ -107,7 +107,7 @@ describe('syncYTextToDiff', () => {
 		const ytext = ydoc.getText('content');
 
 		ytext.insert(0, 'Hello 世界');
-		syncYTextToDiff(ytext, 'Hello 世界! 👋');
+		updateYTextFromString(ytext, 'Hello 世界! 👋');
 
 		expect(ytext.toString()).toBe('Hello 世界! 👋');
 	});
@@ -123,7 +123,7 @@ describe('syncYTextToDiff', () => {
 		const initialLength = ytext.length;
 
 		// Sync to similar string (should preserve some characters)
-		syncYTextToDiff(ytext, 'Hello Universe');
+		updateYTextFromString(ytext, 'Hello Universe');
 
 		// Verify the result
 		expect(ytext.toString()).toBe('Hello Universe');

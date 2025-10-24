@@ -8,7 +8,7 @@ import type {
 	WorkspaceSchema,
 } from '../core/schema';
 import { createRow } from '../core/schema';
-import { syncYArrayToDiff, syncYTextToDiff } from '../utils/yjs';
+import { updateYArrayFromArray, updateYTextFromString } from '../utils/yjs';
 
 /**
  * YJS representation of a row
@@ -90,8 +90,8 @@ export type TableHelper<TRow extends Row> = {
 	 * - ytext columns accept strings
 	 * - multi-select columns accept arrays
 	 *
-	 * Internally, strings are synced to Y.Text using syncYTextToDiff(),
-	 * and arrays are synced to Y.Array using syncYArrayToDiff().
+	 * Internally, strings are synced to Y.Text using updateYTextFromString(),
+	 * and arrays are synced to Y.Array using updateYArrayFromArray().
 	 *
 	 * @example
 	 * // Insert with plain values
@@ -119,8 +119,8 @@ export type TableHelper<TRow extends Row> = {
 	 * - ytext columns accept strings
 	 * - multi-select columns accept arrays
 	 *
-	 * Internally, the existing Y.Text/Y.Array is synced using syncYTextToDiff()
-	 * or syncYArrayToDiff() to apply minimal changes while preserving CRDT history.
+	 * Internally, the existing Y.Text/Y.Array is synced using updateYTextFromString()
+	 * or updateYArrayFromArray() to apply minimal changes while preserving CRDT history.
 	 *
 	 * Only the fields you include will be updated - others remain unchanged.
 	 *
@@ -146,7 +146,7 @@ export type TableHelper<TRow extends Row> = {
 	 * Insert or update a row (insert if doesn't exist, update if exists).
 	 *
 	 * For Y.js columns (ytext, multi-select), provide plain JavaScript values.
-	 * Internally syncs using syncYTextToDiff() and syncYArrayToDiff().
+	 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
 	 *
 	 * @example
 	 * table.upsert({
@@ -310,7 +310,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					ytext = new Y.Text();
 					yrow.set(key, ytext);
 				}
-				syncYTextToDiff(ytext, value);
+				updateYTextFromString(ytext, value);
 			} else if (isArray(value)) {
 				// Reverse: string[] → Y.Array (always)
 				let yarray = yrow.get(key);
@@ -318,7 +318,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					yarray = new Y.Array();
 					yrow.set(key, yarray);
 				}
-				syncYArrayToDiff(yarray, value);
+				updateYArrayFromArray(yarray, value);
 			} else {
 				// Primitives (string, number, boolean, date) stored as-is
 				yrow.set(key, value);

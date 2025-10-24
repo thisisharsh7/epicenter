@@ -35,6 +35,7 @@ YJS Document ↔ YJS Observer ↔ Markdown File
 ### Loop Prevention Strategy
 
 We'll use **content-based diffing** to prevent infinite loops:
+
 - Before updating YJS from file changes, compute the diff
 - If the diff is empty (content is identical), skip the update
 - This is deterministic and doesn't require tracking change sources
@@ -43,7 +44,7 @@ We'll use **content-based diffing** to prevent infinite loops:
 
 ### Todo Items
 
-- [ ] Create `syncYArrayToDiff()` utility in `src/utils/yjs.ts`
+- [ ] Create `updateYArrayFromArray()` utility in `src/utils/yjs.ts`
 - [ ] Add parse result discriminated union types to `src/indexes/markdown/parser.ts`
 - [ ] Implement markdown file parsing with validation in `src/indexes/markdown/parser.ts`
 - [ ] Create YJS row update function with granular diffing in `src/indexes/markdown/index.ts`
@@ -57,40 +58,45 @@ We'll use **content-based diffing** to prevent infinite loops:
 
 ```typescript
 // Use Bun's fs.watch() with recursive option
-const watcher = fs.watch(storagePath, { recursive: true }, (event, filename) => {
-  // Handle file change events
-});
+const watcher = fs.watch(
+	storagePath,
+	{ recursive: true },
+	(event, filename) => {
+		// Handle file change events
+	},
+);
 ```
 
 ### 2. Parse Result Discriminated Union
 
 ```typescript
 type ParseMarkdownResult<T> =
-  | { status: 'failed-to-parse'; error: Error }
-  | { status: 'failed-to-validate'; error: ValidationError; data: unknown }
-  | { status: 'success'; data: T };
+	| { status: 'failed-to-parse'; error: Error }
+	| { status: 'failed-to-validate'; error: ValidationError; data: unknown }
+	| { status: 'success'; data: T };
 ```
 
 ### 3. YJS Diff Sync Functions
 
 ```typescript
 // Already exists
-syncYTextToDiff(yText: Y.Text, newString: string): void
+updateYTextFromString(yText: Y.Text, newString: string): void
 
 // To be implemented
-syncYArrayToDiff<T>(yArray: Y.Array<T>, newArray: T[]): void
+updateYArrayFromArray<T>(yArray: Y.Array<T>, newArray: T[]): void
 ```
 
 ### 4. Column Type Handling
 
 - **Primitives** (id, text, integer, real, boolean, date, select): Direct `yrow.set(key, value)`
-- **Y.Text** (ytext): Use `syncYTextToDiff()` for granular updates
-- **Y.Array** (multi-select): Use `syncYArrayToDiff()` for granular updates
+- **Y.Text** (ytext): Use `updateYTextFromString()` for granular updates
+- **Y.Array** (multi-select): Use `updateYArrayFromArray()` for granular updates
 - **Y.XmlFragment** (yxmlfragment): Skip for now (future work)
 
 ### 5. Serialization Format
 
 Markdown files store YJS types as serialized values in YAML frontmatter:
+
 - `Y.Text` → `toString()` → plain string in YAML
 - `Y.Array<string>` → `toArray()` → YAML array
 - `Y.XmlFragment` → `toString()` → plain string in YAML (lossy, skip for now)
@@ -118,12 +124,14 @@ Markdown files store YJS types as serialized values in YAML frontmatter:
 ### Changes Made
 
 #### 1. YJS Diff Utilities (`src/utils/yjs.ts`)
-- Added `syncYArrayToDiff()` function for granular Y.Array updates
-- Mirrors the existing `syncYTextToDiff()` pattern
+
+- Added `updateYArrayFromArray()` function for granular Y.Array updates
+- Mirrors the existing `updateYTextFromString()` pattern
 - Uses simple element-by-element diff algorithm
 - Preserves CRDT properties by minimizing operations
 
 #### 2. Parser Enhancements (`src/indexes/markdown/parser.ts`)
+
 - Added `ParseMarkdownResult<T>` discriminated union with three states:
   - `failed-to-parse`: YAML syntax errors
   - `failed-to-validate`: Schema validation failures
@@ -132,16 +140,18 @@ Markdown files store YJS types as serialized values in YAML frontmatter:
 - Combines file parsing with schema validation in single operation
 
 #### 3. YJS Row Update Function (`src/indexes/markdown/index.ts`)
+
 - Created `updateYJSRowFromMarkdown()` helper function
 - Handles different column types appropriately:
   - Primitives: Direct `yrow.set()` calls
-  - Y.Text: Granular diffing via `syncYTextToDiff()`
-  - Y.Array (multi-select): Granular diffing via `syncYArrayToDiff()`
+  - Y.Text: Granular diffing via `updateYTextFromString()`
+  - Y.Array (multi-select): Granular diffing via `updateYArrayFromArray()`
   - Y.XmlFragment: Skipped (future work)
 - Wrapped in YJS transaction for atomic updates
 - Handles missing rows by inserting them
 
 #### 4. File Watcher Setup (`src/indexes/markdown/index.ts`)
+
 - Used Node.js `fs.watch()` with recursive option (Bun compatible)
 - Watches the entire storage directory for `.md` file changes
 - Handles two event types:
@@ -151,6 +161,7 @@ Markdown files store YJS types as serialized values in YAML frontmatter:
 - Properly cleans up watcher on index destroy
 
 #### 5. Loop Prevention (`src/indexes/markdown/index.ts`)
+
 - Added two flags: `isProcessingFileChange` and `isProcessingYJSChange`
 - YJS observers skip writes when `isProcessingFileChange` is true
 - File watcher skips processing when `isProcessingYJSChange` is true
@@ -161,7 +172,7 @@ Markdown files store YJS types as serialized values in YAML frontmatter:
 
 1. **Simplicity wins**: The flag-based loop prevention is straightforward and effective. Combined with the early returns in diff functions, we have multiple layers of protection.
 
-2. **Granular diffing is key**: Using `syncYTextToDiff()` and `syncYArrayToDiff()` instead of full replacements preserves CRDT properties and reduces network traffic in collaborative scenarios.
+2. **Granular diffing is key**: Using `updateYTextFromString()` and `updateYArrayFromArray()` instead of full replacements preserves CRDT properties and reduces network traffic in collaborative scenarios.
 
 3. **Error handling is non-fatal**: Parse and validation errors are logged but don't crash the system. This is important for robustness when users manually edit files.
 
@@ -208,9 +219,10 @@ All tests pass (4/4) with no failures.
 The implementation successfully adds bidirectional sync to the markdown index. The approach is simple, maintainable, and handles the common cases well. The flag-based loop prevention combined with content-based early returns in diff functions provides robust protection against infinite loops.
 
 Key achievements:
+
 - All integration tests pass (4/4)
 - Minimal changes to existing code (mainly additions)
-- Reuses existing utilities (`syncYTextToDiff()`, created `syncYArrayToDiff()`)
+- Reuses existing utilities (`updateYTextFromString()`, created `updateYArrayFromArray()`)
 - Follows established patterns in the codebase
 - Error handling is defensive and non-fatal
 - Loop prevention is simple and effective
