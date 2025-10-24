@@ -210,13 +210,14 @@ export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
  *
  * @example
  * ```typescript
- * type IdValue = ColumnSchemaToCellValue<{ type: 'id' }>; // string
- * type TextField = ColumnSchemaToCellValue<{ type: 'text'; nullable: true }>; // string | null
- * type YtextField = ColumnSchemaToCellValue<{ type: 'ytext'; nullable: false }>; // Y.Text
- * type MultiSelectField = ColumnSchemaToCellValue<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
+ * type IdValue = CellValue<{ type: 'id' }>; // string
+ * type TextField = CellValue<{ type: 'text'; nullable: true }>; // string | null
+ * type YtextField = CellValue<{ type: 'ytext'; nullable: false }>; // Y.Text
+ * type MultiSelectField = CellValue<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
+ * type AnyCellValue = CellValue; // Union of all possible cell values
  * ```
  */
-export type ColumnSchemaToCellValue<C extends ColumnSchema> =
+export type CellValue<C extends ColumnSchema = ColumnSchema> =
 	C extends IdColumnSchema
 		? string
 		: C extends TextColumnSchema<infer TNullable>
@@ -355,7 +356,7 @@ export type GetRowResult<TRow extends Row> =
  * ```
  */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
-	readonly [K in keyof TTableSchema]: ColumnSchemaToCellValue<TTableSchema[K]>;
+	readonly [K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 } & {
 	/**
 	 * Convert the row to a fully serialized plain object.
@@ -662,12 +663,6 @@ export function createRow<TTableSchema extends TableSchema>({
 }
 
 /**
- * Union of all possible cell values across all column types.
- * Used for Y.Map value types in YJS documents.
- */
-export type CellValue = ColumnSchemaToCellValue<TableSchema[keyof TableSchema]>;
-
-/**
  * ISO 8601 UTC datetime string from Date.toISOString()
  * @example "2024-01-01T20:00:00.000Z"
  */
@@ -736,9 +731,7 @@ export type SerializedCellValue<T extends CellValue = CellValue> =
  * ```
  */
 export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: SerializedCellValue<
-		ColumnSchemaToCellValue<TTableSchema[K]>
-	>;
+	[K in keyof TTableSchema]: SerializedCellValue<CellValue<TTableSchema[K]>>;
 };
 
 /**
