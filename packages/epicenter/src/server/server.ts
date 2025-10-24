@@ -130,6 +130,7 @@ export async function createServer<
 	app.get(
 		'/openapi.json',
 		openAPIRouteHandler(app, {
+			excludeStaticFile: false,
 			documentation: {
 				info: {
 					title: `${config.id} API`,
