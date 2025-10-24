@@ -15,15 +15,15 @@ This works, but it destroys the CRDT element identity. Every element becomes "ne
 
 ## The Solution
 
-`syncYArrayToDiff` computes the minimal element-level differences between the current Y.Array content and the target array, then applies only the necessary insertions and deletions:
+`updateYArrayFromArray` computes the minimal element-level differences between the current Y.Array content and the target array, then applies only the necessary insertions and deletions:
 
 ```typescript
-import { syncYArrayToDiff } from '@repo/epicenter';
+import { updateYArrayFromArray } from '@repo/epicenter';
 
 const yarray = ydoc.getArray('tags');
 yarray.push(['typescript', 'javascript']);
 
-syncYArrayToDiff(yarray, ['typescript', 'svelte', 'javascript']);
+updateYArrayFromArray(yarray, ['typescript', 'svelte', 'javascript']);
 // Y.Array now contains ['typescript', 'svelte', 'javascript']
 // Only 'svelte' was inserted; 'typescript' and 'javascript' were preserved
 ```
@@ -46,11 +46,13 @@ The main use case is syncing multi-select field values. In Epicenter, multi-sele
 ```typescript
 // In your workspace schema
 const schema = {
-  posts: {
-    id: id(),
-    title: text(),
-    tags: multiSelect({ options: ['typescript', 'javascript', 'svelte', 'rust'] })
-  }
+	posts: {
+		id: id(),
+		title: text(),
+		tags: multiSelect({
+			options: ['typescript', 'javascript', 'svelte', 'rust'],
+		}),
+	},
 };
 
 // Reading post metadata from file system
@@ -62,7 +64,7 @@ const post = db.tables.posts.get(postId);
 const tagsArray = post.row.tags; // This is a Y.Array<string>
 
 // Sync with minimal diff operations
-syncYArrayToDiff(tagsArray, frontmatter.tags);
+updateYArrayFromArray(tagsArray, frontmatter.tags);
 
 // Now the Y.Array matches the file metadata, and changes
 // propagate to other collaborators with proper CRDT semantics

@@ -15,15 +15,15 @@ This works, but it destroys the CRDT character identity. Every character becomes
 
 ## The Solution
 
-`syncYTextToDiff` computes the minimal character-level differences between the current Y.Text content and the target string, then applies only the necessary insertions and deletions:
+`updateYTextFromString` computes the minimal character-level differences between the current Y.Text content and the target string, then applies only the necessary insertions and deletions:
 
 ```typescript
-import { syncYTextToDiff } from '@repo/epicenter';
+import { updateYTextFromString } from '@repo/epicenter';
 
 const ytext = ydoc.getText('content');
-ytext.insert(0, "Hello World");
+ytext.insert(0, 'Hello World');
 
-syncYTextToDiff(ytext, "Hello Beautiful World");
+updateYTextFromString(ytext, 'Hello Beautiful World');
 // Y.Text now contains "Hello Beautiful World"
 // Only "Beautiful " was inserted; "Hello " and "World" were preserved
 ```
@@ -50,17 +50,17 @@ import { readFile } from 'fs/promises';
 const watcher = watch('notes.md');
 
 watcher.on('change', async (path) => {
-  // Read the updated file content
-  const newContent = await readFile(path, 'utf-8');
+	// Read the updated file content
+	const newContent = await readFile(path, 'utf-8');
 
-  // Get the Y.Text bound to this file
-  const ytext = ydoc.getText('notes');
+	// Get the Y.Text bound to this file
+	const ytext = ydoc.getText('notes');
 
-  // Sync with minimal diff operations
-  syncYTextToDiff(ytext, newContent);
+	// Sync with minimal diff operations
+	updateYTextFromString(ytext, newContent);
 
-  // Now the Y.Text matches the file, and changes propagate
-  // to other collaborators with proper CRDT semantics
+	// Now the Y.Text matches the file, and changes propagate
+	// to other collaborators with proper CRDT semantics
 });
 ```
 
