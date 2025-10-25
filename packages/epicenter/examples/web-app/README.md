@@ -1,6 +1,6 @@
 # Epicenter Web App Example
 
-A simple web application demonstrating browser persistence with IndexedDB using Epicenter's `setupPersistenceWeb` helper.
+A simple web application demonstrating browser persistence with IndexedDB using Epicenter's `setupPersistence` helper.
 
 ## Features
 
@@ -13,7 +13,7 @@ A simple web application demonstrating browser persistence with IndexedDB using 
 ## How It Works
 
 This example uses:
-- **`setupPersistenceWeb`**: Epicenter's web persistence helper
+- **`setupPersistence`**: Epicenter's universal persistence helper
 - **IndexedDB**: Browser storage for YJS documents
 - **y-indexeddb**: YJS provider for IndexedDB persistence
 
@@ -71,13 +71,13 @@ To reset the app:
 
 ## What This Demonstrates
 
-### 1. Web Persistence Helper
+### 1. Universal Persistence Helper
 ```javascript
-import { setupPersistenceWeb } from '@repo/epicenter';
+import { setupPersistence } from '@repo/epicenter';
 
 const workspace = defineWorkspace({
   id: 'blog',  // → IndexedDB database name
-  setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
+  providers: [setupPersistence],
   // ...
 });
 ```
@@ -107,23 +107,24 @@ actions: ({ db }) => ({
 ### 3. Vanilla JavaScript UI
 No framework needed - just DOM manipulation showing that Epicenter works anywhere JavaScript runs.
 
-## Comparison with Desktop Version
+## Universal Persistence
 
-The **only difference** between web and desktop persistence is the import:
+The `setupPersistence` helper automatically adapts to the environment:
 
-### Web (this example)
 ```javascript
-import { setupPersistenceWeb } from '@repo/epicenter';
-setupYDoc: (ydoc) => setupPersistenceWeb(ydoc)
+import { setupPersistence } from '@repo/epicenter';
+
+const workspace = defineWorkspace({
+  id: 'blog',
+  providers: [setupPersistence],
+  // ...
+});
 ```
 
-### Desktop (Node.js/Tauri)
-```javascript
-import { setupPersistenceDesktop } from '@repo/epicenter';
-setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc)
-```
+- **In browser**: Uses IndexedDB via `y-indexeddb`
+- **In Node.js/Tauri**: Uses filesystem in `.epicenter/` directory
 
-Everything else is **identical**! The API, the schema, the actions - all the same.
+Everything else is **identical** across all platforms! The API, the schema, the actions - all the same.
 
 ## Next Steps
 

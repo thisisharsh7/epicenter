@@ -3,7 +3,7 @@ import { Ok } from 'wellcrafted/result';
 import {
 	defineEpicenter,
 	defineWorkspace,
-	setupPersistenceDesktop,
+	setupPersistence,
 	id,
 	text,
 	integer,
@@ -53,9 +53,9 @@ const blogWorkspace = defineWorkspace({
 		markdown: (db) => markdownIndex(db, { storagePath: './.data/content' }),
 	},
 
-	// Use desktop filesystem persistence helper
-	// Stores YJS document at ./.epicenter/blog.yjs
-	providers: [setupPersistenceDesktop],
+	// Use universal persistence helper
+	// Stores YJS document at ./.epicenter/blog.yjs (desktop) or IndexedDB (browser)
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all published posts

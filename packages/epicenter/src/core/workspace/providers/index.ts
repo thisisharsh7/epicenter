@@ -15,10 +15,8 @@ export {
 	type HocuspocusProviderConfig,
 } from './hocuspocus';
 
-// Persistence providers (isomorphic and platform-specific)
+// Persistence provider (universal, environment-adaptive)
 export {
 	setupPersistence,
-	setupPersistenceDesktop,
-	setupPersistenceWeb,
 	EPICENTER_STORAGE_DIR,
 } from './persistence';

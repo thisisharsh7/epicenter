@@ -1,7 +1,7 @@
 import {
 	defineWorkspace,
 	createWorkspaceClient,
-	setupPersistenceWeb,
+	setupPersistence,
 	id,
 	text,
 	integer,
@@ -27,8 +27,8 @@ const blogWorkspace = defineWorkspace({
 		},
 	},
 
-	// Use IndexedDB persistence - data persists across page refreshes!
-	setupYDoc: (ydoc) => setupPersistenceWeb(ydoc),
+	// Use persistence - data persists across page refreshes!
+	providers: [setupPersistence],
 
 	// No indexes needed for this simple example
 	indexes: () => ({}),

@@ -1,7 +1,7 @@
 import type { ProviderContext } from '../../config';
 
 /**
- * Isomorphic persistence provider that automatically detects the environment
+ * Universal persistence provider that automatically detects the environment
  * and uses the appropriate persistence strategy.
  *
  * **Environment Detection**:
@@ -77,10 +77,4 @@ export async function setupPersistence(
 	}
 }
 
-/**
- * Re-export specific implementations for advanced use cases
- * where you want explicit control over which persistence to use.
- */
-export { setupPersistence as setupPersistenceDesktop } from './desktop';
-export { setupPersistence as setupPersistenceWeb } from './web';
 export { EPICENTER_STORAGE_DIR } from './desktop';

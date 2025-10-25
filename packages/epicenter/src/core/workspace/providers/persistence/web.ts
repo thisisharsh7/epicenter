@@ -31,11 +31,11 @@ import type { ProviderContext } from '../../config';
  *
  * @example Basic usage in a browser app
  * ```typescript
- * import { defineWorkspace, setupPersistenceWeb } from '@repo/epicenter';
+ * import { defineWorkspace, setupPersistence } from '@repo/epicenter';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
- *   providers: [setupPersistenceWeb],
+ *   providers: [setupPersistence],
  *   // ... schema, indexes, actions
  * });
  * ```
@@ -57,12 +57,12 @@ import type { ProviderContext } from '../../config';
  * // Each workspace gets its own IndexedDB database
  * const blog = defineWorkspace({
  *   id: 'blog',  // → IndexedDB database named 'blog'
- *   providers: [setupPersistenceWeb],
+ *   providers: [setupPersistence],
  * });
  *
  * const notes = defineWorkspace({
  *   id: 'notes',  // → IndexedDB database named 'notes'
- *   providers: [setupPersistenceWeb],
+ *   providers: [setupPersistence],
  * });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage

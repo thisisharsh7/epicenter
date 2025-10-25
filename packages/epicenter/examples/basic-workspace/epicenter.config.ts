@@ -13,7 +13,7 @@ import {
 	isNotNull,
 	markdownIndex,
 	select,
-	setupPersistenceDesktop,
+	setupPersistence,
 	sqliteIndex,
 	text,
 } from '../../src/index';
@@ -163,9 +163,9 @@ const blogWorkspace = defineWorkspace({
 		}),
 	}),
 
-	// Use desktop filesystem persistence helper
-	// Stores YJS document at ./.epicenter/blog.yjs
-	providers: [setupPersistenceDesktop],
+	// Use universal persistence helper
+	// Stores YJS document at ./.epicenter/blog.yjs (desktop) or IndexedDB (browser)
+	providers: [setupPersistence],
 });
 
 export default defineEpicenter({

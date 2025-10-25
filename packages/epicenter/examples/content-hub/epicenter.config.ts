@@ -3,7 +3,7 @@ import { Ok } from 'wellcrafted/result';
 import {
 	defineWorkspace,
 	defineEpicenter,
-	setupPersistenceDesktop,
+	setupPersistence,
 	id,
 	text,
 	select,
@@ -43,9 +43,9 @@ export const pages = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db),
 	},
 
-	// Use desktop filesystem persistence helper
-	// Stores YJS document at ./.epicenter/pages.yjs
-	providers: [setupPersistenceDesktop],
+	// Use universal persistence helper
+	// Stores YJS document at ./.epicenter/pages.yjs (desktop) or IndexedDB (browser)
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all pages
@@ -176,9 +176,9 @@ export const contentHub = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db),
 	},
 
-	// Use desktop filesystem persistence helper
-	// Stores YJS document at ./.epicenter/content-hub.yjs
-	providers: [setupPersistenceDesktop],
+	// Use universal persistence helper
+	// Stores YJS document at ./.epicenter/content-hub.yjs (desktop) or IndexedDB (browser)
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		// Mutation: Create YouTube post

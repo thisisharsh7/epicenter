@@ -4,7 +4,7 @@ import {
 	createServer,
 	defineEpicenter,
 	defineWorkspace,
-	setupPersistenceDesktop,
+	setupPersistence,
 	id,
 	text,
 	select,
@@ -55,7 +55,7 @@ const testPages = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db),
 	},
 
-	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		getPages: defineQuery({
