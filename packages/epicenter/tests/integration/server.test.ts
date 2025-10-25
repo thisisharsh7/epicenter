@@ -110,9 +110,10 @@ describe('Server Integration Tests', () => {
 		let server: any;
 
 		beforeAll(async () => {
-			const { app } = await createServer(singleWorkspaceEpicenter);
+			const { app, websocket } = await createServer(singleWorkspaceEpicenter);
 			server = Bun.serve({
 				fetch: app.fetch,
+				websocket,
 				port: 0, // Random available port
 			});
 		});
@@ -276,9 +277,10 @@ describe('Server Integration Tests', () => {
 		let server: any;
 
 		beforeAll(async () => {
-			const { app } = await createServer(epicenter);
+			const { app, websocket } = await createServer(epicenter);
 			server = Bun.serve({
 				fetch: app.fetch,
+				websocket,
 				port: 0,
 			});
 		});

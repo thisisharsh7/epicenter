@@ -16,9 +16,10 @@ describe('E2E Server Tests', () => {
 	let baseUrl: string;
 
 	beforeAll(async () => {
-		const { app } = await createServer(epicenterConfig);
+		const { app, websocket } = await createServer(epicenterConfig);
 		server = Bun.serve({
 			fetch: app.fetch,
+			websocket,
 			port: 0, // Random available port
 		});
 		baseUrl = `http://localhost:${server.port}`;

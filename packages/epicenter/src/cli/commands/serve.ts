@@ -24,13 +24,14 @@ export async function serveCommand(
 ): Promise<void> {
 	console.log(`🔨 Creating HTTP server for app: ${config.id}`);
 
-	const { app, client } = await createServer(config);
+	const { app, client, websocket } = await createServer(config);
 	const port = options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT));
 
 	const server = Bun.serve({
 		fetch: app.fetch,
 		port,
 		development: options.dev ?? true,
+		websocket,
 	});
 
 	console.log('\n🚀 Epicenter HTTP Server Running!\n');

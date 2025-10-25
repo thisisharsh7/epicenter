@@ -101,10 +101,11 @@ beforeAll(async () => {
 		workspaces: [testPages],
 	});
 
-	const { app } = await createServer(contentHub);
+	const { app, websocket } = await createServer(contentHub);
 
 	server = Bun.serve({
 		fetch: app.fetch,
+		websocket,
 		port: PORT,
 	});
 });

@@ -26,11 +26,12 @@ describe('Content Hub Server', () => {
 		});
 
 		// Create the server
-		const { app } = await createServer(contentHub);
+		const { app, websocket } = await createServer(contentHub);
 
 		// Start server on random port
 		server = Bun.serve({
 			fetch: app.fetch,
+			websocket,
 			port: 0, // Random available port
 		});
 
