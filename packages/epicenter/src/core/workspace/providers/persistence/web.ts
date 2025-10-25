@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type { ProviderContext } from '../core/workspace/config';
+import type { ProviderContext } from '../../config';
 
 /**
  * Set up YJS document persistence using IndexedDB.

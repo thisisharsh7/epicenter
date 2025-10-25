@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { ProviderContext } from '../core/workspace/config';
+import type { ProviderContext } from '../../config';
 
 /**
  * Directory where Epicenter stores persistent data (YJS files and SQLite databases)

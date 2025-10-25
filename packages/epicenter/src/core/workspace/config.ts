@@ -32,6 +32,8 @@ export type ProviderContext = {
  * - **Synchronization**: Real-time collaboration (WebSocket, WebRTC)
  * - **Observability**: Logging, debugging, analytics
  *
+ * Providers can be synchronous or asynchronous. Async providers are awaited during workspace initialization.
+ *
  * @example Persistence provider
  * ```typescript
  * const persistenceProvider: Provider = ({ ydoc }) => {
@@ -46,7 +48,7 @@ export type ProviderContext = {
  * };
  * ```
  */
-export type Provider = (context: ProviderContext) => void;
+export type Provider = (context: ProviderContext) => void | Promise<void>;
 
 /**
  * Define a collaborative workspace with YJS-first architecture.

@@ -310,10 +310,11 @@ export async function initializeWorkspaces<
 		// Set up YDoc providers (persistence, synchronization, observability)
 		// IMPORTANT: This must run BEFORE createEpicenterDb so that persisted data is loaded
 		// into the YDoc before table initialization
+		// Providers can be sync or async, so we await all of them in parallel
 		if (workspaceConfig.providers) {
-			for (const provider of workspaceConfig.providers) {
-				provider({ ydoc });
-			}
+			await Promise.all(
+				workspaceConfig.providers.map((provider) => provider({ ydoc })),
+			);
 		}
 
 		// Initialize Epicenter database (wraps YJS with table/record API)

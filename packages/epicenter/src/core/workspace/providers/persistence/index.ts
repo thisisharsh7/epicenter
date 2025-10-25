@@ -1,4 +1,4 @@
-import type { ProviderContext } from '../core/workspace/config';
+import type { ProviderContext } from '../../config';
 
 /**
  * Isomorphic persistence provider that automatically detects the environment

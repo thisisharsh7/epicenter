@@ -2,7 +2,7 @@ import {
 	HocuspocusProvider,
 	type HocuspocusProviderConfiguration,
 } from '@hocuspocus/provider';
-import type { Provider } from './config';
+import type { Provider } from '../config';
 
 /**
  * Configuration for Hocuspocus collaboration provider.
