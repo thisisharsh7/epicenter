@@ -1,3 +1,39 @@
+/**
+ * @fileoverview Schema definitions and type system for collaborative database operations.
+ *
+ * # Three-Layer Type System
+ *
+ * Collaborative data flows through three representations:
+ *
+ * 1. **SerializedRow**: Plain JS (strings, arrays, primitives)
+ *    - Why: JSON storage, markdown files, API boundaries
+ *
+ * 2. **YRow**: CRDTs (Y.Map, Y.Text, Y.Array)
+ *    - Why: Collaborative editing, real-time sync
+ *
+ * 3. **Row**: Proxy-wrapped YRow
+ *    - Why: Type-safe access, automatic validation, ergonomic API
+ *
+ * # Lifecycle: Input to Output
+ *
+ * ```
+ * SerializedRow (user input)
+ *   ↓ syncSerializedRowToYRow()
+ * YRow (CRDT storage)
+ *   ↓ createRow() validates
+ * RowValidationResult
+ *   ├─ valid: Row<TTableSchema> (typed to your schema)
+ *   ├─ schema-mismatch: Row<TableSchema> (generic Row, still has .toJSON())
+ *   └─ invalid-structure: unknown (no .toJSON())
+ * ```
+ *
+ * Each serialized type maps one-to-one to a CRDT type (string → Y.Text for ytext, array → Y.Array).
+ * createRow() validates immediately and returns a discriminated union.
+ *
+ * **Why both 'valid' and 'schema-mismatch' support .toJSON()**: They're both Row types, just with
+ * different generic parameters. 'valid' gives you Row<TTableSchema> (typed to your schema), while
+ * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
+ */
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
@@ -400,13 +436,6 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	toJSON(): SerializedRow<TTableSchema>;
 
 	/**
-	 * Validate the row against its schema.
-	 * Checks for missing required fields, type mismatches, and invalid options.
-	 * Returns validation result including the row for convenience.
-	 */
-	validate(): RowValidationResult<Row<TTableSchema>>;
-
-	/**
 	 * Access the underlying YRow for advanced YJS operations.
 	 * Use this when you need direct Y.Map API access.
 	 */
@@ -414,7 +443,7 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
 };
 
 /**
- * Creates a Proxy-wrapped YRow that provides type-safe property access.
+ * Creates a Proxy-wrapped YRow that provides type-safe property access and automatic validation.
  * This is what implements the `Row<T>` type - a Proxy that looks like a plain object
  * but delegates to the underlying YRow.
  *
@@ -423,9 +452,17 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
  * - `row.toJSON()` → converts YRow to fully serialized object using schema
  * - `row.$yRow` → returns the underlying YRow
  *
+ * **Automatic Validation**: This function automatically validates the row against the schema
+ * and returns a `RowValidationResult`. The result is a discriminated union with three cases:
+ * - `{ status: 'valid', row: Row }` - Row matches schema perfectly
+ * - `{ status: 'schema-mismatch', row: Row, reason: ... }` - Row has valid structure but doesn't match schema
+ * - `{ status: 'invalid-structure', row: unknown, reason: ... }` - Row has invalid structure
+ *
+ * For both 'valid' and 'schema-mismatch', you can access `result.row.toJSON()` to serialize the data.
+ *
  * @param yrow - The YRow to wrap
- * @param schema - The table schema for proper serialization
- * @returns A Proxy that implements Row<TTableSchema> with type-safe access to the YRow
+ * @param schema - The table schema for proper serialization and validation
+ * @returns RowValidationResult containing the validated Row
  */
 export function createRow<TTableSchema extends TableSchema>({
 	yrow,
@@ -433,8 +470,8 @@ export function createRow<TTableSchema extends TableSchema>({
 }: {
 	yrow: YRow;
 	schema: TTableSchema;
-}): Row<TTableSchema> {
-	const proxy: Row<TTableSchema> = new Proxy(
+}): RowValidationResult<Row<TTableSchema>> {
+	const proxy = new Proxy(
 		{},
 		{
 			get(_target, prop) {
@@ -454,195 +491,6 @@ export function createRow<TTableSchema extends TableSchema>({
 					};
 				}
 
-				if (prop === 'validate') {
-					return (): RowValidationResult<Row<TTableSchema>> => {
-						// Schema validation - validate each field against schema constraints
-						for (const [fieldName, columnSchema] of Object.entries(schema)) {
-							const value = yrow.get(fieldName);
-
-							// Check if required field is null/undefined
-							if (value === null || value === undefined) {
-								if (columnSchema.type === 'id' || !columnSchema.nullable) {
-									return {
-										status: 'schema-mismatch' as const,
-										row: proxy as Row,
-										reason: {
-											type: 'missing-required-field' as const,
-											field: fieldName,
-										},
-									};
-								}
-								continue;
-							}
-
-							// Type-specific validation
-							switch (columnSchema.type) {
-								case 'id':
-								case 'text':
-									if (typeof value !== 'string') {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									break;
-
-								case 'integer':
-									if (typeof value !== 'number' || !Number.isInteger(value)) {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									break;
-
-								case 'real':
-									if (typeof value !== 'number') {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									break;
-
-								case 'boolean':
-									if (typeof value !== 'boolean') {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									break;
-
-								case 'ytext':
-									if (!(value instanceof Y.Text)) {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									break;
-
-								case 'select':
-									if (typeof value !== 'string') {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									if (!columnSchema.options.includes(value)) {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'invalid-option' as const,
-												field: fieldName,
-												actual: value,
-												allowedOptions: columnSchema.options,
-											},
-										};
-									}
-									break;
-
-								case 'multi-select':
-									if (!(value instanceof Y.Array)) {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									// Validate each option in the array
-									for (const option of value.toArray()) {
-										if (typeof option !== 'string') {
-											return {
-												status: 'schema-mismatch' as const,
-												row: proxy as Row,
-												reason: {
-													type: 'type-mismatch' as const,
-													field: fieldName,
-													schemaType: columnSchema.type,
-													actual: option,
-												},
-											};
-										}
-										if (!columnSchema.options.includes(option)) {
-											return {
-												status: 'schema-mismatch' as const,
-												row: proxy as Row,
-												reason: {
-													type: 'invalid-option' as const,
-													field: fieldName,
-													actual: option,
-													allowedOptions: columnSchema.options,
-												},
-											};
-										}
-									}
-									break;
-
-								case 'date':
-									if (!isDateWithTimezone(value)) {
-										return {
-											status: 'schema-mismatch' as const,
-											row: proxy as Row,
-											reason: {
-												type: 'type-mismatch' as const,
-												field: fieldName,
-												schemaType: columnSchema.type,
-												actual: value,
-											},
-										};
-									}
-									break;
-							}
-						}
-
-						return { status: 'valid' as const, row: proxy };
-					};
-				}
-
 				if (prop === '$yRow') {
 					return yrow;
 				}
@@ -656,17 +504,16 @@ export function createRow<TTableSchema extends TableSchema>({
 			},
 
 			has(_target, prop) {
-				if (prop === 'toJSON' || prop === 'validate' || prop === '$yRow')
-					return true;
+				if (prop === 'toJSON' || prop === '$yRow') return true;
 				return yrow.has(prop as string);
 			},
 
 			ownKeys(_target) {
-				return [...yrow.keys(), 'toJSON', 'validate', '$yRow'];
+				return [...yrow.keys(), 'toJSON', '$yRow'];
 			},
 
 			getOwnPropertyDescriptor(_target, prop) {
-				if (prop === 'toJSON' || prop === 'validate' || prop === '$yRow') {
+				if (prop === 'toJSON' || prop === '$yRow') {
 					return {
 						configurable: true,
 						enumerable: false,
@@ -683,9 +530,193 @@ export function createRow<TTableSchema extends TableSchema>({
 				return undefined;
 			},
 		},
-	) as Row<TTableSchema>;
+	) as Row;
 
-	return proxy;
+	// Perform automatic validation
+	// Schema validation - validate each field against schema constraints
+	for (const [fieldName, columnSchema] of Object.entries(schema)) {
+		const value = yrow.get(fieldName);
+
+		// Check if required field is null/undefined
+		if (value === null || value === undefined) {
+			if (columnSchema.type === 'id' || !columnSchema.nullable) {
+				return {
+					status: 'schema-mismatch' as const,
+					row: proxy,
+					reason: {
+						type: 'missing-required-field' as const,
+						field: fieldName,
+					},
+				};
+			}
+			continue;
+		}
+
+		// Type-specific validation
+		switch (columnSchema.type) {
+			case 'id':
+			case 'text':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'integer':
+				if (typeof value !== 'number' || !Number.isInteger(value)) {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'real':
+				if (typeof value !== 'number') {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'boolean':
+				if (typeof value !== 'boolean') {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'ytext':
+				if (!(value instanceof Y.Text)) {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'select':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				if (!columnSchema.options.includes(value)) {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'invalid-option' as const,
+							field: fieldName,
+							actual: value,
+							allowedOptions: columnSchema.options,
+						},
+					};
+				}
+				break;
+
+			case 'multi-select':
+				if (!(value instanceof Y.Array)) {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				// Validate each option in the array
+				for (const option of value.toArray()) {
+					if (typeof option !== 'string') {
+						return {
+							status: 'schema-mismatch' as const,
+							row: proxy,
+							reason: {
+								type: 'type-mismatch' as const,
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: option,
+							},
+						};
+					}
+					if (!columnSchema.options.includes(option)) {
+						return {
+							status: 'schema-mismatch' as const,
+							row: proxy,
+							reason: {
+								type: 'invalid-option' as const,
+								field: fieldName,
+								actual: option,
+								allowedOptions: columnSchema.options,
+							},
+						};
+					}
+				}
+				break;
+
+			case 'date':
+				if (!isDateWithTimezone(value)) {
+					return {
+						status: 'schema-mismatch' as const,
+						row: proxy,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+		}
+	}
+
+	return { status: 'valid' as const, row: proxy as Row<TTableSchema> };
 }
 
 /**
