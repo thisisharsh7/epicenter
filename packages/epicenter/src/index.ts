@@ -72,9 +72,6 @@ export { createEpicenterDb } from './db/core';
 export { createEpicenterDbFromDisk } from './db/desktop';
 export type { TableHelper, Db } from './db/core';
 
-// Persistence helpers
-export { setupPersistence } from './core/workspace/providers/persistence';
-
 // Index system
 export { defineIndex } from './core/indexes';
 export type { Index, WorkspaceIndexMap } from './core/indexes';

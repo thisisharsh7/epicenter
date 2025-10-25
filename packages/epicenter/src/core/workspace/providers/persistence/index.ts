@@ -19,8 +19,8 @@ import type { ProviderContext } from '../../config';
  *
  * @example Basic usage (works everywhere)
  * ```typescript
- * import { defineWorkspace } from '@repo/epicenter';
- * import { setupPersistence } from '@repo/epicenter/persistence';
+ * import { defineWorkspace } from '@epicenter/hq';
+ * import { setupPersistence } from '@epicenter/hq/providers';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',
@@ -50,7 +50,7 @@ import type { ProviderContext } from '../../config';
  *
  * @example With sync provider (common pattern)
  * ```typescript
- * import { createHocuspocusProvider } from '@repo/epicenter';
+ * import { createHocuspocusProvider } from '@epicenter/hq/providers';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',

@@ -4,7 +4,6 @@ import {
 	createServer,
 	defineEpicenter,
 	defineWorkspace,
-	setupPersistence,
 	id,
 	text,
 	select,
@@ -15,6 +14,7 @@ import {
 	eq,
 	type Row,
 } from '../../src/index';
+import { setupPersistence } from '../../src/core/workspace/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 

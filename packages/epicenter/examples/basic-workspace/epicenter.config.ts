@@ -13,10 +13,10 @@ import {
 	isNotNull,
 	markdownIndex,
 	select,
-	setupPersistence,
 	sqliteIndex,
 	text,
 } from '../../src/index';
+import { setupPersistence } from '../../src/core/workspace/providers';
 
 /**
  * Example blog workspace

@@ -73,7 +73,7 @@ To reset the app:
 
 ### 1. Universal Persistence Helper
 ```javascript
-import { setupPersistence } from '@repo/epicenter';
+import { setupPersistence } from '@epicenter/hq/providers';
 
 const workspace = defineWorkspace({
   id: 'blog',  // → IndexedDB database name

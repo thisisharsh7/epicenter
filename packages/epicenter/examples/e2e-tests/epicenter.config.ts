@@ -3,7 +3,6 @@ import { Ok } from 'wellcrafted/result';
 import {
 	defineEpicenter,
 	defineWorkspace,
-	setupPersistence,
 	id,
 	text,
 	integer,
@@ -18,6 +17,7 @@ import {
 	eq,
 	type Row,
 } from '../../src/index';
+import { setupPersistence } from '../../src/core/workspace/providers';
 
 /**
  * Comprehensive E2E test workspace

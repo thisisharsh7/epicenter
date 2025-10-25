@@ -7,7 +7,8 @@
 		".": "./src/index.ts",
 		"./cli": "./src/cli/index.ts",
 		"./desktop": "./src/desktop/index.ts",
-		"./web": "./src/web/index.ts"
+		"./web": "./src/web/index.ts",
+		"./providers": "./src/core/workspace/providers/index.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
@@ -18,6 +19,8 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@hocuspocus/provider": "^3.4.0",
+		"@hocuspocus/server": "^3.4.0",
 		"@hono/mcp": "^0.1.4",
 		"@hono/standard-validator": "^0.1.5",
 		"@modelcontextprotocol/sdk": "^1.20.1",

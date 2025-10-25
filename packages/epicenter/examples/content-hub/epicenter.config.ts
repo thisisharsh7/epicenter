@@ -3,7 +3,6 @@ import { Ok } from 'wellcrafted/result';
 import {
 	defineWorkspace,
 	defineEpicenter,
-	setupPersistence,
 	id,
 	text,
 	select,
@@ -18,6 +17,7 @@ import {
 	type Db,
 	defineIndex,
 } from '../../src/index';
+import { setupPersistence } from '../../src/core/workspace/providers';
 import type { WorkspaceSchema } from '../../src/core/schema';
 
 /**

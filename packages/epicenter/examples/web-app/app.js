@@ -1,13 +1,13 @@
 import {
 	defineWorkspace,
 	createWorkspaceClient,
-	setupPersistence,
 	id,
 	text,
 	integer,
 	select,
 	generateId,
-} from '@repo/epicenter';
+} from '../../src/index.ts';
+import { setupPersistence } from '../../src/core/workspace/providers/index.ts';
 
 /**
  * Define a simple blog workspace with web persistence

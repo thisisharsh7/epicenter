@@ -31,7 +31,8 @@ import type { ProviderContext } from '../../config';
  *
  * @example Basic usage in a browser app
  * ```typescript
- * import { defineWorkspace, setupPersistence } from '@repo/epicenter';
+ * import { defineWorkspace } from '@epicenter/hq';
+ * import { setupPersistence } from '@epicenter/hq/providers';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
@@ -42,7 +43,7 @@ import type { ProviderContext } from '../../config';
  *
  * @example In a Svelte/React component
  * ```typescript
- * import { createWorkspaceClient } from '@repo/epicenter';
+ * import { createWorkspaceClient } from '@epicenter/hq';
  * import { workspace } from './workspace-config';
  *
  * // Inside component setup/onMount:
