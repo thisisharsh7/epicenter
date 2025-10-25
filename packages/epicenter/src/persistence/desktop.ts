@@ -1,6 +1,4 @@
 import * as Y from 'yjs';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { ProviderContext } from '../core/workspace/config';
 
 /**
@@ -32,11 +30,11 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  *
  * @example Basic usage
  * ```typescript
- * import { defineWorkspace, setupPersistenceDesktop } from '@repo/epicenter';
+ * import { defineWorkspace, setupPersistence } from '@repo/epicenter';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the filename: .epicenter/blog.yjs
- *   providers: [setupPersistenceDesktop],
+ *   providers: [setupPersistence],
  *   // ... schema, indexes, actions
  * });
  * ```
@@ -46,13 +44,13 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * // Pages workspace
  * const pages = defineWorkspace({
  *   id: 'pages',  // → .epicenter/pages.yjs
- *   providers: [setupPersistenceDesktop],
+ *   providers: [setupPersistence],
  * });
  *
  * // Content-hub workspace
  * const contentHub = defineWorkspace({
  *   id: 'content-hub',  // → .epicenter/content-hub.yjs
- *   providers: [setupPersistenceDesktop],
+ *   providers: [setupPersistence],
  * });
  *
  * // Both workspaces share .epicenter/ but have separate state
@@ -71,7 +69,11 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  *
  * @see {@link setupPersistence} from `@repo/epicenter/persistence/web` for browser/IndexedDB version
  */
-export function setupPersistence({ ydoc }: ProviderContext): void {
+export async function setupPersistence({ ydoc }: ProviderContext): Promise<void> {
+	// Dynamic imports to avoid bundling Node.js modules in browser builds
+	const fs = await import('node:fs');
+	const path = await import('node:path');
+
 	const storagePath = `./${EPICENTER_STORAGE_DIR}` as const;
 	const filePath = path.join(storagePath, `${ydoc.guid}.yjs`);
 
