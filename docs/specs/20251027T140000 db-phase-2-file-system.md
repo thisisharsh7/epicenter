@@ -292,57 +292,85 @@ async function findAudioFile(dir: string, id: string): Promise<string | null> {
 
 ### Step 2: Modify Recorder Services
 
-**Goal**: Have recorders write directly to final location, not temp files
+**Goal**: Have recorders write directly to final location using PATHS constant
 
 **Current Flow** (wasteful):
 ```
-1. Record audio → temp file
-2. Read temp file → Blob
-3. Store Blob → IndexedDB (ArrayBuffer)
-4. Delete temp file
+1. User configures outputFolder setting
+2. Record audio → outputFolder (temp location)
+3. Read temp file → Blob
+4. Store Blob → IndexedDB (ArrayBuffer)
+5. Delete temp file
 ```
 
 **New Flow** (efficient):
 ```
-1. Record audio → final location: recordings/{id}.{ext}
-2. Create metadata file: recordings/{id}.md
-3. Done! No Blob conversion, no IndexedDB
+1. Record audio → PATHS.DB.RECORDINGS()/{id}.{ext}
+2. Create metadata file: PATHS.DB.RECORDINGS()/{id}.md
+3. Done! No Blob conversion, no IndexedDB, no user configuration
 ```
 
 **Changes Needed**:
 
-1. **CPAL** (`apps/whispering/src/lib/services/recorder/cpal.ts`):
-   ```typescript
-   // Current:
-   outputFolder: string  // Temp location
+**1. Remove outputFolder Setting**
+- Remove `outputFolder` from settings (both settings type and UI)
+- Recordings always go to `PATHS.DB.RECORDINGS()`
+- Simplifies UX - one less thing for users to configure
 
-   // Phase 2:
-   outputFolder: `${appDataDir}/whispering/recordings`
-   filePath: `${outputFolder}/{recordingId}.wav`
-   ```
-   - Already writes files! Just change output location
-   - Don't read file back as Blob
-   - Return file path instead
+**2. Update CPAL** (`apps/whispering/src/lib/services/recorder/cpal.ts`):
+```typescript
+// Remove outputFolder parameter
+type CpalRecordingParams = {
+  selectedDeviceId: string | null;
+  recordingId: string;
+  // outputFolder: string;  ← REMOVE
+  sampleRate: string;
+};
 
-2. **FFmpeg** (`apps/whispering/src/lib/services/recorder/ffmpeg.ts`):
-   ```typescript
-   // Current:
-   const outputPath = await join(outputFolder, `${recordingId}.${fileExtension}`);
-   // ... writes file ...
-   const blob = await services.fs.pathToBlob(outputPath);  // ← Remove this
+// Use PATHS constant
+startRecording: async ({ recordingId, ... }) => {
+  const recordingsPath = await PATHS.DB.RECORDINGS();
 
-   // Phase 2:
-   const outputPath = await join(
-     `${appDataDir}/whispering/recordings`,
-     `${recordingId}.${fileExtension}`
-   );
-   // ... writes file ...
-   return Ok({ filePath: outputPath });  // ← Return path, not Blob
-   ```
+  const result = await invoke('start_recording', {
+    deviceIdentifier,
+    recordingId,
+    outputFolder: recordingsPath,  // ← Use PATHS
+    sampleRate: sampleRateNum,
+  });
 
-3. **Navigator** (`apps/whispering/src/lib/services/recorder/navigator.ts`):
-   - Stays the same! Returns Blob (web only)
-   - Web implementation continues using IndexedDB
+  // File is already in final location!
+  // Don't read back as Blob on desktop
+}
+```
+
+**3. Update FFmpeg** (`apps/whispering/src/lib/services/recorder/ffmpeg.ts`):
+```typescript
+// Remove outputFolder parameter
+type FfmpegRecordingParams = {
+  selectedDeviceId: string | null;
+  recordingId: string;
+  // outputFolder: string;  ← REMOVE
+  outputOptions: string;
+};
+
+startRecording: async ({ recordingId, ... }) => {
+  const recordingsPath = await PATHS.DB.RECORDINGS();
+  const fileExtension = getFileExtensionFromFfmpegOptions(outputOptions);
+
+  // Write directly to final location
+  const outputPath = await join(recordingsPath, `${recordingId}.${fileExtension}`);
+
+  // ... start FFmpeg process ...
+
+  // After recording stops, file is already in place!
+  // Don't read back as Blob on desktop
+}
+```
+
+**4. Navigator Stays the Same** (`apps/whispering/src/lib/services/recorder/navigator.ts`):
+- No changes needed
+- Returns Blob (web only)
+- Web implementation continues using IndexedDB
 
 ### Step 3: Update DB Interface
 
