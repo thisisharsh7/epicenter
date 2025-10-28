@@ -242,14 +242,9 @@ function createFileSystemDb(): DbService {
             const content = await readTextFile(`${recordingsPath}/${file.name}`);
             const { data, content: body } = matter(content);
 
-            // 3. Find associated audio file
-            const id = data.id;
-            const audioFile = await findAudioFile(recordingsPath, id);
-
             return {
               ...data,
               transcribedText: body,
-              audioFilePath: audioFile ? `${recordingsPath}/${audioFile}` : undefined,
               blob: undefined, // Desktop doesn't use Blobs
             } as Recording;
           })
@@ -269,7 +264,7 @@ function createFileSystemDb(): DbService {
         }
 
         // 2. Create .md file with front matter
-        const { transcribedText, blob, audioFilePath, ...metadata } = recording;
+        const { transcribedText, blob, ...metadata } = recording;
         const mdContent = matter.stringify(transcribedText || '', metadata);
         const mdPath = `${recordingsPath}/${recording.id}.md`;
         await writeTextFile(mdPath, mdContent);
@@ -353,36 +348,32 @@ async function findAudioFile(dir: string, id: string): Promise<string | null> {
 
 **Challenge**: `Recording` type currently has `blob: Blob | undefined`
 
-**Options**:
+**Solution**: Keep it simple - no path field needed!
 
-**Option A: Add file path field**
 ```typescript
 export type Recording = {
   id: string;
   // ... other fields ...
-  blob: Blob | undefined;      // Web only
-  audioFilePath: string | undefined;  // Desktop only
+  blob: Blob | undefined;  // Web: has Blob, Desktop: undefined
 };
 ```
 
-**Option B: Union type** (more correct but complex)
+**Why no `audioFilePath` field?**
+- The audio file path can always be constructed from the ID
+- When we need the audio file, we use: `await findAudioFile(recordingsPath, recording.id)`
+- This keeps the `Recording` type clean and simple
+- No platform-specific fields cluttering the interface
+
+**Usage**:
 ```typescript
-type RecordingWeb = {
-  // ... metadata ...
-  blob: Blob;
-};
-
-type RecordingDesktop = {
-  // ... metadata ...
-  audioFilePath: string;
-};
-
-export type Recording = RecordingWeb | RecordingDesktop;
+// When we need to access the audio file on desktop:
+const recordingsPath = await PATHS.DB.RECORDINGS();
+const audioFile = await findAudioFile(recordingsPath, recording.id);
+if (audioFile) {
+  const fullPath = `${recordingsPath}/${audioFile}`;
+  // Use the path...
+}
 ```
-
-**Recommendation**: Option A (simpler, less refactoring)
-- Web: `blob` is set, `audioFilePath` is undefined
-- Desktop: `audioFilePath` is set, `blob` is undefined
 
 ### Step 4: File Operations
 
