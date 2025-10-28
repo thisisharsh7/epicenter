@@ -17,16 +17,55 @@ import { DbServiceErr } from './types';
 
 /**
  * Schema validator for Recording front matter (everything except transcribedText and blob)
+ * Note: YAML uses snake_case, TypeScript uses camelCase
  */
-const recordingFrontMatter = type({
+const RecordingFrontMatter = type({
 	id: 'string',
 	title: 'string',
 	subtitle: 'string',
 	timestamp: 'string',
-	createdAt: 'string',
-	updatedAt: 'string',
-	transcriptionStatus: '"UNPROCESSED" | "TRANSCRIBING" | "DONE" | "FAILED"',
+	created_at: 'string',
+	updated_at: 'string',
+	transcription_status: '"UNPROCESSED" | "TRANSCRIBING" | "DONE" | "FAILED"',
 });
+
+/**
+ * Convert Recording from TypeScript (camelCase) to YAML frontmatter (snake_case)
+ */
+function recordingToFrontMatter(recording: Omit<Recording, 'transcribedText' | 'blob'>) {
+	return {
+		id: recording.id,
+		title: recording.title,
+		subtitle: recording.subtitle,
+		timestamp: recording.timestamp,
+		created_at: recording.createdAt,
+		updated_at: recording.updatedAt,
+		transcription_status: recording.transcriptionStatus,
+	};
+}
+
+/**
+ * Convert YAML frontmatter (snake_case) to Recording (camelCase)
+ */
+function frontMatterToRecording(frontMatter: {
+	id: string;
+	title: string;
+	subtitle: string;
+	timestamp: string;
+	created_at: string;
+	updated_at: string;
+	transcription_status: 'UNPROCESSED' | 'TRANSCRIBING' | 'DONE' | 'FAILED';
+}): Omit<Recording, 'transcribedText' | 'blob'> {
+	return {
+		id: frontMatter.id,
+		title: frontMatter.title,
+		subtitle: frontMatter.subtitle,
+		timestamp: frontMatter.timestamp,
+		createdAt: frontMatter.created_at,
+		updatedAt: frontMatter.updated_at,
+		transcriptionStatus: frontMatter.transcription_status,
+	};
+}
 
 /**
  * File system-based database implementation for desktop.
@@ -79,17 +118,21 @@ export function createFileSystemDb(): DbService {
 					}
 					
 					// Validate the front matter schema
-					const validation = recordingFrontMatter(data);
+					const validation = RecordingFrontMatter(data);
 					if (validation instanceof type.errors) {
 						return null; // Skip invalid recording, don't crash the app
 					}
-					
+
+					// Convert snake_case YAML to camelCase TypeScript
+					const recordingData = frontMatterToRecording(validation);
+
 					// Construct recording from validated front matter + body
-					return {
-						...validation,
+					const recording: Recording = {
+						...recordingData,
 						transcribedText: body,
-						blob: undefined, // Desktop doesn't use Blobs
-					} as Recording;
+						blob: undefined as Blob | undefined,
+					};
+					return recording;
 							}),
 						);
 
@@ -162,18 +205,22 @@ export function createFileSystemDb(): DbService {
 
 					const content = await readTextFile(mdPath);
 					const { data, content: body } = matter(content);
-					
+
 					// Validate the front matter schema
-					const validation = recordingFrontMatter(data);
+					const validation = RecordingFrontMatter(data);
 					if (validation instanceof type.errors) {
 						throw new Error(`Invalid recording front matter: ${validation.summary}`);
 					}
-					
-					return {
-						...validation,
+
+					// Convert snake_case YAML to camelCase TypeScript
+					const recordingData = frontMatterToRecording(validation);
+
+					const recording: Recording = {
+						...recordingData,
 						transcribedText: body,
-						blob: undefined,
-					} as Recording;
+						blob: undefined as Blob | undefined,
+					};
+					return recording;
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -214,7 +261,9 @@ export function createFileSystemDb(): DbService {
 						// 2. Create .md file with front matter
 						const { transcribedText, blob, ...metadata } =
 							recordingWithTimestamps;
-						const mdContent = matter.stringify(transcribedText || '', metadata);
+						// Convert camelCase to snake_case for YAML
+						const frontMatter = recordingToFrontMatter(metadata);
+						const mdContent = matter.stringify(transcribedText || '', frontMatter);
 						const mdPath = await join(recordingsPath, `${recording.id}.md`);
 
 						// Write to temp file first, then rename (atomic operation)
@@ -260,7 +309,9 @@ export function createFileSystemDb(): DbService {
 						// Update .md file
 						const { transcribedText, blob, ...metadata } =
 							recordingWithTimestamp;
-						const mdContent = matter.stringify(transcribedText || '', metadata);
+						// Convert camelCase to snake_case for YAML
+						const frontMatter = recordingToFrontMatter(metadata);
+						const mdContent = matter.stringify(transcribedText || '', frontMatter);
 
 						// Atomic write
 						const tmpPath = `${mdPath}.tmp`;
