@@ -12,10 +12,6 @@ export const PATHS = {
 		},
 	},
 	DB: {
-		async BASE() {
-			const { appDataDir } = await import('@tauri-apps/api/path');
-			return await appDataDir();
-		},
 		async RECORDINGS() {
 			const { appDataDir, join } = await import('@tauri-apps/api/path');
 			const dir = await appDataDir();
