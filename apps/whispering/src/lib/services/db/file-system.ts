@@ -7,8 +7,8 @@ import {
 	remove,
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
-import matter from 'gray-matter';
 import { type } from 'arktype';
+import matter from 'gray-matter';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import { PATHS } from '$lib/constants/paths';
 import type { Recording, Transformation, TransformationRun } from './models';
@@ -32,7 +32,9 @@ const RecordingFrontMatter = type({
 /**
  * Convert Recording from TypeScript (camelCase) to YAML frontmatter (snake_case)
  */
-function recordingToFrontMatter(recording: Omit<Recording, 'transcribedText' | 'blob'>) {
+function recordingToFrontMatter(
+	recording: Omit<Recording, 'transcribedText' | 'blob'>,
+) {
 	return {
 		id: recording.id,
 		title: recording.title,
@@ -111,24 +113,24 @@ export function createFileSystemDb(): DbService {
 							mdFiles.map(async (entry) => {
 								if (!entry.name) return null;
 
-					const filePath = await join(recordingsPath, entry.name);
-					
-					const content = await readTextFile(filePath);
-					
-					const { data, content: body } = matter(content);
-					
-					// Check if data exists
-					if (!data || typeof data !== 'object') {
-						return null; // Skip invalid recording, don't crash the app
-					}
-					
-					// Validate the front matter schema
-					const validation = RecordingFrontMatter(data);
-					if (validation instanceof type.errors) {
-						return null; // Skip invalid recording, don't crash the app
-					}
+								const filePath = await join(recordingsPath, entry.name);
 
-					return markdownToRecording(validation, body);
+								const content = await readTextFile(filePath);
+
+								const { data, content: body } = matter(content);
+
+								// Check if data exists
+								if (!data || typeof data !== 'object') {
+									return null; // Skip invalid recording, don't crash the app
+								}
+
+								// Validate the front matter schema
+								const validation = RecordingFrontMatter(data);
+								if (validation instanceof type.errors) {
+									return null; // Skip invalid recording, don't crash the app
+								}
+
+								return markdownToRecording(validation, body);
 							}),
 						);
 
@@ -199,16 +201,18 @@ export function createFileSystemDb(): DbService {
 						const fileExists = await exists(mdPath);
 						if (!fileExists) return null;
 
-					const content = await readTextFile(mdPath);
-					const { data, content: body } = matter(content);
+						const content = await readTextFile(mdPath);
+						const { data, content: body } = matter(content);
 
-					// Validate the front matter schema
-					const validation = RecordingFrontMatter(data);
-					if (validation instanceof type.errors) {
-						throw new Error(`Invalid recording front matter: ${validation.summary}`);
-					}
+						// Validate the front matter schema
+						const validation = RecordingFrontMatter(data);
+						if (validation instanceof type.errors) {
+							throw new Error(
+								`Invalid recording front matter: ${validation.summary}`,
+							);
+						}
 
-					return markdownToRecording(validation, body);
+						return markdownToRecording(validation, body);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -251,7 +255,10 @@ export function createFileSystemDb(): DbService {
 							recordingWithTimestamps;
 						// Convert camelCase to snake_case for YAML
 						const frontMatter = recordingToFrontMatter(metadata);
-						const mdContent = matter.stringify(transcribedText || '', frontMatter);
+						const mdContent = matter.stringify(
+							transcribedText || '',
+							frontMatter,
+						);
 						const mdPath = await join(recordingsPath, `${recording.id}.md`);
 
 						// Write to temp file first, then rename (atomic operation)
@@ -299,7 +306,10 @@ export function createFileSystemDb(): DbService {
 							recordingWithTimestamp;
 						// Convert camelCase to snake_case for YAML
 						const frontMatter = recordingToFrontMatter(metadata);
-						const mdContent = matter.stringify(transcribedText || '', frontMatter);
+						const mdContent = matter.stringify(
+							transcribedText || '',
+							frontMatter,
+						);
 
 						// Atomic write
 						const tmpPath = `${mdPath}.tmp`;
