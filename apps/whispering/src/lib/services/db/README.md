@@ -1,209 +1,203 @@
-# DB Service Architecture
-
-This directory contains the database service implementation for Whispering. The service provides a unified interface for storing and retrieving recordings, transformations, and transformation runs across different platforms (web and desktop).
+# Database Service Architecture
 
 ## Overview
 
-The DB service uses different storage backends depending on the platform:
+The database service provides a unified interface for storing and retrieving recordings across different platforms (web and desktop). Each platform uses its own optimal storage format, but both expose the same intermediate representation to the UI layer.
 
-- **Web**: IndexedDB (browser-based storage)
-- **Desktop**: File system (Phase 2 migration in progress)
+## Key Concepts
 
-## Phase 2: File System Storage for Desktop
+### Intermediate Representation vs Storage Format
 
-Phase 2 implements file-based storage for desktop, where each database entity is stored as a markdown file with YAML front matter plus accompanying audio files for recordings.
+**`Recording` type** - The intermediate representation used throughout the application:
+- Unified interface for UI components
+- Contains `blob: Blob | undefined` for audio data
+- Same structure whether on desktop or web
+- Defined in `models/recordings.ts`
 
-### Migration Strategy
+**Storage formats** - How data is actually persisted:
+- **Desktop**: Markdown files (.md) + separate audio files (.webm, .mp3)
+- **Web**: IndexedDB with serialized audio (`RecordingStoredInIndexedDB`)
 
-The desktop implementation uses a **dual read/single write pattern** to ensure safe, gradual migration from IndexedDB to file system:
-
-- **READS**: Merge data from BOTH IndexedDB and file system (file system takes precedence)
-- **WRITES**: Only write to file system (new data)
-- **Old data**: Remains in IndexedDB until naturally migrated
-- **Automatic migration**: When updating old data, it's automatically moved to file system
-
-This ensures:
-- ✅ No data loss during migration
-- ✅ Gradual, automatic migration as users interact with data
-- ✅ File system becomes the source of truth over time
-- ✅ Users don't need to manually migrate anything
-
-### File Structure
+### The Pattern
 
 ```
-{APP_DATA}/whispering/
-├── recordings/
-│   ├── {id}.md              # Metadata (YAML front matter + transcribed text)
-│   └── {id}.{ext}           # Audio file (.wav, .opus, .mp3, etc.)
-├── transformations/
-│   └── {id}.md              # Transformation configuration
-└── transformation-runs/
-    └── {id}.md              # Execution history
+Storage Layer          →    Service Layer    →    UI Layer
+================            ==============        ==========
+Desktop: .md + .webm   →                     →
+                            Recording type    →    Components
+Web: IndexedDB         →                     →
 ```
 
-### Example: Recording File
+Each storage implementation:
+1. Reads from its native format
+2. Converts to `Recording` type
+3. Returns to UI/service layer
 
-**Metadata File**: `{APP_DATA}/whispering/recordings/abc123.md`
+## Desktop Storage (File System)
 
+**Location**: `~/.whispering/recordings/` (or platform-specific app data)
+
+**Format**:
+```
+recordings/
+  abc123.md          ← Metadata (YAML frontmatter + transcribed text)
+  abc123.webm        ← Audio file (same ID)
+  def456.md
+  def456.mp3
+```
+
+**Metadata file** (`abc123.md`):
 ```markdown
 ---
 id: abc123
-title: "Morning Meeting Notes"
-subtitle: "Team standup discussion"
-timestamp: "2025-10-27T09:30:00.000Z"
-createdAt: "2025-10-27T09:30:00.000Z"
-updatedAt: "2025-10-27T09:35:00.000Z"
-transcriptionStatus: DONE
+title: My Recording
+subtitle: Quick note
+timestamp: 2025-10-28T10:30:00Z
+created_at: 2025-10-28T10:30:00Z
+updated_at: 2025-10-28T10:35:00Z
+transcription_status: DONE
 ---
 
-# Transcribed Text
-
-This is the transcribed content of the recording.
-It can be multiple paragraphs.
-
-The user can edit this directly in any text editor.
+This is the transcribed text content.
 ```
 
-**Audio File**: `{APP_DATA}/whispering/recordings/abc123.wav`
-- The actual audio data
-- Format depends on recorder (wav, opus, mp3, etc.)
-- No `audioFile` field needed in metadata; we automatically look for a file with matching ID and any audio extension
+**Audio file**: Stored as separate file with same ID
 
-## Files
+**Implementation**: `file-system.ts`
+- Uses `@tauri-apps/plugin-fs` for file operations
+- Uses `gray-matter` to parse YAML frontmatter
+- Converts snake_case (YAML) ↔ camelCase (TypeScript)
+- Reads audio file and converts to Blob when returning Recording
 
-### Core Files
+## Web Storage (IndexedDB)
 
-- **`types.ts`**: TypeScript interfaces and types for the DB service
-- **`index.ts`**: Entry point that determines which implementation to use based on platform
-- **`web.ts`**: IndexedDB implementation (used by web and desktop during migration)
-- **`desktop.ts`**: Desktop wrapper with dual read/single write pattern
-- **`file-system.ts`**: Pure file system implementation
+**Database**: `whispering-db`
 
-### Model Files
+**Format**: Single object store `recordings` with schema V5:
+```typescript
+{
+  id: 'abc123',
+  title: 'My Recording',
+  subtitle: 'Quick note',
+  timestamp: '2025-10-28T10:30:00Z',
+  createdAt: '2025-10-28T10:30:00Z',
+  updatedAt: '2025-10-28T10:35:00Z',
+  transcribedText: 'This is the transcribed text...',
+  transcriptionStatus: 'DONE',
+  serializedAudio: {
+    arrayBuffer: ArrayBuffer(...),
+    blobType: 'audio/webm'
+  }
+}
+```
 
-- **`models/recordings.ts`**: Recording type and schema definitions
-- **`models/transformations.ts`**: Transformation type definitions
-- **`models/transformation-runs.ts`**: Transformation run type definitions
+**Why serializedAudio?** IndexedDB can't reliably store Blob objects across browsers, so we serialize to ArrayBuffer + mime type.
 
-## Implementation Details
+**Implementation**: `index-db.ts`
+- Uses Dexie.js for IndexedDB operations
+- Serializes blobs to `{ arrayBuffer, blobType }` when storing
+- Deserializes back to Blob when reading
 
-### File System Storage (`file-system.ts`)
+## Dual Read / Single Write (Desktop Only)
 
-The file system implementation uses:
+During the migration period (Phase 2), desktop uses a **dual read, single write** strategy:
 
-- **gray-matter**: For parsing and serializing markdown with YAML front matter
-- **@tauri-apps/plugin-fs**: For file system operations
-- **Atomic writes**: Write to `.tmp` file first, then rename (prevents corruption)
-- **Auto-discovery**: Audio files are automatically found by trying multiple extensions
+**Read**: Check both sources
+```typescript
+async function getAll() {
+  const fileSystemRecordings = await fileSystem.getAll();
+  const indexedDBRecordings = await indexedDB.getAll();
 
-Key features:
+  // Merge, preferring file system for duplicates
+  return mergeDeduplicate([...fileSystemRecordings, ...indexedDBRecordings]);
+}
+```
 
-1. **Human-readable**: All metadata stored as markdown with YAML front matter
-2. **Version control friendly**: Plain text diffs work great
-3. **Searchable**: `grep`, Spotlight, etc. work out of the box
-4. **Extensible**: Easy to add new fields
-5. **Safe**: Atomic writes prevent file corruption
+**Write**: Only to file system
+```typescript
+async function create(recording) {
+  // Write to file system only
+  return fileSystem.create(recording);
+}
+```
 
-### Desktop Wrapper (`desktop.ts`)
+This allows gradual migration without data loss.
 
-The desktop wrapper implements the dual read/single write pattern:
+## Service Interface
 
-**Read Operations**:
-- Query both IndexedDB and file system in parallel
-- Merge results with file system taking precedence
-- Sort and deduplicate
-
-**Write Operations**:
-- New data: Write only to file system
-- Updates: Write to file system (migrates from IndexedDB if needed)
-- Deletes: Remove from both file system and IndexedDB
-
-### Web Implementation (`web.ts`)
-
-The web implementation uses Dexie (IndexedDB wrapper):
-
-- Handles schema migrations
-- Stores audio as ArrayBuffer
-- Provides error recovery and database dumps
-- Transaction support
-
-## Usage
+All implementations expose the same `DbService` interface:
 
 ```typescript
-import { rpc } from '$lib/query';
+type DbService = {
+  recordings: {
+    getAll: () => Promise<Result<Recording[], DbServiceError>>;
+    getById: (id: string) => Promise<Result<Recording | null, DbServiceError>>;
+    create: (recording: Recording) => Promise<Result<Recording, DbServiceError>>;
+    update: (recording: Recording) => Promise<Result<Recording, DbServiceError>>;
+    delete: (id: string) => Promise<Result<void, DbServiceError>>;
+  };
+  // ... other stores
+};
+```
 
-// Create a recording
-const { data, error } = await rpc.db.recordings.create.execute({
-  recording: {
-    id: 'abc123',
-    title: 'My Recording',
-    // ... other fields
-  }
+## File Organization
+
+```
+src/lib/services/db/
+├── README.md              ← This file
+├── index.ts               ← Platform-specific db factory
+├── types.ts               ← DbService interface and error types
+├── models/
+│   └── recordings.ts      ← Recording type definitions
+├── file-system.ts         ← Desktop implementation
+├── index-db.ts            ← Web implementation
+└── desktop.ts             ← Dual read/single write wrapper
+```
+
+## Usage Examples
+
+### Creating a recording
+
+```typescript
+import { db } from '$lib/services/db';
+
+const { data: recording, error } = await db.recordings.create({
+  id: generateId(),
+  title: 'My Recording',
+  subtitle: 'Quick note',
+  timestamp: new Date().toISOString(),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  blob: audioBlob, // From MediaRecorder
+  transcribedText: '',
+  transcriptionStatus: 'UNPROCESSED',
 });
+```
 
-// Get all recordings (automatically merges from both sources on desktop)
-const { data: recordings, error } = await rpc.db.recordings.getAll.execute();
+### Reading recordings
 
-// Update a recording (automatically migrates to file system on desktop)
-const { data, error } = await rpc.db.recordings.update.execute({
-  recording: {
-    id: 'abc123',
-    title: 'Updated Title',
-    // ... other fields
+```typescript
+const { data: recordings, error } = await db.recordings.getAll();
+
+// Both platforms return the same Recording type
+recordings.forEach(recording => {
+  console.log(recording.title);
+
+  // Blob is populated on both platforms
+  if (recording.blob) {
+    const url = URL.createObjectURL(recording.blob);
+    // Use url in <audio> element
   }
 });
 ```
 
-## Benefits of File System Storage
+## Migration Path
 
-1. **User control**: Users can directly edit files in any text editor
-2. **Backup friendly**: Just copy the folder
-3. **No size limits**: Unlike IndexedDB, no browser storage quotas
-4. **Transparency**: Users can see exactly what's stored
-5. **Performance**: Direct file access is faster than IndexedDB for large files
-6. **Portability**: Easy to sync or move data between devices
+The long-term plan is to eventually use file system storage on both platforms:
 
-## Migration Timeline
+1. **Phase 1** (✅ Complete): Web uses IndexedDB
+2. **Phase 2** (🚧 Current): Desktop uses file system, dual read during migration
+3. **Phase 3** (Future): Web uses File System Access API where supported
+4. **Phase 4** (Future): Unified file system implementation across platforms
 
-- **Phase 1** (Completed): Added PATHS constant and organized directory structure
-- **Phase 2** (Current): File system implementation with dual read/single write
-- **Phase 3** (Future): Optional tool to clean up old IndexedDB data
-
-## Technical Decisions
-
-### Why Markdown + YAML Front Matter?
-
-1. **Standard**: Well-established pattern (Jekyll, Hugo, Obsidian, etc.)
-2. **Human-readable**: Users can open and edit in any text editor
-3. **Separation of concerns**: Metadata in front matter, content in body
-4. **Tooling**: Excellent library support (gray-matter)
-
-### Why No Separate Index File?
-
-We opted for individual files per entity rather than a single index file because:
-
-1. **Atomic operations**: Each file can be updated independently
-2. **Conflict resolution**: Easier to handle concurrent updates
-3. **Scalability**: No single file becomes a bottleneck
-4. **Simplicity**: No need to keep index in sync with files
-
-### Why No In-Memory Cache?
-
-All queries scan files on demand (no caching layer). This is acceptable because:
-
-- Desktop apps typically have < 1000 recordings
-- File system reads are fast (< 1ms per file on SSD)
-- Modern SSDs can easily handle hundreds of file reads per second
-- Simpler implementation without cache invalidation complexity
-- We can add in-memory caching or SQLite indexing in Phase 3 if needed
-
-## Future Enhancements
-
-Potential improvements for future phases:
-
-1. **SQLite index**: For faster queries on large datasets
-2. **File watchers**: Auto-reload when files change externally
-3. **Backup/restore**: Built-in backup and restore functionality
-4. **Sync**: Multi-device sync support
-5. **Compression**: Optional compression for audio files
-6. **Encryption**: Optional encryption for sensitive data
+See `docs/specs/` for detailed migration plans.
