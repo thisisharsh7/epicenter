@@ -45,17 +45,20 @@ function recordingToFrontMatter(recording: Omit<Recording, 'transcribedText' | '
 }
 
 /**
- * Convert YAML frontmatter (snake_case) to Recording (camelCase)
+ * Convert markdown file (YAML frontmatter + body) to Recording
  */
-function frontMatterToRecording(frontMatter: {
-	id: string;
-	title: string;
-	subtitle: string;
-	timestamp: string;
-	created_at: string;
-	updated_at: string;
-	transcription_status: 'UNPROCESSED' | 'TRANSCRIBING' | 'DONE' | 'FAILED';
-}): Omit<Recording, 'transcribedText' | 'blob'> {
+function markdownToRecording(
+	frontMatter: {
+		id: string;
+		title: string;
+		subtitle: string;
+		timestamp: string;
+		created_at: string;
+		updated_at: string;
+		transcription_status: 'UNPROCESSED' | 'TRANSCRIBING' | 'DONE' | 'FAILED';
+	},
+	body: string,
+): Recording {
 	return {
 		id: frontMatter.id,
 		title: frontMatter.title,
@@ -64,6 +67,8 @@ function frontMatterToRecording(frontMatter: {
 		createdAt: frontMatter.created_at,
 		updatedAt: frontMatter.updated_at,
 		transcriptionStatus: frontMatter.transcription_status,
+		transcribedText: body,
+		blob: undefined,
 	};
 }
 
@@ -123,16 +128,7 @@ export function createFileSystemDb(): DbService {
 						return null; // Skip invalid recording, don't crash the app
 					}
 
-					// Convert snake_case YAML to camelCase TypeScript
-					const recordingData = frontMatterToRecording(validation);
-
-					// Construct recording from validated front matter + body
-					const recording: Recording = {
-						...recordingData,
-						transcribedText: body,
-						blob: undefined as Blob | undefined,
-					};
-					return recording;
+					return markdownToRecording(validation, body);
 							}),
 						);
 
@@ -212,15 +208,7 @@ export function createFileSystemDb(): DbService {
 						throw new Error(`Invalid recording front matter: ${validation.summary}`);
 					}
 
-					// Convert snake_case YAML to camelCase TypeScript
-					const recordingData = frontMatterToRecording(validation);
-
-					const recording: Recording = {
-						...recordingData,
-						transcribedText: body,
-						blob: undefined as Blob | undefined,
-					};
-					return recording;
+					return markdownToRecording(validation, body);
 					},
 					catch: (error) =>
 						DbServiceErr({
