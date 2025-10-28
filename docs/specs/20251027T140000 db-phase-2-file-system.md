@@ -227,17 +227,10 @@ export function createDbServiceDesktop({ DownloadService }): DbService {
 
 // Separate file system implementation
 function createFileSystemDb(): DbService {
-  const baseDir = async () => {
-    const { appDataDir } = await import('@tauri-apps/api/path');
-    const dir = await appDataDir();
-    return dir; // Already points to {APP_DATA}/whispering
-  };
-
   return {
     recordings: {
       getAll: async () => {
-        const dir = await baseDir();
-        const recordingsPath = `${dir}/recordings`;
+        const recordingsPath = await PATHS.DB.RECORDINGS();
 
         // 1. List all .md files
         const files = await readDir(recordingsPath);
@@ -266,8 +259,7 @@ function createFileSystemDb(): DbService {
       },
 
       create: async (recording) => {
-        const dir = await baseDir();
-        const recordingsPath = `${dir}/recordings`;
+        const recordingsPath = await PATHS.DB.RECORDINGS();
 
         // 1. Write audio file (if blob provided)
         if (recording.blob) {
