@@ -49,7 +49,10 @@ function recordingToFrontMatter(
 /**
  * Convert markdown file (YAML frontmatter + body) to Recording
  */
-function markdownToRecording(
+function markdownToRecording({
+	frontMatter,
+	body,
+}: {
 	frontMatter: {
 		id: string;
 		title: string;
@@ -58,9 +61,9 @@ function markdownToRecording(
 		created_at: string;
 		updated_at: string;
 		transcription_status: 'UNPROCESSED' | 'TRANSCRIBING' | 'DONE' | 'FAILED';
-	},
-	body: string,
-): Recording {
+	};
+	body: string;
+}): Recording {
 	return {
 		id: frontMatter.id,
 		title: frontMatter.title,
@@ -125,12 +128,12 @@ export function createFileSystemDb(): DbService {
 								}
 
 								// Validate the front matter schema
-								const validation = RecordingFrontMatter(data);
-								if (validation instanceof type.errors) {
+								const frontMatter = RecordingFrontMatter(data);
+								if (frontMatter instanceof type.errors) {
 									return null; // Skip invalid recording, don't crash the app
 								}
 
-								return markdownToRecording(validation, body);
+								return markdownToRecording({ frontMatter, body });
 							}),
 						);
 
@@ -205,14 +208,14 @@ export function createFileSystemDb(): DbService {
 						const { data, content: body } = matter(content);
 
 						// Validate the front matter schema
-						const validation = RecordingFrontMatter(data);
-						if (validation instanceof type.errors) {
+						const frontMatter = RecordingFrontMatter(data);
+						if (frontMatter instanceof type.errors) {
 							throw new Error(
-								`Invalid recording front matter: ${validation.summary}`,
+								`Invalid recording front matter: ${frontMatter.summary}`,
 							);
 						}
 
-						return markdownToRecording(validation, body);
+						return markdownToRecording({ frontMatter, body });
 					},
 					catch: (error) =>
 						DbServiceErr({
