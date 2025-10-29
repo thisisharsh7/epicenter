@@ -17,9 +17,12 @@ import { transformer } from './transformer';
 import { vadRecorder } from './vad-recorder';
 
 /**
- * Query layer commands. These mutations always return Ok() after handling errors.
- * Errors are notified to the user and then the command succeeds, so the UI command
- * handler doesn't need to check for errors.
+ * Application actions. These are mutations at the UI boundary that can be invoked
+ * from anywhere: command registry, components, stores, etc.
+ *
+ * They always return Ok() because there's nowhere left to propagate errors—errors flow
+ * sideways through notify.error.execute() instead of up the call stack. Actions are
+ * the end of the operation chain.
  */
 
 // Track manual recording start time for duration calculation

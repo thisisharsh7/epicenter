@@ -863,9 +863,9 @@ Each feature file typically exports an object with:
 - Helper functions
 - Utility methods
 
-## Commands: Always Return Ok
+## Actions: Always Return Ok
 
-Commands in the query layer always return `Ok` after handling errors. They notify the user and return success because the command itself executed—error handling is part of that execution.
+Actions in the query layer always return `Ok` after handling errors. They notify the user and return success because the action itself executed—error handling is part of that execution.
 
 ```typescript
 const startManualRecording = defineMutation({
@@ -873,7 +873,7 @@ const startManualRecording = defineMutation({
 		const { error } = await recorder.startRecording.execute();
 		if (error) {
 			notify.error.execute(error); // Notify user
-			return Ok(undefined);         // Command succeeded
+			return Ok(undefined);         // Action succeeded
 		}
 		notify.success.execute({ title: 'Recording started' });
 		return Ok(undefined);
@@ -881,7 +881,7 @@ const startManualRecording = defineMutation({
 });
 ```
 
-Commands are invoked by the UI command handler (`/lib/commands.ts`), which calls these mutations. The UI handler doesn't need to check for errors because they're already handled at the query layer.
+Actions are UI-boundary mutations invoked from anywhere: command registry (`/lib/commands.ts`), components, stores, etc. Since they're the end of the operation chain, errors flow sideways through notifications rather than up the call stack.
 
 ## Best Practices
 
