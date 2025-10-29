@@ -29,6 +29,8 @@ const RecordingFrontMatter = type({
 	transcription_status: '"UNPROCESSED" | "TRANSCRIBING" | "DONE" | "FAILED"',
 });
 
+type RecordingFrontMatter= typeof RecordingFrontMatter.infer;
+
 /**
  * Convert Recording from TypeScript (camelCase) to YAML frontmatter (snake_case)
  */
@@ -53,15 +55,7 @@ function markdownToRecording({
 	frontMatter,
 	body,
 }: {
-	frontMatter: {
-		id: string;
-		title: string;
-		subtitle: string;
-		timestamp: string;
-		created_at: string;
-		updated_at: string;
-		transcription_status: 'UNPROCESSED' | 'TRANSCRIBING' | 'DONE' | 'FAILED';
-	};
+	frontMatter: RecordingFrontMatter;
 	body: string;
 }): Recording {
 	return {
