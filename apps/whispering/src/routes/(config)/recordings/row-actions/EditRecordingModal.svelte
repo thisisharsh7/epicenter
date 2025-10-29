@@ -8,8 +8,8 @@
 	import { Textarea } from '@repo/ui/textarea';
 	import { rpc } from '$lib/query';
 	import type { Recording } from '$lib/services/db';
-	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
-	import { createMutation } from '@tanstack/svelte-query';
+	import * as services from '$lib/services';
+	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import { PencilIcon as EditIcon, Loader2Icon } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
 
@@ -63,12 +63,16 @@
 		return false;
 	});
 
-	const blobUrlManager = createBlobUrlManager();
+	/**
+	 * Fetch audio playback URL using TanStack Query.
+	 * The URL is cached and managed by the DbService implementation.
+	 * Uses accessor pattern for reactive updates.
+	 */
+	const audioPlaybackUrlQuery = createQuery(
+		rpc.db.recordings.getAudioPlaybackUrl(() => recording.id).options,
+	);
 
-	const blobUrl = $derived.by(() => {
-		if (!recording?.blob) return undefined;
-		return blobUrlManager.createUrl(recording.blob);
-	});
+	const audioUrl = $derived(audioPlaybackUrlQuery.data);
 
 	function promptUserConfirmLeave() {
 		if (!isWorkingCopyDirty) {
@@ -91,12 +95,12 @@
 	}
 
 	onDestroy(() => {
-		blobUrlManager.revokeCurrentUrl();
+		services.db.recordings.revokeAudioUrl(recording.id);
 	});
 </script>
 
 <Modal.Root bind:open={isDialogOpen}>
-	<Modal.Trigger>
+	<>
 		{#snippet child({ props })}
 			<WhisperingButton
 				tooltipContent="Edit recording"
@@ -107,7 +111,7 @@
 				<EditIcon class="size-4" />
 			</WhisperingButton>
 		{/snippet}
-	</Modal.Trigger>
+>
 	<Modal.Content
 		onEscapeKeydown={(e) => {
 			e.preventDefault();
@@ -180,10 +184,10 @@
 					class="col-span-3"
 				/>
 			</div>
-			{#if blobUrl}
+			{#if audioUrl}
 				<div class="grid grid-cols-4 items-center gap-4">
-					<Label for="blob" class="text-right">Audio</Label>
-					<audio src={blobUrl} controls class="col-span-3 h-8 w-full"></audio>
+					<Label for="audio" class="text-right">Audio</Label>
+					<audio src={audioUrl} controls class="col-span-3 h-8 w-full"></audio>
 				</div>
 			{/if}
 		</div>

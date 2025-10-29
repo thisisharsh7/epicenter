@@ -1,3 +1,4 @@
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { join } from '@tauri-apps/api/path';
 import {
 	exists,
@@ -11,12 +12,13 @@ import { type } from 'arktype';
 import matter from 'gray-matter';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import { PATHS } from '$lib/constants/paths';
+import * as services from '$lib/services';
 import type { Recording, Transformation, TransformationRun } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
 
 /**
- * Schema validator for Recording front matter (everything except transcribedText and blob)
+ * Schema validator for Recording front matter (everything except transcribedText)
  * Note: YAML uses snake_case, TypeScript uses camelCase
  */
 const RecordingFrontMatter = type({
@@ -35,7 +37,7 @@ type RecordingFrontMatter= typeof RecordingFrontMatter.infer;
  * Convert Recording from TypeScript (camelCase) to YAML frontmatter (snake_case)
  */
 function recordingToFrontMatter(
-	recording: Omit<Recording, 'transcribedText' | 'blob'>,
+	recording: Omit<Recording, 'transcribedText'>,
 ) {
 	return {
 		id: recording.id,
@@ -67,7 +69,6 @@ function markdownToRecording({
 		updatedAt: frontMatter.updated_at,
 		transcriptionStatus: frontMatter.transcription_status,
 		transcribedText: body,
-		blob: undefined,
 	};
 }
 
@@ -220,7 +221,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			create: async (recording: Recording) => {
+			create: async ({ recording, audio }) => {
 				const now = new Date().toISOString();
 				const recordingWithTimestamps = {
 					...recording,
@@ -235,21 +236,17 @@ export function createFileSystemDb(): DbService {
 						// Ensure directory exists
 						await mkdir(recordingsPath, { recursive: true });
 
-						// 1. Write audio file if blob provided
-						if (recording.blob) {
-							// Try to determine extension from blob type
-							const extension = getExtensionFromBlobType(recording.blob.type);
-							const audioPath = await join(
-								recordingsPath,
-								`${recording.id}.${extension}`,
-							);
-							const arrayBuffer = await recording.blob.arrayBuffer();
-							await writeFile(audioPath, new Uint8Array(arrayBuffer));
-						}
+						// 1. Write audio file
+						const extension = getExtensionFromBlobType(audio.type);
+						const audioPath = await join(
+							recordingsPath,
+							`${recording.id}.${extension}`,
+						);
+						const arrayBuffer = await audio.arrayBuffer();
+						await writeFile(audioPath, new Uint8Array(arrayBuffer));
 
 						// 2. Create .md file with front matter
-						const { transcribedText, blob, ...metadata } =
-							recordingWithTimestamps;
+						const { transcribedText, ...metadata } = recordingWithTimestamps;
 						// Convert camelCase to snake_case for YAML
 						const frontMatter = recordingToFrontMatter(metadata);
 						const mdContent = matter.stringify(
@@ -274,7 +271,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			update: async (recording: Recording) => {
+			update: async (recording) => {
 				const now = new Date().toISOString();
 				const recordingWithTimestamp = {
 					...recording,
@@ -299,8 +296,7 @@ export function createFileSystemDb(): DbService {
 						}
 
 						// Update .md file
-						const { transcribedText, blob, ...metadata } =
-							recordingWithTimestamp;
+						const { transcribedText, ...metadata } = recordingWithTimestamp;
 						// Convert camelCase to snake_case for YAML
 						const frontMatter = recordingToFrontMatter(metadata);
 						const mdContent = matter.stringify(
@@ -327,7 +323,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			delete: async (recordings: Recording | Recording[]) => {
+			delete: async (recordings) => {
 				const recordingsArray = Array.isArray(recordings)
 					? recordings
 					: [recordings];
@@ -395,6 +391,61 @@ export function createFileSystemDb(): DbService {
 						});
 					}
 				}
+			},
+
+			getAudioBlob: async (recordingId: string) => {
+				return tryAsync({
+					try: async () => {
+						const recordingsPath = await PATHS.DB.RECORDINGS();
+						const audioFile = await findAudioFile(recordingsPath, recordingId);
+
+						if (!audioFile) {
+							throw new Error(`Audio file not found for recording ${recordingId}`);
+						}
+
+						const audioPath = await join(recordingsPath, audioFile);
+
+						// Use existing services.fs.pathToBlob utility
+						const { data: blob, error } = await services.fs.pathToBlob(audioPath);
+						if (error) throw error;
+
+						return blob;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting audio blob from file system',
+							context: { recordingId },
+							cause: error,
+						}),
+				});
+			},
+
+			ensureAudioPlaybackUrl: async (recordingId: string) => {
+				return tryAsync({
+					try: async () => {
+						const recordingsPath = await PATHS.DB.RECORDINGS();
+						const audioFile = await findAudioFile(recordingsPath, recordingId);
+
+						if (!audioFile) {
+							throw new Error(`Audio file not found for recording ${recordingId}`);
+						}
+
+						const audioPath = await join(recordingsPath, audioFile);
+						const assetUrl = convertFileSrc(audioPath);
+
+						return assetUrl;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting audio playback URL from file system',
+							context: { recordingId },
+							cause: error,
+						}),
+				});
+			},
+
+			revokeAudioUrl: (recordingId: string) => {
+				// No-op on desktop, URLs are asset:// protocol managed by Tauri
 			},
 		},
 

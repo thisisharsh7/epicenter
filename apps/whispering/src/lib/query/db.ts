@@ -13,6 +13,8 @@ export const dbKeys = {
 		all: ['db', 'recordings'] as const,
 		latest: ['db', 'recordings', 'latest'] as const,
 		byId: (id: string) => ['db', 'recordings', id] as const,
+		audioPlaybackUrl: (id: string) =>
+			['db', 'recordings', id, 'audioPlaybackUrl'] as const,
 	},
 	transformations: {
 		all: ['db', 'transformations'] as const,
@@ -64,22 +66,36 @@ export const db = {
 					queryClient.getQueryState(dbKeys.recordings.all)?.dataUpdatedAt,
 			}),
 
+		/**
+		 * Get audio playback URL for a recording by ID.
+		 * Uses the accessor pattern for reactive updates.
+		 * The URL is cached and managed by the DbService implementation.
+		 */
+		getAudioPlaybackUrl: (id: Accessor<string>) =>
+			defineQuery({
+				queryKey: dbKeys.recordings.audioPlaybackUrl(id()),
+				resultQueryFn: () => services.db.recordings.ensureAudioPlaybackUrl(id()),
+			}),
+
 		create: defineMutation({
 			mutationKey: ['db', 'recordings', 'create'] as const,
-			resultMutationFn: async (recording: Recording) => {
-				const { data, error } = await services.db.recordings.create(recording);
+			resultMutationFn: async (params: {
+				recording: Omit<Recording, 'createdAt' | 'updatedAt'>;
+				audio: Blob;
+			}) => {
+				const { data, error } = await services.db.recordings.create(params);
 				if (error) return Err(error);
 
 				queryClient.setQueryData<Recording[]>(
 					dbKeys.recordings.all,
 					(oldData) => {
-						if (!oldData) return [recording];
-						return [...oldData, recording];
+						if (!oldData) return [data];
+						return [...oldData, data];
 					},
 				);
 				queryClient.setQueryData<Recording>(
-					dbKeys.recordings.byId(recording.id),
-					recording,
+					dbKeys.recordings.byId(data.id),
+					data,
 				);
 				queryClient.invalidateQueries({
 					queryKey: dbKeys.recordings.all,

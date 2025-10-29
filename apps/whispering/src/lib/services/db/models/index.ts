@@ -1,11 +1,13 @@
 // Recordings
 export type {
 	Recording,
+	RecordingStoredInIndexedDB,
 	RecordingsDbSchemaV1,
 	RecordingsDbSchemaV2,
 	RecordingsDbSchemaV3,
 	RecordingsDbSchemaV4,
 	RecordingsDbSchemaV5,
+	SerializedAudio,
 } from './recordings';
 export type {
 	TransformationRun,

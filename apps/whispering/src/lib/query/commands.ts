@@ -439,15 +439,15 @@ async function processRecordingPipeline({
 
 	const { data: createdRecording, error: createRecordingError } =
 		await db.recordings.create.execute({
-			id: newRecordingId,
-			title: '',
-			subtitle: '',
-			createdAt: now,
-			updatedAt: now,
-			timestamp: now,
-			transcribedText: '',
-			blob,
-			transcriptionStatus: 'UNPROCESSED',
+			recording: {
+				id: newRecordingId,
+				title: '',
+				subtitle: '',
+				timestamp: now,
+				transcribedText: '',
+				transcriptionStatus: 'UNPROCESSED',
+			},
+			audio: blob,
 		});
 
 	if (createRecordingError) {

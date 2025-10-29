@@ -153,9 +153,9 @@ export function createDbServiceDesktop({
 				return Ok(null);
 			},
 
-			create: async (recording) => {
+			create: async (params) => {
 				// SINGLE WRITE: Only to file system
-				return fileSystemDb.recordings.create(recording);
+				return fileSystemDb.recordings.create(params);
 			},
 
 			update: async (recording) => {
@@ -216,6 +216,84 @@ export function createDbServiceDesktop({
 
 				// Success if at least one succeeded
 				return Ok(undefined);
+			},
+
+			getAudioBlob: async (recordingId) => {
+				// DUAL READ: Check file system first, fallback to IndexedDB
+				const fsResult = await fileSystemDb.recordings.getAudioBlob(recordingId);
+
+				// If found in file system, return it
+				if (fsResult.data) {
+					return Ok(fsResult.data);
+				}
+
+				// Not in file system, check IndexedDB
+				const idbResult = await indexedDb.recordings.getAudioBlob(recordingId);
+
+				// If found in IndexedDB, return it
+				if (idbResult.data) {
+					return Ok(idbResult.data);
+				}
+
+				// If both failed, return an error
+				if (fsResult.error && idbResult.error) {
+					return Err({
+						name: 'DbServiceError' as const,
+						message: 'Error getting audio blob from both sources',
+						context: {
+							recordingId,
+							fileSystemError: fsResult.error,
+							indexedDbError: idbResult.error,
+						},
+						cause: fsResult.error,
+					});
+				}
+
+				// Not found in either source (but no errors)
+				throw new Error(`Audio not found for recording ${recordingId}`);
+			},
+
+			ensureAudioPlaybackUrl: async (recordingId) => {
+				// DUAL READ: Check file system first, fallback to IndexedDB
+				const fsResult =
+					await fileSystemDb.recordings.ensureAudioPlaybackUrl(recordingId);
+
+				// If found in file system, return it
+				if (fsResult.data) {
+					return Ok(fsResult.data);
+				}
+
+				// Not in file system, check IndexedDB
+				const idbResult =
+					await indexedDb.recordings.ensureAudioPlaybackUrl(recordingId);
+
+				// If found in IndexedDB, return it
+				if (idbResult.data) {
+					return Ok(idbResult.data);
+				}
+
+				// If both failed, return an error
+				if (fsResult.error && idbResult.error) {
+					return Err({
+						name: 'DbServiceError' as const,
+						message: 'Error getting audio playback URL from both sources',
+						context: {
+							recordingId,
+							fileSystemError: fsResult.error,
+							indexedDbError: idbResult.error,
+						},
+						cause: fsResult.error,
+					});
+				}
+
+				// Not found in either source (but no errors)
+				throw new Error(`Audio not found for recording ${recordingId}`);
+			},
+
+			revokeAudioUrl: (recordingId) => {
+				// Revoke from BOTH sources
+				fileSystemDb.recordings.revokeAudioUrl(recordingId);
+				indexedDb.recordings.revokeAudioUrl(recordingId);
 			},
 		},
 

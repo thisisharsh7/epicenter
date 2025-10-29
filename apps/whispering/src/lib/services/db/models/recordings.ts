@@ -10,9 +10,10 @@
  * Both implementations read their storage format and convert it to this intermediate
  * representation for use in the UI layer.
  *
- * @property blob - Audio data as a Blob. Populated by reading from storage:
- *   - Desktop: Reads audio file from disk and converts to Blob
- *   - Web: Deserializes serializedAudio from IndexedDB to Blob
+ * Audio access: Audio data is NOT stored in this intermediate representation. Instead, use:
+ * - `db.recordings.getAudioBlob(id)` to fetch audio as a Blob
+ * - `db.recordings.ensureAudioPlaybackUrl(id)` to get a playback URL
+ * - `db.recordings.revokeAudioUrl(id)` to clean up cached URLs
  */
 export type Recording = {
 	id: string;
@@ -22,7 +23,6 @@ export type Recording = {
 	createdAt: string;
 	updatedAt: string;
 	transcribedText: string;
-	blob: Blob | undefined;
 	/**
 	 * Recording lifecycle status:
 	 * 1. Begins in 'UNPROCESSED' state
@@ -34,17 +34,35 @@ export type Recording = {
 };
 
 /**
+ * Serialized audio format for IndexedDB storage.
+ *
+ * This format is used to work around iOS Safari's limitations with storing Blob objects
+ * in IndexedDB. Instead of storing the Blob directly (which can fail or become corrupted
+ * on iOS), we deconstruct it into:
+ * - arrayBuffer: The raw binary data
+ * - blobType: The original MIME type (e.g., 'audio/webm', 'audio/wav')
+ *
+ * This can be reliably stored in IndexedDB on all platforms, including iOS Safari.
+ * To reconstruct: new Blob([arrayBuffer], { type: blobType })
+ *
+ * @see /Users/braden/Code/whispering/.conductor/la-paz/docs/patterns/serialized-audio-pattern.md
+ */
+export type SerializedAudio = {
+	arrayBuffer: ArrayBuffer;
+	blobType: string;
+};
+
+/**
  * How a recording is actually stored in IndexedDB (storage format).
  *
  * This is NOT the intermediate representation used by the UI (see Recording type).
  *
- * Key differences from Recording:
- * - No `blob` field (IndexedDB can't reliably store Blob objects)
- * - Has `serializedAudio` instead: { arrayBuffer, blobType }
- * - When reading, we deserialize this back to a Blob for the Recording type
+ * Extends Recording with:
+ * - `serializedAudio` field for storing audio data (see SerializedAudio type)
+ * - Audio is stored in serialized format to work around iOS Safari Blob storage issues
  */
-type RecordingStoredInIndexedDB = Omit<Recording, 'blob'> & {
-	serializedAudio: { arrayBuffer: ArrayBuffer; blobType: string } | undefined;
+export type RecordingStoredInIndexedDB = Recording & {
+	serializedAudio: SerializedAudio | undefined;
 };
 
 export type RecordingsDbSchemaV5 = {

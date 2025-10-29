@@ -6,9 +6,10 @@ import type { FsService } from './types';
 import { FsServiceErr } from './types';
 
 /**
- * Get MIME type from file path (internal helper)
+ * Get MIME type from file path.
+ * Exported utility function that handles extension extraction.
  */
-async function getMimeTypeFromPath(filePath: string): Promise<string> {
+export async function getMimeTypeFromPath(filePath: string): Promise<string> {
 	const ext = (await extname(filePath)).toLowerCase();
 	return (
 		MIME_TYPE_MAP[ext as keyof typeof MIME_TYPE_MAP] ??

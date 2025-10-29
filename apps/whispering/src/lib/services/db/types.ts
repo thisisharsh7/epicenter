@@ -20,7 +20,10 @@ export type DbService = {
 		getLatest(): Promise<Result<Recording | null, DbServiceError>>;
 		getTranscribingIds(): Promise<Result<string[], DbServiceError>>;
 		getById(id: string): Promise<Result<Recording | null, DbServiceError>>;
-		create(recording: Recording): Promise<Result<Recording, DbServiceError>>;
+		create(params: {
+			recording: Omit<Recording, 'createdAt' | 'updatedAt'>;
+			audio: Blob;
+		}): Promise<Result<Recording, DbServiceError>>;
 		update(recording: Recording): Promise<Result<Recording, DbServiceError>>;
 		delete(
 			recordings: Recording | Recording[],
@@ -29,6 +32,29 @@ export type DbService = {
 			recordingRetentionStrategy: Settings['database.recordingRetentionStrategy'];
 			maxRecordingCount: Settings['database.maxRecordingCount'];
 		}): Promise<Result<void, DbServiceError>>;
+
+		/**
+		 * Get audio blob by recording ID. Fetches audio on-demand.
+		 * - Desktop: Reads file from predictable path using services.fs.pathToBlob()
+		 * - Web: Fetches from IndexedDB by ID, converts serializedAudio to Blob
+		 */
+		getAudioBlob(recordingId: string): Promise<Result<Blob, DbServiceError>>;
+
+		/**
+		 * Get audio playback URL. Creates and caches URL.
+		 * - Desktop: Uses convertFileSrc() to create asset:// URL
+		 * - Web: Creates and caches object URL, manages lifecycle
+		 */
+		ensureAudioPlaybackUrl(
+			recordingId: string,
+		): Promise<Result<string, DbServiceError>>;
+
+		/**
+		 * Revoke audio URL if cached. Cleanup method.
+		 * - Desktop: No-op (asset:// URLs managed by Tauri)
+		 * - Web: Calls URL.revokeObjectURL() and removes from cache
+		 */
+		revokeAudioUrl(recordingId: string): void;
 	};
 	transformations: {
 		getAll(): Promise<Result<Transformation[], DbServiceError>>;
