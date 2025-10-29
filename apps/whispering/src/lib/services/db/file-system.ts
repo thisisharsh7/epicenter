@@ -89,7 +89,7 @@ function markdownToRecording({
 export function createFileSystemDb(): DbService {
 	return {
 		recordings: {
-			getAll: async () => {
+			async getAll() {
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
@@ -153,11 +153,10 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			getLatest: async () => {
+			async getLatest() {
 				return tryAsync({
 					try: async () => {
-						const { data: recordings, error } =
-							await createFileSystemDb().recordings.getAll();
+						const { data: recordings, error } = await this.getAll();
 						if (error) throw error;
 
 						if (recordings.length === 0) return null;
@@ -171,11 +170,10 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			getTranscribingIds: async () => {
+			async getTranscribingIds() {
 				return tryAsync({
 					try: async () => {
-						const { data: recordings, error } =
-							await createFileSystemDb().recordings.getAll();
+						const { data: recordings, error } = await this.getAll();
 						if (error) throw error;
 
 						return recordings
@@ -191,7 +189,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			getById: async (id: string) => {
+			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
@@ -222,7 +220,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			create: async ({ recording, audio }) => {
+			async create({ recording, audio }) {
 				const now = new Date().toISOString();
 				const recordingWithTimestamps = {
 					...recording,
@@ -272,7 +270,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			update: async (recording) => {
+			async update(recording) {
 				const now = new Date().toISOString();
 				const recordingWithTimestamp = {
 					...recording,
@@ -287,13 +285,9 @@ export function createFileSystemDb(): DbService {
 						// Check if file exists
 						const fileExists = await exists(mdPath);
 						if (!fileExists) {
-							// Not in file system yet, create it
-							const { data, error } =
-								await createFileSystemDb().recordings.create(
-									recordingWithTimestamp,
-								);
-							if (error) throw error;
-							return data;
+							throw new Error(
+								`Cannot update recording ${recording.id}: file does not exist. Use create() to create new recordings.`,
+							);
 						}
 
 						// Update .md file
@@ -324,7 +318,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			delete: async (recordings) => {
+			async delete(recordings) {
 				const recordingsArray = Array.isArray(recordings)
 					? recordings
 					: [recordings];
@@ -361,10 +355,10 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			cleanupExpired: async ({
+			async cleanupExpired({
 				recordingRetentionStrategy,
 				maxRecordingCount,
-			}) => {
+			}) {
 				switch (recordingRetentionStrategy) {
 					case 'keep-forever': {
 						return Ok(undefined);
@@ -372,8 +366,7 @@ export function createFileSystemDb(): DbService {
 					case 'limit-count': {
 						return tryAsync({
 							try: async () => {
-								const { data: recordings, error } =
-									await createFileSystemDb().recordings.getAll();
+								const { data: recordings, error } = await this.getAll();
 								if (error) throw error;
 
 								const maxCount = Number.parseInt(maxRecordingCount);
@@ -381,7 +374,7 @@ export function createFileSystemDb(): DbService {
 
 								// Delete oldest recordings (already sorted newest first)
 								const toDelete = recordings.slice(maxCount);
-								await createFileSystemDb().recordings.delete(toDelete);
+								await this.delete(toDelete);
 							},
 							catch: (error) =>
 								DbServiceErr({
@@ -394,7 +387,7 @@ export function createFileSystemDb(): DbService {
 				}
 			},
 
-			getAudioBlob: async (recordingId: string) => {
+			async getAudioBlob(recordingId: string) {
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
@@ -421,7 +414,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			ensureAudioPlaybackUrl: async (recordingId: string) => {
+			async ensureAudioPlaybackUrl(recordingId: string) {
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
@@ -445,13 +438,13 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			revokeAudioUrl: (recordingId: string) => {
+			revokeAudioUrl(_recordingId: string) {
 				// No-op on desktop, URLs are asset:// protocol managed by Tauri
 			},
 		},
 
 		transformations: {
-			getAll: async () => {
+			async getAll() {
 				return tryAsync({
 					try: async () => {
 						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
@@ -494,7 +487,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			getById: async (id: string) => {
+			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
 						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
@@ -517,7 +510,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			create: async (transformation: Transformation) => {
+			async create(transformation: Transformation) {
 				return tryAsync({
 					try: async () => {
 						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
@@ -548,7 +541,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			update: async (transformation: Transformation) => {
+			async update(transformation: Transformation) {
 				const now = new Date().toISOString();
 				const transformationWithTimestamp = {
 					...transformation,
@@ -582,7 +575,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			delete: async (transformations: Transformation | Transformation[]) => {
+			async delete(transformations: Transformation | Transformation[]) {
 				const transformationsArray = Array.isArray(transformations)
 					? transformations
 					: [transformations];
@@ -613,7 +606,7 @@ export function createFileSystemDb(): DbService {
 		},
 
 		runs: {
-			getById: async (id: string) => {
+			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -637,7 +630,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			getByTransformationId: async (transformationId: string) => {
+			async getByTransformationId(transformationId: string) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -689,7 +682,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			getByRecordingId: async (recordingId: string) => {
+			async getByRecordingId(recordingId: string) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -741,7 +734,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			create: async ({ transformationId, recordingId, input }) => {
+			async create({ transformationId, recordingId, input }) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -782,7 +775,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			addStep: async (run, step) => {
+			async addStep(run, step) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -823,7 +816,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			failStep: async (run, stepRunId, error) => {
+			async failStep(run, stepRunId, error) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -869,7 +862,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			completeStep: async (run, stepRunId, output) => {
+			async completeStep(run, stepRunId, output) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -912,7 +905,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			complete: async (run, output) => {
+			async complete(run, output) {
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
