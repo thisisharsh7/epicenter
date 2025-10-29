@@ -98,30 +98,94 @@ This is the transcribed text content.
 - Serializes blobs to `{ arrayBuffer, blobType }` when storing
 - Deserializes back to Blob when reading
 
-## Dual Read / Single Write (Desktop Only)
+## Migration and Read Optimization (Desktop Only)
 
-During the migration period (Phase 2), desktop uses a **dual read, single write** strategy:
+Desktop uses an automatic migration system with intelligent read optimization:
 
-**Read**: Check both sources
+### Migration on Startup
+
+When the desktop DB service is created, three migrations run in parallel in the background:
+1. **Recordings migration**: Copies recordings + audio blobs to file system, deletes from IndexedDB
+2. **Transformations migration**: Copies transformations to file system, deletes from IndexedDB
+3. **Transformation runs migration**: Copies runs to file system (keeps in IndexedDB due to no delete interface)
+
+Each migration:
+- Is idempotent (safe to run multiple times)
+- Preserves original timestamps and IDs
+- Deletes successfully migrated data from IndexedDB to free storage
+- Logs warnings for individual failures but continues overall migration
+
+### Optimized Reads
+
+Each read method awaits only its relevant migration before deciding how to read:
+
 ```typescript
+// Example: recordings.getAll()
 async function getAll() {
-  const fileSystemRecordings = await fileSystem.getAll();
-  const indexedDBRecordings = await indexedDB.getAll();
+  // Wait for recordings migration to complete
+  const { error: migrationError } = await recordingResultPromise;
+
+  if (!migrationError) {
+    // Fast path: migration succeeded, only read from file system
+    return fileSystem.recordings.getAll();
+  }
+
+  // Fallback: migration failed, dual read from both sources
+  const [fsResult, idbResult] = await Promise.all([
+    fileSystem.recordings.getAll(),
+    indexedDB.recordings.getAll(),
+  ]);
 
   // Merge, preferring file system for duplicates
-  return mergeDeduplicate([...fileSystemRecordings, ...indexedDBRecordings]);
+  return mergeDeduplicate(fsResult, idbResult);
 }
 ```
 
-**Write**: Only to file system
+**Fast path** (normal case): Once migration completes, reads only from file system (single source, no merge overhead)
+
+**Fallback path** (migration failure): Dual read from both sources ensures no data loss
+
+### Granular Migration Tracking
+
+Each table tracks its own migration independently:
+- `recordings.*` methods await `recordingResultPromise`
+- `transformations.*` methods await `transformationResultPromise`
+- `runs.*` methods await `runsResultPromise`
+
+This means recordings can switch to fast-path reads as soon as recording migration completes, without waiting for transformation or run migrations.
+
+### Writes
+
+All write operations (create, update, delete) only write to the file system:
+
 ```typescript
 async function create(recording) {
-  // Write to file system only
+  // Always write to file system only (never IndexedDB)
   return fileSystem.create(recording);
 }
 ```
 
-This allows gradual migration without data loss.
+This ensures new data goes directly to the target storage format.
+
+### Performance Characteristics
+
+**First app launch** (migration in progress):
+- Migrations run in background without blocking app startup
+- First read of each table waits for its specific migration (not all migrations)
+- If recordings migrate faster than transformations, recording reads switch to fast-path immediately
+- Dual-read fallback ensures data is accessible even if migration fails
+
+**Subsequent app launches** (after successful migration):
+- Migration checks file system and skips already-migrated items (idempotent)
+- Read methods immediately use fast-path (single source, no merge)
+- No IndexedDB overhead for recordings and transformations (deleted after migration)
+- Significantly reduced storage usage (especially from audio blobs)
+
+**Storage savings**:
+- Audio blobs: Deleted from IndexedDB after successful migration
+- Recordings metadata: Deleted from IndexedDB
+- Transformations: Deleted from IndexedDB
+- Runs: Remain in IndexedDB (small metadata, minimal impact)
 
 ## Service Interface
 
@@ -147,11 +211,13 @@ src/lib/services/db/
 ├── README.md              ← This file
 ├── index.ts               ← Platform-specific db factory
 ├── types.ts               ← DbService interface and error types
-├── models/
-│   └── recordings.ts      ← Recording type definitions
-├── file-system.ts         ← Desktop implementation
-├── index-db.ts            ← Web implementation
-└── desktop.ts             ← Dual read/single write wrapper
+├── models.ts              ← Type definitions (Recording, Transformation, etc.)
+├── file-system.ts         ← Desktop file system implementation
+├── web.ts                 ← Web IndexedDB implementation (Dexie)
+└── desktop.ts             ← Desktop migration + optimized read wrapper
+                              - Migration functions (migrateRecordings, etc.)
+                              - Per-table migration promises
+                              - Intelligent read methods (fast-path vs fallback)
 ```
 
 ## Usage Examples
@@ -196,8 +262,11 @@ recordings.forEach(recording => {
 The long-term plan is to eventually use file system storage on both platforms:
 
 1. **Phase 1** (✅ Complete): Web uses IndexedDB
-2. **Phase 2** (🚧 Current): Desktop uses file system, dual read during migration
+2. **Phase 2** (✅ Complete): Desktop uses file system with automatic migration from IndexedDB
+   - Background migration on app startup
+   - Fast-path reads after successful migration
+   - Automatic cleanup of IndexedDB storage
 3. **Phase 3** (Future): Web uses File System Access API where supported
 4. **Phase 4** (Future): Unified file system implementation across platforms
 
-See `docs/specs/` for detailed migration plans.
+See `docs/specs/20251029T000000 indexeddb-to-filesystem-migration.md` for detailed implementation.
