@@ -20,35 +20,25 @@ import { DbServiceErr } from './types';
 
 /**
  * Schema validator for Recording front matter (everything except transcribedText)
- * Note: YAML uses snake_case, TypeScript uses camelCase
  */
 const RecordingFrontMatter = type({
 	id: 'string',
 	title: 'string',
 	subtitle: 'string',
 	timestamp: 'string',
-	created_at: 'string',
-	updated_at: 'string',
-	transcription_status: '"UNPROCESSED" | "TRANSCRIBING" | "DONE" | "FAILED"',
+	createdAt: 'string',
+	updatedAt: 'string',
+	transcriptionStatus: '"UNPROCESSED" | "TRANSCRIBING" | "DONE" | "FAILED"',
 });
 
-type RecordingFrontMatter= typeof RecordingFrontMatter.infer;
+type RecordingFrontMatter = typeof RecordingFrontMatter.infer;
 
 /**
- * Convert Recording from TypeScript (camelCase) to YAML frontmatter (snake_case)
+ * Convert Recording to markdown format (frontmatter + body)
  */
-function recordingToFrontMatter(
-	recording: Omit<Recording, 'transcribedText'>,
-) {
-	return {
-		id: recording.id,
-		title: recording.title,
-		subtitle: recording.subtitle,
-		timestamp: recording.timestamp,
-		created_at: recording.createdAt,
-		updated_at: recording.updatedAt,
-		transcription_status: recording.transcriptionStatus,
-	};
+function recordingToMarkdown(recording: Recording): string {
+	const { transcribedText, ...frontMatter } = recording;
+	return matter.stringify(transcribedText ?? '', frontMatter);
 }
 
 /**
@@ -62,13 +52,7 @@ function markdownToRecording({
 	body: string;
 }): Recording {
 	return {
-		id: frontMatter.id,
-		title: frontMatter.title,
-		subtitle: frontMatter.subtitle,
-		timestamp: frontMatter.timestamp,
-		createdAt: frontMatter.created_at,
-		updatedAt: frontMatter.updated_at,
-		transcriptionStatus: frontMatter.transcription_status,
+		...frontMatter,
 		transcribedText: body,
 	};
 }
@@ -245,13 +229,7 @@ export function createFileSystemDb(): DbService {
 						await writeFile(audioPath, new Uint8Array(arrayBuffer));
 
 						// 2. Create .md file with front matter
-						const { transcribedText, ...metadata } = recordingWithTimestamps;
-						// Convert camelCase to snake_case for YAML
-						const frontMatter = recordingToFrontMatter(metadata);
-						const mdContent = matter.stringify(
-							transcribedText || '',
-							frontMatter,
-						);
+						const mdContent = recordingToMarkdown(recordingWithTimestamps);
 						const mdPath = await join(recordingsPath, `${recording.id}.md`);
 
 						// Write to temp file first, then rename (atomic operation)
@@ -291,13 +269,7 @@ export function createFileSystemDb(): DbService {
 						}
 
 						// Update .md file
-						const { transcribedText, ...metadata } = recordingWithTimestamp;
-						// Convert camelCase to snake_case for YAML
-						const frontMatter = recordingToFrontMatter(metadata);
-						const mdContent = matter.stringify(
-							transcribedText || '',
-							frontMatter,
-						);
+						const mdContent = recordingToMarkdown(recordingWithTimestamp);
 
 						// Atomic write
 						const tmpPath = `${mdPath}.tmp`;
@@ -355,10 +327,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			async cleanupExpired({
-				recordingRetentionStrategy,
-				maxRecordingCount,
-			}) {
+			async cleanupExpired({ recordingRetentionStrategy, maxRecordingCount }) {
 				switch (recordingRetentionStrategy) {
 					case 'keep-forever': {
 						return Ok(undefined);
@@ -394,13 +363,16 @@ export function createFileSystemDb(): DbService {
 						const audioFile = await findAudioFile(recordingsPath, recordingId);
 
 						if (!audioFile) {
-							throw new Error(`Audio file not found for recording ${recordingId}`);
+							throw new Error(
+								`Audio file not found for recording ${recordingId}`,
+							);
 						}
 
 						const audioPath = await join(recordingsPath, audioFile);
 
 						// Use existing services.fs.pathToBlob utility
-						const { data: blob, error } = await services.fs.pathToBlob(audioPath);
+						const { data: blob, error } =
+							await services.fs.pathToBlob(audioPath);
 						if (error) throw error;
 
 						return blob;
@@ -421,7 +393,9 @@ export function createFileSystemDb(): DbService {
 						const audioFile = await findAudioFile(recordingsPath, recordingId);
 
 						if (!audioFile) {
-							throw new Error(`Audio file not found for recording ${recordingId}`);
+							throw new Error(
+								`Audio file not found for recording ${recordingId}`,
+							);
 						}
 
 						const audioPath = await join(recordingsPath, audioFile);
