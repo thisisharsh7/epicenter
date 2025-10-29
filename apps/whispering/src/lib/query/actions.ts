@@ -112,12 +112,14 @@ const stopManualRecording = defineMutation({
 			title: '⏸️ Stopping recording...',
 			description: 'Finalizing your audio capture...',
 		});
-		const { data: blob, error: stopRecordingError } =
+		const { data, error: stopRecordingError } =
 			await recorder.stopRecording.execute({ toastId });
 		if (stopRecordingError) {
 			notify.error.execute({ id: toastId, ...stopRecordingError });
 			return Ok(undefined);
 		}
+
+		const { blob, recordingId } = data;
 
 		notify.success.execute({
 			id: toastId,
@@ -141,6 +143,7 @@ const stopManualRecording = defineMutation({
 
 		await processRecordingPipeline({
 			blob,
+			recordingId,
 			toastId,
 			completionTitle: '✨ Recording Complete!',
 			completionDescription: 'Recording saved and session closed successfully',
@@ -214,7 +217,7 @@ const startVadRecording = defineMutation({
 			}
 			case 'fallback': {
 				settings.updateKey(
-					'recording.vad.selectedDeviceId',
+					'recording.navigator.deviceId',
 					deviceAcquisitionOutcome.deviceId,
 				);
 				switch (deviceAcquisitionOutcome.reason) {
@@ -542,32 +545,40 @@ export const commands = {
  * 3. Shows completion toast
  * 4. Executes transcription flow
  * 5. Applies transformation if one is selected
+ *
+ * @param recordingId - Optional recording ID. When provided (e.g., from CPAL recorder),
+ * the ID was generated earlier in the pipeline and is passed through for consistency.
+ * When omitted (e.g., VAD recording, file uploads), a new ID is generated here using nanoid().
+ * This flexibility allows different recording methods to control ID generation at the
+ * appropriate point in their respective pipelines.
  */
 async function processRecordingPipeline({
 	blob,
+	recordingId,
 	toastId,
 	completionTitle,
 	completionDescription,
 }: {
 	blob: Blob;
+	recordingId?: string;
 	toastId: string;
 	completionTitle: string;
 	completionDescription: string;
 }) {
 	const now = new Date().toISOString();
-	const newRecordingId = nanoid();
+	const newRecordingId = recordingId ?? nanoid();
 
 	const { data: createdRecording, error: createRecordingError } =
 		await db.recordings.create.execute({
-			id: newRecordingId,
-			title: '',
-			subtitle: '',
-			createdAt: now,
-			updatedAt: now,
-			timestamp: now,
-			transcribedText: '',
-			blob,
-			transcriptionStatus: 'UNPROCESSED',
+			recording: {
+				id: newRecordingId,
+				title: '',
+				subtitle: '',
+				timestamp: now,
+				transcribedText: '',
+				transcriptionStatus: 'UNPROCESSED',
+			},
+			audio: blob,
 		});
 
 	if (createRecordingError) {

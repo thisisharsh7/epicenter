@@ -12,6 +12,7 @@ import type {
 	RecordingsDbSchemaV3,
 	RecordingsDbSchemaV4,
 	RecordingsDbSchemaV5,
+	SerializedAudio,
 	Transformation,
 	TransformationRun,
 	TransformationRunCompleted,
@@ -24,6 +25,7 @@ import type {
 } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
+import type { Settings } from '$lib/settings';
 
 const DB_NAME = 'RecordingDB';
 
@@ -268,9 +270,16 @@ class WhisperingDatabase extends Dexie {
 						const newRecordings = await Dexie.waitFor(
 							Promise.all(
 								oldRecordings.map(async (record) => {
-									const recordingWithSerializedAudio =
-										await recordingToRecordingWithSerializedAudio(record);
-									return recordingWithSerializedAudio;
+									// Convert V4 (Recording with blob) to V5 (RecordingStoredInIndexedDB)
+									const serializedAudio = record.blob
+										? await blobToSerializedAudio(record.blob)
+										: undefined;
+
+									const { blob, ...recordWithoutBlob } = record;
+									return {
+										...recordWithoutBlob,
+										serializedAudio,
+									};
 								}),
 							),
 						);
@@ -307,33 +316,37 @@ class WhisperingDatabase extends Dexie {
 
 // const downloadIndexedDbBlobWithToast = useDownloadIndexedDbBlobWithToast();
 
-const recordingToRecordingWithSerializedAudio = async (
-	recording: Recording,
-): Promise<RecordingsDbSchemaV5['recordings']> => {
-	const { blob, ...rest } = recording;
-	if (!blob) return { ...rest, serializedAudio: undefined };
-
+/**
+ * Convert Blob to serialized format for IndexedDB storage.
+ * Returns null if conversion fails.
+ */
+async function blobToSerializedAudio(
+	blob: Blob,
+): Promise<SerializedAudio | undefined> {
 	const arrayBuffer = await blob.arrayBuffer().catch((error) => {
 		console.error('Error getting array buffer from blob', blob, error);
 		return undefined;
 	});
-	if (!arrayBuffer) return { ...rest, serializedAudio: undefined };
 
-	return { ...rest, serializedAudio: { arrayBuffer, blobType: blob.type } };
-};
+	if (!arrayBuffer) return undefined;
 
-const recordingWithSerializedAudioToRecording = (
-	recording: RecordingsDbSchemaV5['recordings'],
-): Recording => {
-	const { serializedAudio, ...rest } = recording;
-	if (!serializedAudio) return { ...rest, blob: undefined };
+	return { arrayBuffer, blobType: blob.type };
+}
 
-	const { arrayBuffer, blobType } = serializedAudio;
+/**
+ * Convert serialized audio back to Blob for use in the application.
+ */
+function serializedAudioToBlob(serializedAudio: SerializedAudio): Blob {
+	return new Blob([serializedAudio.arrayBuffer], {
+		type: serializedAudio.blobType,
+	});
+}
 
-	const blob = new Blob([arrayBuffer], { type: blobType });
-
-	return { ...rest, blob };
-};
+/**
+ * Cache for audio object URLs to avoid recreating them.
+ * Maps recordingId -> object URL
+ */
+const audioUrlCache = new Map<string, string>();
 
 export function createDbServiceWeb({
 	DownloadService,
@@ -350,10 +363,9 @@ export function createDbServiceWeb({
 							.orderBy('timestamp')
 							.reverse()
 							.toArray();
-						return Dexie.waitFor(
-							Promise.all(
-								recordings.map(recordingWithSerializedAudioToRecording),
-							),
+						// Strip serializedAudio field to return Recording type
+						return recordings.map(
+							({ serializedAudio, ...recording }) => recording,
 						);
 					},
 					catch: (error) =>
@@ -372,7 +384,9 @@ export function createDbServiceWeb({
 							.reverse()
 							.first();
 						if (!latestRecording) return null;
-						return recordingWithSerializedAudioToRecording(latestRecording);
+						// Strip serializedAudio field to return Recording type
+						const { serializedAudio, ...recording } = latestRecording;
+						return recording;
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -397,12 +411,14 @@ export function createDbServiceWeb({
 				});
 			},
 
-			getById: async (id: string) => {
+			getById: async (id) => {
 				return tryAsync({
 					try: async () => {
 						const maybeRecording = await db.recordings.get(id);
 						if (!maybeRecording) return null;
-						return recordingWithSerializedAudioToRecording(maybeRecording);
+						// Strip serializedAudio field to return Recording type
+						const { serializedAudio, ...recording } = maybeRecording;
+						return recording;
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -413,7 +429,7 @@ export function createDbServiceWeb({
 				});
 			},
 
-			create: async (recording: Recording) => {
+			create: async ({ recording, audio }) => {
 				const now = new Date().toISOString();
 				const recordingWithTimestamps = {
 					...recording,
@@ -421,9 +437,14 @@ export function createDbServiceWeb({
 					updatedAt: now,
 				} satisfies Recording;
 
-				const dbRecording = await recordingToRecordingWithSerializedAudio(
-					recordingWithTimestamps,
-				);
+				// Convert audio blob to serialized format
+				const serializedAudio = await blobToSerializedAudio(audio);
+
+				// Create IndexedDB record with serialized audio
+				const dbRecording = {
+					...recordingWithTimestamps,
+					serializedAudio,
+				};
 
 				const { error: createRecordingError } = await tryAsync({
 					try: async () => {
@@ -440,16 +461,22 @@ export function createDbServiceWeb({
 				return Ok(recordingWithTimestamps);
 			},
 
-			update: async (recording: Recording) => {
+			update: async (recording) => {
 				const now = new Date().toISOString();
 				const recordingWithTimestamp = {
 					...recording,
 					updatedAt: now,
 				} satisfies Recording;
 
-				const dbRecording = await recordingToRecordingWithSerializedAudio(
-					recordingWithTimestamp,
-				);
+				// Get existing record to preserve serializedAudio (audio is immutable)
+				const existingRecord = await db.recordings.get(recording.id);
+				const serializedAudio = existingRecord?.serializedAudio;
+
+				// Create updated IndexedDB record with preserved audio
+				const dbRecording = {
+					...recordingWithTimestamp,
+					serializedAudio,
+				};
 
 				const { error: updateRecordingError } = await tryAsync({
 					try: async () => {
@@ -466,7 +493,7 @@ export function createDbServiceWeb({
 				return Ok(recordingWithTimestamp);
 			},
 
-			delete: async (recordings: Recording | Recording[]) => {
+			delete: async (recordings) => {
 				const recordingsArray = Array.isArray(recordings)
 					? recordings
 					: [recordings];
@@ -538,6 +565,78 @@ export function createDbServiceWeb({
 					}
 				}
 			},
+
+			getAudioBlob: async (recordingId) => {
+				return tryAsync({
+					try: async () => {
+						const recordingWithAudio = await db.recordings.get(recordingId);
+
+						if (!recordingWithAudio) {
+							throw new Error(`Recording ${recordingId} not found`);
+						}
+
+						if (!recordingWithAudio.serializedAudio) {
+							throw new Error(`No audio found for recording ${recordingId}`);
+						}
+
+						const blob = serializedAudioToBlob(
+							recordingWithAudio.serializedAudio,
+						);
+						return blob;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting audio blob from IndexedDB',
+							context: { recordingId },
+							cause: error,
+						}),
+				});
+			},
+
+			ensureAudioPlaybackUrl: async (recordingId) => {
+				return tryAsync({
+					try: async () => {
+						// Check cache first
+						const cachedUrl = audioUrlCache.get(recordingId);
+						if (cachedUrl) {
+							return cachedUrl;
+						}
+
+						// Fetch blob from IndexedDB
+						const recordingWithAudio = await db.recordings.get(recordingId);
+
+						if (!recordingWithAudio) {
+							throw new Error(`Recording ${recordingId} not found`);
+						}
+
+						if (!recordingWithAudio.serializedAudio) {
+							throw new Error(`No audio found for recording ${recordingId}`);
+						}
+
+						const blob = serializedAudioToBlob(
+							recordingWithAudio.serializedAudio,
+						);
+						const objectUrl = URL.createObjectURL(blob);
+						audioUrlCache.set(recordingId, objectUrl);
+
+						return objectUrl;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error ensuring audio playback URL from IndexedDB',
+							context: { recordingId },
+							cause: error,
+						}),
+				});
+			},
+
+			revokeAudioUrl: (recordingId) => {
+				const url = audioUrlCache.get(recordingId);
+				if (url) {
+					URL.revokeObjectURL(url);
+					audioUrlCache.delete(recordingId);
+				}
+			},
 		}, // End of recordings namespace
 
 		transformations: {
@@ -552,7 +651,7 @@ export function createDbServiceWeb({
 				});
 			},
 
-			getById: async (id: string) => {
+			getById: async (id) => {
 				return tryAsync({
 					try: async () => {
 						const maybeTransformation =
@@ -568,7 +667,7 @@ export function createDbServiceWeb({
 				});
 			},
 
-			create: async (transformation: Transformation) => {
+			create: async (transformation) => {
 				const { error: createTransformationError } = await tryAsync({
 					try: () => db.transformations.add(transformation),
 					catch: (error) =>
@@ -582,7 +681,7 @@ export function createDbServiceWeb({
 				return Ok(transformation);
 			},
 
-			update: async (transformation: Transformation) => {
+			update: async (transformation) => {
 				const now = new Date().toISOString();
 				const transformationWithTimestamp = {
 					...transformation,
@@ -601,7 +700,7 @@ export function createDbServiceWeb({
 				return Ok(transformationWithTimestamp);
 			},
 
-			delete: async (transformations: Transformation | Transformation[]) => {
+			delete: async (transformations) => {
 				const transformationsArray = Array.isArray(transformations)
 					? transformations
 					: [transformations];
@@ -621,7 +720,7 @@ export function createDbServiceWeb({
 		}, // End of transformations namespace
 
 		runs: {
-			getById: async (id: string) => {
+			getById: async (id) => {
 				const {
 					data: transformationRun,
 					error: getTransformationRunByIdError,
@@ -639,7 +738,7 @@ export function createDbServiceWeb({
 				return Ok(transformationRun ?? null);
 			},
 
-			getByTransformationId: async (transformationId: string) => {
+			getByTransformationId: async (transformationId) => {
 				return tryAsync({
 					try: async () => {
 						const runs = await db.transformationRuns
@@ -666,7 +765,7 @@ export function createDbServiceWeb({
 				});
 			},
 
-			getByRecordingId: async (recordingId: string) => {
+			getByRecordingId: async (recordingId) => {
 				return tryAsync({
 					try: async () => {
 						const runs = await db.transformationRuns
@@ -692,15 +791,7 @@ export function createDbServiceWeb({
 				});
 			},
 
-			create: async ({
-				transformationId,
-				recordingId,
-				input,
-			}: {
-				transformationId: string;
-				recordingId: string | null;
-				input: string;
-			}) => {
+			create: async ({ transformationId, recordingId, input }) => {
 				const now = new Date().toISOString();
 				const transformationRunWithTimestamps = {
 					id: nanoid(),
@@ -726,13 +817,7 @@ export function createDbServiceWeb({
 				return Ok(transformationRunWithTimestamps);
 			},
 
-			addStep: async (
-				run: TransformationRun,
-				step: {
-					id: string;
-					input: string;
-				},
-			) => {
+			addStep: async (run, step) => {
 				const now = new Date().toISOString();
 				const newTransformationStepRun = {
 					id: nanoid(),
@@ -763,11 +848,7 @@ export function createDbServiceWeb({
 				return Ok(newTransformationStepRun);
 			},
 
-			failStep: async (
-				run: TransformationRun,
-				stepRunId: string,
-				error: string,
-			) => {
+			failStep: async (run, stepRunId, error) => {
 				const now = new Date().toISOString();
 
 				// Create the failed transformation run
@@ -805,11 +886,7 @@ export function createDbServiceWeb({
 				return Ok(failedRun);
 			},
 
-			completeStep: async (
-				run: TransformationRun,
-				stepRunId: string,
-				output: string,
-			) => {
+			completeStep: async (run, stepRunId, output) => {
 				const now = new Date().toISOString();
 
 				// Create updated transformation run with the new step runs
@@ -844,7 +921,7 @@ export function createDbServiceWeb({
 				return Ok(updatedRun);
 			},
 
-			complete: async (run: TransformationRun, output: string) => {
+			complete: async (run, output) => {
 				const now = new Date().toISOString();
 
 				// Create the completed transformation run

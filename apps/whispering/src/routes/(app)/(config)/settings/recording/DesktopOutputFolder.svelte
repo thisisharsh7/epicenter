@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { Input } from '@repo/ui/input';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import { FolderOpen, ExternalLink, RotateCcw } from '@lucide/svelte';
-	import { settings } from '$lib/stores/settings.svelte';
+	import { rpc } from '$lib/query';
 	import { getDefaultRecordingsFolder } from '$lib/services/recorder';
+	import { settings } from '$lib/stores/settings.svelte';
+	import { ExternalLink, FolderOpen, RotateCcw } from '@lucide/svelte';
+	import { Input } from '@repo/ui/input';
+	import { Ok, tryAsync } from 'wellcrafted/result';
 
 	// Top-level await to get the default app data directory
 	let defaultRecordingsFolder = $state<string | null>(null);
@@ -37,13 +39,27 @@
 
 	async function openOutputFolder() {
 		if (!window.__TAURI_INTERNALS__) return;
-		const { openPath } = await import('@tauri-apps/plugin-opener');
 
-		const folderPath =
-			settings.value['recording.cpal.outputFolder'] ?? defaultRecordingsFolder;
-		if (folderPath) {
-			await openPath(folderPath);
-		}
+		await tryAsync({
+			try: async () => {
+				const { openPath } = await import('@tauri-apps/plugin-opener');
+
+				const folderPath =
+					settings.value['recording.cpal.outputFolder'] ??
+					defaultRecordingsFolder;
+				if (!folderPath) {
+					throw new Error('No output folder configured');
+				}
+				await openPath(folderPath);
+			},
+			catch: (error) => {
+				rpc.notify.error.execute({
+					title: 'Failed to open folder',
+					description: error instanceof Error ? error.message : 'Unknown error',
+				});
+				return Ok(undefined);
+			},
+		});
 	}
 </script>
 
