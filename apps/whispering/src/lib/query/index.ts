@@ -1,6 +1,6 @@
 // Import all query modules
 import { analytics } from './analytics';
-import { commands } from './commands';
+import { commands } from './actions';
 import { db } from './db';
 import { delivery } from './delivery';
 import { download } from './download';

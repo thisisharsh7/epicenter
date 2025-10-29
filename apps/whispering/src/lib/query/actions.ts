@@ -16,6 +16,15 @@ import { transcription } from './transcription';
 import { transformer } from './transformer';
 import { vadRecorder } from './vad-recorder';
 
+/**
+ * Application actions. These are mutations at the UI boundary that can be invoked
+ * from anywhere: command registry, components, stores, etc.
+ *
+ * They always return Ok() because there's nowhere left to propagate errors—errors flow
+ * sideways through notify.error.execute() instead of up the call stack. Actions are
+ * the end of the operation chain.
+ */
+
 // Track manual recording start time for duration calculation
 let manualRecordingStartTime: number | null = null;
 
@@ -36,7 +45,7 @@ const startManualRecording = defineMutation({
 
 		if (startRecordingError) {
 			notify.error.execute({ id: toastId, ...startRecordingError });
-			return Err(startRecordingError);
+			return Ok(undefined);
 		}
 
 		switch (deviceAcquisitionOutcome.outcome) {
@@ -107,7 +116,7 @@ const stopManualRecording = defineMutation({
 			await recorder.stopRecording.execute({ toastId });
 		if (stopRecordingError) {
 			notify.error.execute({ id: toastId, ...stopRecordingError });
-			return Err(stopRecordingError);
+			return Ok(undefined);
 		}
 
 		const { blob, recordingId } = data;
@@ -193,7 +202,7 @@ const startVadRecording = defineMutation({
 			});
 		if (startActiveListeningError) {
 			notify.error.execute({ id: toastId, ...startActiveListeningError });
-			return Err(startActiveListeningError);
+			return Ok(undefined);
 		}
 
 		// Handle device acquisition outcome
@@ -263,7 +272,7 @@ const stopVadRecording = defineMutation({
 			await vadRecorder.stopActiveListening.execute(undefined);
 		if (stopVadError) {
 			notify.error.execute({ id: toastId, ...stopVadError });
-			return Err(stopVadError);
+			return Ok(undefined);
 		}
 		notify.success.execute({
 			id: toastId,
@@ -289,7 +298,7 @@ export const commands = {
 				await recorder.getRecorderState.fetch();
 			if (getRecorderStateError) {
 				notify.error.execute(getRecorderStateError);
-				return Err(getRecorderStateError);
+				return Ok(undefined);
 			}
 			if (recorderState === 'RECORDING') {
 				return await stopManualRecording.execute(undefined);
@@ -312,7 +321,7 @@ export const commands = {
 				await recorder.cancelRecording.execute({ toastId });
 			if (cancelRecordingError) {
 				notify.error.execute({ id: toastId, ...cancelRecordingError });
-				return Err(cancelRecordingError);
+				return Ok(undefined);
 			}
 			switch (cancelRecordingResult.status) {
 				case 'no-recording': {
@@ -509,7 +518,7 @@ export const commands = {
 
 			if (transformError) {
 				notify.error.execute({ id: toastId, ...transformError });
-				return Err(transformError);
+				return Ok(undefined);
 			}
 
 			sound.playSoundIfEnabled.execute('transformationComplete');
