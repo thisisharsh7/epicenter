@@ -16,6 +16,31 @@ import { transcription } from './transcription';
 import { transformer } from './transformer';
 import { vadRecorder } from './vad-recorder';
 
+/**
+ * Commands are terminal mutations at the UI boundary. They handle errors by notifying the user
+ * and then returning Ok(). This pattern simplifies error handling because:
+ *
+ * 1. Errors are communicated to the user via notifications (not error propagation)
+ * 2. Commands represent successful execution even when underlying operations fail
+ * 3. Command handlers don't need to check or handle error results
+ *
+ * Example:
+ * ```typescript
+ * if (error) {
+ *   notify.error.execute(error);  // Show error to user
+ *   return Ok(undefined);          // Command executed successfully
+ * }
+ * ```
+ *
+ * NOT:
+ * ```typescript
+ * if (error) {
+ *   notify.error.execute(error);
+ *   return Err(error);  // ❌ Unnecessary error propagation
+ * }
+ * ```
+ */
+
 // Track manual recording start time for duration calculation
 let manualRecordingStartTime: number | null = null;
 
