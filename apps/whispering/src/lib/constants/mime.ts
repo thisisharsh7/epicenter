@@ -1,3 +1,5 @@
+import { safeLookup } from '@repo/shared';
+
 /**
  * MIME type mappings for audio and video files.
  * This is the single source of truth for extension <-> MIME type mappings.
@@ -42,11 +44,11 @@ const EXTENSION_MAP = Object.entries(MIME_TYPE_MAP).reduce(
  * Common MIME type aliases that map to canonical types.
  * Handles variations like 'audio/wave' vs 'audio/wav'.
  */
-const MIME_TYPE_ALIASES: Record<string, string> = {
+const MIME_TYPE_ALIASES = {
 	'audio/wave': 'audio/wav',
 	'audio/x-wav': 'audio/wav',
 	'audio/mp3': 'audio/mpeg',
-};
+} as const;
 
 /**
  * Get file extension from MIME type.
@@ -55,7 +57,7 @@ const MIME_TYPE_ALIASES: Record<string, string> = {
  */
 export function getExtensionFromMimeType(mimeType: string): string {
 	// Normalize MIME type
-	const normalized = MIME_TYPE_ALIASES[mimeType] ?? mimeType;
+	const normalized = safeLookup(MIME_TYPE_ALIASES, mimeType) ?? mimeType;
 	return EXTENSION_MAP[normalized] ?? 'wav';
 }
 
@@ -67,10 +69,7 @@ export function getExtensionFromMimeType(mimeType: string): string {
 export function getMimeTypeFromExtension(extension: string): string {
 	// Remove leading dot if present
 	const ext = extension.startsWith('.') ? extension.slice(1) : extension;
-	return (
-		MIME_TYPE_MAP[ext as keyof typeof MIME_TYPE_MAP] ||
-		'application/octet-stream'
-	);
+	return safeLookup(MIME_TYPE_MAP, ext) ?? 'application/octet-stream';
 }
 
 /**
