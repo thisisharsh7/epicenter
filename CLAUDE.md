@@ -113,6 +113,62 @@ When a handler function only calls `.mutate()`, inline it directly:
 </Button>
 ```
 
+# TanStack Query Accessor Pattern in Svelte 5
+
+When using TanStack Query with Svelte 5, always use accessor functions for reactive values to preserve reactivity tracking.
+
+## The Pattern
+
+```typescript
+// ✅ CORRECT: Accessor function preserves reactivity
+const query = createQuery(rpc.db.recordings.ensureAudioPlaybackUrl(() => recordingId).options);
+
+// ❌ WRONG: Direct value breaks reactive tracking
+const query = createQuery(rpc.db.recordings.ensureAudioPlaybackUrl(recordingId).options);
+```
+
+## Why This Matters
+
+Svelte 5's signal-based reactivity requires accessor functions to maintain reactive tracking chains. When you pass `() => value`, TanStack Query can call that function and establish reactive subscriptions. Passing `value` directly only passes the current snapshot, breaking reactivity.
+
+## When to Use Accessor Functions
+
+- **Props**: `() => props.recordingId`
+- **$state variables**: `() => recordingId`
+- **$derived values**: `() => computedValue`
+- **Any reactive value**: If it can change, wrap it in `() => value`
+
+## When NOT to Use Accessor Functions
+
+- **String literals**: `'static-id'`
+- **Number literals**: `42`
+- **Constants**: `CONSTANT_VALUE`
+- **Static values**: Any value that will never change
+
+## Common Mistakes
+
+```typescript
+// ❌ WRONG: Method syntax is backwards
+createQuery(rpc.method.options(() => param));
+
+// ✅ CORRECT: Call method with accessor, then access .options
+createQuery(rpc.method(() => param).options);
+
+// ❌ WRONG: Passing reactive value directly
+const recordingId = $state('abc-123');
+createQuery(rpc.db.recordings.get(recordingId).options);
+
+// ✅ CORRECT: Wrapping reactive value in accessor
+const recordingId = $state('abc-123');
+createQuery(rpc.db.recordings.get(() => recordingId).options);
+```
+
+## The Rule of Thumb
+
+If the value can change during the component's lifetime, use an accessor function. If it's static and will never change, pass it directly.
+
+See `docs/accessor-pattern-explained.md` for detailed explanation of how this works under the hood.
+
 # Standard Workflow
 1. First think through the problem, read the codebase for relevant files, and write a plan to docs/specs/[timestamp] [feature-name].md where [timestamp] is the timestamp in YYYYMMDDThhmmss format and [feature-name] is the name of the feature.
 2. The plan should have a list of todo items that you can check off as you complete them
@@ -536,7 +592,7 @@ Whispering now supports direct file uploads! 🎙️
 
 Simply drag and drop (or click to browse) your audio files for instant transcription, with your model of choice.
 
-Free open-source app: https://github.com/epicenter-md/epicenter
+Free open-source app: https://github.com/epicenter-so/epicenter
 ```
 
 ### Bad (AI-Generated Feel)
@@ -552,7 +608,7 @@ Built with the same philosophy of transparency and user control, you pay only ac
 
 Ready to revolutionize your workflow? Try it now!
 
-🔗 GitHub: https://github.com/epicenter-md/epicenter
+🔗 GitHub: https://github.com/epicenter-so/epicenter
 
 #OpenSource #Productivity #Innovation #DeveloperTools #Transcription
 ```
@@ -582,7 +638,7 @@ The component handles web drag-and-drop, but since Whispering is a Tauri desktop
 
 You can see the [full implementation here](link) (note that the code is still somewhat messy by my standards; it is slated for cleanup!).
 
-Whispering is a large, open-source, production Svelte 5 + Tauri app: https://github.com/epicenter-md/epicenter
+Whispering is a large, open-source, production Svelte 5 + Tauri app: https://github.com/epicenter-so/epicenter
 
 Feel free to check it out for more patterns! If you're building Svelte 5 apps and need file uploads, definitely check out shadcn-svelte-extras. Not affiliated, it just saved me hours of implementation time.
 
@@ -947,22 +1003,6 @@ src/
 - Use PostHog's autocapture for basic interaction tracking
 - Implement custom events for business-specific actions
 - Use feature flags for A/B testing and gradual rollouts
-
-# GitHub Pull Request Merge Strategy
-
-When merging pull requests using `gh pr merge`, always use a **regular merge commit**, never a squash merge.
-
-**Correct command:**
-```bash
-gh pr merge <pr-number> --merge
-```
-
-**Never use:**
-```bash
-gh pr merge <pr-number> --squash  # ❌ Don't use this
-```
-
-This preserves the full commit history and makes it easier to track individual changes over time.
 
 ---
 
