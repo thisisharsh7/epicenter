@@ -1,7 +1,12 @@
-import { Err, Ok } from 'wellcrafted/result';
+import { join } from '@tauri-apps/api/path';
+import { exists, mkdir, writeTextFile, rename } from '@tauri-apps/plugin-fs';
+import matter from 'gray-matter';
+import { Err, Ok, tryAsync } from 'wellcrafted/result';
+import { PATHS } from '$lib/constants/paths';
 import type { DownloadService } from '$lib/services/download';
 import { createFileSystemDb } from './file-system';
 import type { DbService } from './types';
+import { DbServiceErr } from './types';
 import { createDbServiceWeb } from './web';
 
 /**
@@ -18,6 +23,202 @@ import { createDbServiceWeb } from './web';
  * - Gradual, automatic migration as users interact with recordings
  * - File system becomes the source of truth over time
  */
+
+/**
+ * Migrate all data from IndexedDB to file system.
+ * This is a one-time migration that should be called on app initialization.
+ *
+ * Migrates:
+ * - Recordings (including audio files downloaded to disk)
+ * - Transformations
+ * - Transformation runs (preserving IDs and all historical data)
+ *
+ * Behavior:
+ * - Idempotent: skips items that already exist in file system
+ * - Preserves original timestamps for recordings
+ * - Preserves exact run data including IDs
+ *
+ * Error handling:
+ * - Logs warnings for individual item failures
+ * - Continues migration even if some items fail
+ * - Returns overall success/failure status with counts
+ */
+export async function migrateFromIndexedDbToFileSystem({
+	indexedDb,
+	fileSystemDb,
+}: {
+	indexedDb: DbService;
+	fileSystemDb: DbService;
+}) {
+
+	return tryAsync({
+		try: async () => {
+			let migratedCount = 0;
+			let skippedCount = 0;
+			let errorCount = 0;
+
+			// Migrate recordings (including audio blobs)
+			const { data: recordings, error: getRecordingsError } =
+				await indexedDb.recordings.getAll();
+
+			if (getRecordingsError) {
+				console.error('Failed to get recordings from IndexedDB:', getRecordingsError);
+			} else {
+				for (const recording of recordings) {
+					// Check if already migrated
+					const { data: existing } = await fileSystemDb.recordings.getById(
+						recording.id,
+					);
+					if (existing) {
+						skippedCount++;
+						continue;
+					}
+
+					// Get audio blob
+					const { data: audio, error: audioError } =
+						await indexedDb.recordings.getAudioBlob(recording.id);
+
+					if (audioError || !audio) {
+						console.warn(
+							`Skipping recording ${recording.id}: failed to get audio`,
+							audioError,
+						);
+						errorCount++;
+						continue;
+					}
+
+					// Create in file system (will add new timestamps)
+					const { error: createError } = await fileSystemDb.recordings.create({
+						recording,
+						audio,
+					});
+
+					if (createError) {
+						console.warn(
+							`Failed to migrate recording ${recording.id}`,
+							createError,
+						);
+						errorCount++;
+						continue;
+					}
+
+					migratedCount++;
+				}
+			}
+
+			// Migrate transformations
+			const { data: transformations, error: getTransformationsError } =
+				await indexedDb.transformations.getAll();
+
+			if (getTransformationsError) {
+				console.error(
+					'Failed to get transformations from IndexedDB:',
+					getTransformationsError,
+				);
+			} else {
+				for (const transformation of transformations) {
+					// Check if already migrated
+					const { data: existing } =
+						await fileSystemDb.transformations.getById(transformation.id);
+					if (existing) {
+						skippedCount++;
+						continue;
+					}
+
+					// Create in file system
+					const { error: createError } =
+						await fileSystemDb.transformations.create(transformation);
+
+					if (createError) {
+						console.warn(
+							`Failed to migrate transformation ${transformation.id}`,
+							createError,
+						);
+						errorCount++;
+						continue;
+					}
+
+					migratedCount++;
+				}
+			}
+
+			// Migrate transformation runs
+			// Iterate through transformations to get all runs
+			if (!getTransformationsError) {
+				for (const transformation of transformations) {
+					const { data: runs, error: getRunsError } =
+						await indexedDb.runs.getByTransformationId(transformation.id);
+
+					if (getRunsError) {
+						console.warn(
+							`Failed to get runs for transformation ${transformation.id}`,
+							getRunsError,
+						);
+					} else {
+						for (const run of runs) {
+							// Check if already migrated
+							const { data: existing } = await fileSystemDb.runs.getById(
+								run.id,
+							);
+							if (existing) {
+								skippedCount++;
+								continue;
+							}
+
+							// Write run directly to preserve all data including ID
+							// (Can't use create() because it generates new IDs)
+							const { error } = await tryAsync({
+								try: async () => {
+									const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+
+									// Ensure directory exists
+									const dirExists = await exists(runsPath);
+									if (!dirExists) {
+										await mkdir(runsPath, { recursive: true });
+									}
+
+									// Write run file
+									const mdContent = matter.stringify('', run);
+									const mdPath = await join(runsPath, `${run.id}.md`);
+									const tmpPath = `${mdPath}.tmp`;
+
+									await writeTextFile(tmpPath, mdContent);
+									await rename(tmpPath, mdPath);
+								},
+								catch: (error) =>
+									DbServiceErr({
+										message: `Failed to migrate transformation run ${run.id}`,
+										cause: error,
+									}),
+							});
+
+							if (error) {
+								console.warn(`Failed to migrate run ${run.id}`, error);
+								errorCount++;
+							} else {
+								migratedCount++;
+							}
+						}
+					}
+				}
+			}
+
+			console.log('Migration complete:', {
+				migrated: migratedCount,
+				skipped: skippedCount,
+				errors: errorCount,
+			});
+
+			return { migrated: migratedCount, skipped: skippedCount, errors: errorCount };
+		},
+		catch: (error) =>
+			DbServiceErr({
+				message: 'Failed to migrate data from IndexedDB to file system',
+				cause: error,
+			}),
+	});
+}
+
 export function createDbServiceDesktop({
 	DownloadService,
 }: {
@@ -26,10 +227,24 @@ export function createDbServiceDesktop({
 	const fileSystemDb = createFileSystemDb();
 	const indexedDb = createDbServiceWeb({ DownloadService });
 
+	// Start migration in background (don't await)
+	const migrationPromise = migrateFromIndexedDbToFileSystem({
+		indexedDb,
+		fileSystemDb,
+	});
+
 	return {
 		recordings: {
 			getAll: async () => {
-				// DUAL READ: Merge from both sources
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.recordings.getAll();
+				}
+
+				// If migration failed, fall back to DUAL READ: Merge from both sources
 				const [fsResult, idbResult] = await Promise.all([
 					fileSystemDb.recordings.getAll(),
 					indexedDb.recordings.getAll(),
@@ -77,7 +292,15 @@ export function createDbServiceDesktop({
 			},
 
 			getLatest: async () => {
-				// DUAL READ: Check both sources via getAll
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.recordings.getLatest();
+				}
+
+				// If migration failed, fall back to DUAL READ: Check both sources via getAll
 				const { data: recordings, error } = await createDbServiceDesktop({
 					DownloadService,
 				}).recordings.getAll();
@@ -89,7 +312,15 @@ export function createDbServiceDesktop({
 			},
 
 			getTranscribingIds: async () => {
-				// DUAL READ: Merge from both sources
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.recordings.getTranscribingIds();
+				}
+
+				// If migration failed, fall back to DUAL READ: Merge from both sources
 				const [fsResult, idbResult] = await Promise.all([
 					fileSystemDb.recordings.getTranscribingIds(),
 					indexedDb.recordings.getTranscribingIds(),
@@ -118,7 +349,15 @@ export function createDbServiceDesktop({
 			},
 
 			getById: async (id: string) => {
-				// DUAL READ: Check file system first, fallback to IndexedDB
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.recordings.getById(id);
+				}
+
+				// If migration failed, fall back to DUAL READ: Check file system first, fallback to IndexedDB
 				const fsResult = await fileSystemDb.recordings.getById(id);
 
 				// If found in file system, return it
@@ -219,7 +458,15 @@ export function createDbServiceDesktop({
 			},
 
 			getAudioBlob: async (recordingId) => {
-				// DUAL READ: Check file system first, fallback to IndexedDB
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.recordings.getAudioBlob(recordingId);
+				}
+
+				// If migration failed, fall back to DUAL READ: Check file system first, fallback to IndexedDB
 				const fsResult = await fileSystemDb.recordings.getAudioBlob(recordingId);
 
 				// If found in file system, return it
@@ -254,7 +501,15 @@ export function createDbServiceDesktop({
 			},
 
 			ensureAudioPlaybackUrl: async (recordingId) => {
-				// DUAL READ: Check file system first, fallback to IndexedDB
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.recordings.ensureAudioPlaybackUrl(recordingId);
+				}
+
+				// If migration failed, fall back to DUAL READ: Check file system first, fallback to IndexedDB
 				const fsResult =
 					await fileSystemDb.recordings.ensureAudioPlaybackUrl(recordingId);
 
@@ -299,7 +554,15 @@ export function createDbServiceDesktop({
 
 		transformations: {
 			getAll: async () => {
-				// DUAL READ: Merge from both sources
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.transformations.getAll();
+				}
+
+				// If migration failed, fall back to DUAL READ: Merge from both sources
 				const [fsResult, idbResult] = await Promise.all([
 					fileSystemDb.transformations.getAll(),
 					indexedDb.transformations.getAll(),
@@ -337,7 +600,15 @@ export function createDbServiceDesktop({
 			},
 
 			getById: async (id: string) => {
-				// DUAL READ: Check file system first, fallback to IndexedDB
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.transformations.getById(id);
+				}
+
+				// If migration failed, fall back to DUAL READ: Check file system first, fallback to IndexedDB
 				const fsResult = await fileSystemDb.transformations.getById(id);
 
 				// If found in file system, return it
@@ -409,7 +680,15 @@ export function createDbServiceDesktop({
 
 		runs: {
 			getById: async (id: string) => {
-				// DUAL READ: Check file system first, fallback to IndexedDB
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.runs.getById(id);
+				}
+
+				// If migration failed, fall back to DUAL READ: Check file system first, fallback to IndexedDB
 				const fsResult = await fileSystemDb.runs.getById(id);
 
 				// If found in file system, return it
@@ -444,7 +723,15 @@ export function createDbServiceDesktop({
 			},
 
 			getByTransformationId: async (transformationId: string) => {
-				// DUAL READ: Merge from both sources
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.runs.getByTransformationId(transformationId);
+				}
+
+				// If migration failed, fall back to DUAL READ: Merge from both sources
 				const [fsResult, idbResult] = await Promise.all([
 					fileSystemDb.runs.getByTransformationId(transformationId),
 					indexedDb.runs.getByTransformationId(transformationId),
@@ -492,7 +779,15 @@ export function createDbServiceDesktop({
 			},
 
 			getByRecordingId: async (recordingId: string) => {
-				// DUAL READ: Merge from both sources
+				// Check if migration completed successfully
+				const { error: migrationError } = await migrationPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.runs.getByRecordingId(recordingId);
+				}
+
+				// If migration failed, fall back to DUAL READ: Merge from both sources
 				const [fsResult, idbResult] = await Promise.all([
 					fileSystemDb.runs.getByRecordingId(recordingId),
 					indexedDb.runs.getByRecordingId(recordingId),

@@ -21,7 +21,7 @@ export type DbService = {
 		getTranscribingIds(): Promise<Result<string[], DbServiceError>>;
 		getById(id: string): Promise<Result<Recording | null, DbServiceError>>;
 		create(params: {
-			recording: Omit<Recording, 'createdAt' | 'updatedAt'>;
+			recording: Omit<Recording, 'createdAt' | 'updatedAt'> | Recording;
 			audio: Blob;
 		}): Promise<Result<Recording, DbServiceError>>;
 		update(recording: Recording): Promise<Result<Recording, DbServiceError>>;

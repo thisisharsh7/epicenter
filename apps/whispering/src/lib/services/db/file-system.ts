@@ -226,8 +226,8 @@ export function createFileSystemDb(): DbService {
 				const now = new Date().toISOString();
 				const recordingWithTimestamps = {
 					...recording,
-					createdAt: now,
-					updatedAt: now,
+					createdAt: 'createdAt' in recording ? recording.createdAt : now,
+					updatedAt: 'updatedAt' in recording ? recording.updatedAt : now,
 				} satisfies Recording;
 
 				return tryAsync({
