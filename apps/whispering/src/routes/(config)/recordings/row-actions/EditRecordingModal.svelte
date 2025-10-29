@@ -100,7 +100,7 @@
 </script>
 
 <Modal.Root bind:open={isDialogOpen}>
-	<>
+	<Modal.Trigger>
 		{#snippet child({ props })}
 			<WhisperingButton
 				tooltipContent="Edit recording"
@@ -111,7 +111,7 @@
 				<EditIcon class="size-4" />
 			</WhisperingButton>
 		{/snippet}
->
+	</Modal.Trigger>
 	<Modal.Content
 		onEscapeKeydown={(e) => {
 			e.preventDefault();
