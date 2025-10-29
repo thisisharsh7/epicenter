@@ -11,6 +11,7 @@ import {
 import { type } from 'arktype';
 import matter from 'gray-matter';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
+import { getExtensionFromMimeType } from '$lib/constants/mime';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
 import type { Recording, Transformation, TransformationRun } from './models';
@@ -237,7 +238,7 @@ export function createFileSystemDb(): DbService {
 						await mkdir(recordingsPath, { recursive: true });
 
 						// 1. Write audio file
-						const extension = getExtensionFromBlobType(audio.type);
+						const extension = getExtensionFromMimeType(audio.type);
 						const audioPath = await join(
 							recordingsPath,
 							`${recording.id}.${extension}`,
@@ -961,23 +962,6 @@ async function findAudioFile(dir: string, id: string): Promise<string | null> {
 		if (fileExists) return filename;
 	}
 	return null;
-}
-
-/**
- * Get file extension from blob type
- */
-function getExtensionFromBlobType(blobType: string): string {
-	const mapping: Record<string, string> = {
-		'audio/wav': 'wav',
-		'audio/wave': 'wav',
-		'audio/x-wav': 'wav',
-		'audio/opus': 'opus',
-		'audio/ogg': 'ogg',
-		'audio/mpeg': 'mp3',
-		'audio/mp3': 'mp3',
-	};
-
-	return mapping[blobType] || 'wav'; // Default to wav
 }
 
 /**
