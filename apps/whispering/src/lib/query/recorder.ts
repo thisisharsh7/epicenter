@@ -1,14 +1,9 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Ok } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
-import { PLATFORM_TYPE } from '$lib/constants/platform';
 import { fromTaggedErr, WhisperingErr } from '$lib/result';
 import * as services from '$lib/services';
 import { getDefaultRecordingsFolder } from '$lib/services/recorder';
-import {
-	FFMPEG_DEFAULT_INPUT_OPTIONS,
-	FFMPEG_DEFAULT_OUTPUT_OPTIONS,
-} from '$lib/services/recorder/ffmpeg';
 import { settings } from '$lib/stores/settings.svelte';
 import { defineMutation, defineQuery, queryClient } from './_client';
 import { notify } from './notify';
