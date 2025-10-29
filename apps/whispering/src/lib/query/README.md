@@ -863,52 +863,25 @@ Each feature file typically exports an object with:
 - Helper functions
 - Utility methods
 
-## Commands: Terminal Operations That Always Succeed
+## Commands: Always Return Ok
 
-Commands are special mutations that represent the end of an operation chain. They handle errors by notifying the user and then returning `Ok`, since from the command's perspective, it successfully executed (including handling any failures).
+Commands in the query layer always return `Ok` after handling errors. They notify the user and return success because the command itself executed—error handling is part of that execution.
 
 ```typescript
-// ✅ Command Pattern: notify error, then return Ok
 const startManualRecording = defineMutation({
-	mutationKey: ['commands', 'startManualRecording'] as const,
 	resultMutationFn: async () => {
-		const { data, error } = await recorder.startRecording.execute();
-
-		// Error occurred? Notify the user.
+		const { error } = await recorder.startRecording.execute();
 		if (error) {
-			notify.error.execute(error);
-			return Ok(undefined); // Command itself succeeded
+			notify.error.execute(error); // Notify user
+			return Ok(undefined);         // Command succeeded
 		}
-
-		// Continue with success path
 		notify.success.execute({ title: 'Recording started' });
 		return Ok(undefined);
 	},
 });
-
-// ❌ Anti-pattern: returning Err from a command
-// const { error } = await startManualRecording.execute();
-// if (error) { /* Can't do anything - command already failed */ }
 ```
 
-### Why Commands Always Return Ok
-
-Commands sit at the UI boundary where errors are already communicated to the user. The command's job is to coordinate operations and show notifications. Since it does this successfully (even when the underlying operations fail), it returns `Ok` to signal "the command executed and handled its result appropriately."
-
-This simplifies error handling because:
-1. Errors are already shown to the user via notifications
-2. Command handlers don't need to check error results
-3. The distinction between "operation failed" and "command succeeded" becomes clear
-
-### Command Pattern Examples
-
-**Recording commands** (`/lib/query/commands.ts`):
-- `startManualRecording`, `stopManualRecording`
-- `startVadRecording`, `stopVadRecording`
-- `toggleManualRecording`, `cancelManualRecording`
-- `uploadRecordings`, `runTransformationOnClipboard`
-
-All follow the same pattern: handle errors with `notify.error.execute()`, then return `Ok`.
+Commands are invoked by the UI command handler (`/lib/commands.ts`), which calls these mutations. The UI handler doesn't need to check for errors because they're already handled at the query layer.
 
 ## Best Practices
 
@@ -918,14 +891,13 @@ All follow the same pattern: handle errors with `notify.error.execute()`, then r
    - **In `.ts` files**: Always use `.execute()` since createMutation requires component context
    - This gives you consistent loading states, error handling, and better UX in components
 3. **Mutation callback pattern**: When using `createMutation`, pass callbacks as the second argument to `.mutate()` for maximum context
-4. **Command pattern**: Commands always return `Ok` after notifying errors, since they represent terminal operations
-5. Choose the right interface for the job:
+4. Choose the right interface for the job:
    - Use `.execute()` in `.ts` files and when you don't need pending state
    - Use `createMutation()` when you need reactive state for UI feedback
-6. Keep queries simple - Complex logic belongs in services or orchestration mutations
-7. Update cache optimistically - Better UX for mutations
-8. Use proper query keys - Hierarchical and consistent
-9. Leverage direct client access - Our static architecture enables powerful patterns unavailable in SSR apps
+5. Keep queries simple - Complex logic belongs in services or orchestration mutations
+6. Update cache optimistically - Better UX for mutations
+7. Use proper query keys - Hierarchical and consistent
+8. Leverage direct client access - Our static architecture enables powerful patterns unavailable in SSR apps
 
 ## Quick Reference: Common RPC Patterns
 
