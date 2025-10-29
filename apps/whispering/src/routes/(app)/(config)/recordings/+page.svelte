@@ -50,6 +50,8 @@
 	import TranscribedTextDialog from '$lib/components/copyable/TranscribedTextDialog.svelte';
 	import { RecordingRowActions } from './row-actions';
 	import { format } from 'date-fns';
+	import OpenFolderButton from '$lib/components/OpenFolderButton.svelte';
+	import { PATHS } from '$lib/constants/paths';
 
 	/**
 	 * Returns a cell renderer for a date/time column using date-fns format.
@@ -557,6 +559,11 @@
 						<TrashIcon class="size-4" />
 					</WhisperingButton>
 				{/if}
+
+				<OpenFolderButton
+					getFolderPath={PATHS.DB.RECORDINGS}
+					tooltipText="Open recordings folder"
+				/>
 
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger
