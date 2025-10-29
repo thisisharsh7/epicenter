@@ -32,7 +32,7 @@
 	import * as Card from '@repo/ui/card';
 	import { Link } from '@repo/ui/link';
 	import { Separator } from '@repo/ui/separator';
-	import { hasNavigatorLocalTranscriptionIssue } from '../../../+layout/check-ffmpeg';
+	import { hasNavigatorLocalTranscriptionIssue } from '../../../_layout-utils/check-ffmpeg';
 
 	const { data } = $props();
 

@@ -57,6 +57,18 @@ export const commands = [
 		on: 'Pressed',
 		callback: () => rpc.commands.toggleVadRecording.execute(undefined),
 	},
+	{
+		id: 'openTransformationPicker',
+		title: 'Open transformation picker',
+		on: 'Pressed',
+		callback: () => rpc.commands.openTransformationPicker.execute(undefined),
+	},
+	{
+		id: 'runTransformationOnClipboard',
+		title: 'Run transformation on clipboard',
+		on: 'Pressed',
+		callback: () => rpc.commands.runTransformationOnClipboard.execute(undefined),
+	},
 ] as const satisfies SatisfiedCommand[];
 
 export type Command = (typeof commands)[number];

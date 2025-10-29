@@ -1,8 +1,9 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Err, Ok } from 'wellcrafted/result';
-import { fromTaggedError } from '$lib/result';
+import { fromTaggedError, WhisperingErr } from '$lib/result';
 import { DbServiceErr } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
+import * as transformClipboardWindow from '../../routes/transform-clipboard/transformClipboardWindow.tauri';
 import { rpc } from './';
 import { defineMutation } from './_client';
 import { db } from './db';
@@ -10,6 +11,7 @@ import { delivery } from './delivery';
 import { notify } from './notify';
 import { recorder } from './recorder';
 import { sound } from './sound';
+import { text } from './text';
 import { transcription } from './transcription';
 import { transformer } from './transformer';
 import { vadRecorder } from './vad-recorder';
@@ -412,6 +414,115 @@ export const commands = {
 				processedCount: validFiles.length,
 				skippedCount: invalidFiles.length,
 			});
+		},
+	}),
+
+	// Open transformation picker to select a transformation
+	openTransformationPicker: defineMutation({
+		mutationKey: ['commands', 'openTransformationPicker'] as const,
+		resultMutationFn: async () => {
+			await transformClipboardWindow.toggle();
+			return Ok(undefined);
+		},
+	}),
+
+	// Run selected transformation on clipboard
+	runTransformationOnClipboard: defineMutation({
+		mutationKey: ['commands', 'runTransformationOnClipboard'] as const,
+		resultMutationFn: async () => {
+			// Get selected transformation from settings
+			const transformationId =
+				settings.value['transformations.selectedTransformationId'];
+
+			if (!transformationId) {
+				return WhisperingErr({
+					title: '⚠️ No transformation selected',
+					description: 'Please select a transformation in settings first.',
+					action: {
+						type: 'link',
+						label: 'Select a transformation',
+						href: '/transformations',
+					},
+				});
+			}
+
+			// Get the transformation
+			const { data: transformation, error: getTransformationError } =
+				await db.transformations.getById(() => transformationId).fetch();
+
+			if (getTransformationError) {
+				return Err(
+					fromTaggedError(getTransformationError, {
+						title: '❌ Failed to get transformation',
+						action: { type: 'more-details', error: getTransformationError },
+					}),
+				);
+			}
+
+			if (!transformation) {
+				settings.updateKey('transformations.selectedTransformationId', null);
+				return WhisperingErr({
+					title: '⚠️ Transformation not found',
+					description:
+						'The selected transformation no longer exists. Please select a different one.',
+					action: {
+						type: 'link',
+						label: 'Select a transformation',
+						href: '/transformations',
+					},
+				});
+			}
+
+			// Read clipboard text
+			const { data: clipboardText, error: readClipboardError } =
+				await text.readFromClipboard.fetch();
+
+			if (readClipboardError) {
+				return Err(
+					fromTaggedError(readClipboardError, {
+						title: '❌ Failed to read clipboard',
+						action: { type: 'more-details', error: readClipboardError },
+					}),
+				);
+			}
+
+			if (!clipboardText?.trim()) {
+				return WhisperingErr({
+					title: '📋 Empty clipboard',
+					description: 'Please copy some text before running a transformation.',
+				});
+			}
+
+			// Run transformation
+			const toastId = nanoid();
+			notify.loading.execute({
+				id: toastId,
+				title: '🔄 Running transformation...',
+				description: 'Transforming your clipboard text...',
+			});
+
+			const { data: output, error: transformError } =
+				await transformer.transformInput.execute({
+					input: clipboardText,
+					transformation,
+				});
+
+			if (transformError) {
+				notify.error.execute({ id: toastId, ...transformError });
+				return Err(transformError);
+			}
+
+			sound.playSoundIfEnabled.execute('transformationComplete');
+
+			await delivery.deliverTransformationResult.execute({
+				text: output,
+				toastId,
+			});
+
+			return Ok(undefined);
+		},
+		onError: (error) => {
+			notify.error.execute(error);
 		},
 	}),
 };

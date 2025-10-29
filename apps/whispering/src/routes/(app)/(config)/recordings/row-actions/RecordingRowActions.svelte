@@ -17,17 +17,13 @@
 		PlayIcon,
 		RepeatIcon,
 	} from '@lucide/svelte';
-	import { nanoid } from 'nanoid/non-secure';
 	import EditRecordingModal from './EditRecordingModal.svelte';
 	import TransformationPicker from './TransformationPicker.svelte';
 	import ViewTransformationRunsDialog from './ViewTransformationRunsDialog.svelte';
+	import { nanoid } from 'nanoid/non-secure';
 
 	const transcribeRecording = createMutation(
 		rpc.transcription.transcribeRecording.options,
-	);
-
-	const transformRecording = createMutation(
-		rpc.transformer.transformRecording.options,
 	);
 
 	const deleteRecording = createMutation(rpc.db.recordings.delete.options);
@@ -109,43 +105,7 @@
 			{/if}
 		</WhisperingButton>
 
-		<TransformationPicker
-			onSelect={(transformation) => {
-				const toastId = nanoid();
-				rpc.notify.loading.execute({
-					id: toastId,
-					title: '🔄 Running transformation...',
-					description:
-						'Applying your selected transformation to the transcribed text...',
-				});
-				transformRecording.mutate(
-					{ recordingId: recording.id, transformation },
-					{
-						onError: (error) => rpc.notify.error.execute(error),
-						onSuccess: (transformationRun) => {
-							if (transformationRun.status === 'failed') {
-								rpc.notify.error.execute({
-									title: '⚠️ Transformation error',
-									description: transformationRun.error,
-									action: {
-										type: 'more-details',
-										error: transformationRun.error,
-									},
-								});
-								return;
-							}
-
-							rpc.sound.playSoundIfEnabled.execute('transformationComplete');
-
-							rpc.delivery.deliverTransformationResult.execute({
-								text: transformationRun.output,
-								toastId,
-							});
-						},
-					},
-				);
-			}}
-		/>
+		<TransformationPicker recordingId={recording.id} />
 
 		<EditRecordingModal {recording} />
 

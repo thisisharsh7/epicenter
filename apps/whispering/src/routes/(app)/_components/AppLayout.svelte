@@ -1,4 +1,8 @@
 <script lang="ts">
+	import * as Dialog from '@repo/ui/dialog';
+	// import { extension } from '@repo/extension';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { commandCallbacks } from '$lib/commands';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
@@ -8,30 +12,25 @@
 	import { rpc } from '$lib/query';
 	import * as services from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
-	// import { extension } from '@repo/extension';
-	import { createQuery } from '@tanstack/svelte-query';
-	import { ModeWatcher, mode } from 'mode-watcher';
-	import { onDestroy, onMount } from 'svelte';
-	import { Toaster, type ToasterProps } from 'svelte-sonner';
-	import { syncWindowAlwaysOnTopWithRecorderState } from './alwaysOnTop.svelte';
-	import { checkForUpdates } from './check-for-updates';
+	import { syncWindowAlwaysOnTopWithRecorderState } from '../_layout-utils/alwaysOnTop.svelte';
+	import {
+		checkCompressionRecommendation,
+		checkFfmpegRecordingMethodCompatibility,
+	} from '../_layout-utils/check-ffmpeg';
+	import { checkForUpdates } from '../_layout-utils/check-for-updates';
 	import {
 		resetGlobalShortcutsToDefaultIfDuplicates,
 		resetLocalShortcutsToDefaultIfDuplicates,
 		syncGlobalShortcutsWithSettings,
 		syncLocalShortcutsWithSettings,
-	} from './register-commands';
-	import { registerOnboarding } from './register-onboarding';
-	import {
-		checkFfmpegRecordingMethodCompatibility,
-		checkCompressionRecommendation,
-	} from './check-ffmpeg';
+	} from '../_layout-utils/register-commands';
 	import {
 		registerAccessibilityPermission,
 		registerMicrophonePermission,
-	} from './register-permissions';
-	import { syncIconWithRecorderState } from './syncIconWithRecorderState.svelte';
-	import { migrateModelPaths } from './migration';
+	} from '../_layout-utils/register-permissions';
+	import { syncIconWithRecorderState } from '../_layout-utils/syncIconWithRecorderState.svelte';
+	import { registerOnboarding } from '../_layout-utils/register-onboarding';
+	import { migrateModelPaths } from '../_layout-utils/migration';
 
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
@@ -44,6 +43,7 @@
 	onMount(async () => {
 		window.commands = commandCallbacks;
 		window.goto = goto;
+
 		syncLocalShortcutsWithSettings();
 		resetLocalShortcutsToDefaultIfDuplicates();
 		await checkFfmpegRecordingMethodCompatibility();
@@ -86,22 +86,6 @@
 		});
 	});
 
-	const TOASTER_SETTINGS = {
-		position: 'bottom-right',
-		richColors: true,
-		duration: 5000,
-		visibleToasts: 5,
-		toastOptions: {
-			classes: {
-				toast: 'flex flex-wrap *:data-content:flex-1',
-				icon: 'shrink-0',
-				actionButton: 'w-full mt-3 inline-flex justify-center',
-				closeButton: 'w-full mt-3 inline-flex justify-center',
-			},
-		},
-		closeButton: true,
-	} satisfies ToasterProps;
-
 	let { children } = $props();
 </script>
 
@@ -125,13 +109,6 @@
 	{@render children()}
 </div>
 
-<Toaster
-	offset={16}
-	class="xs:block hidden"
-	theme={mode.current}
-	{...TOASTER_SETTINGS}
-/>
-<ModeWatcher />
 <ConfirmationDialog />
 <MoreDetailsDialog />
 <NotificationLog />

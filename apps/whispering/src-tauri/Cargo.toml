@@ -1,6 +1,6 @@
 [package]
 name = "whispering"
-version = "7.5.5"
+version = "7.6.0"
 description = "A Tauri App"
 authors = ["you"]
 repository = "https://github.com/epicenter-md/epicenter"

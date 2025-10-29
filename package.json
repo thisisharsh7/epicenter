@@ -2,7 +2,7 @@
 	"name": "epicenter",
 	"type": "module",
 	"private": true,
-	"version": "7.5.5",
+	"version": "7.6.0",
 	"description": "",
 	"keywords": [],
 	"license": "ISC",

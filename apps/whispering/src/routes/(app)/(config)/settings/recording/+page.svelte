@@ -17,7 +17,7 @@
 		isCompressionRecommended,
 		COMPRESSION_RECOMMENDED_MESSAGE,
 		hasNavigatorLocalTranscriptionIssue,
-	} from '../../../+layout/check-ffmpeg';
+	} from '../../../_layout-utils/check-ffmpeg';
 	import { IS_MACOS, IS_LINUX, PLATFORM_TYPE } from '$lib/constants/platform';
 	import { Button } from '@repo/ui/button';
 
