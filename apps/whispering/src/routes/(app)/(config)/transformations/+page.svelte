@@ -35,6 +35,8 @@
 	import CreateTransformationButton from './CreateTransformationButton.svelte';
 	import MarkTransformationActiveButton from './MarkTransformationActiveButton.svelte';
 	import TransformationRowActions from './TransformationRowActions.svelte';
+	import OpenFolderButton from '$lib/components/OpenFolderButton.svelte';
+	import { PATHS } from '$lib/constants/paths';
 
 	const transformationsQuery = createQuery(
 		rpc.db.transformations.getAll.options,
@@ -246,6 +248,11 @@
 				<TrashIcon class="size-4" />
 			</WhisperingButton>
 		{/if}
+
+		<OpenFolderButton
+			getFolderPath={PATHS.DB.TRANSFORMATIONS}
+			tooltipText="Open transformations folder"
+		/>
 
 		<CreateTransformationButton />
 	</div>

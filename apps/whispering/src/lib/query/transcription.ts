@@ -29,12 +29,17 @@ export const transcription = {
 		resultMutationFn: async (
 			recording: Recording,
 		): Promise<Result<string, WhisperingError>> => {
-			if (!recording.blob) {
+			// Fetch audio blob by ID
+			const { data: audioBlob, error: getAudioBlobError } =
+				await services.db.recordings.getAudioBlob(recording.id);
+
+			if (getAudioBlobError) {
 				return WhisperingErr({
-					title: '⚠️ Recording blob not found',
-					description: "Your recording doesn't have a blob to transcribe.",
+					title: '⚠️ Failed to fetch audio',
+					description: `Unable to load audio for recording: ${getAudioBlobError.message}`,
 				});
 			}
+
 			const { error: setRecordingTranscribingError } =
 				await db.recordings.update.execute({
 					...recording,
@@ -52,7 +57,7 @@ export const transcription = {
 				});
 			}
 			const { data: transcribedText, error: transcribeError } =
-				await transcribeBlob(recording.blob);
+				await transcribeBlob(audioBlob);
 			if (transcribeError) {
 				const { error: setRecordingTranscribingError } =
 					await db.recordings.update.execute({
@@ -99,13 +104,18 @@ export const transcription = {
 		resultMutationFn: async (recordings: Recording[]) => {
 			const results = await Promise.all(
 				recordings.map(async (recording) => {
-					if (!recording.blob) {
+					// Fetch audio blob by ID
+					const { data: audioBlob, error: getAudioBlobError } =
+						await services.db.recordings.getAudioBlob(recording.id);
+
+					if (getAudioBlobError) {
 						return WhisperingErr({
-							title: '⚠️ Recording blob not found',
-							description: "Your recording doesn't have a blob to transcribe.",
+							title: '⚠️ Failed to fetch audio',
+							description: `Unable to load audio for recording: ${getAudioBlobError.message}`,
 						});
 					}
-					return await transcribeBlob(recording.blob);
+
+					return await transcribeBlob(audioBlob);
 				}),
 			);
 			const partitionedResults = partitionResults(results);
