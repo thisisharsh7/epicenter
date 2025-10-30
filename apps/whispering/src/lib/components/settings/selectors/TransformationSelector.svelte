@@ -92,7 +92,7 @@
 						{/if}
 						{#if !selectedTransformation}
 							<span
-								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
+								class="absolute -right-1.5 -top-1.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
 							></span>
 						{/if}
 					</div>
@@ -121,7 +121,7 @@
 						{/if}
 						{#if !selectedTransformation}
 							<span
-								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
+								class="absolute -right-1.5 -top-1.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
 							></span>
 						{/if}
 					</div>

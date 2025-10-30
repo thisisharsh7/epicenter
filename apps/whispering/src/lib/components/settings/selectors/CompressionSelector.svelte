@@ -68,7 +68,7 @@
 						<!-- Recommended badge indicator -->
 						{#if shouldShowRecommendedBadge}
 							<span
-								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
+								class="absolute -right-1.5 -top-1.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
 							></span>
 						{/if}
 					</div>
@@ -96,7 +96,7 @@
 						<!-- Recommended badge indicator -->
 						{#if shouldShowRecommendedBadge}
 							<span
-								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
+								class="absolute -right-1.5 -top-1.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
 							></span>
 						{/if}
 					</div>
