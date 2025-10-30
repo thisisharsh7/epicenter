@@ -23,6 +23,7 @@
 	import { useSidebar } from '@repo/ui/sidebar';
 	import ManualDeviceSelector from '$lib/components/settings/selectors/ManualDeviceSelector.svelte';
 	import VadDeviceSelector from '$lib/components/settings/selectors/VadDeviceSelector.svelte';
+	import CompressionSelector from '$lib/components/settings/selectors/CompressionSelector.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	let {
@@ -79,9 +80,8 @@
 		},
 	] as const;
 
-	// Quick Settings placeholder items (excluding device selector)
+	// Quick Settings placeholder items (excluding device selector and compression)
 	const quickSettingsPlaceholders = [
-		{ label: 'Compression', icon: SlidersIcon },
 		{ label: 'Transcription Provider', icon: WandIcon },
 		{ label: 'Transformation Provider', icon: LayersIcon },
 	] as const;
@@ -166,6 +166,11 @@
 								{/snippet}
 							</Sidebar.MenuButton>
 						{/if}
+					</Sidebar.MenuItem>
+
+					<!-- Compression Selector -->
+					<Sidebar.MenuItem>
+						<CompressionSelector showLabel unstyled />
 					</Sidebar.MenuItem>
 
 					<!-- Other placeholders -->
