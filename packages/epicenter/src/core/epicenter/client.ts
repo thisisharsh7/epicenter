@@ -5,7 +5,7 @@ import type { EpicenterConfig } from './config';
 
 /**
  * Epicenter client type
- * Maps workspace names to their action handlers
+ * Maps workspace ids to their action handlers
  * Provides typed access to all workspace actions
  */
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
@@ -29,7 +29,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * // Long-lived usage (web app, desktop app)
  * const client = await createEpicenterClient(epicenter);
  *
- * // Access workspace actions by workspace name
+ * // Access workspace actions by workspace id
  * const page = await client.pages.createPage({
  *   title: 'My First Post',
  *   content: 'Hello, world!',
@@ -79,25 +79,25 @@ export async function createEpicenterClient<
  * The `destroy` methods at client and workspace levels are automatically excluded.
  *
  * @param client - The Epicenter client with workspace namespaces
- * @param callback - Function invoked for each action with `{ workspaceName, actionName, action }`
+ * @param callback - Function invoked for each action with `{ workspaceId, actionName, action }`
  *
  * @example
  * ```typescript
  * // Register MCP tools
- * forEachAction(client, ({ workspaceName, actionName, action }) => {
- *   actions.set(`${workspaceName}_${actionName}`, action);
+ * forEachAction(client, ({ workspaceId, actionName, action }) => {
+ *   actions.set(`${workspaceId}_${actionName}`, action);
  * });
  *
  * // Register REST routes
- * forEachAction(client, ({ workspaceName, actionName, action }) => {
- *   app.get(`/${workspaceName}/${actionName}`, handler);
+ * forEachAction(client, ({ workspaceId, actionName, action }) => {
+ *   app.get(`/${workspaceId}/${actionName}`, handler);
  * });
  * ```
  */
 export function forEachAction<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	client: EpicenterClient<TWorkspaces>,
 	callback: (params: {
-		workspaceName: TWorkspaces[number]['name'];
+		workspaceId: TWorkspaces[number]['id'];
 		actionName: string;
 		action: Action;
 	}) => void,
@@ -106,13 +106,13 @@ export function forEachAction<TWorkspaces extends readonly AnyWorkspaceConfig[]>
 	const { destroy, ...workspaceClients } = client;
 
 	// Iterate over each workspace and its actions
-	for (const [workspaceName, workspaceClient] of Object.entries(workspaceClients)) {
+	for (const [workspaceId, workspaceClient] of Object.entries(workspaceClients)) {
 		// Extract actions (excluding the destroy method from the workspace interface)
 		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
 
 		// Invoke callback for each action
 		for (const [actionName, action] of Object.entries(workspaceActions)) {
-			callback({ workspaceName, actionName, action });
+			callback({ workspaceId, actionName, action });
 		}
 	}
 }

@@ -27,7 +27,6 @@ import { posts } from './posts';
 export const comments = defineWorkspace({
 	id: 'comments',
 	version: 1,
-	name: 'comments',
 
 	// Only direct dependency on posts
 	// NOTE: Users workspace is NOT directly accessible even though posts depends on it

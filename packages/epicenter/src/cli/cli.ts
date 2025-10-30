@@ -84,11 +84,11 @@ export async function createCLI({
 		const actionMap = workspaceConfig.actions(mockContext);
 
 		cli = cli.command(
-			workspaceConfig.name,
-			`Commands for ${workspaceConfig.name} workspace`,
+			workspaceConfig.id,
+			`Commands for ${workspaceConfig.id} workspace`,
 			(yargs) => {
 				let workspaceCli = yargs
-					.usage(`Usage: $0 ${workspaceConfig.name} <action> [options]`)
+					.usage(`Usage: $0 ${workspaceConfig.id} <action> [options]`)
 					.demandCommand(1, 'You must specify an action')
 					.strict();
 
@@ -108,7 +108,7 @@ export async function createCLI({
 							// Handler: initialize real workspace and execute action
 							await executeAction(
 								config,
-								workspaceConfig.name,
+								workspaceConfig.id,
 								actionName,
 								argv,
 							);
@@ -136,23 +136,23 @@ export async function createCLI({
  * 5. Cleans up resources
  *
  * @param config - Epicenter configuration
- * @param workspaceName - Name of the workspace to execute action in
+ * @param workspaceId - ID of the workspace to execute action in
  * @param actionName - Name of the action to execute
  * @param args - Command-line arguments (parsed by yargs)
  */
 async function executeAction(
 	config: EpicenterConfig,
-	workspaceName: string,
+	workspaceId: string,
 	actionName: string,
 	args: any,
 ) {
 	// Find workspace config
 	const workspaceConfig = config.workspaces.find(
-		(ws) => ws.name === workspaceName,
+		(ws) => ws.id === workspaceId,
 	);
 
 	if (!workspaceConfig) {
-		console.error(`❌ Workspace "${workspaceName}" not found`);
+		console.error(`❌ Workspace "${workspaceId}" not found`);
 		process.exit(1);
 	}
 
@@ -165,7 +165,7 @@ async function executeAction(
 
 		if (!handler) {
 			console.error(
-				`❌ Action "${actionName}" not found in workspace "${workspaceName}"`,
+				`❌ Action "${actionName}" not found in workspace "${workspaceId}"`,
 			);
 			process.exit(1);
 		}

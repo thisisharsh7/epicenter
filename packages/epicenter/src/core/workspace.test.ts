@@ -24,7 +24,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Create workspaces: C depends on B, B depends on A
 		const workspaceA = defineWorkspace({
 			id: 'workspace-a',
-			name: 'workspace-a',
 			version: 1,
 			schema: {
 				items: {
@@ -42,7 +41,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
-			name: 'workspace-b',
 			version: 1,
 			dependencies: [workspaceA],
 			schema: {
@@ -64,7 +62,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// C depends on B (direct), and A (transitive through B)
 		const workspaceC = defineWorkspace({
 			id: 'workspace-c',
-			name: 'workspace-c',
 			version: 1,
 			dependencies: [workspaceA, workspaceB], // Hoisted/flat dependencies
 			schema: {
@@ -96,7 +93,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// D is the base, A and B depend on D, C depends on both A and B
 		const workspaceD = defineWorkspace({
 			id: 'workspace-d',
-			name: 'workspace-d',
 			version: 1,
 			schema: {
 				items: {
@@ -114,7 +110,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceA = defineWorkspace({
 			id: 'workspace-a',
-			name: 'workspace-a',
 			version: 1,
 			dependencies: [workspaceD],
 			schema: {
@@ -133,7 +128,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
-			name: 'workspace-b',
 			version: 1,
 			dependencies: [workspaceD],
 			schema: {
@@ -155,7 +149,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// C depends on A, B (direct), and D (transitive through A and B)
 		const workspaceC = defineWorkspace({
 			id: 'workspace-c',
-			name: 'workspace-c',
 			version: 1,
 			dependencies: [workspaceD, workspaceA, workspaceB], // All hoisted
 			schema: {
@@ -192,7 +185,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Create three independent workspaces (no dependencies)
 		const workspaceX = defineWorkspace({
 			id: 'workspace-x',
-			name: 'workspace-x',
 			version: 1,
 			schema: {
 				items: {
@@ -210,7 +202,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceY = defineWorkspace({
 			id: 'workspace-y',
-			name: 'workspace-y',
 			version: 1,
 			schema: {
 				items: {
@@ -228,7 +219,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceZ = defineWorkspace({
 			id: 'workspace-z',
-			name: 'workspace-z',
 			version: 1,
 			dependencies: [workspaceX, workspaceY],
 			schema: {
@@ -262,7 +252,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Create workspace A with version 1
 		const workspaceA_v1 = defineWorkspace({
 			id: 'workspace-a',
-			name: 'workspace-a',
 			version: 1,
 			dependencies: [],
 			schema: {
@@ -283,7 +272,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Create workspace A with version 3 (higher)
 		const workspaceA_v3 = defineWorkspace({
 			id: 'workspace-a',
-			name: 'workspace-a',
 			version: 3,
 			dependencies: [],
 			schema: {
@@ -304,7 +292,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// B depends on v1, C depends on v3
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
-			name: 'workspace-b',
 			version: 1,
 			dependencies: [workspaceA_v1],
 			schema: {
@@ -323,7 +310,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceC = defineWorkspace({
 			id: 'workspace-c',
-			name: 'workspace-c',
 			version: 1,
 			dependencies: [workspaceA_v3],
 			schema: {
@@ -344,7 +330,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Root depends on both B and C (flat resolution: include ALL transitive deps)
 		const root = defineWorkspace({
 			id: 'root',
-			name: 'root',
 			version: 1,
 			dependencies: [workspaceA_v1, workspaceA_v3, workspaceB, workspaceC],
 			schema: {
@@ -380,7 +365,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Create circular dependency: A -> B -> A
 		const workspaceA: any = {
 			id: 'workspace-a',
-			name: 'workspace-a',
 			version: 1,
 			schema: {
 				items: {
@@ -394,7 +378,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		const workspaceB: any = {
 			id: 'workspace-b',
-			name: 'workspace-b',
 			version: 1,
 			dependencies: [workspaceA],
 			schema: {
@@ -432,7 +415,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		const workspaceA = defineWorkspace({
 			id: 'workspace-a',
-			name: 'workspace-a',
 			version: 1,
 			schema: {
 				items: {
@@ -450,7 +432,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
-			name: 'workspace-b',
 			version: 1,
 			dependencies: [workspaceA],
 			schema: {
@@ -469,7 +450,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceC = defineWorkspace({
 			id: 'workspace-c',
-			name: 'workspace-c',
 			version: 1,
 			dependencies: [workspaceA],
 			schema: {
@@ -488,7 +468,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceD = defineWorkspace({
 			id: 'workspace-d',
-			name: 'workspace-d',
 			version: 1,
 			dependencies: [workspaceA, workspaceB, workspaceC],
 			schema: {
@@ -507,7 +486,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		});
 		const workspaceE = defineWorkspace({
 			id: 'workspace-e',
-			name: 'workspace-e',
 			version: 1,
 			dependencies: [workspaceA, workspaceB, workspaceC],
 			schema: {
@@ -528,7 +506,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// F must declare ALL transitive dependencies (flat resolution)
 		const workspaceF = defineWorkspace({
 			id: 'workspace-f',
-			name: 'workspace-f',
 			version: 1,
 			dependencies: [
 				workspaceA,
@@ -583,7 +560,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Create workspace A that exposes an action
 		const workspaceA = defineWorkspace({
 			id: 'workspace-a',
-			name: 'workspaceA',
 			version: 1,
 			schema: {
 				items: {
@@ -604,7 +580,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// Create workspace B that depends on A and uses its action
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
-			name: 'workspaceB',
 			version: 1,
 			dependencies: [workspaceA],
 			schema: {
@@ -618,7 +593,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				getValueFromA: defineQuery({
 					handler: async () => {
 						// Access workspace A's action
-						const result = await workspaces.workspaceA.getValue();
+						const result = await workspaces['workspace-a'].getValue();
 						return result;
 					},
 				}),
@@ -635,7 +610,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 	test('createWorkspaceClient returns only the specified workspace', async () => {
 		const workspaceA = defineWorkspace({
 			id: 'a',
-			name: 'workspaceA',
 			version: 1,
 			schema: {
 				items: {
@@ -653,7 +627,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		const workspaceB = defineWorkspace({
 			id: 'b',
-			name: 'workspaceB',
 			version: 1,
 			dependencies: [workspaceA],
 			schema: {
@@ -668,7 +641,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					handler: () => Ok('value-from-b'),
 				}),
 				callA: defineQuery({
-					handler: async () => workspaces.workspaceA.getValueFromA(),
+					handler: async () => workspaces['a'].getValueFromA(),
 				}),
 			}),
 		});
@@ -694,7 +667,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 	test('createWorkspaceClient with multiple dependencies returns only specified workspace', async () => {
 		const workspaceA = defineWorkspace({
 			id: 'a',
-			name: 'workspaceA',
 			version: 1,
 			schema: {
 				items: {
@@ -712,7 +684,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		const workspaceB = defineWorkspace({
 			id: 'b',
-			name: 'workspaceB',
 			version: 1,
 			schema: {
 				items: {
@@ -730,7 +701,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		const workspaceC = defineWorkspace({
 			id: 'c',
-			name: 'workspaceC',
 			version: 1,
 			dependencies: [workspaceA, workspaceB],
 			schema: {
@@ -745,10 +715,10 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					handler: () => Ok('value-from-c'),
 				}),
 				getFromA: defineQuery({
-					handler: async () => workspaces.workspaceA.getValue(),
+					handler: async () => workspaces['a'].getValue(),
 				}),
 				getFromB: defineQuery({
-					handler: async () => workspaces.workspaceB.getValue(),
+					handler: async () => workspaces['b'].getValue(),
 				}),
 			}),
 		});
@@ -789,7 +759,6 @@ describe('Workspace Action Handlers', () => {
 	const postsWorkspace = defineWorkspace({
 		id: 'posts-test',
 		version: 1,
-		name: 'posts',
 
 		schema: {
 			posts: {

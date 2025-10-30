@@ -26,7 +26,6 @@ describe('Blog Workspace Integration', () => {
 	const blogWorkspace = defineWorkspace({
 		id: 'blog',
 		version: 1,
-		name: 'blog',
 
 		schema: {
 			posts: {

@@ -31,7 +31,6 @@ describe('Server Integration Tests', () => {
 	const blogWorkspace = defineWorkspace({
 		id: 'blog',
 		version: 1,
-		name: 'blog',
 
 		schema: {
 			posts: {
@@ -193,7 +192,6 @@ describe('Server Integration Tests', () => {
 					id: 2,
 					method: 'tools/call',
 					params: {
-						name: 'blog_createPost',
 						arguments: {
 							title: 'MCP Test Post',
 							category: 'tech',
@@ -233,7 +231,6 @@ describe('Server Integration Tests', () => {
 		const authWorkspace = defineWorkspace({
 			id: 'auth',
 			version: 1,
-			name: 'auth',
 
 			schema: {
 				users: {
@@ -306,7 +303,6 @@ describe('Server Integration Tests', () => {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					email: 'test@example.com',
-					name: 'Test User',
 				}),
 			});
 
@@ -352,10 +348,8 @@ describe('Server Integration Tests', () => {
 					id: 4,
 					method: 'tools/call',
 					params: {
-						name: 'auth_createUser',
 						arguments: {
 							email: 'mcp@example.com',
-							name: 'MCP User',
 						},
 					},
 				}),

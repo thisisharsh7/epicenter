@@ -13,9 +13,8 @@ import { createCLI } from './cli';
 
 describe('CLI Integration', () => {
 	const testWorkspace = defineWorkspace({
-		id: 'test-cli-workspace',
+		id: 'test',
 		version: 1,
-		name: 'test',
 
 		schema: {
 			items: {

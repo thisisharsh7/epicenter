@@ -24,7 +24,6 @@ import {
 export const users = defineWorkspace({
 	id: 'users',
 	version: 1,
-	name: 'users',
 
 	schema: {
 		users: {

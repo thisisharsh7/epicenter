@@ -30,7 +30,6 @@ import { comments } from './comments';
 export const analytics = defineWorkspace({
 	id: 'analytics',
 	version: 1,
-	name: 'analytics',
 
 	// Multiple dependencies: all three workspaces
 	dependencies: [users, posts, comments],

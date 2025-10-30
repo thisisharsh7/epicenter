@@ -22,7 +22,6 @@ import { createEpicenterClient, defineEpicenter } from './epicenter/index';
 const pages = defineWorkspace({
 	id: 'pages',
 	version: 1,
-	name: 'pages',
 
 	schema: {
 		pages: {
@@ -112,7 +111,6 @@ const niche = multiSelect({
 const contentHub = defineWorkspace({
 	id: 'content-hub',
 	version: 1,
-	name: 'contentHub',
 
 	dependencies: [pages],
 
@@ -225,29 +223,13 @@ describe('Epicenter', () => {
 
 		expect(epicenter.id).toBe('content-platform');
 		expect(epicenter.workspaces).toHaveLength(2);
-		expect(epicenter.workspaces[0].name).toBe('pages');
-		expect(epicenter.workspaces[1].name).toBe('contentHub');
-	});
-
-	test('should throw on duplicate workspace names', () => {
-		const pages2 = defineWorkspace({
-			...pages,
-			id: 'pages2',
-			name: 'pages', // Same name!
-		});
-
-		expect(() =>
-			defineEpicenter({
-				id: 'test',
-				workspaces: [pages, pages2],
-			}),
-		).toThrow('Duplicate workspace names detected');
+		expect(epicenter.workspaces[0].id).toBe('pages');
+		expect(epicenter.workspaces[1].id).toBe('content-hub');
 	});
 
 	test('should throw on duplicate workspace IDs', () => {
 		const pages2 = defineWorkspace({
 			...pages,
-			name: 'pages2',
 		});
 
 		expect(() =>
@@ -455,13 +437,11 @@ describe('Epicenter', () => {
 		 */
 		const createTestWorkspace = (
 			workspaceId: string,
-			name: string,
 			deps: any[] = [],
 		) => {
 			return defineWorkspace({
 				id: workspaceId,
 				version: 1,
-				name,
 				dependencies: deps,
 				schema: {
 					items: {
@@ -474,16 +454,16 @@ describe('Epicenter', () => {
 				},
 				actions: ({ workspaces }) => ({
 					getValue: defineQuery({
-						handler: () => Ok(`value-from-${name}`),
+						handler: () => Ok(`value-from-${workspaceId}`),
 					}),
 					...(deps.length > 0
 						? {
 								getValueFromDependency: defineQuery({
 									handler: async () => {
 										// Access the first dependency's action
-										const depName = deps[0].name;
+										const depId = deps[0].id;
 										const result = await (workspaces as any)[
-											depName
+											depId
 										].getValue();
 										return result;
 									},
@@ -494,9 +474,9 @@ describe('Epicenter', () => {
 			});
 		};
 
-		test('exposes all workspaces in the workspaces array by name', async () => {
-			const workspaceA = createTestWorkspace('a', 'workspaceA');
-			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
+		test('exposes all workspaces in the workspaces array by id', async () => {
+			const workspaceA = createTestWorkspace('a');
+			const workspaceB = createTestWorkspace('b', [workspaceA]);
 
 			const epicenter = defineEpicenter({
 				id: 'test',
@@ -505,29 +485,29 @@ describe('Epicenter', () => {
 
 			const client = await createEpicenterClient(epicenter);
 
-			// BOTH workspaces are exposed by their names
-			expect(client.workspaceA).toBeDefined();
-			expect(client.workspaceB).toBeDefined();
+			// BOTH workspaces are exposed by their ids
+			expect(client.a).toBeDefined();
+			expect(client.b).toBeDefined();
 
 			// Both have their actions
-			expect(client.workspaceA.getValue).toBeDefined();
-			expect(client.workspaceB.getValue).toBeDefined();
-			expect(client.workspaceB.getValueFromDependency).toBeDefined();
+			expect(client.a.getValue).toBeDefined();
+			expect(client.b.getValue).toBeDefined();
+			expect(client.b.getValueFromDependency).toBeDefined();
 
 			// Can call actions on both
-			const resultA = await client.workspaceA.getValue();
-			expect(resultA.data).toBe('value-from-workspaceA');
+			const resultA = await client.a.getValue();
+			expect(resultA.data).toBe('value-from-a');
 
-			const resultB = await client.workspaceB.getValue();
-			expect(resultB.data).toBe('value-from-workspaceB');
+			const resultB = await client.b.getValue();
+			expect(resultB.data).toBe('value-from-b');
 
 			client.destroy();
 		});
 
 		test('requires all transitive dependencies in workspaces array (flat/hoisted)', () => {
-			const workspaceA = createTestWorkspace('a', 'workspaceA');
-			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
-			const workspaceC = createTestWorkspace('c', 'workspaceC', [
+			const workspaceA = createTestWorkspace('a');
+			const workspaceB = createTestWorkspace('b', [workspaceA]);
+			const workspaceC = createTestWorkspace('c', [
 				workspaceA,
 				workspaceB,
 			]);
@@ -545,9 +525,9 @@ describe('Epicenter', () => {
 		});
 
 		test('flat/hoisted model: all dependencies must be explicitly listed', async () => {
-			const workspaceA = createTestWorkspace('a', 'workspaceA');
-			const workspaceB = createTestWorkspace('b', 'workspaceB', [workspaceA]);
-			const workspaceC = createTestWorkspace('c', 'workspaceC', [
+			const workspaceA = createTestWorkspace('a');
+			const workspaceB = createTestWorkspace('b', [workspaceA]);
+			const workspaceC = createTestWorkspace('c', [
 				workspaceA,
 				workspaceB,
 			]);
@@ -561,24 +541,24 @@ describe('Epicenter', () => {
 			const client = await createEpicenterClient(epicenter);
 
 			// All workspaces are exposed
-			expect(client.workspaceA).toBeDefined();
-			expect(client.workspaceB).toBeDefined();
-			expect(client.workspaceC).toBeDefined();
+			expect(client.a).toBeDefined();
+			expect(client.b).toBeDefined();
+			expect(client.c).toBeDefined();
 
 			// Can call actions on all workspaces
-			const resultA = await client.workspaceA.getValue();
-			expect(resultA.data).toBe('value-from-workspaceA');
+			const resultA = await client.a.getValue();
+			expect(resultA.data).toBe('value-from-a');
 
-			const resultB = await client.workspaceB.getValueFromDependency();
-			expect(resultB.data).toBe('value-from-workspaceA');
+			const resultB = await client.b.getValueFromDependency();
+			expect(resultB.data).toBe('value-from-a');
 
 			client.destroy();
 		});
 
 		test('multiple workspaces with no dependencies - all exposed', async () => {
-			const workspaceA = createTestWorkspace('a', 'workspaceA');
-			const workspaceB = createTestWorkspace('b', 'workspaceB');
-			const workspaceC = createTestWorkspace('c', 'workspaceC');
+			const workspaceA = createTestWorkspace('a');
+			const workspaceB = createTestWorkspace('b');
+			const workspaceC = createTestWorkspace('c');
 
 			const epicenter = defineEpicenter({
 				id: 'test',
@@ -588,19 +568,19 @@ describe('Epicenter', () => {
 			const client = await createEpicenterClient(epicenter);
 
 			// All three workspaces exposed
-			expect(client.workspaceA).toBeDefined();
-			expect(client.workspaceB).toBeDefined();
-			expect(client.workspaceC).toBeDefined();
+			expect(client.a).toBeDefined();
+			expect(client.b).toBeDefined();
+			expect(client.c).toBeDefined();
 
 			// All have their actions
-			const resultA = await client.workspaceA.getValue();
-			expect(resultA.data).toBe('value-from-workspaceA');
+			const resultA = await client.a.getValue();
+			expect(resultA.data).toBe('value-from-a');
 
-			const resultB = await client.workspaceB.getValue();
-			expect(resultB.data).toBe('value-from-workspaceB');
+			const resultB = await client.b.getValue();
+			expect(resultB.data).toBe('value-from-b');
 
-			const resultC = await client.workspaceC.getValue();
-			expect(resultC.data).toBe('value-from-workspaceC');
+			const resultC = await client.c.getValue();
+			expect(resultC.data).toBe('value-from-c');
 
 			client.destroy();
 		});

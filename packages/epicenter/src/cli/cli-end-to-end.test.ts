@@ -32,9 +32,8 @@ describe('CLI End-to-End Tests', () => {
 
 	// Define a test workspace
 	const testWorkspace = defineWorkspace({
-		id: 'cli-test-workspace',
+		id: 'posts',
 		version: 1,
-		name: 'posts',
 
 		schema: {
 			posts: {

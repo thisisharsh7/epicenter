@@ -11,7 +11,7 @@ import type {
 /**
  * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
  *
- * An Epicenter client is an object of workspace clients: `{ workspaceName: WorkspaceClient }`.
+ * An Epicenter client is an object of workspace clients: `{ workspaceId: WorkspaceClient }`.
  * `createEpicenterClient()` returns the full object. `createWorkspaceClient()` returns one workspace from that object.
  */
 export type WorkspaceClient<TActionMap extends WorkspaceActionMap> = TActionMap & {
@@ -24,19 +24,19 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> = TActionMap 
 };
 
 /**
- * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace name.
+ * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace id.
  *
  * Takes an array of workspace configs and merges them into a single object where:
- * - Each key is a workspace name
+ * - Each key is a workspace id
  * - Each value is a WorkspaceClient with callable actions and lifecycle management
  *
- * This allows accessing workspace actions as `client.workspaceName.actionName()`.
+ * This allows accessing workspace actions as `client.workspaceId.actionName()`.
  *
  * @example
  * ```typescript
  * // Given workspace configs:
- * const authWorkspace = defineWorkspace({ name: 'auth', actions: () => ({ login: ..., logout: ... }) })
- * const storageWorkspace = defineWorkspace({ name: 'storage', actions: () => ({ upload: ..., download: ... }) })
+ * const authWorkspace = defineWorkspace({ id: 'auth', actions: () => ({ login: ..., logout: ... }) })
+ * const storageWorkspace = defineWorkspace({ id: 'storage', actions: () => ({ upload: ..., download: ... }) })
  *
  * // WorkspacesToClients<[typeof authWorkspace, typeof storageWorkspace]> produces:
  * {
@@ -46,8 +46,8 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> = TActionMap 
  * ```
  */
 export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
-	[W in WS[number] as W extends { name: infer TName extends string }
-		? TName
+	[W in WS[number] as W extends { id: infer TId extends string }
+		? TId
 		: never]: W extends {
 		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
 	}
@@ -255,7 +255,7 @@ export async function initializeWorkspaces<
 		workspaceConfig: WorkspaceConfig,
 	): Promise<WorkspaceClient<any>> => {
 		// Build the workspaceClients object by injecting already-initialized dependencies
-		// Key: dependency name, Value: initialized client
+		// Key: dependency id, Value: initialized client
 		const workspaceClients: Record<string, WorkspaceClient<WorkspaceActionMap>> = {};
 
 		if (
@@ -269,7 +269,6 @@ export async function initializeWorkspaces<
 			);
 
 			// Inject dependency clients using resolved configs
-			const depNames = new Set<string>();
 			for (const depId of uniqueDepIds) {
 				// Get the resolved config (might be a different version than originally specified)
 				const resolvedConfig = workspaceConfigsMap.get(depId);
@@ -279,16 +278,6 @@ export async function initializeWorkspaces<
 					);
 				}
 
-				// Check for duplicate names after version resolution
-				if (depNames.has(resolvedConfig.name)) {
-					throw new Error(
-						`Duplicate dependency names detected in workspace "${workspaceConfig.id}": ` +
-							`multiple dependencies resolve to name "${resolvedConfig.name}". ` +
-							`Each dependency must have a unique name.`,
-					);
-				}
-				depNames.add(resolvedConfig.name);
-
 				// Get the initialized client
 				const depClient = clients.get(depId);
 				if (!depClient) {
@@ -297,8 +286,8 @@ export async function initializeWorkspaces<
 					);
 				}
 
-				// Inject using the resolved config's name
-				workspaceClients[resolvedConfig.name] = depClient;
+				// Inject using the resolved config's id
+				workspaceClients[resolvedConfig.id] = depClient;
 			}
 		}
 
@@ -374,11 +363,10 @@ export async function initializeWorkspaces<
 		clients.set(workspaceId, client);
 	}
 
-	// Convert Map to typed object keyed by workspace name (not id)
+	// Convert Map to typed object keyed by workspace id
 	const initializedWorkspaces: Record<string, WorkspaceClient<WorkspaceActionMap>> = {};
 	for (const [workspaceId, client] of clients) {
-		const workspaceConfig = workspaceConfigsMap.get(workspaceId)!;
-		initializedWorkspaces[workspaceConfig.name] = client;
+		initializedWorkspaces[workspaceId] = client;
 	}
 
 	return initializedWorkspaces as WorkspacesToClients<TConfigs>;
@@ -405,7 +393,6 @@ export async function createWorkspaceClient<
 		TDeps,
 		TId,
 		TVersion,
-		string,
 		TWorkspaceSchema,
 		TIndexResults,
 		TActionMap
@@ -428,14 +415,14 @@ export async function createWorkspaceClient<
 	allWorkspaceConfigs.push(workspace as unknown as WorkspaceConfig);
 
 	// Use the shared initialization logic with flat dependency array
-	// This initializes ALL workspaces and returns an object keyed by workspace name
+	// This initializes ALL workspaces and returns an object keyed by workspace id
 	const clients = await initializeWorkspaces(allWorkspaceConfigs);
 
 	// Return the specified workspace's client from the initialized workspaces object
-	const workspaceClient = clients[workspace.name as keyof typeof clients];
+	const workspaceClient = clients[workspace.id as keyof typeof clients];
 	if (!workspaceClient) {
 		throw new Error(
-			`Internal error: workspace "${workspace.name}" was not initialized`,
+			`Internal error: workspace "${workspace.id}" was not initialized`,
 		);
 	}
 

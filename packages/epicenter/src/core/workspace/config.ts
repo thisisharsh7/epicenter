@@ -59,14 +59,14 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  * When you create an Epicenter client, each workspace becomes a property on that client:
  *
  * ```typescript
- * const blogWorkspace = defineWorkspace({ name: 'blog', ... });
- * const authWorkspace = defineWorkspace({ name: 'auth', ... });
+ * const blogWorkspace = defineWorkspace({ id: 'blog', ... });
+ * const authWorkspace = defineWorkspace({ id: 'auth', ... });
  *
  * const epicenter = await createEpicenterClient({
  *   workspaces: [blogWorkspace, authWorkspace]
  * });
  *
- * // Each workspace is accessible by its name:
+ * // Each workspace is accessible by its id:
  * epicenter.blog.createPost(...)  // blogWorkspace actions
  * epicenter.auth.login(...)       // authWorkspace actions
  * ```
@@ -97,7 +97,6 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  * const blogWorkspace = defineWorkspace({
  *   id: 'blog',
  *   version: 1,
- *   name: 'blog', // Human-readable name for API access
  *
  *   schema: {
  *     posts: {
@@ -152,7 +151,6 @@ export function defineWorkspace<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	const TVersion extends number,
-	const TName extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TIndexResults extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
@@ -161,7 +159,6 @@ export function defineWorkspace<
 		TDeps,
 		TId,
 		TVersion,
-		TName,
 		TWorkspaceSchema,
 		TIndexResults,
 		TActionMap
@@ -170,7 +167,6 @@ export function defineWorkspace<
 	TDeps,
 	TId,
 	TVersion,
-	TName,
 	TWorkspaceSchema,
 	TIndexResults,
 	TActionMap
@@ -183,11 +179,6 @@ export function defineWorkspace<
 	// Validate workspace version
 	if (!workspace.version || typeof workspace.version !== 'number') {
 		throw new Error('Workspace must have a valid number version');
-	}
-
-	// Validate workspace name
-	if (!workspace.name || typeof workspace.name !== 'string') {
-		throw new Error('Workspace must have a valid string name');
 	}
 
 	// Validate dependencies
@@ -220,7 +211,7 @@ export function defineWorkspace<
  * The `dependencies` field uses `AnyWorkspaceConfig[]` as a minimal constraint.
  * This prevents infinite type recursion while providing type information for action access.
  *
- * By using `AnyWorkspaceConfig` (which only includes `id`, `name`, and `actions`), we stop
+ * By using `AnyWorkspaceConfig` (which only includes `id` and `actions`), we stop
  * recursive type inference. Without this constraint, TypeScript would try to infer dependencies
  * of dependencies infinitely, causing "Type instantiation is excessively deep" errors.
  *
@@ -234,14 +225,12 @@ export type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TVersion extends number = number,
-	TName extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TIndexResults extends WorkspaceIndexMap = WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	id: TId;
 	version: TVersion;
-	name: TName;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
 	indexes: {
@@ -268,24 +257,23 @@ export type WorkspaceConfig<
  */
 export type AnyWorkspaceConfig = {
 	id: string;
-	name: string;
 	actions: (context: any) => WorkspaceActionMap;
 };
 
 /**
- * Maps an array of workspace configs to an object of ActionMaps keyed by workspace name.
+ * Maps an array of workspace configs to an object of ActionMaps keyed by workspace id.
  *
  * Takes an array of workspace dependencies and merges them into a single object where:
- * - Each key is a dependency name
+ * - Each key is a dependency id
  * - Each value is the action map exported from that dependency
  *
- * This allows accessing dependency actions as `workspaces.dependencyName.actionName()`.
+ * This allows accessing dependency actions as `workspaces.dependencyId.actionName()`.
  *
  * @example
  * ```typescript
  * // Given dependency configs:
- * const authWorkspace = defineWorkspace({ name: 'auth', actions: () => ({ login: ..., logout: ... }) })
- * const storageWorkspace = defineWorkspace({ name: 'storage', actions: () => ({ upload: ..., download: ... }) })
+ * const authWorkspace = defineWorkspace({ id: 'auth', actions: () => ({ login: ..., logout: ... }) })
+ * const storageWorkspace = defineWorkspace({ id: 'storage', actions: () => ({ upload: ..., download: ... }) })
  *
  * // WorkspacesToActionMaps<[typeof authWorkspace, typeof storageWorkspace]> produces:
  * {
@@ -295,8 +283,8 @@ export type AnyWorkspaceConfig = {
  * ```
  */
 export type WorkspacesToActionMaps<WS extends readonly AnyWorkspaceConfig[]> = {
-	[W in WS[number] as W extends { name: infer TName extends string }
-		? TName
+	[W in WS[number] as W extends { id: infer TId extends string }
+		? TId
 		: never]: W extends {
 		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
 	}

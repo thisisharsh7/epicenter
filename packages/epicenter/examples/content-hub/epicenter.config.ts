@@ -27,7 +27,6 @@ import type { WorkspaceSchema } from '../../src/core/schema';
 export const pages = defineWorkspace({
 	id: 'pages',
 	version: 1,
-	name: 'pages',
 
 	schema: {
 		pages: {
@@ -112,7 +111,6 @@ const niche = multiSelect({
 export const contentHub = defineWorkspace({
 	id: 'content-hub',
 	version: 1,
-	name: 'content-hub',
 
 	dependencies: [pages],
 

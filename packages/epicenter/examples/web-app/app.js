@@ -15,7 +15,6 @@ import { setupPersistence } from '../../src/core/workspace/providers/index.ts';
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	version: 1,
-	name: 'blog',
 
 	schema: {
 		posts: {

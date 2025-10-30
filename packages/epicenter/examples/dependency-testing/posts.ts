@@ -28,7 +28,6 @@ import { users } from './users';
 export const posts = defineWorkspace({
 	id: 'posts',
 	version: 1,
-	name: 'posts',
 
 	// Single dependency on users workspace
 	dependencies: [users],

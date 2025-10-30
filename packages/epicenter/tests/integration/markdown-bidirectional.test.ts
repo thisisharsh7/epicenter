@@ -27,7 +27,6 @@ describe('Markdown Bidirectional Sync', () => {
 	const testWorkspace = defineWorkspace({
 		id: 'markdown-test',
 		version: 1,
-		name: 'markdown-test',
 
 		schema: {
 			notes: {

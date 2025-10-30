@@ -40,9 +40,9 @@ export async function serveCommand(
 	console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
 
 	console.log('📚 REST API Endpoints:\n');
-	forEachAction(client, ({ workspaceName, actionName, action }) => {
+	forEachAction(client, ({ workspaceId, actionName, action }) => {
 		const method = ({ query: 'GET', mutation: 'POST' } as const)[action.type];
-		console.log(`  ${method} http://localhost:${port}/${workspaceName}/${actionName}`);
+		console.log(`  ${method} http://localhost:${port}/${workspaceId}/${actionName}`);
 	});
 
 	console.log('\n🔧 Connect to Claude Code:\n');
@@ -52,17 +52,17 @@ export async function serveCommand(
 
 	console.log('📦 Available Tools:\n');
 	const workspaceActions = new Map<string, string[]>();
-	forEachAction(client, ({ workspaceName, actionName }) => {
-		if (!workspaceActions.has(workspaceName)) {
-			workspaceActions.set(workspaceName, []);
+	forEachAction(client, ({ workspaceId, actionName }) => {
+		if (!workspaceActions.has(workspaceId)) {
+			workspaceActions.set(workspaceId, []);
 		}
-		workspaceActions.get(workspaceName)?.push(actionName);
+		workspaceActions.get(workspaceId)?.push(actionName);
 	});
 
-	for (const [workspaceName, actionNames] of workspaceActions) {
-		console.log(`  • ${workspaceName}`);
+	for (const [workspaceId, actionNames] of workspaceActions) {
+		console.log(`  • ${workspaceId}`);
 		for (const actionName of actionNames) {
-			console.log(`    └─ ${workspaceName}_${actionName}`);
+			console.log(`    └─ ${workspaceId}_${actionName}`);
 		}
 		console.log();
 	}

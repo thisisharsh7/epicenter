@@ -151,15 +151,15 @@ export function createMcpServer<
  * a flat list of tools (no hierarchical namespacing).
  *
  * This function uses `forEachAction` to iterate over all workspaces and their actions,
- * creating MCP tool names in the format `${workspaceName}_${actionName}`.
+ * creating MCP tool names in the format `${workspaceId}_${actionName}`.
  */
 function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	client: EpicenterClient<TWorkspaces>,
 ): Map<string, Action> {
 	const actions = new Map<string, Action>();
 
-	forEachAction(client, ({ workspaceName, actionName, action }) => {
-		const mcpToolName = `${workspaceName}_${actionName}` as const;
+	forEachAction(client, ({ workspaceId, actionName, action }) => {
+		const mcpToolName = `${workspaceId}_${actionName}` as const;
 		actions.set(mcpToolName, action);
 	});
 
@@ -173,7 +173,7 @@ function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>
  * returns an array, we wrap it in an object with a semantically meaningful key derived from
  * the action name using deterministic transformation rules.
  *
- * @param mcpToolName - The full MCP tool name in format `${workspaceName}_${actionName}`
+ * @param mcpToolName - The full MCP tool name in format `${workspaceId}_${actionName}`
  * @returns A camelCase key for wrapping arrays, or "items" if derivation fails
  *
  * @example
