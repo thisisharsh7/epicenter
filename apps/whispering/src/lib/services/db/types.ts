@@ -70,6 +70,7 @@ export type DbService = {
 		): Promise<Result<void, DbServiceError>>;
 	};
 	runs: {
+		getAll(): Promise<Result<TransformationRun[], DbServiceError>>;
 		getById(
 			id: string,
 		): Promise<Result<TransformationRun | null, DbServiceError>>;

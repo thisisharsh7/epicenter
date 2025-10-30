@@ -720,6 +720,20 @@ export function createDbServiceWeb({
 		}, // End of transformations namespace
 
 		runs: {
+			getAll: async () => {
+				return tryAsync({
+					try: async () => {
+						const runs = await db.transformationRuns.toArray();
+						return runs ?? [];
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting all transformation runs from Dexie',
+							cause: error,
+						}),
+				});
+			},
+
 			getById: async (id) => {
 				const {
 					data: transformationRun,
