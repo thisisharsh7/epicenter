@@ -11,7 +11,7 @@ async function parseMcpResponse(response: Response): Promise<any> {
 	return JSON.parse(dataLine.substring(6)); // Remove "data: " prefix
 }
 
-describe('E2E Server Tests', () => {
+describe('Server Tests', () => {
 	let server: any;
 	let baseUrl: string;
 
@@ -46,7 +46,7 @@ describe('E2E Server Tests', () => {
 			expect(data.data).toBeDefined();
 			expect(data.data.title).toBe('Test Post');
 			expect(data.data.category).toBe('tech');
-			expect(data.data.published).toBe(false);
+			expect(data.data.publishedAt).toBeNull();
 		});
 
 		test('adds a comment via POST /blog/addComment', async () => {
@@ -104,7 +104,7 @@ describe('E2E Server Tests', () => {
 
 			const toolNames = data.result.tools.map((t: any) => t.name);
 			expect(toolNames).toContain('blog_createPost');
-			expect(toolNames).toContain('blog_getAllPosts');
+			expect(toolNames).toContain('blog_getPublishedPosts');
 			expect(toolNames).toContain('blog_publishPost');
 		});
 
