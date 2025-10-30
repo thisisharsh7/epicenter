@@ -912,6 +912,32 @@ export function createFileSystemDb(): DbService {
 						}),
 				});
 			},
+
+			async delete(runs) {
+				return tryAsync({
+					try: async () => {
+						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+						const runsArray = Array.isArray(runs) ? runs : [runs];
+
+						// Delete each run's .md file
+						await Promise.all(
+							runsArray.map(async (run) => {
+								const mdPath = await join(runsPath, `${run.id}.md`);
+								const fileExists = await exists(mdPath);
+								if (fileExists) {
+									await remove(mdPath);
+								}
+							}),
+						);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error deleting transformation runs from file system',
+							context: { runs },
+							cause: error,
+						}),
+				});
+			},
 		},
 	};
 }

@@ -105,5 +105,8 @@ export type DbService = {
 			run: TransformationRun,
 			output: string,
 		): Promise<Result<TransformationRunCompleted, DbServiceError>>;
+		delete(
+			runs: TransformationRun | TransformationRun[],
+		): Promise<Result<void, DbServiceError>>;
 	};
 };

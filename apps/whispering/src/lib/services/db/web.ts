@@ -947,6 +947,24 @@ export function createDbServiceWeb({
 
 				return Ok(completedRun);
 			},
+
+			delete: async (runs) => {
+				return tryAsync({
+					try: async () => {
+						const runsArray = Array.isArray(runs) ? runs : [runs];
+						const runIds = runsArray.map((run) => run.id);
+
+						// Delete all runs by their IDs
+						await db.transformationRuns.bulkDelete(runIds);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error deleting transformation runs from Dexie',
+							context: { runs },
+							cause: error,
+						}),
+				});
+			},
 		}, // End of runs namespace
 	};
 }

@@ -670,6 +670,30 @@ export function createDbServiceDesktop({
 				// SINGLE WRITE: Only to file system
 				return fileSystemDb.runs.complete(run, output);
 			},
+
+			delete: async (runs) => {
+				// Delete from BOTH sources to ensure complete removal
+				const [fsResult, idbResult] = await Promise.all([
+					fileSystemDb.runs.delete(runs),
+					indexedDb.runs.delete(runs),
+				]);
+
+				// If both failed, return an error
+				if (fsResult.error && idbResult.error) {
+					return DbServiceErr({
+						message: 'Error deleting transformation runs from both sources',
+						context: {
+							runs,
+							fileSystemError: fsResult.error,
+							indexedDbError: idbResult.error,
+						},
+						cause: fsResult.error,
+					});
+				}
+
+				// Success if at least one succeeded
+				return Ok(undefined);
+			},
 		},
 	};
 }
