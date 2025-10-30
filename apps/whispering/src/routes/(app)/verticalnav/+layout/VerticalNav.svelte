@@ -77,29 +77,36 @@
 	};
 </script>
 
-<Sidebar.Root collapsible="icon" side="left" variant="sidebar">
+<Sidebar.Root
+	collapsible="icon"
+	side="left"
+	variant="sidebar"
+	class="overflow-x-hidden"
+>
 	<Sidebar.Rail />
 	<Sidebar.Header
 		class="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center"
 	>
-		<button
-			onclick={sidebar.toggle}
+		<div
 			class="flex items-center justify-between gap-2 p-2 hover:bg-sidebar-accent rounded-md transition-[width,height,padding] w-full group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-1! group-data-[collapsible=icon]:w-auto"
-			title="Toggle sidebar"
 		>
-			<div class="flex items-center gap-2">
+			<button
+				onclick={sidebar.toggle}
+				class="flex items-center gap-2"
+				title="Toggle sidebar"
+			>
 				<EpicenterLogo
 					class="size-8 shrink-0 group-data-[collapsible=icon]:size-6"
 				/>
 				<span class="font-bold text-base group-data-[collapsible=icon]:hidden">
 					Whispering
 				</span>
-			</div>
+			</button>
 			<Sidebar.Trigger class="group-data-[collapsible=icon]:hidden" />
-		</button>
+		</div>
 	</Sidebar.Header>
 
-	<Sidebar.Content>
+	<Sidebar.Content class="overflow-x-hidden">
 		<!-- Main Navigation Group -->
 		<Sidebar.Group
 			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
@@ -110,8 +117,18 @@
 					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
 				>
 					{#each navItems as item}
-						<Sidebar.MenuItem>
-							<Sidebar.MenuButton isActive={isActive(item.href)}>
+						<Sidebar.MenuItem class="relative">
+							{#if isActive(item.href)}
+								<div
+									class="absolute left-0 top-0 bottom-0 w-1 bg-primary z-10"
+								></div>
+							{/if}
+							<Sidebar.MenuButton
+								isActive={isActive(item.href)}
+								class={isActive(item.href)
+									? 'bg-primary/10 text-primary font-semibold'
+									: ''}
+							>
 								{#snippet child({ props })}
 									<a href={item.href} {...props} title={item.label}>
 										<svelte:component this={item.icon} />
@@ -135,7 +152,7 @@
 			<Sidebar.GroupLabel>Quick Settings</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
 				<Sidebar.Menu
-					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center overflow-x-hidden"
 				>
 					<!-- Device Selector (mode-aware) -->
 					<Sidebar.MenuItem>
@@ -205,7 +222,7 @@
 			<Sidebar.GroupLabel>Quick Transcription</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
 				<Sidebar.Menu
-					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center overflow-x-hidden"
 				>
 					<!-- VAD Recording Button (toggles start/stop) -->
 					<Sidebar.MenuItem>
@@ -260,7 +277,7 @@
 		>
 			<Sidebar.GroupContent>
 				<Sidebar.Menu
-					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center overflow-x-hidden"
 				>
 					<!-- Toggle dark mode -->
 					<Sidebar.MenuItem>
@@ -307,7 +324,7 @@
 
 	<Sidebar.Footer>
 		<Sidebar.Menu
-			class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+			class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center overflow-x-hidden"
 		>
 			{#each footerItems as item}
 				<Sidebar.MenuItem>
