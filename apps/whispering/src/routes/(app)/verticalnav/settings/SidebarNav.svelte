@@ -4,6 +4,9 @@
 	import { cn } from '@repo/ui/utils';
 	import { cubicInOut } from 'svelte/easing';
 	import { crossfade } from 'svelte/transition';
+	import { useSidebar } from '@repo/ui/sidebar';
+
+	const sidebar = useSidebar();
 
 	const items = [
 		{ title: 'General', href: '/verticalnav/settings' },
@@ -34,7 +37,12 @@
 </script>
 
 <nav
-	class="flex gap-2 overflow-auto lg:flex-col lg:gap-1"
+	class={cn(
+		'flex gap-2 overflow-auto',
+		sidebar.state === 'collapsed'
+			? 'lg:flex-col lg:gap-1'
+			: 'xl:flex-col xl:gap-1',
+	)}
 	aria-label="Settings navigation"
 >
 	{#each items as item (item.href)}

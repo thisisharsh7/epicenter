@@ -96,11 +96,19 @@
 		</Button>
 	</div>
 	<Separator class="my-6" />
-	<div class="flex flex-col space-y-8 lg:flex-row lg:gap-8">
-		<aside class="lg:w-1/6">
+	<div
+		class={sidebar.state === 'collapsed'
+			? 'flex flex-col space-y-8 lg:flex-row lg:gap-8'
+			: 'flex flex-col space-y-8 xl:flex-row xl:gap-8'}
+	>
+		<aside class={sidebar.state === 'collapsed' ? 'lg:w-1/6' : 'xl:w-1/6'}>
 			<SidebarNav />
 		</aside>
-		<main class="flex-1 lg:max-w-3xl">
+		<main
+			class={sidebar.state === 'collapsed'
+				? 'flex-1 lg:max-w-3xl'
+				: 'flex-1 xl:max-w-3xl'}
+		>
 			{@render children()}
 		</main>
 	</div>
