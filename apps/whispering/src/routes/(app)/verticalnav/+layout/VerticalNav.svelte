@@ -41,7 +41,7 @@
 
 	// Navigation items
 	const navItems = [
-		{ label: 'Home', href: '/verticalnav', icon: HomeIcon },
+		{ label: 'Home', href: '/verticalnav', icon: HomeIcon, exact: true },
 		{ label: 'Recordings', href: '/verticalnav/recordings', icon: ListIcon },
 		{
 			label: 'Transformations',
@@ -72,8 +72,12 @@
 	];
 
 	// Check if route is active
-	const isActive = (href: string) => {
-		return page.url.pathname === href;
+	const isActive = (href: string, exact: boolean = false) => {
+		if (exact) {
+			return page.url.pathname === href;
+		}
+		// For non-exact matches, check if pathname starts with href
+		return page.url.pathname.startsWith(href);
 	};
 </script>
 
@@ -106,6 +110,9 @@
 		</div>
 	</Sidebar.Header>
 
+	<!-- Divider after logo/branding (only visible when collapsed) -->
+	<Separator class="hidden group-data-[collapsible=icon]:block my-2" />
+
 	<Sidebar.Content class="overflow-x-hidden">
 		<!-- Main Navigation Group -->
 		<Sidebar.Group
@@ -117,16 +124,17 @@
 					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
 				>
 					{#each navItems as item}
+						{@const active = isActive(item.href, item.exact ?? false)}
 						<Sidebar.MenuItem class="relative">
-							{#if isActive(item.href)}
+							{#if active}
 								<div
 									class="absolute left-0 top-0 bottom-0 w-1 bg-primary z-10"
 								></div>
 							{/if}
 							<Sidebar.MenuButton
-								isActive={isActive(item.href)}
-								class={isActive(item.href)
-									? 'bg-primary/10 text-primary font-semibold'
+								isActive={active}
+								class={active
+									? '!bg-primary/20 !text-primary !font-semibold hover:!bg-primary/25'
 									: ''}
 							>
 								{#snippet child({ props })}
