@@ -1,6 +1,6 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import path from 'node:path';
+import { join } from 'node:path';
 import {
 	defineWorkspace,
 	sqliteIndex,
@@ -43,12 +43,14 @@ export const githubIssues = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db),
+		sqlite: (db) => sqliteIndex(db, {
+			path: join(import.meta.dirname, '.epicenter/database.db'),
+		}),
 	},
 
 	providers: [
 		setupPersistence({
-			storagePath: path.join(import.meta.dirname, '.epicenter'),
+			storagePath: join(import.meta.dirname, '.epicenter'),
 		}),
 	],
 

@@ -1,6 +1,6 @@
 import { test, expect, beforeAll, afterAll } from 'bun:test';
 import type { Server } from 'bun';
-import path from 'node:path';
+import { join } from 'node:path';
 import {
 	createServer,
 	defineEpicenter,
@@ -52,12 +52,14 @@ const testPages = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db),
+		sqlite: (db) => sqliteIndex(db, {
+			path: join(import.meta.dirname, '.epicenter/database.db'),
+		}),
 	},
 
 	providers: [
 		setupPersistence({
-			storagePath: path.join(import.meta.dirname, '.epicenter'),
+			storagePath: join(import.meta.dirname, '.epicenter'),
 		}),
 	],
 

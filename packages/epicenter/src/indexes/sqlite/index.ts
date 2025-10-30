@@ -11,7 +11,6 @@ import { Ok, tryAsync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
-import { EPICENTER_STORAGE_DIR } from '../../core/workspace/providers/persistence/desktop';
 import type { Db } from '../../db/core';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
@@ -20,36 +19,42 @@ import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
  */
 export type SQLiteIndexConfig = {
 	/**
-	 * Use in-memory database instead of persistent file storage.
+	 * Path to the SQLite database file.
 	 *
-	 * By default, the SQLite index uses the workspace ID as the database filename
-	 * (stored in .epicenter/[workspace-id].db). Set this to true to use an in-memory
-	 * database instead, which is useful for testing or temporary data.
+	 * If provided, the SQLite index will use file-based storage at this path.
+	 * If not provided, the index will use in-memory storage (useful for testing).
 	 *
-	 * @default false
+	 * For file-based storage, construct the path using:
+	 * ```typescript
+	 * path: join(import.meta.dirname, '.epicenter/database.db')
+	 * ```
 	 */
-	inMemory?: boolean;
+	path?: string;
 };
 
 /**
  * Create a SQLite index
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface.
  *
- * The database is automatically named using the workspace ID, ensuring uniqueness
- * across workspaces. The file is stored at `.epicenter/[workspace-id].db`.
- *
  * This index creates internal resources (sqliteDb, drizzleTables) and exports them
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
  *
  * @param db - Epicenter database instance
- * @param config - SQLite configuration options
+ * @param config - SQLite configuration
  *
  * @example
  * ```typescript
- * // In workspace definition:
+ * // In workspace definition with file-based storage:
  * indexes: {
- *   sqlite: (db) => sqliteIndex(db),  // Uses workspace ID automatically
+ *   sqlite: (db) => sqliteIndex(db, {
+ *     path: join(import.meta.dirname, '.epicenter/database.db')
+ *   }),
+ * },
+ *
+ * // Or with in-memory storage (for testing):
+ * indexes: {
+ *   sqlite: (db) => sqliteIndex(db),
  * },
  *
  * actions: ({ indexes }) => ({
@@ -69,30 +74,35 @@ export type SQLiteIndexConfig = {
  */
 export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
-	{ inMemory = false }: SQLiteIndexConfig = {},
+	config: SQLiteIndexConfig = {},
 ) {
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
-	// Determine database path: use workspace ID for uniqueness
+	// Determine database path based on config
 	let resolvedDatabasePath: string;
-	if (inMemory) {
-		resolvedDatabasePath = ':memory:';
+	if (config.path) {
+		// File-based storage: use provided path
+		resolvedDatabasePath = config.path;
+
+		// Create parent directory if it doesn't exist
+		const dirPath = resolvedDatabasePath.substring(
+			0,
+			resolvedDatabasePath.lastIndexOf('/'),
+		);
+		if (dirPath) {
+			await mkdir(dirPath, { recursive: true });
+		}
 	} else {
-		// Use workspace ID (from ydoc.guid) as the database filename
-		const workspaceId = db.ydoc.guid;
-		const databaseFilename = `${workspaceId}.db`;
-
-		// Create .epicenter directory if it doesn't exist
-		await mkdir(EPICENTER_STORAGE_DIR, { recursive: true });
-
-		// Join filename with .epicenter directory
-		resolvedDatabasePath = join(EPICENTER_STORAGE_DIR, databaseFilename);
+		// In-memory storage
+		resolvedDatabasePath = ':memory:';
 	}
 
 	// Create database connection with schema for proper type inference
+	// WAL mode is enabled for better concurrent access
 	// Using lazy connection - Database will auto-connect on first query
 	const client = new Database(resolvedDatabasePath);
+	client.exec('PRAGMA journal_mode = WAL');
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	// Set up observers for each table
