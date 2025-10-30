@@ -917,7 +917,7 @@ async function migrateTransformationRuns({
 					'Failed to get runs from IndexedDB:',
 					getRunsError,
 				);
-				return;
+				throw getRunsError;
 			}
 
 			if (!runs || runs.length === 0) {
@@ -927,11 +927,29 @@ async function migrateTransformationRuns({
 
 			console.log(`Starting migration of ${runs.length} transformation runs`);
 
+			let failedCount = 0;
+
 			for (const run of runs) {
 				// Idempotent check: if already migrated, just delete from IndexedDB
-				const { data: existing } = await fileSystemDb.runs.getById(run.id);
+				const { data: existing, error: checkError } =
+					await fileSystemDb.runs.getById(run.id);
+
+				if (checkError) {
+					console.warn(
+						`Error checking if run ${run.id} exists in file system`,
+						checkError,
+					);
+					// Proceed with migration attempt
+				}
+
 				if (existing) {
-					await indexedDb.runs.delete([run]);
+					const { error: deleteError } = await indexedDb.runs.delete([run]);
+					if (deleteError) {
+						console.warn(
+							`Failed to delete already-migrated run ${run.id} from IndexedDB`,
+							deleteError,
+						);
+					}
 					continue;
 				}
 
@@ -963,10 +981,23 @@ async function migrateTransformationRuns({
 
 				if (error) {
 					console.warn(`Failed to migrate run ${run.id}`, error);
+					failedCount++;
 				} else {
 					// SUCCESS - Delete from IndexedDB immediately
-					await indexedDb.runs.delete([run]);
+					const { error: deleteError } = await indexedDb.runs.delete([run]);
+					if (deleteError) {
+						console.warn(
+							`Failed to delete run ${run.id} from IndexedDB after migration`,
+							deleteError,
+						);
+					}
 				}
+			}
+
+			if (failedCount > 0) {
+				throw new Error(
+					`Failed to migrate ${failedCount} out of ${runs.length} transformation runs`,
+				);
 			}
 
 			console.log('Runs migration complete');
