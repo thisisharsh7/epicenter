@@ -12,6 +12,7 @@
 		MicIcon,
 	} from '@lucide/svelte';
 	import { EpicenterLogo, GithubIcon } from '$lib/components/icons';
+	import { Separator } from '@repo/ui/separator';
 	import { page } from '$app/state';
 	import { toggleMode } from 'mode-watcher';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
@@ -126,6 +127,9 @@
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 
+		<!-- Divider (only visible when collapsed) -->
+		<Separator class="hidden group-data-[collapsible=icon]:block my-2" />
+
 		<!-- Quick Settings Group -->
 		<Sidebar.Group
 			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
@@ -193,6 +197,9 @@
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 
+		<!-- Divider (only visible when collapsed) -->
+		<Separator class="hidden group-data-[collapsible=icon]:block my-2" />
+
 		<!-- Quick Transcription Group -->
 		<Sidebar.Group
 			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
@@ -245,6 +252,9 @@
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
+
+		<!-- Divider (only visible when collapsed) -->
+		<Separator class="hidden group-data-[collapsible=icon]:block my-2" />
 
 		<!-- Additional Actions (scrollable, not sticky) -->
 		<Sidebar.Group
