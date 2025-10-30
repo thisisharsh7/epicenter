@@ -84,18 +84,20 @@
 						transformationId: selectedTransformation?.id ?? null,
 					})}"
 				>
-					{#if selectedTransformation}
-						<SparklesIcon class="size-4 shrink-0 text-green-500" />
-					{:else}
-						<WandIcon class="size-4 shrink-0 text-amber-500" />
-					{/if}
+					<div class="relative shrink-0">
+						{#if selectedTransformation}
+							<SparklesIcon class="size-4 shrink-0 text-green-500" />
+						{:else}
+							<WandIcon class="size-4 shrink-0 text-amber-500" />
+						{/if}
+						{#if !selectedTransformation}
+							<span
+								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
+							></span>
+						{/if}
+					</div>
 					{#if showLabel}
 						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-					{#if !selectedTransformation}
-						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
-						></span>
 					{/if}
 				</button>
 			{:else}
@@ -111,18 +113,20 @@
 						transformationId: selectedTransformation?.id ?? null,
 					})}"
 				>
-					{#if selectedTransformation}
-						<SparklesIcon class="size-4 shrink-0 text-green-500" />
-					{:else}
-						<WandIcon class="size-4 shrink-0 text-amber-500" />
-					{/if}
+					<div class="relative shrink-0">
+						{#if selectedTransformation}
+							<SparklesIcon class="size-4 shrink-0 text-green-500" />
+						{:else}
+							<WandIcon class="size-4 shrink-0 text-amber-500" />
+						{/if}
+						{#if !selectedTransformation}
+							<span
+								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
+							></span>
+						{/if}
+					</div>
 					{#if showLabel}
 						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-					{#if !selectedTransformation}
-						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
-						></span>
 					{/if}
 				</WhisperingButton>
 			{/if}

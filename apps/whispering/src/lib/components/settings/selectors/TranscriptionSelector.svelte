@@ -120,28 +120,30 @@
 						className,
 					)}
 				>
-					{#if selectedService}
-						<div
-							class={cn(
-								'size-4 shrink-0 flex items-center justify-center [&>svg]:size-full',
-								selectedService.invertInDarkMode &&
-									'dark:[&>svg]:invert dark:[&>svg]:brightness-90',
-								!isTranscriptionServiceConfigured(selectedService) &&
-									'opacity-60',
-							)}
-						>
-							{@html selectedService.icon}
-						</div>
-					{:else}
-						<MicIcon class="size-4 shrink-0 text-muted-foreground" />
-					{/if}
+					<div class="relative shrink-0">
+						{#if selectedService}
+							<div
+								class={cn(
+									'size-4 shrink-0 flex items-center justify-center [&>svg]:size-full',
+									selectedService.invertInDarkMode &&
+										'dark:[&>svg]:invert dark:[&>svg]:brightness-90',
+									!isTranscriptionServiceConfigured(selectedService) &&
+										'opacity-60',
+								)}
+							>
+								{@html selectedService.icon}
+							</div>
+						{:else}
+							<MicIcon class="size-4 shrink-0 text-muted-foreground" />
+						{/if}
+						{#if selectedService && !isTranscriptionServiceConfigured(selectedService)}
+							<span
+								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+							></span>
+						{/if}
+					</div>
 					{#if showLabel}
 						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-					{#if selectedService && !isTranscriptionServiceConfigured(selectedService)}
-						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
-						></span>
 					{/if}
 				</button>
 			{:else}
@@ -154,28 +156,30 @@
 					variant="ghost"
 					size={showLabel ? 'default' : 'icon'}
 				>
-					{#if selectedService}
-						<div
-							class={cn(
-								'size-4 shrink-0 flex items-center justify-center [&>svg]:size-full',
-								selectedService.invertInDarkMode &&
-									'dark:[&>svg]:invert dark:[&>svg]:brightness-90',
-								!isTranscriptionServiceConfigured(selectedService) &&
-									'opacity-60',
-							)}
-						>
-							{@html selectedService.icon}
-						</div>
-					{:else}
-						<MicIcon class="size-4 shrink-0 text-muted-foreground" />
-					{/if}
+					<div class="relative shrink-0">
+						{#if selectedService}
+							<div
+								class={cn(
+									'size-4 shrink-0 flex items-center justify-center [&>svg]:size-full',
+									selectedService.invertInDarkMode &&
+										'dark:[&>svg]:invert dark:[&>svg]:brightness-90',
+									!isTranscriptionServiceConfigured(selectedService) &&
+										'opacity-60',
+								)}
+							>
+								{@html selectedService.icon}
+							</div>
+						{:else}
+							<MicIcon class="size-4 shrink-0 text-muted-foreground" />
+						{/if}
+						{#if selectedService && !isTranscriptionServiceConfigured(selectedService)}
+							<span
+								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+							></span>
+						{/if}
+					</div>
 					{#if showLabel}
 						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-					{#if selectedService && !isTranscriptionServiceConfigured(selectedService)}
-						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
-						></span>
 					{/if}
 				</WhisperingButton>
 			{/if}

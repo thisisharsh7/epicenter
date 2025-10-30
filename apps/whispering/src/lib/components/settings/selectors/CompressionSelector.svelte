@@ -58,21 +58,22 @@
 						className,
 					)}
 				>
-					<SlidersIcon
-						class={cn(
-							'size-4 shrink-0',
-							isCompressionEnabled ? 'opacity-100' : 'opacity-60',
-						)}
-					/>
+					<div class="relative shrink-0">
+						<SlidersIcon
+							class={cn(
+								'size-4 shrink-0',
+								isCompressionEnabled ? 'opacity-100' : 'opacity-60',
+							)}
+						/>
+						<!-- Recommended badge indicator -->
+						{#if shouldShowRecommendedBadge}
+							<span
+								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
+							></span>
+						{/if}
+					</div>
 					{#if showLabel}
 						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-
-					<!-- Recommended badge indicator -->
-					{#if shouldShowRecommendedBadge}
-						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
-						></span>
 					{/if}
 				</button>
 			{:else}
@@ -85,21 +86,22 @@
 					variant="ghost"
 					size={showLabel ? 'default' : 'icon'}
 				>
-					<SlidersIcon
-						class={cn(
-							'size-4 shrink-0',
-							isCompressionEnabled ? 'opacity-100' : 'opacity-60',
-						)}
-					/>
+					<div class="relative shrink-0">
+						<SlidersIcon
+							class={cn(
+								'size-4 shrink-0',
+								isCompressionEnabled ? 'opacity-100' : 'opacity-60',
+							)}
+						/>
+						<!-- Recommended badge indicator -->
+						{#if shouldShowRecommendedBadge}
+							<span
+								class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
+							></span>
+						{/if}
+					</div>
 					{#if showLabel}
 						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-
-					<!-- Recommended badge indicator -->
-					{#if shouldShowRecommendedBadge}
-						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-blue-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-blue-500/50 before:animate-ping"
-						></span>
 					{/if}
 				</WhisperingButton>
 			{/if}
