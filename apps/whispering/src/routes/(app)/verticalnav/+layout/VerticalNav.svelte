@@ -21,6 +21,9 @@
 	import { notificationLog } from '$lib/components/NotificationLog.svelte';
 	import type { CreateQueryResult } from '@tanstack/svelte-query';
 	import { useSidebar } from '@repo/ui/sidebar';
+	import ManualDeviceSelector from '$lib/components/settings/selectors/ManualDeviceSelector.svelte';
+	import VadDeviceSelector from '$lib/components/settings/selectors/VadDeviceSelector.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 
 	let {
 		getRecorderStateQuery,
@@ -76,9 +79,8 @@
 		},
 	] as const;
 
-	// Quick Settings placeholder items
+	// Quick Settings placeholder items (excluding device selector)
 	const quickSettingsPlaceholders = [
-		{ label: 'Device Selector', icon: MicIcon },
 		{ label: 'Compression', icon: SlidersIcon },
 		{ label: 'Transcription Provider', icon: WandIcon },
 		{ label: 'Transformation Provider', icon: LayersIcon },
@@ -99,14 +101,17 @@
 <Sidebar.Root collapsible="icon" side="left" variant="sidebar">
 	<Sidebar.Rail />
 	<Sidebar.Header>
-		<div class="flex items-center justify-between gap-2 px-2 py-2">
+		<div class="flex items-center justify-between gap-2">
 			<button
 				onclick={sidebar.toggle}
-				class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+				class="flex items-center gap-2 p-2 hover:bg-sidebar-accent rounded-md transition-colors w-full"
 				title="Toggle sidebar"
 			>
-				<span class="text-2xl">🎙️</span>
-				<span class="font-bold text-lg group-data-[collapsible=icon]:hidden">
+				<span
+					class="flex items-center justify-center size-4 text-base leading-none"
+					>🎙️</span
+				>
+				<span class="font-bold text-base group-data-[collapsible=icon]:hidden">
 					Whispering
 				</span>
 			</button>
@@ -136,11 +141,34 @@
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 
-		<!-- Quick Settings Group (Placeholder) -->
+		<!-- Quick Settings Group -->
 		<Sidebar.Group>
 			<Sidebar.GroupLabel>Quick Settings</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
 				<Sidebar.Menu>
+					<!-- Device Selector (mode-aware) -->
+					<Sidebar.MenuItem>
+						{#if settings.value['recording.mode'] === 'manual'}
+							<ManualDeviceSelector showLabel unstyled />
+						{:else if settings.value['recording.mode'] === 'vad'}
+							<VadDeviceSelector showLabel unstyled />
+						{:else}
+							<Sidebar.MenuButton disabled>
+								{#snippet child({ props })}
+									<button
+										{...props}
+										disabled
+										title="Device selector (not available in upload mode)"
+									>
+										<MicIcon />
+										<span class="text-muted-foreground">Device Selector</span>
+									</button>
+								{/snippet}
+							</Sidebar.MenuButton>
+						{/if}
+					</Sidebar.MenuItem>
+
+					<!-- Other placeholders -->
 					{#each quickSettingsPlaceholders as item}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton disabled>
