@@ -11,7 +11,7 @@
 		Minimize2Icon,
 		MicIcon,
 	} from '@lucide/svelte';
-	import { GithubIcon } from '$lib/components/icons';
+	import { EpicenterLogo, GithubIcon } from '$lib/components/icons';
 	import { page } from '$app/state';
 	import { toggleMode } from 'mode-watcher';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
@@ -78,17 +78,20 @@
 
 <Sidebar.Root collapsible="icon" side="left" variant="sidebar">
 	<Sidebar.Rail />
-	<Sidebar.Header>
-		<div class="flex items-center justify-between gap-2">
+	<Sidebar.Header
+		class="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center"
+	>
+		<div
+			class="flex items-center justify-between gap-2 group-data-[collapsible=icon]:w-auto"
+		>
 			<button
 				onclick={sidebar.toggle}
-				class="flex items-center gap-2 p-2 hover:bg-sidebar-accent rounded-md transition-colors w-full"
+				class="flex items-center gap-2 p-2 hover:bg-sidebar-accent rounded-md transition-[width,height,padding] w-full group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-1!"
 				title="Toggle sidebar"
 			>
-				<span
-					class="flex items-center justify-center size-4 text-base leading-none"
-					>🎙️</span
-				>
+				<EpicenterLogo
+					class="size-8 shrink-0 group-data-[collapsible=icon]:size-6"
+				/>
 				<span class="font-bold text-base group-data-[collapsible=icon]:hidden">
 					Whispering
 				</span>
@@ -99,10 +102,14 @@
 
 	<Sidebar.Content>
 		<!-- Main Navigation Group -->
-		<Sidebar.Group class="p-1 pb-0">
+		<Sidebar.Group
+			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
+		>
 			<Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
-				<Sidebar.Menu class="gap-0.5">
+				<Sidebar.Menu
+					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+				>
 					{#each navItems as item}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton isActive={isActive(item.href)}>
@@ -120,16 +127,26 @@
 		</Sidebar.Group>
 
 		<!-- Quick Settings Group -->
-		<Sidebar.Group class="p-1 pb-0">
+		<Sidebar.Group
+			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
+		>
 			<Sidebar.GroupLabel>Quick Settings</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
-				<Sidebar.Menu class="gap-0.5">
+				<Sidebar.Menu
+					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+				>
 					<!-- Device Selector (mode-aware) -->
 					<Sidebar.MenuItem>
 						{#if settings.value['recording.mode'] === 'manual'}
-							<ManualDeviceSelector showLabel unstyled />
+							<ManualDeviceSelector
+								showLabel={sidebar.state === 'expanded'}
+								unstyled
+							/>
 						{:else if settings.value['recording.mode'] === 'vad'}
-							<VadDeviceSelector showLabel unstyled />
+							<VadDeviceSelector
+								showLabel={sidebar.state === 'expanded'}
+								unstyled
+							/>
 						{:else}
 							<Sidebar.MenuButton disabled>
 								{#snippet child({ props })}
@@ -139,7 +156,10 @@
 										title="Device selector (not available in upload mode)"
 									>
 										<MicIcon />
-										<span class="text-muted-foreground">Device Selector</span>
+										<span
+											class="text-muted-foreground group-data-[collapsible=icon]:hidden"
+											>Device Selector</span
+										>
 									</button>
 								{/snippet}
 							</Sidebar.MenuButton>
@@ -148,35 +168,56 @@
 
 					<!-- Compression Selector -->
 					<Sidebar.MenuItem>
-						<CompressionSelector showLabel unstyled />
+						<CompressionSelector
+							showLabel={sidebar.state === 'expanded'}
+							unstyled
+						/>
 					</Sidebar.MenuItem>
 
 					<!-- Transcription Provider Selector -->
 					<Sidebar.MenuItem>
-						<TranscriptionSelector showLabel unstyled />
+						<TranscriptionSelector
+							showLabel={sidebar.state === 'expanded'}
+							unstyled
+						/>
 					</Sidebar.MenuItem>
 
 					<!-- Transformation Provider Selector -->
 					<Sidebar.MenuItem>
-						<TransformationSelector showLabel unstyled />
+						<TransformationSelector
+							showLabel={sidebar.state === 'expanded'}
+							unstyled
+						/>
 					</Sidebar.MenuItem>
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 
 		<!-- Quick Transcription Group -->
-		<Sidebar.Group class="p-1 pb-0">
+		<Sidebar.Group
+			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
+		>
 			<Sidebar.GroupLabel>Quick Transcription</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
-				<Sidebar.Menu class="gap-0.5">
+				<Sidebar.Menu
+					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+				>
 					<!-- VAD Recording Button (toggles start/stop) -->
 					<Sidebar.MenuItem>
-						<VadRecordingButton {getVadStateQuery} unstyled showLabel />
+						<VadRecordingButton
+							{getVadStateQuery}
+							unstyled
+							showLabel={sidebar.state === 'expanded'}
+						/>
 					</Sidebar.MenuItem>
 
 					<!-- Manual Recording Button (toggles start/stop) -->
 					<Sidebar.MenuItem>
-						<ManualRecordingButton {getRecorderStateQuery} unstyled showLabel />
+						<ManualRecordingButton
+							{getRecorderStateQuery}
+							unstyled
+							showLabel={sidebar.state === 'expanded'}
+						/>
 					</Sidebar.MenuItem>
 
 					<!-- Cancel Manual Recording (fixed position - no layout shift) -->
@@ -184,7 +225,7 @@
 						<button
 							type="button"
 							onclick={commandCallbacks.cancelManualRecording}
-							class="peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding,opacity] focus-visible:ring-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 {getRecorderStateQuery.data !==
+							class="peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding,opacity] focus-visible:ring-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! {getRecorderStateQuery.data !==
 							'RECORDING'
 								? 'opacity-0 pointer-events-none'
 								: ''}"
@@ -196,7 +237,9 @@
 									>🚫</span
 								>
 							</div>
-							<span>Cancel recording</span>
+							<span class="group-data-[collapsible=icon]:hidden"
+								>Cancel recording</span
+							>
 						</button>
 					</Sidebar.MenuItem>
 				</Sidebar.Menu>
@@ -204,9 +247,13 @@
 		</Sidebar.Group>
 
 		<!-- Additional Actions (scrollable, not sticky) -->
-		<Sidebar.Group class="p-1 pb-0">
+		<Sidebar.Group
+			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
+		>
 			<Sidebar.GroupContent>
-				<Sidebar.Menu class="gap-0.5">
+				<Sidebar.Menu
+					class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+				>
 					<!-- Toggle dark mode -->
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton>
@@ -251,7 +298,9 @@
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
-		<Sidebar.Menu class="gap-0.5">
+		<Sidebar.Menu
+			class="gap-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center"
+		>
 			{#each footerItems as item}
 				<Sidebar.MenuItem>
 					{#if 'href' in item}
