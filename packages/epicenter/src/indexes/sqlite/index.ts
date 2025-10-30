@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { Database } from '@tursodatabase/database/compat';
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -5,14 +7,12 @@ import {
 	drizzle,
 } from 'drizzle-orm/better-sqlite3';
 import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
-import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
-import type { Db } from '../../db/core';
 import { EPICENTER_STORAGE_DIR } from '../../core/workspace/providers/persistence/desktop';
+import type { Db } from '../../db/core';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
 /**
@@ -30,41 +30,6 @@ export type SQLiteIndexConfig = {
 	 */
 	inMemory?: boolean;
 };
-
-
-/**
- * Create SQLite tables if they don't exist
- * Uses Drizzle's official getTableConfig API for introspection
- */
-async function createTablesIfNotExist<
-	TSchema extends Record<string, SQLiteTable>,
->(db: BetterSQLite3Database<TSchema>, drizzleTables: TSchema): Promise<void> {
-	for (const drizzleTable of Object.values(drizzleTables)) {
-		const tableConfig = getTableConfig(drizzleTable);
-		const columnDefs: string[] = [];
-
-		for (const column of tableConfig.columns) {
-			// Use column.getSQLType() to get the SQL type directly
-			const sqlType = column.getSQLType();
-
-			let constraints = '';
-			if (column.notNull) {
-				constraints += ' NOT NULL';
-			}
-			if (column.primary) {
-				constraints += ' PRIMARY KEY';
-			}
-			if (column.isUnique) {
-				constraints += ' UNIQUE';
-			}
-
-			columnDefs.push(`${column.name} ${sqlType}${constraints}`);
-		}
-
-		const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableConfig.name} (${columnDefs.join(', ')})`;
-		await db.run(sql.raw(createTableSQL));
-	}
-}
 
 /**
  * Create a SQLite index
@@ -245,4 +210,38 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 		db: sqliteDb,
 		...drizzleTables,
 	});
+}
+
+/**
+ * Create SQLite tables if they don't exist
+ * Uses Drizzle's official getTableConfig API for introspection
+ */
+async function createTablesIfNotExist<
+	TSchema extends Record<string, SQLiteTable>,
+>(db: BetterSQLite3Database<TSchema>, drizzleTables: TSchema): Promise<void> {
+	for (const drizzleTable of Object.values(drizzleTables)) {
+		const tableConfig = getTableConfig(drizzleTable);
+		const columnDefs: string[] = [];
+
+		for (const column of tableConfig.columns) {
+			// Use column.getSQLType() to get the SQL type directly
+			const sqlType = column.getSQLType();
+
+			let constraints = '';
+			if (column.notNull) {
+				constraints += ' NOT NULL';
+			}
+			if (column.primary) {
+				constraints += ' PRIMARY KEY';
+			}
+			if (column.isUnique) {
+				constraints += ' UNIQUE';
+			}
+
+			columnDefs.push(`${column.name} ${sqlType}${constraints}`);
+		}
+
+		const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableConfig.name} (${columnDefs.join(', ')})`;
+		await db.run(sql.raw(createTableSQL));
+	}
 }
