@@ -493,6 +493,52 @@ export function createDbServiceDesktop({
 		},
 
 		runs: {
+			getAll: async () => {
+				// Check if runs migration completed successfully
+				const { error: migrationError } = await runsResultPromise;
+
+				// If migration succeeded, only read from file system
+				if (!migrationError) {
+					return fileSystemDb.runs.getAll();
+				}
+
+				// If migration failed, fall back to DUAL READ: Merge from both sources
+				const [fsResult, idbResult] = await Promise.all([
+					fileSystemDb.runs.getAll(),
+					indexedDb.runs.getAll(),
+				]);
+
+				// If both failed, return an error
+				if (fsResult.error && idbResult.error) {
+					return Err({
+						name: 'DbServiceError' as const,
+						message: 'Error getting all transformation runs from both sources',
+						context: {
+							fileSystemError: fsResult.error,
+							indexedDbError: idbResult.error,
+						},
+						cause: fsResult.error,
+					});
+				}
+
+				// Use data from successful sources (empty array for failed ones)
+				const fsRuns = fsResult.data ?? [];
+				const idbRuns = idbResult.data ?? [];
+
+				// Merge, preferring file system
+				const merged = new Map();
+				for (const run of fsRuns) {
+					merged.set(run.id, run);
+				}
+				for (const run of idbRuns) {
+					if (!merged.has(run.id)) {
+						merged.set(run.id, run);
+					}
+				}
+
+				return Ok(Array.from(merged.values()));
+			},
+
 			getById: async (id: string) => {
 				// Check if runs migration completed successfully
 				const { error: migrationError } = await runsResultPromise;
@@ -851,10 +897,7 @@ async function migrateTransformations({
 /**
  * Migrate transformation runs from IndexedDB to file system.
  * Preserves exact run data including IDs.
- *
- * Note: Does not delete runs from IndexedDB after migration because
- * the runs interface doesn't have a delete method. Runs are small metadata
- * so this is acceptable.
+ * Deletes runs from IndexedDB immediately after successful migration.
  */
 async function migrateTransformationRuns({
 	indexedDb,
@@ -865,74 +908,64 @@ async function migrateTransformationRuns({
 }) {
 	return tryAsync({
 		try: async () => {
-			// Get all transformations to iterate through their runs
-			const { data: transformations, error: getTransformationsError } =
-				await indexedDb.transformations.getAll();
+			// Get all runs directly from IndexedDB
+			const { data: runs, error: getRunsError } =
+				await indexedDb.runs.getAll();
 
-			if (getTransformationsError || !transformations) {
-				if (getTransformationsError) {
-					console.error(
-						'Failed to get transformations from IndexedDB:',
-						getTransformationsError,
-					);
-				}
+			if (getRunsError) {
+				console.error(
+					'Failed to get runs from IndexedDB:',
+					getRunsError,
+				);
 				return;
 			}
 
-			console.log(
-				`Starting migration of transformation runs for ${transformations.length} transformations`,
-			);
+			if (!runs || runs.length === 0) {
+				console.log('No runs to migrate');
+				return;
+			}
 
-			for (const transformation of transformations) {
-				const { data: runs, error: getRunsError } =
-					await indexedDb.runs.getByTransformationId(transformation.id);
+			console.log(`Starting migration of ${runs.length} transformation runs`);
 
-				if (getRunsError) {
-					console.warn(
-						`Failed to get runs for transformation ${transformation.id}`,
-						getRunsError,
-					);
+			for (const run of runs) {
+				// Idempotent check: if already migrated, just delete from IndexedDB
+				const { data: existing } = await fileSystemDb.runs.getById(run.id);
+				if (existing) {
+					await indexedDb.runs.delete([run]);
 					continue;
 				}
 
-				if (!runs || runs.length === 0) continue;
+				// Write run directly to preserve all data including ID
+				const { error } = await tryAsync({
+					try: async () => {
+						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
 
-				for (const run of runs) {
-					// Idempotent check: if already migrated, skip
-					const { data: existing } = await fileSystemDb.runs.getById(run.id);
-					if (existing) {
-						continue;
-					}
+						// Ensure directory exists
+						const dirExists = await exists(runsPath);
+						if (!dirExists) {
+							await mkdir(runsPath, { recursive: true });
+						}
 
-					// Write run directly to preserve all data including ID
-					const { error } = await tryAsync({
-						try: async () => {
-							const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+						// Write run file
+						const mdContent = matter.stringify('', run);
+						const mdPath = await join(runsPath, `${run.id}.md`);
+						const tmpPath = `${mdPath}.tmp`;
 
-							// Ensure directory exists
-							const dirExists = await exists(runsPath);
-							if (!dirExists) {
-								await mkdir(runsPath, { recursive: true });
-							}
+						await writeTextFile(tmpPath, mdContent);
+						await rename(tmpPath, mdPath);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: `Failed to migrate transformation run ${run.id}`,
+							cause: error,
+						}),
+				});
 
-							// Write run file
-							const mdContent = matter.stringify('', run);
-							const mdPath = await join(runsPath, `${run.id}.md`);
-							const tmpPath = `${mdPath}.tmp`;
-
-							await writeTextFile(tmpPath, mdContent);
-							await rename(tmpPath, mdPath);
-						},
-						catch: (error) =>
-							DbServiceErr({
-								message: `Failed to migrate transformation run ${run.id}`,
-								cause: error,
-							}),
-					});
-
-					if (error) {
-						console.warn(`Failed to migrate run ${run.id}`, error);
-					}
+				if (error) {
+					console.warn(`Failed to migrate run ${run.id}`, error);
+				} else {
+					// SUCCESS - Delete from IndexedDB immediately
+					await indexedDb.runs.delete([run]);
 				}
 			}
 

@@ -169,27 +169,29 @@ All transformation run deletion functionality has been successfully implemented 
 
 #### Phase 2: UI Components ✅
 
-Created one new component and inlined delete functionality:
+All delete functionality inlined into Runs.svelte using the confirmationDialog pattern:
 
-**Inlined Delete Button** (in Runs.svelte):
-- Individual trash icon button for each run
+**Individual Delete Button** (in Runs.svelte):
+- Individual trash icon button for each run in table
 - Uses `confirmationDialog.open()` for confirmation
 - Delete logic inlined directly in onclick handler
 - Disabled state during deletion
 - Uses `rpc.notify.success.execute()` and `rpc.notify.error.execute()` for notifications
 
-**ClearAllRunsButton.svelte**:
-- Bulk deletion button for clearing all runs
-- AlertDialog confirmation showing count of runs to delete
-- Same mutation pattern as individual delete
+**Clear All Runs Button** (in Runs.svelte):
+- Bulk deletion button at top of runs table
+- Uses `confirmationDialog.open()` for confirmation showing count
+- Delete logic inlined directly in onclick handler
+- Shows loading state ("Deleting...") during mutation
 - Proper pluralization in messages
 - Uses `rpc.notify` for success/error notifications
 
 **Runs.svelte Updates**:
 - Added new "Actions" column to the table
-- Added DeleteRunButton to each row
-- Added ClearAllRunsButton above the table
+- Inlined individual delete button for each row
+- Inlined "Clear All Runs" button above the table
 - Updated colspan for expanded rows (4 → 5)
+- Both delete actions use `confirmationDialog` pattern (no separate components)
 
 #### Key Features
 
@@ -208,36 +210,53 @@ Created one new component and inlined delete functionality:
 3. `apps/whispering/src/lib/services/db/web.ts` - Implemented IndexedDB deletion
 4. `apps/whispering/src/lib/services/db/desktop.ts` - Implemented dual-source deletion and fixed migration bug
 5. `apps/whispering/src/lib/query/db.ts` - Added delete mutation with cache invalidation
-6. `apps/whispering/src/lib/components/transformations-editor/ClearAllRunsButton.svelte` - New component
-7. `apps/whispering/src/lib/components/transformations-editor/Runs.svelte` - Inlined delete button with confirmationDialog
+6. `apps/whispering/src/lib/components/transformations-editor/Runs.svelte` - Inlined both delete buttons with confirmationDialog pattern
 
-#### Critical Bug Fix: Migration Infinite Loop
+#### Critical Bug Fix: Migration Infinite Loop & Simplification
 
 **Issue Discovered**: After merging the latest PR that refactored migrations, the runs migration was running on **every page load** because:
 
 1. Transformations migration was deleting transformations from IndexedDB immediately after migration
-2. Runs migration queried `indexedDb.transformations.getAll()` to find transformations to iterate over
+2. Runs migration was querying `indexedDb.transformations.getAll()` to find transformations, then getting runs for each transformation
 3. Since transformations were already deleted, migration returned early without processing runs
 4. Runs remained in IndexedDB, causing migration to retry every load
 
 **Initial Solution (INCORRECT)** (`desktop.ts:868`):
 - Changed to query `fileSystemDb.transformations.getAll()` instead of IndexedDB
-- This worked but was inconsistent with the old migration behavior
+- This worked but was overly complex
 
-**Correct Solution Applied**:
-The user identified that the issue was with the ORDER of deletion, not the query source. The old migration code queried IndexedDB and worked because transformations STAYED in IndexedDB during migration. The fix:
+**Second Solution (STILL TOO COMPLEX)**:
+- Kept transformations in IndexedDB until after runs migration
+- Runs migration iterated over transformations from IndexedDB
+- Added cleanup step after runs migration to delete transformations
 
-1. **Reverted runs migration** (`desktop.ts:868`): Changed back to query `indexedDb.transformations.getAll()`
-2. **Updated transformations migration** (`desktop.ts:814-838`): Removed immediate deletion of transformations from IndexedDB
-3. **Added cleanup step** (`desktop.ts:944-953`): After runs migration completes, now delete all transformations from IndexedDB
+**Final Solution (SIMPLE & CORRECT)**:
+The user identified that the runs migration doesn't actually need transformations at all! The migration pattern was overly complex. The fix:
 
-This ensures:
-- Migrations remain consistent with the original behavior
-- Transformations stay in IndexedDB until AFTER runs are migrated
-- Proper cleanup happens at the end of runs migration
+1. **Added `runs.getAll()` method**:
+   - Added to `DbService.runs` interface in `types.ts`
+   - Implemented in `file-system.ts`: reads all .md files from runs directory
+   - Implemented in `web.ts`: uses Dexie's `toArray()` to get all runs
+   - Implemented in `desktop.ts`: dual-read pattern (file system + IndexedDB fallback)
+
+2. **Simplified runs migration** (`desktop.ts:865-926`):
+   - Changed to query `indexedDb.runs.getAll()` directly
+   - Removed the complex pattern of iterating over transformations
+   - Each run is migrated and deleted independently
+   - No dependency on transformations
+
+3. **Restored transformations migration** (`desktop.ts:815-837`):
+   - Delete transformations from IndexedDB immediately after migration
+   - Same pattern as recordings migration
+   - No dependency on runs migration
+
+**Result**:
+- Each migration is completely independent and self-contained
+- Pattern: "Get all items → migrate each item → delete from IndexedDB immediately"
+- No complex dependencies between migrations
+- Cleaner, simpler, more maintainable code
 - Migration completes successfully and doesn't re-run
-- All runs are properly migrated and deleted from IndexedDB
-- No more infinite migration loop on page load
+- Consistent with the goal: migrate data, delete from IndexedDB, done
 
 #### Next Steps
 

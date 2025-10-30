@@ -580,6 +580,47 @@ export function createFileSystemDb(): DbService {
 		},
 
 		runs: {
+			async getAll() {
+				return tryAsync({
+					try: async () => {
+						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+
+						// Ensure directory exists
+						const dirExists = await exists(runsPath);
+						if (!dirExists) {
+							await mkdir(runsPath, { recursive: true });
+							return [];
+						}
+
+						// List all .md files
+						const entries = await readDir(runsPath);
+						const mdFiles = entries.filter(
+							(entry) => entry.name && entry.name.endsWith('.md'),
+						);
+
+						// Parse each file
+						const runs = await Promise.all(
+							mdFiles.map(async (entry) => {
+								if (!entry.name) return null;
+
+								const filePath = await join(runsPath, entry.name);
+								const content = await readTextFile(filePath);
+								const { data } = matter(content);
+
+								return data as TransformationRun;
+							}),
+						);
+
+						return runs.filter((r): r is TransformationRun => r !== null);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting all transformation runs from file system',
+							cause: error,
+						}),
+				});
+			},
+
 			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
