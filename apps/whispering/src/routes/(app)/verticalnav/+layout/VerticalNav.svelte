@@ -82,23 +82,21 @@
 	<Sidebar.Header
 		class="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center"
 	>
-		<div
-			class="flex items-center justify-between gap-2 group-data-[collapsible=icon]:w-auto"
+		<button
+			onclick={sidebar.toggle}
+			class="flex items-center justify-between gap-2 p-2 hover:bg-sidebar-accent rounded-md transition-[width,height,padding] w-full group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-1! group-data-[collapsible=icon]:w-auto"
+			title="Toggle sidebar"
 		>
-			<button
-				onclick={sidebar.toggle}
-				class="flex items-center gap-2 p-2 hover:bg-sidebar-accent rounded-md transition-[width,height,padding] w-full group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-1!"
-				title="Toggle sidebar"
-			>
+			<div class="flex items-center gap-2">
 				<EpicenterLogo
 					class="size-8 shrink-0 group-data-[collapsible=icon]:size-6"
 				/>
 				<span class="font-bold text-base group-data-[collapsible=icon]:hidden">
 					Whispering
 				</span>
-			</button>
+			</div>
 			<Sidebar.Trigger class="group-data-[collapsible=icon]:hidden" />
-		</div>
+		</button>
 	</Sidebar.Header>
 
 	<Sidebar.Content>
