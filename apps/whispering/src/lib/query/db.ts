@@ -1,7 +1,7 @@
 import type { Accessor } from '@tanstack/svelte-query';
 import { Err, Ok } from 'wellcrafted/result';
 import * as services from '$lib/services';
-import type { Recording, Transformation } from '$lib/services/db';
+import type { Recording, Transformation, TransformationRun } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
 import { defineMutation, defineQuery, queryClient } from './_client';
 
@@ -300,5 +300,40 @@ export const db = {
 				resultQueryFn: () => services.db.runs.getByRecordingId(recordingId()),
 				select: (data) => data.at(0),
 			}),
+
+		delete: defineMutation({
+			mutationKey: ['db', 'runs', 'delete'] as const,
+			resultMutationFn: async (runs: TransformationRun | TransformationRun[]) => {
+				const runsArray = Array.isArray(runs) ? runs : [runs];
+				const { error } = await services.db.runs.delete(runsArray);
+				if (error) return Err(error);
+
+				// Invalidate all affected queries
+				const transformationIds = new Set(
+					runsArray.map((r) => r.transformationId),
+				);
+				const recordingIds = new Set(
+					runsArray
+						.map((r) => r.recordingId)
+						.filter((id): id is string => id !== null),
+				);
+
+				// Invalidate queries for each transformation that had runs deleted
+				for (const transformationId of transformationIds) {
+					queryClient.invalidateQueries({
+						queryKey: dbKeys.runs.byTransformationId(transformationId),
+					});
+				}
+
+				// Invalidate queries for each recording that had runs deleted
+				for (const recordingId of recordingIds) {
+					queryClient.invalidateQueries({
+						queryKey: dbKeys.runs.byRecordingId(recordingId),
+					});
+				}
+
+				return Ok(undefined);
+			},
+		}),
 	},
 };

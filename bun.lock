@@ -97,6 +97,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@repo/constants": "workspace:*",
+        "@repo/shared": "workspace:*",
         "@tanstack/svelte-query": "^6.0.0",
         "@tanstack/svelte-query-devtools": "^6.0.0",
         "@trpc/client": "^11.0.3",
@@ -143,7 +144,7 @@
     },
     "apps/whispering": {
       "name": "@repo/whispering",
-      "version": "7.5.5",
+      "version": "7.7.0",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.55.0",
         "@aptabase/tauri": "^0.4.1",
@@ -151,6 +152,7 @@
         "@google/generative-ai": "^0.24.1",
         "@mistralai/mistralai": "^1.9.18",
         "@repo/constants": "workspace:*",
+        "@repo/shared": "workspace:*",
         "@repo/svelte-utils": "workspace:*",
         "@ricky0123/vad-web": "^0.0.24",
         "@standard-schema/spec": "^1.0.0",
