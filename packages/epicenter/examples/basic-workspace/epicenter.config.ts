@@ -1,5 +1,6 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+import path from 'node:path';
 import {
 	type Row,
 	defineEpicenter,
@@ -16,7 +17,7 @@ import {
 	sqliteIndex,
 	text,
 } from '../../src/index';
-import { setupPersistence } from '../../src/core/workspace/providers';
+import { setupPersistence } from '../../src/core/workspace/providers/persistence/desktop';
 
 /**
  * Example blog workspace
@@ -162,9 +163,13 @@ const blogWorkspace = defineWorkspace({
 		}),
 	}),
 
-	// Use universal persistence helper
-	// Stores YJS document at ./.epicenter/blog.yjs (desktop) or IndexedDB (browser)
-	providers: [setupPersistence],
+	// Use desktop persistence with absolute path
+	// Stores YJS document at examples/basic-workspace/.epicenter/blog.yjs
+	providers: [
+		setupPersistence({
+			storagePath: path.join(import.meta.dirname, '.epicenter'),
+		}),
+	],
 });
 
 export default defineEpicenter({

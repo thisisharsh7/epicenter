@@ -1,6 +1,7 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { setupPersistence } from '../../../src/core/workspace/providers';
+import path from 'node:path';
+import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
 import {
 	type Row,
 	defineMutation,
@@ -30,7 +31,11 @@ export const hackernews = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db),
 	},
 
-	providers: [setupPersistence],
+	providers: [
+		setupPersistence({
+			storagePath: path.join(import.meta.dirname, '.epicenter'),
+		}),
+	],
 
 	actions: ({ db, indexes }) => ({
 		/**

@@ -1,5 +1,6 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+import path from 'node:path';
 import {
 	defineWorkspace,
 	sqliteIndex,
@@ -9,7 +10,7 @@ import {
 	eq,
 	type Row,
 } from '../../../src/index';
-import { setupPersistence } from '../../../src/core/workspace/providers';
+import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
 import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
@@ -30,7 +31,11 @@ export const producthunt = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db),
 	},
 
-	providers: [setupPersistence],
+	providers: [
+		setupPersistence({
+			storagePath: path.join(import.meta.dirname, '.epicenter'),
+		}),
+	],
 
 	actions: ({ db, indexes }) => ({
 		/**

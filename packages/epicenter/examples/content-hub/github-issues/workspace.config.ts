@@ -1,5 +1,6 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+import path from 'node:path';
 import {
 	defineWorkspace,
 	sqliteIndex,
@@ -14,7 +15,7 @@ import {
 	multiSelect,
 	date,
 } from '../../../src/index';
-import { setupPersistence } from '../../../src/core/workspace/providers';
+import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
 import { NICHES } from '../shared/niches';
 
 /**
@@ -45,7 +46,11 @@ export const githubIssues = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db),
 	},
 
-	providers: [setupPersistence],
+	providers: [
+		setupPersistence({
+			storagePath: path.join(import.meta.dirname, '.epicenter'),
+		}),
+	],
 
 	actions: ({ db, indexes }) => ({
 		/**

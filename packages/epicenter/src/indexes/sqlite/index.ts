@@ -12,7 +12,7 @@ import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import type { Db } from '../../db/core';
-import { EPICENTER_STORAGE_DIR } from '../../persistence/desktop';
+import { EPICENTER_STORAGE_DIR } from '../../core/workspace/providers/persistence/desktop';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
 /**

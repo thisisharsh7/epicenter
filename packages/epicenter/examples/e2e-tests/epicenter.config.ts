@@ -1,5 +1,6 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+import path from 'node:path';
 import {
 	defineEpicenter,
 	defineWorkspace,
@@ -17,7 +18,7 @@ import {
 	eq,
 	type Row,
 } from '../../src/index';
-import { setupPersistence } from '../../src/core/workspace/providers';
+import { setupPersistence } from '../../src/core/workspace/providers/persistence/desktop';
 
 /**
  * Comprehensive E2E test workspace
@@ -54,7 +55,11 @@ const blogWorkspace = defineWorkspace({
 
 	// Use universal persistence helper
 	// Stores YJS document at ./.epicenter/blog.yjs (desktop) or IndexedDB (browser)
-	providers: [setupPersistence],
+	providers: [
+		setupPersistence({
+			storagePath: path.join(import.meta.dirname, '.epicenter'),
+		}),
+	],
 
 	actions: ({ db, indexes }) => ({
 		// Query: Get all published posts
