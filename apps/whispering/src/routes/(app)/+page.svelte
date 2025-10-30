@@ -409,5 +409,20 @@
 				{/if}
 			</p>
 		</div>
+
+		<!-- Layout Switcher (Development) -->
+		<div class="mt-8 pt-4 border-t border-border/40">
+			<p class="text-muted-foreground text-center text-sm">
+				<strong>Dev:</strong> Switch to{' '}
+				<WhisperingButton
+					href="/verticalnav"
+					variant="link"
+					class="text-sm"
+					tooltipContent="Switch to vertical nav layout"
+				>
+					Vertical Nav Layout
+				</WhisperingButton>
+			</p>
+		</div>
 	</div>
 </main>

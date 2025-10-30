@@ -359,7 +359,8 @@
 			{/if}
 		</div>
 
-		<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />
+		<!-- TODO: Remove NavItems - using VerticalNav sidebar instead -->
+		<!-- <NavItems class="xs:flex -mb-2.5 -mt-1 hidden" /> -->
 
 		<div class="xs:flex hidden flex-col items-center gap-3">
 			<p class="text-foreground/75 text-center text-sm">
@@ -407,6 +408,21 @@
 						Get the native desktop app
 					</WhisperingButton>
 				{/if}
+			</p>
+		</div>
+
+		<!-- Layout Switcher (Development) -->
+		<div class="mt-8 pt-4 border-t border-border/40">
+			<p class="text-muted-foreground text-center text-sm">
+				<strong>Dev:</strong> Switch to{' '}
+				<WhisperingButton
+					href="/"
+					variant="link"
+					class="text-sm"
+					tooltipContent="Switch to topbar layout"
+				>
+					Topbar Layout
+				</WhisperingButton>
 			</p>
 		</div>
 	</div>
