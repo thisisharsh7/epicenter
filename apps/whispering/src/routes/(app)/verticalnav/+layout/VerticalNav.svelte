@@ -10,9 +10,6 @@
 		LogsIcon,
 		Minimize2Icon,
 		MicIcon,
-		WandIcon,
-		SlidersIcon,
-		SquareIcon,
 	} from '@lucide/svelte';
 	import { GithubIcon } from '$lib/components/icons';
 	import { page } from '$app/state';
@@ -27,6 +24,9 @@
 	import TranscriptionSelector from '$lib/components/settings/selectors/TranscriptionSelector.svelte';
 	import TransformationSelector from '$lib/components/settings/selectors/TransformationSelector.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
+	import ManualRecordingButton from '$lib/components/recording/ManualRecordingButton.svelte';
+	import VadRecordingButton from '$lib/components/recording/VadRecordingButton.svelte';
+	import { commandCallbacks } from '$lib/commands';
 
 	let {
 		getRecorderStateQuery,
@@ -50,20 +50,8 @@
 		{ label: 'Settings', href: '/verticalnav/settings', icon: SettingsIcon },
 	] as const;
 
-	// Footer items with conditional Tauri-only minimize
+	// Footer items - only essential items (minimize on desktop, notification history)
 	const footerItems = [
-		{
-			label: 'Toggle dark mode',
-			icon: SunIcon,
-			action: toggleMode,
-			isTheme: true,
-		},
-		{
-			label: 'View project on GitHub',
-			icon: GithubIcon,
-			href: 'https://github.com/epicenter-md/epicenter',
-			external: true,
-		},
 		...(window.__TAURI_INTERNALS__
 			? [
 					{
@@ -80,16 +68,7 @@
 				notificationLog.isOpen = true;
 			},
 		},
-	] as const;
-
-	// Quick Settings - no placeholders remaining, all implemented
-	const quickSettingsPlaceholders = [] as const;
-
-	// Quick Transcription placeholder items
-	const quickTranscriptionPlaceholders = [
-		{ label: 'Recording Controls', icon: SquareIcon },
-		{ label: 'Recording Mode', icon: MicIcon },
-	] as const;
+	];
 
 	// Check if route is active
 	const isActive = (href: string) => {
@@ -120,10 +99,10 @@
 
 	<Sidebar.Content>
 		<!-- Main Navigation Group -->
-		<Sidebar.Group>
+		<Sidebar.Group class="p-1 pb-0">
 			<Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
-				<Sidebar.Menu>
+				<Sidebar.Menu class="gap-0.5">
 					{#each navItems as item}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton isActive={isActive(item.href)}>
@@ -141,10 +120,10 @@
 		</Sidebar.Group>
 
 		<!-- Quick Settings Group -->
-		<Sidebar.Group>
+		<Sidebar.Group class="p-1 pb-0">
 			<Sidebar.GroupLabel>Quick Settings</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
-				<Sidebar.Menu>
+				<Sidebar.Menu class="gap-0.5">
 					<!-- Device Selector (mode-aware) -->
 					<Sidebar.MenuItem>
 						{#if settings.value['recording.mode'] === 'manual'}
@@ -185,30 +164,94 @@
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 
-		<!-- Quick Transcription Group (Placeholder) -->
-		<Sidebar.Group>
+		<!-- Quick Transcription Group -->
+		<Sidebar.Group class="p-1 pb-0">
 			<Sidebar.GroupLabel>Quick Transcription</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
-				<Sidebar.Menu>
-					{#each quickTranscriptionPlaceholders as item}
-						<Sidebar.MenuItem>
-							<Sidebar.MenuButton disabled>
-								{#snippet child({ props })}
-									<button {...props} disabled title={`TODO: ${item.label}`}>
-										<svelte:component this={item.icon} />
-										<span class="text-muted-foreground">{item.label}</span>
-									</button>
-								{/snippet}
-							</Sidebar.MenuButton>
-						</Sidebar.MenuItem>
-					{/each}
+				<Sidebar.Menu class="gap-0.5">
+					<!-- VAD Recording Button (toggles start/stop) -->
+					<Sidebar.MenuItem>
+						<VadRecordingButton {getVadStateQuery} unstyled showLabel />
+					</Sidebar.MenuItem>
+
+					<!-- Manual Recording Button (toggles start/stop) -->
+					<Sidebar.MenuItem>
+						<ManualRecordingButton {getRecorderStateQuery} unstyled showLabel />
+					</Sidebar.MenuItem>
+
+					<!-- Cancel Manual Recording (fixed position - no layout shift) -->
+					<Sidebar.MenuItem>
+						<button
+							type="button"
+							onclick={commandCallbacks.cancelManualRecording}
+							class="peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding,opacity] focus-visible:ring-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 {getRecorderStateQuery.data !==
+							'RECORDING'
+								? 'opacity-0 pointer-events-none'
+								: ''}"
+							title="Cancel recording"
+							disabled={getRecorderStateQuery.data !== 'RECORDING'}
+						>
+							<div class="relative shrink-0">
+								<span class="text-base flex items-center justify-center size-4"
+									>🚫</span
+								>
+							</div>
+							<span>Cancel recording</span>
+						</button>
+					</Sidebar.MenuItem>
+				</Sidebar.Menu>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<!-- Additional Actions (scrollable, not sticky) -->
+		<Sidebar.Group class="p-1 pb-0">
+			<Sidebar.GroupContent>
+				<Sidebar.Menu class="gap-0.5">
+					<!-- Toggle dark mode -->
+					<Sidebar.MenuItem>
+						<Sidebar.MenuButton>
+							{#snippet child({ props })}
+								<button
+									onclick={toggleMode}
+									{...props}
+									title="Toggle dark mode"
+								>
+									<SunIcon
+										class="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"
+									/>
+									<MoonIcon
+										class="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
+									/>
+									<span>Toggle dark mode</span>
+								</button>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
+
+					<!-- View project on GitHub -->
+					<Sidebar.MenuItem>
+						<Sidebar.MenuButton>
+							{#snippet child({ props })}
+								<a
+									href="https://github.com/epicenter-md/epicenter"
+									target="_blank"
+									rel="noopener noreferrer"
+									{...props}
+									title="View project on GitHub"
+								>
+									<svelte:component this={GithubIcon} />
+									<span>View project on GitHub</span>
+								</a>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
-		<Sidebar.Menu>
+		<Sidebar.Menu class="gap-0.5">
 			{#each footerItems as item}
 				<Sidebar.MenuItem>
 					{#if 'href' in item}
