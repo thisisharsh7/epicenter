@@ -24,6 +24,8 @@
 	import ManualDeviceSelector from '$lib/components/settings/selectors/ManualDeviceSelector.svelte';
 	import VadDeviceSelector from '$lib/components/settings/selectors/VadDeviceSelector.svelte';
 	import CompressionSelector from '$lib/components/settings/selectors/CompressionSelector.svelte';
+	import TranscriptionSelector from '$lib/components/settings/selectors/TranscriptionSelector.svelte';
+	import TransformationSelector from '$lib/components/settings/selectors/TransformationSelector.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	let {
@@ -80,11 +82,8 @@
 		},
 	] as const;
 
-	// Quick Settings placeholder items (excluding device selector and compression)
-	const quickSettingsPlaceholders = [
-		{ label: 'Transcription Provider', icon: WandIcon },
-		{ label: 'Transformation Provider', icon: LayersIcon },
-	] as const;
+	// Quick Settings - no placeholders remaining, all implemented
+	const quickSettingsPlaceholders = [] as const;
 
 	// Quick Transcription placeholder items
 	const quickTranscriptionPlaceholders = [
@@ -173,19 +172,15 @@
 						<CompressionSelector showLabel unstyled />
 					</Sidebar.MenuItem>
 
-					<!-- Other placeholders -->
-					{#each quickSettingsPlaceholders as item}
-						<Sidebar.MenuItem>
-							<Sidebar.MenuButton disabled>
-								{#snippet child({ props })}
-									<button {...props} disabled title={`TODO: ${item.label}`}>
-										<svelte:component this={item.icon} />
-										<span class="text-muted-foreground">{item.label}</span>
-									</button>
-								{/snippet}
-							</Sidebar.MenuButton>
-						</Sidebar.MenuItem>
-					{/each}
+					<!-- Transcription Provider Selector -->
+					<Sidebar.MenuItem>
+						<TranscriptionSelector showLabel unstyled />
+					</Sidebar.MenuItem>
+
+					<!-- Transformation Provider Selector -->
+					<Sidebar.MenuItem>
+						<TransformationSelector showLabel unstyled />
+					</Sidebar.MenuItem>
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
