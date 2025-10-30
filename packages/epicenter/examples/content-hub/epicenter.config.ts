@@ -1,237 +1,78 @@
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
-import {
-	defineWorkspace,
-	defineEpicenter,
-	id,
-	text,
-	select,
-	multiSelect,
-	date,
-	generateId,
-	sqliteIndex,
-	defineQuery,
-	defineMutation,
-	eq,
-	type Row,
-	type Db,
-	defineIndex,
-} from '../../src/index';
-import { setupPersistence } from '../../src/core/workspace/providers';
-import type { WorkspaceSchema } from '../../src/core/schema';
+import { defineEpicenter } from '../../src/index';
+
+// Content repository
+import { pages } from './pages/workspace.config';
+
+// Video platforms
+import { youtube } from './youtube/workspace.config';
+import { instagram } from './instagram/workspace.config';
+import { tiktok } from './tiktok/workspace.config';
+
+// Blog platforms
+import { medium } from './medium/workspace.config';
+import { substack } from './substack/workspace.config';
+import { personalBlog } from './personal-blog/workspace.config';
+import { epicenterBlog } from './epicenter-blog/workspace.config';
+
+// Social platforms
+import { reddit } from './reddit/workspace.config';
+import { twitter } from './twitter/workspace.config';
+import { hackernews } from './hackernews/workspace.config';
+import { discord } from './discord/workspace.config';
+import { producthunt } from './producthunt/workspace.config';
+import { bookface } from './bookface/workspace.config';
+
+// Development
+import { githubIssues } from './github-issues/workspace.config';
 
 /**
- * Pages workspace
- * Manages page content (blogs, articles, guides, tutorials, news)
- */
-export const pages = defineWorkspace({
-	id: 'pages',
-	version: 1,
-
-	schema: {
-		pages: {
-			id: id(),
-			title: text(),
-			content: text(),
-			type: select({ options: ['blog', 'article', 'guide', 'tutorial', 'news'] }),
-			tags: select({ options: ['tech', 'lifestyle', 'business', 'education', 'entertainment'] }),
-		},
-	},
-
-	indexes: {
-		sqlite: (db) => sqliteIndex(db),
-	},
-
-	// Use universal persistence helper
-	// Stores YJS document at ./.epicenter/pages.yjs (desktop) or IndexedDB (browser)
-	providers: [setupPersistence],
-
-	actions: ({ db, indexes }) => ({
-		// Query: Get all pages
-		getPages: defineQuery({
-			handler: async () => {
-				console.log('Fetched pages:', indexes.sqlite.pages);
-				const pages = await indexes.sqlite.db.select().from(indexes.sqlite.pages);
-				return Ok(pages);
-			},
-		}),
-
-		// Query: Get page by ID
-		getPage: defineQuery({
-			input: type({ id: "string" }),
-			handler: async ({ id }) => {
-				const page = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.pages)
-					.where(eq(indexes.sqlite.pages.id, id));
-				return Ok(page);
-			},
-		}),
-
-		// Mutation: Create a page
-		createPage: defineMutation({
-			input: type({
-				title: "string",
-				content: "string",
-				type: "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
-				tags: "'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
-			}),
-			handler: async (data) => {
-				const page = {
-					id: generateId(),
-					...data,
-				} satisfies Row<typeof db.schema.pages>;
-				db.tables.pages.insert(page);
-				return Ok(page);
-			},
-		}),
-	}),
-});
-
-/**
- * Content hub workspace
- * Manages distribution of pages across social media platforms
- */
-
-const niche = multiSelect({
-	options: [
-		'Braden',
-		'Epicenter',
-		'YC',
-		'Yale',
-		'College Students',
-		'High School Students',
-		'Coding',
-		'Productivity',
-		'Ethics',
-		'Writing',
-	],
-});
-
-export const contentHub = defineWorkspace({
-	id: 'content-hub',
-	version: 1,
-
-	dependencies: [pages],
-
-	schema: {
-		youtube: {
-			id: id(),
-			page_id: text(),
-			title: text(),
-			description: text(),
-			niche,
-			posted_at: date(),
-			updated_at: date(),
-		},
-		instagram: {
-			id: id(),
-			page_id: text(),
-			title: text(),
-			description: text(),
-			niche,
-			posted_at: date(),
-			updated_at: date(),
-		},
-		tiktok: {
-			id: id(),
-			page_id: text(),
-			title: text(),
-			description: text(),
-			niche,
-			posted_at: date(),
-			updated_at: date(),
-		},
-		substack: {
-			id: id(),
-			page_id: text(),
-			title: text(),
-			subtitle: text(),
-			content: text(),
-			niche,
-			posted_at: date(),
-			updated_at: date(),
-		},
-		medium: {
-			id: id(),
-			page_id: text(),
-			title: text(),
-			subtitle: text(),
-			content: text(),
-			niche,
-			posted_at: date(),
-			updated_at: date(),
-		},
-		twitter: {
-			id: id(),
-			page_id: text(),
-			content: text(),
-			title: text({ nullable: true }),
-		},
-	},
-
-	indexes: {
-		sqlite: (db) => sqliteIndex(db),
-	},
-
-	// Use universal persistence helper
-	// Stores YJS document at ./.epicenter/content-hub.yjs (desktop) or IndexedDB (browser)
-	providers: [setupPersistence],
-
-	actions: ({ db, indexes }) => ({
-		// Mutation: Create YouTube post
-		// Note: Manual schema here for API design reasons (camelCase, omitting date fields)
-		// Alternative with adapter: createInsertSchemaZod(db.schema.youtube).omit({ posted_at: true, updated_at: true })
-		createYouTubePost: defineMutation({
-			input: type({
-				pageId: "string",
-				title: "string",
-				description: "string",
-				niche: "('Braden' | 'Epicenter' | 'YC' | 'Yale' | 'College Students' | 'High School Students' | 'Coding' | 'Productivity' | 'Ethics' | 'Writing')[]",
-			}),
-			handler: async ({ pageId, title, description, niche }) => {
-				const post = {
-					id: generateId(),
-					page_id: pageId,
-					title,
-					description,
-					niche,
-					posted_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				} satisfies Row<typeof db.schema.youtube>;
-				db.tables.youtube.insert(post);
-				return Ok(post);
-			},
-		}),
-
-		// Mutation: Create Twitter post
-		// Note: Manual schema here because API uses camelCase (pageId) while DB uses snake_case (page_id)
-		// For schemas where API matches DB field names, use createInsertSchemaZod(db.schema.twitter)
-		createTwitterPost: defineMutation({
-			input: type({
-				pageId: "string",
-				content: "string",
-				title: "string?",
-			}),
-			handler: async ({ pageId, content, title }) => {
-				const post = {
-					id: generateId(),
-					page_id: pageId,
-					content,
-					title: title ?? null,
-				} satisfies Row<typeof db.schema.twitter>;
-				db.tables.twitter.insert(post);
-				return Ok(post);
-			},
-		}),
-	}),
-});
-
-/**
- * Default export for CLI usage
- * The CLI expects the config to export the Epicenter app directly
+ * Content Hub: Production-grade Epicenter application
+ *
+ * Manages content distribution across 15 platforms:
+ * - Video: YouTube, Instagram, TikTok
+ * - Blogs: Medium, Substack, Personal Blog, Epicenter Blog
+ * - Social: Reddit, Twitter, Hacker News, Discord, Product Hunt, Bookface
+ * - Development: GitHub Issues
+ * - Content: Pages (central repository)
+ *
+ * Features demonstrated:
+ * - Multi-workspace architecture (15 workspaces)
+ * - Schema reuse and organization (3 shared schemas)
+ * - Workspace dependencies
+ * - SQLite indexes for querying
+ * - Universal persistence (desktop + browser)
+ * - Type-safe actions and queries
+ * - CLI auto-generation
+ *
+ * This is the flagship example for Epicenter, demonstrating a real-world
+ * content distribution system with production-grade patterns.
  */
 export default defineEpicenter({
 	id: 'content-hub',
-	workspaces: [pages, contentHub],
+	workspaces: [
+		// Central content repository
+		pages,
+
+		// Video platforms
+		youtube,
+		instagram,
+		tiktok,
+
+		// Blog platforms
+		medium,
+		substack,
+		personalBlog,
+		epicenterBlog,
+
+		// Social platforms
+		reddit,
+		twitter,
+		hackernews,
+		discord,
+		producthunt,
+		bookface,
+
+		// Development
+		githubIssues,
+	],
 });

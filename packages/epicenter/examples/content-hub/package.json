@@ -1,0 +1,17 @@
+{
+	"name": "@epicenter/content-hub-example",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Flagship Epicenter example: Production-grade content distribution system",
+	"scripts": {
+		"cli": "bun cli.ts",
+		"check": "tsc --noEmit"
+	},
+	"keywords": [
+		"epicenter",
+		"content-hub",
+		"multi-workspace",
+		"yjs",
+		"sqlite"
+	]
+}
