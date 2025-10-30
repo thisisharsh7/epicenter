@@ -30,11 +30,14 @@
 		FileDropZone,
 		MEGABYTE,
 	} from '@repo/ui/file-drop-zone';
+	import { useSidebar } from '@repo/ui/sidebar';
 	import * as ToggleGroup from '@repo/ui/toggle-group';
 	import { createQuery } from '@tanstack/svelte-query';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { onDestroy, onMount } from 'svelte';
 	import TranscribedTextDialog from '$lib/components/copyable/TranscribedTextDialog.svelte';
+
+	const sidebar = useSidebar();
 
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
@@ -182,7 +185,10 @@
 	<!-- Container wrapper for consistent max-width -->
 	<div class="w-full max-w-2xl px-4 flex flex-col items-center gap-4">
 		<div class="xs:flex hidden flex-col items-center gap-4">
-			<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
+			<h1
+				class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl transition-opacity"
+				class:invisible={sidebar.state === 'expanded'}
+			>
 				Whispering
 			</h1>
 			<p class="text-muted-foreground text-center">
@@ -245,7 +251,8 @@
 								🚫
 							</WhisperingButton>
 						</div>
-					{:else}
+					{:else if false}
+						<!-- Selectors hidden - available in sidebar Quick Settings -->
 						<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
 							<ManualDeviceSelector />
 							<CompressionSelector />
@@ -274,7 +281,8 @@
 						</span>
 					</WhisperingButton>
 					<!-- Absolutely positioned selectors -->
-					{#if getVadStateQuery.data === 'IDLE'}
+					{#if false}
+						<!-- Selectors hidden - available in sidebar Quick Settings -->
 						<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
 							<VadDeviceSelector />
 							<CompressionSelector />
@@ -303,11 +311,14 @@
 						}}
 						class="h-32 sm:h-36 lg:h-40 xl:h-44 w-full"
 					/>
-					<div class="flex items-center gap-1.5">
-						<CompressionSelector />
-						<TranscriptionSelector />
-						<TransformationSelector />
-					</div>
+					{#if false}
+						<!-- Selectors hidden - available in sidebar Quick Settings -->
+						<div class="flex items-center gap-1.5">
+							<CompressionSelector />
+							<TranscriptionSelector />
+							<TransformationSelector />
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
