@@ -1,9 +1,10 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { join } from 'node:path';
+import path, { join } from 'node:path';
 import {
 	defineWorkspace,
 	sqliteIndex,
+	markdownIndex,
 	defineQuery,
 	defineMutation,
 	generateId,
@@ -31,6 +32,18 @@ export const bookface = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db, {
 			path: join(import.meta.dirname, '.epicenter/database.db'),
 		}),
+		markdown: (db) =>
+			markdownIndex(db, {
+				rootPath: join(import.meta.dirname, '.data/content'),
+				pathToTableAndId: ({ path: filePath }) => {
+					const parts = filePath.split(path.sep);
+					if (parts.length !== 2) return null;
+					const [tableName, fileName] = parts;
+					const id = path.basename(fileName!, '.md');
+					return { tableName: tableName!, id };
+				},
+				tableAndIdToPath: ({ id, tableName }) => path.join(tableName, `${id}.md`),
+			}),
 	},
 
 	providers: [

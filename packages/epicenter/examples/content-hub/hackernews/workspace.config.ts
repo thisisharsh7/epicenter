@@ -1,6 +1,6 @@
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { join } from 'node:path';
+import path, { join } from 'node:path';
 import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
 import {
 	type Row,
@@ -10,6 +10,7 @@ import {
 	eq,
 	generateId,
 	sqliteIndex,
+	markdownIndex,
 } from '../../../src/index';
 import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
@@ -31,6 +32,18 @@ export const hackernews = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db, {
 			path: join(import.meta.dirname, '.epicenter/database.db'),
 		}),
+		markdown: (db) =>
+			markdownIndex(db, {
+				rootPath: join(import.meta.dirname, '.data/content'),
+				pathToTableAndId: ({ path: filePath }) => {
+					const parts = filePath.split(path.sep);
+					if (parts.length !== 2) return null;
+					const [tableName, fileName] = parts as [string, string];
+					const id = path.basename(fileName, '.md');
+					return { tableName, id };
+				},
+				tableAndIdToPath: ({ id, tableName }) => path.join(tableName, `${id}.md`),
+			}),
 	},
 
 	providers: [
