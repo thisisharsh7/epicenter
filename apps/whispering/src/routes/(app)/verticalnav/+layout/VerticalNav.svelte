@@ -138,7 +138,16 @@
 									: ''}
 							>
 								{#snippet child({ props })}
-									<a href={item.href} {...props} title={item.label}>
+									<a
+										href={item.href}
+										{...props}
+										title={item.label}
+										onclick={() => {
+											if (sidebar.isMobile) {
+												sidebar.setOpenMobile(false);
+											}
+										}}
+									>
 										<svelte:component this={item.icon} />
 										<span>{item.label}</span>
 									</a>
