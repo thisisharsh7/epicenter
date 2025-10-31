@@ -239,7 +239,6 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 	// Set up observers for each table
 	const unsubscribers = registerYJSObservers({
 		db,
-		storagePath,
 		formatFilePath,
 		tableConfigs,
 		syncCoordination,
@@ -272,20 +271,18 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
  * prevent infinite sync loops.
  *
  * @param db - Database instance
- * @param storagePath - Absolute path where markdown files are stored
+ * @param formatFilePath - Function to format file paths from table name and row ID
  * @param tableConfigs - Per-table configuration
  * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns Array of unsubscribe functions for cleanup
  */
 function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	db,
-	storagePath,
 	formatFilePath,
 	tableConfigs,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
-	storagePath: AbsolutePath;
 	formatFilePath: MarkdownIndexConfig<TSchema>['formatFilePath'];
 	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
 	syncCoordination: SyncCoordination;
