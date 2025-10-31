@@ -850,6 +850,9 @@ export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
  * - Passing data across boundaries where YJS types aren't available
  * - Input validation before converting to YJS types
  *
+ * The `id` field is explicitly typed as `string` since all TableSchemas require
+ * an IdColumnSchema for the id field, which always serializes to string.
+ *
  * @example
  * ```typescript
  * type PostSchema = {
@@ -864,7 +867,7 @@ export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
  * ```
  */
 export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: SerializedCellValue<TTableSchema[K]>;
+	[K in keyof TTableSchema]: K extends 'id' ? string : SerializedCellValue<TTableSchema[K]>;
 };
 
 /**
