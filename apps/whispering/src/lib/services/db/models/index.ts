@@ -9,7 +9,8 @@ export type {
 	RecordingsDbSchemaV5,
 	SerializedAudio,
 } from './recordings';
-export type {
+// Transformation Runs
+export {
 	TransformationRun,
 	TransformationRunCompleted,
 	TransformationRunFailed,
@@ -19,15 +20,13 @@ export type {
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
 } from './transformation-runs';
-export type {
-	InsertTransformationStep,
-	Transformation,
-	TransformationStep,
-} from './transformations';
+export type { InsertTransformationStep } from './transformations';
 // Transformations
 export {
 	generateDefaultTransformation,
 	generateDefaultTransformationStep,
 	TRANSFORMATION_STEP_TYPES,
 	TRANSFORMATION_STEP_TYPES_TO_LABELS,
+	Transformation,
+	TransformationStep,
 } from './transformations';
