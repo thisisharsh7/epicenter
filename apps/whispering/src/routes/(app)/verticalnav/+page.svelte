@@ -187,7 +187,7 @@
 		<div class="xs:flex hidden flex-col items-center gap-4">
 			<h1
 				class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl transition-opacity"
-				class:invisible={sidebar.state === 'expanded'}
+				class:invisible={sidebar.state === 'expanded' && !sidebar.isMobile}
 			>
 				Whispering
 			</h1>
