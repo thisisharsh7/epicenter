@@ -56,49 +56,6 @@ type SyncCoordination = {
 };
 
 /**
- * Per-table markdown configuration
- *
- * Provides complete control over how rows are serialized to markdown files
- * and how markdown files are parsed back into rows.
- */
-type TableMarkdownConfig<TTableSchema extends TableSchema> = {
-	/**
-	 * Serialize a row to markdown frontmatter and content.
-	 *
-	 * @param params.row - Row to serialize (already validated against schema)
-	 * @param params.tableName - Table name (for context)
-	 * @returns Frontmatter object and markdown content string
-	 */
-	serialize(params: {
-		row: SerializedRow<TTableSchema>;
-		tableName: string;
-	}): {
-		frontmatter: Record<string, unknown>;
-		content: string;
-	};
-
-	/**
-	 * Deserialize markdown frontmatter and content back to a full row.
-	 * Returns a complete row (including id) that can be directly inserted/updated in YJS.
-	 * Returns null if the file should be skipped (e.g., invalid data, doesn't match schema).
-	 *
-	 * @param params.id - Row ID extracted from file path
-	 * @param params.frontmatter - Parsed YAML frontmatter (can be any type, validate before using)
-	 * @param params.content - Markdown body content
-	 * @param params.tableName - Table name (for context)
-	 * @param params.schema - Table schema (for validation)
-	 * @returns Complete row (with id field), or null to skip this file
-	 */
-	deserialize(params: {
-		id: string;
-		frontmatter: unknown;
-		content: string;
-		tableName: string;
-		schema: TTableSchema;
-	}): SerializedRow<TTableSchema> | null;
-};
-
-/**
  * Markdown index configuration
  */
 export type MarkdownIndexConfig<
@@ -165,6 +122,49 @@ export type MarkdownIndexConfig<
 	tableConfigs: {
 		[K in keyof TWorkspaceSchema]: TableMarkdownConfig<TWorkspaceSchema[K]>;
 	};
+};
+
+/**
+ * Per-table markdown configuration
+ *
+ * Provides complete control over how rows are serialized to markdown files
+ * and how markdown files are parsed back into rows.
+ */
+type TableMarkdownConfig<TTableSchema extends TableSchema> = {
+	/**
+	 * Serialize a row to markdown frontmatter and content.
+	 *
+	 * @param params.row - Row to serialize (already validated against schema)
+	 * @param params.tableName - Table name (for context)
+	 * @returns Frontmatter object and markdown content string
+	 */
+	serialize(params: {
+		row: SerializedRow<TTableSchema>;
+		tableName: string;
+	}): {
+		frontmatter: Record<string, unknown>;
+		content: string;
+	};
+
+	/**
+	 * Deserialize markdown frontmatter and content back to a full row.
+	 * Returns a complete row (including id) that can be directly inserted/updated in YJS.
+	 * Returns null if the file should be skipped (e.g., invalid data, doesn't match schema).
+	 *
+	 * @param params.id - Row ID extracted from file path
+	 * @param params.frontmatter - Parsed YAML frontmatter (can be any type, validate before using)
+	 * @param params.content - Markdown body content
+	 * @param params.tableName - Table name (for context)
+	 * @param params.schema - Table schema (for validation)
+	 * @returns Complete row (with id field), or null to skip this file
+	 */
+	deserialize(params: {
+		id: string;
+		frontmatter: unknown;
+		content: string;
+		tableName: string;
+		schema: TTableSchema;
+	}): SerializedRow<TTableSchema> | null;
 };
 
 /**
@@ -300,8 +300,6 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			throw new Error(`Schema for table "${tableName}" not found`);
 		}
 
-		const tableConfig = tableConfigs[tableName];
-
 		/**
 		 * Get the absolute file path for a row ID
 		 * Shared by both write and delete operations
@@ -317,7 +315,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 		) {
 			const serialized = row.toJSON();
 			const filePath = getMarkdownFilePath(row.id);
-			const { frontmatter, content } = tableConfig.serialize({
+			const { frontmatter, content } = tableConfigs[tableName].serialize({
 				row: serialized,
 				tableName,
 			});
