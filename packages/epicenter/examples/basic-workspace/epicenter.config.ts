@@ -64,7 +64,7 @@ const blogWorkspace = defineWorkspace({
 				},
 				tableAndIdToPath: ({ id, tableName }) =>
 					path.join(tableName, `${id}.md`),
-				tableConfigs: {
+				serializers: {
 					posts: {
 						serialize: ({ row, tableName }) => {
 							const { id, content, ...rest } = row;

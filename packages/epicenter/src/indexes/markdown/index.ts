@@ -108,33 +108,47 @@ export type MarkdownIndexConfig<
 	tableAndIdToPath(params: { id: string; tableName: string }): string;
 
 	/**
-	 * Per-table configuration
+	 * Optional custom serializers for tables
 	 *
-	 * Keys must be valid table names from the workspace schema.
-	 * Each table defines how to serialize/deserialize markdown files.
+	 * Defines how rows are serialized to markdown and deserialized back.
+	 * Tables without custom serializers use default behavior:
+	 * - All row fields become frontmatter
+	 * - Content body is empty string
+	 *
+	 * Use custom serializers when you need:
+	 * - A specific field to be the markdown body content
+	 * - Custom transformation of field values
+	 * - Validation or filtering during deserialization
 	 *
 	 * Example:
 	 * ```typescript
 	 * {
-	 *   pages: {
-	 *     serialize: ({ row }) => ({ frontmatter: { title: row.title }, content: row.body }),
-	 *     deserialize: ({ id, frontmatter, content }) => ({ id, title: frontmatter.title, body: content })
+	 *   posts: {
+	 *     serialize: ({ row }) => ({
+	 *       frontmatter: { title: row.title, date: row.createdAt },
+	 *       content: row.body
+	 *     }),
+	 *     deserialize: ({ id, frontmatter, content }) => ({
+	 *       id,
+	 *       title: frontmatter.title,
+	 *       body: content
+	 *     })
 	 *   }
 	 * }
 	 * ```
 	 */
-	tableConfigs: {
-		[K in keyof TWorkspaceSchema]: TableMarkdownConfig<TWorkspaceSchema[K]>;
+	serializers?: {
+		[K in keyof TWorkspaceSchema]?: MarkdownSerializer<TWorkspaceSchema[K]>;
 	};
 };
 
 /**
- * Per-table markdown configuration
+ * Custom serialization/deserialization behavior for a table
  *
- * Provides complete control over how rows are serialized to markdown files
- * and how markdown files are parsed back into rows.
+ * Defines how rows are converted to markdown files and vice versa.
+ * When not provided, uses default behavior (all fields in frontmatter, empty content).
  */
-type TableMarkdownConfig<TTableSchema extends TableSchema> = {
+type MarkdownSerializer<TTableSchema extends TableSchema> = {
 	/**
 	 * Serialize a row to markdown frontmatter and content.
 	 *
@@ -170,6 +184,31 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 		schema: TTableSchema;
 	}): SerializedRow<TTableSchema> | null;
 };
+
+/**
+ * Create default serializer for a table
+ *
+ * Default behavior:
+ * - Serialize: All row fields → frontmatter, empty content
+ * - Deserialize: All frontmatter fields → row, ignore content
+ */
+function createDefaultSerializer<TTableSchema extends TableSchema>(
+	schema: TTableSchema,
+): MarkdownSerializer<TTableSchema> {
+	return {
+		serialize: ({ row }) => ({
+			frontmatter: row,
+			content: '',
+		}),
+		deserialize: ({ id, frontmatter }) => {
+			// Simple passthrough: all frontmatter becomes row fields
+			return {
+				id,
+				...frontmatter,
+			} as SerializedRow<TTableSchema>;
+		},
+	};
+}
 
 /**
  * Create a markdown index
@@ -209,7 +248,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  * @param config - Markdown configuration options
  * @param config.rootPath - Absolute root path where markdown files should be stored.
  *                          Use path.join(import.meta.dirname, './vault') to create absolute paths.
- * @param config.tableConfigs - Per-table configuration for bodyField and other options
+ * @param config.serializers - Optional custom serializers per table. Uses defaults when omitted.
  */
 export function markdownIndex<TSchema extends WorkspaceSchema>(
 	db: Db<TSchema>,
@@ -217,7 +256,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		rootPath,
 		pathToTableAndId,
 		tableAndIdToPath,
-		tableConfigs,
+		serializers = {},
 	}: MarkdownIndexConfig<TSchema>,
 ) {
 	/**
@@ -245,7 +284,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		db,
 		rootPath: absoluteRootPath,
 		tableAndIdToPath,
-		tableConfigs,
+		serializers,
 		syncCoordination,
 	});
 
@@ -254,7 +293,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
 		db,
 		rootPath: absoluteRootPath,
 		pathToTableAndId,
-		tableConfigs,
+		serializers,
 		syncCoordination,
 	});
 
@@ -278,7 +317,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>(
  * @param db - Database instance
  * @param rootPath - Absolute root path where markdown files are stored
  * @param tableAndIdToPath - Function to build relative file paths from table name and ID
- * @param tableConfigs - Per-table configuration
+ * @param serializers - Optional custom serializers per table
  * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns Array of unsubscribe functions for cleanup
  */
@@ -286,13 +325,13 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	db,
 	rootPath,
 	tableAndIdToPath,
-	tableConfigs,
+	serializers,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
 	rootPath: AbsolutePath;
 	tableAndIdToPath: MarkdownIndexConfig<TSchema>['tableAndIdToPath'];
-	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
+	serializers: MarkdownIndexConfig<TSchema>['serializers'];
 	syncCoordination: SyncCoordination;
 }): Array<() => void> {
 	const unsubscribers: Array<() => void> = [];
@@ -308,7 +347,9 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			throw new Error(`Schema for table "${tableName}" not found`);
 		}
 
-		const tableConfig = tableConfigs[tableName];
+		// Use custom serializer if provided, otherwise use default
+		const serializer =
+			serializers?.[tableName] ?? createDefaultSerializer(tableSchema);
 
 		/**
 		 * Get the absolute file path for a row ID
@@ -327,7 +368,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 		) {
 			const serialized = row.toJSON();
 			const filePath = getMarkdownFilePath(row.id);
-			const { frontmatter, content } = tableConfig.serialize({
+			const { frontmatter, content } = serializer.serialize({
 				row: serialized,
 				tableName,
 			});
@@ -415,7 +456,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
  * @param db - Database instance
  * @param rootPath - Absolute root path where markdown files are stored
  * @param pathToTableAndId - Function to extract table name and ID from relative paths
- * @param tableConfigs - Per-table configuration
+ * @param serializers - Optional custom serializers per table
  * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns File watcher instance for cleanup
  */
@@ -423,13 +464,13 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	db,
 	rootPath,
 	pathToTableAndId,
-	tableConfigs,
+	serializers,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
 	rootPath: AbsolutePath;
 	pathToTableAndId: MarkdownIndexConfig<TSchema>['pathToTableAndId'];
-	tableConfigs: MarkdownIndexConfig<TSchema>['tableConfigs'];
+	serializers: MarkdownIndexConfig<TSchema>['serializers'];
 	syncCoordination: SyncCoordination;
 }): FSWatcher {
 	// Ensure the directory exists before watching
@@ -454,19 +495,20 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			// Extract table name and row ID from the file path
 			const { tableName, id } = pathToTableAndId({ path: relativePath });
 
-			// Get table, schema, and config
+			// Get table and schema
 			const table = db.tables[tableName];
 			const tableSchema = db.schema[tableName];
-			const tableConfig = tableConfigs[tableName];
 
-			if (!table || !tableSchema || !tableConfig) {
-				if (!table || !tableSchema) {
-					console.warn(
-						`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
-					);
-				}
+			if (!table || !tableSchema) {
+				console.warn(
+					`File watcher: Unknown table "${tableName}" from file ${relativePath}`,
+				);
 				return;
 			}
+
+			// Use custom serializer if provided, otherwise use default
+			const serializer =
+				serializers?.[tableName] ?? createDefaultSerializer(tableSchema);
 
 			/**
 			 * Construct the full absolute path to the file
@@ -540,8 +582,8 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 
 				const { data: frontmatter, content } = parseResult.data;
 
-				// Step 2: Deserialize using the config (handles validation and transformation)
-				const row = tableConfig.deserialize({
+				// Step 2: Deserialize using the serializer (handles validation and transformation)
+				const row = serializer.deserialize({
 					id,
 					frontmatter,
 					content,

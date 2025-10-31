@@ -117,6 +117,7 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  *         return { tableName: parts[0], id: parts[1].replace('.md', '') };
  *       },
  *       tableAndIdToPath: ({ tableName, id }) => `${tableName}/${id}.md`,
+ *       // serializers optional - defaults to all fields in frontmatter
  *     }),
  *   },
  *
