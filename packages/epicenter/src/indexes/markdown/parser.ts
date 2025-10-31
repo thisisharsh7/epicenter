@@ -19,20 +19,6 @@ export const { MarkdownError, MarkdownErr } =
 export type MarkdownError = ReturnType<typeof MarkdownError>;
 
 /**
- * Type guard to check if a value is a plain object (Record<string, unknown>)
- * Returns true for plain objects like { foo: 'bar' }
- * Returns false for null, primitives, arrays, Dates, RegExp, Maps, etc.
- */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return (
-		value !== null &&
-		typeof value === 'object' &&
-		!Array.isArray(value) &&
-		Object.getPrototypeOf(value) === Object.prototype
-	);
-}
-
-/**
  * Result of parsing and validating a markdown file.
  * Combines parse errors with row validation results.
  *
@@ -194,4 +180,13 @@ export async function parseMarkdownFile(filePath: string): Promise<
 				cause: error,
 			}),
 	});
+}
+
+/**
+ * Type guard to check if a value is a plain object (Record<string, unknown>)
+ * Returns true for plain objects like { foo: 'bar' }
+ * Returns false for null, primitives, arrays, Dates, RegExp, Maps, etc.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
