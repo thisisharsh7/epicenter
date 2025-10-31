@@ -85,7 +85,7 @@
 	collapsible="icon"
 	side="left"
 	variant="sidebar"
-	class="overflow-x-hidden"
+	class="overflow-x-hidden [&_[data-slot='sidebar-inner']]:group-data-[collapsible=icon]:opacity-40 [&_[data-slot='sidebar-inner']]:group-data-[collapsible=icon]:hover:opacity-100 [&_[data-slot='sidebar-inner']]:transition-opacity [&_[data-slot='sidebar-inner']]:duration-200"
 >
 	<Sidebar.Rail />
 	<Sidebar.Header
