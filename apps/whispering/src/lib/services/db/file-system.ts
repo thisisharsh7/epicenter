@@ -663,22 +663,27 @@ export function createFileSystemDb(): DbService {
 							(entry) => entry.name && entry.name.endsWith('.md'),
 						);
 
-						// Parse each file and filter by transformationId
-						const runs: TransformationRun[] = [];
-						for (const entry of mdFiles) {
-							if (!entry.name) continue;
+						// Parse each file in parallel and filter by transformationId
+						const allRuns = await Promise.all(
+							mdFiles.map(async (entry) => {
+								if (!entry.name) return null;
 
-							const filePath = await join(runsPath, entry.name);
-							const content = await readTextFile(filePath);
-							const { data } = matter(content);
-							const run = data as TransformationRun;
+								const filePath = await join(runsPath, entry.name);
+								const content = await readTextFile(filePath);
+								const { data } = matter(content);
+								const run = data as TransformationRun;
 
-							if (run.transformationId === transformationId) {
-								runs.push(run);
-							}
-						}
+								if (run.transformationId === transformationId) {
+									return run;
+								}
+								return null;
+							}),
+						);
 
-						// Sort by startedAt (newest first)
+						// Filter out nulls and sort by startedAt (newest first)
+						const runs = allRuns.filter(
+							(r): r is TransformationRun => r !== null,
+						);
 						runs.sort(
 							(a, b) =>
 								new Date(b.startedAt).getTime() -
@@ -715,22 +720,27 @@ export function createFileSystemDb(): DbService {
 							(entry) => entry.name && entry.name.endsWith('.md'),
 						);
 
-						// Parse each file and filter by recordingId
-						const runs: TransformationRun[] = [];
-						for (const entry of mdFiles) {
-							if (!entry.name) continue;
+						// Parse each file in parallel and filter by recordingId
+						const allRuns = await Promise.all(
+							mdFiles.map(async (entry) => {
+								if (!entry.name) return null;
 
-							const filePath = await join(runsPath, entry.name);
-							const content = await readTextFile(filePath);
-							const { data } = matter(content);
-							const run = data as TransformationRun;
+								const filePath = await join(runsPath, entry.name);
+								const content = await readTextFile(filePath);
+								const { data } = matter(content);
+								const run = data as TransformationRun;
 
-							if (run.recordingId === recordingId) {
-								runs.push(run);
-							}
-						}
+								if (run.recordingId === recordingId) {
+									return run;
+								}
+								return null;
+							}),
+						);
 
-						// Sort by startedAt (newest first)
+						// Filter out nulls and sort by startedAt (newest first)
+						const runs = allRuns.filter(
+							(r): r is TransformationRun => r !== null,
+						);
 						runs.sort(
 							(a, b) =>
 								new Date(b.startedAt).getTime() -
