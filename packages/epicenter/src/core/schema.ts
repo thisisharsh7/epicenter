@@ -287,9 +287,15 @@ export type YRowValidationResult<TRow extends Row> = Extract<
  * On 'valid', returns SerializedRow<TSchema> (typed to the schema).
  * On 'schema-mismatch', returns SerializedRow (generic, untyped).
  */
-export type ValidatedSerializedRowResult<TSchema extends TableSchema = TableSchema> =
+export type ValidatedSerializedRowResult<
+	TSchema extends TableSchema = TableSchema,
+> =
 	| { status: 'valid'; row: SerializedRow<TSchema> }
-	| { status: 'schema-mismatch'; row: SerializedRow; reason: SchemaMismatchReason };
+	| {
+			status: 'schema-mismatch';
+			row: SerializedRow;
+			reason: SchemaMismatchReason;
+	  };
 
 /**
  * Validation result for SerializedRow.
@@ -297,7 +303,9 @@ export type ValidatedSerializedRowResult<TSchema extends TableSchema = TableSche
  *
  * Extends ValidatedSerializedRowResult by adding the 'invalid-structure' case.
  */
-export type SerializedRowValidationResult<TSchema extends TableSchema = TableSchema> =
+export type SerializedRowValidationResult<
+	TSchema extends TableSchema = TableSchema,
+> =
 	| ValidatedSerializedRowResult<TSchema>
 	| {
 			status: 'invalid-structure';
@@ -335,15 +343,21 @@ export type SerializedRowValidationResult<TSchema extends TableSchema = TableSch
  * const result4 = schema.validateYRow(yrow);
  * ```
  */
-export type TableSchemaWithValidation<TSchema extends TableSchema = TableSchema> = TSchema & {
+export type TableSchemaWithValidation<
+	TSchema extends TableSchema = TableSchema,
+> = TSchema & {
 	/** Validates unknown data (checks if object), then delegates to validateRecord */
 	validateUnknown(data: unknown): SerializedRowValidationResult<TSchema>;
 
 	/** Validates a record (checks if values are SerializedCellValue), then delegates to validateSerializedRow */
-	validateRecord(data: Record<string, unknown>): SerializedRowValidationResult<TSchema>;
+	validateRecord(
+		data: Record<string, unknown>,
+	): SerializedRowValidationResult<TSchema>;
 
 	/** Validates a SerializedRow (checks schema only), returns validated SerializedRow<TSchema> */
-	validateSerializedRow(data: SerializedRow): ValidatedSerializedRowResult<TSchema>;
+	validateSerializedRow(
+		data: SerializedRow,
+	): ValidatedSerializedRowResult<TSchema>;
 
 	/** Validates a YRow (checks schema only), returns typed Row proxy */
 	validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>>;
@@ -555,8 +569,18 @@ export function validateRow<TTableSchema extends TableSchema>({
 			status: 'schema-mismatch';
 			reason:
 				| { type: 'missing-required-field'; field: string }
-				| { type: 'type-mismatch'; field: string; schemaType: string; actual: unknown }
-				| { type: 'invalid-option'; field: string; actual: unknown; allowedOptions: readonly string[] };
+				| {
+						type: 'type-mismatch';
+						field: string;
+						schemaType: string;
+						actual: unknown;
+				  }
+				| {
+						type: 'invalid-option';
+						field: string;
+						actual: unknown;
+						allowedOptions: readonly string[];
+				  };
 	  } {
 	// Schema validation - validate each field against schema constraints
 	for (const [fieldName, columnSchema] of Object.entries(schema)) {
@@ -1458,7 +1482,9 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			return { status: 'valid', row: proxy as Row<TSchema> };
 		},
 
-		validateSerializedRow(data: SerializedRow): ValidatedSerializedRowResult<TSchema> {
+		validateSerializedRow(
+			data: SerializedRow,
+		): ValidatedSerializedRowResult<TSchema> {
 			// Validate the SerializedRow against the schema
 			for (const [fieldName, columnSchema] of Object.entries(schema)) {
 				const value = data[fieldName];
@@ -1478,17 +1504,106 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 					continue;
 				}
 
-				// Validate schema-level constraints (select options, etc.)
+				// Type-specific validation
 				switch (columnSchema.type) {
+					case 'id':
+					case 'text':
+						if (typeof value !== 'string') {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'integer':
+						if (typeof value !== 'number' || !Number.isInteger(value)) {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'real':
+						if (typeof value !== 'number') {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'boolean':
+						if (typeof value !== 'boolean') {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'ytext':
+						// For SerializedRow, ytext should be a string
+						if (typeof value !== 'string') {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
 					case 'select':
-						if (!columnSchema.options.includes(value as string)) {
+						if (typeof value !== 'string') {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						if (!columnSchema.options.includes(value)) {
 							return {
 								status: 'schema-mismatch',
 								row: data,
 								reason: {
 									type: 'invalid-option',
 									field: fieldName,
-									actual: value as string,
+									actual: value,
 									allowedOptions: columnSchema.options,
 								},
 							};
@@ -1496,7 +1611,32 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						break;
 
 					case 'multi-select':
-						for (const option of value as string[]) {
+						// For SerializedRow, multi-select should be an array
+						if (!Array.isArray(value)) {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						for (const option of value) {
+							if (typeof option !== 'string') {
+								return {
+									status: 'schema-mismatch',
+									row: data,
+									reason: {
+										type: 'type-mismatch',
+										field: fieldName,
+										schemaType: columnSchema.type,
+										actual: option,
+									},
+								};
+							}
 							if (!columnSchema.options.includes(option)) {
 								return {
 									status: 'schema-mismatch',
@@ -1509,6 +1649,21 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 									},
 								};
 							}
+						}
+						break;
+
+					case 'date':
+						if (!isDateWithTimezoneString(value)) {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
 						}
 						break;
 				}
@@ -1535,7 +1690,9 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			return this.validateRecord(data as Record<string, unknown>);
 		},
 
-		validateRecord(data: Record<string, unknown>): SerializedRowValidationResult<TSchema> {
+		validateRecord(
+			data: Record<string, unknown>,
+		): SerializedRowValidationResult<TSchema> {
 			// Check if all values are SerializedCellValue
 			for (const [fieldName, value] of Object.entries(data)) {
 				if (!isSerializedCellValue(value)) {
