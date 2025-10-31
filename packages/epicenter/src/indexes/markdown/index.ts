@@ -83,15 +83,21 @@ export type MarkdownIndexConfig<
 	 * This is the inverse of tableAndIdToPath.
 	 *
 	 * @param params.path - Relative path to markdown file (e.g., "posts/my-post.md")
-	 * @returns Object with tableName and id extracted from the path
+	 * @returns Object with tableName and id extracted from the path, or null to skip this file
+	 *
+	 * Returning null indicates that this file path should be ignored by the file watcher.
+	 * This is useful for skipping files that don't match your expected structure or are
+	 * metadata files that shouldn't be processed as rows.
 	 *
 	 * @example
 	 * pathToTableAndId({ path: "posts/my-post.md" }) // → { tableName: "posts", id: "my-post" }
+	 * pathToTableAndId({ path: ".DS_Store" }) // → null (skip this file)
+	 * pathToTableAndId({ path: "README.md" }) // → null (skip this file)
 	 */
 	pathToTableAndId(params: { path: string }): {
 		tableName: string;
 		id: string;
-	};
+	} | null;
 
 	/**
 	 * Build a relative file path from table name and row ID.
@@ -520,7 +526,11 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			if (!relativePath || !relativePath.endsWith('.md')) return;
 
 			// Extract table name and row ID from the file path
-			const { tableName, id } = pathToTableAndId({ path: relativePath });
+			// Returns null if this file should be skipped
+			const result = pathToTableAndId({ path: relativePath });
+			if (result === null) return;
+
+			const { tableName, id } = result;
 
 			// Get table and schema
 			const table = db.tables[tableName];
