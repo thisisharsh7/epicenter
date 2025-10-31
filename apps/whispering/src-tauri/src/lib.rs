@@ -20,8 +20,8 @@ use graceful_shutdown::send_sigint;
 pub mod command;
 use command::{execute_command, spawn_command};
 
-pub mod fs_utils;
-use fs_utils::read_markdown_files;
+pub mod markdown_reader;
+use markdown_reader::read_markdown_files;
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
