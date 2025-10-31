@@ -14,7 +14,8 @@ import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import { getExtensionFromMimeType } from '$lib/constants/mime';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
-import type { Recording, Transformation, TransformationRun } from './models';
+import type { Recording } from './models';
+import { Transformation, TransformationRun } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
 
@@ -457,7 +458,17 @@ export function createFileSystemDb(): DbService {
 								const content = await readTextFile(filePath);
 								const { data } = matter(content);
 
-								return data as Transformation;
+								// Validate with arktype schema
+								const validated = Transformation(data);
+								if (validated instanceof type.errors) {
+									console.error(
+										`Invalid transformation in ${entry.name}:`,
+										validated.summary,
+									);
+									return null; // Skip invalid transformation
+								}
+
+								return validated;
 							}),
 						);
 
@@ -485,7 +496,13 @@ export function createFileSystemDb(): DbService {
 						const content = await readTextFile(mdPath);
 						const { data } = matter(content);
 
-						return data as Transformation;
+						// Validate with arktype schema
+						const validated = Transformation(data);
+						if (validated instanceof type.errors) {
+							throw new Error(`Invalid transformation: ${validated.summary}`);
+						}
+
+						return validated;
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -608,10 +625,21 @@ export function createFileSystemDb(): DbService {
 						const contents = await readMarkdownFiles(runsPath);
 
 						// Parse all files
-						return contents.map((content) => {
+						const runs = contents.map((content) => {
 							const { data } = matter(content);
-							return data as TransformationRun;
+
+							// Validate with arktype schema
+							const validated = TransformationRun(data);
+							if (validated instanceof type.errors) {
+								console.error(`Invalid transformation run:`, validated.summary);
+								return null; // Skip invalid run
+							}
+
+							return validated;
 						});
+
+						// Filter out any invalid entries
+						return runs.filter((run) => run !== null);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -633,7 +661,15 @@ export function createFileSystemDb(): DbService {
 						const content = await readTextFile(mdPath);
 						const { data } = matter(content);
 
-						return data as TransformationRun;
+						// Validate with arktype schema
+						const validated = TransformationRun(data);
+						if (validated instanceof type.errors) {
+							throw new Error(
+								`Invalid transformation run: ${validated.summary}`,
+							);
+						}
+
+						return validated;
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -664,8 +700,20 @@ export function createFileSystemDb(): DbService {
 						const runs = contents
 							.map((content) => {
 								const { data } = matter(content);
-								return data as TransformationRun;
+
+								// Validate with arktype schema
+								const validated = TransformationRun(data);
+								if (validated instanceof type.errors) {
+									console.error(
+										`Invalid transformation run:`,
+										validated.summary,
+									);
+									return null; // Skip invalid run
+								}
+
+								return validated;
 							})
+							.filter((run) => run !== null)
 							.filter((run) => run.transformationId === transformationId)
 							.sort(
 								(a, b) =>
@@ -704,8 +752,20 @@ export function createFileSystemDb(): DbService {
 						const runs = contents
 							.map((content) => {
 								const { data } = matter(content);
-								return data as TransformationRun;
+
+								// Validate with arktype schema
+								const validated = TransformationRun(data);
+								if (validated instanceof type.errors) {
+									console.error(
+										`Invalid transformation run:`,
+										validated.summary,
+									);
+									return null; // Skip invalid run
+								}
+
+								return validated;
 							})
+							.filter((run) => run !== null)
 							.filter((run) => run.recordingId === recordingId)
 							.sort(
 								(a, b) =>
