@@ -472,14 +472,14 @@ describe('createTableSchemaWithValidation', () => {
 		});
 	});
 
-	describe('validateRecord()', () => {
+	describe('validateUnknown()', () => {
 		test('validates valid record', () => {
 			const schema = createTableSchemaWithValidation({
 				id: id(),
 				title: text(),
 			});
 
-			const result = schema.validateRecord({
+			const result = schema.validateUnknown({
 				id: '123',
 				title: 'Hello World',
 			});
@@ -497,7 +497,7 @@ describe('createTableSchemaWithValidation', () => {
 				count: integer(),
 			});
 
-			const result = schema.validateRecord({
+			const result = schema.validateUnknown({
 				id: '123',
 				count: 'not a number',
 			});
@@ -515,7 +515,7 @@ describe('createTableSchemaWithValidation', () => {
 				status: select({ options: ['draft', 'published'] }),
 			});
 
-			const result = schema.validateRecord({
+			const result = schema.validateUnknown({
 				id: '123',
 				status: 'invalid',
 			});
@@ -533,7 +533,7 @@ describe('createTableSchemaWithValidation', () => {
 			});
 
 			// Invalid structure (not an array)
-			const result1 = schema.validateRecord({
+			const result1 = schema.validateUnknown({
 				id: '123',
 				tags: 'not-an-array',
 			});
@@ -541,7 +541,7 @@ describe('createTableSchemaWithValidation', () => {
 			expect(result1.status).toBe('invalid-structure');
 
 			// Invalid option (valid structure, bad value)
-			const result2 = schema.validateRecord({
+			const result2 = schema.validateUnknown({
 				id: '123',
 				tags: ['invalid-tag'],
 			});

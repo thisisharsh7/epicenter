@@ -321,19 +321,25 @@ export type SerializedRowValidationResult<TSchema extends TableSchema = TableSch
  * // Access schema fields directly
  * schema.title.type // 'text'
  *
- * // Validate from unknown record (validates structure + schema)
- * const result = schema.validateRecord({ id: '123', title: 'Hello', content: 'World' });
+ * // Validate from unknown data (checks if object, then delegates)
+ * const result1 = schema.validateUnknown(someUnknownData);
  *
- * // Validate from typed SerializedRow (validates schema only)
+ * // Validate from record (checks if values are SerializedCellValue, then delegates)
+ * const result2 = schema.validateRecord({ id: '123', title: 'Hello', content: 'World' });
+ *
+ * // Validate from SerializedRow (validates schema only)
  * const serialized: SerializedRow<typeof schema> = { id: '123', title: 'Hello', content: 'World' };
- * const result2 = schema.validateSerializedRow(serialized);
+ * const result3 = schema.validateSerializedRow(serialized);
  *
  * // Validate from YRow (validates schema only)
- * const result3 = schema.validateYRow(yrow);
+ * const result4 = schema.validateYRow(yrow);
  * ```
  */
 export type TableSchemaWithValidation<TSchema extends TableSchema = TableSchema> = TSchema & {
-	/** Validates an unknown record (checks structure + schema), returns validated SerializedRow */
+	/** Validates unknown data (checks if object), then delegates to validateRecord */
+	validateUnknown(data: unknown): SerializedRowValidationResult<TSchema>;
+
+	/** Validates a record (checks if values are SerializedCellValue), then delegates to validateSerializedRow */
 	validateRecord(data: Record<string, unknown>): SerializedRowValidationResult<TSchema>;
 
 	/** Validates a SerializedRow (checks schema only), returns validated SerializedRow<TSchema> */
@@ -1512,172 +1518,40 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			return { status: 'valid', row: data as SerializedRow<TSchema> };
 		},
 
+		validateUnknown(data: unknown): SerializedRowValidationResult<TSchema> {
+			// Check if it's an object
+			if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+				return {
+					status: 'invalid-structure',
+					row: data,
+					reason: {
+						type: 'not-an-object',
+						actual: data,
+					},
+				};
+			}
+
+			// Delegate to validateRecord
+			return this.validateRecord(data as Record<string, unknown>);
+		},
+
 		validateRecord(data: Record<string, unknown>): SerializedRowValidationResult<TSchema> {
-			// First, validate that all values are valid SerializedCellValues
-			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				const value = data[fieldName];
-
-				// Check required fields
-				if (value === null || value === undefined) {
-					if (columnSchema.type === 'id' || !columnSchema.nullable) {
-						return {
-							status: 'schema-mismatch',
-							row: data as SerializedRow,
-							reason: {
-								type: 'missing-required-field',
-								field: fieldName,
-							},
-						};
-					}
-					continue;
-				}
-
-				// Validate that the value is a valid SerializedCellValue type
-				switch (columnSchema.type) {
-					case 'id':
-					case 'text':
-					case 'ytext':
-						if (typeof value !== 'string') {
-							return {
-								status: 'invalid-structure',
-								row: data,
-								reason: {
-									type: 'invalid-cell-value',
-									field: fieldName,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'integer':
-						if (typeof value !== 'number' || !Number.isInteger(value)) {
-							return {
-								status: 'invalid-structure',
-								row: data,
-								reason: {
-									type: 'invalid-cell-value',
-									field: fieldName,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'real':
-						if (typeof value !== 'number') {
-							return {
-								status: 'invalid-structure',
-								row: data,
-								reason: {
-									type: 'invalid-cell-value',
-									field: fieldName,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'boolean':
-						if (typeof value !== 'boolean') {
-							return {
-								status: 'invalid-structure',
-								row: data,
-								reason: {
-									type: 'invalid-cell-value',
-									field: fieldName,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'select':
-						if (typeof value !== 'string') {
-							return {
-								status: 'invalid-structure',
-								row: data,
-								reason: {
-									type: 'invalid-cell-value',
-									field: fieldName,
-									actual: value,
-								},
-							};
-						}
-						// Check if it's a valid option (schema validation)
-						if (!columnSchema.options.includes(value)) {
-							return {
-								status: 'schema-mismatch',
-								row: data as SerializedRow,
-								reason: {
-									type: 'invalid-option',
-									field: fieldName,
-									actual: value,
-									allowedOptions: columnSchema.options,
-								},
-							};
-						}
-						break;
-
-					case 'multi-select':
-						if (!Array.isArray(value)) {
-							return {
-								status: 'invalid-structure',
-								row: data,
-								reason: {
-									type: 'invalid-cell-value',
-									field: fieldName,
-									actual: value,
-								},
-							};
-						}
-						// Validate array elements
-						for (const option of value) {
-							if (typeof option !== 'string') {
-								return {
-									status: 'invalid-structure',
-									row: data,
-									reason: {
-										type: 'invalid-cell-value',
-										field: fieldName,
-										actual: option,
-									},
-								};
-							}
-							// Check if it's a valid option (schema validation)
-							if (!columnSchema.options.includes(option)) {
-								return {
-									status: 'schema-mismatch',
-									row: data as SerializedRow,
-									reason: {
-										type: 'invalid-option',
-										field: fieldName,
-										actual: option,
-										allowedOptions: columnSchema.options,
-									},
-								};
-							}
-						}
-						break;
-
-					case 'date':
-						if (!isDateWithTimezone(value) && !isDateWithTimezoneString(value)) {
-							return {
-								status: 'invalid-structure',
-								row: data,
-								reason: {
-									type: 'invalid-cell-value',
-									field: fieldName,
-									actual: value,
-								},
-							};
-						}
-						break;
+			// Check if all values are SerializedCellValue
+			for (const [fieldName, value] of Object.entries(data)) {
+				if (!isSerializedCellValue(value)) {
+					return {
+						status: 'invalid-structure',
+						row: data,
+						reason: {
+							type: 'invalid-cell-value',
+							field: fieldName,
+							actual: value,
+						},
+					};
 				}
 			}
 
-			// At this point, we've validated structure. Now we can treat it as SerializedRow
-			// and delegate to validateSerializedRow for conversion to YRow and final validation
+			// Delegate to validateSerializedRow for schema validation
 			return this.validateSerializedRow(data as SerializedRow<TSchema>);
 		},
 	};
