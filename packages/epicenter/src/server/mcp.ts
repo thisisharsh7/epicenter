@@ -55,7 +55,7 @@ export function createMcpServer<
 	// List tools handler
 	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
 		const tools = await Promise.all(
-			Array.from(actions.entries()).map(async ([name, action]) => ({
+			actions.entries().map(async ([name, action]) => ({
 				name,
 				title: name,
 				description: action.description ?? `Execute ${name}`,
