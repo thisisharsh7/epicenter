@@ -1,32 +1,47 @@
+import { type } from 'arktype';
+
 /**
- * Base properties shared by all transformation step run variants.
+ * Base fields shared by all transformation step run variants.
  */
-type BaseTransformationStepRun = {
-	id: string;
-	stepId: string;
-	startedAt: string;
-	completedAt: string | null;
-	input: string;
-};
+const BaseTransformationStepRun = {
+	id: 'string',
+	stepId: 'string',
+	startedAt: 'string',
+	completedAt: 'string | null',
+	input: 'string',
+} as const;
 
-export type TransformationStepRunRunning = BaseTransformationStepRun & {
-	status: 'running';
-};
+export const TransformationStepRunRunning = type({
+	...BaseTransformationStepRun,
+	status: '"running"',
+});
 
-export type TransformationStepRunCompleted = BaseTransformationStepRun & {
-	status: 'completed';
-	output: string;
-};
+export type TransformationStepRunRunning =
+	typeof TransformationStepRunRunning.infer;
 
-export type TransformationStepRunFailed = BaseTransformationStepRun & {
-	status: 'failed';
-	error: string;
-};
+export const TransformationStepRunCompleted = type({
+	...BaseTransformationStepRun,
+	status: '"completed"',
+	output: 'string',
+});
 
-export type TransformationStepRun =
-	| TransformationStepRunRunning
-	| TransformationStepRunCompleted
-	| TransformationStepRunFailed;
+export type TransformationStepRunCompleted =
+	typeof TransformationStepRunCompleted.infer;
+
+export const TransformationStepRunFailed = type({
+	...BaseTransformationStepRun,
+	status: '"failed"',
+	error: 'string',
+});
+
+export type TransformationStepRunFailed =
+	typeof TransformationStepRunFailed.infer;
+
+export const TransformationStepRun = TransformationStepRunRunning.or(
+	TransformationStepRunCompleted,
+).or(TransformationStepRunFailed);
+
+export type TransformationStepRun = typeof TransformationStepRun.infer;
 
 /**
  * Base properties shared by all transformation run variants.
