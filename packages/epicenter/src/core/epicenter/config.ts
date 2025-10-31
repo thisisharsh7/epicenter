@@ -13,7 +13,7 @@ import type { AnyWorkspaceConfig } from '../workspace';
  *
  * const client = await createEpicenterClient(epicenter);
  *
- * // Access workspace actions by workspace name
+ * // Access workspace actions by workspace id
  * await client.pages.createPage({ title: 'Hello' });
  * await client.contentHub.createYouTubePost({ pageId: '1', ... });
  * await client.auth.login({ email: 'user@example.com' });
@@ -85,20 +85,9 @@ export function defineEpicenter<
 	for (const workspace of config.workspaces) {
 		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
 			throw new Error(
-				'Invalid workspace: workspaces must be workspace configs with id, version, and name',
+				'Invalid workspace: workspaces must be workspace configs with id, version, schema, indexes, and actions',
 			);
 		}
-	}
-
-	// Check for duplicate workspace names
-	const names = config.workspaces.map((ws) => ws.name);
-	const uniqueNames = new Set(names);
-	if (uniqueNames.size !== names.length) {
-		const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
-		throw new Error(
-			`Duplicate workspace names detected: ${duplicates.join(', ')}. ` +
-				`Each workspace must have a unique name.`,
-		);
 	}
 
 	// Check for duplicate workspace IDs

@@ -62,7 +62,7 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
  * Initialization uses topological sort for deterministic, predictable order.
  *
  * @param workspaceConfigs - Array of workspace configurations to initialize
- * @returns Object mapping workspace names to initialized workspace clients
+ * @returns Object mapping workspace ids to initialized workspace clients
  */
 export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
@@ -326,7 +326,7 @@ export async function initializeWorkspaces<
 		};
 
 		// Call the actions factory to get action definitions, passing:
-		// - workspaceClients: initialized dependency clients (keyed by dep.name)
+		// - workspaceClients: initialized dependency clients (keyed by dep.id)
 		// - db: Epicenter database API
 		// - indexes: exported resources from each index (db, queries, etc.)
 		const actionMap = workspaceConfig.actions({
