@@ -5,9 +5,14 @@ import {
 	ListToolsRequestSchema,
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
+import { toJsonSchema } from '@standard-community/standard-json';
 import { Value } from 'typebox/value';
 import type { Action } from '../core/actions';
-import { forEachAction, type EpicenterClient, type EpicenterConfig } from '../core/epicenter';
+import {
+	type EpicenterClient,
+	type EpicenterConfig,
+	forEachAction,
+} from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createServer } from './server';
 
@@ -29,7 +34,7 @@ export function createMcpServer<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(
 	client: EpicenterClient<TWorkspaces>,
-	config: EpicenterConfig<TId, TWorkspaces>
+	config: EpicenterConfig<TId, TWorkspaces>,
 ): McpServer {
 	const mcpServer = new McpServer(
 		{
@@ -42,23 +47,28 @@ export function createMcpServer<
 					listChanged: false,
 				},
 			},
-		}
+		},
 	);
 
 	const actions = flattenActionsForMCP(client);
 
 	// List tools handler
-	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
-		tools: Array.from(actions.entries()).map(([name, action]) => ({
-			name,
-			title: name,
-			description: action.description ?? `Execute ${name}`,
-			inputSchema: action.input ?? {
-				type: 'object' as const,
-				properties: {},
-			},
-		})),
-	}));
+	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
+		const tools = await Promise.all(
+			Array.from(actions.entries()).map(async ([name, action]) => ({
+				name,
+				title: name,
+				description: action.description ?? `Execute ${name}`,
+				inputSchema: action.input
+					? await toJsonSchema(action.input)
+					: {
+							type: 'object' as const,
+							properties: {},
+						},
+			})),
+		);
+		return { tools };
+	});
 
 	// Call tool handler
 	mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -67,7 +77,7 @@ export function createMcpServer<
 		if (!action || typeof action !== 'function') {
 			throw new McpError(
 				ErrorCode.InvalidParams,
-				`Unknown tool: ${request.params.name}`
+				`Unknown tool: ${request.params.name}`,
 			);
 		}
 
@@ -83,8 +93,8 @@ export function createMcpServer<
 						errors.map((e) => ({
 							path: e.instancePath,
 							message: e.message,
-						}))
-					)}`
+						})),
+					)}`,
 				);
 			}
 		}
@@ -102,8 +112,8 @@ export function createMcpServer<
 						errors.map((e) => ({
 							path: e.instancePath,
 							message: e.message,
-						}))
-					)}`
+						})),
+					)}`,
 				);
 			}
 		}
@@ -153,9 +163,9 @@ export function createMcpServer<
  * This function uses `forEachAction` to iterate over all workspaces and their actions,
  * creating MCP tool names in the format `${workspaceId}_${actionName}`.
  */
-function flattenActionsForMCP<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
-	client: EpicenterClient<TWorkspaces>,
-): Map<string, Action> {
+function flattenActionsForMCP<
+	TWorkspaces extends readonly AnyWorkspaceConfig[],
+>(client: EpicenterClient<TWorkspaces>): Map<string, Action> {
 	const actions = new Map<string, Action>();
 
 	forEachAction(client, ({ workspaceId, actionName, action }) => {
