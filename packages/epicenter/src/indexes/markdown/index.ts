@@ -9,8 +9,10 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
+	TableSchemaWithValidation,
 	WorkspaceSchema,
 } from '../../core/schema';
+import { createTableSchemaWithValidation } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
@@ -170,7 +172,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 	 * Returns null if the file should be skipped (e.g., invalid data, doesn't match schema).
 	 *
 	 * @param params.id - Row ID extracted from file path
-	 * @param params.frontmatter - Parsed YAML frontmatter (can be any type, validate before using)
+	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
 	 * @param params.content - Markdown body content
 	 * @param params.tableName - Table name (for context)
 	 * @param params.schema - Table schema (for validation)
@@ -178,7 +180,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 	 */
 	deserialize(params: {
 		id: string;
-		frontmatter: unknown;
+		frontmatter: Record<string, unknown>;
 		content: string;
 		tableName: string;
 		schema: TTableSchema;
@@ -190,10 +192,10 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  *
  * Default behavior:
  * - Serialize: All row fields → frontmatter, empty content
- * - Deserialize: All frontmatter fields → row, ignore content
+ * - Deserialize: All frontmatter fields → row with validation (returns null if invalid)
  */
 function createDefaultSerializer<TTableSchema extends TableSchema>(
-	schema: TTableSchema,
+	schemaWithValidation: TableSchemaWithValidation<TTableSchema>,
 ): MarkdownSerializer<TTableSchema> {
 	return {
 		serialize: ({ row }) => ({
@@ -201,11 +203,33 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
 			content: '',
 		}),
 		deserialize: ({ id, frontmatter }) => {
-			// Simple passthrough: all frontmatter becomes row fields
-			return {
+			// Combine id with frontmatter
+			const data = {
 				id,
 				...frontmatter,
-			} as SerializedRow<TTableSchema>;
+			};
+
+			// Validate using schema.validateUnknown
+			const result = schemaWithValidation.validateUnknown(data);
+
+			switch (result.status) {
+				case 'valid':
+					return result.row;
+
+				case 'schema-mismatch':
+					console.warn(
+						`Default deserializer: Schema mismatch for row ${id}`,
+						result.reason,
+					);
+					return null;
+
+				case 'invalid-structure':
+					console.warn(
+						`Default deserializer: Invalid structure for row ${id}`,
+						result.reason,
+					);
+					return null;
+			}
 		},
 	};
 }
@@ -347,9 +371,12 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			throw new Error(`Schema for table "${tableName}" not found`);
 		}
 
+		// Create schema with validation methods
+		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+
 		// Use custom serializer if provided, otherwise use default
 		const serializer =
-			serializers?.[tableName] ?? createDefaultSerializer(tableSchema);
+			serializers?.[tableName] ?? createDefaultSerializer(schemaWithValidation);
 
 		/**
 		 * Get the absolute file path for a row ID
@@ -506,9 +533,12 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 				return;
 			}
 
+			// Create schema with validation methods
+			const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+
 			// Use custom serializer if provided, otherwise use default
 			const serializer =
-				serializers?.[tableName] ?? createDefaultSerializer(tableSchema);
+				serializers?.[tableName] ?? createDefaultSerializer(schemaWithValidation);
 
 			/**
 			 * Construct the full absolute path to the file
@@ -588,7 +618,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 					frontmatter,
 					content,
 					tableName,
-					schema: tableSchema as any,
+					schema: tableSchema,
 				});
 
 				// If deserialize returns null, skip this file (invalid/unsupported)

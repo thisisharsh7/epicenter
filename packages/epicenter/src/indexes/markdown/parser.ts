@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { createTaggedError } from 'wellcrafted/error';
 import { type Result, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
@@ -6,7 +5,6 @@ import type {
 	CellValue,
 	Row,
 	RowValidationResult,
-	SerializedRow,
 	TableSchema,
 } from '../../core/schema';
 import { createRow, isSerializedRow } from '../../core/schema';
@@ -19,6 +17,20 @@ import { updateYRowFromSerializedRow } from '../../utils/yjs';
 export const { MarkdownError, MarkdownErr } =
 	createTaggedError('MarkdownError');
 export type MarkdownError = ReturnType<typeof MarkdownError>;
+
+/**
+ * Type guard to check if a value is a plain object (Record<string, unknown>)
+ * Returns true for plain objects like { foo: 'bar' }
+ * Returns false for null, primitives, arrays, Dates, RegExp, Maps, etc.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return (
+		value !== null &&
+		typeof value === 'object' &&
+		!Array.isArray(value) &&
+		Object.getPrototypeOf(value) === Object.prototype
+	);
+}
 
 /**
  * Result of parsing and validating a markdown file.
@@ -106,17 +118,21 @@ export async function parseMarkdownWithValidation<
 
 	// Step 5: Create Row proxy and validate
 	const row = createRow({ yrow: targetYRow, schema });
-	return row.validate();
+	return row;
 }
 
 /**
- * Parse a markdown file with optional frontmatter
- * If file has no frontmatter (doesn't start with ---), treats entire file as content
+ * Parse a markdown file with optional frontmatter.
+ * If file has no frontmatter (doesn't start with ---), treats entire file as content.
+ * Does not validate against schema - that's handled by tableConfig.deserialize.
+ *
+ * @param filePath - Path to the markdown file
+ * @returns Result with data (frontmatter as Record<string, unknown>) and content, or error
  */
-async function parseMarkdownFile(filePath: string): Promise<
+export async function parseMarkdownFile(filePath: string): Promise<
 	Result<
 		{
-			data: unknown;
+			data: Record<string, unknown>;
 			content: string;
 		},
 		MarkdownError
@@ -160,8 +176,11 @@ async function parseMarkdownFile(filePath: string): Promise<
 			// - null: empty YAML, whitespace-only, or no content between --- delimiters
 			// - Primitives: number, string, boolean (if YAML is just a scalar value)
 			// - Array: if YAML is just an array
-			// For now, return whatever YAML gives us and validate structure later
-			const data = Bun.YAML.parse(frontmatterYaml);
+			const parsedData = Bun.YAML.parse(frontmatterYaml);
+
+			// Validate that data is a plain object using type guard
+			// If it's not a plain object, use empty object instead
+			const data = isPlainObject(parsedData) ? parsedData : {};
 
 			return {
 				data,
