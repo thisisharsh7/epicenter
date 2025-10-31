@@ -1,6 +1,7 @@
+import path from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import path from 'node:path';
+import { setupPersistence } from '../../src/core/workspace/providers/persistence/desktop';
 import {
 	type Row,
 	defineEpicenter,
@@ -16,8 +17,8 @@ import {
 	select,
 	sqliteIndex,
 	text,
+	validateRow,
 } from '../../src/index';
-import { setupPersistence } from '../../src/core/workspace/providers/persistence/desktop';
 
 /**
  * Example blog workspace
@@ -48,7 +49,91 @@ const blogWorkspace = defineWorkspace({
 
 	indexes: {
 		sqlite: (db) => sqliteIndex(db),
-		markdown: (db) => markdownIndex(db, { storagePath: './.data/content' }),
+		markdown: (db) =>
+			markdownIndex(db, {
+				storagePath: './.data/content',
+				parseFilePath: ({ filePath }) => {
+					const parts = filePath.split(path.sep);
+					if (parts.length < 2) {
+						throw new Error(`Invalid file path: ${filePath}`);
+					}
+					const tableName = parts[0]!;
+					const fileName = parts[parts.length - 1]!;
+					const id = path.basename(fileName, '.md');
+					return { tableName, id };
+				},
+				formatFilePath: ({ id, tableName }) =>
+					path.join(
+						import.meta.dirname,
+						'.data/content',
+						tableName,
+						`${id}.md`,
+					),
+				tableConfigs: {
+					posts: {
+						serialize: ({ row, tableName }) => {
+							const { id, content, ...rest } = row;
+							return {
+								frontmatter: Object.fromEntries(
+									Object.entries(rest).filter(([_, v]) => v != null),
+								),
+								content: content || '',
+							};
+						},
+						deserialize: ({ id, frontmatter, content, tableName, schema }) => {
+							// Combine content with frontmatter
+							const serializedRow = {
+								id,
+								content,
+								...frontmatter,
+							};
+
+							// Validate using schema
+							const validationResult = validateRow({
+								data: serializedRow,
+								schema,
+							});
+
+							if (validationResult.status !== 'valid') {
+								console.warn(`Invalid markdown file for ${tableName}/${id}:`, validationResult);
+								return null; // Skip this file
+							}
+
+							// Return the full row (including id)
+							return serializedRow as any;
+						},
+					},
+					comments: {
+						serialize: ({ row }) => {
+							const { id, ...rest } = row;
+							return {
+								frontmatter: Object.fromEntries(
+									Object.entries(rest).filter(([_, v]) => v != null),
+								),
+								content: '',
+							};
+						},
+						deserialize: ({ id, frontmatter, schema }) => {
+							const serializedRow = {
+								id,
+								...frontmatter,
+							};
+
+							const validationResult = validateRow({
+								data: serializedRow,
+								schema,
+							});
+
+							if (validationResult.status !== 'valid') {
+								console.warn(`Invalid markdown file for comments/${id}:`, validationResult);
+								return null;
+							}
+
+							return serializedRow as any;
+						},
+					},
+				},
+			}),
 	},
 
 	actions: ({ db, indexes }) => ({
@@ -65,7 +150,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get post by ID
 		getPost: defineQuery({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				const post = await indexes.sqlite.db
 					.select()
@@ -77,7 +162,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Query: Get comments for a post
 		getPostComments: defineQuery({
-			input: type({ postId: "string" }),
+			input: type({ postId: 'string' }),
 			handler: async ({ postId }) => {
 				const comments = await indexes.sqlite.db
 					.select()
@@ -90,8 +175,8 @@ const blogWorkspace = defineWorkspace({
 		// Mutation: Create a new post
 		createPost: defineMutation({
 			input: type({
-				title: "string",
-				"content?": "string",
+				title: 'string',
+				'content?': 'string',
 				category: "'tech' | 'personal' | 'tutorial'",
 			}),
 			handler: async ({ title, content, category }) => {
@@ -110,7 +195,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Publish a post
 		publishPost: defineMutation({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);
 				if (status !== 'valid') {
@@ -128,9 +213,9 @@ const blogWorkspace = defineWorkspace({
 		// Mutation: Add a comment
 		addComment: defineMutation({
 			input: type({
-				postId: "string",
-				author: "string",
-				content: "string",
+				postId: 'string',
+				author: 'string',
+				content: 'string',
 			}),
 			handler: async ({ postId, author, content }) => {
 				const comment = {
@@ -147,7 +232,7 @@ const blogWorkspace = defineWorkspace({
 
 		// Mutation: Increment post views
 		incrementViews: defineMutation({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				const { status, row } = db.tables.posts.get(id);
 				if (status !== 'valid') {

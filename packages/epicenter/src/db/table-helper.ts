@@ -401,6 +401,54 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return { status: 'not-found', row: null };
 		},
 
+		/**
+		 * Observe changes to the table and receive callbacks for add, update, and delete operations.
+		 *
+		 * This uses Y.js's observeDeep() to watch a Y.Map-of-Y.Maps structure:
+		 * - ytable (Y.Map) contains row IDs as keys
+		 * - Each row (Y.Map) contains field names as keys
+		 *
+		 * Y.js fires two types of events in this structure:
+		 *
+		 * 1. **Top-level events** (event.target === ytable):
+		 *    - Fired when entire rows are added/deleted from the table
+		 *    - event.path = [] (empty)
+		 *    - change.action = 'add' or 'delete'
+		 *    - We check these explicitly to call onAdd/onDelete
+		 *
+		 * 2. **Nested events** (event.path.length === 1):
+		 *    - Fired when fields within a row are modified
+		 *    - event.path = [rowId] (path to the changed row)
+		 *    - event.target = the row's Y.Map (not ytable)
+		 *    - change.action can be 'add', 'update', or 'delete' for individual fields
+		 *    - We treat ALL field-level changes as row updates (onUpdate)
+		 *
+		 * **Why we don't check for change.action === 'update' at the top level:**
+		 * - The 'update' action only occurs when an entire Y.Map is replaced with another Y.Map
+		 * - In our codebase, we never replace entire row Y.Maps; we only mutate fields within them
+		 * - All meaningful row updates happen at the field level, caught by the nested event handler
+		 *
+		 * **Why we don't distinguish field actions in nested events:**
+		 * - Whether a field is added, updated, or deleted, it's semantically a row update
+		 * - The callback receives the entire row, so callers can inspect specific field changes if needed
+		 * - This provides a simpler, more intuitive API: "the row changed" vs "field X was added"
+		 *
+		 * @param callbacks - Object with optional callbacks for row lifecycle events
+		 * @param callbacks.onAdd - Called when a new row is added to the table
+		 * @param callbacks.onUpdate - Called when any field within an existing row changes
+		 * @param callbacks.onDelete - Called when a row is removed from the table (receives row ID)
+		 * @returns Unsubscribe function to stop observing
+		 *
+		 * @example
+		 * const unsubscribe = table.observe({
+		 *   onAdd: (row) => console.log('Row added:', row),
+		 *   onUpdate: (row) => console.log('Row updated:', row),
+		 *   onDelete: (id) => console.log('Row deleted:', id),
+		 * });
+		 *
+		 * // Later, stop observing
+		 * unsubscribe();
+		 */
 		observe(callbacks: {
 			onAdd?: (row: TRow) => void | Promise<void>;
 			onUpdate?: (row: TRow) => void | Promise<void>;
@@ -408,12 +456,12 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		}): () => void {
 			const observer = (events: Y.YEvent<any>[]) => {
 				for (const event of events) {
-					// Check if this is a top-level ytable event (row add/delete)
-					// or a nested row event (field updates)
+					// Top-level events: row additions/deletions in the table
+					// event.target === ytable means the change happened directly on the table Y.Map
 					if (event.target === ytable) {
-						// Top-level changes: row additions/deletions
 						event.changes.keys.forEach((change, key) => {
 							if (change.action === 'add') {
+								// A new row Y.Map was added to the table
 								const yrow = ytable.get(key);
 								if (yrow) {
 									const result = createRow({ yrow, schema });
@@ -431,12 +479,19 @@ function createTableHelper<TTableSchema extends TableSchema>({
 									}
 								}
 							} else if (change.action === 'delete') {
+								// A row Y.Map was removed from the table
 								callbacks.onDelete?.(key);
 							}
+							// Note: We intentionally don't handle 'update' here because:
+							// - 'update' only fires if an entire row Y.Map is replaced with another Y.Map
+							// - We never do this in our codebase; we only mutate fields within rows
+							// - If we ever needed to support this pattern, we would add:
+							//   else if (change.action === 'update') { callbacks.onUpdate?.(...) }
 						});
 					} else if (event.path.length === 1 && event.changes.keys.size > 0) {
-						// Nested change: field updates within a row
-						// event.path[0] is the row ID
+						// Nested events: field modifications within a row
+						// event.path[0] is the row ID, event.target is the row's Y.Map
+						// Any field change (add/update/delete) is treated as a row update
 						const rowId = event.path[0] as string;
 						const yrow = ytable.get(rowId);
 						if (yrow) {
@@ -455,6 +510,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 							}
 						}
 					}
+					// Note: We use event.path.length === 1 to detect row-level changes
+					// If you have Y.Maps/Y.Arrays nested within row fields, those would have
+					// event.path.length > 1. Change to >= 1 if you need to support that.
 				}
 			};
 
