@@ -265,15 +265,88 @@ export type MultiSelectColumnSchema<
 export type ColumnType = ColumnSchema['type'];
 
 /**
+ * Table schema - maps column names to their schemas.
+ * This is the pure schema definition that describes the structure of a table.
+ * Must always include an 'id' column with IdColumnSchema.
+ */
+export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
+
+/**
+ * Refined validation result that only includes 'valid' and 'schema-mismatch' statuses.
+ * Used by validateYRow which cannot return 'invalid-structure'.
+ */
+export type YRowValidationResult<TRow extends Row> = Extract<
+	RowValidationResult<TRow>,
+	{ status: 'valid' } | { status: 'schema-mismatch' }
+>;
+
+/**
+ * Refined SerializedRow validation result that only includes 'valid' and 'schema-mismatch'.
+ * Used by validateSerializedRow which cannot return 'invalid-structure'.
+ *
+ * On 'valid', returns SerializedRow<TSchema> (typed to the schema).
+ * On 'schema-mismatch', returns SerializedRow (generic, untyped).
+ */
+export type ValidatedSerializedRowResult<TSchema extends TableSchema = TableSchema> =
+	| { status: 'valid'; row: SerializedRow<TSchema> }
+	| { status: 'schema-mismatch'; row: SerializedRow; reason: SchemaMismatchReason };
+
+/**
+ * Validation result for SerializedRow.
+ * Returns the validated SerializedRow (not Row proxy) on success.
+ *
+ * Extends ValidatedSerializedRowResult by adding the 'invalid-structure' case.
+ */
+export type SerializedRowValidationResult<TSchema extends TableSchema = TableSchema> =
+	| ValidatedSerializedRowResult<TSchema>
+	| {
+			status: 'invalid-structure';
+			row: unknown;
+			reason: InvalidStructureReason;
+	  };
+
+/**
+ * Table schema with validation methods.
+ * Created by `createTableSchemaWithValidation()` from a `TableSchema`.
+ * This is the schema definition with three validation methods added.
+ *
+ * @example
+ * ```typescript
+ * const schema = createTableSchemaWithValidation({
+ *   id: id(),
+ *   title: text(),
+ *   content: ytext(),
+ * });
+ *
+ * // Access schema fields directly
+ * schema.title.type // 'text'
+ *
+ * // Validate from unknown record (validates structure + schema)
+ * const result = schema.validateRecord({ id: '123', title: 'Hello', content: 'World' });
+ *
+ * // Validate from typed SerializedRow (validates schema only)
+ * const serialized: SerializedRow<typeof schema> = { id: '123', title: 'Hello', content: 'World' };
+ * const result2 = schema.validateSerializedRow(serialized);
+ *
+ * // Validate from YRow (validates schema only)
+ * const result3 = schema.validateYRow(yrow);
+ * ```
+ */
+export type TableSchemaWithValidation<TSchema extends TableSchema = TableSchema> = TSchema & {
+	/** Validates an unknown record (checks structure + schema), returns validated SerializedRow */
+	validateRecord(data: Record<string, unknown>): SerializedRowValidationResult<TSchema>;
+
+	/** Validates a SerializedRow (checks schema only), returns validated SerializedRow<TSchema> */
+	validateSerializedRow(data: SerializedRow): ValidatedSerializedRowResult<TSchema>;
+
+	/** Validates a YRow (checks schema only), returns typed Row proxy */
+	validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>>;
+};
+
+/**
  * Workspace schema - maps table names to their table schemas
  */
 export type WorkspaceSchema = Record<string, TableSchema>;
-
-/**
- * Table schema - maps column names to their schemas
- * Must always include an 'id' column with IdColumnSchema
- */
-export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
 
 /**
  * Maps a ColumnSchema to its cell value type (Y.js types or primitives).
@@ -683,253 +756,10 @@ export function createRow<TTableSchema extends TableSchema>({
 }: {
 	yrow: YRow;
 	schema: TTableSchema;
-}): RowValidationResult<Row<TTableSchema>> {
-	const proxy = new Proxy(
-		{},
-		{
-			get(_target, prop) {
-				if (prop === 'toJSON') {
-					return () => {
-						// Inline serialization: convert Y.Map to plain object, then serialize each value
-						const result: Record<string, unknown> = {};
-
-						for (const key in schema) {
-							const value = yrow.get(key);
-							if (value !== undefined) {
-								result[key] = serializeCellValue(value);
-							}
-						}
-
-						return result as SerializedRow<TTableSchema>;
-					};
-				}
-
-				if (prop === '$yRow') {
-					return yrow;
-				}
-
-				// Get value from Y.Map
-				if (typeof prop === 'string') {
-					return yrow.get(prop);
-				}
-
-				return undefined;
-			},
-
-			has(_target, prop) {
-				if (prop === 'toJSON' || prop === '$yRow') return true;
-				return yrow.has(prop as string);
-			},
-
-			ownKeys(_target) {
-				return [...yrow.keys(), 'toJSON', '$yRow'];
-			},
-
-			getOwnPropertyDescriptor(_target, prop) {
-				if (prop === 'toJSON' || prop === '$yRow') {
-					return {
-						configurable: true,
-						enumerable: false,
-						writable: false,
-					};
-				}
-				if (typeof prop === 'string' && yrow.has(prop)) {
-					return {
-						configurable: true,
-						enumerable: true,
-						writable: false,
-					};
-				}
-				return undefined;
-			},
-		},
-	) as Row;
-
-	// Perform automatic validation
-	// Schema validation - validate each field against schema constraints
-	for (const [fieldName, columnSchema] of Object.entries(schema)) {
-		const value = proxy[fieldName];
-
-		// Check if required field is null/undefined
-		if (value === null || value === undefined) {
-			if (columnSchema.type === 'id' || !columnSchema.nullable) {
-				return {
-					status: 'schema-mismatch' as const,
-					row: proxy,
-					reason: {
-						type: 'missing-required-field' as const,
-						field: fieldName,
-					},
-				};
-			}
-			continue;
-		}
-
-		// Type-specific validation
-		switch (columnSchema.type) {
-			case 'id':
-			case 'text':
-				if (typeof value !== 'string') {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'integer':
-				if (typeof value !== 'number' || !Number.isInteger(value)) {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'real':
-				if (typeof value !== 'number') {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'boolean':
-				if (typeof value !== 'boolean') {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'ytext':
-				if (!(value instanceof Y.Text)) {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'select':
-				if (typeof value !== 'string') {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				if (!columnSchema.options.includes(value)) {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'invalid-option' as const,
-							field: fieldName,
-							actual: value,
-							allowedOptions: columnSchema.options,
-						},
-					};
-				}
-				break;
-
-			case 'multi-select':
-				if (!(value instanceof Y.Array)) {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				// Validate each option in the array
-				for (const option of value.toArray()) {
-					if (typeof option !== 'string') {
-						return {
-							status: 'schema-mismatch' as const,
-							row: proxy,
-							reason: {
-								type: 'type-mismatch' as const,
-								field: fieldName,
-								schemaType: columnSchema.type,
-								actual: option,
-							},
-						};
-					}
-					if (!columnSchema.options.includes(option)) {
-						return {
-							status: 'schema-mismatch' as const,
-							row: proxy,
-							reason: {
-								type: 'invalid-option' as const,
-								field: fieldName,
-								actual: option,
-								allowedOptions: columnSchema.options,
-							},
-						};
-					}
-				}
-				break;
-
-			case 'date':
-				if (!isDateWithTimezone(value)) {
-					return {
-						status: 'schema-mismatch' as const,
-						row: proxy,
-						reason: {
-							type: 'type-mismatch' as const,
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-		}
-	}
-
-	return { status: 'valid' as const, row: proxy as Row<TTableSchema> };
+}): YRowValidationResult<Row<TTableSchema>> {
+	// Create a TableSchemaWithValidation and call its method
+	const tableSchema = createTableSchemaWithValidation(schema);
+	return tableSchema.validateYRow(yrow);
 }
 
 /**
@@ -1340,5 +1170,515 @@ export function multiSelect<
 		nullable,
 		options,
 		default: defaultValue,
+	};
+}
+
+/**
+ * Creates a TableSchemaWithValidation object from a schema definition.
+ * Adds `validateYRow()`, `validateSerializedRow()`, and `validateRecord()` methods to the schema.
+ *
+ * @example
+ * ```typescript
+ * const schema = createTableSchemaWithValidation({
+ *   id: id(),
+ *   title: text(),
+ *   content: ytext(),
+ * });
+ *
+ * // Access schema fields directly
+ * schema.title.type // 'text'
+ *
+ * // Validate from YRow
+ * const result = schema.validateYRow(yrow);
+ * if (result.status === 'valid') {
+ *   console.log(result.row.title); // type-safe
+ * }
+ *
+ * // Validate from typed SerializedRow
+ * const serialized: SerializedRow<typeof schema> = { id: '123', title: 'Hello', content: 'World' };
+ * const result2 = schema.validateSerializedRow(serialized);
+ *
+ * // Validate from unknown record
+ * const result3 = schema.validateRecord({ id: '123', title: 'Hello', content: 'World' });
+ * ```
+ */
+export function createTableSchemaWithValidation<TSchema extends TableSchema>(
+	schema: TSchema,
+): TableSchemaWithValidation<TSchema> {
+	return {
+		...schema,
+
+		validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>> {
+			// Create proxy
+			const proxy = new Proxy(
+				{},
+				{
+					get(_target, prop) {
+						if (prop === 'toJSON') {
+							return () => {
+								const result: Record<string, unknown> = {};
+								for (const key in schema) {
+									const value = yrow.get(key);
+									if (value !== undefined) {
+										result[key] = serializeCellValue(value);
+									}
+								}
+								return result as SerializedRow<TSchema>;
+							};
+						}
+
+						if (prop === '$yRow') {
+							return yrow;
+						}
+
+						if (typeof prop === 'string') {
+							return yrow.get(prop);
+						}
+
+						return undefined;
+					},
+
+					has(_target, prop) {
+						if (prop === 'toJSON' || prop === '$yRow') return true;
+						return yrow.has(prop as string);
+					},
+
+					ownKeys(_target) {
+						return [...yrow.keys(), 'toJSON', '$yRow'];
+					},
+
+					getOwnPropertyDescriptor(_target, prop) {
+						if (prop === 'toJSON' || prop === '$yRow') {
+							return {
+								configurable: true,
+								enumerable: false,
+								writable: false,
+							};
+						}
+						if (typeof prop === 'string' && yrow.has(prop)) {
+							return {
+								configurable: true,
+								enumerable: true,
+								writable: false,
+							};
+						}
+						return undefined;
+					},
+				},
+			) as Row;
+
+			// Perform validation
+			for (const [fieldName, columnSchema] of Object.entries(schema)) {
+				const value = proxy[fieldName];
+
+				// Check if required field is null/undefined
+				if (value === null || value === undefined) {
+					if (columnSchema.type === 'id' || !columnSchema.nullable) {
+						return {
+							status: 'schema-mismatch',
+							row: proxy,
+							reason: {
+								type: 'missing-required-field',
+								field: fieldName,
+							},
+						};
+					}
+					continue;
+				}
+
+				// Type-specific validation
+				switch (columnSchema.type) {
+					case 'id':
+					case 'text':
+						if (typeof value !== 'string') {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'integer':
+						if (typeof value !== 'number' || !Number.isInteger(value)) {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'real':
+						if (typeof value !== 'number') {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'boolean':
+						if (typeof value !== 'boolean') {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'ytext':
+						if (!(value instanceof Y.Text)) {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'select':
+						if (typeof value !== 'string') {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						if (!columnSchema.options.includes(value)) {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'invalid-option',
+									field: fieldName,
+									actual: value,
+									allowedOptions: columnSchema.options,
+								},
+							};
+						}
+						break;
+
+					case 'multi-select':
+						if (!(value instanceof Y.Array)) {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						for (const option of value.toArray()) {
+							if (typeof option !== 'string') {
+								return {
+									status: 'schema-mismatch',
+									row: proxy,
+									reason: {
+										type: 'type-mismatch',
+										field: fieldName,
+										schemaType: columnSchema.type,
+										actual: option,
+									},
+								};
+							}
+							if (!columnSchema.options.includes(option)) {
+								return {
+									status: 'schema-mismatch',
+									row: proxy,
+									reason: {
+										type: 'invalid-option',
+										field: fieldName,
+										actual: option,
+										allowedOptions: columnSchema.options,
+									},
+								};
+							}
+						}
+						break;
+
+					case 'date':
+						if (!isDateWithTimezone(value)) {
+							return {
+								status: 'schema-mismatch',
+								row: proxy,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+				}
+			}
+
+			return { status: 'valid', row: proxy as Row<TSchema> };
+		},
+
+		validateSerializedRow(data: SerializedRow): ValidatedSerializedRowResult<TSchema> {
+			// Validate the SerializedRow against the schema
+			for (const [fieldName, columnSchema] of Object.entries(schema)) {
+				const value = data[fieldName];
+
+				// Check required fields
+				if (value === null || value === undefined) {
+					if (columnSchema.type === 'id' || !columnSchema.nullable) {
+						return {
+							status: 'schema-mismatch',
+							row: data,
+							reason: {
+								type: 'missing-required-field',
+								field: fieldName,
+							},
+						};
+					}
+					continue;
+				}
+
+				// Validate schema-level constraints (select options, etc.)
+				switch (columnSchema.type) {
+					case 'select':
+						if (!columnSchema.options.includes(value as string)) {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'invalid-option',
+									field: fieldName,
+									actual: value as string,
+									allowedOptions: columnSchema.options,
+								},
+							};
+						}
+						break;
+
+					case 'multi-select':
+						for (const option of value as string[]) {
+							if (!columnSchema.options.includes(option)) {
+								return {
+									status: 'schema-mismatch',
+									row: data,
+									reason: {
+										type: 'invalid-option',
+										field: fieldName,
+										actual: option,
+										allowedOptions: columnSchema.options,
+									},
+								};
+							}
+						}
+						break;
+				}
+			}
+
+			// All validations passed
+			return { status: 'valid', row: data as SerializedRow<TSchema> };
+		},
+
+		validateRecord(data: Record<string, unknown>): SerializedRowValidationResult<TSchema> {
+			// First, validate that all values are valid SerializedCellValues
+			for (const [fieldName, columnSchema] of Object.entries(schema)) {
+				const value = data[fieldName];
+
+				// Check required fields
+				if (value === null || value === undefined) {
+					if (columnSchema.type === 'id' || !columnSchema.nullable) {
+						return {
+							status: 'schema-mismatch',
+							row: data as SerializedRow,
+							reason: {
+								type: 'missing-required-field',
+								field: fieldName,
+							},
+						};
+					}
+					continue;
+				}
+
+				// Validate that the value is a valid SerializedCellValue type
+				switch (columnSchema.type) {
+					case 'id':
+					case 'text':
+					case 'ytext':
+						if (typeof value !== 'string') {
+							return {
+								status: 'invalid-structure',
+								row: data,
+								reason: {
+									type: 'invalid-cell-value',
+									field: fieldName,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'integer':
+						if (typeof value !== 'number' || !Number.isInteger(value)) {
+							return {
+								status: 'invalid-structure',
+								row: data,
+								reason: {
+									type: 'invalid-cell-value',
+									field: fieldName,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'real':
+						if (typeof value !== 'number') {
+							return {
+								status: 'invalid-structure',
+								row: data,
+								reason: {
+									type: 'invalid-cell-value',
+									field: fieldName,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'boolean':
+						if (typeof value !== 'boolean') {
+							return {
+								status: 'invalid-structure',
+								row: data,
+								reason: {
+									type: 'invalid-cell-value',
+									field: fieldName,
+									actual: value,
+								},
+							};
+						}
+						break;
+
+					case 'select':
+						if (typeof value !== 'string') {
+							return {
+								status: 'invalid-structure',
+								row: data,
+								reason: {
+									type: 'invalid-cell-value',
+									field: fieldName,
+									actual: value,
+								},
+							};
+						}
+						// Check if it's a valid option (schema validation)
+						if (!columnSchema.options.includes(value)) {
+							return {
+								status: 'schema-mismatch',
+								row: data as SerializedRow,
+								reason: {
+									type: 'invalid-option',
+									field: fieldName,
+									actual: value,
+									allowedOptions: columnSchema.options,
+								},
+							};
+						}
+						break;
+
+					case 'multi-select':
+						if (!Array.isArray(value)) {
+							return {
+								status: 'invalid-structure',
+								row: data,
+								reason: {
+									type: 'invalid-cell-value',
+									field: fieldName,
+									actual: value,
+								},
+							};
+						}
+						// Validate array elements
+						for (const option of value) {
+							if (typeof option !== 'string') {
+								return {
+									status: 'invalid-structure',
+									row: data,
+									reason: {
+										type: 'invalid-cell-value',
+										field: fieldName,
+										actual: option,
+									},
+								};
+							}
+							// Check if it's a valid option (schema validation)
+							if (!columnSchema.options.includes(option)) {
+								return {
+									status: 'schema-mismatch',
+									row: data as SerializedRow,
+									reason: {
+										type: 'invalid-option',
+										field: fieldName,
+										actual: option,
+										allowedOptions: columnSchema.options,
+									},
+								};
+							}
+						}
+						break;
+
+					case 'date':
+						if (!isDateWithTimezone(value) && !isDateWithTimezoneString(value)) {
+							return {
+								status: 'invalid-structure',
+								row: data,
+								reason: {
+									type: 'invalid-cell-value',
+									field: fieldName,
+									actual: value,
+								},
+							};
+						}
+						break;
+				}
+			}
+
+			// At this point, we've validated structure. Now we can treat it as SerializedRow
+			// and delegate to validateSerializedRow for conversion to YRow and final validation
+			return this.validateSerializedRow(data as SerializedRow<TSchema>);
+		},
 	};
 }

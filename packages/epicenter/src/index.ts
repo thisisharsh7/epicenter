@@ -35,12 +35,19 @@ export {
 	select,
 	multiSelect,
 	generateId,
+	validateRow,
+	createTableSchemaWithValidation,
 } from './core/schema';
 export type {
 	ColumnSchema,
 	ColumnType,
 	TableSchema,
+	TableSchemaWithValidation,
+	YRowValidationResult,
+	SerializedRowValidationResult,
+	ValidatedSerializedRowResult,
 	Row,
+	SerializedRow,
 	Id,
 	DateWithTimezone,
 } from './core/schema';
