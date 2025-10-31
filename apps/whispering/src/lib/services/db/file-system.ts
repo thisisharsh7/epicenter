@@ -3,14 +3,13 @@ import { join } from '@tauri-apps/api/path';
 import {
 	exists,
 	mkdir,
-	readDir,
 	readTextFile,
 	remove,
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
 import matter from 'gray-matter';
-import { Err, Ok, tryAsync } from 'wellcrafted/result';
+import { Ok, tryAsync } from 'wellcrafted/result';
 import { getExtensionFromMimeType } from '$lib/constants/mime';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
@@ -98,37 +97,21 @@ export function createFileSystemDb(): DbService {
 							return [];
 						}
 
-						// List all .md files
-						const entries = await readDir(recordingsPath);
-						const mdFiles = entries.filter((entry) =>
-							entry.name?.endsWith('.md'),
-						);
+						// Use Rust command to read all markdown files at once
+						const contents = await readMarkdownFiles(recordingsPath);
 
-						// Parse each file
-						const recordings = await Promise.all(
-							mdFiles.map(async (entry) => {
-								if (!entry.name) return null;
+						// Parse all files
+						const recordings = contents.map((content) => {
+							const { data, content: body } = matter(content);
 
-								const filePath = await join(recordingsPath, entry.name);
+							// Validate the front matter schema
+							const frontMatter = RecordingFrontMatter(data);
+							if (frontMatter instanceof type.errors) {
+								return null; // Skip invalid recording, don't crash the app
+							}
 
-								const content = await readTextFile(filePath);
-
-								const { data, content: body } = matter(content);
-
-								// Check if data exists
-								if (!data || typeof data !== 'object') {
-									return null; // Skip invalid recording, don't crash the app
-								}
-
-								// Validate the front matter schema
-								const frontMatter = RecordingFrontMatter(data);
-								if (frontMatter instanceof type.errors) {
-									return null; // Skip invalid recording, don't crash the app
-								}
-
-								return markdownToRecording({ frontMatter, body });
-							}),
-						);
+							return markdownToRecording({ frontMatter, body });
+						});
 
 						// Filter out any null entries and sort by timestamp (newest first)
 						const validRecordings = recordings.filter(
@@ -443,34 +426,25 @@ export function createFileSystemDb(): DbService {
 							return [];
 						}
 
-						// List all .md files
-						const entries = await readDir(transformationsPath);
-						const mdFiles = entries.filter(
-							(entry) => entry.name && entry.name.endsWith('.md'),
-						);
+						// Use Rust command to read all markdown files at once
+						const contents = await readMarkdownFiles(transformationsPath);
 
-						// Parse each file
-						const transformations = await Promise.all(
-							mdFiles.map(async (entry) => {
-								if (!entry.name) return null;
+						// Parse all files
+						const transformations = contents.map((content) => {
+							const { data } = matter(content);
 
-								const filePath = await join(transformationsPath, entry.name);
-								const content = await readTextFile(filePath);
-								const { data } = matter(content);
+							// Validate with arktype schema
+							const validated = Transformation(data);
+							if (validated instanceof type.errors) {
+								console.error(
+									`Invalid transformation:`,
+									validated.summary,
+								);
+								return null; // Skip invalid transformation
+							}
 
-								// Validate with arktype schema
-								const validated = Transformation(data);
-								if (validated instanceof type.errors) {
-									console.error(
-										`Invalid transformation in ${entry.name}:`,
-										validated.summary,
-									);
-									return null; // Skip invalid transformation
-								}
-
-								return validated;
-							}),
-						);
+							return validated;
+						});
 
 						return transformations.filter(
 							(t): t is Transformation => t !== null,
