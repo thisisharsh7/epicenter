@@ -402,52 +402,124 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		/**
-		 * Observe changes to the table and receive callbacks for add, update, and delete operations.
+		 * Watch for changes to the table and get notified when rows are added, updated, or deleted.
 		 *
-		 * This uses Y.js's observeDeep() to watch a Y.Map-of-Y.Maps structure:
-		 * - ytable (Y.Map) contains row IDs as keys
-		 * - Each row (Y.Map) contains field names as keys
-		 *
-		 * Y.js fires two types of events in this structure:
-		 *
-		 * 1. **Top-level events** (event.target === ytable):
-		 *    - Fired when entire rows are added/deleted from the table
-		 *    - event.path = [] (empty)
-		 *    - change.action = 'add' or 'delete'
-		 *    - We check these explicitly to call onAdd/onDelete
-		 *
-		 * 2. **Nested events** (event.path.length === 1):
-		 *    - Fired when fields within a row are modified
-		 *    - event.path = [rowId] (path to the changed row)
-		 *    - event.target = the row's Y.Map (not ytable)
-		 *    - change.action can be 'add', 'update', or 'delete' for individual fields
-		 *    - We treat ALL field-level changes as row updates (onUpdate)
-		 *
-		 * **Why we don't check for change.action === 'update' at the top level:**
-		 * - The 'update' action only occurs when an entire Y.Map is replaced with another Y.Map
-		 * - In our codebase, we never replace entire row Y.Maps; we only mutate fields within them
-		 * - All meaningful row updates happen at the field level, caught by the nested event handler
-		 *
-		 * **Why we don't distinguish field actions in nested events:**
-		 * - Whether a field is added, updated, or deleted, it's semantically a row update
-		 * - The callback receives the entire row, so callers can inspect specific field changes if needed
-		 * - This provides a simpler, more intuitive API: "the row changed" vs "field X was added"
-		 *
-		 * @param callbacks - Object with optional callbacks for row lifecycle events
-		 * @param callbacks.onAdd - Called when a new row is added to the table
-		 * @param callbacks.onUpdate - Called when any field within an existing row changes
-		 * @param callbacks.onDelete - Called when a row is removed from the table (receives row ID)
-		 * @returns Unsubscribe function to stop observing
+		 * This is your reactive hook into the table. Whenever someone (local or remote) adds a row,
+		 * modifies any field in a row, or deletes a row, you'll receive a callback with the relevant
+		 * data. Perfect for keeping UI in sync with database state.
 		 *
 		 * @example
 		 * const unsubscribe = table.observe({
-		 *   onAdd: (row) => console.log('Row added:', row),
-		 *   onUpdate: (row) => console.log('Row updated:', row),
-		 *   onDelete: (id) => console.log('Row deleted:', id),
+		 *   onAdd: (row) => console.log('New row:', row),
+		 *   onUpdate: (row) => console.log('Row changed:', row),
+		 *   onDelete: (id) => console.log('Row removed:', id),
 		 * });
 		 *
-		 * // Later, stop observing
+		 * // Later, stop watching
 		 * unsubscribe();
+		 *
+		 * ## How it works under the hood
+		 *
+		 * Tables are stored as a **Y.Map of Y.Maps** structure:
+		 * ```
+		 * ytable (Y.Map)
+		 * ├── "row-1" → Y.Map { title: "Hello", count: 5 }
+		 * ├── "row-2" → Y.Map { title: "World", count: 10 }
+		 * └── "row-3" → Y.Map { title: "!", count: 1 }
+		 * ```
+		 *
+		 * We use Y.js's `observeDeep()` to watch this nested structure. This gives us events at
+		 * two different levels:
+		 *
+		 * 1. **Changes to the table itself** (adding/removing entire rows)
+		 * 2. **Changes inside a row** (modifying fields within an existing row)
+		 *
+		 * ## How we map Y.js events to your callbacks
+		 *
+		 * ### onAdd: When a new row is added
+		 *
+		 * Triggered when an entire row Y.Map is added to the table:
+		 * ```typescript
+		 * ytable.set('new-row-id', new Y.Map([['title', 'Hello']]));
+		 * ```
+		 *
+		 * Internally: We check `event.target === ytable` and `change.action === 'add'`
+		 *
+		 * ### onDelete: When a row is removed
+		 *
+		 * Triggered when an entire row Y.Map is removed from the table:
+		 * ```typescript
+		 * ytable.delete('old-row-id');
+		 * ```
+		 *
+		 * Internally: We check `event.target === ytable` and `change.action === 'delete'`
+		 *
+		 * ### onUpdate: When anything changes inside a row
+		 *
+		 * This is where it gets interesting. onUpdate fires for ALL changes to fields within
+		 * an existing row:
+		 *
+		 * ```typescript
+		 * // Modifying an existing field
+		 * yrow.set('title', 'New Title');
+		 *
+		 * // Adding a new field
+		 * yrow.set('newField', 'value');
+		 *
+		 * // Removing a field
+		 * yrow.delete('oldField');
+		 *
+		 * // Editing Y.Text content
+		 * yrow.get('description').insert(0, 'Prefix: ');
+		 *
+		 * // Modifying Y.Array content
+		 * yrow.get('tags').push(['new-tag']);
+		 * ```
+		 *
+		 * All of these trigger onUpdate, regardless of whether the field was added, modified,
+		 * or deleted. Why? Because semantically, they're all "the row changed." You get the
+		 * entire row object in the callback, so you can inspect what specifically changed if
+		 * needed.
+		 *
+		 * Internally: We check `event.path.length === 1` (meaning the change happened one level
+		 * deep: inside a row, not at the table level). When this fires, we call onUpdate with
+		 * the full row data.
+		 *
+		 * ## Why we don't handle top-level 'update' events
+		 *
+		 * You might notice we only handle 'add' and 'delete' at the table level, not 'update'.
+		 * That's intentional.
+		 *
+		 * A top-level 'update' event would only fire if we completely replaced a row's Y.Map
+		 * with a new Y.Map:
+		 * ```typescript
+		 * ytable.set('existing-row', new Y.Map());  // Replace entire row
+		 * ```
+		 *
+		 * We never do this. Instead, we always modify fields within the existing row Y.Map:
+		 * ```typescript
+		 * const yrow = ytable.get('existing-row');
+		 * yrow.set('title', 'Updated');  // Modify field in existing row
+		 * ```
+		 *
+		 * This fires nested events (detected by `event.path.length === 1`), which trigger
+		 * onUpdate. So all row updates are caught by the nested event handler, making the
+		 * top-level 'update' check unnecessary.
+		 *
+		 * ## Design philosophy: Simplicity over granularity
+		 *
+		 * We could expose more granular callbacks like "onFieldAdded", "onFieldDeleted",
+		 * "onFieldModified", but that would complicate the API. Instead:
+		 *
+		 * - **Simple mental model**: "The row changed" vs "Field X was added, field Y modified"
+		 * - **Full context**: You receive the entire row, so you can inspect changes yourself
+		 * - **Cleaner code**: Three callbacks instead of many
+		 *
+		 * @param callbacks Object with optional callbacks for row lifecycle events
+		 * @param callbacks.onAdd Called when a new row is added to the table
+		 * @param callbacks.onUpdate Called when any field within an existing row changes
+		 * @param callbacks.onDelete Called when a row is removed (receives row ID only)
+		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observe(callbacks: {
 			onAdd?: (row: TRow) => void | Promise<void>;
