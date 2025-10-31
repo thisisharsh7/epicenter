@@ -1,7 +1,11 @@
 import type { Accessor } from '@tanstack/svelte-query';
 import { Err, Ok } from 'wellcrafted/result';
 import * as services from '$lib/services';
-import type { Recording, Transformation, TransformationRun } from '$lib/services/db';
+import type {
+	Recording,
+	Transformation,
+	TransformationRun,
+} from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
 import { defineMutation, defineQuery, queryClient } from './_client';
 
@@ -74,7 +78,8 @@ export const db = {
 		getAudioPlaybackUrl: (id: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.recordings.audioPlaybackUrl(id()),
-				resultQueryFn: () => services.db.recordings.ensureAudioPlaybackUrl(id()),
+				resultQueryFn: () =>
+					services.db.recordings.ensureAudioPlaybackUrl(id()),
 			}),
 
 		create: defineMutation({
@@ -303,7 +308,9 @@ export const db = {
 
 		delete: defineMutation({
 			mutationKey: ['db', 'runs', 'delete'] as const,
-			resultMutationFn: async (runs: TransformationRun | TransformationRun[]) => {
+			resultMutationFn: async (
+				runs: TransformationRun | TransformationRun[],
+			) => {
 				const runsArray = Array.isArray(runs) ? runs : [runs];
 				const { error } = await services.db.runs.delete(runsArray);
 				if (error) return Err(error);
