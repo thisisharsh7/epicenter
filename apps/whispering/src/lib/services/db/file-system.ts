@@ -58,6 +58,18 @@ function markdownToRecording({
 }
 
 /**
+ * Reads all markdown files from a directory using the Rust command.
+ * This is a single FFI call that reads all .md files natively in Rust,
+ * avoiding thousands of individual async calls for path joining and file reading.
+ *
+ * @param directoryPath - Absolute path to the directory containing .md files
+ * @returns Array of markdown file contents as strings
+ */
+async function readMarkdownFiles(directoryPath: string): Promise<string[]> {
+	return invoke('read_markdown_files', { directoryPath });
+}
+
+/**
  * File system-based database implementation for desktop.
  * Stores data as markdown files with YAML front matter.
  *
@@ -593,18 +605,13 @@ export function createFileSystemDb(): DbService {
 						}
 
 						// Use Rust command to read all markdown files at once
-						const contents: string[] = await invoke('read_markdown_files', {
-							directoryPath: runsPath,
-						});
+						const contents = await readMarkdownFiles(runsPath);
 
 						// Parse all files
-						const runs: TransformationRun[] = [];
-						for (const content of contents) {
+						return contents.map((content) => {
 							const { data } = matter(content);
-							runs.push(data as TransformationRun);
-						}
-
-						return runs;
+							return data as TransformationRun;
+						});
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -651,27 +658,20 @@ export function createFileSystemDb(): DbService {
 						}
 
 						// Use Rust command to read all markdown files at once
-						const contents: string[] = await invoke('read_markdown_files', {
-							directoryPath: runsPath,
-						});
+						const contents = await readMarkdownFiles(runsPath);
 
-						// Parse and filter in TypeScript
-						const runs: TransformationRun[] = [];
-						for (const content of contents) {
-							const { data } = matter(content);
-							const run = data as TransformationRun;
-
-							if (run.transformationId === transformationId) {
-								runs.push(run);
-							}
-						}
-
-						// Sort by startedAt (newest first)
-						runs.sort(
-							(a, b) =>
-								new Date(b.startedAt).getTime() -
-								new Date(a.startedAt).getTime(),
-						);
+						// Parse and filter
+						const runs = contents
+							.map((content) => {
+								const { data } = matter(content);
+								return data as TransformationRun;
+							})
+							.filter((run) => run.transformationId === transformationId)
+							.sort(
+								(a, b) =>
+									new Date(b.startedAt).getTime() -
+									new Date(a.startedAt).getTime(),
+							);
 
 						return runs;
 					},
@@ -698,27 +698,20 @@ export function createFileSystemDb(): DbService {
 						}
 
 						// Use Rust command to read all markdown files at once
-						const contents: string[] = await invoke('read_markdown_files', {
-							directoryPath: runsPath,
-						});
+						const contents = await readMarkdownFiles(runsPath);
 
-						// Parse and filter in TypeScript
-						const runs: TransformationRun[] = [];
-						for (const content of contents) {
-							const { data } = matter(content);
-							const run = data as TransformationRun;
-
-							if (run.recordingId === recordingId) {
-								runs.push(run);
-							}
-						}
-
-						// Sort by startedAt (newest first)
-						runs.sort(
-							(a, b) =>
-								new Date(b.startedAt).getTime() -
-								new Date(a.startedAt).getTime(),
-						);
+						// Parse and filter
+						const runs = contents
+							.map((content) => {
+								const { data } = matter(content);
+								return data as TransformationRun;
+							})
+							.filter((run) => run.recordingId === recordingId)
+							.sort(
+								(a, b) =>
+									new Date(b.startedAt).getTime() -
+									new Date(a.startedAt).getTime(),
+							);
 
 						return runs;
 					},

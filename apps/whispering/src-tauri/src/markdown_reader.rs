@@ -16,39 +16,29 @@ pub async fn read_markdown_files(directory_path: String) -> Result<Vec<String>, 
 
     // Check if directory exists
     if !dir_path.exists() {
-        return Ok(Vec::new()); // Return empty vec if directory doesn't exist
+        return Ok(Vec::new());
     }
 
     if !dir_path.is_dir() {
         return Err(format!("{} is not a directory", directory_path));
     }
 
-    // Read directory entries
-    let entries = fs::read_dir(&dir_path)
-        .map_err(|e| format!("Failed to read directory {}: {}", directory_path, e))?;
+    // Read directory entries and filter/map to markdown file contents
+    let contents: Vec<String> = fs::read_dir(&dir_path)
+        .map_err(|e| format!("Failed to read directory {}: {}", directory_path, e))?
+        .filter_map(|entry| {
+            // Extract valid entry or skip
+            let entry = entry.ok()?;
+            let path = entry.path();
 
-    let mut contents = Vec::new();
-
-    // Read each .md file
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
-        let path = entry.path();
-
-        // Skip if not a file
-        if !path.is_file() {
-            continue;
-        }
-
-        // Check if file ends with .md
-        if let Some(extension) = path.extension() {
-            if extension == "md" {
-                // Read file content
-                let content = fs::read_to_string(&path)
-                    .map_err(|e| format!("Failed to read file {:?}: {}", path, e))?;
-                contents.push(content);
+            // Only process .md files
+            if path.is_file() && path.extension()? == "md" {
+                fs::read_to_string(&path).ok()
+            } else {
+                None
             }
-        }
-    }
+        })
+        .collect();
 
     Ok(contents)
 }
