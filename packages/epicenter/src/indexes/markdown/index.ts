@@ -1,9 +1,8 @@
 import type { FSWatcher } from 'node:fs';
 import { mkdirSync, watch } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Brand } from 'wellcrafted/brand';
-import { Ok, tryAsync, trySync } from 'wellcrafted/result';
+import { Ok, trySync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
 import { defineIndex } from '../../core/indexes';
 import type {
@@ -13,6 +12,10 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import type { Db } from '../../db/core';
+import {
+	deleteMarkdownFile,
+	writeMarkdownFile,
+} from './operations';
 import { parseMarkdownFile } from './parser';
 
 /**
@@ -431,27 +434,10 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>({
 			});
 
 			// Write markdown file with frontmatter
-			return tryAsync({
-				try: async () => {
-					// Ensure directory exists
-					await tryAsync({
-						try: () => mkdir(path.dirname(filePath), { recursive: true }),
-						catch: () => Ok(undefined), // Directory might already exist
-					});
-
-					// Create markdown content with frontmatter
-					const yamlContent = Bun.YAML.stringify(frontmatter, null, 2);
-					const markdown = `---\n${yamlContent}\n---\n${content}`;
-
-					// Write file
-					await Bun.write(filePath, markdown);
-				},
-				catch: (error) =>
-					IndexErr({
-						message: `Failed to write markdown file ${filePath}`,
-						context: { filePath, tableName },
-						cause: error,
-					}),
+			return writeMarkdownFile({
+				filePath,
+				frontmatter,
+				content,
 			});
 		},
 
@@ -465,14 +451,7 @@ function createTableMarkdownOperations<TTableSchema extends TableSchema>({
 				tableName,
 			}) as AbsolutePath;
 
-			return tryAsync({
-				try: () => Bun.file(filePath).delete(),
-				catch: (error) => {
-					console.warn(`Could not delete markdown file ${filePath}:`, error);
-					// Return Ok anyway as deletion failures are often not critical
-					return Ok(undefined);
-				},
-			});
+			return deleteMarkdownFile({ filePath });
 		},
 	};
 }
