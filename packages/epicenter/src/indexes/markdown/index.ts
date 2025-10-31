@@ -12,10 +12,7 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import type { Db } from '../../db/core';
-import {
-	deleteMarkdownFile,
-	writeMarkdownFile,
-} from './operations';
+import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
 
 /**
@@ -306,11 +303,34 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			throw new Error(`Schema for table "${tableName}" not found`);
 		}
 
-		const markdown = createTableMarkdownOperations({
-			tableName,
-			formatFilePath,
-			tableConfig: tableConfigs[tableName],
-		});
+		const tableConfig = tableConfigs[tableName];
+
+		/**
+		 * Get the absolute file path for a row ID
+		 * Shared by both write and delete operations
+		 */
+		const getMarkdownFilePath = (id: string): AbsolutePath =>
+			formatFilePath({ id, tableName }) as AbsolutePath;
+
+		/**
+		 * Write a YJS row to markdown file
+		 */
+		async function writeRowToMarkdown<TTableSchema extends TableSchema>(
+			row: Row<TTableSchema>,
+		) {
+			const serialized = row.toJSON();
+			const filePath = getMarkdownFilePath(row.id);
+			const { frontmatter, content } = tableConfig.serialize({
+				row: serialized,
+				tableName,
+			});
+
+			return writeMarkdownFile({
+				filePath,
+				frontmatter,
+				content,
+			});
+		}
 
 		const unsub = table.observe({
 			onAdd: async (row) => {
@@ -319,7 +339,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 				if (syncCoordination.isProcessingFileChange) return;
 
 				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await markdown.write(row);
+				const { error } = await writeRowToMarkdown(row);
 				syncCoordination.isProcessingYJSChange = false;
 
 				if (error) {
@@ -338,7 +358,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 				if (syncCoordination.isProcessingFileChange) return;
 
 				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await markdown.write(row);
+				const { error } = await writeRowToMarkdown(row);
 				syncCoordination.isProcessingYJSChange = false;
 
 				if (error) {
@@ -357,7 +377,8 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 				if (syncCoordination.isProcessingFileChange) return;
 
 				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await markdown.delete(id);
+				const filePath = getMarkdownFilePath(id);
+				const { error } = await deleteMarkdownFile({ filePath });
 				syncCoordination.isProcessingYJSChange = false;
 
 				if (error) {
@@ -375,85 +396,6 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	}
 
 	return unsubscribers;
-}
-
-/**
- * Creates table-specific markdown operations with captured context
- *
- * Returns an object with methods to write and delete markdown files for a specific table.
- * The table name, configuration, and storage path are captured, eliminating the need
- * to pass them on every operation call.
- *
- * @param tableName - Name of the table to create operations for
- * @param storagePath - Absolute path where markdown files are stored. Should be pre-resolved to absolute.
- * @param tableConfig - Optional table-specific markdown configuration with transform functions
- * @param tableSchema - Table schema for validation and type handling
- * @returns Object with write and delete methods
- *
- * @example
- * ```typescript
- * const absolutePath = path.resolve('./vault');
- * const markdown = createTableMarkdownOperations({
- *   tableName: 'pages',
- *   storagePath: absolutePath,
- *   tableConfig: { transform: myTransform },
- *   tableSchema: pagesSchema
- * });
- * await markdown.write(row);
- * await markdown.delete('row-id');
- * ```
- */
-function createTableMarkdownOperations<TTableSchema extends TableSchema>({
-	tableName,
-	formatFilePath,
-	tableConfig,
-}: {
-	tableName: string;
-	formatFilePath(params: { id: string; tableName: string }): string;
-	tableConfig: TableMarkdownConfig<TTableSchema>;
-}) {
-	return {
-		/**
-		 * Write a YJS row to markdown file
-		 * Uses config functions to serialize and determine file path
-		 */
-		write: async (row: Row<TTableSchema>) => {
-			// Serialize YJS types (Y.Text, Y.Array) to plain values (string, array)
-			const serialized = row.toJSON();
-
-			// Use formatFilePath to get absolute file path (id → path)
-			const filePath = formatFilePath({
-				id: row.id,
-				tableName,
-			}) as AbsolutePath;
-
-			// Use config to serialize to frontmatter and content
-			const { frontmatter, content } = tableConfig.serialize({
-				row: serialized,
-				tableName,
-			});
-
-			// Write markdown file with frontmatter
-			return writeMarkdownFile({
-				filePath,
-				frontmatter,
-				content,
-			});
-		},
-
-		/**
-		 * Delete a markdown file for a row
-		 * Uses formatFilePath to determine file path from row id (id → path)
-		 */
-		delete: async (id: string) => {
-			const filePath = formatFilePath({
-				id,
-				tableName,
-			}) as AbsolutePath;
-
-			return deleteMarkdownFile({ filePath });
-		},
-	};
 }
 
 /**
