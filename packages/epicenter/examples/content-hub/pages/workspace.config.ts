@@ -1,19 +1,18 @@
+import path from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import path from 'node:path';
-import {
-	defineWorkspace,
-	id,
-	text,
-	select,
-	generateId,
-	sqliteIndex,
-	defineQuery,
-	defineMutation,
-	eq,
-	type Row,
-} from '../../../src/index';
 import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
+import {
+	defineMutation,
+	defineQuery,
+	defineWorkspace,
+	eq,
+	generateId,
+	id,
+	select,
+	sqliteIndex,
+	text,
+} from '../../../src/index';
 
 /**
  * Pages workspace
@@ -28,8 +27,18 @@ export const pages = defineWorkspace({
 			id: id(),
 			title: text(),
 			content: text(),
-			type: select({ options: ['blog', 'article', 'guide', 'tutorial', 'news'] }),
-			tags: select({ options: ['tech', 'lifestyle', 'business', 'education', 'entertainment'] }),
+			type: select({
+				options: ['blog', 'article', 'guide', 'tutorial', 'news'],
+			}),
+			tags: select({
+				options: [
+					'tech',
+					'lifestyle',
+					'business',
+					'education',
+					'entertainment',
+				],
+			}),
 		},
 	},
 
@@ -49,7 +58,9 @@ export const pages = defineWorkspace({
 		 */
 		getPages: defineQuery({
 			handler: async () => {
-				const pages = await indexes.sqlite.db.select().from(indexes.sqlite.pages);
+				const pages = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.pages);
 				return Ok(pages);
 			},
 		}),
@@ -58,7 +69,7 @@ export const pages = defineWorkspace({
 		 * Get page by ID
 		 */
 		getPage: defineQuery({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				const page = await indexes.sqlite.db
 					.select()
@@ -73,8 +84,8 @@ export const pages = defineWorkspace({
 		 */
 		createPage: defineMutation({
 			input: type({
-				title: "string",
-				content: "string",
+				title: 'string',
+				content: 'string',
 				type: "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
 				tags: "'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
 			}),
@@ -82,7 +93,7 @@ export const pages = defineWorkspace({
 				const page = {
 					id: generateId(),
 					...data,
-				} satisfies Row<typeof db.schema.pages>;
+				};
 				db.tables.pages.insert(page);
 				return Ok(page);
 			},
@@ -93,11 +104,12 @@ export const pages = defineWorkspace({
 		 */
 		updatePage: defineMutation({
 			input: type({
-				id: "string",
-				"title?": "string",
-				"content?": "string",
-				"type?": "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
-				"tags?": "'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
+				id: 'string',
+				'title?': 'string',
+				'content?': 'string',
+				'type?': "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
+				'tags?':
+					"'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
 			}),
 			handler: async ({ id, ...fields }) => {
 				db.tables.pages.update({ id, ...fields });
@@ -110,7 +122,7 @@ export const pages = defineWorkspace({
 		 * Delete a page
 		 */
 		deletePage: defineMutation({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				db.tables.pages.delete(id);
 				return Ok({ id });

@@ -1,16 +1,16 @@
+import { join } from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { join } from 'node:path';
-import {
-	defineWorkspace,
-	sqliteIndex,
-	defineQuery,
-	defineMutation,
-	generateId,
-	eq,
-	type Row,
-} from '../../../src/index';
 import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
+import {
+	DateWithTimezone,
+	defineMutation,
+	defineQuery,
+	defineWorkspace,
+	eq,
+	generateId,
+	sqliteIndex,
+} from '../../../src/index';
 import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
@@ -28,9 +28,10 @@ export const reddit = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, {
-			path: join(import.meta.dirname, '.epicenter/database.db'),
-		}),
+		sqlite: (db) =>
+			sqliteIndex(db, {
+				path: join(import.meta.dirname, '.epicenter/database.db'),
+			}),
 	},
 
 	providers: [
@@ -45,7 +46,9 @@ export const reddit = defineWorkspace({
 		 */
 		getPosts: defineQuery({
 			handler: async () => {
-				const posts = await indexes.sqlite.db.select().from(indexes.sqlite.posts);
+				const posts = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.posts);
 				return Ok(posts);
 			},
 		}),
@@ -54,7 +57,7 @@ export const reddit = defineWorkspace({
 		 * Get specific Reddit post by ID
 		 */
 		getPost: defineQuery({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				const posts = await indexes.sqlite.db
 					.select()
@@ -69,13 +72,17 @@ export const reddit = defineWorkspace({
 		 */
 		createPost: defineMutation({
 			input: type({
-				pageId: "string",
-				content: "string",
-				"title?": "string",
-				niche: "'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
+				pageId: 'string',
+				content: 'string',
+				'title?': 'string',
+				niche:
+					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
 			}),
 			handler: async ({ pageId, content, title, niche }) => {
-				const now = new Date();
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: 'UTC',
+				}).toJSON();
 				const post = {
 					id: generateId(),
 					pageId,
@@ -84,7 +91,7 @@ export const reddit = defineWorkspace({
 					niche,
 					postedAt: now,
 					updatedAt: now,
-				} satisfies Row<typeof db.schema.posts>;
+				};
 
 				db.tables.posts.insert(post);
 				return Ok(post);
@@ -96,16 +103,20 @@ export const reddit = defineWorkspace({
 		 */
 		updatePost: defineMutation({
 			input: type({
-				id: "string",
-				"content?": "string",
-				"title?": "string",
-				"niche?": "'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
+				id: 'string',
+				'content?': 'string',
+				'title?': 'string',
+				'niche?':
+					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
 			}),
 			handler: async ({ id, ...fields }) => {
 				const updates = {
 					id,
 					...fields,
-					updatedAt: new Date(),
+					updatedAt: DateWithTimezone({
+						date: new Date(),
+						timezone: 'UTC',
+					}).toJSON(),
 				};
 				db.tables.posts.update(updates);
 				const { row } = db.tables.posts.get(id);
@@ -117,7 +128,7 @@ export const reddit = defineWorkspace({
 		 * Delete Reddit post
 		 */
 		deletePost: defineMutation({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				db.tables.posts.delete(id);
 				return Ok({ id });
@@ -129,7 +140,8 @@ export const reddit = defineWorkspace({
 		 */
 		getPostsByNiche: defineQuery({
 			input: type({
-				niche: "'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
+				niche:
+					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
 			}),
 			handler: async ({ niche }) => {
 				const posts = await indexes.sqlite.db

@@ -1,16 +1,17 @@
+import path, { join } from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import path, { join } from 'node:path';
 import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
 import {
+	DateWithTimezone,
 	type Row,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
 	eq,
 	generateId,
-	sqliteIndex,
 	markdownIndex,
+	sqliteIndex,
 } from '../../../src/index';
 import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
@@ -29,9 +30,10 @@ export const hackernews = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, {
-			path: join(import.meta.dirname, '.epicenter/database.db'),
-		}),
+		sqlite: (db) =>
+			sqliteIndex(db, {
+				path: join(import.meta.dirname, '.epicenter/database.db'),
+			}),
 		markdown: (db) =>
 			markdownIndex(db, {
 				rootPath: join(import.meta.dirname, '.data/content'),
@@ -42,7 +44,8 @@ export const hackernews = defineWorkspace({
 					const id = path.basename(fileName, '.md');
 					return { tableName, id };
 				},
-				tableAndIdToPath: ({ id, tableName }) => path.join(tableName, `${id}.md`),
+				tableAndIdToPath: ({ id, tableName }) =>
+					path.join(tableName, `${id}.md`),
 			}),
 	},
 
@@ -91,7 +94,10 @@ export const hackernews = defineWorkspace({
 					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
 			}),
 			handler: async ({ pageId, content, title, niche }) => {
-				const now = new Date();
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: 'UTC',
+				}).toJSON();
 				const post = {
 					id: generateId(),
 					pageId,
@@ -100,7 +106,7 @@ export const hackernews = defineWorkspace({
 					niche,
 					postedAt: now,
 					updatedAt: now,
-				} satisfies Row<typeof db.schema.posts>;
+				};
 
 				db.tables.posts.insert(post);
 				return Ok(post);
@@ -122,7 +128,10 @@ export const hackernews = defineWorkspace({
 				const updates = {
 					id,
 					...fields,
-					updatedAt: new Date(),
+					updatedAt: DateWithTimezone({
+						date: new Date(),
+						timezone: 'UTC',
+					}).toJSON(),
 				};
 				db.tables.posts.update(updates);
 				const { row } = db.tables.posts.get(id);

@@ -1,21 +1,21 @@
+import { join } from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { join } from 'node:path';
-import {
-	defineWorkspace,
-	sqliteIndex,
-	defineQuery,
-	defineMutation,
-	generateId,
-	eq,
-	type Row,
-	id,
-	text,
-	select,
-	multiSelect,
-	date,
-} from '../../../src/index';
 import { setupPersistence } from '../../../src/core/workspace/providers/persistence/desktop';
+import {
+	DateWithTimezone,
+	date,
+	defineMutation,
+	defineQuery,
+	defineWorkspace,
+	eq,
+	generateId,
+	id,
+	multiSelect,
+	select,
+	sqliteIndex,
+	text,
+} from '../../../src/index';
 import { NICHES } from '../shared/niches';
 
 /**
@@ -35,7 +35,9 @@ export const githubIssues = defineWorkspace({
 			title: text(),
 			body: text(),
 			status: select({ options: ['open', 'in-progress', 'closed'] }),
-			labels: multiSelect({ options: ['bug', 'feature', 'documentation', 'enhancement', 'question'] }),
+			labels: multiSelect({
+				options: ['bug', 'feature', 'documentation', 'enhancement', 'question'],
+			}),
 			niche: select({ options: NICHES }),
 			createdAt: date(),
 			updatedAt: date(),
@@ -43,9 +45,10 @@ export const githubIssues = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, {
-			path: join(import.meta.dirname, '.epicenter/database.db'),
-		}),
+		sqlite: (db) =>
+			sqliteIndex(db, {
+				path: join(import.meta.dirname, '.epicenter/database.db'),
+			}),
 	},
 
 	providers: [
@@ -60,7 +63,9 @@ export const githubIssues = defineWorkspace({
 		 */
 		getIssues: defineQuery({
 			handler: async () => {
-				const issues = await indexes.sqlite.db.select().from(indexes.sqlite.issues);
+				const issues = await indexes.sqlite.db
+					.select()
+					.from(indexes.sqlite.issues);
 				return Ok(issues);
 			},
 		}),
@@ -69,7 +74,7 @@ export const githubIssues = defineWorkspace({
 		 * Get specific GitHub issue by ID
 		 */
 		getIssue: defineQuery({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				const issues = await indexes.sqlite.db
 					.select()
@@ -84,14 +89,19 @@ export const githubIssues = defineWorkspace({
 		 */
 		createIssue: defineMutation({
 			input: type({
-				repository: "string",
-				title: "string",
-				body: "string",
-				"labels?": "('bug' | 'feature' | 'documentation' | 'enhancement' | 'question')[]",
-				niche: "'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
+				repository: 'string',
+				title: 'string',
+				body: 'string',
+				'labels?':
+					"('bug' | 'feature' | 'documentation' | 'enhancement' | 'question')[]",
+				niche:
+					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
 			}),
 			handler: async ({ repository, title, body, labels, niche }) => {
-				const now = new Date();
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: 'UTC',
+				}).toJSON();
 				const issue = {
 					id: generateId(),
 					repository,
@@ -102,7 +112,7 @@ export const githubIssues = defineWorkspace({
 					niche,
 					createdAt: now,
 					updatedAt: now,
-				} satisfies Row<typeof db.schema.issues>;
+				};
 
 				db.tables.issues.insert(issue);
 				return Ok(issue);
@@ -114,18 +124,23 @@ export const githubIssues = defineWorkspace({
 		 */
 		updateIssue: defineMutation({
 			input: type({
-				id: "string",
-				"title?": "string",
-				"body?": "string",
-				"status?": "'open' | 'in-progress' | 'closed'",
-				"labels?": "('bug' | 'feature' | 'documentation' | 'enhancement' | 'question')[]",
-				"niche?": "'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
+				id: 'string',
+				'title?': 'string',
+				'body?': 'string',
+				'status?': "'open' | 'in-progress' | 'closed'",
+				'labels?':
+					"('bug' | 'feature' | 'documentation' | 'enhancement' | 'question')[]",
+				'niche?':
+					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
 			}),
 			handler: async ({ id, ...fields }) => {
 				const updates = {
 					id,
 					...fields,
-					updatedAt: new Date(),
+					updatedAt: DateWithTimezone({
+						date: new Date(),
+						timezone: 'UTC',
+					}).toJSON(),
 				};
 				db.tables.issues.update(updates);
 				const { row } = db.tables.issues.get(id);
@@ -137,12 +152,15 @@ export const githubIssues = defineWorkspace({
 		 * Close GitHub issue (sets status to closed)
 		 */
 		closeIssue: defineMutation({
-			input: type({ id: "string" }),
+			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
 				db.tables.issues.update({
 					id,
 					status: 'closed',
-					updatedAt: new Date(),
+					updatedAt: DateWithTimezone({
+						date: new Date(),
+						timezone: 'UTC',
+					}).toJSON(),
 				});
 				const { row } = db.tables.issues.get(id);
 				return Ok(row);
@@ -170,7 +188,7 @@ export const githubIssues = defineWorkspace({
 		 */
 		getIssuesByRepository: defineQuery({
 			input: type({
-				repository: "string",
+				repository: 'string',
 			}),
 			handler: async ({ repository }) => {
 				const issues = await indexes.sqlite.db
