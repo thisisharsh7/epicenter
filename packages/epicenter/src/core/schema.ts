@@ -443,6 +443,219 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
 };
 
 /**
+ * Validates a plain object against a table schema without creating a Row proxy.
+ *
+ * This function performs schema validation on a plain JavaScript object (e.g., deserialized from JSON or markdown).
+ * It checks that all required fields are present, types match, and select options are valid.
+ *
+ * @param data - Plain object to validate (e.g., from JSON.parse or markdown frontmatter)
+ * @param schema - Table schema to validate against
+ * @returns Validation result with status 'valid' or 'schema-mismatch' with detailed reason
+ *
+ * @example
+ * ```typescript
+ * const data = { id: '123', title: 'Post', views: 42 };
+ * const result = validateRow({ data, schema: postsSchema });
+ *
+ * if (result.status === 'valid') {
+ *   // Use the data
+ * } else {
+ *   console.error('Validation failed:', result.reason);
+ * }
+ * ```
+ */
+export function validateRow<TTableSchema extends TableSchema>({
+	data,
+	schema,
+}: {
+	data: Record<string, unknown>;
+	schema: TTableSchema;
+}):
+	| { status: 'valid' }
+	| {
+			status: 'schema-mismatch';
+			reason:
+				| { type: 'missing-required-field'; field: string }
+				| { type: 'type-mismatch'; field: string; schemaType: string; actual: unknown }
+				| { type: 'invalid-option'; field: string; actual: unknown; allowedOptions: readonly string[] };
+	  } {
+	// Schema validation - validate each field against schema constraints
+	for (const [fieldName, columnSchema] of Object.entries(schema)) {
+		const value = data[fieldName];
+
+		// Check if required field is null/undefined
+		if (value === null || value === undefined) {
+			if (columnSchema.type === 'id' || !columnSchema.nullable) {
+				return {
+					status: 'schema-mismatch' as const,
+					reason: {
+						type: 'missing-required-field' as const,
+						field: fieldName,
+					},
+				};
+			}
+			continue;
+		}
+
+		// Type-specific validation
+		switch (columnSchema.type) {
+			case 'id':
+			case 'text':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'integer':
+				if (typeof value !== 'number' || !Number.isInteger(value)) {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'real':
+				if (typeof value !== 'number') {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'boolean':
+				if (typeof value !== 'boolean') {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'ytext':
+				// For plain objects, ytext should be a string (will be converted to Y.Text later)
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'select':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				if (!columnSchema.options.includes(value)) {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'invalid-option' as const,
+							field: fieldName,
+							actual: value,
+							allowedOptions: columnSchema.options,
+						},
+					};
+				}
+				break;
+
+			case 'multi-select':
+				// For plain objects, multi-select should be an array
+				if (!Array.isArray(value)) {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				// Validate each option in the array
+				for (const option of value) {
+					if (typeof option !== 'string') {
+						return {
+							status: 'schema-mismatch' as const,
+							reason: {
+								type: 'type-mismatch' as const,
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: option,
+							},
+						};
+					}
+					if (!columnSchema.options.includes(option)) {
+						return {
+							status: 'schema-mismatch' as const,
+							reason: {
+								type: 'invalid-option' as const,
+								field: fieldName,
+								actual: option,
+								allowedOptions: columnSchema.options,
+							},
+						};
+					}
+				}
+				break;
+
+			case 'date':
+				if (!isDateWithTimezone(value)) {
+					return {
+						status: 'schema-mismatch' as const,
+						reason: {
+							type: 'type-mismatch' as const,
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+		}
+	}
+
+	return { status: 'valid' as const };
+}
+
+/**
  * Creates a Proxy-wrapped YRow that provides type-safe property access and automatic validation.
  * This is what implements the `Row<T>` type - a Proxy that looks like a plain object
  * but delegates to the underlying YRow.
@@ -535,7 +748,7 @@ export function createRow<TTableSchema extends TableSchema>({
 	// Perform automatic validation
 	// Schema validation - validate each field against schema constraints
 	for (const [fieldName, columnSchema] of Object.entries(schema)) {
-		const value = yrow.get(fieldName);
+		const value = proxy[fieldName];
 
 		// Check if required field is null/undefined
 		if (value === null || value === undefined) {

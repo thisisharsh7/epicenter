@@ -110,7 +110,14 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  *
  *   indexes: {
  *     sqlite: (db) => sqliteIndex(db),
- *     markdown: (db) => markdownIndex(db, { storagePath: './data' }),
+ *     markdown: (db) => markdownIndex(db, {
+ *       rootPath: path.join(import.meta.dirname, './data'),
+ *       pathToTableAndId: ({ path }) => {
+ *         const parts = path.split('/');
+ *         return { tableName: parts[0], id: parts[1].replace('.md', '') };
+ *       },
+ *       tableAndIdToPath: ({ tableName, id }) => `${tableName}/${id}.md`,
+ *     }),
  *   },
  *
  *   providers: [

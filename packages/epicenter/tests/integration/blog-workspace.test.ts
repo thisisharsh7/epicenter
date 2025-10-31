@@ -47,7 +47,16 @@ describe('Blog Workspace Integration', () => {
 				database: ':memory:', // In-memory for testing
 			}),
 			markdown: (db) => markdownIndex(db, {
-				storagePath: path.join(import.meta.dir, '.data'),
+				rootPath: path.join(import.meta.dir, '.data'),
+				pathToTableAndId: ({ path: filePath }) => {
+					const parts = filePath.split(path.sep);
+					const tableName = parts[0]!;
+					const fileName = parts[parts.length - 1]!;
+					const id = path.basename(fileName, '.md');
+					return { tableName, id };
+				},
+				tableAndIdToPath: ({ id, tableName }) =>
+					path.join(tableName, `${id}.md`),
 			}),
 		},
 

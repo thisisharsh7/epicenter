@@ -1,24 +1,24 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import {
+	type WorkspaceClient,
 	boolean,
-	markdownIndex,
+	createWorkspaceClient,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
 	generateId,
 	id,
 	integer,
-	createWorkspaceClient,
-	text,
+	markdownIndex,
 	multiSelect,
-	type WorkspaceClient,
+	text,
 } from '../../src/index';
 import { parseMarkdownWithValidation } from '../../src/indexes/markdown/parser';
-import { writeFile, rm } from 'node:fs/promises';
-import path from 'node:path';
 
 describe('Markdown Bidirectional Sync', () => {
 	const testStoragePath = path.join(import.meta.dir, '.data');
@@ -42,17 +42,27 @@ describe('Markdown Bidirectional Sync', () => {
 		},
 
 		indexes: {
-			markdown: (db) => markdownIndex(db, {
-				storagePath: testStoragePath,
-			}),
+			markdown: (db) =>
+				markdownIndex(db, {
+					rootPath: testStoragePath,
+					pathToTableAndId: ({ path: filePath }) => {
+						const parts = filePath.split(path.sep);
+						const tableName = parts[0]!;
+						const fileName = parts[parts.length - 1]!;
+						const id = path.basename(fileName, '.md');
+						return { tableName, id };
+					},
+					tableAndIdToPath: ({ id, tableName }) =>
+						path.join(tableName, `${id}.md`),
+				}),
 		},
 
 		actions: ({ db }) => ({
 			createNote: defineMutation({
 				input: type({
-					title: "string >= 1",
-					"content?": "string",
-					"tags?": "('important' | 'draft' | 'archived')[]",
+					title: 'string >= 1',
+					'content?': 'string',
+					'tags?': "('important' | 'draft' | 'archived')[]",
 				}),
 				handler: async (input) => {
 					const note = {
@@ -69,7 +79,7 @@ describe('Markdown Bidirectional Sync', () => {
 
 			getNote: defineQuery({
 				input: type({
-					id: "string",
+					id: 'string',
 				}),
 				handler: async ({ id }) => {
 					const result = db.tables.notes.get(id);

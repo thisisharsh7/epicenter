@@ -51,8 +51,8 @@ const blogWorkspace = defineWorkspace({
 		sqlite: (db) => sqliteIndex(db),
 		markdown: (db) =>
 			markdownIndex(db, {
-				storagePath: './.data/content',
-				parseFilePath: ({ filePath }) => {
+				rootPath: path.join(import.meta.dirname, '.data/content'),
+				pathToTableAndId: ({ path: filePath }) => {
 					const parts = filePath.split(path.sep);
 					if (parts.length < 2) {
 						throw new Error(`Invalid file path: ${filePath}`);
@@ -62,13 +62,8 @@ const blogWorkspace = defineWorkspace({
 					const id = path.basename(fileName, '.md');
 					return { tableName, id };
 				},
-				formatFilePath: ({ id, tableName }) =>
-					path.join(
-						import.meta.dirname,
-						'.data/content',
-						tableName,
-						`${id}.md`,
-					),
+				tableAndIdToPath: ({ id, tableName }) =>
+					path.join(tableName, `${id}.md`),
 				tableConfigs: {
 					posts: {
 						serialize: ({ row, tableName }) => {

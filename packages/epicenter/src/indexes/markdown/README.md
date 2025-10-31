@@ -99,7 +99,12 @@ const workspace = defineWorkspace({
 
   indexes: ({ db }) => ({
     markdown: markdownIndex(db, {
-      storagePath: './content', // Where markdown files will be stored
+      rootPath: path.join(import.meta.dirname, './content'), // Absolute root path
+      pathToTableAndId: ({ path }) => {
+        const parts = path.split('/');
+        return { tableName: parts[0], id: parts[1].replace('.md', '') };
+      },
+      tableAndIdToPath: ({ tableName, id }) => `${tableName}/${id}.md`,
     }),
   }),
 });

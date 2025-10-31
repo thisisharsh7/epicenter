@@ -772,7 +772,18 @@ describe('Workspace Action Handlers', () => {
 
 		indexes: {
 			sqlite: (db) => sqliteIndex(db),
-			markdown: (db) => markdownIndex(db, { storagePath: TEST_MARKDOWN }),
+			markdown: (db) => markdownIndex(db, {
+				rootPath: TEST_MARKDOWN,
+				pathToTableAndId: ({ path: filePath }) => {
+					const parts = filePath.split(path.sep);
+					const tableName = parts[0]!;
+					const fileName = parts[parts.length - 1]!;
+					const id = path.basename(fileName, '.md');
+					return { tableName, id };
+				},
+				tableAndIdToPath: ({ id, tableName }) =>
+					path.join(tableName, `${id}.md`),
+			}),
 		},
 
 		actions: ({ db, indexes }) => {
