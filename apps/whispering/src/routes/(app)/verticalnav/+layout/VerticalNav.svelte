@@ -166,12 +166,12 @@
 					<Sidebar.MenuItem>
 						{#if settings.value['recording.mode'] === 'manual'}
 							<ManualDeviceSelector
-								showLabel={sidebar.state === 'expanded'}
+								showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
 								unstyled
 							/>
 						{:else if settings.value['recording.mode'] === 'vad'}
 							<VadDeviceSelector
-								showLabel={sidebar.state === 'expanded'}
+								showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
 								unstyled
 							/>
 						{:else}
@@ -196,7 +196,7 @@
 					<!-- Compression Selector -->
 					<Sidebar.MenuItem>
 						<CompressionSelector
-							showLabel={sidebar.state === 'expanded'}
+							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
 							unstyled
 						/>
 					</Sidebar.MenuItem>
@@ -204,7 +204,7 @@
 					<!-- Transcription Provider Selector -->
 					<Sidebar.MenuItem>
 						<TranscriptionSelector
-							showLabel={sidebar.state === 'expanded'}
+							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
 							unstyled
 						/>
 					</Sidebar.MenuItem>
@@ -212,7 +212,7 @@
 					<!-- Transformation Provider Selector -->
 					<Sidebar.MenuItem>
 						<TransformationSelector
-							showLabel={sidebar.state === 'expanded'}
+							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
 							unstyled
 						/>
 					</Sidebar.MenuItem>
@@ -237,7 +237,7 @@
 						<VadRecordingButton
 							{getVadStateQuery}
 							unstyled
-							showLabel={sidebar.state === 'expanded'}
+							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
 						/>
 					</Sidebar.MenuItem>
 
@@ -246,7 +246,7 @@
 						<ManualRecordingButton
 							{getRecorderStateQuery}
 							unstyled
-							showLabel={sidebar.state === 'expanded'}
+							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
 						/>
 					</Sidebar.MenuItem>
 
