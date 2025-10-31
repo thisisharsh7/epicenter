@@ -15,7 +15,7 @@ import { NICHES } from './niches';
  */
 export const SHORT_FORM_VIDEO_SCHEMA = {
 	id: id(),
-	pageId: id(),
+	pageId: text(),
 	title: text(),
 	description: text(),
 	niche: select({ options: NICHES }),
@@ -38,7 +38,7 @@ export const SHORT_FORM_VIDEO_SCHEMA = {
  */
 export const LONG_FORM_TEXT_SCHEMA = {
 	id: id(),
-	pageId: id(),
+	pageId: text(),
 	title: text(),
 	subtitle: text(),
 	content: text(),
@@ -61,7 +61,7 @@ export const LONG_FORM_TEXT_SCHEMA = {
  */
 export const SHORT_FORM_TEXT_SCHEMA = {
 	id: id(),
-	pageId: id(),
+	pageId: text(),
 	content: text(),
 	title: text({ nullable: true }),
 	niche: select({ options: NICHES }),
