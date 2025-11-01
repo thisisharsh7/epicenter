@@ -236,9 +236,8 @@ export function updateYRowFromSerializedRow({
 			columnSchema?.type === 'date' &&
 			isDateWithTimezoneString(value)
 		) {
-			// Convert DateWithTimezoneString → DateWithTimezone
-			const dateWithTimezone = DateWithTimezoneFromString(value);
-			yrow.set(fieldName, dateWithTimezone);
+			// Store DateWithTimezoneString directly (no conversion to object)
+			yrow.set(fieldName, value);
 		} else if (Array.isArray(value)) {
 			// Convert any array → Y.Array or update existing Y.Array
 			// This handles multi-select columns and extra fields with arrays

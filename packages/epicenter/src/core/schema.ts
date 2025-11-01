@@ -371,12 +371,14 @@ export type WorkspaceSchema = Record<string, TableSchema>;
 /**
  * Maps a ColumnSchema to its cell value type (Y.js types or primitives).
  * Handles nullable fields and returns Y.js types for ytext and multi-select.
+ * Date columns store DateWithTimezoneString (atomic string format, not objects).
  *
  * @example
  * ```typescript
  * type IdValue = CellValue<{ type: 'id' }>; // string
  * type TextField = CellValue<{ type: 'text'; nullable: true }>; // string | null
  * type YtextField = CellValue<{ type: 'ytext'; nullable: false }>; // Y.Text
+ * type DateField = CellValue<{ type: 'date'; nullable: false }>; // DateWithTimezoneString
  * type MultiSelectField = CellValue<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * type AnyCellValue = CellValue; // Union of all possible cell values
  * ```
@@ -406,8 +408,8 @@ export type CellValue<C extends ColumnSchema = ColumnSchema> =
 								: boolean
 							: C extends DateColumnSchema<infer TNullable>
 								? TNullable extends true
-									? DateWithTimezone | null
-									: DateWithTimezone
+									? DateWithTimezoneString | null
+									: DateWithTimezoneString
 								: C extends SelectColumnSchema<infer TOptions, infer TNullable>
 									? TNullable extends true
 										? TOptions[number] | null
@@ -740,7 +742,7 @@ export function validateRow<TTableSchema extends TableSchema>({
 				break;
 
 			case 'date':
-				if (!isDateWithTimezone(value)) {
+				if (!isDateWithTimezoneString(value)) {
 					return {
 						status: 'schema-mismatch' as const,
 						reason: {
@@ -906,7 +908,7 @@ export function isSerializedRow(value: unknown): value is SerializedRow {
  * Serializes a single cell value to its plain JavaScript equivalent.
  * - Y.Text → string
  * - Y.Array<T> → T[]
- * - DateWithTimezone → DateWithTimezoneString ("ISO_UTC|TIMEZONE" format)
+ * - DateWithTimezoneString → returned as-is (already in string format)
  * - Other types → unchanged (primitives, null, undefined)
  *
  * @example
@@ -918,7 +920,7 @@ export function isSerializedRow(value: unknown): value is SerializedRow {
  * const yarray = Y.Array.from(['a', 'b', 'c']);
  * serializeCellValue(yarray); // ['a', 'b', 'c']
  *
- * const date = { date: new Date('2024-01-01'), timezone: 'America/New_York' };
+ * const date = '2024-01-01T00:00:00.000Z|America/New_York'; // stored as string in YJS
  * serializeCellValue(date); // '2024-01-01T00:00:00.000Z|America/New_York'
  *
  * serializeCellValue(null); // null
@@ -935,9 +937,7 @@ export function serializeCellValue<T extends ColumnSchema>(
 	if (value instanceof Y.Array) {
 		return value.toArray() as SerializedCellValue<T>;
 	}
-	if (isDateWithTimezone(value)) {
-		return value.toJSON() as SerializedCellValue<T>;
-	}
+	// Date values are already stored as DateWithTimezoneString in YJS, so return as-is
 	return value as SerializedCellValue<T>;
 }
 
@@ -1413,7 +1413,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						break;
 
 					case 'date':
-						if (!isDateWithTimezone(value)) {
+						if (!isDateWithTimezoneString(value)) {
 							return {
 								status: 'schema-mismatch',
 								row,

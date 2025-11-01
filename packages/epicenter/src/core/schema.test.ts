@@ -264,18 +264,16 @@ describe('createTableSchemaWithValidation', () => {
 			const ydoc = new Y.Doc();
 			const yrow = ydoc.getMap('row');
 			yrow.set('id', '123');
-			const dateValue = DateWithTimezone({
-				date: new Date('2024-01-01'),
-				timezone: 'America/New_York',
-			});
-			yrow.set('createdAt', dateValue);
+			// Date values are now stored as DateWithTimezoneString directly in YJS
+			const dateString = '2024-01-01T00:00:00.000Z|America/New_York' as import('../core/schema').DateWithTimezoneString;
+			yrow.set('createdAt', dateString);
 
 			const result = schema.validateYRow(yrow);
 
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.row.createdAt.date).toEqual(new Date('2024-01-01'));
-				expect(result.row.createdAt.timezone).toBe('America/New_York');
+				// The stored value is now a string
+				expect(result.row.createdAt).toBe(dateString);
 			}
 		});
 
