@@ -867,7 +867,9 @@ export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
  * ```
  */
 export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: K extends 'id' ? string : SerializedCellValue<TTableSchema[K]>;
+	[K in keyof TTableSchema]: K extends 'id'
+		? string
+		: SerializedCellValue<TTableSchema[K]>;
 };
 
 /**
@@ -1242,74 +1244,19 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 		...schema,
 
 		validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>> {
-			// Create proxy
-			const proxy = new Proxy(
-				{},
-				{
-					get(_target, prop) {
-						if (prop === 'toJSON') {
-							return () => {
-								const result: Record<string, unknown> = {};
-								for (const key in schema) {
-									const value = yrow.get(key);
-									if (value !== undefined) {
-										result[key] = serializeCellValue(value);
-									}
-								}
-								return result as SerializedRow<TSchema>;
-							};
-						}
-
-						if (prop === '$yRow') {
-							return yrow;
-						}
-
-						if (typeof prop === 'string') {
-							return yrow.get(prop);
-						}
-
-						return undefined;
-					},
-
-					has(_target, prop) {
-						if (prop === 'toJSON' || prop === '$yRow') return true;
-						return yrow.has(prop as string);
-					},
-
-					ownKeys(_target) {
-						return [...yrow.keys(), 'toJSON', '$yRow'];
-					},
-
-					getOwnPropertyDescriptor(_target, prop) {
-						if (prop === 'toJSON' || prop === '$yRow') {
-							return {
-								configurable: true,
-								enumerable: false,
-								writable: false,
-							};
-						}
-						if (typeof prop === 'string' && yrow.has(prop)) {
-							return {
-								configurable: true,
-								enumerable: true,
-								writable: false,
-							};
-						}
-						return undefined;
-					},
-				},
-			) as Row;
+			// Create row with getters for each property
+			const row = buildRowFromYRow(yrow, schema);
 
 			// Perform validation
 			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				const value = proxy[fieldName];
+				const value = row[fieldName];
 
 				// Check if required field is null/undefined
 				if (value === null || value === undefined) {
 					if (columnSchema.type === 'id' || !columnSchema.nullable) {
 						return {
 							status: 'schema-mismatch',
-							row: proxy,
+							row,
 							reason: {
 								type: 'missing-required-field',
 								field: fieldName,
@@ -1326,7 +1273,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (typeof value !== 'string') {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1341,7 +1288,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (typeof value !== 'number' || !Number.isInteger(value)) {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1356,7 +1303,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (typeof value !== 'number') {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1371,7 +1318,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (typeof value !== 'boolean') {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1386,7 +1333,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (!(value instanceof Y.Text)) {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1401,7 +1348,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (typeof value !== 'string') {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1413,7 +1360,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (!columnSchema.options.includes(value)) {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'invalid-option',
 									field: fieldName,
@@ -1428,7 +1375,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (!(value instanceof Y.Array)) {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1441,7 +1388,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 							if (typeof option !== 'string') {
 								return {
 									status: 'schema-mismatch',
-									row: proxy,
+									row,
 									reason: {
 										type: 'type-mismatch',
 										field: fieldName,
@@ -1453,7 +1400,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 							if (!columnSchema.options.includes(option)) {
 								return {
 									status: 'schema-mismatch',
-									row: proxy,
+									row,
 									reason: {
 										type: 'invalid-option',
 										field: fieldName,
@@ -1469,7 +1416,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 						if (!isDateWithTimezone(value)) {
 							return {
 								status: 'schema-mismatch',
-								row: proxy,
+								row,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -1482,7 +1429,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 				}
 			}
 
-			return { status: 'valid', row: proxy as Row<TSchema> };
+			return { status: 'valid', row };
 		},
 
 		validateSerializedRow(
@@ -1715,4 +1662,53 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			return this.validateSerializedRow(data as SerializedRow<TSchema>);
 		},
 	};
+}
+
+/**
+ * Creates a Row object from a YRow with getters for each property.
+ * Properly inspectable in console.log while maintaining transparent delegation to YRow.
+ * Includes toJSON and $yRow as non-enumerable properties.
+ */
+function buildRowFromYRow<TSchema extends TableSchema>(
+	yrow: YRow,
+	schema: TSchema,
+): Row<TSchema> {
+	const descriptors = Object.fromEntries(
+		Array.from(yrow.keys()).map((key) => [
+			key,
+			{
+				get: () => yrow.get(key),
+				enumerable: true,
+				configurable: true,
+			},
+		]),
+	);
+
+	const row: Record<string, unknown> = {};
+	Object.defineProperties(row, descriptors);
+
+	// Add special properties as non-enumerable
+	Object.defineProperties(row, {
+		toJSON: {
+			value: () => {
+				const result: Record<string, unknown> = {};
+				for (const key in schema) {
+					const value = yrow.get(key);
+					if (value !== undefined) {
+						result[key] = serializeCellValue(value);
+					}
+				}
+				return result as SerializedRow<TSchema>;
+			},
+			enumerable: false,
+			configurable: true,
+		},
+		$yRow: {
+			value: yrow,
+			enumerable: false,
+			configurable: true,
+		},
+	});
+
+	return row as Row<TSchema>;
 }
