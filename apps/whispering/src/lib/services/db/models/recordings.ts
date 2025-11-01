@@ -70,7 +70,11 @@ export type RecordingsDbSchemaV5 = {
 };
 
 export type RecordingsDbSchemaV4 = {
-	recordings: Recording;
+	recordings: RecordingsDbSchemaV3['recordings'] & {
+		// V4 added 'createdAt' and 'updatedAt' fields
+		createdAt: string;
+		updatedAt: string;
+	};
 };
 
 export type RecordingsDbSchemaV3 = {

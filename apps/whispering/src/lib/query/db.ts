@@ -85,22 +85,23 @@ export const db = {
 		create: defineMutation({
 			mutationKey: ['db', 'recordings', 'create'] as const,
 			resultMutationFn: async (params: {
-				recording: Omit<Recording, 'createdAt' | 'updatedAt'>;
+				recording: Recording;
 				audio: Blob;
 			}) => {
-				const { data, error } = await services.db.recordings.create(params);
+				const { error } = await services.db.recordings.create(params);
 				if (error) return Err(error);
 
+				// Use input params for optimistic update
 				queryClient.setQueryData<Recording[]>(
 					dbKeys.recordings.all,
 					(oldData) => {
-						if (!oldData) return [data];
-						return [...oldData, data];
+						if (!oldData) return [params.recording];
+						return [...oldData, params.recording];
 					},
 				);
 				queryClient.setQueryData<Recording>(
-					dbKeys.recordings.byId(data.id),
-					data,
+					dbKeys.recordings.byId(params.recording.id),
+					params.recording,
 				);
 				queryClient.invalidateQueries({
 					queryKey: dbKeys.recordings.all,
@@ -109,7 +110,7 @@ export const db = {
 					queryKey: dbKeys.recordings.latest,
 				});
 
-				return Ok(data);
+				return Ok(undefined);
 			},
 		}),
 

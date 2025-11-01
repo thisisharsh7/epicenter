@@ -3,6 +3,7 @@ import { join } from '@tauri-apps/api/path';
 import {
 	exists,
 	mkdir,
+	readDir,
 	readTextFile,
 	remove,
 	writeTextFile,
@@ -200,45 +201,60 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			async create({ recording, audio }) {
-				const now = new Date().toISOString();
-				const recordingWithTimestamps = {
-					...recording,
-					createdAt: 'createdAt' in recording ? recording.createdAt : now,
-					updatedAt: 'updatedAt' in recording ? recording.updatedAt : now,
-				} satisfies Recording;
+			async create(params) {
+				// Helper function to create a single recording
+				const createSingleRecording = async ({
+					recording,
+					audio,
+				}: {
+					recording: Recording;
+					audio: Blob;
+				}): Promise<void> => {
+					const recordingsPath = await PATHS.DB.RECORDINGS();
 
+					// Ensure directory exists
+					await mkdir(recordingsPath, { recursive: true });
+
+					// 1. Write audio file
+					const extension = getExtensionFromMimeType(audio.type);
+					const audioPath = await join(
+						recordingsPath,
+						`${recording.id}.${extension}`,
+					);
+					const arrayBuffer = await audio.arrayBuffer();
+					await writeFile(audioPath, new Uint8Array(arrayBuffer));
+
+					// 2. Create .md file with front matter
+					const mdContent = recordingToMarkdown(recording);
+					const mdPath = await join(recordingsPath, `${recording.id}.md`);
+
+					// Write to temp file first, then rename (atomic operation)
+					const tmpPath = `${mdPath}.tmp`;
+					await writeTextFile(tmpPath, mdContent);
+					await rename(tmpPath, mdPath);
+				};
+
+				// Check if array for bulk insert
+				if (Array.isArray(params))
+					return tryAsync({
+						try: async () => {
+							await Promise.all(params.map(createSingleRecording));
+						},
+						catch: (error) =>
+							DbServiceErr({
+								message: 'Error bulk creating recordings in file system',
+								context: { count: params.length },
+								cause: error,
+							}),
+					});
+
+				// Single insert
 				return tryAsync({
-					try: async () => {
-						const recordingsPath = await PATHS.DB.RECORDINGS();
-
-						// Ensure directory exists
-						await mkdir(recordingsPath, { recursive: true });
-
-						// 1. Write audio file
-						const extension = getExtensionFromMimeType(audio.type);
-						const audioPath = await join(
-							recordingsPath,
-							`${recording.id}.${extension}`,
-						);
-						const arrayBuffer = await audio.arrayBuffer();
-						await writeFile(audioPath, new Uint8Array(arrayBuffer));
-
-						// 2. Create .md file with front matter
-						const mdContent = recordingToMarkdown(recordingWithTimestamps);
-						const mdPath = await join(recordingsPath, `${recording.id}.md`);
-
-						// Write to temp file first, then rename (atomic operation)
-						const tmpPath = `${mdPath}.tmp`;
-						await writeTextFile(tmpPath, mdContent);
-						await rename(tmpPath, mdPath);
-
-						return recordingWithTimestamps;
-					},
+					try: () => createSingleRecording(params),
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error creating recording in file system',
-							context: { recording },
+							context: { recording: params.recording },
 							cause: error,
 						}),
 				});
@@ -411,6 +427,47 @@ export function createFileSystemDb(): DbService {
 			revokeAudioUrl(_recordingId: string) {
 				// No-op on desktop, URLs are asset:// protocol managed by Tauri
 			},
+
+			async clear() {
+				return tryAsync({
+					try: async () => {
+						const recordingsPath = await PATHS.DB.RECORDINGS();
+						const dirExists = await exists(recordingsPath);
+						if (!dirExists) return undefined;
+
+						// Get all recording files
+						const files = await readDir(recordingsPath);
+
+						// Delete all files
+						for (const file of files) {
+							const filePath = await join(recordingsPath, file.name);
+							await remove(filePath);
+						}
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing recordings from file system',
+							cause: error,
+						}),
+				});
+			},
+
+			async getCount() {
+				return tryAsync({
+					try: async () => {
+						const recordingsPath = await PATHS.DB.RECORDINGS();
+						const count = await invoke<number>('count_markdown_files', {
+							directoryPath: recordingsPath,
+						});
+						return count;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting recordings count from file system',
+							cause: error,
+						}),
+				});
+			},
 		},
 
 		transformations: {
@@ -436,10 +493,7 @@ export function createFileSystemDb(): DbService {
 							// Validate with arktype schema
 							const validated = Transformation(data);
 							if (validated instanceof type.errors) {
-								console.error(
-									`Invalid transformation:`,
-									validated.summary,
-								);
+								console.error(`Invalid transformation:`, validated.summary);
 								return null; // Skip invalid transformation
 							}
 
@@ -576,6 +630,39 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message: 'Error deleting transformations from file system',
 							context: { transformations },
+							cause: error,
+						}),
+				});
+			},
+
+			async clear() {
+				return tryAsync({
+					try: async () => {
+						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
+						const dirExists = await exists(transformationsPath);
+						if (dirExists) {
+							await remove(transformationsPath, { recursive: true });
+							await mkdir(transformationsPath, { recursive: true });
+						}
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing transformations from file system',
+							cause: error,
+						}),
+				});
+			},
+
+			async getCount() {
+				return tryAsync({
+					try: async () => {
+						const { data: transformations, error } = await this.getAll();
+						if (error) throw error;
+						return transformations.length;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting transformations count from file system',
 							cause: error,
 						}),
 				});
@@ -759,7 +846,39 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			async create({ transformationId, recordingId, input }) {
+			async create(params) {
+				// Check if array for bulk insert
+				if (Array.isArray(params)) {
+					return tryAsync({
+						try: async () => {
+							const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+							await mkdir(runsPath, { recursive: true });
+
+							const runs = await Promise.all(
+								params.map(async ({ run }) => {
+									const mdContent = matter.stringify('', run);
+									const mdPath = await join(runsPath, `${run.id}.md`);
+									const tmpPath = `${mdPath}.tmp`;
+									await writeTextFile(tmpPath, mdContent);
+									await rename(tmpPath, mdPath);
+									return run;
+								}),
+							);
+
+							return runs;
+						},
+						catch: (error) =>
+							DbServiceErr({
+								message:
+									'Error bulk creating transformation runs in file system',
+								context: { count: params.length },
+								cause: error,
+							}),
+					});
+				}
+
+				// Single insert
+				const { transformationId, recordingId, input } = params;
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -985,6 +1104,40 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message: 'Error deleting transformation runs from file system',
 							context: { runs },
+							cause: error,
+						}),
+				});
+			},
+
+			async clear() {
+				return tryAsync({
+					try: async () => {
+						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+						const dirExists = await exists(runsPath);
+						if (dirExists) {
+							await remove(runsPath, { recursive: true });
+							await mkdir(runsPath, { recursive: true });
+						}
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing transformation runs from file system',
+							cause: error,
+						}),
+				});
+			},
+
+			async getCount() {
+				return tryAsync({
+					try: async () => {
+						const { data: runs, error } = await this.getAll();
+						if (error) throw error;
+						return runs.length;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message:
+								'Error getting transformation runs count from file system',
 							cause: error,
 						}),
 				});

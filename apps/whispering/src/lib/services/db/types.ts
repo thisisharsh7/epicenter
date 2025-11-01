@@ -20,10 +20,11 @@ export type DbService = {
 		getLatest(): Promise<Result<Recording | null, DbServiceError>>;
 		getTranscribingIds(): Promise<Result<string[], DbServiceError>>;
 		getById(id: string): Promise<Result<Recording | null, DbServiceError>>;
-		create(params: {
-			recording: Omit<Recording, 'createdAt' | 'updatedAt'> | Recording;
-			audio: Blob;
-		}): Promise<Result<Recording, DbServiceError>>;
+		create(
+			params:
+				| { recording: Recording; audio: Blob }
+				| Array<{ recording: Recording; audio: Blob }>,
+		): Promise<Result<void, DbServiceError>>;
 		update(recording: Recording): Promise<Result<Recording, DbServiceError>>;
 		delete(
 			recordings: Recording | Recording[],
@@ -32,6 +33,8 @@ export type DbService = {
 			recordingRetentionStrategy: Settings['database.recordingRetentionStrategy'];
 			maxRecordingCount: Settings['database.maxRecordingCount'];
 		}): Promise<Result<void, DbServiceError>>;
+		clear(): Promise<Result<void, DbServiceError>>;
+		getCount(): Promise<Result<number, DbServiceError>>;
 
 		/**
 		 * Get audio blob by recording ID. Fetches audio on-demand.
@@ -60,14 +63,16 @@ export type DbService = {
 		getAll(): Promise<Result<Transformation[], DbServiceError>>;
 		getById(id: string): Promise<Result<Transformation | null, DbServiceError>>;
 		create(
-			transformation: Transformation,
-		): Promise<Result<Transformation, DbServiceError>>;
+			transformation: Transformation | Transformation[],
+		): Promise<Result<Transformation | Transformation[], DbServiceError>>;
 		update(
 			transformation: Transformation,
 		): Promise<Result<Transformation, DbServiceError>>;
 		delete(
 			transformations: Transformation | Transformation[],
 		): Promise<Result<void, DbServiceError>>;
+		clear(): Promise<Result<void, DbServiceError>>;
+		getCount(): Promise<Result<number, DbServiceError>>;
 	};
 	runs: {
 		getAll(): Promise<Result<TransformationRun[], DbServiceError>>;
@@ -80,11 +85,17 @@ export type DbService = {
 		getByRecordingId(
 			recordingId: string,
 		): Promise<Result<TransformationRun[], DbServiceError>>;
-		create(params: {
-			transformationId: string;
-			recordingId: string | null;
-			input: string;
-		}): Promise<Result<TransformationRun, DbServiceError>>;
+		create(
+			params:
+				| {
+						transformationId: string;
+						recordingId: string | null;
+						input: string;
+				  }
+				| Array<{
+						run: TransformationRun;
+				  }>,
+		): Promise<Result<TransformationRun | TransformationRun[], DbServiceError>>;
 		addStep(
 			run: TransformationRun,
 			step: {
@@ -109,5 +120,7 @@ export type DbService = {
 		delete(
 			runs: TransformationRun | TransformationRun[],
 		): Promise<Result<void, DbServiceError>>;
+		clear(): Promise<Result<void, DbServiceError>>;
+		getCount(): Promise<Result<number, DbServiceError>>;
 	};
 };
