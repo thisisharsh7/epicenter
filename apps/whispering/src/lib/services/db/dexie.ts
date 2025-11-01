@@ -18,6 +18,7 @@ import type {
 	TransformationRunCompleted,
 	TransformationRunFailed,
 	TransformationRunRunning,
+	TransformationStep,
 	TransformationStepRun,
 	TransformationStepRunCompleted,
 	TransformationStepRunFailed,
@@ -284,27 +285,53 @@ class WhisperingDatabase extends Dexie {
 				});
 			});
 
-		// V6: Change the "subtitle" field to "description"
-		// this.version(5)
-		// 	.stores({
-		// 		recordings: '&id, timestamp, createdAt, updatedAt',
-		// 		transformations: '&id, createdAt, updatedAt',
-		// 		transformationRuns: '&id, recordingId, startedAt',
-		// 	})
-		// 	.upgrade(async (tx) => {
-		// 		const oldRecordings = await tx
-		// 			.table<RecordingsDbSchemaV5['recordings']>('recordings')
-		// 			.toArray();
+		// V6: Add CustomEndpoint fields to transformation steps
+		this.version(0.6)
+			.stores({
+				recordings: '&id, timestamp, createdAt, updatedAt',
+				transformations: '&id, createdAt, updatedAt',
+				transformationRuns: '&id, transformationId, recordingId, startedAt',
+			})
+			.upgrade(async (tx) => {
+				await wrapUpgradeWithErrorHandling({
+					tx,
+					version: 0.6,
+					upgrade: async (tx) => {
+						// Update all transformations to include CustomEndpoint fields
+						const transformations = await tx
+							.table('transformations')
+							.toArray();
 
-		// 		const newRecordings = oldRecordings.map(
-		// 			({ subtitle, ...recording }) => ({
-		// 				...recording,
-		// 				description: subtitle,
-		// 			}),
-		// 		);
+						for (const transformation of transformations) {
+							const updatedSteps = transformation.steps.map(
+								(step: TransformationStep) => ({
+									...step,
+									'prompt_transform.inference.provider.CustomEndpoint.model':
+										(
+											step as {
+												'prompt_transform.inference.provider.CustomEndpoint.model'?: string;
+											}
+										)[
+											'prompt_transform.inference.provider.CustomEndpoint.model'
+										] ?? 'llama3.2',
+									'prompt_transform.inference.provider.CustomEndpoint.baseURL':
+										(
+											step as {
+												'prompt_transform.inference.provider.CustomEndpoint.baseURL'?: string;
+											}
+										)[
+											'prompt_transform.inference.provider.CustomEndpoint.baseURL'
+										] ?? 'http://localhost:11434/v1',
+								}),
+							);
 
-		// 		await tx.table('recordings').bulkAdd(newRecordings);
-		// 	});
+							await tx
+								.table('transformations')
+								.update(transformation.id, { steps: updatedSteps });
+						}
+					},
+				});
+			});
 	}
 }
 

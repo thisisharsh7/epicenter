@@ -8,6 +8,7 @@
 	} from '$lib/components/labeled/index.js';
 	import {
 		AnthropicApiKeyInput,
+		CustomEndpointApiKeyInput,
 		GoogleApiKeyInput,
 		GroqApiKeyInput,
 		OpenAiApiKeyInput,
@@ -419,6 +420,85 @@
 											}}
 											placeholder="Enter model name"
 										/>
+									{:else if step['prompt_transform.inference.provider'] === 'CustomEndpoint'}
+										<LabeledInput
+											id="prompt_transform.inference.provider.CustomEndpoint.baseURL"
+											label="API Base URL"
+											value={step[
+												'prompt_transform.inference.provider.CustomEndpoint.baseURL'
+											]}
+											oninput={(e) => {
+												transformation = {
+													...transformation,
+													steps: transformation.steps.map((s, i) =>
+														i === index
+															? {
+																	...s,
+																	'prompt_transform.inference.provider.CustomEndpoint.baseURL':
+																		e.currentTarget.value,
+																}
+															: s,
+													),
+												};
+											}}
+											placeholder="http://localhost:11434/v1"
+										>
+											{#snippet description()}
+												<div class="text-sm">
+													<p class="mb-1">Examples:</p>
+													<ul class="list-disc pl-4 space-y-1">
+														<li>
+															Ollama: <code class="bg-muted px-1 py-0.5 rounded"
+																>http://localhost:11434/v1</code
+															>
+														</li>
+														<li>
+															LM Studio: <code
+																class="bg-muted px-1 py-0.5 rounded"
+																>http://localhost:1234/v1</code
+															>
+														</li>
+														<li>
+															llama.cpp: <code
+																class="bg-muted px-1 py-0.5 rounded"
+																>http://localhost:8080/v1</code
+															>
+														</li>
+													</ul>
+												</div>
+											{/snippet}
+										</LabeledInput>
+
+										<LabeledInput
+											id="prompt_transform.inference.provider.CustomEndpoint.model"
+											label="Model Name"
+											value={step[
+												'prompt_transform.inference.provider.CustomEndpoint.model'
+											]}
+											oninput={(e) => {
+												transformation = {
+													...transformation,
+													steps: transformation.steps.map((s, i) =>
+														i === index
+															? {
+																	...s,
+																	'prompt_transform.inference.provider.CustomEndpoint.model':
+																		e.currentTarget.value,
+																}
+															: s,
+													),
+												};
+											}}
+											placeholder="llama3.2"
+										>
+											{#snippet description()}
+												Enter the exact model name as it appears in your local
+												service. For Ollama, use:
+												<code class="bg-muted px-1 py-0.5 rounded"
+													>ollama list</code
+												> to see available models.
+											{/snippet}
+										</LabeledInput>
 									{/if}
 								</div>
 
@@ -487,6 +567,8 @@
 												<GoogleApiKeyInput />
 											{:else if step['prompt_transform.inference.provider'] === 'OpenRouter'}
 												<OpenRouterApiKeyInput />
+											{:else if step['prompt_transform.inference.provider'] === 'CustomEndpoint'}
+												<CustomEndpointApiKeyInput />
 											{/if}
 										</Accordion.Content>
 									</Accordion.Item>

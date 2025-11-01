@@ -267,6 +267,29 @@ async function handleStep({
 					return Ok(completionResponse);
 				}
 
+				case 'CustomEndpoint': {
+					const { data: completionResponse, error: completionError } =
+						await services.completions.customEndpoint.complete({
+							apiKey: settings.value['apiKeys.customEndpoint'],
+							model:
+								step[
+									'prompt_transform.inference.provider.CustomEndpoint.model'
+								],
+							baseURL:
+								step[
+									'prompt_transform.inference.provider.CustomEndpoint.baseURL'
+								],
+							systemPrompt,
+							userPrompt,
+						});
+
+					if (completionError) {
+						return Err(completionError.message);
+					}
+
+					return Ok(completionResponse);
+				}
+
 				default:
 					return Err(`Unsupported provider: ${provider}`);
 			}

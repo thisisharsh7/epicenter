@@ -223,6 +223,12 @@ export const settingsSchema = z.object({
 	'apiKeys.elevenlabs': z.string().default(''),
 	'apiKeys.mistral': z.string().default(''),
 	'apiKeys.openrouter': z.string().default(''),
+	'apiKeys.customEndpoint': z.string().default(''),
+
+	// Custom endpoint configuration
+	'inference.customEndpoint.baseURL': z
+		.string()
+		.default('http://localhost:11434/v1'), // Default to Ollama
 
 	// Analytics settings
 	'analytics.enabled': z.boolean().default(true),

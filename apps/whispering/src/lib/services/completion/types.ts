@@ -11,5 +11,6 @@ export type CompletionService = {
 		model: string;
 		systemPrompt: string;
 		userPrompt: string;
+		baseURL?: string; // Optional base URL for custom endpoints
 	}) => Promise<Result<string, CompletionServiceError>>;
 };

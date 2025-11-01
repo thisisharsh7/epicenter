@@ -1,6 +1,7 @@
 // API Key components
 
 export { default as AnthropicApiKeyInput } from './api-key-inputs/AnthropicApiKeyInput.svelte';
+export { default as CustomEndpointApiKeyInput } from './api-key-inputs/CustomEndpointApiKeyInput.svelte';
 export { default as DeepgramApiKeyInput } from './api-key-inputs/DeepgramApiKeyInput.svelte';
 export { default as ElevenLabsApiKeyInput } from './api-key-inputs/ElevenLabsApiKeyInput.svelte';
 export { default as GoogleApiKeyInput } from './api-key-inputs/GoogleApiKeyInput.svelte';
