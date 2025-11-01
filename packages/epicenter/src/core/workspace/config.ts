@@ -207,8 +207,6 @@ export function defineWorkspace<
 	return workspace;
 }
 
-
-
 /**
  * Workspace configuration
  *
@@ -242,9 +240,9 @@ export type WorkspaceConfig<
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
 	indexes: {
-		[K in keyof TIndexResults]: (db: Db<TWorkspaceSchema>) =>
-			| TIndexResults[K]
-			| Promise<TIndexResults[K]>;
+		[K in keyof TIndexResults]: (
+			db: Db<TWorkspaceSchema>,
+		) => TIndexResults[K] | Promise<TIndexResults[K]>;
 	};
 	providers?: Provider[];
 	actions: (context: {
@@ -299,4 +297,3 @@ export type WorkspacesToActionMaps<WS extends readonly AnyWorkspaceConfig[]> = {
 		? TActionMap
 		: never;
 };
-
