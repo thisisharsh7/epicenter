@@ -54,7 +54,9 @@
 />
 <ModeWatcher />
 <SvelteQueryDevtools client={queryClient} buttonPosition="bottom-left" />
-<MigrationDialog />
+{#if window.__TAURI_INTERNALS__}
+	<MigrationDialog />
+{/if}
 
 <style>
 	/* Override inspector button to bottom-center positioning */
