@@ -200,14 +200,14 @@ export function updateYArrayFromArray<T>(
  * // Only 'content' and 'tags' are updated with granular diffs
  * ```
  */
-export function updateYRowFromSerializedRow({
+export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
 	yrow,
 	serializedRow,
 	schema,
 }: {
 	yrow: YRow;
-	serializedRow: SerializedRow;
-	schema: TableSchema;
+	serializedRow: Partial<SerializedRow<TSchema>>;
+	schema: TSchema;
 }): void {
 	// Iterate over serializedRow to preserve extra fields not in schema
 	for (const [fieldName, value] of Object.entries(serializedRow)) {
