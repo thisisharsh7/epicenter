@@ -1,5 +1,4 @@
 import { nanoid } from 'nanoid/non-secure';
-import { DownloadServiceLive } from '../services/download';
 import type {
 	Recording,
 	RecordingStoredInIndexedDB,
@@ -12,29 +11,9 @@ import {
 	generateDefaultTransformationStep,
 } from '../services/db/models';
 import { createDbServiceWeb } from '../services/db/web';
+import { DownloadServiceLive } from '../services/download';
 
 export function createMigrationTestData() {
-	/**
-	 * Generate a small mock audio ArrayBuffer (~1KB).
-	 * This creates a minimal valid audio buffer for testing purposes.
-	 */
-	function generateMockAudio(): SerializedAudio {
-		// Create a small buffer (1024 bytes = 1KB)
-		const size = 1024;
-		const buffer = new ArrayBuffer(size);
-		const view = new Uint8Array(buffer);
-
-		// Fill with some pseudo-random data to simulate audio
-		for (let i = 0; i < size; i++) {
-			view[i] = Math.floor(Math.random() * 256);
-		}
-
-		return {
-			arrayBuffer: buffer,
-			blobType: 'audio/webm',
-		};
-	}
-
 	/**
 	 * Generate a mock recording with realistic data.
 	 */
@@ -75,6 +54,27 @@ export function createMigrationTestData() {
 			transcribedText,
 			transcriptionStatus,
 			serializedAudio: generateMockAudio(),
+		};
+	}
+
+	/**
+	 * Generate a small mock audio ArrayBuffer (~1KB).
+	 * This creates a minimal valid audio buffer for testing purposes.
+	 */
+	function generateMockAudio(): SerializedAudio {
+		// Create a small buffer (1024 bytes = 1KB)
+		const size = 1024;
+		const buffer = new ArrayBuffer(size);
+		const view = new Uint8Array(buffer);
+
+		// Fill with some pseudo-random data to simulate audio
+		for (let i = 0; i < size; i++) {
+			view[i] = Math.floor(Math.random() * 256);
+		}
+
+		return {
+			arrayBuffer: buffer,
+			blobType: 'audio/webm',
 		};
 	}
 
@@ -145,7 +145,8 @@ export function createMigrationTestData() {
 
 		// Link to existing recordings and transformations
 		const recordingId = recordingIds[index % recordingIds.length];
-		const transformationId = transformationIds[index % transformationIds.length];
+		const transformationId =
+			transformationIds[index % transformationIds.length];
 
 		const id = nanoid();
 		const startedAt = new Date(
@@ -268,24 +269,21 @@ export function createMigrationTestData() {
 		 * @param options.runCount Number of transformation runs to create (default: 500)
 		 * @returns Promise with counts of created items
 		 */
-		async seedIndexedDB(
-			options: {
-				recordingCount?: number;
-				transformationCount?: number;
-				runCount?: number;
-				onProgress?: (message: string) => void;
-			} = {},
-		): Promise<{
+		async seedIndexedDB({
+			recordingCount,
+			transformationCount,
+			runCount,
+			onProgress,
+		}: {
+			recordingCount: number;
+			transformationCount: number;
+			runCount: number;
+			onProgress: (message: string) => void;
+		}): Promise<{
 			recordings: number;
 			transformations: number;
 			runs: number;
 		}> {
-			const {
-				recordingCount = 5000,
-				transformationCount = 50,
-				runCount = 500,
-				onProgress = console.log,
-			} = options;
 
 			const startTime = performance.now();
 			onProgress(
@@ -326,7 +324,9 @@ export function createMigrationTestData() {
 			const { error: recordingsError } =
 				await db.recordings.create(recordingParams);
 			if (recordingsError) {
-				throw new Error(`Failed to insert recordings: ${recordingsError.message}`);
+				throw new Error(
+					`Failed to insert recordings: ${recordingsError.message}`,
+				);
 			}
 			onProgress(`✓ Inserted ${recordings.length} recordings`);
 
@@ -398,10 +398,11 @@ export function createMigrationTestData() {
 		/**
 		 * Clear all data from IndexedDB (useful for testing).
 		 */
-		async clearIndexedDB(
-			options: { onProgress?: (message: string) => void } = {},
-		): Promise<void> {
-			const { onProgress = console.log } = options;
+		async clearIndexedDB({
+			onProgress,
+		}: {
+			onProgress: (message: string) => void;
+		}): Promise<void> {
 
 			onProgress('Clearing IndexedDB...');
 
