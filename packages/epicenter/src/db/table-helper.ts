@@ -1,4 +1,6 @@
+import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
+import { createTaggedError } from 'wellcrafted/error';
 import type {
 	CellValue,
 	GetRowResult,
@@ -10,6 +12,18 @@ import type {
 } from '../core/schema';
 import { createRow } from '../core/schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
+
+/**
+ * Error thrown when attempting to insert a row with an ID that already exists
+ */
+export const { RowAlreadyExistsError, RowAlreadyExistsErr } = createTaggedError('RowAlreadyExistsError');
+export type RowAlreadyExistsError = ReturnType<typeof RowAlreadyExistsError>;
+
+/**
+ * Error thrown when attempting to update or access a row that doesn't exist
+ */
+export const { RowNotFoundError, RowNotFoundErr } = createTaggedError('RowNotFoundError');
+export type RowNotFoundError = ReturnType<typeof RowNotFoundError>;
 
 /**
  * YJS representation of a row
@@ -39,7 +53,14 @@ type PartialSerializedRow<TTableSchema extends TableSchema = TableSchema> = {
 } & Partial<Omit<SerializedRow<TTableSchema>, 'id'>>;
 
 /**
- * Type-safe table helper with operations for a specific table schema
+ * Type-safe table helper with operations for a specific table schema.
+ *
+ * Write methods return Result types with specific errors:
+ * - insert/insertMany: Result<void, RowAlreadyExistsError>
+ * - update/updateMany: Result<void, RowNotFoundError>
+ * - upsert/upsertMany/delete/deleteMany/clear: Result<void, never> (never fail)
+ *
+ * Read methods (get, getAll) return null for not-found rather than errors.
  */
 export type TableHelper<TTableSchema extends TableSchema> = {
 	/**
@@ -51,25 +72,10 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	 *
 	 * Internally, strings are synced to Y.Text using updateYTextFromString(),
 	 * and arrays are synced to Y.Array using updateYArrayFromArray().
-	 *
-	 * @example
-	 * // Insert with plain values
-	 * table.insert({
-	 *   id: '123',
-	 *   content: 'Hello World',           // string for ytext
-	 *   tags: ['typescript', 'react'],    // array for multi-select
-	 *   viewCount: 0                      // primitive number
-	 * });
-	 *
-	 * @example
-	 * // For collaborative editing, get the Y.js reference
-	 * const result = table.get('123');
-	 * if (result.status === 'valid') {
-	 *   editor.bindYText(result.row.content);  // Bind to editor
-	 *   result.row.content.insert(0, 'prefix: '); // Direct mutation syncs
-	 * }
 	 */
-	insert(serializedRow: SerializedRow<TTableSchema>): void;
+	insert(
+		serializedRow: SerializedRow<TTableSchema>,
+	): Result<void, RowAlreadyExistsError>;
 
 	/**
 	 * Update specific fields of an existing row.
@@ -82,60 +88,38 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	 * or updateYArrayFromArray() to apply minimal changes while preserving CRDT history.
 	 *
 	 * Only the fields you include will be updated - others remain unchanged.
-	 *
-	 * @example
-	 * // Update with plain values
-	 * table.update({
-	 *   id: '123',
-	 *   content: 'Updated content',        // string for ytext
-	 *   tags: ['new', 'tags']              // array for multi-select
-	 * });
-	 *
-	 * @example
-	 * // For granular collaborative edits, get Y.js reference directly
-	 * const result = table.get('123');
-	 * if (result.status === 'valid') {
-	 *   result.row.content.insert(0, 'prefix: '); // Granular text edit
-	 *   result.row.tags.push(['new-tag']);        // Granular array change
-	 * }
 	 */
-	update(partialSerializedRow: PartialSerializedRow<TTableSchema>): void;
+	update(
+		partialSerializedRow: PartialSerializedRow<TTableSchema>,
+	): Result<void, RowNotFoundError>;
 
 	/**
 	 * Insert or update a row (insert if doesn't exist, update if exists).
 	 *
 	 * For Y.js columns (ytext, multi-select), provide plain JavaScript values.
 	 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
-	 *
-	 * @example
-	 * table.upsert({
-	 *   id: '123',
-	 *   content: 'Hello World',
-	 *   tags: ['typescript']
-	 * });
 	 */
-	upsert(serializedRow: SerializedRow<TTableSchema>): void;
+	upsert(
+		serializedRow: SerializedRow<TTableSchema>,
+	): Result<void, never>;
 
-	insertMany(serializedRows: SerializedRow<TTableSchema>[]): void;
-	upsertMany(serializedRows: SerializedRow<TTableSchema>[]): void;
-	updateMany(partialSerializedRows: PartialSerializedRow<TTableSchema>[]): void;
+	insertMany(
+		serializedRows: SerializedRow<TTableSchema>[],
+	): Result<void, RowAlreadyExistsError>;
+	upsertMany(
+		serializedRows: SerializedRow<TTableSchema>[],
+	): Result<void, never>;
+	updateMany(
+		partialSerializedRows: PartialSerializedRow<TTableSchema>[],
+	): Result<void, RowNotFoundError>;
 
 	/**
 	 * Get a row by ID, returning Y.js objects for collaborative editing.
-	 *
-	 * Returns Y.Text and Y.Array objects that can be:
-	 * - Bound to collaborative editors (CodeMirror, etc.)
-	 * - Mutated directly for automatic sync across clients
-	 *
-	 * @example
-	 * const result = table.get('123');
-	 * if (result.status === 'valid') {
-	 *   const row = result.row;
-	 *   row.title // Y.Text - bind to editor
-	 *   row.tags // Y.Array<string> - mutate directly
-	 * }
+	 * Returns null if row not found (no error thrown).
 	 */
-	get(id: string): GetRowResult<Row<TTableSchema>>;
+	get(params: {
+		id: string;
+	}): GetRowResult<Row<TTableSchema>> | null;
 
 	/**
 	 * Get all rows with Y.js objects for collaborative editing.
@@ -143,9 +127,9 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	getAll(): RowValidationResult<Row<TTableSchema>>[];
 
 	has(id: string): boolean;
-	delete(id: string): void;
-	deleteMany(ids: string[]): void;
-	clear(): void;
+	delete(params: { id: string }): Result<void, never>;
+	deleteMany(ids: string[]): Result<void, never>;
+	clear(): Result<void, never>;
 	count(): number;
 	filter(
 		predicate: (row: Row<TTableSchema>) => boolean,
@@ -230,32 +214,42 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 	return {
 		insert(serializedRow: SerializedRow<TTableSchema>) {
+			if (ytable.has(serializedRow.id)) {
+				return RowAlreadyExistsErr({
+					message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
+					context: { tableName, operation: 'insert', id: serializedRow.id },
+					cause: undefined,
+				});
+			}
+
 			ydoc.transact(() => {
-				if (ytable.has(serializedRow.id)) {
-					throw new Error(
-						`Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
-					);
-				}
 				const yrow = new Y.Map<CellValue>();
 				updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 				ytable.set(serializedRow.id, yrow);
 			});
+
+			return Ok(undefined);
 		},
 
 		update(partialSerializedRow: PartialSerializedRow<TTableSchema>) {
+			const yrow = ytable.get(partialSerializedRow.id);
+			if (!yrow) {
+				return RowNotFoundErr({
+					message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
+					context: { tableName, operation: 'update', id: partialSerializedRow.id },
+					cause: undefined,
+				});
+			}
+
 			ydoc.transact(() => {
-				const yrow = ytable.get(partialSerializedRow.id);
-				if (!yrow) {
-					throw new Error(
-						`Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
-					);
-				}
 				updateYRowFromSerializedRow({
 					yrow,
 					serializedRow: partialSerializedRow,
 					schema,
 				});
 			});
+
+			return Ok(undefined);
 		},
 
 		upsert(serializedRow: SerializedRow<TTableSchema>) {
@@ -267,21 +261,31 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				}
 				updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 			});
+
+			return Ok(undefined);
 		},
 
 		insertMany(serializedRows: SerializedRow<TTableSchema>[]) {
+			// Check for duplicates first
+			for (const serializedRow of serializedRows) {
+				if (ytable.has(serializedRow.id)) {
+					return RowAlreadyExistsErr({
+						message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
+						context: { tableName, operation: 'insertMany', id: serializedRow.id },
+						cause: undefined,
+					});
+				}
+			}
+
 			ydoc.transact(() => {
 				for (const serializedRow of serializedRows) {
-					if (ytable.has(serializedRow.id)) {
-						throw new Error(
-							`Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
-						);
-					}
 					const yrow = new Y.Map<CellValue>();
 					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 					ytable.set(serializedRow.id, yrow);
 				}
 			});
+
+			return Ok(undefined);
 		},
 
 		upsertMany(serializedRows: SerializedRow<TTableSchema>[]) {
@@ -295,17 +299,27 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 				}
 			});
+
+			return Ok(undefined);
 		},
 
 		updateMany(partialSerializedRows: PartialSerializedRow<TTableSchema>[]) {
+			// Check all rows exist first
+			for (const partialSerializedRow of partialSerializedRows) {
+				if (!ytable.has(partialSerializedRow.id)) {
+					return RowNotFoundErr({
+						message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
+						context: { tableName, operation: 'updateMany', id: partialSerializedRow.id },
+						cause: undefined,
+					});
+				}
+			}
+
 			ydoc.transact(() => {
 				for (const partialSerializedRow of partialSerializedRows) {
+					// Safe to assert non-null because we checked all IDs exist above
 					const yrow = ytable.get(partialSerializedRow.id);
-					if (!yrow) {
-						throw new Error(
-							`Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
-						);
-					}
+					if (!yrow) continue; // Skip if somehow missing (defensive)
 					updateYRowFromSerializedRow({
 						yrow,
 						serializedRow: partialSerializedRow,
@@ -313,12 +327,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					});
 				}
 			});
+
+			return Ok(undefined);
 		},
 
-		get(id: string): GetRowResult<TRow> {
-			const yrow = ytable.get(id);
+		get(params: { id: string }) {
+			const yrow = ytable.get(params.id);
 			if (!yrow) {
-				return { status: 'not-found', row: null };
+				return null;
 			}
 
 			return createRow({ yrow, schema });
@@ -338,10 +354,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return ytable.has(id);
 		},
 
-		delete(id: string) {
+		delete(params: { id: string }) {
 			ydoc.transact(() => {
-				ytable.delete(id);
+				ytable.delete(params.id);
 			});
+			return Ok(undefined);
 		},
 
 		deleteMany(ids: string[]) {
@@ -350,12 +367,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					ytable.delete(id);
 				}
 			});
+			return Ok(undefined);
 		},
 
 		clear() {
 			ydoc.transact(() => {
 				ytable.clear();
 			});
+			return Ok(undefined);
 		},
 
 		count() {
@@ -526,7 +545,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			onUpdate?: (row: TRow) => void | Promise<void>;
 			onDelete?: (id: string) => void | Promise<void>;
 		}): () => void {
-			const observer = (events: Y.YEvent<any>[]) => {
+			const observer = (events: Y.YEvent<Y.Map<YRow> | YRow>[]) => {
 				for (const event of events) {
 					// Top-level events: row additions/deletions in the table
 					// event.target === ytable means the change happened directly on the table Y.Map
@@ -543,7 +562,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 											callbacks.onAdd?.(result.row);
 											break;
 										case 'schema-mismatch':
-										case 'invalid-structure':
 											console.warn(
 												`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
 											);
@@ -574,7 +592,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 									callbacks.onUpdate?.(result.row);
 									break;
 								case 'schema-mismatch':
-								case 'invalid-structure':
 									console.warn(
 										`Skipping invalid row in ${tableName}/${rowId} (onUpdate): ${result.status}`,
 									);
