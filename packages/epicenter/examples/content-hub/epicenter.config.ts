@@ -1,29 +1,29 @@
 import { defineEpicenter } from '../../src/index';
 
 // Content repository
-import { pages } from './pages/workspace.config';
+import { pages } from './workspace.pages';
 
 // Video platforms
-import { youtube } from './youtube/workspace.config';
-import { instagram } from './instagram/workspace.config';
-import { tiktok } from './tiktok/workspace.config';
+import { youtube } from './workspace.youtube';
+import { instagram } from './workspace.instagram';
+import { tiktok } from './workspace.tiktok';
 
 // Blog platforms
-import { medium } from './medium/workspace.config';
-import { substack } from './substack/workspace.config';
-import { personalBlog } from './personal-blog/workspace.config';
-import { epicenterBlog } from './epicenter-blog/workspace.config';
+import { medium } from './workspace.medium';
+import { substack } from './workspace.substack';
+import { personalBlog } from './workspace.personal-blog';
+import { epicenterBlog } from './workspace.epicenter-blog';
 
 // Social platforms
-import { reddit } from './reddit/workspace.config';
-import { twitter } from './twitter/workspace.config';
-import { hackernews } from './hackernews/workspace.config';
-import { discord } from './discord/workspace.config';
-import { producthunt } from './producthunt/workspace.config';
-import { bookface } from './bookface/workspace.config';
+import { reddit } from './workspace.reddit';
+import { twitter } from './workspace.twitter';
+import { hackernews } from './workspace.hackernews';
+import { discord } from './workspace.discord';
+import { producthunt } from './workspace.producthunt';
+import { bookface } from './workspace.bookface';
 
 // Development
-import { githubIssues } from './github-issues/workspace.config';
+import { githubIssues } from './workspace.github-issues';
 
 /**
  * Content Hub: Production-grade Epicenter application
