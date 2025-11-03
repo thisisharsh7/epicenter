@@ -9,10 +9,9 @@
 		type MigrationDirection,
 		type MigrationResult,
 	} from '$lib/services/db/migration';
-	import {
-		seedIndexedDB,
-		clearIndexedDB as clearIDB,
-	} from '$lib/services/db/seed-mock-data';
+	import { createMigrationTestData } from './migration-test-data';
+
+	const testData = createMigrationTestData();
 
 	export const migrationDialog = createMigrationDialog();
 
@@ -144,7 +143,7 @@
 			clearLogs();
 			addLog('[Seed] Starting mock data seeding...');
 
-			const result = await seedIndexedDB({
+			const result = await testData.seedIndexedDB({
 				recordingCount: 5000,
 				transformationCount: 50,
 				runCount: 500,
@@ -166,7 +165,7 @@
 			clearLogs();
 			addLog('[Clear] Clearing IndexedDB...');
 
-			await clearIDB({ onProgress: addLog });
+			await testData.clearIndexedDB({ onProgress: addLog });
 
 			addLog('[Clear] ✅ IndexedDB cleared');
 			await loadCounts();
@@ -276,7 +275,7 @@
 				<!-- Direction Selector -->
 				<div class="flex items-center justify-between rounded-lg border p-4">
 					<div class="space-y-0.5">
-						<label class="text-sm font-medium">Migration Direction</label>
+						<div class="text-sm font-medium">Migration Direction</div>
 						<p class="text-sm text-muted-foreground">
 							{migrationDialog.direction === 'idb-to-fs'
 								? 'IndexedDB → File System'
@@ -285,8 +284,10 @@
 					</div>
 					<Switch
 						checked={migrationDialog.direction === 'idb-to-fs'}
-						onCheckedChange={(checked) =>
-							migrationDialog.setDirection(checked ? 'idb-to-fs' : 'fs-to-idb')}
+						onCheckedChange={(checked: boolean) => {
+							const newDirection: MigrationDirection = checked ? 'idb-to-fs' : 'fs-to-idb';
+							migrationDialog.setDirection(newDirection);
+						}}
 						disabled
 					/>
 				</div>
@@ -326,7 +327,7 @@
 
 				<!-- Migration Options -->
 				<div class="space-y-3">
-					<label class="mb-2 block text-sm font-medium">Options</label>
+					<div class="mb-2 text-sm font-medium">Options</div>
 					<div class="flex items-center space-x-2">
 						<Checkbox
 							id="overwrite"
