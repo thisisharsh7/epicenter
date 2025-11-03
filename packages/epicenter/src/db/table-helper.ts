@@ -1,28 +1,41 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { type } from 'arktype';
+import { createTaggedError } from 'wellcrafted/error';
 import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import { createTaggedError } from 'wellcrafted/error';
+import {
+	type Mutation,
+	type Query,
+	defineMutation,
+	defineQuery,
+} from '../core/actions';
 import type {
 	CellValue,
 	GetRowResult,
+	PartialSerializedRow,
 	Row,
 	RowValidationResult,
 	SerializedRow,
 	TableSchema,
+	TableSchemaWithValidation,
 	WorkspaceSchema,
 } from '../core/schema';
-import { createRow } from '../core/schema';
+import { createRow, createTableSchemaWithValidation } from '../core/schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
  * Error thrown when attempting to insert a row with an ID that already exists
  */
-export const { RowAlreadyExistsError, RowAlreadyExistsErr } = createTaggedError('RowAlreadyExistsError');
+export const { RowAlreadyExistsError, RowAlreadyExistsErr } = createTaggedError(
+	'RowAlreadyExistsError',
+);
 export type RowAlreadyExistsError = ReturnType<typeof RowAlreadyExistsError>;
 
 /**
  * Error thrown when attempting to update or access a row that doesn't exist
  */
-export const { RowNotFoundError, RowNotFoundErr } = createTaggedError('RowNotFoundError');
+export const { RowNotFoundError, RowNotFoundErr } =
+	createTaggedError('RowNotFoundError');
 export type RowNotFoundError = ReturnType<typeof RowNotFoundError>;
 
 /**
@@ -30,27 +43,6 @@ export type RowNotFoundError = ReturnType<typeof RowNotFoundError>;
  * Maps column names to YJS shared types or primitives
  */
 export type YRow = Y.Map<CellValue>;
-
-/**
- * Represents a partial row update where id is required but all other fields are optional.
- *
- * Takes a TableSchema, converts it to SerializedRow to get the input variant,
- * then makes all fields except 'id' optional.
- *
- * Only the fields you include will be updated - the rest remain unchanged. Each field is
- * updated individually in the underlying YJS Map.
- *
- * @example
- * // Update only the title field, leaving other fields unchanged
- * db.tables.posts.update({ id: '123', title: 'New Title' });
- *
- * @example
- * // Update multiple fields at once
- * db.tables.posts.update({ id: '123', title: 'New Title', published: true });
- */
-type PartialSerializedRow<TTableSchema extends TableSchema = TableSchema> = {
-	id: string;
-} & Partial<Omit<SerializedRow<TTableSchema>, 'id'>>;
 
 /**
  * Type-safe table helper with operations for a specific table schema.
@@ -73,9 +65,11 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	 * Internally, strings are synced to Y.Text using updateYTextFromString(),
 	 * and arrays are synced to Y.Array using updateYArrayFromArray().
 	 */
-	insert(
-		serializedRow: SerializedRow<TTableSchema>,
-	): Result<void, RowAlreadyExistsError>;
+	insert: Mutation<
+		undefined,
+		RowAlreadyExistsError,
+		StandardSchemaV1<SerializedRow<TTableSchema>>
+	>;
 
 	/**
 	 * Update specific fields of an existing row.
@@ -89,9 +83,11 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	 *
 	 * Only the fields you include will be updated - others remain unchanged.
 	 */
-	update(
-		partialSerializedRow: PartialSerializedRow<TTableSchema>,
-	): Result<void, RowNotFoundError>;
+	update: Mutation<
+		undefined,
+		RowNotFoundError,
+		StandardSchemaV1<PartialSerializedRow<TTableSchema>>
+	>;
 
 	/**
 	 * Insert or update a row (insert if doesn't exist, update if exists).
@@ -99,9 +95,11 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	 * For Y.js columns (ytext, multi-select), provide plain JavaScript values.
 	 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
 	 */
-	upsert(
-		serializedRow: SerializedRow<TTableSchema>,
-	): Result<void, never>;
+	upsert: Mutation<
+		undefined,
+		never,
+		StandardSchemaV1<SerializedRow<TTableSchema>>
+	>;
 
 	insertMany(
 		serializedRows: SerializedRow<TTableSchema>[],
@@ -117,20 +115,22 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	 * Get a row by ID, returning Y.js objects for collaborative editing.
 	 * Returns null if row not found (no error thrown).
 	 */
-	get(params: {
-		id: string;
-	}): GetRowResult<Row<TTableSchema>> | null;
+	get: Query<
+		GetRowResult<Row<TTableSchema>> | null,
+		never,
+		StandardSchemaV1<{ id: string }>
+	>;
 
 	/**
 	 * Get all rows with Y.js objects for collaborative editing.
 	 */
-	getAll(): RowValidationResult<Row<TTableSchema>>[];
+	getAll: Query<RowValidationResult<Row<TTableSchema>>[], never, undefined>;
 
 	has(id: string): boolean;
-	delete(params: { id: string }): Result<void, never>;
-	deleteMany(ids: string[]): Result<void, never>;
-	clear(): Result<void, never>;
-	count(): number;
+	delete: Mutation<undefined, never, StandardSchemaV1<{ id: string }>>;
+	deleteMany: Mutation<undefined, never, StandardSchemaV1<{ ids: string[] }>>;
+	clear: Mutation<undefined, never, undefined>;
+	count: Query<number, never, undefined>;
 	filter(
 		predicate: (row: Row<TTableSchema>) => boolean,
 	): Extract<RowValidationResult<Row<TTableSchema>>, { status: 'valid' }>[];
@@ -176,7 +176,12 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 			}
 			return [
 				tableName,
-				createTableHelper({ ydoc, tableName, ytable, schema: tableSchema }),
+				createTableHelper({
+					ydoc,
+					tableName,
+					ytable,
+					schema: createTableSchemaWithValidation(tableSchema),
+				}),
 			];
 		}),
 	) as {
@@ -208,62 +213,86 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	ydoc: Y.Doc;
 	tableName: string;
 	ytable: Y.Map<YRow>;
-	schema: TTableSchema;
+	schema: TableSchemaWithValidation<TTableSchema>;
 }): TableHelper<TTableSchema> {
 	type TRow = Row<TTableSchema>;
 
+	// Input validators using arktype
+	const insertInputValidator = schema.toArktype();
+	const updateInputValidator = schema.toPartialArktype();
+	const deleteInputValidator = type({
+		id: 'string',
+	});
+	const deleteManyInputValidator = type({
+		ids: 'string[]',
+	});
+
 	return {
-		insert(serializedRow: SerializedRow<TTableSchema>) {
-			if (ytable.has(serializedRow.id)) {
-				return RowAlreadyExistsErr({
-					message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
-					context: { tableName, operation: 'insert', id: serializedRow.id },
-					cause: undefined,
-				});
-			}
-
-			ydoc.transact(() => {
-				const yrow = new Y.Map<CellValue>();
-				updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-				ytable.set(serializedRow.id, yrow);
-			});
-
-			return Ok(undefined);
-		},
-
-		update(partialSerializedRow: PartialSerializedRow<TTableSchema>) {
-			const yrow = ytable.get(partialSerializedRow.id);
-			if (!yrow) {
-				return RowNotFoundErr({
-					message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
-					context: { tableName, operation: 'update', id: partialSerializedRow.id },
-					cause: undefined,
-				});
-			}
-
-			ydoc.transact(() => {
-				updateYRowFromSerializedRow({
-					yrow,
-					serializedRow: partialSerializedRow,
-					schema,
-				});
-			});
-
-			return Ok(undefined);
-		},
-
-		upsert(serializedRow: SerializedRow<TTableSchema>) {
-			ydoc.transact(() => {
-				let yrow = ytable.get(serializedRow.id);
-				if (!yrow) {
-					yrow = new Y.Map<CellValue>();
-					ytable.set(serializedRow.id, yrow);
+		insert: defineMutation({
+			input: insertInputValidator,
+			description: `Insert a new row into the ${tableName} table`,
+			handler: (serializedRow) => {
+				if (ytable.has(serializedRow.id)) {
+					return RowAlreadyExistsErr({
+						message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
+						context: { tableName, operation: 'insert', id: serializedRow.id },
+						cause: undefined,
+					});
 				}
-				updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-			});
 
-			return Ok(undefined);
-		},
+				ydoc.transact(() => {
+					const yrow = new Y.Map<CellValue>();
+					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
+					ytable.set(serializedRow.id, yrow);
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		update: defineMutation({
+			input: updateInputValidator,
+			description: `Update specific fields of an existing row in the ${tableName} table`,
+			handler: (partialSerializedRow) => {
+				const yrow = ytable.get(partialSerializedRow.id);
+				if (!yrow) {
+					return RowNotFoundErr({
+						message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
+						context: {
+							tableName,
+							operation: 'update',
+							id: partialSerializedRow.id,
+						},
+						cause: undefined,
+					});
+				}
+
+				ydoc.transact(() => {
+					updateYRowFromSerializedRow({
+						yrow,
+						serializedRow: partialSerializedRow,
+						schema,
+					});
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		upsert: defineMutation({
+			input: insertInputValidator,
+			description: `Insert or update a row in the ${tableName} table`,
+			handler: (serializedRow) => {
+				ydoc.transact(() => {
+					let yrow = ytable.get(serializedRow.id);
+					if (!yrow) {
+						yrow = new Y.Map<CellValue>();
+						ytable.set(serializedRow.id, yrow);
+					}
+					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
+				});
+			},
+		}),
 
 		insertMany(serializedRows: SerializedRow<TTableSchema>[]) {
 			// Check for duplicates first
@@ -271,7 +300,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				if (ytable.has(serializedRow.id)) {
 					return RowAlreadyExistsErr({
 						message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
-						context: { tableName, operation: 'insertMany', id: serializedRow.id },
+						context: {
+							tableName,
+							operation: 'insertMany',
+							id: serializedRow.id,
+						},
 						cause: undefined,
 					});
 				}
@@ -309,7 +342,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				if (!ytable.has(partialSerializedRow.id)) {
 					return RowNotFoundErr({
 						message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
-						context: { tableName, operation: 'updateMany', id: partialSerializedRow.id },
+						context: {
+							tableName,
+							operation: 'updateMany',
+							id: partialSerializedRow.id,
+						},
 						cause: undefined,
 					});
 				}
@@ -331,55 +368,71 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return Ok(undefined);
 		},
 
-		get(params: { id: string }) {
-			const yrow = ytable.get(params.id);
-			if (!yrow) {
-				return null;
-			}
+		get: defineQuery({
+			input: deleteInputValidator,
+			description: `Get a row by ID from the ${tableName} table`,
+			handler: (params) => {
+				const yrow = ytable.get(params.id);
+				if (!yrow) {
+					return null;
+				}
 
-			return createRow({ yrow, schema });
-		},
+				return createRow({ yrow, schema });
+			},
+		}),
 
-		getAll() {
-			const results: RowValidationResult<TRow>[] = [];
-			for (const yrow of ytable.values()) {
-				const result = createRow({ yrow, schema });
-				results.push(result);
-			}
+		getAll: defineQuery({
+			description: `Get all rows from the ${tableName} table`,
+			handler: () => {
+				const results: RowValidationResult<TRow>[] = [];
+				for (const yrow of ytable.values()) {
+					const result = createRow({ yrow, schema });
+					results.push(result);
+				}
 
-			return results;
-		},
+				return results;
+			},
+		}),
 
 		has(id: string) {
 			return ytable.has(id);
 		},
 
-		delete(params: { id: string }) {
-			ydoc.transact(() => {
-				ytable.delete(params.id);
-			});
-			return Ok(undefined);
-		},
+		delete: defineMutation({
+			input: deleteInputValidator,
+			description: `Delete a row from the ${tableName} table`,
+			handler: (params) => {
+				ydoc.transact(() => {
+					ytable.delete(params.id);
+				});
+			},
+		}),
 
-		deleteMany(ids: string[]) {
-			ydoc.transact(() => {
-				for (const id of ids) {
-					ytable.delete(id);
-				}
-			});
-			return Ok(undefined);
-		},
+		deleteMany: defineMutation({
+			input: deleteManyInputValidator,
+			description: `Delete multiple rows from the ${tableName} table`,
+			handler: (params) => {
+				ydoc.transact(() => {
+					for (const id of params.ids) {
+						ytable.delete(id);
+					}
+				});
+			},
+		}),
 
-		clear() {
-			ydoc.transact(() => {
-				ytable.clear();
-			});
-			return Ok(undefined);
-		},
+		clear: defineMutation({
+			description: `Clear all rows from the ${tableName} table`,
+			handler: () => {
+				ydoc.transact(() => {
+					ytable.clear();
+				});
+			},
+		}),
 
-		count() {
-			return ytable.size;
-		},
+		count: defineQuery({
+			description: `Count rows in the ${tableName} table`,
+			handler: () => ytable.size,
+		}),
 
 		filter(predicate: (row: TRow) => boolean) {
 			const results: Extract<RowValidationResult<TRow>, { status: 'valid' }>[] =

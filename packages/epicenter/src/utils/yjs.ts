@@ -1,15 +1,7 @@
 import { diffChars } from 'diff';
 import * as Y from 'yjs';
-import type {
-	CellValue,
-	DateWithTimezoneString,
-	SerializedRow,
-	TableSchema,
-} from '../core/schema';
-import {
-	DateWithTimezoneFromString,
-	isDateWithTimezoneString,
-} from '../core/schema';
+import type { PartialSerializedRow, TableSchema } from '../core/schema';
+import { isDateWithTimezoneString } from '../core/schema';
 import type { YRow } from '../db/table-helper';
 
 /**
@@ -206,7 +198,7 @@ export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
 	schema,
 }: {
 	yrow: YRow;
-	serializedRow: Partial<SerializedRow<TSchema>>;
+	serializedRow: PartialSerializedRow<TSchema>;
 	schema: TSchema;
 }): void {
 	// Iterate over serializedRow to preserve extra fields not in schema

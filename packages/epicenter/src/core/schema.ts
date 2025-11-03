@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 /**
  * @fileoverview Schema definitions and type system for collaborative database operations.
  *
@@ -34,7 +35,7 @@
  * different generic parameters. 'valid' gives you Row<TTableSchema> (typed to your schema), while
  * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
  */
-import { Type, type } from 'arktype';
+import { type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
@@ -362,6 +363,12 @@ export type TableSchemaWithValidation<
 
 	/** Validates a YRow (checks schema only), returns typed Row proxy */
 	validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>>;
+
+	/** Generates an ArkType validator for full SerializedRow */
+	toArktype(): StandardSchemaV1<SerializedRow<TSchema>>;
+
+	/** Generates an ArkType validator for partial SerializedRow (all fields except id are optional) */
+	toPartialArktype(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
 };
 
 /**
@@ -1690,9 +1697,9 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 		 * Generates an ArkType validator for the full SerializedRow type.
 		 * All fields from the schema are included with proper type validation.
 		 *
-		 * @returns ArkType validator that validates SerializedRow<TSchema>
+		 * @returns StandardSchemaV1 validator that validates SerializedRow<TSchema>
 		 */
-		toArktype(): Type<SerializedRow<TSchema>, {}> {
+		toArktype(): StandardSchemaV1<SerializedRow<TSchema>> {
 			const fields = Object.fromEntries(
 				Object.entries(schema).map(([fieldName, columnSchema]) => {
 					// Generate arktype type based on column type
@@ -1726,16 +1733,16 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 				}),
 			);
 
-			return type(fields) as Type<SerializedRow<TSchema>, {}>;
+			return type(fields) as StandardSchemaV1<SerializedRow<TSchema>>;
 		},
 
 		/**
 		 * Generates an ArkType validator for partial row updates.
 		 * The 'id' field is required, all other fields are optional.
 		 *
-		 * @returns ArkType validator that validates PartialSerializedRow<TSchema>
+		 * @returns StandardSchemaV1 validator that validates PartialSerializedRow<TSchema>
 		 */
-		toPartialArktype(): Type<PartialSerializedRow<TSchema>, {}> {
+		toPartialArktype(): StandardSchemaV1<PartialSerializedRow<TSchema>> {
 			const fields = Object.fromEntries(
 				Object.entries(schema).map(([fieldName, columnSchema]) => {
 					// Generate arktype type based on column type
@@ -1773,7 +1780,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 				}),
 			);
 
-			return type(fields) as Type<PartialSerializedRow<TSchema>, {}>;
+			return type(fields) as StandardSchemaV1<PartialSerializedRow<TSchema>>;
 		},
 	};
 }
