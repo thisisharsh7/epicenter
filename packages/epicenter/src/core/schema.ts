@@ -876,6 +876,29 @@ export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
 };
 
 /**
+ * Represents a partial row update where id is required but all other fields are optional.
+ *
+ * Takes a TableSchema, converts it to SerializedRow to get the input variant,
+ * then makes all fields except 'id' optional.
+ *
+ * Only the fields you include will be updated - the rest remain unchanged. Each field is
+ * updated individually in the underlying YJS Map.
+ *
+ * @example
+ * // Update only the title field, leaving other fields unchanged
+ * db.tables.posts.update({ id: '123', title: 'New Title' });
+ *
+ * @example
+ * // Update multiple fields at once
+ * db.tables.posts.update({ id: '123', title: 'New Title', published: true });
+ */
+export type PartialSerializedRow<
+	TTableSchema extends TableSchema = TableSchema,
+> = {
+	id: string;
+} & Partial<Omit<SerializedRow<TTableSchema>, 'id'>>;
+
+/**
  * Type guard to check if a value is a valid SerializedCellValue.
  * Validates that the value is a plain JavaScript type (not a Y.js type).
  */
@@ -1669,53 +1692,41 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 		 *
 		 * @returns ArkType validator that validates SerializedRow<TSchema>
 		 */
-		toArktype() {
-			const fields: Record<string, string> = {};
+		toArktype(): Type<SerializedRow<TSchema>, {}> {
+			const fields = Object.fromEntries(
+				Object.entries(schema).map(([fieldName, columnSchema]) => {
+					// Generate arktype type based on column type
+					const baseType = (() => {
+						switch (columnSchema.type) {
+							case 'id':
+							case 'text':
+							case 'ytext':
+								return type.string;
+							case 'integer':
+								return type.number.divisibleBy(1);
+							case 'real':
+								return type.number;
+							case 'boolean':
+								return type.boolean;
+							case 'date':
+								return type.string;
+							case 'select':
+								return type.enumerated(...columnSchema.options);
+							case 'multi-select':
+								return type.enumerated(...columnSchema.options).array();
+						}
+					})();
 
-			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				let arktypeType: Type;
+					// Handle nullable fields
+					const isNullable =
+						columnSchema.type !== 'id' && columnSchema.nullable;
+					const finalType = isNullable ? baseType.or(type.null) : baseType;
 
-				// Generate arktype string based on column type
-				switch (columnSchema.type) {
-					case 'id':
-					case 'text':
-					case 'ytext':
-						arktypeType = type.string;
-						break;
-					case 'integer':
-						arktypeType = type.number.divisibleBy(1);
-						break;
-					case 'real':
-						arktypeType = type.number;
-						break;
-					case 'boolean':
-						arktypeType = type.boolean;
-						break;
-					case 'date':
-						arktypeType = type.string;
-						break;
-					case 'select': {
-						const options = type.enumerated(...columnSchema.options);
-						arktypeType = options;
-						break;
-					}
-					case 'multi-select': {
-						const options = type.enumerated(...columnSchema.options);
-						arktypeType = options.array();
-						break;
-					}
-				}
+					return [fieldName, finalType];
+				}),
+			);
 
-				// Handle nullable fields
-				if (columnSchema.type !== 'id' && columnSchema.nullable) {
-					arktypeType = arktypeType.or(type.null);
-				}
-
-				fields[fieldName] = arktypeType;
-			}
-
-			// Build the arktype object validator
-			return type(fields);
+			return type(fields) as Type<SerializedRow<TSchema>, {}>;
 		},
 
 		/**
@@ -1724,58 +1735,45 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 		 *
 		 * @returns ArkType validator that validates PartialSerializedRow<TSchema>
 		 */
-		toPartialArktype() {
-			const fields: Record<string, string> = {};
+		toPartialArktype(): Type<PartialSerializedRow<TSchema>, {}> {
+			const fields = Object.fromEntries(
+				Object.entries(schema).map(([fieldName, columnSchema]) => {
+					// Generate arktype type based on column type
+					const baseType = (() => {
+						switch (columnSchema.type) {
+							case 'id':
+							case 'text':
+							case 'ytext':
+								return type.string;
+							case 'integer':
+								return type.number.divisibleBy(1);
+							case 'real':
+								return type.number;
+							case 'boolean':
+								return type.boolean;
+							case 'date':
+								return type.string;
+							case 'select':
+								return type.enumerated(...columnSchema.options);
+							case 'multi-select':
+								return type.enumerated(...columnSchema.options).array();
+						}
+					})();
 
-			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				let arktypeType: Type;
+					// Handle nullable fields
+					const isNullable =
+						columnSchema.type !== 'id' && columnSchema.nullable;
+					const nullableType = isNullable ? baseType.or(type.null) : baseType;
 
-				// Generate arktype string based on column type
-				switch (columnSchema.type) {
-					case 'id':
-					case 'text':
-					case 'ytext':
-						arktypeType = type.string;
-						break;
-					case 'integer':
-						arktypeType = type.number.divisibleBy(1);
-						break;
-					case 'real':
-						arktypeType = type.number;
-						break;
-					case 'boolean':
-						arktypeType = type.boolean;
-						break;
-					case 'date':
-						arktypeType = type.string;
-						break;
-					case 'select': {
-						const options = type.enumerated(...columnSchema.options);
-						arktypeType = options;
-						break;
-					}
-					case 'multi-select': {
-						const options = type.enumerated(...columnSchema.options);
-						arktypeType = options.array();
-						break;
-					}
-				}
+					// Make all fields optional except 'id'
+					const finalType =
+						fieldName === 'id' ? nullableType : nullableType.optional();
 
-				// Handle nullable fields
-				if (columnSchema.type !== 'id' && columnSchema.nullable) {
-					arktypeType = arktypeType.or(type.null);
-				}
+					return [fieldName, finalType];
+				}),
+			);
 
-				// Make all fields optional except 'id'
-				if (fieldName === 'id') {
-					fields[fieldName] = arktypeType;
-				} else {
-					fields[fieldName] = arktypeType.optional();
-				}
-			}
-
-			// Build the arktype object validator
-			return type(fields);
+			return type(fields) as Type<PartialSerializedRow<TSchema>, {}>;
 		},
 	};
 }
