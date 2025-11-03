@@ -7,9 +7,12 @@
 		migrateTransformationRuns,
 		getMigrationCounts,
 		type MigrationDirection,
-		type MigrationResult
+		type MigrationResult,
 	} from '$lib/services/db/migration';
-	import { seedIndexedDB, clearIndexedDB as clearIDB } from '$lib/services/db/seed-mock-data';
+	import {
+		seedIndexedDB,
+		clearIndexedDB as clearIDB,
+	} from '$lib/services/db/seed-mock-data';
 
 	export const migrationDialog = createMigrationDialog();
 
@@ -31,16 +34,15 @@
 		}>({
 			recordings: null,
 			transformations: null,
-			runs: null
+			runs: null,
 		});
-
-		// Dev-only seeding state
 		let isSeeding = $state(false);
 		let isClearing = $state(false);
 
-		// Create service instances
 		const fileSystemDb = createFileSystemDb();
-		const indexedDb = createDbServiceWeb({ DownloadService: null as any });
+		const indexedDb = createDbServiceWeb({
+			DownloadService: DownloadServiceLive,
+		});
 
 		function addLog(message: string) {
 			logs.push(message);
@@ -62,10 +64,10 @@
 
 			counts = data;
 			addLog(
-				`[Counts] IndexedDB: ${data.indexedDb.recordings} recordings, ${data.indexedDb.transformations} transformations, ${data.indexedDb.runs} runs`
+				`[Counts] IndexedDB: ${data.indexedDb.recordings} recordings, ${data.indexedDb.transformations} transformations, ${data.indexedDb.runs} runs`,
 			);
 			addLog(
-				`[Counts] File System: ${data.fileSystem.recordings} recordings, ${data.fileSystem.transformations} transformations, ${data.fileSystem.runs} runs`
+				`[Counts] File System: ${data.fileSystem.recordings} recordings, ${data.fileSystem.transformations} transformations, ${data.fileSystem.runs} runs`,
 			);
 		}
 
@@ -85,43 +87,56 @@
 				direction,
 				overwriteExisting,
 				deleteAfterMigration,
-				onProgress: addLog
+				onProgress: addLog,
 			};
 
 			// Migrate recordings
-			const recordingsResult = await migrateRecordings(indexedDb, fileSystemDb, options);
+			const recordingsResult = await migrateRecordings(
+				indexedDb,
+				fileSystemDb,
+				options,
+			);
 			if (recordingsResult.error) {
-				addLog(`[Migration] ❌ Recordings migration failed: ${recordingsResult.error.message}`);
+				addLog(
+					`[Migration] ❌ Recordings migration failed: ${recordingsResult.error.message}`,
+				);
 			} else {
 				results.recordings = recordingsResult.data;
 			}
 
 			// Migrate transformations
-			const transformationsResult = await migrateTransformations(indexedDb, fileSystemDb, options);
+			const transformationsResult = await migrateTransformations(
+				indexedDb,
+				fileSystemDb,
+				options,
+			);
 			if (transformationsResult.error) {
 				addLog(
-					`[Migration] ❌ Transformations migration failed: ${transformationsResult.error.message}`
+					`[Migration] ❌ Transformations migration failed: ${transformationsResult.error.message}`,
 				);
 			} else {
 				results.transformations = transformationsResult.data;
 			}
 
 			// Migrate transformation runs
-			const runsResult = await migrateTransformationRuns(indexedDb, fileSystemDb, options);
+			const runsResult = await migrateTransformationRuns(
+				indexedDb,
+				fileSystemDb,
+				options,
+			);
 			if (runsResult.error) {
-				addLog(`[Migration] ❌ Runs migration failed: ${runsResult.error.message}`);
+				addLog(
+					`[Migration] ❌ Runs migration failed: ${runsResult.error.message}`,
+				);
 			} else {
 				results.runs = runsResult.data;
 			}
 
-			// Reload counts after migration
 			await loadCounts();
-
 			isRunning = false;
 			addLog('[Migration] Migration process complete!');
 		}
 
-		// Dev-only: Seed mock data
 		async function seedMockData() {
 			if (isSeeding) return;
 
@@ -133,20 +148,17 @@
 				recordingCount: 5000,
 				transformationCount: 50,
 				runCount: 500,
-				onProgress: addLog
+				onProgress: addLog,
 			});
 
 			addLog(
-				`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`
+				`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`,
 			);
 
-			// Reload counts after seeding
 			await loadCounts();
-
 			isSeeding = false;
 		}
 
-		// Dev-only: Clear IndexedDB
 		async function clearIndexedDB() {
 			if (isClearing) return;
 
@@ -154,27 +166,16 @@
 			clearLogs();
 			addLog('[Clear] Clearing IndexedDB...');
 
-			await clearIDB({
-				onProgress: addLog
-			});
+			await clearIDB({ onProgress: addLog });
 
 			addLog('[Clear] ✅ IndexedDB cleared');
-
-			// Reload counts after clearing
 			await loadCounts();
-
 			isClearing = false;
 		}
 
 		return {
 			get isOpen() {
 				return isOpen;
-			},
-			setOpen(value: boolean) {
-				isOpen = value;
-				if (value) {
-					loadCounts();
-				}
 			},
 			open() {
 				isOpen = true;
@@ -221,7 +222,7 @@
 			get isClearing() {
 				return isClearing;
 			},
-			clearIndexedDB
+			clearIndexedDB,
 		};
 	}
 </script>
@@ -232,6 +233,7 @@
 	import { Switch } from '@repo/ui/switch';
 	import { Checkbox } from '@repo/ui/checkbox';
 	import { Database } from '@lucide/svelte';
+	import { DownloadServiceLive } from '$lib/services/download';
 
 	let logsContainer: HTMLDivElement;
 
@@ -242,13 +244,13 @@
 		}
 	});
 
-	// Check if Tauri is available
 	const isTauriAvailable =
-		typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && window.__TAURI_INTERNALS__;
+		typeof window !== 'undefined' &&
+		'__TAURI_INTERNALS__' in window &&
+		window.__TAURI_INTERNALS__;
 </script>
 
 {#if isTauriAvailable}
-	<!-- Floating button -->
 	<button
 		class="fixed bottom-24 right-4 rounded-full bg-primary p-3 text-primary-foreground shadow-lg transition-transform hover:scale-110"
 		onclick={migrationDialog.open}
@@ -257,8 +259,11 @@
 		<Database class="h-5 w-5" />
 	</button>
 
-	<!-- Migration Dialog -->
-	<Dialog.Root open={migrationDialog.isOpen} onOpenChange={migrationDialog.setOpen}>
+	<Dialog.Root
+		open={migrationDialog.isOpen}
+		onOpenChange={(open) =>
+			open ? migrationDialog.open() : migrationDialog.close()}
+	>
 		<Dialog.Content class="max-h-[90vh] max-w-3xl overflow-y-auto">
 			<Dialog.Header>
 				<Dialog.Title>Database Migration Manager</Dialog.Title>
@@ -294,16 +299,24 @@
 							<div>
 								<p class="font-medium">IndexedDB:</p>
 								<ul class="ml-4 list-disc text-muted-foreground">
-									<li>{migrationDialog.counts.indexedDb.recordings} recordings</li>
-									<li>{migrationDialog.counts.indexedDb.transformations} transformations</li>
+									<li>
+										{migrationDialog.counts.indexedDb.recordings} recordings
+									</li>
+									<li>
+										{migrationDialog.counts.indexedDb.transformations} transformations
+									</li>
 									<li>{migrationDialog.counts.indexedDb.runs} runs</li>
 								</ul>
 							</div>
 							<div>
 								<p class="font-medium">File System:</p>
 								<ul class="ml-4 list-disc text-muted-foreground">
-									<li>{migrationDialog.counts.fileSystem.recordings} recordings</li>
-									<li>{migrationDialog.counts.fileSystem.transformations} transformations</li>
+									<li>
+										{migrationDialog.counts.fileSystem.recordings} recordings
+									</li>
+									<li>
+										{migrationDialog.counts.fileSystem.transformations} transformations
+									</li>
 									<li>{migrationDialog.counts.fileSystem.runs} runs</li>
 								</ul>
 							</div>
@@ -320,7 +333,9 @@
 							checked={migrationDialog.overwriteExisting}
 							onCheckedChange={migrationDialog.toggleOverwriteExisting}
 						/>
-						<label for="overwrite" class="text-sm">Overwrite existing items in destination</label>
+						<label for="overwrite" class="text-sm"
+							>Overwrite existing items in destination</label
+						>
 					</div>
 					<div class="flex items-center space-x-2">
 						<Checkbox
@@ -328,21 +343,18 @@
 							checked={migrationDialog.deleteAfterMigration}
 							onCheckedChange={migrationDialog.toggleDeleteAfterMigration}
 						/>
-						<label for="delete" class="text-sm">Delete items from source after migration</label>
+						<label for="delete" class="text-sm"
+							>Delete items from source after migration</label
+						>
 					</div>
 				</div>
 
-				<!-- Start Migration Button -->
 				<Button
 					onclick={migrationDialog.startMigration}
 					disabled={migrationDialog.isRunning}
 					class="w-full"
 				>
-					{#if migrationDialog.isRunning}
-						Migrating...
-					{:else}
-						Start Migration
-					{/if}
+					{migrationDialog.isRunning ? 'Migrating...' : 'Start Migration'}
 				</Button>
 
 				<!-- Logs Section -->
@@ -366,38 +378,32 @@
 						<h3 class="mb-3 text-sm font-semibold">Migration Results</h3>
 						<div class="space-y-2 text-sm">
 							{#if migrationDialog.results.recordings}
+								{@const r = migrationDialog.results.recordings}
 								<div>
 									<p class="font-medium">Recordings:</p>
 									<p class="text-muted-foreground">
-										Total: {migrationDialog.results.recordings.total} | Succeeded: {migrationDialog
-											.results.recordings.succeeded} | Failed: {migrationDialog.results.recordings
-											.failed} | Skipped: {migrationDialog.results.recordings.skipped} | Duration:
-										{migrationDialog.results.recordings.duration.toFixed(2)}s
+										Total: {r.total} | Succeeded: {r.succeeded} | Failed: {r.failed}
+										| Skipped: {r.skipped} | Duration: {r.duration.toFixed(2)}s
 									</p>
 								</div>
 							{/if}
 							{#if migrationDialog.results.transformations}
+								{@const t = migrationDialog.results.transformations}
 								<div>
 									<p class="font-medium">Transformations:</p>
 									<p class="text-muted-foreground">
-										Total: {migrationDialog.results.transformations.total} | Succeeded: {migrationDialog
-											.results.transformations.succeeded} | Failed: {migrationDialog.results
-											.transformations.failed} | Skipped: {migrationDialog.results.transformations
-											.skipped} | Duration: {migrationDialog.results.transformations.duration.toFixed(
-											2
-										)}s
+										Total: {t.total} | Succeeded: {t.succeeded} | Failed: {t.failed}
+										| Skipped: {t.skipped} | Duration: {t.duration.toFixed(2)}s
 									</p>
 								</div>
 							{/if}
 							{#if migrationDialog.results.runs}
+								{@const r = migrationDialog.results.runs}
 								<div>
 									<p class="font-medium">Transformation Runs:</p>
 									<p class="text-muted-foreground">
-										Total: {migrationDialog.results.runs.total} | Succeeded: {migrationDialog.results
-											.runs.succeeded} | Failed: {migrationDialog.results.runs.failed} | Skipped: {migrationDialog
-											.results.runs.skipped} | Duration: {migrationDialog.results.runs.duration.toFixed(
-											2
-										)}s
+										Total: {r.total} | Succeeded: {r.succeeded} | Failed: {r.failed}
+										| Skipped: {r.skipped} | Duration: {r.duration.toFixed(2)}s
 									</p>
 								</div>
 							{/if}
@@ -410,33 +416,31 @@
 					<div
 						class="rounded-lg border border-dashed border-yellow-500 bg-yellow-50 p-4 dark:bg-yellow-950"
 					>
-						<h3 class="mb-3 text-sm font-semibold text-yellow-900 dark:text-yellow-100">
+						<h3
+							class="mb-3 text-sm font-semibold text-yellow-900 dark:text-yellow-100"
+						>
 							Dev Tools (Testing Only)
 						</h3>
 						<div class="flex gap-2">
 							<Button
 								onclick={migrationDialog.seedMockData}
-								disabled={migrationDialog.isSeeding || migrationDialog.isClearing}
+								disabled={migrationDialog.isSeeding ||
+									migrationDialog.isClearing}
 								variant="outline"
 								size="sm"
 							>
-								{#if migrationDialog.isSeeding}
-									Seeding...
-								{:else}
-									Seed 5000 Recordings
-								{/if}
+								{migrationDialog.isSeeding
+									? 'Seeding...'
+									: 'Seed 5000 Recordings'}
 							</Button>
 							<Button
 								onclick={migrationDialog.clearIndexedDB}
-								disabled={migrationDialog.isSeeding || migrationDialog.isClearing}
+								disabled={migrationDialog.isSeeding ||
+									migrationDialog.isClearing}
 								variant="outline"
 								size="sm"
 							>
-								{#if migrationDialog.isClearing}
-									Clearing...
-								{:else}
-									Clear IndexedDB
-								{/if}
+								{migrationDialog.isClearing ? 'Clearing...' : 'Clear IndexedDB'}
 							</Button>
 						</div>
 					</div>
