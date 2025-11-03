@@ -34,6 +34,7 @@
  * different generic parameters. 'valid' gives you Row<TTableSchema> (typed to your schema), while
  * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
  */
+import { Type, type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
@@ -1660,6 +1661,121 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 
 			// Delegate to validateSerializedRow for schema validation
 			return this.validateSerializedRow(data as SerializedRow<TSchema>);
+		},
+
+		/**
+		 * Generates an ArkType validator for the full SerializedRow type.
+		 * All fields from the schema are included with proper type validation.
+		 *
+		 * @returns ArkType validator that validates SerializedRow<TSchema>
+		 */
+		toArktype() {
+			const fields: Record<string, string> = {};
+
+			for (const [fieldName, columnSchema] of Object.entries(schema)) {
+				let arktypeType: Type;
+
+				// Generate arktype string based on column type
+				switch (columnSchema.type) {
+					case 'id':
+					case 'text':
+					case 'ytext':
+						arktypeType = type.string;
+						break;
+					case 'integer':
+						arktypeType = type.number.divisibleBy(1);
+						break;
+					case 'real':
+						arktypeType = type.number;
+						break;
+					case 'boolean':
+						arktypeType = type.boolean;
+						break;
+					case 'date':
+						arktypeType = type.string;
+						break;
+					case 'select': {
+						const options = type.enumerated(...columnSchema.options);
+						arktypeType = options;
+						break;
+					}
+					case 'multi-select': {
+						const options = type.enumerated(...columnSchema.options);
+						arktypeType = options.array();
+						break;
+					}
+				}
+
+				// Handle nullable fields
+				if (columnSchema.type !== 'id' && columnSchema.nullable) {
+					arktypeType = arktypeType.or(type.null);
+				}
+
+				fields[fieldName] = arktypeType;
+			}
+
+			// Build the arktype object validator
+			return type(fields);
+		},
+
+		/**
+		 * Generates an ArkType validator for partial row updates.
+		 * The 'id' field is required, all other fields are optional.
+		 *
+		 * @returns ArkType validator that validates PartialSerializedRow<TSchema>
+		 */
+		toPartialArktype() {
+			const fields: Record<string, string> = {};
+
+			for (const [fieldName, columnSchema] of Object.entries(schema)) {
+				let arktypeType: Type;
+
+				// Generate arktype string based on column type
+				switch (columnSchema.type) {
+					case 'id':
+					case 'text':
+					case 'ytext':
+						arktypeType = type.string;
+						break;
+					case 'integer':
+						arktypeType = type.number.divisibleBy(1);
+						break;
+					case 'real':
+						arktypeType = type.number;
+						break;
+					case 'boolean':
+						arktypeType = type.boolean;
+						break;
+					case 'date':
+						arktypeType = type.string;
+						break;
+					case 'select': {
+						const options = type.enumerated(...columnSchema.options);
+						arktypeType = options;
+						break;
+					}
+					case 'multi-select': {
+						const options = type.enumerated(...columnSchema.options);
+						arktypeType = options.array();
+						break;
+					}
+				}
+
+				// Handle nullable fields
+				if (columnSchema.type !== 'id' && columnSchema.nullable) {
+					arktypeType = arktypeType.or(type.null);
+				}
+
+				// Make all fields optional except 'id'
+				if (fieldName === 'id') {
+					fields[fieldName] = arktypeType;
+				} else {
+					fields[fieldName] = arktypeType.optional();
+				}
+			}
+
+			// Build the arktype object validator
+			return type(fields);
 		},
 	};
 }
