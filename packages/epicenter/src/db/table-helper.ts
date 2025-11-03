@@ -217,9 +217,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 }): TableHelper<TTableSchema> {
 	type TRow = Row<TTableSchema>;
 
-	// Input validators using arktype
-	const insertInputValidator = schema.toArktype();
-	const updateInputValidator = schema.toPartialArktype();
+	// Input validators using Standard Schema
+	const insertInputValidator = schema.toStandardSchema();
+	const updateInputValidator = schema.toPartialStandardSchema();
 	const deleteInputValidator = type({
 		id: 'string',
 	});

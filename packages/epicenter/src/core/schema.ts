@@ -364,11 +364,11 @@ export type TableSchemaWithValidation<
 	/** Validates a YRow (checks schema only), returns typed Row proxy */
 	validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>>;
 
-	/** Generates an ArkType validator for full SerializedRow */
-	toArktype(): StandardSchemaV1<SerializedRow<TSchema>>;
+	/** Generates a Standard Schema validator for full SerializedRow */
+	toStandardSchema(): StandardSchemaV1<SerializedRow<TSchema>>;
 
-	/** Generates an ArkType validator for partial SerializedRow (all fields except id are optional) */
-	toPartialArktype(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
+	/** Generates a Standard Schema validator for partial SerializedRow (all fields except id are optional) */
+	toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
 };
 
 /**
@@ -1694,12 +1694,12 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 		},
 
 		/**
-		 * Generates an ArkType validator for the full SerializedRow type.
+		 * Generates a Standard Schema validator for the full SerializedRow type.
 		 * All fields from the schema are included with proper type validation.
 		 *
 		 * @returns StandardSchemaV1 validator that validates SerializedRow<TSchema>
 		 */
-		toArktype(): StandardSchemaV1<SerializedRow<TSchema>> {
+		toStandardSchema(): StandardSchemaV1<SerializedRow<TSchema>> {
 			const fields = Object.fromEntries(
 				Object.entries(schema).map(([fieldName, columnSchema]) => {
 					// Generate arktype type based on column type
@@ -1737,12 +1737,12 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 		},
 
 		/**
-		 * Generates an ArkType validator for partial row updates.
+		 * Generates a Standard Schema validator for partial row updates.
 		 * The 'id' field is required, all other fields are optional.
 		 *
 		 * @returns StandardSchemaV1 validator that validates PartialSerializedRow<TSchema>
 		 */
-		toPartialArktype(): StandardSchemaV1<PartialSerializedRow<TSchema>> {
+		toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>> {
 			const fields = Object.fromEntries(
 				Object.entries(schema).map(([fieldName, columnSchema]) => {
 					// Generate arktype type based on column type
