@@ -3,7 +3,7 @@ import type { Argv } from 'yargs';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
 import { createMockContext } from './mock-context';
-import { DEFAULT_PORT, startServer as startServer } from './server';
+import { DEFAULT_PORT, startServer } from './server';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 
 /**
