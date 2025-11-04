@@ -1119,18 +1119,29 @@
 				_clearLogs();
 				_addLog('[Seed] Starting mock data seeding...');
 
-				const result = await testData.seedIndexedDB({
-					recordingCount: MOCK_RECORDING_COUNT,
-					transformationCount: MOCK_TRANSFORMATION_COUNT,
-					runCount: MOCK_RUN_COUNT,
-					onProgress: _addLog,
+				await tryAsync({
+					try: async () => {
+						const result = await testData.seedIndexedDB({
+							recordingCount: MOCK_RECORDING_COUNT,
+							transformationCount: MOCK_TRANSFORMATION_COUNT,
+							runCount: MOCK_RUN_COUNT,
+							onProgress: _addLog,
+						});
+
+						_addLog(
+							`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`,
+						);
+
+						await this.refreshCounts();
+					},
+					catch: (error) => {
+						_addLog(
+							`[Seed] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+						);
+						return Ok(undefined);
+					},
 				});
 
-				_addLog(
-					`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`,
-				);
-
-				await this.refreshCounts();
 				isSeeding = false;
 			},
 			get isClearing() {
@@ -1143,10 +1154,21 @@
 				_clearLogs();
 				_addLog('[Clear] Clearing IndexedDB...');
 
-				await testData.clearIndexedDB({ onProgress: _addLog });
+				await tryAsync({
+					try: async () => {
+						await testData.clearIndexedDB({ onProgress: _addLog });
 
-				_addLog('[Clear] ✅ IndexedDB cleared');
-				await this.refreshCounts();
+						_addLog('[Clear] ✅ IndexedDB cleared');
+						await this.refreshCounts();
+					},
+					catch: (error) => {
+						_addLog(
+							`[Clear] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+						);
+						return Ok(undefined);
+					},
+				});
+
 				isClearing = false;
 			},
 		};
