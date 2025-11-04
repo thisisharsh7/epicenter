@@ -2,7 +2,7 @@
 	import { createFileSystemDb } from '$lib/services/db/file-system';
 	import { createDbServiceWeb } from '$lib/services/db/web';
 	import { nanoid } from 'nanoid/non-secure';
-	import { tryAsync, type Result } from 'wellcrafted/result';
+	import { Ok, tryAsync, type Result } from 'wellcrafted/result';
 	import type {
 		Recording,
 		RecordingStoredInIndexedDB,
@@ -989,6 +989,28 @@
 			logs = [];
 		}
 
+		async function refreshCounts() {
+			_addLog('[Counts] Loading item counts from both systems...');
+
+			const { data, error } = await _getMigrationCounts(
+				indexedDb,
+				fileSystemDb,
+			);
+
+			if (error) {
+				_addLog(`[Counts] ❌ Error: ${error.message}`);
+				return;
+			}
+
+			counts = data;
+			_addLog(
+				`[Counts] IndexedDB: ${data.indexedDb.recordings} recordings, ${data.indexedDb.transformations} transformations, ${data.indexedDb.runs} runs`,
+			);
+			_addLog(
+				`[Counts] File System: ${data.fileSystem.recordings} recordings, ${data.fileSystem.transformations} transformations, ${data.fileSystem.runs} runs`,
+			);
+		}
+
 		return {
 			get isOpen() {
 				return isOpen;
@@ -1008,27 +1030,7 @@
 			 * Updates the counts state which is used to determine if migration is needed.
 			 * Logs progress messages to the migration log.
 			 */
-			async refreshCounts() {
-				_addLog('[Counts] Loading item counts from both systems...');
-
-				const { data, error } = await _getMigrationCounts(
-					indexedDb,
-					fileSystemDb,
-				);
-
-				if (error) {
-					_addLog(`[Counts] ❌ Error: ${error.message}`);
-					return;
-				}
-
-				counts = data;
-				_addLog(
-					`[Counts] IndexedDB: ${data.indexedDb.recordings} recordings, ${data.indexedDb.transformations} transformations, ${data.indexedDb.runs} runs`,
-				);
-				_addLog(
-					`[Counts] File System: ${data.fileSystem.recordings} recordings, ${data.fileSystem.transformations} transformations, ${data.fileSystem.runs} runs`,
-				);
-			},
+			refreshCounts,
 			get isRunning() {
 				return isRunning;
 			},
@@ -1105,7 +1107,7 @@
 					runsResult = runsMigration.data;
 				}
 
-				await this.refreshCounts();
+				await refreshCounts();
 				isRunning = false;
 				_addLog('[Migration] Migration process complete!');
 			},
@@ -1132,7 +1134,7 @@
 							`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`,
 						);
 
-						await this.refreshCounts();
+						await refreshCounts();
 					},
 					catch: (error) => {
 						_addLog(
@@ -1159,7 +1161,7 @@
 						await testData.clearIndexedDB({ onProgress: _addLog });
 
 						_addLog('[Clear] ✅ IndexedDB cleared');
-						await this.refreshCounts();
+						await refreshCounts();
 					},
 					catch: (error) => {
 						_addLog(
