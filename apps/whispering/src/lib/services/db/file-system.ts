@@ -436,10 +436,7 @@ export function createFileSystemDb(): DbService {
 							// Validate with arktype schema
 							const validated = Transformation(data);
 							if (validated instanceof type.errors) {
-								console.error(
-									`Invalid transformation:`,
-									validated.summary,
-								);
+								console.error(`Invalid transformation:`, validated.summary);
 								return null; // Skip invalid transformation
 							}
 

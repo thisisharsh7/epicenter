@@ -639,7 +639,7 @@ export function createDbServiceDesktop({
 
 			getByRecordingId: async (recordingId: string) => {
 				// Check if runs migration completed successfully
-				const { error: migrationError} = await runsResultPromise;
+				const { error: migrationError } = await runsResultPromise;
 
 				// If migration succeeded, only read from file system
 				if (!migrationError) {
@@ -909,14 +909,10 @@ async function migrateTransformationRuns({
 	return tryAsync({
 		try: async () => {
 			// Get all runs directly from IndexedDB
-			const { data: runs, error: getRunsError } =
-				await indexedDb.runs.getAll();
+			const { data: runs, error: getRunsError } = await indexedDb.runs.getAll();
 
 			if (getRunsError) {
-				console.error(
-					'Failed to get runs from IndexedDB:',
-					getRunsError,
-				);
+				console.error('Failed to get runs from IndexedDB:', getRunsError);
 				throw getRunsError;
 			}
 

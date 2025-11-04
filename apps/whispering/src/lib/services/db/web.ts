@@ -5,6 +5,7 @@ import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import { moreDetailsDialog } from '$lib/components/MoreDetailsDialog.svelte';
 import { rpc } from '$lib/query';
 import type { DownloadService } from '$lib/services/download';
+import type { Settings } from '$lib/settings';
 import type {
 	Recording,
 	RecordingsDbSchemaV1,
@@ -25,7 +26,6 @@ import type {
 } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
-import type { Settings } from '$lib/settings';
 
 const DB_NAME = 'RecordingDB';
 
