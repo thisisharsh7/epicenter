@@ -31,7 +31,7 @@ export const tiktok = defineWorkspace({
 		sqlite: sqliteIndex,
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { ProviderContext } from '../../config';
+import type { Provider } from '../../config';
 
 /**
  * Directory name for Epicenter persistent data
@@ -7,7 +7,7 @@ import type { ProviderContext } from '../../config';
 export const EPICENTER_STORAGE_DIR = '.epicenter';
 
 /**
- * Factory function that creates a YJS document persistence provider using the filesystem.
+ * YJS document persistence provider using the filesystem.
  * Stores the YDoc as a binary file in the `.epicenter` directory.
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
@@ -22,8 +22,6 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * - Binary format (not human-readable)
  * - Should be gitignored (add `.epicenter/` to `.gitignore`)
  *
- * @returns Provider function that sets up persistence when called with ProviderContext
- *
  * @example Basic usage
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
@@ -31,7 +29,7 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence()],  // Auto-saves to .epicenter/blog.yjs
+ *   providers: [setupPersistence],  // Auto-saves to .epicenter/blog.yjs
  *   // ... schema, indexes, actions
  * });
  * ```
@@ -41,43 +39,41 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * // All workspaces persist to .epicenter/ directory
  * const pages = defineWorkspace({
  *   id: 'pages',
- *   providers: [setupPersistence()],  // → .epicenter/pages.yjs
+ *   providers: [setupPersistence],  // → .epicenter/pages.yjs
  * });
  *
  * const blog = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence()],  // → .epicenter/blog.yjs
+ *   providers: [setupPersistence],  // → .epicenter/blog.yjs
  * });
  * ```
  */
-export function setupPersistence() {
-	return async ({ id, ydoc }: ProviderContext): Promise<void> => {
-		// Dynamic imports to avoid bundling Node.js modules in browser builds
-		const fs = await import('node:fs');
-		const path = await import('node:path');
+export const setupPersistence = (async ({ id, ydoc }) => {
+	// Dynamic imports to avoid bundling Node.js modules in browser builds
+	const fs = await import('node:fs');
+	const path = await import('node:path');
 
-		// Auto-resolve to .epicenter/{id}.yjs
-		const storagePath = '.epicenter';
-		const filePath = path.join(storagePath, `${id}.yjs`);
+	// Auto-resolve to .epicenter/{id}.yjs
+	const storagePath = '.epicenter';
+	const filePath = path.join(storagePath, `${id}.yjs`);
 
-		// Ensure .epicenter directory exists
-		if (!fs.existsSync(storagePath)) {
-			fs.mkdirSync(storagePath, { recursive: true });
-		}
+	// Ensure .epicenter directory exists
+	if (!fs.existsSync(storagePath)) {
+		fs.mkdirSync(storagePath, { recursive: true });
+	}
 
-		// Try to load existing state from disk
-		try {
-			const savedState = fs.readFileSync(filePath);
-			Y.applyUpdate(ydoc, savedState);
-			console.log(`[Persistence] Loaded workspace from ${filePath}`);
-		} catch {
-			console.log(`[Persistence] Creating new workspace at ${filePath}`);
-		}
+	// Try to load existing state from disk
+	try {
+		const savedState = fs.readFileSync(filePath);
+		Y.applyUpdate(ydoc, savedState);
+		console.log(`[Persistence] Loaded workspace from ${filePath}`);
+	} catch {
+		console.log(`[Persistence] Creating new workspace at ${filePath}`);
+	}
 
-		// Auto-save on every update
-		ydoc.on('update', () => {
-			const state = Y.encodeStateAsUpdate(ydoc);
-			fs.writeFileSync(filePath, state);
-		});
-	};
-}
+	// Auto-save on every update
+	ydoc.on('update', () => {
+		const state = Y.encodeStateAsUpdate(ydoc);
+		fs.writeFileSync(filePath, state);
+	});
+}) satisfies Provider;

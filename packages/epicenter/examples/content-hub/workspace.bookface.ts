@@ -48,7 +48,7 @@ export const bookface = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

@@ -1,9 +1,8 @@
-import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type { ProviderContext } from '../../config';
+import type { Provider } from '../../config';
 
 /**
- * Set up YJS document persistence using IndexedDB.
+ * YJS document persistence provider using IndexedDB.
  * Stores the YDoc in the browser's IndexedDB storage.
  *
  * **Platform**: Web/Browser
@@ -26,8 +25,6 @@ import type { ProviderContext } from '../../config';
  * ```bash
  * bun add y-indexeddb yjs
  * ```
- *
- * @param ydoc - The YJS document to persist (must have a guid set to workspace ID)
  *
  * @example Basic usage in a browser app
  * ```typescript
@@ -80,10 +77,10 @@ import type { ProviderContext } from '../../config';
  *
  * @see {@link setupPersistence} from `@repo/epicenter/persistence/desktop` for Node.js/filesystem version
  */
-export function setupPersistence({ ydoc }: ProviderContext): void {
+export const setupPersistence = (({ ydoc }) => {
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
 	new IndexeddbPersistence(ydoc.guid, ydoc);
 
 	console.log(`[Persistence] IndexedDB persistence enabled for ${ydoc.guid}`);
-}
+}) satisfies Provider;

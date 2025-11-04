@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { setupPersistence } from '../../src/core/workspace/providers/persistence/desktop';
+import { setupPersistence } from '../../src/core/workspace/providers';
 import {
 	type Row,
 	defineEpicenter,
@@ -245,9 +245,9 @@ const blogWorkspace = defineWorkspace({
 		}),
 	}),
 
-	// Use desktop persistence
+	// Use isomorphic persistence
 	// Stores YJS document at .epicenter/blog.yjs (auto-resolved)
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 });
 
 export default defineEpicenter({

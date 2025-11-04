@@ -47,7 +47,7 @@ export const epicenterBlog = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

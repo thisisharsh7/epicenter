@@ -47,7 +47,7 @@ export const medium = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

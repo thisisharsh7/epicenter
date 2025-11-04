@@ -48,7 +48,7 @@ export const discord = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

@@ -31,7 +31,7 @@ export const reddit = defineWorkspace({
 		sqlite: sqliteIndex,
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

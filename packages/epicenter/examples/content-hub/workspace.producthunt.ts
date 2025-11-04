@@ -47,7 +47,7 @@ export const producthunt = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

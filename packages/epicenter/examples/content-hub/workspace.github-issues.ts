@@ -48,7 +48,7 @@ export const githubIssues = defineWorkspace({
 		sqlite: sqliteIndex,
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**

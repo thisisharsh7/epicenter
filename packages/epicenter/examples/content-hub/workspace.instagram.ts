@@ -32,7 +32,7 @@ export const instagram = defineWorkspace({
 		sqlite: sqliteIndex,
 	},
 
-	providers: [setupPersistence()],
+	providers: [setupPersistence],
 
 	actions: ({ db, indexes }) => ({
 		/**
