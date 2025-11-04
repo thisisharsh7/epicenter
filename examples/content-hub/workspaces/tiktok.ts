@@ -1,7 +1,4 @@
 import path from 'node:path';
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
-import { setupPersistence } from '@epicenter/hq/providers';
 import {
 	DateWithTimezone,
 	defineMutation,
@@ -11,6 +8,9 @@ import {
 	generateId,
 	sqliteIndex,
 } from '@epicenter/hq';
+import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
+import { Ok } from 'wellcrafted/result';
 import { SHORT_FORM_VIDEO_SCHEMA } from './shared/schemas';
 
 /**
@@ -28,7 +28,7 @@ export const tiktok = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 	},
 
 	providers: [setupPersistence],
