@@ -74,7 +74,7 @@ describe('Markdown Bidirectional Sync', () => {
 					id: 'string',
 				}),
 				handler: async ({ id }) => {
-					const result = db.tables.notes.get(id);
+					const result = await db.tables.notes.get({ id });
 					if (result.status === 'valid') {
 						return Ok(result.row);
 					}

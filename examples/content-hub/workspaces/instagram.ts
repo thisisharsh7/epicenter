@@ -113,7 +113,7 @@ export const instagram = defineWorkspace({
 					}).toJSON(),
 				};
 				db.tables.posts.update(updates);
-				const { row } = db.tables.posts.get({ id });
+				const { row } = await db.tables.posts.get({ id });
 				return Ok(row);
 			},
 		}),

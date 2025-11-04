@@ -6,7 +6,7 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
 import {
-	type Row,
+	type SerializedRow,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -27,7 +27,6 @@ import { createCLI } from './cli';
  */
 describe('CLI End-to-End Tests', () => {
 	const TEST_DIR = path.join(import.meta.dir, '.data');
-	const TEST_DB = path.join(TEST_DIR, 'test.db');
 	const TEST_MARKDOWN = path.join(TEST_DIR, 'content');
 
 	// Define a test workspace
@@ -66,7 +65,7 @@ describe('CLI End-to-End Tests', () => {
 			}),
 
 			getPost: defineQuery({
-				input: type({ id: "string" }),
+				input: type({ id: 'string' }),
 				handler: async ({ id }) => {
 					const post = await indexes.sqlite.db
 						.select()
@@ -78,9 +77,9 @@ describe('CLI End-to-End Tests', () => {
 
 			createPost: defineMutation({
 				input: type({
-					title: "string",
-					"content?": "string",
-					category: "string",
+					title: 'string',
+					'content?': 'string',
+					category: 'string',
 				}),
 				handler: async ({ title, content, category }) => {
 					const post = {
@@ -89,7 +88,7 @@ describe('CLI End-to-End Tests', () => {
 						content: content ?? null,
 						category,
 						views: 0,
-					} satisfies Row<typeof db.schema.posts>;
+					} satisfies SerializedRow<typeof db.schema.posts>;
 					db.tables.posts.insert(post);
 					return Ok(post);
 				},
@@ -97,16 +96,16 @@ describe('CLI End-to-End Tests', () => {
 
 			updateViews: defineMutation({
 				input: type({
-					id: "string",
-					views: "number",
+					id: 'string',
+					views: 'number',
 				}),
 				handler: async ({ id, views }) => {
-					const { status, row } = db.tables.posts.get(id);
+					const { status, row } = await db.tables.posts.get({ id });
 					if (status !== 'valid') {
 						throw new Error(`Post ${id} not found`);
 					}
 					db.tables.posts.update({ id, views });
-					const { row: updatedPost } = db.tables.posts.get(id);
+					const { row: updatedPost } = await db.tables.posts.get({ id });
 					return Ok(updatedPost);
 				},
 			}),
@@ -162,7 +161,14 @@ describe('CLI End-to-End Tests', () => {
 		// First create a post
 		const createCli = await createCLI({
 			config: epicenter,
-			argv: ['posts', 'createPost', '--title', 'Query Test', '--category', 'tech'],
+			argv: [
+				'posts',
+				'createPost',
+				'--title',
+				'Query Test',
+				'--category',
+				'tech',
+			],
 		});
 		await createCli.parse();
 
@@ -195,7 +201,14 @@ describe('CLI End-to-End Tests', () => {
 	test('CLI properly formats success output', async () => {
 		const cli = await createCLI({
 			config: epicenter,
-			argv: ['posts', 'createPost', '--title', 'Output Test', '--category', 'test'],
+			argv: [
+				'posts',
+				'createPost',
+				'--title',
+				'Output Test',
+				'--category',
+				'test',
+			],
 		});
 
 		// Capture console output
