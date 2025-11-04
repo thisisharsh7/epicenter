@@ -46,7 +46,7 @@
 		/**
 		 * Generate a mock recording with realistic data.
 		 */
-		function generateMockRecording(options: {
+		function _generateMockRecording(options: {
 			index: number;
 			baseTimestamp: Date;
 		}): RecordingStoredInIndexedDB {
@@ -88,7 +88,7 @@
 				updatedAt: now,
 				transcribedText,
 				transcriptionStatus,
-				serializedAudio: generateMockAudio(),
+				serializedAudio: _generateMockAudio(),
 			};
 		}
 
@@ -96,7 +96,7 @@
 		 * Generate a small mock audio ArrayBuffer (~1KB).
 		 * This creates a minimal valid audio buffer for testing purposes.
 		 */
-		function generateMockAudio(): SerializedAudio {
+		function _generateMockAudio(): SerializedAudio {
 			// Create a small buffer (1024 bytes = 1KB)
 			const size = 1024;
 			const buffer = new ArrayBuffer(size);
@@ -116,7 +116,7 @@
 		/**
 		 * Generate a mock transformation.
 		 */
-		function generateMockTransformation(options: {
+		function _generateMockTransformation(options: {
 			index: number;
 		}): Transformation {
 			const { index } = options;
@@ -174,7 +174,7 @@
 		/**
 		 * Generate a mock transformation run.
 		 */
-		function generateMockTransformationRun(options: {
+		function _generateMockTransformationRun(options: {
 			index: number;
 			recordingIds: string[];
 			transformationIds: string[];
@@ -336,7 +336,7 @@
 				onProgress(`Generating ${recordingCount} mock recordings...`);
 				const recordings: RecordingStoredInIndexedDB[] = [];
 				for (let i = 0; i < recordingCount; i++) {
-					recordings.push(generateMockRecording({ index: i, baseTimestamp }));
+					recordings.push(_generateMockRecording({ index: i, baseTimestamp }));
 
 					if ((i + 1) % 1000 === 0) {
 						onProgress(`Generated ${i + 1}/${recordingCount} recordings`);
@@ -373,7 +373,7 @@
 				onProgress(`Generating ${transformationCount} mock transformations...`);
 				const transformations: Transformation[] = [];
 				for (let i = 0; i < transformationCount; i++) {
-					transformations.push(generateMockTransformation({ index: i }));
+					transformations.push(_generateMockTransformation({ index: i }));
 				}
 
 				// Bulk insert transformations
@@ -394,7 +394,7 @@
 				const runs: TransformationRun[] = [];
 				for (let i = 0; i < runCount; i++) {
 					runs.push(
-						generateMockTransformationRun({
+						_generateMockTransformationRun({
 							index: i,
 							recordingIds,
 							transformationIds,
@@ -490,15 +490,9 @@
 			indexedDb: { recordings: number; transformations: number; runs: number };
 			fileSystem: { recordings: number; transformations: number; runs: number };
 		} | null>(null);
-		let results = $state<{
-			recordings: MigrationResult | null;
-			transformations: MigrationResult | null;
-			runs: MigrationResult | null;
-		}>({
-			recordings: null,
-			transformations: null,
-			runs: null,
-		});
+		let recordingsResult = $state<MigrationResult | null>(null);
+		let transformationsResult = $state<MigrationResult | null>(null);
+		let runsResult = $state<MigrationResult | null>(null);
 		let isSeeding = $state(false);
 		let isClearing = $state(false);
 
@@ -517,7 +511,7 @@
 		 * @param options - Migration configuration
 		 * @returns Result with counts and timing
 		 */
-		async function migrateRecordings(
+		async function _migrateRecordings(
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
@@ -647,7 +641,7 @@
 		 * Migrate transformations between IndexedDB and file system.
 		 * Processes items in batches of 100 to prevent memory issues.
 		 */
-		async function migrateTransformations(
+		async function _migrateTransformations(
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
@@ -765,7 +759,7 @@
 		 * Migrate transformation runs between IndexedDB and file system.
 		 * Processes items in batches of 100 to prevent memory issues.
 		 */
-		async function migrateTransformationRuns(
+		async function _migrateTransformationRuns(
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
@@ -887,7 +881,7 @@
 		 * Get counts of items in both storage systems.
 		 * Useful for showing users what data exists where.
 		 */
-		async function getMigrationCounts(
+		async function _getMigrationCounts(
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 		): Promise<
@@ -945,133 +939,31 @@
 			});
 		}
 
-		function addLog(message: string) {
+		function _addLog(message: string) {
 			logs.push(message);
 		}
 
-		function clearLogs() {
+		function _clearLogs() {
 			logs = [];
 		}
 
-		async function loadCounts() {
-			addLog('[Counts] Loading item counts from both systems...');
+		async function _loadCounts() {
+			_addLog('[Counts] Loading item counts from both systems...');
 
-			const { data, error } = await getMigrationCounts(indexedDb, fileSystemDb);
+			const { data, error } = await _getMigrationCounts(indexedDb, fileSystemDb);
 
 			if (error) {
-				addLog(`[Counts] ❌ Error: ${error.message}`);
+				_addLog(`[Counts] ❌ Error: ${error.message}`);
 				return;
 			}
 
 			counts = data;
-			addLog(
+			_addLog(
 				`[Counts] IndexedDB: ${data.indexedDb.recordings} recordings, ${data.indexedDb.transformations} transformations, ${data.indexedDb.runs} runs`,
 			);
-			addLog(
+			_addLog(
 				`[Counts] File System: ${data.fileSystem.recordings} recordings, ${data.fileSystem.transformations} transformations, ${data.fileSystem.runs} runs`,
 			);
-		}
-
-		async function startMigration() {
-			if (isRunning) return;
-
-			isRunning = true;
-			clearLogs();
-			results = { recordings: null, transformations: null, runs: null };
-
-			addLog('[Migration] Starting migration process...');
-			addLog(`[Migration] Direction: ${direction}`);
-			addLog(`[Migration] Overwrite existing: ${overwriteExisting}`);
-			addLog(`[Migration] Delete after migration: ${deleteAfterMigration}`);
-
-			const options = {
-				direction,
-				overwriteExisting,
-				deleteAfterMigration,
-				onProgress: addLog,
-			};
-
-			// Migrate recordings
-			const recordingsResult = await migrateRecordings(
-				indexedDb,
-				fileSystemDb,
-				options,
-			);
-			if (recordingsResult.error) {
-				addLog(
-					`[Migration] ❌ Recordings migration failed: ${recordingsResult.error.message}`,
-				);
-			} else {
-				results.recordings = recordingsResult.data;
-			}
-
-			// Migrate transformations
-			const transformationsResult = await migrateTransformations(
-				indexedDb,
-				fileSystemDb,
-				options,
-			);
-			if (transformationsResult.error) {
-				addLog(
-					`[Migration] ❌ Transformations migration failed: ${transformationsResult.error.message}`,
-				);
-			} else {
-				results.transformations = transformationsResult.data;
-			}
-
-			// Migrate transformation runs
-			const runsResult = await migrateTransformationRuns(
-				indexedDb,
-				fileSystemDb,
-				options,
-			);
-			if (runsResult.error) {
-				addLog(
-					`[Migration] ❌ Runs migration failed: ${runsResult.error.message}`,
-				);
-			} else {
-				results.runs = runsResult.data;
-			}
-
-			await loadCounts();
-			isRunning = false;
-			addLog('[Migration] Migration process complete!');
-		}
-
-		async function seedMockData() {
-			if (isSeeding) return;
-
-			isSeeding = true;
-			clearLogs();
-			addLog('[Seed] Starting mock data seeding...');
-
-			const result = await testData.seedIndexedDB({
-				recordingCount: 5000,
-				transformationCount: 50,
-				runCount: 500,
-				onProgress: addLog,
-			});
-
-			addLog(
-				`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`,
-			);
-
-			await loadCounts();
-			isSeeding = false;
-		}
-
-		async function clearIndexedDB() {
-			if (isClearing) return;
-
-			isClearing = true;
-			clearLogs();
-			addLog('[Clear] Clearing IndexedDB...');
-
-			await testData.clearIndexedDB({ onProgress: addLog });
-
-			addLog('[Clear] ✅ IndexedDB cleared');
-			await loadCounts();
-			isClearing = false;
 		}
 
 		return {
@@ -1080,7 +972,7 @@
 			},
 			open() {
 				isOpen = true;
-				loadCounts();
+				_loadCounts();
 			},
 			close() {
 				isOpen = false;
@@ -1112,18 +1004,122 @@
 			get counts() {
 				return counts;
 			},
-			get results() {
-				return results;
+			get recordingsResult() {
+				return recordingsResult;
 			},
-			startMigration,
+			get transformationsResult() {
+				return transformationsResult;
+			},
+			get runsResult() {
+				return runsResult;
+			},
+			async startMigration() {
+				if (isRunning) return;
+
+				isRunning = true;
+				_clearLogs();
+				recordingsResult = null;
+				transformationsResult = null;
+				runsResult = null;
+
+				_addLog('[Migration] Starting migration process...');
+				_addLog(`[Migration] Direction: ${direction}`);
+				_addLog(`[Migration] Overwrite existing: ${overwriteExisting}`);
+				_addLog(`[Migration] Delete after migration: ${deleteAfterMigration}`);
+
+				const options = {
+					direction,
+					overwriteExisting,
+					deleteAfterMigration,
+					onProgress: _addLog,
+				};
+
+				// Migrate recordings
+				const recordingsMigration = await _migrateRecordings(
+					indexedDb,
+					fileSystemDb,
+					options,
+				);
+				if (recordingsMigration.error) {
+					_addLog(
+						`[Migration] ❌ Recordings migration failed: ${recordingsMigration.error.message}`,
+					);
+				} else {
+					recordingsResult = recordingsMigration.data;
+				}
+
+				// Migrate transformations
+				const transformationsMigration = await _migrateTransformations(
+					indexedDb,
+					fileSystemDb,
+					options,
+				);
+				if (transformationsMigration.error) {
+					_addLog(
+						`[Migration] ❌ Transformations migration failed: ${transformationsMigration.error.message}`,
+					);
+				} else {
+					transformationsResult = transformationsMigration.data;
+				}
+
+				// Migrate transformation runs
+				const runsMigration = await _migrateTransformationRuns(
+					indexedDb,
+					fileSystemDb,
+					options,
+				);
+				if (runsMigration.error) {
+					_addLog(
+						`[Migration] ❌ Runs migration failed: ${runsMigration.error.message}`,
+					);
+				} else {
+					runsResult = runsMigration.data;
+				}
+
+				await _loadCounts();
+				isRunning = false;
+				_addLog('[Migration] Migration process complete!');
+			},
 			get isSeeding() {
 				return isSeeding;
 			},
-			seedMockData,
+			async seedMockData() {
+				if (isSeeding) return;
+
+				isSeeding = true;
+				_clearLogs();
+				_addLog('[Seed] Starting mock data seeding...');
+
+				const result = await testData.seedIndexedDB({
+					recordingCount: 5000,
+					transformationCount: 50,
+					runCount: 500,
+					onProgress: _addLog,
+				});
+
+				_addLog(
+					`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`,
+				);
+
+				await _loadCounts();
+				isSeeding = false;
+			},
 			get isClearing() {
 				return isClearing;
 			},
-			clearIndexedDB,
+			async clearIndexedDB() {
+				if (isClearing) return;
+
+				isClearing = true;
+				_clearLogs();
+				_addLog('[Clear] Clearing IndexedDB...');
+
+				await testData.clearIndexedDB({ onProgress: _addLog });
+
+				_addLog('[Clear] ✅ IndexedDB cleared');
+				await _loadCounts();
+				isClearing = false;
+			},
 		};
 	}
 </script>
@@ -1271,12 +1267,12 @@
 			{/if}
 
 			<!-- Results Section -->
-			{#if migrationDialog.results.recordings || migrationDialog.results.transformations || migrationDialog.results.runs}
+			{#if migrationDialog.recordingsResult || migrationDialog.transformationsResult || migrationDialog.runsResult}
 				<div class="rounded-lg border p-4">
 					<h3 class="mb-3 text-sm font-semibold">Migration Results</h3>
 					<div class="space-y-2 text-sm">
-						{#if migrationDialog.results.recordings}
-							{@const r = migrationDialog.results.recordings}
+						{#if migrationDialog.recordingsResult}
+							{@const r = migrationDialog.recordingsResult}
 							<div>
 								<p class="font-medium">Recordings:</p>
 								<p class="text-muted-foreground">
@@ -1285,8 +1281,8 @@
 								</p>
 							</div>
 						{/if}
-						{#if migrationDialog.results.transformations}
-							{@const t = migrationDialog.results.transformations}
+						{#if migrationDialog.transformationsResult}
+							{@const t = migrationDialog.transformationsResult}
 							<div>
 								<p class="font-medium">Transformations:</p>
 								<p class="text-muted-foreground">
@@ -1295,8 +1291,8 @@
 								</p>
 							</div>
 						{/if}
-						{#if migrationDialog.results.runs}
-							{@const r = migrationDialog.results.runs}
+						{#if migrationDialog.runsResult}
+							{@const r = migrationDialog.runsResult}
 							<div>
 								<p class="font-medium">Transformation Runs:</p>
 								<p class="text-muted-foreground">
