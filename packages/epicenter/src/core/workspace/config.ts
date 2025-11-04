@@ -1,26 +1,27 @@
 import type * as Y from 'yjs';
 import type { Db } from '../../db/core';
 import type { WorkspaceActionMap } from '../actions';
-import type { WorkspaceIndexMap } from '../indexes';
+import type { IndexContext, WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 
 /**
  * Context provided to each YJS provider function.
  *
- * Currently contains only the YJS document, but designed as an object for future extensibility.
- * Future versions may add workspace configuration, database access, or other contextual data.
+ * Provides workspace metadata and the YJS document that providers attach to.
  *
- * @property ydoc - The YJS document that providers attach to. Has a `guid` property set to the workspace ID.
+ * @property id - The workspace ID (e.g., 'blog', 'content-hub')
+ * @property ydoc - The YJS document that providers attach to
  *
- * @example Accessing the workspace ID
+ * @example Using workspace ID in a provider
  * ```typescript
- * const myProvider: Provider = ({ ydoc }) => {
- *   console.log(`Setting up provider for workspace: ${ydoc.guid}`);
- *   // ydoc.guid is the workspace ID (e.g., 'blog', 'content-hub')
+ * const myProvider: Provider = ({ id, ydoc }) => {
+ *   console.log(`Setting up provider for workspace: ${id}`);
+ *   // Use id for file naming, logging, etc.
  * };
  * ```
  */
 export type ProviderContext = {
+	id: string;
 	ydoc: Y.Doc;
 };
 
@@ -241,7 +242,7 @@ export type WorkspaceConfig<
 	dependencies?: TDeps;
 	indexes: {
 		[K in keyof TIndexResults]: (
-			db: Db<TWorkspaceSchema>,
+			context: IndexContext<TWorkspaceSchema>,
 		) => TIndexResults[K] | Promise<TIndexResults[K]>;
 	};
 	providers?: Provider[];

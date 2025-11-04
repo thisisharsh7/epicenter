@@ -48,10 +48,12 @@ const blogWorkspace = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db),
-		markdown: (db) =>
-			markdownIndex(db, {
-				rootPath: path.join(import.meta.dirname, '.data/content'),
+		sqlite: sqliteIndex,
+		markdown: ({ id, db }) =>
+			markdownIndex({
+				id,
+				db,
+				rootPath: '.data/content',
 				pathToTableAndId: ({ path: filePath }) => {
 					const parts = filePath.split(path.sep);
 					if (parts.length < 2) {
@@ -243,13 +245,9 @@ const blogWorkspace = defineWorkspace({
 		}),
 	}),
 
-	// Use desktop persistence with absolute path
-	// Stores YJS document at examples/basic-workspace/.epicenter/blog.yjs
-	providers: [
-		setupPersistence({
-			storagePath: path.join(import.meta.dirname, '.epicenter'),
-		}),
-	],
+	// Use desktop persistence
+	// Stores YJS document at .epicenter/blog.yjs (auto-resolved)
+	providers: [setupPersistence()],
 });
 
 export default defineEpicenter({

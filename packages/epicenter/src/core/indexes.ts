@@ -4,6 +4,32 @@
  * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
  */
 
+import type { Db } from '../db/core';
+import type { WorkspaceSchema } from './schema';
+
+/**
+ * Context provided to each index factory function.
+ *
+ * Provides workspace metadata and database instance that indexes sync with.
+ *
+ * @property id - The workspace ID (e.g., 'blog', 'content-hub')
+ * @property db - The Epicenter database instance containing YJS-backed tables
+ *
+ * @example Creating an index with IndexContext
+ * ```typescript
+ * export function sqliteIndex<TSchema extends WorkspaceSchema>(
+ *   { id, db }: IndexContext<TSchema>
+ * ) {
+ *   // Use id for file naming: `.epicenter/${id}.db`
+ *   // Use db to observe table changes
+ * }
+ * ```
+ */
+export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
+	id: string;
+	db: Db<TSchema>;
+};
+
 /**
  * A collection of workspace indexes indexed by index name.
  *

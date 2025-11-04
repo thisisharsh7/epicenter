@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Brand } from 'wellcrafted/brand';
 import { Ok, trySync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
-import { defineIndex } from '../../core/indexes';
+import { type IndexContext, defineIndex } from '../../core/indexes';
 import type {
 	Row,
 	SerializedRow,
@@ -13,7 +13,6 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import { createTableSchemaWithValidation } from '../../core/schema';
-import type { Db } from '../../db/core';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
 
@@ -64,17 +63,25 @@ export type MarkdownIndexConfig<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 > = {
 	/**
-	 * Absolute root path where markdown files should be stored
+	 * Root path where markdown files should be stored.
 	 *
-	 * Must be an absolute path. Use `path.join(import.meta.dirname, './vault')` to create
-	 * an absolute path from a relative path at the call site.
+	 * **Relative paths** (recommended): Resolved relative to epicenter.config.ts location
+	 * ```typescript
+	 * rootPath: './vault'      // → <config-dir>/vault
+	 * rootPath: '../content'   // → <config-dir>/../content
+	 * ```
 	 *
-	 * All file paths returned by tableAndIdToPath will be relative to this root path.
+	 * **Absolute paths**: Used as-is
+	 * ```typescript
+	 * rootPath: '/absolute/path/to/vault'
+	 * ```
 	 *
-	 * Example:
+	 * **Explicit control**: Use import.meta.dirname for precision
 	 * ```typescript
 	 * rootPath: path.join(import.meta.dirname, './vault')
 	 * ```
+	 *
+	 * All file paths returned by tableAndIdToPath will be relative to this root path.
 	 */
 	rootPath: string;
 
@@ -266,7 +273,7 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
  *
  * Expected directory structure:
  * ```
- * {storagePath}/
+ * {rootPath}/
  *   {tableName}/
  *     {row-id}.md
  *     {row-id}.md
@@ -274,21 +281,22 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
  *     {row-id}.md
  * ```
  *
- * @param db - Epicenter database instance
- * @param config - Markdown configuration options
- * @param config.rootPath - Absolute root path where markdown files should be stored.
- *                          Use path.join(import.meta.dirname, './vault') to create absolute paths.
- * @param config.serializers - Optional custom serializers per table. Uses defaults when omitted.
+ * @param context - Index context and markdown configuration
+ * @param context.id - Workspace ID
+ * @param context.db - Epicenter database instance
+ * @param context.rootPath - Root path where markdown files should be stored (relative to config or absolute)
+ * @param context.pathToTableAndId - Function to extract table name and ID from file paths
+ * @param context.tableAndIdToPath - Function to build file paths from table name and ID
+ * @param context.serializers - Optional custom serializers per table
  */
-export function markdownIndex<TSchema extends WorkspaceSchema>(
-	db: Db<TSchema>,
-	{
-		rootPath,
-		pathToTableAndId,
-		tableAndIdToPath,
-		serializers = {},
-	}: MarkdownIndexConfig<TSchema>,
-) {
+export function markdownIndex<TSchema extends WorkspaceSchema>({
+	id,
+	db,
+	rootPath,
+	pathToTableAndId,
+	tableAndIdToPath,
+	serializers = {},
+}: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
 	/**
 	 * Assert rootPath as AbsolutePath for type safety
 	 * Caller is responsible for ensuring the path is absolute

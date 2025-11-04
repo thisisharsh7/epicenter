@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import path from 'node:path';
 import { Database } from '@tursodatabase/database/compat';
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -9,28 +9,9 @@ import {
 import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
-import { defineIndex } from '../../core/indexes';
+import { type IndexContext, defineIndex } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
-import type { Db } from '../../db/core';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
-
-/**
- * SQLite index configuration
- */
-export type SQLiteIndexConfig = {
-	/**
-	 * Path to the SQLite database file.
-	 *
-	 * If provided, the SQLite index will use file-based storage at this path.
-	 * If not provided, the index will use in-memory storage (useful for testing).
-	 *
-	 * For file-based storage, construct the path using:
-	 * ```typescript
-	 * path: join(import.meta.dirname, '.epicenter/database.db')
-	 * ```
-	 */
-	path?: string;
-};
 
 /**
  * Create a SQLite index
@@ -40,21 +21,15 @@ export type SQLiteIndexConfig = {
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
  *
- * @param db - Epicenter database instance
- * @param config - SQLite configuration
+ * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the current working directory.
+ *
+ * @param context - Index context with workspace ID and database instance
  *
  * @example
  * ```typescript
- * // In workspace definition with file-based storage:
+ * // In workspace definition:
  * indexes: {
- *   sqlite: (db) => sqliteIndex(db, {
- *     path: join(import.meta.dirname, '.epicenter/database.db')
- *   }),
- * },
- *
- * // Or with in-memory storage (for testing):
- * indexes: {
- *   sqlite: (db) => sqliteIndex(db),
+ *   sqlite: sqliteIndex,  // Auto-saves to .epicenter/{id}.db
  * },
  *
  * actions: ({ indexes }) => ({
@@ -72,31 +47,18 @@ export type SQLiteIndexConfig = {
  * })
  * ```
  */
-export async function sqliteIndex<TSchema extends WorkspaceSchema>(
-	db: Db<TSchema>,
-	config: SQLiteIndexConfig = {},
-) {
+export async function sqliteIndex<TSchema extends WorkspaceSchema>({
+	id,
+	db,
+}: IndexContext<TSchema>) {
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
-	// Determine database path based on config
-	let resolvedDatabasePath: string;
-	if (config.path) {
-		// File-based storage: use provided path
-		resolvedDatabasePath = config.path;
+	// Auto-resolve path to .epicenter/{id}.db
+	const resolvedDatabasePath = path.join('.epicenter', `${id}.db`);
 
-		// Create parent directory if it doesn't exist
-		const dirPath = resolvedDatabasePath.substring(
-			0,
-			resolvedDatabasePath.lastIndexOf('/'),
-		);
-		if (dirPath) {
-			await mkdir(dirPath, { recursive: true });
-		}
-	} else {
-		// In-memory storage
-		resolvedDatabasePath = ':memory:';
-	}
+	// Create .epicenter directory if it doesn't exist
+	await mkdir('.epicenter', { recursive: true });
 
 	// Create database connection with schema for proper type inference
 	// WAL mode is enabled for better concurrent access
@@ -114,12 +76,12 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 			throw new Error(`Drizzle table for "${tableName}" not found`);
 		}
 
-		const unsub = db.tables[tableName]!.observe({
+		const unsub = db.tables[tableName].observe({
 			onAdd: async (row) => {
 				const { error } = await tryAsync({
 					try: async () => {
 						const serializedRow = row.toJSON();
-						await sqliteDb.insert(drizzleTable as any).values(serializedRow);
+						await sqliteDb.insert(drizzleTable).values(serializedRow);
 					},
 					catch: () => Ok(undefined),
 				});
@@ -189,7 +151,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>(
 			throw new Error(`Drizzle table for "${tableName}" not found`);
 		}
 
-		const results = db.tables[tableName]!.getAll();
+		const results = db.tables[tableName].getAll();
 		const rows = results.filter((r) => r.status === 'valid').map((r) => r.row);
 
 		for (const row of rows) {

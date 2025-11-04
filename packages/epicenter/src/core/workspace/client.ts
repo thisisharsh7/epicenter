@@ -302,21 +302,23 @@ export async function initializeWorkspaces<
 		// Providers can be sync or async, so we await all of them in parallel
 		if (workspaceConfig.providers) {
 			await Promise.all(
-				workspaceConfig.providers.map((provider) => provider({ ydoc })),
+				workspaceConfig.providers.map((provider) =>
+					provider({ id: workspaceConfig.id, ydoc }),
+				),
 			);
 		}
 
 		// Initialize Epicenter database (wraps YJS with table/record API)
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
-		// Initialize each index by calling its factory function with the db
-		// Each index function receives the db and returns an index object
+		// Initialize each index by calling its factory function with IndexContext
+		// Each index function receives { id, db } and returns an index object
 		// Initialize all indexes in parallel for better performance
 		const indexes = Object.fromEntries(
 			await Promise.all(
 				Object.entries(workspaceConfig.indexes).map(async ([indexId, indexFn]) => [
 					indexId,
-					await indexFn(db),
+					await indexFn({ id: workspaceConfig.id, db }),
 				]),
 			),
 		) as {
