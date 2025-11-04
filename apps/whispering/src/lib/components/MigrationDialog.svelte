@@ -37,9 +37,9 @@
 	/**
 	 * Default counts for seeding mock data
 	 */
-	const MOCK_RECORDING_COUNT = 5000;
-	const MOCK_TRANSFORMATION_COUNT = 50;
-	const MOCK_RUN_COUNT = 500;
+	const MOCK_RECORDING_COUNT = 10;
+	const MOCK_TRANSFORMATION_COUNT = 10;
+	const MOCK_RUN_COUNT = 10;
 
 	const testData = createMigrationTestData();
 	const migrationDialog = createMigrationDialog();
@@ -510,27 +510,22 @@
 		 * Migrate recordings between IndexedDB and file system.
 		 * Processes items in batches of 100 to prevent memory issues.
 		 *
-		 * @param indexedDb - IndexedDB service instance
-		 * @param fileSystemDb - File system service instance
-		 * @param options - Migration configuration
 		 * @returns Result with counts and timing
 		 */
-		async function _migrateRecordings(
-			indexedDb: DbService,
-			fileSystemDb: DbService,
-			{
-				onProgress,
-			}: {
-				onProgress?: (message: string) => void;
-			},
-		): Promise<Result<MigrationResult, DbServiceError>> {
+		async function _migrateRecordings({
+			indexedDb,
+			fileSystemDb,
+			onProgress,
+		}: {
+			indexedDb: DbService;
+			fileSystemDb: DbService;
+			onProgress: (message: string) => void;
+		}): Promise<Result<MigrationResult, DbServiceError>> {
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					onProgress?.(
-						'[Migration] Starting recordings migration (IDB → FS)...',
-					);
+					onProgress('[Migration] Starting recordings migration (IDB → FS)...');
 
 					// Get all recordings from source
 					const { data: recordings, error: getError } =
@@ -541,7 +536,7 @@
 					}
 
 					if (!recordings || recordings.length === 0) {
-						onProgress?.('[Migration] No recordings to migrate');
+						onProgress('[Migration] No recordings to migrate');
 						return {
 							total: 0,
 							succeeded: 0,
@@ -556,8 +551,8 @@
 					let failed = 0;
 					let skipped = 0;
 
-					onProgress?.(`[Migration] Found ${total} recordings in IndexedDB`);
-					onProgress?.(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
+					onProgress(`[Migration] Found ${total} recordings in IndexedDB`);
+					onProgress(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
 
 					// Process in batches
 					for (let i = 0; i < recordings.length; i += BATCH_SIZE) {
@@ -565,7 +560,7 @@
 						const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 						const totalBatches = Math.ceil(recordings.length / BATCH_SIZE);
 
-						onProgress?.(
+						onProgress(
 							`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`,
 						);
 
@@ -585,7 +580,7 @@
 								await indexedDb.recordings.getAudioBlob(recording.id);
 
 							if (audioError || !audio) {
-								onProgress?.(
+								onProgress(
 									`[Migration] ⚠️  Failed to get audio for recording ${recording.id}`,
 								);
 								failed++;
@@ -600,7 +595,7 @@
 								});
 
 							if (createError) {
-								onProgress?.(
+								onProgress(
 									`[Migration] ⚠️  Failed to create recording ${recording.id} in file system`,
 								);
 								failed++;
@@ -612,8 +607,12 @@
 								await indexedDb.recordings.delete(recording);
 
 							if (deleteError) {
-								onProgress?.(
+								onProgress(
 									`[Migration] ⚠️  Warning: Failed to delete recording ${recording.id} from IndexedDB after migration`,
+								);
+							} else {
+								onProgress(
+									`[Migration] ✓ Deleted recording ${recording.id} from IndexedDB`,
 								);
 							}
 
@@ -623,7 +622,7 @@
 
 						// Log batch completion
 						const processed = Math.min(i + BATCH_SIZE, recordings.length);
-						onProgress?.(
+						onProgress(
 							`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`,
 						);
 					}
@@ -631,19 +630,15 @@
 					const duration = (performance.now() - startTime) / 1000;
 					const successRate = ((succeeded / total) * 100).toFixed(1);
 
-					onProgress?.(
-						'[Migration] ==========================================',
-					);
-					onProgress?.(
+					onProgress('[Migration] ==========================================');
+					onProgress(
 						`[Migration] Recordings migration complete in ${duration.toFixed(2)}s`,
 					);
-					onProgress?.(
+					onProgress(
 						`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`,
 					);
-					onProgress?.(`[Migration] Success rate: ${successRate}%`);
-					onProgress?.(
-						'[Migration] ==========================================',
-					);
+					onProgress(`[Migration] Success rate: ${successRate}%`);
+					onProgress('[Migration] ==========================================');
 
 					return {
 						total,
@@ -654,7 +649,7 @@
 					};
 				},
 				catch: (error) => {
-					onProgress?.(
+					onProgress(
 						`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
 					);
 					throw DbServiceErr({
@@ -669,20 +664,20 @@
 		 * Migrate transformations between IndexedDB and file system.
 		 * Processes items in batches of 100 to prevent memory issues.
 		 */
-		async function _migrateTransformations(
-			indexedDb: DbService,
-			fileSystemDb: DbService,
-			{
-				onProgress,
-			}: {
-				onProgress?: (message: string) => void;
-			},
-		): Promise<Result<MigrationResult, DbServiceError>> {
+		async function _migrateTransformations({
+			indexedDb,
+			fileSystemDb,
+			onProgress,
+		}: {
+			indexedDb: DbService;
+			fileSystemDb: DbService;
+			onProgress: (message: string) => void;
+		}): Promise<Result<MigrationResult, DbServiceError>> {
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					onProgress?.(
+					onProgress(
 						'[Migration] Starting transformations migration (IDB → FS)...',
 					);
 
@@ -695,7 +690,7 @@
 					}
 
 					if (!transformations || transformations.length === 0) {
-						onProgress?.('[Migration] No transformations to migrate');
+						onProgress('[Migration] No transformations to migrate');
 						return {
 							total: 0,
 							succeeded: 0,
@@ -710,10 +705,8 @@
 					let failed = 0;
 					let skipped = 0;
 
-					onProgress?.(
-						`[Migration] Found ${total} transformations in IndexedDB`,
-					);
-					onProgress?.(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
+					onProgress(`[Migration] Found ${total} transformations in IndexedDB`);
+					onProgress(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
 
 					// Process in batches
 					for (let i = 0; i < transformations.length; i += BATCH_SIZE) {
@@ -721,7 +714,7 @@
 						const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 						const totalBatches = Math.ceil(transformations.length / BATCH_SIZE);
 
-						onProgress?.(
+						onProgress(
 							`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`,
 						);
 
@@ -740,7 +733,7 @@
 								await fileSystemDb.transformations.create(transformation);
 
 							if (createError) {
-								onProgress?.(
+								onProgress(
 									`[Migration] ⚠️  Failed to create transformation ${transformation.id} in file system`,
 								);
 								failed++;
@@ -752,8 +745,12 @@
 								await indexedDb.transformations.delete(transformation);
 
 							if (deleteError) {
-								onProgress?.(
+								onProgress(
 									`[Migration] ⚠️  Warning: Failed to delete transformation ${transformation.id} from IndexedDB after migration`,
+								);
+							} else {
+								onProgress(
+									`[Migration] ✓ Deleted transformation ${transformation.id} from IndexedDB`,
 								);
 							}
 
@@ -763,7 +760,7 @@
 
 						// Log batch completion
 						const processed = Math.min(i + BATCH_SIZE, transformations.length);
-						onProgress?.(
+						onProgress(
 							`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`,
 						);
 					}
@@ -771,19 +768,15 @@
 					const duration = (performance.now() - startTime) / 1000;
 					const successRate = ((succeeded / total) * 100).toFixed(1);
 
-					onProgress?.(
-						'[Migration] ==========================================',
-					);
-					onProgress?.(
+					onProgress('[Migration] ==========================================');
+					onProgress(
 						`[Migration] Transformations migration complete in ${duration.toFixed(2)}s`,
 					);
-					onProgress?.(
+					onProgress(
 						`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`,
 					);
-					onProgress?.(`[Migration] Success rate: ${successRate}%`);
-					onProgress?.(
-						'[Migration] ==========================================',
-					);
+					onProgress(`[Migration] Success rate: ${successRate}%`);
+					onProgress('[Migration] ==========================================');
 
 					return {
 						total,
@@ -794,7 +787,7 @@
 					};
 				},
 				catch: (error) => {
-					onProgress?.(
+					onProgress(
 						`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
 					);
 					throw DbServiceErr({
@@ -809,20 +802,20 @@
 		 * Migrate transformation runs between IndexedDB and file system.
 		 * Processes items in batches of 100 to prevent memory issues.
 		 */
-		async function _migrateTransformationRuns(
-			indexedDb: DbService,
-			fileSystemDb: DbService,
-			{
-				onProgress,
-			}: {
-				onProgress?: (message: string) => void;
-			},
-		): Promise<Result<MigrationResult, DbServiceError>> {
+		async function _migrateTransformationRuns({
+			indexedDb,
+			fileSystemDb,
+			onProgress,
+		}: {
+			indexedDb: DbService;
+			fileSystemDb: DbService;
+			onProgress: (message: string) => void;
+		}): Promise<Result<MigrationResult, DbServiceError>> {
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					onProgress?.(
+					onProgress(
 						'[Migration] Starting transformation runs migration (IDB → FS)...',
 					);
 
@@ -834,7 +827,7 @@
 					}
 
 					if (!runs || runs.length === 0) {
-						onProgress?.('[Migration] No transformation runs to migrate');
+						onProgress('[Migration] No transformation runs to migrate');
 						return {
 							total: 0,
 							succeeded: 0,
@@ -849,10 +842,10 @@
 					let failed = 0;
 					let skipped = 0;
 
-					onProgress?.(
+					onProgress(
 						`[Migration] Found ${total} transformation runs in IndexedDB`,
 					);
-					onProgress?.(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
+					onProgress(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
 
 					// Process in batches
 					for (let i = 0; i < runs.length; i += BATCH_SIZE) {
@@ -860,7 +853,7 @@
 						const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 						const totalBatches = Math.ceil(runs.length / BATCH_SIZE);
 
-						onProgress?.(
+						onProgress(
 							`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`,
 						);
 
@@ -883,7 +876,7 @@
 							});
 
 							if (createError) {
-								onProgress?.(
+								onProgress(
 									`[Migration] ⚠️  Failed to create transformation run ${run.id} in file system`,
 								);
 								failed++;
@@ -894,8 +887,12 @@
 							const { error: deleteError } = await indexedDb.runs.delete(run);
 
 							if (deleteError) {
-								onProgress?.(
+								onProgress(
 									`[Migration] ⚠️  Warning: Failed to delete transformation run ${run.id} from IndexedDB after migration`,
+								);
+							} else {
+								onProgress(
+									`[Migration] ✓ Deleted transformation run ${run.id} from IndexedDB`,
 								);
 							}
 
@@ -905,7 +902,7 @@
 
 						// Log batch completion
 						const processed = Math.min(i + BATCH_SIZE, runs.length);
-						onProgress?.(
+						onProgress(
 							`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`,
 						);
 					}
@@ -913,19 +910,15 @@
 					const duration = (performance.now() - startTime) / 1000;
 					const successRate = ((succeeded / total) * 100).toFixed(1);
 
-					onProgress?.(
-						'[Migration] ==========================================',
-					);
-					onProgress?.(
+					onProgress('[Migration] ==========================================');
+					onProgress(
 						`[Migration] Transformation runs migration complete in ${duration.toFixed(2)}s`,
 					);
-					onProgress?.(
+					onProgress(
 						`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`,
 					);
-					onProgress?.(`[Migration] Success rate: ${successRate}%`);
-					onProgress?.(
-						'[Migration] ==========================================',
-					);
+					onProgress(`[Migration] Success rate: ${successRate}%`);
+					onProgress('[Migration] ==========================================');
 
 					return {
 						total,
@@ -936,7 +929,7 @@
 					};
 				},
 				catch: (error) => {
-					onProgress?.(
+					onProgress(
 						`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
 					);
 					throw DbServiceErr({
@@ -1090,16 +1083,12 @@
 				_addLog('[Migration] Starting migration process...');
 				_addLog('[Migration] Direction: IndexedDB → File System');
 
-				const options = {
-					onProgress: _addLog,
-				};
-
 				// Migrate recordings
-				const recordingsMigration = await _migrateRecordings(
+				const recordingsMigration = await _migrateRecordings({
 					indexedDb,
 					fileSystemDb,
-					options,
-				);
+					onProgress: _addLog,
+				});
 				if (recordingsMigration.error) {
 					_addLog(
 						`[Migration] ❌ Recordings migration failed: ${recordingsMigration.error.message}`,
@@ -1109,11 +1098,11 @@
 				}
 
 				// Migrate transformations
-				const transformationsMigration = await _migrateTransformations(
+				const transformationsMigration = await _migrateTransformations({
 					indexedDb,
 					fileSystemDb,
-					options,
-				);
+					onProgress: _addLog,
+				});
 				if (transformationsMigration.error) {
 					_addLog(
 						`[Migration] ❌ Transformations migration failed: ${transformationsMigration.error.message}`,
@@ -1123,11 +1112,11 @@
 				}
 
 				// Migrate transformation runs
-				const runsMigration = await _migrateTransformationRuns(
+				const runsMigration = await _migrateTransformationRuns({
 					indexedDb,
 					fileSystemDb,
-					options,
-				);
+					onProgress: _addLog,
+				});
 				if (runsMigration.error) {
 					_addLog(
 						`[Migration] ❌ Runs migration failed: ${runsMigration.error.message}`,
