@@ -7,6 +7,7 @@ import {
 	defineWorkspace,
 	eq,
 	generateId,
+	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers';
@@ -30,6 +31,7 @@ export const instagram = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
+		markdown: markdownIndex,
 	},
 
 	providers: [setupPersistence],

@@ -5,6 +5,7 @@ import {
 	eq,
 	generateId,
 	id,
+	markdownIndex,
 	select,
 	sqliteIndex,
 	text,
@@ -43,6 +44,7 @@ export const pages = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
+		markdown: markdownIndex,
 	},
 
 	providers: [setupPersistence],

@@ -7,6 +7,7 @@ import {
 	eq,
 	generateId,
 	id,
+	markdownIndex,
 	multiSelect,
 	select,
 	sqliteIndex,
@@ -45,6 +46,7 @@ export const githubIssues = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
+		markdown: markdownIndex,
 	},
 
 	providers: [setupPersistence],

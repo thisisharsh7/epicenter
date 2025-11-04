@@ -9,6 +9,7 @@ import {
 	defineWorkspace,
 	eq,
 	generateId,
+	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
 import { SHORT_FORM_TEXT_SCHEMA } from './shared/schemas';
@@ -29,6 +30,7 @@ export const reddit = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
+		markdown: markdownIndex,
 	},
 
 	providers: [setupPersistence],
