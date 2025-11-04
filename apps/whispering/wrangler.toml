@@ -16,4 +16,4 @@ compatibility_date = "2025-11-04"
 
 # Static assets configuration for SPA
 [assets]
-directory = "dist"
+directory = "build"
