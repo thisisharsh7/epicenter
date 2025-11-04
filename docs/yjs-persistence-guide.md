@@ -95,9 +95,9 @@ const blogWorkspace = defineWorkspace({
     });
   },
 
-  indexes: ({ db }) => ({
-    sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/blog.db' }),
-  }),
+  indexes: {
+    sqlite: (c) => sqliteIndex(c),
+  },
 
   actions: ({ db, indexes }) => ({
     // ... your actions
@@ -133,9 +133,9 @@ const blogWorkspace = defineWorkspace({
     console.log('[Persistence] IndexedDB persistence enabled');
   },
 
-  indexes: ({ db }) => ({
-    sqlite: sqliteIndex(db, { databaseUrl: 'file:test-data/blog.db' }),
-  }),
+  indexes: {
+    sqlite: (c) => sqliteIndex(c),
+  },
 
   actions: ({ db, indexes }) => ({
     // ... your actions

@@ -44,7 +44,7 @@ const pages = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { inMemory: true }),
+		sqlite: (c) => sqliteIndex(c),
 	},
 
 	actions: ({ db, indexes }) => ({
@@ -133,7 +133,7 @@ const contentHub = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) => sqliteIndex(db, { inMemory: true }),
+		sqlite: (c) => sqliteIndex(c),
 	},
 
 	actions: ({ db, indexes, workspaces }) => ({

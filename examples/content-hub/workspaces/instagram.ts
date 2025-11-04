@@ -29,7 +29,7 @@ export const instagram = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 	},
 
 	providers: [setupPersistence],
@@ -113,7 +113,7 @@ export const instagram = defineWorkspace({
 					}).toJSON(),
 				};
 				db.tables.posts.update(updates);
-				const { row } = db.tables.posts.get(id);
+				const { row } = db.tables.posts.get({ id });
 				return Ok(row);
 			},
 		}),
@@ -124,7 +124,7 @@ export const instagram = defineWorkspace({
 		deletePost: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				db.tables.posts.delete(id);
+				db.tables.posts.delete({ id });
 				return Ok({ id });
 			},
 		}),

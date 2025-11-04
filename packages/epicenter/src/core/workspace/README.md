@@ -190,9 +190,9 @@ defineWorkspace({
   schema: { posts: { title: text() } },
 
   // Stage 2: Indexes (depend on schema)
-  indexes: ({ db }) => ({
-    sqlite: sqliteIndex(db, { /* ... */ })
-  }),
+  indexes: {
+    sqlite: (c) => sqliteIndex(c)
+  },
 
   // Stage 3: Actions (depend on schema AND indexes)
   actions: ({ db, indexes, workspaces }) => ({

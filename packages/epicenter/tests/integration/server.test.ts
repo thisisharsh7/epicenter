@@ -46,9 +46,7 @@ describe('Server Integration Tests', () => {
 		},
 
 		indexes: {
-			sqlite: (db) => sqliteIndex(db, {
-				database: ':memory:',
-			}),
+			sqlite: (c) => sqliteIndex(c),
 		},
 
 		actions: ({ db, indexes }) => ({

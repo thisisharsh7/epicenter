@@ -390,7 +390,7 @@ client.destroy();
      id: 'new-platform',
      version: 1,
      schema: { posts: SHORT_FORM_TEXT_SCHEMA },
-     indexes: { sqlite: (db) => sqliteIndex(db) },
+     indexes: { sqlite: (c) => sqliteIndex(c) },
      providers: [setupPersistence],
      actions: ({ db, indexes }) => ({
        // Implement actions...
@@ -572,83 +572,7 @@ The Epicenter server automatically:
 2. **Exposes MCP endpoint** at `/mcp` using HTTP Server-Sent Events (SSE)
 3. **Registers all actions as MCP tools** with input/output validation via TypeBox schemas
 
-### Example: Define Your Own Workspace
-
-```typescript
-import { defineWorkspace, defineQuery, sqliteIndex, id, text } from '@epicenter/epicenter';
-
-export const myWorkspace = defineWorkspace({
-  id: 'my-workspace',
-  version: 1,
-
-  schema: {
-    items: {
-      id: id(),
-      title: text(),
-    },
-  },
-
-  actions: ({ db, indexes }) => ({
-    getItems: defineQuery({
-      handler: async () => {
-        const items = await indexes.sqlite.db
-          .select()
-          .from(indexes.sqlite.items)
-          .all();
-        return Ok(items);
-      },
-    }),
-  }),
-});
-```
-
-Then add to Claude Code:
-```bash
-claude mcp add my-app --transport http --scope user http://localhost:3913/mcp
-```
-
-### Multiple Workspaces
-
-All actions from all workspaces become available as MCP tools with naming: `{workspace}_{action}`
-
-```typescript
-export default defineEpicenter({
-  id: 'multi-workspace-app',
-  workspaces: [workspace1, workspace2, workspace3],
-});
-```
-
-### Custom Port
-
-```bash
-bun dev --port 4000
-# Then add to Claude Code:
-claude mcp add my-app --transport http --scope user http://localhost:4000/mcp
-```
-
-### Environment Variables
-
-Pass environment variables to your actions:
-
-```bash
-claude mcp add my-app --transport http --scope user http://localhost:3913/mcp \
-  --env API_KEY=your-key-here
-```
-
-Or manually in `~/.claude.json`:
-```json
-{
-  "mcpServers": {
-    "my-app": {
-      "transport": "http",
-      "url": "http://localhost:3913/mcp",
-      "env": {
-        "API_KEY": "your-key-here"
-      }
-    }
-  }
-}
-```
+All actions from all workspaces become available as MCP tools with naming: `{workspace}_{action}` (e.g., `youtube_createPost`, `pages_getPages`)
 
 ### Troubleshooting MCP
 

@@ -159,7 +159,7 @@ const notesWorkspace = defineWorkspace({
     }
   },
   indexes: {
-    sqlite: (db) => sqliteIndex(db)
+    sqlite: (c) => sqliteIndex(c)
   },
   actions: ({ db, indexes }) => ({
     createNote: defineMutation({
