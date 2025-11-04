@@ -57,22 +57,11 @@ export async function createCLI({
 					type: 'number',
 					description: 'Port to run the server on',
 					default: DEFAULT_PORT,
-				})
-				.option('dev', {
-					type: 'boolean',
-					description: 'Run in development mode',
-					default: true,
-				})
-				.option('prod', {
-					type: 'boolean',
-					description: 'Run in production mode',
-					default: false,
 				});
 		},
 		async (argv) => {
 			await serveCommand(config, {
 				port: argv.port,
-				dev: argv.prod ? false : argv.dev,
 			});
 		},
 	);

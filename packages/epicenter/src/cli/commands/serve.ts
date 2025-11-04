@@ -1,4 +1,4 @@
-import { forEachAction, type EpicenterConfig } from '../../core/epicenter';
+import { type EpicenterConfig, forEachAction } from '../../core/epicenter';
 import { createServer } from '../../server/server';
 
 export const DEFAULT_PORT = 3913;
@@ -8,7 +8,6 @@ export const DEFAULT_PORT = 3913;
  */
 export type ServeOptions = {
 	port?: number;
-	dev?: boolean;
 };
 
 /**
@@ -30,7 +29,6 @@ export async function serveCommand(
 	const server = Bun.serve({
 		fetch: app.fetch,
 		port,
-		development: options.dev ?? true,
 		websocket,
 	});
 
