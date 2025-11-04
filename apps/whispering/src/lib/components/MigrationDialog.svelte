@@ -18,7 +18,6 @@
 	import type { DbService, DbServiceError } from '$lib/services/db/types';
 	import { DbServiceErr } from '$lib/services/db/types';
 
-
 	/**
 	 * Result of a migration operation
 	 */
@@ -477,8 +476,6 @@
 
 	function createMigrationDialog() {
 		let isOpen = $state(false);
-		let overwriteExisting = $state(false);
-		let deleteAfterMigration = $state(false);
 		let isRunning = $state(false);
 		let logs = $state<string[]>([]);
 		let counts = $state<{
@@ -510,20 +507,21 @@
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
-				overwriteExisting: boolean;
-				deleteAfterMigration: boolean;
 				onProgress?: (message: string) => void;
-			}
+			},
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { overwriteExisting, deleteAfterMigration, onProgress } = options;
+			const { onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					onProgress?.('[Migration] Starting recordings migration (IDB → FS)...');
+					onProgress?.(
+						'[Migration] Starting recordings migration (IDB → FS)...',
+					);
 
 					// Get all recordings from source
-					const { data: recordings, error: getError } = await indexedDb.recordings.getAll();
+					const { data: recordings, error: getError } =
+						await indexedDb.recordings.getAll();
 
 					if (getError) {
 						throw getError;
@@ -554,60 +552,75 @@
 						const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 						const totalBatches = Math.ceil(recordings.length / BATCH_SIZE);
 
-						onProgress?.(`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`);
+						onProgress?.(
+							`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`,
+						);
 
 						for (const recording of batch) {
 							// Check if already exists in destination
-							const { data: existing } = await fileSystemDb.recordings.getById(recording.id);
+							const { data: existing } = await fileSystemDb.recordings.getById(
+								recording.id,
+							);
 
-							if (existing && !overwriteExisting) {
+							if (existing) {
 								skipped++;
 								continue;
 							}
 
 							// Get audio blob from IndexedDB
-							const { data: audio, error: audioError } = await indexedDb.recordings.getAudioBlob(recording.id);
+							const { data: audio, error: audioError } =
+								await indexedDb.recordings.getAudioBlob(recording.id);
 
 							if (audioError || !audio) {
-								onProgress?.(`[Migration] ⚠️  Failed to get audio for recording ${recording.id}`);
+								onProgress?.(
+									`[Migration] ⚠️  Failed to get audio for recording ${recording.id}`,
+								);
 								failed++;
 								continue;
 							}
 
 							// Create in file system
-							const { error: createError } = await fileSystemDb.recordings.create({
-								recording,
-								audio,
-							});
+							const { error: createError } =
+								await fileSystemDb.recordings.create({
+									recording,
+									audio,
+								});
 
 							if (createError) {
-								onProgress?.(`[Migration] ⚠️  Failed to create recording ${recording.id} in file system`);
+								onProgress?.(
+									`[Migration] ⚠️  Failed to create recording ${recording.id} in file system`,
+								);
 								failed++;
 								continue;
 							}
 
 							// Success!
 							succeeded++;
-
-							// Delete from source if requested
-							if (deleteAfterMigration) {
-								await indexedDb.recordings.delete([recording]);
-							}
 						}
 
 						// Log batch completion
 						const processed = Math.min(i + BATCH_SIZE, recordings.length);
-						onProgress?.(`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`);
+						onProgress?.(
+							`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`,
+						);
 					}
 
 					const duration = (performance.now() - startTime) / 1000;
 					const successRate = ((succeeded / total) * 100).toFixed(1);
 
-					onProgress?.('[Migration] ==========================================');
-					onProgress?.(`[Migration] Recordings migration complete in ${duration.toFixed(2)}s`);
-					onProgress?.(`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`);
+					onProgress?.(
+						'[Migration] ==========================================',
+					);
+					onProgress?.(
+						`[Migration] Recordings migration complete in ${duration.toFixed(2)}s`,
+					);
+					onProgress?.(
+						`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`,
+					);
 					onProgress?.(`[Migration] Success rate: ${successRate}%`);
-					onProgress?.('[Migration] ==========================================');
+					onProgress?.(
+						'[Migration] ==========================================',
+					);
 
 					return {
 						total,
@@ -618,7 +631,9 @@
 					};
 				},
 				catch: (error) => {
-					onProgress?.(`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`);
+					onProgress?.(
+						`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+					);
 					throw DbServiceErr({
 						message: 'Failed to migrate recordings',
 						cause: error,
@@ -635,20 +650,21 @@
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
-				overwriteExisting: boolean;
-				deleteAfterMigration: boolean;
 				onProgress?: (message: string) => void;
-			}
+			},
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { overwriteExisting, deleteAfterMigration, onProgress } = options;
+			const { onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					onProgress?.('[Migration] Starting transformations migration (IDB → FS)...');
+					onProgress?.(
+						'[Migration] Starting transformations migration (IDB → FS)...',
+					);
 
 					// Get all transformations from source
-					const { data: transformations, error: getError } = await indexedDb.transformations.getAll();
+					const { data: transformations, error: getError } =
+						await indexedDb.transformations.getAll();
 
 					if (getError) {
 						throw getError;
@@ -670,7 +686,9 @@
 					let failed = 0;
 					let skipped = 0;
 
-					onProgress?.(`[Migration] Found ${total} transformations in IndexedDB`);
+					onProgress?.(
+						`[Migration] Found ${total} transformations in IndexedDB`,
+					);
 					onProgress?.(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
 
 					// Process in batches
@@ -679,48 +697,59 @@
 						const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 						const totalBatches = Math.ceil(transformations.length / BATCH_SIZE);
 
-						onProgress?.(`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`);
+						onProgress?.(
+							`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`,
+						);
 
 						for (const transformation of batch) {
 							// Check if already exists in destination
-							const { data: existing } = await fileSystemDb.transformations.getById(transformation.id);
+							const { data: existing } =
+								await fileSystemDb.transformations.getById(transformation.id);
 
-							if (existing && !overwriteExisting) {
+							if (existing) {
 								skipped++;
 								continue;
 							}
 
 							// Create in file system
-							const { error: createError } = await fileSystemDb.transformations.create(transformation);
+							const { error: createError } =
+								await fileSystemDb.transformations.create(transformation);
 
 							if (createError) {
-								onProgress?.(`[Migration] ⚠️  Failed to create transformation ${transformation.id} in file system`);
+								onProgress?.(
+									`[Migration] ⚠️  Failed to create transformation ${transformation.id} in file system`,
+								);
 								failed++;
 								continue;
 							}
 
 							// Success!
 							succeeded++;
-
-							// Delete from source if requested
-							if (deleteAfterMigration) {
-								await indexedDb.transformations.delete([transformation]);
-							}
 						}
 
 						// Log batch completion
 						const processed = Math.min(i + BATCH_SIZE, transformations.length);
-						onProgress?.(`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`);
+						onProgress?.(
+							`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`,
+						);
 					}
 
 					const duration = (performance.now() - startTime) / 1000;
 					const successRate = ((succeeded / total) * 100).toFixed(1);
 
-					onProgress?.('[Migration] ==========================================');
-					onProgress?.(`[Migration] Transformations migration complete in ${duration.toFixed(2)}s`);
-					onProgress?.(`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`);
+					onProgress?.(
+						'[Migration] ==========================================',
+					);
+					onProgress?.(
+						`[Migration] Transformations migration complete in ${duration.toFixed(2)}s`,
+					);
+					onProgress?.(
+						`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`,
+					);
 					onProgress?.(`[Migration] Success rate: ${successRate}%`);
-					onProgress?.('[Migration] ==========================================');
+					onProgress?.(
+						'[Migration] ==========================================',
+					);
 
 					return {
 						total,
@@ -731,7 +760,9 @@
 					};
 				},
 				catch: (error) => {
-					onProgress?.(`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`);
+					onProgress?.(
+						`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+					);
 					throw DbServiceErr({
 						message: 'Failed to migrate transformations',
 						cause: error,
@@ -748,17 +779,17 @@
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
-				overwriteExisting: boolean;
-				deleteAfterMigration: boolean;
 				onProgress?: (message: string) => void;
-			}
+			},
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { overwriteExisting, deleteAfterMigration, onProgress } = options;
+			const { onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					onProgress?.('[Migration] Starting transformation runs migration (IDB → FS)...');
+					onProgress?.(
+						'[Migration] Starting transformation runs migration (IDB → FS)...',
+					);
 
 					// Get all runs from source
 					const { data: runs, error: getError } = await indexedDb.runs.getAll();
@@ -783,7 +814,9 @@
 					let failed = 0;
 					let skipped = 0;
 
-					onProgress?.(`[Migration] Found ${total} transformation runs in IndexedDB`);
+					onProgress?.(
+						`[Migration] Found ${total} transformation runs in IndexedDB`,
+					);
 					onProgress?.(`[Migration] Processing in batches of ${BATCH_SIZE}...`);
 
 					// Process in batches
@@ -792,13 +825,17 @@
 						const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 						const totalBatches = Math.ceil(runs.length / BATCH_SIZE);
 
-						onProgress?.(`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`);
+						onProgress?.(
+							`[Migration] Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)...`,
+						);
 
 						for (const run of batch) {
 							// Check if already exists in destination
-							const { data: existing } = await fileSystemDb.runs.getById(run.id);
+							const { data: existing } = await fileSystemDb.runs.getById(
+								run.id,
+							);
 
-							if (existing && !overwriteExisting) {
+							if (existing) {
 								skipped++;
 								continue;
 							}
@@ -811,33 +848,40 @@
 							});
 
 							if (createError) {
-								onProgress?.(`[Migration] ⚠️  Failed to create transformation run ${run.id} in file system`);
+								onProgress?.(
+									`[Migration] ⚠️  Failed to create transformation run ${run.id} in file system`,
+								);
 								failed++;
 								continue;
 							}
 
 							// Success!
 							succeeded++;
-
-							// Delete from source if requested
-							if (deleteAfterMigration) {
-								await indexedDb.runs.delete([run]);
-							}
 						}
 
 						// Log batch completion
 						const processed = Math.min(i + BATCH_SIZE, runs.length);
-						onProgress?.(`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`);
+						onProgress?.(
+							`[Migration] Progress: ${processed}/${total} processed (${succeeded} succeeded, ${failed} failed, ${skipped} skipped)`,
+						);
 					}
 
 					const duration = (performance.now() - startTime) / 1000;
 					const successRate = ((succeeded / total) * 100).toFixed(1);
 
-					onProgress?.('[Migration] ==========================================');
-					onProgress?.(`[Migration] Transformation runs migration complete in ${duration.toFixed(2)}s`);
-					onProgress?.(`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`);
+					onProgress?.(
+						'[Migration] ==========================================',
+					);
+					onProgress?.(
+						`[Migration] Transformation runs migration complete in ${duration.toFixed(2)}s`,
+					);
+					onProgress?.(
+						`[Migration] Total: ${total} | Succeeded: ${succeeded} | Failed: ${failed} | Skipped: ${skipped}`,
+					);
 					onProgress?.(`[Migration] Success rate: ${successRate}%`);
-					onProgress?.('[Migration] ==========================================');
+					onProgress?.(
+						'[Migration] ==========================================',
+					);
 
 					return {
 						total,
@@ -848,7 +892,9 @@
 					};
 				},
 				catch: (error) => {
-					onProgress?.(`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`);
+					onProgress?.(
+						`[Migration] ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+					);
 					throw DbServiceErr({
 						message: 'Failed to migrate transformation runs',
 						cause: error,
@@ -884,11 +930,12 @@
 			return tryAsync({
 				try: async () => {
 					// Get IndexedDB counts
-					const [idbRecordings, idbTransformations, idbRuns] = await Promise.all([
-						indexedDb.recordings.getCount(),
-						indexedDb.transformations.getCount(),
-						indexedDb.runs.getCount(),
-					]);
+					const [idbRecordings, idbTransformations, idbRuns] =
+						await Promise.all([
+							indexedDb.recordings.getCount(),
+							indexedDb.transformations.getCount(),
+							indexedDb.runs.getCount(),
+						]);
 
 					// Get File System counts
 					const [fsRecordings, fsTransformations, fsRuns] = await Promise.all([
@@ -930,7 +977,10 @@
 		async function _loadCounts() {
 			_addLog('[Counts] Loading item counts from both systems...');
 
-			const { data, error } = await _getMigrationCounts(indexedDb, fileSystemDb);
+			const { data, error } = await _getMigrationCounts(
+				indexedDb,
+				fileSystemDb,
+			);
 
 			if (error) {
 				_addLog(`[Counts] ❌ Error: ${error.message}`);
@@ -950,24 +1000,11 @@
 			get isOpen() {
 				return isOpen;
 			},
-			open() {
-				isOpen = true;
+			set isOpen(value: boolean) {
+				isOpen = value;
+			},
+			onOpen() {
 				_loadCounts();
-			},
-			close() {
-				isOpen = false;
-			},
-			get overwriteExisting() {
-				return overwriteExisting;
-			},
-			toggleOverwriteExisting() {
-				overwriteExisting = !overwriteExisting;
-			},
-			get deleteAfterMigration() {
-				return deleteAfterMigration;
-			},
-			toggleDeleteAfterMigration() {
-				deleteAfterMigration = !deleteAfterMigration;
 			},
 			get isRunning() {
 				return isRunning;
@@ -998,12 +1035,8 @@
 
 				_addLog('[Migration] Starting migration process...');
 				_addLog('[Migration] Direction: IndexedDB → File System');
-				_addLog(`[Migration] Overwrite existing: ${overwriteExisting}`);
-				_addLog(`[Migration] Delete after migration: ${deleteAfterMigration}`);
 
 				const options = {
-					overwriteExisting,
-					deleteAfterMigration,
 					onProgress: _addLog,
 				};
 
@@ -1100,9 +1133,7 @@
 <script lang="ts">
 	import { Database } from '@lucide/svelte';
 	import { Button } from '@repo/ui/button';
-	import { Checkbox } from '@repo/ui/checkbox';
 	import * as Dialog from '@repo/ui/dialog';
-	import { Switch } from '@repo/ui/switch';
 
 	let logsContainer: HTMLDivElement;
 
@@ -1114,24 +1145,32 @@
 	});
 </script>
 
-<button
-	class="fixed bottom-24 right-4 rounded-full bg-primary p-3 text-primary-foreground shadow-lg transition-transform hover:scale-110"
-	onclick={migrationDialog.open}
-	aria-label="Open Migration Manager"
->
-	<Database class="h-5 w-5" />
-</button>
-
 <Dialog.Root
-	open={migrationDialog.isOpen}
-	onOpenChange={(open) =>
-		open ? migrationDialog.open() : migrationDialog.close()}
+	bind:open={migrationDialog.isOpen}
+	onOpenChange={(open) => {
+		if (open) {
+			migrationDialog.onOpen();
+		}
+	}}
 >
+	<Dialog.Trigger>
+		{#snippet child({ props })}
+			<Button
+				size="icon"
+				class="fixed bottom-24 right-4 rounded-full shadow-lg transition-transform hover:scale-110"
+				aria-label="Open Migration Manager"
+				{...props}
+			>
+				<Database class="h-5 w-5" />
+			</Button>
+		{/snippet}
+	</Dialog.Trigger>
 	<Dialog.Content class="max-h-[90vh] max-w-3xl overflow-y-auto">
 		<Dialog.Header>
 			<Dialog.Title>Database Migration Manager</Dialog.Title>
 			<Dialog.Description>
-				Migrate your data from IndexedDB to File System storage. This enables faster performance and better data portability.
+				Migrate your data from IndexedDB to File System storage. This enables
+				faster performance and better data portability.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -1168,31 +1207,6 @@
 					</div>
 				</div>
 			{/if}
-
-			<!-- Migration Options -->
-			<div class="space-y-3">
-				<div class="mb-2 text-sm font-medium">Options</div>
-				<div class="flex items-center space-x-2">
-					<Checkbox
-						id="overwrite"
-						checked={migrationDialog.overwriteExisting}
-						onCheckedChange={migrationDialog.toggleOverwriteExisting}
-					/>
-					<label for="overwrite" class="text-sm"
-						>Overwrite existing items in destination</label
-					>
-				</div>
-				<div class="flex items-center space-x-2">
-					<Checkbox
-						id="delete"
-						checked={migrationDialog.deleteAfterMigration}
-						onCheckedChange={migrationDialog.toggleDeleteAfterMigration}
-					/>
-					<label for="delete" class="text-sm"
-						>Delete items from source after migration</label
-					>
-				</div>
-			</div>
 
 			<Button
 				onclick={migrationDialog.startMigration}
@@ -1291,7 +1305,9 @@
 		</div>
 
 		<Dialog.Footer>
-			<Button onclick={migrationDialog.close} variant="outline">Close</Button>
+			<Button onclick={() => (migrationDialog.isOpen = false)} variant="outline"
+				>Close</Button
+			>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
