@@ -13,9 +13,32 @@ Content Hub is a comprehensive system for managing content distribution across m
 
 ## Quick Start
 
+### Setup
+
+First, install dependencies from the repository root:
+
 ```bash
-# From this directory
-cd packages/epicenter/examples/content-hub
+cd ../../..  # Go to repository root
+bun install
+```
+
+### Run the Server
+
+Start the Epicenter server (it runs by default with no subcommand):
+
+```bash
+cd examples/content-hub
+bun dev
+```
+
+The server will start on `http://localhost:3913` with REST API and MCP endpoints.
+
+### Use the CLI
+
+In another terminal, you can use the CLI commands:
+
+```bash
+cd examples/content-hub
 
 # Create a YouTube post
 bun cli.ts youtube createPost --pageId "my-channel" --title "My First Video" --description "Check out this video" --niche "coding"
@@ -517,6 +540,132 @@ This example is production-ready and can be used as-is or extended:
 4. **CLI**: Auto-generated CLI works out of the box
 5. **Extensibility**: Add new workspaces or actions without breaking existing code
 
+## Using as an MCP Server
+
+This example can be used as an MCP (Model Context Protocol) server to connect with Claude Code or other AI assistants over HTTP.
+
+### Quick Start
+
+1. **Start your server** (already running if you followed Quick Start):
+```bash
+cd examples/content-hub
+bun dev
+```
+
+2. **Add to Claude Code**:
+```bash
+claude mcp add content-hub --transport http --scope user http://localhost:3913/mcp
+```
+
+3. **Use in Claude Code**:
+```
+@epicenter-content-hub what tools do you have?
+@epicenter-content-hub create a new blog post titled "Hello World" with content "My first post" tagged as tech
+@epicenter-content-hub get all pages
+```
+
+### How It Works
+
+The Epicenter server automatically:
+
+1. **Exposes REST endpoints** for each action at `/{workspace}/{action}`
+2. **Exposes MCP endpoint** at `/mcp` using HTTP Server-Sent Events (SSE)
+3. **Registers all actions as MCP tools** with input/output validation via TypeBox schemas
+
+### Example: Define Your Own Workspace
+
+```typescript
+import { defineWorkspace, defineQuery, sqliteIndex, id, text } from '@epicenter/epicenter';
+
+export const myWorkspace = defineWorkspace({
+  id: 'my-workspace',
+  version: 1,
+
+  schema: {
+    items: {
+      id: id(),
+      title: text(),
+    },
+  },
+
+  actions: ({ db, indexes }) => ({
+    getItems: defineQuery({
+      handler: async () => {
+        const items = await indexes.sqlite.db
+          .select()
+          .from(indexes.sqlite.items)
+          .all();
+        return Ok(items);
+      },
+    }),
+  }),
+});
+```
+
+Then add to Claude Code:
+```bash
+claude mcp add my-app --transport http --scope user http://localhost:3913/mcp
+```
+
+### Multiple Workspaces
+
+All actions from all workspaces become available as MCP tools with naming: `{workspace}_{action}`
+
+```typescript
+export default defineEpicenter({
+  id: 'multi-workspace-app',
+  workspaces: [workspace1, workspace2, workspace3],
+});
+```
+
+### Custom Port
+
+```bash
+bun dev --port 4000
+# Then add to Claude Code:
+claude mcp add my-app --transport http --scope user http://localhost:4000/mcp
+```
+
+### Environment Variables
+
+Pass environment variables to your actions:
+
+```bash
+claude mcp add my-app --transport http --scope user http://localhost:3913/mcp \
+  --env API_KEY=your-key-here
+```
+
+Or manually in `~/.claude.json`:
+```json
+{
+  "mcpServers": {
+    "my-app": {
+      "transport": "http",
+      "url": "http://localhost:3913/mcp",
+      "env": {
+        "API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
+
+### Troubleshooting MCP
+
+**Server Not Starting**:
+- Check port availability: `lsof -i :3913`
+- Verify workspace configuration is valid
+
+**Claude Code Can't Connect**:
+- Ensure server is running: `curl http://localhost:3913/mcp`
+- Check `~/.claude.json` syntax
+- Restart Claude Code after config changes
+
+**Tools Not Appearing**:
+- Verify actions are defined with `defineQuery` or `defineMutation`
+- Check server logs for errors
+- Restart Claude Code
+
 ## Next Steps
 
 1. Explore individual workspace configurations in `workspaces/`
@@ -524,3 +673,4 @@ This example is production-ready and can be used as-is or extended:
 3. Experiment with filtering and querying
 4. Extend with your own platforms or custom schemas
 5. Build a web UI on top using the Epicenter client API
+6. Connect as MCP server to Claude Code or other AI assistants

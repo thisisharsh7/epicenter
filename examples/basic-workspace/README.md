@@ -52,6 +52,15 @@ This example implements a blog workspace with:
 
 ## Running the Workspace
 
+### Initial Setup
+
+Install dependencies first (from the repository root):
+
+```bash
+# From the repository root
+bun install
+```
+
 ### Option 1: Automated Tests
 
 Run the automated test suite to see the workspace in action:
