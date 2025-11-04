@@ -1,4 +1,4 @@
-import type { ProviderContext } from '../../config';
+import type { Provider } from '../../config';
 
 /**
  * Universal persistence provider that automatically detects the environment
@@ -61,20 +61,17 @@ import type { ProviderContext } from '../../config';
  * });
  * ```
  */
-export async function setupPersistence(
-	context: ProviderContext,
-): Promise<void> {
+export const setupPersistence = (async (context): Promise<void> => {
 	const isBrowser = typeof window !== 'undefined';
 
 	if (isBrowser) {
 		// Browser: use IndexedDB
 		const { setupPersistence } = await import('./web.js');
-		setupPersistence(context);
-	} else {
-		// Node-like: use filesystem
-		const { setupPersistence } = await import('./desktop.js');
-		await setupPersistence(context);
+		return setupPersistence(context);
 	}
-}
+	// Node-like: use filesystem
+	const { setupPersistence } = await import('./desktop.js');
+	return setupPersistence(context);
+}) satisfies Provider;
 
 export { EPICENTER_STORAGE_DIR } from './desktop';
