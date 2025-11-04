@@ -1,0 +1,8 @@
+name = "whispering"
+compatibility_date = "2025-01-01"
+main = "src/index.js"
+
+# Static assets configuration for SPA
+[assets]
+directory = "build"
+binding = "ASSETS"
