@@ -18,10 +18,6 @@
 	import type { DbService, DbServiceError } from '$lib/services/db/types';
 	import { DbServiceErr } from '$lib/services/db/types';
 
-	/**
-	 * Direction of migration: IndexedDB to File System (or vice versa in future)
-	 */
-	type MigrationDirection = 'idb-to-fs' | 'fs-to-idb';
 
 	/**
 	 * Result of a migration operation
@@ -481,7 +477,6 @@
 
 	function createMigrationDialog() {
 		let isOpen = $state(false);
-		let direction = $state<MigrationDirection>('idb-to-fs');
 		let overwriteExisting = $state(false);
 		let deleteAfterMigration = $state(false);
 		let isRunning = $state(false);
@@ -515,21 +510,16 @@
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
-				direction: MigrationDirection;
 				overwriteExisting: boolean;
 				deleteAfterMigration: boolean;
 				onProgress?: (message: string) => void;
 			}
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { direction, overwriteExisting, deleteAfterMigration, onProgress } = options;
+			const { overwriteExisting, deleteAfterMigration, onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					if (direction !== 'idb-to-fs') {
-						throw new Error(`Direction ${direction} not yet implemented for recordings`);
-					}
-
 					onProgress?.('[Migration] Starting recordings migration (IDB → FS)...');
 
 					// Get all recordings from source
@@ -645,21 +635,16 @@
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
-				direction: MigrationDirection;
 				overwriteExisting: boolean;
 				deleteAfterMigration: boolean;
 				onProgress?: (message: string) => void;
 			}
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { direction, overwriteExisting, deleteAfterMigration, onProgress } = options;
+			const { overwriteExisting, deleteAfterMigration, onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					if (direction !== 'idb-to-fs') {
-						throw new Error(`Direction ${direction} not yet implemented for transformations`);
-					}
-
 					onProgress?.('[Migration] Starting transformations migration (IDB → FS)...');
 
 					// Get all transformations from source
@@ -763,21 +748,16 @@
 			indexedDb: DbService,
 			fileSystemDb: DbService,
 			options: {
-				direction: MigrationDirection;
 				overwriteExisting: boolean;
 				deleteAfterMigration: boolean;
 				onProgress?: (message: string) => void;
 			}
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { direction, overwriteExisting, deleteAfterMigration, onProgress } = options;
+			const { overwriteExisting, deleteAfterMigration, onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
 				try: async () => {
-					if (direction !== 'idb-to-fs') {
-						throw new Error(`Direction ${direction} not yet implemented for transformation runs`);
-					}
-
 					onProgress?.('[Migration] Starting transformation runs migration (IDB → FS)...');
 
 					// Get all runs from source
@@ -977,12 +957,6 @@
 			close() {
 				isOpen = false;
 			},
-			get direction() {
-				return direction;
-			},
-			setDirection(value: MigrationDirection) {
-				direction = value;
-			},
 			get overwriteExisting() {
 				return overwriteExisting;
 			},
@@ -1023,12 +997,11 @@
 				runsResult = null;
 
 				_addLog('[Migration] Starting migration process...');
-				_addLog(`[Migration] Direction: ${direction}`);
+				_addLog('[Migration] Direction: IndexedDB → File System');
 				_addLog(`[Migration] Overwrite existing: ${overwriteExisting}`);
 				_addLog(`[Migration] Delete after migration: ${deleteAfterMigration}`);
 
 				const options = {
-					direction,
 					overwriteExisting,
 					deleteAfterMigration,
 					onProgress: _addLog,
@@ -1158,33 +1131,11 @@
 		<Dialog.Header>
 			<Dialog.Title>Database Migration Manager</Dialog.Title>
 			<Dialog.Description>
-				Migrate data between IndexedDB and File System storage.
+				Migrate your data from IndexedDB to File System storage. This enables faster performance and better data portability.
 			</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="space-y-6">
-			<!-- Direction Selector -->
-			<div class="flex items-center justify-between rounded-lg border p-4">
-				<div class="space-y-0.5">
-					<div class="text-sm font-medium">Migration Direction</div>
-					<p class="text-sm text-muted-foreground">
-						{migrationDialog.direction === 'idb-to-fs'
-							? 'IndexedDB → File System'
-							: 'File System → IndexedDB'}
-					</p>
-				</div>
-				<Switch
-					checked={migrationDialog.direction === 'idb-to-fs'}
-					onCheckedChange={(checked: boolean) => {
-						const newDirection: MigrationDirection = checked
-							? 'idb-to-fs'
-							: 'fs-to-idb';
-						migrationDialog.setDirection(newDirection);
-					}}
-					disabled
-				/>
-			</div>
-
 			<!-- Counts Display -->
 			{#if migrationDialog.counts}
 				<div class="rounded-lg border p-4">
