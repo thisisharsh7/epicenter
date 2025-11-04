@@ -85,6 +85,11 @@ jobs:
         env:
           CI: true
           APTABASE_KEY: ${{ secrets.APTABASE_KEY }}
+          # Disable code signing for preview builds
+          APPLE_CERTIFICATE: ''
+          APPLE_CERTIFICATE_PASSWORD: ''
+          APPLE_SIGNING_IDENTITY: '-'
+          TAURI_SIGNING_PRIVATE_KEY: ''
         with:
           projectPath: 'apps/whispering'
           tagName: ''
