@@ -224,53 +224,6 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 };
 
 /**
- * Create default serializer for a table
- *
- * Default behavior:
- * - Serialize: All row fields → frontmatter, empty content
- * - Deserialize: All frontmatter fields → row with validation (returns null if invalid)
- */
-function createDefaultSerializer<TTableSchema extends TableSchema>(
-	schemaWithValidation: TableSchemaWithValidation<TTableSchema>,
-): MarkdownSerializer<TTableSchema> {
-	return {
-		serialize: ({ row }) => ({
-			frontmatter: row,
-			content: '',
-		}),
-		deserialize: ({ id, frontmatter }) => {
-			// Combine id with frontmatter
-			const data = {
-				id,
-				...frontmatter,
-			};
-
-			// Validate using schema.validateUnknown
-			const result = schemaWithValidation.validateUnknown(data);
-
-			switch (result.status) {
-				case 'valid':
-					return result.row;
-
-				case 'schema-mismatch':
-					console.warn(
-						`Default deserializer: Schema mismatch for row ${id}`,
-						result.reason,
-					);
-					return null;
-
-				case 'invalid-structure':
-					console.warn(
-						`Default deserializer: Invalid structure for row ${id}`,
-						result.reason,
-					);
-					return null;
-			}
-		},
-	};
-}
-
-/**
  * Create a markdown index
  *
  * This index maintains two-way synchronization between YJS (in-memory) and markdown files (on disk):
@@ -366,6 +319,101 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 			watcher.close();
 		},
 	});
+}
+
+/**
+ * Default implementation for pathToTableAndId
+ *
+ * Expects files in the structure: `{tableName}/{id}.md`
+ *
+ * @param params.path - Relative path to markdown file (e.g., "posts/my-post.md")
+ * @returns Object with tableName and id extracted from the path, or null to skip this file
+ *
+ * @example
+ * defaultPathToTableAndId({ path: "posts/my-post.md" }) // → { tableName: "posts", id: "my-post" }
+ * defaultPathToTableAndId({ path: ".DS_Store" }) // → null (skip this file)
+ * defaultPathToTableAndId({ path: "README.md" }) // → null (skip this file)
+ * defaultPathToTableAndId({ path: "posts/subfolder/file.md" }) // → null (unexpected structure)
+ */
+function defaultPathToTableAndId({ path: filePath }: { path: string }): {
+	tableName: string;
+	id: string;
+} | null {
+	const parts = filePath.split(path.sep);
+	if (parts.length !== 2) return null;
+	const [tableName, fileName] = parts as [string, string];
+	const id = path.basename(fileName, '.md');
+	return { tableName, id };
+}
+
+/**
+ * Default implementation for tableAndIdToPath
+ *
+ * Creates files in the structure: `{tableName}/{id}.md`
+ *
+ * @param params.id - Row ID
+ * @param params.tableName - Name of the table
+ * @returns Relative path where file should be written (e.g., "posts/my-post.md")
+ *
+ * @example
+ * defaultTableAndIdToPath({ id: "my-post", tableName: "posts" })
+ * // → "posts/my-post.md"
+ */
+function defaultTableAndIdToPath({
+	id,
+	tableName,
+}: {
+	id: string;
+	tableName: string;
+}): string {
+	return path.join(tableName, `${id}.md`);
+}
+
+/**
+ * Create default serializer for a table
+ *
+ * Default behavior:
+ * - Serialize: All row fields → frontmatter, empty content
+ * - Deserialize: All frontmatter fields → row with validation (returns null if invalid)
+ */
+function createDefaultSerializer<TTableSchema extends TableSchema>(
+	schemaWithValidation: TableSchemaWithValidation<TTableSchema>,
+): MarkdownSerializer<TTableSchema> {
+	return {
+		serialize: ({ row }) => ({
+			frontmatter: row,
+			content: '',
+		}),
+		deserialize: ({ id, frontmatter }) => {
+			// Combine id with frontmatter
+			const data = {
+				id,
+				...frontmatter,
+			};
+
+			// Validate using schema.validateUnknown
+			const result = schemaWithValidation.validateUnknown(data);
+
+			switch (result.status) {
+				case 'valid':
+					return result.row;
+
+				case 'schema-mismatch':
+					console.warn(
+						`Default deserializer: Schema mismatch for row ${id}`,
+						result.reason,
+					);
+					return null;
+
+				case 'invalid-structure':
+					console.warn(
+						`Default deserializer: Invalid structure for row ${id}`,
+						result.reason,
+					);
+					return null;
+			}
+		},
+	};
 }
 
 /**
@@ -684,52 +732,4 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	);
 
 	return watcher;
-}
-
-/**
- * Default implementation for pathToTableAndId
- *
- * Expects files in the structure: `{tableName}/{id}.md`
- *
- * @param params.path - Relative path to markdown file (e.g., "posts/my-post.md")
- * @returns Object with tableName and id extracted from the path, or null to skip this file
- *
- * @example
- * defaultPathToTableAndId({ path: "posts/my-post.md" }) // → { tableName: "posts", id: "my-post" }
- * defaultPathToTableAndId({ path: ".DS_Store" }) // → null (skip this file)
- * defaultPathToTableAndId({ path: "README.md" }) // → null (skip this file)
- * defaultPathToTableAndId({ path: "posts/subfolder/file.md" }) // → null (unexpected structure)
- */
-function defaultPathToTableAndId({ path: filePath }: { path: string }): {
-	tableName: string;
-	id: string;
-} | null {
-	const parts = filePath.split(path.sep);
-	if (parts.length !== 2) return null;
-	const [tableName, fileName] = parts as [string, string];
-	const id = path.basename(fileName, '.md');
-	return { tableName, id };
-}
-
-/**
- * Default implementation for tableAndIdToPath
- *
- * Creates files in the structure: `{tableName}/{id}.md`
- *
- * @param params.id - Row ID
- * @param params.tableName - Name of the table
- * @returns Relative path where file should be written (e.g., "posts/my-post.md")
- *
- * @example
- * defaultTableAndIdToPath({ id: "my-post", tableName: "posts" })
- * // → "posts/my-post.md"
- */
-function defaultTableAndIdToPath({
-	id,
-	tableName,
-}: {
-	id: string;
-	tableName: string;
-}): string {
-	return path.join(tableName, `${id}.md`);
 }
