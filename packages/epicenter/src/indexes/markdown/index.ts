@@ -89,6 +89,8 @@ export type MarkdownIndexConfig<
 	 * Extract table name and row ID from a relative file path.
 	 * This is the inverse of tableAndIdToPath.
 	 *
+	 * **Optional**: Defaults to `defaultPathToTableAndId`, which expects the structure `{tableName}/{id}.md`
+	 *
 	 * @param params.path - Relative path to markdown file (e.g., "posts/my-post.md")
 	 * @returns Object with tableName and id extracted from the path, or null to skip this file
 	 *
@@ -96,12 +98,24 @@ export type MarkdownIndexConfig<
 	 * This is useful for skipping files that don't match your expected structure or are
 	 * metadata files that shouldn't be processed as rows.
 	 *
+	 * @default defaultPathToTableAndId
+	 *
 	 * @example
+	 * // Default behavior (when omitted):
 	 * pathToTableAndId({ path: "posts/my-post.md" }) // → { tableName: "posts", id: "my-post" }
 	 * pathToTableAndId({ path: ".DS_Store" }) // → null (skip this file)
 	 * pathToTableAndId({ path: "README.md" }) // → null (skip this file)
+	 *
+	 * @example
+	 * // Custom implementation:
+	 * pathToTableAndId: ({ path }) => {
+	 *   // Custom logic for nested folders or different file structures
+	 *   const match = path.match(/^(\w+)\/blog\/(.+)\.md$/);
+	 *   if (!match) return null;
+	 *   return { tableName: match[1], id: match[2] };
+	 * }
 	 */
-	pathToTableAndId(params: { path: string }): {
+	pathToTableAndId?(params: { path: string }): {
 		tableName: string;
 		id: string;
 	} | null;
@@ -110,17 +124,26 @@ export type MarkdownIndexConfig<
 	 * Build a relative file path from table name and row ID.
 	 * This is the inverse of pathToTableAndId.
 	 *
+	 * **Optional**: Defaults to `defaultTableAndIdToPath`, which creates the structure `{tableName}/{id}.md`
+	 *
 	 * The returned path should be relative to rootPath.
 	 *
 	 * @param params.id - Row ID
 	 * @param params.tableName - Name of the table
 	 * @returns Relative path where file should be written (e.g., "posts/my-post.md")
 	 *
+	 * @default defaultTableAndIdToPath
+	 *
 	 * @example
+	 * // Default behavior (when omitted):
 	 * tableAndIdToPath({ id: "my-post", tableName: "posts" })
 	 * // → "posts/my-post.md"
+	 *
+	 * @example
+	 * // Custom implementation:
+	 * tableAndIdToPath: ({ id, tableName }) => `${tableName}/blog/${id}.md`
 	 */
-	tableAndIdToPath(params: { id: string; tableName: string }): string;
+	tableAndIdToPath?(params: { id: string; tableName: string }): string;
 
 	/**
 	 * Optional custom serializers for tables
@@ -271,7 +294,7 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
  *
  * The flags break the cycle by ensuring changes only flow in one direction at a time.
  *
- * Expected directory structure:
+ * Expected directory structure (with default path functions):
  * ```
  * {rootPath}/
  *   {tableName}/
@@ -285,16 +308,16 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
  * @param context.id - Workspace ID
  * @param context.db - Epicenter database instance
  * @param context.rootPath - Root path where markdown files should be stored (relative to config or absolute)
- * @param context.pathToTableAndId - Function to extract table name and ID from file paths
- * @param context.tableAndIdToPath - Function to build file paths from table name and ID
+ * @param context.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `defaultPathToTableAndId`)
+ * @param context.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `defaultTableAndIdToPath`)
  * @param context.serializers - Optional custom serializers per table
  */
 export function markdownIndex<TSchema extends WorkspaceSchema>({
 	id,
 	db,
 	rootPath,
-	pathToTableAndId,
-	tableAndIdToPath,
+	pathToTableAndId = defaultPathToTableAndId,
+	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
 }: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
 	/**
@@ -556,7 +579,8 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 
 			// Use custom serializer if provided, otherwise use default
 			const serializer =
-				serializers?.[tableName] ?? createDefaultSerializer(schemaWithValidation);
+				serializers?.[tableName] ??
+				createDefaultSerializer(schemaWithValidation);
 
 			/**
 			 * Construct the full absolute path to the file
@@ -660,4 +684,52 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	);
 
 	return watcher;
+}
+
+/**
+ * Default implementation for pathToTableAndId
+ *
+ * Expects files in the structure: `{tableName}/{id}.md`
+ *
+ * @param params.path - Relative path to markdown file (e.g., "posts/my-post.md")
+ * @returns Object with tableName and id extracted from the path, or null to skip this file
+ *
+ * @example
+ * defaultPathToTableAndId({ path: "posts/my-post.md" }) // → { tableName: "posts", id: "my-post" }
+ * defaultPathToTableAndId({ path: ".DS_Store" }) // → null (skip this file)
+ * defaultPathToTableAndId({ path: "README.md" }) // → null (skip this file)
+ * defaultPathToTableAndId({ path: "posts/subfolder/file.md" }) // → null (unexpected structure)
+ */
+function defaultPathToTableAndId({ path: filePath }: { path: string }): {
+	tableName: string;
+	id: string;
+} | null {
+	const parts = filePath.split(path.sep);
+	if (parts.length !== 2) return null;
+	const [tableName, fileName] = parts as [string, string];
+	const id = path.basename(fileName, '.md');
+	return { tableName, id };
+}
+
+/**
+ * Default implementation for tableAndIdToPath
+ *
+ * Creates files in the structure: `{tableName}/{id}.md`
+ *
+ * @param params.id - Row ID
+ * @param params.tableName - Name of the table
+ * @returns Relative path where file should be written (e.g., "posts/my-post.md")
+ *
+ * @example
+ * defaultTableAndIdToPath({ id: "my-post", tableName: "posts" })
+ * // → "posts/my-post.md"
+ */
+function defaultTableAndIdToPath({
+	id,
+	tableName,
+}: {
+	id: string;
+	tableName: string;
+}): string {
+	return path.join(tableName, `${id}.md`);
 }
