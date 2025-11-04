@@ -81,14 +81,14 @@ export async function createServer<
 	const hocuspocus = new HocuspocusServer();
 
 	// Register REST endpoints for each workspace action
-	forEachAction(client, ({ workspaceName, actionName, action }) => {
-		const path = `/${workspaceName}/${actionName}`;
+	forEachAction(client, ({ workspaceId, actionName, action }) => {
+		const path = `/${workspaceId}/${actionName}`;
 
 		// Tag with both workspace and operation type for multi-dimensional grouping
 		const operationType = (
 			{ query: 'queries', mutation: 'mutations' } as const
 		)[action.type];
-		const tags = [workspaceName, operationType];
+		const tags = [workspaceId, operationType];
 
 		switch (action.type) {
 			case 'query':

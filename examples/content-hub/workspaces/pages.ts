@@ -1,7 +1,3 @@
-import path from 'node:path';
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
-import { setupPersistence } from '@epicenter/hq/providers';
 import {
 	defineMutation,
 	defineQuery,
@@ -13,6 +9,9 @@ import {
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
+import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
+import { Ok } from 'wellcrafted/result';
 
 /**
  * Pages workspace
@@ -43,7 +42,7 @@ export const pages = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 	},
 
 	providers: [setupPersistence],
