@@ -444,27 +444,17 @@
 											placeholder="http://localhost:11434/v1"
 										>
 											{#snippet description()}
-												<div class="text-sm">
-													<p class="mb-1">Examples:</p>
-													<ul class="list-disc pl-4 space-y-1">
-														<li>
-															Ollama: <code class="bg-muted px-1 py-0.5 rounded"
+												<div class="text-sm space-y-2">
+													<p class="mb-1">Example:</p>
+													<div class="flex flex-col gap-2">
+														<div class="flex flex-col">
+															<span class="text-sm">Ollama:</span>
+															<code
+																class="block bg-muted px-2 py-1 rounded max-w-full break-words overflow-auto text-xs mt-1"
 																>http://localhost:11434/v1</code
 															>
-														</li>
-														<li>
-															LM Studio: <code
-																class="bg-muted px-1 py-0.5 rounded"
-																>http://localhost:1234/v1</code
-															>
-														</li>
-														<li>
-															llama.cpp: <code
-																class="bg-muted px-1 py-0.5 rounded"
-																>http://localhost:8080/v1</code
-															>
-														</li>
-													</ul>
+														</div>
+													</div>
 												</div>
 											{/snippet}
 										</LabeledInput>
@@ -492,11 +482,21 @@
 											placeholder="llama3.2"
 										>
 											{#snippet description()}
-												Enter the exact model name as it appears in your local
-												service. For Ollama, use:
-												<code class="bg-muted px-1 py-0.5 rounded"
-													>ollama list</code
-												> to see available models.
+												<div class="text-sm">
+													<p class="mb-1">
+														Enter the exact model name as it appears in your
+														local service.
+													</p>
+													<div class="flex items-center gap-2 text-sm">
+														<code
+															class="inline-block bg-muted px-2 py-1 rounded text-xs break-words"
+															>ollama list</code
+														>
+														<span class="text-muted-foreground text-sm"
+															>to see available models (Ollama)</span
+														>
+													</div>
+												</div>
 											{/snippet}
 										</LabeledInput>
 									{/if}
