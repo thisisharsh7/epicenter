@@ -492,7 +492,6 @@
 	function createMigrationDialog() {
 		let isOpen = $state(false);
 		let isRunning = $state(false);
-		let hasIndexedDBData = $state(false);
 		let logs = $state<string[]>([]);
 		let counts = $state<{
 			indexedDb: { recordings: number; transformations: number; runs: number };
@@ -1007,10 +1006,6 @@
 			}
 
 			counts = data;
-			hasIndexedDBData =
-				data.indexedDb.recordings > 0 ||
-				data.indexedDb.transformations > 0 ||
-				data.indexedDb.runs > 0;
 			_addLog(
 				`[Counts] IndexedDB: ${data.indexedDb.recordings} recordings, ${data.indexedDb.transformations} transformations, ${data.indexedDb.runs} runs`,
 			);
@@ -1030,19 +1025,14 @@
 				_loadCounts();
 			},
 			get hasIndexedDBData() {
-				return hasIndexedDBData;
+				return counts
+					? counts.indexedDb.recordings > 0 ||
+							counts.indexedDb.transformations > 0 ||
+							counts.indexedDb.runs > 0
+					: false;
 			},
 			async checkIndexedDBData() {
-				const { data, error } = await _getMigrationCounts(
-					indexedDb,
-					fileSystemDb,
-				);
-				if (!error && data) {
-					hasIndexedDBData =
-						data.indexedDb.recordings > 0 ||
-						data.indexedDb.transformations > 0 ||
-						data.indexedDb.runs > 0;
-				}
+				await _loadCounts();
 			},
 			get isRunning() {
 				return isRunning;
@@ -1193,22 +1183,24 @@
 >
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<Button
-				size="icon"
-				class="fixed bottom-24 right-4 rounded-full shadow-lg transition-transform hover:scale-110 relative"
-				aria-label="Open Migration Manager"
-				{...props}
-			>
-				<Database class="h-5 w-5" />
-				{#if migrationDialog.hasIndexedDBData}
-					<span
-						class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500 animate-ping"
-					></span>
-					<span
-						class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500"
-					></span>
-				{/if}
-			</Button>
+			<div class="fixed top-4 right-4 z-50">
+				<Button
+					size="icon"
+					class="rounded-full shadow-lg transition-transform hover:scale-110 relative"
+					aria-label="Open Migration Manager"
+					{...props}
+				>
+					<Database class="h-5 w-5" />
+					{#if migrationDialog.hasIndexedDBData}
+						<span
+							class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500 animate-ping"
+						></span>
+						<span
+							class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500"
+						></span>
+					{/if}
+				</Button>
+			</div>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content class="max-h-[90vh] max-w-3xl overflow-y-auto">
