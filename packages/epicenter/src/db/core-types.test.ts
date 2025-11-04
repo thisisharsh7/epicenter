@@ -18,7 +18,7 @@ import * as Y from 'yjs';
  */
 
 describe('YjsDoc Type Inference', () => {
-	test('should infer row types from schema', () => {
+	test('should infer row types from schema', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			posts: {
 				id: id(),
@@ -30,23 +30,18 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Test set() - should require all fields with correct types
-		const content = new Y.Text();
-		content.insert(0, 'Post content');
-		const tags = new Y.Array<'tech' | 'personal' | 'work'>();
-		tags.push(['tech']);
-
-		doc.tables.posts.insert({
+		// Test insert() - accepts serialized values (strings for ytext, arrays for multi-select)
+		await doc.tables.posts.insert({
 			id: '1',
 			title: 'Test Post',
-			content: content, // Y.Text | null
-			tags: tags, // Y.Array<string>
+			content: 'Post content', // string (gets converted to Y.Text internally)
+			tags: ['tech'], // array (gets converted to Y.Array internally)
 			viewCount: 0,
 			published: false,
 		});
 
 		// Test get() - hover over 'result' to verify inferred type
-		const result = doc.tables.posts.get('1');
+		const result = await doc.tables.posts.get({ id: '1' });
 		// Expected type: GetRowResult<{ id: string; title: string; content: Y.Text | null; tags: Y.Array<string>; viewCount: number; published: boolean }>
 
 		if (result.status === 'valid') {
@@ -63,7 +58,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should infer types for getAll()', () => {
+	test('should infer types for getAll()', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			products: {
 				id: id(),
@@ -73,13 +68,13 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.products.insertMany([
+		await doc.tables.products.insertMany([
 			{ id: '1', name: 'Widget', price: 1000, inStock: true },
 			{ id: '2', name: 'Gadget', price: 2000, inStock: false },
 		]);
 
 		// Hover over 'products' to verify array element type
-		const results = doc.tables.products.getAll();
+		const results = await doc.tables.products.getAll();
 		const products = results
 			.filter((r) => r.status === 'valid')
 			.map((r) => r.row);
@@ -88,7 +83,7 @@ describe('YjsDoc Type Inference', () => {
 		expect(products).toHaveLength(2);
 	});
 
-	test('should infer predicate parameter types in filter()', () => {
+	test('should infer predicate parameter types in filter()', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			tasks: {
 				id: id(),
@@ -98,7 +93,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.tasks.insertMany([
+		await doc.tables.tasks.insertMany([
 			{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
 			{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
 		]);
@@ -111,10 +106,10 @@ describe('YjsDoc Type Inference', () => {
 		// task type should be: { id: string; title: string; completed: boolean; priority: string }
 
 		expect(incompleteTasks).toHaveLength(1);
-		expect(incompleteTasks[0].title).toBe('Task 1');
+		expect(incompleteTasks[0]?.title).toBe('Task 1');
 	});
 
-	test('should infer predicate parameter types in find()', () => {
+	test('should infer predicate parameter types in find()', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			items: {
 				id: id(),
@@ -123,7 +118,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.items.insertMany([
+		await doc.tables.items.insertMany([
 			{ id: '1', name: 'Item 1', quantity: 5 },
 			{ id: '2', name: 'Item 2', quantity: 0 },
 		]);
@@ -140,7 +135,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should infer observer handler parameter types', () => {
+	test('should infer observer handler parameter types', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			notifications: {
 				id: id(),
@@ -169,19 +164,19 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.notifications.insert({
+		await doc.tables.notifications.insert({
 			id: '1',
 			message: 'Test notification',
 			read: false,
 		});
 
 		expect(addedNotifications).toHaveLength(1);
-		expect(addedNotifications[0].message).toBe('Test notification');
+		expect(addedNotifications[0]?.message).toBe('Test notification');
 
 		unsubscribe();
 	});
 
-		test('should handle nullable YJS types correctly', () => {
+		test('should handle nullable YJS types correctly', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			articles: {
 				id: id(),
@@ -192,41 +187,36 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test with null values
-		doc.tables.articles.insert({
+		await doc.tables.articles.insert({
 			id: '1',
 			title: 'Article without content',
 			description: null,
 			content: null,
 		});
 
-		const article1Result = doc.tables.articles.get('1');
+		const article1Result = await doc.tables.articles.get({ id: '1' });
 		expect(article1Result.status).toBe('valid');
 		if (article1Result.status === 'valid') {
 			expect(article1Result.row.description).toBeNull();
 			expect(article1Result.row.content).toBeNull();
 		}
 
-		// Test with YJS type values
-		const description = new Y.Text();
-		description.insert(0, 'A short description');
-		const content = new Y.Text();
-		content.insert(0, 'Article content');
-
-		doc.tables.articles.insert({
+		// Test with string values (automatically converted to Y.Text internally)
+		await doc.tables.articles.insert({
 			id: '2',
 			title: 'Article with content',
-			description: description,
-			content: content,
+			description: 'A short description',
+			content: 'Article content',
 		});
 
-		const article2Result = doc.tables.articles.get('2');
+		const article2Result = await doc.tables.articles.get({ id: '2' });
 		if (article2Result.status === 'valid') {
 			expect(article2Result.row.description).toBeInstanceOf(Y.Text);
 			expect(article2Result.row.content).toBeInstanceOf(Y.Text);
 		}
 	});
 
-	test('should handle multi-table schemas with proper type inference', () => {
+	test('should handle multi-table schemas with proper type inference', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			authors: {
 				id: id(),
@@ -244,32 +234,26 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Test authors table
-		const authorBio = new Y.Text();
-		authorBio.insert(0, 'Author bio');
-
-		doc.tables.authors.insert({
+		// Test authors table - use plain string (converted to Y.Text internally)
+		await doc.tables.authors.insert({
 			id: 'author-1',
 			name: 'John Doe',
-			bio: authorBio,
+			bio: 'Author bio',
 		});
 
-		const authorResult = doc.tables.authors.get('author-1');
+		const authorResult = await doc.tables.authors.get({ id: 'author-1' });
 		// Hover to verify type: GetRowResult<{ id: string; name: string; bio: Y.Text | null }>
 
-		// Test books table
-		const chapters = new Y.Array<string>();
-		chapters.push(['Chapter 1', 'Chapter 2']);
-
-		doc.tables.books.insert({
+		// Test books table - use plain array (converted to Y.Array internally)
+		await doc.tables.books.insert({
 			id: 'book-1',
 			authorId: 'author-1',
 			title: 'My Book',
-			chapters: chapters,
+			chapters: ['Chapter 1', 'Chapter 2'],
 			published: true,
 		});
 
-		const bookResult = doc.tables.books.get('book-1');
+		const bookResult = await doc.tables.books.get({ id: 'book-1' });
 		// Hover to verify type: GetRowResult<{ id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean }>
 
 		expect(authorResult.status).toBe('valid');
@@ -282,7 +266,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should properly type insertMany with array of rows', () => {
+	test('should properly type insertMany with array of rows', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			comments: {
 				id: id(),
@@ -297,14 +281,14 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		doc.tables.comments.insertMany(commentsToAdd);
+		await doc.tables.comments.insertMany(commentsToAdd);
 
-		const results = doc.tables.comments.getAll();
+		const results = await doc.tables.comments.getAll();
 		const comments = results.filter((r) => r.status === 'valid').map((r) => r.row);
 		expect(comments).toHaveLength(2);
 	});
 
-	test('should handle YJS types in complex scenarios', () => {
+	test('should handle YJS types in complex scenarios', async () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			documents: {
 				id: id(),
@@ -315,23 +299,17 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Create YJS instances
-		const body = new Y.Text();
-		body.insert(0, 'Hello World');
-
-		const tags = new Y.Array<string>();
-		tags.push(['tag1', 'tag2']);
-
-		doc.tables.documents.insert({
+		// Insert with plain values (automatically converted to Y.js types internally)
+		await doc.tables.documents.insert({
 			id: 'doc-1',
 			title: 'My Document',
-			body: body,
+			body: 'Hello World',
 			notes: null,
-			tags: tags,
+			tags: ['tag1', 'tag2'],
 		});
 
 		// Test retrieval and mutations
-		const retrievedResult = doc.tables.documents.get('doc-1');
+		const retrievedResult = await doc.tables.documents.get({ id: 'doc-1' });
 
 		if (retrievedResult.status === 'valid') {
 			const retrieved = retrievedResult.row;

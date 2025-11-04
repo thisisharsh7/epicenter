@@ -151,14 +151,14 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 			throw new Error(`Drizzle table for "${tableName}" not found`);
 		}
 
-		const results = db.tables[tableName].getAll();
+		const results = await db.tables[tableName].getAll();
 		const rows = results.filter((r) => r.status === 'valid').map((r) => r.row);
 
 		for (const row of rows) {
 			const { error } = await tryAsync({
 				try: async () => {
 					const serializedRow = row.toJSON();
-					await sqliteDb.insert(drizzleTable as any).values(serializedRow);
+					await sqliteDb.insert(drizzleTable).values(serializedRow);
 				},
 				catch: () => Ok(undefined),
 			});

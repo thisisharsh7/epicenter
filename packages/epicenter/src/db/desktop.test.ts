@@ -15,7 +15,7 @@ describe('YJS Document Persistence', () => {
 		}
 	});
 
-	test('should persist data to disk and reload it', () => {
+	test('should persist data to disk and reload it', async () => {
 		// Create document with persistence
 		const doc1 = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
@@ -33,14 +33,14 @@ describe('YJS Document Persistence', () => {
 		);
 
 		// Insert some data
-		doc1.tables.users.insert({
+		await doc1.tables.users.insert({
 			id: 'user-1',
 			name: 'Alice',
 			age: 30,
 			active: true,
 		});
 
-		doc1.tables.users.insert({
+		await doc1.tables.users.insert({
 			id: 'user-2',
 			name: 'Bob',
 			age: 25,
@@ -68,11 +68,11 @@ describe('YJS Document Persistence', () => {
 		);
 
 		// Verify data was loaded from disk
-		const results = doc2.tables.users.getAll();
+		const results = await doc2.tables.users.getAll();
 		const users = results.filter((r) => r.status === 'valid').map((r) => r.row);
 		expect(users).toHaveLength(2);
 
-		const aliceResult = doc2.tables.users.get('user-1');
+		const aliceResult = await doc2.tables.users.get({ id: 'user-1' });
 		expect(aliceResult.status).toBe('valid');
 		if (aliceResult.status === 'valid') {
 			expect(aliceResult.row).toEqual({
@@ -83,7 +83,7 @@ describe('YJS Document Persistence', () => {
 			});
 		}
 
-		const bobResult = doc2.tables.users.get('user-2');
+		const bobResult = await doc2.tables.users.get({ id: 'user-2' });
 		expect(bobResult.status).toBe('valid');
 		if (bobResult.status === 'valid') {
 			expect(bobResult.row).toEqual({
@@ -95,7 +95,7 @@ describe('YJS Document Persistence', () => {
 		}
 	});
 
-	test('should only initialize tables that do not exist when loading from disk', () => {
+	test('should only initialize tables that do not exist when loading from disk', async () => {
 		// Create document with one table
 		const doc1 = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
@@ -111,7 +111,7 @@ describe('YJS Document Persistence', () => {
 			},
 		);
 
-		doc1.tables.todos.insert({
+		await doc1.tables.todos.insert({
 			id: 'todo-1',
 			title: 'Buy groceries',
 			done: false,
@@ -132,7 +132,7 @@ describe('YJS Document Persistence', () => {
 			},
 		);
 
-		const todoResult = doc2.tables.todos.get('todo-1');
+		const todoResult = await doc2.tables.todos.get({ id: 'todo-1' });
 		expect(todoResult.status).toBe('valid');
 		if (todoResult.status === 'valid') {
 			expect(todoResult.row).toEqual({
@@ -143,7 +143,7 @@ describe('YJS Document Persistence', () => {
 		}
 	});
 
-	test('should handle updates and persist them', () => {
+	test('should handle updates and persist them', async () => {
 		const doc = createEpicenterDbFromDisk(
 			TEST_WORKSPACE_ID,
 			{
@@ -160,7 +160,7 @@ describe('YJS Document Persistence', () => {
 		);
 
 		// Insert initial data
-		doc.tables.products.insert({
+		await doc.tables.products.insert({
 			id: 'prod-1',
 			name: 'Widget',
 			price: 100,
@@ -168,7 +168,7 @@ describe('YJS Document Persistence', () => {
 		});
 
 		// Update the product
-		doc.tables.products.update({
+		await doc.tables.products.update({
 			id: 'prod-1',
 			price: 150,
 			inStock: false,
@@ -190,7 +190,7 @@ describe('YJS Document Persistence', () => {
 			},
 		);
 
-		const productResult = doc2.tables.products.get('prod-1');
+		const productResult = await doc2.tables.products.get({ id: 'prod-1' });
 		expect(productResult.status).toBe('valid');
 		if (productResult.status === 'valid') {
 			expect(productResult.row).toEqual({

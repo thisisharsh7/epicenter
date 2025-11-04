@@ -101,22 +101,28 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 		StandardSchemaV1<SerializedRow<TTableSchema>>
 	>;
 
-	insertMany(
-		serializedRows: SerializedRow<TTableSchema>[],
-	): Result<void, RowAlreadyExistsError>;
-	upsertMany(
-		serializedRows: SerializedRow<TTableSchema>[],
-	): Result<void, never>;
-	updateMany(
-		partialSerializedRows: PartialSerializedRow<TTableSchema>[],
-	): Result<void, RowNotFoundError>;
+	insertMany: Mutation<
+		undefined,
+		RowAlreadyExistsError,
+		StandardSchemaV1<SerializedRow<TTableSchema>[]>
+	>;
+	upsertMany: Mutation<
+		undefined,
+		never,
+		StandardSchemaV1<SerializedRow<TTableSchema>[]>
+	>;
+	updateMany: Mutation<
+		undefined,
+		RowNotFoundError,
+		StandardSchemaV1<PartialSerializedRow<TTableSchema>[]>
+	>;
 
 	/**
 	 * Get a row by ID, returning Y.js objects for collaborative editing.
-	 * Returns null if row not found (no error thrown).
+	 * Returns { status: 'not-found' } if row doesn't exist.
 	 */
 	get: Query<
-		GetRowResult<Row<TTableSchema>> | null,
+		GetRowResult<Row<TTableSchema>>,
 		never,
 		StandardSchemaV1<{ id: string }>
 	>;
@@ -126,7 +132,7 @@ export type TableHelper<TTableSchema extends TableSchema> = {
 	 */
 	getAll: Query<RowValidationResult<Row<TTableSchema>>[], never, undefined>;
 
-	has(id: string): boolean;
+	has: Query<boolean, never, StandardSchemaV1<{ id: string }>>;
 	delete: Mutation<undefined, never, StandardSchemaV1<{ id: string }>>;
 	deleteMany: Mutation<undefined, never, StandardSchemaV1<{ ids: string[] }>>;
 	clear: Mutation<undefined, never, undefined>;
@@ -218,18 +224,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	type TRow = Row<TTableSchema>;
 
 	// Input validators using Standard Schema
-	const insertInputValidator = schema.toStandardSchema();
-	const updateInputValidator = schema.toPartialStandardSchema();
-	const deleteInputValidator = type({
-		id: 'string',
-	});
-	const deleteManyInputValidator = type({
-		ids: 'string[]',
-	});
 
 	return {
 		insert: defineMutation({
-			input: insertInputValidator,
+			input: schema.toStandardSchema(),
 			description: `Insert a new row into the ${tableName} table`,
 			handler: (serializedRow) => {
 				if (ytable.has(serializedRow.id)) {
@@ -251,7 +249,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		}),
 
 		update: defineMutation({
-			input: updateInputValidator,
+			input: schema.toPartialStandardSchema(),
 			description: `Update specific fields of an existing row in the ${tableName} table`,
 			handler: (partialSerializedRow) => {
 				const yrow = ytable.get(partialSerializedRow.id);
@@ -280,7 +278,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		}),
 
 		upsert: defineMutation({
-			input: insertInputValidator,
+			input: schema.toStandardSchema(),
 			description: `Insert or update a row in the ${tableName} table`,
 			handler: (serializedRow) => {
 				ydoc.transact(() => {
@@ -294,87 +292,101 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
-		insertMany(serializedRows: SerializedRow<TTableSchema>[]) {
-			// Check for duplicates first
-			for (const serializedRow of serializedRows) {
-				if (ytable.has(serializedRow.id)) {
-					return RowAlreadyExistsErr({
-						message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
-						context: {
-							tableName,
-							operation: 'insertMany',
-							id: serializedRow.id,
-						},
-						cause: undefined,
-					});
-				}
-			}
-
-			ydoc.transact(() => {
+		insertMany: defineMutation({
+			input: schema.toStandardSchemaArray(),
+			description: `Insert multiple rows into the ${tableName} table`,
+			handler: (serializedRows) => {
+				// Check for duplicates first
 				for (const serializedRow of serializedRows) {
-					const yrow = new Y.Map<CellValue>();
-					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-					ytable.set(serializedRow.id, yrow);
+					if (ytable.has(serializedRow.id)) {
+						return RowAlreadyExistsErr({
+							message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
+							context: {
+								tableName,
+								operation: 'insertMany',
+								id: serializedRow.id,
+							},
+							cause: undefined,
+						});
+					}
 				}
-			});
 
-			return Ok(undefined);
-		},
-
-		upsertMany(serializedRows: SerializedRow<TTableSchema>[]) {
-			ydoc.transact(() => {
-				for (const serializedRow of serializedRows) {
-					let yrow = ytable.get(serializedRow.id);
-					if (!yrow) {
-						yrow = new Y.Map<CellValue>();
+				ydoc.transact(() => {
+					for (const serializedRow of serializedRows) {
+						const yrow = new Y.Map<CellValue>();
+						updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 						ytable.set(serializedRow.id, yrow);
 					}
-					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-				}
-			});
+				});
 
-			return Ok(undefined);
-		},
+				return Ok(undefined);
+			},
+		}),
 
-		updateMany(partialSerializedRows: PartialSerializedRow<TTableSchema>[]) {
-			// Check all rows exist first
-			for (const partialSerializedRow of partialSerializedRows) {
-				if (!ytable.has(partialSerializedRow.id)) {
-					return RowNotFoundErr({
-						message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
-						context: {
-							tableName,
-							operation: 'updateMany',
-							id: partialSerializedRow.id,
-						},
-						cause: undefined,
-					});
-				}
-			}
+		upsertMany: defineMutation({
+			input: schema.toStandardSchemaArray(),
+			description: `Insert or update multiple rows in the ${tableName} table`,
+			handler: (serializedRows) => {
+				ydoc.transact(() => {
+					for (const serializedRow of serializedRows) {
+						let yrow = ytable.get(serializedRow.id);
+						if (!yrow) {
+							yrow = new Y.Map<CellValue>();
+							ytable.set(serializedRow.id, yrow);
+						}
+						updateYRowFromSerializedRow({ yrow, serializedRow, schema });
+					}
+				});
 
-			ydoc.transact(() => {
+				return Ok(undefined);
+			},
+		}),
+
+		updateMany: defineMutation({
+			input: schema.toPartialStandardSchemaArray(),
+			description: `Update multiple rows in the ${tableName} table`,
+			handler: (partialSerializedRows) => {
+				// Check all rows exist first
 				for (const partialSerializedRow of partialSerializedRows) {
-					// Safe to assert non-null because we checked all IDs exist above
-					const yrow = ytable.get(partialSerializedRow.id);
-					if (!yrow) continue; // Skip if somehow missing (defensive)
-					updateYRowFromSerializedRow({
-						yrow,
-						serializedRow: partialSerializedRow,
-						schema,
-					});
+					if (!ytable.has(partialSerializedRow.id)) {
+						return RowNotFoundErr({
+							message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
+							context: {
+								tableName,
+								operation: 'updateMany',
+								id: partialSerializedRow.id,
+							},
+							cause: undefined,
+						});
+					}
 				}
-			});
 
-			return Ok(undefined);
-		},
+				ydoc.transact(() => {
+					for (const partialSerializedRow of partialSerializedRows) {
+						// Safe to assert non-null because we checked all IDs exist above
+						const yrow = ytable.get(partialSerializedRow.id);
+						if (!yrow) continue; // Skip if somehow missing (defensive)
+						updateYRowFromSerializedRow({
+							yrow,
+							serializedRow: partialSerializedRow,
+							schema,
+						});
+					}
+				});
+
+				return Ok(undefined);
+			},
+		}),
 
 		get: defineQuery({
-			input: deleteInputValidator,
+			input: type({
+				id: 'string',
+			}),
 			description: `Get a row by ID from the ${tableName} table`,
 			handler: (params) => {
 				const yrow = ytable.get(params.id);
 				if (!yrow) {
-					return null;
+					return { status: 'not-found' as const, row: null };
 				}
 
 				return createRow({ yrow, schema });
@@ -394,12 +406,18 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
-		has(id: string) {
-			return ytable.has(id);
-		},
+		has: defineQuery({
+			input: type({
+				id: 'string',
+			}),
+			description: `Check if a row exists in the ${tableName} table`,
+			handler: (params) => ytable.has(params.id),
+		}),
 
 		delete: defineMutation({
-			input: deleteInputValidator,
+			input: type({
+				id: 'string',
+			}),
 			description: `Delete a row from the ${tableName} table`,
 			handler: (params) => {
 				ydoc.transact(() => {
@@ -409,7 +427,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		}),
 
 		deleteMany: defineMutation({
-			input: deleteManyInputValidator,
+			input: type({
+				ids: 'string[]',
+			}),
 			description: `Delete multiple rows from the ${tableName} table`,
 			handler: (params) => {
 				ydoc.transact(() => {

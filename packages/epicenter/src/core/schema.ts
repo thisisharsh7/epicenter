@@ -35,7 +35,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  * different generic parameters. 'valid' gives you Row<TTableSchema> (typed to your schema), while
  * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
  */
-import { type } from 'arktype';
+import { Type, type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
@@ -369,6 +369,14 @@ export type TableSchemaWithValidation<
 
 	/** Generates a Standard Schema validator for partial SerializedRow (all fields except id are optional) */
 	toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
+
+	/** Generates a Standard Schema validator for an array of SerializedRows */
+	toStandardSchemaArray(): StandardSchemaV1<SerializedRow<TSchema>[]>;
+
+	/** Generates a Standard Schema validator for an array of partial SerializedRows */
+	toPartialStandardSchemaArray(): StandardSchemaV1<
+		PartialSerializedRow<TSchema>[]
+	>;
 };
 
 /**
@@ -1271,6 +1279,55 @@ export function multiSelect<
 export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 	schema: TSchema,
 ): TableSchemaWithValidation<TSchema> {
+	/**
+	 * Helper: Builds field definitions for schema validation
+	 * @param makeOptional - If true, all fields except 'id' become optional (for partial updates)
+	 */
+	function _buildSchemaFields({ makeOptional }: { makeOptional: boolean }) {
+		return Object.fromEntries(
+			Object.entries(schema).map(([fieldName, columnSchema]) => {
+				const baseType = _getBaseArktypeForColumn(columnSchema);
+
+				// Skip id column
+				if (columnSchema.type === 'id') return [fieldName, baseType];
+
+				// Handle nullable fields
+				const nullableType = columnSchema.nullable
+					? baseType.or(type.null)
+					: baseType;
+
+				// For partial schemas, make all fields except 'id' optional
+				const finalType = makeOptional ? nullableType.optional() : nullableType;
+
+				return [fieldName, finalType];
+			}),
+		);
+	}
+
+	/**
+	 * Helper: Generates base arktype for a column schema
+	 */
+	function _getBaseArktypeForColumn(columnSchema: ColumnSchema) {
+		switch (columnSchema.type) {
+			case 'id':
+			case 'text':
+			case 'ytext':
+				return type.string;
+			case 'integer':
+				return type.number.divisibleBy(1);
+			case 'real':
+				return type.number;
+			case 'boolean':
+				return type.boolean;
+			case 'date':
+				return type.string;
+			case 'select':
+				return type.enumerated(...columnSchema.options);
+			case 'multi-select':
+				return type.enumerated(...columnSchema.options).array();
+		}
+	}
+
 	return {
 		...schema,
 
@@ -1693,94 +1750,28 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			return this.validateSerializedRow(data as SerializedRow<TSchema>);
 		},
 
-		/**
-		 * Generates a Standard Schema validator for the full SerializedRow type.
-		 * All fields from the schema are included with proper type validation.
-		 *
-		 * @returns StandardSchemaV1 validator that validates SerializedRow<TSchema>
-		 */
 		toStandardSchema(): StandardSchemaV1<SerializedRow<TSchema>> {
-			const fields = Object.fromEntries(
-				Object.entries(schema).map(([fieldName, columnSchema]) => {
-					// Generate arktype type based on column type
-					const baseType = (() => {
-						switch (columnSchema.type) {
-							case 'id':
-							case 'text':
-							case 'ytext':
-								return type.string;
-							case 'integer':
-								return type.number.divisibleBy(1);
-							case 'real':
-								return type.number;
-							case 'boolean':
-								return type.boolean;
-							case 'date':
-								return type.string;
-							case 'select':
-								return type.enumerated(...columnSchema.options);
-							case 'multi-select':
-								return type.enumerated(...columnSchema.options).array();
-						}
-					})();
-
-					// Handle nullable fields
-					const isNullable =
-						columnSchema.type !== 'id' && columnSchema.nullable;
-					const finalType = isNullable ? baseType.or(type.null) : baseType;
-
-					return [fieldName, finalType];
-				}),
-			);
-
+			const fields = _buildSchemaFields({ makeOptional: false });
 			return type(fields) as StandardSchemaV1<SerializedRow<TSchema>>;
 		},
 
-		/**
-		 * Generates a Standard Schema validator for partial row updates.
-		 * The 'id' field is required, all other fields are optional.
-		 *
-		 * @returns StandardSchemaV1 validator that validates PartialSerializedRow<TSchema>
-		 */
 		toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>> {
-			const fields = Object.fromEntries(
-				Object.entries(schema).map(([fieldName, columnSchema]) => {
-					// Generate arktype type based on column type
-					const baseType = (() => {
-						switch (columnSchema.type) {
-							case 'id':
-							case 'text':
-							case 'ytext':
-								return type.string;
-							case 'integer':
-								return type.number.divisibleBy(1);
-							case 'real':
-								return type.number;
-							case 'boolean':
-								return type.boolean;
-							case 'date':
-								return type.string;
-							case 'select':
-								return type.enumerated(...columnSchema.options);
-							case 'multi-select':
-								return type.enumerated(...columnSchema.options).array();
-						}
-					})();
-
-					// Handle nullable fields
-					const isNullable =
-						columnSchema.type !== 'id' && columnSchema.nullable;
-					const nullableType = isNullable ? baseType.or(type.null) : baseType;
-
-					// Make all fields optional except 'id'
-					const finalType =
-						fieldName === 'id' ? nullableType : nullableType.optional();
-
-					return [fieldName, finalType];
-				}),
-			);
-
+			const fields = _buildSchemaFields({ makeOptional: true });
 			return type(fields) as StandardSchemaV1<PartialSerializedRow<TSchema>>;
+		},
+
+		toStandardSchemaArray(): StandardSchemaV1<SerializedRow<TSchema>[]> {
+			const fields = _buildSchemaFields({ makeOptional: false });
+			return type(fields).array() as StandardSchemaV1<SerializedRow<TSchema>[]>;
+		},
+
+		toPartialStandardSchemaArray(): StandardSchemaV1<
+			PartialSerializedRow<TSchema>[]
+		> {
+			const fields = _buildSchemaFields({ makeOptional: true });
+			return type(fields).array() as StandardSchemaV1<
+				PartialSerializedRow<TSchema>[]
+			>;
 		},
 	};
 }
