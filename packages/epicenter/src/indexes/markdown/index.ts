@@ -377,215 +377,6 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 		syncCoordination,
 	});
 
-	/**
-	 * Push: Sync from YJS to Markdown (replace all markdown files with current YJS data)
-	 */
-	const push = defineQuery({
-		description:
-			'Push all YJS data to markdown files (deletes existing files and writes fresh copies)',
-		handler: async () => {
-			return tryAsync({
-				try: async () => {
-					syncCoordination.isProcessingYJSChange = true;
-
-					// Find and delete all markdown files that match our structure
-					const entries = await readdir(absoluteRootPath, {
-						recursive: true,
-						withFileTypes: true,
-					});
-
-					for (const entry of entries) {
-						if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-
-						// Build relative path from root
-						const relativePath = path.relative(
-							absoluteRootPath,
-							path.join(entry.parentPath ?? entry.path, entry.name),
-						);
-
-						// Check if this file matches our structure
-						const result = pathToTableAndId({ path: relativePath });
-						if (result === null) continue; // Skip files that don't match
-
-						// Delete the file
-						const fullPath = path.join(absoluteRootPath, relativePath);
-						const { error } = await deleteMarkdownFile({ filePath: fullPath });
-						if (error) {
-							console.warn(
-								`Failed to delete markdown file ${relativePath} during push:`,
-								error,
-							);
-						}
-					}
-
-					// Write all current YJS rows to markdown files
-					for (const tableName of db.getTableNames()) {
-						const tableSchema = db.schema[tableName];
-						if (!tableSchema) {
-							throw new Error(`Schema for table "${tableName}" not found`);
-						}
-
-						const schemaWithValidation =
-							createTableSchemaWithValidation(tableSchema);
-						const serializer =
-							serializers?.[tableName] ??
-							createDefaultSerializer(schemaWithValidation);
-
-						const results = await db.tables[tableName].getAll();
-						const validRows = results
-							.filter((r) => r.status === 'valid')
-							.map((r) => r.row);
-
-						for (const row of validRows) {
-							const serializedRow = row.toJSON();
-							const relativePath = tableAndIdToPath({ id: row.id, tableName });
-							const filePath = path.join(absoluteRootPath, relativePath);
-							const { frontmatter, body } = serializer.serialize({
-								row: serializedRow,
-								tableName,
-							});
-
-							const { error } = await writeMarkdownFile({
-								filePath,
-								frontmatter,
-								body,
-							});
-							if (error) {
-								console.warn(
-									`Failed to write markdown file ${relativePath} during push:`,
-									error,
-								);
-							}
-						}
-					}
-
-					syncCoordination.isProcessingYJSChange = false;
-				},
-				catch: (error) => {
-					syncCoordination.isProcessingYJSChange = false;
-					return IndexErr({
-						message: 'Markdown index push failed',
-						context: { operation: 'push' },
-						cause: error,
-					});
-				},
-			});
-		},
-	});
-
-	/**
-	 * Pull: Sync from Markdown to YJS (replace all YJS data with current markdown files)
-	 */
-	const pull = defineQuery({
-		description:
-			'Pull all markdown files into YJS (clears YJS tables and imports from files)',
-		handler: async () => {
-			return tryAsync({
-				try: async () => {
-					syncCoordination.isProcessingFileChange = true;
-
-					// Clear all YJS tables
-					db.transact(() => {
-						for (const tableName of db.getTableNames()) {
-							db.tables[tableName].clear();
-						}
-					});
-
-					// Find all markdown files
-					const entries = await readdir(absoluteRootPath, {
-						recursive: true,
-						withFileTypes: true,
-					});
-
-					for (const entry of entries) {
-						if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-
-						// Build relative path from root
-						const relativePath = path.relative(
-							absoluteRootPath,
-							path.join(entry.parentPath ?? entry.path, entry.name),
-						);
-
-						// Extract table name and ID from path
-						const result = pathToTableAndId({ path: relativePath });
-						if (result === null) continue; // Skip files that don't match
-
-						const { tableName, id } = result;
-
-						// Get table and schema
-						const table = db.tables[tableName];
-						const tableSchema = db.schema[tableName];
-
-						if (!table || !tableSchema) {
-							console.warn(
-								`Pull: Unknown table "${tableName}" from file ${relativePath}`,
-							);
-							continue;
-						}
-
-						// Create schema with validation methods
-						const schemaWithValidation =
-							createTableSchemaWithValidation(tableSchema);
-
-						// Use custom serializer if provided, otherwise use default
-						const serializer =
-							serializers?.[tableName] ??
-							createDefaultSerializer(schemaWithValidation);
-
-						// Parse markdown file
-						const fullPath = path.join(absoluteRootPath, relativePath);
-						const parseResult = await parseMarkdownFile(fullPath);
-
-						if (parseResult.error) {
-							console.warn(
-								`Failed to parse markdown file ${relativePath} during pull:`,
-								parseResult.error,
-							);
-							continue;
-						}
-
-						const { data: frontmatter, body } = parseResult.data;
-
-						// Deserialize using the serializer
-						const row = serializer.deserialize({
-							id,
-							frontmatter,
-							body,
-							tableName,
-							schema: tableSchema,
-						});
-
-						if (row === null) {
-							console.warn(
-								`Skipping markdown file ${relativePath}: deserialize returned null`,
-							);
-							continue;
-						}
-
-						// Insert into YJS
-						const insertResult = table.insert(row);
-						if (insertResult.error) {
-							console.warn(
-								`Failed to insert row ${id} from markdown into YJS table ${tableName}:`,
-								insertResult.error,
-							);
-						}
-					}
-
-					syncCoordination.isProcessingFileChange = false;
-				},
-				catch: (error) => {
-					syncCoordination.isProcessingFileChange = false;
-					return IndexErr({
-						message: 'Markdown index pull failed',
-						context: { operation: 'pull' },
-						cause: error,
-					});
-				},
-			});
-		},
-	});
-
 	return defineIndexExports({
 		destroy() {
 			for (const unsub of unsubscribers) {
@@ -593,8 +384,218 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 			}
 			watcher.close();
 		},
-		push,
-		pull,
+
+		/**
+		 * Push: Sync from YJS to Markdown (replace all markdown files with current YJS data)
+		 */
+		push: defineQuery({
+			description:
+				'Push all YJS data to markdown files (deletes existing files and writes fresh copies)',
+			handler: async () => {
+				return tryAsync({
+					try: async () => {
+						syncCoordination.isProcessingYJSChange = true;
+
+						// Find and delete all markdown files that match our structure
+						const entries = await readdir(absoluteRootPath, {
+							recursive: true,
+							withFileTypes: true,
+						});
+
+						for (const entry of entries) {
+							if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+
+							// Build relative path from root
+							const relativePath = path.relative(
+								absoluteRootPath,
+								path.join(entry.parentPath ?? entry.path, entry.name),
+							);
+
+							// Check if this file matches our structure
+							const result = pathToTableAndId({ path: relativePath });
+							if (result === null) continue; // Skip files that don't match
+
+							// Delete the file
+							const fullPath = path.join(absoluteRootPath, relativePath);
+							const { error } = await deleteMarkdownFile({ filePath: fullPath });
+							if (error) {
+								console.warn(
+									`Failed to delete markdown file ${relativePath} during push:`,
+									error,
+								);
+							}
+						}
+
+						// Write all current YJS rows to markdown files
+						for (const tableName of db.getTableNames()) {
+							const tableSchema = db.schema[tableName];
+							if (!tableSchema) {
+								throw new Error(`Schema for table "${tableName}" not found`);
+							}
+
+							const schemaWithValidation =
+								createTableSchemaWithValidation(tableSchema);
+							const serializer =
+								serializers?.[tableName] ??
+								createDefaultSerializer(schemaWithValidation);
+
+							const results = await db.tables[tableName].getAll();
+							const validRows = results
+								.filter((r) => r.status === 'valid')
+								.map((r) => r.row);
+
+							for (const row of validRows) {
+								const serializedRow = row.toJSON();
+								const relativePath = tableAndIdToPath({
+									id: row.id,
+									tableName,
+								});
+								const filePath = path.join(absoluteRootPath, relativePath);
+								const { frontmatter, body } = serializer.serialize({
+									row: serializedRow,
+									tableName,
+								});
+
+								const { error } = await writeMarkdownFile({
+									filePath,
+									frontmatter,
+									body,
+								});
+								if (error) {
+									console.warn(
+										`Failed to write markdown file ${relativePath} during push:`,
+										error,
+									);
+								}
+							}
+						}
+
+						syncCoordination.isProcessingYJSChange = false;
+					},
+					catch: (error) => {
+						syncCoordination.isProcessingYJSChange = false;
+						return IndexErr({
+							message: 'Markdown index push failed',
+							context: { operation: 'push' },
+							cause: error,
+						});
+					},
+				});
+			},
+		}),
+
+		/**
+		 * Pull: Sync from Markdown to YJS (replace all YJS data with current markdown files)
+		 */
+		pull: defineQuery({
+			description:
+				'Pull all markdown files into YJS (clears YJS tables and imports from files)',
+			handler: async () => {
+				return tryAsync({
+					try: async () => {
+						syncCoordination.isProcessingFileChange = true;
+
+						// Clear all YJS tables
+						db.transact(() => {
+							for (const tableName of db.getTableNames()) {
+								db.tables[tableName].clear();
+							}
+						});
+
+						// Find all markdown files
+						const entries = await readdir(absoluteRootPath, {
+							recursive: true,
+							withFileTypes: true,
+						});
+
+						for (const entry of entries) {
+							if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+
+							// Build relative path from root
+							const relativePath = path.relative(
+								absoluteRootPath,
+								path.join(entry.parentPath ?? entry.path, entry.name),
+							);
+
+							// Extract table name and ID from path
+							const result = pathToTableAndId({ path: relativePath });
+							if (result === null) continue; // Skip files that don't match
+
+							const { tableName, id } = result;
+
+							// Get table and schema
+							const table = db.tables[tableName];
+							const tableSchema = db.schema[tableName];
+
+							if (!table || !tableSchema) {
+								console.warn(
+									`Pull: Unknown table "${tableName}" from file ${relativePath}`,
+								);
+								continue;
+							}
+
+							// Create schema with validation methods
+							const schemaWithValidation =
+								createTableSchemaWithValidation(tableSchema);
+
+							// Use custom serializer if provided, otherwise use default
+							const serializer =
+								serializers?.[tableName] ??
+								createDefaultSerializer(schemaWithValidation);
+
+							// Parse markdown file
+							const fullPath = path.join(absoluteRootPath, relativePath);
+							const parseResult = await parseMarkdownFile(fullPath);
+
+							if (parseResult.error) {
+								console.warn(
+									`Failed to parse markdown file ${relativePath} during pull:`,
+									parseResult.error,
+								);
+								continue;
+							}
+
+							const { data: frontmatter, body } = parseResult.data;
+
+							// Deserialize using the serializer
+							const row = serializer.deserialize({
+								id,
+								frontmatter,
+								body,
+								tableName,
+								schema: tableSchema,
+							});
+
+							if (row === null) {
+								console.warn(
+									`Skipping markdown file ${relativePath}: deserialize returned null`,
+								);
+								continue;
+							}
+
+							// Insert into YJS
+							const insertResult = table.insert(row);
+							if (insertResult.error) {
+								console.warn(
+									`Failed to insert row ${id} from markdown into YJS table ${tableName}:`,
+									insertResult.error,
+								);
+							}
+						}
+
+						syncCoordination.isProcessingFileChange = false;
+					},
+					catch: (error) => {
+						syncCoordination.isProcessingFileChange = false;
+						return IndexErr({
+							message: 'Markdown index pull failed',
+							context: { operation: 'pull' },
+							cause: error,
+						});
+					},
+				});
+			},
+		}),
 	});
 }
 
