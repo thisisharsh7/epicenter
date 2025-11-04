@@ -1,4 +1,4 @@
-import { id, text, select, date } from '../../../src/index';
+import { date, id, select, text } from '../../../src/index';
 import { NICHES } from './niches';
 
 /**
