@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Brand } from 'wellcrafted/brand';
 import { Ok, trySync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
-import { type IndexContext, defineIndex } from '../../core/indexes';
+import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type {
 	Row,
 	SerializedRow,
@@ -335,7 +335,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 		syncCoordination,
 	});
 
-	return defineIndex({
+	return defineIndexExports({
 		destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();

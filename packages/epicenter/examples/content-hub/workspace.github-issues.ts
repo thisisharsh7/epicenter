@@ -45,17 +45,10 @@ export const githubIssues = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) =>
-			sqliteIndex(db, {
-				path: path.join('.epicenter', 'github-issues.db'),
-			}),
+		sqlite: sqliteIndex,
 	},
 
-	providers: [
-		setupPersistence({
-			storagePath: './.epicenter',
-		}),
-	],
+	providers: [setupPersistence()],
 
 	actions: ({ db, indexes }) => ({
 		/**

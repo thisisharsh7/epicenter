@@ -28,17 +28,10 @@ export const reddit = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) =>
-			sqliteIndex(db, {
-				path: path.join('.epicenter', 'reddit.db'),
-			}),
+		sqlite: sqliteIndex,
 	},
 
-	providers: [
-		setupPersistence({
-			storagePath: './.epicenter',
-		}),
-	],
+	providers: [setupPersistence()],
 
 	actions: ({ db, indexes }) => ({
 		/**

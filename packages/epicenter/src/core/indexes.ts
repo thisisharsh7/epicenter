@@ -1,4 +1,3 @@
-
 /**
  * Index type system for vault.
  * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
@@ -6,6 +5,39 @@
 
 import type { Db } from '../db/core';
 import type { WorkspaceSchema } from './schema';
+
+/**
+ * Index function type - receives IndexContext and returns IndexExports.
+ *
+ * An index is a function that sets up synchronization between YJS and some external storage
+ * or query interface (SQLite, markdown files, vector database, etc.).
+ *
+ * Consistent with the Provider pattern, the function itself is called an "Index".
+ *
+ * @example
+ * ```typescript
+ * // Simple synchronous index
+ * const myIndex: Index<MySchema, MyExports> = ({ id, db }) => {
+ *   return defineIndex({
+ *     destroy: () => { },
+ *     // ... other exports
+ *   });
+ * };
+ *
+ * // Async index
+ * const myAsyncIndex: Index<MySchema, MyExports> = async ({ id, db }) => {
+ *   await setupSomething();
+ *   return defineIndex({
+ *     destroy: () => { },
+ *     // ... other exports
+ *   });
+ * };
+ * ```
+ */
+export type Index<
+	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TExports extends IndexExports = IndexExports,
+> = (context: IndexContext<TSchema>) => TExports | Promise<TExports>;
 
 /**
  * Context provided to each index factory function.
@@ -31,15 +63,7 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
 };
 
 /**
- * A collection of workspace indexes indexed by index name.
- *
- * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
- * that sync with the YJS document and provide different access patterns to the data.
- */
-export type WorkspaceIndexMap = Record<string, Index>;
-
-/**
- * Index type - an object with cleanup function and any exported resources
+ * Index exports type - an object with cleanup function and any exported resources
  *
  * Indexes set up observers on YJS documents and export resources like:
  * - Database instances (SQLite, etc.)
@@ -56,7 +80,7 @@ export type WorkspaceIndexMap = Record<string, Index>;
  * @example
  * ```typescript
  * // Creating an index - internal resources become exports
- * function sqliteIndex(db, config) {
+ * function sqliteIndex({ id, db }: IndexContext) {
  *   // 1. Create internal resources
  *   const sqliteDb = drizzle({ client, schema: drizzleTables });
  *   const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
@@ -81,9 +105,9 @@ export type WorkspaceIndexMap = Record<string, Index>;
  *
  * // Using exported resources in actions
  * const workspace = defineWorkspace({
- *   indexes: async ({ db }) => ({
- *     sqlite: await sqliteIndex(db),
- *   }),
+ *   indexes: {
+ *     sqlite: sqliteIndex,
+ *   },
  *
  *   actions: ({ indexes }) => ({
  *     getPost: defineQuery({
@@ -99,16 +123,24 @@ export type WorkspaceIndexMap = Record<string, Index>;
  * });
  * ```
  */
-export type Index = {
+export type IndexExports = {
 	destroy: () => void;
 };
 
 /**
- * Define an index with type safety (identity function)
+ * A collection of workspace indexes indexed by index name.
+ *
+ * Each workspace can have multiple indexes (SQLite, markdown, vector, etc.)
+ * that sync with the YJS document and provide different access patterns to the data.
+ */
+export type WorkspaceIndexMap = Record<string, IndexExports>;
+
+/**
+ * Define index exports with type safety (identity function)
  *
  * @example
  * ```typescript
- * const sqliteIndex = defineIndex({
+ * const sqliteIndexExports = defineIndexExports({
  *   destroy: () => { ... },
  *   db: sqliteDb,
  *   findById: async (id: string) => { ... }
@@ -116,7 +148,6 @@ export type Index = {
  * // Type is inferred as { destroy: () => void, db: typeof sqliteDb, findById: (id: string) => Promise<...> }
  * ```
  */
-export function defineIndex<T extends Index>(index: T): T {
-	return index;
+export function defineIndexExports<T extends IndexExports>(exports: T): T {
+	return exports;
 }
-

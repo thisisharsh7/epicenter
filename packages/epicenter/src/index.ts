@@ -38,6 +38,7 @@ export {
 	validateRow,
 	createTableSchemaWithValidation,
 } from './core/schema';
+export { DateWithTimezone } from './core/schema';
 export type {
 	ColumnSchema,
 	ColumnType,
@@ -49,7 +50,6 @@ export type {
 	Row,
 	SerializedRow,
 	Id,
-	DateWithTimezone,
 } from './core/schema';
 
 // Action helpers
@@ -80,8 +80,8 @@ export { createEpicenterDbFromDisk } from './db/desktop';
 export type { TableHelper, Db } from './db/core';
 
 // Index system
-export { defineIndex } from './core/indexes';
-export type { Index, WorkspaceIndexMap } from './core/indexes';
+export { defineIndexExports } from './core/indexes';
+export type { Index, IndexExports, IndexContext, WorkspaceIndexMap } from './core/indexes';
 
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';
@@ -95,9 +95,7 @@ export { IndexErr } from './core/errors';
 export type { EpicenterOperationError, IndexError } from './core/errors';
 
 // Server - expose workspaces as REST API and MCP servers
-export {
-	createServer,
-} from './server';
+export { createServer } from './server';
 
 // Re-export commonly used Drizzle utilities for querying indexes
 export {

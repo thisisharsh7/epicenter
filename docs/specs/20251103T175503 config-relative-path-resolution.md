@@ -275,15 +275,121 @@ const workspace = defineWorkspace({
 
 ## Todo List
 
-- [ ] Update `ProviderContext` type to include `id` field
-- [ ] Create `IndexContext` type
-- [ ] Update workspace config types to use `IndexContext`
-- [ ] Update `initializeWorkspaces` to pass `IndexContext` to index functions
-- [ ] Update `initializeWorkspaces` to pass `id` to `ProviderContext`
-- [ ] Refactor `sqliteIndex` to use `IndexContext` and remove path config
-- [ ] Refactor `markdownIndex` to use `IndexContext`
-- [ ] Update `markdownIndex` JSDoc to clarify rootPath resolution
-- [ ] Refactor `setupPersistence` to remove `storagePath` parameter
-- [ ] Update all examples (basic-workspace, content-hub workspaces)
+- [x] Update `ProviderContext` type to include `id` field
+- [x] Create `IndexContext` type
+- [x] Update workspace config types to use `IndexContext`
+- [x] Update `initializeWorkspaces` to pass `IndexContext` to index functions
+- [x] Update `initializeWorkspaces` to pass `id` to `ProviderContext`
+- [x] Refactor `sqliteIndex` to use `IndexContext` and remove path config
+- [x] Refactor `markdownIndex` to use `IndexContext`
+- [x] Update `markdownIndex` JSDoc to clarify rootPath resolution
+- [x] Refactor `setupPersistence` to remove `storagePath` parameter
+- [x] Update all examples (basic-workspace, content-hub workspaces)
 - [ ] Update main README with new simplified API
 - [ ] Update index-specific documentation
+
+## Review
+
+### Completed Changes
+
+All implementation tasks have been completed successfully. The refactoring involved:
+
+**Core Type Changes:**
+1. Added `id: string` to `ProviderContext` in `src/core/workspace/config.ts:23-26`
+2. Created `IndexContext<TSchema>` type with `id` and `db` fields in `src/core/indexes.ts:60-63`
+3. Renamed types for consistency with Provider pattern:
+   - `Index` → `IndexExports` (the result object with destroy method)
+   - `IndexFactory` → `Index` (the function that creates an index)
+   - `defineIndex` → `defineIndexExports` (helper function)
+
+**Implementation Updates:**
+4. Updated `initializeWorkspaces` in `src/core/workspace/client.ts` to:
+   - Pass `{ id, ydoc }` to providers instead of just `{ ydoc }`
+   - Pass `{ id, db }` to index functions using Object.fromEntries pattern
+5. Refactored `sqliteIndex` in `src/indexes/sqlite/index.ts:50-185`:
+   - Changed signature to destructure `{ id, db }` from IndexContext
+   - Removed SQLiteIndexConfig type (no longer needed)
+   - Auto-resolves database path to `.epicenter/{id}.db`
+   - Creates `.epicenter` directory if it doesn't exist
+6. Refactored `markdownIndex` in `src/indexes/markdown/index.ts`:
+   - Changed signature to destructure all params including `{ id, db }`
+   - Updated JSDoc to explain relative path resolution (relative to config file)
+7. Refactored `setupPersistence` in `src/core/workspace/providers/persistence/desktop.ts`:
+   - Removed SetupPersistenceOptions type
+   - Changed to take no parameters
+   - Auto-resolves storage path to `.epicenter/{id}.yjs`
+   - Uses `id` from ProviderContext instead of `ydoc.guid`
+
+**Example Updates:**
+8. Updated `examples/basic-workspace/epicenter.config.ts`:
+   - Simplified sqlite from `(db) => sqliteIndex(db)` to just `sqliteIndex`
+   - Updated markdown to destructure `{ id, db }` in signature
+   - Simplified setupPersistence from `setupPersistence({ storagePath: ... })` to `setupPersistence()`
+9. Updated all 14 content-hub workspace files:
+   - `workspace.medium.ts`
+   - `workspace.youtube.ts`
+   - `workspace.github-issues.ts`
+   - `workspace.instagram.ts`
+   - `workspace.discord.ts`
+   - `workspace.producthunt.ts`
+   - `workspace.pages.ts`
+   - `workspace.personal-blog.ts`
+   - `workspace.bookface.ts`
+   - `workspace.twitter.ts`
+   - `workspace.hackernews.ts`
+   - `workspace.epicenter-blog.ts`
+   - `workspace.tiktok.ts`
+   - `workspace.reddit.ts`
+   - `workspace.substack.ts`
+
+All files now use the simplified API with auto-resolved paths.
+
+### API Improvements
+
+**Before (Verbose):**
+```typescript
+import path from 'node:path';
+
+indexes: {
+  sqlite: (db) => sqliteIndex(db, {
+    path: path.join('.epicenter', 'workspace.db'),
+  }),
+  markdown: (db) => markdownIndex(db, {
+    rootPath: path.join(import.meta.dirname, './content'),
+    // ...
+  }),
+},
+providers: [
+  setupPersistence({
+    storagePath: './.epicenter',
+  }),
+],
+```
+
+**After (Clean):**
+```typescript
+indexes: {
+  sqlite: sqliteIndex,
+  markdown: ({ id, db }) => markdownIndex({
+    id,
+    db,
+    rootPath: './content',
+    // ...
+  }),
+},
+providers: [setupPersistence()],
+```
+
+### Benefits
+
+1. **Less boilerplate**: No need to import `path` module for most use cases
+2. **Consistent conventions**: All persistence data goes to `.epicenter/` directory
+3. **Automatic path resolution**: SQLite and YJS files use workspace ID for naming
+4. **Better DX**: Users can just write `sqlite: sqliteIndex` instead of wrapping it
+5. **Type safety**: IndexContext provides strong typing for index functions
+6. **Consistency**: Follows the same pattern as ProviderContext
+
+### Outstanding Work
+
+- Documentation updates for README and index-specific docs
+- These can be addressed in a follow-up if needed

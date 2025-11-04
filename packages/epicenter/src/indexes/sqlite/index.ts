@@ -9,7 +9,7 @@ import {
 import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { IndexErr } from '../../core/errors';
-import { type IndexContext, defineIndex } from '../../core/indexes';
+import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
@@ -173,7 +173,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	}
 
 	// Return destroy function alongside exported resources (flattened structure)
-	return defineIndex({
+	return defineIndexExports({
 		destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();

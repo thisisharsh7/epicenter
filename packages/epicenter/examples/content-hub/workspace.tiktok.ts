@@ -28,17 +28,10 @@ export const tiktok = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) =>
-			sqliteIndex(db, {
-				path: path.join('.epicenter', 'tiktok.db'),
-			}),
+		sqlite: sqliteIndex,
 	},
 
-	providers: [
-		setupPersistence({
-			storagePath: './.epicenter',
-		}),
-	],
+	providers: [setupPersistence()],
 
 	actions: ({ db, indexes }) => ({
 		/**

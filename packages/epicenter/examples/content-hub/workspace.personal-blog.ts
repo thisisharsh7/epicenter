@@ -30,12 +30,11 @@ export const personalBlog = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: (db) =>
-			sqliteIndex(db, {
-				path: path.join('.epicenter', 'personal-blog.db'),
-			}),
-		markdown: (db) =>
-			markdownIndex(db, {
+		sqlite: sqliteIndex,
+		markdown: ({ id, db }) =>
+			markdownIndex({
+				id,
+				db,
 				rootPath: './personal-blog',
 				pathToTableAndId: ({ path: filePath }) => {
 					const parts = filePath.split(path.sep);
@@ -49,11 +48,7 @@ export const personalBlog = defineWorkspace({
 			}),
 	},
 
-	providers: [
-		setupPersistence({
-			storagePath: './.epicenter',
-		}),
-	],
+	providers: [setupPersistence()],
 
 	actions: ({ db, indexes }) => ({
 		/**

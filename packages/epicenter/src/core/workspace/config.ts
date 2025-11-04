@@ -1,7 +1,7 @@
 import type * as Y from 'yjs';
 import type { Db } from '../../db/core';
 import type { WorkspaceActionMap } from '../actions';
-import type { IndexContext, WorkspaceIndexMap } from '../indexes';
+import type { Index, WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 
 /**
@@ -241,9 +241,7 @@ export type WorkspaceConfig<
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
 	indexes: {
-		[K in keyof TIndexResults]: (
-			context: IndexContext<TWorkspaceSchema>,
-		) => TIndexResults[K] | Promise<TIndexResults[K]>;
+		[K in keyof TIndexResults]: Index<TWorkspaceSchema, TIndexResults[K]>;
 	};
 	providers?: Provider[];
 	actions: (context: {
