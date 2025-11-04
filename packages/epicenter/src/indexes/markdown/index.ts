@@ -417,7 +417,9 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 
 							// Delete the file
 							const fullPath = path.join(absoluteRootPath, relativePath);
-							const { error } = await deleteMarkdownFile({ filePath: fullPath });
+							const { error } = await deleteMarkdownFile({
+								filePath: fullPath,
+							});
 							if (error) {
 								console.warn(
 									`Failed to delete markdown file ${relativePath} during push:`,
@@ -525,7 +527,9 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 
 							// Get table and schema
 							const table = db.tables[tableName];
-							const tableSchema = db.schema[tableName];
+							const tableSchema = db.schema[tableName] as
+								| TSchema[keyof TSchema & string]
+								| undefined;
 
 							if (!table || !tableSchema) {
 								console.warn(
