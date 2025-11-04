@@ -251,8 +251,8 @@
 								🚫
 							</WhisperingButton>
 						</div>
-					{:else if false}
-						<!-- Selectors hidden - available in sidebar Quick Settings -->
+					{:else}
+						<!-- Quick Settings Controls -->
 						<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
 							<ManualDeviceSelector />
 							<CompressionSelector />
@@ -281,15 +281,13 @@
 						</span>
 					</WhisperingButton>
 					<!-- Absolutely positioned selectors -->
-					{#if false}
-						<!-- Selectors hidden - available in sidebar Quick Settings -->
-						<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
-							<VadDeviceSelector />
-							<CompressionSelector />
-							<TranscriptionSelector />
-							<TransformationSelector />
-						</div>
-					{/if}
+					<!-- Quick Settings Controls -->
+					<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
+						<VadDeviceSelector />
+						<CompressionSelector />
+						<TranscriptionSelector />
+						<TransformationSelector />
+					</div>
 				</div>
 			{:else if settings.value['recording.mode'] === 'upload'}
 				<!-- Full width spanning all columns -->
@@ -311,14 +309,12 @@
 						}}
 						class="h-32 sm:h-36 lg:h-40 xl:h-44 w-full"
 					/>
-					{#if false}
-						<!-- Selectors hidden - available in sidebar Quick Settings -->
-						<div class="flex items-center gap-1.5">
-							<CompressionSelector />
-							<TranscriptionSelector />
-							<TransformationSelector />
-						</div>
-					{/if}
+					<!-- Quick Settings Controls -->
+					<div class="flex items-center gap-1.5">
+						<CompressionSelector />
+						<TranscriptionSelector />
+						<TransformationSelector />
+					</div>
 				</div>
 			{/if}
 		</div>
