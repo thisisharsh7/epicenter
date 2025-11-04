@@ -364,7 +364,8 @@
 		Recordings
 	</h1>
 	<p class="text-muted-foreground">
-		Your latest recordings and transcriptions, stored locally in IndexedDB.
+		Your latest recordings and transcriptions, stored locally
+		{window.__TAURI_INTERNALS__ ? 'on your file system' : 'in IndexedDB'}.
 	</p>
 	<Card class="flex flex-col gap-4 p-6">
 		<div class="flex flex-col md:flex-row items-center justify-between gap-2">
