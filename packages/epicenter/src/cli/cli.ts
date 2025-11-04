@@ -1,5 +1,6 @@
 import yargs from 'yargs';
 import type { Argv } from 'yargs';
+import type { WorkspaceActionMap } from '../core/actions';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
 import { DEFAULT_PORT, startServer } from './server';
@@ -70,8 +71,8 @@ export async function createCLI({
 
 		// Extract action map (all client properties except 'destroy')
 		const actionMap = Object.fromEntries(
-			Object.entries(client).filter(([key]) => key !== 'destroy')
-		);
+			Object.entries(client).filter(([key]) => key !== 'destroy'),
+		) as WorkspaceActionMap;
 
 		cli = cli.command(
 			workspaceConfig.id,

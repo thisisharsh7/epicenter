@@ -1,21 +1,13 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import {
-	type Mutation,
-	type Query,
-	defineMutation,
-	defineQuery,
-} from '../core/actions';
+import { defineMutation, defineQuery } from '../core/actions';
 import type {
 	CellValue,
 	GetRowResult,
-	PartialSerializedRow,
 	Row,
 	RowValidationResult,
-	SerializedRow,
 	TableSchema,
 	TableSchemaWithValidation,
 	WorkspaceSchema,
@@ -43,115 +35,6 @@ export type RowNotFoundError = ReturnType<typeof RowNotFoundError>;
  * Maps column names to YJS shared types or primitives
  */
 export type YRow = Y.Map<CellValue>;
-
-/**
- * Type-safe table helper with operations for a specific table schema.
- *
- * Write methods return Result types with specific errors:
- * - insert/insertMany: Result<void, RowAlreadyExistsError>
- * - update/updateMany: Result<void, RowNotFoundError>
- * - upsert/upsertMany/delete/deleteMany/clear: Result<void, never> (never fail)
- *
- * Read methods (get, getAll) return null for not-found rather than errors.
- */
-export type TableHelper<TTableSchema extends TableSchema> = {
-	/**
-	 * Insert a new row into the table.
-	 *
-	 * For Y.js columns (ytext, multi-select), provide plain JavaScript values:
-	 * - ytext columns accept strings
-	 * - multi-select columns accept arrays
-	 *
-	 * Internally, strings are synced to Y.Text using updateYTextFromString(),
-	 * and arrays are synced to Y.Array using updateYArrayFromArray().
-	 */
-	insert: Mutation<
-		undefined,
-		RowAlreadyExistsError,
-		StandardSchemaV1<SerializedRow<TTableSchema>>
-	>;
-
-	/**
-	 * Update specific fields of an existing row.
-	 *
-	 * For Y.js columns (ytext, multi-select), provide plain JavaScript values:
-	 * - ytext columns accept strings
-	 * - multi-select columns accept arrays
-	 *
-	 * Internally, the existing Y.Text/Y.Array is synced using updateYTextFromString()
-	 * or updateYArrayFromArray() to apply minimal changes while preserving CRDT history.
-	 *
-	 * Only the fields you include will be updated - others remain unchanged.
-	 */
-	update: Mutation<
-		undefined,
-		RowNotFoundError,
-		StandardSchemaV1<PartialSerializedRow<TTableSchema>>
-	>;
-
-	/**
-	 * Insert or update a row (insert if doesn't exist, update if exists).
-	 *
-	 * For Y.js columns (ytext, multi-select), provide plain JavaScript values.
-	 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
-	 */
-	upsert: Mutation<
-		undefined,
-		never,
-		StandardSchemaV1<SerializedRow<TTableSchema>>
-	>;
-
-	insertMany: Mutation<
-		undefined,
-		RowAlreadyExistsError,
-		StandardSchemaV1<SerializedRow<TTableSchema>[]>
-	>;
-	upsertMany: Mutation<
-		undefined,
-		never,
-		StandardSchemaV1<SerializedRow<TTableSchema>[]>
-	>;
-	updateMany: Mutation<
-		undefined,
-		RowNotFoundError,
-		StandardSchemaV1<PartialSerializedRow<TTableSchema>[]>
-	>;
-
-	/**
-	 * Get a row by ID, returning Y.js objects for collaborative editing.
-	 * Returns { status: 'not-found' } if row doesn't exist.
-	 */
-	get: Query<
-		GetRowResult<Row<TTableSchema>>,
-		never,
-		StandardSchemaV1<{ id: string }>
-	>;
-
-	/**
-	 * Get all rows with Y.js objects for collaborative editing.
-	 */
-	getAll: Query<RowValidationResult<Row<TTableSchema>>[], never, undefined>;
-
-	has: Query<boolean, never, StandardSchemaV1<{ id: string }>>;
-	delete: Mutation<undefined, never, StandardSchemaV1<{ id: string }>>;
-	deleteMany: Mutation<undefined, never, StandardSchemaV1<{ ids: string[] }>>;
-	clear: Mutation<undefined, never, undefined>;
-	count: Query<number, never, undefined>;
-	filter(
-		predicate: (row: Row<TTableSchema>) => boolean,
-	): Extract<RowValidationResult<Row<TTableSchema>>, { status: 'valid' }>[];
-	find(
-		predicate: (row: Row<TTableSchema>) => boolean,
-	): Extract<
-		GetRowResult<Row<TTableSchema>>,
-		{ status: 'valid' } | { status: 'not-found' }
-	>;
-	observe(callbacks: {
-		onAdd?: (row: Row<TTableSchema>) => void | Promise<void>;
-		onUpdate?: (row: Row<TTableSchema>) => void | Promise<void>;
-		onDelete?: (id: string) => void | Promise<void>;
-	}): () => void;
-};
 
 /**
  * Creates a type-safe collection of table helpers for all tables in a schema.
@@ -220,12 +103,20 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	tableName: string;
 	ytable: Y.Map<YRow>;
 	schema: TableSchemaWithValidation<TTableSchema>;
-}): TableHelper<TTableSchema> {
+}) {
 	type TRow = Row<TTableSchema>;
 
-	// Input validators using Standard Schema
-
 	return {
+		/**
+		 * Insert a new row into the table.
+		 *
+		 * For Y.js columns (ytext, multi-select), provide plain JavaScript values:
+		 * - ytext columns accept strings
+		 * - multi-select columns accept arrays
+		 *
+		 * Internally, strings are synced to Y.Text using updateYTextFromString(),
+		 * and arrays are synced to Y.Array using updateYArrayFromArray().
+		 */
 		insert: defineMutation({
 			input: schema.toStandardSchema(),
 			description: `Insert a new row into the ${tableName} table`,
@@ -248,6 +139,18 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/**
+		 * Update specific fields of an existing row.
+		 *
+		 * For Y.js columns (ytext, multi-select), provide plain JavaScript values:
+		 * - ytext columns accept strings
+		 * - multi-select columns accept arrays
+		 *
+		 * Internally, the existing Y.Text/Y.Array is synced using updateYTextFromString()
+		 * or updateYArrayFromArray() to apply minimal changes while preserving CRDT history.
+		 *
+		 * Only the fields you include will be updated - others remain unchanged.
+		 */
 		update: defineMutation({
 			input: schema.toPartialStandardSchema(),
 			description: `Update specific fields of an existing row in the ${tableName} table`,
@@ -277,6 +180,12 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/**
+		 * Insert or update a row (insert if doesn't exist, update if exists).
+		 *
+		 * For Y.js columns (ytext, multi-select), provide plain JavaScript values.
+		 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
+		 */
 		upsert: defineMutation({
 			input: schema.toStandardSchema(),
 			description: `Insert or update a row in the ${tableName} table`,
@@ -292,6 +201,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/** Insert multiple rows into the table */
 		insertMany: defineMutation({
 			input: schema.toStandardSchemaArray(),
 			description: `Insert multiple rows into the ${tableName} table`,
@@ -323,6 +233,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/** Insert or update multiple rows */
 		upsertMany: defineMutation({
 			input: schema.toStandardSchemaArray(),
 			description: `Insert or update multiple rows in the ${tableName} table`,
@@ -340,6 +251,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/** Update multiple rows */
 		updateMany: defineMutation({
 			input: schema.toPartialStandardSchemaArray(),
 			description: `Update multiple rows in the ${tableName} table`,
@@ -376,6 +288,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/**
+		 * Get a row by ID, returning Y.js objects for collaborative editing.
+		 * Returns { status: 'not-found' } if row doesn't exist.
+		 */
 		get: defineQuery({
 			input: type({
 				id: 'string',
@@ -391,6 +307,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/**
+		 * Get all rows with Y.js objects for collaborative editing.
+		 */
 		getAll: defineQuery({
 			description: `Get all rows from the ${tableName} table`,
 			handler: () => {
@@ -404,6 +323,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/** Check if a row exists by ID */
 		has: defineQuery({
 			input: type({
 				id: 'string',
@@ -412,6 +332,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			handler: (params) => ytable.has(params.id),
 		}),
 
+		/** Delete a row by ID */
 		delete: defineMutation({
 			input: type({
 				id: 'string',
@@ -424,6 +345,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/** Delete multiple rows by IDs */
 		deleteMany: defineMutation({
 			input: type({
 				ids: 'string[]',
@@ -438,6 +360,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/** Clear all rows from the table */
 		clear: defineMutation({
 			description: `Clear all rows from the ${tableName} table`,
 			handler: () => {
@@ -447,12 +370,20 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
+		/** Get the total number of rows in the table */
 		count: defineQuery({
 			description: `Count rows in the ${tableName} table`,
 			handler: () => ytable.size,
 		}),
 
-		filter(predicate: (row: TRow) => boolean) {
+		/**
+		 * Filter rows by predicate, returning only valid rows that match.
+		 * @param predicate Function that returns true for rows to include
+		 * @returns Array of valid rows that match the predicate
+		 */
+		filter(
+			predicate: (row: TRow) => boolean,
+		): Extract<RowValidationResult<TRow>, { status: 'valid' }>[] {
 			const results: Extract<RowValidationResult<TRow>, { status: 'valid' }>[] =
 				[];
 
@@ -470,6 +401,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return results;
 		},
 
+		/**
+		 * Find the first row that matches the predicate.
+		 * @param predicate Function that returns true for the row to find
+		 * @returns The first matching row or { status: 'not-found' } if no match
+		 */
 		find(
 			predicate: (row: TRow) => boolean,
 		): Extract<
@@ -685,3 +621,17 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 	};
 }
+
+/**
+ * Type-safe table helper with operations for a specific table schema.
+ *
+ * Write methods return Result types with specific errors:
+ * - insert/insertMany: Result<void, RowAlreadyExistsError>
+ * - update/updateMany: Result<void, RowNotFoundError>
+ * - upsert/upsertMany/delete/deleteMany/clear: Result<void, never> (never fail)
+ *
+ * Read methods (get, getAll) return null for not-found rather than errors.
+ */
+export type TableHelper<TTableSchema extends TableSchema> = ReturnType<
+	typeof createTableHelper<TTableSchema>
+>;
