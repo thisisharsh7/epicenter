@@ -17,14 +17,15 @@ export type ServeOptions = {
  * @param config - Epicenter configuration
  * @param options - Server options
  */
-export async function serveCommand(
+export async function startServer(
 	config: EpicenterConfig,
 	options: ServeOptions = {},
 ): Promise<void> {
 	console.log(`🔨 Creating HTTP server for app: ${config.id}`);
 
 	const { app, client, websocket } = await createServer(config);
-	const port = options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT));
+	const port =
+		options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT));
 
 	const server = Bun.serve({
 		fetch: app.fetch,
@@ -40,7 +41,9 @@ export async function serveCommand(
 	console.log('📚 REST API Endpoints:\n');
 	forEachAction(client, ({ workspaceId, actionName, action }) => {
 		const method = ({ query: 'GET', mutation: 'POST' } as const)[action.type];
-		console.log(`  ${method} http://localhost:${port}/${workspaceId}/${actionName}`);
+		console.log(
+			`  ${method} http://localhost:${port}/${workspaceId}/${actionName}`,
+		);
 	});
 
 	console.log('\n🔧 Connect to Claude Code:\n');

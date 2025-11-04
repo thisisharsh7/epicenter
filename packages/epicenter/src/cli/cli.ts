@@ -2,9 +2,9 @@ import yargs from 'yargs';
 import type { Argv } from 'yargs';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
-import { standardSchemaToYargs } from './standardschema-to-yargs';
 import { createMockContext } from './mock-context';
-import { serveCommand, DEFAULT_PORT } from './server';
+import { DEFAULT_PORT, startServer as startServer } from './server';
+import { standardSchemaToYargs } from './standardschema-to-yargs';
 
 /**
  * Create CLI from Epicenter config.
@@ -51,15 +51,14 @@ export async function createCLI({
 		'$0',
 		'Start HTTP server with REST and MCP endpoints',
 		(yargs) => {
-			return yargs
-				.option('port', {
-					type: 'number',
-					description: 'Port to run the server on',
-					default: DEFAULT_PORT,
-				});
+			return yargs.option('port', {
+				type: 'number',
+				description: 'Port to run the server on',
+				default: DEFAULT_PORT,
+			});
 		},
 		async (argv) => {
-			await serveCommand(config, {
+			await startServer(config, {
 				port: argv.port,
 			});
 		},
@@ -94,12 +93,7 @@ export async function createCLI({
 						},
 						async (argv) => {
 							// Handler: initialize real workspace and execute action
-							await executeAction(
-								config,
-								workspaceConfig.id,
-								actionName,
-								argv,
-							);
+							await executeAction(config, workspaceConfig.id, actionName, argv);
 						},
 					);
 				}
@@ -135,9 +129,7 @@ async function executeAction(
 	args: any,
 ) {
 	// Find workspace config
-	const workspaceConfig = config.workspaces.find(
-		(ws) => ws.id === workspaceId,
-	);
+	const workspaceConfig = config.workspaces.find((ws) => ws.id === workspaceId);
 
 	if (!workspaceConfig) {
 		console.error(`❌ Workspace "${workspaceId}" not found`);
