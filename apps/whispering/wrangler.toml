@@ -5,15 +5,16 @@ compatibility_date = "2025-11-04"
 # ==========================================
 # When setting up in Cloudflare dashboard:
 #
-# Root directory: apps/whispering
-#
 # Build command:
 #   cd ../.. && bun install --frozen-lockfile && bun run build --filter=@repo/whispering...
 #
 # Deploy command:
 #   npx wrangler deploy
 #
-# Build variables:
+# Root directory (Advanced settings):
+#   apps/whispering
+#
+# Build variables (Advanced settings):
 #   NODE_ENV=production
 #   BUN_VERSION=1.3.0
 
