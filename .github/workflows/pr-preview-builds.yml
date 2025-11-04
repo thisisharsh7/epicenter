@@ -160,6 +160,8 @@ jobs:
         with:
           name: whispering-pr${{ github.event.pull_request.number }}-${{ steps.artifact.outputs.suffix }}
           path: |
+            apps/whispering/src-tauri/target/*/release/bundle/**/*.dmg
+            apps/whispering/src-tauri/target/*/release/bundle/**/*.app
             apps/whispering/src-tauri/target/release/bundle/**/*.dmg
             apps/whispering/src-tauri/target/release/bundle/**/*.app
             apps/whispering/src-tauri/target/release/bundle/**/*.AppImage
