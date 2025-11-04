@@ -803,11 +803,10 @@ export function createRow<TTableSchema extends TableSchema>({
 	schema,
 }: {
 	yrow: YRow;
-	schema: TTableSchema;
+	schema: TableSchemaWithValidation<TTableSchema>;
 }): YRowValidationResult<Row<TTableSchema>> {
-	// Create a TableSchemaWithValidation and call its method
-	const tableSchema = createTableSchemaWithValidation(schema);
-	return tableSchema.validateYRow(yrow);
+	// Schema is already TableSchemaWithValidation, use it directly
+	return schema.validateYRow(yrow);
 }
 
 /**

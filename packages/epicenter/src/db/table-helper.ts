@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
-import { Ok, type Result } from 'wellcrafted/result';
+import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import {
 	type Mutation,
@@ -337,8 +337,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 					}
 				});
-
-				return Ok(undefined);
 			},
 		}),
 
@@ -637,6 +635,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 										case 'schema-mismatch':
 											console.warn(
 												`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
+												result.reason,
 											);
 											break;
 									}
