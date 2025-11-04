@@ -44,7 +44,12 @@ export const pages = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
-		markdown: markdownIndex,
+		markdown: ({ id, db }) =>
+			markdownIndex({
+				id,
+				db,
+				rootPath: './',
+			}),
 	},
 
 	providers: [setupPersistence],
@@ -125,5 +130,21 @@ export const pages = defineWorkspace({
 				return Ok({ id });
 			},
 		}),
+
+		/**
+		 * Markdown index operations
+		 */
+		markdown: {
+			push: indexes.markdown.push,
+			pull: indexes.markdown.pull,
+		},
+
+		/**
+		 * SQLite index operations
+		 */
+		sqlite: {
+			push: indexes.sqlite.push,
+			pull: indexes.sqlite.pull,
+		},
 	}),
 });

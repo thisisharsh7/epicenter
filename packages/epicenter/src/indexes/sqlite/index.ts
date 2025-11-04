@@ -7,8 +7,9 @@ import {
 	drizzle,
 } from 'drizzle-orm/better-sqlite3';
 import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
-import { Ok, type Result, tryAsync } from 'wellcrafted/result';
-import { IndexErr, type IndexError } from '../../core/errors';
+import { Ok, tryAsync } from 'wellcrafted/result';
+import { defineQuery } from '../../core/actions';
+import { IndexErr } from '../../core/errors';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
@@ -81,7 +82,10 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	// Auto-resolve path to .epicenter/{id}.db
 	// Relative path is resolved relative to epicenter.config.ts location (process.cwd())
 	const relativeDatabasePath = path.join('.epicenter', `${id}.db`);
-	const resolvedDatabasePath = path.resolve(process.cwd(), relativeDatabasePath);
+	const resolvedDatabasePath = path.resolve(
+		process.cwd(),
+		relativeDatabasePath,
+	);
 
 	// Create .epicenter directory if it doesn't exist
 	const storageDir = path.resolve(process.cwd(), '.epicenter');
@@ -227,116 +231,109 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 
 	/**
 	 * Push: Sync from YJS to SQLite (replace all SQLite data with current YJS data)
-	 *
-	 * Steps:
-	 * 1. Set coordination flag to prevent observer triggers
-	 * 2. Delete all rows from SQLite tables
-	 * 3. Insert all valid rows from YJS into SQLite
-	 * 4. Reset coordination flag
 	 */
-	async function push(): Promise<Result<void, IndexError>> {
-		return tryAsync({
-			try: async () => {
-				syncCoordination.isProcessingYJSChange = true;
+	const push = defineQuery({
+		description:
+			'Push all YJS data to SQLite (deletes existing rows and writes fresh copies)',
+		handler: async () => {
+			return tryAsync({
+				try: async () => {
+					syncCoordination.isProcessingYJSChange = true;
 
-				// Delete all rows from all SQLite tables
-				for (const tableName of db.getTableNames()) {
-					const drizzleTable = drizzleTables[tableName];
-					if (!drizzleTable) {
-						throw new Error(`Drizzle table for "${tableName}" not found`);
-					}
-					await sqliteDb.delete(drizzleTable as any);
-				}
-
-				// Insert all valid rows from YJS into SQLite
-				for (const tableName of db.getTableNames()) {
-					const drizzleTable = drizzleTables[tableName];
-					if (!drizzleTable) {
-						throw new Error(`Drizzle table for "${tableName}" not found`);
+					// Delete all rows from all SQLite tables
+					for (const tableName of db.getTableNames()) {
+						const drizzleTable = drizzleTables[tableName];
+						if (!drizzleTable) {
+							throw new Error(`Drizzle table for "${tableName}" not found`);
+						}
+						await sqliteDb.delete(drizzleTable as any);
 					}
 
-					const results = await db.tables[tableName].getAll();
-					const validRows = results
-						.filter((r) => r.status === 'valid')
-						.map((r) => r.row);
+					// Insert all valid rows from YJS into SQLite
+					for (const tableName of db.getTableNames()) {
+						const drizzleTable = drizzleTables[tableName];
+						if (!drizzleTable) {
+							throw new Error(`Drizzle table for "${tableName}" not found`);
+						}
 
-					for (const row of validRows) {
-						const serializedRow = row.toJSON();
-						await sqliteDb.insert(drizzleTable).values(serializedRow);
+						const results = await db.tables[tableName].getAll();
+						const validRows = results
+							.filter((r) => r.status === 'valid')
+							.map((r) => r.row);
+
+						for (const row of validRows) {
+							const serializedRow = row.toJSON();
+							await sqliteDb.insert(drizzleTable).values(serializedRow);
+						}
 					}
-				}
 
-				syncCoordination.isProcessingYJSChange = false;
-			},
-			catch: (error) => {
-				syncCoordination.isProcessingYJSChange = false;
-				return IndexErr({
-					message: 'SQLite index push failed',
-					context: { operation: 'push' },
-					cause: error,
-				});
-			},
-		});
-	}
+					syncCoordination.isProcessingYJSChange = false;
+				},
+				catch: (error) => {
+					syncCoordination.isProcessingYJSChange = false;
+					return IndexErr({
+						message: 'SQLite index push failed',
+						context: { operation: 'push' },
+						cause: error,
+					});
+				},
+			});
+		},
+	});
 
 	/**
 	 * Pull: Sync from SQLite to YJS (replace all YJS data with current SQLite data)
-	 *
-	 * Steps:
-	 * 1. Set coordination flag to prevent observer triggers
-	 * 2. Clear all YJS tables
-	 * 3. Read all rows from SQLite and insert into YJS
-	 * 4. Reset coordination flag
 	 */
-	async function pull(): Promise<Result<void, IndexError>> {
-		return tryAsync({
-			try: async () => {
-				syncCoordination.isProcessingSQLiteChange = true;
+	const pull = defineQuery({
+		description:
+			'Pull all SQLite data into YJS (clears YJS tables and imports from database)',
+		handler: async () => {
+			return tryAsync({
+				try: async () => {
+					syncCoordination.isProcessingSQLiteChange = true;
 
-				// Clear all YJS tables
-				db.transact(() => {
+					// Clear all YJS tables
+					db.transact(() => {
+						for (const tableName of db.getTableNames()) {
+							db.tables[tableName].clear();
+						}
+					});
+
+					// Read all rows from SQLite and insert into YJS
 					for (const tableName of db.getTableNames()) {
-						const { error } = db.tables[tableName].clear.execute();
-						if (error) {
-							throw error;
+						const drizzleTable = drizzleTables[tableName];
+						if (!drizzleTable) {
+							throw new Error(`Drizzle table for "${tableName}" not found`);
+						}
+
+						const rows = await sqliteDb.select().from(drizzleTable);
+
+						for (const row of rows) {
+							const result = db.tables[tableName].insert.execute({
+								body: row as any,
+							});
+							if (result.error) {
+								console.warn(
+									`Failed to insert row ${row.id} from SQLite into YJS table ${tableName}:`,
+									result.error,
+								);
+							}
 						}
 					}
-				});
 
-				// Read all rows from SQLite and insert into YJS
-				for (const tableName of db.getTableNames()) {
-					const drizzleTable = drizzleTables[tableName];
-					if (!drizzleTable) {
-						throw new Error(`Drizzle table for "${tableName}" not found`);
-					}
-
-					const rows = await sqliteDb.select().from(drizzleTable);
-
-					for (const row of rows) {
-						const result = db.tables[tableName].insert.execute({
-							body: row as any,
-						});
-						if (result.error) {
-							console.warn(
-								`Failed to insert row ${row.id} from SQLite into YJS table ${tableName}:`,
-								result.error,
-							);
-						}
-					}
-				}
-
-				syncCoordination.isProcessingSQLiteChange = false;
-			},
-			catch: (error) => {
-				syncCoordination.isProcessingSQLiteChange = false;
-				return IndexErr({
-					message: 'SQLite index pull failed',
-					context: { operation: 'pull' },
-					cause: error,
-				});
-			},
-		});
-	}
+					syncCoordination.isProcessingSQLiteChange = false;
+				},
+				catch: (error) => {
+					syncCoordination.isProcessingSQLiteChange = false;
+					return IndexErr({
+						message: 'SQLite index pull failed',
+						context: { operation: 'pull' },
+						cause: error,
+					});
+				},
+			});
+		},
+	});
 
 	// Return destroy function alongside exported resources (flattened structure)
 	return defineIndexExports({
