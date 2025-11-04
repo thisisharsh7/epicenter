@@ -154,9 +154,9 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 					try: async () => {
 						const serializedRow = row.toJSON();
 						await sqliteDb
-							.update(drizzleTable as any)
+							.update(drizzleTable)
 							.set(serializedRow)
-							.where(eq((drizzleTable as any).id, row.id));
+							.where(eq(drizzleTable.id, row.id));
 					},
 					catch: () => Ok(undefined),
 				});
@@ -178,9 +178,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 
 				const { error } = await tryAsync({
 					try: async () => {
-						await sqliteDb
-							.delete(drizzleTable as any)
-							.where(eq((drizzleTable as any).id, id));
+						await sqliteDb.delete(drizzleTable).where(eq(drizzleTable.id, id));
 					},
 					catch: () => Ok(undefined),
 				});
@@ -254,7 +252,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 							if (!drizzleTable) {
 								throw new Error(`Drizzle table for "${tableName}" not found`);
 							}
-							await sqliteDb.delete(drizzleTable as any);
+							await sqliteDb.delete(drizzleTable);
 						}
 
 						// Insert all valid rows from YJS into SQLite
@@ -317,9 +315,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 							const rows = await sqliteDb.select().from(drizzleTable);
 
 							for (const row of rows) {
-								const result = db.tables[tableName].insert.execute({
-									body: row as any,
-								});
+								const result = db.tables[tableName].insert(row);
 								if (result.error) {
 									console.warn(
 										`Failed to insert row ${row.id} from SQLite into YJS table ${tableName}:`,
