@@ -185,10 +185,7 @@
 	<!-- Container wrapper for consistent max-width -->
 	<div class="w-full max-w-2xl px-4 flex flex-col items-center gap-4">
 		<div class="xs:flex hidden flex-col items-center gap-4">
-			<h1
-				class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl transition-opacity"
-				class:invisible={sidebar.state === 'expanded' && !sidebar.isMobile}
-			>
+			<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
 				Whispering
 			</h1>
 			<p class="text-muted-foreground text-center">

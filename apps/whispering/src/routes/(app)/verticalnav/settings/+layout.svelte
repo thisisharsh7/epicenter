@@ -45,11 +45,9 @@
 		class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
 	>
 		<div class="space-y-0.5">
-			{#if sidebar.state === 'collapsed' || sidebar.isMobile}
-				<h2 class="text-2xl font-bold tracking-tight pl-[1.375rem] md:pl-0">
-					Settings
-				</h2>
-			{/if}
+			<h2 class="text-2xl font-bold tracking-tight pl-[1.375rem] md:pl-0">
+				Settings
+			</h2>
 			<p class="text-muted-foreground">
 				{#await versionPromise}
 					Customize your Whispering experience.
