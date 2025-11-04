@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 import { hideBin } from 'yargs/helpers';
 import { createCLI } from '@epicenter/hq/cli';
 import config from './epicenter.config';
