@@ -45,12 +45,13 @@
 		),
 	);
 
-	// Label text for button (matches tooltip)
-	const labelText = $derived(
-		selectedTransformation
-			? 'Change post-processing transformation to run after your text is transcribed'
-			: 'Select a post-processing transformation to run after your text is transcribed',
+	// Tooltip text - only shows current value
+	const tooltipText = $derived(
+		selectedTransformation?.title || 'None selected',
 	);
+
+	// Label text - only shows setting name
+	const labelText = 'Transformation';
 
 	const combobox = useCombobox();
 </script>
@@ -72,7 +73,7 @@
 			{#if unstyled}
 				<button
 					{...props}
-					title={labelText}
+					title={tooltipText}
 					role="combobox"
 					aria-expanded={combobox.open}
 					class={cn(
@@ -104,7 +105,7 @@
 				<WhisperingButton
 					{...props}
 					class={cn('relative', className)}
-					tooltipContent={labelText}
+					tooltipContent={tooltipText}
 					role="combobox"
 					aria-expanded={combobox.open}
 					variant="ghost"

@@ -30,12 +30,16 @@
 
 	const isDeviceSelected = $derived(!!selectedDeviceId);
 
-	// Label text for button (matches tooltip)
-	const labelText = $derived(
-		isDeviceSelected
-			? 'Change VAD recording device'
-			: 'Select a VAD recording device',
+	// Get selected device name
+	const selectedDevice = $derived(
+		getDevicesQuery.data?.find((d) => d.deviceId === selectedDeviceId),
 	);
+
+	// Tooltip text - only shows current value
+	const tooltipText = $derived(selectedDevice?.label || 'No device selected');
+
+	// Label text - only shows setting name
+	const labelText = 'Recording Device';
 
 	const getDevicesQuery = createQuery(() => ({
 		...rpc.vadRecorder.enumerateDevices.options(),
@@ -57,9 +61,7 @@
 					{...props}
 					role="combobox"
 					aria-expanded={combobox.open}
-					title={isDeviceSelected
-						? 'Change VAD recording device'
-						: 'Select a VAD recording device'}
+					title={tooltipText}
 					class="peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding] [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0"
 				>
 					{#if isDeviceSelected}
@@ -74,9 +76,7 @@
 			{:else}
 				<WhisperingButton
 					{...props}
-					tooltipContent={isDeviceSelected
-						? 'Change VAD recording device'
-						: 'Select a VAD recording device'}
+					tooltipContent={tooltipText}
 					role="combobox"
 					aria-expanded={combobox.open}
 					variant="ghost"

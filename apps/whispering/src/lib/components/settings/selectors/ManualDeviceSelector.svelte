@@ -33,6 +33,11 @@
 
 	const isDeviceSelected = $derived(!!selectedDeviceId);
 
+	// Get selected device name
+	const selectedDevice = $derived(
+		getDevicesQuery.data?.find((d) => d.id === selectedDeviceId),
+	);
+
 	// Recording method options with descriptions
 	const RECORDING_METHODS = {
 		cpal: {
@@ -55,12 +60,11 @@
 		},
 	} as const;
 
-	// Label text for button (matches tooltip)
-	const labelText = $derived(
-		isDeviceSelected
-			? `Recording via ${RECORDING_METHODS[selectedMethod].label} - Change device or method`
-			: `Select recording device (${RECORDING_METHODS[selectedMethod].label} method)`,
-	);
+	// Tooltip text - only shows current value
+	const tooltipText = $derived(selectedDevice?.label || 'No device selected');
+
+	// Label text - only shows setting name
+	const labelText = 'Recording Device';
 
 	const getDevicesQuery = createQuery(() => ({
 		...rpc.recorder.enumerateDevices.options(),
@@ -82,9 +86,7 @@
 					{...props}
 					role="combobox"
 					aria-expanded={combobox.open}
-					title={isDeviceSelected
-						? `Recording via ${RECORDING_METHODS[selectedMethod].label} - Change device or method`
-						: `Select recording device (${RECORDING_METHODS[selectedMethod].label} method)`}
+					title={tooltipText}
 					class="peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding] [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0"
 				>
 					{#if isDeviceSelected}
@@ -99,9 +101,7 @@
 			{:else}
 				<WhisperingButton
 					{...props}
-					tooltipContent={isDeviceSelected
-						? `Recording via ${RECORDING_METHODS[selectedMethod].label} - Change device or method`
-						: `Select recording device (${RECORDING_METHODS[selectedMethod].label} method)`}
+					tooltipContent={tooltipText}
 					role="combobox"
 					aria-expanded={combobox.open}
 					variant="ghost"

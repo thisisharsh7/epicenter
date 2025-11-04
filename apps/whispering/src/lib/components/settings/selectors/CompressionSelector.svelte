@@ -35,12 +35,11 @@
 		settings.value['transcription.compressionEnabled'],
 	);
 
-	// Label text for button (matches tooltip)
-	const labelText = $derived(
-		isCompressionEnabled
-			? 'Compression enabled - click to configure'
-			: 'Audio compression disabled - click to enable',
-	);
+	// Tooltip text - only shows current value
+	const tooltipText = $derived(isCompressionEnabled ? 'Enabled' : 'Disabled');
+
+	// Label text - only shows setting name
+	const labelText = 'Compression';
 </script>
 
 <Popover.Root bind:open={popover.open}>
@@ -49,9 +48,7 @@
 			{#if unstyled}
 				<button
 					{...props}
-					title={isCompressionEnabled
-						? 'Compression enabled - click to configure'
-						: 'Audio compression disabled - click to enable'}
+					title={tooltipText}
 					class={cn(
 						'peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding] [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
 						'relative',
@@ -80,9 +77,7 @@
 				<WhisperingButton
 					{...props}
 					class={cn('relative', className)}
-					tooltipContent={isCompressionEnabled
-						? 'Compression enabled - click to configure'
-						: 'Audio compression disabled - click to enable'}
+					tooltipContent={tooltipText}
 					variant="ghost"
 					size={showLabel ? 'default' : 'icon'}
 				>

@@ -39,16 +39,13 @@
 
 	const selectedService = $derived(getSelectedTranscriptionService());
 
-	// Label text for button (matches tooltip)
-	const labelText = $derived(
-		selectedService
-			? `${selectedService.name}${
-					selectedService.location === 'cloud'
-						? ` - ${getSelectedModelNameOrUrl(selectedService)}`
-						: ''
-				}`
-			: 'Select transcription service',
+	// Tooltip text - only shows current value
+	const tooltipText = $derived(
+		selectedService ? selectedService.name : 'No service selected',
 	);
+
+	// Label text - only shows setting name
+	const labelText = 'Transcription Model';
 
 	function getSelectedModelNameOrUrl(service: TranscriptionService) {
 		switch (service.location) {
@@ -111,7 +108,7 @@
 			{#if unstyled}
 				<button
 					{...props}
-					title={labelText}
+					title={tooltipText}
 					role="combobox"
 					aria-expanded={combobox.open}
 					class={cn(
@@ -150,7 +147,7 @@
 				<WhisperingButton
 					{...props}
 					class={cn('relative', className)}
-					tooltipContent={labelText}
+					tooltipContent={tooltipText}
 					role="combobox"
 					aria-expanded={combobox.open}
 					variant="ghost"
