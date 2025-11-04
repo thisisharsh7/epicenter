@@ -1,9 +1,5 @@
-import path from 'node:path';
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
-import { setupPersistence } from '@epicenter/hq/providers';
 import {
-	type Row,
+	type SerializedRow,
 	defineEpicenter,
 	defineMutation,
 	defineQuery,
@@ -19,6 +15,9 @@ import {
 	text,
 	validateRow,
 } from '@epicenter/hq';
+import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
+import { Ok } from 'wellcrafted/result';
 
 /**
  * Example blog workspace
@@ -62,14 +61,14 @@ const blogWorkspace = defineWorkspace({
 								frontmatter: Object.fromEntries(
 									Object.entries(rest).filter(([_, v]) => v != null),
 								),
-								content: content || '',
+								body: content || '',
 							};
 						},
-						deserialize: ({ id, frontmatter, content, tableName, schema }) => {
-							// Combine content with frontmatter
+						deserialize: ({ id, frontmatter, body, tableName, schema }) => {
+							// Combine body with frontmatter
 							const serializedRow = {
 								id,
-								content,
+								content: body,
 								...frontmatter,
 							};
 
@@ -98,7 +97,7 @@ const blogWorkspace = defineWorkspace({
 								frontmatter: Object.fromEntries(
 									Object.entries(rest).filter(([_, v]) => v != null),
 								),
-								content: '',
+								body: '',
 							};
 						},
 						deserialize: ({ id, frontmatter, schema }) => {
@@ -178,7 +177,7 @@ const blogWorkspace = defineWorkspace({
 					category,
 					views: 0,
 					publishedAt: null,
-				} satisfies Row<typeof db.schema.posts>;
+				} satisfies SerializedRow<typeof db.schema.posts>;
 				db.tables.posts.insert(post);
 				return Ok(post);
 			},
@@ -215,7 +214,7 @@ const blogWorkspace = defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				} satisfies Row<typeof db.schema.comments>;
+				} satisfies SerializedRow<typeof db.schema.comments>;
 				db.tables.comments.insert(comment);
 				return Ok(comment);
 			},
