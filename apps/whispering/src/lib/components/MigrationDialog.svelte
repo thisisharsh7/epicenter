@@ -41,11 +41,13 @@
 		/**
 		 * Generate a mock recording with realistic data.
 		 */
-		function _generateMockRecording(options: {
+		function _generateMockRecording({
+			index,
+			baseTimestamp,
+		}: {
 			index: number;
 			baseTimestamp: Date;
 		}): RecordingStoredInIndexedDB {
-			const { index, baseTimestamp } = options;
 
 			// Vary timestamps across last 6 months
 			const daysAgo = Math.floor(Math.random() * 180);
@@ -111,10 +113,11 @@
 		/**
 		 * Generate a mock transformation.
 		 */
-		function _generateMockTransformation(options: {
+		function _generateMockTransformation({
+			index,
+		}: {
 			index: number;
 		}): Transformation {
-			const { index } = options;
 
 			const transformation = generateDefaultTransformation();
 
@@ -169,12 +172,15 @@
 		/**
 		 * Generate a mock transformation run.
 		 */
-		function _generateMockTransformationRun(options: {
+		function _generateMockTransformationRun({
+			index,
+			recordingIds,
+			transformationIds,
+		}: {
 			index: number;
 			recordingIds: string[];
 			transformationIds: string[];
 		}): TransformationRun {
-			const { index, recordingIds, transformationIds } = options;
 
 			// Link to existing recordings and transformations
 			const recordingId = recordingIds[index % recordingIds.length];
@@ -506,11 +512,12 @@
 		async function _migrateRecordings(
 			indexedDb: DbService,
 			fileSystemDb: DbService,
-			options: {
+			{
+				onProgress,
+			}: {
 				onProgress?: (message: string) => void;
 			},
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
@@ -649,11 +656,12 @@
 		async function _migrateTransformations(
 			indexedDb: DbService,
 			fileSystemDb: DbService,
-			options: {
+			{
+				onProgress,
+			}: {
 				onProgress?: (message: string) => void;
 			},
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
@@ -778,11 +786,12 @@
 		async function _migrateTransformationRuns(
 			indexedDb: DbService,
 			fileSystemDb: DbService,
-			options: {
+			{
+				onProgress,
+			}: {
 				onProgress?: (message: string) => void;
 			},
 		): Promise<Result<MigrationResult, DbServiceError>> {
-			const { onProgress } = options;
 			const startTime = performance.now();
 
 			return tryAsync({
