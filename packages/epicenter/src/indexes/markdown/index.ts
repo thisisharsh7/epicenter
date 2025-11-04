@@ -72,18 +72,20 @@ export type MarkdownIndexConfig<
 	 * markdownIndex({ id, db })
 	 * ```
 	 *
-	 * **Relative paths** (recommended): Resolved relative to epicenter.config.ts location
+	 * **Three ways to specify the path**:
+	 *
+	 * **Option 1: Relative paths** (recommended): Resolved relative to epicenter.config.ts location (process.cwd())
 	 * ```typescript
 	 * rootPath: './vault'      // → <config-dir>/vault
 	 * rootPath: '../content'   // → <config-dir>/../content
 	 * ```
 	 *
-	 * **Absolute paths**: Used as-is
+	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
 	 * ```typescript
 	 * rootPath: '/absolute/path/to/vault'
 	 * ```
 	 *
-	 * **Explicit control**: Use import.meta.dirname for precision
+	 * **Option 3: Explicit control**: Use import.meta.dirname for precision (produces absolute paths)
 	 * ```typescript
 	 * rootPath: path.join(import.meta.dirname, './vault')
 	 * ```
@@ -332,10 +334,14 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	serializers = {},
 }: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
 	/**
-	 * Assert rootPath as AbsolutePath for type safety
-	 * Caller is responsible for ensuring the path is absolute
+	 * Resolve rootPath to absolute path using three-layer resolution pattern:
+	 * 1. Relative paths (./content, ../vault) → resolved relative to epicenter.config.ts location (process.cwd())
+	 * 2. Absolute paths (/absolute/path) → used as-is
+	 * 3. Explicit paths (import.meta.dirname) → already absolute, pass through unchanged
 	 */
-	const absoluteRootPath = rootPath as AbsolutePath;
+	const absoluteRootPath = (
+		path.isAbsolute(rootPath) ? rootPath : path.resolve(process.cwd(), rootPath)
+	) as AbsolutePath;
 
 	/**
 	 * Coordination state to prevent infinite sync loops

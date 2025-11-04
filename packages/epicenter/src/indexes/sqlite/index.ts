@@ -55,10 +55,13 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
 	// Auto-resolve path to .epicenter/{id}.db
-	const resolvedDatabasePath = path.join('.epicenter', `${id}.db`);
+	// Relative path is resolved relative to epicenter.config.ts location (process.cwd())
+	const relativeDatabasePath = path.join('.epicenter', `${id}.db`);
+	const resolvedDatabasePath = path.resolve(process.cwd(), relativeDatabasePath);
 
 	// Create .epicenter directory if it doesn't exist
-	await mkdir('.epicenter', { recursive: true });
+	const storageDir = path.resolve(process.cwd(), '.epicenter');
+	await mkdir(storageDir, { recursive: true });
 
 	// Create database connection with schema for proper type inference
 	// WAL mode is enabled for better concurrent access

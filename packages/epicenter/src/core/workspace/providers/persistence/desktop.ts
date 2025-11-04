@@ -54,21 +54,22 @@ export const setupPersistence = (async ({ id, ydoc }) => {
 	const path = await import('node:path');
 
 	// Auto-resolve to .epicenter/{id}.yjs
-	const storagePath = '.epicenter';
-	const filePath = path.join(storagePath, `${id}.yjs`);
+	// Relative path is resolved relative to epicenter.config.ts location (process.cwd())
+	const storageDir = path.resolve(process.cwd(), EPICENTER_STORAGE_DIR);
+	const filePath = path.join(storageDir, `${id}.yjs`);
 
 	// Ensure .epicenter directory exists
-	if (!fs.existsSync(storagePath)) {
-		fs.mkdirSync(storagePath, { recursive: true });
+	if (!fs.existsSync(storageDir)) {
+		fs.mkdirSync(storageDir, { recursive: true });
 	}
 
 	// Try to load existing state from disk
 	try {
 		const savedState = fs.readFileSync(filePath);
 		Y.applyUpdate(ydoc, savedState);
-		console.log(`[Persistence] Loaded workspace from ${filePath}`);
+		// console.log(`[Persistence] Loaded workspace from ${filePath}`);
 	} catch {
-		console.log(`[Persistence] Creating new workspace at ${filePath}`);
+		// console.log(`[Persistence] Creating new workspace at ${filePath}`);
 	}
 
 	// Auto-save on every update
