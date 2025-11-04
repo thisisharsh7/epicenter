@@ -95,19 +95,19 @@ After consolidation, users can:
 **Install globally:**
 ```bash
 bun install -g @epicenter/hq
-epicenter serve
+epicenter
 ```
 
 **Use with bunx (no installation):**
 ```bash
-bunx @epicenter/hq serve
+bunx @epicenter/hq
 bunx @epicenter/hq pages createPage --title "My Post"
 ```
 
 **Local project installation:**
 ```bash
 bun add -D @epicenter/hq
-bunx epicenter serve
+bunx epicenter
 ```
 
 **Library usage (unchanged):**
@@ -128,7 +128,7 @@ This is out of scope for this consolidation but the structure enables it.
 
 1. Install `@epicenter/hq` in a test project
 2. Run `bunx epicenter --help`
-3. Run `epicenter serve` in example projects
+3. Run `epicenter` in example projects
 4. Verify library imports work: `import { defineEpicenter } from '@epicenter/hq'`
 5. Verify CLI generation works: `import { createCLI } from '@epicenter/hq/cli'`
 
@@ -158,7 +158,7 @@ Successfully consolidated `@epicenter/cli` into `@epicenter/hq`. The package now
 
 `@epicenter/hq` now handles:
 - **Library usage**: `import { defineEpicenter } from '@epicenter/hq'`
-- **CLI tool**: `bunx @epicenter/hq serve` or global install
+- **CLI tool**: `bunx @epicenter/hq` or global install
 - **Programmatic CLI**: `import { createCLI } from '@epicenter/hq/cli'`
 
 ### Usage Patterns
@@ -166,12 +166,12 @@ Successfully consolidated `@epicenter/cli` into `@epicenter/hq`. The package now
 **Global installation:**
 ```bash
 bun install -g @epicenter/hq
-epicenter serve
+epicenter
 ```
 
 **Direct execution:**
 ```bash
-bunx @epicenter/hq serve
+bunx @epicenter/hq
 ```
 
 **Local CLI file (examples):**

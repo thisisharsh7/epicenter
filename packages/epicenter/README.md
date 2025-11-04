@@ -770,7 +770,7 @@ A long-running HTTP server models the goal of Epicenter being a single folder or
 **One-Time Setup**:
 ```bash
 # Terminal: Start server once
-bun cli.ts serve
+bun cli.ts
 
 # AI assistant connects instantly, anytime
 # No cold start penalty
@@ -786,9 +786,12 @@ See the [MCP Integration Guide](./examples/content-hub/MCP.md) for detailed inst
 
 ### Local Development
 
-If you're working on the Epicenter CLI, test it locally using `bun link`:
+If you're working on the Epicenter CLI, first install dependencies, then test it locally using `bun link`:
 
 ```bash
+# Install dependencies (from repository root)
+bun install
+
 # One-time setup: Link the package globally
 cd packages/epicenter
 bun link
@@ -797,7 +800,7 @@ bun link
 cd examples/basic-workspace
 epicenter --help
 epicenter blog createPost --title "Test" --category tech
-epicenter serve
+epicenter
 
 # When done testing
 cd packages/epicenter
