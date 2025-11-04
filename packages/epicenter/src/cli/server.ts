@@ -36,6 +36,8 @@ export async function startServer(
 	console.log('\n🚀 Epicenter HTTP Server Running!\n');
 	console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 	console.log(`📍 Server: http://localhost:${port}`);
+	console.log(`📖 Scalar Docs: http://localhost:${port}/scalar`);
+	console.log(`📄 OpenAPI Spec: http://localhost:${port}/openapi`);
 	console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
 
 	console.log('📚 REST API Endpoints:\n');
