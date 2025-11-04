@@ -10,8 +10,9 @@
 		LogsIcon,
 		Minimize2Icon,
 		MicIcon,
+		PanelLeftIcon,
 	} from '@lucide/svelte';
-	import { EpicenterLogo, GithubIcon } from '$lib/components/icons';
+	import { GithubIcon } from '$lib/components/icons';
 	import { Separator } from '@repo/ui/separator';
 	import { page } from '$app/state';
 	import { toggleMode } from 'mode-watcher';
@@ -99,14 +100,11 @@
 				class="flex items-center gap-2"
 				title="Toggle sidebar"
 			>
-				<EpicenterLogo
-					class="size-8 shrink-0 group-data-[collapsible=icon]:size-6"
-				/>
+				<PanelLeftIcon class="size-5 shrink-0" />
 				<span class="font-bold text-base group-data-[collapsible=icon]:hidden">
 					Whispering
 				</span>
 			</button>
-			<Sidebar.Trigger class="group-data-[collapsible=icon]:hidden" />
 		</div>
 	</Sidebar.Header>
 
