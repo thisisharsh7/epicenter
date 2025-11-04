@@ -1,5 +1,5 @@
-import { toast } from 'svelte-sonner';
 import { migrationDialog } from '$lib/components/MigrationDialog.svelte';
+import { rpc } from '$lib/query';
 
 /**
  * Check if IndexedDB has data and show a migration toast if it does.
@@ -14,16 +14,18 @@ export async function checkIndexedDBMigration(): Promise<void> {
 	await migrationDialog.refreshCounts();
 
 	if (migrationDialog.hasIndexedDBData) {
-		toast.info('Database Migration Available', {
+		rpc.notify.info.execute({
+			title: 'Database Migration Available',
 			description:
 				'You have data in IndexedDB. Click here to migrate to the faster file system storage.',
-			duration: 10000,
 			action: {
-				label: 'Migrate Now',
+				type: 'button',
+				label: 'View Update',
 				onClick: () => {
 					migrationDialog.isOpen = true;
 				},
 			},
+			persist: true,
 		});
 	}
 }
