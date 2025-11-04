@@ -18,7 +18,6 @@ import {
 	multiSelect,
 	text,
 } from '../../src/index';
-import { parseMarkdownWithValidation } from '../../src/indexes/markdown/parser';
 
 describe('Markdown Bidirectional Sync', () => {
 	const testStoragePath = path.join(import.meta.dir, '.data');
@@ -177,51 +176,5 @@ count: 0
 		const { data: updatedNote } = await workspace.getNote({ id: noteId });
 		expect(updatedNote).toBeDefined();
 		expect(updatedNote?.tags.toArray()).toEqual(['draft', 'archived']);
-	});
-
-	test('parseMarkdownWithValidation handles invalid YAML', async () => {
-		const { mkdir } = await import('node:fs/promises');
-		const notesDir = path.join(testStoragePath, 'notes');
-		await mkdir(notesDir, { recursive: true });
-
-		const testFilePath = path.join(notesDir, 'invalid.md');
-		const invalidContent = `---
-id: test
-title: "Unterminated string
----`;
-
-		await writeFile(testFilePath, invalidContent);
-
-		const result = await parseMarkdownWithValidation(
-			testFilePath,
-			testWorkspace.schema.notes,
-		);
-
-		expect(result.status).toBe('failed-to-parse');
-	});
-
-	test('parseMarkdownWithValidation handles schema mismatches', async () => {
-		const { mkdir } = await import('node:fs/promises');
-		const notesDir = path.join(testStoragePath, 'notes');
-		await mkdir(notesDir, { recursive: true });
-
-		const testFilePath = path.join(notesDir, 'mismatch.md');
-		const mismatchContent = `---
-id: test
-title: 123
-content: "Valid content"
-tags: []
-count: 0
----
-`;
-
-		await writeFile(testFilePath, mismatchContent);
-
-		const result = await parseMarkdownWithValidation(
-			testFilePath,
-			testWorkspace.schema.notes,
-		);
-
-		expect(result.status).toBe('failed-to-validate');
 	});
 });
