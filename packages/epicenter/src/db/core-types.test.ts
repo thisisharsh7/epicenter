@@ -31,7 +31,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test insert() - accepts serialized values (strings for ytext, arrays for multi-select)
-		await doc.tables.posts.insert({
+		doc.tables.posts.insert({
 			id: '1',
 			title: 'Test Post',
 			content: 'Post content', // string (gets converted to Y.Text internally)
@@ -41,7 +41,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test get() - hover over 'result' to verify inferred type
-		const result = await doc.tables.posts.get({ id: '1' });
+		const result = doc.tables.posts.get({ id: '1' });
 		// Expected type: GetRowResult<{ id: string; title: string; content: Y.Text | null; tags: Y.Array<string>; viewCount: number; published: boolean }>
 
 		if (result.status === 'valid') {
@@ -68,13 +68,13 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		await doc.tables.products.insertMany([
+		doc.tables.products.insertMany([
 			{ id: '1', name: 'Widget', price: 1000, inStock: true },
 			{ id: '2', name: 'Gadget', price: 2000, inStock: false },
 		]);
 
 		// Hover over 'products' to verify array element type
-		const results = await doc.tables.products.getAll();
+		const results = doc.tables.products.getAll();
 		const products = results
 			.filter((r) => r.status === 'valid')
 			.map((r) => r.row);
@@ -93,7 +93,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		await doc.tables.tasks.insertMany([
+		doc.tables.tasks.insertMany([
 			{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
 			{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
 		]);
@@ -118,7 +118,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		await doc.tables.items.insertMany([
+		doc.tables.items.insertMany([
 			{ id: '1', name: 'Item 1', quantity: 5 },
 			{ id: '2', name: 'Item 2', quantity: 0 },
 		]);
@@ -164,7 +164,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		await doc.tables.notifications.insert({
+		doc.tables.notifications.insert({
 			id: '1',
 			message: 'Test notification',
 			read: false,
@@ -187,14 +187,14 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test with null values
-		await doc.tables.articles.insert({
+		doc.tables.articles.insert({
 			id: '1',
 			title: 'Article without content',
 			description: null,
 			content: null,
 		});
 
-		const article1Result = await doc.tables.articles.get({ id: '1' });
+		const article1Result = doc.tables.articles.get({ id: '1' });
 		expect(article1Result.status).toBe('valid');
 		if (article1Result.status === 'valid') {
 			expect(article1Result.row.description).toBeNull();
@@ -202,14 +202,14 @@ describe('YjsDoc Type Inference', () => {
 		}
 
 		// Test with string values (automatically converted to Y.Text internally)
-		await doc.tables.articles.insert({
+		doc.tables.articles.insert({
 			id: '2',
 			title: 'Article with content',
 			description: 'A short description',
 			content: 'Article content',
 		});
 
-		const article2Result = await doc.tables.articles.get({ id: '2' });
+		const article2Result = doc.tables.articles.get({ id: '2' });
 		if (article2Result.status === 'valid') {
 			expect(article2Result.row.description).toBeInstanceOf(Y.Text);
 			expect(article2Result.row.content).toBeInstanceOf(Y.Text);
@@ -235,17 +235,17 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test authors table - use plain string (converted to Y.Text internally)
-		await doc.tables.authors.insert({
+		doc.tables.authors.insert({
 			id: 'author-1',
 			name: 'John Doe',
 			bio: 'Author bio',
 		});
 
-		const authorResult = await doc.tables.authors.get({ id: 'author-1' });
+		const authorResult = doc.tables.authors.get({ id: 'author-1' });
 		// Hover to verify type: GetRowResult<{ id: string; name: string; bio: Y.Text | null }>
 
 		// Test books table - use plain array (converted to Y.Array internally)
-		await doc.tables.books.insert({
+		doc.tables.books.insert({
 			id: 'book-1',
 			authorId: 'author-1',
 			title: 'My Book',
@@ -253,7 +253,7 @@ describe('YjsDoc Type Inference', () => {
 			published: true,
 		});
 
-		const bookResult = await doc.tables.books.get({ id: 'book-1' });
+		const bookResult = doc.tables.books.get({ id: 'book-1' });
 		// Hover to verify type: GetRowResult<{ id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean }>
 
 		expect(authorResult.status).toBe('valid');
@@ -281,9 +281,9 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		await doc.tables.comments.insertMany(commentsToAdd);
+		doc.tables.comments.insertMany(commentsToAdd);
 
-		const results = await doc.tables.comments.getAll();
+		const results = doc.tables.comments.getAll();
 		const comments = results.filter((r) => r.status === 'valid').map((r) => r.row);
 		expect(comments).toHaveLength(2);
 	});
@@ -300,7 +300,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Insert with plain values (automatically converted to Y.js types internally)
-		await doc.tables.documents.insert({
+		doc.tables.documents.insert({
 			id: 'doc-1',
 			title: 'My Document',
 			body: 'Hello World',
@@ -309,7 +309,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test retrieval and mutations
-		const retrievedResult = await doc.tables.documents.get({ id: 'doc-1' });
+		const retrievedResult = doc.tables.documents.get({ id: 'doc-1' });
 
 		if (retrievedResult.status === 'valid') {
 			const retrieved = retrievedResult.row;

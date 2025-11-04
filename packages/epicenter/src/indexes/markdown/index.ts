@@ -439,7 +439,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 								serializers?.[tableName] ??
 								createDefaultSerializer(schemaWithValidation);
 
-							const results = await db.tables[tableName].getAll();
+							const results = db.tables[tableName].getAll();
 							const validRows = results
 								.filter((r) => r.status === 'valid')
 								.map((r) => r.row);

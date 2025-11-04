@@ -16,7 +16,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create a row
-		await doc.tables.posts.insert({
+		doc.tables.posts.insert({
 			id: '1',
 			title: 'Test Post',
 			viewCount: 0,
@@ -24,7 +24,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Retrieve the row
-		const result = await doc.tables.posts.get({ id: '1' });
+		const result = doc.tables.posts.get({ id: '1' });
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.row.title).toBe('Test Post');
@@ -45,15 +45,15 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create multiple rows
-		const { error: insertError } = await doc.tables.posts.insertMany([
+		const { error: insertError } = doc.tables.posts.insertMany([
 			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
 			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
 		]);
 		expect(insertError).toBeNull();
 
 		// Retrieve and verify rows
-		const row1 = await doc.tables.posts.get({ id: '1' });
-		const row2 = await doc.tables.posts.get({ id: '2' });
+		const row1 = doc.tables.posts.get({ id: '1' });
+		const row2 = doc.tables.posts.get({ id: '2' });
 		expect(row1.status).toBe('valid');
 		expect(row2.status).toBe('valid');
 		if (row1.status === 'valid') {
@@ -75,7 +75,7 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		await doc.tables.posts.insertMany([
+		doc.tables.posts.insertMany([
 			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
 			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
 			{ id: '3', title: 'Post 3', viewCount: 30, published: true },
@@ -108,7 +108,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Test get() with non-existent id
-		const getResult = await doc.tables.posts.get({ id: 'non-existent' });
+		const getResult = doc.tables.posts.get({ id: 'non-existent' });
 		expect(getResult.status).toBe('not-found');
 		expect(getResult.row).toBeNull();
 
@@ -131,14 +131,14 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Insert with plain strings and arrays (the documented API)
-		await doc.tables.posts.insert({
+		doc.tables.posts.insert({
 			id: '1',
 			title: 'Hello World',
 			tags: ['typescript', 'javascript'],
 		});
 
 		// Get returns Y.js objects
-		const result1 = await doc.tables.posts.get({ id: '1' });
+		const result1 = doc.tables.posts.get({ id: '1' });
 		expect(result1.status).toBe('valid');
 		if (result1.status === 'valid') {
 			expect(result1.row.title).toBeInstanceOf(Y.Text);
@@ -148,14 +148,14 @@ describe('createEpicenterDb', () => {
 		}
 
 		// Insert another post
-		await doc.tables.posts.insert({
+		doc.tables.posts.insert({
 			id: '2',
 			title: 'Second Post',
 			tags: ['python'],
 		});
 
 		// getAll returns Y.js objects
-		const results = await doc.tables.posts.getAll();
+		const results = doc.tables.posts.getAll();
 		const rows = results.filter((r) => r.status === 'valid').map((r) => r.row);
 		expect(rows).toHaveLength(2);
 		expect(rows[0].title).toBeInstanceOf(Y.Text);

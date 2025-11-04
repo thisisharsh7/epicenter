@@ -206,7 +206,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 			throw new Error(`Drizzle table for "${tableName}" not found`);
 		}
 
-		const results = await db.tables[tableName].getAll();
+		const results = db.tables[tableName].getAll();
 		const rows = results.filter((r) => r.status === 'valid').map((r) => r.row);
 
 		for (const row of rows) {
@@ -262,7 +262,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 								throw new Error(`Drizzle table for "${tableName}" not found`);
 							}
 
-							const results = await db.tables[tableName].getAll();
+							const results = db.tables[tableName].getAll();
 							const validRows = results
 								.filter((r) => r.status === 'valid')
 								.map((r) => r.row);
