@@ -10,11 +10,11 @@ export type MarkdownOperationError = ReturnType<typeof MarkdownOperationError>;
 export async function writeMarkdownFile({
 	filePath,
 	frontmatter,
-	content,
+	body,
 }: {
 	filePath: string;
 	frontmatter: Record<string, unknown>;
-	content: string;
+	body: string;
 }): Promise<Result<void, MarkdownOperationError>> {
 	// Ensure directory exists
 	await tryAsync({
@@ -23,9 +23,9 @@ export async function writeMarkdownFile({
 	});
 	return tryAsync({
 		try: async () => {
-			// Create markdown content with frontmatter
+			// Create markdown file with frontmatter and body
 			const yamlContent = Bun.YAML.stringify(frontmatter, null, 2);
-			const markdown = `---\n${yamlContent}\n---\n${content}`;
+			const markdown = `---\n${yamlContent}\n---\n${body}`;
 
 			// Write file
 			await Bun.write(filePath, markdown);

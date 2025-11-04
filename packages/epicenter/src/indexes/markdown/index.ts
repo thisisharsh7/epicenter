@@ -13,6 +13,7 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import { createTableSchemaWithValidation } from '../../core/schema';
+import type { Db } from '../../db/core';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
 
@@ -159,7 +160,7 @@ export type MarkdownIndexConfig<
 	 * Defines how rows are serialized to markdown and deserialized back.
 	 * Tables without custom serializers use default behavior:
 	 * - All row fields become frontmatter
-	 * - Content body is empty string
+	 * - Markdown body is empty string
 	 *
 	 * Use custom serializers when you need:
 	 * - A specific field to be the markdown body content
@@ -172,12 +173,12 @@ export type MarkdownIndexConfig<
 	 *   posts: {
 	 *     serialize: ({ row }) => ({
 	 *       frontmatter: { title: row.title, date: row.createdAt },
-	 *       content: row.body
+	 *       body: row.body
 	 *     }),
-	 *     deserialize: ({ id, frontmatter, content }) => ({
+	 *     deserialize: ({ id, frontmatter, body }) => ({
 	 *       id,
 	 *       title: frontmatter.title,
-	 *       body: content
+	 *       body: body
 	 *     })
 	 *   }
 	 * }
@@ -192,32 +193,32 @@ export type MarkdownIndexConfig<
  * Custom serialization/deserialization behavior for a table
  *
  * Defines how rows are converted to markdown files and vice versa.
- * When not provided, uses default behavior (all fields in frontmatter, empty content).
+ * When not provided, uses default behavior (all fields in frontmatter, empty body).
  */
 type MarkdownSerializer<TTableSchema extends TableSchema> = {
 	/**
-	 * Serialize a row to markdown frontmatter and content.
+	 * Serialize a row to markdown frontmatter and body.
 	 *
 	 * @param params.row - Row to serialize (already validated against schema)
 	 * @param params.tableName - Table name (for context)
-	 * @returns Frontmatter object and markdown content string
+	 * @returns Frontmatter object and markdown body string
 	 */
 	serialize(params: {
 		row: SerializedRow<TTableSchema>;
 		tableName: string;
 	}): {
 		frontmatter: Record<string, unknown>;
-		content: string;
+		body: string;
 	};
 
 	/**
-	 * Deserialize markdown frontmatter and content back to a full row.
+	 * Deserialize markdown frontmatter and body back to a full row.
 	 * Returns a complete row (including id) that can be directly inserted/updated in YJS.
 	 * Returns null if the file should be skipped (e.g., invalid data, doesn't match schema).
 	 *
 	 * @param params.id - Row ID extracted from file path
 	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
-	 * @param params.content - Markdown body content
+	 * @param params.body - Markdown body content (text after frontmatter delimiters)
 	 * @param params.tableName - Table name (for context)
 	 * @param params.schema - Table schema (for validation)
 	 * @returns Complete row (with id field), or null to skip this file
@@ -225,7 +226,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 	deserialize(params: {
 		id: string;
 		frontmatter: Record<string, unknown>;
-		content: string;
+		body: string;
 		tableName: string;
 		schema: TTableSchema;
 	}): SerializedRow<TTableSchema> | null;
@@ -238,20 +239,20 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  *
  * Direction 1: YJS → Markdown (via observers)
  * - When a row is added/updated/deleted in YJS
- * - Extract the bodyField value as markdown body
- * - Write/update/delete the corresponding .md file
+ * - Use the serializer to transform the row into frontmatter and body
+ * - Write/update/delete the corresponding .md file with both parts
  *
  * Direction 2: Markdown → YJS (via file watcher)
  * - When a .md file is created/modified/deleted
- * - Parse frontmatter as row fields
- * - Parse body content and insert into bodyField
+ * - Parse the file into frontmatter and body (two separate pieces)
+ * - Use the serializer to combine frontmatter and body back into a complete row
  * - Update YJS with granular diffs
  *
  * Loop prevention flags ensure these two directions don't trigger each other infinitely.
  * Without them, we'd get stuck in an infinite loop:
- * 1. YJS change -> writes markdown file -> triggers file watcher
- * 2. File watcher -> updates YJS -> triggers YJS observer
- * 3. YJS observer -> writes markdown file -> back to step 1
+ * 1. YJS change -> serializer creates frontmatter+body -> writes markdown file -> triggers file watcher
+ * 2. File watcher -> parses frontmatter+body -> serializer creates row -> updates YJS -> triggers YJS observer
+ * 3. YJS observer -> serializer creates frontmatter+body -> writes markdown file -> back to step 1
  *
  * The flags break the cycle by ensuring changes only flow in one direction at a time.
  *
@@ -298,7 +299,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * }
  * ```
  *
- * @example Custom serializers - combining title and content in markdown body
+ * @example Custom serializers - combining title and body in markdown body
  * ```typescript
  * indexes: {
  *   markdown: ({ id, db }) => markdownIndex({
@@ -308,10 +309,10 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  *       posts: {
  *         serialize: ({ row }) => ({
  *           frontmatter: { tags: row.tags, published: row.published },
- *           content: `# ${row.title}\n\n${row.content || ''}`
+ *           body: `# ${row.title}\n\n${row.content || ''}`
  *         }),
- *         deserialize: ({ id, frontmatter, content }) => {
- *           const lines = content.split('\n');
+ *         deserialize: ({ id, frontmatter, body }) => {
+ *           const lines = body.split('\n');
  *           const title = lines[0]?.replace(/^# /, '') || '';
  *           const bodyContent = lines.slice(2).join('\n');
  *           return { id, title, tags: frontmatter.tags, published: frontmatter.published, content: bodyContent };
@@ -430,7 +431,7 @@ function defaultTableAndIdToPath({
  * Create default serializer for a table
  *
  * Default behavior:
- * - Serialize: All row fields → frontmatter, empty content
+ * - Serialize: All row fields → frontmatter, empty body
  * - Deserialize: All frontmatter fields → row with validation (returns null if invalid)
  */
 function createDefaultSerializer<TTableSchema extends TableSchema>(
@@ -439,7 +440,7 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
 	return {
 		serialize: ({ row }) => ({
 			frontmatter: row,
-			content: '',
+			body: '',
 		}),
 		deserialize: ({ id, frontmatter }) => {
 			// Combine id with frontmatter
@@ -537,7 +538,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 		) {
 			const serialized = row.toJSON();
 			const filePath = getMarkdownFilePath(row.id);
-			const { frontmatter, content } = serializer.serialize({
+			const { frontmatter, body } = serializer.serialize({
 				row: serialized,
 				tableName,
 			});
@@ -545,7 +546,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			return writeMarkdownFile({
 				filePath,
 				frontmatter,
-				content,
+				body,
 			});
 		}
 
@@ -757,13 +758,13 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 					return;
 				}
 
-				const { data: frontmatter, content } = parseResult.data;
+				const { data: frontmatter, body } = parseResult.data;
 
 				// Step 2: Deserialize using the serializer (handles validation and transformation)
 				const row = serializer.deserialize({
 					id,
 					frontmatter,
-					content,
+					body,
 					tableName,
 					schema: tableSchema,
 				});

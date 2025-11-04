@@ -46,7 +46,7 @@ export type ParseMarkdownResult<T extends Row = Row> =
  * Parse and validate a markdown file against a table schema.
  * Returns a discriminated union indicating success or specific failure mode.
  *
- * If a bodyField is provided, the markdown content (after frontmatter) will be
+ * If a bodyField is provided, the markdown body (after frontmatter) will be
  * merged into the row data at that field name before validation.
  *
  * If an existing yrow is provided, it will be updated with minimal diffs.
@@ -81,7 +81,7 @@ export async function parseMarkdownWithValidation<
 		};
 	}
 
-	const { data, content } = parseResult.data;
+	const { data, body } = parseResult.data;
 
 	// Step 2: Validate that parsed data is a valid SerializedRow
 	if (!isSerializedRow(data)) {
@@ -95,8 +95,8 @@ export async function parseMarkdownWithValidation<
 		};
 	}
 
-	// Step 3: Merge markdown body content into row data at the bodyField (if provided)
-	const serializedRow = bodyField ? { ...data, [bodyField]: content } : data;
+	// Step 3: Merge markdown body into row data at the bodyField (if provided)
+	const serializedRow = bodyField ? { ...data, [bodyField]: body } : data;
 
 	// Step 4: Update existing YRow or create a new one
 	const targetYRow = existingYRow ?? new Y.Map<CellValue>();
@@ -109,17 +109,17 @@ export async function parseMarkdownWithValidation<
 
 /**
  * Parse a markdown file with optional frontmatter.
- * If file has no frontmatter (doesn't start with ---), treats entire file as content.
+ * If file has no frontmatter (doesn't start with ---), treats entire file as body.
  * Does not validate against schema - that's handled by tableConfig.deserialize.
  *
  * @param filePath - Path to the markdown file
- * @returns Result with data (frontmatter as Record<string, unknown>) and content, or error
+ * @returns Result with data (frontmatter as Record<string, unknown>) and body, or error
  */
 export async function parseMarkdownFile(filePath: string): Promise<
 	Result<
 		{
 			data: Record<string, unknown>;
-			content: string;
+			body: string;
 		},
 		MarkdownError
 	>
@@ -139,10 +139,10 @@ export async function parseMarkdownFile(filePath: string): Promise<
 
 			// Check if file has frontmatter
 			if (!content.startsWith('---\n')) {
-				// No frontmatter: treat entire file as content
+				// No frontmatter: treat entire file as body
 				return {
 					data: {},
-					content: content.trim(),
+					body: content.trim(),
 				};
 			}
 
@@ -152,9 +152,9 @@ export async function parseMarkdownFile(filePath: string): Promise<
 				throw new Error(`Invalid frontmatter format in file: ${filePath}`);
 			}
 
-			// Extract frontmatter and content
+			// Extract frontmatter and body
 			const frontmatterYaml = content.slice(4, endIndex);
-			const markdownContent = content.slice(endIndex + 5).trim();
+			const bodyContent = content.slice(endIndex + 5).trim();
 
 			// Parse YAML frontmatter using Bun's built-in YAML parser
 			// Bun.YAML.parse can return:
@@ -170,7 +170,7 @@ export async function parseMarkdownFile(filePath: string): Promise<
 
 			return {
 				data,
-				content: markdownContent,
+				body: bodyContent,
 			};
 		},
 		catch: (error) =>

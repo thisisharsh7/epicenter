@@ -31,11 +31,11 @@ tags:
   - database
 ---
 
-This is the content of my blog post. Everything after the frontmatter
-becomes the "content" field.
+This is the body of my blog post. Everything after the frontmatter
+becomes the "body" field.
 ```
 
-The YAML frontmatter contains your structured data, and anything after the `---` delimiter is stored as markdown content.
+The YAML frontmatter contains your structured data, and anything after the `---` delimiter is stored as the markdown body.
 
 ### File Organization
 
@@ -140,10 +140,10 @@ indexes: {
 #### Custom Serializers
 
 Use custom serializers when you want to control how your data is stored in markdown files. This is useful when:
-- **Moving fields to the markdown body**: Put the `content` field in the markdown body instead of frontmatter
-- **Combining multiple fields**: Merge multiple fields into the markdown body (e.g., title as a header + content)
+- **Moving fields to the markdown body**: Put a field (like `content`) in the markdown body instead of frontmatter
+- **Combining multiple fields**: Merge multiple fields into the markdown body (e.g., title as a header + body)
 
-**Example 1: Basic content in markdown body**
+**Example 1: Basic body in markdown body**
 
 ```typescript
 indexes: {
@@ -154,13 +154,13 @@ indexes: {
       posts: {
         serialize: ({ row }) => ({
           frontmatter: { tags: row.tags, published: row.published },
-          content: row.content || ''  // Content goes in markdown body
+          body: row.content || ''  // Row's content field goes in markdown body
         }),
-        deserialize: ({ id, frontmatter, content }) => ({
+        deserialize: ({ id, frontmatter, body }) => ({
           id,
           tags: frontmatter.tags,
           published: frontmatter.published,
-          content  // Content comes from markdown body
+          content: body  // Markdown body becomes row's content field
         })
       }
     }
@@ -168,7 +168,7 @@ indexes: {
 }
 ```
 
-**Example 2: Combining title + content in markdown body**
+**Example 2: Combining title + body in markdown body**
 
 This creates more natural-looking markdown files where the title is a header:
 
@@ -181,11 +181,11 @@ indexes: {
       posts: {
         serialize: ({ row }) => ({
           frontmatter: { tags: row.tags, published: row.published },
-          content: `# ${row.title}\n\n${row.content || ''}`
+          body: `# ${row.title}\n\n${row.content || ''}`
         }),
-        deserialize: ({ id, frontmatter, content }) => {
+        deserialize: ({ id, frontmatter, body }) => {
           // Extract title from first line (# Title format)
-          const lines = content.split('\n');
+          const lines = body.split('\n');
           const title = lines[0]?.replace(/^#\s*/, '') || '';
           const bodyContent = lines.slice(2).join('\n'); // Skip title and empty line
 
@@ -235,12 +235,12 @@ indexes: {
       posts: {
         serialize: ({ row }) => ({
           frontmatter: { title: row.title, tags: row.tags },
-          content: row.content || ''
+          body: row.content || ''
         }),
-        deserialize: ({ id, frontmatter, content }) => ({
+        deserialize: ({ id, frontmatter, body }) => ({
           id,
           ...frontmatter,
-          content
+          content: body
         })
       }
     }
