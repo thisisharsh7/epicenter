@@ -109,8 +109,8 @@ jobs:
 
           echo "$DEPLOYMENT_OUTPUT"
 
-          # Extract deployment URL from output
-          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -oE 'https://[^\s]+' | head -1)
+          # Extract deployment URL from output (look for workers.dev URL)
+          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1)
 
           if [ -z "$DEPLOYMENT_URL" ]; then
             # Fallback to production URL if extraction fails
