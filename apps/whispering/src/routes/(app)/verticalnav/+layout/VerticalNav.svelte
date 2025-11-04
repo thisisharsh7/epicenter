@@ -288,6 +288,9 @@
 		<!-- Divider (only visible when collapsed) -->
 		<Separator class="hidden group-data-[collapsible=icon]:block my-2" />
 
+		<!-- Spacer to push Additional Actions to bottom -->
+		<div class="flex-grow"></div>
+
 		<!-- Additional Actions (scrollable, not sticky) -->
 		<Sidebar.Group
 			class="p-1 pb-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
