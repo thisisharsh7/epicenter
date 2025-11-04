@@ -5,4 +5,4 @@ export { createCLI } from './cli';
 export { standardSchemaToYargs } from './standardschema-to-yargs';
 
 // Server
-export { startServer as serveCommand, type ServeOptions } from './server';
+export { startServer, type ServeOptions } from './server';
