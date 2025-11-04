@@ -18,6 +18,7 @@
 		checkFfmpegRecordingMethodCompatibility,
 	} from '../_layout-utils/check-ffmpeg';
 	import { checkForUpdates } from '../_layout-utils/check-for-updates';
+	import { checkIndexedDBMigration } from '../_layout-utils/check-indexeddb-migration';
 	import {
 		resetGlobalShortcutsToDefaultIfDuplicates,
 		resetLocalShortcutsToDefaultIfDuplicates,
@@ -55,6 +56,7 @@
 			syncGlobalShortcutsWithSettings();
 			resetGlobalShortcutsToDefaultIfDuplicates();
 			await checkForUpdates();
+			await checkIndexedDBMigration();
 		} else {
 			// const _notifyWhisperingTabReadyResult =
 			// await extension.notifyWhisperingTabReady(undefined);

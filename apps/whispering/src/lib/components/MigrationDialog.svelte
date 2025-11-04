@@ -34,8 +34,17 @@
 	 */
 	const BATCH_SIZE = 100;
 
+	/**
+	 * Default counts for seeding mock data
+	 */
+	const MOCK_RECORDING_COUNT = 5000;
+	const MOCK_TRANSFORMATION_COUNT = 50;
+	const MOCK_RUN_COUNT = 500;
+
 	const testData = createMigrationTestData();
 	const migrationDialog = createMigrationDialog();
+
+	export { migrationDialog };
 
 	function createMigrationTestData() {
 		/**
@@ -483,6 +492,7 @@
 	function createMigrationDialog() {
 		let isOpen = $state(false);
 		let isRunning = $state(false);
+		let hasIndexedDBData = $state(false);
 		let logs = $state<string[]>([]);
 		let counts = $state<{
 			indexedDb: { recordings: number; transformations: number; runs: number };
@@ -997,6 +1007,10 @@
 			}
 
 			counts = data;
+			hasIndexedDBData =
+				data.indexedDb.recordings > 0 ||
+				data.indexedDb.transformations > 0 ||
+				data.indexedDb.runs > 0;
 			_addLog(
 				`[Counts] IndexedDB: ${data.indexedDb.recordings} recordings, ${data.indexedDb.transformations} transformations, ${data.indexedDb.runs} runs`,
 			);
@@ -1014,6 +1028,21 @@
 			},
 			onOpen() {
 				_loadCounts();
+			},
+			get hasIndexedDBData() {
+				return hasIndexedDBData;
+			},
+			async checkIndexedDBData() {
+				const { data, error } = await _getMigrationCounts(
+					indexedDb,
+					fileSystemDb,
+				);
+				if (!error && data) {
+					hasIndexedDBData =
+						data.indexedDb.recordings > 0 ||
+						data.indexedDb.transformations > 0 ||
+						data.indexedDb.runs > 0;
+				}
 			},
 			get isRunning() {
 				return isRunning;
@@ -1106,9 +1135,9 @@
 				_addLog('[Seed] Starting mock data seeding...');
 
 				const result = await testData.seedIndexedDB({
-					recordingCount: 5000,
-					transformationCount: 50,
-					runCount: 500,
+					recordingCount: MOCK_RECORDING_COUNT,
+					transformationCount: MOCK_TRANSFORMATION_COUNT,
+					runCount: MOCK_RUN_COUNT,
 					onProgress: _addLog,
 				});
 
@@ -1166,11 +1195,19 @@
 		{#snippet child({ props })}
 			<Button
 				size="icon"
-				class="fixed bottom-24 right-4 rounded-full shadow-lg transition-transform hover:scale-110"
+				class="fixed bottom-24 right-4 rounded-full shadow-lg transition-transform hover:scale-110 relative"
 				aria-label="Open Migration Manager"
 				{...props}
 			>
 				<Database class="h-5 w-5" />
+				{#if migrationDialog.hasIndexedDBData}
+					<span
+						class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500 animate-ping"
+					></span>
+					<span
+						class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500"
+					></span>
+				{/if}
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
@@ -1298,7 +1335,7 @@
 						>
 							{migrationDialog.isSeeding
 								? 'Seeding...'
-								: 'Seed 5000 Recordings'}
+								: `Seed ${MOCK_RECORDING_COUNT} Recordings`}
 						</Button>
 						<Button
 							onclick={migrationDialog.clearIndexedDB}
