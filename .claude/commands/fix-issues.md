@@ -1,561 +1,644 @@
 ---
-allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Task, WebFetch
-description: Automatically fix multiple GitHub issues in parallel using git worktrees and sub-agents
+allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Task
+description: Analyze GitHub issues in parallel and create specification documents for implementation
 model: claude-sonnet-4-5
-argument-hint: [label] [limit] [--dry-run]
+argument-hint: [label] [limit]
 dangerouslyDisableSandbox: true
 ---
 
-# Parallel GitHub Issue Fixer
+# Parallel GitHub Issue Analyzer
 
-Automatically fetch GitHub issues, create isolated git worktrees, spawn parallel sub-agents to implement fixes, and create pull requests for review.
+Automatically fetch GitHub issues, spawn parallel sub-agents to analyze each issue, and create detailed specification documents that can be handed off to implementation agents.
 
 ## Arguments
 
-- `$1`: GitHub issue label filter (default: "ready-to-fix")
-- `$2`: Maximum number of issues to process (default: 3)
-- `$3`: Optional `--dry-run` flag to plan without execution
+- `$1`: GitHub issue label filter (default: "bug")
+- `$2`: Maximum number of issues to process (default: 7)
 
 User provided: $ARGUMENTS
 
 ---
 
-## Phase 1: Issue Discovery & Planning
+## Workflow Overview
+
+1. **Fetch Issues**: Get open GitHub issues with specified label
+2. **Quick Assessment**: Determine which issues have enough context for analysis
+3. **Parallel Analysis**: Spawn sub-agents to deeply analyze each issue
+4. **Generate Specs**: Each agent creates a detailed markdown specification document
+5. **Summary Report**: Aggregate results and show next steps
+
+---
+
+## Phase 1: Issue Discovery
 
 ### Step 1.1: Fetch GitHub Issues
 
+Fetch issues with the specified label:
+
 ```bash
 gh issue list \
-  --label "${1:-ready-to-fix}" \
+  --label "${1:-bug}" \
   --state open \
-  --limit "${2:-3}" \
-  --json number,title,body,labels,url \
-  --jq '.[] | {number, title, body, labels: [.labels[].name], url}'
+  --limit "${2:-7}" \
+  --json number,title,body,labels,url
 ```
 
-### Step 1.2: Analyze Feasibility
+### Step 1.2: Quick Assessment
 
-For each issue, determine if it's auto-fixable based on:
-- Clear reproduction steps
-- Specific error messages or file references
-- Not labeled "needs-discussion" or "breaking-change"
-- Has enough context to locate relevant code
+For each issue, do a quick check:
+- Has a description (not just a title)
+- Contains some technical context (error messages, reproduction steps, etc.)
+- Not labeled "needs-more-info" or "question"
 
-Create a plan listing:
-- Issue #: [number]
-- Title: [title]
-- Fixable: YES/NO
-- Reason: [brief assessment]
-- Estimated complexity: LOW/MEDIUM/HIGH
-
-### Step 1.3: Get User Confirmation
-
-Present the plan to the user with:
-- Total issues found: X
-- Auto-fixable: Y
-- Skipped: Z (with reasons)
-
-Ask: "Proceed with creating worktrees and spawning fix agents for Y issues? (yes/no)"
-
-If `--dry-run` flag is present, stop here and show the plan only.
-
----
-
-## Phase 2: Git Worktree Setup
-
-For each fixable issue, create an isolated workspace:
-
-### Step 2.1: Create Branch Name
-
-Generate semantic branch name:
+Create a summary:
 ```
-fix/issue-{number}-{kebab-case-short-title}
-```
+ISSUES TO ANALYZE:
+==================
 
-Example: `fix/issue-123-memory-leak-transcription`
+✓ Issue #920: audio playback has lag on linux
+  Labels: bug, linux
+  Reason: Has reproduction context
 
-### Step 2.2: Create Git Worktree
+✓ Issue #918: White screen on launch on windows
+  Labels: bug
+  Reason: Clear technical issue
 
-```bash
-# Create worktree directory
-WORKTREE_PATH="/Users/braden/Code/whispering/.conductor/issue-{number}"
-BRANCH_NAME="fix/issue-{number}-{short-title}"
+⚠ Issue #910: Add GPT-5 and GPT-5 mini
+  Labels: feature request
+  Reason: Feature request, but can still analyze
 
-# Ensure we're starting from latest main
-git fetch origin main
-
-# Create worktree with new branch tracking origin/main
-git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" origin/main
-
-# Verify creation
-ls -la "$WORKTREE_PATH"
-```
-
-### Step 2.3: Track Worktree Metadata
-
-Store worktree information for cleanup:
-```bash
-echo "$WORKTREE_PATH|$BRANCH_NAME|{issue_number}" >> /tmp/claude-worktrees-session-{timestamp}.txt
+Total: X issues ready for analysis
 ```
 
 ---
 
-## Phase 3: Parallel Agent Execution
+## Phase 2: Parallel Analysis Agents
 
-Spawn one sub-agent per fixable issue using the Task tool. All agents run in parallel.
+Spawn one analysis agent per issue using the Task tool. All agents run in parallel.
 
-### Sub-Agent Prompt Template
+### Analysis Agent Prompt Template
 
-For each issue, spawn a Task agent with this comprehensive prompt:
+For each issue, spawn a Task agent with this prompt:
 
 ```
-You are an autonomous bug-fixing agent. Your mission: fix GitHub issue #{number} in an isolated git worktree.
-
-CRITICAL CONSTRAINTS:
-- Work ONLY in this directory: {worktree_path}
-- Use absolute paths for ALL file operations
-- Do NOT modify files outside this worktree
-- Run ALL commands with dangerouslyDisableSandbox: true
+You are a technical analyst agent. Your mission: deeply analyze GitHub issue #{number} and create a comprehensive specification document for implementation.
 
 ISSUE DETAILS:
+--------------
+Number: #{number}
 Title: {title}
 Body: {body}
 URL: {url}
 Labels: {labels}
 
-WORKTREE INFO:
-Path: {worktree_path}
-Branch: {branch_name}
-Base: origin/main
+YOUR OBJECTIVE:
+--------------
 
-YOUR WORKFLOW:
+Create a detailed specification document at:
+`/Users/braden/Code/whispering/.conductor/bilbao/issue-specs/{number}-{kebab-case-title}.md`
 
-1. CONTEXT GATHERING (15 min max)
-   - Read the issue carefully, extract key details
-   - Identify error messages, stack traces, file references
-   - Use Grep to search for relevant code patterns
-   - Use Glob to find related files
-   - Understand the codebase architecture around the bug
+The spec should enable another agent (or human developer) to implement a fix without having to re-analyze the issue.
 
-2. REPRODUCTION (if applicable)
-   - Verify you can reproduce the issue
-   - Check existing tests related to the bug
-   - Document reproduction steps
+ANALYSIS WORKFLOW:
+------------------
 
-3. SOLUTION DESIGN
-   - Identify root cause
-   - Design minimal fix (prefer simple over clever)
-   - Consider edge cases and potential side effects
-   - Plan test strategy
+### 1. UNDERSTAND THE ISSUE (10-15 min)
 
-4. IMPLEMENTATION
-   - Make code changes using Edit/Write tools
-   - Use absolute paths: {worktree_path}/src/...
-   - Follow project style guidelines from CLAUDE.md
-   - Keep changes focused and minimal
+Read the issue carefully and extract:
+- What is the user trying to do?
+- What is happening instead (symptoms)?
+- What error messages or logs are provided?
+- What platform/environment (OS, version, etc.)?
+- Reproduction steps if provided
+- Expected vs actual behavior
 
-5. TESTING & VALIDATION
-   - Run relevant test suites:
-     ```bash
-     cd {worktree_path}
-     npm test -- --grep "{relevant_test_pattern}"
-     ```
-   - Run full test suite if time permits:
-     ```bash
-     npm test
-     ```
-   - Fix any test failures
-   - Run linter/formatter:
-     ```bash
-     npm run lint
-     npm run format
-     ```
+### 2. INVESTIGATE THE CODEBASE (15-20 min)
 
-6. COMMIT & PUSH
-   - Stage changes:
-     ```bash
-     cd {worktree_path}
-     git add .
-     ```
-   - Create conventional commit:
-     ```bash
-     git commit -m "fix(scope): resolve issue #{number}
+Use Grep and Glob to explore:
+- Search for relevant error messages in the code
+- Find files related to the feature area (e.g., "audio", "transcription", "recording")
+- Look for similar issues or recent changes in related files
+- Identify the likely file(s) and functions involved
+- Check for platform-specific code paths if relevant
 
-{detailed_description}
+Example searches:
+```bash
+# Find error messages
+rg "error message text" /Users/braden/Code/whispering/.conductor/bilbao
 
-Fixes #{number}"
-     ```
-   - Push to remote:
-     ```bash
-     git push -u origin {branch_name}
-     ```
+# Find feature area files
+rg -t typescript "audio.*playback" /Users/braden/Code/whispering/.conductor/bilbao
 
-7. PULL REQUEST CREATION
-   - Create PR using gh CLI:
-     ```bash
-     cd {worktree_path}
-     gh pr create \
-       --title "fix: {title}" \
-       --body "$(cat <<'EOF'
-Fixes #{number}
+# Check recent changes to related files
+git log --oneline --since="3 months ago" -- path/to/suspected/file.ts
+```
 
-## Problem
-{brief_problem_description}
+### 3. FORM HYPOTHESES (5-10 min)
 
-## Solution
-{technical_explanation_of_fix}
+Based on your investigation:
+- What is the most likely root cause?
+- Are there alternative explanations?
+- What code paths are involved?
+- Is this a timing issue, configuration issue, logic error, or something else?
+- Are there related issues or patterns in the codebase?
 
-## Testing
-- [ ] Existing tests pass
-- [ ] Added/updated tests for fix
-- [ ] Manual testing completed
+### 4. DESIGN SOLUTION APPROACH (10-15 min)
 
-## Checklist
-- [x] Code follows project style guidelines
-- [x] Commit follows conventional commit format
-- [x] PR links to issue #{number}
-EOF
-)" \
-       --label "automated-fix" \
-       --assignee @me
-     ```
+Outline potential solutions:
+- What is the simplest fix?
+- What files need to be modified?
+- What functions/classes need changes?
+- Are there edge cases to consider?
+- What testing approach is needed?
+- Are there architectural considerations?
 
-8. REPORT RESULTS
-   Provide a structured summary:
+### 5. CREATE SPECIFICATION DOCUMENT
 
-   ✅ SUCCESS or ❌ FAILURE
+Write a comprehensive spec file with this structure:
 
-   Issue: #{number}
-   Branch: {branch_name}
-   Worktree: {worktree_path}
-   PR URL: {pr_url} (if created)
+```markdown
+# Issue #{number}: {title}
 
-   Changes made:
-   - File 1: {description}
-   - File 2: {description}
+**Status**: Ready for Implementation
+**Issue URL**: {url}
+**Labels**: {labels}
+**Analyzed**: {current_date}
 
-   Tests: PASSED/FAILED (details)
+---
 
-   Notes: {any important observations}
+## Problem Summary
 
-   If FAILURE:
-   - Reason: {why could not fix}
-   - Recommendation: {suggest manual investigation or needs-discussion label}
+[1-2 paragraph summary of the issue in your own words. What is broken and why does it matter?]
 
-FAILURE SCENARIOS - When to abort:
-- Cannot locate relevant code after 15 minutes
-- Issue requires architectural changes (scope too large)
-- Tests fail after fix attempt (root cause unclear)
-- Issue is actually a feature request, not a bug
-- Insufficient information to reproduce
+## User Impact
 
-In case of failure:
-1. Do NOT create a PR
-2. Do NOT push commits
-3. Leave worktree intact for manual inspection
-4. Report detailed failure reason
+- **Severity**: Critical / High / Medium / Low
+- **Frequency**: Always / Often / Sometimes / Rarely
+- **Affected Users**: [Who experiences this? All users, specific platform, specific configuration?]
 
-Remember: Quality over speed. A correct, tested fix is better than a quick broken one.
+## Technical Analysis
+
+### Symptoms
+
+- [Bullet list of observed symptoms]
+- [Include error messages, logs, screenshots mentioned in issue]
+
+### Reproduction Steps
+
+1. [Step by step if provided, or "Not provided - see user report" if unclear]
+2. ...
+
+### Root Cause Hypothesis
+
+[Your analysis of what's likely causing this. Be specific about code paths, files, functions.]
+
+**Confidence Level**: High / Medium / Low
+
+**Evidence**:
+- [Why you think this is the cause]
+- [Code references: file.ts:123]
+- [Related issues or commits]
+
+### Affected Code Paths
+
+**Primary Files**:
+- `path/to/file1.ts` (lines XXX-YYY) - [Description]
+- `path/to/file2.ts` (lines XXX-YYY) - [Description]
+
+**Related Files** (may need updates):
+- `path/to/file3.ts` - [Description]
+
+### Platform-Specific Considerations
+
+[If the issue is platform-specific (Linux, macOS, Windows), note any platform-specific code paths or considerations]
+
+---
+
+## Proposed Solution
+
+### Approach
+
+[Describe the solution approach at a high level. Why this approach?]
+
+### Implementation Steps
+
+1. **[Step 1]**: [What to do and where]
+   - File: `path/to/file.ts`
+   - Change: [Specific change description]
+   - Reason: [Why this change]
+
+2. **[Step 2]**: [Next step]
+   - File: `path/to/file.ts`
+   - Change: [Specific change description]
+   - Reason: [Why this change]
+
+[Continue for all steps]
+
+### Code Changes Required
+
+**File 1: `path/to/file.ts`**
+
+```typescript
+// BEFORE (current code - approximate):
+function existingFunction() {
+  // current implementation
+}
+
+// AFTER (proposed change):
+function existingFunction() {
+  // new implementation with fix
+}
+```
+
+**File 2: `path/to/file.ts`**
+
+[Similar for each file that needs changes]
+
+### Alternative Approaches Considered
+
+**Option A**: [Alternative approach]
+- Pros: [Benefits]
+- Cons: [Drawbacks]
+- Why not chosen: [Reason]
+
+**Option B**: [Another alternative]
+- Pros: [Benefits]
+- Cons: [Drawbacks]
+- Why not chosen: [Reason]
+
+---
+
+## Testing Strategy
+
+### Manual Testing
+
+1. [How to manually verify the fix]
+2. [What to check]
+3. [Expected behavior after fix]
+
+### Automated Tests
+
+**New Tests Needed**:
+- [ ] Test case 1: [Description]
+- [ ] Test case 2: [Description]
+
+**Existing Tests to Verify**:
+- [ ] Run test suite: `npm test path/to/test`
+- [ ] Specific test: [test name]
+
+### Regression Concerns
+
+[Any areas that might break as a result of this fix? What to watch out for?]
+
+---
+
+## Implementation Guidance
+
+### Prerequisites
+
+- [Any required knowledge or context]
+- [Relevant documentation to read]
+- [Related issues or PRs to review]
+
+### Estimated Complexity
+
+- **Time Estimate**: [X hours/days]
+- **Difficulty**: Low / Medium / High
+- **Risk**: Low / Medium / High
+
+### Dependencies
+
+- [Any external dependencies or blockers]
+- [Other issues that should be fixed first]
+
+### Follow-up Work
+
+- [Any related improvements or cleanups that could be done after]
+- [Technical debt to address]
+
+---
+
+## Additional Context
+
+### Related Issues
+
+- #XXX - [Related issue with link]
+- #YYY - [Another related issue]
+
+### Recent Changes
+
+[Any recent commits or PRs that touched this area]
+
+```bash
+git log --oneline --since="3 months ago" -- path/to/file
+```
+
+### Community Discussion
+
+[Relevant comments from the GitHub issue that provide context]
+
+---
+
+## Questions for Implementer
+
+- [ ] [Question 1 if anything is unclear]
+- [ ] [Question 2]
+- [ ] [Should we consider X approach instead?]
+
+---
+
+## Notes for Reviewer
+
+[Any special considerations for PR review]
+
+---
+
+## Implementation Checklist
+
+Use this when implementing:
+
+- [ ] Read entire spec document
+- [ ] Review issue comments on GitHub
+- [ ] Understand root cause before coding
+- [ ] Make changes to listed files
+- [ ] Write/update tests
+- [ ] Run full test suite
+- [ ] Manual testing per Testing Strategy
+- [ ] Update documentation if needed
+- [ ] Create PR with conventional commit
+- [ ] Link PR to issue #{number}
+
+---
+
+**Spec created by**: Automated analysis agent
+**Confidence**: [Your confidence in this analysis: High/Medium/Low]
+**Needs human review**: [Yes/No - if Yes, explain what needs review]
+```
+
+### 6. SAVE THE SPECIFICATION
+
+Write the spec file to:
+`/Users/braden/Code/whispering/.conductor/bilbao/issue-specs/{number}-{kebab-case-short-title}.md`
+
+Use the Write tool with absolute path.
+
+### 7. REPORT RESULTS
+
+Provide a brief summary:
+
+```
+✅ ANALYSIS COMPLETE
+
+Issue: #{number}
+Title: {title}
+Spec File: issue-specs/{number}-{title}.md
+
+Key Findings:
+- Root cause: [Brief description]
+- Affected files: [List 2-3 main files]
+- Complexity: [Low/Medium/High]
+- Confidence: [High/Medium/Low]
+
+The specification is ready for handoff to an implementation agent.
+```
+
+### ANALYSIS LIMITATIONS
+
+If you cannot complete the analysis:
+
+```
+❌ ANALYSIS INCOMPLETE
+
+Issue: #{number}
+Title: {title}
+Reason: [Why analysis couldn't be completed]
+
+Recommendations:
+- [What's needed to complete analysis]
+- [Suggest adding "needs-more-info" label]
+- [Or suggest manual investigation]
+```
+
+Common reasons for incomplete analysis:
+- Issue description is too vague
+- Cannot locate relevant code
+- Requires domain expertise beyond code analysis
+- Requires environment setup or reproduction
+
+REMEMBER: Your goal is to create a thorough, actionable specification. Take your time to investigate properly. Quality over speed.
 ```
 
 ### Parallel Execution
 
-Invoke all sub-agents in a SINGLE message with multiple Task tool calls:
+Invoke all analysis agents in a SINGLE message with multiple Task tool calls:
 
 ```
-Task(subagent_type: "general-purpose", description: "Fix issue #123", prompt: {sub_agent_prompt_123})
-Task(subagent_type: "general-purpose", description: "Fix issue #456", prompt: {sub_agent_prompt_456})
-Task(subagent_type: "general-purpose", description: "Fix issue #789", prompt: {sub_agent_prompt_789})
+Task(subagent_type: "general-purpose", description: "Analyze issue #920", prompt: {analysis_agent_prompt_920})
+Task(subagent_type: "general-purpose", description: "Analyze issue #918", prompt: {analysis_agent_prompt_918})
+Task(subagent_type: "general-purpose", description: "Analyze issue #916", prompt: {analysis_agent_prompt_916})
+...
 ```
 
 This launches all agents simultaneously, maximizing parallelism.
 
 ---
 
-## Phase 4: Results Aggregation
+## Phase 3: Results Aggregation
 
-After all sub-agents complete (this blocks until all finish):
+After all sub-agents complete:
 
-### Step 4.1: Collect Results
+### Step 3.1: Collect Specification Files
 
-Parse each agent's final report and aggregate:
-
-```
-PARALLEL FIX SUMMARY
-====================
-
-Total issues processed: {N}
-Successful fixes: {success_count}
-Failed attempts: {failure_count}
-
-SUCCESS:
-- Issue #{num1}: {title1}
-  PR: {pr_url1}
-  Branch: {branch1}
-
-- Issue #{num2}: {title2}
-  PR: {pr_url2}
-  Branch: {branch2}
-
-FAILED:
-- Issue #{num3}: {title3}
-  Reason: {failure_reason3}
-  Worktree: {path3} (preserved for manual inspection)
-
-NEXT STEPS:
-1. Review PRs: gh pr list --author @me --label automated-fix
-2. Inspect failed worktrees manually
-3. Clean up successful worktrees (see Phase 5)
-```
-
-### Step 4.2: Create Tracking Issue (Optional)
-
-Optionally create a meta-issue tracking this batch:
+List all generated specs:
 
 ```bash
-gh issue create \
-  --title "Automated fix batch: {timestamp}" \
-  --body "Parallel fix run initiated by user
-
-Successful PRs:
-- #{pr1}
-- #{pr2}
-
-Failed issues requiring manual review:
-- #{issue3}: {reason}
-
-Session ID: {timestamp}" \
-  --label "automated-fix-batch"
+ls -lh /Users/braden/Code/whispering/.conductor/bilbao/issue-specs/
 ```
+
+### Step 3.2: Create Summary Report
+
+Generate a summary showing:
+
+```
+ISSUE ANALYSIS COMPLETE
+=======================
+
+📊 Summary:
+- Total issues analyzed: {N}
+- Specifications created: {success_count}
+- Analysis incomplete: {incomplete_count}
+
+✅ SPECIFICATIONS READY:
+
+1. Issue #920: audio playback has lag on linux
+   Spec: issue-specs/920-audio-playback-lag-linux.md
+   Complexity: Medium | Confidence: High
+   Files: 3 files identified
+
+2. Issue #918: White screen on launch on windows
+   Spec: issue-specs/918-white-screen-launch-windows.md
+   Complexity: High | Confidence: Medium
+   Files: 5 files identified
+
+[... continue for all successful analyses ...]
+
+⚠️ INCOMPLETE ANALYSIS:
+
+1. Issue #XXX: {title}
+   Reason: {reason}
+   Next Steps: {recommendation}
 
 ---
 
-## Phase 5: Cleanup
+📁 SPECIFICATION FILES:
 
-### Step 5.1: Remove Successful Worktrees
+All specs are located at:
+/Users/braden/Code/whispering/.conductor/bilbao/issue-specs/
 
-For issues with successfully created PRs:
+To review a specific spec:
+cat issue-specs/{number}-{title}.md
+
+---
+
+🚀 NEXT STEPS:
+
+Option 1: Review and hand off to implementation agents
+  - Review each specification document
+  - Use Task tool to spawn implementation agents with specs
+
+Option 2: Implement manually
+  - Use specs as implementation guides
+  - Each spec has detailed steps and code references
+
+Option 3: Create PRs from specs
+  - Run: /implement-from-spec {issue-number}
+  - This will spawn an implementation agent with the spec
+
+---
+
+📋 QUICK COMMANDS:
+
+# Review all specs
+ls issue-specs/
+
+# Read a specific spec
+cat issue-specs/920-audio-playback-lag-linux.md
+
+# Hand off to implementation agent (example)
+Task with prompt: "Implement the fix described in issue-specs/920-audio-playback-lag-linux.md"
+```
+
+### Step 3.3: Create Index File
+
+Create an index of all specifications:
 
 ```bash
-# Read session file
-cat /tmp/claude-worktrees-session-{timestamp}.txt | while IFS='|' read -r path branch issue; do
-  # Check if PR was created for this issue
-  PR_EXISTS=$(gh pr list --head "$branch" --json number --jq length)
+cat > /Users/braden/Code/whispering/.conductor/bilbao/issue-specs/INDEX.md <<EOF
+# Issue Specifications Index
 
-  if [ "$PR_EXISTS" -gt 0 ]; then
-    echo "Removing worktree: $path (PR created)"
-    git worktree remove "$path" --force
-    echo "✓ Cleaned up: $branch"
-  else
-    echo "⚠ Preserving worktree: $path (no PR, likely failed)"
+Generated: $(date)
+
+## Ready for Implementation
+
+$(for file in /Users/braden/Code/whispering/.conductor/bilbao/issue-specs/*.md; do
+  if [ "$file" != "/Users/braden/Code/whispering/.conductor/bilbao/issue-specs/INDEX.md" ]; then
+    issue_num=$(basename "$file" | cut -d'-' -f1)
+    title=$(head -1 "$file" | sed 's/# Issue #[0-9]*: //')
+    echo "- [Issue #$issue_num]($file): $title"
   fi
-done
-```
+done)
 
-### Step 5.2: Preserve Failed Worktrees
+## Usage
 
-Leave failed worktrees intact with a note:
+Each specification contains:
+- Problem analysis and root cause
+- Proposed solution with code examples
+- Testing strategy
+- Implementation checklist
 
-```bash
-# For each failed worktree, create a README
-echo "This worktree was preserved because the automated fix failed.
+To implement a fix, read the spec and use it as your implementation guide.
 
-Issue: #{number}
-Reason: {failure_reason}
-Date: {timestamp}
-
-To manually investigate:
-1. cd {worktree_path}
-2. Review partial changes: git status
-3. Continue fix manually or delete worktree: git worktree remove {worktree_path}
-" > {worktree_path}/AUTOMATED_FIX_FAILED.md
-```
-
-### Step 5.3: Final Cleanup Report
-
-```
-CLEANUP COMPLETE
-================
-
-Removed worktrees: {count}
-Preserved for manual review: {count}
-
-To view preserved worktrees:
-  git worktree list
-
-To remove a specific worktree:
-  git worktree remove /Users/braden/Code/whispering/.conductor/issue-{number}
-
-To remove ALL worktrees from this session:
-  git worktree list | grep '/issue-' | awk '{print $1}' | xargs -n1 git worktree remove --force
+EOF
 ```
 
 ---
 
-## Phase 6: Final Instructions to User
+## Configuration
 
-Present actionable next steps:
+Default settings (edit this file to customize):
 
-```
-🎯 AUTOMATED FIX COMPLETE
-
-✅ {success_count} PR(s) created and ready for review
-❌ {failure_count} issue(s) require manual attention
-
-REVIEW YOUR PRs:
-  gh pr list --author @me --label automated-fix
-
-VIEW SPECIFIC PR:
-  gh pr view {pr_number}
-
-REVIEW PR IN BROWSER:
-  gh pr view {pr_number} --web
-
-MERGE A PR (after review):
-  gh pr merge {pr_number} --squash
-
-MANUAL INVESTIGATION NEEDED:
-{list_of_preserved_worktrees_with_paths}
-
-CLEANUP ALL REMAINING WORKTREES:
-  git worktree list | grep '.conductor/issue-' | awk '{print $1}' | xargs -n1 git worktree remove --force
-
-Questions or issues? Review the session log above or run again with fewer issues.
+```markdown
+DEFAULT_LABEL="bug"
+DEFAULT_LIMIT=7
+SPEC_OUTPUT_DIR="/Users/braden/Code/whispering/.conductor/bilbao/issue-specs"
+ANALYSIS_TIMEOUT=30  # minutes per issue
+REQUIRE_CONFIDENCE_LEVEL=true
 ```
 
 ---
 
-## Error Handling & Edge Cases
+## Usage Examples
+
+### Analyze all bugs (default)
+```
+/fix-issues
+```
+
+### Analyze specific label
+```
+/fix-issues "linux" 5
+```
+
+### Analyze feature requests
+```
+/fix-issues "feature request" 3
+```
+
+### Analyze high priority issues
+```
+/fix-issues "high-priority" 10
+```
+
+---
+
+## Benefits of This Approach
+
+✅ **No Risky Auto-Implementation**: Specifications are reviewed before implementation
+✅ **Better Quality**: Deep analysis before writing code
+✅ **Reusable**: Specs can be used by multiple implementers
+✅ **Learning**: Specs document understanding of codebase
+✅ **Async Work**: Specs can be implemented at any time
+✅ **Parallel Analysis**: Process many issues quickly
+✅ **Historical Record**: Specs serve as documentation
+
+---
+
+## Error Handling
 
 ### Issue Fetch Failures
 - If `gh issue list` fails: Check authentication (`gh auth status`)
-- If no issues found: Suggest different label or broader filter
-- If API rate limited: Show current limit status (`gh api rate_limit`)
+- If no issues found: Suggest different label
+- If API rate limited: Show current limit (`gh api rate_limit`)
 
-### Worktree Creation Failures
-- If worktree path exists: Auto-cleanup old worktree first
-- If branch exists: Use `git worktree add -B` to force checkout
-- If disk space low: Warn and limit to 2 issues max
+### Agent Failures
+- If agent times out: Mark as incomplete, preserve any partial analysis
+- If agent crashes: Report error and skip to next issue
+- Continue with remaining agents even if some fail
 
-### Agent Execution Failures
-- If agent times out (>30 min): Kill and mark as failed
-- If agent crashes: Preserve worktree, include error trace in report
-- If multiple agents fail: Suggest reducing parallelism
-
-### PR Creation Failures
-- If push fails: Check git credentials, try SSH vs HTTPS
-- If PR already exists: Link to existing PR instead
-- If branch protection: Document requirements in report
-
-### Cleanup Failures
-- If worktree removal blocked: Force removal or document for manual cleanup
-- If branch deletion fails: Leave branch intact (PRs need them)
-
----
-
-## Configuration & Customization
-
-Users can customize behavior by editing this file:
-
-```markdown
-### Configuration Variables (edit as needed)
-
-DEFAULT_LABEL="ready-to-fix"
-DEFAULT_LIMIT=3
-MAX_AGENT_TIMEOUT=30  # minutes
-WORKTREE_BASE_PATH="/Users/braden/Code/whispering/.conductor"
-REQUIRE_TESTS=true
-AUTO_CLEANUP=true
-CREATE_BATCH_ISSUE=false
-```
-
----
-
-## Advanced Usage
-
-### Target Specific Issues by Number
-```
-/fix-issues "123,456,789"
-```
-
-### Combine Multiple Labels
-```
-/fix-issues "bug,high-priority" 5
-```
-
-### Dry Run to Plan First
-```
-/fix-issues ready-to-fix 10 --dry-run
-```
-
-### Resume Failed Fixes Manually
-```bash
-cd /Users/braden/Code/whispering/.conductor/issue-{number}
-# Make your changes
-git add .
-git commit -m "fix: manual completion of automated fix"
-git push -u origin {branch-name}
-gh pr create --title "..." --body "..."
-```
-
----
-
-## Safety & Best Practices
-
-✅ DO:
-- Start with small batches (3-5 issues)
-- Review automated PRs before merging
-- Use `--dry-run` first for large batches
-- Keep issues well-labeled and documented
-- Run during low-activity periods
-
-❌ DON'T:
-- Run on critical production branches
-- Process vague or under-specified issues
-- Merge PRs without testing
-- Ignore failed worktrees (investigate or clean up)
-- Run concurrently with manual development
-
----
-
-## Troubleshooting
-
-**"No fixable issues found"**
-- Check issue labels and filters
-- Ensure issues have sufficient detail
-- Verify GitHub CLI authentication
-
-**"Worktree creation failed"**
-- Check disk space: `df -h`
-- Remove stale worktrees: `git worktree prune`
-- Verify git repository health: `git fsck`
-
-**"Agent timed out"**
-- Reduce parallelism (fewer issues)
-- Check for network/API issues
-- Increase timeout in configuration
-
-**"Tests failing after fix"**
-- Review agent's implementation
-- Check if tests were already failing
-- Manually investigate in preserved worktree
-
-**"PR creation failed"**
-- Verify GitHub CLI auth: `gh auth status`
-- Check repository permissions
-- Ensure branch was pushed: `git branch -r | grep {branch-name}`
+### File System Issues
+- If spec directory doesn't exist: Create it automatically
+- If spec file already exists: Append timestamp to avoid overwriting
+- If disk space low: Warn and limit number of issues
 
 ---
 
 ## Notes
 
-- This command requires `dangerouslyDisableSandbox: true` for git operations across worktrees
-- Each agent operates independently; there's no shared state between parallel fixes
-- Worktrees share the same .git directory but have separate working directories
-- Failed fixes preserve worktrees for manual investigation
-- Successful PRs automatically clean up their worktrees
-- Use conventional commit format for all automated commits
-- All PRs are labeled "automated-fix" for easy filtering
+- Analysis agents read the codebase but do NOT modify it
+- All spec files are written to `issue-specs/` directory
+- Each spec is self-contained and can be read independently
+- Specs can be committed to git for team collaboration
+- Specs serve as implementation blueprints for any developer
 
 ---
 
