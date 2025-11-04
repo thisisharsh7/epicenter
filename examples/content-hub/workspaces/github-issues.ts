@@ -135,7 +135,7 @@ export const githubIssues = defineWorkspace({
 					}).toJSON(),
 				};
 				db.tables.issues.update(updates);
-				const { row } = db.tables.issues.get({ id });
+				const { row } = await db.tables.issues.get({ id });
 				return Ok(row);
 			},
 		}),
@@ -154,7 +154,7 @@ export const githubIssues = defineWorkspace({
 						timezone: 'UTC',
 					}).toJSON(),
 				});
-				const { row } = db.tables.issues.get({ id });
+				const { row } = await db.tables.issues.get({ id });
 				return Ok(row);
 			},
 		}),

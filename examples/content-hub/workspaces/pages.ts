@@ -108,7 +108,7 @@ export const pages = defineWorkspace({
 			}),
 			handler: async ({ id, ...fields }) => {
 				db.tables.pages.update({ id, ...fields });
-				const { row } = db.tables.pages.get(id);
+				const { row } = await db.tables.pages.get({ id });
 				return Ok(row);
 			},
 		}),
@@ -119,7 +119,7 @@ export const pages = defineWorkspace({
 		deletePage: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				db.tables.pages.delete(id);
+				await db.tables.pages.delete({ id });
 				return Ok({ id });
 			},
 		}),

@@ -120,7 +120,7 @@ export const youtube = defineWorkspace({
 					}).toJSON(),
 				};
 				db.tables.posts.update(updates);
-				const { row } = db.tables.posts.get(id);
+				const { row } = await db.tables.posts.get({ id });
 				return Ok(row);
 			},
 		}),
@@ -131,7 +131,7 @@ export const youtube = defineWorkspace({
 		deletePost: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				db.tables.posts.delete(id);
+				await db.tables.posts.delete({ id });
 				return Ok({ id });
 			},
 		}),
