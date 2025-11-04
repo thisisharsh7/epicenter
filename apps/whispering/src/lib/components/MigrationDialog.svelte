@@ -607,6 +607,16 @@
 								continue;
 							}
 
+							// Delete from IndexedDB after successful migration
+							const { error: deleteError } =
+								await indexedDb.recordings.delete(recording);
+
+							if (deleteError) {
+								onProgress?.(
+									`[Migration] ⚠️  Warning: Failed to delete recording ${recording.id} from IndexedDB after migration`,
+								);
+							}
+
 							// Success!
 							succeeded++;
 						}
@@ -735,6 +745,16 @@
 								);
 								failed++;
 								continue;
+							}
+
+							// Delete from IndexedDB after successful migration
+							const { error: deleteError } =
+								await indexedDb.transformations.delete(transformation);
+
+							if (deleteError) {
+								onProgress?.(
+									`[Migration] ⚠️  Warning: Failed to delete transformation ${transformation.id} from IndexedDB after migration`,
+								);
 							}
 
 							// Success!
@@ -868,6 +888,15 @@
 								);
 								failed++;
 								continue;
+							}
+
+							// Delete from IndexedDB after successful migration
+							const { error: deleteError } = await indexedDb.runs.delete(run);
+
+							if (deleteError) {
+								onProgress?.(
+									`[Migration] ⚠️  Warning: Failed to delete transformation run ${run.id} from IndexedDB after migration`,
+								);
 							}
 
 							// Success!
@@ -1265,13 +1294,15 @@
 				</div>
 			{/if}
 
-			<Button
-				onclick={migrationDialog.startMigration}
-				disabled={migrationDialog.isRunning}
-				class="w-full"
-			>
-				{migrationDialog.isRunning ? 'Migrating...' : 'Start Migration'}
-			</Button>
+			{#if migrationDialog.hasIndexedDBData}
+				<Button
+					onclick={migrationDialog.startMigration}
+					disabled={migrationDialog.isRunning}
+					class="w-full"
+				>
+					{migrationDialog.isRunning ? 'Migrating...' : 'Start Migration'}
+				</Button>
+			{/if}
 
 			<!-- Logs Section -->
 			{#if migrationDialog.logs.length > 0}
