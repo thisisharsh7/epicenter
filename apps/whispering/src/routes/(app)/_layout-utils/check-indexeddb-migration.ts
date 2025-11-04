@@ -11,7 +11,7 @@ export async function checkIndexedDBMigration(): Promise<void> {
 		return;
 	}
 
-	await migrationDialog.checkIndexedDBData();
+	await migrationDialog.loadCounts();
 
 	if (migrationDialog.hasIndexedDBData) {
 		toast.info('Database Migration Available', {

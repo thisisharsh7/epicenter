@@ -57,7 +57,6 @@
 			index: number;
 			baseTimestamp: Date;
 		}): RecordingStoredInIndexedDB {
-
 			// Vary timestamps across last 6 months
 			const daysAgo = Math.floor(Math.random() * 180);
 			const timestamp = new Date(baseTimestamp);
@@ -127,7 +126,6 @@
 		}: {
 			index: number;
 		}): Transformation {
-
 			const transformation = generateDefaultTransformation();
 
 			// Vary between different transformation types
@@ -190,7 +188,6 @@
 			recordingIds: string[];
 			transformationIds: string[];
 		}): TransformationRun {
-
 			// Link to existing recordings and transformations
 			const recordingId = recordingIds[index % recordingIds.length];
 			const transformationId =
@@ -992,7 +989,12 @@
 			logs = [];
 		}
 
-		async function _loadCounts() {
+		/**
+		 * Load and display item counts from both IndexedDB and File System.
+		 * Updates the counts state which is used to determine if migration is needed.
+		 * Logs progress messages to the migration log.
+		 */
+		async function loadCounts() {
 			_addLog('[Counts] Loading item counts from both systems...');
 
 			const { data, error } = await _getMigrationCounts(
@@ -1021,9 +1023,6 @@
 			set isOpen(value: boolean) {
 				isOpen = value;
 			},
-			onOpen() {
-				_loadCounts();
-			},
 			get hasIndexedDBData() {
 				return counts
 					? counts.indexedDb.recordings > 0 ||
@@ -1031,9 +1030,7 @@
 							counts.indexedDb.runs > 0
 					: false;
 			},
-			async checkIndexedDBData() {
-				await _loadCounts();
-			},
+			loadCounts,
 			get isRunning() {
 				return isRunning;
 			},
@@ -1177,7 +1174,7 @@
 	bind:open={migrationDialog.isOpen}
 	onOpenChange={(open) => {
 		if (open) {
-			migrationDialog.onOpen();
+			migrationDialog.loadCounts();
 		}
 	}}
 >
