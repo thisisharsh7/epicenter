@@ -4,7 +4,7 @@ import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 import { createMockContext } from './mock-context';
-import { serveCommand, DEFAULT_PORT } from './commands/serve';
+import { serveCommand, DEFAULT_PORT } from './server';
 
 /**
  * Create CLI from Epicenter config.
@@ -41,15 +41,14 @@ export async function createCLI({
 	// Create yargs instance
 	let cli = yargs(argv)
 		.scriptName('epicenter')
-		.usage('Usage: $0 <command> [options]')
+		.usage('Usage: $0 [command] [options]')
 		.help()
 		.version()
-		.demandCommand(1, 'You must specify a command')
 		.strict();
 
-	// Add serve command
+	// Default command: start the server
 	cli = cli.command(
-		'serve',
+		'$0',
 		'Start HTTP server with REST and MCP endpoints',
 		(yargs) => {
 			return yargs

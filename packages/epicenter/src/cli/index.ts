@@ -5,5 +5,5 @@ export { createCLI } from './cli';
 export { standardSchemaToYargs } from './standardschema-to-yargs';
 export { createMockContext, createMockDb, createMockIndexes, createMockWorkspaces } from './mock-context';
 
-// Commands
-export { serveCommand, type ServeOptions } from './commands/serve';
+// Server
+export { serveCommand, type ServeOptions } from './server';

@@ -1,5 +1,5 @@
-import { type EpicenterConfig, forEachAction } from '../../core/epicenter';
-import { createServer } from '../../server/server';
+import { type EpicenterConfig, forEachAction } from '../core/epicenter';
+import { createServer } from '../server/server';
 
 export const DEFAULT_PORT = 3913;
 
