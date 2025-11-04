@@ -65,6 +65,12 @@ export type MarkdownIndexConfig<
 	/**
 	 * Root path where markdown files should be stored.
 	 *
+	 * **Optional**: Defaults to the workspace `id` if not provided
+	 * ```typescript
+	 * // If workspace id is "blog", defaults to "./blog"
+	 * markdownIndex({ id, db })
+	 * ```
+	 *
 	 * **Relative paths** (recommended): Resolved relative to epicenter.config.ts location
 	 * ```typescript
 	 * rootPath: './vault'      // → <config-dir>/vault
@@ -82,8 +88,10 @@ export type MarkdownIndexConfig<
 	 * ```
 	 *
 	 * All file paths returned by tableAndIdToPath will be relative to this root path.
+	 *
+	 * @default `./${id}` where id is the workspace ID
 	 */
-	rootPath: string;
+	rootPath?: string;
 
 	/**
 	 * Extract table name and row ID from a relative file path.
@@ -258,17 +266,66 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * ```
  *
  * @param context - Index context and markdown configuration
- * @param context.id - Workspace ID
- * @param context.db - Epicenter database instance
- * @param context.rootPath - Root path where markdown files should be stored (relative to config or absolute)
- * @param context.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `defaultPathToTableAndId`)
- * @param context.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `defaultTableAndIdToPath`)
- * @param context.serializers - Optional custom serializers per table
+ * @param context.id - Workspace ID (required)
+ * @param context.db - Epicenter database instance (required)
+ * @param context.rootPath - Root path where markdown files should be stored (optional, defaults to `./${id}`)
+ * @param context.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `{tableName}/{id}.md`)
+ * @param context.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `{tableName}/{id}.md`)
+ * @param context.serializers - Optional custom serializers per table (defaults to all fields in frontmatter)
+ *
+ * @example Minimal usage with all defaults
+ * ```typescript
+ * indexes: {
+ *   markdown: markdownIndex
+ * }
+ * ```
+ *
+ * @example Explicit usage with all defaults
+ * ```typescript
+ * indexes: {
+ *   markdown: ({ id, db }) => markdownIndex({ id, db })
+ * }
+ * ```
+ *
+ * @example Custom root path
+ * ```typescript
+ * indexes: {
+ *   markdown: ({ id, db }) => markdownIndex({
+ *     id,
+ *     db,
+ *     rootPath: './content'
+ *   })
+ * }
+ * ```
+ *
+ * @example Custom serializers - combining title and content in markdown body
+ * ```typescript
+ * indexes: {
+ *   markdown: ({ id, db }) => markdownIndex({
+ *     id,
+ *     db,
+ *     serializers: {
+ *       posts: {
+ *         serialize: ({ row }) => ({
+ *           frontmatter: { tags: row.tags, published: row.published },
+ *           content: `# ${row.title}\n\n${row.content || ''}`
+ *         }),
+ *         deserialize: ({ id, frontmatter, content }) => {
+ *           const lines = content.split('\n');
+ *           const title = lines[0]?.replace(/^# /, '') || '';
+ *           const bodyContent = lines.slice(2).join('\n');
+ *           return { id, title, tags: frontmatter.tags, published: frontmatter.published, content: bodyContent };
+ *         }
+ *       }
+ *     }
+ *   })
+ * }
+ * ```
  */
 export function markdownIndex<TSchema extends WorkspaceSchema>({
 	id,
 	db,
-	rootPath,
+	rootPath = `./${id}`,
 	pathToTableAndId = defaultPathToTableAndId,
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},

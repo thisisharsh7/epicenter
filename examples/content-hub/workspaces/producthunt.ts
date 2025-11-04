@@ -35,15 +35,6 @@ export const producthunt = defineWorkspace({
 				id,
 				db,
 				rootPath: './producthunt',
-				pathToTableAndId: ({ path: filePath }) => {
-					const parts = filePath.split(path.sep);
-					if (parts.length !== 2) return null;
-					const [tableName, fileName] = parts as [string, string];
-					const id = path.basename(fileName, '.md');
-					return { tableName, id };
-				},
-				tableAndIdToPath: ({ id, tableName }) =>
-					path.join(tableName, `${id}.md`),
 			}),
 	},
 

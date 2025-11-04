@@ -81,12 +81,17 @@ For text fields, character-level diffs are computed. For array fields like multi
 
 ### Setup
 
-Create a markdown index when defining your workspace:
+Create a markdown index when defining your workspace. The `markdownIndex` is highly configurable but works with sensible defaults.
+
+#### Minimal Setup (Recommended)
+
+If you're happy with the defaults, you can simply pass `markdownIndex`:
 
 ```typescript
 import { defineWorkspace, markdownIndex } from 'epicenter';
 
 const workspace = defineWorkspace({
+  id: 'blog',
   schema: {
     posts: {
       id: id(),
@@ -97,18 +102,150 @@ const workspace = defineWorkspace({
     },
   },
 
-  indexes: ({ db }) => ({
-    markdown: markdownIndex(db, {
-      rootPath: path.join(import.meta.dirname, './content'),
-      pathToTableAndId: ({ path }) => {
-        const parts = path.split('/');
-        return { tableName: parts[0], id: parts[1].replace('.md', '') };
-      },
-      tableAndIdToPath: ({ tableName, id }) => `${tableName}/${id}.md`,
-      // serializers is optional - defaults to all fields in frontmatter
-    }),
-  }),
+  indexes: {
+    markdown: markdownIndex  // Uses all defaults!
+  },
 });
+```
+
+With this setup:
+- Root path defaults to `./blog` (the workspace `id`)
+- File structure is `{tableName}/{id}.md`
+- All fields are stored in YAML frontmatter
+
+#### Explicit Setup
+
+You can also write it out explicitly if you prefer:
+
+```typescript
+indexes: {
+  markdown: ({ id, db }) => markdownIndex({ id, db })
+}
+```
+
+#### Custom Root Path
+
+To store files in a different location:
+
+```typescript
+indexes: {
+  markdown: ({ id, db }) => markdownIndex({
+    id,
+    db,
+    rootPath: './content',
+  }),
+}
+```
+
+#### Custom Serializers
+
+Use custom serializers when you want to control how your data is stored in markdown files. This is useful when:
+- **Moving fields to the markdown body**: Put the `content` field in the markdown body instead of frontmatter
+- **Combining multiple fields**: Merge multiple fields into the markdown body (e.g., title as a header + content)
+
+**Example 1: Basic content in markdown body**
+
+```typescript
+indexes: {
+  markdown: ({ id, db }) => markdownIndex({
+    id,
+    db,
+    serializers: {
+      posts: {
+        serialize: ({ row }) => ({
+          frontmatter: { tags: row.tags, published: row.published },
+          content: row.content || ''  // Content goes in markdown body
+        }),
+        deserialize: ({ id, frontmatter, content }) => ({
+          id,
+          tags: frontmatter.tags,
+          published: frontmatter.published,
+          content  // Content comes from markdown body
+        })
+      }
+    }
+  }),
+}
+```
+
+**Example 2: Combining title + content in markdown body**
+
+This creates more natural-looking markdown files where the title is a header:
+
+```typescript
+indexes: {
+  markdown: ({ id, db }) => markdownIndex({
+    id,
+    db,
+    serializers: {
+      posts: {
+        serialize: ({ row }) => ({
+          frontmatter: { tags: row.tags, published: row.published },
+          content: `# ${row.title}\n\n${row.content || ''}`
+        }),
+        deserialize: ({ id, frontmatter, content }) => {
+          // Extract title from first line (# Title format)
+          const lines = content.split('\n');
+          const title = lines[0]?.replace(/^#\s*/, '') || '';
+          const bodyContent = lines.slice(2).join('\n'); // Skip title and empty line
+
+          return {
+            id,
+            title,
+            tags: frontmatter.tags,
+            published: frontmatter.published,
+            content: bodyContent
+          };
+        }
+      }
+    }
+  }),
+}
+```
+
+This produces markdown files like:
+```markdown
+---
+tags: [tech, typescript]
+published: true
+---
+
+# My Blog Post Title
+
+This is the actual content of my blog post...
+```
+
+#### Full Configuration
+
+For complete control over file structure and serialization:
+
+```typescript
+indexes: {
+  markdown: ({ id, db }) => markdownIndex({
+    id,
+    db,
+    rootPath: './vault',
+    pathToTableAndId: ({ path }) => {
+      // Custom logic to extract table name and ID from file paths
+      const parts = path.split('/');
+      return { tableName: parts[0], id: parts[1].replace('.md', '') };
+    },
+    tableAndIdToPath: ({ tableName, id }) => `${tableName}/${id}.md`,
+    serializers: {
+      posts: {
+        serialize: ({ row }) => ({
+          frontmatter: { title: row.title, tags: row.tags },
+          content: row.content || ''
+        }),
+        deserialize: ({ id, frontmatter, content }) => ({
+          id,
+          ...frontmatter,
+          content
+        })
+      }
+    }
+  }),
+}
 ```
 
 ### Working with Data

@@ -54,18 +54,6 @@ const blogWorkspace = defineWorkspace({
 				id,
 				db,
 				rootPath: '.data/content',
-				pathToTableAndId: ({ path: filePath }) => {
-					const parts = filePath.split(path.sep);
-					if (parts.length < 2) {
-						throw new Error(`Invalid file path: ${filePath}`);
-					}
-					const tableName = parts[0]!;
-					const fileName = parts[parts.length - 1]!;
-					const id = path.basename(fileName, '.md');
-					return { tableName, id };
-				},
-				tableAndIdToPath: ({ id, tableName }) =>
-					path.join(tableName, `${id}.md`),
 				serializers: {
 					posts: {
 						serialize: ({ row, tableName }) => {

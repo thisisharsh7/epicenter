@@ -43,21 +43,17 @@ describe('Blog Workspace Integration', () => {
 		},
 
 		indexes: {
-			sqlite: (db) => sqliteIndex(db, {
-				database: ':memory:', // In-memory for testing
-			}),
-			markdown: (db) => markdownIndex(db, {
-				rootPath: path.join(import.meta.dir, '.data'),
-				pathToTableAndId: ({ path: filePath }) => {
-					const parts = filePath.split(path.sep);
-					const tableName = parts[0]!;
-					const fileName = parts[parts.length - 1]!;
-					const id = path.basename(fileName, '.md');
-					return { tableName, id };
-				},
-				tableAndIdToPath: ({ id, tableName }) =>
-					path.join(tableName, `${id}.md`),
-			}),
+			sqlite: ({ db }) =>
+				sqliteIndex({
+					db,
+					database: ':memory:', // In-memory for testing
+				}),
+			markdown: ({ id, db }) =>
+				markdownIndex({
+					id,
+					db,
+					rootPath: path.join(import.meta.dir, '.data'),
+				}),
 		},
 
 		actions: ({ db, indexes }) => ({

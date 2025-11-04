@@ -36,15 +36,6 @@ export const bookface = defineWorkspace({
 				id,
 				db,
 				rootPath: './bookface',
-				pathToTableAndId: ({ path: filePath }) => {
-					const parts = filePath.split(path.sep);
-					if (parts.length !== 2) return null;
-					const [tableName, fileName] = parts;
-					const id = path.basename(fileName!, '.md');
-					return { tableName: tableName!, id };
-				},
-				tableAndIdToPath: ({ id, tableName }) =>
-					path.join(tableName, `${id}.md`),
 			}),
 	},
 

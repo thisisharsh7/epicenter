@@ -36,18 +36,6 @@ export const youtube = defineWorkspace({
 				id,
 				db,
 				rootPath: './youtube',
-				pathToTableAndId: ({ path: filePath }) => {
-					const parts = filePath.split(path.sep);
-					if (parts.length !== 2) return null;
-					const [tableName, fileName] = parts as [string, string];
-					const id = path.basename(fileName, '.md');
-					return { tableName, id };
-				},
-				tableAndIdToPath: ({ id, tableName }) => {
-					const p = path.join(tableName, `${id}.md`);
-					console.log('🚀 ~ p:', p);
-					return p;
-				},
 			}),
 	},
 
