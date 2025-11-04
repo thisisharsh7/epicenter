@@ -30,7 +30,9 @@
 	async function openSystemSettings() {
 		// Try opening System Settings directly (works on macOS 13+)
 		const { error: commandError } = await services.command.execute(
-			asShellCommand('open x-apple.systemsettings:com.apple.SystemSettings.extension'),
+			asShellCommand(
+				'open x-apple.systemsettings:com.apple.SystemSettings.extension',
+			),
 		);
 
 		if (commandError) {

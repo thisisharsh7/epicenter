@@ -1,5 +1,5 @@
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { emit } from '@tauri-apps/api/event';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Ok, tryAsync } from 'wellcrafted/result';
 
 const WINDOW_LABEL = 'transform-clipboard';

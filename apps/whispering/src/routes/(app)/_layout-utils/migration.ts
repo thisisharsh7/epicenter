@@ -4,7 +4,7 @@
  * TODO: Remove this entire file after v7.7.0 release (most users will have migrated by then)
  */
 
-import { tryAsync, Ok } from 'wellcrafted/result';
+import { Ok, tryAsync } from 'wellcrafted/result';
 
 /**
  * Migrates model files from old redundant path structure to new simplified structure.
@@ -23,7 +23,9 @@ import { tryAsync, Ok } from 'wellcrafted/result';
  */
 export async function migrateModelPaths(): Promise<void> {
 	const { appDataDir, join } = await import('@tauri-apps/api/path');
-	const { exists, rename, readDir, mkdir } = await import('@tauri-apps/plugin-fs');
+	const { exists, rename, readDir, mkdir } = await import(
+		'@tauri-apps/plugin-fs'
+	);
 
 	console.log('[Migration] Running one-time migrations...');
 
@@ -36,17 +38,23 @@ export async function migrateModelPaths(): Promise<void> {
 			const newPath = await join(appDir, 'models');
 
 			if (!(await exists(oldPath))) {
-				console.log('[Migration] Legacy whispering/models path not found, skipping');
+				console.log(
+					'[Migration] Legacy whispering/models path not found, skipping',
+				);
 				return;
 			}
 
 			if (await exists(newPath)) {
 				const oldContents = await readDir(oldPath);
 				if (oldContents.length === 0) {
-					console.log('[Migration] Legacy whispering/models is empty, already migrated');
+					console.log(
+						'[Migration] Legacy whispering/models is empty, already migrated',
+					);
 					return;
 				}
-				console.warn('[Migration] Both whispering/models and models exist, manual intervention needed');
+				console.warn(
+					'[Migration] Both whispering/models and models exist, manual intervention needed',
+				);
 				return;
 			}
 
@@ -55,7 +63,10 @@ export async function migrateModelPaths(): Promise<void> {
 			console.log('[Migration] Successfully migrated whispering/models');
 		},
 		catch: (error) => {
-			console.error('[Migration] Failed to migrate whispering/models (non-fatal):', error);
+			console.error(
+				'[Migration] Failed to migrate whispering/models (non-fatal):',
+				error,
+			);
 			return Ok(undefined);
 		},
 	});
@@ -67,13 +78,17 @@ export async function migrateModelPaths(): Promise<void> {
 			const newPath = await join(appDir, 'models', 'whisper');
 
 			if (!(await exists(oldPath))) {
-				console.log('[Migration] Legacy whisper-models path not found, skipping');
+				console.log(
+					'[Migration] Legacy whisper-models path not found, skipping',
+				);
 				return;
 			}
 
 			const oldContents = await readDir(oldPath);
 			if (oldContents.length === 0) {
-				console.log('[Migration] Legacy whisper-models is empty, already migrated');
+				console.log(
+					'[Migration] Legacy whisper-models is empty, already migrated',
+				);
 				return;
 			}
 
@@ -97,7 +112,9 @@ export async function migrateModelPaths(): Promise<void> {
 						movedCount++;
 					}
 				}
-				console.log(`[Migration] Merged ${movedCount} models from whisper-models`);
+				console.log(
+					`[Migration] Merged ${movedCount} models from whisper-models`,
+				);
 			} else {
 				// New path doesn't exist, simply rename the entire directory
 				console.log('[Migration] Moving whisper-models -> models/whisper');
@@ -106,7 +123,10 @@ export async function migrateModelPaths(): Promise<void> {
 			}
 		},
 		catch: (error) => {
-			console.error('[Migration] Failed to migrate whisper-models (non-fatal):', error);
+			console.error(
+				'[Migration] Failed to migrate whisper-models (non-fatal):',
+				error,
+			);
 			return Ok(undefined);
 		},
 	});
@@ -118,13 +138,17 @@ export async function migrateModelPaths(): Promise<void> {
 			const newPath = await join(appDir, 'models', 'parakeet');
 
 			if (!(await exists(oldPath))) {
-				console.log('[Migration] Legacy parakeet-models path not found, skipping');
+				console.log(
+					'[Migration] Legacy parakeet-models path not found, skipping',
+				);
 				return;
 			}
 
 			const oldContents = await readDir(oldPath);
 			if (oldContents.length === 0) {
-				console.log('[Migration] Legacy parakeet-models is empty, already migrated');
+				console.log(
+					'[Migration] Legacy parakeet-models is empty, already migrated',
+				);
 				return;
 			}
 
@@ -148,7 +172,9 @@ export async function migrateModelPaths(): Promise<void> {
 						movedCount++;
 					}
 				}
-				console.log(`[Migration] Merged ${movedCount} models from parakeet-models`);
+				console.log(
+					`[Migration] Merged ${movedCount} models from parakeet-models`,
+				);
 			} else {
 				// New path doesn't exist, simply rename the entire directory
 				console.log('[Migration] Moving parakeet-models -> models/parakeet');
@@ -157,7 +183,10 @@ export async function migrateModelPaths(): Promise<void> {
 			}
 		},
 		catch: (error) => {
-			console.error('[Migration] Failed to migrate parakeet-models (non-fatal):', error);
+			console.error(
+				'[Migration] Failed to migrate parakeet-models (non-fatal):',
+				error,
+			);
 			return Ok(undefined);
 		},
 	});

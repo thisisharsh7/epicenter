@@ -15,10 +15,8 @@ export function createFfmpegService(): FfmpegService {
 				await tryAsync({
 					try: async () => {
 						const { data: result, error: commandError } =
-							await services.command.execute(
-								asShellCommand('ffmpeg -version'),
-							);
-						
+							await services.command.execute(asShellCommand('ffmpeg -version'));
+
 						if (commandError) throw commandError;
 						return result;
 					},
