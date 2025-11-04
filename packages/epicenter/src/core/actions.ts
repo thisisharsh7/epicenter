@@ -20,27 +20,34 @@ export type Action<
 	TOutput = unknown,
 	TError extends TaggedError<string> | never = never,
 	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
-> = Query<TOutput, TError, TInput> | Mutation<TOutput, TError, TInput>;
+	TAsync extends boolean = boolean,
+> = Query<TOutput, TError, TInput, TAsync> | Mutation<TOutput, TError, TInput, TAsync>;
 
 /**
  * Query action - read operation with no side effects
  *
  * When TError extends never, returns TOutput directly (no Result wrapper).
  * When TError is a concrete error type, returns Result<TOutput, TError>.
+ * When TAsync is true, returns a Promise; when false, returns synchronously.
  */
 export type Query<
 	TOutput = unknown,
 	TError extends TaggedError<string> | never = never,
 	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
+	TAsync extends boolean = boolean,
 > = {
-	// Callable signature - conditionally returns Result or raw output based on TError
+	// Callable signature - conditionally returns Result or raw output based on TError and TAsync
 	(
 		...args: TInput extends StandardSchemaV1
 			? [input: StandardSchemaV1.InferOutput<TInput>]
 			: []
-	): [TError] extends [never]
-		? TOutput | Promise<TOutput>
-		: Result<TOutput, TError> | Promise<Result<TOutput, TError>>;
+	): TAsync extends true
+		? [TError] extends [never]
+			? Promise<TOutput>
+			: Promise<Result<TOutput, TError>>
+		: [TError] extends [never]
+			? TOutput
+			: Result<TOutput, TError>;
 	// Metadata properties
 	type: 'query';
 	input?: TInput;
@@ -52,20 +59,26 @@ export type Query<
  *
  * When TError extends never, returns TOutput directly (no Result wrapper).
  * When TError is a concrete error type, returns Result<TOutput, TError>.
+ * When TAsync is true, returns a Promise; when false, returns synchronously.
  */
 export type Mutation<
 	TOutput = unknown,
 	TError extends TaggedError<string> | never = never,
 	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
+	TAsync extends boolean = boolean,
 > = {
-	// Callable signature - conditionally returns Result or raw output based on TError
+	// Callable signature - conditionally returns Result or raw output based on TError and TAsync
 	(
 		...args: TInput extends StandardSchemaV1
 			? [input: StandardSchemaV1.InferOutput<TInput>]
 			: []
-	): [TError] extends [never]
-		? TOutput | Promise<TOutput>
-		: Result<TOutput, TError> | Promise<Result<TOutput, TError>>;
+	): TAsync extends true
+		? [TError] extends [never]
+			? Promise<TOutput>
+			: Promise<Result<TOutput, TError>>
+		: [TError] extends [never]
+			? TOutput
+			: Result<TOutput, TError>;
 	// Metadata properties
 	type: 'mutation';
 	input?: TInput;
@@ -73,109 +86,141 @@ export type Mutation<
 };
 
 /**
- * Helper function to define a query action with input schema that returns Result
+ * Helper function to define a query action with input schema that returns Result (SYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineQuery<
 	TOutput,
-	TError extends TaggedError<string> | never,
+	TError extends TaggedError<string>,
 	TInput extends StandardSchemaV1,
 >(config: {
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => Result<TOutput, TError> | Promise<Result<TOutput, TError>>;
+	) => Result<TOutput, TError>;
 	description?: string;
-}): Query<TOutput, TError, TInput>;
+}): Query<TOutput, TError, TInput, false>;
 
 /**
- * Helper function to define a query action with input schema that returns raw value (can't fail)
+ * Helper function to define a query action with input schema that returns Result (ASYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineQuery<
+	TOutput,
+	TError extends TaggedError<string>,
+	TInput extends StandardSchemaV1,
+>(config: {
+	input: TInput;
+	handler: (
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
+	) => Promise<Result<TOutput, TError>>;
+	description?: string;
+}): Query<TOutput, TError, TInput, true>;
+
+/**
+ * Helper function to define a query action with input schema that returns raw value (can't fail, SYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => TOutput | Promise<TOutput> | void | Promise<void>;
+	) => TOutput | void;
 	description?: string;
-}): Query<TOutput extends void ? undefined : TOutput, never, TInput>;
+}): Query<TOutput extends void ? undefined : TOutput, never, TInput, false>;
 
 /**
- * Helper function to define a query action without input that returns Result
+ * Helper function to define a query action with input schema that returns raw value (can't fail, ASYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
+	input: TInput;
+	handler: (
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
+	) => Promise<TOutput> | Promise<void>;
+	description?: string;
+}): Query<TOutput extends void ? undefined : TOutput, never, TInput, true>;
+
+/**
+ * Helper function to define a query action without input that returns Result (SYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineQuery<
 	TOutput,
-	TError extends TaggedError<string> | never,
+	TError extends TaggedError<string>,
 >(config: {
-	handler: () => Result<TOutput, TError> | Promise<Result<TOutput, TError>>;
+	handler: () => Result<TOutput, TError>;
 	description?: string;
-}): Query<TOutput, TError, undefined>;
+}): Query<TOutput, TError, undefined, false>;
 
 /**
- * Helper function to define a query action without input that returns raw value (can't fail)
+ * Helper function to define a query action without input that returns Result (ASYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineQuery<
+	TOutput,
+	TError extends TaggedError<string>,
+>(config: {
+	handler: () => Promise<Result<TOutput, TError>>;
+	description?: string;
+}): Query<TOutput, TError, undefined, true>;
+
+/**
+ * Helper function to define a query action without input that returns raw value (can't fail, SYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineQuery<TOutput>(config: {
-	handler: () => TOutput | Promise<TOutput> | void | Promise<void>;
+	handler: () => TOutput | void;
 	description?: string;
-}): Query<TOutput extends void ? undefined : TOutput, never, undefined>;
+}): Query<TOutput extends void ? undefined : TOutput, never, undefined, false>;
+
+/**
+ * Helper function to define a query action without input that returns raw value (can't fail, ASYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineQuery<TOutput>(config: {
+	handler: () => Promise<TOutput> | Promise<void>;
+	description?: string;
+}): Query<TOutput extends void ? undefined : TOutput, never, undefined, true>;
 
 /**
  * Implementation for defineQuery
  *
- * This function supports 4 overload patterns through TypeScript's function overloading:
+ * Supports 8 overload patterns to distinguish sync vs async handlers:
+ * - With/without input × Result/raw value × sync/async = 8 combinations
  *
- * 1. **With input, can fail**: Handler takes input and returns Result<TOutput, TError>
- *    - TError is inferred from the Result type returned by handler
- *    - Example: `defineQuery({ input: schema, handler: (data) => Ok(result) or Err(error) })`
+ * Why we track sync vs async separately:
+ * Without this, TypeScript thinks all handlers return `T | Promise<T>`, forcing you to
+ * await even synchronous operations. By using separate overloads that set `TAsync` to
+ * true or false, TypeScript knows exactly when await is required.
  *
- * 2. **With input, can't fail**: Handler takes input and returns raw TOutput or void
- *    - TError is automatically set to `never` (can't fail)
- *    - Wrapped handler returns raw TOutput directly (no Result wrapper)
- *    - Example: `defineQuery({ input: schema, handler: (data) => result })`
- *
- * 3. **No input, can fail**: Handler takes no params and returns Result<TOutput, TError>
- *    - TError is inferred from the Result type returned by handler
- *    - Example: `defineQuery({ handler: () => Ok(result) or Err(error) })`
- *
- * 4. **No input, can't fail**: Handler takes no params and returns raw TOutput or void
- *    - TError is automatically set to `never` (can't fail)
- *    - Wrapped handler returns raw TOutput directly (no Result wrapper)
- *    - Example: `defineQuery({ handler: () => result })`
- *
- * The implementation uses the "let and await promise pattern" to normalize sync/async handlers:
- * - Calls the handler and stores result in a `let` variable (allows reassignment)
- * - Checks if result is a Promise using `instanceof Promise`
- * - If Promise, awaits it and reassigns to the same variable
- * - After this point, result is guaranteed to be the unwrapped value (not a Promise)
- * - If handler returned a Result type, passes it through as-is
- * - Otherwise, returns the raw value directly (no Result wrapper)
- *
- * The wrapped handler is always async (returns Promise) for a uniform interface,
- * even when the original handler is synchronous.
+ * The implementation preserves the handler's sync/async behavior:
+ * - Sync handler → returns value directly (no Promise wrapper)
+ * - Async handler → returns Promise
+ * - This allows compile-time enforcement of correct await usage
  */
-// biome-ignore lint/suspicious/noExplicitAny: This is the implementation function that handles all 4 overload signatures of defineQuery. TypeScript's overloads provide type safety at call sites, while the implementation uses `any` to handle the union of all possible parameter/return types (with input vs without, Result vs raw value, etc.). The type safety is enforced through the overload signatures, not the implementation.
+// biome-ignore lint/suspicious/noExplicitAny: This is the implementation function that handles all 8 overload signatures of defineQuery. TypeScript's overloads provide type safety at call sites, while the implementation uses `any` to handle the union of all possible parameter/return types (with input vs without, Result vs raw value, sync vs async, etc.). The type safety is enforced through the overload signatures, not the implementation.
 export function defineQuery(config: any): any {
 	// biome-ignore lint/suspicious/noExplicitAny: Handler function must accept variable arguments to support both parameterless queries and queries with input parameters. The actual type safety is provided by the Query type's callable signature and StandardSchema validation at runtime.
-	const wrappedHandler = async (...args: any[]) => {
+	const wrappedHandler = (...args: any[]) => {
 		// Call the user's handler with whatever arguments were passed
-		let result = config.handler(...args);
+		const result = config.handler(...args);
 
-		// Normalize Promise vs non-Promise: await if needed
-		// This is the "let and await promise pattern" - by checking instanceof Promise
-		// and conditionally awaiting, we avoid duplicating the logic below for both
-		// sync and async cases
+		// If handler returned a Promise, handle it asynchronously
 		if (result instanceof Promise) {
-			result = await result;
+			return result.then((resolved) => {
+				// If the handler returned a Result type (Ok or Err), pass it through
+				if (isResult(resolved)) return resolved;
+				// Otherwise, return the raw value directly (no Result wrapper)
+				return resolved;
+			});
 		}
 
-		// At this point, result is the unwrapped value (could be Result, raw value, or undefined)
-		// If the handler already returned a Result type (Ok or Err), pass it through
+		// Synchronous path: handler returned a value directly (not a Promise)
+		// If the handler returned a Result type (Ok or Err), pass it through
 		if (isResult(result)) return result;
 
-		// Otherwise, return the raw value directly (don't wrap in Result)
-		// This matches the conditional return type: when TError = never, return TOutput directly
+		// Otherwise, return the raw value directly (no Result wrapper)
 		return result;
 	};
 
@@ -189,23 +234,39 @@ export function defineQuery(config: any): any {
 }
 
 /**
- * Helper function to define a mutation action with input schema that returns Result
+ * Helper function to define a mutation action with input schema that returns Result (SYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineMutation<
 	TOutput,
-	TError extends TaggedError<string> | never,
+	TError extends TaggedError<string>,
 	TInput extends StandardSchemaV1,
 >(config: {
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => Result<TOutput, TError> | Promise<Result<TOutput, TError>>;
+	) => Result<TOutput, TError>;
 	description?: string;
-}): Mutation<TOutput, TError, TInput>;
+}): Mutation<TOutput, TError, TInput, false>;
 
 /**
- * Helper function to define a mutation action with input schema that returns raw value (can't fail)
+ * Helper function to define a mutation action with input schema that returns Result (ASYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineMutation<
+	TOutput,
+	TError extends TaggedError<string>,
+	TInput extends StandardSchemaV1,
+>(config: {
+	input: TInput;
+	handler: (
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
+	) => Promise<Result<TOutput, TError>>;
+	description?: string;
+}): Mutation<TOutput, TError, TInput, true>;
+
+/**
+ * Helper function to define a mutation action with input schema that returns raw value (can't fail, SYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineMutation<
@@ -215,86 +276,105 @@ export function defineMutation<
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => TOutput | Promise<TOutput> | void | Promise<void>;
+	) => TOutput | void;
 	description?: string;
-}): Mutation<TOutput extends void ? undefined : TOutput, never, TInput>;
+}): Mutation<TOutput extends void ? undefined : TOutput, never, TInput, false>;
 
 /**
- * Helper function to define a mutation action without input that returns Result
+ * Helper function to define a mutation action with input schema that returns raw value (can't fail, ASYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineMutation<
 	TOutput,
-	TError extends TaggedError<string> | never,
+	TInput extends StandardSchemaV1,
 >(config: {
-	handler: () => Result<TOutput, TError> | Promise<Result<TOutput, TError>>;
+	input: TInput;
+	handler: (
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
+	) => Promise<TOutput> | Promise<void>;
 	description?: string;
-}): Mutation<TOutput, TError, undefined>;
+}): Mutation<TOutput extends void ? undefined : TOutput, never, TInput, true>;
 
 /**
- * Helper function to define a mutation action without input that returns raw value (can't fail)
+ * Helper function to define a mutation action without input that returns Result (SYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineMutation<
+	TOutput,
+	TError extends TaggedError<string>,
+>(config: {
+	handler: () => Result<TOutput, TError>;
+	description?: string;
+}): Mutation<TOutput, TError, undefined, false>;
+
+/**
+ * Helper function to define a mutation action without input that returns Result (ASYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineMutation<
+	TOutput,
+	TError extends TaggedError<string>,
+>(config: {
+	handler: () => Promise<Result<TOutput, TError>>;
+	description?: string;
+}): Mutation<TOutput, TError, undefined, true>;
+
+/**
+ * Helper function to define a mutation action without input that returns raw value (can't fail, SYNC)
  * Returns a callable function with metadata properties attached
  */
 export function defineMutation<TOutput>(config: {
-	handler: () => TOutput | Promise<TOutput> | void | Promise<void>;
+	handler: () => TOutput | void;
 	description?: string;
-}): Mutation<TOutput extends void ? undefined : TOutput, never, undefined>;
+}): Mutation<TOutput extends void ? undefined : TOutput, never, undefined, false>;
+
+/**
+ * Helper function to define a mutation action without input that returns raw value (can't fail, ASYNC)
+ * Returns a callable function with metadata properties attached
+ */
+export function defineMutation<TOutput>(config: {
+	handler: () => Promise<TOutput> | Promise<void>;
+	description?: string;
+}): Mutation<TOutput extends void ? undefined : TOutput, never, undefined, true>;
 
 /**
  * Implementation for defineMutation
  *
- * This function supports 4 overload patterns through TypeScript's function overloading:
+ * Supports 8 overload patterns to distinguish sync vs async handlers:
+ * - With/without input × Result/raw value × sync/async = 8 combinations
  *
- * 1. **With input, can fail**: Handler takes input and returns Result<TOutput, TError>
- *    - TError is inferred from the Result type returned by handler
- *    - Example: `defineMutation({ input: schema, handler: (data) => Ok(result) or Err(error) })`
+ * Why we track sync vs async separately:
+ * Without this, TypeScript thinks all handlers return `T | Promise<T>`, forcing you to
+ * await even synchronous operations. By using separate overloads that set `TAsync` to
+ * true or false, TypeScript knows exactly when await is required.
  *
- * 2. **With input, can't fail**: Handler takes input and returns raw TOutput or void
- *    - TError is automatically set to `never` (can't fail)
- *    - Wrapped handler returns raw TOutput directly (no Result wrapper)
- *    - Example: `defineMutation({ input: schema, handler: (data) => { ...sideEffect } })`
- *
- * 3. **No input, can fail**: Handler takes no params and returns Result<TOutput, TError>
- *    - TError is inferred from the Result type returned by handler
- *    - Example: `defineMutation({ handler: () => Ok(result) or Err(error) })`
- *
- * 4. **No input, can't fail**: Handler takes no params and returns raw TOutput or void
- *    - TError is automatically set to `never` (can't fail)
- *    - Wrapped handler returns raw TOutput directly (no Result wrapper)
- *    - Example: `defineMutation({ handler: () => { ...sideEffect } })`
- *
- * The implementation uses the "let and await promise pattern" to normalize sync/async handlers:
- * - Calls the handler and stores result in a `let` variable (allows reassignment)
- * - Checks if result is a Promise using `instanceof Promise`
- * - If Promise, awaits it and reassigns to the same variable
- * - After this point, result is the unwrapped value (not a Promise)
- * - If handler returned a Result type, passes it through as-is
- * - Otherwise, returns the raw value directly (no Result wrapper)
- *
- * The wrapped handler is always async (returns Promise) for a uniform interface,
- * even when the original handler is synchronous.
+ * The implementation preserves the handler's sync/async behavior:
+ * - Sync handler → returns value directly (no Promise wrapper)
+ * - Async handler → returns Promise
+ * - This allows compile-time enforcement of correct await usage
  */
-// biome-ignore lint/suspicious/noExplicitAny: This is the implementation function that handles all 4 overload signatures of defineMutation. TypeScript's overloads provide type safety at call sites, while the implementation uses `any` to handle the union of all possible parameter/return types (with input vs without, Result vs raw value, etc.). The type safety is enforced through the overload signatures, not the implementation.
+// biome-ignore lint/suspicious/noExplicitAny: This is the implementation function that handles all 8 overload signatures of defineMutation. TypeScript's overloads provide type safety at call sites, while the implementation uses `any` to handle the union of all possible parameter/return types (with input vs without, Result vs raw value, sync vs async, etc.). The type safety is enforced through the overload signatures, not the implementation.
 export function defineMutation(config: any): any {
 	// biome-ignore lint/suspicious/noExplicitAny: Handler function must accept variable arguments to support both parameterless mutations and mutations with input parameters. The actual type safety is provided by the Mutation type's callable signature and StandardSchema validation at runtime.
-	const wrappedHandler = async (...args: any[]) => {
+	const wrappedHandler = (...args: any[]) => {
 		// Call the user's handler with whatever arguments were passed
-		let result = config.handler(...args);
+		const result = config.handler(...args);
 
-		// Normalize Promise vs non-Promise: await if needed
-		// This is the "let and await promise pattern" - by checking instanceof Promise
-		// and conditionally awaiting, we avoid duplicating the logic below for both
-		// sync and async cases
+		// If handler returned a Promise, handle it asynchronously
 		if (result instanceof Promise) {
-			result = await result;
+			return result.then((resolved) => {
+				// If the handler returned a Result type (Ok or Err), pass it through
+				if (isResult(resolved)) return resolved;
+				// Otherwise, return the raw value directly (no Result wrapper)
+				return resolved;
+			});
 		}
 
-		// At this point, result is the unwrapped value (could be Result, raw value, or undefined)
-		// If the handler already returned a Result type (Ok or Err), pass it through
+		// Synchronous path: handler returned a value directly (not a Promise)
+		// If the handler returned a Result type (Ok or Err), pass it through
 		if (isResult(result)) return result;
 
-		// Otherwise, return the raw value directly (don't wrap in Result)
-		// This matches the conditional return type: when TError = never, return TOutput directly
+		// Otherwise, return the raw value directly (no Result wrapper)
 		return result;
 	};
 
