@@ -86,9 +86,19 @@ export type Mutation<
 };
 
 /**
- * Helper function to define a query action with input schema that returns Result (SYNC)
- * Returns a callable function with metadata properties attached
+ * defineQuery overloads - 8 combinations covering all handler patterns:
+ *
+ * 1. With input, returns Result, sync
+ * 2. With input, returns Result, async
+ * 3. With input, returns raw value (can't fail), sync
+ * 4. With input, returns raw value (can't fail), async
+ * 5. No input, returns Result, sync
+ * 6. No input, returns Result, async
+ * 7. No input, returns raw value (can't fail), sync
+ * 8. No input, returns raw value (can't fail), async
  */
+
+/** 1. With input, returns Result, sync */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -101,10 +111,7 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, TInput, false>;
 
-/**
- * Helper function to define a query action with input schema that returns Result (ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 2. With input, returns Result, async */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -117,34 +124,25 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, TInput, true>;
 
-/**
- * Helper function to define a query action with input schema that returns raw value (can't fail, SYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 3. With input, returns raw value (can't fail), sync */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => TOutput | void;
+	) => TOutput;
 	description?: string;
 }): Query<TOutput extends void ? undefined : TOutput, never, TInput, false>;
 
-/**
- * Helper function to define a query action with input schema that returns raw value (can't fail, ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 4. With input, returns raw value (can't fail), async */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => Promise<TOutput> | Promise<void>;
+	) => Promise<TOutput>;
 	description?: string;
 }): Query<TOutput extends void ? undefined : TOutput, never, TInput, true>;
 
-/**
- * Helper function to define a query action without input that returns Result (SYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 5. No input, returns Result, sync */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -153,10 +151,7 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, undefined, false>;
 
-/**
- * Helper function to define a query action without input that returns Result (ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 6. No input, returns Result, async */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -165,21 +160,15 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, undefined, true>;
 
-/**
- * Helper function to define a query action without input that returns raw value (can't fail, SYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 7. No input, returns raw value (can't fail), sync */
 export function defineQuery<TOutput>(config: {
-	handler: () => TOutput | void;
+	handler: () => TOutput;
 	description?: string;
 }): Query<TOutput extends void ? undefined : TOutput, never, undefined, false>;
 
-/**
- * Helper function to define a query action without input that returns raw value (can't fail, ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 8. No input, returns raw value (can't fail), async */
 export function defineQuery<TOutput>(config: {
-	handler: () => Promise<TOutput> | Promise<void>;
+	handler: () => Promise<TOutput>;
 	description?: string;
 }): Query<TOutput extends void ? undefined : TOutput, never, undefined, true>;
 
@@ -234,9 +223,19 @@ export function defineQuery(config: any): any {
 }
 
 /**
- * Helper function to define a mutation action with input schema that returns Result (SYNC)
- * Returns a callable function with metadata properties attached
+ * defineMutation overloads - 8 combinations covering all handler patterns:
+ *
+ * 1. With input, returns Result, sync
+ * 2. With input, returns Result, async
+ * 3. With input, returns raw value (can't fail), sync
+ * 4. With input, returns raw value (can't fail), async
+ * 5. No input, returns Result, sync
+ * 6. No input, returns Result, async
+ * 7. No input, returns raw value (can't fail), sync
+ * 8. No input, returns raw value (can't fail), async
  */
+
+/** 1. With input, returns Result, sync */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -249,10 +248,7 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, TInput, false>;
 
-/**
- * Helper function to define a mutation action with input schema that returns Result (ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 2. With input, returns Result, async */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -265,10 +261,7 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, TInput, true>;
 
-/**
- * Helper function to define a mutation action with input schema that returns raw value (can't fail, SYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 3. With input, returns raw value (can't fail), sync */
 export function defineMutation<
 	TOutput,
 	TInput extends StandardSchemaV1,
@@ -276,14 +269,11 @@ export function defineMutation<
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => TOutput | void;
+	) => TOutput;
 	description?: string;
 }): Mutation<TOutput extends void ? undefined : TOutput, never, TInput, false>;
 
-/**
- * Helper function to define a mutation action with input schema that returns raw value (can't fail, ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 4. With input, returns raw value (can't fail), async */
 export function defineMutation<
 	TOutput,
 	TInput extends StandardSchemaV1,
@@ -291,14 +281,11 @@ export function defineMutation<
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => Promise<TOutput> | Promise<void>;
+	) => Promise<TOutput>;
 	description?: string;
 }): Mutation<TOutput extends void ? undefined : TOutput, never, TInput, true>;
 
-/**
- * Helper function to define a mutation action without input that returns Result (SYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 5. No input, returns Result, sync */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -307,10 +294,7 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, undefined, false>;
 
-/**
- * Helper function to define a mutation action without input that returns Result (ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 6. No input, returns Result, async */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -319,21 +303,15 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, undefined, true>;
 
-/**
- * Helper function to define a mutation action without input that returns raw value (can't fail, SYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 7. No input, returns raw value (can't fail), sync */
 export function defineMutation<TOutput>(config: {
-	handler: () => TOutput | void;
+	handler: () => TOutput;
 	description?: string;
 }): Mutation<TOutput extends void ? undefined : TOutput, never, undefined, false>;
 
-/**
- * Helper function to define a mutation action without input that returns raw value (can't fail, ASYNC)
- * Returns a callable function with metadata properties attached
- */
+/** 8. No input, returns raw value (can't fail), async */
 export function defineMutation<TOutput>(config: {
-	handler: () => Promise<TOutput> | Promise<void>;
+	handler: () => Promise<TOutput>;
 	description?: string;
 }): Mutation<TOutput extends void ? undefined : TOutput, never, undefined, true>;
 
