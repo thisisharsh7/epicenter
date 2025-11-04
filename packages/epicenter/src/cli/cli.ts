@@ -2,7 +2,6 @@ import yargs from 'yargs';
 import type { Argv } from 'yargs';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createWorkspaceClient } from '../core/workspace/client';
-import { createMockContext } from './mock-context';
 import { DEFAULT_PORT, startServer } from './server';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 
@@ -11,9 +10,9 @@ import { standardSchemaToYargs } from './standardschema-to-yargs';
  * Returns a yargs instance with all workspace and action commands.
  *
  * This function:
- * 1. Uses mock context to introspect actions (fast, no YJS loading)
+ * 1. Initializes workspaces to introspect available actions
  * 2. Generates yargs command hierarchy (workspace → action)
- * 3. Sets up handlers that initialize real workspaces on execution
+ * 3. Sets up handlers that execute actions using the workspace client
  *
  * @param config - Epicenter configuration
  * @param argv - Array of command-line arguments to parse
@@ -66,9 +65,13 @@ export async function createCLI({
 
 	// Register each workspace as a command
 	for (const workspaceConfig of config.workspaces) {
-		// Create mock context to introspect actions (fast, no YJS loading)
-		const mockContext = createMockContext(workspaceConfig.schema);
-		const actionMap = workspaceConfig.actions(mockContext);
+		// Initialize workspace to get real action map
+		const client = await createWorkspaceClient(workspaceConfig);
+
+		// Extract action map (all client properties except 'destroy')
+		const actionMap = Object.fromEntries(
+			Object.entries(client).filter(([key]) => key !== 'destroy')
+		);
 
 		cli = cli.command(
 			workspaceConfig.id,
@@ -101,6 +104,9 @@ export async function createCLI({
 				return workspaceCli;
 			},
 		);
+
+		// Clean up workspace after building CLI
+		client.destroy();
 	}
 
 	return cli;
