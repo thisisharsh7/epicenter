@@ -568,18 +568,21 @@ async function processRecordingPipeline({
 	const now = new Date().toISOString();
 	const newRecordingId = recordingId ?? nanoid();
 
-	const { data: createdRecording, error: createRecordingError } =
-		await db.recordings.create.execute({
-			recording: {
-				id: newRecordingId,
-				title: '',
-				subtitle: '',
-				timestamp: now,
-				transcribedText: '',
-				transcriptionStatus: 'UNPROCESSED',
-			},
-			audio: blob,
-		});
+	const recording = {
+		id: newRecordingId,
+		title: '',
+		subtitle: '',
+		timestamp: now,
+		createdAt: now,
+		updatedAt: now,
+		transcribedText: '',
+		transcriptionStatus: 'UNPROCESSED',
+	} as const;
+
+	const { error: createRecordingError } = await db.recordings.create.execute({
+		recording,
+		audio: blob,
+	});
 
 	if (createRecordingError) {
 		notify.error.execute({
@@ -606,7 +609,7 @@ async function processRecordingPipeline({
 	});
 
 	const { data: transcribedText, error: transcribeError } =
-		await transcription.transcribeRecording.execute(createdRecording);
+		await transcription.transcribeRecording.execute(recording);
 
 	if (transcribeError) {
 		if (transcribeError.name === 'WhisperingError') {
@@ -674,7 +677,7 @@ async function processRecordingPipeline({
 	});
 	const { data: transformationRun, error: transformError } =
 		await transformer.transformRecording.execute({
-			recordingId: createdRecording.id,
+			recordingId: recording.id,
 			transformation,
 		});
 	if (transformError) {
