@@ -1,8 +1,0 @@
-{
-	"name": "basic-workspace-example",
-	"version": "0.0.1",
-	"private": true,
-	"dependencies": {
-		"@repo/epicenter": "workspace:*"
-	}
-}
