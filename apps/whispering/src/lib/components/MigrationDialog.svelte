@@ -1004,11 +1004,11 @@
 					: false;
 			},
 			/**
-			 * Load and display item counts from both IndexedDB and File System.
+			 * Refresh and display item counts from both IndexedDB and File System.
 			 * Updates the counts state which is used to determine if migration is needed.
 			 * Logs progress messages to the migration log.
 			 */
-			async loadCounts() {
+			async refreshCounts() {
 				_addLog('[Counts] Loading item counts from both systems...');
 
 				const { data, error } = await _getMigrationCounts(
@@ -1105,7 +1105,7 @@
 					runsResult = runsMigration.data;
 				}
 
-				await this.loadCounts();
+				await this.refreshCounts();
 				isRunning = false;
 				_addLog('[Migration] Migration process complete!');
 			},
@@ -1130,7 +1130,7 @@
 					`[Seed] ✅ Seeded ${result.recordings} recordings, ${result.transformations} transformations, ${result.runs} runs`,
 				);
 
-				await this.loadCounts();
+				await this.refreshCounts();
 				isSeeding = false;
 			},
 			get isClearing() {
@@ -1146,7 +1146,7 @@
 				await testData.clearIndexedDB({ onProgress: _addLog });
 
 				_addLog('[Clear] ✅ IndexedDB cleared');
-				await this.loadCounts();
+				await this.refreshCounts();
 				isClearing = false;
 			},
 		};
@@ -1172,7 +1172,7 @@
 	bind:open={migrationDialog.isOpen}
 	onOpenChange={(open) => {
 		if (open) {
-			migrationDialog.loadCounts();
+			migrationDialog.refreshCounts();
 		}
 	}}
 >
