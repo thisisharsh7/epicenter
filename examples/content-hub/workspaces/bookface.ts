@@ -3,13 +3,9 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { setupPersistence } from '@epicenter/hq/providers';
 import {
-	DateWithTimezone,
-	type Row,
-	defineMutation,
 	defineQuery,
 	defineWorkspace,
 	eq,
-	generateId,
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
@@ -30,7 +26,7 @@ export const bookface = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 		markdown: ({ id, db }) =>
 			markdownIndex({
 				id,
@@ -46,100 +42,55 @@ export const bookface = defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		/**
 		 * Get all Bookface posts
+		 *
+		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
+		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
+		 * table helpers as valid actions without needing `defineQuery()` wrapper.
 		 */
-		getPosts: defineQuery({
-			handler: async () => {
-				const posts = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.posts);
-				return Ok(posts);
-			},
-		}),
+		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get specific Bookface post by ID
+		 * Get a specific Bookface post by ID
+		 *
+		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
+		 * to accept { id: string } and return a post or null.
 		 */
-		getPost: defineQuery({
-			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				const posts = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.id, id));
-				return Ok(posts[0] ?? null);
-			},
-		}),
+		getPost: db.tables.posts.get,
 
 		/**
-		 * Create new Bookface post
+		 * Create a new Bookface post
+		 *
+		 * Why use table helper here? The schema enforces all required fields are provided.
+		 * We don't need auto-generated IDs or timestamps because the caller provides them.
+		 * If we needed to add postedAt/updatedAt automatically, we'd write a custom mutation.
 		 */
-		createPost: defineMutation({
-			input: type({
-				pageId: 'string',
-				content: 'string',
-				'title?': 'string',
-				niche:
-					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
-			}),
-			handler: async ({ pageId, content, title, niche }) => {
-				const now = DateWithTimezone({
-					date: new Date(),
-					timezone: 'UTC',
-				}).toJSON();
-				const post = {
-					id: generateId(),
-					pageId,
-					content,
-					title: title ?? null,
-					niche,
-					postedAt: now,
-					updatedAt: now,
-				};
-
-				db.tables.posts.insert(post);
-				return Ok(post);
-			},
-		}),
+		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update Bookface post
+		 * Update a Bookface post
+		 *
+		 * `db.tables.posts.update` handles partial updates. The table helper already knows
+		 * how to merge the provided fields with the existing row. No need to wrap it.
 		 */
-		updatePost: defineMutation({
-			input: type({
-				id: 'string',
-				'content?': 'string',
-				'title?': 'string',
-				'niche?':
-					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
-			}),
-			handler: async ({ id, ...fields }) => {
-				const updates = {
-					id,
-					...fields,
-					updatedAt: DateWithTimezone({
-						date: new Date(),
-						timezone: 'UTC',
-					}).toJSON(),
-				};
-				db.tables.posts.update(updates);
-				const { row } = await db.tables.posts.get({ id });
-				return Ok(row);
-			},
-		}),
+		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete Bookface post
+		 * Delete a Bookface post
+		 *
+		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */
-		deletePost: defineMutation({
-			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				await db.tables.posts.delete({ id });
-				return Ok({ id });
-			},
-		}),
+		deletePost: db.tables.posts.delete,
 
 		/**
 		 * Get posts filtered by niche
+		 *
+		 * This is a CUSTOM query that we keep because it has business logic the table helper
+		 * doesn't provide: filtering by the niche field using SQL.
+		 *
+		 * We still use `defineQuery()` here because we're doing something beyond basic CRUD.
+		 * The pattern is:
+		 * - Use table helpers for CRUD (create, read, update, delete)
+		 * - Use defineQuery/defineMutation for custom logic (filtering, joining, complex ops)
 		 */
 		getPostsByNiche: defineQuery({
 			input: type({
