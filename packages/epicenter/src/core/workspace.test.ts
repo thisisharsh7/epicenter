@@ -776,7 +776,7 @@ describe('Workspace Action Handlers', () => {
 				markdownIndex({
 					id,
 					db,
-					rootPath: TEST_MARKDOWN,
+					storagePath: TEST_MARKDOWN,
 				}),
 		},
 

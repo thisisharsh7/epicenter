@@ -50,7 +50,7 @@ describe('CLI End-to-End Tests', () => {
 				markdownIndex({
 					id,
 					db,
-					rootPath: TEST_MARKDOWN,
+					storagePath: TEST_MARKDOWN,
 				}),
 		},
 

@@ -45,7 +45,7 @@ describe('Markdown Bidirectional Sync', () => {
 				markdownIndex({
 					id,
 					db,
-					rootPath: testStoragePath,
+					storagePath: testStoragePath,
 				}),
 		},
 

@@ -90,7 +90,7 @@ export type MarkdownIndexConfig<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 > = {
 	/**
-	 * Root path where markdown files should be stored.
+	 * Storage path where markdown files should be stored.
 	 *
 	 * **Optional**: Defaults to the workspace `id` if not provided
 	 * ```typescript
@@ -102,25 +102,25 @@ export type MarkdownIndexConfig<
 	 *
 	 * **Option 1: Relative paths** (recommended): Resolved relative to epicenter.config.ts location (process.cwd())
 	 * ```typescript
-	 * rootPath: './vault'      // → <config-dir>/vault
-	 * rootPath: '../content'   // → <config-dir>/../content
+	 * storagePath: './vault'      // → <config-dir>/vault
+	 * storagePath: '../content'   // → <config-dir>/../content
 	 * ```
 	 *
 	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
 	 * ```typescript
-	 * rootPath: '/absolute/path/to/vault'
+	 * storagePath: '/absolute/path/to/vault'
 	 * ```
 	 *
 	 * **Option 3: Explicit control**: Use import.meta.dirname for precision (produces absolute paths)
 	 * ```typescript
-	 * rootPath: path.join(import.meta.dirname, './vault')
+	 * storagePath: path.join(import.meta.dirname, './vault')
 	 * ```
 	 *
-	 * All file paths returned by tableAndIdToPath will be relative to this root path.
+	 * All file paths returned by tableAndIdToPath will be relative to this storage path.
 	 *
 	 * @default `./${id}` where id is the workspace ID
 	 */
-	rootPath?: string;
+	storagePath?: string;
 
 	/**
 	 * Extract table name and row ID from a relative file path.
@@ -160,7 +160,7 @@ export type MarkdownIndexConfig<
 	 *
 	 * **Optional**: Defaults to `defaultTableAndIdToPath`, which creates the structure `{tableName}/{id}.md`
 	 *
-	 * The returned path should be relative to rootPath.
+	 * The returned path should be relative to storagePath.
 	 *
 	 * @param params.id - Row ID
 	 * @param params.tableName - Name of the table
@@ -283,7 +283,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  *
  * Expected directory structure (with default path functions):
  * ```
- * {rootPath}/
+ * {storagePath}/
  *   {tableName}/
  *     {row-id}.md
  *     {row-id}.md
@@ -294,7 +294,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * @param context - Index context and markdown configuration
  * @param context.id - Workspace ID (required)
  * @param context.db - Epicenter database instance (required)
- * @param context.rootPath - Root path where markdown files should be stored (optional, defaults to `./${id}`)
+ * @param context.storagePath - Storage path where markdown files should be stored (optional, defaults to `./${id}`). Can be relative (resolved from config directory) or absolute.
  * @param context.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `{tableName}/{id}.md`)
  * @param context.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `{tableName}/{id}.md`)
  * @param context.serializers - Optional custom serializers per table (defaults to all fields in frontmatter)
@@ -313,13 +313,13 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * }
  * ```
  *
- * @example Custom root path
+ * @example Custom storage path
  * ```typescript
  * indexes: {
  *   markdown: ({ id, db }) => markdownIndex({
  *     id,
  *     db,
- *     rootPath: './content'
+ *     storagePath: './content'
  *   })
  * }
  * ```
@@ -351,7 +351,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 export function markdownIndex<TSchema extends WorkspaceSchema>({
 	id,
 	db,
-	rootPath = `./${id}`,
+	storagePath = `./${id}`,
 	pathToTableAndId = defaultPathToTableAndId,
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
@@ -360,13 +360,13 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	const configDir = process.cwd();
 
 	/**
-	 * Resolve rootPath to absolute path using three-layer resolution pattern:
+	 * Resolve storagePath to absolute path using three-layer resolution pattern:
 	 * 1. Relative paths (./content, ../vault) → resolved relative to epicenter.config.ts location
 	 * 2. Absolute paths (/absolute/path) → used as-is
 	 * 3. Explicit paths (import.meta.dirname) → already absolute, pass through unchanged
 	 */
-	const absoluteRootPath = (
-		path.isAbsolute(rootPath) ? rootPath : path.resolve(configDir, rootPath)
+	const absoluteStoragePath = (
+		path.isAbsolute(storagePath) ? storagePath : path.resolve(configDir, storagePath)
 	) as AbsolutePath;
 
 	/**
@@ -386,7 +386,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	// Set up observers for each table
 	const unsubscribers = registerYJSObservers({
 		db,
-		rootPath: absoluteRootPath,
+		storagePath: absoluteStoragePath,
 		tableAndIdToPath,
 		serializers,
 		syncCoordination,
@@ -395,7 +395,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	// Set up file watcher for bidirectional sync
 	const watcher = registerFileWatcher({
 		db,
-		rootPath: absoluteRootPath,
+		storagePath: absoluteStoragePath,
 		pathToTableAndId,
 		serializers,
 		syncCoordination,
@@ -421,7 +421,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Find and delete all markdown files that match our structure
-						const entries = await readdir(absoluteRootPath, {
+						const entries = await readdir(absoluteStoragePath, {
 							recursive: true,
 							withFileTypes: true,
 						});
@@ -431,7 +431,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 
 							// Build relative path from root
 							const relativePath = path.relative(
-								absoluteRootPath,
+								absoluteStoragePath,
 								path.join(entry.parentPath ?? entry.path, entry.name),
 							);
 
@@ -442,7 +442,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 							if (pathError) continue; // Skip files that don't match
 
 							// Delete the file
-							const fullPath = path.join(absoluteRootPath, relativePath);
+							const fullPath = path.join(absoluteStoragePath, relativePath);
 							const { error } = await deleteMarkdownFile({
 								filePath: fullPath,
 							});
@@ -478,7 +478,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 									id: row.id,
 									tableName,
 								});
-								const filePath = path.join(absoluteRootPath, relativePath);
+								const filePath = path.join(absoluteStoragePath, relativePath);
 								const { frontmatter, body } = serializer.serialize({
 									row: serializedRow,
 									tableName,
@@ -531,7 +531,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 						});
 
 						// Find all markdown files
-						const entries = await readdir(absoluteRootPath, {
+						const entries = await readdir(absoluteStoragePath, {
 							recursive: true,
 							withFileTypes: true,
 						});
@@ -544,7 +544,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 
 							// Build relative path from root
 							const relativePath = path.relative(
-								absoluteRootPath,
+								absoluteStoragePath,
 								path.join(entry.parentPath ?? entry.path, entry.name),
 							);
 
@@ -582,7 +582,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 								createDefaultSerializer(schemaWithValidation);
 
 							// Parse markdown file
-							const fullPath = path.join(absoluteRootPath, relativePath);
+							const fullPath = path.join(absoluteStoragePath, relativePath);
 							const parseResult = await parseMarkdownFile(fullPath);
 
 							if (parseResult.error) {
@@ -782,7 +782,7 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
  * prevent infinite sync loops.
  *
  * @param db - Database instance
- * @param rootPath - Absolute root path where markdown files are stored
+ * @param storagePath - Absolute storage path where markdown files are stored
  * @param tableAndIdToPath - Function to build relative file paths from table name and ID
  * @param serializers - Optional custom serializers per table
  * @param syncCoordination - Shared coordination state to prevent infinite loops
@@ -790,13 +790,13 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
  */
 function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	db,
-	rootPath,
+	storagePath,
 	tableAndIdToPath,
 	serializers,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
-	rootPath: AbsolutePath;
+	storagePath: AbsolutePath;
 	tableAndIdToPath: TableAndIdToPath;
 	serializers: Serializers<TSchema>;
 	syncCoordination: SyncCoordination;
@@ -823,11 +823,11 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 
 		/**
 		 * Get the absolute file path for a row ID
-		 * Combines rootPath with the relative path from tableAndIdToPath
+		 * Combines storagePath with the relative path from tableAndIdToPath
 		 */
 		function getMarkdownFilePath(id: string): AbsolutePath {
 			const relativePath = tableAndIdToPath({ id, tableName });
-			return path.join(rootPath, relativePath) as AbsolutePath;
+			return path.join(storagePath, relativePath) as AbsolutePath;
 		}
 
 		/**
@@ -924,7 +924,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
  * prevent infinite sync loops.
  *
  * @param db - Database instance
- * @param rootPath - Absolute root path where markdown files are stored
+ * @param storagePath - Absolute storage path where markdown files are stored
  * @param pathToTableAndId - Function to extract table name and ID from relative paths
  * @param serializers - Optional custom serializers per table
  * @param syncCoordination - Shared coordination state to prevent infinite loops
@@ -932,13 +932,13 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
  */
 function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	db,
-	rootPath,
+	storagePath,
 	pathToTableAndId,
 	serializers,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
-	rootPath: AbsolutePath;
+	storagePath: AbsolutePath;
 	pathToTableAndId: PathToTableAndId;
 	serializers: Serializers<TSchema>;
 	syncCoordination: SyncCoordination;
@@ -946,13 +946,13 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	// Ensure the directory exists before watching
 	trySync({
 		try: () => {
-			mkdirSync(rootPath, { recursive: true });
+			mkdirSync(storagePath, { recursive: true });
 		},
 		catch: () => Ok(undefined),
 	});
 
 	const watcher = watch(
-		rootPath,
+		storagePath,
 		{ recursive: true },
 		async (eventType, relativePath) => {
 			// Skip if this file change was triggered by a YJS change we're processing
@@ -993,10 +993,10 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			/**
 			 * Construct the full absolute path to the file
 			 *
-			 * Since rootPath is already absolute (guaranteed by AbsolutePath brand),
+			 * Since storagePath is already absolute (guaranteed by AbsolutePath brand),
 			 * joining it with relativePath produces an absolute path.
 			 */
-			const filePath = path.join(rootPath, relativePath) as AbsolutePath;
+			const filePath = path.join(storagePath, relativePath) as AbsolutePath;
 
 			syncCoordination.isProcessingFileChange = true;
 

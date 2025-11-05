@@ -1,12 +1,12 @@
-import { describe, expect, test, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import path from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import {
+	type WorkspaceClient,
 	boolean,
-	markdownIndex,
-	sqliteIndex,
+	createWorkspaceClient,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -14,11 +14,11 @@ import {
 	id,
 	integer,
 	isNotNull,
-	createWorkspaceClient,
-	text,
-	select,
+	markdownIndex,
 	multiSelect,
-	type WorkspaceClient,
+	select,
+	sqliteIndex,
+	text,
 } from '../../src/index';
 
 describe('Blog Workspace Integration', () => {
@@ -43,26 +43,23 @@ describe('Blog Workspace Integration', () => {
 		},
 
 		indexes: {
-			sqlite: ({ db }) =>
-				sqliteIndex({
-					db,
-					database: ':memory:', // In-memory for testing
-				}),
+			sqlite: (c) => sqliteIndex(c),
 			markdown: ({ id, db }) =>
 				markdownIndex({
 					id,
 					db,
-					rootPath: path.join(import.meta.dir, '.data'),
+					storagePath: path.join(import.meta.dir, '.data'),
 				}),
 		},
 
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({
 				input: type({
-					title: "string >= 1",
-					"content?": "string",
+					title: 'string >= 1',
+					'content?': 'string',
 					category: "'tech' | 'personal' | 'work'",
-					"tags?": "('typescript' | 'javascript' | 'svelte' | 'react' | 'vue')[]",
+					'tags?':
+						"('typescript' | 'javascript' | 'svelte' | 'react' | 'vue')[]",
 				}),
 				handler: async (input) => {
 					const post = {
@@ -91,14 +88,16 @@ describe('Blog Workspace Integration', () => {
 
 			getAllPosts: defineQuery({
 				handler: async () => {
-					const posts = await indexes.sqlite.db.select().from(indexes.sqlite.posts);
+					const posts = await indexes.sqlite.db
+						.select()
+						.from(indexes.sqlite.posts);
 					return Ok(posts);
 				},
 			}),
 
 			deletePost: defineMutation({
 				input: type({
-					id: "string",
+					id: 'string',
 				}),
 				handler: async ({ id }) => {
 					db.tables.posts.delete(id);

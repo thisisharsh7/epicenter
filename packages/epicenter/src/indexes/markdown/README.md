@@ -109,7 +109,7 @@ const workspace = defineWorkspace({
 ```
 
 With this setup:
-- Root path defaults to `./blog` (the workspace `id`)
+- Storage path defaults to `./blog` (the workspace `id`)
 - File structure is `{tableName}/{id}.md`
 - All fields are stored in YAML frontmatter
 
@@ -123,7 +123,7 @@ indexes: {
 }
 ```
 
-#### Custom Root Path
+#### Custom Storage Path
 
 To store files in a different location:
 
@@ -132,7 +132,7 @@ indexes: {
   markdown: ({ id, db }) => markdownIndex({
     id,
     db,
-    rootPath: './content',
+    storagePath: './content',
   }),
 }
 ```
@@ -224,7 +224,7 @@ indexes: {
   markdown: ({ id, db }) => markdownIndex({
     id,
     db,
-    rootPath: './vault',
+    storagePath: './vault',
     pathToTableAndId: ({ path }) => {
       // Custom logic to extract table name and ID from file paths
       const parts = path.split('/');
