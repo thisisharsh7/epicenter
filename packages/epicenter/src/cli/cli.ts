@@ -1,8 +1,7 @@
 import yargs from 'yargs';
 import type { Argv } from 'yargs';
-import type { WorkspaceActionMap } from '../core/actions';
 import type { EpicenterConfig } from '../core/epicenter';
-import { createWorkspaceClient } from '../core/workspace/client';
+import { createEpicenterClient } from '../core/epicenter';
 import { DEFAULT_PORT, startServer } from './server';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 
@@ -64,13 +63,16 @@ export async function createCLI({
 		},
 	);
 
+	// Initialize Epicenter client to get all workspace actions
+	using client = await createEpicenterClient(config);
+
 	// Register each workspace as a command
 	for (const workspaceConfig of config.workspaces) {
-		// Initialize workspace to get real action map
-		using client = await createWorkspaceClient(workspaceConfig);
+		// Access workspace client directly from Epicenter client
+		const workspaceClient = client[workspaceConfig.id]!;
 
 		// Extract action map (all client properties except Symbol.dispose)
-		const { [Symbol.dispose]: _, ...actionMap } = client;
+		const { [Symbol.dispose]: _, ...actionMap } = workspaceClient;
 
 		cli = cli.command(
 			workspaceConfig.id,
@@ -94,8 +96,38 @@ export async function createCLI({
 							return yargs;
 						},
 						async (argv) => {
-							// Handler: initialize real workspace and execute action
-							await executeAction(config, workspaceConfig.id, actionName, argv);
+							// Handler: execute action using already-initialized workspace
+							try {
+								// Get the action handler from the workspace client
+								const handler = workspaceClient[actionName];
+
+								if (!handler) {
+									console.error(
+										`❌ Action "${actionName}" not found in workspace "${workspaceConfig.id}"`,
+									);
+									process.exit(1);
+								}
+
+								// Extract input from args (remove yargs metadata)
+								const { _, $0, ...input } = argv;
+
+								// Execute the action
+								const result = await handler(input);
+
+								// Handle errors
+								if (result.error) {
+									console.error('❌ Error:', result.error.message);
+									process.exit(1);
+								}
+
+								// Handle success
+								console.log('✅ Success:');
+								const output = result?.data ?? result;
+								console.log(JSON.stringify(output, null, 2));
+							} catch (error) {
+								console.error('❌ Unexpected error:', error);
+								process.exit(1);
+							}
 						},
 					);
 				}
@@ -106,70 +138,4 @@ export async function createCLI({
 	}
 
 	return cli;
-}
-
-/**
- * Execute an action with real workspace initialization.
- * Called when user runs a CLI command.
- *
- * This function:
- * 1. Finds the workspace config
- * 2. Initializes the workspace (loads YJS docs, creates indexes, etc.)
- * 3. Executes the action handler
- * 4. Handles results and errors
- * 5. Cleans up resources
- *
- * @param config - Epicenter configuration
- * @param workspaceId - ID of the workspace to execute action in
- * @param actionName - Name of the action to execute
- * @param args - Command-line arguments (parsed by yargs)
- */
-async function executeAction(
-	config: EpicenterConfig,
-	workspaceId: string,
-	actionName: string,
-	args: any,
-) {
-	// Find workspace config
-	const workspaceConfig = config.workspaces.find((ws) => ws.id === workspaceId);
-
-	if (!workspaceConfig) {
-		console.error(`❌ Workspace "${workspaceId}" not found`);
-		process.exit(1);
-	}
-
-	// Initialize real workspace (with YJS docs, indexes, etc.)
-	using client = await createWorkspaceClient(workspaceConfig);
-
-	try {
-		// Get the action handler
-		const handler = client[actionName];
-
-		if (!handler) {
-			console.error(
-				`❌ Action "${actionName}" not found in workspace "${workspaceId}"`,
-			);
-			process.exit(1);
-		}
-
-		// Extract input from args (remove yargs metadata)
-		const { _, $0, ...input } = args;
-
-		// Execute the action
-		const result = await handler(input);
-
-		// Handle errors
-		if (result.error) {
-			console.error('❌ Error:', result.error.message);
-			process.exit(1);
-		}
-
-		// Handle success
-		console.log('✅ Success:');
-		const output = result?.data ?? result;
-		console.log(JSON.stringify(output, null, 2));
-	} catch (error) {
-		console.error('❌ Unexpected error:', error);
-		process.exit(1);
-	}
 }
