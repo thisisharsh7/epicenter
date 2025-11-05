@@ -1,11 +1,10 @@
 /**
- * Get the config directory (directory containing epicenter.config.ts)
+ * Get the directory containing epicenter.config.ts (where epicenter commands are run)
  *
  * This returns the current working directory where the Node.js process was started.
- * This is the directory where you run your epicenter commands and where epicenter.config.ts lives.
+ * This is the directory where you run epicenter commands and where epicenter.config.ts is located.
  *
- * Used internally by storage-dependent indexes (SQLite, Markdown) to locate their
- * data files relative to the config directory.
+ * Used internally by storage-dependent indexes (SQLite, Markdown) to resolve relative storage paths.
  *
  * Node.js only - not available in browser environments.
  *
@@ -18,7 +17,7 @@
  *
  * // Use in indexes to resolve relative storage paths
  * const dbPath = path.resolve(getConfigDir(), '.epicenter', `${id}.db`);
- * const markdownDir = path.resolve(getConfigDir(), './vault');  // relative to epicenter.config.ts
+ * const markdownDir = path.resolve(getConfigDir(), './vault');
  * ```
  */
 export function getConfigDir(): string {

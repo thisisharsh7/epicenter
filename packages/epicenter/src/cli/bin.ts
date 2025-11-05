@@ -2,6 +2,7 @@
 
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { hideBin } from 'yargs/helpers';
+import { getConfigDir } from '../core/helpers';
 import { createCLI } from './cli';
 import { loadEpicenterConfig } from './load-config';
 
@@ -13,7 +14,7 @@ async function main() {
 	await tryAsync({
 		try: async () => {
 			// Directory containing epicenter.config.ts (where epicenter commands are run)
-			const configDir = process.cwd();
+			const configDir = getConfigDir();
 
 			// Load the config from the current directory
 			const config = await loadEpicenterConfig(configDir);

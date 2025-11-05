@@ -47,7 +47,7 @@ type SyncCoordination = {
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
  *
- * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the config directory.
+ * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the directory containing epicenter.config.ts.
  *
  * @param context - Index context with workspace ID and database instance
  *
@@ -87,7 +87,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	const configDir = getConfigDir();
 
 	// Auto-resolve path to .epicenter/{id}.db
-	// Relative path is resolved relative to config directory (directory containing epicenter.config.ts)
+	// Relative path is resolved relative to directory containing epicenter.config.ts
 	const relativeDatabasePath = path.join('.epicenter', `${id}.db`);
 	const resolvedDatabasePath = path.resolve(configDir, relativeDatabasePath);
 

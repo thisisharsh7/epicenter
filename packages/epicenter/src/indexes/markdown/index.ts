@@ -100,7 +100,7 @@ export type MarkdownIndexConfig<
 	 *
 	 * **Three ways to specify the path**:
 	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to config directory (where epicenter.config.ts is located)
+	 * **Option 1: Relative paths** (recommended): Resolved relative to directory containing epicenter.config.ts (where epicenter commands are run)
 	 * ```typescript
 	 * storagePath: './vault'      // → <configDir>/vault
 	 * storagePath: '../content'   // → <configDir>/../content
@@ -294,7 +294,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * @param context - Index context and markdown configuration
  * @param context.id - Workspace ID (required)
  * @param context.db - Epicenter database instance (required)
- * @param context.storagePath - Storage path where markdown files should be stored (optional, defaults to `./${id}`). Can be relative (resolved from config directory) or absolute.
+ * @param context.storagePath - Storage path where markdown files should be stored (optional, defaults to `./${id}`). Can be relative (resolved from directory containing epicenter.config.ts) or absolute.
  * @param context.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `{tableName}/{id}.md`)
  * @param context.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `{tableName}/{id}.md`)
  * @param context.serializers - Optional custom serializers per table (defaults to all fields in frontmatter)
@@ -364,7 +364,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 
 	/**
 	 * Resolve storagePath to absolute path using three-layer resolution pattern:
-	 * 1. Relative paths (./content, ../vault) → resolved relative to config directory (directory containing epicenter.config.ts)
+	 * 1. Relative paths (./content, ../vault) → resolved relative to directory containing epicenter.config.ts
 	 * 2. Absolute paths (/absolute/path) → used as-is
 	 * 3. Explicit paths (import.meta.dirname) → already absolute, pass through unchanged
 	 */
