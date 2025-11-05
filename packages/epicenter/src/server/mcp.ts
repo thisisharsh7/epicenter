@@ -150,11 +150,24 @@ export function createMcpServer<
 					{
 						type: 'text' as const,
 						text: JSON.stringify({
-							error: errorChannel.message || 'Unknown error',
+							error: errorChannel.message ?? 'Unknown error',
 						}),
 					},
 				],
 				isError: true,
+			};
+		}
+
+		// Handle void/undefined returns (successful operations with no data)
+		if (outputChannel === undefined) {
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: 'null',
+					},
+				],
+				structuredContent: null,
 			};
 		}
 

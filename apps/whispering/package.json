@@ -35,7 +35,7 @@
 		"typescript": "catalog:",
 		"vite": "catalog:",
 		"vite-plugin-devtools-json": "^1.0.0",
-		"wrangler": "^4.29.1"
+		"wrangler": "^4.45.3"
 	},
 	"type": "module",
 	"dependencies": {
