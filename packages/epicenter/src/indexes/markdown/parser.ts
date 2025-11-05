@@ -1,4 +1,4 @@
-import { createTaggedError } from 'wellcrafted/error';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { type Result, tryAsync } from 'wellcrafted/result';
 
 /**
@@ -76,9 +76,8 @@ export async function parseMarkdownFile(filePath: string): Promise<
 		},
 		catch: (error) =>
 			MarkdownErr({
-				message: `Failed to parse markdown file ${filePath}: ${error}`,
+				message: `Failed to parse markdown file ${filePath}: ${extractErrorMessage(error)}`,
 				context: { filePath },
-				cause: error,
 			}),
 	});
 }

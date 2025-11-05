@@ -1,4 +1,4 @@
-import { createTaggedError } from 'wellcrafted/error';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { type Result, tryAsync } from 'wellcrafted/result';
 
 export const { MarkdownOperationError, MarkdownOperationErr } =
@@ -25,9 +25,8 @@ export async function writeMarkdownFile({
 		},
 		catch: (error) =>
 			MarkdownOperationErr({
-				message: `Failed to write markdown file ${filePath}`,
+				message: `Failed to write markdown file ${filePath}: ${extractErrorMessage(error)}`,
 				context: { filePath },
-				cause: error,
 			}),
 	});
 }
@@ -41,9 +40,8 @@ export async function deleteMarkdownFile({
 		try: () => Bun.file(filePath).delete(),
 		catch: (error) =>
 			MarkdownOperationErr({
-				message: `Failed to delete markdown file ${filePath}`,
+				message: `Failed to delete markdown file ${filePath}: ${extractErrorMessage(error)}`,
 				context: { filePath },
-				cause: error,
 			}),
 	});
 }

@@ -1,9 +1,9 @@
 import type { FSWatcher } from 'node:fs';
-import { watch } from 'node:fs';
+import { mkdirSync, watch } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Brand } from 'wellcrafted/brand';
-import { createTaggedError } from 'wellcrafted/error';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import type { Db } from '../../core/db/core';
@@ -508,9 +508,8 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 					catch: (error) => {
 						syncCoordination.isProcessingYJSChange = false;
 						return IndexErr({
-							message: 'Markdown index push failed',
+							message: `Markdown index push failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'push' },
-							cause: error,
 						});
 					},
 				});
@@ -663,9 +662,8 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 					catch: (error) => {
 						syncCoordination.isProcessingFileChange = false;
 						return IndexErr({
-							message: 'Markdown index pull failed',
+							message: `Markdown index pull failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'pull' },
-							cause: error,
 						});
 					},
 				});

@@ -7,6 +7,7 @@ import {
 	drizzle,
 } from 'drizzle-orm/better-sqlite3';
 import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr } from '../../core/errors';
@@ -284,9 +285,8 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 					catch: (error) => {
 						syncCoordination.isProcessingYJSChange = false;
 						return IndexErr({
-							message: 'SQLite index push failed',
+							message: `SQLite index push failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'push' },
-							cause: error,
 						});
 					},
 				});
@@ -336,9 +336,8 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 					catch: (error) => {
 						syncCoordination.isProcessingSQLiteChange = false;
 						return IndexErr({
-							message: 'SQLite index pull failed',
+							message: `SQLite index pull failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'pull' },
-							cause: error,
 						});
 					},
 				});
