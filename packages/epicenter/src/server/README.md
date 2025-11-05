@@ -4,7 +4,87 @@ Expose your Epicenter workspaces as REST APIs and AI-accessible tools.
 
 ## What This Does
 
-Epicenter Server takes your workspace configurations and automatically generates HTTP endpoints for every action you've defined. Your workspace actions become instantly accessible via REST API calls or through AI models using the Model Context Protocol (MCP).
+`createServer()` is a thin wrapper around `createEpicenterClient()` that:
+1. **Creates an Epicenter client** (same initialization as scripts)
+2. **Keeps it alive** (doesn't dispose until you stop the server)
+3. **Maps HTTP endpoints** to each client action (REST, MCP, Hocuspocus)
+
+The key difference from running scripts:
+- **Scripts**: Client is alive only during the `using` block, then auto-disposed
+- **Server**: Client stays alive until you manually stop the server (Ctrl+C)
+
+This means:
+- Y.Doc stays in memory
+- Observers keep watching for changes
+- Indexes keep syncing
+- Actions remain callable via HTTP
+
+## Server vs Scripts: When to Use Each
+
+### Use Scripts (Direct Client)
+
+```typescript
+// Migration script
+{
+  using client = await createEpicenterClient(config);
+  await client.pages.createPage({ ... });
+  // Client disposed when block exits
+}
+```
+
+**Good for:**
+- One-off migrations
+- Data imports/exports
+- CLI tools
+- Batch processing
+
+**Requirements:**
+- Server must NOT be running in the same directory
+- Script has exclusive access to `.epicenter/` storage
+
+### Use Server (HTTP Wrapper)
+
+```typescript
+// Long-running server
+const { app, client } = await createServer(config);
+Bun.serve({ fetch: app.fetch, port: 3913 });
+// Client stays alive until Ctrl+C
+```
+
+**Good for:**
+- Web applications
+- API backends
+- Real-time collaboration (Hocuspocus)
+- Multiple concurrent clients (via HTTP)
+
+**Benefits:**
+- Other processes can use HTTP API instead of direct client
+- Client stays alive and keeps indexes synced
+- No risk of storage conflicts (only server accesses `.epicenter/`)
+
+### Running Scripts While Server is Active
+
+If you need to run scripts while the server is running, use the HTTP API instead of creating another client:
+
+```typescript
+// ❌ DON'T: Create another client (storage conflict!)
+{
+  using client = await createEpicenterClient(config);
+  await client.pages.createPage({ ... });
+}
+
+// ✅ DO: Use the server's HTTP API
+await fetch('http://localhost:3913/pages/createPage', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ title: 'New Post', content: '...' }),
+});
+```
+
+The HTTP approach:
+- No storage conflicts (server owns the client)
+- Works from any language/tool (just HTTP)
+- Server handles all concurrency internally
 
 ## Quick Start
 

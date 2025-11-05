@@ -10,6 +10,167 @@ Epicenter is a collection of workspaces that work together. It provides:
 - **Flat dependency resolution**: All transitive workspace dependencies must be declared at the root level
 - **Type-safe composition**: Full TypeScript inference for all workspace actions
 - **Automatic resource management**: Use `using` syntax for automatic cleanup
+- **Storage isolation**: Each client instance has its own storage context (directory + environment)
+
+## Two Ways to Use Epicenter
+
+### 1. As a Client (Scripts, Migrations, CLI Tools)
+
+Create an Epicenter client directly for standalone scripts:
+
+```typescript
+// Script or migration
+{
+  using client = await createEpicenterClient(config);
+  await client.pages.createPage({ ... });
+  // Automatic cleanup when block exits
+}
+```
+
+**Important:** When running scripts with `createEpicenterClient`, **ensure no server is running** in the same directory. Multiple clients accessing the same storage context (`.epicenter/` directory) simultaneously will conflict.
+
+### 2. As a Server (Web APIs, Long-Running Processes)
+
+The server is just a wrapper around `createEpicenterClient` that:
+1. Creates an Epicenter client
+2. Keeps it alive
+3. Maps REST, MCP, and Hocuspocus endpoints to client actions
+
+```typescript
+// Server (long-running)
+const { app, client } = await createServer(config);
+Bun.serve({ fetch: app.fetch, port: 3913 });
+
+// Other processes can now use the HTTP API
+await fetch('http://localhost:3913/pages/createPage', {
+  method: 'POST',
+  body: JSON.stringify({ title: 'New Post', ... }),
+});
+```
+
+## Epicenter Client Lifecycle
+
+When you call `createEpicenterClient(config)` (or `createServer()`, which internally calls it), here's what happens:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. REGISTRATION                                              │
+│    • Collect all workspace configs                           │
+│    • Resolve versions (highest version wins)                 │
+│    • Build workspace registry                                │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. DEPENDENCY VERIFICATION                                   │
+│    • Check all dependencies exist (flat/hoisted model)       │
+│    • Throw error if any transitive dependencies missing      │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. TOPOLOGICAL SORT                                          │
+│    • Build dependency graph                                  │
+│    • Sort workspaces by dependencies                         │
+│    • Ensure deterministic initialization order               │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. INITIALIZE EACH WORKSPACE (in sorted order)               │
+│                                                              │
+│    For each workspace:                                       │
+│    ┌─────────────────────────────────────────────────────┐  │
+│    │ a. Create Y.Doc (CRDT data structure)               │  │
+│    │    • Unique document ID = workspace ID               │  │
+│    │    • In-memory collaborative data structure          │  │
+│    └─────────────────────────────────────────────────────┘  │
+│                       │                                      │
+│    ┌─────────────────────────────────────────────────────┐  │
+│    │ b. Set Up Providers                                  │  │
+│    │    • Persistence (IndexedDB or filesystem)           │  │
+│    │    • Loads existing state into Y.Doc                 │  │
+│    │    • Starts auto-save on updates                     │  │
+│    └─────────────────────────────────────────────────────┘  │
+│                       │                                      │
+│    ┌─────────────────────────────────────────────────────┐  │
+│    │ c. Initialize Database (createEpicenterDb)           │  │
+│    │    • Wraps Y.Doc with table API                      │  │
+│    │    • Provides type-safe CRUD operations              │  │
+│    └─────────────────────────────────────────────────────┘  │
+│                       │                                      │
+│    ┌─────────────────────────────────────────────────────┐  │
+│    │ d. Initialize Indexes                                │  │
+│    │    • SQLite index (sync to .db file)                 │  │
+│    │    • Markdown index (sync to .md files)              │  │
+│    │    • Sets up observers for auto-sync                 │  │
+│    └─────────────────────────────────────────────────────┘  │
+│                       │                                      │
+│    ┌─────────────────────────────────────────────────────┐  │
+│    │ e. Create Actions                                    │  │
+│    │    • Call actions factory function                   │  │
+│    │    • Inject db, indexes, and dependency clients      │  │
+│    │    • Returns callable action functions               │  │
+│    └─────────────────────────────────────────────────────┘  │
+│                       │                                      │
+│    ┌─────────────────────────────────────────────────────┐  │
+│    │ f. Create Workspace Client                           │  │
+│    │    • Combine actions + Symbol.dispose                │  │
+│    │    • Store in clients map                            │  │
+│    └─────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. RETURN EPICENTER CLIENT                                   │
+│    • Object with all workspace clients                       │
+│    • Keyed by workspace ID                                   │
+│    • Includes Symbol.dispose for cleanup                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Storage Context
+
+Each client instance writes to a **storage context** determined by:
+- **Directory**: Where the script runs (affects `.epicenter/` path)
+- **Environment**: Browser (IndexedDB) vs Node (filesystem)
+- **Workspace ID**: The specific workspace being accessed
+
+```
+Storage Context = Directory + Environment + Workspace ID
+
+Examples:
+  /project-a + Node + pages → /project-a/.epicenter/pages.yjs
+  /project-b + Node + pages → /project-b/.epicenter/pages.yjs (different!)
+  Browser + pages → IndexedDB:pages (different!)
+```
+
+**Rule:** Only one client can access the same storage context at a time.
+
+### Cleanup Lifecycle
+
+When you dispose a client (automatically with `using` or manually with `Symbol.dispose`):
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Symbol.dispose Called                                        │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ For Each Workspace:                                          │
+│                                                              │
+│    1. Destroy Indexes                                        │
+│       • Close SQLite connections                             │
+│       • Unsubscribe observers                                │
+│       • Checkpoint WAL files                                 │
+│                                                              │
+│    2. Destroy Y.Doc                                          │
+│       • Disconnect providers                                 │
+│       • Clean up observers                                   │
+│       • Free memory                                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Epicenter vs Workspace
 
@@ -30,6 +191,37 @@ An epicenter is a composition of workspaces:
 Think of it this way:
 - **Workspace**: A module (like a library)
 - **Epicenter**: An application (composed of modules)
+
+## Sequential Script Execution
+
+Multiple scripts can safely run one after another using the `using` syntax:
+
+```typescript
+// Script 1: Import data
+{
+  using client = await createEpicenterClient(config);
+  const data = await readFile('data.json');
+  await client.pages.createPage(data);
+  // Auto-disposed when block exits
+}
+
+// Script 2: Generate content (runs after Script 1 completes)
+{
+  using client = await createEpicenterClient(config);
+  const pages = await client.pages.getAllPages();
+  await generateContent(pages);
+  // Auto-disposed when block exits
+}
+```
+
+Each `using` block:
+1. Creates a fresh client
+2. Loads current state from `.epicenter/`
+3. Runs your code
+4. Disposes the client (saves state, cleans up)
+5. Next block starts fresh
+
+This ensures scripts run sequentially with no conflicts.
 
 ## Usage Example
 
