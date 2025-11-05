@@ -1319,7 +1319,10 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			case 'boolean':
 				return type.boolean;
 			case 'date':
-				return type.string.filter(isDateWithTimezoneString);
+				return type.string.describe(
+					'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
+				);
+			// .filter(isDateWithTimezoneString) - Can't use because custom predicates break JSON schema compatibility in MCP
 			case 'select':
 				return type.enumerated(...columnSchema.options);
 			case 'multi-select':
