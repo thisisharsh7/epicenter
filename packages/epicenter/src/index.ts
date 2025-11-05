@@ -37,6 +37,7 @@ export {
 	generateId,
 	validateRow,
 	createTableSchemaWithValidation,
+	isDateWithTimezoneString,
 } from './core/schema';
 export { DateWithTimezone } from './core/schema';
 export type {
@@ -75,12 +76,17 @@ export { defineEpicenter, createEpicenterClient } from './core/epicenter';
 export type { EpicenterConfig, EpicenterClient } from './core/epicenter';
 
 // Database utilities
-export { createEpicenterDb } from './db/core';
-export type { TableHelper, Db } from './db/core';
+export { createEpicenterDb } from './core/db/core';
+export type { TableHelper, Db } from './core/db/core';
 
 // Index system
 export { defineIndexExports } from './core/indexes';
-export type { Index, IndexExports, IndexContext, WorkspaceIndexMap } from './core/indexes';
+export type {
+	Index,
+	IndexExports,
+	IndexContext,
+	WorkspaceIndexMap,
+} from './core/indexes';
 
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';

@@ -39,8 +39,8 @@ import { Type, type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
-import type { YRow } from '../db/table-helper';
-import { updateYRowFromSerializedRow } from '../utils/yjs';
+import type { YRow } from './db/table-helper';
+import { updateYRowFromSerializedRow } from './utils/yjs';
 
 /**
  * Column schema definitions as pure JSON objects.

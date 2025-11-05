@@ -2,7 +2,7 @@ import { type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import { defineMutation, defineQuery } from '../core/actions';
+import { defineMutation, defineQuery } from '../actions';
 import type {
 	CellValue,
 	GetRowResult,
@@ -11,8 +11,8 @@ import type {
 	TableSchema,
 	TableSchemaWithValidation,
 	WorkspaceSchema,
-} from '../core/schema';
-import { createRow, createTableSchemaWithValidation } from '../core/schema';
+} from '../schema';
+import { createRow, createTableSchemaWithValidation } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**

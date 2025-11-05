@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { createEpicenterDb } from '../../db/core';
+import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from '../actions';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';

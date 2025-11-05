@@ -6,9 +6,9 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./cli": "./src/cli/index.ts",
-		"./desktop": "./src/desktop/index.ts",
-		"./web": "./src/web/index.ts",
-		"./providers": "./src/core/workspace/providers/index.ts"
+		"./providers": "./src/core/workspace/providers/index.ts",
+		"./indexes/markdown": "./src/indexes/markdown/exports.ts",
+		"./indexes/sqlite": "./src/indexes/sqlite/exports.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
@@ -38,7 +38,6 @@
 		"nanoid": "^5.1.5",
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
-		"yaml": "^2.6.0",
 		"yargs": "^18.0.0",
 		"yjs": "^13.6.27"
 	},

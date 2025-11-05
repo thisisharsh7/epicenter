@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, multiSelect, text, ytext } from '../core/schema';
+import { boolean, id, integer, multiSelect, text, ytext } from '../schema';
 import { createEpicenterDb } from './core';
 
 describe('createEpicenterDb', () => {

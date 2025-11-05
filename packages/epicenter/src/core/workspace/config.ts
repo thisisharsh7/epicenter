@@ -1,5 +1,5 @@
 import type * as Y from 'yjs';
-import type { Db } from '../../db/core';
+import type { Db } from '../db/core';
 import type { WorkspaceActionMap } from '../actions';
 import type { Index, WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';

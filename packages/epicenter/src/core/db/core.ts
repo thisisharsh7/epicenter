@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { CellValue, WorkspaceSchema } from '../core/schema';
+import type { CellValue, WorkspaceSchema } from '../schema';
 import { createTableHelpers, type YRow } from './table-helper';
 
 // Re-export TableHelper for public API

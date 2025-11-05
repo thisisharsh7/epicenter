@@ -8,7 +8,7 @@ import {
 	boolean,
 	select,
 	multiSelect,
-} from '../core/schema';
+} from '../schema';
 import * as Y from 'yjs';
 
 /**

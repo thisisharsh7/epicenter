@@ -3,7 +3,7 @@
  * Indexes are synchronized snapshots of YJS data optimized for specific query patterns.
  */
 
-import type { Db } from '../db/core';
+import type { Db } from './db/core';
 import type { WorkspaceSchema } from './schema';
 
 /**
