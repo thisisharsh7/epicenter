@@ -19,6 +19,9 @@
 export { defineWorkspace } from './core/workspace';
 export type {
 	WorkspaceConfig,
+	AnyWorkspaceConfig,
+	WorkspacesToActionMaps,
+	WorkspacesToClients,
 	Provider,
 	ProviderContext,
 } from './core/workspace';
@@ -38,6 +41,12 @@ export {
 	validateRow,
 	createTableSchemaWithValidation,
 	isDateWithTimezoneString,
+	isDateWithTimezone,
+	DateWithTimezoneFromString,
+	createRow,
+	serializeCellValue,
+	isSerializedCellValue,
+	isSerializedRow,
 } from './core/schema';
 export { DateWithTimezone } from './core/schema';
 export type {
@@ -50,7 +59,25 @@ export type {
 	ValidatedSerializedRowResult,
 	Row,
 	SerializedRow,
+	PartialSerializedRow,
 	Id,
+	DateWithTimezoneString,
+	DateIsoString,
+	TimezoneId,
+	IdColumnSchema,
+	TextColumnSchema,
+	YtextColumnSchema,
+	IntegerColumnSchema,
+	RealColumnSchema,
+	BooleanColumnSchema,
+	DateColumnSchema,
+	SelectColumnSchema,
+	MultiSelectColumnSchema,
+	WorkspaceSchema,
+	CellValue,
+	SerializedCellValue,
+	RowValidationResult,
+	GetRowResult,
 } from './core/schema';
 
 // Action helpers
@@ -72,12 +99,25 @@ export { createWorkspaceClient } from './core/workspace';
 export type { WorkspaceClient } from './core/workspace';
 
 // Epicenter - compose multiple workspaces
-export { defineEpicenter, createEpicenterClient } from './core/epicenter';
+export {
+	defineEpicenter,
+	createEpicenterClient,
+	forEachAction,
+} from './core/epicenter';
 export type { EpicenterConfig, EpicenterClient } from './core/epicenter';
 
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
 export type { TableHelper, Db } from './core/db/core';
+export {
+	RowAlreadyExistsErr,
+	RowNotFoundErr,
+} from './core/db/table-helper';
+export type {
+	RowAlreadyExistsError,
+	RowNotFoundError,
+	YRow,
+} from './core/db/table-helper';
 
 // Index system
 export { defineIndexExports } from './core/indexes';
@@ -95,8 +135,16 @@ export { markdownIndex } from './indexes/markdown';
 export type { MarkdownIndexConfig } from './indexes/markdown';
 
 // Error types
-export { IndexErr } from './core/errors';
-export type { EpicenterOperationError, IndexError } from './core/errors';
+export {
+	EpicenterOperationErr,
+	IndexErr,
+	ValidationErr,
+} from './core/errors';
+export type {
+	EpicenterOperationError,
+	IndexError,
+	ValidationError,
+} from './core/errors';
 
 // Server - expose workspaces as REST API and MCP servers
 export { createServer } from './server';
