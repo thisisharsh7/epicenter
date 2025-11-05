@@ -233,6 +233,8 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 			for (const unsub of unsubscribers) {
 				unsub();
 			}
+			// Close the database connection to ensure WAL files are properly checkpointed
+			client.close();
 		},
 
 		/**
