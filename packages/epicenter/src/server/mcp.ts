@@ -6,7 +6,6 @@ import {
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { toJsonSchema } from '@standard-community/standard-json';
-import { Value } from 'typebox/value';
 import type { TaggedError } from 'wellcrafted/error';
 import { type Result, isResult } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
@@ -85,26 +84,35 @@ export function createMcpServer<
 
 		const args = request.params.arguments || {};
 
-		// Validate input with TypeBox
+		// Validate input with Standard Schema
+		let validatedInput: unknown = undefined;
 		if (action.input) {
-			if (!Value.Check(action.input, args)) {
-				const errors = [...Value.Errors(action.input, args)];
+			let result = action.input['~standard'].validate(args);
+			if (result instanceof Promise) result = await result;
+			if (result.issues) {
 				throw new McpError(
 					ErrorCode.InvalidParams,
 					`Invalid input for ${request.params.name}: ${JSON.stringify(
-						errors.map((e) => ({
-							path: e.instancePath,
-							message: e.message,
+						result.issues.map((issue) => ({
+							path: issue.path
+								? issue.path
+										.map((s) => (typeof s === 'object' ? s.key : s))
+										.join('.')
+								: 'root',
+							message: issue.message,
 						})),
 					)}`,
 				);
 			}
+			validatedInput = result.value;
 		}
 
 		// Execute action
-		const maybeResult = (action.input ? await action(args) : await action()) as
-			| Result<unknown, TaggedError>
-			| unknown;
+		const maybeResult = (
+			validatedInput !== undefined
+				? await action(validatedInput)
+				: await action()
+		) as Result<unknown, TaggedError> | unknown;
 
 		// Extract the actual output data and check for errors
 		const outputChannel = isResult(maybeResult)
@@ -116,14 +124,19 @@ export function createMcpServer<
 
 		// Validate output schema if present (only validate when we have data)
 		if (action.output && outputChannel !== undefined) {
-			if (!Value.Check(action.output, outputChannel)) {
-				const errors = [...Value.Errors(action.output, outputChannel)];
+			let result = action.output['~standard'].validate(outputChannel);
+			if (result instanceof Promise) result = await result;
+			if (result.issues) {
 				throw new McpError(
 					ErrorCode.InternalError,
 					`Output validation failed for ${request.params.name}: ${JSON.stringify(
-						errors.map((e) => ({
-							path: e.instancePath,
-							message: e.message,
+						result.issues.map((issue) => ({
+							path: issue.path
+								? issue.path
+										.map((s) => (typeof s === 'object' ? s.key : s))
+										.join('.')
+								: 'root',
+							message: issue.message,
 						})),
 					)}`,
 				);
