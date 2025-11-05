@@ -111,11 +111,9 @@ export function createMcpServer<
 			}
 
 			// Execute action
-			const maybeResult = (
-				validatedInput !== undefined
-					? await action(validatedInput)
-					: await action()
-			) as Result<unknown, TaggedError> | unknown;
+			const maybeResult = (await action(validatedInput)) as
+				| Result<unknown, TaggedError>
+				| unknown;
 
 			// Extract the actual output data and check for errors
 			const outputChannel = isResult(maybeResult)
