@@ -35,7 +35,7 @@ jobs:
           cache: 'bun'
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Run type checking
         run: |
@@ -91,7 +91,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -157,7 +157,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
