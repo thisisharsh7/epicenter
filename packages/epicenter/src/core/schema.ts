@@ -1319,7 +1319,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			case 'boolean':
 				return type.boolean;
 			case 'date':
-				return type.string;
+				return type.string.filter(isDateWithTimezoneString);
 			case 'select':
 				return type.enumerated(...columnSchema.options);
 			case 'multi-select':
