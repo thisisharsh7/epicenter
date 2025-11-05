@@ -131,20 +131,9 @@ export const pages = defineWorkspace({
 			},
 		}),
 
-		/**
-		 * Markdown index operations
-		 */
-		markdown: {
-			push: indexes.markdown.push,
-			pull: indexes.markdown.pull,
-		},
-
-		/**
-		 * SQLite index operations
-		 */
-		sqlite: {
-			push: indexes.sqlite.push,
-			pull: indexes.sqlite.pull,
-		},
+		pushToMarkdown: indexes.markdown.pushToMarkdown,
+		pullFromMarkdown: indexes.markdown.pullFromMarkdown,
+		pushToSqlite: indexes.sqlite.pushToSqlite,
+		pullFromSqlite: indexes.sqlite.pullFromSqlite,
 	}),
 });

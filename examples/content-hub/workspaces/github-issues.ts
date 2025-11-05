@@ -192,5 +192,10 @@ export const githubIssues = defineWorkspace({
 				return Ok(issues);
 			},
 		}),
+
+		pushToMarkdown: indexes.markdown.pushToMarkdown,
+		pullFromMarkdown: indexes.markdown.pullFromMarkdown,
+		pushToSqlite: indexes.sqlite.pushToSqlite,
+		pullFromSqlite: indexes.sqlite.pullFromSqlite,
 	}),
 });

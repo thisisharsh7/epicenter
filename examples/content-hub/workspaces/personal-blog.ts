@@ -155,5 +155,10 @@ export const personalBlog = defineWorkspace({
 				return Ok(posts);
 			},
 		}),
+
+		pushToMarkdown: indexes.markdown.pushToMarkdown,
+		pullFromMarkdown: indexes.markdown.pullFromMarkdown,
+		pushToSqlite: indexes.sqlite.pushToSqlite,
+		pullFromSqlite: indexes.sqlite.pullFromSqlite,
 	}),
 });
