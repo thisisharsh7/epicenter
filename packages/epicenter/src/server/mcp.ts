@@ -1,6 +1,7 @@
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
 import {
 	CallToolRequestSchema,
+	type CallToolResult,
 	ErrorCode,
 	ListToolsRequestSchema,
 	McpError,
@@ -148,38 +149,40 @@ export function createMcpServer<
 			return {
 				content: [
 					{
-						type: 'text' as const,
+						type: 'text',
 						text: JSON.stringify({
 							error: errorChannel.message ?? 'Unknown error',
 						}),
 					},
 				],
 				isError: true,
-			};
+			} satisfies CallToolResult;
 		}
 
 		// Handle void/undefined returns (successful operations with no data)
 		if (outputChannel === undefined || outputChannel === null) {
 			return {
 				content: [],
-			};
+			} satisfies CallToolResult;
 		}
 
 		// MCP protocol requires structuredContent to be an object, not an array
 		// Wrap arrays in an object with a semantic key derived from the action name
-		const structuredContent = Array.isArray(outputChannel)
-			? { [deriveCollectionKey(request.params.name)]: outputChannel }
-			: outputChannel;
+		const structuredContent = (
+			Array.isArray(outputChannel)
+				? { [deriveCollectionKey(request.params.name)]: outputChannel }
+				: outputChannel
+		) as Record<string, unknown>;
 
 		return {
 			content: [
 				{
-					type: 'text' as const,
+					type: 'text',
 					text: JSON.stringify(outputChannel),
 				},
 			],
 			structuredContent,
-		};
+		} satisfies CallToolResult;
 	});
 
 	return mcpServer;
