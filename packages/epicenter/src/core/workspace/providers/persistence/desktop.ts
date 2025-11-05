@@ -53,9 +53,12 @@ export const setupPersistence = (async ({ id, ydoc }) => {
 	const fs = await import('node:fs');
 	const path = await import('node:path');
 
+	// Directory containing epicenter.config.ts (where epicenter commands are run)
+	const configDir = process.cwd();
+
 	// Auto-resolve to .epicenter/{id}.yjs
-	// Relative path is resolved relative to epicenter.config.ts location (process.cwd())
-	const storageDir = path.resolve(process.cwd(), EPICENTER_STORAGE_DIR);
+	// Relative path is resolved relative to epicenter.config.ts location
+	const storageDir = path.resolve(configDir, EPICENTER_STORAGE_DIR);
 	const filePath = path.join(storageDir, `${id}.yjs`);
 
 	// Ensure .epicenter directory exists

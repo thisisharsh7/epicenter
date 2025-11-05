@@ -79,16 +79,16 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
+	// Directory containing epicenter.config.ts (where epicenter commands are run)
+	const configDir = process.cwd();
+
 	// Auto-resolve path to .epicenter/{id}.db
-	// Relative path is resolved relative to epicenter.config.ts location (process.cwd())
+	// Relative path is resolved relative to epicenter.config.ts location
 	const relativeDatabasePath = path.join('.epicenter', `${id}.db`);
-	const resolvedDatabasePath = path.resolve(
-		process.cwd(),
-		relativeDatabasePath,
-	);
+	const resolvedDatabasePath = path.resolve(configDir, relativeDatabasePath);
 
 	// Create .epicenter directory if it doesn't exist
-	const storageDir = path.resolve(process.cwd(), '.epicenter');
+	const storageDir = path.resolve(configDir, '.epicenter');
 	await mkdir(storageDir, { recursive: true });
 
 	// Create database connection with schema for proper type inference

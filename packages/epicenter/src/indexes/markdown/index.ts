@@ -356,14 +356,17 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
 }: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
+	// Directory containing epicenter.config.ts (where epicenter commands are run)
+	const configDir = process.cwd();
+
 	/**
 	 * Resolve rootPath to absolute path using three-layer resolution pattern:
-	 * 1. Relative paths (./content, ../vault) → resolved relative to epicenter.config.ts location (process.cwd())
+	 * 1. Relative paths (./content, ../vault) → resolved relative to epicenter.config.ts location
 	 * 2. Absolute paths (/absolute/path) → used as-is
 	 * 3. Explicit paths (import.meta.dirname) → already absolute, pass through unchanged
 	 */
 	const absoluteRootPath = (
-		path.isAbsolute(rootPath) ? rootPath : path.resolve(process.cwd(), rootPath)
+		path.isAbsolute(rootPath) ? rootPath : path.resolve(configDir, rootPath)
 	) as AbsolutePath;
 
 	/**
@@ -631,7 +634,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 						// Write diagnostics to file
 						if (diagnostics.length > 0) {
 							const diagnosticsPath = path.join(
-								process.cwd(),
+								configDir,
 								'.epicenter',
 								`${id}-diagnostics.json`,
 							);
