@@ -7,6 +7,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { toJsonSchema } from '@standard-community/standard-json';
 import { Value } from 'typebox/value';
+import type { TaggedError } from 'wellcrafted/error';
+import { type Result, isResult } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
 import {
 	type EpicenterClient,
@@ -100,12 +102,22 @@ export function createMcpServer<
 		}
 
 		// Execute action
-		const result = action.input ? await action(args) : await action();
+		const maybeResult = (action.input ? await action(args) : await action()) as
+			| Result<unknown, TaggedError>
+			| unknown;
 
-		// Validate output schema if present
-		if (action.output && result.data !== undefined) {
-			if (!Value.Check(action.output, result.data)) {
-				const errors = [...Value.Errors(action.output, result.data)];
+		// Extract the actual output data and check for errors
+		const outputChannel = isResult(maybeResult)
+			? maybeResult.data
+			: maybeResult;
+		const errorChannel = isResult(maybeResult)
+			? (maybeResult.error as TaggedError)
+			: undefined;
+
+		// Validate output schema if present (only validate when we have data)
+		if (action.output && outputChannel !== undefined) {
+			if (!Value.Check(action.output, outputChannel)) {
+				const errors = [...Value.Errors(action.output, outputChannel)];
 				throw new McpError(
 					ErrorCode.InternalError,
 					`Output validation failed for ${request.params.name}: ${JSON.stringify(
@@ -118,14 +130,14 @@ export function createMcpServer<
 			}
 		}
 
-		// Handle Result<T, E> format
-		if (result.error) {
+		// Handle error case
+		if (errorChannel) {
 			return {
 				content: [
 					{
 						type: 'text' as const,
 						text: JSON.stringify({
-							error: result.error.message || 'Unknown error',
+							error: errorChannel.message || 'Unknown error',
 						}),
 					},
 				],
@@ -135,15 +147,15 @@ export function createMcpServer<
 
 		// MCP protocol requires structuredContent to be an object, not an array
 		// Wrap arrays in an object with a semantic key derived from the action name
-		const structuredContent = Array.isArray(result.data)
-			? { [deriveCollectionKey(request.params.name)]: result.data }
-			: result.data;
+		const structuredContent = Array.isArray(outputChannel)
+			? { [deriveCollectionKey(request.params.name)]: outputChannel }
+			: outputChannel;
 
 		return {
 			content: [
 				{
 					type: 'text' as const,
-					text: JSON.stringify(result.data),
+					text: JSON.stringify(outputChannel),
 				},
 			],
 			structuredContent,
