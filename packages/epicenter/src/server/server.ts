@@ -3,7 +3,8 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
 import { describeRoute, openAPIRouteHandler, validator } from 'hono-openapi';
-import { Err, Ok } from 'wellcrafted/result';
+import type { TaggedError } from 'wellcrafted/error';
+import { type Result, Err, Ok, isResult } from 'wellcrafted/result';
 import {
 	type EpicenterClient,
 	type EpicenterConfig,
@@ -92,7 +93,14 @@ export async function createServer<
 					async (c) => {
 						const query = c.req.query();
 						const input = Object.keys(query).length > 0 ? query : undefined;
-						const { data, error } = await action(input);
+
+						// Execute action - may return Result or raw data
+						const maybeResult = (await action(input)) as Result<unknown, TaggedError> | unknown;
+
+						// Extract data and error channels
+						const data = isResult(maybeResult) ? maybeResult.data : maybeResult;
+						const error = isResult(maybeResult) ? maybeResult.error : undefined;
+
 						if (error) return c.json(Err(error), 500);
 						return c.json(Ok(data));
 					},
@@ -110,7 +118,14 @@ export async function createServer<
 					async (c) => {
 						const body = await c.req.json().catch(() => ({}));
 						const input = Object.keys(body).length > 0 ? body : undefined;
-						const { data, error } = await action(input);
+
+						// Execute action - may return Result or raw data
+						const maybeResult = (await action(input)) as Result<unknown, TaggedError> | unknown;
+
+						// Extract data and error channels
+						const data = isResult(maybeResult) ? maybeResult.data : maybeResult;
+						const error = isResult(maybeResult) ? maybeResult.error : undefined;
+
 						if (error) return c.json(Err(error), 500);
 						return c.json(Ok(data));
 					},
