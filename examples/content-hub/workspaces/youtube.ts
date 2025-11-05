@@ -35,7 +35,9 @@ export const youtube = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				rootPath: './youtube',
+				rootPath: process.env.EPICENTER_ROOT_PATH
+					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+					: `./${id}`,
 			}),
 	},
 

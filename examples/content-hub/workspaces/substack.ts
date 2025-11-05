@@ -34,7 +34,9 @@ export const substack = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				rootPath: './substack',
+				rootPath: process.env.EPICENTER_ROOT_PATH
+					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+					: `./${id}`,
 			}),
 	},
 

@@ -34,7 +34,9 @@ export const medium = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				rootPath: './medium',
+				rootPath: process.env.EPICENTER_ROOT_PATH
+					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+					: `./${id}`,
 			}),
 	},
 

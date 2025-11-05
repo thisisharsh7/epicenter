@@ -35,7 +35,9 @@ export const discord = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				rootPath: './discord',
+				rootPath: process.env.EPICENTER_ROOT_PATH
+					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+					: `./${id}`,
 			}),
 	},
 

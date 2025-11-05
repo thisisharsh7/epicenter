@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
 	DateWithTimezone,
 	date,
@@ -46,7 +47,14 @@ export const githubIssues = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
-		markdown: markdownIndex,
+		markdown: ({ id, db }) =>
+			markdownIndex({
+				id,
+				db,
+				rootPath: process.env.EPICENTER_ROOT_PATH
+					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+					: `./${id}`,
+			}),
 	},
 
 	providers: [setupPersistence],

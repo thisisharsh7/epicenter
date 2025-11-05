@@ -35,7 +35,9 @@ export const hackernews = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				rootPath: './hackernews',
+				rootPath: process.env.EPICENTER_ROOT_PATH
+					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+					: `./${id}`,
 			}),
 	},
 

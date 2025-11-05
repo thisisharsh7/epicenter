@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
 	defineMutation,
 	defineQuery,
@@ -48,7 +49,9 @@ export const pages = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				rootPath: './',
+				rootPath: process.env.EPICENTER_ROOT_PATH
+					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+					: `./${id}`,
 			}),
 	},
 
