@@ -159,7 +159,7 @@ export function createMcpServer<
 		}
 
 		// Handle void/undefined returns (successful operations with no data)
-		if (outputChannel === undefined) {
+		if (outputChannel === undefined || outputChannel === null) {
 			return {
 				content: [
 					{

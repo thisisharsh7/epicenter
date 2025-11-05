@@ -204,14 +204,20 @@ export function boolean<
 }
 
 /**
- * Creates a datetime with timezone column (stored as text, NOT NULL by default)
- * Stores dates in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
+ * Creates a date column with timezone support (stored as text, NOT NULL by default)
+ *
+ * Stores dates as DateWithTimezoneString in format "ISO_UTC|TIMEZONE"
+ * (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
+ *
+ * YJS stores dates as strings, so this column works directly with the serialized format.
+ * SQLite stores the same string format for maximum compatibility.
+ *
  * Note: Only id() columns can be primary keys
  * @example
- * datetime() // NOT NULL datetime with timezone
- * datetime({ nullable: true }) // Nullable datetime with timezone
- * datetime({ default: new Date() }) // NOT NULL with system timezone
- * datetime({ default: () => new Date() }) // NOT NULL with dynamic current date
+ * date() // NOT NULL date with timezone
+ * date({ nullable: true }) // Nullable date with timezone
+ * date({ default: new Date() }) // NOT NULL with system timezone
+ * date({ default: () => new Date() }) // NOT NULL with dynamic current date
  */
 export function date<
 	TNullable extends boolean = false,
@@ -228,43 +234,33 @@ export function date<
 	default?: TDefault;
 } = {}) {
 	/**
-	 * Custom Drizzle type for datetime with timezone storage
-	 * Stores as text in format "ISO_UTC|TIMEZONE"
+	 * Use plain text column since YJS stores DateWithTimezoneString (already serialized)
+	 * No conversion needed - SQLite stores the same string format that YJS uses
 	 */
-	const dateWithTimezoneType = customType<{
-		data: DateWithTimezoneType;
-		driverData: DateWithTimezoneString;
-	}>({
-		dataType: () => 'text',
-		toDriver: (value: DateWithTimezoneType): DateWithTimezoneString =>
-			value.toJSON(),
-		fromDriver: (value: DateWithTimezoneString): DateWithTimezoneType =>
-			DateWithTimezoneFromString(value),
-	});
-
-	let column = dateWithTimezoneType();
+	let column = drizzleText();
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
+
 	/**
-	 * Normalizes Date or DateWithTimezone to DateWithTimezone
-	 * If Date is passed, uses system timezone
+	 * Normalizes Date or DateWithTimezone to DateWithTimezoneString
+	 * This is only used for default values, since YJS already stores strings
 	 */
-	const normalizeToDateWithTimezone = (
+	const normalizeToDateWithTimezoneString = (
 		value: Date | DateWithTimezoneType,
-	): DateWithTimezoneType => {
+	): DateWithTimezoneString => {
 		if (value instanceof Date) {
 			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-			return DateWithTimezone({ date: value, timezone });
+			return DateWithTimezone({ date: value, timezone }).toJSON();
 		}
-		return value;
+		return value.toJSON();
 	};
 
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(() => normalizeToDateWithTimezone(defaultValue()))
-				: column.default(normalizeToDateWithTimezone(defaultValue));
+				? column.$defaultFn(() => normalizeToDateWithTimezoneString(defaultValue()))
+				: column.default(normalizeToDateWithTimezoneString(defaultValue));
 	}
 
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
