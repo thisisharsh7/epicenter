@@ -73,117 +73,120 @@ export function createMcpServer<
 	});
 
 	// Call tool handler
-	mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-		const action = actions.get(request.params.name);
+	mcpServer.setRequestHandler(
+		CallToolRequestSchema,
+		async (request): Promise<CallToolResult> => {
+			const action = actions.get(request.params.name);
 
-		if (!action || typeof action !== 'function') {
-			throw new McpError(
-				ErrorCode.InvalidParams,
-				`Unknown tool: ${request.params.name}`,
-			);
-		}
-
-		const args = request.params.arguments || {};
-
-		// Validate input with Standard Schema
-		let validatedInput: unknown = undefined;
-		if (action.input) {
-			let result = action.input['~standard'].validate(args);
-			if (result instanceof Promise) result = await result;
-			if (result.issues) {
+			if (!action || typeof action !== 'function') {
 				throw new McpError(
 					ErrorCode.InvalidParams,
-					`Invalid input for ${request.params.name}: ${JSON.stringify(
-						result.issues.map((issue) => ({
-							path: issue.path
-								? issue.path
-										.map((s) => (typeof s === 'object' ? s.key : s))
-										.join('.')
-								: 'root',
-							message: issue.message,
-						})),
-					)}`,
+					`Unknown tool: ${request.params.name}`,
 				);
 			}
-			validatedInput = result.value;
-		}
 
-		// Execute action
-		const maybeResult = (
-			validatedInput !== undefined
-				? await action(validatedInput)
-				: await action()
-		) as Result<unknown, TaggedError> | unknown;
+			const args = request.params.arguments || {};
 
-		// Extract the actual output data and check for errors
-		const outputChannel = isResult(maybeResult)
-			? maybeResult.data
-			: maybeResult;
-		const errorChannel = isResult(maybeResult)
-			? (maybeResult.error as TaggedError)
-			: undefined;
-
-		// Validate output schema if present (only validate when we have data)
-		if (action.output && outputChannel !== undefined) {
-			let result = action.output['~standard'].validate(outputChannel);
-			if (result instanceof Promise) result = await result;
-			if (result.issues) {
-				throw new McpError(
-					ErrorCode.InternalError,
-					`Output validation failed for ${request.params.name}: ${JSON.stringify(
-						result.issues.map((issue) => ({
-							path: issue.path
-								? issue.path
-										.map((s) => (typeof s === 'object' ? s.key : s))
-										.join('.')
-								: 'root',
-							message: issue.message,
-						})),
-					)}`,
-				);
+			// Validate input with Standard Schema
+			let validatedInput: unknown = undefined;
+			if (action.input) {
+				let result = action.input['~standard'].validate(args);
+				if (result instanceof Promise) result = await result;
+				if (result.issues) {
+					throw new McpError(
+						ErrorCode.InvalidParams,
+						`Invalid input for ${request.params.name}: ${JSON.stringify(
+							result.issues.map((issue) => ({
+								path: issue.path
+									? issue.path
+											.map((s) => (typeof s === 'object' ? s.key : s))
+											.join('.')
+									: 'root',
+								message: issue.message,
+							})),
+						)}`,
+					);
+				}
+				validatedInput = result.value;
 			}
-		}
 
-		// Handle error case
-		if (errorChannel) {
+			// Execute action
+			const maybeResult = (
+				validatedInput !== undefined
+					? await action(validatedInput)
+					: await action()
+			) as Result<unknown, TaggedError> | unknown;
+
+			// Extract the actual output data and check for errors
+			const outputChannel = isResult(maybeResult)
+				? maybeResult.data
+				: maybeResult;
+			const errorChannel = isResult(maybeResult)
+				? (maybeResult.error as TaggedError)
+				: undefined;
+
+			// Validate output schema if present (only validate when we have data)
+			if (action.output && outputChannel !== undefined) {
+				let result = action.output['~standard'].validate(outputChannel);
+				if (result instanceof Promise) result = await result;
+				if (result.issues) {
+					throw new McpError(
+						ErrorCode.InternalError,
+						`Output validation failed for ${request.params.name}: ${JSON.stringify(
+							result.issues.map((issue) => ({
+								path: issue.path
+									? issue.path
+											.map((s) => (typeof s === 'object' ? s.key : s))
+											.join('.')
+									: 'root',
+								message: issue.message,
+							})),
+						)}`,
+					);
+				}
+			}
+
+			// Handle error case
+			if (errorChannel) {
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({
+								error: errorChannel.message ?? 'Unknown error',
+							}),
+						},
+					],
+					isError: true,
+				} satisfies CallToolResult;
+			}
+
+			// Handle void/undefined returns (successful operations with no data)
+			if (outputChannel === undefined || outputChannel === null) {
+				return {
+					content: [],
+				} satisfies CallToolResult;
+			}
+
+			// MCP protocol requires structuredContent to be an object, not an array
+			// Wrap arrays in an object with a semantic key derived from the action name
+			const structuredContent = (
+				Array.isArray(outputChannel)
+					? { [deriveCollectionKey(request.params.name)]: outputChannel }
+					: outputChannel
+			) as Record<string, unknown>;
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify({
-							error: errorChannel.message ?? 'Unknown error',
-						}),
+						text: JSON.stringify(outputChannel),
 					},
 				],
-				isError: true,
+				structuredContent,
 			} satisfies CallToolResult;
-		}
-
-		// Handle void/undefined returns (successful operations with no data)
-		if (outputChannel === undefined || outputChannel === null) {
-			return {
-				content: [],
-			} satisfies CallToolResult;
-		}
-
-		// MCP protocol requires structuredContent to be an object, not an array
-		// Wrap arrays in an object with a semantic key derived from the action name
-		const structuredContent = (
-			Array.isArray(outputChannel)
-				? { [deriveCollectionKey(request.params.name)]: outputChannel }
-				: outputChannel
-		) as Record<string, unknown>;
-
-		return {
-			content: [
-				{
-					type: 'text',
-					text: JSON.stringify(outputChannel),
-				},
-			],
-			structuredContent,
-		} satisfies CallToolResult;
-	});
+		},
+	);
 
 	return mcpServer;
 }
