@@ -415,11 +415,11 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 		},
 
 		/**
-		 * Push: Sync from YJS to Markdown (replace all markdown files with current YJS data)
+		 * Pull: Sync from YJS to Markdown (replace all markdown files with current YJS data)
 		 */
-		pushToMarkdown: defineQuery({
+		pullToMarkdown: defineQuery({
 			description:
-				'Push all YJS data to markdown files (deletes existing files and writes fresh copies)',
+				'Pull all YJS data to markdown files (deletes existing files and writes fresh copies)',
 			handler: async () => {
 				return tryAsync({
 					try: async () => {
@@ -517,11 +517,11 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 		}),
 
 		/**
-		 * Pull: Sync from Markdown to YJS (replace all YJS data with current markdown files)
+		 * Push: Sync from Markdown to YJS (replace all YJS data with current markdown files)
 		 */
-		pullFromMarkdown: defineQuery({
+		pushFromMarkdown: defineQuery({
 			description:
-				'Pull all markdown files into YJS (clears YJS tables and imports from files)',
+				'Push all markdown files into YJS (clears YJS tables and imports from files)',
 			handler: async () => {
 				return tryAsync({
 					try: async () => {

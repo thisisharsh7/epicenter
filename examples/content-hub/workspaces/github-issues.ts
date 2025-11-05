@@ -148,9 +148,9 @@ export const githubIssues = defineWorkspace({
 			},
 		}),
 
-		pushToMarkdown: indexes.markdown.pushToMarkdown,
-		pullFromMarkdown: indexes.markdown.pullFromMarkdown,
-		pushToSqlite: indexes.sqlite.pushToSqlite,
-		pullFromSqlite: indexes.sqlite.pullFromSqlite,
+		pullToMarkdown: indexes.markdown.pullToMarkdown,
+		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+		pullToSqlite: indexes.sqlite.pullToSqlite,
+		pushFromSqlite: indexes.sqlite.pushFromSqlite,
 	}),
 });
