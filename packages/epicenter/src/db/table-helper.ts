@@ -325,9 +325,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/** Check if a row exists by ID */
 		has: defineQuery({
-			input: type({
-				id: 'string',
-			}),
+			input: type({ id: 'string' }),
 			description: `Check if a row exists in the ${tableName} table`,
 			handler: (params) => ytable.has(params.id),
 		}),
