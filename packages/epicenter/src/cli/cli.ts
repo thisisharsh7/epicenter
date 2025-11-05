@@ -3,7 +3,10 @@ import type { Argv } from 'yargs';
 import type { TaggedError } from 'wellcrafted/error';
 import { type Result, isResult } from 'wellcrafted/result';
 import type { EpicenterConfig } from '../core/epicenter';
-import { createEpicenterClient } from '../core/epicenter';
+import {
+	createEpicenterClient,
+	groupActionsByWorkspace,
+} from '../core/epicenter';
 import { DEFAULT_PORT, startServer } from './server';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 
@@ -65,28 +68,26 @@ export async function createCLI({
 		},
 	);
 
-	// Initialize Epicenter client to get all workspace actions
+	// Initialize Epicenter client and group actions by workspace
 	using client = await createEpicenterClient(config);
+	const groupedActions = groupActionsByWorkspace(client);
 
 	// Register each workspace as a command
-	for (const workspaceConfig of config.workspaces) {
-		// Access workspace client directly from Epicenter client
-		const workspaceClient = client[workspaceConfig.id]!;
-
-		// Extract action map (all client properties except Symbol.dispose)
-		const { [Symbol.dispose]: _, ...actionMap } = workspaceClient;
+	for (const [workspaceId, actions] of groupedActions) {
+		// Get workspace client for action execution
+		const workspaceClient = client[workspaceId]!;
 
 		cli = cli.command(
-			workspaceConfig.id,
-			`Commands for ${workspaceConfig.id} workspace`,
+			workspaceId,
+			`Commands for ${workspaceId} workspace`,
 			(yargs) => {
 				let workspaceCli = yargs
-					.usage(`Usage: $0 ${workspaceConfig.id} <action> [options]`)
+					.usage(`Usage: $0 ${workspaceId} <action> [options]`)
 					.demandCommand(1, 'You must specify an action')
 					.strict();
 
 				// Register each action as a subcommand
-				for (const [actionName, action] of Object.entries(actionMap)) {
+				for (const [actionName, action] of actions) {
 					workspaceCli = workspaceCli.command(
 						actionName,
 						action.description || `Execute ${actionName} ${action.type}`,
@@ -105,7 +106,7 @@ export async function createCLI({
 
 								if (!handler) {
 									console.error(
-										`❌ Action "${actionName}" not found in workspace "${workspaceConfig.id}"`,
+										`❌ Action "${actionName}" not found in workspace "${workspaceId}"`,
 									);
 									process.exit(1);
 								}
