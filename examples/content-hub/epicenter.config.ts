@@ -3,24 +3,27 @@ import { defineEpicenter } from '@epicenter/hq';
 // Content repository
 import { pages } from './workspaces/pages';
 
+// Email
+import { email } from './workspaces/email';
+
 // Video platforms
-import { youtube } from './workspaces/youtube';
 import { instagram } from './workspaces/instagram';
 import { tiktok } from './workspaces/tiktok';
+import { youtube } from './workspaces/youtube';
 
 // Blog platforms
-import { medium } from './workspaces/medium';
-import { substack } from './workspaces/substack';
-import { personalBlog } from './workspaces/personal-blog';
 import { epicenterBlog } from './workspaces/epicenter-blog';
+import { medium } from './workspaces/medium';
+import { personalBlog } from './workspaces/personal-blog';
+import { substack } from './workspaces/substack';
 
 // Social platforms
+import { bookface } from './workspaces/bookface';
+import { discord } from './workspaces/discord';
+import { hackernews } from './workspaces/hackernews';
+import { producthunt } from './workspaces/producthunt';
 import { reddit } from './workspaces/reddit';
 import { twitter } from './workspaces/twitter';
-import { hackernews } from './workspaces/hackernews';
-import { discord } from './workspaces/discord';
-import { producthunt } from './workspaces/producthunt';
-import { bookface } from './workspaces/bookface';
 
 // Development
 import { githubIssues } from './workspaces/github-issues';
@@ -52,6 +55,9 @@ export default defineEpicenter({
 	workspaces: [
 		// Central content repository
 		pages,
+
+		// Email
+		email,
 
 		// Video platforms
 		youtube,

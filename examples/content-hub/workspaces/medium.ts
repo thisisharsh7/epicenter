@@ -3,12 +3,9 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { setupPersistence } from '@epicenter/hq/providers';
 import {
-	DateWithTimezone,
-	defineMutation,
 	defineQuery,
 	defineWorkspace,
 	eq,
-	generateId,
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
@@ -45,103 +42,51 @@ export const medium = defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		/**
 		 * Get all Medium posts
+		 *
+		 * Direct table helper: `db.tables.posts.getAll` is already a Query<> with the
+		 * correct types based on LONG_FORM_TEXT_SCHEMA. No defineQuery() needed.
 		 */
-		getPosts: defineQuery({
-			handler: async () => {
-				const posts = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.posts);
-				return Ok(posts);
-			},
-		}),
+		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get specific Medium post by ID
+		 * Get a specific Medium post by ID
+		 *
+		 * Table helper assignment: `db.tables.posts.get` is pre-built and pre-typed.
 		 */
-		getPost: defineQuery({
-			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				const posts = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.id, id));
-				return Ok(posts[0] ?? null);
-			},
-		}),
+		getPost: db.tables.posts.get,
 
 		/**
-		 * Create new Medium post
+		 * Create a new Medium post
+		 *
+		 * Using the table helper directly. The caller must provide:
+		 * - id, pageId, title, subtitle, content, niche, postedAt, updatedAt
+		 *
+		 * If we wanted to auto-generate `id` or auto-set timestamps, we'd write
+		 * a custom mutation. But for this "caller provides everything" approach,
+		 * the table helper works perfectly.
 		 */
-		createPost: defineMutation({
-			input: type({
-				pageId: 'string',
-				title: 'string',
-				subtitle: 'string',
-				content: 'string',
-				niche:
-					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
-			}),
-			handler: async ({ pageId, title, subtitle, content, niche }) => {
-				const now = DateWithTimezone({
-					date: new Date(),
-					timezone: 'UTC',
-				}).toJSON();
-				const post = {
-					id: generateId(),
-					pageId,
-					title,
-					subtitle,
-					content,
-					niche,
-					postedAt: now,
-					updatedAt: now,
-				};
-
-				db.tables.posts.insert(post);
-				return Ok(post);
-			},
-		}),
+		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update Medium post
+		 * Update a Medium post
+		 *
+		 * The table helper handles partial updates. Note: this doesn't auto-manage
+		 * `updatedAt` - if you need that, write a custom mutation.
 		 */
-		updatePost: defineMutation({
-			input: type({
-				id: 'string',
-				'title?': 'string',
-				'subtitle?': 'string',
-				'content?': 'string',
-				'niche?':
-					"'personal' | 'epicenter' | 'y-combinator' | 'yale' | 'college-students' | 'high-school-students' | 'coding' | 'productivity' | 'ethics' | 'writing'",
-			}),
-			handler: async ({ id, ...fields }) => {
-				const updates = {
-					id,
-					...fields,
-					updatedAt: DateWithTimezone({
-						date: new Date(),
-						timezone: 'UTC',
-					}).toJSON(),
-				};
-				db.tables.posts.update(updates);
-				const { row } = await db.tables.posts.get({ id });
-				return Ok(row);
-			},
-		}),
+		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete Medium post
+		 * Delete a Medium post
+		 *
+		 * Simple and straightforward: `db.tables.posts.delete` removes a post by ID.
 		 */
-		deletePost: defineMutation({
-			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				await db.tables.posts.delete({ id });
-				return Ok({ id });
-			},
-		}),
+		deletePost: db.tables.posts.delete,
 
 		/**
 		 * Get posts filtered by niche
+		 *
+		 * CUSTOM query that we keep because it requires SQL filtering by the niche
+		 * field. This is beyond basic CRUD, so we use `defineQuery()`.
 		 */
 		getPostsByNiche: defineQuery({
 			input: type({

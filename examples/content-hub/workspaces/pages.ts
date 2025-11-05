@@ -1,10 +1,6 @@
 import path from 'node:path';
 import {
-	defineMutation,
-	defineQuery,
 	defineWorkspace,
-	eq,
-	generateId,
 	id,
 	markdownIndex,
 	select,
@@ -12,8 +8,6 @@ import {
 	text,
 } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers';
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
 
 /**
  * Pages workspace
@@ -60,79 +54,54 @@ export const pages = defineWorkspace({
 	actions: ({ db, indexes }) => ({
 		/**
 		 * Get all pages
+		 *
+		 * `db.tables.pages.getAll` is a pre-built Query action. No wrapper needed because
+		 * Epicenter already knows how to handle table operations as first-class actions.
+		 * The table helper returns Query<> which is exactly what the actions object expects.
 		 */
-		getPages: defineQuery({
-			handler: async () => {
-				const pages = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.pages);
-				return Ok(pages);
-			},
-		}),
+		getPages: db.tables.pages.getAll,
 
 		/**
-		 * Get page by ID
+		 * Get a page by ID
+		 *
+		 * Direct assignment of `db.tables.pages.get`. The table helper is already typed
+		 * as Query<{ id: string }, PageRow | null>, so we don't need to define input types.
 		 */
-		getPage: defineQuery({
-			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				const page = await indexes.sqlite.db
-					.select()
-					.from(indexes.sqlite.pages)
-					.where(eq(indexes.sqlite.pages.id, id));
-				return Ok(page[0] ?? null);
-			},
-		}),
+		getPage: db.tables.pages.get,
 
 		/**
 		 * Create a page
+		 *
+		 * Why can we just use `db.tables.pages.insert` directly?
+		 *
+		 * 1. The table helper is already a Mutation<void, RowAlreadyExistsError>
+		 * 2. Input validation happens via the table's schema types
+		 * 3. No custom business logic needed (no timestamps, auto-IDs, validation)
+		 *
+		 * This is the "just use what Epicenter provides" approach. If you need:
+		 * - Auto-generated IDs: keep a custom mutation
+		 * - Timestamps (createdAt, updatedAt): keep a custom mutation
+		 * - Complex validation: keep a custom mutation
+		 *
+		 * But for straightforward insert operations, the table helper is perfect.
 		 */
-		createPage: defineMutation({
-			input: type({
-				title: 'string',
-				content: 'string',
-				type: "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
-				tags: "'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
-			}),
-			handler: async (data) => {
-				const page = {
-					id: generateId(),
-					...data,
-				};
-				db.tables.pages.insert(page);
-				return Ok(page);
-			},
-		}),
+		createPage: db.tables.pages.insert,
 
 		/**
 		 * Update a page
+		 *
+		 * Same reasoning as createPage: the table helper handles partial updates correctly.
+		 * We don't need timestamp management for this workspace, so we can use it directly.
 		 */
-		updatePage: defineMutation({
-			input: type({
-				id: 'string',
-				'title?': 'string',
-				'content?': 'string',
-				'type?': "'blog' | 'article' | 'guide' | 'tutorial' | 'news'",
-				'tags?':
-					"'tech' | 'lifestyle' | 'business' | 'education' | 'entertainment'",
-			}),
-			handler: async ({ id, ...fields }) => {
-				db.tables.pages.update({ id, ...fields });
-				const { row } = await db.tables.pages.get({ id });
-				return Ok(row);
-			},
-		}),
+		updatePage: db.tables.pages.update,
 
 		/**
 		 * Delete a page
+		 *
+		 * `db.tables.pages.delete` is already a Mutation<void, never> (never fails),
+		 * so it's safe to use directly.
 		 */
-		deletePage: defineMutation({
-			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				await db.tables.pages.delete({ id });
-				return Ok({ id });
-			},
-		}),
+		deletePage: db.tables.pages.delete,
 
 		pushToMarkdown: indexes.markdown.pushToMarkdown,
 		pullFromMarkdown: indexes.markdown.pullFromMarkdown,
