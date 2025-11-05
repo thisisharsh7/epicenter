@@ -1,7 +1,7 @@
 import { diffChars } from 'diff';
 import * as Y from 'yjs';
-import type { PartialSerializedRow, TableSchema } from '../core/schema';
-import { isDateWithTimezoneString } from '../core/schema';
+import type { PartialSerializedRow, TableSchema } from '../../core/schema';
+import { isDateWithTimezoneString } from '../../core/schema';
 import type { YRow } from '../db/table-helper';
 
 /**
