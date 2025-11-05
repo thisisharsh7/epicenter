@@ -1,5 +1,6 @@
 import path from 'node:path';
 import {
+	type SerializedRow,
 	date,
 	defineWorkspace,
 	id,
@@ -8,6 +9,10 @@ import {
 	text,
 } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
+import { Ok } from 'wellcrafted/result';
+import { isDateWithTimezoneString } from '../../../packages/epicenter/src/core/schema';
+import { MarkdownIndexErr } from '../../../packages/epicenter/src/indexes/markdown';
 
 /**
  * Email workspace
@@ -39,6 +44,35 @@ export const email = defineWorkspace({
 				storagePath: process.env.EPICENTER_ROOT_PATH
 					? path.join(process.env.EPICENTER_ROOT_PATH, id)
 					: `./${id}`,
+				serializers: {
+					emails: {
+						serialize: ({ row: { body, ...row } }) => ({
+							frontmatter: row,
+							body,
+						}),
+						deserialize: ({ id, frontmatter, body, filePath, schema }) => {
+							const FrontMatter = type({
+								subject: 'string',
+								date: type.string.filter(isDateWithTimezoneString),
+								createdAt: type.string.filter(isDateWithTimezoneString),
+								updatedAt: type.string.filter(isDateWithTimezoneString),
+							});
+							const frontmatterParsed = FrontMatter(frontmatter);
+							if (frontmatterParsed instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid frontmatter for row ${id}`,
+									context: { filePath, id, reason: frontmatterParsed },
+								});
+							}
+							const row = {
+								id,
+								body,
+								...frontmatterParsed,
+							} satisfies SerializedRow<typeof schema>;
+							return Ok(row);
+						},
+					},
+				},
 			}),
 	},
 
