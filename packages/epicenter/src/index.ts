@@ -76,7 +76,6 @@ export type { EpicenterConfig, EpicenterClient } from './core/epicenter';
 
 // Database utilities
 export { createEpicenterDb } from './db/core';
-export { createEpicenterDbFromDisk } from './db/desktop';
 export type { TableHelper, Db } from './db/core';
 
 // Index system
