@@ -315,36 +315,37 @@ bun cli.ts github-issues getIssuesByRepository --repository "owner/repo"
 import { createEpicenterClient } from '../../src/index';
 import config from './epicenter.config';
 
-// Create client
-const client = await createEpicenterClient(config);
+// Create client with automatic cleanup
+{
+  using client = await createEpicenterClient(config);
 
-// Create a YouTube post
-const { data: post } = await client.youtube.createPost({
-  pageId: 'my-channel',
-  title: 'My Video',
-  description: 'Check this out',
-  niche: 'coding',
-});
+  // Create a YouTube post
+  const { data: post } = await client.youtube.createPost({
+    pageId: 'my-channel',
+    title: 'My Video',
+    description: 'Check this out',
+    niche: 'coding',
+  });
 
-console.log(`Created post: ${post.id}`);
+  console.log(`Created post: ${post.id}`);
 
-// Query posts
-const { data: posts } = await client.youtube.getPosts();
-console.log(`Total posts: ${posts.length}`);
+  // Query posts
+  const { data: posts } = await client.youtube.getPosts();
+  console.log(`Total posts: ${posts.length}`);
 
-// Filter by niche
-const { data: codingPosts } = await client.youtube.getPostsByNiche({
-  niche: 'coding',
-});
+  // Filter by niche
+  const { data: codingPosts } = await client.youtube.getPostsByNiche({
+    niche: 'coding',
+  });
 
-// Update a post
-await client.youtube.updatePost({
-  id: post.id,
-  title: 'Updated Title',
-});
+  // Update a post
+  await client.youtube.updatePost({
+    id: post.id,
+    title: 'Updated Title',
+  });
 
-// Clean up
-client.destroy();
+  // Automatic cleanup when scope exits
+}
 ```
 
 ## Directory Structure Explained

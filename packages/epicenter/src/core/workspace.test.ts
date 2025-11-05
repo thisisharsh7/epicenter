@@ -600,7 +600,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = await createWorkspaceClient(workspaceB);
+		using client = await createWorkspaceClient(workspaceB);
 
 		// Verify that B can call A's action
 		const result = await client.getValueFromA();
@@ -646,7 +646,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = await createWorkspaceClient(workspaceB);
+		using client = await createWorkspaceClient(workspaceB);
 
 		// createWorkspaceClient returns workspace B's actions
 		expect(client.getValueFromB).toBeDefined();
@@ -660,8 +660,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		// B can call A's actions internally via workspaces parameter
 		const result = await client.callA();
 		expect(result.data).toBe('value-from-a');
-
-		client.destroy();
 	});
 
 	test('createWorkspaceClient with multiple dependencies returns only specified workspace', async () => {
@@ -723,7 +721,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		const client = await createWorkspaceClient(workspaceC);
+		using client = await createWorkspaceClient(workspaceC);
 
 		// createWorkspaceClient returns only C's actions
 		expect(client.getValue).toBeDefined();
@@ -741,8 +739,6 @@ describe('createWorkspaceClient - Topological Sort', () => {
 
 		const resultB = await client.getFromB();
 		expect(resultB.data).toBe('value-from-b');
-
-		client.destroy();
 	});
 });
 
@@ -863,7 +859,7 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('createPost mutation creates a post', async () => {
-		const client = await createWorkspaceClient(postsWorkspace);
+		using client = await createWorkspaceClient(postsWorkspace);
 
 		const result = await client.createPost({
 			title: 'Test Post',
@@ -877,12 +873,10 @@ describe('Workspace Action Handlers', () => {
 		expect(result.data?.category).toBe('tech');
 		expect(result.data?.views).toBe(0);
 		expect(result.data?.id).toBeDefined();
-
-		client.destroy();
 	});
 
 	test('listPosts query returns created posts', async () => {
-		const client = await createWorkspaceClient(postsWorkspace);
+		using client = await createWorkspaceClient(postsWorkspace);
 
 		// Create a post first
 		await client.createPost({
@@ -901,12 +895,10 @@ describe('Workspace Action Handlers', () => {
 		expect(Array.isArray(result.data)).toBe(true);
 		expect(result.data?.length).toBe(1);
 		expect(result.data?.[0]?.title).toBe('Query Test');
-
-		client.destroy();
 	});
 
 	test('getPost query retrieves specific post', async () => {
-		const client = await createWorkspaceClient(postsWorkspace);
+		using client = await createWorkspaceClient(postsWorkspace);
 
 		// Create a post
 		const createResult = await client.createPost({
@@ -929,12 +921,10 @@ describe('Workspace Action Handlers', () => {
 		expect(result.data?.length).toBe(1);
 		expect(result.data?.[0]?.id).toBe(postId);
 		expect(result.data?.[0]?.title).toBe('Specific Post');
-
-		client.destroy();
 	});
 
 	test('updateViews mutation updates post view count', async () => {
-		const client = await createWorkspaceClient(postsWorkspace);
+		using client = await createWorkspaceClient(postsWorkspace);
 
 		// Create a post
 		const createResult = await client.createPost({
@@ -953,12 +943,10 @@ describe('Workspace Action Handlers', () => {
 
 		expect(updateResult.error).toBeUndefined();
 		expect(updateResult.data?.views).toBe(42);
-
-		client.destroy();
 	});
 
 	test('updateViews throws error for non-existent post', async () => {
-		const client = await createWorkspaceClient(postsWorkspace);
+		using client = await createWorkspaceClient(postsWorkspace);
 
 		// Try to update views on non-existent post
 		try {
@@ -971,12 +959,10 @@ describe('Workspace Action Handlers', () => {
 			expect(error).toBeDefined();
 			expect((error as Error).message).toContain('not found');
 		}
-
-		client.destroy();
 	});
 
 	test('createPost with optional content field', async () => {
-		const client = await createWorkspaceClient(postsWorkspace);
+		using client = await createWorkspaceClient(postsWorkspace);
 
 		const result = await client.createPost({
 			title: 'No Content Post',
@@ -987,7 +973,5 @@ describe('Workspace Action Handlers', () => {
 		expect(result.data?.title).toBe('No Content Post');
 		expect(result.data?.content).toBe(null);
 		expect(result.data?.category).toBe('tech');
-
-		client.destroy();
 	});
 });

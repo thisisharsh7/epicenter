@@ -23,14 +23,13 @@ export async function startServer(
 ): Promise<void> {
 	console.log(`🔨 Creating HTTP server for app: ${config.id}`);
 
-	const { app, client, websocket } = await createServer(config);
+	const { app, client } = await createServer(config);
 	const port =
 		options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT));
 
 	const server = Bun.serve({
 		fetch: app.fetch,
 		port,
-		websocket,
 	});
 
 	console.log('\n🚀 Epicenter HTTP Server Running!\n');
@@ -82,7 +81,7 @@ export async function startServer(
 		console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
 
 		server.stop();
-		client.destroy();
+		client[Symbol.dispose]();
 
 		console.log('✅ Server stopped cleanly\n');
 		process.exit(0);

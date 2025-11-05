@@ -9,7 +9,7 @@ Epicenter is a collection of workspaces that work together. It provides:
 - **Unified client interface**: Access all workspace actions through a single typed client
 - **Flat dependency resolution**: All transitive workspace dependencies must be declared at the root level
 - **Type-safe composition**: Full TypeScript inference for all workspace actions
-- **Lifecycle management**: Single destroy() call cleans up all workspaces
+- **Automatic resource management**: Use `using` syntax for automatic cleanup
 
 ## Epicenter vs Workspace
 
@@ -63,15 +63,23 @@ const myApp = defineEpicenter({
   workspaces: [pagesWorkspace, authWorkspace],
 });
 
-// Create a unified client
+// Create a unified client with automatic cleanup
+{
+  using client = await createEpicenterClient(myApp);
+
+  // Access workspace actions by workspace name
+  await client.auth.login({ email: '...', password: '...' });
+  const { data: pages } = await client.pages.getPages();
+
+  // Automatic cleanup when scope exits
+}
+
+// For long-lived servers, use manual cleanup:
 const client = await createEpicenterClient(myApp);
-
-// Access workspace actions by workspace name
-await client.auth.login({ email: '...', password: '...' });
-const { data: pages } = await client.pages.getPages();
-
-// Cleanup when done
-client.destroy();
+// ... use client for app lifetime ...
+process.on('SIGTERM', () => {
+  client[Symbol.dispose]();
+});
 ```
 
 ## Flat Dependency Resolution
@@ -195,7 +203,7 @@ Defines `EpicenterConfig` type and `defineEpicenter` function with validation:
 Defines `EpicenterClient` type and `createEpicenterClient` function:
 - Uses `initializeWorkspaces` from workspace/client for initialization
 - Implements flat/hoisted dependency resolution
-- Provides destroy() method that cleans up all workspaces
+- Provides Symbol.dispose for automatic resource management with `using` syntax
 - Maps workspace names to their action clients
 
 ### index.ts

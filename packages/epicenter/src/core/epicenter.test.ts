@@ -246,13 +246,11 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		using client = await createEpicenterClient(epicenter);
 
 		expect(client.pages).toBeDefined();
 		expect(client.contentHub).toBeDefined();
-		expect(client.destroy).toBeDefined();
-
-		client.destroy();
+		expect(client[Symbol.dispose]).toBeDefined();
 	});
 
 	test('client types are correctly inferred and non-nullable', async () => {
@@ -261,13 +259,12 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		using client = await createEpicenterClient(epicenter);
 
 		// Type-level assertions using expectTypeOf (compile-time checks)
 		// These verify TypeScript correctly infers the types
 		expectTypeOf(client).toHaveProperty('pages');
 		expectTypeOf(client).toHaveProperty('contentHub');
-		expectTypeOf(client).toHaveProperty('destroy');
 
 		expectTypeOf(client.pages).toHaveProperty('createPage');
 		expectTypeOf(client.pages).toHaveProperty('getPage');
@@ -278,8 +275,6 @@ describe('Epicenter', () => {
 		// Runtime assertions to verify the properties actually exist
 		expect(client.pages).toBeDefined();
 		expect(client.contentHub).toBeDefined();
-
-		client.destroy();
 	});
 
 	test('should chain workspaces: create page and distribute to social media', async () => {
@@ -288,7 +283,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		using client = await createEpicenterClient(epicenter);
 
 		// Step 1: Create a page in the pages workspace
 		const { data: page } = await client.pages.createPage({
@@ -330,8 +325,6 @@ describe('Epicenter', () => {
 		});
 		expect(twitterPosts).toHaveLength(1);
 		expect(twitterPosts?.[0].content).toContain('Epicenter');
-
-		client.destroy();
 	});
 
 	test('should chain workspaces: create multiple pages and posts', async () => {
@@ -340,7 +333,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		using client = await createEpicenterClient(epicenter);
 
 		// Create multiple pages
 		const { data: page1 } = await client.pages.createPage({
@@ -388,8 +381,6 @@ describe('Epicenter', () => {
 		});
 		expect(page2Twitter).toHaveLength(1);
 		expect(page2Twitter?.[0].content).toContain('collaboration');
-
-		client.destroy();
 	});
 
 	test('should fail when creating post for non-existent page', async () => {
@@ -398,7 +389,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		using client = await createEpicenterClient(epicenter);
 
 		// Try to create a Twitter post for a non-existent page
 		await expect(
@@ -407,8 +398,6 @@ describe('Epicenter', () => {
 				content: 'Test',
 			}),
 		).rejects.toThrow();
-
-		client.destroy();
 	});
 
 	test('should properly clean up all workspaces on destroy', async () => {
@@ -417,7 +406,7 @@ describe('Epicenter', () => {
 			workspaces: [pages, contentHub],
 		});
 
-		const client = await createEpicenterClient(epicenter);
+		using client = await createEpicenterClient(epicenter);
 
 		// Create some data
 		await client.pages.createPage({
@@ -427,9 +416,7 @@ describe('Epicenter', () => {
 			tags: 'tech',
 		});
 
-		// Destroy should not throw
-		client.destroy();
-	});
+		// Destroy should not throw	});
 
 	describe('Action Exposure', () => {
 		/**
@@ -483,7 +470,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB],
 			});
 
-			const client = await createEpicenterClient(epicenter);
+			using client = await createEpicenterClient(epicenter);
 
 			// BOTH workspaces are exposed by their ids
 			expect(client.a).toBeDefined();
@@ -538,7 +525,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB, workspaceC],
 			});
 
-			const client = await createEpicenterClient(epicenter);
+			using client = await createEpicenterClient(epicenter);
 
 			// All workspaces are exposed
 			expect(client.a).toBeDefined();
@@ -565,7 +552,7 @@ describe('Epicenter', () => {
 				workspaces: [workspaceA, workspaceB, workspaceC],
 			});
 
-			const client = await createEpicenterClient(epicenter);
+			using client = await createEpicenterClient(epicenter);
 
 			// All three workspaces exposed
 			expect(client.a).toBeDefined();

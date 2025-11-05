@@ -19,8 +19,20 @@ export type WorkspaceClient<TActionMap extends WorkspaceActionMap> = TActionMap 
 	 * Cleanup method for resource management
 	 * - Destroys all indexes
 	 * - Destroys the YJS document
+	 *
+	 * Use with `using` syntax for automatic cleanup:
+	 * ```typescript
+	 * using workspace = await createWorkspaceClient(config);
+	 * ```
+	 *
+	 * Or call manually for explicit control:
+	 * ```typescript
+	 * const workspace = await createWorkspaceClient(config);
+	 * // ... use workspace ...
+	 * workspace[Symbol.dispose]();
+	 * ```
 	 */
-	destroy: () => void;
+	[Symbol.dispose]: () => void;
 };
 
 /**
@@ -352,7 +364,7 @@ export async function initializeWorkspaces<
 		// Actions are already callable, no extraction needed
 		const client: WorkspaceClient<any> = {
 			...actionMap,
-			destroy: cleanup,
+			[Symbol.dispose]: cleanup,
 		};
 
 		return client;

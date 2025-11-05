@@ -7,7 +7,7 @@ import { join } from 'node:path';
 test('markdown file edits sync back to YJS', async () => {
 	console.log('🚀 Testing bidirectional markdown sync...');
 
-	const client = await createEpicenterClient(epicenterConfig);
+	using client = await createEpicenterClient(epicenterConfig);
 	const blog = client.blog;
 
 	// Create a test post
@@ -73,6 +73,4 @@ test('markdown file edits sync back to YJS', async () => {
 	console.log(
 		'\n✅ Bidirectional sync is working! Changes from markdown file synced to YJS.',
 	);
-
-	client.destroy();
 });

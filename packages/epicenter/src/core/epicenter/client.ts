@@ -13,8 +13,20 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 		/**
 		 * Cleanup method for resource management
 		 * Destroys all workspaces in this epicenter
+		 *
+		 * Use with `using` syntax for automatic cleanup:
+		 * ```typescript
+		 * using client = await createEpicenterClient(config);
+		 * ```
+		 *
+		 * Or call manually for explicit control:
+		 * ```typescript
+		 * const client = await createEpicenterClient(config);
+		 * // ... use client ...
+		 * client[Symbol.dispose]();
+		 * ```
 		 */
-		destroy: () => void;
+		[Symbol.dispose]: () => void;
 	};
 
 /**
@@ -26,26 +38,33 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  *
  * @example
  * ```typescript
- * // Long-lived usage (web app, desktop app)
+ * // Scoped usage with automatic cleanup (scripts, tests, CLI commands)
+ * {
+ *   using client = await createEpicenterClient(epicenter);
+ *
+ *   // Access workspace actions by workspace id
+ *   const page = await client.pages.createPage({
+ *     title: 'My First Post',
+ *     content: 'Hello, world!',
+ *     type: 'blog',
+ *     tags: 'tech',
+ *   });
+ *
+ *   await client.contentHub.createYouTubePost({
+ *     pageId: page.id,
+ *     title: 'Check out my blog post!',
+ *     description: 'A great post about...',
+ *     niche: ['Coding', 'Productivity'],
+ *   });
+ *   // Automatic cleanup when scope exits
+ * }
+ *
+ * // Long-lived usage (servers, desktop apps) with manual cleanup
  * const client = await createEpicenterClient(epicenter);
- *
- * // Access workspace actions by workspace id
- * const page = await client.pages.createPage({
- *   title: 'My First Post',
- *   content: 'Hello, world!',
- *   type: 'blog',
- *   tags: 'tech',
+ * // ... use client for app lifetime ...
+ * process.on('SIGTERM', () => {
+ *   client[Symbol.dispose]();
  * });
- *
- * await client.contentHub.createYouTubePost({
- *   pageId: page.id,
- *   title: 'Check out my blog post!',
- *   description: 'A great post about...',
- *   niche: ['Coding', 'Productivity'],
- * });
- *
- * // Explicit cleanup when done
- * client.destroy();
  * ```
  */
 export async function createEpicenterClient<
@@ -61,13 +80,13 @@ export async function createEpicenterClient<
 
 	const cleanup = () => {
 		for (const workspace of Object.values(clients)) {
-			workspace.destroy();
+			workspace[Symbol.dispose]();
 		}
 	};
 
 	return {
 		...clients,
-		destroy: cleanup,
+		[Symbol.dispose]: cleanup,
 	} as EpicenterClient<TWorkspaces>;
 }
 
@@ -76,7 +95,7 @@ export async function createEpicenterClient<
  *
  * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
  * This utility traverses all layers and invokes the callback for each action.
- * The `destroy` methods at client and workspace levels are automatically excluded.
+ * The Symbol.dispose methods at client and workspace levels are automatically excluded.
  *
  * @param client - The Epicenter client with workspace namespaces
  * @param callback - Function invoked for each action with `{ workspaceId, actionName, action }`
@@ -102,13 +121,15 @@ export function forEachAction<TWorkspaces extends readonly AnyWorkspaceConfig[]>
 		action: Action;
 	}) => void,
 ): void {
-	// Extract workspace clients (excluding the destroy method from the client interface)
-	const { destroy, ...workspaceClients } = client;
+	// Extract workspace clients (excluding Symbol.dispose from the client interface)
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const { [Symbol.dispose]: _dispose, ...workspaceClients } = client;
 
 	// Iterate over each workspace and its actions
 	for (const [workspaceId, workspaceClient] of Object.entries(workspaceClients)) {
-		// Extract actions (excluding the destroy method from the workspace interface)
-		const { destroy, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
+		// Extract actions (excluding Symbol.dispose from the workspace interface)
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { [Symbol.dispose]: _workspaceDispose, ...workspaceActions } = workspaceClient as WorkspaceClient<WorkspaceActionMap>;
 
 		// Invoke callback for each action
 		for (const [actionName, action] of Object.entries(workspaceActions)) {

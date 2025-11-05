@@ -67,12 +67,10 @@ export async function createCLI({
 	// Register each workspace as a command
 	for (const workspaceConfig of config.workspaces) {
 		// Initialize workspace to get real action map
-		const client = await createWorkspaceClient(workspaceConfig);
+		using client = await createWorkspaceClient(workspaceConfig);
 
-		// Extract action map (all client properties except 'destroy')
-		const actionMap = Object.fromEntries(
-			Object.entries(client).filter(([key]) => key !== 'destroy'),
-		) as WorkspaceActionMap;
+		// Extract action map (all client properties except Symbol.dispose)
+		const { [Symbol.dispose]: _, ...actionMap } = client;
 
 		cli = cli.command(
 			workspaceConfig.id,
@@ -105,9 +103,6 @@ export async function createCLI({
 				return workspaceCli;
 			},
 		);
-
-		// Clean up workspace after building CLI
-		client.destroy();
 	}
 
 	return cli;
@@ -144,7 +139,7 @@ async function executeAction(
 	}
 
 	// Initialize real workspace (with YJS docs, indexes, etc.)
-	const client = await createWorkspaceClient(workspaceConfig);
+	using client = await createWorkspaceClient(workspaceConfig);
 
 	try {
 		// Get the action handler
@@ -176,8 +171,5 @@ async function executeAction(
 	} catch (error) {
 		console.error('❌ Unexpected error:', error);
 		process.exit(1);
-	} finally {
-		// Cleanup workspace resources
-		client.destroy();
 	}
 }
