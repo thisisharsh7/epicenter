@@ -32,13 +32,3 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
-
-# Epicenter runtime artifacts
-examples/**/.epicenter/
-examples/**/.data/
-examples/**/*.db
-examples/**/*.db-wal
-examples/**/*.db-shm
-*.db
-*.db-wal
-*.db-shm
