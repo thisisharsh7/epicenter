@@ -1,11 +1,12 @@
 import type { FSWatcher } from 'node:fs';
-import { mkdirSync, watch } from 'node:fs';
+import { watch } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Brand } from 'wellcrafted/brand';
 import { createTaggedError } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
+import type { Db } from '../../core/db/core';
 import { IndexErr } from '../../core/errors';
 import { getConfigDir } from '../../core/helpers';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
@@ -17,7 +18,6 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import { createTableSchemaWithValidation } from '../../core/schema';
-import type { Db } from '../../db/core';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
 
@@ -644,13 +644,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 								`${id}-diagnostics.json`,
 							);
 
-							// Ensure .epicenter directory exists
-							trySync({
-								try: () =>
-									mkdirSync(path.dirname(diagnosticsPath), { recursive: true }),
-								catch: () => Ok(undefined),
-							});
-
+							// Bun.write creates parent directories by default
 							await Bun.write(
 								diagnosticsPath,
 								JSON.stringify(
