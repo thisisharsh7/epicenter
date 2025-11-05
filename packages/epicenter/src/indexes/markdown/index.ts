@@ -7,6 +7,7 @@ import { createTaggedError } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr } from '../../core/errors';
+import { getConfigDir } from '../../core/helpers';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type {
 	Row,
@@ -24,9 +25,8 @@ import { parseMarkdownFile } from './parser';
  * Error types for markdown index diagnostics
  * Used to track files that fail to process during indexing
  */
-export const { MarkdownIndexError, MarkdownIndexErr } = createTaggedError(
-	'MarkdownIndexError',
-);
+export const { MarkdownIndexError, MarkdownIndexErr } =
+	createTaggedError('MarkdownIndexError');
 export type MarkdownIndexError = ReturnType<typeof MarkdownIndexError>;
 
 /**
@@ -100,10 +100,10 @@ export type MarkdownIndexConfig<
 	 *
 	 * **Three ways to specify the path**:
 	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to epicenter.config.ts location (process.cwd())
+	 * **Option 1: Relative paths** (recommended): Resolved relative to config directory (where epicenter.config.ts is located)
 	 * ```typescript
-	 * storagePath: './vault'      // → <config-dir>/vault
-	 * storagePath: '../content'   // → <config-dir>/../content
+	 * storagePath: './vault'      // → <configDir>/vault
+	 * storagePath: '../content'   // → <configDir>/../content
 	 * ```
 	 *
 	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
@@ -356,17 +356,22 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
 }: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
-	// Directory containing epicenter.config.ts (where epicenter commands are run)
-	const configDir = process.cwd();
+	/**
+	 * Directory containing epicenter.config.ts (where epicenter commands are run)
+	 * Relative storage paths are resolved from here
+	 */
+	const configDir = getConfigDir();
 
 	/**
 	 * Resolve storagePath to absolute path using three-layer resolution pattern:
-	 * 1. Relative paths (./content, ../vault) → resolved relative to epicenter.config.ts location
+	 * 1. Relative paths (./content, ../vault) → resolved relative to config directory (directory containing epicenter.config.ts)
 	 * 2. Absolute paths (/absolute/path) → used as-is
 	 * 3. Explicit paths (import.meta.dirname) → already absolute, pass through unchanged
 	 */
 	const absoluteStoragePath = (
-		path.isAbsolute(storagePath) ? storagePath : path.resolve(configDir, storagePath)
+		path.isAbsolute(storagePath)
+			? storagePath
+			: path.resolve(configDir, storagePath)
 	) as AbsolutePath;
 
 	/**

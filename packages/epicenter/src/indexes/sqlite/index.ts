@@ -10,6 +10,7 @@ import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr } from '../../core/errors';
+import { getConfigDir } from '../../core/helpers';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
@@ -46,7 +47,7 @@ type SyncCoordination = {
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
  *
- * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the current working directory.
+ * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the config directory.
  *
  * @param context - Index context with workspace ID and database instance
  *
@@ -79,11 +80,14 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
-	// Directory containing epicenter.config.ts (where epicenter commands are run)
-	const configDir = process.cwd();
+	/**
+	 * Directory containing epicenter.config.ts (where epicenter commands are run)
+	 * Relative storage paths are resolved from here
+	 */
+	const configDir = getConfigDir();
 
 	// Auto-resolve path to .epicenter/{id}.db
-	// Relative path is resolved relative to epicenter.config.ts location
+	// Relative path is resolved relative to config directory (directory containing epicenter.config.ts)
 	const relativeDatabasePath = path.join('.epicenter', `${id}.db`);
 	const resolvedDatabasePath = path.resolve(configDir, relativeDatabasePath);
 
