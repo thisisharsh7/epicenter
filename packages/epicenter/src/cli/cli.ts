@@ -73,7 +73,7 @@ export async function createCLI({
 	const groupedActions = groupActionsByWorkspace(client);
 
 	// Register each workspace as a command
-	for (const [workspaceId, actions] of groupedActions) {
+	for (const [workspaceId, actions] of Object.entries(groupedActions)) {
 		// Get workspace client for action execution
 		const workspaceClient = client[workspaceId]!;
 
@@ -87,7 +87,7 @@ export async function createCLI({
 					.strict();
 
 				// Register each action as a subcommand
-				for (const [actionName, action] of actions) {
+				for (const [actionName, action] of Object.entries(actions)) {
 					workspaceCli = workspaceCli.command(
 						actionName,
 						action.description || `Execute ${actionName} ${action.type}`,
