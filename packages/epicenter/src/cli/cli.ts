@@ -1,7 +1,7 @@
-import yargs from 'yargs';
-import type { Argv } from 'yargs';
 import type { TaggedError } from 'wellcrafted/error';
 import { type Result, isResult } from 'wellcrafted/result';
+import yargs from 'yargs';
+import type { Argv } from 'yargs';
 import type { EpicenterConfig } from '../core/epicenter';
 import {
 	createEpicenterClient,
@@ -69,13 +69,16 @@ export async function createCLI({
 	);
 
 	// Initialize Epicenter client and group actions by workspace
-	using client = await createEpicenterClient(config);
-	const groupedActions = groupActionsByWorkspace(client);
+	using epicenterClient = await createEpicenterClient(config);
+	const groupedActions = groupActionsByWorkspace(epicenterClient);
 
 	// Register each workspace as a command
+	// We iterate over groupedActions (not config.workspaces) because it's the source
+	// of truth for what's actually in the client. The workspace IDs in groupedActions
+	// are guaranteed to exist in epicenterClient since they come from the same source.
 	for (const [workspaceId, actions] of Object.entries(groupedActions)) {
-		// Get workspace client for action execution
-		const workspaceClient = client[workspaceId]!;
+		// biome-ignore lint/style/noNonNullAssertion: safe to assert non-null, workspaceId came from epicenterClient via groupActionsByWorkspace
+		const workspaceClient = epicenterClient[workspaceId]!;
 
 		cli = cli.command(
 			workspaceId,
