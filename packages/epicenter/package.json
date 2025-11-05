@@ -36,7 +36,6 @@
 		"hono": "^4.10.4",
 		"hono-openapi": "^1.1.1",
 		"nanoid": "^5.1.5",
-		"typebox": "^1.0.36",
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"yaml": "^2.6.0",

@@ -5,7 +5,7 @@
 The epicenter workspace system provides a clean API where actions are directly callable functions:
 
 ```typescript
-import { Type } from 'typebox';
+import { type } from 'arktype';
 import { defineWorkspace, defineQuery, defineMutation, runWorkspace } from '@repo/epicenter';
 
 // Define your workspace
@@ -20,7 +20,7 @@ const todosWorkspace = defineWorkspace({
   },
   actions: () => ({
     getTodos: defineQuery({
-      input: Type.Object({}),
+      input: type({}),
       handler: async () => {
         // Your logic here
         return todos;
@@ -28,8 +28,8 @@ const todosWorkspace = defineWorkspace({
     }),
 
     createTodo: defineMutation({
-      input: Type.Object({
-        title: Type.String({ minLength: 1 }),
+      input: type({
+        title: 'string>0'
       }),
       handler: async (input) => {
         // Input is validated and typed!
@@ -65,9 +65,10 @@ console.log(todos.getTodos.type);   // 'query'
 
 Actions use the [Standard Schema](https://github.com/standard-schema/standard-schema) specification, making them compatible with popular validation libraries:
 
-- **TypeBox**: `Type.Object({ name: Type.String() })`
+- **ArkType** (recommended): `type({ name: 'string' })`
 - **Valibot**: `v.object({ name: v.string() })`
-- **ArkType**: `type({ name: 'string' })`
+- **Zod**: `z.object({ name: z.string() })`
+- **Effect Schema**: `S.struct({ name: S.string })`
 - Any other Standard Schema compliant library
 
 ## Action Types
@@ -77,7 +78,7 @@ For read operations that don't modify state:
 
 ```typescript
 defineQuery({
-  input: Type.Object({ id: Type.String() }),
+  input: type({ id: 'string' }),
   handler: async (input) => {
     // input.id is typed as string
     return findById(input.id);
@@ -90,9 +91,9 @@ For operations that modify state:
 
 ```typescript
 defineMutation({
-  input: Type.Object({
-    title: Type.String(),
-    completed: Type.Boolean(),
+  input: type({
+    title: 'string',
+    completed: 'boolean'
   }),
   handler: async (input) => {
     // input is fully typed

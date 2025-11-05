@@ -26,7 +26,7 @@ Each workspace defines its tables and actions:
 
 ```typescript
 import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/epicenter';
-import { Type } from 'typebox';
+import { type } from 'arktype';
 
 const usersWorkspace = defineWorkspace({
   id: 'users',
@@ -41,9 +41,9 @@ const usersWorkspace = defineWorkspace({
 
   actions: (api) => ({
     createUser: defineMutation({
-      input: Type.Object({
-        name: Type.String({ minLength: 1 }),
-        email: Type.String({ format: 'email' })
+      input: type({
+        name: 'string>0',
+        email: 'email'
       }),
       description: 'Create a new user with name and email',
       handler: async ({ name, email }) => {

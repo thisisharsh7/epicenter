@@ -173,7 +173,7 @@ npm install @repo/epicenter
 // blog/epicenter.config.ts
 import { defineWorkspace, runWorkspace, defineQuery, defineMutation, id, text, integer, boolean, date } from '@repo/epicenter';
 import { eq, desc, gte } from 'drizzle-orm';
-import { Type } from 'typebox';
+import { type } from 'arktype';
 
 // 1. Define your workspace
 const blogWorkspace = defineWorkspace({
@@ -192,8 +192,8 @@ const blogWorkspace = defineWorkspace({
 
   actions: ({ tables }) => ({
     getPopularPosts: defineQuery({
-      input: Type.Object({
-        minViews: Type.Number({ default: 100 })
+      input: type({
+        minViews: 'number = 100'
       }),
       handler: async (input) => {
         return tables.posts.select()
@@ -204,10 +204,10 @@ const blogWorkspace = defineWorkspace({
     }),
 
     createPost: defineMutation({
-      input: Type.Object({
-        title: Type.String({ minLength: 1 }),
-        content: Type.Optional(Type.String()),
-        published: Type.Boolean({ default: false })
+      input: type({
+        title: 'string>0',
+        'content?': 'string',
+        published: 'boolean = false'
       }),
       handler: async (input) => {
         const post = {
@@ -382,7 +382,7 @@ All column types support these options:
 Plugins can depend on other plugins using type-safe references:
 
 ```typescript
-import { Type } from 'typebox';
+import { type } from 'arktype';
 import { defineQuery } from '@repo/epicenter';
 
 const blogWorkspace = defineWorkspace({ /* ... */ });
@@ -402,8 +402,8 @@ const analyticsWorkspace = defineWorkspace({
   
   actions: (api) => ({
     calculateTopPosts: defineQuery({
-      input: Type.Object({
-        limit: Type.Optional(Type.Number({ default: 10 }))
+      input: type({
+        'limit?': 'number = 10'
       }),
       handler: async (input) => {
         // Access dependent plugin actions (fully typed!)
@@ -433,7 +433,7 @@ Epicenter supports two types of workspace actions with automatic input validatio
 For read operations that don't modify state:
 
 ```typescript
-import { Type } from 'typebox';
+import { type } from 'arktype';
 import { defineQuery } from '@repo/epicenter';
 
 const blogWorkspace = defineWorkspace({
@@ -441,9 +441,9 @@ const blogWorkspace = defineWorkspace({
   tables: { /* ... */ },
   actions: (api) => ({
     getPostsByAuthor: defineQuery({
-      input: Type.Object({
-        authorId: Type.String(),
-        limit: Type.Optional(Type.Number({ default: 10 }))
+      input: type({
+        authorId: 'string',
+        'limit?': 'number = 10'
       }),
       handler: async (input) => {
         // input is automatically validated and typed
@@ -471,10 +471,10 @@ const blogWorkspace = defineWorkspace({
   tables: { /* ... */ },
   actions: (api) => ({
     createPost: defineMutation({
-      input: Type.Object({
-        title: Type.String({ minLength: 1 }),
-        content: Type.String(),
-        authorId: Type.String()
+      input: type({
+        title: 'string>0',
+        content: 'string',
+        authorId: 'string'
       }),
       handler: async (input) => {
         // Input is validated and fully typed
@@ -496,10 +496,10 @@ const blogWorkspace = defineWorkspace({
 
 Actions support any validation library that implements the [Standard Schema](https://github.com/standard-schema/standard-schema) specification:
 
-- **TypeBox**: `Type.Object({ name: Type.String() })`
+- **ArkType** (recommended): `type({ name: 'string' })`
 - **Valibot**: `v.object({ name: v.string() })`
-- **ArkType**: `type({ name: 'string' })`
-- **Yup**: `yup.object({ name: yup.string() })`
+- **Zod**: `z.object({ name: z.string() })`
+- **Effect Schema**: `S.struct({ name: S.string })`
 
 #### Action Properties
 
@@ -511,7 +511,7 @@ console.log(runtime.blog.createPost.type); // 'mutation'
 console.log(runtime.blog.getPostsByAuthor.type); // 'query'
 
 // Access input schema
-console.log(runtime.blog.createPost.input); // The Zod schema
+console.log(runtime.blog.createPost.input); // The Standard Schema
 
 // Access handler function
 console.log(runtime.blog.createPost.handler); // The handler function
@@ -659,7 +659,7 @@ Create a query action with input validation and type safety.
 
 ```typescript
 defineQuery({
-  input: Type.Object({ id: Type.String() }),
+  input: type({ id: 'string' }),
   handler: async (input) => { /* ... */ },
   description?: 'Optional description'
 })
@@ -671,7 +671,7 @@ Create a mutation action with input validation and type safety.
 
 ```typescript
 defineMutation({
-  input: Type.Object({ title: Type.String() }),
+  input: type({ title: 'string' }),
   handler: async (input) => { /* ... */ },
   description?: 'Optional description'
 })

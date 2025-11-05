@@ -10,7 +10,7 @@ The CLI system generates command-line interfaces from your Epicenter configurati
 epicenter <workspace> <action> [flags]
 ```
 
-That's it. No manual CLI setup, no repetitive argument parsing. Your workspace actions become commands, and your TypeBox schemas become CLI flags.
+That's it. No manual CLI setup, no repetitive argument parsing. Your workspace actions become commands, and your Standard Schema definitions become CLI flags.
 
 ## How It Works
 
@@ -19,15 +19,18 @@ That's it. No manual CLI setup, no repetitive argument parsing. Your workspace a
 Write your workspace actions like you normally would:
 
 ```typescript
-import { Type } from 'typebox';
+import { type } from 'arktype';
 
 const reddit = defineWorkspace({
   name: 'reddit',
   actions: ({ db }) => ({
     import: defineMutation({
-      input: Type.Object({
-        url: Type.String({ description: 'Reddit URL to import' }),
-        count: Type.Number({ description: 'Number of posts', default: 10 }),
+      input: type({
+        'url': 'string',
+        'count': 'number = 10'
+      }).describe({
+        url: 'Reddit URL to import',
+        count: 'Number of posts'
       }),
       handler: async ({ url, count }) => {
         // Your import logic here
@@ -65,29 +68,32 @@ epicenter blog publish --title "My Post" --tags tech typescript coding
 
 Your action's input schema automatically becomes CLI flags:
 
-- `Type.String()` → `--flag <value>`
-- `Type.Number()` → `--flag <number>`
-- `Type.Boolean()` → `--flag` (presence = true)
-- `Type.Array(Type.String())` → `--flag item1 item2 item3` (space-separated)
-- `Type.Union([Type.Literal('a'), Type.Literal('b')])` → `--flag <choice>` (with validation)
-- `Type.Optional()` → flag is optional
-- `{ default: value }` in options → flag has a default value
-- `{ description: 'text' }` in options → shows in `--help`
+- `'string'` → `--flag <value>`
+- `'number'` → `--flag <number>`
+- `'boolean'` → `--flag` (presence = true)
+- `'string[]'` → `--flag item1 item2 item3` (space-separated)
+- `'"a" | "b"'` → `--flag <choice>` (with validation)
+- `'string?'` → flag is optional
+- `'number = 10'` → flag has a default value
+- `.describe({})` → shows descriptions in `--help`
 
 **Array values**: Use spaces to separate multiple values:
 ```bash
 epicenter workspace action --tags tech productivity typescript
 ```
 
-## TypeBox Schema Conversion
+## Standard Schema Conversion
 
-The CLI uses TypeBox schemas exclusively. The `typeboxToYargs` function converts TypeBox schemas to yargs CLI options by introspecting the schema structure:
+The CLI uses Standard Schema for validation. The `standardSchemaToYargs` function converts Standard Schema definitions to yargs CLI options by introspecting the schema structure:
 
 ```typescript
-// Your TypeBox schema
-const schema = Type.Object({
-  url: Type.String({ description: 'Reddit URL' }),
-  count: Type.Number({ default: 10 }),
+// Your ArkType schema
+const schema = type({
+  url: 'string',
+  'count?': 'number = 10'
+}).describe({
+  url: 'Reddit URL',
+  count: 'Number of posts'
 });
 
 // Automatically converted to yargs options:
@@ -95,7 +101,7 @@ const schema = Type.Object({
 // --count <number> (optional, default: 10)
 ```
 
-The converter works by examining the TypeBox schema's internal structure (`~kind` property) and mapping it to appropriate yargs option types. This happens automatically when you define actions with TypeBox input schemas.
+The converter works by examining the Standard Schema's `~standard` property and converting it to JSON Schema, then mapping that to appropriate yargs option types. This works with any Standard Schema-compliant library (ArkType, Valibot, Zod, etc.).
 
 ## Under the Hood
 
@@ -142,7 +148,7 @@ The CLI uses a two-phase approach to balance speed and functionality:
 **Phase 1: CLI Setup (Fast - ~10-20ms)**
 - Extracts metadata using mock context (no YJS initialization)
 - Builds yargs command hierarchy (workspace → action)
-- Converts TypeBox schemas to CLI flags
+- Converts Standard Schema definitions to CLI flags
 - Enables fast `--help` commands
 
 **Phase 2: Command Execution (On-Demand)**
@@ -172,7 +178,7 @@ This keeps help commands instant while deferring real initialization until comma
 - `bin.ts`: Entry point for CLI executable
 - `cli.ts`: Core CLI creation logic
 - `metadata.ts`: Fast metadata extraction using mocks
-- `typebox-to-yargs.ts`: Schema to CLI flag conversion
+- `standardschema-to-yargs.ts`: Schema to CLI flag conversion
 - `load-config.ts`: Config file discovery and loading
 - `mock-context.ts`: Mock db/indexes/workspaces for introspection
 - `index.ts`: Public API exports for programmatic use
