@@ -1,5 +1,7 @@
 import yargs from 'yargs';
 import type { Argv } from 'yargs';
+import type { TaggedError } from 'wellcrafted/error';
+import { type Result, isResult } from 'wellcrafted/result';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
 import { DEFAULT_PORT, startServer } from './server';
@@ -111,19 +113,28 @@ export async function createCLI({
 								// Extract input from args (remove yargs metadata)
 								const { _, $0, ...input } = argv;
 
-								// Execute the action
-								const result = await handler(input);
+								// Execute the action (may return Result or raw data)
+								const maybeResult = (await handler(input)) as
+									| Result<unknown, TaggedError>
+									| unknown;
 
-								// Handle errors
-								if (result.error) {
-									console.error('❌ Error:', result.error.message);
+								// Extract data and error channels using isResult pattern
+								const outputChannel = isResult(maybeResult)
+									? maybeResult.data
+									: maybeResult;
+								const errorChannel = isResult(maybeResult)
+									? (maybeResult.error as TaggedError)
+									: undefined;
+
+								// Handle error case
+								if (errorChannel) {
+									console.error('❌ Error:', errorChannel.message);
 									process.exit(1);
 								}
 
 								// Handle success
 								console.log('✅ Success:');
-								const output = result?.data ?? result;
-								console.log(JSON.stringify(output, null, 2));
+								console.log(JSON.stringify(outputChannel, null, 2));
 							} catch (error) {
 								console.error('❌ Unexpected error:', error);
 								process.exit(1);
