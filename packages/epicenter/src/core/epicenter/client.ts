@@ -94,64 +94,11 @@ export async function createEpicenterClient<
 }
 
 /**
- * Group actions by workspace from an Epicenter client.
- *
- * Returns a nested object structure that groups actions by workspace ID, making it easy to
- * iterate over workspaces and their actions in a nested manner. This is useful when
- * you need to process actions grouped by workspace rather than in a flat iteration.
- *
- * @param client - The Epicenter client with workspace namespaces
- * @returns Record where:
- *   - First level keys are workspace IDs (string)
- *   - Second level keys are action names (string)
- *   - Values are Action objects
- *
- * @example
- * ```typescript
- * // Register yargs CLI commands grouped by workspace
- * const grouped = groupActionsByWorkspace(client);
- * for (const [workspaceId, actions] of Object.entries(grouped)) {
- *   cli.command(workspaceId, description, (yargs) => {
- *     for (const [actionName, action] of Object.entries(actions)) {
- *       yargs.command(actionName, ...);
- *     }
- *   });
- * }
- * ```
- */
-export function groupActionsByWorkspace<
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	client: EpicenterClient<TWorkspaces>,
-): Record<string, Record<string, Action>> {
-	// Extract workspace clients (excluding Symbol.dispose from the client interface)
-	const { [Symbol.dispose]: _dispose, ...workspaceClients } = client;
-
-	const grouped: Record<string, Record<string, Action>> = {};
-
-	// Group actions by workspace
-	for (const [workspaceId, workspaceClient] of Object.entries(
-		workspaceClients,
-	)) {
-		// Extract actions (excluding Symbol.dispose from the workspace interface)
-		const { [Symbol.dispose]: _workspaceDispose, ...workspaceActions } =
-			workspaceClient as WorkspaceClient<WorkspaceActionMap>;
-
-		grouped[workspaceId] = workspaceActions;
-	}
-
-	return grouped;
-}
-
-/**
  * Iterate over all workspace actions in an Epicenter client.
  *
  * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
  * This utility traverses all layers and invokes the callback for each action.
  * The Symbol.dispose methods at client and workspace levels are automatically excluded.
- *
- * For grouped iteration (e.g., when you need to process actions by workspace),
- * use `groupActionsByWorkspace` instead.
  *
  * @param client - The Epicenter client with workspace namespaces
  * @param callback - Function invoked for each action. Receives an object with:
@@ -171,8 +118,6 @@ export function groupActionsByWorkspace<
  *   app.get(`/${workspaceId}/${actionName}`, handler);
  * });
  * ```
- *
- * @see {@link groupActionsByWorkspace} for grouped iteration
  */
 export function forEachAction<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
@@ -184,11 +129,19 @@ export function forEachAction<
 		action: Action;
 	}) => void,
 ): void {
-	// Use groupActionsByWorkspace internally to avoid duplication
-	const grouped = groupActionsByWorkspace(client);
+	// Extract workspace clients (excluding Symbol.dispose from the client interface)
+	const { [Symbol.dispose]: _dispose, ...workspaceClients } = client;
 
-	for (const [workspaceId, actions] of Object.entries(grouped)) {
-		for (const [actionName, action] of Object.entries(actions)) {
+	// Iterate over each workspace and its actions
+	for (const [workspaceId, workspaceClient] of Object.entries(
+		workspaceClients,
+	)) {
+		// Extract actions (excluding Symbol.dispose from the workspace interface)
+		const { [Symbol.dispose]: _workspaceDispose, ...workspaceActions } =
+			workspaceClient as WorkspaceClient<WorkspaceActionMap>;
+
+		// Invoke callback for each action
+		for (const [actionName, action] of Object.entries(workspaceActions)) {
 			callback({ workspaceId, actionName, action });
 		}
 	}
