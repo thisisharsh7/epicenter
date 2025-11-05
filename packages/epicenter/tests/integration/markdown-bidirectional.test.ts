@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { rm, writeFile } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
@@ -127,7 +127,7 @@ count: 42
 ---
 Some markdown content here`;
 
-		await writeFile(filePath, newContent);
+		await Bun.write(filePath, newContent);
 
 		// Wait longer for file watcher to process the change
 		await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -167,7 +167,7 @@ count: 0
 ---
 `;
 
-		await writeFile(filePath, newContent);
+		await Bun.write(filePath, newContent);
 
 		// Wait longer for file watcher to process
 		await new Promise((resolve) => setTimeout(resolve, 1000));

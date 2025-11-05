@@ -75,6 +75,6 @@ export const setupPersistence = (async ({ id, ydoc }) => {
 	// Auto-save on every update
 	ydoc.on('update', () => {
 		const state = Y.encodeStateAsUpdate(ydoc);
-		fs.writeFileSync(filePath, state);
+		Bun.write(filePath, state);
 	});
 }) satisfies Provider;

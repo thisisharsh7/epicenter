@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test';
 import { createEpicenterClient } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 test('markdown file edits sync back to YJS', async () => {
@@ -48,7 +48,7 @@ test('markdown file edits sync back to YJS', async () => {
 	const updatedContent = originalContent
 		.replace('title: Bidirectional Sync Test', 'title: Updated Title')
 		.replace('content: Original content', 'content: Updated content via file');
-	writeFileSync(markdownPath, updatedContent, 'utf-8');
+	await Bun.write(markdownPath, updatedContent);
 	console.log('   ✅ Markdown file updated');
 
 	// Wait for file watcher to process the change

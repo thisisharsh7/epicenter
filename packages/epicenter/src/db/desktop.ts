@@ -104,7 +104,7 @@ export function createEpicenterDbFromDisk<TWorkspaceSchema extends WorkspaceSche
 	// Save function (reused by both manual save and autosave)
 	function save(): void {
 		const state = Y.encodeStateAsUpdate(ydoc);
-		fs.writeFileSync(filePath, state);
+		Bun.write(filePath, state);
 	}
 
 	// Autosave management
