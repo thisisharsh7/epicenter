@@ -32,6 +32,5 @@
 	<GroqApiKeyInput />
 	<GoogleApiKeyInput />
 	<ElevenLabsApiKeyInput />
-	<DeepgramApiKeyInput />
 	<MistralApiKeyInput />
 </div>
