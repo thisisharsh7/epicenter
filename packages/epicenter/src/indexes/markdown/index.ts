@@ -3,7 +3,8 @@ import { mkdirSync, watch } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Brand } from 'wellcrafted/brand';
-import { Ok, tryAsync, trySync } from 'wellcrafted/result';
+import { createTaggedError } from 'wellcrafted/error';
+import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr } from '../../core/errors';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
@@ -18,6 +19,15 @@ import { createTableSchemaWithValidation } from '../../core/schema';
 import type { Db } from '../../db/core';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
+
+/**
+ * Error types for markdown index diagnostics
+ * Used to track files that fail to process during indexing
+ */
+export const { MarkdownIndexError, MarkdownIndexErr } = createTaggedError(
+	'MarkdownIndexError',
+);
+export type MarkdownIndexError = ReturnType<typeof MarkdownIndexError>;
 
 /**
  * Branded type for absolute file system paths
@@ -57,6 +67,20 @@ type SyncCoordination = {
 	 * File watcher checks this and skips processing to avoid the loop
 	 */
 	isProcessingYJSChange: boolean;
+};
+
+/**
+ * Required types for internal functions (after defaults have been applied)
+ *
+ * These types represent the runtime reality that optional config parameters
+ * have been given default values by the time they reach internal functions.
+ */
+type TableAndIdToPath = (params: { id: string; tableName: string }) => string;
+type PathToTableAndId = (params: {
+	path: string;
+}) => Result<{ tableName: string; id: string }, MarkdownIndexError>;
+type Serializers<TSchema extends WorkspaceSchema> = {
+	[K in keyof TSchema]?: MarkdownSerializer<TSchema[K]>;
 };
 
 /**
@@ -105,9 +129,9 @@ export type MarkdownIndexConfig<
 	 * **Optional**: Defaults to `defaultPathToTableAndId`, which expects the structure `{tableName}/{id}.md`
 	 *
 	 * @param params.path - Relative path to markdown file (e.g., "posts/my-post.md")
-	 * @returns Object with tableName and id extracted from the path, or null to skip this file
+	 * @returns Result with tableName and id, or error to skip this file
 	 *
-	 * Returning null indicates that this file path should be ignored by the file watcher.
+	 * Returning an error indicates that this file path should be ignored by the file watcher.
 	 * This is useful for skipping files that don't match your expected structure or are
 	 * metadata files that shouldn't be processed as rows.
 	 *
@@ -115,23 +139,20 @@ export type MarkdownIndexConfig<
 	 *
 	 * @example
 	 * // Default behavior (when omitted):
-	 * pathToTableAndId({ path: "posts/my-post.md" }) // → { tableName: "posts", id: "my-post" }
-	 * pathToTableAndId({ path: ".DS_Store" }) // → null (skip this file)
-	 * pathToTableAndId({ path: "README.md" }) // → null (skip this file)
+	 * pathToTableAndId({ path: "posts/my-post.md" }) // → Ok({ tableName: "posts", id: "my-post" })
+	 * pathToTableAndId({ path: ".DS_Store" }) // → Err (skip this file)
+	 * pathToTableAndId({ path: "README.md" }) // → Err (skip this file)
 	 *
 	 * @example
 	 * // Custom implementation:
 	 * pathToTableAndId: ({ path }) => {
 	 *   // Custom logic for nested folders or different file structures
 	 *   const match = path.match(/^(\w+)\/blog\/(.+)\.md$/);
-	 *   if (!match) return null;
-	 *   return { tableName: match[1], id: match[2] };
+	 *   if (!match) return MarkdownIndexErr({ message: 'Invalid path structure', context: { path } });
+	 *   return Ok({ tableName: match[1], id: match[2] });
 	 * }
 	 */
-	pathToTableAndId?(params: { path: string }): {
-		tableName: string;
-		id: string;
-	} | null;
+	pathToTableAndId?: PathToTableAndId;
 
 	/**
 	 * Build a relative file path from table name and row ID.
@@ -156,7 +177,7 @@ export type MarkdownIndexConfig<
 	 * // Custom implementation:
 	 * tableAndIdToPath: ({ id, tableName }) => `${tableName}/blog/${id}.md`
 	 */
-	tableAndIdToPath?(params: { id: string; tableName: string }): string;
+	tableAndIdToPath?: TableAndIdToPath;
 
 	/**
 	 * Optional custom serializers for tables
@@ -188,9 +209,7 @@ export type MarkdownIndexConfig<
 	 * }
 	 * ```
 	 */
-	serializers?: {
-		[K in keyof TWorkspaceSchema]?: MarkdownSerializer<TWorkspaceSchema[K]>;
-	};
+	serializers?: Serializers<TWorkspaceSchema>;
 };
 
 /**
@@ -218,14 +237,15 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 	/**
 	 * Deserialize markdown frontmatter and body back to a full row.
 	 * Returns a complete row (including id) that can be directly inserted/updated in YJS.
-	 * Returns null if the file should be skipped (e.g., invalid data, doesn't match schema).
+	 * Returns error if the file should be skipped (e.g., invalid data, doesn't match schema).
 	 *
 	 * @param params.id - Row ID extracted from file path
 	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
 	 * @param params.body - Markdown body content (text after frontmatter delimiters)
 	 * @param params.tableName - Table name (for context)
 	 * @param params.schema - Table schema (for validation)
-	 * @returns Complete row (with id field), or null to skip this file
+	 * @param params.filePath - File path (for error context)
+	 * @returns Result with complete row (with id field), or error to skip this file
 	 */
 	deserialize(params: {
 		id: string;
@@ -233,7 +253,8 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 		body: string;
 		tableName: string;
 		schema: TTableSchema;
-	}): SerializedRow<TTableSchema> | null;
+		filePath: string;
+	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
 };
 
 /**
@@ -388,7 +409,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 		/**
 		 * Push: Sync from YJS to Markdown (replace all markdown files with current YJS data)
 		 */
-		push: defineQuery({
+		pushToMarkdown: defineQuery({
 			description:
 				'Push all YJS data to markdown files (deletes existing files and writes fresh copies)',
 			handler: async () => {
@@ -412,8 +433,10 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 							);
 
 							// Check if this file matches our structure
-							const result = pathToTableAndId({ path: relativePath });
-							if (result === null) continue; // Skip files that don't match
+							const { error: pathError } = pathToTableAndId({
+								path: relativePath,
+							});
+							if (pathError) continue; // Skip files that don't match
 
 							// Delete the file
 							const fullPath = path.join(absoluteRootPath, relativePath);
@@ -489,7 +512,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 		/**
 		 * Pull: Sync from Markdown to YJS (replace all YJS data with current markdown files)
 		 */
-		pull: defineQuery({
+		pullFromMarkdown: defineQuery({
 			description:
 				'Pull all markdown files into YJS (clears YJS tables and imports from files)',
 			handler: async () => {
@@ -510,6 +533,9 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 							withFileTypes: true,
 						});
 
+						// Track diagnostics for files that fail to process
+						const diagnostics: MarkdownIndexError[] = [];
+
 						for (const entry of entries) {
 							if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
@@ -520,10 +546,15 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 							);
 
 							// Extract table name and ID from path
-							const result = pathToTableAndId({ path: relativePath });
-							if (result === null) continue; // Skip files that don't match
+							const { data: pathData, error: pathError } = pathToTableAndId({
+								path: relativePath,
+							});
+							if (pathError) {
+								diagnostics.push(pathError);
+								continue; // Skip files that don't match
+							}
 
-							const { tableName, id } = result;
+							const { tableName, id } = pathData;
 
 							// Get table and schema
 							const table = db.tables[tableName];
@@ -552,6 +583,13 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 							const parseResult = await parseMarkdownFile(fullPath);
 
 							if (parseResult.error) {
+								// Convert MarkdownError to MarkdownIndexError for diagnostics
+								diagnostics.push(
+									MarkdownIndexError({
+										message: `Failed to parse markdown file: ${parseResult.error.message}`,
+										context: { filePath: fullPath, cause: parseResult.error },
+									}),
+								);
 								console.warn(
 									`Failed to parse markdown file ${relativePath} during pull:`,
 									parseResult.error,
@@ -562,17 +600,20 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 							const { data: frontmatter, body } = parseResult.data;
 
 							// Deserialize using the serializer
-							const row = serializer.deserialize({
-								id,
-								frontmatter,
-								body,
-								tableName,
-								schema: tableSchema,
-							});
+							const { data: row, error: deserializeError } =
+								serializer.deserialize({
+									id,
+									frontmatter,
+									body,
+									tableName,
+									schema: tableSchema,
+									filePath: fullPath,
+								});
 
-							if (row === null) {
+							if (deserializeError) {
+								diagnostics.push(deserializeError);
 								console.warn(
-									`Skipping markdown file ${relativePath}: deserialize returned null`,
+									`Skipping markdown file ${relativePath}: ${deserializeError.message}`,
 								);
 								continue;
 							}
@@ -585,6 +626,34 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 									insertResult.error,
 								);
 							}
+						}
+
+						// Write diagnostics to file
+						if (diagnostics.length > 0) {
+							const diagnosticsPath = path.join(
+								process.cwd(),
+								'.epicenter',
+								`${id}-diagnostics.json`,
+							);
+
+							// Ensure .epicenter directory exists
+							trySync({
+								try: () =>
+									mkdirSync(path.dirname(diagnosticsPath), { recursive: true }),
+								catch: () => Ok(undefined),
+							});
+
+							await Bun.write(
+								diagnosticsPath,
+								JSON.stringify(
+									{
+										timestamp: new Date().toISOString(),
+										errors: diagnostics,
+									},
+									null,
+									2,
+								),
+							);
 						}
 
 						syncCoordination.isProcessingFileChange = false;
@@ -609,23 +678,29 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
  * Expects files in the structure: `{tableName}/{id}.md`
  *
  * @param params.path - Relative path to markdown file (e.g., "posts/my-post.md")
- * @returns Object with tableName and id extracted from the path, or null to skip this file
+ * @returns Result with tableName and id, or error to skip this file
  *
  * @example
- * defaultPathToTableAndId({ path: "posts/my-post.md" }) // → { tableName: "posts", id: "my-post" }
- * defaultPathToTableAndId({ path: ".DS_Store" }) // → null (skip this file)
- * defaultPathToTableAndId({ path: "README.md" }) // → null (skip this file)
- * defaultPathToTableAndId({ path: "posts/subfolder/file.md" }) // → null (unexpected structure)
+ * defaultPathToTableAndId({ path: "posts/my-post.md" }) // → Ok({ tableName: "posts", id: "my-post" })
+ * defaultPathToTableAndId({ path: ".DS_Store" }) // → Err (skip this file)
+ * defaultPathToTableAndId({ path: "README.md" }) // → Err (skip this file)
+ * defaultPathToTableAndId({ path: "posts/subfolder/file.md" }) // → Err (unexpected structure)
  */
-function defaultPathToTableAndId({ path: filePath }: { path: string }): {
-	tableName: string;
-	id: string;
-} | null {
+function defaultPathToTableAndId({
+	path: filePath,
+}: {
+	path: string;
+}): Result<{ tableName: string; id: string }, MarkdownIndexError> {
 	const parts = filePath.split(path.sep);
-	if (parts.length !== 2) return null;
+	if (parts.length !== 2) {
+		return MarkdownIndexErr({
+			message: `Invalid path structure: expected {tableName}/{id}.md, got ${filePath}`,
+			context: { filePath, reason: 'invalid-structure' },
+		});
+	}
 	const [tableName, fileName] = parts as [string, string];
 	const id = path.basename(fileName, '.md');
-	return { tableName, id };
+	return Ok({ tableName, id });
 }
 
 /**
@@ -656,7 +731,7 @@ function defaultTableAndIdToPath({
  *
  * Default behavior:
  * - Serialize: All row fields → frontmatter, empty body
- * - Deserialize: All frontmatter fields → row with validation (returns null if invalid)
+ * - Deserialize: All frontmatter fields → row with validation (returns error if invalid)
  */
 function createDefaultSerializer<TTableSchema extends TableSchema>(
 	schemaWithValidation: TableSchemaWithValidation<TTableSchema>,
@@ -666,7 +741,7 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
 			frontmatter: row,
 			body: '',
 		}),
-		deserialize: ({ id, frontmatter }) => {
+		deserialize: ({ id, frontmatter, filePath }) => {
 			// Combine id with frontmatter
 			const data = {
 				id,
@@ -678,21 +753,19 @@ function createDefaultSerializer<TTableSchema extends TableSchema>(
 
 			switch (result.status) {
 				case 'valid':
-					return result.row;
+					return Ok(result.row);
 
 				case 'schema-mismatch':
-					console.warn(
-						`Default deserializer: Schema mismatch for row ${id}`,
-						result.reason,
-					);
-					return null;
+					return MarkdownIndexErr({
+						message: `Schema mismatch for row ${id}`,
+						context: { filePath, id, reason: result.reason },
+					});
 
 				case 'invalid-structure':
-					console.warn(
-						`Default deserializer: Invalid structure for row ${id}`,
-						result.reason,
-					);
-					return null;
+					return MarkdownIndexErr({
+						message: `Invalid structure for row ${id}`,
+						context: { filePath, id, reason: result.reason },
+					});
 			}
 		},
 	};
@@ -721,8 +794,8 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 }: {
 	db: Db<TSchema>;
 	rootPath: AbsolutePath;
-	tableAndIdToPath: MarkdownIndexConfig<TSchema>['tableAndIdToPath'];
-	serializers: MarkdownIndexConfig<TSchema>['serializers'];
+	tableAndIdToPath: TableAndIdToPath;
+	serializers: Serializers<TSchema>;
 	syncCoordination: SyncCoordination;
 }): Array<() => void> {
 	const unsubscribers: Array<() => void> = [];
@@ -863,8 +936,8 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 }: {
 	db: Db<TSchema>;
 	rootPath: AbsolutePath;
-	pathToTableAndId: MarkdownIndexConfig<TSchema>['pathToTableAndId'];
-	serializers: MarkdownIndexConfig<TSchema>['serializers'];
+	pathToTableAndId: PathToTableAndId;
+	serializers: Serializers<TSchema>;
 	syncCoordination: SyncCoordination;
 }): FSWatcher {
 	// Ensure the directory exists before watching
@@ -887,11 +960,13 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 			if (!relativePath || !relativePath.endsWith('.md')) return;
 
 			// Extract table name and row ID from the file path
-			// Returns null if this file should be skipped
-			const result = pathToTableAndId({ path: relativePath });
-			if (result === null) return;
+			// Returns error if this file should be skipped
+			const { data: pathData, error: pathError } = pathToTableAndId({
+				path: relativePath,
+			});
+			if (pathError) return;
 
-			const { tableName, id } = result;
+			const { tableName, id } = pathData;
 
 			// Get table and schema
 			const table = db.tables[tableName];
@@ -949,7 +1024,7 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 					 * We only delete if the row exists in the table to avoid
 					 * unnecessary operations and potential errors.
 					 */
-					if (table.has(id)) table.delete(id);
+					if (table.has({ id })) table.delete({ id });
 					return; // Exit early for deletions
 				}
 				/**
@@ -985,25 +1060,26 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 				const { data: frontmatter, body } = parseResult.data;
 
 				// Step 2: Deserialize using the serializer (handles validation and transformation)
-				const row = serializer.deserialize({
+				const { data: row, error: deserializeError } = serializer.deserialize({
 					id,
 					frontmatter,
 					body,
 					tableName,
 					schema: tableSchema,
+					filePath,
 				});
 
-				// If deserialize returns null, skip this file (invalid/unsupported)
-				if (row === null) {
+				// If deserialize returns error, skip this file (invalid/unsupported)
+				if (deserializeError) {
 					console.warn(
-						`Skipping markdown file ${tableName}/${id}: deserialize returned null`,
+						`Skipping markdown file ${tableName}/${id}: ${deserializeError.message}`,
 					);
 					syncCoordination.isProcessingFileChange = false;
 					return;
 				}
 
 				// Step 3: Insert or update the row in YJS
-				if (table.has(id)) {
+				if (table.has({ id })) {
 					table.update(row);
 				} else {
 					table.insert(row);

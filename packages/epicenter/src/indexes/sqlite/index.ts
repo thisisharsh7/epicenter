@@ -238,7 +238,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 		/**
 		 * Push: Sync from YJS to SQLite (replace all SQLite data with current YJS data)
 		 */
-		push: defineQuery({
+		pushToSqlite: defineQuery({
 			description:
 				'Push all YJS data to SQLite (deletes existing rows and writes fresh copies)',
 			handler: async () => {
@@ -290,7 +290,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 		/**
 		 * Pull: Sync from SQLite to YJS (replace all YJS data with current SQLite data)
 		 */
-		pull: defineQuery({
+		pullFromSqlite: defineQuery({
 			description:
 				'Pull all SQLite data into YJS (clears YJS tables and imports from database)',
 			handler: async () => {
