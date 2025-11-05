@@ -332,9 +332,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/** Delete a row by ID */
 		delete: defineMutation({
-			input: type({
-				id: 'string',
-			}),
+			input: type({ id: 'string' }),
 			description: `Delete a row from the ${tableName} table`,
 			handler: (params) => {
 				ydoc.transact(() => {
@@ -345,9 +343,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/** Delete multiple rows by IDs */
 		deleteMany: defineMutation({
-			input: type({
-				ids: 'string[]',
-			}),
+			input: type({ ids: 'string[]' }),
 			description: `Delete multiple rows from the ${tableName} table`,
 			handler: (params) => {
 				ydoc.transact(() => {
