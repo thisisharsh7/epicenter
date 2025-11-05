@@ -1,19 +1,18 @@
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { EpicenterConfig } from '../core/epicenter';
-import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
- * Load the epicenter configuration from the current directory
+ * Load the epicenter configuration from the specified directory
  * Looks for epicenter.config.ts or epicenter.config.js
  *
- * @param cwd - Current working directory (defaults to process.cwd())
+ * @param configDir - Directory containing epicenter.config.ts
  * @returns The epicenter configuration
  * @throws Error if no config file is found or if the config is invalid
  */
 export async function loadEpicenterConfig(
-	cwd: string = process.cwd(),
+	configDir: string,
 ): Promise<EpicenterConfig> {
+
 	// Try different config file extensions
 	const configFiles = [
 		'epicenter.config.ts',
@@ -24,8 +23,9 @@ export async function loadEpicenterConfig(
 
 	let configPath: string | null = null;
 	for (const fileName of configFiles) {
-		const filePath = resolve(cwd, fileName);
-		if (existsSync(filePath)) {
+		const filePath = resolve(configDir, fileName);
+		const file = Bun.file(filePath);
+		if (await file.exists()) {
 			configPath = filePath;
 			break;
 		}
@@ -33,7 +33,7 @@ export async function loadEpicenterConfig(
 
 	if (!configPath) {
 		throw new Error(
-			`No epicenter config file found in ${cwd}.\n` +
+			`No epicenter config file found in ${configDir}.\n` +
 				`Expected one of: ${configFiles.join(', ')}`,
 		);
 	}
