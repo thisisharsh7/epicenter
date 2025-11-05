@@ -84,7 +84,6 @@ export type { Index, IndexExports, IndexContext, WorkspaceIndexMap } from './cor
 
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';
-export type { SQLiteIndexConfig } from './indexes/sqlite';
 
 export { markdownIndex } from './indexes/markdown';
 export type { MarkdownIndexConfig } from './indexes/markdown';
