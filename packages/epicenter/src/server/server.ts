@@ -1,10 +1,8 @@
-import { Server as HocuspocusServer } from '@hocuspocus/server';
 import { StreamableHTTPTransport } from '@hono/mcp';
 import { swaggerUI } from '@hono/swagger-ui';
 import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
 import { describeRoute, openAPIRouteHandler, validator } from 'hono-openapi';
-import { upgradeWebSocket, websocket } from 'hono/bun';
 import { Err, Ok } from 'wellcrafted/result';
 import {
 	type EpicenterClient,
@@ -16,21 +14,19 @@ import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createMcpServer } from './mcp';
 
 /**
- * Create a unified server with REST, MCP, Hocuspocus, and API documentation endpoints
+ * Create a unified server with REST, MCP, and API documentation endpoints
  *
  * This creates a Hono server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET `/{workspace}/{action}` for queries, POST for mutations
  * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
- * - Hocuspocus endpoint: WebSocket at `/hocuspocus` for real-time Yjs collaboration
  * - API documentation: `/swagger-ui` (Swagger UI) and `/scalar` (Scalar)
  * - OpenAPI spec: `/openapi.json`
  *
  * The function initializes the Epicenter client, registers REST routes for all workspace actions,
- * configures an MCP server instance for protocol-based access, and sets up a Hocuspocus server
- * for real-time collaboration.
+ * and configures an MCP server instance for protocol-based access.
  *
  * @param config - Epicenter configuration with workspaces
- * @returns Object containing the Hono app, Epicenter client, and WebSocket handler
+ * @returns Object containing the Hono app and Epicenter client
  *
  * @see {@link createMcpServer} in mcp.ts for the MCP server implementation
  *
@@ -45,18 +41,16 @@ import { createMcpServer } from './mcp';
  *   workspaces: [blogWorkspace],
  * });
  *
- * const { app, client, websocket } = await createServer(epicenter);
+ * const { app, client } = await createServer(epicenter);
  *
  * Bun.serve({
  *   fetch: app.fetch,
- *   websocket,
  *   port: 3913,
  * });
  *
  * // Access at:
  * // - http://localhost:3913/swagger-ui (Swagger UI)
  * // - http://localhost:3913/scalar (Scalar)
- * // - ws://localhost:3913/hocuspocus (Collaboration)
  * ```
  */
 export async function createServer<
@@ -69,16 +63,11 @@ export async function createServer<
 	app: Hono;
 	/** Epicenter client with initialized workspaces and actions */
 	client: EpicenterClient<TWorkspaces>;
-	/** WebSocket handler for Bun.serve */
-	websocket: typeof websocket;
 }> {
 	const app = new Hono();
 
 	// Create client
 	const client = await createEpicenterClient(config);
-
-	// Create Hocuspocus server for real-time collaboration
-	const hocuspocus = new HocuspocusServer();
 
 	// Register REST endpoints for each workspace action
 	forEachAction(client, ({ workspaceId, actionName, action }) => {
@@ -161,15 +150,5 @@ export async function createServer<
 	// Scalar UI endpoint
 	app.get('/scalar', Scalar({ url: '/openapi.json' }));
 
-	// Hocuspocus WebSocket endpoint
-	app.get(
-		'/hocuspocus',
-		upgradeWebSocket((c) => ({
-			onOpen(_evt, ws) {
-				hocuspocus.handleConnection(ws.raw, c.req.raw);
-			},
-		})),
-	);
-
-	return { app, client, websocket };
+	return { app, client };
 }
