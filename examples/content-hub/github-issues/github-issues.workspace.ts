@@ -47,7 +47,7 @@ export const githubIssues = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				storagePath: process.env.EPICENTER_ROOT_DIR
+				rootDir: process.env.EPICENTER_ROOT_DIR
 					? path.join(process.env.EPICENTER_ROOT_DIR, id)
 					: `./${id}`,
 			}),
