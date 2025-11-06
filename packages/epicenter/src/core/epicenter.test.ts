@@ -21,7 +21,6 @@ import { createEpicenterClient, defineEpicenter } from './epicenter/index';
  */
 const pages = defineWorkspace({
 	id: 'pages',
-	version: 1,
 
 	schema: {
 		pages: {
@@ -110,7 +109,6 @@ const niche = multiSelect({
 
 const contentHub = defineWorkspace({
 	id: 'content-hub',
-	version: 1,
 
 	dependencies: [pages],
 
@@ -428,7 +426,6 @@ describe('Epicenter', () => {
 		) => {
 			return defineWorkspace({
 				id: workspaceId,
-				version: 1,
 				dependencies: deps,
 				schema: {
 					items: {

@@ -24,7 +24,6 @@ import { NICHES } from './shared/niches';
  */
 export const githubIssues = defineWorkspace({
 	id: 'github-issues',
-	version: 1,
 
 	schema: {
 		issues: {

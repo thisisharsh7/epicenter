@@ -19,7 +19,6 @@ import { SHORT_FORM_VIDEO_SCHEMA } from './shared/schemas';
  */
 export const tiktok = defineWorkspace({
 	id: 'tiktok',
-	version: 1,
 
 	schema: {
 		posts: SHORT_FORM_VIDEO_SCHEMA,

@@ -56,7 +56,6 @@ When you call `createEpicenterClient(config)` (or `createServer()`, which intern
 ┌─────────────────────────────────────────────────────────────┐
 │ 1. REGISTRATION                                              │
 │    • Collect all workspace configs                           │
-│    • Resolve versions (highest version wins)                 │
 │    • Build workspace registry                                │
 └─────────────────────────────────────────────────────────────┘
                            │
@@ -290,7 +289,6 @@ const epicenter = defineEpicenter({
 This model:
 - Makes all dependencies explicit and auditable
 - Prevents "dependency hell" with deeply nested trees
-- Allows version resolution (highest version wins)
 - Ensures deterministic initialization order (topological sort)
 
 If you forget to include a transitive dependency, you'll get a clear error at runtime:

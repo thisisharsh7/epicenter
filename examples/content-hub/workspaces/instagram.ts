@@ -19,7 +19,6 @@ import { SHORT_FORM_VIDEO_SCHEMA } from './shared/schemas';
  */
 export const instagram = defineWorkspace({
 	id: 'instagram',
-	version: 1,
 
 	schema: {
 		posts: SHORT_FORM_VIDEO_SCHEMA,

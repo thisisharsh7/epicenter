@@ -1,12 +1,9 @@
 import * as Y from 'yjs';
-import { createEpicenterDb } from '../db/core';
 import type { WorkspaceActionMap } from '../actions';
+import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
-import type {
-	AnyWorkspaceConfig,
-	WorkspaceConfig,
-} from './config';
+import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
 /**
  * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
@@ -14,26 +11,27 @@ import type {
  * An Epicenter client is an object of workspace clients: `{ workspaceId: WorkspaceClient }`.
  * `createEpicenterClient()` returns the full object. `createWorkspaceClient()` returns one workspace from that object.
  */
-export type WorkspaceClient<TActionMap extends WorkspaceActionMap> = TActionMap & {
-	/**
-	 * Cleanup method for resource management
-	 * - Destroys all indexes
-	 * - Destroys the YJS document
-	 *
-	 * Use with `using` syntax for automatic cleanup:
-	 * ```typescript
-	 * using workspace = await createWorkspaceClient(config);
-	 * ```
-	 *
-	 * Or call manually for explicit control:
-	 * ```typescript
-	 * const workspace = await createWorkspaceClient(config);
-	 * // ... use workspace ...
-	 * workspace[Symbol.dispose]();
-	 * ```
-	 */
-	[Symbol.dispose]: () => void;
-};
+export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
+	TActionMap & {
+		/**
+		 * Cleanup method for resource management
+		 * - Destroys all indexes
+		 * - Destroys the YJS document
+		 *
+		 * Use with `using` syntax for automatic cleanup:
+		 * ```typescript
+		 * using workspace = await createWorkspaceClient(config);
+		 * ```
+		 *
+		 * Or call manually for explicit control:
+		 * ```typescript
+		 * const workspace = await createWorkspaceClient(config);
+		 * // ... use workspace ...
+		 * workspace[Symbol.dispose]();
+		 * ```
+		 */
+		[Symbol.dispose]: () => void;
+	};
 
 /**
  * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace id.
@@ -81,32 +79,27 @@ export async function initializeWorkspaces<
 >(workspaceConfigs: TConfigs): Promise<WorkspacesToClients<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
-	// Register all workspace configs with version resolution
+	// Register all workspace configs
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Registry mapping workspace ID to the highest version of that workspace's config.
-	 * When the same workspace appears multiple times with different versions,
-	 * we keep only the highest version (version compared as integers).
-	 * Example: If both workspaceA v1 and workspaceA v3 are registered, we keep v3.
+	 * Registry mapping workspace ID to workspace config.
+	 * Each workspace ID should appear at most once in the workspaceConfigs array.
 	 */
-	const workspaceConfigsMap = new Map<
-		string,
-		WorkspaceConfig
-	>();
+	const workspaceConfigsMap = new Map<string, WorkspaceConfig>();
 
-	// Register all workspace configs with automatic version resolution
-	// If the same workspace ID appears multiple times, keep the highest version
+	// Register all workspace configs
 	for (const workspaceConfig of workspaceConfigs) {
 		// At runtime, all workspace configs have full WorkspaceConfig properties
 		// The AnyWorkspaceConfig constraint is only for type inference
 		const config = workspaceConfig as unknown as WorkspaceConfig;
 		const existing = workspaceConfigsMap.get(config.id);
-		if (!existing || config.version > existing.version) {
-			// Either first time seeing this workspace, or this version is higher
-			workspaceConfigsMap.set(config.id, config);
+		if (existing) {
+			throw new Error(
+				`Duplicate workspace ID detected: "${config.id}". Each workspace must have a unique ID.`,
+			);
 		}
-		// Otherwise keep existing (higher or equal version)
+		workspaceConfigsMap.set(config.id, config);
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -137,10 +130,7 @@ export async function initializeWorkspaces<
 				// Verify the dependency exists in registered configs (flat/hoisted model)
 				if (!workspaceConfigsMap.has(dep.id)) {
 					throw new Error(
-						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", ` +
-							`but it was not found in rootWorkspaceConfigs.\n\n` +
-							`Fix: Add "${dep.id}" to rootWorkspaceConfigs array (flat/hoisted resolution).\n` +
-							`All transitive dependencies must be declared at the root level.`,
+						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", but it was not found in rootWorkspaceConfigs.\n\nFix: Add "${dep.id}" to rootWorkspaceConfigs array (flat/hoisted resolution).\nAll transitive dependencies must be declared at the root level.`,
 					);
 				}
 			}
@@ -268,23 +258,26 @@ export async function initializeWorkspaces<
 	): Promise<WorkspaceClient<any>> => {
 		// Build the workspaceClients object by injecting already-initialized dependencies
 		// Key: dependency id, Value: initialized client
-		const workspaceClients: Record<string, WorkspaceClient<WorkspaceActionMap>> = {};
+		const workspaceClients: Record<
+			string,
+			WorkspaceClient<WorkspaceActionMap>
+		> = {};
 
 		if (
 			workspaceConfig.dependencies &&
 			workspaceConfig.dependencies.length > 0
 		) {
-			// Resolve dependencies from the registered configs (handles version resolution)
+			// Inject dependency clients from the registered configs
 			// Build set of unique dependency IDs
 			const uniqueDepIds = new Set(
 				workspaceConfig.dependencies.map((dep) => dep.id),
 			);
 
-			// Inject dependency clients using resolved configs
+			// Inject dependency clients
 			for (const depId of uniqueDepIds) {
-				// Get the resolved config (might be a different version than originally specified)
-				const resolvedConfig = workspaceConfigsMap.get(depId);
-				if (!resolvedConfig) {
+				// Get the workspace config
+				const depConfig = workspaceConfigsMap.get(depId);
+				if (!depConfig) {
 					throw new Error(
 						`Internal error: dependency "${depId}" not found in registered configs`,
 					);
@@ -298,8 +291,8 @@ export async function initializeWorkspaces<
 					);
 				}
 
-				// Inject using the resolved config's id
-				workspaceClients[resolvedConfig.id] = depClient;
+				// Inject using the config's id
+				workspaceClients[depConfig.id] = depClient;
 			}
 		}
 
@@ -328,10 +321,12 @@ export async function initializeWorkspaces<
 		// Initialize all indexes in parallel for better performance
 		const indexes = Object.fromEntries(
 			await Promise.all(
-				Object.entries(workspaceConfig.indexes).map(async ([indexId, indexFn]) => [
-					indexId,
-					await indexFn({ id: workspaceConfig.id, db }),
-				]),
+				Object.entries(workspaceConfig.indexes).map(
+					async ([indexId, indexFn]) => [
+						indexId,
+						await indexFn({ id: workspaceConfig.id, db }),
+					],
+				),
 			),
 		) as {
 			[K in keyof typeof workspaceConfig.indexes]: Awaited<
@@ -378,7 +373,10 @@ export async function initializeWorkspaces<
 	}
 
 	// Convert Map to typed object keyed by workspace id
-	const initializedWorkspaces: Record<string, WorkspaceClient<WorkspaceActionMap>> = {};
+	const initializedWorkspaces: Record<
+		string,
+		WorkspaceClient<WorkspaceActionMap>
+	> = {};
 	for (const [workspaceId, client] of clients) {
 		initializedWorkspaces[workspaceId] = client;
 	}
@@ -398,7 +396,6 @@ export async function initializeWorkspaces<
 export async function createWorkspaceClient<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
-	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TIndexResults extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
@@ -406,7 +403,6 @@ export async function createWorkspaceClient<
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
-		TVersion,
 		TWorkspaceSchema,
 		TIndexResults,
 		TActionMap
@@ -419,7 +415,9 @@ export async function createWorkspaceClient<
 	if (workspace.dependencies) {
 		// Dependencies are constrained to AnyWorkspaceConfig at the type level to prevent
 		// infinite recursion, but at runtime they're full WorkspaceConfig objects
-		allWorkspaceConfigs.push(...(workspace.dependencies as unknown as WorkspaceConfig[]));
+		allWorkspaceConfigs.push(
+			...(workspace.dependencies as unknown as WorkspaceConfig[]),
+		);
 	}
 
 	// Add target workspace last

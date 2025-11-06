@@ -19,7 +19,6 @@ import { SHORT_FORM_TEXT_SCHEMA } from './shared/schemas';
  */
 export const producthunt = defineWorkspace({
 	id: 'producthunt',
-	version: 1,
 
 	schema: {
 		posts: SHORT_FORM_TEXT_SCHEMA,

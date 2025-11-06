@@ -97,7 +97,6 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  * ```typescript
  * const blogWorkspace = defineWorkspace({
  *   id: 'blog',
- *   version: 1,
  *
  *   schema: {
  *     posts: {
@@ -154,7 +153,6 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
 export function defineWorkspace<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
-	const TVersion extends number,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TIndexResults extends WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap,
@@ -162,7 +160,6 @@ export function defineWorkspace<
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
-		TVersion,
 		TWorkspaceSchema,
 		TIndexResults,
 		TActionMap
@@ -170,7 +167,6 @@ export function defineWorkspace<
 ): WorkspaceConfig<
 	TDeps,
 	TId,
-	TVersion,
 	TWorkspaceSchema,
 	TIndexResults,
 	TActionMap
@@ -178,11 +174,6 @@ export function defineWorkspace<
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
-	}
-
-	// Validate workspace version
-	if (!workspace.version || typeof workspace.version !== 'number') {
-		throw new Error('Workspace must have a valid number version');
 	}
 
 	// Validate dependencies
@@ -226,13 +217,11 @@ export function defineWorkspace<
 export type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
-	TVersion extends number = number,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TIndexResults extends WorkspaceIndexMap = WorkspaceIndexMap,
 	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
 > = {
 	id: TId;
-	version: TVersion;
 	schema: TWorkspaceSchema;
 	dependencies?: TDeps;
 	indexes: {

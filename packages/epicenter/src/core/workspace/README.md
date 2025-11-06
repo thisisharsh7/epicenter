@@ -71,7 +71,6 @@ type WorkspaceConfig<
   TActionMap extends WorkspaceActionMap
 > = {
   id: string;
-  version: number;
   name: string;
   schema: TSchema;
   dependencies?: TDeps;
@@ -172,8 +171,7 @@ Like VS Code extensions, Epicenter uses flat dependency resolution:
 
 1. All transitive dependencies must be declared at the root level
 2. If workspace A depends on B, and B depends on C, then A must list both B and C in its dependencies array
-3. Version conflicts are resolved by keeping the highest version
-4. Dependencies are initialized in topological order (Kahn's algorithm)
+3. Dependencies are initialized in topological order (Kahn's algorithm)
 
 This model:
 - Prevents "dependency hell" with deeply nested trees
@@ -217,4 +215,4 @@ This system is mostly invisible until you:
 2. Need type information for dependency actions (accessed via `workspaces.dependencyName`)
 3. See type errors about "Type instantiation is excessively deep" (the minimal constraint prevents this)
 
-The flat/hoisted model means you always have explicit control over which workspace versions are used, and the type system provides full autocomplete for your direct dependencies' actions.
+The flat/hoisted model means you always have explicit control over which workspaces are used, and the type system provides full autocomplete for your direct dependencies' actions.

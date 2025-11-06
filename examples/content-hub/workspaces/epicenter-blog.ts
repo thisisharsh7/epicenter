@@ -19,7 +19,6 @@ import { LONG_FORM_TEXT_SCHEMA } from './shared/schemas';
  */
 export const epicenterBlog = defineWorkspace({
 	id: 'epicenter-blog',
-	version: 1,
 
 	schema: {
 		posts: LONG_FORM_TEXT_SCHEMA,

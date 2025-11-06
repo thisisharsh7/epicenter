@@ -22,7 +22,6 @@ import { MarkdownIndexErr } from '../../../packages/epicenter/src/indexes/markdo
  */
 export const email = defineWorkspace({
 	id: 'email',
-	version: 1,
 
 	schema: {
 		emails: {

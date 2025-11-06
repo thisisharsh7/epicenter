@@ -15,7 +15,6 @@ import { setupPersistence } from '@epicenter/hq/providers';
  */
 export const pages = defineWorkspace({
 	id: 'pages',
-	version: 1,
 
 	schema: {
 		pages: {

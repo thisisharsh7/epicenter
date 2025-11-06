@@ -37,7 +37,12 @@ export async function deleteMarkdownFile({
 	filePath: string;
 }): Promise<Result<void, MarkdownOperationError>> {
 	return tryAsync({
-		try: () => Bun.file(filePath).delete(),
+		try: async () => {
+			const file = Bun.file(filePath);
+			const exists = await file.exists();
+			if (!exists) return; // File already deleted, operation succeeded
+			await file.delete();
+		},
 		catch: (error) =>
 			MarkdownOperationErr({
 				message: `Failed to delete markdown file ${filePath}: ${extractErrorMessage(error)}`,
