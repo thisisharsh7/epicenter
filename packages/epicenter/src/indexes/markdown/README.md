@@ -130,7 +130,7 @@ To store files in a different location (relative to storageDir):
 ```typescript
 indexes: {
   markdown: (context) => markdownIndex(context, {
-    rootDir: './vault',  // → <storageDir>/vault
+    directory: './vault',  // → <storageDir>/vault
   }),
 }
 ```
@@ -140,7 +140,7 @@ Or use an absolute path:
 ```typescript
 indexes: {
   markdown: (context) => markdownIndex(context, {
-    rootDir: '/absolute/path/to/vault',
+    directory: '/absolute/path/to/vault',
   }),
 }
 ```

@@ -122,10 +122,10 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  *
  *   indexes: {
  *     sqlite: (c) => sqliteIndex(c),
- *     markdown: markdownIndex,  // Uses all defaults! (rootDir defaults to './blog')
- *     // Or explicit: ({ id, db }) => markdownIndex({ id, db })
- *     // Or custom path: ({ id, db }) => markdownIndex({ id, db, rootDir: './data' })
- *     // Or custom serializers: ({ id, db }) => markdownIndex({ id, db, serializers: {...} })
+ *     markdown: markdownIndex,  // Uses all defaults! (directory defaults to './blog')
+ *     // Or explicit: (context) => markdownIndex(context)
+ *     // Or custom directory: (context) => markdownIndex(context, { directory: './data' })
+ *     // Or custom serializers: (context) => markdownIndex(context, { serializers: {...} })
  *   },
  *
  *   providers: [

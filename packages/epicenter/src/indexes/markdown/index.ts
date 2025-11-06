@@ -92,26 +92,26 @@ export type MarkdownIndexConfig<
 	 *
 	 * **Option 1: Relative paths** (recommended): Resolved relative to storageDir from epicenter config
 	 * ```typescript
-	 * rootDir: './vault'      // → <storageDir>/vault
-	 * rootDir: '../content'   // → <storageDir>/../content
+	 * directory: './vault'      // → <storageDir>/vault
+	 * directory: '../content'   // → <storageDir>/../content
 	 * ```
 	 *
 	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
 	 * ```typescript
-	 * rootDir: '/absolute/path/to/vault'
+	 * directory: '/absolute/path/to/vault'
 	 * ```
 	 *
 	 * **Option 3: Relative to current file**: Use import.meta.dirname to create absolute path relative to the workspace file
 	 * ```typescript
 	 * // In workspace.ts, places files in ./vault folder next to workspace.ts
-	 * rootDir: path.join(import.meta.dirname, './vault')
+	 * directory: path.join(import.meta.dirname, './vault')
 	 * ```
 	 *
 	 * All file paths returned by tableAndIdToPath will be relative to this directory.
 	 *
 	 * @default `./${id}` where id is the workspace ID
 	 */
-	rootDir?: string;
+	directory?: string;
 
 	/**
 	 * Extract table name and row ID from a relative file path.
@@ -287,7 +287,7 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * @param context.db - Epicenter database instance (required)
  * @param context.storageDir - Resolved storage directory from epicenter config (required)
  * @param config - Optional markdown configuration
- * @param config.rootDir - Optional directory for markdown files (defaults to `{workspaceId}`, resolved relative to storageDir)
+ * @param config.directory - Optional directory for markdown files (defaults to `{workspaceId}`, resolved relative to storageDir)
  * @param config.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `{tableName}/{id}.md`)
  * @param config.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `{tableName}/{id}.md`)
  * @param config.serializers - Optional custom serializers per table (defaults to all fields in frontmatter)
@@ -329,7 +329,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 ) => {
 	const { id, db, storageDir } = context;
 	const {
-		rootDir = `./${id}`,
+		directory = `./${id}`,
 		pathToTableAndId = defaultPathToTableAndId,
 		tableAndIdToPath = defaultTableAndIdToPath,
 		serializers = {},
@@ -341,10 +341,10 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		);
 	}
 
-	// Resolve rootDir to absolute path
-	// If rootDir is relative, resolve it relative to storageDir
-	// If rootDir is absolute, use it as-is
-	const absoluteRootDir = path.resolve(storageDir, rootDir) as AbsolutePath;
+	// Resolve directory to absolute path
+	// If directory is relative, resolve it relative to storageDir
+	// If directory is absolute, use it as-is
+	const absoluteRootDir = path.resolve(storageDir, directory) as AbsolutePath;
 
 	/**
 	 * Coordination state to prevent infinite sync loops
