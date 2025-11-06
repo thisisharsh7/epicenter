@@ -18,7 +18,6 @@
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { $ } from 'bun';
-import { extractErrorMessage } from 'wellcrafted';
 
 /** Extract new version from command line arguments */
 const newVersion = process.argv[2];
@@ -155,3 +154,10 @@ try {
 }
 
 console.log(`\n🎉 Release ${newVersion} complete!`);
+
+/**
+ * Extract error message from unknown error type
+ */
+function extractErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
