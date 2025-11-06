@@ -11,7 +11,7 @@ import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr } from '../../core/errors';
-import { getConfigDir } from '../../core/helpers';
+import { getRootDir } from '../../core/helpers';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
@@ -48,7 +48,7 @@ type SyncCoordination = {
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
  *
- * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the directory containing epicenter.config.ts.
+ * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the root directory (customizable via EPICENTER_ROOT_DIR environment variable).
  *
  * @param context - Index context with workspace ID and database instance
  *
@@ -81,19 +81,11 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
-	/**
-	 * Directory containing epicenter.config.ts (where epicenter commands are run)
-	 * Relative storage paths are resolved from here
-	 */
-	const configDir = getConfigDir();
-
-	// Auto-resolve path to .epicenter/{id}.db
-	// Relative path is resolved relative to directory containing epicenter.config.ts
+	// Set up storage paths
+	const rootDir = getRootDir();
 	const relativeDatabasePath = path.join('.epicenter', `${id}.db`);
-	const resolvedDatabasePath = path.resolve(configDir, relativeDatabasePath);
-
-	// Create .epicenter directory if it doesn't exist
-	const storageDir = path.resolve(configDir, '.epicenter');
+	const resolvedDatabasePath = path.resolve(rootDir, relativeDatabasePath);
+	const storageDir = path.resolve(rootDir, '.epicenter');
 	await mkdir(storageDir, { recursive: true });
 
 	// Create database connection with schema for proper type inference

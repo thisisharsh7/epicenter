@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { getConfigDir } from '../../../helpers';
+import { getRootDir } from '../../../helpers';
 import type { Provider } from '../../config';
 
 /**
@@ -18,7 +18,7 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * 2. Loads existing state from `.epicenter/${workspaceId}.yjs` on startup
  * 3. Auto-saves to disk on every YJS update
  *
- * **Storage location**: `.epicenter/${workspaceId}.yjs` (in directory containing epicenter.config.ts)
+ * **Storage location**: `.epicenter/${workspaceId}.yjs` (in root directory, customizable via EPICENTER_ROOT_DIR)
  * - Each workspace gets its own file named after its ID
  * - Binary format (not human-readable)
  * - Should be gitignored (add `.epicenter/` to `.gitignore`)
@@ -54,12 +54,8 @@ export const setupPersistence = (async ({ id, ydoc }) => {
 	const fs = await import('node:fs');
 	const path = await import('node:path');
 
-	// Directory containing epicenter.config.ts (where epicenter commands are run)
-	const configDir = getConfigDir();
-
-	// Auto-resolve to .epicenter/{id}.yjs
-	// Relative path is resolved relative to directory containing epicenter.config.ts
-	const storageDir = path.resolve(configDir, EPICENTER_STORAGE_DIR);
+	const rootDir = getRootDir();
+	const storageDir = path.resolve(rootDir, EPICENTER_STORAGE_DIR);
 	const filePath = path.join(storageDir, `${id}.yjs`);
 
 	// Ensure .epicenter directory exists

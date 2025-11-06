@@ -8,7 +8,7 @@ import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import type { Db } from '../../core/db/core';
 import { IndexErr } from '../../core/errors';
-import { getConfigDir } from '../../core/helpers';
+import { getRootDir } from '../../core/helpers';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type {
 	Row,
@@ -100,10 +100,10 @@ export type MarkdownIndexConfig<
 	 *
 	 * **Three ways to specify the path**:
 	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to directory containing epicenter.config.ts (where epicenter commands are run)
+	 * **Option 1: Relative paths** (recommended): Resolved relative to root directory (customizable via EPICENTER_ROOT_DIR environment variable)
 	 * ```typescript
-	 * rootDir: './vault'      // → <configDir>/vault
-	 * rootDir: '../content'   // → <configDir>/../content
+	 * rootDir: './vault'      // → <rootDir>/vault
+	 * rootDir: '../content'   // → <rootDir>/../content
 	 * ```
 	 *
 	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
@@ -356,22 +356,12 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
 }: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
-	/**
-	 * Directory containing epicenter.config.ts (where epicenter commands are run)
-	 * Relative storage paths are resolved from here
-	 */
-	const configDir = getConfigDir();
+	const storageRoot = getRootDir();
 
-	/**
-	 * Resolve rootDir to absolute path using three-layer resolution pattern:
-	 * 1. Relative paths (./content, ../vault) → resolved relative to directory containing epicenter.config.ts
-	 * 2. Absolute paths (/absolute/path) → used as-is
-	 * 3. Explicit paths (import.meta.dirname) → already absolute, pass through unchanged
-	 */
+	// Resolve rootDir to absolute path
+	// Relative paths resolved from storage root, absolute paths used as-is
 	const absoluteRootDir = (
-		path.isAbsolute(rootDir)
-			? rootDir
-			: path.resolve(configDir, rootDir)
+		path.isAbsolute(rootDir) ? rootDir : path.resolve(storageRoot, rootDir)
 	) as AbsolutePath;
 
 	/**
@@ -638,7 +628,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 						// Write diagnostics to file
 						if (diagnostics.length > 0) {
 							const diagnosticsPath = path.join(
-								configDir,
+								storageRoot,
 								'.epicenter',
 								`${id}-diagnostics.json`,
 							);
