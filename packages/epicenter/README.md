@@ -71,7 +71,7 @@ const provider = new HocuspocusProvider({
 // Run workspace with sync enabled
 const api = await runWorkspace(workspace, {
   database: './users/data/db.sqlite',
-  storagePath: './users/data',
+  rootDir: './users/data',
   yjsDoc: ydoc // Enable Yjs sync (future feature)
 });
 ```
@@ -230,7 +230,7 @@ export default blogWorkspace;
 // 2. Run the workspace
 const runtime = await runWorkspace(blogWorkspace, {
   database: './blog/data/db.sqlite',
-  storagePath: './blog/data'
+  rootDir: './blog/data'
 });
 
 // 3. Use enhanced table helpers

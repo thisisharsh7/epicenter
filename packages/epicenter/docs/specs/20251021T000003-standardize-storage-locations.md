@@ -19,7 +19,7 @@ Storage is inconsistent:
 
 **Markdown remains user-configurable:**
 - No standard location enforced
-- User specifies full path in `storagePath`
+- User specifies full path in `rootDir`
 
 ## Changes Needed
 
@@ -36,7 +36,7 @@ Storage is inconsistent:
 
 ### 3. Update Persistence (src/persistence/desktop.ts)
 - Replace hardcoded `'./.epicenter'` string with constant
-- Line ~69: Change `const storagePath = './.epicenter' as const;` to use constant
+- Line ~69: Change `const rootDir = './.epicenter' as const;` to use constant
 
 ### 4. Fix All Database Configs
 Find and fix all configs that use `database:` with paths:

@@ -87,7 +87,7 @@ The Epicenter CLI provides the database and storage:
 // The CLI does this internally:
 const app = await runWorkspace(epicenter, {
   database: './data/app.db',
-  storagePath: './data'
+  rootDir: './data'
 });
 
 // Now you have the full app with all workspaces initialized
@@ -201,7 +201,7 @@ const epicenter = defineWorkspace({
 // Runtime injection (handled by CLI)
 const app = await runWorkspace(epicenter, {
   database: './data.db',
-  storagePath: './data'
+  rootDir: './data'
 });
 ```
 

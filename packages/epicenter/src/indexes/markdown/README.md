@@ -132,7 +132,7 @@ indexes: {
   markdown: ({ id, db }) => markdownIndex({
     id,
     db,
-    storagePath: './content',
+    rootDir: './content',
   }),
 }
 ```
@@ -224,7 +224,7 @@ indexes: {
   markdown: ({ id, db }) => markdownIndex({
     id,
     db,
-    storagePath: './vault',
+    rootDir: './vault',
     pathToTableAndId: ({ path }) => {
       // Custom logic to extract table name and ID from file paths
       const parts = path.split('/');

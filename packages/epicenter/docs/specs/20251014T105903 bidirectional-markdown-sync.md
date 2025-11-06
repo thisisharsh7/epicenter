@@ -59,7 +59,7 @@ We'll use **content-based diffing** to prevent infinite loops:
 ```typescript
 // Use Bun's fs.watch() with recursive option
 const watcher = fs.watch(
-	storagePath,
+	rootDir,
 	{ recursive: true },
 	(event, filename) => {
 		// Handle file change events

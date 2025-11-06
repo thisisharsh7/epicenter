@@ -111,7 +111,7 @@ onAdd: async (row) => {
 		const serialized = serializeRow(row);
 
 		// Extract content and build frontmatter from serialized data
-		const filePath = getMarkdownPath(storagePath, tableName, row.id);
+		const filePath = getMarkdownPath(rootDir, tableName, row.id);
 		const content = contentField ? (serialized[contentField] ?? '') : '';
 
 		// Build frontmatter (plain object manipulation)
@@ -149,7 +149,7 @@ async function writeRowToMarkdown(
 	tableConfig: TableMarkdownConfig | undefined,
 ): Promise<Result<void, MarkdownError>> {
 	const serialized = serializeRow(row);
-	const filePath = getMarkdownPath(storagePath, tableName, row.id);
+	const filePath = getMarkdownPath(rootDir, tableName, row.id);
 	const contentField = tableConfig?.contentField;
 
 	const content = contentField ? (serialized[contentField] ?? '') : '';

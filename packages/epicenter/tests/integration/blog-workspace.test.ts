@@ -48,7 +48,7 @@ describe('Blog Workspace Integration', () => {
 				markdownIndex({
 					id,
 					db,
-					storagePath: path.join(import.meta.dir, '.data'),
+					rootDir: path.join(import.meta.dir, '.data'),
 				}),
 		},
 
