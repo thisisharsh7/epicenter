@@ -572,6 +572,21 @@
 
 							if (existing) {
 								skipped++;
+
+								// Delete from IndexedDB since it already exists in file system
+								const { error: deleteError } =
+									await indexedDb.recordings.delete(recording);
+
+								if (deleteError) {
+									onProgress(
+										`[Migration] ⚠️  Warning: Failed to delete skipped recording ${recording.id} from IndexedDB`,
+									);
+								} else {
+									onProgress(
+										`[Migration] ✓ Deleted skipped recording ${recording.id} from IndexedDB`,
+									);
+								}
+
 								continue;
 							}
 
@@ -725,6 +740,21 @@
 
 							if (existing) {
 								skipped++;
+
+								// Delete from IndexedDB since it already exists in file system
+								const { error: deleteError } =
+									await indexedDb.transformations.delete(transformation);
+
+								if (deleteError) {
+									onProgress(
+										`[Migration] ⚠️  Warning: Failed to delete skipped transformation ${transformation.id} from IndexedDB`,
+									);
+								} else {
+									onProgress(
+										`[Migration] ✓ Deleted skipped transformation ${transformation.id} from IndexedDB`,
+									);
+								}
+
 								continue;
 							}
 
@@ -865,6 +895,20 @@
 
 							if (existing) {
 								skipped++;
+
+								// Delete from IndexedDB since it already exists in file system
+								const { error: deleteError } = await indexedDb.runs.delete(run);
+
+								if (deleteError) {
+									onProgress(
+										`[Migration] ⚠️  Warning: Failed to delete skipped transformation run ${run.id} from IndexedDB`,
+									);
+								} else {
+									onProgress(
+										`[Migration] ✓ Deleted skipped transformation run ${run.id} from IndexedDB`,
+									);
+								}
+
 								continue;
 							}
 
