@@ -2,6 +2,7 @@ import path from 'node:path';
 import {
 	DateWithTimezone,
 	DateWithTimezoneFromString,
+	type SerializedRow,
 	date,
 	defineMutation,
 	defineWorkspace,
@@ -10,7 +11,6 @@ import {
 	integer,
 	isDateWithTimezoneString,
 	markdownIndex,
-	type SerializedRow,
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
@@ -57,10 +57,10 @@ export const clippings = defineWorkspace({
 					Ok({ tableName: 'clippings', id: path.basename(fileName, '.md') }),
 				serializers: {
 					clippings: {
-						serialize: ({ row: { content, ...row } }) => {
+						serialize: ({ row: { content, id: _, ...row } }) => {
 							// Remove null values from frontmatter
 							const frontmatter = Object.fromEntries(
-								Object.entries(row).filter(([_, value]) => value !== null)
+								Object.entries(row).filter(([_, value]) => value !== null),
 							);
 							return {
 								frontmatter,
@@ -221,7 +221,7 @@ export const clippings = defineWorkspace({
 
 				// Convert valid rows to JSON
 				const clippingsData: Clipping[] = allClippings.flatMap((result) =>
-					result.status === 'valid' ? [result.row.toJSON()] : []
+					result.status === 'valid' ? [result.row.toJSON()] : [],
 				);
 
 				// Group by URL
@@ -243,10 +243,10 @@ export const clippings = defineWorkspace({
 						// Find the most recent clipping
 						const newest = duplicates.reduce((max, current) => {
 							const maxTime = DateWithTimezoneFromString(
-								max.clippedAt
+								max.clippedAt,
 							).date.getTime();
 							const currentTime = DateWithTimezoneFromString(
-								current.clippedAt
+								current.clippedAt,
 							).date.getTime();
 							return currentTime > maxTime ? current : max;
 						});
@@ -255,7 +255,7 @@ export const clippings = defineWorkspace({
 						return duplicates
 							.filter((clipping) => clipping.id !== newest.id)
 							.map((clipping) => clipping.id);
-					}
+					},
 				);
 
 				// Delete all duplicates in one batch operation
