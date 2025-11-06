@@ -1,7 +1,4 @@
 import path from 'node:path';
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
-import { setupPersistence } from '@epicenter/hq/providers';
 import {
 	defineQuery,
 	defineWorkspace,
@@ -9,6 +6,9 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
+import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
+import { Ok } from 'wellcrafted/result';
 import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
@@ -30,8 +30,8 @@ export const bookface = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				storagePath: process.env.EPICENTER_ROOT_PATH
-					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+				storagePath: process.env.EPICENTER_ROOT_DIR
+					? path.join(process.env.EPICENTER_ROOT_DIR, id)
 					: `./${id}`,
 			}),
 	},

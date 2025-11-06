@@ -42,8 +42,8 @@ export const pages = defineWorkspace({
 			markdownIndex({
 				id,
 				db,
-				storagePath: process.env.EPICENTER_ROOT_PATH
-					? path.join(process.env.EPICENTER_ROOT_PATH, id)
+				storagePath: process.env.EPICENTER_ROOT_DIR
+					? path.join(process.env.EPICENTER_ROOT_DIR, id)
 					: `./${id}`,
 			}),
 	},
