@@ -1,32 +1,21 @@
 import { defineEpicenter } from '@epicenter/hq';
-
-// Content repository
-import { pages } from './pages/pages.workspace';
-
-// Email
-import { email } from './email/email.workspace';
-
-// Video platforms
-import { instagram } from './instagram/instagram.workspace';
-import { tiktok } from './tiktok/tiktok.workspace';
-import { youtube } from './youtube/youtube.workspace';
-
-// Blog platforms
-import { epicenterBlog } from './epicenter-blog/epicenter-blog.workspace';
-import { medium } from './medium/medium.workspace';
-import { personalBlog } from './personal-blog/personal-blog.workspace';
-import { substack } from './substack/substack.workspace';
-
-// Social platforms
 import { bookface } from './bookface/bookface.workspace';
+import { clippings } from './clippings/clippings.workspace';
 import { discord } from './discord/discord.workspace';
+import { email } from './email/email.workspace';
+import { epicenterBlog } from './epicenter-blog/epicenter-blog.workspace';
+import { githubIssues } from './github-issues/github-issues.workspace';
 import { hackernews } from './hackernews/hackernews.workspace';
+import { instagram } from './instagram/instagram.workspace';
+import { medium } from './medium/medium.workspace';
+import { pages } from './pages/pages.workspace';
+import { personalBlog } from './personal-blog/personal-blog.workspace';
 import { producthunt } from './producthunt/producthunt.workspace';
 import { reddit } from './reddit/reddit.workspace';
+import { substack } from './substack/substack.workspace';
+import { tiktok } from './tiktok/tiktok.workspace';
 import { twitter } from './twitter/twitter.workspace';
-
-// Development
-import { githubIssues } from './github-issues/github-issues.workspace';
+import { youtube } from './youtube/youtube.workspace';
 
 /**
  * Content Hub: Production-grade Epicenter application
