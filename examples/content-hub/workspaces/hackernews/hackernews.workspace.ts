@@ -9,16 +9,16 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { SHORT_FORM_TEXT_SCHEMA } from './shared/schemas';
+import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
- * Product Hunt workspace
+ * Hacker News workspace
  *
- * Manages Product Hunt posts with metadata for distribution tracking.
+ * Manages Hacker News posts with metadata for distribution tracking.
  * Uses the shared SHORT_FORM_TEXT_SCHEMA for consistency across social platforms.
  */
-export const producthunt = defineWorkspace({
-	id: 'producthunt',
+export const hackernews = defineWorkspace({
+	id: 'hackernews',
 
 	schema: {
 		posts: SHORT_FORM_TEXT_SCHEMA,
@@ -40,7 +40,7 @@ export const producthunt = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all Product Hunt posts
+		 * Get all Hacker News posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const producthunt = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific Product Hunt post by ID
+		 * Get a specific Hacker News post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const producthunt = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new Product Hunt post
+		 * Create a new Hacker News post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const producthunt = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update a Product Hunt post
+		 * Update a Hacker News post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const producthunt = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete a Product Hunt post
+		 * Delete a Hacker News post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */

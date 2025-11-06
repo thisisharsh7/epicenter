@@ -9,7 +9,7 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { SHORT_FORM_TEXT_SCHEMA } from './shared/schemas';
+import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
  * Reddit workspace

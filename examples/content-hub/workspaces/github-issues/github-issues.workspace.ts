@@ -14,7 +14,7 @@ import {
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { NICHES } from './shared/niches';
+import { NICHES } from '../shared/niches';
 
 /**
  * GitHub Issues workspace

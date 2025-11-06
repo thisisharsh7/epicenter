@@ -9,23 +9,23 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { SHORT_FORM_VIDEO_SCHEMA } from './shared/schemas';
+import { SHORT_FORM_VIDEO_SCHEMA } from '../shared/schemas';
 
 /**
- * Instagram workspace
+ * YouTube workspace
  *
- * Manages Instagram video/reel posts with metadata for distribution tracking.
+ * Manages YouTube video posts with metadata for distribution tracking.
  * Uses the shared SHORT_FORM_VIDEO_SCHEMA for consistency across video platforms.
  */
-export const instagram = defineWorkspace({
-	id: 'instagram',
+export const youtube = defineWorkspace({
+	id: 'youtube',
 
 	schema: {
 		posts: SHORT_FORM_VIDEO_SCHEMA,
 	},
 
 	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+		sqlite: sqliteIndex,
 		markdown: ({ id, db }) =>
 			markdownIndex({
 				id,
@@ -40,7 +40,7 @@ export const instagram = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all Instagram posts
+		 * Get all YouTube posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const instagram = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific Instagram post by ID
+		 * Get a specific YouTube post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const instagram = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new Instagram post
+		 * Create a new YouTube post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const instagram = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update an Instagram post
+		 * Update a YouTube post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const instagram = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete an Instagram post
+		 * Delete a YouTube post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */

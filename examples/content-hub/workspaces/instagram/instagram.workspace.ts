@@ -9,16 +9,16 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { SHORT_FORM_VIDEO_SCHEMA } from './shared/schemas';
+import { SHORT_FORM_VIDEO_SCHEMA } from '../shared/schemas';
 
 /**
- * TikTok workspace
+ * Instagram workspace
  *
- * Manages TikTok video posts with metadata for distribution tracking.
+ * Manages Instagram video/reel posts with metadata for distribution tracking.
  * Uses the shared SHORT_FORM_VIDEO_SCHEMA for consistency across video platforms.
  */
-export const tiktok = defineWorkspace({
-	id: 'tiktok',
+export const instagram = defineWorkspace({
+	id: 'instagram',
 
 	schema: {
 		posts: SHORT_FORM_VIDEO_SCHEMA,
@@ -40,7 +40,7 @@ export const tiktok = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all TikTok posts
+		 * Get all Instagram posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const tiktok = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific TikTok post by ID
+		 * Get a specific Instagram post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const tiktok = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new TikTok post
+		 * Create a new Instagram post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const tiktok = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update a TikTok post
+		 * Update an Instagram post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const tiktok = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete a TikTok post
+		 * Delete an Instagram post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */

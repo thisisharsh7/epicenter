@@ -9,23 +9,23 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { LONG_FORM_TEXT_SCHEMA } from './shared/schemas';
+import { SHORT_FORM_VIDEO_SCHEMA } from '../shared/schemas';
 
 /**
- * Epicenter Blog workspace
+ * TikTok workspace
  *
- * Manages Epicenter blog posts with metadata for distribution tracking.
- * Uses the shared LONG_FORM_TEXT_SCHEMA for consistency across blog platforms.
+ * Manages TikTok video posts with metadata for distribution tracking.
+ * Uses the shared SHORT_FORM_VIDEO_SCHEMA for consistency across video platforms.
  */
-export const epicenterBlog = defineWorkspace({
-	id: 'epicenter-blog',
+export const tiktok = defineWorkspace({
+	id: 'tiktok',
 
 	schema: {
-		posts: LONG_FORM_TEXT_SCHEMA,
+		posts: SHORT_FORM_VIDEO_SCHEMA,
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 		markdown: ({ id, db }) =>
 			markdownIndex({
 				id,
@@ -40,7 +40,7 @@ export const epicenterBlog = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all Epicenter blog posts
+		 * Get all TikTok posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const epicenterBlog = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific Epicenter blog post by ID
+		 * Get a specific TikTok post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const epicenterBlog = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new Epicenter blog post
+		 * Create a new TikTok post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const epicenterBlog = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update an Epicenter blog post
+		 * Update a TikTok post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const epicenterBlog = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete an Epicenter blog post
+		 * Delete a TikTok post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */

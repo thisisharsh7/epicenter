@@ -9,23 +9,23 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { SHORT_FORM_TEXT_SCHEMA } from './shared/schemas';
+import { LONG_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
- * Hacker News workspace
+ * Personal Blog workspace
  *
- * Manages Hacker News posts with metadata for distribution tracking.
- * Uses the shared SHORT_FORM_TEXT_SCHEMA for consistency across social platforms.
+ * Manages personal blog posts with metadata for distribution tracking.
+ * Uses the shared LONG_FORM_TEXT_SCHEMA for consistency across blog platforms.
  */
-export const hackernews = defineWorkspace({
-	id: 'hackernews',
+export const personalBlog = defineWorkspace({
+	id: 'personal-blog',
 
 	schema: {
-		posts: SHORT_FORM_TEXT_SCHEMA,
+		posts: LONG_FORM_TEXT_SCHEMA,
 	},
 
 	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+		sqlite: sqliteIndex,
 		markdown: ({ id, db }) =>
 			markdownIndex({
 				id,
@@ -40,7 +40,7 @@ export const hackernews = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all Hacker News posts
+		 * Get all personal blog posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const hackernews = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific Hacker News post by ID
+		 * Get a specific personal blog post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const hackernews = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new Hacker News post
+		 * Create a new personal blog post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const hackernews = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update a Hacker News post
+		 * Update a personal blog post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const hackernews = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete a Hacker News post
+		 * Delete a personal blog post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */

@@ -1,32 +1,32 @@
 import { defineEpicenter } from '@epicenter/hq';
 
 // Content repository
-import { pages } from './workspaces/pages';
+import { pages } from './workspaces/pages/pages.workspace';
 
 // Email
-import { email } from './workspaces/email';
+import { email } from './workspaces/email/email.workspace';
 
 // Video platforms
-import { instagram } from './workspaces/instagram';
-import { tiktok } from './workspaces/tiktok';
-import { youtube } from './workspaces/youtube';
+import { instagram } from './workspaces/instagram/instagram.workspace';
+import { tiktok } from './workspaces/tiktok/tiktok.workspace';
+import { youtube } from './workspaces/youtube/youtube.workspace';
 
 // Blog platforms
-import { epicenterBlog } from './workspaces/epicenter-blog';
-import { medium } from './workspaces/medium';
-import { personalBlog } from './workspaces/personal-blog';
-import { substack } from './workspaces/substack';
+import { epicenterBlog } from './workspaces/epicenter-blog/epicenter-blog.workspace';
+import { medium } from './workspaces/medium/medium.workspace';
+import { personalBlog } from './workspaces/personal-blog/personal-blog.workspace';
+import { substack } from './workspaces/substack/substack.workspace';
 
 // Social platforms
-import { bookface } from './workspaces/bookface';
-import { discord } from './workspaces/discord';
-import { hackernews } from './workspaces/hackernews';
-import { producthunt } from './workspaces/producthunt';
-import { reddit } from './workspaces/reddit';
-import { twitter } from './workspaces/twitter';
+import { bookface } from './workspaces/bookface/bookface.workspace';
+import { discord } from './workspaces/discord/discord.workspace';
+import { hackernews } from './workspaces/hackernews/hackernews.workspace';
+import { producthunt } from './workspaces/producthunt/producthunt.workspace';
+import { reddit } from './workspaces/reddit/reddit.workspace';
+import { twitter } from './workspaces/twitter/twitter.workspace';
 
 // Development
-import { githubIssues } from './workspaces/github-issues';
+import { githubIssues } from './workspaces/github-issues/github-issues.workspace';
 
 /**
  * Content Hub: Production-grade Epicenter application

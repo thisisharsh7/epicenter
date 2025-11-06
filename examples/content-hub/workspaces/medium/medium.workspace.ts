@@ -9,7 +9,7 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { LONG_FORM_TEXT_SCHEMA } from './shared/schemas';
+import { LONG_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
  * Medium workspace

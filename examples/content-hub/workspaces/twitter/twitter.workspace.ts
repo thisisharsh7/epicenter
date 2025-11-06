@@ -9,23 +9,23 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { SHORT_FORM_VIDEO_SCHEMA } from './shared/schemas';
+import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
- * YouTube workspace
+ * Twitter workspace
  *
- * Manages YouTube video posts with metadata for distribution tracking.
- * Uses the shared SHORT_FORM_VIDEO_SCHEMA for consistency across video platforms.
+ * Manages Twitter/X posts with metadata for distribution tracking.
+ * Uses the shared SHORT_FORM_TEXT_SCHEMA for consistency across social platforms.
  */
-export const youtube = defineWorkspace({
-	id: 'youtube',
+export const twitter = defineWorkspace({
+	id: 'twitter',
 
 	schema: {
-		posts: SHORT_FORM_VIDEO_SCHEMA,
+		posts: SHORT_FORM_TEXT_SCHEMA,
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 		markdown: ({ id, db }) =>
 			markdownIndex({
 				id,
@@ -40,7 +40,7 @@ export const youtube = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all YouTube posts
+		 * Get all Twitter posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const youtube = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific YouTube post by ID
+		 * Get a specific Twitter post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const youtube = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new YouTube post
+		 * Create a new Twitter post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const youtube = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update a YouTube post
+		 * Update a Twitter post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const youtube = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete a YouTube post
+		 * Delete a Twitter post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */

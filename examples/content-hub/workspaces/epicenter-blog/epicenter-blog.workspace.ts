@@ -9,16 +9,16 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { LONG_FORM_TEXT_SCHEMA } from './shared/schemas';
+import { LONG_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
- * Personal Blog workspace
+ * Epicenter Blog workspace
  *
- * Manages personal blog posts with metadata for distribution tracking.
+ * Manages Epicenter blog posts with metadata for distribution tracking.
  * Uses the shared LONG_FORM_TEXT_SCHEMA for consistency across blog platforms.
  */
-export const personalBlog = defineWorkspace({
-	id: 'personal-blog',
+export const epicenterBlog = defineWorkspace({
+	id: 'epicenter-blog',
 
 	schema: {
 		posts: LONG_FORM_TEXT_SCHEMA,
@@ -40,7 +40,7 @@ export const personalBlog = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all personal blog posts
+		 * Get all Epicenter blog posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const personalBlog = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific personal blog post by ID
+		 * Get a specific Epicenter blog post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const personalBlog = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new personal blog post
+		 * Create a new Epicenter blog post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const personalBlog = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update a personal blog post
+		 * Update an Epicenter blog post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const personalBlog = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete a personal blog post
+		 * Delete an Epicenter blog post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */

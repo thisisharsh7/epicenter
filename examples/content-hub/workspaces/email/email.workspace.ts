@@ -4,15 +4,15 @@ import {
 	date,
 	defineWorkspace,
 	id,
+	isDateWithTimezoneString,
 	markdownIndex,
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
+import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { isDateWithTimezoneString } from '../../../packages/epicenter/src/core/schema';
-import { MarkdownIndexErr } from '../../../packages/epicenter/src/indexes/markdown';
 
 /**
  * Email workspace

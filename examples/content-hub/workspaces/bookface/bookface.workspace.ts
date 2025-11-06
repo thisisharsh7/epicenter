@@ -9,16 +9,16 @@ import {
 	markdownIndex,
 	sqliteIndex,
 } from '@epicenter/hq';
-import { SHORT_FORM_TEXT_SCHEMA } from './shared/schemas';
+import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
 
 /**
- * Twitter workspace
+ * Bookface workspace
  *
- * Manages Twitter/X posts with metadata for distribution tracking.
+ * Manages Bookface posts with metadata for distribution tracking.
  * Uses the shared SHORT_FORM_TEXT_SCHEMA for consistency across social platforms.
  */
-export const twitter = defineWorkspace({
-	id: 'twitter',
+export const bookface = defineWorkspace({
+	id: 'bookface',
 
 	schema: {
 		posts: SHORT_FORM_TEXT_SCHEMA,
@@ -40,7 +40,7 @@ export const twitter = defineWorkspace({
 
 	actions: ({ db, indexes }) => ({
 		/**
-		 * Get all Twitter posts
+		 * Get all Bookface posts
 		 *
 		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
 		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
@@ -49,7 +49,7 @@ export const twitter = defineWorkspace({
 		getPosts: db.tables.posts.getAll,
 
 		/**
-		 * Get a specific Twitter post by ID
+		 * Get a specific Bookface post by ID
 		 *
 		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
 		 * to accept { id: string } and return a post or null.
@@ -57,7 +57,7 @@ export const twitter = defineWorkspace({
 		getPost: db.tables.posts.get,
 
 		/**
-		 * Create a new Twitter post
+		 * Create a new Bookface post
 		 *
 		 * Why use table helper here? The schema enforces all required fields are provided.
 		 * We don't need auto-generated IDs or timestamps because the caller provides them.
@@ -66,7 +66,7 @@ export const twitter = defineWorkspace({
 		createPost: db.tables.posts.insert,
 
 		/**
-		 * Update a Twitter post
+		 * Update a Bookface post
 		 *
 		 * `db.tables.posts.update` handles partial updates. The table helper already knows
 		 * how to merge the provided fields with the existing row. No need to wrap it.
@@ -74,7 +74,7 @@ export const twitter = defineWorkspace({
 		updatePost: db.tables.posts.update,
 
 		/**
-		 * Delete a Twitter post
+		 * Delete a Bookface post
 		 *
 		 * Table helper for deletion. Clean, simple, and already properly typed.
 		 */
