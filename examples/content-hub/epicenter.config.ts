@@ -20,15 +20,15 @@ import { youtube } from './youtube/youtube.workspace';
 /**
  * Content Hub: Production-grade Epicenter application
  *
- * Manages content distribution across 15 platforms:
+ * Manages content distribution across 16 platforms:
  * - Video: YouTube, Instagram, TikTok
  * - Blogs: Medium, Substack, Personal Blog, Epicenter Blog
  * - Social: Reddit, Twitter, Hacker News, Discord, Product Hunt, Bookface
  * - Development: GitHub Issues
- * - Content: Pages (central repository)
+ * - Content: Pages (central repository), Clippings (saved web content)
  *
  * Features demonstrated:
- * - Multi-workspace architecture (15 workspaces)
+ * - Multi-workspace architecture (16 workspaces)
  * - Schema reuse and organization (3 shared schemas)
  * - Workspace dependencies
  * - SQLite indexes for querying
@@ -44,6 +44,9 @@ export default defineEpicenter({
 	workspaces: [
 		// Central content repository
 		pages,
+
+		// Saved web content
+		clippings,
 
 		// Email
 		email,
