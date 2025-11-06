@@ -72,11 +72,15 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
  * Initialization uses topological sort for deterministic, predictable order.
  *
  * @param workspaceConfigs - Array of workspace configurations to initialize
+ * @param storageDir - Resolved storage directory path (defaults to process.cwd() in Node.js, empty string in browser)
  * @returns Object mapping workspace ids to initialized workspace clients
  */
 export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
->(workspaceConfigs: TConfigs): Promise<WorkspacesToClients<TConfigs>> {
+>(
+	workspaceConfigs: TConfigs,
+	storageDir: string,
+): Promise<WorkspacesToClients<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs
@@ -308,7 +312,7 @@ export async function initializeWorkspaces<
 		if (workspaceConfig.providers) {
 			await Promise.all(
 				workspaceConfig.providers.map((provider) =>
-					provider({ id: workspaceConfig.id, ydoc }),
+					provider({ id: workspaceConfig.id, ydoc, storageDir }),
 				),
 			);
 		}
@@ -317,14 +321,14 @@ export async function initializeWorkspaces<
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
 		// Initialize each index by calling its factory function with IndexContext
-		// Each index function receives { id, db } and returns an index object
+		// Each index function receives { id, db, storageDir } and returns an index object
 		// Initialize all indexes in parallel for better performance
 		const indexes = Object.fromEntries(
 			await Promise.all(
 				Object.entries(workspaceConfig.indexes).map(
 					async ([indexId, indexFn]) => [
 						indexId,
-						await indexFn({ id: workspaceConfig.id, db }),
+						await indexFn({ id: workspaceConfig.id, db, storageDir }),
 					],
 				),
 			),
@@ -407,7 +411,16 @@ export async function createWorkspaceClient<
 		TIndexResults,
 		TActionMap
 	>,
+	storageDir?: string,
 ): Promise<WorkspaceClient<TActionMap>> {
+	// Resolve storageDir with browser safety
+	// In Node.js: use provided value or default to process.cwd()
+	// In browser: empty string (browser storage doesn't use filesystem paths)
+	let resolvedStorageDir = '';
+	if (typeof process !== 'undefined' && process.cwd) {
+		resolvedStorageDir = storageDir ?? process.cwd();
+	}
+
 	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization
 	const allWorkspaceConfigs: WorkspaceConfig[] = [];
 
@@ -428,7 +441,7 @@ export async function createWorkspaceClient<
 
 	// Use the shared initialization logic with flat dependency array
 	// This initializes ALL workspaces and returns an object keyed by workspace id
-	const clients = await initializeWorkspaces(allWorkspaceConfigs);
+	const clients = await initializeWorkspaces(allWorkspaceConfigs, resolvedStorageDir);
 
 	// Return the specified workspace's client from the initialized workspaces object
 	const workspaceClient = clients[workspace.id as keyof typeof clients];

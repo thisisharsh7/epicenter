@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
 	type SerializedRow,
 	date,
@@ -36,13 +35,9 @@ export const email = defineWorkspace({
 
 	indexes: {
 		sqlite: sqliteIndex,
-		markdown: ({ id, db }) =>
+		markdown: (c) =>
 			markdownIndex({
-				id,
-				db,
-				rootDir: process.env.EPICENTER_ROOT_DIR
-					? path.join(process.env.EPICENTER_ROOT_DIR, id)
-					: `./${id}`,
+				...c,
 				serializers: {
 					emails: {
 						serialize: ({ row: { body, ...row } }) => ({

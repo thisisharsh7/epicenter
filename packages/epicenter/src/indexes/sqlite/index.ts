@@ -11,7 +11,6 @@ import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr } from '../../core/errors';
-import { getRootDir } from '../../core/helpers';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
@@ -48,9 +47,9 @@ type SyncCoordination = {
  * via defineIndex(). All exported resources become available in your workspace actions
  * via the `indexes` parameter.
  *
- * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` in the root directory (customizable via EPICENTER_ROOT_DIR environment variable).
+ * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` relative to storageDir from epicenter config
  *
- * @param context - Index context with workspace ID and database instance
+ * @param context - Index context with workspace ID, database instance, and storage directory
  *
  * @example
  * ```typescript
@@ -77,21 +76,19 @@ type SyncCoordination = {
 export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	id,
 	db,
+	storageDir,
 }: IndexContext<TSchema>) {
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 
 	// Set up storage paths
-	const rootDir = getRootDir();
-	const relativeDatabasePath = path.join('.epicenter', `${id}.db`);
-	const resolvedDatabasePath = path.resolve(rootDir, relativeDatabasePath);
-	const storageDir = path.resolve(rootDir, '.epicenter');
-	await mkdir(storageDir, { recursive: true });
+	const databasePath = path.join(storageDir, '.epicenter', `${id}.db`);
+	await mkdir(path.dirname(databasePath), { recursive: true });
 
 	// Create database connection with schema for proper type inference
 	// WAL mode is enabled for better concurrent access
 	// Using lazy connection - Database will auto-connect on first query
-	const client = new Database(resolvedDatabasePath);
+	const client = new Database(databasePath);
 	client.exec('PRAGMA journal_mode = WAL');
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 

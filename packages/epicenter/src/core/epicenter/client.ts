@@ -76,10 +76,23 @@ export async function createEpicenterClient<
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
 ): Promise<EpicenterClient<TWorkspaces>> {
+	// Resolve storageDir with browser safety
+	// In Node.js: use config value or default to process.cwd()
+	// In browser: empty string (browser storage doesn't use filesystem paths)
+	const isNode =
+		typeof process !== 'undefined' &&
+		process.versions != null &&
+		process.versions.node != null;
+
+	let storageDir = '';
+	if (isNode) {
+		storageDir = config.storageDir ?? process.cwd();
+	}
+
 	// Initialize workspaces using flat/hoisted resolution model
 	// All transitive dependencies must be explicitly listed in config.workspaces
 	// initializeWorkspaces will validate this and throw if dependencies are missing
-	const clients = await initializeWorkspaces(config.workspaces);
+	const clients = await initializeWorkspaces(config.workspaces, storageDir);
 
 	const cleanup = () => {
 		for (const workspaceClient of Object.values(clients)) {

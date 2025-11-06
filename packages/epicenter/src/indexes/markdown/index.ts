@@ -8,7 +8,6 @@ import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import type { Db } from '../../core/db/core';
 import { IndexErr } from '../../core/errors';
-import { getRootDir } from '../../core/helpers';
 import { type IndexContext, defineIndexExports } from '../../core/indexes';
 import type {
 	Row,
@@ -89,38 +88,6 @@ type Serializers<TSchema extends WorkspaceSchema> = {
 export type MarkdownIndexConfig<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 > = {
-	/**
-	 * Storage path where markdown files should be stored.
-	 *
-	 * **Optional**: Defaults to the workspace `id` if not provided
-	 * ```typescript
-	 * // If workspace id is "blog", defaults to "./blog"
-	 * markdownIndex({ id, db })
-	 * ```
-	 *
-	 * **Three ways to specify the path**:
-	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to root directory (customizable via EPICENTER_ROOT_DIR environment variable)
-	 * ```typescript
-	 * rootDir: './vault'      // → <rootDir>/vault
-	 * rootDir: '../content'   // → <rootDir>/../content
-	 * ```
-	 *
-	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
-	 * ```typescript
-	 * rootDir: '/absolute/path/to/vault'
-	 * ```
-	 *
-	 * **Option 3: Explicit control**: Use import.meta.dirname for precision (produces absolute paths)
-	 * ```typescript
-	 * rootDir: path.join(import.meta.dirname, './vault')
-	 * ```
-	 *
-	 * All file paths returned by tableAndIdToPath will be relative to this storage path.
-	 *
-	 * @default `./${id}` where id is the workspace ID
-	 */
-	rootDir?: string;
 
 	/**
 	 * Extract table name and row ID from a relative file path.
@@ -294,42 +261,27 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * @param context - Index context and markdown configuration
  * @param context.id - Workspace ID (required)
  * @param context.db - Epicenter database instance (required)
- * @param context.rootDir - Storage path where markdown files should be stored (optional, defaults to `./${id}`). Can be relative (resolved from directory containing epicenter.config.ts) or absolute.
+ * @param context.storageDir - Resolved storage directory from epicenter config (required)
  * @param context.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `{tableName}/{id}.md`)
  * @param context.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `{tableName}/{id}.md`)
  * @param context.serializers - Optional custom serializers per table (defaults to all fields in frontmatter)
  *
+ * **Storage**: Stores markdown files in `{storageDir}/{workspaceId}/` by default
+ *
  * @example Minimal usage with all defaults
  * ```typescript
  * indexes: {
- *   markdown: markdownIndex
- * }
- * ```
- *
- * @example Explicit usage with all defaults
- * ```typescript
- * indexes: {
- *   markdown: ({ id, db }) => markdownIndex({ id, db })
- * }
- * ```
- *
- * @example Custom storage path
- * ```typescript
- * indexes: {
- *   markdown: ({ id, db }) => markdownIndex({
- *     id,
- *     db,
- *     rootDir: './content'
- *   })
+ *   markdown: markdownIndex  // Stores in {storageDir}/{workspaceId}/
  * }
  * ```
  *
  * @example Custom serializers - combining title and body in markdown body
  * ```typescript
  * indexes: {
- *   markdown: ({ id, db }) => markdownIndex({
+ *   markdown: ({ id, db, storageDir }) => markdownIndex({
  *     id,
  *     db,
+ *     storageDir,
  *     serializers: {
  *       posts: {
  *         serialize: ({ row }) => ({
@@ -351,18 +303,14 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
 export function markdownIndex<TSchema extends WorkspaceSchema>({
 	id,
 	db,
-	rootDir = `./${id}`,
+	storageDir,
 	pathToTableAndId = defaultPathToTableAndId,
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
 }: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
-	const storageRoot = getRootDir();
-
-	// Resolve rootDir to absolute path
-	// Relative paths resolved from storage root, absolute paths used as-is
-	const absoluteRootDir = (
-		path.isAbsolute(rootDir) ? rootDir : path.resolve(storageRoot, rootDir)
-	) as AbsolutePath;
+	// Resolve to absolute path
+	// Default to `./${id}` (workspace ID) relative to storageDir
+	const absoluteRootDir = path.resolve(storageDir, `./${id}`) as AbsolutePath;
 
 	/**
 	 * Coordination state to prevent infinite sync loops
@@ -628,7 +576,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 						// Write diagnostics to file
 						if (diagnostics.length > 0) {
 							const diagnosticsPath = path.join(
-								storageRoot,
+								storageDir,
 								'.epicenter',
 								`${id}-diagnostics.json`,
 							);

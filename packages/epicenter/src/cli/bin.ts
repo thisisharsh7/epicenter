@@ -2,7 +2,6 @@
 
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { hideBin } from 'yargs/helpers';
-import { getRootDir } from '../core/helpers';
 import { createCLI } from './cli';
 import { loadEpicenterConfig } from './load-config';
 
@@ -13,8 +12,7 @@ import { loadEpicenterConfig } from './load-config';
 async function main() {
 	await tryAsync({
 		try: async () => {
-			const rootDir = getRootDir();
-			const config = await loadEpicenterConfig(rootDir);
+			const config = await loadEpicenterConfig(process.cwd());
 
 			// Create and run the CLI
 			const cli = await createCLI({ config, argv: hideBin(process.argv) });

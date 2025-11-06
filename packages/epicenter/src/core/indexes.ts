@@ -46,13 +46,14 @@ export type Index<
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
  * @property db - The Epicenter database instance containing YJS-backed tables
+ * @property storageDir - Resolved storage directory path from epicenter config (defaults to process.cwd())
  *
  * @example Creating an index with IndexContext
  * ```typescript
  * export function sqliteIndex<TSchema extends WorkspaceSchema>(
- *   { id, db }: IndexContext<TSchema>
+ *   { id, db, storageDir }: IndexContext<TSchema>
  * ) {
- *   // Use id for file naming: `.epicenter/${id}.db`
+ *   // Use storageDir for file paths: path.join(storageDir, '.epicenter', `${id}.db`)
  *   // Use db to observe table changes
  * }
  * ```
@@ -60,6 +61,7 @@ export type Index<
 export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	id: string;
 	db: Db<TSchema>;
+	storageDir: string;
 };
 
 /**

@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
 	defineQuery,
 	defineWorkspace,
@@ -26,14 +25,7 @@ export const youtube = defineWorkspace({
 
 	indexes: {
 		sqlite: sqliteIndex,
-		markdown: ({ id, db }) =>
-			markdownIndex({
-				id,
-				db,
-				rootDir: process.env.EPICENTER_ROOT_DIR
-					? path.join(process.env.EPICENTER_ROOT_DIR, id)
-					: `./${id}`,
-			}),
+		markdown: (c) => markdownIndex(c),
 	},
 
 	providers: [setupPersistence],

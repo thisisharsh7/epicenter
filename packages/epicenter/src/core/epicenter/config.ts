@@ -32,6 +32,30 @@ export type EpicenterConfig<
 	id: TId;
 
 	/**
+	 * Base directory for all Epicenter storage (databases, markdown files, persistence)
+	 *
+	 * - Defaults to process.cwd() in Node.js (where epicenter commands are run)
+	 * - Ignored in browser environments
+	 * - Can be overridden per-index/provider if needed
+	 *
+	 * @example
+	 * ```typescript
+	 * // Store everything in /data/epicenter
+	 * export default defineEpicenter({
+	 *   storageDir: '/data/epicenter',
+	 *   workspaces: [...]
+	 * });
+	 *
+	 * // Use environment variable
+	 * export default defineEpicenter({
+	 *   storageDir: process.env.EPICENTER_STORAGE_DIR,
+	 *   workspaces: [...]
+	 * });
+	 * ```
+	 */
+	storageDir?: string;
+
+	/**
 	 * Array of workspace configurations to compose
 	 * Each workspace will be initialized and made available in the client
 	 * Workspaces are accessed by their name property

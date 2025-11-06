@@ -1,5 +1,4 @@
 import * as Y from 'yjs';
-import { getRootDir } from '../../../helpers';
 import type { Provider } from '../../config';
 
 /**
@@ -18,7 +17,7 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * 2. Loads existing state from `.epicenter/${workspaceId}.yjs` on startup
  * 3. Auto-saves to disk on every YJS update
  *
- * **Storage location**: `.epicenter/${workspaceId}.yjs` (in root directory, customizable via EPICENTER_ROOT_DIR)
+ * **Storage location**: `.epicenter/${workspaceId}.yjs` relative to storageDir from epicenter config
  * - Each workspace gets its own file named after its ID
  * - Binary format (not human-readable)
  * - Should be gitignored (add `.epicenter/` to `.gitignore`)
@@ -30,7 +29,7 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence],  // Auto-saves to .epicenter/blog.yjs
+ *   providers: [setupPersistence],  // Auto-saves to {storageDir}/.epicenter/blog.yjs
  *   // ... schema, indexes, actions
  * });
  * ```
@@ -40,23 +39,22 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * // All workspaces persist to .epicenter/ directory
  * const pages = defineWorkspace({
  *   id: 'pages',
- *   providers: [setupPersistence],  // → .epicenter/pages.yjs
+ *   providers: [setupPersistence],  // → {storageDir}/.epicenter/pages.yjs
  * });
  *
  * const blog = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence],  // → .epicenter/blog.yjs
+ *   providers: [setupPersistence],  // → {storageDir}/.epicenter/blog.yjs
  * });
  * ```
  */
-export const setupPersistence = (async ({ id, ydoc }) => {
+export const setupPersistence = (async ({ id, ydoc, storageDir }) => {
 	// Dynamic imports to avoid bundling Node.js modules in browser builds
 	const fs = await import('node:fs');
 	const path = await import('node:path');
 
-	const rootDir = getRootDir();
-	const storageDir = path.resolve(rootDir, EPICENTER_STORAGE_DIR);
-	const filePath = path.join(storageDir, `${id}.yjs`);
+	const epicenterDir = path.resolve(storageDir, EPICENTER_STORAGE_DIR);
+	const filePath = path.join(epicenterDir, `${id}.yjs`);
 
 	// Ensure .epicenter directory exists
 	if (!fs.existsSync(storageDir)) {

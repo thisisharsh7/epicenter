@@ -11,18 +11,20 @@ import type { WorkspaceSchema } from '../schema';
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
  * @property ydoc - The YJS document that providers attach to
+ * @property storageDir - Resolved storage directory path from epicenter config (defaults to process.cwd())
  *
  * @example Using workspace ID in a provider
  * ```typescript
- * const myProvider: Provider = ({ id, ydoc }) => {
+ * const myProvider: Provider = ({ id, ydoc, storageDir }) => {
  *   console.log(`Setting up provider for workspace: ${id}`);
- *   // Use id for file naming, logging, etc.
+ *   // Use storageDir for file paths: path.join(storageDir, '.epicenter', `${id}.yjs`)
  * };
  * ```
  */
 export type ProviderContext = {
 	id: string;
 	ydoc: Y.Doc;
+	storageDir: string;
 };
 
 /**
