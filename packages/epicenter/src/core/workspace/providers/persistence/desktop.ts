@@ -2,11 +2,6 @@ import * as Y from 'yjs';
 import type { Provider } from '../../config';
 
 /**
- * Directory name for Epicenter persistent data
- */
-export const EPICENTER_STORAGE_DIR = '.epicenter';
-
-/**
  * YJS document persistence provider using the filesystem.
  * Stores the YDoc as a binary file in the `.epicenter` directory.
  *
@@ -49,16 +44,23 @@ export const EPICENTER_STORAGE_DIR = '.epicenter';
  * ```
  */
 export const setupPersistence = (async ({ id, ydoc, storageDir }) => {
+	// Require Node.js environment with filesystem access
+	if (!storageDir) {
+		throw new Error(
+			'Persistence provider requires Node.js environment with filesystem access',
+		);
+	}
+
 	// Dynamic imports to avoid bundling Node.js modules in browser builds
 	const fs = await import('node:fs');
 	const path = await import('node:path');
 
-	const epicenterDir = path.resolve(storageDir, EPICENTER_STORAGE_DIR);
+	const epicenterDir = path.join(storageDir, '.epicenter');
 	const filePath = path.join(epicenterDir, `${id}.yjs`);
 
 	// Ensure .epicenter directory exists
-	if (!fs.existsSync(storageDir)) {
-		fs.mkdirSync(storageDir, { recursive: true });
+	if (!fs.existsSync(epicenterDir)) {
+		fs.mkdirSync(epicenterDir, { recursive: true });
 	}
 
 	// Try to load existing state from disk

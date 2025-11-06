@@ -1,4 +1,6 @@
+import path from 'node:path';
 import type { Action, WorkspaceActionMap } from '../actions';
+import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
 import {
 	type WorkspacesToClients,
@@ -76,17 +78,18 @@ export async function createEpicenterClient<
 >(
 	config: EpicenterConfig<TId, TWorkspaces>,
 ): Promise<EpicenterClient<TWorkspaces>> {
-	// Resolve storageDir with browser safety
-	// In Node.js: use config value or default to process.cwd()
-	// In browser: empty string (browser storage doesn't use filesystem paths)
+	// Resolve storageDir with environment detection
+	// In Node.js: resolve to absolute path (defaults to process.cwd() if not specified)
+	// In browser: undefined (filesystem operations not available)
 	const isNode =
 		typeof process !== 'undefined' &&
 		process.versions != null &&
 		process.versions.node != null;
 
-	let storageDir = '';
+	let storageDir: AbsolutePath | undefined = undefined;
 	if (isNode) {
-		storageDir = config.storageDir ?? process.cwd();
+		const configuredPath = config.storageDir ?? process.cwd();
+		storageDir = path.resolve(configuredPath) as AbsolutePath;
 	}
 
 	// Initialize workspaces using flat/hoisted resolution model

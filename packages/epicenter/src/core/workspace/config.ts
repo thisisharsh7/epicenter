@@ -3,6 +3,7 @@ import type { Db } from '../db/core';
 import type { WorkspaceActionMap } from '../actions';
 import type { Index, WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
+import type { AbsolutePath } from '../types';
 
 /**
  * Context provided to each YJS provider function.
@@ -11,20 +12,29 @@ import type { WorkspaceSchema } from '../schema';
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
  * @property ydoc - The YJS document that providers attach to
- * @property storageDir - Resolved storage directory path from epicenter config (defaults to process.cwd())
+ * @property storageDir - Absolute storage directory path resolved from epicenter config
+ *   - Node.js: Resolved to absolute path (defaults to `process.cwd()` if not specified in config)
+ *   - Browser: `undefined` (filesystem operations not available)
  *
  * @example Using workspace ID in a provider
  * ```typescript
  * const myProvider: Provider = ({ id, ydoc, storageDir }) => {
  *   console.log(`Setting up provider for workspace: ${id}`);
- *   // Use storageDir for file paths: path.join(storageDir, '.epicenter', `${id}.yjs`)
+ *
+ *   // Check for Node.js environment
+ *   if (!storageDir) {
+ *     throw new Error('This provider requires Node.js environment');
+ *   }
+ *
+ *   // storageDir is guaranteed to be absolute
+ *   // Use getEpicenterDir() helper: getEpicenterDir(storageDir)
  * };
  * ```
  */
 export type ProviderContext = {
 	id: string;
 	ydoc: Y.Doc;
-	storageDir: string;
+	storageDir: AbsolutePath | undefined;
 };
 
 /**

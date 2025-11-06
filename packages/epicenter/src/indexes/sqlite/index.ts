@@ -78,6 +78,13 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 	db,
 	storageDir,
 }: IndexContext<TSchema>) {
+	// Require Node.js environment with filesystem access
+	if (!storageDir) {
+		throw new Error(
+			'SQLite index requires Node.js environment with filesystem access',
+		);
+	}
+
 	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
 

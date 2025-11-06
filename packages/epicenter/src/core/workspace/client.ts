@@ -1,8 +1,10 @@
+import path from 'node:path';
 import * as Y from 'yjs';
 import type { WorkspaceActionMap } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
+import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
 /**
@@ -72,14 +74,14 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
  * Initialization uses topological sort for deterministic, predictable order.
  *
  * @param workspaceConfigs - Array of workspace configurations to initialize
- * @param storageDir - Resolved storage directory path (defaults to process.cwd() in Node.js, empty string in browser)
+ * @param storageDir - Absolute storage directory path (Node.js) or undefined (browser)
  * @returns Object mapping workspace ids to initialized workspace clients
  */
 export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
 >(
 	workspaceConfigs: TConfigs,
-	storageDir: string,
+	storageDir: AbsolutePath | undefined,
 ): Promise<WorkspacesToClients<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
@@ -413,19 +415,25 @@ export async function createWorkspaceClient<
 	>,
 	storageDir?: string,
 ): Promise<WorkspaceClient<TActionMap>> {
-	// Resolve storageDir with browser safety
-	// In Node.js: use provided value or default to process.cwd()
-	// In browser: empty string (browser storage doesn't use filesystem paths)
-	let resolvedStorageDir = '';
-	if (typeof process !== 'undefined' && process.cwd) {
-		resolvedStorageDir = storageDir ?? process.cwd();
+	// Resolve storageDir with environment detection
+	// In Node.js: resolve to absolute path (defaults to process.cwd() if not specified)
+	// In browser: undefined (filesystem operations not available)
+	const isNode =
+		typeof process !== 'undefined' &&
+		process.versions != null &&
+		process.versions.node != null;
+
+	let resolvedStorageDir: AbsolutePath | undefined = undefined;
+	if (isNode) {
+		const configuredPath = storageDir ?? process.cwd();
+		resolvedStorageDir = path.resolve(configuredPath) as AbsolutePath;
 	}
 
 	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization
 	const allWorkspaceConfigs: WorkspaceConfig[] = [];
 
-	// Add all dependencies first
 	if (workspace.dependencies) {
+		// Add all dependencies first
 		// Dependencies are constrained to AnyWorkspaceConfig at the type level to prevent
 		// infinite recursion, but at runtime they're full WorkspaceConfig objects
 		allWorkspaceConfigs.push(
@@ -441,7 +449,10 @@ export async function createWorkspaceClient<
 
 	// Use the shared initialization logic with flat dependency array
 	// This initializes ALL workspaces and returns an object keyed by workspace id
-	const clients = await initializeWorkspaces(allWorkspaceConfigs, resolvedStorageDir);
+	const clients = await initializeWorkspaces(
+		allWorkspaceConfigs,
+		resolvedStorageDir,
+	);
 
 	// Return the specified workspace's client from the initialized workspaces object
 	const workspaceClient = clients[workspace.id as keyof typeof clients];

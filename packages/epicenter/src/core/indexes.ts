@@ -5,6 +5,7 @@
 
 import type { Db } from './db/core';
 import type { WorkspaceSchema } from './schema';
+import type { AbsolutePath } from './types';
 
 /**
  * Index function type - receives IndexContext and returns IndexExports.
@@ -46,7 +47,9 @@ export type Index<
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
  * @property db - The Epicenter database instance containing YJS-backed tables
- * @property storageDir - Resolved storage directory path from epicenter config (defaults to process.cwd())
+ * @property storageDir - Absolute storage directory path resolved from epicenter config
+ *   - Node.js: Resolved to absolute path (defaults to `process.cwd()` if not specified in config)
+ *   - Browser: `undefined` (filesystem operations not available)
  *
  * @example Creating an index with IndexContext
  * ```typescript
@@ -61,7 +64,7 @@ export type Index<
 export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	id: string;
 	db: Db<TSchema>;
-	storageDir: string;
+	storageDir: AbsolutePath | undefined;
 };
 
 /**

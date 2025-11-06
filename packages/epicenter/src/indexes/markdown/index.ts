@@ -2,7 +2,6 @@ import type { FSWatcher } from 'node:fs';
 import { mkdirSync, watch } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
-import type { Brand } from 'wellcrafted/brand';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
@@ -17,6 +16,7 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import { createTableSchemaWithValidation } from '../../core/schema';
+import type { AbsolutePath } from '../../core/types';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
 
@@ -27,19 +27,6 @@ import { parseMarkdownFile } from './parser';
 export const { MarkdownIndexError, MarkdownIndexErr } =
 	createTaggedError('MarkdownIndexError');
 export type MarkdownIndexError = ReturnType<typeof MarkdownIndexError>;
-
-/**
- * Branded type for absolute file system paths
- *
- * This brand ensures that we only work with absolute paths in functions that require them,
- * preventing bugs from accidentally passing relative paths where absolute paths are expected.
- *
- * Use `path.resolve()` to convert relative paths to absolute paths and assert the brand:
- * ```typescript
- * const absolutePath = path.resolve('./relative/path') as AbsolutePath;
- * ```
- */
-type AbsolutePath = string & Brand<'AbsolutePath'>;
 
 /**
  * Bidirectional sync coordination state
@@ -308,6 +295,13 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
 }: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
+	// Require Node.js environment with filesystem access
+	if (!storageDir) {
+		throw new Error(
+			'Markdown index requires Node.js environment with filesystem access',
+		);
+	}
+
 	// Resolve to absolute path
 	// Default to `./${id}` (workspace ID) relative to storageDir
 	const absoluteRootDir = path.resolve(storageDir, `./${id}`) as AbsolutePath;
