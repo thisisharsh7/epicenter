@@ -24,7 +24,7 @@ export const youtube = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 		markdown: (c) => markdownIndex(c),
 	},
 

@@ -50,10 +50,8 @@ export const clippings = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
-		markdown: ({ id, db }) =>
-			markdownIndex({
-				id,
-				db,
+		markdown: (context) =>
+			markdownIndex(context, {
 				tableAndIdToPath: ({ id }) => `${id}.md`,
 				pathToTableAndId: ({ path: fileName }) =>
 					Ok({ tableName: 'clippings', id: path.basename(fileName, '.md') }),

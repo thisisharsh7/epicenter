@@ -34,10 +34,9 @@ export const email = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
+		sqlite: (c) => sqliteIndex(c),
 		markdown: (c) =>
-			markdownIndex({
-				...c,
+			markdownIndex(c, {
 				serializers: {
 					emails: {
 						serialize: ({ row: { body, ...row } }) => ({

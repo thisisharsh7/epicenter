@@ -1,12 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import path from 'node:path';
 import { type } from 'arktype';
-import { createWorkspaceClient, defineWorkspace } from './workspace';
-import { id, text, integer } from './schema';
-import { defineQuery, defineMutation } from './actions';
 import { Ok } from 'wellcrafted/result';
-import { sqliteIndex } from '../indexes/sqlite';
 import { markdownIndex } from '../indexes/markdown';
+import { sqliteIndex } from '../indexes/sqlite';
+import { defineQuery } from './actions';
+import { id, integer, text } from './schema';
+import { createWorkspaceClient, defineWorkspace } from './workspace';
 
 /**
  * Test suite for workspace initialization with topological sort
@@ -626,13 +626,8 @@ describe('Workspace Action Handlers', () => {
 		},
 
 		indexes: {
-			sqlite: sqliteIndex,
-			markdown: ({ id, db }) =>
-				markdownIndex({
-					id,
-					db,
-					rootDir: TEST_MARKDOWN,
-				}),
+			sqlite: (c) => sqliteIndex(c),
+			markdown: markdownIndex,
 		},
 
 		actions: ({ db, indexes }) => {
@@ -648,7 +643,7 @@ describe('Workspace Action Handlers', () => {
 				}),
 
 				getPost: defineQuery({
-					input: type({ id: "string" }),
+					input: type({ id: 'string' }),
 					handler: async ({ id }) => {
 						const post = await indexes.sqlite.db
 							.select()
@@ -660,9 +655,9 @@ describe('Workspace Action Handlers', () => {
 
 				createPost: defineMutation({
 					input: type({
-						title: "string",
-						content: "string?",
-						category: "string",
+						title: 'string',
+						content: 'string?',
+						category: 'string',
 					}),
 					handler: async ({ title, content, category }) => {
 						const { generateId } = require('../index');
@@ -680,8 +675,8 @@ describe('Workspace Action Handlers', () => {
 
 				updateViews: defineMutation({
 					input: type({
-						id: "string",
-						views: "number",
+						id: 'string',
+						views: 'number',
 					}),
 					handler: async ({ id, views }) => {
 						const { status, row } = db.tables.posts.get({ id });

@@ -1,20 +1,19 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
+import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
 import {
+	defineMutation,
 	defineWorkspace,
 	id,
-	text,
 	sqliteIndex,
-	defineMutation,
+	text,
 } from '../index';
-import { Ok } from 'wellcrafted/result';
 import { createCLI } from './cli';
 
 describe('CLI Integration', () => {
 	const testWorkspace = defineWorkspace({
 		id: 'test',
-		version: 1,
 
 		schema: {
 			items: {
@@ -31,8 +30,8 @@ describe('CLI Integration', () => {
 		actions: ({ db }) => ({
 			createItem: defineMutation({
 				input: type({
-					name: "string",
-					count: "number",
+					name: 'string',
+					count: 'number',
 				}),
 				description: 'Create a new item',
 				handler: async ({ name, count }) => {

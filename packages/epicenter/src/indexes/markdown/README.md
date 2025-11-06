@@ -119,20 +119,28 @@ You can also write it out explicitly if you prefer:
 
 ```typescript
 indexes: {
-  markdown: ({ id, db }) => markdownIndex({ id, db })
+  markdown: (context) => markdownIndex(context)
 }
 ```
 
-#### Custom Storage Path
+#### Custom Storage Directory
 
-To store files in a different location:
+To store files in a different location (relative to storageDir):
 
 ```typescript
 indexes: {
-  markdown: ({ id, db }) => markdownIndex({
-    id,
-    db,
-    rootDir: './content',
+  markdown: (context) => markdownIndex(context, {
+    rootDir: './vault',  // → <storageDir>/vault
+  }),
+}
+```
+
+Or use an absolute path:
+
+```typescript
+indexes: {
+  markdown: (context) => markdownIndex(context, {
+    rootDir: '/absolute/path/to/vault',
   }),
 }
 ```
@@ -147,9 +155,7 @@ Use custom serializers when you want to control how your data is stored in markd
 
 ```typescript
 indexes: {
-  markdown: ({ id, db }) => markdownIndex({
-    id,
-    db,
+  markdown: (context) => markdownIndex(context, {
     serializers: {
       posts: {
         serialize: ({ row }) => ({
@@ -174,9 +180,7 @@ This creates more natural-looking markdown files where the title is a header:
 
 ```typescript
 indexes: {
-  markdown: ({ id, db }) => markdownIndex({
-    id,
-    db,
+  markdown: (context) => markdownIndex(context, {
     serializers: {
       posts: {
         serialize: ({ row }) => ({
@@ -221,10 +225,7 @@ For complete control over file structure and serialization:
 
 ```typescript
 indexes: {
-  markdown: ({ id, db }) => markdownIndex({
-    id,
-    db,
-    rootDir: './vault',
+  markdown: (context) => markdownIndex(context, {
     pathToTableAndId: ({ path }) => {
       // Custom logic to extract table name and ID from file paths
       const parts = path.split('/');

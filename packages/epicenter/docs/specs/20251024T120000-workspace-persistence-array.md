@@ -234,7 +234,6 @@ export type WorkspaceConfig<...> = {
 ```typescript
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
-	version: 1,
 	name: 'blog',
 	schema: {
 		/* ... */
@@ -254,7 +253,6 @@ const blogWorkspace = defineWorkspace({
 ```typescript
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
-	version: 1,
 	name: 'blog',
 	schema: {
 		/* ... */

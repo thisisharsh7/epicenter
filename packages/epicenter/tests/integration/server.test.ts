@@ -1,27 +1,27 @@
-import { describe, expect, test, beforeAll } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { beforeAll, describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
+import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
-	sqliteIndex,
+	createServer,
+	defineEpicenter,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
 	generateId,
 	id,
 	integer,
-	text,
 	select,
-	createServer,
-	defineEpicenter,
+	sqliteIndex,
+	text,
 } from '../../src/index';
 
 // Helper to parse SSE response from MCP endpoint
 async function parseMcpResponse(response: Response): Promise<any> {
 	const text = await response.text();
 	// SSE format: "event: message\ndata: {json}\n\n"
-	const dataLine = text.split('\n').find(line => line.startsWith('data: '));
+	const dataLine = text.split('\n').find((line) => line.startsWith('data: '));
 	if (!dataLine) throw new Error('No data in SSE response');
 	return JSON.parse(dataLine.substring(6)); // Remove "data: " prefix
 }
@@ -30,7 +30,6 @@ describe('Server Integration Tests', () => {
 	// Define a simple blog workspace
 	const blogWorkspace = defineWorkspace({
 		id: 'blog',
-		version: 1,
 
 		schema: {
 			posts: {
@@ -52,8 +51,8 @@ describe('Server Integration Tests', () => {
 		actions: ({ db, indexes }) => ({
 			createPost: defineMutation({
 				input: type({
-					title: "string >= 1",
-					"content?": "string",
+					title: 'string >= 1',
+					'content?': 'string',
 					category: "'tech' | 'personal' | 'work'",
 				}),
 				description: 'Create a new blog post',
@@ -116,15 +115,18 @@ describe('Server Integration Tests', () => {
 		});
 
 		test('creates post via POST /blog/createPost', async () => {
-			const response = await fetch(`http://localhost:${server.port}/blog/createPost`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: 'Test Post',
-					content: 'This is a test',
-					category: 'tech',
-				}),
-			});
+			const response = await fetch(
+				`http://localhost:${server.port}/blog/createPost`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						title: 'Test Post',
+						content: 'This is a test',
+						category: 'tech',
+					}),
+				},
+			);
 
 			expect(response.status).toBe(200);
 			const data = await response.json();
@@ -134,7 +136,9 @@ describe('Server Integration Tests', () => {
 		});
 
 		test('gets all posts via GET /blog/getAllPosts', async () => {
-			const response = await fetch(`http://localhost:${server.port}/blog/getAllPosts`);
+			const response = await fetch(
+				`http://localhost:${server.port}/blog/getAllPosts`,
+			);
 
 			expect(response.status).toBe(200);
 			const data = await response.json();
@@ -158,7 +162,7 @@ describe('Server Integration Tests', () => {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'Accept': 'application/json, text/event-stream',
+					Accept: 'application/json, text/event-stream',
 				},
 				body: JSON.stringify({
 					jsonrpc: '2.0',
@@ -174,7 +178,9 @@ describe('Server Integration Tests', () => {
 			expect(Array.isArray(data.result.tools)).toBe(true);
 			expect(data.result.tools.length).toBeGreaterThan(0);
 
-			const createPostTool = data.result.tools.find((t: any) => t.name === 'blog_createPost');
+			const createPostTool = data.result.tools.find(
+				(t: any) => t.name === 'blog_createPost',
+			);
 			expect(createPostTool).toBeDefined();
 		});
 
@@ -183,7 +189,7 @@ describe('Server Integration Tests', () => {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'Accept': 'application/json, text/event-stream',
+					Accept: 'application/json, text/event-stream',
 				},
 				body: JSON.stringify({
 					jsonrpc: '2.0',
@@ -228,7 +234,6 @@ describe('Server Integration Tests', () => {
 	describe('Epicenter Server', () => {
 		const authWorkspace = defineWorkspace({
 			id: 'auth',
-			version: 1,
 
 			schema: {
 				users: {
@@ -239,9 +244,10 @@ describe('Server Integration Tests', () => {
 			},
 
 			indexes: {
-				sqlite: (db) => sqliteIndex(db, {
-					database: ':memory:',
-				}),
+				sqlite: (db) =>
+					sqliteIndex(db, {
+						database: ':memory:',
+					}),
 			},
 
 			actions: ({ db }) => ({
@@ -281,14 +287,17 @@ describe('Server Integration Tests', () => {
 		});
 
 		test('creates post via POST /blog/createPost', async () => {
-			const response = await fetch(`http://localhost:${server.port}/blog/createPost`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: 'Epicenter Test',
-					category: 'tech',
-				}),
-			});
+			const response = await fetch(
+				`http://localhost:${server.port}/blog/createPost`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						title: 'Epicenter Test',
+						category: 'tech',
+					}),
+				},
+			);
 
 			expect(response.status).toBe(200);
 			const data = await response.json();
@@ -296,13 +305,16 @@ describe('Server Integration Tests', () => {
 		});
 
 		test('creates user via POST /auth/createUser', async () => {
-			const response = await fetch(`http://localhost:${server.port}/auth/createUser`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: 'test@example.com',
-				}),
-			});
+			const response = await fetch(
+				`http://localhost:${server.port}/auth/createUser`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						email: 'test@example.com',
+					}),
+				},
+			);
 
 			expect(response.status).toBe(200);
 			const data = await response.json();
@@ -314,7 +326,7 @@ describe('Server Integration Tests', () => {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'Accept': 'application/json, text/event-stream',
+					Accept: 'application/json, text/event-stream',
 				},
 				body: JSON.stringify({
 					jsonrpc: '2.0',
@@ -327,8 +339,12 @@ describe('Server Integration Tests', () => {
 			const data = await parseMcpResponse(response);
 			expect(data.result.tools).toBeDefined();
 
-			const blogTools = data.result.tools.filter((t: any) => t.name.startsWith('blog_'));
-			const authTools = data.result.tools.filter((t: any) => t.name.startsWith('auth_'));
+			const blogTools = data.result.tools.filter((t: any) =>
+				t.name.startsWith('blog_'),
+			);
+			const authTools = data.result.tools.filter((t: any) =>
+				t.name.startsWith('auth_'),
+			);
 
 			expect(blogTools.length).toBeGreaterThan(0);
 			expect(authTools.length).toBeGreaterThan(0);
@@ -339,7 +355,7 @@ describe('Server Integration Tests', () => {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'Accept': 'application/json, text/event-stream',
+					Accept: 'application/json, text/event-stream',
 				},
 				body: JSON.stringify({
 					jsonrpc: '2.0',

@@ -32,7 +32,6 @@ describe('CLI End-to-End Tests', () => {
 	// Define a test workspace
 	const testWorkspace = defineWorkspace({
 		id: 'posts',
-		version: 1,
 
 		schema: {
 			posts: {
@@ -45,13 +44,8 @@ describe('CLI End-to-End Tests', () => {
 		},
 
 		indexes: {
-			sqlite: sqliteIndex,
-			markdown: ({ id, db }) =>
-				markdownIndex({
-					id,
-					db,
-					rootDir: TEST_MARKDOWN,
-				}),
+			sqlite: (c) => sqliteIndex(c),
+			markdown: markdownIndex,
 		},
 
 		actions: ({ db, indexes }) => ({

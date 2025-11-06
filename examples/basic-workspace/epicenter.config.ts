@@ -26,7 +26,6 @@ import { Ok } from 'wellcrafted/result';
 
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
-	version: 1,
 
 	schema: {
 		posts: {
@@ -47,12 +46,9 @@ const blogWorkspace = defineWorkspace({
 	},
 
 	indexes: {
-		sqlite: sqliteIndex,
-		markdown: ({ id, db }) =>
-			markdownIndex({
-				id,
-				db,
-				rootPath: '.data/content',
+		sqlite: (c) => sqliteIndex(c),
+		markdown: (context) =>
+			markdownIndex(context, {
 				serializers: {
 					posts: {
 						serialize: ({ row, tableName }) => {
@@ -61,7 +57,7 @@ const blogWorkspace = defineWorkspace({
 								frontmatter: Object.fromEntries(
 									Object.entries(rest).filter(([_, v]) => v != null),
 								),
-								body: content || '',
+								body: content ?? '',
 							};
 						},
 						deserialize: ({ id, frontmatter, body, tableName, schema }) => {

@@ -5,6 +5,7 @@ This example demonstrates a production-grade content distribution system managin
 ## What's This?
 
 Content Hub is a comprehensive system for managing content distribution across multiple platforms. It demonstrates how to:
+
 1. Organize multiple workspaces in a single Epicenter application
 2. Reuse schemas across similar platforms for consistency
 3. Build type-safe APIs with auto-generated CLI commands
@@ -104,16 +105,19 @@ content-hub/
 ### Data Flow
 
 **Write Flow**:
+
 ```
 Action called → YJS updated → Saved to .epicenter/[workspace].yjs → SQLite synced
 ```
 
 **Read Flow**:
+
 ```
 Query called → Read from SQLite index → Return data
 ```
 
 **Persistence**:
+
 - Desktop: YJS files stored in `.epicenter/` directory
 - Browser: YJS files stored in IndexedDB
 - Both: Universal `setupPersistence` provider handles platform detection
@@ -121,9 +125,11 @@ Query called → Read from SQLite index → Return data
 ## Platforms & Schemas
 
 ### Video Platforms (SHORT_FORM_VIDEO_SCHEMA)
+
 **Platforms**: YouTube, Instagram, TikTok
 
 **Schema**:
+
 ```typescript
 {
   id: id(),                    // Auto-generated unique ID
@@ -139,9 +145,11 @@ Query called → Read from SQLite index → Return data
 **Actions**: `getPosts`, `getPost`, `createPost`, `updatePost`, `deletePost`, `getPostsByNiche`
 
 ### Blog Platforms (LONG_FORM_TEXT_SCHEMA)
+
 **Platforms**: Medium, Substack, Personal Blog, Epicenter Blog
 
 **Schema**:
+
 ```typescript
 {
   id: id(),
@@ -158,9 +166,11 @@ Query called → Read from SQLite index → Return data
 **Actions**: `getPosts`, `getPost`, `createPost`, `updatePost`, `deletePost`, `getPostsByNiche`
 
 ### Social Platforms (SHORT_FORM_TEXT_SCHEMA)
+
 **Platforms**: Reddit, Twitter, Hacker News, Discord, Product Hunt, Bookface
 
 **Schema**:
+
 ```typescript
 {
   id: id(),
@@ -176,9 +186,11 @@ Query called → Read from SQLite index → Return data
 **Actions**: `getPosts`, `getPost`, `createPost`, `updatePost`, `deletePost`, `getPostsByNiche`
 
 ### GitHub Issues (Custom Schema)
+
 **Platform**: GitHub Issues
 
 **Schema**:
+
 ```typescript
 {
   id: id(),
@@ -196,9 +208,11 @@ Query called → Read from SQLite index → Return data
 **Actions**: `getIssues`, `getIssue`, `createIssue`, `updateIssue`, `closeIssue`, `getIssuesByStatus`, `getIssuesByRepository`
 
 ### Pages (Content Repository)
+
 **Platform**: Central content storage
 
 **Schema**:
+
 ```typescript
 {
   id: id(),
@@ -216,16 +230,16 @@ Query called → Read from SQLite index → Return data
 All workspaces (except Pages) use a shared `niche` field for categorization:
 
 ```typescript
-'personal'              // Personal content
-'epicenter'             // Epicenter-related
-'y-combinator'          // Y Combinator
-'yale'                  // Yale University
-'college-students'      // College student audience
-'high-school-students'  // High school audience
-'coding'                // Programming/tech
-'productivity'          // Productivity tips
-'ethics'                // Ethics discussions
-'writing'               // Writing/content creation
+'personal'; // Personal content
+'epicenter'; // Epicenter-related
+'y-combinator'; // Y Combinator
+'yale'; // Yale University
+'college-students'; // College student audience
+'high-school-students'; // High school audience
+'coding'; // Programming/tech
+'productivity'; // Productivity tips
+'ethics'; // Ethics discussions
+'writing'; // Writing/content creation
 ```
 
 ## Features Demonstrated
@@ -257,6 +271,7 @@ bun cli.ts youtube createPost --help
 ### Common Operations
 
 **Create Posts**:
+
 ```bash
 # YouTube video
 bun cli.ts youtube createPost --pageId "channel-1" --title "Tutorial" --description "Learn X" --niche "coding"
@@ -269,6 +284,7 @@ bun cli.ts twitter createPost --pageId "account-1" --content "My tweet" --niche 
 ```
 
 **Query Posts**:
+
 ```bash
 # Get all posts
 bun cli.ts youtube getPosts
@@ -281,6 +297,7 @@ bun cli.ts youtube getPostsByNiche --niche "coding"
 ```
 
 **Update Posts**:
+
 ```bash
 # Update title and description
 bun cli.ts youtube updatePost --id "post-123" --title "New Title" --description "Updated"
@@ -290,11 +307,13 @@ bun cli.ts youtube updatePost --id "post-123" --niche "productivity"
 ```
 
 **Delete Posts**:
+
 ```bash
 bun cli.ts youtube deletePost --id "post-123"
 ```
 
 **GitHub Issues**:
+
 ```bash
 # Create issue
 bun cli.ts github-issues createIssue --repository "owner/repo" --title "Bug" --body "Description" --niche "coding"
@@ -317,54 +336,58 @@ import config from './epicenter.config';
 
 // Create client with automatic cleanup
 {
-  using client = await createEpicenterClient(config);
+	using client = await createEpicenterClient(config);
 
-  // Create a YouTube post
-  const { data: post } = await client.youtube.createPost({
-    pageId: 'my-channel',
-    title: 'My Video',
-    description: 'Check this out',
-    niche: 'coding',
-  });
+	// Create a YouTube post
+	const { data: post } = await client.youtube.createPost({
+		pageId: 'my-channel',
+		title: 'My Video',
+		description: 'Check this out',
+		niche: 'coding',
+	});
 
-  console.log(`Created post: ${post.id}`);
+	console.log(`Created post: ${post.id}`);
 
-  // Query posts
-  const { data: posts } = await client.youtube.getPosts();
-  console.log(`Total posts: ${posts.length}`);
+	// Query posts
+	const { data: posts } = await client.youtube.getPosts();
+	console.log(`Total posts: ${posts.length}`);
 
-  // Filter by niche
-  const { data: codingPosts } = await client.youtube.getPostsByNiche({
-    niche: 'coding',
-  });
+	// Filter by niche
+	const { data: codingPosts } = await client.youtube.getPostsByNiche({
+		niche: 'coding',
+	});
 
-  // Update a post
-  await client.youtube.updatePost({
-    id: post.id,
-    title: 'Updated Title',
-  });
+	// Update a post
+	await client.youtube.updatePost({
+		id: post.id,
+		title: 'Updated Title',
+	});
 
-  // Automatic cleanup when scope exits
+	// Automatic cleanup when scope exits
 }
 ```
 
 ## Directory Structure Explained
 
 **`shared/`**: Contains reusable constants and schemas
+
 - `niches.ts`: NICHES constant array and Niche type
 - `schemas.ts`: Three shared schema definitions (SHORT_FORM_VIDEO, LONG_FORM_TEXT, SHORT_FORM_TEXT)
 
 **`[workspace-name]/`**: Each workspace gets its own folder at the root level
+
 - `workspace.config.ts`: Workspace definition with schema, indexes, and actions
 - Examples: `youtube/`, `medium/`, `twitter/`, `github-issues/`
 
 **Root files**:
+
 - `epicenter.config.ts`: Imports and aggregates all 15 workspaces
 - `cli.ts`: CLI entry point for command-line usage
 - `package.json`: Scripts and metadata
 - `README.md`: This documentation
 
 **Generated at runtime**:
+
 - `.epicenter/`: YJS and SQLite files (one per workspace)
 
 ## Extending the System
@@ -376,12 +399,14 @@ import config from './epicenter.config';
    - Or define a custom schema in the workspace config
 
 2. **Create workspace config**:
+
    ```bash
    mkdir new-platform
    touch new-platform/workspace.config.ts
    ```
 
 3. **Implement workspace**:
+
    ```typescript
    import { defineWorkspace, sqliteIndex, ... } from '../../src/index';
    import { setupPersistence } from '../../src/core/workspace/providers';
@@ -389,8 +414,7 @@ import config from './epicenter.config';
 
    export const newPlatform = defineWorkspace({
      id: 'new-platform',
-     version: 1,
-     schema: { posts: SHORT_FORM_TEXT_SCHEMA },
+          schema: { posts: SHORT_FORM_TEXT_SCHEMA },
      indexes: { sqlite: (c) => sqliteIndex(c) },
      providers: [setupPersistence],
      actions: ({ db, indexes }) => ({
@@ -400,16 +424,17 @@ import config from './epicenter.config';
    ```
 
 4. **Add to root config**:
+
    ```typescript
    // epicenter.config.ts
    import { newPlatform } from './new-platform/workspace.config';
 
    export default defineEpicenter({
-     id: 'content-hub',
-     workspaces: [
-       // ... existing workspaces
-       newPlatform,
-     ],
+   	id: 'content-hub',
+   	workspaces: [
+   		// ... existing workspaces
+   		newPlatform,
+   	],
    });
    ```
 
@@ -421,10 +446,11 @@ import config from './epicenter.config';
 ### Adding a New Niche
 
 1. **Update shared/niches.ts**:
+
    ```typescript
    export const NICHES = [
-     // ... existing niches
-     'new-niche',
+   	// ... existing niches
+   	'new-niche',
    ] as const;
    ```
 
@@ -470,34 +496,34 @@ actions: ({ db, indexes }) => ({
 ```typescript
 // 1. Create original page content
 const { data: page } = await client.pages.createPage({
-  title: 'My Article',
-  content: 'Full article content...',
-  type: 'article',
-  tags: 'tech',
+	title: 'My Article',
+	content: 'Full article content...',
+	type: 'article',
+	tags: 'tech',
 });
 
 // 2. Distribute to YouTube
 await client.youtube.createPost({
-  pageId: page.id,
-  title: 'Video version',
-  description: 'Check out this video',
-  niche: 'coding',
+	pageId: page.id,
+	title: 'Video version',
+	description: 'Check out this video',
+	niche: 'coding',
 });
 
 // 3. Distribute to Medium
 await client.medium.createPost({
-  pageId: page.id,
-  title: page.title,
-  subtitle: 'An in-depth look',
-  content: page.content,
-  niche: 'writing',
+	pageId: page.id,
+	title: page.title,
+	subtitle: 'An in-depth look',
+	content: page.content,
+	niche: 'writing',
 });
 
 // 4. Share on Twitter
 await client.twitter.createPost({
-  pageId: page.id,
-  content: 'Just published: My Article! Link in bio',
-  niche: 'personal',
+	pageId: page.id,
+	content: 'Just published: My Article! Link in bio',
+	niche: 'personal',
 });
 ```
 
@@ -510,9 +536,9 @@ const codingMedium = await client.medium.getPostsByNiche({ niche: 'coding' });
 const codingTwitter = await client.twitter.getPostsByNiche({ niche: 'coding' });
 
 const totalCodingPosts =
-  codingYoutube.data.length +
-  codingMedium.data.length +
-  codingTwitter.data.length;
+	codingYoutube.data.length +
+	codingMedium.data.length +
+	codingTwitter.data.length;
 
 console.log(`Total coding posts: ${totalCodingPosts}`);
 ```
@@ -520,15 +546,19 @@ console.log(`Total coding posts: ${totalCodingPosts}`);
 ## Troubleshooting
 
 **Issue**: `Cannot find module` errors
+
 - **Solution**: Ensure you're in the correct directory and imports use correct relative paths
 
 **Issue**: Data not persisting
+
 - **Solution**: Check that `.epicenter/` directory is writable and `setupPersistence` provider is configured
 
 **Issue**: CLI commands not found
+
 - **Solution**: Run `bun cli.ts --help` to see available workspaces and actions
 
 **Issue**: TypeScript errors with niche types
+
 - **Solution**: Ensure you're using the exact niche values from `shared/niches.ts`
 
 ## Production Considerations
@@ -548,17 +578,20 @@ This example can be used as an MCP (Model Context Protocol) server to connect wi
 ### Quick Start
 
 1. **Start your server** (already running if you followed Quick Start):
+
 ```bash
 cd examples/content-hub
 bun dev
 ```
 
 2. **Add to Claude Code**:
+
 ```bash
 claude mcp add content-hub --transport http --scope user http://localhost:3913/mcp
 ```
 
 3. **Use in Claude Code**:
+
 ```
 @epicenter-content-hub what tools do you have?
 @epicenter-content-hub create a new blog post titled "Hello World" with content "My first post" tagged as tech
@@ -578,15 +611,18 @@ All actions from all workspaces become available as MCP tools with naming: `{wor
 ### Troubleshooting MCP
 
 **Server Not Starting**:
+
 - Check port availability: `lsof -i :3913`
 - Verify workspace configuration is valid
 
 **Claude Code Can't Connect**:
+
 - Ensure server is running: `curl http://localhost:3913/mcp`
 - Check `~/.claude.json` syntax
 - Restart Claude Code after config changes
 
 **Tools Not Appearing**:
+
 - Verify actions are defined with `defineQuery` or `defineMutation`
 - Check server logs for errors
 - Restart Claude Code

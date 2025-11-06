@@ -25,7 +25,6 @@ describe('Blog Workspace Integration', () => {
 	// Define a simple blog workspace
 	const blogWorkspace = defineWorkspace({
 		id: 'blog',
-		version: 1,
 
 		schema: {
 			posts: {
@@ -44,12 +43,7 @@ describe('Blog Workspace Integration', () => {
 
 		indexes: {
 			sqlite: (c) => sqliteIndex(c),
-			markdown: ({ id, db }) =>
-				markdownIndex({
-					id,
-					db,
-					rootDir: path.join(import.meta.dir, '.data'),
-				}),
+			markdown: markdownIndex,
 		},
 
 		actions: ({ db, indexes }) => ({

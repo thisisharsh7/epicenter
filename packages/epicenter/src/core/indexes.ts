@@ -111,7 +111,7 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  * // Using exported resources in actions
  * const workspace = defineWorkspace({
  *   indexes: {
- *     sqlite: sqliteIndex,
+ *     sqlite: (c) => sqliteIndex(c),
  *   },
  *
  *   actions: ({ indexes }) => ({

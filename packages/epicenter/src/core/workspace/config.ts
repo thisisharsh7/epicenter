@@ -1,6 +1,6 @@
 import type * as Y from 'yjs';
-import type { Db } from '../db/core';
 import type { WorkspaceActionMap } from '../actions';
+import type { Db } from '../db/core';
 import type { Index, WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
 import type { AbsolutePath } from '../types';
@@ -121,7 +121,7 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  *   },
  *
  *   indexes: {
- *     sqlite: sqliteIndex,
+ *     sqlite: (c) => sqliteIndex(c),
  *     markdown: markdownIndex,  // Uses all defaults! (rootDir defaults to './blog')
  *     // Or explicit: ({ id, db }) => markdownIndex({ id, db })
  *     // Or custom path: ({ id, db }) => markdownIndex({ id, db, rootDir: './data' })
@@ -176,13 +176,7 @@ export function defineWorkspace<
 		TIndexResults,
 		TActionMap
 	>,
-): WorkspaceConfig<
-	TDeps,
-	TId,
-	TWorkspaceSchema,
-	TIndexResults,
-	TActionMap
-> {
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TIndexResults, TActionMap> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');

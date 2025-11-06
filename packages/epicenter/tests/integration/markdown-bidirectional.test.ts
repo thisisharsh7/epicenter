@@ -25,7 +25,6 @@ describe('Markdown Bidirectional Sync', () => {
 	// Define a simple workspace for testing
 	const testWorkspace = defineWorkspace({
 		id: 'markdown-test',
-		version: 1,
 
 		schema: {
 			notes: {
@@ -41,12 +40,7 @@ describe('Markdown Bidirectional Sync', () => {
 		},
 
 		indexes: {
-			markdown: ({ id, db }) =>
-				markdownIndex({
-					id,
-					db,
-					rootDir: testStoragePath,
-				}),
+			markdown: markdownIndex,
 		},
 
 		actions: ({ db }) => ({

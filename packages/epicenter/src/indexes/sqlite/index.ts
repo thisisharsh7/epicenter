@@ -59,7 +59,7 @@ type SyncCoordination = {
  * ```typescript
  * // In workspace definition:
  * indexes: {
- *   sqlite: sqliteIndex,  // Auto-saves to .epicenter/{id}.db
+ *   sqlite: (c) => sqliteIndex(c),  // Auto-saves to .epicenter/{id}.db
  * },
  *
  * actions: ({ indexes }) => ({
