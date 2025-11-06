@@ -52,27 +52,27 @@ export const setupPersistence = (async ({ id, ydoc, storageDir }) => {
 	}
 
 	// Dynamic imports to avoid bundling Node.js modules in browser builds
-	const fs = await import('node:fs');
 	const path = await import('node:path');
 
 	const epicenterDir = path.join(storageDir, '.epicenter');
 	const filePath = path.join(epicenterDir, `${id}.yjs`);
 
-	// Ensure .epicenter directory exists
-	if (!fs.existsSync(epicenterDir)) {
-		fs.mkdirSync(epicenterDir, { recursive: true });
-	}
-
-	// Try to load existing state from disk
+	// Try to load existing state from disk using Bun.file
+	// No need to check existence first - just try to read and handle failure
+	const file = Bun.file(filePath);
 	try {
-		const savedState = fs.readFileSync(filePath);
-		Y.applyUpdate(ydoc, savedState);
+		// Use arrayBuffer() to get a fresh, non-shared buffer for Yjs
+		const savedState = await file.arrayBuffer();
+		// Convert to Uint8Array for Yjs
+		Y.applyUpdate(ydoc, new Uint8Array(savedState));
 		// console.log(`[Persistence] Loaded workspace from ${filePath}`);
 	} catch {
+		// File doesn't exist or couldn't be read - that's fine, we'll create it on first update
 		// console.log(`[Persistence] Creating new workspace at ${filePath}`);
 	}
 
 	// Auto-save on every update
+	// Bun.write automatically creates parent directories if they don't exist
 	ydoc.on('update', () => {
 		const state = Y.encodeStateAsUpdate(ydoc);
 		Bun.write(filePath, state);
