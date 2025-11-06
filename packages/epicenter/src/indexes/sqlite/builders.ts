@@ -21,6 +21,7 @@ import type {
 import {
 	DateWithTimezone,
 	DateWithTimezoneFromString,
+	generateId,
 } from '../../core/schema';
 
 /**
@@ -53,23 +54,12 @@ type ApplyColumnModifiers<
  * id() // Primary key ID column with nano ID generation
  */
 export function id() {
-	/**
-	 * Generates a nano ID - 21 character alphanumeric string
-	 */
-	const generateNanoId = (): Id => {
-		const nanoid = customAlphabet(
-			'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-			21,
-		);
-		return nanoid() as Id;
-	};
-
 	return (
 		drizzleText()
 			.notNull()
 			.primaryKey()
 			// .$type<Id>()
-			.$defaultFn(() => generateNanoId())
+			.$defaultFn(() => generateId())
 	);
 }
 
@@ -259,7 +249,9 @@ export function date<
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(() => normalizeToDateWithTimezoneString(defaultValue()))
+				? column.$defaultFn(() =>
+						normalizeToDateWithTimezoneString(defaultValue()),
+					)
 				: column.default(normalizeToDateWithTimezoneString(defaultValue));
 	}
 

@@ -35,12 +35,11 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  * different generic parameters. 'valid' gives you Row<TTableSchema> (typed to your schema), while
  * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
  */
-import { Type, type } from 'arktype';
+import { type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
 import type { YRow } from './db/table-helper';
-import { updateYRowFromSerializedRow } from './utils/yjs';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -49,7 +48,8 @@ import { updateYRowFromSerializedRow } from './utils/yjs';
  */
 
 /**
- * ID type - branded string from nanoid
+ * ID type - branded string
+ * @see {@link generateId}
  */
 export type Id = string & Brand<'Id'>;
 
@@ -171,13 +171,10 @@ export function DateWithTimezoneFromString(
 }
 
 /**
- * Generates a nano ID - 21 character alphanumeric string
+ * Generates a nano ID - 15 character alphanumeric string
  */
 export function generateId(): Id {
-	const nanoid = customAlphabet(
-		'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-		21,
-	);
+	const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 15);
 	return nanoid() as Id;
 }
 
