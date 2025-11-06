@@ -7,7 +7,11 @@ import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import type { Db } from '../../core/db/core';
 import { IndexErr } from '../../core/errors';
-import { type IndexContext, defineIndexExports } from '../../core/indexes';
+import {
+	type Index,
+	type IndexContext,
+	defineIndexExports,
+} from '../../core/indexes';
 import type {
 	Row,
 	SerializedRow,
@@ -75,7 +79,6 @@ type Serializers<TSchema extends WorkspaceSchema> = {
 export type MarkdownIndexConfig<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 > = {
-
 	/**
 	 * Extract table name and row ID from a relative file path.
 	 * This is the inverse of tableAndIdToPath.
@@ -287,14 +290,14 @@ type MarkdownSerializer<TTableSchema extends TableSchema> = {
  * }
  * ```
  */
-export function markdownIndex<TSchema extends WorkspaceSchema>({
+export const markdownIndex = (<TSchema extends WorkspaceSchema>({
 	id,
 	db,
 	storageDir,
 	pathToTableAndId = defaultPathToTableAndId,
 	tableAndIdToPath = defaultTableAndIdToPath,
 	serializers = {},
-}: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) {
+}: IndexContext<TSchema> & MarkdownIndexConfig<TSchema>) => {
 	// Require Node.js environment with filesystem access
 	if (!storageDir) {
 		throw new Error(
@@ -602,7 +605,7 @@ export function markdownIndex<TSchema extends WorkspaceSchema>({
 			},
 		}),
 	});
-}
+}) satisfies Index;
 
 /**
  * Default implementation for pathToTableAndId

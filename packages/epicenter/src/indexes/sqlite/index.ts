@@ -11,7 +11,11 @@ import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr } from '../../core/errors';
-import { type IndexContext, defineIndexExports } from '../../core/indexes';
+import {
+	type Index,
+	type IndexContext,
+	defineIndexExports,
+} from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
@@ -73,11 +77,11 @@ type SyncCoordination = {
  * })
  * ```
  */
-export async function sqliteIndex<TSchema extends WorkspaceSchema>({
+export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	id,
 	db,
 	storageDir,
-}: IndexContext<TSchema>) {
+}: IndexContext<TSchema>) => {
 	// Require Node.js environment with filesystem access
 	if (!storageDir) {
 		throw new Error(
@@ -343,7 +347,7 @@ export async function sqliteIndex<TSchema extends WorkspaceSchema>({
 		db: sqliteDb,
 		...drizzleTables,
 	});
-}
+}) satisfies Index;
 
 /**
  * Create SQLite tables if they don't exist
