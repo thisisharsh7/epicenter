@@ -26,6 +26,7 @@
 	<LabeledSwitch
 		id="transcription.copyToClipboardOnSuccess"
 		label="Copy transcribed text to clipboard"
+		description="Automatically copy audio transcription results when a recording finishes."
 		bind:checked={
 			() => settings.value['transcription.copyToClipboardOnSuccess'],
 			(v) => settings.updateKey('transcription.copyToClipboardOnSuccess', v)
@@ -35,6 +36,7 @@
 	<LabeledSwitch
 		id="transcription.writeToCursorOnSuccess"
 		label="Paste transcribed text at cursor"
+		description="Paste the transcription into the active app right after transcription completes."
 		bind:checked={
 			() => settings.value['transcription.writeToCursorOnSuccess'],
 			(v) => settings.updateKey('transcription.writeToCursorOnSuccess', v)
@@ -46,6 +48,7 @@
 	<LabeledSwitch
 		id="transformation.copyToClipboardOnSuccess"
 		label="Copy transformed text to clipboard"
+		description="Copy the text after a transformation runs on your transcription."
 		bind:checked={
 			() => settings.value['transformation.copyToClipboardOnSuccess'],
 			(v) => settings.updateKey('transformation.copyToClipboardOnSuccess', v)
@@ -55,6 +58,7 @@
 	<LabeledSwitch
 		id="transformation.writeToCursorOnSuccess"
 		label="Paste transformed text at cursor"
+		description="Paste the transformation result into the active app once the transformation finishes."
 		bind:checked={
 			() => settings.value['transformation.writeToCursorOnSuccess'],
 			(v) => settings.updateKey('transformation.writeToCursorOnSuccess', v)
