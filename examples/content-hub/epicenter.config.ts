@@ -1,32 +1,32 @@
 import { defineEpicenter } from '@epicenter/hq';
 
 // Content repository
-import { pages } from './workspaces/pages/pages.workspace';
+import { pages } from './pages/pages.workspace';
 
 // Email
-import { email } from './workspaces/email/email.workspace';
+import { email } from './email/email.workspace';
 
 // Video platforms
-import { instagram } from './workspaces/instagram/instagram.workspace';
-import { tiktok } from './workspaces/tiktok/tiktok.workspace';
-import { youtube } from './workspaces/youtube/youtube.workspace';
+import { instagram } from './instagram/instagram.workspace';
+import { tiktok } from './tiktok/tiktok.workspace';
+import { youtube } from './youtube/youtube.workspace';
 
 // Blog platforms
-import { epicenterBlog } from './workspaces/epicenter-blog/epicenter-blog.workspace';
-import { medium } from './workspaces/medium/medium.workspace';
-import { personalBlog } from './workspaces/personal-blog/personal-blog.workspace';
-import { substack } from './workspaces/substack/substack.workspace';
+import { epicenterBlog } from './epicenter-blog/epicenter-blog.workspace';
+import { medium } from './medium/medium.workspace';
+import { personalBlog } from './personal-blog/personal-blog.workspace';
+import { substack } from './substack/substack.workspace';
 
 // Social platforms
-import { bookface } from './workspaces/bookface/bookface.workspace';
-import { discord } from './workspaces/discord/discord.workspace';
-import { hackernews } from './workspaces/hackernews/hackernews.workspace';
-import { producthunt } from './workspaces/producthunt/producthunt.workspace';
-import { reddit } from './workspaces/reddit/reddit.workspace';
-import { twitter } from './workspaces/twitter/twitter.workspace';
+import { bookface } from './bookface/bookface.workspace';
+import { discord } from './discord/discord.workspace';
+import { hackernews } from './hackernews/hackernews.workspace';
+import { producthunt } from './producthunt/producthunt.workspace';
+import { reddit } from './reddit/reddit.workspace';
+import { twitter } from './twitter/twitter.workspace';
 
 // Development
-import { githubIssues } from './workspaces/github-issues/github-issues.workspace';
+import { githubIssues } from './github-issues/github-issues.workspace';
 
 /**
  * Content Hub: Production-grade Epicenter application
