@@ -10,12 +10,12 @@ import { loadEpicenterConfig } from './load-config';
  * Loads the epicenter config and creates the CLI
  */
 async function main() {
-	// Enable automatic watch mode
-	await enableWatchMode();
-
-	// Normal execution (running under bun --watch)
 	await tryAsync({
 		try: async () => {
+			// Enable automatic watch mode
+			await enableWatchMode();
+
+			// Normal execution (running under bun --watch)
 			const { config } = await loadEpicenterConfig(process.cwd());
 
 			// Create and run the CLI
@@ -92,7 +92,11 @@ async function enableWatchMode() {
 	/**
 	 * Spawn a child process with bun --watch
 	 *
-	 * process.argv structure:
+	 * We reconstruct the command using:
+	 * - argv[1]: Path to this script (bin.ts)
+	 * - slice(2): All user arguments (preserves their original command)
+	 *
+	 * The process.argv array structure:
 	 * [0] = path to bun executable (/usr/local/bin/bun)
 	 * [1] = path to the script being run (/path/to/bin.ts)
 	 * [2+] = user's CLI arguments (e.g., ['pages', 'createPage', '--title', 'Test'])
@@ -100,19 +104,22 @@ async function enableWatchMode() {
 	 * Examples:
 	 * - User runs: `epicenter`
 	 *   process.argv = ['/usr/local/bin/bun', '/path/to/bin.ts']
-	 *   Spawns: ['bun', '--watch', '/path/to/bin.ts']
+	 *   We spawn: ['bun', '--watch', '/path/to/bin.ts']
 	 *
 	 * - User runs: `epicenter pages createPage --title "Test"`
 	 *   process.argv = ['/usr/local/bin/bun', '/path/to/bin.ts', 'pages', 'createPage', '--title', 'Test']
-	 *   Spawns: ['bun', '--watch', '/path/to/bin.ts', 'pages', 'createPage', '--title', 'Test']
-	 *
-	 * We use argv[1] (script path) and slice(2) (user args) to reconstruct the command.
+	 *   We spawn: ['bun', '--watch', '/path/to/bin.ts', 'pages', 'createPage', '--title', 'Test']
 	 */
+	const scriptPath = process.argv[1];
+	if (!scriptPath) {
+		throw new Error('Internal error: Failed to start epicenter (missing script path)');
+	}
+
 	const proc = Bun.spawn(
 		[
 			'bun', // Use bun as the runtime
 			'--watch', // Enable watch mode
-			process.argv[1], // The script to run (this bin.ts file)
+			scriptPath, // The script to run (this bin.ts file)
 			...process.argv.slice(2), // All user arguments (everything after bin.ts)
 		],
 		{
