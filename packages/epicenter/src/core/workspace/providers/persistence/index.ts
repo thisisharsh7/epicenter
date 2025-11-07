@@ -73,5 +73,3 @@ export const setupPersistence = (async (context): Promise<void> => {
 	const { setupPersistence } = await import('./desktop.js');
 	return setupPersistence(context);
 }) satisfies Provider;
-
-export { EPICENTER_STORAGE_DIR } from './desktop';

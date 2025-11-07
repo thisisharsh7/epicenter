@@ -16,7 +16,4 @@ export {
 } from './hocuspocus';
 
 // Persistence provider (universal, environment-adaptive)
-export {
-	setupPersistence,
-	EPICENTER_STORAGE_DIR,
-} from './persistence';
+export { setupPersistence } from './persistence';
