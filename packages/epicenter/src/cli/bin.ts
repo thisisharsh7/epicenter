@@ -89,25 +89,45 @@ async function enableWatchMode() {
 		return; // Already in watch mode, proceed normally
 	}
 
-	// Spawn ourselves with bun --watch
+	/**
+	 * Spawn a child process with bun --watch
+	 *
+	 * process.argv structure:
+	 * [0] = path to bun executable (/usr/local/bin/bun)
+	 * [1] = path to the script being run (/path/to/bin.ts)
+	 * [2+] = user's CLI arguments (e.g., ['pages', 'createPage', '--title', 'Test'])
+	 *
+	 * Examples:
+	 * - User runs: `epicenter`
+	 *   process.argv = ['/usr/local/bin/bun', '/path/to/bin.ts']
+	 *   Spawns: ['bun', '--watch', '/path/to/bin.ts']
+	 *
+	 * - User runs: `epicenter pages createPage --title "Test"`
+	 *   process.argv = ['/usr/local/bin/bun', '/path/to/bin.ts', 'pages', 'createPage', '--title', 'Test']
+	 *   Spawns: ['bun', '--watch', '/path/to/bin.ts', 'pages', 'createPage', '--title', 'Test']
+	 *
+	 * We use argv[1] (script path) and slice(2) (user args) to reconstruct the command.
+	 */
 	const proc = Bun.spawn(
 		[
-			'bun',
-			'--watch',
-			process.argv[1], // path to this bin.ts file
-			...process.argv.slice(2), // preserve CLI args
+			'bun', // Use bun as the runtime
+			'--watch', // Enable watch mode
+			process.argv[1], // The script to run (this bin.ts file)
+			...process.argv.slice(2), // All user arguments (everything after bin.ts)
 		],
 		{
 			env: {
-				...process.env,
-				EPICENTER_WATCH_MODE: '1', // prevent infinite loop
+				...process.env, // Inherit all existing environment variables
+				EPICENTER_WATCH_MODE: '1', // Add flag to prevent infinite recursion
 			},
-			stdio: ['inherit', 'inherit', 'inherit'],
+			stdio: ['inherit', 'inherit', 'inherit'], // Inherit stdin, stdout, stderr
 		},
 	);
 
-	// Wait for child process and exit with its code
+	// Wait for child process to complete
 	await proc.exited;
+
+	// Exit with same code as child (preserves error codes)
 	process.exit(proc.exitCode ?? 0);
 }
 
