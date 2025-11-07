@@ -3,7 +3,10 @@
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { Badge } from '@repo/ui/badge';
 	import { Checkbox } from '@repo/ui/checkbox';
-	import { FFMPEG_DEFAULT_COMPRESSION_OPTIONS } from '$lib/services/recorder/ffmpeg';
+	import {
+		FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
+		FFMPEG_SMALLEST_COMPRESSION_OPTIONS,
+	} from '$lib/services/recorder/ffmpeg';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
 	import { RotateCcw, AlertTriangle } from '@lucide/svelte';
@@ -31,8 +34,7 @@
 			label: 'Smallest',
 			icon: '🗜️',
 			description: 'Maximum compression with silence removal',
-			options:
-				'-af silenceremove=start_periods=1:start_duration=0.1:start_threshold=-50dB:detection=peak,aformat=sample_fmts=s16:sample_rates=16000:channel_layouts=mono -c:a libopus -b:a 16k -ar 16000 -ac 1 -compression_level 10',
+			options: FFMPEG_SMALLEST_COMPRESSION_OPTIONS,
 		},
 		compatible: {
 			label: 'MP3',

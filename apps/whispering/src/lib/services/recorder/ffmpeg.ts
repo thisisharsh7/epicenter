@@ -92,6 +92,15 @@ export const FFMPEG_DEFAULT_COMPRESSION_OPTIONS =
 	'-af silenceremove=start_periods=1:start_duration=0.1:start_threshold=-50dB:detection=peak,aformat=sample_fmts=s16:sample_rates=16000:channel_layouts=mono -c:a libopus -b:a 32k -ar 16000 -ac 1 -compression_level 10' as const;
 
 /**
+ * Variant of the default compression preset prioritizing smallest file size.
+ *
+ * Identical to {@link FFMPEG_DEFAULT_COMPRESSION_OPTIONS} except for the lower
+ * Opus bitrate (16kbps instead of 32kbps).
+ */
+export const FFMPEG_SMALLEST_COMPRESSION_OPTIONS =
+	FFMPEG_DEFAULT_COMPRESSION_OPTIONS.replace('-b:a 32k', '-b:a 16k') as const;
+
+/**
  * Default FFmpeg input options for the current platform.
  *
  * Specifies the audio capture framework to use based on the operating system:
