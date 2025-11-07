@@ -123,12 +123,12 @@ export type MarkdownIndexConfig<
 	 * {
 	 *   posts: {
 	 *     directory: './blog-posts', // relative to workspace directory
-	 *     serialize: ({ row, context }) => ({
+	 *     serialize: ({ row, table }) => ({
 	 *       frontmatter: { title: row.title, date: row.createdAt },
 	 *       body: row.content,
 	 *       filename: `${row.id}.md`
 	 *     }),
-	 *     deserialize: ({ frontmatter, body, filename, context }) => {
+	 *     deserialize: ({ frontmatter, body, filename, table }) => {
 	 *       const id = path.basename(filename, '.md');
 	 *       return Ok({ id, title: frontmatter.title, content: body });
 	 *     }
@@ -136,7 +136,7 @@ export type MarkdownIndexConfig<
 	 * }
 	 * ```
 	 */
-	tables?: TableConfigs<TWorkspaceSchema>;
+	tableConfigs?: TableConfigs<TWorkspaceSchema>;
 };
 
 /**
@@ -172,14 +172,14 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * Serialize a row to markdown frontmatter, body, and filename.
 	 *
 	 * @param params.row - Row to serialize (already validated against schema)
-	 * @param params.context.tableName - Table name (for context)
-	 * @param params.context.schema - Table schema with validation methods
+	 * @param params.table.name - Table name (for context)
+	 * @param params.table.schema - Table schema with validation methods
 	 * @returns Frontmatter object, markdown body string, and filename (without directory path)
 	 */
 	serialize(params: {
 		row: SerializedRow<TTableSchema>;
-		context: {
-			tableName: string;
+		table: {
+			name: string;
 			schema: TableSchemaWithValidation<TTableSchema>;
 		};
 	}): {
@@ -199,19 +199,19 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
 	 * @param params.body - Markdown body content (text after frontmatter delimiters)
 	 * @param params.filename - Just the filename (without directory path)
-	 * @param params.context.tableName - Table name (for context)
-	 * @param params.context.schema - Table schema with validation methods
-	 * @param params.context.filePath - Full file path (for error messages)
+	 * @param params.filePath - Full file path (for error messages)
+	 * @param params.table.name - Table name (for context)
+	 * @param params.table.schema - Table schema with validation methods
 	 * @returns Result with complete row (with id field), or error to skip this file
 	 */
 	deserialize(params: {
 		frontmatter: Record<string, unknown>;
 		body: string;
 		filename: string;
-		context: {
-			tableName: string;
+		filePath: string;
+		table: {
+			name: string;
 			schema: TableSchemaWithValidation<TTableSchema>;
-			filePath: string;
 		};
 	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
 };
@@ -256,9 +256,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  * @param context.storageDir - Resolved storage directory from epicenter config (required)
  * @param config - Optional markdown configuration
  * @param config.directory - Optional directory for markdown files (defaults to `{workspaceId}`, resolved relative to storageDir)
- * @param config.pathToTableAndId - Optional function to extract table name and ID from file paths (defaults to `{tableName}/{id}.md`)
- * @param config.tableAndIdToPath - Optional function to build file paths from table name and ID (defaults to `{tableName}/{id}.md`)
- * @param config.serializers - Optional custom serializers per table (defaults to all fields in frontmatter)
+ * @param config.tableConfigs - Optional per-table markdown configuration (defaults to all fields in frontmatter)
  *
  * **Storage**: By default, stores markdown files in `{storageDir}/{workspaceId}/`
  *
@@ -276,15 +274,15 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
  *
  * indexes: {
  *   markdown: (context) => markdownIndex(context, {
- *     tables: {
+ *     tableConfigs: {
  *       posts: {
  *         directory: './blog-posts', // optional, defaults to 'posts'
- *         serialize: ({ row, context }) => ({
+ *         serialize: ({ row, table }) => ({
  *           frontmatter: { tags: row.tags, published: row.published },
  *           body: `# ${row.title}\n\n${row.content || ''}`,
  *           filename: `${row.id}.md`
  *         }),
- *         deserialize: ({ frontmatter, body, filename, context }) => {
+ *         deserialize: ({ frontmatter, body, filename, filePath, table }) => {
  *           const id = path.basename(filename, '.md');
  *           const lines = body.split('\n');
  *           const title = lines[0]?.replace(/^# /, '') || '';
@@ -302,10 +300,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
 	const { id, db, storageDir } = context;
-	const {
-		directory = `./${id}`,
-		tables: tableConfigs = {},
-	} = config;
+	const { directory = `./${id}`, tableConfigs = {} } = config;
 	// Require Node.js environment with filesystem access
 	if (!storageDir) {
 		throw new Error(
@@ -400,6 +395,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		workspaceDir: absoluteWorkspaceDir,
 		tableConfigs,
 		resolveTableDirectory,
+		rowFilenames,
 		syncCoordination,
 	});
 
@@ -410,8 +406,49 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		tableConfigs,
 		resolveTableDirectory,
 		findTableForFile,
+		rowFilenames,
 		syncCoordination,
 	});
+
+	/**
+	 * Initialize filename tracking map on startup
+	 *
+	 * Scan all YJS rows and populate the rowFilenames map by serializing each row
+	 * to extract its filename. This ensures the map is accurate after server restart.
+	 */
+	for (const tableName of db.getTableNames()) {
+		const tableSchema = db.schema[tableName];
+		if (!tableSchema) continue;
+
+		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+		const tableConfig =
+			tableConfigs[tableName] ?? createDefaultTableConfig(schemaWithValidation);
+
+		// Initialize map for this table
+		if (!rowFilenames.has(tableName)) {
+			rowFilenames.set(tableName, new Map());
+		}
+		const tableMap = rowFilenames.get(tableName)!;
+
+		// Get all valid rows from YJS
+		const results = db.tables[tableName].getAll();
+		const validRows = results
+			.filter((r) => r.status === 'valid')
+			.map((r) => r.row);
+
+		// Serialize each row to extract filename and populate map
+		for (const row of validRows) {
+			const serializedRow = row.toJSON();
+			const { filename } = tableConfig.serialize({
+				row: serializedRow,
+				table: {
+					name: tableName,
+					schema: schemaWithValidation,
+				},
+			});
+			tableMap.set(row.id, filename);
+		}
+	}
 
 	return defineIndexExports({
 		destroy() {
@@ -490,8 +527,8 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 								const serializedRow = row.toJSON();
 								const { frontmatter, body, filename } = tableConfig.serialize({
 									row: serializedRow,
-									context: {
-										tableName,
+									table: {
+										name: tableName,
 										schema: schemaWithValidation,
 									},
 								});
@@ -617,10 +654,10 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 									frontmatter,
 									body,
 									filename,
-									context: {
-										tableName,
+									filePath: fullPath,
+									table: {
+										name: tableName,
 										schema: schemaWithValidation,
-										filePath: fullPath,
 									},
 								});
 
@@ -696,7 +733,7 @@ function createDefaultTableConfig<TTableSchema extends TableSchema>(
 			body: '',
 			filename: `${row.id}.md`,
 		}),
-		deserialize: ({ frontmatter, body, filename, context }) => {
+		deserialize: ({ frontmatter, body, filename, filePath, table }) => {
 			// Extract ID from filename (strip .md extension)
 			const id = path.basename(filename, '.md');
 
@@ -707,7 +744,7 @@ function createDefaultTableConfig<TTableSchema extends TableSchema>(
 			};
 
 			// Validate using schema.validateUnknown
-			const result = context.schema.validateUnknown(data);
+			const result = table.schema.validateUnknown(data);
 
 			switch (result.status) {
 				case 'valid':
@@ -716,13 +753,13 @@ function createDefaultTableConfig<TTableSchema extends TableSchema>(
 				case 'schema-mismatch':
 					return MarkdownIndexErr({
 						message: `Schema mismatch for row ${id}`,
-						context: { filePath: context.filePath, id, reason: result.reason },
+						context: { filePath, id, reason: result.reason },
 					});
 
 				case 'invalid-structure':
 					return MarkdownIndexErr({
 						message: `Invalid structure for row ${id}`,
-						context: { filePath: context.filePath, id, reason: result.reason },
+						context: { filePath, id, reason: result.reason },
 					});
 			}
 		},
@@ -740,6 +777,7 @@ function createDefaultTableConfig<TTableSchema extends TableSchema>(
  * @param workspaceDir - Absolute workspace directory
  * @param tableConfigs - Per-table markdown configuration
  * @param resolveTableDirectory - Function to resolve table directory
+ * @param rowFilenames - Shared map tracking row IDs to filenames
  * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns Array of unsubscribe functions for cleanup
  */
@@ -748,18 +786,20 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	workspaceDir,
 	tableConfigs,
 	resolveTableDirectory,
+	rowFilenames,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
 	workspaceDir: AbsolutePath;
 	tableConfigs: TableConfigs<TSchema>;
-	resolveTableDirectory: (tableName: string, tableDirectory?: string) => AbsolutePath;
+	resolveTableDirectory: (
+		tableName: string,
+		tableDirectory?: string,
+	) => AbsolutePath;
+	rowFilenames: Map<string, Map<string, string>>;
 	syncCoordination: SyncCoordination;
 }): Array<() => void> {
 	const unsubscribers: Array<() => void> = [];
-
-	// Track filename for each row to detect filename changes
-	const rowFilenames = new Map<string, Map<string, string>>();
 
 	for (const tableName of db.getTableNames()) {
 		const table = db.tables[tableName];
@@ -776,7 +816,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
 
 		// Get table config (use default if not provided)
-		const tableConfig =
+		const tableConfig: TableMarkdownConfig<TableSchema> =
 			tableConfigs[tableName] ?? createDefaultTableConfig(schemaWithValidation);
 
 		// Get the table's directory
@@ -797,8 +837,8 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 		} {
 			const { filename } = tableConfig.serialize({
 				row,
-				context: {
-					tableName,
+				table: {
+					name: tableName,
 					schema: schemaWithValidation,
 				},
 			});
@@ -829,8 +869,8 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 			// Serialize row
 			const { frontmatter, body } = tableConfig.serialize({
 				row: serialized,
-				context: {
-					tableName,
+				table: {
+					name: tableName,
 					schema: schemaWithValidation,
 				},
 			});
@@ -927,6 +967,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
  * @param tableConfigs - Per-table markdown configuration
  * @param resolveTableDirectory - Function to resolve table directory
  * @param findTableForFile - Function to find which table owns a file
+ * @param rowFilenames - Shared map tracking row IDs to filenames
  * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns File watcher instance for cleanup
  */
@@ -936,16 +977,21 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	tableConfigs,
 	resolveTableDirectory,
 	findTableForFile,
+	rowFilenames,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
 	workspaceDir: AbsolutePath;
 	tableConfigs: TableConfigs<TSchema>;
-	resolveTableDirectory: (tableName: string, tableDirectory?: string) => AbsolutePath;
+	resolveTableDirectory: (
+		tableName: string,
+		tableDirectory?: string,
+	) => AbsolutePath;
 	findTableForFile: (absoluteFilePath: string) => {
 		tableName: string;
 		filename: string;
 	} | null;
+	rowFilenames: Map<string, Map<string, string>>;
 	syncCoordination: SyncCoordination;
 }): FSWatcher {
 	// Ensure the workspace directory exists before watching
@@ -1024,15 +1070,34 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 				const exists = await file.exists();
 				if (!exists) {
 					/**
-					 * File was deleted: We need to deserialize to extract the ID,
-					 * then remove the row from YJS.
-					 *
-					 * However, since the file is deleted, we can't parse it.
-					 * We need to track row IDs to filenames to handle deletions.
-					 * For now, skip deletions if we can't determine the ID.
-					 *
-					 * TODO: Implement filename -> ID tracking for proper deletion handling
+					 * File was deleted: Find the row ID using reverse lookup in rowFilenames map
+					 * and delete the corresponding row from YJS.
 					 */
+					const tableMap = rowFilenames.get(tableName);
+					if (tableMap) {
+						// Reverse lookup: find rowId where filename matches
+						let rowIdToDelete: string | null = null;
+						for (const [rowId, fname] of tableMap.entries()) {
+							if (fname === filename) {
+								rowIdToDelete = rowId;
+								break;
+							}
+						}
+
+						if (rowIdToDelete) {
+							// Delete the row from YJS
+							if (table.has({ id: rowIdToDelete })) {
+								table.delete({ id: rowIdToDelete });
+							}
+							// Clean up the tracking map
+							tableMap.delete(rowIdToDelete);
+						} else {
+							console.warn(
+								`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
+							);
+						}
+					}
+
 					syncCoordination.isProcessingFileChange = false;
 					return;
 				}
@@ -1073,10 +1138,10 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 					frontmatter,
 					body,
 					filename,
-					context: {
-						tableName,
+					filePath,
+					table: {
+						name: tableName,
 						schema: schemaWithValidation,
-						filePath,
 					},
 				});
 
