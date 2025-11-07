@@ -6,12 +6,12 @@ import type { EpicenterConfig } from '../core/epicenter';
  * Looks for epicenter.config.ts or epicenter.config.js
  *
  * @param configDir - Directory containing epicenter.config.ts
- * @returns The epicenter configuration
+ * @returns Object containing the epicenter configuration and config file path
  * @throws Error if no config file is found or if the config is invalid
  */
 export async function loadEpicenterConfig(
 	configDir: string,
-): Promise<EpicenterConfig> {
+): Promise<{ config: EpicenterConfig; configPath: string }> {
 
 	// Try different config file extensions
 	const configFiles = [
@@ -39,6 +39,7 @@ export async function loadEpicenterConfig(
 	}
 
 	// Dynamically import the config file
+	// bun --watch will restart process on changes, ensuring fresh import
 	try {
 		const configModule = await import(configPath);
 		const config = configModule.default || configModule;
@@ -52,7 +53,7 @@ export async function loadEpicenterConfig(
 			throw new Error('Epicenter config must have a workspaces array');
 		}
 
-		return config;
+		return { config, configPath };
 	} catch (error) {
 		if (error instanceof Error) {
 			throw new Error(`Failed to load epicenter config from ${configPath}: ${error.message}`);
