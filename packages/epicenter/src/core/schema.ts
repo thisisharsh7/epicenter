@@ -1,4 +1,3 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
 /**
  * @fileoverview Schema definitions and type system for collaborative database operations.
  *
@@ -1277,8 +1276,8 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 	 * Helper: Builds field definitions for schema validation
 	 * @param makeOptional - If true, all fields except 'id' become optional (for partial updates)
 	 */
-	function _buildSchemaFields({ makeOptional }: { makeOptional: boolean }) {
-		return Object.fromEntries(
+	const _buildSchemaFields = ({ makeOptional }: { makeOptional: boolean }) =>
+		Object.fromEntries(
 			Object.entries(schema).map(([fieldName, columnSchema]) => {
 				const baseType = _getBaseArktypeForColumn(columnSchema);
 
@@ -1295,8 +1294,7 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 
 				return [fieldName, finalType];
 			}),
-		);
-	}
+		) as Record<string, Type>;
 
 	/**
 	 * Helper: Generates base arktype for a column schema
@@ -1749,12 +1747,12 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 
 		toStandardSchema(): Type<SerializedRow<TSchema>> {
 			const fields = _buildSchemaFields({ makeOptional: false });
-			return type(fields) as Type<SerializedRow<TSchema>>;
+			return type(fields) as unknown as Type<SerializedRow<TSchema>>;
 		},
 
 		toPartialStandardSchema(): Type<PartialSerializedRow<TSchema>> {
 			const fields = _buildSchemaFields({ makeOptional: true });
-			return type(fields) as Type<PartialSerializedRow<TSchema>>;
+			return type(fields) as unknown as Type<PartialSerializedRow<TSchema>>;
 		},
 
 		toStandardSchemaArray(): Type<SerializedRow<TSchema>[]> {
