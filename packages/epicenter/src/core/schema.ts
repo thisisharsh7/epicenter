@@ -34,6 +34,7 @@
  * different generic parameters. 'valid' gives you Row<TTableSchema> (typed to your schema), while
  * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
  */
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { type Type, type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
@@ -361,16 +362,30 @@ export type TableSchemaWithValidation<
 	validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>>;
 
 	/** Generates a Standard Schema validator for full SerializedRow */
-	toStandardSchema(): Type<SerializedRow<TSchema>>;
+	toStandardSchema(): StandardSchemaV1<SerializedRow<TSchema>>;
 
 	/** Generates a Standard Schema validator for partial SerializedRow (all fields except id are optional) */
-	toPartialStandardSchema(): Type<PartialSerializedRow<TSchema>>;
+	toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
 
 	/** Generates a Standard Schema validator for an array of SerializedRows */
-	toStandardSchemaArray(): Type<SerializedRow<TSchema>[]>;
+	toStandardSchemaArray(): StandardSchemaV1<SerializedRow<TSchema>[]>;
 
 	/** Generates a Standard Schema validator for an array of partial SerializedRows */
-	toPartialStandardSchemaArray(): Type<PartialSerializedRow<TSchema>[]>;
+	toPartialStandardSchemaArray(): StandardSchemaV1<
+		PartialSerializedRow<TSchema>[]
+	>;
+
+	/** Generates an Arktype validator for full SerializedRow */
+	toArktype(): Type<SerializedRow<TSchema>>;
+
+	/** Generates an Arktype validator for partial SerializedRow (all fields except id are optional) */
+	toPartialArktype(): Type<PartialSerializedRow<TSchema>>;
+
+	/** Generates an Arktype validator for an array of SerializedRows */
+	toArktypeArray(): Type<SerializedRow<TSchema>[]>;
+
+	/** Generates an Arktype validator for an array of partial SerializedRows */
+	toPartialArktypeArray(): Type<PartialSerializedRow<TSchema>[]>;
 };
 
 /**
@@ -1745,22 +1760,44 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			return this.validateSerializedRow(data as SerializedRow<TSchema>);
 		},
 
-		toStandardSchema(): Type<SerializedRow<TSchema>> {
+		toStandardSchema() {
+			const fields = _buildSchemaFields({ makeOptional: false });
+			return type(fields) as StandardSchemaV1<SerializedRow<TSchema>>;
+		},
+
+		toPartialStandardSchema() {
+			const fields = _buildSchemaFields({ makeOptional: true });
+			return type(fields) as StandardSchemaV1<PartialSerializedRow<TSchema>>;
+		},
+
+		toStandardSchemaArray() {
+			const fields = _buildSchemaFields({ makeOptional: false });
+			return type(fields).array() as StandardSchemaV1<SerializedRow<TSchema>[]>;
+		},
+
+		toPartialStandardSchemaArray() {
+			const fields = _buildSchemaFields({ makeOptional: true });
+			return type(fields).array() as StandardSchemaV1<
+				PartialSerializedRow<TSchema>[]
+			>;
+		},
+
+		toArktype() {
 			const fields = _buildSchemaFields({ makeOptional: false });
 			return type(fields) as unknown as Type<SerializedRow<TSchema>>;
 		},
 
-		toPartialStandardSchema(): Type<PartialSerializedRow<TSchema>> {
+		toPartialArktype() {
 			const fields = _buildSchemaFields({ makeOptional: true });
 			return type(fields) as unknown as Type<PartialSerializedRow<TSchema>>;
 		},
 
-		toStandardSchemaArray(): Type<SerializedRow<TSchema>[]> {
+		toArktypeArray() {
 			const fields = _buildSchemaFields({ makeOptional: false });
 			return type(fields).array() as Type<SerializedRow<TSchema>[]>;
 		},
 
-		toPartialStandardSchemaArray(): Type<PartialSerializedRow<TSchema>[]> {
+		toPartialArktypeArray() {
 			const fields = _buildSchemaFields({ makeOptional: true });
 			return type(fields).array() as Type<PartialSerializedRow<TSchema>[]>;
 		},
