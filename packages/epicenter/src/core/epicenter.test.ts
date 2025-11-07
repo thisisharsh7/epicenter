@@ -3,7 +3,6 @@ import { Ok } from 'wellcrafted/result';
 import {
 	defineQuery,
 	defineWorkspace,
-	generateId,
 	id,
 	sqliteIndex,
 	text,

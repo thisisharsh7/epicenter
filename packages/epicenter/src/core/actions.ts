@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TaggedError } from 'wellcrafted/error';
-import { Ok, type Result, isResult } from 'wellcrafted/result';
-import type { EpicenterOperationError } from './errors';
+import type { Result } from 'wellcrafted/result';
+import { isResult } from 'wellcrafted/result';
 
 /**
  * A collection of workspace actions indexed by action name.

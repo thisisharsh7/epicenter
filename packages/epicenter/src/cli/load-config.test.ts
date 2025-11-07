@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { join } from 'node:path';
 import { loadEpicenterConfig } from './load-config';
 
 describe('loadEpicenterConfig', () => {
