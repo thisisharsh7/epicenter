@@ -4,6 +4,7 @@ import { clippings } from './clippings/clippings.workspace';
 import { discord } from './discord/discord.workspace';
 import { email } from './email/email.workspace';
 import { epicenterBlog } from './epicenter-blog/epicenter-blog.workspace';
+import { epicenter } from './epicenter/epicenter.workspace';
 import { githubIssues } from './github-issues/github-issues.workspace';
 import { hackernews } from './hackernews/hackernews.workspace';
 import { instagram } from './instagram/instagram.workspace';
@@ -50,6 +51,9 @@ export default defineEpicenter({
 
 		// Email
 		email,
+
+		// Company content
+		epicenter,
 
 		// Video platforms
 		youtube,
