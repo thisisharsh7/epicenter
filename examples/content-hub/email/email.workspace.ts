@@ -5,6 +5,7 @@ import {
 	id,
 	isDateWithTimezoneString,
 	markdownIndex,
+	multiSelect,
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
@@ -27,6 +28,29 @@ export const email = defineWorkspace({
 			id: id(),
 			subject: text(),
 			body: text(),
+			description: text({ nullable: true }),
+			tags: multiSelect({
+				options: [
+					'Announcement',
+					'Auditing',
+					'Cambridge',
+					'Cancellation',
+					'Chinese',
+					'Classes',
+					'Courses',
+					'Foreign Policy',
+					'Gap',
+					'Gapping',
+					'Journal',
+					'Leave of Absence',
+					'Light Fellowship',
+					'Project',
+					'Request',
+					'Superlatives',
+					'Yale',
+				],
+				nullable: true,
+			}),
 			date: date(),
 			createdAt: date(),
 			updatedAt: date(),
@@ -46,6 +70,9 @@ export const email = defineWorkspace({
 						deserialize: ({ id, frontmatter, body, filePath, schema }) => {
 							const FrontMatter = type({
 								subject: 'string',
+								'description?': 'string | undefined',
+								'tags?':
+									"('Announcement' | 'Auditing' | 'Cambridge' | 'Cancellation' | 'Chinese' | 'Classes' | 'Courses' | 'Foreign Policy' | 'Gap' | 'Gapping' | 'Journal' | 'Leave of Absence' | 'Light Fellowship' | 'Project' | 'Request' | 'Superlatives' | 'Yale')[] | undefined",
 								date: type.string.filter(isDateWithTimezoneString),
 								createdAt: type.string.filter(isDateWithTimezoneString),
 								updatedAt: type.string.filter(isDateWithTimezoneString),
@@ -60,7 +87,12 @@ export const email = defineWorkspace({
 							const row = {
 								id,
 								body,
-								...frontmatterParsed,
+								description: frontmatterParsed.description ?? null,
+								tags: frontmatterParsed.tags ?? null,
+								subject: frontmatterParsed.subject,
+								date: frontmatterParsed.date,
+								createdAt: frontmatterParsed.createdAt,
+								updatedAt: frontmatterParsed.updatedAt,
 							} satisfies SerializedRow<typeof schema>;
 							return Ok(row);
 						},
