@@ -392,7 +392,6 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	// Set up observers for each table
 	const unsubscribers = registerYJSObservers({
 		db,
-		workspaceDir: absoluteWorkspaceDir,
 		tableConfigs,
 		resolveTableDirectory,
 		rowFilenames,
@@ -404,7 +403,6 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		db,
 		workspaceDir: absoluteWorkspaceDir,
 		tableConfigs,
-		resolveTableDirectory,
 		findTableForFile,
 		rowFilenames,
 		syncCoordination,
@@ -774,7 +772,6 @@ function createDefaultTableConfig<TTableSchema extends TableSchema>(
  * prevent infinite sync loops.
  *
  * @param db - Database instance
- * @param workspaceDir - Absolute workspace directory
  * @param tableConfigs - Per-table markdown configuration
  * @param resolveTableDirectory - Function to resolve table directory
  * @param rowFilenames - Shared map tracking row IDs to filenames
@@ -783,14 +780,12 @@ function createDefaultTableConfig<TTableSchema extends TableSchema>(
  */
 function registerYJSObservers<TSchema extends WorkspaceSchema>({
 	db,
-	workspaceDir,
 	tableConfigs,
 	resolveTableDirectory,
 	rowFilenames,
 	syncCoordination,
 }: {
 	db: Db<TSchema>;
-	workspaceDir: AbsolutePath;
 	tableConfigs: TableConfigs<TSchema>;
 	resolveTableDirectory: (
 		tableName: string,
@@ -965,7 +960,6 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
  * @param db - Database instance
  * @param workspaceDir - Absolute workspace directory
  * @param tableConfigs - Per-table markdown configuration
- * @param resolveTableDirectory - Function to resolve table directory
  * @param findTableForFile - Function to find which table owns a file
  * @param rowFilenames - Shared map tracking row IDs to filenames
  * @param syncCoordination - Shared coordination state to prevent infinite loops
@@ -975,7 +969,6 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	db,
 	workspaceDir,
 	tableConfigs,
-	resolveTableDirectory,
 	findTableForFile,
 	rowFilenames,
 	syncCoordination,
@@ -983,10 +976,6 @@ function registerFileWatcher<TSchema extends WorkspaceSchema>({
 	db: Db<TSchema>;
 	workspaceDir: AbsolutePath;
 	tableConfigs: TableConfigs<TSchema>;
-	resolveTableDirectory: (
-		tableName: string,
-		tableDirectory?: string,
-	) => AbsolutePath;
 	findTableForFile: (absoluteFilePath: string) => {
 		tableName: string;
 		filename: string;
