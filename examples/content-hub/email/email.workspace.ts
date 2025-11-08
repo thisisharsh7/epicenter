@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
 	type SerializedRow,
 	date,
@@ -61,27 +62,26 @@ export const email = defineWorkspace({
 		sqlite: (c) => sqliteIndex(c),
 		markdown: (c) =>
 			markdownIndex(c, {
-				serializers: {
+				tableConfigs: {
 					emails: {
-						serialize: ({ row: { body, ...row } }) => ({
+						serialize: ({ row: { body, id, ...row }, table }) => ({
 							frontmatter: row,
 							body,
+							filename: `${id}.md`,
 						}),
-						deserialize: ({ id, frontmatter, body, filePath, schema }) => {
-							const FrontMatter = type({
-								subject: 'string',
-								'description?': 'string | undefined',
-								'tags?':
-									"('Announcement' | 'Auditing' | 'Cambridge' | 'Cancellation' | 'Chinese' | 'Classes' | 'Courses' | 'Foreign Policy' | 'Gap' | 'Gapping' | 'Journal' | 'Leave of Absence' | 'Light Fellowship' | 'Project' | 'Request' | 'Superlatives' | 'Yale')[] | undefined",
-								date: type.string.filter(isDateWithTimezoneString),
-								createdAt: type.string.filter(isDateWithTimezoneString),
-								updatedAt: type.string.filter(isDateWithTimezoneString),
-							});
+						deserialize: ({ frontmatter, body, filename, table }) => {
+							const id = path.basename(filename, '.md');
+
+							const FrontMatter = table.schema.toArktype().omit('id', 'body');
 							const frontmatterParsed = FrontMatter(frontmatter);
 							if (frontmatterParsed instanceof type.errors) {
 								return MarkdownIndexErr({
 									message: `Invalid frontmatter for row ${id}`,
-									context: { filePath, id, reason: frontmatterParsed },
+									context: {
+										fileName: filename,
+										id,
+										reason: frontmatterParsed,
+									},
 								});
 							}
 							const row = {
@@ -93,7 +93,7 @@ export const email = defineWorkspace({
 								date: frontmatterParsed.date,
 								createdAt: frontmatterParsed.createdAt,
 								updatedAt: frontmatterParsed.updatedAt,
-							} satisfies SerializedRow<typeof schema>;
+							} satisfies SerializedRow<(typeof c.db.schema)['emails']>;
 							return Ok(row);
 						},
 					},
