@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
 	type SerializedRow,
 	date,
@@ -25,6 +26,7 @@ export const epicenter = defineWorkspace({
 	schema: {
 		pitches: {
 			id: id(),
+			slug: text(),
 			title: text(),
 			content: text(),
 			rating: select({ options: ['decent', 'good', 'great', 'excellent'] }),
@@ -36,31 +38,32 @@ export const epicenter = defineWorkspace({
 	indexes: {
 		markdown: (c) =>
 			markdownIndex(c, {
-				serializers: {
+				tableConfigs: {
 					pitches: {
-						serialize: ({ row: { content, ...row } }) => ({
+						serialize: ({ row: { content, slug, ...row }, table }) => ({
 							frontmatter: row,
 							body: content,
+							filename: `${slug}.md`,
 						}),
-						deserialize: ({ id, frontmatter, body, filePath, schema }) => {
-							const FrontMatter = type({
-								title: 'string',
-								rating: '"decent" | "good" | "great" | "excellent"',
-								createdAt: type.string.filter(isDateWithTimezoneString),
-								updatedAt: type.string.filter(isDateWithTimezoneString),
-							});
+						deserialize: ({ frontmatter, body, filename, filePath, table }) => {
+							const slug = path.basename(filename, '.md');
+							const FrontMatter = table.schema.toArktype().omit('content', 'slug');
 							const frontmatterParsed = FrontMatter(frontmatter);
 							if (frontmatterParsed instanceof type.errors) {
 								return MarkdownIndexErr({
-									message: `Invalid frontmatter for row ${id}`,
-									context: { filePath, id, reason: frontmatterParsed },
+									message: `Invalid frontmatter for pitch with slug ${slug}`,
+									context: {
+										filePath,
+										slug,
+										reason: frontmatterParsed,
+									},
 								});
 							}
 							const row = {
-								id,
+								slug,
 								content: body,
 								...frontmatterParsed,
-							} satisfies SerializedRow<typeof schema>;
+							} satisfies SerializedRow<(typeof c.db.schema)['pitches']>;
 							return Ok(row);
 						},
 					},
