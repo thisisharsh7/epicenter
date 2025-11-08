@@ -50,14 +50,11 @@ export const clippings = defineWorkspace({
 
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
-		markdown: (context) =>
-			markdownIndex(context, {
-				tableAndIdToPath: ({ id }) => `${id}.md`,
-				pathToTableAndId: ({ path: fileName }) =>
-					Ok({ tableName: 'clippings', id: path.basename(fileName, '.md') }),
-				serializers: {
+		markdown: (c) =>
+			markdownIndex(c, {
+				tableConfigs: {
 					clippings: {
-						serialize: ({ row: { content, id: _, ...row } }) => {
+						serialize: ({ row: { content, id, ...row } }) => {
 							// Remove null values from frontmatter
 							const frontmatter = Object.fromEntries(
 								Object.entries(row).filter(([_, value]) => value !== null),
@@ -65,15 +62,11 @@ export const clippings = defineWorkspace({
 							return {
 								frontmatter,
 								body: content,
+								filename: `${id}.md`,
 							};
 						},
-						deserialize: ({
-							id: rowId,
-							frontmatter,
-							body,
-							filePath,
-							schema,
-						}) => {
+						deserialize: ({ frontmatter, body, filename, table }) => {
+							const rowId = path.basename(filename, '.md');
 							const FrontMatter = type({
 								url: 'string',
 								title: 'string',
@@ -91,7 +84,11 @@ export const clippings = defineWorkspace({
 							if (frontmatterParsed instanceof type.errors) {
 								return MarkdownIndexErr({
 									message: `Invalid frontmatter for row ${rowId}`,
-									context: { filePath, id: rowId, reason: frontmatterParsed },
+									context: {
+										fileName: filename,
+										id: rowId,
+										reason: frontmatterParsed,
+									},
 								});
 							}
 							// Merge with null defaults for missing optional fields
@@ -106,7 +103,7 @@ export const clippings = defineWorkspace({
 								published: null,
 								image: null,
 								...frontmatterParsed,
-							} satisfies SerializedRow<typeof schema>;
+							} satisfies SerializedRow<(typeof c.db.schema)['clippings']>;
 							return Ok(row);
 						},
 					},
