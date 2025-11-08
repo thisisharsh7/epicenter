@@ -49,7 +49,7 @@ const blogWorkspace = defineWorkspace({
 		sqlite: (c) => sqliteIndex(c),
 		markdown: (context) =>
 			markdownIndex(context, {
-				serializers: {
+				tableConfigs: {
 					posts: {
 						serialize: ({ row, tableName }) => {
 							const { id, content, ...rest } = row;
