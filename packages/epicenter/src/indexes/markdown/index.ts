@@ -372,7 +372,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
 		const tableConfig =
-			tableConfigs[tableName] ?? createDefaultTableConfig(schemaWithValidation);
+			tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
 
 		// Initialize map for this table
 		if (!rowFilenames.has(tableName)) {
@@ -462,8 +462,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							const schemaWithValidation =
 								createTableSchemaWithValidation(tableSchema);
 							const tableConfig =
-								tableConfigs[tableName] ??
-								createDefaultTableConfig(schemaWithValidation);
+								tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
 
 							// Resolve table directory (inline logic)
 							const dir = tableConfig.directory ?? tableName;
@@ -579,8 +578,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 							// Get table config (use default if not provided)
 							const tableConfig =
-								tableConfigs[tableName] ??
-								createDefaultTableConfig(schemaWithValidation);
+								tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
 
 							// Parse markdown file
 							const parseResult = await parseMarkdownFile(fullPath);
@@ -671,51 +669,47 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 }) satisfies Index;
 
 /**
- * Create default table config
+ * Default table config
  *
  * Default behavior:
  * - Directory: table name
  * - Serialize: All row fields → frontmatter, empty body, filename "{id}.md"
  * - Deserialize: Extract ID from filename, all frontmatter fields → row with validation
  */
-function createDefaultTableConfig<TTableSchema extends TableSchema>(
-	schemaWithValidation: TableSchemaWithValidation<TTableSchema>,
-): TableMarkdownConfig<TTableSchema> {
-	return {
-		serialize: ({ row: { id, ...row } }) => ({
-			frontmatter: row,
-			body: '',
-			filename: `${id}.md`,
-		}),
-		deserialize: ({ frontmatter, body: _, filename, filePath, table }) => {
-			// Extract ID from filename (strip .md extension)
-			const id = path.basename(filename, '.md');
+const DEFAULT_TABLE_CONFIG: TableMarkdownConfig<TableSchema> = {
+	serialize: ({ row: { id, ...row } }) => ({
+		frontmatter: row,
+		body: '',
+		filename: `${id}.md`,
+	}),
+	deserialize: ({ frontmatter, body: _, filename, filePath, table }) => {
+		// Extract ID from filename (strip .md extension)
+		const id = path.basename(filename, '.md');
 
-			// Combine id with frontmatter
-			const data = { id, ...frontmatter };
+		// Combine id with frontmatter
+		const data = { id, ...frontmatter };
 
-			// Validate using schema.validateUnknown
-			const result = table.schema.validateUnknown(data);
+		// Validate using schema.validateUnknown
+		const result = table.schema.validateUnknown(data);
 
-			switch (result.status) {
-				case 'valid':
-					return Ok(result.row);
+		switch (result.status) {
+			case 'valid':
+				return Ok(result.row);
 
-				case 'schema-mismatch':
-					return MarkdownIndexErr({
-						message: `Schema mismatch for row ${id}`,
-						context: { filePath, id, reason: result.reason },
-					});
+			case 'schema-mismatch':
+				return MarkdownIndexErr({
+					message: `Schema mismatch for row ${id}`,
+					context: { filePath, id, reason: result.reason },
+				});
 
-				case 'invalid-structure':
-					return MarkdownIndexErr({
-						message: `Invalid structure for row ${id}`,
-						context: { filePath, id, reason: result.reason },
-					});
-			}
-		},
-	};
-}
+			case 'invalid-structure':
+				return MarkdownIndexErr({
+					message: `Invalid structure for row ${id}`,
+					context: { filePath, id, reason: result.reason },
+				});
+		}
+	},
+};
 
 /**
  * Register YJS observers to sync changes from YJS to markdown files
@@ -762,7 +756,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 
 		// Get table config (use default if not provided)
 		const tableConfig: TableMarkdownConfig<TableSchema> =
-			tableConfigs[tableName] ?? createDefaultTableConfig(schemaWithValidation);
+			tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
 
 		// Resolve table directory (inline logic)
 		const dir = tableConfig.directory ?? tableName;
@@ -937,7 +931,7 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 
 		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
 		const tableConfig =
-			tableConfigs[tableName] ?? createDefaultTableConfig(schemaWithValidation);
+			tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
 
 		// Resolve table directory
 		const dir = tableConfig.directory ?? tableName;
