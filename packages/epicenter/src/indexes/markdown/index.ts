@@ -316,7 +316,6 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		directory,
 	) as AbsolutePath;
 
-
 	/**
 	 * Coordination state to prevent infinite sync loops
 	 *
@@ -468,7 +467,10 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 							// Resolve table directory (inline logic)
 							const dir = tableConfig.directory ?? tableName;
-							const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
+							const tableDir = path.resolve(
+								absoluteWorkspaceDir,
+								dir,
+							) as AbsolutePath;
 
 							const results = db.tables[tableName].getAll();
 							const validRows = results
@@ -680,20 +682,17 @@ function createDefaultTableConfig<TTableSchema extends TableSchema>(
 	schemaWithValidation: TableSchemaWithValidation<TTableSchema>,
 ): TableMarkdownConfig<TTableSchema> {
 	return {
-		serialize: ({ row }) => ({
+		serialize: ({ row: { id, ...row } }) => ({
 			frontmatter: row,
 			body: '',
-			filename: `${row.id}.md`,
+			filename: `${id}.md`,
 		}),
-		deserialize: ({ frontmatter, body, filename, filePath, table }) => {
+		deserialize: ({ frontmatter, body: _, filename, filePath, table }) => {
 			// Extract ID from filename (strip .md extension)
 			const id = path.basename(filename, '.md');
 
 			// Combine id with frontmatter
-			const data = {
-				id,
-				...frontmatter,
-			};
+			const data = { id, ...frontmatter };
 
 			// Validate using schema.validateUnknown
 			const result = table.schema.validateUnknown(data);
@@ -1024,16 +1023,17 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 					const { data: frontmatter, body } = parseResult.data;
 
 					// Deserialize using the table config
-					const { data: row, error: deserializeError } = tableConfig.deserialize({
-						frontmatter,
-						body,
-						filename,
-						filePath,
-						table: {
-							name: tableName,
-							schema: schemaWithValidation,
-						},
-					});
+					const { data: row, error: deserializeError } =
+						tableConfig.deserialize({
+							frontmatter,
+							body,
+							filename,
+							filePath,
+							table: {
+								name: tableName,
+								schema: schemaWithValidation,
+							},
+						});
 
 					if (deserializeError) {
 						console.warn(
