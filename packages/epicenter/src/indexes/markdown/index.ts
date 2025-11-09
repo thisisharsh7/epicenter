@@ -171,10 +171,13 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	/**
 	 * Serialize a row to markdown frontmatter, body, and filename.
 	 *
+	 * IMPORTANT: The filename MUST be a simple filename without path separators.
+	 * The table's directory setting determines where the file is written.
+	 *
 	 * @param params.row - Row to serialize (already validated against schema)
 	 * @param params.table.name - Table name (for context)
 	 * @param params.table.schema - Table schema with validation methods
-	 * @returns Frontmatter object, markdown body string, and filename (without directory path)
+	 * @returns Frontmatter object, markdown body string, and simple filename (without directory path)
 	 */
 	serialize(params: {
 		row: SerializedRow<TTableSchema>;
@@ -198,8 +201,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 *
 	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
 	 * @param params.body - Markdown body content (text after frontmatter delimiters)
-	 * @param params.filename - Just the filename (without directory path)
-	 * @param params.filePath - Full file path (for error messages)
+	 * @param params.filename - Simple filename only (validated to not contain path separators)
 	 * @param params.table.name - Table name (for context)
 	 * @param params.table.schema - Table schema with validation methods
 	 * @returns Result with complete row (with id field), or error to skip this file
@@ -208,7 +210,6 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 		frontmatter: Record<string, unknown>;
 		body: string;
 		filename: string;
-		filePath: string;
 		table: {
 			name: string;
 			schema: TableSchemaWithValidation<TTableSchema>;
@@ -441,6 +442,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 										schema: schemaWithValidation,
 									},
 								});
+
 								const filePath = path.join(tableDir, filename) as AbsolutePath;
 
 								const { error } = await writeMarkdownFile({
@@ -538,7 +540,6 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 										frontmatter,
 										body,
 										filename,
-										filePath: fullPath,
 										table: {
 											name: tableName,
 											schema: schemaWithValidation,
@@ -615,7 +616,7 @@ const DEFAULT_TABLE_CONFIG: TableMarkdownConfig<TableSchema> = {
 		body: '',
 		filename: `${id}.md`,
 	}),
-	deserialize: ({ frontmatter, body: _, filename, filePath, table }) => {
+	deserialize: ({ frontmatter, body: _, filename, table }) => {
 		// Extract ID from filename (strip .md extension)
 		const id = path.basename(filename, '.md');
 
@@ -632,13 +633,13 @@ const DEFAULT_TABLE_CONFIG: TableMarkdownConfig<TableSchema> = {
 			case 'schema-mismatch':
 				return MarkdownIndexErr({
 					message: `Schema mismatch for row ${id}`,
-					context: { filePath, id, reason: result.reason },
+					context: { filename, id, reason: result.reason },
 				});
 
 			case 'invalid-structure':
 				return MarkdownIndexErr({
 					message: `Invalid structure for row ${id}`,
-					context: { filePath, id, reason: result.reason },
+					context: { filename, id, reason: result.reason },
 				});
 		}
 	},
@@ -691,31 +692,24 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 		const filenameMap = rowFilenames.get(tableName)!;
 
 		/**
-		 * Get the absolute file path for a row
-		 */
-		function getMarkdownFilePath(row: SerializedRow<TableSchema>): {
-			filePath: AbsolutePath;
-			filename: string;
-		} {
-			const { filename } = tableConfig.serialize({
-				row,
-				table: {
-					name: tableName,
-					schema: schemaWithValidation,
-				},
-			});
-			const filePath = path.join(tableDir, filename) as AbsolutePath;
-			return { filePath, filename };
-		}
-
-		/**
 		 * Write a YJS row to markdown file
 		 */
 		async function writeRowToMarkdown<TTableSchema extends TableSchema>(
 			row: Row<TTableSchema>,
 		) {
 			const serialized = row.toJSON();
-			const { filePath, filename } = getMarkdownFilePath(serialized);
+
+			// Serialize row once
+			const { frontmatter, body, filename } = tableConfig.serialize({
+				row: serialized,
+				table: {
+					name: tableName,
+					schema: schemaWithValidation,
+				},
+			});
+
+			// Construct file path
+			const filePath = path.join(tableDir, filename) as AbsolutePath;
 
 			// Check if filename changed
 			const oldFilename = filenameMap.get(row.id);
@@ -727,15 +721,6 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 
 			// Update filename tracking
 			filenameMap.set(row.id, filename);
-
-			// Serialize row
-			const { frontmatter, body } = tableConfig.serialize({
-				row: serialized,
-				table: {
-					name: tableName,
-					schema: schemaWithValidation,
-				},
-			});
 
 			return writeMarkdownFile({
 				filePath,
@@ -938,7 +923,6 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 					frontmatter,
 					body,
 					filename,
-					filePath,
 					table: {
 						name: tableName,
 						schema: schemaWithValidation,
