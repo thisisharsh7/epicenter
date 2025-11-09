@@ -217,84 +217,52 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 };
 
 /**
- * Create a markdown index
+ * Iterator that yields all tables with their associated metadata
  *
- * This index maintains two-way synchronization between YJS (in-memory) and markdown files (on disk):
+ * This is the single source of truth for iterating over tables in the markdown index.
+ * It automatically handles:
+ * - Getting table and schema from the database
+ * - Skipping tables that don't exist
+ * - Creating schema validation
+ * - Resolving table directory and config
  *
- * Direction 1: YJS → Markdown (via observers)
- * - When a row is added/updated/deleted in YJS
- * - Use the serializer to transform the row into frontmatter and body
- * - Write/update/delete the corresponding .md file with both parts
- *
- * Direction 2: Markdown → YJS (via file watcher)
- * - When a .md file is created/modified/deleted
- * - Parse the file into frontmatter and body (two separate pieces)
- * - Use the serializer to combine frontmatter and body back into a complete row
- * - Update YJS with granular diffs
- *
- * Loop prevention flags ensure these two directions don't trigger each other infinitely.
- * Without them, we'd get stuck in an infinite loop:
- * 1. YJS change -> serializer creates frontmatter+body -> writes markdown file -> triggers file watcher
- * 2. File watcher -> parses frontmatter+body -> serializer creates row -> updates YJS -> triggers YJS observer
- * 3. YJS observer -> serializer creates frontmatter+body -> writes markdown file -> back to step 1
- *
- * The flags break the cycle by ensuring changes only flow in one direction at a time.
- *
- * Expected directory structure (with default path functions):
- * ```
- * {rootDir}/
- *   {tableName}/
- *     {row-id}.md
- *     {row-id}.md
- *   {tableName}/
- *     {row-id}.md
- * ```
- *
- * @param context - Index context (workspace ID, database, storage directory)
- * @param context.id - Workspace ID (required)
- * @param context.db - Epicenter database instance (required)
- * @param context.storageDir - Resolved storage directory from epicenter config (required)
- * @param config - Optional markdown configuration
- * @param config.directory - Optional directory for markdown files (defaults to `{workspaceId}`, resolved relative to storageDir)
- * @param config.tableConfigs - Optional per-table markdown configuration (defaults to all fields in frontmatter)
- *
- * **Storage**: By default, stores markdown files in `{storageDir}/{workspaceId}/`
- *
- * @example Minimal usage with all defaults
- * ```typescript
- * indexes: {
- *   markdown: markdownIndex  // Stores in {storageDir}/{workspaceId}/
- * }
- * ```
- *
- * @example Custom table config - combining title and body in markdown body
- * ```typescript
- * import path from 'node:path';
- * import { Ok } from 'wellcrafted/result';
- *
- * indexes: {
- *   markdown: (context) => markdownIndex(context, {
- *     tableConfigs: {
- *       posts: {
- *         directory: './blog-posts', // optional, defaults to 'posts'
- *         serialize: ({ row, table }) => ({
- *           frontmatter: { tags: row.tags, published: row.published },
- *           body: `# ${row.title}\n\n${row.content || ''}`,
- *           filename: `${row.id}.md`
- *         }),
- *         deserialize: ({ frontmatter, body, filename, filePath, table }) => {
- *           const id = path.basename(filename, '.md');
- *           const lines = body.split('\n');
- *           const title = lines[0]?.replace(/^# /, '') || '';
- *           const bodyContent = lines.slice(2).join('\n');
- *           return Ok({ id, title, tags: frontmatter.tags, published: frontmatter.published, content: bodyContent });
- *         }
- *       }
- *     }
- *   })
- * }
- * ```
+ * @param db - Database instance
+ * @param tableConfigs - All table markdown configurations
+ * @param absoluteWorkspaceDir - Absolute workspace directory path
+ * @yields Object containing all table metadata needed for markdown operations
  */
+function* iterateTables<TSchema extends WorkspaceSchema>({
+	db,
+	tableConfigs,
+	absoluteWorkspaceDir,
+}: {
+	db: Db<TSchema>;
+	tableConfigs: TableConfigs<TSchema>;
+	absoluteWorkspaceDir: AbsolutePath;
+}) {
+	for (const tableName of db.getTableNames()) {
+		const table = db.tables[tableName];
+		const tableSchema = db.schema[tableName];
+
+		// Skip tables that don't exist (most common pattern)
+		if (!table || !tableSchema) continue;
+
+		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+		const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
+		const dir = tableConfig.directory ?? tableName;
+		const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
+
+		yield {
+			tableName,
+			table,
+			tableSchema,
+			schemaWithValidation,
+			tableDir,
+			tableConfig,
+		};
+	}
+}
+
 export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
@@ -366,13 +334,16 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	 * Scan all YJS rows and populate the rowFilenames map by serializing each row
 	 * to extract its filename. This ensures the map is accurate after server restart.
 	 */
-	for (const tableName of db.getTableNames()) {
-		const tableSchema = db.schema[tableName];
-		if (!tableSchema) continue;
-
-		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-		const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-
+	for (const {
+		tableName,
+		table,
+		schemaWithValidation,
+		tableConfig,
+	} of iterateTables({
+		db,
+		tableConfigs,
+		absoluteWorkspaceDir,
+	})) {
 		// Initialize map for this table
 		if (!rowFilenames.has(tableName)) {
 			rowFilenames.set(tableName, new Map());
@@ -380,7 +351,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		const tableMap = rowFilenames.get(tableName)!;
 
 		// Get all valid rows from YJS
-		const results = db.tables[tableName].getAll();
+		const results = table.getAll();
 		const validRows = results
 			.filter((r) => r.status === 'valid')
 			.map((r) => r.row);
@@ -420,55 +391,41 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					try: async () => {
 						syncCoordination.isProcessingYJSChange = true;
 
-						// Find and delete all markdown files in table directories
-						const entries = await readdir(absoluteWorkspaceDir, {
-							recursive: true,
-							withFileTypes: true,
-						});
-
-						for (const entry of entries) {
-							if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-
-							// Build absolute path
-							const fullPath = path.join(
-								entry.parentPath ?? entry.path,
-								entry.name,
-							) as AbsolutePath;
-
-							// Check if this file belongs to any table
-							const tableInfo = findTableForFile(fullPath);
-							if (!tableInfo) continue; // Skip files that don't belong to any table
-
-							// Delete the file
-							const { error } = await deleteMarkdownFile({
-								filePath: fullPath,
+						// Process each table independently
+						for (const {
+							tableName,
+							schemaWithValidation,
+							tableDir,
+							tableConfig,
+						} of iterateTables({
+							db,
+							tableConfigs,
+							absoluteWorkspaceDir,
+						})) {
+							// Delete all existing markdown files in this table's directory
+							const entries = await readdir(tableDir, {
+								recursive: false,
+								withFileTypes: true,
 							});
-							if (error) {
-								console.warn(
-									`Failed to delete markdown file ${fullPath} during pull:`,
-									error,
-								);
+
+							for (const entry of entries) {
+								if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+
+								const filePath = path.join(
+									tableDir,
+									entry.name,
+								) as AbsolutePath;
+
+								const { error } = await deleteMarkdownFile({ filePath });
+								if (error) {
+									console.warn(
+										`Failed to delete markdown file ${filePath} during pull:`,
+										error,
+									);
+								}
 							}
-						}
 
-						// Write all current YJS rows to markdown files
-						for (const tableName of db.getTableNames()) {
-							const tableSchema = db.schema[tableName];
-							if (!tableSchema) {
-								throw new Error(`Schema for table "${tableName}" not found`);
-							}
-
-							const schemaWithValidation =
-								createTableSchemaWithValidation(tableSchema);
-							const tableConfig =
-								tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-
-							// Resolve table directory (inline logic)
-							const dir = tableConfig.directory ?? tableName;
-							const tableDir = path.resolve(
-								absoluteWorkspaceDir,
-								dir,
-							) as AbsolutePath;
+							// Write all current YJS rows for this table to markdown files
 
 							const results = db.tables[tableName].getAll();
 							const validRows = results
@@ -531,102 +488,79 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							}
 						});
 
-						// Find all markdown files
-						const entries = await readdir(absoluteWorkspaceDir, {
-							recursive: true,
-							withFileTypes: true,
-						});
-
 						// Track diagnostics for files that fail to process
 						const diagnostics: MarkdownIndexError[] = [];
 
-						for (const entry of entries) {
-							if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+						// Process each table independently
+						for (const {
+							tableName,
+							table,
+							schemaWithValidation,
+							tableDir,
+							tableConfig,
+						} of iterateTables({
+							db,
+							tableConfigs,
+							absoluteWorkspaceDir,
+						})) {
+							// Read all markdown files from this table's directory
+							const entries = await readdir(tableDir, { withFileTypes: true });
 
-							// Build absolute path
-							const fullPath = path.join(
-								entry.parentPath ?? entry.path,
-								entry.name,
-							) as AbsolutePath;
+							for (const entry of entries) {
+								if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
-							// Find which table this file belongs to
-							const tableInfo = findTableForFile(fullPath);
-							if (!tableInfo) {
-								// File doesn't belong to any table, skip it
-								continue;
-							}
+								const filename = entry.name;
+								const fullPath = path.join(tableDir, filename) as AbsolutePath;
 
-							const { tableName, filename } = tableInfo;
+								// Parse markdown file
+								const parseResult = await parseMarkdownFile(fullPath);
 
-							// Get table and schema
-							const table = db.tables[tableName];
-							const tableSchema = db.schema[tableName] as
-								| TSchema[keyof TSchema & string]
-								| undefined;
+								if (parseResult.error) {
+									// Convert MarkdownError to MarkdownIndexError for diagnostics
+									diagnostics.push(
+										MarkdownIndexError({
+											message: `Failed to parse markdown file: ${parseResult.error.message}`,
+											context: { filePath: fullPath, cause: parseResult.error },
+										}),
+									);
+									console.warn(
+										`Failed to parse markdown file ${fullPath} during push:`,
+										parseResult.error,
+									);
+									continue;
+								}
 
-							if (!table || !tableSchema) {
-								console.warn(
-									`Push: Unknown table "${tableName}" from file ${fullPath}`,
-								);
-								continue;
-							}
+								const { data: frontmatter, body } = parseResult.data;
 
-							// Create schema with validation methods
-							const schemaWithValidation =
-								createTableSchemaWithValidation(tableSchema);
+								// Deserialize using the table config
+								const { data: row, error: deserializeError } =
+									tableConfig.deserialize({
+										frontmatter,
+										body,
+										filename,
+										filePath: fullPath,
+										table: {
+											name: tableName,
+											schema: schemaWithValidation,
+										},
+									});
 
-							// Get table config (use default if not provided)
-							const tableConfig =
-								tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
+								if (deserializeError) {
+									diagnostics.push(deserializeError);
+									console.warn(
+										`Skipping markdown file ${fullPath}: ${deserializeError.message}`,
+									);
+									continue;
+								}
 
-							// Parse markdown file
-							const parseResult = await parseMarkdownFile(fullPath);
-
-							if (parseResult.error) {
-								// Convert MarkdownError to MarkdownIndexError for diagnostics
-								diagnostics.push(
-									MarkdownIndexError({
-										message: `Failed to parse markdown file: ${parseResult.error.message}`,
-										context: { filePath: fullPath, cause: parseResult.error },
-									}),
-								);
-								console.warn(
-									`Failed to parse markdown file ${fullPath} during push:`,
-									parseResult.error,
-								);
-								continue;
-							}
-
-							const { data: frontmatter, body } = parseResult.data;
-
-							// Deserialize using the table config
-							const { data: row, error: deserializeError } =
-								tableConfig.deserialize({
-									frontmatter,
-									body,
-									filename,
-									filePath: fullPath,
-									table: {
-										name: tableName,
-										schema: schemaWithValidation,
-									},
-								});
-
-							if (deserializeError) {
-								diagnostics.push(deserializeError);
-								console.warn(
-									`Skipping markdown file ${fullPath}: ${deserializeError.message}`,
-								);
-								continue;
-							}
-
-							// Insert into YJS
-							const insertResult = table.insert(row);
-							if (insertResult.error) {
-								console.warn(
-									`Failed to insert row ${row.id} from markdown into YJS table ${tableName}:`,
-									insertResult.error,
-								);
+								// Insert into YJS
+								const insertResult = table.insert(row);
+								if (insertResult.error) {
+									console.warn(
+										`Failed to insert row ${row.id} from markdown into YJS table ${tableName}:`,
+										insertResult.error,
+									);
+								}
 							}
 						}
 
@@ -739,28 +673,17 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 }): Array<() => void> {
 	const unsubscribers: Array<() => void> = [];
 
-	for (const tableName of db.getTableNames()) {
-		const table = db.tables[tableName];
-		if (!table) {
-			throw new Error(`Table "${tableName}" not found`);
-		}
-
-		const tableSchema = db.schema[tableName];
-		if (!tableSchema) {
-			throw new Error(`Schema for table "${tableName}" not found`);
-		}
-
-		// Create schema with validation methods
-		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-
-		// Get table config (use default if not provided)
-		const tableConfig: TableMarkdownConfig<TableSchema> =
-			tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-
-		// Resolve table directory (inline logic)
-		const dir = tableConfig.directory ?? tableName;
-		const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
-
+	for (const {
+		tableName,
+		table,
+		schemaWithValidation,
+		tableDir,
+		tableConfig,
+	} of iterateTables({
+		db,
+		tableConfigs,
+		absoluteWorkspaceDir,
+	})) {
 		// Initialize filename tracking for this table
 		if (!rowFilenames.has(tableName)) {
 			rowFilenames.set(tableName, new Map());
@@ -923,19 +846,17 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 }): FSWatcher[] {
 	const watchers: FSWatcher[] = [];
 
-	for (const tableName of db.getTableNames()) {
-		const table = db.tables[tableName];
-		const tableSchema = db.schema[tableName];
-		if (!table || !tableSchema) continue;
-
-		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-		const tableConfig =
-			tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-
-		// Resolve table directory
-		const dir = tableConfig.directory ?? tableName;
-		const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
-
+	for (const {
+		tableName,
+		table,
+		schemaWithValidation,
+		tableDir,
+		tableConfig,
+	} of iterateTables({
+		db,
+		tableConfigs,
+		absoluteWorkspaceDir,
+	})) {
 		// Ensure table directory exists
 		trySync({
 			try: () => {
