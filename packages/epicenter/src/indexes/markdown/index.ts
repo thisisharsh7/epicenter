@@ -217,53 +217,6 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
 };
 
-/**
- * Iterator that yields all tables with their associated metadata
- *
- * This is the single source of truth for iterating over tables in the markdown index.
- * It automatically handles:
- * - Getting table and schema from the database
- * - Skipping tables that don't exist
- * - Creating schema validation
- * - Resolving table directory and config
- *
- * @param db - Database instance
- * @param tableConfigs - All table markdown configurations
- * @param absoluteWorkspaceDir - Absolute workspace directory path
- * @yields Object containing all table metadata needed for markdown operations
- */
-function* iterateTables<TSchema extends WorkspaceSchema>({
-	db,
-	tableConfigs,
-	absoluteWorkspaceDir,
-}: {
-	db: Db<TSchema>;
-	tableConfigs: TableConfigs<TSchema>;
-	absoluteWorkspaceDir: AbsolutePath;
-}) {
-	for (const tableName of db.getTableNames()) {
-		const table = db.tables[tableName];
-		const tableSchema = db.schema[tableName];
-
-		// Skip tables that don't exist (most common pattern)
-		if (!table || !tableSchema) continue;
-
-		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-		const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-		const dir = tableConfig.directory ?? tableName;
-		const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
-
-		yield {
-			tableName,
-			table,
-			tableSchema,
-			schemaWithValidation,
-			tableDir,
-			tableConfig,
-		};
-	}
-}
-
 export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
@@ -952,4 +905,51 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 	}
 
 	return watchers;
+}
+
+/**
+ * Iterator that yields all tables with their associated metadata
+ *
+ * This is the single source of truth for iterating over tables in the markdown index.
+ * It automatically handles:
+ * - Getting table and schema from the database
+ * - Skipping tables that don't exist
+ * - Creating schema validation
+ * - Resolving table directory and config
+ *
+ * @param db - Database instance
+ * @param tableConfigs - All table markdown configurations
+ * @param absoluteWorkspaceDir - Absolute workspace directory path
+ * @yields Object containing all table metadata needed for markdown operations
+ */
+function* iterateTables<TSchema extends WorkspaceSchema>({
+	db,
+	tableConfigs,
+	absoluteWorkspaceDir,
+}: {
+	db: Db<TSchema>;
+	tableConfigs: TableConfigs<TSchema>;
+	absoluteWorkspaceDir: AbsolutePath;
+}) {
+	for (const tableName of db.getTableNames()) {
+		const table = db.tables[tableName];
+		const tableSchema = db.schema[tableName];
+
+		// Skip tables that don't exist (most common pattern)
+		if (!table || !tableSchema) continue;
+
+		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+		const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
+		const dir = tableConfig.directory ?? tableName;
+		const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
+
+		yield {
+			tableName,
+			table,
+			tableSchema,
+			schemaWithValidation,
+			tableDir,
+			tableConfig,
+		};
+	}
 }
