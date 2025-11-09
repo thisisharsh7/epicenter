@@ -371,8 +371,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		if (!tableSchema) continue;
 
 		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-		const tableConfig =
-			tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
+		const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
 
 		// Initialize map for this table
 		if (!rowFilenames.has(tableName)) {
@@ -946,108 +945,103 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 		});
 
 		// Create watcher for this table's directory
-		const watcher = watch(
-			tableDir,
-			{ recursive: false },
-			async (eventType, filename) => {
-				// Skip if this file change was triggered by a YJS change
-				if (syncCoordination.isProcessingYJSChange) return;
+		const watcher = watch(tableDir, async (eventType, filename) => {
+			// Skip if this file change was triggered by a YJS change
+			if (syncCoordination.isProcessingYJSChange) return;
 
-				// Skip non-markdown files
-				if (!filename || !filename.endsWith('.md')) return;
+			// Skip non-markdown files
+			if (!filename || !filename.endsWith('.md')) return;
 
-				syncCoordination.isProcessingFileChange = true;
+			syncCoordination.isProcessingFileChange = true;
 
-				const filePath = path.join(tableDir, filename) as AbsolutePath;
+			const filePath = path.join(tableDir, filename) as AbsolutePath;
 
-				// Handle file system events
-				if (eventType === 'rename') {
-					// Check if file was deleted or modified
-					const file = Bun.file(filePath);
-					const exists = await file.exists();
+			// Handle file system events
+			if (eventType === 'rename') {
+				// Check if file was deleted or modified
+				const file = Bun.file(filePath);
+				const exists = await file.exists();
 
-					if (!exists) {
-						// File was deleted: find and delete the row
-						const tableMap = rowFilenames.get(tableName);
-						if (tableMap) {
-							// Reverse lookup: find rowId where filename matches
-							let rowIdToDelete: string | null = null;
-							for (const [rowId, fname] of tableMap.entries()) {
-								if (fname === filename) {
-									rowIdToDelete = rowId;
-									break;
-								}
-							}
-
-							if (rowIdToDelete) {
-								if (table.has({ id: rowIdToDelete })) {
-									table.delete({ id: rowIdToDelete });
-								}
-								tableMap.delete(rowIdToDelete);
-							} else {
-								console.warn(
-									`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
-								);
+				if (!exists) {
+					// File was deleted: find and delete the row
+					const tableMap = rowFilenames.get(tableName);
+					if (tableMap) {
+						// Reverse lookup: find rowId where filename matches
+						let rowIdToDelete: string | null = null;
+						for (const [rowId, fname] of tableMap.entries()) {
+							if (fname === filename) {
+								rowIdToDelete = rowId;
+								break;
 							}
 						}
 
-						syncCoordination.isProcessingFileChange = false;
-						return;
+						if (rowIdToDelete) {
+							if (table.has({ id: rowIdToDelete })) {
+								table.delete({ id: rowIdToDelete });
+							}
+							tableMap.delete(rowIdToDelete);
+						} else {
+							console.warn(
+								`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
+							);
+						}
 					}
-					// File exists: fall through to change handling
+
+					syncCoordination.isProcessingFileChange = false;
+					return;
+				}
+				// File exists: fall through to change handling
+			}
+
+			// Process file modification (works for both 'change' and 'rename' with existing file)
+			if (eventType === 'change' || eventType === 'rename') {
+				// Parse markdown file
+				const parseResult = await parseMarkdownFile(filePath);
+
+				if (parseResult.error) {
+					console.error(
+						IndexErr({
+							message: `Failed to parse markdown file ${tableName}`,
+							context: { tableName, filePath },
+							cause: parseResult.error,
+						}),
+					);
+					syncCoordination.isProcessingFileChange = false;
+					return;
 				}
 
-				// Process file modification (works for both 'change' and 'rename' with existing file)
-				if (eventType === 'change' || eventType === 'rename') {
-					// Parse markdown file
-					const parseResult = await parseMarkdownFile(filePath);
+				const { data: frontmatter, body } = parseResult.data;
 
-					if (parseResult.error) {
-						console.error(
-							IndexErr({
-								message: `Failed to parse markdown file ${tableName}`,
-								context: { tableName, filePath },
-								cause: parseResult.error,
-							}),
-						);
-						syncCoordination.isProcessingFileChange = false;
-						return;
-					}
+				// Deserialize using the table config
+				const { data: row, error: deserializeError } = tableConfig.deserialize({
+					frontmatter,
+					body,
+					filename,
+					filePath,
+					table: {
+						name: tableName,
+						schema: schemaWithValidation,
+					},
+				});
 
-					const { data: frontmatter, body } = parseResult.data;
-
-					// Deserialize using the table config
-					const { data: row, error: deserializeError } =
-						tableConfig.deserialize({
-							frontmatter,
-							body,
-							filename,
-							filePath,
-							table: {
-								name: tableName,
-								schema: schemaWithValidation,
-							},
-						});
-
-					if (deserializeError) {
-						console.warn(
-							`Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
-						);
-						syncCoordination.isProcessingFileChange = false;
-						return;
-					}
-
-					// Insert or update the row in YJS
-					if (table.has({ id: row.id })) {
-						table.update(row);
-					} else {
-						table.insert(row);
-					}
+				if (deserializeError) {
+					console.warn(
+						`Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
+					);
+					syncCoordination.isProcessingFileChange = false;
+					return;
 				}
 
-				syncCoordination.isProcessingFileChange = false;
-			},
-		);
+				// Insert or update the row in YJS
+				if (table.has({ id: row.id })) {
+					table.update(row);
+				} else {
+					table.insert(row);
+				}
+			}
+
+			syncCoordination.isProcessingFileChange = false;
+		});
 
 		watchers.push(watcher);
 	}
