@@ -264,20 +264,22 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	 */
 	const rowFilenames = new Map<string, Map<string, string>>();
 
+	/**
+	 * Compute table metadata once and reuse everywhere
+	 * This avoids prop-drilling db, tableConfigs, and absoluteWorkspaceDir
+	 */
+	const tables = iterateTables({ db, tableConfigs, absoluteWorkspaceDir });
+
 	// Set up observers for each table
 	const unsubscribers = registerYJSObservers({
-		db,
-		tableConfigs,
-		absoluteWorkspaceDir,
+		tables,
 		rowFilenames,
 		syncCoordination,
 	});
 
 	// Set up file watchers for bidirectional sync (one watcher per table directory)
 	const watchers = registerFileWatchers({
-		db,
-		tableConfigs,
-		absoluteWorkspaceDir,
+		tables,
 		rowFilenames,
 		syncCoordination,
 	});
@@ -288,16 +290,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	 * Scan all YJS rows and populate the rowFilenames map by serializing each row
 	 * to extract its filename. This ensures the map is accurate after server restart.
 	 */
-	for (const {
-		tableName,
-		table,
-		schemaWithValidation,
-		tableConfig,
-	} of iterateTables({
-		db,
-		tableConfigs,
-		absoluteWorkspaceDir,
-	})) {
+	for (const { tableName, table, schemaWithValidation, tableConfig } of tables) {
 		// Initialize map for this table
 		if (!rowFilenames.has(tableName)) {
 			rowFilenames.set(tableName, new Map());
@@ -351,11 +344,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							schemaWithValidation,
 							tableDir,
 							tableConfig,
-						} of iterateTables({
-							db,
-							tableConfigs,
-							absoluteWorkspaceDir,
-						})) {
+						} of tables) {
 							// Delete all existing markdown files in this table's directory
 							const entries = await readdir(tableDir, {
 								recursive: false,
@@ -453,11 +442,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							schemaWithValidation,
 							tableDir,
 							tableConfig,
-						} of iterateTables({
-							db,
-							tableConfigs,
-							absoluteWorkspaceDir,
-						})) {
+						} of tables) {
 							// Read all markdown files from this table's directory
 							const entries = await readdir(tableDir, { withFileTypes: true });
 
@@ -605,23 +590,17 @@ const DEFAULT_TABLE_CONFIG: TableMarkdownConfig<TableSchema> = {
  * markdown files on disk. Coordinates with the file watcher through shared state to
  * prevent infinite sync loops.
  *
- * @param db - Database instance
- * @param tableConfigs - Per-table markdown configuration
- * @param absoluteWorkspaceDir - Absolute workspace directory path
+ * @param tables - Pre-computed table metadata array
  * @param rowFilenames - Shared map tracking row IDs to filenames
  * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns Array of unsubscribe functions for cleanup
  */
 function registerYJSObservers<TSchema extends WorkspaceSchema>({
-	db,
-	tableConfigs,
-	absoluteWorkspaceDir,
+	tables,
 	rowFilenames,
 	syncCoordination,
 }: {
-	db: Db<TSchema>;
-	tableConfigs: TableConfigs<TSchema>;
-	absoluteWorkspaceDir: AbsolutePath;
+	tables: ReturnType<typeof iterateTables<TSchema>>;
 	rowFilenames: Map<string, Map<string, string>>;
 	syncCoordination: SyncCoordination;
 }): Array<() => void> {
@@ -633,11 +612,7 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
 		schemaWithValidation,
 		tableDir,
 		tableConfig,
-	} of iterateTables({
-		db,
-		tableConfigs,
-		absoluteWorkspaceDir,
-	})) {
+	} of tables) {
 		// Initialize filename tracking for this table
 		if (!rowFilenames.has(tableName)) {
 			rowFilenames.set(tableName, new Map());
@@ -762,23 +737,17 @@ function registerYJSObservers<TSchema extends WorkspaceSchema>({
  * When files are created/modified/deleted, updates the corresponding YJS rows.
  * Coordinates with YJS observers through shared state to prevent infinite loops.
  *
- * @param db - Database instance
- * @param tableConfigs - Per-table markdown configuration
- * @param absoluteWorkspaceDir - Absolute workspace directory path
+ * @param tables - Pre-computed table metadata array
  * @param rowFilenames - Shared map tracking row IDs to filenames
  * @param syncCoordination - Shared coordination state to prevent infinite loops
  * @returns Array of file watcher instances for cleanup
  */
 function registerFileWatchers<TSchema extends WorkspaceSchema>({
-	db,
-	tableConfigs,
-	absoluteWorkspaceDir,
+	tables,
 	rowFilenames,
 	syncCoordination,
 }: {
-	db: Db<TSchema>;
-	tableConfigs: TableConfigs<TSchema>;
-	absoluteWorkspaceDir: AbsolutePath;
+	tables: ReturnType<typeof iterateTables<TSchema>>;
 	rowFilenames: Map<string, Map<string, string>>;
 	syncCoordination: SyncCoordination;
 }): FSWatcher[] {
@@ -790,11 +759,7 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 		schemaWithValidation,
 		tableDir,
 		tableConfig,
-	} of iterateTables({
-		db,
-		tableConfigs,
-		absoluteWorkspaceDir,
-	})) {
+	} of tables) {
 		// Ensure table directory exists
 		trySync({
 			try: () => {
@@ -908,9 +873,9 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
 }
 
 /**
- * Iterator that yields all tables with their associated metadata
+ * Compute all table metadata needed for markdown operations
  *
- * This is the single source of truth for iterating over tables in the markdown index.
+ * This is the single source of truth for table metadata in the markdown index.
  * It automatically handles:
  * - Getting table and schema from the database
  * - Skipping tables that don't exist
@@ -920,9 +885,9 @@ function registerFileWatchers<TSchema extends WorkspaceSchema>({
  * @param db - Database instance
  * @param tableConfigs - All table markdown configurations
  * @param absoluteWorkspaceDir - Absolute workspace directory path
- * @yields Object containing all table metadata needed for markdown operations
+ * @returns Array of table metadata objects
  */
-function* iterateTables<TSchema extends WorkspaceSchema>({
+function iterateTables<TSchema extends WorkspaceSchema>({
 	db,
 	tableConfigs,
 	absoluteWorkspaceDir,
@@ -931,25 +896,28 @@ function* iterateTables<TSchema extends WorkspaceSchema>({
 	tableConfigs: TableConfigs<TSchema>;
 	absoluteWorkspaceDir: AbsolutePath;
 }) {
-	for (const tableName of db.getTableNames()) {
-		const table = db.tables[tableName];
-		const tableSchema = db.schema[tableName];
+	return db
+		.getTableNames()
+		.map((tableName) => {
+			const table = db.tables[tableName];
+			const tableSchema = db.schema[tableName];
 
-		// Skip tables that don't exist (most common pattern)
-		if (!table || !tableSchema) continue;
+			// Skip tables that don't exist
+			if (!table || !tableSchema) return null;
 
-		const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-		const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-		const dir = tableConfig.directory ?? tableName;
-		const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
+			const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+			const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
+			const dir = tableConfig.directory ?? tableName;
+			const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
 
-		yield {
-			tableName,
-			table,
-			tableSchema,
-			schemaWithValidation,
-			tableDir,
-			tableConfig,
-		};
-	}
+			return {
+				tableName,
+				table,
+				tableSchema,
+				schemaWithValidation,
+				tableDir,
+				tableConfig,
+			};
+		})
+		.filter((item): item is NonNullable<typeof item> => item !== null);
 }
