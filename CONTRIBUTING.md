@@ -116,7 +116,7 @@ Now you can use the `epicenter` command from any directory:
 cd packages/epicenter/examples/basic-workspace
 epicenter --help
 epicenter blog createPost --title "Test Post" --category tech
-epicenter serve --port 3001
+epicenter --port 3001
 ```
 
 The CLI will use your local development version, so any changes you make to the CLI code will be reflected immediately.
