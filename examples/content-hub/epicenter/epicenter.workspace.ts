@@ -45,15 +45,17 @@ export const epicenter = defineWorkspace({
 							body: content,
 							filename: `${slug}.md`,
 						}),
-						deserialize: ({ frontmatter, body, filename, filePath, table }) => {
+						deserialize: ({ frontmatter, body, filename, table }) => {
 							const slug = path.basename(filename, '.md');
-							const FrontMatter = table.schema.toArktype().omit('content', 'slug');
+							const FrontMatter = table.schema
+								.toArktype()
+								.omit('content', 'slug');
 							const frontmatterParsed = FrontMatter(frontmatter);
 							if (frontmatterParsed instanceof type.errors) {
 								return MarkdownIndexErr({
 									message: `Invalid frontmatter for pitch with slug ${slug}`,
 									context: {
-										filePath,
+										filename,
 										slug,
 										reason: frontmatterParsed,
 									},
