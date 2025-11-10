@@ -156,18 +156,22 @@ Use custom serializers when you want to control how your data is stored in markd
 ```typescript
 indexes: {
   markdown: (context) => markdownIndex(context, {
-    serializers: {
+    tableConfigs: {
       posts: {
         serialize: ({ row }) => ({
           frontmatter: { tags: row.tags, published: row.published },
-          body: row.content || ''  // Row's content field goes in markdown body
+          body: row.content || '',
+          filename: `${row.id}.md`
         }),
-        deserialize: ({ id, frontmatter, body }) => ({
-          id,
-          tags: frontmatter.tags,
-          published: frontmatter.published,
-          content: body  // Markdown body becomes row's content field
-        })
+        deserialize: ({ frontmatter, body, filename, table }) => {
+          const id = path.basename(filename, '.md');
+          return Ok({
+            id,
+            tags: frontmatter.tags,
+            published: frontmatter.published,
+            content: body
+          });
+        }
       }
     }
   }),
@@ -181,25 +185,28 @@ This creates more natural-looking markdown files where the title is a header:
 ```typescript
 indexes: {
   markdown: (context) => markdownIndex(context, {
-    serializers: {
+    tableConfigs: {
       posts: {
         serialize: ({ row }) => ({
           frontmatter: { tags: row.tags, published: row.published },
-          body: `# ${row.title}\n\n${row.content || ''}`
+          body: `# ${row.title}\n\n${row.content || ''}`,
+          filename: `${row.id}.md`
         }),
-        deserialize: ({ id, frontmatter, body }) => {
+        deserialize: ({ frontmatter, body, filename, table }) => {
+          const id = path.basename(filename, '.md');
+
           // Extract title from first line (# Title format)
           const lines = body.split('\n');
           const title = lines[0]?.replace(/^#\s*/, '') || '';
           const bodyContent = lines.slice(2).join('\n'); // Skip title and empty line
 
-          return {
+          return Ok({
             id,
             title,
             tags: frontmatter.tags,
             published: frontmatter.published,
             content: bodyContent
-          };
+          });
         }
       }
     }
@@ -226,23 +233,23 @@ For complete control over file structure and serialization:
 ```typescript
 indexes: {
   markdown: (context) => markdownIndex(context, {
-    pathToTableAndId: ({ path }) => {
-      // Custom logic to extract table name and ID from file paths
-      const parts = path.split('/');
-      return { tableName: parts[0], id: parts[1].replace('.md', '') };
-    },
-    tableAndIdToPath: ({ tableName, id }) => `${tableName}/${id}.md`,
-    serializers: {
+    directory: './content',  // Custom workspace directory
+    tableConfigs: {
       posts: {
+        directory: './blog-posts',  // Custom table directory
         serialize: ({ row }) => ({
           frontmatter: { title: row.title, tags: row.tags },
-          body: row.content || ''
+          body: row.content || '',
+          filename: `${row.id}.md`
         }),
-        deserialize: ({ id, frontmatter, body }) => ({
-          id,
-          ...frontmatter,
-          content: body
-        })
+        deserialize: ({ frontmatter, body, filename, table }) => {
+          const id = path.basename(filename, '.md');
+          return Ok({
+            id,
+            ...frontmatter,
+            content: body
+          });
+        }
       }
     }
   }),
