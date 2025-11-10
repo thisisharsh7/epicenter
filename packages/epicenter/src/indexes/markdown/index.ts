@@ -268,21 +268,298 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	 * Compute table metadata once and reuse everywhere
 	 * This avoids prop-drilling db, tableConfigs, and absoluteWorkspaceDir
 	 */
-	const tables = iterateTables({ db, tableConfigs, absoluteWorkspaceDir });
+	const tables = db
+		.getTableNames()
+		.map((tableName) => {
+			const table = db.tables[tableName];
+			const tableSchema = db.schema[tableName];
 
-	// Set up observers for each table
-	const unsubscribers = registerYJSObservers({
-		tables,
-		rowFilenames,
-		syncCoordination,
-	});
+			// Skip tables that don't exist
+			if (!table || !tableSchema) return null;
 
-	// Set up file watchers for bidirectional sync (one watcher per table directory)
-	const watchers = registerFileWatchers({
-		tables,
-		rowFilenames,
-		syncCoordination,
-	});
+			const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+			const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
+			const dir = tableConfig.directory ?? tableName;
+			const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
+
+			return {
+				tableName,
+				table,
+				tableSchema,
+				schemaWithValidation,
+				tableDir,
+				tableConfig,
+			};
+		})
+		.filter((item): item is NonNullable<typeof item> => item !== null);
+
+	/**
+	 * Register YJS observers to sync changes from YJS to markdown files
+	 *
+	 * When rows are added/updated/deleted in YJS, this writes the changes to corresponding
+	 * markdown files on disk. Coordinates with the file watcher through shared state to
+	 * prevent infinite sync loops.
+	 */
+	const registerYJSObservers = () => {
+		const unsubscribers: Array<() => void> = [];
+
+		for (const {
+			tableName,
+			table,
+			schemaWithValidation,
+			tableDir,
+			tableConfig,
+		} of tables) {
+			// Initialize filename tracking for this table
+			if (!rowFilenames.has(tableName)) {
+				rowFilenames.set(tableName, new Map());
+			}
+			const filenameMap = rowFilenames.get(tableName)!;
+
+			/**
+			 * Write a YJS row to markdown file
+			 */
+			async function writeRowToMarkdown<TTableSchema extends TableSchema>(
+				row: Row<TTableSchema>,
+			) {
+				const serialized = row.toJSON();
+
+				// Serialize row once
+				const { frontmatter, body, filename } = tableConfig.serialize({
+					row: serialized,
+					table: {
+						name: tableName,
+						schema: schemaWithValidation,
+					},
+				});
+
+				// Construct file path
+				const filePath = path.join(tableDir, filename) as AbsolutePath;
+
+				// Check if filename changed
+				const oldFilename = filenameMap.get(row.id);
+				if (oldFilename && oldFilename !== filename) {
+					// Filename changed, delete old file
+					const oldFilePath = path.join(tableDir, oldFilename) as AbsolutePath;
+					await deleteMarkdownFile({ filePath: oldFilePath });
+				}
+
+				// Update filename tracking
+				filenameMap.set(row.id, filename);
+
+				return writeMarkdownFile({
+					filePath,
+					frontmatter,
+					body,
+				});
+			}
+
+			const unsub = table.observe({
+				onAdd: async (row) => {
+					// Skip if this YJS change was triggered by a file change we're processing
+					// (prevents markdown -> YJS -> markdown infinite loop)
+					if (syncCoordination.isProcessingFileChange) return;
+
+					syncCoordination.isProcessingYJSChange = true;
+					const { error } = await writeRowToMarkdown(row);
+					syncCoordination.isProcessingYJSChange = false;
+
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
+								context: { tableName, id: row.id },
+								cause: error,
+							}),
+						);
+					}
+				},
+				onUpdate: async (row) => {
+					// Skip if this YJS change was triggered by a file change we're processing
+					// (prevents markdown -> YJS -> markdown infinite loop)
+					if (syncCoordination.isProcessingFileChange) return;
+
+					syncCoordination.isProcessingYJSChange = true;
+					const { error } = await writeRowToMarkdown(row);
+					syncCoordination.isProcessingYJSChange = false;
+
+					if (error) {
+						console.error(
+							IndexErr({
+								message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
+								context: { tableName, id: row.id },
+								cause: error,
+							}),
+						);
+					}
+				},
+				onDelete: async (id) => {
+					// Skip if this YJS change was triggered by a file change we're processing
+					// (prevents markdown -> YJS -> markdown infinite loop)
+					if (syncCoordination.isProcessingFileChange) return;
+
+					syncCoordination.isProcessingYJSChange = true;
+
+					// Get filename from tracking map
+					const filename = filenameMap.get(id);
+					if (filename) {
+						const filePath = path.join(tableDir, filename) as AbsolutePath;
+						const { error } = await deleteMarkdownFile({ filePath });
+						filenameMap.delete(id); // Clean up tracking
+
+						if (error) {
+							console.error(
+								IndexErr({
+									message: `Markdown index onDelete failed for ${tableName}/${id}`,
+									context: { tableName, id },
+									cause: error,
+								}),
+							);
+						}
+					}
+
+					syncCoordination.isProcessingYJSChange = false;
+				},
+			});
+			unsubscribers.push(unsub);
+		}
+
+		return unsubscribers;
+	};
+
+	/**
+	 * Register file watchers to sync changes from markdown files to YJS
+	 *
+	 * Creates one watcher per table directory to monitor markdown file changes.
+	 * When files are created/modified/deleted, updates the corresponding YJS rows.
+	 * Coordinates with YJS observers through shared state to prevent infinite loops.
+	 */
+	const registerFileWatchers = () => {
+		const watchers: FSWatcher[] = [];
+
+		for (const {
+			tableName,
+			table,
+			schemaWithValidation,
+			tableDir,
+			tableConfig,
+		} of tables) {
+			// Ensure table directory exists
+			trySync({
+				try: () => {
+					mkdirSync(tableDir, { recursive: true });
+				},
+				catch: () => Ok(undefined),
+			});
+
+			// Create watcher for this table's directory
+			const watcher = watch(tableDir, async (eventType, filename) => {
+				// Skip if this file change was triggered by a YJS change
+				if (syncCoordination.isProcessingYJSChange) return;
+
+				// Skip non-markdown files
+				if (!filename || !filename.endsWith('.md')) return;
+
+				syncCoordination.isProcessingFileChange = true;
+
+				const filePath = path.join(tableDir, filename) as AbsolutePath;
+
+				// Handle file system events
+				if (eventType === 'rename') {
+					// Check if file was deleted or modified
+					const file = Bun.file(filePath);
+					const exists = await file.exists();
+
+					if (!exists) {
+						// File was deleted: find and delete the row
+						const tableMap = rowFilenames.get(tableName);
+						if (tableMap) {
+							// Reverse lookup: find rowId where filename matches
+							let rowIdToDelete: string | null = null;
+							for (const [rowId, fname] of tableMap.entries()) {
+								if (fname === filename) {
+									rowIdToDelete = rowId;
+									break;
+								}
+							}
+
+							if (rowIdToDelete) {
+								if (table.has({ id: rowIdToDelete })) {
+									table.delete({ id: rowIdToDelete });
+								}
+								tableMap.delete(rowIdToDelete);
+							} else {
+								console.warn(
+									`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
+								);
+							}
+						}
+
+						syncCoordination.isProcessingFileChange = false;
+						return;
+					}
+					// File exists: fall through to change handling
+				}
+
+				// Process file modification (works for both 'change' and 'rename' with existing file)
+				if (eventType === 'change' || eventType === 'rename') {
+					// Parse markdown file
+					const parseResult = await parseMarkdownFile(filePath);
+
+					if (parseResult.error) {
+						console.error(
+							IndexErr({
+								message: `Failed to parse markdown file ${tableName}`,
+								context: { tableName, filePath },
+								cause: parseResult.error,
+							}),
+						);
+						syncCoordination.isProcessingFileChange = false;
+						return;
+					}
+
+					const { data: frontmatter, body } = parseResult.data;
+
+					// Deserialize using the table config
+					const { data: row, error: deserializeError } =
+						tableConfig.deserialize({
+							frontmatter,
+							body,
+							filename,
+							table: {
+								name: tableName,
+								schema: schemaWithValidation,
+							},
+						});
+
+					if (deserializeError) {
+						console.warn(
+							`Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
+						);
+						syncCoordination.isProcessingFileChange = false;
+						return;
+					}
+
+					// Insert or update the row in YJS
+					if (table.has({ id: row.id })) {
+						table.update(row);
+					} else {
+						table.insert(row);
+					}
+				}
+
+				syncCoordination.isProcessingFileChange = false;
+			});
+
+			watchers.push(watcher);
+		}
+
+		return watchers;
+	};
+
+	// Set up observers and watchers
+	const unsubscribers = registerYJSObservers();
+	const watchers = registerFileWatchers();
 
 	/**
 	 * Initialize filename tracking map on startup
@@ -290,7 +567,12 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	 * Scan all YJS rows and populate the rowFilenames map by serializing each row
 	 * to extract its filename. This ensures the map is accurate after server restart.
 	 */
-	for (const { tableName, table, schemaWithValidation, tableConfig } of tables) {
+	for (const {
+		tableName,
+		table,
+		schemaWithValidation,
+		tableConfig,
+	} of tables) {
 		// Initialize map for this table
 		if (!rowFilenames.has(tableName)) {
 			rowFilenames.set(tableName, new Map());
@@ -582,342 +864,3 @@ const DEFAULT_TABLE_CONFIG: TableMarkdownConfig<TableSchema> = {
 		}
 	},
 };
-
-/**
- * Register YJS observers to sync changes from YJS to markdown files
- *
- * When rows are added/updated/deleted in YJS, this writes the changes to corresponding
- * markdown files on disk. Coordinates with the file watcher through shared state to
- * prevent infinite sync loops.
- *
- * @param tables - Pre-computed table metadata array
- * @param rowFilenames - Shared map tracking row IDs to filenames
- * @param syncCoordination - Shared coordination state to prevent infinite loops
- * @returns Array of unsubscribe functions for cleanup
- */
-function registerYJSObservers<TSchema extends WorkspaceSchema>({
-	tables,
-	rowFilenames,
-	syncCoordination,
-}: {
-	tables: ReturnType<typeof iterateTables<TSchema>>;
-	rowFilenames: Map<string, Map<string, string>>;
-	syncCoordination: SyncCoordination;
-}): Array<() => void> {
-	const unsubscribers: Array<() => void> = [];
-
-	for (const {
-		tableName,
-		table,
-		schemaWithValidation,
-		tableDir,
-		tableConfig,
-	} of tables) {
-		// Initialize filename tracking for this table
-		if (!rowFilenames.has(tableName)) {
-			rowFilenames.set(tableName, new Map());
-		}
-		const filenameMap = rowFilenames.get(tableName)!;
-
-		/**
-		 * Write a YJS row to markdown file
-		 */
-		async function writeRowToMarkdown<TTableSchema extends TableSchema>(
-			row: Row<TTableSchema>,
-		) {
-			const serialized = row.toJSON();
-
-			// Serialize row once
-			const { frontmatter, body, filename } = tableConfig.serialize({
-				row: serialized,
-				table: {
-					name: tableName,
-					schema: schemaWithValidation,
-				},
-			});
-
-			// Construct file path
-			const filePath = path.join(tableDir, filename) as AbsolutePath;
-
-			// Check if filename changed
-			const oldFilename = filenameMap.get(row.id);
-			if (oldFilename && oldFilename !== filename) {
-				// Filename changed, delete old file
-				const oldFilePath = path.join(tableDir, oldFilename) as AbsolutePath;
-				await deleteMarkdownFile({ filePath: oldFilePath });
-			}
-
-			// Update filename tracking
-			filenameMap.set(row.id, filename);
-
-			return writeMarkdownFile({
-				filePath,
-				frontmatter,
-				body,
-			});
-		}
-
-		const unsub = table.observe({
-			onAdd: async (row) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (syncCoordination.isProcessingFileChange) return;
-
-				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown(row);
-				syncCoordination.isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id },
-							cause: error,
-						}),
-					);
-				}
-			},
-			onUpdate: async (row) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (syncCoordination.isProcessingFileChange) return;
-
-				syncCoordination.isProcessingYJSChange = true;
-				const { error } = await writeRowToMarkdown(row);
-				syncCoordination.isProcessingYJSChange = false;
-
-				if (error) {
-					console.error(
-						IndexErr({
-							message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id },
-							cause: error,
-						}),
-					);
-				}
-			},
-			onDelete: async (id) => {
-				// Skip if this YJS change was triggered by a file change we're processing
-				// (prevents markdown -> YJS -> markdown infinite loop)
-				if (syncCoordination.isProcessingFileChange) return;
-
-				syncCoordination.isProcessingYJSChange = true;
-
-				// Get filename from tracking map
-				const filename = filenameMap.get(id);
-				if (filename) {
-					const filePath = path.join(tableDir, filename) as AbsolutePath;
-					const { error } = await deleteMarkdownFile({ filePath });
-					filenameMap.delete(id); // Clean up tracking
-
-					if (error) {
-						console.error(
-							IndexErr({
-								message: `Markdown index onDelete failed for ${tableName}/${id}`,
-								context: { tableName, id },
-								cause: error,
-							}),
-						);
-					}
-				}
-
-				syncCoordination.isProcessingYJSChange = false;
-			},
-		});
-		unsubscribers.push(unsub);
-	}
-
-	return unsubscribers;
-}
-
-/**
- * Register file watchers to sync changes from markdown files to YJS
- *
- * Creates one watcher per table directory to monitor markdown file changes.
- * When files are created/modified/deleted, updates the corresponding YJS rows.
- * Coordinates with YJS observers through shared state to prevent infinite loops.
- *
- * @param tables - Pre-computed table metadata array
- * @param rowFilenames - Shared map tracking row IDs to filenames
- * @param syncCoordination - Shared coordination state to prevent infinite loops
- * @returns Array of file watcher instances for cleanup
- */
-function registerFileWatchers<TSchema extends WorkspaceSchema>({
-	tables,
-	rowFilenames,
-	syncCoordination,
-}: {
-	tables: ReturnType<typeof iterateTables<TSchema>>;
-	rowFilenames: Map<string, Map<string, string>>;
-	syncCoordination: SyncCoordination;
-}): FSWatcher[] {
-	const watchers: FSWatcher[] = [];
-
-	for (const {
-		tableName,
-		table,
-		schemaWithValidation,
-		tableDir,
-		tableConfig,
-	} of tables) {
-		// Ensure table directory exists
-		trySync({
-			try: () => {
-				mkdirSync(tableDir, { recursive: true });
-			},
-			catch: () => Ok(undefined),
-		});
-
-		// Create watcher for this table's directory
-		const watcher = watch(tableDir, async (eventType, filename) => {
-			// Skip if this file change was triggered by a YJS change
-			if (syncCoordination.isProcessingYJSChange) return;
-
-			// Skip non-markdown files
-			if (!filename || !filename.endsWith('.md')) return;
-
-			syncCoordination.isProcessingFileChange = true;
-
-			const filePath = path.join(tableDir, filename) as AbsolutePath;
-
-			// Handle file system events
-			if (eventType === 'rename') {
-				// Check if file was deleted or modified
-				const file = Bun.file(filePath);
-				const exists = await file.exists();
-
-				if (!exists) {
-					// File was deleted: find and delete the row
-					const tableMap = rowFilenames.get(tableName);
-					if (tableMap) {
-						// Reverse lookup: find rowId where filename matches
-						let rowIdToDelete: string | null = null;
-						for (const [rowId, fname] of tableMap.entries()) {
-							if (fname === filename) {
-								rowIdToDelete = rowId;
-								break;
-							}
-						}
-
-						if (rowIdToDelete) {
-							if (table.has({ id: rowIdToDelete })) {
-								table.delete({ id: rowIdToDelete });
-							}
-							tableMap.delete(rowIdToDelete);
-						} else {
-							console.warn(
-								`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
-							);
-						}
-					}
-
-					syncCoordination.isProcessingFileChange = false;
-					return;
-				}
-				// File exists: fall through to change handling
-			}
-
-			// Process file modification (works for both 'change' and 'rename' with existing file)
-			if (eventType === 'change' || eventType === 'rename') {
-				// Parse markdown file
-				const parseResult = await parseMarkdownFile(filePath);
-
-				if (parseResult.error) {
-					console.error(
-						IndexErr({
-							message: `Failed to parse markdown file ${tableName}`,
-							context: { tableName, filePath },
-							cause: parseResult.error,
-						}),
-					);
-					syncCoordination.isProcessingFileChange = false;
-					return;
-				}
-
-				const { data: frontmatter, body } = parseResult.data;
-
-				// Deserialize using the table config
-				const { data: row, error: deserializeError } = tableConfig.deserialize({
-					frontmatter,
-					body,
-					filename,
-					table: {
-						name: tableName,
-						schema: schemaWithValidation,
-					},
-				});
-
-				if (deserializeError) {
-					console.warn(
-						`Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
-					);
-					syncCoordination.isProcessingFileChange = false;
-					return;
-				}
-
-				// Insert or update the row in YJS
-				if (table.has({ id: row.id })) {
-					table.update(row);
-				} else {
-					table.insert(row);
-				}
-			}
-
-			syncCoordination.isProcessingFileChange = false;
-		});
-
-		watchers.push(watcher);
-	}
-
-	return watchers;
-}
-
-/**
- * Compute all table metadata needed for markdown operations
- *
- * This is the single source of truth for table metadata in the markdown index.
- * It automatically handles:
- * - Getting table and schema from the database
- * - Skipping tables that don't exist
- * - Creating schema validation
- * - Resolving table directory and config
- *
- * @param db - Database instance
- * @param tableConfigs - All table markdown configurations
- * @param absoluteWorkspaceDir - Absolute workspace directory path
- * @returns Array of table metadata objects
- */
-function iterateTables<TSchema extends WorkspaceSchema>({
-	db,
-	tableConfigs,
-	absoluteWorkspaceDir,
-}: {
-	db: Db<TSchema>;
-	tableConfigs: TableConfigs<TSchema>;
-	absoluteWorkspaceDir: AbsolutePath;
-}) {
-	return db
-		.getTableNames()
-		.map((tableName) => {
-			const table = db.tables[tableName];
-			const tableSchema = db.schema[tableName];
-
-			// Skip tables that don't exist
-			if (!table || !tableSchema) return null;
-
-			const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-			const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-			const dir = tableConfig.directory ?? tableName;
-			const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
-
-			return {
-				tableName,
-				table,
-				tableSchema,
-				schemaWithValidation,
-				tableDir,
-				tableConfig,
-			};
-		})
-		.filter((item): item is NonNullable<typeof item> => item !== null);
-}
