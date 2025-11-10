@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
 	type SerializedRow,
 	defineEpicenter,
@@ -13,8 +14,8 @@ import {
 	select,
 	sqliteIndex,
 	text,
-	validateRow,
 } from '@epicenter/hq';
+import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
@@ -51,71 +52,74 @@ const blogWorkspace = defineWorkspace({
 			markdownIndex(context, {
 				tableConfigs: {
 					posts: {
-						serialize: ({ row, tableName }) => {
-							const { id, content, ...rest } = row;
-							return {
-								frontmatter: Object.fromEntries(
-									Object.entries(rest).filter(([_, v]) => v != null),
-								),
-								body: content ?? '',
-							};
-						},
-						deserialize: ({ id, frontmatter, body, tableName, schema }) => {
-							// Combine body with frontmatter
-							const serializedRow = {
-								id,
-								content: body,
-								...frontmatter,
-							};
+						serialize: ({ row: { id, content, ...row } }) => ({
+							frontmatter: Object.fromEntries(
+								Object.entries(row).filter(([_, v]) => v != null),
+							),
+							body: content ?? '',
+							filename: `${id}.md`,
+						}),
+						deserialize: ({ frontmatter, body, filename, table }) => {
+							// Extract id from filename
+							const id = path.basename(filename, '.md');
 
-							// Validate using schema
-							const validationResult = validateRow({
-								data: serializedRow,
-								schema,
-							});
+							// Validate frontmatter using schema
+							const FrontMatter = table.schema
+								.toArktype()
+								.omit('id', 'content');
+							const frontmatterParsed = FrontMatter(frontmatter);
 
-							if (validationResult.status !== 'valid') {
-								console.warn(
-									`Invalid markdown file for ${tableName}/${id}:`,
-									validationResult,
-								);
-								return null; // Skip this file
+							if (frontmatterParsed instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid frontmatter for post ${id}`,
+									context: {
+										filename,
+										id,
+										reason: frontmatterParsed,
+									},
+								});
 							}
 
-							// Return the full row (including id)
-							return serializedRow as any;
+							// Construct the full row
+							const row = {
+								id,
+								content: body,
+								...frontmatterParsed,
+							} satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+
+							return Ok(row);
 						},
 					},
 					comments: {
-						serialize: ({ row }) => {
-							const { id, ...rest } = row;
-							return {
-								frontmatter: Object.fromEntries(
-									Object.entries(rest).filter(([_, v]) => v != null),
-								),
-								body: '',
-							};
-						},
-						deserialize: ({ id, frontmatter, schema }) => {
-							const serializedRow = {
-								id,
-								...frontmatter,
-							};
+						serialize: ({ row: { id, ...row } }) => ({
+							frontmatter: Object.fromEntries(
+								Object.entries(row).filter(([_, v]) => v != null),
+							),
+							body: '',
+							filename: `${id}.md`,
+						}),
+						deserialize: ({ frontmatter, filename, table }) => {
+							// Extract id from filename
+							const id = path.basename(filename, '.md');
 
-							const validationResult = validateRow({
-								data: serializedRow,
-								schema,
-							});
+							// Validate frontmatter using schema
+							const FrontMatter = table.schema.toArktype().omit('id');
+							const frontmatterParsed = FrontMatter(frontmatter);
 
-							if (validationResult.status !== 'valid') {
-								console.warn(
-									`Invalid markdown file for comments/${id}:`,
-									validationResult,
-								);
-								return null;
+							if (frontmatterParsed instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid frontmatter for comment ${id}`,
+									context: { filename, id, reason: frontmatterParsed },
+								});
 							}
 
-							return serializedRow as any;
+							// Construct the full row
+							const row = {
+								id,
+								...frontmatterParsed,
+							} satisfies SerializedRow<(typeof context.db.schema)['comments']>;
+
+							return Ok(row);
 						},
 					},
 				},
