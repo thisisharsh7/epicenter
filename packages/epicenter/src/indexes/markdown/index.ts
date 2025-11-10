@@ -273,14 +273,12 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 *
 	 * @param params.row - Row to serialize (already validated against schema)
 	 * @param params.table.name - Table name (for context)
-	 * @param params.table.schema - Table schema with validation methods
 	 * @returns Frontmatter object, markdown body string, and simple filename (without directory path)
 	 */
 	serialize(params: {
 		row: SerializedRow<TTableSchema>;
 		table: {
 			name: string;
-			schema: TableSchemaWithValidation<TTableSchema>;
 		};
 	}): {
 		frontmatter: Record<string, unknown>;
@@ -417,13 +415,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const {
-			tableName,
-			table,
-			schemaWithValidation,
-			tableDir,
-			tableConfig,
-		} of tables) {
+		for (const { tableName, table, tableDir, tableConfig } of tables) {
 			// Initialize bidirectional tracking for this table
 			if (!tracking[tableName]) {
 				tracking[tableName] = createBidirectionalMap();
@@ -442,7 +434,6 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					row: serialized,
 					table: {
 						name: tableName,
-						schema: schemaWithValidation,
 					},
 				});
 
@@ -696,12 +687,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
 	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
 	 */
-	for (const {
-		tableName,
-		table,
-		schemaWithValidation,
-		tableConfig,
-	} of tables) {
+	for (const { tableName, table, tableConfig } of tables) {
 		// Initialize bidirectional tracking for this table
 		if (!tracking[tableName]) {
 			tracking[tableName] = createBidirectionalMap();
@@ -720,7 +706,6 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				row: serializedRow,
 				table: {
 					name: tableName,
-					schema: schemaWithValidation,
 				},
 			});
 
@@ -793,7 +778,6 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 									row: serializedRow,
 									table: {
 										name: tableName,
-										schema: schemaWithValidation,
 									},
 								});
 
