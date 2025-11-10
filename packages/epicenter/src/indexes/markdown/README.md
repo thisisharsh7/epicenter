@@ -77,6 +77,101 @@ When syncing changes from markdown files back to the database, the index uses gr
 
 For text fields, character-level diffs are computed. For array fields like multi-select, element-level diffs are computed. This means if you change a single character or add a single tag, only that specific change is applied rather than replacing the entire field.
 
+## Configuration
+
+The Markdown Index uses a two-layer configuration structure that determines where files are stored and how data is serialized.
+
+### Configuration Layers
+
+```
+MarkdownIndexConfig
+├── directory (workspace-level)
+│   └── Defaults to workspace ID
+│
+└── tableConfigs
+    ├── posts
+    │   ├── directory (table-level)
+    │   │   └── Defaults to table name
+    │   ├── serialize()
+    │   │   └── Converts row → { frontmatter, body, filename }
+    │   └── deserialize()
+    │       └── Converts { frontmatter, body, filename } → row
+    │
+    └── authors
+        ├── directory (table-level)
+        ├── serialize()
+        └── deserialize()
+```
+
+### Layer 1: Workspace Configuration
+
+**`directory`** (optional): The workspace-level directory where all markdown files for this workspace are stored.
+- Defaults to the workspace `id`
+- Can be a relative path (resolved from `storageDir`) or absolute path
+- Example: If workspace id is "blog", defaults to `<storageDir>/blog`
+
+**`tableConfigs`** (optional): Per-table configuration object where keys are table names and values define how each table is handled.
+
+### Layer 2: Table Configuration
+
+Each table in `tableConfigs` can have these properties:
+
+**`directory`** (optional): The directory for this specific table's markdown files.
+- Defaults to the table name
+- Resolved relative to the workspace directory (unless absolute)
+
+**`serialize()`**: Converts a database row into markdown format.
+- Input: `{ row, table }`
+- Output: `{ frontmatter, body, filename }`
+
+**`deserialize()`**: Converts markdown back into a database row.
+- Input: `{ frontmatter, body, filename, table }`
+- Output: `Result<SerializedRow, MarkdownIndexError>`
+
+### Directory Resolution Example
+
+With default configuration:
+
+```
+storageDir/
+└── blog/                    (workspace.id = "blog")
+    ├── posts/               (table name = "posts")
+    │   ├── post-1.md
+    │   └── post-2.md
+    └── authors/             (table name = "authors")
+        ├── john.md
+        └── jane.md
+```
+
+With custom paths:
+
+```
+storageDir/
+└── content/                 (workspace.directory = "./content")
+    ├── blog-posts/          (posts.directory = "./blog-posts")
+    │   ├── post-1.md
+    │   └── post-2.md
+    └── team/                (authors.directory = "./team")
+        ├── john.md
+        └── jane.md
+```
+
+### Default Behavior
+
+When you don't provide custom configuration:
+
+- **Workspace directory**: Same as workspace `id`
+- **Table directory**: Same as table name
+- **Serialize**: All row fields (except `id`) → frontmatter, empty body, filename = `{id}.md`
+- **Deserialize**: Extract `id` from filename, validate frontmatter against schema
+
+```
+storageDir/
+└── {workspace.id}/
+    └── {tableName}/
+        └── {rowId}.md
+```
+
 ## Usage
 
 ### Setup
