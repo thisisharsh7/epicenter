@@ -59,18 +59,110 @@ type SyncCoordination = {
 };
 
 /**
- * Bidirectional tracking for a single table
- *
- * Stores mappings in both directions for O(1) lookups:
- * - rowToFile: Given a row ID, find its filename (for updates/deletes from YJS)
- * - fileToRow: Given a filename, find its row ID (for deletions from filesystem)
+ * Bidirectional map API for tracking row ID ↔ filename relationships
  */
-type TableTracking = {
-	/** Map row IDs to filenames: rowId → filename */
-	rowToFile: Record<string, string>;
-	/** Map filenames to row IDs: filename → rowId */
-	fileToRow: Record<string, string>;
+type BidirectionalMap = {
+	/**
+	 * Set or update a mapping in both directions
+	 * @param params.rowId - The row identifier
+	 * @param params.filename - The filename (without path)
+	 */
+	set(params: { rowId: string; filename: string }): void;
+
+	/**
+	 * Delete a mapping by row ID (cleans up both directions)
+	 * @param params.rowId - The row identifier to remove
+	 */
+	delete(params: { rowId: string }): void;
+
+	/**
+	 * Delete a mapping by filename (cleans up both directions)
+	 * @param params.filename - The filename to remove
+	 */
+	deleteByFilename(params: { filename: string }): void;
+
+	/**
+	 * Get the filename for a given row ID
+	 * @param params.rowId - The row identifier
+	 * @returns The filename, or undefined if not found
+	 */
+	getFilename(params: { rowId: string }): string | undefined;
+
+	/**
+	 * Get the row ID for a given filename
+	 * @param params.filename - The filename to look up
+	 * @returns The row ID, or undefined if not found
+	 */
+	getRowId(params: { filename: string }): string | undefined;
+
+	/**
+	 * Delete only the reverse mapping (filename → rowId)
+	 *
+	 * Use this when you need to clean up an old filename entry before setting a new one.
+	 * Does NOT delete the forward mapping (rowId → filename).
+	 *
+	 * @param params.filename - The filename to remove from reverse mapping
+	 *
+	 * @example
+	 * // When filename changes for a row:
+	 * const oldFilename = map.getFilename({ rowId: row.id });
+	 * if (oldFilename && oldFilename !== filename) {
+	 *   await deleteMarkdownFile(path.join(tableDir, oldFilename));
+	 *   map.deleteReverseMapping({ filename: oldFilename });
+	 * }
+	 * map.set({ rowId: row.id, filename });
+	 */
+	deleteReverseMapping(params: { filename: string }): void;
 };
+
+/**
+ * Create a bidirectional map for tracking row ID ↔ filename relationships
+ *
+ * Encapsulates the bidirectional tracking logic in a closure with methods
+ * to manipulate the internal state. This consolidates all the repetitive
+ * tracking operations into a single reusable abstraction.
+ *
+ * @returns An object with methods to interact with the bidirectional map
+ */
+function createBidirectionalMap(): BidirectionalMap {
+	const rowToFile: Record<string, string> = {};
+	const fileToRow: Record<string, string> = {};
+
+	return {
+		set({ rowId, filename }) {
+			rowToFile[rowId] = filename;
+			fileToRow[filename] = rowId;
+		},
+
+		delete({ rowId }) {
+			const filename = rowToFile[rowId];
+			if (filename) {
+				delete fileToRow[filename];
+			}
+			delete rowToFile[rowId];
+		},
+
+		deleteByFilename({ filename }) {
+			const rowId = fileToRow[filename];
+			if (rowId) {
+				delete rowToFile[rowId];
+			}
+			delete fileToRow[filename];
+		},
+
+		getFilename({ rowId }) {
+			return rowToFile[rowId];
+		},
+
+		getRowId({ filename }) {
+			return fileToRow[filename];
+		},
+
+		deleteReverseMapping({ filename }) {
+			delete fileToRow[filename];
+		},
+	};
+}
 
 /**
  * Required types for internal functions (after defaults have been applied)
@@ -268,8 +360,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	/**
 	 * Bidirectional filename tracking: Maps row IDs ↔ filenames for each table
 	 *
-	 * Structure: `Record<tableName, TableTracking>`
-	 * where TableTracking = { rowToFile: {}, fileToRow: {} }
+	 * Structure: `Record<tableName, BidirectionalMap>`
 	 *
 	 * This is critical because the file watcher only knows filenames when files are deleted.
 	 * When a .md file is deleted, we can't read its content to extract the row ID.
@@ -281,19 +372,19 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	 * - Row "abc123" previously serialized to "draft.md"
 	 * - Row is updated and now serializes to "published.md"
 	 * - We need to know the OLD filename ("draft.md") so we can delete it
-	 * - Flow: serialize() → get "published.md" → look up tracking[table].rowToFile[rowId] → delete "draft.md"
+	 * - Flow: serialize() → get "published.md" → prepareFilenameChange() → delete "draft.md" → set()
 	 * - Without this: orphaned "draft.md" remains on disk
 	 *
 	 * **Scenario 2: File Deletion (the critical case)**
 	 * - User deletes "post.md" from disk
 	 * - File watcher sees deletion event with filename "post.md"
 	 * - File is gone, so we can't read its content to extract the row ID
-	 * - We look up: tracking[table].fileToRow["post.md"] → "abc123" → delete row "abc123" from YJS
+	 * - We look up: getRowId("post.md") → "abc123" → delete row "abc123" from YJS
 	 * - Without this: orphaned row "abc123" remains in YJS
 	 *
 	 * Both directions are O(1) lookups using plain object property access.
 	 */
-	const tracking: Record<string, TableTracking> = {};
+	const tracking: Record<string, BidirectionalMap> = {};
 
 	/**
 	 * Compute table metadata once and reuse everywhere
@@ -343,10 +434,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		} of tables) {
 			// Initialize bidirectional tracking for this table
 			if (!tracking[tableName]) {
-				tracking[tableName] = {
-					rowToFile: {},
-					fileToRow: {},
-				};
+				tracking[tableName] = createBidirectionalMap();
 			}
 
 			/**
@@ -369,22 +457,23 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				// Construct file path
 				const filePath = path.join(tableDir, filename) as AbsolutePath;
 
-				// Check if filename changed (forward lookup: rowId → filename)
-				// If the row previously had a different filename (e.g., "draft.md" → "published.md"),
-				// we need to delete the old file to avoid orphaned files
-				const oldFilename = tracking[tableName].rowToFile[row.id];
-				if (oldFilename && oldFilename !== filename) {
-					// Filename changed, delete old file
+				// Check if filename changed and clean up old file if needed
+				const oldFilename = tracking[tableName].getFilename({ rowId: row.id });
+
+				/**
+				 * This is checking if there's an old filename AND if it's different
+				 * from the new one. It's essentially checking: "has the filename
+				 * changed?" and "do we need to clean up the old file?"
+				 */
+				const isFileNameChanged = oldFilename && oldFilename !== filename;
+				if (isFileNameChanged) {
 					const oldFilePath = path.join(tableDir, oldFilename) as AbsolutePath;
 					await deleteMarkdownFile({ filePath: oldFilePath });
-
-					// Clean up old reverse mapping
-					delete tracking[tableName].fileToRow[oldFilename];
+					tracking[tableName].deleteReverseMapping({ filename: oldFilename });
 				}
 
-				// Update tracking in BOTH directions
-				tracking[tableName].rowToFile[row.id] = filename;
-				tracking[tableName].fileToRow[filename] = row.id;
+				// Update tracking in both directions
+				tracking[tableName].set({ rowId: row.id, filename });
 
 				return writeMarkdownFile({
 					filePath,
@@ -439,15 +528,14 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 					syncCoordination.isProcessingYJSChange = true;
 
-					// Get filename from tracking (forward lookup: rowId → filename)
-					const filename = tracking[tableName].rowToFile[id];
+					// Get filename and delete file if it exists
+					const filename = tracking[tableName].getFilename({ rowId: id });
 					if (filename) {
 						const filePath = path.join(tableDir, filename) as AbsolutePath;
 						const { error } = await deleteMarkdownFile({ filePath });
 
-						// Clean up tracking in BOTH directions
-						delete tracking[tableName].rowToFile[id];
-						delete tracking[tableName].fileToRow[filename];
+						// Clean up tracking in both directions
+						tracking[tableName].delete({ rowId: id });
 
 						if (error) {
 							console.error(
@@ -514,19 +602,15 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 					if (!exists) {
 						// File was deleted: find and delete the row
-						// This is the critical use case: we only know the filename, not the row ID
-						// (we can't read the deleted file to extract the ID)
-						// Reverse lookup: filename → rowId (O(1) with bidirectional tracking)
-						const rowIdToDelete = tracking[tableName]?.fileToRow[filename];
+						const rowIdToDelete = tracking[tableName]?.getRowId({ filename });
 
 						if (rowIdToDelete) {
 							if (table.has({ id: rowIdToDelete })) {
 								table.delete({ id: rowIdToDelete });
 							}
 
-							// Clean up tracking in BOTH directions
-							delete tracking[tableName].rowToFile[rowIdToDelete];
-							delete tracking[tableName].fileToRow[filename];
+							// Clean up tracking in both directions
+							tracking[tableName].deleteByFilename({ filename });
 						} else {
 							console.warn(
 								`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
@@ -628,10 +712,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	} of tables) {
 		// Initialize bidirectional tracking for this table
 		if (!tracking[tableName]) {
-			tracking[tableName] = {
-				rowToFile: {},
-				fileToRow: {},
-			};
+			tracking[tableName] = createBidirectionalMap();
 		}
 
 		// Get all valid rows from YJS
@@ -652,8 +733,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 			});
 
 			// Store both directions for O(1) lookups
-			tracking[tableName].rowToFile[row.id] = filename;
-			tracking[tableName].fileToRow[filename] = row.id;
+			tracking[tableName].set({ rowId: row.id, filename });
 		}
 	}
 
