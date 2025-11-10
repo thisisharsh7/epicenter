@@ -70,14 +70,29 @@ type BidirectionalMap = {
 	set(params: { rowId: string; filename: string }): void;
 
 	/**
-	 * Delete a mapping by row ID (cleans up both directions)
+	 * Removes both the rowId→filename and filename→rowId entries.
+	 * Use when a row is deleted from YJS.
+	 *
 	 * @param params.rowId - The row identifier to remove
 	 */
-	delete(params: { rowId: string }): void;
+	deleteByRowId(params: { rowId: string }): void;
 
 	/**
-	 * Delete a mapping by filename (cleans up both directions)
+	 * Removes both the filename→rowId and rowId→filename entries.
+	 * Use when a file is deleted from disk, or when cleaning up an old
+	 * filename before setting a new one for the same row.
+	 *
 	 * @param params.filename - The filename to remove
+	 *
+	 * @example
+	 * // When a row's filename changes:
+	 * const oldFilename = map.getFilename({ rowId: row.id });
+	 * const needsOldFileCleanup = oldFilename && oldFilename !== newFilename;
+	 * if (needsOldFileCleanup) {
+	 *   await deleteMarkdownFile(path.join(tableDir, oldFilename));
+	 *   map.deleteByFilename({ filename: oldFilename });
+	 * }
+	 * map.set({ rowId: row.id, filename: newFilename });
 	 */
 	deleteByFilename(params: { filename: string }): void;
 
@@ -94,25 +109,6 @@ type BidirectionalMap = {
 	 * @returns The row ID, or undefined if not found
 	 */
 	getRowId(params: { filename: string }): string | undefined;
-
-	/**
-	 * Delete only the reverse mapping (filename → rowId)
-	 *
-	 * Use this when you need to clean up an old filename entry before setting a new one.
-	 * Does NOT delete the forward mapping (rowId → filename).
-	 *
-	 * @param params.filename - The filename to remove from reverse mapping
-	 *
-	 * @example
-	 * // When filename changes for a row:
-	 * const oldFilename = map.getFilename({ rowId: row.id });
-	 * if (oldFilename && oldFilename !== filename) {
-	 *   await deleteMarkdownFile(path.join(tableDir, oldFilename));
-	 *   map.deleteReverseMapping({ filename: oldFilename });
-	 * }
-	 * map.set({ rowId: row.id, filename });
-	 */
-	deleteReverseMapping(params: { filename: string }): void;
 };
 
 /**
@@ -134,7 +130,7 @@ function createBidirectionalMap(): BidirectionalMap {
 			fileToRow[filename] = rowId;
 		},
 
-		delete({ rowId }) {
+		deleteByRowId({ rowId }) {
 			const filename = rowToFile[rowId];
 			if (filename) {
 				delete fileToRow[filename];
@@ -156,10 +152,6 @@ function createBidirectionalMap(): BidirectionalMap {
 
 		getRowId({ filename }) {
 			return fileToRow[filename];
-		},
-
-		deleteReverseMapping({ filename }) {
-			delete fileToRow[filename];
 		},
 	};
 }
@@ -457,7 +449,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				// Construct file path
 				const filePath = path.join(tableDir, filename) as AbsolutePath;
 
-				// Check if filename changed and clean up old file if needed
+				// Check if we need to clean up an old file before updating tracking
 				const oldFilename = tracking[tableName].getFilename({ rowId: row.id });
 
 				/**
@@ -465,11 +457,11 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				 * from the new one. It's essentially checking: "has the filename
 				 * changed?" and "do we need to clean up the old file?"
 				 */
-				const isFileNameChanged = oldFilename && oldFilename !== filename;
-				if (isFileNameChanged) {
+				const needsOldFileCleanup = oldFilename && oldFilename !== filename;
+				if (needsOldFileCleanup) {
 					const oldFilePath = path.join(tableDir, oldFilename) as AbsolutePath;
 					await deleteMarkdownFile({ filePath: oldFilePath });
-					tracking[tableName].deleteReverseMapping({ filename: oldFilename });
+					tracking[tableName].deleteByFilename({ filename: oldFilename });
 				}
 
 				// Update tracking in both directions
@@ -535,7 +527,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						const { error } = await deleteMarkdownFile({ filePath });
 
 						// Clean up tracking in both directions
-						tracking[tableName].delete({ rowId: id });
+						tracking[tableName].deleteByRowId({ rowId: id });
 
 						if (error) {
 							console.error(
