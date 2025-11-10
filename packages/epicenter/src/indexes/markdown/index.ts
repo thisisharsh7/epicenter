@@ -5,7 +5,6 @@ import path from 'node:path';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
-import type { Db } from '../../core/db/core';
 import { IndexErr } from '../../core/errors';
 import {
 	type Index,
@@ -253,14 +252,32 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	};
 
 	/**
-	 * Shared filename tracking map
+	 * Filename tracking map: Maps row IDs to filenames for bidirectional sync
 	 *
-	 * Tracks the mapping of row IDs to filenames for each table.
-	 * This is used to:
-	 * 1. Detect filename changes when rows are updated (to delete old files)
-	 * 2. Find row IDs when files are deleted (to delete corresponding YJS rows)
+	 * Structure: `Map<tableName, Map<rowId, filename>>`
 	 *
-	 * Structure: tableName → rowId → filename
+	 * This is critical because the file watcher only knows filenames when files are deleted.
+	 * When a .md file is deleted, we can't read its content to extract the row ID.
+	 * We MUST have a way to look up: "which row owned filename 'post.md'?"
+	 *
+	 * Used for two scenarios:
+	 *
+	 * **Scenario 1: Row Update with Filename Change**
+	 * - Row "abc123" previously serialized to "draft.md"
+	 * - Row is updated and now serializes to "published.md"
+	 * - We need to know the OLD filename ("draft.md") so we can delete it
+	 * - Flow: serialize() → get "published.md" → look up old filename in map → delete "draft.md"
+	 * - Without this: orphaned "draft.md" remains on disk
+	 *
+	 * **Scenario 2: File Deletion (the critical case)**
+	 * - User deletes "post.md" from disk
+	 * - File watcher sees deletion event with filename "post.md"
+	 * - File is gone, so we can't read its content to extract the row ID
+	 * - We MUST look up: map["post.md"] → "abc123" → delete row "abc123" from YJS
+	 * - Without this: orphaned row "abc123" remains in YJS
+	 *
+	 * Note: This should ideally be bidirectional (rowId → filename AND filename → rowId)
+	 * for O(1) lookups in both directions. Currently only supports rowId → filename efficiently.
 	 */
 	const rowFilenames = new Map<string, Map<string, string>>();
 
@@ -336,7 +353,9 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				// Construct file path
 				const filePath = path.join(tableDir, filename) as AbsolutePath;
 
-				// Check if filename changed
+				// Check if filename changed (forward lookup: rowId → filename)
+				// If the row previously had a different filename (e.g., "draft.md" → "published.md"),
+				// we need to delete the old file to avoid orphaned files
 				const oldFilename = filenameMap.get(row.id);
 				if (oldFilename && oldFilename !== filename) {
 					// Filename changed, delete old file
@@ -344,7 +363,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					await deleteMarkdownFile({ filePath: oldFilePath });
 				}
 
-				// Update filename tracking
+				// Update filename tracking (store forward mapping for future updates/deletions)
 				filenameMap.set(row.id, filename);
 
 				return writeMarkdownFile({
@@ -472,9 +491,13 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 					if (!exists) {
 						// File was deleted: find and delete the row
+						// This is the critical use case: we only know the filename, not the row ID
+						// (we can't read the deleted file to extract the ID)
+						// So we MUST map filename → rowId to find which row to delete from YJS
 						const tableMap = rowFilenames.get(tableName);
 						if (tableMap) {
 							// Reverse lookup: find rowId where filename matches
+							// TODO: This is O(n) linear search. Should use bidirectional map for O(1)
 							let rowIdToDelete: string | null = null;
 							for (const [rowId, fname] of tableMap.entries()) {
 								if (fname === filename) {
@@ -564,8 +587,23 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	/**
 	 * Initialize filename tracking map on startup
 	 *
-	 * Scan all YJS rows and populate the rowFilenames map by serializing each row
-	 * to extract its filename. This ensures the map is accurate after server restart.
+	 * This is CRITICAL for correctness after server restart:
+	 *
+	 * Problem: The rowFilenames map only exists in memory. When the server restarts,
+	 * YJS data is restored from persistence, but the map is brand new and empty.
+	 * Without initialization, the sync would break:
+	 *
+	 * 1. User edits a row in the app, triggering onUpdate
+	 * 2. We compute newFilename = "published.md"
+	 * 3. We look up: oldFilename = map.get(rowId) → undefined (map is empty!)
+	 * 4. We think filename didn't change, so we don't delete old files
+	 * 5. Result: Orphaned old files accumulate on disk
+	 *
+	 * Solution: Serialize all existing YJS rows on startup to rebuild the map.
+	 * This one-time O(n) cost ensures the map is accurate for all future operations.
+	 *
+	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
+	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
 	 */
 	for (const {
 		tableName,
