@@ -183,7 +183,7 @@ const blogWorkspace = defineWorkspace({
 		publishPost: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				const { status, row } = db.tables.posts.get(id);
+				const { status, row } = db.tables.posts.get({ id });
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
@@ -191,7 +191,7 @@ const blogWorkspace = defineWorkspace({
 					id,
 					publishedAt: new Date().toISOString(),
 				});
-				const { row: updatedPost } = db.tables.posts.get(id);
+				const { row: updatedPost } = db.tables.posts.get({ id });
 				return Ok(updatedPost);
 			},
 		}),
@@ -220,7 +220,7 @@ const blogWorkspace = defineWorkspace({
 		incrementViews: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				const { status, row } = db.tables.posts.get(id);
+				const { status, row } = db.tables.posts.get({ id });
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
@@ -228,7 +228,7 @@ const blogWorkspace = defineWorkspace({
 					id,
 					views: row.views + 1,
 				});
-				const { row: updatedPost } = db.tables.posts.get(id);
+				const { row: updatedPost } = db.tables.posts.get({ id });
 				return Ok(updatedPost);
 			},
 		}),
