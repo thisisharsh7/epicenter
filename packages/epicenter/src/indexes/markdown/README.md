@@ -91,24 +91,25 @@ If you're happy with the defaults, you can simply pass `markdownIndex`:
 import { defineWorkspace, markdownIndex } from 'epicenter';
 
 const workspace = defineWorkspace({
-  id: 'blog',
-  schema: {
-    posts: {
-      id: id(),
-      title: text(),
-      content: text({ nullable: true }),
-      tags: multiSelect({ options: ['tech', 'design', 'product'] }),
-      published: boolean({ default: false }),
-    },
-  },
+	id: 'blog',
+	schema: {
+		posts: {
+			id: id(),
+			title: text(),
+			content: text({ nullable: true }),
+			tags: multiSelect({ options: ['tech', 'design', 'product'] }),
+			published: boolean({ default: false }),
+		},
+	},
 
-  indexes: {
-    markdown: markdownIndex  // Uses all defaults!
-  },
+	indexes: {
+		markdown: markdownIndex, // Uses all defaults!
+	},
 });
 ```
 
 With this setup:
+
 - Storage path defaults to `./blog` (the workspace `id`)
 - File structure is `{tableName}/{id}.md`
 - All fields are stored in YAML frontmatter
@@ -119,7 +120,7 @@ You can also write it out explicitly if you prefer:
 
 ```typescript
 indexes: {
-  markdown: (context) => markdownIndex(context)
+	markdown: (context) => markdownIndex(context);
 }
 ```
 
@@ -148,6 +149,7 @@ indexes: {
 #### Custom Serializers
 
 Use custom serializers when you want to control how your data is stored in markdown files. This is useful when:
+
 - **Moving fields to the markdown body**: Put a field (like `content`) in the markdown body instead of frontmatter
 - **Combining multiple fields**: Merge multiple fields into the markdown body (e.g., title as a header + body)
 
@@ -165,12 +167,25 @@ indexes: {
         }),
         deserialize: ({ frontmatter, body, filename, table }) => {
           const id = path.basename(filename, '.md');
-          return Ok({
+
+          // Validate frontmatter using schema
+          const FrontMatter = table.schema.toArktype().omit('id', 'content');
+          const frontmatterParsed = FrontMatter(frontmatter);
+
+          if (frontmatterParsed instanceof type.errors) {
+            return MarkdownIndexErr({
+              message: `Invalid frontmatter for post ${id}`,
+              context: { filename, id, reason: frontmatterParsed },
+            });
+          }
+
+          const row = {
             id,
-            tags: frontmatter.tags,
-            published: frontmatter.published,
-            content: body
-          });
+            content: body,
+            ...frontmatterParsed,
+          } satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+
+          return Ok(row);
         }
       }
     }
@@ -200,13 +215,25 @@ indexes: {
           const title = lines[0]?.replace(/^#\s*/, '') || '';
           const bodyContent = lines.slice(2).join('\n'); // Skip title and empty line
 
-          return Ok({
+          // Validate frontmatter using schema
+          const FrontMatter = table.schema.toArktype().omit('id', 'title', 'content');
+          const frontmatterParsed = FrontMatter(frontmatter);
+
+          if (frontmatterParsed instanceof type.errors) {
+            return MarkdownIndexErr({
+              message: `Invalid frontmatter for post ${id}`,
+              context: { filename, id, reason: frontmatterParsed },
+            });
+          }
+
+          const row = {
             id,
             title,
-            tags: frontmatter.tags,
-            published: frontmatter.published,
-            content: bodyContent
-          });
+            content: bodyContent,
+            ...frontmatterParsed,
+          } satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+
+          return Ok(row);
         }
       }
     }
@@ -215,6 +242,7 @@ indexes: {
 ```
 
 This produces markdown files like:
+
 ```markdown
 ---
 tags: [tech, typescript]
@@ -244,11 +272,25 @@ indexes: {
         }),
         deserialize: ({ frontmatter, body, filename, table }) => {
           const id = path.basename(filename, '.md');
-          return Ok({
+
+          // Validate frontmatter using schema
+          const FrontMatter = table.schema.toArktype().omit('id', 'content');
+          const frontmatterParsed = FrontMatter(frontmatter);
+
+          if (frontmatterParsed instanceof type.errors) {
+            return MarkdownIndexErr({
+              message: `Invalid frontmatter for post ${id}`,
+              context: { filename, id, reason: frontmatterParsed },
+            });
+          }
+
+          const row = {
             id,
-            ...frontmatter,
-            content: body
-          });
+            content: body,
+            ...frontmatterParsed,
+          } satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+
+          return Ok(row);
         }
       }
     }
@@ -265,17 +307,17 @@ Once configured, you can work with your data in two ways:
 ```typescript
 // Insert a post (markdown file created automatically)
 db.tables.posts.insert({
-  id: 'hello-world',
-  title: 'Hello World',
-  content: 'My first post',
-  tags: ['tech'],
-  published: true,
+	id: 'hello-world',
+	title: 'Hello World',
+	content: 'My first post',
+	tags: ['tech'],
+	published: true,
 });
 
 // Update a post (markdown file updated automatically)
 db.tables.posts.update({
-  id: 'hello-world',
-  published: true,
+	id: 'hello-world',
+	published: true,
 });
 ```
 
