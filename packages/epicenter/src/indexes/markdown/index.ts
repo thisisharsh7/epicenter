@@ -402,6 +402,17 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 			// Destructure user config with defaults
 			const userConfig = tableConfigs[tableName];
 
+			// Fully resolved table configuration type
+			type ResolvedConfig = {
+				serialize: NonNullable<
+					TableMarkdownConfig<typeof tableSchema>['serialize']
+				>;
+				deserialize: NonNullable<
+					TableMarkdownConfig<typeof tableSchema>['deserialize']
+				>;
+				directory: AbsolutePath;
+			};
+
 			// Merge user config with defaults and resolve directory to absolute path
 			const tableConfig = {
 				serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
@@ -411,15 +422,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					absoluteWorkspaceDir,
 					userConfig?.directory ?? tableName,
 				) as AbsolutePath,
-			} satisfies {
-				serialize: NonNullable<
-					TableMarkdownConfig<typeof tableSchema>['serialize']
-				>;
-				deserialize: NonNullable<
-					TableMarkdownConfig<typeof tableSchema>['deserialize']
-				>;
-				directory: AbsolutePath;
-			};
+			} satisfies ResolvedConfig;
 
 			return {
 				tableName,
