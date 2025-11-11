@@ -164,18 +164,6 @@ type TableConfigs<TSchema extends WorkspaceSchema> = {
 };
 
 /**
- * Resolved table config (after defaults have been applied)
- *
- * At runtime, serialize and deserialize are always defined because
- * we merge with DEFAULT_TABLE_CONFIG, and directory is resolved to an absolute path.
- */
-type ResolvedTableConfig<TTableSchema extends TableSchema> = {
-	serialize: NonNullable<TableMarkdownConfig<TTableSchema>['serialize']>;
-	deserialize: NonNullable<TableMarkdownConfig<TTableSchema>['deserialize']>;
-	directory: AbsolutePath;
-};
-
-/**
  * Markdown index configuration
  */
 export type MarkdownIndexConfig<
@@ -410,10 +398,12 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 			if (!table || !tableSchema) return null;
 
 			const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+
+			// Destructure user config with defaults
 			const userConfig = tableConfigs[tableName];
 
 			// Merge user config with defaults and resolve directory to absolute path
-			const tableConfig: ResolvedTableConfig<typeof tableSchema> = {
+			const tableConfig = {
 				serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
 				deserialize:
 					userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
@@ -421,6 +411,14 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					absoluteWorkspaceDir,
 					userConfig?.directory ?? tableName,
 				) as AbsolutePath,
+			} satisfies {
+				serialize: NonNullable<
+					TableMarkdownConfig<typeof tableSchema>['serialize']
+				>;
+				deserialize: NonNullable<
+					TableMarkdownConfig<typeof tableSchema>['deserialize']
+				>;
+				directory: AbsolutePath;
 			};
 
 			return {
