@@ -944,7 +944,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
  * - Serialize: All row fields → frontmatter, empty body, filename "{id}.md"
  * - Deserialize: Extract ID from filename, all frontmatter fields → row with validation
  */
-const DEFAULT_TABLE_CONFIG: TableMarkdownConfig<TableSchema> = {
+const DEFAULT_TABLE_CONFIG = {
 	serialize: ({ row: { id, ...row } }) => ({
 		frontmatter: row,
 		body: '',
@@ -977,4 +977,4 @@ const DEFAULT_TABLE_CONFIG: TableMarkdownConfig<TableSchema> = {
 				});
 		}
 	},
-};
+} satisfies TableMarkdownConfig<TableSchema>;
