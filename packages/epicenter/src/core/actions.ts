@@ -229,8 +229,7 @@ export function defineQuery<TOutput>(config: {
 export function defineQuery(config: ActionConfig): any {
 	const inputSchema = config.input;
 	const handler = inputSchema
-		? // biome-ignore lint/suspicious/noExplicitAny: Handler accepts any type since it's either the raw config.handler (no validation) or a wrapper that validates via StandardSchema. Type safety is enforced through Query's callable signature overloads.
-			(arg: any) => {
+		? (arg: unknown) => {
 				const validationResult = inputSchema['~standard'].validate(arg);
 				return validateAndExecuteHandler({
 					validationResult,
@@ -366,8 +365,7 @@ export function defineMutation<TOutput>(config: {
 export function defineMutation(config: ActionConfig): any {
 	const inputSchema = config.input;
 	const handler = inputSchema
-		? // biome-ignore lint/suspicious/noExplicitAny: Handler accepts any type since it's either the raw config.handler (no validation) or a wrapper that validates via StandardSchema. Type safety is enforced through Mutation's callable signature overloads.
-			(arg: any) => {
+		? (arg: unknown) => {
 				const validationResult = inputSchema['~standard'].validate(arg);
 				return validateAndExecuteHandler({
 					validationResult,
