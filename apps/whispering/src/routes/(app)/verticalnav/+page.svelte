@@ -363,8 +363,7 @@
 			{/if}
 		</div>
 
-		<!-- TODO: Remove NavItems - using VerticalNav sidebar instead -->
-		<!-- <NavItems class="xs:flex -mb-2.5 -mt-1 hidden" /> -->
+		<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" pathPrefix="/verticalnav" />
 
 		<div class="xs:flex hidden flex-col items-center gap-3">
 			<p class="text-foreground/75 text-center text-sm">
