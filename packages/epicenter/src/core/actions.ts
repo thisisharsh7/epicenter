@@ -2,7 +2,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TaggedError } from 'wellcrafted/error';
 import { createTaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
-import { Ok, isResult } from 'wellcrafted/result';
+import { Err, Ok, isResult } from 'wellcrafted/result';
 
 /**
  * Error thrown when action input validation fails
@@ -223,17 +223,29 @@ export function defineQuery<TOutput>(config: {
 /**
  * Implementation for defineQuery
  *
- * Uses shared action wrapper logic - see createActionWrapper for details
+ * Composes validation, handler execution, and result wrapping
  */
 export function defineQuery(config: ActionConfig) {
 	const inputSchema = config.input;
 	const handler = inputSchema
 		? (arg: unknown) => {
 				const validationResult = inputSchema['~standard'].validate(arg);
-				return validateAndExecuteHandler({
-					validationResult,
-					handler: config.handler,
-				});
+				const validated = validateInput(validationResult);
+
+				// Handle async validation
+				if (validated instanceof Promise) {
+					return validated.then(
+						({ data: validatedInput, error: validateInputError }) => {
+							if (validateInputError) return Err(validateInputError);
+							return wrapHandlerResult(config.handler(validatedInput));
+						},
+					);
+				}
+
+				const { data: validatedInput, error: validateInputError } = validated;
+				// Handle sync validation
+				if (validateInputError) return Err(validateInputError);
+				return wrapHandlerResult(config.handler(validatedInput));
 			}
 		: config.handler;
 
@@ -358,17 +370,26 @@ export function defineMutation<TOutput>(config: {
 /**
  * Implementation for defineMutation
  *
- * Uses shared action wrapper logic - see createActionWrapper for details
+ * Composes validation, handler execution, and result wrapping
  */
 export function defineMutation(config: ActionConfig) {
 	const inputSchema = config.input;
 	const handler = inputSchema
 		? (arg: unknown) => {
 				const validationResult = inputSchema['~standard'].validate(arg);
-				return validateAndExecuteHandler({
-					validationResult,
-					handler: config.handler,
-				});
+				const validated = validateInput(validationResult);
+
+				// Handle async validation
+				if (validated instanceof Promise) {
+					return validated.then((result) => {
+						if (result.error) return result;
+						return wrapHandlerResult(config.handler(result.data));
+					});
+				}
+
+				// Handle sync validation
+				if (validated.error) return validated;
+				return wrapHandlerResult(config.handler(validated.data));
 			}
 		: config.handler;
 
@@ -384,40 +405,38 @@ export function defineMutation(config: ActionConfig) {
  */
 type ActionConfig = {
 	input?: StandardSchemaV1;
-	// biome-ignore lint/suspicious/noExplicitAny: Handler must use `any` for both parameters and return type to support all 8 overload combinations: with/without input (any[] vs []), sync/async (T vs Promise<T>), and Result vs raw value (Result<T,E> vs T). Type safety is enforced through the overload signatures above, not this shared config type.
-	handler: (...args: any[]) => any | Result<any, any>;
+	handler: // biome-ignore lint/suspicious/noExplicitAny: Handler return type uses `any` to support all return type combinations: sync/async (T vs Promise<T>) and Result vs raw value (Result<T,E> vs T). Type safety is enforced through the overload signatures above, not this shared config type.
+		| (() => any | Result<any, any>)
+		// biome-ignore lint/suspicious/noExplicitAny: Handler return type uses `any` to support all return type combinations: sync/async (T vs Promise<T>) and Result vs raw value (Result<T,E> vs T). Type safety is enforced through the overload signatures above, not this shared config type.
+		| ((input: unknown) => any | Result<any, any>);
 	description?: string;
 };
 
 /**
- * Helper: Validates input and executes handler, wrapping result appropriately
+ * Helper: Wraps handler result in Ok() if it's not already a Result
+ * Handles both sync and async handler results
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Return type must be `any` because it can be Promise<Result<T,E>>, Result<T,E>, or Result<T,never> depending on input, and we cannot precisely type this without propagating generics through the call chain. The function uses runtime type guards (instanceof Promise, isResult) to handle all cases safely.
+function wrapHandlerResult(result: unknown): any {
+	if (result instanceof Promise) {
+		return result.then((resolved) =>
+			isResult(resolved) ? resolved : Ok(resolved),
+		);
+	}
+	return isResult(result) ? result : Ok(result);
+}
+
+/**
+ * Helper: Validates input and returns Result
  * Handles both sync and async validation
  */
-function validateAndExecuteHandler({
-	validationResult,
-	handler,
-}: {
+function validateInput(
 	validationResult:
 		| StandardSchemaV1.Result<unknown>
-		| Promise<StandardSchemaV1.Result<unknown>>;
-	handler: ActionConfig['handler'];
-}):
-	| ReturnType<ActionConfig['handler']>
-	| Result<ReturnType<ActionConfig['handler']>, ValidationError> {
-	/**
-	 * Helper: Wraps handler result in Ok() if it's not already a Result
-	 * Handles both sync and async handler results
-	 */
-	// biome-ignore lint/suspicious/noExplicitAny: Return type must be `any` because it can be Promise<Result<T,E>>, Result<T,E>, or Result<T,never> depending on input, and we cannot precisely type this without propagating generics through the call chain. The function uses runtime type guards (instanceof Promise, isResult) to handle all cases safely.
-	const wrapHandlerResult = (result: unknown): any => {
-		if (result instanceof Promise) {
-			return result.then((resolved) =>
-				isResult(resolved) ? resolved : Ok(resolved),
-			);
-		}
-		return isResult(result) ? result : Ok(result);
-	};
-
+		| Promise<StandardSchemaV1.Result<unknown>>,
+):
+	| Result<unknown, ValidationError>
+	| Promise<Result<unknown, ValidationError>> {
 	// Handle async validation
 	if (validationResult instanceof Promise) {
 		return validationResult.then((validated) => {
@@ -428,7 +447,7 @@ function validateAndExecuteHandler({
 					cause: undefined,
 				});
 			}
-			return wrapHandlerResult(handler(validated.value));
+			return Ok(validated.value);
 		});
 	}
 
@@ -441,5 +460,5 @@ function validateAndExecuteHandler({
 		});
 	}
 
-	return wrapHandlerResult(handler(validationResult.value));
+	return Ok(validationResult.value);
 }
