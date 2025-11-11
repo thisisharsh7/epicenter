@@ -5,7 +5,7 @@ import {
 	eq,
 	id,
 	markdownIndex,
-	multiSelect,
+	tags,
 	select,
 	sqliteIndex,
 	text,
@@ -31,7 +31,7 @@ export const githubIssues = defineWorkspace({
 			title: text(),
 			body: text(),
 			status: select({ options: ['open', 'in-progress', 'closed'] }),
-			labels: multiSelect({
+			labels: tags({
 				options: ['bug', 'feature', 'documentation', 'enhancement', 'question'],
 			}),
 			niche: select({ options: NICHES }),

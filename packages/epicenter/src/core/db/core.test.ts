@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, multiSelect, text, ytext } from '../schema';
+import { boolean, id, integer, tags, text, ytext } from '../schema';
 import { createEpicenterDb } from './core';
 
 describe('createEpicenterDb', () => {
@@ -126,7 +126,7 @@ describe('createEpicenterDb', () => {
 			posts: {
 				id: id(),
 				title: ytext(),
-				tags: multiSelect({ options: ['typescript', 'javascript', 'python'] }),
+				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			},
 		});
 

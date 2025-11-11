@@ -7,7 +7,7 @@ import {
 	integer,
 	boolean,
 	select,
-	multiSelect,
+	tags,
 } from '../schema';
 import * as Y from 'yjs';
 
@@ -24,7 +24,7 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				title: text(),
 				content: ytext({ nullable: true }),
-				tags: multiSelect({ options: ['tech', 'personal', 'work'] }),
+				tags: tags({ options: ['tech', 'personal', 'work'] }),
 				viewCount: integer(),
 				published: boolean(),
 			},
@@ -227,7 +227,7 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				authorId: text(),
 				title: text(),
-				chapters: multiSelect({
+				chapters: tags({
 					options: ['Chapter 1', 'Chapter 2', 'Chapter 3'],
 				}),
 				published: boolean(),
@@ -295,7 +295,7 @@ describe('YjsDoc Type Inference', () => {
 				title: text(),
 				body: ytext(),
 				notes: ytext({ nullable: true }),
-				tags: multiSelect({ options: ['tag1', 'tag2'] }),
+				tags: tags({ options: ['tag1', 'tag2'] }),
 			},
 		});
 

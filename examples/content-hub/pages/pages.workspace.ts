@@ -1,37 +1,118 @@
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
+	DateWithTimezone,
+	date,
+	defineMutation,
 	defineWorkspace,
+	generateId,
 	id,
 	markdownIndex,
+	tags,
 	select,
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
+import { parseMarkdownFile } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
+import { extractErrorMessage } from 'wellcrafted/error';
+import { Err, Ok, tryAsync } from 'wellcrafted/result';
 
 /**
  * Pages workspace
- * Manages page content (blogs, articles, guides, tutorials, news)
+ * Manages page content with rich metadata (blogs, articles, guides, tutorials, news)
  */
 export const pages = defineWorkspace({
 	id: 'pages',
 
 	schema: {
 		pages: {
+			// Core fields
 			id: id(),
 			title: text(),
 			content: text(),
-			type: select({
-				options: ['blog', 'article', 'guide', 'tutorial', 'news'],
-			}),
-			tags: select({
+			subtitle: text({ nullable: true }),
+
+			// Timestamps with timezone support
+			created_at: date({ nullable: true }),
+			updated_at: date({ nullable: true }),
+			date: date({ nullable: true }),
+			timezone: text({ nullable: true }),
+
+			// Status tracking
+			status: select({
 				options: [
-					'tech',
-					'lifestyle',
-					'business',
-					'education',
-					'entertainment',
+					'Needs Scaffolding',
+					'Needs Polishing',
+					'Backlog',
+					'Draft',
+					'Published',
+					'Archived',
 				],
+				nullable: true,
 			}),
+			status_transcripts_complete: select({
+				options: ['TRUE', 'FALSE'],
+				nullable: true,
+			}),
+
+			// Categorization (tags allows multiple values)
+			type: tags({
+				options: [
+					// Folder-based categories
+					'_misc',
+					'_family_and_carrie_journal',
+					'_frontend_coding_tips',
+					'_functional_journal',
+					'_gap_thesis',
+					'_janktable_revamp',
+					'_video_comments',
+					'_video_excerpts',
+					'_yale_meals',
+					'_yale_tales',
+					'_Epicenter_Progress',
+					'_my_favorite_foods',
+					'_notable_yale_alumni',
+					'_misc_false',
+					// Content types
+					'blog',
+					'article',
+					'guide',
+					'tutorial',
+					'news',
+				],
+				nullable: true,
+			}),
+
+			tags: tags({
+				// options: [
+				// 	'Yale',
+				// 	'Advice/Original',
+				// 	'Epicenter',
+				// 	'YC',
+				// 	'College Students',
+				// 	'High School Students',
+				// 	'Coding',
+				// 	'Productivity',
+				// 	'Ethics',
+				// 	'Writing',
+				// 	'Tech',
+				// 	'Lifestyle',
+				// 	'Business',
+				// 	'Education',
+				// 	'Entertainment',
+				// ],
+				nullable: true,
+			}),
+
+			// Publishing metadata
+			url: text({ nullable: true }),
+			visibility: select({
+				options: ['public', 'private', 'unlisted'],
+				nullable: true,
+			}),
+			resonance: text({ nullable: true }),
 		},
 	},
 
@@ -42,61 +123,188 @@ export const pages = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	actions: ({ db, indexes }) => {
 		/**
-		 * Get all pages
-		 *
-		 * `db.tables.pages.getAll` is a pre-built Query action. No wrapper needed because
-		 * Epicenter already knows how to handle table operations as first-class actions.
-		 * The table helper returns Query<> which is exactly what the actions object expects.
+		 * Transform ISO 8601 date string with timezone to DateWithTimezone format
+		 * Only transforms if BOTH isoDate AND timezone are provided (no defaults)
 		 */
-		getPages: db.tables.pages.getAll,
+		function transformDate(
+			isoDate: string | undefined,
+			timezone: string | undefined
+		): string | null {
+			// Only process if BOTH date and timezone exist
+			if (!isoDate || !timezone) return null;
 
-		/**
-		 * Get a page by ID
-		 *
-		 * Direct assignment of `db.tables.pages.get`. The table helper is already typed
-		 * as Query<{ id: string }, PageRow | null>, so we don't need to define input types.
-		 */
-		getPage: db.tables.pages.get,
+			try {
+				const date = new Date(isoDate);
+				if (isNaN(date.getTime())) return null;
 
-		/**
-		 * Create a page
-		 *
-		 * Why can we just use `db.tables.pages.insert` directly?
-		 *
-		 * 1. The table helper is already a Mutation<void, RowAlreadyExistsError>
-		 * 2. Input validation happens via the table's schema types
-		 * 3. No custom business logic needed (no timestamps, auto-IDs, validation)
-		 *
-		 * This is the "just use what Epicenter provides" approach. If you need:
-		 * - Auto-generated IDs: keep a custom mutation
-		 * - Timestamps (createdAt, updatedAt): keep a custom mutation
-		 * - Complex validation: keep a custom mutation
-		 *
-		 * But for straightforward insert operations, the table helper is perfect.
-		 */
-		createPage: db.tables.pages.insert,
+				return DateWithTimezone({ date, timezone }).toJSON();
+			} catch {
+				return null;
+			}
+		}
 
-		/**
-		 * Update a page
-		 *
-		 * Same reasoning as createPage: the table helper handles partial updates correctly.
-		 * We don't need timestamp management for this workspace, so we can use it directly.
-		 */
-		updatePage: db.tables.pages.update,
+		return {
+			/**
+			 * Get all pages
+			 */
+			getPages: db.tables.pages.getAll,
 
-		/**
-		 * Delete a page
-		 *
-		 * `db.tables.pages.delete` is already a Mutation<void, never> (never fails),
-		 * so it's safe to use directly.
-		 */
-		deletePage: db.tables.pages.delete,
+			/**
+			 * Get a page by ID
+			 */
+			getPage: db.tables.pages.get,
 
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
-	}),
+			/**
+			 * Create a page
+			 */
+			createPage: db.tables.pages.insert,
+
+			/**
+			 * Update a page
+			 */
+			updatePage: db.tables.pages.update,
+
+			/**
+			 * Delete a page
+			 */
+			deletePage: db.tables.pages.delete,
+
+			/**
+			 * Migrate pages from epicenter-md format
+			 *
+			 * Reads markdown files from the specified directory, parses frontmatter,
+			 * transforms dates with timezone, and inserts into the database.
+			 */
+			migrateFromEpicenterMd: defineMutation({
+				input: type({
+					sourcePath: 'string',
+					'dryRun?': 'boolean',
+				}),
+				handler: async ({ sourcePath, dryRun = false }) => {
+					const { data: files, error: readError } = await tryAsync({
+						try: () => readdir(sourcePath, { recursive: true }),
+						catch: (error) =>
+							Err({
+								message: 'Failed to read source directory',
+								context: {
+									sourcePath,
+									error: extractErrorMessage(error),
+								},
+							}),
+					});
+
+					if (readError) return Err(readError);
+
+					const markdownFiles = files
+						.filter((file) => file.endsWith('.md'))
+						.map((file) => join(sourcePath, file));
+
+					console.log(`📂 Found ${markdownFiles.length} markdown files`);
+
+					const stats = {
+						total: 0,
+						success: 0,
+						errors: [] as Array<{ file: string; error: string }>,
+					};
+
+					// Process each file
+					for (const file of markdownFiles) {
+						stats.total++;
+
+						// Parse markdown file using built-in parser
+						const parseResult = await parseMarkdownFile(file);
+
+						if (parseResult.error) {
+							stats.errors.push({
+								file,
+								error: extractErrorMessage(parseResult.error),
+							});
+							continue;
+						}
+
+						const { data: frontmatter, body } = parseResult.data;
+
+						// Extract timezone - only use if it exists in frontmatter
+						const timezone = frontmatter.timezone as string | undefined;
+
+						// Transform to schema format
+						// NO defaults - only use what exists in the original frontmatter
+						const page = {
+							id: (frontmatter.id as string) || generateId(),
+							title: (frontmatter.title as string) || 'Untitled',
+							content:
+								body ||
+								(frontmatter.content_draft as string) ||
+								(frontmatter.content as string) ||
+								'',
+							subtitle: (frontmatter.subtitle as string | null) || null,
+							// Only transform dates if BOTH date AND timezone exist
+							created_at: transformDate(
+								frontmatter.created_at as string | undefined,
+								timezone
+							),
+							updated_at: transformDate(
+								frontmatter.updated_at as string | undefined,
+								timezone
+							),
+							date: transformDate(frontmatter.date as string | undefined, timezone),
+							// Preserve original timezone value (or null if not present)
+							timezone: timezone || null,
+							status: (frontmatter.status as string | null) || null,
+							status_transcripts_complete:
+								(frontmatter.status_transcripts_complete as string | null) || null,
+							type:
+								Array.isArray(frontmatter.type) && frontmatter.type.length > 0
+									? (frontmatter.type as string[])
+									: null,
+							tags:
+								Array.isArray(frontmatter.tags) && frontmatter.tags.length > 0
+									? (frontmatter.tags as string[])
+									: Array.isArray(frontmatter.on) && frontmatter.on.length > 0
+										? (frontmatter.on as string[])
+										: null,
+							url: (frontmatter.url as string | null) || null,
+							visibility: (frontmatter.visibility as string | null) || null,
+							resonance: (frontmatter.resonance as string | null) || null,
+						};
+
+						// Insert into database (unless dry run)
+						if (!dryRun) {
+							db.tables.pages.insert(page);
+						}
+
+						stats.success++;
+					}
+
+					console.log('\n📊 Migration Statistics:');
+					console.log(`  ✅ Success: ${stats.success}`);
+					console.log(`  ❌ Errors: ${stats.errors.length}`);
+
+					if (stats.errors.length > 0) {
+						console.log('\n⚠️  Errors:');
+						for (const { file, error } of stats.errors.slice(0, 10)) {
+							console.log(`  - ${file}: ${error}`);
+						}
+						if (stats.errors.length > 10) {
+							console.log(`  ... and ${stats.errors.length - 10} more`);
+						}
+					}
+
+					return Ok({
+						total: stats.total,
+						success: stats.success,
+						errorCount: stats.errors.length,
+						errors: stats.errors,
+					});
+				},
+			}),
+
+			pullToMarkdown: indexes.markdown.pullToMarkdown,
+			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+			pullToSqlite: indexes.sqlite.pullToSqlite,
+			pushFromSqlite: indexes.sqlite.pushFromSqlite,
+		};
+	},
 });

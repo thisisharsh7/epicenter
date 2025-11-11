@@ -256,7 +256,7 @@ const notesWorkspace = defineWorkspace({
 			id: id(),
 			title: text(),
 			content: text(),
-			tags: multiSelect({ options: ['work', 'personal', 'ideas'] }),
+			tags: tags({ options: ['work', 'personal', 'ideas'] }),
 		},
 	},
 	indexes: {

@@ -110,9 +110,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Insert a new row into the table.
 		 *
-		 * For Y.js columns (ytext, multi-select), provide plain JavaScript values:
+		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
 		 * - ytext columns accept strings
-		 * - multi-select columns accept arrays
+		 * - tags columns accept arrays
 		 *
 		 * Internally, strings are synced to Y.Text using updateYTextFromString(),
 		 * and arrays are synced to Y.Array using updateYArrayFromArray().
@@ -142,9 +142,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Update specific fields of an existing row.
 		 *
-		 * For Y.js columns (ytext, multi-select), provide plain JavaScript values:
+		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
 		 * - ytext columns accept strings
-		 * - multi-select columns accept arrays
+		 * - tags columns accept arrays
 		 *
 		 * Internally, the existing Y.Text/Y.Array is synced using updateYTextFromString()
 		 * or updateYArrayFromArray() to apply minimal changes while preserving CRDT history.
@@ -183,7 +183,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Insert or update a row (insert if doesn't exist, update if exists).
 		 *
-		 * For Y.js columns (ytext, multi-select), provide plain JavaScript values.
+		 * For Y.js columns (ytext, tags), provide plain JavaScript values.
 		 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
 		 */
 		upsert: defineMutation({

@@ -192,7 +192,7 @@ const workspace = defineWorkspace({
 			id: id(),
 			title: text(),
 			content: text({ nullable: true }),
-			tags: multiSelect({ options: ['tech', 'design', 'product'] }),
+			tags: tags({ options: ['tech', 'design', 'product'] }),
 			published: boolean({ default: false }),
 		},
 	},

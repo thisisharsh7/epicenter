@@ -232,7 +232,7 @@ export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
 			yrow.set(fieldName, value);
 		} else if (Array.isArray(value)) {
 			// Convert any array → Y.Array or update existing Y.Array
-			// This handles multi-select columns and extra fields with arrays
+			// This handles tags columns and extra fields with arrays
 			let yarray = yrow.get(fieldName);
 			if (!(yarray instanceof Y.Array)) {
 				yarray = new Y.Array();

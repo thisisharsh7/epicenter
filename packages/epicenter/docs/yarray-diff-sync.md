@@ -39,9 +39,9 @@ The function uses a simple diff algorithm that compares arrays element by elemen
 
 This preserves element identity wherever possible. For simple insertions and deletions, it produces the minimal diff. For complex reorderings, it may not be absolutely minimal, but it always converges to the correct final state.
 
-## Primary Use Case: Multi-Select Fields
+## Primary Use Case: Tags Fields
 
-The main use case is syncing multi-select field values. In Epicenter, multi-select columns use Y.Array to store their values. When you need to sync these from external sources (like file system metadata or API responses), you want minimal operations:
+The main use case is syncing tags field values. In Epicenter, tags columns use Y.Array to store their values. When you need to sync these from external sources (like file system metadata or API responses), you want minimal operations:
 
 ```typescript
 // In your workspace schema
@@ -49,7 +49,7 @@ const schema = {
 	posts: {
 		id: id(),
 		title: text(),
-		tags: multiSelect({
+		tags: tags({
 			options: ['typescript', 'javascript', 'svelte', 'rust'],
 		}),
 	},
@@ -74,7 +74,7 @@ This pattern works for any scenario where you're mirroring array data from exter
 
 ## Other Use Cases
 
-**Form multi-select inputs**: When syncing user selections from a UI component to a Y.Array without destroying collaborative state.
+**Form tags inputs**: When syncing user selections from a UI component to a Y.Array without destroying collaborative state.
 
 **Tag management**: When syncing tags or categories from external systems to collaborative documents.
 

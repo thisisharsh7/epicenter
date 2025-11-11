@@ -198,7 +198,7 @@ Query called → Read from SQLite index → Return data
   title: text(),
   body: text(),
   status: select({ options: ['open', 'in-progress', 'closed'] }),
-  labels: multiSelect({ options: ['bug', 'feature', 'documentation', 'enhancement', 'question'] }),
+  labels: tags({ options: ['bug', 'feature', 'documentation', 'enhancement', 'question'] }),
   niche: select({ ... }),
   createdAt: date(),
   updatedAt: date(),

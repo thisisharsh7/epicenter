@@ -253,15 +253,25 @@ export function date<
 }
 
 /**
- * Creates a multi-select column (stored as JSON text, NOT NULL by default)
- * Uses non-empty array constraint [string, ...string[]] to ensure at least one option
+ * Creates a tags column for storing arrays of strings (stored as JSON text, NOT NULL by default)
+ *
+ * Two modes:
+ * 1. With options (validated): Only values from the options array are allowed
+ * 2. Without options (unconstrained): Any string array is allowed
+ *
  * @example
- * multiSelect({ options: ['admin', 'user', 'guest'] })
- * multiSelect({ options: ['red', 'blue'], nullable: true })
- * multiSelect({ options: ['tag1', 'tag2'], default: [] })
- * multiSelect({ options: ['a', 'b'], default: ['a'] })
+ * // Validated tags (with options)
+ * tags({ options: ['urgent', 'normal', 'low'] })
+ * tags({ options: ['admin', 'user', 'guest'], nullable: true })
+ * tags({ options: ['tag1', 'tag2'], default: [] })
+ * tags({ options: ['a', 'b'], default: ['a'] })
+ *
+ * // Unconstrained tags (without options)
+ * tags() // Any string array
+ * tags({ nullable: true })
+ * tags({ default: ['initial', 'tags'] })
  */
-export function multiSelect<
+export function tags<
 	const TOptions extends readonly [string, ...string[]],
 	TNullable extends boolean = false,
 	TDefault extends
@@ -276,32 +286,57 @@ export function multiSelect<
 	options: TOptions;
 	nullable?: TNullable;
 	default?: TDefault;
-}) {
-	const optionsSet = new Set(options);
+}): ApplyColumnModifiers<ReturnType<typeof customType<{ data: TOptions[number][]; driverData: string }>>, TNullable, TDefault>;
+export function tags<
+	TNullable extends boolean = false,
+	TDefault extends
+		| string[]
+		| (() => string[])
+		| undefined = undefined,
+>({
+	nullable,
+	default: defaultValue,
+}?: {
+	nullable?: TNullable;
+	default?: TDefault;
+}): ApplyColumnModifiers<ReturnType<typeof customType<{ data: string[]; driverData: string }>>, TNullable, TDefault>;
+export function tags<
+	const TOptions extends readonly [string, ...string[]],
+>({
+	options,
+	nullable = false,
+	default: defaultValue,
+}: {
+	options?: TOptions;
+	nullable?: boolean;
+	default?: TOptions[number][] | string[] | (() => TOptions[number][]) | (() => string[]);
+} = {}) {
+	const optionsSet = options ? new Set(options) : null;
 
-	const multiSelectType = customType<{
-		data: TOptions[number][];
+	const tagsType = customType<{
+		data: TOptions[number][] | string[];
 		driverData: string;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: TOptions[number][]): string => JSON.stringify(value),
-		fromDriver: (value: string): TOptions[number][] => {
+		toDriver: (value: TOptions[number][] | string[]): string => JSON.stringify(value),
+		fromDriver: (value: string): TOptions[number][] | string[] => {
 			try {
 				const parsed = JSON.parse(value);
 				if (!Array.isArray(parsed)) {
 					return [];
 				}
-				// Filter out items not in the options set
-				return parsed.filter((item) =>
-					optionsSet.has(item),
-				) as TOptions[number][];
+				// Filter based on whether options are provided
+				if (optionsSet) {
+					return parsed.filter((item) => optionsSet.has(item)) as TOptions[number][];
+				}
+				return parsed.filter((item) => typeof item === 'string') as string[];
 			} catch (error) {
 				return [];
 			}
 		},
 	});
 
-	let column = multiSelectType();
+	let column = tagsType();
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();
@@ -309,11 +344,11 @@ export function multiSelect<
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
+				? column.$defaultFn(defaultValue as any)
+				: column.default(defaultValue as any);
 	}
 
-	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
+	return column as any;
 }
 
 // Re-export Drizzle utilities

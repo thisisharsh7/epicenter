@@ -190,7 +190,7 @@ export type ColumnSchema =
 	| BooleanColumnSchema
 	| DateColumnSchema
 	| SelectColumnSchema
-	| MultiSelectColumnSchema;
+	| TagsColumnSchema;
 
 /**
  * Individual column schema types
@@ -245,7 +245,14 @@ export type SelectColumnSchema<
 	default?: TOptions[number];
 };
 
-export type MultiSelectColumnSchema<
+/**
+ * Tags column schema for storing arrays of strings.
+ * Use with the tags() function for validated or unconstrained string arrays.
+ * @example
+ * tags({ options: ['a', 'b'] }) // TagsColumnSchema<['a', 'b'], false>
+ * tags() // TagsColumnSchema<[string, ...string[]], false>
+ */
+export type TagsColumnSchema<
 	TOptions extends readonly [string, ...string[]] = readonly [
 		string,
 		...string[],
@@ -254,7 +261,7 @@ export type MultiSelectColumnSchema<
 > = {
 	type: 'multi-select';
 	nullable: TNullable;
-	options: TOptions;
+	options?: TOptions;
 	default?: TOptions[number][];
 };
 
@@ -404,7 +411,7 @@ export type WorkspaceSchema = Record<string, TableSchema>;
  * type TextField = CellValue<{ type: 'text'; nullable: true }>; // string | null
  * type YtextField = CellValue<{ type: 'ytext'; nullable: false }>; // Y.Text
  * type DateField = CellValue<{ type: 'date'; nullable: false }>; // DateWithTimezoneString
- * type MultiSelectField = CellValue<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
+ * type TagsField = CellValue<{ type: 'multi-select'; nullable: false; options: readonly ['x', 'y'] }>; // Y.Array<string>
  * type AnyCellValue = CellValue; // Union of all possible cell values
  * ```
  */
@@ -439,10 +446,7 @@ export type CellValue<C extends ColumnSchema = ColumnSchema> =
 									? TNullable extends true
 										? TOptions[number] | null
 										: TOptions[number]
-									: C extends MultiSelectColumnSchema<
-												infer TOptions,
-												infer TNullable
-											>
+									: C extends TagsColumnSchema<infer TOptions, infer TNullable>
 										? TNullable extends true
 											? Y.Array<TOptions[number]> | null
 											: Y.Array<TOptions[number]>
@@ -752,7 +756,7 @@ export function validateRow<TTableSchema extends TableSchema>({
 							},
 						};
 					}
-					if (!columnSchema.options.includes(option)) {
+					if (columnSchema.options && !columnSchema.options.includes(option)) {
 						return {
 							status: 'schema-mismatch' as const,
 							reason: {
@@ -854,7 +858,7 @@ export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
  * type IdSerialized = SerializedCellValue<{ type: 'id' }>; // string
  * type YtextSerialized = SerializedCellValue<{ type: 'ytext'; nullable: false }>; // string
  * type YtextNullable = SerializedCellValue<{ type: 'ytext'; nullable: true }>; // string | null
- * type MultiSelect = SerializedCellValue<{ type: 'multi-select'; nullable: false; options: readonly ['a', 'b'] }>; // string[]
+ * type Tags = SerializedCellValue<{ type: 'multi-select'; nullable: false; options: readonly ['a', 'b'] }>; // string[]
  * type AnySerialized = SerializedCellValue; // Union of all possible serialized values
  * ```
  */
@@ -1217,41 +1221,57 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 }
 
 /**
- * Creates a multi-select (multiple choice) column schema
+ * Creates a tags column schema for storing arrays of strings.
+ *
+ * Two modes:
+ * 1. With options (validated): Only values from the options array are allowed
+ * 2. Without options (unconstrained): Any string array is allowed
+ *
  * @example
- * multiSelect({ options: ['typescript', 'javascript', 'python'] })
- * multiSelect({ options: ['tag1', 'tag2'], default: [] })
+ * // Validated tags (with options)
+ * tags({ options: ['urgent', 'normal', 'low'] })
+ * tags({ options: ['typescript', 'javascript', 'python'], default: ['typescript'] })
+ *
+ * // Unconstrained tags (without options)
+ * tags() // Any string array
+ * tags({ nullable: true })
+ * tags({ default: ['initial', 'tags'] })
  */
-export function multiSelect<
+export function tags<
 	const TOptions extends readonly [string, ...string[]],
 >(opts: {
 	options: TOptions;
 	nullable: true;
 	default?: TOptions[number][];
-}): MultiSelectColumnSchema<TOptions, true>;
-export function multiSelect<
+}): TagsColumnSchema<TOptions, true>;
+export function tags<
 	const TOptions extends readonly [string, ...string[]],
 >(opts: {
 	options: TOptions;
 	nullable?: false;
 	default?: TOptions[number][];
-}): MultiSelectColumnSchema<TOptions, false>;
-export function multiSelect<
-	const TOptions extends readonly [string, ...string[]],
->({
+}): TagsColumnSchema<TOptions, false>;
+export function tags<
+	TNullable extends boolean = false,
+	TDefault extends string[] | (() => string[]) | undefined = undefined,
+>(opts?: {
+	nullable?: TNullable;
+	default?: TDefault;
+}): TagsColumnSchema<readonly [string, ...string[]], TNullable>;
+export function tags<const TOptions extends readonly [string, ...string[]]>({
 	options,
 	nullable = false,
 	default: defaultValue,
 }: {
-	options: TOptions;
+	options?: TOptions;
 	nullable?: boolean;
-	default?: TOptions[number][];
-}): MultiSelectColumnSchema<TOptions, boolean> {
+	default?: TOptions[number][] | string[] | (() => string[]);
+} = {}): TagsColumnSchema<TOptions, boolean> {
 	return {
 		type: 'multi-select',
 		nullable,
 		options,
-		default: defaultValue,
+		default: defaultValue as TOptions[number][],
 	};
 }
 
@@ -1334,7 +1354,10 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			case 'select':
 				return type.enumerated(...columnSchema.options);
 			case 'multi-select':
-				return type.enumerated(...columnSchema.options).array();
+				// If options provided, validate against them; otherwise allow any string array
+				return columnSchema.options
+					? type.enumerated(...columnSchema.options).array()
+					: type.string.array();
 		}
 	}
 
@@ -1495,7 +1518,10 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 									},
 								};
 							}
-							if (!columnSchema.options.includes(option)) {
+							if (
+								columnSchema.options &&
+								!columnSchema.options.includes(option)
+							) {
 								return {
 									status: 'schema-mismatch',
 									row,
@@ -1685,7 +1711,10 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 									},
 								};
 							}
-							if (!columnSchema.options.includes(option)) {
+							if (
+								columnSchema.options &&
+								!columnSchema.options.includes(option)
+							) {
 								return {
 									status: 'schema-mismatch',
 									row: data,

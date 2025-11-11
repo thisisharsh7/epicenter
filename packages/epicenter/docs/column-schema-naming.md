@@ -21,7 +21,7 @@ For option-based fields, Epicenter uses what users actually see in tools like Ai
 
 ```typescript
 select({ options: ['draft', 'published'] })
-multiSelect({ options: ['tag1', 'tag2', 'tag3'] })
+tags({ options: ['tag1', 'tag2', 'tag3'] })
 ```
 
 `select` is immediately clear: you're selecting from options. While `enum` could work, it means something specific in TypeScript (a compile-time constant), and these are runtime option lists.
@@ -33,7 +33,7 @@ For collaborative editing, Epicenter uses YJS shared types. These aren't Typescr
 ```typescript
 ytext()           // Returns Y.Text - for code editors, simple rich text
 yxmlfragment()    // Returns Y.XmlFragment - for rich documents
-multiSelect()     // Returns Y.Array<string> - but we don't prefix it
+tags()     // Returns Y.Array<string> - but we don't prefix it
 ```
 
 ### Why Prefix `ytext` and `yxmlfragment` with `y`?
@@ -48,11 +48,11 @@ row.tags.push(['tech']);        // This is Y.Array's API
 
 The `y` prefix signals: "You're working with a YJS shared type. You'll interact with its API directly."
 
-### Why NOT Prefix `multiSelect`?
+### Why NOT Prefix `tags`?
 
-Good question. `multiSelect` also returns a `Y.Array<string>` under the hood. But there's a key difference:
+Good question. `tags` also returns a `Y.Array<string>` under the hood. But there's a key difference:
 
-Most developers using `multiSelect` don't need to know it's YJS-backed. They just want a list of selected options. The collaborative sync happens automatically. They might call `.push()` or `.delete()`, but they're thinking "add a tag" not "mutate a YJS shared type."
+Most developers using `tags` don't need to know it's YJS-backed. They just want a list of selected options. The collaborative sync happens automatically. They might call `.push()` or `.delete()`, but they're thinking "add a tag" not "mutate a YJS shared type."
 
 But with `ytext` and `yxmlfragment`, you're binding to editor instances (CodeMirror, Monaco, TipTap). You need to know you're working with YJS because:
 1. You're passing it to editor bindings that expect YJS types
@@ -66,7 +66,7 @@ The `y` prefix is a feature, not a bug. It tells developers: "This isn't just da
 After working with this for a while, I noticed a pattern:
 
 1. **Direct names for primitives**: `text`, `integer`, `real` (what it represents)
-2. **User-facing names for concepts**: `select`, `multiSelect` (industry standard)
+2. **User-facing names for concepts**: `select`, `tags` (industry standard)
 3. **Library-prefixed names for collaborative types**: `ytext`, `yxmlfragment` (explicit about the API)
 
 This creates a hierarchy of explicitness:

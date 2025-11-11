@@ -6,7 +6,7 @@ import {
 	date,
 	id,
 	integer,
-	multiSelect,
+	tags,
 	real,
 	select,
 	text,
@@ -118,7 +118,7 @@ describe('createTableSchemaWithValidation', () => {
 		test('validates multi-select with Y.Array', () => {
 			const schema = createTableSchemaWithValidation({
 				id: id(),
-				tags: multiSelect({ options: ['typescript', 'javascript', 'python'] }),
+				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
 			const ydoc = new Y.Doc();
@@ -354,7 +354,7 @@ describe('createTableSchemaWithValidation', () => {
 		test('converts multi-select array to Y.Array', () => {
 			const schema = createTableSchemaWithValidation({
 				id: id(),
-				tags: multiSelect({ options: ['typescript', 'javascript', 'python'] }),
+				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
 			const result = schema.validateSerializedRow({
@@ -453,7 +453,7 @@ describe('createTableSchemaWithValidation', () => {
 		test('validates multi-select options in serialized array', () => {
 			const schema = createTableSchemaWithValidation({
 				id: id(),
-				tags: multiSelect({ options: ['typescript', 'javascript', 'python'] }),
+				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
 			const result = schema.validateSerializedRow({
@@ -525,7 +525,7 @@ describe('createTableSchemaWithValidation', () => {
 		test('validates multi-select structure and options', () => {
 			const schema = createTableSchemaWithValidation({
 				id: id(),
-				tags: multiSelect({ options: ['typescript', 'javascript', 'python'] }),
+				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
 			// Invalid structure (not an array)

@@ -6,7 +6,7 @@ import {
 	id,
 	isDateWithTimezoneString,
 	markdownIndex,
-	multiSelect,
+	tags,
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
@@ -30,7 +30,7 @@ export const email = defineWorkspace({
 			subject: text(),
 			body: text(),
 			description: text({ nullable: true }),
-			tags: multiSelect({
+			tags: tags({
 				options: [
 					'Announcement',
 					'Auditing',

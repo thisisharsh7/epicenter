@@ -19,7 +19,7 @@ import type {
 	DateWithTimezoneString,
 	IdColumnSchema,
 	IntegerColumnSchema,
-	MultiSelectColumnSchema,
+	TagsColumnSchema,
 	RealColumnSchema,
 	SelectColumnSchema,
 	TableSchema,
@@ -27,7 +27,7 @@ import type {
 	WorkspaceSchema,
 	YtextColumnSchema,
 } from '../../core/schema';
-import { date, multiSelect } from './builders';
+import { date, tags } from './builders';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations
@@ -145,7 +145,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 												number | undefined
 											>
 										>
-								: C extends MultiSelectColumnSchema<
+								: C extends TagsColumnSchema<
 											infer TOptions,
 											infer TNullable
 										>
@@ -255,8 +255,8 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 		}
 
 		case 'multi-select': {
-			// Multi-select stored as TEXT with JSON mode (array of strings)
-			let column = multiSelect({ options: schema.options });
+			// Tags column stored as TEXT with JSON mode (array of strings)
+			let column: any = schema.options ? tags({ options: schema.options }) : tags();
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
