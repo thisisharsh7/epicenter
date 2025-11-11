@@ -403,7 +403,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				tableConfig,
 			};
 		})
-		.filter((item): item is NonNullable<typeof item> => item !== null);
+		.filter((item) => item !== null);
 
 	/**
 	 * Register YJS observers to sync changes from YJS to markdown files
