@@ -227,26 +227,21 @@ export function defineQuery<TOutput>(config: {
  */
 // biome-ignore lint/suspicious/noExplicitAny: Return type is `any` because the function returns a callable with metadata properties. The actual return type (Query<TOutput, TError, TInput, TAsync>) is enforced through the 8 overload signatures above, which provide full type safety at call sites.
 export function defineQuery(config: ActionConfig): any {
-	// biome-ignore lint/suspicious/noExplicitAny: Wrapper must accept any[] to support both parameterless queries ([]) and queries with input ([input]). Type safety is provided by Query's callable signature and runtime StandardSchema validation.
-	const wrappedHandler = (...args: any[]) => {
-		if (config.input && args.length > 0) {
-			const validationResult = config.input['~standard'].validate(args[0]);
-			return validateAndExecuteHandler({
-				validationResult,
-				handler: config.handler,
-			});
-		}
+	const inputSchema = config.input;
+	const handler = inputSchema
+		? // biome-ignore lint/suspicious/noExplicitAny: Handler accepts any type since it's either the raw config.handler (no validation) or a wrapper that validates via StandardSchema. Type safety is enforced through Query's callable signature overloads.
+			(arg: any) => {
+				const validationResult = inputSchema['~standard'].validate(arg);
+				return validateAndExecuteHandler({
+					validationResult,
+					handler: config.handler,
+				});
+			}
+		: config.handler;
 
-		// No input schema - pass through directly
-		// JavaScript automatically handles Promise/Result/raw value passthrough
-		return config.handler(...args);
-	};
-
-	// Attach metadata properties to the wrapped handler function
-	// This creates a callable function that also has type/input/description properties
-	return Object.assign(wrappedHandler, {
+	return Object.assign(handler, {
 		type: 'query' as const,
-		input: config.input,
+		input: inputSchema,
 		description: config.description,
 	});
 }
@@ -369,26 +364,21 @@ export function defineMutation<TOutput>(config: {
  */
 // biome-ignore lint/suspicious/noExplicitAny: Return type is `any` because the function returns a callable with metadata properties. The actual return type (Mutation<TOutput, TError, TInput, TAsync>) is enforced through the 8 overload signatures above, which provide full type safety at call sites.
 export function defineMutation(config: ActionConfig): any {
-	// biome-ignore lint/suspicious/noExplicitAny: Wrapper must accept any[] to support both parameterless mutations ([]) and mutations with input ([input]). Type safety is provided by Mutation's callable signature and runtime StandardSchema validation.
-	const wrappedHandler = (...args: any[]) => {
-		if (config.input && args.length > 0) {
-			const validationResult = config.input['~standard'].validate(args[0]);
-			return validateAndExecuteHandler({
-				validationResult,
-				handler: config.handler,
-			});
-		}
+	const inputSchema = config.input;
+	const handler = inputSchema
+		? // biome-ignore lint/suspicious/noExplicitAny: Handler accepts any type since it's either the raw config.handler (no validation) or a wrapper that validates via StandardSchema. Type safety is enforced through Mutation's callable signature overloads.
+			(arg: any) => {
+				const validationResult = inputSchema['~standard'].validate(arg);
+				return validateAndExecuteHandler({
+					validationResult,
+					handler: config.handler,
+				});
+			}
+		: config.handler;
 
-		// No input schema - pass through directly
-		// JavaScript automatically handles Promise/Result/raw value passthrough
-		return config.handler(...args);
-	};
-
-	// Attach metadata properties to the wrapped handler function
-	// This creates a callable function that also has type/input/description properties
-	return Object.assign(wrappedHandler, {
+	return Object.assign(handler, {
 		type: 'mutation' as const,
-		input: config.input,
+		input: inputSchema,
 		description: config.description,
 	});
 }
