@@ -89,7 +89,7 @@ type BidirectionalMap = {
 	 * const oldFilename = map.getFilename({ rowId: row.id });
 	 * const needsOldFileCleanup = oldFilename && oldFilename !== newFilename;
 	 * if (needsOldFileCleanup) {
-	 *   await deleteMarkdownFile(path.join(tableDir, oldFilename));
+	 *   await deleteMarkdownFile(path.join(tableConfig.directory, oldFilename));
 	 *   map.deleteByFilename({ filename: oldFilename });
 	 * }
 	 * map.set({ rowId: row.id, filename: newFilename });
@@ -157,13 +157,22 @@ function createBidirectionalMap(): BidirectionalMap {
 }
 
 /**
- * Required types for internal functions (after defaults have been applied)
- *
- * These types represent the runtime reality that optional config parameters
- * have been given default values by the time they reach internal functions.
+ * User-provided table configs (with optional serialize/deserialize)
  */
 type TableConfigs<TSchema extends WorkspaceSchema> = {
 	[K in keyof TSchema]?: TableMarkdownConfig<TSchema[K]>;
+};
+
+/**
+ * Resolved table config (after defaults have been applied)
+ *
+ * At runtime, serialize and deserialize are always defined because
+ * we merge with DEFAULT_TABLE_CONFIG, and directory is resolved to an absolute path.
+ */
+type ResolvedTableConfig<TTableSchema extends TableSchema> = {
+	serialize: NonNullable<TableMarkdownConfig<TTableSchema>['serialize']>;
+	deserialize: NonNullable<TableMarkdownConfig<TTableSchema>['deserialize']>;
+	directory: AbsolutePath;
 };
 
 /**
@@ -268,6 +277,11 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	/**
 	 * Serialize a row to markdown frontmatter, body, and filename.
 	 *
+	 * **Optional**: When not provided, uses default behavior:
+	 * - All fields except id go to frontmatter
+	 * - Empty body
+	 * - Filename: `{id}.md`
+	 *
 	 * IMPORTANT: The filename MUST be a simple filename without path separators.
 	 * The table's directory setting determines where the file is written.
 	 *
@@ -275,7 +289,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * @param params.table.name - Table name (for context)
 	 * @returns Frontmatter object, markdown body string, and simple filename (without directory path)
 	 */
-	serialize(params: {
+	serialize?(params: {
 		row: SerializedRow<TTableSchema>;
 		table: {
 			name: string;
@@ -291,6 +305,11 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * Returns a complete row (including id) that can be directly inserted/updated in YJS.
 	 * Returns error if the file should be skipped (e.g., invalid data, doesn't match schema).
 	 *
+	 * **Optional**: When not provided, uses default behavior:
+	 * - Extracts id from filename (strips .md extension)
+	 * - Merges id with frontmatter fields
+	 * - Validates against schema using validateUnknown
+	 *
 	 * The deserialize function is responsible for extracting the row ID from whatever source
 	 * makes sense (frontmatter, filename, body content, etc.).
 	 *
@@ -301,7 +320,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * @param params.table.schema - Table schema with validation methods
 	 * @returns Result with complete row (with id field), or error to skip this file
 	 */
-	deserialize(params: {
+	deserialize?(params: {
 		frontmatter: Record<string, unknown>;
 		body: string;
 		filename: string;
@@ -317,7 +336,8 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
 	const { id, db, storageDir } = context;
-	const { directory = `./${id}`, tableConfigs = {} } = config;
+	const { directory = `./${id}`, tableConfigs = {} as TableConfigs<TSchema> } =
+		config;
 	// Require Node.js environment with filesystem access
 	if (!storageDir) {
 		throw new Error(
@@ -390,16 +410,24 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 			if (!table || !tableSchema) return null;
 
 			const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
-			const tableConfig = tableConfigs[tableName] ?? DEFAULT_TABLE_CONFIG;
-			const dir = tableConfig.directory ?? tableName;
-			const tableDir = path.resolve(absoluteWorkspaceDir, dir) as AbsolutePath;
+			const userConfig = tableConfigs[tableName];
+
+			// Merge user config with defaults and resolve directory to absolute path
+			const tableConfig: ResolvedTableConfig<typeof tableSchema> = {
+				serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
+				deserialize:
+					userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
+				directory: path.resolve(
+					absoluteWorkspaceDir,
+					userConfig?.directory ?? tableName,
+				) as AbsolutePath,
+			};
 
 			return {
 				tableName,
 				table,
 				tableSchema,
 				schemaWithValidation,
-				tableDir,
 				tableConfig,
 			};
 		})
@@ -415,7 +443,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { tableName, table, tableDir, tableConfig } of tables) {
+		for (const { tableName, table, tableConfig } of tables) {
 			// Initialize bidirectional tracking for this table
 			if (!tracking[tableName]) {
 				tracking[tableName] = createBidirectionalMap();
@@ -438,7 +466,10 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				});
 
 				// Construct file path
-				const filePath = path.join(tableDir, filename) as AbsolutePath;
+				const filePath = path.join(
+					tableConfig.directory,
+					filename,
+				) as AbsolutePath;
 
 				// Check if we need to clean up an old file before updating tracking
 				const oldFilename = tracking[tableName].getFilename({ rowId: row.id });
@@ -450,7 +481,10 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				 */
 				const needsOldFileCleanup = oldFilename && oldFilename !== filename;
 				if (needsOldFileCleanup) {
-					const oldFilePath = path.join(tableDir, oldFilename) as AbsolutePath;
+					const oldFilePath = path.join(
+						tableConfig.directory,
+						oldFilename,
+					) as AbsolutePath;
 					await deleteMarkdownFile({ filePath: oldFilePath });
 					tracking[tableName].deleteByFilename({ filename: oldFilename });
 				}
@@ -514,7 +548,10 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					// Get filename and delete file if it exists
 					const filename = tracking[tableName].getFilename({ rowId: id });
 					if (filename) {
-						const filePath = path.join(tableDir, filename) as AbsolutePath;
+						const filePath = path.join(
+							tableConfig.directory,
+							filename,
+						) as AbsolutePath;
 						const { error } = await deleteMarkdownFile({ filePath });
 
 						// Clean up tracking in both directions
@@ -554,107 +591,112 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 			tableName,
 			table,
 			schemaWithValidation,
-			tableDir,
 			tableConfig,
 		} of tables) {
 			// Ensure table directory exists
 			trySync({
 				try: () => {
-					mkdirSync(tableDir, { recursive: true });
+					mkdirSync(tableConfig.directory, { recursive: true });
 				},
 				catch: () => Ok(undefined),
 			});
 
 			// Create watcher for this table's directory
-			const watcher = watch(tableDir, async (eventType, filename) => {
-				// Skip if this file change was triggered by a YJS change
-				if (syncCoordination.isProcessingYJSChange) return;
+			const watcher = watch(
+				tableConfig.directory,
+				async (eventType, filename) => {
+					// Skip if this file change was triggered by a YJS change
+					if (syncCoordination.isProcessingYJSChange) return;
 
-				// Skip non-markdown files
-				if (!filename || !filename.endsWith('.md')) return;
+					// Skip non-markdown files
+					if (!filename || !filename.endsWith('.md')) return;
 
-				syncCoordination.isProcessingFileChange = true;
+					syncCoordination.isProcessingFileChange = true;
 
-				const filePath = path.join(tableDir, filename) as AbsolutePath;
+					const filePath = path.join(
+						tableConfig.directory,
+						filename,
+					) as AbsolutePath;
 
-				// Handle file system events
-				if (eventType === 'rename') {
-					// Check if file was deleted or modified
-					const file = Bun.file(filePath);
-					const exists = await file.exists();
+					// Handle file system events
+					if (eventType === 'rename') {
+						// Check if file was deleted or modified
+						const file = Bun.file(filePath);
+						const exists = await file.exists();
 
-					if (!exists) {
-						// File was deleted: find and delete the row
-						const rowIdToDelete = tracking[tableName]?.getRowId({ filename });
+						if (!exists) {
+							// File was deleted: find and delete the row
+							const rowIdToDelete = tracking[tableName]?.getRowId({ filename });
 
-						if (rowIdToDelete) {
-							if (table.has({ id: rowIdToDelete })) {
-								table.delete({ id: rowIdToDelete });
+							if (rowIdToDelete) {
+								if (table.has({ id: rowIdToDelete })) {
+									table.delete({ id: rowIdToDelete });
+								}
+
+								// Clean up tracking in both directions
+								tracking[tableName].deleteByFilename({ filename });
+							} else {
+								console.warn(
+									`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
+								);
 							}
 
-							// Clean up tracking in both directions
-							tracking[tableName].deleteByFilename({ filename });
-						} else {
-							console.warn(
-								`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
+							syncCoordination.isProcessingFileChange = false;
+							return;
+						}
+						// File exists: fall through to change handling
+					}
+
+					// Process file modification (works for both 'change' and 'rename' with existing file)
+					if (eventType === 'change' || eventType === 'rename') {
+						// Parse markdown file
+						const parseResult = await parseMarkdownFile(filePath);
+
+						if (parseResult.error) {
+							console.error(
+								IndexErr({
+									message: `Failed to parse markdown file ${tableName}`,
+									context: { tableName, filePath },
+									cause: parseResult.error,
+								}),
 							);
+							syncCoordination.isProcessingFileChange = false;
+							return;
 						}
 
-						syncCoordination.isProcessingFileChange = false;
-						return;
-					}
-					// File exists: fall through to change handling
-				}
+						const { data: frontmatter, body } = parseResult.data;
 
-				// Process file modification (works for both 'change' and 'rename' with existing file)
-				if (eventType === 'change' || eventType === 'rename') {
-					// Parse markdown file
-					const parseResult = await parseMarkdownFile(filePath);
+						// Deserialize using the table config
+						const { data: row, error: deserializeError } =
+							tableConfig.deserialize({
+								frontmatter,
+								body,
+								filename,
+								table: {
+									name: tableName,
+									schema: schemaWithValidation,
+								},
+							});
 
-					if (parseResult.error) {
-						console.error(
-							IndexErr({
-								message: `Failed to parse markdown file ${tableName}`,
-								context: { tableName, filePath },
-								cause: parseResult.error,
-							}),
-						);
-						syncCoordination.isProcessingFileChange = false;
-						return;
-					}
+						if (deserializeError) {
+							console.warn(
+								`Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
+							);
+							syncCoordination.isProcessingFileChange = false;
+							return;
+						}
 
-					const { data: frontmatter, body } = parseResult.data;
-
-					// Deserialize using the table config
-					const { data: row, error: deserializeError } =
-						tableConfig.deserialize({
-							frontmatter,
-							body,
-							filename,
-							table: {
-								name: tableName,
-								schema: schemaWithValidation,
-							},
-						});
-
-					if (deserializeError) {
-						console.warn(
-							`Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
-						);
-						syncCoordination.isProcessingFileChange = false;
-						return;
+						// Insert or update the row in YJS
+						if (table.has({ id: row.id })) {
+							table.update(row);
+						} else {
+							table.insert(row);
+						}
 					}
 
-					// Insert or update the row in YJS
-					if (table.has({ id: row.id })) {
-						table.update(row);
-					} else {
-						table.insert(row);
-					}
-				}
-
-				syncCoordination.isProcessingFileChange = false;
-			});
+					syncCoordination.isProcessingFileChange = false;
+				},
+			);
 
 			watchers.push(watcher);
 		}
@@ -736,14 +778,9 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Process each table independently
-						for (const {
-							tableName,
-							schemaWithValidation,
-							tableDir,
-							tableConfig,
-						} of tables) {
+						for (const { tableName, tableConfig } of tables) {
 							// Delete all existing markdown files in this table's directory
-							const entries = await readdir(tableDir, {
+							const entries = await readdir(tableConfig.directory, {
 								recursive: false,
 								withFileTypes: true,
 							});
@@ -751,10 +788,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							for (const entry of entries) {
 								if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
-								const filePath = path.join(
-									tableDir,
-									entry.name,
-								) as AbsolutePath;
+								const filePath = path.join(entry.name) as AbsolutePath;
 
 								const { error } = await deleteMarkdownFile({ filePath });
 								if (error) {
@@ -781,7 +815,10 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 									},
 								});
 
-								const filePath = path.join(tableDir, filename) as AbsolutePath;
+								const filePath = path.join(
+									tableConfig.directory,
+									filename,
+								) as AbsolutePath;
 
 								const { error } = await writeMarkdownFile({
 									filePath,
@@ -836,17 +873,21 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							tableName,
 							table,
 							schemaWithValidation,
-							tableDir,
 							tableConfig,
 						} of tables) {
 							// Read all markdown files from this table's directory
-							const entries = await readdir(tableDir, { withFileTypes: true });
+							const entries = await readdir(tableConfig.directory, {
+								withFileTypes: true,
+							});
 
 							for (const entry of entries) {
 								if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
 								const filename = entry.name;
-								const fullPath = path.join(tableDir, filename) as AbsolutePath;
+								const fullPath = path.join(
+									tableConfig.directory,
+									filename,
+								) as AbsolutePath;
 
 								// Parse markdown file
 								const parseResult = await parseMarkdownFile(fullPath);
