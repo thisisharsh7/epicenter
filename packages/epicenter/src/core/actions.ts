@@ -457,19 +457,3 @@ function validateAndExecuteHandler({
 
 	return wrapHandlerResult(handler(validationResult.value));
 }
-
-/**
- * Type helper to check if an action is a query
- */
-export function isQuery<T extends Action>(action: T): action is T & Query {
-	return action.type === 'query';
-}
-
-/**
- * Type helper to check if an action is a mutation
- */
-export function isMutation<T extends Action>(
-	action: T,
-): action is T & Mutation {
-	return action.type === 'mutation';
-}

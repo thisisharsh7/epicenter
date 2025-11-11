@@ -677,16 +677,6 @@ defineMutation({
 })
 ```
 
-#### `isQuery(action)` / `isMutation(action)`
-
-Type guards to check if a action is a query or mutation.
-
-```typescript
-if (isQuery(someAction)) {
-  // action is typed as QueryAction
-}
-```
-
 ### Column Helpers
 
 - `text(name, nullable?)` - Text column (NOT NULL by default)

@@ -81,12 +81,7 @@ export type {
 } from './core/schema';
 
 // Action helpers
-export {
-	defineQuery,
-	defineMutation,
-	isQuery,
-	isMutation,
-} from './core/actions';
+export { defineQuery, defineMutation } from './core/actions';
 export type {
 	Query,
 	Mutation,

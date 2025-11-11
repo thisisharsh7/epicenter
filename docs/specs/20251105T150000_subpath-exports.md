@@ -71,7 +71,7 @@ Looking at the codebase structure, I see several distinct modules:
 - Epicenter: defineEpicenter, createEpicenterClient
 - Schema: id, text, date, ytext, boolean, etc.
 - Schema utilities: isDateWithTimezoneString, generateId, validateRow, etc.
-- Actions: defineQuery, defineMutation, isQuery, isMutation
+- Actions: defineQuery, defineMutation
 - Database: createEpicenterDb, TableHelper, Db types
 - Indexes: defineIndexExports, Index types, markdownIndex, sqliteIndex
 - Errors: IndexErr, EpicenterOperationError, IndexError
