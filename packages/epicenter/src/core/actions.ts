@@ -225,8 +225,7 @@ export function defineQuery<TOutput>(config: {
  *
  * Uses shared action wrapper logic - see createActionWrapper for details
  */
-// biome-ignore lint/suspicious/noExplicitAny: Return type is `any` because the function returns a callable with metadata properties. The actual return type (Query<TOutput, TError, TInput, TAsync>) is enforced through the 8 overload signatures above, which provide full type safety at call sites.
-export function defineQuery(config: ActionConfig): any {
+export function defineQuery(config: ActionConfig) {
 	const inputSchema = config.input;
 	const handler = inputSchema
 		? (arg: unknown) => {
@@ -361,8 +360,7 @@ export function defineMutation<TOutput>(config: {
  *
  * Uses shared action wrapper logic - see createActionWrapper for details
  */
-// biome-ignore lint/suspicious/noExplicitAny: Return type is `any` because the function returns a callable with metadata properties. The actual return type (Mutation<TOutput, TError, TInput, TAsync>) is enforced through the 8 overload signatures above, which provide full type safety at call sites.
-export function defineMutation(config: ActionConfig): any {
+export function defineMutation(config: ActionConfig) {
 	const inputSchema = config.input;
 	const handler = inputSchema
 		? (arg: unknown) => {
