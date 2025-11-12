@@ -72,7 +72,7 @@ export const email = defineWorkspace({
 						deserialize: ({ frontmatter, body, filename, table }) => {
 							const id = path.basename(filename, '.md');
 
-							const FrontMatter = table.schema.toArktype().omit('id', 'body');
+							const FrontMatter = table.validators.toArktype().omit('id', 'body');
 							const frontmatterParsed = FrontMatter(frontmatter);
 							if (frontmatterParsed instanceof type.errors) {
 								return MarkdownIndexErr({

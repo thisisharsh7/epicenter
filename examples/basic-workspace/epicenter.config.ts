@@ -64,7 +64,7 @@ const blogWorkspace = defineWorkspace({
 							const id = path.basename(filename, '.md');
 
 							// Validate frontmatter using schema
-							const FrontMatter = table.schema
+							const FrontMatter = table.validators
 								.toArktype()
 								.omit('id', 'content');
 							const frontmatterParsed = FrontMatter(frontmatter);
@@ -102,8 +102,8 @@ const blogWorkspace = defineWorkspace({
 							// Extract id from filename
 							const id = path.basename(filename, '.md');
 
-							// Validate frontmatter using schema
-							const FrontMatter = table.schema.toArktype().omit('id');
+							// Validate frontmatter using validators
+							const FrontMatter = table.validators.toArktype().omit('id');
 							const frontmatterParsed = FrontMatter(frontmatter);
 
 							if (frontmatterParsed instanceof type.errors) {

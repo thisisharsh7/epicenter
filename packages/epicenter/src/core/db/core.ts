@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import type { CellValue, WorkspaceSchema } from '../schema';
+import { createWorkspaceValidators } from '../schema';
 import { createTableHelpers, type YRow } from './table-helper';
 
 // Re-export TableHelper for public API
@@ -35,6 +36,8 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 	ydoc: Y.Doc,
 	schema: TWorkspaceSchema,
 ) {
+	// Create validators for all tables
+	const validators = createWorkspaceValidators(schema);
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
 	// Initialize each table as a Y.Map<id, row> (only if not already present)
@@ -50,7 +53,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		 * Table helpers organized by table name
 		 * Each table has methods for type-safe CRUD operations
 		 */
-		tables: createTableHelpers({ ydoc, schema, ytables }),
+		tables: createTableHelpers({ ydoc, schema, validators, ytables }),
 
 		/**
 		 * The underlying YJS document
@@ -63,6 +66,12 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		 * Maps table name to column schemas
 		 */
 		schema,
+
+		/**
+		 * Table validators for all tables
+		 * Each validator includes methods like validateYRow(), toStandardSchema(), etc.
+		 */
+		validators,
 
 		/**
 		 * Execute a function within a YJS transaction

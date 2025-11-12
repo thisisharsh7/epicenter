@@ -15,10 +15,9 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
-	TableSchemaWithValidation,
+	TableValidators,
 	WorkspaceSchema,
 } from '../../core/schema';
-import { createTableSchemaWithValidation } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
@@ -306,7 +305,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * @param params.body - Markdown body content (text after frontmatter delimiters)
 	 * @param params.filename - Simple filename only (validated to not contain path separators)
 	 * @param params.table.name - Table name (for context)
-	 * @param params.table.schema - Table schema with validation methods
+	 * @param params.table.validators - Table validators with validation methods
 	 * @returns Result with complete row (with id field), or error to skip this file
 	 */
 	deserialize?(params: {
@@ -315,7 +314,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 		filename: string;
 		table: {
 			name: string;
-			schema: TableSchemaWithValidation<TTableSchema>;
+			validators: TableValidators<TTableSchema>;
 		};
 	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
 };
@@ -405,7 +404,8 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 			// Skip tables that don't exist
 			if (!table || !tableSchema) return null;
 
-			const schemaWithValidation = createTableSchemaWithValidation(tableSchema);
+			// biome-ignore lint/style/noNonNullAssertion: validators is created by createWorkspaceValidators which maps over the same schema object, so every key in schema has a corresponding key in validators
+			const validators = db.validators[tableName]!;
 
 			// Destructure user config with defaults
 			const userConfig = tableConfigs[tableName];
@@ -436,7 +436,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 				tableName,
 				table,
 				tableSchema,
-				schemaWithValidation,
+				validators,
 				tableConfig,
 			};
 		})
@@ -599,7 +599,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		for (const {
 			tableName,
 			table,
-			schemaWithValidation,
+			validators,
 			tableConfig,
 		} of tables) {
 			// Ensure table directory exists
@@ -687,7 +687,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 								filename,
 								table: {
 									name: tableName,
-									schema: schemaWithValidation,
+									validators,
 								},
 							});
 
@@ -889,7 +889,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						for (const {
 							tableName,
 							table,
-							schemaWithValidation,
+							validators,
 							tableConfig,
 						} of tables) {
 							// Read all markdown files from this table's directory
@@ -934,7 +934,7 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 										filename,
 										table: {
 											name: tableName,
-											schema: schemaWithValidation,
+											validators,
 										},
 									});
 
@@ -1015,8 +1015,8 @@ const DEFAULT_TABLE_CONFIG = {
 		// Combine id with frontmatter
 		const data = { id, ...frontmatter };
 
-		// Validate using schema.validateUnknown
-		const result = table.schema.validateUnknown(data);
+		// Validate using validators.validateUnknown
+		const result = table.validators.validateUnknown(data);
 
 		switch (result.status) {
 			case 'valid':

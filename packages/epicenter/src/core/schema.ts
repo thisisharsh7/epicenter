@@ -320,38 +320,33 @@ export type SerializedRowValidationResult<
 	  };
 
 /**
- * Table schema with validation methods.
- * Created by `createTableSchemaWithValidation()` from a `TableSchema`.
- * This is the schema definition with three validation methods added.
+ * Table validators - validation methods for a table schema.
+ * Created by `createTableValidators()` from a `TableSchema`.
+ * Contains only validation methods, separate from the schema definition.
  *
  * @example
  * ```typescript
- * const schema = createTableSchemaWithValidation({
+ * const validators = createTableValidators({
  *   id: id(),
  *   title: text(),
  *   content: ytext(),
  * });
  *
- * // Access schema fields directly
- * schema.title.type // 'text'
- *
  * // Validate from unknown data (checks if object, then delegates)
- * const result1 = schema.validateUnknown(someUnknownData);
+ * const result1 = validators.validateUnknown(someUnknownData);
  *
  * // Validate from record (checks if values are SerializedCellValue, then delegates)
- * const result2 = schema.validateRecord({ id: '123', title: 'Hello', content: 'World' });
+ * const result2 = validators.validateRecord({ id: '123', title: 'Hello', content: 'World' });
  *
  * // Validate from SerializedRow (validates schema only)
- * const serialized: SerializedRow<typeof schema> = { id: '123', title: 'Hello', content: 'World' };
- * const result3 = schema.validateSerializedRow(serialized);
+ * const serialized: SerializedRow = { id: '123', title: 'Hello', content: 'World' };
+ * const result3 = validators.validateSerializedRow(serialized);
  *
  * // Validate from YRow (validates schema only)
- * const result4 = schema.validateYRow(yrow);
+ * const result4 = validators.validateYRow(yrow);
  * ```
  */
-export type TableSchemaWithValidation<
-	TSchema extends TableSchema = TableSchema,
-> = TSchema & {
+export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	/** Validates unknown data (checks if object), then delegates to validateRecord */
 	validateUnknown(data: unknown): SerializedRowValidationResult<TSchema>;
 
@@ -399,6 +394,15 @@ export type TableSchemaWithValidation<
  * Workspace schema - maps table names to their table schemas
  */
 export type WorkspaceSchema = Record<string, TableSchema>;
+
+/**
+ * Workspace validators - maps table names to their table validators
+ */
+export type WorkspaceValidators<TWorkspaceSchema extends WorkspaceSchema> = {
+	[TTableName in keyof TWorkspaceSchema]: TableValidators<
+		TWorkspaceSchema[TTableName]
+	>;
+};
 
 /**
  * Maps a ColumnSchema to its cell value type (Y.js types or primitives).
@@ -813,13 +817,12 @@ export function validateRow<TTableSchema extends TableSchema>({
  */
 export function createRow<TTableSchema extends TableSchema>({
 	yrow,
-	schema,
+	validators,
 }: {
 	yrow: YRow;
-	schema: TableSchemaWithValidation<TTableSchema>;
+	validators: TableValidators<TTableSchema>;
 }): YRowValidationResult<Row<TTableSchema>> {
-	// Schema is already TableSchemaWithValidation, use it directly
-	return schema.validateYRow(yrow);
+	return validators.validateYRow(yrow);
 }
 
 /**
@@ -1276,37 +1279,34 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 }
 
 /**
- * Creates a TableSchemaWithValidation object from a schema definition.
- * Adds `validateYRow()`, `validateSerializedRow()`, and `validateRecord()` methods to the schema.
+ * Creates table validators from a schema definition.
+ * Returns only validation methods, separate from the schema itself.
  *
  * @example
  * ```typescript
- * const schema = createTableSchemaWithValidation({
+ * const validators = createTableValidators({
  *   id: id(),
  *   title: text(),
  *   content: ytext(),
  * });
  *
- * // Access schema fields directly
- * schema.title.type // 'text'
- *
  * // Validate from YRow
- * const result = schema.validateYRow(yrow);
+ * const result = validators.validateYRow(yrow);
  * if (result.status === 'valid') {
  *   console.log(result.row.title); // type-safe
  * }
  *
  * // Validate from typed SerializedRow
- * const serialized: SerializedRow<typeof schema> = { id: '123', title: 'Hello', content: 'World' };
- * const result2 = schema.validateSerializedRow(serialized);
+ * const serialized: SerializedRow = { id: '123', title: 'Hello', content: 'World' };
+ * const result2 = validators.validateSerializedRow(serialized);
  *
  * // Validate from unknown record
- * const result3 = schema.validateRecord({ id: '123', title: 'Hello', content: 'World' });
+ * const result3 = validators.validateRecord({ id: '123', title: 'Hello', content: 'World' });
  * ```
  */
-export function createTableSchemaWithValidation<TSchema extends TableSchema>(
+export function createTableValidators<TSchema extends TableSchema>(
 	schema: TSchema,
-): TableSchemaWithValidation<TSchema> {
+): TableValidators<TSchema> {
 	/**
 	 * Helper: Builds field definitions for schema validation
 	 * @param makeOptional - If true, all fields except 'id' become optional (for partial updates)
@@ -1362,8 +1362,6 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 	}
 
 	return {
-		...schema,
-
 		validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>> {
 			// Create row with getters for each property
 			const row = buildRowFromYRow(yrow, schema);
@@ -1831,6 +1829,33 @@ export function createTableSchemaWithValidation<TSchema extends TableSchema>(
 			return type(fields).array() as Type<PartialSerializedRow<TSchema>[]>;
 		},
 	};
+}
+
+/**
+ * Creates workspace validators by mapping over all tables in a workspace schema.
+ * Returns an object where each key is a table name and each value is the table's validators.
+ *
+ * @example
+ * ```typescript
+ * const validators = createWorkspaceValidators({
+ *   posts: { id: id(), title: text(), content: ytext() },
+ *   users: { id: id(), name: text(), email: text() }
+ * });
+ *
+ * // Access validators for a specific table
+ * const postResult = validators.posts.validateYRow(yrow);
+ * const userResult = validators.users.validateSerializedRow(serializedRow);
+ * ```
+ */
+export function createWorkspaceValidators<
+	TWorkspaceSchema extends WorkspaceSchema,
+>(schema: TWorkspaceSchema): WorkspaceValidators<TWorkspaceSchema> {
+	return Object.fromEntries(
+		Object.entries(schema).map(([tableName, tableSchema]) => [
+			tableName,
+			createTableValidators(tableSchema),
+		]),
+	) as WorkspaceValidators<TWorkspaceSchema>;
 }
 
 /**

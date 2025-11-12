@@ -264,7 +264,7 @@ indexes: {
           const id = path.basename(filename, '.md');
 
           // Validate frontmatter using schema
-          const FrontMatter = table.schema.toArktype().omit('id', 'content');
+          const FrontMatter = table.validators.toArktype().omit('id', 'content');
           const frontmatterParsed = FrontMatter(frontmatter);
 
           if (frontmatterParsed instanceof type.errors) {
@@ -311,7 +311,7 @@ indexes: {
           const bodyContent = lines.slice(2).join('\n'); // Skip title and empty line
 
           // Validate frontmatter using schema
-          const FrontMatter = table.schema.toArktype().omit('id', 'title', 'content');
+          const FrontMatter = table.validators.toArktype().omit('id', 'title', 'content');
           const frontmatterParsed = FrontMatter(frontmatter);
 
           if (frontmatterParsed instanceof type.errors) {
@@ -369,7 +369,7 @@ indexes: {
           const id = path.basename(filename, '.md');
 
           // Validate frontmatter using schema
-          const FrontMatter = table.schema.toArktype().omit('id', 'content');
+          const FrontMatter = table.validators.toArktype().omit('id', 'content');
           const frontmatterParsed = FrontMatter(frontmatter);
 
           if (frontmatterParsed instanceof type.errors) {

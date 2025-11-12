@@ -47,7 +47,7 @@ export const epicenter = defineWorkspace({
 						}),
 						deserialize: ({ frontmatter, body, filename, table }) => {
 							const slug = path.basename(filename, '.md');
-							const FrontMatter = table.schema
+							const FrontMatter = table.validators
 								.toArktype()
 								.omit('content', 'slug');
 							const frontmatterParsed = FrontMatter(frontmatter);

@@ -9,10 +9,11 @@ import type {
 	Row,
 	RowValidationResult,
 	TableSchema,
-	TableSchemaWithValidation,
+	TableValidators,
 	WorkspaceSchema,
+	WorkspaceValidators,
 } from '../schema';
-import { createRow, createTableSchemaWithValidation } from '../schema';
+import { createRow } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
@@ -44,17 +45,20 @@ export type YRow = Y.Map<CellValue>;
  * typed helper with full CRUD operations.
  *
  * @param ydoc - The YJS document instance
- * @param schema - Schema definitions for all tables
+ * @param schema - Raw table schemas (column definitions only)
+ * @param validators - Table validators (validation methods)
  * @param ytables - The root YJS Map containing all table data
  * @returns Object mapping table names to their typed TableHelper instances
  */
 export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 	ydoc,
 	schema,
+	validators,
 	ytables,
 }: {
 	ydoc: Y.Doc;
 	schema: TWorkspaceSchema;
+	validators: WorkspaceValidators<TWorkspaceSchema>;
 	ytables: Y.Map<Y.Map<YRow>>;
 }) {
 	return Object.fromEntries(
@@ -69,7 +73,9 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 					ydoc,
 					tableName,
 					ytable,
-					schema: createTableSchemaWithValidation(tableSchema),
+					schema: tableSchema,
+					// biome-ignore lint/style/noNonNullAssertion: validators is created by createWorkspaceValidators which maps over the same schema object, so every key in schema has a corresponding key in validators
+					validators: validators[tableName]!,
 				}),
 			];
 		}),
@@ -90,7 +96,8 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
  * @param ydoc - The YJS document instance (used for transactions)
  * @param tableName - Name of the table (used in error messages)
  * @param ytable - The YJS Map containing the table's row data
- * @param schema - The table schema for validation
+ * @param schema - The table schema (column definitions only)
+ * @param validators - The table validators (validation methods)
  * @returns A TableHelper instance with full CRUD operations
  */
 function createTableHelper<TTableSchema extends TableSchema>({
@@ -98,11 +105,13 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	tableName,
 	ytable,
 	schema,
+	validators,
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
 	ytable: Y.Map<YRow>;
-	schema: TableSchemaWithValidation<TTableSchema>;
+	schema: TTableSchema;
+	validators: TableValidators<TTableSchema>;
 }) {
 	type TRow = Row<TTableSchema>;
 
@@ -118,7 +127,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * and arrays are synced to Y.Array using updateYArrayFromArray().
 		 */
 		insert: defineMutation({
-			input: schema.toStandardSchema(),
+			input: validators.toStandardSchema(),
 			description: `Insert a new row into the ${tableName} table`,
 			handler: (serializedRow) => {
 				if (ytable.has(serializedRow.id)) {
@@ -152,7 +161,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Only the fields you include will be updated - others remain unchanged.
 		 */
 		update: defineMutation({
-			input: schema.toPartialStandardSchema(),
+			input: validators.toPartialStandardSchema(),
 			description: `Update specific fields of an existing row in the ${tableName} table`,
 			handler: (partialSerializedRow) => {
 				const yrow = ytable.get(partialSerializedRow.id);
@@ -187,7 +196,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
 		 */
 		upsert: defineMutation({
-			input: schema.toStandardSchema(),
+			input: validators.toStandardSchema(),
 			description: `Insert or update a row in the ${tableName} table`,
 			handler: (serializedRow) => {
 				ydoc.transact(() => {
@@ -203,7 +212,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/** Insert multiple rows into the table */
 		insertMany: defineMutation({
-			input: schema.toStandardSchemaArray(),
+			input: validators.toStandardSchemaArray(),
 			description: `Insert multiple rows into the ${tableName} table`,
 			handler: (serializedRows) => {
 				// Check for duplicates first
@@ -235,7 +244,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/** Insert or update multiple rows */
 		upsertMany: defineMutation({
-			input: schema.toStandardSchemaArray(),
+			input: validators.toStandardSchemaArray(),
 			description: `Insert or update multiple rows in the ${tableName} table`,
 			handler: (serializedRows) => {
 				ydoc.transact(() => {
@@ -253,7 +262,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/** Update multiple rows */
 		updateMany: defineMutation({
-			input: schema.toPartialStandardSchemaArray(),
+			input: validators.toPartialStandardSchemaArray(),
 			description: `Update multiple rows in the ${tableName} table`,
 			handler: (partialSerializedRows) => {
 				// Check all rows exist first
@@ -303,7 +312,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					return { status: 'not-found' as const, row: null };
 				}
 
-				return createRow({ yrow, schema });
+				return createRow({ yrow, validators });
 			},
 		}),
 
@@ -315,7 +324,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			handler: () => {
 				const results: RowValidationResult<TRow>[] = [];
 				for (const yrow of ytable.values()) {
-					const result = createRow({ yrow, schema });
+					const result = createRow({ yrow, validators });
 					results.push(result);
 				}
 
@@ -382,7 +391,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				[];
 
 			for (const yrow of ytable.values()) {
-				const result = createRow({ yrow, schema });
+				const result = createRow({ yrow, validators });
 
 				// Only include valid rows - skip schema-mismatch and invalid-structure
 				if (result.status === 'valid') {
@@ -407,7 +416,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			{ status: 'valid' } | { status: 'not-found' }
 		> {
 			for (const yrow of ytable.values()) {
-				const result = createRow({ yrow, schema });
+				const result = createRow({ yrow, validators });
 
 				// Only check predicate on valid rows - skip schema-mismatch and invalid-structure
 				if (result.status === 'valid') {
@@ -556,7 +565,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 								// A new row Y.Map was added to the table
 								const yrow = ytable.get(key);
 								if (yrow) {
-									const result = createRow({ yrow, schema });
+									const result = createRow({ yrow, validators });
 
 									switch (result.status) {
 										case 'valid':
@@ -587,7 +596,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						const rowId = event.path[0] as string;
 						const yrow = ytable.get(rowId);
 						if (yrow) {
-							const result = createRow({ yrow, schema });
+							const result = createRow({ yrow, validators });
 
 							switch (result.status) {
 								case 'valid':
