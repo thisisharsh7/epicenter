@@ -4,9 +4,10 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { markdownIndex } from '../indexes/markdown';
 import { sqliteIndex } from '../indexes/sqlite';
-import { defineQuery } from './actions';
+import { defineQuery, defineMutation } from './actions';
 import { id, integer, text } from './schema';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
+import { eq } from 'drizzle-orm';
 
 /**
  * Test suite for workspace initialization with topological sort
@@ -631,7 +632,6 @@ describe('Workspace Action Handlers', () => {
 		},
 
 		actions: ({ db, indexes }) => {
-			const { defineMutation, defineQuery, eq } = require('../index');
 			return {
 				listPosts: defineQuery({
 					handler: async () => {
