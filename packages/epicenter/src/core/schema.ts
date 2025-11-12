@@ -888,13 +888,14 @@ export const TIMEZONE_ID_REGEX = /[A-Za-z][A-Za-z0-9_/+-]*/;
  *
  * Format: ISO_DATETIME|TIMEZONE_ID
  *
- * @see {@link ISO_DATETIME_REGEX} for datetime portion
- * @see {@link TIMEZONE_ID_REGEX} for timezone portion
+ * Composed from {@link ISO_DATETIME_REGEX} and {@link TIMEZONE_ID_REGEX}.
+ * The parentheses create capture groups for extracting the datetime and timezone parts.
  *
  * @example "2024-01-01T20:00:00.000Z|America/New_York"
  */
-export const DATE_WITH_TIMEZONE_STRING_REGEX =
-	/^(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?)\|([A-Za-z][A-Za-z0-9_/+-]*)$/;
+export const DATE_WITH_TIMEZONE_STRING_REGEX = new RegExp(
+	`^(${ISO_DATETIME_REGEX.source})\\|(${TIMEZONE_ID_REGEX.source})$`,
+);
 
 /**
  * Maps a ColumnSchema to its serialized cell value type.
