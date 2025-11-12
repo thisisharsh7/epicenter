@@ -811,9 +811,11 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 								const { error } = await deleteMarkdownFile({ filePath });
 								if (error) {
-									console.warn(
-										`Failed to delete markdown file ${filePath} during pull:`,
-										error,
+									await logger.log(
+										IndexError({
+											message: `Failed to delete markdown file ${filePath} during pull`,
+											context: { filePath, cause: error },
+										}),
 									);
 								}
 							}
@@ -845,9 +847,11 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 									body,
 								});
 								if (error) {
-									console.warn(
-										`Failed to write markdown file ${filePath} during pull:`,
-										error,
+									await logger.log(
+										IndexError({
+											message: `Failed to write markdown file ${filePath} during pull`,
+											context: { filePath, cause: error },
+										}),
 									);
 								}
 							}
@@ -913,16 +917,12 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 								if (parseResult.error) {
 									// Convert MarkdownError to MarkdownIndexError for diagnostics
-									diagnostics.push(
-										MarkdownIndexError({
-											message: `Failed to parse markdown file: ${parseResult.error.message}`,
-											context: { filePath: fullPath, cause: parseResult.error },
-										}),
-									);
-									console.warn(
-										`Failed to parse markdown file ${fullPath} during push:`,
-										parseResult.error,
-									);
+									const error = MarkdownIndexError({
+										message: `Failed to parse markdown file: ${parseResult.error.message}`,
+										context: { filePath: fullPath, cause: parseResult.error },
+									});
+									diagnostics.push(error);
+									await logger.log(error);
 									continue;
 								}
 
@@ -942,18 +942,22 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 								if (deserializeError) {
 									diagnostics.push(deserializeError);
-									console.warn(
-										`Skipping markdown file ${fullPath}: ${deserializeError.message}`,
-									);
+									await logger.log(deserializeError);
 									continue;
 								}
 
 								// Insert into YJS
 								const insertResult = table.insert(row);
 								if (insertResult.error) {
-									console.warn(
-										`Failed to insert row ${row.id} from markdown into YJS table ${tableName}:`,
-										insertResult.error,
+									await logger.log(
+										IndexError({
+											message: `Failed to insert row ${row.id} from markdown into YJS table ${tableName}`,
+											context: {
+												rowId: row.id,
+												tableName,
+												cause: insertResult.error,
+											},
+										}),
 									);
 								}
 							}

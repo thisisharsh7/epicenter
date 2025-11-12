@@ -10,7 +10,7 @@ import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
-import { IndexErr } from '../../core/errors';
+import { IndexErr, IndexError } from '../../core/errors';
 import {
 	type Index,
 	type IndexContext,
@@ -146,8 +146,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				});
 
 				if (error) {
-					console.error(
-						IndexErr({
+					await logger.log(
+						IndexError({
 							message: `SQLite index onAdd failed for ${tableName}/${row.id}`,
 							context: { tableName, id: row.id, data: row },
 							cause: error,
@@ -172,8 +172,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				});
 
 				if (error) {
-					console.error(
-						IndexErr({
+					await logger.log(
+						IndexError({
 							message: `SQLite index onUpdate failed for ${tableName}/${row.id}`,
 							context: { tableName, id: row.id, data: row },
 							cause: error,
@@ -194,8 +194,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				});
 
 				if (error) {
-					console.error(
-						IndexErr({
+					await logger.log(
+						IndexError({
 							message: `SQLite index onDelete failed for ${tableName}/${id}`,
 							context: { tableName, id },
 							cause: error,
@@ -229,9 +229,11 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 			});
 
 			if (error) {
-				console.warn(
-					`Failed to sync row ${row.id} to SQLite during init:`,
-					error,
+				await logger.log(
+					IndexError({
+						message: `Failed to sync row ${row.id} to SQLite during init`,
+						context: { rowId: row.id, tableName, cause: error },
+					}),
 				);
 			}
 		}
@@ -328,9 +330,15 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 							for (const row of rows) {
 								const result = db.tables[tableName].insert(row);
 								if (result.error) {
-									console.warn(
-										`Failed to insert row ${row.id} from SQLite into YJS table ${tableName}:`,
-										result.error,
+									await logger.log(
+										IndexError({
+											message: `Failed to insert row ${row.id} from SQLite into YJS table ${tableName}`,
+											context: {
+												rowId: row.id,
+												tableName,
+												cause: result.error,
+											},
+										}),
 									);
 								}
 							}
