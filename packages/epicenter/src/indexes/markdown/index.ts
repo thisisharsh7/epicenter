@@ -14,5 +14,10 @@ export type { MarkdownIndexConfig } from './markdown-index';
 // Error types for custom serializers
 export { MarkdownIndexErr, MarkdownIndexError } from './markdown-index';
 
-// Utilities for custom serializers
-export { parseMarkdownFile } from './parser';
+// Markdown file operations
+export {
+	readMarkdownFile,
+	writeMarkdownFile,
+	deleteMarkdownFile,
+} from './operations';
+export type { MarkdownOperationError } from './operations';

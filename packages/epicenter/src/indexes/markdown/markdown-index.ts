@@ -20,8 +20,11 @@ import type {
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
-import { deleteMarkdownFile, writeMarkdownFile } from './operations';
-import { parseMarkdownFile } from './parser';
+import {
+	deleteMarkdownFile,
+	readMarkdownFile,
+	writeMarkdownFile,
+} from './operations';
 
 /**
  * Error types for markdown index diagnostics
@@ -664,13 +667,13 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 
 					// Process file modification (works for both 'change' and 'rename' with existing file)
 					if (eventType === 'change' || eventType === 'rename') {
-						// Parse markdown file
-						const parseResult = await parseMarkdownFile(filePath);
+						// Read markdown file
+						const parseResult = await readMarkdownFile(filePath);
 
 						if (parseResult.error) {
 							await logger.log(
 								IndexError({
-									message: `Failed to parse markdown file ${tableName}`,
+									message: `Failed to read markdown file ${tableName}`,
 									context: { tableName, filePath },
 									cause: parseResult.error,
 								}),
@@ -912,13 +915,13 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 									filename,
 								) as AbsolutePath;
 
-								// Parse markdown file
-								const parseResult = await parseMarkdownFile(fullPath);
+								// Read markdown file
+								const parseResult = await readMarkdownFile(fullPath);
 
 								if (parseResult.error) {
-									// Convert MarkdownError to MarkdownIndexError for diagnostics
+									// Convert MarkdownOperationError to MarkdownIndexError for diagnostics
 									const error = MarkdownIndexError({
-										message: `Failed to parse markdown file: ${parseResult.error.message}`,
+										message: `Failed to read markdown file: ${parseResult.error.message}`,
 										context: { filePath: fullPath, cause: parseResult.error },
 									});
 									diagnostics.push(error);
