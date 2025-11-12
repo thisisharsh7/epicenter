@@ -2,13 +2,15 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TaggedError } from 'wellcrafted/error';
 import { createTaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
-import { Err, Ok, isResult } from 'wellcrafted/result';
+import { Err, Ok } from 'wellcrafted/result';
 
 /**
  * Error thrown when action input validation fails
  */
-export const { ValidationError, ValidationErr } =
-	createTaggedError('ValidationError');
+export const { ValidationError, ValidationErr } = createTaggedError<
+	'ValidationError',
+	{ issues: readonly StandardSchemaV1.Issue[] }
+>('ValidationError');
 export type ValidationError = ReturnType<typeof ValidationError>;
 
 /**
