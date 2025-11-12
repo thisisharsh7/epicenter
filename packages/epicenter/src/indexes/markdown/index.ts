@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
-import { IndexErr } from '../../core/errors';
+import { IndexErr, IndexError } from '../../core/errors';
 import {
 	type Index,
 	type IndexContext,
@@ -20,6 +20,7 @@ import type {
 } from '../../core/schema';
 import { createTableSchemaWithValidation } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
+import { createIndexLogger } from '../error-logger';
 import { deleteMarkdownFile, writeMarkdownFile } from './operations';
 import { parseMarkdownFile } from './parser';
 
@@ -333,6 +334,13 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		);
 	}
 
+	// Create error logger for this index
+	const logger = createIndexLogger({
+		workspaceId: id,
+		indexType: 'markdown',
+		storageDir,
+	});
+
 	// Resolve workspace directory to absolute path
 	// If directory is relative, resolve it relative to storageDir
 	// If directory is absolute, use it as-is
@@ -511,8 +519,8 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					syncCoordination.isProcessingYJSChange = false;
 
 					if (error) {
-						console.error(
-							IndexErr({
+						await logger.log(
+							IndexError({
 								message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
 								context: { tableName, id: row.id },
 								cause: error,
@@ -530,8 +538,8 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					syncCoordination.isProcessingYJSChange = false;
 
 					if (error) {
-						console.error(
-							IndexErr({
+						await logger.log(
+							IndexError({
 								message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
 								context: { tableName, id: row.id },
 								cause: error,
@@ -559,8 +567,8 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						tracking[tableName].deleteByRowId({ rowId: id });
 
 						if (error) {
-							console.error(
-								IndexErr({
+							await logger.log(
+								IndexError({
 									message: `Markdown index onDelete failed for ${tableName}/${id}`,
 									context: { tableName, id },
 									cause: error,
@@ -637,8 +645,12 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 								// Clean up tracking in both directions
 								tracking[tableName].deleteByFilename({ filename });
 							} else {
-								console.warn(
-									`File deleted but row ID not found in tracking map: ${tableName}/${filename}`,
+								await logger.log(
+									MarkdownIndexError({
+										message:
+											'File deleted but row ID not found in tracking map',
+										context: { tableName, filename },
+									}),
 								);
 							}
 
@@ -654,8 +666,8 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						const parseResult = await parseMarkdownFile(filePath);
 
 						if (parseResult.error) {
-							console.error(
-								IndexErr({
+							await logger.log(
+								IndexError({
 									message: `Failed to parse markdown file ${tableName}`,
 									context: { tableName, filePath },
 									cause: parseResult.error,
@@ -680,8 +692,12 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							});
 
 						if (deserializeError) {
-							console.warn(
-								`Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
+							await logger.log(
+								IndexError({
+									message: `Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
+									context: { tableName, filename },
+									cause: deserializeError,
+								}),
 							);
 							syncCoordination.isProcessingFileChange = false;
 							return;
