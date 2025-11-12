@@ -3,8 +3,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
 import { describeRoute, openAPIRouteHandler, validator } from 'hono-openapi';
-import type { TaggedError } from 'wellcrafted/error';
-import { Err, Ok, type Result, isResult } from 'wellcrafted/result';
+import { Err, Ok } from 'wellcrafted/result';
 import {
 	type EpicenterClient,
 	type EpicenterConfig,
@@ -91,16 +90,12 @@ export async function createServer<
 					}),
 					...(action.input ? [validator('query', action.input)] : []),
 					async (c) => {
-						const query = c.req.query();
-						const input = Object.keys(query).length > 0 ? query : undefined;
+						// Get validated input from middleware (if schema exists)
+						const input = action.input ? c.req.valid('query') : undefined;
 
-						// Execute action with validation for external HTTP input
-						// Actions always return Result now
-						const { data, error } = action.input
-							? await action.withValidation(input)
-							: await action(input);
+						// Execute action - input already validated by middleware
+						const { data, error } = await action(input);
 
-						// Actions always return Result, so we can access data/error directly
 						if (error) return c.json(Err(error), 500);
 						return c.json(Ok(data));
 					},
@@ -116,16 +111,12 @@ export async function createServer<
 					}),
 					...(action.input ? [validator('json', action.input)] : []),
 					async (c) => {
-						const body = await c.req.json().catch(() => ({}));
-						const input = Object.keys(body).length > 0 ? body : undefined;
+						// Get validated input from middleware (if schema exists)
+						const input = action.input ? c.req.valid('json') : undefined;
 
-						// Execute action with validation for external HTTP input
-						// Actions always return Result now
-						const { data, error } = action.input
-							? await action.withValidation(input)
-							: await action(input);
+						// Execute action - input already validated by middleware
+						const { data, error } = await action(input);
 
-						// Actions always return Result, so we can access data/error directly
 						if (error) return c.json(Err(error), 500);
 						return c.json(Ok(data));
 					},

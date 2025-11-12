@@ -1,17 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TaggedError } from 'wellcrafted/error';
-import { createTaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
-import { Err, Ok } from 'wellcrafted/result';
-
-/**
- * Error thrown when action input validation fails
- */
-export const { ValidationError, ValidationErr } = createTaggedError<
-	'ValidationError',
-	{ issues: readonly StandardSchemaV1.Issue[] }
->('ValidationError');
-export type ValidationError = ReturnType<typeof ValidationError>;
+import { Ok, isResult } from 'wellcrafted/result';
 
 /**
  * A collection of workspace actions indexed by action name.
@@ -28,7 +18,7 @@ export type WorkspaceActionMap = Record<string, Action<any, any>>;
  */
 export type Action<
 	TOutput = unknown,
-	TError extends TaggedError<string> | never = never,
+	TError extends TaggedError | never = TaggedError,
 	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 	TAsync extends boolean = boolean,
 > =
@@ -36,11 +26,10 @@ export type Action<
 	| Mutation<TOutput, TError, TInput, TAsync>;
 
 /**
- * Query action - read operation with no side effects
+ * Query action: read operation with no side effects
  *
- * When TInput exists, input validation can fail, so returns are wrapped in Result<T, ValidationError | TError>.
- * When TInput is undefined and TError extends never, returns TOutput directly (no Result wrapper).
- * When TAsync is true, returns a Promise; when false, returns synchronously.
+ * Returns Ok<TOutput> when TError is never (handler can't fail)
+ * Returns Result<TOutput, TError> when handler can fail
  */
 export type Query<
 	TOutput = unknown,
@@ -48,33 +37,28 @@ export type Query<
 	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 	TAsync extends boolean = boolean,
 > = {
-	// Callable signature - conditionally returns Result or raw output based on TInput, TError, and TAsync
+	/**
+	 * Call the query action with validated input
+	 *
+	 * Return type depends on TError:
+	 * - TError = never: Returns Ok<TOutput> (handler can't fail, always succeeds)
+	 * - TError = SomeError: Returns Result<TOutput, TError> (handler can fail)
+	 */
 	(
 		...args: TInput extends StandardSchemaV1
 			? [input: StandardSchemaV1.InferOutput<TInput>]
 			: []
 	): // Level 1: Async or Sync?
 	TAsync extends true
-		? //  Level 2: Has Input Schema?
-			TInput extends StandardSchemaV1
-			? //  Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? Promise<Result<TOutput, ValidationError>>
-				: Promise<Result<TOutput, TError | ValidationError>>
-			: // Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? Promise<TOutput>
-				: Promise<Result<TOutput, TError>>
-		: // Level 2: Has Input Schema?
-			TInput extends StandardSchemaV1
-			? // Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? Result<TOutput, ValidationError>
-				: Result<TOutput, TError | ValidationError>
-			: // Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? TOutput
-				: Result<TOutput, TError>;
+		? // Level 2 (async): Can handler fail?
+			[TError] extends [never]
+			? Promise<Ok<TOutput>> // Handler can't fail, returns Ok
+			: Promise<Result<TOutput, TError>> // Handler can fail, returns Result
+		: // Level 2 (sync): Can handler fail?
+			[TError] extends [never]
+			? Ok<TOutput> // Handler can't fail, returns Ok
+			: Result<TOutput, TError>; // Handler can fail, returns Result
+
 	// Metadata properties
 	type: 'query';
 	input?: TInput;
@@ -82,11 +66,10 @@ export type Query<
 };
 
 /**
- * Mutation action - write operation that modifies state
+ * Mutation action: write operation that modifies state
  *
- * When TInput exists, input validation can fail, so returns are wrapped in Result<T, ValidationError | TError>.
- * When TInput is undefined and TError extends never, returns TOutput directly (no Result wrapper).
- * When TAsync is true, returns a Promise; when false, returns synchronously.
+ * Returns Ok<TOutput> when TError is never (handler can't fail)
+ * Returns Result<TOutput, TError> when handler can fail
  */
 export type Mutation<
 	TOutput = unknown,
@@ -94,33 +77,28 @@ export type Mutation<
 	TInput extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
 	TAsync extends boolean = boolean,
 > = {
-	// Callable signature - conditionally returns Result or raw output based on TInput, TError, and TAsync
+	/**
+	 * Call the mutation action with validated input
+	 *
+	 * Return type depends on TError:
+	 * - TError = never: Returns Ok<TOutput> (handler can't fail, always succeeds)
+	 * - TError = SomeError: Returns Result<TOutput, TError> (handler can fail)
+	 */
 	(
 		...args: TInput extends StandardSchemaV1
 			? [input: StandardSchemaV1.InferOutput<TInput>]
 			: []
-	): // Level 1: Async of Sync?
+	): // Level 1: Async or Sync?
 	TAsync extends true
-		? //  Level 2: Has Input Schema?
-			TInput extends StandardSchemaV1
-			? // Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? Promise<Result<TOutput, ValidationError>>
-				: Promise<Result<TOutput, TError | ValidationError>>
-			: // Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? Promise<TOutput>
-				: Promise<Result<TOutput, TError>>
-		: // Level 2: Has Input Schema?
-			TInput extends StandardSchemaV1
-			? // Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? Result<TOutput, ValidationError>
-				: Result<TOutput, TError | ValidationError>
-			: // Level 3: Can Handler Fail?
-				[TError] extends [never]
-				? TOutput
-				: Result<TOutput, TError>;
+		? // Level 2 (async): Can handler fail?
+			[TError] extends [never]
+			? Promise<Ok<TOutput>> // Handler can't fail, returns Ok
+			: Promise<Result<TOutput, TError>> // Handler can fail, returns Result
+		: // Level 2 (sync): Can handler fail?
+			[TError] extends [never]
+			? Ok<TOutput> // Handler can't fail, returns Ok
+			: Result<TOutput, TError>; // Handler can fail, returns Result
+
 	// Metadata properties
 	type: 'mutation';
 	input?: TInput;
@@ -128,16 +106,16 @@ export type Mutation<
 };
 
 /**
- * defineQuery overloads - 8 combinations covering all handler patterns:
+ * defineQuery overloads - 8 combinations:
  *
- * 1. With input, returns Result, sync
- * 2. With input, returns Result, async
- * 3. With input, returns raw value (can't fail), sync
- * 4. With input, returns raw value (can't fail), async
- * 5. No input, returns Result, sync
- * 6. No input, returns Result, async
- * 7. No input, returns raw value (can't fail), sync
- * 8. No input, returns raw value (can't fail), async
+ * 1. With input, returns Result<TOutput, TError>, sync
+ * 2. With input, returns Result<TOutput, TError>, async
+ * 3. With input, returns TOutput (can't fail), sync
+ * 4. With input, returns Promise<TOutput> (can't fail), async
+ * 5. No input, returns Result<TOutput, TError>, sync
+ * 6. No input, returns Result<TOutput, TError>, async
+ * 7. No input, returns TOutput (can't fail), sync
+ * 8. No input, returns Promise<TOutput> (can't fail), async
  */
 
 /** 1. With input, returns Result, sync */
@@ -151,7 +129,7 @@ export function defineQuery<
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) => Result<TOutput, TError>;
 	description?: string;
-}): Query<TOutput, TError | ValidationError, TInput, false>;
+}): Query<TOutput, TError, TInput, false>;
 
 /** 2. With input, returns Result, async */
 export function defineQuery<
@@ -164,33 +142,25 @@ export function defineQuery<
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) => Promise<Result<TOutput, TError>>;
 	description?: string;
-}): Query<TOutput, TError | ValidationError, TInput, true>;
+}): Query<TOutput, TError, TInput, true>;
 
-/** 3. With input, returns raw value (can't fail), sync */
+/** 3. With input, returns TOutput (can't fail), sync */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
-	handler: (input: StandardSchemaV1.InferOutput<NoInfer<TInput>>) => TOutput;
+	handler: (
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
+	) => TOutput;
 	description?: string;
-}): Query<
-	TOutput extends void ? undefined : TOutput,
-	ValidationError,
-	TInput,
-	false
->;
+}): Query<TOutput, never, TInput, false>;
 
-/** 4. With input, returns raw value (can't fail), async */
+/** 4. With input, returns Promise<TOutput> (can't fail), async */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) => Promise<TOutput>;
 	description?: string;
-}): Query<
-	TOutput extends void ? undefined : TOutput,
-	ValidationError,
-	TInput,
-	true
->;
+}): Query<TOutput, never, TInput, true>;
 
 /** 5. No input, returns Result, sync */
 export function defineQuery<
@@ -210,48 +180,49 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, undefined, true>;
 
-/** 7. No input, returns raw value (can't fail), sync */
+/** 7. No input, returns TOutput (can't fail), sync */
 export function defineQuery<TOutput>(config: {
 	handler: () => TOutput;
 	description?: string;
-}): Query<TOutput extends void ? undefined : TOutput, never, undefined, false>;
+}): Query<TOutput, never, undefined, false>;
 
-/** 8. No input, returns raw value (can't fail), async */
+/** 8. No input, returns Promise<TOutput> (can't fail), async */
 export function defineQuery<TOutput>(config: {
 	handler: () => Promise<TOutput>;
 	description?: string;
-}): Query<TOutput extends void ? undefined : TOutput, never, undefined, true>;
+}): Query<TOutput, never, undefined, true>;
 
 /**
  * Implementation for defineQuery
  *
- * Composes validation, handler execution, and result wrapping
+ * Creates a Query action that wraps handlers to ensure consistent Result types.
+ *
+ * Handlers can return either raw values (T) or Result types (Result<T, E>).
+ * Raw values are automatically wrapped in Ok() at runtime.
+ *
+ * Input validation should be handled by external middleware (e.g., Hono's validator)
+ * or manual validation when needed (e.g., in MCP server).
  */
-export function defineQuery(config: ActionConfig) {
+// biome-ignore lint/suspicious/noExplicitAny: Implementation must be general to support all overload combinations. Type safety is enforced through the overload signatures above.
+export function defineQuery(config: ActionConfig): any {
 	const inputSchema = config.input;
-	const handler = inputSchema
-		? (arg: unknown) => {
-				const validationResult = inputSchema['~standard'].validate(arg);
-				const validated = validateInput(validationResult);
 
-				// Handle async validation
-				if (validated instanceof Promise) {
-					return validated.then(
-						({ data: validatedInput, error: validateInputError }) => {
-							if (validateInputError) return Err(validateInputError);
-							return wrapHandlerResult(config.handler(validatedInput));
-						},
-					);
-				}
+	// Helper: Wraps handler result in Ok() if not already a Result
+	const ensureWrappedResult = (result: unknown) => {
+		// Handle async case
+		if (result instanceof Promise) {
+			return result.then((r) => (isResult(r) ? r : Ok(r)));
+		}
 
-				const { data: validatedInput, error: validateInputError } = validated;
-				// Handle sync validation
-				if (validateInputError) return Err(validateInputError);
-				return wrapHandlerResult(config.handler(validatedInput));
-			}
-		: config.handler;
+		// Handle sync case
+		return isResult(result) ? result : Ok(result);
+	};
 
-	return Object.assign(handler, {
+	// Handler that wraps result in Ok() if needed
+	const wrappedHandler = (input: unknown) =>
+		ensureWrappedResult((config.handler as any)(input));
+
+	return Object.assign(wrappedHandler, {
 		type: 'query' as const,
 		input: inputSchema,
 		description: config.description,
@@ -259,16 +230,16 @@ export function defineQuery(config: ActionConfig) {
 }
 
 /**
- * defineMutation overloads - 8 combinations covering all handler patterns:
+ * defineMutation overloads - 8 combinations:
  *
- * 1. With input, returns Result, sync
- * 2. With input, returns Result, async
- * 3. With input, returns raw value (can't fail), sync
- * 4. With input, returns raw value (can't fail), async
- * 5. No input, returns Result, sync
- * 6. No input, returns Result, async
- * 7. No input, returns raw value (can't fail), sync
- * 8. No input, returns raw value (can't fail), async
+ * 1. With input, returns Result<TOutput, TError>, sync
+ * 2. With input, returns Result<TOutput, TError>, async
+ * 3. With input, returns TOutput (can't fail), sync
+ * 4. With input, returns Promise<TOutput> (can't fail), async
+ * 5. No input, returns Result<TOutput, TError>, sync
+ * 6. No input, returns Result<TOutput, TError>, async
+ * 7. No input, returns TOutput (can't fail), sync
+ * 8. No input, returns Promise<TOutput> (can't fail), async
  */
 
 /** 1. With input, returns Result, sync */
@@ -282,7 +253,7 @@ export function defineMutation<
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) => Result<TOutput, TError>;
 	description?: string;
-}): Mutation<TOutput, TError | ValidationError, TInput, false>;
+}): Mutation<TOutput, TError, TInput, false>;
 
 /** 2. With input, returns Result, async */
 export function defineMutation<
@@ -295,24 +266,21 @@ export function defineMutation<
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) => Promise<Result<TOutput, TError>>;
 	description?: string;
-}): Mutation<TOutput, TError | ValidationError, TInput, true>;
+}): Mutation<TOutput, TError, TInput, true>;
 
-/** 3. With input, returns raw value (can't fail), sync */
+/** 3. With input, returns TOutput (can't fail), sync */
 export function defineMutation<
 	TOutput,
 	TInput extends StandardSchemaV1,
 >(config: {
 	input: TInput;
-	handler: (input: StandardSchemaV1.InferOutput<NoInfer<TInput>>) => TOutput;
+	handler: (
+		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
+	) => TOutput;
 	description?: string;
-}): Mutation<
-	TOutput extends void ? undefined : TOutput,
-	ValidationError,
-	TInput,
-	false
->;
+}): Mutation<TOutput, never, TInput, false>;
 
-/** 4. With input, returns raw value (can't fail), async */
+/** 4. With input, returns Promise<TOutput> (can't fail), async */
 export function defineMutation<
 	TOutput,
 	TInput extends StandardSchemaV1,
@@ -322,12 +290,7 @@ export function defineMutation<
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
 	) => Promise<TOutput>;
 	description?: string;
-}): Mutation<
-	TOutput extends void ? undefined : TOutput,
-	ValidationError,
-	TInput,
-	true
->;
+}): Mutation<TOutput, never, TInput, true>;
 
 /** 5. No input, returns Result, sync */
 export function defineMutation<
@@ -347,55 +310,49 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, undefined, true>;
 
-/** 7. No input, returns raw value (can't fail), sync */
+/** 7. No input, returns TOutput (can't fail), sync */
 export function defineMutation<TOutput>(config: {
 	handler: () => TOutput;
 	description?: string;
-}): Mutation<
-	TOutput extends void ? undefined : TOutput,
-	never,
-	undefined,
-	false
->;
+}): Mutation<TOutput, never, undefined, false>;
 
-/** 8. No input, returns raw value (can't fail), async */
+/** 8. No input, returns Promise<TOutput> (can't fail), async */
 export function defineMutation<TOutput>(config: {
 	handler: () => Promise<TOutput>;
 	description?: string;
-}): Mutation<
-	TOutput extends void ? undefined : TOutput,
-	never,
-	undefined,
-	true
->;
+}): Mutation<TOutput, never, undefined, true>;
 
 /**
  * Implementation for defineMutation
  *
- * Composes validation, handler execution, and result wrapping
+ * Creates a Mutation action that wraps handlers to ensure consistent Result types.
+ *
+ * Handlers can return either raw values (T) or Result types (Result<T, E>).
+ * Raw values are automatically wrapped in Ok() at runtime.
+ *
+ * Input validation should be handled by external middleware (e.g., Hono's validator)
+ * or manual validation when needed (e.g., in MCP server).
  */
-export function defineMutation(config: ActionConfig) {
+// biome-ignore lint/suspicious/noExplicitAny: Implementation must be general to support all overload combinations. Type safety is enforced through the overload signatures above.
+export function defineMutation(config: ActionConfig): any {
 	const inputSchema = config.input;
-	const handler = inputSchema
-		? (arg: unknown) => {
-				const validationResult = inputSchema['~standard'].validate(arg);
-				const validated = validateInput(validationResult);
 
-				// Handle async validation
-				if (validated instanceof Promise) {
-					return validated.then((result) => {
-						if (result.error) return result;
-						return wrapHandlerResult(config.handler(result.data));
-					});
-				}
+	// Helper: Wraps handler result in Ok() if not already a Result
+	const ensureWrappedResult = (result: unknown) => {
+		// Handle async case
+		if (result instanceof Promise) {
+			return result.then((r) => (isResult(r) ? r : Ok(r)));
+		}
 
-				// Handle sync validation
-				if (validated.error) return validated;
-				return wrapHandlerResult(config.handler(validated.data));
-			}
-		: config.handler;
+		// Handle sync case
+		return isResult(result) ? result : Ok(result);
+	};
 
-	return Object.assign(handler, {
+	// Handler that wraps result in Ok() if needed
+	const wrappedHandler = (input: unknown) =>
+		ensureWrappedResult((config.handler as any)(input));
+
+	return Object.assign(wrappedHandler, {
 		type: 'mutation' as const,
 		input: inputSchema,
 		description: config.description,
@@ -404,63 +361,16 @@ export function defineMutation(config: ActionConfig) {
 
 /**
  * Configuration for defining an action (query or mutation)
+ *
+ * Handlers can return either raw values (T) or Result types (Result<T, E>).
+ * Raw values are implicitly wrapped in Ok() at runtime.
  */
 type ActionConfig = {
 	input?: StandardSchemaV1;
-	handler: // biome-ignore lint/suspicious/noExplicitAny: Handler return type uses `any` to support all return type combinations: sync/async (T vs Promise<T>) and Result vs raw value (Result<T,E> vs T). Type safety is enforced through the overload signatures above, not this shared config type.
-		| (() => any | Result<any, any>)
-		// biome-ignore lint/suspicious/noExplicitAny: Handler return type uses `any` to support all return type combinations: sync/async (T vs Promise<T>) and Result vs raw value (Result<T,E> vs T). Type safety is enforced through the overload signatures above, not this shared config type.
-		| ((input: unknown) => any | Result<any, any>);
+	handler: // biome-ignore lint/suspicious/noExplicitAny: Handler return type uses `any` to support all combinations: raw values (T), Result types (Result<T,E>), sync, and async. Type safety is enforced through the overload signatures above, not this shared config type.
+		| (() => any | Promise<any>)
+		// biome-ignore lint/suspicious/noExplicitAny: Handler return type uses `any` to support all combinations: raw values (T), Result types (Result<T,E>), sync, and async. Type safety is enforced through the overload signatures above, not this shared config type.
+		| ((input: unknown) => any | Promise<any>);
 	description?: string;
 };
 
-/**
- * Helper: Wraps handler result in Ok() if it's not already a Result
- * Handles both sync and async handler results
- */
-// biome-ignore lint/suspicious/noExplicitAny: Return type must be `any` because it can be Promise<Result<T,E>>, Result<T,E>, or Result<T,never> depending on input, and we cannot precisely type this without propagating generics through the call chain. The function uses runtime type guards (instanceof Promise, isResult) to handle all cases safely.
-function wrapHandlerResult(result: unknown): any {
-	if (result instanceof Promise) {
-		return result.then((resolved) =>
-			isResult(resolved) ? resolved : Ok(resolved),
-		);
-	}
-	return isResult(result) ? result : Ok(result);
-}
-
-/**
- * Helper: Validates input and returns Result
- * Handles both sync and async validation
- */
-function validateInput(
-	validationResult:
-		| StandardSchemaV1.Result<unknown>
-		| Promise<StandardSchemaV1.Result<unknown>>,
-):
-	| Result<unknown, ValidationError>
-	| Promise<Result<unknown, ValidationError>> {
-	// Handle async validation
-	if (validationResult instanceof Promise) {
-		return validationResult.then((validated) => {
-			if (validated.issues) {
-				return ValidationErr({
-					message: 'Input validation failed',
-					context: { issues: validated.issues },
-					cause: undefined,
-				});
-			}
-			return Ok(validated.value);
-		});
-	}
-
-	// Handle sync validation
-	if (validationResult.issues) {
-		return ValidationErr({
-			message: 'Input validation failed',
-			context: { issues: validationResult.issues },
-			cause: undefined,
-		});
-	}
-
-	return Ok(validationResult.value);
-}
