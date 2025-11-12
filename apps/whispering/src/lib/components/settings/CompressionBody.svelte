@@ -10,7 +10,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
 	import { RotateCcw, AlertTriangle } from '@lucide/svelte';
-	import { isCompressionRecommended } from '../../../routes/(app)/_layout-utils/check-ffmpeg';
+	import { isCompressionRecommended } from '$routes/(app)/_layout-utils/check-ffmpeg';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
 	import * as Alert from '@repo/ui/alert';
