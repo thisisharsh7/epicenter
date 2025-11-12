@@ -17,6 +17,7 @@ import {
 	defineIndexExports,
 } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
+import { createIndexLogger } from '../error-logger';
 import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
 
 /**
@@ -102,6 +103,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	const client = new Database(databasePath);
 	client.exec('PRAGMA journal_mode = WAL');
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
+
+	// Create error logger for this index
+	const logPath = path.join(storageDir, '.epicenter', 'sqlite', `${id}.log`);
+	const logger = createIndexLogger({ logPath });
 
 	/**
 	 * Coordination state to prevent infinite sync loops

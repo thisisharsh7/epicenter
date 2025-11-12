@@ -334,11 +334,13 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 	}
 
 	// Create error logger for this index
-	const logger = createIndexLogger({
-		workspaceId: id,
-		indexType: 'markdown',
+	const logPath = path.join(
 		storageDir,
-	});
+		'.epicenter',
+		'markdown',
+		`${id}.log`,
+	);
+	const logger = createIndexLogger({ logPath });
 
 	// Resolve workspace directory to absolute path
 	// If directory is relative, resolve it relative to storageDir

@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { FileSink } from 'bun';
 import type { TaggedError } from 'wellcrafted/error';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 
@@ -11,10 +10,18 @@ type LogEntry = {
 	timestamp: string;
 } & TaggedError;
 
+/**
+ * Configuration for creating an index logger
+ */
 type IndexLoggerConfig = {
-	workspaceId: string;
-	indexType: 'markdown' | 'sqlite';
-	storageDir: string;
+	/**
+	 * Absolute path to the log file where errors will be written.
+	 *
+	 * Example: `/path/to/storage/.epicenter/markdown/workspace-id.log`
+	 *
+	 * The parent directory will be created automatically if it doesn't exist.
+	 */
+	logPath: string;
 };
 
 type IndexLogger = {
@@ -33,36 +40,32 @@ type IndexLogger = {
 /**
  * Create a logger for index errors
  *
- * Logs are written to `.epicenter/{indexType}/{workspaceId}.log`
  * Each log entry is a single JSON line with ISO timestamp + the full tagged error
+ *
+ * @param config.logPath - Absolute path to the log file (parent directory will be created if needed)
  *
  * @example
  * ```typescript
- * const logger = createIndexLogger({
- *   workspaceId: 'content-hub',
- *   indexType: 'markdown',
- *   storageDir: '/path/to/storage',
- * });
+ * import path from 'node:path';
  *
- * await logger.log(IndexErr({
+ * const logPath = path.join(
+ *   storageDir,
+ *   '.epicenter',
+ *   'markdown',
+ *   `${workspaceId}.log`
+ * );
+ *
+ * const logger = createIndexLogger({ logPath });
+ *
+ * await logger.log(IndexError({
  *   message: 'Failed to write file',
  *   context: { tableName: 'posts', rowId: '123' }
  * }));
  * ```
  */
 export function createIndexLogger({
-	workspaceId,
-	indexType,
-	storageDir,
+	logPath,
 }: IndexLoggerConfig): IndexLogger {
-	// Construct log file path
-	const logPath = path.join(
-		storageDir,
-		'.epicenter',
-		indexType,
-		`${workspaceId}.log`,
-	);
-
 	// Create parent directory if it doesn't exist
 	const logDir = path.dirname(logPath);
 	trySync({

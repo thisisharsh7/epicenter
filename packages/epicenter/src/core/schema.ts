@@ -137,9 +137,8 @@ export function isDateWithTimezoneString(
 ): value is DateWithTimezoneString {
 	if (typeof value !== 'string') return false;
 
-	// ISO 8601 UTC string is always 24 chars with 'Z' at position 23, pipe at 24
-	// Format: "YYYY-MM-DDTHH:mm:ss.sssZ|timezone"
-	return value.length > 25 && value[23] === 'Z' && value[24] === '|';
+	// Use regex to validate format: ISO_8601_DATE|TIMEZONE
+	return DATE_WITH_TIMEZONE_REGEX.test(value);
 }
 
 /**
@@ -848,6 +847,30 @@ export type DateWithTimezoneString = `${DateIsoString}|${TimezoneId}` &
 	Brand<'DateWithTimezoneString'>;
 
 /**
+ * Regex pattern for DateWithTimezoneString validation
+ * Format: ISO_8601_DATE|TIMEZONE
+ *
+ * ISO 8601 date formats supported:
+ * - YYYY-MM-DD (date only)
+ * - YYYY-MM-DDTHH:mm (date + time)
+ * - YYYY-MM-DDTHH:mm:ss (date + time + seconds)
+ * - YYYY-MM-DDTHH:mm:ss.SSS (date + time + milliseconds)
+ * - All above with Z (UTC) or ±HH:mm (timezone offset)
+ *
+ * IANA timezone identifier format:
+ * - Starts with a letter
+ * - Can contain letters, digits, underscores, forward slashes, hyphens, plus signs
+ * - Examples: America/New_York, UTC, Europe/London, Etc/GMT+5
+ *
+ * References:
+ * - ISO 8601: https://en.wikipedia.org/wiki/ISO_8601
+ * - Date.parse(): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/parse
+ * - IANA Time Zones: https://www.iana.org/time-zones
+ */
+export const DATE_WITH_TIMEZONE_REGEX =
+	/^(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?)\|([A-Za-z][A-Za-z0-9_/+-]*)$/;
+
+/**
  * Maps a ColumnSchema to its serialized cell value type.
  * This is the serialized equivalent of CellValue - what you get after calling serializeCellValue().
  * Uses a distributive conditional type to transform Y.js types to their serialized equivalents.
@@ -1349,7 +1372,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 			case 'date':
 				return type.string.describe(
 					'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
-				);
+				).matching(DATE_WITH_TIMEZONE_REGEX); // DateWithTimezone format
 			// .filter(isDateWithTimezoneString) - Can't use because custom predicates break JSON schema compatibility in MCP
 			case 'select':
 				return type.enumerated(...columnSchema.options);
