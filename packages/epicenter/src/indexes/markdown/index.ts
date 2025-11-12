@@ -16,6 +16,7 @@ export { MarkdownIndexErr, MarkdownIndexError } from './markdown-index';
 
 // Markdown file operations
 export {
+	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
 	deleteMarkdownFile,

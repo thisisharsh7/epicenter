@@ -1,5 +1,8 @@
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { type Result, tryAsync } from 'wellcrafted/result';
+import { readdir } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import type { AbsolutePath } from '../../core/types';
 
 export const { MarkdownOperationError, MarkdownOperationErr } =
 	createTaggedError('MarkdownOperationError');
@@ -123,6 +126,24 @@ export async function deleteMarkdownFile({
 				context: { filePath },
 			}),
 	});
+}
+
+/**
+ * List all markdown files in a directory recursively
+ *
+ * @param sourcePath - Path to the directory (can be relative or absolute)
+ * @returns Array of absolute paths to all .md files found
+ */
+export async function listMarkdownFiles(
+	sourcePath: string,
+): Promise<AbsolutePath[]> {
+	// Convert to absolute path first (handles both relative and absolute input)
+	const absoluteSourcePath = resolve(sourcePath) as AbsolutePath;
+
+	const files = await readdir(absoluteSourcePath, { recursive: true });
+	return files
+		.filter((file) => file.endsWith('.md'))
+		.map((file) => join(absoluteSourcePath, file) as AbsolutePath);
 }
 
 /**
