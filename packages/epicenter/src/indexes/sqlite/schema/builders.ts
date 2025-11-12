@@ -15,8 +15,8 @@ import {
 import type {
 	DateWithTimezoneString,
 	DateWithTimezone as DateWithTimezoneType,
-} from '../../core/schema';
-import { DateWithTimezone, generateId } from '../../core/schema';
+} from '../../../core/schema';
+import { DateWithTimezone, generateId } from '../../../core/schema';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
@@ -350,6 +350,3 @@ export function tags<
 
 	return column as any;
 }
-
-// Re-export Drizzle utilities
-export { sql } from 'drizzle-orm';

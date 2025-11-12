@@ -7,8 +7,8 @@
 		".": "./src/index.ts",
 		"./cli": "./src/cli/index.ts",
 		"./providers": "./src/core/workspace/providers/index.ts",
-		"./indexes/markdown": "./src/indexes/markdown/exports.ts",
-		"./indexes/sqlite": "./src/indexes/sqlite/exports.ts"
+		"./indexes/markdown": "./src/indexes/markdown/index.ts",
+		"./indexes/sqlite": "./src/indexes/sqlite/index.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
@@ -36,7 +36,6 @@
 		"hono": "^4.10.4",
 		"hono-openapi": "^1.1.1",
 		"nanoid": "^5.1.5",
-		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"yargs": "^18.0.0",
 		"yjs": "^13.6.27"

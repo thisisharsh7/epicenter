@@ -26,7 +26,7 @@ import type {
 	TextColumnSchema,
 	WorkspaceSchema,
 	YtextColumnSchema,
-} from '../../core/schema';
+} from '../../../core/schema';
 import { date, tags } from './builders';
 
 /**

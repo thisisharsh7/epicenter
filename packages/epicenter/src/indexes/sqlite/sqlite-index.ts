@@ -18,7 +18,7 @@ import {
 } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { createIndexLogger } from '../error-logger';
-import { convertWorkspaceSchemaToDrizzle } from './schema-converter';
+import { convertWorkspaceSchemaToDrizzle } from './schema/converter';
 
 /**
  * Bidirectional sync coordination state

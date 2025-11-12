@@ -8,5 +8,16 @@
 // Main index implementation
 export { sqliteIndex } from './sqlite-index';
 
-// Utilities for schema conversion
-export { convertWorkspaceSchemaToDrizzle } from './schema-converter';
+// Schema utilities (builders + converter)
+export type { WorkspaceSchemaToDrizzleTables } from './schema';
+export {
+	convertWorkspaceSchemaToDrizzle,
+	convertTableSchemaToDrizzle,
+	id,
+	text,
+	integer,
+	real,
+	boolean,
+	date,
+	tags,
+} from './schema';
