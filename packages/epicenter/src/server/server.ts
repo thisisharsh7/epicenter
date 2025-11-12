@@ -3,7 +3,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
 import { describeRoute, openAPIRouteHandler, validator } from 'hono-openapi';
-import { Err, Ok } from 'wellcrafted/result';
+import { Err, Ok, isResult } from 'wellcrafted/result';
 import {
 	type EpicenterClient,
 	type EpicenterConfig,
@@ -94,10 +94,17 @@ export async function createServer<
 						const input = action.input ? c.req.valid('query') : undefined;
 
 						// Execute action - input already validated by middleware
-						const { data, error } = await action(input);
+						const result = await action(input);
 
-						if (error) return c.json(Err(error), 500);
-						return c.json(Ok(data));
+						// Handle both Result types and raw values
+						if (isResult(result)) {
+							const { data, error } = result;
+							if (error) return c.json(Err(error), 500);
+							return c.json(Ok(data));
+						}
+
+						// Raw value from handler that can't fail
+						return c.json(result);
 					},
 				);
 				break;
@@ -115,10 +122,17 @@ export async function createServer<
 						const input = action.input ? c.req.valid('json') : undefined;
 
 						// Execute action - input already validated by middleware
-						const { data, error } = await action(input);
+						const result = await action(input);
 
-						if (error) return c.json(Err(error), 500);
-						return c.json(Ok(data));
+						// Handle both Result types and raw values
+						if (isResult(result)) {
+							const { data, error } = result;
+							if (error) return c.json(Err(error), 500);
+							return c.json(Ok(data));
+						}
+
+						// Raw value from handler that can't fail
+						return c.json(result);
 					},
 				);
 				break;
