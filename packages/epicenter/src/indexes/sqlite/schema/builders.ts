@@ -311,8 +311,6 @@ export function tags<
 	nullable?: boolean;
 	default?: TOptions[number][] | string[] | (() => TOptions[number][]) | (() => string[]);
 } = {}) {
-	const optionsSet = options ? new Set(options) : null;
-
 	const tagsType = customType<{
 		data: TOptions[number][] | string[];
 		driverData: string;
@@ -325,11 +323,9 @@ export function tags<
 				if (!Array.isArray(parsed)) {
 					return [];
 				}
-				// Filter based on whether options are provided
-				if (optionsSet) {
-					return parsed.filter((item) => optionsSet.has(item)) as TOptions[number][];
-				}
-				return parsed.filter((item) => typeof item === 'string') as string[];
+				// Just ensure strings, validation happens at application layer
+				// Trust that validation happened at write time
+				return parsed.filter((item) => typeof item === 'string');
 			} catch (error) {
 				return [];
 			}
