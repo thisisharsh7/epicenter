@@ -1,7 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
-import { Ok, isResult } from 'wellcrafted/result';
 
 /**
  * A collection of workspace actions indexed by action name.
@@ -28,7 +27,7 @@ export type Action<
 /**
  * Query action: read operation with no side effects
  *
- * Returns Ok<TOutput> when TError is never (handler can't fail)
+ * Returns TOutput directly when TError is never (handler can't fail)
  * Returns Result<TOutput, TError> when handler can fail
  */
 export type Query<
@@ -41,7 +40,7 @@ export type Query<
 	 * Call the query action with validated input
 	 *
 	 * Return type depends on TError:
-	 * - TError = never: Returns Ok<TOutput> (handler can't fail, always succeeds)
+	 * - TError = never: Returns TOutput directly (handler can't fail)
 	 * - TError = SomeError: Returns Result<TOutput, TError> (handler can fail)
 	 */
 	(
@@ -52,11 +51,11 @@ export type Query<
 	TAsync extends true
 		? // Level 2 (async): Can handler fail?
 			[TError] extends [never]
-			? Promise<Ok<TOutput>> // Handler can't fail, returns Ok
+			? Promise<TOutput> // Handler can't fail, returns raw value
 			: Promise<Result<TOutput, TError>> // Handler can fail, returns Result
 		: // Level 2 (sync): Can handler fail?
 			[TError] extends [never]
-			? Ok<TOutput> // Handler can't fail, returns Ok
+			? TOutput // Handler can't fail, returns raw value
 			: Result<TOutput, TError>; // Handler can fail, returns Result
 
 	// Metadata properties
@@ -68,7 +67,7 @@ export type Query<
 /**
  * Mutation action: write operation that modifies state
  *
- * Returns Ok<TOutput> when TError is never (handler can't fail)
+ * Returns TOutput directly when TError is never (handler can't fail)
  * Returns Result<TOutput, TError> when handler can fail
  */
 export type Mutation<
@@ -81,7 +80,7 @@ export type Mutation<
 	 * Call the mutation action with validated input
 	 *
 	 * Return type depends on TError:
-	 * - TError = never: Returns Ok<TOutput> (handler can't fail, always succeeds)
+	 * - TError = never: Returns TOutput directly (handler can't fail)
 	 * - TError = SomeError: Returns Result<TOutput, TError> (handler can fail)
 	 */
 	(
@@ -92,11 +91,11 @@ export type Mutation<
 	TAsync extends true
 		? // Level 2 (async): Can handler fail?
 			[TError] extends [never]
-			? Promise<Ok<TOutput>> // Handler can't fail, returns Ok
+			? Promise<TOutput> // Handler can't fail, returns raw value
 			: Promise<Result<TOutput, TError>> // Handler can fail, returns Result
 		: // Level 2 (sync): Can handler fail?
 			[TError] extends [never]
-			? Ok<TOutput> // Handler can't fail, returns Ok
+			? TOutput // Handler can't fail, returns raw value
 			: Result<TOutput, TError>; // Handler can fail, returns Result
 
 	// Metadata properties
@@ -195,36 +194,19 @@ export function defineQuery<TOutput>(config: {
 /**
  * Implementation for defineQuery
  *
- * Creates a Query action that wraps handlers to ensure consistent Result types.
+ * Creates a Query action that passes through handler results directly.
  *
  * Handlers can return either raw values (T) or Result types (Result<T, E>).
- * Raw values are automatically wrapped in Ok() at runtime.
+ * The return value is passed through as-is with no wrapping.
  *
  * Input validation should be handled by external middleware (e.g., Hono's validator)
  * or manual validation when needed (e.g., in MCP server).
  */
 // biome-ignore lint/suspicious/noExplicitAny: Implementation must be general to support all overload combinations. Type safety is enforced through the overload signatures above.
 export function defineQuery(config: ActionConfig): any {
-	const inputSchema = config.input;
-
-	// Helper: Wraps handler result in Ok() if not already a Result
-	const ensureWrappedResult = (result: unknown) => {
-		// Handle async case
-		if (result instanceof Promise) {
-			return result.then((r) => (isResult(r) ? r : Ok(r)));
-		}
-
-		// Handle sync case
-		return isResult(result) ? result : Ok(result);
-	};
-
-	// Handler that wraps result in Ok() if needed
-	const wrappedHandler = (input: unknown) =>
-		ensureWrappedResult((config.handler as any)(input));
-
-	return Object.assign(wrappedHandler, {
+	return Object.assign((input: unknown) => (config.handler as any)(input), {
 		type: 'query' as const,
-		input: inputSchema,
+		input: config.input,
 		description: config.description,
 	});
 }
@@ -325,36 +307,19 @@ export function defineMutation<TOutput>(config: {
 /**
  * Implementation for defineMutation
  *
- * Creates a Mutation action that wraps handlers to ensure consistent Result types.
+ * Creates a Mutation action that passes through handler results directly.
  *
  * Handlers can return either raw values (T) or Result types (Result<T, E>).
- * Raw values are automatically wrapped in Ok() at runtime.
+ * The return value is passed through as-is with no wrapping.
  *
  * Input validation should be handled by external middleware (e.g., Hono's validator)
  * or manual validation when needed (e.g., in MCP server).
  */
 // biome-ignore lint/suspicious/noExplicitAny: Implementation must be general to support all overload combinations. Type safety is enforced through the overload signatures above.
 export function defineMutation(config: ActionConfig): any {
-	const inputSchema = config.input;
-
-	// Helper: Wraps handler result in Ok() if not already a Result
-	const ensureWrappedResult = (result: unknown) => {
-		// Handle async case
-		if (result instanceof Promise) {
-			return result.then((r) => (isResult(r) ? r : Ok(r)));
-		}
-
-		// Handle sync case
-		return isResult(result) ? result : Ok(result);
-	};
-
-	// Handler that wraps result in Ok() if needed
-	const wrappedHandler = (input: unknown) =>
-		ensureWrappedResult((config.handler as any)(input));
-
-	return Object.assign(wrappedHandler, {
+	return Object.assign((input: unknown) => (config.handler as any)(input), {
 		type: 'mutation' as const,
-		input: inputSchema,
+		input: config.input,
 		description: config.description,
 	});
 }
