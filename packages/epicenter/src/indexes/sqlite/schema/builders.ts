@@ -311,6 +311,8 @@ export function tags<
 	nullable?: boolean;
 	default?: TOptions[number][] | string[] | (() => TOptions[number][]) | (() => string[]);
 } = {}) {
+	const optionsSet = options ? new Set(options) : null;
+
 	const tagsType = customType<{
 		data: TOptions[number][] | string[];
 		driverData: string;
@@ -318,17 +320,36 @@ export function tags<
 		dataType: () => 'text',
 		toDriver: (value: TOptions[number][] | string[]): string => JSON.stringify(value),
 		fromDriver: (value: string): TOptions[number][] | string[] => {
-			try {
-				const parsed = JSON.parse(value);
-				if (!Array.isArray(parsed)) {
-					return [];
-				}
-				// Just ensure strings, validation happens at application layer
-				// Trust that validation happened at write time
-				return parsed.filter((item) => typeof item === 'string');
-			} catch (error) {
-				return [];
+			// Let JSON.parse throw on invalid JSON (like Drizzle's built-in JSON column)
+			const parsed = JSON.parse(value);
+
+			if (!Array.isArray(parsed)) {
+				throw new Error(`Expected array, got ${typeof parsed}`);
 			}
+
+			// Validate all items are strings
+			const nonStringItems = parsed.filter((item) => typeof item !== 'string');
+			if (nonStringItems.length > 0) {
+				throw new Error(
+					`Tags must be strings, found: ${nonStringItems.map((item) => typeof item).join(', ')}`,
+				);
+			}
+
+			const stringValues = parsed as string[];
+
+			// If options are provided, validate that all values are allowed
+			if (optionsSet) {
+				const invalidValues = stringValues.filter(
+					(item) => !optionsSet.has(item),
+				);
+				if (invalidValues.length > 0) {
+					throw new Error(
+						`Invalid tag values: ${invalidValues.join(', ')}. Allowed values: ${options?.join(', ')}`,
+					);
+				}
+			}
+
+			return stringValues;
 		},
 	});
 
