@@ -15,6 +15,7 @@ import {
 	readMarkdownFile,
 	writeMarkdownFile,
 } from '@epicenter/hq/indexes/markdown';
+import { Ok, Err, type Result } from 'wellcrafted/result';
 
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;
 if (!sourcePath) {
@@ -35,63 +36,53 @@ const markdownFiles = await listMarkdownFiles(sourcePath);
 
 console.log(`📄 Found ${markdownFiles.length} markdown files\n`);
 
-const stats = {
-	processed: 0,
-	normalized: 0,
-	errors: [] as Array<{ file: string; error: string }>,
-};
-
 // Process each file
-await Promise.all(
-	markdownFiles.map(async (filePath) => {
-		stats.processed++;
-
-		// Parse the file
-		const parseResult = await readMarkdownFile(filePath);
-		if (parseResult.error) {
-			stats.errors.push({
-				file: filePath,
-				error: String(parseResult.error.message),
-			});
-			return;
-		}
-
-		const { data: frontmatter, body } = parseResult.data;
-
-		// Write back (writeMarkdownFile handles YAML serialization)
-		if (!dryRun) {
-			const writeResult = await writeMarkdownFile({
-				filePath,
-				frontmatter,
-				body,
-			});
-
-			if (writeResult.error) {
-				stats.errors.push({
-					file: filePath,
-					error: String(writeResult.error.message),
-				});
-				return;
+const results = await Promise.all(
+	markdownFiles.map(
+		async (
+			filePath,
+		): Promise<Result<{ file: string }, { file: string; message: string }>> => {
+			// Read the file
+			const { data, error } = await readMarkdownFile(filePath);
+			if (error) {
+				return Err({ file: filePath, message: error.message });
 			}
-		}
 
-		stats.normalized++;
-	}),
+			const { data: frontmatter, body } = data;
+
+			// Write back (writeMarkdownFile handles YAML serialization)
+			if (!dryRun) {
+				const { error: writeError } = await writeMarkdownFile({
+					filePath,
+					frontmatter,
+					body,
+				});
+
+				if (writeError) {
+					return Err({ file: filePath, message: writeError.message });
+				}
+			}
+
+			return Ok({ file: filePath });
+		},
+	),
 );
+
+// Aggregate results
+const successes = results.filter((r) => r.data);
+const errors = results.filter((r) => r.error);
 
 // Report results
 console.log('📊 Normalization Summary:');
-console.log(`  Total files scanned: ${stats.processed}`);
-console.log(`  Files normalized: ${stats.normalized}`);
-console.log(`  Errors: ${stats.errors.length}\n`);
+console.log(`  Total files scanned: ${markdownFiles.length}`);
+console.log(`  Files normalized: ${successes.length}`);
+console.log(`  Errors: ${errors.length}\n`);
 
-if (stats.errors.length > 0) {
+if (errors.length > 0) {
 	console.log('❌ Errors:');
-	for (const { file, error } of stats.errors.slice(0, 10)) {
-		console.log(`  ${file.split('/').pop()}: ${error}`);
-	}
-	if (stats.errors.length > 10) {
-		console.log(`  ... and ${stats.errors.length - 10} more`);
+	for (const result of errors) {
+		const err = result.error!;
+		console.log(`  ${err.file.split('/').pop()}: ${err.message}`);
 	}
 }
 

@@ -34,35 +34,26 @@ const markdownFiles = await listMarkdownFiles(sourcePath);
 
 console.log(`📄 Found ${markdownFiles.length} markdown files\n`);
 
-const stats = {
-	processed: 0,
-	modified: 0,
-	skipped: 0,
-	errors: [] as Array<{ file: string; error: string }>,
-};
+type ProcessResult =
+	| { status: 'modified'; file: string }
+	| { status: 'skipped'; file: string }
+	| { status: 'error'; file: string; error: string };
 
 // Process each file
-await Promise.all(
-	markdownFiles.map(async (filePath) => {
-		stats.processed++;
-
-		// Parse the file
-		const parseResult = await readMarkdownFile(filePath);
-		if (parseResult.error) {
-			stats.errors.push({
-				file: filePath,
-				error: String(parseResult.error.message),
-			});
-			return;
+const results: ProcessResult[] = await Promise.all(
+	markdownFiles.map(async (filePath): Promise<ProcessResult> => {
+		// Read the file
+		const { data, error } = await readMarkdownFile(filePath);
+		if (error) {
+			return { status: 'error', file: filePath, error: error.message };
 		}
 
-		const { data: frontmatter, body } = parseResult.data;
+		const { data: frontmatter, body } = data;
 
 		// Check if timezone exists
 		const timezone = frontmatter.timezone || frontmatter.timeZone;
 		if (!timezone) {
-			stats.skipped++;
-			return;
+			return { status: 'skipped', file: filePath };
 		}
 
 		// Append timezone to date fields
@@ -79,39 +70,37 @@ await Promise.all(
 
 		// Write back (writeMarkdownFile handles YAML serialization)
 		if (!dryRun) {
-			const writeResult = await writeMarkdownFile({
+			const { error: writeError } = await writeMarkdownFile({
 				filePath,
 				frontmatter,
 				body,
 			});
 
-			if (writeResult.error) {
-				stats.errors.push({
-					file: filePath,
-					error: String(writeResult.error.message),
-				});
-				return;
+			if (writeError) {
+				return { status: 'error', file: filePath, error: writeError.message };
 			}
 		}
 
-		stats.modified++;
+		return { status: 'modified', file: filePath };
 	}),
 );
 
+// Aggregate results
+const modified = results.filter((r) => r.status === 'modified');
+const skipped = results.filter((r) => r.status === 'skipped');
+const errors = results.filter((r) => r.status === 'error');
+
 // Report results
 console.log('📊 Timezone Append Summary:');
-console.log(`  Total files scanned: ${stats.processed}`);
-console.log(`  Files modified: ${stats.modified}`);
-console.log(`  Files skipped (no timezone): ${stats.skipped}`);
-console.log(`  Errors: ${stats.errors.length}\n`);
+console.log(`  Total files scanned: ${markdownFiles.length}`);
+console.log(`  Files modified: ${modified.length}`);
+console.log(`  Files skipped (no timezone): ${skipped.length}`);
+console.log(`  Errors: ${errors.length}\n`);
 
-if (stats.errors.length > 0) {
+if (errors.length > 0) {
 	console.log('❌ Errors:');
-	for (const { file, error } of stats.errors.slice(0, 10)) {
+	for (const { file, error } of errors) {
 		console.log(`  ${file.split('/').pop()}: ${error}`);
-	}
-	if (stats.errors.length > 10) {
-		console.log(`  ... and ${stats.errors.length - 10} more`);
 	}
 }
 

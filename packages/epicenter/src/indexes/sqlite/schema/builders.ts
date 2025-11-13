@@ -253,73 +253,62 @@ export function date<
 }
 
 /**
+ * Infers the array type for a tags column based on whether options are provided.
+ *
+ * - When `TOptions` is a string array: returns a narrowed array type like `('a' | 'b')[]`
+ * - When `TOptions` is undefined: returns the generic `string[]` type
+ *
+ * @example
+ * TagsArray<['a', 'b']> // ('a' | 'b')[]
+ * TagsArray<undefined>  // string[]
+ */
+type TagsArray<TOptions extends readonly string[] | undefined> =
+	TOptions extends readonly string[] ? TOptions[number][] : string[];
+
+/**
  * Creates a tags column for storing arrays of strings (stored as JSON text, NOT NULL by default)
  *
  * Two modes:
- * 1. With options (validated): Only values from the options array are allowed
- * 2. Without options (unconstrained): Any string array is allowed
+ * 1. With options: Types are narrowed to the provided options, validated at read time
+ * 2. Without options: Any string array is allowed
+ *
+ * When options are provided, invalid values in the database will cause reads to throw an error.
+ * This ensures data integrity and surfaces corruption immediately.
  *
  * @example
- * // Validated tags (with options)
+ * // With options (validated against allowed values)
  * tags({ options: ['urgent', 'normal', 'low'] })
  * tags({ options: ['admin', 'user', 'guest'], nullable: true })
  * tags({ options: ['tag1', 'tag2'], default: [] })
  * tags({ options: ['a', 'b'], default: ['a'] })
  *
- * // Unconstrained tags (without options)
+ * // Without options (any string array)
  * tags() // Any string array
  * tags({ nullable: true })
  * tags({ default: ['initial', 'tags'] })
  */
 export function tags<
-	const TOptions extends readonly [string, ...string[]],
+	const TOptions extends readonly string[] | undefined = undefined,
 	TNullable extends boolean = false,
-	TDefault extends
-		| TOptions[number][]
-		| (() => TOptions[number][])
-		| undefined = undefined,
+	TDefault extends TagsArray<TOptions> | (() => TagsArray<TOptions>) | undefined = undefined,
 >({
 	options,
 	nullable = false as TNullable,
 	default: defaultValue,
 }: {
-	options: TOptions;
-	nullable?: TNullable;
-	default?: TDefault;
-}): ApplyColumnModifiers<ReturnType<typeof customType<{ data: TOptions[number][]; driverData: string }>>, TNullable, TDefault>;
-export function tags<
-	TNullable extends boolean = false,
-	TDefault extends
-		| string[]
-		| (() => string[])
-		| undefined = undefined,
->({
-	nullable,
-	default: defaultValue,
-}?: {
-	nullable?: TNullable;
-	default?: TDefault;
-}): ApplyColumnModifiers<ReturnType<typeof customType<{ data: string[]; driverData: string }>>, TNullable, TDefault>;
-export function tags<
-	const TOptions extends readonly [string, ...string[]],
->({
-	options,
-	nullable = false,
-	default: defaultValue,
-}: {
 	options?: TOptions;
-	nullable?: boolean;
-	default?: TOptions[number][] | string[] | (() => TOptions[number][]) | (() => string[]);
+	nullable?: TNullable;
+	default?: TDefault;
 } = {}) {
 	const optionsSet = options ? new Set(options) : null;
 
 	const tagsType = customType<{
-		data: TOptions[number][] | string[];
+		data: TagsArray<TOptions>;
 		driverData: string;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: TOptions[number][] | string[]): string => JSON.stringify(value),
-		fromDriver: (value: string): TOptions[number][] | string[] => {
+		toDriver: (value: TagsArray<TOptions>): string => JSON.stringify(value),
+		fromDriver: (value: string): TagsArray<TOptions> => {
 			// Let JSON.parse throw on invalid JSON (like Drizzle's built-in JSON column)
 			const parsed = JSON.parse(value);
 
@@ -349,7 +338,7 @@ export function tags<
 				}
 			}
 
-			return stringValues;
+			return stringValues as TagsArray<TOptions>;
 		},
 	});
 
@@ -361,9 +350,9 @@ export function tags<
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue as any)
+				? column.$defaultFn(defaultValue)
 				: column.default(defaultValue as any);
 	}
 
-	return column as any;
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
