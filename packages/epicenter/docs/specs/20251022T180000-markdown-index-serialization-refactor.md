@@ -89,7 +89,7 @@ export async function writeMarkdownFile(
 ): Promise<Result<void, MarkdownError>> {
 	// No serialization needed - data is already plain JS
 	const yamlContent = stringifyYaml(frontmatter);
-	const markdown = `---\n${yamlContent}---\n${content}`;
+	const markdown = `---\n${yamlContent}\n---\n${content}`;
 	await Bun.write(filePath, markdown);
 }
 ```
