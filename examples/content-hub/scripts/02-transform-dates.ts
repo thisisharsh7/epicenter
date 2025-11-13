@@ -15,6 +15,18 @@ import {
 	writeMarkdownFile,
 } from '@epicenter/hq/indexes/markdown';
 
+/**
+ * Frontmatter field that contains timezone information.
+ * This field will be read to extract the timezone value and then removed.
+ */
+const TIMEZONE_FIELD = 'timezone';
+
+/**
+ * Date fields that should have timezone appended.
+ * Format: date|timezone (e.g., "2024-01-01|America/New_York")
+ */
+const DATE_FIELDS = ['date', 'created_at', 'updated_at'] as const;
+
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;
 if (!sourcePath) {
 	console.error('❌ Error: MARKDOWN_SOURCE_PATH not set in .env file');
@@ -51,22 +63,20 @@ const results: ProcessResult[] = await Promise.all(
 		const { data: frontmatter, body } = data;
 
 		// Check if timezone exists
-		const timezone = frontmatter.timezone || frontmatter.timeZone;
+		const timezone = frontmatter[TIMEZONE_FIELD];
 		if (!timezone) {
 			return { status: 'skipped', file: filePath };
 		}
 
 		// Append timezone to date fields
-		const dateFields = ['date', 'created_at', 'updated_at'] as const;
-		for (const field of dateFields) {
+		for (const field of DATE_FIELDS) {
 			if (frontmatter[field]) {
 				frontmatter[field] = `${frontmatter[field]}|${timezone}`;
 			}
 		}
 
 		// Remove timezone field
-		delete frontmatter.timezone;
-		delete frontmatter.timeZone;
+		delete frontmatter[TIMEZONE_FIELD];
 
 		// Write back (writeMarkdownFile handles YAML serialization)
 		if (!dryRun) {
