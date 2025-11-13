@@ -24,7 +24,7 @@ import {
 	deleteMarkdownFile,
 	readMarkdownFile,
 	writeMarkdownFile,
-} from './operations';
+} from './io';
 
 /**
  * Error types for markdown index diagnostics

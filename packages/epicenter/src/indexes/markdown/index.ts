@@ -20,5 +20,5 @@ export {
 	readMarkdownFile,
 	writeMarkdownFile,
 	deleteMarkdownFile,
-} from './operations';
-export type { MarkdownOperationError } from './operations';
+} from './io';
+export type { MarkdownOperationError } from './io';
