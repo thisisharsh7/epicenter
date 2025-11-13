@@ -99,8 +99,8 @@ This automatically handles installation and updates.
 
 | Architecture      | Download                                                                                                                                        | Requirements     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **Apple Silicon** | [Whispering_7.7.1_aarch64_darwin.dmg](https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_aarch64_darwin.dmg) | M1/M2/M3/M4 Macs |
-| **Intel**         | [Whispering_7.7.1_x64_darwin.dmg](https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_x64_darwin.dmg)         | Intel-based Macs |
+| **Apple Silicon** | [Whispering_7.7.2_aarch64_darwin.dmg](https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_aarch64_darwin.dmg) | M1/M2/M3/M4 Macs |
+| **Intel**         | [Whispering_7.7.2_x64_darwin.dmg](https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_x64_darwin.dmg)         | Intel-based Macs |
 
 > **💡 Tip:** Not sure which Mac you have? Click the Apple menu → About This Mac. Look for "Chip" or "Processor":
 >
@@ -128,8 +128,8 @@ This automatically handles installation and updates.
 
 | Installer Type    | Download                                                                                                                                        | Description                            |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| **MSI Installer** | [Whispering_7.7.1_x64_en-US_windows.msi](https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_x64_en-US_windows.msi) | Recommended Standard Windows installer |
-| **EXE Installer** | [Whispering_7.7.1_x64-setup_windows.exe](https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_x64-setup_windows.exe) | Alternative installer option           |
+| **MSI Installer** | [Whispering_7.7.2_x64_en-US_windows.msi](https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_x64_en-US_windows.msi) | Recommended Standard Windows installer |
+| **EXE Installer** | [Whispering_7.7.2_x64-setup_windows.exe](https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_x64-setup_windows.exe) | Alternative installer option           |
 
 #### Installation
 
@@ -149,32 +149,32 @@ Whispering will appear in your Start Menu when complete.
 
 | Package Format  | Download                                                                                                                                      | Compatible With          |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| **AppImage**    | [Whispering_7.7.1_amd64_linux.AppImage](https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_amd64_linux.AppImage) | All Linux distributions  |
-| **DEB Package** | [Whispering_7.7.1_amd64_linux.deb](https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_amd64_linux.deb)           | Debian, Ubuntu, Pop!\_OS |
-| **RPM Package** | [Whispering-7.7.1-1.x86_64_linux.rpm](https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering-7.7.1-1.x86_64_linux.rpm)     | Fedora, RHEL, openSUSE   |
+| **AppImage**    | [Whispering_7.7.2_amd64_linux.AppImage](https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_amd64_linux.AppImage) | All Linux distributions  |
+| **DEB Package** | [Whispering_7.7.2_amd64_linux.deb](https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_amd64_linux.deb)           | Debian, Ubuntu, Pop!\_OS |
+| **RPM Package** | [Whispering-7.7.2-1.x86_64_linux.rpm](https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering-7.7.2-1.x86_64_linux.rpm)     | Fedora, RHEL, openSUSE   |
 
 #### Quick Install Commands
 
 **AppImage (Universal)**
 
 ```bash
-wget https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_amd64_linux.AppImage
-chmod +x Whispering_7.7.1_amd64_linux.AppImage
-./Whispering_7.7.1_amd64_linux.AppImage
+wget https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_amd64_linux.AppImage
+chmod +x Whispering_7.7.2_amd64_linux.AppImage
+./Whispering_7.7.2_amd64_linux.AppImage
 ```
 
 **Debian/Ubuntu**
 
 ```bash
-wget https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering_7.7.1_amd64_linux.deb
-sudo dpkg -i Whispering_7.7.1_amd64_linux.deb
+wget https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering_7.7.2_amd64_linux.deb
+sudo dpkg -i Whispering_7.7.2_amd64_linux.deb
 ```
 
 **Fedora/RHEL**
 
 ```bash
-wget https://github.com/epicenter-md/epicenter/releases/download/v7.7.1/Whispering-7.7.1-1.x86_64_linux.rpm
-sudo rpm -i Whispering-7.7.1-1.x86_64_linux.rpm
+wget https://github.com/epicenter-md/epicenter/releases/download/v7.7.2/Whispering-7.7.2-1.x86_64_linux.rpm
+sudo rpm -i Whispering-7.7.2-1.x86_64_linux.rpm
 ```
 
 </details>
