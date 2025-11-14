@@ -22,40 +22,6 @@ import type {
 } from './types';
 
 /**
- * Reasons why validation failed
- * @internal - Used internally by the database layer for YJS row validation
- */
-export type ValidationReason =
-	| {
-			type: 'not-an-object';
-			actual: unknown;
-	  }
-	| {
-			type: 'missing-required-field';
-			field: string;
-	  }
-	| {
-			type: 'type-mismatch';
-			field: string;
-			schemaType: ColumnSchema['type'];
-			actual: unknown;
-	  }
-	| {
-			type: 'invalid-option';
-			field: string;
-			actual: string;
-			allowedOptions: readonly string[];
-	  };
-
-/**
- * Discriminated union representing row validation result
- * @internal - Used internally by the database layer for YJS row validation
- */
-export type RowValidationResult<TRow extends Row> =
-	| { status: 'valid'; row: TRow }
-	| { status: 'schema-mismatch'; row: TRow; reason: ValidationReason };
-
-/**
  * Table validators - validation methods for a table schema.
  * Created by `createTableValidators()` from a `TableSchema`.
  * Contains only validation methods, separate from the schema definition.

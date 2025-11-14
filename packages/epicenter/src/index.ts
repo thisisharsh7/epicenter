@@ -52,7 +52,6 @@ export type {
 	TableSchema,
 	TableValidators,
 	WorkspaceValidators,
-	ValidationReason,
 	Row,
 	SerializedRow,
 	PartialSerializedRow,
@@ -72,7 +71,6 @@ export type {
 	WorkspaceSchema,
 	CellValue,
 	SerializedCellValue,
-	RowValidationResult,
 } from './core/schema';
 
 // Action helpers
