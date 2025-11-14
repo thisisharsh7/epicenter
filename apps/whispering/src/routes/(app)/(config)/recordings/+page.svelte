@@ -202,15 +202,15 @@
 		},
 		{
 			id: 'Audio',
-			accessorFn: ({ id, blob }) => ({ id, blob }),
+			accessorFn: ({ id }) => id,
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
 					headerText: 'Audio',
 				}),
 			cell: ({ getValue }) => {
-				const { id, blob } = getValue<Pick<Recording, 'id' | 'blob'>>();
-				return renderComponent(RenderAudioUrl, { id, blob });
+				const id = getValue<string>();
+				return renderComponent(RenderAudioUrl, { id });
 			},
 		},
 		{
