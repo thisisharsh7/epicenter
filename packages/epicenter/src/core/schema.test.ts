@@ -15,8 +15,8 @@ import {
 
 describe('createTableValidators', () => {
 	describe('validateYRow()', () => {
-		test('validates valid YRow', async () => {
-			const schema = await createTableValidators({
+		test('validates valid YRow', () => {
+			const schema = createTableValidators({
 				id: id(),
 				title: text(),
 			});
@@ -35,8 +35,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates Y.Text types correctly', async () => {
-			const schema = await createTableValidators({
+		test('validates Y.Text types correctly', () => {
+			const schema = createTableValidators({
 				id: id(),
 				content: ytext(),
 			});
@@ -57,8 +57,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns schema-mismatch for wrong Y.js types', async () => {
-			const schema = await createTableValidators({
+		test('returns schema-mismatch for wrong Y.js types', () => {
+			const schema = createTableValidators({
 				id: id(),
 				content: ytext(),
 			});
@@ -77,8 +77,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates select options', async () => {
-			const schema = await createTableValidators({
+		test('validates select options', () => {
+			const schema = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
@@ -96,8 +96,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns schema-mismatch for invalid select option', async () => {
-			const schema = await createTableValidators({
+		test('returns schema-mismatch for invalid select option', () => {
+			const schema = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
@@ -115,8 +115,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates multi-select with Y.Array', async () => {
-			const schema = await createTableValidators({
+		test('validates multi-select with Y.Array', () => {
+			const schema = createTableValidators({
 				id: id(),
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
@@ -137,8 +137,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates nullable fields', async () => {
-			const schema = await createTableValidators({
+		test('validates nullable fields', () => {
+			const schema = createTableValidators({
 				id: id(),
 				optional: text({ nullable: true }),
 			});
@@ -156,8 +156,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns schema-mismatch for missing required fields', async () => {
-			const schema = await createTableValidators({
+		test('returns schema-mismatch for missing required fields', () => {
+			const schema = createTableValidators({
 				id: id(),
 				title: text(),
 			});
@@ -176,8 +176,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates integer types', async () => {
-			const schema = await createTableValidators({
+		test('validates integer types', () => {
+			const schema = createTableValidators({
 				id: id(),
 				count: integer(),
 			});
@@ -195,8 +195,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns schema-mismatch for non-integer numbers', async () => {
-			const schema = await createTableValidators({
+		test('returns schema-mismatch for non-integer numbers', () => {
+			const schema = createTableValidators({
 				id: id(),
 				count: integer(),
 			});
@@ -215,8 +215,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates real (float) types', async () => {
-			const schema = await createTableValidators({
+		test('validates real (float) types', () => {
+			const schema = createTableValidators({
 				id: id(),
 				price: real(),
 			});
@@ -234,8 +234,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates boolean types', async () => {
-			const schema = await createTableValidators({
+		test('validates boolean types', () => {
+			const schema = createTableValidators({
 				id: id(),
 				published: boolean(),
 			});
@@ -253,8 +253,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates date types', async () => {
-			const schema = await createTableValidators({
+		test('validates date types', () => {
+			const schema = createTableValidators({
 				id: id(),
 				createdAt: date(),
 			});
@@ -275,8 +275,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('Row proxy has toJSON() method', async () => {
-			const schema = await createTableValidators({
+		test('Row proxy has toJSON() method', () => {
+			const schema = createTableValidators({
 				id: id(),
 				title: text(),
 			});
@@ -295,8 +295,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('Row proxy has $yRow property', async () => {
-			const schema = await createTableValidators({
+		test('Row proxy has $yRow property', () => {
+			const schema = createTableValidators({
 				id: id(),
 				title: text(),
 			});
@@ -316,8 +316,8 @@ describe('createTableValidators', () => {
 	});
 
 	describe('validateSerializedRow()', () => {
-		test('validates valid serialized data', async () => {
-			const schema = await createTableValidators({
+		test('validates valid serialized data', () => {
+			const schema = createTableValidators({
 				id: id(),
 				title: text(),
 			});
@@ -333,8 +333,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('converts ytext string to Y.Text', async () => {
-			const schema = await createTableValidators({
+		test('validates ytext strings in serialized data', () => {
+			const schema = createTableValidators({
 				id: id(),
 				content: ytext(),
 			});
@@ -346,13 +346,13 @@ describe('createTableValidators', () => {
 
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.row.content).toBeInstanceOf(Y.Text);
-				expect(result.row.content.toString()).toBe('Hello World');
+				expect(typeof result.row.content).toBe('string');
+				expect(result.row.content).toBe('Hello World');
 			}
 		});
 
-		test('converts multi-select array to Y.Array', async () => {
-			const schema = await createTableValidators({
+		test('validates multi-select arrays in serialized data', () => {
+			const schema = createTableValidators({
 				id: id(),
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
@@ -364,13 +364,13 @@ describe('createTableValidators', () => {
 
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.row.tags).toBeInstanceOf(Y.Array);
-				expect(result.row.tags.toArray()).toEqual(['typescript', 'javascript']);
+				expect(Array.isArray(result.row.tags)).toBe(true);
+				expect(result.row.tags).toEqual(['typescript', 'javascript']);
 			}
 		});
 
-		test('returns schema-mismatch for wrong types', async () => {
-			const schema = await createTableValidators({
+		test('returns schema-mismatch for wrong types', () => {
+			const schema = createTableValidators({
 				id: id(),
 				count: integer(),
 			});
@@ -387,8 +387,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates select options in serialized data', async () => {
-			const schema = await createTableValidators({
+		test('validates select options in serialized data', () => {
+			const schema = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
@@ -401,8 +401,8 @@ describe('createTableValidators', () => {
 			expect(result.status).toBe('valid');
 		});
 
-		test('returns schema-mismatch for invalid select option in serialized data', async () => {
-			const schema = await createTableValidators({
+		test('returns schema-mismatch for invalid select option in serialized data', () => {
+			const schema = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
@@ -418,8 +418,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates nullable fields in serialized data', async () => {
-			const schema = await createTableValidators({
+		test('validates nullable fields in serialized data', () => {
+			const schema = createTableValidators({
 				id: id(),
 				optional: text({ nullable: true }),
 			});
@@ -432,8 +432,8 @@ describe('createTableValidators', () => {
 			expect(result.status).toBe('valid');
 		});
 
-		test('returns schema-mismatch for missing required fields in serialized data', async () => {
-			const schema = await createTableValidators({
+		test('returns schema-mismatch for missing required fields in serialized data', () => {
+			const schema = createTableValidators({
 				id: id(),
 				title: text(),
 			});
@@ -450,8 +450,8 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates multi-select options in serialized array', async () => {
-			const schema = await createTableValidators({
+		test('validates multi-select options in serialized array', () => {
+			const schema = createTableValidators({
 				id: id(),
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
@@ -469,8 +469,8 @@ describe('createTableValidators', () => {
 	});
 
 	describe('validateUnknown()', () => {
-		test('validates valid record', async () => {
-			const schema = await createTableValidators({
+		test('validates valid record', () => {
+			const schema = createTableValidators({
 				id: id(),
 				title: text(),
 			});
@@ -483,7 +483,7 @@ describe('createTableValidators', () => {
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.row.title).toBe('Hello World');
-				expect(result.row.toJSON()).toEqual({ id: '123', title: 'Hello World' });
+				expect(result.row).toEqual({ id: '123', title: 'Hello World' });
 			}
 		});
 
@@ -495,18 +495,20 @@ describe('createTableValidators', () => {
 
 			const result = schema.validateUnknown({
 				id: '123',
-				count: 'not a number',
+				count: new Y.Text(), // Y.js types are not valid SerializedCellValue
 			});
 
 			expect(result.status).toBe('invalid-structure');
 			if (result.status === 'invalid-structure') {
 				expect(result.reason.type).toBe('invalid-cell-value');
-				expect(result.reason.field).toBe('count');
+				if (result.reason.type === 'invalid-cell-value') {
+					expect(result.reason.field).toBe('count');
+				}
 			}
 		});
 
-		test('validates select options and returns schema-mismatch for invalid options', async () => {
-			const schema = await createTableValidators({
+		test('validates select options and returns schema-mismatch for invalid options', () => {
+			const schema = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
@@ -531,7 +533,7 @@ describe('createTableValidators', () => {
 			// Invalid structure (not an array)
 			const result1 = schema.validateUnknown({
 				id: '123',
-				tags: 'not-an-array',
+				tags: new Y.Text(), // Y.js types are not valid SerializedCellValue
 			});
 
 			expect(result1.status).toBe('invalid-structure');
@@ -546,20 +548,6 @@ describe('createTableValidators', () => {
 			if (result2.status === 'schema-mismatch') {
 				expect(result2.reason.type).toBe('invalid-option');
 			}
-		});
-	});
-
-	describe('schema field access', () => {
-		test('can access schema fields directly', async () => {
-			const schema = await createTableValidators({
-				id: id(),
-				title: text(),
-				count: integer(),
-			});
-
-			expect(schema.id.type).toBe('id');
-			expect(schema.title.type).toBe('text');
-			expect(schema.count.type).toBe('integer');
 		});
 	});
 });

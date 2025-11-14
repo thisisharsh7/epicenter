@@ -19,6 +19,7 @@ import type {
 	DateWithTimezoneString,
 	IdColumnSchema,
 	IntegerColumnSchema,
+	JsonColumnSchema,
 	TagsColumnSchema,
 	RealColumnSchema,
 	SelectColumnSchema,
@@ -27,7 +28,8 @@ import type {
 	WorkspaceSchema,
 	YtextColumnSchema,
 } from '../../../core/schema';
-import { date, tags } from './builders';
+import { date, json, tags } from './builders';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations
@@ -168,7 +170,30 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 													enumValues: undefined;
 												}>
 											>
-									: never;
+									: C extends JsonColumnSchema<
+												infer TSchema,
+												infer TNullable
+											>
+										? TNullable extends true
+											? SQLiteCustomColumnBuilder<{
+													name: '';
+													dataType: 'custom';
+													columnType: 'SQLiteCustomColumn';
+													data: TSchema['infer'];
+													driverParam: string;
+													enumValues: undefined;
+												}>
+											: NotNull<
+													SQLiteCustomColumnBuilder<{
+														name: '';
+														dataType: 'custom';
+														columnType: 'SQLiteCustomColumn';
+														data: TSchema['infer'];
+														driverParam: string;
+														enumValues: undefined;
+													}>
+												>
+										: never;
 
 /**
  * Convert a ColumnSchema to a Drizzle column builder
@@ -260,6 +285,19 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
+			}
+			return column as ColumnToDrizzle<C>;
+		}
+
+		case 'json': {
+			// JSON column stored as TEXT with validation
+			let column = json({ schema: schema.schema });
+			if (!schema.nullable) column = column.notNull();
+			if (schema.default !== undefined) {
+				column =
+					typeof schema.default === 'function'
+						? column.$defaultFn(schema.default)
+						: column.default(schema.default);
 			}
 			return column as ColumnToDrizzle<C>;
 		}

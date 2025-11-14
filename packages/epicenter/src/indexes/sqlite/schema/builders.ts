@@ -17,6 +17,7 @@ import type {
 	DateWithTimezone as DateWithTimezoneType,
 } from '../../../core/schema';
 import { DateWithTimezone, generateId } from '../../../core/schema';
+import { type, type ArkErrors, type Type } from 'arktype';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
@@ -343,6 +344,73 @@ export function tags<
 	});
 
 	let column = tagsType();
+
+	// NOT NULL by default
+	if (!nullable) column = column.notNull();
+
+	if (defaultValue !== undefined) {
+		column =
+			typeof defaultValue === 'function'
+				? column.$defaultFn(defaultValue)
+				: column.default(defaultValue as any);
+	}
+
+	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
+}
+
+/**
+ * Creates a JSON column for storing arbitrary JSON-serializable values validated against a Type schema
+ * (stored as JSON text, NOT NULL by default)
+ *
+ * Values are validated on read using the provided Type schema. Invalid values in the database
+ * will cause reads to throw an error, ensuring data integrity and surfacing corruption immediately.
+ *
+ * @example
+ * // With validation schema
+ * json({ schema: type({ name: 'string', age: 'number' }) })
+ * json({ schema: userSchema, nullable: true })
+ * json({ schema: configSchema, default: { theme: 'dark' } })
+ */
+export function json<
+	const TSchema extends Type,
+	TNullable extends boolean = false,
+	TDefault extends
+		| TSchema['infer']
+		| (() => TSchema['infer'])
+		| undefined = undefined,
+>({
+	schema,
+	nullable = false as TNullable,
+	default: defaultValue,
+}: {
+	schema: TSchema;
+	nullable?: TNullable;
+	default?: TDefault;
+}) {
+	const jsonType = customType<{
+		data: TSchema['infer'];
+		driverData: string;
+	}>({
+		dataType: () => 'text',
+		toDriver: (value: TSchema['infer']): string =>
+			JSON.stringify(value),
+		fromDriver: (value: string): TSchema['infer'] => {
+			// Let JSON.parse throw on invalid JSON
+			const parsed = JSON.parse(value);
+
+			// Validate with Arktype
+			const result = schema(parsed) as TSchema['infer'] | ArkErrors;
+			if (result instanceof type.errors) {
+				throw new Error(
+					`JSON validation failed: ${result.summary}`,
+				);
+			}
+
+			return result;
+		},
+	});
+
+	let column = jsonType();
 
 	// NOT NULL by default
 	if (!nullable) column = column.notNull();

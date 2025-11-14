@@ -18,7 +18,7 @@ import * as Y from 'yjs';
  */
 
 describe('YjsDoc Type Inference', () => {
-	test('should infer row types from schema', async () => {
+	test('should infer row types from schema', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			posts: {
 				id: id(),
@@ -58,7 +58,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should infer types for getAll()', async () => {
+	test('should infer types for getAll()', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			products: {
 				id: id(),
@@ -83,7 +83,7 @@ describe('YjsDoc Type Inference', () => {
 		expect(products).toHaveLength(2);
 	});
 
-	test('should infer predicate parameter types in filter()', async () => {
+	test('should infer predicate parameter types in filter()', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			tasks: {
 				id: id(),
@@ -109,7 +109,7 @@ describe('YjsDoc Type Inference', () => {
 		expect(incompleteTasks[0]?.title).toBe('Task 1');
 	});
 
-	test('should infer predicate parameter types in find()', async () => {
+	test('should infer predicate parameter types in find()', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			items: {
 				id: id(),
@@ -135,7 +135,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should infer observer handler parameter types', async () => {
+	test('should infer observer handler parameter types', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			notifications: {
 				id: id(),
@@ -176,7 +176,7 @@ describe('YjsDoc Type Inference', () => {
 		unsubscribe();
 	});
 
-		test('should handle nullable YJS types correctly', async () => {
+		test('should handle nullable YJS types correctly', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			articles: {
 				id: id(),
@@ -216,7 +216,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should handle multi-table schemas with proper type inference', async () => {
+	test('should handle multi-table schemas with proper type inference', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			authors: {
 				id: id(),
@@ -266,7 +266,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should properly type insertMany with array of rows', async () => {
+	test('should properly type insertMany with array of rows', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			comments: {
 				id: id(),
@@ -288,7 +288,7 @@ describe('YjsDoc Type Inference', () => {
 		expect(comments).toHaveLength(2);
 	});
 
-	test('should handle YJS types in complex scenarios', async () => {
+	test('should handle YJS types in complex scenarios', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			documents: {
 				id: id(),

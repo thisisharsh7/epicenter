@@ -35,7 +35,7 @@
  * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
  */
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { type Type, type } from 'arktype';
+import { type ArkErrors, type Type, type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
@@ -299,15 +299,15 @@ export type TagsColumnSchema<
  * ```
  */
 export type JsonColumnSchema<
-	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TSchema extends Type = Type,
 	TNullable extends boolean = boolean,
 > = {
 	type: 'json';
 	nullable: TNullable;
 	schema: TSchema;
 	default?:
-		| StandardSchemaV1.InferOutput<TSchema>
-		| (() => StandardSchemaV1.InferOutput<TSchema>);
+		| TSchema['infer']
+		| (() => TSchema['infer']);
 };
 
 /**
@@ -392,47 +392,122 @@ export type SerializedRowValidationResult<
  * ```
  */
 export type TableValidators<TSchema extends TableSchema = TableSchema> = {
-	/** Validates unknown data (checks if object), then delegates to validateRecord */
+	/**
+	 * Validates unknown data (checks if object), then delegates to validateRecord
+	 *
+	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
+	 * schemas for external tooling, this method performs rigorous runtime validation
+	 * including complex cases like JSON columns via StandardSchemaV1.
+	 */
 	validateUnknown(data: unknown): SerializedRowValidationResult<TSchema>;
 
-	/** Validates a record (checks if values are SerializedCellValue), then delegates to validateSerializedRow */
+	/**
+	 * Validates a record (checks if values are SerializedCellValue), then delegates to validateSerializedRow
+	 *
+	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
+	 * schemas for external tooling, this method performs rigorous runtime validation
+	 * including complex cases like JSON columns via StandardSchemaV1.
+	 */
 	validateRecord(
 		data: Record<string, unknown>,
 	): SerializedRowValidationResult<TSchema>;
 
-	/** Validates a SerializedRow (checks schema only), returns validated SerializedRow<TSchema> */
+	/**
+	 * Validates a SerializedRow (checks schema only), returns validated SerializedRow<TSchema>
+	 *
+	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
+	 * schemas for external tooling, this method performs rigorous runtime validation
+	 * including complex cases like JSON columns via StandardSchemaV1.
+	 */
 	validateSerializedRow(
 		data: SerializedRow,
 	): ValidatedSerializedRowResult<TSchema>;
 
-	/** Validates a YRow (checks schema only), returns typed Row proxy */
+	/**
+	 * Validates a YRow (checks schema only), returns typed Row proxy
+	 *
+	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
+	 * schemas for external tooling, this method performs rigorous runtime validation
+	 * including complex cases like JSON columns via StandardSchemaV1.
+	 */
 	validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>>;
 
-	/** Generates a Standard Schema validator for full SerializedRow */
+	/**
+	 * Generates a StandardSchemaV1 for full SerializedRow
+	 *
+	 * **Primary use case**: Action input schemas
+	 * - Used as `input` parameter for mutations (insert, upsert)
+	 * - Provides runtime validation via `action.input['~standard'].validate(args)`
+	 * - Later converted to JSON Schema by MCP server/OpenAPI generator
+	 *
+	 * **Example**:
+	 * ```typescript
+	 * insert: defineMutation({
+	 *   input: validators.toStandardSchema(),  // ← Action input
+	 *   handler: (serializedRow) => { ... }
+	 * })
+	 * ```
+	 *
+	 * **Schema generation flow**:
+	 * 1. This method returns StandardSchemaV1
+	 * 2. Action uses it as `input` for validation
+	 * 3. MCP server converts it to JSON Schema via `toJsonSchema(action.input)`
+	 */
 	toStandardSchema(): StandardSchemaV1<SerializedRow<TSchema>>;
 
-	/** Generates a Standard Schema validator for partial SerializedRow (all fields except id are optional) */
+	/**
+	 * Generates a StandardSchemaV1 for partial SerializedRow (all fields except id are optional)
+	 *
+	 * **Primary use case**: Update action input schemas
+	 * - Used for update operations where only some fields are provided
+	 * - Example: `update: defineMutation({ input: validators.toPartialStandardSchema() })`
+	 */
 	toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
 
-	/** Generates a Standard Schema validator for an array of SerializedRows */
+	/**
+	 * Generates a StandardSchemaV1 for an array of SerializedRows
+	 *
+	 * **Primary use case**: Batch insert/upsert action input schemas
+	 * - Used for operations that accept multiple rows at once
+	 * - Example: `insertMany: defineMutation({ input: validators.toStandardSchemaArray() })`
+	 */
 	toStandardSchemaArray(): StandardSchemaV1<SerializedRow<TSchema>[]>;
 
-	/** Generates a Standard Schema validator for an array of partial SerializedRows */
+	/**
+	 * Generates a StandardSchemaV1 for an array of partial SerializedRows
+	 *
+	 * **Primary use case**: Batch update action input schemas
+	 * - Used for bulk update operations with partial data
+	 * - Example: `updateMany: defineMutation({ input: validators.toPartialStandardSchemaArray() })`
+	 */
 	toPartialStandardSchemaArray(): StandardSchemaV1<
 		PartialSerializedRow<TSchema>[]
 	>;
 
-	/** Generates an Arktype validator for full SerializedRow */
+	/**
+	 * Generates an Arktype schema for full SerializedRow
+	 *
+	 * **Primary use case**: Runtime validation with arktype's composition API
+	 * - Use with `.omit()`, `.partial()`, `.pick()` for validating subsets of data
+	 * - Common pattern: Validating frontmatter without auto-managed fields
+	 * - NOT primarily for JSON Schema generation (use StandardSchemaV1 methods for that)
+	 *
+	 * **Example**:
+	 * ```typescript
+	 * // Validate frontmatter excluding id and content
+	 * const FrontMatter = table.validators.toArktype().omit('id', 'content');
+	 * const result = FrontMatter(frontmatter);
+	 * if (result instanceof type.errors) {
+	 *   // Handle validation errors
+	 * }
+	 * ```
+	 *
+	 * **Real-world usage**:
+	 * - Markdown index deserialization (excluding id/content from frontmatter)
+	 * - Migration scripts (partial validation with `.omit().partial()`)
+	 * - Any scenario requiring validation of schema subsets
+	 */
 	toArktype(): Type<SerializedRow<TSchema>>;
-
-	/** Generates an Arktype validator for partial SerializedRow (all fields except id are optional) */
-	toPartialArktype(): Type<PartialSerializedRow<TSchema>>;
-
-	/** Generates an Arktype validator for an array of SerializedRows */
-	toArktypeArray(): Type<SerializedRow<TSchema>[]>;
-
-	/** Generates an Arktype validator for an array of partial SerializedRows */
-	toPartialArktypeArray(): Type<PartialSerializedRow<TSchema>[]>;
 };
 
 /**
@@ -501,8 +576,8 @@ export type CellValue<C extends ColumnSchema = ColumnSchema> =
 											: Y.Array<TOptions[number]>
 										: C extends JsonColumnSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
-												? StandardSchemaV1.InferOutput<TSchema> | null
-												: StandardSchemaV1.InferOutput<TSchema>
+												? TSchema['infer'] | null
+												: TSchema['infer']
 											: never;
 
 /**
@@ -1127,9 +1202,9 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 }
 
 /**
- * Creates a JSON column schema with StandardSchemaV1 validation.
+ * Creates a JSON column schema with Arktype validation.
  *
- * JSON columns store arbitrary JSON-serializable values validated against a StandardSchemaV1 schema.
+ * JSON columns store arbitrary JSON-serializable values validated against an Arktype schema.
  * Unlike other column types, the `schema` property is always required.
  *
  * @example
@@ -1150,21 +1225,21 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
  * });
  * ```
  */
-export function json<const TSchema extends StandardSchemaV1>(opts: {
+export function json<const TSchema extends Type>(opts: {
 	schema: TSchema;
 	nullable: true;
 	default?:
-		| StandardSchemaV1.InferOutput<TSchema>
-		| (() => StandardSchemaV1.InferOutput<TSchema>);
+		| TSchema['infer']
+		| (() => TSchema['infer']);
 }): JsonColumnSchema<TSchema, true>;
-export function json<const TSchema extends StandardSchemaV1>(opts: {
+export function json<const TSchema extends Type>(opts: {
 	schema: TSchema;
 	nullable?: false;
 	default?:
-		| StandardSchemaV1.InferOutput<TSchema>
-		| (() => StandardSchemaV1.InferOutput<TSchema>);
+		| TSchema['infer']
+		| (() => TSchema['infer']);
 }): JsonColumnSchema<TSchema, false>;
-export function json<const TSchema extends StandardSchemaV1>({
+export function json<const TSchema extends Type>({
 	schema,
 	nullable = false,
 	default: defaultValue,
@@ -1172,22 +1247,92 @@ export function json<const TSchema extends StandardSchemaV1>({
 	schema: TSchema;
 	nullable?: boolean;
 	default?:
-		| StandardSchemaV1.InferOutput<TSchema>
-		| (() => StandardSchemaV1.InferOutput<TSchema>);
+		| TSchema['infer']
+		| (() => TSchema['infer']);
 }): JsonColumnSchema<TSchema, boolean> {
 	return {
 		type: 'json',
 		nullable,
 		schema,
-		default: defaultValue as
-			| StandardSchemaV1.InferOutput<TSchema>
-			| (() => StandardSchemaV1.InferOutput<TSchema>),
+		default: defaultValue,
 	};
 }
 
 /**
+ * Maps a ColumnSchema to its corresponding arktype Type
+ * Similar to ColumnToDrizzle in converter.ts, but for arktype
+ */
+type ColumnSchemaToArktypeType<C extends ColumnSchema> = C extends IdColumnSchema
+	? Type<string>
+	: C extends TextColumnSchema<infer TNullable>
+		? TNullable extends true
+			? Type<string | null>
+			: Type<string>
+		: C extends YtextColumnSchema<infer TNullable>
+			? TNullable extends true
+				? Type<string | null>
+				: Type<string>
+			: C extends IntegerColumnSchema<infer TNullable>
+				? TNullable extends true
+					? Type<number | null>
+					: Type<number>
+				: C extends RealColumnSchema<infer TNullable>
+					? TNullable extends true
+						? Type<number | null>
+						: Type<number>
+					: C extends BooleanColumnSchema<infer TNullable>
+						? TNullable extends true
+							? Type<boolean | null>
+							: Type<boolean>
+						: C extends DateColumnSchema<infer TNullable>
+							? TNullable extends true
+								? Type<DateWithTimezoneString | null>
+								: Type<DateWithTimezoneString>
+							: C extends SelectColumnSchema<infer TOptions, infer TNullable>
+								? TNullable extends true
+									? Type<TOptions[number] | null>
+									: Type<TOptions[number]>
+								: C extends TagsColumnSchema<infer TOptions, infer TNullable>
+									? TNullable extends true
+										? Type<TOptions[number][] | null>
+										: Type<TOptions[number][]>
+									: C extends JsonColumnSchema<infer TSchema, infer TNullable>
+										? TNullable extends true
+											? Type<TSchema['infer'] | null>
+											: Type<TSchema['infer']>
+										: never;
+
+/**
  * Creates table validators from a schema definition.
- * Returns only validation methods, separate from the schema itself.
+ * Returns validation methods and schema generation utilities.
+ *
+ * **Architecture Overview**: This function provides three distinct capabilities:
+ *
+ * **1. Rigorous Runtime Validation** (via `validateXyz()` methods):
+ * - Performs thorough validation of data at runtime
+ * - Uses full StandardSchemaV1 capabilities (not limited by JSON Schema)
+ * - JSON columns validated properly via their StandardSchemaV1 schemas
+ * - Date columns validated with custom predicates
+ * - Returns type-safe Row objects when validation succeeds
+ *
+ * **2. Action Input Schemas** (via `toStandardSchema()` and variants):
+ * - Generates StandardSchemaV1 for action `input` parameters
+ * - Used by mutations (insert, update, upsert, etc.) for input validation
+ * - Provides runtime validation via `action.input['~standard'].validate(args)`
+ * - Later converted to JSON Schema by MCP server/OpenAPI generator
+ * - Must use JSON Schema-compatible features (no custom predicates like `.filter()`)
+ *
+ * **3. Composable Validation** (via `toArktype()` and variants):
+ * - Returns arktype schemas that can be composed using `.omit()`, `.partial()`, `.pick()`
+ * - Used for validating subsets of data (e.g., frontmatter without id/content)
+ * - Common in markdown deserialization and migration scripts
+ * - NOT primarily for JSON Schema generation
+ *
+ * **Key constraint**: StandardSchemaV1 methods must maintain JSON Schema compatibility
+ * because MCP servers and OpenAPI generators convert them to JSON Schema. This means:
+ * - JSON columns return `type.unknown` (actual validation happens in validateXyz methods)
+ * - Date columns use `.matching(regex)` instead of `.filter()` predicates
+ * - No custom predicates that can't be represented in JSON Schema
  *
  * @example
  * ```typescript
@@ -1195,48 +1340,57 @@ export function json<const TSchema extends StandardSchemaV1>({
  *   id: id(),
  *   title: text(),
  *   content: ytext(),
+ *   metadata: json(myStandardSchema), // Validates properly at runtime, type.unknown in schemas
  * });
  *
- * // Validate from YRow
+ * // 1. Rigorous runtime validation
  * const result = validators.validateYRow(yrow);
  * if (result.status === 'valid') {
  *   console.log(result.row.title); // type-safe
  * }
  *
- * // Validate from typed SerializedRow
- * const serialized: SerializedRow = { id: '123', title: 'Hello', content: 'World' };
- * const result2 = validators.validateSerializedRow(serialized);
+ * // 2. Action input schema
+ * const insertMutation = defineMutation({
+ *   input: validators.toStandardSchema(),  // For action input validation
+ *   handler: (row) => { ... }
+ * });
  *
- * // Validate from unknown record
- * const result3 = validators.validateRecord({ id: '123', title: 'Hello', content: 'World' });
+ * // 3. Composable validation
+ * const FrontMatter = validators.toArktype().omit('id', 'content');
+ * const result = FrontMatter(frontmatter);
  * ```
  */
 export function createTableValidators<TSchema extends TableSchema>(
 	schema: TSchema,
 ): TableValidators<TSchema> {
 	/**
-	 * Helper: Builds field definitions for schema generation (not validation)
+	 * Helper: Builds field definitions for StandardSchemaV1/arktype generation
 	 *
-	 * **Purpose**: Generate arktype schemas that can be converted to JSON Schema for:
-	 * - MCP server schema generation
-	 * - Hono OpenAPI specification
-	 * - Any external tooling that requires JSON Schema compatibility
+	 * **Purpose**: Generate arktype schemas used for:
+	 * 1. Action input schemas (`.toStandardSchema()`) - for mutation input validation
+	 * 2. Composable schemas (`.toArktype()`) - for validation with `.omit()`, `.partial()`
 	 *
-	 * **Important limitation**: This uses a restricted subset of arktype features.
-	 * We cannot use `.filter()` or other custom predicates because they break
-	 * JSON Schema compatibility. For example:
+	 * **Both use cases share schemas that will be converted to JSON Schema**:
+	 * - Action inputs are converted by MCP server/OpenAPI generator
+	 * - Arktype schemas can also be converted to JSON Schema if needed
+	 *
+	 * **Important limitation**: Must use JSON Schema-compatible arktype features only.
+	 * Cannot use `.filter()` or custom predicates because they break JSON Schema conversion:
 	 * - ✅ `type.string.matching(/regex/)` - Converts to JSON Schema pattern
 	 * - ❌ `type.string.filter(fn)` - Cannot convert to JSON Schema
 	 *
-	 * **Actual validation happens elsewhere**: The validation methods
-	 * (validateYRow, validateSerializedRow) perform the real validation using
-	 * StandardSchemaV1 directly, which supports more complex validation logic
-	 * that doesn't need JSON Schema compatibility.
+	 * **Rigorous validation happens separately**: The `validateXyz()` methods
+	 * perform thorough validation using StandardSchemaV1 directly, supporting
+	 * complex validation logic that doesn't need JSON Schema compatibility.
 	 *
-	 * @param makeOptional - If true, all fields except 'id' become optional (for partial updates)
+	 * **Return type**: Uses mapped type `ColumnSchemaToArktypeType` to preserve exact
+	 * key structure from TSchema, enabling TypeScript to properly infer ObjectType
+	 * with .partial(), .merge() methods available.
 	 */
-	const _buildSchemaFields = ({ makeOptional }: { makeOptional: boolean }) =>
-		Object.fromEntries(
+	const _buildSchemaFields = (): {
+		[K in keyof TSchema]: ColumnSchemaToArktypeType<TSchema[K]>;
+	} => {
+		return Object.fromEntries(
 			Object.entries(schema).map(([fieldName, columnSchema]) => {
 				const baseType = _getBaseArktypeForColumn(columnSchema);
 
@@ -1248,16 +1402,35 @@ export function createTableValidators<TSchema extends TableSchema>(
 					? baseType.or(type.null)
 					: baseType;
 
-				// For partial schemas, make all fields except 'id' optional
-				const finalType = makeOptional ? nullableType.optional() : nullableType;
-
-				return [fieldName, finalType];
+				return [fieldName, nullableType];
 			}),
-		) as Record<string, Type>;
+		) as { [K in keyof TSchema]: ColumnSchemaToArktypeType<TSchema[K]> };
+	};
 
 	/**
 	 * Helper: Generates base arktype for a column schema
-	 * For JSON columns, returns type.unknown (actual validation happens via StandardSchemaV1)
+	 *
+	 * **Used by both action inputs and composable schemas**:
+	 * - Action inputs: StandardSchemaV1 schemas for mutation `input` parameters
+	 * - Composable schemas: Arktype schemas for `.omit()`, `.partial()` composition
+	 *
+	 * **Both use cases require JSON Schema compatibility** because:
+	 * - Action inputs are converted to JSON Schema by MCP server/OpenAPI generator
+	 * - Arktype schemas may also be converted to JSON Schema as needed
+	 *
+	 * **JSON Schema compatibility constraints**:
+	 * - Can only use arktype features that convert to JSON Schema
+	 * - Cannot use `.filter()` or custom predicates (they don't convert)
+	 * - Must use `.matching(regex)` for pattern validation
+	 *
+	 * **Special cases maintaining JSON Schema compatibility**:
+	 * - **Date fields**: Use `matching(regex)` for format validation, not `.filter()`
+	 * - **JSON fields**: Return `type.unknown` (rigorous validation happens in `validateXyz()` methods)
+	 *
+	 * **Rigorous validation happens separately**: The `validateXyz()` methods
+	 * perform thorough validation using StandardSchemaV1 directly, without
+	 * JSON Schema constraints. This allows proper validation of JSON columns,
+	 * date formats, and other complex cases.
 	 */
 	function _getBaseArktypeForColumn(columnSchema: ColumnSchema) {
 		switch (columnSchema.type) {
@@ -1284,13 +1457,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 					? type.enumerated(...columnSchema.options).array()
 					: type.string.array();
 			case 'json':
-				// Return type.unknown for JSON columns to maintain JSON schema compatibility
-				// Actual validation happens via StandardSchemaV1 in validateYRow/validateSerializedRow
-				return type.unknown;
-			// .filter((value) => {
-			// 	const result = columnSchema.schema['~standard'].validate(value);
-			// 	return result instanceof Promise ? false : !result.issues;
-			// }) - Can't use because custom predicates break JSON schema compatibility
+			// Return the schema directly since it's already an Arktype
+			return columnSchema.schema;
 		}
 	}
 
@@ -1483,14 +1651,9 @@ export function createTableValidators<TSchema extends TableSchema>(
 						break;
 
 					case 'json': {
-						// Validate using StandardSchemaV1
-						const result = columnSchema.schema['~standard'].validate(value);
-						if (result instanceof Promise) {
-							throw new Error(
-								`Async validation not supported in validateYRow for field ${fieldName}`,
-							);
-						}
-						if (result.issues) {
+						// Validate using Arktype
+						const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
+						if (result instanceof type.errors) {
 							return {
 								status: 'schema-mismatch',
 								row,
@@ -1699,14 +1862,9 @@ export function createTableValidators<TSchema extends TableSchema>(
 						break;
 
 					case 'json': {
-						// Validate using StandardSchemaV1
-						const result = columnSchema.schema['~standard'].validate(value);
-						if (result instanceof Promise) {
-							throw new Error(
-								`Async validation not supported in validateSerializedRow for field ${fieldName}`,
-							);
-						}
-						if (result.issues) {
+						// Validate using Arktype
+						const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
+						if (result instanceof type.errors) {
 							return {
 								status: 'schema-mismatch',
 								row: data,
@@ -1766,46 +1924,35 @@ export function createTableValidators<TSchema extends TableSchema>(
 			return this.validateSerializedRow(data as SerializedRow<TSchema>);
 		},
 
+		toArktype() {
+			const fields = _buildSchemaFields();
+			return type(fields);
+		},
+
 		toStandardSchema() {
-			const fields = _buildSchemaFields({ makeOptional: false });
-			return type(fields) as StandardSchemaV1<SerializedRow<TSchema>>;
+			return this.toArktype() as StandardSchemaV1<SerializedRow<TSchema>>;
 		},
 
 		toPartialStandardSchema() {
-			const fields = _buildSchemaFields({ makeOptional: true });
-			return type(fields) as StandardSchemaV1<PartialSerializedRow<TSchema>>;
-		},
-
-		toStandardSchemaArray() {
-			const fields = _buildSchemaFields({ makeOptional: false });
-			return type(fields).array() as StandardSchemaV1<SerializedRow<TSchema>[]>;
-		},
-
-		toPartialStandardSchemaArray() {
-			const fields = _buildSchemaFields({ makeOptional: true });
-			return type(fields).array() as StandardSchemaV1<
-				PartialSerializedRow<TSchema>[]
+			// Make all keys optional, then override 'id' to remain required
+			return this.toArktype()
+				.partial()
+				.merge({ id: "string" }) as StandardSchemaV1<
+				PartialSerializedRow<TSchema>
 			>;
 		},
 
-		toArktype() {
-			const fields = _buildSchemaFields({ makeOptional: false });
-			return type(fields) as unknown as Type<SerializedRow<TSchema>>;
+		toStandardSchemaArray() {
+			return this.toArktype().array() as StandardSchemaV1<
+				SerializedRow<TSchema>[]
+			>;
 		},
 
-		toPartialArktype() {
-			const fields = _buildSchemaFields({ makeOptional: true });
-			return type(fields) as unknown as Type<PartialSerializedRow<TSchema>>;
-		},
-
-		toArktypeArray() {
-			const fields = _buildSchemaFields({ makeOptional: false });
-			return type(fields).array() as Type<SerializedRow<TSchema>[]>;
-		},
-
-		toPartialArktypeArray() {
-			const fields = _buildSchemaFields({ makeOptional: true });
-			return type(fields).array() as Type<PartialSerializedRow<TSchema>[]>;
+		toPartialStandardSchemaArray() {
+			return this.toArktype()
+				.partial()
+				.merge({ id: type.string })
+				.array() as StandardSchemaV1<PartialSerializedRow<TSchema>[]>;
 		},
 	};
 }
