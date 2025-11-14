@@ -11,5 +11,5 @@ export { id, text, integer, real, boolean, date, tags } from './builders';
 export {
 	convertWorkspaceSchemaToDrizzle,
 	convertTableSchemaToDrizzle,
-} from './converter';
-export type { WorkspaceSchemaToDrizzleTables } from './converter';
+} from '../../../core/schema/converters/drizzle';
+export type { WorkspaceSchemaToDrizzleTables } from '../../../core/schema/converters/drizzle';

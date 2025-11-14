@@ -35,17 +35,19 @@
  * 'schema-mismatch' gives you Row (generic default <TableSchema>). Both are Rows, so both have .toJSON().
  */
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { type ArkErrors, type Type, type } from 'arktype';
+import { type, type ArkErrors, type Type } from 'arktype';
 import { customAlphabet } from 'nanoid';
 import type { Brand } from 'wellcrafted/brand';
 import * as Y from 'yjs';
+import { isPlainObject } from '../indexes/markdown/io';
 import type { YRow } from './db/table-helper';
 import {
-	DATE_WITH_TIMEZONE_STRING_REGEX,
-	ISO_DATETIME_REGEX,
-	TIMEZONE_ID_REGEX,
+	tableSchemaToArktypeType
+} from './schema/converters/arktype';
+import {
+	DATE_WITH_TIMEZONE_STRING_REGEX
 } from './schema/regex';
-import { isPlainObject } from '../indexes/markdown/io';
+import type { ObjectType } from 'arktype/internal/variants/object.ts';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -507,7 +509,7 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * - Migration scripts (partial validation with `.omit().partial()`)
 	 * - Any scenario requiring validation of schema subsets
 	 */
-	toArktype(): Type<SerializedRow<TSchema>>;
+	toArktype(): ObjectType<SerializedRow<TSchema>>;
 };
 
 /**
@@ -1259,50 +1261,6 @@ export function json<const TSchema extends Type>({
 }
 
 /**
- * Maps a ColumnSchema to its corresponding arktype Type
- * Similar to ColumnToDrizzle in converter.ts, but for arktype
- */
-type ColumnSchemaToArktypeType<C extends ColumnSchema> = C extends IdColumnSchema
-	? Type<string>
-	: C extends TextColumnSchema<infer TNullable>
-		? TNullable extends true
-			? Type<string | null>
-			: Type<string>
-		: C extends YtextColumnSchema<infer TNullable>
-			? TNullable extends true
-				? Type<string | null>
-				: Type<string>
-			: C extends IntegerColumnSchema<infer TNullable>
-				? TNullable extends true
-					? Type<number | null>
-					: Type<number>
-				: C extends RealColumnSchema<infer TNullable>
-					? TNullable extends true
-						? Type<number | null>
-						: Type<number>
-					: C extends BooleanColumnSchema<infer TNullable>
-						? TNullable extends true
-							? Type<boolean | null>
-							: Type<boolean>
-						: C extends DateColumnSchema<infer TNullable>
-							? TNullable extends true
-								? Type<DateWithTimezoneString | null>
-								: Type<DateWithTimezoneString>
-							: C extends SelectColumnSchema<infer TOptions, infer TNullable>
-								? TNullable extends true
-									? Type<TOptions[number] | null>
-									: Type<TOptions[number]>
-								: C extends TagsColumnSchema<infer TOptions, infer TNullable>
-									? TNullable extends true
-										? Type<TOptions[number][] | null>
-										: Type<TOptions[number][]>
-									: C extends JsonColumnSchema<infer TSchema, infer TNullable>
-										? TNullable extends true
-											? Type<TSchema['infer'] | null>
-											: Type<TSchema['infer']>
-										: never;
-
-/**
  * Creates table validators from a schema definition.
  * Returns validation methods and schema generation utilities.
  *
@@ -1363,104 +1321,6 @@ type ColumnSchemaToArktypeType<C extends ColumnSchema> = C extends IdColumnSchem
 export function createTableValidators<TSchema extends TableSchema>(
 	schema: TSchema,
 ): TableValidators<TSchema> {
-	/**
-	 * Helper: Builds field definitions for StandardSchemaV1/arktype generation
-	 *
-	 * **Purpose**: Generate arktype schemas used for:
-	 * 1. Action input schemas (`.toStandardSchema()`) - for mutation input validation
-	 * 2. Composable schemas (`.toArktype()`) - for validation with `.omit()`, `.partial()`
-	 *
-	 * **Both use cases share schemas that will be converted to JSON Schema**:
-	 * - Action inputs are converted by MCP server/OpenAPI generator
-	 * - Arktype schemas can also be converted to JSON Schema if needed
-	 *
-	 * **Important limitation**: Must use JSON Schema-compatible arktype features only.
-	 * Cannot use `.filter()` or custom predicates because they break JSON Schema conversion:
-	 * - ✅ `type.string.matching(/regex/)` - Converts to JSON Schema pattern
-	 * - ❌ `type.string.filter(fn)` - Cannot convert to JSON Schema
-	 *
-	 * **Rigorous validation happens separately**: The `validateXyz()` methods
-	 * perform thorough validation using StandardSchemaV1 directly, supporting
-	 * complex validation logic that doesn't need JSON Schema compatibility.
-	 *
-	 * **Return type**: Uses mapped type `ColumnSchemaToArktypeType` to preserve exact
-	 * key structure from TSchema, enabling TypeScript to properly infer ObjectType
-	 * with .partial(), .merge() methods available.
-	 */
-	const _buildSchemaFields = (): {
-		[K in keyof TSchema]: ColumnSchemaToArktypeType<TSchema[K]>;
-	} => {
-		return Object.fromEntries(
-			Object.entries(schema).map(([fieldName, columnSchema]) => {
-				const baseType = _getBaseArktypeForColumn(columnSchema);
-
-				// Skip id column
-				if (columnSchema.type === 'id') return [fieldName, baseType];
-
-				// Handle nullable fields
-				const nullableType = columnSchema.nullable
-					? baseType.or(type.null)
-					: baseType;
-
-				return [fieldName, nullableType];
-			}),
-		) as { [K in keyof TSchema]: ColumnSchemaToArktypeType<TSchema[K]> };
-	};
-
-	/**
-	 * Helper: Generates base arktype for a column schema
-	 *
-	 * **Used by both action inputs and composable schemas**:
-	 * - Action inputs: StandardSchemaV1 schemas for mutation `input` parameters
-	 * - Composable schemas: Arktype schemas for `.omit()`, `.partial()` composition
-	 *
-	 * **Both use cases require JSON Schema compatibility** because:
-	 * - Action inputs are converted to JSON Schema by MCP server/OpenAPI generator
-	 * - Arktype schemas may also be converted to JSON Schema as needed
-	 *
-	 * **JSON Schema compatibility constraints**:
-	 * - Can only use arktype features that convert to JSON Schema
-	 * - Cannot use `.filter()` or custom predicates (they don't convert)
-	 * - Must use `.matching(regex)` for pattern validation
-	 *
-	 * **Special cases maintaining JSON Schema compatibility**:
-	 * - **Date fields**: Use `matching(regex)` for format validation, not `.filter()`
-	 * - **JSON fields**: Return `type.unknown` (rigorous validation happens in `validateXyz()` methods)
-	 *
-	 * **Rigorous validation happens separately**: The `validateXyz()` methods
-	 * perform thorough validation using StandardSchemaV1 directly, without
-	 * JSON Schema constraints. This allows proper validation of JSON columns,
-	 * date formats, and other complex cases.
-	 */
-	function _getBaseArktypeForColumn(columnSchema: ColumnSchema) {
-		switch (columnSchema.type) {
-			case 'id':
-			case 'text':
-			case 'ytext':
-				return type.string;
-			case 'integer':
-				return type.number.divisibleBy(1);
-			case 'real':
-				return type.number;
-			case 'boolean':
-				return type.boolean;
-			case 'date':
-				return type.string.describe(
-					'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
-				).matching(DATE_WITH_TIMEZONE_STRING_REGEX); // DateWithTimezone format
-			// .filter(isDateWithTimezoneString) - Can't use because custom predicates break JSON schema compatibility in MCP
-			case 'select':
-				return type.enumerated(...columnSchema.options);
-			case 'multi-select':
-				// If options provided, validate against them; otherwise allow any string array
-				return columnSchema.options
-					? type.enumerated(...columnSchema.options).array()
-					: type.string.array();
-			case 'json':
-			// Return the schema directly since it's already an Arktype
-			return columnSchema.schema;
-		}
-	}
 
 	return {
 		validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>> {
@@ -1925,8 +1785,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 		},
 
 		toArktype() {
-			const fields = _buildSchemaFields();
-			return type(fields);
+			return tableSchemaToArktypeType(schema);
 		},
 
 		toStandardSchema() {

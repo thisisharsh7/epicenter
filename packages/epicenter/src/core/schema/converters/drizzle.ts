@@ -11,6 +11,7 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
+import { date, json, tags } from '../../../indexes/sqlite/schema/builders';
 import type {
 	BooleanColumnSchema,
 	ColumnSchema,
@@ -20,16 +21,14 @@ import type {
 	IdColumnSchema,
 	IntegerColumnSchema,
 	JsonColumnSchema,
-	TagsColumnSchema,
 	RealColumnSchema,
 	SelectColumnSchema,
 	TableSchema,
+	TagsColumnSchema,
 	TextColumnSchema,
 	WorkspaceSchema,
 	YtextColumnSchema,
-} from '../../../core/schema';
-import { date, json, tags } from './builders';
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+} from '../../schema';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations
