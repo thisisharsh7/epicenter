@@ -155,17 +155,15 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						const serializedRow = row.toJSON();
 						await sqliteDb.insert(drizzleTable).values(serializedRow);
 					},
-					catch: () => Ok(undefined),
+					catch: (e) =>
+						IndexErr({
+							message: `SQLite index onAdd failed for ${tableName}/${row.id}: ${extractErrorMessage(e)}`,
+							context: { tableName, id: row.id, data: row },
+						}),
 				});
 
 				if (error) {
-					await logger.log(
-						IndexError({
-							message: `SQLite index onAdd failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id, data: row },
-							cause: error,
-						}),
-					);
+					await logger.log(error);
 				}
 			},
 			onUpdate: async (result) => {
@@ -194,17 +192,15 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 							.set(serializedRow)
 							.where(eq(drizzleTable.id, row.id));
 					},
-					catch: () => Ok(undefined),
+					catch: (e) =>
+						IndexErr({
+							message: `SQLite index onUpdate failed for ${tableName}/${row.id}: ${extractErrorMessage(e)}`,
+							context: { tableName, id: row.id, data: row },
+						}),
 				});
 
 				if (error) {
-					await logger.log(
-						IndexError({
-							message: `SQLite index onUpdate failed for ${tableName}/${row.id}`,
-							context: { tableName, id: row.id, data: row },
-							cause: error,
-						}),
-					);
+					await logger.log(error);
 				}
 			},
 			onDelete: async (id) => {
@@ -216,17 +212,15 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					try: async () => {
 						await sqliteDb.delete(drizzleTable).where(eq(drizzleTable.id, id));
 					},
-					catch: () => Ok(undefined),
+					catch: (e) =>
+						IndexErr({
+							message: `SQLite index onDelete failed for ${tableName}/${id}: ${extractErrorMessage(e)}`,
+							context: { tableName, id },
+						}),
 				});
 
 				if (error) {
-					await logger.log(
-						IndexError({
-							message: `SQLite index onDelete failed for ${tableName}/${id}`,
-							context: { tableName, id },
-							cause: error,
-						}),
-					);
+					await logger.log(error);
 				}
 			},
 		});
@@ -250,16 +244,15 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					const serializedRow = row.toJSON();
 					await sqliteDb.insert(drizzleTable).values(serializedRow);
 				},
-				catch: () => Ok(undefined),
+				catch: (e) =>
+					IndexErr({
+						message: `Failed to sync row ${row.id} to SQLite during init: ${extractErrorMessage(e)}`,
+						context: { rowId: row.id, tableName },
+					}),
 			});
 
 			if (error) {
-				await logger.log(
-					IndexError({
-						message: `Failed to sync row ${row.id} to SQLite during init`,
-						context: { rowId: row.id, tableName, cause: error },
-					}),
-				);
+				await logger.log(error);
 			}
 		}
 	}
