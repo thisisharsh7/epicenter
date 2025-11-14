@@ -112,15 +112,14 @@ export type ColumnSchemaToArktypeType<C extends ColumnSchema> =
 export function tableSchemaToArktypeType<TSchema extends TableSchema>(
 	tableSchema: TSchema,
 ): ObjectType<SerializedRow<TSchema>> {
-	const fields: Record<string, Type> = {};
-
-	for (const [fieldName, columnSchema] of Object.entries(tableSchema)) {
-		fields[fieldName] = columnSchemaToArktypeType(columnSchema);
-	}
-
-	// Cast to any to bypass arktype's strict type inference
-	// The mapped type is too complex for TypeScript to infer properly
-	return type(fields as any) as ObjectType<SerializedRow<TSchema>>;
+	return type(
+		Object.fromEntries(
+			Object.entries(tableSchema).map(([fieldName, columnSchema]) => [
+				fieldName,
+				columnSchemaToArktypeType(columnSchema),
+			])
+		)
+	) as ObjectType<SerializedRow<TSchema>>;
 }
 
 /**
@@ -128,14 +127,6 @@ export function tableSchemaToArktypeType<TSchema extends TableSchema>(
  *
  * **Important**: Returns raw arktype-parseable values (Type instances, not strings)
  * that can be passed to `type()` for proper ObjectType inference.
- *
- * **JSON Schema Compatibility**: Must use only features that convert to JSON Schema
- * because these schemas are used in action inputs that get converted by MCP/OpenAPI:
- * - ✅ `.matching(regex)` - Converts to JSON Schema pattern
- * - ❌ `.filter(fn)` - Cannot convert to JSON Schema
- *
- * For rigorous validation including custom predicates, use the validateXyz() methods
- * in TableValidators which operate directly on StandardSchemaV1.
  *
  * @param columnSchema - The column schema to convert
  * @returns Raw arktype Type (not a Type instance) suitable for passing to type()
@@ -175,14 +166,8 @@ function columnSchemaToArktypeType(columnSchema: ColumnSchema): Type {
 				: type.string.array();
 			break;
 		case 'json':
-			// Return type.unknown for JSON columns to maintain JSON schema compatibility
-			// Actual validation happens via StandardSchemaV1 in validateYRow/validateSerializedRow
-			//
-			// We CANNOT use .filter() here because:
-			// 1. These schemas are converted to JSON Schema for MCP/OpenAPI
-			// 2. Custom predicates (.filter) cannot be represented in JSON Schema
-			// 3. The conversion would fail or lose the validation logic
-			baseType = type.unknown;
+			// Use the schema directly from the column definition
+			baseType = columnSchema.schema;
 			break;
 	}
 

@@ -1209,6 +1209,14 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
  * JSON columns store arbitrary JSON-serializable values validated against an Arktype schema.
  * Unlike other column types, the `schema` property is always required.
  *
+ * **JSON Schema Compatibility Warning**: When used in action inputs (mutations, queries),
+ * these schemas are converted to JSON Schema for MCP/OpenAPI. Only use features that
+ * can be represented in JSON Schema:
+ * - ✅ Basic types, objects, arrays, enums
+ * - ✅ `.matching(regex)` - Converts to JSON Schema pattern
+ * - ❌ `.filter(fn)` - Cannot convert to JSON Schema (custom predicates)
+ * - ❌ `.narrow()` - Cannot convert to JSON Schema
+ *
  * @example
  * ```typescript
  * import { json } from 'epicenter/schema';

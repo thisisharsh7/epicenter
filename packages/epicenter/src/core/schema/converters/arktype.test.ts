@@ -137,10 +137,20 @@ describe('tableSchemaToArktypeType', () => {
 		const valid = validator({
 			id: 'post-123',
 			title: 'My Post',
-			metadata: { arbitrary: 'data' }, // JSON is unknown, so anything goes
+			metadata: { author: 'John Doe', tags: ['tech', 'tutorial'] },
 			status: 'draft',
 		});
 
 		expect(valid).not.toBeInstanceOf(type.errors);
+
+		// Should reject invalid metadata
+		const invalid = validator({
+			id: 'post-123',
+			title: 'My Post',
+			metadata: { arbitrary: 'data' }, // Missing required fields
+			status: 'draft',
+		});
+
+		expect(invalid).toBeInstanceOf(type.errors);
 	});
 });
