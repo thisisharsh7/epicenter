@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { tableSchemaToArktypeType } from './arktype';
 import {
@@ -15,7 +15,7 @@ import {
 } from '../../schema';
 
 describe('tableSchemaToArktypeType', () => {
-	it('returns a complete arktype Type instance', () => {
+	test('returns a complete arktype Type instance', () => {
 		const schema = {
 			id: id(),
 			title: text(),
@@ -28,7 +28,7 @@ describe('tableSchemaToArktypeType', () => {
 		expect(typeof validator).toBe('function');
 	});
 
-	it('validates complete objects correctly', () => {
+	test('validates complete objects correctly', () => {
 		const schema = {
 			id: id(),
 			title: text(),
@@ -46,7 +46,7 @@ describe('tableSchemaToArktypeType', () => {
 		expect(valid).not.toBeInstanceOf(type.errors);
 	});
 
-	it('rejects invalid objects', () => {
+	test('rejects invalid objects', () => {
 		const schema = {
 			id: id(),
 			title: text(),
@@ -64,7 +64,7 @@ describe('tableSchemaToArktypeType', () => {
 		expect(invalid).toBeInstanceOf(type.errors);
 	});
 
-	it('supports .partial() composition', () => {
+	test('supports .partial() composition', () => {
 		const schema = {
 			id: id(),
 			title: text(),
@@ -84,7 +84,7 @@ describe('tableSchemaToArktypeType', () => {
 		expect(valid).not.toBeInstanceOf(type.errors);
 	});
 
-	it('supports .array() composition', () => {
+	test('supports .array() composition', () => {
 		const schema = {
 			id: id(),
 			title: text(),
@@ -101,7 +101,7 @@ describe('tableSchemaToArktypeType', () => {
 		expect(valid).not.toBeInstanceOf(type.errors);
 	});
 
-	it('supports .merge() composition', () => {
+	test('supports .merge() composition', () => {
 		const schema = {
 			id: id(),
 			title: text(),
@@ -119,7 +119,7 @@ describe('tableSchemaToArktypeType', () => {
 		expect(valid).not.toBeInstanceOf(type.errors);
 	});
 
-	it('handles complex nested schema', () => {
+	test('handles complex nested schema', () => {
 		const schema = {
 			id: id(),
 			title: text(),
