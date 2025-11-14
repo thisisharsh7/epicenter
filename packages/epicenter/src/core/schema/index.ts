@@ -71,7 +71,6 @@ export {
 export {
 	createTableValidators,
 	createWorkspaceValidators,
-	createRow,
 } from './validation';
 
 // ============================================================================

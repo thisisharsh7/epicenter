@@ -1,4 +1,4 @@
-import { type } from 'arktype';
+import { type, type ArkErrors } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
@@ -8,12 +8,14 @@ import type {
 	GetRowResult,
 	Row,
 	RowValidationResult,
+	SerializedRow,
 	TableSchema,
 	TableValidators,
 	WorkspaceSchema,
 	WorkspaceValidators,
+	YRowValidationResult,
 } from '../schema';
-import { createRow } from '../schema';
+import { isDateWithTimezoneString, serializeCellValue } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
@@ -638,3 +640,280 @@ function createTableHelper<TTableSchema extends TableSchema>({
 export type TableHelper<TTableSchema extends TableSchema> = ReturnType<
 	typeof createTableHelper<TTableSchema>
 >;
+
+/**
+ * Helper function to create a Row from a YRow with validation.
+ * Validates the YRow against the schema and returns a typed Row proxy.
+ *
+ * @param yrow - The YRow to validate and convert
+ * @param schema - Table schema for validation
+ * @returns Validation result with typed Row if valid
+ *
+ * @internal
+ */
+function createRow<TTableSchema extends TableSchema>({
+	yrow,
+	schema,
+}: {
+	yrow: YRow;
+	schema: TTableSchema;
+}): YRowValidationResult<Row<TTableSchema>> {
+	// Create row with getters for each property
+	const row = buildRowFromYRow(yrow, schema);
+
+	// Perform validation
+	for (const [fieldName, columnSchema] of Object.entries(schema)) {
+		const value = row[fieldName];
+
+		// Check if required field is null/undefined
+		if (value === null || value === undefined) {
+			if (columnSchema.type === 'id' || !columnSchema.nullable) {
+				return {
+					status: 'schema-mismatch',
+					row,
+					reason: {
+						type: 'missing-required-field',
+						field: fieldName,
+					},
+				};
+			}
+			continue;
+		}
+
+		// Type-specific validation
+		switch (columnSchema.type) {
+			case 'id':
+			case 'text':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'integer':
+				if (typeof value !== 'number' || !Number.isInteger(value)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'real':
+				if (typeof value !== 'number') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'boolean':
+				if (typeof value !== 'boolean') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'ytext':
+				if (!(value instanceof Y.Text)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'select':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				if (!columnSchema.options.includes(value)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'invalid-option',
+							field: fieldName,
+							actual: value,
+							allowedOptions: columnSchema.options,
+						},
+					};
+				}
+				break;
+
+			case 'multi-select':
+				if (!(value instanceof Y.Array)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				for (const option of value.toArray()) {
+					if (typeof option !== 'string') {
+						return {
+							status: 'schema-mismatch',
+							row,
+							reason: {
+								type: 'type-mismatch',
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: option,
+							},
+						};
+					}
+					if (
+						columnSchema.options &&
+						!columnSchema.options.includes(option)
+					) {
+						return {
+							status: 'schema-mismatch',
+							row,
+							reason: {
+								type: 'invalid-option',
+								field: fieldName,
+								actual: option,
+								allowedOptions: columnSchema.options,
+							},
+						};
+					}
+				}
+				break;
+
+			case 'date':
+				if (!isDateWithTimezoneString(value)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'json': {
+				// Validate using Arktype
+				const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
+				if (result instanceof type.errors) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+			}
+		}
+	}
+
+	return { status: 'valid', row };
+}
+
+/**
+ * Creates a Row object from a YRow with getters for each property.
+ * Properly inspectable in console.log while maintaining transparent delegation to YRow.
+ * Includes toJSON and $yRow as non-enumerable properties.
+ *
+ * @internal
+ */
+function buildRowFromYRow<TSchema extends TableSchema>(
+	yrow: YRow,
+	schema: TSchema,
+): Row<TSchema> {
+	const descriptors = Object.fromEntries(
+		Array.from(yrow.keys()).map((key) => [
+			key,
+			{
+				get: () => yrow.get(key),
+				enumerable: true,
+				configurable: true,
+			},
+		]),
+	);
+
+	const row: Record<string, unknown> = {};
+	Object.defineProperties(row, descriptors);
+
+	// Add special properties as non-enumerable
+	Object.defineProperties(row, {
+		toJSON: {
+			value: () => {
+				const result: Record<string, unknown> = {};
+				for (const key in schema) {
+					const value = yrow.get(key);
+					if (value !== undefined) {
+						result[key] = serializeCellValue(value);
+					}
+				}
+				return result as SerializedRow<TSchema>;
+			},
+			enumerable: false,
+			configurable: true,
+		},
+		$yRow: {
+			value: yrow,
+			enumerable: false,
+			configurable: true,
+		},
+	});
+
+	return row as Row<TSchema>;
+}
