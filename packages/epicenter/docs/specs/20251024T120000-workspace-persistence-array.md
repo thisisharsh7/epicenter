@@ -241,7 +241,7 @@ const blogWorkspace = defineWorkspace({
 	indexes: {
 		/* ... */
 	},
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/* ... */
 	}),
 	setupYDoc: (ydoc) => setupPersistenceDesktop(ydoc),
@@ -260,7 +260,7 @@ const blogWorkspace = defineWorkspace({
 	indexes: {
 		/* ... */
 	},
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/* ... */
 	}),
 	persistence: [({ ydoc }) => setupPersistenceDesktop(ydoc)],

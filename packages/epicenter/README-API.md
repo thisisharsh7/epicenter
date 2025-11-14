@@ -18,7 +18,7 @@ const todosWorkspace = defineWorkspace({
       completed: integer(),
     },
   },
-  actions: () => ({
+  exports: () => ({
     getTodos: defineQuery({
       input: type({}),
       handler: async () => {

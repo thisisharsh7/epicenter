@@ -231,7 +231,7 @@ const pagesWorkspace = defineWorkspace({
   name: 'pages',
   schema: { /* ... */ },
   indexes: ({ db }) => ({ /* ... */ }),
-  actions: ({ db, indexes }) => ({
+  exports: ({ db, indexes }) => ({
     createPage: defineMutation({ /* ... */ }),
     getPages: defineQuery({ /* ... */ }),
   }),
@@ -242,7 +242,7 @@ const authWorkspace = defineWorkspace({
   name: 'auth',
   schema: { /* ... */ },
   indexes: ({ db }) => ({ /* ... */ }),
-  actions: ({ db, indexes }) => ({
+  exports: ({ db, indexes }) => ({
     login: defineMutation({ /* ... */ }),
     logout: defineMutation({ /* ... */ }),
   }),

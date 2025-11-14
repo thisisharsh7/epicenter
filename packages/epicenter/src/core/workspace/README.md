@@ -59,8 +59,7 @@ Epicenter solves this using a minimal constraint pattern: dependency arrays are 
 // Minimal constraint for dependencies
 type AnyWorkspaceConfig = {
   id: string;
-  name: string;
-  actions: (context: any) => WorkspaceActionMap;
+  exports: (context: any) => WorkspaceExports;
 };
 
 // Full workspace config
@@ -68,14 +67,13 @@ type WorkspaceConfig<
   TDeps extends readonly AnyWorkspaceConfig[],
   TSchema extends WorkspaceSchema,
   TIndexMap extends WorkspaceIndexMap,
-  TActionMap extends WorkspaceActionMap
+  TExports extends WorkspaceExports
 > = {
   id: string;
-  name: string;
   schema: TSchema;
   dependencies?: TDeps;
   indexes: (ctx: { db: Db<TSchema> }) => TIndexMap | Promise<TIndexMap>;
-  actions: (ctx: {
+  exports: (ctx: {
     db: Db<TSchema>;
     indexes: TIndexMap;
     workspaces: DependencyActionsMap<TDeps>;
@@ -107,7 +105,7 @@ const connectionPoolWorkspace = defineWorkspace({
   name: 'connectionPool',
   schema: { /* ... */ },
   indexes: () => ({ /* ... */ }),
-  actions: () => ({
+  exports: () => ({
     getConnection: defineQuery({ /* ... */ })
   })
 });
@@ -118,7 +116,7 @@ const databaseWorkspace = defineWorkspace({
   schema: { /* ... */ },
   dependencies: [connectionPoolWorkspace],
   indexes: () => ({ /* ... */ }),
-  actions: ({ workspaces }) => ({
+  exports: ({ workspaces }) => ({
     getUser: defineQuery({
       handler: async () => {
         // Access dependency actions by name
@@ -134,7 +132,7 @@ const authWorkspace = defineWorkspace({
   schema: { /* ... */ },
   dependencies: [databaseWorkspace],
   indexes: () => ({ /* ... */ }),
-  actions: ({ workspaces }) => ({
+  exports: ({ workspaces }) => ({
     verifyToken: defineQuery({
       handler: async () => {
         // Full type information for direct dependencies
@@ -152,7 +150,7 @@ const rootWorkspace = defineWorkspace({
   // ALL transitive dependencies must be listed here (flat/hoisted)
   dependencies: [authWorkspace, databaseWorkspace, connectionPoolWorkspace],
   indexes: () => ({ /* ... */ }),
-  actions: ({ workspaces }) => ({
+  exports: ({ workspaces }) => ({
     login: defineQuery({
       handler: async () => {
         // Access any dependency by name
@@ -193,7 +191,7 @@ defineWorkspace({
   },
 
   // Stage 3: Actions (depend on schema AND indexes)
-  actions: ({ db, indexes, workspaces }) => ({
+  exports: ({ db, indexes, workspaces }) => ({
     getPost: defineQuery({
       handler: async () => {
         // Full type information for indexes

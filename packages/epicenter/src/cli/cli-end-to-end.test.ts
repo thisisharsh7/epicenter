@@ -48,7 +48,7 @@ describe('CLI End-to-End Tests', () => {
 			markdown: markdownIndex,
 		},
 
-		actions: ({ db, indexes }) => ({
+		exports: ({ db, indexes }) => ({
 			listPosts: defineQuery({
 				handler: async () => {
 					const posts = await indexes.sqlite.db

@@ -1,5 +1,5 @@
 import type * as Y from 'yjs';
-import type { WorkspaceActionMap } from '../actions';
+import type { WorkspaceExports } from '../actions';
 import type { Db } from '../db/core';
 import type { Index, WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
@@ -80,8 +80,8 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  * });
  *
  * // Each workspace is accessible by its id:
- * epicenter.blog.createPost(...)  // blogWorkspace actions
- * epicenter.auth.login(...)       // authWorkspace actions
+ * epicenter.blog.createPost(...)  // blogWorkspace exports
+ * epicenter.auth.login(...)       // authWorkspace exports
  * ```
  *
  * ## Workspace Structure
@@ -89,7 +89,7 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  * Each workspace is a self-contained module with:
  * - **tables**: Column schemas (pure JSON, no Drizzle)
  * - **indexes**: Synchronized snapshots for querying (SQLite, markdown, vector, etc.)
- * - **actions**: Business logic with access to tables and indexes
+ * - **exports**: Actions and utilities with access to tables and indexes
  *
  * ## Data Flow
  *
@@ -135,7 +135,7 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  *     },
  *   ],
  *
- *   actions: ({ db, indexes }) => ({
+ *   exports: ({ db, indexes }) => ({
  *     getPublishedPosts: defineQuery({
  *       handler: async () => {
  *         return await indexes.sqlite.posts
@@ -167,16 +167,16 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TIndexResults extends WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap,
+	TExports extends WorkspaceExports,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TIndexResults,
-		TActionMap
+		TExports
 	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TIndexResults, TActionMap> {
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TIndexResults, TExports> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -225,7 +225,7 @@ export type WorkspaceConfig<
 	TId extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TIndexResults extends WorkspaceIndexMap = WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap = WorkspaceActionMap,
+	TExports extends WorkspaceExports = WorkspaceExports,
 > = {
 	id: TId;
 	schema: TWorkspaceSchema;
@@ -234,11 +234,11 @@ export type WorkspaceConfig<
 		[K in keyof TIndexResults]: Index<TWorkspaceSchema, TIndexResults[K]>;
 	};
 	providers?: Provider[];
-	actions: (context: {
+	exports: (context: {
 		db: Db<TWorkspaceSchema>;
-		workspaces: WorkspacesToActionMaps<TDeps>;
+		workspaces: WorkspacesToExports<TDeps>;
 		indexes: TIndexResults;
-	}) => TActionMap;
+	}) => TExports;
 };
 
 /**
@@ -252,37 +252,37 @@ export type WorkspaceConfig<
  */
 export type AnyWorkspaceConfig = {
 	id: string;
-	actions: (context: any) => WorkspaceActionMap;
+	exports: (context: any) => WorkspaceExports;
 };
 
 /**
- * Maps an array of workspace configs to an object of ActionMaps keyed by workspace id.
+ * Maps an array of workspace configs to an object of exports keyed by workspace id.
  *
  * Takes an array of workspace dependencies and merges them into a single object where:
  * - Each key is a dependency id
- * - Each value is the action map exported from that dependency
+ * - Each value is the exports object from that dependency (actions and utilities)
  *
- * This allows accessing dependency actions as `workspaces.dependencyId.actionName()`.
+ * This allows accessing dependency exports as `workspaces.dependencyId.exportName()`.
  *
  * @example
  * ```typescript
  * // Given dependency configs:
- * const authWorkspace = defineWorkspace({ id: 'auth', actions: () => ({ login: ..., logout: ... }) })
- * const storageWorkspace = defineWorkspace({ id: 'storage', actions: () => ({ upload: ..., download: ... }) })
+ * const authWorkspace = defineWorkspace({ id: 'auth', exports: () => ({ login: ..., logout: ..., validateToken: ... }) })
+ * const storageWorkspace = defineWorkspace({ id: 'storage', exports: () => ({ upload: ..., download: ..., MAX_FILE_SIZE: ... }) })
  *
- * // WorkspacesToActionMaps<[typeof authWorkspace, typeof storageWorkspace]> produces:
+ * // WorkspacesToExports<[typeof authWorkspace, typeof storageWorkspace]> produces:
  * {
- *   auth: { login: ..., logout: ... },
- *   storage: { upload: ..., download: ... }
+ *   auth: { login: ..., logout: ..., validateToken: ... },
+ *   storage: { upload: ..., download: ..., MAX_FILE_SIZE: ... }
  * }
  * ```
  */
-export type WorkspacesToActionMaps<WS extends readonly AnyWorkspaceConfig[]> = {
+export type WorkspacesToExports<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+		exports: (context: any) => infer TExports extends WorkspaceExports;
 	}
-		? TActionMap
+		? TExports
 		: never;
 };

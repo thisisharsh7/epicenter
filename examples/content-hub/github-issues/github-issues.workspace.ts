@@ -47,7 +47,7 @@ export const githubIssues = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all GitHub issues
 		 *

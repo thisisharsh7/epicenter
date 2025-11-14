@@ -30,7 +30,7 @@ export const reddit = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		getPosts: db.tables.posts.getAll,
 		getPost: db.tables.posts.get,
 		createPost: db.tables.posts.insert,

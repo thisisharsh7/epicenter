@@ -30,7 +30,7 @@ export const youtube = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all YouTube posts
 		 *

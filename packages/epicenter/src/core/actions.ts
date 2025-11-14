@@ -15,7 +15,7 @@ import type { Result } from 'wellcrafted/result';
  * @example Creating a workspace with mixed exports
  * ```typescript
  * const workspace = defineWorkspace({
- *   actions: () => ({
+ *   exports: () => ({
  *     // Actions - these get auto-mapped to API/MCP
  *     getUser: defineQuery({
  *       handler: async () => { ... }

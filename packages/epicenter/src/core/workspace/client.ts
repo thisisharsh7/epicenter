@@ -1,6 +1,9 @@
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { WorkspaceActionMap } from '../actions';
+import {
+	type WorkspaceActionMap,
+	type WorkspaceExports,
+} from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import type { WorkspaceSchema } from '../schema';
@@ -12,48 +15,53 @@ import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
  *
  * An Epicenter client is an object of workspace clients: `{ workspaceId: WorkspaceClient }`.
  * `createEpicenterClient()` returns the full object. `createWorkspaceClient()` returns one workspace from that object.
+ *
+ * The client contains all workspace exports: actions, utilities, constants, and helpers.
+ * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
  */
-export type WorkspaceClient<TActionMap extends WorkspaceActionMap> =
-	TActionMap & {
-		/**
-		 * Cleanup method for resource management
-		 * - Destroys all indexes
-		 * - Destroys the YJS document
-		 *
-		 * Use with `using` syntax for automatic cleanup:
-		 * ```typescript
-		 * using workspace = await createWorkspaceClient(config);
-		 * ```
-		 *
-		 * Or call manually for explicit control:
-		 * ```typescript
-		 * const workspace = await createWorkspaceClient(config);
-		 * // ... use workspace ...
-		 * workspace[Symbol.dispose]();
-		 * ```
-		 */
-		[Symbol.dispose]: () => void;
-	};
+export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
+	/**
+	 * Cleanup method for resource management
+	 * - Destroys all indexes
+	 * - Destroys the YJS document
+	 *
+	 * Use with `using` syntax for automatic cleanup:
+	 * ```typescript
+	 * using workspace = await createWorkspaceClient(config);
+	 * ```
+	 *
+	 * Or call manually for explicit control:
+	 * ```typescript
+	 * const workspace = await createWorkspaceClient(config);
+	 * // ... use workspace ...
+	 * workspace[Symbol.dispose]();
+	 * ```
+	 */
+	[Symbol.dispose]: () => void;
+};
 
 /**
  * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace id.
  *
  * Takes an array of workspace configs and merges them into a single object where:
  * - Each key is a workspace id
- * - Each value is a WorkspaceClient with callable actions and lifecycle management
+ * - Each value is a WorkspaceClient with all exports and lifecycle management
  *
- * This allows accessing workspace actions as `client.workspaceId.actionName()`.
+ * This allows accessing workspace exports as `client.workspaceId.exportName()`.
+ *
+ * Note: Workspaces can export actions, utilities, constants, and helpers.
+ * Actions (queries/mutations) get special treatment at the server/MCP level via forEachAction().
  *
  * @example
  * ```typescript
  * // Given workspace configs:
- * const authWorkspace = defineWorkspace({ id: 'auth', actions: () => ({ login: ..., logout: ... }) })
- * const storageWorkspace = defineWorkspace({ id: 'storage', actions: () => ({ upload: ..., download: ... }) })
+ * const authWorkspace = defineWorkspace({ id: 'auth', exports: () => ({ login: ..., logout: ..., validateToken: ... }) })
+ * const storageWorkspace = defineWorkspace({ id: 'storage', exports: () => ({ upload: ..., download: ..., MAX_FILE_SIZE: ... }) })
  *
  * // WorkspacesToClients<[typeof authWorkspace, typeof storageWorkspace]> produces:
  * {
- *   auth: WorkspaceClient<{ login: ..., logout: ... }>,
- *   storage: WorkspaceClient<{ upload: ..., download: ... }>
+ *   auth: WorkspaceClient<{ login: ..., logout: ... }>,  // Only actions exposed
+ *   storage: WorkspaceClient<{ upload: ..., download: ... }>  // Only actions exposed
  * }
  * ```
  */
@@ -61,9 +69,9 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+		exports: (context: any) => infer TExports extends WorkspaceExports;
 	}
-		? WorkspaceClient<TActionMap>
+		? WorkspaceClient<TExports>
 		: never;
 };
 
@@ -245,6 +253,7 @@ export async function initializeWorkspaces<
 
 	/**
 	 * Map of workspace ID to initialized workspace client.
+	 * Each client exposes all workspace exports (actions, utilities, constants).
 	 * Populated as we initialize each workspace in topological order.
 	 * When initializing workspace B that depends on A, we can safely
 	 * inject clients[A] because A was initialized earlier in the sorted order.
@@ -263,11 +272,9 @@ export async function initializeWorkspaces<
 		workspaceConfig: WorkspaceConfig,
 	): Promise<WorkspaceClient<any>> => {
 		// Build the workspaceClients object by injecting already-initialized dependencies
-		// Key: dependency id, Value: initialized client
-		const workspaceClients: Record<
-			string,
-			WorkspaceClient<WorkspaceActionMap>
-		> = {};
+		// Key: dependency id, Value: full client with all exports (actions + utilities)
+		const workspaceClients: Record<string, WorkspaceClient<WorkspaceExports>> =
+			{};
 
 		if (
 			workspaceConfig.dependencies &&
@@ -320,7 +327,7 @@ export async function initializeWorkspaces<
 		}
 
 		// Initialize Epicenter database (wraps YJS with table/record API)
-		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
+		const db = await createEpicenterDb(ydoc, workspaceConfig.schema);
 
 		// Initialize each index by calling its factory function with IndexContext
 		// Each index function receives { id, db, storageDir } and returns an index object
@@ -340,11 +347,11 @@ export async function initializeWorkspaces<
 			>;
 		};
 
-		// Call the actions factory to get action definitions, passing:
-		// - workspaceClients: initialized dependency clients (keyed by dep.id)
+		// Call the exports factory to get workspace exports (actions + utilities), passing:
+		// - workspaces: full clients from dependencies (all exports, not filtered!)
 		// - db: Epicenter database API
 		// - indexes: exported resources from each index (db, queries, etc.)
-		const actionMap = workspaceConfig.actions({
+		const exports = workspaceConfig.exports({
 			workspaces: workspaceClients,
 			db,
 			indexes,
@@ -361,10 +368,10 @@ export async function initializeWorkspaces<
 			ydoc.destroy();
 		};
 
-		// Create the workspace client with callable actions
-		// Actions are already callable, no extraction needed
+		// Create the workspace client with all exports (actions + utilities)
+		// Filtering to just actions happens at the server/MCP level via forEachAction()
 		const client: WorkspaceClient<any> = {
-			...actionMap,
+			...exports,
 			[Symbol.dispose]: cleanup,
 		};
 
@@ -404,17 +411,17 @@ export async function createWorkspaceClient<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TIndexResults extends WorkspaceIndexMap,
-	TActionMap extends WorkspaceActionMap,
+	TExports extends WorkspaceExports,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TIndexResults,
-		TActionMap
+		TExports
 	>,
 	storageDir?: string,
-): Promise<WorkspaceClient<TActionMap>> {
+): Promise<WorkspaceClient<TExports>> {
 	// Resolve storageDir with environment detection
 	// In Node.js: resolve to absolute path (defaults to process.cwd() if not specified)
 	// In browser: undefined (filesystem operations not available)
@@ -462,6 +469,7 @@ export async function createWorkspaceClient<
 		);
 	}
 
-	// Type assertion is safe because we know the workspace was initialized with the correct action map
-	return workspaceClient as WorkspaceClient<TActionMap>;
+	// Type assertion is safe because we know the workspace was initialized with the correct exports
+	// and extractActions() was called to filter to just actions
+	return workspaceClient as WorkspaceClient<TExports>;
 }

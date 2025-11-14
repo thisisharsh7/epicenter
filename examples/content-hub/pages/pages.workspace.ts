@@ -13,7 +13,7 @@ import {
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
-import { parseMarkdownFile } from '@epicenter/hq/indexes/markdown';
+import { readMarkdownFile } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
@@ -123,7 +123,7 @@ export const pages = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => {
+	exports: ({ db, indexes }) => {
 		/**
 		 * Transform ISO 8601 date string with timezone to DateWithTimezone format
 		 * Only transforms if BOTH isoDate AND timezone are provided (no defaults)
@@ -214,7 +214,7 @@ export const pages = defineWorkspace({
 						stats.total++;
 
 						// Parse markdown file using built-in parser
-						const parseResult = await parseMarkdownFile(file);
+						const parseResult = await readMarkdownFile(file);
 
 						if (parseResult.error) {
 							stats.errors.push({

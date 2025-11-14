@@ -103,7 +103,7 @@ export const email = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all emails
 		 *

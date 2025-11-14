@@ -24,14 +24,14 @@ describe('Epicenter Error Handling', () => {
 			id: 'duplicate',
 			schema: { items: { id: id(), value: text() } },
 			indexes: { sqlite: (db) => sqliteIndex(db, { inMemory: true }) },
-			actions: () => ({}),
+			exports: () => ({}),
 		});
 
 		const workspace2 = defineWorkspace({
 			id: 'duplicate',
 			schema: { items: { id: id(), value: text() } },
 			indexes: { sqlite: (db) => sqliteIndex(db, { inMemory: true }) },
-			actions: () => ({}),
+			exports: () => ({}),
 		});
 
 		expect(() =>
@@ -63,7 +63,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 			indexes: {
 				sqlite: (db) => sqliteIndex(db, { inMemory: true }),
 			},
-			actions: ({ workspaces }) => ({
+			exports: ({ workspaces }) => ({
 				getValue: defineQuery({
 					handler: () => Ok(`value-from-${workspaceId}`),
 				}),

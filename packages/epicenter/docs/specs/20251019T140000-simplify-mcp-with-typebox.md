@@ -79,7 +79,7 @@ Use TypeBox's built-in JSON Schema generation.
 
 **Before:**
 ```typescript
-export function createMCPTools(actions: Record<string, { handler: Function }>): MCPTool[] {
+export function createMCPTools(exports: Record<string, { handler: Function }>): MCPTool[] {
   return Object.entries(actions).map(([name]) => ({
     name,
     inputSchema: { type: 'object' },
@@ -91,7 +91,7 @@ export function createMCPTools(actions: Record<string, { handler: Function }>): 
 ```typescript
 import { Type } from 'typebox';
 
-function createMCPTools(actions: WorkspaceActionMap): Tool[] {
+function createMCPTools(exports: WorkspaceActionMap): Tool[] {
   return Object.entries(actions).map(([name, action]) => ({
     name,
     description: action.description,

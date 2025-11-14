@@ -29,7 +29,7 @@ allWorkspaceConfigs.push(workspace as any);
 
 ### 3. Line 46: Context parameter in type extraction (LOW PRIORITY)
 ```typescript
-actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+exports: (context: any) => infer TActionMap extends WorkspaceActionMap;
 ```
 
 **Problem**: Using `any` for the context parameter in the conditional type.
@@ -128,7 +128,7 @@ type InitializedWorkspaces<TConfigs extends readonly AnyWorkspaceConfig[]> = {
   [W in TConfigs[number] as W extends { name: infer TName extends string }
     ? TName
     : never]: W extends {
-    actions: (context: any) => infer TActionMap extends WorkspaceActionMap;
+    exports: (context: any) => infer TActionMap extends WorkspaceActionMap;
   }
     ? WorkspaceClient<TActionMap>
     : never;
@@ -147,7 +147,7 @@ type InitializedWorkspaces<TConfigs extends readonly AnyWorkspaceConfig[]> = {
   [W in TConfigs[number] as W extends { name: infer TName extends string }
     ? TName
     : never]: W extends {
-    actions: (context: ActionsContext) => infer TActionMap extends WorkspaceActionMap;
+    exports: (context: ActionsContext) => infer TActionMap extends WorkspaceActionMap;
   }
     ? WorkspaceClient<TActionMap>
     : never;

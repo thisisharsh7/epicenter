@@ -32,7 +32,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-a');
@@ -49,7 +49,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-b');
@@ -69,7 +69,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-c');
@@ -98,7 +98,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-d');
@@ -115,7 +115,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-a');
@@ -132,7 +132,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-b');
@@ -152,7 +152,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-c');
@@ -186,7 +186,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-x');
@@ -202,7 +202,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-y');
@@ -219,7 +219,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-z');
@@ -248,7 +248,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 		};
 
 		const workspaceB: any = {
@@ -261,7 +261,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 		};
 
 		// Create circular reference
@@ -296,7 +296,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-a');
@@ -313,7 +313,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-b');
@@ -330,7 +330,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-c');
@@ -347,7 +347,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-d');
@@ -364,7 +364,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-e');
@@ -389,7 +389,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({}),
+			exports: () => ({}),
 			providers: [
 				({ ydoc }) => {
 					initOrder.push('workspace-f');
@@ -435,7 +435,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({
+			exports: () => ({
 				getValue: defineQuery({
 					handler: () => {
 						return Ok('value-from-a');
@@ -455,7 +455,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: ({ workspaces }) => ({
+			exports: ({ workspaces }) => ({
 				getValueFromA: defineQuery({
 					handler: async () => {
 						// Access workspace A's action
@@ -483,7 +483,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({
+			exports: () => ({
 				getValueFromA: defineQuery({
 					handler: () => Ok('value-from-a'),
 				}),
@@ -500,7 +500,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: ({ workspaces }) => ({
+			exports: ({ workspaces }) => ({
 				getValueFromB: defineQuery({
 					handler: () => Ok('value-from-b'),
 				}),
@@ -536,7 +536,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({
+			exports: () => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-a'),
 				}),
@@ -552,7 +552,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: () => ({
+			exports: () => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-b'),
 				}),
@@ -569,7 +569,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			indexes: {},
-			actions: ({ workspaces }) => ({
+			exports: ({ workspaces }) => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-c'),
 				}),
@@ -631,7 +631,7 @@ describe('Workspace Action Handlers', () => {
 			markdown: markdownIndex,
 		},
 
-		actions: ({ db, indexes }) => {
+		exports: ({ db, indexes }) => {
 			return {
 				listPosts: defineQuery({
 					handler: async () => {

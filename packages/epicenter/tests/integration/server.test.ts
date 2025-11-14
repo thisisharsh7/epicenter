@@ -48,7 +48,7 @@ describe('Server Integration Tests', () => {
 			sqlite: (c) => sqliteIndex(c),
 		},
 
-		actions: ({ db, indexes }) => ({
+		exports: ({ db, indexes }) => ({
 			createPost: defineMutation({
 				input: type({
 					title: 'string >= 1',
@@ -250,7 +250,7 @@ describe('Server Integration Tests', () => {
 					}),
 			},
 
-			actions: ({ db }) => ({
+			exports: ({ db }) => ({
 				createUser: defineMutation({
 					input: Type.Object({
 						email: Type.String({ format: 'email' }),

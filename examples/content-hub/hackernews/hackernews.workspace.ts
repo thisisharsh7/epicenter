@@ -30,7 +30,7 @@ export const hackernews = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all Hacker News posts
 		 *

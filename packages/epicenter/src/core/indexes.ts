@@ -114,7 +114,7 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  *     sqlite: (c) => sqliteIndex(c),
  *   },
  *
- *   actions: ({ indexes }) => ({
+ *   exports: ({ indexes }) => ({
  *     getPost: defineQuery({
  *       handler: async ({ id }) => {
  *         // All exported properties are fully typed and available here

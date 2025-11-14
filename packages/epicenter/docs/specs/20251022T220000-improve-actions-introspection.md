@@ -18,7 +18,7 @@ This is hacky and error-prone. The pattern appears in multiple places:
 The `actions` field in `WorkspaceConfig` is a factory function:
 
 ```typescript
-actions: (context: {
+exports: (context: {
   db: Db<TWorkspaceSchema>;
   workspaces: WorkspacesToActionMaps<TDeps>;
   indexes: TIndexResults;

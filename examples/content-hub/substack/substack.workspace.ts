@@ -30,7 +30,7 @@ export const substack = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all Substack posts
 		 *

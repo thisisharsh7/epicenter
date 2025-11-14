@@ -30,7 +30,7 @@ export const tiktok = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all TikTok posts
 		 *

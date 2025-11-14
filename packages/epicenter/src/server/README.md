@@ -110,7 +110,7 @@ const blogWorkspace = defineWorkspace({
 	indexes: {
 		/* your indexes */
 	},
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		createPost: defineMutation({
 			input: Type.Object({ title: Type.String() }),
 			handler: async ({ title }) => {
@@ -262,7 +262,7 @@ const notesWorkspace = defineWorkspace({
 	indexes: {
 		sqlite: (c) => sqliteIndex(c),
 	},
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		createNote: defineMutation({
 			input: Type.Object({
 				title: Type.String(),

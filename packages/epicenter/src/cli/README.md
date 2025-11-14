@@ -23,7 +23,7 @@ import { type } from 'arktype';
 
 const reddit = defineWorkspace({
   name: 'reddit',
-  actions: ({ db }) => ({
+  exports: ({ db }) => ({
     import: defineMutation({
       input: type({
         'url': 'string',

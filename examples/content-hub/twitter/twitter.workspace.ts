@@ -30,7 +30,7 @@ export const twitter = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all Twitter posts
 		 *

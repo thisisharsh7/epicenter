@@ -20,7 +20,7 @@ export { defineWorkspace } from './core/workspace';
 export type {
 	WorkspaceConfig,
 	AnyWorkspaceConfig,
-	WorkspacesToActionMaps,
+	WorkspacesToExports,
 	WorkspacesToClients,
 	Provider,
 	ProviderContext,

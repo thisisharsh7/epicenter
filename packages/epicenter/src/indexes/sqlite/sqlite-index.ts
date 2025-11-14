@@ -49,7 +49,7 @@ type SyncCoordination = {
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface.
  *
  * This index creates internal resources (sqliteDb, drizzleTables) and exports them
- * via defineIndex(). All exported resources become available in your workspace actions
+ * via defineIndex(). All exported resources become available in your workspace exports
  * via the `indexes` parameter.
  *
  * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` relative to storageDir from epicenter config
@@ -63,7 +63,7 @@ type SyncCoordination = {
  *   sqlite: (c) => sqliteIndex(c),  // Auto-saves to .epicenter/{id}.db
  * },
  *
- * actions: ({ indexes }) => ({
+ * exports: ({ indexes }) => ({
  *   // Access exported resources from the index
  *   getPost: defineQuery({
  *     handler: async ({ id }) => {

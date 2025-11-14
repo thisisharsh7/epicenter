@@ -27,7 +27,7 @@ describe('CLI Integration', () => {
 			sqlite: (c) => sqliteIndex(c),
 		},
 
-		actions: ({ db }) => ({
+		exports: ({ db }) => ({
 			createItem: defineMutation({
 				input: type({
 					name: 'string',

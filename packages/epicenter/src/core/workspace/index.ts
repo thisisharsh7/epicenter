@@ -3,7 +3,7 @@ export { defineWorkspace } from './config';
 export type {
 	WorkspaceConfig,
 	AnyWorkspaceConfig,
-	WorkspacesToActionMaps,
+	WorkspacesToExports,
 	Provider,
 	ProviderContext,
 } from './config';

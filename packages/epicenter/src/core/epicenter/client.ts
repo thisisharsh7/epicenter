@@ -1,5 +1,9 @@
 import path from 'node:path';
-import type { Action, WorkspaceActionMap } from '../actions';
+import {
+	type Action,
+	type WorkspaceExports,
+	extractActions,
+} from '../actions';
 import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
 import {
@@ -10,8 +14,8 @@ import type { EpicenterConfig } from './config';
 
 /**
  * Epicenter client type
- * Maps workspace ids to their action handlers
- * Provides typed access to all workspace actions
+ * Maps workspace ids to their exports
+ * Provides typed access to all workspace exports
  */
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 	WorkspacesToClients<TWorkspaces> & {
@@ -39,7 +43,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * Uses shared initialization logic to ensure workspace instances are properly shared
  *
  * @param config - Epicenter configuration with workspaces to initialize
- * @returns Initialized epicenter client with access to all workspace actions
+ * @returns Initialized epicenter client with access to all workspace exports
  *
  * @example
  * ```typescript
@@ -152,13 +156,21 @@ export function forEachAction<
 	for (const [workspaceId, workspaceClient] of Object.entries(
 		workspaceClients,
 	)) {
-		// Extract actions (excluding Symbol.dispose from the workspace interface)
-		const { [Symbol.dispose]: _workspaceDispose, ...workspaceActions } =
-			workspaceClient as WorkspaceClient<WorkspaceActionMap>;
+		// Extract all exports (excluding Symbol.dispose from the workspace interface)
+		const { [Symbol.dispose]: _workspaceDispose, ...workspaceExports } =
+			workspaceClient as WorkspaceClient<WorkspaceExports>;
+
+		// Filter to just actions using extractActions helper
+		// This ensures utilities and constants are not treated as actions
+		const actions = extractActions(workspaceExports);
 
 		// Invoke callback for each action
-		for (const [actionName, action] of Object.entries(workspaceActions)) {
-			callback({ workspaceId, actionName, action });
+		for (const [actionName, action] of Object.entries(actions)) {
+			callback({
+				workspaceId,
+				actionName,
+				action,
+			});
 		}
 	}
 }

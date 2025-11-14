@@ -42,7 +42,7 @@ export default defineWorkspace({
       email: text()
     }
   },
-  actions: ({ tables }) => ({
+  exports: ({ tables }) => ({
     // Workspace actions...
   })
 });
@@ -93,7 +93,7 @@ export default defineWorkspace({
     comments: { /* ... */ }
   },
 
-  actions: ({ plugins, tables }) => ({
+  exports: ({ plugins, tables }) => ({
     createComment: defineMutation({
       handler: async ({ userId, postId, content }) => {
         // Access users workspace
@@ -190,7 +190,7 @@ const blogWorkspace = defineWorkspace({
     }
   },
 
-  actions: ({ tables }) => ({
+  exports: ({ tables }) => ({
     getPopularPosts: defineQuery({
       input: type({
         minViews: 'number = 100'
@@ -400,7 +400,7 @@ const analyticsWorkspace = defineWorkspace({
     }
   },
   
-  actions: (api) => ({
+  exports: (api) => ({
     calculateTopPosts: defineQuery({
       input: type({
         'limit?': 'number = 10'
@@ -439,7 +439,7 @@ import { defineQuery } from '@repo/epicenter';
 const blogWorkspace = defineWorkspace({
   id: 'j1k2l3m4-n5o6-7890-pqrs-tu1234567890',
   tables: { /* ... */ },
-  actions: (api) => ({
+  exports: (api) => ({
     getPostsByAuthor: defineQuery({
       input: type({
         authorId: 'string',
@@ -469,7 +469,7 @@ import { defineMutation } from '@repo/epicenter';
 const blogWorkspace = defineWorkspace({
   id: 'v1w2x3y4-z5a6-7890-bcde-fg1234567890',
   tables: { /* ... */ },
-  actions: (api) => ({
+  exports: (api) => ({
     createPost: defineMutation({
       input: type({
         title: 'string>0',

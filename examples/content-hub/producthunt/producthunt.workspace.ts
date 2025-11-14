@@ -30,7 +30,7 @@ export const producthunt = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all Product Hunt posts
 		 *

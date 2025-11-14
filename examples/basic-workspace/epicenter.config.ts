@@ -126,7 +126,7 @@ const blogWorkspace = defineWorkspace({
 			}),
 	},
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
 			handler: async () => {

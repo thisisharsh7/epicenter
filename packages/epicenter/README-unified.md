@@ -13,7 +13,7 @@ const epicenter = createEpicenter({ workspaces: [...], path: '...', database: '.
 const epicenter = defineWorkspace({
   id: 'epicenter',
   tables: {},
-  actions: (api) => ({}),
+  exports: (api) => ({}),
   dependencies: [usersWorkspace, postsWorkspace],
 });
 ```
@@ -39,7 +39,7 @@ const usersWorkspace = defineWorkspace({
     }
   },
 
-  actions: (api) => ({
+  exports: (api) => ({
     createUser: defineMutation({
       input: type({
         name: 'string>0',
@@ -68,7 +68,7 @@ The "epicenter" is just a workspace that lists others as dependencies:
 const epicenter = defineWorkspace({
   id: 'epicenter',
   tables: {}, // No tables of its own
-  actions: (api) => ({
+  exports: (api) => ({
     // Optional: Add app-level orchestration actions
     // Or just return empty object
   }),
@@ -140,7 +140,7 @@ const postsWorkspace = defineWorkspace({
       authorId: text(),
     }
   },
-  actions: (api) => ({
+  exports: (api) => ({
     createPost: defineMutation({
       input: Type.Object({
         authorId: Type.String(),
@@ -195,7 +195,7 @@ const epicenter = defineWorkspace({
   id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
-  actions: () => ({})
+  exports: () => ({})
 });
 
 // Runtime injection (handled by CLI)
@@ -218,7 +218,7 @@ export const usersWorkspace = defineWorkspace({
       email: text(),
     }
   },
-  actions: (api) => ({
+  exports: (api) => ({
     createUser: defineMutation({
       input: Type.Object({
         name: Type.String({ minLength: 1 }),
@@ -248,7 +248,7 @@ export const postsWorkspace = defineWorkspace({
       authorId: text(),
     }
   },
-  actions: (api) => ({
+  exports: (api) => ({
     createPost: defineMutation({
       input: Type.Object({
         authorId: Type.String(),
@@ -275,7 +275,7 @@ export default defineWorkspace({
   id: 'app',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
-  actions: () => ({})
+  exports: () => ({})
 });
 
 // Usage (in your app)

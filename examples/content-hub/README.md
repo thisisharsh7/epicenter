@@ -417,7 +417,7 @@ import config from './epicenter.config';
           schema: { posts: SHORT_FORM_TEXT_SCHEMA },
      indexes: { sqlite: (c) => sqliteIndex(c) },
      providers: [setupPersistence],
-     actions: ({ db, indexes }) => ({
+     exports: ({ db, indexes }) => ({
        // Implement actions...
      }),
    });
@@ -461,7 +461,7 @@ import config from './epicenter.config';
 Each workspace can have custom actions beyond the standard CRUD:
 
 ```typescript
-actions: ({ db, indexes }) => ({
+exports: ({ db, indexes }) => ({
   // Standard actions...
   getPosts: defineQuery({ ... }),
 
