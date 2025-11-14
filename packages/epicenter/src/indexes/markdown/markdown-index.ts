@@ -1,6 +1,5 @@
 import type { FSWatcher } from 'node:fs';
 import { mkdirSync, watch } from 'node:fs';
-import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
@@ -19,9 +18,11 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
+import { createDiagnosticsManager } from './diagnostics-manager';
 import { createIndexLogger } from '../error-logger';
 import {
 	deleteMarkdownFile,
+	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
 } from './io';
@@ -322,7 +323,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
 };
 
-export const markdownIndex = (<TSchema extends WorkspaceSchema>(
+export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
@@ -336,14 +337,16 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		);
 	}
 
-	// Create error logger for this index
-	const logPath = path.join(
-		storageDir,
-		'.epicenter',
-		'markdown',
-		`${id}.log`,
-	);
-	const logger = createIndexLogger({ logPath });
+	// Shared config directory for markdown index files
+	const markdownConfigDir = path.join(storageDir, '.epicenter', 'markdown');
+
+	// Create diagnostics manager for tracking validation errors (current state)
+	const diagnostics = createDiagnosticsManager({
+		diagnosticsPath: path.join(markdownConfigDir, `${id}-diagnostics.json`),
+	});
+
+	// Create logger for historical error record (append-only audit trail)
+	const logger = createIndexLogger({ logPath: path.join(markdownConfigDir, `${id}.log`) });
 
 	// Resolve workspace directory to absolute path
 	// If directory is relative, resolve it relative to storageDir
@@ -524,10 +527,11 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					syncCoordination.isProcessingYJSChange = false;
 
 					if (error) {
+						// Log I/O errors (operational errors, not validation errors)
 						await logger.log(
 							IndexError({
-								message: `Markdown index onAdd failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id },
+								message: `YJS observer onAdd: failed to write ${tableName}/${row.id}`,
+								context: { tableName, rowId: row.id },
 								cause: error,
 							}),
 						);
@@ -543,10 +547,11 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 					syncCoordination.isProcessingYJSChange = false;
 
 					if (error) {
+						// Log I/O errors (operational errors, not validation errors)
 						await logger.log(
 							IndexError({
-								message: `Markdown index onUpdate failed for ${tableName}/${row.id}`,
-								context: { tableName, id: row.id },
+								message: `YJS observer onUpdate: failed to write ${tableName}/${row.id}`,
+								context: { tableName, rowId: row.id },
 								cause: error,
 							}),
 						);
@@ -572,10 +577,11 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						tracking[tableName].deleteByRowId({ rowId: id });
 
 						if (error) {
+							// Log I/O errors (operational errors, not validation errors)
 							await logger.log(
 								IndexError({
-									message: `Markdown index onDelete failed for ${tableName}/${id}`,
-									context: { tableName, id },
+									message: `YJS observer onDelete: failed to delete ${tableName}/${id}`,
+									context: { tableName, rowId: id, filePath },
 									cause: error,
 								}),
 							);
@@ -671,10 +677,23 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						const parseResult = await readMarkdownFile(filePath);
 
 						if (parseResult.error) {
+							// Track this read error in diagnostics (current state)
+							// Convert MarkdownOperationError to MarkdownIndexError
+							const error = MarkdownIndexError({
+								message: `Failed to read markdown file: ${parseResult.error.message}`,
+								context: { filePath, cause: parseResult.error },
+							});
+							diagnostics.add({
+								filePath,
+								tableName,
+								filename,
+								error,
+							});
+							// Log to historical record
 							await logger.log(
 								IndexError({
-									message: `Failed to read markdown file ${tableName}`,
-									context: { tableName, filePath },
+									message: `File watcher: failed to read ${tableName}/${filename}`,
+									context: { filePath, tableName, filename },
 									cause: parseResult.error,
 								}),
 							);
@@ -697,16 +716,27 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							});
 
 						if (deserializeError) {
+							// Track this validation error in diagnostics (current state)
+							diagnostics.add({
+								filePath,
+								tableName,
+								filename,
+								error: deserializeError,
+							});
+							// Log to historical record
 							await logger.log(
 								IndexError({
-									message: `Skipping markdown file ${tableName}/${filename}: ${deserializeError.message}`,
-									context: { tableName, filename },
+									message: `File watcher: validation failed for ${tableName}/${filename}`,
+									context: { filePath, tableName, filename },
 									cause: deserializeError,
 								}),
 							);
 							syncCoordination.isProcessingFileChange = false;
 							return;
 						}
+
+						// Success: remove from diagnostics if it was previously invalid
+						diagnostics.remove({ filePath });
 
 						// Insert or update the row in YJS
 						if (table.has({ id: row.id })) {
@@ -726,9 +756,91 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		return watchers;
 	};
 
-	// Set up observers and watchers
-	const unsubscribers = registerYJSObservers();
-	const watchers = registerFileWatchers();
+	/**
+	 * Validate all markdown files and rebuild diagnostics
+	 *
+	 * Scans every markdown file, validates it against the schema, and updates diagnostics
+	 * to reflect current state. Used in three places:
+	 * 1. Initial scan on startup (before watchers start)
+	 * 2. Manual scan via scanForErrors query
+	 * 3. Push operation after clearing YJS tables
+	 *
+	 * @param params.operation - Optional operation name for logging context
+	 */
+	async function validateAllMarkdownFiles(params?: {
+		operation?: string;
+	}): Promise<void> {
+		const operationPrefix = params?.operation ? `${params.operation}: ` : '';
+
+		diagnostics.clear();
+
+		for (const { tableName, validators, tableConfig } of tables) {
+			const filePaths = await listMarkdownFiles(tableConfig.directory);
+
+			await Promise.all(
+				filePaths.map(async (filePath) => {
+					const filename = path.basename(filePath);
+
+					// Read markdown file
+					const parseResult = await readMarkdownFile(filePath);
+
+					if (parseResult.error) {
+						// Track read error in diagnostics (current state)
+						const error = MarkdownIndexError({
+							message: `Failed to read markdown file: ${parseResult.error.message}`,
+							context: { filePath, cause: parseResult.error },
+						});
+						diagnostics.add({
+							filePath,
+							tableName,
+							filename,
+							error,
+						});
+						// Log to historical record
+						await logger.log(
+							IndexError({
+								message: `${operationPrefix}failed to read ${tableName}/${filename}`,
+								context: { filePath, tableName, filename },
+								cause: parseResult.error,
+							}),
+						);
+						return;
+					}
+
+					const { data: frontmatter, body } = parseResult.data;
+
+					// Deserialize using the table config
+					const { error: deserializeError } = tableConfig.deserialize({
+						frontmatter,
+						body,
+						filename,
+						table: {
+							name: tableName,
+							validators,
+						},
+					});
+
+					if (deserializeError) {
+						// Track validation error in diagnostics (current state)
+						diagnostics.add({
+							filePath,
+							tableName,
+							filename,
+							error: deserializeError,
+						});
+						// Log to historical record
+						await logger.log(
+							IndexError({
+								message: `${operationPrefix}validation failed for ${tableName}/${filename}`,
+								context: { filePath, tableName, filename },
+								cause: deserializeError,
+							}),
+						);
+					}
+				}),
+			);
+		}
+	}
 
 	/**
 	 * Initialize filename tracking map on startup
@@ -778,6 +890,30 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 		}
 	}
 
+	/**
+	 * Initial scan: Validate all markdown files on startup
+	 *
+	 * This is CRITICAL for maintaining accurate diagnostics:
+	 *
+	 * Problem: Files can be edited externally while the server is down.
+	 * If we trusted the existing diagnostics file, we'd miss these changes.
+	 *
+	 * Solution: Scan and validate every markdown file on startup.
+	 * This rebuilds the diagnostics from scratch, ensuring they're accurate.
+	 *
+	 * Cost: O(n * (read + deserialize)) where n = number of markdown files.
+	 * For 1,000 files, this takes ~1 second. Acceptable for correctness.
+	 *
+	 * This runs BEFORE starting file watchers. Once watchers start, they
+	 * maintain diagnostics accuracy surgically as files change.
+	 */
+	await validateAllMarkdownFiles({ operation: 'Initial scan' });
+
+	// Now start observers and watchers (AFTER initial scan)
+	// Watchers will maintain diagnostics accuracy as files change during runtime
+	const unsubscribers = registerYJSObservers();
+	const watchers = registerFileWatchers();
+
 	return defineIndexExports({
 		destroy() {
 			for (const unsub of unsubscribers) {
@@ -802,26 +938,23 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						// Process each table independently
 						for (const { tableName, tableConfig } of tables) {
 							// Delete all existing markdown files in this table's directory
-							const entries = await readdir(tableConfig.directory, {
-								recursive: false,
-								withFileTypes: true,
-							});
+							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
-							for (const entry of entries) {
-								if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-
-								const filePath = path.join(entry.name) as AbsolutePath;
-
-								const { error } = await deleteMarkdownFile({ filePath });
-								if (error) {
-									await logger.log(
-										IndexError({
-											message: `Failed to delete markdown file ${filePath} during pull`,
-											context: { filePath, cause: error },
-										}),
-									);
-								}
-							}
+							await Promise.all(
+								filePaths.map(async (filePath) => {
+									const { error } = await deleteMarkdownFile({ filePath });
+									if (error) {
+										// Log I/O errors (operational errors, not validation errors)
+										await logger.log(
+											IndexError({
+												message: `pullToMarkdown: failed to delete ${filePath}`,
+												context: { filePath, tableName },
+												cause: error,
+											}),
+										);
+									}
+								}),
+							);
 
 							// Write all current YJS rows for this table to markdown files
 
@@ -850,10 +983,12 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 									body,
 								});
 								if (error) {
+									// Log I/O errors (operational errors, not validation errors)
 									await logger.log(
 										IndexError({
-											message: `Failed to write markdown file ${filePath} during pull`,
-											context: { filePath, cause: error },
+											message: `pullToMarkdown: failed to write ${filePath}`,
+											context: { filePath, tableName, rowId: row.id },
+											cause: error,
 										}),
 									);
 								}
@@ -891,8 +1026,9 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							}
 						});
 
-						// Track diagnostics for files that fail to process
-						const diagnostics: MarkdownIndexError[] = [];
+						// Clear diagnostics at the start of push
+						// Fresh import means fresh validation state
+						diagnostics.clear();
 
 						// Process each table independently
 						for (const {
@@ -901,90 +1037,84 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 							validators,
 							tableConfig,
 						} of tables) {
-							// Read all markdown files from this table's directory
-							const entries = await readdir(tableConfig.directory, {
-								withFileTypes: true,
-							});
+							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
-							for (const entry of entries) {
-								if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+							await Promise.all(
+								filePaths.map(async (filePath) => {
+									const filename = path.basename(filePath);
 
-								const filename = entry.name;
-								const fullPath = path.join(
-									tableConfig.directory,
-									filename,
-								) as AbsolutePath;
+									// Read markdown file
+									const parseResult = await readMarkdownFile(filePath);
 
-								// Read markdown file
-								const parseResult = await readMarkdownFile(fullPath);
+									if (parseResult.error) {
+										// Track read error in diagnostics (current state)
+										const error = MarkdownIndexError({
+											message: `Failed to read markdown file: ${parseResult.error.message}`,
+											context: { filePath, cause: parseResult.error },
+										});
+										diagnostics.add({
+											filePath,
+											tableName,
+											filename,
+											error,
+										});
+										// Log to historical record
+										await logger.log(
+											IndexError({
+												message: `pushFromMarkdown: failed to read ${tableName}/${filename}`,
+												context: { filePath, tableName, filename },
+												cause: parseResult.error,
+											}),
+										);
+										return;
+									}
 
-								if (parseResult.error) {
-									// Convert MarkdownOperationError to MarkdownIndexError for diagnostics
-									const error = MarkdownIndexError({
-										message: `Failed to read markdown file: ${parseResult.error.message}`,
-										context: { filePath: fullPath, cause: parseResult.error },
-									});
-									diagnostics.push(error);
-									await logger.log(error);
-									continue;
-								}
+									const { data: frontmatter, body } = parseResult.data;
 
-								const { data: frontmatter, body } = parseResult.data;
-
-								// Deserialize using the table config
-								const { data: row, error: deserializeError } =
-									tableConfig.deserialize({
-										frontmatter,
-										body,
-										filename,
-										table: {
-											name: tableName,
-											validators,
-										},
-									});
-
-								if (deserializeError) {
-									diagnostics.push(deserializeError);
-									await logger.log(deserializeError);
-									continue;
-								}
-
-								// Insert into YJS
-								const insertResult = table.insert(row);
-								if (insertResult.error) {
-									await logger.log(
-										IndexError({
-											message: `Failed to insert row ${row.id} from markdown into YJS table ${tableName}`,
-											context: {
-												rowId: row.id,
-												tableName,
-												cause: insertResult.error,
+									// Deserialize using the table config
+									const { data: row, error: deserializeError } =
+										tableConfig.deserialize({
+											frontmatter,
+											body,
+											filename,
+											table: {
+												name: tableName,
+												validators,
 											},
-										}),
-									);
-								}
-							}
-						}
+										});
 
-						// Write diagnostics to file
-						if (diagnostics.length > 0) {
-							const diagnosticsPath = path.join(
-								storageDir,
-								'.epicenter',
-								`${id}-diagnostics.json`,
-							);
+									if (deserializeError) {
+										// Track validation error in diagnostics (current state)
+										diagnostics.add({
+											filePath,
+											tableName,
+											filename,
+											error: deserializeError,
+										});
+										// Log to historical record
+										await logger.log(
+											IndexError({
+												message: `pushFromMarkdown: validation failed for ${tableName}/${filename}`,
+												context: { filePath, tableName, filename },
+												cause: deserializeError,
+											}),
+										);
+										return;
+									}
 
-							// Bun.write creates parent directories by default
-							await Bun.write(
-								diagnosticsPath,
-								JSON.stringify(
-									{
-										timestamp: new Date().toISOString(),
-										errors: diagnostics,
-									},
-									null,
-									2,
-								),
+									// Insert into YJS
+									const insertResult = table.insert(row);
+									if (insertResult.error) {
+										// Log insert errors (operational errors, not validation errors)
+										await logger.log(
+											IndexError({
+												message: `pushFromMarkdown: failed to insert ${tableName}/${row.id} into YJS`,
+												context: { tableName, rowId: row.id },
+												cause: insertResult.error,
+											}),
+										);
+									}
+								}),
 							);
 						}
 
@@ -995,6 +1125,42 @@ export const markdownIndex = (<TSchema extends WorkspaceSchema>(
 						return IndexErr({
 							message: `Markdown index push failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'push' },
+						});
+					},
+				});
+			},
+		}),
+
+		/**
+		 * Scan all markdown files and rebuild diagnostics
+		 *
+		 * Validates every markdown file against its schema and updates the diagnostics
+		 * to reflect the current state. This is useful for:
+		 * - On-demand validation after bulk file edits
+		 * - Scheduled validation jobs (e.g., nightly scans)
+		 * - Manual verification that diagnostics are accurate
+		 *
+		 * Note: The initial scan on startup serves the same purpose, but this method
+		 * allows re-scanning at any time without restarting the server.
+		 */
+		scanForErrors: defineQuery({
+			description:
+				'Scan all markdown files and rebuild diagnostics (validates every file)',
+			handler: async () => {
+				return tryAsync({
+					try: async () => {
+						await validateAllMarkdownFiles({ operation: 'scanForErrors' });
+
+						// Return count of errors found
+						const errorCount = diagnostics.count();
+						console.log(
+							`Scan complete: ${errorCount} markdown file${errorCount === 1 ? '' : 's'} with validation errors`,
+						);
+					},
+					catch: (error) => {
+						return IndexErr({
+							message: `Markdown index scan failed: ${extractErrorMessage(error)}`,
+							context: { operation: 'scan' },
 						});
 					},
 				});
