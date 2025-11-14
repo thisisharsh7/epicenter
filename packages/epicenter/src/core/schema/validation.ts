@@ -358,7 +358,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 	return {
 		validateUnknown(data: unknown): SerializedRowValidationResult<TSchema> {
 			// Step 1: Check if it's a plain object
-			if (!isPlainObject(data)) {
+			if (!type("Record<string, unknown>").allows(data)) {
 				return {
 					status: 'invalid-structure',
 					row: data,
@@ -626,81 +626,4 @@ export function createTableValidators<TSchema extends TableSchema>(
 				.array() as StandardSchemaV1<PartialSerializedRow<TSchema>[]>;
 		},
 	};
-}
-
-/**
- * Type guard to check if a value is a plain object (Record<string, unknown>).
- *
- * A plain object is an object created with object literal syntax (`{}`),
- * `new Object()`, or `Object.create(null)`.
- *
- * Returns `true` for:
- * - `{}` (object literal)
- * - `{ foo: 'bar' }` (object literal)
- * - `new Object()` (Object constructor)
- * - `Object.create(null)` (null prototype object)
- *
- * Returns `false` for:
- * - `null`
- * - Primitives (string, number, boolean, etc.)
- * - Arrays (`[]`)
- * - Built-in objects (Date, RegExp, Map, Set, etc.)
- * - Class instances (`new MyClass()`)
- * - Functions
- *
- * **Implementation**: Uses the Lodash approach which checks:
- * 1. Type and toString tag are '[object Object]'
- * 2. Prototype is null (for Object.create(null)), OR
- * 3. Constructor matches native Object constructor
- *
- * This correctly distinguishes plain objects from class instances and other
- * object types across different JavaScript contexts.
- *
- * **References**:
- * - [Lodash implementation](https://github.com/lodash/lodash/blob/master/isPlainObject.js)
- * - [MDN: Object.prototype.toString](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/toString)
- *
- * @example
- * ```typescript
- * isPlainObject({})                 // true
- * isPlainObject({ foo: 'bar' })     // true
- * isPlainObject(new Object())       // true
- * isPlainObject(Object.create(null)) // true
- * isPlainObject(null)               // false
- * isPlainObject([])                 // false
- * isPlainObject(new Date())         // false
- * isPlainObject(/regex/)            // false
- * isPlainObject(new Map())          // false
- * isPlainObject(new MyClass())      // false (class instance)
- * ```
- */
-export function isPlainObject(
-	value: unknown,
-): value is Record<string, unknown> {
-	// Quick type check and toString tag check
-	if (
-		value == null ||
-		typeof value !== 'object' ||
-		Object.prototype.toString.call(value) !== '[object Object]'
-	) {
-		return false;
-	}
-
-	// Handle Object.create(null) which has no prototype
-	const proto = Object.getPrototypeOf(value);
-	if (proto === null) {
-		return true;
-	}
-
-	// Check if constructor matches native Object constructor
-	// This distinguishes plain objects from class instances
-	const Ctor =
-		Object.prototype.hasOwnProperty.call(proto, 'constructor') &&
-		proto.constructor;
-	return (
-		typeof Ctor === 'function' &&
-		Ctor instanceof Ctor &&
-		Function.prototype.toString.call(Ctor) ===
-			Function.prototype.toString.call(Object)
-	);
 }
