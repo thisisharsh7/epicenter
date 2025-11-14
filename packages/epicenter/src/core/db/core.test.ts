@@ -25,11 +25,11 @@ describe('createEpicenterDb', () => {
 
 		// Retrieve the row
 		const result = doc.tables.posts.get({ id: '1' });
-		expect(result.status).toBe('valid');
-		if (result.status === 'valid') {
-			expect(result.row.title).toBe('Test Post');
-			expect(result.row.viewCount).toBe(0);
-			expect(result.row.published).toBe(false);
+		expect(result).not.toBeNull();
+		if (result && result.data) {
+			expect(result.data.title).toBe('Test Post');
+			expect(result.data.viewCount).toBe(0);
+			expect(result.data.published).toBe(false);
 		}
 	});
 
@@ -54,13 +54,13 @@ describe('createEpicenterDb', () => {
 		// Retrieve and verify rows
 		const row1 = doc.tables.posts.get({ id: '1' });
 		const row2 = doc.tables.posts.get({ id: '2' });
-		expect(row1.status).toBe('valid');
-		expect(row2.status).toBe('valid');
-		if (row1.status === 'valid') {
-			expect(row1.row.title).toBe('Post 1');
+		expect(row1).not.toBeNull();
+		expect(row2).not.toBeNull();
+		if (row1 && row1.data) {
+			expect(row1.data.title).toBe('Post 1');
 		}
-		if (row2.status === 'valid') {
-			expect(row2.row.title).toBe('Post 2');
+		if (row2 && row2.data) {
+			expect(row2.data.title).toBe('Post 2');
 		}
 	});
 
@@ -82,17 +82,14 @@ describe('createEpicenterDb', () => {
 		]);
 
 		// Filter published posts
-		const filterResults = doc.tables.posts.filter((post) => post.published);
-		const publishedPosts = filterResults
-			.filter((r) => r.status === 'valid')
-			.map((r) => r.row);
+		const publishedPosts = doc.tables.posts.filter((post) => post.published);
 		expect(publishedPosts).toHaveLength(2);
 
 		// Find first unpublished post
 		const firstDraft = doc.tables.posts.find((post) => !post.published);
-		expect(firstDraft.status).toBe('valid');
-		if (firstDraft.status === 'valid') {
-			expect(firstDraft.row.id).toBe('2');
+		expect(firstDraft).not.toBeNull();
+		if (firstDraft) {
+			expect(firstDraft.id).toBe('2');
 		}
 	});
 

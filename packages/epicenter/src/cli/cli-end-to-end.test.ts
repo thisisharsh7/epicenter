@@ -94,13 +94,13 @@ describe('CLI End-to-End Tests', () => {
 					views: 'number',
 				}),
 				handler: async ({ id, views }) => {
-					const { status, row } = db.tables.posts.get({ id });
-					if (status !== 'valid') {
+					const result = db.tables.posts.get({ id });
+					if (!result || !result.data) {
 						throw new Error(`Post ${id} not found`);
 					}
 					db.tables.posts.update({ id, views });
-					const { row: updatedPost } = db.tables.posts.get({ id });
-					return Ok(updatedPost);
+					const updatedResult = db.tables.posts.get({ id });
+					return Ok(updatedResult?.data);
 				},
 			}),
 		}),
