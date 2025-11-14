@@ -196,6 +196,7 @@ describe('Server Integration Tests', () => {
 					id: 2,
 					method: 'tools/call',
 					params: {
+						name: 'blog_createPost',
 						arguments: {
 							title: 'MCP Test Post',
 							category: 'tech',
@@ -252,9 +253,9 @@ describe('Server Integration Tests', () => {
 
 			exports: ({ db }) => ({
 				createUser: defineMutation({
-					input: Type.Object({
-						email: Type.String({ format: 'email' }),
-						name: Type.String(),
+					input: type({
+						email: 'string',
+						name: 'string',
 					}),
 					description: 'Create a new user',
 					handler: async (input) => {
@@ -312,6 +313,7 @@ describe('Server Integration Tests', () => {
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						email: 'test@example.com',
+						name: 'Test User',
 					}),
 				},
 			);
@@ -362,8 +364,10 @@ describe('Server Integration Tests', () => {
 					id: 4,
 					method: 'tools/call',
 					params: {
+						name: 'auth_createUser',
 						arguments: {
 							email: 'mcp@example.com',
+							name: 'MCP User',
 						},
 					},
 				}),

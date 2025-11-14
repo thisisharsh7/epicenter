@@ -118,6 +118,7 @@ describe('CLI End-to-End Tests', () => {
 		}
 		await mkdir(TEST_DIR, { recursive: true });
 		await mkdir(TEST_MARKDOWN, { recursive: true });
+		await mkdir(path.join(TEST_MARKDOWN, 'posts'), { recursive: true });
 	});
 
 	afterEach(async () => {

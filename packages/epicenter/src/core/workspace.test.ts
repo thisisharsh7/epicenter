@@ -679,13 +679,13 @@ describe('Workspace Action Handlers', () => {
 						views: 'number',
 					}),
 					handler: async ({ id, views }) => {
-						const { status, row } = db.tables.posts.get({ id });
-						if (status !== 'valid') {
+						const result = db.tables.posts.get({ id });
+						if (!result || result.status !== 'valid') {
 							throw new Error(`Post ${id} not found`);
 						}
 						db.tables.posts.update({ id, views });
-						const { row: updatedPost } = db.tables.posts.get({ id });
-						return Ok(updatedPost);
+						const updatedResult = db.tables.posts.get({ id });
+						return Ok(updatedResult?.row);
 					},
 				}),
 			};
@@ -721,7 +721,7 @@ describe('Workspace Action Handlers', () => {
 			category: 'tech',
 		});
 
-		expect(result.error).toBeUndefined();
+		expect(result.error).toBeNull();
 		expect(result.data?.title).toBe('Test Post');
 		expect(result.data?.content).toBe('Test content');
 		expect(result.data?.category).toBe('tech');
@@ -744,7 +744,7 @@ describe('Workspace Action Handlers', () => {
 		// List all posts
 		const result = await client.listPosts({});
 
-		expect(result.error).toBeUndefined();
+		expect(result.error).toBeNull();
 		expect(result.data).toBeDefined();
 		expect(Array.isArray(result.data)).toBe(true);
 		expect(result.data?.length).toBe(1);
@@ -769,7 +769,7 @@ describe('Workspace Action Handlers', () => {
 		// Get the specific post
 		const result = await client.getPost({ id: postId });
 
-		expect(result.error).toBeUndefined();
+		expect(result.error).toBeNull();
 		expect(result.data).toBeDefined();
 		expect(Array.isArray(result.data)).toBe(true);
 		expect(result.data?.length).toBe(1);
@@ -795,7 +795,7 @@ describe('Workspace Action Handlers', () => {
 			views: 42,
 		});
 
-		expect(updateResult.error).toBeUndefined();
+		expect(updateResult.error).toBeNull();
 		expect(updateResult.data?.views).toBe(42);
 	});
 
@@ -823,7 +823,7 @@ describe('Workspace Action Handlers', () => {
 			category: 'tech',
 		});
 
-		expect(result.error).toBeUndefined();
+		expect(result.error).toBeNull();
 		expect(result.data?.title).toBe('No Content Post');
 		expect(result.data?.content).toBe(null);
 		expect(result.data?.category).toBe('tech');
