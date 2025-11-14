@@ -131,7 +131,9 @@ export function tableSchemaToArktypeType<TSchema extends TableSchema>(
  * @param columnSchema - The column schema to convert
  * @returns Raw arktype Type (not a Type instance) suitable for passing to type()
  */
-function columnSchemaToArktypeType(columnSchema: ColumnSchema): Type {
+function columnSchemaToArktypeType<C extends ColumnSchema>(
+	columnSchema: C,
+): ColumnSchemaToArktypeType<C> {
 	let baseType: Type;
 
 	switch (columnSchema.type) {
@@ -173,8 +175,10 @@ function columnSchemaToArktypeType(columnSchema: ColumnSchema): Type {
 
 	// Handle nullable columns (skip id which is never nullable)
 	if (columnSchema.type === 'id') {
-		return baseType;
+		return baseType as ColumnSchemaToArktypeType<C>;
 	}
 
-	return columnSchema.nullable ? baseType.or(type.null) : baseType;
+	return (columnSchema.nullable
+		? baseType.or(type.null)
+		: baseType) as ColumnSchemaToArktypeType<C>;
 }
