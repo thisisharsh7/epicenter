@@ -263,8 +263,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 
 		case 'date': {
 			// Date stored as TEXT in format "ISO_UTC|TIMEZONE"
-			let column = date();
-			if (!schema.nullable) column = column.notNull();
+			let column = date(schema);
 			return column as ColumnToDrizzle<C>;
 		}
 
@@ -280,24 +279,13 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 
 		case 'multi-select': {
 			// Tags column stored as TEXT with JSON mode (array of strings)
-			let column: any = schema.options ? tags({ options: schema.options }) : tags();
-			if (!schema.nullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
-			}
+			const column= tags(schema);
 			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'json': {
 			// JSON column stored as TEXT with validation
-			let column = json({ schema: schema.schema });
-			if (!schema.nullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column =
-					typeof schema.default === 'function'
-						? column.$defaultFn(schema.default)
-						: column.default(schema.default);
-			}
+			const column = json(schema);
 			return column as ColumnToDrizzle<C>;
 		}
 

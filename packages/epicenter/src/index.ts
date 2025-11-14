@@ -44,6 +44,9 @@ export {
 	isDateWithTimezone,
 	DateWithTimezoneFromString,
 	serializeCellValue,
+	DATE_WITH_TIMEZONE_STRING_REGEX,
+	ISO_DATETIME_REGEX,
+	TIMEZONE_ID_REGEX,
 } from './core/schema';
 export { DateWithTimezone } from './core/schema';
 export type {
