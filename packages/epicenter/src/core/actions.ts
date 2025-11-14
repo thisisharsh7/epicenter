@@ -3,10 +3,65 @@ import type { TaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
 
 /**
+ * Workspace exports - can include actions and any other utilities
+ *
+ * Similar to IndexExports, workspaces can export anything.
+ * Actions (Query/Mutation) get special treatment:
+ * - Auto-mapped to API endpoints
+ * - Auto-mapped to MCP tools
+ *
+ * Everything else is accessible via client.workspaces.{name}.{export}
+ *
+ * @example Creating a workspace with mixed exports
+ * ```typescript
+ * const workspace = defineWorkspace({
+ *   actions: () => ({
+ *     // Actions - these get auto-mapped to API/MCP
+ *     getUser: defineQuery({
+ *       handler: async () => { ... }
+ *     }),
+ *
+ *     createUser: defineMutation({
+ *       input: userSchema,
+ *       handler: async (input) => { ... }
+ *     }),
+ *
+ *     // Utilities - accessible but not auto-mapped
+ *     validateEmail: (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+ *
+ *     // Constants
+ *     constants: {
+ *       MAX_USERS: 1000,
+ *       DEFAULT_ROLE: 'user'
+ *     },
+ *
+ *     // Helpers
+ *     formatters: {
+ *       formatUserName: (user) => `${user.firstName} ${user.lastName}`
+ *     }
+ *   })
+ * });
+ *
+ * // API/MCP mapper usage
+ * const actions = extractActions(workspaceExports);
+ * // actions = { getUser, createUser } only
+ *
+ * // Client usage
+ * client.workspaces.users.getUser() // Action
+ * client.workspaces.users.validateEmail("test@test.com") // Utility
+ * client.workspaces.users.constants.MAX_USERS // Constant
+ * ```
+ */
+export type WorkspaceExports = Record<string, unknown>;
+
+/**
  * A collection of workspace actions indexed by action name.
  *
+ * This is a subset of WorkspaceExports containing only the actions (queries and mutations).
+ * Use extractActions() to filter WorkspaceExports down to just the actions.
+ *
  * Each workspace exposes its functionality through a set of typed actions
- * that can be called by other workspaces or external consumers.
+ * that can be called by other workspaces or external consumers via API/MCP.
  */
 // biome-ignore lint/suspicious/noExplicitAny: WorkspaceActionMap is a dynamic collection where each action can have different output and error types. Using `any` here allows flexibility for heterogeneous action collections without forcing users to define complex union types upfront.
 export type WorkspaceActionMap = Record<string, Action<any, any>>;
@@ -338,4 +393,124 @@ type ActionConfig = {
 		| ((input: unknown) => any | Promise<any>);
 	description?: string;
 };
+
+/**
+ * Type guard: Check if a value is an Action (Query or Mutation)
+ *
+ * Actions are identified by having a `type` property set to 'query' or 'mutation'.
+ * This allows runtime filtering of workspace exports to identify which exports
+ * should be mapped to API endpoints and MCP tools.
+ *
+ * @example
+ * ```typescript
+ * const exports = {
+ *   getUser: defineQuery({ ... }),
+ *   validateEmail: (email: string) => { ... }
+ * };
+ *
+ * isAction(exports.getUser) // true
+ * isAction(exports.validateEmail) // false
+ * ```
+ */
+export function isAction(value: unknown): value is Action {
+	return (
+		typeof value === 'function' &&
+		typeof (value as Action).type === 'string' &&
+		((value as Action).type === 'query' || (value as Action).type === 'mutation')
+	);
+}
+
+/**
+ * Type guard: Check if a value is a Query action
+ *
+ * @example
+ * ```typescript
+ * const getUser = defineQuery({ ... });
+ * const createUser = defineMutation({ ... });
+ *
+ * isQuery(getUser) // true
+ * isQuery(createUser) // false
+ * ```
+ */
+export function isQuery(value: unknown): value is Query {
+	return isAction(value) && value.type === 'query';
+}
+
+/**
+ * Type guard: Check if a value is a Mutation action
+ *
+ * @example
+ * ```typescript
+ * const getUser = defineQuery({ ... });
+ * const createUser = defineMutation({ ... });
+ *
+ * isMutation(getUser) // false
+ * isMutation(createUser) // true
+ * ```
+ */
+export function isMutation(value: unknown): value is Mutation {
+	return isAction(value) && value.type === 'mutation';
+}
+
+/**
+ * Extract only the actions from workspace exports
+ *
+ * Used by API/MCP mappers to identify what to expose as endpoints.
+ * Non-action exports are ignored and remain accessible through the client.
+ *
+ * @example
+ * ```typescript
+ * const exports = {
+ *   getUser: defineQuery({ ... }),
+ *   createUser: defineMutation({ ... }),
+ *   validateEmail: (email: string) => { ... },
+ *   constants: { MAX_USERS: 1000 }
+ * };
+ *
+ * const actions = extractActions(exports);
+ * // actions = { getUser, createUser } only
+ *
+ * // Use in API/MCP mapping
+ * for (const [name, action] of Object.entries(actions)) {
+ *   if (isQuery(action)) {
+ *     app.get(`/api/${name}`, ...);
+ *   } else if (isMutation(action)) {
+ *     app.post(`/api/${name}`, ...);
+ *   }
+ * }
+ * ```
+ */
+export function extractActions(exports: WorkspaceExports): WorkspaceActionMap {
+	return Object.fromEntries(
+		Object.entries(exports).filter(([_, value]) => isAction(value)),
+	) as WorkspaceActionMap;
+}
+
+/**
+ * Helper to define workspace exports with full type inference
+ *
+ * Identity function similar to defineIndexExports. Provides type safety
+ * and better IDE support when defining workspace exports.
+ *
+ * @example
+ * ```typescript
+ * const exports = defineWorkspaceExports({
+ *   getUser: defineQuery({ ... }),
+ *   createUser: defineMutation({ ... }),
+ *   validateEmail: (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+ *   constants: { MAX_USERS: 1000 }
+ * });
+ * // Type is fully inferred: {
+ * //   getUser: Query<...>,
+ * //   createUser: Mutation<...>,
+ * //   validateEmail: (email: string) => boolean,
+ * //   constants: { MAX_USERS: number }
+ * // }
+ * ```
+ */
+export function defineWorkspaceExports<T extends WorkspaceExports>(
+	exports: T,
+): T {
+	return exports;
+}
 

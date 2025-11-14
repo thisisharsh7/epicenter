@@ -82,12 +82,21 @@ export type {
 } from './core/schema';
 
 // Action helpers
-export { defineQuery, defineMutation } from './core/actions';
+export {
+	defineQuery,
+	defineMutation,
+	isAction,
+	isQuery,
+	isMutation,
+	extractActions,
+	defineWorkspaceExports,
+} from './core/actions';
 export type {
 	Query,
 	Mutation,
 	Action,
 	WorkspaceActionMap,
+	WorkspaceExports,
 } from './core/actions';
 
 // Runtime
@@ -129,9 +138,6 @@ export { sqliteIndex } from './indexes/sqlite';
 
 export { markdownIndex } from './indexes/markdown';
 export type { MarkdownIndexConfig } from './indexes/markdown';
-
-export { createDiagnosticsManager } from './indexes/diagnostics-manager';
-export type { DiagnosticsManager, DiagnosticEntry } from './indexes/diagnostics-manager';
 
 // Error types
 export {
