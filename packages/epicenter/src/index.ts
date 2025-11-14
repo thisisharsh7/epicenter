@@ -38,7 +38,6 @@ export {
 	select,
 	tags,
 	generateId,
-	validateRow,
 	createTableValidators,
 	createWorkspaceValidators,
 	isDateWithTimezoneString,
@@ -131,6 +130,9 @@ export { sqliteIndex } from './indexes/sqlite';
 export { markdownIndex } from './indexes/markdown';
 export type { MarkdownIndexConfig } from './indexes/markdown';
 
+export { createDiagnosticsManager } from './indexes/diagnostics-manager';
+export type { DiagnosticsManager, DiagnosticEntry } from './indexes/diagnostics-manager';
+
 // Error types
 export {
 	EpicenterOperationErr,
@@ -145,6 +147,9 @@ export type {
 
 // Server - expose workspaces as REST API and MCP servers
 export { createServer } from './server';
+
+// Core types
+export type { AbsolutePath } from './core/types';
 
 // Re-export commonly used Drizzle utilities for querying indexes
 export {
