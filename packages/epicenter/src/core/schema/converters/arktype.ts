@@ -83,6 +83,47 @@ export type ColumnSchemaToArktypeType<C extends ColumnSchema> =
 											: never;
 
 /**
+ * Converts a TableSchema to a fully instantiated arktype Type.
+ *
+ * Returns a ready-to-use arktype Type instance with all composition methods available
+ * (.partial(), .merge(), .array(), etc.).
+ *
+ * @param tableSchema - The table schema to convert
+ * @returns Complete arktype Type instance with composition methods
+ *
+ * @example
+ * ```typescript
+ * const schema = {
+ *   id: id(),
+ *   title: text(),
+ *   count: integer({ nullable: true })
+ * };
+ *
+ * const validator = tableSchemaToArktypeType(schema);
+ *
+ * // Use immediately for validation
+ * const result = validator({ id: '123', title: 'Test', count: 42 });
+ *
+ * // Or compose with other operations
+ * const partialValidator = validator.partial().merge({ id: type.string });
+ * const arrayValidator = validator.array();
+ * ```
+ */
+export function tableSchemaToArktypeType<TSchema extends TableSchema>(
+	tableSchema: TSchema,
+): ObjectType<SerializedRow<TSchema>> {
+	const fields: Record<string, Type> = {};
+
+	for (const [fieldName, columnSchema] of Object.entries(tableSchema)) {
+		fields[fieldName] = columnSchemaToArktypeType(columnSchema);
+	}
+
+	// Cast to any to bypass arktype's strict type inference
+	// The mapped type is too complex for TypeScript to infer properly
+	return type(fields as any) as ObjectType<SerializedRow<TSchema>>;
+}
+
+/**
  * Converts a single ColumnSchema to a raw arktype definition (not Type instance).
  *
  * **Important**: Returns raw arktype-parseable values (Type instances, not strings)
@@ -99,7 +140,7 @@ export type ColumnSchemaToArktypeType<C extends ColumnSchema> =
  * @param columnSchema - The column schema to convert
  * @returns Raw arktype Type (not a Type instance) suitable for passing to type()
  */
-export function columnSchemaToArktypeType(columnSchema: ColumnSchema): Type {
+function columnSchemaToArktypeType(columnSchema: ColumnSchema): Type {
 	let baseType: Type;
 
 	switch (columnSchema.type) {
@@ -151,79 +192,4 @@ export function columnSchemaToArktypeType(columnSchema: ColumnSchema): Type {
 	}
 
 	return columnSchema.nullable ? baseType.or(type.null) : baseType;
-}
-
-/**
- * Converts a TableSchema to an object of arktype Types suitable for passing to type().
- *
- * **Return type**: Uses mapped type to preserve exact key structure from TSchema,
- * enabling TypeScript to properly infer ObjectType with .partial(), .merge() methods.
- *
- * @param tableSchema - The table schema to convert
- * @returns Object with same keys as tableSchema, values are arktype Types
- *
- * @example
- * ```typescript
- * const schema = {
- *   id: id(),
- *   title: text(),
- *   count: integer({ nullable: true })
- * };
- *
- * const fields = tableSchemaToArktypeFields(schema);
- * // { id: Type<string>, title: Type<string>, count: Type<number | null> }
- *
- * const validator = type(fields);
- * // Now has .partial(), .merge(), etc. available!
- * ```
- */
-export function tableSchemaToArktypeFields<TSchema extends TableSchema>(
-	tableSchema: TSchema,
-): { [K in keyof TSchema]: ColumnSchemaToArktypeType<TSchema[K]> } {
-	const fields: Record<string, Type> = {};
-
-	for (const [fieldName, columnSchema] of Object.entries(tableSchema)) {
-		fields[fieldName] = columnSchemaToArktypeType(columnSchema);
-	}
-
-	return fields as { [K in keyof TSchema]: ColumnSchemaToArktypeType<TSchema[K]> };
-}
-
-/**
- * Converts a TableSchema to a fully instantiated arktype Type.
- *
- * This is a convenience function that wraps `tableSchemaToArktypeFields()` with `type()`,
- * returning a ready-to-use arktype Type instance with all composition methods available.
- *
- * **Use this when**: You want a complete Type instance ready for validation or composition.
- * **Use tableSchemaToArktypeFields when**: You need the raw field definitions (rare).
- *
- * @param tableSchema - The table schema to convert
- * @returns Complete arktype Type instance with .partial(), .merge(), .array(), etc.
- *
- * @example
- * ```typescript
- * const schema = {
- *   id: id(),
- *   title: text(),
- *   count: integer({ nullable: true })
- * };
- *
- * const validator = tableSchemaToArktypeType(schema);
- *
- * // Use immediately for validation
- * const result = validator({ id: '123', title: 'Test', count: 42 });
- *
- * // Or compose with other operations
- * const partialValidator = validator.partial().merge({ id: type.string });
- * const arrayValidator = validator.array();
- * ```
- */
-export function tableSchemaToArktypeType<TSchema extends TableSchema>(
-	tableSchema: TSchema,
-): ObjectType<SerializedRow<TSchema>> {
-	const fields = tableSchemaToArktypeFields(tableSchema);
-	// Cast to any to bypass arktype's strict type inference
-	// The mapped type is too complex for TypeScript to infer properly
-	return type(fields as any) as ObjectType<SerializedRow<TSchema>>;
 }
