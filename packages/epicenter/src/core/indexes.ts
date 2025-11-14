@@ -92,8 +92,17 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  *
  *   // 2. Set up YJS observers
  *   const unsubPosts = db.tables.posts.observe({
- *     onAdd: (row) => { indexPost(row); },
- *     onUpdate: (row) => { reindexPost(row); },
+ *     onAdd: (result) => {
+ *       if (result.error) {
+ *         // Handle validation errors
+ *         return;
+ *       }
+ *       indexPost(result.data);
+ *     },
+ *     onUpdate: (result) => {
+ *       if (result.error) return;
+ *       reindexPost(result.data);
+ *     },
  *     onDelete: (id) => { removePost(id); },
  *   });
  *

@@ -132,11 +132,24 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 		}
 
 		const unsub = db.tables[tableName].observe({
-			onAdd: async (row) => {
+			onAdd: async (result) => {
 				// Skip if this YJS change was triggered by a SQLite change we're processing
 				// (prevents SQLite -> YJS -> SQLite infinite loop during pull)
 				if (syncCoordination.isProcessingSQLiteChange) return;
 
+				// Handle validation errors
+				if (result.error) {
+					await logger.log(
+						IndexError({
+							message: `SQLite index onAdd: validation failed for ${tableName}`,
+							context: { tableName, validationErrors: result.error.summary },
+							cause: undefined,
+						}),
+					);
+					return;
+				}
+
+				const row = result.data;
 				const { error } = await tryAsync({
 					try: async () => {
 						const serializedRow = row.toJSON();
@@ -155,11 +168,24 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					);
 				}
 			},
-			onUpdate: async (row) => {
+			onUpdate: async (result) => {
 				// Skip if this YJS change was triggered by a SQLite change we're processing
 				// (prevents SQLite -> YJS -> SQLite infinite loop during pull)
 				if (syncCoordination.isProcessingSQLiteChange) return;
 
+				// Handle validation errors
+				if (result.error) {
+					await logger.log(
+						IndexError({
+							message: `SQLite index onUpdate: validation failed for ${tableName}`,
+							context: { tableName, validationErrors: result.error.summary },
+							cause: undefined,
+						}),
+					);
+					return;
+				}
+
+				const row = result.data;
 				const { error } = await tryAsync({
 					try: async () => {
 						const serializedRow = row.toJSON();
