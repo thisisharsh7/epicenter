@@ -30,7 +30,7 @@ export const personalBlog = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => ({
+	exports: ({ db, indexes }) => ({
 		/**
 		 * Get all personal blog posts
 		 *

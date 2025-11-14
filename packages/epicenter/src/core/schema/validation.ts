@@ -13,12 +13,11 @@ import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import { tableSchemaToArktypeType } from './converters/arktype';
 import { tableSchemaToYjsArktypeType } from './converters/arktype-yjs';
 import type {
-	ColumnSchema,
 	PartialSerializedRow,
 	Row,
 	SerializedRow,
 	TableSchema,
-	WorkspaceSchema,
+	WorkspaceSchema
 } from './types';
 
 /**

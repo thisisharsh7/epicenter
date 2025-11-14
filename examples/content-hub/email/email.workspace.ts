@@ -64,7 +64,7 @@ export const email = defineWorkspace({
 			markdownIndex(c, {
 				tableConfigs: {
 					emails: {
-						serialize: ({ row: { body, id, ...row }, table }) => ({
+						serialize: ({ row: { body, id, ...row }}) => ({
 							frontmatter: row,
 							body,
 							filename: `${id}.md`,
