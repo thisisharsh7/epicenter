@@ -162,6 +162,8 @@ export type Mutation<
 /**
  * Define a query action (read operation with no side effects)
  *
+ * **Overload 1 of 8**: With input, returns Result<TOutput, TError>, sync
+ *
  * **⚠️ Input Schema Constraints**
  *
  * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
@@ -177,20 +179,7 @@ export type Mutation<
  * - Zod: https://zod.dev/json-schema?id=unrepresentable
  * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
  * - ArkType: https://arktype.io/docs/configuration#fallback-codes
- *
- * **Overloads** (8 combinations):
- *
- * 1. With input, returns Result<TOutput, TError>, sync
- * 2. With input, returns Result<TOutput, TError>, async
- * 3. With input, returns TOutput (can't fail), sync
- * 4. With input, returns Promise<TOutput> (can't fail), async
- * 5. No input, returns Result<TOutput, TError>, sync
- * 6. No input, returns Result<TOutput, TError>, async
- * 7. No input, returns TOutput (can't fail), sync
- * 8. No input, returns Promise<TOutput> (can't fail), async
  */
-
-/** 1. With input, returns Result, sync */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -203,7 +192,27 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, TInput, false>;
 
-/** 2. With input, returns Result, async */
+/**
+ * Define a query action (read operation with no side effects)
+ *
+ * **Overload 2 of 8**: With input, returns Result<TOutput, TError>, async
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -216,7 +225,27 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, TInput, true>;
 
-/** 3. With input, returns TOutput (can't fail), sync */
+/**
+ * Define a query action (read operation with no side effects)
+ *
+ * **Overload 3 of 8**: With input, returns TOutput (can't fail), sync
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
@@ -225,7 +254,27 @@ export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	description?: string;
 }): Query<TOutput, never, TInput, false>;
 
-/** 4. With input, returns Promise<TOutput> (can't fail), async */
+/**
+ * Define a query action (read operation with no side effects)
+ *
+ * **Overload 4 of 8**: With input, returns Promise<TOutput> (can't fail), async
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
 	handler: (
@@ -234,7 +283,11 @@ export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	description?: string;
 }): Query<TOutput, never, TInput, true>;
 
-/** 5. No input, returns Result, sync */
+/**
+ * Define a query action (read operation with no side effects)
+ *
+ * **Overload 5 of 8**: No input, returns Result<TOutput, TError>, sync
+ */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -243,7 +296,11 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, undefined, false>;
 
-/** 6. No input, returns Result, async */
+/**
+ * Define a query action (read operation with no side effects)
+ *
+ * **Overload 6 of 8**: No input, returns Result<TOutput, TError>, async
+ */
 export function defineQuery<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -252,13 +309,21 @@ export function defineQuery<
 	description?: string;
 }): Query<TOutput, TError, undefined, true>;
 
-/** 7. No input, returns TOutput (can't fail), sync */
+/**
+ * Define a query action (read operation with no side effects)
+ *
+ * **Overload 7 of 8**: No input, returns TOutput (can't fail), sync
+ */
 export function defineQuery<TOutput>(config: {
 	handler: () => TOutput;
 	description?: string;
 }): Query<TOutput, never, undefined, false>;
 
-/** 8. No input, returns Promise<TOutput> (can't fail), async */
+/**
+ * Define a query action (read operation with no side effects)
+ *
+ * **Overload 8 of 8**: No input, returns Promise<TOutput> (can't fail), async
+ */
 export function defineQuery<TOutput>(config: {
 	handler: () => Promise<TOutput>;
 	description?: string;
@@ -287,6 +352,8 @@ export function defineQuery(config: ActionConfig): any {
 /**
  * Define a mutation action (write operation that modifies state)
  *
+ * **Overload 1 of 8**: With input, returns Result<TOutput, TError>, sync
+ *
  * **⚠️ Input Schema Constraints**
  *
  * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
@@ -302,20 +369,7 @@ export function defineQuery(config: ActionConfig): any {
  * - Zod: https://zod.dev/json-schema?id=unrepresentable
  * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
  * - ArkType: https://arktype.io/docs/configuration#fallback-codes
- *
- * **Overloads** (8 combinations):
- *
- * 1. With input, returns Result<TOutput, TError>, sync
- * 2. With input, returns Result<TOutput, TError>, async
- * 3. With input, returns TOutput (can't fail), sync
- * 4. With input, returns Promise<TOutput> (can't fail), async
- * 5. No input, returns Result<TOutput, TError>, sync
- * 6. No input, returns Result<TOutput, TError>, async
- * 7. No input, returns TOutput (can't fail), sync
- * 8. No input, returns Promise<TOutput> (can't fail), async
  */
-
-/** 1. With input, returns Result, sync */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -328,7 +382,27 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, TInput, false>;
 
-/** 2. With input, returns Result, async */
+/**
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **Overload 2 of 8**: With input, returns Result<TOutput, TError>, async
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -341,7 +415,27 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, TInput, true>;
 
-/** 3. With input, returns TOutput (can't fail), sync */
+/**
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **Overload 3 of 8**: With input, returns TOutput (can't fail), sync
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ */
 export function defineMutation<
 	TOutput,
 	TInput extends StandardSchemaV1,
@@ -353,7 +447,27 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, never, TInput, false>;
 
-/** 4. With input, returns Promise<TOutput> (can't fail), async */
+/**
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **Overload 4 of 8**: With input, returns Promise<TOutput> (can't fail), async
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ */
 export function defineMutation<
 	TOutput,
 	TInput extends StandardSchemaV1,
@@ -365,7 +479,11 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, never, TInput, true>;
 
-/** 5. No input, returns Result, sync */
+/**
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **Overload 5 of 8**: No input, returns Result<TOutput, TError>, sync
+ */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -374,7 +492,11 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, undefined, false>;
 
-/** 6. No input, returns Result, async */
+/**
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **Overload 6 of 8**: No input, returns Result<TOutput, TError>, async
+ */
 export function defineMutation<
 	TOutput,
 	TError extends TaggedError<string>,
@@ -383,13 +505,21 @@ export function defineMutation<
 	description?: string;
 }): Mutation<TOutput, TError, undefined, true>;
 
-/** 7. No input, returns TOutput (can't fail), sync */
+/**
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **Overload 7 of 8**: No input, returns TOutput (can't fail), sync
+ */
 export function defineMutation<TOutput>(config: {
 	handler: () => TOutput;
 	description?: string;
 }): Mutation<TOutput, never, undefined, false>;
 
-/** 8. No input, returns Promise<TOutput> (can't fail), async */
+/**
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **Overload 8 of 8**: No input, returns Promise<TOutput> (can't fail), async
+ */
 export function defineMutation<TOutput>(config: {
 	handler: () => Promise<TOutput>;
 	description?: string;

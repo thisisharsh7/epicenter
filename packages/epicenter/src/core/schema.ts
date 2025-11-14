@@ -279,10 +279,10 @@ export type TagsColumnSchema<
  * Unlike other column types, JSON columns use a `schema` property instead of `options`.
  * The schema must extend StandardSchemaV1 and is always required.
  *
- * **⚠️ Schema Constraints for Action Inputs**
+ * **⚠️ Schema Property Constraints**
  *
- * When used in action input schemas (via `validators.toStandardSchema()`), JSON column schemas
- * are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ * The `schema` property value is converted to JSON Schema when this table schema is used
+ * as an action input (via `validators.toStandardSchema()`) for MCP/CLI/OpenAPI. Avoid:
  *
  * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
  * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
