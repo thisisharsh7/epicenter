@@ -95,12 +95,12 @@ describe('CLI End-to-End Tests', () => {
 				}),
 				handler: async ({ id, views }) => {
 					const result = db.tables.posts.get({ id });
-					if (!result || !result.data) {
-						throw new Error(`Post ${id} not found`);
+					if (!result?.data) {
+						return Ok(null);
 					}
 					db.tables.posts.update({ id, views });
 					const updatedResult = db.tables.posts.get({ id });
-					return Ok(updatedResult?.data);
+					return Ok(updatedResult?.data?.toJSON());
 				},
 			}),
 		}),

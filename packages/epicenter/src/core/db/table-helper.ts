@@ -1,6 +1,6 @@
-import { type, type ArkErrors } from 'arktype';
+import { ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
-import { Ok, Err, type Result } from 'wellcrafted/result';
+import { Err, Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { defineMutation, defineQuery } from '../actions';
 import type {

@@ -214,16 +214,15 @@ export const clippings = defineWorkspace({
 		removeDuplicates: defineMutation({
 			handler: () => {
 				type Clipping = SerializedRow<(typeof db.schema)['clippings']>;
-				const allClippings = db.tables.clippings.getAll();
 
-				// Convert valid rows to JSON
-				const clippingsData: Clipping[] = allClippings.flatMap((result) =>
-					result.status === 'valid' ? [result.row.toJSON()] : [],
-				);
+				// Convert rows to JSON
+				const clippings: Clipping[] = db.tables.clippings
+					.getAll()
+					.map((row) => row.toJSON());
 
 				// Group by URL
 				const urlMap = new Map<string, Clipping[]>();
-				for (const clipping of clippingsData) {
+				for (const clipping of clippings) {
 					if (!urlMap.has(clipping.url)) {
 						urlMap.set(clipping.url, []);
 					}

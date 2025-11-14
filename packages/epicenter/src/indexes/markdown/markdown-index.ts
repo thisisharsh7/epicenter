@@ -896,14 +896,11 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 			tracking[tableName] = createBidirectionalMap();
 		}
 
-		// Get all valid rows from YJS
-		const results = table.getAll();
-		const validRows = results
-			.filter((r) => r.status === 'valid')
-			.map((r) => r.row);
+		// Get all rows from YJS
+		const rows = table.getAll();
 
 		// Serialize each row to extract filename and populate tracking in BOTH directions
-		for (const row of validRows) {
+		for (const row of rows) {
 			const serializedRow = row.toJSON();
 			const { filename } = tableConfig.serialize({
 				row: serializedRow,
@@ -985,12 +982,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 							// Write all current YJS rows for this table to markdown files
 
-							const results = db.tables[tableName].getAll();
-							const validRows = results
-								.filter((r) => r.status === 'valid')
-								.map((r) => r.row);
+							const rows = db.tables[tableName].getAll();
 
-							for (const row of validRows) {
+							for (const row of rows) {
 								const serializedRow = row.toJSON();
 								const { frontmatter, body, filename } = tableConfig.serialize({
 									row: serializedRow,

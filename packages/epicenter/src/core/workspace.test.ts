@@ -680,12 +680,12 @@ describe('Workspace Action Handlers', () => {
 					}),
 					handler: async ({ id, views }) => {
 						const result = db.tables.posts.get({ id });
-						if (!result || result.status !== 'valid') {
-							throw new Error(`Post ${id} not found`);
+						if (!result?.data) {
+							return Ok(null);
 						}
 						db.tables.posts.update({ id, views });
 						const updatedResult = db.tables.posts.get({ id });
-						return Ok(updatedResult?.row);
+						return Ok(updatedResult?.data?.toJSON());
 					},
 				}),
 			};
@@ -823,7 +823,7 @@ describe('Workspace Action Handlers', () => {
 		expect(updateResult.data?.views).toBe(42);
 	});
 
-	test('updateViews throws error for non-existent post', async () => {
+	test('updateViews returns null for non-existent post', async () => {
 		const epicenter = defineEpicenter({
 			id: 'test-epicenter',
 			storageDir: TEST_DIR,
@@ -833,16 +833,13 @@ describe('Workspace Action Handlers', () => {
 		const client = epicenterClient['posts-test'];
 
 		// Try to update views on non-existent post
-		try {
-			await client.updateViews({
-				id: 'non-existent-id',
-				views: 42,
-			});
-			expect(false).toBe(true); // Should not reach here
-		} catch (error) {
-			expect(error).toBeDefined();
-			expect((error as Error).message).toContain('not found');
-		}
+		const result = await client.updateViews({
+			id: 'non-existent-id',
+			views: 42,
+		});
+
+		expect(result.error).toBeNull();
+		expect(result.data).toBeNull();
 	});
 
 	test('createPost with optional content field', async () => {
