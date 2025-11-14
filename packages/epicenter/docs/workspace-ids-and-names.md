@@ -61,7 +61,7 @@ const appWorkspace = defineWorkspace({
   id: generateId(),
   name: 'app',
   dependencies: [blogWorkspace, authWorkspace],
-  actions: ({ workspaces }) => ({
+  exports: ({ workspaces }) => ({
     publishPost: defineMutation({
       handler: async ({ postId }) => {
         // Check auth first

@@ -84,7 +84,7 @@ Note that `Row` has a default generic:
 
 ```typescript
 type Row<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: ColumnSchemaToType<TTableSchema[K]>;
+	[K in keyof TTableSchema]: ColumnSchemaToCellValue<TTableSchema[K]>;
 };
 ```
 
