@@ -279,14 +279,12 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * The table's directory setting determines where the file is written.
 	 *
 	 * @param params.row - Row to serialize (already validated against schema)
-	 * @param params.table.name - Table name (for context)
+	 * @param params.table - Table context (name, schema, validators)
 	 * @returns Frontmatter object, markdown body string, and simple filename (without directory path)
 	 */
 	serialize?(params: {
 		row: SerializedRow<TTableSchema>;
-		table: {
-			name: string;
-		};
+		table: TableContext<TTableSchema>;
 	}): {
 		frontmatter: Record<string, unknown>;
 		body: string;
@@ -309,21 +307,42 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
 	 * @param params.body - Markdown body content (text after frontmatter delimiters)
 	 * @param params.filename - Simple filename only (validated to not contain path separators)
-	 * @param params.table.name - Table name (for context)
-	 * @param params.table.schema - Table schema definition (for schema-driven logic)
-	 * @param params.table.validators - Table validators with validation methods
+	 * @param params.table - Table context (name, schema, validators)
 	 * @returns Result with complete row (with id field), or error to skip this file
 	 */
 	deserialize?(params: {
 		frontmatter: Record<string, unknown>;
 		body: string;
 		filename: string;
-		table: {
-			name: string;
-			schema: TTableSchema;
-			validators: TableValidators<TTableSchema>;
-		};
+		table: TableContext<TTableSchema>;
 	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
+};
+
+/**
+ * Table context provided to serialize/deserialize functions
+ *
+ * This context gives transformation functions access to table metadata
+ * while maintaining API purity:
+ *
+ * - **name**: Table identifier for logging/debugging
+ * - **schema**: Schema definition for introspection (check field types, required fields, etc.)
+ * - **validators**: Validation utilities for ensuring data integrity
+ *
+ * Deliberately excludes:
+ * - YJS table instance (would enable impure queries)
+ * - Directory paths (transformation shouldn't know about storage location)
+ * - Config objects (internal implementation details)
+ *
+ * This curated context encourages pure, deterministic transformation functions
+ * that work with data and schema, not with storage or state.
+ */
+type TableContext<TTableSchema extends TableSchema> = {
+	/** Table name (for logging and context) */
+	name: string;
+	/** Table schema definition (for introspection and structure) */
+	schema: TTableSchema;
+	/** Table validators (for validation during deserialization) */
+	validators: TableValidators<TTableSchema>;
 };
 
 export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
@@ -463,7 +482,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { tableName, table, tableConfig } of tables) {
+		for (const { tableName, table, tableSchema, validators, tableConfig } of tables) {
 			// Initialize bidirectional tracking for this table
 			if (!tracking[tableName]) {
 				tracking[tableName] = createBidirectionalMap();
@@ -482,6 +501,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 					row: serialized,
 					table: {
 						name: tableName,
+						schema: tableSchema,
+						validators,
 					},
 				});
 
@@ -895,7 +916,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
 	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
 	 */
-	for (const { tableName, table, tableConfig } of tables) {
+	for (const { tableName, table, tableSchema, validators, tableConfig } of tables) {
 		// Initialize bidirectional tracking for this table
 		if (!tracking[tableName]) {
 			tracking[tableName] = createBidirectionalMap();
@@ -911,6 +932,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 				row: serializedRow,
 				table: {
 					name: tableName,
+					schema: tableSchema,
+					validators,
 				},
 			});
 
@@ -965,7 +988,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Process each table independently
-						for (const { tableName, tableConfig } of tables) {
+						for (const { tableName, tableSchema, validators, tableConfig } of tables) {
 							// Delete all existing markdown files in this table's directory
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
@@ -995,6 +1018,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									row: serializedRow,
 									table: {
 										name: tableName,
+										schema: tableSchema,
+										validators,
 									},
 								});
 
@@ -1206,7 +1231,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
  * - Deserialize: Extract ID from filename, all frontmatter fields → row with validation
  */
 const DEFAULT_TABLE_CONFIG = {
-	serialize: ({ row: { id, ...row } }) => ({
+	serialize: ({ row: { id, ...row }, table: _ }) => ({
 		frontmatter: row,
 		body: '',
 		filename: `${id}.md`,
