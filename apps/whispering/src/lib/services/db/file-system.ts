@@ -402,7 +402,10 @@ export function createFileSystemDb(): DbService {
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
+						console.log('[DEBUG] recordingsPath:', recordingsPath);
+
 						const audioFile = await findAudioFile(recordingsPath, recordingId);
+						console.log('[DEBUG] audioFile:', audioFile);
 
 						if (!audioFile) {
 							throw new Error(
@@ -411,9 +414,18 @@ export function createFileSystemDb(): DbService {
 						}
 
 						const audioPath = await join(recordingsPath, audioFile);
-						const assetUrl = convertFileSrc(audioPath);
+						console.log('[DEBUG] audioPath after join():', audioPath);
 
-						return assetUrl;
+						const assetUrl = convertFileSrc(audioPath);
+						console.log('[DEBUG] assetUrl after convertFileSrc():', assetUrl);
+
+						// Fix Tauri v2.7.0 bug: convertFileSrc() incorrectly encodes forward slashes
+						// as %2F. We need to decode only the slashes while keeping other encoded
+						// characters (like %20 for spaces) intact.
+						const fixedUrl = assetUrl.replace(/%2F/g, '/');
+						console.log('[DEBUG] fixedUrl after replacing %2F:', fixedUrl);
+
+						return fixedUrl;
 					},
 					catch: (error) =>
 						DbServiceErr({
