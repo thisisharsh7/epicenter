@@ -787,14 +787,18 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							return;
 						}
 
+						// At this point, row is SerializedRow<TableSchema> (not null)
+						// Assert once to the workspace-level type
+						const validatedRow = row as SerializedRow<TSchema[keyof TSchema & string]>;
+
 						// Success: remove from diagnostics if it was previously invalid
 						diagnostics.remove({ filePath });
 
 						// Insert or update the row in YJS
 						if (table.has({ id: row.id })) {
-							table.update(row);
+							table.update(validatedRow);
 						} else {
-							table.insert(row);
+							table.insert(validatedRow);
 						}
 					}
 
