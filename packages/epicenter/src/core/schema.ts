@@ -279,12 +279,29 @@ export type TagsColumnSchema<
  * Unlike other column types, JSON columns use a `schema` property instead of `options`.
  * The schema must extend StandardSchemaV1 and is always required.
  *
+ * **⚠️ Schema Constraints for Action Inputs**
+ *
+ * When used in action input schemas (via `validators.toStandardSchema()`), JSON column schemas
+ * are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ *
  * @example
  * ```typescript
  * import { json } from 'epicenter/schema';
  * import { type } from 'arktype';
  *
- * // Simple JSON object
+ * // ✅ Good: JSON Schema compatible
  * const userPrefs = json({
  *   schema: type({
  *     theme: type.enumerated('light', 'dark'),
@@ -292,12 +309,22 @@ export type TagsColumnSchema<
  *   }),
  * });
  *
- * // With nullable and default
+ * // ✅ Good: With nullable and default
  * const metadata = json({
  *   schema: type({ key: 'string', value: 'string' }).array(),
  *   nullable: true,
  *   default: [],
  * });
+ *
+ * // ❌ Bad: Uses .filter() (custom validation)
+ * // const badSchema = json({
+ * //   schema: type('string').filter(s => s.includes('test'))
+ * // });
+ *
+ * // ❌ Bad: Uses .pipe() (transformation)
+ * // const badSchema = json({
+ * //   schema: type('string').pipe(s => s.toUpperCase())
+ * // });
  * ```
  */
 export type JsonColumnSchema<

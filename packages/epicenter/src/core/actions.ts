@@ -160,7 +160,25 @@ export type Mutation<
 };
 
 /**
- * defineQuery overloads - 8 combinations:
+ * Define a query action (read operation with no side effects)
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ *
+ * **Overloads** (8 combinations):
  *
  * 1. With input, returns Result<TOutput, TError>, sync
  * 2. With input, returns Result<TOutput, TError>, async
@@ -267,7 +285,25 @@ export function defineQuery(config: ActionConfig): any {
 }
 
 /**
- * defineMutation overloads - 8 combinations:
+ * Define a mutation action (write operation that modifies state)
+ *
+ * **⚠️ Input Schema Constraints**
+ *
+ * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
+ *
+ * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
+ * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
+ * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
+ *
+ * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
+ * For complex validation, validate in the handler instead.
+ *
+ * Learn more:
+ * - Zod: https://zod.dev/json-schema?id=unrepresentable
+ * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
+ * - ArkType: https://arktype.io/docs/configuration#fallback-codes
+ *
+ * **Overloads** (8 combinations):
  *
  * 1. With input, returns Result<TOutput, TError>, sync
  * 2. With input, returns Result<TOutput, TError>, async
