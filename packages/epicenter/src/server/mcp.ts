@@ -6,7 +6,6 @@ import {
 	ListToolsRequestSchema,
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import { toJsonSchema } from '@standard-community/standard-json';
 import type { TaggedError } from 'wellcrafted/error';
 import { type Result, isResult } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
@@ -15,6 +14,7 @@ import {
 	type EpicenterConfig,
 	forEachAction,
 } from '../core/epicenter';
+import { safeToJsonSchema } from '../core/schema/safe-json-schema';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createServer } from './server';
 
@@ -62,7 +62,7 @@ export function createMcpServer<
 				title: name,
 				description: action.description ?? `Execute ${name}`,
 				inputSchema: action.input
-					? await toJsonSchema(action.input)
+					? await safeToJsonSchema(action.input)
 					: {
 							type: 'object' as const,
 							properties: {},

@@ -35,13 +35,6 @@ export type {
 } from './types';
 
 export type {
-	// Validation result types
-	ValidationReason,
-	RowValidationResult,
-	YRowValidationResult,
-	SerializedRowValidationResult,
-	GetRowResult,
-
 	// Validator types
 	TableValidators,
 	WorkspaceValidators,
@@ -81,6 +74,8 @@ export { serializeCellValue } from './serialization';
 // ============================================================================
 export type { Id } from './id';
 export { generateId } from './id';
+
+export { safeToJsonSchema } from './safe-json-schema';
 
 export type {
 	DateIsoString,

@@ -1,7 +1,7 @@
-import { toJsonSchema } from '@standard-community/standard-json';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { JSONSchema7, JSONSchema7Definition, JSONSchema7TypeName } from 'json-schema';
 import type { Argv } from 'yargs';
+import { safeToJsonSchema } from '../core/schema/safe-json-schema';
 
 /**
  * Convert a Standard Schema to yargs CLI options
@@ -36,7 +36,7 @@ export async function standardSchemaToYargs(
 	if (!schema) return yargs;
 
 	// Convert Standard Schema to JSON Schema
-	const jsonSchema = await toJsonSchema(schema);
+	const jsonSchema = await safeToJsonSchema(schema);
 
 	// JSON Schema should be an object type with properties
 	if (jsonSchema.type === 'object' && jsonSchema.properties) {
