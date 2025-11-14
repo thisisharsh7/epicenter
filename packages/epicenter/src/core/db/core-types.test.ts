@@ -40,21 +40,24 @@ describe('YjsDoc Type Inference', () => {
 			published: false,
 		});
 
-		// Test get() - hover over 'result' to verify inferred type
+		// Test get() - returns Result<Row, ArkErrors> | null
 		const result = doc.tables.posts.get({ id: '1' });
-		// Expected type: GetRowResult<{ id: string; title: string; content: Y.Text | null; tags: Y.Array<string>; viewCount: number; published: boolean }>
+		expect(result).not.toBeNull();
 
-		if (result.status === 'valid') {
-			const row = result.row;
-			// Verify property access works
-			expect(row.id).toBe('1');
-			expect(row.title).toBe('Test Post');
-			expect(row.viewCount).toBe(0);
-			expect(row.published).toBe(false);
+		if (result) {
+			expect(result.data).toBeDefined();
+			if (result.data) {
+				const row = result.data;
+				// Verify property access works
+				expect(row.id).toBe('1');
+				expect(row.title).toBe('Test Post');
+				expect(row.viewCount).toBe(0);
+				expect(row.published).toBe(false);
 
-			// Verify YJS types are properly inferred
-			expect(row.content).toBeInstanceOf(Y.Text);
-			expect(row.tags).toBeInstanceOf(Y.Array);
+				// Verify YJS types are properly inferred
+				expect(row.content).toBeInstanceOf(Y.Text);
+				expect(row.tags).toBeInstanceOf(Y.Array);
+			}
 		}
 	});
 
@@ -73,11 +76,8 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', name: 'Gadget', price: 2000, inStock: false },
 		]);
 
-		// Hover over 'products' to verify array element type
-		const results = doc.tables.products.getAll();
-		const products = results
-			.filter((r) => r.status === 'valid')
-			.map((r) => r.row);
+		// getAll() now returns Row[] directly
+		const products = doc.tables.products.getAll();
 		// Expected type: Array<{ id: string; name: string; price: number; inStock: boolean }>
 
 		expect(products).toHaveLength(2);
@@ -99,10 +99,8 @@ describe('YjsDoc Type Inference', () => {
 		]);
 
 		// Hover over 'task' parameter to verify inferred type
-		const filterResults = doc.tables.tasks.filter((task) => !task.completed);
-		const incompleteTasks = filterResults
-			.filter((r) => r.status === 'valid')
-			.map((r) => r.row);
+		// filter() now returns Row[] directly
+		const incompleteTasks = doc.tables.tasks.filter((task) => !task.completed);
 		// task type should be: { id: string; title: string; completed: boolean; priority: string }
 
 		expect(incompleteTasks).toHaveLength(1);
@@ -124,15 +122,14 @@ describe('YjsDoc Type Inference', () => {
 		]);
 
 		// Hover over 'item' parameter to verify inferred type
-		const outOfStockResult = doc.tables.items.find(
+		// find() now returns Row | null directly
+		const outOfStockItem = doc.tables.items.find(
 			(item) => item.quantity === 0,
 		);
 		// item type should be: { id: string; name: string; quantity: number }
 
-		expect(outOfStockResult.status).toBe('valid');
-		if (outOfStockResult.status === 'valid') {
-			expect(outOfStockResult.row.name).toBe('Item 2');
-		}
+		expect(outOfStockItem).not.toBeNull();
+		expect(outOfStockItem?.name).toBe('Item 2');
 	});
 
 	test('should infer observer handler parameter types', () => {
@@ -195,10 +192,10 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const article1Result = doc.tables.articles.get({ id: '1' });
-		expect(article1Result.status).toBe('valid');
-		if (article1Result.status === 'valid') {
-			expect(article1Result.row.description).toBeNull();
-			expect(article1Result.row.content).toBeNull();
+		expect(article1Result).not.toBeNull();
+		if (article1Result && article1Result.data) {
+			expect(article1Result.data.description).toBeNull();
+			expect(article1Result.data.content).toBeNull();
 		}
 
 		// Test with string values (automatically converted to Y.Text internally)
@@ -210,9 +207,9 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const article2Result = doc.tables.articles.get({ id: '2' });
-		if (article2Result.status === 'valid') {
-			expect(article2Result.row.description).toBeInstanceOf(Y.Text);
-			expect(article2Result.row.content).toBeInstanceOf(Y.Text);
+		if (article2Result && article2Result.data) {
+			expect(article2Result.data.description).toBeInstanceOf(Y.Text);
+			expect(article2Result.data.content).toBeInstanceOf(Y.Text);
 		}
 	});
 
@@ -242,7 +239,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const authorResult = doc.tables.authors.get({ id: 'author-1' });
-		// Hover to verify type: GetRowResult<{ id: string; name: string; bio: Y.Text | null }>
+		// Hover to verify type: Result<{ id: string; name: string; bio: Y.Text | null }, ArkErrors> | null
 
 		// Test books table - use plain array (converted to Y.Array internally)
 		doc.tables.books.insert({
@@ -254,15 +251,15 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const bookResult = doc.tables.books.get({ id: 'book-1' });
-		// Hover to verify type: GetRowResult<{ id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean }>
+		// Hover to verify type: Result<{ id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean }, ArkErrors> | null
 
-		expect(authorResult.status).toBe('valid');
-		expect(bookResult.status).toBe('valid');
-		if (authorResult.status === 'valid') {
-			expect(authorResult.row.name).toBe('John Doe');
+		expect(authorResult).not.toBeNull();
+		expect(bookResult).not.toBeNull();
+		if (authorResult && authorResult.data) {
+			expect(authorResult.data.name).toBe('John Doe');
 		}
-		if (bookResult.status === 'valid') {
-			expect(bookResult.row.title).toBe('My Book');
+		if (bookResult && bookResult.data) {
+			expect(bookResult.data.title).toBe('My Book');
 		}
 	});
 
@@ -283,8 +280,7 @@ describe('YjsDoc Type Inference', () => {
 
 		doc.tables.comments.insertMany(commentsToAdd);
 
-		const results = doc.tables.comments.getAll();
-		const comments = results.filter((r) => r.status === 'valid').map((r) => r.row);
+		const comments = doc.tables.comments.getAll();
 		expect(comments).toHaveLength(2);
 	});
 
@@ -311,8 +307,8 @@ describe('YjsDoc Type Inference', () => {
 		// Test retrieval and mutations
 		const retrievedResult = doc.tables.documents.get({ id: 'doc-1' });
 
-		if (retrievedResult.status === 'valid') {
-			const retrieved = retrievedResult.row;
+		if (retrievedResult && retrievedResult.data) {
+			const retrieved = retrievedResult.data;
 			// These should all be properly typed
 			expect(retrieved.body).toBeInstanceOf(Y.Text);
 			expect(retrieved.tags).toBeInstanceOf(Y.Array);

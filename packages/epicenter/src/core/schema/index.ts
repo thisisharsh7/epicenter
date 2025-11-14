@@ -38,6 +38,9 @@ export type {
 	// Validator types
 	TableValidators,
 	WorkspaceValidators,
+	// Validation result types
+	ValidationReason,
+	RowValidationResult,
 } from './validation';
 
 // ============================================================================

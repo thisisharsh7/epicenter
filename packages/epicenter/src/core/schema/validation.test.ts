@@ -13,21 +13,22 @@ import {
 } from './index';
 
 describe('createTableValidators', () => {
-	describe('validateUnknown()', () => {
+	describe('toArktype() validation', () => {
 		test('validates valid data', () => {
 			const validators = createTableValidators({
 				id: id(),
 				title: text(),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				title: 'Hello World',
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row).toEqual({ id: '123', title: 'Hello World' });
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(result).toEqual({ id: '123', title: 'Hello World' });
 			}
 		});
 
@@ -37,15 +38,16 @@ describe('createTableValidators', () => {
 				content: ytext(),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				content: 'Hello World',
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(typeof result.row.content).toBe('string');
-				expect(result.row.content).toBe('Hello World');
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(typeof result.content).toBe('string');
+				expect(result.content).toBe('Hello World');
 			}
 		});
 
@@ -55,33 +57,34 @@ describe('createTableValidators', () => {
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				tags: ['typescript', 'javascript'],
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(Array.isArray(result.row.tags)).toBe(true);
-				expect(result.row.tags).toEqual(['typescript', 'javascript']);
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(Array.isArray(result.tags)).toBe(true);
+				expect(result.tags).toEqual(['typescript', 'javascript']);
 			}
 		});
 
-		test('returns invalid for wrong types', () => {
+		test('returns errors for wrong types', () => {
 			const validators = createTableValidators({
 				id: id(),
 				count: integer(),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				count: 'not a number',
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('type-mismatch');
-				expect(result.reason.field).toBe('count');
+			expect(result instanceof type.errors).toBe(true);
+			if (result instanceof type.errors) {
+				expect(result.summary).toContain('count');
 			}
 		});
 
@@ -91,29 +94,28 @@ describe('createTableValidators', () => {
 				status: select({ options: ['draft', 'published'] }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				status: 'draft',
 			});
 
-			expect(result.status).toBe('valid');
+			expect(result instanceof type.errors).toBe(false);
 		});
 
-		test('returns invalid for invalid select option', () => {
+		test('returns errors for invalid select option', () => {
 			const validators = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				status: 'invalid',
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('invalid-option');
-			}
+			expect(result instanceof type.errors).toBe(true);
 		});
 
 		test('validates nullable fields', () => {
@@ -122,29 +124,30 @@ describe('createTableValidators', () => {
 				optional: text({ nullable: true }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				optional: null,
 			});
 
-			expect(result.status).toBe('valid');
+			expect(result instanceof type.errors).toBe(false);
 		});
 
-		test('returns invalid for missing required fields', () => {
+		test('returns errors for missing required fields', () => {
 			const validators = createTableValidators({
 				id: id(),
 				title: text(),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				// Missing title
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('missing-required-field');
-				expect(result.reason.field).toBe('title');
+			expect(result instanceof type.errors).toBe(true);
+			if (result instanceof type.errors) {
+				expect(result.summary).toContain('title');
 			}
 		});
 
@@ -154,15 +157,13 @@ describe('createTableValidators', () => {
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				tags: ['invalid-tag'],
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('invalid-option');
-			}
+			expect(result instanceof type.errors).toBe(true);
 		});
 
 		test('validates JSON with valid data', () => {
@@ -176,7 +177,8 @@ describe('createTableValidators', () => {
 				config: json({ schema: configSchema }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				config: {
 					theme: 'dark',
@@ -184,16 +186,16 @@ describe('createTableValidators', () => {
 				},
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row.config).toEqual({
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(result.config).toEqual({
 					theme: 'dark',
 					autoSave: true,
 				});
 			}
 		});
 
-		test('returns invalid for JSON with invalid data', () => {
+		test('returns errors for JSON with invalid data', () => {
 			const configSchema = type({
 				theme: 'string',
 				autoSave: 'boolean',
@@ -204,7 +206,8 @@ describe('createTableValidators', () => {
 				config: json({ schema: configSchema }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				config: {
 					theme: 'dark',
@@ -212,11 +215,7 @@ describe('createTableValidators', () => {
 				},
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('type-mismatch');
-				expect(result.reason.field).toBe('config');
-			}
+			expect(result instanceof type.errors).toBe(true);
 		});
 
 		test('validates nullable JSON', () => {
@@ -229,14 +228,15 @@ describe('createTableValidators', () => {
 				meta: json({ schema: metaSchema, nullable: true }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				meta: null,
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row.meta).toBe(null);
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(result.meta).toBe(null);
 			}
 		});
 
@@ -256,7 +256,8 @@ describe('createTableValidators', () => {
 				product: json({ schema: productSchema }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				product: {
 					name: 'Widget',
@@ -269,9 +270,9 @@ describe('createTableValidators', () => {
 				},
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row.product).toEqual({
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(result.product).toEqual({
 					name: 'Widget',
 					price: 29.99,
 					tags: ['electronics', 'gadgets'],
@@ -283,39 +284,34 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns invalid for non-serialized cell values', () => {
+		test('returns errors for non-serialized cell values', () => {
 			const validators = createTableValidators({
 				id: id(),
 				count: integer(),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				count: new Y.Text(), // Y.js types don't match integer schema
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('type-mismatch');
-				expect(result.reason.field).toBe('count');
-			}
+			expect(result instanceof type.errors).toBe(true);
 		});
 
-		test('validates select options and returns schema-mismatch for invalid options', () => {
+		test('validates select options and returns errors for invalid options', () => {
 			const validators = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				status: 'invalid',
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('invalid-option');
-			}
+			expect(result instanceof type.errors).toBe(true);
 		});
 
 		test('validates multi-select structure and options', () => {
@@ -324,28 +320,23 @@ describe('createTableValidators', () => {
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
+			const validator = validators.toArktype();
+
 			// Invalid structure (not an array)
-			const result1 = validators.validateUnknown({
+			const result1 = validator({
 				id: '123',
 				tags: new Y.Text(), // Y.js types don't match array schema
 			});
 
-			expect(result1.status).toBe('invalid');
-			if (result1.status === 'invalid') {
-				expect(result1.reason.type).toBe('type-mismatch');
-				expect(result1.reason.field).toBe('tags');
-			}
+			expect(result1 instanceof type.errors).toBe(true);
 
 			// Invalid option (valid structure, bad value)
-			const result2 = validators.validateUnknown({
+			const result2 = validator({
 				id: '123',
 				tags: ['invalid-tag'],
 			});
 
-			expect(result2.status).toBe('invalid');
-			if (result2.status === 'invalid') {
-				expect(result2.reason.type).toBe('invalid-option');
-			}
+			expect(result2 instanceof type.errors).toBe(true);
 		});
 
 		test('validates JSON with plain object', () => {
@@ -359,7 +350,8 @@ describe('createTableValidators', () => {
 				user: json({ schema: userSchema }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				user: {
 					username: 'john_doe',
@@ -367,16 +359,16 @@ describe('createTableValidators', () => {
 				},
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row.user).toEqual({
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(result.user).toEqual({
 					username: 'john_doe',
 					role: 'admin',
 				});
 			}
 		});
 
-		test('returns invalid for JSON with Y.js types', () => {
+		test('returns errors for JSON with Y.js types', () => {
 			const dataSchema = type({
 				content: 'string',
 			});
@@ -386,19 +378,16 @@ describe('createTableValidators', () => {
 				data: json({ schema: dataSchema }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				data: new Y.Text(), // Y.js type doesn't match JSON schema
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('type-mismatch');
-				expect(result.reason.field).toBe('data');
-			}
+			expect(result instanceof type.errors).toBe(true);
 		});
 
-		test('returns invalid for JSON with invalid data structure', () => {
+		test('returns errors for JSON with invalid data structure', () => {
 			const settingsSchema = type({
 				notifications: 'boolean',
 				volume: 'number',
@@ -409,7 +398,8 @@ describe('createTableValidators', () => {
 				settings: json({ schema: settingsSchema }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				settings: {
 					notifications: true,
@@ -417,11 +407,7 @@ describe('createTableValidators', () => {
 				},
 			});
 
-			expect(result.status).toBe('invalid');
-			if (result.status === 'invalid') {
-				expect(result.reason.type).toBe('type-mismatch');
-				expect(result.reason.field).toBe('settings');
-			}
+			expect(result instanceof type.errors).toBe(true);
 		});
 
 		test('validates nullable JSON with null value', () => {
@@ -434,14 +420,15 @@ describe('createTableValidators', () => {
 				preferences: json({ schema: preferencesSchema, nullable: true }),
 			});
 
-			const result = validators.validateUnknown({
+			const validator = validators.toArktype();
+			const result = validator({
 				id: '123',
 				preferences: null,
 			});
 
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row.preferences).toBe(null);
+			expect(result instanceof type.errors).toBe(false);
+			if (!(result instanceof type.errors)) {
+				expect(result.preferences).toBe(null);
 			}
 		});
 	});

@@ -1,6 +1,7 @@
 import type { FSWatcher } from 'node:fs';
 import { mkdirSync, watch } from 'node:fs';
 import path from 'node:path';
+import { type } from 'arktype';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
@@ -517,11 +518,24 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 			}
 
 			const unsub = table.observe({
-				onAdd: async (row) => {
+				onAdd: async (result) => {
 					// Skip if this YJS change was triggered by a file change we're processing
 					// (prevents markdown -> YJS -> markdown infinite loop)
 					if (syncCoordination.isProcessingFileChange) return;
 
+					if (result.error) {
+						// Handle validation errors with diagnostics + logger
+						await logger.log(
+							IndexError({
+								message: `YJS observer onAdd: validation failed for ${tableName}`,
+								context: { tableName, validationErrors: result.error.summary },
+								cause: undefined,
+							}),
+						);
+						return;
+					}
+
+					const row = result.data;
 					syncCoordination.isProcessingYJSChange = true;
 					const { error } = await writeRowToMarkdown(row);
 					syncCoordination.isProcessingYJSChange = false;
@@ -537,11 +551,24 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						);
 					}
 				},
-				onUpdate: async (row) => {
+				onUpdate: async (result) => {
 					// Skip if this YJS change was triggered by a file change we're processing
 					// (prevents markdown -> YJS -> markdown infinite loop)
 					if (syncCoordination.isProcessingFileChange) return;
 
+					if (result.error) {
+						// Handle validation errors with diagnostics + logger
+						await logger.log(
+							IndexError({
+								message: `YJS observer onUpdate: validation failed for ${tableName}`,
+								context: { tableName, validationErrors: result.error.summary },
+								cause: undefined,
+							}),
+						);
+						return;
+					}
+
+					const row = result.data;
 					syncCoordination.isProcessingYJSChange = true;
 					const { error } = await writeRowToMarkdown(row);
 					syncCoordination.isProcessingYJSChange = false;
@@ -1190,24 +1217,16 @@ const DEFAULT_TABLE_CONFIG = {
 		// Combine id with frontmatter
 		const data = { id, ...frontmatter };
 
-		// Validate using validators.validateUnknown
-		const result = table.validators.validateUnknown(data);
-
-		switch (result.status) {
-			case 'valid':
-				return Ok(result.row);
-
-			case 'schema-mismatch':
-				return MarkdownIndexErr({
-					message: `Schema mismatch for row ${id}`,
-					context: { filename, id, reason: result.reason },
-				});
-
-			case 'invalid-structure':
-				return MarkdownIndexErr({
-					message: `Invalid structure for row ${id}`,
-					context: { filename, id, reason: result.reason },
-				});
+		// Validate using direct arktype pattern
+		const validator = table.validators.toArktype();
+		const result = validator(data);
+		if (result instanceof type.errors) {
+			return MarkdownIndexErr({
+				message: `Failed to validate row ${id}`,
+				context: { filename, id, reason: result.summary },
+			});
 		}
+
+		return Ok(result);
 	},
 } satisfies TableMarkdownConfig<TableSchema>;

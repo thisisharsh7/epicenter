@@ -1,21 +1,18 @@
 import { type, type ArkErrors } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
-import { Ok } from 'wellcrafted/result';
+import { Ok, Err, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { defineMutation, defineQuery } from '../actions';
 import type {
 	CellValue,
-	GetRowResult,
 	Row,
-	RowValidationResult,
 	SerializedRow,
 	TableSchema,
 	TableValidators,
 	WorkspaceSchema,
 	WorkspaceValidators,
-	YRowValidationResult,
 } from '../schema';
-import { isDateWithTimezoneString, serializeCellValue } from '../schema';
+import { serializeCellValue } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
@@ -301,36 +298,80 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/**
 		 * Get a row by ID, returning Y.js objects for collaborative editing.
-		 * Returns { status: 'not-found' } if row doesn't exist.
+		 *
+		 * @returns
+		 * - `null` if row doesn't exist
+		 * - `Ok(row)` if row exists and is valid
+		 * - `Err(errors)` if row exists but fails validation
 		 */
 		get: defineQuery({
 			input: type({
 				id: 'string',
 			}),
 			description: `Get a row by ID from the ${tableName} table`,
-			handler: (params) => {
+			handler: (params): Result<TRow, ArkErrors> | null => {
 				const yrow = ytable.get(params.id);
 				if (!yrow) {
-					return { status: 'not-found' as const, row: null };
+					return null;
 				}
 
-				return createRow({ yrow, schema });
+				const row = buildRowFromYRow(yrow, schema);
+				const yjsValidator = validators.toYjsArktype();
+				const result = yjsValidator(row);
+
+				if (result instanceof type.errors) {
+					return Err(result);
+				}
+
+				return Ok(row);
 			},
 		}),
 
 		/**
-		 * Get all rows with Y.js objects for collaborative editing.
+		 * Get all valid rows with Y.js objects for collaborative editing.
+		 * Rows that fail validation are skipped.
+		 * Use `getAllInvalid()` to get validation errors for invalid rows.
 		 */
 		getAll: defineQuery({
-			description: `Get all rows from the ${tableName} table`,
-			handler: () => {
-				const results: RowValidationResult<TRow>[] = [];
+			description: `Get all valid rows from the ${tableName} table`,
+			handler: (): TRow[] => {
+				const validRows: TRow[] = [];
+				const yjsValidator = validators.toYjsArktype();
+
 				for (const yrow of ytable.values()) {
-					const result = createRow({ yrow, schema });
-					results.push(result);
+					const row = buildRowFromYRow(yrow, schema);
+					const result = yjsValidator(row);
+
+					if (!(result instanceof type.errors)) {
+						validRows.push(row);
+					}
 				}
 
-				return results;
+				return validRows;
+			},
+		}),
+
+		/**
+		 * Get validation errors for all invalid rows.
+		 * Returns an array of arktype error objects for rows that fail validation.
+		 * Valid rows are skipped.
+		 */
+		getAllInvalid: defineQuery({
+			description: `Get validation errors for invalid rows in the ${tableName} table`,
+			handler: (): ArkErrors[] => {
+				const errors: ArkErrors[] = [];
+				const yjsValidator = validators.toYjsArktype();
+
+				for (const yrow of ytable.values()) {
+					const row = buildRowFromYRow(yrow, schema);
+					const result = yjsValidator(row);
+
+					if (result instanceof type.errors) {
+						errors.push(result);
+					}
+				}
+
+				return errors;
 			},
 		}),
 
@@ -383,22 +424,23 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/**
 		 * Filter rows by predicate, returning only valid rows that match.
+		 * Invalid rows are skipped (not validated against predicate).
+		 *
 		 * @param predicate Function that returns true for rows to include
 		 * @returns Array of valid rows that match the predicate
 		 */
-		filter(
-			predicate: (row: TRow) => boolean,
-		): Extract<RowValidationResult<TRow>, { status: 'valid' }>[] {
-			const results: Extract<RowValidationResult<TRow>, { status: 'valid' }>[] =
-				[];
+		filter(predicate: (row: TRow) => boolean): TRow[] {
+			const results: TRow[] = [];
+			const yjsValidator = validators.toYjsArktype();
 
 			for (const yrow of ytable.values()) {
-				const result = createRow({ yrow, schema });
+				const row = buildRowFromYRow(yrow, schema);
+				const result = yjsValidator(row);
 
-				// Only include valid rows - skip schema-mismatch and invalid-structure
-				if (result.status === 'valid') {
-					if (predicate(result.row)) {
-						results.push(result);
+				// Only include valid rows - skip schema-mismatch
+				if (!(result instanceof type.errors)) {
+					if (predicate(row)) {
+						results.push(row);
 					}
 				}
 			}
@@ -408,28 +450,28 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/**
 		 * Find the first row that matches the predicate.
+		 * Invalid rows are skipped (not validated against predicate).
+		 *
 		 * @param predicate Function that returns true for the row to find
-		 * @returns The first matching row or { status: 'not-found' } if no match
+		 * @returns The first matching valid row, or `null` if no match found
 		 */
-		find(
-			predicate: (row: TRow) => boolean,
-		): Extract<
-			GetRowResult<TRow>,
-			{ status: 'valid' } | { status: 'not-found' }
-		> {
-			for (const yrow of ytable.values()) {
-				const result = createRow({ yrow, schema });
+		find(predicate: (row: TRow) => boolean): TRow | null {
+			const yjsValidator = validators.toYjsArktype();
 
-				// Only check predicate on valid rows - skip schema-mismatch and invalid-structure
-				if (result.status === 'valid') {
-					if (predicate(result.row)) {
-						return result;
+			for (const yrow of ytable.values()) {
+				const row = buildRowFromYRow(yrow, schema);
+				const result = yjsValidator(row);
+
+				// Only check predicate on valid rows - skip schema-mismatch
+				if (!(result instanceof type.errors)) {
+					if (predicate(row)) {
+						return row;
 					}
 				}
 			}
 
-			// No match found (not an error, just no matching row)
-			return { status: 'not-found', row: null };
+			// No match found
+			return null;
 		},
 
 		/**
@@ -441,8 +483,20 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 *
 		 * @example
 		 * const unsubscribe = table.observe({
-		 *   onAdd: (row) => console.log('New row:', row),
-		 *   onUpdate: (row) => console.log('Row changed:', row),
+		 *   onAdd: (result) => {
+		 *     if (result.error) {
+		 *       console.error('Invalid row:', result.error);
+		 *       return;
+		 *     }
+		 *     console.log('New row:', result.data);
+		 *   },
+		 *   onUpdate: (result) => {
+		 *     if (result.error) {
+		 *       console.error('Invalid row:', result.error);
+		 *       return;
+		 *     }
+		 *     console.log('Row changed:', result.data);
+		 *   },
 		 *   onDelete: (id) => console.log('Row removed:', id),
 		 * });
 		 *
@@ -546,17 +600,25 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * - **Full context**: You receive the entire row, so you can inspect changes yourself
 		 * - **Cleaner code**: Three callbacks instead of many
 		 *
+		 * ## Validation and Result types
+		 *
+		 * The onAdd and onUpdate callbacks receive Result types that may contain validation errors.
+		 * This allows you to handle invalid rows according to your needs (log them, track in diagnostics, etc.)
+		 * rather than silently skipping them.
+		 *
 		 * @param callbacks Object with optional callbacks for row lifecycle events
-		 * @param callbacks.onAdd Called when a new row is added to the table
-		 * @param callbacks.onUpdate Called when any field within an existing row changes
+		 * @param callbacks.onAdd Called when a new row is added (receives Result with row or validation errors)
+		 * @param callbacks.onUpdate Called when any field within an existing row changes (receives Result with row or validation errors)
 		 * @param callbacks.onDelete Called when a row is removed (receives row ID only)
 		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observe(callbacks: {
-			onAdd?: (row: TRow) => void | Promise<void>;
-			onUpdate?: (row: TRow) => void | Promise<void>;
+			onAdd?: (result: Result<TRow, ArkErrors>) => void | Promise<void>;
+			onUpdate?: (result: Result<TRow, ArkErrors>) => void | Promise<void>;
 			onDelete?: (id: string) => void | Promise<void>;
 		}): () => void {
+			const yjsValidator = validators.toYjsArktype();
+
 			const observer = (events: Y.YEvent<Y.Map<YRow> | YRow>[]) => {
 				for (const event of events) {
 					// Top-level events: row additions/deletions in the table
@@ -567,18 +629,13 @@ function createTableHelper<TTableSchema extends TableSchema>({
 								// A new row Y.Map was added to the table
 								const yrow = ytable.get(key);
 								if (yrow) {
-									const result = createRow({ yrow, schema });
+									const row = buildRowFromYRow(yrow, schema);
+									const result = yjsValidator(row);
 
-									switch (result.status) {
-										case 'valid':
-											callbacks.onAdd?.(result.row);
-											break;
-										case 'schema-mismatch':
-											console.warn(
-												`Skipping invalid row in ${tableName}/${key} (onAdd): ${result.status}`,
-												result.reason,
-											);
-											break;
+									if (result instanceof type.errors) {
+										callbacks.onAdd?.(Err(result));
+									} else {
+										callbacks.onAdd?.(Ok(row));
 									}
 								}
 							} else if (change.action === 'delete') {
@@ -598,17 +655,13 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						const rowId = event.path[0] as string;
 						const yrow = ytable.get(rowId);
 						if (yrow) {
-							const result = createRow({ yrow, schema });
+							const row = buildRowFromYRow(yrow, schema);
+							const result = yjsValidator(row);
 
-							switch (result.status) {
-								case 'valid':
-									callbacks.onUpdate?.(result.row);
-									break;
-								case 'schema-mismatch':
-									console.warn(
-										`Skipping invalid row in ${tableName}/${rowId} (onUpdate): ${result.status}`,
-									);
-									break;
+							if (result instanceof type.errors) {
+								callbacks.onUpdate?.(Err(result));
+							} else {
+								callbacks.onUpdate?.(Ok(row));
 							}
 						}
 					}
@@ -640,232 +693,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 export type TableHelper<TTableSchema extends TableSchema> = ReturnType<
 	typeof createTableHelper<TTableSchema>
 >;
-
-/**
- * Helper function to create a Row from a YRow with validation.
- * Validates the YRow against the schema and returns a typed Row proxy.
- *
- * @param yrow - The YRow to validate and convert
- * @param schema - Table schema for validation
- * @returns Validation result with typed Row if valid
- *
- * @internal
- */
-function createRow<TTableSchema extends TableSchema>({
-	yrow,
-	schema,
-}: {
-	yrow: YRow;
-	schema: TTableSchema;
-}): YRowValidationResult<Row<TTableSchema>> {
-	// Create row with getters for each property
-	const row = buildRowFromYRow(yrow, schema);
-
-	// Perform validation
-	for (const [fieldName, columnSchema] of Object.entries(schema)) {
-		const value = row[fieldName];
-
-		// Check if required field is null/undefined
-		if (value === null || value === undefined) {
-			if (columnSchema.type === 'id' || !columnSchema.nullable) {
-				return {
-					status: 'schema-mismatch',
-					row,
-					reason: {
-						type: 'missing-required-field',
-						field: fieldName,
-					},
-				};
-			}
-			continue;
-		}
-
-		// Type-specific validation
-		switch (columnSchema.type) {
-			case 'id':
-			case 'text':
-				if (typeof value !== 'string') {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'integer':
-				if (typeof value !== 'number' || !Number.isInteger(value)) {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'real':
-				if (typeof value !== 'number') {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'boolean':
-				if (typeof value !== 'boolean') {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'ytext':
-				if (!(value instanceof Y.Text)) {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'select':
-				if (typeof value !== 'string') {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				if (!columnSchema.options.includes(value)) {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'invalid-option',
-							field: fieldName,
-							actual: value,
-							allowedOptions: columnSchema.options,
-						},
-					};
-				}
-				break;
-
-			case 'multi-select':
-				if (!(value instanceof Y.Array)) {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				for (const option of value.toArray()) {
-					if (typeof option !== 'string') {
-						return {
-							status: 'schema-mismatch',
-							row,
-							reason: {
-								type: 'type-mismatch',
-								field: fieldName,
-								schemaType: columnSchema.type,
-								actual: option,
-							},
-						};
-					}
-					if (
-						columnSchema.options &&
-						!columnSchema.options.includes(option)
-					) {
-						return {
-							status: 'schema-mismatch',
-							row,
-							reason: {
-								type: 'invalid-option',
-								field: fieldName,
-								actual: option,
-								allowedOptions: columnSchema.options,
-							},
-						};
-					}
-				}
-				break;
-
-			case 'date':
-				if (!isDateWithTimezoneString(value)) {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-
-			case 'json': {
-				// Validate using Arktype
-				const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
-				if (result instanceof type.errors) {
-					return {
-						status: 'schema-mismatch',
-						row,
-						reason: {
-							type: 'type-mismatch',
-							field: fieldName,
-							schemaType: columnSchema.type,
-							actual: value,
-						},
-					};
-				}
-				break;
-			}
-		}
-	}
-
-	return { status: 'valid', row };
-}
 
 /**
  * Creates a Row object from a YRow with getters for each property.

@@ -8,10 +8,10 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { type, type ArkErrors } from 'arktype';
+import { type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import { tableSchemaToArktypeType } from './converters/arktype';
-import { isDateWithTimezoneString } from './date-with-timezone';
+import { tableSchemaToYjsArktypeType } from './converters/arktype-yjs';
 import type {
 	ColumnSchema,
 	PartialSerializedRow,
@@ -23,6 +23,7 @@ import type {
 
 /**
  * Reasons why validation failed
+ * @internal - Used internally by the database layer for YJS row validation
  */
 export type ValidationReason =
 	| {
@@ -48,46 +49,11 @@ export type ValidationReason =
 
 /**
  * Discriminated union representing row validation result
- * Two possible states:
- * - valid: Data matches schema perfectly
- * - invalid: Data doesn't match schema (check reason for specifics)
+ * @internal - Used internally by the database layer for YJS row validation
  */
 export type RowValidationResult<TRow extends Row> =
 	| { status: 'valid'; row: TRow }
-	| { status: 'invalid'; row: unknown; reason: ValidationReason };
-
-/**
- * Refined validation result that only includes 'valid' and 'invalid' with Row type.
- * Used by createRow which works with YRow (CRDT) data that's already a proper Row object.
- */
-export type YRowValidationResult<TRow extends Row> =
-	| { status: 'valid'; row: TRow }
-	| { status: 'invalid'; row: Row; reason: ValidationReason };
-
-/**
- * Validation result for SerializedRow.
- * Returns the validated SerializedRow (not Row proxy) on success.
- *
- * Two possible states:
- * - valid: Data matches schema (typed as SerializedRow<TSchema>)
- * - invalid: Data doesn't match schema (check reason for specifics)
- */
-export type SerializedRowValidationResult<
-	TSchema extends TableSchema = TableSchema,
-> =
-	| { status: 'valid'; row: SerializedRow<TSchema> }
-	| { status: 'invalid'; row: unknown; reason: ValidationReason };
-
-/**
- * Discriminated union representing the result of getting a row by ID
- * Three possible states:
- * - valid: Row exists and matches schema perfectly
- * - invalid: Row exists but doesn't match schema
- * - not-found: Row does not exist
- */
-export type GetRowResult<TRow extends Row> =
-	| RowValidationResult<TRow>
-	| { status: 'not-found'; row: null };
+	| { status: 'schema-mismatch'; row: TRow; reason: ValidationReason };
 
 /**
  * Table validators - validation methods for a table schema.
@@ -102,34 +68,17 @@ export type GetRowResult<TRow extends Row> =
  *   content: ytext(),
  * });
  *
- * // Validate unknown data against the schema
- * const result = validators.validateUnknown(someUnknownData);
- * if (result.status === 'valid') {
- *   console.log(result.row.title); // type-safe access
+ * // Validate unknown data using direct arktype pattern
+ * const validator = validators.toArktype();
+ * const result = validator(someUnknownData);
+ * if (result instanceof type.errors) {
+ *   console.error('Validation failed:', result.summary);
+ * } else {
+ *   console.log(result.title); // type-safe access to validated data
  * }
  * ```
  */
 export type TableValidators<TSchema extends TableSchema = TableSchema> = {
-	/**
-	 * Validates unknown data against the table schema
-	 *
-	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
-	 * schemas for external tooling, this method performs rigorous runtime validation
-	 * including complex cases like JSON columns via StandardSchemaV1.
-	 *
-	 * **Validation steps**:
-	 * 1. Checks if data is a plain object
-	 * 2. Validates each schema field against the column schema
-	 *
-	 * **Important**: Extra fields (not in schema) are ignored. Only schema-defined
-	 * fields are validated. This allows forward compatibility when deserializing
-	 * data that may have additional fields.
-	 *
-	 * **Returns a discriminated union**:
-	 * - 'valid': Data passes all checks (typed as SerializedRow<TSchema>)
-	 * - 'invalid': Data doesn't match schema (check reason.type for specifics)
-	 */
-	validateUnknown(data: unknown): SerializedRowValidationResult<TSchema>;
 
 	/**
 	 * Generates a StandardSchemaV1 for full SerializedRow
@@ -207,6 +156,36 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * - Any scenario requiring validation of schema subsets
 	 */
 	toArktype(): ObjectType<SerializedRow<TSchema>>;
+
+	/**
+	 * Generates an Arktype schema for Row objects with YJS types
+	 *
+	 * **Primary use case**: Validating Row objects returned from buildRowFromYRow()
+	 * - Validates Y.Text instances for ytext columns (not plain strings)
+	 * - Validates Y.Array instances for multi-select columns (not plain arrays)
+	 * - Use with `instanceof type.errors` pattern for validation
+	 *
+	 * **Example**:
+	 * ```typescript
+	 * // Build row from YRow
+	 * const row = buildRowFromYRow(yrow, schema);
+	 *
+	 * // Validate the YJS types
+	 * const validator = validators.toYjsArktype();
+	 * const result = validator(row);
+	 * if (result instanceof type.errors) {
+	 *   console.error('YJS validation failed:', result.summary);
+	 *   // Handle schema mismatch
+	 * } else {
+	 *   // Row is valid - has Y.Text, Y.Array, etc.
+	 * }
+	 * ```
+	 *
+	 * **Key difference from toArktype()**:
+	 * - `toArktype()` validates SerializedRow (plain JS: strings, arrays)
+	 * - `toYjsArktype()` validates Row (YJS types: Y.Text, Y.Array)
+	 */
+	toYjsArktype(): ObjectType<Row<TSchema>>;
 };
 
 /**
@@ -229,10 +208,13 @@ export type WorkspaceValidators<TWorkspaceSchema extends WorkspaceSchema> = {
  *   users: { id: id(), name: text(), email: text() }
  * });
  *
- * // Use validators for runtime validation
- * const result = validators.posts.validateUnknown({ id: '1', title: 'Hello', content: 'World' });
- * if (result.status === 'valid') {
- *   console.log(result.row.title); // type-safe access
+ * // Use validators for runtime validation with direct arktype pattern
+ * const validator = validators.posts.toArktype();
+ * const result = validator({ id: '1', title: 'Hello', content: 'World' });
+ * if (result instanceof type.errors) {
+ *   console.error('Validation failed:', result.summary);
+ * } else {
+ *   console.log(result.title); // type-safe access
  * }
  *
  * // Use validators for action input schemas
@@ -260,31 +242,24 @@ export function createWorkspaceValidators<
  * Creates table validators from a schema definition.
  * Returns validation methods and schema generation utilities.
  *
- * **Architecture Overview**: This function provides three distinct capabilities:
+ * **Architecture Overview**: This function provides two distinct capabilities:
  *
- * **1. Rigorous Runtime Validation** (via `validateUnknown()`):
- * - Performs thorough validation of data at runtime
- * - Uses full StandardSchemaV1 capabilities (not limited by JSON Schema)
- * - JSON columns validated properly via their StandardSchemaV1 schemas
- * - Date columns validated with custom predicates
- * - Returns type-safe Row objects when validation succeeds
- *
- * **2. Action Input Schemas** (via `toStandardSchema()` and variants):
+ * **1. Action Input Schemas** (via `toStandardSchema()` and variants):
  * - Generates StandardSchemaV1 for action `input` parameters
  * - Used by mutations (insert, update, upsert, etc.) for input validation
  * - Provides runtime validation via `action.input['~standard'].validate(args)`
  * - Later converted to JSON Schema by MCP server/OpenAPI generator
  * - Must use JSON Schema-compatible features (no custom predicates like `.filter()`)
  *
- * **3. Composable Validation** (via `toArktype()` and variants):
+ * **2. Composable Runtime Validation** (via `toArktype()`):
  * - Returns arktype schemas that can be composed using `.omit()`, `.partial()`, `.pick()`
  * - Used for validating subsets of data (e.g., frontmatter without id/content)
  * - Common in markdown deserialization and migration scripts
- * - NOT primarily for JSON Schema generation
+ * - Call the returned validator on data and check `instanceof type.errors`
  *
  * **Key constraint**: StandardSchemaV1 methods must maintain JSON Schema compatibility
  * because MCP servers and OpenAPI generators convert them to JSON Schema. This means:
- * - JSON columns return `type.unknown` (actual validation happens in validateUnknown)
+ * - JSON columns return `type.unknown` (actual validation happens via arktype)
  * - Date columns use `.matching(regex)` instead of `.filter()` predicates
  * - No custom predicates that can't be represented in JSON Schema
  *
@@ -294,14 +269,16 @@ export function createWorkspaceValidators<
  *   id: id(),
  *   title: text(),
  *   content: ytext(),
- *   metadata: json(myStandardSchema), // Validates properly at runtime, type.unknown in schemas
  * };
  * const validators = createTableValidators(schema);
  *
- * // 1. Rigorous runtime validation
- * const result = validators.validateUnknown(someData);
- * if (result.status === 'valid') {
- *   console.log(result.row.title); // type-safe
+ * // 1. Runtime validation with direct arktype pattern
+ * const validator = validators.toArktype();
+ * const result = validator(someData);
+ * if (result instanceof type.errors) {
+ *   console.error('Validation failed:', result.summary);
+ * } else {
+ *   console.log(result.title); // type-safe access
  * }
  *
  * // 2. Action input schema
@@ -310,9 +287,12 @@ export function createWorkspaceValidators<
  *   handler: (row) => { ... }
  * });
  *
- * // 3. Composable validation
+ * // 3. Composable validation (e.g., for frontmatter without id/content)
  * const FrontMatter = validators.toArktype().omit('id', 'content');
  * const result2 = FrontMatter(frontmatter);
+ * if (result2 instanceof type.errors) {
+ *   // Handle error
+ * }
  * ```
  */
 export function createTableValidators<TSchema extends TableSchema>(
@@ -320,230 +300,12 @@ export function createTableValidators<TSchema extends TableSchema>(
 ): TableValidators<TSchema> {
 
 	return {
-		validateUnknown(data: unknown): SerializedRowValidationResult<TSchema> {
-			// Step 1: Check if it's a plain object
-			if (!type("Record<string, unknown>").allows(data)) {
-				return {
-					status: 'invalid',
-					row: data,
-					reason: {
-						type: 'not-an-object',
-						actual: data,
-					},
-				};
-			}
-
-			// Step 2: Validate against the schema
-			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				const value = data[fieldName];
-
-				// Check required fields
-				if (value === null || value === undefined) {
-					if (columnSchema.type === 'id' || !columnSchema.nullable) {
-						return {
-							status: 'invalid',
-							row: data,
-							reason: {
-								type: 'missing-required-field',
-								field: fieldName,
-							},
-						};
-					}
-					continue;
-				}
-
-				// Type-specific validation
-				switch (columnSchema.type) {
-					case 'id':
-					case 'text':
-						if (typeof value !== 'string') {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'integer':
-						if (typeof value !== 'number' || !Number.isInteger(value)) {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'real':
-						if (typeof value !== 'number') {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'boolean':
-						if (typeof value !== 'boolean') {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'ytext':
-						// For SerializedRow, ytext should be a string
-						if (typeof value !== 'string') {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'select':
-						if (typeof value !== 'string') {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						if (!columnSchema.options.includes(value)) {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'invalid-option',
-									field: fieldName,
-									actual: value,
-									allowedOptions: columnSchema.options,
-								},
-							};
-						}
-						break;
-
-					case 'multi-select':
-						// For SerializedRow, multi-select should be an array
-						if (!Array.isArray(value)) {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						for (const option of value) {
-							if (typeof option !== 'string') {
-								return {
-									status: 'invalid',
-									row: data,
-									reason: {
-										type: 'type-mismatch',
-										field: fieldName,
-										schemaType: columnSchema.type,
-										actual: option,
-									},
-								};
-							}
-							if (
-								columnSchema.options &&
-								!columnSchema.options.includes(option)
-							) {
-								return {
-									status: 'invalid',
-									row: data,
-									reason: {
-										type: 'invalid-option',
-										field: fieldName,
-										actual: option,
-										allowedOptions: columnSchema.options,
-									},
-								};
-							}
-						}
-						break;
-
-					case 'date':
-						if (!isDateWithTimezoneString(value)) {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'json': {
-						// Validate using Arktype
-						const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
-						if (result instanceof type.errors) {
-							return {
-								status: 'invalid',
-								row: data,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-					}
-				}
-			}
-
-			// All validations passed
-			return { status: 'valid', row: data as SerializedRow<TSchema> };
-		},
-
 		toArktype() {
 			return tableSchemaToArktypeType(schema);
+		},
+
+		toYjsArktype() {
+			return tableSchemaToYjsArktypeType(schema);
 		},
 
 		toStandardSchema() {

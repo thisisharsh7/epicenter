@@ -43,7 +43,6 @@ export {
 	isDateWithTimezoneString,
 	isDateWithTimezone,
 	DateWithTimezoneFromString,
-	createRow,
 	serializeCellValue,
 } from './core/schema';
 export { DateWithTimezone } from './core/schema';
@@ -54,8 +53,6 @@ export type {
 	TableValidators,
 	WorkspaceValidators,
 	ValidationReason,
-	YRowValidationResult,
-	SerializedRowValidationResult,
 	Row,
 	SerializedRow,
 	PartialSerializedRow,
@@ -76,7 +73,6 @@ export type {
 	CellValue,
 	SerializedCellValue,
 	RowValidationResult,
-	GetRowResult,
 } from './core/schema';
 
 // Action helpers
