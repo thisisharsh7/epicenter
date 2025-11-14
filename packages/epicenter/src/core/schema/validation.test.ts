@@ -1,30 +1,26 @@
-import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
+import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
 import {
-	boolean,
 	createTableValidators,
-	date,
 	id,
 	integer,
 	json,
-	real,
 	select,
 	tags,
 	text,
-	ytext,
-	type DateWithTimezoneString,
-} from './schema';
+	ytext
+} from './index';
 
 describe('createTableValidators', () => {
-	describe('validateSerializedRow()', () => {
-		test('validates valid serialized data', () => {
+	describe('validateUnknown()', () => {
+		test('validates valid data', () => {
 			const validators = createTableValidators({
 				id: id(),
 				title: text(),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				title: 'Hello World',
 			});
@@ -35,13 +31,13 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates ytext strings in serialized data', () => {
+		test('validates ytext strings', () => {
 			const validators = createTableValidators({
 				id: id(),
 				content: ytext(),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				content: 'Hello World',
 			});
@@ -53,13 +49,13 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates multi-select arrays in serialized data', () => {
+		test('validates multi-select arrays', () => {
 			const validators = createTableValidators({
 				id: id(),
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				tags: ['typescript', 'javascript'],
 			});
@@ -77,7 +73,7 @@ describe('createTableValidators', () => {
 				count: integer(),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				count: 'not a number',
 			});
@@ -89,13 +85,13 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates select options in serialized data', () => {
+		test('validates select options', () => {
 			const validators = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				status: 'draft',
 			});
@@ -103,13 +99,13 @@ describe('createTableValidators', () => {
 			expect(result.status).toBe('valid');
 		});
 
-		test('returns schema-mismatch for invalid select option in serialized data', () => {
+		test('returns schema-mismatch for invalid select option', () => {
 			const validators = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				status: 'invalid',
 			});
@@ -120,13 +116,13 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates nullable fields in serialized data', () => {
+		test('validates nullable fields', () => {
 			const validators = createTableValidators({
 				id: id(),
 				optional: text({ nullable: true }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				optional: null,
 			});
@@ -134,13 +130,13 @@ describe('createTableValidators', () => {
 			expect(result.status).toBe('valid');
 		});
 
-		test('returns schema-mismatch for missing required fields in serialized data', () => {
+		test('returns schema-mismatch for missing required fields', () => {
 			const validators = createTableValidators({
 				id: id(),
 				title: text(),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				// Missing title
 			});
@@ -152,13 +148,13 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates multi-select options in serialized array', () => {
+		test('validates multi-select options in array', () => {
 			const validators = createTableValidators({
 				id: id(),
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				tags: ['invalid-tag'],
 			});
@@ -169,7 +165,7 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates JSON with valid serialized data', () => {
+		test('validates JSON with valid data', () => {
 			const configSchema = type({
 				theme: 'string',
 				autoSave: 'boolean',
@@ -180,7 +176,7 @@ describe('createTableValidators', () => {
 				config: json({ schema: configSchema }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				config: {
 					theme: 'dark',
@@ -197,7 +193,7 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns schema-mismatch for JSON with invalid serialized data', () => {
+		test('returns schema-mismatch for JSON with invalid data', () => {
 			const configSchema = type({
 				theme: 'string',
 				autoSave: 'boolean',
@@ -208,7 +204,7 @@ describe('createTableValidators', () => {
 				config: json({ schema: configSchema }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				config: {
 					theme: 'dark',
@@ -223,7 +219,7 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('validates nullable JSON in serialized data', () => {
+		test('validates nullable JSON', () => {
 			const metaSchema = type({
 				version: 'string',
 			});
@@ -233,7 +229,7 @@ describe('createTableValidators', () => {
 				meta: json({ schema: metaSchema, nullable: true }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				meta: null,
 			});
@@ -260,7 +256,7 @@ describe('createTableValidators', () => {
 				product: json({ schema: productSchema }),
 			});
 
-			const result = validators.validateSerializedRow({
+			const result = validators.validateUnknown({
 				id: '123',
 				product: {
 					name: 'Widget',
@@ -284,26 +280,6 @@ describe('createTableValidators', () => {
 						inStock: true,
 					},
 				});
-			}
-		});
-	});
-
-	describe('validateUnknown()', () => {
-		test('validates valid record', () => {
-			const validators = createTableValidators({
-				id: id(),
-				title: text(),
-			});
-
-			const result = validators.validateUnknown({
-				id: '123',
-				title: 'Hello World',
-			});
-
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row.title).toBe('Hello World');
-				expect(result.row).toEqual({ id: '123', title: 'Hello World' });
 			}
 		});
 

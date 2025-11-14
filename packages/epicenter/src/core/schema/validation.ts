@@ -140,48 +140,32 @@ export type GetRowResult<TRow extends Row> =
  *   content: ytext(),
  * });
  *
- * // Validate from unknown data (checks if object, then delegates)
- * const result1 = validators.validateUnknown(someUnknownData);
- *
- * // Validate from record (checks if values are SerializedCellValue, then delegates)
- * const result2 = validators.validateRecord({ id: '123', title: 'Hello', content: 'World' });
- *
- * // Validate from SerializedRow (validates schema only)
- * const serialized: SerializedRow = { id: '123', title: 'Hello', content: 'World' };
- * const result3 = validators.validateSerializedRow(serialized);
+ * // Validate unknown data against the schema
+ * const result = validators.validateUnknown(someUnknownData);
+ * if (result.status === 'valid') {
+ *   console.log(result.row.title); // type-safe access
+ * }
  * ```
  */
 export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	/**
-	 * Validates unknown data (checks if object), then delegates to validateRecord
+	 * Validates unknown data against the table schema
 	 *
 	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
 	 * schemas for external tooling, this method performs rigorous runtime validation
 	 * including complex cases like JSON columns via StandardSchemaV1.
+	 *
+	 * **Validation steps**:
+	 * 1. Checks if data is a plain object
+	 * 2. Checks if all values are valid SerializedCellValue types
+	 * 3. Validates against the table schema
+	 *
+	 * **Returns a discriminated union**:
+	 * - 'valid': Data passes all checks
+	 * - 'invalid-structure': Not a plain object or contains invalid cell values
+	 * - 'schema-mismatch': Valid structure but doesn't match schema
 	 */
 	validateUnknown(data: unknown): SerializedRowValidationResult<TSchema>;
-
-	/**
-	 * Validates a record (checks if values are SerializedCellValue), then delegates to validateSerializedRow
-	 *
-	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
-	 * schemas for external tooling, this method performs rigorous runtime validation
-	 * including complex cases like JSON columns via StandardSchemaV1.
-	 */
-	validateRecord(
-		data: Record<string, unknown>,
-	): SerializedRowValidationResult<TSchema>;
-
-	/**
-	 * Validates a SerializedRow (checks schema only), returns validated SerializedRow<TSchema>
-	 *
-	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
-	 * schemas for external tooling, this method performs rigorous runtime validation
-	 * including complex cases like JSON columns via StandardSchemaV1.
-	 */
-	validateSerializedRow(
-		data: SerializedRow,
-	): ValidatedSerializedRowResult<TSchema>;
 
 	/**
 	 * Generates a StandardSchemaV1 for full SerializedRow
@@ -281,8 +265,11 @@ export type WorkspaceValidators<TWorkspaceSchema extends WorkspaceSchema> = {
  *   users: { id: id(), name: text(), email: text() }
  * });
  *
- * // Use validators for SerializedRow validation
- * const result = validators.posts.validateSerializedRow({ id: '1', title: 'Hello', content: 'World' });
+ * // Use validators for runtime validation
+ * const result = validators.posts.validateUnknown({ id: '1', title: 'Hello', content: 'World' });
+ * if (result.status === 'valid') {
+ *   console.log(result.row.title); // type-safe access
+ * }
  *
  * // Use validators for action input schemas
  * const insertMutation = defineMutation({
@@ -311,7 +298,7 @@ export function createWorkspaceValidators<
  *
  * **Architecture Overview**: This function provides three distinct capabilities:
  *
- * **1. Rigorous Runtime Validation** (via `validateXyz()` methods):
+ * **1. Rigorous Runtime Validation** (via `validateUnknown()`):
  * - Performs thorough validation of data at runtime
  * - Uses full StandardSchemaV1 capabilities (not limited by JSON Schema)
  * - JSON columns validated properly via their StandardSchemaV1 schemas
@@ -333,7 +320,7 @@ export function createWorkspaceValidators<
  *
  * **Key constraint**: StandardSchemaV1 methods must maintain JSON Schema compatibility
  * because MCP servers and OpenAPI generators convert them to JSON Schema. This means:
- * - JSON columns return `type.unknown` (actual validation happens in validateXyz methods)
+ * - JSON columns return `type.unknown` (actual validation happens in validateUnknown)
  * - Date columns use `.matching(regex)` instead of `.filter()` predicates
  * - No custom predicates that can't be represented in JSON Schema
  *
@@ -347,8 +334,8 @@ export function createWorkspaceValidators<
  * };
  * const validators = createTableValidators(schema);
  *
- * // 1. Rigorous runtime validation (use createRow helper)
- * const result = createRow({ yrow, schema });
+ * // 1. Rigorous runtime validation
+ * const result = validators.validateUnknown(someData);
  * if (result.status === 'valid') {
  *   console.log(result.row.title); // type-safe
  * }
@@ -369,19 +356,47 @@ export function createTableValidators<TSchema extends TableSchema>(
 ): TableValidators<TSchema> {
 
 	return {
-		validateSerializedRow(
-			data: SerializedRow,
-		): ValidatedSerializedRowResult<TSchema> {
-			// Validate the SerializedRow against the schema
+		validateUnknown(data: unknown): SerializedRowValidationResult<TSchema> {
+			// Step 1: Check if it's a plain object
+			if (!isPlainObject(data)) {
+				return {
+					status: 'invalid-structure',
+					row: data,
+					reason: {
+						type: 'not-an-object',
+						actual: data,
+					},
+				};
+			}
+
+			// Step 2: Check if all values are SerializedCellValue
+			for (const [fieldName, value] of Object.entries(data)) {
+				if (!isSerializedCellValue(value)) {
+					return {
+						status: 'invalid-structure',
+						row: data,
+						reason: {
+							type: 'invalid-cell-value',
+							field: fieldName,
+							actual: value,
+						},
+					};
+				}
+			}
+
+			// At this point, we've validated the structure is a SerializedRow
+			const serializedRow = data as SerializedRow;
+
+			// Step 3: Validate against the schema
 			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				const value = data[fieldName];
+				const value = serializedRow[fieldName];
 
 				// Check required fields
 				if (value === null || value === undefined) {
 					if (columnSchema.type === 'id' || !columnSchema.nullable) {
 						return {
 							status: 'schema-mismatch',
-							row: data,
+							row: serializedRow,
 							reason: {
 								type: 'missing-required-field',
 								field: fieldName,
@@ -398,7 +413,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (typeof value !== 'string') {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -413,7 +428,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (typeof value !== 'number' || !Number.isInteger(value)) {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -428,7 +443,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (typeof value !== 'number') {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -443,7 +458,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (typeof value !== 'boolean') {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -459,7 +474,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (typeof value !== 'string') {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -474,7 +489,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (typeof value !== 'string') {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -486,7 +501,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (!columnSchema.options.includes(value)) {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'invalid-option',
 									field: fieldName,
@@ -502,7 +517,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (!Array.isArray(value)) {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -515,7 +530,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 							if (typeof option !== 'string') {
 								return {
 									status: 'schema-mismatch',
-									row: data,
+									row: serializedRow,
 									reason: {
 										type: 'type-mismatch',
 										field: fieldName,
@@ -530,7 +545,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 							) {
 								return {
 									status: 'schema-mismatch',
-									row: data,
+									row: serializedRow,
 									reason: {
 										type: 'invalid-option',
 										field: fieldName,
@@ -546,7 +561,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (!isDateWithTimezoneString(value)) {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -563,7 +578,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 						if (result instanceof type.errors) {
 							return {
 								status: 'schema-mismatch',
-								row: data,
+								row: serializedRow,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -578,46 +593,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 			}
 
 			// All validations passed
-			return { status: 'valid', row: data as SerializedRow<TSchema> };
-		},
-
-		validateUnknown(data: unknown): SerializedRowValidationResult<TSchema> {
-			// Check if it's an object
-			if ((!(isPlainObject(data)))) {
-				return {
-					status: 'invalid-structure',
-					row: data,
-					reason: {
-						type: 'not-an-object',
-						actual: data,
-					},
-				};
-			}
-
-			// Delegate to validateRecord
-			return this.validateRecord(data);
-		},
-
-		validateRecord(
-			data: Record<string, unknown>,
-		): SerializedRowValidationResult<TSchema> {
-			// Check if all values are SerializedCellValue
-			for (const [fieldName, value] of Object.entries(data)) {
-				if (!isSerializedCellValue(value)) {
-					return {
-						status: 'invalid-structure',
-						row: data,
-						reason: {
-							type: 'invalid-cell-value',
-							field: fieldName,
-							actual: value,
-						},
-					};
-				}
-			}
-
-			// Delegate to validateSerializedRow for schema validation
-			return this.validateSerializedRow(data as SerializedRow<TSchema>);
+			return { status: 'valid', row: serializedRow as SerializedRow<TSchema> };
 		},
 
 		toArktype() {
