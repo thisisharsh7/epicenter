@@ -93,3 +93,6 @@ if (dryRun) {
 } else {
 	console.log('\n✅ All files normalized. YAML formatting is now consistent.');
 }
+
+// Exit with error code if there were any errors
+process.exit(errors.length > 0 ? 1 : 0);

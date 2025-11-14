@@ -182,3 +182,6 @@ if (dryRun) {
 } else if (modified.length > 0) {
 	console.log('✅ Date transformation completed successfully.');
 }
+
+// Exit with error code if there were any errors
+process.exit(errors.length > 0 ? 1 : 0);

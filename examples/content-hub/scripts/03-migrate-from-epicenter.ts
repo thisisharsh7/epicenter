@@ -39,6 +39,9 @@ if (dryRun) {
 using client = await createEpicenterClient(epicenterConfig);
 
 // Compose migration validator from primitives
+// We use two validators:
+// 1. FrontMatter: Partial validator for initial frontmatter validation (allows missing nullable fields)
+// 2. finalValidator: Complete validator used later to validate the final entry before insertion
 const FrontMatter = client.journal.db.validators.journal
 	.toArktype()
 	.omit('id', 'content')
@@ -56,13 +59,10 @@ type ProcessResult =
 // Process each file
 const results: ProcessResult[] = await Promise.all(
 	markdownFiles.map(async (filePath): Promise<ProcessResult> => {
-		console.log('Processing:', filePath);
-
 		// Read markdown file
 		const parseResult = await readMarkdownFile(filePath);
 
 		if (parseResult.error) {
-			console.log('  ❌ Failed to read');
 			return {
 				status: 'error',
 				file: filePath,
@@ -78,8 +78,6 @@ const results: ProcessResult[] = await Promise.all(
 		// Validate frontmatter structure (with partial to allow missing nullable fields)
 		const validationResult = FrontMatter(frontmatter);
 		if (validationResult instanceof type.errors) {
-			console.log('  ❌ Failed validation:');
-			console.log('    ', validationResult.summary);
 			return {
 				status: 'error',
 				file: filePath,
@@ -104,8 +102,6 @@ const results: ProcessResult[] = await Promise.all(
 		const entry = finalValidator(entryData);
 
 		if (entry instanceof type.errors) {
-			console.log('  ❌ Final validation failed (entry NOT inserted):');
-			console.log('    ', entry.summary);
 			return {
 				status: 'error',
 				file: filePath,
@@ -113,19 +109,12 @@ const results: ProcessResult[] = await Promise.all(
 			};
 		}
 
-		// Debug logging
-		console.log('  📋 Entry to insert:');
-		console.log('    ID:', entry.id);
-		console.log('    Title:', entry.title || '(no title)');
-		console.log('    Date:', entry.date || '(no date)');
-
 		// Create entry via client (skip in dry-run mode)
 		if (!dryRun) {
 			const result = client.journal.createJournalEntry(entry);
 
 			if (result.error) {
 				const errorMessage = extractErrorMessage(result.error);
-				console.log('  ❌ Failed to create entry in YJS:', errorMessage);
 				return {
 					status: 'error',
 					file: filePath,
@@ -133,13 +122,9 @@ const results: ProcessResult[] = await Promise.all(
 				};
 			}
 
-			console.log('  ✅ Created entry in YJS:', entry.id);
-
 			// Verify SQLite insert succeeded before deleting source file
 			const sqliteRow = client.journal.db.tables.journal.get(entry.id);
 			if (!sqliteRow) {
-				console.log('  ⚠️  WARNING: Entry created in YJS but NOT in SQLite');
-				console.log('  📝 Source file preserved for safety');
 				return {
 					status: 'error',
 					file: filePath,
@@ -147,8 +132,6 @@ const results: ProcessResult[] = await Promise.all(
 						'SQLite insert failed - check logs at .epicenter/sqlite/journal.log',
 				};
 			}
-
-			console.log('  ✅ Verified in SQLite:', entry.id);
 
 			// NOW safe to delete source file
 			const deleteResult = await tryAsync({
@@ -161,12 +144,12 @@ const results: ProcessResult[] = await Promise.all(
 			});
 
 			if (deleteResult.error) {
-				console.log('  ⚠️  Migrated but failed to delete source file');
-			} else {
-				console.log('  🗑️  Deleted source file');
+				return {
+					status: 'error',
+					file: filePath,
+					error: 'Migrated but failed to delete source file',
+				};
 			}
-		} else {
-			console.log('  ⏭️  Skipped (dry-run mode)');
 		}
 
 		return {
@@ -177,24 +160,35 @@ const results: ProcessResult[] = await Promise.all(
 	}),
 );
 
-// Aggregate results
+// Aggregate results and log details
 const successes = results.filter((r) => r.status === 'success');
 const errors = results.filter((r) => r.status === 'error');
 
-// Report results
-console.log('\n📊 Migration Summary:');
+// Log detailed results for each file
+console.log('\n📝 Processing Results:\n');
+for (const result of results) {
+	const fileName = result.file.split('/').pop();
+
+	if (result.status === 'success') {
+		console.log(`✅ ${fileName}`);
+		console.log(`   ID: ${result.id}`);
+		if (!dryRun) {
+			console.log('   Migrated and deleted source file');
+		} else {
+			console.log('   Would be migrated (dry-run)');
+		}
+	} else {
+		console.log(`❌ ${fileName}`);
+		console.log(`   Error: ${result.error}`);
+	}
+	console.log('');
+}
+
+// Report summary
+console.log('📊 Migration Summary:');
 console.log(`  Total files scanned: ${markdownFiles.length}`);
 console.log(`  Files migrated: ${successes.length}`);
 console.log(`  Errors: ${errors.length}\n`);
-
-if (errors.length > 0) {
-	console.log('❌ Errors:');
-	for (const result of errors) {
-		if (result.status === 'error') {
-			console.log(`  ${result.file.split('/').pop()}: ${result.error}`);
-		}
-	}
-}
 
 if (dryRun) {
 	console.log(
