@@ -36,11 +36,9 @@ export type {
 
 export type {
 	// Validation result types
-	InvalidStructureReason,
-	SchemaMismatchReason,
+	ValidationReason,
 	RowValidationResult,
 	YRowValidationResult,
-	ValidatedSerializedRowResult,
 	SerializedRowValidationResult,
 	GetRowResult,
 
@@ -77,14 +75,6 @@ export {
 // Serialization
 // ============================================================================
 export { serializeCellValue } from './serialization';
-
-// ============================================================================
-// Type Guards
-// ============================================================================
-export {
-	isSerializedCellValue,
-	isSerializedRow,
-} from './type-guards';
 
 // ============================================================================
 // Utilities

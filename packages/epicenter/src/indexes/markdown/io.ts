@@ -3,7 +3,7 @@ import { type Result, tryAsync } from 'wellcrafted/result';
 import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { AbsolutePath } from '../../core/types';
-import { isPlainObject } from '../../core/schema/validation';
+import { type } from 'arktype';
 
 export const { MarkdownOperationError, MarkdownOperationErr } =
 	createTaggedError('MarkdownOperationError');
@@ -68,7 +68,7 @@ export async function readMarkdownFile(filePath: string): Promise<
 
 			// Validate that data is a plain object using type guard
 			// If it's not a plain object, use empty object instead
-			const data = isPlainObject(parsedData) ? parsedData : {};
+			const data = type("Record<string, unknown>").allows(parsedData) ? parsedData : {};
 
 			return {
 				data,

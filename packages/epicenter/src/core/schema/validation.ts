@@ -12,7 +12,6 @@ import { type, type ArkErrors } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import { tableSchemaToArktypeType } from './converters/arktype';
 import { isDateWithTimezoneString } from './date-with-timezone';
-import { isSerializedCellValue } from './type-guards';
 import type {
 	ColumnSchema,
 	PartialSerializedRow,
@@ -23,23 +22,13 @@ import type {
 } from './types';
 
 /**
- * Reasons why structural validation failed
+ * Reasons why validation failed
  */
-export type InvalidStructureReason =
+export type ValidationReason =
 	| {
 			type: 'not-an-object';
 			actual: unknown;
 	  }
-	| {
-			type: 'invalid-cell-value';
-			field: string;
-			actual: unknown;
-	  };
-
-/**
- * Reasons why schema validation failed
- */
-export type SchemaMismatchReason =
 	| {
 			type: 'missing-required-field';
 			field: string;
@@ -59,68 +48,41 @@ export type SchemaMismatchReason =
 
 /**
  * Discriminated union representing row validation result
- * Three possible states:
+ * Two possible states:
  * - valid: Data matches schema perfectly
- * - schema-mismatch: Valid Row structure but doesn't match schema
- * - invalid-structure: Not a valid Row structure
+ * - invalid: Data doesn't match schema (check reason for specifics)
  */
 export type RowValidationResult<TRow extends Row> =
 	| { status: 'valid'; row: TRow }
-	| { status: 'schema-mismatch'; row: Row; reason: SchemaMismatchReason }
-	| {
-			status: 'invalid-structure';
-			row: unknown;
-			reason: InvalidStructureReason;
-	  };
+	| { status: 'invalid'; row: unknown; reason: ValidationReason };
 
 /**
- * Refined validation result that only includes 'valid' and 'schema-mismatch' statuses.
- * Used by createRow which cannot return 'invalid-structure'.
+ * Refined validation result that only includes 'valid' and 'invalid' with Row type.
+ * Used by createRow which works with YRow (CRDT) data that's already a proper Row object.
  */
-export type YRowValidationResult<TRow extends Row> = Extract<
-	RowValidationResult<TRow>,
-	{ status: 'valid' } | { status: 'schema-mismatch' }
->;
-
-/**
- * Refined SerializedRow validation result that only includes 'valid' and 'schema-mismatch'.
- * Used by validateSerializedRow which cannot return 'invalid-structure'.
- *
- * On 'valid', returns SerializedRow<TSchema> (typed to the schema).
- * On 'schema-mismatch', returns SerializedRow (generic, untyped).
- */
-export type ValidatedSerializedRowResult<
-	TSchema extends TableSchema = TableSchema,
-> =
-	| { status: 'valid'; row: SerializedRow<TSchema> }
-	| {
-			status: 'schema-mismatch';
-			row: SerializedRow;
-			reason: SchemaMismatchReason;
-	  };
+export type YRowValidationResult<TRow extends Row> =
+	| { status: 'valid'; row: TRow }
+	| { status: 'invalid'; row: Row; reason: ValidationReason };
 
 /**
  * Validation result for SerializedRow.
  * Returns the validated SerializedRow (not Row proxy) on success.
  *
- * Extends ValidatedSerializedRowResult by adding the 'invalid-structure' case.
+ * Two possible states:
+ * - valid: Data matches schema (typed as SerializedRow<TSchema>)
+ * - invalid: Data doesn't match schema (check reason for specifics)
  */
 export type SerializedRowValidationResult<
 	TSchema extends TableSchema = TableSchema,
 > =
-	| ValidatedSerializedRowResult<TSchema>
-	| {
-			status: 'invalid-structure';
-			row: unknown;
-			reason: InvalidStructureReason;
-	  };
+	| { status: 'valid'; row: SerializedRow<TSchema> }
+	| { status: 'invalid'; row: unknown; reason: ValidationReason };
 
 /**
  * Discriminated union representing the result of getting a row by ID
- * Four possible states:
+ * Three possible states:
  * - valid: Row exists and matches schema perfectly
- * - schema-mismatch: Row exists but doesn't match schema
- * - invalid-structure: Row exists but has invalid structure
+ * - invalid: Row exists but doesn't match schema
  * - not-found: Row does not exist
  */
 export type GetRowResult<TRow extends Row> =
@@ -157,13 +119,15 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 *
 	 * **Validation steps**:
 	 * 1. Checks if data is a plain object
-	 * 2. Checks if all values are valid SerializedCellValue types
-	 * 3. Validates against the table schema
+	 * 2. Validates each schema field against the column schema
+	 *
+	 * **Important**: Extra fields (not in schema) are ignored. Only schema-defined
+	 * fields are validated. This allows forward compatibility when deserializing
+	 * data that may have additional fields.
 	 *
 	 * **Returns a discriminated union**:
-	 * - 'valid': Data passes all checks
-	 * - 'invalid-structure': Not a plain object or contains invalid cell values
-	 * - 'schema-mismatch': Valid structure but doesn't match schema
+	 * - 'valid': Data passes all checks (typed as SerializedRow<TSchema>)
+	 * - 'invalid': Data doesn't match schema (check reason.type for specifics)
 	 */
 	validateUnknown(data: unknown): SerializedRowValidationResult<TSchema>;
 
@@ -360,7 +324,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 			// Step 1: Check if it's a plain object
 			if (!type("Record<string, unknown>").allows(data)) {
 				return {
-					status: 'invalid-structure',
+					status: 'invalid',
 					row: data,
 					reason: {
 						type: 'not-an-object',
@@ -369,34 +333,16 @@ export function createTableValidators<TSchema extends TableSchema>(
 				};
 			}
 
-			// Step 2: Check if all values are SerializedCellValue
-			for (const [fieldName, value] of Object.entries(data)) {
-				if (!isSerializedCellValue(value)) {
-					return {
-						status: 'invalid-structure',
-						row: data,
-						reason: {
-							type: 'invalid-cell-value',
-							field: fieldName,
-							actual: value,
-						},
-					};
-				}
-			}
-
-			// At this point, we've validated the structure is a SerializedRow
-			const serializedRow = data as SerializedRow;
-
-			// Step 3: Validate against the schema
+			// Step 2: Validate against the schema
 			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				const value = serializedRow[fieldName];
+				const value = data[fieldName];
 
 				// Check required fields
 				if (value === null || value === undefined) {
 					if (columnSchema.type === 'id' || !columnSchema.nullable) {
 						return {
-							status: 'schema-mismatch',
-							row: serializedRow,
+							status: 'invalid',
+							row: data,
 							reason: {
 								type: 'missing-required-field',
 								field: fieldName,
@@ -412,8 +358,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 					case 'text':
 						if (typeof value !== 'string') {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -427,8 +373,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 					case 'integer':
 						if (typeof value !== 'number' || !Number.isInteger(value)) {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -442,8 +388,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 					case 'real':
 						if (typeof value !== 'number') {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -457,8 +403,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 					case 'boolean':
 						if (typeof value !== 'boolean') {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -473,8 +419,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 						// For SerializedRow, ytext should be a string
 						if (typeof value !== 'string') {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -488,8 +434,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 					case 'select':
 						if (typeof value !== 'string') {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -500,8 +446,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 						}
 						if (!columnSchema.options.includes(value)) {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'invalid-option',
 									field: fieldName,
@@ -516,8 +462,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 						// For SerializedRow, multi-select should be an array
 						if (!Array.isArray(value)) {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -529,8 +475,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 						for (const option of value) {
 							if (typeof option !== 'string') {
 								return {
-									status: 'schema-mismatch',
-									row: serializedRow,
+									status: 'invalid',
+									row: data,
 									reason: {
 										type: 'type-mismatch',
 										field: fieldName,
@@ -544,8 +490,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 								!columnSchema.options.includes(option)
 							) {
 								return {
-									status: 'schema-mismatch',
-									row: serializedRow,
+									status: 'invalid',
+									row: data,
 									reason: {
 										type: 'invalid-option',
 										field: fieldName,
@@ -560,8 +506,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 					case 'date':
 						if (!isDateWithTimezoneString(value)) {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -577,8 +523,8 @@ export function createTableValidators<TSchema extends TableSchema>(
 						const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
 						if (result instanceof type.errors) {
 							return {
-								status: 'schema-mismatch',
-								row: serializedRow,
+								status: 'invalid',
+								row: data,
 								reason: {
 									type: 'type-mismatch',
 									field: fieldName,
@@ -593,7 +539,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 			}
 
 			// All validations passed
-			return { status: 'valid', row: serializedRow as SerializedRow<TSchema> };
+			return { status: 'valid', row: data as SerializedRow<TSchema> };
 		},
 
 		toArktype() {

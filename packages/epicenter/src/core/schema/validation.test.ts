@@ -67,7 +67,7 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns schema-mismatch for wrong types', () => {
+		test('returns invalid for wrong types', () => {
 			const validators = createTableValidators({
 				id: id(),
 				count: integer(),
@@ -78,8 +78,8 @@ describe('createTableValidators', () => {
 				count: 'not a number',
 			});
 
-			expect(result.status).toBe('schema-mismatch');
-			if (result.status === 'schema-mismatch') {
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
 				expect(result.reason.type).toBe('type-mismatch');
 				expect(result.reason.field).toBe('count');
 			}
@@ -99,7 +99,7 @@ describe('createTableValidators', () => {
 			expect(result.status).toBe('valid');
 		});
 
-		test('returns schema-mismatch for invalid select option', () => {
+		test('returns invalid for invalid select option', () => {
 			const validators = createTableValidators({
 				id: id(),
 				status: select({ options: ['draft', 'published'] }),
@@ -110,8 +110,8 @@ describe('createTableValidators', () => {
 				status: 'invalid',
 			});
 
-			expect(result.status).toBe('schema-mismatch');
-			if (result.status === 'schema-mismatch') {
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
 				expect(result.reason.type).toBe('invalid-option');
 			}
 		});
@@ -130,7 +130,7 @@ describe('createTableValidators', () => {
 			expect(result.status).toBe('valid');
 		});
 
-		test('returns schema-mismatch for missing required fields', () => {
+		test('returns invalid for missing required fields', () => {
 			const validators = createTableValidators({
 				id: id(),
 				title: text(),
@@ -141,8 +141,8 @@ describe('createTableValidators', () => {
 				// Missing title
 			});
 
-			expect(result.status).toBe('schema-mismatch');
-			if (result.status === 'schema-mismatch') {
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
 				expect(result.reason.type).toBe('missing-required-field');
 				expect(result.reason.field).toBe('title');
 			}
@@ -159,8 +159,8 @@ describe('createTableValidators', () => {
 				tags: ['invalid-tag'],
 			});
 
-			expect(result.status).toBe('schema-mismatch');
-			if (result.status === 'schema-mismatch') {
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
 				expect(result.reason.type).toBe('invalid-option');
 			}
 		});
@@ -193,7 +193,7 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns schema-mismatch for JSON with invalid data', () => {
+		test('returns invalid for JSON with invalid data', () => {
 			const configSchema = type({
 				theme: 'string',
 				autoSave: 'boolean',
@@ -212,8 +212,8 @@ describe('createTableValidators', () => {
 				},
 			});
 
-			expect(result.status).toBe('schema-mismatch');
-			if (result.status === 'schema-mismatch') {
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
 				expect(result.reason.type).toBe('type-mismatch');
 				expect(result.reason.field).toBe('config');
 			}
@@ -283,7 +283,7 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns invalid-structure for non-serialized cell values', () => {
+		test('returns invalid for non-serialized cell values', () => {
 			const validators = createTableValidators({
 				id: id(),
 				count: integer(),
@@ -291,15 +291,13 @@ describe('createTableValidators', () => {
 
 			const result = validators.validateUnknown({
 				id: '123',
-				count: new Y.Text(), // Y.js types are not valid SerializedCellValue
+				count: new Y.Text(), // Y.js types don't match integer schema
 			});
 
-			expect(result.status).toBe('invalid-structure');
-			if (result.status === 'invalid-structure') {
-				expect(result.reason.type).toBe('invalid-cell-value');
-				if (result.reason.type === 'invalid-cell-value') {
-					expect(result.reason.field).toBe('count');
-				}
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
+				expect(result.reason.type).toBe('type-mismatch');
+				expect(result.reason.field).toBe('count');
 			}
 		});
 
@@ -314,8 +312,8 @@ describe('createTableValidators', () => {
 				status: 'invalid',
 			});
 
-			expect(result.status).toBe('schema-mismatch');
-			if (result.status === 'schema-mismatch') {
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
 				expect(result.reason.type).toBe('invalid-option');
 			}
 		});
@@ -329,10 +327,14 @@ describe('createTableValidators', () => {
 			// Invalid structure (not an array)
 			const result1 = validators.validateUnknown({
 				id: '123',
-				tags: new Y.Text(), // Y.js types are not valid SerializedCellValue
+				tags: new Y.Text(), // Y.js types don't match array schema
 			});
 
-			expect(result1.status).toBe('invalid-structure');
+			expect(result1.status).toBe('invalid');
+			if (result1.status === 'invalid') {
+				expect(result1.reason.type).toBe('type-mismatch');
+				expect(result1.reason.field).toBe('tags');
+			}
 
 			// Invalid option (valid structure, bad value)
 			const result2 = validators.validateUnknown({
@@ -340,8 +342,8 @@ describe('createTableValidators', () => {
 				tags: ['invalid-tag'],
 			});
 
-			expect(result2.status).toBe('schema-mismatch');
-			if (result2.status === 'schema-mismatch') {
+			expect(result2.status).toBe('invalid');
+			if (result2.status === 'invalid') {
 				expect(result2.reason.type).toBe('invalid-option');
 			}
 		});
@@ -374,7 +376,7 @@ describe('createTableValidators', () => {
 			}
 		});
 
-		test('returns invalid-structure for JSON with Y.js types', () => {
+		test('returns invalid for JSON with Y.js types', () => {
 			const dataSchema = type({
 				content: 'string',
 			});
@@ -386,19 +388,17 @@ describe('createTableValidators', () => {
 
 			const result = validators.validateUnknown({
 				id: '123',
-				data: new Y.Text(), // Y.js type not allowed
+				data: new Y.Text(), // Y.js type doesn't match JSON schema
 			});
 
-			expect(result.status).toBe('invalid-structure');
-			if (result.status === 'invalid-structure') {
-				expect(result.reason.type).toBe('invalid-cell-value');
-				if (result.reason.type === 'invalid-cell-value') {
-					expect(result.reason.field).toBe('data');
-				}
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
+				expect(result.reason.type).toBe('type-mismatch');
+				expect(result.reason.field).toBe('data');
 			}
 		});
 
-		test('returns schema-mismatch for JSON with invalid data structure', () => {
+		test('returns invalid for JSON with invalid data structure', () => {
 			const settingsSchema = type({
 				notifications: 'boolean',
 				volume: 'number',
@@ -417,8 +417,8 @@ describe('createTableValidators', () => {
 				},
 			});
 
-			expect(result.status).toBe('schema-mismatch');
-			if (result.status === 'schema-mismatch') {
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
 				expect(result.reason.type).toBe('type-mismatch');
 				expect(result.reason.field).toBe('settings');
 			}

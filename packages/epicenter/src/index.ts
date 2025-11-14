@@ -45,8 +45,6 @@ export {
 	DateWithTimezoneFromString,
 	createRow,
 	serializeCellValue,
-	isSerializedCellValue,
-	isSerializedRow,
 } from './core/schema';
 export { DateWithTimezone } from './core/schema';
 export type {
@@ -55,9 +53,9 @@ export type {
 	TableSchema,
 	TableValidators,
 	WorkspaceValidators,
+	ValidationReason,
 	YRowValidationResult,
 	SerializedRowValidationResult,
-	ValidatedSerializedRowResult,
 	Row,
 	SerializedRow,
 	PartialSerializedRow,
