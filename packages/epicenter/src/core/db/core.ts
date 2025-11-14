@@ -19,7 +19,7 @@ export type { TableHelper } from './table-helper';
  * ```typescript
  * // With a fresh Y.Doc
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
- * const db = await createEpicenterDb(ydoc, {
+ * const db = createEpicenterDb(ydoc, {
  *   posts: {
  *     id: id(),
  *     title: text(),
@@ -29,15 +29,15 @@ export type { TableHelper } from './table-helper';
  *
  * // Or with a Y.Doc from a network provider
  * const provider = new WebrtcProvider('room-name', ydoc);
- * const db = await createEpicenterDb(ydoc, schemas);
+ * const db = createEpicenterDb(ydoc, schemas);
  * ```
  */
-export async function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
+export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 	ydoc: Y.Doc,
 	schema: TWorkspaceSchema,
 ) {
 	// Create validators for all tables
-	const validators = await createWorkspaceValidators(schema);
+	const validators = createWorkspaceValidators(schema);
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
 	// Initialize each table as a Y.Map<id, row> (only if not already present)

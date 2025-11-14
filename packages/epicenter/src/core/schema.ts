@@ -45,6 +45,7 @@ import {
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,
 } from './schema/regex';
+import { isPlainObject } from '../indexes/markdown/io';
 
 /**
  * Column schema definitions as pure JSON objects.
@@ -194,7 +195,8 @@ export type ColumnSchema =
 	| BooleanColumnSchema
 	| DateColumnSchema
 	| SelectColumnSchema
-	| TagsColumnSchema;
+	| TagsColumnSchema
+	| JsonColumnSchema;
 
 /**
  * Individual column schema types
@@ -267,6 +269,45 @@ export type TagsColumnSchema<
 	nullable: TNullable;
 	options?: TOptions;
 	default?: TOptions[number][];
+};
+
+/**
+ * JSON column schema - stores arbitrary JSON-serializable values with StandardSchemaV1 validation.
+ *
+ * Unlike other column types, JSON columns use a `schema` property instead of `options`.
+ * The schema must extend StandardSchemaV1 and is always required.
+ *
+ * @example
+ * ```typescript
+ * import { json } from 'epicenter/schema';
+ * import { type } from 'arktype';
+ *
+ * // Simple JSON object
+ * const userPrefs = json({
+ *   schema: type({
+ *     theme: type.enumerated('light', 'dark'),
+ *     notifications: 'boolean',
+ *   }),
+ * });
+ *
+ * // With nullable and default
+ * const metadata = json({
+ *   schema: type({ key: 'string', value: 'string' }).array(),
+ *   nullable: true,
+ *   default: [],
+ * });
+ * ```
+ */
+export type JsonColumnSchema<
+	TSchema extends StandardSchemaV1 = StandardSchemaV1,
+	TNullable extends boolean = boolean,
+> = {
+	type: 'json';
+	nullable: TNullable;
+	schema: TSchema;
+	default?:
+		| StandardSchemaV1.InferOutput<TSchema>
+		| (() => StandardSchemaV1.InferOutput<TSchema>);
 };
 
 /**
@@ -458,7 +499,11 @@ export type CellValue<C extends ColumnSchema = ColumnSchema> =
 										? TNullable extends true
 											? Y.Array<TOptions[number]> | null
 											: Y.Array<TOptions[number]>
-										: never;
+										: C extends JsonColumnSchema<infer TSchema, infer TNullable>
+											? TNullable extends true
+												? StandardSchemaV1.InferOutput<TSchema> | null
+												: StandardSchemaV1.InferOutput<TSchema>
+											: never;
 
 /**
  * Discriminated union representing row validation result
@@ -655,7 +700,7 @@ export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
 				? U[]
 				: T extends DateWithTimezone
 					? DateWithTimezoneString
-					: T
+					: T // JSON values are already plain JavaScript, no conversion needed
 		: never;
 
 /**
@@ -717,14 +762,35 @@ export type PartialSerializedRow<
 export function isSerializedCellValue(
 	value: unknown,
 ): value is SerializedCellValue {
-	// string | number | boolean | string[] | DateWithTimezoneString | null
-	return (
-		value === null ||
+	// null
+	if (value === null) return true;
+
+	// string | number | boolean
+	if (
 		typeof value === 'string' ||
 		typeof value === 'number' ||
-		typeof value === 'boolean' ||
-		(Array.isArray(value) && value.every((item) => typeof item === 'string'))
-	);
+		typeof value === 'boolean'
+	) {
+		return true;
+	}
+
+	// string[] (for multi-select)
+	if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+		return true;
+	}
+
+	// Plain object or array (for JSON columns)
+	// Exclude Y.js types which have specific constructor names
+	if (typeof value === 'object') {
+		const constructorName = value.constructor?.name;
+		// Y.js types include: Text, Array, Map, XmlElement, XmlText, etc.
+		// Plain objects have constructor name "Object" or "Array"
+		if (constructorName === 'Object' || constructorName === 'Array') {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**
@@ -1061,6 +1127,65 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 }
 
 /**
+ * Creates a JSON column schema with StandardSchemaV1 validation.
+ *
+ * JSON columns store arbitrary JSON-serializable values validated against a StandardSchemaV1 schema.
+ * Unlike other column types, the `schema` property is always required.
+ *
+ * @example
+ * ```typescript
+ * import { json } from 'epicenter/schema';
+ * import { type } from 'arktype';
+ *
+ * // Simple object
+ * const prefs = json({
+ *   schema: type({ theme: 'string', darkMode: 'boolean' }),
+ * });
+ *
+ * // Nullable with default
+ * const metadata = json({
+ *   schema: type({ key: 'string', value: 'string' }).array(),
+ *   nullable: true,
+ *   default: [],
+ * });
+ * ```
+ */
+export function json<const TSchema extends StandardSchemaV1>(opts: {
+	schema: TSchema;
+	nullable: true;
+	default?:
+		| StandardSchemaV1.InferOutput<TSchema>
+		| (() => StandardSchemaV1.InferOutput<TSchema>);
+}): JsonColumnSchema<TSchema, true>;
+export function json<const TSchema extends StandardSchemaV1>(opts: {
+	schema: TSchema;
+	nullable?: false;
+	default?:
+		| StandardSchemaV1.InferOutput<TSchema>
+		| (() => StandardSchemaV1.InferOutput<TSchema>);
+}): JsonColumnSchema<TSchema, false>;
+export function json<const TSchema extends StandardSchemaV1>({
+	schema,
+	nullable = false,
+	default: defaultValue,
+}: {
+	schema: TSchema;
+	nullable?: boolean;
+	default?:
+		| StandardSchemaV1.InferOutput<TSchema>
+		| (() => StandardSchemaV1.InferOutput<TSchema>);
+}): JsonColumnSchema<TSchema, boolean> {
+	return {
+		type: 'json',
+		nullable,
+		schema,
+		default: defaultValue as
+			| StandardSchemaV1.InferOutput<TSchema>
+			| (() => StandardSchemaV1.InferOutput<TSchema>),
+	};
+}
+
+/**
  * Creates table validators from a schema definition.
  * Returns only validation methods, separate from the schema itself.
  *
@@ -1090,7 +1215,24 @@ export function createTableValidators<TSchema extends TableSchema>(
 	schema: TSchema,
 ): TableValidators<TSchema> {
 	/**
-	 * Helper: Builds field definitions for schema validation
+	 * Helper: Builds field definitions for schema generation (not validation)
+	 *
+	 * **Purpose**: Generate arktype schemas that can be converted to JSON Schema for:
+	 * - MCP server schema generation
+	 * - Hono OpenAPI specification
+	 * - Any external tooling that requires JSON Schema compatibility
+	 *
+	 * **Important limitation**: This uses a restricted subset of arktype features.
+	 * We cannot use `.filter()` or other custom predicates because they break
+	 * JSON Schema compatibility. For example:
+	 * - ✅ `type.string.matching(/regex/)` - Converts to JSON Schema pattern
+	 * - ❌ `type.string.filter(fn)` - Cannot convert to JSON Schema
+	 *
+	 * **Actual validation happens elsewhere**: The validation methods
+	 * (validateYRow, validateSerializedRow) perform the real validation using
+	 * StandardSchemaV1 directly, which supports more complex validation logic
+	 * that doesn't need JSON Schema compatibility.
+	 *
 	 * @param makeOptional - If true, all fields except 'id' become optional (for partial updates)
 	 */
 	const _buildSchemaFields = ({ makeOptional }: { makeOptional: boolean }) =>
@@ -1115,6 +1257,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 
 	/**
 	 * Helper: Generates base arktype for a column schema
+	 * For JSON columns, returns type.unknown (actual validation happens via StandardSchemaV1)
 	 */
 	function _getBaseArktypeForColumn(columnSchema: ColumnSchema) {
 		switch (columnSchema.type) {
@@ -1140,6 +1283,14 @@ export function createTableValidators<TSchema extends TableSchema>(
 				return columnSchema.options
 					? type.enumerated(...columnSchema.options).array()
 					: type.string.array();
+			case 'json':
+				// Return type.unknown for JSON columns to maintain JSON schema compatibility
+				// Actual validation happens via StandardSchemaV1 in validateYRow/validateSerializedRow
+				return type.unknown;
+			// .filter((value) => {
+			// 	const result = columnSchema.schema['~standard'].validate(value);
+			// 	return result instanceof Promise ? false : !result.issues;
+			// }) - Can't use because custom predicates break JSON schema compatibility
 		}
 	}
 
@@ -1330,6 +1481,29 @@ export function createTableValidators<TSchema extends TableSchema>(
 							};
 						}
 						break;
+
+					case 'json': {
+						// Validate using StandardSchemaV1
+						const result = columnSchema.schema['~standard'].validate(value);
+						if (result instanceof Promise) {
+							throw new Error(
+								`Async validation not supported in validateYRow for field ${fieldName}`,
+							);
+						}
+						if (result.issues) {
+							return {
+								status: 'schema-mismatch',
+								row,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+					}
 				}
 			}
 
@@ -1523,6 +1697,29 @@ export function createTableValidators<TSchema extends TableSchema>(
 							};
 						}
 						break;
+
+					case 'json': {
+						// Validate using StandardSchemaV1
+						const result = columnSchema.schema['~standard'].validate(value);
+						if (result instanceof Promise) {
+							throw new Error(
+								`Async validation not supported in validateSerializedRow for field ${fieldName}`,
+							);
+						}
+						if (result.issues) {
+							return {
+								status: 'schema-mismatch',
+								row: data,
+								reason: {
+									type: 'type-mismatch',
+									field: fieldName,
+									schemaType: columnSchema.type,
+									actual: value,
+								},
+							};
+						}
+						break;
+					}
 				}
 			}
 
@@ -1532,7 +1729,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 
 		validateUnknown(data: unknown): SerializedRowValidationResult<TSchema> {
 			// Check if it's an object
-			if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+			if ((!(isPlainObject(data)))) {
 				return {
 					status: 'invalid-structure',
 					row: data,
@@ -1544,7 +1741,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 			}
 
 			// Delegate to validateRecord
-			return this.validateRecord(data as Record<string, unknown>);
+			return this.validateRecord(data);
 		},
 
 		validateRecord(

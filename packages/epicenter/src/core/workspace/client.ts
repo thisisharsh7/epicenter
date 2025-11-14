@@ -327,7 +327,7 @@ export async function initializeWorkspaces<
 		}
 
 		// Initialize Epicenter database (wraps YJS with table/record API)
-		const db = await createEpicenterDb(ydoc, workspaceConfig.schema);
+		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
 		// Initialize each index by calling its factory function with IndexContext
 		// Each index function receives { id, db, storageDir } and returns an index object
