@@ -238,16 +238,16 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 
 		const rows = db.tables[tableName].getAll();
 
-		for (const row of rows) {
+		if (rows.length > 0) {
 			const { error } = await tryAsync({
 				try: async () => {
-					const serializedRow = row.toJSON();
-					await sqliteDb.insert(drizzleTable).values(serializedRow);
+					const serializedRows = rows.map((row) => row.toJSON());
+					await sqliteDb.insert(drizzleTable).values(serializedRows);
 				},
 				catch: (e) =>
 					IndexErr({
-						message: `Failed to sync row ${row.id} to SQLite during init: ${extractErrorMessage(e)}`,
-						context: { rowId: row.id, tableName },
+						message: `Failed to sync ${rows.length} rows to SQLite during init: ${extractErrorMessage(e)}`,
+						context: { rowCount: rows.length, tableName },
 					}),
 			});
 
@@ -296,9 +296,9 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 
 							const rows = db.tables[tableName].getAll();
 
-							for (const row of rows) {
-								const serializedRow = row.toJSON();
-								await sqliteDb.insert(drizzleTable).values(serializedRow);
+							if (rows.length > 0) {
+								const serializedRows = rows.map((row) => row.toJSON());
+								await sqliteDb.insert(drizzleTable).values(serializedRows);
 							}
 						}
 
