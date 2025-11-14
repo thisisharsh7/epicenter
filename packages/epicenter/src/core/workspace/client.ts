@@ -405,6 +405,10 @@ export async function initializeWorkspaces<
  * returns only the specified workspace's client. All dependencies are initialized but not exposed.
  *
  * Contrast with `createEpicenterClient()` which returns the full object of all workspace clients.
+ *
+ * **Note**: storageDir defaults to process.cwd(). For custom storage paths, wrap the workspace
+ * in an epicenter config with defineEpicenter({ storageDir, workspaces: [workspace] }) and use
+ * createEpicenterClient() instead.
  */
 export async function createWorkspaceClient<
 	const TDeps extends readonly AnyWorkspaceConfig[],
@@ -420,10 +424,9 @@ export async function createWorkspaceClient<
 		TIndexResults,
 		TExports
 	>,
-	storageDir?: string,
 ): Promise<WorkspaceClient<TExports>> {
 	// Resolve storageDir with environment detection
-	// In Node.js: resolve to absolute path (defaults to process.cwd() if not specified)
+	// In Node.js: resolve to absolute path (defaults to process.cwd())
 	// In browser: undefined (filesystem operations not available)
 	const isNode =
 		typeof process !== 'undefined' &&
@@ -432,8 +435,7 @@ export async function createWorkspaceClient<
 
 	let resolvedStorageDir: AbsolutePath | undefined = undefined;
 	if (isNode) {
-		const configuredPath = storageDir ?? process.cwd();
-		resolvedStorageDir = path.resolve(configuredPath) as AbsolutePath;
+		resolvedStorageDir = path.resolve(process.cwd()) as AbsolutePath;
 	}
 
 	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization

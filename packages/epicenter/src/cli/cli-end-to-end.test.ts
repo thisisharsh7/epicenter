@@ -45,7 +45,7 @@ describe('CLI End-to-End Tests', () => {
 
 		indexes: {
 			sqlite: (c) => sqliteIndex(c),
-			markdown: markdownIndex,
+			markdown: (c) => markdownIndex(c, { directory: './content' }),
 		},
 
 		exports: ({ db, indexes }) => ({
@@ -108,6 +108,7 @@ describe('CLI End-to-End Tests', () => {
 
 	const epicenter = defineEpicenter({
 		id: 'cli-e2e-test',
+		storageDir: TEST_DIR,
 		workspaces: [testWorkspace],
 	});
 

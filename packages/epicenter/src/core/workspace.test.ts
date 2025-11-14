@@ -7,6 +7,7 @@ import { sqliteIndex } from '../indexes/sqlite';
 import { defineQuery, defineMutation } from './actions';
 import { id, integer, text } from './schema';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
+import { defineEpicenter, createEpicenterClient } from './epicenter';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -628,7 +629,6 @@ describe('Workspace Action Handlers', () => {
 
 		indexes: {
 			sqlite: (c) => sqliteIndex(c),
-			markdown: markdownIndex,
 		},
 
 		exports: ({ db, indexes }) => {
@@ -713,7 +713,13 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('createPost mutation creates a post', async () => {
-		using client = await createWorkspaceClient(postsWorkspace);
+		const epicenter = defineEpicenter({
+			id: 'test-epicenter',
+			storageDir: TEST_DIR,
+			workspaces: [postsWorkspace],
+		});
+		using epicenterClient = await createEpicenterClient(epicenter);
+		const client = epicenterClient['posts-test'];
 
 		const result = await client.createPost({
 			title: 'Test Post',
@@ -730,7 +736,13 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('listPosts query returns created posts', async () => {
-		using client = await createWorkspaceClient(postsWorkspace);
+		const epicenter = defineEpicenter({
+			id: 'test-epicenter',
+			storageDir: TEST_DIR,
+			workspaces: [postsWorkspace],
+		});
+		using epicenterClient = await createEpicenterClient(epicenter);
+		const client = epicenterClient['posts-test'];
 
 		// Create a post first
 		await client.createPost({
@@ -752,7 +764,13 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('getPost query retrieves specific post', async () => {
-		using client = await createWorkspaceClient(postsWorkspace);
+		const epicenter = defineEpicenter({
+			id: 'test-epicenter',
+			storageDir: TEST_DIR,
+			workspaces: [postsWorkspace],
+		});
+		using epicenterClient = await createEpicenterClient(epicenter);
+		const client = epicenterClient['posts-test'];
 
 		// Create a post
 		const createResult = await client.createPost({
@@ -778,7 +796,13 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('updateViews mutation updates post view count', async () => {
-		using client = await createWorkspaceClient(postsWorkspace);
+		const epicenter = defineEpicenter({
+			id: 'test-epicenter',
+			storageDir: TEST_DIR,
+			workspaces: [postsWorkspace],
+		});
+		using epicenterClient = await createEpicenterClient(epicenter);
+		const client = epicenterClient['posts-test'];
 
 		// Create a post
 		const createResult = await client.createPost({
@@ -800,7 +824,13 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('updateViews throws error for non-existent post', async () => {
-		using client = await createWorkspaceClient(postsWorkspace);
+		const epicenter = defineEpicenter({
+			id: 'test-epicenter',
+			storageDir: TEST_DIR,
+			workspaces: [postsWorkspace],
+		});
+		using epicenterClient = await createEpicenterClient(epicenter);
+		const client = epicenterClient['posts-test'];
 
 		// Try to update views on non-existent post
 		try {
@@ -816,7 +846,13 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('createPost with optional content field', async () => {
-		using client = await createWorkspaceClient(postsWorkspace);
+		const epicenter = defineEpicenter({
+			id: 'test-epicenter',
+			storageDir: TEST_DIR,
+			workspaces: [postsWorkspace],
+		});
+		using epicenterClient = await createEpicenterClient(epicenter);
+		const client = epicenterClient['posts-test'];
 
 		const result = await client.createPost({
 			title: 'No Content Post',
