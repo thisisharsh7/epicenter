@@ -24,7 +24,7 @@ import type { DateWithTimezone, DateWithTimezoneString } from './date-with-timez
 /**
  * Individual column schema types
  */
-export type IdColumnSchema = { type: 'id' };
+export type IdColumnSchema = { type: 'id'; nullable: false };
 
 export type TextColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'text';

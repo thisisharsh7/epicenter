@@ -178,11 +178,7 @@ function columnSchemaToYjsArktypeType<C extends ColumnSchema>(
 			break;
 	}
 
-	// Handle nullable columns (skip id which is never nullable)
-	if (columnSchema.type === 'id') {
-		return baseType as ColumnSchemaToYjsArktypeType<C>;
-	}
-
+	// Handle nullable columns
 	return (columnSchema.nullable
 		? baseType.or(type.null)
 		: baseType) as ColumnSchemaToYjsArktypeType<C>;

@@ -25,10 +25,10 @@ import type {
  * Creates an ID column schema - always primary key with auto-generation
  * IDs are always NOT NULL (cannot be nullable)
  * @example
- * id() // → { type: 'id' }
+ * id() // → { type: 'id', nullable: false }
  */
 export function id(): IdColumnSchema {
-	return { type: 'id' };
+	return { type: 'id', nullable: false };
 }
 
 /**
