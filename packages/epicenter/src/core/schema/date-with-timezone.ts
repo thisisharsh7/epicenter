@@ -7,7 +7,10 @@
  */
 
 import type { Brand } from 'wellcrafted/brand';
-import { DATE_WITH_TIMEZONE_STRING_REGEX } from './regex';
+import {
+	DATE_WITH_TIMEZONE_STRING_REGEX,
+	ISO_DATETIME_REGEX,
+} from './regex';
 
 /**
  * ISO 8601 UTC datetime string from Date.toISOString()
@@ -97,6 +100,34 @@ export function DateWithTimezone({
 			return `${date.toISOString()}|${timezone}` as DateWithTimezoneString;
 		},
 	};
+}
+
+/**
+ * Type guard to check if a value is a valid ISO 8601 datetime string.
+ * Validates the format but doesn't verify the date itself is valid.
+ *
+ * Supported formats:
+ * - YYYY-MM-DD (date only)
+ * - YYYY-MM-DDTHH:mm (date + time)
+ * - YYYY-MM-DDTHH:mm:ss (date + time + seconds)
+ * - YYYY-MM-DDTHH:mm:ss.SSS (date + time + milliseconds)
+ * - All above with Z (UTC) or ±HH:mm (timezone offset)
+ *
+ * @param value - Value to check
+ * @returns true if value is a valid ISO datetime string format
+ *
+ * @example
+ * ```typescript
+ * isIsoDateTimeString("2024-01-01") // true
+ * isIsoDateTimeString("2024-01-01T20:00:00.000Z") // true
+ * isIsoDateTimeString("2024-01-01T20:00:00.000Z|America/New_York") // false (has timezone)
+ * isIsoDateTimeString("not-a-date") // false
+ * isIsoDateTimeString(12345) // false
+ * ```
+ */
+export function isIsoDateTimeString(value: unknown): value is string {
+	if (typeof value !== 'string') return false;
+	return ISO_DATETIME_REGEX.test(value);
 }
 
 /**

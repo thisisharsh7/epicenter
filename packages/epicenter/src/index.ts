@@ -40,6 +40,7 @@ export {
 	generateId,
 	createTableValidators,
 	createWorkspaceValidators,
+	isIsoDateTimeString,
 	isDateWithTimezoneString,
 	isDateWithTimezone,
 	DateWithTimezoneFromString,

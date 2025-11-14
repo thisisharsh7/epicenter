@@ -14,6 +14,10 @@ import {
 	readMarkdownFile,
 	writeMarkdownFile,
 } from '@epicenter/hq/indexes/markdown';
+import {
+	isIsoDateTimeString,
+	isDateWithTimezoneString,
+} from '@epicenter/hq';
 
 /**
  * Frontmatter field that contains timezone information.
@@ -48,7 +52,8 @@ console.log(`📄 Found ${markdownFiles.length} markdown files\n`);
 
 type ProcessResult =
 	| { status: 'modified'; file: string }
-	| { status: 'skipped'; file: string }
+	| { status: 'skipped'; file: string; reason: string }
+	| { status: 'invalid'; file: string; field: string; value: unknown }
 	| { status: 'error'; file: string; error: string };
 
 // Process each file
@@ -65,14 +70,55 @@ const results: ProcessResult[] = await Promise.all(
 		// Check if timezone exists
 		const timezone = frontmatter[TIMEZONE_FIELD];
 		if (!timezone) {
-			return { status: 'skipped', file: filePath };
+			return { status: 'skipped', file: filePath, reason: 'no timezone field' };
 		}
 
-		// Append timezone to date fields
+		if (typeof timezone !== 'string') {
+			return {
+				status: 'invalid',
+				file: filePath,
+				field: TIMEZONE_FIELD,
+				value: timezone,
+			};
+		}
+
+		// Collect fields that need transformation
+		const fieldsToTransform: Array<(typeof DATE_FIELDS)[number]> = [];
+
 		for (const field of DATE_FIELDS) {
-			if (frontmatter[field]) {
-				frontmatter[field] = `${frontmatter[field]}|${timezone}`;
+			const value = frontmatter[field];
+
+			// Skip if field doesn't exist
+			if (!value) continue;
+
+			// Skip if already transformed
+			if (isDateWithTimezoneString(value)) continue;
+
+			// Validate ISO datetime format
+			if (!isIsoDateTimeString(value)) {
+				return {
+					status: 'invalid',
+					file: filePath,
+					field,
+					value,
+				};
 			}
+
+			fieldsToTransform.push(field);
+		}
+
+		// Skip if nothing to transform
+		if (fieldsToTransform.length === 0) {
+			return {
+				status: 'skipped',
+				file: filePath,
+				reason: 'all dates already transformed',
+			};
+		}
+
+		// Apply transformations
+		for (const field of fieldsToTransform) {
+			frontmatter[field] = `${frontmatter[field]}|${timezone}`;
 		}
 
 		// Remove timezone field
@@ -98,26 +144,41 @@ const results: ProcessResult[] = await Promise.all(
 // Aggregate results
 const modified = results.filter((r) => r.status === 'modified');
 const skipped = results.filter((r) => r.status === 'skipped');
+const invalid = results.filter((r) => r.status === 'invalid');
 const errors = results.filter((r) => r.status === 'error');
 
 // Report results
 console.log('📊 Timezone Append Summary:');
 console.log(`  Total files scanned: ${markdownFiles.length}`);
 console.log(`  Files modified: ${modified.length}`);
-console.log(`  Files skipped (no timezone): ${skipped.length}`);
+console.log(`  Files skipped: ${skipped.length}`);
+console.log(`  Invalid dates: ${invalid.length}`);
 console.log(`  Errors: ${errors.length}\n`);
+
+if (invalid.length > 0) {
+	console.log('⚠️  Invalid Dates:');
+	for (const result of invalid) {
+		const fileName = result.file.split('/').pop();
+		console.log(
+			`  ${fileName}: field "${result.field}" has invalid value: ${JSON.stringify(result.value)}`,
+		);
+	}
+	console.log('');
+}
 
 if (errors.length > 0) {
 	console.log('❌ Errors:');
-	for (const { file, error } of errors) {
-		console.log(`  ${file.split('/').pop()}: ${error}`);
+	for (const result of errors) {
+		const fileName = result.file.split('/').pop();
+		console.log(`  ${fileName}: ${result.error}`);
 	}
+	console.log('');
 }
 
 if (dryRun) {
 	console.log(
-		'\n💡 This was a dry run. Run without --dry-run to apply changes.',
+		'💡 This was a dry run. Run without --dry-run to apply changes.',
 	);
-} else {
-	console.log('\n✅ All files with timezone have been updated.');
+} else if (modified.length > 0) {
+	console.log('✅ Date transformation completed successfully.');
 }

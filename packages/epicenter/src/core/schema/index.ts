@@ -85,6 +85,7 @@ export type {
 export {
 	DateWithTimezone,
 	isDateWithTimezone,
+	isIsoDateTimeString,
 	isDateWithTimezoneString,
 	DateWithTimezoneFromString,
 } from './date-with-timezone';
