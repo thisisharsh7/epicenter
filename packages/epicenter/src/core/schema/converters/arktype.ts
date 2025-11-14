@@ -221,9 +221,9 @@ export function tableSchemaToArktypeFields<TSchema extends TableSchema>(
  */
 export function tableSchemaToArktypeType<TSchema extends TableSchema>(
 	tableSchema: TSchema,
-): ObjectType<SerializedRow<TSchema>, {}> {
+): ObjectType<SerializedRow<TSchema>> {
 	const fields = tableSchemaToArktypeFields(tableSchema);
 	// Cast to any to bypass arktype's strict type inference
 	// The mapped type is too complex for TypeScript to infer properly
-	return type(fields as any) as unknown as ObjectType<SerializedRow<TSchema>, {}>;
+	return type(fields as any) as ObjectType<SerializedRow<TSchema>>;
 }
