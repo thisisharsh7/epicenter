@@ -31,7 +31,7 @@
   <img src="https://img.shields.io/github/v/release/epicenter-md/epicenter?style=flat-square&label=Latest%20Version&color=brightgreen" />
   <!-- License Badge -->
   <a href="LICENSE" target="_blank">
-    <img alt="MIT License" src="https://img.shields.io/github/license/epicenter-md/epicenter.svg?style=flat-square" />
+    <img alt="AGPL-3.0 License" src="https://img.shields.io/github/license/epicenter-md/epicenter.svg?style=flat-square" />
   </a>
   <!-- Discord Badge -->
   <a href="https://go.epicenter.so/discord" target="_blank">
@@ -160,7 +160,7 @@ Contributors coordinate and share ideas in our Discord community.
 
 ## License
 
-[MIT](LICENSE). Build on it. Fork it. Make it yours. Please contribute if you can.
+[AGPL-3.0](LICENSE). Build on it. Fork it. Make it yours. Please contribute if you can.
 
 ---
 
