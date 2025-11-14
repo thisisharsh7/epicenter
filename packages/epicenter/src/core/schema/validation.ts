@@ -11,7 +11,6 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { type, type ArkErrors } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import * as Y from 'yjs';
-import { isPlainObject } from '../../indexes/markdown/io';
 import type { YRow } from '../db/table-helper';
 import { tableSchemaToArktypeType } from './converters/arktype';
 import { isDateWithTimezoneString } from './date-with-timezone';
@@ -79,7 +78,7 @@ export type RowValidationResult<TRow extends Row> =
 
 /**
  * Refined validation result that only includes 'valid' and 'schema-mismatch' statuses.
- * Used by validateYRow which cannot return 'invalid-structure'.
+ * Used by createRow which cannot return 'invalid-structure'.
  */
 export type YRowValidationResult<TRow extends Row> = Extract<
 	RowValidationResult<TRow>,
@@ -153,9 +152,6 @@ export type GetRowResult<TRow extends Row> =
  * // Validate from SerializedRow (validates schema only)
  * const serialized: SerializedRow = { id: '123', title: 'Hello', content: 'World' };
  * const result3 = validators.validateSerializedRow(serialized);
- *
- * // Validate from YRow (validates schema only)
- * const result4 = validators.validateYRow(yrow);
  * ```
  */
 export type TableValidators<TSchema extends TableSchema = TableSchema> = {
@@ -189,15 +185,6 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	validateSerializedRow(
 		data: SerializedRow,
 	): ValidatedSerializedRowResult<TSchema>;
-
-	/**
-	 * Validates a YRow (checks schema only), returns typed Row proxy
-	 *
-	 * **This performs actual validation**: Unlike the `toXyz()` methods which generate
-	 * schemas for external tooling, this method performs rigorous runtime validation
-	 * including complex cases like JSON columns via StandardSchemaV1.
-	 */
-	validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>>;
 
 	/**
 	 * Generates a StandardSchemaV1 for full SerializedRow
@@ -297,9 +284,17 @@ export type WorkspaceValidators<TWorkspaceSchema extends WorkspaceSchema> = {
  *   users: { id: id(), name: text(), email: text() }
  * });
  *
- * // Access validators for a specific table
- * const postResult = validators.posts.validateYRow(yrow);
- * const userResult = validators.users.validateSerializedRow(serializedRow);
+ * // Use validators for SerializedRow validation
+ * const result = validators.posts.validateSerializedRow({ id: '1', title: 'Hello', content: 'World' });
+ *
+ * // Use validators for action input schemas
+ * const insertMutation = defineMutation({
+ *   input: validators.posts.toStandardSchema(),
+ *   handler: (row) => { ... }
+ * });
+ *
+ * // Use validators for composable arktype schemas
+ * const PostFrontmatter = validators.posts.toArktype().omit('id', 'content');
  * ```
  */
 export function createWorkspaceValidators<
@@ -347,15 +342,16 @@ export function createWorkspaceValidators<
  *
  * @example
  * ```typescript
- * const validators = createTableValidators({
+ * const schema = {
  *   id: id(),
  *   title: text(),
  *   content: ytext(),
  *   metadata: json(myStandardSchema), // Validates properly at runtime, type.unknown in schemas
- * });
+ * };
+ * const validators = createTableValidators(schema);
  *
- * // 1. Rigorous runtime validation
- * const result = validators.validateYRow(yrow);
+ * // 1. Rigorous runtime validation (use createRow helper)
+ * const result = createRow({ yrow, schema });
  * if (result.status === 'valid') {
  *   console.log(result.row.title); // type-safe
  * }
@@ -368,7 +364,7 @@ export function createWorkspaceValidators<
  *
  * // 3. Composable validation
  * const FrontMatter = validators.toArktype().omit('id', 'content');
- * const result = FrontMatter(frontmatter);
+ * const result2 = FrontMatter(frontmatter);
  * ```
  */
 export function createTableValidators<TSchema extends TableSchema>(
@@ -376,216 +372,6 @@ export function createTableValidators<TSchema extends TableSchema>(
 ): TableValidators<TSchema> {
 
 	return {
-		validateYRow(yrow: YRow): YRowValidationResult<Row<TSchema>> {
-			// Create row with getters for each property
-			const row = buildRowFromYRow(yrow, schema);
-
-			// Perform validation
-			for (const [fieldName, columnSchema] of Object.entries(schema)) {
-				const value = row[fieldName];
-
-				// Check if required field is null/undefined
-				if (value === null || value === undefined) {
-					if (columnSchema.type === 'id' || !columnSchema.nullable) {
-						return {
-							status: 'schema-mismatch',
-							row,
-							reason: {
-								type: 'missing-required-field',
-								field: fieldName,
-							},
-						};
-					}
-					continue;
-				}
-
-				// Type-specific validation
-				switch (columnSchema.type) {
-					case 'id':
-					case 'text':
-						if (typeof value !== 'string') {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'integer':
-						if (typeof value !== 'number' || !Number.isInteger(value)) {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'real':
-						if (typeof value !== 'number') {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'boolean':
-						if (typeof value !== 'boolean') {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'ytext':
-						if (!(value instanceof Y.Text)) {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'select':
-						if (typeof value !== 'string') {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						if (!columnSchema.options.includes(value)) {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'invalid-option',
-									field: fieldName,
-									actual: value,
-									allowedOptions: columnSchema.options,
-								},
-							};
-						}
-						break;
-
-					case 'multi-select':
-						if (!(value instanceof Y.Array)) {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						for (const option of value.toArray()) {
-							if (typeof option !== 'string') {
-								return {
-									status: 'schema-mismatch',
-									row,
-									reason: {
-										type: 'type-mismatch',
-										field: fieldName,
-										schemaType: columnSchema.type,
-										actual: option,
-									},
-								};
-							}
-							if (
-								columnSchema.options &&
-								!columnSchema.options.includes(option)
-							) {
-								return {
-									status: 'schema-mismatch',
-									row,
-									reason: {
-										type: 'invalid-option',
-										field: fieldName,
-										actual: option,
-										allowedOptions: columnSchema.options,
-									},
-								};
-							}
-						}
-						break;
-
-					case 'date':
-						if (!isDateWithTimezoneString(value)) {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-
-					case 'json': {
-						// Validate using Arktype
-						const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
-						if (result instanceof type.errors) {
-							return {
-								status: 'schema-mismatch',
-								row,
-								reason: {
-									type: 'type-mismatch',
-									field: fieldName,
-									schemaType: columnSchema.type,
-									actual: value,
-								},
-							};
-						}
-						break;
-					}
-				}
-			}
-
-			return { status: 'valid', row };
-		},
-
 		validateSerializedRow(
 			data: SerializedRow,
 		): ValidatedSerializedRowResult<TSchema> {
@@ -869,6 +655,237 @@ export function createTableValidators<TSchema extends TableSchema>(
 	};
 }
 
+/**
+ * Helper function to create a Row from a YRow with validation.
+ * Validates the YRow against the schema and returns a typed Row proxy.
+ *
+ * @param yrow - The YRow to validate and convert
+ * @param schema - Table schema for validation
+ * @returns Validation result with typed Row if valid
+ *
+ * @example
+ * ```typescript
+ * const result = createRow({ yrow, schema });
+ * if (result.status === 'valid') {
+ *   console.log(result.row.title); // type-safe access
+ * }
+ * ```
+ */
+export function createRow<TTableSchema extends TableSchema>({
+	yrow,
+	schema,
+}: {
+	yrow: YRow;
+	schema: TTableSchema;
+}): YRowValidationResult<Row<TTableSchema>> {
+	// Create row with getters for each property
+	const row = buildRowFromYRow(yrow, schema);
+
+	// Perform validation
+	for (const [fieldName, columnSchema] of Object.entries(schema)) {
+		const value = row[fieldName];
+
+		// Check if required field is null/undefined
+		if (value === null || value === undefined) {
+			if (columnSchema.type === 'id' || !columnSchema.nullable) {
+				return {
+					status: 'schema-mismatch',
+					row,
+					reason: {
+						type: 'missing-required-field',
+						field: fieldName,
+					},
+				};
+			}
+			continue;
+		}
+
+		// Type-specific validation
+		switch (columnSchema.type) {
+			case 'id':
+			case 'text':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'integer':
+				if (typeof value !== 'number' || !Number.isInteger(value)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'real':
+				if (typeof value !== 'number') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'boolean':
+				if (typeof value !== 'boolean') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'ytext':
+				if (!(value instanceof Y.Text)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'select':
+				if (typeof value !== 'string') {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				if (!columnSchema.options.includes(value)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'invalid-option',
+							field: fieldName,
+							actual: value,
+							allowedOptions: columnSchema.options,
+						},
+					};
+				}
+				break;
+
+			case 'multi-select':
+				if (!(value instanceof Y.Array)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				for (const option of value.toArray()) {
+					if (typeof option !== 'string') {
+						return {
+							status: 'schema-mismatch',
+							row,
+							reason: {
+								type: 'type-mismatch',
+								field: fieldName,
+								schemaType: columnSchema.type,
+								actual: option,
+							},
+						};
+					}
+					if (
+						columnSchema.options &&
+						!columnSchema.options.includes(option)
+					) {
+						return {
+							status: 'schema-mismatch',
+							row,
+							reason: {
+								type: 'invalid-option',
+								field: fieldName,
+								actual: option,
+								allowedOptions: columnSchema.options,
+							},
+						};
+					}
+				}
+				break;
+
+			case 'date':
+				if (!isDateWithTimezoneString(value)) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+
+			case 'json': {
+				// Validate using Arktype
+				const result = columnSchema.schema(value) as typeof columnSchema.schema.infer | ArkErrors;
+				if (result instanceof type.errors) {
+					return {
+						status: 'schema-mismatch',
+						row,
+						reason: {
+							type: 'type-mismatch',
+							field: fieldName,
+							schemaType: columnSchema.type,
+							actual: value,
+						},
+					};
+				}
+				break;
+			}
+		}
+	}
+
+	return { status: 'valid', row };
+}
 
 /**
  * Creates a Row object from a YRow with getters for each property.
@@ -922,28 +939,78 @@ function buildRowFromYRow<TSchema extends TableSchema>(
 }
 
 /**
- * Helper function to create a Row from a YRow with validation.
- * Convenience wrapper around validators.validateYRow().
+ * Type guard to check if a value is a plain object (Record<string, unknown>).
  *
- * @param yrow - The YRow to validate and convert
- * @param validators - Table validators for the schema
- * @returns Validation result with typed Row if valid
+ * A plain object is an object created with object literal syntax (`{}`),
+ * `new Object()`, or `Object.create(null)`.
+ *
+ * Returns `true` for:
+ * - `{}` (object literal)
+ * - `{ foo: 'bar' }` (object literal)
+ * - `new Object()` (Object constructor)
+ * - `Object.create(null)` (null prototype object)
+ *
+ * Returns `false` for:
+ * - `null`
+ * - Primitives (string, number, boolean, etc.)
+ * - Arrays (`[]`)
+ * - Built-in objects (Date, RegExp, Map, Set, etc.)
+ * - Class instances (`new MyClass()`)
+ * - Functions
+ *
+ * **Implementation**: Uses the Lodash approach which checks:
+ * 1. Type and toString tag are '[object Object]'
+ * 2. Prototype is null (for Object.create(null)), OR
+ * 3. Constructor matches native Object constructor
+ *
+ * This correctly distinguishes plain objects from class instances and other
+ * object types across different JavaScript contexts.
+ *
+ * **References**:
+ * - [Lodash implementation](https://github.com/lodash/lodash/blob/master/isPlainObject.js)
+ * - [MDN: Object.prototype.toString](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/toString)
  *
  * @example
  * ```typescript
- * const validators = createTableValidators(schema);
- * const result = createRow({ yrow, validators });
- * if (result.status === 'valid') {
- *   console.log(result.row.title); // type-safe access
- * }
+ * isPlainObject({})                 // true
+ * isPlainObject({ foo: 'bar' })     // true
+ * isPlainObject(new Object())       // true
+ * isPlainObject(Object.create(null)) // true
+ * isPlainObject(null)               // false
+ * isPlainObject([])                 // false
+ * isPlainObject(new Date())         // false
+ * isPlainObject(/regex/)            // false
+ * isPlainObject(new Map())          // false
+ * isPlainObject(new MyClass())      // false (class instance)
  * ```
  */
-export function createRow<TTableSchema extends TableSchema>({
-	yrow,
-	validators,
-}: {
-	yrow: YRow;
-	validators: TableValidators<TTableSchema>;
-}): YRowValidationResult<Row<TTableSchema>> {
-	return validators.validateYRow(yrow);
+export function isPlainObject(
+	value: unknown,
+): value is Record<string, unknown> {
+	// Quick type check and toString tag check
+	if (
+		value == null ||
+		typeof value !== 'object' ||
+		Object.prototype.toString.call(value) !== '[object Object]'
+	) {
+		return false;
+	}
+
+	// Handle Object.create(null) which has no prototype
+	const proto = Object.getPrototypeOf(value);
+	if (proto === null) {
+		return true;
+	}
+
+	// Check if constructor matches native Object constructor
+	// This distinguishes plain objects from class instances
+	const Ctor =
+		Object.prototype.hasOwnProperty.call(proto, 'constructor') &&
+		proto.constructor;
+	return (
+		typeof Ctor === 'function' &&
+		Ctor instanceof Ctor &&
+		Function.prototype.toString.call(Ctor) ===
+			Function.prototype.toString.call(Object)
+	);
 }

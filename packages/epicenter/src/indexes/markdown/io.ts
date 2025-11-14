@@ -3,6 +3,7 @@ import { type Result, tryAsync } from 'wellcrafted/result';
 import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { AbsolutePath } from '../../core/types';
+import { isPlainObject } from '../../core/schema/validation';
 
 export const { MarkdownOperationError, MarkdownOperationErr } =
 	createTaggedError('MarkdownOperationError');
@@ -144,13 +145,4 @@ export async function listMarkdownFiles(
 	return files
 		.filter((file) => file.endsWith('.md'))
 		.map((file) => join(absoluteSourcePath, file) as AbsolutePath);
-}
-
-/**
- * Type guard to check if a value is a plain object (Record<string, unknown>)
- * Returns true for plain objects like { foo: 'bar' }
- * Returns false for null, primitives, arrays, Dates, RegExp, Maps, etc.
- */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

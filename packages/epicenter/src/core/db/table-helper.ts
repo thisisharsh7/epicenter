@@ -312,7 +312,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					return { status: 'not-found' as const, row: null };
 				}
 
-				return createRow({ yrow, validators });
+				return createRow({ yrow, schema });
 			},
 		}),
 
@@ -324,7 +324,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			handler: () => {
 				const results: RowValidationResult<TRow>[] = [];
 				for (const yrow of ytable.values()) {
-					const result = createRow({ yrow, validators });
+					const result = createRow({ yrow, schema });
 					results.push(result);
 				}
 
@@ -391,7 +391,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				[];
 
 			for (const yrow of ytable.values()) {
-				const result = createRow({ yrow, validators });
+				const result = createRow({ yrow, schema });
 
 				// Only include valid rows - skip schema-mismatch and invalid-structure
 				if (result.status === 'valid') {
@@ -416,7 +416,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			{ status: 'valid' } | { status: 'not-found' }
 		> {
 			for (const yrow of ytable.values()) {
-				const result = createRow({ yrow, validators });
+				const result = createRow({ yrow, schema });
 
 				// Only check predicate on valid rows - skip schema-mismatch and invalid-structure
 				if (result.status === 'valid') {
@@ -565,7 +565,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 								// A new row Y.Map was added to the table
 								const yrow = ytable.get(key);
 								if (yrow) {
-									const result = createRow({ yrow, validators });
+									const result = createRow({ yrow, schema });
 
 									switch (result.status) {
 										case 'valid':
@@ -596,7 +596,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						const rowId = event.path[0] as string;
 						const yrow = ytable.get(rowId);
 						if (yrow) {
-							const result = createRow({ yrow, validators });
+							const result = createRow({ yrow, schema });
 
 							switch (result.status) {
 								case 'valid':

@@ -69,7 +69,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 
 		/**
 		 * Table validators for all tables
-		 * Each validator includes methods like validateYRow(), toStandardSchema(), etc.
+		 * Each validator includes methods like validateSerializedRow(), toStandardSchema(), etc.
 		 */
 		validators,
 
