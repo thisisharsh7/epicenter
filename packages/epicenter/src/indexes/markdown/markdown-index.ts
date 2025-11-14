@@ -310,6 +310,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * @param params.body - Markdown body content (text after frontmatter delimiters)
 	 * @param params.filename - Simple filename only (validated to not contain path separators)
 	 * @param params.table.name - Table name (for context)
+	 * @param params.table.schema - Table schema definition (for schema-driven logic)
 	 * @param params.table.validators - Table validators with validation methods
 	 * @returns Result with complete row (with id field), or error to skip this file
 	 */
@@ -319,6 +320,7 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 		filename: string;
 		table: {
 			name: string;
+			schema: TTableSchema;
 			validators: TableValidators<TTableSchema>;
 		};
 	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
@@ -637,6 +639,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		for (const {
 			tableName,
 			table,
+			tableSchema,
 			validators,
 			tableConfig,
 		} of tables) {
@@ -738,6 +741,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								filename,
 								table: {
 									name: tableName,
+									schema: tableSchema,
 									validators,
 								},
 							});
@@ -801,7 +805,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 		diagnostics.clear();
 
-		for (const { tableName, validators, tableConfig } of tables) {
+		for (const { tableName, tableSchema, validators, tableConfig } of tables) {
 			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
@@ -843,6 +847,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						filename,
 						table: {
 							name: tableName,
+							schema: tableSchema,
 							validators,
 						},
 					});
@@ -1055,6 +1060,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						for (const {
 							tableName,
 							table,
+							tableSchema,
 							validators,
 							tableConfig,
 						} of tables) {
@@ -1100,6 +1106,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											filename,
 											table: {
 												name: tableName,
+												schema: tableSchema,
 												validators,
 											},
 										});
