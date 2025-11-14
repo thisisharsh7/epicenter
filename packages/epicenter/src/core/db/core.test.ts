@@ -106,15 +106,13 @@ describe('createEpicenterDb', () => {
 
 		// Test get() with non-existent id
 		const getResult = doc.tables.posts.get({ id: 'non-existent' });
-		expect(getResult.status).toBe('not-found');
-		expect(getResult.row).toBeNull();
+		expect(getResult).toBeNull();
 
 		// Test find() with no matches
 		const findResult = doc.tables.posts.find(
 			(post) => post.id === 'non-existent',
 		);
-		expect(findResult.status).toBe('not-found');
-		expect(findResult.row).toBeNull();
+		expect(findResult).toBeNull();
 	});
 
 	test('should store and retrieve Y.js types correctly', () => {
@@ -136,12 +134,12 @@ describe('createEpicenterDb', () => {
 
 		// Get returns Y.js objects
 		const result1 = doc.tables.posts.get({ id: '1' });
-		expect(result1.status).toBe('valid');
-		if (result1.status === 'valid') {
-			expect(result1.row.title).toBeInstanceOf(Y.Text);
-			expect(result1.row.tags).toBeInstanceOf(Y.Array);
-			expect(result1.row.title.toString()).toBe('Hello World');
-			expect(result1.row.tags.toArray()).toEqual(['typescript', 'javascript']);
+		expect(result1).not.toBeNull();
+		if (result1 && result1.data) {
+			expect(result1.data.title).toBeInstanceOf(Y.Text);
+			expect(result1.data.tags).toBeInstanceOf(Y.Array);
+			expect(result1.data.title.toString()).toBe('Hello World');
+			expect(result1.data.tags.toArray()).toEqual(['typescript', 'javascript']);
 		}
 
 		// Insert another post
@@ -152,8 +150,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// getAll returns Y.js objects
-		const results = doc.tables.posts.getAll();
-		const rows = results.filter((r) => r.status === 'valid').map((r) => r.row);
+		const rows = doc.tables.posts.getAll();
 		expect(rows).toHaveLength(2);
 		expect(rows[0].title).toBeInstanceOf(Y.Text);
 		expect(rows[0].tags).toBeInstanceOf(Y.Array);
