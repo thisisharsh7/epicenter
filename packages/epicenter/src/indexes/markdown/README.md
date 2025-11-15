@@ -278,7 +278,7 @@ indexes: {
             id,
             content: body,
             ...frontmatterParsed,
-          } satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+          } satisfies SerializedRow<typeof table.schema>;
 
           return Ok(row);
         }
@@ -326,7 +326,7 @@ indexes: {
             title,
             content: bodyContent,
             ...frontmatterParsed,
-          } satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+          } satisfies SerializedRow<typeof table.schema>;
 
           return Ok(row);
         }
@@ -383,7 +383,7 @@ indexes: {
             id,
             content: body,
             ...frontmatterParsed,
-          } satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+          } satisfies SerializedRow<typeof table.schema>;
 
           return Ok(row);
         }

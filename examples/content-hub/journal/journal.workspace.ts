@@ -4,6 +4,7 @@ import {
 	id,
 	markdownIndex,
 	select,
+	SerializedRow,
 	sqliteIndex,
 	tags,
 	text
@@ -124,70 +125,32 @@ export const journal = defineWorkspace({
 							};
 						},
 						deserialize: ({ frontmatter, body, filename, table }) => {
-							// Fields that are handled separately (not in frontmatter)
-							const OMITTED_FROM_FRONTMATTER = ['id', 'content'] as const;
-
 							// Extract ID from filename
 							const id = basename(filename, '.md');
 
-							// Validate frontmatter first (omit id and content)
-							const FrontMatter = table.validators.toArktype().omit(...OMITTED_FROM_FRONTMATTER);
-							const frontmatterParsed = FrontMatter(frontmatter);
-							if (frontmatterParsed instanceof type.errors) {
+							// Validate frontmatter (omit id and content)
+							// Nullable fields automatically default to null, required fields must be present
+							const FrontMatter = table.validators.toArktype().omit('id', 'content');
+							const parsed = FrontMatter(frontmatter);
+
+							if (parsed instanceof type.errors) {
 								return MarkdownIndexErr({
 									message: `Invalid frontmatter for row ${id}`,
 									context: {
 										fileName: filename,
 										id,
-										reason: frontmatterParsed.summary,
+										reason: parsed.summary,
 									},
 								});
 							}
 
-							// Build row dynamically from schema, ensuring all fields are present
-							const rowData = {
+							// Build row by spreading validated frontmatter
+							// Missing nullable fields are already null, required fields were validated
+							const row = {
 								id,
 								content: body,
-								...Object.fromEntries(
-									Object.entries(table.schema)
-										.map(([key, columnSchema]) => {
-											// Skip fields that are handled separately
-											if (OMITTED_FROM_FRONTMATTER.includes(key as any)) return null;
-
-											const frontmatterValue = frontmatterParsed[key as keyof typeof frontmatterParsed];
-
-											// Field exists in frontmatter
-											if (key in frontmatterParsed) {
-												const value = columnSchema.nullable ? (frontmatterValue ?? null) : frontmatterValue;
-												return [key, value] as const
-											}
-
-											// Field doesn't exist, but it's nullable - set to null
-											if (columnSchema.nullable) {
-												return [key, null] as const
-											}
-
-											// Required field is missing - exclude from object so validation fails with clear error
-											return null;
-										})
-										.filter((entry) => entry !== null),
-								),
-							};
-
-							// Validate the final row BEFORE returning to ensure correctness
-							const RowValidator = table.validators.toArktype();
-							const row = RowValidator(rowData);
-
-							if (row instanceof type.errors) {
-								return MarkdownIndexErr({
-									message: `Invalid row data after construction for ${id}`,
-									context: {
-										fileName: filename,
-										id,
-										reason: row.summary,
-									},
-								});
-							}
+								...parsed,
+							} satisfies SerializedRow<typeof table.schema>;
 
 							return Ok(row);
 						},

@@ -153,4 +153,70 @@ describe('tableSchemaToArktypeType', () => {
 
 		expect(invalid).toBeInstanceOf(type.errors);
 	});
+
+	test('nullable fields with .default(null) can be omitted and default to null', () => {
+		const schema = {
+			id: id(),
+			title: text(),
+			subtitle: text({ nullable: true }),
+			count: integer({ nullable: true }),
+			status: select({ options: ['draft', 'published'] as const, nullable: true }),
+		};
+
+		const validator = tableSchemaToArktypeType(schema);
+
+		// Missing nullable fields should default to null
+		const result = validator({
+			id: 'test-123',
+			title: 'Required Title',
+			// subtitle, count, and status are omitted
+		});
+
+		expect(result).not.toBeInstanceOf(type.errors);
+		if (!(result instanceof type.errors)) {
+			expect(result.subtitle).toBe(null);
+			expect(result.count).toBe(null);
+			expect(result.status).toBe(null);
+		}
+	});
+
+	test('required fields must be present even when nullable fields are omitted', () => {
+		const schema = {
+			id: id(),
+			title: text(), // required
+			subtitle: text({ nullable: true }), // optional, defaults to null
+		};
+
+		const validator = tableSchemaToArktypeType(schema);
+
+		// Missing required field should fail validation
+		const invalid = validator({
+			id: 'test-123',
+			// title is missing (required)
+			subtitle: 'Optional subtitle',
+		});
+
+		expect(invalid).toBeInstanceOf(type.errors);
+	});
+
+	test('nullable fields accept null explicitly', () => {
+		const schema = {
+			id: id(),
+			title: text(),
+			subtitle: text({ nullable: true }),
+		};
+
+		const validator = tableSchemaToArktypeType(schema);
+
+		const result = validator({
+			id: 'test-123',
+			title: 'Title',
+			subtitle: null, // explicitly null
+		});
+
+		expect(result).not.toBeInstanceOf(type.errors);
+		if (!(result instanceof type.errors)) {
+			expect(result.subtitle).toBe(null);
+		}
+	});
 });

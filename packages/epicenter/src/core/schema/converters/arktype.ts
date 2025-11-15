@@ -175,6 +175,6 @@ function columnSchemaToArktypeType<C extends ColumnSchema>(
 
 	// Handle nullable columns
 	return (columnSchema.nullable
-		? baseType.or(type.null)
+		? baseType.or(type.null).default(null)
 		: baseType) as ColumnSchemaToArktypeType<C>;
 }

@@ -8,7 +8,7 @@
  * 4. Deletes source files after successful migration
  */
 
-import { createEpicenterClient } from '@epicenter/hq';
+import { createEpicenterClient, SerializedRow } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,
@@ -38,17 +38,11 @@ if (dryRun) {
 // Create epicenter client
 using client = await createEpicenterClient(epicenterConfig);
 
-// Fields that are handled separately (not in frontmatter)
-const OMITTED_FROM_FRONTMATTER = ['id', 'content'] as const;
-
-// Compose migration validator from primitives
-// We use two validators:
-// 1. FrontMatter: Partial validator for initial frontmatter validation (allows missing nullable fields)
-// 2. finalValidator: Complete validator used later to validate the final entry before insertion
+// Frontmatter validator (omits id and content which are handled separately)
+// Nullable fields automatically default to null, required fields must be present
 const FrontMatter = client.journal.db.validators.journal
 	.toArktype()
-	.omit(...OMITTED_FROM_FRONTMATTER)
-	.partial();
+	.omit('id', 'content');
 
 // Find all markdown files recursively
 const markdownFiles = await listMarkdownFiles(sourcePath);
@@ -78,58 +72,24 @@ const results: ProcessResult[] = await Promise.all(
 		// Extract ID from filename (not frontmatter)
 		const id = basename(filePath, '.md');
 
-		// Validate frontmatter structure (with partial to allow missing nullable fields)
-		const validationResult = FrontMatter(frontmatter);
-		if (validationResult instanceof type.errors) {
+		// Validate frontmatter
+		// Nullable fields automatically default to null, required fields must be present
+		const parsed = FrontMatter(frontmatter);
+		if (parsed instanceof type.errors) {
 			return {
 				status: 'error',
 				file: filePath,
-				error: validationResult.summary,
+				error: parsed.summary,
 			};
 		}
 
-		// Build entry object, ensuring all schema fields are present
-		const schema = client.journal.db.schema.journal;
-		const entryData = {
+		// Build entry by spreading validated frontmatter
+		// Missing nullable fields are already null, required fields were validated
+		const entry = {
 			id,
 			content: body,
-			...Object.fromEntries(
-				Object.entries(schema)
-					.map(([key, columnSchema]) => {
-						// Skip fields that are handled separately
-						if (OMITTED_FROM_FRONTMATTER.includes(key as any)) return null;
-
-						const frontmatterValue = validationResult[key as keyof typeof validationResult];
-
-						// Field exists in frontmatter
-						if (key in validationResult) {
-							const value = columnSchema.nullable ? (frontmatterValue ?? null) : frontmatterValue;
-							return [key, value] as const;
-						}
-
-						// Field doesn't exist, but it's nullable - set to null
-						if (columnSchema.nullable) {
-							return [key, null] as const;
-						}
-
-						// Required field is missing - exclude from object so validation fails with clear error
-						return null;
-					})
-					.filter((entry) => entry !== null),
-			),
-		};
-
-		// Validate the final entry BEFORE inserting to prevent data loss
-		const finalValidator = client.journal.db.validators.journal.toArktype();
-		const entry = finalValidator(entryData);
-
-		if (entry instanceof type.errors) {
-			return {
-				status: 'error',
-				file: filePath,
-				error: entry.summary,
-			};
-		}
+			...parsed,
+		} satisfies SerializedRow<typeof client.journal.db.schema.journal>;
 
 		// Create entry via client (skip in dry-run mode)
 		if (!dryRun) {
