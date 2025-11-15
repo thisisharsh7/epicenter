@@ -120,7 +120,7 @@ export const clippings = defineWorkspace({
 								published: null,
 								image: null,
 								...frontmatterParsed,
-							} satisfies SerializedRow<(typeof c.db.schema)['clippings']>;
+							} satisfies SerializedRow<typeof table.schema>;
 							return Ok(row);
 						},
 					},

@@ -93,7 +93,7 @@ export const email = defineWorkspace({
 								date: frontmatterParsed.date,
 								createdAt: frontmatterParsed.createdAt,
 								updatedAt: frontmatterParsed.updatedAt,
-							} satisfies SerializedRow<(typeof c.db.schema)['emails']>;
+							} satisfies SerializedRow<typeof table.schema>;
 							return Ok(row);
 						},
 					},

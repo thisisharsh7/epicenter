@@ -65,7 +65,7 @@ export const epicenter = defineWorkspace({
 								slug,
 								content: body,
 								...frontmatterParsed,
-							} satisfies SerializedRow<(typeof c.db.schema)['pitches']>;
+							} satisfies SerializedRow<typeof table.schema>;
 							return Ok(row);
 						},
 					},

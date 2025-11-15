@@ -85,7 +85,7 @@ const blogWorkspace = defineWorkspace({
 								id,
 								content: body,
 								...frontmatterParsed,
-							} satisfies SerializedRow<(typeof context.db.schema)['posts']>;
+							} satisfies SerializedRow<typeof table.schema>;
 
 							return Ok(row);
 						},
@@ -117,7 +117,7 @@ const blogWorkspace = defineWorkspace({
 							const row = {
 								id,
 								...frontmatterParsed,
-							} satisfies SerializedRow<(typeof context.db.schema)['comments']>;
+							} satisfies SerializedRow<typeof table.schema>;
 
 							return Ok(row);
 						},
