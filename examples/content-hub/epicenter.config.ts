@@ -8,7 +8,9 @@ import { epicenter } from './epicenter/epicenter.workspace';
 import { githubIssues } from './github-issues/github-issues.workspace';
 import { hackernews } from './hackernews/hackernews.workspace';
 import { instagram } from './instagram/instagram.workspace';
+import { journal } from './journal/journal.workspace';
 import { medium } from './medium/medium.workspace';
+import { whispering } from './whispering/whispering.workspace';
 import { pages } from './pages/pages.workspace';
 import { personalBlog } from './personal-blog/personal-blog.workspace';
 import { producthunt } from './producthunt/producthunt.workspace';
@@ -21,15 +23,15 @@ import { youtube } from './youtube/youtube.workspace';
 /**
  * Content Hub: Production-grade Epicenter application
  *
- * Manages content distribution across 16 platforms:
+ * Manages content distribution across 18 platforms:
  * - Video: YouTube, Instagram, TikTok
  * - Blogs: Medium, Substack, Personal Blog, Epicenter Blog
  * - Social: Reddit, Twitter, Hacker News, Discord, Product Hunt, Bookface
  * - Development: GitHub Issues
- * - Content: Pages (central repository), Clippings (saved web content)
+ * - Content: Pages (central repository), Journal (personal reflections), Whispering (voice transcriptions), Clippings (saved web content)
  *
  * Features demonstrated:
- * - Multi-workspace architecture (16 workspaces)
+ * - Multi-workspace architecture (18 workspaces)
  * - Schema reuse and organization (3 shared schemas)
  * - Workspace dependencies
  * - SQLite indexes for querying
@@ -45,6 +47,12 @@ export default defineEpicenter({
 	workspaces: [
 		// Central content repository
 		pages,
+
+		// Personal journal entries
+		journal,
+
+		// Quick voice transcriptions
+		whispering,
 
 		// Saved web content
 		clippings,
@@ -77,4 +85,5 @@ export default defineEpicenter({
 		// Development
 		githubIssues,
 	],
+	storageDir: '/Users/braden/Code/epicenter-md',
 });
