@@ -38,13 +38,16 @@ if (dryRun) {
 // Create epicenter client
 using client = await createEpicenterClient(epicenterConfig);
 
+// Fields that are handled separately (not in frontmatter)
+const OMITTED_FROM_FRONTMATTER = ['id', 'content'] as const;
+
 // Compose migration validator from primitives
 // We use two validators:
 // 1. FrontMatter: Partial validator for initial frontmatter validation (allows missing nullable fields)
 // 2. finalValidator: Complete validator used later to validate the final entry before insertion
 const FrontMatter = client.journal.db.validators.journal
 	.toArktype()
-	.omit('id', 'content')
+	.omit(...OMITTED_FROM_FRONTMATTER)
 	.partial();
 
 // Find all markdown files recursively
@@ -85,15 +88,34 @@ const results: ProcessResult[] = await Promise.all(
 			};
 		}
 
-		// Build entry object, converting undefined to null
+		// Build entry object, ensuring all schema fields are present
+		const schema = client.journal.db.schema.journal;
 		const entryData = {
 			id,
 			content: body,
 			...Object.fromEntries(
-				Object.entries(validationResult).map(([key, value]) => [
-					key,
-					value ?? null,
-				]),
+				Object.entries(schema)
+					.map(([key, columnSchema]) => {
+						// Skip fields that are handled separately
+						if (OMITTED_FROM_FRONTMATTER.includes(key as any)) return null;
+
+						const frontmatterValue = validationResult[key as keyof typeof validationResult];
+
+						// Field exists in frontmatter
+						if (key in validationResult) {
+							const value = columnSchema.nullable ? (frontmatterValue ?? null) : frontmatterValue;
+							return [key, value] as const;
+						}
+
+						// Field doesn't exist, but it's nullable - set to null
+						if (columnSchema.nullable) {
+							return [key, null] as const;
+						}
+
+						// Required field is missing - exclude from object so validation fails with clear error
+						return null;
+					})
+					.filter((entry) => entry !== null),
 			),
 		};
 

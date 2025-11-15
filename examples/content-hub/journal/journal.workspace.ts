@@ -8,7 +8,11 @@ import {
 	tags,
 	text
 } from '@epicenter/hq';
+import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
+import { basename } from 'node:path';
+import { Ok } from 'wellcrafted/result';
 
 /**
  * Journal workspace
@@ -36,6 +40,10 @@ export const journal = defineWorkspace({
 				nullable: true,
 			}),
 
+			type: tags({
+				nullable: true,
+			}),
+
 			tags: tags({
 				nullable: true,
 			}),
@@ -58,10 +66,12 @@ export const journal = defineWorkspace({
 				options: [
 					'High',
 					'Medium',
+					'Moderate',
 					'Mild',
 					'Low',
 					'Profound',
 					'Transformative',
+					'Extreme',
 				],
 				nullable: true,
 			}),
@@ -103,9 +113,8 @@ export const journal = defineWorkspace({
 				tableConfigs: {
 					journal: {
 						serialize: ({ row: { content, id, ...row } }) => {
-							// Remove null values and sort keys alphabetically
+							// Sort keys alphabetically (keep null values for proper round-trip)
 							const entries = Object.entries(row)
-								.filter(([_, value]) => value !== null)
 								.sort(([a], [b]) => a.localeCompare(b));
 							const frontmatter = Object.fromEntries(entries);
 							return {
@@ -114,6 +123,74 @@ export const journal = defineWorkspace({
 								filename: `${id}.md`,
 							};
 						},
+						deserialize: ({ frontmatter, body, filename, table }) => {
+							// Fields that are handled separately (not in frontmatter)
+							const OMITTED_FROM_FRONTMATTER = ['id', 'content'] as const;
+
+							// Extract ID from filename
+							const id = basename(filename, '.md');
+
+							// Validate frontmatter first (omit id and content)
+							const FrontMatter = table.validators.toArktype().omit(...OMITTED_FROM_FRONTMATTER);
+							const frontmatterParsed = FrontMatter(frontmatter);
+							if (frontmatterParsed instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid frontmatter for row ${id}`,
+									context: {
+										fileName: filename,
+										id,
+										reason: frontmatterParsed.summary,
+									},
+								});
+							}
+
+							// Build row dynamically from schema, ensuring all fields are present
+							const rowData = {
+								id,
+								content: body,
+								...Object.fromEntries(
+									Object.entries(table.schema)
+										.map(([key, columnSchema]) => {
+											// Skip fields that are handled separately
+											if (OMITTED_FROM_FRONTMATTER.includes(key as any)) return null;
+
+											const frontmatterValue = frontmatterParsed[key as keyof typeof frontmatterParsed];
+
+											// Field exists in frontmatter
+											if (key in frontmatterParsed) {
+												const value = columnSchema.nullable ? (frontmatterValue ?? null) : frontmatterValue;
+												return [key, value] as const
+											}
+
+											// Field doesn't exist, but it's nullable - set to null
+											if (columnSchema.nullable) {
+												return [key, null] as const
+											}
+
+											// Required field is missing - exclude from object so validation fails with clear error
+											return null;
+										})
+										.filter((entry) => entry !== null),
+								),
+							};
+
+							// Validate the final row BEFORE returning to ensure correctness
+							const RowValidator = table.validators.toArktype();
+							const row = RowValidator(rowData);
+
+							if (row instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid row data after construction for ${id}`,
+									context: {
+										fileName: filename,
+										id,
+										reason: row.summary,
+									},
+								});
+							}
+
+							return Ok(row);
+						},
 					},
 				},
 			}),
@@ -121,37 +198,40 @@ export const journal = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	actions: ({ db, indexes }) => {
-		return {
-			/**
-			 * Get all journal entries
-			 */
-			getJournalEntries: db.tables.journal.getAll,
+	exports: ({ db, indexes }) => ({
+		/**
+		 * Direct access to database operations and validators
+		 */
+		db,
 
-			/**
-			 * Get a journal entry by ID
-			 */
-			getJournalEntry: db.tables.journal.get,
+		/**
+		 * Get all journal entries
+		 */
+		getJournalEntries: db.tables.journal.getAll,
 
-			/**
-			 * Create a journal entry
-			 */
-			createJournalEntry: db.tables.journal.insert,
+		/**
+		 * Get a journal entry by ID
+		 */
+		getJournalEntry: db.tables.journal.get,
 
-			/**
-			 * Update a journal entry
-			 */
-			updateJournalEntry: db.tables.journal.update,
+		/**
+		 * Create a journal entry
+		 */
+		createJournalEntry: db.tables.journal.insert,
 
-			/**
-			 * Delete a journal entry
-			 */
-			deleteJournalEntry: db.tables.journal.delete,
+		/**
+		 * Update a journal entry
+		 */
+		updateJournalEntry: db.tables.journal.update,
 
-			pullToMarkdown: indexes.markdown.pullToMarkdown,
-			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-			pullToSqlite: indexes.sqlite.pullToSqlite,
-			pushFromSqlite: indexes.sqlite.pushFromSqlite,
-		};
-	},
+		/**
+		 * Delete a journal entry
+		 */
+		deleteJournalEntry: db.tables.journal.delete,
+
+		pullToMarkdown: indexes.markdown.pullToMarkdown,
+		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+		pullToSqlite: indexes.sqlite.pullToSqlite,
+		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+	}),
 });
