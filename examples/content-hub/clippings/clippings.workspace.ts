@@ -22,6 +22,7 @@ import { Defuddle } from 'defuddle/node';
 import { JSDOM } from 'jsdom';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
+import { QUALITY_OPTIONS } from '../shared/quality';
 
 /**
  * Clippings workspace
@@ -51,7 +52,7 @@ export const clippings = defineWorkspace({
 			id: id(),
 			url: text(),
 			title: text(),
-			designQuality: select({ options: ['decent', 'good', 'great', 'excellent'] }),
+			designQuality: select({ options: QUALITY_OPTIONS }),
 			addedAt: date(),
 		},
 		gitHubReadmes: {
@@ -60,7 +61,14 @@ export const clippings = defineWorkspace({
 			title: text(),
 			description: text({ nullable: true }),
 			content: text(),
-			taste: select({ options: ['decent', 'good', 'great', 'exceptional'] }),
+			taste: select({ options: QUALITY_OPTIONS }),
+			addedAt: date(),
+		},
+		docSites: {
+			id: id(),
+			url: text(),
+			title: text(),
+			quality: select({ options: QUALITY_OPTIONS }),
 			addedAt: date(),
 		},
 	},
@@ -305,7 +313,7 @@ export const clippings = defineWorkspace({
 			input: type({
 				url: 'string',
 				title: 'string',
-				designQuality: "'decent' | 'good' | 'great' | 'excellent'",
+				designQuality: type.enumerated(...QUALITY_OPTIONS),
 			}),
 			handler: async ({ url, title, designQuality }) => {
 				const now = DateWithTimezone({
@@ -354,7 +362,7 @@ export const clippings = defineWorkspace({
 		addGitHubRepo: defineMutation({
 			input: type({
 				url: 'string',
-				taste: "'decent' | 'good' | 'great' | 'exceptional'",
+				taste: type.enumerated(...QUALITY_OPTIONS),
 				title: 'string | null',
 				description: 'string | null',
 			}),
@@ -412,6 +420,53 @@ export const clippings = defineWorkspace({
 					description: description || result.description || null,
 					content: result.content,
 					taste,
+					addedAt: now,
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Get all documentation sites
+		 */
+		getDocSites: db.tables.docSites.getAll,
+
+		/**
+		 * Get a specific documentation site by ID
+		 */
+		getDocSite: db.tables.docSites.get,
+
+		/**
+		 * Update a documentation site
+		 */
+		updateDocSite: db.tables.docSites.update,
+
+		/**
+		 * Delete a documentation site
+		 */
+		deleteDocSite: db.tables.docSites.delete,
+
+		/**
+		 * Add a documentation website
+		 */
+		addDocSite: defineMutation({
+			input: type({
+				url: 'string',
+				title: 'string',
+				quality: type.enumerated(...QUALITY_OPTIONS),
+			}),
+			handler: async ({ url, title, quality }) => {
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				db.tables.docSites.insert({
+					id: generateId(),
+					url,
+					title,
+					quality,
 					addedAt: now,
 				});
 
