@@ -1142,6 +1142,66 @@ src/
 - Implement custom events for business-specific actions
 - Use feature flags for A/B testing and gradual rollouts
 
+# Technical Article Writing Guidelines
+
+## Core Principles
+
+Technical articles should ground abstract concepts in real, production code. Use actual implementations from the codebase, not simplified examples.
+
+### Tone and Structure
+- **Balanced paragraphs**: Avoid telegraphic writing (too many short, punchy sentences). Use flowing paragraphs with natural sentence variation.
+- **Less sass, more substance**: Be conversational but not overly casual. Focus on clear technical explanation over stylistic flair.
+- **Show real code early**: Don't wait until the end to show actual implementations. Lead with concrete examples.
+
+### Code Examples
+- **Use actual code from the codebase**: Show real functions with their full implementations, including:
+  - Function signatures with actual type names
+  - Real variable names and logic
+  - Inline comments from the source
+  - Actual brands/types (e.g., `DateWithTimezoneString`, not just `string`)
+- **Show the complete picture**: Include related functions that provide context (type guards, serialization methods, etc.)
+- **Explain the format**: If code uses a specific format, show what it looks like (e.g., `"2024-01-01T20:00:00.000Z|America/New_York"`)
+
+### Structure Pattern for Concept Articles
+1. **Start with the decision/problem**: "I was writing X and hit this decision..."
+2. **Show real code early**: The actual implementation, not a toy example
+3. **Explain the concept**: What makes this an instance of the pattern
+4. **Show contrasting examples**: Other real code that illustrates the opposite case
+5. **Provide decision framework**: How to apply this in practice
+6. **Brief cross-language comparison**: Show this isn't language-specific
+7. **End with the lesson**: The concrete takeaway
+
+### What to Avoid
+- **Simplified "example" code**: If the codebase has real code that demonstrates the concept, use it
+- **Telegraphic prose**: Short fragments everywhere ("That's it. Done. Simple.")
+- **Over-sassiness**: Being too clever with the writing voice
+- **Abstract explanations without code**: Ground everything in concrete implementations
+
+### Example: Good vs Bad
+
+**Bad (telegraphic, simplified)**:
+```
+The function validates. It throws. Why?
+
+Because it's an invariant. Simple.
+
+function deserialize(input: string): Type {
+  if (!valid(input)) throw new Error('bad');
+  return parse(input);
+}
+
+That's it. No Result types. No error handling dance.
+```
+
+**Good (balanced, real code)**:
+```
+The key insight is what DateWithTimezoneFromString is actually doing. It's not parsing arbitrary user input. It's deserializing data that the system itself created using the toJSON() method:
+
+[Show actual 15-line function from codebase with real types]
+
+When you serialize a DateWithTimezone object, it produces a string in the exact format that DateWithTimezoneFromString expects. This creates an invariant: if the system is working correctly, deserialization should always succeed.
+```
+
 # README and Documentation Guidelines
 
 ## Focus on "Why", Not "What"
