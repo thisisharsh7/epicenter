@@ -11,6 +11,7 @@ import {
 	integer,
 	isDateWithTimezoneString,
 	markdownIndex,
+	select,
 	sqliteIndex,
 	text,
 } from '@epicenter/hq';
@@ -45,6 +46,22 @@ export const clippings = defineWorkspace({
 			content: text(),
 			wordCount: integer(),
 			clippedAt: date(),
+		},
+		landingPages: {
+			id: id(),
+			url: text(),
+			title: text(),
+			designQuality: select({ options: ['decent', 'good', 'great', 'excellent'] }),
+			addedAt: date(),
+		},
+		gitHubReadmes: {
+			id: id(),
+			url: text(),
+			title: text(),
+			description: text({ nullable: true }),
+			content: text(),
+			taste: select({ options: ['decent', 'good', 'great', 'exceptional'] }),
+			addedAt: date(),
 		},
 	},
 
@@ -258,6 +275,147 @@ export const clippings = defineWorkspace({
 				db.tables.clippings.deleteMany({ ids: idsToDelete });
 
 				return Ok({ deletedCount: idsToDelete.length });
+			},
+		}),
+
+		/**
+		 * Get all landing pages
+		 */
+		getLandingPages: db.tables.landingPages.getAll,
+
+		/**
+		 * Get a specific landing page by ID
+		 */
+		getLandingPage: db.tables.landingPages.get,
+
+		/**
+		 * Update a landing page
+		 */
+		updateLandingPage: db.tables.landingPages.update,
+
+		/**
+		 * Delete a landing page
+		 */
+		deleteLandingPage: db.tables.landingPages.delete,
+
+		/**
+		 * Add a landing page
+		 */
+		addLandingPage: defineMutation({
+			input: type({
+				url: 'string',
+				title: 'string',
+				designQuality: "'decent' | 'good' | 'great' | 'excellent'",
+			}),
+			handler: async ({ url, title, designQuality }) => {
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				db.tables.landingPages.insert({
+					id: generateId(),
+					url,
+					title,
+					designQuality,
+					addedAt: now,
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Get all GitHub repos
+		 */
+		getGitHubReadmes: db.tables.gitHubReadmes.getAll,
+
+		/**
+		 * Get a specific GitHub repo by ID
+		 */
+		getGitHubReadme: db.tables.gitHubReadmes.get,
+
+		/**
+		 * Update a GitHub repo
+		 */
+		updateGitHubReadme: db.tables.gitHubReadmes.update,
+
+		/**
+		 * Delete a GitHub repo
+		 */
+		deleteGitHubReadme: db.tables.gitHubReadmes.delete,
+
+		/**
+		 * Add a GitHub repository
+		 *
+		 * Fetches the GitHub repo page, extracts the README content using Defuddle,
+		 * and stores it with your taste rating.
+		 */
+		addGitHubRepo: defineMutation({
+			input: type({
+				url: 'string',
+				taste: "'decent' | 'good' | 'great' | 'exceptional'",
+				title: 'string | null',
+				description: 'string | null',
+			}),
+			handler: async ({ url, taste, title, description }) => {
+				// Fetch and parse GitHub page using JSDOM
+				const { data: dom, error: fetchError } = await tryAsync({
+					try: () => JSDOM.fromURL(url),
+					catch: (error) =>
+						Err({
+							message: 'Failed to fetch GitHub repo',
+							context: {
+								url,
+								error: extractErrorMessage(error),
+							},
+						}),
+				});
+
+				if (fetchError) return Err(fetchError);
+
+				// Extract content with Defuddle using the parsed DOM
+				const { data: result, error: parseError } = await tryAsync({
+					try: () => Defuddle(dom, url, { markdown: true }),
+					catch: (error) =>
+						Err({
+							message: 'Failed to extract README content',
+							context: {
+								url,
+								error: extractErrorMessage(error),
+							},
+						}),
+				});
+
+				if (parseError) return Err(parseError);
+
+				// Extract repo name from URL if title not provided
+				let finalTitle = title;
+				if (!finalTitle) {
+					const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+					if (match) {
+						finalTitle = `${match[1]}/${match[2]}`;
+					} else {
+						finalTitle = result.title;
+					}
+				}
+
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				db.tables.gitHubReadmes.insert({
+					id: generateId(),
+					url,
+					title: finalTitle,
+					description: description || result.description || null,
+					content: result.content,
+					taste,
+					addedAt: now,
+				});
+
+				return Ok(undefined);
 			},
 		}),
 
