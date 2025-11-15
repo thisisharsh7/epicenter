@@ -36,6 +36,7 @@
 		"hono": "^4.10.4",
 		"hono-openapi": "^1.1.1",
 		"nanoid": "^5.1.5",
+		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"yargs": "^18.0.0",
 		"yjs": "^13.6.27"
