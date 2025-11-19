@@ -36,9 +36,9 @@ The technical details are boring (and that's the point): everything is plain tex
 
 ## Try it today
 
-Start with Whispering: [github.com/braden-w/whispering](https://github.com/braden-w/whispering)
+Start with Whispering: [github.com/epicenter-md/epicenter](https://github.com/epicenter-md/epicenter/tree/main/apps/whispering)
 
-Or spin up epicenter.sh: [github.com/epicentered/epicenter.sh](https://github.com/epicenter-md/epicenter/epicenter.sh)
+Or spin up epicenter.sh: [github.com/epicenter-md/epicenter](https://github.com/epicenter-md/epicenter/tree/main/apps/sh)
 
 We're early. Things will break. But if you're tired of your tools treating you like a product instead of a person, come build with us.
 
