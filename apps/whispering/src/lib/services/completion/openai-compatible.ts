@@ -4,12 +4,74 @@ import type { CompletionService } from './types';
 import { CompletionServiceErr } from './types';
 
 export type OpenAiCompatibleConfig = {
+	/**
+	 * Human-readable provider name used in error messages.
+	 *
+	 * @example 'OpenAI', 'OpenRouter', 'Custom'
+	 */
 	providerLabel: string;
+
+	/**
+	 * Base URL for the API endpoint.
+	 *
+	 * When provided, this URL is used for all requests unless overridden
+	 * by the `baseUrl` parameter in the complete() call.
+	 *
+	 * @example 'https://openrouter.ai/api/v1'
+	 */
 	baseUrl?: string;
+
+	/**
+	 * HTTP headers to include with every request.
+	 *
+	 * Useful for provider-specific requirements like referrer headers,
+	 * API versioning, or custom authentication schemes.
+	 *
+	 * @example { 'HTTP-Referer': 'https://myapp.com', 'X-Title': 'MyApp' }
+	 */
 	defaultHeaders?: Record<string, string>;
+
+	/**
+	 * Custom error messages for specific HTTP status codes.
+	 *
+	 * Allows providers to override default error messages with
+	 * provider-specific guidance (e.g., billing issues, service-specific errors).
+	 *
+	 * @example { 402: 'Insufficient credits. Please add credits to continue.' }
+	 */
 	statusMessageOverrides?: Partial<Record<number, string>>;
 };
 
+/**
+ * Creates a completion service that works with any OpenAI-compatible API.
+ *
+ * This factory function provides a reusable implementation for providers that
+ * implement the OpenAI Chat Completions API format.
+ * 
+ * @param config - Configuration for provider-specific behavior
+ * @returns A CompletionService that can be used to generate text completions
+ *
+ * @example
+ * ```typescript
+ * // Simple provider with just a label
+ * const openai = createOpenAiCompatibleCompletionService({
+ *   providerLabel: 'OpenAI',
+ * });
+ *
+ * // Provider with custom base URL and headers
+ * const openrouter = createOpenAiCompatibleCompletionService({
+ *   providerLabel: 'OpenRouter',
+ *   baseUrl: 'https://openrouter.ai/api/v1',
+ *   defaultHeaders: {
+ *     'HTTP-Referer': 'https://whispering.epicenter.so',
+ *     'X-Title': 'Whispering',
+ *   },
+ *   statusMessageOverrides: {
+ *     402: 'Insufficient credits in your OpenRouter account.',
+ *   },
+ * });
+ * ```
+ */
 export function createOpenAiCompatibleCompletionService(
 	config: OpenAiCompatibleConfig,
 ): CompletionService {
@@ -135,7 +197,8 @@ export function createOpenAiCompatibleCompletionService(
 
 				return CompletionServiceErr({
 					message:
-						message ?? `An unexpected error occurred with ${config.providerLabel}. Please try again.`,
+						message ??
+						`An unexpected error occurred with ${config.providerLabel}. Please try again.`,
 					context: { status, name },
 					cause: apiError,
 				});
