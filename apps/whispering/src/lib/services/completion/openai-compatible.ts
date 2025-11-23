@@ -12,16 +12,6 @@ export type OpenAiCompatibleConfig = {
 	providerLabel: string;
 
 	/**
-	 * Base URL for the API endpoint.
-	 *
-	 * When provided, this URL is used for all requests unless overridden
-	 * by the `baseUrl` parameter in the complete() call.
-	 *
-	 * @example 'https://openrouter.ai/api/v1'
-	 */
-	baseUrl?: string;
-
-	/**
 	 * HTTP headers to include with every request.
 	 *
 	 * Useful for provider-specific requirements like referrer headers,
@@ -46,22 +36,28 @@ export type OpenAiCompatibleConfig = {
  * Creates a completion service that works with any OpenAI-compatible API.
  *
  * This factory function provides a reusable implementation for providers that
- * implement the OpenAI Chat Completions API format.
- * 
+ * implement the OpenAI Chat Completions API format. It handles error mapping,
+ * connection errors, and response validation.
+ *
+ * The baseUrl is provided at runtime via the complete() method, allowing each
+ * provider to determine its endpoint strategy:
+ * - OpenAI: omit baseUrl to use the OpenAI SDK default (https://api.openai.com/v1)
+ * - OpenRouter: always pass 'https://openrouter.ai/api/v1'
+ * - Custom: pass dynamic baseUrl from user settings/step configuration
+ *
  * @param config - Configuration for provider-specific behavior
  * @returns A CompletionService that can be used to generate text completions
  *
  * @example
  * ```typescript
- * // Simple provider with just a label
+ * // Simple provider (OpenAI uses SDK default)
  * const openai = createOpenAiCompatibleCompletionService({
  *   providerLabel: 'OpenAI',
  * });
  *
- * // Provider with custom base URL and headers
+ * // Provider with custom headers and error messages
  * const openrouter = createOpenAiCompatibleCompletionService({
  *   providerLabel: 'OpenRouter',
- *   baseUrl: 'https://openrouter.ai/api/v1',
  *   defaultHeaders: {
  *     'HTTP-Referer': 'https://whispering.epicenter.so',
  *     'X-Title': 'Whispering',
@@ -79,7 +75,7 @@ export function createOpenAiCompatibleCompletionService(
 		async complete({ apiKey, model, baseUrl, systemPrompt, userPrompt }) {
 			const client = new OpenAI({
 				apiKey,
-				baseURL: (config.baseUrl ?? baseUrl) || undefined,
+				baseURL: baseUrl,
 				dangerouslyAllowBrowser: true,
 				defaultHeaders: config.defaultHeaders,
 			});

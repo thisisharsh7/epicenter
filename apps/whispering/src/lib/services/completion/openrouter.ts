@@ -1,11 +1,9 @@
 import { createOpenAiCompatibleCompletionService } from './openai-compatible';
 import type { CompletionService } from './types';
-import { CompletionServiceErr } from './types';
 
 export function createOpenRouterCompletionService(): CompletionService {
-	const service = createOpenAiCompatibleCompletionService({
+	const baseService = createOpenAiCompatibleCompletionService({
 		providerLabel: 'OpenRouter',
-		baseUrl: 'https://openrouter.ai/api/v1',
 		defaultHeaders: {
 			'HTTP-Referer': 'https://whispering.epicenter.so',
 			'X-Title': 'Whispering',
@@ -19,24 +17,10 @@ export function createOpenRouterCompletionService(): CompletionService {
 
 	return {
 		async complete({ apiKey, model, systemPrompt, userPrompt }) {
-			if (!apiKey) {
-				return CompletionServiceErr({
-					message: 'OpenRouter API key is required.',
-					context: { status: 401, name: 'MissingApiKey' },
-					cause: null,
-				});
-			}
-			if (!model) {
-				return CompletionServiceErr({
-					message: 'Model name is required for OpenRouter completion.',
-					context: { status: 400, name: 'MissingModel' },
-					cause: null,
-				});
-			}
-
-			return service.complete({
+			return baseService.complete({
 				apiKey,
 				model,
+				baseUrl: 'https://openrouter.ai/api/v1',
 				systemPrompt,
 				userPrompt,
 			});

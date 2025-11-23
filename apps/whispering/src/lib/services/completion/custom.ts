@@ -3,7 +3,7 @@ import type { CompletionService } from './types';
 import { CompletionServiceErr } from './types';
 
 export function createCustomCompletionService(): CompletionService {
-	const service = createOpenAiCompatibleCompletionService({
+	const baseService = createOpenAiCompatibleCompletionService({
 		providerLabel: 'Custom',
 	});
 
@@ -24,7 +24,7 @@ export function createCustomCompletionService(): CompletionService {
 				});
 			}
 
-			return service.complete({
+			return baseService.complete({
 				apiKey,
 				model,
 				baseUrl,
