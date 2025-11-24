@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
-import { Err, Ok, tryAsync } from 'wellcrafted/result';
+import { Err, isErr, Ok, type Result, tryAsync } from 'wellcrafted/result';
 import type { CompletionService } from './types';
-import { CompletionServiceErr } from './types';
+import { CompletionServiceErr, type CompletionServiceError } from './types';
 
 export type OpenAiCompatibleConfig = {
 	/**
@@ -10,6 +10,47 @@ export type OpenAiCompatibleConfig = {
 	 * @example 'OpenAI', 'OpenRouter', 'Custom'
 	 */
 	providerLabel: string;
+
+	/**
+	 * Function to determine the baseUrl for each API call.
+	 *
+	 * This allows each provider to control its endpoint strategy:
+	 * - Return undefined to use OpenAI SDK default (https://api.openai.com/v1)
+	 * - Return a static string for fixed endpoints (e.g., OpenRouter)
+	 * - Extract from params for dynamic endpoints (e.g., Custom provider)
+	 *
+	 * @example () => undefined  // OpenAI: use SDK default
+	 * @example () => 'https://openrouter.ai/api/v1'  // OpenRouter: static URL
+	 * @example (params) => params.baseUrl  // Custom: dynamic from params
+	 */
+	getBaseUrl: (
+		params: Parameters<CompletionService['complete']>[0],
+	) => string | undefined;
+
+	/**
+	 * Optional validation function called before making the API request.
+	 *
+	 * Use this to validate required parameters specific to your provider.
+	 * Return Ok(undefined) if validation passes, or an Err with a
+	 * CompletionServiceError if validation fails.
+	 *
+	 * @example
+	 * ```typescript
+	 * validateParams: (params) => {
+	 *   if (!params.baseUrl) {
+	 *     return CompletionServiceErr({
+	 *       message: 'Base URL is required',
+	 *       context: { status: 400, name: 'MissingBaseUrl' },
+	 *       cause: null,
+	 *     });
+	 *   }
+	 *   return Ok(undefined);
+	 * }
+	 * ```
+	 */
+	validateParams?: (
+		params: Parameters<CompletionService['complete']>[0],
+	) => Result<void, CompletionServiceError>;
 
 	/**
 	 * HTTP headers to include with every request.
@@ -72,10 +113,23 @@ export function createOpenAiCompatibleCompletionService(
 	config: OpenAiCompatibleConfig,
 ): CompletionService {
 	return {
-		async complete({ apiKey, model, baseUrl, systemPrompt, userPrompt }) {
+		async complete(params) {
+			// Validate params if validator provided
+			if (config.validateParams) {
+				const validationResult = config.validateParams(params);
+				if (isErr(validationResult)) {
+					return validationResult;
+				}
+			}
+
+			// Determine baseUrl using config function or fall back to params
+			const effectiveBaseUrl = config.getBaseUrl
+				? config.getBaseUrl(params)
+				: params.baseUrl;
+
 			const client = new OpenAI({
-				apiKey,
-				baseURL: baseUrl,
+				apiKey: params.apiKey,
+				baseURL: effectiveBaseUrl,
 				dangerouslyAllowBrowser: true,
 				defaultHeaders: config.defaultHeaders,
 			});
@@ -83,10 +137,10 @@ export function createOpenAiCompatibleCompletionService(
 			const { data: completion, error: apiError } = await tryAsync({
 				try: () =>
 					client.chat.completions.create({
-						model,
+						model: params.model,
 						messages: [
-							{ role: 'system', content: systemPrompt },
-							{ role: 'user', content: userPrompt },
+							{ role: 'system', content: params.systemPrompt },
+							{ role: 'user', content: params.userPrompt },
 						],
 					}),
 				catch: (error) => {
@@ -204,7 +258,7 @@ export function createOpenAiCompatibleCompletionService(
 			if (!responseText) {
 				return CompletionServiceErr({
 					message: `${config.providerLabel} API returned an empty response`,
-					context: { model, completion },
+					context: { model: params.model, completion },
 					cause: undefined,
 				});
 			}

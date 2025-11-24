@@ -1,14 +1,8 @@
 import { createOpenAiCompatibleCompletionService } from './openai-compatible';
-import type { CompletionService } from './types';
 
-export function createOpenAiCompletionService(): CompletionService {
-	return createOpenAiCompatibleCompletionService({
-		providerLabel: 'OpenAI',
-	});
-}
+export const OpenaiCompletionServiceLive = createOpenAiCompatibleCompletionService({
+	providerLabel: 'OpenAI',
+	getBaseUrl: () => undefined, // Use OpenAI SDK default
+});
 
-export type OpenaiCompletionService = ReturnType<
-	typeof createOpenAiCompletionService
->;
-
-export const OpenaiCompletionServiceLive = createOpenAiCompletionService();
+export type OpenaiCompletionService = typeof OpenaiCompletionServiceLive;
