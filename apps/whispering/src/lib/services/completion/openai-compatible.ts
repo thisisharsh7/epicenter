@@ -122,10 +122,8 @@ export function createOpenAiCompatibleCompletionService(
 				}
 			}
 
-			// Determine baseUrl using config function or fall back to params
-			const effectiveBaseUrl = config.getBaseUrl
-				? config.getBaseUrl(params)
-				: params.baseUrl;
+			// Determine baseUrl using config function
+			const effectiveBaseUrl = config.getBaseUrl(params);
 
 			const client = new OpenAI({
 				apiKey: params.apiKey,
