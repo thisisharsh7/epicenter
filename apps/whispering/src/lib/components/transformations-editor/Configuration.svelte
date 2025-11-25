@@ -421,84 +421,66 @@
 											placeholder="Enter model name"
 										/>
 									{:else if step['prompt_transform.inference.provider'] === 'Custom'}
-										<LabeledInput
-											id="prompt_transform.inference.provider.Custom.baseURL"
-											label="API Base URL"
-											value={step[
-												'prompt_transform.inference.provider.Custom.baseURL'
-											]}
-											oninput={(e) => {
-												transformation = {
-													...transformation,
-													steps: transformation.steps.map((s, i) =>
-														i === index
-															? {
-																	...s,
-																	'prompt_transform.inference.provider.Custom.baseURL':
-																		e.currentTarget.value,
-																}
-															: s,
-													),
-												};
-											}}
-											placeholder="http://localhost:11434/v1"
-										>
-											{#snippet description()}
-												<div class="text-sm space-y-2">
-													<p class="mb-1">Example:</p>
-													<div class="flex flex-col gap-2">
-														<div class="flex flex-col">
-															<span class="text-sm">Ollama:</span>
-															<code
-																class="block bg-muted px-2 py-1 rounded max-w-full break-words overflow-auto text-xs mt-1"
-																>http://localhost:11434/v1</code
-															>
-														</div>
-													</div>
-												</div>
-											{/snippet}
-										</LabeledInput>
-
-										<LabeledInput
-											id="prompt_transform.inference.provider.Custom.model"
-											label="Model Name"
-											value={step[
-												'prompt_transform.inference.provider.Custom.model'
-											]}
-											oninput={(e) => {
-												transformation = {
-													...transformation,
-													steps: transformation.steps.map((s, i) =>
-														i === index
-															? {
-																	...s,
-																	'prompt_transform.inference.provider.Custom.model':
-																		e.currentTarget.value,
-																}
-															: s,
-													),
-												};
-											}}
-											placeholder="llama3.2"
-										>
-											{#snippet description()}
-												<div class="text-sm">
-													<p class="mb-1">
-														Enter the exact model name as it appears in your
-														local service.
+										<div class="space-y-4">
+											<LabeledInput
+												id="prompt_transform.inference.provider.Custom.baseUrl"
+												label="API Base URL"
+												value={step[
+													'prompt_transform.inference.provider.Custom.baseUrl'
+												]}
+												oninput={(e) => {
+													transformation = {
+														...transformation,
+														steps: transformation.steps.map((s, i) =>
+															i === index
+																? {
+																		...s,
+																		'prompt_transform.inference.provider.Custom.baseUrl':
+																			e.currentTarget.value,
+																	}
+																: s,
+														),
+													};
+												}}
+												placeholder="http://localhost:11434/v1"
+											>
+												{#snippet description()}
+													<p class="text-muted-foreground text-sm">
+														Overrides the default URL from Settings. Useful when
+														this step needs a different local model server.
 													</p>
-													<div class="flex items-center gap-2 text-sm">
-														<code
-															class="inline-block bg-muted px-2 py-1 rounded text-xs break-words"
-															>ollama list</code
-														>
-														<span class="text-muted-foreground text-sm"
-															>to see available models (Ollama)</span
-														>
-													</div>
-												</div>
-											{/snippet}
-										</LabeledInput>
+												{/snippet}
+											</LabeledInput>
+											<LabeledInput
+												id="prompt_transform.inference.provider.Custom.model"
+												label="Model"
+												value={step[
+													'prompt_transform.inference.provider.Custom.model'
+												]}
+												oninput={(e) => {
+													transformation = {
+														...transformation,
+														steps: transformation.steps.map((s, i) =>
+															i === index
+																? {
+																		...s,
+																		'prompt_transform.inference.provider.Custom.model':
+																			e.currentTarget.value,
+																	}
+																: s,
+														),
+													};
+												}}
+												placeholder="llama3.2"
+											>
+												{#snippet description()}
+													<p class="text-muted-foreground text-sm">
+														Enter the exact model name as it appears in your local
+														service (e.g., run <code class="bg-muted px-1 rounded">ollama list</code>).
+													</p>
+												{/snippet}
+											</LabeledInput>
+										</div>
 									{/if}
 								</div>
 
@@ -568,7 +550,7 @@
 											{:else if step['prompt_transform.inference.provider'] === 'OpenRouter'}
 												<OpenRouterApiKeyInput />
 											{:else if step['prompt_transform.inference.provider'] === 'Custom'}
-												<CustomApiKeyInput />
+												<CustomApiKeyInput showBaseUrl={false} />
 											{/if}
 										</Accordion.Content>
 									</Accordion.Item>

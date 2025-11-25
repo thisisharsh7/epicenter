@@ -9,6 +9,7 @@ export type CompletionService = {
 	complete: (opts: {
 		apiKey: string;
 		model: string;
+		baseUrl?: string;
 		systemPrompt: string;
 		userPrompt: string;
 		baseURL?: string; // Optional base URL for custom endpoints

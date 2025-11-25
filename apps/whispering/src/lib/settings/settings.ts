@@ -214,6 +214,12 @@ export const settingsSchema = z.object({
 		.string()
 		.default('mistralai/mixtral-8x7b')
 		.describe('OpenRouter model name'),
+	// Global default for custom endpoints. Can be overridden per-step in transformations.
+	// Most users have one local LLM server, so this saves re-entering the URL each time.
+	'completion.custom.baseUrl': z
+		.string()
+		.default('http://localhost:11434/v1')
+		.describe('Base URL for OpenAI-compatible custom endpoints'),
 
 	'apiKeys.openai': z.string().default(''),
 	'apiKeys.anthropic': z.string().default(''),
@@ -224,11 +230,6 @@ export const settingsSchema = z.object({
 	'apiKeys.mistral': z.string().default(''),
 	'apiKeys.openrouter': z.string().default(''),
 	'apiKeys.custom': z.string().default(''),
-
-	// Custom provider configuration
-	'inference.custom.baseURL': z
-		.string()
-		.default('http://localhost:11434/v1'), // Default to Ollama
 
 	// Analytics settings
 	'analytics.enabled': z.boolean().default(true),
@@ -242,6 +243,14 @@ export const settingsSchema = z.object({
 		'shortcuts.local.startVadRecording': z.string().nullable().default(null),
 		'shortcuts.local.stopVadRecording': z.string().nullable().default(null),
 		'shortcuts.local.pushToTalk': z.string().nullable().default('p'),
+		'shortcuts.local.openTransformationPicker': z
+			.string()
+			.nullable()
+			.default('t'),
+		'shortcuts.local.runTransformationOnClipboard': z
+			.string()
+			.nullable()
+			.default('r'),
 	} satisfies Record<
 		`shortcuts.local.${Command['id']}`,
 		z.ZodDefault<z.ZodNullable<ZodString>>
@@ -268,6 +277,14 @@ export const settingsSchema = z.object({
 			.string()
 			.nullable()
 			.default(`${CommandOrAlt}+Shift+D`),
+		'shortcuts.global.openTransformationPicker': z
+			.string()
+			.nullable()
+			.default(`${CommandOrControl}+Shift+X`),
+		'shortcuts.global.runTransformationOnClipboard': z
+			.string()
+			.nullable()
+			.default(`${CommandOrControl}+Shift+R`),
 	} satisfies Record<
 		`shortcuts.global.${Command['id']}`,
 		z.ZodDefault<z.ZodNullable<ZodString>>
