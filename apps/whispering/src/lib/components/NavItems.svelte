@@ -33,6 +33,10 @@
 		migrationDialog?: MigrationDialog;
 	} = $props();
 
+	const showMigrationButton =
+		window.__TAURI_INTERNALS__ &&
+		(import.meta.env.DEV || migrationDialog?.hasIndexedDBData);
+
 	const navItems = [
 		{
 			label: 'Recordings',
@@ -53,16 +57,6 @@
 			href: '/settings',
 			activePathPrefix: '/settings',
 		},
-		...(window.__TAURI_INTERNALS__ &&
-		(import.meta.env.DEV || migrationDialog?.hasIndexedDBData)
-			? ([
-					{
-						label: 'Database Migration Manager',
-						icon: Database,
-						type: 'migration',
-					},
-				] as const)
-			: []),
 		{
 			label: 'View project on GitHub',
 			icon: GithubIcon,
@@ -110,11 +104,7 @@
 		action: () => void;
 	};
 
-	type MigrationItem = BaseNavItem & {
-		type: 'migration';
-	};
-
-	type NavItem = AnchorItem | ButtonItem | ThemeItem | MigrationItem;
+	type NavItem = AnchorItem | ButtonItem | ThemeItem;
 
 	const isItemActive = (item: AnchorItem) => {
 		if (item.external) return false;
@@ -185,23 +175,24 @@
 						</div>
 						<span>{item.label}</span>
 					</DropdownMenu.Item>
-				{:else if item.type === 'migration'}
-					<DropdownMenu.Item
-						onclick={migrationDialog?.openDialog}
-						class="flex items-center gap-2"
-					>
-						<div class="relative size-4">
-							<Icon class="size-4" aria-hidden="true" />
-							{#if migrationDialog?.hasIndexedDBData}
-								<span
-									class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"
-								></span>
-							{/if}
-						</div>
-						<span>{item.label}</span>
-					</DropdownMenu.Item>
 				{/if}
 			{/each}
+			{#if showMigrationButton}
+				<DropdownMenu.Item
+					onclick={migrationDialog?.openDialog}
+					class="flex items-center gap-2"
+				>
+					<div class="relative size-4">
+						<Database class="size-4" aria-hidden="true" />
+						{#if migrationDialog?.hasIndexedDBData}
+							<span
+								class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"
+							></span>
+						{/if}
+					</div>
+					<span>Database Migration Manager</span>
+				</DropdownMenu.Item>
+			{/if}
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
 {:else}
@@ -247,13 +238,14 @@
 						class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
 					/>
 				</WhisperingButton>
-			{:else if item.type === 'migration'}
-				<MigrationDialogTrigger
-					hasIndicator={migrationDialog?.hasIndexedDBData}
-					onclick={migrationDialog?.openDialog}
-				/>
 			{/if}
 		{/each}
+		{#if showMigrationButton}
+			<MigrationDialogTrigger
+				hasIndicator={migrationDialog?.hasIndexedDBData}
+				onclick={migrationDialog?.openDialog}
+			/>
+		{/if}
 	</nav>
 {/if}
 
