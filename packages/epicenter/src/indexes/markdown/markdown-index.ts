@@ -19,8 +19,8 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
-import { createDiagnosticsManager } from './diagnostics-manager';
 import { createIndexLogger } from '../error-logger';
+import { createDiagnosticsManager } from './diagnostics-manager';
 import {
 	deleteMarkdownFile,
 	listMarkdownFiles,
@@ -368,7 +368,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	});
 
 	// Create logger for historical error record (append-only audit trail)
-	const logger = createIndexLogger({ logPath: path.join(markdownConfigDir, `${id}.log`) });
+	const logger = createIndexLogger({
+		logPath: path.join(markdownConfigDir, `${id}.log`),
+	});
 
 	// Resolve workspace directory to absolute path
 	// If directory is relative, resolve it relative to storageDir
@@ -482,7 +484,13 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { tableName, table, tableSchema, validators, tableConfig } of tables) {
+		for (const {
+			tableName,
+			table,
+			tableSchema,
+			validators,
+			tableConfig,
+		} of tables) {
 			// Initialize bidirectional tracking for this table
 			if (!tracking[tableName]) {
 				tracking[tableName] = createBidirectionalMap();
@@ -548,7 +556,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 					if (result.error) {
 						// Handle validation errors with diagnostics + logger
-						await logger.log(
+						logger.log(
 							IndexError({
 								message: `YJS observer onAdd: validation failed for ${tableName}`,
 								context: { tableName, validationErrors: result.error.summary },
@@ -565,7 +573,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 					if (error) {
 						// Log I/O errors (operational errors, not validation errors)
-						await logger.log(
+						logger.log(
 							IndexError({
 								message: `YJS observer onAdd: failed to write ${tableName}/${row.id}`,
 								context: { tableName, rowId: row.id },
@@ -581,7 +589,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 					if (result.error) {
 						// Handle validation errors with diagnostics + logger
-						await logger.log(
+						logger.log(
 							IndexError({
 								message: `YJS observer onUpdate: validation failed for ${tableName}`,
 								context: { tableName, validationErrors: result.error.summary },
@@ -598,7 +606,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 					if (error) {
 						// Log I/O errors (operational errors, not validation errors)
-						await logger.log(
+						logger.log(
 							IndexError({
 								message: `YJS observer onUpdate: failed to write ${tableName}/${row.id}`,
 								context: { tableName, rowId: row.id },
@@ -628,7 +636,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 						if (error) {
 							// Log I/O errors (operational errors, not validation errors)
-							await logger.log(
+							logger.log(
 								IndexError({
 									message: `YJS observer onDelete: failed to delete ${tableName}/${id}`,
 									context: { tableName, rowId: id, filePath },
@@ -665,12 +673,20 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 			tableConfig,
 		} of tables) {
 			// Ensure table directory exists
-			trySync({
+			const { error: mkdirError } = trySync({
 				try: () => {
 					mkdirSync(tableConfig.directory, { recursive: true });
 				},
-				catch: () => Ok(undefined),
+				catch: (error) =>
+					IndexErr({
+						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
+						context: { tableName, directory: tableConfig.directory },
+					}),
 			});
+
+			if (mkdirError) {
+				logger.log(mkdirError);
+			}
 
 			// Create watcher for this table's directory
 			const watcher = watch(
@@ -707,7 +723,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								// Clean up tracking in both directions
 								tracking[tableName].deleteByFilename({ filename });
 							} else {
-								await logger.log(
+								logger.log(
 									MarkdownIndexError({
 										message:
 											'File deleted but row ID not found in tracking map',
@@ -741,7 +757,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								error,
 							});
 							// Log to historical record
-							await logger.log(
+							logger.log(
 								IndexError({
 									message: `File watcher: failed to read ${tableName}/${filename}`,
 									context: { filePath, tableName, filename },
@@ -776,7 +792,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								error: deserializeError,
 							});
 							// Log to historical record
-							await logger.log(
+							logger.log(
 								IndexError({
 									message: `File watcher: validation failed for ${tableName}/${filename}`,
 									context: { filePath, tableName, filename },
@@ -789,7 +805,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 						// At this point, row is SerializedRow<TableSchema> (not null)
 						// Assert once to the workspace-level type
-						const validatedRow = row as SerializedRow<TSchema[keyof TSchema & string]>;
+						const validatedRow = row as SerializedRow<
+							TSchema[keyof TSchema & string]
+						>;
 
 						// Success: remove from diagnostics if it was previously invalid
 						diagnostics.remove({ filePath });
@@ -853,7 +871,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							error,
 						});
 						// Log to historical record
-						await logger.log(
+						logger.log(
 							IndexError({
 								message: `${operationPrefix}failed to read ${tableName}/${filename}`,
 								context: { filePath, tableName, filename },
@@ -886,7 +904,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							error: deserializeError,
 						});
 						// Log to historical record
-						await logger.log(
+						logger.log(
 							IndexError({
 								message: `${operationPrefix}validation failed for ${tableName}/${filename}`,
 								context: { filePath, tableName, filename },
@@ -920,7 +938,13 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
 	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
 	 */
-	for (const { tableName, table, tableSchema, validators, tableConfig } of tables) {
+	for (const {
+		tableName,
+		table,
+		tableSchema,
+		validators,
+		tableConfig,
+	} of tables) {
 		// Initialize bidirectional tracking for this table
 		if (!tracking[tableName]) {
 			tracking[tableName] = createBidirectionalMap();
@@ -971,13 +995,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const watchers = registerFileWatchers();
 
 	return defineIndexExports({
-		destroy() {
+		async destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
 			}
 			for (const watcher of watchers) {
 				watcher.close();
 			}
+			// Flush and close logger to ensure all pending logs are written
+			await logger.close();
 		},
 
 		/**
@@ -992,7 +1018,12 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Process each table independently
-						for (const { tableName, tableSchema, validators, tableConfig } of tables) {
+						for (const {
+							tableName,
+							tableSchema,
+							validators,
+							tableConfig,
+						} of tables) {
 							// Delete all existing markdown files in this table's directory
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
@@ -1001,7 +1032,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									const { error } = await deleteMarkdownFile({ filePath });
 									if (error) {
 										// Log I/O errors (operational errors, not validation errors)
-										await logger.log(
+										logger.log(
 											IndexError({
 												message: `pullToMarkdown: failed to delete ${filePath}`,
 												context: { filePath, tableName },
@@ -1039,7 +1070,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								});
 								if (error) {
 									// Log I/O errors (operational errors, not validation errors)
-									await logger.log(
+									logger.log(
 										IndexError({
 											message: `pullToMarkdown: failed to write ${filePath}`,
 											context: { filePath, tableName, rowId: row.id },
@@ -1115,7 +1146,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											error,
 										});
 										// Log to historical record
-										await logger.log(
+										logger.log(
 											IndexError({
 												message: `pushFromMarkdown: failed to read ${tableName}/${filename}`,
 												context: { filePath, tableName, filename },
@@ -1149,7 +1180,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											error: deserializeError,
 										});
 										// Log to historical record
-										await logger.log(
+										logger.log(
 											IndexError({
 												message: `pushFromMarkdown: validation failed for ${tableName}/${filename}`,
 												context: { filePath, tableName, filename },
@@ -1163,7 +1194,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									const insertResult = table.insert(row);
 									if (insertResult.error) {
 										// Log insert errors (operational errors, not validation errors)
-										await logger.log(
+										logger.log(
 											IndexError({
 												message: `pushFromMarkdown: failed to insert ${tableName}/${row.id} into YJS`,
 												context: { tableName, rowId: row.id },

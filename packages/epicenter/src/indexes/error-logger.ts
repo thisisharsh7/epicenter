@@ -26,15 +26,27 @@ type IndexLoggerConfig = {
 
 type IndexLogger = {
 	/**
-	 * Log an error to the index-specific log file
+	 * Log an error to the index-specific log file.
+	 *
+	 * This method is synchronous from the caller's perspective. Errors are
+	 * queued and written to disk asynchronously in FIFO order. This prevents
+	 * logging from blocking the main operation.
+	 *
 	 * @param error - The tagged error to log
 	 */
-	log(error: TaggedError): Promise<void>;
+	log(error: TaggedError): void;
 
 	/**
-	 * Close the log file writer (optional cleanup)
+	 * Flush all pending log entries and wait for completion.
+	 * Use this before shutdown to ensure all logs are written.
 	 */
-	close(): void;
+	flush(): Promise<void>;
+
+	/**
+	 * Close the log file writer.
+	 * Flushes pending entries before closing.
+	 */
+	close(): Promise<void>;
 };
 
 /**
@@ -42,6 +54,12 @@ type IndexLogger = {
  *
  * Each log entry is a single JSON line with ISO timestamp + the full tagged error.
  * This provides a historical record of all errors for debugging and analysis.
+ *
+ * **Queue-based architecture**:
+ * - `log()` is synchronous; it pushes to an internal queue and returns immediately
+ * - A background processor drains the queue in FIFO order
+ * - Order is preserved; entries are written one at a time
+ * - Callers never wait for disk I/O
  *
  * **Purpose**: Historical audit trail of all errors
  * - Never clears (append-only)
@@ -78,11 +96,14 @@ type IndexLogger = {
  *
  * const logger = createIndexLogger({ logPath });
  *
- * await logger.log(IndexError({
+ * // Synchronous: doesn't block, queues internally
+ * logger.log(IndexError({
  *   message: 'File watcher: validation failed for posts/draft.md',
  *   context: { filePath: '...', tableName: 'posts', filename: 'draft.md' }
  * }));
- * // Console output: [IndexError] File watcher: validation failed for posts/draft.md { filePath: '...', tableName: 'posts', filename: 'draft.md' }
+ *
+ * // Before shutdown, ensure all logs are written
+ * await logger.close();
  * ```
  */
 export function createIndexLogger({
@@ -100,29 +121,76 @@ export function createIndexLogger({
 	const file = Bun.file(logPath);
 	const writer = file.writer();
 
+	// Queue state
+	const queue: LogEntry[] = [];
+	let isDraining = false;
+	let flushResolvers: Array<() => void> = [];
+
+	/**
+	 * Process the queue one entry at a time, in order.
+	 * Only one drain loop runs at a time (guarded by isDraining flag).
+	 */
+	async function drain() {
+		if (isDraining) return;
+		isDraining = true;
+
+		while (queue.length > 0) {
+			const entry = queue.shift()!;
+
+			await tryAsync({
+				try: async () => {
+					writer.write(`${JSON.stringify(entry)}\n`);
+					await writer.flush();
+				},
+				catch: (writeError) => {
+					console.error('Failed to write to error log:', writeError);
+					return Ok(undefined);
+				},
+			});
+		}
+
+		isDraining = false;
+
+		// Resolve any pending flush promises
+		const resolvers = flushResolvers;
+		flushResolvers = [];
+		for (const resolve of resolvers) {
+			resolve();
+		}
+	}
+
 	return {
-		log: async (error) => {
+		log(error) {
 			// Always output to console for immediate visibility
 			console.error(`[${error.name}] ${error.message}`, error.context);
 
-			const { error: writeError } = await tryAsync({
-				try: async () => {
-					writer.write(
-						`${JSON.stringify({
-							timestamp: new Date().toISOString(),
-							...error,
-						} satisfies LogEntry)}\n`,
-					);
-				},
-				catch: () => Ok(undefined),
+			// Queue the entry with timestamp
+			queue.push({
+				timestamp: new Date().toISOString(),
+				...error,
 			});
 
-			// If file write fails, log the write failure as well
-			if (writeError) {
-				console.error('Failed to write to error log:', writeError);
-			}
+			// Start draining if not already running
+			// queueMicrotask ensures the drain starts after current sync code completes
+			// but before the next event loop tick, maintaining responsiveness
+			queueMicrotask(() => drain());
 		},
 
-		close: writer.end,
+		async flush() {
+			if (queue.length === 0 && !isDraining) {
+				return;
+			}
+
+			return new Promise<void>((resolve) => {
+				flushResolvers.push(resolve);
+				// Ensure drain is running
+				queueMicrotask(() => drain());
+			});
+		},
+
+		async close() {
+			await this.flush();
+			writer.end();
+		},
 	};
 }
