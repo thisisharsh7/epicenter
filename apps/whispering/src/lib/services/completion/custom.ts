@@ -3,7 +3,7 @@ import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import type { CompletionService } from './types';
 import { CompletionServiceErr } from './types';
 
-export function createCustomEndpointCompletionService(): CompletionService {
+export function createCustomCompletionService(): CompletionService {
 	return {
 		async complete({ apiKey, model, systemPrompt, userPrompt, baseURL }) {
 			// Validate that baseURL is provided for custom endpoints
@@ -127,9 +127,9 @@ export function createCustomEndpointCompletionService(): CompletionService {
 	};
 }
 
-export type CustomEndpointCompletionService = ReturnType<
-	typeof createCustomEndpointCompletionService
+export type CustomCompletionService = ReturnType<
+	typeof createCustomCompletionService
 >;
 
-export const CustomEndpointCompletionServiceLive =
-	createCustomEndpointCompletionService();
+export const CustomCompletionServiceLive =
+	createCustomCompletionService();

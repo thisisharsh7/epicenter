@@ -285,7 +285,7 @@ class WhisperingDatabase extends Dexie {
 				});
 			});
 
-		// V6: Add CustomEndpoint fields to transformation steps
+		// V6: Add Custom provider fields to transformation steps
 		this.version(0.6)
 			.stores({
 				recordings: '&id, timestamp, createdAt, updatedAt',
@@ -297,7 +297,7 @@ class WhisperingDatabase extends Dexie {
 					tx,
 					version: 0.6,
 					upgrade: async (tx) => {
-						// Update all transformations to include CustomEndpoint fields
+						// Update all transformations to include Custom provider fields
 						const transformations = await tx
 							.table('transformations')
 							.toArray();
@@ -306,21 +306,21 @@ class WhisperingDatabase extends Dexie {
 							const updatedSteps = transformation.steps.map(
 								(step: TransformationStep) => ({
 									...step,
-									'prompt_transform.inference.provider.CustomEndpoint.model':
+									'prompt_transform.inference.provider.Custom.model':
 										(
 											step as {
-												'prompt_transform.inference.provider.CustomEndpoint.model'?: string;
+												'prompt_transform.inference.provider.Custom.model'?: string;
 											}
 										)[
-											'prompt_transform.inference.provider.CustomEndpoint.model'
+											'prompt_transform.inference.provider.Custom.model'
 										] ?? 'llama3.2',
-									'prompt_transform.inference.provider.CustomEndpoint.baseURL':
+									'prompt_transform.inference.provider.Custom.baseURL':
 										(
 											step as {
-												'prompt_transform.inference.provider.CustomEndpoint.baseURL'?: string;
+												'prompt_transform.inference.provider.Custom.baseURL'?: string;
 											}
 										)[
-											'prompt_transform.inference.provider.CustomEndpoint.baseURL'
+											'prompt_transform.inference.provider.Custom.baseURL'
 										] ?? 'http://localhost:11434/v1',
 								}),
 							);

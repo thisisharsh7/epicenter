@@ -4,13 +4,13 @@
 </script>
 
 <LabeledInput
-	id="custom-endpoint-api-key"
+	id="custom-api-key"
 	label="API Key (Optional)"
 	type="password"
 	placeholder="Leave empty if not required"
 	bind:value={
-		() => settings.value['apiKeys.customEndpoint'],
-		(value) => settings.updateKey('apiKeys.customEndpoint', value)
+		() => settings.value['apiKeys.custom'],
+		(value) => settings.updateKey('apiKeys.custom', value)
 	}
 >
 	{#snippet description()}

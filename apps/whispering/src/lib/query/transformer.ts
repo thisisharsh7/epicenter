@@ -267,17 +267,17 @@ async function handleStep({
 					return Ok(completionResponse);
 				}
 
-				case 'CustomEndpoint': {
+				case 'Custom': {
 					const { data: completionResponse, error: completionError } =
-						await services.completions.customEndpoint.complete({
-							apiKey: settings.value['apiKeys.customEndpoint'],
+						await services.completions.custom.complete({
+							apiKey: settings.value['apiKeys.custom'],
 							model:
 								step[
-									'prompt_transform.inference.provider.CustomEndpoint.model'
+									'prompt_transform.inference.provider.Custom.model'
 								],
 							baseURL:
 								step[
-									'prompt_transform.inference.provider.CustomEndpoint.baseURL'
+									'prompt_transform.inference.provider.Custom.baseURL'
 								],
 							systemPrompt,
 							userPrompt,

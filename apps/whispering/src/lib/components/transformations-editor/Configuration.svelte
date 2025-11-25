@@ -8,7 +8,7 @@
 	} from '$lib/components/labeled/index.js';
 	import {
 		AnthropicApiKeyInput,
-		CustomEndpointApiKeyInput,
+		CustomApiKeyInput,
 		GoogleApiKeyInput,
 		GroqApiKeyInput,
 		OpenAiApiKeyInput,
@@ -420,12 +420,12 @@
 											}}
 											placeholder="Enter model name"
 										/>
-									{:else if step['prompt_transform.inference.provider'] === 'CustomEndpoint'}
+									{:else if step['prompt_transform.inference.provider'] === 'Custom'}
 										<LabeledInput
-											id="prompt_transform.inference.provider.CustomEndpoint.baseURL"
+											id="prompt_transform.inference.provider.Custom.baseURL"
 											label="API Base URL"
 											value={step[
-												'prompt_transform.inference.provider.CustomEndpoint.baseURL'
+												'prompt_transform.inference.provider.Custom.baseURL'
 											]}
 											oninput={(e) => {
 												transformation = {
@@ -434,7 +434,7 @@
 														i === index
 															? {
 																	...s,
-																	'prompt_transform.inference.provider.CustomEndpoint.baseURL':
+																	'prompt_transform.inference.provider.Custom.baseURL':
 																		e.currentTarget.value,
 																}
 															: s,
@@ -460,10 +460,10 @@
 										</LabeledInput>
 
 										<LabeledInput
-											id="prompt_transform.inference.provider.CustomEndpoint.model"
+											id="prompt_transform.inference.provider.Custom.model"
 											label="Model Name"
 											value={step[
-												'prompt_transform.inference.provider.CustomEndpoint.model'
+												'prompt_transform.inference.provider.Custom.model'
 											]}
 											oninput={(e) => {
 												transformation = {
@@ -472,7 +472,7 @@
 														i === index
 															? {
 																	...s,
-																	'prompt_transform.inference.provider.CustomEndpoint.model':
+																	'prompt_transform.inference.provider.Custom.model':
 																		e.currentTarget.value,
 																}
 															: s,
@@ -567,8 +567,8 @@
 												<GoogleApiKeyInput />
 											{:else if step['prompt_transform.inference.provider'] === 'OpenRouter'}
 												<OpenRouterApiKeyInput />
-											{:else if step['prompt_transform.inference.provider'] === 'CustomEndpoint'}
-												<CustomEndpointApiKeyInput />
+											{:else if step['prompt_transform.inference.provider'] === 'Custom'}
+												<CustomApiKeyInput />
 											{/if}
 										</Accordion.Content>
 									</Accordion.Item>

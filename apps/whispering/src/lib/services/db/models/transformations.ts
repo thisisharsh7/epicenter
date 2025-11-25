@@ -41,9 +41,9 @@ export type Transformation = {
 		'prompt_transform.inference.provider.Google.model': (typeof GOOGLE_INFERENCE_MODELS)[number];
 		// OpenRouter model is a free string (user can enter any model)
 		'prompt_transform.inference.provider.OpenRouter.model': string;
-		// CustomEndpoint configuration (for Ollama, LM Studio, llama.cpp, etc.)
-		'prompt_transform.inference.provider.CustomEndpoint.model': string;
-		'prompt_transform.inference.provider.CustomEndpoint.baseURL': string;
+		// Custom configuration (for Ollama, LM Studio, llama.cpp, etc.)
+		'prompt_transform.inference.provider.Custom.model': string;
+		'prompt_transform.inference.provider.Custom.baseURL': string;
 
 		'prompt_transform.systemPromptTemplate': string;
 		'prompt_transform.userPromptTemplate': string;
@@ -83,8 +83,8 @@ export function generateDefaultTransformationStep(): TransformationStep {
 		'prompt_transform.inference.provider.Google.model': 'gemini-2.5-flash',
 		'prompt_transform.inference.provider.OpenRouter.model':
 			'mistralai/mixtral-8x7b',
-		'prompt_transform.inference.provider.CustomEndpoint.model': 'llama3.2',
-		'prompt_transform.inference.provider.CustomEndpoint.baseURL':
+		'prompt_transform.inference.provider.Custom.model': 'llama3.2',
+		'prompt_transform.inference.provider.Custom.baseURL':
 			'http://localhost:11434/v1',
 
 		'prompt_transform.systemPromptTemplate': '',

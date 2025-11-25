@@ -8,7 +8,7 @@ export const INFERENCE_PROVIDERS = [
 	'Anthropic',
 	'Google',
 	'OpenRouter',
-	'CustomEndpoint',
+	'Custom',
 ] as const;
 
 export const INFERENCE_PROVIDER_OPTIONS = INFERENCE_PROVIDERS.map(
