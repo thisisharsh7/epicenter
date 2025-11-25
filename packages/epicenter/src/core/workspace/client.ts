@@ -21,23 +21,30 @@ import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
  */
 export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
 	/**
-	 * Cleanup method for resource management
-	 * - Destroys all indexes
+	 * Async cleanup method for resource management
+	 * - Destroys all indexes (awaiting any async cleanup)
 	 * - Destroys the YJS document
 	 *
-	 * Use with `using` syntax for automatic cleanup:
-	 * ```typescript
-	 * using workspace = await createWorkspaceClient(config);
-	 * ```
-	 *
-	 * Or call manually for explicit control:
+	 * Call manually for explicit control:
 	 * ```typescript
 	 * const workspace = await createWorkspaceClient(config);
 	 * // ... use workspace ...
-	 * workspace[Symbol.dispose]();
+	 * await workspace.destroy();
 	 * ```
 	 */
-	[Symbol.dispose]: () => void;
+	destroy: () => Promise<void>;
+
+	/**
+	 * Async disposal for `await using` syntax (TC39 Explicit Resource Management)
+	 *
+	 * Use for automatic cleanup when scope exits:
+	 * ```typescript
+	 * await using workspace = await createWorkspaceClient(config);
+	 * // ... use workspace ...
+	 * // cleanup happens automatically when scope exits
+	 * ```
+	 */
+	[Symbol.asyncDispose]: () => Promise<void>;
 };
 
 /**
@@ -357,12 +364,12 @@ export async function initializeWorkspaces<
 			indexes,
 		});
 
-		// Create cleanup function
-		const cleanup = () => {
-			// Clean up indexes first
-			for (const index of Object.values(indexes)) {
-				index.destroy?.();
-			}
+		// Create async cleanup function
+		const cleanup = async () => {
+			// Clean up indexes first, awaiting any async destroy operations
+			await Promise.all(
+				Object.values(indexes).map((index) => index.destroy?.()),
+			);
 
 			// Clean up YDoc (disconnects providers, cleans up observers)
 			ydoc.destroy();
@@ -372,7 +379,8 @@ export async function initializeWorkspaces<
 		// Filtering to just actions happens at the server/MCP level via forEachAction()
 		const client: WorkspaceClient<any> = {
 			...exports,
-			[Symbol.dispose]: cleanup,
+			destroy: cleanup,
+			[Symbol.asyncDispose]: cleanup,
 		};
 
 		return client;

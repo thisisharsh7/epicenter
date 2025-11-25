@@ -29,7 +29,7 @@ This means:
 ```typescript
 // Migration script
 {
-  using client = await createEpicenterClient(config);
+  await using client = await createEpicenterClient(config);
   await client.pages.createPage({ ... });
   // Client disposed when block exits
 }
@@ -76,7 +76,7 @@ If you need to run scripts while the server is running, use the HTTP API instead
 ```typescript
 // ❌ DON'T: Create another client (storage conflict!)
 {
-  using client = await createEpicenterClient(config);
+  await using client = await createEpicenterClient(config);
   await client.pages.createPage({ ... });
 }
 

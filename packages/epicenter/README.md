@@ -139,7 +139,7 @@ const published = await client.getPublishedPosts();
 console.log('Published:', published);
 
 // 6. Cleanup when done
-client[Symbol.dispose]();
+await client.destroy();
 ```
 
 ## Core Concepts
@@ -1070,10 +1070,10 @@ await client.createPost({ title: 'Hello' });
 const posts = client.db.tables.posts.getAll();
 
 // Cleanup
-client[Symbol.dispose]();
+await client.destroy();
 
-// Or use with `using` for automatic cleanup
-using workspace = await createWorkspaceClient(workspace);
+// Or use with `await using` for automatic cleanup
+await using workspace = await createWorkspaceClient(workspace);
 ```
 
 **storageDir:** Defaults to `process.cwd()` in Node.js, `undefined` in browser.
@@ -1097,21 +1097,19 @@ await client.blog.createPost({ ... });
 await client.auth.login({ ... });
 const files = await client.storage.listFiles();
 
-// Each workspace has Symbol.dispose
-client.blog[Symbol.dispose]();
-client.auth[Symbol.dispose]();
+// Each workspace has destroy() for cleanup
+await client.blog.destroy();
+await client.auth.destroy();
 
-// Or iterate and cleanup all
-for (const workspace of Object.values(client)) {
-  workspace[Symbol.dispose]();
-}
+// Or cleanup the entire epicenter client at once
+await client.destroy();
 ```
 
 **Workspace clients:**
 
 Each workspace in the client object is a `WorkspaceClient<TExports>` with:
 - All exports from the workspace
-- `Symbol.dispose` for cleanup
+- `destroy()` and `Symbol.asyncDispose` for cleanup
 
 ## API Reference
 

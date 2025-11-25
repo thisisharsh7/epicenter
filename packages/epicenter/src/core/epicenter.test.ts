@@ -94,7 +94,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 			workspaces: [workspaceA, workspaceB],
 		});
 
-		using client = await createEpicenterClient(epicenter);
+		await using client = await createEpicenterClient(epicenter);
 
 		// BOTH workspaces are exposed by their ids
 		expect(client['a']).toBeDefined();
@@ -147,7 +147,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 			workspaces: [workspaceA, workspaceB, workspaceC],
 		});
 
-		using client = await createEpicenterClient(epicenter);
+		await using client = await createEpicenterClient(epicenter);
 
 		// All workspaces are exposed
 		expect(client['a']).toBeDefined();
@@ -172,7 +172,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 			workspaces: [workspaceA, workspaceB, workspaceC],
 		});
 
-		using client = await createEpicenterClient(epicenter);
+		await using client = await createEpicenterClient(epicenter);
 
 		// All three workspaces exposed
 		expect(client['a']).toBeDefined();

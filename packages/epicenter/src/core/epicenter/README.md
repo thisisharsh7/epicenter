@@ -9,7 +9,7 @@ Epicenter is a collection of workspaces that work together. It provides:
 - **Unified client interface**: Access all workspace actions through a single typed client
 - **Flat dependency resolution**: All transitive workspace dependencies must be declared at the root level
 - **Type-safe composition**: Full TypeScript inference for all workspace actions
-- **Automatic resource management**: Use `using` syntax for automatic cleanup
+- **Automatic resource management**: Use `await using` syntax for automatic cleanup
 - **Storage isolation**: Each client instance has its own storage context (directory + environment)
 
 ## Two Ways to Use Epicenter
@@ -21,7 +21,7 @@ Create an Epicenter client directly for standalone scripts:
 ```typescript
 // Script or migration
 {
-  using client = await createEpicenterClient(config);
+  await using client = await createEpicenterClient(config);
   await client.pages.createPage({ ... });
   // Automatic cleanup when block exits
 }
@@ -114,7 +114,7 @@ When you call `createEpicenterClient(config)` (or `createServer()`, which intern
 │                       │                                      │
 │    ┌─────────────────────────────────────────────────────┐  │
 │    │ f. Create Workspace Client                           │  │
-│    │    • Combine actions + Symbol.dispose                │  │
+│    │    • Combine actions + destroy/asyncDispose          │  │
 │    │    • Store in clients map                            │  │
 │    └─────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
@@ -124,7 +124,7 @@ When you call `createEpicenterClient(config)` (or `createServer()`, which intern
 │ 5. RETURN EPICENTER CLIENT                                   │
 │    • Object with all workspace clients                       │
 │    • Keyed by workspace ID                                   │
-│    • Includes Symbol.dispose for cleanup                     │
+│    • Includes destroy() and Symbol.asyncDispose for cleanup  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -148,11 +148,11 @@ Examples:
 
 ### Cleanup Lifecycle
 
-When you dispose a client (automatically with `using` or manually with `Symbol.dispose`):
+When you dispose a client (automatically with `await using` or manually with `await client.destroy()`):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Symbol.dispose Called                                        │
+│ destroy() or Symbol.asyncDispose Called                      │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -193,12 +193,12 @@ Think of it this way:
 
 ## Sequential Script Execution
 
-Multiple scripts can safely run one after another using the `using` syntax:
+Multiple scripts can safely run one after another using the `await using` syntax:
 
 ```typescript
 // Script 1: Import data
 {
-  using client = await createEpicenterClient(config);
+  await using client = await createEpicenterClient(config);
   const data = await readFile('data.json');
   await client.pages.createPage(data);
   // Auto-disposed when block exits
@@ -206,14 +206,14 @@ Multiple scripts can safely run one after another using the `using` syntax:
 
 // Script 2: Generate content (runs after Script 1 completes)
 {
-  using client = await createEpicenterClient(config);
+  await using client = await createEpicenterClient(config);
   const pages = await client.pages.getAllPages();
   await generateContent(pages);
   // Auto-disposed when block exits
 }
 ```
 
-Each `using` block:
+Each `await using` block:
 1. Creates a fresh client
 2. Loads current state from `.epicenter/`
 3. Runs your code
@@ -256,7 +256,7 @@ const myApp = defineEpicenter({
 
 // Create a unified client with automatic cleanup
 {
-  using client = await createEpicenterClient(myApp);
+  await using client = await createEpicenterClient(myApp);
 
   // Access workspace actions by workspace name
   await client.auth.login({ email: '...', password: '...' });
@@ -268,8 +268,8 @@ const myApp = defineEpicenter({
 // For long-lived servers, use manual cleanup:
 const client = await createEpicenterClient(myApp);
 // ... use client for app lifetime ...
-process.on('SIGTERM', () => {
-  client[Symbol.dispose]();
+process.on('SIGTERM', async () => {
+  await client.destroy();
 });
 ```
 
@@ -393,7 +393,7 @@ Defines `EpicenterConfig` type and `defineEpicenter` function with validation:
 Defines `EpicenterClient` type and `createEpicenterClient` function:
 - Uses `initializeWorkspaces` from workspace/client for initialization
 - Implements flat/hoisted dependency resolution
-- Provides Symbol.dispose for automatic resource management with `using` syntax
+- Provides `destroy()` and `Symbol.asyncDispose` for resource management with `await using` syntax
 - Maps workspace names to their action clients
 
 ### index.ts

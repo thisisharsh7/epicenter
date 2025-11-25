@@ -467,7 +467,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		using client = await createWorkspaceClient(workspaceB);
+		await using client = await createWorkspaceClient(workspaceB);
 
 		// Verify that B can call A's action
 		const result = await client.getValueFromA();
@@ -511,7 +511,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		using client = await createWorkspaceClient(workspaceB);
+		await using client = await createWorkspaceClient(workspaceB);
 
 		// createWorkspaceClient returns workspace B's actions
 		expect(client.getValueFromB).toBeDefined();
@@ -583,7 +583,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		using client = await createWorkspaceClient(workspaceC);
+		await using client = await createWorkspaceClient(workspaceC);
 
 		// createWorkspaceClient returns only C's actions
 		expect(client.getValue).toBeDefined();
@@ -718,7 +718,7 @@ describe('Workspace Action Handlers', () => {
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
-		using epicenterClient = await createEpicenterClient(epicenter);
+		await using epicenterClient = await createEpicenterClient(epicenter);
 		const client = epicenterClient['posts-test'];
 
 		const result = await client.createPost({
@@ -741,7 +741,7 @@ describe('Workspace Action Handlers', () => {
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
-		using epicenterClient = await createEpicenterClient(epicenter);
+		await using epicenterClient = await createEpicenterClient(epicenter);
 		const client = epicenterClient['posts-test'];
 
 		// Create a post first
@@ -769,7 +769,7 @@ describe('Workspace Action Handlers', () => {
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
-		using epicenterClient = await createEpicenterClient(epicenter);
+		await using epicenterClient = await createEpicenterClient(epicenter);
 		const client = epicenterClient['posts-test'];
 
 		// Create a post
@@ -801,7 +801,7 @@ describe('Workspace Action Handlers', () => {
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
-		using epicenterClient = await createEpicenterClient(epicenter);
+		await using epicenterClient = await createEpicenterClient(epicenter);
 		const client = epicenterClient['posts-test'];
 
 		// Create a post
@@ -829,7 +829,7 @@ describe('Workspace Action Handlers', () => {
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
-		using epicenterClient = await createEpicenterClient(epicenter);
+		await using epicenterClient = await createEpicenterClient(epicenter);
 		const client = epicenterClient['posts-test'];
 
 		// Try to update views on non-existent post
@@ -848,7 +848,7 @@ describe('Workspace Action Handlers', () => {
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
-		using epicenterClient = await createEpicenterClient(epicenter);
+		await using epicenterClient = await createEpicenterClient(epicenter);
 		const client = epicenterClient['posts-test'];
 
 		const result = await client.createPost({

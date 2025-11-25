@@ -66,7 +66,7 @@ export async function createCLI({
 	);
 
 	// Initialize Epicenter client
-	using client = await createEpicenterClient(config);
+	await using client = await createEpicenterClient(config);
 
 	// Register each workspace as a command
 	for (const workspaceConfig of config.workspaces) {
@@ -74,8 +74,8 @@ export async function createCLI({
 		// biome-ignore lint/style/noNonNullAssertion: client was created from config.workspaces, so workspaceId/workspaceConfig.id exists in client
 		const workspaceClient = client[workspaceId]!;
 
-		// Extract actions (exclude Symbol.dispose)
-		const { [Symbol.dispose]: _, ...actions } = workspaceClient;
+		// Extract actions (exclude cleanup methods)
+		const { destroy: _, [Symbol.asyncDispose]: __, ...actions } = workspaceClient;
 
 		cli = cli.command(
 			workspaceId,

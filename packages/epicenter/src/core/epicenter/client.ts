@@ -20,22 +20,29 @@ import type { EpicenterConfig } from './config';
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 	WorkspacesToClients<TWorkspaces> & {
 		/**
-		 * Cleanup method for resource management
+		 * Async cleanup method for resource management
 		 * Destroys all workspaces in this epicenter
 		 *
-		 * Use with `using` syntax for automatic cleanup:
-		 * ```typescript
-		 * using client = await createEpicenterClient(config);
-		 * ```
-		 *
-		 * Or call manually for explicit control:
+		 * Call manually for explicit control:
 		 * ```typescript
 		 * const client = await createEpicenterClient(config);
 		 * // ... use client ...
-		 * client[Symbol.dispose]();
+		 * await client.destroy();
 		 * ```
 		 */
-		[Symbol.dispose]: () => void;
+		destroy: () => Promise<void>;
+
+		/**
+		 * Async disposal for `await using` syntax (TC39 Explicit Resource Management)
+		 *
+		 * Use for automatic cleanup when scope exits:
+		 * ```typescript
+		 * await using client = await createEpicenterClient(config);
+		 * // ... use client ...
+		 * // cleanup happens automatically when scope exits
+		 * ```
+		 */
+		[Symbol.asyncDispose]: () => Promise<void>;
 	};
 
 /**
@@ -49,7 +56,7 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * ```typescript
  * // Scoped usage with automatic cleanup (scripts, tests, CLI commands)
  * {
- *   using client = await createEpicenterClient(epicenter);
+ *   await using client = await createEpicenterClient(epicenter);
  *
  *   // Access workspace actions by workspace id
  *   const page = await client.pages.createPage({
@@ -71,8 +78,8 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * // Long-lived usage (servers, desktop apps) with manual cleanup
  * const client = await createEpicenterClient(epicenter);
  * // ... use client for app lifetime ...
- * process.on('SIGTERM', () => {
- *   client[Symbol.dispose]();
+ * process.on('SIGTERM', async () => {
+ *   await client.destroy();
  * });
  * ```
  */
@@ -101,15 +108,19 @@ export async function createEpicenterClient<
 	// initializeWorkspaces will validate this and throw if dependencies are missing
 	const clients = await initializeWorkspaces(config.workspaces, storageDir);
 
-	const cleanup = () => {
-		for (const workspaceClient of Object.values(clients)) {
-			workspaceClient[Symbol.dispose]();
-		}
+	const cleanup = async () => {
+		await Promise.all(
+			// biome-ignore lint/suspicious/noExplicitAny: WorkspacesToClients returns a mapped type that Object.values can't narrow
+			Object.values(clients).map((workspaceClient: WorkspaceClient<any>) =>
+				workspaceClient.destroy(),
+			),
+		);
 	};
 
 	return {
 		...clients,
-		[Symbol.dispose]: cleanup,
+		destroy: cleanup,
+		[Symbol.asyncDispose]: cleanup,
 	} as EpicenterClient<TWorkspaces>;
 }
 
@@ -118,7 +129,7 @@ export async function createEpicenterClient<
  *
  * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
  * This utility traverses all layers and invokes the callback for each action.
- * The Symbol.dispose methods at client and workspace levels are automatically excluded.
+ * The destroy and Symbol.asyncDispose methods at client and workspace levels are automatically excluded.
  *
  * @param client - The Epicenter client with workspace namespaces
  * @param callback - Function invoked for each action. Receives an object with:
@@ -149,16 +160,23 @@ export function forEachAction<
 		action: Action;
 	}) => void,
 ): void {
-	// Extract workspace clients (excluding Symbol.dispose from the client interface)
-	const { [Symbol.dispose]: _dispose, ...workspaceClients } = client;
+	// Extract workspace clients (excluding cleanup methods from the client interface)
+	const {
+		destroy: _destroy,
+		[Symbol.asyncDispose]: _asyncDispose,
+		...workspaceClients
+	} = client;
 
 	// Iterate over each workspace and its actions
 	for (const [workspaceId, workspaceClient] of Object.entries(
 		workspaceClients,
 	)) {
-		// Extract all exports (excluding Symbol.dispose from the workspace interface)
-		const { [Symbol.dispose]: _workspaceDispose, ...workspaceExports } =
-			workspaceClient as WorkspaceClient<WorkspaceExports>;
+		// Extract all exports (excluding cleanup methods from the workspace interface)
+		const {
+			destroy: _workspaceDestroy,
+			[Symbol.asyncDispose]: _workspaceAsyncDispose,
+			...workspaceExports
+		} = workspaceClient as WorkspaceClient<WorkspaceExports>;
 
 		// Filter to just actions using extractActions helper
 		// This ensures utilities and constants are not treated as actions

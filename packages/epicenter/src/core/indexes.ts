@@ -76,7 +76,8 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  * - Table references
  * - Any other tools needed to interact with the indexed data
  *
- * All indexes must include destroy() for cleanup.
+ * All indexes must include destroy() for cleanup. The destroy function can be
+ * sync or async; async destroys are properly awaited by the workspace client.
  *
  * You can export anything from an index and it will be fully typed in the actions context.
  * This pattern allows indexes to expose queryable interfaces, helper functions, or any
@@ -108,8 +109,9 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  *
  *   // 3. Export resources via defineIndex()
  *   return defineIndex({
- *     destroy() {
+ *     async destroy() {
  *       unsubPosts();
+ *       await flushLogs();
  *       cleanupIndex();
  *     },
  *     db: sqliteDb,        // Exported as indexes.sqlite.db
@@ -138,7 +140,7 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  * ```
  */
 export type IndexExports = {
-	destroy: () => void;
+	destroy: () => void | Promise<void>;
 };
 
 /**
