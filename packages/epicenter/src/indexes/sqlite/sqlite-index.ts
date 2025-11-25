@@ -139,7 +139,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 
 				// Handle validation errors
 				if (result.error) {
-					await logger.log(
+					logger.log(
 						IndexError({
 							message: `SQLite index onAdd: validation failed for ${tableName}`,
 							context: { tableName, validationErrors: result.error.summary },
@@ -163,7 +163,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				});
 
 				if (error) {
-					await logger.log(error);
+					logger.log(error);
 				}
 			},
 			onUpdate: async (result) => {
@@ -173,7 +173,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 
 				// Handle validation errors
 				if (result.error) {
-					await logger.log(
+					logger.log(
 						IndexError({
 							message: `SQLite index onUpdate: validation failed for ${tableName}`,
 							context: { tableName, validationErrors: result.error.summary },
@@ -200,7 +200,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				});
 
 				if (error) {
-					await logger.log(error);
+					logger.log(error);
 				}
 			},
 			onDelete: async (id) => {
@@ -220,7 +220,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				});
 
 				if (error) {
-					await logger.log(error);
+					logger.log(error);
 				}
 			},
 		});
@@ -252,17 +252,19 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 			});
 
 			if (error) {
-				await logger.log(error);
+				logger.log(error);
 			}
 		}
 	}
 
 	// Return destroy function alongside exported resources (flattened structure)
 	return defineIndexExports({
-		destroy() {
+		async destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
 			}
+			// Flush and close logger to ensure all pending logs are written
+			await logger.close();
 			// Close the database connection to ensure WAL files are properly checkpointed
 			client.close();
 		},
@@ -345,7 +347,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 							for (const row of rows) {
 								const result = db.tables[tableName].insert(row);
 								if (result.error) {
-									await logger.log(
+									logger.log(
 										IndexError({
 											message: `Failed to insert row ${row.id} from SQLite into YJS table ${tableName}`,
 											context: {
