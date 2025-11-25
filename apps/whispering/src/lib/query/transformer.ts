@@ -273,8 +273,8 @@ async function handleStep({
 					// Fall back to global default from Settings → API Keys → Custom section
 					const defaultBaseUrl =
 						settings.value['completion.custom.baseUrl']?.trim();
-					// Use ?? (nullish coalescing) so empty string is treated as "no value"
-					const baseUrl = stepBaseUrl ?? defaultBaseUrl ?? '';
+					// Use || so empty string falls back to next value (cleared field = use default)
+					const baseUrl = stepBaseUrl || defaultBaseUrl || '';
 
 					// API key is global because most local endpoints don't require auth
 					const { data: completionResponse, error: completionError } =
