@@ -27,9 +27,10 @@
 		collapsed?: boolean;
 	} = $props();
 
-	const showMigrationButton =
+	const shouldShowMigrationButton = $derived(
 		window.__TAURI_INTERNALS__ &&
-		(import.meta.env.DEV || migrationDialog.hasIndexedDBData);
+			(import.meta.env.DEV || migrationDialog.hasIndexedDBData),
+	);
 
 	const navItems = [
 		{
@@ -171,7 +172,7 @@
 					</DropdownMenu.Item>
 				{/if}
 			{/each}
-			{#if showMigrationButton}
+			{#if shouldShowMigrationButton}
 				<DropdownMenu.Item
 					onclick={migrationDialog.openDialog}
 					class="flex items-center gap-2"
@@ -234,11 +235,8 @@
 				</WhisperingButton>
 			{/if}
 		{/each}
-		{#if showMigrationButton}
-			<MigrationDialogTrigger
-				hasIndicator={migrationDialog.hasIndexedDBData}
-				onclick={migrationDialog.openDialog}
-			/>
+		{#if shouldShowMigrationButton}
+			<MigrationDialogTrigger />
 		{/if}
 	</nav>
 {/if}
