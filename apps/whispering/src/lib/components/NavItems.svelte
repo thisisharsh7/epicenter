@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import MigrationDialogTrigger from '$lib/components/MigrationDialogTrigger.svelte';
-	import { migrationDialog } from '$lib/components/MigrationDialog.svelte';
+	import MigrationDialog, {
+		migrationDialog,
+	} from '$lib/components/MigrationDialog.svelte';
 	import { GithubIcon } from '$lib/components/icons';
 	import * as DropdownMenu from '@repo/ui/dropdown-menu';
 	import { cn } from '@repo/ui/utils';
@@ -173,20 +174,21 @@
 				{/if}
 			{/each}
 			{#if shouldShowMigrationButton}
-				<DropdownMenu.Item
-					onclick={migrationDialog.openDialog}
-					class="flex items-center gap-2"
-				>
-					<div class="relative size-4">
-						<Database class="size-4" aria-hidden="true" />
-						{#if migrationDialog.hasIndexedDBData}
-							<span
-								class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"
-							></span>
-						{/if}
-					</div>
-					<span>Database Migration Manager</span>
-				</DropdownMenu.Item>
+				<MigrationDialog>
+					{#snippet trigger({ props })}
+						<DropdownMenu.Item class="flex items-center gap-2" {...props}>
+							<div class="relative size-4">
+								<Database class="size-4" aria-hidden="true" />
+								{#if migrationDialog.hasIndexedDBData}
+									<span
+										class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"
+									></span>
+								{/if}
+							</div>
+							<span>Database Migration Manager</span>
+						</DropdownMenu.Item>
+					{/snippet}
+				</MigrationDialog>
 			{/if}
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
@@ -236,7 +238,27 @@
 			{/if}
 		{/each}
 		{#if shouldShowMigrationButton}
-			<MigrationDialogTrigger />
+			<MigrationDialog>
+				{#snippet trigger({ props })}
+					<WhisperingButton
+						tooltipContent="Database Migration Manager"
+						variant="ghost"
+						size="icon"
+						class="relative"
+						{...props}
+					>
+						<Database class="size-4" aria-hidden="true" />
+						{#if migrationDialog.hasIndexedDBData}
+							<span
+								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500 animate-ping"
+							></span>
+							<span
+								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500"
+							></span>
+						{/if}
+					</WhisperingButton>
+				{/snippet}
+			</MigrationDialog>
 		{/if}
 	</nav>
 {/if}

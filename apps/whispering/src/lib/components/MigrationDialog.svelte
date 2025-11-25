@@ -1201,6 +1201,13 @@
 <script lang="ts">
 	import { Button } from '@repo/ui/button';
 	import * as Dialog from '@repo/ui/dialog';
+	import type { Snippet } from 'svelte';
+
+	type TriggerProps = {
+		props: Record<string, unknown>;
+	};
+
+	let { trigger }: { trigger?: Snippet<[TriggerProps]> } = $props();
 
 	let logsContainer: HTMLDivElement;
 
@@ -1220,6 +1227,13 @@
 		}
 	}}
 >
+	{#if trigger}
+		<Dialog.Trigger>
+			{#snippet child({ props })}
+				{@render trigger({ props })}
+			{/snippet}
+		</Dialog.Trigger>
+	{/if}
 	<Dialog.Content class="max-h-[90vh] max-w-3xl overflow-y-auto">
 		<Dialog.Header>
 			<Dialog.Title>Database Migration Manager</Dialog.Title>
