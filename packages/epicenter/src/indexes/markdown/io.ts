@@ -1,9 +1,9 @@
-import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
-import { type Result, tryAsync } from 'wellcrafted/result';
 import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { AbsolutePath } from '../../core/types';
 import { type } from 'arktype';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
+import { Ok, type Result, tryAsync } from 'wellcrafted/result';
+import type { AbsolutePath } from '../../core/types';
 
 export const { MarkdownOperationError, MarkdownOperationErr } =
 	createTaggedError('MarkdownOperationError');
@@ -68,7 +68,9 @@ export async function readMarkdownFile(filePath: string): Promise<
 
 			// Validate that data is a plain object using type guard
 			// If it's not a plain object, use empty object instead
-			const data = type("Record<string, unknown>").allows(parsedData) ? parsedData : {};
+			const data = type('Record<string, unknown>').allows(parsedData)
+				? parsedData
+				: {};
 
 			return {
 				data,
@@ -133,7 +135,7 @@ export async function deleteMarkdownFile({
  * List all markdown files in a directory recursively
  *
  * @param sourcePath - Path to the directory (can be relative or absolute)
- * @returns Array of absolute paths to all .md files found
+ * @returns Array of absolute paths to all .md files found (empty array if directory doesn't exist)
  */
 export async function listMarkdownFiles(
 	sourcePath: string,
@@ -141,8 +143,20 @@ export async function listMarkdownFiles(
 	// Convert to absolute path first (handles both relative and absolute input)
 	const absoluteSourcePath = resolve(sourcePath) as AbsolutePath;
 
-	const files = await readdir(absoluteSourcePath, { recursive: true });
-	return files
-		.filter((file) => file.endsWith('.md'))
-		.map((file) => join(absoluteSourcePath, file) as AbsolutePath);
+	// Try to read directory, return empty array if it doesn't exist
+	const { data: files } = await tryAsync({
+		try: async () => {
+			const files = await readdir(absoluteSourcePath, { recursive: true });
+			return files
+				.filter((file) => file.endsWith('.md'))
+				.map((file) => join(absoluteSourcePath, file) as AbsolutePath);
+		},
+		catch: (_) => {
+			// Directory doesn't exist or isn't readable - return empty array
+			// This is expected behavior during initial setup
+			return Ok([]);
+		},
+	});
+
+	return files;
 }
