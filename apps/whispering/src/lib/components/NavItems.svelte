@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import MigrationDialogTrigger from '$lib/components/MigrationDialogTrigger.svelte';
+	import { migrationDialog } from '$lib/components/MigrationDialog.svelte';
 	import { GithubIcon } from '$lib/components/icons';
 	import * as DropdownMenu from '@repo/ui/dropdown-menu';
 	import { cn } from '@repo/ui/utils';
@@ -18,24 +19,17 @@
 	} from 'lucide-svelte';
 	import { toggleMode } from 'mode-watcher';
 
-	type MigrationDialog = {
-		hasIndexedDBData: boolean;
-		openDialog: () => void;
-	};
-
 	let {
 		class: className,
 		collapsed = false,
-		migrationDialog,
 	}: {
 		class?: string;
 		collapsed?: boolean;
-		migrationDialog?: MigrationDialog;
 	} = $props();
 
 	const showMigrationButton =
 		window.__TAURI_INTERNALS__ &&
-		(import.meta.env.DEV || migrationDialog?.hasIndexedDBData);
+		(import.meta.env.DEV || migrationDialog.hasIndexedDBData);
 
 	const navItems = [
 		{
@@ -179,12 +173,12 @@
 			{/each}
 			{#if showMigrationButton}
 				<DropdownMenu.Item
-					onclick={migrationDialog?.openDialog}
+					onclick={migrationDialog.openDialog}
 					class="flex items-center gap-2"
 				>
 					<div class="relative size-4">
 						<Database class="size-4" aria-hidden="true" />
-						{#if migrationDialog?.hasIndexedDBData}
+						{#if migrationDialog.hasIndexedDBData}
 							<span
 								class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"
 							></span>
@@ -242,8 +236,8 @@
 		{/each}
 		{#if showMigrationButton}
 			<MigrationDialogTrigger
-				hasIndicator={migrationDialog?.hasIndexedDBData}
-				onclick={migrationDialog?.openDialog}
+				hasIndicator={migrationDialog.hasIndexedDBData}
+				onclick={migrationDialog.openDialog}
 			/>
 		{/if}
 	</nav>
