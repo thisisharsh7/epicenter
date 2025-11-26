@@ -8,16 +8,14 @@
 	import * as DropdownMenu from '@repo/ui/dropdown-menu';
 	import { cn } from '@repo/ui/utils';
 	import { LogicalSize, getCurrentWindow } from '@tauri-apps/api/window';
-	import {
-		Database,
-		LayersIcon,
-		ListIcon,
-		Minimize2Icon,
-		MoonIcon,
-		MoreVerticalIcon,
-		SettingsIcon,
-		SunIcon,
-	} from 'lucide-svelte';
+	import Database from '@lucide/svelte/icons/database';
+	import LayersIcon from '@lucide/svelte/icons/layers';
+	import ListIcon from '@lucide/svelte/icons/list';
+	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import MoreVerticalIcon from '@lucide/svelte/icons/more-vertical';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import SunIcon from '@lucide/svelte/icons/sun';
 	import { toggleMode } from 'mode-watcher';
 
 	let {

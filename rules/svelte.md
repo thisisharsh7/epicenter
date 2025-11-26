@@ -160,6 +160,20 @@ import { Button } from '$lib/components/ui/button';
 import { Input } from '$lib/components/ui/input';
 ```
 
+**Lucide icons** (always use individual imports from `@lucide/svelte`):
+
+```typescript
+// Good: Individual icon imports
+import Database from '@lucide/svelte/icons/database';
+import MinusIcon from '@lucide/svelte/icons/minus';
+import MoreVerticalIcon from '@lucide/svelte/icons/more-vertical';
+
+// Bad: Don't import multiple icons from lucide-svelte
+import { Database, MinusIcon, MoreVerticalIcon } from 'lucide-svelte';
+```
+
+The path uses kebab-case (e.g., `more-vertical`, `minimize-2`), and you can name the import whatever you want (typically PascalCase with optional Icon suffix).
+
 ## Styling and Customization
 
 - Always use the `cn()` utility from `$lib/utils` for combining Tailwind classes
