@@ -8,7 +8,7 @@ import {
 } from 'drizzle-orm/better-sqlite3';
 import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
-import { Ok, tryAsync } from 'wellcrafted/result';
+import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
@@ -17,8 +17,8 @@ import {
 	defineIndexExports,
 } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
-import { createIndexLogger } from '../error-logger';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
+import { createIndexLogger } from '../error-logger';
 
 /**
  * Bidirectional sync coordination state
@@ -153,7 +153,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				const { error } = await tryAsync({
 					try: async () => {
 						const serializedRow = row.toJSON();
-						await sqliteDb.insert(drizzleTable).values(serializedRow);
+						// biome-ignore lint/suspicious/noExplicitAny: serialized YJS row is structurally compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
+						await sqliteDb.insert(drizzleTable).values(serializedRow as any);
 					},
 					catch: (e) =>
 						IndexErr({
@@ -189,8 +190,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						const serializedRow = row.toJSON();
 						await sqliteDb
 							.update(drizzleTable)
-							.set(serializedRow)
-							.where(eq(drizzleTable.id, row.id));
+							// biome-ignore lint/suspicious/noExplicitAny: serialized YJS row is structurally compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
+							.set(serializedRow as any)
+							// biome-ignore lint/suspicious/noExplicitAny: id field type is compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
+							.where(eq(drizzleTable.id as any, row.id));
 					},
 					catch: (e) =>
 						IndexErr({
@@ -210,7 +213,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 
 				const { error } = await tryAsync({
 					try: async () => {
-						await sqliteDb.delete(drizzleTable).where(eq(drizzleTable.id, id));
+						await sqliteDb
+							.delete(drizzleTable)
+							// biome-ignore lint/suspicious/noExplicitAny: id field type is compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
+							.where(eq(drizzleTable.id as any, id));
 					},
 					catch: (e) =>
 						IndexErr({
