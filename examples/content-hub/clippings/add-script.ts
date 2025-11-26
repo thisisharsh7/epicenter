@@ -1,7 +1,7 @@
 import { createEpicenterClient } from '@epicenter/hq';
 import epicenter from '../epicenter.config';
 
-using client = await createEpicenterClient(epicenter);
+await using client = await createEpicenterClient(epicenter);
 
 await client.clippings.addFromUrl({
 	url: 'https://blog.puzzmo.com/posts/2025/07/30/six-weeks-of-claude-code/',
