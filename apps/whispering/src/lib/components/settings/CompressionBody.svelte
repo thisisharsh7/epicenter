@@ -3,13 +3,18 @@
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { Badge } from '@repo/ui/badge';
 	import { Checkbox } from '@repo/ui/checkbox';
-	import { FFMPEG_DEFAULT_COMPRESSION_OPTIONS } from '$lib/services/recorder/ffmpeg';
+	import {
+		FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
+		FFMPEG_SMALLEST_COMPRESSION_OPTIONS,
+	} from '$lib/services/recorder/ffmpeg';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
-	import { RotateCcw } from '@lucide/svelte';
-	import { isCompressionRecommended } from '../../../routes/+layout/check-ffmpeg';
+	import { RotateCcw, AlertTriangle } from '@lucide/svelte';
+	import { isCompressionRecommended } from '$routes/(app)/_layout-utils/check-ffmpeg';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
+	import * as Alert from '@repo/ui/alert';
+	import { Link } from '@repo/ui/link';
 
 	// Compression preset definitions (UI only - not stored in settings)
 	const COMPRESSION_PRESETS = {
@@ -29,8 +34,7 @@
 			label: 'Smallest',
 			icon: '🗜️',
 			description: 'Maximum compression with silence removal',
-			options:
-				'-af silenceremove=start_periods=1:start_duration=0.1:start_threshold=-50dB:detection=peak,aformat=s16:16000:1 -c:a libopus -b:a 16k -ar 16000 -ac 1 -compression_level 10',
+			options: FFMPEG_SMALLEST_COMPRESSION_OPTIONS,
 		},
 		compatible: {
 			label: 'MP3',
@@ -171,5 +175,19 @@
 				output.opus
 			</code>
 		</div>
+	{/if}
+
+	<!-- FFmpeg Installation Warning -->
+	{#if !isFfmpegInstalled && !isFfmpegCheckLoading}
+		<Alert.Root variant="warning">
+			<AlertTriangle class="size-4" />
+			<Alert.Title>FFmpeg Required</Alert.Title>
+			<Alert.Description>
+				Audio compression requires FFmpeg to be installed on your system. <Link
+					href="/install-ffmpeg"
+					class="font-medium underline underline-offset-4">Install FFmpeg</Link
+				> to enable this feature.
+			</Alert.Description>
+		</Alert.Root>
 	{/if}
 </div>

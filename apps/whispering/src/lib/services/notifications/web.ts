@@ -1,16 +1,12 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import type { NotificationService, UnifiedNotificationOptions } from './types';
-import {
-	NotificationServiceErr,
-	toBrowserNotification,
-	toExtensionNotification,
-} from './types';
+import { NotificationServiceErr, toBrowserNotification } from './types';
 
 /**
  * Creates a web-based notification service that handles browser notifications
  * with fallback support for extension-based notifications.
- * 
+ *
  * @returns {NotificationService} A notification service instance with notify and clear methods
  */
 export function createNotificationServiceWeb(): NotificationService {
@@ -21,7 +17,7 @@ export function createNotificationServiceWeb(): NotificationService {
 	/**
 	 * Detects if a browser extension is available for enhanced notification support.
 	 * Results are cached to avoid repeated detection attempts.
-	 * 
+	 *
 	 * @returns {Promise<boolean>} True if extension is available, false otherwise
 	 */
 	const detectExtension = async (): Promise<boolean> => {
@@ -40,7 +36,7 @@ export function createNotificationServiceWeb(): NotificationService {
 		/**
 		 * Sends a notification using the best available method (extension or browser API).
 		 * Automatically handles permission requests and converts unified options to browser format.
-		 * 
+		 *
 		 * @param {UnifiedNotificationOptions} options - Notification configuration including title, body, and actions
 		 * @returns {Promise<Result<string, NotificationServiceError>>} Success with notification ID or error
 		 */
@@ -114,11 +110,11 @@ export function createNotificationServiceWeb(): NotificationService {
 		/**
 		 * Clears a notification by ID. Currently a no-op for browser notifications
 		 * as they don't provide a direct clear API.
-		 * 
+		 *
 		 * @param {string} id - The notification ID to clear
 		 * @returns {Promise<Result<undefined, NotificationServiceError>>} Success or error result
 		 */
-		async clear(id: string) {
+		async clear(_id: string) {
 			// Browser notifications don't have a direct clear API
 			// They auto-dismiss or require service worker control
 			// For future extension support:

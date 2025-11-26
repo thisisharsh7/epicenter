@@ -19,7 +19,7 @@
 	} from '@lucide/svelte';
 
 	const transformationsQuery = createQuery(
-		rpc.transformations.queries.getAllTransformations.options,
+		rpc.db.transformations.getAll.options,
 	);
 
 	const transformations = $derived(transformationsQuery.data ?? []);
@@ -95,9 +95,10 @@
 						onSelect={() => {
 							settings.updateKey(
 								'transformations.selectedTransformationId',
-								settings.value['transformations.selectedTransformationId'] === transformation.id
+								settings.value['transformations.selectedTransformationId'] ===
+									transformation.id
 									? null
-									: transformation.id
+									: transformation.id,
 							);
 							combobox.closeAndFocusTrigger();
 						}}

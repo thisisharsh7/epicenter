@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Minimal CLI to import a Reddit export ZIP into a local LibSQL database.
  * Commands:
@@ -13,14 +14,15 @@
  *   If set, overrides the db URL entirely (e.g., libsql://..., file:/abs/path.db).
  */
 
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient } from '@libsql/client';
 import type { Adapter } from '@repo/vault-core';
 import { Vault } from '@repo/vault-core';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+
 // -------------------------------------------------------------
 type CLIArgs = {
 	_: string[]; // positional
@@ -179,7 +181,7 @@ async function main() {
 	const argv = process.argv.slice(2);
 	const args = parseArgs(argv);
 
-	const command = args._[0] ?? 'import';
+	const command = args._.at(0) ?? 'import';
 	switch (command) {
 		case 'import':
 			{

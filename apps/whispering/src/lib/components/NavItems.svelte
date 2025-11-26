@@ -1,25 +1,35 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import MigrationDialog, {
+		migrationDialog,
+	} from '$lib/components/MigrationDialog.svelte';
 	import { GithubIcon } from '$lib/components/icons';
 	import * as DropdownMenu from '@repo/ui/dropdown-menu';
 	import { cn } from '@repo/ui/utils';
 	import { LogicalSize, getCurrentWindow } from '@tauri-apps/api/window';
-	import {
-		LayersIcon,
-		ListIcon,
-		Minimize2Icon,
-		MoonIcon,
-		MoreVerticalIcon,
-		SettingsIcon,
-		SunIcon,
-	} from '@lucide/svelte';
+	import Database from '@lucide/svelte/icons/database';
+	import LayersIcon from '@lucide/svelte/icons/layers';
+	import ListIcon from '@lucide/svelte/icons/list';
+	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import MoreVerticalIcon from '@lucide/svelte/icons/more-vertical';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import SunIcon from '@lucide/svelte/icons/sun';
 	import { toggleMode } from 'mode-watcher';
 
 	let {
 		class: className,
 		collapsed = false,
-	}: { class?: string; collapsed?: boolean } = $props();
+	}: {
+		class?: string;
+		collapsed?: boolean;
+	} = $props();
+
+	const shouldShowMigrationButton = $derived(
+		window.__TAURI_INTERNALS__ &&
+			(import.meta.env.DEV || migrationDialog.hasIndexedDBData),
+	);
 
 	const navItems = [
 		{
@@ -44,7 +54,7 @@
 		{
 			label: 'View project on GitHub',
 			icon: GithubIcon,
-			href: 'https://github.com/epicenter-so/epicenter',
+			href: 'https://github.com/epicenter-md/epicenter',
 			type: 'anchor',
 			external: true,
 		},
@@ -161,6 +171,23 @@
 					</DropdownMenu.Item>
 				{/if}
 			{/each}
+			{#if shouldShowMigrationButton}
+				<MigrationDialog>
+					{#snippet trigger({ props })}
+						<DropdownMenu.Item class="flex items-center gap-2" {...props}>
+							<div class="relative size-4">
+								<Database class="size-4" aria-hidden="true" />
+								{#if migrationDialog.hasIndexedDBData}
+									<span
+										class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"
+									></span>
+								{/if}
+							</div>
+							<span>Database Migration Manager</span>
+						</DropdownMenu.Item>
+					{/snippet}
+				</MigrationDialog>
+			{/if}
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
 {:else}
@@ -208,6 +235,29 @@
 				</WhisperingButton>
 			{/if}
 		{/each}
+		{#if shouldShowMigrationButton}
+			<MigrationDialog>
+				{#snippet trigger({ props })}
+					<WhisperingButton
+						tooltipContent="Database Migration Manager"
+						variant="ghost"
+						size="icon"
+						class="relative"
+						{...props}
+					>
+						<Database class="size-4" aria-hidden="true" />
+						{#if migrationDialog.hasIndexedDBData}
+							<span
+								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500 animate-ping"
+							></span>
+							<span
+								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500"
+							></span>
+						{/if}
+					</WhisperingButton>
+				{/snippet}
+			</MigrationDialog>
+		{/if}
 	</nav>
 {/if}
 

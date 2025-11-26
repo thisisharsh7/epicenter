@@ -125,5 +125,5 @@
 		"ask": [],
 		"additionalDirectories": ["../wellcrafted"]
 	},
-	"model": "opus"
+	"model": "sonnet"
 }

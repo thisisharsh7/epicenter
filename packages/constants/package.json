@@ -3,7 +3,10 @@
 	"version": "0.0.1",
 	"type": "module",
 	"imports": {
-		"#*": ["./src/*.ts", "./src/*/index.ts"]
+		"#*": [
+			"./src/*.ts",
+			"./src/*/index.ts"
+		]
 	},
 	"exports": {
 		"./vite": "./src/vite.ts",

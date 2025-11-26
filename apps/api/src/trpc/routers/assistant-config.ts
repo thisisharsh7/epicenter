@@ -1,14 +1,13 @@
 import {
-	assistantConfig,
-	AssistantConfigInsert,
-	assistantConfigInsertSchema,
-	type AssistantConfigSelect,
-	assistantConfigUpdateSchema,
-} from '@repo/db/schema';
-import {
 	createEncryptionUtils,
 	type EncryptedData,
 } from '@repo/db/lib/encryption';
+import {
+	type AssistantConfigSelect,
+	assistantConfig,
+	assistantConfigInsertSchema,
+	assistantConfigUpdateSchema,
+} from '@repo/db/schema';
 import { TRPCError } from '@trpc/server';
 import { type } from 'arktype';
 import { and, desc, eq } from 'drizzle-orm';
