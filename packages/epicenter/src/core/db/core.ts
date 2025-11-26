@@ -34,6 +34,18 @@ import {
  */
 const TABLE_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
+/**
+ * Valid column name pattern: same constraints as table names.
+ *
+ * Column names appear in the same three systems and have identical requirements:
+ * - **SQLite**: Valid unquoted column identifier
+ * - **JavaScript**: `row.columnName` dot notation access
+ * - **YAML frontmatter**: Markdown index serializes columns to frontmatter keys
+ *
+ * @see TABLE_NAME_PATTERN for detailed constraint rationale
+ */
+const COLUMN_NAME_PATTERN = TABLE_NAME_PATTERN;
+
 // Re-export TableHelper for public API
 export type { TableHelper } from './table-helper';
 
@@ -105,6 +117,17 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 			throw new Error(
 				`Table name "${tableName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "posts", "user_sessions", "items2")`,
 			);
+		}
+	}
+
+	// Validate column names for each table
+	for (const [tableName, tableSchema] of Object.entries(schema)) {
+		for (const columnName of Object.keys(tableSchema)) {
+			if (!COLUMN_NAME_PATTERN.test(columnName)) {
+				throw new Error(
+					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "title", "created_at", "count2")`,
+				);
+			}
 		}
 	}
 
