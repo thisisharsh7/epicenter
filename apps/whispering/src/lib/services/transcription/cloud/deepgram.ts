@@ -1,9 +1,9 @@
+import { Ok, type Result } from 'wellcrafted/result';
+import { z } from 'zod';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import type { HttpService } from '$lib/services/http';
 import { HttpServiceLive } from '$lib/services/http';
 import type { Settings } from '$lib/settings';
-import { Ok, type Result } from 'wellcrafted/result';
-import { z } from 'zod';
 
 export const DEEPGRAM_TRANSCRIPTION_MODELS = [
 	{
@@ -113,7 +113,8 @@ export function createDeepgramTranscriptionService({
 			}
 
 			if (options.prompt) {
-				params.append('keywords', options.prompt);
+				const isNova3 = options.modelName.toLowerCase().includes('nova-3');
+				params.append(isNova3 ? 'keyterm' : 'keywords', options.prompt);
 			}
 
 			// Send raw audio data directly as recommended by Deepgram docs
@@ -238,8 +239,9 @@ export function createDeepgramTranscriptionService({
 			}
 
 			// Extract transcription text
-			const transcript =
-				deepgramResponse.results?.channels?.[0]?.alternatives?.[0]?.transcript;
+			const transcript = deepgramResponse.results?.channels
+				?.at(0)
+				?.alternatives?.at(0)?.transcript;
 
 			if (!transcript) {
 				return WhisperingErr({

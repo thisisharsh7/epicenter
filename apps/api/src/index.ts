@@ -1,10 +1,10 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
 import { trpcServer } from '@hono/trpc-server';
 import { APP_URLS, type CloudflareEnv } from '@repo/constants/cloudflare';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { auth, type Session, type User } from './lib/auth';
-import { appRouter } from './trpc/routers';
 import { createContext } from './trpc/context';
+import { appRouter } from './trpc/routers';
 
 const app = new Hono<{
 	Bindings: CloudflareEnv;
@@ -50,7 +50,7 @@ app.use(
 	'/trpc/*',
 	trpcServer({
 		router: appRouter,
-		createContext: (opts, c) => createContext(c),
+		createContext: (_opts, c) => createContext(c),
 	}),
 );
 

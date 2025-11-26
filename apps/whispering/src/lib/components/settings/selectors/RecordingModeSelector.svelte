@@ -10,7 +10,8 @@
 	import { rpc } from '$lib/query';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
-	import { CheckIcon, ChevronDown } from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
 	let { class: className }: { class?: string } = $props();
 
@@ -59,9 +60,7 @@
 						<Command.Item
 							value={mode.value}
 							onSelect={async () => {
-								await settings.switchRecordingMode(
-									mode.value as RecordingMode,
-								);
+								await settings.switchRecordingMode(mode.value as RecordingMode);
 								combobox.closeAndFocusTrigger();
 							}}
 							class="flex items-center gap-2 px-2 py-2"

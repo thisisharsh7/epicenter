@@ -29,6 +29,7 @@
  * - Easy to add/remove/rename settings
  */
 
+import { type ZodBoolean, type ZodString, z } from 'zod';
 import type { Command } from '$lib/commands';
 import {
 	BITRATE_VALUES_KBPS,
@@ -38,21 +39,20 @@ import {
 import { CommandOrAlt, CommandOrControl } from '$lib/constants/keyboard';
 import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import type { WhisperingSoundNames } from '$lib/constants/sounds';
-import { TRANSCRIPTION_SERVICE_IDS } from '$lib/services/transcription/registry';
-import type { ElevenLabsModel } from '$lib/services/transcription/cloud/elevenlabs';
-import type { GroqModel } from '$lib/services/transcription/cloud/groq';
-import type { OpenAIModel } from '$lib/services/transcription/cloud/openai';
 import { ALWAYS_ON_TOP_VALUES } from '$lib/constants/ui';
-import { asDeviceIdentifier } from '$lib/services/types';
 import {
+	FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 	FFMPEG_DEFAULT_GLOBAL_OPTIONS,
 	FFMPEG_DEFAULT_INPUT_OPTIONS,
 	FFMPEG_DEFAULT_OUTPUT_OPTIONS,
-	FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 } from '$lib/services/recorder/ffmpeg';
-import { type ZodBoolean, type ZodString, z } from 'zod';
 import type { DeepgramModel } from '$lib/services/transcription/cloud/deepgram';
+import type { ElevenLabsModel } from '$lib/services/transcription/cloud/elevenlabs';
+import type { GroqModel } from '$lib/services/transcription/cloud/groq';
 import type { MistralModel } from '$lib/services/transcription/cloud/mistral';
+import type { OpenAIModel } from '$lib/services/transcription/cloud/openai';
+import { TRANSCRIPTION_SERVICE_IDS } from '$lib/services/transcription/registry';
+import { asDeviceIdentifier } from '$lib/services/types';
 
 /**
  * The main settings schema that defines all application settings.
@@ -214,6 +214,10 @@ export const settingsSchema = z.object({
 		.string()
 		.default('mistralai/mixtral-8x7b')
 		.describe('OpenRouter model name'),
+	'completion.custom.baseUrl': z
+		.string()
+		.default('http://localhost:11434/v1')
+		.describe('Base URL for OpenAI-compatible custom endpoints'),
 
 	'apiKeys.openai': z.string().default(''),
 	'apiKeys.anthropic': z.string().default(''),
@@ -223,6 +227,7 @@ export const settingsSchema = z.object({
 	'apiKeys.elevenlabs': z.string().default(''),
 	'apiKeys.mistral': z.string().default(''),
 	'apiKeys.openrouter': z.string().default(''),
+	'apiKeys.custom': z.string().default(''),
 
 	// Analytics settings
 	'analytics.enabled': z.boolean().default(true),
@@ -236,6 +241,14 @@ export const settingsSchema = z.object({
 		'shortcuts.local.startVadRecording': z.string().nullable().default(null),
 		'shortcuts.local.stopVadRecording': z.string().nullable().default(null),
 		'shortcuts.local.pushToTalk': z.string().nullable().default('p'),
+		'shortcuts.local.openTransformationPicker': z
+			.string()
+			.nullable()
+			.default('t'),
+		'shortcuts.local.runTransformationOnClipboard': z
+			.string()
+			.nullable()
+			.default('r'),
 	} satisfies Record<
 		`shortcuts.local.${Command['id']}`,
 		z.ZodDefault<z.ZodNullable<ZodString>>
@@ -262,6 +275,14 @@ export const settingsSchema = z.object({
 			.string()
 			.nullable()
 			.default(`${CommandOrAlt}+Shift+D`),
+		'shortcuts.global.openTransformationPicker': z
+			.string()
+			.nullable()
+			.default(`${CommandOrControl}+Shift+X`),
+		'shortcuts.global.runTransformationOnClipboard': z
+			.string()
+			.nullable()
+			.default(`${CommandOrControl}+Shift+R`),
 	} satisfies Record<
 		`shortcuts.global.${Command['id']}`,
 		z.ZodDefault<z.ZodNullable<ZodString>>

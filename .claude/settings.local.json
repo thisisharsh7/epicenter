@@ -122,6 +122,7 @@
 			"mcp__nia__nia_deep_research_agent"
 		],
 		"deny": [],
-		"ask": []
+		"ask": [],
+		"additionalDirectories": ["../wellcrafted"]
 	}
 }

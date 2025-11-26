@@ -1,8 +1,8 @@
-import { WhisperingErr, type WhisperingError } from '$lib/result';
-import type { Settings } from '$lib/settings';
-import { getExtensionFromAudioBlob } from '$lib/services/_utils';
-import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { Mistral } from '@mistralai/mistralai';
+import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
+import { WhisperingErr, type WhisperingError } from '$lib/result';
+import { getExtensionFromAudioBlob } from '$lib/services/_utils';
+import type { Settings } from '$lib/settings';
 export const MISTRAL_TRANSCRIPTION_MODELS = [
 	{
 		name: 'voxtral-mini-latest',
@@ -99,7 +99,10 @@ export function createMistralTranscriptionService() {
 
 			if (mistralApiError) {
 				// Handle Mistral API errors
-				const errorMessage = mistralApiError instanceof Error ? mistralApiError.message : 'Unknown error occurred';
+				const errorMessage =
+					mistralApiError instanceof Error
+						? mistralApiError.message
+						: 'Unknown error occurred';
 
 				// Check for common HTTP status codes
 				if (

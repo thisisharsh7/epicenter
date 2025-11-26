@@ -9,13 +9,19 @@ use recorder::commands::{
 };
 
 pub mod transcription;
-use transcription::{transcribe_audio_whisper, transcribe_audio_parakeet};
+use transcription::{transcribe_audio_whisper, transcribe_audio_parakeet, ModelManager};
 
 pub mod windows_path;
 use windows_path::fix_windows_path;
 
 pub mod graceful_shutdown;
 use graceful_shutdown::send_sigint;
+
+pub mod command;
+use command::{execute_command, spawn_command};
+
+pub mod markdown_reader;
+use markdown_reader::{count_markdown_files, read_markdown_files};
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -55,7 +61,8 @@ pub async fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .manage(AppData::new());
+        .manage(AppData::new())
+        .manage(ModelManager::new());
 
     #[cfg(desktop)]
     {
@@ -81,6 +88,12 @@ pub async fn run() {
         transcribe_audio_whisper,
         transcribe_audio_parakeet,
         send_sigint,
+        // Command execution (prevents console window flash on Windows)
+        execute_command,
+        spawn_command,
+        // Filesystem utilities
+        read_markdown_files,
+        count_markdown_files,
     ]);
 
     let app = builder

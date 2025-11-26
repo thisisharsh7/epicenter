@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
+import { Log } from '@epicenter/opencode/util/log.ts';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { Log } from '@epicenter/opencode/util/log.ts';
 import { ShCommand } from './commands/sh.js';
 
 const cli = yargs(hideBin(process.argv))
@@ -37,7 +37,10 @@ const cli = yargs(hideBin(process.argv))
 	})
 	.demandCommand(1, 'You need to specify a command')
 	.command(ShCommand)
-	.example('epicenter sh', 'Start local server with cloudflare tunnel and open epicenter.sh in browser')
+	.example(
+		'epicenter sh',
+		'Start local server with cloudflare tunnel and open epicenter.sh in browser',
+	)
 	.example(
 		'epicenter sh --port=8080',
 		'Start server on specific port (defaults to auto-discovered available port)',

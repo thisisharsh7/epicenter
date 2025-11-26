@@ -2,8 +2,12 @@
 	import { Button } from '@repo/ui/button';
 	import { Badge } from '@repo/ui/badge';
 	import { Progress } from '@repo/ui/progress';
-	import { Download, CheckIcon, LoaderCircle, X } from '@lucide/svelte';
+	import Download from '@lucide/svelte/icons/download';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+	import X from '@lucide/svelte/icons/x';
 	import { toast } from 'svelte-sonner';
+	import { join } from '@tauri-apps/api/path';
 	import {
 		exists,
 		mkdir,
@@ -14,7 +18,7 @@
 	import { fetch } from '@tauri-apps/plugin-http';
 	import { extractErrorMessage } from 'wellcrafted/error';
 	import { tryAsync, Ok } from 'wellcrafted/result';
-	import { appDataDir, join } from '@tauri-apps/api/path';
+	import { PATHS } from '$lib/constants/paths';
 	import { settings } from '$lib/stores/settings.svelte';
 	import type {
 		LocalModelConfig,
@@ -41,15 +45,13 @@
 	 * and ensures that the parent directory structure exists.
 	 *
 	 * @returns The full path where the model should be stored:
-	 * - For Whisper models: `{appDataDir}/whisper-models/{filename}` (a single file)
-	 * - For Parakeet models: `{appDataDir}/parakeet-models/{directoryName}/` (a directory containing multiple files)
+	 * - For Whisper models: `{appDataDir}/models/whisper/{filename}` (a single file)
+	 * - For Parakeet models: `{appDataDir}/models/parakeet/{directoryName}/` (a directory containing multiple files)
 	 */
 	async function ensureModelDestinationPath(): Promise<string> {
-		const appDir = await appDataDir();
-
 		switch (model.engine) {
 			case 'whispercpp': {
-				const modelsDir = await join(appDir, 'whisper-models');
+				const modelsDir = await PATHS.MODELS.WHISPER();
 				// Ensure directory exists
 				if (!(await exists(modelsDir))) {
 					await mkdir(modelsDir, { recursive: true });
@@ -58,7 +60,7 @@
 			}
 			case 'parakeet': {
 				// Parakeet models are stored in a directory
-				const parakeetModelsDir = await join(appDir, 'parakeet-models');
+				const parakeetModelsDir = await PATHS.MODELS.PARAKEET();
 				// Ensure directory exists
 				if (!(await exists(parakeetModelsDir))) {
 					await mkdir(parakeetModelsDir, { recursive: true });

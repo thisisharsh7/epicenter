@@ -1,7 +1,8 @@
-import devtoolsJson from 'vite-plugin-devtools-json';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import devtoolsJson from 'vite-plugin-devtools-json';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -10,7 +11,13 @@ export default defineConfig(async () => ({
 	plugins: [
 		sveltekit(),
 		tailwindcss(),
-		devtoolsJson()
+		devtoolsJson(),
+		nodePolyfills({
+			// Enable polyfills for Buffer (needed by gray-matter)
+			globals: {
+				Buffer: true,
+			},
+		}),
 	],
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
 	//
