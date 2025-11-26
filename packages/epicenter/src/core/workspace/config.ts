@@ -2,7 +2,7 @@ import type * as Y from 'yjs';
 import type { WorkspaceExports } from '../actions';
 import type { Db } from '../db/core';
 import type { Index, WorkspaceIndexMap } from '../indexes';
-import type { WorkspaceSchema } from '../schema';
+import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { AbsolutePath } from '../types';
 
 /**
@@ -234,8 +234,35 @@ export type WorkspaceConfig<
 		[K in keyof TIndexResults]: Index<TWorkspaceSchema, TIndexResults[K]>;
 	};
 	providers?: Provider[];
+	/**
+	 * Factory function that creates workspace exports (actions, utilities, etc.)
+	 *
+	 * @param context.db - Epicenter database API for direct table operations
+	 * @param context.validators - Schema validators for runtime validation and arktype composition
+	 * @param context.indexes - Index-specific exports (queries, sync operations, etc.)
+	 * @param context.workspaces - Exports from dependency workspaces (if any)
+	 *
+	 * @example
+	 * ```typescript
+	 * exports: ({ db, validators, indexes }) => ({
+	 *   // Expose db for direct access
+	 *   db,
+	 *
+	 *   // Expose validators for external validation (e.g., migration scripts)
+	 *   validators,
+	 *
+	 *   // Define actions using db operations
+	 *   createPost: db.posts.insert,
+	 *   getPost: db.posts.get,
+	 *
+	 *   // Expose index operations
+	 *   pullToMarkdown: indexes.markdown.pullToMarkdown,
+	 * })
+	 * ```
+	 */
 	exports: (context: {
 		db: Db<TWorkspaceSchema>;
+		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToExports<TDeps>;
 		indexes: TIndexResults;
 	}) => TExports;

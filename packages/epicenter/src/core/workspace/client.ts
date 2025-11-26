@@ -1,12 +1,9 @@
 import path from 'node:path';
 import * as Y from 'yjs';
-import {
-	type WorkspaceActionMap,
-	type WorkspaceExports,
-} from '../actions';
+import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
-import type { WorkspaceSchema } from '../schema';
+import { type WorkspaceSchema, createWorkspaceValidators } from '../schema';
 import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
@@ -280,8 +277,10 @@ export async function initializeWorkspaces<
 	): Promise<WorkspaceClient<any>> => {
 		// Build the workspaceClients object by injecting already-initialized dependencies
 		// Key: dependency id, Value: full client with all exports (actions + utilities)
-		const workspaceClients: Record<string, WorkspaceClient<WorkspaceExports>> =
-			{};
+		const workspaceClients: Record<
+			string,
+			WorkspaceClient<WorkspaceExports>
+		> = {};
 
 		if (
 			workspaceConfig.dependencies &&
@@ -336,6 +335,10 @@ export async function initializeWorkspaces<
 		// Initialize Epicenter database (wraps YJS with table/record API)
 		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
 
+		// Create validators for runtime validation and arktype composition
+		// Exposed via exports context for use in migration scripts, external validation, etc.
+		const validators = createWorkspaceValidators(workspaceConfig.schema);
+
 		// Initialize each index by calling its factory function with IndexContext
 		// Each index function receives { id, db, storageDir } and returns an index object
 		// Initialize all indexes in parallel for better performance
@@ -355,13 +358,15 @@ export async function initializeWorkspaces<
 		};
 
 		// Call the exports factory to get workspace exports (actions + utilities), passing:
-		// - workspaces: full clients from dependencies (all exports, not filtered!)
 		// - db: Epicenter database API
+		// - validators: Schema validators for runtime validation and arktype composition
 		// - indexes: exported resources from each index (db, queries, etc.)
+		// - workspaces: full clients from dependencies (all exports, not filtered!)
 		const exports = workspaceConfig.exports({
-			workspaces: workspaceClients,
 			db,
+			validators,
 			indexes,
+			workspaces: workspaceClients,
 		});
 
 		// Create async cleanup function

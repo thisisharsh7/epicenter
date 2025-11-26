@@ -47,7 +47,7 @@ export const epicenter = defineWorkspace({
 						}),
 						deserialize: ({ frontmatter, body, filename, table }) => {
 							const slug = path.basename(filename, '.md');
-							const FrontMatter = table.$validators
+							const FrontMatter = table.validators
 								.toArktype()
 								.omit('content', 'slug');
 							const frontmatterParsed = FrontMatter(frontmatter);
@@ -75,7 +75,17 @@ export const epicenter = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ db, indexes }) => ({
+	exports: ({ db, validators, indexes }) => ({
+		/**
+		 * Direct access to database operations
+		 */
+		db,
+
+		/**
+		 * Schema validators for runtime validation and arktype composition
+		 */
+		validators,
+
 		/**
 		 * Get all pitches
 		 */

@@ -167,18 +167,6 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		$schema: schema,
 
 		/**
-		 * Table validators for all tables.
-		 * Each validator includes methods like validateSerializedRow(), toStandardSchema(), etc.
-		 *
-		 * @example
-		 * ```typescript
-		 * const validator = db.$validators.posts.toArktype();
-		 * const result = validator(data);
-		 * ```
-		 */
-		$validators: validators,
-
-		/**
 		 * The underlying YJS document.
 		 * Exposed for persistence and sync providers.
 		 *

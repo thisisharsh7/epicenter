@@ -40,7 +40,7 @@ await using client = await createEpicenterClient(epicenterConfig);
 
 // Frontmatter validator (omits id and content which are handled separately)
 // Nullable fields automatically default to null, required fields must be present
-const FrontMatter = client.journal.db.$validators.journal
+const FrontMatter = client.journal.validators.journal
 	.toArktype()
 	.omit('id', 'content');
 
