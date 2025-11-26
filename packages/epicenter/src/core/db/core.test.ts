@@ -16,7 +16,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create a row
-		doc.tables.posts.insert({
+		doc.posts.insert({
 			id: '1',
 			title: 'Test Post',
 			viewCount: 0,
@@ -24,7 +24,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Retrieve the row
-		const result = doc.tables.posts.get({ id: '1' });
+		const result = doc.posts.get({ id: '1' });
 		expect(result).not.toBeNull();
 		if (result && result.data) {
 			expect(result.data.title).toBe('Test Post');
@@ -45,15 +45,15 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create multiple rows
-		const { error: insertError } = doc.tables.posts.insertMany([
+		const { error: insertError } = doc.posts.insertMany([
 			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
 			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
 		]);
 		expect(insertError).toBeNull();
 
 		// Retrieve and verify rows
-		const row1 = doc.tables.posts.get({ id: '1' });
-		const row2 = doc.tables.posts.get({ id: '2' });
+		const row1 = doc.posts.get({ id: '1' });
+		const row2 = doc.posts.get({ id: '2' });
 		expect(row1).not.toBeNull();
 		expect(row2).not.toBeNull();
 		if (row1 && row1.data) {
@@ -75,18 +75,18 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		doc.tables.posts.insertMany([
+		doc.posts.insertMany([
 			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
 			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
 			{ id: '3', title: 'Post 3', viewCount: 30, published: true },
 		]);
 
 		// Filter published posts
-		const publishedPosts = doc.tables.posts.filter((post) => post.published);
+		const publishedPosts = doc.posts.filter((post) => post.published);
 		expect(publishedPosts).toHaveLength(2);
 
 		// Find first unpublished post
-		const firstDraft = doc.tables.posts.find((post) => !post.published);
+		const firstDraft = doc.posts.find((post) => !post.published);
 		expect(firstDraft).not.toBeNull();
 		if (firstDraft) {
 			expect(firstDraft.id).toBe('2');
@@ -105,11 +105,11 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Test get() with non-existent id
-		const getResult = doc.tables.posts.get({ id: 'non-existent' });
+		const getResult = doc.posts.get({ id: 'non-existent' });
 		expect(getResult).toBeNull();
 
 		// Test find() with no matches
-		const findResult = doc.tables.posts.find(
+		const findResult = doc.posts.find(
 			(post) => post.id === 'non-existent',
 		);
 		expect(findResult).toBeNull();
@@ -126,14 +126,14 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Insert with plain strings and arrays (the documented API)
-		doc.tables.posts.insert({
+		doc.posts.insert({
 			id: '1',
 			title: 'Hello World',
 			tags: ['typescript', 'javascript'],
 		});
 
 		// Get returns Y.js objects
-		const result1 = doc.tables.posts.get({ id: '1' });
+		const result1 = doc.posts.get({ id: '1' });
 		expect(result1).not.toBeNull();
 		if (result1 && result1.data) {
 			expect(result1.data.title).toBeInstanceOf(Y.Text);
@@ -143,14 +143,14 @@ describe('createEpicenterDb', () => {
 		}
 
 		// Insert another post
-		doc.tables.posts.insert({
+		doc.posts.insert({
 			id: '2',
 			title: 'Second Post',
 			tags: ['python'],
 		});
 
 		// getAll returns Y.js objects
-		const rows = doc.tables.posts.getAll();
+		const rows = doc.posts.getAll();
 		expect(rows).toHaveLength(2);
 		expect(rows[0].title).toBeInstanceOf(Y.Text);
 		expect(rows[0].tags).toBeInstanceOf(Y.Array);

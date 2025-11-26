@@ -31,58 +31,13 @@ export const epicenterBlog = defineWorkspace({
 	providers: [setupPersistence],
 
 	exports: ({ db, indexes }) => ({
-		/**
-		 * Get all Epicenter blog posts
-		 *
-		 * Table helper pattern: we can pass `db.tables.posts.getAll` directly because
-		 * it's already a Query<> with the correct type annotations. Epicenter recognizes
-		 * table helpers as valid actions without needing `defineQuery()` wrapper.
-		 */
-		getPosts: db.tables.posts.getAll,
+		getPosts: db.posts.getAll,
+		getPost: db.posts.get,
+		createPost: db.posts.insert,
+		updatePost: db.posts.update,
+		deletePost: db.posts.delete,
 
-		/**
-		 * Get a specific Epicenter blog post by ID
-		 *
-		 * Same pattern: `db.tables.posts.get` is a pre-built Query that's already typed
-		 * to accept { id: string } and return a post or null.
-		 */
-		getPost: db.tables.posts.get,
-
-		/**
-		 * Create a new Epicenter blog post
-		 *
-		 * Why use table helper here? The schema enforces all required fields are provided.
-		 * We don't need auto-generated IDs or timestamps because the caller provides them.
-		 * If we needed to add postedAt/updatedAt automatically, we'd write a custom mutation.
-		 */
-		createPost: db.tables.posts.insert,
-
-		/**
-		 * Update an Epicenter blog post
-		 *
-		 * `db.tables.posts.update` handles partial updates. The table helper already knows
-		 * how to merge the provided fields with the existing row. No need to wrap it.
-		 */
-		updatePost: db.tables.posts.update,
-
-		/**
-		 * Delete an Epicenter blog post
-		 *
-		 * Table helper for deletion. Clean, simple, and already properly typed.
-		 */
-		deletePost: db.tables.posts.delete,
-
-		/**
-		 * Get posts filtered by niche
-		 *
-		 * This is a CUSTOM query that we keep because it has business logic the table helper
-		 * doesn't provide: filtering by the niche field using SQL.
-		 *
-		 * We still use `defineQuery()` here because we're doing something beyond basic CRUD.
-		 * The pattern is:
-		 * - Use table helpers for CRUD (create, read, update, delete)
-		 * - Use defineQuery/defineMutation for custom logic (filtering, joining, complex ops)
-		 */
+		/** Filter posts by niche */
 		getPostsByNiche: defineQuery({
 			input: type({
 				niche:

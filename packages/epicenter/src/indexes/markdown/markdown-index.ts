@@ -428,17 +428,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * This avoids prop-drilling db, tableConfigs, and absoluteWorkspaceDir
 	 */
 	const tables = db
-		.getTableNames()
-		.map((tableName) => {
-			const table = db.tables[tableName];
-			const tableSchema = db.schema[tableName];
-
-			// Skip tables that don't exist
-			if (!table || !tableSchema) return null;
-
-			// biome-ignore lint/style/noNonNullAssertion: validators is created by createWorkspaceValidators which maps over the same schema object, so every key in schema has a corresponding key in validators
-			const validators = db.validators[tableName]!;
-
+		.$tableEntries()
+		.map(({ name: tableName, table, schema: tableSchema, validators }) => {
 			// Destructure user config with defaults
 			const userConfig = tableConfigs[tableName];
 
@@ -462,7 +453,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 					absoluteWorkspaceDir,
 					userConfig?.directory ?? tableName,
 				) as AbsolutePath,
-			} satisfies ResolvedConfig;
+				// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+			} as any as ResolvedConfig;
 
 			return {
 				tableName,
@@ -506,12 +498,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 				// Serialize row once
 				const { frontmatter, body, filename } = tableConfig.serialize({
-					row: serialized,
-					table: {
-						name: tableName,
-						schema: tableSchema,
-						validators,
-					},
+					// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+					row: serialized as any,
+					// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+					table: { name: tableName, schema: tableSchema, validators } as any,
 				});
 
 				// Construct file path
@@ -521,7 +511,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 				) as AbsolutePath;
 
 				// Check if we need to clean up an old file before updating tracking
-				const oldFilename = tracking[tableName].getFilename({ rowId: row.id });
+				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+				const oldFilename = tracking[tableName]!.getFilename({ rowId: row.id });
 
 				/**
 				 * This is checking if there's an old filename AND if it's different
@@ -535,11 +526,13 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						oldFilename,
 					) as AbsolutePath;
 					await deleteMarkdownFile({ filePath: oldFilePath });
-					tracking[tableName].deleteByFilename({ filename: oldFilename });
+					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+					tracking[tableName]!.deleteByFilename({ filename: oldFilename });
 				}
 
 				// Update tracking in both directions
-				tracking[tableName].set({ rowId: row.id, filename });
+				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+				tracking[tableName]!.set({ rowId: row.id, filename });
 
 				return writeMarkdownFile({
 					filePath,
@@ -623,7 +616,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 					syncCoordination.isProcessingYJSChange = true;
 
 					// Get filename and delete file if it exists
-					const filename = tracking[tableName].getFilename({ rowId: id });
+					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+					const filename = tracking[tableName]!.getFilename({ rowId: id });
 					if (filename) {
 						const filePath = path.join(
 							tableConfig.directory,
@@ -632,7 +626,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						const { error } = await deleteMarkdownFile({ filePath });
 
 						// Clean up tracking in both directions
-						tracking[tableName].deleteByRowId({ rowId: id });
+						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+						tracking[tableName]!.deleteByRowId({ rowId: id });
 
 						if (error) {
 							// Log I/O errors (operational errors, not validation errors)
@@ -721,7 +716,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								}
 
 								// Clean up tracking in both directions
-								tracking[tableName].deleteByFilename({ filename });
+								// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+								tracking[tableName]!.deleteByFilename({ filename });
 							} else {
 								logger.log(
 									MarkdownIndexError({
@@ -776,11 +772,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								frontmatter,
 								body,
 								filename,
-								table: {
-									name: tableName,
-									schema: tableSchema,
-									validators,
-								},
+								// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+								table: { name: tableName, schema: tableSchema, validators } as any,
 							});
 
 						if (deserializeError) {
@@ -888,11 +881,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						frontmatter,
 						body,
 						filename,
-						table: {
-							name: tableName,
-							schema: tableSchema,
-							validators,
-						},
+						// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+						table: { name: tableName, schema: tableSchema, validators } as any,
 					});
 
 					if (deserializeError) {
@@ -957,12 +947,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		for (const row of rows) {
 			const serializedRow = row.toJSON();
 			const { filename } = tableConfig.serialize({
-				row: serializedRow,
-				table: {
-					name: tableName,
-					schema: tableSchema,
-					validators,
-				},
+				// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+				row: serializedRow as any,
+				// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+				table: { name: tableName, schema: tableSchema, validators } as any,
 			});
 
 			// Store both directions for O(1) lookups
@@ -1020,6 +1008,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						// Process each table independently
 						for (const {
 							tableName,
+							table,
 							tableSchema,
 							validators,
 							tableConfig,
@@ -1044,18 +1033,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							);
 
 							// Write all current YJS rows for this table to markdown files
-
-							const rows = db.tables[tableName].getAll();
+							const rows = table.getAll();
 
 							for (const row of rows) {
 								const serializedRow = row.toJSON();
 								const { frontmatter, body, filename } = tableConfig.serialize({
-									row: serializedRow,
-									table: {
-										name: tableName,
-										schema: tableSchema,
-										validators,
-									},
+									// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+									row: serializedRow as any,
+									// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+									table: { name: tableName, schema: tableSchema, validators } as any,
 								});
 
 								const filePath = path.join(
@@ -1106,11 +1092,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingFileChange = true;
 
 						// Clear all YJS tables
-						db.transact(() => {
-							for (const tableName of db.getTableNames()) {
-								db.tables[tableName].clear();
-							}
-						});
+						db.$clearAll();
 
 						// Clear diagnostics at the start of push
 						// Fresh import means fresh validation state
@@ -1164,11 +1146,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											frontmatter,
 											body,
 											filename,
-											table: {
-												name: tableName,
-												schema: tableSchema,
-												validators,
-											},
+											// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+											table: { name: tableName, schema: tableSchema, validators } as any,
 										});
 
 									if (deserializeError) {
@@ -1191,7 +1170,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									}
 
 									// Insert into YJS
-									const insertResult = table.insert(row);
+									// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
+									const insertResult = table.insert(row as any);
 									if (insertResult.error) {
 										// Log insert errors (operational errors, not validation errors)
 										logger.log(

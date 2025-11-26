@@ -95,7 +95,7 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  *
  * **Writes**: Go to YJS document → auto-sync to all indexes
  * ```typescript
- * db.tables.posts.set({ id: '1', title: 'Hello' });
+ * db.posts.set({ id: '1', title: 'Hello' });
  * // YJS updated → SQLite synced → Markdown synced → Vector synced
  * ```
  *
@@ -154,7 +154,7 @@ export type Provider = (context: ProviderContext) => void | Promise<void>;
  *           category: 'tech',
  *           views: 0,
  *         };
- *         db.tables.posts.set(post);
+ *         db.posts.set(post);
  *         return post;
  *       }
  *     })

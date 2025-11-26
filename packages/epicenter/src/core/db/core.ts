@@ -1,23 +1,71 @@
 import * as Y from 'yjs';
-import type { WorkspaceSchema } from '../schema';
+import type { TableSchema, TableValidators, WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
-import { createTableHelpers, type YRow } from './table-helper';
+import {
+	type TableHelper,
+	type YRow,
+	createTableHelpers,
+} from './table-helper';
+
+/**
+ * Valid table name pattern: lowercase letters, numbers, and underscores, starting with a letter.
+ *
+ * Table names must satisfy constraints across three systems:
+ *
+ * **File System** (markdown index creates directories from table names):
+ * - Cross-platform safety: Windows, macOS, and Linux all handle these characters
+ * - Case-insensitivity: Windows/macOS treat "Posts" and "posts" as the same directory
+ * - Avoids reserved names: No risk of collision with CON, PRN, AUX, NUL, etc.
+ *
+ * **SQLite** (sqlite index creates tables from table names):
+ * - Valid unquoted identifier: No need for "quoted" table names in SQL
+ * - Avoids reserved words: Starting with letter + limited charset avoids most conflicts
+ * - Case-insensitive by default: Lowercase-only prevents subtle bugs
+ *
+ * **JavaScript** (table names become object properties for `db.tableName` access):
+ * - Valid identifier: Enables dot notation instead of bracket notation
+ * - No leading numbers: JS identifiers can't start with digits
+ *
+ * The pattern `/^[a-z][a-z0-9_]*$/` is the intersection of all three constraint sets.
+ *
+ * **Why not hyphens?** SQLite requires quoting (`"my-table"`), JS needs brackets (`db['my-table']`)
+ * **Why not uppercase?** Case-sensitivity varies; lowercase-only is predictable everywhere
+ * **Why start with letter?** SQL/JS identifiers starting with numbers need special handling
+ */
+const TABLE_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
 // Re-export TableHelper for public API
 export type { TableHelper } from './table-helper';
+
+/**
+ * Entry returned by $tableEntries() for type-safe iteration over all tables.
+ *
+ * Provides guaranteed access to all table-related resources without unsafe indexing.
+ */
+export type TableEntry<TTableSchema extends TableSchema> = {
+	name: string;
+	table: TableHelper<TTableSchema>;
+	schema: TTableSchema;
+	validators: TableValidators<TTableSchema>;
+};
 
 /**
  * Create an Epicenter database wrapper with table helpers from an existing Y.Doc.
  * This is a pure function that doesn't handle persistence - it only wraps
  * the Y.Doc with type-safe table operations.
  *
+ * ## API Design
+ *
+ * Tables are accessed directly on the db object. Utilities are prefixed with `$`.
+ *
+ * **Principle**: Everything with `$` is a utility. Everything without `$` is a table.
+ *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
  * @param schema - Table schema definitions
- * @returns Object with table helpers and document utilities
+ * @returns Object with flattened table helpers and `$`-prefixed utilities
  *
  * @example
  * ```typescript
- * // With a fresh Y.Doc
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
  * const db = createEpicenterDb(ydoc, {
  *   posts: {
@@ -27,15 +75,39 @@ export type { TableHelper } from './table-helper';
  *   }
  * });
  *
- * // Or with a Y.Doc from a network provider
- * const provider = new WebrtcProvider('room-name', ydoc);
- * const db = createEpicenterDb(ydoc, schemas);
+ * // Tables are accessed directly (no .tables namespace)
+ * db.posts.insert({ id: '1', title: 'Hello', published: false });
+ * db.posts.getAll();
+ *
+ * // Utilities are prefixed with $
+ * db.$clearAll();
+ * db.$transact(() => {
+ *   db.posts.insert({ ... });
+ *   db.comments.insert({ ... });
+ * });
+ *
+ * // Type annotations use $schema
+ * const post = { ... } satisfies SerializedRow<typeof db.$schema.posts>;
  * ```
  */
 export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 	ydoc: Y.Doc,
 	schema: TWorkspaceSchema,
 ) {
+	// Validate table names
+	for (const tableName of Object.keys(schema)) {
+		if (tableName.startsWith('$')) {
+			throw new Error(
+				`Table name "${tableName}" is invalid: cannot start with "$" (reserved for utilities)`,
+			);
+		}
+		if (!TABLE_NAME_PATTERN.test(tableName)) {
+			throw new Error(
+				`Table name "${tableName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "posts", "user_sessions", "items2")`,
+			);
+		}
+	}
+
 	// Create validators for all tables
 	const validators = createWorkspaceValidators(schema);
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
@@ -48,90 +120,130 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		}
 	}
 
-	return {
-		/**
-		 * Table helpers organized by table name
-		 * Each table has methods for type-safe CRUD operations
-		 */
-		tables: createTableHelpers({ ydoc, schema, validators, ytables }),
-
-		/**
-		 * The underlying YJS document
-		 * Exposed for persistence and sync providers
-		 */
+	// Create table helpers
+	const tableHelpers = createTableHelpers({
 		ydoc,
-
-		/**
-		 * Table schemas for all tables
-		 * Maps table name to column schemas
-		 */
 		schema,
-
-		/**
-		 * Table validators for all tables
-		 * Each validator includes methods like validateSerializedRow(), toStandardSchema(), etc.
-		 */
 		validators,
+		ytables,
+	});
+
+	return {
+		// Spread table helpers directly onto the object (flattened access)
+		...tableHelpers,
 
 		/**
-		 * Execute a function within a YJS transaction
+		 * Table schemas for all tables.
+		 * Maps table name to column schemas.
+		 *
+		 * @example
+		 * ```typescript
+		 * const post = { ... } satisfies SerializedRow<typeof db.$schema.posts>;
+		 * ```
+		 */
+		$schema: schema,
+
+		/**
+		 * Table validators for all tables.
+		 * Each validator includes methods like validateSerializedRow(), toStandardSchema(), etc.
+		 *
+		 * @example
+		 * ```typescript
+		 * const validator = db.$validators.posts.toArktype();
+		 * const result = validator(data);
+		 * ```
+		 */
+		$validators: validators,
+
+		/**
+		 * The underlying YJS document.
+		 * Exposed for persistence and sync providers.
+		 *
+		 * **Note**: This is an advanced/internal property. Most users won't need it.
+		 */
+		$ydoc: ydoc,
+
+		/**
+		 * Execute a function within a YJS transaction.
 		 *
 		 * Transactions bundle changes and ensure atomic updates. All changes within
 		 * a transaction are sent as a single update to collaborators.
 		 *
 		 * **Nested Transactions:**
-		 * YJS handles nested transact() calls safely by reusing the outer transaction.
-		 *
-		 * - First transact() creates a transaction (sets doc._transaction, initialCall = true)
-		 * - Nested transact() calls check if doc._transaction exists and reuse it
-		 * - Inner transact() calls are essentially no-ops - they just execute their function
-		 * - Only the outermost transaction (where initialCall = true) triggers cleanup and events
-		 *
-		 * This means it's safe to:
-		 * - Call table methods inside a transaction (they use transact internally)
-		 * - Nest transactions for cross-table operations
+		 * YJS handles nested $transact() calls safely by reusing the outer transaction.
 		 *
 		 * @example
 		 * ```typescript
-		 * // Single operation - automatically transactional
-		 * doc.tables.posts.insert({ id: '1', title: 'Hello', ... });
-		 *
-		 * // Batch operation - wrapped in transaction
-		 * doc.tables.posts.insertMany([{ id: '1', ... }, { id: '2', ... }]);
-		 *
-		 * // Cross-table transaction - safe nesting
-		 * doc.transact(() => {
-		 *   doc.tables.posts.upsertMany([...]); // reuses outer transaction
-		 *   doc.tables.users.insert({ ... }); // also reuses outer transaction
+		 * // Cross-table transaction
+		 * db.$transact(() => {
+		 *   db.posts.upsertMany([...]);
+		 *   db.comments.insert({ ... });
 		 * }, 'bulk-import');
 		 * ```
 		 */
-		transact(fn: () => void, origin?: string): void {
+		$transact(fn: () => void, origin?: string): void {
 			ydoc.transact(fn, origin);
 		},
 
 		/**
-		 * Get all table names in the document
+		 * Clear all tables in a single transaction.
+		 *
+		 * @example
+		 * ```typescript
+		 * // Clear everything before importing fresh data
+		 * db.$clearAll();
+		 * db.posts.insertMany(importedPosts);
+		 * ```
 		 */
-		getTableNames(): (keyof TWorkspaceSchema & string)[] {
-			return Object.keys(schema) as (keyof TWorkspaceSchema & string)[];
+		$clearAll(): void {
+			ydoc.transact(() => {
+				for (const tableName of Object.keys(schema)) {
+					tableHelpers[tableName as keyof typeof tableHelpers].clear();
+				}
+			});
+		},
+
+		/**
+		 * Get all tables as an array of entries for type-safe iteration.
+		 *
+		 * Each entry contains the table name, helper, schema, and validators,
+		 * all guaranteed to exist and properly typed.
+		 *
+		 * @example
+		 * ```typescript
+		 * // Iterate over all tables with full type safety
+		 * for (const { name, table, schema, validators } of db.$tableEntries()) {
+		 *   table.observe({
+		 *     onAdd: (result) => console.log(`Added to ${name}:`, result),
+		 *   });
+		 * }
+		 * ```
+		 */
+		$tableEntries(): TableEntry<TWorkspaceSchema[keyof TWorkspaceSchema]>[] {
+			return Object.keys(schema).map((tableName) => ({
+				name: tableName,
+				table: tableHelpers[tableName as keyof typeof tableHelpers],
+				schema: schema[tableName as keyof TWorkspaceSchema],
+				validators: validators[tableName as keyof TWorkspaceSchema],
+			})) as TableEntry<TWorkspaceSchema[keyof TWorkspaceSchema]>[];
 		},
 	};
 }
 
 /**
- * Type alias for the return type of createEpicenterDb
- * Useful for typing function parameters that accept a database instance
+ * Type alias for the return type of createEpicenterDb.
+ * Useful for typing function parameters that accept a database instance.
  *
  * @example
  * ```typescript
  * type MyDb = Db<typeof mySchema>;
  *
  * function doSomething(db: MyDb) {
- *   db.tables.posts.insert(...);
+ *   db.posts.insert(...);  // Direct table access
+ *   db.$clearAll();        // Utility access
  * }
  * ```
  */
-export type Db<TWorkspaceSchema extends WorkspaceSchema> = Awaited<
-	ReturnType<typeof createEpicenterDb<TWorkspaceSchema>>
+export type Db<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
+	typeof createEpicenterDb<TWorkspaceSchema>
 >;

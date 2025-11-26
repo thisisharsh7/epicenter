@@ -89,10 +89,10 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  * function sqliteIndex({ id, db }: IndexContext) {
  *   // 1. Create internal resources
  *   const sqliteDb = drizzle({ client, schema: drizzleTables });
- *   const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
+ *   const drizzleTables = convertWorkspaceSchemaToDrizzle(db.$schema);
  *
  *   // 2. Set up YJS observers
- *   const unsubPosts = db.tables.posts.observe({
+ *   const unsubPosts = db.posts.observe({
  *     onAdd: (result) => {
  *       if (result.error) {
  *         // Handle validation errors

@@ -142,22 +142,22 @@ export const clippings = defineWorkspace({
 		/**
 		 * Get all clippings
 		 */
-		getClippings: db.tables.clippings.getAll,
+		getClippings: db.clippings.getAll,
 
 		/**
 		 * Get a specific clipping by ID
 		 */
-		getClipping: db.tables.clippings.get,
+		getClipping: db.clippings.get,
 
 		/**
 		 * Update a clipping
 		 */
-		updateClipping: db.tables.clippings.update,
+		updateClipping: db.clippings.update,
 
 		/**
 		 * Delete a clipping
 		 */
-		deleteClipping: db.tables.clippings.delete,
+		deleteClipping: db.clippings.delete,
 
 		/**
 		 * Add a clipping from a URL
@@ -205,7 +205,7 @@ export const clippings = defineWorkspace({
 				}).toJSON();
 
 				// Insert into database
-				db.tables.clippings.insert({
+				db.clippings.insert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -238,10 +238,10 @@ export const clippings = defineWorkspace({
 		 */
 		removeDuplicates: defineMutation({
 			handler: () => {
-				type Clipping = SerializedRow<(typeof db.schema)['clippings']>;
+				type Clipping = SerializedRow<(typeof db.$schema)['clippings']>;
 
 				// Convert rows to JSON
-				const clippings: Clipping[] = db.tables.clippings
+				const clippings: Clipping[] = db.clippings
 					.getAll()
 					.map((row) => row.toJSON());
 
@@ -280,7 +280,7 @@ export const clippings = defineWorkspace({
 				);
 
 				// Delete all duplicates in one batch operation
-				db.tables.clippings.deleteMany({ ids: idsToDelete });
+				db.clippings.deleteMany({ ids: idsToDelete });
 
 				return Ok({ deletedCount: idsToDelete.length });
 			},
@@ -289,22 +289,22 @@ export const clippings = defineWorkspace({
 		/**
 		 * Get all landing pages
 		 */
-		getLandingPages: db.tables.landingPages.getAll,
+		getLandingPages: db.landingPages.getAll,
 
 		/**
 		 * Get a specific landing page by ID
 		 */
-		getLandingPage: db.tables.landingPages.get,
+		getLandingPage: db.landingPages.get,
 
 		/**
 		 * Update a landing page
 		 */
-		updateLandingPage: db.tables.landingPages.update,
+		updateLandingPage: db.landingPages.update,
 
 		/**
 		 * Delete a landing page
 		 */
-		deleteLandingPage: db.tables.landingPages.delete,
+		deleteLandingPage: db.landingPages.delete,
 
 		/**
 		 * Add a landing page
@@ -321,7 +321,7 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.tables.landingPages.insert({
+				db.landingPages.insert({
 					id: generateId(),
 					url,
 					title,
@@ -336,22 +336,22 @@ export const clippings = defineWorkspace({
 		/**
 		 * Get all GitHub repos
 		 */
-		getGitHubReadmes: db.tables.gitHubReadmes.getAll,
+		getGitHubReadmes: db.gitHubReadmes.getAll,
 
 		/**
 		 * Get a specific GitHub repo by ID
 		 */
-		getGitHubReadme: db.tables.gitHubReadmes.get,
+		getGitHubReadme: db.gitHubReadmes.get,
 
 		/**
 		 * Update a GitHub repo
 		 */
-		updateGitHubReadme: db.tables.gitHubReadmes.update,
+		updateGitHubReadme: db.gitHubReadmes.update,
 
 		/**
 		 * Delete a GitHub repo
 		 */
-		deleteGitHubReadme: db.tables.gitHubReadmes.delete,
+		deleteGitHubReadme: db.gitHubReadmes.delete,
 
 		/**
 		 * Add a GitHub repository
@@ -413,7 +413,7 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.tables.gitHubReadmes.insert({
+				db.gitHubReadmes.insert({
 					id: generateId(),
 					url,
 					title: finalTitle,
@@ -430,22 +430,22 @@ export const clippings = defineWorkspace({
 		/**
 		 * Get all documentation sites
 		 */
-		getDocSites: db.tables.docSites.getAll,
+		getDocSites: db.docSites.getAll,
 
 		/**
 		 * Get a specific documentation site by ID
 		 */
-		getDocSite: db.tables.docSites.get,
+		getDocSite: db.docSites.get,
 
 		/**
 		 * Update a documentation site
 		 */
-		updateDocSite: db.tables.docSites.update,
+		updateDocSite: db.docSites.update,
 
 		/**
 		 * Delete a documentation site
 		 */
-		deleteDocSite: db.tables.docSites.delete,
+		deleteDocSite: db.docSites.delete,
 
 		/**
 		 * Add a documentation website
@@ -462,7 +462,7 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.tables.docSites.insert({
+				db.docSites.insert({
 					id: generateId(),
 					url,
 					title,

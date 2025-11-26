@@ -74,27 +74,27 @@ export const whispering = defineWorkspace({
 			/**
 			 * Get all entries
 			 */
-			getEntries: db.tables.entries.getAll,
+			getEntries: db.entries.getAll,
 
 			/**
 			 * Get an entry by ID
 			 */
-			getEntry: db.tables.entries.get,
+			getEntry: db.entries.get,
 
 			/**
 			 * Create an entry
 			 */
-			createEntry: db.tables.entries.insert,
+			createEntry: db.entries.insert,
 
 			/**
 			 * Update an entry
 			 */
-			updateEntry: db.tables.entries.update,
+			updateEntry: db.entries.update,
 
 			/**
 			 * Delete an entry
 			 */
-			deleteEntry: db.tables.entries.delete,
+			deleteEntry: db.entries.delete,
 
 			/**
 			 * Migrate entries from quick-add.md format
@@ -185,7 +185,7 @@ export const whispering = defineWorkspace({
 
 						// Insert into database (unless dry run)
 						if (!dryRun) {
-							db.tables.entries.insert(entry);
+							db.entries.insert(entry);
 						}
 
 						stats.success++;

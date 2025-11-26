@@ -177,8 +177,8 @@ const blogWorkspace = defineWorkspace({
 					category,
 					views: 0,
 					publishedAt: null,
-				} satisfies SerializedRow<typeof db.schema.posts>;
-				db.tables.posts.insert(post);
+				} satisfies SerializedRow<typeof db.$schema.posts>;
+				db.posts.insert(post);
 				return Ok(post);
 			},
 		}),
@@ -187,15 +187,15 @@ const blogWorkspace = defineWorkspace({
 		publishPost: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				const { status, row } = db.tables.posts.get({ id });
+				const { status, row } = db.posts.get({ id });
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
-				db.tables.posts.update({
+				db.posts.update({
 					id,
 					publishedAt: new Date().toISOString(),
 				});
-				const { row: updatedPost } = db.tables.posts.get({ id });
+				const { row: updatedPost } = db.posts.get({ id });
 				return Ok(updatedPost);
 			},
 		}),
@@ -214,8 +214,8 @@ const blogWorkspace = defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				} satisfies SerializedRow<typeof db.schema.comments>;
-				db.tables.comments.insert(comment);
+				} satisfies SerializedRow<typeof db.$schema.comments>;
+				db.comments.insert(comment);
 				return Ok(comment);
 			},
 		}),
@@ -224,15 +224,15 @@ const blogWorkspace = defineWorkspace({
 		incrementViews: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				const { status, row } = db.tables.posts.get({ id });
+				const { status, row } = db.posts.get({ id });
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
-				db.tables.posts.update({
+				db.posts.update({
 					id,
 					views: row.views + 1,
 				});
-				const { row: updatedPost } = db.tables.posts.get({ id });
+				const { row: updatedPost } = db.posts.get({ id });
 				return Ok(updatedPost);
 			},
 		}),

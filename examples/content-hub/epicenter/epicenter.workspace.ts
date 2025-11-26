@@ -47,7 +47,7 @@ export const epicenter = defineWorkspace({
 						}),
 						deserialize: ({ frontmatter, body, filename, table }) => {
 							const slug = path.basename(filename, '.md');
-							const FrontMatter = table.validators
+							const FrontMatter = table.$validators
 								.toArktype()
 								.omit('content', 'slug');
 							const frontmatterParsed = FrontMatter(frontmatter);
@@ -79,27 +79,27 @@ export const epicenter = defineWorkspace({
 		/**
 		 * Get all pitches
 		 */
-		getPitches: db.tables.pitches.getAll,
+		getPitches: db.pitches.getAll,
 
 		/**
 		 * Get a specific pitch by ID
 		 */
-		getPitch: db.tables.pitches.get,
+		getPitch: db.pitches.get,
 
 		/**
 		 * Create a new pitch
 		 */
-		createPitch: db.tables.pitches.insert,
+		createPitch: db.pitches.insert,
 
 		/**
 		 * Update pitch fields
 		 */
-		updatePitch: db.tables.pitches.update,
+		updatePitch: db.pitches.update,
 
 		/**
 		 * Delete a pitch
 		 */
-		deletePitch: db.tables.pitches.delete,
+		deletePitch: db.pitches.delete,
 
 		pullToMarkdown: indexes.markdown.pullToMarkdown,
 		pushFromMarkdown: indexes.markdown.pushFromMarkdown,

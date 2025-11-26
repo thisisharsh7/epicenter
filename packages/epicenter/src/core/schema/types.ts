@@ -15,7 +15,10 @@
 import type { Type } from 'arktype';
 import * as Y from 'yjs';
 import type { YRow } from '../db/table-helper';
-import type { DateWithTimezone, DateWithTimezoneString } from './date-with-timezone';
+import type {
+	DateWithTimezone,
+	DateWithTimezoneString,
+} from './date-with-timezone';
 
 // ============================================================================
 // Column Schema Types
@@ -155,9 +158,7 @@ export type JsonColumnSchema<
 	type: 'json';
 	nullable: TNullable;
 	schema: TSchema;
-	default?:
-		| TSchema['infer']
-		| (() => TSchema['infer']);
+	default?: TSchema['infer'] | (() => TSchema['infer']);
 };
 
 /**
@@ -368,11 +369,11 @@ export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
  *
  * @example
  * // Update only the title field, leaving other fields unchanged
- * db.tables.posts.update({ id: '123', title: 'New Title' });
+ * db.posts.update({ id: '123', title: 'New Title' });
  *
  * @example
  * // Update multiple fields at once
- * db.tables.posts.update({ id: '123', title: 'New Title', published: true });
+ * db.posts.update({ id: '123', title: 'New Title', published: true });
  */
 export type PartialSerializedRow<
 	TTableSchema extends TableSchema = TableSchema,

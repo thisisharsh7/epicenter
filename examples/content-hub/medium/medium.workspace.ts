@@ -31,54 +31,13 @@ export const medium = defineWorkspace({
 	providers: [setupPersistence],
 
 	exports: ({ db, indexes }) => ({
-		/**
-		 * Get all Medium posts
-		 *
-		 * Direct table helper: `db.tables.posts.getAll` is already a Query<> with the
-		 * correct types based on LONG_FORM_TEXT_SCHEMA. No defineQuery() needed.
-		 */
-		getPosts: db.tables.posts.getAll,
+		getPosts: db.posts.getAll,
+		getPost: db.posts.get,
+		createPost: db.posts.insert,
+		updatePost: db.posts.update,
+		deletePost: db.posts.delete,
 
-		/**
-		 * Get a specific Medium post by ID
-		 *
-		 * Table helper assignment: `db.tables.posts.get` is pre-built and pre-typed.
-		 */
-		getPost: db.tables.posts.get,
-
-		/**
-		 * Create a new Medium post
-		 *
-		 * Using the table helper directly. The caller must provide:
-		 * - id, pageId, title, subtitle, content, niche, postedAt, updatedAt
-		 *
-		 * If we wanted to auto-generate `id` or auto-set timestamps, we'd write
-		 * a custom mutation. But for this "caller provides everything" approach,
-		 * the table helper works perfectly.
-		 */
-		createPost: db.tables.posts.insert,
-
-		/**
-		 * Update a Medium post
-		 *
-		 * The table helper handles partial updates. Note: this doesn't auto-manage
-		 * `updatedAt` - if you need that, write a custom mutation.
-		 */
-		updatePost: db.tables.posts.update,
-
-		/**
-		 * Delete a Medium post
-		 *
-		 * Simple and straightforward: `db.tables.posts.delete` removes a post by ID.
-		 */
-		deletePost: db.tables.posts.delete,
-
-		/**
-		 * Get posts filtered by niche
-		 *
-		 * CUSTOM query that we keep because it requires SQL filtering by the niche
-		 * field. This is beyond basic CRUD, so we use `defineQuery()`.
-		 */
+		/** Filter posts by niche */
 		getPostsByNiche: defineQuery({
 			input: type({
 				niche:

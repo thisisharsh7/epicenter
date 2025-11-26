@@ -179,7 +179,7 @@ This makes your data:
 await blog.createPost({ title: 'Hello', content: 'World', category: 'tech' });
 
 // Through table helper
-db.tables.posts.insert({ id: '1', title: 'Hello', /* ... */ });
+db.posts.insert({ id: '1', title: 'Hello', /* ... */ });
 
 // Result: YJS updated → Saved to .epicenter/blog.yjs → SQLite synced → Markdown file created
 ```

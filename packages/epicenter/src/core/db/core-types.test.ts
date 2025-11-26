@@ -31,7 +31,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test insert() - accepts serialized values (strings for ytext, arrays for multi-select)
-		doc.tables.posts.insert({
+		doc.posts.insert({
 			id: '1',
 			title: 'Test Post',
 			content: 'Post content', // string (gets converted to Y.Text internally)
@@ -41,7 +41,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test get() - returns Result<Row, ArkErrors> | null
-		const result = doc.tables.posts.get({ id: '1' });
+		const result = doc.posts.get({ id: '1' });
 		expect(result).not.toBeNull();
 
 		if (result) {
@@ -71,13 +71,13 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.products.insertMany([
+		doc.products.insertMany([
 			{ id: '1', name: 'Widget', price: 1000, inStock: true },
 			{ id: '2', name: 'Gadget', price: 2000, inStock: false },
 		]);
 
 		// getAll() now returns Row[] directly
-		const products = doc.tables.products.getAll();
+		const products = doc.products.getAll();
 		// Expected type: Array<{ id: string; name: string; price: number; inStock: boolean }>
 
 		expect(products).toHaveLength(2);
@@ -93,14 +93,14 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.tasks.insertMany([
+		doc.tasks.insertMany([
 			{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
 			{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
 		]);
 
 		// Hover over 'task' parameter to verify inferred type
 		// filter() now returns Row[] directly
-		const incompleteTasks = doc.tables.tasks.filter((task) => !task.completed);
+		const incompleteTasks = doc.tasks.filter((task) => !task.completed);
 		// task type should be: { id: string; title: string; completed: boolean; priority: string }
 
 		expect(incompleteTasks).toHaveLength(1);
@@ -116,14 +116,14 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.items.insertMany([
+		doc.items.insertMany([
 			{ id: '1', name: 'Item 1', quantity: 5 },
 			{ id: '2', name: 'Item 2', quantity: 0 },
 		]);
 
 		// Hover over 'item' parameter to verify inferred type
 		// find() now returns Row | null directly
-		const outOfStockItem = doc.tables.items.find(
+		const outOfStockItem = doc.items.find(
 			(item) => item.quantity === 0,
 		);
 		// item type should be: { id: string; name: string; quantity: number }
@@ -148,7 +148,7 @@ describe('YjsDoc Type Inference', () => {
 		}> = [];
 
 		// Hover over 'result' parameter to verify inferred type
-		const unsubscribe = doc.tables.notifications.observe({
+		const unsubscribe = doc.notifications.observe({
 			onAdd: (result) => {
 				// result type should be: Result<{ id: string; message: string; read: boolean }, ArkErrors>
 				if (result.data) {
@@ -163,7 +163,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tables.notifications.insert({
+		doc.notifications.insert({
 			id: '1',
 			message: 'Test notification',
 			read: false,
@@ -186,14 +186,14 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test with null values
-		doc.tables.articles.insert({
+		doc.articles.insert({
 			id: '1',
 			title: 'Article without content',
 			description: null,
 			content: null,
 		});
 
-		const article1Result = doc.tables.articles.get({ id: '1' });
+		const article1Result = doc.articles.get({ id: '1' });
 		expect(article1Result).not.toBeNull();
 		if (article1Result && article1Result.data) {
 			expect(article1Result.data.description).toBeNull();
@@ -201,14 +201,14 @@ describe('YjsDoc Type Inference', () => {
 		}
 
 		// Test with string values (automatically converted to Y.Text internally)
-		doc.tables.articles.insert({
+		doc.articles.insert({
 			id: '2',
 			title: 'Article with content',
 			description: 'A short description',
 			content: 'Article content',
 		});
 
-		const article2Result = doc.tables.articles.get({ id: '2' });
+		const article2Result = doc.articles.get({ id: '2' });
 		if (article2Result && article2Result.data) {
 			expect(article2Result.data.description).toBeInstanceOf(Y.Text);
 			expect(article2Result.data.content).toBeInstanceOf(Y.Text);
@@ -234,17 +234,17 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test authors table - use plain string (converted to Y.Text internally)
-		doc.tables.authors.insert({
+		doc.authors.insert({
 			id: 'author-1',
 			name: 'John Doe',
 			bio: 'Author bio',
 		});
 
-		const authorResult = doc.tables.authors.get({ id: 'author-1' });
+		const authorResult = doc.authors.get({ id: 'author-1' });
 		// Hover to verify type: Result<{ id: string; name: string; bio: Y.Text | null }, ArkErrors> | null
 
 		// Test books table - use plain array (converted to Y.Array internally)
-		doc.tables.books.insert({
+		doc.books.insert({
 			id: 'book-1',
 			authorId: 'author-1',
 			title: 'My Book',
@@ -252,7 +252,7 @@ describe('YjsDoc Type Inference', () => {
 			published: true,
 		});
 
-		const bookResult = doc.tables.books.get({ id: 'book-1' });
+		const bookResult = doc.books.get({ id: 'book-1' });
 		// Hover to verify type: Result<{ id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean }, ArkErrors> | null
 
 		expect(authorResult).not.toBeNull();
@@ -280,9 +280,9 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		doc.tables.comments.insertMany(commentsToAdd);
+		doc.comments.insertMany(commentsToAdd);
 
-		const comments = doc.tables.comments.getAll();
+		const comments = doc.comments.getAll();
 		expect(comments).toHaveLength(2);
 	});
 
@@ -298,7 +298,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Insert with plain values (automatically converted to Y.js types internally)
-		doc.tables.documents.insert({
+		doc.documents.insert({
 			id: 'doc-1',
 			title: 'My Document',
 			body: 'Hello World',
@@ -307,7 +307,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test retrieval and mutations
-		const retrievedResult = doc.tables.documents.get({ id: 'doc-1' });
+		const retrievedResult = doc.documents.get({ id: 'doc-1' });
 
 		if (retrievedResult && retrievedResult.data) {
 			const retrieved = retrievedResult.data;

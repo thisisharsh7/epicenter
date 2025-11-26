@@ -91,7 +91,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	}
 
 	// Convert table schemas to Drizzle tables
-	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.schema);
+	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.$schema);
 
 	// Set up storage paths
 	const databasePath = path.join(storageDir, '.epicenter', `${id}.db`);
@@ -125,13 +125,13 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	// Set up observers for each table
 	const unsubscribers: Array<() => void> = [];
 
-	for (const tableName of db.getTableNames()) {
+	for (const { name: tableName, table } of db.$tableEntries()) {
 		const drizzleTable = drizzleTables[tableName];
 		if (!drizzleTable) {
 			throw new Error(`Drizzle table for "${tableName}" not found`);
 		}
 
-		const unsub = db.tables[tableName].observe({
+		const unsub = table.observe({
 			onAdd: async (result) => {
 				// Skip if this YJS change was triggered by a SQLite change we're processing
 				// (prevents SQLite -> YJS -> SQLite infinite loop during pull)
@@ -237,7 +237,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	await createTablesIfNotExist(sqliteDb, drizzleTables);
 
 	// Clear existing data to make initialization idempotent
-	for (const tableName of db.getTableNames()) {
+	for (const { name: tableName } of db.$tableEntries()) {
 		const drizzleTable = drizzleTables[tableName];
 		if (!drizzleTable) {
 			throw new Error(`Drizzle table for "${tableName}" not found`);
@@ -246,19 +246,20 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	}
 
 	// Insert all valid rows from YJS into SQLite
-	for (const tableName of db.getTableNames()) {
+	for (const { name: tableName, table } of db.$tableEntries()) {
 		const drizzleTable = drizzleTables[tableName];
 		if (!drizzleTable) {
 			throw new Error(`Drizzle table for "${tableName}" not found`);
 		}
 
-		const rows = db.tables[tableName].getAll();
+		const rows = table.getAll();
 
 		if (rows.length > 0) {
 			const { error } = await tryAsync({
 				try: async () => {
 					const serializedRows = rows.map((row) => row.toJSON());
-					await sqliteDb.insert(drizzleTable).values(serializedRows);
+					// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tableEntries union
+					await sqliteDb.insert(drizzleTable).values(serializedRows as any);
 				},
 				catch: (e) =>
 					IndexErr({
@@ -297,7 +298,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Delete all rows from all SQLite tables
-						for (const tableName of db.getTableNames()) {
+						for (const { name: tableName } of db.$tableEntries()) {
 							const drizzleTable = drizzleTables[tableName];
 							if (!drizzleTable) {
 								throw new Error(`Drizzle table for "${tableName}" not found`);
@@ -306,17 +307,18 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						}
 
 						// Insert all valid rows from YJS into SQLite
-						for (const tableName of db.getTableNames()) {
+						for (const { name: tableName, table } of db.$tableEntries()) {
 							const drizzleTable = drizzleTables[tableName];
 							if (!drizzleTable) {
 								throw new Error(`Drizzle table for "${tableName}" not found`);
 							}
 
-							const rows = db.tables[tableName].getAll();
+							const rows = table.getAll();
 
 							if (rows.length > 0) {
 								const serializedRows = rows.map((row) => row.toJSON());
-								await sqliteDb.insert(drizzleTable).values(serializedRows);
+								// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tableEntries union
+								await sqliteDb.insert(drizzleTable).values(serializedRows as any);
 							}
 						}
 
@@ -345,14 +347,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						syncCoordination.isProcessingSQLiteChange = true;
 
 						// Clear all YJS tables
-						db.transact(() => {
-							for (const tableName of db.getTableNames()) {
-								db.tables[tableName].clear();
-							}
-						});
+						db.$clearAll();
 
 						// Read all rows from SQLite and insert into YJS
-						for (const tableName of db.getTableNames()) {
+						for (const { name: tableName, table } of db.$tableEntries()) {
 							const drizzleTable = drizzleTables[tableName];
 							if (!drizzleTable) {
 								throw new Error(`Drizzle table for "${tableName}" not found`);
@@ -361,13 +359,16 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 							const rows = await sqliteDb.select().from(drizzleTable);
 
 							for (const row of rows) {
-								const result = db.tables[tableName].insert(row);
+								// biome-ignore lint/suspicious/noExplicitAny: Drizzle to YJS type compatibility via $tableEntries union
+								const result = table.insert(row as any);
 								if (result.error) {
+									// biome-ignore lint/suspicious/noExplicitAny: Drizzle row has id field
+									const rowId = (row as any).id;
 									logger.log(
 										IndexError({
-											message: `Failed to insert row ${row.id} from SQLite into YJS table ${tableName}`,
+											message: `Failed to insert row ${rowId} from SQLite into YJS table ${tableName}`,
 											context: {
-												rowId: row.id,
+												rowId,
 												tableName,
 												cause: result.error,
 											},

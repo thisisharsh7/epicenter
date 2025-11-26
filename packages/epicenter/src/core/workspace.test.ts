@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import path from 'node:path';
 import { type } from 'arktype';
+import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
 import { markdownIndex } from '../indexes/markdown';
 import { sqliteIndex } from '../indexes/sqlite';
-import { defineQuery, defineMutation } from './actions';
+import { defineMutation, defineQuery } from './actions';
+import { createEpicenterClient, defineEpicenter } from './epicenter';
 import { id, integer, text } from './schema';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
-import { defineEpicenter, createEpicenterClient } from './epicenter';
-import { eq } from 'drizzle-orm';
 
 /**
  * Test suite for workspace initialization with topological sort
@@ -668,7 +668,7 @@ describe('Workspace Action Handlers', () => {
 							category,
 							views: 0,
 						};
-						db.tables.posts.insert(post);
+						db.posts.insert(post);
 						return Ok(post);
 					},
 				}),
@@ -679,12 +679,12 @@ describe('Workspace Action Handlers', () => {
 						views: 'number',
 					}),
 					handler: async ({ id, views }) => {
-						const result = db.tables.posts.get({ id });
+						const result = db.posts.get({ id });
 						if (!result?.data) {
 							return Ok(null);
 						}
-						db.tables.posts.update({ id, views });
-						const updatedResult = db.tables.posts.get({ id });
+						db.posts.update({ id, views });
+						const updatedResult = db.posts.get({ id });
 						return Ok(updatedResult?.data?.toJSON());
 					},
 				}),

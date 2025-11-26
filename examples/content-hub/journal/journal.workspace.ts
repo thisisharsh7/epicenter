@@ -1,18 +1,18 @@
+import { basename } from 'node:path';
 import {
+	SerializedRow,
 	date,
 	defineWorkspace,
 	id,
 	markdownIndex,
 	select,
-	SerializedRow,
 	sqliteIndex,
 	tags,
-	text
+	text,
 } from '@epicenter/hq';
 import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
-import { basename } from 'node:path';
 import { Ok } from 'wellcrafted/result';
 
 /**
@@ -115,8 +115,9 @@ export const journal = defineWorkspace({
 					journal: {
 						serialize: ({ row: { content, id, ...row } }) => {
 							// Sort keys alphabetically (keep null values for proper round-trip)
-							const entries = Object.entries(row)
-								.sort(([a], [b]) => a.localeCompare(b));
+							const entries = Object.entries(row).sort(([a], [b]) =>
+								a.localeCompare(b),
+							);
 							const frontmatter = Object.fromEntries(entries);
 							return {
 								frontmatter,
@@ -130,7 +131,9 @@ export const journal = defineWorkspace({
 
 							// Validate frontmatter (omit id and content)
 							// Nullable fields automatically default to null, required fields must be present
-							const FrontMatter = table.validators.toArktype().omit('id', 'content');
+							const FrontMatter = table.validators
+								.toArktype()
+								.omit('id', 'content');
 							const parsed = FrontMatter(frontmatter);
 
 							if (parsed instanceof type.errors) {
@@ -170,27 +173,27 @@ export const journal = defineWorkspace({
 		/**
 		 * Get all journal entries
 		 */
-		getJournalEntries: db.tables.journal.getAll,
+		getJournalEntries: db.journal.getAll,
 
 		/**
 		 * Get a journal entry by ID
 		 */
-		getJournalEntry: db.tables.journal.get,
+		getJournalEntry: db.journal.get,
 
 		/**
 		 * Create a journal entry
 		 */
-		createJournalEntry: db.tables.journal.insert,
+		createJournalEntry: db.journal.insert,
 
 		/**
 		 * Update a journal entry
 		 */
-		updateJournalEntry: db.tables.journal.update,
+		updateJournalEntry: db.journal.update,
 
 		/**
 		 * Delete a journal entry
 		 */
-		deleteJournalEntry: db.tables.journal.delete,
+		deleteJournalEntry: db.journal.delete,
 
 		pullToMarkdown: indexes.markdown.pullToMarkdown,
 		pushFromMarkdown: indexes.markdown.pushFromMarkdown,

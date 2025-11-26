@@ -8,7 +8,7 @@
  * 4. Deletes source files after successful migration
  */
 
-import { createEpicenterClient, SerializedRow } from '@epicenter/hq';
+import { createEpicenterClient, type SerializedRow } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,
@@ -29,18 +29,18 @@ if (!sourcePath) {
 
 const dryRun = process.argv.includes('--dry-run');
 
-console.log(`🔗 Starting migration`);
+console.log('🔗 Starting migration');
 console.log(`📂 Migrating from: ${sourcePath}`);
 if (dryRun) {
 	console.log('🔍 DRY RUN MODE: No database changes or file deletions\n');
 }
 
 // Create epicenter client
-using client = await createEpicenterClient(epicenterConfig);
+await using client = await createEpicenterClient(epicenterConfig);
 
 // Frontmatter validator (omits id and content which are handled separately)
 // Nullable fields automatically default to null, required fields must be present
-const FrontMatter = client.journal.db.validators.journal
+const FrontMatter = client.journal.db.$validators.journal
 	.toArktype()
 	.omit('id', 'content');
 
@@ -89,7 +89,7 @@ const results: ProcessResult[] = await Promise.all(
 			id,
 			content: body,
 			...parsed,
-		} satisfies SerializedRow<typeof client.journal.db.schema.journal>;
+		} satisfies SerializedRow<typeof client.journal.db.$schema.journal>;
 
 		// Create entry via client (skip in dry-run mode)
 		if (!dryRun) {
@@ -105,7 +105,7 @@ const results: ProcessResult[] = await Promise.all(
 			}
 
 			// Verify SQLite insert succeeded before deleting source file
-			const sqliteRow = client.journal.db.tables.journal.get(entry.id);
+			const sqliteRow = client.journal.db.journal.get(entry.id);
 			if (!sqliteRow) {
 				return {
 					status: 'error',

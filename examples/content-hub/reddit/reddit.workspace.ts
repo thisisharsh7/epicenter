@@ -31,11 +31,11 @@ export const reddit = defineWorkspace({
 	providers: [setupPersistence],
 
 	exports: ({ db, indexes }) => ({
-		getPosts: db.tables.posts.getAll,
-		getPost: db.tables.posts.get,
-		createPost: db.tables.posts.insert,
-		updatePost: db.tables.posts.update,
-		deletePost: db.tables.posts.delete,
+		getPosts: db.posts.getAll,
+		getPost: db.posts.get,
+		createPost: db.posts.insert,
+		updatePost: db.posts.update,
+		deletePost: db.posts.delete,
 
 		/**
 		 * Get posts filtered by niche

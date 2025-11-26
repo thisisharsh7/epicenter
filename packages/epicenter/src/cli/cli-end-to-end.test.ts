@@ -82,8 +82,8 @@ describe('CLI End-to-End Tests', () => {
 						content: content ?? null,
 						category,
 						views: 0,
-					} satisfies SerializedRow<typeof db.schema.posts>;
-					db.tables.posts.insert(post);
+					} satisfies SerializedRow<typeof db.$schema.posts>;
+					db.posts.insert(post);
 					return Ok(post);
 				},
 			}),
@@ -94,12 +94,12 @@ describe('CLI End-to-End Tests', () => {
 					views: 'number',
 				}),
 				handler: async ({ id, views }) => {
-					const result = db.tables.posts.get({ id });
+					const result = db.posts.get({ id });
 					if (!result?.data) {
 						return Ok(null);
 					}
-					db.tables.posts.update({ id, views });
-					const updatedResult = db.tables.posts.get({ id });
+					db.posts.update({ id, views });
+					const updatedResult = db.posts.get({ id });
 					return Ok(updatedResult?.data?.toJSON());
 				},
 			}),

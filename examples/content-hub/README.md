@@ -485,7 +485,7 @@ exports: ({ db, indexes }) => ({
 1. **Use shared schemas** when multiple workspaces have similar data structures
 2. **Follow naming conventions**: kebab-case for IDs, camelCase for variables and fields
 3. **Add JSDoc comments** to workspaces and actions for better documentation
-4. **Use `satisfies Row<typeof db.schema.posts>`** for type safety in mutations
+4. **Use `satisfies Row<typeof db.$schema.posts>`** for type safety in mutations
 5. **Always update `updatedAt`** timestamp when modifying records
 6. **Return `Ok(data)`** from all actions for consistent error handling
 

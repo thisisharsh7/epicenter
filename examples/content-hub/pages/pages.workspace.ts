@@ -149,27 +149,27 @@ export const pages = defineWorkspace({
 			/**
 			 * Get all pages
 			 */
-			getPages: db.tables.pages.getAll,
+			getPages: db.pages.getAll,
 
 			/**
 			 * Get a page by ID
 			 */
-			getPage: db.tables.pages.get,
+			getPage: db.pages.get,
 
 			/**
 			 * Create a page
 			 */
-			createPage: db.tables.pages.insert,
+			createPage: db.pages.insert,
 
 			/**
 			 * Update a page
 			 */
-			updatePage: db.tables.pages.update,
+			updatePage: db.pages.update,
 
 			/**
 			 * Delete a page
 			 */
-			deletePage: db.tables.pages.delete,
+			deletePage: db.pages.delete,
 
 			/**
 			 * Migrate pages from epicenter-md format
@@ -272,7 +272,7 @@ export const pages = defineWorkspace({
 
 						// Insert into database (unless dry run)
 						if (!dryRun) {
-							db.tables.pages.insert(page);
+							db.pages.insert(page);
 						}
 
 						stats.success++;

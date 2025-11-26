@@ -48,65 +48,12 @@ export const githubIssues = defineWorkspace({
 	providers: [setupPersistence],
 
 	exports: ({ db, indexes }) => ({
-		/**
-		 * Get all GitHub issues
-		 *
-		 * Using the table helper directly: `db.tables.issues.getAll` is already a Query<>.
-		 * We don't need to wrap it with `defineQuery()` because the table helper provides
-		 * all the type information and behavior Epicenter needs.
-		 */
-		getIssues: db.tables.issues.getAll,
+		getIssues: db.issues.getAll,
+		getIssue: db.issues.get,
+		createIssue: db.issues.insert,
+		updateIssue: db.issues.update,
 
-		/**
-		 * Get a specific GitHub issue by ID
-		 *
-		 * Table helper approach: `db.tables.issues.get` is pre-typed as
-		 * Query<{ id: string }, IssueRow | null>. Direct assignment works.
-		 */
-		getIssue: db.tables.issues.get,
-
-		/**
-		 * Create a new GitHub issue
-		 *
-		 * Why can we use `db.tables.issues.insert` directly?
-		 *
-		 * Because:
-		 * 1. The table helper is already a Mutation<void, RowAlreadyExistsError>
-		 * 2. Our schema validates that all required fields are present
-		 * 3. The caller is responsible for providing ID, createdAt, updatedAt, etc.
-		 *
-		 * This is the "lean" approach. If we needed to:
-		 * - Auto-generate IDs
-		 * - Auto-set timestamps (createdAt, updatedAt)
-		 * - Validate business rules
-		 *
-		 * ...we would write a custom mutation. But for straightforward inserts, the
-		 * table helper is perfect.
-		 */
-		createIssue: db.tables.issues.insert,
-
-		/**
-		 * Update a GitHub issue
-		 *
-		 * Using the table helper: `db.tables.issues.update` handles partial updates.
-		 * It takes an object with an `id` and any fields to update, then merges it
-		 * with the existing row.
-		 *
-		 * NOTE: Unlike custom mutations, this doesn't auto-update `updatedAt`. If you
-		 * need that behavior, write a custom mutation wrapper.
-		 */
-		updateIssue: db.tables.issues.update,
-
-		/**
-		 * Get issues filtered by status
-		 *
-		 * CUSTOM query - we keep `defineQuery()` here because we're doing something
-		 * beyond basic CRUD: using SQL to filter by the status field.
-		 *
-		 * This demonstrates the pattern:
-		 * - Table helpers for CRUD operations
-		 * - defineQuery/defineMutation for custom logic (filtering, joining, etc.)
-		 */
+		/** Filter issues by status */
 		getIssuesByStatus: defineQuery({
 			input: type({
 				status: "'open' | 'in-progress' | 'closed'",
@@ -120,12 +67,7 @@ export const githubIssues = defineWorkspace({
 			},
 		}),
 
-		/**
-		 * Get issues filtered by repository
-		 *
-		 * CUSTOM query - same reasoning as getIssuesByStatus. We need custom logic to
-		 * filter by the repository field, so we use `defineQuery()`.
-		 */
+		/** Filter issues by repository */
 		getIssuesByRepository: defineQuery({
 			input: type({
 				repository: 'string',
