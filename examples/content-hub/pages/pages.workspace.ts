@@ -130,9 +130,8 @@ export const pages = defineWorkspace({
 		 */
 		function transformDate(
 			isoDate: string | undefined,
-			timezone: string | undefined
+			timezone: string | undefined,
 		): string | null {
-			// Only process if BOTH date and timezone exist
 			if (!isoDate || !timezone) return null;
 
 			try {
@@ -146,30 +145,11 @@ export const pages = defineWorkspace({
 		}
 
 		return {
-			/**
-			 * Get all pages
-			 */
-			getPages: db.pages.getAll,
-
-			/**
-			 * Get a page by ID
-			 */
-			getPage: db.pages.get,
-
-			/**
-			 * Create a page
-			 */
-			createPage: db.pages.insert,
-
-			/**
-			 * Update a page
-			 */
-			updatePage: db.pages.update,
-
-			/**
-			 * Delete a page
-			 */
-			deletePage: db.pages.delete,
+			...db.pages,
+			pullToMarkdown: indexes.markdown.pullToMarkdown,
+			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+			pullToSqlite: indexes.sqlite.pullToSqlite,
+			pushFromSqlite: indexes.sqlite.pushFromSqlite,
 
 			/**
 			 * Migrate pages from epicenter-md format
@@ -209,11 +189,9 @@ export const pages = defineWorkspace({
 						errors: [] as Array<{ file: string; error: string }>,
 					};
 
-					// Process each file
 					for (const file of markdownFiles) {
 						stats.total++;
 
-						// Parse markdown file using built-in parser
 						const parseResult = await readMarkdownFile(file);
 
 						if (parseResult.error) {
@@ -225,12 +203,8 @@ export const pages = defineWorkspace({
 						}
 
 						const { data: frontmatter, body } = parseResult.data;
-
-						// Extract timezone - only use if it exists in frontmatter
 						const timezone = frontmatter.timezone as string | undefined;
 
-						// Transform to schema format
-						// NO defaults - only use what exists in the original frontmatter
 						const page = {
 							id: (frontmatter.id as string) || generateId(),
 							title: (frontmatter.title as string) || 'Untitled',
@@ -240,21 +214,23 @@ export const pages = defineWorkspace({
 								(frontmatter.content as string) ||
 								'',
 							subtitle: (frontmatter.subtitle as string | null) || null,
-							// Only transform dates if BOTH date AND timezone exist
 							created_at: transformDate(
 								frontmatter.created_at as string | undefined,
-								timezone
+								timezone,
 							),
 							updated_at: transformDate(
 								frontmatter.updated_at as string | undefined,
-								timezone
+								timezone,
 							),
-							date: transformDate(frontmatter.date as string | undefined, timezone),
-							// Preserve original timezone value (or null if not present)
+							date: transformDate(
+								frontmatter.date as string | undefined,
+								timezone,
+							),
 							timezone: timezone || null,
 							status: (frontmatter.status as string | null) || null,
 							status_transcripts_complete:
-								(frontmatter.status_transcripts_complete as string | null) || null,
+								(frontmatter.status_transcripts_complete as string | null) ||
+								null,
 							type:
 								Array.isArray(frontmatter.type) && frontmatter.type.length > 0
 									? (frontmatter.type as string[])
@@ -270,7 +246,6 @@ export const pages = defineWorkspace({
 							resonance: (frontmatter.resonance as string | null) || null,
 						};
 
-						// Insert into database (unless dry run)
 						if (!dryRun) {
 							db.pages.insert(page);
 						}
@@ -300,11 +275,6 @@ export const pages = defineWorkspace({
 					});
 				},
 			}),
-
-			pullToMarkdown: indexes.markdown.pullToMarkdown,
-			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-			pullToSqlite: indexes.sqlite.pullToSqlite,
-			pushFromSqlite: indexes.sqlite.pushFromSqlite,
 		};
 	},
 });

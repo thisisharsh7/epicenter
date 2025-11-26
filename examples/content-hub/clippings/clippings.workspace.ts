@@ -139,25 +139,11 @@ export const clippings = defineWorkspace({
 	providers: [setupPersistence],
 
 	exports: ({ db, indexes }) => ({
-		/**
-		 * Get all clippings
-		 */
-		getClippings: db.clippings.getAll,
-
-		/**
-		 * Get a specific clipping by ID
-		 */
-		getClipping: db.clippings.get,
-
-		/**
-		 * Update a clipping
-		 */
-		updateClipping: db.clippings.update,
-
-		/**
-		 * Delete a clipping
-		 */
-		deleteClipping: db.clippings.delete,
+		...db,
+		pullToMarkdown: indexes.markdown.pullToMarkdown,
+		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+		pullToSqlite: indexes.sqlite.pullToSqlite,
+		pushFromSqlite: indexes.sqlite.pushFromSqlite,
 
 		/**
 		 * Add a clipping from a URL
@@ -287,26 +273,6 @@ export const clippings = defineWorkspace({
 		}),
 
 		/**
-		 * Get all landing pages
-		 */
-		getLandingPages: db.landingPages.getAll,
-
-		/**
-		 * Get a specific landing page by ID
-		 */
-		getLandingPage: db.landingPages.get,
-
-		/**
-		 * Update a landing page
-		 */
-		updateLandingPage: db.landingPages.update,
-
-		/**
-		 * Delete a landing page
-		 */
-		deleteLandingPage: db.landingPages.delete,
-
-		/**
 		 * Add a landing page
 		 */
 		addLandingPage: defineMutation({
@@ -332,26 +298,6 @@ export const clippings = defineWorkspace({
 				return Ok(undefined);
 			},
 		}),
-
-		/**
-		 * Get all GitHub repos
-		 */
-		getGitHubReadmes: db.gitHubReadmes.getAll,
-
-		/**
-		 * Get a specific GitHub repo by ID
-		 */
-		getGitHubReadme: db.gitHubReadmes.get,
-
-		/**
-		 * Update a GitHub repo
-		 */
-		updateGitHubReadme: db.gitHubReadmes.update,
-
-		/**
-		 * Delete a GitHub repo
-		 */
-		deleteGitHubReadme: db.gitHubReadmes.delete,
 
 		/**
 		 * Add a GitHub repository
@@ -428,26 +374,6 @@ export const clippings = defineWorkspace({
 		}),
 
 		/**
-		 * Get all documentation sites
-		 */
-		getDocSites: db.docSites.getAll,
-
-		/**
-		 * Get a specific documentation site by ID
-		 */
-		getDocSite: db.docSites.get,
-
-		/**
-		 * Update a documentation site
-		 */
-		updateDocSite: db.docSites.update,
-
-		/**
-		 * Delete a documentation site
-		 */
-		deleteDocSite: db.docSites.delete,
-
-		/**
 		 * Add a documentation website
 		 */
 		addDocSite: defineMutation({
@@ -473,10 +399,5 @@ export const clippings = defineWorkspace({
 				return Ok(undefined);
 			},
 		}),
-
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
 	}),
 });

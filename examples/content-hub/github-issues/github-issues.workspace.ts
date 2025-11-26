@@ -48,10 +48,11 @@ export const githubIssues = defineWorkspace({
 	providers: [setupPersistence],
 
 	exports: ({ db, indexes }) => ({
-		getIssues: db.issues.getAll,
-		getIssue: db.issues.get,
-		createIssue: db.issues.insert,
-		updateIssue: db.issues.update,
+		...db.issues,
+		pullToMarkdown: indexes.markdown.pullToMarkdown,
+		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+		pullToSqlite: indexes.sqlite.pullToSqlite,
+		pushFromSqlite: indexes.sqlite.pushFromSqlite,
 
 		/** Filter issues by status */
 		getIssuesByStatus: defineQuery({
@@ -80,10 +81,5 @@ export const githubIssues = defineWorkspace({
 				return Ok(issues);
 			},
 		}),
-
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
 	}),
 });

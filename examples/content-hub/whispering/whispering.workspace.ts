@@ -45,11 +45,9 @@ export const whispering = defineWorkspace({
 		 */
 		function determineTimezone(date: Date): string {
 			const year = date.getFullYear();
-			const month = date.getMonth(); // 0-indexed
+			const month = date.getMonth();
 
-			// >= 2025-05-25
 			if (year > 2025 || (year === 2025 && month >= 4)) {
-				// month 4 = May
 				if (year === 2025 && month === 4 && date.getDate() >= 25) {
 					return 'America/Los_Angeles';
 				}
@@ -61,9 +59,7 @@ export const whispering = defineWorkspace({
 				}
 			}
 
-			// Between May 2024 (inclusive) and August 2024 (inclusive)
 			if (year === 2024 && month >= 4 && month <= 7) {
-				// months 4-7 = May-August
 				return 'America/Los_Angeles';
 			}
 
@@ -71,30 +67,11 @@ export const whispering = defineWorkspace({
 		}
 
 		return {
-			/**
-			 * Get all entries
-			 */
-			getEntries: db.entries.getAll,
-
-			/**
-			 * Get an entry by ID
-			 */
-			getEntry: db.entries.get,
-
-			/**
-			 * Create an entry
-			 */
-			createEntry: db.entries.insert,
-
-			/**
-			 * Update an entry
-			 */
-			updateEntry: db.entries.update,
-
-			/**
-			 * Delete an entry
-			 */
-			deleteEntry: db.entries.delete,
+			...db.entries,
+			pullToMarkdown: indexes.markdown.pullToMarkdown,
+			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+			pullToSqlite: indexes.sqlite.pullToSqlite,
+			pushFromSqlite: indexes.sqlite.pushFromSqlite,
 
 			/**
 			 * Migrate entries from quick-add.md format
@@ -130,10 +107,7 @@ export const whispering = defineWorkspace({
 						errors: [] as Array<{ line: number; error: string }>,
 					};
 
-					// Track which lines to keep (errors and empty lines)
 					const linesToKeep: string[] = [];
-
-					// ISO 8601 timestamp pattern: YYYY-MM-DDTHH:mm:ss.sssZ
 					const timestampPattern =
 						/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(.*)$/;
 
@@ -141,7 +115,6 @@ export const whispering = defineWorkspace({
 						const line = lines[i];
 						const lineNumber = i + 1;
 
-						// Skip empty lines but keep them in the file
 						if (!line.trim()) {
 							stats.skipped++;
 							linesToKeep.push(line);
@@ -156,43 +129,36 @@ export const whispering = defineWorkspace({
 								line: lineNumber,
 								error: 'Line does not match timestamp pattern',
 							});
-							linesToKeep.push(line); // Keep error lines
+							linesToKeep.push(line);
 							continue;
 						}
 
 						const [, timestampStr, content] = match;
-
-						// Parse the timestamp
 						const date = new Date(timestampStr);
+
 						if (Number.isNaN(date.getTime())) {
 							stats.errors.push({
 								line: lineNumber,
 								error: 'Invalid timestamp',
 							});
-							linesToKeep.push(line); // Keep error lines
+							linesToKeep.push(line);
 							continue;
 						}
 
-						// Determine timezone based on date
 						const timezone = determineTimezone(date);
-
-						// Create entry
 						const entry = {
 							id: generateId(),
 							content: content.trim(),
 							date: DateWithTimezone({ date, timezone }).toJSON(),
 						};
 
-						// Insert into database (unless dry run)
 						if (!dryRun) {
 							db.entries.insert(entry);
 						}
 
 						stats.success++;
-						// Don't add to linesToKeep - successfully migrated lines are deleted
 					}
 
-					// Write back the file with only error lines and empty lines (unless dry run)
 					if (!dryRun && stats.success > 0) {
 						const { error: writeError } = await tryAsync({
 							try: async () => {
@@ -244,11 +210,6 @@ export const whispering = defineWorkspace({
 					});
 				},
 			}),
-
-			pullToMarkdown: indexes.markdown.pullToMarkdown,
-			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-			pullToSqlite: indexes.sqlite.pullToSqlite,
-			pushFromSqlite: indexes.sqlite.pushFromSqlite,
 		};
 	},
 });

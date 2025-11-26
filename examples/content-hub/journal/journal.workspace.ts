@@ -164,58 +164,8 @@ export const journal = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ db, validators, indexes }) => ({
-		/**
-		 * Direct access to database operations
-		 */
-		db,
-
-		/**
-		 * Schema validators for runtime validation and arktype composition.
-		 *
-		 * Use validators for:
-		 * - Migration scripts that validate external data
-		 * - Custom deserialization logic
-		 * - Composing arktype schemas with `.omit()`, `.partial()`, etc.
-		 *
-		 * @example
-		 * ```typescript
-		 * // Validate frontmatter (exclude auto-managed fields)
-		 * // Access via table helper: db.journal.validators
-		 * const FrontMatter = db.journal.validators.toArktype().omit('id', 'content');
-		 * const result = FrontMatter(unknownData);
-		 * if (result instanceof type.errors) {
-		 *   // Handle validation error
-		 * }
-		 * ```
-		 */
-		validators,
-
-		/**
-		 * Get all journal entries
-		 */
-		getJournalEntries: db.journal.getAll,
-
-		/**
-		 * Get a journal entry by ID
-		 */
-		getJournalEntry: db.journal.get,
-
-		/**
-		 * Create a journal entry
-		 */
-		createJournalEntry: db.journal.insert,
-
-		/**
-		 * Update a journal entry
-		 */
-		updateJournalEntry: db.journal.update,
-
-		/**
-		 * Delete a journal entry
-		 */
-		deleteJournalEntry: db.journal.delete,
-
+	exports: ({ db, indexes }) => ({
+		...db.journal,
 		pullToMarkdown: indexes.markdown.pullToMarkdown,
 		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
 		pullToSqlite: indexes.sqlite.pullToSqlite,

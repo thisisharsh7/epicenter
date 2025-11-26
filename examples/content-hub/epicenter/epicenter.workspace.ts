@@ -75,47 +75,8 @@ export const epicenter = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ schema, db, validators, indexes }) => ({
-		/**
-		 * The workspace schema (table definitions)
-		 */
-		schema,
-
-		/**
-		 * Direct access to database operations
-		 */
-		db,
-
-		/**
-		 * Schema validators for runtime validation and arktype composition
-		 */
-		validators,
-
-		/**
-		 * Get all pitches
-		 */
-		getPitches: db.pitches.getAll,
-
-		/**
-		 * Get a specific pitch by ID
-		 */
-		getPitch: db.pitches.get,
-
-		/**
-		 * Create a new pitch
-		 */
-		createPitch: db.pitches.insert,
-
-		/**
-		 * Update pitch fields
-		 */
-		updatePitch: db.pitches.update,
-
-		/**
-		 * Delete a pitch
-		 */
-		deletePitch: db.pitches.delete,
-
+	exports: ({ db, indexes }) => ({
+		...db.pitches,
 		pullToMarkdown: indexes.markdown.pullToMarkdown,
 		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
 	}),

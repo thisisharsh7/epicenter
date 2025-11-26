@@ -106,12 +106,7 @@ export const email = defineWorkspace({
 	providers: [setupPersistence],
 
 	exports: ({ db, indexes }) => ({
-		getEmails: db.emails.getAll,
-		getEmail: db.emails.get,
-		createEmail: db.emails.insert,
-		updateEmail: db.emails.update,
-		deleteEmail: db.emails.delete,
-
+		...db.emails,
 		pullToMarkdown: indexes.markdown.pullToMarkdown,
 		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
 		pullToSqlite: indexes.sqlite.pullToSqlite,
