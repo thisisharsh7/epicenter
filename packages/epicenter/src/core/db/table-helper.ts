@@ -677,6 +677,42 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				ytable.unobserveDeep(observer);
 			};
 		},
+
+		/**
+		 * Type inference helper for SerializedRow.
+		 *
+		 * SerializedRow is the plain JavaScript representation of a row,
+		 * used for insert, update, and upsert operations.
+		 *
+		 * @example
+		 * ```typescript
+		 * type Post = typeof db.posts.$inferSerializedRow;
+		 * const post: typeof db.posts.$inferSerializedRow = {
+		 *   id: '1',
+		 *   title: 'Hello',
+		 *   content: 'World',
+		 * };
+		 * db.posts.insert(post);
+		 * ```
+		 */
+		$inferSerializedRow: null as unknown as SerializedRow<TTableSchema>,
+
+		/**
+		 * Type inference helper for Row.
+		 *
+		 * Row is the YJS-backed representation returned from get() and getAll().
+		 * It includes the toJSON() method for serialization.
+		 *
+		 * @example
+		 * ```typescript
+		 * type Post = typeof db.posts.$inferRow;
+		 * const result = db.posts.get({ id: '1' });
+		 * if (result.data) {
+		 *   const post: Post = result.data; // Row with YJS backing
+		 * }
+		 * ```
+		 */
+		$inferRow: null as unknown as Row<TTableSchema>,
 	};
 }
 
