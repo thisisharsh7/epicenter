@@ -6,7 +6,6 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
 import {
-	type SerializedRow,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -48,7 +47,7 @@ describe('CLI End-to-End Tests', () => {
 			markdown: (c) => markdownIndex(c, { directory: './content' }),
 		},
 
-		exports: ({ schema, db, indexes }) => ({
+		exports: ({ db, indexes }) => ({
 			listPosts: defineQuery({
 				handler: async () => {
 					const posts = await indexes.sqlite.db
@@ -82,7 +81,7 @@ describe('CLI End-to-End Tests', () => {
 						content: content ?? null,
 						category,
 						views: 0,
-					} satisfies SerializedRow<typeof schema.posts>;
+					} satisfies typeof db.posts.$inferSerializedRow;
 					db.posts.insert(post);
 					return Ok(post);
 				},

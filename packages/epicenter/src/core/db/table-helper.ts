@@ -116,6 +116,21 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 	return {
 		/**
+		 * The name of this table
+		 */
+		name: tableName,
+
+		/**
+		 * The schema definition for this table (column definitions)
+		 */
+		schema,
+
+		/**
+		 * The validators for this table (runtime validation methods)
+		 */
+		validators,
+
+		/**
 		 * Insert a new row into the table.
 		 *
 		 * For Y.js columns (ytext, tags), provide plain JavaScript values:

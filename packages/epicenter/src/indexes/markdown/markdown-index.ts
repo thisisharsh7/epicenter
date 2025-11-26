@@ -5,6 +5,7 @@ import { type } from 'arktype';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
+import type { TableHelper } from '../../core/db/table-helper';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
 	type Index,
@@ -15,7 +16,6 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
-	TableValidators,
 	WorkspaceSchema,
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
@@ -279,12 +279,12 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * The table's directory setting determines where the file is written.
 	 *
 	 * @param params.row - Row to serialize (already validated against schema)
-	 * @param params.table - Table context (name, schema, validators)
+	 * @param params.table - TableHelper with metadata (name, schema, validators) and type inference helpers
 	 * @returns Frontmatter object, markdown body string, and simple filename (without directory path)
 	 */
 	serialize?(params: {
 		row: SerializedRow<TTableSchema>;
-		table: TableContext<TTableSchema>;
+		table: TableHelper<TTableSchema>;
 	}): {
 		frontmatter: Record<string, unknown>;
 		body: string;
@@ -307,42 +307,15 @@ type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
 	 * @param params.body - Markdown body content (text after frontmatter delimiters)
 	 * @param params.filename - Simple filename only (validated to not contain path separators)
-	 * @param params.table - Table context (name, schema, validators)
+	 * @param params.table - TableHelper with metadata (name, schema, validators) and type inference helpers
 	 * @returns Result with complete row (with id field), or error to skip this file
 	 */
 	deserialize?(params: {
 		frontmatter: Record<string, unknown>;
 		body: string;
 		filename: string;
-		table: TableContext<TTableSchema>;
+		table: TableHelper<TTableSchema>;
 	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
-};
-
-/**
- * Table context provided to serialize/deserialize functions
- *
- * This context gives transformation functions access to table metadata
- * while maintaining API purity:
- *
- * - **name**: Table identifier for logging/debugging
- * - **schema**: Schema definition for introspection (check field types, required fields, etc.)
- * - **validators**: Validation utilities for ensuring data integrity
- *
- * Deliberately excludes:
- * - YJS table instance (would enable impure queries)
- * - Directory paths (transformation shouldn't know about storage location)
- * - Config objects (internal implementation details)
- *
- * This curated context encourages pure, deterministic transformation functions
- * that work with data and schema, not with storage or state.
- */
-type TableContext<TTableSchema extends TableSchema> = {
-	/** Table name (for logging and context) */
-	name: string;
-	/** Table schema definition (for introspection and structure) */
-	schema: TTableSchema;
-	/** Table validators (for validation during deserialization) */
-	validators: TableValidators<TTableSchema>;
 };
 
 export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
@@ -464,13 +437,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const {
-			tableName,
-			table,
-			tableSchema,
-			validators,
-			tableConfig,
-		} of tables) {
+		for (const { tableName, table, tableConfig } of tables) {
 			// Initialize bidirectional tracking for this table
 			if (!tracking[tableName]) {
 				tracking[tableName] = createBidirectionalMap();
@@ -486,10 +453,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 				// Serialize row once
 				const { frontmatter, body, filename } = tableConfig.serialize({
-					// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-					row: serialized as any,
-					// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-					table: { name: tableName, schema: tableSchema, validators } as any,
+					// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+					row: serialized,
+					// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+					table,
 				});
 
 				// Construct file path
@@ -648,13 +615,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerFileWatchers = () => {
 		const watchers: FSWatcher[] = [];
 
-		for (const {
-			tableName,
-			table,
-			tableSchema,
-			validators,
-			tableConfig,
-		} of tables) {
+		for (const { tableName, table, tableConfig } of tables) {
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
 				try: () => {
@@ -760,8 +721,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								frontmatter,
 								body,
 								filename,
-								// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-								table: { name: tableName, schema: tableSchema, validators } as any,
+								// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+								table,
 							});
 
 						if (deserializeError) {
@@ -829,7 +790,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 		diagnostics.clear();
 
-		for (const { tableName, tableSchema, validators, tableConfig } of tables) {
+		for (const { tableName, table, tableConfig } of tables) {
 			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
@@ -869,8 +830,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						frontmatter,
 						body,
 						filename,
-						// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-						table: { name: tableName, schema: tableSchema, validators } as any,
+						// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+						table,
 					});
 
 					if (deserializeError) {
@@ -916,13 +877,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
 	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
 	 */
-	for (const {
-		tableName,
-		table,
-		tableSchema,
-		validators,
-		tableConfig,
-	} of tables) {
+	for (const { tableName, table, tableConfig } of tables) {
 		// Initialize bidirectional tracking for this table
 		if (!tracking[tableName]) {
 			tracking[tableName] = createBidirectionalMap();
@@ -935,10 +890,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		for (const row of rows) {
 			const serializedRow = row.toJSON();
 			const { filename } = tableConfig.serialize({
-				// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-				row: serializedRow as any,
-				// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-				table: { name: tableName, schema: tableSchema, validators } as any,
+				// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+				row: serializedRow,
+				// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableContext<TSchema[string]> due to union type from $tableEntries iteration
+				table,
 			});
 
 			// Store both directions for O(1) lookups
@@ -994,13 +949,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Process each table independently
-						for (const {
-							tableName,
-							table,
-							tableSchema,
-							validators,
-							tableConfig,
-						} of tables) {
+						for (const { tableName, table, tableConfig } of tables) {
 							// Delete all existing markdown files in this table's directory
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
@@ -1026,10 +975,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							for (const row of rows) {
 								const serializedRow = row.toJSON();
 								const { frontmatter, body, filename } = tableConfig.serialize({
-									// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-									row: serializedRow as any,
-									// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-									table: { name: tableName, schema: tableSchema, validators } as any,
+									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+									row: serializedRow,
+									// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+									table,
 								});
 
 								const filePath = path.join(
@@ -1087,13 +1036,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						diagnostics.clear();
 
 						// Process each table independently
-						for (const {
-							tableName,
-							table,
-							tableSchema,
-							validators,
-							tableConfig,
-						} of tables) {
+						for (const { tableName, table, tableConfig } of tables) {
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 							await Promise.all(
@@ -1134,8 +1077,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											frontmatter,
 											body,
 											filename,
-											// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-											table: { name: tableName, schema: tableSchema, validators } as any,
+											// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+											table,
 										});
 
 									if (deserializeError) {
@@ -1158,8 +1101,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									}
 
 									// Insert into YJS
-									// biome-ignore lint/suspicious/noExplicitAny: union type compatibility via $tableEntries iteration
-									const insertResult = table.insert(row as any);
+									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to parameter of type SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+									const insertResult = table.insert(row);
 									if (insertResult.error) {
 										// Log insert errors (operational errors, not validation errors)
 										logger.log(

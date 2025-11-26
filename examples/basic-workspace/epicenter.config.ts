@@ -177,7 +177,7 @@ const blogWorkspace = defineWorkspace({
 					category,
 					views: 0,
 					publishedAt: null,
-				} satisfies SerializedRow<typeof schema.posts>;
+				} satisfies typeof db.posts.$inferSerializedRow;
 				db.posts.insert(post);
 				return Ok(post);
 			},
@@ -214,7 +214,7 @@ const blogWorkspace = defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				} satisfies SerializedRow<typeof schema.comments>;
+				} satisfies typeof db.comments.$inferSerializedRow;
 				db.comments.insert(comment);
 				return Ok(comment);
 			},

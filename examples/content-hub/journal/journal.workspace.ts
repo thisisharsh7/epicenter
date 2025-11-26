@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import {
-	SerializedRow,
+	type SerializedRow,
 	date,
 	defineWorkspace,
 	id,
@@ -164,18 +164,7 @@ export const journal = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ schema, db, validators, indexes }) => ({
-		/**
-		 * The workspace schema (table definitions).
-		 * Useful for type inference in external scripts.
-		 *
-		 * @example
-		 * ```typescript
-		 * const entry = { ... } satisfies SerializedRow<typeof schema.journal>;
-		 * ```
-		 */
-		schema,
-
+	exports: ({ db, validators, indexes }) => ({
 		/**
 		 * Direct access to database operations
 		 */
