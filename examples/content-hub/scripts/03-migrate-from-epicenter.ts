@@ -89,7 +89,7 @@ const results: ProcessResult[] = await Promise.all(
 			id,
 			content: body,
 			...parsed,
-		} satisfies SerializedRow<typeof client.journal.db.$schema.journal>;
+		} satisfies SerializedRow<typeof client.journal.schema.journal>;
 
 		// Create entry via client (skip in dry-run mode)
 		if (!dryRun) {

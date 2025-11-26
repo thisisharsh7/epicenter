@@ -43,9 +43,10 @@ export type Index<
 /**
  * Context provided to each index factory function.
  *
- * Provides workspace metadata and database instance that indexes sync with.
+ * Provides workspace metadata, schema, and database instance that indexes sync with.
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
+ * @property schema - The workspace schema (table definitions)
  * @property db - The Epicenter database instance containing YJS-backed tables
  * @property storageDir - Absolute storage directory path resolved from epicenter config
  *   - Node.js: Resolved to absolute path (defaults to `process.cwd()` if not specified in config)
@@ -54,8 +55,9 @@ export type Index<
  * @example Creating an index with IndexContext
  * ```typescript
  * export function sqliteIndex<TSchema extends WorkspaceSchema>(
- *   { id, db, storageDir }: IndexContext<TSchema>
+ *   { id, schema, db, storageDir }: IndexContext<TSchema>
  * ) {
+ *   // Use schema for type conversions: convertWorkspaceSchemaToDrizzle(schema)
  *   // Use storageDir for file paths: path.join(storageDir, '.epicenter', `${id}.db`)
  *   // Use db to observe table changes
  * }
@@ -63,6 +65,7 @@ export type Index<
  */
 export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	id: string;
+	schema: TSchema;
 	db: Db<TSchema>;
 	storageDir: AbsolutePath | undefined;
 };
@@ -86,10 +89,10 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
  * @example
  * ```typescript
  * // Creating an index - internal resources become exports
- * function sqliteIndex({ id, db }: IndexContext) {
+ * function sqliteIndex({ id, schema, db }: IndexContext) {
  *   // 1. Create internal resources
+ *   const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
  *   const sqliteDb = drizzle({ client, schema: drizzleTables });
- *   const drizzleTables = convertWorkspaceSchemaToDrizzle(db.$schema);
  *
  *   // 2. Set up YJS observers
  *   const unsubPosts = db.posts.observe({

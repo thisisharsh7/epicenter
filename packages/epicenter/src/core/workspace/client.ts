@@ -340,14 +340,19 @@ export async function initializeWorkspaces<
 		const validators = createWorkspaceValidators(workspaceConfig.schema);
 
 		// Initialize each index by calling its factory function with IndexContext
-		// Each index function receives { id, db, storageDir } and returns an index object
+		// Each index function receives { id, schema, db, storageDir } and returns an index object
 		// Initialize all indexes in parallel for better performance
 		const indexes = Object.fromEntries(
 			await Promise.all(
 				Object.entries(workspaceConfig.indexes).map(
 					async ([indexId, indexFn]) => [
 						indexId,
-						await indexFn({ id: workspaceConfig.id, db, storageDir }),
+						await indexFn({
+							id: workspaceConfig.id,
+							schema: workspaceConfig.schema,
+							db,
+							storageDir,
+						}),
 					],
 				),
 			),
@@ -358,11 +363,13 @@ export async function initializeWorkspaces<
 		};
 
 		// Call the exports factory to get workspace exports (actions + utilities), passing:
+		// - schema: The workspace schema (table definitions)
 		// - db: Epicenter database API
 		// - validators: Schema validators for runtime validation and arktype composition
 		// - indexes: exported resources from each index (db, queries, etc.)
 		// - workspaces: full clients from dependencies (all exports, not filtered!)
 		const exports = workspaceConfig.exports({
+			schema: workspaceConfig.schema,
 			db,
 			validators,
 			indexes,

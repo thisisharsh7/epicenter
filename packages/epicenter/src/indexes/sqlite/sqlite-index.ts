@@ -80,6 +80,7 @@ type SyncCoordination = {
  */
 export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	id,
+	schema,
 	db,
 	storageDir,
 }: IndexContext<TSchema>) => {
@@ -91,7 +92,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	}
 
 	// Convert table schemas to Drizzle tables
-	const drizzleTables = convertWorkspaceSchemaToDrizzle(db.$schema);
+	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
 	// Set up storage paths
 	const databasePath = path.join(storageDir, '.epicenter', `${id}.db`);

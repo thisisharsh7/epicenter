@@ -97,9 +97,6 @@ export type TableEntry<TTableSchema extends TableSchema> = {
  *   db.posts.insert({ ... });
  *   db.comments.insert({ ... });
  * });
- *
- * // Type annotations use $schema
- * const post = { ... } satisfies SerializedRow<typeof db.$schema.posts>;
  * ```
  */
 export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
@@ -154,17 +151,6 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 	return {
 		// Spread table helpers directly onto the object (flattened access)
 		...tableHelpers,
-
-		/**
-		 * Table schemas for all tables.
-		 * Maps table name to column schemas.
-		 *
-		 * @example
-		 * ```typescript
-		 * const post = { ... } satisfies SerializedRow<typeof db.$schema.posts>;
-		 * ```
-		 */
-		$schema: schema,
 
 		/**
 		 * The underlying YJS document.

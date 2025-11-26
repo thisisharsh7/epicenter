@@ -237,6 +237,7 @@ export type WorkspaceConfig<
 	/**
 	 * Factory function that creates workspace exports (actions, utilities, etc.)
 	 *
+	 * @param context.schema - The workspace schema (table definitions)
 	 * @param context.db - Epicenter database API for direct table operations
 	 * @param context.validators - Schema validators for runtime validation and arktype composition
 	 * @param context.indexes - Index-specific exports (queries, sync operations, etc.)
@@ -244,7 +245,10 @@ export type WorkspaceConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * exports: ({ db, validators, indexes }) => ({
+	 * exports: ({ schema, db, validators, indexes }) => ({
+	 *   // Expose schema for type inference in external scripts
+	 *   schema,
+	 *
 	 *   // Expose db for direct access
 	 *   db,
 	 *
@@ -261,6 +265,7 @@ export type WorkspaceConfig<
 	 * ```
 	 */
 	exports: (context: {
+		schema: TWorkspaceSchema;
 		db: Db<TWorkspaceSchema>;
 		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToExports<TDeps>;

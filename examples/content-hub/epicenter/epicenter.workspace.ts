@@ -75,7 +75,12 @@ export const epicenter = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ db, validators, indexes }) => ({
+	exports: ({ schema, db, validators, indexes }) => ({
+		/**
+		 * The workspace schema (table definitions)
+		 */
+		schema,
+
 		/**
 		 * Direct access to database operations
 		 */

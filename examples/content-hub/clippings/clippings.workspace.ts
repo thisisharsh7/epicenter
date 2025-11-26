@@ -138,7 +138,7 @@ export const clippings = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ db, indexes }) => ({
+	exports: ({ schema, db, indexes }) => ({
 		/**
 		 * Get all clippings
 		 */
@@ -238,7 +238,7 @@ export const clippings = defineWorkspace({
 		 */
 		removeDuplicates: defineMutation({
 			handler: () => {
-				type Clipping = SerializedRow<(typeof db.$schema)['clippings']>;
+				type Clipping = SerializedRow<(typeof schema)['clippings']>;
 
 				// Convert rows to JSON
 				const clippings: Clipping[] = db.clippings

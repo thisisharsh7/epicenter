@@ -164,7 +164,18 @@ export const journal = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ db, validators, indexes }) => ({
+	exports: ({ schema, db, validators, indexes }) => ({
+		/**
+		 * The workspace schema (table definitions).
+		 * Useful for type inference in external scripts.
+		 *
+		 * @example
+		 * ```typescript
+		 * const entry = { ... } satisfies SerializedRow<typeof schema.journal>;
+		 * ```
+		 */
+		schema,
+
 		/**
 		 * Direct access to database operations
 		 */

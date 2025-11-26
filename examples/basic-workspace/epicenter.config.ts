@@ -126,7 +126,7 @@ const blogWorkspace = defineWorkspace({
 			}),
 	},
 
-	exports: ({ db, indexes }) => ({
+	exports: ({ schema, db, indexes }) => ({
 		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
 			handler: async () => {
@@ -177,7 +177,7 @@ const blogWorkspace = defineWorkspace({
 					category,
 					views: 0,
 					publishedAt: null,
-				} satisfies SerializedRow<typeof db.$schema.posts>;
+				} satisfies SerializedRow<typeof schema.posts>;
 				db.posts.insert(post);
 				return Ok(post);
 			},
@@ -214,7 +214,7 @@ const blogWorkspace = defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				} satisfies SerializedRow<typeof db.$schema.comments>;
+				} satisfies SerializedRow<typeof schema.comments>;
 				db.comments.insert(comment);
 				return Ok(comment);
 			},

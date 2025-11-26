@@ -48,7 +48,7 @@ describe('CLI End-to-End Tests', () => {
 			markdown: (c) => markdownIndex(c, { directory: './content' }),
 		},
 
-		exports: ({ db, indexes }) => ({
+		exports: ({ schema, db, indexes }) => ({
 			listPosts: defineQuery({
 				handler: async () => {
 					const posts = await indexes.sqlite.db
@@ -82,7 +82,7 @@ describe('CLI End-to-End Tests', () => {
 						content: content ?? null,
 						category,
 						views: 0,
-					} satisfies SerializedRow<typeof db.$schema.posts>;
+					} satisfies SerializedRow<typeof schema.posts>;
 					db.posts.insert(post);
 					return Ok(post);
 				},
