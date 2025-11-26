@@ -279,7 +279,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 
 		case 'multi-select': {
 			// Tags column stored as TEXT with JSON mode (array of strings)
-			const column= tags(schema);
+			const column = tags(schema);
 			return column as ColumnToDrizzle<C>;
 		}
 
