@@ -230,6 +230,16 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	// Initial sync: YJS → SQLite (blocking to ensure tables exist before queries)
 	await createTablesIfNotExist(sqliteDb, drizzleTables);
 
+	// Clear existing data to make initialization idempotent
+	for (const tableName of db.getTableNames()) {
+		const drizzleTable = drizzleTables[tableName];
+		if (!drizzleTable) {
+			throw new Error(`Drizzle table for "${tableName}" not found`);
+		}
+		await sqliteDb.delete(drizzleTable);
+	}
+
+	// Insert all valid rows from YJS into SQLite
 	for (const tableName of db.getTableNames()) {
 		const drizzleTable = drizzleTables[tableName];
 		if (!drizzleTable) {
