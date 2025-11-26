@@ -1,32 +1,31 @@
 <script lang="ts">
-	import type { Recording } from '$lib/services/db';
-	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
+	import { rpc } from '$lib/query';
+	import * as services from '$lib/services';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { onDestroy } from 'svelte';
 
-	let { id, blob }: Pick<Recording, 'id' | 'blob'> = $props();
+	let { id }: { id: string } = $props();
 
-	const blobUrlManager = createBlobUrlManager();
-
-	const blobUrl = $derived.by(() => {
-		if (!blob) return undefined;
-		return blobUrlManager.createUrl(blob);
-	});
+	const audioUrlQuery = createQuery(
+		rpc.db.recordings.getAudioPlaybackUrl(() => id).options,
+	);
 
 	onDestroy(() => {
-		blobUrlManager.revokeCurrentUrl();
+		// Clean up audio URL when component unmounts to prevent memory leaks
+		services.db.recordings.revokeAudioUrl(id);
 	});
 </script>
 
-{#if blobUrl}
+{#if audioUrlQuery.data}
 	<audio
 		class="h-8"
 		style="view-transition-name: {getRecordingTransitionId({
 			recordingId: id,
-			propertyName: 'blob',
+			propertyName: 'id',
 		})}"
 		controls
-		src={blobUrl}
+		src={audioUrlQuery.data}
 	>
 		Your browser does not support the audio element.
 	</audio>

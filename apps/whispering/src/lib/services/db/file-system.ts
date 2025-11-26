@@ -413,6 +413,8 @@ export function createFileSystemDb(): DbService {
 						const audioPath = await join(recordingsPath, audioFile);
 						const assetUrl = convertFileSrc(audioPath);
 
+						// Return the URL as-is from convertFileSrc()
+						// The Tauri backend handles URL decoding automatically
 						return assetUrl;
 					},
 					catch: (error) =>
