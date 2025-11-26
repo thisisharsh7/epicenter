@@ -1,10 +1,12 @@
 # Don't Suppress Errors, Expect Them
 
-When your IDE suggests `// biome-ignore` or `// eslint-disable`, pause. There's a better way.
+When your IDE's quick-fix suggests `// biome-ignore` or `// eslint-disable`, pause. There's a better way.
 
 ## The Problem
 
-You hit a type error. Your IDE suggests this:
+You're working and hit a type error. Biome shows: "Unexpected any. Specify a different type." You hit `Cmd+.` (or your IDE's quick action shortcut), and it offers "Suppress rule lint/suspicious/noExplicitAny" as a fix.
+
+The IDE is misleading you. If you accept that suggestion, you get this:
 
 ```typescript
 // biome-ignore lint/suspicious/noExplicitAny: union type compatibility
@@ -18,7 +20,7 @@ This suppresses the linter warning about `as any`, but you're still casting away
 Use `@ts-expect-error` instead:
 
 ```typescript
-// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tables() iteration
 row: serializedRow,
 ```
 
@@ -40,7 +42,7 @@ Compare:
 table: { name, schema, validators } as any,
 
 // After: Specific, temporary, preserves type safety
-// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableContext<TSchema[string]> due to union type from $tableEntries iteration
+// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableContext<TSchema[string]> due to union type from $tables() iteration
 table,
 ```
 

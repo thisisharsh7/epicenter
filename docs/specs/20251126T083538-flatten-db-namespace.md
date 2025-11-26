@@ -278,3 +278,55 @@ All errors related to this refactoring (`db.tables`, `db.schema`) are resolved. 
 - Various test files: Minor typing issues
 
 These can be addressed in separate cleanup tasks.
+
+---
+
+## Follow-up: Simplify `$tableEntries()` to `$tables()`
+
+### Context
+
+After the initial refactoring, we identified that `TableEntry` was redundant because `TableHelper` already includes `name`, `schema`, and `validators` properties.
+
+### Change
+
+Renamed `$tableEntries()` to `$tables()` and simplified the return type:
+
+```typescript
+// Before
+type TableEntry<TTableSchema extends TableSchema> = {
+    name: string;
+    table: TableHelper<TTableSchema>;
+    schema: TTableSchema;
+    validators: TableValidators<TTableSchema>;
+};
+
+$tableEntries(): TableEntry<TWorkspaceSchema[keyof TWorkspaceSchema]>[];
+
+// After
+$tables(): TableHelper<TWorkspaceSchema[keyof TWorkspaceSchema]>[];
+```
+
+### Migration
+
+```typescript
+// Before
+for (const { name: tableName, table, schema, validators } of db.$tableEntries()) {
+    // ...
+}
+
+// After
+for (const table of db.$tables()) {
+    table.name       // Table name
+    table.schema     // Table schema
+    table.validators // Table validators
+    // ...
+}
+```
+
+### Files Updated
+
+- `packages/epicenter/src/core/db/core.ts`: Removed `TableEntry` type, renamed to `$tables()`
+- `packages/epicenter/src/indexes/markdown/markdown-index.ts`: Updated iteration patterns
+- `packages/epicenter/src/indexes/sqlite/sqlite-index.ts`: Updated iteration patterns
+- `examples/content-hub/scripts/03-migrate-from-epicenter.ts`: Updated validator access
+- `examples/content-hub/journal/journal.workspace.ts`: Updated JSDoc example

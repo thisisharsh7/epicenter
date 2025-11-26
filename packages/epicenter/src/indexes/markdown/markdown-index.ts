@@ -400,32 +400,22 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * Compute table metadata once and reuse everywhere
 	 * This avoids prop-drilling db, tableConfigs, and absoluteWorkspaceDir
 	 */
-	const tables = db
-		.$tableEntries()
-		.map(({ name: tableName, table, schema: tableSchema, validators }) => {
-			// Destructure user config with defaults
-			const userConfig = tableConfigs[tableName];
+	const tables = db.$tables().map((table) => {
+		// Destructure user config with defaults
+		const userConfig = tableConfigs[table.name];
 
-			// Merge user config with defaults and resolve directory to absolute path
-			const tableConfig = {
-				serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
-				deserialize:
-					userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
-				directory: path.resolve(
-					absoluteWorkspaceDir,
-					userConfig?.directory ?? tableName,
-				) as AbsolutePath,
-			};
+		// Merge user config with defaults and resolve directory to absolute path
+		const tableConfig = {
+			serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
+			deserialize: userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
+			directory: path.resolve(
+				absoluteWorkspaceDir,
+				userConfig?.directory ?? table.name,
+			) as AbsolutePath,
+		};
 
-			return {
-				tableName,
-				table,
-				tableSchema,
-				validators,
-				tableConfig,
-			};
-		})
-		.filter((item) => item !== null);
+		return { table, tableConfig };
+	});
 
 	/**
 	 * Register YJS observers to sync changes from YJS to markdown files
@@ -437,10 +427,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { tableName, table, tableConfig } of tables) {
+		for (const { table, tableConfig } of tables) {
 			// Initialize bidirectional tracking for this table
-			if (!tracking[tableName]) {
-				tracking[tableName] = createBidirectionalMap();
+			if (!tracking[table.name]) {
+				tracking[table.name] = createBidirectionalMap();
 			}
 
 			/**
@@ -453,9 +443,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 				// Serialize row once
 				const { frontmatter, body, filename } = tableConfig.serialize({
-					// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+					// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tables() iteration
 					row: serialized,
-					// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+					// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 					table,
 				});
 
@@ -467,7 +457,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 				// Check if we need to clean up an old file before updating tracking
 				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-				const oldFilename = tracking[tableName]!.getFilename({ rowId: row.id });
+				const oldFilename = tracking[table.name]!.getFilename({ rowId: row.id });
 
 				/**
 				 * This is checking if there's an old filename AND if it's different
@@ -482,12 +472,12 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 					) as AbsolutePath;
 					await deleteMarkdownFile({ filePath: oldFilePath });
 					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-					tracking[tableName]!.deleteByFilename({ filename: oldFilename });
+					tracking[table.name]!.deleteByFilename({ filename: oldFilename });
 				}
 
 				// Update tracking in both directions
 				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-				tracking[tableName]!.set({ rowId: row.id, filename });
+				tracking[table.name]!.set({ rowId: row.id, filename });
 
 				return writeMarkdownFile({
 					filePath,
@@ -506,8 +496,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						// Handle validation errors with diagnostics + logger
 						logger.log(
 							IndexError({
-								message: `YJS observer onAdd: validation failed for ${tableName}`,
-								context: { tableName, validationErrors: result.error.summary },
+								message: `YJS observer onAdd: validation failed for ${table.name}`,
+								context: { tableName: table.name, validationErrors: result.error.summary },
 								cause: undefined,
 							}),
 						);
@@ -523,8 +513,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						// Log I/O errors (operational errors, not validation errors)
 						logger.log(
 							IndexError({
-								message: `YJS observer onAdd: failed to write ${tableName}/${row.id}`,
-								context: { tableName, rowId: row.id },
+								message: `YJS observer onAdd: failed to write ${table.name}/${row.id}`,
+								context: { tableName: table.name, rowId: row.id },
 								cause: error,
 							}),
 						);
@@ -539,8 +529,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						// Handle validation errors with diagnostics + logger
 						logger.log(
 							IndexError({
-								message: `YJS observer onUpdate: validation failed for ${tableName}`,
-								context: { tableName, validationErrors: result.error.summary },
+								message: `YJS observer onUpdate: validation failed for ${table.name}`,
+								context: { tableName: table.name, validationErrors: result.error.summary },
 								cause: undefined,
 							}),
 						);
@@ -556,8 +546,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						// Log I/O errors (operational errors, not validation errors)
 						logger.log(
 							IndexError({
-								message: `YJS observer onUpdate: failed to write ${tableName}/${row.id}`,
-								context: { tableName, rowId: row.id },
+								message: `YJS observer onUpdate: failed to write ${table.name}/${row.id}`,
+								context: { tableName: table.name, rowId: row.id },
 								cause: error,
 							}),
 						);
@@ -572,7 +562,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 					// Get filename and delete file if it exists
 					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-					const filename = tracking[tableName]!.getFilename({ rowId: id });
+					const filename = tracking[table.name]!.getFilename({ rowId: id });
 					if (filename) {
 						const filePath = path.join(
 							tableConfig.directory,
@@ -582,14 +572,14 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 						// Clean up tracking in both directions
 						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-						tracking[tableName]!.deleteByRowId({ rowId: id });
+						tracking[table.name]!.deleteByRowId({ rowId: id });
 
 						if (error) {
 							// Log I/O errors (operational errors, not validation errors)
 							logger.log(
 								IndexError({
-									message: `YJS observer onDelete: failed to delete ${tableName}/${id}`,
-									context: { tableName, rowId: id, filePath },
+									message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
+									context: { tableName: table.name, rowId: id, filePath },
 									cause: error,
 								}),
 							);
@@ -615,7 +605,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerFileWatchers = () => {
 		const watchers: FSWatcher[] = [];
 
-		for (const { tableName, table, tableConfig } of tables) {
+		for (const { table, tableConfig } of tables) {
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
 				try: () => {
@@ -624,7 +614,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 				catch: (error) =>
 					IndexErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
-						context: { tableName, directory: tableConfig.directory },
+						context: { tableName: table.name, directory: tableConfig.directory },
 					}),
 			});
 
@@ -657,7 +647,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 						if (!exists) {
 							// File was deleted: find and delete the row
-							const rowIdToDelete = tracking[tableName]?.getRowId({ filename });
+							const rowIdToDelete = tracking[table.name]?.getRowId({ filename });
 
 							if (rowIdToDelete) {
 								if (table.has({ id: rowIdToDelete })) {
@@ -666,13 +656,13 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 								// Clean up tracking in both directions
 								// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-								tracking[tableName]!.deleteByFilename({ filename });
+								tracking[table.name]!.deleteByFilename({ filename });
 							} else {
 								logger.log(
 									MarkdownIndexError({
 										message:
 											'File deleted but row ID not found in tracking map',
-										context: { tableName, filename },
+										context: { tableName: table.name, filename },
 									}),
 								);
 							}
@@ -697,15 +687,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							});
 							diagnostics.add({
 								filePath,
-								tableName,
+								tableName: table.name,
 								filename,
 								error,
 							});
 							// Log to historical record
 							logger.log(
 								IndexError({
-									message: `File watcher: failed to read ${tableName}/${filename}`,
-									context: { filePath, tableName, filename },
+									message: `File watcher: failed to read ${table.name}/${filename}`,
+									context: { filePath, tableName: table.name, filename },
 									cause: parseResult.error,
 								}),
 							);
@@ -721,7 +711,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								frontmatter,
 								body,
 								filename,
-								// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+								// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 								table,
 							});
 
@@ -729,15 +719,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							// Track this validation error in diagnostics (current state)
 							diagnostics.add({
 								filePath,
-								tableName,
+								tableName: table.name,
 								filename,
 								error: deserializeError,
 							});
 							// Log to historical record
 							logger.log(
 								IndexError({
-									message: `File watcher: validation failed for ${tableName}/${filename}`,
-									context: { filePath, tableName, filename },
+									message: `File watcher: validation failed for ${table.name}/${filename}`,
+									context: { filePath, tableName: table.name, filename },
 									cause: deserializeError,
 								}),
 							);
@@ -790,7 +780,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 		diagnostics.clear();
 
-		for (const { tableName, table, tableConfig } of tables) {
+		for (const { table, tableConfig } of tables) {
 			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
@@ -808,15 +798,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						});
 						diagnostics.add({
 							filePath,
-							tableName,
+							tableName: table.name,
 							filename,
 							error,
 						});
 						// Log to historical record
 						logger.log(
 							IndexError({
-								message: `${operationPrefix}failed to read ${tableName}/${filename}`,
-								context: { filePath, tableName, filename },
+								message: `${operationPrefix}failed to read ${table.name}/${filename}`,
+								context: { filePath, tableName: table.name, filename },
 								cause: parseResult.error,
 							}),
 						);
@@ -830,7 +820,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						frontmatter,
 						body,
 						filename,
-						// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+						// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 						table,
 					});
 
@@ -838,15 +828,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						// Track validation error in diagnostics (current state)
 						diagnostics.add({
 							filePath,
-							tableName,
+							tableName: table.name,
 							filename,
 							error: deserializeError,
 						});
 						// Log to historical record
 						logger.log(
 							IndexError({
-								message: `${operationPrefix}validation failed for ${tableName}/${filename}`,
-								context: { filePath, tableName, filename },
+								message: `${operationPrefix}validation failed for ${table.name}/${filename}`,
+								context: { filePath, tableName: table.name, filename },
 								cause: deserializeError,
 							}),
 						);
@@ -877,10 +867,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
 	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
 	 */
-	for (const { tableName, table, tableConfig } of tables) {
+	for (const { table, tableConfig } of tables) {
 		// Initialize bidirectional tracking for this table
-		if (!tracking[tableName]) {
-			tracking[tableName] = createBidirectionalMap();
+		if (!tracking[table.name]) {
+			tracking[table.name] = createBidirectionalMap();
 		}
 
 		// Get all rows from YJS
@@ -890,14 +880,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		for (const row of rows) {
 			const serializedRow = row.toJSON();
 			const { filename } = tableConfig.serialize({
-				// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+				// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tables() iteration
 				row: serializedRow,
-				// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableContext<TSchema[string]> due to union type from $tableEntries iteration
+				// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableContext<TSchema[string]> due to union type from $tables() iteration
 				table,
 			});
 
 			// Store both directions for O(1) lookups
-			tracking[tableName].set({ rowId: row.id, filename });
+			// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+			tracking[table.name]!.set({ rowId: row.id, filename });
 		}
 	}
 
@@ -949,7 +940,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Process each table independently
-						for (const { tableName, table, tableConfig } of tables) {
+						for (const { table, tableConfig } of tables) {
 							// Delete all existing markdown files in this table's directory
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
@@ -961,7 +952,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 										logger.log(
 											IndexError({
 												message: `pullToMarkdown: failed to delete ${filePath}`,
-												context: { filePath, tableName },
+												context: { filePath, tableName: table.name },
 												cause: error,
 											}),
 										);
@@ -975,9 +966,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							for (const row of rows) {
 								const serializedRow = row.toJSON();
 								const { frontmatter, body, filename } = tableConfig.serialize({
-									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to SerializedRow<TTableSchema> due to union type from $tables() iteration
 									row: serializedRow,
-									// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+									// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 									table,
 								});
 
@@ -996,7 +987,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									logger.log(
 										IndexError({
 											message: `pullToMarkdown: failed to write ${filePath}`,
-											context: { filePath, tableName, rowId: row.id },
+											context: { filePath, tableName: table.name, rowId: row.id },
 											cause: error,
 										}),
 									);
@@ -1036,7 +1027,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						diagnostics.clear();
 
 						// Process each table independently
-						for (const { tableName, table, tableConfig } of tables) {
+						for (const { table, tableConfig } of tables) {
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 							await Promise.all(
@@ -1054,15 +1045,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 										});
 										diagnostics.add({
 											filePath,
-											tableName,
+											tableName: table.name,
 											filename,
 											error,
 										});
 										// Log to historical record
 										logger.log(
 											IndexError({
-												message: `pushFromMarkdown: failed to read ${tableName}/${filename}`,
-												context: { filePath, tableName, filename },
+												message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
+												context: { filePath, tableName: table.name, filename },
 												cause: parseResult.error,
 											}),
 										);
@@ -1077,7 +1068,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											frontmatter,
 											body,
 											filename,
-											// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tableEntries iteration
+											// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 											table,
 										});
 
@@ -1085,15 +1076,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 										// Track validation error in diagnostics (current state)
 										diagnostics.add({
 											filePath,
-											tableName,
+											tableName: table.name,
 											filename,
 											error: deserializeError,
 										});
 										// Log to historical record
 										logger.log(
 											IndexError({
-												message: `pushFromMarkdown: validation failed for ${tableName}/${filename}`,
-												context: { filePath, tableName, filename },
+												message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
+												context: { filePath, tableName: table.name, filename },
 												cause: deserializeError,
 											}),
 										);
@@ -1101,14 +1092,14 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									}
 
 									// Insert into YJS
-									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to parameter of type SerializedRow<TTableSchema> due to union type from $tableEntries iteration
+									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to parameter of type SerializedRow<TTableSchema> due to union type from $tables() iteration
 									const insertResult = table.insert(row);
 									if (insertResult.error) {
 										// Log insert errors (operational errors, not validation errors)
 										logger.log(
 											IndexError({
-												message: `pushFromMarkdown: failed to insert ${tableName}/${row.id} into YJS`,
-												context: { tableName, rowId: row.id },
+												message: `pushFromMarkdown: failed to insert ${table.name}/${row.id} into YJS`,
+												context: { tableName: table.name, rowId: row.id },
 												cause: insertResult.error,
 											}),
 										);

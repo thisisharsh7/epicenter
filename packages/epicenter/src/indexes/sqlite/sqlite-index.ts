@@ -126,10 +126,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	// Set up observers for each table
 	const unsubscribers: Array<() => void> = [];
 
-	for (const { name: tableName, table } of db.$tableEntries()) {
-		const drizzleTable = drizzleTables[tableName];
+	for (const table of db.$tables()) {
+		const drizzleTable = drizzleTables[table.name];
 		if (!drizzleTable) {
-			throw new Error(`Drizzle table for "${tableName}" not found`);
+			throw new Error(`Drizzle table for "${table.name}" not found`);
 		}
 
 		const unsub = table.observe({
@@ -142,8 +142,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				if (result.error) {
 					logger.log(
 						IndexError({
-							message: `SQLite index onAdd: validation failed for ${tableName}`,
-							context: { tableName, validationErrors: result.error.summary },
+							message: `SQLite index onAdd: validation failed for ${table.name}`,
+							context: { tableName: table.name, validationErrors: result.error.summary },
 							cause: undefined,
 						}),
 					);
@@ -159,8 +159,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					},
 					catch: (e) =>
 						IndexErr({
-							message: `SQLite index onAdd failed for ${tableName}/${row.id}: ${extractErrorMessage(e)}`,
-							context: { tableName, id: row.id, data: row },
+							message: `SQLite index onAdd failed for ${table.name}/${row.id}: ${extractErrorMessage(e)}`,
+							context: { tableName: table.name, id: row.id, data: row },
 						}),
 				});
 
@@ -177,8 +177,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				if (result.error) {
 					logger.log(
 						IndexError({
-							message: `SQLite index onUpdate: validation failed for ${tableName}`,
-							context: { tableName, validationErrors: result.error.summary },
+							message: `SQLite index onUpdate: validation failed for ${table.name}`,
+							context: { tableName: table.name, validationErrors: result.error.summary },
 							cause: undefined,
 						}),
 					);
@@ -198,8 +198,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					},
 					catch: (e) =>
 						IndexErr({
-							message: `SQLite index onUpdate failed for ${tableName}/${row.id}: ${extractErrorMessage(e)}`,
-							context: { tableName, id: row.id, data: row },
+							message: `SQLite index onUpdate failed for ${table.name}/${row.id}: ${extractErrorMessage(e)}`,
+							context: { tableName: table.name, id: row.id, data: row },
 						}),
 				});
 
@@ -221,8 +221,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					},
 					catch: (e) =>
 						IndexErr({
-							message: `SQLite index onDelete failed for ${tableName}/${id}: ${extractErrorMessage(e)}`,
-							context: { tableName, id },
+							message: `SQLite index onDelete failed for ${table.name}/${id}: ${extractErrorMessage(e)}`,
+							context: { tableName: table.name, id },
 						}),
 				});
 
@@ -238,19 +238,19 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	await createTablesIfNotExist(sqliteDb, drizzleTables);
 
 	// Clear existing data to make initialization idempotent
-	for (const { name: tableName } of db.$tableEntries()) {
-		const drizzleTable = drizzleTables[tableName];
+	for (const table of db.$tables()) {
+		const drizzleTable = drizzleTables[table.name];
 		if (!drizzleTable) {
-			throw new Error(`Drizzle table for "${tableName}" not found`);
+			throw new Error(`Drizzle table for "${table.name}" not found`);
 		}
 		await sqliteDb.delete(drizzleTable);
 	}
 
 	// Insert all valid rows from YJS into SQLite
-	for (const { name: tableName, table } of db.$tableEntries()) {
-		const drizzleTable = drizzleTables[tableName];
+	for (const table of db.$tables()) {
+		const drizzleTable = drizzleTables[table.name];
 		if (!drizzleTable) {
-			throw new Error(`Drizzle table for "${tableName}" not found`);
+			throw new Error(`Drizzle table for "${table.name}" not found`);
 		}
 
 		const rows = table.getAll();
@@ -259,13 +259,13 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 			const { error } = await tryAsync({
 				try: async () => {
 					const serializedRows = rows.map((row) => row.toJSON());
-					// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tableEntries union
+					// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tables() union
 					await sqliteDb.insert(drizzleTable).values(serializedRows as any);
 				},
 				catch: (e) =>
 					IndexErr({
 						message: `Failed to sync ${rows.length} rows to SQLite during init: ${extractErrorMessage(e)}`,
-						context: { rowCount: rows.length, tableName },
+						context: { rowCount: rows.length, tableName: table.name },
 					}),
 			});
 
@@ -299,26 +299,26 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Delete all rows from all SQLite tables
-						for (const { name: tableName } of db.$tableEntries()) {
-							const drizzleTable = drizzleTables[tableName];
+						for (const table of db.$tables()) {
+							const drizzleTable = drizzleTables[table.name];
 							if (!drizzleTable) {
-								throw new Error(`Drizzle table for "${tableName}" not found`);
+								throw new Error(`Drizzle table for "${table.name}" not found`);
 							}
 							await sqliteDb.delete(drizzleTable);
 						}
 
 						// Insert all valid rows from YJS into SQLite
-						for (const { name: tableName, table } of db.$tableEntries()) {
-							const drizzleTable = drizzleTables[tableName];
+						for (const table of db.$tables()) {
+							const drizzleTable = drizzleTables[table.name];
 							if (!drizzleTable) {
-								throw new Error(`Drizzle table for "${tableName}" not found`);
+								throw new Error(`Drizzle table for "${table.name}" not found`);
 							}
 
 							const rows = table.getAll();
 
 							if (rows.length > 0) {
 								const serializedRows = rows.map((row) => row.toJSON());
-								// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tableEntries union
+								// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tables() iteration
 								await sqliteDb.insert(drizzleTable).values(serializedRows as any);
 							}
 						}
@@ -351,26 +351,26 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						db.$clearAll();
 
 						// Read all rows from SQLite and insert into YJS
-						for (const { name: tableName, table } of db.$tableEntries()) {
-							const drizzleTable = drizzleTables[tableName];
+						for (const table of db.$tables()) {
+							const drizzleTable = drizzleTables[table.name];
 							if (!drizzleTable) {
-								throw new Error(`Drizzle table for "${tableName}" not found`);
+								throw new Error(`Drizzle table for "${table.name}" not found`);
 							}
 
 							const rows = await sqliteDb.select().from(drizzleTable);
 
 							for (const row of rows) {
-								// biome-ignore lint/suspicious/noExplicitAny: Drizzle to YJS type compatibility via $tableEntries union
+								// biome-ignore lint/suspicious/noExplicitAny: Drizzle to YJS type compatibility via $tables() iteration
 								const result = table.insert(row as any);
 								if (result.error) {
 									// biome-ignore lint/suspicious/noExplicitAny: Drizzle row has id field
 									const rowId = (row as any).id;
 									logger.log(
 										IndexError({
-											message: `Failed to insert row ${rowId} from SQLite into YJS table ${tableName}`,
+											message: `Failed to insert row ${rowId} from SQLite into YJS table ${table.name}`,
 											context: {
 												rowId,
-												tableName,
+												tableName: table.name,
 												cause: result.error,
 											},
 										}),

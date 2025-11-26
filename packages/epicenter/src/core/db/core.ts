@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { TableSchema, TableValidators, WorkspaceSchema } from '../schema';
+import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import {
 	type TableHelper,
@@ -48,18 +48,6 @@ const COLUMN_NAME_PATTERN = TABLE_NAME_PATTERN;
 
 // Re-export TableHelper for public API
 export type { TableHelper } from './table-helper';
-
-/**
- * Entry returned by $tableEntries() for type-safe iteration over all tables.
- *
- * Provides guaranteed access to all table-related resources without unsafe indexing.
- */
-export type TableEntry<TTableSchema extends TableSchema> = {
-	name: string;
-	table: TableHelper<TTableSchema>;
-	schema: TTableSchema;
-	validators: TableValidators<TTableSchema>;
-};
 
 /**
  * Create an Epicenter database wrapper with table helpers from an existing Y.Doc.
@@ -201,28 +189,28 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		},
 
 		/**
-		 * Get all tables as an array of entries for type-safe iteration.
+		 * Get all table helpers as an array for iteration.
 		 *
-		 * Each entry contains the table name, helper, schema, and validators,
-		 * all guaranteed to exist and properly typed.
+		 * Each table helper includes `name`, `schema`, and `validators` properties,
+		 * plus all CRUD operations (insert, update, get, getAll, etc.).
 		 *
 		 * @example
 		 * ```typescript
-		 * // Iterate over all tables with full type safety
-		 * for (const { name, table, schema, validators } of db.$tableEntries()) {
+		 * // Iterate over all tables
+		 * for (const table of db.$tables()) {
+		 *   console.log(table.name);
+		 *   const validator = table.validators.toArktype();
+		 *
 		 *   table.observe({
-		 *     onAdd: (result) => console.log(`Added to ${name}:`, result),
+		 *     onAdd: (result) => console.log(`Added to ${table.name}:`, result),
 		 *   });
 		 * }
 		 * ```
 		 */
-		$tableEntries(): TableEntry<TWorkspaceSchema[keyof TWorkspaceSchema]>[] {
-			return Object.keys(schema).map((tableName) => ({
-				name: tableName,
-				table: tableHelpers[tableName as keyof typeof tableHelpers],
-				schema: schema[tableName as keyof TWorkspaceSchema],
-				validators: validators[tableName as keyof TWorkspaceSchema],
-			})) as TableEntry<TWorkspaceSchema[keyof TWorkspaceSchema]>[];
+		$tables(): TableHelper<TWorkspaceSchema[keyof TWorkspaceSchema]>[] {
+			return Object.values(tableHelpers) as TableHelper<
+				TWorkspaceSchema[keyof TWorkspaceSchema]
+			>[];
 		},
 	};
 }

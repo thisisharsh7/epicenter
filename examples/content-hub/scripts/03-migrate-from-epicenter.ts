@@ -8,17 +8,17 @@
  * 4. Deletes source files after successful migration
  */
 
-import { createEpicenterClient, type SerializedRow } from '@epicenter/hq';
+import { unlink } from 'node:fs/promises';
+import { basename } from 'node:path';
+import { type SerializedRow, createEpicenterClient } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,
 } from '@epicenter/hq/indexes/markdown';
 import { type } from 'arktype';
-import { basename } from 'node:path';
-import { unlink } from 'node:fs/promises';
-import epicenterConfig from '../epicenter.config';
 import { extractErrorMessage } from 'wellcrafted/error';
-import { tryAsync, Err } from 'wellcrafted/result';
+import { Err, tryAsync } from 'wellcrafted/result';
+import epicenterConfig from '../epicenter.config';
 
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;
 if (!sourcePath) {
@@ -40,7 +40,7 @@ await using client = await createEpicenterClient(epicenterConfig);
 
 // Frontmatter validator (omits id and content which are handled separately)
 // Nullable fields automatically default to null, required fields must be present
-const FrontMatter = client.journal.validators.journal
+const FrontMatter = client.journal.db.journal.validators
 	.toArktype()
 	.omit('id', 'content');
 

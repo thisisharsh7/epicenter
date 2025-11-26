@@ -181,7 +181,8 @@ export const journal = defineWorkspace({
 		 * @example
 		 * ```typescript
 		 * // Validate frontmatter (exclude auto-managed fields)
-		 * const FrontMatter = validators.journal.toArktype().omit('id', 'content');
+		 * // Access via table helper: db.journal.validators
+		 * const FrontMatter = db.journal.validators.toArktype().omit('id', 'content');
 		 * const result = FrontMatter(unknownData);
 		 * if (result instanceof type.errors) {
 		 *   // Handle validation error
