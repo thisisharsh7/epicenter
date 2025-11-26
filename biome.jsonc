@@ -1,9 +1,15 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.2.6/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.3.1/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
 		"useIgnoreFile": true
+	},
+	"css": {
+		"parser": {
+			"cssModules": false,
+			"tailwindDirectives": true
+		}
 	},
 	"files": {
 		"ignoreUnknown": true,
@@ -22,7 +28,8 @@
 			"!yarn.lock",
 			"!.DS_Store",
 			"!**/*.svelte",
-			"!**/*.astro"
+			"!**/*.astro",
+			"!docs/articles/**"
 		]
 	},
 	"formatter": {

@@ -144,7 +144,7 @@ const songs = sqliteTable('songs', {
 	year: integer('year'),
 });
 
-const testAdapter = defineAdapter(() => ({
+const _testAdapter = defineAdapter(() => ({
 	id: 'test',
 	name: 'Test Adapter',
 	validator: type({
