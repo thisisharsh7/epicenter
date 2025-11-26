@@ -32,6 +32,11 @@ import type {
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations
+ *
+ * Note: `& string` is required here because TypeScript conservatively types
+ * `keyof TWorkspaceSchema` as `string | number | symbol` even though
+ * WorkspaceSchema = Record<string, TableSchema>. The intersection narrows
+ * the type to satisfy convertTableSchemaToDrizzle's string constraint.
  */
 export type WorkspaceSchemaToDrizzleTables<
 	TWorkspaceSchema extends WorkspaceSchema,
@@ -50,12 +55,10 @@ export function convertWorkspaceSchemaToDrizzle<
 >(schema: TWorkspaceSchema): WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> {
 	const result: Record<string, SQLiteTable> = {};
 
-	for (const tableName of Object.keys(schema) as Array<
-		keyof TWorkspaceSchema & string
-	>) {
+	for (const tableName of Object.keys(schema)) {
 		const tableSchema = schema[tableName];
 		if (!tableSchema) {
-			throw new Error(`Table schema for "${String(tableName)}" is undefined`);
+			throw new Error(`Table schema for "${tableName}" is undefined`);
 		}
 		result[tableName] = convertTableSchemaToDrizzle(tableName, tableSchema);
 	}
@@ -146,10 +149,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 												number | undefined
 											>
 										>
-								: C extends TagsColumnSchema<
-											infer TOptions,
-											infer TNullable
-										>
+								: C extends TagsColumnSchema<infer TOptions, infer TNullable>
 									? TNullable extends true
 										? SQLiteCustomColumnBuilder<{
 												name: '';
@@ -169,10 +169,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 													enumValues: undefined;
 												}>
 											>
-									: C extends JsonColumnSchema<
-												infer TSchema,
-												infer TNullable
-											>
+									: C extends JsonColumnSchema<infer TSchema, infer TNullable>
 										? TNullable extends true
 											? SQLiteCustomColumnBuilder<{
 													name: '';
