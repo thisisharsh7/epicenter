@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { Provider } from '../../config';
+import type { Provider } from '../../core/provider';
 
 /**
  * YJS document persistence provider using the filesystem.

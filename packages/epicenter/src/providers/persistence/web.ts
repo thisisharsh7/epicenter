@@ -1,5 +1,5 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type { Provider } from '../../config';
+import type { Provider } from '../../core/provider';
 
 /**
  * YJS document persistence provider using IndexedDB.

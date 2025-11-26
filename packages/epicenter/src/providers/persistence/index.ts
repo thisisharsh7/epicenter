@@ -1,4 +1,4 @@
-import type { Provider } from '../../config';
+import type { Provider } from '../../core/provider';
 
 /**
  * Universal persistence provider that automatically detects the environment

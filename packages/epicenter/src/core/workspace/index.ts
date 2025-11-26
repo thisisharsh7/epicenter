@@ -4,9 +4,10 @@ export type {
 	WorkspaceConfig,
 	AnyWorkspaceConfig,
 	WorkspacesToExports,
-	Provider,
-	ProviderContext,
 } from './config';
+
+// Provider types
+export type { Provider, ProviderContext } from '../provider';
 
 // Runtime (client side)
 export { createWorkspaceClient } from './client';
