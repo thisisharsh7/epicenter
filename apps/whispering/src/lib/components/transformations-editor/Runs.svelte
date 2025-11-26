@@ -6,7 +6,9 @@
 	import { rpc } from '$lib/query';
 	import type { TransformationRun } from '$lib/services/db';
 	import { getTransformationStepRunTransitionId } from '$lib/utils/getRecordingTransitionId';
-	import { ChevronDown, ChevronRight, Trash2 } from '@lucide/svelte';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { Badge } from '@repo/ui/badge';
 	import { Button } from '@repo/ui/button';
 	import * as Card from '@repo/ui/card';

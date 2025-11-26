@@ -32,7 +32,9 @@
 	} from '$lib/constants/inference';
 	import type { Transformation } from '$lib/services/db';
 	import { generateDefaultTransformationStep } from '$lib/services/db';
-	import { CopyIcon, PlusIcon, TrashIcon } from '@lucide/svelte';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import TrashIcon from '@lucide/svelte/icons/trash';
 	import { slide } from 'svelte/transition';
 
 	let { transformation = $bindable() }: { transformation: Transformation } =
