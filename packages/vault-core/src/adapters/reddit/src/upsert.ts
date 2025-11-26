@@ -52,7 +52,7 @@ import {
 /**
  * Small utility to chunk arrays for batched inserts to keep statements reasonable.
  */
-function chunk<T>(arr: T[], size: number): T[][] {
+function _chunk<T>(arr: T[], size: number): T[][] {
 	if (size <= 0) return [arr];
 	const out: T[][] = [];
 	for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
