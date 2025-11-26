@@ -2,7 +2,10 @@
 	import { Button } from '@repo/ui/button';
 	import { Badge } from '@repo/ui/badge';
 	import { Progress } from '@repo/ui/progress';
-	import { Download, CheckIcon, LoaderCircle, X } from '@lucide/svelte';
+	import Download from '@lucide/svelte/icons/download';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+	import X from '@lucide/svelte/icons/x';
 	import { toast } from 'svelte-sonner';
 	import { join } from '@tauri-apps/api/path';
 	import {

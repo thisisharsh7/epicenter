@@ -6,7 +6,8 @@
 	import { rpc } from '$lib/query';
 	import type { Transformation } from '$lib/services/db';
 	import { createMutation } from '@tanstack/svelte-query';
-	import { Loader2Icon, PlayIcon } from '@lucide/svelte';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import PlayIcon from '@lucide/svelte/icons/play';
 
 	const transformInput = createMutation(rpc.transformer.transformInput.options);
 

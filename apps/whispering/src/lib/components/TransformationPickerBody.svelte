@@ -5,7 +5,7 @@
 	import { rpc } from '$lib/query';
 	import type { Transformation } from '$lib/services/db';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { LayersIcon } from '@lucide/svelte';
+	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { PLATFORM_TYPE } from '$lib/constants/platform';
 	import { onMount } from 'svelte';
 
