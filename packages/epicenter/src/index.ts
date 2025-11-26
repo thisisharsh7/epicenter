@@ -84,7 +84,9 @@ export {
 	isAction,
 	isQuery,
 	isMutation,
+	isNamespace,
 	extractActions,
+	walkActions,
 	defineWorkspaceExports,
 } from './core/actions';
 export type {

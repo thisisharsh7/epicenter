@@ -2,7 +2,7 @@ import path from 'node:path';
 import {
 	type Action,
 	type WorkspaceExports,
-	extractActions,
+	walkActions,
 } from '../actions';
 import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
@@ -128,25 +128,31 @@ export async function createEpicenterClient<
  * Iterate over all workspace actions in an Epicenter client.
  *
  * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
- * This utility traverses all layers and invokes the callback for each action.
- * The destroy and Symbol.asyncDispose methods at client and workspace levels are automatically excluded.
+ * This utility traverses all layers (including nested namespaces) and invokes
+ * the callback for each action. The destroy and Symbol.asyncDispose methods
+ * at client and workspace levels are automatically excluded.
+ *
+ * Supports nested exports: actions can be organized in namespaces like
+ * `{ users: { getAll: defineQuery(...), crud: { create: defineMutation(...) } } }`
  *
  * @param client - The Epicenter client with workspace namespaces
  * @param callback - Function invoked for each action. Receives an object with:
  *   - workspaceId (string): The workspace ID
- *   - actionName (string): The action name
+ *   - actionPath (string[]): The path to the action (e.g., ['users', 'crud', 'create'])
  *   - action (Action): The action object
  *
  * @example
  * ```typescript
- * // Register MCP tools (flat iteration)
- * forEachAction(client, ({ workspaceId, actionName, action }) => {
- *   actions.set(`${workspaceId}_${actionName}`, action);
+ * // Register MCP tools (underscore-joined paths)
+ * forEachAction(client, ({ workspaceId, actionPath, action }) => {
+ *   const toolName = [workspaceId, ...actionPath].join('_');
+ *   actions.set(toolName, action);
  * });
  *
- * // Register REST routes (flat iteration)
- * forEachAction(client, ({ workspaceId, actionName, action }) => {
- *   app.get(`/${workspaceId}/${actionName}`, handler);
+ * // Register REST routes (slash-joined paths)
+ * forEachAction(client, ({ workspaceId, actionPath, action }) => {
+ *   const routePath = `/${workspaceId}/${actionPath.join('/')}`;
+ *   app.get(routePath, handler);
  * });
  * ```
  */
@@ -156,7 +162,7 @@ export function forEachAction<
 	client: EpicenterClient<TWorkspaces>,
 	callback: (params: {
 		workspaceId: string;
-		actionName: string;
+		actionPath: string[];
 		action: Action;
 	}) => void,
 ): void {
@@ -178,15 +184,12 @@ export function forEachAction<
 			...workspaceExports
 		} = workspaceClient as WorkspaceClient<WorkspaceExports>;
 
-		// Filter to just actions using extractActions helper
-		// This ensures utilities and constants are not treated as actions
-		const actions = extractActions(workspaceExports);
-
-		// Invoke callback for each action
-		for (const [actionName, action] of Object.entries(actions)) {
+		// Walk through all actions (including nested namespaces)
+		// and invoke callback for each one with its full path
+		for (const { path, action } of walkActions(workspaceExports)) {
 			callback({
 				workspaceId,
-				actionName,
+				actionPath: path,
 				action,
 			});
 		}

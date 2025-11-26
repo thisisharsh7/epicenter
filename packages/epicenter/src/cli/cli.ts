@@ -2,8 +2,10 @@ import type { TaggedError } from 'wellcrafted/error';
 import { type Result, isResult } from 'wellcrafted/result';
 import yargs from 'yargs';
 import type { Argv } from 'yargs';
+import { type WorkspaceExports, walkActions } from '../core/actions';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
+import type { WorkspaceClient } from '../core/workspace';
 import { DEFAULT_PORT, startServer } from './server';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 
@@ -72,10 +74,14 @@ export async function createCLI({
 	for (const workspaceConfig of config.workspaces) {
 		const workspaceId = workspaceConfig.id;
 		// biome-ignore lint/style/noNonNullAssertion: client was created from config.workspaces, so workspaceId/workspaceConfig.id exists in client
-		const workspaceClient = client[workspaceId]!;
+		const workspaceClient = client[workspaceId]! as WorkspaceClient<WorkspaceExports>;
 
-		// Extract actions (exclude cleanup methods)
-		const { destroy: _, [Symbol.asyncDispose]: __, ...actions } = workspaceClient;
+		// Extract exports (exclude cleanup methods)
+		const {
+			destroy: _,
+			[Symbol.asyncDispose]: __,
+			...workspaceExports
+		} = workspaceClient;
 
 		cli = cli.command(
 			workspaceId,
@@ -86,8 +92,10 @@ export async function createCLI({
 					.demandCommand(1, 'You must specify an action')
 					.strict();
 
-				// Register each action as a subcommand
-				for (const [actionName, action] of Object.entries(actions)) {
+				// Register each action as a subcommand (supports nested namespaces)
+				// Nested paths like ['users', 'crud', 'create'] become 'users_crud_create'
+				for (const { path, action } of walkActions(workspaceExports)) {
+					const actionName = path.join('_');
 					workspaceCli = workspaceCli.command(
 						actionName,
 						action.description || `Execute ${actionName} ${action.type}`,
@@ -99,23 +107,13 @@ export async function createCLI({
 							return yargs;
 						},
 						async (argv) => {
-							// Handler: execute action using already-initialized workspace
+							// Handler: execute action directly (action reference is captured in closure)
 							try {
-								// Get the action handler from the workspace client
-								const handler = workspaceClient[actionName];
-
-								if (!handler) {
-									console.error(
-										`❌ Action "${actionName}" not found in workspace "${workspaceId}"`,
-									);
-									process.exit(1);
-								}
-
 								// Extract input from args (remove yargs metadata)
 								const { _, $0, ...input } = argv;
 
 								// Execute the action (may return Result or raw data)
-								const maybeResult = (await handler(input)) as
+								const maybeResult = (await action(input)) as
 									| Result<unknown, TaggedError>
 									| unknown;
 

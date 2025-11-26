@@ -197,15 +197,23 @@ export function createMcpServer<
  * a flat list of tools (no hierarchical namespacing).
  *
  * This function uses `forEachAction` to iterate over all workspaces and their actions,
- * creating MCP tool names in the format `${workspaceId}_${actionName}`.
+ * creating MCP tool names by joining the workspace ID and action path with underscores.
+ *
+ * @example
+ * // Flat export: { getAll: defineQuery(...) }
+ * // → MCP tool name: "workspace_getAll"
+ *
+ * // Nested export: { users: { crud: { create: defineMutation(...) } } }
+ * // → MCP tool name: "workspace_users_crud_create"
  */
 function flattenActionsForMCP<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>): Map<string, Action> {
 	const actions = new Map<string, Action>();
 
-	forEachAction(client, ({ workspaceId, actionName, action }) => {
-		const mcpToolName = `${workspaceId}_${actionName}` as const;
+	forEachAction(client, ({ workspaceId, actionPath, action }) => {
+		// Join workspace ID and action path with underscores
+		const mcpToolName = [workspaceId, ...actionPath].join('_');
 		actions.set(mcpToolName, action);
 	});
 

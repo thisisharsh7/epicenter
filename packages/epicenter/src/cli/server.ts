@@ -40,11 +40,10 @@ export async function startServer(
 	console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
 
 	console.log('📚 REST API Endpoints:\n');
-	forEachAction(client, ({ workspaceId, actionName, action }) => {
+	forEachAction(client, ({ workspaceId, actionPath, action }) => {
 		const method = ({ query: 'GET', mutation: 'POST' } as const)[action.type];
-		console.log(
-			`  ${method} http://localhost:${port}/${workspaceId}/${actionName}`,
-		);
+		const restPath = `/${workspaceId}/${actionPath.join('/')}`;
+		console.log(`  ${method} http://localhost:${port}${restPath}`);
 	});
 
 	console.log('\n🔧 Connect to Claude Code:\n');
@@ -53,18 +52,19 @@ export async function startServer(
 	);
 
 	console.log('📦 Available Tools:\n');
-	const workspaceActions = new Map<string, string[]>();
-	forEachAction(client, ({ workspaceId, actionName }) => {
+	const workspaceActions = new Map<string, string[][]>();
+	forEachAction(client, ({ workspaceId, actionPath }) => {
 		if (!workspaceActions.has(workspaceId)) {
 			workspaceActions.set(workspaceId, []);
 		}
-		workspaceActions.get(workspaceId)?.push(actionName);
+		workspaceActions.get(workspaceId)?.push(actionPath);
 	});
 
-	for (const [workspaceId, actionNames] of workspaceActions) {
+	for (const [workspaceId, actionPaths] of workspaceActions) {
 		console.log(`  • ${workspaceId}`);
-		for (const actionName of actionNames) {
-			console.log(`    └─ ${workspaceId}_${actionName}`);
+		for (const actionPath of actionPaths) {
+			const mcpToolName = [workspaceId, ...actionPath].join('_');
+			console.log(`    └─ ${mcpToolName}`);
 		}
 		console.log();
 	}

@@ -653,6 +653,82 @@ export function extractActions(exports: WorkspaceExports): WorkspaceActionMap {
 }
 
 /**
+ * Type guard: Check if a value is a namespace (plain object that might contain actions)
+ *
+ * A namespace is any plain object that is not an action itself.
+ * This allows us to recursively walk through nested export structures.
+ *
+ * @example
+ * ```typescript
+ * const exports = {
+ *   getUser: defineQuery({ ... }),
+ *   users: { getAll: defineQuery({ ... }) }
+ * };
+ *
+ * isNamespace(exports.getUser) // false (it's an action)
+ * isNamespace(exports.users) // true (it's a namespace containing actions)
+ * isNamespace([1, 2, 3]) // false (arrays are not namespaces)
+ * isNamespace("hello") // false (primitives are not namespaces)
+ * ```
+ */
+export function isNamespace(value: unknown): value is Record<string, unknown> {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		!Array.isArray(value) &&
+		!isAction(value)
+	);
+}
+
+/**
+ * Recursively walk through exports and yield all actions with their paths.
+ *
+ * This generator function traverses a nested export structure and yields
+ * each action along with its path from the root. The path is an array of
+ * keys that identifies the action's location in the hierarchy.
+ *
+ * @param exports - The workspace exports object to walk through
+ * @param path - Current path array (used internally for recursion)
+ * @yields Objects containing the action path and the action itself
+ *
+ * @example
+ * ```typescript
+ * const exports = {
+ *   users: {
+ *     getAll: defineQuery({ ... }),
+ *     crud: {
+ *       create: defineMutation({ ... })
+ *     }
+ *   },
+ *   health: defineQuery({ ... })
+ * };
+ *
+ * for (const { path, action } of walkActions(exports)) {
+ *   // First: path = ['users', 'getAll'], action = Query
+ *   // Second: path = ['users', 'crud', 'create'], action = Mutation
+ *   // Third: path = ['health'], action = Query
+ * }
+ * ```
+ */
+export function* walkActions(
+	exports: unknown,
+	path: string[] = [],
+): Generator<{ path: string[]; action: Action }> {
+	if (!exports || typeof exports !== 'object') return;
+
+	for (const [key, value] of Object.entries(exports)) {
+		if (isAction(value)) {
+			// Found an action, yield it with its full path
+			yield { path: [...path, key], action: value };
+		} else if (isNamespace(value)) {
+			// Found a namespace, recurse into it
+			yield* walkActions(value, [...path, key]);
+		}
+		// Ignore everything else (primitives, arrays, functions without action metadata)
+	}
+}
+
+/**
  * Helper to define workspace exports with full type inference
  *
  * Identity function similar to defineIndexExports. Provides type safety

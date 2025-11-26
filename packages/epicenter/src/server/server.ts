@@ -70,8 +70,10 @@ export async function createServer<
 	const client = await createEpicenterClient(config);
 
 	// Register REST endpoints for each workspace action
-	forEachAction(client, ({ workspaceId, actionName, action }) => {
-		const path = `/${workspaceId}/${actionName}`;
+	// Supports nested exports: actionPath like ['users', 'crud', 'create']
+	// becomes route path '/workspace/users/crud/create'
+	forEachAction(client, ({ workspaceId, actionPath, action }) => {
+		const path = `/${workspaceId}/${actionPath.join('/')}`;
 
 		// Tag with both workspace and operation type for multi-dimensional grouping
 		const operationType = (
