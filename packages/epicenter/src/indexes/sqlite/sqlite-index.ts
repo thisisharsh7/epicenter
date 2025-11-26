@@ -154,8 +154,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				const { error } = await tryAsync({
 					try: async () => {
 						const serializedRow = row.toJSON();
-						// biome-ignore lint/suspicious/noExplicitAny: serialized YJS row is structurally compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
-						await sqliteDb.insert(drizzleTable).values(serializedRow as any);
+						// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to InferInsertModel<DrizzleTable> due to union type from $tableEntries iteration
+						await sqliteDb.insert(drizzleTable).values(serializedRow);
 					},
 					catch: (e) =>
 						IndexErr({
@@ -191,10 +191,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 						const serializedRow = row.toJSON();
 						await sqliteDb
 							.update(drizzleTable)
-							// biome-ignore lint/suspicious/noExplicitAny: serialized YJS row is structurally compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
-							.set(serializedRow as any)
-							// biome-ignore lint/suspicious/noExplicitAny: id field type is compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
-							.where(eq(drizzleTable.id as any, row.id));
+							// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to Partial<InferInsertModel<DrizzleTable>> due to union type from $tableEntries iteration
+							.set(serializedRow)
+							// @ts-expect-error Column<string> is not assignable to Column<typeof table.id> due to union type from $tableEntries iteration
+							.where(eq(drizzleTable.id, row.id));
 					},
 					catch: (e) =>
 						IndexErr({
@@ -216,8 +216,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					try: async () => {
 						await sqliteDb
 							.delete(drizzleTable)
-							// biome-ignore lint/suspicious/noExplicitAny: id field type is compatible with Drizzle table schema via convertWorkspaceSchemaToDrizzle
-							.where(eq(drizzleTable.id as any, id));
+							// @ts-expect-error Column<string> is not assignable to Column<typeof table.id> due to union type from $tableEntries iteration
+							.where(eq(drizzleTable.id, id));
 					},
 					catch: (e) =>
 						IndexErr({
@@ -259,8 +259,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 			const { error } = await tryAsync({
 				try: async () => {
 					const serializedRows = rows.map((row) => row.toJSON());
-					// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tables() union
-					await sqliteDb.insert(drizzleTable).values(serializedRows as any);
+					// @ts-expect-error SerializedRow<TSchema[string]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type from $tables() iteration
+					await sqliteDb.insert(drizzleTable).values(serializedRows);
 				},
 				catch: (e) =>
 					IndexErr({
@@ -318,8 +318,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 
 							if (rows.length > 0) {
 								const serializedRows = rows.map((row) => row.toJSON());
-								// biome-ignore lint/suspicious/noExplicitAny: YJS to Drizzle type compatibility via $tables() iteration
-								await sqliteDb.insert(drizzleTable).values(serializedRows as any);
+								// @ts-expect-error SerializedRow<TSchema[string]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type from $tables() iteration
+								await sqliteDb.insert(drizzleTable).values(serializedRows);
 							}
 						}
 
@@ -360,11 +360,11 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 							const rows = await sqliteDb.select().from(drizzleTable);
 
 							for (const row of rows) {
-								// biome-ignore lint/suspicious/noExplicitAny: Drizzle to YJS type compatibility via $tables() iteration
-								const result = table.insert(row as any);
+								// @ts-expect-error InferSelectModel<DrizzleTable> is not assignable to InferInsertModel<TableHelper<TSchema[string]>> due to union type from $tables() iteration
+								const result = table.insert(row);
 								if (result.error) {
-									// biome-ignore lint/suspicious/noExplicitAny: Drizzle row has id field
-									const rowId = (row as any).id;
+									// @ts-expect-error row.id exists but TypeScript cannot narrow the union type from $tables() iteration
+									const rowId = row.id;
 									logger.log(
 										IndexError({
 											message: `Failed to insert row ${rowId} from SQLite into YJS table ${table.name}`,

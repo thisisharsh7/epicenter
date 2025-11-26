@@ -73,8 +73,8 @@ export async function createCLI({
 	// Register each workspace as a command
 	for (const workspaceConfig of config.workspaces) {
 		const workspaceId = workspaceConfig.id;
-		// biome-ignore lint/style/noNonNullAssertion: client was created from config.workspaces, so workspaceId/workspaceConfig.id exists in client
-		const workspaceClient = client[workspaceId]! as WorkspaceClient<WorkspaceExports>;
+		// biome-ignore lint/style/noNonNullAssertion: client was created from config.workspaces, so workspaceId exists in client
+		const workspaceClient = client[workspaceId]!;
 
 		// Extract exports (exclude cleanup methods)
 		const {
