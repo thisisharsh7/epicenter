@@ -147,6 +147,12 @@ export const db = {
 				const recordingsArray = Array.isArray(recordings)
 					? recordings
 					: [recordings];
+
+				// Clean up audio URLs before deleting to prevent memory leaks
+				for (const recording of recordingsArray) {
+					services.db.recordings.revokeAudioUrl(recording.id);
+				}
+
 				const { error } = await services.db.recordings.delete(recordingsArray);
 				if (error) return Err(error);
 

@@ -350,7 +350,7 @@ export function createFileSystemDb(): DbService {
 								const { data: recordings, error } = await this.getAll();
 								if (error) throw error;
 
-								const maxCount = Number.parseInt(maxRecordingCount);
+								const maxCount = Number.parseInt(maxRecordingCount, 10);
 								if (recordings.length <= maxCount) return;
 
 								// Delete oldest recordings (already sorted newest first)
@@ -413,6 +413,8 @@ export function createFileSystemDb(): DbService {
 						const audioPath = await join(recordingsPath, audioFile);
 						const assetUrl = convertFileSrc(audioPath);
 
+						// Return the URL as-is from convertFileSrc()
+						// The Tauri backend handles URL decoding automatically
 						return assetUrl;
 					},
 					catch: (error) =>

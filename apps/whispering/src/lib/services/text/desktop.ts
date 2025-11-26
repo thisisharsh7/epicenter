@@ -1,8 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { type } from '@tauri-apps/plugin-os';
-import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import { WhisperingWarningErr } from '$lib/result';
+import { tryAsync } from 'wellcrafted/result';
 import type { TextService } from './types';
 import { TextServiceErr } from './types';
 

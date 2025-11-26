@@ -8,7 +8,7 @@
 	import { useCombobox } from '@repo/ui/hooks';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
-	import { isCompressionRecommended } from '../../../../routes/(app)/_layout-utils/check-ffmpeg';
+	import { isCompressionRecommended } from '$routes/(app)/_layout-utils/check-ffmpeg';
 	import PackageIcon from '@lucide/svelte/icons/package';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 

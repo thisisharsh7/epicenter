@@ -14,11 +14,7 @@ import type {
 	TransformationStep,
 } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
-import {
-	asTemplateString,
-	interpolateTemplate,
-	type TemplateString,
-} from '$lib/utils/template';
+import { asTemplateString, interpolateTemplate } from '$lib/utils/template';
 import { defineMutation, queryClient } from './_client';
 import { dbKeys } from './db';
 
@@ -251,6 +247,31 @@ async function handleStep({
 							apiKey: settings.value['apiKeys.openrouter'],
 							model:
 								step['prompt_transform.inference.provider.OpenRouter.model'],
+							systemPrompt,
+							userPrompt,
+						});
+
+					if (completionError) {
+						return Err(completionError.message);
+					}
+
+					return Ok(completionResponse);
+				}
+
+				case 'Custom': {
+					const model =
+						step['prompt_transform.inference.provider.Custom.model']?.trim();
+					const stepBaseUrl =
+						step['prompt_transform.inference.provider.Custom.baseUrl']?.trim();
+					const defaultBaseUrl =
+						settings.value['completion.custom.baseUrl']?.trim();
+					const baseUrl = stepBaseUrl || defaultBaseUrl || '';
+
+					const { data: completionResponse, error: completionError } =
+						await services.completions.custom.complete({
+							apiKey: settings.value['apiKeys.custom'],
+							model,
+							baseUrl,
 							systemPrompt,
 							userPrompt,
 						});

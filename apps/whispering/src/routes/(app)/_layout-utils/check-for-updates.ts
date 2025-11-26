@@ -90,7 +90,7 @@ process would download and install real application files.`,
 		) => {
 			// Simulate download progress
 			const totalSize = 50 * 1024 * 1024; // 50MB
-			let downloaded = 0;
+			let _downloaded = 0;
 
 			// Emit Started event
 			progressCallback?.({
@@ -105,7 +105,7 @@ process would download and install real application files.`,
 
 				await new Promise((resolve) => setTimeout(resolve, 500));
 				const chunkSize = totalSize / 10;
-				downloaded += chunkSize;
+				_downloaded += chunkSize;
 
 				progressCallback?.({
 					event: 'Progress',

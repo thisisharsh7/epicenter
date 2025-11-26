@@ -6,7 +6,6 @@ import {
 	type CommandId,
 	shortcutStringToArray,
 } from '$lib/services/local-shortcut-manager';
-import type { Settings } from '$lib/settings';
 import { settings } from '$lib/stores/settings.svelte';
 
 /**
@@ -49,19 +48,20 @@ export async function syncLocalShortcutsWithSettings() {
  * - Shows error toast if any registration/unregistration fails
  */
 export async function syncGlobalShortcutsWithSettings() {
+	const commandsWithAccelerators = commands
+		.map((command) => {
+			const accelerator = settings.value[
+				`shortcuts.global.${command.id}`
+			] as Accelerator | null;
+			if (!accelerator) return null;
+			return { command, accelerator };
+		})
+		.filter((item) => item !== null);
+
 	const results = await Promise.all(
-		commands
-			.map((command) => {
-				const accelerator = settings.value[
-					`shortcuts.global.${command.id}`
-				] as Accelerator | null;
-				if (!accelerator) return;
-				return rpc.shortcuts.registerCommandGlobally.execute({
-					command,
-					accelerator,
-				});
-			})
-			.filter((result) => result !== undefined),
+		commandsWithAccelerators.map((item) =>
+			rpc.shortcuts.registerCommandGlobally.execute(item),
+		),
 	);
 	const { errs } = partitionResults(results);
 	if (errs.length > 0) {
