@@ -64,7 +64,6 @@ bun cli.ts posts youtube get --id "post-123"
 ```
 content-hub/
 ├── shared/                          # Shared constants
-│   ├── niches.ts                   # NICHES constant (10 values)
 │   └── quality.ts                  # Quality options for clippings
 ├── pages/                           # Central content repository
 │   └── pages.workspace.ts
@@ -83,8 +82,6 @@ content-hub/
 │   └── email.workspace.ts
 ├── epicenter/                       # Company content
 │   └── epicenter.workspace.ts
-├── github-issues/                   # Development tracking
-│   └── github-issues.workspace.ts
 ├── epicenter.config.ts             # Root config (imports all workspaces)
 ├── cli.ts                          # CLI entry point
 ├── package.json                    # Scripts and metadata
@@ -174,28 +171,6 @@ Query called → Read from SQLite index → Return data
 
 **Actions**: `getPosts`, `getPost`, `createPost`, `updatePost`, `deletePost`, `getPostsByNiche`
 
-### GitHub Issues (Custom Schema)
-
-**Platform**: GitHub Issues
-
-**Schema**:
-
-```typescript
-{
-  id: id(),
-  repository: text(),          // e.g., "owner/repo"
-  title: text(),
-  body: text(),
-  status: select({ options: ['open', 'in-progress', 'closed'] }),
-  labels: tags({ options: ['bug', 'feature', 'documentation', 'enhancement', 'question'] }),
-  niche: select({ ... }),
-  createdAt: date(),
-  updatedAt: date(),
-}
-```
-
-**Actions**: `getIssues`, `getIssue`, `createIssue`, `updateIssue`, `closeIssue`, `getIssuesByStatus`, `getIssuesByRepository`
-
 ### Pages (Content Repository)
 
 **Platform**: Central content storage
@@ -213,23 +188,6 @@ Query called → Read from SQLite index → Return data
 ```
 
 **Actions**: `getPages`, `getPage`, `createPage`, `updatePage`, `deletePage`
-
-## Niches
-
-All workspaces (except Pages) use a shared `niche` field for categorization:
-
-```typescript
-'personal'; // Personal content
-'epicenter'; // Epicenter-related
-'y-combinator'; // Y Combinator
-'yale'; // Yale University
-'college-students'; // College student audience
-'high-school-students'; // High school audience
-'coding'; // Programming/tech
-'productivity'; // Productivity tips
-'ethics'; // Ethics discussions
-'writing'; // Writing/content creation
-```
 
 ## Features Demonstrated
 
@@ -295,22 +253,6 @@ bun cli.ts posts youtube update --id "post-123" --niche "productivity"
 bun cli.ts posts youtube delete --id "post-123"
 ```
 
-**GitHub Issues**:
-
-```bash
-# Create issue
-bun cli.ts github-issues createIssue --repository "owner/repo" --title "Bug" --body "Description" --niche "coding"
-
-# Close issue
-bun cli.ts github-issues closeIssue --id "issue-123"
-
-# Filter by status
-bun cli.ts github-issues getIssuesByStatus --status "open"
-
-# Filter by repository
-bun cli.ts github-issues getIssuesByRepository --repository "owner/repo"
-```
-
 ## Programmatic Usage
 
 ```typescript
@@ -349,7 +291,6 @@ import config from './epicenter.config';
 
 **`shared/`**: Contains reusable constants
 
-- `niches.ts`: NICHES constant array and Niche type
 - `quality.ts`: Quality options for clippings
 
 **`posts/`**: Consolidated workspace for all social media content
@@ -359,7 +300,7 @@ import config from './epicenter.config';
 **`[workspace-name]/`**: Each specialized workspace gets its own folder
 
 - `[name].workspace.ts`: Workspace definition with schema, indexes, and actions
-- Examples: `pages/`, `journal/`, `github-issues/`
+- Examples: `pages/`, `journal/`, `clippings/`
 
 **Root files**:
 
@@ -445,19 +386,6 @@ For content that doesn't fit the posts model, create a new workspace:
    	],
    });
    ```
-
-### Adding a New Niche
-
-1. **Update shared/niches.ts**:
-
-   ```typescript
-   export const NICHES = [
-   	// ... existing niches
-   	'new-niche',
-   ] as const;
-   ```
-
-2. **Update all action input types** that reference niches (or use a type generator)
 
 ### Customizing Actions
 
@@ -559,10 +487,6 @@ console.log(`Total posts: ${totalPosts}`);
 **Issue**: CLI commands not found
 
 - **Solution**: Run `bun cli.ts --help` to see available workspaces and actions
-
-**Issue**: TypeScript errors with niche types
-
-- **Solution**: Ensure you're using the exact niche values from `shared/niches.ts`
 
 ## Production Considerations
 

@@ -2,7 +2,6 @@ import { defineEpicenter } from '@epicenter/hq';
 import { clippings } from './clippings/clippings.workspace';
 import { email } from './email/email.workspace';
 import { epicenter } from './epicenter/epicenter.workspace';
-import { githubIssues } from './github-issues/github-issues.workspace';
 import { journal } from './journal/journal.workspace';
 import { pages } from './pages/pages.workspace';
 import { posts } from './posts/posts.workspace';
@@ -13,7 +12,6 @@ import { whispering } from './whispering/whispering.workspace';
  *
  * Manages content distribution across multiple platforms:
  * - Posts: All social media content (YouTube, TikTok, Instagram, Medium, Substack, etc.)
- * - Development: GitHub Issues
  * - Content: Pages (central repository), Journal (personal reflections), Whispering (voice transcriptions), Clippings (saved web content)
  *
  * Features demonstrated:
@@ -47,9 +45,6 @@ export default defineEpicenter({
 
 		// All social media posts (video, blogs, social platforms)
 		posts,
-
-		// Development
-		githubIssues,
 	],
 	storageDir: '/Users/braden/Code/epicenter-md',
 });
