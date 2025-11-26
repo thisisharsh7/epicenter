@@ -31,9 +31,15 @@ import type {
 } from '../../schema';
 
 /**
- * Maps a WorkspaceSchema to its Drizzle table representations
+ * Maps a WorkspaceSchema to its Drizzle table representations.
  *
- * Note: `& string` is required here because TypeScript conservatively types
+ * This type preserves the table names as keys and maps each TableSchema
+ * to its corresponding SQLiteTable type with full column type information.
+ *
+ * @typeParam TWorkspaceSchema - The workspace schema containing all table definitions
+ *
+ * @remarks
+ * The `& string` intersection is required because TypeScript conservatively types
  * `keyof TWorkspaceSchema` as `string | number | symbol` even though
  * WorkspaceSchema = Record<string, TableSchema>. The intersection narrows
  * the type to satisfy convertTableSchemaToDrizzle's string constraint.
@@ -47,8 +53,24 @@ export type WorkspaceSchemaToDrizzleTables<
 };
 
 /**
- * Convert workspace schema to Drizzle tables
- * Returns a map of table name → SQLiteTable with preserved types
+ * Convert a workspace schema to Drizzle SQLite tables.
+ *
+ * This is the main entry point for converting a complete workspace schema
+ * (which may contain multiple tables) into Drizzle table definitions that
+ * can be used for database operations.
+ *
+ * @param schema - The workspace schema containing all table definitions
+ * @returns A record mapping table names to their Drizzle SQLiteTable representations
+ *
+ * @example
+ * ```ts
+ * const schema = {
+ *   users: { id: { type: 'id' }, name: { type: 'text' } },
+ *   posts: { id: { type: 'id' }, title: { type: 'text' } },
+ * };
+ * const tables = convertWorkspaceSchemaToDrizzle(schema);
+ * // tables.users and tables.posts are now SQLiteTable instances
+ * ```
  */
 export function convertWorkspaceSchemaToDrizzle<
 	TWorkspaceSchema extends WorkspaceSchema,
@@ -67,7 +89,23 @@ export function convertWorkspaceSchemaToDrizzle<
 }
 
 /**
- * Convert a table schema (all columns) to a Drizzle SQLiteTable with precise types
+ * Convert a single table schema to a Drizzle SQLiteTable.
+ *
+ * Takes a table name and its column schema definitions, then creates
+ * a Drizzle table with all columns properly typed and configured.
+ *
+ * @param tableName - The name of the table (used in SQL)
+ * @param tableSchema - The schema defining all columns for this table
+ * @returns A Drizzle SQLiteTable with typed columns
+ *
+ * @example
+ * ```ts
+ * const usersTable = convertTableSchemaToDrizzle('users', {
+ *   id: { type: 'id' },
+ *   name: { type: 'text' },
+ *   age: { type: 'integer', nullable: true },
+ * });
+ * ```
  */
 export function convertTableSchemaToDrizzle<
 	TTableName extends string,
@@ -87,7 +125,17 @@ export function convertTableSchemaToDrizzle<
 }
 
 /**
- * Maps a ColumnSchema to its corresponding Drizzle column builder type
+ * Maps a ColumnSchema to its corresponding Drizzle column builder type.
+ *
+ * This conditional type chain determines the exact Drizzle type for each
+ * column schema variant. It handles:
+ * - NotNull wrapper when nullable is false
+ * - Custom column types for date, tags, and json
+ * - Drizzle's built-in types for primitives (text, integer, real, boolean)
+ *
+ * The type uses nested conditional types to match against each possible
+ * column schema type in order: id → text → ytext → integer → real →
+ * boolean → date → select → multi-select → json → never
  */
 type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 	? IsPrimaryKey<
@@ -192,7 +240,30 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 										: never;
 
 /**
- * Convert a ColumnSchema to a Drizzle column builder
+ * Convert a ColumnSchema to a Drizzle column builder.
+ *
+ * This function uses two distinct patterns depending on column complexity:
+ *
+ * **Pattern 1: Primitive Types (text, integer, real, boolean, select)**
+ * Uses Drizzle's built-in column functions from `drizzle-orm/sqlite-core` and
+ * explicitly chains `.notNull()` and `.default()`/`.$defaultFn()` based on schema.
+ * This is necessary because Drizzle's primitives require the column name as
+ * the first argument and don't accept a schema object.
+ *
+ * **Pattern 2: Custom Types (date, multi-select, json)**
+ * Uses custom builders from `builders.ts` that accept the entire schema object.
+ * These builders encapsulate complex serialization logic (timezone handling,
+ * JSON array validation, arktype validation) and handle nullable/default internally.
+ * The schema object is passed directly because it contains all the configuration
+ * the builder needs (nullable, default, options, validation schema, etc.).
+ *
+ * @example
+ * // Pattern 1: Primitive with explicit chaining
+ * let column = text(columnName);
+ * if (!schema.nullable) column = column.notNull();
+ *
+ * // Pattern 2: Custom builder with schema object
+ * const column = date(schema); // nullable/default handled internally
  */
 function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 	columnName: string,
@@ -200,9 +271,11 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 ): ColumnToDrizzle<C> {
 	switch (schema.type) {
 		case 'id':
+			// ID is always a primary key text column with auto-generated nano ID
 			return text(columnName).primaryKey().notNull() as ColumnToDrizzle<C>;
 
 		case 'text': {
+			// Pattern 1: Use Drizzle's text() and chain modifiers
 			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
@@ -216,6 +289,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 
 		case 'ytext': {
 			// Y.Text stored as plain text (lossy conversion via toString())
+			// No default support since Y.Text content comes from CRDT
 			let column = text(columnName);
 			if (!schema.nullable) column = column.notNull();
 			return column as ColumnToDrizzle<C>;
@@ -246,7 +320,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 		}
 
 		case 'boolean': {
-			// Boolean stored as INTEGER (0 or 1) in SQLite
+			// SQLite has no native boolean; stored as INTEGER (0 or 1)
 			let column = integer(columnName, { mode: 'boolean' });
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
@@ -259,13 +333,17 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 		}
 
 		case 'date': {
-			// Date stored as TEXT in format "ISO_UTC|TIMEZONE"
-			let column = date(schema);
+			// Pattern 2: Custom builder handles timezone serialization internally
+			// Stored as TEXT in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
+			const column = date(schema);
 			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'select': {
-			// Select stored as TEXT (single value)
+			// Single-value enum stored as TEXT with Drizzle's enum constraint.
+			// Note: SelectColumnSchema only allows static defaults (TOptions[number]),
+			// not function defaults, unlike other column types. This is intentional
+			// since enum values are typically known at schema definition time.
 			let column = text(columnName, { enum: schema.options });
 			if (!schema.nullable) column = column.notNull();
 			if (schema.default !== undefined) {
@@ -275,19 +353,21 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 		}
 
 		case 'multi-select': {
-			// Tags column stored as TEXT with JSON mode (array of strings)
+			// Pattern 2: Custom builder handles JSON array serialization and validation
+			// Stored as TEXT containing JSON array of strings
 			const column = tags(schema);
 			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'json': {
-			// JSON column stored as TEXT with validation
+			// Pattern 2: Custom builder handles JSON serialization and arktype validation
+			// Stored as TEXT containing validated JSON
 			const column = json(schema);
 			return column as ColumnToDrizzle<C>;
 		}
 
 		default:
-			// @ts-expect-error - exhaustive check
+			// @ts-expect-error - exhaustive check ensures all cases are handled
 			throw new Error(`Unknown column type: ${schema.type}`);
 	}
 }
