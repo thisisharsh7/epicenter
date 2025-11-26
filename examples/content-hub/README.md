@@ -1,13 +1,13 @@
 # Content Hub: Flagship Epicenter Example
 
-This example demonstrates a production-grade content distribution system managing 15 social media platforms and blogs. It showcases Epicenter's multi-workspace architecture, schema reuse, and all major features in a real-world application.
+This example demonstrates a production-grade content distribution system managing content across multiple social media platforms and blogs. It showcases Epicenter's multi-workspace architecture, multi-table workspaces, and all major features in a real-world application.
 
 ## What's This?
 
 Content Hub is a comprehensive system for managing content distribution across multiple platforms. It demonstrates how to:
 
 1. Organize multiple workspaces in a single Epicenter application
-2. Reuse schemas across similar platforms for consistency
+2. Use multi-table workspaces for related content (all social posts in one workspace)
 3. Build type-safe APIs with auto-generated CLI commands
 4. Persist data with YJS and query with SQLite indexes
 5. Structure a production-ready codebase
@@ -42,19 +42,19 @@ In another terminal, you can use the CLI commands:
 cd examples/content-hub
 
 # Create a YouTube post
-bun cli.ts youtube createPost --pageId "my-channel" --title "My First Video" --description "Check out this video" --niche "coding"
+bun cli.ts posts youtube create --pageId "my-channel" --title "My First Video" --description "Check out this video" --niche "coding"
 
 # Create a blog post on Medium
-bun cli.ts medium createPost --pageId "my-blog" --title "Getting Started" --subtitle "A beginner's guide" --content "Here's how to start..." --niche "writing"
+bun cli.ts posts medium create --pageId "my-blog" --title "Getting Started" --subtitle "A beginner's guide" --content "Here's how to start..." --niche "writing"
 
 # Create a Twitter post
-bun cli.ts twitter createPost --pageId "my-account" --content "Just shipped a new feature!" --niche "personal"
+bun cli.ts posts twitter create --pageId "my-account" --content "Just shipped a new feature!" --niche "personal"
 
 # Query all YouTube posts
-bun cli.ts youtube getPosts
+bun cli.ts posts youtube getAll
 
-# Filter posts by niche
-bun cli.ts youtube getPostsByNiche --niche "coding"
+# Get a specific post
+bun cli.ts posts youtube get --id "post-123"
 ```
 
 ## Architecture
@@ -63,39 +63,28 @@ bun cli.ts youtube getPostsByNiche --niche "coding"
 
 ```
 content-hub/
-├── shared/                          # Shared schemas and constants
+├── shared/                          # Shared constants
 │   ├── niches.ts                   # NICHES constant (10 values)
-│   └── schemas.ts                  # 3 shared schemas
-├── pages/                           # Central content repository workspace
-│   └── workspace.config.ts
-├── youtube/                         # Video platform workspaces
-│   └── workspace.config.ts
-├── instagram/
-│   └── workspace.config.ts
-├── tiktok/
-│   └── workspace.config.ts
-├── medium/                          # Blog platform workspaces
-│   └── workspace.config.ts
-├── substack/
-│   └── workspace.config.ts
-├── personal-blog/
-│   └── workspace.config.ts
-├── epicenter-blog/
-│   └── workspace.config.ts
-├── reddit/                          # Social platform workspaces
-│   └── workspace.config.ts
-├── twitter/
-│   └── workspace.config.ts
-├── hackernews/
-│   └── workspace.config.ts
-├── discord/
-│   └── workspace.config.ts
-├── producthunt/
-│   └── workspace.config.ts
-├── bookface/
-│   └── workspace.config.ts
-├── github-issues/                   # Development tracking workspace
-│   └── workspace.config.ts
+│   └── quality.ts                  # Quality options for clippings
+├── pages/                           # Central content repository
+│   └── pages.workspace.ts
+├── posts/                           # All social media content (consolidated)
+│   └── posts.workspace.ts          # 13 tables: youtube, tiktok, instagram,
+│                                   # medium, substack, personalBlog, epicenterBlog,
+│                                   # reddit, twitter, discord, hackernews,
+│                                   # producthunt, bookface
+├── journal/                         # Personal journal entries
+│   └── journal.workspace.ts
+├── whispering/                      # Voice transcriptions
+│   └── whispering.workspace.ts
+├── clippings/                       # Saved web content
+│   └── clippings.workspace.ts
+├── email/                           # Email workspace
+│   └── email.workspace.ts
+├── epicenter/                       # Company content
+│   └── epicenter.workspace.ts
+├── github-issues/                   # Development tracking
+│   └── github-issues.workspace.ts
 ├── epicenter.config.ts             # Root config (imports all workspaces)
 ├── cli.ts                          # CLI entry point
 ├── package.json                    # Scripts and metadata
@@ -244,14 +233,14 @@ All workspaces (except Pages) use a shared `niche` field for categorization:
 
 ## Features Demonstrated
 
-1. **Multi-workspace architecture**: 15 workspaces in a single application
-2. **Schema reuse**: 3 shared schemas used across 14 workspaces
+1. **Multi-workspace architecture**: Multiple workspaces in a single application
+2. **Multi-table workspaces**: Posts workspace contains 13 platform tables
 3. **Type-safe actions**: All actions have input validation via arktype
 4. **SQLite indexes**: Fast queries using Drizzle ORM
 5. **Universal persistence**: Works on desktop (files) and browser (IndexedDB)
 6. **CLI auto-generation**: All actions accessible via command line
 7. **Workspace organization**: Modular structure with clear separation
-8. **Consistent patterns**: Every workspace follows the same action structure
+8. **Consistent patterns**: Every table follows the same action structure
 
 ## CLI Reference
 
@@ -262,10 +251,7 @@ All workspaces (except Pages) use a shared `niche` field for categorization:
 bun cli.ts --help
 
 # Get help for a specific workspace
-bun cli.ts youtube --help
-
-# Get help for a specific action
-bun cli.ts youtube createPost --help
+bun cli.ts posts --help
 ```
 
 ### Common Operations
@@ -274,42 +260,39 @@ bun cli.ts youtube createPost --help
 
 ```bash
 # YouTube video
-bun cli.ts youtube createPost --pageId "channel-1" --title "Tutorial" --description "Learn X" --niche "coding"
+bun cli.ts posts youtube create --pageId "channel-1" --title "Tutorial" --description "Learn X" --niche "coding"
 
 # Medium article
-bun cli.ts medium createPost --pageId "blog-1" --title "Article" --subtitle "Subtitle" --content "Content..." --niche "writing"
+bun cli.ts posts medium create --pageId "blog-1" --title "Article" --subtitle "Subtitle" --content "Content..." --niche "writing"
 
 # Twitter post
-bun cli.ts twitter createPost --pageId "account-1" --content "My tweet" --niche "personal"
+bun cli.ts posts twitter create --pageId "account-1" --content "My tweet" --niche "personal"
 ```
 
 **Query Posts**:
 
 ```bash
-# Get all posts
-bun cli.ts youtube getPosts
+# Get all posts from a platform
+bun cli.ts posts youtube getAll
 
 # Get specific post
-bun cli.ts youtube getPost --id "post-123"
-
-# Filter by niche
-bun cli.ts youtube getPostsByNiche --niche "coding"
+bun cli.ts posts youtube get --id "post-123"
 ```
 
 **Update Posts**:
 
 ```bash
 # Update title and description
-bun cli.ts youtube updatePost --id "post-123" --title "New Title" --description "Updated"
+bun cli.ts posts youtube update --id "post-123" --title "New Title" --description "Updated"
 
 # Update niche
-bun cli.ts youtube updatePost --id "post-123" --niche "productivity"
+bun cli.ts posts youtube update --id "post-123" --niche "productivity"
 ```
 
 **Delete Posts**:
 
 ```bash
-bun cli.ts youtube deletePost --id "post-123"
+bun cli.ts posts youtube delete --id "post-123"
 ```
 
 **GitHub Issues**:
@@ -339,7 +322,7 @@ import config from './epicenter.config';
 	using client = await createEpicenterClient(config);
 
 	// Create a YouTube post
-	const { data: post } = await client.youtube.createPost({
+	const { data: post } = await client.posts.youtube.create({
 		pageId: 'my-channel',
 		title: 'My Video',
 		description: 'Check this out',
@@ -349,16 +332,11 @@ import config from './epicenter.config';
 	console.log(`Created post: ${post.id}`);
 
 	// Query posts
-	const { data: posts } = await client.youtube.getPosts();
+	const { data: posts } = await client.posts.youtube.getAll();
 	console.log(`Total posts: ${posts.length}`);
 
-	// Filter by niche
-	const { data: codingPosts } = await client.youtube.getPostsByNiche({
-		niche: 'coding',
-	});
-
 	// Update a post
-	await client.youtube.updatePost({
+	await client.posts.youtube.update({
 		id: post.id,
 		title: 'Updated Title',
 	});
@@ -369,19 +347,23 @@ import config from './epicenter.config';
 
 ## Directory Structure Explained
 
-**`shared/`**: Contains reusable constants and schemas
+**`shared/`**: Contains reusable constants
 
 - `niches.ts`: NICHES constant array and Niche type
-- `schemas.ts`: Three shared schema definitions (SHORT_FORM_VIDEO, LONG_FORM_TEXT, SHORT_FORM_TEXT)
+- `quality.ts`: Quality options for clippings
 
-**`[workspace-name]/`**: Each workspace gets its own folder at the root level
+**`posts/`**: Consolidated workspace for all social media content
 
-- `workspace.config.ts`: Workspace definition with schema, indexes, and actions
-- Examples: `youtube/`, `medium/`, `twitter/`, `github-issues/`
+- `posts.workspace.ts`: Single workspace with 13 tables (youtube, tiktok, instagram, medium, substack, personalBlog, epicenterBlog, reddit, twitter, discord, hackernews, producthunt, bookface)
+
+**`[workspace-name]/`**: Each specialized workspace gets its own folder
+
+- `[name].workspace.ts`: Workspace definition with schema, indexes, and actions
+- Examples: `pages/`, `journal/`, `github-issues/`
 
 **Root files**:
 
-- `epicenter.config.ts`: Imports and aggregates all 15 workspaces
+- `epicenter.config.ts`: Imports and aggregates all workspaces
 - `cli.ts`: CLI entry point for command-line usage
 - `package.json`: Scripts and metadata
 - `README.md`: This documentation
@@ -392,55 +374,76 @@ import config from './epicenter.config';
 
 ## Extending the System
 
-### Adding a New Platform
+### Adding a New Social Media Platform
 
-1. **Choose or create a schema**:
-   - Use existing shared schema if it fits (SHORT_FORM_VIDEO, LONG_FORM_TEXT, SHORT_FORM_TEXT)
-   - Or define a custom schema in the workspace config
+To add a new social platform (like LinkedIn), simply add a new table to the posts workspace:
 
-2. **Create workspace config**:
-
-   ```bash
-   mkdir new-platform
-   touch new-platform/workspace.config.ts
-   ```
-
-3. **Implement workspace**:
+1. **Edit `posts/posts.workspace.ts`**:
 
    ```typescript
-   import { defineWorkspace, sqliteIndex, ... } from '../../src/index';
-   import { setupPersistence } from '../../src/core/workspace/providers';
-   import { SHORT_FORM_TEXT_SCHEMA } from '../shared/schemas';
+   schema: {
+     // ... existing tables
+     linkedin: SHORT_FORM_TEXT_SCHEMA,
+   },
 
-   export const newPlatform = defineWorkspace({
-     id: 'new-platform',
-          schema: { posts: SHORT_FORM_TEXT_SCHEMA },
+   exports: ({ db, indexes }) => ({
+     // ... existing exports
+     linkedin: {
+       getAll: db.linkedin.getAll,
+       get: db.linkedin.get,
+       create: db.linkedin.insert,
+       update: db.linkedin.update,
+       delete: db.linkedin.delete,
+     },
+   }),
+   ```
+
+2. **Test via CLI**:
+   ```bash
+   bun cli.ts posts linkedin create --help
+   ```
+
+### Adding a New Workspace
+
+For content that doesn't fit the posts model, create a new workspace:
+
+1. **Create workspace config**:
+
+   ```bash
+   mkdir new-workspace
+   touch new-workspace/new-workspace.workspace.ts
+   ```
+
+2. **Implement workspace**:
+
+   ```typescript
+   import { defineWorkspace, sqliteIndex, ... } from '@epicenter/hq';
+   import { setupPersistence } from '@epicenter/hq/providers';
+
+   export const newWorkspace = defineWorkspace({
+     id: 'new-workspace',
+     schema: { items: { /* your schema */ } },
      indexes: { sqlite: (c) => sqliteIndex(c) },
      providers: [setupPersistence],
-     exports: ({ db, indexes }) => ({
+     exports: ({ db }) => ({
        // Implement actions...
      }),
    });
    ```
 
-4. **Add to root config**:
+3. **Add to root config**:
 
    ```typescript
    // epicenter.config.ts
-   import { newPlatform } from './new-platform/workspace.config';
+   import { newWorkspace } from './new-workspace/new-workspace.workspace';
 
    export default defineEpicenter({
    	id: 'content-hub',
    	workspaces: [
    		// ... existing workspaces
-   		newPlatform,
+   		newWorkspace,
    	],
    });
-   ```
-
-5. **Test via CLI**:
-   ```bash
-   bun cli.ts new-platform createPost --help
    ```
 
 ### Adding a New Niche
@@ -503,7 +506,7 @@ const { data: page } = await client.pages.createPage({
 });
 
 // 2. Distribute to YouTube
-await client.youtube.createPost({
+await client.posts.youtube.create({
 	pageId: page.id,
 	title: 'Video version',
 	description: 'Check out this video',
@@ -511,7 +514,7 @@ await client.youtube.createPost({
 });
 
 // 3. Distribute to Medium
-await client.medium.createPost({
+await client.posts.medium.create({
 	pageId: page.id,
 	title: page.title,
 	subtitle: 'An in-depth look',
@@ -520,7 +523,7 @@ await client.medium.createPost({
 });
 
 // 4. Share on Twitter
-await client.twitter.createPost({
+await client.posts.twitter.create({
 	pageId: page.id,
 	content: 'Just published: My Article! Link in bio',
 	niche: 'personal',
@@ -530,17 +533,17 @@ await client.twitter.createPost({
 ### Cross-Platform Analytics
 
 ```typescript
-// Get all posts from a specific niche across all platforms
-const codingYoutube = await client.youtube.getPostsByNiche({ niche: 'coding' });
-const codingMedium = await client.medium.getPostsByNiche({ niche: 'coding' });
-const codingTwitter = await client.twitter.getPostsByNiche({ niche: 'coding' });
+// Get all posts across platforms
+const youtube = await client.posts.youtube.getAll();
+const medium = await client.posts.medium.getAll();
+const twitter = await client.posts.twitter.getAll();
 
-const totalCodingPosts =
-	codingYoutube.data.length +
-	codingMedium.data.length +
-	codingTwitter.data.length;
+const totalPosts =
+	youtube.data.length +
+	medium.data.length +
+	twitter.data.length;
 
-console.log(`Total coding posts: ${totalCodingPosts}`);
+console.log(`Total posts: ${totalPosts}`);
 ```
 
 ## Troubleshooting
@@ -594,8 +597,8 @@ claude mcp add content-hub --transport http --scope user http://localhost:3913/m
 
 ```
 @epicenter-content-hub what tools do you have?
-@epicenter-content-hub create a new blog post titled "Hello World" with content "My first post" tagged as tech
-@epicenter-content-hub get all pages
+@epicenter-content-hub create a new page titled "Hello World" with content "My first post" tagged as tech
+@epicenter-content-hub get all youtube posts
 ```
 
 ### How It Works
@@ -606,7 +609,7 @@ The Epicenter server automatically:
 2. **Exposes MCP endpoint** at `/mcp` using HTTP Server-Sent Events (SSE)
 3. **Registers all actions as MCP tools** with input/output validation via TypeBox schemas
 
-All actions from all workspaces become available as MCP tools with naming: `{workspace}_{action}` (e.g., `youtube_createPost`, `pages_getPages`)
+All actions from all workspaces become available as MCP tools with naming: `{workspace}_{action}` (e.g., `posts_youtube_create`, `pages_getPages`)
 
 ### Troubleshooting MCP
 
