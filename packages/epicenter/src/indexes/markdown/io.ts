@@ -96,9 +96,13 @@ export async function writeMarkdownFile({
 }): Promise<Result<void, MarkdownOperationError>> {
 	return tryAsync({
 		try: async () => {
-			// Create markdown file with frontmatter and body
-			const yamlContent = Bun.YAML.stringify(frontmatter, null, 2);
-			const markdown = `---\n${yamlContent}\n---\n${body}`;
+			// Check if frontmatter is empty
+			const hasFrontmatter = Object.keys(frontmatter).length > 0;
+
+			// Skip frontmatter delimiters for empty objects to avoid "---\n{}\n---" in files
+			const markdown = hasFrontmatter
+				? `---\n${Bun.YAML.stringify(frontmatter, null, 2)}\n---\n${body}`
+				: body;
 
 			// Write file (Bun.write creates parent directories by default)
 			await Bun.write(filePath, markdown);
