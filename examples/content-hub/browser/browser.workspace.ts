@@ -1,6 +1,9 @@
 import {
 	boolean,
+	defineMutation,
+	defineQuery,
 	defineWorkspace,
+	generateId,
 	id,
 	integer,
 	json,
@@ -9,8 +12,10 @@ import {
 	text,
 } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers';
-import type { Browser } from '@wxt-dev/browser';
+import { type Browser, browser as browserApi } from '@wxt-dev/browser';
 import { type } from 'arktype';
+import { extractErrorMessage } from 'wellcrafted/error';
+import { Err, Ok, tryAsync } from 'wellcrafted/result';
 
 /**
  * String literal types derived from Browser enums using template literal pattern.
@@ -202,5 +207,527 @@ export const browser = defineWorkspace({
 		// SQLite index operations
 		pullToSqlite: indexes.sqlite.pullToSqlite,
 		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+
+		// ─────────────────────────────────────────────────────────────────────────
+		// Core Sync
+		// ─────────────────────────────────────────────────────────────────────────
+
+		/**
+		 * Full sync from browser state to database.
+		 * Clears all tables and re-populates with current browser state.
+		 * Call this on extension startup to initialize the shadow database.
+		 */
+		syncFromBrowser: defineMutation({
+			description: 'Sync all windows and tabs from browser to database',
+			handler: async () => {
+				// Fetch all windows with their tabs
+				const { data: windows, error: fetchError } = await tryAsync({
+					try: () => browserApi.windows.getAll({ populate: true }),
+					catch: (e) =>
+						Err({
+							message: 'Failed to fetch windows from browser',
+							context: { error: extractErrorMessage(e) },
+						}),
+				});
+				if (fetchError) return Err(fetchError);
+
+				// Batch all DB operations in a single transaction
+				db.$transact(() => {
+					// Clear all tables
+					db.$clearAll();
+
+					// Insert windows and tabs
+					for (const win of windows) {
+						if (win.id === undefined) continue;
+
+						const windowId = generateId();
+						db.windows.insert({
+							id: windowId,
+							browserId: win.id,
+							state: win.state ?? 'normal',
+							type: win.type ?? 'normal',
+							focused: win.focused ?? false,
+							alwaysOnTop: win.alwaysOnTop ?? false,
+							incognito: win.incognito ?? false,
+							bounds: {
+								top: win.top ?? 0,
+								left: win.left ?? 0,
+								width: win.width ?? 800,
+								height: win.height ?? 600,
+							},
+						});
+
+						// Insert tabs for this window
+						for (const tab of win.tabs ?? []) {
+							if (tab.id === undefined) continue;
+
+							db.tabs.insert({
+								id: generateId(),
+								browserId: tab.id,
+								windowId,
+								url: tab.url ?? '',
+								title: tab.title ?? '',
+								favIconUrl: tab.favIconUrl ?? null,
+								index: tab.index ?? 0,
+								pinned: tab.pinned ?? false,
+								active: tab.active ?? false,
+								highlighted: tab.highlighted ?? false,
+								muted: tab.mutedInfo?.muted ?? false,
+								audible: tab.audible ?? false,
+								discarded: tab.discarded ?? false,
+								autoDiscardable: tab.autoDiscardable ?? true,
+								status: tab.status ?? 'complete',
+								groupId: null, // Skip tab groups for now
+								openerTabId: null, // Would need separate mapping
+								incognito: tab.incognito ?? false,
+							});
+						}
+					}
+				});
+
+				return Ok({ windowCount: windows.length });
+			},
+		}),
+
+		// ─────────────────────────────────────────────────────────────────────────
+		// Tab Actions (Double-Write)
+		// ─────────────────────────────────────────────────────────────────────────
+
+		/**
+		 * Close a tab
+		 */
+		closeTab: defineMutation({
+			input: type({ tabId: 'string' }),
+			description: 'Close a tab by its stable ID',
+			handler: async ({ tabId }) => {
+				const result = db.tabs.get({ id: tabId });
+				if (!result?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = result.data;
+
+				const browserId = tab.browserId;
+
+				const { error } = await tryAsync({
+					try: () => browserApi.tabs.remove(browserId),
+					catch: (e) =>
+						Err({
+							message: 'Failed to close tab',
+							context: { tabId, browserId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				db.tabs.delete({ id: tabId });
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Create a new tab
+		 */
+		createTab: defineMutation({
+			input: type({
+				windowId: 'string | undefined',
+				url: 'string | undefined',
+				active: 'boolean | undefined',
+				index: 'number | undefined',
+			}),
+			description: 'Create a new tab',
+			handler: async ({ windowId, url, active, index }) => {
+				// Look up browser window ID if provided
+				let browserWindowId: number | undefined;
+				if (windowId) {
+					const winResult = db.windows.get({ id: windowId });
+					if (!winResult?.data) {
+						return Err({ message: 'Window not found', context: { windowId } });
+					}
+					browserWindowId = winResult.data.browserId;
+				}
+
+				const { data: newTab, error } = await tryAsync({
+					try: () =>
+						browserApi.tabs.create({
+							windowId: browserWindowId,
+							url,
+							active,
+							index,
+						}),
+					catch: (e) =>
+						Err({
+							message: 'Failed to create tab',
+							context: { error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+				if (newTab.id === undefined) {
+					return Err({ message: 'Browser did not return tab ID' });
+				}
+
+				// Need to find which window the tab ended up in
+				const targetWindowId =
+					windowId ??
+					db.windows.getAll().find((w) => w.browserId === newTab.windowId)?.id;
+
+				if (!targetWindowId) {
+					return Err({ message: 'Could not determine window for new tab' });
+				}
+
+				const tabId = generateId();
+				db.tabs.insert({
+					id: tabId,
+					browserId: newTab.id,
+					windowId: targetWindowId,
+					url: newTab.url ?? '',
+					title: newTab.title ?? '',
+					favIconUrl: newTab.favIconUrl ?? null,
+					index: newTab.index ?? 0,
+					pinned: newTab.pinned ?? false,
+					active: newTab.active ?? false,
+					highlighted: newTab.highlighted ?? false,
+					muted: newTab.mutedInfo?.muted ?? false,
+					audible: newTab.audible ?? false,
+					discarded: newTab.discarded ?? false,
+					autoDiscardable: newTab.autoDiscardable ?? true,
+					status: newTab.status ?? 'complete',
+					groupId: null,
+					openerTabId: null,
+					incognito: newTab.incognito ?? false,
+				});
+
+				return Ok({ tabId });
+			},
+		}),
+
+		/**
+		 * Move a tab to a different position or window
+		 */
+		moveTab: defineMutation({
+			input: type({
+				tabId: 'string',
+				windowId: 'string | undefined',
+				index: 'number',
+			}),
+			description: 'Move a tab to a different position or window',
+			handler: async ({ tabId, windowId, index }) => {
+				const tabResult = db.tabs.get({ id: tabId });
+				if (!tabResult?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = tabResult.data;
+
+				const browserId = tab.browserId;
+
+				// Look up browser window ID if provided
+				let browserWindowId: number | undefined;
+				if (windowId) {
+					const winResult = db.windows.get({ id: windowId });
+					if (!winResult?.data) {
+						return Err({ message: 'Window not found', context: { windowId } });
+					}
+					browserWindowId = winResult.data.browserId;
+				}
+
+				const { data: movedTab, error } = await tryAsync({
+					try: () =>
+						browserApi.tabs.move(browserId, {
+							windowId: browserWindowId,
+							index,
+						}),
+					catch: (e) =>
+						Err({
+							message: 'Failed to move tab',
+							context: { tabId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				// Update in database
+				const moved = Array.isArray(movedTab) ? movedTab[0] : movedTab;
+				const targetWindowId =
+					windowId ??
+					db.windows.getAll().find((w) => w.browserId === moved?.windowId)
+						?.id ??
+					tab.windowId;
+
+				db.tabs.update({
+					id: tabId,
+					windowId: targetWindowId,
+					index: moved?.index ?? index,
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Pin a tab
+		 */
+		pinTab: defineMutation({
+			input: type({ tabId: 'string' }),
+			description: 'Pin a tab',
+			handler: async ({ tabId }) => {
+				const result = db.tabs.get({ id: tabId });
+				if (!result?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = result.data;
+
+				const browserId = tab.browserId;
+
+				const { error } = await tryAsync({
+					try: () => browserApi.tabs.update(browserId, { pinned: true }),
+					catch: (e) =>
+						Err({
+							message: 'Failed to pin tab',
+							context: { tabId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				db.tabs.update({ id: tabId, pinned: true });
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Unpin a tab
+		 */
+		unpinTab: defineMutation({
+			input: type({ tabId: 'string' }),
+			description: 'Unpin a tab',
+			handler: async ({ tabId }) => {
+				const result = db.tabs.get({ id: tabId });
+				if (!result?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = result.data;
+
+				const browserId = tab.browserId;
+
+				const { error } = await tryAsync({
+					try: () => browserApi.tabs.update(browserId, { pinned: false }),
+					catch: (e) =>
+						Err({
+							message: 'Failed to unpin tab',
+							context: { tabId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				db.tabs.update({ id: tabId, pinned: false });
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Mute a tab
+		 */
+		muteTab: defineMutation({
+			input: type({ tabId: 'string' }),
+			description: 'Mute a tab',
+			handler: async ({ tabId }) => {
+				const result = db.tabs.get({ id: tabId });
+				if (!result?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = result.data;
+
+				const browserId = tab.browserId;
+
+				const { error } = await tryAsync({
+					try: () => browserApi.tabs.update(browserId, { muted: true }),
+					catch: (e) =>
+						Err({
+							message: 'Failed to mute tab',
+							context: { tabId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				db.tabs.update({ id: tabId, muted: true });
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Unmute a tab
+		 */
+		unmuteTab: defineMutation({
+			input: type({ tabId: 'string' }),
+			description: 'Unmute a tab',
+			handler: async ({ tabId }) => {
+				const result = db.tabs.get({ id: tabId });
+				if (!result?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = result.data;
+
+				const browserId = tab.browserId;
+
+				const { error } = await tryAsync({
+					try: () => browserApi.tabs.update(browserId, { muted: false }),
+					catch: (e) =>
+						Err({
+							message: 'Failed to unmute tab',
+							context: { tabId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				db.tabs.update({ id: tabId, muted: false });
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Reload a tab
+		 */
+		reloadTab: defineMutation({
+			input: type({ tabId: 'string' }),
+			description: 'Reload a tab',
+			handler: async ({ tabId }) => {
+				const result = db.tabs.get({ id: tabId });
+				if (!result?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = result.data;
+
+				const browserId = tab.browserId;
+
+				const { error } = await tryAsync({
+					try: () => browserApi.tabs.reload(browserId),
+					catch: (e) =>
+						Err({
+							message: 'Failed to reload tab',
+							context: { tabId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				db.tabs.update({ id: tabId, status: 'loading' });
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Duplicate a tab
+		 */
+		duplicateTab: defineMutation({
+			input: type({ tabId: 'string' }),
+			description: 'Duplicate a tab',
+			handler: async ({ tabId }) => {
+				const result = db.tabs.get({ id: tabId });
+				if (!result?.data) {
+					return Err({ message: 'Tab not found', context: { tabId } });
+				}
+				const tab = result.data;
+
+				const browserId = tab.browserId;
+
+				const { data: newTab, error } = await tryAsync({
+					try: () => browserApi.tabs.duplicate(browserId),
+					catch: (e) =>
+						Err({
+							message: 'Failed to duplicate tab',
+							context: { tabId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+				if (!newTab || newTab.id === undefined) {
+					return Err({ message: 'Browser did not return duplicated tab' });
+				}
+
+				const newTabId = generateId();
+
+				db.tabs.insert({
+					id: newTabId,
+					browserId: newTab.id,
+					windowId: tab.windowId,
+					url: newTab.url ?? tab.url,
+					title: newTab.title ?? tab.title,
+					favIconUrl: newTab.favIconUrl ?? tab.favIconUrl,
+					index: newTab.index ?? tab.index + 1,
+					pinned: newTab.pinned ?? false,
+					active: newTab.active ?? false,
+					highlighted: newTab.highlighted ?? false,
+					muted: newTab.mutedInfo?.muted ?? false,
+					audible: newTab.audible ?? false,
+					discarded: newTab.discarded ?? false,
+					autoDiscardable: newTab.autoDiscardable ?? true,
+					status: newTab.status ?? 'complete',
+					groupId: null,
+					openerTabId: tabId, // The original tab opened this one
+					incognito: newTab.incognito ?? false,
+				});
+
+				return Ok({ tabId: newTabId });
+			},
+		}),
+
+		// ─────────────────────────────────────────────────────────────────────────
+		// Window Actions (Double-Write)
+		// ─────────────────────────────────────────────────────────────────────────
+
+		/**
+		 * Close a window (and all its tabs)
+		 */
+		closeWindow: defineMutation({
+			input: type({ windowId: 'string' }),
+			description: 'Close a window and all its tabs',
+			handler: async ({ windowId }) => {
+				const winResult = db.windows.get({ id: windowId });
+				if (!winResult?.data) {
+					return Err({ message: 'Window not found', context: { windowId } });
+				}
+				const win = winResult.data;
+
+				const browserId = win.browserId;
+
+				const { error } = await tryAsync({
+					try: () => browserApi.windows.remove(browserId),
+					catch: (e) =>
+						Err({
+							message: 'Failed to close window',
+							context: { windowId, error: extractErrorMessage(e) },
+						}),
+				});
+				if (error) return Err(error);
+
+				// Batch deletions in a single transaction
+				db.$transact(() => {
+					// Delete all tabs in this window
+					const tabsInWindow = db.tabs
+						.getAll()
+						.filter((t) => t.windowId === windowId);
+					db.tabs.deleteMany({ ids: tabsInWindow.map((t) => t.id) });
+
+					// Delete the window
+					db.windows.delete({ id: windowId });
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		// ─────────────────────────────────────────────────────────────────────────
+		// Query Actions
+		// ─────────────────────────────────────────────────────────────────────────
+
+		/**
+		 * Get all tabs from the database
+		 */
+		getAllTabs: defineQuery({
+			description: 'Get all tabs from the database',
+			handler: () => db.tabs.getAll().map((t) => t.toJSON()),
+		}),
+
+		/**
+		 * Get all windows from the database
+		 */
+		getAllWindows: defineQuery({
+			description: 'Get all windows from the database',
+			handler: () => db.windows.getAll().map((w) => w.toJSON()),
+		}),
 	}),
 });
