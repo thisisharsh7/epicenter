@@ -1,4 +1,5 @@
 import { defineEpicenter } from '@epicenter/hq';
+import { browser } from './browser/browser.workspace';
 import { clippings } from './clippings/clippings.workspace';
 import { email } from './email/email.workspace';
 import { epicenter } from './epicenter/epicenter.workspace';
@@ -45,6 +46,9 @@ export default defineEpicenter({
 
 		// All social media posts (video, blogs, social platforms)
 		posts,
+
+		// Browser tab/window state (shadow database for extension)
+		browser,
 	],
 	storageDir: '/Users/braden/Code/EpicenterHQ',
 });
