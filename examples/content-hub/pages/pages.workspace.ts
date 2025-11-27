@@ -136,7 +136,7 @@ export const pages = defineWorkspace({
 
 			try {
 				const date = new Date(isoDate);
-				if (isNaN(date.getTime())) return null;
+				if (Number.isNaN(date.getTime())) return null;
 
 				return DateWithTimezone({ date, timezone }).toJSON();
 			} catch {

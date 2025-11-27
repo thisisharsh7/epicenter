@@ -2,10 +2,9 @@ import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Argv } from 'yargs';
 import yargs from 'yargs';
-import { type WorkspaceExports, walkActions } from '../core/actions';
+import { walkActions } from '../core/actions';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
-import type { WorkspaceClient } from '../core/workspace';
 import { DEFAULT_PORT, startServer } from './server';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 

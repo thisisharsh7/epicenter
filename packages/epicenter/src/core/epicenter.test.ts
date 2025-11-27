@@ -86,19 +86,19 @@ describe('Action Exposure and Dependency Resolution', () => {
 		await using client = await createEpicenterClient(epicenter);
 
 		// BOTH workspaces are exposed by their ids
-		expect(client['a']).toBeDefined();
-		expect(client['b']).toBeDefined();
+		expect(client.a).toBeDefined();
+		expect(client.b).toBeDefined();
 
 		// Both have their actions
-		expect(client['a']!.getValue).toBeDefined();
-		expect(client['b']!.getValue).toBeDefined();
-		expect(client['b']!.getValueFromDependency).toBeDefined();
+		expect(client.a?.getValue).toBeDefined();
+		expect(client.b?.getValue).toBeDefined();
+		expect(client.b?.getValueFromDependency).toBeDefined();
 
 		// Can call actions on both
-		const resultA = await client['a']!.getValue();
+		const resultA = await client.a?.getValue();
 		expect(resultA.data).toBe('value-from-a');
 
-		const resultB = await client['b']!.getValue();
+		const resultB = await client.b?.getValue();
 		expect(resultB.data).toBe('value-from-b');
 	});
 
@@ -133,15 +133,15 @@ describe('Action Exposure and Dependency Resolution', () => {
 		await using client = await createEpicenterClient(epicenter);
 
 		// All workspaces are exposed
-		expect(client['a']).toBeDefined();
-		expect(client['b']).toBeDefined();
-		expect(client['c']).toBeDefined();
+		expect(client.a).toBeDefined();
+		expect(client.b).toBeDefined();
+		expect(client.c).toBeDefined();
 
 		// Can call actions on all workspaces
-		const resultA = await client['a']!.getValue();
+		const resultA = await client.a?.getValue();
 		expect(resultA.data).toBe('value-from-a');
 
-		const resultB = await client['b']!.getValueFromDependency!();
+		const resultB = await client.b?.getValueFromDependency?.();
 		expect(resultB.data).toBe('value-from-a');
 	});
 
@@ -158,18 +158,18 @@ describe('Action Exposure and Dependency Resolution', () => {
 		await using client = await createEpicenterClient(epicenter);
 
 		// All three workspaces exposed
-		expect(client['a']).toBeDefined();
-		expect(client['b']).toBeDefined();
-		expect(client['c']).toBeDefined();
+		expect(client.a).toBeDefined();
+		expect(client.b).toBeDefined();
+		expect(client.c).toBeDefined();
 
 		// All have their actions
-		const resultA = await client['a']!.getValue();
+		const resultA = await client.a?.getValue();
 		expect(resultA.data).toBe('value-from-a');
 
-		const resultB = await client['b']!.getValue();
+		const resultB = await client.b?.getValue();
 		expect(resultB.data).toBe('value-from-b');
 
-		const resultC = await client['c']!.getValue();
+		const resultC = await client.c?.getValue();
 		expect(resultC.data).toBe('value-from-c');
 	});
 });

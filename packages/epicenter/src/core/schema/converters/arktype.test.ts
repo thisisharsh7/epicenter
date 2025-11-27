@@ -1,16 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import {
-	boolean,
-	date,
 	id,
 	integer,
 	json,
-	real,
 	select,
-	tags,
 	text,
-	ytext,
 } from '../../schema';
 import { tableSchemaToArktypeType } from './arktype';
 

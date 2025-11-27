@@ -93,7 +93,7 @@ export async function createEpicenterClient<
 		process.versions != null &&
 		process.versions.node != null;
 
-	let storageDir: AbsolutePath | undefined = undefined;
+	let storageDir: AbsolutePath | undefined ;
 	if (isNode) {
 		const configuredPath = config.storageDir ?? process.cwd();
 		storageDir = path.resolve(configuredPath) as AbsolutePath;
