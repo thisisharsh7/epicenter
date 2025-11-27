@@ -123,13 +123,23 @@ export function tableSchemaToArktypeType<TSchema extends TableSchema>(
 }
 
 /**
- * Converts a single ColumnSchema to a raw arktype definition (not Type instance).
+ * Converts a single ColumnSchema to an arktype Type for runtime validation.
  *
- * **Important**: Returns raw arktype-parseable values (Type instances, not strings)
- * that can be passed to `type()` for proper ObjectType inference.
+ * Each column type maps to its corresponding arktype validator:
+ * - `id`, `text`, `ytext` → `type.string`
+ * - `integer` → `type.number.divisibleBy(1)`
+ * - `real` → `type.number`
+ * - `boolean` → `type.boolean`
+ * - `date` → `type.string.matching(DATE_WITH_TIMEZONE_STRING_REGEX)`
+ * - `select` → `type.enumerated(...options)`
+ * - `multi-select` → `type.enumerated(...options).array()`
+ * - `json` → uses the schema's arktype definition directly
+ *
+ * For nullable columns, wraps with `.or(type.null).default(null)` so that
+ * missing fields are automatically defaulted to `null` during validation.
  *
  * @param columnSchema - The column schema to convert
- * @returns Raw arktype Type (not a Type instance) suitable for passing to type()
+ * @returns arktype Type suitable for validation and composition
  */
 function columnSchemaToArktypeType<C extends ColumnSchema>(
 	columnSchema: C,
@@ -173,7 +183,8 @@ function columnSchemaToArktypeType<C extends ColumnSchema>(
 			break;
 	}
 
-	// Handle nullable columns
+	// Nullable columns: allow null values AND default missing fields to null
+	// This enables serialize to strip nulls while deserialize restores them
 	return (columnSchema.nullable
 		? baseType.or(type.null).default(null)
 		: baseType) as ColumnSchemaToArktypeType<C>;

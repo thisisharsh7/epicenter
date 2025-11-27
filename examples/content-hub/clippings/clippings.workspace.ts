@@ -79,7 +79,7 @@ export const clippings = defineWorkspace({
 				tableConfigs: {
 					clippings: {
 						serialize: ({ row: { content, id, ...row } }) => {
-							// Remove null values from frontmatter
+							// Strip null values for cleaner YAML
 							const frontmatter = Object.fromEntries(
 								Object.entries(row).filter(([_, value]) => value !== null),
 							);
@@ -92,6 +92,7 @@ export const clippings = defineWorkspace({
 						deserialize: ({ frontmatter, body, filename, table }) => {
 							const rowId = path.basename(filename, '.md');
 
+							// Stripped null values from serialize are restored via .default(null)
 							const FrontMatter = table.validators
 								.toArktype()
 								.omit('id', 'content');
