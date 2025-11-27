@@ -90,38 +90,63 @@ const BoundsSchema = type({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Snapshot schema for workspace captures
+// Table Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
-const WorkspaceSnapshotSchema = type({
-	windows: type({
-		id: 'string',
-		state: type.enumerated(...WINDOW_STATES),
-		type: type.enumerated(...WINDOW_TYPES),
-		focused: 'boolean',
-		incognito: 'boolean',
-		bounds: BoundsSchema,
-		tabs: type({
-			id: 'string',
-			url: 'string',
-			title: 'string',
-			favIconUrl: 'string | null',
-			index: 'number',
-			pinned: 'boolean',
-			active: 'boolean',
-			muted: 'boolean',
-			discarded: 'boolean',
-			groupId: 'string | null',
-		}).array(),
-	}).array(),
-	groups: type({
-		id: 'string',
-		windowId: 'string',
-		title: 'string',
-		color: type.enumerated(...TAB_GROUP_COLORS),
-		collapsed: 'boolean',
-	}).array(),
-});
+/**
+ * Tabs table - shadows browser tab state
+ *
+ * Each row represents a browser tab. The `browserId` is ephemeral (changes on
+ * browser restart), while `id` is stable across sessions.
+ *
+ * @see https://developer.chrome.com/docs/extensions/reference/api/tabs#type-Tab
+ */
+const TABS_SCHEMA = {
+	id: id(),
+	browserId: integer(), // Browser's ephemeral numeric ID
+	windowId: text(), // FK to windows table
+	url: text(),
+	title: text(),
+	favIconUrl: text({ nullable: true }),
+	index: integer(), // Zero-based position in tab strip
+	pinned: boolean({ default: false }),
+	active: boolean({ default: false }),
+	highlighted: boolean({ default: false }),
+	muted: boolean({ default: false }),
+	audible: boolean({ default: false }),
+	discarded: boolean({ default: false }), // Tab unloaded to save memory
+	autoDiscardable: boolean({ default: true }),
+	status: select({ options: TAB_STATUS, default: 'complete' }),
+	groupId: text({ nullable: true }), // FK to tabGroups (Chrome 88+, null on Firefox)
+	openerTabId: text({ nullable: true }), // ID of tab that opened this one
+	incognito: boolean({ default: false }),
+} as const;
+
+/**
+ * Windows table - shadows browser window state
+ */
+const WINDOWS_SCHEMA = {
+	id: id(),
+	browserId: integer(), // Browser's ephemeral numeric ID
+	state: select({ options: WINDOW_STATES, default: 'normal' }),
+	type: select({ options: WINDOW_TYPES, default: 'normal' }),
+	focused: boolean({ default: false }),
+	alwaysOnTop: boolean({ default: false }),
+	incognito: boolean({ default: false }),
+	bounds: json({ schema: BoundsSchema }),
+} as const;
+
+/**
+ * Tab Groups table - shadows Chrome tab group state (no-op on Firefox)
+ */
+const TAB_GROUPS_SCHEMA = {
+	id: id(),
+	browserId: integer(), // Browser's ephemeral numeric ID
+	windowId: text(), // FK to windows table
+	title: text({ default: '' }),
+	color: select({ options: TAB_GROUP_COLORS, default: 'grey' }),
+	collapsed: boolean({ default: false }),
+} as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Workspace Definition
@@ -154,79 +179,14 @@ const WorkspaceSnapshotSchema = type({
  * ## Hard Deletes
  *
  * When tabs/windows/groups are closed, rows are fully deleted (not soft-deleted).
- * For history, use the workspaces table to capture snapshots before closing.
  */
 export const browser = defineWorkspace({
 	id: 'browser',
 
 	schema: {
-		/**
-		 * Tabs table - shadows browser tab state
-		 *
-		 * Each row represents a browser tab. The `browserId` is ephemeral (changes on
-		 * browser restart), while `id` is stable across sessions.
-		 *
-		 * @see https://developer.chrome.com/docs/extensions/reference/api/tabs#type-Tab
-		 */
-		tabs: {
-			id: id(),
-			browserId: integer(), // Browser's ephemeral numeric ID
-			windowId: text(), // FK to windows table
-			url: text(),
-			title: text(),
-			favIconUrl: text({ nullable: true }),
-			index: integer(), // Zero-based position in tab strip
-			pinned: boolean({ default: false }),
-			active: boolean({ default: false }),
-			highlighted: boolean({ default: false }),
-			muted: boolean({ default: false }),
-			audible: boolean({ default: false }),
-			discarded: boolean({ default: false }), // Tab unloaded to save memory
-			autoDiscardable: boolean({ default: true }),
-			status: select({ options: TAB_STATUS, default: 'complete' }),
-			groupId: text({ nullable: true }), // FK to tabGroups (Chrome 88+, null on Firefox)
-			openerTabId: text({ nullable: true }), // ID of tab that opened this one
-			incognito: boolean({ default: false }),
-		},
-
-		/**
-		 * Windows table - shadows browser window state
-		 */
-		windows: {
-			id: id(),
-			browserId: integer(), // Browser's ephemeral numeric ID
-			state: select({ options: WINDOW_STATES, default: 'normal' }),
-			type: select({ options: WINDOW_TYPES, default: 'normal' }),
-			focused: boolean({ default: false }),
-			alwaysOnTop: boolean({ default: false }),
-			incognito: boolean({ default: false }),
-			bounds: json({ schema: BoundsSchema }),
-		},
-
-		/**
-		 * Tab Groups table - shadows Chrome tab group state (no-op on Firefox)
-		 */
-		tabGroups: {
-			id: id(),
-			browserId: integer(), // Browser's ephemeral numeric ID
-			windowId: text(), // FK to windows table
-			title: text({ default: '' }),
-			color: select({ options: TAB_GROUP_COLORS, default: 'grey' }),
-			collapsed: boolean({ default: false }),
-		},
-
-		/**
-		 * Workspaces table - saved browser session snapshots
-		 *
-		 * A workspace captures the full state of all windows, tabs, and groups
-		 * at a point in time for later restoration.
-		 */
-		workspaces: {
-			id: id(),
-			name: text(),
-			description: text({ nullable: true }),
-			snapshot: json({ schema: WorkspaceSnapshotSchema }),
-		},
+		tabs: TABS_SCHEMA,
+		windows: WINDOWS_SCHEMA,
+		tabGroups: TAB_GROUPS_SCHEMA,
 	},
 
 	indexes: {
