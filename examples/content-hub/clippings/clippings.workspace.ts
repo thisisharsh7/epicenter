@@ -9,7 +9,6 @@ import {
 	generateId,
 	id,
 	integer,
-	isDateWithTimezoneString,
 	markdownIndex,
 	select,
 	sqliteIndex,
@@ -92,43 +91,29 @@ export const clippings = defineWorkspace({
 						},
 						deserialize: ({ frontmatter, body, filename, table }) => {
 							const rowId = path.basename(filename, '.md');
-							const FrontMatter = type({
-								url: 'string',
-								title: 'string',
-								'description?': 'string',
-								'author?': 'string',
-								'domain?': 'string',
-								'site?': 'string',
-								'favicon?': 'string',
-								'published?': type.string.filter(isDateWithTimezoneString),
-								'image?': 'string',
-								wordCount: 'number',
-								clippedAt: type.string.filter(isDateWithTimezoneString),
-							});
-							const frontmatterParsed = FrontMatter(frontmatter);
-							if (frontmatterParsed instanceof type.errors) {
+
+							const FrontMatter = table.validators
+								.toArktype()
+								.omit('id', 'content');
+							const parsed = FrontMatter(frontmatter);
+
+							if (parsed instanceof type.errors) {
 								return MarkdownIndexErr({
 									message: `Invalid frontmatter for row ${rowId}`,
 									context: {
 										fileName: filename,
 										id: rowId,
-										reason: frontmatterParsed,
+										reason: parsed.summary,
 									},
 								});
 							}
-							// Merge with null defaults for missing optional fields
+
 							const row = {
 								id: rowId,
 								content: body,
-								description: null,
-								author: null,
-								domain: null,
-								site: null,
-								favicon: null,
-								published: null,
-								image: null,
-								...frontmatterParsed,
+								...parsed,
 							} satisfies SerializedRow<typeof table.schema>;
+
 							return Ok(row);
 						},
 					},
