@@ -1,4 +1,4 @@
-import { ArkErrors, type } from 'arktype';
+import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import { Err, Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';

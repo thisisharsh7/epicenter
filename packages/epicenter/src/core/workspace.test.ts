@@ -3,7 +3,6 @@ import path from 'node:path';
 import { type } from 'arktype';
 import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
-import { markdownIndex } from '../indexes/markdown';
 import { sqliteIndex } from '../indexes/sqlite';
 import { defineMutation, defineQuery } from './actions';
 import { createEpicenterClient, defineEpicenter } from './epicenter';
@@ -506,7 +505,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					handler: () => Ok('value-from-b'),
 				}),
 				callA: defineQuery({
-					handler: async () => workspaces['a'].getValueFromA(),
+					handler: async () => workspaces.a.getValueFromA(),
 				}),
 			}),
 		});
@@ -575,10 +574,10 @@ describe('createWorkspaceClient - Topological Sort', () => {
 					handler: () => Ok('value-from-c'),
 				}),
 				getFromA: defineQuery({
-					handler: async () => workspaces['a'].getValue(),
+					handler: async () => workspaces.a.getValue(),
 				}),
 				getFromB: defineQuery({
-					handler: async () => workspaces['b'].getValue(),
+					handler: async () => workspaces.b.getValue(),
 				}),
 			}),
 		});
@@ -610,7 +609,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
  */
 describe('Workspace Action Handlers', () => {
 	const TEST_DIR = path.join(import.meta.dir, '.data/action-handler-test');
-	const TEST_DB = path.join(TEST_DIR, 'test.db');
+	const _TEST_DB = path.join(TEST_DIR, 'test.db');
 	const TEST_MARKDOWN = path.join(TEST_DIR, 'content');
 
 	// Define a test workspace with CRUD operations
@@ -779,7 +778,7 @@ describe('Workspace Action Handlers', () => {
 		});
 
 		expect(createResult.data).toBeDefined();
-		const postId = createResult.data!.id;
+		const postId = createResult.data?.id;
 
 		// Wait for indexes to sync
 		await new Promise((resolve) => setTimeout(resolve, 200));
@@ -811,7 +810,7 @@ describe('Workspace Action Handlers', () => {
 		});
 
 		expect(createResult.data).toBeDefined();
-		const postId = createResult.data!.id;
+		const postId = createResult.data?.id;
 
 		// Update views
 		const updateResult = await client.updateViews({

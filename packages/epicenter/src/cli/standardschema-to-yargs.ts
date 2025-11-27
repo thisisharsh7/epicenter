@@ -215,9 +215,6 @@ function addFieldByType({
 				demandOption: isRequired,
 			});
 			break;
-
-		case 'object':
-		case 'null':
 		default:
 			// For complex types, omit 'type' - yargs accepts any value
 			// Validation happens via Standard Schema at runtime

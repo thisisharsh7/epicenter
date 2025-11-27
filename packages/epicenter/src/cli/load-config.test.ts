@@ -38,7 +38,7 @@ describe('loadEpicenterConfig', () => {
 	});
 
 	test('throws error when no config file found', async () => {
-		const nonExistentDir = '/tmp/nonexistent-epicenter-test-dir-' + Date.now();
+		const nonExistentDir = `/tmp/nonexistent-epicenter-test-dir-${Date.now()}`;
 
 		await expect(loadEpicenterConfig(nonExistentDir)).rejects.toThrow(
 			/No epicenter config file found/,
