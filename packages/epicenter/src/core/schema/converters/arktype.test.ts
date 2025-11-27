@@ -1,18 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
-import { tableSchemaToArktypeType } from './arktype';
 import {
-	id,
-	text,
-	ytext,
-	integer,
-	real,
 	boolean,
 	date,
+	id,
+	integer,
+	json,
+	real,
 	select,
 	tags,
-	json,
+	text,
+	ytext,
 } from '../../schema';
+import { tableSchemaToArktypeType } from './arktype';
 
 describe('tableSchemaToArktypeType', () => {
 	test('returns a complete arktype Type instance', () => {
@@ -160,7 +160,10 @@ describe('tableSchemaToArktypeType', () => {
 			title: text(),
 			subtitle: text({ nullable: true }),
 			count: integer({ nullable: true }),
-			status: select({ options: ['draft', 'published'] as const, nullable: true }),
+			status: select({
+				options: ['draft', 'published'] as const,
+				nullable: true,
+			}),
 		};
 
 		const validator = tableSchemaToArktypeType(schema);

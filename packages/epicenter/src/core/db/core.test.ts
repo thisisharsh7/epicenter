@@ -109,9 +109,7 @@ describe('createEpicenterDb', () => {
 		expect(getResult).toBeNull();
 
 		// Test find() with no matches
-		const findResult = doc.posts.find(
-			(post) => post.id === 'non-existent',
-		);
+		const findResult = doc.posts.find((post) => post.id === 'non-existent');
 		expect(findResult).toBeNull();
 	});
 

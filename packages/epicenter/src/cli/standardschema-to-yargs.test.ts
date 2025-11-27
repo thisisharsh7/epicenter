@@ -67,7 +67,9 @@ describe('standardSchemaToYargs', () => {
 		const options = (result as any).getOptions();
 		expect(options.string).toContain('role');
 		// Order doesn't matter, just check all choices are present
-		expect(options.choices.role).toEqual(expect.arrayContaining(['admin', 'user', 'guest']));
+		expect(options.choices.role).toEqual(
+			expect.arrayContaining(['admin', 'user', 'guest']),
+		);
 		expect(options.choices.role.length).toBe(3);
 	});
 
@@ -102,7 +104,9 @@ describe('standardSchemaToYargs', () => {
 		expect(options.string).toContain('content');
 		expect(options.number).toContain('views');
 		// Order doesn't matter, just check all choices are present
-		expect(options.choices.category).toEqual(expect.arrayContaining(['tech', 'personal', 'tutorial']));
+		expect(options.choices.category).toEqual(
+			expect.arrayContaining(['tech', 'personal', 'tutorial']),
+		);
 		expect(options.choices.category.length).toBe(3);
 	});
 

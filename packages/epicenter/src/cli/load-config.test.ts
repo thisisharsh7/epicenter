@@ -1,4 +1,11 @@
-import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	test,
+} from 'bun:test';
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -10,7 +17,10 @@ describe('loadEpicenterConfig', () => {
 
 	beforeEach(async () => {
 		// Create unique test directory for each test
-		testDir = path.join(BASE_TEST_DIR, `test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		testDir = path.join(
+			BASE_TEST_DIR,
+			`test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(testDir, { recursive: true });
 	});
 
@@ -31,31 +41,25 @@ describe('loadEpicenterConfig', () => {
 		const nonExistentDir = '/tmp/nonexistent-epicenter-test-dir-' + Date.now();
 
 		await expect(loadEpicenterConfig(nonExistentDir)).rejects.toThrow(
-			/No epicenter config file found/
+			/No epicenter config file found/,
 		);
 	});
 
 	test('throws error when config has no id', async () => {
 		const configPath = path.join(testDir, 'epicenter.config.js');
-		await writeFile(
-			configPath,
-			`module.exports = { workspaces: [] };`,
-		);
+		await writeFile(configPath, `module.exports = { workspaces: [] };`);
 
 		await expect(loadEpicenterConfig(testDir)).rejects.toThrow(
-			/must have a valid string id/
+			/must have a valid string id/,
 		);
 	});
 
 	test('throws error when config has no workspaces array', async () => {
 		const configPath = path.join(testDir, 'epicenter.config.js');
-		await writeFile(
-			configPath,
-			`module.exports = { id: 'test' };`,
-		);
+		await writeFile(configPath, `module.exports = { id: 'test' };`);
 
 		await expect(loadEpicenterConfig(testDir)).rejects.toThrow(
-			/must have a workspaces array/
+			/must have a workspaces array/,
 		);
 	});
 

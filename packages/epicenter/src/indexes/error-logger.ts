@@ -1,5 +1,5 @@
-import path from 'node:path';
 import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 import type { TaggedError } from 'wellcrafted/error';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 
@@ -127,9 +127,7 @@ type IndexLogger = {
  * await logger.close();
  * ```
  */
-export function createIndexLogger({
-	logPath,
-}: IndexLoggerConfig): IndexLogger {
+export function createIndexLogger({ logPath }: IndexLoggerConfig): IndexLogger {
 	// Create parent directory if it doesn't exist
 	const logDir = path.dirname(logPath);
 	trySync({

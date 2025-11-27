@@ -8,9 +8,9 @@ import {
 	generateId,
 	id,
 	markdownIndex,
-	tags,
 	select,
 	sqliteIndex,
+	tags,
 	text,
 } from '@epicenter/hq';
 import { readMarkdownFile } from '@epicenter/hq/indexes/markdown';

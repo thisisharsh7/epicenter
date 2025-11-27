@@ -7,7 +7,7 @@ import {
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { TaggedError } from 'wellcrafted/error';
-import { type Result, isResult } from 'wellcrafted/result';
+import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
 import {
 	type EpicenterClient,

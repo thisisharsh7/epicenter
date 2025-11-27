@@ -12,6 +12,7 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { type Type, type } from 'arktype';
+import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import type {
 	BooleanColumnSchema,
 	ColumnSchema,
@@ -29,7 +30,6 @@ import type {
 	YtextColumnSchema,
 } from '../../schema';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../regex';
-import type { ObjectType } from 'arktype/internal/variants/object.ts';
 
 /**
  * Maps a ColumnSchema to its corresponding arktype Type
@@ -73,10 +73,7 @@ export type ColumnSchemaToArktypeType<C extends ColumnSchema> =
 										? TNullable extends true
 											? Type<TOptions[number][] | null>
 											: Type<TOptions[number][]>
-										: C extends JsonColumnSchema<
-													infer TSchema,
-													infer TNullable
-											  >
+										: C extends JsonColumnSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
 												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
 												: Type<StandardSchemaV1.InferOutput<TSchema>>
@@ -117,8 +114,8 @@ export function tableSchemaToArktypeType<TSchema extends TableSchema>(
 			Object.entries(tableSchema).map(([fieldName, columnSchema]) => [
 				fieldName,
 				columnSchemaToArktypeType(columnSchema),
-			])
-		)
+			]),
+		),
 	) as ObjectType<SerializedRow<TSchema>>;
 }
 
@@ -185,7 +182,7 @@ function columnSchemaToArktypeType<C extends ColumnSchema>(
 
 	// Nullable columns: allow null values AND default missing fields to null
 	// This enables serialize to strip nulls while deserialize restores them
-	return (columnSchema.nullable
-		? baseType.or(type.null).default(null)
-		: baseType) as ColumnSchemaToArktypeType<C>;
+	return (
+		columnSchema.nullable ? baseType.or(type.null).default(null) : baseType
+	) as ColumnSchemaToArktypeType<C>;
 }

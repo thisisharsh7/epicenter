@@ -1,6 +1,5 @@
 import path from 'node:path';
 import {
-	type SerializedRow,
 	defineEpicenter,
 	defineMutation,
 	defineQuery,
@@ -11,6 +10,7 @@ import {
 	integer,
 	isNotNull,
 	markdownIndex,
+	type SerializedRow,
 	select,
 	sqliteIndex,
 	text,

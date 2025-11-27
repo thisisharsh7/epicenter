@@ -1,15 +1,7 @@
-import { describe, test, expect } from 'bun:test';
-import { createEpicenterDb } from './core';
-import {
-	id,
-	text,
-	ytext,
-	integer,
-	boolean,
-	select,
-	tags,
-} from '../schema';
+import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
+import { boolean, id, integer, select, tags, text, ytext } from '../schema';
+import { createEpicenterDb } from './core';
 
 /**
  * Type inference test file for YjsDoc
@@ -123,9 +115,7 @@ describe('YjsDoc Type Inference', () => {
 
 		// Hover over 'item' parameter to verify inferred type
 		// find() now returns Row | null directly
-		const outOfStockItem = doc.items.find(
-			(item) => item.quantity === 0,
-		);
+		const outOfStockItem = doc.items.find((item) => item.quantity === 0);
 		// item type should be: { id: string; name: string; quantity: number }
 
 		expect(outOfStockItem).not.toBeNull();
@@ -175,7 +165,7 @@ describe('YjsDoc Type Inference', () => {
 		unsubscribe();
 	});
 
-		test('should handle nullable YJS types correctly', () => {
+	test('should handle nullable YJS types correctly', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			articles: {
 				id: id(),
@@ -321,5 +311,4 @@ describe('YjsDoc Type Inference', () => {
 			expect(retrieved.tags.length).toBe(3);
 		}
 	});
-
 });

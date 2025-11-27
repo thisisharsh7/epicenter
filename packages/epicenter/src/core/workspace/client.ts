@@ -3,7 +3,7 @@ import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
-import { type WorkspaceSchema, createWorkspaceValidators } from '../schema';
+import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 

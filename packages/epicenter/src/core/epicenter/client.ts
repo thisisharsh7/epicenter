@@ -1,14 +1,10 @@
 import path from 'node:path';
-import {
-	type Action,
-	type WorkspaceExports,
-	walkActions,
-} from '../actions';
+import { type Action, type WorkspaceExports, walkActions } from '../actions';
 import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
 import {
-	type WorkspacesToClients,
 	initializeWorkspaces,
+	type WorkspacesToClients,
 } from '../workspace/client';
 import type { EpicenterConfig } from './config';
 

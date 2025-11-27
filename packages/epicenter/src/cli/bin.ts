@@ -112,7 +112,9 @@ async function enableWatchMode() {
 	 */
 	const scriptPath = process.argv[1];
 	if (!scriptPath) {
-		throw new Error('Internal error: Failed to start epicenter (missing script path)');
+		throw new Error(
+			'Internal error: Failed to start epicenter (missing script path)',
+		);
 	}
 
 	const proc = Bun.spawn(

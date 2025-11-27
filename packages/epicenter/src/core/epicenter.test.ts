@@ -1,12 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Ok } from 'wellcrafted/result';
-import {
-	defineQuery,
-	defineWorkspace,
-	id,
-	sqliteIndex,
-	text,
-} from '../index';
+import { defineQuery, defineWorkspace, id, sqliteIndex, text } from '../index';
 import { createEpicenterClient, defineEpicenter } from './epicenter/index';
 
 /**
@@ -47,10 +41,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 	/**
 	 * Helper to create a simple workspace with actions for testing action exposure
 	 */
-	const createTestWorkspace = (
-		workspaceId: string,
-		deps: any[] = [],
-	) => {
+	const createTestWorkspace = (workspaceId: string, deps: any[] = []) => {
 		return defineWorkspace({
 			id: workspaceId,
 			dependencies: deps,
@@ -73,9 +64,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 								handler: async () => {
 									// Access the first dependency's action
 									const depId = deps[0].id;
-									const result = await (workspaces as any)[
-										depId
-									].getValue();
+									const result = await (workspaces as any)[depId].getValue();
 									return result;
 								},
 							}),
@@ -116,10 +105,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 	test('requires all transitive dependencies in workspaces array (flat/hoisted)', () => {
 		const workspaceA = createTestWorkspace('a');
 		const workspaceB = createTestWorkspace('b', [workspaceA]);
-		const workspaceC = createTestWorkspace('c', [
-			workspaceA,
-			workspaceB,
-		]);
+		const workspaceC = createTestWorkspace('c', [workspaceA, workspaceB]);
 
 		// Only include B and C in epicenter, not A (missing dependency)
 		const epicenter = defineEpicenter({
@@ -136,10 +122,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 	test('flat/hoisted model: all dependencies must be explicitly listed', async () => {
 		const workspaceA = createTestWorkspace('a');
 		const workspaceB = createTestWorkspace('b', [workspaceA]);
-		const workspaceC = createTestWorkspace('c', [
-			workspaceA,
-			workspaceB,
-		]);
+		const workspaceC = createTestWorkspace('c', [workspaceA, workspaceB]);
 
 		// Correctly include ALL workspaces (flat/hoisted)
 		const epicenter = defineEpicenter({
