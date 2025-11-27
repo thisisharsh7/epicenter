@@ -87,7 +87,7 @@ Extract just the trigger button from MigrationDialog:
 ```svelte
 <script lang="ts">
   import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-  import { Database } from '@lucide/svelte';
+  import Database from '@lucide/svelte/icons/database';
 
   let { onclick, hasIndicator = false } = $props();
 </script>

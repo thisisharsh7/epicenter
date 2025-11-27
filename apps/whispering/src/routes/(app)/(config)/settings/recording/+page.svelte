@@ -5,7 +5,7 @@
 	import { Separator } from '@repo/ui/separator';
 	import * as Alert from '@repo/ui/alert';
 	import { Link } from '@repo/ui/link';
-	import { InfoIcon } from '@lucide/svelte';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import {
 		BITRATE_OPTIONS,
 		RECORDING_MODE_OPTIONS,
