@@ -5,7 +5,7 @@
 	import { rpc } from '$lib/query';
 	import { getDefaultSettings } from '$lib/settings';
 	import { createPressedKeys } from '$lib/utils/createPressedKeys.svelte';
-	import { Search } from '@lucide/svelte';
+	import Search from '@lucide/svelte/icons/search';
 	import GlobalKeyboardShortcutRecorder from './GlobalKeyboardShortcutRecorder.svelte';
 	import LocalKeyboardShortcutRecorder from './LocalKeyboardShortcutRecorder.svelte';
 

@@ -3,7 +3,9 @@
 	import { rpc } from '$lib/query';
 	import { getDefaultRecordingsFolder } from '$lib/services/recorder';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { ExternalLink, FolderOpen, RotateCcw } from '@lucide/svelte';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import FolderOpen from '@lucide/svelte/icons/folder-open';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import { Input } from '@repo/ui/input';
 	import { Ok, tryAsync } from 'wellcrafted/result';
 

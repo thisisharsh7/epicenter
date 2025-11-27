@@ -8,15 +8,13 @@
 	import { rpc } from '$lib/query';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
-	import {
-		AlertCircleIcon,
-		DownloadIcon,
-		EllipsisIcon,
-		FileStackIcon,
-		Loader2Icon,
-		PlayIcon,
-		RepeatIcon,
-	} from '@lucide/svelte';
+	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
+	import DownloadIcon from '@lucide/svelte/icons/download';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import FileStackIcon from '@lucide/svelte/icons/file-stack';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import PlayIcon from '@lucide/svelte/icons/play';
+	import RepeatIcon from '@lucide/svelte/icons/repeat';
 	import EditRecordingModal from './EditRecordingModal.svelte';
 	import TransformationPicker from './TransformationPicker.svelte';
 	import ViewTransformationRunsDialog from './ViewTransformationRunsDialog.svelte';

@@ -2,7 +2,7 @@
 	import { Button } from '@repo/ui/button';
 	import { Separator } from '@repo/ui/separator';
 	import { rpc } from '$lib/query';
-	import { RotateCcw } from '@lucide/svelte';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import ShortcutFormatHelp from '../keyboard-shortcut-recorder/ShortcutFormatHelp.svelte';
 	import ShortcutTable from '../keyboard-shortcut-recorder/ShortcutTable.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
