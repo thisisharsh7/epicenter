@@ -216,7 +216,6 @@ import { createDbServiceWeb } from './web';
 export type { DbService, DbServiceError } from './types';
 export { DbServiceErr } from './types';
 export type {
-  InsertTransformationStep,
   Recording,
   Transformation,
   TransformationRun,

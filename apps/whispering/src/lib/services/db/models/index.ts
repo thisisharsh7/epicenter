@@ -20,7 +20,6 @@ export {
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
 } from './transformation-runs';
-export type { InsertTransformationStep } from './transformations';
 // Transformations
 export {
 	generateDefaultTransformation,
