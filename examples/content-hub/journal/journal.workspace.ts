@@ -1,10 +1,10 @@
 import { basename } from 'node:path';
 import {
-	type SerializedRow,
 	date,
 	defineWorkspace,
 	id,
 	markdownIndex,
+	type SerializedRow,
 	select,
 	sqliteIndex,
 	tags,

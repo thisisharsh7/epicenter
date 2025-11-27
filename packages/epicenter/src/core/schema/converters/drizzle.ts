@@ -1,13 +1,13 @@
 import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
+	integer,
+	real,
 	type SQLiteBooleanBuilderInitial,
 	type SQLiteCustomColumnBuilder,
 	type SQLiteIntegerBuilderInitial,
 	type SQLiteRealBuilderInitial,
 	type SQLiteTable,
 	type SQLiteTextBuilderInitial,
-	integer,
-	real,
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';

@@ -15,128 +15,68 @@
  * Write to YJS → Indexes auto-sync → Query indexes
  */
 
-// Core workspace definition
-export { defineWorkspace } from './core/workspace';
-export type {
-	WorkspaceConfig,
-	AnyWorkspaceConfig,
-	WorkspacesToExports,
-	WorkspacesToClients,
-	Provider,
-	ProviderContext,
-} from './core/workspace';
-
-// Column schema system
+// Re-export commonly used Drizzle utilities for querying indexes
 export {
-	id,
-	text,
-	ytext,
-	integer,
-	real,
-	boolean,
-	date,
-	select,
-	tags,
-	generateId,
-	createTableValidators,
-	createWorkspaceValidators,
-	isIsoDateTimeString,
-	isDateWithTimezoneString,
-	isDateWithTimezone,
-	DateWithTimezoneFromString,
-	serializeCellValue,
-	DATE_WITH_TIMEZONE_STRING_REGEX,
-	ISO_DATETIME_REGEX,
-	TIMEZONE_ID_REGEX,
-} from './core/schema';
-export { DateWithTimezone } from './core/schema';
+	and,
+	asc,
+	desc,
+	eq,
+	gt,
+	gte,
+	inArray,
+	isNotNull,
+	isNull,
+	like,
+	lt,
+	lte,
+	ne,
+	not,
+	or,
+	sql,
+} from 'drizzle-orm';
 export type {
-	ColumnSchema,
-	ColumnType,
-	TableSchema,
-	TableValidators,
-	WorkspaceValidators,
-	Row,
-	SerializedRow,
-	PartialSerializedRow,
-	Id,
-	DateWithTimezoneString,
-	DateIsoString,
-	TimezoneId,
-	IdColumnSchema,
-	TextColumnSchema,
-	YtextColumnSchema,
-	IntegerColumnSchema,
-	RealColumnSchema,
-	BooleanColumnSchema,
-	DateColumnSchema,
-	SelectColumnSchema,
-	TagsColumnSchema,
-	WorkspaceSchema,
-	CellValue,
-	SerializedCellValue,
-} from './core/schema';
-
-// Action helpers
-export {
-	defineQuery,
-	defineMutation,
-	isAction,
-	isQuery,
-	isMutation,
-	isNamespace,
-	extractActions,
-	walkActions,
-	defineWorkspaceExports,
-} from './core/actions';
-export type {
-	Query,
-	Mutation,
 	Action,
+	Mutation,
+	Query,
 	WorkspaceActionMap,
 	WorkspaceExports,
 } from './core/actions';
-
-// Runtime
-export { createWorkspaceClient } from './core/workspace';
-export type { WorkspaceClient } from './core/workspace';
-
-// Epicenter - compose multiple workspaces
+// Action helpers
 export {
-	defineEpicenter,
-	createEpicenterClient,
-	forEachAction,
-} from './core/epicenter';
-export type { EpicenterConfig, EpicenterClient } from './core/epicenter';
-
+	defineMutation,
+	defineQuery,
+	defineWorkspaceExports,
+	extractActions,
+	isAction,
+	isMutation,
+	isNamespace,
+	isQuery,
+	walkActions,
+} from './core/actions';
+export type { Db, TableHelper } from './core/db/core';
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
-export type { TableHelper, Db } from './core/db/core';
-export {
-	RowAlreadyExistsErr,
-	RowNotFoundErr,
-} from './core/db/table-helper';
 export type {
 	RowAlreadyExistsError,
 	RowNotFoundError,
 	YRow,
 } from './core/db/table-helper';
-
-// Index system
-export { defineIndexExports } from './core/indexes';
+export {
+	RowAlreadyExistsErr,
+	RowNotFoundErr,
+} from './core/db/table-helper';
+export type { EpicenterClient, EpicenterConfig } from './core/epicenter';
+// Epicenter - compose multiple workspaces
+export {
+	createEpicenterClient,
+	defineEpicenter,
+	forEachAction,
+} from './core/epicenter';
 export type {
-	Index,
-	IndexExports,
-	IndexContext,
-	WorkspaceIndexMap,
-} from './core/indexes';
-
-// Indexes (implementations)
-export { sqliteIndex } from './indexes/sqlite';
-
-export { markdownIndex } from './indexes/markdown';
-export type { MarkdownIndexConfig } from './indexes/markdown';
-
+	EpicenterOperationError,
+	IndexError,
+	ValidationError,
+} from './core/errors';
 // Error types
 export {
 	EpicenterOperationErr,
@@ -144,33 +84,80 @@ export {
 	ValidationErr,
 } from './core/errors';
 export type {
-	EpicenterOperationError,
-	IndexError,
-	ValidationError,
-} from './core/errors';
-
-// Server - expose workspaces as REST API and MCP servers
-export { createServer } from './server';
-
+	Index,
+	IndexContext,
+	IndexExports,
+	WorkspaceIndexMap,
+} from './core/indexes';
+// Index system
+export { defineIndexExports } from './core/indexes';
+export type {
+	BooleanColumnSchema,
+	CellValue,
+	ColumnSchema,
+	ColumnType,
+	DateColumnSchema,
+	DateIsoString,
+	DateWithTimezoneString,
+	Id,
+	IdColumnSchema,
+	IntegerColumnSchema,
+	PartialSerializedRow,
+	RealColumnSchema,
+	Row,
+	SelectColumnSchema,
+	SerializedCellValue,
+	SerializedRow,
+	TableSchema,
+	TableValidators,
+	TagsColumnSchema,
+	TextColumnSchema,
+	TimezoneId,
+	WorkspaceSchema,
+	WorkspaceValidators,
+	YtextColumnSchema,
+} from './core/schema';
+// Column schema system
+export {
+	boolean,
+	createTableValidators,
+	createWorkspaceValidators,
+	DATE_WITH_TIMEZONE_STRING_REGEX,
+	DateWithTimezone,
+	DateWithTimezoneFromString,
+	date,
+	generateId,
+	ISO_DATETIME_REGEX,
+	id,
+	integer,
+	isDateWithTimezone,
+	isDateWithTimezoneString,
+	isIsoDateTimeString,
+	real,
+	select,
+	serializeCellValue,
+	TIMEZONE_ID_REGEX,
+	tags,
+	text,
+	ytext,
+} from './core/schema';
 // Core types
 export type { AbsolutePath } from './core/types';
-
-// Re-export commonly used Drizzle utilities for querying indexes
-export {
-	eq,
-	ne,
-	gt,
-	gte,
-	lt,
-	lte,
-	and,
-	or,
-	not,
-	like,
-	inArray,
-	isNull,
-	isNotNull,
-	sql,
-	desc,
-	asc,
-} from 'drizzle-orm';
+export type {
+	AnyWorkspaceConfig,
+	Provider,
+	ProviderContext,
+	WorkspaceClient,
+	WorkspaceConfig,
+	WorkspacesToClients,
+	WorkspacesToExports,
+} from './core/workspace';
+// Core workspace definition
+// Runtime
+export { createWorkspaceClient, defineWorkspace } from './core/workspace';
+export type { MarkdownIndexConfig } from './indexes/markdown';
+export { markdownIndex } from './indexes/markdown';
+// Indexes (implementations)
+export { sqliteIndex } from './indexes/sqlite';
+// Server - expose workspaces as REST API and MCP servers
+export { createServer } from './server';

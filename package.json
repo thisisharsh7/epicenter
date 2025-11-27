@@ -8,7 +8,11 @@
 	"license": "AGPL-3.0",
 	"author": "",
 	"workspaces": {
-		"packages": ["apps/*", "packages/*", "examples/*"],
+		"packages": [
+			"apps/*",
+			"packages/*",
+			"examples/*"
+		],
 		"catalog": {
 			"@types/node": "^22.18.10",
 			"typescript": "^5.8.3",

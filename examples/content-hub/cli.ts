@@ -1,5 +1,5 @@
-import { hideBin } from 'yargs/helpers';
 import { createCLI } from '@epicenter/hq/cli';
+import { hideBin } from 'yargs/helpers';
 import config from './epicenter.config';
 
 // Create and run CLI

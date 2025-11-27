@@ -12,7 +12,6 @@ import type { EpicenterConfig } from '../core/epicenter';
 export async function loadEpicenterConfig(
 	configDir: string,
 ): Promise<{ config: EpicenterConfig; configPath: string }> {
-
 	// Try different config file extensions
 	const configFiles = [
 		'epicenter.config.ts',
@@ -56,7 +55,9 @@ export async function loadEpicenterConfig(
 		return { config, configPath };
 	} catch (error) {
 		if (error instanceof Error) {
-			throw new Error(`Failed to load epicenter config from ${configPath}: ${error.message}`);
+			throw new Error(
+				`Failed to load epicenter config from ${configPath}: ${error.message}`,
+			);
 		}
 		throw error;
 	}

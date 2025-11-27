@@ -1,8 +1,8 @@
-import { test, expect } from 'bun:test';
-import { createEpicenterClient } from '@epicenter/hq';
-import epicenterConfig from './epicenter.config';
+import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createEpicenterClient } from '@epicenter/hq';
+import epicenterConfig from './epicenter.config';
 
 test('markdown file edits sync back to YJS', async () => {
 	console.log('🚀 Testing bidirectional markdown sync...');

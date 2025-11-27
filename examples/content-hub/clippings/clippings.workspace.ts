@@ -2,7 +2,6 @@ import path from 'node:path';
 import {
 	DateWithTimezone,
 	DateWithTimezoneFromString,
-	type SerializedRow,
 	date,
 	defineMutation,
 	defineWorkspace,
@@ -10,6 +9,7 @@ import {
 	id,
 	integer,
 	markdownIndex,
+	type SerializedRow,
 	select,
 	sqliteIndex,
 	text,
