@@ -237,7 +237,7 @@
 					enumeration and recording will fail. Please use Manual recording mode
 					instead.
 					<Link
-						href="https://github.com/epicenter-md/epicenter/issues/839"
+						href="https://github.com/EpicenterHQ/epicenter/issues/839"
 						target="_blank"
 						class="font-medium underline underline-offset-4 hover:text-red-700 dark:hover:text-red-300"
 					>

@@ -1478,4 +1478,4 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for complete development setup and 
 
 ## License
 
-MIT
+AGPL-3.0

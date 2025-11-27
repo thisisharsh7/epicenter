@@ -5,7 +5,7 @@
 
 ## Summary
 
-Update the `pages.workspace.ts` schema in the content-hub example to properly model the page structure used in `epicenter-md`, preparing for a future migration. The current schema is overly simplified and doesn't capture the rich metadata structure used in the actual pages.
+Update the `pages.workspace.ts` schema in the content-hub example to properly model the page structure used in `EpicenterHQ`, preparing for a future migration. The current schema is overly simplified and doesn't capture the rich metadata structure used in the actual pages.
 
 ## Current State
 
@@ -26,7 +26,7 @@ schema: {
 }
 ```
 
-### Actual Schema (epicenter-md/epicenter.config.md.ts)
+### Actual Schema (EpicenterHQ/epicenter.config.md.ts)
 The real schema includes:
 - **Basic fields**: id, title, content, subtitle
 - **Timestamps**: created_at, updated_at, date (with timezone support)
@@ -36,7 +36,7 @@ The real schema includes:
 
 ## Analysis of Actual Pages
 
-From examining 10+ markdown files in `/Users/braden/Code/epicenter-md/pages/`:
+From examining 10+ markdown files in `/Users/braden/Code/EpicenterHQ/pages/`:
 
 ### Common Frontmatter Fields
 ```yaml
@@ -205,7 +205,7 @@ schema: {
 
 ## Migration Considerations
 
-When migrating from epicenter-md:
+When migrating from EpicenterHQ:
 1. Map frontmatter fields directly (1:1 mapping for most fields)
 2. Handle the `'on'` field → might need to map to `tags`
 3. Preserve all timestamps and timezone information
@@ -218,6 +218,6 @@ Once implementation is complete, verify:
 - [ ] Schema matches epicenter.config.md.ts structure
 - [ ] All field types are correct (date, text, select, multiSelect)
 - [ ] Nullable fields are properly marked
-- [ ] Options arrays match actual usage in epicenter-md
+- [ ] Options arrays match actual usage in EpicenterHQ
 - [ ] Actions work with the new schema
 - [ ] Sample pages can be created with the new schema

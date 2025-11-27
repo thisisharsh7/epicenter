@@ -4,7 +4,7 @@
 
 VAD (Voice Activated Detection) mode does not work on Linux due to a fundamental technical limitation: it requires the browser's Navigator API (`navigator.mediaDevices`) to enumerate and access audio devices, but Tauri's support for this API is incomplete and unreliable on desktop platforms.
 
-Issue: https://github.com/epicenter-md/epicenter/issues/839
+Issue: https://github.com/EpicenterHQ/epicenter/issues/839
 
 ## Technical Context
 
@@ -98,7 +98,7 @@ Allow VAD mode selection but show a prominent warning that it doesn't work on Li
         API, which is not fully supported in Tauri on Linux. Device enumeration
         and recording will fail. Please use Manual recording mode instead.
         <Link
-          href="https://github.com/epicenter-md/epicenter/issues/839"
+          href="https://github.com/EpicenterHQ/epicenter/issues/839"
           target="_blank"
           class="font-medium underline underline-offset-4 hover:text-red-700 dark:hover:text-red-300"
         >

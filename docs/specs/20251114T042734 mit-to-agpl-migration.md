@@ -74,10 +74,10 @@ Change the license field from "ISC" to "AGPL-3.0":
 1. Update the license badge (line 34):
    ```markdown
    <!-- Before -->
-   <img alt="MIT License" src="https://img.shields.io/github/license/epicenter-md/epicenter.svg?style=flat-square" />
+   <img alt="MIT License" src="https://img.shields.io/github/license/EpicenterHQ/epicenter.svg?style=flat-square" />
 
    <!-- After -->
-   <img alt="AGPL-3.0 License" src="https://img.shields.io/github/license/epicenter-md/epicenter.svg?style=flat-square" />
+   <img alt="AGPL-3.0 License" src="https://img.shields.io/github/license/EpicenterHQ/epicenter.svg?style=flat-square" />
    ```
 
 2. Update the license section (line 163):

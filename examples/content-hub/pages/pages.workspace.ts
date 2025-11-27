@@ -152,7 +152,7 @@ export const pages = defineWorkspace({
 			pushFromSqlite: indexes.sqlite.pushFromSqlite,
 
 			/**
-			 * Migrate pages from epicenter-md format
+			 * Migrate pages from EpicenterHQ format
 			 *
 			 * Reads markdown files from the specified directory, parses frontmatter,
 			 * transforms dates with timezone, and inserts into the database.

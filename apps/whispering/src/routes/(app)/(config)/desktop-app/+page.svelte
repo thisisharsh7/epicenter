@@ -62,7 +62,7 @@
 			<div class="flex flex-col gap-3 sm:flex-row">
 				<WhisperingButton
 					tooltipContent="Download Whispering Desktop App"
-					href="https://github.com/epicenter-md/epicenter/releases"
+					href="https://github.com/EpicenterHQ/epicenter/releases"
 					target="_blank"
 					rel="noopener noreferrer"
 					variant="default"
