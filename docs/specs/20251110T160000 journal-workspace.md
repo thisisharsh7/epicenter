@@ -18,7 +18,7 @@ These entries have different needs than blog posts or articles. They're more per
 
 ## Analysis of Current Journal Entries
 
-Looking at existing journal entries in `epicenter-md/pages`:
+Looking at existing journal entries in `EpicenterHQ/pages`:
 
 **Common fields:**
 - `id`: Unique identifier

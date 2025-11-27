@@ -47,7 +47,7 @@ The new format adds platform suffixes (`_darwin`, `_linux`, `_windows`) to the f
 The `update-readme-version.yml` workflow failed during the v7.7.1 release with this error:
 
 ```
-error: failed to push some refs to 'https://github.com/epicenter-md/epicenter'
+error: failed to push some refs to 'https://github.com/EpicenterHQ/epicenter'
 hint: Updates were rejected because a pushed branch tip is behind its remote
 hint: counterpart. If you want to integrate the remote changes, use 'git pull'
 hint: before pushing again.

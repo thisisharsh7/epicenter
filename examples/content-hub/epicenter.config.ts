@@ -46,5 +46,5 @@ export default defineEpicenter({
 		// All social media posts (video, blogs, social platforms)
 		posts,
 	],
-	storageDir: '/Users/braden/Code/epicenter-md',
+	storageDir: '/Users/braden/Code/EpicenterHQ',
 });

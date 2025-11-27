@@ -36,9 +36,9 @@ The technical details are boring (and that's the point): everything is plain tex
 
 ## Try it today
 
-Start with Whispering: [github.com/epicenter-md/epicenter](https://github.com/epicenter-md/epicenter/tree/main/apps/whispering)
+Start with Whispering: [github.com/EpicenterHQ/epicenter](https://github.com/EpicenterHQ/epicenter/tree/main/apps/whispering)
 
-Or spin up epicenter.sh: [github.com/epicenter-md/epicenter](https://github.com/epicenter-md/epicenter/tree/main/apps/sh)
+Or spin up epicenter.sh: [github.com/EpicenterHQ/epicenter](https://github.com/EpicenterHQ/epicenter/tree/main/apps/sh)
 
 We're early. Things will break. But if you're tired of your tools treating you like a product instead of a person, come build with us.
 
@@ -46,5 +46,5 @@ Join our Discord: [go.epicenter.so/discord](https://go.epicenter.so/discord)
 
 —
 
-*P.S. Everything is MIT licensed. Fork it, extend it, make it yours. That's the whole point.*
+*P.S. Everything is AGPLv3 licensed. Fork it, extend it, make it yours. That's the whole point.*
 

@@ -36,10 +36,10 @@ This phase involves two separate pull requests to keep changes focused and revie
 
 **New text for lines 83-89:**
 ```markdown
-<h3>🤖 <a href="https://github.com/epicenter-md/epicenter/tree/main/apps/sh">Epicenter Assistant</a></h3>
+<h3>🤖 <a href="https://github.com/EpicenterHQ/epicenter/tree/main/apps/sh">Epicenter Assistant</a></h3>
 <p><em>Currently being rebuilt from the ground up.</em></p>
 <p>A local-first assistant you can chat with. It lives in your folder, becoming the access point to everything you've ever written, thought, or built.</p>
-<p><strong>→ Track rebuild progress on the <a href="https://github.com/epicenter-md/epicenter/tree/rebuild-assistant">rebuild-assistant branch</a></strong></p>
+<p><strong>→ Track rebuild progress on the <a href="https://github.com/EpicenterHQ/epicenter/tree/rebuild-assistant">rebuild-assistant branch</a></strong></p>
 ```
 
 #### PR #2: Remove Assistant Package
@@ -61,7 +61,7 @@ This phase involves two separate pull requests to keep changes focused and revie
 <h3>🤖 Epicenter Assistant</h3>
 <p><em>Currently being rebuilt from the ground up.</em></p>
 <p>A local-first assistant you can chat with. It lives in your folder, becoming the access point to everything you've ever written, thought, or built.</p>
-<p><strong>→ Track rebuild progress on the <a href="https://github.com/epicenter-md/epicenter/tree/rebuild-assistant">rebuild-assistant branch</a></strong></p>
+<p><strong>→ Track rebuild progress on the <a href="https://github.com/EpicenterHQ/epicenter/tree/rebuild-assistant">rebuild-assistant branch</a></strong></p>
 ```
 
 ### Phase 2: Rebuild on Feature Branch

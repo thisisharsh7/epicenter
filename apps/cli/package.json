@@ -7,7 +7,7 @@
 	"homepage": "https://epicenter.sh",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/epicenter-md/epicenter.git",
+		"url": "git+https://github.com/EpicenterHQ/epicenter.git",
 		"directory": "apps/cli"
 	},
 	"keywords": [

@@ -2,10 +2,10 @@
 
 ## Context
 
-The `packages/epicenter` package is currently exporting everything from a single barrel export (`./src/index.ts`), but we have code in other packages (like `epicenter-md/workspaces`) that needs to import specific modules that aren't currently exported properly.
+The `packages/epicenter` package is currently exporting everything from a single barrel export (`./src/index.ts`), but we have code in other packages (like `EpicenterHQ/workspaces`) that needs to import specific modules that aren't currently exported properly.
 
 Current issues:
-1. Code in `epicenter-md/workspaces/email.ts` uses relative imports (`../../../packages/epicenter/src/core/schema`) that don't work
+1. Code in `EpicenterHQ/workspaces/email.ts` uses relative imports (`../../../packages/epicenter/src/core/schema`) that don't work
 2. Some utilities like `isDateWithTimezoneString` and `MarkdownIndexErr` aren't exported from the main barrel
 3. The package would benefit from organized subpath exports for better tree-shaking and clearer API surface
 
@@ -60,7 +60,7 @@ Looking at the codebase structure, I see several distinct modules:
 - [ ] Create `/indexes/markdown` subpath export for `MarkdownIndexErr` and utilities
 - [ ] Create `/indexes/sqlite` subpath export for sqlite-specific utilities
 - [ ] Update `package.json` with new subpath exports
-- [ ] Update `epicenter-md/workspaces/email.ts` to use new exports
+- [ ] Update `EpicenterHQ/workspaces/email.ts` to use new exports
 - [ ] Verify all imports work correctly
 
 ## Proposed Export Structure
@@ -160,7 +160,7 @@ export type { /* sqlite-specific types */ } from './index';
 
 ### 5. Update consumer code
 
-Update `epicenter-md/workspaces/email.ts`:
+Update `EpicenterHQ/workspaces/email.ts`:
 ```typescript
 // Before:
 import { isDateWithTimezoneString } from '../../../packages/epicenter/src/core/schema';
@@ -230,7 +230,7 @@ The key insight: `core/` contains the fundamental API, `indexes/` contains imple
 - ✅ Updated `package.json` with new subpath exports
 
 **Consumer Updates:**
-- ✅ Updated `epicenter-md/workspaces/email.ts` to use new imports:
+- ✅ Updated `EpicenterHQ/workspaces/email.ts` to use new imports:
   - `isDateWithTimezoneString` from `@epicenter/hq`
   - `MarkdownIndexErr` from `@epicenter/hq/indexes/markdown`
 

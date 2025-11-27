@@ -88,7 +88,7 @@
 					<!-- Direct video for web version -->
 					<video
 						class="max-w-md rounded-lg border"
-						src="https://github.com/epicenter-md/epicenter/releases/download/_assets/macos_enable_accessibility.mp4"
+						src="https://github.com/EpicenterHQ/epicenter/releases/download/_assets/macos_enable_accessibility.mp4"
 						autoplay
 						loop
 						controls
