@@ -70,6 +70,21 @@ export const clippings = defineWorkspace({
 			quality: select({ options: QUALITY_OPTIONS }),
 			addedAt: date(),
 		},
+		books: {
+			id: id(),
+			title: text(),
+			author: text(),
+			addedAt: date(),
+			readAt: date({ nullable: true }),
+		},
+		bookExcerpts: {
+			id: id(),
+			bookId: text(),
+			content: text(),
+			comment: text({ nullable: true }),
+			createdAt: date(),
+			updatedAt: date(),
+		},
 	},
 
 	indexes: {
@@ -380,6 +395,70 @@ export const clippings = defineWorkspace({
 					title,
 					quality,
 					addedAt: now,
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Add a book
+		 *
+		 * Creates a new book entry. Returns the book ID for use with addBookClipping.
+		 */
+		addBook: defineMutation({
+			input: db.books.validators.toArktype().pick('title', 'author', 'readAt'),
+			handler: ({ title, author, readAt }) => {
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				const bookId = generateId();
+
+				db.books.insert({
+					id: bookId,
+					title,
+					author,
+					addedAt: now,
+					readAt: readAt ?? null,
+				});
+
+				return Ok({ bookId });
+			},
+		}),
+
+		/**
+		 * Add an excerpt from a book
+		 *
+		 * Creates a new excerpt associated with an existing book.
+		 */
+		addBookExcerpt: defineMutation({
+			input: db.bookExcerpts.validators
+				.toArktype()
+				.pick('bookId', 'content', 'comment'),
+			handler: ({ bookId, content, comment }) => {
+				// Verify the book exists
+				const book = db.books.get(bookId);
+				if (!book) {
+					return Err({
+						message: 'Book not found',
+						context: { bookId },
+					});
+				}
+
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				db.bookExcerpts.insert({
+					id: generateId(),
+					bookId,
+					content,
+					comment: comment ?? null,
+					createdAt: now,
+					updatedAt: now,
 				});
 
 				return Ok(undefined);
