@@ -64,7 +64,7 @@
 	import { relaunch } from '@tauri-apps/plugin-process';
 	import { rpc } from '$lib/query';
 	import * as Alert from '@repo/ui/alert';
-	import { AlertTriangle } from '@lucide/svelte';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import { extractErrorMessage } from 'wellcrafted/error';
 
 	async function handleDownloadAndInstall() {

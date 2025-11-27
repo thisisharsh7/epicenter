@@ -7,7 +7,6 @@ import type { RecordingMode } from '$lib/constants/audio';
 import { rpc } from '$lib/query';
 import { recorderService } from '$lib/query/recorder';
 import * as services from '$lib/services';
-import { enumerateDevices } from '$lib/services/device-stream';
 import type { RecorderServiceError } from '$lib/services/recorder';
 import type { VadRecorderServiceError } from '$lib/services/vad-recorder';
 import {

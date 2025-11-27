@@ -4,7 +4,7 @@
 	import { Link } from '@repo/ui/link';
 	import { Separator } from '@repo/ui/separator';
 	import { rpc } from '$lib/query';
-	import { RotateCcw } from '@lucide/svelte';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import SidebarNav from './SidebarNav.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 

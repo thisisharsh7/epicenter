@@ -5,13 +5,10 @@
 	"version": "7.7.2",
 	"description": "",
 	"keywords": [],
-	"license": "ISC",
+	"license": "AGPL-3.0",
 	"author": "",
 	"workspaces": {
-		"packages": [
-			"apps/*",
-			"packages/*"
-		],
+		"packages": ["apps/*", "packages/*", "examples/*"],
 		"catalog": {
 			"@types/node": "^22.18.10",
 			"typescript": "^5.8.3",
@@ -37,7 +34,7 @@
 			"drizzle-orm": "^0.44.3",
 			"zod": "^3.25.67",
 			"nanoid": "^5.1.5",
-			"wellcrafted": "^0.22.0",
+			"wellcrafted": "^0.23.1",
 			"date-fns": "^4.1.0",
 			"@biomejs/biome": "^2.2.6",
 			"turbo": "^2.5.8",
@@ -56,18 +53,19 @@
 		"bump-version": "bun run scripts/bump-version.ts"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.1",
+		"@biomejs/biome": "catalog:",
+		"@eslint/compat": "^1.4.0",
+		"@types/bun": "latest",
 		"@types/node": "catalog:",
+		"@typescript-eslint/parser": "^8.46.0",
 		"concurrently": "catalog:",
 		"eslint": "^9.37.0",
-		"@eslint/compat": "^1.4.0",
 		"eslint-plugin-svelte": "^3.12.4",
-		"@typescript-eslint/parser": "^8.46.0",
 		"prettier": "^3.6.2",
+		"prettier-plugin-astro": "^0.14.1",
 		"prettier-plugin-svelte": "^3.4.0",
 		"prettier-plugin-tailwindcss": "^0.6.11",
-		"prettier-plugin-astro": "^0.14.1",
-		"turbo": "catalog:",
-		"@types/bun": "latest"
+		"svelte-eslint-parser": "^1.4.0",
+		"turbo": "catalog:"
 	}
 }

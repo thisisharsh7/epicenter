@@ -58,7 +58,7 @@ class WhisperingDatabase extends Dexie {
 					try {
 						const contents = await tx.table(tableName).toArray();
 						return contents;
-					} catch (error) {
+					} catch (_error) {
 						return [];
 					}
 				};
@@ -572,7 +572,7 @@ export function createDbServiceWeb({
 						if (countError) return Err(countError);
 						if (count === 0) return Ok(undefined);
 
-						const maxCount = Number.parseInt(maxRecordingCount);
+						const maxCount = Number.parseInt(maxRecordingCount, 10);
 
 						if (count <= maxCount) return Ok(undefined);
 

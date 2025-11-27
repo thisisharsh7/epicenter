@@ -8,6 +8,7 @@
 	} from '$lib/components/labeled/index.js';
 	import {
 		AnthropicApiKeyInput,
+		CustomEndpointInput,
 		GoogleApiKeyInput,
 		GroqApiKeyInput,
 		OpenAiApiKeyInput,
@@ -32,7 +33,9 @@
 	} from '$lib/constants/inference';
 	import type { Transformation } from '$lib/services/db';
 	import { generateDefaultTransformationStep } from '$lib/services/db';
-	import { CopyIcon, PlusIcon, TrashIcon } from '@lucide/svelte';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import TrashIcon from '@lucide/svelte/icons/trash';
 	import { slide } from 'svelte/transition';
 
 	let { transformation = $bindable() }: { transformation: Transformation } =
@@ -419,6 +422,66 @@
 											}}
 											placeholder="Enter model name"
 										/>
+									{:else if step['prompt_transform.inference.provider'] === 'Custom'}
+										<div class="space-y-4">
+											<LabeledInput
+												id="prompt_transform.inference.provider.Custom.baseUrl"
+												label="API Base URL"
+												value={step[
+													'prompt_transform.inference.provider.Custom.baseUrl'
+												]}
+												oninput={(e) => {
+													transformation = {
+														...transformation,
+														steps: transformation.steps.map((s, i) =>
+															i === index
+																? {
+																		...s,
+																		'prompt_transform.inference.provider.Custom.baseUrl':
+																			e.currentTarget.value,
+																	}
+																: s,
+														),
+													};
+												}}
+												placeholder="http://localhost:11434/v1"
+											>
+												{#snippet description()}
+													<p class="text-muted-foreground text-sm">
+														This overrides the default in Settings → API Keys.
+													</p>
+												{/snippet}
+											</LabeledInput>
+											<LabeledInput
+												id="prompt_transform.inference.provider.Custom.model"
+												label="Model"
+												value={step[
+													'prompt_transform.inference.provider.Custom.model'
+												]}
+												oninput={(e) => {
+													transformation = {
+														...transformation,
+														steps: transformation.steps.map((s, i) =>
+															i === index
+																? {
+																		...s,
+																		'prompt_transform.inference.provider.Custom.model':
+																			e.currentTarget.value,
+																	}
+																: s,
+														),
+													};
+												}}
+												placeholder="e.g. ollama/mistral:latest"
+											>
+												{#snippet description()}
+													<p class="text-muted-foreground text-sm">
+														Provide the exact model identifier expected by your
+														endpoint (Ollama, vLLM, etc.).
+													</p>
+												{/snippet}
+											</LabeledInput>
+										</div>
 									{/if}
 								</div>
 
@@ -487,6 +550,8 @@
 												<GoogleApiKeyInput />
 											{:else if step['prompt_transform.inference.provider'] === 'OpenRouter'}
 												<OpenRouterApiKeyInput />
+											{:else if step['prompt_transform.inference.provider'] === 'Custom'}
+												<CustomEndpointInput showBaseUrl={false} />
 											{/if}
 										</Accordion.Content>
 									</Accordion.Item>
