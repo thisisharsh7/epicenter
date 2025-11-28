@@ -177,6 +177,7 @@ This doubles down on Svelte's philosophy of writing less, more intuitive code wh
 
 #### What to Avoid
 
+- **Listing files changed**: Never enumerate which files were modified. GitHub's "Files changed" tab already shows this; the PR description should explain WHY, not WHAT files
 - Bullet points or structured lists
 - Section headers like "## Summary" or "## Changes Made"
 - Test plans or checklists (unless specifically requested)
