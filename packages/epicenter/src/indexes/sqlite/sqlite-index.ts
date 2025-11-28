@@ -235,16 +235,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	}
 
 	// Initial sync: YJS → SQLite (blocking to ensure tables exist before queries)
-	await createTablesIfNotExist(sqliteDb, drizzleTables);
-
-	// Clear existing data to make initialization idempotent
-	for (const table of db.$tables()) {
-		const drizzleTable = drizzleTables[table.name];
-		if (!drizzleTable) {
-			throw new Error(`Drizzle table for "${table.name}" not found`);
-		}
-		await sqliteDb.delete(drizzleTable);
-	}
+	// Always recreate tables to handle schema changes (e.g., column renames)
+	await recreateTables(sqliteDb, drizzleTables);
 
 	// Insert all valid rows from YJS into SQLite
 	for (const table of db.$tables()) {
@@ -398,18 +390,27 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 }) satisfies Index;
 
 /**
- * Create SQLite tables if they don't exist
- * Uses Drizzle's official getTableConfig API for introspection
+ * Drop and recreate SQLite tables
+ *
+ * Always drops existing tables before recreating to handle schema changes
+ * (e.g., column renames, type changes). This is safe because SQLite is just
+ * an index; YJS is the source of truth and data is re-synced after recreation.
+ *
+ * Uses Drizzle's official getTableConfig API for introspection.
  */
-async function createTablesIfNotExist<
-	TSchema extends Record<string, SQLiteTable>,
->(db: BetterSQLite3Database<TSchema>, drizzleTables: TSchema): Promise<void> {
+async function recreateTables<TSchema extends Record<string, SQLiteTable>>(
+	db: BetterSQLite3Database<TSchema>,
+	drizzleTables: TSchema,
+): Promise<void> {
 	for (const drizzleTable of Object.values(drizzleTables)) {
 		const tableConfig = getTableConfig(drizzleTable);
-		const columnDefs: string[] = [];
 
+		// Drop existing table to handle schema changes
+		await db.run(sql.raw(`DROP TABLE IF EXISTS "${tableConfig.name}"`));
+
+		// Build column definitions
+		const columnDefs: string[] = [];
 		for (const column of tableConfig.columns) {
-			// Use column.getSQLType() to get the SQL type directly
 			const sqlType = column.getSQLType();
 
 			let constraints = '';
@@ -427,8 +428,8 @@ async function createTablesIfNotExist<
 			columnDefs.push(`"${column.name}" ${sqlType}${constraints}`);
 		}
 
-		// Quote table name as well for consistency
-		const createTableSQL = `CREATE TABLE IF NOT EXISTS "${tableConfig.name}" (${columnDefs.join(', ')})`;
+		// Create table with current schema
+		const createTableSQL = `CREATE TABLE "${tableConfig.name}" (${columnDefs.join(', ')})`;
 		await db.run(sql.raw(createTableSQL));
 	}
 }
