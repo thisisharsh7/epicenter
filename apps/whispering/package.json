@@ -36,7 +36,7 @@
 		"vite": "catalog:",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vite-plugin-node-polyfills": "^0.24.0",
-		"wrangler": "^4.45.3"
+		"wrangler": "catalog:"
 	},
 	"type": "module",
 	"dependencies": {

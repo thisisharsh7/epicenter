@@ -11,13 +11,13 @@
 		"@wxt-dev/browser": "^0.1.4",
 		"arktype": "catalog:",
 		"defuddle": "^0.6.6",
-		"drizzle-orm": "^0.44.7",
+		"drizzle-orm": "catalog:",
 		"jsdom": "^27.1.0",
 		"wellcrafted": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "latest",
+		"@types/bun": "catalog:",
 		"@types/jsdom": "^27.0.0",
-		"drizzle-kit": "^0.31.4"
+		"drizzle-kit": "catalog:"
 	}
 }

@@ -38,7 +38,7 @@
 		"arktype": "catalog:",
 		"get-port": "^7.1.0",
 		"wellcrafted": "catalog:",
-		"yargs": "^17.7.2",
+		"yargs": "catalog:",
 		"zod-openapi": "^5.3.0"
 	}
 }
