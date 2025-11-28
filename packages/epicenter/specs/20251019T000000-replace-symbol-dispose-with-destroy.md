@@ -58,10 +58,10 @@ Replace all `Symbol.dispose` with a plain `destroy()` method for consistency, di
 
 ### Documentation
 
-- [ ] **docs/specs/20251019T000001-type-safety-improvements-client.md**
+- [ ] **specs/20251019T000001-type-safety-improvements-client.md**
   - Update any references from `Symbol.dispose` to `destroy()`
 
-- [ ] **docs/specs/20251014T105747 unify-workspace-initialization.md**
+- [ ] **specs/20251014T105747 unify-workspace-initialization.md**
   - Update any references from `Symbol.dispose` to `destroy()`
 
 ## Implementation Notes
@@ -156,7 +156,7 @@ All `Symbol.dispose` references have been successfully replaced with `destroy()`
 - ✅ `examples/basic-workspace/bidirectional-sync.test.ts`: Updated cleanup call
 
 **Documentation:**
-- ✅ `docs/specs/20251019T000001-type-safety-improvements-client.md`: Updated code example
+- ✅ `specs/20251019T000001-type-safety-improvements-client.md`: Updated code example
 - ✅ JSDoc comments in `src/core/epicenter.ts`: Removed `using` syntax example, kept simple `destroy()` call
 
 ### Test Results

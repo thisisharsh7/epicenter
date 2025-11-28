@@ -1,6 +1,6 @@
 # Standard Workflow
 
-1. First think through the problem, read the codebase for relevant files, and write a plan to docs/specs/[timestamp] [feature-name].md where [timestamp] is the timestamp in YYYYMMDDThhmmss format and [feature-name] is the name of the feature.
+1. First think through the problem, read the codebase for relevant files, and write a plan to specs/[timestamp] [feature-name].md where [timestamp] is the timestamp in YYYYMMDDThhmmss format and [feature-name] is the name of the feature.
 2. The plan should have a list of todo items that you can check off as you complete them
 3. Before you begin working, check in with me and I will verify the plan.
 4. Then, begin working on the todo items, marking them as complete as you go.
@@ -38,3 +38,13 @@ Into this: linear flow that mirrors human decision-making
 Be brutally honest, don't be a yes man.
 If I am wrong, point it out bluntly.
 I need honest feedback on my code.
+
+# Spec Placement
+
+Specs always live at the root level of their scope (not inside `docs/`):
+
+- **`/specs/`** - Cross-cutting features, architecture decisions, general tooling
+- **`/apps/[app]/specs/`** - Features specific to one app only
+- **`/packages/[pkg]/specs/`** - Package-specific implementation details
+
+When in doubt, use `/specs/`. Move to app/package-specific only if the spec truly belongs there.

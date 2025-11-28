@@ -10,10 +10,10 @@
 		"@epicenter/hq": "workspace:*",
 		"arktype": "catalog:",
 		"wellcrafted": "catalog:",
-		"yargs": "^18.0.0"
+		"yargs": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "latest",
-		"@types/yargs": "^17.0.32"
+		"@types/bun": "catalog:",
+		"@types/yargs": "catalog:"
 	}
 }

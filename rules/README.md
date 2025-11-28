@@ -28,7 +28,7 @@ Load these only when working in their specific domains:
 **Development Practices**
 
 - `@rules/error-handling.md` - wellcrafted trySync/tryAsync patterns
-- `@rules/styling.md` - CSS, Tailwind, shadcn-svelte best practices
+- `@rules/styling.md` - General CSS and Tailwind best practices
 
 **Tools & Workflows**
 
@@ -51,3 +51,11 @@ When the AI assistant encounters a file reference like `@rules/typescript.md`, i
 4. Not preemptively load all files
 
 This lazy loading approach keeps context focused and token usage efficient.
+
+## Git Worktree Note
+
+Each git worktree (`.conductor/` branch) has its own copy of these rules since they're committed to the repo. When updating rules:
+
+- Make changes in your working branch
+- If the change should apply globally, merge to main and rebase other branches
+- Accept that experimental branches may temporarily have different rules

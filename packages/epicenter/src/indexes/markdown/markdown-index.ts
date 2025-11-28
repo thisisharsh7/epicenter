@@ -323,8 +323,11 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
 	const { id, db, storageDir, epicenterDir } = context;
-	const { directory = `./${id}`, tableConfigs = {} as TableConfigs<TSchema> } =
-		config;
+	const { directory = `./${id}` } = config;
+
+	// User-provided table configs (sparse - only contains overrides, may be empty)
+	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
+	const userTableConfigs: TableConfigs<TSchema> = config.tableConfigs ?? {};
 	// Require Node.js environment with filesystem access
 	if (!storageDir || !epicenterDir) {
 		throw new Error(
@@ -397,17 +400,25 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const tracking: Record<string, BidirectionalMap> = {};
 
 	/**
-	 * Compute table metadata once and reuse everywhere
-	 * This avoids prop-drilling db, tableConfigs, and absoluteWorkspaceDir
+	 * Merge user overrides with defaults to create fully-populated configs per table
+	 *
+	 * This transforms sparse user configs into resolved configs with all fields guaranteed.
+	 * The resulting `tables` array is used everywhere downstream.
 	 */
 	const tables = db.$tables().map((table) => {
-		// Destructure user config with defaults
-		const userConfig = tableConfigs[table.name];
+		// undefined when user didn't provide config for this table
+		const userConfig = userTableConfigs[table.name];
 
-		// Merge user config with defaults and resolve directory to absolute path
+		// Resolved config with all fields guaranteed (merged with DEFAULT_TABLE_CONFIG)
+		// Each field is optional in TableMarkdownConfig, so we fallback to defaults individually
 		const tableConfig = {
+			// Use user's serialize if provided, otherwise default (all fields → frontmatter, empty body, filename = "{id}.md")
 			serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
+
+			// Use user's deserialize if provided, otherwise default (id from filename, frontmatter validated against schema)
 			deserialize: userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
+
+			// Use user's directory if provided, otherwise default to table name (e.g., "posts" → workspace-dir/posts)
 			directory: path.resolve(
 				absoluteWorkspaceDir,
 				userConfig?.directory ?? table.name,
