@@ -49,7 +49,7 @@ export type AbsolutePath = string & Brand<'AbsolutePath'>;
  * };
  * ```
  */
-export type StorageDir = string & Brand<'StorageDir'>;
+export type StorageDir = AbsolutePath & Brand<'StorageDir'>;
 
 /**
  * Branded type for the `.epicenter` directory path
@@ -76,4 +76,4 @@ export type StorageDir = string & Brand<'StorageDir'>;
  * })
  * ```
  */
-export type EpicenterDir = string & Brand<'EpicenterDir'>;
+export type EpicenterDir = AbsolutePath & Brand<'EpicenterDir'>;
