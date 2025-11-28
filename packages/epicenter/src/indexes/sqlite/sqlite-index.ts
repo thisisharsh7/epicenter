@@ -143,11 +143,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					logger.log(
 						IndexError({
 							message: `SQLite index onAdd: validation failed for ${table.name}`,
-							context: {
-								tableName: table.name,
-								validationErrors: result.error.summary,
-							},
-							cause: undefined,
+							context: result.error.context,
+							cause: result.error,
 						}),
 					);
 					return;
@@ -181,11 +178,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					logger.log(
 						IndexError({
 							message: `SQLite index onUpdate: validation failed for ${table.name}`,
-							context: {
-								tableName: table.name,
-								validationErrors: result.error.summary,
-							},
-							cause: undefined,
+							context: result.error.context,
+							cause: result.error,
 						}),
 					);
 					return;

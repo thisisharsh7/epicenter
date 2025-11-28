@@ -38,7 +38,7 @@
 			"drizzle-orm": "^0.44.3",
 			"zod": "^3.25.67",
 			"nanoid": "^5.1.5",
-			"wellcrafted": "^0.23.1",
+			"wellcrafted": "^0.25.0",
 			"date-fns": "^4.1.0",
 			"@biomejs/biome": "latest",
 			"turbo": "^2.5.8",
