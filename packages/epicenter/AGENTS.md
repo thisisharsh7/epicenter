@@ -39,6 +39,11 @@ test("example", () => {
 });
 ```
 
-## Specs
+## Specs and Docs
 
-Package-specific specs live in `./specs/`. Cross-cutting specs go in `/specs/`.
+- Package-specific specs: `./specs/`
+- Package-specific docs: `./docs/articles/`
+- Cross-cutting specs: `/specs/`
+- Cross-cutting docs: `/docs/`
+
+See root `AGENTS.md` for the full organization guide.

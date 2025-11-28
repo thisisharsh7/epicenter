@@ -16,6 +16,11 @@ Tauri + Svelte 5 desktop/web app for voice transcription.
 - Don't access settings directly in services (pass as parameters)
 - Don't use try-catch; use wellcrafted Result types
 
-## Specs
+## Specs and Docs
 
-App-specific specs live in `./specs/`. Cross-cutting specs go in `/specs/`.
+- App-specific specs: `./specs/`
+- App-specific docs: `./docs/` (if needed)
+- Cross-cutting specs: `/specs/`
+- Cross-cutting docs: `/docs/`
+
+See root `AGENTS.md` for the full organization guide.
