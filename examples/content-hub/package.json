@@ -12,7 +12,9 @@
 		"arktype": "catalog:",
 		"defuddle": "^0.6.6",
 		"drizzle-orm": "^0.44.7",
+		"googleapis": "^144.0.0",
 		"jsdom": "^27.1.0",
+		"open": "^10.1.0",
 		"wellcrafted": "catalog:"
 	},
 	"devDependencies": {
