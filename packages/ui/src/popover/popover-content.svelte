@@ -14,7 +14,7 @@
 	} = $props();
 </script>
 
-<PopoverPrimitive.Portal {...portalProps}>
+<PopoverPrimitive.Portal {...(portalProps ?? {})}>
 	<PopoverPrimitive.Content
 		bind:ref
 		data-slot="popover-content"
