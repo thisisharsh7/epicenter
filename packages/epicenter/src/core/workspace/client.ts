@@ -1,6 +1,7 @@
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
+import { createWorkspaceBlobs } from '../blobs';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import { type WorkspaceSchema, createWorkspaceValidators } from '../schema';
@@ -362,18 +363,28 @@ export async function initializeWorkspaces<
 			>;
 		};
 
+		// Initialize blob stores for each table in the schema
+		// Storage layout: {storageDir}/{workspaceId}/{tableName}/{filename}
+		const blobs = await createWorkspaceBlobs({
+			id: workspaceConfig.id,
+			schema: workspaceConfig.schema,
+			storageDir,
+		});
+
 		// Call the exports factory to get workspace exports (actions + utilities), passing:
 		// - schema: The workspace schema (table definitions)
 		// - db: Epicenter database API
 		// - validators: Schema validators for runtime validation and arktype composition
 		// - indexes: exported resources from each index (db, queries, etc.)
 		// - workspaces: full clients from dependencies (all exports, not filtered!)
+		// - blobs: blob storage for binary files, namespaced by table
 		const exports = workspaceConfig.exports({
 			schema: workspaceConfig.schema,
 			db,
 			validators,
 			indexes,
 			workspaces: workspaceClients,
+			blobs,
 		});
 
 		// Create async cleanup function

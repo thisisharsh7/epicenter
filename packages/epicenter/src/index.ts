@@ -149,6 +149,22 @@ export type {
 	ValidationError,
 } from './core/errors';
 
+// Blob storage
+export {
+	createTableBlobStore,
+	createWorkspaceBlobs,
+	BlobErr,
+	validateFilename,
+	getMimeType,
+} from './core/blobs';
+export type {
+	TableBlobStore,
+	WorkspaceBlobs,
+	BlobData,
+	BlobError,
+	BlobContext,
+} from './core/blobs';
+
 // Server - expose workspaces as REST API and MCP servers
 export { createServer } from './server';
 
