@@ -1,5 +1,5 @@
 import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
-
+import CheckboxGroup from './dropdown-menu-checkbox-group.svelte';
 import CheckboxItem from './dropdown-menu-checkbox-item.svelte';
 import Content from './dropdown-menu-content.svelte';
 import Group from './dropdown-menu-group.svelte';
@@ -14,17 +14,18 @@ import SubContent from './dropdown-menu-sub-content.svelte';
 import SubTrigger from './dropdown-menu-sub-trigger.svelte';
 import Trigger from './dropdown-menu-trigger.svelte';
 
-const Sub: typeof DropdownMenuPrimitive.Sub = DropdownMenuPrimitive.Sub;
-const Root: typeof DropdownMenuPrimitive.Root = DropdownMenuPrimitive.Root;
+const Sub = DropdownMenuPrimitive.Sub;
+const Root = DropdownMenuPrimitive.Root;
 
 export {
+	CheckboxGroup,
 	CheckboxItem,
 	Content,
 	Root as DropdownMenu,
+	CheckboxGroup as DropdownMenuCheckboxGroup,
 	CheckboxItem as DropdownMenuCheckboxItem,
 	Content as DropdownMenuContent,
 	Group as DropdownMenuGroup,
-	GroupHeading as DropdownMenuGroupHeading,
 	Item as DropdownMenuItem,
 	Label as DropdownMenuLabel,
 	RadioGroup as DropdownMenuRadioGroup,
@@ -35,6 +36,7 @@ export {
 	SubContent as DropdownMenuSubContent,
 	SubTrigger as DropdownMenuSubTrigger,
 	Trigger as DropdownMenuTrigger,
+	GroupHeading as DropdownMenuGroupHeading,
 	Group,
 	GroupHeading,
 	Item,
