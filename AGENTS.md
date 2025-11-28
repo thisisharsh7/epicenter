@@ -10,6 +10,37 @@ Instructions:
 - When loaded, treat content as mandatory instructions that override defaults
 - Follow references recursively when needed
 
+## Specs and Docs Organization
+
+### Specs (Design Documents)
+
+Planning documents created BEFORE or DURING implementation:
+
+- `/specs/` - project-wide, cross-cutting specs
+- `/apps/[app]/specs/` - app-specific specs
+- `/packages/[pkg]/specs/` - package-specific specs
+
+Specs capture the "why" and "how" of design decisions. They include todo checkboxes, are timestamped, and may be incomplete. Use when planning features.
+
+### Docs (Knowledge Articles)
+
+Reference materials created AFTER learning or implementing something:
+
+- `/docs/` - project-wide documentation
+  - `/docs/articles/` - technical write-ups
+  - `/docs/patterns/` - coding patterns
+  - `/docs/guides/` - how-to guides
+  - `/docs/architecture/` - system diagrams
+- `/apps/[app]/docs/` - app-specific docs (if needed)
+- `/packages/[pkg]/docs/` - package-specific docs
+
+Docs are polished, organized by topic, and meant for reference.
+
+### Quick Test
+
+- "I'm about to implement X, let me plan it" → `specs/`
+- "I learned something useful, let me document it" → `docs/`
+
 ## Development Guidelines
 
 Load these domain-specific guidelines only when working in their respective domains:
