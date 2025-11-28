@@ -18,4 +18,4 @@ Tauri + Svelte 5 desktop/web app for voice transcription.
 
 ## Specs
 
-App-specific specs live in `./specs/`. Cross-cutting specs go in `/docs/specs/`.
+App-specific specs live in `./specs/`. Cross-cutting specs go in `/specs/`.
