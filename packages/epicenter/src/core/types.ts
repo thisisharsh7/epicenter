@@ -22,6 +22,36 @@ import type { Brand } from 'wellcrafted/brand';
 export type AbsolutePath = string & Brand<'AbsolutePath'>;
 
 /**
+ * Branded type for the storage directory path
+ *
+ * This is the root directory where Epicenter stores all workspace data.
+ * Configured via `storageDir` in `defineEpicenter()` config. In Node.js,
+ * defaults to `process.cwd()` if not specified.
+ *
+ * The storage directory contains the `.epicenter` folder where all YJS
+ * documents, SQLite databases, markdown files, logs, and tokens are stored.
+ *
+ * @example
+ * ```typescript
+ * // In epicenter.config.ts
+ * export default defineEpicenter({
+ *   id: 'my-app',
+ *   workspaces: [...],
+ *   storageDir: '/Users/me/my-project' as StorageDir,
+ * });
+ *
+ * // In a provider or index
+ * const myProvider: Provider = ({ storageDir }) => {
+ *   if (!storageDir) {
+ *     throw new Error('Requires Node.js environment');
+ *   }
+ *   // storageDir is typed as StorageDir, not just string
+ * };
+ * ```
+ */
+export type StorageDir = string & Brand<'StorageDir'>;
+
+/**
  * Branded type for the `.epicenter` directory path
  *
  * This is the absolute path to the `.epicenter` directory where all Epicenter

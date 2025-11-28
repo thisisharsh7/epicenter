@@ -1,5 +1,5 @@
 import type * as Y from 'yjs';
-import type { AbsolutePath, EpicenterDir } from './types';
+import type { EpicenterDir, StorageDir } from './types';
 
 /**
  * Context provided to each YJS provider function.
@@ -33,7 +33,7 @@ import type { AbsolutePath, EpicenterDir } from './types';
 export type ProviderContext = {
 	id: string;
 	ydoc: Y.Doc;
-	storageDir: AbsolutePath | undefined;
+	storageDir: StorageDir | undefined;
 	epicenterDir: EpicenterDir | undefined;
 };
 

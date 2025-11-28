@@ -4,7 +4,7 @@ import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
-import type { AbsolutePath, EpicenterDir } from '../types';
+import type { EpicenterDir, StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
 /**
@@ -93,7 +93,7 @@ export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
 >(
 	workspaceConfigs: TConfigs,
-	storageDir: AbsolutePath | undefined,
+	storageDir: StorageDir | undefined,
 ): Promise<WorkspacesToClients<TConfigs>> {
 	// Compute epicenterDir once from storageDir
 	// This is the `.epicenter` directory where all workspace data is stored

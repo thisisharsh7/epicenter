@@ -5,7 +5,7 @@
 
 import type { Db } from './db/core';
 import type { WorkspaceSchema } from './schema';
-import type { AbsolutePath, EpicenterDir } from './types';
+import type { EpicenterDir, StorageDir } from './types';
 
 /**
  * Index function type - receives IndexContext and returns IndexExports.
@@ -70,7 +70,7 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	id: string;
 	schema: TSchema;
 	db: Db<TSchema>;
-	storageDir: AbsolutePath | undefined;
+	storageDir: StorageDir | undefined;
 	epicenterDir: EpicenterDir | undefined;
 };
 
