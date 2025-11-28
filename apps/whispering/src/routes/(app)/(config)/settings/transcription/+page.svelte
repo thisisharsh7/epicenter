@@ -597,7 +597,15 @@
 		placeholder="0"
 		bind:value={
 			() => settings.value['transcription.temperature'],
-			(value) => settings.updateKey('transcription.temperature', value)
+			(value) => {
+				// Convert to number, clamp to valid range [0, 1], then convert to string
+				const numValue = Number(value);
+				if (Number.isNaN(numValue)) {
+					return;
+				}
+				const clampedValue = Math.max(0, Math.min(1, numValue));
+				settings.updateKey('transcription.temperature', clampedValue.toString());
+			}
 		}
 		description={isPromptAndTemperatureNotSupported
 			? 'Temperature is not supported for local models (transcribe-rs)'

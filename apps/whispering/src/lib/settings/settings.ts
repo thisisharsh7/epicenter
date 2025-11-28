@@ -170,7 +170,16 @@ export const settingsSchema = z.object({
 	// Shared settings in transcription
 	'transcription.outputLanguage': z.enum(SUPPORTED_LANGUAGES).default('auto'),
 	'transcription.prompt': z.string().default(''),
-	'transcription.temperature': z.string().default('0.0'),
+	'transcription.temperature': z
+		.string()
+		.default('0.0')
+		.refine(
+			(val) => {
+				const num = Number.parseFloat(val);
+				return !Number.isNaN(num) && num >= 0 && num <= 1;
+			},
+			{ message: 'Temperature must be a number between 0 and 1' },
+		),
 	// Audio compression settings
 	'transcription.compressionEnabled': z.boolean().default(false),
 	'transcription.compressionOptions': z
