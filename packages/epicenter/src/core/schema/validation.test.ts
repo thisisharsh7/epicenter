@@ -1,5 +1,5 @@
-import { type } from 'arktype';
 import { describe, expect, test } from 'bun:test';
+import { type } from 'arktype';
 import * as Y from 'yjs';
 import {
 	createTableValidators,
@@ -9,7 +9,7 @@ import {
 	select,
 	tags,
 	text,
-	ytext
+	ytext,
 } from './index';
 
 describe('createTableValidators', () => {

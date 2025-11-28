@@ -7,10 +7,7 @@
  */
 
 import type { Brand } from 'wellcrafted/brand';
-import {
-	DATE_WITH_TIMEZONE_STRING_REGEX,
-	ISO_DATETIME_REGEX,
-} from './regex';
+import { DATE_WITH_TIMEZONE_STRING_REGEX, ISO_DATETIME_REGEX } from './regex';
 
 /**
  * ISO 8601 UTC datetime string from Date.toISOString()

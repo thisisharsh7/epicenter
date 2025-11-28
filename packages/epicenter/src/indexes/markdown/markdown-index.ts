@@ -8,9 +8,9 @@ import { defineQuery } from '../../core/actions';
 import type { TableHelper } from '../../core/db/table-helper';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
+	defineIndexExports,
 	type Index,
 	type IndexContext,
-	defineIndexExports,
 } from '../../core/indexes';
 import type {
 	Row,
@@ -322,18 +322,21 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
-	const { id, db, storageDir } = context;
-	const { directory = `./${id}`, tableConfigs = {} as TableConfigs<TSchema> } =
-		config;
+	const { id, db, storageDir, epicenterDir } = context;
+	const { directory = `./${id}` } = config;
+
+	// User-provided table configs (sparse - only contains overrides, may be empty)
+	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
+	const userTableConfigs: TableConfigs<TSchema> = config.tableConfigs ?? {};
 	// Require Node.js environment with filesystem access
-	if (!storageDir) {
+	if (!storageDir || !epicenterDir) {
 		throw new Error(
 			'Markdown index requires Node.js environment with filesystem access',
 		);
 	}
 
 	// Shared config directory for markdown index files
-	const markdownConfigDir = path.join(storageDir, '.epicenter', 'markdown');
+	const markdownConfigDir = path.join(epicenterDir, 'markdown');
 
 	// Create diagnostics manager for tracking validation errors (current state)
 	const diagnostics = createDiagnosticsManager({
@@ -397,17 +400,25 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const tracking: Record<string, BidirectionalMap> = {};
 
 	/**
-	 * Compute table metadata once and reuse everywhere
-	 * This avoids prop-drilling db, tableConfigs, and absoluteWorkspaceDir
+	 * Merge user overrides with defaults to create fully-populated configs per table
+	 *
+	 * This transforms sparse user configs into resolved configs with all fields guaranteed.
+	 * The resulting `tables` array is used everywhere downstream.
 	 */
 	const tables = db.$tables().map((table) => {
-		// Destructure user config with defaults
-		const userConfig = tableConfigs[table.name];
+		// undefined when user didn't provide config for this table
+		const userConfig = userTableConfigs[table.name];
 
-		// Merge user config with defaults and resolve directory to absolute path
+		// Resolved config with all fields guaranteed (merged with DEFAULT_TABLE_CONFIG)
+		// Each field is optional in TableMarkdownConfig, so we fallback to defaults individually
 		const tableConfig = {
+			// Use user's serialize if provided, otherwise default (all fields → frontmatter, empty body, filename = "{id}.md")
 			serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
+
+			// Use user's deserialize if provided, otherwise default (id from filename, frontmatter validated against schema)
 			deserialize: userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
+
+			// Use user's directory if provided, otherwise default to table name (e.g., "posts" → workspace-dir/posts)
 			directory: path.resolve(
 				absoluteWorkspaceDir,
 				userConfig?.directory ?? table.name,
@@ -457,7 +468,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 				// Check if we need to clean up an old file before updating tracking
 				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-				const oldFilename = tracking[table.name]!.getFilename({ rowId: row.id });
+				const oldFilename = tracking[table.name]!.getFilename({
+					rowId: row.id,
+				});
 
 				/**
 				 * This is checking if there's an old filename AND if it's different
@@ -497,8 +510,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							IndexError({
 								message: `YJS observer onAdd: validation failed for ${table.name}`,
-								context: { tableName: table.name, validationErrors: result.error.summary },
-								cause: undefined,
+								context: result.error.context,
+								cause: result.error,
 							}),
 						);
 						return;
@@ -530,8 +543,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							IndexError({
 								message: `YJS observer onUpdate: validation failed for ${table.name}`,
-								context: { tableName: table.name, validationErrors: result.error.summary },
-								cause: undefined,
+								context: result.error.context,
+								cause: result.error,
 							}),
 						);
 						return;
@@ -614,7 +627,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 				catch: (error) =>
 					IndexErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
-						context: { tableName: table.name, directory: tableConfig.directory },
+						context: {
+							tableName: table.name,
+							directory: tableConfig.directory,
+						},
 					}),
 			});
 
@@ -647,7 +663,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 						if (!exists) {
 							// File was deleted: find and delete the row
-							const rowIdToDelete = tracking[table.name]?.getRowId({ filename });
+							const rowIdToDelete = tracking[table.name]?.getRowId({
+								filename,
+							});
 
 							if (rowIdToDelete) {
 								if (table.has({ id: rowIdToDelete })) {
@@ -987,7 +1005,11 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									logger.log(
 										IndexError({
 											message: `pullToMarkdown: failed to write ${filePath}`,
-											context: { filePath, tableName: table.name, rowId: row.id },
+											context: {
+												filePath,
+												tableName: table.name,
+												rowId: row.id,
+											},
 											cause: error,
 										}),
 									);

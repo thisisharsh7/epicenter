@@ -9,15 +9,12 @@
  * 5. Writes files back
  */
 
+import { isDateWithTimezoneString, isIsoDateTimeString } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
 } from '@epicenter/hq/indexes/markdown';
-import {
-	isIsoDateTimeString,
-	isDateWithTimezoneString,
-} from '@epicenter/hq';
 
 /**
  * Frontmatter field that contains timezone information.
@@ -176,9 +173,7 @@ if (errors.length > 0) {
 }
 
 if (dryRun) {
-	console.log(
-		'💡 This was a dry run. Run without --dry-run to apply changes.',
-	);
+	console.log('💡 This was a dry run. Run without --dry-run to apply changes.');
 } else if (modified.length > 0) {
 	console.log('✅ Date transformation completed successfully.');
 }

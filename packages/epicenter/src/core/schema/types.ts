@@ -13,7 +13,7 @@
  */
 
 import type { Type } from 'arktype';
-import * as Y from 'yjs';
+import type * as Y from 'yjs';
 import type { YRow } from '../db/table-helper';
 import type {
 	DateWithTimezone,

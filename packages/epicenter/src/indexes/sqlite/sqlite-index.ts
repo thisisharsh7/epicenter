@@ -6,15 +6,15 @@ import {
 	type BetterSQLite3Database,
 	drizzle,
 } from 'drizzle-orm/better-sqlite3';
-import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
+import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
+	defineIndexExports,
 	type Index,
 	type IndexContext,
-	defineIndexExports,
 } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
@@ -82,10 +82,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	id,
 	schema,
 	db,
-	storageDir,
+	epicenterDir,
 }: IndexContext<TSchema>) => {
 	// Require Node.js environment with filesystem access
-	if (!storageDir) {
+	if (!epicenterDir) {
 		throw new Error(
 			'SQLite index requires Node.js environment with filesystem access',
 		);
@@ -95,7 +95,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
 	// Set up storage paths
-	const databasePath = path.join(storageDir, '.epicenter', `${id}.db`);
+	const databasePath = path.join(epicenterDir, `${id}.db`);
 	await mkdir(path.dirname(databasePath), { recursive: true });
 
 	// Create database connection with schema for proper type inference
@@ -106,7 +106,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	// Create error logger for this index
-	const logPath = path.join(storageDir, '.epicenter', 'sqlite', `${id}.log`);
+	const logPath = path.join(epicenterDir, 'sqlite', `${id}.log`);
 	const logger = createIndexLogger({ logPath });
 
 	/**
@@ -143,8 +143,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					logger.log(
 						IndexError({
 							message: `SQLite index onAdd: validation failed for ${table.name}`,
-							context: { tableName: table.name, validationErrors: result.error.summary },
-							cause: undefined,
+							context: result.error.context,
+							cause: result.error,
 						}),
 					);
 					return;
@@ -178,8 +178,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					logger.log(
 						IndexError({
 							message: `SQLite index onUpdate: validation failed for ${table.name}`,
-							context: { tableName: table.name, validationErrors: result.error.summary },
-							cause: undefined,
+							context: result.error.context,
+							cause: result.error,
 						}),
 					);
 					return;
@@ -235,16 +235,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	}
 
 	// Initial sync: YJS → SQLite (blocking to ensure tables exist before queries)
-	await createTablesIfNotExist(sqliteDb, drizzleTables);
-
-	// Clear existing data to make initialization idempotent
-	for (const table of db.$tables()) {
-		const drizzleTable = drizzleTables[table.name];
-		if (!drizzleTable) {
-			throw new Error(`Drizzle table for "${table.name}" not found`);
-		}
-		await sqliteDb.delete(drizzleTable);
-	}
+	// Always recreate tables to handle schema changes (e.g., column renames)
+	await recreateTables(sqliteDb, drizzleTables);
 
 	// Insert all valid rows from YJS into SQLite
 	for (const table of db.$tables()) {
@@ -398,18 +390,27 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 }) satisfies Index;
 
 /**
- * Create SQLite tables if they don't exist
- * Uses Drizzle's official getTableConfig API for introspection
+ * Drop and recreate SQLite tables
+ *
+ * Always drops existing tables before recreating to handle schema changes
+ * (e.g., column renames, type changes). This is safe because SQLite is just
+ * an index; YJS is the source of truth and data is re-synced after recreation.
+ *
+ * Uses Drizzle's official getTableConfig API for introspection.
  */
-async function createTablesIfNotExist<
-	TSchema extends Record<string, SQLiteTable>,
->(db: BetterSQLite3Database<TSchema>, drizzleTables: TSchema): Promise<void> {
+async function recreateTables<TSchema extends Record<string, SQLiteTable>>(
+	db: BetterSQLite3Database<TSchema>,
+	drizzleTables: TSchema,
+): Promise<void> {
 	for (const drizzleTable of Object.values(drizzleTables)) {
 		const tableConfig = getTableConfig(drizzleTable);
-		const columnDefs: string[] = [];
 
+		// Drop existing table to handle schema changes
+		await db.run(sql.raw(`DROP TABLE IF EXISTS "${tableConfig.name}"`));
+
+		// Build column definitions
+		const columnDefs: string[] = [];
 		for (const column of tableConfig.columns) {
-			// Use column.getSQLType() to get the SQL type directly
 			const sqlType = column.getSQLType();
 
 			let constraints = '';
@@ -423,10 +424,12 @@ async function createTablesIfNotExist<
 				constraints += ' UNIQUE';
 			}
 
-			columnDefs.push(`${column.name} ${sqlType}${constraints}`);
+			// Quote column names to handle SQLite reserved keywords (e.g., "from", "to", "order")
+			columnDefs.push(`"${column.name}" ${sqlType}${constraints}`);
 		}
 
-		const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableConfig.name} (${columnDefs.join(', ')})`;
+		// Create table with current schema
+		const createTableSQL = `CREATE TABLE "${tableConfig.name}" (${columnDefs.join(', ')})`;
 		await db.run(sql.raw(createTableSQL));
 	}
 }

@@ -23,7 +23,7 @@ Load these domain-specific guidelines only when working in their respective doma
 **Development Practices:**
 
 - wellcrafted trySync/tryAsync error handling: @rules/error-handling.md
-- CSS, Tailwind, shadcn-svelte styling: @rules/styling.md (load when @rules/svelte.md is loaded)
+- General CSS and Tailwind styling: @rules/styling.md
 
 **Tools & Workflows:**
 

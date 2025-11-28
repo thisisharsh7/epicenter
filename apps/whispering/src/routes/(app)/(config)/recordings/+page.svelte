@@ -35,13 +35,11 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
-	import {
-		ChevronDownIcon,
-		EllipsisIcon,
-		EllipsisIcon as LoadingTranscriptionIcon,
-		RepeatIcon as RetryTranscriptionIcon,
-		PlayIcon as StartTranscriptionIcon,
-	} from '@lucide/svelte';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import LoadingTranscriptionIcon from '@lucide/svelte/icons/ellipsis';
+	import RetryTranscriptionIcon from '@lucide/svelte/icons/repeat';
+	import StartTranscriptionIcon from '@lucide/svelte/icons/play';
 	import { nanoid } from 'nanoid/non-secure';
 	import { createRawSnippet } from 'svelte';
 	import { z } from 'zod';

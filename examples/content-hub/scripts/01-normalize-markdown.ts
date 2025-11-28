@@ -15,7 +15,7 @@ import {
 	readMarkdownFile,
 	writeMarkdownFile,
 } from '@epicenter/hq/indexes/markdown';
-import { Ok, Err, type Result } from 'wellcrafted/result';
+import { Err, Ok, type Result } from 'wellcrafted/result';
 
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;
 if (!sourcePath) {

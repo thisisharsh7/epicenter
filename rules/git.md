@@ -80,6 +80,25 @@
 - Include any breaking changes prominently
 - Link to relevant issues
 
+### Merge Strategy
+
+Always use **"Create a merge commit"** when merging pull requests. Never squash.
+
+**GitHub UI:**
+- Click "Create a merge commit" (default green button)
+
+**Git CLI:**
+```bash
+git merge --no-ff <branch>
+```
+
+**GitHub CLI:**
+```bash
+gh pr merge <PR-NUMBER> --merge
+# Use --admin flag if needed to bypass branch protections
+gh pr merge <PR-NUMBER> --merge --admin
+```
+
 ### Pull Request Body Format
 
 Use clean paragraph format instead of bullet points or structured sections:
@@ -158,6 +177,7 @@ This doubles down on Svelte's philosophy of writing less, more intuitive code wh
 
 #### What to Avoid
 
+- **Listing files changed**: Never enumerate which files were modified. GitHub's "Files changed" tab already shows this; the PR description should explain WHY, not WHAT files
 - Bullet points or structured lists
 - Section headers like "## Summary" or "## Changes Made"
 - Test plans or checklists (unless specifically requested)

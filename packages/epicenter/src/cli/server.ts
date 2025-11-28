@@ -25,7 +25,7 @@ export async function startServer(
 
 	const { app, client } = await createServer(config);
 	const port =
-		options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT));
+		options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
 
 	const server = Bun.serve({
 		fetch: app.fetch,
@@ -81,7 +81,7 @@ export async function startServer(
 		console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
 
 		server.stop();
-		client[Symbol.dispose]();
+		await client.destroy();
 
 		console.log('✅ Server stopped cleanly\n');
 		process.exit(0);

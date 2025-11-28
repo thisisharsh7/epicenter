@@ -1,37 +1,39 @@
 import type { TaggedError } from 'wellcrafted/error';
-import { type Result, isResult } from 'wellcrafted/result';
-import yargs from 'yargs';
+import { isResult, type Result } from 'wellcrafted/result';
 import type { Argv } from 'yargs';
-import { type WorkspaceExports, walkActions } from '../core/actions';
+import yargs from 'yargs';
+import { walkActions } from '../core/actions';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
-import type { WorkspaceClient } from '../core/workspace';
 import { DEFAULT_PORT, startServer } from './server';
 import { standardSchemaToYargs } from './standardschema-to-yargs';
 
 /**
- * Create CLI from Epicenter config.
- * Returns a yargs instance with all workspace and action commands.
+ * Create and run CLI from Epicenter config.
  *
  * This function:
- * 1. Initializes workspaces to introspect available actions
+ * 1. Initializes workspaces (with persistence, sync providers)
  * 2. Generates yargs command hierarchy (workspace → action)
- * 3. Sets up handlers that execute actions using the workspace client
+ * 3. Parses arguments and executes the matched command
+ * 4. Cleans up workspaces after command execution (including on Ctrl+C)
+ *
+ * The client lifecycle is managed internally to ensure persistence providers
+ * remain active throughout command execution. This is critical because:
+ * - YJS persistence uses `ydoc.on('update', ...)` observers
+ * - Observers are removed when `ydoc.destroy()` is called
+ * - Commands that modify data need active observers to persist changes
  *
  * @param config - Epicenter configuration
  * @param argv - Array of command-line arguments to parse
- * @returns Yargs instance ready to parse arguments
  *
  * @example
  * ```typescript
  * // In production (bin.ts)
  * import { hideBin } from 'yargs/helpers';
- * const cli = await createCLI({ config, argv: hideBin(process.argv) });
- * await cli.parse();
+ * await createCLI({ config, argv: hideBin(process.argv) });
  *
  * // In tests
- * const cli = await createCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
- * await cli.parse();
+ * await createCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
  * ```
  */
 export async function createCLI({
@@ -40,7 +42,19 @@ export async function createCLI({
 }: {
 	config: EpicenterConfig;
 	argv: string[];
-}): Promise<Argv> {
+}): Promise<void> {
+	// Initialize Epicenter client
+	// Manual cleanup ensures we can handle both normal exit and signal interrupts
+	const client = await createEpicenterClient(config);
+
+	// Handle graceful shutdown on Ctrl+C (SIGINT) and kill (SIGTERM)
+	const cleanup = async () => {
+		await client.destroy();
+		process.exit(0);
+	};
+	process.on('SIGINT', cleanup);
+	process.on('SIGTERM', cleanup);
+
 	// Create yargs instance
 	let cli = yargs(argv)
 		.scriptName('epicenter')
@@ -66,9 +80,6 @@ export async function createCLI({
 			});
 		},
 	);
-
-	// Initialize Epicenter client
-	await using client = await createEpicenterClient(config);
 
 	// Register each workspace as a command
 	for (const workspaceConfig of config.workspaces) {
@@ -147,5 +158,15 @@ export async function createCLI({
 		);
 	}
 
-	return cli;
+	// Parse and execute the command
+	// Client remains active throughout command execution
+	try {
+		await cli.parse();
+	} finally {
+		// Clean up on normal exit
+		// Remove signal handlers to avoid double-cleanup
+		process.off('SIGINT', cleanup);
+		process.off('SIGTERM', cleanup);
+		await client.destroy();
+	}
 }

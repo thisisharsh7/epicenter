@@ -1,7 +1,9 @@
 import { defineEpicenter } from '@epicenter/hq';
+import { browser } from './browser/browser.workspace';
 import { clippings } from './clippings/clippings.workspace';
 import { email } from './email/email.workspace';
 import { epicenter } from './epicenter/epicenter.workspace';
+import { gmail } from './gmail/gmail.workspace';
 import { journal } from './journal/journal.workspace';
 import { pages } from './pages/pages.workspace';
 import { posts } from './posts/posts.workspace';
@@ -37,14 +39,20 @@ export default defineEpicenter({
 		// Saved web content
 		clippings,
 
-		// Email
+		// Email (static storage)
 		email,
+
+		// Gmail (OAuth2 integration)
+		gmail,
 
 		// Company content
 		epicenter,
 
 		// All social media posts (video, blogs, social platforms)
 		posts,
+
+		// Browser tab/window state (shadow database for extension)
+		browser,
 	],
-	storageDir: '/Users/braden/Code/EpicenterHQ',
+	storageDir: '/Users/braden/Code/epicenter-md',
 });

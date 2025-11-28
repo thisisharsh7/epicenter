@@ -102,7 +102,7 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace],
 		});
 
-		let app: Awaited<ReturnType<typeof createServer>>['app'];
+		let _app: Awaited<ReturnType<typeof createServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {
@@ -275,7 +275,7 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace, authWorkspace],
 		});
 
-		let app: Awaited<ReturnType<typeof createServer>>['app'];
+		let _app: Awaited<ReturnType<typeof createServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {

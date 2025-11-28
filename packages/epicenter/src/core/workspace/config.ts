@@ -2,8 +2,9 @@ import type { WorkspaceExports } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Db } from '../db/core';
 import type { Index, WorkspaceIndexMap } from '../indexes';
-import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { Provider } from '../provider';
+import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
+import type { EpicenterDir, StorageDir } from '../types';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -218,6 +219,8 @@ export type WorkspaceConfig<
 		workspaces: WorkspacesToExports<TDeps>;
 		indexes: TIndexResults;
 		blobs: WorkspaceBlobs<TWorkspaceSchema>;
+		storageDir: StorageDir | undefined;
+		epicenterDir: EpicenterDir | undefined;
 	}) => TExports;
 };
 

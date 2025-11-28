@@ -26,7 +26,7 @@ describe('createEpicenterDb', () => {
 		// Retrieve the row
 		const result = doc.posts.get({ id: '1' });
 		expect(result).not.toBeNull();
-		if (result && result.data) {
+		if (result?.data) {
 			expect(result.data.title).toBe('Test Post');
 			expect(result.data.viewCount).toBe(0);
 			expect(result.data.published).toBe(false);
@@ -56,10 +56,10 @@ describe('createEpicenterDb', () => {
 		const row2 = doc.posts.get({ id: '2' });
 		expect(row1).not.toBeNull();
 		expect(row2).not.toBeNull();
-		if (row1 && row1.data) {
+		if (row1?.data) {
 			expect(row1.data.title).toBe('Post 1');
 		}
-		if (row2 && row2.data) {
+		if (row2?.data) {
 			expect(row2.data.title).toBe('Post 2');
 		}
 	});
@@ -109,9 +109,7 @@ describe('createEpicenterDb', () => {
 		expect(getResult).toBeNull();
 
 		// Test find() with no matches
-		const findResult = doc.posts.find(
-			(post) => post.id === 'non-existent',
-		);
+		const findResult = doc.posts.find((post) => post.id === 'non-existent');
 		expect(findResult).toBeNull();
 	});
 
@@ -135,7 +133,7 @@ describe('createEpicenterDb', () => {
 		// Get returns Y.js objects
 		const result1 = doc.posts.get({ id: '1' });
 		expect(result1).not.toBeNull();
-		if (result1 && result1.data) {
+		if (result1?.data) {
 			expect(result1.data.title).toBeInstanceOf(Y.Text);
 			expect(result1.data.tags).toBeInstanceOf(Y.Array);
 			expect(result1.data.title.toString()).toBe('Hello World');

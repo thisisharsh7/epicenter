@@ -1,11 +1,10 @@
 import path from 'node:path';
 import {
-	type SerializedRow,
 	date,
 	defineWorkspace,
 	id,
-	isDateWithTimezoneString,
 	markdownIndex,
+	type SerializedRow,
 	select,
 	text,
 } from '@epicenter/hq';
@@ -30,8 +29,8 @@ export const epicenter = defineWorkspace({
 			title: text(),
 			content: text(),
 			rating: select({ options: ['decent', 'good', 'great', 'excellent'] }),
-			createdAt: date(),
-			updatedAt: date(),
+			created_at: date(),
+			updated_at: date(),
 		},
 	},
 

@@ -2,9 +2,9 @@ import * as Y from 'yjs';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import {
+	createTableHelpers,
 	type TableHelper,
 	type YRow,
-	createTableHelpers,
 } from './table-helper';
 
 /**

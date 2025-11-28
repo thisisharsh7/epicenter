@@ -1,15 +1,7 @@
-import { describe, test, expect } from 'bun:test';
-import { createEpicenterDb } from './core';
-import {
-	id,
-	text,
-	ytext,
-	integer,
-	boolean,
-	select,
-	tags,
-} from '../schema';
+import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
+import { boolean, id, integer, select, tags, text, ytext } from '../schema';
+import { createEpicenterDb } from './core';
 
 /**
  * Type inference test file for YjsDoc
@@ -123,9 +115,7 @@ describe('YjsDoc Type Inference', () => {
 
 		// Hover over 'item' parameter to verify inferred type
 		// find() now returns Row | null directly
-		const outOfStockItem = doc.items.find(
-			(item) => item.quantity === 0,
-		);
+		const outOfStockItem = doc.items.find((item) => item.quantity === 0);
 		// item type should be: { id: string; name: string; quantity: number }
 
 		expect(outOfStockItem).not.toBeNull();
@@ -155,10 +145,10 @@ describe('YjsDoc Type Inference', () => {
 					addedNotifications.push(result.data);
 				}
 			},
-			onUpdate: (result) => {
+			onUpdate: (_result) => {
 				// result type should be: Result<{ id: string; message: string; read: boolean }, ArkErrors>
 			},
-			onDelete: (id) => {
+			onDelete: (_id) => {
 				// id type should be: string
 			},
 		});
@@ -175,7 +165,7 @@ describe('YjsDoc Type Inference', () => {
 		unsubscribe();
 	});
 
-		test('should handle nullable YJS types correctly', () => {
+	test('should handle nullable YJS types correctly', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			articles: {
 				id: id(),
@@ -195,7 +185,7 @@ describe('YjsDoc Type Inference', () => {
 
 		const article1Result = doc.articles.get({ id: '1' });
 		expect(article1Result).not.toBeNull();
-		if (article1Result && article1Result.data) {
+		if (article1Result?.data) {
 			expect(article1Result.data.description).toBeNull();
 			expect(article1Result.data.content).toBeNull();
 		}
@@ -209,7 +199,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const article2Result = doc.articles.get({ id: '2' });
-		if (article2Result && article2Result.data) {
+		if (article2Result?.data) {
 			expect(article2Result.data.description).toBeInstanceOf(Y.Text);
 			expect(article2Result.data.content).toBeInstanceOf(Y.Text);
 		}
@@ -257,10 +247,10 @@ describe('YjsDoc Type Inference', () => {
 
 		expect(authorResult).not.toBeNull();
 		expect(bookResult).not.toBeNull();
-		if (authorResult && authorResult.data) {
+		if (authorResult?.data) {
 			expect(authorResult.data.name).toBe('John Doe');
 		}
-		if (bookResult && bookResult.data) {
+		if (bookResult?.data) {
 			expect(bookResult.data.title).toBe('My Book');
 		}
 	});
@@ -309,7 +299,7 @@ describe('YjsDoc Type Inference', () => {
 		// Test retrieval and mutations
 		const retrievedResult = doc.documents.get({ id: 'doc-1' });
 
-		if (retrievedResult && retrievedResult.data) {
+		if (retrievedResult?.data) {
 			const retrieved = retrievedResult.data;
 			// These should all be properly typed
 			expect(retrieved.body).toBeInstanceOf(Y.Text);
@@ -321,5 +311,4 @@ describe('YjsDoc Type Inference', () => {
 			expect(retrieved.tags.length).toBe(3);
 		}
 	});
-
 });

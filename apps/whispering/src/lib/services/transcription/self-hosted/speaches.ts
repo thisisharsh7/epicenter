@@ -47,7 +47,6 @@ export function createSpeachesTranscriptionService({
 				await HttpService.post({
 					url: `${options.baseUrl}/v1/audio/transcriptions`,
 					body: formData,
-					headers: undefined, // No headers needed for Speaches
 					schema: whisperApiResponseSchema,
 				});
 

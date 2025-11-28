@@ -5,19 +5,18 @@
  * and utilities for working with Drizzle schemas.
  */
 
-// Main index implementation
-export { sqliteIndex } from './sqlite-index';
-
 // Schema utilities (builders + converter)
 export type { WorkspaceSchemaToDrizzleTables } from './schema';
 export {
-	convertWorkspaceSchemaToDrizzle,
+	boolean,
 	convertTableSchemaToDrizzle,
+	convertWorkspaceSchemaToDrizzle,
+	date,
 	id,
-	text,
 	integer,
 	real,
-	boolean,
-	date,
 	tags,
+	text,
 } from './schema';
+// Main index implementation
+export { sqliteIndex } from './sqlite-index';
