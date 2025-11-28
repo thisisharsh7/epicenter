@@ -598,7 +598,7 @@
 		placeholder="0"
 		bind:value={
 			() => settings.value['transcription.temperature'],
-			(value) => settings.updateKey('transcription.temperature', value)
+			(value) => settings.updateKey('transcription.temperature', String(value))
 		}
 		description={isPromptAndTemperatureNotSupported
 			? 'Temperature is not supported for local models (transcribe-rs)'
