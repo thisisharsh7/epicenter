@@ -10,7 +10,8 @@
 	import type { Recording } from '$lib/services/db';
 	import * as services from '$lib/services';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
-	import { PencilIcon as EditIcon, Loader2Icon } from '@lucide/svelte';
+	import EditIcon from '@lucide/svelte/icons/pencil';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { onDestroy } from 'svelte';
 
 	const updateRecording = createMutation(rpc.db.recordings.update.options);

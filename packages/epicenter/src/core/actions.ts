@@ -248,9 +248,7 @@ export function defineQuery<
  */
 export function defineQuery<TOutput, TInput extends StandardSchemaV1>(config: {
 	input: TInput;
-	handler: (
-		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => TOutput;
+	handler: (input: StandardSchemaV1.InferOutput<NoInfer<TInput>>) => TOutput;
 	description?: string;
 }): Query<TOutput, never, TInput, false>;
 
@@ -441,9 +439,7 @@ export function defineMutation<
 	TInput extends StandardSchemaV1,
 >(config: {
 	input: TInput;
-	handler: (
-		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,
-	) => TOutput;
+	handler: (input: StandardSchemaV1.InferOutput<NoInfer<TInput>>) => TOutput;
 	description?: string;
 }): Mutation<TOutput, never, TInput, false>;
 
@@ -582,7 +578,8 @@ export function isAction(value: unknown): value is Action {
 	return (
 		typeof value === 'function' &&
 		typeof (value as Action).type === 'string' &&
-		((value as Action).type === 'query' || (value as Action).type === 'mutation')
+		((value as Action).type === 'query' ||
+			(value as Action).type === 'mutation')
 	);
 }
 
@@ -755,4 +752,3 @@ export function defineWorkspaceExports<T extends WorkspaceExports>(
 ): T {
 	return exports;
 }
-

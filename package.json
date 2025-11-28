@@ -8,7 +8,11 @@
 	"license": "AGPL-3.0",
 	"author": "",
 	"workspaces": {
-		"packages": ["apps/*", "packages/*", "examples/*"],
+		"packages": [
+			"apps/*",
+			"packages/*",
+			"examples/*"
+		],
 		"catalog": {
 			"@types/node": "^22.18.10",
 			"typescript": "^5.8.3",
@@ -36,7 +40,7 @@
 			"nanoid": "^5.1.5",
 			"wellcrafted": "^0.25.0",
 			"date-fns": "^4.1.0",
-			"@biomejs/biome": "^2.2.6",
+			"@biomejs/biome": "latest",
 			"turbo": "^2.5.8",
 			"concurrently": "^9.2.1"
 		}

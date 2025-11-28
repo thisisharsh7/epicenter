@@ -11,7 +11,7 @@
 	import { join } from '@tauri-apps/api/path';
 	import { nanoid } from 'nanoid/non-secure';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import { RotateCcw } from '@lucide/svelte';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import {
 		buildFfmpegCommand,
 		formatDeviceForPlatform,

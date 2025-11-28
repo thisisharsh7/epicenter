@@ -3,7 +3,7 @@ import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
-import { type WorkspaceSchema, createWorkspaceValidators } from '../schema';
+import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { AbsolutePath } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
@@ -190,7 +190,7 @@ export async function initializeWorkspaces<
 			for (const dep of workspaceConfig.dependencies) {
 				// Add edge: dep.id -> id (id depends on dep.id)
 				// Note: Dependencies are already verified in Phase 2
-				dependents.get(dep.id)!.push(id);
+				dependents.get(dep.id)?.push(id);
 
 				// Increment in-degree for the dependent workspace
 				inDegree.set(id, inDegree.get(id)! + 1);
@@ -453,7 +453,7 @@ export async function createWorkspaceClient<
 		process.versions != null &&
 		process.versions.node != null;
 
-	let resolvedStorageDir: AbsolutePath | undefined = undefined;
+	let resolvedStorageDir: AbsolutePath | undefined ;
 	if (isNode) {
 		resolvedStorageDir = path.resolve(process.cwd()) as AbsolutePath;
 	}

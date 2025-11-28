@@ -1,5 +1,9 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { JSONSchema7, JSONSchema7Definition, JSONSchema7TypeName } from 'json-schema';
+import type {
+	JSONSchema7,
+	JSONSchema7Definition,
+	JSONSchema7TypeName,
+} from 'json-schema';
 import type { Argv } from 'yargs';
 import { safeToJsonSchema } from '../core/schema/safe-json-schema';
 
@@ -40,7 +44,7 @@ export async function standardSchemaToYargs(
 
 	// JSON Schema should be an object type with properties
 	if (jsonSchema.type === 'object' && jsonSchema.properties) {
-		const required = new Set((jsonSchema.required) ?? []);
+		const required = new Set(jsonSchema.required ?? []);
 
 		for (const [key, fieldSchema] of Object.entries(jsonSchema.properties)) {
 			const isRequired = required.has(key);
@@ -51,7 +55,6 @@ export async function standardSchemaToYargs(
 	return yargs;
 }
 
-
 /**
  * Add a single JSON Schema field to yargs as an option
  *
@@ -59,13 +62,17 @@ export async function standardSchemaToYargs(
  * still create the CLI option - just be more lenient. Let Standard Schema validation
  * happen when the action actually runs.
  */
-function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
+function addFieldToYargs({
+	key,
+	fieldSchema,
+	isRequired,
+	yargs,
+}: {
 	key: string;
 	fieldSchema: JSONSchema7Definition;
 	isRequired: boolean;
 	yargs: Argv;
 }): void {
-
 	// JSONSchema7 properties can be boolean or JSONSchema7Definition
 	// For boolean schemas (true/false), accept any value (no type specified)
 	if (typeof fieldSchema === 'boolean') {
@@ -79,7 +86,8 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 	// Handle explicit enum property
 	if (fieldSchema.enum) {
 		const choices = fieldSchema.enum.filter(
-			(v): v is string | number => typeof v === 'string' || typeof v === 'number',
+			(v): v is string | number =>
+				typeof v === 'string' || typeof v === 'number',
 		);
 		if (choices.length > 0) {
 			yargs.option(key, {
@@ -98,11 +106,17 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 
 		// Check if it's a union of string literals (const values)
 		const stringLiterals = variants
-			.filter((v): v is JSONSchema7 => typeof v !== 'boolean' && v.const !== undefined)
+			.filter(
+				(v): v is JSONSchema7 =>
+					typeof v !== 'boolean' && v.const !== undefined,
+			)
 			.map((v) => v.const)
 			.filter((c): c is string => typeof c === 'string');
 
-		if (stringLiterals.length === variants.length && stringLiterals.length > 0) {
+		if (
+			stringLiterals.length === variants.length &&
+			stringLiterals.length > 0
+		) {
 			yargs.option(key, {
 				type: 'string',
 				choices: stringLiterals,
@@ -115,7 +129,8 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 		// For any other union (string | number, string | null, etc),
 		// just accept any value - let Standard Schema validate at runtime
 		yargs.option(key, {
-			description: fieldSchema.description ?? 'Union type (validation at runtime)',
+			description:
+				fieldSchema.description ?? 'Union type (validation at runtime)',
 			demandOption: isRequired,
 		});
 		return;
@@ -124,9 +139,17 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 	// Handle standard types
 	if (fieldSchema.type) {
 		// JSONSchema7TypeName can be a string or array of strings
-		const primaryType = Array.isArray(fieldSchema.type) ? fieldSchema.type[0] : fieldSchema.type;
+		const primaryType = Array.isArray(fieldSchema.type)
+			? fieldSchema.type[0]
+			: fieldSchema.type;
 		if (primaryType) {
-			addFieldByType({ key, type: primaryType, description: fieldSchema.description, isRequired, yargs });
+			addFieldByType({
+				key,
+				type: primaryType,
+				description: fieldSchema.description,
+				isRequired,
+				yargs,
+			});
 			return;
 		}
 	}
@@ -139,7 +162,6 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
 	});
 }
 
-
 /**
  * Add a field to yargs based on JSON Schema type
  *
@@ -147,14 +169,19 @@ function addFieldToYargs({ key, fieldSchema, isRequired, yargs }: {
  * For unsupported types, we accept them as strings and rely on
  * Standard Schema validation at runtime.
  */
-function addFieldByType({ key, type, description, isRequired, yargs }: {
+function addFieldByType({
+	key,
+	type,
+	description,
+	isRequired,
+	yargs,
+}: {
 	key: string;
 	type: JSONSchema7TypeName;
 	description: string | undefined;
 	isRequired: boolean;
 	yargs: Argv;
 }): void {
-
 	switch (type) {
 		case 'string':
 			yargs.option(key, {
@@ -188,9 +215,6 @@ function addFieldByType({ key, type, description, isRequired, yargs }: {
 				demandOption: isRequired,
 			});
 			break;
-
-		case 'object':
-		case 'null':
 		default:
 			// For complex types, omit 'type' - yargs accepts any value
 			// Validation happens via Standard Schema at runtime

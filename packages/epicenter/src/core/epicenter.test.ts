@@ -1,12 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Ok } from 'wellcrafted/result';
-import {
-	defineQuery,
-	defineWorkspace,
-	id,
-	sqliteIndex,
-	text,
-} from '../index';
+import { defineQuery, defineWorkspace, id, sqliteIndex, text } from '../index';
 import { createEpicenterClient, defineEpicenter } from './epicenter/index';
 
 /**
@@ -47,10 +41,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 	/**
 	 * Helper to create a simple workspace with actions for testing action exposure
 	 */
-	const createTestWorkspace = (
-		workspaceId: string,
-		deps: any[] = [],
-	) => {
+	const createTestWorkspace = (workspaceId: string, deps: any[] = []) => {
 		return defineWorkspace({
 			id: workspaceId,
 			dependencies: deps,
@@ -73,9 +64,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 								handler: async () => {
 									// Access the first dependency's action
 									const depId = deps[0].id;
-									const result = await (workspaces as any)[
-										depId
-									].getValue();
+									const result = await (workspaces as any)[depId].getValue();
 									return result;
 								},
 							}),
@@ -97,29 +86,26 @@ describe('Action Exposure and Dependency Resolution', () => {
 		await using client = await createEpicenterClient(epicenter);
 
 		// BOTH workspaces are exposed by their ids
-		expect(client['a']).toBeDefined();
-		expect(client['b']).toBeDefined();
+		expect(client.a).toBeDefined();
+		expect(client.b).toBeDefined();
 
 		// Both have their actions
-		expect(client['a']!.getValue).toBeDefined();
-		expect(client['b']!.getValue).toBeDefined();
-		expect(client['b']!.getValueFromDependency).toBeDefined();
+		expect(client.a?.getValue).toBeDefined();
+		expect(client.b?.getValue).toBeDefined();
+		expect(client.b?.getValueFromDependency).toBeDefined();
 
 		// Can call actions on both
-		const resultA = await client['a']!.getValue();
+		const resultA = await client.a?.getValue();
 		expect(resultA.data).toBe('value-from-a');
 
-		const resultB = await client['b']!.getValue();
+		const resultB = await client.b?.getValue();
 		expect(resultB.data).toBe('value-from-b');
 	});
 
 	test('requires all transitive dependencies in workspaces array (flat/hoisted)', () => {
 		const workspaceA = createTestWorkspace('a');
 		const workspaceB = createTestWorkspace('b', [workspaceA]);
-		const workspaceC = createTestWorkspace('c', [
-			workspaceA,
-			workspaceB,
-		]);
+		const workspaceC = createTestWorkspace('c', [workspaceA, workspaceB]);
 
 		// Only include B and C in epicenter, not A (missing dependency)
 		const epicenter = defineEpicenter({
@@ -136,10 +122,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 	test('flat/hoisted model: all dependencies must be explicitly listed', async () => {
 		const workspaceA = createTestWorkspace('a');
 		const workspaceB = createTestWorkspace('b', [workspaceA]);
-		const workspaceC = createTestWorkspace('c', [
-			workspaceA,
-			workspaceB,
-		]);
+		const workspaceC = createTestWorkspace('c', [workspaceA, workspaceB]);
 
 		// Correctly include ALL workspaces (flat/hoisted)
 		const epicenter = defineEpicenter({
@@ -150,15 +133,15 @@ describe('Action Exposure and Dependency Resolution', () => {
 		await using client = await createEpicenterClient(epicenter);
 
 		// All workspaces are exposed
-		expect(client['a']).toBeDefined();
-		expect(client['b']).toBeDefined();
-		expect(client['c']).toBeDefined();
+		expect(client.a).toBeDefined();
+		expect(client.b).toBeDefined();
+		expect(client.c).toBeDefined();
 
 		// Can call actions on all workspaces
-		const resultA = await client['a']!.getValue();
+		const resultA = await client.a?.getValue();
 		expect(resultA.data).toBe('value-from-a');
 
-		const resultB = await client['b']!.getValueFromDependency!();
+		const resultB = await client.b?.getValueFromDependency?.();
 		expect(resultB.data).toBe('value-from-a');
 	});
 
@@ -175,18 +158,18 @@ describe('Action Exposure and Dependency Resolution', () => {
 		await using client = await createEpicenterClient(epicenter);
 
 		// All three workspaces exposed
-		expect(client['a']).toBeDefined();
-		expect(client['b']).toBeDefined();
-		expect(client['c']).toBeDefined();
+		expect(client.a).toBeDefined();
+		expect(client.b).toBeDefined();
+		expect(client.c).toBeDefined();
 
 		// All have their actions
-		const resultA = await client['a']!.getValue();
+		const resultA = await client.a?.getValue();
 		expect(resultA.data).toBe('value-from-a');
 
-		const resultB = await client['b']!.getValue();
+		const resultB = await client.b?.getValue();
 		expect(resultB.data).toBe('value-from-b');
 
-		const resultC = await client['c']!.getValue();
+		const resultC = await client.c?.getValue();
 		expect(resultC.data).toBe('value-from-c');
 	});
 });

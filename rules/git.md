@@ -80,6 +80,25 @@
 - Include any breaking changes prominently
 - Link to relevant issues
 
+### Merge Strategy
+
+Always use **"Create a merge commit"** when merging pull requests. Never squash.
+
+**GitHub UI:**
+- Click "Create a merge commit" (default green button)
+
+**Git CLI:**
+```bash
+git merge --no-ff <branch>
+```
+
+**GitHub CLI:**
+```bash
+gh pr merge <PR-NUMBER> --merge
+# Use --admin flag if needed to bypass branch protections
+gh pr merge <PR-NUMBER> --merge --admin
+```
+
 ### Pull Request Body Format
 
 Use clean paragraph format instead of bullet points or structured sections:

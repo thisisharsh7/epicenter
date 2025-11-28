@@ -1,7 +1,6 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
+import { expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
 import { createEpicenterClient } from '@epicenter/hq';
-import type { EpicenterClient } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
 let post1Id: string;

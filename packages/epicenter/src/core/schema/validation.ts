@@ -17,7 +17,7 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
-	WorkspaceSchema
+	WorkspaceSchema,
 } from './types';
 
 /**
@@ -44,7 +44,6 @@ import type {
  * ```
  */
 export type TableValidators<TSchema extends TableSchema = TableSchema> = {
-
 	/**
 	 * Generates a StandardSchemaV1 for full SerializedRow
 	 *
@@ -263,7 +262,6 @@ export function createWorkspaceValidators<
 export function createTableValidators<TSchema extends TableSchema>(
 	schema: TSchema,
 ): TableValidators<TSchema> {
-
 	return {
 		toArktype() {
 			return tableSchemaToArktypeType(schema);
@@ -281,7 +279,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 			// Make all keys optional, then override 'id' to remain required
 			return this.toArktype()
 				.partial()
-				.merge({ id: "string" }) as StandardSchemaV1<
+				.merge({ id: 'string' }) as StandardSchemaV1<
 				PartialSerializedRow<TSchema>
 			>;
 		},

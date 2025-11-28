@@ -7,7 +7,7 @@ import {
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { TaggedError } from 'wellcrafted/error';
-import { type Result, isResult } from 'wellcrafted/result';
+import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
 import {
 	type EpicenterClient,
@@ -88,7 +88,7 @@ export function createMcpServer<
 			const args = request.params.arguments || {};
 
 			// Validate input with Standard Schema
-			let validatedInput: unknown = undefined;
+			let validatedInput: unknown ;
 			if (action.input) {
 				let result = action.input['~standard'].validate(args);
 				if (result instanceof Promise) result = await result;

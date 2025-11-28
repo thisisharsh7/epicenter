@@ -10,7 +10,7 @@
 
 import { unlink } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { type SerializedRow, createEpicenterClient } from '@epicenter/hq';
+import { createEpicenterClient, type SerializedRow } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,

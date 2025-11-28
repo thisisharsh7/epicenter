@@ -2,7 +2,8 @@
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import type { Transformation } from '$lib/services/db';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { CheckCircleIcon, CircleIcon } from '@lucide/svelte';
+	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
+	import CircleIcon from '@lucide/svelte/icons/circle';
 
 	let {
 		transformation,

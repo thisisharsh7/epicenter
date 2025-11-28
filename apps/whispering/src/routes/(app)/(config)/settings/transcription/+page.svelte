@@ -25,7 +25,8 @@
 	import { PARAKEET_MODELS } from '$lib/services/transcription/local/parakeet';
 	import { WHISPER_MODELS } from '$lib/services/transcription/local/whispercpp';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { CheckIcon, InfoIcon } from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Alert from '@repo/ui/alert';
 	import { Badge } from '@repo/ui/badge';
 	import { Button } from '@repo/ui/button';

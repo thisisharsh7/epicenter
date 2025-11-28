@@ -6,15 +6,15 @@ import {
 	type BetterSQLite3Database,
 	drizzle,
 } from 'drizzle-orm/better-sqlite3';
-import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
+import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
+	defineIndexExports,
 	type Index,
 	type IndexContext,
-	defineIndexExports,
 } from '../../core/indexes';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
@@ -143,8 +143,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					logger.log(
 						IndexError({
 							message: `SQLite index onAdd: validation failed for ${table.name}`,
-							context: { tableName: table.name, validationErrors: result.error.summary },
-							cause: undefined,
+							context: result.error.context,
+							cause: result.error,
 						}),
 					);
 					return;
@@ -178,8 +178,8 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					logger.log(
 						IndexError({
 							message: `SQLite index onUpdate: validation failed for ${table.name}`,
-							context: { tableName: table.name, validationErrors: result.error.summary },
-							cause: undefined,
+							context: result.error.context,
+							cause: result.error,
 						}),
 					);
 					return;

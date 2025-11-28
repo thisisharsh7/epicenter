@@ -5,20 +5,20 @@
  * and utilities for custom serializers and error handling.
  */
 
-// Main index implementation
-export { markdownIndex } from './markdown-index';
-
-// Types
-export type { MarkdownIndexConfig } from './markdown-index';
-
-// Error types for custom serializers
-export { MarkdownIndexErr, MarkdownIndexError } from './markdown-index';
-
+export type { MarkdownOperationError } from './io';
 // Markdown file operations
 export {
+	deleteMarkdownFile,
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
-	deleteMarkdownFile,
 } from './io';
-export type { MarkdownOperationError } from './io';
+// Types
+export type { MarkdownIndexConfig } from './markdown-index';
+// Main index implementation
+// Error types for custom serializers
+export {
+	MarkdownIndexErr,
+	MarkdownIndexError,
+	markdownIndex,
+} from './markdown-index';

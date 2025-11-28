@@ -339,16 +339,12 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 export function json<const TSchema extends Type>(opts: {
 	schema: TSchema;
 	nullable: true;
-	default?:
-		| TSchema['infer']
-		| (() => TSchema['infer']);
+	default?: TSchema['infer'] | (() => TSchema['infer']);
 }): JsonColumnSchema<TSchema, true>;
 export function json<const TSchema extends Type>(opts: {
 	schema: TSchema;
 	nullable?: false;
-	default?:
-		| TSchema['infer']
-		| (() => TSchema['infer']);
+	default?: TSchema['infer'] | (() => TSchema['infer']);
 }): JsonColumnSchema<TSchema, false>;
 export function json<const TSchema extends Type>({
 	schema,
@@ -357,9 +353,7 @@ export function json<const TSchema extends Type>({
 }: {
 	schema: TSchema;
 	nullable?: boolean;
-	default?:
-		| TSchema['infer']
-		| (() => TSchema['infer']);
+	default?: TSchema['infer'] | (() => TSchema['infer']);
 }): JsonColumnSchema<TSchema, boolean> {
 	return {
 		type: 'json',

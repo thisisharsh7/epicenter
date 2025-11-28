@@ -1,3 +1,4 @@
+import { type ArkErrors, type Type, type } from 'arktype';
 import type {
 	ColumnBuilderBase,
 	ColumnBuilderBaseConfig,
@@ -17,7 +18,6 @@ import type {
 	DateWithTimezone as DateWithTimezoneType,
 } from '../../../core/schema';
 import { DateWithTimezone, generateId } from '../../../core/schema';
-import { type, type ArkErrors, type Type } from 'arktype';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
@@ -291,7 +291,10 @@ type TagsArray<TOptions extends readonly string[] | undefined> =
 export function tags<
 	const TOptions extends readonly string[] | undefined = undefined,
 	TNullable extends boolean = false,
-	TDefault extends TagsArray<TOptions> | (() => TagsArray<TOptions>) | undefined = undefined,
+	TDefault extends
+		| TagsArray<TOptions>
+		| (() => TagsArray<TOptions>)
+		| undefined = undefined,
 >({
 	options,
 	nullable = false as TNullable,
@@ -392,8 +395,7 @@ export function json<
 		driverData: string;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: TSchema['infer']): string =>
-			JSON.stringify(value),
+		toDriver: (value: TSchema['infer']): string => JSON.stringify(value),
 		fromDriver: (value: string): TSchema['infer'] => {
 			// Let JSON.parse throw on invalid JSON
 			const parsed = JSON.parse(value);
@@ -401,9 +403,7 @@ export function json<
 			// Validate with Arktype
 			const result = schema(parsed) as TSchema['infer'] | ArkErrors;
 			if (result instanceof type.errors) {
-				throw new Error(
-					`JSON validation failed: ${result.summary}`,
-				);
+				throw new Error(`JSON validation failed: ${result.summary}`);
 			}
 
 			return result;

@@ -1,11 +1,10 @@
 import path from 'node:path';
 import {
-	type SerializedRow,
 	date,
 	defineWorkspace,
 	id,
-	isDateWithTimezoneString,
 	markdownIndex,
+	type SerializedRow,
 	sqliteIndex,
 	tags,
 	text,

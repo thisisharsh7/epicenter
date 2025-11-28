@@ -100,8 +100,8 @@ import MoreVerticalIcon from '@lucide/svelte/icons/more-vertical';
 // Bad: Don't import multiple icons from lucide-svelte
 import { Database, MinusIcon, MoreVerticalIcon } from 'lucide-svelte';
 
-// Bad: Don't import from @lucide/svelte root
-import { Database, MinusIcon, MoreVerticalIcon } from '@lucide/svelte';
+// Bad: Don't import from @lucide/svelte root (this is what NOT to do)
+// import { Database, MinusIcon, MoreVerticalIcon } from '@lucide/svelte';
 ```
 
 The path uses kebab-case (e.g., `more-vertical`, `minimize-2`), and you can name the import whatever you want (typically PascalCase with optional Icon suffix).

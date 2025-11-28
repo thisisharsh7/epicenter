@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createServer } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 

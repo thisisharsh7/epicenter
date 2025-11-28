@@ -21,7 +21,8 @@ import type { AnyWorkspaceConfig } from '../workspace';
  */
 export type EpicenterConfig<
 	TId extends string = string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
+	TWorkspaces extends
+		readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 > = {
 	/**
 	 * Unique identifier for this epicenter instance
@@ -90,7 +91,9 @@ export type EpicenterConfig<
 export function defineEpicenter<
 	const TId extends string,
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(config: EpicenterConfig<TId, TWorkspaces>): EpicenterConfig<TId, TWorkspaces> {
+>(
+	config: EpicenterConfig<TId, TWorkspaces>,
+): EpicenterConfig<TId, TWorkspaces> {
 	// Validate epicenter ID
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Epicenter must have a valid string ID');

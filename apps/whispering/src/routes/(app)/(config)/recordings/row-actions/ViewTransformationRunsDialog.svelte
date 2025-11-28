@@ -5,7 +5,7 @@
 	import * as Dialog from '@repo/ui/dialog';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { HistoryIcon } from '@lucide/svelte';
+	import HistoryIcon from '@lucide/svelte/icons/history';
 
 	let { recordingId }: { recordingId: string } = $props();
 

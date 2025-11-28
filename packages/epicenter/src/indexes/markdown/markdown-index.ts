@@ -8,9 +8,9 @@ import { defineQuery } from '../../core/actions';
 import type { TableHelper } from '../../core/db/table-helper';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
+	defineIndexExports,
 	type Index,
 	type IndexContext,
-	defineIndexExports,
 } from '../../core/indexes';
 import type {
 	Row,
@@ -457,7 +457,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 				// Check if we need to clean up an old file before updating tracking
 				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-				const oldFilename = tracking[table.name]!.getFilename({ rowId: row.id });
+				const oldFilename = tracking[table.name]!.getFilename({
+					rowId: row.id,
+				});
 
 				/**
 				 * This is checking if there's an old filename AND if it's different
@@ -497,8 +499,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							IndexError({
 								message: `YJS observer onAdd: validation failed for ${table.name}`,
-								context: { tableName: table.name, validationErrors: result.error.summary },
-								cause: undefined,
+								context: result.error.context,
+								cause: result.error,
 							}),
 						);
 						return;
@@ -530,8 +532,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							IndexError({
 								message: `YJS observer onUpdate: validation failed for ${table.name}`,
-								context: { tableName: table.name, validationErrors: result.error.summary },
-								cause: undefined,
+								context: result.error.context,
+								cause: result.error,
 							}),
 						);
 						return;
@@ -614,7 +616,10 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 				catch: (error) =>
 					IndexErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
-						context: { tableName: table.name, directory: tableConfig.directory },
+						context: {
+							tableName: table.name,
+							directory: tableConfig.directory,
+						},
 					}),
 			});
 
@@ -647,7 +652,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 						if (!exists) {
 							// File was deleted: find and delete the row
-							const rowIdToDelete = tracking[table.name]?.getRowId({ filename });
+							const rowIdToDelete = tracking[table.name]?.getRowId({
+								filename,
+							});
 
 							if (rowIdToDelete) {
 								if (table.has({ id: rowIdToDelete })) {
@@ -987,7 +994,11 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									logger.log(
 										IndexError({
 											message: `pullToMarkdown: failed to write ${filePath}`,
-											context: { filePath, tableName: table.name, rowId: row.id },
+											context: {
+												filePath,
+												tableName: table.name,
+												rowId: row.id,
+											},
 											cause: error,
 										}),
 									);

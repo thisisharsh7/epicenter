@@ -1,8 +1,8 @@
 import type { WorkspaceExports } from '../actions';
 import type { Db } from '../db/core';
 import type { Index, WorkspaceIndexMap } from '../indexes';
-import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { Provider } from '../provider';
+import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.

@@ -243,9 +243,7 @@ describe('DATE_WITH_TIMEZONE_STRING_REGEX', () => {
 		});
 
 		test('date only with timezone', () => {
-			expect(DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01|UTC')).toBe(
-				true,
-			);
+			expect(DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01|UTC')).toBe(true);
 		});
 
 		test('datetime with offset and timezone', () => {

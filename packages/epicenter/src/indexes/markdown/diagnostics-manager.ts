@@ -321,12 +321,10 @@ export function createDiagnosticsManager({
 	 * @param operation - Async operation to queue (usually writeToDisk)
 	 */
 	function queueWrite(operation: () => Promise<void>): void {
-		writeQueue = writeQueue
-			.then(operation)
-			.catch((error) => {
-				// Log error but don't break the queue
-				console.error('Queued write operation failed:', error);
-			});
+		writeQueue = writeQueue.then(operation).catch((error) => {
+			// Log error but don't break the queue
+			console.error('Queued write operation failed:', error);
+		});
 	}
 
 	return {
