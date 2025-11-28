@@ -59,6 +59,24 @@ const syncResult = trySync({
 4. **Match return types** - If the try block returns `T`, the catch should return `Ok<T>` for graceful handling
 5. **Use Ok(undefined) for void** - When the function returns void, use `Ok(undefined)` in the catch
 6. **Return Err for propagation** - Use custom error constructors that return `Err` when you want to propagate the error
+7. **CRITICAL: Wrap destructured errors with Err()** - When you destructure `{ data, error }` from tryAsync/trySync, the `error` variable is the raw error value, NOT wrapped in `Err`. You must wrap it before returning:
+
+```typescript
+// WRONG - error is just the raw TaggedError, not a Result
+const { data, error } = await tryAsync({...});
+if (error) return error; // TYPE ERROR: Returns TaggedError, not Result
+
+// CORRECT - wrap with Err() to return a proper Result
+const { data, error } = await tryAsync({...});
+if (error) return Err(error); // Returns Err<TaggedError>
+```
+
+This is different from returning the entire result object:
+```typescript
+// This is also correct - userResult is already a Result type
+const userResult = await tryAsync({...});
+if (userResult.error) return userResult; // Returns the full Result
+```
 
 ### Examples
 

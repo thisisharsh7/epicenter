@@ -8,6 +8,7 @@
 	},
 	"dependencies": {
 		"@epicenter/hq": "workspace:*",
+		"@wxt-dev/browser": "^0.1.4",
 		"arktype": "catalog:",
 		"defuddle": "^0.6.6",
 		"drizzle-orm": "^0.44.7",
