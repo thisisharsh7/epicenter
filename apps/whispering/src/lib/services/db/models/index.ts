@@ -20,6 +20,12 @@ export {
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
 } from './transformation-runs';
+export type {
+	TransformationStepV1,
+	TransformationStepV2,
+	TransformationV1,
+	TransformationV2,
+} from './transformations';
 // Transformations
 export {
 	generateDefaultTransformation,

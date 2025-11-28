@@ -492,7 +492,7 @@ export function createFileSystemDb(): DbService {
 						const transformations = contents.map((content) => {
 							const { data } = matter(content);
 
-							// Validate with arktype schema
+							// Validate with migrating schema (accepts V1 or V2, outputs V2)
 							const validated = Transformation(data);
 							if (validated instanceof type.errors) {
 								console.error(`Invalid transformation:`, validated.summary);
@@ -526,7 +526,7 @@ export function createFileSystemDb(): DbService {
 						const content = await readTextFile(mdPath);
 						const { data } = matter(content);
 
-						// Validate with arktype schema
+						// Validate with migrating schema (accepts V1 or V2, outputs V2)
 						const validated = Transformation(data);
 						if (validated instanceof type.errors) {
 							throw new Error(`Invalid transformation: ${validated.summary}`);

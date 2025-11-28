@@ -24,9 +24,16 @@ export const TRANSFORMATION_STEP_TYPES_TO_LABELS = {
  */
 const CURRENT_TRANSFORMATION_STEP_VERSION = 2 as const;
 
+// ============================================================================
+// SHARED BASE FIELDS
+// ============================================================================
+// These are shared between V1 and V2. If V3 needs different base fields,
+// create a new base or define V3 from scratch.
+// ============================================================================
+
 /**
- * Base fields shared across all TransformationStep versions.
- * These fields exist in every version of the schema.
+ * Base fields shared between TransformationStep V1 and V2.
+ * FROZEN for V1/V2: Do not modify without considering impact on both versions.
  */
 const TransformationStepBaseFields = {
 	id: 'string',
@@ -56,11 +63,28 @@ const TransformationStepBaseFields = {
 } as const;
 
 /**
- * V1: Original schema without Custom provider fields or version.
+ * Base fields shared between Transformation V1 and V2.
+ * FROZEN for V1/V2: Do not modify without considering impact on both versions.
+ */
+const TransformationBaseFields = {
+	id: 'string',
+	title: 'string',
+	description: 'string',
+	createdAt: 'string',
+	updatedAt: 'string',
+} as const;
+
+// ============================================================================
+// VERSION 1 (FROZEN)
+// ============================================================================
+
+/**
+ * V1: Original schema without Custom provider fields.
  * Old data has no version field, so we default to 1.
+ *
+ * FROZEN: Do not modify. This represents the historical V1 schema.
  */
 const TransformationStepV1 = type({
-	// Version defaults to 1 for old data that doesn't have it
 	version: '1 = 1',
 	...TransformationStepBaseFields,
 });
@@ -68,9 +92,29 @@ const TransformationStepV1 = type({
 export type TransformationStepV1 = typeof TransformationStepV1.infer;
 
 /**
+ * V1 Transformation type for Dexie migration typing.
+ *
+ * FROZEN: Do not modify. This represents the historical V1 schema.
+ */
+export type TransformationV1 = {
+	id: string;
+	title: string;
+	description: string;
+	createdAt: string;
+	updatedAt: string;
+	steps: TransformationStepV1[];
+};
+
+// ============================================================================
+// VERSION 2 (CURRENT)
+// ============================================================================
+
+/**
  * V2: Added Custom provider fields for local LLM endpoints.
  * - Custom.model: Model name for custom endpoints
  * - Custom.baseUrl: Per-step base URL (falls back to global setting)
+ *
+ * CURRENT VERSION: This is the latest schema.
  */
 const TransformationStepV2 = type({
 	version: '2',
@@ -90,60 +134,68 @@ const TransformationStepV2 = type({
 export type TransformationStepV2 = typeof TransformationStepV2.infer;
 
 /**
- * TransformationStep input validator - accepts V1 or V2 data.
- * Used internally for validation before migration.
+ * V2 Transformation schema.
+ *
+ * CURRENT VERSION: This is the latest schema.
  */
-const TransformationStepInput = TransformationStepV1.or(TransformationStepV2);
+const TransformationV2 = type({
+	...TransformationBaseFields,
+	steps: [TransformationStepV2, '[]'],
+});
+
+export type TransformationV2 = typeof TransformationV2.infer;
+
+// ============================================================================
+// MIGRATING VALIDATORS
+// ============================================================================
+// These accept any version and migrate to the latest (V2).
+// Use these when reading data that might be from an older schema version.
+// ============================================================================
+
+/**
+ * Migrates a TransformationStep from V1 to V2.
+ */
+function migrateStepV1ToV2(step: TransformationStepV1): TransformationStepV2 {
+	return {
+		...step,
+		version: 2,
+		'prompt_transform.inference.provider.Custom.model': '',
+		'prompt_transform.inference.provider.Custom.baseUrl': '',
+	};
+}
 
 /**
  * TransformationStep validator with automatic migration.
- *
- * Accepts any version of the schema and migrates to the latest (V2).
- * The .pipe() transform ensures the output is always the current version.
- *
- * Use this when validating individual steps outside of a Transformation context.
+ * Accepts V1 or V2 and always outputs V2.
  */
-export const TransformationStep = TransformationStepInput.pipe(
-	(step): TransformationStepV2 => {
-		if (step.version === 1) {
-			return {
-				...step,
-				version: 2,
-				'prompt_transform.inference.provider.Custom.model': '',
-				'prompt_transform.inference.provider.Custom.baseUrl': '',
-			};
-		}
-		return step;
-	},
-);
+export const TransformationStep = TransformationStepV1.or(
+	TransformationStepV2,
+).pipe((step): TransformationStepV2 => {
+	if (step.version === 1) {
+		return migrateStepV1ToV2(step);
+	}
+	return step;
+});
+
+export type TransformationStep = TransformationStepV2;
 
 /**
- * The current TransformationStep type (always the latest version).
- * This is the output type after validation and migration.
- */
-export type TransformationStep = typeof TransformationStep.infer;
-
-/**
- * Transformation schema.
- * Step migration happens automatically via TransformationStep's .pipe() validator.
+ * Transformation validator with automatic step migration.
+ * Accepts transformations with V1 or V2 steps and migrates all steps to V2.
+ * Use this when reading data that might contain old schema versions.
  */
 export const Transformation = type({
-	id: 'string',
-	title: 'string',
-	description: 'string',
-	createdAt: 'string',
-	updatedAt: 'string',
-	/**
-	 * It can be one of several types of text transformations:
-	 * - find_replace: Replace text patterns with new text
-	 * - prompt_transform: Use AI to transform text based on prompts
-	 */
+	...TransformationBaseFields,
 	steps: [TransformationStep, '[]'],
 });
 
-export type Transformation = typeof Transformation.infer;
+export type Transformation = TransformationV2;
 
-export function generateDefaultTransformation(): Transformation {
+// ============================================================================
+// FACTORY FUNCTIONS
+// ============================================================================
+
+export function generateDefaultTransformation(): TransformationV2 {
 	const now = new Date().toISOString();
 	return {
 		id: nanoid(),
@@ -155,7 +207,7 @@ export function generateDefaultTransformation(): Transformation {
 	};
 }
 
-export function generateDefaultTransformationStep(): TransformationStep {
+export function generateDefaultTransformationStep(): TransformationStepV2 {
 	return {
 		version: CURRENT_TRANSFORMATION_STEP_VERSION,
 		id: nanoid(),
