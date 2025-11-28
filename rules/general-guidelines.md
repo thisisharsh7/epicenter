@@ -38,3 +38,13 @@ Into this: linear flow that mirrors human decision-making
 Be brutally honest, don't be a yes man.
 If I am wrong, point it out bluntly.
 I need honest feedback on my code.
+
+# Spec Placement
+
+Specs always live at the root level of their scope (not inside `docs/`):
+
+- **`/docs/specs/`** - Cross-cutting features, architecture decisions, general tooling
+- **`/apps/[app]/specs/`** - Features specific to one app only
+- **`/packages/[pkg]/specs/`** - Package-specific implementation details
+
+When in doubt, use `/docs/specs/`. Move to app/package-specific only if the spec truly belongs there.
