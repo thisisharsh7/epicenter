@@ -54,5 +54,5 @@ export default defineEpicenter({
 		// Browser tab/window state (shadow database for extension)
 		browser,
 	],
-	storageDir: '/Users/braden/Code/EpicenterHQ',
+	storageDir: '/Users/braden/Code/epicenter-md',
 });
