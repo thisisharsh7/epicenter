@@ -322,18 +322,18 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
-	const { id, db, storageDir } = context;
+	const { id, db, storageDir, epicenterDir } = context;
 	const { directory = `./${id}`, tableConfigs = {} as TableConfigs<TSchema> } =
 		config;
 	// Require Node.js environment with filesystem access
-	if (!storageDir) {
+	if (!storageDir || !epicenterDir) {
 		throw new Error(
 			'Markdown index requires Node.js environment with filesystem access',
 		);
 	}
 
 	// Shared config directory for markdown index files
-	const markdownConfigDir = path.join(storageDir, '.epicenter', 'markdown');
+	const markdownConfigDir = path.join(epicenterDir, 'markdown');
 
 	// Create diagnostics manager for tracking validation errors (current state)
 	const diagnostics = createDiagnosticsManager({

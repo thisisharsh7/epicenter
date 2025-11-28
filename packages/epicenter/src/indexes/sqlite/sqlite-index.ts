@@ -82,10 +82,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	id,
 	schema,
 	db,
-	storageDir,
+	epicenterDir,
 }: IndexContext<TSchema>) => {
 	// Require Node.js environment with filesystem access
-	if (!storageDir) {
+	if (!epicenterDir) {
 		throw new Error(
 			'SQLite index requires Node.js environment with filesystem access',
 		);
@@ -95,7 +95,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
 	// Set up storage paths
-	const databasePath = path.join(storageDir, '.epicenter', `${id}.db`);
+	const databasePath = path.join(epicenterDir, `${id}.db`);
 	await mkdir(path.dirname(databasePath), { recursive: true });
 
 	// Create database connection with schema for proper type inference
@@ -106,7 +106,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	// Create error logger for this index
-	const logPath = path.join(storageDir, '.epicenter', 'sqlite', `${id}.log`);
+	const logPath = path.join(epicenterDir, 'sqlite', `${id}.log`);
 	const logger = createIndexLogger({ logPath });
 
 	/**
