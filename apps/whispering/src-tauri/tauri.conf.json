@@ -8,6 +8,9 @@
 	"bundle": {
 		"active": true,
 		"category": "Productivity",
+		"publisher": "Braden Wong",
+		"copyright": "Copyright © 2025 Braden Wong",
+		"homepage": "https://whispering.epicenter.so",
 		"targets": "all",
 		"icon": [
 			"icons/32x32.png",
@@ -32,7 +35,15 @@
 		},
 		"windows": {
 			"webviewInstallMode": {
-				"type": "downloadBootstrapper"
+				"type": "embedBootstrapper"
+			},
+			"wix": {
+				"fipsCompliant": true,
+				"language": "en-US"
+			},
+			"nsis": {
+				"compression": "bzip2",
+				"installMode": "currentUser"
 			}
 		}
 	},
