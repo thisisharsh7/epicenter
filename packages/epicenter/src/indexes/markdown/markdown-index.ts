@@ -410,9 +410,15 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		const userConfig = userTableConfigs[table.name];
 
 		// Resolved config with all fields guaranteed (merged with DEFAULT_TABLE_CONFIG)
+		// Each field is optional in TableMarkdownConfig, so we fallback to defaults individually
 		const tableConfig = {
+			// Use user's serialize if provided, otherwise default (all fields → frontmatter, empty body, filename = "{id}.md")
 			serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
+
+			// Use user's deserialize if provided, otherwise default (id from filename, frontmatter validated against schema)
 			deserialize: userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
+
+			// Use user's directory if provided, otherwise default to table name (e.g., "posts" → workspace-dir/posts)
 			directory: path.resolve(
 				absoluteWorkspaceDir,
 				userConfig?.directory ?? table.name,
