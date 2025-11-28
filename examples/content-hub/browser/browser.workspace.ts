@@ -14,8 +14,44 @@ import {
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type Browser, browser as browserApi } from '@wxt-dev/browser';
 import { type } from 'arktype';
-import { extractErrorMessage } from 'wellcrafted/error';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Error when a tab is not found in the database
+ */
+const { TabNotFoundErr } = createTaggedError<
+	'TabNotFoundError',
+	{ tabId: string }
+>('TabNotFoundError');
+
+/**
+ * Error when a window is not found in the database
+ */
+const { WindowNotFoundErr } = createTaggedError<
+	'WindowNotFoundError',
+	{ windowId: string }
+>('WindowNotFoundError');
+
+/**
+ * Error when a browser API call fails
+ */
+const { BrowserApiErr } = createTaggedError<
+	'BrowserApiError',
+	{ operation: string; error: string; tabId?: string; windowId?: string }
+>('BrowserApiError');
+
+/**
+ * Error when the browser returns an unexpected response
+ */
+const { BrowserResponseErr } = createTaggedError<
+	'BrowserResponseError',
+	{ operation: string; details: string }
+>('BrowserResponseError');
 
 /**
  * String literal types derived from Browser enums using template literal pattern.
@@ -224,9 +260,12 @@ export const browser = defineWorkspace({
 				const { data: windows, error: fetchError } = await tryAsync({
 					try: () => browserApi.windows.getAll({ populate: true }),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to fetch windows from browser',
-							context: { error: extractErrorMessage(e) },
+							context: {
+								operation: 'windows.getAll',
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (fetchError) return Err(fetchError);
@@ -302,18 +341,23 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
 				if (!result?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = result.data;
 
-				const browserId = tab.browserId;
-
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.remove(browserId),
+					try: () => browserApi.tabs.remove(tab.browserId),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to close tab',
-							context: { tabId, browserId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.remove',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
@@ -340,7 +384,10 @@ export const browser = defineWorkspace({
 				if (windowId) {
 					const winResult = db.windows.get({ id: windowId });
 					if (!winResult?.data) {
-						return Err({ message: 'Window not found', context: { windowId } });
+						return WindowNotFoundErr({
+							message: 'Window not found',
+							context: { windowId },
+						});
 					}
 					browserWindowId = winResult.data.browserId;
 				}
@@ -354,14 +401,24 @@ export const browser = defineWorkspace({
 							index,
 						}),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to create tab',
-							context: { error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.create',
+								windowId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
 				if (newTab.id === undefined) {
-					return Err({ message: 'Browser did not return tab ID' });
+					return BrowserResponseErr({
+						message: 'Browser did not return tab ID',
+						context: {
+							operation: 'tabs.create',
+							details: 'Tab ID is undefined',
+						},
+					});
 				}
 
 				// Need to find which window the tab ended up in
@@ -370,7 +427,13 @@ export const browser = defineWorkspace({
 					db.windows.getAll().find((w) => w.browserId === newTab.windowId)?.id;
 
 				if (!targetWindowId) {
-					return Err({ message: 'Could not determine window for new tab' });
+					return BrowserResponseErr({
+						message: 'Could not determine window for new tab',
+						context: {
+							operation: 'tabs.create',
+							details: 'Window lookup failed',
+						},
+					});
 				}
 
 				const tabId = generateId();
@@ -412,32 +475,40 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId, windowId, index }) => {
 				const tabResult = db.tabs.get({ id: tabId });
 				if (!tabResult?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = tabResult.data;
-
-				const browserId = tab.browserId;
 
 				// Look up browser window ID if provided
 				let browserWindowId: number | undefined;
 				if (windowId) {
 					const winResult = db.windows.get({ id: windowId });
 					if (!winResult?.data) {
-						return Err({ message: 'Window not found', context: { windowId } });
+						return WindowNotFoundErr({
+							message: 'Window not found',
+							context: { windowId },
+						});
 					}
 					browserWindowId = winResult.data.browserId;
 				}
 
 				const { data: movedTab, error } = await tryAsync({
 					try: () =>
-						browserApi.tabs.move(browserId, {
+						browserApi.tabs.move(tab.browserId, {
 							windowId: browserWindowId,
 							index,
 						}),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to move tab',
-							context: { tabId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.move',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
@@ -469,18 +540,23 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
 				if (!result?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = result.data;
 
-				const browserId = tab.browserId;
-
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(browserId, { pinned: true }),
+					try: () => browserApi.tabs.update(tab.browserId, { pinned: true }),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to pin tab',
-							context: { tabId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.update',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
@@ -499,18 +575,23 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
 				if (!result?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = result.data;
 
-				const browserId = tab.browserId;
-
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(browserId, { pinned: false }),
+					try: () => browserApi.tabs.update(tab.browserId, { pinned: false }),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to unpin tab',
-							context: { tabId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.update',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
@@ -529,18 +610,23 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
 				if (!result?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = result.data;
 
-				const browserId = tab.browserId;
-
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(browserId, { muted: true }),
+					try: () => browserApi.tabs.update(tab.browserId, { muted: true }),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to mute tab',
-							context: { tabId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.update',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
@@ -559,18 +645,23 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
 				if (!result?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = result.data;
 
-				const browserId = tab.browserId;
-
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(browserId, { muted: false }),
+					try: () => browserApi.tabs.update(tab.browserId, { muted: false }),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to unmute tab',
-							context: { tabId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.update',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
@@ -589,18 +680,23 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
 				if (!result?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = result.data;
 
-				const browserId = tab.browserId;
-
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.reload(browserId),
+					try: () => browserApi.tabs.reload(tab.browserId),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to reload tab',
-							context: { tabId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.reload',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
@@ -619,23 +715,34 @@ export const browser = defineWorkspace({
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
 				if (!result?.data) {
-					return Err({ message: 'Tab not found', context: { tabId } });
+					return TabNotFoundErr({
+						message: 'Tab not found',
+						context: { tabId },
+					});
 				}
 				const tab = result.data;
 
-				const browserId = tab.browserId;
-
 				const { data: newTab, error } = await tryAsync({
-					try: () => browserApi.tabs.duplicate(browserId),
+					try: () => browserApi.tabs.duplicate(tab.browserId),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to duplicate tab',
-							context: { tabId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'tabs.duplicate',
+								tabId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
 				if (!newTab || newTab.id === undefined) {
-					return Err({ message: 'Browser did not return duplicated tab' });
+					return BrowserResponseErr({
+						message: 'Browser did not return duplicated tab',
+						context: {
+							operation: 'tabs.duplicate',
+							details: 'Tab ID is undefined',
+						},
+					});
 				}
 
 				const newTabId = generateId();
@@ -678,18 +785,23 @@ export const browser = defineWorkspace({
 			handler: async ({ windowId }) => {
 				const winResult = db.windows.get({ id: windowId });
 				if (!winResult?.data) {
-					return Err({ message: 'Window not found', context: { windowId } });
+					return WindowNotFoundErr({
+						message: 'Window not found',
+						context: { windowId },
+					});
 				}
 				const win = winResult.data;
 
-				const browserId = win.browserId;
-
 				const { error } = await tryAsync({
-					try: () => browserApi.windows.remove(browserId),
+					try: () => browserApi.windows.remove(win.browserId),
 					catch: (e) =>
-						Err({
+						BrowserApiErr({
 							message: 'Failed to close window',
-							context: { windowId, error: extractErrorMessage(e) },
+							context: {
+								operation: 'windows.remove',
+								windowId,
+								error: extractErrorMessage(e),
+							},
 						}),
 				});
 				if (error) return Err(error);
