@@ -499,11 +499,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							IndexError({
 								message: `YJS observer onAdd: validation failed for ${table.name}`,
-								context: {
-									tableName: table.name,
-									validationErrors: result.error.summary,
-								},
-								cause: undefined,
+								context: result.error.context,
+								cause: result.error,
 							}),
 						);
 						return;
@@ -535,11 +532,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							IndexError({
 								message: `YJS observer onUpdate: validation failed for ${table.name}`,
-								context: {
-									tableName: table.name,
-									validationErrors: result.error.summary,
-								},
-								cause: undefined,
+								context: result.error.context,
+								cause: result.error,
 							}),
 						);
 						return;

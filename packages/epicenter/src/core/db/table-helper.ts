@@ -1,6 +1,6 @@
 import { type ArkErrors, type } from 'arktype';
-import { createTaggedError } from 'wellcrafted/error';
-import { Err, Ok, type Result } from 'wellcrafted/result';
+import { createTaggedError, type TaggedError } from 'wellcrafted/error';
+import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { defineMutation, defineQuery } from '../actions';
 import type {
@@ -29,6 +29,29 @@ export type RowAlreadyExistsError = ReturnType<typeof RowAlreadyExistsError>;
 export const { RowNotFoundError, RowNotFoundErr } =
 	createTaggedError('RowNotFoundError');
 export type RowNotFoundError = ReturnType<typeof RowNotFoundError>;
+
+/**
+ * Context for row validation errors
+ */
+type RowValidationContext = {
+	tableName: string;
+	id: string;
+	errors: ArkErrors;
+	summary: string;
+};
+
+/**
+ * Error thrown when a row fails schema validation
+ */
+export const { RowValidationError, RowValidationErr } = createTaggedError<
+	'RowValidationError',
+	RowValidationContext
+>('RowValidationError');
+
+export type RowValidationError = TaggedError<
+	'RowValidationError',
+	RowValidationContext
+>;
 
 /**
  * YJS representation of a row
@@ -148,7 +171,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					return RowAlreadyExistsErr({
 						message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
 						context: { tableName, operation: 'insert', id: serializedRow.id },
-						cause: undefined,
 					});
 				}
 
@@ -187,7 +209,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 							operation: 'update',
 							id: partialSerializedRow.id,
 						},
-						cause: undefined,
 					});
 				}
 
@@ -239,7 +260,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 								operation: 'insertMany',
 								id: serializedRow.id,
 							},
-							cause: undefined,
 						});
 					}
 				}
@@ -289,7 +309,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 								operation: 'updateMany',
 								id: partialSerializedRow.id,
 							},
-							cause: undefined,
 						});
 					}
 				}
@@ -317,14 +336,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @returns
 		 * - `null` if row doesn't exist
 		 * - `Ok(row)` if row exists and is valid
-		 * - `Err(errors)` if row exists but fails validation
+		 * - `Err(RowValidationError)` if row exists but fails validation
 		 */
 		get: defineQuery({
 			input: type({
 				id: 'string',
 			}),
 			description: `Get a row by ID from the ${tableName} table`,
-			handler: (params): Result<TRow, ArkErrors> | null => {
+			handler: (params): Result<TRow, RowValidationError> | null => {
 				const yrow = ytable.get(params.id);
 				if (!yrow) {
 					return null;
@@ -335,7 +354,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				const result = yjsValidator(row);
 
 				if (result instanceof type.errors) {
-					return Err(result);
+					return RowValidationErr({
+						message: `Row '${params.id}' in table '${tableName}' failed validation`,
+						context: {
+							tableName,
+							id: params.id,
+							errors: result,
+							summary: result.summary,
+						},
+					});
 				}
 
 				return Ok(row);
@@ -368,21 +395,31 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 		/**
 		 * Get validation errors for all invalid rows.
-		 * Returns an array of arktype error objects for rows that fail validation.
+		 * Returns an array of RowValidationError objects for rows that fail validation.
 		 * Valid rows are skipped.
 		 */
 		getAllInvalid: defineQuery({
 			description: `Get validation errors for invalid rows in the ${tableName} table`,
-			handler: (): ArkErrors[] => {
-				const errors: ArkErrors[] = [];
+			handler: (): RowValidationError[] => {
+				const errors: RowValidationError[] = [];
 				const yjsValidator = validators.toYjsArktype();
 
-				for (const yrow of ytable.values()) {
+				for (const [id, yrow] of ytable.entries()) {
 					const row = buildRowFromYRow(yrow, schema);
 					const result = yjsValidator(row);
 
 					if (result instanceof type.errors) {
-						errors.push(result);
+						errors.push(
+							RowValidationError({
+								message: `Row '${id}' in table '${tableName}' failed validation`,
+								context: {
+									tableName,
+									id,
+									errors: result,
+									summary: result.summary,
+								},
+							}),
+						);
 					}
 				}
 
@@ -628,8 +665,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observe(callbacks: {
-			onAdd?: (result: Result<TRow, ArkErrors>) => void | Promise<void>;
-			onUpdate?: (result: Result<TRow, ArkErrors>) => void | Promise<void>;
+			onAdd?: (result: Result<TRow, RowValidationError>) => void | Promise<void>;
+			onUpdate?: (
+				result: Result<TRow, RowValidationError>,
+			) => void | Promise<void>;
 			onDelete?: (id: string) => void | Promise<void>;
 		}): () => void {
 			const yjsValidator = validators.toYjsArktype();
@@ -648,7 +687,17 @@ function createTableHelper<TTableSchema extends TableSchema>({
 									const result = yjsValidator(row);
 
 									if (result instanceof type.errors) {
-										callbacks.onAdd?.(Err(result));
+										callbacks.onAdd?.(
+											RowValidationErr({
+												message: `Row '${key}' in table '${tableName}' failed validation`,
+												context: {
+													tableName,
+													id: key,
+													errors: result,
+													summary: result.summary,
+												},
+											}),
+										);
 									} else {
 										callbacks.onAdd?.(Ok(row));
 									}
@@ -674,7 +723,17 @@ function createTableHelper<TTableSchema extends TableSchema>({
 							const result = yjsValidator(row);
 
 							if (result instanceof type.errors) {
-								callbacks.onUpdate?.(Err(result));
+								callbacks.onUpdate?.(
+									RowValidationErr({
+										message: `Row '${rowId}' in table '${tableName}' failed validation`,
+										context: {
+											tableName,
+											id: rowId,
+											errors: result,
+											summary: result.summary,
+										},
+									}),
+								);
 							} else {
 								callbacks.onUpdate?.(Ok(row));
 							}
