@@ -295,8 +295,8 @@
 
 						<div>
 							<p class="text-sm font-medium">
-								<span class="text-muted-foreground">Step 4:</span> Configure the
-								settings below
+								<span class="text-muted-foreground">Step 4:</span> Configure the settings
+								below
 							</p>
 							<ul class="ml-6 mt-2 space-y-1 text-sm text-muted-foreground">
 								<li class="list-disc">Enter your Speaches server URL</li>

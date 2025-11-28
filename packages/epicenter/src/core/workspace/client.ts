@@ -464,7 +464,7 @@ export async function createWorkspaceClient<
 		process.versions != null &&
 		process.versions.node != null;
 
-	let resolvedStorageDir: AbsolutePath | undefined ;
+	let resolvedStorageDir: AbsolutePath | undefined;
 	if (isNode) {
 		resolvedStorageDir = path.resolve(process.cwd()) as AbsolutePath;
 	}

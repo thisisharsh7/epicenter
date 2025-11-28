@@ -25,7 +25,8 @@ export async function startServer(
 
 	const { app, client } = await createServer(config);
 	const port =
-		options.port ?? Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
+		options.port ??
+		Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
 
 	const server = Bun.serve({
 		fetch: app.fetch,

@@ -88,7 +88,7 @@ export function createMcpServer<
 			const args = request.params.arguments || {};
 
 			// Validate input with Standard Schema
-			let validatedInput: unknown ;
+			let validatedInput: unknown;
 			if (action.input) {
 				let result = action.input['~standard'].validate(args);
 				if (result instanceof Promise) result = await result;

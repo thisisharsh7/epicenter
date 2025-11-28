@@ -1,9 +1,9 @@
 import path from 'node:path';
+import type { EpicenterDir } from '@epicenter/hq';
 import { google } from 'googleapis';
 import open from 'open';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import type { EpicenterDir } from '@epicenter/hq';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -80,7 +80,10 @@ export async function loadTokens(epicenterDir: EpicenterDir) {
 	return Ok(tokens);
 }
 
-export async function saveTokens(epicenterDir: EpicenterDir, tokens: GmailTokens) {
+export async function saveTokens(
+	epicenterDir: EpicenterDir,
+	tokens: GmailTokens,
+) {
 	const tokenPath = getTokenPath(epicenterDir);
 
 	const { error } = await tryAsync({
