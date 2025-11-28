@@ -423,10 +423,12 @@ async function createTablesIfNotExist<
 				constraints += ' UNIQUE';
 			}
 
-			columnDefs.push(`${column.name} ${sqlType}${constraints}`);
+			// Quote column names to handle SQLite reserved keywords (e.g., "from", "to", "order")
+			columnDefs.push(`"${column.name}" ${sqlType}${constraints}`);
 		}
 
-		const createTableSQL = `CREATE TABLE IF NOT EXISTS ${tableConfig.name} (${columnDefs.join(', ')})`;
+		// Quote table name as well for consistency
+		const createTableSQL = `CREATE TABLE IF NOT EXISTS "${tableConfig.name}" (${columnDefs.join(', ')})`;
 		await db.run(sql.raw(createTableSQL));
 	}
 }
