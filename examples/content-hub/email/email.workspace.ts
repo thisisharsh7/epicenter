@@ -52,8 +52,8 @@ export const email = defineWorkspace({
 				nullable: true,
 			}),
 			date: date(),
-			createdAt: date(),
-			updatedAt: date(),
+			created_at: date(),
+			updated_at: date(),
 		},
 	},
 
@@ -92,8 +92,8 @@ export const email = defineWorkspace({
 								tags: frontmatterParsed.tags ?? null,
 								subject: frontmatterParsed.subject,
 								date: frontmatterParsed.date,
-								createdAt: frontmatterParsed.createdAt,
-								updatedAt: frontmatterParsed.updatedAt,
+								created_at: frontmatterParsed.created_at,
+								updated_at: frontmatterParsed.updated_at,
 							} satisfies SerializedRow<typeof table.schema>;
 							return Ok(row);
 						},

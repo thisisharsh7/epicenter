@@ -53,18 +53,18 @@ const { EmailNotFoundErr } = createTaggedError<
 
 const EMAILS_SCHEMA = {
 	id: id(),
-	gmailId: text(),
-	threadId: text(),
+	gmail_id: text(),
+	thread_id: text(),
 	subject: text(),
 	from: text(),
 	to: text(),
 	snippet: text(),
 	body: text(),
 	date: date(),
-	receivedAt: date(),
+	received_at: date(),
 	labels: text({ nullable: true }),
-	isRead: boolean({ default: false }),
-	isStarred: boolean({ default: false }),
+	is_read: boolean({ default: false }),
+	is_starred: boolean({ default: false }),
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -299,7 +299,7 @@ export const gmail = defineWorkspace({
 					// Check if already exists
 					const existing = db.emails
 						.getAll()
-						.find((e) => e.gmailId === gmailId);
+						.find((e) => e.gmail_id === gmailId);
 					if (existing) {
 						// Skip already synced emails
 						continue;
@@ -335,8 +335,8 @@ export const gmail = defineWorkspace({
 
 					db.emails.insert({
 						id: generateId(),
-						gmailId: message.id ?? gmailId,
-						threadId: message.threadId ?? '',
+						gmail_id: message.id ?? gmailId,
+						thread_id: message.threadId ?? '',
 						subject: getHeader(headers, 'Subject'),
 						from: getHeader(headers, 'From'),
 						to: getHeader(headers, 'To'),
@@ -346,10 +346,10 @@ export const gmail = defineWorkspace({
 							date: emailDate,
 							timezone: 'UTC',
 						}).toJSON(),
-						receivedAt: now,
+						received_at: now,
 						labels: labelsToString(labels),
-						isRead: !hasLabel(labels, 'UNREAD'),
-						isStarred: hasLabel(labels, 'STARRED'),
+						is_read: !hasLabel(labels, 'UNREAD'),
+						is_starred: hasLabel(labels, 'STARRED'),
 					});
 
 					syncedCount++;
@@ -406,7 +406,7 @@ export const gmail = defineWorkspace({
 					try: () =>
 						gmailApi.users.messages.delete({
 							userId: 'me',
-							id: email.gmailId,
+							id: email.gmail_id,
 						}),
 					catch: (e) =>
 						GmailApiErr({
@@ -466,7 +466,7 @@ export const gmail = defineWorkspace({
 					try: () =>
 						gmailApi.users.messages.trash({
 							userId: 'me',
-							id: email.gmailId,
+							id: email.gmail_id,
 						}),
 					catch: (e) =>
 						GmailApiErr({
