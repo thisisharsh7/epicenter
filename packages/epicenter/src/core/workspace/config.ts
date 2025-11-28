@@ -3,7 +3,7 @@ import type { Db } from '../db/core';
 import type { Index, WorkspaceIndexMap } from '../indexes';
 import type { Provider } from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
-import type { AbsolutePath } from '../types';
+import type { AbsolutePath, EpicenterDir } from '../types';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -213,6 +213,7 @@ export type WorkspaceConfig<
 		workspaces: WorkspacesToExports<TDeps>;
 		indexes: TIndexResults;
 		storageDir: AbsolutePath | undefined;
+		epicenterDir: EpicenterDir | undefined;
 	}) => TExports;
 };
 

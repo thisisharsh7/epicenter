@@ -1,5 +1,5 @@
 import type * as Y from 'yjs';
-import type { AbsolutePath } from './types';
+import type { AbsolutePath, EpicenterDir } from './types';
 
 /**
  * Context provided to each YJS provider function.
@@ -11,19 +11,22 @@ import type { AbsolutePath } from './types';
  * @property storageDir - Absolute storage directory path resolved from epicenter config
  *   - Node.js: Resolved to absolute path (defaults to `process.cwd()` if not specified in config)
  *   - Browser: `undefined` (filesystem operations not available)
+ * @property epicenterDir - Absolute path to the `.epicenter` directory
+ *   - Computed as `path.join(storageDir, '.epicenter')`
+ *   - `undefined` in browser environment
  *
- * @example Using workspace ID in a provider
+ * @example Using epicenterDir in a provider
  * ```typescript
- * const myProvider: Provider = ({ id, ydoc, storageDir }) => {
+ * const myProvider: Provider = ({ id, ydoc, epicenterDir }) => {
  *   console.log(`Setting up provider for workspace: ${id}`);
  *
  *   // Check for Node.js environment
- *   if (!storageDir) {
+ *   if (!epicenterDir) {
  *     throw new Error('This provider requires Node.js environment');
  *   }
  *
- *   // storageDir is guaranteed to be absolute
- *   // Use getEpicenterDir() helper: getEpicenterDir(storageDir)
+ *   // Use epicenterDir directly for storage paths
+ *   const filePath = path.join(epicenterDir, `${id}.yjs`);
  * };
  * ```
  */
@@ -31,6 +34,7 @@ export type ProviderContext = {
 	id: string;
 	ydoc: Y.Doc;
 	storageDir: AbsolutePath | undefined;
+	epicenterDir: EpicenterDir | undefined;
 };
 
 /**

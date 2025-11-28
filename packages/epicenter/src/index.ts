@@ -144,7 +144,7 @@ export {
 	ytext,
 } from './core/schema';
 // Core types
-export type { AbsolutePath } from './core/types';
+export type { AbsolutePath, EpicenterDir } from './core/types';
 export type {
 	AnyWorkspaceConfig,
 	Provider,

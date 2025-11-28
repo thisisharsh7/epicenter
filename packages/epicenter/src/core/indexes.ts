@@ -5,7 +5,7 @@
 
 import type { Db } from './db/core';
 import type { WorkspaceSchema } from './schema';
-import type { AbsolutePath } from './types';
+import type { AbsolutePath, EpicenterDir } from './types';
 
 /**
  * Index function type - receives IndexContext and returns IndexExports.
@@ -51,14 +51,17 @@ export type Index<
  * @property storageDir - Absolute storage directory path resolved from epicenter config
  *   - Node.js: Resolved to absolute path (defaults to `process.cwd()` if not specified in config)
  *   - Browser: `undefined` (filesystem operations not available)
+ * @property epicenterDir - Absolute path to the `.epicenter` directory
+ *   - Computed as `path.join(storageDir, '.epicenter')`
+ *   - `undefined` in browser environment
  *
  * @example Creating an index with IndexContext
  * ```typescript
  * export function sqliteIndex<TSchema extends WorkspaceSchema>(
- *   { id, schema, db, storageDir }: IndexContext<TSchema>
+ *   { id, schema, db, epicenterDir }: IndexContext<TSchema>
  * ) {
  *   // Use schema for type conversions: convertWorkspaceSchemaToDrizzle(schema)
- *   // Use storageDir for file paths: path.join(storageDir, '.epicenter', `${id}.db`)
+ *   // Use epicenterDir for file paths: path.join(epicenterDir, `${id}.db`)
  *   // Use db to observe table changes
  * }
  * ```
@@ -68,6 +71,7 @@ export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	schema: TSchema;
 	db: Db<TSchema>;
 	storageDir: AbsolutePath | undefined;
+	epicenterDir: EpicenterDir | undefined;
 };
 
 /**

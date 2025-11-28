@@ -4,7 +4,7 @@ import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
-import type { AbsolutePath } from '../types';
+import type { AbsolutePath, EpicenterDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
 /**
@@ -95,6 +95,12 @@ export async function initializeWorkspaces<
 	workspaceConfigs: TConfigs,
 	storageDir: AbsolutePath | undefined,
 ): Promise<WorkspacesToClients<TConfigs>> {
+	// Compute epicenterDir once from storageDir
+	// This is the `.epicenter` directory where all workspace data is stored
+	const epicenterDir = storageDir
+		? (path.join(storageDir, '.epicenter') as EpicenterDir)
+		: undefined;
+
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs
@@ -327,7 +333,7 @@ export async function initializeWorkspaces<
 		if (workspaceConfig.providers) {
 			await Promise.all(
 				workspaceConfig.providers.map((provider) =>
-					provider({ id: workspaceConfig.id, ydoc, storageDir }),
+					provider({ id: workspaceConfig.id, ydoc, storageDir, epicenterDir }),
 				),
 			);
 		}
@@ -340,7 +346,7 @@ export async function initializeWorkspaces<
 		const validators = createWorkspaceValidators(workspaceConfig.schema);
 
 		// Initialize each index by calling its factory function with IndexContext
-		// Each index function receives { id, schema, db, storageDir } and returns an index object
+		// Each index function receives { id, schema, db, storageDir, epicenterDir } and returns an index object
 		// Initialize all indexes in parallel for better performance
 		const indexes = Object.fromEntries(
 			await Promise.all(
@@ -352,6 +358,7 @@ export async function initializeWorkspaces<
 							schema: workspaceConfig.schema,
 							db,
 							storageDir,
+							epicenterDir,
 						}),
 					],
 				),
@@ -369,6 +376,7 @@ export async function initializeWorkspaces<
 		// - indexes: exported resources from each index (db, queries, etc.)
 		// - workspaces: full clients from dependencies (all exports, not filtered!)
 		// - storageDir: Absolute storage directory path (undefined in browser)
+		// - epicenterDir: Absolute path to .epicenter directory (undefined in browser)
 		const exports = workspaceConfig.exports({
 			schema: workspaceConfig.schema,
 			db,
@@ -376,6 +384,7 @@ export async function initializeWorkspaces<
 			indexes,
 			workspaces: workspaceClients,
 			storageDir,
+			epicenterDir,
 		});
 
 		// Create async cleanup function

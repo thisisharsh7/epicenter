@@ -147,7 +147,7 @@ export const gmail = defineWorkspace({
 
 	providers: [setupPersistence],
 
-	exports: ({ db, indexes, storageDir }) => ({
+	exports: ({ db, indexes, epicenterDir }) => ({
 		...db,
 		pullToMarkdown: indexes.markdown.pullToMarkdown,
 		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
@@ -165,9 +165,9 @@ export const gmail = defineWorkspace({
 		login: defineMutation({
 			description: 'Authenticate with Gmail via OAuth2',
 			handler: async () => {
-				if (!storageDir) {
+				if (!epicenterDir) {
 					return GmailApiErr({
-						message: 'Storage directory not configured',
+						message: 'Requires filesystem access (browser not supported)',
 						context: {
 							operation: 'login',
 							details: 'Gmail workspace requires filesystem access',
@@ -175,7 +175,7 @@ export const gmail = defineWorkspace({
 					});
 				}
 
-				const { error } = await performOAuthLogin(storageDir);
+				const { error } = await performOAuthLogin(epicenterDir);
 				if (error) return Err(error);
 
 				return Ok({ message: 'Successfully authenticated with Gmail' });
@@ -188,14 +188,14 @@ export const gmail = defineWorkspace({
 		logout: defineMutation({
 			description: 'Remove stored Gmail credentials',
 			handler: async () => {
-				if (!storageDir) {
+				if (!epicenterDir) {
 					return GmailApiErr({
-						message: 'Storage directory not configured',
+						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'logout' },
 					});
 				}
 
-				const { error } = await deleteTokens(storageDir);
+				const { error } = await deleteTokens(epicenterDir);
 				if (error) return Err(error);
 
 				return Ok({ message: 'Successfully logged out of Gmail' });
@@ -208,9 +208,9 @@ export const gmail = defineWorkspace({
 		isAuthenticated: defineQuery({
 			description: 'Check if Gmail credentials exist',
 			handler: async () => {
-				if (!storageDir) return false;
+				if (!epicenterDir) return false;
 
-				const { data: tokens, error } = await loadTokens(storageDir);
+				const { data: tokens, error } = await loadTokens(epicenterDir);
 				if (error) return false;
 
 				return tokens !== null && !!tokens.refresh_token;
@@ -233,15 +233,15 @@ export const gmail = defineWorkspace({
 			),
 			description: 'Sync emails from Gmail to local database',
 			handler: async ({ query, maxResults = 500 }) => {
-				if (!storageDir) {
+				if (!epicenterDir) {
 					return GmailApiErr({
-						message: 'Storage directory not configured',
+						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'sync' },
 					});
 				}
 
 				// Get authenticated client
-				const clientResult = await getAuthenticatedClient(storageDir);
+				const clientResult = await getAuthenticatedClient(epicenterDir);
 				if (clientResult.error) return Err(clientResult.error);
 
 				const gmailApi = google.gmail({
@@ -376,9 +376,9 @@ export const gmail = defineWorkspace({
 			),
 			description: 'Permanently delete email from Gmail and local database',
 			handler: async ({ emailId }) => {
-				if (!storageDir) {
+				if (!epicenterDir) {
 					return GmailApiErr({
-						message: 'Storage directory not configured',
+						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'deleteEmail' },
 					});
 				}
@@ -393,7 +393,7 @@ export const gmail = defineWorkspace({
 				}
 
 				// Get authenticated client
-				const clientResult = await getAuthenticatedClient(storageDir);
+				const clientResult = await getAuthenticatedClient(epicenterDir);
 				if (clientResult.error) return Err(clientResult.error);
 
 				const gmailApi = google.gmail({
@@ -436,9 +436,9 @@ export const gmail = defineWorkspace({
 			),
 			description: 'Move email to trash in Gmail',
 			handler: async ({ emailId }) => {
-				if (!storageDir) {
+				if (!epicenterDir) {
 					return GmailApiErr({
-						message: 'Storage directory not configured',
+						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'trashEmail' },
 					});
 				}
@@ -453,7 +453,7 @@ export const gmail = defineWorkspace({
 				}
 
 				// Get authenticated client
-				const clientResult = await getAuthenticatedClient(storageDir);
+				const clientResult = await getAuthenticatedClient(epicenterDir);
 				if (clientResult.error) return Err(clientResult.error);
 
 				const gmailApi = google.gmail({
