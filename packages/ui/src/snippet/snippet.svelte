@@ -63,6 +63,6 @@
 		text={typeof text === 'string' ? text : text.join('\n')}
 		size="icon"
 		variant="ghost"
-		{...(onCopy ? { onCopy } : {})}
+		{...onCopy ? { onCopy } : {}}
 	/>
 </div>

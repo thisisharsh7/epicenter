@@ -47,7 +47,7 @@
 
 		onCopy?.(status);
 	}}
-	{...(rest as ButtonProps)}
+	{...rest as ButtonProps}
 >
 	{#if clipboard.status === 'success'}
 		<div in:scale={{ duration: animationDuration, start: 0.85 }}>
