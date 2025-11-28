@@ -80,6 +80,20 @@
 - Include any breaking changes prominently
 - Link to relevant issues
 
+### Verifying GitHub Usernames
+
+**CRITICAL**: When mentioning GitHub users with `@username` in PR descriptions, issue comments, or any GitHub content, NEVER guess or assume usernames. Always verify programmatically using the GitHub CLI:
+
+```bash
+# Get the author of a PR
+gh pr view <PR_NUMBER> --json author
+
+# Get the author of an issue
+gh issue view <ISSUE_NUMBER> --json author
+```
+
+This prevents embarrassing mistakes where you credit the wrong person. Always run the verification command before writing the @mention.
+
 ### Merge Strategy
 
 Always use **"Create a merge commit"** when merging pull requests. Never squash.
