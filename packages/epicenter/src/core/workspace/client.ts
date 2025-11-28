@@ -368,12 +368,14 @@ export async function initializeWorkspaces<
 		// - validators: Schema validators for runtime validation and arktype composition
 		// - indexes: exported resources from each index (db, queries, etc.)
 		// - workspaces: full clients from dependencies (all exports, not filtered!)
+		// - storageDir: Absolute storage directory path (undefined in browser)
 		const exports = workspaceConfig.exports({
 			schema: workspaceConfig.schema,
 			db,
 			validators,
 			indexes,
 			workspaces: workspaceClients,
+			storageDir,
 		});
 
 		// Create async cleanup function
