@@ -48,3 +48,27 @@ Specs always live at the root level of their scope (not inside `docs/`):
 - **`/packages/[pkg]/specs/`** - Package-specific implementation details
 
 When in doubt, use `/specs/`. Move to app/package-specific only if the spec truly belongs there.
+
+# Script Commands
+
+The monorepo uses consistent script naming conventions:
+
+| Command | Purpose | When to use |
+|---------|---------|-------------|
+| `bun format` | **Fix** formatting (biome + prettier) | Development |
+| `bun format:check` | Check formatting | CI |
+| `bun lint` | **Fix** lint issues (eslint + biome) | Development |
+| `bun lint:check` | Check lint issues | CI |
+| `bun check` | Type checking (tsc, svelte-check, astro check) | Both |
+
+**Convention:**
+- No suffix = **fix** (modifies files)
+- `:check` suffix = check only (for CI, no modifications)
+- `check` alone = type checking (separate concern, cannot auto-fix)
+
+**After completing code changes**, run type checking to verify:
+```bash
+bun check
+```
+
+This runs `turbo run check` which executes the `check` script in each package (e.g., `tsc --noEmit`, `svelte-check`).

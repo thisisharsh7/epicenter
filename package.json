@@ -54,11 +54,15 @@
 	"scripts": {
 		"build": "turbo run build",
 		"dev": "turbo run dev",
+
 		"format": "biome check --write --linter-enabled=false; prettier --write \"**/*.{svelte,astro,html}\"",
 		"format:check": "biome ci --linter-enabled=false; prettier --check \"**/*.{svelte,astro,html}\"",
-		"lint": "concurrently -raw \"turbo run lint\" \"eslint\" \"biome lint\"",
+
+		"lint": "eslint --fix; biome lint --write",
+		"lint:check": "concurrently -raw \"eslint\" \"biome lint\"",
+
 		"check": "turbo run check",
-		"format-and-lint": "concurrently \"bun run format\" \"bun run lint\"",
+
 		"bump-version": "bun run scripts/bump-version.ts"
 	},
 	"devDependencies": {
