@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import * as Y from 'yjs';
 import type { Provider } from '../../core/provider';
 
@@ -10,7 +11,7 @@ import type { Provider } from '../../core/provider';
  * **How it works**:
  * 1. Creates `.epicenter` directory if it doesn't exist
  * 2. Loads existing state from `.epicenter/${workspaceId}.yjs` on startup
- * 3. Auto-saves to disk on every YJS update
+ * 3. Auto-saves to disk on every YJS update (synchronous to ensure data is persisted before process exits)
  *
  * **Storage location**: `.epicenter/${workspaceId}.yjs` relative to storageDir from epicenter config
  * - Each workspace gets its own file named after its ID
@@ -43,9 +44,9 @@ import type { Provider } from '../../core/provider';
  * });
  * ```
  */
-export const setupPersistence = (async ({ id, ydoc, storageDir }) => {
+export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
 	// Require Node.js environment with filesystem access
-	if (!storageDir) {
+	if (!epicenterDir) {
 		throw new Error(
 			'Persistence provider requires Node.js environment with filesystem access',
 		);
@@ -53,9 +54,12 @@ export const setupPersistence = (async ({ id, ydoc, storageDir }) => {
 
 	// Dynamic imports to avoid bundling Node.js modules in browser builds
 	const path = await import('node:path');
+	const { mkdirSync } = await import('node:fs');
 
-	const epicenterDir = path.join(storageDir, '.epicenter');
 	const filePath = path.join(epicenterDir, `${id}.yjs`);
+
+	// Ensure .epicenter directory exists
+	mkdirSync(epicenterDir, { recursive: true });
 
 	// Try to load existing state from disk using Bun.file
 	// No need to check existence first - just try to read and handle failure
@@ -71,10 +75,11 @@ export const setupPersistence = (async ({ id, ydoc, storageDir }) => {
 		// console.log(`[Persistence] Creating new workspace at ${filePath}`);
 	}
 
-	// Auto-save on every update
-	// Bun.write automatically creates parent directories if they don't exist
+	// Auto-save on every update using synchronous write
+	// This ensures data is persisted before the process can exit
+	// The performance impact is minimal for typical YJS update sizes
 	ydoc.on('update', () => {
 		const state = Y.encodeStateAsUpdate(ydoc);
-		Bun.write(filePath, state);
+		writeFileSync(filePath, state);
 	});
 }) satisfies Provider;
