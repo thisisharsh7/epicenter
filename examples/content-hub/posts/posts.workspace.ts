@@ -27,12 +27,12 @@ const NICHES = [
  */
 const SHORT_FORM_VIDEO_SCHEMA = {
 	id: id(),
-	pageId: text(),
+	page_id: text(),
 	title: text(),
 	description: text(),
 	niche: select({ options: NICHES }),
-	postedAt: date(),
-	updatedAt: date(),
+	posted_at: date(),
+	updated_at: date(),
 } as const;
 
 /**
@@ -40,13 +40,13 @@ const SHORT_FORM_VIDEO_SCHEMA = {
  */
 const LONG_FORM_TEXT_SCHEMA = {
 	id: id(),
-	pageId: text(),
+	page_id: text(),
 	title: text(),
 	subtitle: text(),
 	content: text(),
 	niche: select({ options: NICHES }),
-	postedAt: date(),
-	updatedAt: date(),
+	posted_at: date(),
+	updated_at: date(),
 } as const;
 
 /**
@@ -54,12 +54,12 @@ const LONG_FORM_TEXT_SCHEMA = {
  */
 const SHORT_FORM_TEXT_SCHEMA = {
 	id: id(),
-	pageId: text(),
+	page_id: text(),
 	content: text(),
 	title: text({ nullable: true }),
 	niche: select({ options: NICHES }),
-	postedAt: date(),
-	updatedAt: date(),
+	posted_at: date(),
+	updated_at: date(),
 } as const;
 
 /**
@@ -83,8 +83,8 @@ export const posts = defineWorkspace({
 		// Blog platforms
 		medium: LONG_FORM_TEXT_SCHEMA,
 		substack: LONG_FORM_TEXT_SCHEMA,
-		personalBlog: LONG_FORM_TEXT_SCHEMA,
-		epicenterBlog: LONG_FORM_TEXT_SCHEMA,
+		personal_blog: LONG_FORM_TEXT_SCHEMA,
+		epicenter_blog: LONG_FORM_TEXT_SCHEMA,
 
 		// Social platforms
 		reddit: SHORT_FORM_TEXT_SCHEMA,

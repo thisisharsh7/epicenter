@@ -44,46 +44,46 @@ export const clippings = defineWorkspace({
 			published: date({ nullable: true }),
 			image: text({ nullable: true }),
 			content: text(),
-			wordCount: integer(),
-			clippedAt: date(),
+			word_count: integer(),
+			clipped_at: date(),
 		},
-		landingPages: {
+		landing_pages: {
 			id: id(),
 			url: text(),
 			title: text(),
-			designQuality: select({ options: QUALITY_OPTIONS }),
-			addedAt: date(),
+			design_quality: select({ options: QUALITY_OPTIONS }),
+			added_at: date(),
 		},
-		gitHubReadmes: {
+		github_readmes: {
 			id: id(),
 			url: text(),
 			title: text(),
 			description: text({ nullable: true }),
 			content: text(),
 			taste: select({ options: QUALITY_OPTIONS }),
-			addedAt: date(),
+			added_at: date(),
 		},
-		docSites: {
+		doc_sites: {
 			id: id(),
 			url: text(),
 			title: text(),
 			quality: select({ options: QUALITY_OPTIONS }),
-			addedAt: date(),
+			added_at: date(),
 		},
 		books: {
 			id: id(),
 			title: text(),
 			author: text(),
-			addedAt: date(),
-			readAt: date({ nullable: true }),
+			added_at: date(),
+			read_at: date({ nullable: true }),
 		},
-		bookExcerpts: {
+		book_excerpts: {
 			id: id(),
-			bookId: text(),
+			book_id: text(),
 			content: text(),
 			comment: text({ nullable: true }),
-			createdAt: date(),
-			updatedAt: date(),
+			created_at: date(),
+			updated_at: date(),
 		},
 	},
 
@@ -209,8 +209,8 @@ export const clippings = defineWorkspace({
 						: null,
 					image: result.image === '' ? null : result.image,
 					content: result.content,
-					wordCount: result.wordCount,
-					clippedAt: now,
+					word_count: result.wordCount,
+					clipped_at: now,
 				});
 
 				return Ok(undefined);
@@ -251,10 +251,10 @@ export const clippings = defineWorkspace({
 						// Find the most recent clipping
 						const newest = duplicates.reduce((max, current) => {
 							const maxTime = DateWithTimezoneFromString(
-								max.clippedAt,
+								max.clipped_at,
 							).date.getTime();
 							const currentTime = DateWithTimezoneFromString(
-								current.clippedAt,
+								current.clipped_at,
 							).date.getTime();
 							return currentTime > maxTime ? current : max;
 						});
@@ -280,20 +280,20 @@ export const clippings = defineWorkspace({
 			input: type({
 				url: 'string',
 				title: 'string',
-				designQuality: type.enumerated(...QUALITY_OPTIONS),
+				design_quality: type.enumerated(...QUALITY_OPTIONS),
 			}),
-			handler: async ({ url, title, designQuality }) => {
+			handler: async ({ url, title, design_quality }) => {
 				const now = DateWithTimezone({
 					date: new Date(),
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.landingPages.insert({
+				db.landing_pages.insert({
 					id: generateId(),
 					url,
 					title,
-					designQuality,
-					addedAt: now,
+					design_quality,
+					added_at: now,
 				});
 
 				return Ok(undefined);
@@ -360,14 +360,14 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.gitHubReadmes.insert({
+				db.github_readmes.insert({
 					id: generateId(),
 					url,
 					title: finalTitle,
 					description: description || result.description || null,
 					content: result.content,
 					taste,
-					addedAt: now,
+					added_at: now,
 				});
 
 				return Ok(undefined);
@@ -389,12 +389,12 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.docSites.insert({
+				db.doc_sites.insert({
 					id: generateId(),
 					url,
 					title,
 					quality,
-					addedAt: now,
+					added_at: now,
 				});
 
 				return Ok(undefined);
@@ -407,24 +407,24 @@ export const clippings = defineWorkspace({
 		 * Creates a new book entry. Returns the book ID for use with addBookClipping.
 		 */
 		addBook: defineMutation({
-			input: db.books.validators.toArktype().pick('title', 'author', 'readAt'),
-			handler: ({ title, author, readAt }) => {
+			input: db.books.validators.toArktype().pick('title', 'author', 'read_at'),
+			handler: ({ title, author, read_at }) => {
 				const now = DateWithTimezone({
 					date: new Date(),
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				const bookId = generateId();
+				const book_id = generateId();
 
 				db.books.insert({
-					id: bookId,
+					id: book_id,
 					title,
 					author,
-					addedAt: now,
-					readAt: readAt ?? null,
+					added_at: now,
+					read_at: read_at ?? null,
 				});
 
-				return Ok({ bookId });
+				return Ok({ book_id });
 			},
 		}),
 
@@ -434,16 +434,16 @@ export const clippings = defineWorkspace({
 		 * Creates a new excerpt associated with an existing book.
 		 */
 		addBookExcerpt: defineMutation({
-			input: db.bookExcerpts.validators
+			input: db.book_excerpts.validators
 				.toArktype()
-				.pick('bookId', 'content', 'comment'),
-			handler: ({ bookId, content, comment }) => {
+				.pick('book_id', 'content', 'comment'),
+			handler: ({ book_id, content, comment }) => {
 				// Verify the book exists
-				const book = db.books.get(bookId);
+				const book = db.books.get(book_id);
 				if (!book) {
 					return Err({
 						message: 'Book not found',
-						context: { bookId },
+						context: { book_id },
 					});
 				}
 
@@ -452,13 +452,13 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.bookExcerpts.insert({
+				db.book_excerpts.insert({
 					id: generateId(),
-					bookId,
+					book_id,
 					content,
 					comment: comment ?? null,
-					createdAt: now,
-					updatedAt: now,
+					created_at: now,
+					updated_at: now,
 				});
 
 				return Ok(undefined);

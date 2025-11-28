@@ -322,21 +322,21 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
-	const { id, db, storageDir } = context;
+	const { id, db, storageDir, epicenterDir } = context;
 	const { directory = `./${id}` } = config;
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
 	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
 	const userTableConfigs: TableConfigs<TSchema> = config.tableConfigs ?? {};
 	// Require Node.js environment with filesystem access
-	if (!storageDir) {
+	if (!storageDir || !epicenterDir) {
 		throw new Error(
 			'Markdown index requires Node.js environment with filesystem access',
 		);
 	}
 
 	// Shared config directory for markdown index files
-	const markdownConfigDir = path.join(storageDir, '.epicenter', 'markdown');
+	const markdownConfigDir = path.join(epicenterDir, 'markdown');
 
 	// Create diagnostics manager for tracking validation errors (current state)
 	const diagnostics = createDiagnosticsManager({
