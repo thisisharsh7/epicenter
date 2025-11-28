@@ -41,4 +41,4 @@ test("example", () => {
 
 ## Specs
 
-Package-specific specs live in `./specs/`. Cross-cutting specs go in `/docs/specs/`.
+Package-specific specs live in `./specs/`. Cross-cutting specs go in `/specs/`.
