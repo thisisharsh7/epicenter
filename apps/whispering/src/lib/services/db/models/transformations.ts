@@ -63,10 +63,13 @@ const TransformationStepBaseFields = {
 } as const;
 
 /**
- * Base fields shared between Transformation V1 and V2.
- * FROZEN for V1/V2: Do not modify without considering impact on both versions.
+ * Fields for Transformation. These have NOT changed since the initial schema.
+ * Only TransformationStep has versioning (V1 → V2 added Custom provider fields).
+ *
+ * If a future version adds/changes Transformation-level fields (not just steps),
+ * introduce versioning at that point.
  */
-const TransformationBaseFields = {
+const TransformationFields = {
 	id: 'string',
 	title: 'string',
 	description: 'string',
@@ -92,9 +95,11 @@ const TransformationStepV1 = type({
 export type TransformationStepV1 = typeof TransformationStepV1.infer;
 
 /**
- * V1 Transformation type for Dexie migration typing.
+ * Transformation type containing V1 steps (before Custom provider fields).
+ * Used only for typing old data during Dexie migration in web.ts.
  *
- * FROZEN: Do not modify. This represents the historical V1 schema.
+ * Note: The Transformation fields themselves are unchanged; only the step
+ * schema differs between "V1" and "V2".
  */
 export type TransformationV1 = {
 	id: string;
@@ -134,12 +139,13 @@ const TransformationStepV2 = type({
 export type TransformationStepV2 = typeof TransformationStepV2.infer;
 
 /**
- * V2 Transformation schema.
+ * Current Transformation schema with V2 steps.
  *
- * CURRENT VERSION: This is the latest schema.
+ * Note: The Transformation fields themselves are unchanged from V1;
+ * "V2" refers to the step schema version contained within.
  */
 const TransformationV2 = type({
-	...TransformationBaseFields,
+	...TransformationFields,
 	steps: [TransformationStepV2, '[]'],
 });
 
@@ -185,7 +191,7 @@ export type TransformationStep = TransformationStepV2;
  * Use this when reading data that might contain old schema versions.
  */
 export const Transformation = type({
-	...TransformationBaseFields,
+	...TransformationFields,
 	steps: [TransformationStep, '[]'],
 });
 
