@@ -90,7 +90,7 @@ Set up Whispering and be ready to transcribe in about two minutes.
 The fastest way to install Whispering on macOS:
 
 ```bash
-brew install --cask epicenter-whispering
+brew install --cask whispering
 ```
 
 This automatically handles installation and updates.

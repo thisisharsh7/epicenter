@@ -132,11 +132,11 @@ Test your CLI commands programmatically:
 ```typescript
 import { createCLI } from '@repo/epicenter/cli';
 
-const cli = await createCLI(epicenter, {
+// createCLI parses and executes the command internally
+await createCLI({
+  config: epicenter,
   argv: ['reddit', 'import', '--url', 'https://...', '--count', '5']
 });
-
-await cli.parse(); // Executes the command
 ```
 
 ## Implementation Architecture

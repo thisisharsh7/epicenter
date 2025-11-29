@@ -1,7 +1,7 @@
 import path from 'node:path';
 import {
-	DateWithTimezone,
 	boolean,
+	DateWithTimezone,
 	date,
 	defineMutation,
 	defineQuery,
@@ -15,8 +15,8 @@ import {
 } from '@epicenter/hq';
 import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
-import { google } from 'googleapis';
 import { type } from 'arktype';
+import { google } from 'googleapis';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import {
@@ -482,9 +482,7 @@ export const gmail = defineWorkspace({
 
 				// Update labels in local database
 				const currentLabels = email.labels ?? '';
-				const newLabels = currentLabels
-					? `${currentLabels},TRASH`
-					: 'TRASH';
+				const newLabels = currentLabels ? `${currentLabels},TRASH` : 'TRASH';
 
 				db.emails.update({
 					id: emailId,

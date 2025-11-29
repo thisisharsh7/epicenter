@@ -249,9 +249,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		insertMany: defineMutation({
 			input: validators.toStandardSchemaArray(),
 			description: `Insert multiple rows into the ${tableName} table`,
-			handler: (serializedRows) => {
+			handler: ({ rows }) => {
 				// Check for duplicates first
-				for (const serializedRow of serializedRows) {
+				for (const serializedRow of rows) {
 					if (ytable.has(serializedRow.id)) {
 						return RowAlreadyExistsErr({
 							message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
@@ -265,7 +265,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				}
 
 				ydoc.transact(() => {
-					for (const serializedRow of serializedRows) {
+					for (const serializedRow of rows) {
 						const yrow = new Y.Map<CellValue>();
 						updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 						ytable.set(serializedRow.id, yrow);
@@ -280,9 +280,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		upsertMany: defineMutation({
 			input: validators.toStandardSchemaArray(),
 			description: `Insert or update multiple rows in the ${tableName} table`,
-			handler: (serializedRows) => {
+			handler: ({ rows }) => {
 				ydoc.transact(() => {
-					for (const serializedRow of serializedRows) {
+					for (const serializedRow of rows) {
 						let yrow = ytable.get(serializedRow.id);
 						if (!yrow) {
 							yrow = new Y.Map<CellValue>();
@@ -298,9 +298,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		updateMany: defineMutation({
 			input: validators.toPartialStandardSchemaArray(),
 			description: `Update multiple rows in the ${tableName} table`,
-			handler: (partialSerializedRows) => {
+			handler: ({ rows }) => {
 				// Check all rows exist first
-				for (const partialSerializedRow of partialSerializedRows) {
+				for (const partialSerializedRow of rows) {
 					if (!ytable.has(partialSerializedRow.id)) {
 						return RowNotFoundErr({
 							message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
@@ -314,7 +314,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				}
 
 				ydoc.transact(() => {
-					for (const partialSerializedRow of partialSerializedRows) {
+					for (const partialSerializedRow of rows) {
 						// Safe to assert non-null because we checked all IDs exist above
 						const yrow = ytable.get(partialSerializedRow.id);
 						if (!yrow) continue; // Skip if somehow missing (defensive)
@@ -665,7 +665,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observe(callbacks: {
-			onAdd?: (result: Result<TRow, RowValidationError>) => void | Promise<void>;
+			onAdd?: (
+				result: Result<TRow, RowValidationError>,
+			) => void | Promise<void>;
 			onUpdate?: (
 				result: Result<TRow, RowValidationError>,
 			) => void | Promise<void>;

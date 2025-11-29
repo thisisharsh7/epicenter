@@ -14,7 +14,6 @@ import type {
 	RecordingsDbSchemaV4,
 	RecordingsDbSchemaV5,
 	SerializedAudio,
-	Transformation,
 	TransformationRun,
 	TransformationRunCompleted,
 	TransformationRunFailed,
@@ -22,6 +21,9 @@ import type {
 	TransformationStepRunCompleted,
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
+	TransformationStepV2,
+	Transformation,
+	TransformationV1,
 } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
@@ -297,27 +299,49 @@ class WhisperingDatabase extends Dexie {
 				});
 			});
 
-		// V6: Change the "subtitle" field to "description"
-		// this.version(5)
-		// 	.stores({
-		// 		recordings: '&id, timestamp, createdAt, updatedAt',
-		// 		transformations: '&id, createdAt, updatedAt',
-		// 		transformationRuns: '&id, recordingId, startedAt',
-		// 	})
-		// 	.upgrade(async (tx) => {
-		// 		const oldRecordings = await tx
-		// 			.table<RecordingsDbSchemaV5['recordings']>('recordings')
-		// 			.toArray();
+		// V6: Migrate transformation steps to version 2 schema
+		// - Adds version field (set to 2)
+		// - Adds Custom.model and Custom.baseUrl fields for local LLM endpoints
+		// This matches the versioned schema in transformations.ts
+		//
+		// Note: TransformationV1 is a TypeScript type hint only; Dexie returns raw data.
+		// Old steps in IndexedDB won't have a `version` field at all. The spread `...step`
+		// preserves all existing fields, then we explicitly set version=2 and the new
+		// Custom fields. Any existing `version` field (if somehow present) gets overwritten
+		// to 2, which is correct since we're migrating everything to V2.
+		this.version(0.6)
+			.stores({
+				recordings: '&id, timestamp, createdAt, updatedAt',
+				transformations: '&id, createdAt, updatedAt',
+				transformationRuns: '&id, transformationId, recordingId, startedAt',
+			})
+			.upgrade(async (tx) => {
+				await wrapUpgradeWithErrorHandling({
+					tx,
+					version: 0.6,
+					upgrade: async (tx) => {
+						// TransformationV1 is just a type hint; Dexie returns raw unvalidated data
+						const transformations = await tx
+							.table<TransformationV1>('transformations')
+							.toArray();
 
-		// 		const newRecordings = oldRecordings.map(
-		// 			({ subtitle, ...recording }) => ({
-		// 				...recording,
-		// 				description: subtitle,
-		// 			}),
-		// 		);
+						for (const transformation of transformations) {
+							const updatedSteps: TransformationStepV2[] =
+								transformation.steps.map((step) => ({
+									...step,
+									// Explicitly set V2 fields (overwrites any existing values)
+									version: 2 as const,
+									'prompt_transform.inference.provider.Custom.model': '',
+									'prompt_transform.inference.provider.Custom.baseUrl': '',
+								}));
 
-		// 		await tx.table('recordings').bulkAdd(newRecordings);
-		// 	});
+							await tx
+								.table<Transformation>('transformations')
+								.update(transformation.id, { steps: updatedSteps });
+						}
+					},
+				});
+			});
 	}
 }
 

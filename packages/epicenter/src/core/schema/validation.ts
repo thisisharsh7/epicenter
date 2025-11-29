@@ -77,24 +77,30 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
 
 	/**
-	 * Generates a StandardSchemaV1 for an array of SerializedRows
+	 * Generates a StandardSchemaV1 for an array of SerializedRows, wrapped in an object
 	 *
 	 * **Primary use case**: Batch insert/upsert action input schemas
 	 * - Used for operations that accept multiple rows at once
 	 * - Example: `insertMany: defineMutation({ input: validators.toStandardSchemaArray() })`
+	 *
+	 * **MCP compatibility**: Returns `{ rows: T[] }` instead of bare `T[]` because
+	 * MCP protocol requires all tool inputSchema to have `type: "object"` at the root.
 	 */
-	toStandardSchemaArray(): StandardSchemaV1<SerializedRow<TSchema>[]>;
+	toStandardSchemaArray(): StandardSchemaV1<{ rows: SerializedRow<TSchema>[] }>;
 
 	/**
-	 * Generates a StandardSchemaV1 for an array of partial SerializedRows
+	 * Generates a StandardSchemaV1 for an array of partial SerializedRows, wrapped in an object
 	 *
 	 * **Primary use case**: Batch update action input schemas
 	 * - Used for bulk update operations with partial data
 	 * - Example: `updateMany: defineMutation({ input: validators.toPartialStandardSchemaArray() })`
+	 *
+	 * **MCP compatibility**: Returns `{ rows: T[] }` instead of bare `T[]` because
+	 * MCP protocol requires all tool inputSchema to have `type: "object"` at the root.
 	 */
-	toPartialStandardSchemaArray(): StandardSchemaV1<
-		PartialSerializedRow<TSchema>[]
-	>;
+	toPartialStandardSchemaArray(): StandardSchemaV1<{
+		rows: PartialSerializedRow<TSchema>[];
+	}>;
 
 	/**
 	 * Generates an Arktype schema for full SerializedRow
@@ -285,16 +291,17 @@ export function createTableValidators<TSchema extends TableSchema>(
 		},
 
 		toStandardSchemaArray() {
-			return this.toArktype().array() as StandardSchemaV1<
-				SerializedRow<TSchema>[]
-			>;
+			// Wrap in object for MCP compatibility (MCP requires type: "object" at root)
+			return type({ rows: this.toArktype().array() }) as StandardSchemaV1<{
+				rows: SerializedRow<TSchema>[];
+			}>;
 		},
 
 		toPartialStandardSchemaArray() {
-			return this.toArktype()
-				.partial()
-				.merge({ id: type.string })
-				.array() as StandardSchemaV1<PartialSerializedRow<TSchema>[]>;
+			// Wrap in object for MCP compatibility (MCP requires type: "object" at root)
+			return type({
+				rows: this.toArktype().partial().merge({ id: type.string }).array(),
+			}) as StandardSchemaV1<{ rows: PartialSerializedRow<TSchema>[] }>;
 		},
 	};
 }

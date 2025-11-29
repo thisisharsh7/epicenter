@@ -81,5 +81,7 @@ export type HttpService = {
 		body: BodyInit | FormData;
 		schema: TSchema;
 		headers?: Record<string, string>;
-	}) => Promise<Result<StandardSchemaV1.InferOutput<TSchema>, HttpServiceError>>;
+	}) => Promise<
+		Result<StandardSchemaV1.InferOutput<TSchema>, HttpServiceError>
+	>;
 };

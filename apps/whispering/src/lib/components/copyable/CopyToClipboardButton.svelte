@@ -35,7 +35,7 @@
 		 */
 		textToCopy: string;
 		/**
-		 * A description of the content being copied (e.g., "transcribed text", "API key").
+		 * A description of the content being copied (e.g., "transcript", "API key").
 		 * Used in tooltips and toast messages to provide context to the user.
 		 */
 		contentDescription: string;

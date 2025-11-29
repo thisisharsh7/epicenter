@@ -3,14 +3,14 @@
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
 
 	/**
-	 * A domain-specific wrapper around TextPreviewDialog for displaying transcribed text.
+	 * A domain-specific wrapper around TextPreviewDialog for displaying transcript content.
 	 *
-	 * This component ensures consistent presentation of transcribed text across the application
+	 * This component ensures consistent presentation of transcripts across the application
 	 * by automatically setting the correct title, label, and transition ID pattern.
 	 *
 	 * @example
 	 * ```svelte
-	 * <TranscribedTextDialog
+	 * <TranscriptDialog
 	 *   recordingId={recording.id}
 	 *   transcribedText={recording.transcribedText}
 	 *   rows={1}
@@ -18,9 +18,9 @@
 	 * ```
 	 */
 	let {
-		/** The ID of the recording whose transcribed text is being displayed */
+		/** The ID of the recording whose transcript is being displayed */
 		recordingId,
-		/** The transcribed text content to display */
+		/** The transcript content to display */
 		transcribedText,
 		/** Number of rows for the preview textarea (default: 2) */
 		rows = 2,
@@ -41,8 +41,8 @@
 
 <TextPreviewDialog
 	{id}
-	title="Transcribed Text"
-	label="transcribed text"
+	title="Transcript"
+	label="transcript"
 	text={transcribedText}
 	{rows}
 	{disabled}

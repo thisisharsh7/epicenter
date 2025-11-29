@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { LabeledInput } from '$lib/components/labeled/index.js';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { Link } from '@repo/ui/link';
 
-	export let showBaseUrl = true;
+	type Props = {
+		showBaseUrl?: boolean;
+	};
+
+	let { showBaseUrl = true }: Props = $props();
 </script>
 
 <div class="space-y-4">
@@ -19,8 +22,8 @@
 		>
 			{#snippet description()}
 				<p class="text-muted-foreground text-sm">
-					Provide the root URL of any OpenAI-compatible API (Ollama, LM Studio,
-					OpenRouter proxy, etc.).
+					Global default URL for OpenAI-compatible endpoints (Ollama, LM Studio,
+					llama.cpp, etc.). Can be overridden per-step in transformations.
 				</p>
 			{/snippet}
 		</LabeledInput>
@@ -30,7 +33,7 @@
 		id="custom-endpoint-api-key"
 		label="Custom API Key"
 		type="password"
-		placeholder="Optional bearer token"
+		placeholder="Leave empty if not required"
 		bind:value={
 			() => settings.value['apiKeys.custom'],
 			(value) => settings.updateKey('apiKeys.custom', value)
@@ -38,9 +41,8 @@
 	>
 		{#snippet description()}
 			<p class="text-muted-foreground text-sm">
-				If this endpoint allows anonymous access, leave blank. Some
-				OpenAI-compatible hosts (like Ollama) still expect a placeholder
-				token—use any value (e.g. <code>ollama</code>).
+				Most local endpoints don't require authentication. Only enter a key if
+				your endpoint requires it.
 			</p>
 		{/snippet}
 	</LabeledInput>

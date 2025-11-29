@@ -25,7 +25,7 @@
 
 	<LabeledSwitch
 		id="transcription.copyToClipboardOnSuccess"
-		label="Copy transcribed text to clipboard"
+		label="Copy transcript to clipboard"
 		bind:checked={
 			() => settings.value['transcription.copyToClipboardOnSuccess'],
 			(v) => settings.updateKey('transcription.copyToClipboardOnSuccess', v)
@@ -34,7 +34,7 @@
 
 	<LabeledSwitch
 		id="transcription.writeToCursorOnSuccess"
-		label="Paste transcribed text at cursor"
+		label="Paste transcript at cursor"
 		bind:checked={
 			() => settings.value['transcription.writeToCursorOnSuccess'],
 			(v) => settings.updateKey('transcription.writeToCursorOnSuccess', v)

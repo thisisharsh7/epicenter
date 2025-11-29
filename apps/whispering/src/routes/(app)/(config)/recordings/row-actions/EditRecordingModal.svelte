@@ -133,7 +133,7 @@
 				Make changes to your recording and click save when you're done.
 			</Modal.Description>
 		</Modal.Header>
-		<div class="space-y-4 py-4">
+		<div class="space-y-4 p-4">
 			<div class="grid grid-cols-4 items-center gap-4">
 				<Label for="title" class="text-right">Title</Label>
 				<Input
@@ -171,7 +171,7 @@
 				/>
 			</div>
 			<div class="grid grid-cols-4 items-center gap-4">
-				<Label for="transcribedText" class="text-right">Transcribed Text</Label>
+				<Label for="transcribedText" class="text-right">Transcript</Label>
 				<Textarea
 					id="transcribedText"
 					value={workingCopy.transcribedText}

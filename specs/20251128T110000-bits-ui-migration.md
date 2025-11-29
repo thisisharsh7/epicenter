@@ -249,3 +249,49 @@ Once migrated, you can use:
 - **Total**: 3-6 hours
 
 The complexity depends on how many components actively use the affected patterns.
+
+## Review Notes
+
+### Migration Completed
+
+The bits-ui migration from 2.8.10 to 2.14.4 was successfully completed with all 19 type errors fixed.
+
+### Files Modified
+
+| File | Fix Applied |
+|------|-------------|
+| `package.json` | Updated catalog version from `2.8.10` to `2.14.4` |
+| `packages/ui/src/button/button.svelte` | Added `ButtonPropsWithoutHTML` type export |
+| `packages/ui/src/button/index.ts` | Exported new `ButtonPropsWithoutHTML` type |
+| `packages/ui/src/command/command-dialog.svelte` | Used conditional spread for `portalProps`: `{...(portalProps ? { portalProps } : {})}` |
+| `packages/ui/src/command/command-group.svelte` | Wrapped `GroupItems` in `{#if children}` conditional |
+| `packages/ui/src/copy-button/types.ts` | Simplified types to avoid bits-ui's `WithChildren`/`WithoutChildren` complexity |
+| `packages/ui/src/copy-button/copy-button.svelte` | Cast rest props as `ButtonProps` to avoid union type complexity |
+| `packages/ui/src/dropdown-menu/dropdown-menu-radio-group.svelte` | Set default value to empty string: `value = $bindable('')` |
+| `packages/ui/src/dropdown-menu/index.ts` | Added explicit type annotations for `Root` and `Sub` exports |
+| `packages/ui/src/file-drop-zone/file-drop-zone.svelte` | Added guard `if (!file) continue;` for array access |
+| `packages/ui/src/modal/modal-content.svelte` | Renamed `hideClose` to `showCloseButton` to match Dialog.Content API |
+| `packages/ui/src/popover/popover-content.svelte` | Used nullish coalescing: `{...(portalProps ?? {})}` |
+| `packages/ui/src/progress/progress.svelte` | Used nullish coalescing: `value={value ?? null}` |
+| `packages/ui/src/snippet/snippet.svelte` | Added explicit `size="icon"` and `variant="ghost"` props to CopyButton |
+| `packages/ui/src/sonner/sonner.svelte` | Added fallback: `theme={mode.current ?? 'system'}` |
+
+### Patterns Used
+
+1. **Conditional prop spreading**: `{...(prop ? { prop } : {})}` for optional props
+2. **Nullish coalescing**: `prop ?? fallback` for props that can be undefined
+3. **Type assertions**: `{...(rest as ButtonProps)}` for complex union types
+4. **Explicit type annotations**: `const Root: typeof X.Root = X.Root` for internal type references
+5. **Guard clauses**: `if (!item) continue;` for potentially undefined array access
+
+### Slider.Root Changes
+
+No Slider components found in the codebase, so no changes were needed for the new `type` prop requirement.
+
+### Unrelated Issues
+
+The `@repo/db` package has a pre-existing error unrelated to bits-ui:
+```
+Module '"better-auth/crypto"' has no exported member 'hashToBase64'.
+```
+This is a separate issue with the better-auth dependency and should be addressed in a different PR.

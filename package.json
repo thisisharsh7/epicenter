@@ -29,7 +29,7 @@
 			"clsx": "latest",
 			"tailwind-merge": "^3.4.0",
 			"tailwind-variants": "^3.2.2",
-			"bits-ui": "2.8.10",
+			"bits-ui": "2.14.4",
 			"mode-watcher": "^1.1.0",
 			"svelte-sonner": "^1.0.6",
 			"@lucide/svelte": "^0.555.0",
@@ -63,7 +63,10 @@
 
 		"check": "turbo run check",
 
-		"bump-version": "bun run scripts/bump-version.ts"
+		"bump-version": "bun run scripts/bump-version.ts",
+
+		"clean": "rm -rf .turbo node_modules apps/*/.svelte-kit apps/*/dist apps/*/node_modules packages/*/.svelte-kit packages/*/dist packages/*/node_modules examples/*/node_modules",
+		"nuke": "bun clean && rm -rf apps/whispering/src-tauri/target"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

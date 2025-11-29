@@ -214,6 +214,8 @@ export const settingsSchema = z.object({
 		.string()
 		.default('mistralai/mixtral-8x7b')
 		.describe('OpenRouter model name'),
+	// Global default for custom endpoints. Can be overridden per-step in transformations.
+	// Most users have one local LLM server, so this saves re-entering the URL each time.
 	'completion.custom.baseUrl': z
 		.string()
 		.default('http://localhost:11434/v1')
