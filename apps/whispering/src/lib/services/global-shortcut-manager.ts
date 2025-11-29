@@ -18,7 +18,7 @@ import {
 import type {
 	ShortcutEventState,
 	ShortcutTriggerState,
-} from './_shortcut-trigger-state';
+} from '$lib/commands';
 
 const { InvalidAcceleratorError, InvalidAcceleratorErr } = createTaggedError(
 	'InvalidAcceleratorError',

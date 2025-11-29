@@ -12,7 +12,7 @@ import { IS_MACOS } from '$lib/constants/platform';
 import type {
 	ShortcutEventState,
 	ShortcutTriggerState,
-} from './_shortcut-trigger-state';
+} from '$lib/commands';
 
 /**
  * Error type for local shortcut service operations.

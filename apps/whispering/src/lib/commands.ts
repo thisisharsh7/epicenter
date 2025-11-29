@@ -1,8 +1,4 @@
 import { rpc } from '$lib/query';
-import type {
-	ShortcutEventState,
-	ShortcutTriggerState,
-} from './services/_shortcut-trigger-state';
 
 /**
  * Registry of available commands in the application.
@@ -11,6 +7,20 @@ import type {
  * The actual command implementations live in /lib/query/actions.ts as reusable mutations
  * that can be invoked from anywhere in the UI, not just through this command registry.
  */
+
+/**
+ * When a shortcut should trigger its callback.
+ * - 'Pressed': Only on key press
+ * - 'Released': Only on key release
+ * - 'Both': On both press and release (callback receives the actual state)
+ */
+export type ShortcutTriggerState = 'Pressed' | 'Released' | 'Both';
+
+/**
+ * The actual keyboard event state passed to callbacks.
+ * This is what actually happened, not when to trigger.
+ */
+export type ShortcutEventState = 'Pressed' | 'Released';
 
 type SatisfiedCommand = {
 	id: string;
