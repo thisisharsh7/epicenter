@@ -20,10 +20,7 @@
 	import * as Card from '@repo/ui/card';
 	import * as SectionHeader from '@repo/ui/section-header';
 	import { Separator } from '@repo/ui/separator';
-	import {
-		TRANSFORMATION_STEP_TYPES,
-		TRANSFORMATION_STEP_TYPES_TO_LABELS,
-	} from '$lib/constants/database';
+	import { TRANSFORMATION_STEP_TYPE_OPTIONS } from '$lib/constants/database';
 	import {
 		ANTHROPIC_INFERENCE_MODEL_OPTIONS,
 		GOOGLE_INFERENCE_MODEL_OPTIONS,
@@ -149,13 +146,7 @@
 											};
 										}
 									}
-									items={TRANSFORMATION_STEP_TYPES.map(
-										(type) =>
-											({
-												value: type,
-												label: TRANSFORMATION_STEP_TYPES_TO_LABELS[type],
-											}) as const,
-									)}
+									items={TRANSFORMATION_STEP_TYPE_OPTIONS}
 									hideLabel
 									class="h-8"
 									placeholder="Select a step type"

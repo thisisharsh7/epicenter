@@ -1,5 +1,6 @@
 import { type } from 'arktype';
 import { nanoid } from 'nanoid/non-secure';
+import { TRANSFORMATION_STEP_TYPES } from '$lib/constants/database';
 import {
 	ANTHROPIC_INFERENCE_MODELS,
 	GOOGLE_INFERENCE_MODELS,
@@ -7,16 +8,6 @@ import {
 	INFERENCE_PROVIDER_IDS,
 	OPENAI_INFERENCE_MODELS,
 } from '$lib/constants/inference';
-
-export const TRANSFORMATION_STEP_TYPES = [
-	'prompt_transform',
-	'find_replace',
-] as const;
-
-export const TRANSFORMATION_STEP_TYPES_TO_LABELS = {
-	prompt_transform: 'Prompt Transform',
-	find_replace: 'Find Replace',
-} as const satisfies Record<(typeof TRANSFORMATION_STEP_TYPES)[number], string>;
 
 /**
  * The current version of the TransformationStep schema.
