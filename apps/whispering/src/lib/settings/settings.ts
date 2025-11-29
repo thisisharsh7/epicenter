@@ -32,14 +32,14 @@
 import { type } from 'arktype';
 import type { Command } from '$lib/commands';
 import {
-	BITRATE_VALUES_KBPS,
+	BITRATES_KBPS,
 	DEFAULT_BITRATE_KBPS,
 	RECORDING_MODES,
 } from '$lib/constants/audio';
 import { CommandOrAlt, CommandOrControl } from '$lib/constants/keyboard';
 import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import type { WhisperingSoundNames } from '$lib/constants/sounds';
-import { ALWAYS_ON_TOP_VALUES } from '$lib/constants/ui';
+import { ALWAYS_ON_TOP_MODES } from '$lib/constants/ui';
 import {
 	FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 	FFMPEG_DEFAULT_GLOBAL_OPTIONS,
@@ -102,8 +102,8 @@ export const Settings = type({
 	'transformation.writeToCursorOnSuccess': 'boolean = false',
 	'transformation.simulateEnterAfterOutput': 'boolean = false',
 
-	'system.alwaysOnTop': type.enumerated(...ALWAYS_ON_TOP_VALUES).default(
-		'Never' satisfies (typeof ALWAYS_ON_TOP_VALUES)[number],
+	'system.alwaysOnTop': type.enumerated(...ALWAYS_ON_TOP_MODES).default(
+		'Never' satisfies (typeof ALWAYS_ON_TOP_MODES)[number],
 	),
 
 	'database.recordingRetentionStrategy': type
@@ -140,7 +140,7 @@ export const Settings = type({
 
 	// Browser recording settings (used when browser method is selected)
 	'recording.navigator.bitrateKbps': type
-		.enumerated(...BITRATE_VALUES_KBPS)
+		.enumerated(...BITRATES_KBPS)
 		.default(DEFAULT_BITRATE_KBPS),
 
 	// CPAL (Rust audio library) recording settings

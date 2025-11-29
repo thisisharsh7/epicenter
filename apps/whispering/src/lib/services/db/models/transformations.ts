@@ -1,22 +1,13 @@
 import { type } from 'arktype';
 import { nanoid } from 'nanoid/non-secure';
+import { TRANSFORMATION_STEP_TYPES } from '$lib/constants/database';
 import {
 	ANTHROPIC_INFERENCE_MODELS,
 	GOOGLE_INFERENCE_MODELS,
 	GROQ_INFERENCE_MODELS,
-	INFERENCE_PROVIDERS,
+	INFERENCE_PROVIDER_IDS,
 	OPENAI_INFERENCE_MODELS,
 } from '$lib/constants/inference';
-
-export const TRANSFORMATION_STEP_TYPES = [
-	'prompt_transform',
-	'find_replace',
-] as const;
-
-export const TRANSFORMATION_STEP_TYPES_TO_LABELS = {
-	prompt_transform: 'Prompt Transform',
-	find_replace: 'Find Replace',
-} as const satisfies Record<(typeof TRANSFORMATION_STEP_TYPES)[number], string>;
 
 /**
  * The current version of the TransformationStep schema.
@@ -41,7 +32,7 @@ const TransformationStepBase = type({
 	id: 'string',
 	type: type.enumerated(...TRANSFORMATION_STEP_TYPES),
 	'prompt_transform.inference.provider': type.enumerated(
-		...INFERENCE_PROVIDERS,
+		...INFERENCE_PROVIDER_IDS,
 	),
 	'prompt_transform.inference.provider.OpenAI.model': type.enumerated(
 		...OPENAI_INFERENCE_MODELS,
