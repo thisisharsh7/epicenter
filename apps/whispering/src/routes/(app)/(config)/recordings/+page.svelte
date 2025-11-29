@@ -45,7 +45,7 @@
 	import { z } from 'zod';
 	import LatestTransformationRunOutputByRecordingId from './LatestTransformationRunOutputByRecordingId.svelte';
 	import RenderAudioUrl from './RenderAudioUrl.svelte';
-	import TranscribedTextDialog from '$lib/components/copyable/TranscribedTextDialog.svelte';
+	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 	import { RecordingRowActions } from './row-actions';
 	import { format } from 'date-fns';
 	import OpenFolderButton from '$lib/components/OpenFolderButton.svelte';
@@ -167,17 +167,17 @@
 			cell: formattedCell(DATE_FORMAT),
 		},
 		{
-			id: 'Transcribed Text',
+			id: 'Transcript',
 			accessorKey: 'transcribedText',
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
-					headerText: 'Transcribed Text',
+					headerText: 'Transcript',
 				}),
 			cell: ({ getValue, row }) => {
 				const transcribedText = getValue<string>();
 				if (!transcribedText) return;
-				return renderComponent(TranscribedTextDialog, {
+				return renderComponent(TranscriptDialog, {
 					recordingId: row.id,
 					transcribedText,
 				});
@@ -450,7 +450,7 @@
 					>
 						<Dialog.Trigger>
 							<WhisperingButton
-								tooltipContent="Copy transcribed text from selected recordings"
+								tooltipContent="Copy transcripts from selected recordings"
 								variant="outline"
 								size="icon"
 							>
@@ -499,14 +499,14 @@
 												onSuccess: () => {
 													isDialogOpen = false;
 													rpc.notify.success.execute({
-														title: 'Copied transcribed texts to clipboard!',
+														title: 'Copied transcripts to clipboard!',
 														description: joinedTranscriptionsText,
 													});
 												},
 												onError: (error) => {
 													rpc.notify.error.execute({
 														title:
-															'Error copying transcribed texts to clipboard',
+															'Error copying transcripts to clipboard',
 														description: error.message,
 														action: { type: 'more-details', error: error },
 													});
