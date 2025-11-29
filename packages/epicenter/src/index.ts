@@ -161,5 +161,24 @@ export type { MarkdownIndexConfig } from './indexes/markdown';
 export { markdownIndex } from './indexes/markdown';
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';
+
+// Blob storage
+export {
+	BlobErr,
+	createTableBlobStore,
+	createWorkspaceBlobs,
+	getMimeType,
+	validateFilename,
+} from './core/blobs';
+export type {
+	BlobContext,
+	BlobData,
+	BlobError,
+	BlobErrorCode,
+	BlobStoreContext,
+	TableBlobStore,
+	WorkspaceBlobs,
+} from './core/blobs';
+
 // Server - expose workspaces as REST API and MCP servers
 export { createServer } from './server';

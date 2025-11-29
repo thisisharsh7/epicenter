@@ -1,6 +1,7 @@
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
+import { createWorkspaceBlobs } from '../blobs';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
@@ -369,12 +370,21 @@ export async function initializeWorkspaces<
 			>;
 		};
 
+		// Initialize blob stores for each table in the schema
+		// Storage layout: {storageDir}/{workspaceId}/{tableName}/{filename}
+		const blobs = await createWorkspaceBlobs({
+			id: workspaceConfig.id,
+			schema: workspaceConfig.schema,
+			storageDir,
+		});
+
 		// Call the exports factory to get workspace exports (actions + utilities), passing:
 		// - schema: The workspace schema (table definitions)
 		// - db: Epicenter database API
 		// - validators: Schema validators for runtime validation and arktype composition
 		// - indexes: exported resources from each index (db, queries, etc.)
 		// - workspaces: full clients from dependencies (all exports, not filtered!)
+		// - blobs: blob storage for binary files, namespaced by table
 		// - storageDir: Absolute storage directory path (undefined in browser)
 		// - epicenterDir: Absolute path to .epicenter directory (undefined in browser)
 		const exports = workspaceConfig.exports({
@@ -383,6 +393,7 @@ export async function initializeWorkspaces<
 			validators,
 			indexes,
 			workspaces: workspaceClients,
+			blobs,
 			storageDir,
 			epicenterDir,
 		});
@@ -464,9 +475,9 @@ export async function createWorkspaceClient<
 		process.versions != null &&
 		process.versions.node != null;
 
-	let resolvedStorageDir: AbsolutePath | undefined;
+	let resolvedStorageDir: StorageDir | undefined;
 	if (isNode) {
-		resolvedStorageDir = path.resolve(process.cwd()) as AbsolutePath;
+		resolvedStorageDir = path.resolve(process.cwd()) as StorageDir;
 	}
 
 	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization
