@@ -1,4 +1,4 @@
-import { type EpicenterConfig, forEachAction, iterActions } from '../core/epicenter';
+import { type EpicenterConfig, iterActions } from '../core/epicenter';
 import { createServer } from '../server/server';
 
 export const DEFAULT_PORT = 3913;
@@ -41,11 +41,11 @@ export async function startServer(
 	console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
 
 	console.log('📚 REST API Endpoints:\n');
-	forEachAction(client, ({ workspaceId, actionPath, action }) => {
+	for (const { workspaceId, actionPath, action } of iterActions(client)) {
 		const method = ({ query: 'GET', mutation: 'POST' } as const)[action.type];
 		const restPath = `/${workspaceId}/${actionPath.join('/')}`;
 		console.log(`  ${method} http://localhost:${port}${restPath}`);
-	});
+	}
 
 	console.log('\n🔧 Connect to Claude Code:\n');
 	console.log(

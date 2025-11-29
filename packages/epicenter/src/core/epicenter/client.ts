@@ -191,29 +191,3 @@ export function* iterActions<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	}
 }
 
-/**
- * Iterate over all workspace actions in an Epicenter client (callback-based).
- *
- * This is the imperative variant of {@link iterActions}. Use `iterActions` when you need
- * to collect, transform, or compose actions functionally. Use `forEachAction` for
- * simple side-effect operations like logging.
- *
- * @param client - The Epicenter client with workspace namespaces
- * @param callback - Function invoked for each action
- *
- * @example
- * ```typescript
- * // Log all REST endpoints
- * forEachAction(client, ({ workspaceId, actionPath, action }) => {
- *   const method = action.type === 'query' ? 'GET' : 'POST';
- *   console.log(`${method} /${workspaceId}/${actionPath.join('/')}`);
- * });
- * ```
- */
-export function forEachAction<
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(client: EpicenterClient<TWorkspaces>, callback: (info: ActionInfo) => void): void {
-	for (const info of iterActions(client)) {
-		callback(info);
-	}
-}

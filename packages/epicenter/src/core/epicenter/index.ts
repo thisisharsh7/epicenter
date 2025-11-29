@@ -2,6 +2,6 @@
 
 export type { ActionInfo, EpicenterClient } from './client';
 // Runtime (client side)
-export { createEpicenterClient, forEachAction, iterActions } from './client';
+export { createEpicenterClient, iterActions } from './client';
 export type { EpicenterConfig } from './config';
 export { defineEpicenter } from './config';

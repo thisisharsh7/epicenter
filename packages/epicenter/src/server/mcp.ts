@@ -11,7 +11,6 @@ import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
 import {
-	type ActionInfo,
 	type EpicenterClient,
 	type EpicenterConfig,
 	iterActions,
@@ -203,15 +202,9 @@ export async function createMcpServer<
 /**
  * Build a registry of MCP-compatible tools from workspace actions.
  *
- * This function:
- * 1. Flattens hierarchical workspace actions into MCP tool names (underscore-joined)
- * 2. Pre-computes JSON Schemas for each action's input (parallelized)
- * 3. Filters out actions with non-object inputs (MCP requires object type)
- * 4. Returns a registry that can be used for both ListTools and CallTool handlers
- *
- * Actions with non-object input schemas are filtered out with a warning, since MCP
- * requires all tool inputSchema to have `type: "object"` at the root. These actions
- * will still work via HTTP and TypeScript clients.
+ * Flattens hierarchical workspace actions into MCP tool names (underscore-joined),
+ * pre-computes JSON Schemas for each action's input, and filters out actions with
+ * non-object inputs (MCP requires object type at root).
  *
  * @example
  * // Flat export: { getAll: defineQuery(...) }
@@ -223,36 +216,26 @@ export async function createMcpServer<
 async function buildMcpToolRegistry<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>): Promise<Map<string, McpToolEntry>> {
-	// 1. Collect all actions using the iterator
-	const actions = [...iterActions(client)];
+	const entries = await Promise.all(
+		[...iterActions(client)].map(async ({ workspaceId, actionPath, action }) => {
+			const toolName = [workspaceId, ...actionPath].join('_');
+			const inputSchema = await getValidInputSchema(action, toolName);
+			if (!inputSchema) return undefined;
+			return [toolName, { action, inputSchema }] as const;
+		}),
+	);
 
-	// 2. Transform: build entries in parallel (returns undefined for invalid schemas)
-	const entries = await Promise.all(actions.map(buildToolEntry));
-
-	// 3. Filter & Construct: remove undefined entries and build the Map
-	return new Map(entries.filter((e) => e !== undefined));
+	return new Map(entries.filter((e): e is NonNullable<typeof e> => e !== undefined));
 }
 
 /**
- * Build a single tool entry from action info.
- * Returns a [toolName, entry] tuple, or undefined if the action is not MCP-compatible.
+ * Get the JSON Schema for an action's input, or undefined if not MCP-compatible.
+ *
+ * MCP requires all tool inputSchema to have `type: "object"` at the root. Actions
+ * with non-object inputs are filtered out with a warning; they will still work
+ * via HTTP and TypeScript clients.
  */
-async function buildToolEntry(
-	info: ActionInfo,
-): Promise<[string, McpToolEntry] | undefined> {
-	const toolName = [info.workspaceId, ...info.actionPath].join('_');
-	const inputSchema = await buildMcpInputSchema(info.action, toolName);
-
-	if (!inputSchema) return undefined;
-
-	return [toolName, { action: info.action, inputSchema }];
-}
-
-/**
- * Build the JSON Schema for an action's input.
- * Returns undefined if the schema is not MCP-compatible (non-object type).
- */
-async function buildMcpInputSchema(
+async function getValidInputSchema(
 	action: Action,
 	toolName: string,
 ): Promise<JSONSchema7 | undefined> {
@@ -260,14 +243,10 @@ async function buildMcpInputSchema(
 
 	const schema = await safeToJsonSchema(action.input);
 
-	// MCP requires object type at root
-	const isValidMcpSchema =
-		schema.type === 'object' || schema.type === undefined;
-	if (!isValidMcpSchema) {
+	if (schema.type !== 'object' && schema.type !== undefined) {
 		console.warn(
 			`[MCP] Skipping tool "${toolName}": input has type "${schema.type}" but MCP requires "object". ` +
-				`This action will still work via HTTP and TypeScript clients. ` +
-				`To enable MCP, wrap your input in an object (e.g., { rows: T[] } instead of T[]).`,
+				`This action will still work via HTTP and TypeScript clients.`,
 		);
 		return undefined;
 	}

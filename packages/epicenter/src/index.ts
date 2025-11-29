@@ -70,7 +70,6 @@ export type { ActionInfo, EpicenterClient, EpicenterConfig } from './core/epicen
 export {
 	createEpicenterClient,
 	defineEpicenter,
-	forEachAction,
 	iterActions,
 } from './core/epicenter';
 export type {
