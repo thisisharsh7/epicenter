@@ -6,6 +6,8 @@ import Footer from './table-footer.svelte';
 import Head from './table-head.svelte';
 import Header from './table-header.svelte';
 import Row from './table-row.svelte';
+import SelectAllPopover from './SelectAllPopover.svelte';
+import SortableTableHeader from './SortableTableHeader.svelte';
 
 export {
 	Root,
@@ -16,6 +18,8 @@ export {
 	Head,
 	Header,
 	Row,
+	SelectAllPopover,
+	SortableTableHeader,
 	//
 	Root as Table,
 	Body as TableBody,
