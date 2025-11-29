@@ -1,11 +1,11 @@
 /**
  * Recording state constants and schemas
  */
-import { z } from 'zod';
+import { type } from 'arktype';
 
-export const recordingStateSchema = z.enum(['IDLE', 'RECORDING']);
+export const WhisperingRecordingState = type("'IDLE' | 'RECORDING'");
 
-export type WhisperingRecordingState = z.infer<typeof recordingStateSchema>;
+export type WhisperingRecordingState = typeof WhisperingRecordingState.infer;
 
 export type CancelRecordingResult =
 	| { status: 'cancelled' }
@@ -16,9 +16,9 @@ export const recorderStateToIcons = {
 	RECORDING: '⏹️',
 } as const satisfies Record<WhisperingRecordingState, string>;
 
-export const vadStateSchema = z.enum(['IDLE', 'LISTENING', 'SPEECH_DETECTED']);
+export const VadState = type("'IDLE' | 'LISTENING' | 'SPEECH_DETECTED'");
 
-export type VadState = z.infer<typeof vadStateSchema>;
+export type VadState = typeof VadState.infer;
 
 export const vadStateToIcons = {
 	IDLE: '🎤',
