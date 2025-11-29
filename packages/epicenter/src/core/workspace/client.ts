@@ -55,7 +55,7 @@ export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
  * This allows accessing workspace exports as `client.workspaceId.exportName()`.
  *
  * Note: Workspaces can export actions, utilities, constants, and helpers.
- * Actions (queries/mutations) get special treatment at the server/MCP level via forEachAction().
+ * Actions (queries/mutations) get special treatment at the server/MCP level via iterActions().
  *
  * @example
  * ```typescript
@@ -410,7 +410,7 @@ export async function initializeWorkspaces<
 		};
 
 		// Create the workspace client with all exports (actions + utilities)
-		// Filtering to just actions happens at the server/MCP level via forEachAction()
+		// Filtering to just actions happens at the server/MCP level via iterActions()
 		const client: WorkspaceClient<any> = {
 			...exports,
 			destroy: cleanup,

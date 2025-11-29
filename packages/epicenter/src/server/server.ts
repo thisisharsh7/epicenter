@@ -8,7 +8,7 @@ import {
 	createEpicenterClient,
 	type EpicenterClient,
 	type EpicenterConfig,
-	forEachAction,
+	iterActions,
 } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createMcpServer } from './mcp';
@@ -72,7 +72,7 @@ export async function createServer<
 	// Register REST endpoints for each workspace action
 	// Supports nested exports: actionPath like ['users', 'crud', 'create']
 	// becomes route path '/workspace/users/crud/create'
-	forEachAction(client, ({ workspaceId, actionPath, action }) => {
+	for (const { workspaceId, actionPath, action } of iterActions(client)) {
 		const path = `/${workspaceId}/${actionPath.join('/')}`;
 
 		// Tag with both workspace and operation type for multi-dimensional grouping
@@ -139,7 +139,7 @@ export async function createServer<
 				);
 				break;
 		}
-	});
+	}
 
 	// Create and configure MCP server for /mcp endpoint
 	const mcpServer = await createMcpServer(client, config);
