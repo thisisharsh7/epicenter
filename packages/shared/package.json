@@ -16,7 +16,6 @@
 	},
 	"dependencies": {
 		"arktype": "catalog:",
-		"@lucide/svelte": "catalog:",
-		"zod": "catalog:"
+		"@lucide/svelte": "catalog:"
 	}
 }
