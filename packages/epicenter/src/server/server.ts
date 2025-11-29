@@ -142,7 +142,7 @@ export async function createServer<
 	});
 
 	// Create and configure MCP server for /mcp endpoint
-	const mcpServer = createMcpServer(client, config);
+	const mcpServer = await createMcpServer(client, config);
 
 	// Initialize transport once (per @hono/mcp docs, transport should be reused)
 	const transport = new StreamableHTTPTransport();
