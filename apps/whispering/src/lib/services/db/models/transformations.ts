@@ -34,8 +34,10 @@ const CURRENT_TRANSFORMATION_STEP_VERSION = 2 as const;
 /**
  * Base fields shared between TransformationStep V1 and V2.
  * FROZEN for V1/V2: Do not modify without considering impact on both versions.
+ *
+ * Uses arktype's type() directly so we can use .merge() for composition.
  */
-const TransformationStepBaseFields = {
+const TransformationStepBase = type({
 	id: 'string',
 	type: type.enumerated(...TRANSFORMATION_STEP_TYPES),
 	'prompt_transform.inference.provider': type.enumerated(
@@ -60,7 +62,7 @@ const TransformationStepBaseFields = {
 	'find_replace.findText': 'string',
 	'find_replace.replaceText': 'string',
 	'find_replace.useRegex': 'boolean',
-} as const;
+});
 
 /**
  * Fields for Transformation. These have NOT changed since the initial schema.
@@ -68,14 +70,16 @@ const TransformationStepBaseFields = {
  *
  * If a future version adds/changes Transformation-level fields (not just steps),
  * introduce versioning at that point.
+ *
+ * Uses arktype's type() directly so we can use .merge() for composition.
  */
-const TransformationFields = {
+const TransformationBase = type({
 	id: 'string',
 	title: 'string',
 	description: 'string',
 	createdAt: 'string',
 	updatedAt: 'string',
-} as const;
+});
 
 // ============================================================================
 // VERSION 1 (FROZEN)
@@ -87,9 +91,8 @@ const TransformationFields = {
  *
  * FROZEN: Do not modify. This represents the historical V1 schema.
  */
-const TransformationStepV1 = type({
+const TransformationStepV1 = TransformationStepBase.merge({
 	version: '1 = 1',
-	...TransformationStepBaseFields,
 });
 
 export type TransformationStepV1 = typeof TransformationStepV1.infer;
@@ -121,12 +124,9 @@ export type TransformationV1 = {
  *
  * CURRENT VERSION: This is the latest schema.
  */
-const TransformationStepV2 = type({
+const TransformationStepV2 = TransformationStepBase.merge({
 	version: '2',
-	...TransformationStepBaseFields,
-	/**
-	 * Custom provider for local LLM endpoints (Ollama, LM Studio, llama.cpp, etc.)
-	 */
+	/** Custom provider for local LLM endpoints (Ollama, LM Studio, llama.cpp, etc.) */
 	'prompt_transform.inference.provider.Custom.model': 'string',
 	/**
 	 * Per-step base URL for custom endpoints. Allows different steps to use
@@ -144,8 +144,7 @@ export type TransformationStepV2 = typeof TransformationStepV2.infer;
  * Note: The Transformation fields themselves are unchanged from V1;
  * "V2" refers to the step schema version contained within.
  */
-const TransformationV2 = type({
-	...TransformationFields,
+const TransformationV2 = TransformationBase.merge({
 	steps: [TransformationStepV2, '[]'],
 });
 
@@ -190,8 +189,7 @@ export type TransformationStep = TransformationStepV2;
  * Accepts transformations with V1 or V2 steps and migrates all steps to V2.
  * Use this when reading data that might contain old schema versions.
  */
-export const Transformation = type({
-	...TransformationFields,
+export const Transformation = TransformationBase.merge({
 	steps: [TransformationStep, '[]'],
 });
 
