@@ -1,6 +1,6 @@
 export {
 	BITRATE_OPTIONS,
-	BITRATE_VALUES_KBPS,
+	BITRATES_KBPS,
 	DEFAULT_BITRATE_KBPS,
 } from './bitrate';
 export {
@@ -14,10 +14,10 @@ export {
 } from './recording-modes';
 export {
 	type CancelRecordingResult,
-	recorderStateToIcons,
+	RECORDER_STATE_TO_ICON,
 	recordingStateSchema,
 	type VadState,
 	vadStateSchema,
-	vadStateToIcons,
+	VAD_STATE_TO_ICON,
 	type WhisperingRecordingState,
 } from './recording-states';

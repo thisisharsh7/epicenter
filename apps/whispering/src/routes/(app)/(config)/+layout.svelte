@@ -10,7 +10,7 @@
 	} from '$lib/components/settings';
 	import ManualDeviceSelector from '$lib/components/settings/selectors/ManualDeviceSelector.svelte';
 	import VadDeviceSelector from '$lib/components/settings/selectors/VadDeviceSelector.svelte';
-	import { recorderStateToIcons, vadStateToIcons } from '$lib/constants/audio';
+	import { RECORDER_STATE_TO_ICON, VAD_STATE_TO_ICON } from '$lib/constants/audio';
 	import { rpc } from '$lib/query';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
@@ -70,7 +70,7 @@
 						size="icon"
 						style="view-transition-name: microphone-icon"
 					>
-						{recorderStateToIcons[getRecorderStateQuery.data ?? 'IDLE']}
+						{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
 					</WhisperingButton>
 				{:else}
 					<div class="flex">
@@ -82,7 +82,7 @@
 							style="view-transition-name: microphone-icon"
 							class="rounded-r-none border-r-0"
 						>
-							{recorderStateToIcons[getRecorderStateQuery.data ?? 'IDLE']}
+							{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
 						</WhisperingButton>
 						<RecordingModeSelector class="rounded-l-none" />
 					</div>
@@ -104,7 +104,7 @@
 							style="view-transition-name: microphone-icon"
 							class="rounded-r-none border-r-0"
 						>
-							{vadStateToIcons[getVadStateQuery.data ?? 'IDLE']}
+							{VAD_STATE_TO_ICON[getVadStateQuery.data ?? 'IDLE']}
 						</WhisperingButton>
 						<RecordingModeSelector class="rounded-l-none" />
 					</div>
@@ -116,7 +116,7 @@
 						size="icon"
 						style="view-transition-name: microphone-icon"
 					>
-						{vadStateToIcons[getVadStateQuery.data ?? 'IDLE']}
+						{VAD_STATE_TO_ICON[getVadStateQuery.data ?? 'IDLE']}
 					</WhisperingButton>
 				{/if}
 			{:else if settings.value['recording.mode'] === 'upload'}

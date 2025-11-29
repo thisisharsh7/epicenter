@@ -11,7 +11,7 @@ export type CancelRecordingResult =
 	| { status: 'cancelled' }
 	| { status: 'no-recording' };
 
-export const recorderStateToIcons = {
+export const RECORDER_STATE_TO_ICON = {
 	IDLE: '🎙️',
 	RECORDING: '⏹️',
 } as const satisfies Record<WhisperingRecordingState, string>;
@@ -20,7 +20,7 @@ export const vadStateSchema = z.enum(['IDLE', 'LISTENING', 'SPEECH_DETECTED']);
 
 export type VadState = z.infer<typeof vadStateSchema>;
 
-export const vadStateToIcons = {
+export const VAD_STATE_TO_ICON = {
 	IDLE: '🎤',
 	LISTENING: '💬',
 	SPEECH_DETECTED: '👂',

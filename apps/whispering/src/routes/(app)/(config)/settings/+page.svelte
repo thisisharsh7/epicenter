@@ -5,7 +5,7 @@
 	} from '$lib/components/labeled/index.js';
 	import { Button } from '@repo/ui/button';
 	import { Separator } from '@repo/ui/separator';
-	import { ALWAYS_ON_TOP_OPTIONS } from '$lib/constants/ui';
+	import { ALWAYS_ON_TOP_MODE_OPTIONS } from '$lib/constants/ui';
 	import { settings } from '$lib/stores/settings.svelte';
 </script>
 
@@ -102,7 +102,7 @@
 		<LabeledSelect
 			id="always-on-top"
 			label="Always On Top"
-			items={ALWAYS_ON_TOP_OPTIONS}
+			items={ALWAYS_ON_TOP_MODE_OPTIONS}
 			bind:selected={
 				() => settings.value['system.alwaysOnTop'],
 				(selected) => settings.updateKey('system.alwaysOnTop', selected)
