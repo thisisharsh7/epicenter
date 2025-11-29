@@ -108,4 +108,5 @@ export type {
 } from './types.js';
 // Note: BlobStoreContext is already exported at its definition above
 export { BlobErr } from './types.js';
-export { getMimeType, validateFilename } from './utils.js';
+export { validateFilename } from './utils.js';
+export { getExtension, getType } from '../../mime/index.js';

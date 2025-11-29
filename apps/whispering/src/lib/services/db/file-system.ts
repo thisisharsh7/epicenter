@@ -11,7 +11,7 @@ import {
 import { type } from 'arktype';
 import matter from 'gray-matter';
 import { Ok, tryAsync } from 'wellcrafted/result';
-import { getExtensionFromMimeType } from '$lib/constants/mime';
+import { getExtension } from '@epicenter/hq/mime';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
 import type { Recording } from './models';
@@ -216,7 +216,7 @@ export function createFileSystemDb(): DbService {
 					await mkdir(recordingsPath, { recursive: true });
 
 					// 1. Write audio file
-					const extension = getExtensionFromMimeType(audio.type);
+					const extension = getExtension(audio.type);
 					const audioPath = await join(
 						recordingsPath,
 						`${recording.id}.${extension}`,

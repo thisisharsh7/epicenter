@@ -1,9 +1,17 @@
-import { basename } from '@tauri-apps/api/path';
+import { basename, extname } from '@tauri-apps/api/path';
 import { readFile } from '@tauri-apps/plugin-fs';
+import { getType } from '@epicenter/hq/mime';
 import { tryAsync } from 'wellcrafted/result';
-import { getMimeTypeFromPath } from '$lib/constants/mime';
 import type { FsService } from './types';
 import { FsServiceErr } from './types';
+
+/**
+ * Get MIME type from file path using Tauri's path API.
+ */
+async function getMimeTypeFromPath(filePath: string): Promise<string> {
+	const ext = (await extname(filePath)).toLowerCase();
+	return getType(ext);
+}
 
 export function createFsServiceDesktop(): FsService {
 	return {
