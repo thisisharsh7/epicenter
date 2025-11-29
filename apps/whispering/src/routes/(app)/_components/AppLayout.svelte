@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as Dialog from '@repo/ui/dialog';
-	// import { extension } from '@repo/extension';
+	import { extension } from '@repo/extension';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -40,28 +40,32 @@
 	let cleanupAccessibilityPermission: (() => void) | undefined;
 	let cleanupMicrophonePermission: (() => void) | undefined;
 
-	onMount(async () => {
+	onMount(() => {
+		// Sync operations - run immediately, these are fast
 		window.commands = commandCallbacks;
 		window.goto = goto;
-
 		syncLocalShortcutsWithSettings();
 		resetLocalShortcutsToDefaultIfDuplicates();
-		await checkFfmpegRecordingMethodCompatibility();
-		await checkCompressionRecommendation();
+		registerOnboarding();
+		cleanupAccessibilityPermission = registerAccessibilityPermission();
+		cleanupMicrophonePermission = registerMicrophonePermission();
+
 		if (window.__TAURI_INTERNALS__) {
 			syncGlobalShortcutsWithSettings();
 			resetGlobalShortcutsToDefaultIfDuplicates();
-			await checkForUpdates();
-			await checkIndexedDBMigration();
-		} else {
-			// const _notifyWhisperingTabReadyResult =
-			// await extension.notifyWhisperingTabReady(undefined);
-		}
-		registerOnboarding();
 
-		// Register permission checkers separately
-		cleanupAccessibilityPermission = registerAccessibilityPermission();
-		cleanupMicrophonePermission = registerMicrophonePermission();
+			// Async operations - fire and forget, don't block UI rendering
+			// These show toasts/notifications on completion, no need to await
+			Promise.allSettled([
+				checkFfmpegRecordingMethodCompatibility(),
+				checkCompressionRecommendation(),
+				checkForUpdates(),
+				checkIndexedDBMigration(),
+			]);
+		} else {
+			// Browser extension context - notify that the Whispering tab is ready
+			extension.notifyWhisperingTabReady(undefined);
+		}
 	});
 
 	onDestroy(() => {
