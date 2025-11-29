@@ -9,8 +9,9 @@ export type CompletionService = {
 	complete: (opts: {
 		apiKey: string;
 		model: string;
-		baseUrl?: string;
 		systemPrompt: string;
 		userPrompt: string;
+		/** Optional base URL for custom/self-hosted endpoints (Ollama, LM Studio, etc.) */
+		baseUrl?: string;
 	}) => Promise<Result<string, CompletionServiceError>>;
 };

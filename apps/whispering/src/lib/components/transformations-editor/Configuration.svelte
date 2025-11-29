@@ -448,7 +448,8 @@
 											>
 												{#snippet description()}
 													<p class="text-muted-foreground text-sm">
-														This overrides the default in Settings → API Keys.
+														Overrides the default URL from Settings. Useful when
+														this step needs a different local model server.
 													</p>
 												{/snippet}
 											</LabeledInput>
@@ -472,12 +473,12 @@
 														),
 													};
 												}}
-												placeholder="e.g. ollama/mistral:latest"
+												placeholder="llama3.2"
 											>
 												{#snippet description()}
 													<p class="text-muted-foreground text-sm">
-														Provide the exact model identifier expected by your
-														endpoint (Ollama, vLLM, etc.).
+														Enter the exact model name as it appears in your local
+														service (e.g., run <code class="bg-muted px-1 rounded">ollama list</code>).
 													</p>
 												{/snippet}
 											</LabeledInput>
