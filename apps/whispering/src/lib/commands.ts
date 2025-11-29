@@ -1,3 +1,4 @@
+import type { ShortcutEvent } from '@tauri-apps/plugin-global-shortcut';
 import { rpc } from '$lib/query';
 
 /**
@@ -9,23 +10,21 @@ import { rpc } from '$lib/query';
  */
 
 /**
- * When a shortcut should trigger its callback.
- * - 'Pressed': Only on key press
- * - 'Released': Only on key release
- * - 'Both': On both press and release (callback receives the actual state)
+ * The keyboard event state passed to callbacks.
+ * Derived from Tauri's ShortcutEvent type for consistency.
  */
-export type ShortcutTriggerState = 'Pressed' | 'Released' | 'Both';
-
-/**
- * The actual keyboard event state passed to callbacks.
- * This is what actually happened, not when to trigger.
- */
-export type ShortcutEventState = 'Pressed' | 'Released';
+export type ShortcutEventState = ShortcutEvent['state'];
 
 type SatisfiedCommand = {
 	id: string;
 	title: string;
-	on: ShortcutTriggerState;
+	/**
+	 * When to trigger the callback.
+	 * - ['Pressed']: Only on key press
+	 * - ['Released']: Only on key release
+	 * - ['Pressed', 'Released']: On both press and release
+	 */
+	on: ShortcutEventState[];
 	callback: (state: ShortcutEventState) => void;
 };
 
@@ -33,7 +32,7 @@ export const commands = [
 	{
 		id: 'pushToTalk',
 		title: 'Push to talk',
-		on: 'Both',
+		on: ['Pressed', 'Released'],
 		callback: (state: ShortcutEventState) => {
 			if (state === 'Pressed') {
 				rpc.commands.startManualRecording.execute(undefined);
@@ -45,55 +44,55 @@ export const commands = [
 	{
 		id: 'toggleManualRecording',
 		title: 'Toggle recording',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.toggleManualRecording.execute(undefined),
 	},
 	{
 		id: 'startManualRecording',
 		title: 'Start recording',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.startManualRecording.execute(undefined),
 	},
 	{
 		id: 'stopManualRecording',
 		title: 'Stop recording',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.stopManualRecording.execute(undefined),
 	},
 	{
 		id: 'cancelManualRecording',
 		title: 'Cancel recording',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.cancelManualRecording.execute(undefined),
 	},
 	{
 		id: 'startVadRecording',
 		title: 'Start voice activated recording',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.startVadRecording.execute(undefined),
 	},
 	{
 		id: 'stopVadRecording',
 		title: 'Stop voice activated recording',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.stopVadRecording.execute(undefined),
 	},
 	{
 		id: 'toggleVadRecording',
 		title: 'Toggle voice activated recording',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.toggleVadRecording.execute(undefined),
 	},
 	{
 		id: 'openTransformationPicker',
 		title: 'Open transformation picker',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () => rpc.commands.openTransformationPicker.execute(undefined),
 	},
 	{
 		id: 'runTransformationOnClipboard',
 		title: 'Run transformation on clipboard',
-		on: 'Pressed',
+		on: ['Pressed'],
 		callback: () =>
 			rpc.commands.runTransformationOnClipboard.execute(undefined),
 	},

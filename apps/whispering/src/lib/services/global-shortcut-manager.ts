@@ -15,10 +15,7 @@ import {
 	type AcceleratorModifier,
 	type KeyboardEventSupportedKey,
 } from '$lib/constants/keyboard';
-import type {
-	ShortcutEventState,
-	ShortcutTriggerState,
-} from '$lib/commands';
+import type { ShortcutEventState } from '$lib/commands';
 
 const { InvalidAcceleratorError, InvalidAcceleratorErr } = createTaggedError(
 	'InvalidAcceleratorError',
@@ -49,7 +46,7 @@ export function createGlobalShortcutManager() {
 		}: {
 			accelerator: Accelerator;
 			callback: (state: ShortcutEventState) => void;
-			on: ShortcutTriggerState;
+			on: ShortcutEventState[];
 		}): Promise<
 			Result<void, InvalidAcceleratorError | GlobalShortcutServiceError>
 		> {
@@ -67,17 +64,8 @@ export function createGlobalShortcutManager() {
 			const { error: registerError } = await tryAsync({
 				try: () =>
 					tauriRegister(accelerator, (event) => {
-						if (on === 'Both') {
+						if (on.includes(event.state)) {
 							callback(event.state);
-							return;
-						}
-						if (on === 'Pressed' && event.state === 'Pressed') {
-							callback('Pressed');
-							return;
-						}
-						if (on === 'Released' && event.state === 'Released') {
-							callback('Released');
-							return;
 						}
 					}),
 				catch: (error) =>
