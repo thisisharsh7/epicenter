@@ -45,40 +45,40 @@ Let's analyze each function:
 
 **`buildToolEntry`** (5 lines): This is pure glue code. It joins strings, calls another function, returns a tuple. No branching logic, no validation, no side effects beyond what it delegates. The name doesn't tell me anything I can't see from the code itself.
 
-**`buildMcpInputSchema`** (12 lines): This has real logic. It handles the empty-input case, validates the schema type, and logs a warning. The warning text alone justifies extraction; it's domain-specific behavior that clutters the main flow.
+**`buildMcpInputSchema`** (12 lines): This has real logic. It handles the empty-input case, validates the schema type, and logs a warning. But the warning is a single console.warn call, and the validation is a simple conditional. The "real logic" here is actually minimal.
 
 ## The Refactor
 
-Inline `buildToolEntry`, keep the schema function (renamed for clarity):
+On closer inspection, both helper functions are essentially glue. The schema validation is straightforward enough to inline. The result is a single function that reads top-to-bottom:
 
 ```typescript
 async function buildMcpToolRegistry(client): Promise<Map<string, McpToolEntry>> {
   const entries = await Promise.all(
     iterActions(client).map(async ({ workspaceId, actionPath, action }) => {
       const toolName = [workspaceId, ...actionPath].join('_');
-      const inputSchema = await getValidInputSchema(action, toolName);
-      if (!inputSchema) return undefined;
-      return [toolName, { action, inputSchema }] as const;
+
+      // Build input schema - MCP requires object type at root
+      if (!action.input) {
+        return [toolName, { action, inputSchema: EMPTY_OBJECT_SCHEMA }] as const;
+      }
+
+      const schema = await safeToJsonSchema(action.input);
+      if (schema.type !== 'object' && schema.type !== undefined) {
+        console.warn(
+          `[MCP] Skipping tool "${toolName}": input has type "${schema.type}" but MCP requires "object".`
+        );
+        return undefined;
+      }
+
+      return [toolName, { action, inputSchema: schema }] as const;
     }),
   );
 
-  return new Map(entries.filter((e): e is NonNullable<typeof e> => e !== undefined));
-}
-
-async function getValidInputSchema(action: Action, toolName: string): Promise<JSONSchema7 | undefined> {
-  if (!action.input) return EMPTY_OBJECT_SCHEMA;
-  const schema = await safeToJsonSchema(action.input);
-  if (schema.type !== 'object' && schema.type !== undefined) {
-    console.warn(
-      `[MCP] Skipping tool "${toolName}": input has type "${schema.type}" but MCP requires "object".`
-    );
-    return undefined;
-  }
-  return schema;
+  return new Map(entries.filter((e) => e !== undefined));
 }
 ```
 
-Two functions instead of three. The main function is slightly longer but completely readable. The inline callback is 5 lines; that's fine for a map operation.
+One function instead of three. The logic flows linearly: build tool name, handle empty input, validate schema, return entry or skip. No jumping between definitions.
 
 ## When to Extract
 

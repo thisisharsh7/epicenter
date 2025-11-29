@@ -219,39 +219,26 @@ async function buildMcpToolRegistry<
 	const entries = await Promise.all(
 		iterActions(client).map(async ({ workspaceId, actionPath, action }) => {
 			const toolName = [workspaceId, ...actionPath].join('_');
-			const inputSchema = await getValidInputSchema(action, toolName);
-			if (!inputSchema) return undefined;
-			return [toolName, { action, inputSchema }] as const;
+
+			// Build input schema - MCP requires object type at root
+			if (!action.input) {
+				return [toolName, { action, inputSchema: EMPTY_OBJECT_SCHEMA }] as const;
+			}
+
+			const schema = await safeToJsonSchema(action.input);
+			if (schema.type !== 'object' && schema.type !== undefined) {
+				console.warn(
+					`[MCP] Skipping tool "${toolName}": input has type "${schema.type}" but MCP requires "object". ` +
+						`This action will still work via HTTP and TypeScript clients.`,
+				);
+				return undefined;
+			}
+
+			return [toolName, { action, inputSchema: schema }] as const;
 		}),
 	);
 
-	return new Map(entries.filter((e): e is NonNullable<typeof e> => e !== undefined));
-}
-
-/**
- * Get the JSON Schema for an action's input, or undefined if not MCP-compatible.
- *
- * MCP requires all tool inputSchema to have `type: "object"` at the root. Actions
- * with non-object inputs are filtered out with a warning; they will still work
- * via HTTP and TypeScript clients.
- */
-async function getValidInputSchema(
-	action: Action,
-	toolName: string,
-): Promise<JSONSchema7 | undefined> {
-	if (!action.input) return EMPTY_OBJECT_SCHEMA;
-
-	const schema = await safeToJsonSchema(action.input);
-
-	if (schema.type !== 'object' && schema.type !== undefined) {
-		console.warn(
-			`[MCP] Skipping tool "${toolName}": input has type "${schema.type}" but MCP requires "object". ` +
-				`This action will still work via HTTP and TypeScript clients.`,
-		);
-		return undefined;
-	}
-
-	return schema;
+	return new Map(entries.filter((e) => e !== undefined));
 }
 
 /**
