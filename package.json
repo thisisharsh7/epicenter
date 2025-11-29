@@ -63,7 +63,10 @@
 
 		"check": "turbo run check",
 
-		"bump-version": "bun run scripts/bump-version.ts"
+		"bump-version": "bun run scripts/bump-version.ts",
+
+		"clean": "rm -rf .turbo node_modules apps/*/.svelte-kit apps/*/dist apps/*/node_modules packages/*/.svelte-kit packages/*/dist packages/*/node_modules examples/*/node_modules",
+		"nuke": "bun clean && rm -rf apps/whispering/src-tauri/target"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

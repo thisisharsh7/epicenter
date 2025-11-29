@@ -128,6 +128,24 @@ cd apps/whispering
 bun dev
 ```
 
+### Troubleshooting
+
+If you encounter issues after switching branches or pulling changes (like "render_fn is not a function" errors), run from the repo root:
+
+```bash
+bun clean    # Clears caches and node_modules
+bun install  # Reinstall dependencies
+```
+
+For a complete reset including Rust build artifacts (~10GB, takes longer to rebuild):
+
+```bash
+bun nuke     # Clears everything including Rust target
+bun install
+```
+
+Note: You rarely need `bun nuke` since Cargo handles incremental Rust builds well. Use `bun clean` first; reserve `bun nuke` for when things are truly broken.
+
 ## Join Us
 
 ## Discord Community
