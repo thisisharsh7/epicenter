@@ -143,12 +143,12 @@ export type ActionInfo = {
  *
  * @example
  * ```typescript
- * // Collect all actions into an array
- * const actions = [...iterActions(client)];
+ * // Map over actions directly (Iterator Helpers)
+ * const toolNames = iterActions(client).map(info => info.workspaceId);
  *
  * // Group actions by workspace
  * const byWorkspace = Object.groupBy(
- *   [...iterActions(client)],
+ *   iterActions(client),
  *   info => info.workspaceId
  * );
  *

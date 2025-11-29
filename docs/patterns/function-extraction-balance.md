@@ -8,8 +8,9 @@ I had this code for building an MCP tool registry:
 
 ```typescript
 async function buildMcpToolRegistry(client): Promise<Map<string, McpToolEntry>> {
-  const actions = [...iterActions(client)];
-  const entries = await Promise.all(actions.map(buildToolEntry));
+  const entries = await Promise.all(
+    iterActions(client).map(buildToolEntry)
+  );
   return new Map(entries.filter((e) => e !== undefined));
 }
 
@@ -53,7 +54,7 @@ Inline `buildToolEntry`, keep the schema function (renamed for clarity):
 ```typescript
 async function buildMcpToolRegistry(client): Promise<Map<string, McpToolEntry>> {
   const entries = await Promise.all(
-    [...iterActions(client)].map(async ({ workspaceId, actionPath, action }) => {
+    iterActions(client).map(async ({ workspaceId, actionPath, action }) => {
       const toolName = [workspaceId, ...actionPath].join('_');
       const inputSchema = await getValidInputSchema(action, toolName);
       if (!inputSchema) return undefined;

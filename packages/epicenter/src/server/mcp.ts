@@ -217,7 +217,7 @@ async function buildMcpToolRegistry<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>): Promise<Map<string, McpToolEntry>> {
 	const entries = await Promise.all(
-		[...iterActions(client)].map(async ({ workspaceId, actionPath, action }) => {
+		iterActions(client).map(async ({ workspaceId, actionPath, action }) => {
 			const toolName = [workspaceId, ...actionPath].join('_');
 			const inputSchema = await getValidInputSchema(action, toolName);
 			if (!inputSchema) return undefined;

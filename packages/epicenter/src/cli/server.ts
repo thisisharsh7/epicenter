@@ -54,7 +54,7 @@ export async function startServer(
 
 	console.log('📦 Available Tools:\n');
 	const actionsByWorkspace = Object.groupBy(
-		[...iterActions(client)],
+		iterActions(client),
 		(info) => info.workspaceId,
 	);
 
