@@ -1,4 +1,4 @@
-import { type EpicenterConfig, forEachAction } from '../core/epicenter';
+import { type EpicenterConfig, iterActions } from '../core/epicenter';
 import { createServer } from '../server/server';
 
 export const DEFAULT_PORT = 3913;
@@ -41,11 +41,11 @@ export async function startServer(
 	console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
 
 	console.log('📚 REST API Endpoints:\n');
-	forEachAction(client, ({ workspaceId, actionPath, action }) => {
+	for (const { workspaceId, actionPath, action } of iterActions(client)) {
 		const method = ({ query: 'GET', mutation: 'POST' } as const)[action.type];
 		const restPath = `/${workspaceId}/${actionPath.join('/')}`;
 		console.log(`  ${method} http://localhost:${port}${restPath}`);
-	});
+	}
 
 	console.log('\n🔧 Connect to Claude Code:\n');
 	console.log(
@@ -53,17 +53,14 @@ export async function startServer(
 	);
 
 	console.log('📦 Available Tools:\n');
-	const workspaceActions = new Map<string, string[][]>();
-	forEachAction(client, ({ workspaceId, actionPath }) => {
-		if (!workspaceActions.has(workspaceId)) {
-			workspaceActions.set(workspaceId, []);
-		}
-		workspaceActions.get(workspaceId)?.push(actionPath);
-	});
+	const actionsByWorkspace = Object.groupBy(
+		iterActions(client),
+		(info) => info.workspaceId,
+	);
 
-	for (const [workspaceId, actionPaths] of workspaceActions) {
+	for (const [workspaceId, actions] of Object.entries(actionsByWorkspace)) {
 		console.log(`  • ${workspaceId}`);
-		for (const actionPath of actionPaths) {
+		for (const { actionPath } of actions ?? []) {
 			const mcpToolName = [workspaceId, ...actionPath].join('_');
 			console.log(`    └─ ${mcpToolName}`);
 		}

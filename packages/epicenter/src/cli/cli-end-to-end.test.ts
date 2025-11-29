@@ -129,7 +129,8 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI can create a post', async () => {
-		const cli = await createCLI({
+		// createCLI parses and executes the command internally
+		await createCLI({
 			config: epicenter,
 			argv: [
 				'posts',
@@ -143,9 +144,6 @@ describe('CLI End-to-End Tests', () => {
 			],
 		});
 
-		// Parse will execute the command
-		await cli.parse();
-
 		// Verify the post was created by checking the markdown file
 		await new Promise((resolve) => setTimeout(resolve, 200));
 		const files = await Bun.$`ls ${TEST_MARKDOWN}/posts`.text();
@@ -154,7 +152,7 @@ describe('CLI End-to-End Tests', () => {
 
 	test('CLI can query posts', async () => {
 		// First create a post
-		const createCli = await createCLI({
+		await createCLI({
 			config: epicenter,
 			argv: [
 				'posts',
@@ -165,27 +163,23 @@ describe('CLI End-to-End Tests', () => {
 				'tech',
 			],
 		});
-		await createCli.parse();
 
 		// Wait for the post to be created
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Now query all posts
-		const listCli = await createCLI({
+		await createCLI({
 			config: epicenter,
 			argv: ['posts', 'listPosts'],
 		});
-		await listCli.parse();
 	});
 
 	test('CLI handles missing required options', async () => {
-		const cli = await createCLI({
-			config: epicenter,
-			argv: ['posts', 'createPost', '--title', 'Missing Category'],
-		});
-
 		try {
-			await cli.parse();
+			await createCLI({
+				config: epicenter,
+				argv: ['posts', 'createPost', '--title', 'Missing Category'],
+			});
 			expect(false).toBe(true); // Should not reach here
 		} catch (error) {
 			// Expected to fail due to missing required field
@@ -194,7 +188,15 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI properly formats success output', async () => {
-		const cli = await createCLI({
+		// Capture console output
+		const logs: string[] = [];
+		const originalLog = console.log;
+		console.log = (...args: unknown[]) => {
+			logs.push(args.join(' '));
+			originalLog(...args);
+		};
+
+		await createCLI({
 			config: epicenter,
 			argv: [
 				'posts',
@@ -205,16 +207,6 @@ describe('CLI End-to-End Tests', () => {
 				'test',
 			],
 		});
-
-		// Capture console output
-		const logs: string[] = [];
-		const originalLog = console.log;
-		console.log = (...args: any[]) => {
-			logs.push(args.join(' '));
-			originalLog(...args);
-		};
-
-		await cli.parse();
 
 		console.log = originalLog;
 

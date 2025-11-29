@@ -65,12 +65,12 @@ export {
 	RowAlreadyExistsErr,
 	RowNotFoundErr,
 } from './core/db/table-helper';
-export type { EpicenterClient, EpicenterConfig } from './core/epicenter';
+export type { ActionInfo, EpicenterClient, EpicenterConfig } from './core/epicenter';
 // Epicenter - compose multiple workspaces
 export {
 	createEpicenterClient,
 	defineEpicenter,
-	forEachAction,
+	iterActions,
 } from './core/epicenter';
 export type {
 	EpicenterOperationError,
@@ -161,5 +161,23 @@ export type { MarkdownIndexConfig } from './indexes/markdown';
 export { markdownIndex } from './indexes/markdown';
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';
+
+// Blob storage
+export {
+	BlobErr,
+	createTableBlobStore,
+	createWorkspaceBlobs,
+	validateFilename,
+} from './core/blobs';
+export type {
+	BlobContext,
+	BlobData,
+	BlobError,
+	BlobErrorCode,
+	BlobStoreContext,
+	TableBlobStore,
+	WorkspaceBlobs,
+} from './core/blobs';
+
 // Server - expose workspaces as REST API and MCP servers
 export { createServer } from './server';

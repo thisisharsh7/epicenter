@@ -35,4 +35,13 @@ export type TextService = {
 	writeToCursor: (
 		text: string,
 	) => MaybePromise<Result<void, TextServiceError | WhisperingError>>;
+
+	/**
+	 * Simulates pressing the Enter/Return key.
+	 * Useful for automatically submitting text in chat applications after transcription.
+	 *
+	 * Note: This is only supported on desktop (Tauri). Web browsers cannot simulate keystrokes
+	 * for security reasons.
+	 */
+	simulateEnterKeystroke: () => Promise<Result<void, TextServiceError>>;
 };

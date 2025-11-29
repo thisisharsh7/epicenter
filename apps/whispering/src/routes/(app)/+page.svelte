@@ -34,7 +34,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { onDestroy, onMount } from 'svelte';
-	import TranscribedTextDialog from '$lib/components/copyable/TranscribedTextDialog.svelte';
+	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
@@ -315,7 +315,7 @@
 		<div class="xxs:flex hidden w-full flex-col items-center gap-2">
 			<div class="flex w-full items-center gap-2">
 				<div class="flex-1">
-					<TranscribedTextDialog
+					<TranscriptDialog
 						recordingId={latestRecording.id}
 						transcribedText={latestRecording.transcriptionStatus ===
 						'TRANSCRIBING'
@@ -327,7 +327,7 @@
 					/>
 				</div>
 				<CopyToClipboardButton
-					contentDescription="transcribed text"
+					contentDescription="transcript"
 					textToCopy={latestRecording.transcribedText}
 					viewTransitionName={getRecordingTransitionId({
 						recordingId: latestRecording.id,

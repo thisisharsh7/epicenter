@@ -108,7 +108,7 @@
 		<EditRecordingModal {recording} />
 
 		<CopyToClipboardButton
-			contentDescription="transcribed text"
+			contentDescription="transcript"
 			textToCopy={recording.transcribedText}
 			viewTransitionName={getRecordingTransitionId({
 				recordingId,

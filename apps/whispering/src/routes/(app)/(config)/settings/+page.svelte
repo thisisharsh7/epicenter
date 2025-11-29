@@ -25,7 +25,7 @@
 
 	<LabeledSwitch
 		id="transcription.copyToClipboardOnSuccess"
-		label="Copy transcribed text to clipboard"
+		label="Copy transcript to clipboard"
 		bind:checked={
 			() => settings.value['transcription.copyToClipboardOnSuccess'],
 			(v) => settings.updateKey('transcription.copyToClipboardOnSuccess', v)
@@ -34,12 +34,23 @@
 
 	<LabeledSwitch
 		id="transcription.writeToCursorOnSuccess"
-		label="Paste transcribed text at cursor"
+		label="Paste transcript at cursor"
 		bind:checked={
 			() => settings.value['transcription.writeToCursorOnSuccess'],
 			(v) => settings.updateKey('transcription.writeToCursorOnSuccess', v)
 		}
 	/>
+
+	{#if window.__TAURI_INTERNALS__ && settings.value['transcription.writeToCursorOnSuccess']}
+		<LabeledSwitch
+			id="transcription.simulateEnterAfterOutput"
+			label="Press Enter after pasting transcript"
+			bind:checked={
+				() => settings.value['transcription.simulateEnterAfterOutput'],
+				(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
+			}
+		/>
+	{/if}
 
 	<Separator />
 
@@ -60,6 +71,17 @@
 			(v) => settings.updateKey('transformation.writeToCursorOnSuccess', v)
 		}
 	/>
+
+	{#if window.__TAURI_INTERNALS__ && settings.value['transformation.writeToCursorOnSuccess']}
+		<LabeledSwitch
+			id="transformation.simulateEnterAfterOutput"
+			label="Press Enter after pasting transformed text"
+			bind:checked={
+				() => settings.value['transformation.simulateEnterAfterOutput'],
+				(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
+			}
+		/>
+	{/if}
 
 	<Separator />
 

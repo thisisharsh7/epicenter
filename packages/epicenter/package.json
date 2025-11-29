@@ -19,6 +19,7 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
+		"mime": "catalog:",
 		"@hocuspocus/provider": "^3.4.0",
 		"@hocuspocus/server": "^3.4.0",
 		"@hono/mcp": "^0.1.5",

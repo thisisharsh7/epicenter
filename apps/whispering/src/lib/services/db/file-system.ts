@@ -10,8 +10,10 @@ import {
 } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
 import matter from 'gray-matter';
+import mime from 'mime';
+import standardTypes from 'mime/types/standard.js';
+import otherTypes from 'mime/types/other.js';
 import { Ok, tryAsync } from 'wellcrafted/result';
-import { getExtensionFromMimeType } from '$lib/constants/mime';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
 import type { Recording } from './models';
@@ -216,7 +218,7 @@ export function createFileSystemDb(): DbService {
 					await mkdir(recordingsPath, { recursive: true });
 
 					// 1. Write audio file
-					const extension = getExtensionFromMimeType(audio.type);
+					const extension = mime.getExtension(audio.type) ?? 'bin';
 					const audioPath = await join(
 						recordingsPath,
 						`${recording.id}.${extension}`,
@@ -1148,14 +1150,23 @@ export function createFileSystemDb(): DbService {
 	};
 }
 
+/** All audio/* and video/* MIME types from the mime package. */
+const AUDIO_VIDEO_MIME_TYPES = Object.keys({ ...standardTypes, ...otherTypes }).filter(
+	(type) => type.startsWith('audio/') || type.startsWith('video/'),
+);
+
+/** All supported audio/video file extensions, derived via mime.getAllExtensions(). */
+const SUPPORTED_MEDIA_EXTENSIONS = AUDIO_VIDEO_MIME_TYPES.flatMap(
+	(type) => [...(mime.getAllExtensions(type) ?? [])],
+);
+
 /**
  * Helper function to find audio file by ID.
- * Tries multiple extensions: .wav, .opus, .mp3, .ogg
+ * Checks all supported media extensions from the mime package.
  */
 async function findAudioFile(dir: string, id: string): Promise<string | null> {
-	const extensions = ['.wav', '.opus', '.mp3', '.ogg'];
-	for (const ext of extensions) {
-		const filename = `${id}${ext}`;
+	for (const ext of SUPPORTED_MEDIA_EXTENSIONS) {
+		const filename = `${id}.${ext}`;
 		const filePath = await join(dir, filename);
 		const fileExists = await exists(filePath);
 		if (fileExists) return filename;

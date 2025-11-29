@@ -1,4 +1,5 @@
 import type { WorkspaceExports } from '../actions';
+import type { WorkspaceBlobs } from '../blobs';
 import type { Db } from '../db/core';
 import type { Index, WorkspaceIndexMap } from '../indexes';
 import type { Provider } from '../provider';
@@ -184,10 +185,11 @@ export type WorkspaceConfig<
 	 * @param context.validators - Schema validators for runtime validation and arktype composition
 	 * @param context.indexes - Index-specific exports (queries, sync operations, etc.)
 	 * @param context.workspaces - Exports from dependency workspaces (if any)
+	 * @param context.blobs - Blob storage for binary files, namespaced by table
 	 *
 	 * @example
 	 * ```typescript
-	 * exports: ({ schema, db, validators, indexes }) => ({
+	 * exports: ({ schema, db, validators, indexes, blobs }) => ({
 	 *   // Expose schema for type inference in external scripts
 	 *   schema,
 	 *
@@ -203,6 +205,10 @@ export type WorkspaceConfig<
 	 *
 	 *   // Expose index operations
 	 *   pullToMarkdown: indexes.markdown.pullToMarkdown,
+	 *
+	 *   // Store and retrieve binary files
+	 *   uploadAttachment: (filename, data) => blobs.posts.put(filename, data),
+	 *   getAttachment: (filename) => blobs.posts.get(filename),
 	 * })
 	 * ```
 	 */
@@ -212,6 +218,7 @@ export type WorkspaceConfig<
 		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToExports<TDeps>;
 		indexes: TIndexResults;
+		blobs: WorkspaceBlobs<TWorkspaceSchema>;
 		storageDir: StorageDir | undefined;
 		epicenterDir: EpicenterDir | undefined;
 	}) => TExports;
