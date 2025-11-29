@@ -9,7 +9,10 @@ import {
 	normalizeOptionKeyCharacter,
 } from '$lib/constants/keyboard';
 import { IS_MACOS } from '$lib/constants/platform';
-import type { ShortcutTriggerState } from './_shortcut-trigger-state';
+import type {
+	ShortcutEventState,
+	ShortcutTriggerState,
+} from './_shortcut-trigger-state';
 
 /**
  * Error type for local shortcut service operations.
@@ -29,7 +32,7 @@ export function createLocalShortcutManager() {
 		{
 			on: ShortcutTriggerState;
 			keyCombination: KeyboardEventSupportedKey[];
-			callback: () => void;
+			callback: (state: ShortcutEventState) => void;
 		}
 	>();
 
@@ -112,7 +115,7 @@ export function createLocalShortcutManager() {
 					// in activeShortcuts, we know it's been triggered and should not fire again
 					if (!activeShortcuts.has(id) && (on === 'Both' || on === 'Pressed')) {
 						activeShortcuts.add(id); // Mark as active BEFORE calling callback
-						callback();
+						callback('Pressed');
 					}
 				}
 			});
@@ -153,7 +156,7 @@ export function createLocalShortcutManager() {
 					if (!arraysMatch(pressedKeys, keyCombination)) continue;
 					if (activeShortcuts.has(id) && (on === 'Both' || on === 'Released')) {
 						e.preventDefault();
-						callback();
+						callback('Released');
 						activeShortcuts.delete(id);
 					}
 				}
@@ -203,7 +206,7 @@ export function createLocalShortcutManager() {
 		}: {
 			id: CommandId;
 			keyCombination: KeyboardEventSupportedKey[];
-			callback: () => void;
+			callback: (state: ShortcutEventState) => void;
 			on: ShortcutTriggerState;
 		}): Promise<Result<void, LocalShortcutServiceError>> {
 			shortcuts.set(id, { keyCombination, callback, on });

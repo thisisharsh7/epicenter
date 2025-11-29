@@ -1,5 +1,8 @@
 import { rpc } from '$lib/query';
-import type { ShortcutTriggerState } from './services/_shortcut-trigger-state';
+import type {
+	ShortcutEventState,
+	ShortcutTriggerState,
+} from './services/_shortcut-trigger-state';
 
 /**
  * Registry of available commands in the application.
@@ -13,7 +16,7 @@ type SatisfiedCommand = {
 	id: string;
 	title: string;
 	on: ShortcutTriggerState;
-	callback: () => void;
+	callback: (state: ShortcutEventState) => void;
 };
 
 export const commands = [
@@ -21,7 +24,13 @@ export const commands = [
 		id: 'pushToTalk',
 		title: 'Push to talk',
 		on: 'Both',
-		callback: () => rpc.commands.toggleManualRecording.execute(undefined),
+		callback: (state: ShortcutEventState) => {
+			if (state === 'Pressed') {
+				rpc.commands.startManualRecording.execute(undefined);
+			} else {
+				rpc.commands.stopManualRecording.execute(undefined);
+			}
+		},
 	},
 	{
 		id: 'toggleManualRecording',
