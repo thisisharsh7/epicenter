@@ -32,14 +32,14 @@
 import { type ZodBoolean, type ZodString, z } from 'zod';
 import type { Command } from '$lib/commands';
 import {
-	BITRATE_VALUES_KBPS,
+	BITRATES_KBPS,
 	DEFAULT_BITRATE_KBPS,
 	RECORDING_MODES,
 } from '$lib/constants/audio';
 import { CommandOrAlt, CommandOrControl } from '$lib/constants/keyboard';
 import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import type { WhisperingSoundNames } from '$lib/constants/sounds';
-import { ALWAYS_ON_TOP_VALUES } from '$lib/constants/ui';
+import { ALWAYS_ON_TOP_MODES } from '$lib/constants/ui';
 import {
 	FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 	FFMPEG_DEFAULT_GLOBAL_OPTIONS,
@@ -102,7 +102,7 @@ export const settingsSchema = z.object({
 	'transformation.writeToCursorOnSuccess': z.boolean().default(false),
 	'transformation.simulateEnterAfterOutput': z.boolean().default(false),
 
-	'system.alwaysOnTop': z.enum(ALWAYS_ON_TOP_VALUES).default('Never'),
+	'system.alwaysOnTop': z.enum(ALWAYS_ON_TOP_MODES).default('Never'),
 
 	'database.recordingRetentionStrategy': z
 		.enum(['keep-forever', 'limit-count'])
@@ -145,7 +145,7 @@ export const settingsSchema = z.object({
 
 	// Browser recording settings (used when browser method is selected)
 	'recording.navigator.bitrateKbps': z
-		.enum(BITRATE_VALUES_KBPS)
+		.enum(BITRATES_KBPS)
 		.optional()
 		.default(DEFAULT_BITRATE_KBPS),
 
