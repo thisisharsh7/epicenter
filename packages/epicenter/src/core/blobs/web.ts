@@ -59,7 +59,7 @@ export function createWebTableBlobStore(tableName: string): TableBlobStore {
 					const tableDir = await root.getDirectoryHandle(tableName);
 					const fileHandle = await tableDir.getFileHandle(filename);
 					const file = await fileHandle.getFile();
-					return file as Blob;
+					return file;
 				},
 				catch: (error) => {
 					// NotFoundError means file doesn't exist - return null, not error
