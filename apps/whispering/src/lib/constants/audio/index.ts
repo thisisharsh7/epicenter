@@ -15,9 +15,9 @@ export {
 export {
 	type CancelRecordingResult,
 	RECORDER_STATE_TO_ICON,
-	recordingStateSchema,
+	RECORDING_STATE_SCHEMA,
 	type VadState,
-	vadStateSchema,
+	VAD_STATE_SCHEMA,
 	VAD_STATE_TO_ICON,
 	type WhisperingRecordingState,
 } from './recording-states';
