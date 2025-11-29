@@ -1,10 +1,12 @@
 # Function Extraction: Finding the Right Balance
 
-There's a tension in code organization: every function should do one thing, but too many layers of abstraction creates exhausting indirection. Here's how I think about finding the balance.
+Every function should ideally do one thing, but too many functions creates unnecessary indirection and cognitive overhead.
+
+This is a key tension in code organization: what does "one thing" really mean? You shouldn't necessarily over extract functions so that they do one thing. You should think more about intent rather than imperative steps. In that way, functions do do one thing.
 
 ## The Problem
 
-I had this code for building an MCP tool registry:
+Consider the following code I wrote for building an MCP tool registry:
 
 ```typescript
 async function buildMcpToolRegistry(client): Promise<Map<string, McpToolEntry>> {
@@ -49,7 +51,9 @@ Let's analyze each function:
 
 ## The Refactor
 
-On closer inspection, both helper functions are essentially glue. The schema validation is straightforward enough to inline. The result is a single function that reads top-to-bottom:
+On closer inspection, the schema validation is straightforward enough to inline.
+
+Think: does `buildToolEntry` or `buildMcpInputSchema` really do something? Or does it make the reader more confused? The result is a single function that reads top-to-bottom:
 
 ```typescript
 async function buildMcpToolRegistry(client): Promise<Map<string, McpToolEntry>> {
@@ -96,6 +100,6 @@ Keep code inline when:
 
 ## The Deeper Principle
 
-"One function, one thing" is about mental chunking, not line counts. A function should represent one conceptual step in a process. If that step is "build a tool entry from action info," and building a tool entry is trivial, then it's not worth naming.
+"One function, one thing" is about mental chunking, not line counts. A function should represent one conceptual action, but not necessarily every step must be extracted into a smaller function. If that step is "build a tool entry from action info," and building a tool entry is trivial, then it's not worth naming.
 
 The goal is code you can read top-to-bottom without constantly jumping to definitions. Sometimes that means more functions. Sometimes fewer.
