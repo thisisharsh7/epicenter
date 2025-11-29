@@ -1,9 +1,10 @@
 import { join } from 'node:path';
+import mime from 'mime';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import type { TableBlobStore } from './types.js';
 import { BlobErr } from './types.js';
-import { getMimeType, validateFilename } from './utils.js';
+import { validateFilename } from './utils.js';
 
 /**
  * Create a blob store for a table using Bun's filesystem APIs.
@@ -55,7 +56,7 @@ export function createNodeTableBlobStore(
 					}
 
 					const arrayBuffer = await file.arrayBuffer();
-					const mimeType = getMimeType(filename);
+					const mimeType = mime.getType(filename) ?? 'application/octet-stream';
 					return new Blob([arrayBuffer], { type: mimeType });
 				},
 				catch: (error) =>
