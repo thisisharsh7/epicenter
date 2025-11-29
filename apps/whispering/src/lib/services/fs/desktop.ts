@@ -1,16 +1,13 @@
-import { basename, extname } from '@tauri-apps/api/path';
+import { basename } from '@tauri-apps/api/path';
 import { readFile } from '@tauri-apps/plugin-fs';
 import mime from 'mime';
 import { tryAsync } from 'wellcrafted/result';
 import type { FsService } from './types';
 import { FsServiceErr } from './types';
 
-/**
- * Get MIME type from file path using Tauri's path API.
- */
-async function getMimeTypeFromPath(filePath: string): Promise<string> {
-	const ext = (await extname(filePath)).toLowerCase();
-	return mime.getType(ext) ?? 'application/octet-stream';
+/** Get MIME type from file path. The mime library handles path parsing internally. */
+function getMimeType(filePath: string): string {
+	return mime.getType(filePath) ?? 'application/octet-stream';
 }
 
 export function createFsServiceDesktop(): FsService {
@@ -19,7 +16,7 @@ export function createFsServiceDesktop(): FsService {
 			return tryAsync({
 				try: async () => {
 					const fileBytes = await readFile(path);
-					const mimeType = await getMimeTypeFromPath(path);
+					const mimeType = getMimeType(path);
 					return new Blob([fileBytes], { type: mimeType });
 				},
 				catch: (error) =>
@@ -35,7 +32,7 @@ export function createFsServiceDesktop(): FsService {
 				try: async () => {
 					const fileBytes = await readFile(path);
 					const fileName = await basename(path);
-					const mimeType = await getMimeTypeFromPath(path);
+					const mimeType = getMimeType(path);
 					return new File([fileBytes], fileName, { type: mimeType });
 				},
 				catch: (error) =>
@@ -53,7 +50,7 @@ export function createFsServiceDesktop(): FsService {
 					for (const path of paths) {
 						const fileBytes = await readFile(path);
 						const fileName = await basename(path);
-						const mimeType = await getMimeTypeFromPath(path);
+						const mimeType = getMimeType(path);
 						const file = new File([fileBytes], fileName, { type: mimeType });
 						files.push(file);
 					}
