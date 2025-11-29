@@ -144,10 +144,16 @@ export async function createServer<
 	// Create and configure MCP server for /mcp endpoint
 	const mcpServer = createMcpServer(client, config);
 
+	// Initialize transport once (per @hono/mcp docs, transport should be reused)
+	const transport = new StreamableHTTPTransport();
+
 	// Register MCP endpoint using StreamableHTTPTransport
 	app.all('/mcp', async (c) => {
-		const transport = new StreamableHTTPTransport();
-		await mcpServer.connect(transport);
+		// Only connect if not already connected (connection persists across requests)
+		// Server.transport is set when connect() is called
+		if (mcpServer.transport === undefined) {
+			await mcpServer.connect(transport);
+		}
 		return transport.handleRequest(c);
 	});
 
