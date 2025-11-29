@@ -17,7 +17,7 @@ describe('YjsDoc Type Inference', () => {
 				title: text(),
 				content: ytext({ nullable: true }),
 				tags: tags({ options: ['tech', 'personal', 'work'] }),
-				viewCount: integer(),
+				view_count: integer(),
 				published: boolean(),
 			},
 		});
@@ -28,7 +28,7 @@ describe('YjsDoc Type Inference', () => {
 			title: 'Test Post',
 			content: 'Post content', // string (gets converted to Y.Text internally)
 			tags: ['tech'], // array (gets converted to Y.Array internally)
-			viewCount: 0,
+			view_count: 0,
 			published: false,
 		});
 
@@ -43,7 +43,7 @@ describe('YjsDoc Type Inference', () => {
 				// Verify property access works
 				expect(row.id).toBe('1');
 				expect(row.title).toBe('Test Post');
-				expect(row.viewCount).toBe(0);
+				expect(row.view_count).toBe(0);
 				expect(row.published).toBe(false);
 
 				// Verify YJS types are properly inferred
@@ -59,18 +59,20 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				name: text(),
 				price: integer(),
-				inStock: boolean(),
+				in_stock: boolean(),
 			},
 		});
 
-		doc.products.insertMany([
-			{ id: '1', name: 'Widget', price: 1000, inStock: true },
-			{ id: '2', name: 'Gadget', price: 2000, inStock: false },
-		]);
+		doc.products.insertMany({
+			rows: [
+				{ id: '1', name: 'Widget', price: 1000, in_stock: true },
+				{ id: '2', name: 'Gadget', price: 2000, in_stock: false },
+			],
+		});
 
 		// getAll() now returns Row[] directly
 		const products = doc.products.getAll();
-		// Expected type: Array<{ id: string; name: string; price: number; inStock: boolean }>
+		// Expected type: Array<{ id: string; name: string; price: number; in_stock: boolean }>
 
 		expect(products).toHaveLength(2);
 	});
@@ -85,10 +87,12 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tasks.insertMany([
-			{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
-			{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
-		]);
+		doc.tasks.insertMany({
+			rows: [
+				{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
+				{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
+			],
+		});
 
 		// Hover over 'task' parameter to verify inferred type
 		// filter() now returns Row[] directly
@@ -108,10 +112,12 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.items.insertMany([
-			{ id: '1', name: 'Item 1', quantity: 5 },
-			{ id: '2', name: 'Item 2', quantity: 0 },
-		]);
+		doc.items.insertMany({
+			rows: [
+				{ id: '1', name: 'Item 1', quantity: 5 },
+				{ id: '2', name: 'Item 2', quantity: 0 },
+			],
+		});
 
 		// Hover over 'item' parameter to verify inferred type
 		// find() now returns Row | null directly
@@ -214,7 +220,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 			books: {
 				id: id(),
-				authorId: text(),
+				author_id: text(),
 				title: text(),
 				chapters: tags({
 					options: ['Chapter 1', 'Chapter 2', 'Chapter 3'],
@@ -236,14 +242,14 @@ describe('YjsDoc Type Inference', () => {
 		// Test books table - use plain array (converted to Y.Array internally)
 		doc.books.insert({
 			id: 'book-1',
-			authorId: 'author-1',
+			author_id: 'author-1',
 			title: 'My Book',
 			chapters: ['Chapter 1', 'Chapter 2'],
 			published: true,
 		});
 
 		const bookResult = doc.books.get({ id: 'book-1' });
-		// Hover to verify type: Result<{ id: string; authorId: string; title: string; chapters: Y.Array<string>; published: boolean }, ArkErrors> | null
+		// Hover to verify type: Result<{ id: string; author_id: string; title: string; chapters: Y.Array<string>; published: boolean }, ArkErrors> | null
 
 		expect(authorResult).not.toBeNull();
 		expect(bookResult).not.toBeNull();
@@ -270,7 +276,7 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		doc.comments.insertMany(commentsToAdd);
+		doc.comments.insertMany({ rows: commentsToAdd });
 
 		const comments = doc.comments.getAll();
 		expect(comments).toHaveLength(2);
