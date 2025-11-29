@@ -1,4 +1,4 @@
-import { type EpicenterConfig, forEachAction } from '../core/epicenter';
+import { type EpicenterConfig, forEachAction, iterActions } from '../core/epicenter';
 import { createServer } from '../server/server';
 
 export const DEFAULT_PORT = 3913;
@@ -53,17 +53,14 @@ export async function startServer(
 	);
 
 	console.log('📦 Available Tools:\n');
-	const workspaceActions = new Map<string, string[][]>();
-	forEachAction(client, ({ workspaceId, actionPath }) => {
-		if (!workspaceActions.has(workspaceId)) {
-			workspaceActions.set(workspaceId, []);
-		}
-		workspaceActions.get(workspaceId)?.push(actionPath);
-	});
+	const actionsByWorkspace = Object.groupBy(
+		[...iterActions(client)],
+		(info) => info.workspaceId,
+	);
 
-	for (const [workspaceId, actionPaths] of workspaceActions) {
+	for (const [workspaceId, actions] of Object.entries(actionsByWorkspace)) {
 		console.log(`  • ${workspaceId}`);
-		for (const actionPath of actionPaths) {
+		for (const { actionPath } of actions ?? []) {
 			const mcpToolName = [workspaceId, ...actionPath].join('_');
 			console.log(`    └─ ${mcpToolName}`);
 		}

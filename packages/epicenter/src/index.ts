@@ -65,12 +65,13 @@ export {
 	RowAlreadyExistsErr,
 	RowNotFoundErr,
 } from './core/db/table-helper';
-export type { EpicenterClient, EpicenterConfig } from './core/epicenter';
+export type { ActionInfo, EpicenterClient, EpicenterConfig } from './core/epicenter';
 // Epicenter - compose multiple workspaces
 export {
 	createEpicenterClient,
 	defineEpicenter,
 	forEachAction,
+	iterActions,
 } from './core/epicenter';
 export type {
 	EpicenterOperationError,

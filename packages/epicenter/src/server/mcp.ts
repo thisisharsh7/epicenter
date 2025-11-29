@@ -11,9 +11,10 @@ import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
 import {
+	type ActionInfo,
 	type EpicenterClient,
 	type EpicenterConfig,
-	forEachAction,
+	iterActions,
 } from '../core/epicenter';
 import { safeToJsonSchema } from '../core/schema/safe-json-schema';
 import type { AnyWorkspaceConfig } from '../core/workspace';
@@ -26,13 +27,6 @@ type McpToolEntry = {
 	action: Action;
 	/** Pre-computed JSON Schema for the action's input (guaranteed to be object type) */
 	inputSchema: JSONSchema7;
-};
-
-/** Info about an action collected from the client hierarchy */
-type ActionInfo = {
-	workspaceId: string;
-	actionPath: string[];
-	action: Action;
 };
 
 /** Default schema for actions without input: empty object */
@@ -229,9 +223,8 @@ export async function createMcpServer<
 async function buildMcpToolRegistry<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>): Promise<Map<string, McpToolEntry>> {
-	// 1. Collect: gather all actions into a flat array
-	const actions: ActionInfo[] = [];
-	forEachAction(client, (info) => actions.push(info));
+	// 1. Collect all actions using the iterator
+	const actions = [...iterActions(client)];
 
 	// 2. Transform: build entries in parallel (returns undefined for invalid schemas)
 	const entries = await Promise.all(actions.map(buildToolEntry));

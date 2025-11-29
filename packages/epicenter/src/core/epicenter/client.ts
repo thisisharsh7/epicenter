@@ -120,48 +120,47 @@ export async function createEpicenterClient<
 	} as EpicenterClient<TWorkspaces>;
 }
 
+/** Info about an action collected from the client hierarchy */
+export type ActionInfo = {
+	workspaceId: string;
+	actionPath: string[];
+	action: Action;
+};
+
 /**
- * Iterate over all workspace actions in an Epicenter client.
+ * Generator that yields all workspace actions in an Epicenter client.
  *
  * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
- * This utility traverses all layers (including nested namespaces) and invokes
- * the callback for each action. The destroy and Symbol.asyncDispose methods
+ * This generator traverses all layers (including nested namespaces) and yields
+ * each action with its metadata. The destroy and Symbol.asyncDispose methods
  * at client and workspace levels are automatically excluded.
  *
  * Supports nested exports: actions can be organized in namespaces like
  * `{ users: { getAll: defineQuery(...), crud: { create: defineMutation(...) } } }`
  *
  * @param client - The Epicenter client with workspace namespaces
- * @param callback - Function invoked for each action. Receives an object with:
- *   - workspaceId (string): The workspace ID
- *   - actionPath (string[]): The path to the action (e.g., ['users', 'crud', 'create'])
- *   - action (Action): The action object
+ * @yields Objects containing workspaceId, actionPath, and action
  *
  * @example
  * ```typescript
- * // Register MCP tools (underscore-joined paths)
- * forEachAction(client, ({ workspaceId, actionPath, action }) => {
- *   const toolName = [workspaceId, ...actionPath].join('_');
- *   actions.set(toolName, action);
- * });
+ * // Collect all actions into an array
+ * const actions = [...iterActions(client)];
  *
- * // Register REST routes (slash-joined paths)
- * forEachAction(client, ({ workspaceId, actionPath, action }) => {
- *   const routePath = `/${workspaceId}/${actionPath.join('/')}`;
- *   app.get(routePath, handler);
- * });
+ * // Group actions by workspace
+ * const byWorkspace = Object.groupBy(
+ *   [...iterActions(client)],
+ *   info => info.workspaceId
+ * );
+ *
+ * // Iterate with early break
+ * for (const { workspaceId, actionPath, action } of iterActions(client)) {
+ *   if (action.type === 'mutation') break;
+ * }
  * ```
  */
-export function forEachAction<
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
+export function* iterActions<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	client: EpicenterClient<TWorkspaces>,
-	callback: (params: {
-		workspaceId: string;
-		actionPath: string[];
-		action: Action;
-	}) => void,
-): void {
+): Generator<ActionInfo> {
 	// Extract workspace clients (excluding cleanup methods from the client interface)
 	const {
 		destroy: _destroy,
@@ -181,13 +180,40 @@ export function forEachAction<
 		} = workspaceClient as WorkspaceClient<WorkspaceExports>;
 
 		// Walk through all actions (including nested namespaces)
-		// and invoke callback for each one with its full path
+		// and yield each one with its full path
 		for (const { path, action } of walkActions(workspaceExports)) {
-			callback({
+			yield {
 				workspaceId,
 				actionPath: path,
 				action,
-			});
+			};
 		}
+	}
+}
+
+/**
+ * Iterate over all workspace actions in an Epicenter client (callback-based).
+ *
+ * This is the imperative variant of {@link iterActions}. Use `iterActions` when you need
+ * to collect, transform, or compose actions functionally. Use `forEachAction` for
+ * simple side-effect operations like logging.
+ *
+ * @param client - The Epicenter client with workspace namespaces
+ * @param callback - Function invoked for each action
+ *
+ * @example
+ * ```typescript
+ * // Log all REST endpoints
+ * forEachAction(client, ({ workspaceId, actionPath, action }) => {
+ *   const method = action.type === 'query' ? 'GET' : 'POST';
+ *   console.log(`${method} /${workspaceId}/${actionPath.join('/')}`);
+ * });
+ * ```
+ */
+export function forEachAction<
+	TWorkspaces extends readonly AnyWorkspaceConfig[],
+>(client: EpicenterClient<TWorkspaces>, callback: (info: ActionInfo) => void): void {
+	for (const info of iterActions(client)) {
+		callback(info);
 	}
 }
