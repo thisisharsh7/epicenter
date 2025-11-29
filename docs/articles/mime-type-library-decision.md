@@ -12,21 +12,23 @@ More importantly: it's actively maintained by someone who's been doing this for 
 
 ## The Decision
 
-I'm using `mime/lite` instead of my custom implementation.
-
-`mime/lite` includes only the standard IANA-registered types (no vendor-specific ones like `application/vnd.ms-excel`). Smaller bundle, covers everything I actually need.
+I'm using `mime` instead of my custom implementation.
 
 ```typescript
-import { getType, getExtension } from 'mime/lite';
+import mime from 'mime';
 
-getType('mp3');           // 'audio/mpeg'
-getExtension('audio/wav'); // 'wav'
+mime.getType('mp3');           // 'audio/mpeg'
+mime.getExtension('audio/wav'); // 'wav'
 ```
 
-Same API I was building anyway.
+The library also offers `mime/lite` which only includes standard IANA-registered types (no vendor-specific ones like `application/vnd.ms-excel`). For a transcription app dealing primarily with audio files, either works since all common audio formats (`audio/mpeg`, `audio/wav`, `audio/ogg`, `audio/webm`, `audio/mp4`, `audio/aac`, `audio/flac`, `audio/opus`) are standard types.
 
 ## Why This Matters
 
 Zero dependencies means minimal attack surface. No supply chain risk from transitive dependencies I can't audit. The package does one thing well and has been battle-tested across millions of projects.
 
 Sometimes the right engineering decision is recognizing when someone else has already solved your problem better than you would.
+
+## Reference
+
+See the implementation: [PR #1047](https://github.com/EpicenterHQ/epicenter/pull/1047)
