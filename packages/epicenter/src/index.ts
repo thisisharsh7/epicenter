@@ -167,8 +167,6 @@ export {
 	BlobErr,
 	createTableBlobStore,
 	createWorkspaceBlobs,
-	getExtension,
-	getType,
 	validateFilename,
 } from './core/blobs';
 export type {

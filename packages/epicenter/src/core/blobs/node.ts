@@ -1,9 +1,9 @@
 import { join } from 'node:path';
+import mime from 'mime';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import type { TableBlobStore } from './types.js';
 import { BlobErr } from './types.js';
-import { getType } from '../../mime/index.js';
 import { validateFilename } from './utils.js';
 
 /**
@@ -56,7 +56,7 @@ export function createNodeTableBlobStore(
 					}
 
 					const arrayBuffer = await file.arrayBuffer();
-					const mimeType = getType(filename);
+					const mimeType = mime.getType(filename) ?? 'application/octet-stream';
 					return new Blob([arrayBuffer], { type: mimeType });
 				},
 				catch: (error) =>
