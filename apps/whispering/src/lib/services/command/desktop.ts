@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
-import { type ChildProcess } from '@tauri-apps/plugin-shell';
+import type { ChildProcess } from '@tauri-apps/plugin-shell';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import type { CommandService, ShellCommand } from './types';
+import type { CommandService } from './types';
 import { CommandServiceErr } from './types';
 
 export function createCommandServiceDesktop(): CommandService {
@@ -13,7 +13,7 @@ export function createCommandServiceDesktop(): CommandService {
 		 * Commands are parsed and executed directly without shell wrappers on all platforms.
 		 * On Windows, uses CREATE_NO_WINDOW flag to prevent console window flash.
 		 *
-		 * @see https://github.com/epicenter-md/epicenter/issues/815
+		 * @see https://github.com/EpicenterHQ/epicenter/issues/815
 		 */
 		async execute(command) {
 			console.log('[TS] execute: starting command:', command);
@@ -47,7 +47,7 @@ export function createCommandServiceDesktop(): CommandService {
 		 * On Windows, uses CREATE_NO_WINDOW flag to prevent console window flash.
 		 * Returns a Child instance that can be used to control the process.
 		 *
-		 * @see https://github.com/epicenter-md/epicenter/issues/815
+		 * @see https://github.com/EpicenterHQ/epicenter/issues/815
 		 */
 		async spawn(command) {
 			console.log('[TS] spawn: starting command:', command);

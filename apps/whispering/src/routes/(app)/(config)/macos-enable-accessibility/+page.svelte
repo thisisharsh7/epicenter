@@ -2,7 +2,9 @@
 	import { Button } from '@repo/ui/button';
 	import { Badge } from '@repo/ui/badge';
 	import * as Card from '@repo/ui/card';
-	import { SettingsIcon, CheckIcon, ArrowLeft } from '@lucide/svelte';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import * as services from '$lib/services';
 	import { toast } from 'svelte-sonner';
 	import { asShellCommand } from '$lib/services/command/types';
@@ -88,7 +90,7 @@
 					<!-- Direct video for web version -->
 					<video
 						class="max-w-md rounded-lg border"
-						src="https://github.com/epicenter-md/epicenter/releases/download/_assets/macos_enable_accessibility.mp4"
+						src="https://github.com/EpicenterHQ/epicenter/releases/download/_assets/macos_enable_accessibility.mp4"
 						autoplay
 						loop
 						controls

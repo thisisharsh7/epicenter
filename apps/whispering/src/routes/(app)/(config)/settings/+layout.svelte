@@ -4,7 +4,7 @@
 	import { Link } from '@repo/ui/link';
 	import { Separator } from '@repo/ui/separator';
 	import { rpc } from '$lib/query';
-	import { RotateCcw } from '@lucide/svelte';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import SidebarNav from './SidebarNav.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 
@@ -14,7 +14,7 @@
 		typeof value === 'string';
 	const versionPromise = (async () => {
 		const res = await fetch(
-			'https://api.github.com/repos/epicenter-md/epicenter/releases/latest',
+			'https://api.github.com/repos/EpicenterHQ/epicenter/releases/latest',
 		);
 		const { html_url: latestReleaseUrl, tag_name: latestVersion } =
 			await res.json();

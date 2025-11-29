@@ -28,10 +28,31 @@ import { vadRecorder } from './vad-recorder';
 // Track manual recording start time for duration calculation
 let manualRecordingStartTime: number | null = null;
 
+/**
+ * Mutex flag to prevent concurrent recording operations.
+ *
+ * This flag guards against a race condition where rapid toggle calls (e.g., push-to-talk)
+ * can both see 'IDLE' state before the recorder has fully started. Without this guard:
+ * 1. Call 1 checks recorder state → IDLE (during setup, is_recording not yet true)
+ * 2. Call 2 checks recorder state → IDLE (Call 1's recording hasn't fully started)
+ * 3. Both calls try to start recording, causing state desync
+ *
+ * The flag is set synchronously at the start of any recording operation and cleared
+ * when the core operation completes (after the recorder service call returns).
+ */
+let isRecordingOperationBusy = false;
+
 // Internal mutations for manual recording
 const startManualRecording = defineMutation({
 	mutationKey: ['commands', 'startManualRecording'] as const,
 	resultMutationFn: async () => {
+		// Prevent concurrent recording operations
+		if (isRecordingOperationBusy) {
+			console.info('Recording operation already in progress, ignoring start');
+			return Ok(undefined);
+		}
+		isRecordingOperationBusy = true;
+
 		await settings.switchRecordingMode('manual');
 
 		const toastId = nanoid();
@@ -40,8 +61,12 @@ const startManualRecording = defineMutation({
 			title: '🎙️ Preparing to record...',
 			description: 'Setting up your recording environment...',
 		});
+
 		const { data: deviceAcquisitionOutcome, error: startRecordingError } =
 			await recorder.startRecording.execute({ toastId });
+
+		// Release mutex after the actual start operation completes
+		isRecordingOperationBusy = false;
 
 		if (startRecordingError) {
 			notify.error.execute({ id: toastId, ...startRecordingError });
@@ -106,14 +131,27 @@ const startManualRecording = defineMutation({
 const stopManualRecording = defineMutation({
 	mutationKey: ['commands', 'stopManualRecording'] as const,
 	resultMutationFn: async () => {
+		// Prevent concurrent recording operations
+		if (isRecordingOperationBusy) {
+			console.info('Recording operation already in progress, ignoring stop');
+			return Ok(undefined);
+		}
+		isRecordingOperationBusy = true;
+
 		const toastId = nanoid();
 		notify.loading.execute({
 			id: toastId,
 			title: '⏸️ Stopping recording...',
 			description: 'Finalizing your audio capture...',
 		});
+
 		const { data, error: stopRecordingError } =
 			await recorder.stopRecording.execute({ toastId });
+
+		// Release mutex after the actual stop operation completes
+		// This allows new recordings to start while pipeline runs
+		isRecordingOperationBusy = false;
+
 		if (stopRecordingError) {
 			notify.error.execute({ id: toastId, ...stopRecordingError });
 			return Ok(undefined);
@@ -141,6 +179,8 @@ const stopManualRecording = defineMutation({
 			duration,
 		});
 
+		// Pipeline runs after mutex is released - new recordings can start
+		// while transcription/transformation are in progress
 		await processRecordingPipeline({
 			blob,
 			recordingId,
@@ -311,6 +351,15 @@ export const commands = {
 	cancelManualRecording: defineMutation({
 		mutationKey: ['commands', 'cancelManualRecording'] as const,
 		resultMutationFn: async () => {
+			// Prevent concurrent recording operations
+			if (isRecordingOperationBusy) {
+				console.info(
+					'Recording operation already in progress, ignoring cancel',
+				);
+				return Ok(undefined);
+			}
+			isRecordingOperationBusy = true;
+
 			const toastId = nanoid();
 			notify.loading.execute({
 				id: toastId,
@@ -319,6 +368,10 @@ export const commands = {
 			});
 			const { data: cancelRecordingResult, error: cancelRecordingError } =
 				await recorder.cancelRecording.execute({ toastId });
+
+			// Release mutex after the actual cancel operation completes
+			isRecordingOperationBusy = false;
+
 			if (cancelRecordingError) {
 				notify.error.execute({ id: toastId, ...cancelRecordingError });
 				return Ok(undefined);

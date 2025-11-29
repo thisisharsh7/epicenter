@@ -2,7 +2,7 @@
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { ChromeWebStoreIcon } from '$lib/components/icons';
 	import { Button } from '@repo/ui/button';
-	import { LaptopIcon as DesktopIcon } from '@lucide/svelte';
+	import DesktopIcon from '@lucide/svelte/icons/laptop';
 </script>
 
 <svelte:head>
@@ -20,7 +20,7 @@
 		<div class="flex flex-col gap-2 md:flex-row">
 			<WhisperingButton
 				tooltipContent="Check out the Chrome Extension"
-				href="https://github.com/epicenter-md/epicenter/releases"
+				href="https://github.com/EpicenterHQ/epicenter/releases"
 				target="_blank"
 				rel="noopener noreferrer"
 				variant="default"

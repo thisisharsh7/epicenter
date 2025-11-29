@@ -1,5 +1,4 @@
-import { type Adapter, defineAdapter } from '@repo/vault-core';
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
+import { defineAdapter } from '@repo/vault-core';
 import type { RedditAdapterConfig } from './config';
 import drizzleConfig from './drizzle.config';
 import { metadata } from './metadata';

@@ -41,7 +41,7 @@ function defineConfigBroken<
 	return config;
 }
 
-const resultBroken = defineConfigBroken({
+const _resultBroken = defineConfigBroken({
 	static: { count: 5 },
 	transform: (input) => input.count * 2,
 	combined: ({ static, transformed }) => {
@@ -73,7 +73,7 @@ function defineConfig<TStatic, TTransformResult, TCombinedResult>(
 	return config;
 }
 
-const result = defineConfig({
+const _result = defineConfig({
 	static: { count: 5 },
 	transform: (input) => input.count * 2,
 	combined: ({ static, transformed }) => {
@@ -112,7 +112,7 @@ function defineTransformMap<TStatic, TTransformResults, TCombinedResult>(
 	return config;
 }
 
-const multiResult = defineTransformMap({
+const _multiResult = defineTransformMap({
 	static: { count: 5 },
 	transform: {
 		doubled: (input) => input.count * 2, // Returns number
@@ -173,7 +173,7 @@ function defineWorkspace<
 	return config;
 }
 
-const workspace = defineWorkspace({
+const _workspace = defineWorkspace({
 	schema: {
 		posts: { id: '', title: '', content: '' },
 	},

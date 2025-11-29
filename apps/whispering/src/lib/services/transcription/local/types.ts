@@ -53,3 +53,14 @@ export type ParakeetModelConfig = BaseModelConfig & {
  * Union type for all supported local model configurations.
  */
 export type LocalModelConfig = WhisperModelConfig | ParakeetModelConfig;
+
+/**
+ * Checks if a model file size is valid (at least 90% of expected size).
+ * Used to detect corrupted or incomplete downloads.
+ */
+export function isModelFileSizeValid(
+	actualBytes: number,
+	expectedBytes: number,
+): boolean {
+	return actualBytes >= expectedBytes * 0.9;
+}

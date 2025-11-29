@@ -1,5 +1,5 @@
 {
-	"name": "@epicenter/cli",
+	"name": "@epicenter/code",
 	"version": "0.0.5",
 	"description": "Epicenter CLI designed for seamless integration with opencode and epicenter.sh",
 	"type": "module",
@@ -7,7 +7,7 @@
 	"homepage": "https://epicenter.sh",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/epicenter-md/epicenter.git",
+		"url": "git+https://github.com/EpicenterHQ/epicenter.git",
 		"directory": "apps/cli"
 	},
 	"keywords": [
@@ -38,7 +38,7 @@
 		"arktype": "catalog:",
 		"get-port": "^7.1.0",
 		"wellcrafted": "catalog:",
-		"yargs": "^17.7.2",
+		"yargs": "catalog:",
 		"zod-openapi": "^5.3.0"
 	}
 }

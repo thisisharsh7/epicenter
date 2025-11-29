@@ -8,7 +8,7 @@
 	} from '$lib/components/labeled/index.js';
 	import {
 		AnthropicApiKeyInput,
-		CustomApiKeyInput,
+		CustomEndpointInput,
 		GoogleApiKeyInput,
 		GroqApiKeyInput,
 		OpenAiApiKeyInput,
@@ -33,7 +33,9 @@
 	} from '$lib/constants/inference';
 	import type { Transformation } from '$lib/services/db';
 	import { generateDefaultTransformationStep } from '$lib/services/db';
-	import { CopyIcon, PlusIcon, TrashIcon } from '@lucide/svelte';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import TrashIcon from '@lucide/svelte/icons/trash';
 	import { slide } from 'svelte/transition';
 
 	let { transformation = $bindable() }: { transformation: Transformation } =
@@ -550,7 +552,7 @@
 											{:else if step['prompt_transform.inference.provider'] === 'OpenRouter'}
 												<OpenRouterApiKeyInput />
 											{:else if step['prompt_transform.inference.provider'] === 'Custom'}
-												<CustomApiKeyInput showBaseUrl={false} />
+												<CustomEndpointInput showBaseUrl={false} />
 											{/if}
 										</Accordion.Content>
 									</Accordion.Item>

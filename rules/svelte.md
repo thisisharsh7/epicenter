@@ -106,45 +106,21 @@ When a handler function only calls `.mutate()`, inline it directly:
 <Button onclick={handleShare}>Share</Button>
 ```
 
-# Styling Best Practices
+# Styling
 
-## Minimize Wrapper Elements
+For general CSS and Tailwind guidelines, see @rules/styling.md.
 
-When applying styles, avoid creating unnecessary wrapper divs. If classes can be applied directly to an existing semantic element with the same outcome, prefer that approach:
-
-### Good (Direct Application)
-
-```svelte
-<main class="flex-1 mx-auto max-w-7xl">
-	{@render children()}
-</main>
-```
-
-### Avoid (Unnecessary Wrapper)
-
-```svelte
-<main class="flex-1">
-	<div class="mx-auto max-w-7xl">
-		{@render children()}
-	</div>
-</main>
-```
-
-This principle applies to all elements where the styling doesn't conflict with the element's semantic purpose or create layout issues.
-
-# Shadcn-svelte Best Practices
+# shadcn-svelte Best Practices
 
 ## Component Organization
 
-- When using $state, $derived, or functions in Svelte component files that are only referenced once in the component markup, inline them directly in the markup for better code locality
-- Use the CLI for adding/managing shadcn-svelte components: `bunx shadcn-svelte@latest add [component]`
-- Each component should be in its own folder under `$lib/components/ui/` with an `index.ts` export file
-- Follow kebab-case for component folder names (e.g., `dialog/`, `toggle-group/`)
-- Group related sub-components in the same folder (e.g., all dialog parts in `dialog/`)
+- Use the CLI: `bunx shadcn-svelte@latest add [component]`
+- Each component in its own folder under `$lib/components/ui/` with an `index.ts` export
+- Follow kebab-case for folder names (e.g., `dialog/`, `toggle-group/`)
+- Group related sub-components in the same folder
+- When using $state, $derived, or functions only referenced once in markup, inline them directly
 
 ## Import Patterns
-
-Use the appropriate import pattern based on component complexity:
 
 **Namespace imports** (preferred for multi-part components):
 
@@ -160,6 +136,20 @@ import { Button } from '$lib/components/ui/button';
 import { Input } from '$lib/components/ui/input';
 ```
 
+**Lucide icons** (always use individual imports from `@lucide/svelte`):
+
+```typescript
+// Good: Individual icon imports
+import Database from '@lucide/svelte/icons/database';
+import MinusIcon from '@lucide/svelte/icons/minus';
+import MoreVerticalIcon from '@lucide/svelte/icons/more-vertical';
+
+// Bad: Don't import multiple icons from lucide-svelte
+import { Database, MinusIcon, MoreVerticalIcon } from 'lucide-svelte';
+```
+
+The path uses kebab-case (e.g., `more-vertical`, `minimize-2`), and you can name the import whatever you want (typically PascalCase with optional Icon suffix).
+
 ## Styling and Customization
 
 - Always use the `cn()` utility from `$lib/utils` for combining Tailwind classes
@@ -170,7 +160,7 @@ import { Input } from '$lib/components/ui/input';
 
 ## Component Usage Patterns
 
-- Use proper component composition following shadcn-svelte patterns:
+Use proper component composition following shadcn-svelte patterns:
 
 ```svelte
 <Dialog.Root bind:open={isOpen}>

@@ -3,7 +3,7 @@
 	import type { Props } from '@repo/ui/button';
 	import { rpc } from '$lib/query';
 	import { createMutation } from '@tanstack/svelte-query';
-	import { CheckIcon } from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import type { Snippet } from 'svelte';
 
 	const copyToClipboard = createMutation(rpc.text.copyToClipboard.options);

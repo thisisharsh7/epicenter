@@ -21,7 +21,7 @@
 -->
 <script lang="ts">
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import { ExternalLink } from '@lucide/svelte';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import { rpc } from '$lib/query';
 	import { Ok, tryAsync } from 'wellcrafted/result';
 

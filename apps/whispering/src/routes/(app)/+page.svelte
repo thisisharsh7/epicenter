@@ -23,7 +23,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
-	import { Loader2Icon } from '@lucide/svelte';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import {
 		ACCEPT_AUDIO,
 		ACCEPT_VIDEO,

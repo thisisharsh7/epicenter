@@ -7,7 +7,9 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { CheckIcon, MicIcon, RefreshCwIcon } from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import MicIcon from '@lucide/svelte/icons/mic';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { Badge } from '@repo/ui/badge';
 
 	const combobox = useCombobox();

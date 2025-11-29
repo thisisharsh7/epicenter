@@ -141,7 +141,7 @@
 		<Card.Content class="space-y-3">
 			<div class="grid gap-2 text-sm">
 				<a
-					href="https://github.com/epicenter-md/epicenter/tree/main/apps/whispering/src/lib/services/analytics.ts"
+					href="https://github.com/EpicenterHQ/epicenter/tree/main/apps/whispering/src/lib/services/analytics.ts"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="group flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
@@ -156,7 +156,7 @@
 					>
 				</a>
 				<a
-					href="https://github.com/search?q=repo%3Aepicenter-md%2Fepicenter+rpc.analytics.logEvent&type=code"
+					href="https://github.com/search?q=repo%3AEpicenterHQ%2Fepicenter+rpc.analytics.logEvent&type=code"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="group flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
