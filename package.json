@@ -55,17 +55,12 @@
 	"scripts": {
 		"build": "turbo run build",
 		"dev": "turbo run dev",
-
 		"format": "biome check --write --linter-enabled=false; prettier --write \"**/*.{svelte,astro,html}\"",
 		"format:check": "biome ci --linter-enabled=false; prettier --check \"**/*.{svelte,astro,html}\"",
-
 		"lint": "eslint --fix; biome lint --write",
 		"lint:check": "concurrently -raw \"eslint\" \"biome lint\"",
-
 		"check": "turbo run check",
-
 		"bump-version": "bun run scripts/bump-version.ts",
-
 		"clean": "rm -rf .turbo node_modules apps/*/.svelte-kit apps/*/dist apps/*/node_modules packages/*/.svelte-kit packages/*/dist packages/*/node_modules examples/*/node_modules",
 		"nuke": "bun clean && rm -rf apps/whispering/src-tauri/target"
 	},
@@ -84,5 +79,8 @@
 		"prettier-plugin-tailwindcss": "^0.6.11",
 		"svelte-eslint-parser": "^1.4.0",
 		"turbo": "catalog:"
+	},
+	"dependencies": {
+		"arktype": "^2.1.27"
 	}
 }

@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "epicenter",
+      "dependencies": {
+        "arktype": "^2.1.27",
+      },
       "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@eslint/compat": "^1.4.0",

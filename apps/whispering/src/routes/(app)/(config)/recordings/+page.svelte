@@ -42,7 +42,7 @@
 	import StartTranscriptionIcon from '@lucide/svelte/icons/play';
 	import { nanoid } from 'nanoid/non-secure';
 	import { createRawSnippet } from 'svelte';
-	import { z } from 'zod';
+	import { type } from 'arktype';
 	import LatestTransformationRunOutputByRecordingId from './LatestTransformationRunOutputByRecordingId.svelte';
 	import RenderAudioUrl from './RenderAudioUrl.svelte';
 	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
@@ -231,7 +231,7 @@
 	let sorting = createPersistedState({
 		key: 'whispering-recordings-data-table-sorting',
 		onParseError: (error) => [{ id: 'timestamp', desc: true }],
-		schema: z.array(z.object({ desc: z.boolean(), id: z.string() })),
+		schema: type({ desc: 'boolean', id: 'string' }).array(),
 	});
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let columnVisibility = createPersistedState({
@@ -243,12 +243,12 @@
 			'Created At': false,
 			'Updated At': false,
 		}),
-		schema: z.record(z.string(), z.boolean()),
+		schema: type('Record<string, boolean>'),
 	});
 	let rowSelection = createPersistedState({
 		key: 'whispering-recordings-data-table-row-selection',
 		onParseError: (error) => ({}),
-		schema: z.record(z.string(), z.boolean()),
+		schema: type('Record<string, boolean>'),
 	});
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
 	let globalFilter = $state('');

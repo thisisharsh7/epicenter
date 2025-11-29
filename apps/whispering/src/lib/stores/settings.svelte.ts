@@ -12,8 +12,7 @@ import type { VadRecorderServiceError } from '$lib/services/vad-recorder';
 import {
 	getDefaultSettings,
 	parseStoredSettings,
-	type Settings,
-	settingsSchema,
+	Settings,
 } from '$lib/settings/settings';
 import {
 	syncGlobalShortcutsWithSettings,
@@ -28,7 +27,7 @@ export const settings = (() => {
 	// Private settings instance
 	const _settings = createPersistedState({
 		key: 'whispering-settings',
-		schema: settingsSchema,
+		schema: Settings,
 		onParseError: (error) => {
 			// For empty storage, return defaults
 			if (error.type === 'storage_empty') {
