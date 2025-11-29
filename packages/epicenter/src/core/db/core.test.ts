@@ -10,7 +10,7 @@ describe('createEpicenterDb', () => {
 			posts: {
 				id: id(),
 				title: text(),
-				viewCount: integer(),
+				view_count: integer(),
 				published: boolean(),
 			},
 		});
@@ -19,7 +19,7 @@ describe('createEpicenterDb', () => {
 		doc.posts.insert({
 			id: '1',
 			title: 'Test Post',
-			viewCount: 0,
+			view_count: 0,
 			published: false,
 		});
 
@@ -28,7 +28,7 @@ describe('createEpicenterDb', () => {
 		expect(result).not.toBeNull();
 		if (result?.data) {
 			expect(result.data.title).toBe('Test Post');
-			expect(result.data.viewCount).toBe(0);
+			expect(result.data.view_count).toBe(0);
 			expect(result.data.published).toBe(false);
 		}
 	});
@@ -39,16 +39,18 @@ describe('createEpicenterDb', () => {
 			posts: {
 				id: id(),
 				title: text(),
-				viewCount: integer(),
+				view_count: integer(),
 				published: boolean(),
 			},
 		});
 
 		// Create multiple rows
-		const { error: insertError } = doc.posts.insertMany([
-			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
-			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
-		]);
+		const { error: insertError } = doc.posts.insertMany({
+			rows: [
+				{ id: '1', title: 'Post 1', view_count: 10, published: true },
+				{ id: '2', title: 'Post 2', view_count: 20, published: false },
+			],
+		});
 		expect(insertError).toBeNull();
 
 		// Retrieve and verify rows
@@ -70,16 +72,18 @@ describe('createEpicenterDb', () => {
 			posts: {
 				id: id(),
 				title: text(),
-				viewCount: integer(),
+				view_count: integer(),
 				published: boolean(),
 			},
 		});
 
-		doc.posts.insertMany([
-			{ id: '1', title: 'Post 1', viewCount: 10, published: true },
-			{ id: '2', title: 'Post 2', viewCount: 20, published: false },
-			{ id: '3', title: 'Post 3', viewCount: 30, published: true },
-		]);
+		doc.posts.insertMany({
+			rows: [
+				{ id: '1', title: 'Post 1', view_count: 10, published: true },
+				{ id: '2', title: 'Post 2', view_count: 20, published: false },
+				{ id: '3', title: 'Post 3', view_count: 30, published: true },
+			],
+		});
 
 		// Filter published posts
 		const publishedPosts = doc.posts.filter((post) => post.published);
@@ -99,7 +103,7 @@ describe('createEpicenterDb', () => {
 			posts: {
 				id: id(),
 				title: text(),
-				viewCount: integer(),
+				view_count: integer(),
 				published: boolean(),
 			},
 		});

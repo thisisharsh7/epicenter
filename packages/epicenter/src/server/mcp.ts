@@ -6,6 +6,7 @@ import {
 	ListToolsRequestSchema,
 	McpError,
 } from '@modelcontextprotocol/sdk/types.js';
+import type { JSONSchema7 } from 'json-schema';
 import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
@@ -16,7 +17,26 @@ import {
 } from '../core/epicenter';
 import { safeToJsonSchema } from '../core/schema/safe-json-schema';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import { createServer } from './server';
+
+/**
+ * Pre-computed MCP tool entry with action and its JSON Schema.
+ * Schema is computed once during registry build and reused for ListTools.
+ */
+type McpToolEntry = {
+	action: Action;
+	/** Pre-computed JSON Schema for the action's input (guaranteed to be object type) */
+	inputSchema: JSONSchema7;
+};
+
+/** Info about an action collected from the client hierarchy */
+type ActionInfo = {
+	workspaceId: string;
+	actionPath: string[];
+	action: Action;
+};
+
+/** Default schema for actions without input: empty object */
+const EMPTY_OBJECT_SCHEMA: JSONSchema7 = { type: 'object', properties: {} };
 
 /**
  * Create and configure an MCP server with tool handlers.
@@ -31,13 +51,13 @@ import { createServer } from './server';
  *
  * @see {@link createServer} for how the MCP server is registered on `/mcp` in the Hono web server.
  */
-export function createMcpServer<
+export async function createMcpServer<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(
 	client: EpicenterClient<TWorkspaces>,
 	config: EpicenterConfig<TId, TWorkspaces>,
-): McpServer {
+): Promise<McpServer> {
 	const mcpServer = new McpServer(
 		{
 			name: config.id,
@@ -52,22 +72,17 @@ export function createMcpServer<
 		},
 	);
 
-	const actions = flattenActionsForMCP(client);
+	const toolRegistry = await buildMcpToolRegistry(client);
 
-	// List tools handler
-	mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-		const tools = await Promise.all(
-			actions.entries().map(async ([name, action]) => ({
+	// List tools handler - uses pre-computed schemas from registry
+	mcpServer.setRequestHandler(ListToolsRequestSchema, () => {
+		const tools = Array.from(toolRegistry.entries()).map(
+			([name, { action, inputSchema }]) => ({
 				name,
 				title: name,
 				description: action.description ?? `Execute ${name}`,
-				inputSchema: action.input
-					? await safeToJsonSchema(action.input)
-					: {
-							type: 'object' as const,
-							properties: {},
-						},
-			})),
+				inputSchema,
+			}),
 		);
 		return { tools };
 	});
@@ -76,14 +91,16 @@ export function createMcpServer<
 	mcpServer.setRequestHandler(
 		CallToolRequestSchema,
 		async (request): Promise<CallToolResult> => {
-			const action = actions.get(request.params.name);
+			const entry = toolRegistry.get(request.params.name);
 
-			if (!action || typeof action !== 'function') {
+			if (!entry) {
 				throw new McpError(
 					ErrorCode.InvalidParams,
 					`Unknown tool: ${request.params.name}`,
 				);
 			}
+
+			const { action } = entry;
 
 			const args = request.params.arguments || {};
 
@@ -190,14 +207,17 @@ export function createMcpServer<
 }
 
 /**
- * Flatten workspace actions into a Map suitable for MCP server registration.
+ * Build a registry of MCP-compatible tools from workspace actions.
  *
- * Takes a hierarchical EpicenterClient and flattens all workspace actions into a Map
- * with MCP-compatible tool names. This is specifically for the MCP protocol which requires
- * a flat list of tools (no hierarchical namespacing).
+ * This function:
+ * 1. Flattens hierarchical workspace actions into MCP tool names (underscore-joined)
+ * 2. Pre-computes JSON Schemas for each action's input (parallelized)
+ * 3. Filters out actions with non-object inputs (MCP requires object type)
+ * 4. Returns a registry that can be used for both ListTools and CallTool handlers
  *
- * This function uses `forEachAction` to iterate over all workspaces and their actions,
- * creating MCP tool names by joining the workspace ID and action path with underscores.
+ * Actions with non-object input schemas are filtered out with a warning, since MCP
+ * requires all tool inputSchema to have `type: "object"` at the root. These actions
+ * will still work via HTTP and TypeScript clients.
  *
  * @example
  * // Flat export: { getAll: defineQuery(...) }
@@ -206,18 +226,60 @@ export function createMcpServer<
  * // Nested export: { users: { crud: { create: defineMutation(...) } } }
  * // → MCP tool name: "workspace_users_crud_create"
  */
-function flattenActionsForMCP<
+async function buildMcpToolRegistry<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(client: EpicenterClient<TWorkspaces>): Map<string, Action> {
-	const actions = new Map<string, Action>();
+>(client: EpicenterClient<TWorkspaces>): Promise<Map<string, McpToolEntry>> {
+	// 1. Collect: gather all actions into a flat array
+	const actions: ActionInfo[] = [];
+	forEachAction(client, (info) => actions.push(info));
 
-	forEachAction(client, ({ workspaceId, actionPath, action }) => {
-		// Join workspace ID and action path with underscores
-		const mcpToolName = [workspaceId, ...actionPath].join('_');
-		actions.set(mcpToolName, action);
-	});
+	// 2. Transform: build entries in parallel (returns undefined for invalid schemas)
+	const entries = await Promise.all(actions.map(buildToolEntry));
 
-	return actions;
+	// 3. Filter & Construct: remove undefined entries and build the Map
+	return new Map(entries.filter((e) => e !== undefined));
+}
+
+/**
+ * Build a single tool entry from action info.
+ * Returns a [toolName, entry] tuple, or undefined if the action is not MCP-compatible.
+ */
+async function buildToolEntry(
+	info: ActionInfo,
+): Promise<[string, McpToolEntry] | undefined> {
+	const toolName = [info.workspaceId, ...info.actionPath].join('_');
+	const inputSchema = await buildMcpInputSchema(info.action, toolName);
+
+	if (!inputSchema) return undefined;
+
+	return [toolName, { action: info.action, inputSchema }];
+}
+
+/**
+ * Build the JSON Schema for an action's input.
+ * Returns undefined if the schema is not MCP-compatible (non-object type).
+ */
+async function buildMcpInputSchema(
+	action: Action,
+	toolName: string,
+): Promise<JSONSchema7 | undefined> {
+	if (!action.input) return EMPTY_OBJECT_SCHEMA;
+
+	const schema = await safeToJsonSchema(action.input);
+
+	// MCP requires object type at root
+	const isValidMcpSchema =
+		schema.type === 'object' || schema.type === undefined;
+	if (!isValidMcpSchema) {
+		console.warn(
+			`[MCP] Skipping tool "${toolName}": input has type "${schema.type}" but MCP requires "object". ` +
+				`This action will still work via HTTP and TypeScript clients. ` +
+				`To enable MCP, wrap your input in an object (e.g., { rows: T[] } instead of T[]).`,
+		);
+		return undefined;
+	}
+
+	return schema;
 }
 
 /**
