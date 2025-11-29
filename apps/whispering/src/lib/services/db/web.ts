@@ -303,6 +303,12 @@ class WhisperingDatabase extends Dexie {
 		// - Adds version field (set to 2)
 		// - Adds Custom.model and Custom.baseUrl fields for local LLM endpoints
 		// This matches the versioned schema in transformations.ts
+		//
+		// Note: TransformationV1 is a TypeScript type hint only; Dexie returns raw data.
+		// Old steps in IndexedDB won't have a `version` field at all. The spread `...step`
+		// preserves all existing fields, then we explicitly set version=2 and the new
+		// Custom fields. Any existing `version` field (if somehow present) gets overwritten
+		// to 2, which is correct since we're migrating everything to V2.
 		this.version(0.6)
 			.stores({
 				recordings: '&id, timestamp, createdAt, updatedAt',
@@ -314,7 +320,7 @@ class WhisperingDatabase extends Dexie {
 					tx,
 					version: 0.6,
 					upgrade: async (tx) => {
-						// Read with V1 type (old schema without Custom fields)
+						// TransformationV1 is just a type hint; Dexie returns raw unvalidated data
 						const transformations = await tx
 							.table<TransformationV1>('transformations')
 							.toArray();
@@ -323,13 +329,12 @@ class WhisperingDatabase extends Dexie {
 							const updatedSteps: TransformationStepV2[] =
 								transformation.steps.map((step) => ({
 									...step,
-									// Migrate to version 2 schema
+									// Explicitly set V2 fields (overwrites any existing values)
 									version: 2 as const,
 									'prompt_transform.inference.provider.Custom.model': '',
 									'prompt_transform.inference.provider.Custom.baseUrl': '',
 								}));
 
-							// Write with current Transformation type (V2 steps)
 							await tx
 								.table<Transformation>('transformations')
 								.update(transformation.id, { steps: updatedSteps });
