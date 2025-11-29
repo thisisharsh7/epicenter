@@ -14,13 +14,13 @@
 	 * Clicking the preview opens a dialog with the full text and copy functionality.
 	 *
 	 * This is a low-level, reusable component. For domain-specific use cases like
-	 * transcribed text, consider creating a wrapper component (e.g., TranscribedTextDialog).
+	 * transcripts, consider creating a wrapper component (e.g., TranscriptDialog).
 	 *
 	 * @example
 	 * ```svelte
 	 * <TextPreviewDialog
 	 *   id="transcription-1"
-	 *   title="Transcribed Text"
+	 *   title="Transcript"
 	 *   text={transcriptionResult}
 	 *   label="transcription"
 	 *   rows={3}

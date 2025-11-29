@@ -8,10 +8,10 @@ import { rpc } from './index';
 
 export const delivery = {
 	/**
-	 * Delivers transcribed text to the user according to their text output preferences.
+	 * Delivers transcript to the user according to their text output preferences.
 	 *
 	 * This mutation handles the complete delivery workflow for transcription results:
-	 * 1. Shows a success toast with the transcribed text
+	 * 1. Shows a success toast with the transcript
 	 * 2. Optionally copies text to clipboard based on user settings
 	 * 3. Optionally writes text to cursor based on user settings
 	 * 4. Provides fallback UI actions when automatic operations fail
@@ -20,7 +20,7 @@ export const delivery = {
 	 * - `transcription.copyToClipboardOnSuccess` - Whether to auto-copy
 	 * - `transcription.writeToCursorOnSuccess` - Whether to auto-write to cursor
 	 *
-	 * @param text - The transcribed text to deliver
+	 * @param text - The transcript to deliver
 	 * @param toastId - Unique ID for toast notifications to prevent duplicates
 	 * @returns Result with no meaningful data (fire-and-forget operation)
 	 *
@@ -28,7 +28,7 @@ export const delivery = {
 	 * ```typescript
 	 * // After transcription completes
 	 * await rpc.delivery.deliverTranscriptionResult.execute({
-	 *   text: transcribedText,
+	 *   text: transcript,
 	 *   toastId: nanoid()
 	 * });
 	 * ```
@@ -62,7 +62,7 @@ export const delivery = {
 							if (error) {
 								// Report that manual copy attempt failed
 								rpc.notify.error.execute({
-									title: 'Error copying transcribed text to clipboard',
+									title: 'Error copying transcript to clipboard',
 									description: error.message,
 									action: { type: 'more-details', error },
 								});
@@ -71,7 +71,7 @@ export const delivery = {
 							// Confirm manual copy succeeded
 							rpc.notify.success.execute({
 								id: toastId,
-								title: 'Copied transcribed text to clipboard!',
+								title: 'Copied transcript to clipboard!',
 								description: text,
 							});
 						},

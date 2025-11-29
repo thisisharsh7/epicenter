@@ -68,7 +68,7 @@ updatedAt: "2025-10-27T09:35:00.000Z"
 transcriptionStatus: DONE
 ---
 
-# Transcribed Text
+# Transcript
 
 This is the transcribed content of the recording.
 It can be multiple paragraphs.
