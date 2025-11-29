@@ -50,5 +50,13 @@ export function createTextServiceWeb(): TextService {
 				cause: undefined,
 			});
 		},
+
+		simulateEnterKeystroke: async () =>
+			TextServiceErr({
+				message:
+					'Simulating keystrokes is not supported in web browsers for security reasons.',
+				context: {},
+				cause: undefined,
+			}),
 	};
 }

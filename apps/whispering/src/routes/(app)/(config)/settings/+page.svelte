@@ -41,6 +41,17 @@
 		}
 	/>
 
+	{#if window.__TAURI_INTERNALS__ && settings.value['transcription.writeToCursorOnSuccess']}
+		<LabeledSwitch
+			id="transcription.simulateEnterAfterOutput"
+			label="Press Enter after pasting transcript"
+			bind:checked={
+				() => settings.value['transcription.simulateEnterAfterOutput'],
+				(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
+			}
+		/>
+	{/if}
+
 	<Separator />
 
 	<LabeledSwitch
@@ -60,6 +71,17 @@
 			(v) => settings.updateKey('transformation.writeToCursorOnSuccess', v)
 		}
 	/>
+
+	{#if window.__TAURI_INTERNALS__ && settings.value['transformation.writeToCursorOnSuccess']}
+		<LabeledSwitch
+			id="transformation.simulateEnterAfterOutput"
+			label="Press Enter after pasting transformed text"
+			bind:checked={
+				() => settings.value['transformation.simulateEnterAfterOutput'],
+				(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
+			}
+		/>
+	{/if}
 
 	<Separator />
 
