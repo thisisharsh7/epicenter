@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import type { TableBlobStore } from './types.js';
 import { BlobErr } from './types.js';
@@ -32,9 +33,8 @@ export function createNodeTableBlobStore(
 				},
 				catch: (error) =>
 					BlobErr({
-						message: `Failed to write blob: ${filename}`,
+						message: `Failed to write blob "${filename}": ${extractErrorMessage(error)}`,
 						context: { filename, code: 'WRITE_FAILED' },
-						cause: error,
 					}),
 			});
 		},
@@ -60,9 +60,8 @@ export function createNodeTableBlobStore(
 				},
 				catch: (error) =>
 					BlobErr({
-						message: `Failed to read blob: ${filename}`,
+						message: `Failed to read blob "${filename}": ${extractErrorMessage(error)}`,
 						context: { filename, code: 'READ_FAILED' },
-						cause: error,
 					}),
 			});
 		},
@@ -83,9 +82,8 @@ export function createNodeTableBlobStore(
 				},
 				catch: (error) =>
 					BlobErr({
-						message: `Failed to delete blob: ${filename}`,
+						message: `Failed to delete blob "${filename}": ${extractErrorMessage(error)}`,
 						context: { filename, code: 'DELETE_FAILED' },
-						cause: error,
 					}),
 			});
 		},

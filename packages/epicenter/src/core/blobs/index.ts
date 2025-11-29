@@ -5,7 +5,7 @@ import type { TableBlobStore, WorkspaceBlobs } from './types.js';
  * Context passed to createWorkspaceBlobs.
  * Similar to IndexContext but without db (blobs don't need database access).
  */
-export type BlobContext<TSchema extends Record<string, unknown>> = {
+export type BlobStoreContext<TSchema extends Record<string, unknown>> = {
 	/** Workspace ID (used as parent directory for blob storage) */
 	id: string;
 	/** Workspace schema (table names become subdirectories) */
@@ -80,7 +80,7 @@ export async function createTableBlobStore(
  */
 export async function createWorkspaceBlobs<
 	TSchema extends Record<string, unknown>,
->(context: BlobContext<TSchema>): Promise<WorkspaceBlobs<TSchema>> {
+>(context: BlobStoreContext<TSchema>): Promise<WorkspaceBlobs<TSchema>> {
 	const { id, schema, storageDir } = context;
 
 	// For Node/Bun, construct the workspace-specific storage path
@@ -99,11 +99,13 @@ export async function createWorkspaceBlobs<
 
 // Re-export types and error constructors
 export type {
+	BlobContext,
 	BlobData,
 	BlobError,
+	BlobErrorCode,
 	TableBlobStore,
 	WorkspaceBlobs,
 } from './types.js';
-// Note: BlobContext is already exported at its definition above
+// Note: BlobStoreContext is already exported at its definition above
 export { BlobErr } from './types.js';
 export { getMimeType, validateFilename } from './utils.js';

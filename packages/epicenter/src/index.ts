@@ -174,6 +174,8 @@ export type {
 	BlobContext,
 	BlobData,
 	BlobError,
+	BlobErrorCode,
+	BlobStoreContext,
 	TableBlobStore,
 	WorkspaceBlobs,
 } from './core/blobs';

@@ -45,7 +45,6 @@ export function validateFilename(filename: string) {
 		return BlobErr({
 			message: `Invalid filename: ${filename}. Path separators and traversal not allowed.`,
 			context: { filename, code: 'INVALID_FILENAME' },
-			cause: undefined,
 		});
 	}
 
@@ -53,7 +52,6 @@ export function validateFilename(filename: string) {
 		return BlobErr({
 			message: `Invalid filename: ${filename}. Must start with alphanumeric and end with extension (e.g., "file.png", "archive.tar.gz")`,
 			context: { filename, code: 'INVALID_FILENAME' },
-			cause: undefined,
 		});
 	}
 

@@ -1,21 +1,38 @@
-import { createTaggedError } from 'wellcrafted/error';
+import { createTaggedError, type TaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
 
 /**
- * Supported input type for blob data.
+ * Supported input types for blob data.
+ * - Blob: Standard web API blob
+ * - File: Browser File object (extends Blob)
+ * - ArrayBuffer: Raw binary data
  */
 export type BlobData = Blob | File | ArrayBuffer;
 
 /**
- * Error type for blob operations using wellcrafted's createTaggedError pattern.
+ * Error codes for blob operations.
+ */
+export type BlobErrorCode =
+	| 'INVALID_FILENAME'
+	| 'WRITE_FAILED'
+	| 'READ_FAILED'
+	| 'DELETE_FAILED';
+
+/**
+ * Context for blob errors. Fixed context mode ensures every error
+ * includes the filename and error code for debugging.
+ */
+export type BlobContext = {
+	filename: string;
+	code: BlobErrorCode;
+};
+
+/**
+ * Error type for blob operations using wellcrafted's fixed context mode.
  *
- * Context should include:
+ * Every blob error MUST include:
  * - `filename`: The filename that caused the error
  * - `code`: Error code for programmatic handling
- *   - 'INVALID_FILENAME': Filename validation failed
- *   - 'WRITE_FAILED': Failed to write blob
- *   - 'READ_FAILED': Failed to read blob
- *   - 'DELETE_FAILED': Failed to delete blob
  *
  * @example
  * ```typescript
@@ -25,8 +42,9 @@ export type BlobData = Blob | File | ArrayBuffer;
  * });
  * ```
  */
-export const { BlobError, BlobErr } = createTaggedError('BlobError');
-export type BlobError = ReturnType<typeof BlobError>;
+export const { BlobError, BlobErr } =
+	createTaggedError<'BlobError', BlobContext>('BlobError');
+export type BlobError = TaggedError<'BlobError', BlobContext>;
 
 /**
  * Blob store for a single table namespace.
