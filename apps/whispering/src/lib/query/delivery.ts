@@ -171,6 +171,18 @@ export const delivery = {
 				});
 				if (!writeError) {
 					written = true;
+					// Optionally simulate Enter keystroke after successful write
+					if (settings.value['transcription.simulateEnterAfterOutput']) {
+						const { error: enterError } =
+							await rpc.text.simulateEnterKeystroke.execute();
+						if (enterError) {
+							rpc.notify.warning.execute({
+								title: 'Unable to simulate Enter keystroke',
+								description: enterError.message,
+								action: { type: 'more-details', error: enterError },
+							});
+						}
+					}
 				} else {
 					warnWriteToCursorFailed(writeError);
 				}
@@ -347,6 +359,18 @@ export const delivery = {
 				});
 				if (!writeError) {
 					written = true;
+					// Optionally simulate Enter keystroke after successful write
+					if (settings.value['transformation.simulateEnterAfterOutput']) {
+						const { error: enterError } =
+							await rpc.text.simulateEnterKeystroke.execute();
+						if (enterError) {
+							rpc.notify.warning.execute({
+								title: 'Unable to simulate Enter keystroke',
+								description: enterError.message,
+								action: { type: 'more-details', error: enterError },
+							});
+						}
+					}
 				} else {
 					warnWriteToCursorFailed(writeError);
 				}

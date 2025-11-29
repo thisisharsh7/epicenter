@@ -97,8 +97,10 @@ export const settingsSchema = z.object({
 
 	'transcription.copyToClipboardOnSuccess': z.boolean().default(true),
 	'transcription.writeToCursorOnSuccess': z.boolean().default(true),
+	'transcription.simulateEnterAfterOutput': z.boolean().default(false),
 	'transformation.copyToClipboardOnSuccess': z.boolean().default(true),
 	'transformation.writeToCursorOnSuccess': z.boolean().default(false),
+	'transformation.simulateEnterAfterOutput': z.boolean().default(false),
 
 	'system.alwaysOnTop': z.enum(ALWAYS_ON_TOP_VALUES).default('Never'),
 

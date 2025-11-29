@@ -6,6 +6,7 @@ const textKeys = {
 	readFromClipboard: ['text', 'readFromClipboard'] as const,
 	copyToClipboard: ['text', 'copyToClipboard'] as const,
 	writeToCursor: ['text', 'writeToCursor'] as const,
+	simulateEnterKeystroke: ['text', 'simulateEnterKeystroke'] as const,
 } as const;
 
 export const text = {
@@ -28,5 +29,9 @@ export const text = {
 			// 4. Restores original clipboard
 			return await services.text.writeToCursor(text);
 		},
+	}),
+	simulateEnterKeystroke: defineMutation({
+		mutationKey: textKeys.simulateEnterKeystroke,
+		resultMutationFn: () => services.text.simulateEnterKeystroke(),
 	}),
 };
