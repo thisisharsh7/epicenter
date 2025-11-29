@@ -100,7 +100,7 @@ Our first app in the ecosystem. Choose your installation method:
 
 **macOS (Homebrew)**
 ```bash
-brew install --cask epicenter-whispering
+brew install --cask whispering
 ```
 
 **macOS, Windows, Linux (Direct Download)**

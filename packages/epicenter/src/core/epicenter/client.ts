@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { type Action, type WorkspaceExports, walkActions } from '../actions';
-import type { AbsolutePath } from '../types';
+import type { StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
 import {
 	initializeWorkspaces,
@@ -93,10 +93,10 @@ export async function createEpicenterClient<
 		process.versions != null &&
 		process.versions.node != null;
 
-	let storageDir: AbsolutePath | undefined ;
+	let storageDir: StorageDir | undefined;
 	if (isNode) {
 		const configuredPath = config.storageDir ?? process.cwd();
-		storageDir = path.resolve(configuredPath) as AbsolutePath;
+		storageDir = path.resolve(configuredPath) as StorageDir;
 	}
 
 	// Initialize workspaces using flat/hoisted resolution model

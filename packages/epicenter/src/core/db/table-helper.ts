@@ -665,7 +665,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observe(callbacks: {
-			onAdd?: (result: Result<TRow, RowValidationError>) => void | Promise<void>;
+			onAdd?: (
+				result: Result<TRow, RowValidationError>,
+			) => void | Promise<void>;
 			onUpdate?: (
 				result: Result<TRow, RowValidationError>,
 			) => void | Promise<void>;

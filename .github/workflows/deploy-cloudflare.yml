@@ -41,7 +41,7 @@ jobs:
           bun run --filter epicenter astro check || true
 
       - name: Run linting
-        run: bun run lint
+        run: bun run lint:check
 
       - name: Build all packages
         run: bun run build

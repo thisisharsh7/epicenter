@@ -295,8 +295,8 @@
 
 						<div>
 							<p class="text-sm font-medium">
-								<span class="text-muted-foreground">Step 4:</span> Configure the
-								settings below
+								<span class="text-muted-foreground">Step 4:</span> Configure the settings
+								below
 							</p>
 							<ul class="ml-6 mt-2 space-y-1 text-sm text-muted-foreground">
 								<li class="list-disc">Enter your Speaches server URL</li>
@@ -598,7 +598,7 @@
 		placeholder="0"
 		bind:value={
 			() => settings.value['transcription.temperature'],
-			(value) => settings.updateKey('transcription.temperature', value)
+			(value) => settings.updateKey('transcription.temperature', String(value))
 		}
 		description={isPromptAndTemperatureNotSupported
 			? 'Temperature is not supported for local models (transcribe-rs)'

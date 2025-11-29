@@ -137,18 +137,18 @@ const BoundsSchema = type({
 /**
  * Tabs table - shadows browser tab state
  *
- * Each row represents a browser tab. The `browserId` is ephemeral (changes on
+ * Each row represents a browser tab. The `browser_id` is ephemeral (changes on
  * browser restart), while `id` is stable across sessions.
  *
  * @see https://developer.chrome.com/docs/extensions/reference/api/tabs#type-Tab
  */
 const TABS_SCHEMA = {
 	id: id(),
-	browserId: integer(), // Browser's ephemeral numeric ID
-	windowId: text(), // FK to windows table
+	browser_id: integer(), // Browser's ephemeral numeric ID
+	window_id: text(), // FK to windows table
 	url: text(),
 	title: text(),
-	favIconUrl: text({ nullable: true }),
+	fav_icon_url: text({ nullable: true }),
 	index: integer(), // Zero-based position in tab strip
 	pinned: boolean({ default: false }),
 	active: boolean({ default: false }),
@@ -156,10 +156,10 @@ const TABS_SCHEMA = {
 	muted: boolean({ default: false }),
 	audible: boolean({ default: false }),
 	discarded: boolean({ default: false }), // Tab unloaded to save memory
-	autoDiscardable: boolean({ default: true }),
+	auto_discardable: boolean({ default: true }),
 	status: select({ options: TAB_STATUS, default: 'complete' }),
-	groupId: text({ nullable: true }), // FK to tabGroups (Chrome 88+, null on Firefox)
-	openerTabId: text({ nullable: true }), // ID of tab that opened this one
+	group_id: text({ nullable: true }), // FK to tab_groups (Chrome 88+, null on Firefox)
+	opener_tab_id: text({ nullable: true }), // ID of tab that opened this one
 	incognito: boolean({ default: false }),
 } as const;
 
@@ -168,11 +168,11 @@ const TABS_SCHEMA = {
  */
 const WINDOWS_SCHEMA = {
 	id: id(),
-	browserId: integer(), // Browser's ephemeral numeric ID
+	browser_id: integer(), // Browser's ephemeral numeric ID
 	state: select({ options: WINDOW_STATES, default: 'normal' }),
 	type: select({ options: WINDOW_TYPES, default: 'normal' }),
 	focused: boolean({ default: false }),
-	alwaysOnTop: boolean({ default: false }),
+	always_on_top: boolean({ default: false }),
 	incognito: boolean({ default: false }),
 	bounds: json({ schema: BoundsSchema }),
 } as const;
@@ -182,8 +182,8 @@ const WINDOWS_SCHEMA = {
  */
 const TAB_GROUPS_SCHEMA = {
 	id: id(),
-	browserId: integer(), // Browser's ephemeral numeric ID
-	windowId: text(), // FK to windows table
+	browser_id: integer(), // Browser's ephemeral numeric ID
+	window_id: text(), // FK to windows table
 	title: text({ default: '' }),
 	color: select({ options: TAB_GROUP_COLORS, default: 'grey' }),
 	collapsed: boolean({ default: false }),
@@ -227,7 +227,7 @@ export const browser = defineWorkspace({
 	schema: {
 		tabs: TABS_SCHEMA,
 		windows: WINDOWS_SCHEMA,
-		tabGroups: TAB_GROUPS_SCHEMA,
+		tab_groups: TAB_GROUPS_SCHEMA,
 	},
 
 	indexes: {
@@ -279,14 +279,14 @@ export const browser = defineWorkspace({
 					for (const win of windows) {
 						if (win.id === undefined) continue;
 
-						const windowId = generateId();
+						const window_id = generateId();
 						db.windows.insert({
-							id: windowId,
-							browserId: win.id,
+							id: window_id,
+							browser_id: win.id,
 							state: win.state ?? 'normal',
 							type: win.type ?? 'normal',
 							focused: win.focused ?? false,
-							alwaysOnTop: win.alwaysOnTop ?? false,
+							always_on_top: win.alwaysOnTop ?? false,
 							incognito: win.incognito ?? false,
 							bounds: {
 								top: win.top ?? 0,
@@ -302,11 +302,11 @@ export const browser = defineWorkspace({
 
 							db.tabs.insert({
 								id: generateId(),
-								browserId: tab.id,
-								windowId,
+								browser_id: tab.id,
+								window_id,
 								url: tab.url ?? '',
 								title: tab.title ?? '',
-								favIconUrl: tab.favIconUrl ?? null,
+								fav_icon_url: tab.favIconUrl ?? null,
 								index: tab.index ?? 0,
 								pinned: tab.pinned ?? false,
 								active: tab.active ?? false,
@@ -314,10 +314,10 @@ export const browser = defineWorkspace({
 								muted: tab.mutedInfo?.muted ?? false,
 								audible: tab.audible ?? false,
 								discarded: tab.discarded ?? false,
-								autoDiscardable: tab.autoDiscardable ?? true,
+								auto_discardable: tab.autoDiscardable ?? true,
 								status: tab.status ?? 'complete',
-								groupId: null, // Skip tab groups for now
-								openerTabId: null, // Would need separate mapping
+								group_id: null, // Skip tab groups for now
+								opener_tab_id: null, // Would need separate mapping
 								incognito: tab.incognito ?? false,
 							});
 						}
@@ -349,7 +349,7 @@ export const browser = defineWorkspace({
 				const tab = result.data;
 
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.remove(tab.browserId),
+					try: () => browserApi.tabs.remove(tab.browser_id),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to close tab',
@@ -372,30 +372,30 @@ export const browser = defineWorkspace({
 		 */
 		createTab: defineMutation({
 			input: type({
-				windowId: 'string | undefined',
+				window_id: 'string | undefined',
 				url: 'string | undefined',
 				active: 'boolean | undefined',
 				index: 'number | undefined',
 			}),
 			description: 'Create a new tab',
-			handler: async ({ windowId, url, active, index }) => {
+			handler: async ({ window_id, url, active, index }) => {
 				// Look up browser window ID if provided
-				let browserWindowId: number | undefined;
-				if (windowId) {
-					const winResult = db.windows.get({ id: windowId });
+				let browser_window_id: number | undefined;
+				if (window_id) {
+					const winResult = db.windows.get({ id: window_id });
 					if (!winResult?.data) {
 						return WindowNotFoundErr({
 							message: 'Window not found',
-							context: { windowId },
+							context: { windowId: window_id },
 						});
 					}
-					browserWindowId = winResult.data.browserId;
+					browser_window_id = winResult.data.browser_id;
 				}
 
 				const { data: newTab, error } = await tryAsync({
 					try: () =>
 						browserApi.tabs.create({
-							windowId: browserWindowId,
+							windowId: browser_window_id,
 							url,
 							active,
 							index,
@@ -405,7 +405,7 @@ export const browser = defineWorkspace({
 							message: 'Failed to create tab',
 							context: {
 								operation: 'tabs.create',
-								windowId,
+								windowId: window_id,
 								error: extractErrorMessage(e),
 							},
 						}),
@@ -422,11 +422,11 @@ export const browser = defineWorkspace({
 				}
 
 				// Need to find which window the tab ended up in
-				const targetWindowId =
-					windowId ??
-					db.windows.getAll().find((w) => w.browserId === newTab.windowId)?.id;
+				const target_window_id =
+					window_id ??
+					db.windows.getAll().find((w) => w.browser_id === newTab.windowId)?.id;
 
-				if (!targetWindowId) {
+				if (!target_window_id) {
 					return BrowserResponseErr({
 						message: 'Could not determine window for new tab',
 						context: {
@@ -436,14 +436,14 @@ export const browser = defineWorkspace({
 					});
 				}
 
-				const tabId = generateId();
+				const tab_id = generateId();
 				db.tabs.insert({
-					id: tabId,
-					browserId: newTab.id,
-					windowId: targetWindowId,
+					id: tab_id,
+					browser_id: newTab.id,
+					window_id: target_window_id,
 					url: newTab.url ?? '',
 					title: newTab.title ?? '',
-					favIconUrl: newTab.favIconUrl ?? null,
+					fav_icon_url: newTab.favIconUrl ?? null,
 					index: newTab.index ?? 0,
 					pinned: newTab.pinned ?? false,
 					active: newTab.active ?? false,
@@ -451,14 +451,14 @@ export const browser = defineWorkspace({
 					muted: newTab.mutedInfo?.muted ?? false,
 					audible: newTab.audible ?? false,
 					discarded: newTab.discarded ?? false,
-					autoDiscardable: newTab.autoDiscardable ?? true,
+					auto_discardable: newTab.autoDiscardable ?? true,
 					status: newTab.status ?? 'complete',
-					groupId: null,
-					openerTabId: null,
+					group_id: null,
+					opener_tab_id: null,
 					incognito: newTab.incognito ?? false,
 				});
 
-				return Ok({ tabId });
+				return Ok({ tab_id });
 			},
 		}),
 
@@ -467,38 +467,38 @@ export const browser = defineWorkspace({
 		 */
 		moveTab: defineMutation({
 			input: type({
-				tabId: 'string',
-				windowId: 'string | undefined',
+				tab_id: 'string',
+				window_id: 'string | undefined',
 				index: 'number',
 			}),
 			description: 'Move a tab to a different position or window',
-			handler: async ({ tabId, windowId, index }) => {
-				const tabResult = db.tabs.get({ id: tabId });
+			handler: async ({ tab_id, window_id, index }) => {
+				const tabResult = db.tabs.get({ id: tab_id });
 				if (!tabResult?.data) {
 					return TabNotFoundErr({
 						message: 'Tab not found',
-						context: { tabId },
+						context: { tabId: tab_id },
 					});
 				}
 				const tab = tabResult.data;
 
 				// Look up browser window ID if provided
-				let browserWindowId: number | undefined;
-				if (windowId) {
-					const winResult = db.windows.get({ id: windowId });
+				let browser_window_id: number | undefined;
+				if (window_id) {
+					const winResult = db.windows.get({ id: window_id });
 					if (!winResult?.data) {
 						return WindowNotFoundErr({
 							message: 'Window not found',
-							context: { windowId },
+							context: { windowId: window_id },
 						});
 					}
-					browserWindowId = winResult.data.browserId;
+					browser_window_id = winResult.data.browser_id;
 				}
 
 				const { data: movedTab, error } = await tryAsync({
 					try: () =>
-						browserApi.tabs.move(tab.browserId, {
-							windowId: browserWindowId,
+						browserApi.tabs.move(tab.browser_id, {
+							windowId: browser_window_id,
 							index,
 						}),
 					catch: (e) =>
@@ -506,7 +506,7 @@ export const browser = defineWorkspace({
 							message: 'Failed to move tab',
 							context: {
 								operation: 'tabs.move',
-								tabId,
+								tabId: tab_id,
 								error: extractErrorMessage(e),
 							},
 						}),
@@ -515,15 +515,15 @@ export const browser = defineWorkspace({
 
 				// Update in database
 				const moved = Array.isArray(movedTab) ? movedTab[0] : movedTab;
-				const targetWindowId =
-					windowId ??
-					db.windows.getAll().find((w) => w.browserId === moved?.windowId)
+				const target_window_id =
+					window_id ??
+					db.windows.getAll().find((w) => w.browser_id === moved?.windowId)
 						?.id ??
-					tab.windowId;
+					tab.window_id;
 
 				db.tabs.update({
-					id: tabId,
-					windowId: targetWindowId,
+					id: tab_id,
+					window_id: target_window_id,
 					index: moved?.index ?? index,
 				});
 
@@ -535,33 +535,33 @@ export const browser = defineWorkspace({
 		 * Pin a tab
 		 */
 		pinTab: defineMutation({
-			input: type({ tabId: 'string' }),
+			input: type({ tab_id: 'string' }),
 			description: 'Pin a tab',
-			handler: async ({ tabId }) => {
-				const result = db.tabs.get({ id: tabId });
+			handler: async ({ tab_id }) => {
+				const result = db.tabs.get({ id: tab_id });
 				if (!result?.data) {
 					return TabNotFoundErr({
 						message: 'Tab not found',
-						context: { tabId },
+						context: { tabId: tab_id },
 					});
 				}
 				const tab = result.data;
 
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(tab.browserId, { pinned: true }),
+					try: () => browserApi.tabs.update(tab.browser_id, { pinned: true }),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to pin tab',
 							context: {
 								operation: 'tabs.update',
-								tabId,
+								tabId: tab_id,
 								error: extractErrorMessage(e),
 							},
 						}),
 				});
 				if (error) return Err(error);
 
-				db.tabs.update({ id: tabId, pinned: true });
+				db.tabs.update({ id: tab_id, pinned: true });
 				return Ok(undefined);
 			},
 		}),
@@ -570,33 +570,33 @@ export const browser = defineWorkspace({
 		 * Unpin a tab
 		 */
 		unpinTab: defineMutation({
-			input: type({ tabId: 'string' }),
+			input: type({ tab_id: 'string' }),
 			description: 'Unpin a tab',
-			handler: async ({ tabId }) => {
-				const result = db.tabs.get({ id: tabId });
+			handler: async ({ tab_id }) => {
+				const result = db.tabs.get({ id: tab_id });
 				if (!result?.data) {
 					return TabNotFoundErr({
 						message: 'Tab not found',
-						context: { tabId },
+						context: { tabId: tab_id },
 					});
 				}
 				const tab = result.data;
 
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(tab.browserId, { pinned: false }),
+					try: () => browserApi.tabs.update(tab.browser_id, { pinned: false }),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to unpin tab',
 							context: {
 								operation: 'tabs.update',
-								tabId,
+								tabId: tab_id,
 								error: extractErrorMessage(e),
 							},
 						}),
 				});
 				if (error) return Err(error);
 
-				db.tabs.update({ id: tabId, pinned: false });
+				db.tabs.update({ id: tab_id, pinned: false });
 				return Ok(undefined);
 			},
 		}),
@@ -605,33 +605,33 @@ export const browser = defineWorkspace({
 		 * Mute a tab
 		 */
 		muteTab: defineMutation({
-			input: type({ tabId: 'string' }),
+			input: type({ tab_id: 'string' }),
 			description: 'Mute a tab',
-			handler: async ({ tabId }) => {
-				const result = db.tabs.get({ id: tabId });
+			handler: async ({ tab_id }) => {
+				const result = db.tabs.get({ id: tab_id });
 				if (!result?.data) {
 					return TabNotFoundErr({
 						message: 'Tab not found',
-						context: { tabId },
+						context: { tabId: tab_id },
 					});
 				}
 				const tab = result.data;
 
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(tab.browserId, { muted: true }),
+					try: () => browserApi.tabs.update(tab.browser_id, { muted: true }),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to mute tab',
 							context: {
 								operation: 'tabs.update',
-								tabId,
+								tabId: tab_id,
 								error: extractErrorMessage(e),
 							},
 						}),
 				});
 				if (error) return Err(error);
 
-				db.tabs.update({ id: tabId, muted: true });
+				db.tabs.update({ id: tab_id, muted: true });
 				return Ok(undefined);
 			},
 		}),
@@ -640,33 +640,33 @@ export const browser = defineWorkspace({
 		 * Unmute a tab
 		 */
 		unmuteTab: defineMutation({
-			input: type({ tabId: 'string' }),
+			input: type({ tab_id: 'string' }),
 			description: 'Unmute a tab',
-			handler: async ({ tabId }) => {
-				const result = db.tabs.get({ id: tabId });
+			handler: async ({ tab_id }) => {
+				const result = db.tabs.get({ id: tab_id });
 				if (!result?.data) {
 					return TabNotFoundErr({
 						message: 'Tab not found',
-						context: { tabId },
+						context: { tabId: tab_id },
 					});
 				}
 				const tab = result.data;
 
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.update(tab.browserId, { muted: false }),
+					try: () => browserApi.tabs.update(tab.browser_id, { muted: false }),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to unmute tab',
 							context: {
 								operation: 'tabs.update',
-								tabId,
+								tabId: tab_id,
 								error: extractErrorMessage(e),
 							},
 						}),
 				});
 				if (error) return Err(error);
 
-				db.tabs.update({ id: tabId, muted: false });
+				db.tabs.update({ id: tab_id, muted: false });
 				return Ok(undefined);
 			},
 		}),
@@ -675,33 +675,33 @@ export const browser = defineWorkspace({
 		 * Reload a tab
 		 */
 		reloadTab: defineMutation({
-			input: type({ tabId: 'string' }),
+			input: type({ tab_id: 'string' }),
 			description: 'Reload a tab',
-			handler: async ({ tabId }) => {
-				const result = db.tabs.get({ id: tabId });
+			handler: async ({ tab_id }) => {
+				const result = db.tabs.get({ id: tab_id });
 				if (!result?.data) {
 					return TabNotFoundErr({
 						message: 'Tab not found',
-						context: { tabId },
+						context: { tabId: tab_id },
 					});
 				}
 				const tab = result.data;
 
 				const { error } = await tryAsync({
-					try: () => browserApi.tabs.reload(tab.browserId),
+					try: () => browserApi.tabs.reload(tab.browser_id),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to reload tab',
 							context: {
 								operation: 'tabs.reload',
-								tabId,
+								tabId: tab_id,
 								error: extractErrorMessage(e),
 							},
 						}),
 				});
 				if (error) return Err(error);
 
-				db.tabs.update({ id: tabId, status: 'loading' });
+				db.tabs.update({ id: tab_id, status: 'loading' });
 				return Ok(undefined);
 			},
 		}),
@@ -710,26 +710,26 @@ export const browser = defineWorkspace({
 		 * Duplicate a tab
 		 */
 		duplicateTab: defineMutation({
-			input: type({ tabId: 'string' }),
+			input: type({ tab_id: 'string' }),
 			description: 'Duplicate a tab',
-			handler: async ({ tabId }) => {
-				const result = db.tabs.get({ id: tabId });
+			handler: async ({ tab_id }) => {
+				const result = db.tabs.get({ id: tab_id });
 				if (!result?.data) {
 					return TabNotFoundErr({
 						message: 'Tab not found',
-						context: { tabId },
+						context: { tabId: tab_id },
 					});
 				}
 				const tab = result.data;
 
 				const { data: newTab, error } = await tryAsync({
-					try: () => browserApi.tabs.duplicate(tab.browserId),
+					try: () => browserApi.tabs.duplicate(tab.browser_id),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to duplicate tab',
 							context: {
 								operation: 'tabs.duplicate',
-								tabId,
+								tabId: tab_id,
 								error: extractErrorMessage(e),
 							},
 						}),
@@ -745,15 +745,15 @@ export const browser = defineWorkspace({
 					});
 				}
 
-				const newTabId = generateId();
+				const new_tab_id = generateId();
 
 				db.tabs.insert({
-					id: newTabId,
-					browserId: newTab.id,
-					windowId: tab.windowId,
+					id: new_tab_id,
+					browser_id: newTab.id,
+					window_id: tab.window_id,
 					url: newTab.url ?? tab.url,
 					title: newTab.title ?? tab.title,
-					favIconUrl: newTab.favIconUrl ?? tab.favIconUrl,
+					fav_icon_url: newTab.favIconUrl ?? tab.fav_icon_url,
 					index: newTab.index ?? tab.index + 1,
 					pinned: newTab.pinned ?? false,
 					active: newTab.active ?? false,
@@ -761,14 +761,14 @@ export const browser = defineWorkspace({
 					muted: newTab.mutedInfo?.muted ?? false,
 					audible: newTab.audible ?? false,
 					discarded: newTab.discarded ?? false,
-					autoDiscardable: newTab.autoDiscardable ?? true,
+					auto_discardable: newTab.autoDiscardable ?? true,
 					status: newTab.status ?? 'complete',
-					groupId: null,
-					openerTabId: tabId, // The original tab opened this one
+					group_id: null,
+					opener_tab_id: tab_id, // The original tab opened this one
 					incognito: newTab.incognito ?? false,
 				});
 
-				return Ok({ tabId: newTabId });
+				return Ok({ tab_id: new_tab_id });
 			},
 		}),
 
@@ -780,26 +780,26 @@ export const browser = defineWorkspace({
 		 * Close a window (and all its tabs)
 		 */
 		closeWindow: defineMutation({
-			input: type({ windowId: 'string' }),
+			input: type({ window_id: 'string' }),
 			description: 'Close a window and all its tabs',
-			handler: async ({ windowId }) => {
-				const winResult = db.windows.get({ id: windowId });
+			handler: async ({ window_id }) => {
+				const winResult = db.windows.get({ id: window_id });
 				if (!winResult?.data) {
 					return WindowNotFoundErr({
 						message: 'Window not found',
-						context: { windowId },
+						context: { windowId: window_id },
 					});
 				}
 				const win = winResult.data;
 
 				const { error } = await tryAsync({
-					try: () => browserApi.windows.remove(win.browserId),
+					try: () => browserApi.windows.remove(win.browser_id),
 					catch: (e) =>
 						BrowserApiErr({
 							message: 'Failed to close window',
 							context: {
 								operation: 'windows.remove',
-								windowId,
+								windowId: window_id,
 								error: extractErrorMessage(e),
 							},
 						}),
@@ -811,11 +811,11 @@ export const browser = defineWorkspace({
 					// Delete all tabs in this window
 					const tabsInWindow = db.tabs
 						.getAll()
-						.filter((t) => t.windowId === windowId);
+						.filter((t) => t.window_id === window_id);
 					db.tabs.deleteMany({ ids: tabsInWindow.map((t) => t.id) });
 
 					// Delete the window
-					db.windows.delete({ id: windowId });
+					db.windows.delete({ id: window_id });
 				});
 
 				return Ok(undefined);

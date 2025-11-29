@@ -29,8 +29,8 @@ export const epicenter = defineWorkspace({
 			title: text(),
 			content: text(),
 			rating: select({ options: ['decent', 'good', 'great', 'excellent'] }),
-			createdAt: date(),
-			updatedAt: date(),
+			created_at: date(),
+			updated_at: date(),
 		},
 	},
 
