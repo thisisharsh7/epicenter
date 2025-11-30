@@ -141,3 +141,42 @@ export const BITRATE_OPTIONS = BITRATES_KBPS.map((bitrate) => ({
 ```
 
 Avoid creating options inline in Svelte components; import pre-defined options instead.
+
+# Arktype Optional Properties
+
+## Never Use `| undefined` for Optional Properties
+
+When defining optional properties in arktype schemas, always use the `'key?'` syntax instead of `| undefined` unions. This is critical for JSON Schema conversion (used by OpenAPI/MCP).
+
+### Bad Pattern
+
+```typescript
+// DON'T: Explicit undefined union - breaks JSON Schema conversion
+const schema = type({
+  window_id: 'string | undefined',
+  url: 'string | undefined',
+});
+```
+
+This produces invalid JSON Schema with `anyOf: [{type: "string"}, {}]` because `undefined` has no JSON Schema equivalent.
+
+### Good Pattern
+
+```typescript
+// DO: Optional property syntax - converts cleanly to JSON Schema
+const schema = type({
+  'window_id?': 'string',
+  'url?': 'string',
+});
+```
+
+This correctly omits properties from the `required` array in JSON Schema.
+
+### Why This Matters
+
+| Syntax | TypeScript Behavior | JSON Schema |
+|--------|---------------------|-------------|
+| `key: 'string \| undefined'` | Required prop, accepts string or undefined | Broken (triggers fallback) |
+| `'key?': 'string'` | Optional prop, accepts string | Clean (omitted from `required`) |
+
+Both behave similarly in TypeScript, but only the `?` syntax converts correctly to JSON Schema for OpenAPI documentation and MCP tool schemas.
