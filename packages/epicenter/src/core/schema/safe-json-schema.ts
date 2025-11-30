@@ -1,7 +1,8 @@
 import { toJsonSchema } from '@standard-community/standard-json';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { JSONSchema7 } from 'json-schema';
+import type { JsonSchema } from 'arktype';
 import { Ok, tryAsync } from 'wellcrafted/result';
+import { ARKTYPE_JSON_SCHEMA_FALLBACK } from './arktype-fallback';
 
 /**
  * Safely convert a Standard Schema to JSON Schema with graceful error handling.
@@ -34,13 +35,14 @@ import { Ok, tryAsync } from 'wellcrafted/result';
  *
  * @see https://github.com/standard-community/standard-json - standard-json repo
  * @see https://arktype.io/docs/json-schema - arktype's toJsonSchema docs
+ * @see ARKTYPE_JSON_SCHEMA_FALLBACK in ./arktype-fallback.ts for fallback handlers
  *
  * @param schema - Standard Schema to convert
  * @returns JSON Schema representation, or permissive `{}` on catastrophic error
  */
 export async function safeToJsonSchema(
 	schema: StandardSchemaV1,
-): Promise<JSONSchema7> {
+): Promise<JsonSchema> {
 	const { data } = await tryAsync({
 		try: async () =>
 			// The second argument is passed through to arktype's toJsonSchema().
@@ -48,33 +50,17 @@ export async function safeToJsonSchema(
 			// vendor-agnostic. These options are arktype-specific.
 			// See: https://arktype.io/docs/json-schema#fallback
 			await toJsonSchema(schema, {
-				fallback: {
-					// Called when arktype encounters a "unit" type (literal value like
-					// `undefined`, `null`, `true`, etc.) that can't be represented in JSON Schema.
-					//
-					// ctx.unit: The literal value (e.g., undefined)
-					// ctx.base: The partial JSON Schema generated so far for this node
-					unit: (ctx: { unit: unknown; base: JSONSchema7 }) => {
-						if (ctx.unit === undefined) {
-							// Return empty schema `{}` to remove undefined from the union.
-							// Example: `string | undefined` becomes just `string` in the output.
-							// The property's optionality is preserved via JSON Schema's `required` array.
-							return {};
-						}
-						// For other unit types (null, true, etc.), keep whatever was generated
-						return ctx.base;
-					},
-					// Catch-all for any other incompatible arktype features (morphs,
-					// predicates, symbolic keys, etc.). Preserves partial schema.
-					default: (ctx: { base: JSONSchema7 }) => ctx.base,
-				},
+				fallback: ARKTYPE_JSON_SCHEMA_FALLBACK,
 			}),
 		// Last-resort fallback: if the entire conversion throws (shouldn't happen
 		// with the fallback handlers above, but defensive coding), return a
 		// permissive empty schema `{}` that accepts any input.
 		catch: (e) => {
-			console.warn('Failed to convert schema, using permissive fallback:', e);
-			return Ok({} satisfies JSONSchema7);
+			console.warn(
+				'[arktype→JSON Schema] Catastrophic conversion failure, using permissive fallback:',
+				e,
+			);
+			return Ok({} satisfies JsonSchema);
 		},
 	});
 	return data;

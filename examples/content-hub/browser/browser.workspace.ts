@@ -372,10 +372,10 @@ export const browser = defineWorkspace({
 		 */
 		createTab: defineMutation({
 			input: type({
-				window_id: 'string | undefined',
-				url: 'string | undefined',
-				active: 'boolean | undefined',
-				index: 'number | undefined',
+				'window_id?': 'string',
+				'url?': 'string',
+				'active?': 'boolean',
+				'index?': 'number',
 			}),
 			description: 'Create a new tab',
 			handler: async ({ window_id, url, active, index }) => {
@@ -468,7 +468,7 @@ export const browser = defineWorkspace({
 		moveTab: defineMutation({
 			input: type({
 				tab_id: 'string',
-				window_id: 'string | undefined',
+				'window_id?': 'string',
 				index: 'number',
 			}),
 			description: 'Move a tab to a different position or window',

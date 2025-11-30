@@ -10,8 +10,14 @@ import {
 	type EpicenterConfig,
 	iterActions,
 } from '../core/epicenter';
+import { ARKTYPE_JSON_SCHEMA_FALLBACK } from '../core/schema/arktype-fallback';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 import { createMcpServer } from './mcp';
+
+/** hono-openapi validator options with arktype fallback handlers */
+const HONO_OPENAPI_ARKTYPE_OPTIONS = {
+	options: { fallback: ARKTYPE_JSON_SCHEMA_FALLBACK },
+};
 
 /**
  * Create a unified server with REST, MCP, and API documentation endpoints
@@ -90,7 +96,16 @@ export async function createServer<
 						description: action.description,
 						tags,
 					}),
-					...(action.input ? [validator('query', action.input)] : []),
+					...(action.input
+						? [
+								validator(
+									'query',
+									action.input,
+									undefined,
+									HONO_OPENAPI_ARKTYPE_OPTIONS,
+								),
+							]
+						: []),
 					async (c) => {
 						// Get validated input from middleware (if schema exists)
 						const input = action.input ? c.req.valid('query') : undefined;
@@ -118,7 +133,16 @@ export async function createServer<
 						description: action.description,
 						tags,
 					}),
-					...(action.input ? [validator('json', action.input)] : []),
+					...(action.input
+						? [
+								validator(
+									'json',
+									action.input,
+									undefined,
+									HONO_OPENAPI_ARKTYPE_OPTIONS,
+								),
+							]
+						: []),
 					async (c) => {
 						// Get validated input from middleware (if schema exists)
 						const input = action.input ? c.req.valid('json') : undefined;
