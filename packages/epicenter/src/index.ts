@@ -157,8 +157,8 @@ export type {
 // Core workspace definition
 // Runtime
 export { createWorkspaceClient, defineWorkspace } from './core/workspace';
-export type { MarkdownIndexConfig } from './indexes/markdown';
-export { markdownIndex } from './indexes/markdown';
+export type { MarkdownIndexConfig, WithBodyFieldOptions } from './indexes/markdown';
+export { markdownIndex, withBodyField } from './indexes/markdown';
 // Indexes (implementations)
 export { sqliteIndex } from './indexes/sqlite';
 

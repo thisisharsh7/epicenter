@@ -1215,3 +1215,105 @@ const DEFAULT_TABLE_CONFIG = {
 		return Ok(result);
 	},
 } satisfies TableMarkdownConfig<TableSchema>;
+
+/**
+ * Options for the withBodyField factory function
+ */
+export type WithBodyFieldOptions<TTableSchema extends TableSchema = TableSchema> = {
+	/**
+	 * Strip null values from frontmatter for cleaner YAML output.
+	 * Nullable fields are restored via arktype's .default(null) during deserialization.
+	 * @default true
+	 */
+	stripNulls?: boolean;
+
+	/**
+	 * Field to use for the filename (without .md extension).
+	 * @default 'id'
+	 */
+	filenameField?: keyof TTableSchema & string;
+};
+
+/**
+ * Factory function to create a table config where a specific field becomes the markdown body.
+ *
+ * This is a common pattern for tables with a main content field (like `content`, `body`, or `markdown`)
+ * that should be stored as the markdown body rather than in frontmatter.
+ *
+ * @param bodyField - The field name that should become the markdown body
+ * @param options - Optional configuration for null stripping and filename field
+ * @returns A TableMarkdownConfig with serialize/deserialize functions
+ *
+ * @example
+ * ```typescript
+ * markdownIndex(c, {
+ *   tableConfigs: {
+ *     articles: withBodyField('content'),
+ *     posts: withBodyField('markdown'),
+ *     journal: withBodyField('content', { stripNulls: false }),
+ *   }
+ * })
+ * ```
+ */
+export function withBodyField<TTableSchema extends TableSchema>(
+	bodyField: keyof TTableSchema & string,
+	options: WithBodyFieldOptions<TTableSchema> = {},
+): TableMarkdownConfig<TTableSchema> {
+	const { stripNulls = true, filenameField = 'id' as keyof TTableSchema & string } = options;
+
+	return {
+		serialize: ({ row }) => {
+			// Extract body field, filename field, and the rest
+			const { [bodyField]: body, [filenameField]: filename, ...rest } = row;
+
+			// Optionally strip null values for cleaner YAML
+			const frontmatter = stripNulls
+				? Object.fromEntries(
+						Object.entries(rest).filter(([_, value]) => value !== null),
+					)
+				: rest;
+
+			return {
+				frontmatter,
+				body: (body as string) ?? '',
+				filename: `${filename}.md`,
+			};
+		},
+
+		deserialize: ({ frontmatter, body, filename, table }) => {
+			// Extract ID from filename (strip .md extension)
+			const rowId = path.basename(filename, '.md');
+
+			// Create validator that omits the body field and filename field
+			// Nullable fields that were stripped during serialize are restored via .default(null)
+			const FrontMatter = table.validators
+				.toArktype()
+				.omit(
+					filenameField as arkKeyOf<SerializedRow<TTableSchema>>,
+					bodyField as arkKeyOf<SerializedRow<TTableSchema>>,
+				);
+
+			const parsed = FrontMatter(frontmatter);
+
+			if (parsed instanceof type.errors) {
+				return MarkdownIndexErr({
+					message: `Invalid frontmatter for row ${rowId}`,
+					context: {
+						fileName: filename,
+						id: rowId,
+						reason: parsed.summary,
+					},
+				});
+			}
+
+			// Reconstruct the full row
+			const row = {
+				[filenameField]: rowId,
+				[bodyField]: body,
+				...parsed,
+			} as SerializedRow<TTableSchema>;
+
+			return Ok(row);
+		},
+	};
+}

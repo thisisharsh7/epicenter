@@ -1,19 +1,15 @@
-import { basename } from 'node:path';
 import {
 	date,
 	defineWorkspace,
 	id,
 	markdownIndex,
-	type SerializedRow,
 	select,
 	sqliteIndex,
 	tags,
 	text,
+	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
 
 /**
  * Journal workspace
@@ -112,52 +108,8 @@ export const journal = defineWorkspace({
 		markdown: (c) =>
 			markdownIndex(c, {
 				tableConfigs: {
-					journal: {
-						serialize: ({ row: { content, id, ...row } }) => {
-							// Sort keys alphabetically (keep null values for proper round-trip)
-							const entries = Object.entries(row).sort(([a], [b]) =>
-								a.localeCompare(b),
-							);
-							const frontmatter = Object.fromEntries(entries);
-							return {
-								frontmatter,
-								body: content,
-								filename: `${id}.md`,
-							};
-						},
-						deserialize: ({ frontmatter, body, filename, table }) => {
-							// Extract ID from filename
-							const id = basename(filename, '.md');
-
-							// Validate frontmatter (omit id and content)
-							// Nullable fields automatically default to null, required fields must be present
-							const FrontMatter = table.validators
-								.toArktype()
-								.omit('id', 'content');
-							const parsed = FrontMatter(frontmatter);
-
-							if (parsed instanceof type.errors) {
-								return MarkdownIndexErr({
-									message: `Invalid frontmatter for row ${id}`,
-									context: {
-										fileName: filename,
-										id,
-										reason: parsed.summary,
-									},
-								});
-							}
-
-							// Build row by spreading validated frontmatter
-							// Missing nullable fields are already null, required fields were validated
-							const row = {
-								id,
-								content: body,
-								...parsed,
-							} satisfies SerializedRow<typeof table.schema>;
-
-							return Ok(row);
-						},
-					},
+					// Keep null values for proper round-trip (no stripping)
+					journal: withBodyField('content', { stripNulls: false }),
 				},
 			}),
 	},
