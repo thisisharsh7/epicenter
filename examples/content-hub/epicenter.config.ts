@@ -9,7 +9,6 @@ import { gmail } from './gmail/gmail.workspace';
 import { journal } from './journal/journal.workspace';
 import { pages } from './pages/pages.workspace';
 import { posts } from './posts/posts.workspace';
-import { recipes } from './recipes/recipes.workspace';
 import { whispering } from './whispering/whispering.workspace';
 
 /**
@@ -39,7 +38,7 @@ export default defineEpicenter({
 		// Quick voice transcriptions
 		whispering,
 
-		// Saved web content
+		// Saved web content (articles, repos, books, recipes, etc.)
 		clippings,
 
 		// Email (static storage)
@@ -56,9 +55,6 @@ export default defineEpicenter({
 
 		// Browser tab/window state (shadow database for extension)
 		browser,
-
-		// Recipes collection
-		recipes,
 	],
 	storageDir: join(homedir(), 'Code', 'epicenter-md'),
 });

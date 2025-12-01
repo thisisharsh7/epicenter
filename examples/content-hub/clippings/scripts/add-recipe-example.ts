@@ -3,7 +3,7 @@ import epicenter from '../../epicenter.config';
 
 await using client = await createEpicenterClient(epicenter);
 
-const result = client.recipes.addRecipe({
+const result = client.clippings.addRecipe({
 	title: 'Cantonese-Style Steamed Fish',
 	source: 'https://www.youtube.com/shorts/mimj-PJ20Jo',
 	ingredients: `- 2 7oz white fleshed fish fillets (Chilean Sea Bass is my fav)
