@@ -38,7 +38,7 @@ export default defineEpicenter({
 		// Quick voice transcriptions
 		whispering,
 
-		// Saved web content
+		// Saved web content (articles, repos, books, recipes, etc.)
 		clippings,
 
 		// Email (static storage)
