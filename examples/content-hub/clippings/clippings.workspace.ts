@@ -46,6 +46,7 @@ export const clippings = defineWorkspace({
 			content: text(),
 			word_count: integer(),
 			quality: select({ options: QUALITY_OPTIONS, nullable: true }),
+			hacker_news_url: text({ nullable: true }),
 			saved_at: date(),
 		},
 		landing_pages: {
@@ -55,13 +56,15 @@ export const clippings = defineWorkspace({
 			design_quality: select({ options: QUALITY_OPTIONS }),
 			added_at: date(),
 		},
-		github_readmes: {
+		github_repos: {
 			id: id(),
 			url: text(),
 			title: text(),
 			description: text({ nullable: true }),
 			content: text(),
-			taste: select({ options: QUALITY_OPTIONS }),
+			readme_quality: select({ options: QUALITY_OPTIONS, nullable: true }),
+			impact: select({ options: QUALITY_OPTIONS, nullable: true }),
+			hacker_news_url: text({ nullable: true }),
 			added_at: date(),
 		},
 		doc_sites: {
@@ -70,6 +73,14 @@ export const clippings = defineWorkspace({
 			title: text(),
 			quality: select({ options: QUALITY_OPTIONS }),
 			added_at: date(),
+		},
+		article_excerpts: {
+			id: id(),
+			article_id: text(),
+			content: text(),
+			comment: text({ nullable: true }),
+			created_at: date(),
+			updated_at: date(),
 		},
 		essays: {
 			id: id(),
@@ -150,6 +161,88 @@ export const clippings = defineWorkspace({
 							return Ok(row);
 						},
 					},
+					github_repos: {
+						serialize: ({ row: { content, id, ...row } }) => {
+							// Strip null values for cleaner YAML
+							const frontmatter = Object.fromEntries(
+								Object.entries(row).filter(([_, value]) => value !== null),
+							);
+							return {
+								frontmatter,
+								body: content,
+								filename: `${id}.md`,
+							};
+						},
+						deserialize: ({ frontmatter, body, filename, table }) => {
+							const rowId = path.basename(filename, '.md');
+
+							// Stripped null values from serialize are restored via .default(null)
+							const FrontMatter = table.validators
+								.toArktype()
+								.omit('id', 'content');
+							const parsed = FrontMatter(frontmatter);
+
+							if (parsed instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid frontmatter for row ${rowId}`,
+									context: {
+										fileName: filename,
+										id: rowId,
+										reason: parsed.summary,
+									},
+								});
+							}
+
+							const row = {
+								id: rowId,
+								content: body,
+								...parsed,
+							} satisfies SerializedRow<typeof table.schema>;
+
+							return Ok(row);
+						},
+					},
+					article_excerpts: {
+						serialize: ({ row: { content, id, ...row } }) => {
+							// Strip null values for cleaner YAML
+							const frontmatter = Object.fromEntries(
+								Object.entries(row).filter(([_, value]) => value !== null),
+							);
+							return {
+								frontmatter,
+								body: content,
+								filename: `${id}.md`,
+							};
+						},
+						deserialize: ({ frontmatter, body, filename, table }) => {
+							const rowId = path.basename(filename, '.md');
+
+							// Stripped null values from serialize are restored via .default(null)
+							const FrontMatter = table.validators
+								.toArktype()
+								.omit('id', 'content');
+							const parsed = FrontMatter(frontmatter);
+
+							if (parsed instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid frontmatter for row ${rowId}`,
+									context: {
+										fileName: filename,
+										id: rowId,
+										reason: parsed.summary,
+									},
+								});
+							}
+
+							const row = {
+								id: rowId,
+								content: body,
+								...parsed,
+							} satisfies SerializedRow<typeof table.schema>;
+
+							return Ok(row);
+						},
+					},
 				},
 			}),
 	},
@@ -173,8 +266,9 @@ export const clippings = defineWorkspace({
 			input: type({
 				url: 'string',
 				'quality?': type.enumerated(...QUALITY_OPTIONS),
+				'hacker_news_url?': 'string',
 			}),
-			handler: async ({ url, quality }) => {
+			handler: async ({ url, quality, hacker_news_url }) => {
 				// Fetch and parse HTML using JSDOM
 				const { data: dom, error: fetchError } = await tryAsync({
 					try: () => JSDOM.fromURL(url),
@@ -231,6 +325,7 @@ export const clippings = defineWorkspace({
 					content: result.content,
 					word_count: result.wordCount,
 					quality: quality ?? null,
+					hacker_news_url: hacker_news_url ?? null,
 					saved_at: now,
 				});
 
@@ -325,16 +420,25 @@ export const clippings = defineWorkspace({
 		 * Add a GitHub repository
 		 *
 		 * Fetches the GitHub repo page, extracts the README content using Defuddle,
-		 * and stores it with your taste rating.
+		 * and stores it with your quality ratings.
 		 */
 		addGitHubRepo: defineMutation({
 			input: type({
 				url: 'string',
-				taste: type.enumerated(...QUALITY_OPTIONS),
+				'readme_quality?': type.enumerated(...QUALITY_OPTIONS),
+				'impact?': type.enumerated(...QUALITY_OPTIONS),
 				title: 'string | null',
 				description: 'string | null',
+				'hacker_news_url?': 'string',
 			}),
-			handler: async ({ url, taste, title, description }) => {
+			handler: async ({
+				url,
+				readme_quality,
+				impact,
+				title,
+				description,
+				hacker_news_url,
+			}) => {
 				// Fetch and parse GitHub page using JSDOM
 				const { data: dom, error: fetchError } = await tryAsync({
 					try: () => JSDOM.fromURL(url),
@@ -381,13 +485,15 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.github_readmes.insert({
+				db.github_repos.insert({
 					id: generateId(),
 					url,
 					title: finalTitle,
 					description: description || result.description || null,
 					content: result.content,
-					taste,
+					readme_quality: readme_quality ?? null,
+					impact: impact ?? null,
+					hacker_news_url: hacker_news_url ?? null,
 					added_at: now,
 				});
 
@@ -476,6 +582,43 @@ export const clippings = defineWorkspace({
 				db.book_excerpts.insert({
 					id: generateId(),
 					book_id,
+					content,
+					comment: comment ?? null,
+					created_at: now,
+					updated_at: now,
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Add an excerpt from an article
+		 *
+		 * Creates a new excerpt associated with an existing article.
+		 */
+		addArticleExcerpt: defineMutation({
+			input: db.article_excerpts.validators
+				.toArktype()
+				.pick('article_id', 'content', 'comment'),
+			handler: ({ article_id, content, comment }) => {
+				// Verify the article exists
+				const article = db.articles.get(article_id);
+				if (!article) {
+					return Err({
+						message: 'Article not found',
+						context: { article_id },
+					});
+				}
+
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				db.article_excerpts.insert({
+					id: generateId(),
+					article_id,
 					content,
 					comment: comment ?? null,
 					created_at: now,
