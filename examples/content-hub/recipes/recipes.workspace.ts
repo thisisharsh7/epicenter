@@ -1,6 +1,7 @@
+import path from 'node:path';
 import {
-	date,
 	DateWithTimezone,
+	date,
 	defineMutation,
 	defineWorkspace,
 	generateId,
@@ -10,8 +11,8 @@ import {
 	select,
 	sqliteIndex,
 	text,
-	withBodyField,
 } from '@epicenter/hq';
+import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
@@ -47,7 +48,100 @@ export const recipes = defineWorkspace({
 		markdown: (c) =>
 			markdownIndex(c, {
 				tableConfigs: {
-					recipes: withBodyField('instructions'),
+					/**
+					 * Custom markdown config for recipes
+					 *
+					 * Serializes ingredients and instructions into the markdown body with sections:
+					 * ```markdown
+					 * ## Ingredients
+					 * - item 1
+					 * - item 2
+					 *
+					 * ## Instructions
+					 * 1. step 1
+					 * 2. step 2
+					 * ```
+					 *
+					 * Deserializes by parsing these sections back into separate fields.
+					 */
+					recipes: {
+						serialize: ({ row }) => {
+							const { id: rowId, ingredients, instructions, ...rest } = row;
+
+							// Build body with markdown sections
+							const body = `## Ingredients
+
+${ingredients}
+
+## Instructions
+
+${instructions}`;
+
+							// Strip null values from frontmatter
+							const frontmatter = Object.fromEntries(
+								Object.entries(rest).filter(([_, value]) => value !== null),
+							);
+
+							return {
+								frontmatter,
+								body,
+								filename: `${rowId}.md`,
+							};
+						},
+
+						deserialize: ({ frontmatter, body, filename, table }) => {
+							const rowId = path.basename(filename, '.md');
+
+							// Parse sections from body
+							const ingredientsMatch = body.match(
+								/## Ingredients\s*\n([\s\S]*?)(?=\n## Instructions|$)/,
+							);
+							const instructionsMatch = body.match(
+								/## Instructions\s*\n([\s\S]*?)$/,
+							);
+
+							if (!ingredientsMatch || !instructionsMatch) {
+								return MarkdownIndexErr({
+									message: `Recipe ${rowId} missing required sections`,
+									context: {
+										fileName: filename,
+										id: rowId,
+										reason:
+											'Body must contain "## Ingredients" and "## Instructions" sections',
+									},
+								});
+							}
+
+							const ingredients = ingredientsMatch[1].trim();
+							const instructions = instructionsMatch[1].trim();
+
+							// Validate frontmatter (omit id, ingredients, instructions)
+							const FrontMatter = table.validators
+								.toArktype()
+								.omit('id', 'ingredients', 'instructions');
+
+							const parsed = FrontMatter(frontmatter);
+
+							if (parsed instanceof type.errors) {
+								return MarkdownIndexErr({
+									message: `Invalid frontmatter for recipe ${rowId}`,
+									context: {
+										fileName: filename,
+										id: rowId,
+										reason: parsed.summary,
+									},
+								});
+							}
+
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any
+							return Ok({
+								id: rowId,
+								ingredients,
+								instructions,
+								...parsed,
+							});
+						},
+					},
 				},
 			}),
 	},
