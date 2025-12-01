@@ -287,6 +287,63 @@ import config from './epicenter.config';
 }
 ```
 
+### Adding Content via Scripts (Recommended for Agents)
+
+When adding content programmatically (especially from coding agents), create a temporary TypeScript file and run it with `bun`. This is the preferred pattern:
+
+```typescript
+// add-article.ts
+import { createEpicenterClient } from '@epicenter/hq';
+import epicenter from './epicenter.config';
+
+await using client = await createEpicenterClient(epicenter);
+
+// Add an article from URL
+await client.clippings.addFromUrl({
+	url: 'https://example.com/article',
+	quality: 'great', // 'decent' | 'good' | 'great' | 'excellent'
+	hacker_news_url: 'https://news.ycombinator.com/item?id=12345', // optional
+});
+
+// Add a GitHub repo
+await client.clippings.addGitHubRepo({
+	url: 'https://github.com/owner/repo',
+	title: null, // auto-extracts from URL if null
+	description: null, // auto-extracts if null
+	readme_quality: 'excellent',
+	impact: 'great',
+});
+
+// Add a landing page
+await client.clippings.addLandingPage({
+	url: 'https://example.com',
+	title: 'Example Landing Page',
+	design_quality: 'excellent',
+});
+
+// Update an existing record
+client.clippings.articles.update({
+	id: 'abc123',
+	quality: 'excellent',
+});
+
+console.log('✓ Done');
+```
+
+Run with:
+
+```bash
+cd examples/content-hub
+bun add-article.ts
+```
+
+**Key patterns:**
+
+1. Use `await using client = await createEpicenterClient(epicenter)` for automatic cleanup
+2. Import config from `./epicenter.config`
+
+**File storage:** Markdown files are stored at the path specified in `epicenter.config.ts` (e.g., `~/Code/epicenter-md/`).
+
 ## Directory Structure Explained
 
 **`shared/`**: Contains reusable constants
@@ -467,9 +524,7 @@ const medium = await client.posts.medium.getAll();
 const twitter = await client.posts.twitter.getAll();
 
 const totalPosts =
-	youtube.data.length +
-	medium.data.length +
-	twitter.data.length;
+	youtube.data.length + medium.data.length + twitter.data.length;
 
 console.log(`Total posts: ${totalPosts}`);
 ```
