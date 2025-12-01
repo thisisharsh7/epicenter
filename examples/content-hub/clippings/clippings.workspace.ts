@@ -32,7 +32,7 @@ import { QUALITY_OPTIONS } from '../shared/quality';
 export const clippings = defineWorkspace({
 	id: 'clippings',
 	schema: {
-		clippings: {
+		articles: {
 			id: id(),
 			url: text(),
 			title: text(),
@@ -45,7 +45,8 @@ export const clippings = defineWorkspace({
 			image: text({ nullable: true }),
 			content: text(),
 			word_count: integer(),
-			clipped_at: date(),
+			quality: select({ options: QUALITY_OPTIONS, nullable: true }),
+			saved_at: date(),
 		},
 		landing_pages: {
 			id: id(),
@@ -70,6 +71,22 @@ export const clippings = defineWorkspace({
 			quality: select({ options: QUALITY_OPTIONS }),
 			added_at: date(),
 		},
+		essays: {
+			id: id(),
+			title: text(),
+			author: text(),
+			content: text(),
+			quality: select({ options: QUALITY_OPTIONS }),
+			added_at: date(),
+		},
+		essay_excerpts: {
+			id: id(),
+			essay_id: text(),
+			content: text(),
+			comment: text({ nullable: true }),
+			created_at: date(),
+			updated_at: date(),
+		},
 		books: {
 			id: id(),
 			title: text(),
@@ -92,7 +109,7 @@ export const clippings = defineWorkspace({
 		markdown: (c) =>
 			markdownIndex(c, {
 				tableConfigs: {
-					clippings: {
+					articles: {
 						serialize: ({ row: { content, id, ...row } }) => {
 							// Strip null values for cleaner YAML
 							const frontmatter = Object.fromEntries(
@@ -153,8 +170,11 @@ export const clippings = defineWorkspace({
 		 * Uses JSDOM for efficient single-pass parsing and better URL handling.
 		 */
 		addFromUrl: defineMutation({
-			input: type({ url: 'string' }),
-			handler: async ({ url }) => {
+			input: type({
+				url: 'string',
+				'quality?': type.enumerated(...QUALITY_OPTIONS),
+			}),
+			handler: async ({ url, quality }) => {
 				// Fetch and parse HTML using JSDOM
 				const { data: dom, error: fetchError } = await tryAsync({
 					try: () => JSDOM.fromURL(url),
@@ -192,7 +212,7 @@ export const clippings = defineWorkspace({
 				}).toJSON();
 
 				// Insert into database
-				db.clippings.insert({
+				db.articles.insert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -210,7 +230,8 @@ export const clippings = defineWorkspace({
 					image: result.image === '' ? null : result.image,
 					content: result.content,
 					word_count: result.wordCount,
-					clipped_at: now,
+					quality: quality ?? null,
+					saved_at: now,
 				});
 
 				return Ok(undefined);
@@ -218,27 +239,27 @@ export const clippings = defineWorkspace({
 		}),
 
 		/**
-		 * Remove duplicate clippings
+		 * Remove duplicate articles
 		 *
-		 * Compares clippings by URL and keeps only the most recently clipped version.
-		 * Deletes older duplicates based on clippedAt timestamp.
+		 * Compares articles by URL and keeps only the most recently saved version.
+		 * Deletes older duplicates based on saved_at timestamp.
 		 */
 		removeDuplicates: defineMutation({
 			handler: () => {
-				type Clipping = typeof db.clippings.$inferSerializedRow;
+				type Article = typeof db.articles.$inferSerializedRow;
 
 				// Convert rows to JSON
-				const clippings: Clipping[] = db.clippings
+				const articles: Article[] = db.articles
 					.getAll()
 					.map((row) => row.toJSON());
 
 				// Group by URL
-				const urlMap = new Map<string, Clipping[]>();
-				for (const clipping of clippings) {
-					if (!urlMap.has(clipping.url)) {
-						urlMap.set(clipping.url, []);
+				const urlMap = new Map<string, Article[]>();
+				for (const article of articles) {
+					if (!urlMap.has(article.url)) {
+						urlMap.set(article.url, []);
 					}
-					urlMap.get(clipping.url)?.push(clipping);
+					urlMap.get(article.url)?.push(article);
 				}
 
 				// Collect IDs to delete (keep only the most recent for each URL)
@@ -248,26 +269,26 @@ export const clippings = defineWorkspace({
 							return [];
 						}
 
-						// Find the most recent clipping
+						// Find the most recent article
 						const newest = duplicates.reduce((max, current) => {
 							const maxTime = DateWithTimezoneFromString(
-								max.clipped_at,
+								max.saved_at,
 							).date.getTime();
 							const currentTime = DateWithTimezoneFromString(
-								current.clipped_at,
+								current.saved_at,
 							).date.getTime();
 							return currentTime > maxTime ? current : max;
 						});
 
 						// Return IDs of all others
 						return duplicates
-							.filter((clipping) => clipping.id !== newest.id)
-							.map((clipping) => clipping.id);
+							.filter((article) => article.id !== newest.id)
+							.map((article) => article.id);
 					},
 				);
 
 				// Delete all duplicates in one batch operation
-				db.clippings.deleteMany({ ids: idsToDelete });
+				db.articles.deleteMany({ ids: idsToDelete });
 
 				return Ok({ deletedCount: idsToDelete.length });
 			},
