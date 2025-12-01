@@ -1,7 +1,7 @@
-import path from 'node:path';
 import {
 	DateWithTimezone,
 	DateWithTimezoneFromString,
+	DateWithTimezoneString,
 	date,
 	defineMutation,
 	defineWorkspace,
@@ -9,12 +9,11 @@ import {
 	id,
 	integer,
 	markdownIndex,
-	type SerializedRow,
 	select,
 	sqliteIndex,
 	text,
+	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Defuddle } from 'defuddle/node';
@@ -46,6 +45,7 @@ export const clippings = defineWorkspace({
 			content: text(),
 			word_count: integer(),
 			quality: select({ options: QUALITY_OPTIONS, nullable: true }),
+			hacker_news_url: text({ nullable: true }),
 			saved_at: date(),
 		},
 		landing_pages: {
@@ -55,13 +55,15 @@ export const clippings = defineWorkspace({
 			design_quality: select({ options: QUALITY_OPTIONS }),
 			added_at: date(),
 		},
-		github_readmes: {
+		github_repos: {
 			id: id(),
 			url: text(),
 			title: text(),
 			description: text({ nullable: true }),
 			content: text(),
-			taste: select({ options: QUALITY_OPTIONS }),
+			readme_quality: select({ options: QUALITY_OPTIONS, nullable: true }),
+			impact: select({ options: QUALITY_OPTIONS, nullable: true }),
+			hacker_news_url: text({ nullable: true }),
 			added_at: date(),
 		},
 		doc_sites: {
@@ -70,6 +72,14 @@ export const clippings = defineWorkspace({
 			title: text(),
 			quality: select({ options: QUALITY_OPTIONS }),
 			added_at: date(),
+		},
+		article_excerpts: {
+			id: id(),
+			article_id: text(),
+			content: text(),
+			comment: text({ nullable: true }),
+			created_at: date(),
+			updated_at: date(),
 		},
 		essays: {
 			id: id(),
@@ -109,47 +119,9 @@ export const clippings = defineWorkspace({
 		markdown: (c) =>
 			markdownIndex(c, {
 				tableConfigs: {
-					articles: {
-						serialize: ({ row: { content, id, ...row } }) => {
-							// Strip null values for cleaner YAML
-							const frontmatter = Object.fromEntries(
-								Object.entries(row).filter(([_, value]) => value !== null),
-							);
-							return {
-								frontmatter,
-								body: content,
-								filename: `${id}.md`,
-							};
-						},
-						deserialize: ({ frontmatter, body, filename, table }) => {
-							const rowId = path.basename(filename, '.md');
-
-							// Stripped null values from serialize are restored via .default(null)
-							const FrontMatter = table.validators
-								.toArktype()
-								.omit('id', 'content');
-							const parsed = FrontMatter(frontmatter);
-
-							if (parsed instanceof type.errors) {
-								return MarkdownIndexErr({
-									message: `Invalid frontmatter for row ${rowId}`,
-									context: {
-										fileName: filename,
-										id: rowId,
-										reason: parsed.summary,
-									},
-								});
-							}
-
-							const row = {
-								id: rowId,
-								content: body,
-								...parsed,
-							} satisfies SerializedRow<typeof table.schema>;
-
-							return Ok(row);
-						},
-					},
+					articles: withBodyField('content'),
+					github_repos: withBodyField('content'),
+					article_excerpts: withBodyField('content'),
 				},
 			}),
 	},
@@ -173,8 +145,9 @@ export const clippings = defineWorkspace({
 			input: type({
 				url: 'string',
 				'quality?': type.enumerated(...QUALITY_OPTIONS),
+				'hacker_news_url?': 'string',
 			}),
-			handler: async ({ url, quality }) => {
+			handler: async ({ url, quality, hacker_news_url }) => {
 				// Fetch and parse HTML using JSDOM
 				const { data: dom, error: fetchError } = await tryAsync({
 					try: () => JSDOM.fromURL(url),
@@ -231,6 +204,7 @@ export const clippings = defineWorkspace({
 					content: result.content,
 					word_count: result.wordCount,
 					quality: quality ?? null,
+					hacker_news_url: hacker_news_url ?? null,
 					saved_at: now,
 				});
 
@@ -239,58 +213,75 @@ export const clippings = defineWorkspace({
 		}),
 
 		/**
-		 * Remove duplicate articles
+		 * Remove duplicates across all URL-based tables
 		 *
-		 * Compares articles by URL and keeps only the most recently saved version.
-		 * Deletes older duplicates based on saved_at timestamp.
+		 * Compares entries by URL and keeps the oldest version (first added).
+		 * Deletes newer duplicates based on timestamp fields.
 		 */
 		removeDuplicates: defineMutation({
 			handler: () => {
-				type Article = typeof db.articles.$inferSerializedRow;
+				let totalDeleted = 0;
 
-				// Convert rows to JSON
-				const articles: Article[] = db.articles
-					.getAll()
-					.map((row) => row.toJSON());
-
-				// Group by URL
-				const urlMap = new Map<string, Article[]>();
-				for (const article of articles) {
-					if (!urlMap.has(article.url)) {
-						urlMap.set(article.url, []);
-					}
-					urlMap.get(article.url)?.push(article);
-				}
-
-				// Collect IDs to delete (keep only the most recent for each URL)
-				const idsToDelete = Array.from(urlMap.values()).flatMap(
-					(duplicates) => {
-						if (duplicates.length <= 1) {
-							return [];
+				// Helper to find duplicates and return IDs to delete (keep oldest)
+				const findDuplicateIds = <
+					T extends { id: string; url: string; [key: string]: unknown },
+				>(
+					items: T[],
+					timestampField: keyof T,
+				): string[] => {
+					const urlMap = new Map<string, T[]>();
+					for (const item of items) {
+						if (!urlMap.has(item.url)) {
+							urlMap.set(item.url, []);
 						}
+						urlMap.get(item.url)?.push(item);
+					}
 
-						// Find the most recent article
-						const newest = duplicates.reduce((max, current) => {
-							const maxTime = DateWithTimezoneFromString(
-								max.saved_at,
+					return Array.from(urlMap.values()).flatMap((duplicates) => {
+						if (duplicates.length <= 1) return [];
+
+						// Find the oldest item (keep this one)
+						const oldest = duplicates.reduce((min, current) => {
+							const minTime = DateWithTimezoneFromString(
+								min[timestampField] as DateWithTimezoneString,
 							).date.getTime();
 							const currentTime = DateWithTimezoneFromString(
-								current.saved_at,
+								current[timestampField] as DateWithTimezoneString,
 							).date.getTime();
-							return currentTime > maxTime ? current : max;
+							return currentTime < minTime ? current : min;
 						});
 
-						// Return IDs of all others
+						// Return IDs of newer duplicates to delete
 						return duplicates
-							.filter((article) => article.id !== newest.id)
-							.map((article) => article.id);
-					},
+							.filter((item) => item.id !== oldest.id)
+							.map((item) => item.id);
+					});
+				};
+
+				// Dedupe articles (timestamp: saved_at)
+				const articleIds = findDuplicateIds(db.articles.getAll(), 'saved_at');
+				db.articles.deleteMany({ ids: articleIds });
+				totalDeleted += articleIds.length;
+
+				// Dedupe github_repos (timestamp: added_at)
+				const repoIds = findDuplicateIds(db.github_repos.getAll(), 'added_at');
+				db.github_repos.deleteMany({ ids: repoIds });
+				totalDeleted += repoIds.length;
+
+				// Dedupe landing_pages (timestamp: added_at)
+				const landingPageIds = findDuplicateIds(
+					db.landing_pages.getAll(),
+					'added_at',
 				);
+				db.landing_pages.deleteMany({ ids: landingPageIds });
+				totalDeleted += landingPageIds.length;
 
-				// Delete all duplicates in one batch operation
-				db.articles.deleteMany({ ids: idsToDelete });
+				// Dedupe doc_sites (timestamp: added_at)
+				const docSiteIds = findDuplicateIds(db.doc_sites.getAll(), 'added_at');
+				db.doc_sites.deleteMany({ ids: docSiteIds });
+				totalDeleted += docSiteIds.length;
 
-				return Ok({ deletedCount: idsToDelete.length });
+				return Ok({ deletedCount: totalDeleted });
 			},
 		}),
 
@@ -325,16 +316,25 @@ export const clippings = defineWorkspace({
 		 * Add a GitHub repository
 		 *
 		 * Fetches the GitHub repo page, extracts the README content using Defuddle,
-		 * and stores it with your taste rating.
+		 * and stores it with your quality ratings.
 		 */
 		addGitHubRepo: defineMutation({
 			input: type({
 				url: 'string',
-				taste: type.enumerated(...QUALITY_OPTIONS),
+				'readme_quality?': type.enumerated(...QUALITY_OPTIONS),
+				'impact?': type.enumerated(...QUALITY_OPTIONS),
 				title: 'string | null',
 				description: 'string | null',
+				'hacker_news_url?': 'string',
 			}),
-			handler: async ({ url, taste, title, description }) => {
+			handler: async ({
+				url,
+				readme_quality,
+				impact,
+				title,
+				description,
+				hacker_news_url,
+			}) => {
 				// Fetch and parse GitHub page using JSDOM
 				const { data: dom, error: fetchError } = await tryAsync({
 					try: () => JSDOM.fromURL(url),
@@ -381,13 +381,15 @@ export const clippings = defineWorkspace({
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.github_readmes.insert({
+				db.github_repos.insert({
 					id: generateId(),
 					url,
 					title: finalTitle,
 					description: description || result.description || null,
 					content: result.content,
-					taste,
+					readme_quality: readme_quality ?? null,
+					impact: impact ?? null,
+					hacker_news_url: hacker_news_url ?? null,
 					added_at: now,
 				});
 
@@ -476,6 +478,43 @@ export const clippings = defineWorkspace({
 				db.book_excerpts.insert({
 					id: generateId(),
 					book_id,
+					content,
+					comment: comment ?? null,
+					created_at: now,
+					updated_at: now,
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Add an excerpt from an article
+		 *
+		 * Creates a new excerpt associated with an existing article.
+		 */
+		addArticleExcerpt: defineMutation({
+			input: db.article_excerpts.validators
+				.toArktype()
+				.pick('article_id', 'content', 'comment'),
+			handler: ({ article_id, content, comment }) => {
+				// Verify the article exists
+				const article = db.articles.get({ id: article_id });
+				if (!article) {
+					return Err({
+						message: 'Article not found',
+						context: { article_id },
+					});
+				}
+
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				db.article_excerpts.insert({
+					id: generateId(),
+					article_id,
 					content,
 					comment: comment ?? null,
 					created_at: now,

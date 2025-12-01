@@ -3,7 +3,7 @@ import { mkdirSync, watch } from 'node:fs';
 import path from 'node:path';
 import { type } from 'arktype';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
-import { Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
+import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import type { TableHelper } from '../../core/db/table-helper';
 import { IndexErr, IndexError } from '../../core/errors';
@@ -20,6 +20,7 @@ import type {
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
+import type { TableMarkdownConfig } from './configs';
 import { createDiagnosticsManager } from './diagnostics-manager';
 import {
 	deleteMarkdownFile,
@@ -35,6 +36,63 @@ import {
 export const { MarkdownIndexError, MarkdownIndexErr } =
 	createTaggedError('MarkdownIndexError');
 export type MarkdownIndexError = ReturnType<typeof MarkdownIndexError>;
+
+/**
+ * Default table config
+ *
+ * The true default behavior used when no custom config is provided:
+ * - Directory: table name
+ * - Serialize: All row fields → frontmatter, empty body, filename "{id}.md"
+ * - Deserialize: Extract ID from filename, all frontmatter fields → row with validation
+ *
+ * Use this when your table doesn't have a dedicated content/body field.
+ */
+export const DEFAULT_TABLE_CONFIG = {
+	serialize: ({
+		row: { id, ...row },
+		table: _,
+	}: {
+		row: SerializedRow<TableSchema>;
+		table: TableHelper<TableSchema>;
+	}) => ({
+		frontmatter: row,
+		body: '',
+		filename: `${id}.md`,
+	}),
+	deserialize: ({
+		frontmatter,
+		body: _,
+		filename,
+		table,
+	}: {
+		frontmatter: Record<string, unknown>;
+		body: string;
+		filename: string;
+		table: TableHelper<TableSchema>;
+	}) => {
+		// Extract ID from filename (strip .md extension)
+		const id = path.basename(filename, '.md');
+
+		// Combine id with frontmatter
+		const data = { id, ...frontmatter };
+
+		// Validate using direct arktype pattern
+		const validator = table.validators.toArktype();
+		const result = validator(data);
+		if (result instanceof type.errors) {
+			return MarkdownIndexErr({
+				message: `Failed to validate row ${id}`,
+				context: { filename, id, reason: result.summary },
+			});
+		}
+
+		return Ok(result);
+	},
+} satisfies TableMarkdownConfig<TableSchema>;
+
+// Re-export config types and functions
+export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
+export { withBodyField } from './configs';
 
 /**
  * Bidirectional sync coordination state
@@ -236,86 +294,6 @@ export type MarkdownIndexConfig<
 	 * ```
 	 */
 	tableConfigs?: TableConfigs<TWorkspaceSchema>;
-};
-
-/**
- * Custom serialization/deserialization behavior for a table
- *
- * Defines how rows are converted to markdown files and vice versa.
- * When not provided, uses default behavior.
- */
-type TableMarkdownConfig<TTableSchema extends TableSchema> = {
-	/**
-	 * Directory for this table's markdown files.
-	 *
-	 * **Optional**: Defaults to the table name
-	 *
-	 * **Two ways to specify the path**:
-	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to workspace directory
-	 * ```typescript
-	 * directory: './my-notes'      // → <workspace-dir>/my-notes
-	 * directory: '../shared'       // → <workspace-dir>/../shared
-	 * ```
-	 *
-	 * **Option 2: Absolute paths**: Used as-is, ignores workspace directory
-	 * ```typescript
-	 * directory: '/absolute/path/to/notes'
-	 * ```
-	 *
-	 * @default table name (e.g., "posts" → workspace-dir/posts)
-	 */
-	directory?: string;
-
-	/**
-	 * Serialize a row to markdown frontmatter, body, and filename.
-	 *
-	 * **Optional**: When not provided, uses default behavior:
-	 * - All fields except id go to frontmatter
-	 * - Empty body
-	 * - Filename: `{id}.md`
-	 *
-	 * IMPORTANT: The filename MUST be a simple filename without path separators.
-	 * The table's directory setting determines where the file is written.
-	 *
-	 * @param params.row - Row to serialize (already validated against schema)
-	 * @param params.table - TableHelper with metadata (name, schema, validators) and type inference helpers
-	 * @returns Frontmatter object, markdown body string, and simple filename (without directory path)
-	 */
-	serialize?(params: {
-		row: SerializedRow<TTableSchema>;
-		table: TableHelper<TTableSchema>;
-	}): {
-		frontmatter: Record<string, unknown>;
-		body: string;
-		filename: string;
-	};
-
-	/**
-	 * Deserialize markdown frontmatter and body back to a full row.
-	 * Returns a complete row (including id) that can be directly inserted/updated in YJS.
-	 * Returns error if the file should be skipped (e.g., invalid data, doesn't match schema).
-	 *
-	 * **Optional**: When not provided, uses default behavior:
-	 * - Extracts id from filename (strips .md extension)
-	 * - Merges id with frontmatter fields
-	 * - Validates against schema using validateUnknown
-	 *
-	 * The deserialize function is responsible for extracting the row ID from whatever source
-	 * makes sense (frontmatter, filename, body content, etc.).
-	 *
-	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
-	 * @param params.body - Markdown body content (text after frontmatter delimiters)
-	 * @param params.filename - Simple filename only (validated to not contain path separators)
-	 * @param params.table - TableHelper with metadata (name, schema, validators) and type inference helpers
-	 * @returns Result with complete row (with id field), or error to skip this file
-	 */
-	deserialize?(params: {
-		frontmatter: Record<string, unknown>;
-		body: string;
-		filename: string;
-		table: TableHelper<TTableSchema>;
-	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
 };
 
 export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
@@ -1180,38 +1158,3 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		}),
 	});
 }) satisfies Index;
-
-/**
- * Default table config
- *
- * Default behavior:
- * - Directory: table name
- * - Serialize: All row fields → frontmatter, empty body, filename "{id}.md"
- * - Deserialize: Extract ID from filename, all frontmatter fields → row with validation
- */
-const DEFAULT_TABLE_CONFIG = {
-	serialize: ({ row: { id, ...row }, table: _ }) => ({
-		frontmatter: row,
-		body: '',
-		filename: `${id}.md`,
-	}),
-	deserialize: ({ frontmatter, body: _, filename, table }) => {
-		// Extract ID from filename (strip .md extension)
-		const id = path.basename(filename, '.md');
-
-		// Combine id with frontmatter
-		const data = { id, ...frontmatter };
-
-		// Validate using direct arktype pattern
-		const validator = table.validators.toArktype();
-		const result = validator(data);
-		if (result instanceof type.errors) {
-			return MarkdownIndexErr({
-				message: `Failed to validate row ${id}`,
-				context: { filename, id, reason: result.summary },
-			});
-		}
-
-		return Ok(result);
-	},
-} satisfies TableMarkdownConfig<TableSchema>;
