@@ -119,7 +119,8 @@
 			"Bash(top:-b:*)",
 			"mcp__nia__nia_web_search",
 			"mcp__nia__search_documentation",
-			"mcp__nia__nia_deep_research_agent"
+			"mcp__nia__nia_deep_research_agent",
+			"mcp__deepwiki__ask_question"
 		],
 		"deny": [],
 		"ask": [],
