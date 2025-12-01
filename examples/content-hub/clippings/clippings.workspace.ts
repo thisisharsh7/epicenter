@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
 	DateWithTimezone,
 	DateWithTimezoneFromString,
@@ -9,14 +8,12 @@ import {
 	id,
 	integer,
 	markdownIndex,
-	type SerializedRow,
 	select,
 	sqliteIndex,
 	text,
+	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
-import { type } from 'arktype';
 import { Defuddle } from 'defuddle/node';
 import { JSDOM } from 'jsdom';
 import { extractErrorMessage } from 'wellcrafted/error';
@@ -603,7 +600,7 @@ export const clippings = defineWorkspace({
 				.pick('article_id', 'content', 'comment'),
 			handler: ({ article_id, content, comment }) => {
 				// Verify the article exists
-				const article = db.articles.get(article_id);
+				const article = db.articles.get({ id: article_id });
 				if (!article) {
 					return Err({
 						message: 'Article not found',
