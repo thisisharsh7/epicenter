@@ -5,22 +5,24 @@
  * and utilities for custom serializers and error handling.
  */
 
-export type { MarkdownOperationError } from './io';
+// Table config factories and types
+export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
+export { withBodyField } from './configs';
+
 // Markdown file operations
+export type { MarkdownOperationError } from './io';
 export {
 	deleteMarkdownFile,
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
 } from './io';
-// Types
-export type { MarkdownIndexConfig, WithBodyFieldOptions } from './markdown-index';
-// Main index implementation
-// Error types for custom serializers
-// Factory function for common table config pattern
+
+// Main index implementation and core exports
+export type { MarkdownIndexConfig } from './markdown-index';
 export {
+	DEFAULT_TABLE_CONFIG,
 	MarkdownIndexErr,
 	MarkdownIndexError,
 	markdownIndex,
-	withBodyField,
 } from './markdown-index';
