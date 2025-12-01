@@ -384,7 +384,7 @@
     "turbo": "^2.6.1",
     "typescript": "^5.9.3",
     "vite": "^7.2.4",
-    "wellcrafted": "^0.25.0",
+    "wellcrafted": "^0.25.1",
     "wrangler": "^4.51.0",
     "yargs": "^18.0.0",
   },
@@ -2689,7 +2689,7 @@
 
     "webidl-conversions": ["webidl-conversions@8.0.0", "", {}, "sha512-n4W4YFyz5JzOfQeA8oN7dUYpR+MBP3PIUsn2jLjWXwK5ASUzt0Jc/A5sAUZoCYFJRGF0FBKJ+1JjN43rNdsQzA=="],
 
-    "wellcrafted": ["wellcrafted@0.25.0", "", {}, "sha512-HSMkCNQLl8rrbEogs5VaPBsSHWPKr2H/E/54LZNMI55BnPPN4tHzdU2tRUPJHKfoYqax3gb4pyQzhJRbIXaNzA=="],
+    "wellcrafted": ["wellcrafted@0.25.1", "", {}, "sha512-ouRBQGF4O/NfmH8bgjucOjbuztoI6rnm45g+5/h4/4gjMZsVzioWaQAOYxalEF6R26WyGycrHLDJKa159rjdvA=="],
 
     "whatwg-encoding": ["whatwg-encoding@3.1.1", "", { "dependencies": { "iconv-lite": "0.6.3" } }, "sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ=="],
 
