@@ -1,6 +1,7 @@
 import {
 	DateWithTimezone,
 	DateWithTimezoneFromString,
+	DateWithTimezoneString,
 	date,
 	defineMutation,
 	defineWorkspace,
@@ -14,6 +15,7 @@ import {
 	withBodyField,
 } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers';
+import { type } from 'arktype';
 import { Defuddle } from 'defuddle/node';
 import { JSDOM } from 'jsdom';
 import { extractErrorMessage } from 'wellcrafted/error';
@@ -211,58 +213,75 @@ export const clippings = defineWorkspace({
 		}),
 
 		/**
-		 * Remove duplicate articles
+		 * Remove duplicates across all URL-based tables
 		 *
-		 * Compares articles by URL and keeps only the most recently saved version.
-		 * Deletes older duplicates based on saved_at timestamp.
+		 * Compares entries by URL and keeps the oldest version (first added).
+		 * Deletes newer duplicates based on timestamp fields.
 		 */
 		removeDuplicates: defineMutation({
 			handler: () => {
-				type Article = typeof db.articles.$inferSerializedRow;
+				let totalDeleted = 0;
 
-				// Convert rows to JSON
-				const articles: Article[] = db.articles
-					.getAll()
-					.map((row) => row.toJSON());
-
-				// Group by URL
-				const urlMap = new Map<string, Article[]>();
-				for (const article of articles) {
-					if (!urlMap.has(article.url)) {
-						urlMap.set(article.url, []);
-					}
-					urlMap.get(article.url)?.push(article);
-				}
-
-				// Collect IDs to delete (keep only the most recent for each URL)
-				const idsToDelete = Array.from(urlMap.values()).flatMap(
-					(duplicates) => {
-						if (duplicates.length <= 1) {
-							return [];
+				// Helper to find duplicates and return IDs to delete (keep oldest)
+				const findDuplicateIds = <
+					T extends { id: string; url: string; [key: string]: unknown },
+				>(
+					items: T[],
+					timestampField: keyof T,
+				): string[] => {
+					const urlMap = new Map<string, T[]>();
+					for (const item of items) {
+						if (!urlMap.has(item.url)) {
+							urlMap.set(item.url, []);
 						}
+						urlMap.get(item.url)?.push(item);
+					}
 
-						// Find the most recent article
-						const newest = duplicates.reduce((max, current) => {
-							const maxTime = DateWithTimezoneFromString(
-								max.saved_at,
+					return Array.from(urlMap.values()).flatMap((duplicates) => {
+						if (duplicates.length <= 1) return [];
+
+						// Find the oldest item (keep this one)
+						const oldest = duplicates.reduce((min, current) => {
+							const minTime = DateWithTimezoneFromString(
+								min[timestampField] as DateWithTimezoneString,
 							).date.getTime();
 							const currentTime = DateWithTimezoneFromString(
-								current.saved_at,
+								current[timestampField] as DateWithTimezoneString,
 							).date.getTime();
-							return currentTime > maxTime ? current : max;
+							return currentTime < minTime ? current : min;
 						});
 
-						// Return IDs of all others
+						// Return IDs of newer duplicates to delete
 						return duplicates
-							.filter((article) => article.id !== newest.id)
-							.map((article) => article.id);
-					},
+							.filter((item) => item.id !== oldest.id)
+							.map((item) => item.id);
+					});
+				};
+
+				// Dedupe articles (timestamp: saved_at)
+				const articleIds = findDuplicateIds(db.articles.getAll(), 'saved_at');
+				db.articles.deleteMany({ ids: articleIds });
+				totalDeleted += articleIds.length;
+
+				// Dedupe github_repos (timestamp: added_at)
+				const repoIds = findDuplicateIds(db.github_repos.getAll(), 'added_at');
+				db.github_repos.deleteMany({ ids: repoIds });
+				totalDeleted += repoIds.length;
+
+				// Dedupe landing_pages (timestamp: added_at)
+				const landingPageIds = findDuplicateIds(
+					db.landing_pages.getAll(),
+					'added_at',
 				);
+				db.landing_pages.deleteMany({ ids: landingPageIds });
+				totalDeleted += landingPageIds.length;
 
-				// Delete all duplicates in one batch operation
-				db.articles.deleteMany({ ids: idsToDelete });
+				// Dedupe doc_sites (timestamp: added_at)
+				const docSiteIds = findDuplicateIds(db.doc_sites.getAll(), 'added_at');
+				db.doc_sites.deleteMany({ ids: docSiteIds });
+				totalDeleted += docSiteIds.length;
 
-				return Ok({ deletedCount: idsToDelete.length });
+				return Ok({ deletedCount: totalDeleted });
 			},
 		}),
 
