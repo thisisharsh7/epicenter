@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as Dialog from '@repo/ui/dialog';
-	import { extension } from '@repo/extension';
+	// import { extension } from '@repo/extension';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -64,7 +64,7 @@
 			]);
 		} else {
 			// Browser extension context - notify that the Whispering tab is ready
-			extension.notifyWhisperingTabReady(undefined);
+			// extension.notifyWhisperingTabReady(undefined);
 		}
 	});
 
