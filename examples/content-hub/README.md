@@ -104,7 +104,7 @@ Query called → Read from SQLite index → Return data
 
 **Persistence**:
 
-- Desktop: YJS files stored in `.epicenter/` directory
+- Desktop: YJS state in `.epicenter/{workspace}.yjs`, index logs in `.epicenter/{workspace}/`
 - Browser: YJS files stored in IndexedDB
 - Both: Universal `setupPersistence` provider handles platform detection
 
@@ -368,7 +368,7 @@ bun add-article.ts
 
 **Generated at runtime**:
 
-- `.epicenter/`: YJS and SQLite files (one per workspace)
+- `.epicenter/`: YJS files, SQLite databases, and index logs (organized by workspace)
 
 ## Extending the System
 

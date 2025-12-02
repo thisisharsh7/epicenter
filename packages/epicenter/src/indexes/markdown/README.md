@@ -85,6 +85,9 @@ The Markdown Index uses a two-layer configuration structure that determines wher
 
 ```
 MarkdownIndexConfig
+├── name (index instance name)
+│   └── Defaults to 'default'
+│
 ├── directory (workspace-level)
 │   └── Defaults to workspace ID
 │
@@ -101,6 +104,28 @@ MarkdownIndexConfig
         ├── directory (table-level)
         ├── serialize()
         └── deserialize()
+```
+
+### Index Instance Name
+
+**`name`** (optional): Unique identifier for this markdown index instance.
+- Defaults to `'default'`
+- Used in the `.epicenter` folder structure: `.epicenter/{workspaceId}/markdown.{name}.log`
+- Required when you want multiple markdown indexes for the same workspace
+
+```typescript
+// Single markdown index (uses default name)
+indexes: {
+  markdown: (c) => markdownIndex(c, { directory: './docs' }),
+}
+// Files: .epicenter/blog/markdown.default.log
+
+// Multiple markdown indexes
+indexes: {
+  markdownDocs: (c) => markdownIndex(c, { name: 'docs', directory: './docs' }),
+  markdownObsidian: (c) => markdownIndex(c, { name: 'obsidian', directory: '/path/to/vault' }),
+}
+// Files: .epicenter/blog/markdown.docs.log, .epicenter/blog/markdown.obsidian.log
 ```
 
 ### Layer 1: Workspace Configuration

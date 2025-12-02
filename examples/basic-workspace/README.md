@@ -14,9 +14,13 @@ This folder shows you how to:
 
 ```
 basic-workspace/
-├── .epicenter/                  # YJS and SQLite persistence (internal state)
-│   ├── blog.yjs                # Binary YJS document (CRDT source of truth)
-│   └── blog.db                  # SQLite index database
+├── .epicenter/                  # Internal state and index artifacts
+│   ├── blog.yjs                 # Binary YJS document (CRDT source of truth)
+│   ├── blog.db                  # SQLite index database
+│   └── blog/                    # Index-specific logs and diagnostics
+│       ├── markdown.default.log
+│       ├── markdown.default.diagnostics.json
+│       └── sqlite.default.log
 ├── .data/
 │   └── content/                 # Markdown files (git-friendly storage)
 │       ├── posts/               # Blog posts as .md files

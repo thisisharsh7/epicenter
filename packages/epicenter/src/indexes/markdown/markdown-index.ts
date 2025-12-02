@@ -233,6 +233,34 @@ export type MarkdownIndexConfig<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 > = {
 	/**
+	 * Unique name for this markdown index instance.
+	 *
+	 * Used to identify this index in the `.epicenter` folder structure and allows
+	 * multiple markdown indexes per workspace (e.g., syncing to different folders).
+	 *
+	 * Generated files use the pattern: `.epicenter/{workspaceId}/markdown.{name}.log`
+	 *
+	 * @example
+	 * ```typescript
+	 * // Single markdown index (uses default name)
+	 * indexes: {
+	 *   markdown: (c) => markdownIndex(c, { directory: './docs' }),
+	 * }
+	 * // Files: .epicenter/blog/markdown.default.log
+	 *
+	 * // Multiple markdown indexes
+	 * indexes: {
+	 *   markdownDocs: (c) => markdownIndex(c, { name: 'docs', directory: './docs' }),
+	 *   markdownObsidian: (c) => markdownIndex(c, { name: 'obsidian', directory: '/path/to/vault' }),
+	 * }
+	 * // Files: .epicenter/blog/markdown.docs.log, .epicenter/blog/markdown.obsidian.log
+	 * ```
+	 *
+	 * @default 'default'
+	 */
+	name?: string;
+
+	/**
 	 * Workspace-level directory where markdown files should be stored.
 	 *
 	 * **Optional**: Defaults to the workspace `id` if not provided
@@ -301,7 +329,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
 	const { id, db, storageDir, epicenterDir } = context;
-	const { directory = `./${id}` } = config;
+	const { name = 'default', directory = `./${id}` } = config;
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
 	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
@@ -313,17 +341,21 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		);
 	}
 
-	// Shared config directory for markdown index files
-	const markdownConfigDir = path.join(epicenterDir, 'markdown');
+	// Workspace-specific directory for all index artifacts
+	// Structure: .epicenter/{workspaceId}/markdown.{name}.{suffix}
+	const workspaceConfigDir = path.join(epicenterDir, id);
 
 	// Create diagnostics manager for tracking validation errors (current state)
 	const diagnostics = createDiagnosticsManager({
-		diagnosticsPath: path.join(markdownConfigDir, `${id}-diagnostics.json`),
+		diagnosticsPath: path.join(
+			workspaceConfigDir,
+			`markdown.${name}.diagnostics.json`,
+		),
 	});
 
 	// Create logger for historical error record (append-only audit trail)
 	const logger = createIndexLogger({
-		logPath: path.join(markdownConfigDir, `${id}.log`),
+		logPath: path.join(workspaceConfigDir, `markdown.${name}.log`),
 	});
 
 	// Resolve workspace directory to absolute path

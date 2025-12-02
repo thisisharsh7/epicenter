@@ -619,7 +619,9 @@ indexes: {
 }
 ```
 
-**Storage:** Auto-saves to `.epicenter/{workspaceId}.db` relative to `storageDir`.
+**Storage:**
+- Database: `.epicenter/{workspaceId}.db`
+- Logs: `.epicenter/{workspaceId}/sqlite.default.log`
 
 **Exports:**
 
@@ -686,6 +688,7 @@ import { markdownIndex } from '@epicenter/hq';
 
 indexes: {
   markdown: (c) => markdownIndex(c, {
+    name: 'default',      // Optional: instance name for multiple indexes
     directory: './data',  // Optional: workspace-level directory
     tableConfigs: {
       posts: {
@@ -706,8 +709,9 @@ indexes: {
 ```
 
 **Storage:**
-- Default: `./{workspaceId}/{tableName}/*.md`
-- Custom: Configurable per workspace and per table
+- Markdown files: `./{workspaceId}/{tableName}/*.md` (configurable)
+- Logs: `.epicenter/{workspaceId}/markdown.{name}.log`
+- Diagnostics: `.epicenter/{workspaceId}/markdown.{name}.diagnostics.json`
 
 **Exports:**
 
