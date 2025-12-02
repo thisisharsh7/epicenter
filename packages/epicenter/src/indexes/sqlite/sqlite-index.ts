@@ -54,7 +54,7 @@ type SyncCoordination = {
  *
  * **Storage**:
  * - Database: `.epicenter/{workspaceId}.db`
- * - Logs: `.epicenter/{workspaceId}/sqlite.default.log`
+ * - Logs: `.epicenter/{workspaceId}/sqlite.{indexKey}.log`
  *
  * @param context - Index context with workspace ID, database instance, and storage directory
  *
@@ -82,6 +82,7 @@ type SyncCoordination = {
  */
 export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	id,
+	indexKey,
 	schema,
 	db,
 	epicenterDir,
@@ -108,9 +109,9 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	// Create error logger for this index
-	// Structure: .epicenter/{workspaceId}/sqlite.default.log
+	// Structure: .epicenter/{workspaceId}/sqlite.{indexKey}.log
 	const workspaceConfigDir = path.join(epicenterDir, id);
-	const logPath = path.join(workspaceConfigDir, 'sqlite.default.log');
+	const logPath = path.join(workspaceConfigDir, `sqlite.${indexKey}.log`);
 	const logger = createIndexLogger({ logPath });
 
 	/**

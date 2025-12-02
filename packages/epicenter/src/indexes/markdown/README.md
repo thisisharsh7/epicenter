@@ -86,7 +86,7 @@ The Markdown Index uses a two-layer configuration structure that determines wher
 ```
 MarkdownIndexConfig
 ├── name (index instance name)
-│   └── Defaults to 'default'
+│   └── Defaults to indexKey (from indexes object)
 │
 ├── directory (workspace-level)
 │   └── Defaults to workspace ID
@@ -109,23 +109,29 @@ MarkdownIndexConfig
 ### Index Instance Name
 
 **`name`** (optional): Unique identifier for this markdown index instance.
-- Defaults to `'default'`
+- Defaults to `indexKey` (the key used in the `indexes` object)
 - Used in the `.epicenter` folder structure: `.epicenter/{workspaceId}/markdown.{name}.log`
-- Required when you want multiple markdown indexes for the same workspace
+- Can be explicitly set to override the default derived from `indexKey`
 
 ```typescript
-// Single markdown index (uses default name)
+// Single markdown index (name defaults to "markdown" from indexKey)
 indexes: {
   markdown: (c) => markdownIndex(c, { directory: './docs' }),
 }
-// Files: .epicenter/blog/markdown.default.log
+// Files: .epicenter/blog/markdown.markdown.log
 
-// Multiple markdown indexes
+// Multiple markdown indexes (names default to indexKeys)
+indexes: {
+  markdownDocs: (c) => markdownIndex(c, { directory: './docs' }),
+  markdownObsidian: (c) => markdownIndex(c, { directory: '/path/to/vault' }),
+}
+// Files: .epicenter/blog/markdown.markdownDocs.log, .epicenter/blog/markdown.markdownObsidian.log
+
+// Explicit name override
 indexes: {
   markdownDocs: (c) => markdownIndex(c, { name: 'docs', directory: './docs' }),
-  markdownObsidian: (c) => markdownIndex(c, { name: 'obsidian', directory: '/path/to/vault' }),
 }
-// Files: .epicenter/blog/markdown.docs.log, .epicenter/blog/markdown.obsidian.log
+// Files: .epicenter/blog/markdown.docs.log
 ```
 
 ### Layer 1: Workspace Configuration

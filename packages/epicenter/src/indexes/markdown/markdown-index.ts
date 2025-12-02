@@ -242,21 +242,27 @@ export type MarkdownIndexConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * // Single markdown index (uses default name)
+	 * // Single markdown index (name defaults to indexKey)
 	 * indexes: {
 	 *   markdown: (c) => markdownIndex(c, { directory: './docs' }),
 	 * }
-	 * // Files: .epicenter/blog/markdown.default.log
+	 * // Files: .epicenter/blog/markdown.markdown.log
 	 *
-	 * // Multiple markdown indexes
+	 * // Multiple markdown indexes (name defaults to indexKey)
+	 * indexes: {
+	 *   markdownDocs: (c) => markdownIndex(c, { directory: './docs' }),
+	 *   markdownObsidian: (c) => markdownIndex(c, { directory: '/path/to/vault' }),
+	 * }
+	 * // Files: .epicenter/blog/markdown.markdownDocs.log, .epicenter/blog/markdown.markdownObsidian.log
+	 *
+	 * // Explicit name override
 	 * indexes: {
 	 *   markdownDocs: (c) => markdownIndex(c, { name: 'docs', directory: './docs' }),
-	 *   markdownObsidian: (c) => markdownIndex(c, { name: 'obsidian', directory: '/path/to/vault' }),
 	 * }
-	 * // Files: .epicenter/blog/markdown.docs.log, .epicenter/blog/markdown.obsidian.log
+	 * // Files: .epicenter/blog/markdown.docs.log
 	 * ```
 	 *
-	 * @default 'default'
+	 * @default indexKey (the key from the indexes object)
 	 */
 	name?: string;
 
@@ -328,8 +334,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
-	const { id, db, storageDir, epicenterDir } = context;
-	const { name = 'default', directory = `./${id}` } = config;
+	const { id, indexKey, db, storageDir, epicenterDir } = context;
+	const { name = indexKey, directory = `./${id}` } = config;
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
 	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
