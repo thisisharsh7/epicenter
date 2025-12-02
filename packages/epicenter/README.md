@@ -619,7 +619,9 @@ indexes: {
 }
 ```
 
-**Storage:** Auto-saves to `.epicenter/{workspaceId}.db` relative to `storageDir`.
+**Storage:**
+- Database: `.epicenter/{workspaceId}.db`
+- Logs: `.epicenter/{workspaceId}/sqlite.log`
 
 **Exports:**
 
@@ -706,8 +708,9 @@ indexes: {
 ```
 
 **Storage:**
-- Default: `./{workspaceId}/{tableName}/*.md`
-- Custom: Configurable per workspace and per table
+- Markdown files: `./{workspaceId}/{tableName}/*.md` (configurable)
+- Logs: `.epicenter/{workspaceId}/markdown.log`
+- Diagnostics: `.epicenter/{workspaceId}/markdown.diagnostics.json`
 
 **Exports:**
 

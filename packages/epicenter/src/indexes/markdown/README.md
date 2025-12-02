@@ -103,6 +103,27 @@ MarkdownIndexConfig
         └── deserialize()
 ```
 
+### File Naming
+
+Index artifacts (logs, diagnostics) use the **index ID** from your workspace config:
+
+```typescript
+// Single markdown index
+indexes: {
+  markdown: (c) => markdownIndex(c, { directory: './docs' }),
+}
+// Files: .epicenter/blog/markdown.log, .epicenter/blog/markdown.diagnostics.json
+
+// Multiple markdown indexes
+indexes: {
+  markdownDocs: (c) => markdownIndex(c, { directory: './docs' }),
+  markdownObsidian: (c) => markdownIndex(c, { directory: '/path/to/vault' }),
+}
+// Files: .epicenter/blog/markdownDocs.log, .epicenter/blog/markdownObsidian.log
+```
+
+The index ID (`markdown`, `markdownDocs`, etc.) is automatically passed via `context.indexId`.
+
 ### Layer 1: Workspace Configuration
 
 **`directory`** (optional): The workspace-level directory where all markdown files for this workspace are stored.
