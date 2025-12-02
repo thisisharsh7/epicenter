@@ -85,10 +85,12 @@ export const clippings = defineWorkspace({
 		},
 		essays: {
 			id: id(),
+			url: text(),
 			title: text(),
-			author: text(),
+			author: text({ nullable: true }),
 			content: text(),
-			quality: select({ options: QUALITY_OPTIONS }),
+			word_count: integer(),
+			resonance: select({ options: QUALITY_OPTIONS, nullable: true }),
 			added_at: date(),
 		},
 		essay_excerpts: {
@@ -136,6 +138,7 @@ export const clippings = defineWorkspace({
 			markdownIndex(c, {
 				tableConfigs: {
 					articles: withBodyField('content'),
+					essays: withBodyField('content'),
 					github_repos: withBodyField('content'),
 					article_excerpts: withBodyField('content'),
 					/**
@@ -628,6 +631,70 @@ ${instructions}`;
 					comment: comment ?? null,
 					created_at: now,
 					updated_at: now,
+				});
+
+				return Ok(undefined);
+			},
+		}),
+
+		/**
+		 * Add an essay from a URL
+		 *
+		 * Fetches the URL using JSDOM, extracts content using Defuddle, and saves it as an essay.
+		 * Essays are long-form content rated by their resonance/impact rather than quality.
+		 */
+		addEssayFromUrl: defineMutation({
+			input: type({
+				url: 'string',
+				'resonance?': type.enumerated(...QUALITY_OPTIONS),
+			}),
+			handler: async ({ url, resonance }) => {
+				// Fetch and parse HTML using JSDOM
+				const { data: dom, error: fetchError } = await tryAsync({
+					try: () => JSDOM.fromURL(url),
+					catch: (error) =>
+						Err({
+							message: 'Failed to fetch URL',
+							context: {
+								url,
+								error: extractErrorMessage(error),
+							},
+						}),
+				});
+
+				if (fetchError) return Err(fetchError);
+
+				// Extract content with Defuddle using the parsed DOM
+				const { data: result, error: parseError } = await tryAsync({
+					try: () => Defuddle(dom, url, { markdown: true }),
+					catch: (error) =>
+						Err({
+							message: 'Failed to parse content',
+							context: {
+								url,
+								error: extractErrorMessage(error),
+							},
+						}),
+				});
+
+				if (parseError) return Err(parseError);
+
+				// Generate ID and timestamps
+				const now = DateWithTimezone({
+					date: new Date(),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				}).toJSON();
+
+				// Insert into database
+				db.essays.insert({
+					id: generateId(),
+					url,
+					title: result.title,
+					author: result.author === '' ? null : result.author,
+					content: result.content,
+					word_count: result.wordCount,
+					resonance: resonance ?? null,
+					added_at: now,
 				});
 
 				return Ok(undefined);
