@@ -52,7 +52,9 @@ type SyncCoordination = {
  * via defineIndex(). All exported resources become available in your workspace exports
  * via the `indexes` parameter.
  *
- * **Storage**: Auto-saves to `.epicenter/{workspaceId}.db` relative to storageDir from epicenter config
+ * **Storage**:
+ * - Database: `.epicenter/{workspaceId}.db`
+ * - Logs: `.epicenter/{workspaceId}/{indexId}.log`
  *
  * @param context - Index context with workspace ID, database instance, and storage directory
  *
@@ -80,6 +82,7 @@ type SyncCoordination = {
  */
 export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	id,
+	indexId,
 	schema,
 	db,
 	epicenterDir,
@@ -106,7 +109,9 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	// Create error logger for this index
-	const logPath = path.join(epicenterDir, 'sqlite', `${id}.log`);
+	// Structure: .epicenter/{workspaceId}/{indexId}.log
+	const workspaceConfigDir = path.join(epicenterDir, id);
+	const logPath = path.join(workspaceConfigDir, `${indexId}.log`);
 	const logger = createIndexLogger({ logPath });
 
 	/**

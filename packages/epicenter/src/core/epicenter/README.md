@@ -144,6 +144,31 @@ Examples:
   Browser + pages → IndexedDB:pages (different!)
 ```
 
+### `.epicenter/` Folder Structure
+
+The `.epicenter` folder contains all Epicenter internal data:
+
+```
+.epicenter/
+├── blog.db                           # SQLite database (per workspace)
+├── blog.yjs                          # YJS persistence (per workspace)
+├── auth.db
+├── auth.yjs
+├── blog/                             # Workspace-specific index artifacts
+│   ├── markdown.log                  # Markdown index sync log (indexId = "markdown")
+│   ├── markdown.diagnostics.json
+│   └── sqlite.log                    # SQLite index error log (indexId = "sqlite")
+└── auth/
+    ├── markdown.log
+    └── sqlite.log
+```
+
+**Key design decisions:**
+- YJS and DB files stay at root level (easy to find, prominent)
+- Index logs/diagnostics go inside workspace folders
+- Simple naming: `{indexId}.{suffix}` (indexId is the key from the indexes object)
+- Supports multiple indexes of the same type (e.g., `markdownDocs.log`, `markdownObsidian.log`)
+
 **Rule:** Only one client can access the same storage context at a time.
 
 ### Cleanup Lifecycle
