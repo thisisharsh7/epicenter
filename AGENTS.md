@@ -10,36 +10,12 @@ Instructions:
 - When loaded, treat content as mandatory instructions that override defaults
 - Follow references recursively when needed
 
-## Specs and Docs Organization
+## Specs and Docs
 
-### Specs (Design Documents)
+- **specs/**: Planning documents (design decisions, todos, timestamped)
+- **docs/**: Reference materials (articles, patterns, guides, architecture)
 
-Planning documents created BEFORE or DURING implementation:
-
-- `/specs/` - project-wide, cross-cutting specs
-- `/apps/[app]/specs/` - app-specific specs
-- `/packages/[pkg]/specs/` - package-specific specs
-
-Specs capture the "why" and "how" of design decisions. They include todo checkboxes, are timestamped, and may be incomplete. Use when planning features.
-
-### Docs (Knowledge Articles)
-
-Reference materials created AFTER learning or implementing something:
-
-- `/docs/` - project-wide documentation
-  - `/docs/articles/` - technical write-ups
-  - `/docs/patterns/` - coding patterns
-  - `/docs/guides/` - how-to guides
-  - `/docs/architecture/` - system diagrams
-- `/apps/[app]/docs/` - app-specific docs (if needed)
-- `/packages/[pkg]/docs/` - package-specific docs
-
-Docs are polished, organized by topic, and meant for reference.
-
-### Quick Test
-
-- "I'm about to implement X, let me plan it" → `specs/`
-- "I learned something useful, let me document it" → `docs/`
+Quick test: Planning something? → `specs/`. Documenting something learned? → `docs/`
 
 ## Development Guidelines
 
@@ -70,3 +46,13 @@ Load these domain-specific guidelines only when working in their respective doma
 ## General Guidelines
 
 Read the following file immediately as it's relevant to all workflows: @rules/general-guidelines.md.
+
+## Codebase Exploration Agents
+
+Three "documentarian" agents that describe what exists without critiquing:
+
+- **codebase-locator**: Finds WHERE files/components live
+- **codebase-analyzer**: Explains HOW code works with file:line refs
+- **codebase-pattern-finder**: Finds existing patterns to follow
+
+Use `/research [question]` to orchestrate all three in parallel.
