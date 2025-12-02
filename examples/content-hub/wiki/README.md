@@ -32,37 +32,28 @@ Think of them like your personal Wikipedia: authoritative, topic-focused, and al
 
 Every post must reference a wiki entry via `entry_id`. This enforces a disciplined workflow: think first (wiki), then distribute (posts).
 
-## How Wiki Differs from Pages
+## Dual Markdown Indexes
 
-| Aspect | Wiki Entries | Pages |
-|--------|--------------|-------|
-| Purpose | Reference knowledge | Published content |
-| Lifecycle | Continuously updated | Draft → Published |
-| Time-bound | No (evergreen) | Yes (publication date) |
-| Audience | Internal reference | External publication |
+The wiki workspace has two markdown indexes for different purposes:
 
-Use wiki for "what I know about X." Use pages for "what I published on Y date."
+### 1. Local Storage (`markdown`)
 
-## Linking Between Entries
-
-Entries can link to each other using standard markdown:
-
-```markdown
-See also [Related Topic](./related-topic.md) for more context.
-```
-
-No separate linking table needed; the connections live in the content itself.
-
-## Schema
+Default storage for all wiki content. Uses the standard `withBodyField('content')` config.
 
 ```typescript
-entries: {
-  id: id(),
-  title: text(),           // The topic name
-  content: text(),         // Markdown body (evergreen content)
-  summary: text(),         // Short description for listings
-  tags: tags(),            // Categorization
-  created_at: date(),      // When first written
-  updated_at: date(),      // When last modified
-}
+// Sync operations
+pullToMarkdown(); // YJS → local markdown files
+pushFromMarkdown(); // local markdown files → YJS
+```
+
+### 2. Blog Content Collection (`blog`)
+
+Syncs entries to your Astro blog at `/Users/braden/Code/blog/src/content/articles/`.
+
+Field names are kept consistent (no remapping). Dates are serialized as Date objects with timezone stored separately.
+
+```typescript
+// Sync operations
+pullToBlog(); // YJS → blog content collection
+pushFromBlog(); // blog content collection → YJS
 ```
