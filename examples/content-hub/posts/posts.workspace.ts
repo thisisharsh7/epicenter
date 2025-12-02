@@ -24,10 +24,11 @@ const NICHES = [
 
 /**
  * Schema for short-form video content (YouTube, Instagram, TikTok)
+ * References wiki.entries via entry_id for source of truth.
  */
 const SHORT_FORM_VIDEO_SCHEMA = {
 	id: id(),
-	page_id: text(),
+	entry_id: text(),
 	title: text(),
 	description: text(),
 	niche: select({ options: NICHES }),
@@ -37,10 +38,11 @@ const SHORT_FORM_VIDEO_SCHEMA = {
 
 /**
  * Schema for long-form text content (Medium, Substack, Personal Blog, Epicenter Blog)
+ * References wiki.entries via entry_id for source of truth.
  */
 const LONG_FORM_TEXT_SCHEMA = {
 	id: id(),
-	page_id: text(),
+	entry_id: text(),
 	title: text(),
 	subtitle: text(),
 	content: text(),
@@ -51,10 +53,11 @@ const LONG_FORM_TEXT_SCHEMA = {
 
 /**
  * Schema for short-form text content (Reddit, Twitter, Hacker News, Discord, Product Hunt, Bookface)
+ * References wiki.entries via entry_id for source of truth.
  */
 const SHORT_FORM_TEXT_SCHEMA = {
 	id: id(),
-	page_id: text(),
+	entry_id: text(),
 	content: text(),
 	title: text({ nullable: true }),
 	niche: select({ options: NICHES }),
@@ -65,10 +68,14 @@ const SHORT_FORM_TEXT_SCHEMA = {
 /**
  * Posts workspace
  *
- * Consolidated workspace for all social media content across platforms.
+ * Distribution layer for social media content across platforms.
+ * All posts reference wiki.entries via entry_id for source of truth.
+ *
+ * Content flow: wiki.entries (source) → posts.* (distribution)
+ *
  * Organizes content by platform type:
  * - Video: youtube, tiktok, instagram
- * - Blogs: medium, substack, personalBlog, epicenterBlog
+ * - Blogs: medium, substack, personal_blog, epicenter_blog
  * - Social: reddit, twitter, discord, hackernews, producthunt, bookface
  */
 export const posts = defineWorkspace({
