@@ -46,7 +46,7 @@ export type Index<
  * Provides workspace metadata, schema, and database instance that indexes sync with.
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
- * @property indexKey - The key used in the workspace's `indexes` object (e.g., 'sqlite', 'markdown', 'markdownDocs')
+ * @property indexId - The index identifier from the workspace's `indexes` object (e.g., 'sqlite', 'markdown', 'markdownDocs')
  * @property schema - The workspace schema (table definitions)
  * @property db - The Epicenter database instance containing YJS-backed tables
  * @property storageDir - Absolute storage directory path resolved from epicenter config
@@ -59,9 +59,9 @@ export type Index<
  * @example Creating an index with IndexContext
  * ```typescript
  * export function sqliteIndex<TSchema extends WorkspaceSchema>(
- *   { id, indexKey, schema, db, epicenterDir }: IndexContext<TSchema>
+ *   { id, indexId, schema, db, epicenterDir }: IndexContext<TSchema>
  * ) {
- *   // indexKey: The key from indexes object (e.g., 'sqlite', 'markdownDocs')
+ *   // indexId: The identifier from indexes object (e.g., 'sqlite', 'markdownDocs')
  *   // Use schema for type conversions: convertWorkspaceSchemaToDrizzle(schema)
  *   // Use epicenterDir for file paths: path.join(epicenterDir, `${id}.db`)
  *   // Use db to observe table changes
@@ -70,7 +70,7 @@ export type Index<
  */
 export type IndexContext<TSchema extends WorkspaceSchema = WorkspaceSchema> = {
 	id: string;
-	indexKey: string;
+	indexId: string;
 	schema: TSchema;
 	db: Db<TSchema>;
 	storageDir: StorageDir | undefined;

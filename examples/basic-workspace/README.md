@@ -18,9 +18,9 @@ basic-workspace/
 │   ├── blog.yjs                 # Binary YJS document (CRDT source of truth)
 │   ├── blog.db                  # SQLite index database
 │   └── blog/                    # Index-specific logs and diagnostics
-│       ├── markdown.markdown.log         # (indexKey = "markdown")
-│       ├── markdown.markdown.diagnostics.json
-│       └── sqlite.sqlite.log             # (indexKey = "sqlite")
+│       ├── markdown.log                  # (indexId = "markdown")
+│       ├── markdown.diagnostics.json
+│       └── sqlite.log                    # (indexId = "sqlite")
 ├── .data/
 │   └── content/                 # Markdown files (git-friendly storage)
 │       ├── posts/               # Blog posts as .md files

@@ -155,19 +155,19 @@ The `.epicenter` folder contains all Epicenter internal data:
 ├── auth.db
 ├── auth.yjs
 ├── blog/                             # Workspace-specific index artifacts
-│   ├── markdown.markdown.log         # Markdown index sync log (indexKey = "markdown")
-│   ├── markdown.markdown.diagnostics.json
-│   └── sqlite.sqlite.log             # SQLite index error log (indexKey = "sqlite")
+│   ├── markdown.log                  # Markdown index sync log (indexId = "markdown")
+│   ├── markdown.diagnostics.json
+│   └── sqlite.log                    # SQLite index error log (indexId = "sqlite")
 └── auth/
-    ├── markdown.markdown.log
-    └── sqlite.sqlite.log
+    ├── markdown.log
+    └── sqlite.log
 ```
 
 **Key design decisions:**
 - YJS and DB files stay at root level (easy to find, prominent)
 - Index logs/diagnostics go inside workspace folders
-- Dot-separated naming: `{indexType}.{indexKey}.{suffix}` (indexKey is inferred from the indexes object key)
-- Supports multiple indexes of the same type (e.g., `markdown.markdownDocs.log`, `markdown.markdownObsidian.log`)
+- Simple naming: `{indexId}.{suffix}` (indexId is the key from the indexes object)
+- Supports multiple indexes of the same type (e.g., `markdownDocs.log`, `markdownObsidian.log`)
 
 **Rule:** Only one client can access the same storage context at a time.
 

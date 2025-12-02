@@ -347,16 +347,16 @@ export async function initializeWorkspaces<
 		const validators = createWorkspaceValidators(workspaceConfig.schema);
 
 		// Initialize each index by calling its factory function with IndexContext
-		// Each index function receives { id, indexKey, schema, db, storageDir, epicenterDir } and returns an index object
+		// Each index function receives { id, indexId, schema, db, storageDir, epicenterDir } and returns an index object
 		// Initialize all indexes in parallel for better performance
 		const indexes = Object.fromEntries(
 			await Promise.all(
 				Object.entries(workspaceConfig.indexes).map(
-					async ([indexKey, indexFn]) => [
-						indexKey,
+					async ([indexId, indexFn]) => [
+						indexId,
 						await indexFn({
 							id: workspaceConfig.id,
-							indexKey,
+							indexId,
 							schema: workspaceConfig.schema,
 							db,
 							storageDir,
