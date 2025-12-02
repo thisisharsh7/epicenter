@@ -1,5 +1,3 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { defineEpicenter } from '@epicenter/hq';
 import { browser } from './browser/browser.workspace';
 import { clippings } from './clippings/clippings.workspace';
@@ -38,7 +36,7 @@ export default defineEpicenter({
 		// Quick voice transcriptions
 		whispering,
 
-		// Saved web content
+		// Saved web content (articles, repos, books, recipes, etc.)
 		clippings,
 
 		// Email (static storage)
@@ -56,5 +54,5 @@ export default defineEpicenter({
 		// Browser tab/window state (shadow database for extension)
 		browser,
 	],
-	storageDir: join(homedir(), 'Code', 'epicenter-md'),
+	storageDir: '/Users/braden/Code/epicenter-md',
 });

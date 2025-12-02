@@ -300,7 +300,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	context: IndexContext<TSchema>,
 	config: MarkdownIndexConfig<TSchema> = {},
 ) => {
-	const { id, db, storageDir, epicenterDir } = context;
+	const { id, indexId, db, storageDir, epicenterDir } = context;
 	const { directory = `./${id}` } = config;
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
@@ -313,17 +313,21 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		);
 	}
 
-	// Shared config directory for markdown index files
-	const markdownConfigDir = path.join(epicenterDir, 'markdown');
+	// Workspace-specific directory for all index artifacts
+	// Structure: .epicenter/{workspaceId}/{indexId}.{suffix}
+	const workspaceConfigDir = path.join(epicenterDir, id);
 
 	// Create diagnostics manager for tracking validation errors (current state)
 	const diagnostics = createDiagnosticsManager({
-		diagnosticsPath: path.join(markdownConfigDir, `${id}-diagnostics.json`),
+		diagnosticsPath: path.join(
+			workspaceConfigDir,
+			`${indexId}.diagnostics.json`,
+		),
 	});
 
 	// Create logger for historical error record (append-only audit trail)
 	const logger = createIndexLogger({
-		logPath: path.join(markdownConfigDir, `${id}.log`),
+		logPath: path.join(workspaceConfigDir, `${indexId}.log`),
 	});
 
 	// Resolve workspace directory to absolute path
