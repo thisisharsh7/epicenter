@@ -9,8 +9,8 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import {
 		BITRATE_OPTIONS,
-		CPAL_SAMPLE_RATE_OPTIONS,
 		RECORDING_MODE_OPTIONS,
+		SAMPLE_RATE_OPTIONS,
 	} from '$lib/constants/audio';
 	import { settings } from '$lib/stores/settings.svelte';
 	import ManualSelectRecordingDevice from './ManualSelectRecordingDevice.svelte';
@@ -33,7 +33,7 @@
 	);
 
 	const sampleRateLabel = $derived(
-		CPAL_SAMPLE_RATE_OPTIONS.find(
+		SAMPLE_RATE_OPTIONS.find(
 			(o) => o.value === settings.value['recording.cpal.sampleRate'],
 		)?.label,
 	);
@@ -384,7 +384,7 @@
 				<Field.Label for="sample-rate">Sample Rate</Field.Label>
 				<Select.Root
 					type="single"
-					items={CPAL_SAMPLE_RATE_OPTIONS}
+					items={SAMPLE_RATE_OPTIONS}
 					bind:value={
 						() => settings.value['recording.cpal.sampleRate'],
 						(selected) => {
@@ -397,7 +397,7 @@
 						{sampleRateLabel ?? 'Select sample rate'}
 					</Select.Trigger>
 					<Select.Content>
-						{#each CPAL_SAMPLE_RATE_OPTIONS as item}
+						{#each SAMPLE_RATE_OPTIONS as item}
 							<Select.Item value={item.value} label={item.label} />
 						{/each}
 					</Select.Content>

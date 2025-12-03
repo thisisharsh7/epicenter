@@ -2,7 +2,7 @@
  * Audio sample rate constants and options
  */
 
-export const SAMPLE_RATES = ['16000', '22050', '44100', '48000'] as const;
+export const SAMPLE_RATES = ['16000', '44100', '48000'] as const;
 
 export type SampleRate = (typeof SAMPLE_RATES)[number];
 
@@ -14,27 +14,15 @@ const SAMPLE_RATE_METADATA: Record<
 	{ shortLabel: string; description: string }
 > = {
 	'16000': { shortLabel: '16 kHz', description: 'Optimized for speech' },
-	'22050': { shortLabel: '22 kHz', description: 'Balanced quality' },
 	'44100': { shortLabel: '44.1 kHz', description: 'CD quality' },
 	'48000': { shortLabel: '48 kHz', description: 'Studio quality' },
 };
 
 /**
- * Full sample rate options with descriptive labels
+ * Sample rate options with descriptive labels
  * Format: "16 kHz - Optimized for speech"
  */
 export const SAMPLE_RATE_OPTIONS = SAMPLE_RATES.map((rate) => ({
-	value: rate,
-	label: `${SAMPLE_RATE_METADATA[rate].shortLabel} - ${SAMPLE_RATE_METADATA[rate].description}`,
-}));
-
-/**
- * Subset of sample rates commonly used for CPAL (native recorder)
- * Excludes 22050 Hz which is less common for speech applications
- */
-export const CPAL_SAMPLE_RATES = ['16000', '44100', '48000'] as const;
-
-export const CPAL_SAMPLE_RATE_OPTIONS = CPAL_SAMPLE_RATES.map((rate) => ({
 	value: rate,
 	label: `${SAMPLE_RATE_METADATA[rate].shortLabel} - ${SAMPLE_RATE_METADATA[rate].description}`,
 }));

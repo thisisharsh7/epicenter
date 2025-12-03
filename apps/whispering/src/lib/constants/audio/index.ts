@@ -20,8 +20,6 @@ export {
 	WhisperingRecordingState,
 } from './recording-states';
 export {
-	CPAL_SAMPLE_RATE_OPTIONS,
-	CPAL_SAMPLE_RATES,
 	DEFAULT_SAMPLE_RATE,
 	SAMPLE_RATE_OPTIONS,
 	SAMPLE_RATES,
