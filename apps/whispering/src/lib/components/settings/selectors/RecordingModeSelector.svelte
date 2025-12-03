@@ -50,7 +50,7 @@
 			</WhisperingButton>
 		{/snippet}
 	</Popover.Trigger>
-	<Popover.Content class="p-0 w-48">
+	<Popover.Content align="end" class="p-0 w-48">
 		<Command.Root loop>
 			<Command.List>
 				<Command.Group>
