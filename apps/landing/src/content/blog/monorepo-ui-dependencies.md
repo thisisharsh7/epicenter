@@ -17,7 +17,7 @@ When you structure a UI package like this:
 
 ```json
 {
-  "name": "@repo/ui",
+  "name": "@epicenter/ui",
   "devDependencies": {
     "bits-ui": "catalog:",
     "@lucide/svelte": "^0.525.0",
@@ -27,7 +27,7 @@ When you structure a UI package like this:
 }
 ```
 
-Those packages are only installed when developing the UI package itself. Apps that consume `@repo/ui` don't get them.
+Those packages are only installed when developing the UI package itself. Apps that consume `@epicenter/ui` don't get them.
 
 So every app ends up looking like this:
 
@@ -35,7 +35,7 @@ So every app ends up looking like this:
 {
   "name": "my-app",
   "dependencies": {
-    "@repo/ui": "workspace:*",
+    "@epicenter/ui": "workspace:*",
     "bits-ui": "catalog:",      // Duplicate!
     "@lucide/svelte": "^0.525.0" // Duplicate!
   }
@@ -48,7 +48,7 @@ Move runtime dependencies to `dependencies` in your UI package:
 
 ```json
 {
-  "name": "@repo/ui",
+  "name": "@epicenter/ui",
   "dependencies": {
     "bits-ui": "catalog:",
     "@lucide/svelte": "^0.525.0",
@@ -69,7 +69,7 @@ Now your apps can be cleaner:
 {
   "name": "my-app",
   "dependencies": {
-    "@repo/ui": "workspace:*"
+    "@epicenter/ui": "workspace:*"
     // That's it! UI deps come along automatically
   }
 }
@@ -94,6 +94,6 @@ Common dev dependencies:
 - Linters and formatters
 - Testing libraries
 
-I had 3 apps all installing the same UI dependencies. Now they just install `@repo/ui` and get everything they need. Less duplication, clearer dependency tree, easier maintenance.
+I had 3 apps all installing the same UI dependencies. Now they just install `@epicenter/ui` and get everything they need. Less duplication, clearer dependency tree, easier maintenance.
 
 The fix took 2 minutes. Finding the problem took me way longer than I'd like to admit.

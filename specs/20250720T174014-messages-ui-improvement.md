@@ -24,7 +24,7 @@ Improve the UI of messages on the Messages Svelte page by leveraging the `create
 
 ### Available Resources
 - `createMessageSubscriber`: Reactive message store with SSE streaming support
-- `@repo/ui/chat`: shadcn-svelte chat components (Bubble, BubbleMessage, BubbleAvatar, List)
+- `@epicenter/ui/chat`: shadcn-svelte chat components (Bubble, BubbleMessage, BubbleAvatar, List)
 - Rich message types: UserMessage, AssistantMessage with various parts (text, tool, step-start, step-finish)
 - Existing MessageInput with mode selection and file upload
 

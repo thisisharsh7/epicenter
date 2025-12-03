@@ -24,7 +24,7 @@ export const APPS = (env) => ({
 });
 
 // Usage everywhere
-import { APPS } from '@repo/constants';
+import { APPS } from '@epicenter/constants';
 const url = APPS(import.meta.env).SH.URL; // Vite
 const url = APPS(env).SH.URL; // Node
 ```
@@ -84,11 +84,11 @@ Now consumers import exactly what they need:
 
 ```typescript
 // Client-side code (just APPS)
-import { APPS } from '@repo/constants/env/vite';
+import { APPS } from '@epicenter/constants/env/vite';
 const authUrl = APPS.AUTH.URL;
 
 // Server-side code (APPS + validated env)
-import { APPS, env } from '@repo/constants/env/node';
+import { APPS, env } from '@epicenter/constants/env/node';
 const authUrl = APPS.AUTH.URL;
 const dbUrl = env.DATABASE_URL;
 ```

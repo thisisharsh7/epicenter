@@ -31,7 +31,7 @@ epicenter/
 
 ### Phase 1: Repository Structure Refactoring
 - [ ] Rename `apps/whispering` to `apps/whispering`
-- [ ] Update all import paths referencing `@repo/app` to `@repo/whispering`
+- [ ] Update all import paths referencing `@epicenter/app` to `@epicenter/whispering`
 - [ ] Update workspace configuration in root `package.json`
 - [ ] Update turbo.json configurations
 - [ ] Update biome.json configurations
@@ -48,7 +48,7 @@ epicenter/
 
 ### Phase 3: Package Name Updates
 - [ ] Update root `package.json` name from "whispering" to "epicenter"
-- [ ] Update `apps/whispering/package.json` name from "@repo/app" to "@repo/whispering"
+- [ ] Update `apps/whispering/package.json` name from "@epicenter/app" to "@epicenter/whispering"
 - [ ] Update all internal references
 - [ ] Update GitHub repository name (if desired)
 
@@ -171,7 +171,7 @@ Total: ~8-10 hours of focused work
 
 1. **Repository Structure**
    - ✅ Successfully renamed `apps/app` to `apps/whispering`
-   - ✅ Updated package name from `@repo/app` to `@repo/whispering`
+   - ✅ Updated package name from `@epicenter/app` to `@epicenter/whispering`
    - ✅ Workspace configuration automatically picks up the renamed directory
 
 2. **Branding Updates**

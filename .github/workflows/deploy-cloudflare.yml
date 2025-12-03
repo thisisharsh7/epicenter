@@ -37,7 +37,7 @@ jobs:
 
       - name: Run type checking
         run: |
-          bun run --filter @repo/whispering check
+          bun run --filter @epicenter/whispering check
           bun run --filter @epicenter/landing astro check || true
 
       - name: Run linting

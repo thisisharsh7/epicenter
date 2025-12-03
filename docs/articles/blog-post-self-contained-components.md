@@ -23,8 +23,8 @@ So I created `DeleteWorkspaceButton.svelte`:
 
 ```svelte
 <script lang="ts">
-  import { Button } from '@repo/ui/button';
-  import * as AlertDialog from '@repo/ui/alert-dialog';
+  import { Button } from '@epicenter/ui/button';
+  import * as AlertDialog from '@epicenter/ui/alert-dialog';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import { workspaces } from '$lib/stores/workspaces.svelte';
   
