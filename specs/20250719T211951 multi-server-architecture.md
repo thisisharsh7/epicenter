@@ -53,7 +53,7 @@ Instead of using a service pattern, we'll leverage `createPersistedState` for a 
 
 ```typescript
 // workspaces.svelte.ts - Reactive workspace management
-import { createPersistedState } from '@repo/svelte-utils';
+import { createPersistedState } from '@epicenter/svelte-utils';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 

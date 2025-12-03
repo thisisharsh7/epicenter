@@ -68,7 +68,7 @@ The `packages/ui/package.json` will use wildcards in the exports field:
 
 ```json
 {
-  "name": "@repo/ui",
+  "name": "@epicenter/ui",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -100,8 +100,8 @@ import * as Dialog from '$lib/components/ui/dialog';
 
 To:
 ```typescript
-import { Button } from '@repo/ui/button';
-import * as Dialog from '@repo/ui/dialog';
+import { Button } from '@epicenter/ui/button';
+import * as Dialog from '@epicenter/ui/dialog';
 ```
 
 ## Implementation Plan
@@ -118,8 +118,8 @@ import * as Dialog from '@repo/ui/dialog';
 - [ ] Move the `cn` utility function to `/packages/ui/src/utils.ts`
 
 ### Phase 3: Update App Dependencies
-- [ ] Add `@repo/ui` as a dependency in `/apps/whispering/package.json`
-- [ ] Update all imports in the app to use `@repo/ui/[component]`
+- [ ] Add `@epicenter/ui` as a dependency in `/apps/whispering/package.json`
+- [ ] Update all imports in the app to use `@epicenter/ui/[component]`
 - [ ] Remove the old `/apps/whispering/src/lib/components/ui/` directory
 
 ### Phase 4: Testing & Validation
@@ -155,7 +155,7 @@ import * as Dialog from '@repo/ui/dialog';
 ## Risks & Mitigation
 1. **Import Path Changes**: All imports need updating (can be automated with search/replace)
 2. **Build Complexity**: Need to ensure proper build order in monorepo
-3. **Type Resolution**: TypeScript needs proper configuration to resolve @repo/ui imports
+3. **Type Resolution**: TypeScript needs proper configuration to resolve @epicenter/ui imports
 
 ## Alternative Approaches Considered
 1. **Symlinking**: Could symlink the ui folder, but this doesn't provide proper package boundaries
@@ -174,14 +174,14 @@ import * as Dialog from '@repo/ui/dialog';
 
 1. **Created packages/ui structure** - All UI components have been successfully moved from `/apps/whispering/src/lib/components/ui/` to `/packages/ui/src/`
 
-2. **Updated imports** - All imports in the app have been changed from `$lib/components/ui/[component]` to `@repo/ui/[component]`
+2. **Updated imports** - All imports in the app have been changed from `$lib/components/ui/[component]` to `@epicenter/ui/[component]`
 
 3. **Fixed package dependencies**:
-   - Added `@repo/ui` as a workspace dependency in apps/whispering
+   - Added `@epicenter/ui` as a workspace dependency in apps/whispering
    - Added required dependencies to packages/ui: @lucide/svelte, paneforge
    - Added peer dependencies: @tanstack/svelte-table
 
-4. **Fixed internal imports** - Updated all internal imports within packages/ui to use relative paths instead of @repo/ui
+4. **Fixed internal imports** - Updated all internal imports within packages/ui to use relative paths instead of @epicenter/ui
 
 5. **Removed old UI directory** - Successfully deleted `/apps/whispering/src/lib/components/ui/`
 

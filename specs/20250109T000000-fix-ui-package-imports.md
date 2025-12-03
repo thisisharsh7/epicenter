@@ -1,7 +1,7 @@
 # Fix UI Package Internal Imports
 
 ## Problem
-The packages/ui directory contains components that are importing from "@repo/ui" which creates circular dependencies. These imports need to be changed to relative imports.
+The packages/ui directory contains components that are importing from "@epicenter/ui" which creates circular dependencies. These imports need to be changed to relative imports.
 
 ## Plan
 
@@ -34,8 +34,8 @@ The packages/ui directory contains components that are importing from "@repo/ui"
 - [x] Fix imports in tooltip component (1 file)
 
 ## Approach
-1. Replace "@repo/ui/utils" with "../utils" (or appropriate relative path)
-2. Replace "@repo/ui/[component]/index.js" with "../[component]" (or appropriate relative path)
+1. Replace "@epicenter/ui/utils" with "../utils" (or appropriate relative path)
+2. Replace "@epicenter/ui/[component]/index.js" with "../[component]" (or appropriate relative path)
 3. Ensure all imports use proper relative paths based on file location
 
 ## Notes
@@ -46,19 +46,19 @@ The packages/ui directory contains components that are importing from "@repo/ui"
 ## Review
 
 ### Summary of Changes
-Fixed all internal imports in the packages/ui directory by replacing "@repo/ui" imports with relative imports. The changes include:
+Fixed all internal imports in the packages/ui directory by replacing "@epicenter/ui" imports with relative imports. The changes include:
 
-1. Replaced all `@repo/ui/utils` imports with `../utils`
-2. Replaced all `@repo/ui/[component]/index.js` imports with `../[component]/index.js`
-3. Replaced all `@repo/ui/[component]` imports (without index.js) with `../[component]`
+1. Replaced all `@epicenter/ui/utils` imports with `../utils`
+2. Replaced all `@epicenter/ui/[component]/index.js` imports with `../[component]/index.js`
+3. Replaced all `@epicenter/ui/[component]` imports (without index.js) with `../[component]`
 
 ### Implementation Details
 - Used a combination of sed commands and manual edits to update all 87 files
 - Fixed two different import patterns:
-  - Pattern 1: `from '@repo/ui/[component]/index.js'` → `from '../[component]/index.js'`
-  - Pattern 2: `from '@repo/ui/[component]'` → `from '../[component]'`
+  - Pattern 1: `from '@epicenter/ui/[component]/index.js'` → `from '../[component]/index.js'`
+  - Pattern 2: `from '@epicenter/ui/[component]'` → `from '../[component]'`
 - Special handling for the SelectAllPopover.svelte file which used a different import pattern
 
 ### Verification
-- Confirmed no remaining "@repo/ui" imports in any svelte or typescript files within packages/ui
+- Confirmed no remaining "@epicenter/ui" imports in any svelte or typescript files within packages/ui
 - All imports now use relative paths, preventing circular dependency issues

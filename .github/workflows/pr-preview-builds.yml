@@ -113,7 +113,7 @@ jobs:
         run: bun install
 
       - name: Build frontend
-        run: bun --filter @repo/whispering build
+        run: bun --filter @epicenter/whispering build
 
       - uses: tauri-apps/tauri-action@v0
         env:

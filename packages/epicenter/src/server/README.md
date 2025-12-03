@@ -99,7 +99,7 @@ The HTTP approach:
 ### Single Workspace Server
 
 ```typescript
-import { defineWorkspace, createWorkspaceServer } from '@repo/epicenter';
+import { defineWorkspace, createWorkspaceServer } from '@epicenter/hq';
 
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
@@ -144,7 +144,7 @@ Now your actions are available as HTTP endpoints:
 ### Multiple Workspaces (Epicenter)
 
 ```typescript
-import { defineEpicenter, createHttpServer } from '@repo/epicenter';
+import { defineEpicenter, createHttpServer } from '@epicenter/hq';
 
 const epicenter = defineEpicenter({
 	id: 'my-app',
