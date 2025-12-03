@@ -1,9 +1,9 @@
+import { Ok, type Result } from 'wellcrafted/result';
+import { type } from 'arktype';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import type { HttpService } from '$lib/services/http';
 import { HttpServiceLive } from '$lib/services/http';
 import type { Settings } from '$lib/settings';
-import { Ok, type Result } from 'wellcrafted/result';
-import { z } from 'zod';
 
 export const DEEPGRAM_TRANSCRIPTION_MODELS = [
 	{
@@ -46,19 +46,15 @@ export type DeepgramModel = (typeof DEEPGRAM_TRANSCRIPTION_MODELS)[number];
 const MAX_FILE_SIZE_MB = 500 as const; // Deepgram supports larger files
 
 // Schema for Deepgram API response
-const deepgramResponseSchema = z.object({
-	results: z.object({
-		channels: z.array(
-			z.object({
-				alternatives: z.array(
-					z.object({
-						transcript: z.string(),
-						confidence: z.number().optional(),
-					}),
-				),
-			}),
-		),
-	}),
+const DeepgramResponse = type({
+	results: {
+		channels: type({
+			alternatives: type({
+				transcript: 'string',
+				'confidence?': 'number',
+			}).array(),
+		}).array(),
+	},
 });
 
 export function createDeepgramTranscriptionService({
@@ -113,7 +109,8 @@ export function createDeepgramTranscriptionService({
 			}
 
 			if (options.prompt) {
-				params.append('keywords', options.prompt);
+				const isNova3 = options.modelName.toLowerCase().includes('nova-3');
+				params.append(isNova3 ? 'keyterm' : 'keywords', options.prompt);
 			}
 
 			// Send raw audio data directly as recommended by Deepgram docs
@@ -125,7 +122,7 @@ export function createDeepgramTranscriptionService({
 						Authorization: `Token ${options.apiKey}`,
 						'Content-Type': audioBlob.type || 'audio/*', // Use the blob's mime type or fallback to audio/*
 					},
-					schema: deepgramResponseSchema,
+					schema: DeepgramResponse,
 				});
 
 			if (postError) {
@@ -238,8 +235,9 @@ export function createDeepgramTranscriptionService({
 			}
 
 			// Extract transcription text
-			const transcript =
-				deepgramResponse.results?.channels?.[0]?.alternatives?.[0]?.transcript;
+			const transcript = deepgramResponse.results?.channels
+				?.at(0)
+				?.alternatives?.at(0)?.transcript;
 
 			if (!transcript) {
 				return WhisperingErr({

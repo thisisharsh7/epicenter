@@ -11,15 +11,13 @@
 	import { cn } from '@repo/ui/utils';
 	import { createTransformationViewTransitionName } from '$lib/utils/createTransformationViewTransitionName';
 	import { createQuery } from '@tanstack/svelte-query';
-	import {
-		CheckIcon,
-		WandIcon,
-		SparklesIcon,
-		LayersIcon,
-	} from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import WandIcon from '@lucide/svelte/icons/wand';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import LayersIcon from '@lucide/svelte/icons/layers';
 
 	const transformationsQuery = createQuery(
-		rpc.transformations.queries.getAllTransformations.options,
+		rpc.db.transformations.getAll.options,
 	);
 
 	const transformations = $derived(transformationsQuery.data ?? []);

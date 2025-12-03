@@ -1,10 +1,10 @@
-import { WhisperingErr, type WhisperingError } from '$lib/result';
-import type { ParakeetModelConfig } from './types';
-import { Ok, tryAsync, type Result } from 'wellcrafted/result';
 import { invoke } from '@tauri-apps/api/core';
 import { exists, stat } from '@tauri-apps/plugin-fs';
-import { extractErrorMessage } from 'wellcrafted/error';
 import { type } from 'arktype';
+import { extractErrorMessage } from 'wellcrafted/error';
+import { Ok, type Result, tryAsync } from 'wellcrafted/result';
+import { WhisperingErr, type WhisperingError } from '$lib/result';
+import type { ParakeetModelConfig } from './types';
 
 /**
  * Pre-built Parakeet models available for download from GitHub releases.
@@ -21,27 +21,27 @@ export const PARAKEET_MODELS: readonly ParakeetModelConfig[] = [
 		directoryName: 'parakeet-tdt-0.6b-v3-int8',
 		files: [
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/config.json',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/config.json',
 				filename: 'config.json',
 				sizeBytes: 97,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/decoder_joint-model.int8.onnx',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/decoder_joint-model.int8.onnx',
 				filename: 'decoder_joint-model.int8.onnx',
 				sizeBytes: 18_202_004,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/encoder-model.int8.onnx',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/encoder-model.int8.onnx',
 				filename: 'encoder-model.int8.onnx',
 				sizeBytes: 652_183_999,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/nemo128.onnx',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/nemo128.onnx',
 				filename: 'nemo128.onnx',
 				sizeBytes: 139_764,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/vocab.txt',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/vocab.txt',
 				filename: 'vocab.txt',
 				sizeBytes: 93_939,
 			},
@@ -50,7 +50,7 @@ export const PARAKEET_MODELS: readonly ParakeetModelConfig[] = [
 ] as const;
 
 const ParakeetErrorType = type({
-	name: "'AudioReadError' | 'ModelLoadError' | 'TranscriptionError'",
+	name: "'AudioReadError' | 'FfmpegNotFoundError' | 'ModelLoadError' | 'TranscriptionError'",
 	message: 'string',
 });
 
@@ -141,6 +141,18 @@ export function createParakeetTranscriptionService() {
 								action: {
 									type: 'more-details',
 									error: new Error(error.message),
+								},
+							});
+
+						case 'FfmpegNotFoundError':
+							return WhisperingErr({
+								title: '🛠️ FFmpeg Not Installed',
+								description:
+									'Parakeet requires FFmpeg to convert audio formats. Please install FFmpeg or switch to CPAL recording at 16kHz.',
+								action: {
+									type: 'link',
+									label: 'Install FFmpeg',
+									href: '/install-ffmpeg',
 								},
 							});
 

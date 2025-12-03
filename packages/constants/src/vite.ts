@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
-import { createApps, createAppUrls } from '#apps';
+
 import { type } from 'arktype';
+import { createApps, createAppUrls } from '#apps';
 
 /**
  * Vite/client-side constants and utilities
@@ -26,7 +27,7 @@ export type ViteEnv = typeof viteEnvSchema.infer;
  *
  * For use in Vite contexts (client-side applications).
  */
-// @ts-ignore TODO properly assert this
+// @ts-expect-error TODO properly assert this
 export const APPS = createApps(import.meta.env.MODE);
 
 /**
@@ -35,5 +36,5 @@ export const APPS = createApps(import.meta.env.MODE);
  *
  * Primarily used for CORS configuration in client-side applications.
  */
-// @ts-ignore TODO properly assert this
+// @ts-expect-error TODO properly assert this
 export const APP_URLS = createAppUrls(import.meta.env.MODE);

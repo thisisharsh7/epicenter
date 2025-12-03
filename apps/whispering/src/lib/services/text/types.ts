@@ -1,6 +1,6 @@
-import type { MaybePromise, WhisperingError } from '$lib/result';
 import { createTaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
+import type { MaybePromise, WhisperingError } from '$lib/result';
 
 const { TextServiceError, TextServiceErr } =
 	createTaggedError('TextServiceError');
@@ -8,6 +8,12 @@ type TextServiceError = ReturnType<typeof TextServiceError>;
 export { TextServiceErr, TextServiceError };
 
 export type TextService = {
+	/**
+	 * Reads text from the system clipboard.
+	 * @returns The text content of the clipboard, or null if empty.
+	 */
+	readFromClipboard: () => Promise<Result<string | null, TextServiceError>>;
+
 	/**
 	 * Copies text to the system clipboard.
 	 * @param text The text to copy to the clipboard.
@@ -29,4 +35,13 @@ export type TextService = {
 	writeToCursor: (
 		text: string,
 	) => MaybePromise<Result<void, TextServiceError | WhisperingError>>;
+
+	/**
+	 * Simulates pressing the Enter/Return key.
+	 * Useful for automatically submitting text in chat applications after transcription.
+	 *
+	 * Note: This is only supported on desktop (Tauri). Web browsers cannot simulate keystrokes
+	 * for security reasons.
+	 */
+	simulateEnterKeystroke: () => Promise<Result<void, TextServiceError>>;
 };

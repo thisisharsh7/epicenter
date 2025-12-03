@@ -7,6 +7,9 @@ pub enum TranscriptionError {
     #[error("Audio read error: {message}")]
     AudioReadError { message: String },
 
+    #[error("FFmpeg not found: {message}")]
+    FfmpegNotFoundError { message: String },
+
     #[error("GPU error: {message}")]
     GpuError { message: String },
 
@@ -15,15 +18,4 @@ pub enum TranscriptionError {
 
     #[error("Transcription error: {message}")]
     TranscriptionError { message: String },
-}
-
-impl TranscriptionError {
-    pub fn name(&self) -> &'static str {
-        match self {
-            TranscriptionError::AudioReadError { .. } => "AudioReadError",
-            TranscriptionError::GpuError { .. } => "GpuError",
-            TranscriptionError::ModelLoadError { .. } => "ModelLoadError",
-            TranscriptionError::TranscriptionError { .. } => "TranscriptionError",
-        }
-    }
 }

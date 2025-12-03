@@ -3,7 +3,7 @@
 	import type { Props } from '@repo/ui/button';
 	import { rpc } from '$lib/query';
 	import { createMutation } from '@tanstack/svelte-query';
-	import { CheckIcon } from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import type { Snippet } from 'svelte';
 
 	const copyToClipboard = createMutation(rpc.text.copyToClipboard.options);
@@ -35,7 +35,7 @@
 		 */
 		textToCopy: string;
 		/**
-		 * A description of the content being copied (e.g., "transcribed text", "API key").
+		 * A description of the content being copied (e.g., "transcript", "API key").
 		 * Used in tooltips and toast messages to provide context to the user.
 		 */
 		contentDescription: string;

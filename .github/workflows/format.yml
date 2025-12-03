@@ -22,7 +22,7 @@ jobs:
         run: bun install
       - name: Format check
         run: bun run format:check
-      - name: Lint
-        run: bun run lint
-      - name: Code check
+      - name: Lint check
+        run: bun run lint:check
+      - name: Type check
         run: bun run check

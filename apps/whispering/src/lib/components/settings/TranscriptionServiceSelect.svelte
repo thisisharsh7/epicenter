@@ -72,12 +72,7 @@
 	<Label class={cn('text-sm', hideLabel && 'sr-only')} for={id}>
 		{label}
 	</Label>
-	<Select.Root
-		type="single"
-		items={items.map((service) => ({ value: service.id, label: service.name }))}
-		bind:value={selected}
-		{disabled}
-	>
+	<Select.Root type="single" bind:value={selected} {disabled}>
 		<Select.Trigger class={cn('w-full', className)} {id}>
 			<div class="flex items-center gap-2">
 				{#if selectedService}
