@@ -7,7 +7,7 @@
 	onMount(async () => {
 		try {
 			const response = await fetch(
-				'https://api.github.com/repos/epicenter-md/epicenter',
+				'https://api.github.com/repos/EpicenterHQ/epicenter',
 			);
 			const data = await response.json();
 

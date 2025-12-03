@@ -14,11 +14,7 @@ import type {
 	TransformationStep,
 } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
-import {
-	asTemplateString,
-	interpolateTemplate,
-	type TemplateString,
-} from '$lib/utils/template';
+import { asTemplateString, interpolateTemplate } from '$lib/utils/template';
 import { defineMutation, queryClient } from './_client';
 import { dbKeys } from './db';
 
@@ -251,6 +247,37 @@ async function handleStep({
 							apiKey: settings.value['apiKeys.openrouter'],
 							model:
 								step['prompt_transform.inference.provider.OpenRouter.model'],
+							systemPrompt,
+							userPrompt,
+						});
+
+					if (completionError) {
+						return Err(completionError.message);
+					}
+
+					return Ok(completionResponse);
+				}
+
+				case 'Custom': {
+					const model =
+						step['prompt_transform.inference.provider.Custom.model']?.trim();
+
+					// baseUrl is per-step because local LLM setups often have multiple endpoints
+					// (Ollama, LM Studio, llama.cpp) running on different ports
+					const stepBaseUrl =
+						step['prompt_transform.inference.provider.Custom.baseUrl']?.trim();
+					// Fall back to global default from Settings → API Keys → Custom section
+					const defaultBaseUrl =
+						settings.value['completion.custom.baseUrl']?.trim();
+					// Use || so empty string falls back to next value (cleared field = use default)
+					const baseUrl = stepBaseUrl || defaultBaseUrl || '';
+
+					// API key is global because most local endpoints don't require auth
+					const { data: completionResponse, error: completionError } =
+						await services.completions.custom.complete({
+							apiKey: settings.value['apiKeys.custom'],
+							model,
+							baseUrl,
 							systemPrompt,
 							userPrompt,
 						});

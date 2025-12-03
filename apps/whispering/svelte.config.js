@@ -11,6 +11,10 @@ const config = {
 		adapter: staticAdapter({
 			fallback: 'index.html', // SPA fallback for dynamic routes
 		}),
+		alias: {
+			$routes: './src/routes',
+			'#': '../../packages/ui/src',
+		},
 	},
 
 	// Consult https://svelte.dev/docs/kit/integrations

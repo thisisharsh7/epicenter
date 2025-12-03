@@ -5,7 +5,7 @@
 	} from '$lib/components/labeled/index.js';
 	import { Button } from '@repo/ui/button';
 	import { Separator } from '@repo/ui/separator';
-	import { ALWAYS_ON_TOP_OPTIONS } from '$lib/constants/ui';
+	import { ALWAYS_ON_TOP_MODE_OPTIONS } from '$lib/constants/ui';
 	import { settings } from '$lib/stores/settings.svelte';
 </script>
 
@@ -33,7 +33,7 @@
 
 		<LabeledSwitch
 			id="transcription.copyToClipboardOnSuccess"
-			label="Copy transcribed text to clipboard"
+			label="Copy transcript to clipboard"
 			bind:checked={
 				() => settings.value['transcription.copyToClipboardOnSuccess'],
 				(v) => settings.updateKey('transcription.copyToClipboardOnSuccess', v)
@@ -42,13 +42,24 @@
 
 		<LabeledSwitch
 			id="transcription.writeToCursorOnSuccess"
-			label="Paste transcribed text at cursor"
+			label="Paste transcript at cursor"
 			bind:checked={
 				() => settings.value['transcription.writeToCursorOnSuccess'],
 				(v) => settings.updateKey('transcription.writeToCursorOnSuccess', v)
 			}
 		/>
 	</fieldset>
+
+	{#if window.__TAURI_INTERNALS__ && settings.value['transcription.writeToCursorOnSuccess']}
+		<LabeledSwitch
+			id="transcription.simulateEnterAfterOutput"
+			label="Press Enter after pasting transcript"
+			bind:checked={
+				() => settings.value['transcription.simulateEnterAfterOutput'],
+				(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
+			}
+		/>
+	{/if}
 
 	<Separator />
 
@@ -78,6 +89,17 @@
 			}
 		/>
 	</fieldset>
+
+	{#if window.__TAURI_INTERNALS__ && settings.value['transformation.writeToCursorOnSuccess']}
+		<LabeledSwitch
+			id="transformation.simulateEnterAfterOutput"
+			label="Press Enter after pasting transformed text"
+			bind:checked={
+				() => settings.value['transformation.simulateEnterAfterOutput'],
+				(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
+			}
+		/>
+	{/if}
 
 	<Separator />
 
@@ -120,7 +142,7 @@
 		<LabeledSelect
 			id="always-on-top"
 			label="Always On Top"
-			items={ALWAYS_ON_TOP_OPTIONS}
+			items={ALWAYS_ON_TOP_MODE_OPTIONS}
 			bind:selected={
 				() => settings.value['system.alwaysOnTop'],
 				(selected) => settings.updateKey('system.alwaysOnTop', selected)

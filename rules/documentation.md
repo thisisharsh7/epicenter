@@ -1,5 +1,15 @@
 # Documentation & README Writing Guidelines
 
+## Voice Matching Priority
+
+When the user provides a voice transcript, tone guidance, or example text to match, that takes priority over all other rules below. Match their voice exactly:
+
+- If they start with "In Epicenter, we use X", start with that. Don't add a story preamble.
+- If their example is 5 sentences, aim for similar brevity. Don't expand to 5 paragraphs.
+- If they use direct statements, don't convert to narrative ("I used to... then I realized...").
+
+Not every article needs a story arc. Some are just direct statements of practice. Match the user's intent.
+
 ## Technical Writing Voice
 
 ### Core Principles

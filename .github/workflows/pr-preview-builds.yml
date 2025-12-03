@@ -1,11 +1,45 @@
 name: PR Preview Builds
 
+# This workflow builds Tauri applications for all platforms when a PR is opened or updated.
+# It automatically cancels previous builds to save CI minutes in two scenarios:
+#
+# 1. When new commits are pushed to the PR (synchronize event):
+#    - Cancels the previous build for the same PR
+#    - Starts a new build with the latest code
+#
+# 2. When the PR is merged or closed:
+#    - Cancels any in-progress builds for that PR
+#    - Runs a lightweight job that triggers the cancellation via concurrency groups
+#
+# How it works:
+# - All workflow runs for the same PR share the same concurrency group (keyed by PR number)
+# - When a new run starts, GitHub Actions automatically cancels previous runs in that group
+# - The 'closed' trigger activates a fast dummy job that joins the concurrency group and triggers cancellation
+
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  # Group all runs for the same PR together
+  # When a new run starts, previous runs in this group are automatically cancelled
+  group: tauri-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
+  # Lightweight job that runs when PR is closed/merged
+  # Purpose: Trigger concurrency-based cancellation of in-progress builds
+  # This job starts quickly, joins the concurrency group, and causes GitHub to cancel
+  # any running builds for this PR, saving CI minutes
+  cancel-on-close:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "PR closed - cancelling in-progress builds via concurrency group"
+
+  # Main build job - runs on PR open and updates, skipped when PR is closed
   build-preview:
+    if: github.event.action != 'closed'
     permissions:
       contents: read
       pull-requests: write
@@ -51,7 +85,7 @@ jobs:
       - name: setup bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: "package.json"
 
       - name: Install Vulkan SDK
         if: matrix.platform == 'windows-latest'

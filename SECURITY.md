@@ -63,7 +63,7 @@ While using Epicenter:
 
 ## Disclosure Policy
 
-We follow the principle of [Coordinated Vulnerability Disclosure](https://vuls.cert.org/confluence/display/Wiki/Vulnerability+Disclosure+Policy):
+We follow the principle of [Coordinated Vulnerability Disclosure](https://certcc.github.io/CERT-Guide-to-CVD/):
 
 1. Security issues are handled with highest priority
 2. We work privately with reporters to understand and fix issues
@@ -76,7 +76,7 @@ Any activities conducted in a manner consistent with this policy will be conside
 
 ## License
 
-Epicenter is open source software licensed under the [MIT License](LICENSE).
+Epicenter is open source software licensed under the [AGPL-3.0 License](LICENSE).
 
 ---
 

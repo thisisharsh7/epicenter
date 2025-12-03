@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { LocalModelConfig } from '$lib/services/transcription/local/types';
-	import { FolderOpen, Paperclip, X } from '@lucide/svelte';
+	import FolderOpen from '@lucide/svelte/icons/folder-open';
+	import Paperclip from '@lucide/svelte/icons/paperclip';
+	import X from '@lucide/svelte/icons/x';
 	import { Button } from '@repo/ui/button';
 	import * as Card from '@repo/ui/card';
 	import { Input } from '@repo/ui/input';

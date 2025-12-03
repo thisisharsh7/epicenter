@@ -1,8 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { type } from '@tauri-apps/plugin-os';
-import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import { WhisperingWarningErr } from '$lib/result';
+import { tryAsync } from 'wellcrafted/result';
 import type { TextService } from './types';
 import { TextServiceErr } from './types';
 
@@ -43,6 +41,18 @@ export function createTextServiceDesktop(): TextService {
 						message:
 							'There was an error writing the text. Please try pasting manually with Cmd/Ctrl+V.',
 						context: { text },
+						cause: error,
+					}),
+			}),
+
+		simulateEnterKeystroke: () =>
+			tryAsync({
+				try: () => invoke<void>('simulate_enter_keystroke'),
+				catch: (error) =>
+					TextServiceErr({
+						message:
+							'There was an error simulating the Enter keystroke. Please press Enter manually.',
+						context: {},
 						cause: error,
 					}),
 			}),

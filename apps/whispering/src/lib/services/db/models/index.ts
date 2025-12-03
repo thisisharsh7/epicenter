@@ -20,13 +20,16 @@ export {
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
 } from './transformation-runs';
-export type { InsertTransformationStep } from './transformations';
+export type {
+	TransformationStepV1,
+	TransformationStepV2,
+	TransformationV1,
+	TransformationV2,
+} from './transformations';
 // Transformations
 export {
 	generateDefaultTransformation,
 	generateDefaultTransformationStep,
-	TRANSFORMATION_STEP_TYPES,
-	TRANSFORMATION_STEP_TYPES_TO_LABELS,
 	Transformation,
 	TransformationStep,
 } from './transformations';

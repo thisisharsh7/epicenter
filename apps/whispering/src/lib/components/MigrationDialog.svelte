@@ -572,6 +572,21 @@
 
 							if (existing) {
 								skipped++;
+
+								// Delete from IndexedDB since it already exists in file system
+								const { error: deleteError } =
+									await indexedDb.recordings.delete(recording);
+
+								if (deleteError) {
+									onProgress(
+										`[Migration] ⚠️  Warning: Failed to delete skipped recording ${recording.id} from IndexedDB`,
+									);
+								} else {
+									onProgress(
+										`[Migration] ✓ Deleted skipped recording ${recording.id} from IndexedDB`,
+									);
+								}
+
 								continue;
 							}
 
@@ -725,6 +740,21 @@
 
 							if (existing) {
 								skipped++;
+
+								// Delete from IndexedDB since it already exists in file system
+								const { error: deleteError } =
+									await indexedDb.transformations.delete(transformation);
+
+								if (deleteError) {
+									onProgress(
+										`[Migration] ⚠️  Warning: Failed to delete skipped transformation ${transformation.id} from IndexedDB`,
+									);
+								} else {
+									onProgress(
+										`[Migration] ✓ Deleted skipped transformation ${transformation.id} from IndexedDB`,
+									);
+								}
+
 								continue;
 							}
 
@@ -865,6 +895,20 @@
 
 							if (existing) {
 								skipped++;
+
+								// Delete from IndexedDB since it already exists in file system
+								const { error: deleteError } = await indexedDb.runs.delete(run);
+
+								if (deleteError) {
+									onProgress(
+										`[Migration] ⚠️  Warning: Failed to delete skipped transformation run ${run.id} from IndexedDB`,
+									);
+								} else {
+									onProgress(
+										`[Migration] ✓ Deleted skipped transformation run ${run.id} from IndexedDB`,
+									);
+								}
+
 								continue;
 							}
 
@@ -1040,6 +1084,9 @@
 			set isOpen(value: boolean) {
 				isOpen = value;
 			},
+			openDialog() {
+				isOpen = true;
+			},
 			get hasIndexedDBData() {
 				return counts
 					? counts.indexedDb.recordings > 0 ||
@@ -1196,9 +1243,15 @@
 </script>
 
 <script lang="ts">
-	import { Database } from '@lucide/svelte';
 	import { Button } from '@repo/ui/button';
 	import * as Dialog from '@repo/ui/dialog';
+	import type { Snippet } from 'svelte';
+
+	type TriggerProps = {
+		props: Record<string, unknown>;
+	};
+
+	let { trigger }: { trigger?: Snippet<[TriggerProps]> } = $props();
 
 	let logsContainer: HTMLDivElement;
 
@@ -1218,27 +1271,10 @@
 		}
 	}}
 >
-	{#if import.meta.env.DEV || migrationDialog.hasIndexedDBData}
+	{#if trigger}
 		<Dialog.Trigger>
 			{#snippet child({ props })}
-				<div class="fixed top-4 right-4 z-50">
-					<Button
-						size="icon"
-						class="rounded-full shadow-lg transition-transform hover:scale-110 relative"
-						aria-label="Open Migration Manager"
-						{...props}
-					>
-						<Database class="h-5 w-5" />
-						{#if migrationDialog.hasIndexedDBData}
-							<span
-								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500 animate-ping"
-							></span>
-							<span
-								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500"
-							></span>
-						{/if}
-					</Button>
-				</div>
+				{@render trigger({ props })}
 			{/snippet}
 		</Dialog.Trigger>
 	{/if}

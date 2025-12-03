@@ -3,7 +3,6 @@ import { createDbServiceDesktop } from './desktop';
 import { createDbServiceWeb } from './web';
 
 export type {
-	InsertTransformationStep,
 	Recording,
 	Transformation,
 	TransformationRun,
@@ -15,8 +14,6 @@ export type {
 export {
 	generateDefaultTransformation,
 	generateDefaultTransformationStep,
-	TRANSFORMATION_STEP_TYPES,
-	TRANSFORMATION_STEP_TYPES_TO_LABELS,
 } from './models';
 export type { DbService, DbServiceError } from './types';
 export { DbServiceErr } from './types';

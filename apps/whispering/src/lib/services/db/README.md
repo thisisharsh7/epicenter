@@ -269,4 +269,4 @@ The long-term plan is to eventually use file system storage on both platforms:
 3. **Phase 3** (Future): Web uses File System Access API where supported
 4. **Phase 4** (Future): Unified file system implementation across platforms
 
-See `docs/specs/20251029T000000 indexeddb-to-filesystem-migration.md` for detailed implementation.
+See `specs/20251029T000000 indexeddb-to-filesystem-migration.md` for detailed implementation.

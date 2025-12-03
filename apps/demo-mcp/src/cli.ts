@@ -34,14 +34,19 @@ function parseArgs(argv: string[]): CLIArgs {
 	const out: CLIArgs = { _: [] };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
+		if (!a) continue; // Skip if somehow undefined
 		if (a === '--file') {
-			out.file = argv[++i];
+			const nextArg = argv[++i];
+			if (nextArg) out.file = nextArg;
 		} else if (a.startsWith('--file=')) {
-			out.file = a.slice('--file='.length);
+			const value = a.slice('--file='.length);
+			if (value) out.file = value;
 		} else if (a === '--db') {
-			out.db = argv[++i];
+			const nextArg = argv[++i];
+			if (nextArg) out.db = nextArg;
 		} else if (a.startsWith('--db=')) {
-			out.db = a.slice('--db='.length);
+			const value = a.slice('--db='.length);
+			if (value) out.db = value;
 		} else if (!a.startsWith('-')) {
 			out._.push(a);
 		}
@@ -131,7 +136,9 @@ async function cmdImport(args: CLIArgs, adapterID: string) {
 	// Initialize Vault (runs migrations implicitly)
 	const vault = await Vault.create({
 		adapters: [adapter],
+		// @ts-expect-error - LibSQLDatabase private properties differ from CompatibleDB but runtime behavior is compatible
 		database: db,
+		// @ts-expect-error - migrate function signature differs but is runtime compatible
 		migrateFunc: migrate,
 	});
 
@@ -186,6 +193,13 @@ async function main() {
 		case 'import':
 			{
 				const adapter = args._[1];
+				if (!adapter) {
+					console.error('Error: Missing adapter argument');
+					console.error(
+						'Usage: bun run src/cli.ts import <adapter> [--file <zip>] [--db <dbPath>]',
+					);
+					process.exit(1);
+				}
 				await cmdImport(args, adapter);
 			}
 			break;

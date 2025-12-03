@@ -3,7 +3,8 @@
 	import { Link } from '@repo/ui/link';
 	import { Separator } from '@repo/ui/separator';
 	import { rpc } from '$lib/query';
-	import { Layers2Icon, RotateCcw } from '@lucide/svelte';
+	import Layers2Icon from '@lucide/svelte/icons/layers-2';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import ShortcutFormatHelp from '../keyboard-shortcut-recorder/ShortcutFormatHelp.svelte';
 	import ShortcutTable from '../keyboard-shortcut-recorder/ShortcutTable.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -34,7 +35,8 @@
 			<Button
 				variant="outline"
 				size="sm"
-				onclick={() => {
+				onclick={async () => {
+					await rpc.shortcuts.unregisterAllGlobalShortcuts.execute();
 					settings.resetGlobalShortcuts();
 					rpc.notify.success.execute({
 						title: 'Shortcuts reset',

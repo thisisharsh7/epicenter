@@ -11,9 +11,8 @@ import {
 	text,
 } from 'drizzle-orm/sqlite-core';
 
-type ExtractedResult<T> = T extends BaseSQLiteDatabase<'async', infer R>
-	? R
-	: never;
+type ExtractedResult<T> =
+	T extends BaseSQLiteDatabase<'async', infer R> ? R : never;
 type ResultSet = ExtractedResult<LibSQLDatabase>;
 
 // Bootstrapped type to represent compatible Drizzle database types across the codebase
@@ -144,7 +143,7 @@ const songs = sqliteTable('songs', {
 	year: integer('year'),
 });
 
-const testAdapter = defineAdapter(() => ({
+const _testAdapter = defineAdapter(() => ({
 	id: 'test',
 	name: 'Test Adapter',
 	validator: type({

@@ -21,27 +21,27 @@ export const PARAKEET_MODELS: readonly ParakeetModelConfig[] = [
 		directoryName: 'parakeet-tdt-0.6b-v3-int8',
 		files: [
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/config.json',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/config.json',
 				filename: 'config.json',
 				sizeBytes: 97,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/decoder_joint-model.int8.onnx',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/decoder_joint-model.int8.onnx',
 				filename: 'decoder_joint-model.int8.onnx',
 				sizeBytes: 18_202_004,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/encoder-model.int8.onnx',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/encoder-model.int8.onnx',
 				filename: 'encoder-model.int8.onnx',
 				sizeBytes: 652_183_999,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/nemo128.onnx',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/nemo128.onnx',
 				filename: 'nemo128.onnx',
 				sizeBytes: 139_764,
 			},
 			{
-				url: 'https://github.com/epicenter-md/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/vocab.txt',
+				url: 'https://github.com/EpicenterHQ/epicenter/releases/download/models/parakeet-tdt-0.6b-v3-int8/vocab.txt',
 				filename: 'vocab.txt',
 				sizeBytes: 93_939,
 			},

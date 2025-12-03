@@ -5,7 +5,6 @@
 	import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools';
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster, type ToasterProps } from 'svelte-sonner';
-	import MigrationDialog from '$lib/components/MigrationDialog.svelte';
 	import '@repo/ui/app.css';
 
 	let { children } = $props();
@@ -54,9 +53,6 @@
 />
 <ModeWatcher />
 <SvelteQueryDevtools client={queryClient} buttonPosition="bottom-left" />
-{#if window.__TAURI_INTERNALS__}
-	<MigrationDialog />
-{/if}
 
 <style>
 	/* Override inspector button to bottom-center positioning */
