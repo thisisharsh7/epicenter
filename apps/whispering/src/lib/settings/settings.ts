@@ -39,11 +39,7 @@ import {
 import { CommandOrAlt, CommandOrControl } from '$lib/constants/keyboard';
 import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import type { WhisperingSoundNames } from '$lib/constants/sounds';
-import {
-	ALWAYS_ON_TOP_MODES,
-	NAVIGATION_SURFACES,
-	type NavigationSurface,
-} from '$lib/constants/ui';
+import { ALWAYS_ON_TOP_MODES } from '$lib/constants/ui';
 import {
 	FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 	FFMPEG_DEFAULT_GLOBAL_OPTIONS,
@@ -111,10 +107,10 @@ export const Settings = type({
 		.default('Never' satisfies (typeof ALWAYS_ON_TOP_MODES)[number]),
 
 	// UI settings
-	'ui.visibleNavigation': type
-		.enumerated(...NAVIGATION_SURFACES)
-		.array()
-		.default(() => ['sidebar', 'nav-items']),
+	/** Show the collapsible vertical sidebar on the left side of the screen. */
+	'ui.showSidebar': 'boolean = true',
+	/** Show the inline navigation items (header bar on config pages, centered nav on home page). */
+	'ui.showNavItems': 'boolean = true',
 
 	'database.recordingRetentionStrategy': type
 		.enumerated('keep-forever', 'limit-count')

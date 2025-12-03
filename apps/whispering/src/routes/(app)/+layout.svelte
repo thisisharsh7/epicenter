@@ -38,7 +38,7 @@
 	});
 </script>
 
-{#if settings.value['ui.visibleNavigation'].includes('sidebar')}
+{#if settings.value['ui.showSidebar']}
 	<Sidebar.Provider>
 		<VerticalNav />
 		<Sidebar.Inset>

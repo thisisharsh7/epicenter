@@ -3,11 +3,7 @@
 	import * as Select from '@repo/ui/select';
 	import { Separator } from '@repo/ui/separator';
 	import { Switch } from '@repo/ui/switch';
-	import * as ToggleGroup from '@repo/ui/toggle-group';
-	import {
-		ALWAYS_ON_TOP_MODE_OPTIONS,
-		NAVIGATION_SURFACE_OPTIONS,
-	} from '$lib/constants/ui';
+	import { ALWAYS_ON_TOP_MODE_OPTIONS } from '$lib/constants/ui';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	const retentionItems = [
@@ -223,27 +219,35 @@
 		</Field.Field>
 	{/if}
 
-	<Field.Field>
-		<Field.Label>Visible Navigation</Field.Label>
+	<Separator />
+
+	<Field.Set>
+		<Field.Legend variant="label">Visible Navigation</Field.Legend>
 		<Field.Description>
 			Choose which navigation surfaces to display.
 		</Field.Description>
-		<ToggleGroup.Root
-			type="multiple"
-			bind:value={
-				() => settings.value['ui.visibleNavigation'],
-				(v) => {
-					if (v.length === 0) return;
-					settings.updateKey('ui.visibleNavigation', v);
-				}
-			}
-			class="w-full"
-		>
-			{#each NAVIGATION_SURFACE_OPTIONS as option}
-				<ToggleGroup.Item value={option.value} aria-label={option.label}>
-					{option.label}
-				</ToggleGroup.Item>
-			{/each}
-		</ToggleGroup.Root>
-	</Field.Field>
+		<Field.Group>
+			<Field.Field orientation="horizontal">
+				<Switch
+					id="ui.showSidebar"
+					bind:checked={
+						() => settings.value['ui.showSidebar'],
+						(v) => settings.updateKey('ui.showSidebar', v)
+					}
+				/>
+				<Field.Label for="ui.showSidebar">Show Sidebar</Field.Label>
+			</Field.Field>
+
+			<Field.Field orientation="horizontal">
+				<Switch
+					id="ui.showNavItems"
+					bind:checked={
+						() => settings.value['ui.showNavItems'],
+						(v) => settings.updateKey('ui.showNavItems', v)
+					}
+				/>
+				<Field.Label for="ui.showNavItems">Show Navigation Items</Field.Label>
+			</Field.Field>
+		</Field.Group>
+	</Field.Set>
 </div>

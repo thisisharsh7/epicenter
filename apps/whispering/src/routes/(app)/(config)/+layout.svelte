@@ -31,7 +31,7 @@
 
 </script>
 
-{#if settings.value['ui.visibleNavigation'].includes('nav-items')}
+{#if settings.value['ui.showNavItems']}
 	<header
 		class={cn(
 			'border-border/40 bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 border-b shadow-xs backdrop-blur-sm ',

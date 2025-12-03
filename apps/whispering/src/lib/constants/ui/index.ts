@@ -4,9 +4,3 @@ export {
 	RECORDER_STATE_TO_ICON,
 	VAD_STATE_TO_ICON,
 } from './icons';
-
-export {
-	NAVIGATION_SURFACES,
-	NAVIGATION_SURFACE_OPTIONS,
-	type NavigationSurface,
-} from './navigation';
