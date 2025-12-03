@@ -38,21 +38,17 @@
 	});
 </script>
 
-{#if settings.value['ui.layoutMode'] === 'sidebar'}
-	<Sidebar.Provider>
+<Sidebar.Provider>
+	{#if settings.value['ui.layoutMode'] === 'sidebar'}
 		<VerticalNav />
-		<Sidebar.Inset>
-			<!-- Trigger button for mobile (always visible - opens Sheet) -->
-			<div class="fixed left-2 top-2 z-40 md:hidden">
-				<Sidebar.Trigger />
-			</div>
-			<AppLayout>
-				{@render children()}
-			</AppLayout>
-		</Sidebar.Inset>
-	</Sidebar.Provider>
-{:else}
-	<AppLayout>
-		{@render children()}
-	</AppLayout>
-{/if}
+	{/if}
+	<Sidebar.Inset>
+		<!-- Trigger button for mobile (always visible - opens Sheet) -->
+		<div class="fixed left-2 top-2 z-40 md:hidden">
+			<Sidebar.Trigger />
+		</div>
+		<AppLayout>
+			{@render children()}
+		</AppLayout>
+	</Sidebar.Inset>
+</Sidebar.Provider>
