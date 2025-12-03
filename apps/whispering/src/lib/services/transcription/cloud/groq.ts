@@ -38,8 +38,15 @@ export function createGroqTranscriptionService() {
 		): Promise<Result<string, WhisperingError>> {
 			const isUsingCustomEndpoint = Boolean(options.baseURL);
 
-			// Custom endpoints may have different or no auth requirements
+			// When no custom baseURL is provided, we're using the official Groq API.
+			// The official API has strict requirements:
+			// 1. An API key is always required
+			// 2. The key must follow Groq's format (starts with "gsk_" or "xai-")
+			//
+			// Custom endpoints (reverse proxies, Groq-compatible servers, etc.) may have
+			// different authentication schemes or no auth at all, so we skip these checks.
 			if (!isUsingCustomEndpoint) {
+				// Check 1: Official Groq API requires an API key
 				if (!options.apiKey) {
 					return WhisperingErr({
 						title: '🔑 API Key Required',
@@ -52,6 +59,7 @@ export function createGroqTranscriptionService() {
 					});
 				}
 
+				// Check 2: Official Groq API keys start with "gsk_" or "xai-"
 				const hasValidGroqKeyFormat =
 					options.apiKey.startsWith('gsk_') ||
 					options.apiKey.startsWith('xai-');

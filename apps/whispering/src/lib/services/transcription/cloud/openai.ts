@@ -48,8 +48,15 @@ export function createOpenaiTranscriptionService() {
 		): Promise<Result<string, WhisperingError>> {
 			const isUsingCustomEndpoint = Boolean(options.baseURL);
 
-			// Custom endpoints may have different or no auth requirements
+			// When no custom baseURL is provided, we're using the official OpenAI API.
+			// The official API has strict requirements:
+			// 1. An API key is always required
+			// 2. The key must follow OpenAI's format (starts with "sk-")
+			//
+			// Custom endpoints (reverse proxies, OpenAI-compatible servers, etc.) may have
+			// different authentication schemes or no auth at all, so we skip these checks.
 			if (!isUsingCustomEndpoint) {
+				// Check 1: Official OpenAI API requires an API key
 				if (!options.apiKey) {
 					return WhisperingErr({
 						title: '🔑 API Key Required',
@@ -63,6 +70,7 @@ export function createOpenaiTranscriptionService() {
 					});
 				}
 
+				// Check 2: Official OpenAI API keys always start with "sk-"
 				if (!options.apiKey.startsWith('sk-')) {
 					return WhisperingErr({
 						title: '🔑 Invalid API Key Format',
