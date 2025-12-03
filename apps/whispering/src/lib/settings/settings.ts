@@ -223,6 +223,10 @@ export const Settings = type({
 	'apiKeys.openrouter': "string = ''",
 	'apiKeys.custom': "string = ''",
 
+	// API endpoint overrides (empty string = use default endpoint)
+	'apiEndpoints.openai': "string = ''",
+	'apiEndpoints.groq': "string = ''",
+
 	// Analytics settings
 	'analytics.enabled': 'boolean = true',
 

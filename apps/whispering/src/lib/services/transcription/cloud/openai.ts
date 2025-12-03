@@ -43,33 +43,46 @@ export function createOpenaiTranscriptionService() {
 				outputLanguage: Settings['transcription.outputLanguage'];
 				apiKey: string;
 				modelName: (string & {}) | OpenAIModel['name'];
+				baseURL?: string;
 			},
 		): Promise<Result<string, WhisperingError>> {
-			// Pre-validation: Check API key
-			if (!options.apiKey) {
-				return WhisperingErr({
-					title: '🔑 API Key Required',
-					description:
-						'Please enter your OpenAI API key in settings to use Whisper transcription.',
-					action: {
-						type: 'link',
-						label: 'Add API key',
-						href: '/settings/transcription',
-					},
-				});
-			}
+			const isUsingCustomEndpoint = Boolean(options.baseURL);
 
-			if (!options.apiKey.startsWith('sk-')) {
-				return WhisperingErr({
-					title: '🔑 Invalid API Key Format',
-					description:
-						'Your OpenAI API key should start with "sk-". Please check and update your API key.',
-					action: {
-						type: 'link',
-						label: 'Update API key',
-						href: '/settings/transcription',
-					},
-				});
+			// When no custom baseURL is provided, we're using the official OpenAI API.
+			// The official API has strict requirements:
+			// 1. An API key is always required
+			// 2. The key must follow OpenAI's format (starts with "sk-")
+			//
+			// Custom endpoints (reverse proxies, OpenAI-compatible servers, etc.) may have
+			// different authentication schemes or no auth at all, so we skip these checks.
+			if (!isUsingCustomEndpoint) {
+				// Check 1: Official OpenAI API requires an API key
+				if (!options.apiKey) {
+					return WhisperingErr({
+						title: '🔑 API Key Required',
+						description:
+							'Please enter your OpenAI API key in settings to use Whisper transcription.',
+						action: {
+							type: 'link',
+							label: 'Add API key',
+							href: '/settings/transcription',
+						},
+					});
+				}
+
+				// Check 2: Official OpenAI API keys always start with "sk-"
+				if (!options.apiKey.startsWith('sk-')) {
+					return WhisperingErr({
+						title: '🔑 Invalid API Key Format',
+						description:
+							'Your OpenAI API key should start with "sk-". Please check and update your API key.',
+						action: {
+							type: 'link',
+							label: 'Update API key',
+							href: '/settings/transcription',
+						},
+					});
+				}
 			}
 
 			// Validate file size
@@ -105,6 +118,7 @@ export function createOpenaiTranscriptionService() {
 					new OpenAI({
 						apiKey: options.apiKey,
 						dangerouslyAllowBrowser: true,
+						...(options.baseURL && { baseURL: options.baseURL }),
 					}).audio.transcriptions.create({
 						file,
 						model: options.modelName,

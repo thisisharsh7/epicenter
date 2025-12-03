@@ -33,35 +33,49 @@ export function createGroqTranscriptionService() {
 				outputLanguage: Settings['transcription.outputLanguage'];
 				apiKey: string;
 				modelName: (string & {}) | GroqModel['name'];
+				baseURL?: string;
 			},
 		): Promise<Result<string, WhisperingError>> {
-			// Pre-validate API key
-			if (!options.apiKey) {
-				return WhisperingErr({
-					title: '🔑 API Key Required',
-					description: 'Please enter your Groq API key in settings.',
-					action: {
-						type: 'link',
-						label: 'Add API key',
-						href: '/settings/transcription',
-					},
-				});
-			}
+			const isUsingCustomEndpoint = Boolean(options.baseURL);
 
-			if (
-				!options.apiKey.startsWith('gsk_') &&
-				!options.apiKey.startsWith('xai-')
-			) {
-				return WhisperingErr({
-					title: '🔑 Invalid API Key Format',
-					description:
-						'Your Groq API key should start with "gsk_" or "xai-". Please check and update your API key.',
-					action: {
-						type: 'link',
-						label: 'Update API key',
-						href: '/settings/transcription',
-					},
-				});
+			// When no custom baseURL is provided, we're using the official Groq API.
+			// The official API has strict requirements:
+			// 1. An API key is always required
+			// 2. The key must follow Groq's format (starts with "gsk_" or "xai-")
+			//
+			// Custom endpoints (reverse proxies, Groq-compatible servers, etc.) may have
+			// different authentication schemes or no auth at all, so we skip these checks.
+			if (!isUsingCustomEndpoint) {
+				// Check 1: Official Groq API requires an API key
+				if (!options.apiKey) {
+					return WhisperingErr({
+						title: '🔑 API Key Required',
+						description: 'Please enter your Groq API key in settings.',
+						action: {
+							type: 'link',
+							label: 'Add API key',
+							href: '/settings/transcription',
+						},
+					});
+				}
+
+				// Check 2: Official Groq API keys start with "gsk_" or "xai-"
+				const hasValidGroqKeyFormat =
+					options.apiKey.startsWith('gsk_') ||
+					options.apiKey.startsWith('xai-');
+
+				if (!hasValidGroqKeyFormat) {
+					return WhisperingErr({
+						title: '🔑 Invalid API Key Format',
+						description:
+							'Your Groq API key should start with "gsk_" or "xai-". Please check and update your API key.',
+						action: {
+							type: 'link',
+							label: 'Update API key',
+							href: '/settings/transcription',
+						},
+					});
+				}
 			}
 
 			// Check file size
@@ -98,6 +112,7 @@ export function createGroqTranscriptionService() {
 					new Groq({
 						apiKey: options.apiKey,
 						dangerouslyAllowBrowser: true,
+						...(options.baseURL && { baseURL: options.baseURL }),
 					}).audio.transcriptions.create({
 						file,
 						model: options.modelName,
