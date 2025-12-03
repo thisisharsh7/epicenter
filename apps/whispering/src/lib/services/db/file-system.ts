@@ -5,14 +5,11 @@ import {
 	mkdir,
 	readDir,
 	readTextFile,
-	remove,
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
 import matter from 'gray-matter';
 import mime from 'mime';
-import standardTypes from 'mime/types/standard.js';
-import otherTypes from 'mime/types/other.js';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
@@ -70,6 +67,18 @@ function markdownToRecording({
  */
 async function readMarkdownFiles(directoryPath: string): Promise<string[]> {
 	return invoke('read_markdown_files', { directoryPath });
+}
+
+/**
+ * Deletes multiple files in parallel using the Rust command.
+ * This is a single FFI call that handles bulk deletion natively in Rust,
+ * avoiding thousands of individual async calls for file removal.
+ *
+ * @param paths - Array of absolute file paths to delete
+ * @returns Number of files successfully deleted
+ */
+async function bulkDeleteFiles(paths: string[]): Promise<number> {
+	return invoke('bulk_delete_files', { paths });
 }
 
 /**
@@ -313,24 +322,23 @@ export function createFileSystemDb(): DbService {
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
 
-						for (const recording of recordingsArray) {
-							// Delete metadata file
-							const mdPath = await join(recordingsPath, `${recording.id}.md`);
-							const mdExists = await exists(mdPath);
-							if (mdExists) {
-								await remove(mdPath);
-							}
+						// Build a set of IDs to delete for fast lookup
+						const idsToDelete = new Set(recordingsArray.map((r) => r.id));
 
-							// Delete audio file (try all possible extensions)
-							const audioFile = await findAudioFile(
-								recordingsPath,
-								recording.id,
-							);
-							if (audioFile) {
-								const audioPath = await join(recordingsPath, audioFile);
-								await remove(audioPath);
-							}
-						}
+						// Read directory once and find all matching files
+						const allFiles = await readDir(recordingsPath);
+						const pathsToDelete = await Promise.all(
+							allFiles
+								.filter((file) => {
+									// Extract ID from filename (everything before the first dot)
+									const id = file.name.split('.')[0] ?? '';
+									return idsToDelete.has(id);
+								})
+								.map((file) => join(recordingsPath, file.name)),
+						);
+
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -439,14 +447,14 @@ export function createFileSystemDb(): DbService {
 						const dirExists = await exists(recordingsPath);
 						if (!dirExists) return undefined;
 
-						// Get all recording files
+						// Get all files and build paths
 						const files = await readDir(recordingsPath);
+						const pathsToDelete = await Promise.all(
+							files.map((file) => join(recordingsPath, file.name)),
+						);
 
-						// Delete all files
-						for (const file of files) {
-							const filePath = await join(recordingsPath, file.name);
-							await remove(filePath);
-						}
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -619,16 +627,15 @@ export function createFileSystemDb(): DbService {
 					try: async () => {
 						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
 
-						for (const transformation of transformationsArray) {
-							const mdPath = await join(
-								transformationsPath,
-								`${transformation.id}.md`,
-							);
-							const fileExists = await exists(mdPath);
-							if (fileExists) {
-								await remove(mdPath);
-							}
-						}
+						// Build paths for all transformation files
+						const pathsToDelete = await Promise.all(
+							transformationsArray.map((t) =>
+								join(transformationsPath, `${t.id}.md`),
+							),
+						);
+
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -1093,16 +1100,13 @@ export function createFileSystemDb(): DbService {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
 						const runsArray = Array.isArray(runs) ? runs : [runs];
 
-						// Delete each run's .md file
-						await Promise.all(
-							runsArray.map(async (run) => {
-								const mdPath = await join(runsPath, `${run.id}.md`);
-								const fileExists = await exists(mdPath);
-								if (fileExists) {
-									await remove(mdPath);
-								}
-							}),
+						// Build paths for all run files
+						const pathsToDelete = await Promise.all(
+							runsArray.map((run) => join(runsPath, `${run.id}.md`)),
 						);
+
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -1150,28 +1154,17 @@ export function createFileSystemDb(): DbService {
 	};
 }
 
-/** All audio/* and video/* MIME types from the mime package. */
-const AUDIO_VIDEO_MIME_TYPES = Object.keys({ ...standardTypes, ...otherTypes }).filter(
-	(type) => type.startsWith('audio/') || type.startsWith('video/'),
-);
-
-/** All supported audio/video file extensions, derived via mime.getAllExtensions(). */
-const SUPPORTED_MEDIA_EXTENSIONS = AUDIO_VIDEO_MIME_TYPES.flatMap(
-	(type) => [...(mime.getAllExtensions(type) ?? [])],
-);
-
 /**
  * Helper function to find audio file by ID.
- * Checks all supported media extensions from the mime package.
+ * Reads directory once and finds the matching file by ID prefix.
+ * This is much faster than checking every possible extension.
  */
 async function findAudioFile(dir: string, id: string): Promise<string | null> {
-	for (const ext of SUPPORTED_MEDIA_EXTENSIONS) {
-		const filename = `${id}.${ext}`;
-		const filePath = await join(dir, filename);
-		const fileExists = await exists(filePath);
-		if (fileExists) return filename;
-	}
-	return null;
+	const files = await readDir(dir);
+	const audioFile = files.find(
+		(f) => f.name.startsWith(`${id}.`) && !f.name.endsWith('.md'),
+	);
+	return audioFile?.name ?? null;
 }
 
 /**
