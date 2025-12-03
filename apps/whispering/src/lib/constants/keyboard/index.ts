@@ -23,3 +23,5 @@ export {
 } from './macos-option-key-map';
 
 export { CommandOrAlt, CommandOrControl } from './modifiers';
+
+export { getShortcutDisplayLabel } from './display-labels';

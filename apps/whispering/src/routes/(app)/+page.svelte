@@ -17,6 +17,7 @@
 		type RecordingMode,
 		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
+	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
 	import * as services from '$lib/services';
 	import type { Recording } from '$lib/services/db';
@@ -372,7 +373,7 @@
 					<kbd
 						class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
 					>
-						{settings.value['shortcuts.local.toggleManualRecording']}
+						{getShortcutDisplayLabel(settings.value['shortcuts.local.toggleManualRecording'])}
 					</kbd>
 				</WhisperingButton>{' '}
 				to start recording here.
