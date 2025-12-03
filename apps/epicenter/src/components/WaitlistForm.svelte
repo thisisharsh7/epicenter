@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Button } from '@repo/ui/button';
-	import { Input } from '@repo/ui/input';
-	import { Label } from '@repo/ui/label';
-	import { Checkbox } from '@repo/ui/checkbox';
-	import { cn } from '@repo/ui/utils';
+	import { Button } from '@epicenter/ui/button';
+	import { Input } from '@epicenter/ui/input';
+	import { Label } from '@epicenter/ui/label';
+	import { Checkbox } from '@epicenter/ui/checkbox';
+	import { cn } from '@epicenter/ui/utils';
 
 	const interestOptions = [
 		{ id: 'notes', label: 'Note-taking that connects everything' },

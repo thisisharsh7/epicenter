@@ -1,22 +1,22 @@
 <script lang="ts">
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import { Badge } from '@repo/ui/badge';
-	import { Checkbox } from '@repo/ui/checkbox';
-	import * as Field from '@repo/ui/field';
-	import { Input } from '@repo/ui/input';
+	import { Badge } from '@epicenter/ui/badge';
+	import { Checkbox } from '@epicenter/ui/checkbox';
+	import * as Field from '@epicenter/ui/field';
+	import { Input } from '@epicenter/ui/input';
 	import {
 		FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 		FFMPEG_SMALLEST_COMPRESSION_OPTIONS,
 	} from '$lib/services/recorder/ffmpeg';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { cn } from '@repo/ui/utils';
+	import { cn } from '@epicenter/ui/utils';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import { isCompressionRecommended } from '$routes/(app)/_layout-utils/check-ffmpeg';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
-	import * as Alert from '@repo/ui/alert';
-	import { Link } from '@repo/ui/link';
+	import * as Alert from '@epicenter/ui/alert';
+	import { Link } from '@epicenter/ui/link';
 
 	// Compression preset definitions (UI only - not stored in settings)
 	const COMPRESSION_PRESETS = {

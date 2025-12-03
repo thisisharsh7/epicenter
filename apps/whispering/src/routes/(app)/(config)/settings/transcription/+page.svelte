@@ -22,16 +22,16 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import * as Alert from '@repo/ui/alert';
-	import { Badge } from '@repo/ui/badge';
-	import { Button } from '@repo/ui/button';
-	import * as Card from '@repo/ui/card';
-	import * as Field from '@repo/ui/field';
-	import { Input } from '@repo/ui/input';
-	import { Link } from '@repo/ui/link';
-	import * as Select from '@repo/ui/select';
-	import { Separator } from '@repo/ui/separator';
-	import { Textarea } from '@repo/ui/textarea';
+	import * as Alert from '@epicenter/ui/alert';
+	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
+	import * as Card from '@epicenter/ui/card';
+	import * as Field from '@epicenter/ui/field';
+	import { Input } from '@epicenter/ui/input';
+	import { Link } from '@epicenter/ui/link';
+	import * as Select from '@epicenter/ui/select';
+	import { Separator } from '@epicenter/ui/separator';
+	import { Textarea } from '@epicenter/ui/textarea';
 	import { hasNavigatorLocalTranscriptionIssue } from '$routes/(app)/_layout-utils/check-ffmpeg';
 
 	const { data } = $props();

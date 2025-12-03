@@ -29,8 +29,8 @@
 		ACCEPT_VIDEO,
 		FileDropZone,
 		MEGABYTE,
-	} from '@repo/ui/file-drop-zone';
-	import * as ToggleGroup from '@repo/ui/toggle-group';
+	} from '@epicenter/ui/file-drop-zone';
+	import * as ToggleGroup from '@epicenter/ui/toggle-group';
 	import { createQuery } from '@tanstack/svelte-query';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { onDestroy, onMount } from 'svelte';

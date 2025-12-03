@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as Card from '@repo/ui/card';
-	import { Link } from '@repo/ui/link';
+	import * as Card from '@epicenter/ui/card';
+	import { Link } from '@epicenter/ui/link';
 
 	type Props = {
 		emoji: string;

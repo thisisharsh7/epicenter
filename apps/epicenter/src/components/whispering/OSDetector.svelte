@@ -1,6 +1,6 @@
 <script>
-	import { Button } from '@repo/ui/button';
-	import { VERSIONS } from '@repo/constants/versions';
+	import { Button } from '@epicenter/ui/button';
+	import { VERSIONS } from '@epicenter/constants/versions';
 	import { onMount } from 'svelte';
 
 	let platform = $state('');

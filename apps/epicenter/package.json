@@ -1,5 +1,6 @@
 {
-	"name": "epicenter",
+	"name": "@epicenter/web",
+	"private": true,
 	"type": "module",
 	"version": "0.0.1",
 	"scripts": {
@@ -14,8 +15,8 @@
 	"dependencies": {
 		"@astrojs/check": "^0.9.4",
 		"@astrojs/svelte": "^7.1.0",
-		"@repo/constants": "workspace:*",
-		"@repo/ui": "workspace:*",
+		"@epicenter/constants": "workspace:*",
+		"@epicenter/ui": "workspace:*",
 		"@tailwindcss/vite": "^4.1.11",
 		"arktype": "catalog:",
 		"astro": "^5.12.4",
@@ -26,7 +27,7 @@
 	},
 	"devDependencies": {
 		"@lucide/astro": "^0.536.0",
-		"@repo/ui": "workspace:*",
+		"@epicenter/ui": "workspace:*",
 		"@tailwindcss/typography": "^0.5.16"
 	}
 }

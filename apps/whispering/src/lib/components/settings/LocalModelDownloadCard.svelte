@@ -9,9 +9,9 @@
 	import Download from '@lucide/svelte/icons/download';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import X from '@lucide/svelte/icons/x';
-	import { Badge } from '@repo/ui/badge';
-	import { Button } from '@repo/ui/button';
-	import { Progress } from '@repo/ui/progress';
+	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
+	import { Progress } from '@epicenter/ui/progress';
 	import { join } from '@tauri-apps/api/path';
 	import {
 		exists,

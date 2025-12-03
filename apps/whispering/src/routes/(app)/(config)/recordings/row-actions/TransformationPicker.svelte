@@ -3,8 +3,8 @@
 	import { nanoid } from 'nanoid/non-secure';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import TransformationPickerBody from '$lib/components/TransformationPickerBody.svelte';
-	import * as Popover from '@repo/ui/popover';
-	import { useCombobox } from '@repo/ui/hooks';
+	import * as Popover from '@epicenter/ui/popover';
+	import { useCombobox } from '@epicenter/ui/hooks';
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { rpc } from '$lib/query';
 	import { createMutation } from '@tanstack/svelte-query';

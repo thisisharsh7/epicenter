@@ -1,4 +1,4 @@
-import { createPersistedState } from '@repo/svelte-utils';
+import { createPersistedState } from '@epicenter/svelte-utils';
 import { nanoid } from 'nanoid/non-secure';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, partitionResults, type Result } from 'wellcrafted/result';

@@ -5,7 +5,7 @@
 	import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools';
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster, type ToasterProps } from 'svelte-sonner';
-	import '@repo/ui/app.css';
+	import '@epicenter/ui/app.css';
 
 	let { children } = $props();
 

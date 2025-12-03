@@ -1,5 +1,6 @@
 {
-	"name": "@repo/ui",
+	"name": "@epicenter/ui",
+	"private": true,
 	"version": "0.0.1",
 	"type": "module",
 	"imports": {
@@ -34,7 +35,7 @@
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.8.1",
-		"@repo/config": "workspace:*",
+		"@epicenter/config": "workspace:*",
 		"@types/node": "catalog:",
 		"mode-watcher": "catalog:",
 		"package-manager-detector": "^1.3.0",

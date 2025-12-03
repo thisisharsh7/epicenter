@@ -1,5 +1,5 @@
 {
-	"name": "@repo/vault-core",
+	"name": "@epicenter/vault-core",
 	"version": "0.0.0",
 	"description": "Core package for adapter & MCP functionality",
 	"type": "module",

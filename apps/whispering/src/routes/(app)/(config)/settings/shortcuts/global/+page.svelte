@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button, buttonVariants } from '@repo/ui/button';
-	import { Link } from '@repo/ui/link';
-	import { Separator } from '@repo/ui/separator';
+	import { Button, buttonVariants } from '@epicenter/ui/button';
+	import { Link } from '@epicenter/ui/link';
+	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
 	import Layers2Icon from '@lucide/svelte/icons/layers-2';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as Field from '@repo/ui/field';
-	import { Input } from '@repo/ui/input';
+	import * as Field from '@epicenter/ui/field';
+	import { Input } from '@epicenter/ui/input';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	type Props = {

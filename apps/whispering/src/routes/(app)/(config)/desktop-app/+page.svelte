@@ -1,8 +1,8 @@
 <script lang="ts">
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { ChromeWebStoreIcon } from '$lib/components/icons';
-	import { Button } from '@repo/ui/button';
-	import { Card } from '@repo/ui/card';
+	import { Button } from '@epicenter/ui/button';
+	import { Card } from '@epicenter/ui/card';
 	import CommandIcon from '@lucide/svelte/icons/command';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import MicIcon from '@lucide/svelte/icons/mic';

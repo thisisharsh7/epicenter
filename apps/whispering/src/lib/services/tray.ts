@@ -7,7 +7,7 @@ import { createTaggedError } from 'wellcrafted/error';
 // import { commandCallbacks } from '$lib/commands';
 import { type Err, Ok, tryAsync } from 'wellcrafted/result';
 import { goto } from '$app/navigation';
-// import { extension } from '@repo/extension';
+// import { extension } from '@epicenter/extension';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
 
 const TRAY_ID = 'whispering-tray';
