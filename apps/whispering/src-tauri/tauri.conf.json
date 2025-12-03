@@ -48,7 +48,7 @@
 		}
 	},
 	"productName": "Whispering",
-	"version": "7.7.2",
+	"version": "7.8.0",
 	"identifier": "com.bradenwong.whispering",
 	"plugins": {
 		"updater": {
@@ -74,7 +74,9 @@
 			"csp": null,
 			"assetProtocol": {
 				"enable": true,
-				"scope": ["**"]
+				"scope": [
+					"**"
+				]
 			}
 		}
 	}
