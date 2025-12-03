@@ -2,7 +2,7 @@ use crate::recorder::recorder::{AudioRecording, RecorderState, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
-use tracing::{debug, info};
+use log::{debug, info};
 
 /// Application state containing the recorder
 pub struct AppData {

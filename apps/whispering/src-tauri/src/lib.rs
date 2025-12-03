@@ -32,13 +32,15 @@ pub async fn run() {
     let previous_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         use std::backtrace::Backtrace;
-        use std::io::Write;
         let payload = panic_info.payload();
         let location = panic_info
             .location()
             .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
             .unwrap_or_else(|| "unknown location".to_string());
-        let thread_name = std::thread::current().name().unwrap_or("unnamed thread");
+        let thread_name = std::thread::current()
+            .name()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "unnamed thread".to_string());
 
         let message = if let Some(s) = payload.downcast_ref::<&str>() {
             s.to_string()
@@ -56,13 +58,15 @@ pub async fn run() {
         );
         eprintln!("{}", backtrace);
 
-        #[cfg(target_os = "linux")]
+        // Write crash log to temp directory (works on all platforms)
         {
             use std::fs::OpenOptions;
+            use std::io::Write;
+            let crash_log_path = std::env::temp_dir().join("whispering-crash.log");
             if let Ok(mut file) = OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open("/tmp/whispering-crash.log")
+                .open(&crash_log_path)
             {
                 let timestamp = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -91,7 +95,7 @@ pub async fn run() {
 
     let log_plugin = tauri_plugin_log::Builder::new()
         .level(log::LevelFilter::Info)
-        .level_for("transcription", log::LevelFilter::Debug)
+        .level_for("whispering::transcription", log::LevelFilter::Debug)
         .target(Target::new(TargetKind::Stdout))
         .target(Target::new(TargetKind::LogDir {
             file_name: Some("whispering".to_string()),

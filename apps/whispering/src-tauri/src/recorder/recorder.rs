@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use tracing::{debug, error, info};
+use log::{debug, error, info};
 
 /// Simple result type using String for errors
 pub type Result<T> = std::result::Result<T, String>;

@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use transcribe_rs::{
     engines::{
         parakeet::{ParakeetInferenceParams, TimestampGranularity},
-        whisper::{WhisperEngine, WhisperInferenceParams},
+        whisper::WhisperInferenceParams,
     },
     TranscriptionEngine,
 };
@@ -536,17 +536,20 @@ pub async fn transcribe_audio_whisper(
     params.no_speech_thold = 0.2;
 
     // Run transcription with the persistent engine
+    // Use into_inner() to recover from poisoned mutex, but clear state to force fresh reload
     let result = {
-        let mut engine_guard =
-            engine_arc
-                .lock()
-                .map_err(|e| TranscriptionError::ModelLoadError {
-                    message: format!("Engine mutex poisoned: {}", e),
-                })?;
+        let mut engine_guard = engine_arc.lock().unwrap_or_else(|poisoned| {
+            warn!(
+                "[Transcription] Engine mutex was poisoned from previous panic, clearing state to force reload..."
+            );
+            let mut recovered = poisoned.into_inner();
+            *recovered = None; // Clear potentially corrupted state
+            recovered
+        });
         let engine = engine_guard
             .as_mut()
             .ok_or_else(|| TranscriptionError::ModelLoadError {
-                message: "Model failed to load".to_string(),
+                message: "Model not loaded (may have been cleared after previous error). Please try again.".to_string(),
             })?;
 
         // Extract the WhisperEngine from the enum
@@ -618,17 +621,20 @@ pub async fn transcribe_audio_parakeet(
     };
 
     // Run transcription with the persistent engine
+    // Use into_inner() to recover from poisoned mutex, but clear state to force fresh reload
     let result = {
-        let mut engine_guard =
-            engine_arc
-                .lock()
-                .map_err(|e| TranscriptionError::ModelLoadError {
-                    message: format!("Engine mutex poisoned: {}", e),
-                })?;
+        let mut engine_guard = engine_arc.lock().unwrap_or_else(|poisoned| {
+            warn!(
+                "[Transcription] Engine mutex was poisoned from previous panic, clearing state to force reload..."
+            );
+            let mut recovered = poisoned.into_inner();
+            *recovered = None; // Clear potentially corrupted state
+            recovered
+        });
         let engine = engine_guard
             .as_mut()
             .ok_or_else(|| TranscriptionError::ModelLoadError {
-                message: "Model failed to load".to_string(),
+                message: "Model not loaded (may have been cleared after previous error). Please try again.".to_string(),
             })?;
 
         // Extract the ParakeetEngine from the enum
