@@ -176,7 +176,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build Whispering
-        run: bun run --filter @repo/whispering build
+        run: bun run --filter @epicenter/whispering build
         env:
           NODE_ENV: production
 

@@ -111,7 +111,7 @@ jobs:
 
       # Build the frontend (SvelteKit app) before Tauri packaging
       - name: Build frontend
-        run: bun --filter @repo/whispering build  # Targets the specific workspace package
+        run: bun --filter @epicenter/whispering build  # Targets the specific workspace package
 
       # Read and process release notes from the release-notes directory
       - name: Process release notes

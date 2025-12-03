@@ -18,7 +18,7 @@ This works, but it destroys the CRDT element identity. Every element becomes "ne
 `updateYArrayFromArray` computes the minimal element-level differences between the current Y.Array content and the target array, then applies only the necessary insertions and deletions:
 
 ```typescript
-import { updateYArrayFromArray } from '@repo/epicenter';
+import { updateYArrayFromArray } from '@epicenter/hq';
 
 const yarray = ydoc.getArray('tags');
 yarray.push(['typescript', 'javascript']);

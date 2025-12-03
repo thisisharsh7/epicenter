@@ -18,7 +18,7 @@ This works, but it destroys the CRDT character identity. Every character becomes
 `updateYTextFromString` computes the minimal character-level differences between the current Y.Text content and the target string, then applies only the necessary insertions and deletions:
 
 ```typescript
-import { updateYTextFromString } from '@repo/epicenter';
+import { updateYTextFromString } from '@epicenter/hq';
 
 const ytext = ydoc.getText('content');
 ytext.insert(0, 'Hello World');

@@ -46,7 +46,7 @@ const reddit = defineWorkspace({
 In your project root, create `epicenter.config.ts`:
 
 ```typescript
-import { defineEpicenter } from '@repo/epicenter';
+import { defineEpicenter } from '@epicenter/hq';
 import { reddit, blog } from './workspaces';
 
 export default defineEpicenter({
@@ -130,7 +130,7 @@ The CLI provides helpful error messages:
 Test your CLI commands programmatically:
 
 ```typescript
-import { createCLI } from '@repo/epicenter/cli';
+import { createCLI } from '@epicenter/hq/cli';
 
 // createCLI parses and executes the command internally
 await createCLI({

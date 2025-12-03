@@ -290,7 +290,7 @@ No Slider components found in the codebase, so no changes were needed for the ne
 
 ### Unrelated Issues
 
-The `@repo/db` package has a pre-existing error unrelated to bits-ui:
+The `@epicenter/db` package has a pre-existing error unrelated to bits-ui:
 ```
 Module '"better-auth/crypto"' has no exported member 'hashToBase64'.
 ```

@@ -226,7 +226,7 @@ Update the workflow to use Bun instead of PNPM:
     args: ${{ matrix.args }}
     # Update beforeBuildCommand
     beforeBuildCommand: |
-      bun --filter @repo/app build  # was: pnpm --filter @repo/app build
+      bun --filter @epicenter/app build  # was: pnpm --filter @epicenter/app build
 ```
 
 ##### Other Workflow Files
@@ -277,7 +277,7 @@ cd apps/whispering
 bun run dev
 
 # Test Turborepo integration
-bun run build --filter=@repo/app
+bun run build --filter=@epicenter/app
 ```
 
 ### 12. Commit Changes
