@@ -161,7 +161,7 @@
 			{#if !isLocal}
 				<Button
 					variant="outline"
-					href="https://www.electronjs.org/docs/latest/api/accelerator"
+					href="https://v2.tauri.app/plugin/global-shortcut/"
 					target="_blank"
 					rel="noreferrer"
 				>
