@@ -38,7 +38,7 @@ jobs:
       - name: Run type checking
         run: |
           bun run --filter @repo/whispering check
-          bun run --filter epicenter astro check || true
+          bun run --filter @epicenter/landing astro check || true
 
       - name: Run linting
         run: bun run lint:check
@@ -55,11 +55,11 @@ jobs:
           path: apps/whispering/build
           retention-days: 1
 
-      - name: Upload Epicenter build artifacts
+      - name: Upload Landing build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: epicenter-dist
-          path: apps/epicenter/dist
+          name: landing-dist
+          path: apps/landing/dist
           retention-days: 1
 
   deploy-whispering:
@@ -128,15 +128,15 @@ jobs:
           echo "**URL:** ${{ steps.deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
 
-  deploy-epicenter:
-    name: Deploy Epicenter App
+  deploy-landing:
+    name: Deploy Landing App
     needs: validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
       deployments: write
     environment:
-      name: production-epicenter
+      name: production-landing
       url: ${{ steps.deploy.outputs.deployment-url }}
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
@@ -160,17 +160,17 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: epicenter-dist
-          path: apps/epicenter/dist
+          name: landing-dist
+          path: apps/landing/dist
 
       - name: Deploy to Cloudflare Pages
         id: deploy
         run: |
-          cd apps/epicenter
+          cd apps/landing
 
           # Deploy to Cloudflare Pages
           DEPLOYMENT_OUTPUT=$(bunx wrangler pages deploy dist \
-            --project-name=epicenter \
+            --project-name=landing \
             --branch=main \
             --commit-dirty=true \
             --commit-hash=${{ github.sha }} \
@@ -179,11 +179,11 @@ jobs:
           echo "$DEPLOYMENT_OUTPUT"
 
           # Extract deployment URL from output
-          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -oE 'https://[a-z0-9-]+\.epicenter\.pages\.dev' | head -1)
+          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -oE 'https://[a-z0-9-]+\.landing\.pages\.dev' | head -1)
 
           if [ -z "$DEPLOYMENT_URL" ]; then
             # Fallback to production URL if extraction fails
-            DEPLOYMENT_URL="https://epicenter.pages.dev"
+            DEPLOYMENT_URL="https://landing.pages.dev"
           fi
 
           echo "deployment-url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
@@ -193,7 +193,7 @@ jobs:
 
       - name: Add deployment summary
         run: |
-          echo "### 🚀 Epicenter Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Landing Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ✅ Deployed successfully" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** ${{ steps.deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
@@ -201,14 +201,14 @@ jobs:
 
   notify-deployment:
     name: Notify Deployment Status
-    needs: [deploy-whispering, deploy-epicenter]
+    needs: [deploy-whispering, deploy-landing]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check deployment status
         id: status
         run: |
-          if [ "${{ needs.deploy-whispering.result }}" = "success" ] && [ "${{ needs.deploy-epicenter.result }}" = "success" ]; then
+          if [ "${{ needs.deploy-whispering.result }}" = "success" ] && [ "${{ needs.deploy-landing.result }}" = "success" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
             echo "emoji=✅" >> $GITHUB_OUTPUT
             echo "message=Both apps deployed successfully" >> $GITHUB_OUTPUT
@@ -233,10 +233,10 @@ jobs:
             echo "| Whispering | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.deploy-epicenter.result }}" = "success" ]; then
-            echo "| Epicenter | ✅ Success | ${{ needs.deploy-epicenter.outputs.deployment-url }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-landing.result }}" = "success" ]; then
+            echo "| Landing | ✅ Success | ${{ needs.deploy-landing.outputs.deployment-url }} |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Epicenter | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Landing | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -263,8 +263,8 @@ jobs:
                   "inline": true
                 },
                 {
-                  "name": "Epicenter",
-                  "value": "[View deployment](${{ needs.deploy-epicenter.outputs.deployment-url || 'Failed' }})",
+                  "name": "Landing",
+                  "value": "[View deployment](${{ needs.deploy-landing.outputs.deployment-url || 'Failed' }})",
                   "inline": true
                 }
               ],
