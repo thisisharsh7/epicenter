@@ -4,7 +4,10 @@
 	import { Button } from '@epicenter/ui/button';
 	import { Input } from '@epicenter/ui/input';
 	import * as Popover from '@epicenter/ui/popover';
-	import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
+	import {
+		getShortcutDisplayLabel,
+		type KeyboardEventSupportedKey,
+	} from '$lib/constants/keyboard';
 	import { IS_MACOS } from '$lib/constants/platform';
 	import { cn } from '@epicenter/ui/utils';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
@@ -39,7 +42,7 @@
 <div class="flex items-center justify-end gap-2">
 	{#if rawKeyCombination}
 		<Badge variant="secondary" class="font-mono text-xs">
-			{rawKeyCombination}
+			{getShortcutDisplayLabel(rawKeyCombination)}
 		</Badge>
 		<Button
 			variant="ghost"
@@ -135,7 +138,7 @@
 							>
 								{#if rawKeyCombination && !keyRecorder.isListening}
 									<Badge variant="secondary" class="font-mono text-xs">
-										{rawKeyCombination ?? ''}
+										{getShortcutDisplayLabel(rawKeyCombination)}
 									</Badge>
 								{:else if !keyRecorder.isListening}
 									<span class="truncate text-muted-foreground"
