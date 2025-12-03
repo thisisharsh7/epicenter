@@ -114,7 +114,7 @@ export const Settings = type({
 	'ui.visibleNavigation': type
 		.enumerated(...NAVIGATION_SURFACES)
 		.array()
-		.default(() => ['sidebar', 'topnav']),
+		.default(() => ['sidebar', 'nav-items']),
 
 	'database.recordingRetentionStrategy': type
 		.enumerated('keep-forever', 'limit-count')

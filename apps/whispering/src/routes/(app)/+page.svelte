@@ -359,7 +359,7 @@
 			{/if}
 		</div>
 
-		{#if settings.value['ui.visibleNavigation'].includes('topnav')}
+		{#if settings.value['ui.visibleNavigation'].includes('nav-items')}
 			<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />
 		{/if}
 
