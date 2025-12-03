@@ -12,18 +12,6 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { Badge } from '@repo/ui/badge';
 
-	let {
-		side = 'bottom' as 'top' | 'right' | 'bottom' | 'left',
-		align = 'center' as 'start' | 'center' | 'end',
-		showLabel = false,
-		unstyled = false,
-	}: {
-		side?: 'top' | 'right' | 'bottom' | 'left';
-		align?: 'start' | 'center' | 'end';
-		showLabel?: boolean;
-		unstyled?: boolean;
-	} = $props();
-
 	const combobox = useCombobox();
 
 	const selectedMethod = $derived(settings.value['recording.method']);
@@ -34,11 +22,6 @@
 	);
 
 	const isDeviceSelected = $derived(!!selectedDeviceId);
-
-	// Get selected device name
-	const selectedDevice = $derived(
-		getDevicesQuery.data?.find((d) => d.id === selectedDeviceId),
-	);
 
 	// Recording method options with descriptions
 	const RECORDING_METHODS = {
@@ -62,12 +45,6 @@
 		},
 	} as const;
 
-	// Tooltip text - only shows current value
-	const tooltipText = $derived(selectedDevice?.label || 'No device selected');
-
-	// Label text - only shows setting name
-	const labelText = 'Recording Device';
-
 	const getDevicesQuery = createQuery(() => ({
 		...rpc.recorder.enumerateDevices.options(),
 		enabled: combobox.open,
@@ -83,46 +60,25 @@
 <Popover.Root bind:open={combobox.open}>
 	<Popover.Trigger bind:ref={combobox.triggerRef}>
 		{#snippet child({ props })}
-			{#if unstyled}
-				<button
-					{...props}
-					role="combobox"
-					aria-expanded={combobox.open}
-					title={tooltipText}
-					class="peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding] [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0"
-				>
-					{#if isDeviceSelected}
-						<MicIcon class="size-4 shrink-0 text-green-500" />
-					{:else}
-						<MicIcon class="size-4 shrink-0 text-amber-500" />
-					{/if}
-					{#if showLabel}
-						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-				</button>
-			{:else}
-				<WhisperingButton
-					{...props}
-					tooltipContent={tooltipText}
-					role="combobox"
-					aria-expanded={combobox.open}
-					variant="ghost"
-					size={showLabel ? 'default' : 'icon'}
-					class={showLabel ? 'justify-start w-full gap-2' : ''}
-				>
-					{#if isDeviceSelected}
-						<MicIcon class="size-4 shrink-0 text-green-500" />
-					{:else}
-						<MicIcon class="size-4 shrink-0 text-amber-500" />
-					{/if}
-					{#if showLabel}
-						<span class="truncate min-w-0">{labelText}</span>
-					{/if}
-				</WhisperingButton>
-			{/if}
+			<WhisperingButton
+				{...props}
+				tooltipContent={isDeviceSelected
+					? `Recording via ${RECORDING_METHODS[selectedMethod].label} - Change device or method`
+					: `Select recording device (${RECORDING_METHODS[selectedMethod].label} method)`}
+				role="combobox"
+				aria-expanded={combobox.open}
+				variant="ghost"
+				size="icon"
+			>
+				{#if isDeviceSelected}
+					<MicIcon class="size-4 text-green-500" />
+				{:else}
+					<MicIcon class="size-4 text-amber-500" />
+				{/if}
+			</WhisperingButton>
 		{/snippet}
 	</Popover.Trigger>
-	<Popover.Content class="p-0" {side} {align}>
+	<Popover.Content class="p-0">
 		<Command.Root loop>
 			<Command.Input placeholder="Search devices and methods..." />
 			<Command.List class="max-h-[40vh]">

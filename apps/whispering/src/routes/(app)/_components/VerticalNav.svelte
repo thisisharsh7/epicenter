@@ -8,19 +8,12 @@
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import LogsIcon from '@lucide/svelte/icons/scroll-text';
 	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
-	import MicIcon from '@lucide/svelte/icons/mic';
 	import { GithubIcon } from '$lib/components/icons';
 	import { page } from '$app/state';
 	import { toggleMode } from 'mode-watcher';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { notificationLog } from '$lib/components/NotificationLog.svelte';
 	import { useSidebar } from '@repo/ui/sidebar';
-	import ManualDeviceSelector from '$lib/components/settings/selectors/ManualDeviceSelector.svelte';
-	import VadDeviceSelector from '$lib/components/settings/selectors/VadDeviceSelector.svelte';
-	import CompressionSelector from '$lib/components/settings/selectors/CompressionSelector.svelte';
-	import TranscriptionSelector from '$lib/components/settings/selectors/TranscriptionSelector.svelte';
-	import TransformationSelector from '$lib/components/settings/selectors/TransformationSelector.svelte';
-	import { settings } from '$lib/stores/settings.svelte';
 
 	const sidebar = useSidebar();
 
@@ -44,15 +37,22 @@
 	<Sidebar.Header>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
-				<Sidebar.MenuButton size="lg" class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+				<Sidebar.MenuButton
+					size="lg"
+					class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+				>
 					{#snippet child({ props })}
 						<button {...props} onclick={sidebar.toggle}>
-							<div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+							<div
+								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+							>
 								<span class="text-lg">🎙️</span>
 							</div>
 							<div class="grid flex-1 text-left text-sm leading-tight">
 								<span class="truncate font-semibold">Whispering</span>
-								<span class="truncate text-xs text-muted-foreground">Speech to text</span>
+								<span class="truncate text-xs text-muted-foreground"
+									>Speech to text</span
+								>
 							</div>
 						</button>
 					{/snippet}
@@ -91,63 +91,6 @@
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
-
-		<!-- Quick Settings Group -->
-		<Sidebar.Group>
-			<Sidebar.GroupLabel>Quick Settings</Sidebar.GroupLabel>
-			<Sidebar.GroupContent>
-				<Sidebar.Menu>
-					<!-- Device Selector -->
-					<Sidebar.MenuItem>
-						{#if settings.value['recording.mode'] === 'manual'}
-							<ManualDeviceSelector
-								showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
-								unstyled
-							/>
-						{:else if settings.value['recording.mode'] === 'vad'}
-							<VadDeviceSelector
-								showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
-								unstyled
-							/>
-						{:else}
-							<Sidebar.MenuButton disabled>
-								{#snippet child({ props })}
-									<button {...props} disabled title="Device selector (not available in upload mode)">
-										<MicIcon />
-										<span>Device Selector</span>
-									</button>
-								{/snippet}
-							</Sidebar.MenuButton>
-						{/if}
-					</Sidebar.MenuItem>
-
-					<!-- Compression Selector -->
-					<Sidebar.MenuItem>
-						<CompressionSelector
-							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
-							unstyled
-						/>
-					</Sidebar.MenuItem>
-
-					<!-- Transcription Provider Selector -->
-					<Sidebar.MenuItem>
-						<TranscriptionSelector
-							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
-							unstyled
-						/>
-					</Sidebar.MenuItem>
-
-					<!-- Transformation Provider Selector -->
-					<Sidebar.MenuItem>
-						<TransformationSelector
-							showLabel={sidebar.state === 'expanded' || sidebar.isMobile}
-							unstyled
-						/>
-					</Sidebar.MenuItem>
-				</Sidebar.Menu>
-			</Sidebar.GroupContent>
-		</Sidebar.Group>
-
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
@@ -157,8 +100,12 @@
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
 						<button onclick={toggleMode} {...props}>
-							<SunIcon class="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-							<MoonIcon class="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+							<SunIcon
+								class="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"
+							/>
+							<MoonIcon
+								class="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
+							/>
 							<span>Toggle theme</span>
 						</button>
 					{/snippet}
@@ -199,7 +146,11 @@
 				<Sidebar.MenuItem>
 					<Sidebar.MenuButton>
 						{#snippet child({ props })}
-							<button onclick={() => getCurrentWindow().setSize(new LogicalSize(72, 84))} {...props}>
+							<button
+								onclick={() =>
+									getCurrentWindow().setSize(new LogicalSize(72, 84))}
+								{...props}
+							>
 								<Minimize2Icon />
 								<span>Minimize</span>
 							</button>
