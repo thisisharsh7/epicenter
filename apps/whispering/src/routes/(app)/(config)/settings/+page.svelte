@@ -23,65 +23,83 @@
 
 	<Separator />
 
-	<LabeledSwitch
-		id="transcription.copyToClipboardOnSuccess"
-		label="Copy transcript to clipboard"
-		bind:checked={
-			() => settings.value['transcription.copyToClipboardOnSuccess'],
-			(v) => settings.updateKey('transcription.copyToClipboardOnSuccess', v)
-		}
-	/>
+	<fieldset class="space-y-3 border-0 p-0">
+		<legend class="text-sm font-semibold text-foreground">
+			Transcription output
+		</legend>
+		<p class="text-sm text-muted-foreground">
+			Applies immediately after an audio transcription finishes.
+		</p>
 
-	<LabeledSwitch
-		id="transcription.writeToCursorOnSuccess"
-		label="Paste transcript at cursor"
-		bind:checked={
-			() => settings.value['transcription.writeToCursorOnSuccess'],
-			(v) => settings.updateKey('transcription.writeToCursorOnSuccess', v)
-		}
-	/>
-
-	{#if window.__TAURI_INTERNALS__ && settings.value['transcription.writeToCursorOnSuccess']}
 		<LabeledSwitch
-			id="transcription.simulateEnterAfterOutput"
-			label="Press Enter after pasting transcript"
+			id="transcription.copyToClipboardOnSuccess"
+			label="Copy transcript to clipboard"
 			bind:checked={
-				() => settings.value['transcription.simulateEnterAfterOutput'],
-				(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
+				() => settings.value['transcription.copyToClipboardOnSuccess'],
+				(v) => settings.updateKey('transcription.copyToClipboardOnSuccess', v)
 			}
 		/>
-	{/if}
+
+		<LabeledSwitch
+			id="transcription.writeToCursorOnSuccess"
+			label="Paste transcript at cursor"
+			bind:checked={
+				() => settings.value['transcription.writeToCursorOnSuccess'],
+				(v) => settings.updateKey('transcription.writeToCursorOnSuccess', v)
+			}
+		/>
+
+		{#if window.__TAURI_INTERNALS__ && settings.value['transcription.writeToCursorOnSuccess']}
+			<LabeledSwitch
+				id="transcription.simulateEnterAfterOutput"
+				label="Press Enter after pasting transcript"
+				bind:checked={
+					() => settings.value['transcription.simulateEnterAfterOutput'],
+					(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
+				}
+			/>
+		{/if}
+	</fieldset>
 
 	<Separator />
 
-	<LabeledSwitch
-		id="transformation.copyToClipboardOnSuccess"
-		label="Copy transformed text to clipboard"
-		bind:checked={
-			() => settings.value['transformation.copyToClipboardOnSuccess'],
-			(v) => settings.updateKey('transformation.copyToClipboardOnSuccess', v)
-		}
-	/>
+	<fieldset class="space-y-3 border-0 p-0">
+		<legend class="text-sm font-semibold text-foreground">
+			Transformation output
+		</legend>
+		<p class="text-sm text-muted-foreground">
+			Applies after you run a saved transformation on a transcription.
+		</p>
 
-	<LabeledSwitch
-		id="transformation.writeToCursorOnSuccess"
-		label="Paste transformed text at cursor"
-		bind:checked={
-			() => settings.value['transformation.writeToCursorOnSuccess'],
-			(v) => settings.updateKey('transformation.writeToCursorOnSuccess', v)
-		}
-	/>
-
-	{#if window.__TAURI_INTERNALS__ && settings.value['transformation.writeToCursorOnSuccess']}
 		<LabeledSwitch
-			id="transformation.simulateEnterAfterOutput"
-			label="Press Enter after pasting transformed text"
+			id="transformation.copyToClipboardOnSuccess"
+			label="Copy transformed text to clipboard"
 			bind:checked={
-				() => settings.value['transformation.simulateEnterAfterOutput'],
-				(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
+				() => settings.value['transformation.copyToClipboardOnSuccess'],
+				(v) => settings.updateKey('transformation.copyToClipboardOnSuccess', v)
 			}
 		/>
-	{/if}
+
+		<LabeledSwitch
+			id="transformation.writeToCursorOnSuccess"
+			label="Paste transformed text at cursor"
+			bind:checked={
+				() => settings.value['transformation.writeToCursorOnSuccess'],
+				(v) => settings.updateKey('transformation.writeToCursorOnSuccess', v)
+			}
+		/>
+
+		{#if window.__TAURI_INTERNALS__ && settings.value['transformation.writeToCursorOnSuccess']}
+			<LabeledSwitch
+				id="transformation.simulateEnterAfterOutput"
+				label="Press Enter after pasting transformed text"
+				bind:checked={
+					() => settings.value['transformation.simulateEnterAfterOutput'],
+					(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
+				}
+			/>
+		{/if}
+	</fieldset>
 
 	<Separator />
 
