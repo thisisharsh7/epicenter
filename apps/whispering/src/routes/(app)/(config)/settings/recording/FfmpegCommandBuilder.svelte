@@ -2,6 +2,7 @@
 	import * as Field from '@repo/ui/field';
 	import * as Select from '@repo/ui/select';
 	import { Input } from '@repo/ui/input';
+	import { SAMPLE_RATE_OPTIONS } from '$lib/constants/audio';
 	import { PLATFORM_TYPE } from '$lib/constants/platform';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { rpc } from '$lib/query';
@@ -137,14 +138,8 @@
 		audioFormatOptions.find((o) => o.value === selected.format)?.label,
 	);
 
-	const sampleRateItems = [
-		{ value: '16000', label: '16 kHz - Optimized for speech' },
-		{ value: '22050', label: '22 kHz - Balanced' },
-		{ value: '44100', label: '44.1 kHz - CD quality' },
-		{ value: '48000', label: '48 kHz - Studio quality' },
-	];
 	const sampleRateLabel = $derived(
-		sampleRateItems.find((o) => o.value === selected.sampleRate)?.label,
+		SAMPLE_RATE_OPTIONS.find((o) => o.value === selected.sampleRate)?.label,
 	);
 
 	const qualityItems = [
@@ -315,7 +310,7 @@
 						<Field.Label for="ffmpeg-sample-rate">Sample Rate</Field.Label>
 						<Select.Root
 							type="single"
-							items={sampleRateItems}
+							items={SAMPLE_RATE_OPTIONS}
 							bind:value={
 								() => selected.sampleRate,
 								(value) => {
@@ -330,7 +325,7 @@
 								{sampleRateLabel ?? 'Sample rate'}
 							</Select.Trigger>
 							<Select.Content>
-								{#each sampleRateItems as item}
+								{#each SAMPLE_RATE_OPTIONS as item}
 									<Select.Item value={item.value} label={item.label} />
 								{/each}
 							</Select.Content>

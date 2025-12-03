@@ -15,9 +15,15 @@ export {
 export {
 	type CancelRecordingResult,
 	RECORDER_STATE_TO_ICON,
-	type VadState,
 	VAD_STATE_TO_ICON,
 	VadState,
-	type WhisperingRecordingState,
 	WhisperingRecordingState,
 } from './recording-states';
+export {
+	CPAL_SAMPLE_RATE_OPTIONS,
+	CPAL_SAMPLE_RATES,
+	DEFAULT_SAMPLE_RATE,
+	SAMPLE_RATE_OPTIONS,
+	SAMPLE_RATES,
+	type SampleRate,
+} from './sample-rate';
