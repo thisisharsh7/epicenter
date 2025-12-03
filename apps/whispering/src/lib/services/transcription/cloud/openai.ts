@@ -46,32 +46,35 @@ export function createOpenaiTranscriptionService() {
 				baseURL?: string;
 			},
 		): Promise<Result<string, WhisperingError>> {
-			// Pre-validation: Check API key
-			if (!options.apiKey) {
-				return WhisperingErr({
-					title: '🔑 API Key Required',
-					description:
-						'Please enter your OpenAI API key in settings to use Whisper transcription.',
-					action: {
-						type: 'link',
-						label: 'Add API key',
-						href: '/settings/transcription',
-					},
-				});
-			}
+			const isUsingCustomEndpoint = Boolean(options.baseURL);
 
-			// Only validate API key format for official OpenAI endpoint
-			if (!options.baseURL && !options.apiKey.startsWith('sk-')) {
-				return WhisperingErr({
-					title: '🔑 Invalid API Key Format',
-					description:
-						'Your OpenAI API key should start with "sk-". Please check and update your API key.',
-					action: {
-						type: 'link',
-						label: 'Update API key',
-						href: '/settings/transcription',
-					},
-				});
+			// Custom endpoints may have different or no auth requirements
+			if (!isUsingCustomEndpoint) {
+				if (!options.apiKey) {
+					return WhisperingErr({
+						title: '🔑 API Key Required',
+						description:
+							'Please enter your OpenAI API key in settings to use Whisper transcription.',
+						action: {
+							type: 'link',
+							label: 'Add API key',
+							href: '/settings/transcription',
+						},
+					});
+				}
+
+				if (!options.apiKey.startsWith('sk-')) {
+					return WhisperingErr({
+						title: '🔑 Invalid API Key Format',
+						description:
+							'Your OpenAI API key should start with "sk-". Please check and update your API key.',
+						action: {
+							type: 'link',
+							label: 'Update API key',
+							href: '/settings/transcription',
+						},
+					});
+				}
 			}
 
 			// Validate file size
