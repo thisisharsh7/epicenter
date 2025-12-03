@@ -48,18 +48,18 @@
 				(v) => settings.updateKey('transcription.writeToCursorOnSuccess', v)
 			}
 		/>
-	</fieldset>
 
-	{#if window.__TAURI_INTERNALS__ && settings.value['transcription.writeToCursorOnSuccess']}
-		<LabeledSwitch
-			id="transcription.simulateEnterAfterOutput"
-			label="Press Enter after pasting transcript"
-			bind:checked={
-				() => settings.value['transcription.simulateEnterAfterOutput'],
-				(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
-			}
-		/>
-	{/if}
+		{#if window.__TAURI_INTERNALS__ && settings.value['transcription.writeToCursorOnSuccess']}
+			<LabeledSwitch
+				id="transcription.simulateEnterAfterOutput"
+				label="Press Enter after pasting transcript"
+				bind:checked={
+					() => settings.value['transcription.simulateEnterAfterOutput'],
+					(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
+				}
+			/>
+		{/if}
+	</fieldset>
 
 	<Separator />
 
@@ -88,18 +88,18 @@
 				(v) => settings.updateKey('transformation.writeToCursorOnSuccess', v)
 			}
 		/>
-	</fieldset>
 
-	{#if window.__TAURI_INTERNALS__ && settings.value['transformation.writeToCursorOnSuccess']}
-		<LabeledSwitch
-			id="transformation.simulateEnterAfterOutput"
-			label="Press Enter after pasting transformed text"
-			bind:checked={
-				() => settings.value['transformation.simulateEnterAfterOutput'],
-				(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
-			}
-		/>
-	{/if}
+		{#if window.__TAURI_INTERNALS__ && settings.value['transformation.writeToCursorOnSuccess']}
+			<LabeledSwitch
+				id="transformation.simulateEnterAfterOutput"
+				label="Press Enter after pasting transformed text"
+				bind:checked={
+					() => settings.value['transformation.simulateEnterAfterOutput'],
+					(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
+				}
+			/>
+		{/if}
+	</fieldset>
 
 	<Separator />
 
