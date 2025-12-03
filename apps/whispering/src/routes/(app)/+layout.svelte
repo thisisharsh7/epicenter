@@ -42,13 +42,9 @@
 	{#if settings.value['ui.layoutMode'] === 'sidebar'}
 		<VerticalNav />
 	{/if}
-	<Sidebar.Inset>
-		<!-- Trigger button for mobile (always visible - opens Sheet) -->
-		<div class="fixed left-2 top-2 z-40 md:hidden">
-			<Sidebar.Trigger />
-		</div>
+	<main class="flex flex-1 flex-col">
 		<AppLayout>
 			{@render children()}
 		</AppLayout>
-	</Sidebar.Inset>
+	</main>
 </Sidebar.Provider>
