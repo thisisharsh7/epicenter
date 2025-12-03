@@ -3,7 +3,11 @@
 	import * as Select from '@repo/ui/select';
 	import { Separator } from '@repo/ui/separator';
 	import { Switch } from '@repo/ui/switch';
-	import { ALWAYS_ON_TOP_MODE_OPTIONS } from '$lib/constants/ui';
+	import * as ToggleGroup from '@repo/ui/toggle-group';
+	import {
+		ALWAYS_ON_TOP_MODE_OPTIONS,
+		NAVIGATION_SURFACE_OPTIONS,
+	} from '$lib/constants/ui';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	const retentionItems = [
@@ -218,4 +222,28 @@
 			</Select.Root>
 		</Field.Field>
 	{/if}
+
+	<Field.Field>
+		<Field.Label>Visible Navigation</Field.Label>
+		<Field.Description>
+			Choose which navigation surfaces to display.
+		</Field.Description>
+		<ToggleGroup.Root
+			type="multiple"
+			bind:value={
+				() => settings.value['ui.visibleNavigation'],
+				(v) => {
+					if (v.length === 0) return;
+					settings.updateKey('ui.visibleNavigation', v);
+				}
+			}
+			class="w-full"
+		>
+			{#each NAVIGATION_SURFACE_OPTIONS as option}
+				<ToggleGroup.Item value={option.value} aria-label={option.label}>
+					{option.label}
+				</ToggleGroup.Item>
+			{/each}
+		</ToggleGroup.Root>
+	</Field.Field>
 </div>

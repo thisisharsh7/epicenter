@@ -39,7 +39,11 @@ import {
 import { CommandOrAlt, CommandOrControl } from '$lib/constants/keyboard';
 import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import type { WhisperingSoundNames } from '$lib/constants/sounds';
-import { ALWAYS_ON_TOP_MODES } from '$lib/constants/ui';
+import {
+	ALWAYS_ON_TOP_MODES,
+	NAVIGATION_SURFACES,
+	type NavigationSurface,
+} from '$lib/constants/ui';
 import {
 	FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 	FFMPEG_DEFAULT_GLOBAL_OPTIONS,
@@ -102,9 +106,15 @@ export const Settings = type({
 	'transformation.writeToCursorOnSuccess': 'boolean = false',
 	'transformation.simulateEnterAfterOutput': 'boolean = false',
 
-	'system.alwaysOnTop': type.enumerated(...ALWAYS_ON_TOP_MODES).default(
-		'Never' satisfies (typeof ALWAYS_ON_TOP_MODES)[number],
-	),
+	'system.alwaysOnTop': type
+		.enumerated(...ALWAYS_ON_TOP_MODES)
+		.default('Never' satisfies (typeof ALWAYS_ON_TOP_MODES)[number]),
+
+	// UI settings
+	'ui.visibleNavigation': type
+		.enumerated(...NAVIGATION_SURFACES)
+		.array()
+		.default(() => ['sidebar', 'topnav']),
 
 	'database.recordingRetentionStrategy': type
 		.enumerated('keep-forever', 'limit-count')
@@ -248,9 +258,9 @@ export const Settings = type({
 	'shortcuts.global.openTransformationPicker': type('string | null').default(
 		`${CommandOrControl}+Shift+X`,
 	),
-	'shortcuts.global.runTransformationOnClipboard': type('string | null').default(
-		`${CommandOrControl}+Shift+R`,
-	),
+	'shortcuts.global.runTransformationOnClipboard': type(
+		'string | null',
+	).default(`${CommandOrControl}+Shift+R`),
 });
 
 /**

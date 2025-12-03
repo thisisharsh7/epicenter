@@ -4,6 +4,7 @@
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { rpc } from '$lib/query';
 	import * as services from '$lib/services';
+	import { settings } from '$lib/stores/settings.svelte';
 	import * as Sidebar from '@repo/ui/sidebar';
 	import AppLayout from './_components/AppLayout.svelte';
 	import VerticalNav from './_components/VerticalNav.svelte';
@@ -37,15 +38,21 @@
 	});
 </script>
 
-<Sidebar.Provider>
-	<VerticalNav />
-	<Sidebar.Inset>
-		<!-- Trigger button for mobile (always visible - opens Sheet) -->
-		<div class="fixed left-2 top-2 z-40 md:hidden">
-			<Sidebar.Trigger />
-		</div>
-		<AppLayout>
-			{@render children()}
-		</AppLayout>
-	</Sidebar.Inset>
-</Sidebar.Provider>
+{#if settings.value['ui.visibleNavigation'].includes('sidebar')}
+	<Sidebar.Provider>
+		<VerticalNav />
+		<Sidebar.Inset>
+			<!-- Trigger button for mobile (always visible - opens Sheet) -->
+			<div class="fixed left-2 top-2 z-40 md:hidden">
+				<Sidebar.Trigger />
+			</div>
+			<AppLayout>
+				{@render children()}
+			</AppLayout>
+		</Sidebar.Inset>
+	</Sidebar.Provider>
+{:else}
+	<AppLayout>
+		{@render children()}
+	</AppLayout>
+{/if}
