@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { LabeledInput } from '$lib/components/labeled/index.js';
+	import * as Field from '@repo/ui/field';
+	import { Input } from '@repo/ui/input';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	type Props = {
@@ -11,39 +12,39 @@
 
 <div class="space-y-4">
 	{#if showBaseUrl}
-		<LabeledInput
-			id="custom-endpoint-base-url"
-			label="Custom API Base URL"
-			placeholder="e.g. http://localhost:11434/v1"
-			bind:value={
-				() => settings.value['completion.custom.baseUrl'],
-				(value) => settings.updateKey('completion.custom.baseUrl', value)
-			}
-		>
-			{#snippet description()}
-				<p class="text-muted-foreground text-sm">
-					Global default URL for OpenAI-compatible endpoints (Ollama, LM Studio,
-					llama.cpp, etc.). Can be overridden per-step in transformations.
-				</p>
-			{/snippet}
-		</LabeledInput>
+		<Field.Field>
+			<Field.Label for="custom-endpoint-base-url">Custom API Base URL</Field.Label>
+			<Input
+				id="custom-endpoint-base-url"
+				placeholder="e.g. http://localhost:11434/v1"
+				autocomplete="off"
+				bind:value={
+					() => settings.value['completion.custom.baseUrl'],
+					(value) => settings.updateKey('completion.custom.baseUrl', value)
+				}
+			/>
+			<Field.Description>
+				Global default URL for OpenAI-compatible endpoints (Ollama, LM Studio,
+				llama.cpp, etc.). Can be overridden per-step in transformations.
+			</Field.Description>
+		</Field.Field>
 	{/if}
 
-	<LabeledInput
-		id="custom-endpoint-api-key"
-		label="Custom API Key"
-		type="password"
-		placeholder="Leave empty if not required"
-		bind:value={
-			() => settings.value['apiKeys.custom'],
-			(value) => settings.updateKey('apiKeys.custom', value)
-		}
-	>
-		{#snippet description()}
-			<p class="text-muted-foreground text-sm">
-				Most local endpoints don't require authentication. Only enter a key if
-				your endpoint requires it.
-			</p>
-		{/snippet}
-	</LabeledInput>
+	<Field.Field>
+		<Field.Label for="custom-endpoint-api-key">Custom API Key</Field.Label>
+		<Input
+			id="custom-endpoint-api-key"
+			type="password"
+			placeholder="Leave empty if not required"
+			autocomplete="off"
+			bind:value={
+				() => settings.value['apiKeys.custom'],
+				(value) => settings.updateKey('apiKeys.custom', value)
+			}
+		/>
+		<Field.Description>
+			Most local endpoints don't require authentication. Only enter a key if
+			your endpoint requires it.
+		</Field.Description>
+	</Field.Field>
 </div>

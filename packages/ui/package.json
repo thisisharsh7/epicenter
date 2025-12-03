@@ -22,12 +22,12 @@
 		"@fontsource-variable/manrope": "^5.2.6",
 		"@lucide/svelte": "catalog:",
 		"@tanstack/svelte-table": "catalog:",
-		"bits-ui": "catalog:",
+		"bits-ui": "^2.11.0",
 		"clsx": "catalog:",
 		"paneforge": "^1.0.2",
 		"svelte-check": "catalog:",
 		"tailwind-merge": "catalog:",
-		"tailwind-variants": "catalog:"
+		"tailwind-variants": "^3.1.1"
 	},
 	"peerDependencies": {
 		"svelte": ">=5.0.0"

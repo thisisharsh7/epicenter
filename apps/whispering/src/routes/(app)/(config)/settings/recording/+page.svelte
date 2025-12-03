@@ -1,7 +1,8 @@
 <script lang="ts">
 	import DesktopOutputFolder from './DesktopOutputFolder.svelte';
 	import FfmpegCommandBuilder from './FfmpegCommandBuilder.svelte';
-	import { LabeledSelect } from '$lib/components/labeled/index.js';
+	import * as Field from '@repo/ui/field';
+	import * as Select from '@repo/ui/select';
 	import { Separator } from '@repo/ui/separator';
 	import * as Alert from '@repo/ui/alert';
 	import { Link } from '@repo/ui/link';
@@ -23,11 +24,30 @@
 
 	const { data } = $props();
 
+	// Derived labels for select triggers
+	const recordingModeLabel = $derived(
+		RECORDING_MODE_OPTIONS.find(
+			(o) => o.value === settings.value['recording.mode'],
+		)?.label,
+	);
+
 	const SAMPLE_RATE_OPTIONS = [
 		{ value: '16000', label: 'Voice Quality (16kHz): Optimized for speech' },
 		{ value: '44100', label: 'Standard Quality (44.1kHz): CD quality' },
 		{ value: '48000', label: 'High Quality (48kHz): Professional audio' },
-	] as const;
+	];
+
+	const sampleRateLabel = $derived(
+		SAMPLE_RATE_OPTIONS.find(
+			(o) => o.value === settings.value['recording.cpal.sampleRate'],
+		)?.label,
+	);
+
+	const bitrateLabel = $derived(
+		BITRATE_OPTIONS.find(
+			(o) => o.value === settings.value['recording.navigator.bitrateKbps'],
+		)?.label,
+	);
 
 	const RECORDING_METHOD_OPTIONS = [
 		{
@@ -57,6 +77,12 @@
 				: 'Web MediaRecorder API. Creates compressed files suitable for cloud transcription. Requires FFmpeg for local transcription (Whisper C++/Parakeet).',
 		},
 	];
+
+	const recordingMethodLabel = $derived(
+		RECORDING_METHOD_OPTIONS.find(
+			(o) => o.value === settings.value['recording.method'],
+		)?.label,
+	);
 
 	const isUsingNavigatorMethod = $derived(
 		!window.__TAURI_INTERNALS__ ||
@@ -88,47 +114,75 @@
 	</div>
 	<Separator />
 
-	<LabeledSelect
-		id="recording-mode"
-		label="Recording Mode"
-		items={RECORDING_MODE_OPTIONS}
-		bind:selected={
-			() => settings.value['recording.mode'],
-			(selected) => settings.updateKey('recording.mode', selected)
-		}
-		placeholder="Select a recording mode"
-		description={`Choose how you want to activate recording: ${RECORDING_MODE_OPTIONS.map(
-			(option) => option.label.toLowerCase(),
-		).join(', ')}`}
-	/>
+	<Field.Field>
+		<Field.Label for="recording-mode">Recording Mode</Field.Label>
+		<Select.Root
+			type="single"
+			items={RECORDING_MODE_OPTIONS}
+			bind:value={
+				() => settings.value['recording.mode'],
+				(selected) => {
+					if (selected) settings.updateKey('recording.mode', selected);
+				}
+			}
+		>
+			<Select.Trigger id="recording-mode" class="w-full">
+				{recordingModeLabel ?? 'Select a recording mode'}
+			</Select.Trigger>
+			<Select.Content>
+				{#each RECORDING_MODE_OPTIONS as item}
+					<Select.Item value={item.value} label={item.label} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+		<Field.Description>
+			Choose how you want to activate recording: {RECORDING_MODE_OPTIONS.map(
+				(option) => option.label.toLowerCase(),
+			).join(', ')}
+		</Field.Description>
+	</Field.Field>
 
 	{#if window.__TAURI_INTERNALS__ && settings.value['recording.mode'] === 'manual'}
-		<LabeledSelect
-			id="recording-method"
-			label="Recording Method"
-			items={RECORDING_METHOD_OPTIONS}
-			bind:selected={
-				() => settings.value['recording.method'],
-				(selected) =>
-					settings.updateKey(
-						'recording.method',
-						selected as 'cpal' | 'navigator' | 'ffmpeg',
-					)
-			}
-			placeholder="Select a recording method"
-			description={RECORDING_METHOD_OPTIONS.find(
-				(option) => option.value === settings.value['recording.method'],
-			)?.description}
-		>
-			{#snippet renderOption({ item })}
-				<div class="flex flex-col gap-0.5">
-					<div class="font-medium">{item.label}</div>
-					{#if item.description}
-						<div class="text-xs text-muted-foreground">{item.description}</div>
-					{/if}
-				</div>
-			{/snippet}
-		</LabeledSelect>
+		<Field.Field>
+			<Field.Label for="recording-method">Recording Method</Field.Label>
+			<Select.Root
+				type="single"
+				items={RECORDING_METHOD_OPTIONS}
+				bind:value={
+					() => settings.value['recording.method'],
+					(selected) => {
+						if (selected)
+							settings.updateKey(
+								'recording.method',
+								selected as 'cpal' | 'navigator' | 'ffmpeg',
+							);
+					}
+				}
+			>
+				<Select.Trigger id="recording-method" class="w-full">
+					{recordingMethodLabel ?? 'Select a recording method'}
+				</Select.Trigger>
+				<Select.Content>
+					{#each RECORDING_METHOD_OPTIONS as item}
+						<Select.Item value={item.value} label={item.label}>
+							<div class="flex flex-col gap-0.5">
+								<div class="font-medium">{item.label}</div>
+								{#if item.description}
+									<div class="text-xs text-muted-foreground">
+										{item.description}
+									</div>
+								{/if}
+							</div>
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Field.Description>
+				{RECORDING_METHOD_OPTIONS.find(
+					(option) => option.value === settings.value['recording.method'],
+				)?.description}
+			</Field.Description>
+		</Field.Field>
 
 		{#if IS_MACOS && settings.value['recording.method'] === 'navigator'}
 			<Alert.Root class="border-amber-500/20 bg-amber-500/5">
@@ -272,21 +326,36 @@
 	{#if settings.value['recording.mode'] === 'manual' || settings.value['recording.mode'] === 'vad'}
 		{#if isUsingNavigatorMethod}
 			<!-- Browser method settings -->
-			<LabeledSelect
-				id="bit-rate"
-				label="Bitrate"
-				items={BITRATE_OPTIONS.map((option) => ({
-					value: option.value,
-					label: option.label,
-				}))}
-				bind:selected={
-					() => settings.value['recording.navigator.bitrateKbps'],
-					(selected) =>
-						settings.updateKey('recording.navigator.bitrateKbps', selected)
-				}
-				placeholder="Select a bitrate"
-				description="The bitrate of the recording. Higher values mean better quality but larger file sizes."
-			/>
+			<Field.Field>
+				<Field.Label for="bit-rate">Bitrate</Field.Label>
+				<Select.Root
+					type="single"
+					items={BITRATE_OPTIONS.map((option) => ({
+						value: option.value,
+						label: option.label,
+					}))}
+					bind:value={
+						() => settings.value['recording.navigator.bitrateKbps'],
+						(selected) => {
+							if (selected)
+								settings.updateKey('recording.navigator.bitrateKbps', selected);
+						}
+					}
+				>
+					<Select.Trigger id="bit-rate" class="w-full">
+						{bitrateLabel ?? 'Select a bitrate'}
+					</Select.Trigger>
+					<Select.Content>
+						{#each BITRATE_OPTIONS as item}
+							<Select.Item value={item.value} label={item.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Field.Description>
+					The bitrate of the recording. Higher values mean better quality but
+					larger file sizes.
+				</Field.Description>
+			</Field.Field>
 		{:else if isUsingFfmpegMethod}
 			<!-- FFmpeg method settings -->
 			<div class="space-y-2">
@@ -316,18 +385,32 @@
 			/>
 		{:else}
 			<!-- CPAL method settings -->
-			<LabeledSelect
-				id="sample-rate"
-				label="Sample Rate"
-				items={SAMPLE_RATE_OPTIONS}
-				bind:selected={
-					() => settings.value['recording.cpal.sampleRate'],
-					(selected) =>
-						settings.updateKey('recording.cpal.sampleRate', selected)
-				}
-				placeholder="Select sample rate"
-				description="Higher sample rates provide better quality but create larger files"
-			/>
+			<Field.Field>
+				<Field.Label for="sample-rate">Sample Rate</Field.Label>
+				<Select.Root
+					type="single"
+					items={SAMPLE_RATE_OPTIONS}
+					bind:value={
+						() => settings.value['recording.cpal.sampleRate'],
+						(selected) => {
+							if (selected)
+								settings.updateKey('recording.cpal.sampleRate', selected);
+						}
+					}
+				>
+					<Select.Trigger id="sample-rate" class="w-full">
+						{sampleRateLabel ?? 'Select sample rate'}
+					</Select.Trigger>
+					<Select.Content>
+						{#each SAMPLE_RATE_OPTIONS as item}
+							<Select.Item value={item.value} label={item.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Field.Description>
+					Higher sample rates provide better quality but create larger files
+				</Field.Description>
+			</Field.Field>
 
 			<div class="space-y-2">
 				<label for="output-folder" class="text-sm font-medium">
