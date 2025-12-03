@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { Button, buttonVariants } from '@repo/ui/button';
-	import { Link } from '@repo/ui/link';
-	import * as Card from '@repo/ui/card';
-	import * as Alert from '@repo/ui/alert';
-	import * as Tabs from '@repo/ui/tabs';
-	import { Snippet } from '@repo/ui/snippet';
-	import { Badge } from '@repo/ui/badge';
+	import { Button, buttonVariants } from '@epicenter/ui/button';
+	import { Link } from '@epicenter/ui/link';
+	import * as Card from '@epicenter/ui/card';
+	import * as Alert from '@epicenter/ui/alert';
+	import * as Tabs from '@epicenter/ui/tabs';
+	import { Snippet } from '@epicenter/ui/snippet';
+	import { Badge } from '@epicenter/ui/badge';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
 	import XCircleIcon from '@lucide/svelte/icons/x-circle';

@@ -11,7 +11,7 @@
 		"check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@repo/config": "workspace:*",
+		"@epicenter/config": "workspace:*",
 		"@cloudflare/workers-types": "^4.20250803.0",
 		"typescript": "catalog:",
 		"wrangler": "catalog:"

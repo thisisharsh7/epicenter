@@ -1,12 +1,15 @@
 <script lang="ts">
-	import * as Alert from '@repo/ui/alert';
-	import { Badge } from '@repo/ui/badge';
-	import { Button } from '@repo/ui/button';
-	import { Input } from '@repo/ui/input';
-	import * as Popover from '@repo/ui/popover';
-	import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
+	import * as Alert from '@epicenter/ui/alert';
+	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
+	import { Input } from '@epicenter/ui/input';
+	import * as Popover from '@epicenter/ui/popover';
+	import {
+		getShortcutDisplayLabel,
+		type KeyboardEventSupportedKey,
+	} from '$lib/constants/keyboard';
 	import { IS_MACOS } from '$lib/constants/platform';
-	import { cn } from '@repo/ui/utils';
+	import { cn } from '@epicenter/ui/utils';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import Keyboard from '@lucide/svelte/icons/keyboard';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -39,7 +42,7 @@
 <div class="flex items-center justify-end gap-2">
 	{#if rawKeyCombination}
 		<Badge variant="secondary" class="font-mono text-xs">
-			{rawKeyCombination}
+			{getShortcutDisplayLabel(rawKeyCombination)}
 		</Badge>
 		<Button
 			variant="ghost"
@@ -135,7 +138,7 @@
 							>
 								{#if rawKeyCombination && !keyRecorder.isListening}
 									<Badge variant="secondary" class="font-mono text-xs">
-										{rawKeyCombination ?? ''}
+										{getShortcutDisplayLabel(rawKeyCombination)}
 									</Badge>
 								{:else if !keyRecorder.isListening}
 									<span class="truncate text-muted-foreground"

@@ -17,6 +17,7 @@
 		type RecordingMode,
 		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
+	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
 	import * as services from '$lib/services';
 	import type { Recording } from '$lib/services/db';
@@ -29,8 +30,8 @@
 		ACCEPT_VIDEO,
 		FileDropZone,
 		MEGABYTE,
-	} from '@repo/ui/file-drop-zone';
-	import * as ToggleGroup from '@repo/ui/toggle-group';
+	} from '@epicenter/ui/file-drop-zone';
+	import * as ToggleGroup from '@epicenter/ui/toggle-group';
 	import { createQuery } from '@tanstack/svelte-query';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { onDestroy, onMount } from 'svelte';
@@ -372,7 +373,7 @@
 					<kbd
 						class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
 					>
-						{settings.value['shortcuts.local.toggleManualRecording']}
+						{getShortcutDisplayLabel(settings.value['shortcuts.local.toggleManualRecording'])}
 					</kbd>
 				</WhisperingButton>{' '}
 				to start recording here.

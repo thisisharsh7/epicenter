@@ -1,7 +1,7 @@
 <script lang="ts">
-	import * as Field from '@repo/ui/field';
-	import { Separator } from '@repo/ui/separator';
-	import { Switch } from '@repo/ui/switch';
+	import * as Field from '@epicenter/ui/field';
+	import { Separator } from '@epicenter/ui/separator';
+	import { Switch } from '@epicenter/ui/switch';
 	import { settings } from '$lib/stores/settings.svelte';
 </script>
 

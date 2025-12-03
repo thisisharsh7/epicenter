@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as Dialog from '@repo/ui/dialog';
-	// import { extension } from '@repo/extension';
+	import * as Dialog from '@epicenter/ui/dialog';
+	// import { extension } from '@epicenter/extension';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';

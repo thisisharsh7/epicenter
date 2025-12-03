@@ -1243,8 +1243,8 @@
 </script>
 
 <script lang="ts">
-	import { Button } from '@repo/ui/button';
-	import * as Dialog from '@repo/ui/dialog';
+	import { Button } from '@epicenter/ui/button';
+	import * as Dialog from '@epicenter/ui/dialog';
 	import type { Snippet } from 'svelte';
 
 	type TriggerProps = {

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import DesktopOutputFolder from './DesktopOutputFolder.svelte';
 	import FfmpegCommandBuilder from './FfmpegCommandBuilder.svelte';
-	import * as Field from '@repo/ui/field';
-	import * as Select from '@repo/ui/select';
-	import { Separator } from '@repo/ui/separator';
-	import * as Alert from '@repo/ui/alert';
-	import { Link } from '@repo/ui/link';
+	import * as Field from '@epicenter/ui/field';
+	import * as Select from '@epicenter/ui/select';
+	import { Separator } from '@epicenter/ui/separator';
+	import * as Alert from '@epicenter/ui/alert';
+	import { Link } from '@epicenter/ui/link';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import {
 		BITRATE_OPTIONS,
@@ -21,7 +21,7 @@
 		hasNavigatorLocalTranscriptionIssue,
 	} from '$routes/(app)/_layout-utils/check-ffmpeg';
 	import { IS_MACOS, IS_LINUX, PLATFORM_TYPE } from '$lib/constants/platform';
-	import { Button } from '@repo/ui/button';
+	import { Button } from '@epicenter/ui/button';
 
 	const { data } = $props();
 

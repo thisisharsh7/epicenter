@@ -5,10 +5,10 @@
 	import TransformationPickerBody from '$lib/components/TransformationPickerBody.svelte';
 	import { rpc } from '$lib/query';
 	import * as transformClipboardWindow from './transformClipboardWindow.tauri';
-	import { Textarea } from '@repo/ui/textarea';
-	import * as Popover from '@repo/ui/popover';
-	import { useCombobox } from '@repo/ui/hooks';
-	import { Button } from '@repo/ui/button';
+	import { Textarea } from '@epicenter/ui/textarea';
+	import * as Popover from '@epicenter/ui/popover';
+	import { useCombobox } from '@epicenter/ui/hooks';
+	import { Button } from '@epicenter/ui/button';
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { nanoid } from 'nanoid/non-secure';

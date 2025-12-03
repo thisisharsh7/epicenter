@@ -1,4 +1,4 @@
-import { defineAdapter } from '@repo/vault-core';
+import { defineAdapter } from '@epicenter/vault-core';
 import type { RedditAdapterConfig } from './config';
 import drizzleConfig from './drizzle.config';
 import { metadata } from './metadata';

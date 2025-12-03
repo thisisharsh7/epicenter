@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Badge } from '@repo/ui/badge';
-	import * as Command from '@repo/ui/command';
-	import { Kbd } from '@repo/ui/kbd';
+	import { Badge } from '@epicenter/ui/badge';
+	import * as Command from '@epicenter/ui/command';
+	import { Kbd } from '@epicenter/ui/kbd';
 	import { rpc } from '$lib/query';
 	import type { Transformation } from '$lib/services/db';
 	import { createQuery } from '@tanstack/svelte-query';

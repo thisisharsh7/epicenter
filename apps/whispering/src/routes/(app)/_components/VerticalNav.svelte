@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as Sidebar from '@repo/ui/sidebar';
+	import * as Sidebar from '@epicenter/ui/sidebar';
 	import HomeIcon from '@lucide/svelte/icons/house';
 	import ListIcon from '@lucide/svelte/icons/list';
 	import LayersIcon from '@lucide/svelte/icons/layers';
@@ -17,7 +17,7 @@
 	import MigrationDialog, {
 		migrationDialog,
 	} from '$lib/components/MigrationDialog.svelte';
-	import { useSidebar } from '@repo/ui/sidebar';
+	import { useSidebar } from '@epicenter/ui/sidebar';
 
 	const shouldShowMigrationButton = $derived(
 		window.__TAURI_INTERNALS__ &&

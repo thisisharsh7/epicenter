@@ -75,7 +75,7 @@ import type { Provider } from '../../core/provider';
  * 5. Click to inspect the stored YJS document
  * ```
  *
- * @see {@link setupPersistence} from `@repo/epicenter/persistence/desktop` for Node.js/filesystem version
+ * @see {@link setupPersistence} from `@epicenter/hq/persistence/desktop` for Node.js/filesystem version
  */
 export const setupPersistence = (({ ydoc }) => {
 	// y-indexeddb handles both loading and saving automatically

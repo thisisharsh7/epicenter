@@ -1,9 +1,9 @@
 <script lang="ts">
-	import * as Field from '@repo/ui/field';
-	import { Textarea } from '@repo/ui/textarea';
-	import { Button } from '@repo/ui/button';
-	import * as SectionHeader from '@repo/ui/section-header';
-	import { Separator } from '@repo/ui/separator';
+	import * as Field from '@epicenter/ui/field';
+	import { Textarea } from '@epicenter/ui/textarea';
+	import { Button } from '@epicenter/ui/button';
+	import * as SectionHeader from '@epicenter/ui/section-header';
+	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
 	import type { Transformation } from '$lib/services/db';
 	import { createMutation } from '@tanstack/svelte-query';

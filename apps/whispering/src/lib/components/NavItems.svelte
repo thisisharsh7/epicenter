@@ -5,8 +5,8 @@
 		migrationDialog,
 	} from '$lib/components/MigrationDialog.svelte';
 	import { GithubIcon } from '$lib/components/icons';
-	import * as DropdownMenu from '@repo/ui/dropdown-menu';
-	import { cn } from '@repo/ui/utils';
+	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
+	import { cn } from '@epicenter/ui/utils';
 	import { LogicalSize, getCurrentWindow } from '@tauri-apps/api/window';
 	import Database from '@lucide/svelte/icons/database';
 	import LayersIcon from '@lucide/svelte/icons/layers';

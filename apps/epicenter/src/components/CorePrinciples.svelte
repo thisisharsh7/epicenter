@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as Card from '@repo/ui/card';
-	import { cn } from '@repo/ui/utils';
+	import * as Card from '@epicenter/ui/card';
+	import { cn } from '@epicenter/ui/utils';
 
 	type Principle = {
 		title: string;

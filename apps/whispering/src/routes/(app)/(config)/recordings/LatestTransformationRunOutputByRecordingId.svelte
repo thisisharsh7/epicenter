@@ -1,6 +1,6 @@
 <script lang="ts">
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
-	import { Skeleton } from '@repo/ui/skeleton';
+	import { Skeleton } from '@epicenter/ui/skeleton';
 	import { rpc } from '$lib/query';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
 	import { createQuery } from '@tanstack/svelte-query';

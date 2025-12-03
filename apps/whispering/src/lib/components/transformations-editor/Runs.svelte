@@ -9,11 +9,11 @@
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { Badge } from '@repo/ui/badge';
-	import { Button } from '@repo/ui/button';
-	import * as Card from '@repo/ui/card';
-	import { Label } from '@repo/ui/label';
-	import * as Table from '@repo/ui/table';
+	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
+	import * as Card from '@epicenter/ui/card';
+	import { Label } from '@epicenter/ui/label';
+	import * as Table from '@epicenter/ui/table';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { format } from 'date-fns';
 

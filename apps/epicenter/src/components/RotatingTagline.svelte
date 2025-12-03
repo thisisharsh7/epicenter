@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from '@repo/ui/utils';
+	import { cn } from '@epicenter/ui/utils';
 	import { fly, blur } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 

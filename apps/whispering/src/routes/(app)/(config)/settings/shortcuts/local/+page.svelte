@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button } from '@repo/ui/button';
-	import { Separator } from '@repo/ui/separator';
+	import { Button } from '@epicenter/ui/button';
+	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import ShortcutFormatHelp from '../keyboard-shortcut-recorder/ShortcutFormatHelp.svelte';
