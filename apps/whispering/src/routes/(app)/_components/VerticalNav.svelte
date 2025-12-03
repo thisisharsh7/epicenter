@@ -14,6 +14,9 @@
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { notificationLog } from '$lib/components/NotificationLog.svelte';
 	import { useSidebar } from '@repo/ui/sidebar';
+	import CompressionSelector from '$lib/components/settings/selectors/CompressionSelector.svelte';
+	import TranscriptionSelector from '$lib/components/settings/selectors/TranscriptionSelector.svelte';
+	import TransformationSelector from '$lib/components/settings/selectors/TransformationSelector.svelte';
 
 	const sidebar = useSidebar();
 
@@ -88,6 +91,24 @@
 							</Sidebar.MenuButton>
 						</Sidebar.MenuItem>
 					{/each}
+				</Sidebar.Menu>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<!-- Quick Settings Group -->
+		<Sidebar.Group>
+			<Sidebar.GroupLabel>Quick Settings</Sidebar.GroupLabel>
+			<Sidebar.GroupContent>
+				<Sidebar.Menu>
+					<Sidebar.MenuItem>
+						<CompressionSelector />
+					</Sidebar.MenuItem>
+					<Sidebar.MenuItem>
+						<TranscriptionSelector />
+					</Sidebar.MenuItem>
+					<Sidebar.MenuItem>
+						<TransformationSelector />
+					</Sidebar.MenuItem>
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
