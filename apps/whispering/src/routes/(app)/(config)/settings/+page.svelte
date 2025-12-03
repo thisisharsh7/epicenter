@@ -1,8 +1,8 @@
 <script lang="ts">
-	import * as Field from '@repo/ui/field';
-	import * as Select from '@repo/ui/select';
-	import { Separator } from '@repo/ui/separator';
-	import { Switch } from '@repo/ui/switch';
+	import * as Field from '@epicenter/ui/field';
+	import * as Select from '@epicenter/ui/select';
+	import { Separator } from '@epicenter/ui/separator';
+	import { Switch } from '@epicenter/ui/switch';
 	import { ALWAYS_ON_TOP_MODE_OPTIONS } from '$lib/constants/ui';
 	import { settings } from '$lib/stores/settings.svelte';
 

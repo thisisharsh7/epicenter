@@ -1,8 +1,8 @@
 <script lang="ts">
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { Runs } from '$lib/components/transformations-editor';
-	import { Button } from '@repo/ui/button';
-	import * as Dialog from '@repo/ui/dialog';
+	import { Button } from '@epicenter/ui/button';
+	import * as Dialog from '@epicenter/ui/dialog';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
 	import HistoryIcon from '@lucide/svelte/icons/history';

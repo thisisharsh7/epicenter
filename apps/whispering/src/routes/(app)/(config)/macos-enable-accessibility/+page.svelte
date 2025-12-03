@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button } from '@repo/ui/button';
-	import { Badge } from '@repo/ui/badge';
-	import * as Card from '@repo/ui/card';
+	import { Button } from '@epicenter/ui/button';
+	import { Badge } from '@epicenter/ui/badge';
+	import * as Card from '@epicenter/ui/card';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';

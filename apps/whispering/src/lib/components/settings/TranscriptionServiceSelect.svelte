@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Label } from '@repo/ui/label';
-	import * as Select from '@repo/ui/select';
-	import { Badge } from '@repo/ui/badge';
-	import { cn } from '@repo/ui/utils';
+	import { Label } from '@epicenter/ui/label';
+	import * as Select from '@epicenter/ui/select';
+	import { Badge } from '@epicenter/ui/badge';
+	import { cn } from '@epicenter/ui/utils';
 	import type { Snippet } from 'svelte';
 	import {
 		TRANSCRIPTION_SERVICES,

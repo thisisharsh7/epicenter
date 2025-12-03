@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { ClipboardIcon } from '$lib/components/icons';
 	import { rpc } from '$lib/query';
-	import { Button } from '@repo/ui/button';
-	import * as Card from '@repo/ui/card';
-	import * as Dialog from '@repo/ui/dialog';
-	import { Textarea } from '@repo/ui/textarea';
+	import { Button } from '@epicenter/ui/button';
+	import * as Card from '@epicenter/ui/card';
+	import * as Dialog from '@epicenter/ui/dialog';
+	import { Textarea } from '@epicenter/ui/textarea';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { mergeProps } from 'bits-ui';
 	import WhisperingTooltip from '../WhisperingTooltip.svelte';

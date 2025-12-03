@@ -10,7 +10,7 @@
 		OpenRouterApiKeyInput,
 		CustomEndpointInput,
 	} from '$lib/components/settings';
-	import { Separator } from '@repo/ui/separator';
+	import { Separator } from '@epicenter/ui/separator';
 </script>
 
 <svelte:head>

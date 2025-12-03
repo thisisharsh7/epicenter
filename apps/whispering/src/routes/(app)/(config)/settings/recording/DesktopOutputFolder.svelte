@@ -6,7 +6,7 @@
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import { Input } from '@repo/ui/input';
+	import { Input } from '@epicenter/ui/input';
 	import { Ok, tryAsync } from 'wellcrafted/result';
 
 	// Top-level await to get the default app data directory

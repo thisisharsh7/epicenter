@@ -1,7 +1,7 @@
 <script lang="ts">
-	import * as Field from '@repo/ui/field';
-	import * as Select from '@repo/ui/select';
-	import { Input } from '@repo/ui/input';
+	import * as Field from '@epicenter/ui/field';
+	import * as Select from '@epicenter/ui/select';
+	import { Input } from '@epicenter/ui/input';
 	import { SAMPLE_RATE_OPTIONS } from '$lib/constants/audio';
 	import { PLATFORM_TYPE } from '$lib/constants/platform';
 	import { settings } from '$lib/stores/settings.svelte';

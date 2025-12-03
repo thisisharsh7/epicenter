@@ -1,5 +1,6 @@
 {
-	"name": "@repo/whispering",
+	"name": "@epicenter/whispering",
+	"private": true,
 	"version": "7.8.0",
 	"description": "",
 	"exports": {
@@ -20,8 +21,8 @@
 	"license": "AGPL-3.0",
 	"devDependencies": {
 		"@lucide/svelte": "catalog:",
-		"@repo/config": "workspace:*",
-		"@repo/ui": "workspace:*",
+		"@epicenter/config": "workspace:*",
+		"@epicenter/ui": "workspace:*",
 		"@sveltejs/adapter-static": "^3.0.8",
 		"@sveltejs/kit": "catalog:",
 		"@sveltejs/vite-plugin-svelte": "catalog:",
@@ -46,9 +47,9 @@
 		"@epicenter/hq": "workspace:*",
 		"@google/generative-ai": "^0.24.1",
 		"@mistralai/mistralai": "^1.9.18",
-		"@repo/constants": "workspace:*",
-		"@repo/shared": "workspace:*",
-		"@repo/svelte-utils": "workspace:*",
+		"@epicenter/constants": "workspace:*",
+		"@epicenter/shared": "workspace:*",
+		"@epicenter/svelte-utils": "workspace:*",
 		"@ricky0123/vad-web": "^0.0.24",
 		"@standard-schema/spec": "^1.0.0",
 		"@tanstack/svelte-query": "^6.0.0",
