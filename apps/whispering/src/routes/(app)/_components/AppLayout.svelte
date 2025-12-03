@@ -107,7 +107,7 @@
 	</span>
 </button>
 
-<div class="hidden flex-col items-center gap-2 xxs:flex min-w-0">
+<div class="hidden flex-1 flex-col items-center gap-2 xxs:flex min-w-0 w-full">
 	{@render children()}
 </div>
 
@@ -116,10 +116,3 @@
 <NotificationLog />
 <UpdateDialog />
 
-<style>
-	:global(body) {
-		min-height: 100vh;
-		display: grid;
-		grid-template-rows: 1fr auto;
-	}
-</style>

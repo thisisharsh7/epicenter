@@ -21,11 +21,9 @@
 	let {
 		class: className,
 		collapsed = false,
-		pathPrefix = '',
 	}: {
 		class?: string;
 		collapsed?: boolean;
-		pathPrefix?: string;
 	} = $props();
 
 	const shouldShowMigrationButton = $derived(
@@ -38,20 +36,20 @@
 			label: 'Recordings',
 			icon: ListIcon,
 			type: 'anchor',
-			href: `${pathPrefix}/recordings`,
+			href: '/recordings',
 		},
 		{
 			label: 'Transformations',
 			icon: LayersIcon,
 			type: 'anchor',
-			href: `${pathPrefix}/transformations`,
+			href: '/transformations',
 		},
 		{
 			label: 'Settings',
 			icon: SettingsIcon,
 			type: 'anchor',
-			href: `${pathPrefix}/settings`,
-			activePathPrefix: `${pathPrefix}/settings`,
+			href: '/settings',
+			activePathPrefix: '/settings',
 		},
 		{
 			label: 'View project on GitHub',
