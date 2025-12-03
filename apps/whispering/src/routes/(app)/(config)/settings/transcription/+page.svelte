@@ -2,11 +2,6 @@
 	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
 	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
 	import {
-		LabeledInput,
-		LabeledSelect,
-		LabeledTextarea,
-	} from '$lib/components/labeled/index.js';
-	import {
 		CompressionBody,
 		DeepgramApiKeyInput,
 		ElevenLabsApiKeyInput,
@@ -25,14 +20,19 @@
 	import { PARAKEET_MODELS } from '$lib/services/transcription/local/parakeet';
 	import { WHISPER_MODELS } from '$lib/services/transcription/local/whispercpp';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { CheckIcon, InfoIcon } from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Alert from '@repo/ui/alert';
 	import { Badge } from '@repo/ui/badge';
 	import { Button } from '@repo/ui/button';
 	import * as Card from '@repo/ui/card';
+	import * as Field from '@repo/ui/field';
+	import { Input } from '@repo/ui/input';
 	import { Link } from '@repo/ui/link';
+	import * as Select from '@repo/ui/select';
 	import { Separator } from '@repo/ui/separator';
-	import { hasNavigatorLocalTranscriptionIssue } from '../../../_layout-utils/check-ffmpeg';
+	import { Textarea } from '@repo/ui/textarea';
+	import { hasNavigatorLocalTranscriptionIssue } from '$routes/(app)/_layout-utils/check-ffmpeg';
 
 	const { data } = $props();
 
@@ -47,6 +47,74 @@
 	// Parakeet doesn't support language selection (auto-detect only)
 	const isLanguageSelectionSupported = $derived(
 		settings.value['transcription.selectedTranscriptionService'] !== 'parakeet',
+	);
+
+	// Model options arrays
+	const openaiModelItems = OPENAI_TRANSCRIPTION_MODELS.map((model) => ({
+		value: model.name,
+		label: model.name,
+		...model,
+	}));
+
+	const groqModelItems = GROQ_MODELS.map((model) => ({
+		value: model.name,
+		label: model.name,
+		...model,
+	}));
+
+	const deepgramModelItems = DEEPGRAM_TRANSCRIPTION_MODELS.map((model) => ({
+		value: model.name,
+		label: model.name,
+		...model,
+	}));
+
+	const mistralModelItems = MISTRAL_TRANSCRIPTION_MODELS.map((model) => ({
+		value: model.name,
+		label: model.name,
+		...model,
+	}));
+
+	const elevenlabsModelItems = ELEVENLABS_TRANSCRIPTION_MODELS.map((model) => ({
+		value: model.name,
+		label: model.name,
+		...model,
+	}));
+
+	// Selected labels for select triggers
+	const openaiModelLabel = $derived(
+		openaiModelItems.find(
+			(i) => i.value === settings.value['transcription.openai.model'],
+		)?.label,
+	);
+
+	const groqModelLabel = $derived(
+		groqModelItems.find(
+			(i) => i.value === settings.value['transcription.groq.model'],
+		)?.label,
+	);
+
+	const deepgramModelLabel = $derived(
+		deepgramModelItems.find(
+			(i) => i.value === settings.value['transcription.deepgram.model'],
+		)?.label,
+	);
+
+	const mistralModelLabel = $derived(
+		mistralModelItems.find(
+			(i) => i.value === settings.value['transcription.mistral.model'],
+		)?.label,
+	);
+
+	const elevenlabsModelLabel = $derived(
+		elevenlabsModelItems.find(
+			(i) => i.value === settings.value['transcription.elevenlabs.model'],
+		)?.label,
+	);
+
+	const outputLanguageLabel = $derived(
+		SUPPORTED_LANGUAGES_OPTIONS.find(
+			(i) => i.value === settings.value['transcription.outputLanguage'],
+		)?.label,
 	);
 </script>
 
@@ -77,21 +145,27 @@
 	/>
 
 	{#if settings.value['transcription.selectedTranscriptionService'] === 'OpenAI'}
-		<LabeledSelect
-			id="openai-model"
-			label="OpenAI Model"
-			items={OPENAI_TRANSCRIPTION_MODELS.map((model) => ({
-				value: model.name,
-				label: model.name,
-				...model,
-			}))}
-			bind:selected={
-				() => settings.value['transcription.openai.model'],
-				(selected) => settings.updateKey('transcription.openai.model', selected)
-			}
-			renderOption={renderModelOption}
-		>
-			{#snippet description()}
+		<Field.Field>
+			<Field.Label for="openai-model">OpenAI Model</Field.Label>
+			<Select.Root
+				type="single"
+				bind:value={
+					() => settings.value['transcription.openai.model'],
+					(v) => settings.updateKey('transcription.openai.model', v)
+				}
+			>
+				<Select.Trigger id="openai-model" class="w-full">
+					{openaiModelLabel ?? 'Select a model'}
+				</Select.Trigger>
+				<Select.Content>
+					{#each openaiModelItems as item}
+						<Select.Item value={item.value} label={item.label}>
+							{@render renderModelOption({ item })}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Field.Description>
 				You can find more details about the models in the <Link
 					href="https://platform.openai.com/docs/guides/speech-to-text"
 					target="_blank"
@@ -99,25 +173,31 @@
 				>
 					OpenAI docs
 				</Link>.
-			{/snippet}
-		</LabeledSelect>
+			</Field.Description>
+		</Field.Field>
 		<OpenAiApiKeyInput />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'Groq'}
-		<LabeledSelect
-			id="groq-model"
-			label="Groq Model"
-			items={GROQ_MODELS.map((model) => ({
-				value: model.name,
-				label: model.name,
-				...model,
-			}))}
-			bind:selected={
-				() => settings.value['transcription.groq.model'],
-				(selected) => settings.updateKey('transcription.groq.model', selected)
-			}
-			renderOption={renderModelOption}
-		>
-			{#snippet description()}
+		<Field.Field>
+			<Field.Label for="groq-model">Groq Model</Field.Label>
+			<Select.Root
+				type="single"
+				bind:value={
+					() => settings.value['transcription.groq.model'],
+					(v) => settings.updateKey('transcription.groq.model', v)
+				}
+			>
+				<Select.Trigger id="groq-model" class="w-full">
+					{groqModelLabel ?? 'Select a model'}
+				</Select.Trigger>
+				<Select.Content>
+					{#each groqModelItems as item}
+						<Select.Item value={item.value} label={item.label}>
+							{@render renderModelOption({ item })}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Field.Description>
 				You can find more details about the models in the <Link
 					href="https://console.groq.com/docs/speech-to-text"
 					target="_blank"
@@ -125,43 +205,54 @@
 				>
 					Groq docs
 				</Link>.
-			{/snippet}
-		</LabeledSelect>
+			</Field.Description>
+		</Field.Field>
 		<GroqApiKeyInput />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'Deepgram'}
-		<LabeledSelect
-			id="deepgram-model"
-			label="Deepgram Model"
-			items={DEEPGRAM_TRANSCRIPTION_MODELS.map((model) => ({
-				value: model.name,
-				label: model.name,
-				...model,
-			}))}
-			bind:selected={
-				() => settings.value['transcription.deepgram.model'],
-				(selected) =>
-					settings.updateKey('transcription.deepgram.model', selected)
-			}
-			renderOption={renderModelOption}
-		/>
+		<Field.Field>
+			<Field.Label for="deepgram-model">Deepgram Model</Field.Label>
+			<Select.Root
+				type="single"
+				bind:value={
+					() => settings.value['transcription.deepgram.model'],
+					(v) => settings.updateKey('transcription.deepgram.model', v)
+				}
+			>
+				<Select.Trigger id="deepgram-model" class="w-full">
+					{deepgramModelLabel ?? 'Select a model'}
+				</Select.Trigger>
+				<Select.Content>
+					{#each deepgramModelItems as item}
+						<Select.Item value={item.value} label={item.label}>
+							{@render renderModelOption({ item })}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+		</Field.Field>
 		<DeepgramApiKeyInput />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'Mistral'}
-		<LabeledSelect
-			id="mistral-model"
-			label="Mistral Model"
-			items={MISTRAL_TRANSCRIPTION_MODELS.map((model) => ({
-				value: model.name,
-				label: model.name,
-				...model,
-			}))}
-			bind:selected={
-				() => settings.value['transcription.mistral.model'],
-				(selected) =>
-					settings.updateKey('transcription.mistral.model', selected)
-			}
-			renderOption={renderModelOption}
-		>
-			{#snippet description()}
+		<Field.Field>
+			<Field.Label for="mistral-model">Mistral Model</Field.Label>
+			<Select.Root
+				type="single"
+				bind:value={
+					() => settings.value['transcription.mistral.model'],
+					(v) => settings.updateKey('transcription.mistral.model', v)
+				}
+			>
+				<Select.Trigger id="mistral-model" class="w-full">
+					{mistralModelLabel ?? 'Select a model'}
+				</Select.Trigger>
+				<Select.Content>
+					{#each mistralModelItems as item}
+						<Select.Item value={item.value} label={item.label}>
+							{@render renderModelOption({ item })}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Field.Description>
 				You can find more details about Voxtral speech understanding in the <Button
 					variant="link"
 					class="px-0.3 py-0.2 h-fit"
@@ -171,26 +262,31 @@
 				>
 					Mistral docs
 				</Button>.
-			{/snippet}
-		</LabeledSelect>
+			</Field.Description>
+		</Field.Field>
 		<MistralApiKeyInput />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'ElevenLabs'}
-		<LabeledSelect
-			id="elevenlabs-model"
-			label="ElevenLabs Model"
-			items={ELEVENLABS_TRANSCRIPTION_MODELS.map((model) => ({
-				value: model.name,
-				label: model.name,
-				...model,
-			}))}
-			bind:selected={
-				() => settings.value['transcription.elevenlabs.model'],
-				(selected) =>
-					settings.updateKey('transcription.elevenlabs.model', selected)
-			}
-			renderOption={renderModelOption}
-		>
-			{#snippet description()}
+		<Field.Field>
+			<Field.Label for="elevenlabs-model">ElevenLabs Model</Field.Label>
+			<Select.Root
+				type="single"
+				bind:value={
+					() => settings.value['transcription.elevenlabs.model'],
+					(v) => settings.updateKey('transcription.elevenlabs.model', v)
+				}
+			>
+				<Select.Trigger id="elevenlabs-model" class="w-full">
+					{elevenlabsModelLabel ?? 'Select a model'}
+				</Select.Trigger>
+				<Select.Content>
+					{#each elevenlabsModelItems as item}
+						<Select.Item value={item.value} label={item.label}>
+							{@render renderModelOption({ item })}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Field.Description>
 				You can find more details about the models in the <Link
 					href="https://elevenlabs.io/docs/capabilities/speech-to-text"
 					target="_blank"
@@ -198,8 +294,8 @@
 				>
 					ElevenLabs docs
 				</Link>.
-			{/snippet}
-		</LabeledSelect>
+			</Field.Description>
+		</Field.Field>
 		<ElevenLabsApiKeyInput />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'speaches'}
 		<div class="space-y-4">
@@ -294,8 +390,8 @@
 
 						<div>
 							<p class="text-sm font-medium">
-								<span class="text-muted-foreground">Step 4:</span> Configure the
-								settings below
+								<span class="text-muted-foreground">Step 4:</span> Configure the settings
+								below
 							</p>
 							<ul class="ml-6 mt-2 space-y-1 text-sm text-muted-foreground">
 								<li class="list-disc">Enter your Speaches server URL</li>
@@ -307,65 +403,65 @@
 			</Card.Root>
 		</div>
 
-		<LabeledInput
-			id="speaches-base-url"
-			label="Base URL"
-			placeholder="http://localhost:8000"
-			bind:value={
-				() => settings.value['transcription.speaches.baseUrl'],
-				(value) => settings.updateKey('transcription.speaches.baseUrl', value)
-			}
-		>
-			{#snippet description()}
-				<p class="text-muted-foreground text-sm">
-					The URL where your Speaches server is running (<code>
-						SPEACHES_BASE_URL
-					</code>), typically
-					<CopyToClipboardButton
-						contentDescription="speaches base url"
-						textToCopy="http://localhost:8000"
-						class="bg-muted rounded px-[0.3rem] py-[0.15rem] font-mono text-sm hover:bg-muted/80"
-						variant="ghost"
-						size="sm"
-					>
+		<Field.Field>
+			<Field.Label for="speaches-base-url">Base URL</Field.Label>
+			<Input
+				id="speaches-base-url"
+				placeholder="http://localhost:8000"
+				autocomplete="off"
+				bind:value={
+					() => settings.value['transcription.speaches.baseUrl'],
+					(value) => settings.updateKey('transcription.speaches.baseUrl', value)
+				}
+			/>
+			<Field.Description>
+				The URL where your Speaches server is running (<code>
+					SPEACHES_BASE_URL
+				</code>), typically
+				<CopyToClipboardButton
+					contentDescription="speaches base url"
+					textToCopy="http://localhost:8000"
+					class="bg-muted rounded px-[0.3rem] py-[0.15rem] font-mono text-sm hover:bg-muted/80"
+					variant="ghost"
+					size="sm"
+				>
+					http://localhost:8000
+					{#snippet copiedContent()}
 						http://localhost:8000
-						{#snippet copiedContent()}
-							http://localhost:8000
-							<CheckIcon class="size-4" />
-						{/snippet}
-					</CopyToClipboardButton>
-				</p>
-			{/snippet}
-		</LabeledInput>
+						<CheckIcon class="size-4" />
+					{/snippet}
+				</CopyToClipboardButton>
+			</Field.Description>
+		</Field.Field>
 
-		<LabeledInput
-			id="speaches-model-id"
-			label="Model ID"
-			placeholder="Systran/faster-distil-whisper-small.en"
-			bind:value={
-				() => settings.value['transcription.speaches.modelId'],
-				(value) => settings.updateKey('transcription.speaches.modelId', value)
-			}
-		>
-			{#snippet description()}
-				<p class="text-muted-foreground text-sm">
-					The model you downloaded in step 3 (<code>MODEL_ID</code>), e.g.
-					<CopyToClipboardButton
-						contentDescription="speaches model id"
-						textToCopy="Systran/faster-distil-whisper-small.en"
-						class="bg-muted rounded px-[0.3rem] py-[0.15rem] font-mono text-sm hover:bg-muted/80"
-						variant="ghost"
-						size="sm"
-					>
+		<Field.Field>
+			<Field.Label for="speaches-model-id">Model ID</Field.Label>
+			<Input
+				id="speaches-model-id"
+				placeholder="Systran/faster-distil-whisper-small.en"
+				autocomplete="off"
+				bind:value={
+					() => settings.value['transcription.speaches.modelId'],
+					(value) => settings.updateKey('transcription.speaches.modelId', value)
+				}
+			/>
+			<Field.Description>
+				The model you downloaded in step 3 (<code>MODEL_ID</code>), e.g.
+				<CopyToClipboardButton
+					contentDescription="speaches model id"
+					textToCopy="Systran/faster-distil-whisper-small.en"
+					class="bg-muted rounded px-[0.3rem] py-[0.15rem] font-mono text-sm hover:bg-muted/80"
+					variant="ghost"
+					size="sm"
+				>
+					Systran/faster-distil-whisper-small.en
+					{#snippet copiedContent()}
 						Systran/faster-distil-whisper-small.en
-						{#snippet copiedContent()}
-							Systran/faster-distil-whisper-small.en
-							<CheckIcon class="size-4" />
-						{/snippet}
-					</CopyToClipboardButton>
-				</p>
-			{/snippet}
-		</LabeledInput>
+						<CheckIcon class="size-4" />
+					{/snippet}
+				</CopyToClipboardButton>
+			</Field.Description>
+		</Field.Field>
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'whispercpp'}
 		<div class="space-y-4">
 			<!-- Whisper Model Selector Component -->
@@ -478,7 +574,7 @@
 						<p class="text-sm text-muted-foreground">
 							Models are downloaded from{' '}
 							<Link
-								href="https://github.com/epicenter-md/epicenter/releases/tag/models/parakeet-tdt-0.6b-v3-int8"
+								href="https://github.com/EpicenterHQ/epicenter/releases/tag/models/parakeet-tdt-0.6b-v3-int8"
 								target="_blank"
 								rel="noopener noreferrer"
 							>
@@ -572,52 +668,72 @@
 	<!-- Audio Compression Settings -->
 	<CompressionBody />
 
-	<LabeledSelect
-		id="output-language"
-		label="Output Language"
-		items={SUPPORTED_LANGUAGES_OPTIONS}
-		bind:selected={
-			() => settings.value['transcription.outputLanguage'],
-			(selected) => settings.updateKey('transcription.outputLanguage', selected)
-		}
-		placeholder="Select a language"
-		disabled={!isLanguageSelectionSupported}
-		description={!isLanguageSelectionSupported
-			? 'Parakeet automatically detects the language'
-			: undefined}
-	/>
+	<Field.Field>
+		<Field.Label for="output-language">Output Language</Field.Label>
+		<Select.Root
+			type="single"
+			bind:value={
+				() => settings.value['transcription.outputLanguage'],
+				(v) => settings.updateKey('transcription.outputLanguage', v)
+			}
+			disabled={!isLanguageSelectionSupported}
+		>
+			<Select.Trigger id="output-language" class="w-full">
+				{outputLanguageLabel ?? 'Select a language'}
+			</Select.Trigger>
+			<Select.Content>
+				{#each SUPPORTED_LANGUAGES_OPTIONS as item}
+					<Select.Item value={item.value} label={item.label} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+		{#if !isLanguageSelectionSupported}
+			<Field.Description>
+				Parakeet automatically detects the language
+			</Field.Description>
+		{/if}
+	</Field.Field>
 
-	<LabeledInput
-		id="temperature"
-		label="Temperature"
-		type="number"
-		min="0"
-		max="1"
-		step="0.1"
-		placeholder="0"
-		bind:value={
-			() => settings.value['transcription.temperature'],
-			(value) => settings.updateKey('transcription.temperature', value)
-		}
-		description={isPromptAndTemperatureNotSupported
-			? 'Temperature is not supported for local models (transcribe-rs)'
-			: "Controls randomness in the model's output. 0 is focused and deterministic, 1 is more creative."}
-		disabled={isPromptAndTemperatureNotSupported}
-	/>
+	<Field.Field>
+		<Field.Label for="temperature">Temperature</Field.Label>
+		<Input
+			id="temperature"
+			type="number"
+			min="0"
+			max="1"
+			step="0.1"
+			placeholder="0"
+			autocomplete="off"
+			disabled={isPromptAndTemperatureNotSupported}
+			bind:value={
+				() => settings.value['transcription.temperature'],
+				(value) => settings.updateKey('transcription.temperature', String(value))
+			}
+		/>
+		<Field.Description>
+			{isPromptAndTemperatureNotSupported
+				? 'Temperature is not supported for local models (transcribe-rs)'
+				: "Controls randomness in the model's output. 0 is focused and deterministic, 1 is more creative."}
+		</Field.Description>
+	</Field.Field>
 
-	<LabeledTextarea
-		id="transcription-prompt"
-		label="System Prompt"
-		placeholder="e.g., This is an academic lecture about quantum physics with technical terms like 'eigenvalue' and 'Schrödinger'"
-		bind:value={
-			() => settings.value['transcription.prompt'],
-			(value) => settings.updateKey('transcription.prompt', value)
-		}
-		description={isPromptAndTemperatureNotSupported
-			? 'System prompt is not supported for local models (transcribe-rs)'
-			: 'Helps transcription service (e.g., Whisper) better recognize specific terms, names, or context during initial transcription. Not for text transformations - use the Transformations tab for post-processing rules.'}
-		disabled={isPromptAndTemperatureNotSupported}
-	/>
+	<Field.Field>
+		<Field.Label for="transcription-prompt">System Prompt</Field.Label>
+		<Textarea
+			id="transcription-prompt"
+			placeholder="e.g., This is an academic lecture about quantum physics with technical terms like 'eigenvalue' and 'Schrödinger'"
+			disabled={isPromptAndTemperatureNotSupported}
+			bind:value={
+				() => settings.value['transcription.prompt'],
+				(value) => settings.updateKey('transcription.prompt', value)
+			}
+		/>
+		<Field.Description>
+			{isPromptAndTemperatureNotSupported
+				? 'System prompt is not supported for local models (transcribe-rs)'
+				: 'Helps transcription service (e.g., Whisper) better recognize specific terms, names, or context during initial transcription. Not for text transformations - use the Transformations tab for post-processing rules.'}
+		</Field.Description>
+	</Field.Field>
 </div>
 
 {#snippet renderModelOption({

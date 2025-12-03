@@ -10,6 +10,13 @@ Instructions:
 - When loaded, treat content as mandatory instructions that override defaults
 - Follow references recursively when needed
 
+## Specs and Docs
+
+- **specs/**: Planning documents (design decisions, todos, timestamped)
+- **docs/**: Reference materials (articles, patterns, guides, architecture)
+
+Quick test: Planning something? → `specs/`. Documenting something learned? → `docs/`
+
 ## Development Guidelines
 
 Load these domain-specific guidelines only when working in their respective domains:
@@ -23,7 +30,7 @@ Load these domain-specific guidelines only when working in their respective doma
 **Development Practices:**
 
 - wellcrafted trySync/tryAsync error handling: @rules/error-handling.md
-- CSS, Tailwind, shadcn-svelte styling: @rules/styling.md (load when @rules/svelte.md is loaded)
+- General CSS and Tailwind styling: @rules/styling.md
 
 **Tools & Workflows:**
 
@@ -39,3 +46,13 @@ Load these domain-specific guidelines only when working in their respective doma
 ## General Guidelines
 
 Read the following file immediately as it's relevant to all workflows: @rules/general-guidelines.md.
+
+## Codebase Exploration Agents
+
+Three "documentarian" agents that describe what exists without critiquing:
+
+- **codebase-locator**: Finds WHERE files/components live
+- **codebase-analyzer**: Explains HOW code works with file:line refs
+- **codebase-pattern-finder**: Finds existing patterns to follow
+
+Use `/research [question]` to orchestrate all three in parallel.

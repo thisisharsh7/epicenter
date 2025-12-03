@@ -13,7 +13,9 @@
 		OPTION_DEAD_KEYS,
 	} from '$lib/constants/keyboard';
 	import { IS_MACOS } from '$lib/constants/platform';
-	import { AlertTriangle, ExternalLink, HelpCircle } from '@lucide/svelte';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import HelpCircle from '@lucide/svelte/icons/help-circle';
 
 	let { type }: { type: 'local' | 'global' } = $props();
 	let dialogOpen = $state(false);
@@ -159,7 +161,7 @@
 			{#if !isLocal}
 				<Button
 					variant="outline"
-					href="https://www.electronjs.org/docs/latest/api/accelerator"
+					href="https://v2.tauri.app/plugin/global-shortcut/"
 					target="_blank"
 					rel="noreferrer"
 				>

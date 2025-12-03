@@ -35,19 +35,17 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
-	import {
-		ChevronDownIcon,
-		EllipsisIcon,
-		EllipsisIcon as LoadingTranscriptionIcon,
-		RepeatIcon as RetryTranscriptionIcon,
-		PlayIcon as StartTranscriptionIcon,
-	} from '@lucide/svelte';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import LoadingTranscriptionIcon from '@lucide/svelte/icons/ellipsis';
+	import RetryTranscriptionIcon from '@lucide/svelte/icons/repeat';
+	import StartTranscriptionIcon from '@lucide/svelte/icons/play';
 	import { nanoid } from 'nanoid/non-secure';
 	import { createRawSnippet } from 'svelte';
-	import { z } from 'zod';
+	import { type } from 'arktype';
 	import LatestTransformationRunOutputByRecordingId from './LatestTransformationRunOutputByRecordingId.svelte';
 	import RenderAudioUrl from './RenderAudioUrl.svelte';
-	import TranscribedTextDialog from '$lib/components/copyable/TranscribedTextDialog.svelte';
+	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 	import { RecordingRowActions } from './row-actions';
 	import { format } from 'date-fns';
 	import OpenFolderButton from '$lib/components/OpenFolderButton.svelte';
@@ -169,17 +167,17 @@
 			cell: formattedCell(DATE_FORMAT),
 		},
 		{
-			id: 'Transcribed Text',
+			id: 'Transcript',
 			accessorKey: 'transcribedText',
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
-					headerText: 'Transcribed Text',
+					headerText: 'Transcript',
 				}),
 			cell: ({ getValue, row }) => {
 				const transcribedText = getValue<string>();
 				if (!transcribedText) return;
-				return renderComponent(TranscribedTextDialog, {
+				return renderComponent(TranscriptDialog, {
 					recordingId: row.id,
 					transcribedText,
 				});
@@ -202,15 +200,15 @@
 		},
 		{
 			id: 'Audio',
-			accessorFn: ({ id, blob }) => ({ id, blob }),
+			accessorFn: ({ id }) => id,
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
 					headerText: 'Audio',
 				}),
 			cell: ({ getValue }) => {
-				const { id, blob } = getValue<Pick<Recording, 'id' | 'blob'>>();
-				return renderComponent(RenderAudioUrl, { id, blob });
+				const id = getValue<string>();
+				return renderComponent(RenderAudioUrl, { id });
 			},
 		},
 		{
@@ -233,7 +231,7 @@
 	let sorting = createPersistedState({
 		key: 'whispering-recordings-data-table-sorting',
 		onParseError: (error) => [{ id: 'timestamp', desc: true }],
-		schema: z.array(z.object({ desc: z.boolean(), id: z.string() })),
+		schema: type({ desc: 'boolean', id: 'string' }).array(),
 	});
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let columnVisibility = createPersistedState({
@@ -245,12 +243,12 @@
 			'Created At': false,
 			'Updated At': false,
 		}),
-		schema: z.record(z.string(), z.boolean()),
+		schema: type('Record<string, boolean>'),
 	});
 	let rowSelection = createPersistedState({
 		key: 'whispering-recordings-data-table-row-selection',
 		onParseError: (error) => ({}),
-		schema: z.record(z.string(), z.boolean()),
+		schema: type('Record<string, boolean>'),
 	});
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
 	let globalFilter = $state('');
@@ -364,7 +362,8 @@
 		Recordings
 	</h1>
 	<p class="text-muted-foreground">
-		Your latest recordings and transcriptions, stored locally in IndexedDB.
+		Your latest recordings and transcriptions, stored locally
+		{window.__TAURI_INTERNALS__ ? 'on your file system' : 'in IndexedDB'}.
 	</p>
 	<Card class="flex flex-col gap-4 p-6">
 		<div class="flex flex-col md:flex-row items-center justify-between gap-2">
@@ -451,7 +450,7 @@
 					>
 						<Dialog.Trigger>
 							<WhisperingButton
-								tooltipContent="Copy transcribed text from selected recordings"
+								tooltipContent="Copy transcripts from selected recordings"
 								variant="outline"
 								size="icon"
 							>
@@ -500,14 +499,14 @@
 												onSuccess: () => {
 													isDialogOpen = false;
 													rpc.notify.success.execute({
-														title: 'Copied transcribed texts to clipboard!',
+														title: 'Copied transcripts to clipboard!',
 														description: joinedTranscriptionsText,
 													});
 												},
 												onError: (error) => {
 													rpc.notify.error.execute({
 														title:
-															'Error copying transcribed texts to clipboard',
+															'Error copying transcripts to clipboard',
 														description: error.message,
 														action: { type: 'more-details', error: error },
 													});

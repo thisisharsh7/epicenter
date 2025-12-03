@@ -1,14 +1,15 @@
 import { Ok, type Result } from 'wellcrafted/result';
-import { z } from 'zod';
+import { type } from 'arktype';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import { getExtensionFromAudioBlob } from '$lib/services/_utils';
 import type { HttpService } from '$lib/services/http';
 import type { Settings } from '$lib/settings';
 
-const whisperApiResponseSchema = z.union([
-	z.object({ text: z.string() }),
-	z.object({ error: z.object({ message: z.string() }) }),
-]);
+const WhisperApiResponse = type(
+	{ text: 'string' },
+	'|',
+	{ error: { message: 'string' } },
+);
 
 export function createSpeachesTranscriptionService({
 	HttpService,
@@ -47,8 +48,7 @@ export function createSpeachesTranscriptionService({
 				await HttpService.post({
 					url: `${options.baseUrl}/v1/audio/transcriptions`,
 					body: formData,
-					headers: undefined, // No headers needed for Speaches
-					schema: whisperApiResponseSchema,
+					schema: WhisperApiResponse,
 				});
 
 			if (postError) {

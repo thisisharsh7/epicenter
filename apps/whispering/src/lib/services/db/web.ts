@@ -5,6 +5,7 @@ import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import { moreDetailsDialog } from '$lib/components/MoreDetailsDialog.svelte';
 import { rpc } from '$lib/query';
 import type { DownloadService } from '$lib/services/download';
+import type { Settings } from '$lib/settings';
 import type {
 	Recording,
 	RecordingsDbSchemaV1,
@@ -13,19 +14,19 @@ import type {
 	RecordingsDbSchemaV4,
 	RecordingsDbSchemaV5,
 	SerializedAudio,
-	Transformation,
 	TransformationRun,
 	TransformationRunCompleted,
 	TransformationRunFailed,
 	TransformationRunRunning,
-	TransformationStepRun,
 	TransformationStepRunCompleted,
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
+	TransformationStepV2,
+	Transformation,
+	TransformationV1,
 } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
-import type { Settings } from '$lib/settings';
 
 const DB_NAME = 'RecordingDB';
 
@@ -59,7 +60,7 @@ class WhisperingDatabase extends Dexie {
 					try {
 						const contents = await tx.table(tableName).toArray();
 						return contents;
-					} catch (error) {
+					} catch (_error) {
 						return [];
 					}
 				};
@@ -239,14 +240,19 @@ class WhisperingDatabase extends Dexie {
 							.table<RecordingsDbSchemaV3['recordings']>('recordings')
 							.toArray();
 
-						const newRecordings = oldRecordings.map((record) => ({
-							...record,
-							createdAt: record.timestamp,
-							updatedAt: record.timestamp,
-						}));
+						const newRecordings = oldRecordings.map(
+							(record) =>
+								({
+									...record,
+									createdAt: record.timestamp,
+									updatedAt: record.timestamp,
+								}) satisfies RecordingsDbSchemaV4['recordings'],
+						);
 
 						await tx.table('recordings').clear();
-						await tx.table('recordings').bulkAdd(newRecordings);
+						await tx
+							.table<RecordingsDbSchemaV4['recordings']>('recordings')
+							.bulkAdd(newRecordings);
 					},
 				});
 			});
@@ -271,46 +277,71 @@ class WhisperingDatabase extends Dexie {
 							Promise.all(
 								oldRecordings.map(async (record) => {
 									// Convert V4 (Recording with blob) to V5 (RecordingStoredInIndexedDB)
-									const serializedAudio = record.blob
-										? await blobToSerializedAudio(record.blob)
-										: undefined;
-
 									const { blob, ...recordWithoutBlob } = record;
+									const serializedAudio = blob
+										? await blobToSerializedAudio(blob)
+										: undefined;
 									return {
 										...recordWithoutBlob,
 										serializedAudio,
-									};
+									} satisfies RecordingsDbSchemaV5['recordings'];
 								}),
 							),
 						);
 
 						await Dexie.waitFor(tx.table('recordings').clear());
-						await Dexie.waitFor(tx.table('recordings').bulkAdd(newRecordings));
+						await Dexie.waitFor(
+							tx
+								.table<RecordingsDbSchemaV5['recordings']>('recordings')
+								.bulkAdd(newRecordings),
+						);
 					},
 				});
 			});
 
-		// V6: Change the "subtitle" field to "description"
-		// this.version(5)
-		// 	.stores({
-		// 		recordings: '&id, timestamp, createdAt, updatedAt',
-		// 		transformations: '&id, createdAt, updatedAt',
-		// 		transformationRuns: '&id, recordingId, startedAt',
-		// 	})
-		// 	.upgrade(async (tx) => {
-		// 		const oldRecordings = await tx
-		// 			.table<RecordingsDbSchemaV5['recordings']>('recordings')
-		// 			.toArray();
+		// V6: Migrate transformation steps to version 2 schema
+		// - Adds version field (set to 2)
+		// - Adds Custom.model and Custom.baseUrl fields for local LLM endpoints
+		// This matches the versioned schema in transformations.ts
+		//
+		// Note: TransformationV1 is a TypeScript type hint only; Dexie returns raw data.
+		// Old steps in IndexedDB won't have a `version` field at all. The spread `...step`
+		// preserves all existing fields, then we explicitly set version=2 and the new
+		// Custom fields. Any existing `version` field (if somehow present) gets overwritten
+		// to 2, which is correct since we're migrating everything to V2.
+		this.version(0.6)
+			.stores({
+				recordings: '&id, timestamp, createdAt, updatedAt',
+				transformations: '&id, createdAt, updatedAt',
+				transformationRuns: '&id, transformationId, recordingId, startedAt',
+			})
+			.upgrade(async (tx) => {
+				await wrapUpgradeWithErrorHandling({
+					tx,
+					version: 0.6,
+					upgrade: async (tx) => {
+						// TransformationV1 is just a type hint; Dexie returns raw unvalidated data
+						const transformations = await tx
+							.table<TransformationV1>('transformations')
+							.toArray();
 
-		// 		const newRecordings = oldRecordings.map(
-		// 			({ subtitle, ...recording }) => ({
-		// 				...recording,
-		// 				description: subtitle,
-		// 			}),
-		// 		);
+						for (const transformation of transformations) {
+							const updatedSteps: TransformationStepV2[] =
+								transformation.steps.map((step) => ({
+									...step,
+									// Explicitly set V2 fields (overwrites any existing values)
+									version: 2 as const,
+									'prompt_transform.inference.provider.Custom.model': '',
+									'prompt_transform.inference.provider.Custom.baseUrl': '',
+								}));
 
-		// 		await tx.table('recordings').bulkAdd(newRecordings);
-		// 	});
+							await tx
+								.table<Transformation>('transformations')
+								.update(transformation.id, { steps: updatedSteps });
+						}
+					},
+				});
+			});
 	}
 }
 
@@ -429,20 +460,42 @@ export function createDbServiceWeb({
 				});
 			},
 
-			create: async ({ recording, audio }) => {
-				const now = new Date().toISOString();
-				const recordingWithTimestamps = {
-					...recording,
-					createdAt: now,
-					updatedAt: now,
-				} satisfies Recording;
+			async create(params) {
+				// Check if array for bulk insert
+				if (Array.isArray(params)) {
+					// Bulk insert: process all recordings
+					const dbRecordings: RecordingsDbSchemaV5['recordings'][] =
+						await Promise.all(
+							params.map(async ({ recording, audio }) => ({
+								...recording,
+								serializedAudio: await blobToSerializedAudio(audio),
+							})),
+						);
+
+					const { error: bulkCreateError } = await tryAsync({
+						try: async () => {
+							await db.recordings.bulkAdd(dbRecordings);
+						},
+						catch: (error) =>
+							DbServiceErr({
+								message: 'Error bulk adding recordings to Dexie',
+								context: { count: params.length },
+								cause: error,
+							}),
+					});
+					if (bulkCreateError) return Err(bulkCreateError);
+					return Ok(undefined);
+				}
+
+				// Single insert
+				const { recording, audio } = params;
 
 				// Convert audio blob to serialized format
 				const serializedAudio = await blobToSerializedAudio(audio);
 
 				// Create IndexedDB record with serialized audio
 				const dbRecording = {
-					...recordingWithTimestamps,
+					...recording,
 					serializedAudio,
 				};
 
@@ -458,7 +511,7 @@ export function createDbServiceWeb({
 						}),
 				});
 				if (createRecordingError) return Err(createRecordingError);
-				return Ok(recordingWithTimestamps);
+				return Ok(undefined);
 			},
 
 			update: async (recording) => {
@@ -543,7 +596,7 @@ export function createDbServiceWeb({
 						if (countError) return Err(countError);
 						if (count === 0) return Ok(undefined);
 
-						const maxCount = Number.parseInt(maxRecordingCount);
+						const maxCount = Number.parseInt(maxRecordingCount, 10);
 
 						if (count <= maxCount) return Ok(undefined);
 
@@ -637,6 +690,28 @@ export function createDbServiceWeb({
 					audioUrlCache.delete(recordingId);
 				}
 			},
+
+			clear: async () => {
+				return tryAsync({
+					try: () => db.recordings.clear(),
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing recordings from Dexie',
+							cause: error,
+						}),
+				});
+			},
+
+			getCount: async () => {
+				return tryAsync({
+					try: () => db.recordings.count(),
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting recordings count from Dexie',
+							cause: error,
+						}),
+				});
+			},
 		}, // End of recordings namespace
 
 		transformations: {
@@ -668,6 +743,22 @@ export function createDbServiceWeb({
 			},
 
 			create: async (transformation) => {
+				// Check if array for bulk insert
+				if (Array.isArray(transformation)) {
+					const { error: bulkCreateError } = await tryAsync({
+						try: () => db.transformations.bulkAdd(transformation),
+						catch: (error) =>
+							DbServiceErr({
+								message: 'Error bulk adding transformations to Dexie',
+								context: { count: transformation.length },
+								cause: error,
+							}),
+					});
+					if (bulkCreateError) return Err(bulkCreateError);
+					return Ok(transformation);
+				}
+
+				// Single insert
 				const { error: createTransformationError } = await tryAsync({
 					try: () => db.transformations.add(transformation),
 					catch: (error) =>
@@ -717,9 +808,45 @@ export function createDbServiceWeb({
 				if (deleteTransformationsError) return Err(deleteTransformationsError);
 				return Ok(undefined);
 			},
+
+			clear: async () => {
+				return tryAsync({
+					try: () => db.transformations.clear(),
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing transformations from Dexie',
+							cause: error,
+						}),
+				});
+			},
+
+			getCount: async () => {
+				return tryAsync({
+					try: () => db.transformations.count(),
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting transformations count from Dexie',
+							cause: error,
+						}),
+				});
+			},
 		}, // End of transformations namespace
 
 		runs: {
+			getAll: async () => {
+				return tryAsync({
+					try: async () => {
+						const runs = await db.transformationRuns.toArray();
+						return runs ?? [];
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting all transformation runs from Dexie',
+							cause: error,
+						}),
+				});
+			},
+
 			getById: async (id) => {
 				const {
 					data: transformationRun,
@@ -791,8 +918,27 @@ export function createDbServiceWeb({
 				});
 			},
 
-			create: async ({ transformationId, recordingId, input }) => {
+			create: async (params) => {
 				const now = new Date().toISOString();
+
+				// Check if array for bulk insert
+				if (Array.isArray(params)) {
+					const runs = params.map(({ run }) => run);
+					const { error: bulkCreateError } = await tryAsync({
+						try: () => db.transformationRuns.bulkAdd(runs),
+						catch: (error) =>
+							DbServiceErr({
+								message: 'Error bulk adding transformation runs to Dexie',
+								context: { count: params.length },
+								cause: error,
+							}),
+					});
+					if (bulkCreateError) return Err(bulkCreateError);
+					return Ok(runs);
+				}
+
+				// Single insert
+				const { transformationId, recordingId, input } = params;
 				const transformationRunWithTimestamps = {
 					id: nanoid(),
 					transformationId,
@@ -946,6 +1092,46 @@ export function createDbServiceWeb({
 					return Err(updateTransformationStepRunError);
 
 				return Ok(completedRun);
+			},
+
+			delete: async (runs) => {
+				return tryAsync({
+					try: async () => {
+						const runsArray = Array.isArray(runs) ? runs : [runs];
+						const runIds = runsArray.map((run) => run.id);
+
+						// Delete all runs by their IDs
+						await db.transformationRuns.bulkDelete(runIds);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error deleting transformation runs from Dexie',
+							context: { runs },
+							cause: error,
+						}),
+				});
+			},
+
+			clear: async () => {
+				return tryAsync({
+					try: () => db.transformationRuns.clear(),
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing transformation runs from Dexie',
+							cause: error,
+						}),
+				});
+			},
+
+			getCount: async () => {
+				return tryAsync({
+					try: () => db.transformationRuns.count(),
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting transformation runs count from Dexie',
+							cause: error,
+						}),
+				});
 			},
 		}, // End of runs namespace
 	};

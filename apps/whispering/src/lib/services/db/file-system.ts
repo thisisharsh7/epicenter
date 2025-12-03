@@ -1,20 +1,20 @@
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { join } from '@tauri-apps/api/path';
 import {
 	exists,
 	mkdir,
 	readDir,
 	readTextFile,
-	remove,
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
 import matter from 'gray-matter';
-import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import { getExtensionFromMimeType } from '$lib/constants/mime';
+import mime from 'mime';
+import { Ok, tryAsync } from 'wellcrafted/result';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
-import type { Recording, Transformation, TransformationRun } from './models';
+import type { Recording } from './models';
+import { Transformation, TransformationRun } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
 
@@ -58,6 +58,30 @@ function markdownToRecording({
 }
 
 /**
+ * Reads all markdown files from a directory using the Rust command.
+ * This is a single FFI call that reads all .md files natively in Rust,
+ * avoiding thousands of individual async calls for path joining and file reading.
+ *
+ * @param directoryPath - Absolute path to the directory containing .md files
+ * @returns Array of markdown file contents as strings
+ */
+async function readMarkdownFiles(directoryPath: string): Promise<string[]> {
+	return invoke('read_markdown_files', { directoryPath });
+}
+
+/**
+ * Deletes multiple files in parallel using the Rust command.
+ * This is a single FFI call that handles bulk deletion natively in Rust,
+ * avoiding thousands of individual async calls for file removal.
+ *
+ * @param paths - Array of absolute file paths to delete
+ * @returns Number of files successfully deleted
+ */
+async function bulkDeleteFiles(paths: string[]): Promise<number> {
+	return invoke('bulk_delete_files', { paths });
+}
+
+/**
  * File system-based database implementation for desktop.
  * Stores data as markdown files with YAML front matter.
  *
@@ -85,37 +109,21 @@ export function createFileSystemDb(): DbService {
 							return [];
 						}
 
-						// List all .md files
-						const entries = await readDir(recordingsPath);
-						const mdFiles = entries.filter((entry) =>
-							entry.name?.endsWith('.md'),
-						);
+						// Use Rust command to read all markdown files at once
+						const contents = await readMarkdownFiles(recordingsPath);
 
-						// Parse each file
-						const recordings = await Promise.all(
-							mdFiles.map(async (entry) => {
-								if (!entry.name) return null;
+						// Parse all files
+						const recordings = contents.map((content) => {
+							const { data, content: body } = matter(content);
 
-								const filePath = await join(recordingsPath, entry.name);
+							// Validate the front matter schema
+							const frontMatter = RecordingFrontMatter(data);
+							if (frontMatter instanceof type.errors) {
+								return null; // Skip invalid recording, don't crash the app
+							}
 
-								const content = await readTextFile(filePath);
-
-								const { data, content: body } = matter(content);
-
-								// Check if data exists
-								if (!data || typeof data !== 'object') {
-									return null; // Skip invalid recording, don't crash the app
-								}
-
-								// Validate the front matter schema
-								const frontMatter = RecordingFrontMatter(data);
-								if (frontMatter instanceof type.errors) {
-									return null; // Skip invalid recording, don't crash the app
-								}
-
-								return markdownToRecording({ frontMatter, body });
-							}),
-						);
+							return markdownToRecording({ frontMatter, body });
+						});
 
 						// Filter out any null entries and sort by timestamp (newest first)
 						const validRecordings = recordings.filter(
@@ -204,45 +212,60 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			async create({ recording, audio }) {
-				const now = new Date().toISOString();
-				const recordingWithTimestamps = {
-					...recording,
-					createdAt: 'createdAt' in recording ? recording.createdAt : now,
-					updatedAt: 'updatedAt' in recording ? recording.updatedAt : now,
-				} satisfies Recording;
+			async create(params) {
+				// Helper function to create a single recording
+				const createSingleRecording = async ({
+					recording,
+					audio,
+				}: {
+					recording: Recording;
+					audio: Blob;
+				}): Promise<void> => {
+					const recordingsPath = await PATHS.DB.RECORDINGS();
 
+					// Ensure directory exists
+					await mkdir(recordingsPath, { recursive: true });
+
+					// 1. Write audio file
+					const extension = mime.getExtension(audio.type) ?? 'bin';
+					const audioPath = await join(
+						recordingsPath,
+						`${recording.id}.${extension}`,
+					);
+					const arrayBuffer = await audio.arrayBuffer();
+					await writeFile(audioPath, new Uint8Array(arrayBuffer));
+
+					// 2. Create .md file with front matter
+					const mdContent = recordingToMarkdown(recording);
+					const mdPath = await join(recordingsPath, `${recording.id}.md`);
+
+					// Write to temp file first, then rename (atomic operation)
+					const tmpPath = `${mdPath}.tmp`;
+					await writeTextFile(tmpPath, mdContent);
+					await rename(tmpPath, mdPath);
+				};
+
+				// Check if array for bulk insert
+				if (Array.isArray(params))
+					return tryAsync({
+						try: async () => {
+							await Promise.all(params.map(createSingleRecording));
+						},
+						catch: (error) =>
+							DbServiceErr({
+								message: 'Error bulk creating recordings in file system',
+								context: { count: params.length },
+								cause: error,
+							}),
+					});
+
+				// Single insert
 				return tryAsync({
-					try: async () => {
-						const recordingsPath = await PATHS.DB.RECORDINGS();
-
-						// Ensure directory exists
-						await mkdir(recordingsPath, { recursive: true });
-
-						// 1. Write audio file
-						const extension = getExtensionFromMimeType(audio.type);
-						const audioPath = await join(
-							recordingsPath,
-							`${recording.id}.${extension}`,
-						);
-						const arrayBuffer = await audio.arrayBuffer();
-						await writeFile(audioPath, new Uint8Array(arrayBuffer));
-
-						// 2. Create .md file with front matter
-						const mdContent = recordingToMarkdown(recordingWithTimestamps);
-						const mdPath = await join(recordingsPath, `${recording.id}.md`);
-
-						// Write to temp file first, then rename (atomic operation)
-						const tmpPath = `${mdPath}.tmp`;
-						await writeTextFile(tmpPath, mdContent);
-						await rename(tmpPath, mdPath);
-
-						return recordingWithTimestamps;
-					},
+					try: () => createSingleRecording(params),
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error creating recording in file system',
-							context: { recording },
+							context: { recording: params.recording },
 							cause: error,
 						}),
 				});
@@ -299,24 +322,23 @@ export function createFileSystemDb(): DbService {
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
 
-						for (const recording of recordingsArray) {
-							// Delete metadata file
-							const mdPath = await join(recordingsPath, `${recording.id}.md`);
-							const mdExists = await exists(mdPath);
-							if (mdExists) {
-								await remove(mdPath);
-							}
+						// Build a set of IDs to delete for fast lookup
+						const idsToDelete = new Set(recordingsArray.map((r) => r.id));
 
-							// Delete audio file (try all possible extensions)
-							const audioFile = await findAudioFile(
-								recordingsPath,
-								recording.id,
-							);
-							if (audioFile) {
-								const audioPath = await join(recordingsPath, audioFile);
-								await remove(audioPath);
-							}
-						}
+						// Read directory once and find all matching files
+						const allFiles = await readDir(recordingsPath);
+						const pathsToDelete = await Promise.all(
+							allFiles
+								.filter((file) => {
+									// Extract ID from filename (everything before the first dot)
+									const id = file.name.split('.')[0] ?? '';
+									return idsToDelete.has(id);
+								})
+								.map((file) => join(recordingsPath, file.name)),
+						);
+
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -338,7 +360,7 @@ export function createFileSystemDb(): DbService {
 								const { data: recordings, error } = await this.getAll();
 								if (error) throw error;
 
-								const maxCount = Number.parseInt(maxRecordingCount);
+								const maxCount = Number.parseInt(maxRecordingCount, 10);
 								if (recordings.length <= maxCount) return;
 
 								// Delete oldest recordings (already sorted newest first)
@@ -401,6 +423,8 @@ export function createFileSystemDb(): DbService {
 						const audioPath = await join(recordingsPath, audioFile);
 						const assetUrl = convertFileSrc(audioPath);
 
+						// Return the URL as-is from convertFileSrc()
+						// The Tauri backend handles URL decoding automatically
 						return assetUrl;
 					},
 					catch: (error) =>
@@ -414,6 +438,47 @@ export function createFileSystemDb(): DbService {
 
 			revokeAudioUrl(_recordingId: string) {
 				// No-op on desktop, URLs are asset:// protocol managed by Tauri
+			},
+
+			async clear() {
+				return tryAsync({
+					try: async () => {
+						const recordingsPath = await PATHS.DB.RECORDINGS();
+						const dirExists = await exists(recordingsPath);
+						if (!dirExists) return undefined;
+
+						// Get all files and build paths
+						const files = await readDir(recordingsPath);
+						const pathsToDelete = await Promise.all(
+							files.map((file) => join(recordingsPath, file.name)),
+						);
+
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing recordings from file system',
+							cause: error,
+						}),
+				});
+			},
+
+			async getCount() {
+				return tryAsync({
+					try: async () => {
+						const recordingsPath = await PATHS.DB.RECORDINGS();
+						const count = await invoke<number>('count_markdown_files', {
+							directoryPath: recordingsPath,
+						});
+						return count;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting recordings count from file system',
+							cause: error,
+						}),
+				});
 			},
 		},
 
@@ -430,24 +495,22 @@ export function createFileSystemDb(): DbService {
 							return [];
 						}
 
-						// List all .md files
-						const entries = await readDir(transformationsPath);
-						const mdFiles = entries.filter(
-							(entry) => entry.name && entry.name.endsWith('.md'),
-						);
+						// Use Rust command to read all markdown files at once
+						const contents = await readMarkdownFiles(transformationsPath);
 
-						// Parse each file
-						const transformations = await Promise.all(
-							mdFiles.map(async (entry) => {
-								if (!entry.name) return null;
+						// Parse all files
+						const transformations = contents.map((content) => {
+							const { data } = matter(content);
 
-								const filePath = await join(transformationsPath, entry.name);
-								const content = await readTextFile(filePath);
-								const { data } = matter(content);
+							// Validate with migrating schema (accepts V1 or V2, outputs V2)
+							const validated = Transformation(data);
+							if (validated instanceof type.errors) {
+								console.error(`Invalid transformation:`, validated.summary);
+								return null; // Skip invalid transformation
+							}
 
-								return data as Transformation;
-							}),
-						);
+							return validated;
+						});
 
 						return transformations.filter(
 							(t): t is Transformation => t !== null,
@@ -473,7 +536,13 @@ export function createFileSystemDb(): DbService {
 						const content = await readTextFile(mdPath);
 						const { data } = matter(content);
 
-						return data as Transformation;
+						// Validate with migrating schema (accepts V1 or V2, outputs V2)
+						const validated = Transformation(data);
+						if (validated instanceof type.errors) {
+							throw new Error(`Invalid transformation: ${validated.summary}`);
+						}
+
+						return validated;
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -558,16 +627,15 @@ export function createFileSystemDb(): DbService {
 					try: async () => {
 						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
 
-						for (const transformation of transformationsArray) {
-							const mdPath = await join(
-								transformationsPath,
-								`${transformation.id}.md`,
-							);
-							const fileExists = await exists(mdPath);
-							if (fileExists) {
-								await remove(mdPath);
-							}
-						}
+						// Build paths for all transformation files
+						const pathsToDelete = await Promise.all(
+							transformationsArray.map((t) =>
+								join(transformationsPath, `${t.id}.md`),
+							),
+						);
+
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -577,9 +645,82 @@ export function createFileSystemDb(): DbService {
 						}),
 				});
 			},
+
+			async clear() {
+				return tryAsync({
+					try: async () => {
+						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
+						const dirExists = await exists(transformationsPath);
+						if (dirExists) {
+							await remove(transformationsPath, { recursive: true });
+							await mkdir(transformationsPath, { recursive: true });
+						}
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing transformations from file system',
+							cause: error,
+						}),
+				});
+			},
+
+			async getCount() {
+				return tryAsync({
+					try: async () => {
+						const { data: transformations, error } = await this.getAll();
+						if (error) throw error;
+						return transformations.length;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting transformations count from file system',
+							cause: error,
+						}),
+				});
+			},
 		},
 
 		runs: {
+			async getAll() {
+				return tryAsync({
+					try: async () => {
+						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+
+						// Ensure directory exists
+						const dirExists = await exists(runsPath);
+						if (!dirExists) {
+							await mkdir(runsPath, { recursive: true });
+							return [];
+						}
+
+						// Use Rust command to read all markdown files at once
+						const contents = await readMarkdownFiles(runsPath);
+
+						// Parse all files
+						const runs = contents.map((content) => {
+							const { data } = matter(content);
+
+							// Validate with arktype schema
+							const validated = TransformationRun(data);
+							if (validated instanceof type.errors) {
+								console.error(`Invalid transformation run:`, validated.summary);
+								return null; // Skip invalid run
+							}
+
+							return validated;
+						});
+
+						// Filter out any invalid entries
+						return runs.filter((run) => run !== null);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error getting all transformation runs from file system',
+							cause: error,
+						}),
+				});
+			},
+
 			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
@@ -592,7 +733,15 @@ export function createFileSystemDb(): DbService {
 						const content = await readTextFile(mdPath);
 						const { data } = matter(content);
 
-						return data as TransformationRun;
+						// Validate with arktype schema
+						const validated = TransformationRun(data);
+						if (validated instanceof type.errors) {
+							throw new Error(
+								`Invalid transformation run: ${validated.summary}`,
+							);
+						}
+
+						return validated;
 					},
 					catch: (error) =>
 						DbServiceErr({
@@ -616,33 +765,33 @@ export function createFileSystemDb(): DbService {
 							return [];
 						}
 
-						// List all .md files
-						const entries = await readDir(runsPath);
-						const mdFiles = entries.filter(
-							(entry) => entry.name && entry.name.endsWith('.md'),
-						);
+						// Use Rust command to read all markdown files at once
+						const contents = await readMarkdownFiles(runsPath);
 
-						// Parse each file and filter by transformationId
-						const runs: TransformationRun[] = [];
-						for (const entry of mdFiles) {
-							if (!entry.name) continue;
+						// Parse and filter
+						const runs = contents
+							.map((content) => {
+								const { data } = matter(content);
 
-							const filePath = await join(runsPath, entry.name);
-							const content = await readTextFile(filePath);
-							const { data } = matter(content);
-							const run = data as TransformationRun;
+								// Validate with arktype schema
+								const validated = TransformationRun(data);
+								if (validated instanceof type.errors) {
+									console.error(
+										`Invalid transformation run:`,
+										validated.summary,
+									);
+									return null; // Skip invalid run
+								}
 
-							if (run.transformationId === transformationId) {
-								runs.push(run);
-							}
-						}
-
-						// Sort by startedAt (newest first)
-						runs.sort(
-							(a, b) =>
-								new Date(b.startedAt).getTime() -
-								new Date(a.startedAt).getTime(),
-						);
+								return validated;
+							})
+							.filter((run) => run !== null)
+							.filter((run) => run.transformationId === transformationId)
+							.sort(
+								(a, b) =>
+									new Date(b.startedAt).getTime() -
+									new Date(a.startedAt).getTime(),
+							);
 
 						return runs;
 					},
@@ -668,33 +817,33 @@ export function createFileSystemDb(): DbService {
 							return [];
 						}
 
-						// List all .md files
-						const entries = await readDir(runsPath);
-						const mdFiles = entries.filter(
-							(entry) => entry.name && entry.name.endsWith('.md'),
-						);
+						// Use Rust command to read all markdown files at once
+						const contents = await readMarkdownFiles(runsPath);
 
-						// Parse each file and filter by recordingId
-						const runs: TransformationRun[] = [];
-						for (const entry of mdFiles) {
-							if (!entry.name) continue;
+						// Parse and filter
+						const runs = contents
+							.map((content) => {
+								const { data } = matter(content);
 
-							const filePath = await join(runsPath, entry.name);
-							const content = await readTextFile(filePath);
-							const { data } = matter(content);
-							const run = data as TransformationRun;
+								// Validate with arktype schema
+								const validated = TransformationRun(data);
+								if (validated instanceof type.errors) {
+									console.error(
+										`Invalid transformation run:`,
+										validated.summary,
+									);
+									return null; // Skip invalid run
+								}
 
-							if (run.recordingId === recordingId) {
-								runs.push(run);
-							}
-						}
-
-						// Sort by startedAt (newest first)
-						runs.sort(
-							(a, b) =>
-								new Date(b.startedAt).getTime() -
-								new Date(a.startedAt).getTime(),
-						);
+								return validated;
+							})
+							.filter((run) => run !== null)
+							.filter((run) => run.recordingId === recordingId)
+							.sort(
+								(a, b) =>
+									new Date(b.startedAt).getTime() -
+									new Date(a.startedAt).getTime(),
+							);
 
 						return runs;
 					},
@@ -708,7 +857,39 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			async create({ transformationId, recordingId, input }) {
+			async create(params) {
+				// Check if array for bulk insert
+				if (Array.isArray(params)) {
+					return tryAsync({
+						try: async () => {
+							const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+							await mkdir(runsPath, { recursive: true });
+
+							const runs = await Promise.all(
+								params.map(async ({ run }) => {
+									const mdContent = matter.stringify('', run);
+									const mdPath = await join(runsPath, `${run.id}.md`);
+									const tmpPath = `${mdPath}.tmp`;
+									await writeTextFile(tmpPath, mdContent);
+									await rename(tmpPath, mdPath);
+									return run;
+								}),
+							);
+
+							return runs;
+						},
+						catch: (error) =>
+							DbServiceErr({
+								message:
+									'Error bulk creating transformation runs in file system',
+								context: { count: params.length },
+								cause: error,
+							}),
+					});
+				}
+
+				// Single insert
+				const { transformationId, recordingId, input } = params;
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
@@ -912,23 +1093,78 @@ export function createFileSystemDb(): DbService {
 						}),
 				});
 			},
+
+			async delete(runs) {
+				return tryAsync({
+					try: async () => {
+						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+						const runsArray = Array.isArray(runs) ? runs : [runs];
+
+						// Build paths for all run files
+						const pathsToDelete = await Promise.all(
+							runsArray.map((run) => join(runsPath, `${run.id}.md`)),
+						);
+
+						// Single FFI call to delete all files in parallel
+						await bulkDeleteFiles(pathsToDelete);
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error deleting transformation runs from file system',
+							context: { runs },
+							cause: error,
+						}),
+				});
+			},
+
+			async clear() {
+				return tryAsync({
+					try: async () => {
+						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
+						const dirExists = await exists(runsPath);
+						if (dirExists) {
+							await remove(runsPath, { recursive: true });
+							await mkdir(runsPath, { recursive: true });
+						}
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message: 'Error clearing transformation runs from file system',
+							cause: error,
+						}),
+				});
+			},
+
+			async getCount() {
+				return tryAsync({
+					try: async () => {
+						const { data: runs, error } = await this.getAll();
+						if (error) throw error;
+						return runs.length;
+					},
+					catch: (error) =>
+						DbServiceErr({
+							message:
+								'Error getting transformation runs count from file system',
+							cause: error,
+						}),
+				});
+			},
 		},
 	};
 }
 
 /**
  * Helper function to find audio file by ID.
- * Tries multiple extensions: .wav, .opus, .mp3, .ogg
+ * Reads directory once and finds the matching file by ID prefix.
+ * This is much faster than checking every possible extension.
  */
 async function findAudioFile(dir: string, id: string): Promise<string | null> {
-	const extensions = ['.wav', '.opus', '.mp3', '.ogg'];
-	for (const ext of extensions) {
-		const filename = `${id}${ext}`;
-		const filePath = await join(dir, filename);
-		const fileExists = await exists(filePath);
-		if (fileExists) return filename;
-	}
-	return null;
+	const files = await readDir(dir);
+	const audioFile = files.find(
+		(f) => f.name.startsWith(`${id}.`) && !f.name.endsWith('.md'),
+	);
+	return audioFile?.name ?? null;
 }
 
 /**

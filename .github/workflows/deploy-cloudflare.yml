@@ -1,18 +1,9 @@
-name: Deploy to Cloudflare Pages
+name: Deploy to Cloudflare Workers
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: false
-        default: 'production'
-        type: choice
-        options:
-          - production
-          - preview
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,7 +11,6 @@ concurrency:
 
 env:
   NODE_VERSION: '22'
-  BUN_VERSION: 'latest'
 
 jobs:
   validate:
@@ -35,16 +25,15 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version-file: "package.json"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'bun'
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Run type checking
         run: |
@@ -52,7 +41,7 @@ jobs:
           bun run --filter epicenter astro check || true
 
       - name: Run linting
-        run: bun run lint
+        run: bun run lint:check
 
       - name: Build all packages
         run: bun run build
@@ -62,8 +51,8 @@ jobs:
       - name: Upload Whispering build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: whispering-dist
-          path: apps/whispering/dist
+          name: whispering-build
+          path: apps/whispering/build
           retention-days: 1
 
       - name: Upload Epicenter build artifacts
@@ -81,7 +70,7 @@ jobs:
       contents: read
       deployments: write
     environment:
-      name: ${{ github.event.inputs.environment || 'production' }}-whispering
+      name: production-whispering
       url: ${{ steps.deploy.outputs.deployment-url }}
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
@@ -92,7 +81,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version-file: "package.json"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -100,44 +89,30 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: whispering-dist
-          path: apps/whispering/dist
+          name: whispering-build
+          path: apps/whispering/build
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         id: deploy
         run: |
           cd apps/whispering
 
-          # Set deployment command based on environment
-          if [ "${{ github.event.inputs.environment }}" = "preview" ]; then
-            DEPLOYMENT_OUTPUT=$(bunx wrangler pages deploy dist \
-              --project-name=whispering \
-              --branch=preview \
-              --commit-dirty=true \
-              --commit-hash=${{ github.sha }} \
-              --commit-message="${{ github.event.head_commit.message }}" 2>&1)
-          else
-            DEPLOYMENT_OUTPUT=$(bunx wrangler pages deploy dist \
-              --project-name=whispering \
-              --branch=main \
-              --commit-dirty=true \
-              --commit-hash=${{ github.sha }} \
-              --commit-message="${{ github.event.head_commit.message }}" 2>&1)
-          fi
+          # Deploy to production
+          DEPLOYMENT_OUTPUT=$(bunx wrangler deploy 2>&1)
 
           echo "$DEPLOYMENT_OUTPUT"
 
-          # Extract deployment URL from output
-          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -oE 'https://[a-z0-9-]+\.whispering\.pages\.dev' | head -1)
+          # Extract deployment URL from output (look for workers.dev URL)
+          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1)
 
           if [ -z "$DEPLOYMENT_URL" ]; then
             # Fallback to production URL if extraction fails
-            DEPLOYMENT_URL="https://whispering.pages.dev"
+            DEPLOYMENT_URL="https://whispering.workers.dev"
           fi
 
           echo "deployment-url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
@@ -151,7 +126,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ✅ Deployed successfully" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** ${{ steps.deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ github.event.inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
 
   deploy-epicenter:
@@ -162,7 +136,7 @@ jobs:
       contents: read
       deployments: write
     environment:
-      name: ${{ github.event.inputs.environment || 'production' }}-epicenter
+      name: production-epicenter
       url: ${{ steps.deploy.outputs.deployment-url }}
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
@@ -173,7 +147,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version-file: "package.json"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -181,7 +155,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -194,22 +168,13 @@ jobs:
         run: |
           cd apps/epicenter
 
-          # Set deployment command based on environment
-          if [ "${{ github.event.inputs.environment }}" = "preview" ]; then
-            DEPLOYMENT_OUTPUT=$(bunx wrangler pages deploy dist \
-              --project-name=epicenter \
-              --branch=preview \
-              --commit-dirty=true \
-              --commit-hash=${{ github.sha }} \
-              --commit-message="${{ github.event.head_commit.message }}" 2>&1)
-          else
-            DEPLOYMENT_OUTPUT=$(bunx wrangler pages deploy dist \
-              --project-name=epicenter \
-              --branch=main \
-              --commit-dirty=true \
-              --commit-hash=${{ github.sha }} \
-              --commit-message="${{ github.event.head_commit.message }}" 2>&1)
-          fi
+          # Deploy to Cloudflare Pages
+          DEPLOYMENT_OUTPUT=$(bunx wrangler pages deploy dist \
+            --project-name=epicenter \
+            --branch=main \
+            --commit-dirty=true \
+            --commit-hash=${{ github.sha }} \
+            --commit-message="${{ github.event.head_commit.message }}" 2>&1)
 
           echo "$DEPLOYMENT_OUTPUT"
 
@@ -232,7 +197,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ✅ Deployed successfully" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** ${{ steps.deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ github.event.inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
 
   notify-deployment:
@@ -301,11 +265,6 @@ jobs:
                 {
                   "name": "Epicenter",
                   "value": "[View deployment](${{ needs.deploy-epicenter.outputs.deployment-url || 'Failed' }})",
-                  "inline": true
-                },
-                {
-                  "name": "Environment",
-                  "value": "${{ github.event.inputs.environment || 'production' }}",
                   "inline": true
                 }
               ],

@@ -10,7 +10,8 @@
 	import type { Recording } from '$lib/services/db';
 	import * as services from '$lib/services';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
-	import { PencilIcon as EditIcon, Loader2Icon } from '@lucide/svelte';
+	import EditIcon from '@lucide/svelte/icons/pencil';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { onDestroy } from 'svelte';
 
 	const updateRecording = createMutation(rpc.db.recordings.update.options);
@@ -132,7 +133,7 @@
 				Make changes to your recording and click save when you're done.
 			</Modal.Description>
 		</Modal.Header>
-		<div class="space-y-4 py-4">
+		<div class="space-y-4 p-4">
 			<div class="grid grid-cols-4 items-center gap-4">
 				<Label for="title" class="text-right">Title</Label>
 				<Input
@@ -170,7 +171,7 @@
 				/>
 			</div>
 			<div class="grid grid-cols-4 items-center gap-4">
-				<Label for="transcribedText" class="text-right">Transcribed Text</Label>
+				<Label for="transcribedText" class="text-right">Transcript</Label>
 				<Textarea
 					id="transcribedText"
 					value={workingCopy.transcribedText}

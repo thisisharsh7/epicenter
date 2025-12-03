@@ -9,7 +9,8 @@ export type {
 	RecordingsDbSchemaV5,
 	SerializedAudio,
 } from './recordings';
-export type {
+// Transformation Runs
+export {
 	TransformationRun,
 	TransformationRunCompleted,
 	TransformationRunFailed,
@@ -19,24 +20,16 @@ export type {
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
 } from './transformation-runs';
-// Transformation Runs
-export {
-	isTransformationRunCompleted,
-	isTransformationRunFailed,
-	isTransformationRunRunning,
-	isTransformationStepRunCompleted,
-	isTransformationStepRunFailed,
-	isTransformationStepRunRunning,
-} from './transformation-runs';
 export type {
-	InsertTransformationStep,
-	Transformation,
-	TransformationStep,
+	TransformationStepV1,
+	TransformationStepV2,
+	TransformationV1,
+	TransformationV2,
 } from './transformations';
 // Transformations
 export {
 	generateDefaultTransformation,
 	generateDefaultTransformationStep,
-	TRANSFORMATION_STEP_TYPES,
-	TRANSFORMATION_STEP_TYPES_TO_LABELS,
+	Transformation,
+	TransformationStep,
 } from './transformations';

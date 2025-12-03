@@ -1,6 +1,6 @@
 {
 	"name": "@repo/whispering",
-	"version": "7.7.0",
+	"version": "7.8.0",
 	"description": "",
 	"exports": {
 		"./commands": "./src/lib/commands.ts"
@@ -15,9 +15,9 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "eslint .",
 		"tauri": "tauri",
-		"deploy": "bun run build && wrangler pages deploy"
+		"deploy": "bun run build && wrangler deploy"
 	},
-	"license": "MIT",
+	"license": "AGPL-3.0",
 	"devDependencies": {
 		"@lucide/svelte": "catalog:",
 		"@repo/config": "workspace:*",
@@ -36,13 +36,14 @@
 		"vite": "catalog:",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vite-plugin-node-polyfills": "^0.24.0",
-		"wrangler": "^4.29.1"
+		"wrangler": "catalog:"
 	},
 	"type": "module",
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.55.0",
 		"@aptabase/tauri": "^0.4.1",
 		"@aptabase/web": "^0.4.3",
+		"@epicenter/hq": "workspace:*",
 		"@google/generative-ai": "^0.24.1",
 		"@mistralai/mistralai": "^1.9.18",
 		"@repo/constants": "workspace:*",
@@ -54,7 +55,7 @@
 		"@tanstack/svelte-query-devtools": "^6.0.0",
 		"@tanstack/svelte-table": "catalog:",
 		"@tanstack/table-core": "9.0.0-alpha.10",
-		"@tauri-apps/api": "^2.7.0",
+		"@tauri-apps/api": "^2.9.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.3.0",
 		"@tauri-apps/plugin-dialog": "^2.3.2",
 		"@tauri-apps/plugin-fs": "^2.4.1",
@@ -74,11 +75,11 @@
 		"elevenlabs": "^1.59.0",
 		"gray-matter": "^4.0.3",
 		"groq-sdk": "^0.25.0",
+		"mime": "catalog:",
 		"nanoid": "catalog:",
 		"openai": "^5.7.0",
 		"tailwind-variants": "catalog:",
 		"tauri-plugin-macos-permissions-api": "^2.3.0",
-		"wellcrafted": "catalog:",
-		"zod": "catalog:"
+		"wellcrafted": "catalog:"
 	}
 }

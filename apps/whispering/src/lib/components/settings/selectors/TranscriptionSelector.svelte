@@ -15,12 +15,10 @@
 	} from '$lib/settings/transcription-validation';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@repo/ui/utils';
-	import {
-		CheckIcon,
-		MicIcon,
-		SettingsIcon,
-		ChevronRightIcon,
-	} from '@lucide/svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import MicIcon from '@lucide/svelte/icons/mic';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	let {

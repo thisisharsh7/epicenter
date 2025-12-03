@@ -20,6 +20,9 @@ use graceful_shutdown::send_sigint;
 pub mod command;
 use command::{execute_command, spawn_command};
 
+pub mod markdown_reader;
+use markdown_reader::{bulk_delete_files, count_markdown_files, read_markdown_files};
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tokio::main]
@@ -74,6 +77,7 @@ pub async fn run() {
     // Register command handlers (same for all platforms now)
     let builder = builder.invoke_handler(tauri::generate_handler![
         write_text,
+        simulate_enter_keystroke,
         // Audio recorder commands
         get_current_recording_id,
         enumerate_recording_devices,
@@ -88,6 +92,10 @@ pub async fn run() {
         // Command execution (prevents console window flash on Windows)
         execute_command,
         spawn_command,
+        // Filesystem utilities
+        read_markdown_files,
+        count_markdown_files,
+        bulk_delete_files,
     ]);
 
     let app = builder
@@ -173,6 +181,22 @@ async fn write_text(app: tauri::AppHandle, text: String) -> Result<(), String> {
             .write_text(&content)
             .map_err(|e| format!("Failed to restore clipboard: {}", e))?;
     }
+
+    Ok(())
+}
+
+/// Simulates pressing the Enter/Return key
+///
+/// This is useful for automatically submitting text in chat applications
+/// after transcription has been pasted.
+#[tauri::command]
+async fn simulate_enter_keystroke() -> Result<(), String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+
+    // Use Direction::Click for a combined press+release action
+    enigo
+        .key(Key::Return, Direction::Click)
+        .map_err(|e| format!("Failed to simulate Enter key: {}", e))?;
 
     Ok(())
 }

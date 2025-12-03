@@ -31,7 +31,7 @@
 		getSortedRowModel,
 	} from '@tanstack/table-core';
 	import { createRawSnippet } from 'svelte';
-	import { z } from 'zod';
+	import { type } from 'arktype';
 	import CreateTransformationButton from './CreateTransformationButton.svelte';
 	import MarkTransformationActiveButton from './MarkTransformationActiveButton.svelte';
 	import TransformationRowActions from './TransformationRowActions.svelte';
@@ -112,13 +112,13 @@
 	let sorting = createPersistedState({
 		key: 'whispering-transformations-data-table-sorting',
 		onParseError: (error) => [{ id: 'title', desc: false }],
-		schema: z.array(z.object({ desc: z.boolean(), id: z.string() })),
+		schema: type({ desc: 'boolean', id: 'string' }).array(),
 	});
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let rowSelection = createPersistedState({
 		key: 'whispering-transformations-data-table-row-selection',
 		onParseError: (error) => ({}),
-		schema: z.record(z.string(), z.boolean()),
+		schema: type('Record<string, boolean>'),
 	});
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
 	let globalFilter = $state('');

@@ -6,15 +6,13 @@
 	import * as Tabs from '@repo/ui/tabs';
 	import { Snippet } from '@repo/ui/snippet';
 	import { Badge } from '@repo/ui/badge';
-	import {
-		DownloadIcon,
-		CheckCircleIcon,
-		XCircleIcon,
-		LoaderIcon,
-		RefreshCwIcon,
-		ExternalLinkIcon,
-		ArrowLeftIcon,
-	} from '@lucide/svelte';
+	import DownloadIcon from '@lucide/svelte/icons/download';
+	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
+	import XCircleIcon from '@lucide/svelte/icons/x-circle';
+	import LoaderIcon from '@lucide/svelte/icons/loader';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import * as services from '$lib/services';
 	import { goto } from '$app/navigation';
 	import { createQuery } from '@tanstack/svelte-query';
