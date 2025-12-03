@@ -156,7 +156,6 @@
 								</Card.Title>
 								<Select.Root
 									type="single"
-									items={TRANSFORMATION_STEP_TYPE_OPTIONS}
 									bind:value={
 										() => step.type,
 										(value) => {
@@ -301,7 +300,6 @@
 										<Field.Label for="prompt_transform.inference.provider">Provider</Field.Label>
 										<Select.Root
 											type="single"
-											items={INFERENCE_PROVIDER_OPTIONS}
 											bind:value={
 												() => step['prompt_transform.inference.provider'],
 												(value) => {
@@ -337,7 +335,6 @@
 											<Field.Label for="prompt_transform.inference.provider.OpenAI.model">Model</Field.Label>
 											<Select.Root
 												type="single"
-												items={OPENAI_INFERENCE_MODEL_OPTIONS}
 												bind:value={
 													() =>
 														step[
@@ -376,7 +373,6 @@
 											<Field.Label for="prompt_transform.inference.provider.Groq.model">Model</Field.Label>
 											<Select.Root
 												type="single"
-												items={GROQ_INFERENCE_MODEL_OPTIONS}
 												bind:value={
 													() =>
 														step[
@@ -415,7 +411,6 @@
 											<Field.Label for="prompt_transform.inference.provider.Anthropic.model">Model</Field.Label>
 											<Select.Root
 												type="single"
-												items={ANTHROPIC_INFERENCE_MODEL_OPTIONS}
 												bind:value={
 													() =>
 														step[
@@ -454,7 +449,6 @@
 											<Field.Label for="prompt_transform.inference.provider.Google.model">Model</Field.Label>
 											<Select.Root
 												type="single"
-												items={GOOGLE_INFERENCE_MODEL_OPTIONS}
 												bind:value={
 													() =>
 														step[

@@ -113,7 +113,6 @@
 		<Field.Label for="recording-mode">Recording Mode</Field.Label>
 		<Select.Root
 			type="single"
-			items={RECORDING_MODE_OPTIONS}
 			bind:value={
 				() => settings.value['recording.mode'],
 				(selected) => {
@@ -142,7 +141,6 @@
 			<Field.Label for="recording-method">Recording Method</Field.Label>
 			<Select.Root
 				type="single"
-				items={RECORDING_METHOD_OPTIONS}
 				bind:value={
 					() => settings.value['recording.method'],
 					(selected) => {
@@ -325,10 +323,6 @@
 				<Field.Label for="bit-rate">Bitrate</Field.Label>
 				<Select.Root
 					type="single"
-					items={BITRATE_OPTIONS.map((option) => ({
-						value: option.value,
-						label: option.label,
-					}))}
 					bind:value={
 						() => settings.value['recording.navigator.bitrateKbps'],
 						(selected) => {
@@ -384,7 +378,6 @@
 				<Field.Label for="sample-rate">Sample Rate</Field.Label>
 				<Select.Root
 					type="single"
-					items={SAMPLE_RATE_OPTIONS}
 					bind:value={
 						() => settings.value['recording.cpal.sampleRate'],
 						(selected) => {
