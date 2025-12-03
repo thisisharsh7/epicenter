@@ -38,7 +38,7 @@
 	});
 </script>
 
-{#if settings.value['ui.showSidebar']}
+{#if settings.value['ui.layoutMode'] === 'sidebar'}
 	<Sidebar.Provider>
 		<VerticalNav />
 		<Sidebar.Inset>

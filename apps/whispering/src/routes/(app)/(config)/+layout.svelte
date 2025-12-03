@@ -151,7 +151,7 @@
 				</div>
 			{/if}
 		</div>
-		{#if settings.value['ui.showNavItems']}
+		{#if settings.value['ui.layoutMode'] === 'nav-items'}
 			<NavItems class="-mr-4" collapsed={isMobile.current} />
 		{/if}
 	</div>

@@ -39,7 +39,7 @@ import {
 import { CommandOrAlt, CommandOrControl } from '$lib/constants/keyboard';
 import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import type { WhisperingSoundNames } from '$lib/constants/sounds';
-import { ALWAYS_ON_TOP_MODES } from '$lib/constants/ui';
+import { ALWAYS_ON_TOP_MODES, LAYOUT_MODES } from '$lib/constants/ui';
 import {
 	FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 	FFMPEG_DEFAULT_GLOBAL_OPTIONS,
@@ -104,13 +104,15 @@ export const Settings = type({
 
 	'system.alwaysOnTop': type
 		.enumerated(...ALWAYS_ON_TOP_MODES)
-		.default('Never' satisfies (typeof ALWAYS_ON_TOP_MODES)[number]),
+		.default('Never'),
 
 	// UI settings
-	/** Show the collapsible vertical sidebar on the left side of the screen. */
-	'ui.showSidebar': 'boolean = true',
-	/** Show the inline navigation items (header bar on config pages, centered nav on home page). */
-	'ui.showNavItems': 'boolean = true',
+	/**
+	 * Navigation layout mode.
+	 * - `sidebar`: Uses the collapsible vertical sidebar. Nav items show on home, hidden on config pages.
+	 * - `nav-items`: Uses inline header navigation. No sidebar, nav items visible on all pages.
+	 */
+	'ui.layoutMode': type.enumerated(...LAYOUT_MODES).default('sidebar'),
 
 	'database.recordingRetentionStrategy': type
 		.enumerated('keep-forever', 'limit-count')
@@ -371,6 +373,15 @@ export function parseStoredSettings(storedValue: unknown): Settings {
 			migrated['transformation.writeToCursorOnSuccess'] =
 				migrated['transformation.clipboard.pasteOnSuccess'];
 			delete migrated['transformation.clipboard.pasteOnSuccess'];
+		}
+
+		// Migrate old navigation boolean settings to new layoutMode enum
+		if ('ui.showSidebar' in migrated || 'ui.showNavItems' in migrated) {
+			const showSidebar = migrated['ui.showSidebar'] ?? true;
+			// If sidebar was enabled, use sidebar mode; otherwise use nav-items mode
+			migrated['ui.layoutMode'] = showSidebar ? 'sidebar' : 'nav-items';
+			delete migrated['ui.showSidebar'];
+			delete migrated['ui.showNavItems'];
 		}
 
 		storedValue = migrated;

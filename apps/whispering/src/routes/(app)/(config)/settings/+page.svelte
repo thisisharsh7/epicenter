@@ -1,9 +1,13 @@
 <script lang="ts">
 	import * as Field from '@repo/ui/field';
+	import * as RadioGroup from '@repo/ui/radio-group';
 	import * as Select from '@repo/ui/select';
 	import { Separator } from '@repo/ui/separator';
 	import { Switch } from '@repo/ui/switch';
-	import { ALWAYS_ON_TOP_MODE_OPTIONS } from '$lib/constants/ui';
+	import {
+		ALWAYS_ON_TOP_MODE_OPTIONS,
+		LAYOUT_MODE_OPTIONS,
+	} from '$lib/constants/ui';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	const retentionItems = [
@@ -64,7 +68,8 @@
 					id="transcription.copyToClipboardOnSuccess"
 					bind:checked={
 						() => settings.value['transcription.copyToClipboardOnSuccess'],
-						(v) => settings.updateKey('transcription.copyToClipboardOnSuccess', v)
+						(v) =>
+							settings.updateKey('transcription.copyToClipboardOnSuccess', v)
 					}
 				/>
 				<Field.Label for="transcription.copyToClipboardOnSuccess">
@@ -91,7 +96,8 @@
 						id="transcription.simulateEnterAfterOutput"
 						bind:checked={
 							() => settings.value['transcription.simulateEnterAfterOutput'],
-							(v) => settings.updateKey('transcription.simulateEnterAfterOutput', v)
+							(v) =>
+								settings.updateKey('transcription.simulateEnterAfterOutput', v)
 						}
 					/>
 					<Field.Label for="transcription.simulateEnterAfterOutput">
@@ -115,7 +121,8 @@
 					id="transformation.copyToClipboardOnSuccess"
 					bind:checked={
 						() => settings.value['transformation.copyToClipboardOnSuccess'],
-						(v) => settings.updateKey('transformation.copyToClipboardOnSuccess', v)
+						(v) =>
+							settings.updateKey('transformation.copyToClipboardOnSuccess', v)
 					}
 				/>
 				<Field.Label for="transformation.copyToClipboardOnSuccess">
@@ -128,7 +135,8 @@
 					id="transformation.writeToCursorOnSuccess"
 					bind:checked={
 						() => settings.value['transformation.writeToCursorOnSuccess'],
-						(v) => settings.updateKey('transformation.writeToCursorOnSuccess', v)
+						(v) =>
+							settings.updateKey('transformation.writeToCursorOnSuccess', v)
 					}
 				/>
 				<Field.Label for="transformation.writeToCursorOnSuccess">
@@ -142,7 +150,8 @@
 						id="transformation.simulateEnterAfterOutput"
 						bind:checked={
 							() => settings.value['transformation.simulateEnterAfterOutput'],
-							(v) => settings.updateKey('transformation.simulateEnterAfterOutput', v)
+							(v) =>
+								settings.updateKey('transformation.simulateEnterAfterOutput', v)
 						}
 					/>
 					<Field.Label for="transformation.simulateEnterAfterOutput">
@@ -156,7 +165,9 @@
 	<Separator />
 
 	<Field.Field>
-		<Field.Label for="recording-retention-strategy">Auto Delete Recordings</Field.Label>
+		<Field.Label for="recording-retention-strategy"
+			>Auto Delete Recordings</Field.Label
+		>
 		<Select.Root
 			type="single"
 			bind:value={
@@ -222,32 +233,25 @@
 	<Separator />
 
 	<Field.Set>
-		<Field.Legend variant="label">Visible Navigation</Field.Legend>
-		<Field.Description>
-			Choose which navigation surfaces to display.
-		</Field.Description>
-		<Field.Group>
-			<Field.Field orientation="horizontal">
-				<Switch
-					id="ui.showSidebar"
-					bind:checked={
-						() => settings.value['ui.showSidebar'],
-						(v) => settings.updateKey('ui.showSidebar', v)
-					}
-				/>
-				<Field.Label for="ui.showSidebar">Show Sidebar</Field.Label>
-			</Field.Field>
-
-			<Field.Field orientation="horizontal">
-				<Switch
-					id="ui.showNavItems"
-					bind:checked={
-						() => settings.value['ui.showNavItems'],
-						(v) => settings.updateKey('ui.showNavItems', v)
-					}
-				/>
-				<Field.Label for="ui.showNavItems">Show Navigation Items</Field.Label>
-			</Field.Field>
-		</Field.Group>
+		<Field.Legend variant="label">Navigation Layout</Field.Legend>
+		<Field.Description>Choose how you navigate the app.</Field.Description>
+		<RadioGroup.Root
+			bind:value={
+				() => settings.value['ui.layoutMode'],
+				(v) => settings.updateKey('ui.layoutMode', v)
+			}
+		>
+			{#each LAYOUT_MODE_OPTIONS as option (option.value)}
+				<Field.Label for="layout-{option.value}">
+					<Field.Field orientation="horizontal">
+						<Field.Content>
+							<Field.Title>{option.label}</Field.Title>
+							<Field.Description>{option.description}</Field.Description>
+						</Field.Content>
+						<RadioGroup.Item value={option.value} id="layout-{option.value}" />
+					</Field.Field>
+				</Field.Label>
+			{/each}
+		</RadioGroup.Root>
 	</Field.Set>
 </div>

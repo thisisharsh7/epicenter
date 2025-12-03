@@ -359,7 +359,7 @@
 			{/if}
 		</div>
 
-		{#if settings.value['ui.showNavItems']}
+		{#if settings.value['ui.layoutMode'] === 'nav-items'}
 			<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />
 		{/if}
 
@@ -411,6 +411,5 @@
 				{/if}
 			</p>
 		</div>
-
 	</div>
 </main>

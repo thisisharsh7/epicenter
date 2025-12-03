@@ -8,12 +8,21 @@
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import LogsIcon from '@lucide/svelte/icons/scroll-text';
 	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
+	import Database from '@lucide/svelte/icons/database';
 	import { GithubIcon } from '$lib/components/icons';
 	import { page } from '$app/state';
 	import { toggleMode } from 'mode-watcher';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { notificationLog } from '$lib/components/NotificationLog.svelte';
+	import MigrationDialog, {
+		migrationDialog,
+	} from '$lib/components/MigrationDialog.svelte';
 	import { useSidebar } from '@repo/ui/sidebar';
+
+	const shouldShowMigrationButton = $derived(
+		window.__TAURI_INTERNALS__ &&
+			(import.meta.env.DEV || migrationDialog.hasIndexedDBData),
+	);
 
 	const sidebar = useSidebar();
 
@@ -140,6 +149,28 @@
 					{/snippet}
 				</Sidebar.MenuButton>
 			</Sidebar.MenuItem>
+
+			<!-- Database Migration (desktop only, when data exists) -->
+			{#if shouldShowMigrationButton}
+				<Sidebar.MenuItem>
+					<MigrationDialog>
+						{#snippet trigger({ props })}
+							<button
+								{...props}
+								class="group/menu-button relative flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0"
+							>
+								<Database />
+								<span>Database Migration</span>
+								{#if migrationDialog.hasIndexedDBData}
+									<span
+										class="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500"
+									></span>
+								{/if}
+							</button>
+						{/snippet}
+					</MigrationDialog>
+				</Sidebar.MenuItem>
+			{/if}
 
 			<!-- Minimize (desktop only) -->
 			{#if window.__TAURI_INTERNALS__}
