@@ -77,45 +77,86 @@ export type UserModel = { ... };
 
 | Pattern | Suffix | Description | Example |
 |---------|--------|-------------|---------|
-| Rich array (source of truth) | Plural noun | Contains all metadata | `PROVIDERS`, `TRANSCRIPTION_SERVICES` |
+| Simple values (source of truth) | Plural noun with unit | Raw values array | `BITRATES_KBPS`, `SAMPLE_RATES` |
+| Rich array (source of truth) | Plural noun | Contains all metadata | `PROVIDERS`, `RECORDING_MODE_OPTIONS` |
 | IDs only (for validation) | `_IDS` | Derived from rich array | `PROVIDER_IDS` |
-| UI options `{value, label}` | `_OPTIONS` | For dropdowns/selects | `PROVIDER_OPTIONS` |
+| UI options `{value, label}` | `_OPTIONS` | For dropdowns/selects | `BITRATE_OPTIONS`, `SAMPLE_RATE_OPTIONS` |
 | Label map | `_TO_LABEL` (singular) | `Record<Id, string>` | `LANGUAGES_TO_LABEL` |
 
-## Rich Array First Pattern
+## When to Use Each Pattern
 
-The **rich array should be the single source of truth**, with IDs and options derived from it:
+### Pattern 1: Simple Values → Derived Options
+
+Use when the label can be computed from the value:
 
 ```typescript
-// 1. Rich array (source of truth)
-export const PROVIDERS = [
-  { id: 'OpenAI', label: 'OpenAI' },
-  { id: 'Groq', label: 'Groq' },
-] as const;
+// constants/audio/bitrate.ts
+export const BITRATES_KBPS = ['16', '32', '64', '128'] as const;
 
-// 2. Derived type
-export type ProviderId = (typeof PROVIDERS)[number]['id'];
-
-// 3. Derived IDs (for arktype/zod validation)
-export const PROVIDER_IDS = PROVIDERS.map(p => p.id) as unknown as readonly ProviderId[];
-
-// 4. Derived options (for UI)
-export const PROVIDER_OPTIONS = PROVIDERS.map(p => ({
-  value: p.id,
-  label: p.label,
+export const BITRATE_OPTIONS = BITRATES_KBPS.map((bitrate) => ({
+  value: bitrate,
+  label: `${bitrate} kbps`,
 }));
 ```
+
+### Pattern 2: Simple Values + Metadata Object
+
+Use when labels need richer information than the value alone:
+
+```typescript
+// constants/audio/sample-rate.ts
+export const SAMPLE_RATES = ['16000', '44100', '48000'] as const;
+
+const SAMPLE_RATE_METADATA: Record<SampleRate, { shortLabel: string; description: string }> = {
+  '16000': { shortLabel: '16 kHz', description: 'Optimized for speech' },
+  '44100': { shortLabel: '44.1 kHz', description: 'CD quality' },
+  '48000': { shortLabel: '48 kHz', description: 'Studio quality' },
+};
+
+export const SAMPLE_RATE_OPTIONS = SAMPLE_RATES.map((rate) => ({
+  value: rate,
+  label: `${SAMPLE_RATE_METADATA[rate].shortLabel} - ${SAMPLE_RATE_METADATA[rate].description}`,
+}));
+```
+
+### Pattern 3: Rich Array as Source of Truth
+
+Use when options have extra fields beyond `value`/`label` (e.g., `icon`, `desktopOnly`):
+
+```typescript
+// constants/audio/recording-modes.ts
+export const RECORDING_MODES = ['manual', 'vad', 'upload'] as const;
+export type RecordingMode = (typeof RECORDING_MODES)[number];
+
+export const RECORDING_MODE_OPTIONS = [
+  { label: 'Manual', value: 'manual', icon: '🎙️', desktopOnly: false },
+  { label: 'Voice Activated', value: 'vad', icon: '🎤', desktopOnly: false },
+  { label: 'Upload File', value: 'upload', icon: '📁', desktopOnly: false },
+] as const satisfies { label: string; value: RecordingMode; icon: string; desktopOnly: boolean }[];
+
+// Derive IDs for validation if needed
+export const RECORDING_MODE_IDS = RECORDING_MODE_OPTIONS.map(o => o.value);
+```
+
+## Choosing a Pattern
+
+| Scenario | Pattern |
+|----------|---------|
+| Label = formatted value (e.g., "128 kbps") | Simple Values → Derived |
+| Label needs separate data (e.g., "16 kHz - Optimized for speech") | Values + Metadata |
+| Options have extra UI fields (icon, description, disabled) | Rich Array |
+| Platform-specific or runtime-conditional content | Keep inline in component |
 
 ## Naming Rules
 
 ### Source Arrays
 - Use **plural noun**: `PROVIDERS`, `MODES`, `LANGUAGES`
-- Add unit suffix when relevant: `BITRATES_KBPS`
+- Add unit suffix when relevant: `BITRATES_KBPS`, `SAMPLE_RATES`
 - Avoid redundant `_VALUES` suffix
 
-### Derived Arrays
-- Use **singular noun** + suffix: `PROVIDER_IDS`, `MODE_OPTIONS`
-- This reads naturally: "provider IDs" (IDs for selecting a provider)
+### Derived/Options Arrays
+- Use **plural noun** + `_OPTIONS` suffix: `BITRATE_OPTIONS`, `SAMPLE_RATE_OPTIONS`
+- For IDs: **plural noun** + `_IDS` suffix: `PROVIDER_IDS`
 
 ### Label Maps
 - Use **singular** `_TO_LABEL` suffix: `LANGUAGES_TO_LABEL`
@@ -128,19 +169,9 @@ export const PROVIDER_OPTIONS = PROVIDERS.map(p => ({
 
 ## Co-location
 
-Options arrays should be co-located with their source array in the same file:
+Options arrays should be co-located with their source array in the same file. Avoid creating options inline in Svelte components; import pre-defined options instead.
 
-```typescript
-// constants/audio/bitrate.ts
-export const BITRATES_KBPS = ['16', '32', '64', '128'] as const;
-
-export const BITRATE_OPTIONS = BITRATES_KBPS.map((bitrate) => ({
-  label: `${bitrate} kbps`,
-  value: bitrate,
-}));
-```
-
-Avoid creating options inline in Svelte components; import pre-defined options instead.
+Exception: Keep options inline when they have platform-specific or runtime-conditional content that would require importing platform constants into the data module.
 
 # Arktype Optional Properties
 
