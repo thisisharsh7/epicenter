@@ -177,11 +177,9 @@
 						<DropdownMenu.Item class="flex items-center gap-2" {...props}>
 							<div class="relative size-4">
 								<Database class="size-4" aria-hidden="true" />
-								{#if migrationDialog.hasIndexedDBData}
-									<span
-										class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500"
-									></span>
-								{/if}
+								<span
+									class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+								></span>
 							</div>
 							<span>Database Migration Manager</span>
 						</DropdownMenu.Item>
@@ -246,31 +244,12 @@
 						{...props}
 					>
 						<Database class="size-4" aria-hidden="true" />
-						{#if migrationDialog.hasIndexedDBData}
-							<span
-								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500 animate-ping"
-							></span>
-							<span
-								class="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-500"
-							></span>
-						{/if}
+						<span
+							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+						></span>
 					</WhisperingButton>
 				{/snippet}
 			</MigrationDialog>
 		{/if}
 	</nav>
 {/if}
-
-<style>
-	@keyframes ping {
-		75%,
-		100% {
-			transform: scale(2);
-			opacity: 0;
-		}
-	}
-
-	.animate-ping {
-		animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
-	}
-</style>

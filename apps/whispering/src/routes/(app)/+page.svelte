@@ -179,19 +179,17 @@
 	<title>Whispering</title>
 </svelte:head>
 
-<main class="flex flex-1 flex-col items-center justify-center gap-4">
-	<!-- Container wrapper for consistent max-width -->
-	<div class="w-full max-w-2xl px-4 flex flex-col items-center gap-4">
-		<div class="xs:flex hidden flex-col items-center gap-4">
-			<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
-				Whispering
-			</h1>
-			<p class="text-muted-foreground text-center">
-				Press shortcut → speak → get text. Free and open source ❤️
-			</p>
-		</div>
+<div class="flex flex-1 flex-col items-center justify-center gap-4 w-full max-w-md px-4">
+	<div class="xs:flex hidden flex-col items-center gap-4">
+		<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
+			Whispering
+		</h1>
+		<p class="text-muted-foreground text-center">
+			Press shortcut → speak → get text. Free and open source ❤️
+		</p>
+	</div>
 
-		<ToggleGroup.Root
+	<ToggleGroup.Root
 			type="single"
 			bind:value={
 				() => settings.value['recording.mode'],
@@ -286,7 +284,7 @@
 				</div>
 			{:else if settings.value['recording.mode'] === 'upload'}
 				<!-- Full width spanning all columns -->
-				<div class="col-span-3 flex flex-col items-center gap-4 w-full">
+				<div class="flex flex-col items-center gap-4 w-full">
 					<FileDropZone
 						accept="{ACCEPT_AUDIO}, {ACCEPT_VIDEO}"
 						maxFiles={10}
@@ -360,7 +358,9 @@
 			{/if}
 		</div>
 
-		<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />
+		{#if settings.value['ui.layoutMode'] === 'nav-items'}
+			<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />
+		{/if}
 
 		<div class="xs:flex hidden flex-col items-center gap-3">
 			<p class="text-foreground/75 text-center text-sm">
@@ -410,5 +410,4 @@
 				{/if}
 			</p>
 		</div>
-	</div>
-</main>
+</div>

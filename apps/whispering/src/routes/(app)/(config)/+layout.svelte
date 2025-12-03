@@ -10,7 +10,10 @@
 	} from '$lib/components/settings';
 	import ManualDeviceSelector from '$lib/components/settings/selectors/ManualDeviceSelector.svelte';
 	import VadDeviceSelector from '$lib/components/settings/selectors/VadDeviceSelector.svelte';
-	import { RECORDER_STATE_TO_ICON, VAD_STATE_TO_ICON } from '$lib/constants/audio';
+	import {
+		RECORDER_STATE_TO_ICON,
+		VAD_STATE_TO_ICON,
+	} from '$lib/constants/audio';
 	import { rpc } from '$lib/query';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@epicenter/ui/utils';
@@ -25,6 +28,7 @@
 	let { children } = $props();
 
 	const isMobile = new MediaQuery('(max-width: 640px)');
+
 </script>
 
 <header
@@ -147,7 +151,9 @@
 				</div>
 			{/if}
 		</div>
-		<NavItems class="-mr-4" collapsed={isMobile.current} />
+		{#if settings.value['ui.layoutMode'] === 'nav-items'}
+			<NavItems class="-mr-4" collapsed={isMobile.current} />
+		{/if}
 	</div>
 </header>
 
