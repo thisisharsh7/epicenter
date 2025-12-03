@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { commandCallbacks } from '$lib/commands';
-	import { vadStateToIcons, type VadState } from '$lib/constants/audio';
+	import { VAD_STATE_TO_ICON, type VadState } from '$lib/constants/audio';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import type { CreateQueryResult } from '@tanstack/svelte-query';
 	import { cn } from '@repo/ui/utils';
@@ -18,7 +18,7 @@
 	}: Props = $props();
 
 	const state = $derived(getVadStateQuery.data ?? 'IDLE');
-	const icon = $derived(vadStateToIcons[state]);
+	const icon = $derived(VAD_STATE_TO_ICON[state]);
 
 	const labelText = $derived(
 		state === 'IDLE'

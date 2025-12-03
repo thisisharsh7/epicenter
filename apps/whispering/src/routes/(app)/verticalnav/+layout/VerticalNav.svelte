@@ -42,14 +42,14 @@
 
 	// Navigation items
 	const navItems = [
-		{ label: 'Home', href: '/verticalnav', icon: HomeIcon, exact: true },
-		{ label: 'Recordings', href: '/verticalnav/recordings', icon: ListIcon },
+		{ label: 'Home', href: '/', icon: HomeIcon, exact: true },
+		{ label: 'Recordings', href: '/recordings', icon: ListIcon },
 		{
 			label: 'Transformations',
-			href: '/verticalnav/transformations',
+			href: '/transformations',
 			icon: LayersIcon,
 		},
-		{ label: 'Settings', href: '/verticalnav/settings', icon: SettingsIcon },
+		{ label: 'Settings', href: '/settings', icon: SettingsIcon },
 	] as const;
 
 	// Footer items - only essential items (minimize on desktop, notification history)

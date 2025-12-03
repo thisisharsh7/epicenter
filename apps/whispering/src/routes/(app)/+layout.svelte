@@ -4,11 +4,19 @@
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { rpc } from '$lib/query';
 	import * as services from '$lib/services';
+	import * as Sidebar from '@repo/ui/sidebar';
+	import { createQuery } from '@tanstack/svelte-query';
 	import AppLayout from './_components/AppLayout.svelte';
+	import VerticalNav from './verticalnav/+layout/VerticalNav.svelte';
 
 	let { children } = $props();
 
 	let unlistenNavigate: UnlistenFn | null = null;
+
+	const getRecorderStateQuery = createQuery(
+		rpc.recorder.getRecorderState.options,
+	);
+	const getVadStateQuery = createQuery(rpc.vadRecorder.getVadState.options);
 
 	$effect(() => {
 		const unlisten = services.localShortcutManager.listen();
@@ -35,6 +43,15 @@
 	});
 </script>
 
-<AppLayout>
-	{@render children()}
-</AppLayout>
+<Sidebar.Provider>
+	<VerticalNav {getRecorderStateQuery} {getVadStateQuery} />
+	<Sidebar.Inset>
+		<!-- Trigger button for mobile (always visible - opens Sheet) -->
+		<div class="fixed left-2 top-2 z-40 md:hidden">
+			<Sidebar.Trigger />
+		</div>
+		<AppLayout>
+			{@render children()}
+		</AppLayout>
+	</Sidebar.Inset>
+</Sidebar.Provider>

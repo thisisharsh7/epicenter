@@ -12,10 +12,10 @@
 	import ManualDeviceSelector from '$lib/components/settings/selectors/ManualDeviceSelector.svelte';
 	import VadDeviceSelector from '$lib/components/settings/selectors/VadDeviceSelector.svelte';
 	import {
+		RECORDER_STATE_TO_ICON,
 		RECORDING_MODE_OPTIONS,
 		type RecordingMode,
-		recorderStateToIcons,
-		vadStateToIcons,
+		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
 	import { rpc } from '$lib/query';
 	import * as services from '$lib/services';
@@ -35,7 +35,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { onDestroy, onMount } from 'svelte';
-	import TranscribedTextDialog from '$lib/components/copyable/TranscribedTextDialog.svelte';
+	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 
 	const sidebar = useSidebar();
 
@@ -232,7 +232,7 @@
 							style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
 							class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 						>
-							{recorderStateToIcons[getRecorderStateQuery.data ?? 'IDLE']}
+							{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
 						</span>
 					</WhisperingButton>
 					<!-- Absolutely positioned selectors -->
@@ -274,7 +274,7 @@
 							style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
 							class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 						>
-							{vadStateToIcons[getVadStateQuery.data ?? 'IDLE']}
+							{VAD_STATE_TO_ICON[getVadStateQuery.data ?? 'IDLE']}
 						</span>
 					</WhisperingButton>
 					<!-- Absolutely positioned selectors -->
@@ -319,7 +319,7 @@
 		<div class="xxs:flex hidden w-full flex-col items-center gap-2">
 			<div class="flex w-full items-center gap-2">
 				<div class="flex-1">
-					<TranscribedTextDialog
+					<TranscriptDialog
 						recordingId={latestRecording.id}
 						transcribedText={latestRecording.transcriptionStatus ===
 						'TRANSCRIBING'
@@ -414,19 +414,5 @@
 			</p>
 		</div>
 
-		<!-- Layout Switcher (Development) -->
-		<div class="mt-8 pt-4 border-t border-border/40">
-			<p class="text-muted-foreground text-center text-sm">
-				<strong>Dev:</strong> Switch to{' '}
-				<WhisperingButton
-					href="/"
-					variant="link"
-					class="text-sm"
-					tooltipContent="Switch to topbar layout"
-				>
-					Topbar Layout
-				</WhisperingButton>
-			</p>
-		</div>
 	</div>
 </main>

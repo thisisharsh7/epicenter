@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { commandCallbacks } from '$lib/commands';
-	import { recorderStateToIcons } from '$lib/constants/audio';
+	import { RECORDER_STATE_TO_ICON } from '$lib/constants/audio';
 	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import type { CreateQueryResult } from '@tanstack/svelte-query';
 	import type { WhisperingRecordingState } from '$lib/constants/audio/recording-states';
@@ -19,7 +19,7 @@
 	}: Props = $props();
 
 	const state = $derived(getRecorderStateQuery.data ?? 'IDLE');
-	const icon = $derived(recorderStateToIcons[state]);
+	const icon = $derived(RECORDER_STATE_TO_ICON[state]);
 
 	const labelText = $derived(
 		state === 'IDLE' ? 'Start manual recording' : 'Stop manual recording',
