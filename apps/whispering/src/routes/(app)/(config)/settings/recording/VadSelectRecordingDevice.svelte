@@ -36,7 +36,7 @@
 {#if getDevicesQuery.isPending}
 	<Field.Field>
 		<Field.Label for="vad-recording-device">VAD Recording Device</Field.Label>
-		<Select.Root type="single" items={[{ value: '', label: 'Loading devices...' }]} disabled>
+		<Select.Root type="single" disabled>
 			<Select.Trigger id="vad-recording-device" class="w-full">
 				Loading devices...
 			</Select.Trigger>
@@ -54,7 +54,6 @@
 		<Field.Label for="vad-recording-device">VAD Recording Device</Field.Label>
 		<Select.Root
 			type="single"
-			{items}
 			bind:value={
 				() => selected ?? asDeviceIdentifier(''),
 				(value) => (selected = value ? asDeviceIdentifier(value) : null)

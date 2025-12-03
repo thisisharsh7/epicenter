@@ -159,7 +159,6 @@
 		<Field.Label for="recording-retention-strategy">Auto Delete Recordings</Field.Label>
 		<Select.Root
 			type="single"
-			items={retentionItems}
 			bind:value={
 				() => settings.value['database.recordingRetentionStrategy'],
 				(v) => settings.updateKey('database.recordingRetentionStrategy', v)
@@ -181,7 +180,6 @@
 			<Field.Label for="max-recording-count">Maximum Recordings</Field.Label>
 			<Select.Root
 				type="single"
-				items={maxRecordingItems}
 				bind:value={
 					() => settings.value['database.maxRecordingCount'],
 					(v) => settings.updateKey('database.maxRecordingCount', v)
@@ -204,7 +202,6 @@
 			<Field.Label for="always-on-top">Always On Top</Field.Label>
 			<Select.Root
 				type="single"
-				items={ALWAYS_ON_TOP_MODE_OPTIONS}
 				bind:value={
 					() => settings.value['system.alwaysOnTop'],
 					(v) => settings.updateKey('system.alwaysOnTop', v)

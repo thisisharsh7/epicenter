@@ -149,7 +149,6 @@
 			<Field.Label for="openai-model">OpenAI Model</Field.Label>
 			<Select.Root
 				type="single"
-				items={openaiModelItems}
 				bind:value={
 					() => settings.value['transcription.openai.model'],
 					(v) => settings.updateKey('transcription.openai.model', v)
@@ -182,7 +181,6 @@
 			<Field.Label for="groq-model">Groq Model</Field.Label>
 			<Select.Root
 				type="single"
-				items={groqModelItems}
 				bind:value={
 					() => settings.value['transcription.groq.model'],
 					(v) => settings.updateKey('transcription.groq.model', v)
@@ -215,7 +213,6 @@
 			<Field.Label for="deepgram-model">Deepgram Model</Field.Label>
 			<Select.Root
 				type="single"
-				items={deepgramModelItems}
 				bind:value={
 					() => settings.value['transcription.deepgram.model'],
 					(v) => settings.updateKey('transcription.deepgram.model', v)
@@ -239,7 +236,6 @@
 			<Field.Label for="mistral-model">Mistral Model</Field.Label>
 			<Select.Root
 				type="single"
-				items={mistralModelItems}
 				bind:value={
 					() => settings.value['transcription.mistral.model'],
 					(v) => settings.updateKey('transcription.mistral.model', v)
@@ -274,7 +270,6 @@
 			<Field.Label for="elevenlabs-model">ElevenLabs Model</Field.Label>
 			<Select.Root
 				type="single"
-				items={elevenlabsModelItems}
 				bind:value={
 					() => settings.value['transcription.elevenlabs.model'],
 					(v) => settings.updateKey('transcription.elevenlabs.model', v)
@@ -677,7 +672,6 @@
 		<Field.Label for="output-language">Output Language</Field.Label>
 		<Select.Root
 			type="single"
-			items={SUPPORTED_LANGUAGES_OPTIONS}
 			bind:value={
 				() => settings.value['transcription.outputLanguage'],
 				(v) => settings.updateKey('transcription.outputLanguage', v)

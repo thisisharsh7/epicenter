@@ -282,7 +282,6 @@
 						<Field.Label for="ffmpeg-format">Format</Field.Label>
 						<Select.Root
 							type="single"
-							items={audioFormatOptions}
 							bind:value={
 								() => selected.format,
 								(value) => {
@@ -310,7 +309,6 @@
 						<Field.Label for="ffmpeg-sample-rate">Sample Rate</Field.Label>
 						<Select.Root
 							type="single"
-							items={SAMPLE_RATE_OPTIONS}
 							bind:value={
 								() => selected.sampleRate,
 								(value) => {
@@ -340,7 +338,6 @@
 							<Field.Label for="ffmpeg-quality">Quality</Field.Label>
 							<Select.Root
 								type="single"
-								items={qualityItems}
 								bind:value={
 									() => selected.quality,
 									(value) => {
@@ -369,7 +366,6 @@
 							<Field.Label for="ffmpeg-bitrate">Bitrate</Field.Label>
 							<Select.Root
 								type="single"
-								items={bitrateItems}
 								bind:value={
 									() => selected.bitrate,
 									(value) => {
