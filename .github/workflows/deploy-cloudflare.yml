@@ -236,9 +236,9 @@ jobs:
           echo "**Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
 
       - name: Send Discord notification
-        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        if: env.DISCORD_WEBHOOK != ''
         run: |
           STATUS_COLOR=$([ "${{ steps.status.outputs.status }}" = "success" ] && echo "3066993" || echo "15158332")
 
