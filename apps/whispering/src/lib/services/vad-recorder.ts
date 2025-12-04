@@ -82,6 +82,7 @@ export function createVadService() {
 							onSpeechEnd(blob);
 						},
 						onVADMisfire: () => {
+							vadState = 'LISTENING';
 							onVADMisfire();
 						},
 						onSpeechRealStart: () => {
