@@ -14,7 +14,6 @@ import { text } from './text';
 import { transcription } from './transcription';
 import { transformer } from './transformer';
 import { tray } from './tray';
-import { vadRecorder } from './vad-recorder';
 
 /**
  * Unified namespace for all query operations.
@@ -28,7 +27,6 @@ export const rpc = {
 	download,
 	ffmpeg,
 	recorder,
-	vadRecorder,
 	tray,
 	shortcuts,
 	sound,

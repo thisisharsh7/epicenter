@@ -4,6 +4,7 @@
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
 	import { rpc } from '$lib/query';
+	import { vadRecorder } from '$lib/query/vad.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@epicenter/ui/utils';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -21,7 +22,12 @@
 	const isDeviceSelected = $derived(!!selectedDeviceId);
 
 	const getDevicesQuery = createQuery(() => ({
-		...rpc.vadRecorder.enumerateDevices.options(),
+		queryKey: ['vad', 'devices'],
+		queryFn: async () => {
+			const { data, error } = await vadRecorder.enumerateDevices();
+			if (error) throw error;
+			return data;
+		},
 		enabled: combobox.open,
 	}));
 
@@ -68,7 +74,7 @@
 					</div>
 				{:else if getDevicesQuery.isError}
 					<div class="p-4 text-center text-sm text-destructive">
-						{getDevicesQuery.error.title}
+						{getDevicesQuery.error?.message}
 					</div>
 				{:else}
 					{#each getDevicesQuery.data as device (device.id)}
