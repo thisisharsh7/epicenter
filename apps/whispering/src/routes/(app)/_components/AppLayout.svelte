@@ -10,6 +10,7 @@
 	import NotificationLog from '$lib/components/NotificationLog.svelte';
 	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
 	import { rpc } from '$lib/query';
+	import { vadRecorder } from '$lib/query/vad.svelte';
 	import * as services from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { syncWindowAlwaysOnTopWithRecorderState } from '../_layout-utils/alwaysOnTop.svelte';
@@ -35,7 +36,6 @@
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
 	);
-	const getVadStateQuery = createQuery(rpc.vadRecorder.getVadState.options);
 
 	let cleanupAccessibilityPermission: (() => void) | undefined;
 	let cleanupMicrophonePermission: (() => void) | undefined;
@@ -80,7 +80,7 @@
 
 	$effect(() => {
 		getRecorderStateQuery.data;
-		getVadStateQuery.data;
+		vadRecorder.state; // Reactive VAD state access
 		services.db.recordings.cleanupExpired({
 			recordingRetentionStrategy:
 				settings.value['database.recordingRetentionStrategy'],

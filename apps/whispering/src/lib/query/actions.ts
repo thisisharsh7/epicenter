@@ -14,7 +14,7 @@ import { sound } from './sound';
 import { text } from './text';
 import { transcription } from './transcription';
 import { transformer } from './transformer';
-import { vadRecorder } from './vad-recorder';
+import { vadRecorder } from './vad.svelte';
 
 /**
  * Application actions. These are mutations at the UI boundary that can be invoked
@@ -207,7 +207,7 @@ const startVadRecording = defineMutation({
 			description: 'Your voice activated capture is starting...',
 		});
 		const { data: deviceAcquisitionOutcome, error: startActiveListeningError } =
-			await vadRecorder.startActiveListening.execute({
+			await vadRecorder.startActiveListening({
 				onSpeechStart: () => {
 					notify.success.execute({
 						title: '🎙️ Speech started',
@@ -308,8 +308,7 @@ const stopVadRecording = defineMutation({
 			title: '⏸️ Stopping voice activated capture...',
 			description: 'Finalizing your voice activated capture...',
 		});
-		const { error: stopVadError } =
-			await vadRecorder.stopActiveListening.execute(undefined);
+		const { error: stopVadError } = await vadRecorder.stopActiveListening();
 		if (stopVadError) {
 			notify.error.execute({ id: toastId, ...stopVadError });
 			return Ok(undefined);
@@ -407,8 +406,7 @@ export const commands = {
 	toggleVadRecording: defineMutation({
 		mutationKey: ['commands', 'toggleVadRecording'] as const,
 		resultMutationFn: async () => {
-			const { data: vadState } = await vadRecorder.getVadState.fetch();
-			if (vadState === 'LISTENING' || vadState === 'SPEECH_DETECTED') {
+			if (vadRecorder.state === 'LISTENING' || vadRecorder.state === 'SPEECH_DETECTED') {
 				return await stopVadRecording.execute(undefined);
 			}
 			return await startVadRecording.execute(undefined);

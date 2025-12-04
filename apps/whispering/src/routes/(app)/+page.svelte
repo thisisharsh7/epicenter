@@ -19,6 +19,7 @@
 	} from '$lib/constants/audio';
 	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
+	import { vadRecorder } from '$lib/query/vad.svelte';
 	import * as services from '$lib/services';
 	import type { Recording } from '$lib/services/db';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -40,7 +41,6 @@
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
 	);
-	const getVadStateQuery = createQuery(rpc.vadRecorder.getVadState.options);
 	const latestRecordingQuery = createQuery(rpc.db.recordings.getLatest.options);
 
 	const latestRecording = $derived<Recording>(
@@ -258,7 +258,7 @@
 				<div class="relative">
 					<!-- Recording button -->
 					<WhisperingButton
-						tooltipContent={getVadStateQuery.data === 'IDLE'
+						tooltipContent={vadRecorder.state === 'IDLE'
 							? 'Start voice activated session'
 							: 'Stop voice activated session'}
 						onclick={commandCallbacks.toggleVadRecording}
@@ -269,11 +269,11 @@
 							style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
 							class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 						>
-							{VAD_STATE_TO_ICON[getVadStateQuery.data ?? 'IDLE']}
+							{VAD_STATE_TO_ICON[vadRecorder.state]}
 						</span>
 					</WhisperingButton>
 					<!-- Absolutely positioned selectors -->
-					{#if getVadStateQuery.data === 'IDLE'}
+					{#if vadRecorder.state === 'IDLE'}
 						<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
 							<VadDeviceSelector />
 							<CompressionSelector />

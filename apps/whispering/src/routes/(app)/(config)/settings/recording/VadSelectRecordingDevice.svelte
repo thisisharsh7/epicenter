@@ -2,6 +2,7 @@
 	import * as Field from '@epicenter/ui/field';
 	import * as Select from '@epicenter/ui/select';
 	import { rpc } from '$lib/query';
+	import { vadRecorder } from '$lib/query/vad.svelte';
 	import type { DeviceIdentifier } from '$lib/services/types';
 	import { asDeviceIdentifier } from '$lib/services/types';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -13,7 +14,7 @@
 	} = $props();
 
 	// Use vadRecorder.enumerateDevices for VAD (navigator devices only)
-	const getDevicesQuery = createQuery(rpc.vadRecorder.enumerateDevices.options);
+	const getDevicesQuery = createQuery(vadRecorder.enumerateDevices.options);
 
 	$effect(() => {
 		if (getDevicesQuery.isError) {

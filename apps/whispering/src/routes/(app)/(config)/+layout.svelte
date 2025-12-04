@@ -15,6 +15,7 @@
 		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
 	import { rpc } from '$lib/query';
+	import { vadRecorder } from '$lib/query/vad.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@epicenter/ui/utils';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -23,7 +24,6 @@
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
 	);
-	const getVadStateQuery = createQuery(rpc.vadRecorder.getVadState.options);
 
 	let { children } = $props();
 
@@ -92,13 +92,13 @@
 					</div>
 				{/if}
 			{:else if settings.value['recording.mode'] === 'vad'}
-				{#if getVadStateQuery.data === 'IDLE'}
+				{#if vadRecorder.state === 'IDLE'}
 					<VadDeviceSelector />
 					<CompressionSelector />
 					<TranscriptionSelector />
 					<TransformationSelector />
 				{/if}
-				{#if getVadStateQuery.data === 'IDLE'}
+				{#if vadRecorder.state === 'IDLE'}
 					<div class="flex">
 						<WhisperingButton
 							tooltipContent="Start voice activated recording"
@@ -108,7 +108,7 @@
 							style="view-transition-name: microphone-icon"
 							class="rounded-r-none border-r-0"
 						>
-							{VAD_STATE_TO_ICON[getVadStateQuery.data ?? 'IDLE']}
+							{VAD_STATE_TO_ICON[vadRecorder.state]}
 						</WhisperingButton>
 						<RecordingModeSelector class="rounded-l-none" />
 					</div>
@@ -120,7 +120,7 @@
 						size="icon"
 						style="view-transition-name: microphone-icon"
 					>
-						{VAD_STATE_TO_ICON[getVadStateQuery.data ?? 'IDLE']}
+						{VAD_STATE_TO_ICON[vadRecorder.state]}
 					</WhisperingButton>
 				{/if}
 			{:else if settings.value['recording.mode'] === 'upload'}
