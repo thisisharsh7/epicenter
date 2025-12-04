@@ -68,10 +68,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      deployments: write
-    environment:
-      name: production-whispering
-      url: ${{ steps.deploy.outputs.deployment-url }}
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
@@ -134,10 +130,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      deployments: write
-    environment:
-      name: production-landing
-      url: ${{ steps.deploy.outputs.deployment-url }}
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
