@@ -9,6 +9,7 @@ import {
 	getRecordingStream,
 } from '$lib/services/device-stream';
 import { settings } from '$lib/stores/settings.svelte';
+import { defineQuery } from './_client';
 
 /**
  * Creates a Voice Activity Detection (VAD) recorder with reactive state.
@@ -20,7 +21,7 @@ import { settings } from '$lib/stores/settings.svelte';
  * - Access state reactively: `vadRecorder.state` (triggers effects when changed)
  * - Start listening: `await vadRecorder.startActiveListening({ onSpeechStart, onSpeechEnd })`
  * - Stop listening: `await vadRecorder.stopActiveListening()`
- * - Enumerate devices: `await vadRecorder.enumerateDevices()`
+ * - Enumerate devices: `createQuery(vadRecorder.enumerateDevices.options)`
  */
 function createVadRecorder() {
 	// Private state
@@ -39,17 +40,23 @@ function createVadRecorder() {
 
 		/**
 		 * Enumerate available audio input devices.
+		 *
+		 * Usage:
+		 * - With createQuery: `createQuery(vadRecorder.enumerateDevices.options)`
 		 */
-		async enumerateDevices() {
-			const { data, error } = await enumerateDevices();
-			if (error) {
-				return fromTaggedErr(error, {
-					title: '❌ Failed to enumerate devices',
-					action: { type: 'more-details', error },
-				});
-			}
-			return Ok(data);
-		},
+		enumerateDevices: defineQuery({
+			queryKey: ['vad', 'devices'],
+			resultQueryFn: async () => {
+				const { data, error } = await enumerateDevices();
+				if (error) {
+					return fromTaggedErr(error, {
+						title: '❌ Failed to enumerate devices',
+						action: { type: 'more-details', error },
+					});
+				}
+				return Ok(data);
+			},
+		}),
 
 		/**
 		 * Start voice activity detection.
@@ -70,8 +77,7 @@ function createVadRecorder() {
 			if (maybeVad) {
 				return WhisperingErr({
 					title: '⚠️ VAD already active',
-					description:
-						'Stop the current session before starting a new one.',
+					description: 'Stop the current session before starting a new one.',
 				});
 			}
 

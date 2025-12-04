@@ -22,12 +22,7 @@
 	const isDeviceSelected = $derived(!!selectedDeviceId);
 
 	const getDevicesQuery = createQuery(() => ({
-		queryKey: ['vad', 'devices'],
-		queryFn: async () => {
-			const { data, error } = await vadRecorder.enumerateDevices();
-			if (error) throw error;
-			return data;
-		},
+		...vadRecorder.enumerateDevices.options(),
 		enabled: combobox.open,
 	}));
 
@@ -74,7 +69,7 @@
 					</div>
 				{:else if getDevicesQuery.isError}
 					<div class="p-4 text-center text-sm text-destructive">
-						{getDevicesQuery.error?.message}
+						{getDevicesQuery.error?.title}
 					</div>
 				{:else}
 					{#each getDevicesQuery.data as device (device.id)}

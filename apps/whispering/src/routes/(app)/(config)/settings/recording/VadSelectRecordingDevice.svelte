@@ -3,14 +3,9 @@
 	import * as Select from '@epicenter/ui/select';
 	import { rpc } from '$lib/query';
 	import { vadRecorder } from '$lib/query/vad.svelte';
-	import type { Device, DeviceIdentifier } from '$lib/services/types';
+	import type { DeviceIdentifier } from '$lib/services/types';
 	import { asDeviceIdentifier } from '$lib/services/types';
 	import { createQuery } from '@tanstack/svelte-query';
-	import type { WhisperingError } from '$lib/result';
-	import type {
-		ExtractErrFromResult,
-		ExtractOkFromResult,
-	} from 'wellcrafted/result';
 
 	let {
 		selected = $bindable(),
@@ -19,21 +14,7 @@
 	} = $props();
 
 	// Use vadRecorder.enumerateDevices for VAD (navigator devices only)
-	const getDevicesQuery = createQuery<
-		ExtractOkFromResult<
-			Awaited<ReturnType<typeof vadRecorder.enumerateDevices>>
-		>['data'],
-		ExtractErrFromResult<
-			Awaited<ReturnType<typeof vadRecorder.enumerateDevices>>
-		>['error']
-	>(() => ({
-		queryKey: ['vad', 'devices'],
-		queryFn: async () => {
-			const { data, error } = await vadRecorder.enumerateDevices();
-			if (error) throw error;
-			return data;
-		},
-	}));
+	const getDevicesQuery = createQuery(vadRecorder.enumerateDevices.options);
 
 	$effect(() => {
 		if (getDevicesQuery.isError) {
