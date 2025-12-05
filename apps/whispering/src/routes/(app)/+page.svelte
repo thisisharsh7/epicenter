@@ -179,7 +179,7 @@
 	<title>Whispering</title>
 </svelte:head>
 
-<div class="flex flex-1 flex-col items-center justify-center gap-4 w-full max-w-md px-4">
+<div class="flex flex-1 flex-col items-center justify-center gap-4 w-full max-w-md mx-auto px-4">
 	<div class="xs:flex hidden flex-col items-center gap-4">
 		<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
 			Whispering

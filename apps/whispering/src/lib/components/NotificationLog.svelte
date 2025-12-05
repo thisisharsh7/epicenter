@@ -26,7 +26,7 @@
 
 <script lang="ts">
 	import * as Alert from '@epicenter/ui/alert';
-	import * as Popover from '@epicenter/ui/popover';
+	import * as Dialog from '@epicenter/ui/dialog';
 	import type { UnifiedNotificationOptions } from '$lib/services/notifications/types';
 	import { ScrollArea } from '@epicenter/ui/scroll-area';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
@@ -34,42 +34,18 @@
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 	import Info from '@lucide/svelte/icons/info';
 	import Loader from '@lucide/svelte/icons/loader';
-	import LogsIcon from '@lucide/svelte/icons/file-text';
 	import { mode } from 'mode-watcher';
-	import WhisperingButton from './WhisperingButton.svelte';
-	import { cn } from '@epicenter/ui/utils';
 </script>
 
-<Popover.Root bind:open={notificationLog.isOpen}>
-	<Popover.Trigger>
-		{#snippet child({ props })}
-			{@const { class: propsClass, ...restProps } = props}
-			<WhisperingButton
-				tooltipContent="Notification History"
-				class={cn(
-					'fixed bottom-4 right-4 z-50 hidden xs:inline-flex',
-					propsClass,
-				)}
-				variant="outline"
-				size="icon"
-				{...restProps}
-			>
-				<LogsIcon class="size-4" />
-			</WhisperingButton>
-		{/snippet}
-	</Popover.Trigger>
-	<Popover.Content
-		class={cn(
-			'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-[90vw] max-w-md p-4',
-		)}
-	>
-		<div class="flex flex-col space-y-1.5">
-			<h1 class="text-lg font-semibold">Notification History</h1>
-			<h2 class="text-sm text-muted-foreground">View past notifications</h2>
-		</div>
+<Dialog.Root bind:open={notificationLog.isOpen}>
+	<Dialog.Content class="max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>Notification History</Dialog.Title>
+			<Dialog.Description>View past notifications</Dialog.Description>
+		</Dialog.Header>
 
 		<ScrollArea
-			class="mt-4 h-[60vh] overflow-y-auto rounded-md border bg-background p-4"
+			class="h-[60vh] overflow-y-auto rounded-md border bg-background p-4"
 			data-sonner-toaster
 			data-theme={mode.current}
 			data-rich-colors="true"
@@ -124,11 +100,11 @@
 				</div>
 			{/if}
 		</ScrollArea>
-	</Popover.Content>
-</Popover.Root>
+	</Dialog.Content>
+</Dialog.Root>
 
 <style>
-	:global([data-slot='popover-content'] [data-sonner-toast]) {
+	:global([data-slot='dialog-content'] [data-sonner-toast]) {
 		position: relative;
 	}
 </style>
