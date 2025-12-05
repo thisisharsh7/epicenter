@@ -52,7 +52,7 @@
 	{...TOASTER_SETTINGS}
 />
 <ModeWatcher />
-<SvelteQueryDevtools client={queryClient} buttonPosition="bottom-left" />
+<SvelteQueryDevtools client={queryClient} buttonPosition="bottom-right" />
 
 <style>
 	/* Override inspector button to bottom-center positioning */
