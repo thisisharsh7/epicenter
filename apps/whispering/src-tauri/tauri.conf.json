@@ -38,6 +38,7 @@
 				"type": "embedBootstrapper"
 			},
 			"wix": {
+				"fipsCompliant": true,
 				"language": "en-US"
 			},
 			"nsis": {
