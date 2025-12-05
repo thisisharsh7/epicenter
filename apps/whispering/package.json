@@ -1,7 +1,7 @@
 {
 	"name": "@epicenter/whispering",
 	"private": true,
-	"version": "7.8.0",
+	"version": "7.9.0",
 	"description": "",
 	"exports": {
 		"./commands": "./src/lib/commands.ts"
