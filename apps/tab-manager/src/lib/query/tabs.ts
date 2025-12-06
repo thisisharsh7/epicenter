@@ -1,28 +1,5 @@
-import { tryAsync, Ok, Err } from 'wellcrafted/result';
-import { defineQuery, defineMutation, queryClient } from './_client';
-
-/**
- * Tab type representing a browser tab
- */
-export type Tab = {
-	id: number;
-	windowId: number;
-	url: string;
-	title: string;
-	favIconUrl: string | undefined;
-	index: number;
-	pinned: boolean;
-	active: boolean;
-	highlighted: boolean;
-	mutedInfo?: { muted: boolean };
-	audible: boolean;
-	discarded: boolean;
-	autoDiscardable: boolean;
-	status: string;
-	groupId: number;
-	openerTabId?: number;
-	incognito: boolean;
-};
+import { Err, Ok, tryAsync } from 'wellcrafted/result';
+import { defineMutation, defineQuery, queryClient } from './_client';
 
 /**
  * Query keys for tab-related queries
@@ -106,7 +83,7 @@ export const tabs = {
 			// Optimistically remove from cache
 			queryClient.setQueryData(
 				tabsKeys.all,
-				(oldTabs: Tab[] | undefined) =>
+				(oldTabs: Browser.tabs.Tab[] | undefined) =>
 					oldTabs?.filter((t) => t.id !== tabId),
 			);
 
@@ -139,11 +116,18 @@ export const tabs = {
 			if (result.error) return Err(result.error);
 
 			// Update active state in cache
-			queryClient.setQueryData(tabsKeys.all, (oldTabs: Tab[] | undefined) =>
-				oldTabs?.map((t) => ({
-					...t,
-					active: t.id === tabId ? true : t.windowId === result.data.windowId ? false : t.active,
-				})),
+			queryClient.setQueryData(
+				tabsKeys.all,
+				(oldTabs: Browser.tabs.Tab[] | undefined) =>
+					oldTabs?.map((t) => ({
+						...t,
+						active:
+							t.id === tabId
+								? true
+								: t.windowId === result.data.windowId
+									? false
+									: t.active,
+					})),
 			);
 
 			return Ok(undefined);
@@ -168,8 +152,10 @@ export const tabs = {
 			if (result.error) return Err(result.error);
 
 			// Optimistically update cache
-			queryClient.setQueryData(tabsKeys.all, (oldTabs: Tab[] | undefined) =>
-				oldTabs?.map((t) => (t.id === tabId ? { ...t, pinned: true } : t)),
+			queryClient.setQueryData(
+				tabsKeys.all,
+				(oldTabs: Browser.tabs.Tab[] | undefined) =>
+					oldTabs?.map((t) => (t.id === tabId ? { ...t, pinned: true } : t)),
 			);
 
 			return Ok(undefined);
@@ -193,8 +179,10 @@ export const tabs = {
 			});
 			if (result.error) return Err(result.error);
 
-			queryClient.setQueryData(tabsKeys.all, (oldTabs: Tab[] | undefined) =>
-				oldTabs?.map((t) => (t.id === tabId ? { ...t, pinned: false } : t)),
+			queryClient.setQueryData(
+				tabsKeys.all,
+				(oldTabs: Browser.tabs.Tab[] | undefined) =>
+					oldTabs?.map((t) => (t.id === tabId ? { ...t, pinned: false } : t)),
 			);
 
 			return Ok(undefined);
@@ -218,10 +206,14 @@ export const tabs = {
 			});
 			if (result.error) return Err(result.error);
 
-			queryClient.setQueryData(tabsKeys.all, (oldTabs: Tab[] | undefined) =>
-				oldTabs?.map((t) =>
-					t.id === tabId ? { ...t, mutedInfo: { muted: true } } : t,
-				),
+			queryClient.setQueryData(
+				tabsKeys.all,
+				(oldTabs: Browser.tabs.Tab[] | undefined) =>
+					oldTabs?.map((t) =>
+						t.id === tabId
+							? { ...t, mutedInfo: { ...t.mutedInfo, muted: true } }
+							: t,
+					),
 			);
 
 			return Ok(undefined);
@@ -245,10 +237,14 @@ export const tabs = {
 			});
 			if (result.error) return Err(result.error);
 
-			queryClient.setQueryData(tabsKeys.all, (oldTabs: Tab[] | undefined) =>
-				oldTabs?.map((t) =>
-					t.id === tabId ? { ...t, mutedInfo: { muted: false } } : t,
-				),
+			queryClient.setQueryData(
+				tabsKeys.all,
+				(oldTabs: Browser.tabs.Tab[] | undefined) =>
+					oldTabs?.map((t) =>
+						t.id === tabId
+							? { ...t, mutedInfo: { ...t.mutedInfo, muted: false } }
+							: t,
+					),
 			);
 
 			return Ok(undefined);
