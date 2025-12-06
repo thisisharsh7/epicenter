@@ -33,7 +33,7 @@
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 	import Info from '@lucide/svelte/icons/info';
-	import Loader from '@lucide/svelte/icons/loader';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import { mode } from 'mode-watcher';
 </script>
 
@@ -75,7 +75,7 @@
 							<div data-icon class="text-info"><Info class="size-4" /></div>
 						{:else if log.variant === 'loading'}
 							<div data-icon class="text-muted-foreground">
-								<Loader class="size-4 animate-spin" />
+								<Spinner />
 							</div>
 						{/if}
 						<div class="flex-1">

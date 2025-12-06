@@ -21,7 +21,7 @@
 	},
 	"dependencies": {
 		"@fontsource-variable/manrope": "^5.2.6",
-		"@lucide/svelte": "catalog:",
+		"@lucide/svelte": "^0.544.0",
 		"@tanstack/svelte-table": "catalog:",
 		"bits-ui": "catalog:",
 		"clsx": "catalog:",

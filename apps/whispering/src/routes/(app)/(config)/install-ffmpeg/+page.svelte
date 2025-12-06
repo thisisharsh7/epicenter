@@ -10,7 +10,7 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
 	import XCircleIcon from '@lucide/svelte/icons/x-circle';
-	import LoaderIcon from '@lucide/svelte/icons/loader';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -52,7 +52,7 @@
 					<div class="flex flex-col items-end gap-3">
 						{#if ffmpegQuery.isPending}
 							<Badge variant="secondary" class="gap-1.5">
-								<LoaderIcon class="size-3 animate-spin" />
+								<Spinner class="size-3" />
 								Checking
 							</Badge>
 						{:else if ffmpegQuery.data === true}
@@ -77,9 +77,11 @@
 							title="Check again"
 							class="size-8"
 						>
-							<RefreshCwIcon
-								class="size-4 {ffmpegQuery.isFetching ? 'animate-spin' : ''}"
-							/>
+							{#if ffmpegQuery.isFetching}
+								<Spinner />
+							{:else}
+								<RefreshCwIcon class="size-4" />
+							{/if}
 						</Button>
 					</div>
 				</div>
@@ -428,18 +430,3 @@
 		</Card.Root>
 	</div>
 </main>
-
-<style>
-	:global(.animate-spin) {
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
-</style>
