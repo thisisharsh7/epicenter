@@ -39,7 +39,7 @@ import { createEpicenterClient, generateId } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
 // Configuration - can override via CLI args
-const ITEMS_PER_TABLE = Number(process.argv[2]) || 20_000; // Default 20k for balanced stress test
+const ITEMS_PER_TABLE = Number(process.argv[2]) || 10_000; // Default 10k for balanced stress test
 const BATCH_SIZE = 1_000; // Insert in batches of 1k using insertMany
 
 const TABLES = [
@@ -78,7 +78,9 @@ console.log('='.repeat(60));
 console.log(`Items per table: ${ITEMS_PER_TABLE.toLocaleString()}`);
 console.log(`Batch size: ${BATCH_SIZE.toLocaleString()}`);
 console.log(`Total tables: ${TABLES.length}`);
-console.log(`Total items: ${(ITEMS_PER_TABLE * TABLES.length).toLocaleString()}`);
+console.log(
+	`Total items: ${(ITEMS_PER_TABLE * TABLES.length).toLocaleString()}`,
+);
 console.log('='.repeat(60));
 console.log('');
 
@@ -149,7 +151,9 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 const totalElapsed = performance.now() - totalStart;
 console.log('');
 console.log('='.repeat(60));
-console.log(`Total: ${grandTotal.toLocaleString()} items in ${formatTime(totalElapsed)}`);
+console.log(
+	`Total: ${grandTotal.toLocaleString()} items in ${formatTime(totalElapsed)}`,
+);
 console.log(`Average rate: ${formatRate(grandTotal, totalElapsed)}`);
 console.log('='.repeat(60));
 
