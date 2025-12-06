@@ -28,11 +28,11 @@ bun run stress-test.ts
 
 | Benchmark | Tests | Key Finding |
 |-----------|-------|-------------|
-| [Bulk Upsert](./stress-test.md) | `upsertMany` throughput | ~20k/s batched vs ~34/s single |
+| [Bulk Upsert](./stress-test.md) | `upsertMany` throughput | 19k/s avg, ~152 bytes/item |
 | [Write-Delete-Write](./stress-test-write-delete-write.md) | Tombstone overhead | Only 21% overhead for full cycle |
-| [Update-Heavy](./stress-test-update-heavy.md) | Repeated updates | TBD - run benchmark |
-| [Read-at-Scale](./stress-test-read-at-scale.md) | Query performance | TBD - run benchmark |
-| [Mixed Workload](./stress-test-mixed-workload.md) | Realistic usage | TBD - run benchmark |
+| [Update-Heavy](./stress-test-update-heavy.md) | Repeated updates | Updates ~40% of insert speed |
+| [Read-at-Scale](./stress-test-read-at-scale.md) | Query performance | get() O(1), getAll() O(n) |
+| [Mixed Workload](./stress-test-mixed-workload.md) | Realistic usage | 210-475 ops/s for single operations |
 
 ## Test Details
 

@@ -20,15 +20,33 @@ Tests performance when repeatedly updating existing rows vs creating new ones.
 - Does update performance degrade over multiple rounds?
 - How does file size grow with updates vs inserts?
 
-## Expected Findings
+## Key Findings
 
-_Run the benchmark to populate this section with actual results._
+From a test with 25k items (5k items × 5 tables):
 
-Typical patterns to look for:
+| Phase | Items | Rate | File Size |
+|-------|-------|------|-----------|
+| Initial Setup | 25,000 | 51.7k/s | 3.58 MB |
+| Update Round 1 | 25,000 | 31.5k/s | 4.69 MB |
+| Update Round 2 | 25,000 | 23.5k/s | 5.65 MB |
+| Update Round 3 | 25,000 | 20.6k/s | 6.61 MB |
 
-- **Update vs Insert speed**: Updates should be similar or slightly slower than inserts since both operations need to locate and modify data
-- **File growth**: Each update round should add some overhead due to operation history, but less than an equivalent insert
-- **Degradation**: Performance may degrade slightly over rounds as the YJS document accumulates more history
+### Key Observations
+
+1. **Updates are ~40% of setup speed**: The last update round ran at 20.6k/s vs initial setup at 51.7k/s (39.9% relative speed).
+
+2. **File grows ~1 MB per update round**: Each round of updating all 25k items added approximately 1 MB to the file size.
+
+3. **Consistent degradation**: Performance decreases predictably with each round as YJS accumulates more operation history.
+
+4. **Total overhead**: After 3 update rounds, file size grew 84.5% (from 3.58 MB to 6.61 MB).
+
+### Update vs Insert Comparison
+
+| Metric | Initial Insert | Update (Round 3) |
+|--------|---------------|------------------|
+| Speed | 51.7k/s | 20.6k/s |
+| Bytes/item | ~143 bytes | +40 bytes/update |
 
 ## Interpretation
 
@@ -37,3 +55,5 @@ This benchmark simulates applications where data is frequently modified rather t
 - Note-taking apps where users edit existing notes
 - Task managers where task status changes frequently
 - Form builders where field values are updated
+
+The ~40% speed ratio for updates vs inserts is reasonable for CRDT operations, and the ~1 MB per update round is predictable for capacity planning.

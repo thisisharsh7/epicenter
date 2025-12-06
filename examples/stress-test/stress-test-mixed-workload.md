@@ -28,39 +28,47 @@ Default: 5 rounds × 1,000 operations = 5,000 total operations
 - Is there overhead from operation switching?
 - How does the system handle realistic usage patterns?
 
-## Expected Findings
+## Key Findings
 
-_Run the benchmark to populate this section with actual results._
+From a test with 5 rounds × 1,000 operations (5,000 total):
 
-Typical patterns to look for:
-
-### Operation Throughput
-- Mixed workload typically slower than pure write tests
-- `getAll()` operations can dominate time budget
-- Single operations (`upsert`, `get`, `delete`) are fast
+| Round | Ops/sec | Items | File Size |
+|-------|---------|-------|-----------|
+| 1 | 475/s | 1,187 | 191 KB |
+| 2 | 438/s | 1,372 | 233 KB |
+| 3 | 288/s | 1,589 | 279 KB |
+| 4 | 238/s | 1,810 | 324 KB |
+| 5 | 210/s | 2,026 | 368 KB |
 
 ### Performance Trends
-- Slight degradation expected as item count grows
-- `getAll()` slowdown most noticeable over rounds
-- Write operations should remain relatively stable
 
-### Operation Costs
-Expected average times (will vary by hardware):
-- `upsert()` single: ~0.1-0.5ms
-- `get()` single: ~0.01-0.1ms
-- `delete()` single: ~0.1-0.5ms
-- `getAll()`: scales with item count
+- **55.8% slowdown over 5 rounds**: First round ran at 475 ops/s, last round at 210 ops/s
+- **Item count grew ~2x**: From 1,000 seed items to 2,026 final items
+- **File grew ~2x**: From 191 KB to 368 KB
+
+### Average Time per Operation Type
+
+| Operation | Avg Time | Total Count |
+|-----------|----------|-------------|
+| upsert (new) | 4ms | 1,536 |
+| upsert (update) | 4ms | 1,490 |
+| delete | 4ms | 510 |
+| readAll | 3ms | 491 |
+| readSingle | <1ms | 973 |
+
+### Key Observations
+
+1. **Single-item operations dominate**: Each upsert/update/delete takes ~4ms due to individual YJS transactions (vs batched operations).
+
+2. **Read operations are cheap**: readAll() at 3ms and get() at <1ms don't add much overhead.
+
+3. **Consistent degradation**: The ~56% slowdown is predictable and correlates with document growth.
 
 ## Interpretation
 
 This benchmark answers: "What throughput can I expect in a real application?"
 
-Unlike pure write tests, mixed workloads:
-- Include read operations that don't add data
-- Exercise the full API surface
-- Show realistic degradation patterns
-
-For application planning:
-- Use these numbers to estimate if your workload fits
-- If `getAll()` dominates, consider using `filter()` or pagination
-- Single-item operations are cheap; use them liberally
+**210-475 ops/second** is the expected range for mixed single-item operations. For higher throughput:
+- Batch writes using `upsertMany()` and `deleteMany()`
+- Use `get()` instead of `getAll()` when you only need specific items
+- The ~4ms per single write operation is the cost of individual YJS transactions
