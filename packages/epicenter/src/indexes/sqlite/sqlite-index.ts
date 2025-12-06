@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { Database } from '@tursodatabase/database/compat';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import {
 	type BetterSQLite3Database,
 	drizzle,
@@ -38,30 +38,6 @@ type SqliteIndexOptions = {
 	 * @default 100
 	 */
 	debounceMs?: number;
-};
-
-/**
- * Bidirectional sync coordination state
- *
- * Prevents infinite loops during two-way synchronization between YJS (in-memory)
- * and SQLite database (on disk).
- *
- * The state ensures changes only flow in one direction at a time by tracking
- * which system is currently processing changes.
- */
-type SyncCoordination = {
-	/**
-	 * True when pull operation is processing changes from SQLite to YJS
-	 * YJS observers check this and skip processing to avoid the loop
-	 */
-	isProcessingSQLiteChange: boolean;
-
-	/**
-	 * True when push operation is processing changes from YJS to SQLite
-	 * (Currently not checked since we don't have SQLite → YJS observers,
-	 * but included for consistency with markdown index pattern)
-	 */
-	isProcessingYJSChange: boolean;
 };
 
 /**
@@ -145,19 +121,9 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	const logPath = path.join(workspaceConfigDir, `${indexId}.log`);
 	const logger = createIndexLogger({ logPath });
 
-	/**
-	 * Coordination state to prevent infinite sync loops
-	 *
-	 * How it works:
-	 * - Before pull operation: set isProcessingSQLiteChange = true
-	 *   - YJS observers check this and skip processing
-	 * - Before push operation: set isProcessingYJSChange = true
-	 *   - (Not currently checked, but consistent with pattern)
-	 */
-	const syncCoordination: SyncCoordination = {
-		isProcessingSQLiteChange: false,
-		isProcessingYJSChange: false,
-	};
+	// Prevents infinite loop during pushFromSqlite: when we insert into YJS,
+	// observers fire and would schedule a sync back to SQLite without this flag
+	let isPushingFromSqlite = false;
 
 	// =========================================================================
 	// Rebuild helper: Clear SQLite and re-insert all rows from YJS
@@ -228,10 +194,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 
 		const unsub = table.observe({
 			onAdd: (result) => {
-				// Skip if this YJS change was triggered by a SQLite change we're processing
-				if (syncCoordination.isProcessingSQLiteChange) return;
-
-				// Handle validation errors (log but still schedule sync for valid rows)
+				if (isPushingFromSqlite) return;
 				if (result.error) {
 					logger.log(
 						IndexError({
@@ -242,14 +205,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					);
 					return;
 				}
-
 				scheduleSync();
 			},
 			onUpdate: (result) => {
-				// Skip if this YJS change was triggered by a SQLite change we're processing
-				if (syncCoordination.isProcessingSQLiteChange) return;
-
-				// Handle validation errors (log but still schedule sync for valid rows)
+				if (isPushingFromSqlite) return;
 				if (result.error) {
 					logger.log(
 						IndexError({
@@ -260,13 +219,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					);
 					return;
 				}
-
 				scheduleSync();
 			},
 			onDelete: () => {
-				// Skip if this YJS change was triggered by a SQLite change we're processing
-				if (syncCoordination.isProcessingSQLiteChange) return;
-
+				if (isPushingFromSqlite) return;
 				scheduleSync();
 			},
 		});
@@ -334,18 +290,12 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 				'Pull all YJS data to SQLite (deletes existing rows and writes fresh copies)',
 			handler: async () => {
 				return tryAsync({
-					try: async () => {
-						syncCoordination.isProcessingYJSChange = true;
-						await rebuildSqlite();
-						syncCoordination.isProcessingYJSChange = false;
-					},
-					catch: (error) => {
-						syncCoordination.isProcessingYJSChange = false;
-						return IndexErr({
+					try: () => rebuildSqlite(),
+					catch: (error) =>
+						IndexErr({
 							message: `SQLite index pull failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'pull' },
-						});
-					},
+						}),
 				});
 			},
 		}),
@@ -359,12 +309,9 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 			handler: async () => {
 				return tryAsync({
 					try: async () => {
-						syncCoordination.isProcessingSQLiteChange = true;
-
-						// Clear all YJS tables
+						isPushingFromSqlite = true;
 						db.$clearAll();
 
-						// Read all rows from SQLite and insert into YJS
 						for (const table of db.$tables()) {
 							const drizzleTable = drizzleTables[table.name];
 							if (!drizzleTable) {
@@ -372,7 +319,6 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 							}
 
 							const rows = await sqliteDb.select().from(drizzleTable);
-
 							for (const row of rows) {
 								// @ts-expect-error InferSelectModel<DrizzleTable> is not assignable to InferInsertModel<TableHelper<TSchema[string]>> due to union type from $tables() iteration
 								const result = table.insert(row);
@@ -393,13 +339,13 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 							}
 						}
 
-						syncCoordination.isProcessingSQLiteChange = false;
+						isPushingFromSqlite = false;
 					},
 					catch: (error) => {
-						syncCoordination.isProcessingSQLiteChange = false;
+						isPushingFromSqlite = false;
 						return IndexErr({
-							message: `SQLite index pull failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'pull' },
+							message: `SQLite index push failed: ${extractErrorMessage(error)}`,
+							context: { operation: 'push' },
 						});
 					},
 				});
