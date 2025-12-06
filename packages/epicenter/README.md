@@ -416,25 +416,23 @@ Insert or update multiple rows. Never fails.
 
 **`update(partialRow)`**
 
-Update specific fields. Returns `Result<void, RowNotFoundError>`.
+Update specific fields of an existing row. **If the row doesn't exist locally, this is a no-op.**
+
+This is intentional: Y.js uses Last-Writer-Wins at the key level when setting a Y.Map. Creating a new Y.Map for a missing row could overwrite an existing row from another peer, causing data loss.
 
 For Y.js columns, pass plain values and they'll be synced to existing Y.Text/Y.Array.
 
 ```typescript
-const result = db.tables.posts.update({
+db.tables.posts.update({
   id: '1',
   title: 'New Title',
   tags: ['updated', 'tags'], // Syncs to existing Y.Array
 });
-
-if (result.error) {
-  console.error('Row not found:', result.error);
-}
 ```
 
 **`updateMany(partialRows)`**
 
-Update multiple rows. Returns `Result<void, RowNotFoundError>`.
+Update multiple rows. Rows that don't exist locally are skipped (see `update` for rationale).
 
 ### Read Operations
 
@@ -1207,25 +1205,17 @@ Identity function for type inference.
 ### Database Operations
 
 ```typescript
-import {
-  type Db,
-  type TableHelper,
-  RowNotFoundErr,
-  type RowNotFoundError,
-} from '@epicenter/hq';
+import { type Db, type TableHelper } from '@epicenter/hq';
 ```
 
 **`TableHelper<TSchema>`** methods:
-- `upsert(row)`, `upsertMany(rows)`
-- `update(partial)`, `updateMany(partials)`
+- `upsert(row)`, `upsertMany(rows)`: Create or replace entire row (never fails)
+- `update(partial)`, `updateMany(partials)`: Merge fields into existing row (no-op if not found)
 - `get({ id })`, `getAll()`, `getAllInvalid()`
 - `has({ id })`, `count()`
 - `delete({ id })`, `deleteMany({ ids })`, `clear()`
 - `filter(predicate)`, `find(predicate)`
 - `observe({ onAdd?, onUpdate?, onDelete? })`
-
-**Error constructors:**
-- `RowNotFoundErr({ message, context, cause })`: Update on missing row
 
 ### Indexes
 
