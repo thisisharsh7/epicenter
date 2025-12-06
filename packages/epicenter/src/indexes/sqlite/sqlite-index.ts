@@ -126,17 +126,11 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	let isPushingFromSqlite = false;
 
 	// =========================================================================
-	// Rebuild helper: Clear SQLite and re-insert all rows from YJS
+	// Rebuild helper: Drop/recreate tables and re-insert all rows from YJS
 	// =========================================================================
 	async function rebuildSqlite() {
-		// Delete all rows from all SQLite tables
-		for (const table of db.$tables()) {
-			const drizzleTable = drizzleTables[table.name];
-			if (!drizzleTable) {
-				throw new Error(`Drizzle table for "${table.name}" not found`);
-			}
-			sqliteDb.delete(drizzleTable);
-		}
+		// Drop and recreate tables (benchmarks show this is faster than DELETE at scale)
+		await recreateTables(sqliteDb, drizzleTables);
 
 		// Insert all valid rows from YJS into SQLite
 		for (const table of db.$tables()) {

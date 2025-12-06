@@ -1,0 +1,12 @@
+{
+	"name": "sqlite-rebuild-benchmark",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"benchmark": "bun benchmark.ts"
+	},
+	"dependencies": {
+		"@tursodatabase/database": "^0.3.2",
+		"drizzle-orm": "catalog:"
+	}
+}
