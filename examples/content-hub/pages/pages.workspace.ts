@@ -247,7 +247,7 @@ export const pages = defineWorkspace({
 						};
 
 						if (!dryRun) {
-							db.pages.insert(page);
+							db.pages.upsert(page);
 						}
 
 						stats.success++;

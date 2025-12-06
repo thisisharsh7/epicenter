@@ -75,10 +75,9 @@ YJS Storage
    - Input: `type({ ids: 'string[]' })`
    - Array of IDs wrapped in object
 
-5. **Array mutations (insertMany, updateMany, upsertMany)**:
+5. **Array mutations (updateMany, upsertMany)**:
    - Use `.array()` on base validators
-   - `insertMany`: input is `schema.toStandardSchema().array()` (wait, arktype doesn't work like this...)
-   - Actually: input is arktype array validator for SerializedRow[]
+   - `upsertMany`: input is arktype array validator for SerializedRow[]
 
 ## Implementation Plan
 
@@ -88,7 +87,6 @@ YJS Storage
 - Location: `packages/epicenter/src/db/errors.ts` (new file)
 - Create `createTaggedError` for table operations
 - Define error variants:
-  - `RowAlreadyExists`: Insert/upsert on existing id
   - `RowNotFound`: Update/delete on missing id
   - `ValidationError`: Schema validation failed
   - `TransactionError`: YJS transaction failed
@@ -154,12 +152,10 @@ YJS Storage
 - Wrap each method:
   - `get({id})`: defineQuery with `{id: 'string'}` input validator
   - `getAll()`: defineQuery with no input
-  - `insert(row)`: defineMutation with `toStandardSchema()` input
   - `update(partial)`: defineMutation with `toPartialStandardSchema()` input
   - `upsert(row)`: defineMutation with `toStandardSchema()` input
   - `delete({id})`: defineMutation with `{id: 'string'}` input
   - `deleteMany(ids)`: defineMutation with `string[]` input
-  - `insertMany(rows)`: defineMutation with `toStandardSchema().array()` input
   - `updateMany(partials)`: defineMutation with `toPartialStandardSchema().array()` input
   - `upsertMany(rows)`: defineMutation with `toStandardSchema().array()` input
   - `clear()`: defineMutation with no input
@@ -202,7 +198,7 @@ YJS Storage
    - **Decision**: Input should be `{ id: string }`
    - Wraps as: `defineMutation({ input: { id: 'string' }, handler })`
 
-4. **Array inputs**: For `insertMany/updateMany`, should input validation be:
+4. **Array inputs**: For `upsertMany/updateMany`, should input validation be:
    - Arktype array validator like `type({ id: 'string', ... }).array()`?
    - **Recommendation**: Yes, use `.array()` on the base validator
 
