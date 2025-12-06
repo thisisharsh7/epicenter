@@ -66,7 +66,7 @@
     },
     "apps/whispering": {
       "name": "@epicenter/whispering",
-      "version": "7.8.0",
+      "version": "7.9.0",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.55.0",
         "@aptabase/tauri": "^0.4.1",
@@ -164,6 +164,18 @@
         "@types/bun": "catalog:",
         "@types/jsdom": "^27.0.0",
         "drizzle-kit": "catalog:",
+      },
+    },
+    "examples/stress-test": {
+      "name": "@examples/stress-test",
+      "version": "0.0.1",
+      "dependencies": {
+        "@epicenter/hq": "workspace:*",
+        "arktype": "catalog:",
+        "wellcrafted": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/config": {
@@ -553,6 +565,8 @@
     "@examples/basic-workspace": ["@examples/basic-workspace@workspace:examples/basic-workspace"],
 
     "@examples/content-hub": ["@examples/content-hub@workspace:examples/content-hub"],
+
+    "@examples/stress-test": ["@examples/stress-test@workspace:examples/stress-test"],
 
     "@floating-ui/core": ["@floating-ui/core@1.7.3", "", { "dependencies": { "@floating-ui/utils": "^0.2.10" } }, "sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w=="],
 
