@@ -1,27 +1,43 @@
-# YJS Stress Test
+# YJS Stress Tests
 
-Stress tests YJS persistence with bulk insertions across multiple tables.
+Stress tests for YJS persistence, measuring insertion performance, file size growth, and deletion behavior.
 
-## Running
+## Tests
+
+### 1. Bulk Insertion Test (`stress-test.ts`)
+
+Tests bulk insertion performance across multiple tables.
 
 ```bash
 cd examples/stress-test
 
-# Default (20k items per table, 200k total) - ~1-2 minutes
-bun test
+# Default (10k items per table, 100k total)
+bun run stress-test.ts
 
-# Quick test (10k per table, 100k total) - ~10 seconds
-bun test 10000
-
-# Full stress test (100k per table, 1M total) - 10+ minutes, expect slowdown
-bun test 100000
+# Custom count
+bun run stress-test.ts 20000
 ```
 
-## What This Tests
+### 2. Write-Delete-Write Test (`stress-test-write-delete-write.ts`)
+
+Tests how YJS handles a full data lifecycle: create → delete → recreate.
+
+```bash
+cd examples/stress-test
+
+# Default (10k items per table per phase)
+bun run stress-test-write-delete-write.ts
+
+# Custom count
+bun run stress-test-write-delete-write.ts 5000
+```
+
+## What These Tests Measure
 
 1. **Bulk insertion performance** with `insertMany`
 2. **YJS document size** as data grows
 3. **Performance degradation** patterns under load
+4. **Deletion behavior** and tombstone overhead
 
 ## Key Observations
 
@@ -55,6 +71,28 @@ The slowdown is expected - larger YJS documents mean more work per transaction.
 - **300k+ items**: Consider splitting into multiple workspaces
 
 For very large datasets, use separate workspaces to keep each YJS document smaller.
+
+### Write-Delete-Write: Efficient Tombstone Handling
+
+From a test with 100k items (10k per table × 10 tables):
+
+| Phase | File Size | Notes |
+|-------|-----------|-------|
+| After Write (100k items) | 14.39 MB | ~144 bytes/item |
+| After Delete (0 items) | 2.58 MB | 82% reduction |
+| After Write Again (100k items) | 17.35 MB | ~174 bytes/item |
+
+**Key findings:**
+
+1. **File shrinks after deletion**: The YJS file reduced by 82% after deleting all items, contrary to the expectation that CRDT tombstones would grow the file.
+
+2. **Minimal overhead for full cycle**: Final size (17.35 MB) is only 21% larger than initial write (14.39 MB). This 1.21x ratio means YJS efficiently stores the complete operation history.
+
+3. **Delete is slower than insert**: Deletion ran at ~9-18k items/sec vs insertion at ~10-62k items/sec.
+
+4. **Second write is slower**: Phase 3 averaged ~8-20k/s vs Phase 1's ~10-62k/s, likely due to YJS managing more internal structures.
+
+**Interpretation**: YJS handles write-delete-write cycles efficiently. Even with full tombstone history, you're paying only ~21% storage overhead. This makes it viable for applications where data is frequently deleted and recreated.
 
 ## Output
 
