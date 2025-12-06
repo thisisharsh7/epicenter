@@ -6,9 +6,9 @@
  * with deletions.
  *
  * The test performs 3 phases:
- * 1. Write: Insert 10k items across all tables
+ * 1. Write: Upsert 10k items across all tables
  * 2. Delete: Delete all 10k items
- * 3. Write: Insert 10k items again
+ * 3. Write: Upsert 10k items again
  *
  * @example
  * ```bash
@@ -55,6 +55,20 @@ function formatRate(count: number, ms: number): string {
 	if (rate >= 1000) return `${(rate / 1000).toFixed(1)}k/s`;
 	return `${rate.toFixed(0)}/s`;
 }
+
+// TTY helpers for progress output
+const isTTY = process.stdout.isTTY;
+const clearLine = () => {
+	if (isTTY) {
+		process.stdout.clearLine(0);
+		process.stdout.cursorTo(0);
+	}
+};
+const writeLine = (text: string) => {
+	if (isTTY) {
+		process.stdout.write(text);
+	}
+};
 
 function getYjsFileSize(): number | null {
 	const yjsPath = './.epicenter/stress.yjs';
@@ -110,7 +124,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 	const tableStart = performance.now();
 	const tableIds = allIds.get(table)!;
 
-	process.stdout.write(
+	writeLine(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`,
 	);
 
@@ -141,17 +155,15 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 		const totalElapsed = performance.now() - tableStart;
 		const rate = formatRate(batchCount, batchElapsed);
 
-		process.stdout.clearLine(0);
-		process.stdout.cursorTo(0);
-		process.stdout.write(
+		clearLine();
+		writeLine(
 			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()} (batch: ${rate}, elapsed: ${formatTime(totalElapsed)})`,
 		);
 	}
 
 	const tableElapsed = performance.now() - tableStart;
 
-	process.stdout.clearLine(0);
-	process.stdout.cursorTo(0);
+	clearLine();
 	console.log(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: ${ITEMS_PER_TABLE.toLocaleString()} items in ${formatTime(tableElapsed)} (avg ${formatRate(ITEMS_PER_TABLE, tableElapsed)})`,
 	);
@@ -185,7 +197,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 	const tableIds = allIds.get(table)!;
 	const tableDb = stress[table];
 
-	process.stdout.write(
+	writeLine(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${tableIds.length.toLocaleString()}`,
 	);
 
@@ -203,17 +215,15 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 		const totalElapsed = performance.now() - tableStart;
 		const rate = formatRate(batchCount, batchElapsed);
 
-		process.stdout.clearLine(0);
-		process.stdout.cursorTo(0);
-		process.stdout.write(
+		clearLine();
+		writeLine(
 			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${deleted.toLocaleString()}/${tableIds.length.toLocaleString()} (batch: ${rate}, elapsed: ${formatTime(totalElapsed)})`,
 		);
 	}
 
 	const tableElapsed = performance.now() - tableStart;
 
-	process.stdout.clearLine(0);
-	process.stdout.cursorTo(0);
+	clearLine();
 	console.log(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: ${tableIds.length.toLocaleString()} items in ${formatTime(tableElapsed)} (avg ${formatRate(tableIds.length, tableElapsed)})`,
 	);
@@ -245,7 +255,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 	const table = TABLES[tableIndex];
 	const tableStart = performance.now();
 
-	process.stdout.write(
+	writeLine(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`,
 	);
 
@@ -274,17 +284,15 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 		const totalElapsed = performance.now() - tableStart;
 		const rate = formatRate(batchCount, batchElapsed);
 
-		process.stdout.clearLine(0);
-		process.stdout.cursorTo(0);
-		process.stdout.write(
+		clearLine();
+		writeLine(
 			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()} (batch: ${rate}, elapsed: ${formatTime(totalElapsed)})`,
 		);
 	}
 
 	const tableElapsed = performance.now() - tableStart;
 
-	process.stdout.clearLine(0);
-	process.stdout.cursorTo(0);
+	clearLine();
 	console.log(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: ${ITEMS_PER_TABLE.toLocaleString()} items in ${formatTime(tableElapsed)} (avg ${formatRate(ITEMS_PER_TABLE, tableElapsed)})`,
 	);

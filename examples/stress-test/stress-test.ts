@@ -1,7 +1,7 @@
 /**
  * YJS Stress Test
  *
- * Tests bulk insertion performance and YJS file size with large datasets.
+ * Tests bulk upsert performance and YJS file size with large datasets.
  *
  * ## Performance Note: upsertMany vs upsert
  *
@@ -23,14 +23,14 @@
  *
  * @example
  * ```bash
- * # Run with default 20k items per table (200k total) - recommended
- * bun test
+ * # Run with default 10k items per table (100k total)
+ * bun run stress-test.ts
  *
- * # Quick test (10k per table = 100k total)
- * bun test 10000
+ * # Custom count
+ * bun run stress-test.ts 20000
  *
  * # Full stress test (100k per table = 1M total) - expect slowdown
- * bun test 100000
+ * bun run stress-test.ts 100000
  * ```
  */
 
@@ -40,7 +40,7 @@ import epicenterConfig from './epicenter.config';
 
 // Configuration - can override via CLI args
 const ITEMS_PER_TABLE = Number(process.argv[2]) || 10_000; // Default 10k for balanced stress test
-const BATCH_SIZE = 1_000; // Insert in batches of 1k using upsertMany
+const BATCH_SIZE = 1_000; // Upsert in batches of 1k using upsertMany
 
 const TABLES = [
 	'items_a',
@@ -72,8 +72,22 @@ function formatRate(count: number, ms: number): string {
 	return `${rate.toFixed(0)}/s`;
 }
 
+// TTY helpers for progress output
+const isTTY = process.stdout.isTTY;
+const clearLine = () => {
+	if (isTTY) {
+		process.stdout.clearLine(0);
+		process.stdout.cursorTo(0);
+	}
+};
+const writeLine = (text: string) => {
+	if (isTTY) {
+		process.stdout.write(text);
+	}
+};
+
 console.log('='.repeat(60));
-console.log('YJS Stress Test (using upsertMany for bulk inserts)');
+console.log('YJS Stress Test (using upsertMany for bulk upserts)');
 console.log('='.repeat(60));
 console.log(`Items per table: ${ITEMS_PER_TABLE.toLocaleString()}`);
 console.log(`Batch size: ${BATCH_SIZE.toLocaleString()}`);
@@ -98,7 +112,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 	const table = TABLES[tableIndex];
 	const tableStart = performance.now();
 
-	process.stdout.write(
+	writeLine(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`,
 	);
 
@@ -121,7 +135,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 			});
 		}
 
-		// Bulk insert
+		// Bulk upsert
 		tableDb.upsertMany({ rows: items });
 		inserted += batchCount;
 
@@ -129,17 +143,15 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 		const totalElapsed = performance.now() - tableStart;
 		const rate = formatRate(batchCount, batchElapsed);
 
-		process.stdout.clearLine(0);
-		process.stdout.cursorTo(0);
-		process.stdout.write(
+		clearLine();
+		writeLine(
 			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()} (batch: ${rate}, elapsed: ${formatTime(totalElapsed)})`,
 		);
 	}
 
 	const tableElapsed = performance.now() - tableStart;
 
-	process.stdout.clearLine(0);
-	process.stdout.cursorTo(0);
+	clearLine();
 
 	grandTotal += ITEMS_PER_TABLE;
 	const avgRate = formatRate(ITEMS_PER_TABLE, tableElapsed);
