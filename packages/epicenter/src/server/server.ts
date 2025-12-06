@@ -57,7 +57,7 @@ export async function createServer<
 
 	// Create Elysia app with plugins
 	const app = new Elysia()
-		// OpenAPI documentation (Scalar UI by default)
+		// OpenAPI documentation (Scalar UI at /openapi)
 		.use(
 			openapi({
 				// Embed spec directly in HTML to avoid fetch issues
@@ -71,13 +71,7 @@ export async function createServer<
 				},
 			}),
 		)
-		// Root route for health check / discovery
-		.get('/', () => ({
-			name: `${config.id} API`,
-			version: '1.0.0',
-			docs: '/openapi',
-		}))
-		// MCP endpoint (commented out for now)
+		// MCP endpoint at /mcp
 		.use(
 			mcp({
 				basePath: '/mcp',
@@ -92,7 +86,13 @@ export async function createServer<
 					setupMcpTools(server, toolRegistry);
 				},
 			}),
-		);
+		)
+		// Health check / discovery
+		.get('/', () => ({
+			name: `${config.id} API`,
+			version: '1.0.0',
+			docs: '/openapi',
+		}));
 
 	// Register REST endpoints for each workspace action
 	// Supports nested exports: actionPath like ['users', 'crud', 'create']
