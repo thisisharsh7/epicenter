@@ -5,9 +5,9 @@
 	import * as Card from '@epicenter/ui/card';
 	import * as Dialog from '@epicenter/ui/dialog';
 	import { Textarea } from '@epicenter/ui/textarea';
+	import * as Tooltip from '@epicenter/ui/tooltip';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { mergeProps } from 'bits-ui';
-	import WhisperingTooltip from '../WhisperingTooltip.svelte';
 
 	/**
 	 * A generic text preview component that displays text in a readonly textarea.
@@ -67,22 +67,26 @@
 <Dialog.Root bind:open={isDialogOpen}>
 	<Dialog.Trigger {id}>
 		{#snippet child({ props: dialogTriggerProps })}
-			<WhisperingTooltip {id} tooltipContent="View {label}">
-				{#snippet trigger({ tooltipProps, tooltip })}
-					<Textarea
-						{...mergeProps(tooltipProps, dialogTriggerProps)}
-						class="min-h-0 max-h-24 h-full resize-none text-wrap text-left text-sm leading-snug hover:cursor-pointer hover:bg-accent hover:text-accent-foreground w-full"
-						readonly
-						value={text}
-						style="view-transition-name: {id}"
-						{rows}
-						{disabled}
-					/>
-					<span class="sr-only">
-						{@render tooltip()}
-					</span>
-				{/snippet}
-			</WhisperingTooltip>
+			<Tooltip.Provider>
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{#snippet child({ props: tooltipProps })}
+							<Textarea
+								{...mergeProps(tooltipProps, dialogTriggerProps)}
+								class="min-h-0 max-h-24 h-full resize-none text-wrap text-left text-sm leading-snug hover:cursor-pointer hover:bg-accent hover:text-accent-foreground w-full"
+								readonly
+								value={text}
+								style="view-transition-name: {id}"
+								{rows}
+								{disabled}
+							/>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content class="max-w-xs text-center">
+						View {label}
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</Tooltip.Provider>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content class="max-w-4xl">

@@ -121,20 +121,25 @@
 		{#if latestTransformationRunByRecordingIdQuery.isPending}
 			<Loader2Icon class="size-4 animate-spin" />
 		{:else if latestTransformationRunByRecordingIdQuery.isError}
-			<WhisperingTooltip
-				id={getRecordingTransitionId({
-					recordingId,
-					propertyName: 'latestTransformationRunOutput',
-				})}
-				tooltipContent="Error fetching latest transformation run output"
-			>
-				{#snippet trigger({ tooltip, tooltipProps })}
-					<AlertCircleIcon class="text-red-500" {...tooltipProps} />
-					<span class="sr-only">
-						{@render tooltip()}
-					</span>
-				{/snippet}
-			</WhisperingTooltip>
+			<Tooltip.Provider>
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<AlertCircleIcon
+								class="text-red-500"
+								{...props}
+								id={getRecordingTransitionId({
+									recordingId,
+									propertyName: 'latestTransformationRunOutput',
+								})}
+							/>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content class="max-w-xs text-center">
+						Error fetching latest transformation run output
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</Tooltip.Provider>
 		{:else}
 			<CopyToClipboardButton
 				contentDescription="latest transformation run output"
