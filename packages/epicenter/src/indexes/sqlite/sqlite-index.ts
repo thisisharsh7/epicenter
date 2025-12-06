@@ -2,11 +2,8 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { Database } from '@tursodatabase/database/compat';
 import { sql } from 'drizzle-orm';
-import {
-	type BetterSQLite3Database,
-	drizzle,
-} from 'drizzle-orm/better-sqlite3';
-import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
@@ -126,11 +123,54 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	let isPushingFromSqlite = false;
 
 	// =========================================================================
-	// Rebuild helper: Drop/recreate tables and re-insert all rows from YJS
+	// SQLite helpers (use sqliteDb and drizzleTables from closure)
 	// =========================================================================
+
+	/**
+	 * Drop and recreate all SQLite tables.
+	 * Handles schema changes (column renames, type changes) since SQLite is just
+	 * an index and YJS is the source of truth.
+	 */
+	async function recreateTables() {
+		for (const drizzleTable of Object.values(drizzleTables)) {
+			const tableConfig = getTableConfig(drizzleTable);
+
+			// Drop existing table to handle schema changes
+			await sqliteDb.run(sql.raw(`DROP TABLE IF EXISTS "${tableConfig.name}"`));
+
+			// Build column definitions
+			const columnDefs: string[] = [];
+			for (const column of tableConfig.columns) {
+				const sqlType = column.getSQLType();
+
+				let constraints = '';
+				if (column.notNull) {
+					constraints += ' NOT NULL';
+				}
+				if (column.primary) {
+					constraints += ' PRIMARY KEY';
+				}
+				if (column.isUnique) {
+					constraints += ' UNIQUE';
+				}
+
+				// Quote column names to handle SQLite reserved keywords (e.g., "from", "to", "order")
+				columnDefs.push(`"${column.name}" ${sqlType}${constraints}`);
+			}
+
+			// Create table with current schema
+			const createTableSQL = `CREATE TABLE "${tableConfig.name}" (${columnDefs.join(', ')})`;
+			await sqliteDb.run(sql.raw(createTableSQL));
+		}
+	}
+
+	/**
+	 * Rebuild SQLite from YJS data.
+	 * Drops/recreates tables then inserts all rows from YJS.
+	 */
 	async function rebuildSqlite() {
 		// Drop and recreate tables (benchmarks show this is faster than DELETE at scale)
-		await recreateTables(sqliteDb, drizzleTables);
+		await recreateTables();
 
 		// Insert all valid rows from YJS into SQLite
 		for (const table of db.$tables()) {
@@ -226,8 +266,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	// =========================================================================
 	// Initial sync: YJS → SQLite (blocking to ensure tables exist before queries)
 	// =========================================================================
-	// Always recreate tables to handle schema changes (e.g., column renames)
-	await recreateTables(sqliteDb, drizzleTables);
+	await recreateTables();
 
 	// Insert all valid rows from YJS into SQLite
 	for (const table of db.$tables()) {
@@ -350,48 +389,3 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 		...drizzleTables,
 	});
 }) satisfies Index;
-
-/**
- * Drop and recreate SQLite tables
- *
- * Always drops existing tables before recreating to handle schema changes
- * (e.g., column renames, type changes). This is safe because SQLite is just
- * an index; YJS is the source of truth and data is re-synced after recreation.
- *
- * Uses Drizzle's official getTableConfig API for introspection.
- */
-async function recreateTables<TSchema extends Record<string, SQLiteTable>>(
-	db: BetterSQLite3Database<TSchema>,
-	drizzleTables: TSchema,
-): Promise<void> {
-	for (const drizzleTable of Object.values(drizzleTables)) {
-		const tableConfig = getTableConfig(drizzleTable);
-
-		// Drop existing table to handle schema changes
-		await db.run(sql.raw(`DROP TABLE IF EXISTS "${tableConfig.name}"`));
-
-		// Build column definitions
-		const columnDefs: string[] = [];
-		for (const column of tableConfig.columns) {
-			const sqlType = column.getSQLType();
-
-			let constraints = '';
-			if (column.notNull) {
-				constraints += ' NOT NULL';
-			}
-			if (column.primary) {
-				constraints += ' PRIMARY KEY';
-			}
-			if (column.isUnique) {
-				constraints += ' UNIQUE';
-			}
-
-			// Quote column names to handle SQLite reserved keywords (e.g., "from", "to", "order")
-			columnDefs.push(`"${column.name}" ${sqlType}${constraints}`);
-		}
-
-		// Create table with current schema
-		const createTableSQL = `CREATE TABLE "${tableConfig.name}" (${columnDefs.join(', ')})`;
-		await db.run(sql.raw(createTableSQL));
-	}
-}
