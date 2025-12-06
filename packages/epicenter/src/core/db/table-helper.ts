@@ -46,6 +46,23 @@ export type RowValidationError = TaggedError<
 export type YRow = Y.Map<CellValue>;
 
 /**
+ * Result of getting a single row by ID.
+ * Uses a status-based discriminated union for explicit handling of all cases.
+ */
+export type GetResult<TRow> =
+	| { status: 'valid'; row: TRow }
+	| { status: 'invalid'; id: string; error: RowValidationError }
+	| { status: 'not_found'; id: string };
+
+/**
+ * Result of getting a row from iteration (getAll).
+ * Does not include 'not_found' since we're iterating existing rows.
+ */
+export type RowResult<TRow> =
+	| { status: 'valid'; row: TRow }
+	| { status: 'invalid'; id: string; error: RowValidationError };
+
+/**
  * Creates a type-safe collection of table helpers for all tables in a schema.
  *
  * This function maps over the table schemas and creates a TableHelper for each table,
@@ -243,20 +260,20 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Get a row by ID, returning Y.js objects for collaborative editing.
 		 *
-		 * @returns
-		 * - `null` if row doesn't exist
-		 * - `Ok(row)` if row exists and is valid
-		 * - `Err(RowValidationError)` if row exists but fails validation
+		 * @returns A discriminated union with status:
+		 * - `{ status: 'valid', row }` if row exists and passes validation
+		 * - `{ status: 'invalid', id, error }` if row exists but fails validation
+		 * - `{ status: 'not_found', id }` if row doesn't exist
 		 */
 		get: defineQuery({
 			input: type({
 				id: 'string',
 			}),
 			description: `Get a row by ID from the ${tableName} table`,
-			handler: (params): Result<TRow, RowValidationError> | null => {
+			handler: (params): GetResult<TRow> => {
 				const yrow = ytable.get(params.id);
 				if (!yrow) {
-					return null;
+					return { status: 'not_found', id: params.id };
 				}
 
 				const row = buildRowFromYRow(yrow, schema);
@@ -264,18 +281,60 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				const result = yjsValidator(row);
 
 				if (result instanceof type.errors) {
-					return RowValidationErr({
-						message: `Row '${params.id}' in table '${tableName}' failed validation`,
-						context: {
-							tableName,
-							id: params.id,
-							errors: result,
-							summary: result.summary,
-						},
-					});
+					return {
+						status: 'invalid',
+						id: params.id,
+						error: RowValidationError({
+							message: `Row '${params.id}' in table '${tableName}' failed validation`,
+							context: {
+								tableName,
+								id: params.id,
+								errors: result,
+								summary: result.summary,
+							},
+						}),
+					};
 				}
 
-				return Ok(row);
+				return { status: 'valid', row };
+			},
+		}),
+
+		/**
+		 * Get all rows with their validation status.
+		 * Returns both valid and invalid rows as `RowResult<TRow>[]`.
+		 * Use `getAllValid()` for just valid rows, `getAllInvalid()` for just errors.
+		 */
+		getAll: defineQuery({
+			description: `Get all rows from the ${tableName} table with validation status`,
+			handler: (): RowResult<TRow>[] => {
+				const results: RowResult<TRow>[] = [];
+				const yjsValidator = validators.toYjsArktype();
+
+				for (const [id, yrow] of ytable.entries()) {
+					const row = buildRowFromYRow(yrow, schema);
+					const result = yjsValidator(row);
+
+					if (result instanceof type.errors) {
+						results.push({
+							status: 'invalid',
+							id,
+							error: RowValidationError({
+								message: `Row '${id}' in table '${tableName}' failed validation`,
+								context: {
+									tableName,
+									id,
+									errors: result,
+									summary: result.summary,
+								},
+							}),
+						});
+					} else {
+						results.push({ status: 'valid', row });
+					}
+				}
+
+				return results;
 			},
 		}),
 
@@ -284,7 +343,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Rows that fail validation are skipped.
 		 * Use `getAllInvalid()` to get validation errors for invalid rows.
 		 */
-		getAll: defineQuery({
+		getAllValid: defineQuery({
 			description: `Get all valid rows from the ${tableName} table`,
 			handler: (): TRow[] => {
 				const validRows: TRow[] = [];

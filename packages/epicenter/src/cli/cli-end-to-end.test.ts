@@ -94,12 +94,15 @@ describe('CLI End-to-End Tests', () => {
 				}),
 				handler: async ({ id, views }) => {
 					const result = db.posts.get({ id });
-					if (!result?.data) {
+					if (result.status !== 'valid') {
 						return Ok(null);
 					}
 					db.posts.update({ id, views });
 					const updatedResult = db.posts.get({ id });
-					return Ok(updatedResult?.data?.toJSON());
+					if (updatedResult.status !== 'valid') {
+						return Ok(null);
+					}
+					return Ok(updatedResult.row.toJSON());
 				},
 			}),
 		}),

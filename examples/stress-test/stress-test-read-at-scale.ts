@@ -120,9 +120,9 @@ while (totalInserted < TOTAL_ITEMS) {
 	}
 
 	// Measure read performance at this point
-	// 1. getAll() - fetch all rows
+	// 1. getAllValid() - fetch all valid rows
 	const getAllStart = performance.now();
-	const allRows = tableDb.getAll();
+	const allRows = tableDb.getAllValid();
 	const getAllTime = performance.now() - getAllStart;
 
 	// 2. get() - fetch 100 random rows

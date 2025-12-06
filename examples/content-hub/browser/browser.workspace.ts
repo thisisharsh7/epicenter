@@ -340,13 +340,13 @@ export const browser = defineWorkspace({
 			description: 'Close a tab by its stable ID',
 			handler: async ({ tabId }) => {
 				const result = db.tabs.get({ id: tabId });
-				if (!result?.data) {
+				if (result.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId },
 					});
 				}
-				const tab = result.data;
+				const tab = result.row;
 
 				const { error } = await tryAsync({
 					try: () => browserApi.tabs.remove(tab.browser_id),
@@ -383,13 +383,13 @@ export const browser = defineWorkspace({
 				let browser_window_id: number | undefined;
 				if (window_id) {
 					const winResult = db.windows.get({ id: window_id });
-					if (!winResult?.data) {
+					if (winResult.status !== 'valid') {
 						return WindowNotFoundErr({
 							message: 'Window not found',
 							context: { windowId: window_id },
 						});
 					}
-					browser_window_id = winResult.data.browser_id;
+					browser_window_id = winResult.row.browser_id;
 				}
 
 				const { data: newTab, error } = await tryAsync({
@@ -424,7 +424,7 @@ export const browser = defineWorkspace({
 				// Need to find which window the tab ended up in
 				const target_window_id =
 					window_id ??
-					db.windows.getAll().find((w) => w.browser_id === newTab.windowId)?.id;
+					db.windows.getAllValid().find((w) => w.browser_id === newTab.windowId)?.id;
 
 				if (!target_window_id) {
 					return BrowserResponseErr({
@@ -474,25 +474,25 @@ export const browser = defineWorkspace({
 			description: 'Move a tab to a different position or window',
 			handler: async ({ tab_id, window_id, index }) => {
 				const tabResult = db.tabs.get({ id: tab_id });
-				if (!tabResult?.data) {
+				if (tabResult.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId: tab_id },
 					});
 				}
-				const tab = tabResult.data;
+				const tab = tabResult.row;
 
 				// Look up browser window ID if provided
 				let browser_window_id: number | undefined;
 				if (window_id) {
 					const winResult = db.windows.get({ id: window_id });
-					if (!winResult?.data) {
+					if (winResult.status !== 'valid') {
 						return WindowNotFoundErr({
 							message: 'Window not found',
 							context: { windowId: window_id },
 						});
 					}
-					browser_window_id = winResult.data.browser_id;
+					browser_window_id = winResult.row.browser_id;
 				}
 
 				const { data: movedTab, error } = await tryAsync({
@@ -517,7 +517,7 @@ export const browser = defineWorkspace({
 				const moved = Array.isArray(movedTab) ? movedTab[0] : movedTab;
 				const target_window_id =
 					window_id ??
-					db.windows.getAll().find((w) => w.browser_id === moved?.windowId)
+					db.windows.getAllValid().find((w) => w.browser_id === moved?.windowId)
 						?.id ??
 					tab.window_id;
 
@@ -539,13 +539,13 @@ export const browser = defineWorkspace({
 			description: 'Pin a tab',
 			handler: async ({ tab_id }) => {
 				const result = db.tabs.get({ id: tab_id });
-				if (!result?.data) {
+				if (result.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId: tab_id },
 					});
 				}
-				const tab = result.data;
+				const tab = result.row;
 
 				const { error } = await tryAsync({
 					try: () => browserApi.tabs.update(tab.browser_id, { pinned: true }),
@@ -574,13 +574,13 @@ export const browser = defineWorkspace({
 			description: 'Unpin a tab',
 			handler: async ({ tab_id }) => {
 				const result = db.tabs.get({ id: tab_id });
-				if (!result?.data) {
+				if (result.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId: tab_id },
 					});
 				}
-				const tab = result.data;
+				const tab = result.row;
 
 				const { error } = await tryAsync({
 					try: () => browserApi.tabs.update(tab.browser_id, { pinned: false }),
@@ -609,13 +609,13 @@ export const browser = defineWorkspace({
 			description: 'Mute a tab',
 			handler: async ({ tab_id }) => {
 				const result = db.tabs.get({ id: tab_id });
-				if (!result?.data) {
+				if (result.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId: tab_id },
 					});
 				}
-				const tab = result.data;
+				const tab = result.row;
 
 				const { error } = await tryAsync({
 					try: () => browserApi.tabs.update(tab.browser_id, { muted: true }),
@@ -644,13 +644,13 @@ export const browser = defineWorkspace({
 			description: 'Unmute a tab',
 			handler: async ({ tab_id }) => {
 				const result = db.tabs.get({ id: tab_id });
-				if (!result?.data) {
+				if (result.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId: tab_id },
 					});
 				}
-				const tab = result.data;
+				const tab = result.row;
 
 				const { error } = await tryAsync({
 					try: () => browserApi.tabs.update(tab.browser_id, { muted: false }),
@@ -679,13 +679,13 @@ export const browser = defineWorkspace({
 			description: 'Reload a tab',
 			handler: async ({ tab_id }) => {
 				const result = db.tabs.get({ id: tab_id });
-				if (!result?.data) {
+				if (result.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId: tab_id },
 					});
 				}
-				const tab = result.data;
+				const tab = result.row;
 
 				const { error } = await tryAsync({
 					try: () => browserApi.tabs.reload(tab.browser_id),
@@ -714,13 +714,13 @@ export const browser = defineWorkspace({
 			description: 'Duplicate a tab',
 			handler: async ({ tab_id }) => {
 				const result = db.tabs.get({ id: tab_id });
-				if (!result?.data) {
+				if (result.status !== 'valid') {
 					return TabNotFoundErr({
 						message: 'Tab not found',
 						context: { tabId: tab_id },
 					});
 				}
-				const tab = result.data;
+				const tab = result.row;
 
 				const { data: newTab, error } = await tryAsync({
 					try: () => browserApi.tabs.duplicate(tab.browser_id),
@@ -784,13 +784,13 @@ export const browser = defineWorkspace({
 			description: 'Close a window and all its tabs',
 			handler: async ({ window_id }) => {
 				const winResult = db.windows.get({ id: window_id });
-				if (!winResult?.data) {
+				if (winResult.status !== 'valid') {
 					return WindowNotFoundErr({
 						message: 'Window not found',
 						context: { windowId: window_id },
 					});
 				}
-				const win = winResult.data;
+				const win = winResult.row;
 
 				const { error } = await tryAsync({
 					try: () => browserApi.windows.remove(win.browser_id),
@@ -810,7 +810,7 @@ export const browser = defineWorkspace({
 				db.$transact(() => {
 					// Delete all tabs in this window
 					const tabsInWindow = db.tabs
-						.getAll()
+						.getAllValid()
 						.filter((t) => t.window_id === window_id);
 					db.tabs.deleteMany({ ids: tabsInWindow.map((t) => t.id) });
 
@@ -831,7 +831,7 @@ export const browser = defineWorkspace({
 		 */
 		getAllTabs: defineQuery({
 			description: 'Get all tabs from the database',
-			handler: () => db.tabs.getAll().map((t) => t.toJSON()),
+			handler: () => db.tabs.getAllValid().map((t) => t.toJSON()),
 		}),
 
 		/**
@@ -839,7 +839,7 @@ export const browser = defineWorkspace({
 		 */
 		getAllWindows: defineQuery({
 			description: 'Get all windows from the database',
-			handler: () => db.windows.getAll().map((w) => w.toJSON()),
+			handler: () => db.windows.getAllValid().map((w) => w.toJSON()),
 		}),
 	}),
 });
