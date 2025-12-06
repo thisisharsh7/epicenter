@@ -7,12 +7,21 @@ Benchmarks for YJS persistence via Epicenter's table API. Each test measures dif
 ```bash
 cd examples/stress-test
 
-# Run any benchmark
+# Run all benchmarks
+bun run run-benchmarks.ts
+
+# Run specific benchmarks (by number or name)
+bun run run-benchmarks.ts 1 3 5
+bun run run-benchmarks.ts bulk update mixed
+
+# Run with clean slate
+bun run run-benchmarks.ts --clean
+
+# List available benchmarks
+bun run run-benchmarks.ts --list
+
+# Run individual benchmark directly
 bun run stress-test.ts
-bun run stress-test-write-delete-write.ts
-bun run stress-test-update-heavy.ts
-bun run stress-test-read-at-scale.ts
-bun run stress-test-mixed-workload.ts
 ```
 
 ## Benchmarks
