@@ -128,8 +128,12 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 
 	/**
 	 * Drop and recreate all SQLite tables.
-	 * Handles schema changes (column renames, type changes) since SQLite is just
-	 * an index and YJS is the source of truth.
+	 *
+	 * Always drops existing tables before recreating to handle schema changes
+	 * (e.g., column renames, type changes). This is safe because SQLite is just
+	 * an index; YJS is the source of truth and data is re-synced after recreation.
+	 *
+	 * Uses Drizzle's getTableConfig API for schema introspection.
 	 */
 	async function recreateTables() {
 		for (const drizzleTable of Object.values(drizzleTables)) {
