@@ -206,7 +206,7 @@ All tests pass (4/4) with no failures.
 
 ### Implementation Challenges Resolved
 
-1. **YJS Type Conversion**: Discovered that `table.insert()` doesn't automatically convert plain values (strings, arrays) to YJS types (Y.Text, Y.Array). Solution: Added conversion logic in `updateYJSRowFromMarkdown()` before insert.
+1. **YJS Type Conversion**: Discovered that `table.upsert()` doesn't automatically convert plain values (strings, arrays) to YJS types (Y.Text, Y.Array). Solution: Added conversion logic in `updateYJSRowFromMarkdown()` before upsert.
 
 2. **Validation Mismatch**: Core validation expects Y.Text/Y.Array instances, but markdown parsing yields plain values. Solution: Created custom validation in `parseMarkdownWithValidation()` that accepts both YJS types and plain values.
 

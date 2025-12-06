@@ -297,7 +297,7 @@ ${instructions}`;
 				}).toJSON();
 
 				// Insert into database
-				db.articles.insert({
+				db.articles.upsert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -412,7 +412,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.landing_pages.insert({
+				db.landing_pages.upsert({
 					id: generateId(),
 					url,
 					title,
@@ -493,7 +493,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.github_repos.insert({
+				db.github_repos.upsert({
 					id: generateId(),
 					url,
 					title: finalTitle,
@@ -524,7 +524,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.doc_sites.insert({
+				db.doc_sites.upsert({
 					id: generateId(),
 					url,
 					title,
@@ -551,7 +551,7 @@ ${instructions}`;
 
 				const book_id = generateId();
 
-				db.books.insert({
+				db.books.upsert({
 					id: book_id,
 					title,
 					author,
@@ -587,7 +587,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.book_excerpts.insert({
+				db.book_excerpts.upsert({
 					id: generateId(),
 					book_id,
 					content,
@@ -624,7 +624,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.article_excerpts.insert({
+				db.article_excerpts.upsert({
 					id: generateId(),
 					article_id,
 					content,
@@ -686,7 +686,7 @@ ${instructions}`;
 				}).toJSON();
 
 				// Insert into database
-				db.essays.insert({
+				db.essays.upsert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -736,7 +736,7 @@ ${instructions}`;
 
 				const recipe_id = generateId();
 
-				db.recipes.insert({
+				db.recipes.upsert({
 					id: recipe_id,
 					title,
 					description: description ?? null,

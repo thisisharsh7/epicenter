@@ -280,7 +280,7 @@ export const browser = defineWorkspace({
 						if (win.id === undefined) continue;
 
 						const window_id = generateId();
-						db.windows.insert({
+						db.windows.upsert({
 							id: window_id,
 							browser_id: win.id,
 							state: win.state ?? 'normal',
@@ -300,7 +300,7 @@ export const browser = defineWorkspace({
 						for (const tab of win.tabs ?? []) {
 							if (tab.id === undefined) continue;
 
-							db.tabs.insert({
+							db.tabs.upsert({
 								id: generateId(),
 								browser_id: tab.id,
 								window_id,
@@ -437,7 +437,7 @@ export const browser = defineWorkspace({
 				}
 
 				const tab_id = generateId();
-				db.tabs.insert({
+				db.tabs.upsert({
 					id: tab_id,
 					browser_id: newTab.id,
 					window_id: target_window_id,
@@ -747,7 +747,7 @@ export const browser = defineWorkspace({
 
 				const new_tab_id = generateId();
 
-				db.tabs.insert({
+				db.tabs.upsert({
 					id: new_tab_id,
 					browser_id: newTab.id,
 					window_id: tab.window_id,

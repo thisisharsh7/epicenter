@@ -34,21 +34,21 @@ bun run stress-test-write-delete-write.ts 5000
 
 ## What These Tests Measure
 
-1. **Bulk insertion performance** with `insertMany`
+1. **Bulk insertion performance** with `upsertMany`
 2. **YJS document size** as data grows
 3. **Performance degradation** patterns under load
 4. **Deletion behavior** and tombstone overhead
 
 ## Key Observations
 
-### insertMany vs insert: ~500x Difference
+### upsertMany vs upsert: ~500x Difference
 
 | Method | Speed | Why |
 |--------|-------|-----|
-| `insert()` | ~34/s | Each call = separate YJS transaction |
-| `insertMany()` | ~20,000/s | Single YJS transaction for all rows |
+| `upsert()` | ~34/s | Each call = separate YJS transaction |
+| `upsertMany()` | ~20,000/s | Single YJS transaction for all rows |
 
-Always use `insertMany({ rows: [...] })` for bulk operations. It uses `$transact` internally to batch all changes into one YJS update.
+Always use `upsertMany({ rows: [...] })` for bulk operations. It uses `$transact` internally to batch all changes into one YJS update.
 
 ### Performance Degradation at Scale
 

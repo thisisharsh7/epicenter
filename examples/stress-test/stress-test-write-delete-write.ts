@@ -134,7 +134,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 			});
 		}
 
-		tableDb.insertMany({ rows: items });
+		tableDb.upsertMany({ rows: items });
 		inserted += batchCount;
 
 		const batchElapsed = performance.now() - batchStart;
@@ -267,7 +267,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 			});
 		}
 
-		tableDb.insertMany({ rows: items });
+		tableDb.upsertMany({ rows: items });
 		inserted += batchCount;
 
 		const batchElapsed = performance.now() - batchStart;

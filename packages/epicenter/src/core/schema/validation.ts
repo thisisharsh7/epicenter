@@ -81,7 +81,7 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 *
 	 * **Primary use case**: Batch insert/upsert action input schemas
 	 * - Used for operations that accept multiple rows at once
-	 * - Example: `insertMany: defineMutation({ input: validators.toStandardSchemaArray() })`
+	 * - Example: `upsertMany: defineMutation({ input: validators.toStandardSchemaArray() })`
 	 *
 	 * **MCP compatibility**: Returns `{ rows: T[] }` instead of bare `T[]` because
 	 * MCP protocol requires all tool inputSchema to have `type: "object"` at the root.
