@@ -3,6 +3,7 @@
 	import NavItems from '$lib/components/NavItems.svelte';
 	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
 	import { Button } from '@epicenter/ui/button';
+	import * as Kbd from '@epicenter/ui/kbd';
 	import { Link } from '@epicenter/ui/link';
 	import { ClipboardIcon } from '$lib/components/icons';
 	import {
@@ -365,13 +366,7 @@
 				tooltip="Go to local shortcut in settings"
 				href="/settings/shortcuts/local"
 			>
-				<kbd
-					class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
-				>
-					{getShortcutDisplayLabel(
-						settings.value['shortcuts.local.toggleManualRecording'],
-					)}
-				</kbd>
+	<Kbd.Root>{getShortcutDisplayLabel(settings.value['shortcuts.local.toggleManualRecording'])}</Kbd.Root>
 			</Link>{' '}
 			to start recording here.
 		</p>
@@ -382,11 +377,7 @@
 					tooltip="Go to global shortcut in settings"
 					href="/settings/shortcuts/global"
 				>
-					<kbd
-						class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
-					>
-						{settings.value['shortcuts.global.toggleManualRecording']}
-					</kbd>
+	<Kbd.Root>{getShortcutDisplayLabel(settings.value['shortcuts.global.toggleManualRecording'])}</Kbd.Root>
 				</Link>{' '}
 				to start recording anywhere.
 			</p>
