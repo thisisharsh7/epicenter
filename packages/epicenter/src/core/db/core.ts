@@ -76,14 +76,14 @@ export type { TableHelper } from './table-helper';
  * });
  *
  * // Tables are accessed directly (no .tables namespace)
- * db.posts.insert({ id: '1', title: 'Hello', published: false });
+ * db.posts.upsert({ id: '1', title: 'Hello', published: false });
  * db.posts.getAll();
  *
  * // Utilities are prefixed with $
  * db.$clearAll();
  * db.$transact(() => {
- *   db.posts.insert({ ... });
- *   db.comments.insert({ ... });
+ *   db.posts.upsert({ ... });
+ *   db.comments.upsert({ ... });
  * });
  * ```
  */
@@ -162,7 +162,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		 * // Cross-table transaction
 		 * db.$transact(() => {
 		 *   db.posts.upsertMany([...]);
-		 *   db.comments.insert({ ... });
+		 *   db.comments.upsert({ ... });
 		 * }, 'bulk-import');
 		 * ```
 		 */
@@ -177,7 +177,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		 * ```typescript
 		 * // Clear everything before importing fresh data
 		 * db.$clearAll();
-		 * db.posts.insertMany(importedPosts);
+		 * db.posts.upsertMany(importedPosts);
 		 * ```
 		 */
 		$clearAll(): void {
@@ -224,7 +224,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
  * type MyDb = Db<typeof mySchema>;
  *
  * function doSomething(db: MyDb) {
- *   db.posts.insert(...);  // Direct table access
+ *   db.posts.upsert(...);  // Direct table access
  *   db.$clearAll();        // Utility access
  * }
  * ```

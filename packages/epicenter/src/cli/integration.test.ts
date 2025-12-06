@@ -40,7 +40,7 @@ describe('CLI Integration', () => {
 						name,
 						count: String(count),
 					};
-					db.items.insert(item);
+					db.items.upsert(item);
 					return Ok(item);
 				},
 			}),

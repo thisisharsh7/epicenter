@@ -421,8 +421,8 @@ Once configured, you can work with your data in two ways:
 **Through the application**:
 
 ```typescript
-// Insert a post (markdown file created automatically)
-db.tables.posts.insert({
+// Upsert a post (markdown file created automatically)
+db.tables.posts.upsert({
 	id: 'hello-world',
 	title: 'Hello World',
 	content: 'My first post',

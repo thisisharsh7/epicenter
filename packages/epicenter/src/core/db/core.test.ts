@@ -16,7 +16,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create a row
-		doc.posts.insert({
+		doc.posts.upsert({
 			id: '1',
 			title: 'Test Post',
 			view_count: 0,
@@ -45,13 +45,12 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create multiple rows
-		const { error: insertError } = doc.posts.insertMany({
+		doc.posts.upsertMany({
 			rows: [
 				{ id: '1', title: 'Post 1', view_count: 10, published: true },
 				{ id: '2', title: 'Post 2', view_count: 20, published: false },
 			],
 		});
-		expect(insertError).toBeNull();
 
 		// Retrieve and verify rows
 		const row1 = doc.posts.get({ id: '1' });
@@ -77,7 +76,7 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		doc.posts.insertMany({
+		doc.posts.upsertMany({
 			rows: [
 				{ id: '1', title: 'Post 1', view_count: 10, published: true },
 				{ id: '2', title: 'Post 2', view_count: 20, published: false },
@@ -127,8 +126,8 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		// Insert with plain strings and arrays (the documented API)
-		doc.posts.insert({
+		// Upsert with plain strings and arrays (the documented API)
+		doc.posts.upsert({
 			id: '1',
 			title: 'Hello World',
 			tags: ['typescript', 'javascript'],
@@ -144,8 +143,8 @@ describe('createEpicenterDb', () => {
 			expect(result1.data.tags.toArray()).toEqual(['typescript', 'javascript']);
 		}
 
-		// Insert another post
-		doc.posts.insert({
+		// Upsert another post
+		doc.posts.upsert({
 			id: '2',
 			title: 'Second Post',
 			tags: ['python'],

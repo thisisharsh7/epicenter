@@ -271,7 +271,7 @@ const notesWorkspace = defineWorkspace({
 			}),
 			handler: async (input) => {
 				const note = { id: generateId(), ...input };
-				db.tables.notes.insert(note);
+				db.tables.notes.upsert(note);
 				return Ok(note);
 			},
 		}),

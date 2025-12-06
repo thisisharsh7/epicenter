@@ -56,15 +56,8 @@ export {
 export type { Db, TableHelper } from './core/db/core';
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
-export type {
-	RowAlreadyExistsError,
-	RowNotFoundError,
-	YRow,
-} from './core/db/table-helper';
-export {
-	RowAlreadyExistsErr,
-	RowNotFoundErr,
-} from './core/db/table-helper';
+export type { RowNotFoundError, YRow } from './core/db/table-helper';
+export { RowNotFoundErr } from './core/db/table-helper';
 export type { ActionInfo, EpicenterClient, EpicenterConfig } from './core/epicenter';
 // Epicenter - compose multiple workspaces
 export {

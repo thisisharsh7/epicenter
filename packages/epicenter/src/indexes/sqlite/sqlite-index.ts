@@ -358,21 +358,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 							const rows = await sqliteDb.select().from(drizzleTable);
 							for (const row of rows) {
 								// @ts-expect-error InferSelectModel<DrizzleTable> is not assignable to InferInsertModel<TableHelper<TSchema[string]>> due to union type from $tables() iteration
-								const result = table.insert(row);
-								if (result.error) {
-									// @ts-expect-error row.id exists but TypeScript cannot narrow the union type from $tables() iteration
-									const rowId = row.id;
-									logger.log(
-										IndexError({
-											message: `Failed to insert row ${rowId} from SQLite into YJS table ${table.name}`,
-											context: {
-												rowId,
-												tableName: table.name,
-												cause: result.error,
-											},
-										}),
-									);
-								}
+								table.upsert(row);
 							}
 						}
 
