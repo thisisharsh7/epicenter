@@ -5,7 +5,7 @@
 	import { Input } from '@epicenter/ui/input';
 	import * as Popover from '@epicenter/ui/popover';
 	import {
-		getShortcutDisplayKeys,
+		getShortcutDisplayLabel,
 		type KeyboardEventSupportedKey,
 	} from '$lib/constants/keyboard';
 	import { IS_MACOS } from '$lib/constants/platform';
@@ -41,11 +41,7 @@
 
 <div class="flex items-center justify-end gap-2">
 	{#if rawKeyCombination}
-		<Kbd.Group>
-			{#each getShortcutDisplayKeys(rawKeyCombination) as key}
-				<Kbd.Root>{key}</Kbd.Root>
-			{/each}
-		</Kbd.Group>
+		<Kbd.Root>{getShortcutDisplayLabel(rawKeyCombination)}</Kbd.Root>
 		<Button
 			variant="ghost"
 			size="icon"
@@ -139,11 +135,7 @@
 								class="flex grow items-center gap-1.5 overflow-x-auto pr-2 scrollbar-none"
 							>
 								{#if rawKeyCombination && !keyRecorder.isListening}
-									<Kbd.Group>
-										{#each getShortcutDisplayKeys(rawKeyCombination) as key}
-											<Kbd.Root>{key}</Kbd.Root>
-										{/each}
-									</Kbd.Group>
+									<Kbd.Root>{getShortcutDisplayLabel(rawKeyCombination)}</Kbd.Root>
 								{:else if !keyRecorder.isListening}
 									<span class="truncate text-muted-foreground"
 										>{placeholder}</span

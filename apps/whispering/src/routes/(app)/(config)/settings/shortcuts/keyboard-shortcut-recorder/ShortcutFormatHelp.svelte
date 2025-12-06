@@ -136,10 +136,7 @@
 						</p>
 						<div class="flex flex-wrap gap-1 my-2">
 							{#each OPTION_DEAD_KEYS as key}
-								<Kbd.Group>
-									<Kbd.Root>Option</Kbd.Root>
-									<Kbd.Root>{key.toUpperCase()}</Kbd.Root>
-								</Kbd.Group>
+								<Kbd.Root>Option + {key.toUpperCase()}</Kbd.Root>
 							{/each}
 						</div>
 						<p class="font-medium">Workarounds:</p>

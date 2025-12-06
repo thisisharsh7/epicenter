@@ -231,11 +231,8 @@
 														<li class="flex gap-3">
 															<span class="shrink-0">a.</span>
 															<span
-																>Press <Kbd.Group
-																	><Kbd.Root>Windows</Kbd.Root><Kbd.Root
-																		>X</Kbd.Root
-																	></Kbd.Group
-																> and select "System"</span
+																>Press <Kbd.Root>Windows + X</Kbd.Root> and select
+																"System"</span
 															>
 														</li>
 														<li class="flex gap-3">
