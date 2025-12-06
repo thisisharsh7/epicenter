@@ -9,7 +9,7 @@
 	import type { Transformation } from '$lib/services/db';
 	import { createMutation } from '@tanstack/svelte-query';
 	import HistoryIcon from '@lucide/svelte/icons/history';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import MarkTransformationActiveButton from './MarkTransformationActiveButton.svelte';
@@ -170,9 +170,9 @@
 				disabled={deleteTransformation.isPending}
 			>
 				{#if deleteTransformation.isPending}
-					<Loader2Icon class="mr-2 size-4 animate-spin" />
+					<Spinner />
 				{:else}
-					<TrashIcon class="size-4 mr-1" />
+					<TrashIcon class="size-4" />
 				{/if}
 				Delete
 			</Button>
@@ -204,7 +204,7 @@
 					disabled={updateTransformation.isPending || !isWorkingCopyDirty}
 				>
 					{#if updateTransformation.isPending}
-						<Loader2Icon class="mr-2 size-4 animate-spin" />
+						<Spinner />
 					{/if}
 					Save
 				</Button>

@@ -27,7 +27,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import {
 		ACCEPT_AUDIO,
 		ACCEPT_VIDEO,
@@ -335,7 +335,7 @@
 					hasNoTranscribedText}
 			>
 				{#if latestRecording.transcriptionStatus === 'TRANSCRIBING'}
-					<Loader2Icon class="size-6 animate-spin" />
+					<Spinner class="size-6" />
 				{:else}
 					<ClipboardIcon class="size-6" />
 				{/if}

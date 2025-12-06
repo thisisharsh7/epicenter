@@ -10,7 +10,7 @@
 	import * as services from '$lib/services';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import EditIcon from '@lucide/svelte/icons/pencil';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import { onDestroy } from 'svelte';
 
 	const updateRecording = createMutation(rpc.db.recordings.update.options);
@@ -223,7 +223,7 @@
 				disabled={deleteRecording.isPending}
 			>
 				{#if deleteRecording.isPending}
-					<Loader2Icon class="mr-2 size-4 animate-spin" />
+					<Spinner />
 				{/if}
 				Delete
 			</Button>
@@ -252,7 +252,7 @@
 				disabled={updateRecording.isPending || !isWorkingCopyDirty}
 			>
 				{#if updateRecording.isPending}
-					<Loader2Icon class="mr-2 size-4 animate-spin" />
+					<Spinner />
 				{/if}
 				Save
 			</Button>

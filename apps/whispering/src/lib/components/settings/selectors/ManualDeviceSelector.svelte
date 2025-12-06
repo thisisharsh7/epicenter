@@ -10,6 +10,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import MicIcon from '@lucide/svelte/icons/mic';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import { Badge } from '@epicenter/ui/badge';
 
 	const combobox = useCombobox();
@@ -167,12 +168,11 @@
 							getDevicesQuery.refetch();
 						}}
 					>
-						<RefreshCwIcon
-							class={cn(
-								'mr-2 size-4',
-								getDevicesQuery.isRefetching && 'animate-spin',
-							)}
-						/>
+						{#if getDevicesQuery.isRefetching}
+							<Spinner />
+						{:else}
+							<RefreshCwIcon class="size-4" />
+						{/if}
 						Refresh devices
 					</Command.Item>
 				</Command.Group>
