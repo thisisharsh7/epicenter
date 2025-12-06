@@ -19,7 +19,7 @@
 		type RecordingMode,
 		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
-	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
+	import { getShortcutDisplayKeys } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
 	import { vadRecorder } from '$lib/query/vad.svelte';
 	import * as services from '$lib/services';
@@ -366,11 +366,11 @@
 				tooltip="Go to local shortcut in settings"
 				href="/settings/shortcuts/local"
 			>
-				<Kbd.Root>
-					{getShortcutDisplayLabel(
-						settings.value['shortcuts.local.toggleManualRecording'],
-					)}
-				</Kbd.Root>
+				<Kbd.Group>
+					{#each getShortcutDisplayKeys(settings.value['shortcuts.local.toggleManualRecording']) as key}
+						<Kbd.Root>{key}</Kbd.Root>
+					{/each}
+				</Kbd.Group>
 			</Link>{' '}
 			to start recording here.
 		</p>
@@ -381,9 +381,11 @@
 					tooltip="Go to global shortcut in settings"
 					href="/settings/shortcuts/global"
 				>
-					<Kbd.Root>
-						{settings.value['shortcuts.global.toggleManualRecording']}
-					</Kbd.Root>
+					<Kbd.Group>
+						{#each getShortcutDisplayKeys(settings.value['shortcuts.global.toggleManualRecording']) as key}
+							<Kbd.Root>{key}</Kbd.Root>
+						{/each}
+					</Kbd.Group>
 				</Link>{' '}
 				to start recording anywhere.
 			</p>

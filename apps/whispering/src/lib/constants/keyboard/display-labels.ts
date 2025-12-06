@@ -95,10 +95,25 @@ const BROWSER_KEY_DISPLAY_LABELS: Partial<
 export function getShortcutDisplayLabel(shortcut: string | null): string {
 	if (!shortcut) return '';
 
-	return shortcut
-		.split('+')
-		.map((key) => formatKeyForDisplay(key.toLowerCase()))
-		.join('+');
+	return getShortcutDisplayKeys(shortcut).join('+');
+}
+
+/**
+ * Gets an array of display keys for a shortcut string.
+ * Use this with Kbd.Group to render each key separately.
+ *
+ * @param shortcut - The shortcut string (e.g., "control+shift+a")
+ * @returns Array of formatted key strings (e.g., ["Ctrl", "Shift", "A"])
+ *
+ * @example
+ * getShortcutDisplayKeys('control+a')    // ['Ctrl', 'A']
+ * getShortcutDisplayKeys('meta+shift+p') // ['Cmd', 'Shift', 'P']
+ * getShortcutDisplayKeys(null)           // []
+ */
+export function getShortcutDisplayKeys(shortcut: string | null): string[] {
+	if (!shortcut) return [];
+
+	return shortcut.split('+').map((key) => formatKeyForDisplay(key.toLowerCase()));
 }
 
 /**

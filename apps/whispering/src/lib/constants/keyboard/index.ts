@@ -24,4 +24,4 @@ export {
 
 export { CommandOrAlt, CommandOrControl } from './modifiers';
 
-export { getShortcutDisplayLabel } from './display-labels';
+export { getShortcutDisplayKeys, getShortcutDisplayLabel } from './display-labels';
