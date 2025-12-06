@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, buttonVariants } from '@epicenter/ui/button';
+	import * as Kbd from '@epicenter/ui/kbd';
 	import { Link } from '@epicenter/ui/link';
 	import * as Card from '@epicenter/ui/card';
 	import * as Alert from '@epicenter/ui/alert';
@@ -230,10 +231,8 @@
 														<li class="flex gap-3">
 															<span class="shrink-0">a.</span>
 															<span
-																>Press <kbd
-																	class="bg-muted px-2 py-1 rounded font-mono text-xs"
-																	>Windows + X</kbd
-																> and select "System"</span
+																>Press <Kbd.Root>Windows + X</Kbd.Root> and select
+																"System"</span
 															>
 														</li>
 														<li class="flex gap-3">

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Alert from '@epicenter/ui/alert';
-	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
+	import * as Kbd from '@epicenter/ui/kbd';
 	import { Input } from '@epicenter/ui/input';
 	import * as Popover from '@epicenter/ui/popover';
 	import {
@@ -41,9 +41,7 @@
 
 <div class="flex items-center justify-end gap-2">
 	{#if rawKeyCombination}
-		<Badge variant="secondary" class="font-mono text-xs">
-			{getShortcutDisplayLabel(rawKeyCombination)}
-		</Badge>
+		<Kbd.Root>{getShortcutDisplayLabel(rawKeyCombination)}</Kbd.Root>
 		<Button
 			variant="ghost"
 			size="icon"
@@ -137,9 +135,9 @@
 								class="flex grow items-center gap-1.5 overflow-x-auto pr-2 scrollbar-none"
 							>
 								{#if rawKeyCombination && !keyRecorder.isListening}
-									<Badge variant="secondary" class="font-mono text-xs">
+									<Kbd.Root>
 										{getShortcutDisplayLabel(rawKeyCombination)}
-									</Badge>
+									</Kbd.Root>
 								{:else if !keyRecorder.isListening}
 									<span class="truncate text-muted-foreground"
 										>{placeholder}</span

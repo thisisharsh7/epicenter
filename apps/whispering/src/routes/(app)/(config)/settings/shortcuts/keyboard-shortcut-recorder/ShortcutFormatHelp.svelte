@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Alert from '@epicenter/ui/alert';
-	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
+	import * as Kbd from '@epicenter/ui/kbd';
 	import * as Dialog from '@epicenter/ui/dialog';
 	import {
 		ACCELERATOR_SECTIONS,
@@ -90,9 +90,7 @@
 					<p class="text-xs text-muted-foreground mb-2">Hold with other keys</p>
 					<div class="flex flex-wrap sm:flex-col gap-1">
 						{#each (isLocal ? KEYBOARD_EVENT_SUPPORTED_KEY_SECTIONS.at(0) : ACCELERATOR_SECTIONS.at(0)).keys as modifier}
-							<Badge variant="outline" class="font-mono text-sm justify-start">
-								{modifier}
-							</Badge>
+							<Kbd.Root>{modifier}</Kbd.Root>
 						{/each}
 					</div>
 				</div>
@@ -108,9 +106,7 @@
 								</p>
 								<div class="flex flex-wrap gap-1">
 									{#each section.keys as key}
-										<Badge variant="secondary" class="font-mono text-xs">
-											{key}
-										</Badge>
+										<Kbd.Root>{key}</Kbd.Root>
 									{/each}
 								</div>
 							</div>
@@ -140,9 +136,7 @@
 						</p>
 						<div class="flex flex-wrap gap-1 my-2">
 							{#each OPTION_DEAD_KEYS as key}
-								<Badge variant="outline" class="font-mono text-xs">
-									Option+{key.toUpperCase()}
-								</Badge>
+								<Kbd.Root>Option+{key.toUpperCase()}</Kbd.Root>
 							{/each}
 						</div>
 						<p class="font-medium">Workarounds:</p>
