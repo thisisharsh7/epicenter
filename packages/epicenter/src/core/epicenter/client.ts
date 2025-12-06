@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { type Action, type WorkspaceExports, walkActions } from '../actions';
 import type { StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
@@ -95,8 +94,9 @@ export async function createEpicenterClient<
 
 	let storageDir: StorageDir | undefined;
 	if (isNode) {
-		const configuredPath = config.storageDir ?? process.cwd();
-		storageDir = path.resolve(configuredPath) as StorageDir;
+		// Dynamic import to avoid bundling node:path in browser builds
+		const path = await import('node:path');
+		storageDir = path.resolve(config.storageDir ?? process.cwd()) as StorageDir;
 	}
 
 	// Initialize workspaces using flat/hoisted resolution model
@@ -190,4 +190,3 @@ export function* iterActions<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 		}
 	}
 }
-

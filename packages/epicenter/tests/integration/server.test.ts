@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
-	createServer,
 	defineEpicenter,
 	defineMutation,
 	defineQuery,
@@ -13,9 +12,10 @@ import {
 	id,
 	integer,
 	select,
-	sqliteIndex,
 	text,
 } from '../../src/index';
+import { sqliteIndex } from '../../src/indexes/sqlite';
+import type { createServer } from '../../src/server';
 
 // Helper to parse SSE response from MCP endpoint
 async function parseMcpResponse(response: Response): Promise<any> {

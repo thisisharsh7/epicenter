@@ -1,12 +1,11 @@
-import path from 'node:path';
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
-import { createWorkspaceBlobs } from '../blobs';
 import { createEpicenterDb } from '../db/core';
 import type { WorkspaceIndexMap } from '../indexes';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
+// import { createWorkspaceBlobs } from '../blobs';
 
 /**
  * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
@@ -98,9 +97,12 @@ export async function initializeWorkspaces<
 ): Promise<WorkspacesToClients<TConfigs>> {
 	// Compute epicenterDir once from storageDir
 	// This is the `.epicenter` directory where all workspace data is stored
-	const epicenterDir = storageDir
-		? (path.join(storageDir, '.epicenter') as EpicenterDir)
-		: undefined;
+	let epicenterDir: EpicenterDir | undefined;
+	if (storageDir) {
+		// Dynamic import to avoid bundling node:path in browser builds
+		const path = await import('node:path');
+		epicenterDir = path.join(storageDir, '.epicenter') as EpicenterDir;
+	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
@@ -373,11 +375,11 @@ export async function initializeWorkspaces<
 
 		// Initialize blob stores for each table in the schema
 		// Storage layout: {storageDir}/{workspaceId}/{tableName}/{filename}
-		const blobs = await createWorkspaceBlobs({
-			id: workspaceConfig.id,
-			schema: workspaceConfig.schema,
-			storageDir,
-		});
+		// const blobs = await createWorkspaceBlobs({
+		// 	id: workspaceConfig.id,
+		// 	schema: workspaceConfig.schema,
+		// 	storageDir,
+		// });
 
 		// Call the exports factory to get workspace exports (actions + utilities), passing:
 		// - schema: The workspace schema (table definitions)
@@ -385,16 +387,17 @@ export async function initializeWorkspaces<
 		// - validators: Schema validators for runtime validation and arktype composition
 		// - indexes: exported resources from each index (db, queries, etc.)
 		// - workspaces: full clients from dependencies (all exports, not filtered!)
-		// - blobs: blob storage for binary files, namespaced by table
 		// - storageDir: Absolute storage directory path (undefined in browser)
 		// - epicenterDir: Absolute path to .epicenter directory (undefined in browser)
+		// Note: blobs are commented out until browser-compatible implementation exists
 		const exports = workspaceConfig.exports({
 			schema: workspaceConfig.schema,
 			db,
 			validators,
 			indexes,
 			workspaces: workspaceClients,
-			blobs,
+			// blobs temporarily disabled for browser compatibility
+			blobs: {} as any,
 			storageDir,
 			epicenterDir,
 		});
@@ -478,6 +481,8 @@ export async function createWorkspaceClient<
 
 	let resolvedStorageDir: StorageDir | undefined;
 	if (isNode) {
+		// Dynamic import to avoid bundling node:path in browser builds
+		const path = await import('node:path');
 		resolvedStorageDir = path.resolve(process.cwd()) as StorageDir;
 	}
 

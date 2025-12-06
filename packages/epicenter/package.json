@@ -8,7 +8,8 @@
 		"./cli": "./src/cli/index.ts",
 		"./providers": "./src/providers/index.ts",
 		"./indexes/markdown": "./src/indexes/markdown/index.ts",
-		"./indexes/sqlite": "./src/indexes/sqlite/index.ts"
+		"./indexes/sqlite": "./src/indexes/sqlite/index.ts",
+		"./server": "./src/server/index.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
