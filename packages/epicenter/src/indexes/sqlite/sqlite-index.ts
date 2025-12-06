@@ -183,7 +183,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 				throw new Error(`Drizzle table for "${table.name}" not found`);
 			}
 
-			const rows = table.getAll();
+			const rows = table.getAllValid();
 
 			if (rows.length > 0) {
 				const { error } = await tryAsync({
@@ -279,7 +279,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 			throw new Error(`Drizzle table for "${table.name}" not found`);
 		}
 
-		const rows = table.getAll();
+		const rows = table.getAllValid();
 
 		if (rows.length > 0) {
 			const { error } = await tryAsync({

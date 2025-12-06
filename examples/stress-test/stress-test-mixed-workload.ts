@@ -213,7 +213,7 @@ for (let round = 1; round <= ROUNDS; round++) {
 		// Read all
 		cumulative += DISTRIBUTION.readAll;
 		if (rand < cumulative) {
-			tableDb.getAll();
+			tableDb.getAllValid();
 			opCounts.readAll++;
 			opTimes.readAll += performance.now() - opStart;
 			continue;

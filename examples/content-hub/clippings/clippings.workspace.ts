@@ -371,25 +371,25 @@ ${instructions}`;
 				};
 
 				// Dedupe articles (timestamp: saved_at)
-				const articleIds = findDuplicateIds(db.articles.getAll(), 'saved_at');
+				const articleIds = findDuplicateIds(db.articles.getAllValid(), 'saved_at');
 				db.articles.deleteMany({ ids: articleIds });
 				totalDeleted += articleIds.length;
 
 				// Dedupe github_repos (timestamp: added_at)
-				const repoIds = findDuplicateIds(db.github_repos.getAll(), 'added_at');
+				const repoIds = findDuplicateIds(db.github_repos.getAllValid(), 'added_at');
 				db.github_repos.deleteMany({ ids: repoIds });
 				totalDeleted += repoIds.length;
 
 				// Dedupe landing_pages (timestamp: added_at)
 				const landingPageIds = findDuplicateIds(
-					db.landing_pages.getAll(),
+					db.landing_pages.getAllValid(),
 					'added_at',
 				);
 				db.landing_pages.deleteMany({ ids: landingPageIds });
 				totalDeleted += landingPageIds.length;
 
 				// Dedupe doc_sites (timestamp: added_at)
-				const docSiteIds = findDuplicateIds(db.doc_sites.getAll(), 'added_at');
+				const docSiteIds = findDuplicateIds(db.doc_sites.getAllValid(), 'added_at');
 				db.doc_sites.deleteMany({ ids: docSiteIds });
 				totalDeleted += docSiteIds.length;
 
@@ -612,7 +612,7 @@ ${instructions}`;
 			handler: ({ article_id, content, comment }) => {
 				// Verify the article exists
 				const article = db.articles.get({ id: article_id });
-				if (!article) {
+				if (article.status !== 'valid') {
 					return Err({
 						message: 'Article not found',
 						context: { article_id },
