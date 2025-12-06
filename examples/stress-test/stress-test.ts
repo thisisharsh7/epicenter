@@ -1,36 +1,36 @@
 /**
  * YJS Stress Test
  *
- * Tests bulk insertion performance and YJS file size with large datasets.
+ * Tests bulk upsert performance and YJS file size with large datasets.
  *
- * ## Performance Note: insertMany vs insert
+ * ## Performance Note: upsertMany vs upsert
  *
- * This test uses `insertMany` which is ~500x faster than individual `insert` calls:
+ * This test uses `upsertMany` which is ~500x faster than individual `upsert` calls:
  *
- * - `insert()`: ~34 items/second (each insert triggers a separate YJS transaction)
- * - `insertMany()`: ~20,000 items/second (batches all inserts into a single YJS transaction)
+ * - `upsert()`: ~34 items/second (each upsert triggers a separate YJS transaction)
+ * - `upsertMany()`: ~20,000 items/second (batches all upserts into a single YJS transaction)
  *
- * The key difference is that `insertMany` uses `$transact` internally, which wraps
+ * The key difference is that `upsertMany` uses `$transact` internally, which wraps
  * all operations in a single YJS transaction. This dramatically reduces overhead from:
  * 1. YJS document updates (one update vs N updates)
  * 2. Observer notifications (one notification vs N notifications)
  * 3. Persistence writes (one write vs potentially N writes)
  *
  * When doing bulk operations, always prefer:
- * - `insertMany({ rows: [...] })` over multiple `insert()` calls
+ * - `upsertMany({ rows: [...] })` over multiple `upsert()` calls
  * - `updateMany({ rows: [...] })` over multiple `update()` calls
  * - `$transact(() => { ... })` to batch arbitrary operations
  *
  * @example
  * ```bash
- * # Run with default 20k items per table (200k total) - recommended
- * bun test
+ * # Run with default 10k items per table (100k total)
+ * bun run stress-test.ts
  *
- * # Quick test (10k per table = 100k total)
- * bun test 10000
+ * # Custom count
+ * bun run stress-test.ts 20000
  *
  * # Full stress test (100k per table = 1M total) - expect slowdown
- * bun test 100000
+ * bun run stress-test.ts 100000
  * ```
  */
 
@@ -40,7 +40,7 @@ import epicenterConfig from './epicenter.config';
 
 // Configuration - can override via CLI args
 const ITEMS_PER_TABLE = Number(process.argv[2]) || 10_000; // Default 10k for balanced stress test
-const BATCH_SIZE = 1_000; // Insert in batches of 1k using insertMany
+const BATCH_SIZE = 1_000; // Upsert in batches of 1k using upsertMany
 
 const TABLES = [
 	'items_a',
@@ -73,7 +73,7 @@ function formatRate(count: number, ms: number): string {
 }
 
 console.log('='.repeat(60));
-console.log('YJS Stress Test (using insertMany for bulk inserts)');
+console.log('YJS Stress Test (using upsertMany for bulk upserts)');
 console.log('='.repeat(60));
 console.log(`Items per table: ${ITEMS_PER_TABLE.toLocaleString()}`);
 console.log(`Batch size: ${BATCH_SIZE.toLocaleString()}`);
@@ -121,8 +121,8 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 			});
 		}
 
-		// Bulk insert
-		tableDb.insertMany({ rows: items });
+		// Bulk upsert
+		tableDb.upsertMany({ rows: items });
 		inserted += batchCount;
 
 		const batchElapsed = performance.now() - batchStart;

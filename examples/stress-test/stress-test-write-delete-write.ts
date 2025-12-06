@@ -6,9 +6,9 @@
  * with deletions.
  *
  * The test performs 3 phases:
- * 1. Write: Insert 10k items across all tables
+ * 1. Write: Upsert 10k items across all tables
  * 2. Delete: Delete all 10k items
- * 3. Write: Insert 10k items again
+ * 3. Write: Upsert 10k items again
  *
  * @example
  * ```bash
@@ -134,7 +134,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 			});
 		}
 
-		tableDb.insertMany({ rows: items });
+		tableDb.upsertMany({ rows: items });
 		inserted += batchCount;
 
 		const batchElapsed = performance.now() - batchStart;
@@ -267,7 +267,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 			});
 		}
 
-		tableDb.insertMany({ rows: items });
+		tableDb.upsertMany({ rows: items });
 		inserted += batchCount;
 
 		const batchElapsed = performance.now() - batchStart;

@@ -1,105 +1,105 @@
 # YJS Stress Tests
 
-Stress tests for YJS persistence, measuring insertion performance, file size growth, and deletion behavior.
+Benchmarks for YJS persistence via Epicenter's table API. Each test measures different performance characteristics under stress.
 
-## Tests
-
-### 1. Bulk Insertion Test (`stress-test.ts`)
-
-Tests bulk insertion performance across multiple tables.
+## Quick Start
 
 ```bash
 cd examples/stress-test
 
-# Default (10k items per table, 100k total)
+# Run any benchmark
 bun run stress-test.ts
-
-# Custom count
-bun run stress-test.ts 20000
+bun run stress-test-write-delete-write.ts
+bun run stress-test-update-heavy.ts
+bun run stress-test-read-at-scale.ts
+bun run stress-test-mixed-workload.ts
 ```
 
-### 2. Write-Delete-Write Test (`stress-test-write-delete-write.ts`)
+## Benchmarks
 
-Tests how YJS handles a full data lifecycle: create → delete → recreate.
+| Benchmark | Tests | Key Finding |
+|-----------|-------|-------------|
+| [Bulk Upsert](./stress-test.md) | `upsertMany` throughput | ~20k/s batched vs ~34/s single |
+| [Write-Delete-Write](./stress-test-write-delete-write.md) | Tombstone overhead | Only 21% overhead for full cycle |
+| [Update-Heavy](./stress-test-update-heavy.md) | Repeated updates | TBD - run benchmark |
+| [Read-at-Scale](./stress-test-read-at-scale.md) | Query performance | TBD - run benchmark |
+| [Mixed Workload](./stress-test-mixed-workload.md) | Realistic usage | TBD - run benchmark |
+
+## Test Details
+
+### 1. Bulk Upsert (`stress-test.ts`)
+
+Tests maximum `upsertMany` throughput across multiple tables.
 
 ```bash
-cd examples/stress-test
-
-# Default (10k items per table per phase)
-bun run stress-test-write-delete-write.ts
-
-# Custom count
-bun run stress-test-write-delete-write.ts 5000
+bun run stress-test.ts           # Default: 10k items × 10 tables
+bun run stress-test.ts 20000     # Custom: 20k items × 10 tables
 ```
 
-## What These Tests Measure
+### 2. Write-Delete-Write (`stress-test-write-delete-write.ts`)
 
-1. **Bulk insertion performance** with `insertMany`
-2. **YJS document size** as data grows
-3. **Performance degradation** patterns under load
-4. **Deletion behavior** and tombstone overhead
+Tests file size behavior through create → delete → recreate cycle.
 
-## Key Observations
+```bash
+bun run stress-test-write-delete-write.ts        # Default: 10k items
+bun run stress-test-write-delete-write.ts 5000   # Custom count
+```
 
-### insertMany vs insert: ~500x Difference
+### 3. Update-Heavy (`stress-test-update-heavy.ts`)
 
-| Method | Speed | Why |
-|--------|-------|-----|
-| `insert()` | ~34/s | Each call = separate YJS transaction |
-| `insertMany()` | ~20,000/s | Single YJS transaction for all rows |
+Tests performance when repeatedly updating existing rows.
 
-Always use `insertMany({ rows: [...] })` for bulk operations. It uses `$transact` internally to batch all changes into one YJS update.
+```bash
+bun run stress-test-update-heavy.ts           # Default: 5k items, 3 rounds
+bun run stress-test-update-heavy.ts 5000 5    # Custom: 5k items, 5 rounds
+```
 
-### Performance Degradation at Scale
+### 4. Read-at-Scale (`stress-test-read-at-scale.ts`)
 
-YJS document size affects write performance. From a 1M item test:
+Tests read performance (`getAll`, `get`, `count`) as document grows.
 
-| Items in Doc | Speed | File Size |
-|--------------|-------|-----------|
-| 100k | 7.4k/s | ~10 MB |
-| 200k | 3.0k/s | ~20 MB |
-| 300k | 1.5k/s | ~30 MB |
-| 400k | 1.1k/s | ~40 MB |
-| 500k+ | <700/s | 50+ MB |
+```bash
+bun run stress-test-read-at-scale.ts              # Default: 50k items
+bun run stress-test-read-at-scale.ts 100000       # Custom: 100k items
+bun run stress-test-read-at-scale.ts 50000 5000   # Measure every 5k items
+```
 
-The slowdown is expected - larger YJS documents mean more work per transaction.
+### 5. Mixed Workload (`stress-test-mixed-workload.ts`)
+
+Simulates realistic usage with interleaved reads, writes, updates, and deletes.
+
+```bash
+bun run stress-test-mixed-workload.ts         # Default: 5 rounds × 1k ops
+bun run stress-test-mixed-workload.ts 10      # Custom: 10 rounds
+bun run stress-test-mixed-workload.ts 10 500  # 10 rounds × 500 ops
+```
+
+## Key Takeaways
+
+### Always Use Batched Operations
+
+| Method | Speed | Difference |
+|--------|-------|------------|
+| `upsert()` | ~34/s | 1x |
+| `upsertMany()` | ~20,000/s | ~500x faster |
 
 ### Recommended Limits
 
-- **< 100k items per workspace**: Fast, no noticeable degradation
-- **100k-300k items**: Acceptable with some slowdown
-- **300k+ items**: Consider splitting into multiple workspaces
+| Document Size | Performance | Recommendation |
+|---------------|-------------|----------------|
+| < 100k items | Fast | Ideal |
+| 100k-300k items | Some slowdown | Acceptable |
+| 300k+ items | Significant slowdown | Split into workspaces |
 
-For very large datasets, use separate workspaces to keep each YJS document smaller.
+### File Storage
 
-### Write-Delete-Write: Efficient Tombstone Handling
-
-From a test with 100k items (10k per table × 10 tables):
-
-| Phase | File Size | Notes |
-|-------|-----------|-------|
-| After Write (100k items) | 14.39 MB | ~144 bytes/item |
-| After Delete (0 items) | 2.58 MB | 82% reduction |
-| After Write Again (100k items) | 17.35 MB | ~174 bytes/item |
-
-**Key findings:**
-
-1. **File shrinks after deletion**: The YJS file reduced by 82% after deleting all items, contrary to the expectation that CRDT tombstones would grow the file.
-
-2. **Minimal overhead for full cycle**: Final size (17.35 MB) is only 21% larger than initial write (14.39 MB). This 1.21x ratio means YJS efficiently stores the complete operation history.
-
-3. **Delete is slower than insert**: Deletion ran at ~9-18k items/sec vs insertion at ~10-62k items/sec.
-
-4. **Second write is slower**: Phase 3 averaged ~8-20k/s vs Phase 1's ~10-62k/s, likely due to YJS managing more internal structures.
-
-**Interpretation**: YJS handles write-delete-write cycles efficiently. Even with full tombstone history, you're paying only ~21% storage overhead. This makes it viable for applications where data is frequently deleted and recreated.
+- ~144-174 bytes per item
+- Deletions add minimal overhead (~21% for full write-delete-write cycle)
+- File size correlates with operation history, not just current data
 
 ## Output
 
-The test reports:
-- Per-table insertion time and rate
-- Total time and average rate
-- Final `.yjs` file size
-- Bytes per item (storage efficiency)
-
-Files are saved to `.epicenter/stress.yjs`.
+All tests save data to `.epicenter/stress.yjs` and report:
+- Per-operation timing and rates
+- File size progression
+- Performance trends and scaling analysis
