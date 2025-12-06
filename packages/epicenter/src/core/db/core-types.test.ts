@@ -261,7 +261,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should properly type insertMany with array of rows', () => {
+	test('should properly type upsertMany with array of rows', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			comments: {
 				id: id(),

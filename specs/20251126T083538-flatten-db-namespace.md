@@ -26,7 +26,7 @@ This creates a clear, consistent rule. The only constraint is that table names c
 
 ```typescript
 // Tables (primary use case - 95% of usage)
-db.posts.insert(...)
+db.posts.upsert(...)
 db.emails.getAll()
 
 // Utilities (all prefixed with $)
