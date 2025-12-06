@@ -667,7 +667,7 @@ describe('Workspace Action Handlers', () => {
 							category,
 							views: 0,
 						};
-						db.posts.insert(post);
+						db.posts.upsert(post);
 						return Ok(post);
 					},
 				}),

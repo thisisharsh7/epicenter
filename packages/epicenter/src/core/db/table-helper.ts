@@ -16,14 +16,6 @@ import { serializeCellValue } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
- * Error thrown when attempting to insert a row with an ID that already exists
- */
-export const { RowAlreadyExistsError, RowAlreadyExistsErr } = createTaggedError(
-	'RowAlreadyExistsError',
-);
-export type RowAlreadyExistsError = ReturnType<typeof RowAlreadyExistsError>;
-
-/**
  * Error thrown when attempting to update or access a row that doesn't exist
  */
 export const { RowNotFoundError, RowNotFoundErr } =
@@ -154,37 +146,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		validators,
 
 		/**
-		 * Insert a new row into the table.
-		 *
-		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
-		 * - ytext columns accept strings
-		 * - tags columns accept arrays
-		 *
-		 * Internally, strings are synced to Y.Text using updateYTextFromString(),
-		 * and arrays are synced to Y.Array using updateYArrayFromArray().
-		 */
-		insert: defineMutation({
-			input: validators.toStandardSchema(),
-			description: `Insert a new row into the ${tableName} table`,
-			handler: (serializedRow) => {
-				if (ytable.has(serializedRow.id)) {
-					return RowAlreadyExistsErr({
-						message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
-						context: { tableName, operation: 'insert', id: serializedRow.id },
-					});
-				}
-
-				ydoc.transact(() => {
-					const yrow = new Y.Map<CellValue>();
-					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-					ytable.set(serializedRow.id, yrow);
-				});
-
-				return Ok(undefined);
-			},
-		}),
-
-		/**
 		 * Update specific fields of an existing row.
 		 *
 		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
@@ -242,37 +203,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					}
 					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
 				});
-			},
-		}),
-
-		/** Insert multiple rows into the table */
-		insertMany: defineMutation({
-			input: validators.toStandardSchemaArray(),
-			description: `Insert multiple rows into the ${tableName} table`,
-			handler: ({ rows }) => {
-				// Check for duplicates first
-				for (const serializedRow of rows) {
-					if (ytable.has(serializedRow.id)) {
-						return RowAlreadyExistsErr({
-							message: `Row with id "${serializedRow.id}" already exists in table "${tableName}"`,
-							context: {
-								tableName,
-								operation: 'insertMany',
-								id: serializedRow.id,
-							},
-						});
-					}
-				}
-
-				ydoc.transact(() => {
-					for (const serializedRow of rows) {
-						const yrow = new Y.Map<CellValue>();
-						updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-						ytable.set(serializedRow.id, yrow);
-					}
-				});
-
-				return Ok(undefined);
 			},
 		}),
 
@@ -768,7 +698,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 *   title: 'Hello',
 		 *   content: 'World',
 		 * };
-		 * db.posts.insert(post);
+		 * db.posts.upsert(post);
 		 * ```
 		 */
 		$inferSerializedRow: null as unknown as SerializedRow<TTableSchema>,
@@ -795,10 +725,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 /**
  * Type-safe table helper with operations for a specific table schema.
  *
- * Write methods return Result types with specific errors:
- * - insert/insertMany: Result<void, RowAlreadyExistsError>
- * - update/updateMany: Result<void, RowNotFoundError>
- * - upsert/upsertMany/delete/deleteMany/clear: Result<void, never> (never fail)
+ * Write methods:
+ * - update/updateMany: Result<void, RowNotFoundError> - fails if row doesn't exist
+ * - upsert/upsertMany/delete/deleteMany/clear: void (never fail)
  *
  * Read methods (get, getAll) return null for not-found rather than errors.
  */

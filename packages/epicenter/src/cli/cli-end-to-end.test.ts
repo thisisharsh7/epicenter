@@ -82,7 +82,7 @@ describe('CLI End-to-End Tests', () => {
 						category,
 						views: 0,
 					} satisfies typeof db.posts.$inferSerializedRow;
-					db.posts.insert(post);
+					db.posts.upsert(post);
 					return Ok(post);
 				},
 			}),

@@ -89,8 +89,9 @@ const blogWorkspace = defineWorkspace({
         'category?': '"tech" | "personal"',
       }),
       handler: ({ title, category }) => {
-        const result = db.tables.posts.insert({
-          id: generateId(),
+        const id = generateId();
+        db.tables.posts.upsert({
+          id,
           title,
           content: null,
           category: category ?? 'tech',
@@ -99,11 +100,7 @@ const blogWorkspace = defineWorkspace({
           publishedAt: null,
         });
 
-        if (result.error) {
-          return result; // RowAlreadyExistsError
-        }
-
-        return Ok({ id: result.data.id });
+        return Ok({ id });
       }
     }),
 
@@ -181,7 +178,7 @@ schema: {
 At runtime, tables become YJS-backed collections with CRUD operations:
 
 ```typescript
-db.tables.posts.insert({ id: '1', title: 'Hello', ... })
+db.tables.posts.upsert({ id: '1', title: 'Hello', ... })
 db.tables.posts.get({ id: '1' })
 db.tables.posts.update({ id: '1', views: 100 })
 db.tables.posts.delete({ id: '1' })
@@ -244,7 +241,7 @@ exports: ({ db }) => ({
   createPost: defineMutation({
     input: type({ title: 'string' }),
     handler: ({ title }) => {
-      return db.tables.posts.insert({ ... });
+      db.tables.posts.upsert({ ... });
     }
   })
 })
@@ -391,50 +388,23 @@ preferences: json({
 
 All table operations are accessed via `db.tables.{tableName}`.
 
-### Insert Operations
+### Upsert Operations
 
-**`insert(row)`**
+**`upsert(row)`**
 
-Insert a new row. Returns `Result<void, RowAlreadyExistsError>`.
+Insert or update a row. Never fails. This is the primary way to write data.
 
 For Y.js columns (ytext, tags), provide plain values:
 - ytext: provide strings
 - tags: provide arrays
 
 ```typescript
-const result = db.tables.posts.insert({
+db.tables.posts.upsert({
   id: generateId(),
   title: 'Hello World',
   content: 'Post content here', // For ytext column, pass string
   tags: ['tech', 'blog'],       // For tags column, pass array
   published: false,
-});
-
-if (result.error) {
-  console.error('Row already exists:', result.error);
-}
-```
-
-**`insertMany(rows)`**
-
-Insert multiple rows. Returns `Result<void, RowAlreadyExistsError>`.
-
-```typescript
-db.tables.posts.insertMany([
-  { id: '1', title: 'Post 1', ... },
-  { id: '2', title: 'Post 2', ... },
-]);
-```
-
-**`upsert(row)`**
-
-Insert or update a row. Never fails.
-
-```typescript
-db.tables.posts.upsert({
-  id: '1',
-  title: 'Updated Title',
-  ...
 });
 ```
 
@@ -793,12 +763,14 @@ const blogWorkspace = defineWorkspace({
         const allUsers = workspaces.auth.db.tables.users.getAll();
 
         // Create post in local workspace
-        return db.tables.posts.insert({
-          id: generateId(),
+        const id = generateId();
+        db.tables.posts.upsert({
+          id,
           title,
           authorId,
           published: false,
         });
+        return Ok({ id });
       }
     })
   })
@@ -916,11 +888,13 @@ Write operations that modify state. Use HTTP POST when exposed via API/MCP.
 defineMutation({
   input: type({ title: 'string' }),
   handler: ({ title }) => {
-    return db.tables.posts.insert({
-      id: generateId(),
+    const id = generateId();
+    db.tables.posts.upsert({
+      id,
       title,
       published: false,
     });
+    return Ok({ id });
   }
 })
 
@@ -1236,15 +1210,13 @@ Identity function for type inference.
 import {
   type Db,
   type TableHelper,
-  RowAlreadyExistsErr,
   RowNotFoundErr,
-  type RowAlreadyExistsError,
   type RowNotFoundError,
 } from '@epicenter/hq';
 ```
 
 **`TableHelper<TSchema>`** methods:
-- `insert(row)`, `insertMany(rows)`, `upsert(row)`, `upsertMany(rows)`
+- `upsert(row)`, `upsertMany(rows)`
 - `update(partial)`, `updateMany(partials)`
 - `get({ id })`, `getAll()`, `getAllInvalid()`
 - `has({ id })`, `count()`
@@ -1253,7 +1225,6 @@ import {
 - `observe({ onAdd?, onUpdate?, onDelete? })`
 
 **Error constructors:**
-- `RowAlreadyExistsErr({ message, context, cause })`: Insert collision
 - `RowNotFoundErr({ message, context, cause })`: Update on missing row
 
 ### Indexes

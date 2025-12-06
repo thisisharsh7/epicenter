@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "epicenter",
@@ -164,13 +163,6 @@
         "@types/bun": "catalog:",
         "@types/jsdom": "^27.0.0",
         "drizzle-kit": "catalog:",
-      },
-    },
-    "examples/sqlite-rebuild-benchmark": {
-      "name": "sqlite-rebuild-benchmark",
-      "dependencies": {
-        "@tursodatabase/database": "^0.3.2",
-        "drizzle-orm": "catalog:",
       },
     },
     "examples/stress-test": {
@@ -2208,8 +2200,6 @@
     "space-separated-tokens": ["space-separated-tokens@2.0.2", "", {}, "sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q=="],
 
     "sprintf-js": ["sprintf-js@1.0.3", "", {}, "sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g=="],
-
-    "sqlite-rebuild-benchmark": ["sqlite-rebuild-benchmark@workspace:examples/sqlite-rebuild-benchmark"],
 
     "statuses": ["statuses@2.0.2", "", {}, "sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw=="],
 

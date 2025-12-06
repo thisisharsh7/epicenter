@@ -22,8 +22,8 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Test insert() - accepts serialized values (strings for ytext, arrays for multi-select)
-		doc.posts.insert({
+		// Test upsert() - accepts serialized values (strings for ytext, arrays for multi-select)
+		doc.posts.upsert({
 			id: '1',
 			title: 'Test Post',
 			content: 'Post content', // string (gets converted to Y.Text internally)
@@ -63,7 +63,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.products.insertMany({
+		doc.products.upsertMany({
 			rows: [
 				{ id: '1', name: 'Widget', price: 1000, in_stock: true },
 				{ id: '2', name: 'Gadget', price: 2000, in_stock: false },
@@ -87,7 +87,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tasks.insertMany({
+		doc.tasks.upsertMany({
 			rows: [
 				{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
 				{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
@@ -112,7 +112,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.items.insertMany({
+		doc.items.upsertMany({
 			rows: [
 				{ id: '1', name: 'Item 1', quantity: 5 },
 				{ id: '2', name: 'Item 2', quantity: 0 },
@@ -159,7 +159,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.notifications.insert({
+		doc.notifications.upsert({
 			id: '1',
 			message: 'Test notification',
 			read: false,
@@ -182,7 +182,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test with null values
-		doc.articles.insert({
+		doc.articles.upsert({
 			id: '1',
 			title: 'Article without content',
 			description: null,
@@ -197,7 +197,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 
 		// Test with string values (automatically converted to Y.Text internally)
-		doc.articles.insert({
+		doc.articles.upsert({
 			id: '2',
 			title: 'Article with content',
 			description: 'A short description',
@@ -230,7 +230,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test authors table - use plain string (converted to Y.Text internally)
-		doc.authors.insert({
+		doc.authors.upsert({
 			id: 'author-1',
 			name: 'John Doe',
 			bio: 'Author bio',
@@ -240,7 +240,7 @@ describe('YjsDoc Type Inference', () => {
 		// Hover to verify type: Result<{ id: string; name: string; bio: Y.Text | null }, ArkErrors> | null
 
 		// Test books table - use plain array (converted to Y.Array internally)
-		doc.books.insert({
+		doc.books.upsert({
 			id: 'book-1',
 			author_id: 'author-1',
 			title: 'My Book',
@@ -276,7 +276,7 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		doc.comments.insertMany({ rows: commentsToAdd });
+		doc.comments.upsertMany({ rows: commentsToAdd });
 
 		const comments = doc.comments.getAll();
 		expect(comments).toHaveLength(2);
@@ -293,8 +293,8 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Insert with plain values (automatically converted to Y.js types internally)
-		doc.documents.insert({
+		// Upsert with plain values (automatically converted to Y.js types internally)
+		doc.documents.upsert({
 			id: 'doc-1',
 			title: 'My Document',
 			body: 'Hello World',

@@ -65,7 +65,7 @@ describe('Server Integration Tests', () => {
 						views: 0,
 						published: false,
 					};
-					db.posts.insert(post);
+					db.posts.upsert(post);
 					return Ok(post);
 				},
 			}),
@@ -263,7 +263,7 @@ describe('Server Integration Tests', () => {
 							id: generateId(),
 							...input,
 						};
-						db.users.insert(user);
+						db.users.upsert(user);
 						return Ok(user);
 					},
 				}),
