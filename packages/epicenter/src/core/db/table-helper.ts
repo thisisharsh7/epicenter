@@ -15,12 +15,6 @@ import type {
 import { serializeCellValue } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
-/**
- * Error thrown when attempting to update or access a row that doesn't exist
- */
-export const { RowNotFoundError, RowNotFoundErr } =
-	createTaggedError('RowNotFoundError');
-export type RowNotFoundError = ReturnType<typeof RowNotFoundError>;
 
 /**
  * Context for row validation errors
@@ -155,7 +149,13 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Internally, the existing Y.Text/Y.Array is synced using updateYTextFromString()
 		 * or updateYArrayFromArray() to apply minimal changes while preserving CRDT history.
 		 *
-		 * Only the fields you include will be updated - others remain unchanged.
+		 * Only the fields you include will be updated; others remain unchanged.
+		 *
+		 * **If the row doesn't exist locally, this is a no-op.** This is intentional due to
+		 * Y.js semantics: creating a new Y.Map and setting it at a key uses Last-Writer-Wins
+		 * at the key level. If another peer has a full row at that ID, our new Y.Map (with
+		 * only partial fields) could completely replace it, destroying all their data. The
+		 * no-op behavior is the safe choice that prevents catastrophic data loss.
 		 */
 		update: defineMutation({
 			input: validators.toPartialStandardSchema(),
@@ -163,14 +163,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			handler: (partialSerializedRow) => {
 				const yrow = ytable.get(partialSerializedRow.id);
 				if (!yrow) {
-					return RowNotFoundErr({
-						message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
-						context: {
-							tableName,
-							operation: 'update',
-							id: partialSerializedRow.id,
-						},
-					});
+					// No-op: Creating a new Y.Map here would risk replacing an existing row
+					// from another peer via LWW, causing catastrophic data loss.
+					return;
 				}
 
 				ydoc.transact(() => {
@@ -180,8 +175,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						schema,
 					});
 				});
-
-				return Ok(undefined);
 			},
 		}),
 
@@ -224,30 +217,19 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			},
 		}),
 
-		/** Update multiple rows */
+		/**
+		 * Update multiple rows.
+		 *
+		 * Rows that don't exist locally are skipped (no-op). See `update` for the rationale.
+		 */
 		updateMany: defineMutation({
 			input: validators.toPartialStandardSchemaArray(),
 			description: `Update multiple rows in the ${tableName} table`,
 			handler: ({ rows }) => {
-				// Check all rows exist first
-				for (const partialSerializedRow of rows) {
-					if (!ytable.has(partialSerializedRow.id)) {
-						return RowNotFoundErr({
-							message: `Row with id "${partialSerializedRow.id}" not found in table "${tableName}"`,
-							context: {
-								tableName,
-								operation: 'updateMany',
-								id: partialSerializedRow.id,
-							},
-						});
-					}
-				}
-
 				ydoc.transact(() => {
 					for (const partialSerializedRow of rows) {
-						// Safe to assert non-null because we checked all IDs exist above
 						const yrow = ytable.get(partialSerializedRow.id);
-						if (!yrow) continue; // Skip if somehow missing (defensive)
+						if (!yrow) continue; // No-op for non-existent rows (see update JSDoc)
 						updateYRowFromSerializedRow({
 							yrow,
 							serializedRow: partialSerializedRow,
@@ -255,8 +237,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						});
 					}
 				});
-
-				return Ok(undefined);
 			},
 		}),
 
@@ -725,9 +705,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 /**
  * Type-safe table helper with operations for a specific table schema.
  *
- * Write methods:
- * - update/updateMany: Result<void, RowNotFoundError> - fails if row doesn't exist
- * - upsert/upsertMany/delete/deleteMany/clear: void (never fail)
+ * Write methods (all return void, never fail):
+ * - upsert/upsertMany: Create or replace entire row (requires all fields, guaranteed valid)
+ * - update/updateMany: Merge fields into existing row (no-op if row doesn't exist locally)
+ * - delete/deleteMany/clear: Remove rows (no-op if row doesn't exist)
  *
  * Read methods (get, getAll) return null for not-found rather than errors.
  */
