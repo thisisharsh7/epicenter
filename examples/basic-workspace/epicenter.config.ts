@@ -9,13 +9,12 @@ import {
 	id,
 	integer,
 	isNotNull,
-	markdownIndex,
 	type SerializedRow,
 	select,
-	sqliteIndex,
 	text,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { markdownIndex, MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';

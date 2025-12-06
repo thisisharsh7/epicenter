@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { createServer } from '@epicenter/hq';
+import { createServer } from '@epicenter/hq/server';
 import epicenterConfig from './epicenter.config';
 
 // Helper to parse SSE response from MCP endpoint

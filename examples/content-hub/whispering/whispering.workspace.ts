@@ -5,10 +5,10 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
-	markdownIndex,
-	sqliteIndex,
 	text,
 } from '@epicenter/hq';
+import { markdownIndex } from '@epicenter/hq/indexes/markdown';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';

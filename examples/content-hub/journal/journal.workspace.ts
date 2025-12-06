@@ -2,13 +2,12 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownIndex,
 	select,
-	sqliteIndex,
 	tags,
 	text,
-	withBodyField,
 } from '@epicenter/hq';
+import { markdownIndex, withBodyField } from '@epicenter/hq/indexes/markdown';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 
 /**

@@ -1,14 +1,11 @@
-/**
- * Shared epicenter client types and utilities.
- *
- * Contains platform-agnostic types and utilities for the epicenter client.
- * Platform-specific entry points (client.browser.ts, client.node.ts) provide
- * the createEpicenterClient function with appropriate storage resolution.
- */
-
 import { type Action, type WorkspaceExports, walkActions } from '../actions';
+import type { StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
-import type { WorkspacesToClients } from '../workspace/client.shared';
+import {
+	initializeWorkspaces,
+	type WorkspacesToClients,
+} from '../workspace/client';
+import type { EpicenterConfig } from './config';
 
 /**
  * Epicenter client type
@@ -42,6 +39,86 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
 		 */
 		[Symbol.asyncDispose]: () => Promise<void>;
 	};
+
+/**
+ * Create an epicenter client with all workspace clients initialized
+ * Uses shared initialization logic to ensure workspace instances are properly shared
+ *
+ * @param config - Epicenter configuration with workspaces to initialize
+ * @returns Initialized epicenter client with access to all workspace exports
+ *
+ * @example
+ * ```typescript
+ * // Scoped usage with automatic cleanup (scripts, tests, CLI commands)
+ * {
+ *   await using client = await createEpicenterClient(epicenter);
+ *
+ *   // Access workspace actions by workspace id
+ *   const page = await client.pages.createPage({
+ *     title: 'My First Post',
+ *     content: 'Hello, world!',
+ *     type: 'blog',
+ *     tags: 'tech',
+ *   });
+ *
+ *   await client.contentHub.createYouTubePost({
+ *     pageId: page.id,
+ *     title: 'Check out my blog post!',
+ *     description: 'A great post about...',
+ *     niche: ['Coding', 'Productivity'],
+ *   });
+ *   // Automatic cleanup when scope exits
+ * }
+ *
+ * // Long-lived usage (servers, desktop apps) with manual cleanup
+ * const client = await createEpicenterClient(epicenter);
+ * // ... use client for app lifetime ...
+ * process.on('SIGTERM', async () => {
+ *   await client.destroy();
+ * });
+ * ```
+ */
+export async function createEpicenterClient<
+	const TId extends string,
+	const TWorkspaces extends readonly AnyWorkspaceConfig[],
+>(
+	config: EpicenterConfig<TId, TWorkspaces>,
+): Promise<EpicenterClient<TWorkspaces>> {
+	// Resolve storageDir with environment detection
+	// In Node.js: resolve to absolute path (defaults to process.cwd() if not specified)
+	// In browser: undefined (filesystem operations not available)
+	const isNode =
+		typeof process !== 'undefined' &&
+		process.versions != null &&
+		process.versions.node != null;
+
+	let storageDir: StorageDir | undefined;
+	if (isNode) {
+		// Dynamic import to avoid bundling node:path in browser builds
+		const path = await import('node:path');
+		storageDir = path.resolve(config.storageDir ?? process.cwd()) as StorageDir;
+	}
+
+	// Initialize workspaces using flat/hoisted resolution model
+	// All transitive dependencies must be explicitly listed in config.workspaces
+	// initializeWorkspaces will validate this and throw if dependencies are missing
+	const clients = await initializeWorkspaces(config.workspaces, storageDir);
+
+	const cleanup = async () => {
+		await Promise.all(
+			// biome-ignore lint/suspicious/noExplicitAny: WorkspacesToClients returns a mapped type that Object.values can't narrow
+			Object.values(clients).map((workspaceClient: WorkspaceClient<any>) =>
+				workspaceClient.destroy(),
+			),
+		);
+	};
+
+	return {
+		...clients,
+		destroy: cleanup,
+		[Symbol.asyncDispose]: cleanup,
+	} as EpicenterClient<TWorkspaces>;
+}
 
 /** Info about an action collected from the client hierarchy */
 export type ActionInfo = {

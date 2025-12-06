@@ -3,9 +3,9 @@ import {
 	defineWorkspace,
 	id,
 	integer,
-	sqliteIndex,
 	text,
 } from '@epicenter/hq';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 
 /**

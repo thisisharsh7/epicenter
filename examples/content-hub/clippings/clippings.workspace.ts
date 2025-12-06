@@ -9,13 +9,11 @@ import {
 	generateId,
 	id,
 	integer,
-	markdownIndex,
 	select,
-	sqliteIndex,
 	text,
-	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { markdownIndex, MarkdownIndexErr, withBodyField } from '@epicenter/hq/indexes/markdown';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Defuddle } from 'defuddle/node';

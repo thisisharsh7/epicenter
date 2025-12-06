@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
-	createServer,
 	defineEpicenter,
 	defineMutation,
 	defineQuery,
@@ -14,8 +13,9 @@ import {
 	integer,
 	select,
 	text,
-} from '../../src/index.node';
+} from '../../src/index';
 import { sqliteIndex } from '../../src/indexes/sqlite';
+import type { createServer } from '../../src/server';
 
 // Helper to parse SSE response from MCP endpoint
 async function parseMcpResponse(response: Response): Promise<any> {
@@ -65,7 +65,7 @@ describe('Server Integration Tests', () => {
 						views: 0,
 						published: false,
 					};
-					db.posts.upsert(post);
+					db.posts.insert(post);
 					return Ok(post);
 				},
 			}),
@@ -263,7 +263,7 @@ describe('Server Integration Tests', () => {
 							id: generateId(),
 							...input,
 						};
-						db.users.upsert(user);
+						db.users.insert(user);
 						return Ok(user);
 					},
 				}),

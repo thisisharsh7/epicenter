@@ -7,13 +7,12 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
-	markdownIndex,
 	select,
-	sqliteIndex,
 	tags,
 	text,
 } from '@epicenter/hq';
-import { readMarkdownFile } from '@epicenter/hq/indexes/markdown';
+import { markdownIndex, readMarkdownFile } from '@epicenter/hq/indexes/markdown';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';

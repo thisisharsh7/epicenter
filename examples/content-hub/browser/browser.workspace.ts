@@ -8,9 +8,9 @@ import {
 	integer,
 	json,
 	select,
-	sqliteIndex,
 	text,
 } from '@epicenter/hq';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type Browser, browser as browserApi } from '@wxt-dev/browser';
 import { type } from 'arktype';

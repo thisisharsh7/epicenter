@@ -48,9 +48,9 @@ import {
   boolean,
   date,
   select,
-  sqliteIndex,
-  markdownIndex,
 } from '@epicenter/hq';
+import { markdownIndex } from '@epicenter/hq/indexes/markdown';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 

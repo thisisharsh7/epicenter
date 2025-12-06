@@ -5,19 +5,17 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownIndex,
-	type SerializedRow,
 	select,
-	sqliteIndex,
+	type SerializedRow,
 	tags,
 	text,
-	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { markdownIndex, MarkdownIndexErr, withBodyField } from '@epicenter/hq/indexes/markdown';
+import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
+import { QUALITY_OPTIONS } from '../shared/quality';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { QUALITY_OPTIONS } from '../shared/quality';
 
 /**
  * Path to the blog's content collection for articles
