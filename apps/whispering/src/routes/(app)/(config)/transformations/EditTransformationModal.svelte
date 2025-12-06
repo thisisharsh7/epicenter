@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { PencilIcon as EditIcon } from '$lib/components/icons';
 	import { Editor } from '$lib/components/transformations-editor';
 	import { Button } from '@epicenter/ui/button';
@@ -96,16 +95,16 @@
 <Modal.Root bind:open={isDialogOpen}>
 	<Modal.Trigger>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
-				tooltipContent="Edit transformation, test transformation, and view run history"
+				tooltip="Edit transformation, test transformation, and view run history"
 				variant="ghost"
 				class={className}
 			>
 				<EditIcon class="size-4" />
 				<PlayIcon class="size-4" />
 				<HistoryIcon class="size-4" />
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Modal.Trigger>
 

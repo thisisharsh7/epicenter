@@ -1,5 +1,4 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import {
 		AnthropicApiKeyInput,
 		CustomEndpointInput,
@@ -181,24 +180,24 @@
 								</Select.Root>
 							</div>
 							<div class="flex items-center gap-2">
-								<WhisperingButton
-									tooltipContent="Duplicate step"
+								<Button
+									tooltip="Duplicate step"
 									variant="ghost"
 									size="icon"
 									class="size-8"
 									onclick={() => duplicateStep(index)}
 								>
 									<CopyIcon class="size-4" />
-								</WhisperingButton>
-								<WhisperingButton
-									tooltipContent="Delete step"
+								</Button>
+								<Button
+									tooltip="Delete step"
 									variant="ghost"
 									size="icon"
 									class="size-8"
 									onclick={() => removeStep(index)}
 								>
 									<TrashIcon class="size-4" />
-								</WhisperingButton>
+								</Button>
 							</div>
 						</div>
 						{#if step.type === 'prompt_transform'}

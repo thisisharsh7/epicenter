@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { Button } from '@epicenter/ui/button';
 	import * as Modal from '@epicenter/ui/modal';
 	import { Input } from '@epicenter/ui/input';
@@ -103,14 +102,14 @@
 <Modal.Root bind:open={isDialogOpen}>
 	<Modal.Trigger>
 		{#snippet child({ props })}
-			<WhisperingButton
-				tooltipContent="Edit recording"
+			<Button
+				tooltip="Edit recording"
 				variant="ghost"
 				size="icon"
 				{...props}
 			>
 				<EditIcon class="size-4" />
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Modal.Trigger>
 	<Modal.Content

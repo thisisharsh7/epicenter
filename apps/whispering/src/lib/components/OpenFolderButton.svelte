@@ -20,7 +20,7 @@
 	@component
 -->
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import { rpc } from '$lib/query';
 	import { Ok, tryAsync } from 'wellcrafted/result';
@@ -75,22 +75,22 @@
 
 {#if window.__TAURI_INTERNALS__}
 	{#if variant === 'icon'}
-		<WhisperingButton
-			tooltipContent={tooltipText}
+		<Button
+			tooltip={tooltipText}
 			variant="outline"
 			size="icon"
 			onclick={openFolder}
 		>
 			<ExternalLink class="h-4 w-4" />
-		</WhisperingButton>
+		</Button>
 	{:else}
-		<WhisperingButton
-			tooltipContent={tooltipText}
+		<Button
+			tooltip={tooltipText}
 			variant="outline"
 			onclick={openFolder}
 		>
 			<ExternalLink class="h-4 w-4 mr-2" />
 			{tooltipText}
-		</WhisperingButton>
+		</Button>
 	{/if}
 {/if}

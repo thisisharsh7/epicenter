@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { ClipboardIcon, TrashIcon } from '$lib/components/icons';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button, buttonVariants } from '@epicenter/ui/button';
@@ -375,8 +374,8 @@
 			/>
 			<div class="flex w-full items-center justify-between gap-2">
 				{#if selectedRecordingRows.length > 0}
-					<WhisperingButton
-						tooltipContent="Transcribe selected recordings"
+					<Button
+						tooltip="Transcribe selected recordings"
 						variant="outline"
 						size="icon"
 						disabled={transcribeRecordings.isPending}
@@ -442,20 +441,20 @@
 						{:else}
 							<StartTranscriptionIcon class="size-4" />
 						{/if}
-					</WhisperingButton>
+					</Button>
 
 					<Dialog.Root
 						open={isDialogOpen}
 						onOpenChange={(v) => (isDialogOpen = v)}
 					>
 						<Dialog.Trigger>
-							<WhisperingButton
-								tooltipContent="Copy transcripts from selected recordings"
+							<Button
+								tooltip="Copy transcripts from selected recordings"
 								variant="outline"
 								size="icon"
 							>
 								<ClipboardIcon class="size-4" />
-							</WhisperingButton>
+							</Button>
 						</Dialog.Trigger>
 						<Dialog.Content>
 							<Dialog.Header>
@@ -490,8 +489,8 @@
 								value={joinedTranscriptionsText}
 							/>
 							<Dialog.Footer>
-								<WhisperingButton
-									tooltipContent="Copy transcriptions"
+								<Button
+									tooltip="Copy transcriptions"
 									onclick={() => {
 										copyToClipboard.mutate(
 											{ text: joinedTranscriptionsText },
@@ -517,13 +516,13 @@
 									type="submit"
 								>
 									Copy Transcriptions
-								</WhisperingButton>
+								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
 
-					<WhisperingButton
-						tooltipContent="Delete selected recordings"
+					<Button
+						tooltip="Delete selected recordings"
 						variant="outline"
 						size="icon"
 						onclick={() => {
@@ -556,7 +555,7 @@
 						}}
 					>
 						<TrashIcon class="size-4" />
-					</WhisperingButton>
+					</Button>
 				{/if}
 
 				<OpenFolderButton

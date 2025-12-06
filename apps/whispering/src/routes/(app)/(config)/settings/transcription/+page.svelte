@@ -253,15 +253,13 @@
 				</Select.Content>
 			</Select.Root>
 			<Field.Description>
-				You can find more details about Voxtral speech understanding in the <Button
-					variant="link"
-					class="px-0.3 py-0.2 h-fit"
+				You can find more details about Voxtral speech understanding in the <Link
 					href="https://mistral.ai/news/voxtral/"
 					target="_blank"
 					rel="noopener noreferrer"
 				>
 					Mistral docs
-				</Button>.
+				</Link>.
 			</Field.Description>
 		</Field.Field>
 		<MistralApiKeyInput />

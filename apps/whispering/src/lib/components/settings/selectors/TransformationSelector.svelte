@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import { Badge } from '@epicenter/ui/badge';
 	import * as Command from '@epicenter/ui/command';
 	import * as Popover from '@epicenter/ui/popover';
@@ -52,10 +52,10 @@
 <Popover.Root bind:open={combobox.open}>
 	<Popover.Trigger bind:ref={combobox.triggerRef}>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
 				class={cn('relative', className)}
-				tooltipContent={selectedTransformation
+				tooltip={selectedTransformation
 					? 'Change post-processing transformation to run after your text is transcribed'
 					: 'Select a post-processing transformation to run after your text is transcribed'}
 				role="combobox"
@@ -76,7 +76,7 @@
 						class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-primary/50 before:animate-ping"
 					></span>
 				{/if}
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="w-80 max-w-xl p-0">

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { Runs } from '$lib/components/transformations-editor';
 	import { Button } from '@epicenter/ui/button';
 	import * as Dialog from '@epicenter/ui/dialog';
@@ -19,14 +18,14 @@
 <Dialog.Root bind:open={isOpen}>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
 				variant="ghost"
 				size="icon"
-				tooltipContent="View Transformation Runs"
+				tooltip="View Transformation Runs"
 			>
 				<HistoryIcon class="size-4" />
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content class="sm:max-w-4xl">

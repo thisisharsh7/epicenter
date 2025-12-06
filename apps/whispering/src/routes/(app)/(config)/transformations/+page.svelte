@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { TrashIcon } from '$lib/components/icons';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
@@ -212,8 +211,8 @@
 			bind:value={globalFilter}
 		/>
 		{#if selectedTransformationRows.length > 0}
-			<WhisperingButton
-				tooltipContent="Delete selected transformations"
+			<Button
+				tooltip="Delete selected transformations"
 				variant="outline"
 				size="icon"
 				onclick={() => {
@@ -246,7 +245,7 @@
 				}}
 			>
 				<TrashIcon class="size-4" />
-			</WhisperingButton>
+			</Button>
 		{/if}
 
 		<OpenFolderButton

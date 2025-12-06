@@ -1,10 +1,8 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import * as Alert from '@epicenter/ui/alert';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
 	import * as Dialog from '@epicenter/ui/dialog';
-	import * as Tooltip from '@epicenter/ui/tooltip';
 	import {
 		ACCELERATOR_SECTIONS,
 		CommandOrAlt,
@@ -45,16 +43,16 @@
 	} as const;
 </script>
 
-<WhisperingButton
+<Button
 	variant="ghost"
 	size="icon"
 	class="size-6"
 	onclick={() => (dialogOpen = true)}
-	tooltipContent="Click for shortcut format guide"
+	tooltip="Click for shortcut format guide"
 >
 	<HelpCircle class="size-4" />
 	<span class="sr-only">Shortcut format help</span>
-</WhisperingButton>
+</Button>
 
 <Dialog.Root bind:open={dialogOpen}>
 	<Dialog.Content class="sm:max-w-3xl">
