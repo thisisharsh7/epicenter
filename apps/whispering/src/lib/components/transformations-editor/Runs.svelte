@@ -2,7 +2,6 @@
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { rpc } from '$lib/query';
 	import type { TransformationRun } from '$lib/services/db';
 	import { getTransformationStepRunTransitionId } from '$lib/utils/getRecordingTransitionId';
@@ -125,10 +124,10 @@
 								{run.completedAt ? formatDate(run.completedAt) : '-'}
 							</Table.Cell>
 							<Table.Cell class="text-right">
-								<WhisperingButton
+								<Button
 									variant="ghost"
 									size="icon"
-									tooltipContent="Delete run"
+									tooltip="Delete run"
 									onclick={() => {
 										confirmationDialog.open({
 											title: 'Delete transformation run?',
@@ -156,7 +155,7 @@
 									disabled={deleteRunMutation.isPending}
 								>
 									<Trash2 class="size-4" />
-								</WhisperingButton>
+								</Button>
 							</Table.Cell>
 						</Table.Row>
 

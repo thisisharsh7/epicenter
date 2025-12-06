@@ -1,6 +1,5 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import type { Props } from '@epicenter/ui/button';
+	import { Button, type Props } from '@epicenter/ui/button';
 	import { rpc } from '$lib/query';
 	import { createMutation } from '@tanstack/svelte-query';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -46,8 +45,8 @@
 	let isInCooldown = $state(false);
 </script>
 
-<WhisperingButton
-	tooltipContent="Copy {contentDescription} to clipboard"
+<Button
+	tooltip="Copy {contentDescription} to clipboard"
 	onclick={() =>
 		copyToClipboard.mutate(
 			{ text: textToCopy },
@@ -89,4 +88,4 @@
 	{:else}
 		{@render children()}
 	{/if}
-</WhisperingButton>
+</Button>

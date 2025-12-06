@@ -1,6 +1,6 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
 	import { Checkbox } from '@epicenter/ui/checkbox';
 	import * as Field from '@epicenter/ui/field';
 	import { Input } from '@epicenter/ui/input';
@@ -105,8 +105,8 @@
 			<p class="text-base font-medium">Compression Presets</p>
 			<div class="flex flex-wrap gap-2">
 				{#each Object.entries(COMPRESSION_PRESETS) as [presetKey, preset]}
-					<WhisperingButton
-						tooltipContent={preset.description}
+					<Button
+						tooltip={preset.description}
 						variant={isPresetActive(presetKey as CompressionPresetKey)
 							? 'default'
 							: 'outline'}
@@ -125,7 +125,7 @@
 					>
 						<span class="mr-1">{preset.icon}</span>
 						<span>{preset.label}</span>
-					</WhisperingButton>
+					</Button>
 				{/each}
 			</div>
 			<p class="text-muted-foreground text-xs">
@@ -149,8 +149,8 @@
 					class="flex-1"
 				/>
 				{#if settings.value['transcription.compressionOptions'] !== FFMPEG_DEFAULT_COMPRESSION_OPTIONS}
-					<WhisperingButton
-						tooltipContent="Reset to default"
+					<Button
+						tooltip="Reset to default"
 						variant="ghost"
 						size="icon"
 						class="h-9 w-9"
@@ -162,7 +162,7 @@
 						}}
 					>
 						<RotateCcw class="h-3 w-3" />
-					</WhisperingButton>
+					</Button>
 				{/if}
 			</div>
 			<Field.Description>

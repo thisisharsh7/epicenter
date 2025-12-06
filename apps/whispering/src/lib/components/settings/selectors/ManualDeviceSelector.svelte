@@ -1,5 +1,5 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
@@ -60,9 +60,9 @@
 <Popover.Root bind:open={combobox.open}>
 	<Popover.Trigger bind:ref={combobox.triggerRef}>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
-				tooltipContent={isDeviceSelected
+				tooltip={isDeviceSelected
 					? `Recording via ${RECORDING_METHODS[selectedMethod].label} - Change device or method`
 					: `Select recording device (${RECORDING_METHODS[selectedMethod].label} method)`}
 				role="combobox"
@@ -75,7 +75,7 @@
 				{:else}
 					<MicIcon class="size-4 text-amber-500" />
 				{/if}
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="p-0">

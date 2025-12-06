@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { commandCallbacks } from '$lib/commands';
 	import NavItems from '$lib/components/NavItems.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
+	import { Button } from '@epicenter/ui/button';
+	import { Link } from '@epicenter/ui/link';
 	import { ClipboardIcon } from '$lib/components/icons';
 	import {
 		CompressionSelector,
@@ -216,8 +217,8 @@
 	{#if settings.value['recording.mode'] === 'manual'}
 		<!-- Container with relative positioning for the button and absolute selectors -->
 		<div class="relative">
-			<WhisperingButton
-				tooltipContent={getRecorderStateQuery.data === 'IDLE'
+			<Button
+				tooltip={getRecorderStateQuery.data === 'IDLE'
 					? 'Start recording'
 					: 'Stop recording'}
 				onclick={commandCallbacks.toggleManualRecording}
@@ -230,18 +231,18 @@
 				>
 					{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
 				</span>
-			</WhisperingButton>
+			</Button>
 			{#if getRecorderStateQuery.data === 'RECORDING'}
 				<div class="absolute -right-12 bottom-4 flex items-center">
-					<WhisperingButton
-						tooltipContent="Cancel recording"
+					<Button
+						tooltip="Cancel recording"
 						onclick={commandCallbacks.cancelManualRecording}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: cancel-icon;"
 					>
 						🚫
-					</WhisperingButton>
+					</Button>
 				</div>
 			{:else}
 				<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
@@ -255,8 +256,8 @@
 	{:else if settings.value['recording.mode'] === 'vad'}
 		<!-- Container with relative positioning for the button and absolute selectors -->
 		<div class="relative">
-			<WhisperingButton
-				tooltipContent={vadRecorder.state === 'IDLE'
+			<Button
+				tooltip={vadRecorder.state === 'IDLE'
 					? 'Start voice activated session'
 					: 'Stop voice activated session'}
 				onclick={commandCallbacks.toggleVadRecording}
@@ -269,7 +270,7 @@
 				>
 					{VAD_STATE_TO_ICON[vadRecorder.state]}
 				</span>
-			</WhisperingButton>
+			</Button>
 			{#if vadRecorder.state === 'IDLE'}
 				<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
 					<VadDeviceSelector />
@@ -360,11 +361,9 @@
 	<div class="xs:flex hidden flex-col items-center gap-3">
 		<p class="text-foreground/75 text-center text-sm">
 			Click the microphone or press
-			{' '}<WhisperingButton
-				tooltipContent="Go to local shortcut in settings"
+			{' '}<Link
+				tooltip="Go to local shortcut in settings"
 				href="/settings/shortcuts/local"
-				variant="link"
-				class="h-fit p-0"
 			>
 				<kbd
 					class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
@@ -373,39 +372,36 @@
 						settings.value['shortcuts.local.toggleManualRecording'],
 					)}
 				</kbd>
-			</WhisperingButton>{' '}
+			</Link>{' '}
 			to start recording here.
 		</p>
 		{#if window.__TAURI_INTERNALS__}
 			<p class="text-foreground/75 text-sm">
 				Press
-				{' '}<WhisperingButton
-					tooltipContent="Go to global shortcut in settings"
+				{' '}<Link
+					tooltip="Go to global shortcut in settings"
 					href="/settings/shortcuts/global"
-					variant="link"
-					class="h-fit p-0"
 				>
 					<kbd
 						class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
 					>
 						{settings.value['shortcuts.global.toggleManualRecording']}
 					</kbd>
-				</WhisperingButton>{' '}
+				</Link>{' '}
 				to start recording anywhere.
 			</p>
 		{/if}
 		<p class="text-muted-foreground text-center text-sm font-light">
 			{#if !window.__TAURI_INTERNALS__}
 				Tired of switching tabs?
-				<WhisperingButton
-					tooltipContent="Get Whispering for desktop"
+				<Link
+					tooltip="Get Whispering for desktop"
 					href="https://epicenter.so/whispering"
 					target="_blank"
 					rel="noopener noreferrer"
-					variant="link"
 				>
 					Get the native desktop app
-				</WhisperingButton>
+				</Link>
 			{/if}
 		</p>
 	</div>

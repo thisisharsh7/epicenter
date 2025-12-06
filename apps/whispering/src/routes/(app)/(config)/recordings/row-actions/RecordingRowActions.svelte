@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import WhisperingTooltip from '$lib/components/WhisperingTooltip.svelte';
+	import { Button } from '@epicenter/ui/button';
+	import * as Tooltip from '@epicenter/ui/tooltip';
 	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
 	import { ClipboardIcon, TrashIcon } from '$lib/components/icons';
 	import { Skeleton } from '@epicenter/ui/skeleton';
@@ -51,8 +51,8 @@
 		<Skeleton class="size-8" />
 		<Skeleton class="size-8" />
 	{:else}
-		<WhisperingButton
-			tooltipContent={recording.transcriptionStatus === 'UNPROCESSED'
+		<Button
+			tooltip={recording.transcriptionStatus === 'UNPROCESSED'
 				? 'Start transcribing this recording'
 				: recording.transcriptionStatus === 'TRANSCRIBING'
 					? 'Currently transcribing...'
@@ -101,7 +101,7 @@
 			{:else if recording.transcriptionStatus === 'FAILED'}
 				<AlertCircleIcon class="size-4 text-red-500" />
 			{/if}
-		</WhisperingButton>
+		</Button>
 
 		<TransformationPicker recordingId={recording.id} />
 
@@ -153,8 +153,8 @@
 
 		<ViewTransformationRunsDialog {recordingId} />
 
-		<WhisperingButton
-			tooltipContent="Download recording"
+		<Button
+			tooltip="Download recording"
 			onclick={() =>
 				downloadRecording.mutate(recording, {
 					onError: (error) => {
@@ -183,10 +183,10 @@
 			{:else}
 				<DownloadIcon class="size-4" />
 			{/if}
-		</WhisperingButton>
+		</Button>
 
-		<WhisperingButton
-			tooltipContent="Delete recording"
+		<Button
+			tooltip="Delete recording"
 			onclick={() => {
 				confirmationDialog.open({
 					title: 'Delete recording',
@@ -214,6 +214,6 @@
 			size="icon"
 		>
 			<TrashIcon class="size-4" />
-		</WhisperingButton>
+		</Button>
 	{/if}
 </div>

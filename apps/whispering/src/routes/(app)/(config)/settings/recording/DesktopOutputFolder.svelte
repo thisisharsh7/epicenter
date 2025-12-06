@@ -1,5 +1,5 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import { rpc } from '$lib/query';
 	import { getDefaultRecordingsFolder } from '$lib/services/recorder';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -72,28 +72,28 @@
 		<Input type="text" value={displayPath} readonly class="flex-1" />
 	{/if}
 
-	<WhisperingButton
-		tooltipContent="Select output folder"
+	<Button
+		tooltip="Select output folder"
 		variant="outline"
 		size="icon"
 		onclick={selectOutputFolder}
 	>
 		<FolderOpen class="h-4 w-4" />
-	</WhisperingButton>
+	</Button>
 
-	<WhisperingButton
-		tooltipContent="Open output folder"
+	<Button
+		tooltip="Open output folder"
 		variant="outline"
 		size="icon"
 		onclick={openOutputFolder}
 		disabled={displayPath === null}
 	>
 		<ExternalLink class="h-4 w-4" />
-	</WhisperingButton>
+	</Button>
 
 	{#if settings.value['recording.cpal.outputFolder']}
-		<WhisperingButton
-			tooltipContent="Reset to default folder"
+		<Button
+			tooltip="Reset to default folder"
 			variant="outline"
 			size="icon"
 			onclick={() => {
@@ -101,6 +101,6 @@
 			}}
 		>
 			<RotateCcw class="h-4 w-4" />
-		</WhisperingButton>
+		</Button>
 	{/if}
 </div>
