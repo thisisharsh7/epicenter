@@ -72,6 +72,20 @@ function formatRate(count: number, ms: number): string {
 	return `${rate.toFixed(0)}/s`;
 }
 
+// TTY helpers for progress output
+const isTTY = process.stdout.isTTY;
+const clearLine = () => {
+	if (isTTY) {
+		process.stdout.clearLine(0);
+		process.stdout.cursorTo(0);
+	}
+};
+const writeLine = (text: string) => {
+	if (isTTY) {
+		process.stdout.write(text);
+	}
+};
+
 console.log('='.repeat(60));
 console.log('YJS Stress Test (using upsertMany for bulk upserts)');
 console.log('='.repeat(60));
@@ -98,7 +112,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 	const table = TABLES[tableIndex];
 	const tableStart = performance.now();
 
-	process.stdout.write(
+	writeLine(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`,
 	);
 
@@ -129,17 +143,15 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 		const totalElapsed = performance.now() - tableStart;
 		const rate = formatRate(batchCount, batchElapsed);
 
-		process.stdout.clearLine(0);
-		process.stdout.cursorTo(0);
-		process.stdout.write(
+		clearLine();
+		writeLine(
 			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()} (batch: ${rate}, elapsed: ${formatTime(totalElapsed)})`,
 		);
 	}
 
 	const tableElapsed = performance.now() - tableStart;
 
-	process.stdout.clearLine(0);
-	process.stdout.cursorTo(0);
+	clearLine();
 
 	grandTotal += ITEMS_PER_TABLE;
 	const avgRate = formatRate(ITEMS_PER_TABLE, tableElapsed);

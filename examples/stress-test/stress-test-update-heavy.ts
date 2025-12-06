@@ -30,6 +30,20 @@ import { existsSync, statSync, rmSync } from 'node:fs';
 import { createEpicenterClient, generateId } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
+// TTY helpers for progress output
+const isTTY = process.stdout.isTTY;
+const clearLine = () => {
+	if (isTTY) {
+		process.stdout.clearLine(0);
+		process.stdout.cursorTo(0);
+	}
+};
+const writeLine = (text: string) => {
+	if (isTTY) {
+		process.stdout.write(text);
+	}
+};
+
 const ITEMS_PER_TABLE = Number(process.argv[2]) || 5_000;
 const UPDATE_ROUNDS = Number(process.argv[3]) || 3;
 const BATCH_SIZE = 1_000;
@@ -121,9 +135,7 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 	const tableStart = performance.now();
 	const tableIds = allIds.get(table)!;
 
-	process.stdout.write(
-		`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`,
-	);
+	writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`);
 
 	const now = new Date().toISOString();
 	const tableDb = stress[table];
@@ -147,16 +159,12 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 		tableDb.upsertMany({ rows: items });
 		inserted += batchCount;
 
-		process.stdout.clearLine(0);
-		process.stdout.cursorTo(0);
-		process.stdout.write(
-			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()}`,
-		);
+		clearLine();
+		writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()}`);
 	}
 
 	const tableElapsed = performance.now() - tableStart;
-	process.stdout.clearLine(0);
-	process.stdout.cursorTo(0);
+	clearLine();
 	console.log(
 		`[${tableIndex + 1}/${TABLES.length}] ${table}: ${ITEMS_PER_TABLE.toLocaleString()} items in ${formatTime(tableElapsed)} (avg ${formatRate(ITEMS_PER_TABLE, tableElapsed)})`,
 	);
@@ -198,9 +206,7 @@ for (let round = 1; round <= UPDATE_ROUNDS; round++) {
 		const tableIds = allIds.get(table)!;
 		const tableDb = stress[table];
 
-		process.stdout.write(
-			`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${tableIds.length.toLocaleString()}`,
-		);
+		writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${tableIds.length.toLocaleString()}`);
 
 		const now = new Date().toISOString();
 		let updated = 0;
@@ -220,16 +226,12 @@ for (let round = 1; round <= UPDATE_ROUNDS; round++) {
 			tableDb.upsertMany({ rows: items });
 			updated += batchCount;
 
-			process.stdout.clearLine(0);
-			process.stdout.cursorTo(0);
-			process.stdout.write(
-				`[${tableIndex + 1}/${TABLES.length}] ${table}: ${updated.toLocaleString()}/${tableIds.length.toLocaleString()}`,
-			);
+			clearLine();
+			writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: ${updated.toLocaleString()}/${tableIds.length.toLocaleString()}`);
 		}
 
 		const tableElapsed = performance.now() - tableStart;
-		process.stdout.clearLine(0);
-		process.stdout.cursorTo(0);
+		clearLine();
 		console.log(
 			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${tableIds.length.toLocaleString()} items in ${formatTime(tableElapsed)} (avg ${formatRate(tableIds.length, tableElapsed)})`,
 		);
