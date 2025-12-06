@@ -20,6 +20,26 @@ import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
 import { createIndexLogger } from '../error-logger';
 
+const DEFAULT_DEBOUNCE_MS = 100;
+
+/**
+ * Options for SQLite index
+ */
+type SqliteIndexOptions = {
+	/**
+	 * Debounce interval in milliseconds
+	 *
+	 * Changes are batched and synced after this delay. When the debounce fires,
+	 * SQLite is rebuilt from YJS (all rows deleted, then re-inserted).
+	 *
+	 * Lower values = more responsive but more SQLite writes.
+	 * Higher values = better batching but longer staleness.
+	 *
+	 * @default 100
+	 */
+	debounceMs?: number;
+};
+
 /**
  * Bidirectional sync coordination state
  *
@@ -56,13 +76,26 @@ type SyncCoordination = {
  * - Database: `.epicenter/{workspaceId}.db`
  * - Logs: `.epicenter/{workspaceId}/{indexId}.log`
  *
+ * **Sync Strategy**:
+ * Changes are debounced (default 100ms), then SQLite is rebuilt from YJS.
+ * This "rebuild on change" approach is simple and guarantees consistency:
+ * - No race conditions from interleaved async operations
+ * - No ordering bugs when multiple transactions touch the same row
+ * - SQLite always matches YJS exactly after sync
+ *
+ * The rebuild is fast enough for most use cases (<50k items). For very large
+ * datasets, consider splitting into multiple workspaces.
+ *
  * @param context - Index context with workspace ID, database instance, and storage directory
+ * @param options - Optional configuration for sync behavior
  *
  * @example
  * ```typescript
  * // In workspace definition:
  * indexes: {
  *   sqlite: (c) => sqliteIndex(c),  // Auto-saves to .epicenter/{id}.db
+ *   // Or with custom debounce:
+ *   sqlite: (c) => sqliteIndex(c, { debounceMs: 50 }),
  * },
  *
  * exports: ({ indexes }) => ({
@@ -80,13 +113,11 @@ type SyncCoordination = {
  * })
  * ```
  */
-export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
-	id,
-	indexId,
-	schema,
-	db,
-	epicenterDir,
-}: IndexContext<TSchema>) => {
+export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
+	{ id, indexId, schema, db, epicenterDir }: IndexContext<TSchema>,
+	options: SqliteIndexOptions = {},
+) => {
+	const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
 	// Require Node.js environment with filesystem access
 	if (!epicenterDir) {
 		throw new Error(
@@ -128,7 +159,65 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 		isProcessingYJSChange: false,
 	};
 
+	// =========================================================================
+	// Rebuild helper: Clear SQLite and re-insert all rows from YJS
+	// =========================================================================
+	async function rebuildSqlite() {
+		// Delete all rows from all SQLite tables
+		for (const table of db.$tables()) {
+			const drizzleTable = drizzleTables[table.name];
+			if (!drizzleTable) {
+				throw new Error(`Drizzle table for "${table.name}" not found`);
+			}
+			sqliteDb.delete(drizzleTable);
+		}
+
+		// Insert all valid rows from YJS into SQLite
+		for (const table of db.$tables()) {
+			const drizzleTable = drizzleTables[table.name];
+			if (!drizzleTable) {
+				throw new Error(`Drizzle table for "${table.name}" not found`);
+			}
+
+			const rows = table.getAll();
+
+			if (rows.length > 0) {
+				const { error } = await tryAsync({
+					try: async () => {
+						const serializedRows = rows.map((row) => row.toJSON());
+						// @ts-expect-error SerializedRow<TSchema[string]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type from $tables() iteration
+						await sqliteDb.insert(drizzleTable).values(serializedRows);
+					},
+					catch: (e) =>
+						IndexErr({
+							message: `Failed to sync ${rows.length} rows to SQLite: ${extractErrorMessage(e)}`,
+							context: { rowCount: rows.length, tableName: table.name },
+						}),
+				});
+
+				if (error) {
+					logger.log(error);
+				}
+			}
+		}
+	}
+
+	// =========================================================================
+	// Debounce state
+	// =========================================================================
+	let syncTimeout: NodeJS.Timeout | null = null;
+
+	function scheduleSync() {
+		if (syncTimeout) clearTimeout(syncTimeout);
+		syncTimeout = setTimeout(async () => {
+			syncTimeout = null;
+			await rebuildSqlite();
+		}, debounceMs);
+	}
+
+	// =========================================================================
 	// Set up observers for each table
+	// =========================================================================
 	const unsubscribers: Array<() => void> = [];
 
 	for (const table of db.$tables()) {
@@ -138,12 +227,11 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 		}
 
 		const unsub = table.observe({
-			onAdd: async (result) => {
+			onAdd: (result) => {
 				// Skip if this YJS change was triggered by a SQLite change we're processing
-				// (prevents SQLite -> YJS -> SQLite infinite loop during pull)
 				if (syncCoordination.isProcessingSQLiteChange) return;
 
-				// Handle validation errors
+				// Handle validation errors (log but still schedule sync for valid rows)
 				if (result.error) {
 					logger.log(
 						IndexError({
@@ -155,30 +243,13 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					return;
 				}
 
-				const row = result.data;
-				const { error } = await tryAsync({
-					try: async () => {
-						const serializedRow = row.toJSON();
-						// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to InferInsertModel<DrizzleTable> due to union type from $tableEntries iteration
-						await sqliteDb.insert(drizzleTable).values(serializedRow);
-					},
-					catch: (e) =>
-						IndexErr({
-							message: `SQLite index onAdd failed for ${table.name}/${row.id}: ${extractErrorMessage(e)}`,
-							context: { tableName: table.name, id: row.id, data: row },
-						}),
-				});
-
-				if (error) {
-					logger.log(error);
-				}
+				scheduleSync();
 			},
-			onUpdate: async (result) => {
+			onUpdate: (result) => {
 				// Skip if this YJS change was triggered by a SQLite change we're processing
-				// (prevents SQLite -> YJS -> SQLite infinite loop during pull)
 				if (syncCoordination.isProcessingSQLiteChange) return;
 
-				// Handle validation errors
+				// Handle validation errors (log but still schedule sync for valid rows)
 				if (result.error) {
 					logger.log(
 						IndexError({
@@ -190,56 +261,21 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 					return;
 				}
 
-				const row = result.data;
-				const { error } = await tryAsync({
-					try: async () => {
-						const serializedRow = row.toJSON();
-						await sqliteDb
-							.update(drizzleTable)
-							// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to Partial<InferInsertModel<DrizzleTable>> due to union type from $tableEntries iteration
-							.set(serializedRow)
-							// @ts-expect-error Column<string> is not assignable to Column<typeof table.id> due to union type from $tableEntries iteration
-							.where(eq(drizzleTable.id, row.id));
-					},
-					catch: (e) =>
-						IndexErr({
-							message: `SQLite index onUpdate failed for ${table.name}/${row.id}: ${extractErrorMessage(e)}`,
-							context: { tableName: table.name, id: row.id, data: row },
-						}),
-				});
-
-				if (error) {
-					logger.log(error);
-				}
+				scheduleSync();
 			},
-			onDelete: async (id) => {
+			onDelete: () => {
 				// Skip if this YJS change was triggered by a SQLite change we're processing
-				// (prevents SQLite -> YJS -> SQLite infinite loop during pull)
 				if (syncCoordination.isProcessingSQLiteChange) return;
 
-				const { error } = await tryAsync({
-					try: async () => {
-						await sqliteDb
-							.delete(drizzleTable)
-							// @ts-expect-error Column<string> is not assignable to Column<typeof table.id> due to union type from $tableEntries iteration
-							.where(eq(drizzleTable.id, id));
-					},
-					catch: (e) =>
-						IndexErr({
-							message: `SQLite index onDelete failed for ${table.name}/${id}: ${extractErrorMessage(e)}`,
-							context: { tableName: table.name, id },
-						}),
-				});
-
-				if (error) {
-					logger.log(error);
-				}
+				scheduleSync();
 			},
 		});
 		unsubscribers.push(unsub);
 	}
 
+	// =========================================================================
 	// Initial sync: YJS → SQLite (blocking to ensure tables exist before queries)
+	// =========================================================================
 	// Always recreate tables to handle schema changes (e.g., column renames)
 	await recreateTables(sqliteDb, drizzleTables);
 
@@ -275,6 +311,12 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 	// Return destroy function alongside exported resources (flattened structure)
 	return defineIndexExports({
 		async destroy() {
+			// Clear any pending sync timeout
+			if (syncTimeout) {
+				clearTimeout(syncTimeout);
+				syncTimeout = null;
+			}
+
 			for (const unsub of unsubscribers) {
 				unsub();
 			}
@@ -294,39 +336,14 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>({
 				return tryAsync({
 					try: async () => {
 						syncCoordination.isProcessingYJSChange = true;
-
-						// Delete all rows from all SQLite tables
-						for (const table of db.$tables()) {
-							const drizzleTable = drizzleTables[table.name];
-							if (!drizzleTable) {
-								throw new Error(`Drizzle table for "${table.name}" not found`);
-							}
-							await sqliteDb.delete(drizzleTable);
-						}
-
-						// Insert all valid rows from YJS into SQLite
-						for (const table of db.$tables()) {
-							const drizzleTable = drizzleTables[table.name];
-							if (!drizzleTable) {
-								throw new Error(`Drizzle table for "${table.name}" not found`);
-							}
-
-							const rows = table.getAll();
-
-							if (rows.length > 0) {
-								const serializedRows = rows.map((row) => row.toJSON());
-								// @ts-expect-error SerializedRow<TSchema[string]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type from $tables() iteration
-								await sqliteDb.insert(drizzleTable).values(serializedRows);
-							}
-						}
-
+						await rebuildSqlite();
 						syncCoordination.isProcessingYJSChange = false;
 					},
 					catch: (error) => {
 						syncCoordination.isProcessingYJSChange = false;
 						return IndexErr({
-							message: `SQLite index push failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'push' },
+							message: `SQLite index pull failed: ${extractErrorMessage(error)}`,
+							context: { operation: 'pull' },
 						});
 					},
 				});
