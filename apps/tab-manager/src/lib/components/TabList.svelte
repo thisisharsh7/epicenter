@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
-	import type { Tab } from '$lib/query/tabs';
 	import TabItem from './TabItem.svelte';
 
 	// Get all tabs
-	const tabsQuery = createQuery(rpc.tabs.getAll.options());
-	const windowsQuery = createQuery(rpc.tabs.getAllWindows.options());
+	const tabsQuery = createQuery(rpc.tabs.getAll.options);
+	const windowsQuery = createQuery(rpc.tabs.getAllWindows.options);
 
 	// Group tabs by window
 	const tabsByWindow = $derived.by(() => {
-		if (!$tabsQuery.data || !$windowsQuery.data) return new Map<number, Tab[]>();
+		if (!$tabsQuery.data || !$windowsQuery.data)
+			return new Map<number, Browser.tabs.Tab[]>();
 
-		const grouped = new Map<number, Tab[]>();
+		const grouped = new Map<number, Browser.tabs.Tab[]>();
 		for (const window of $windowsQuery.data) {
 			const windowTabs = $tabsQuery.data.filter((t) => t.windowId === window.id);
 			// Sort by index
