@@ -19,14 +19,16 @@
 		client = await createEpicenterClient(config);
 	}
 
-	export function getEpicenterClient(): Client {
-		if (!client) {
-			throw new Error(
-				'Epicenter client not initialized. Wrap your app in EpicenterProvider.',
-			);
-		}
-		return client;
-	}
+	export const epicenter = {
+		get client(): Client {
+			if (!client) {
+				throw new Error(
+					'Epicenter client not initialized. Wrap your app in EpicenterProvider.',
+				);
+			}
+			return client;
+		},
+	};
 </script>
 
 <script lang="ts">
