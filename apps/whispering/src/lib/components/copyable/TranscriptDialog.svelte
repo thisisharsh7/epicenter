@@ -16,6 +16,16 @@
 	 *   rows={1}
 	 * />
 	 * ```
+	 *
+	 * @example
+	 * ```svelte
+	 * <!-- With loading state -->
+	 * <TranscriptDialog
+	 *   recordingId={recording.id}
+	 *   transcribedText="..."
+	 *   loading={true}
+	 * />
+	 * ```
 	 */
 	let {
 		/** The ID of the recording whose transcript is being displayed */
@@ -26,11 +36,14 @@
 		rows = 2,
 		/** Whether the dialog trigger is disabled */
 		disabled = false,
+		/** Whether to show a loading spinner instead of copy button */
+		loading = false,
 	}: {
 		recordingId: string;
 		transcribedText: string;
 		rows?: number;
 		disabled?: boolean;
+		loading?: boolean;
 	} = $props();
 
 	const id = getRecordingTransitionId({
@@ -46,4 +59,5 @@
 	text={transcribedText}
 	{rows}
 	{disabled}
+	{loading}
 />

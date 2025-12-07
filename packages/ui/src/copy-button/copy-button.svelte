@@ -1,11 +1,7 @@
-<!--
-	Installed from @ieedan/shadcn-svelte-extras
--->
-
 <script lang="ts">
-	import { Button, type ButtonProps } from '#/button';
+	import { Button } from '#/button';
 	import { UseClipboard } from '#/hooks/use-clipboard.svelte';
-	import { cn } from '#/utils/utils';
+	import { cn } from '#/utils/utils.js';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -20,6 +16,7 @@
 		variant = 'ghost',
 		size = 'icon',
 		onCopy,
+		copyFn,
 		class: className,
 		tabindex = -1,
 		children,
@@ -31,10 +28,11 @@
 		size = 'default';
 	}
 
-	const clipboard = new UseClipboard();
+	const clipboard = new UseClipboard({ copyFn });
 </script>
 
 <Button
+	{...rest}
 	bind:ref
 	{variant}
 	{size}
@@ -47,7 +45,6 @@
 
 		onCopy?.(status);
 	}}
-	{...rest as ButtonProps}
 >
 	{#if clipboard.status === 'success'}
 		<div in:scale={{ duration: animationDuration, start: 0.85 }}>
