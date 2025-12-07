@@ -16,6 +16,7 @@
 		variant = 'ghost',
 		size = 'icon',
 		onCopy,
+		copyFn,
 		class: className,
 		tabindex = -1,
 		children,
@@ -27,7 +28,7 @@
 		size = 'default';
 	}
 
-	const clipboard = new UseClipboard();
+	const clipboard = new UseClipboard({ copyFn });
 </script>
 
 <Button

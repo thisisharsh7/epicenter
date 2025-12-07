@@ -1,14 +1,11 @@
 <script lang="ts">
-	import { ClipboardIcon } from '$lib/components/icons';
-	import { rpc } from '$lib/query';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
 	import { Button } from '@epicenter/ui/button';
+	import { CopyButton } from '@epicenter/ui/copy-button';
 	import * as Dialog from '@epicenter/ui/dialog';
 	import * as InputGroup from '@epicenter/ui/input-group';
 	import { Spinner } from '@epicenter/ui/spinner';
 	import { Textarea } from '@epicenter/ui/textarea';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import { createMutation } from '@tanstack/svelte-query';
 
 	/**
 	 * A generic text preview component that displays text in a readonly textarea
@@ -65,54 +62,6 @@
 	} = $props();
 
 	let isDialogOpen = $state(false);
-	let showCopiedCheck = $state(false);
-
-	const copyToClipboard = createMutation(rpc.text.copyToClipboard.options);
-
-	function handleCopy() {
-		copyToClipboard.mutate(
-			{ text },
-			{
-				onSuccess: () => {
-					showCopiedCheck = true;
-					setTimeout(() => (showCopiedCheck = false), 2000);
-					rpc.notify.success.execute({
-						title: `Copied ${title.toLowerCase()} to clipboard!`,
-						description: text,
-					});
-				},
-				onError: (error) => {
-					rpc.notify.error.execute({
-						title: `Error copying ${title.toLowerCase()} to clipboard`,
-						description: error.message,
-						action: { type: 'more-details', error },
-					});
-				},
-			},
-		);
-	}
-
-	function handleCopyAndClose() {
-		copyToClipboard.mutate(
-			{ text },
-			{
-				onSuccess: () => {
-					isDialogOpen = false;
-					rpc.notify.success.execute({
-						title: `Copied ${title.toLowerCase()} to clipboard!`,
-						description: text,
-					});
-				},
-				onError: (error) => {
-					rpc.notify.error.execute({
-						title: `Error copying ${title.toLowerCase()} to clipboard`,
-						description: error.message,
-						action: { type: 'more-details', error },
-					});
-				},
-			},
-		);
-	}
 </script>
 
 <Dialog.Root bind:open={isDialogOpen}>
@@ -136,21 +85,12 @@
 			{#if loading}
 				<Spinner />
 			{:else}
-				<InputGroup.Button
-					size="icon-xs"
+				<CopyButton
+					{text}
+					copyFn={createCopyFn(label)}
 					disabled={disabled || !text.trim()}
-					aria-label="Copy {label}"
-					onclick={(e) => {
-						e.stopPropagation();
-						handleCopy();
-					}}
-				>
-					{#if showCopiedCheck}
-						<CheckIcon />
-					{:else}
-						<CopyIcon />
-					{/if}
-				</InputGroup.Button>
+					onclick={(e) => e.stopPropagation()}
+				></CopyButton>
 			{/if}
 		</InputGroup.Addon>
 	</InputGroup.Root>
@@ -161,10 +101,17 @@
 			<Button variant="outline" onclick={() => (isDialogOpen = false)}>
 				Close
 			</Button>
-			<Button variant="outline" onclick={handleCopyAndClose}>
-				<ClipboardIcon class="size-4" />
+			<CopyButton
+				{text}
+				copyFn={createCopyFn(label)}
+				variant="outline"
+				size="default"
+				onCopy={(status) => {
+					if (status === 'success') isDialogOpen = false;
+				}}
+			>
 				Copy Text
-			</Button>
+			</CopyButton>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

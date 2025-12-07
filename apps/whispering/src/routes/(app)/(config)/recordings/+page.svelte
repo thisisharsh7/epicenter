@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import { ClipboardIcon, TrashIcon } from '$lib/components/icons';
+	import { TrashIcon } from '$lib/components/icons';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
+	import { CopyButton } from '@epicenter/ui/copy-button';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button, buttonVariants } from '@epicenter/ui/button';
 	import { Card } from '@epicenter/ui/card';
@@ -74,7 +77,6 @@
 		rpc.transcription.transcribeRecordings.options,
 	);
 	const deleteRecordings = createMutation(rpc.db.recordings.delete.options);
-	const copyToClipboard = createMutation(rpc.text.copyToClipboard.options);
 
 	const DATE_FORMAT = 'PP p'; // e.g., Aug 13, 2025, 10:00 AM
 
@@ -453,7 +455,7 @@
 								variant="outline"
 								size="icon"
 							>
-								<ClipboardIcon class="size-4" />
+								<CopyIcon class="size-4" />
 							</Button>
 						</Dialog.Trigger>
 						<Dialog.Content>
@@ -489,34 +491,16 @@
 								value={joinedTranscriptionsText}
 							/>
 							<Dialog.Footer>
-								<Button
-									tooltip="Copy transcriptions"
-									onclick={() => {
-										copyToClipboard.mutate(
-											{ text: joinedTranscriptionsText },
-											{
-												onSuccess: () => {
-													isDialogOpen = false;
-													rpc.notify.success.execute({
-														title: 'Copied transcripts to clipboard!',
-														description: joinedTranscriptionsText,
-													});
-												},
-												onError: (error) => {
-													rpc.notify.error.execute({
-														title:
-															'Error copying transcripts to clipboard',
-														description: error.message,
-														action: { type: 'more-details', error: error },
-													});
-												},
-											},
-										);
+								<CopyButton
+									text={joinedTranscriptionsText}
+									copyFn={createCopyFn('transcripts')}
+									size="default"
+									onCopy={(status) => {
+										if (status === 'success') isDialogOpen = false;
 									}}
-									type="submit"
 								>
 									Copy Transcriptions
-								</Button>
+								</CopyButton>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { Button } from '@epicenter/ui/button';
+	import { CopyButton } from '@epicenter/ui/copy-button';
 	import * as Tooltip from '@epicenter/ui/tooltip';
-	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
-	import { ClipboardIcon, TrashIcon } from '$lib/components/icons';
+	import { TrashIcon } from '$lib/components/icons';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
 	import { Skeleton } from '@epicenter/ui/skeleton';
 	import { rpc } from '$lib/query';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
@@ -107,16 +108,14 @@
 
 		<EditRecordingModal {recording} />
 
-		<CopyToClipboardButton
-			contentDescription="transcript"
-			textToCopy={recording.transcribedText}
-			viewTransitionName={getRecordingTransitionId({
+		<CopyButton
+			text={recording.transcribedText}
+			copyFn={createCopyFn('transcript')}
+			style="view-transition-name: {getRecordingTransitionId({
 				recordingId,
 				propertyName: 'transcribedText',
-			})}
-		>
-			<ClipboardIcon class="size-4" />
-		</CopyToClipboardButton>
+			})}"
+		/>
 
 		{#if latestTransformationRunByRecordingIdQuery.isPending}
 			<Loader2Icon class="size-4 animate-spin" />
@@ -141,19 +140,21 @@
 				</Tooltip.Root>
 			</Tooltip.Provider>
 		{:else}
-			<CopyToClipboardButton
-				contentDescription="latest transformation run output"
-				textToCopy={latestTransformationRunByRecordingIdQuery.data?.status ===
+			<CopyButton
+				text={latestTransformationRunByRecordingIdQuery.data?.status ===
 				'completed'
 					? latestTransformationRunByRecordingIdQuery.data.output
 					: ''}
-				viewTransitionName={getRecordingTransitionId({
+				copyFn={createCopyFn('latest transformation run output')}
+				style="view-transition-name: {getRecordingTransitionId({
 					recordingId,
 					propertyName: 'latestTransformationRunOutput',
-				})}
+				})}"
 			>
-				<FileStackIcon class="size-4" />
-			</CopyToClipboardButton>
+				{#snippet icon()}
+					<FileStackIcon class="size-4" />
+				{/snippet}
+			</CopyButton>
 		{/if}
 
 		<ViewTransformationRunsDialog {recordingId} />
