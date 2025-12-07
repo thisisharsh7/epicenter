@@ -7,7 +7,7 @@
 	import { rpc } from '$lib/query';
 	import type { Transformation } from '$lib/services/db';
 	import { createMutation } from '@tanstack/svelte-query';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 
 	const transformInput = createMutation(rpc.transformer.transformInput.options);
@@ -67,9 +67,9 @@
 		class="w-full"
 	>
 		{#if transformInput.isPending}
-			<Loader2Icon class="mr-2 size-4 animate-spin" />
+			<Spinner />
 		{:else}
-			<PlayIcon class="mr-2 size-4" />
+			<PlayIcon class="size-4" />
 		{/if}
 		{transformInput.isPending
 			? 'Running Transformation...'

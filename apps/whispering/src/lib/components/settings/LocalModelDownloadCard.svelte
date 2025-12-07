@@ -7,7 +7,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import Download from '@lucide/svelte/icons/download';
-	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import X from '@lucide/svelte/icons/x';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
@@ -347,7 +347,7 @@
 	<div class="flex items-center gap-2">
 		{#if modelState.type === 'downloading'}
 			<div class="flex items-center gap-2 min-w-[120px]">
-				<LoaderCircle class="size-4 animate-spin" />
+				<Spinner />
 				<span class="text-sm font-medium">{modelState.progress}%</span>
 			</div>
 		{:else if modelState.type === 'ready'}

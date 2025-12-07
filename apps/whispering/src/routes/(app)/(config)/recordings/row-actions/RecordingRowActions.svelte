@@ -13,7 +13,7 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import FileStackIcon from '@lucide/svelte/icons/file-stack';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import RepeatIcon from '@lucide/svelte/icons/repeat';
 	import EditRecordingModal from './EditRecordingModal.svelte';
@@ -118,7 +118,7 @@
 		/>
 
 		{#if latestTransformationRunByRecordingIdQuery.isPending}
-			<Loader2Icon class="size-4 animate-spin" />
+			<Spinner />
 		{:else if latestTransformationRunByRecordingIdQuery.isError}
 			<Tooltip.Provider>
 				<Tooltip.Root>
@@ -185,7 +185,7 @@
 			size="icon"
 		>
 			{#if downloadRecording.isPending}
-				<Loader2Icon class="size-4 animate-spin" />
+				<Spinner />
 			{:else}
 				<DownloadIcon class="size-4" />
 			{/if}
