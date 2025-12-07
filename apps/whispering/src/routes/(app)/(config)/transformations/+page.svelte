@@ -3,6 +3,7 @@
 	import { TrashIcon } from '$lib/components/icons';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
+	import * as ButtonGroup from '@epicenter/ui/button-group';
 	import { Checkbox } from '@epicenter/ui/checkbox';
 	import { Input } from '@epicenter/ui/input';
 	import { Skeleton } from '@epicenter/ui/skeleton';
@@ -324,7 +325,7 @@
 			{selectedTransformationRows.length} of {table.getFilteredRowModel().rows
 				.length} row(s) selected.
 		</div>
-		<div class="flex items-center space-x-2">
+		<ButtonGroup.Root>
 			<Button
 				variant="outline"
 				size="sm"
@@ -341,6 +342,6 @@
 			>
 				Next
 			</Button>
-		</div>
+		</ButtonGroup.Root>
 	</div>
 </main>

@@ -23,7 +23,7 @@
 		"@fontsource-variable/manrope": "^5.2.6",
 		"@lucide/svelte": "catalog:",
 		"@tanstack/svelte-table": "catalog:",
-		"bits-ui": "catalog:",
+		"bits-ui": "^2.11.0",
 		"clsx": "catalog:",
 		"paneforge": "^1.0.2",
 		"svelte-check": "catalog:",
