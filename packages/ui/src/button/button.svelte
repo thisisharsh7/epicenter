@@ -68,8 +68,8 @@
 			aria-disabled={disabled}
 			role={disabled ? "link" : undefined}
 			tabindex={disabled ? -1 : undefined}
-			{...restProps}
 			{...tooltipProps}
+			{...restProps}
 		>
 			{@render children?.()}
 		</a>
@@ -80,8 +80,8 @@
 			class={cn(buttonVariants({ variant, size }), className)}
 			{type}
 			{disabled}
-			{...restProps}
 			{...tooltipProps}
+			{...restProps}
 		>
 			{@render children?.()}
 		</button>
