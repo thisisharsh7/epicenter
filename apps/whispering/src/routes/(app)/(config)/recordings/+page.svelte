@@ -34,7 +34,10 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
+	import * as Empty from '@epicenter/ui/empty';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import MicIcon from '@lucide/svelte/icons/mic';
+	import SearchIcon from '@lucide/svelte/icons/search';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import LoadingTranscriptionIcon from '@lucide/svelte/icons/ellipsis';
 	import RetryTranscriptionIcon from '@lucide/svelte/icons/repeat';
@@ -637,12 +640,32 @@
 						{/each}
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={columns.length} class="h-24 text-center">
-								{#if globalFilter}
-									No recordings found.
-								{:else}
-									No recordings yet. Start recording to add one.
-								{/if}
+							<Table.Cell colspan={columns.length}>
+								<Empty.Root class="py-8">
+									<Empty.Header>
+										<Empty.Media variant="icon">
+											{#if globalFilter}
+												<SearchIcon />
+											{:else}
+												<MicIcon />
+											{/if}
+										</Empty.Media>
+										<Empty.Title>
+											{#if globalFilter}
+												No recordings found
+											{:else}
+												No recordings yet
+											{/if}
+										</Empty.Title>
+										<Empty.Description>
+											{#if globalFilter}
+												Try adjusting your search or filters.
+											{:else}
+												Start recording to add one.
+											{/if}
+										</Empty.Description>
+									</Empty.Header>
+								</Empty.Root>
 							</Table.Cell>
 						</Table.Row>
 					{/if}

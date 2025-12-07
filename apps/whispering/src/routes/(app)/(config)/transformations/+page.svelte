@@ -29,6 +29,9 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
+	import * as Empty from '@epicenter/ui/empty';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
 	import { createRawSnippet } from 'svelte';
 	import { type } from 'arktype';
 	import CreateTransformationButton from './CreateTransformationButton.svelte';
@@ -305,13 +308,32 @@
 					{/each}
 				{:else}
 					<Table.Row>
-						<Table.Cell colspan={columns.length} class="h-24 text-center">
-							{#if globalFilter}
-								No transformations found.
-							{:else}
-								No transformations yet. Click "Create Transformation" to add
-								one.
-							{/if}
+						<Table.Cell colspan={columns.length}>
+							<Empty.Root class="py-8">
+								<Empty.Header>
+									<Empty.Media variant="icon">
+										{#if globalFilter}
+											<SearchIcon />
+										{:else}
+											<WandSparklesIcon />
+										{/if}
+									</Empty.Media>
+									<Empty.Title>
+										{#if globalFilter}
+											No transformations found
+										{:else}
+											No transformations yet
+										{/if}
+									</Empty.Title>
+									<Empty.Description>
+										{#if globalFilter}
+											Try adjusting your search or filters.
+										{:else}
+											Click "Create Transformation" to add one.
+										{/if}
+									</Empty.Description>
+								</Empty.Header>
+							</Empty.Root>
 						</Table.Cell>
 					</Table.Row>
 				{/if}
