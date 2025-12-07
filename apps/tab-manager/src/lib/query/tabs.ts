@@ -1,4 +1,5 @@
-import { Err, Ok, tryAsync } from 'wellcrafted/result';
+import { Err, Ok } from 'wellcrafted/result';
+import { epicenter } from '$lib/epicenter';
 import { defineMutation, defineQuery, queryClient } from './_client';
 
 /**
@@ -13,8 +14,8 @@ export const tabsKeys = {
 /**
  * Tab queries and mutations
  *
- * These wrap the browser.tabs API with TanStack Query
- * for reactive state management in Svelte components.
+ * These use the Epicenter client for browser API calls
+ * and TanStack Query for reactive state management.
  */
 export const tabs = {
 	// ─────────────────────────────────────────────────────────────────────────
@@ -26,18 +27,7 @@ export const tabs = {
 	 */
 	getAll: defineQuery({
 		queryKey: tabsKeys.all,
-		resultQueryFn: async () => {
-			const result = await tryAsync({
-				try: () => browser.tabs.query({}),
-				catch: (error) =>
-					Err({
-						_tag: 'TabsQueryError' as const,
-						message: 'Failed to query tabs',
-						cause: error,
-					}),
-			});
-			return result;
-		},
+		resultQueryFn: () => epicenter.client.tabs.getAllTabs({}),
 	}),
 
 	/**
@@ -45,18 +35,7 @@ export const tabs = {
 	 */
 	getAllWindows: defineQuery({
 		queryKey: tabsKeys.windows,
-		resultQueryFn: async () => {
-			const result = await tryAsync({
-				try: () => browser.windows.getAll({ populate: true }),
-				catch: (error) =>
-					Err({
-						_tag: 'WindowsQueryError' as const,
-						message: 'Failed to query windows',
-						cause: error,
-					}),
-			});
-			return result;
-		},
+		resultQueryFn: () => epicenter.client.tabs.getAllWindows({}),
 	}),
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -69,15 +48,7 @@ export const tabs = {
 	close: defineMutation({
 		mutationKey: ['tabs', 'close'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: () => browser.tabs.remove(tabId),
-				catch: (error) =>
-					Err({
-						_tag: 'TabCloseError' as const,
-						message: 'Failed to close tab',
-						cause: error,
-					}),
-			});
+			const result = await epicenter.client.tabs.closeTab({ tabId });
 			if (result.error) return Err(result.error);
 
 			// Optimistically remove from cache
@@ -97,21 +68,8 @@ export const tabs = {
 	activate: defineMutation({
 		mutationKey: ['tabs', 'activate'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: async () => {
-					const tab = await browser.tabs.update(tabId, { active: true });
-					// Also focus the window
-					if (tab.windowId) {
-						await browser.windows.update(tab.windowId, { focused: true });
-					}
-					return tab;
-				},
-				catch: (error) =>
-					Err({
-						_tag: 'TabActivateError' as const,
-						message: 'Failed to activate tab',
-						cause: error,
-					}),
+			const result = await epicenter.client.tabs.activateTab({
+				tabId,
 			});
 			if (result.error) return Err(result.error);
 
@@ -140,15 +98,7 @@ export const tabs = {
 	pin: defineMutation({
 		mutationKey: ['tabs', 'pin'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: () => browser.tabs.update(tabId, { pinned: true }),
-				catch: (error) =>
-					Err({
-						_tag: 'TabPinError' as const,
-						message: 'Failed to pin tab',
-						cause: error,
-					}),
-			});
+			const result = await epicenter.client.tabs.pinTab({ tabId });
 			if (result.error) return Err(result.error);
 
 			// Optimistically update cache
@@ -168,15 +118,7 @@ export const tabs = {
 	unpin: defineMutation({
 		mutationKey: ['tabs', 'unpin'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: () => browser.tabs.update(tabId, { pinned: false }),
-				catch: (error) =>
-					Err({
-						_tag: 'TabUnpinError' as const,
-						message: 'Failed to unpin tab',
-						cause: error,
-					}),
-			});
+			const result = await epicenter.client.tabs.unpinTab({ tabId });
 			if (result.error) return Err(result.error);
 
 			queryClient.setQueryData(
@@ -195,15 +137,7 @@ export const tabs = {
 	mute: defineMutation({
 		mutationKey: ['tabs', 'mute'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: () => browser.tabs.update(tabId, { muted: true }),
-				catch: (error) =>
-					Err({
-						_tag: 'TabMuteError' as const,
-						message: 'Failed to mute tab',
-						cause: error,
-					}),
-			});
+			const result = await epicenter.client.tabs.muteTab({ tabId });
 			if (result.error) return Err(result.error);
 
 			queryClient.setQueryData(
@@ -226,15 +160,7 @@ export const tabs = {
 	unmute: defineMutation({
 		mutationKey: ['tabs', 'unmute'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: () => browser.tabs.update(tabId, { muted: false }),
-				catch: (error) =>
-					Err({
-						_tag: 'TabUnmuteError' as const,
-						message: 'Failed to unmute tab',
-						cause: error,
-					}),
-			});
+			const result = await epicenter.client.tabs.unmuteTab({ tabId });
 			if (result.error) return Err(result.error);
 
 			queryClient.setQueryData(
@@ -257,15 +183,7 @@ export const tabs = {
 	reload: defineMutation({
 		mutationKey: ['tabs', 'reload'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: () => browser.tabs.reload(tabId),
-				catch: (error) =>
-					Err({
-						_tag: 'TabReloadError' as const,
-						message: 'Failed to reload tab',
-						cause: error,
-					}),
-			});
+			const result = await epicenter.client.tabs.reloadTab({ tabId });
 			if (result.error) return Err(result.error);
 			return Ok(undefined);
 		},
@@ -277,14 +195,8 @@ export const tabs = {
 	duplicate: defineMutation({
 		mutationKey: ['tabs', 'duplicate'],
 		resultMutationFn: async (tabId: number) => {
-			const result = await tryAsync({
-				try: () => browser.tabs.duplicate(tabId),
-				catch: (error) =>
-					Err({
-						_tag: 'TabDuplicateError' as const,
-						message: 'Failed to duplicate tab',
-						cause: error,
-					}),
+			const result = await epicenter.client.tabs.duplicateTab({
+				tabId,
 			});
 			if (result.error) return Err(result.error);
 
