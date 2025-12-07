@@ -3,6 +3,7 @@
 	import { ClipboardIcon, TrashIcon } from '$lib/components/icons';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button, buttonVariants } from '@epicenter/ui/button';
+	import * as ButtonGroup from '@epicenter/ui/button-group';
 	import { Card } from '@epicenter/ui/card';
 	import { Checkbox } from '@epicenter/ui/checkbox';
 	import * as Dialog from '@epicenter/ui/dialog';
@@ -655,7 +656,7 @@
 				{selectedRecordingRows.length} of {table.getFilteredRowModel().rows
 					.length} row(s) selected.
 			</div>
-			<div class="flex items-center space-x-2">
+			<ButtonGroup.Root>
 				<Button
 					variant="outline"
 					size="sm"
@@ -672,7 +673,7 @@
 				>
 					Next
 				</Button>
-			</div>
+			</ButtonGroup.Root>
 		</div>
 	</Card>
 </main>
