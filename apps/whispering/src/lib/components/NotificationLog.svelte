@@ -27,10 +27,12 @@
 <script lang="ts">
 	import * as Alert from '@epicenter/ui/alert';
 	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Empty from '@epicenter/ui/empty';
 	import type { UnifiedNotificationOptions } from '$lib/services/notifications/types';
 	import { ScrollArea } from '@epicenter/ui/scroll-area';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import BellIcon from '@lucide/svelte/icons/bell';
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 	import Info from '@lucide/svelte/icons/info';
 	import { Spinner } from '@epicenter/ui/spinner';
@@ -93,11 +95,17 @@
 			{/each}
 
 			{#if notificationLog.logs.length === 0}
-				<div
-					class="flex h-32 items-center justify-center text-sm text-muted-foreground"
-				>
-					No logs to display
-				</div>
+				<Empty.Root class="h-32">
+					<Empty.Header>
+						<Empty.Media variant="icon">
+							<BellIcon />
+						</Empty.Media>
+						<Empty.Title>No notifications yet</Empty.Title>
+						<Empty.Description>
+							Notifications will appear here as they occur.
+						</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
 			{/if}
 		</ScrollArea>
 	</Dialog.Content>
