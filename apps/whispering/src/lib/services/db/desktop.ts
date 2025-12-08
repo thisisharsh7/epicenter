@@ -42,11 +42,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting all recordings from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -102,11 +97,6 @@ export function createDbServiceDesktop({
 						name: 'DbServiceError' as const,
 						message:
 							'Error getting transcribing recording ids from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -142,12 +132,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting recording by id from both sources',
-						context: {
-							id,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -182,12 +166,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error deleting recordings from both sources',
-						context: {
-							recordings,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -207,12 +185,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error cleaning up expired recordings from both sources',
-						context: {
-							...params,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -243,12 +215,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting audio blob from both sources',
-						context: {
-							recordingId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -280,12 +246,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting audio playback URL from both sources',
-						context: {
-							recordingId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -311,11 +271,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error clearing recordings from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -341,11 +296,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting all transformations from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -389,12 +339,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting transformation by id from both sources',
-						context: {
-							id,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -424,12 +368,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error deleting transformations from both sources',
-						context: {
-							transformations,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -449,11 +387,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error clearing transformations from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -480,11 +413,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting all transformation runs from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -528,12 +456,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting transformation run by id from both sources',
-						context: {
-							id,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -554,12 +476,6 @@ export function createDbServiceDesktop({
 						name: 'DbServiceError' as const,
 						message:
 							'Error getting transformation runs by transformation id from both sources',
-						context: {
-							transformationId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -601,12 +517,6 @@ export function createDbServiceDesktop({
 						name: 'DbServiceError' as const,
 						message:
 							'Error getting transformation runs by recording id from both sources',
-						context: {
-							recordingId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -671,12 +581,6 @@ export function createDbServiceDesktop({
 				if (fsResult.error && idbResult.error) {
 					return DbServiceErr({
 						message: 'Error deleting transformation runs from both sources',
-						context: {
-							runs,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -695,11 +599,6 @@ export function createDbServiceDesktop({
 				if (fsResult.error && idbResult.error) {
 					return DbServiceErr({
 						message: 'Error clearing transformation runs from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 

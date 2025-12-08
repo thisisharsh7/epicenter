@@ -53,8 +53,6 @@ export function createTrayIconDesktopService(): SetTrayIconService {
 				catch: (error) =>
 					SetTrayIconServiceErr({
 						message: 'Failed to set tray icon',
-						context: { icon: recorderState },
-						cause: error,
 					}),
 			}),
 	};

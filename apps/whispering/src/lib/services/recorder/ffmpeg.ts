@@ -228,7 +228,6 @@ export function createFfmpegRecorderService(): RecorderService {
 		if (executeError) {
 			return RecorderServiceErr({
 				message: 'Failed to enumerate recording devices',
-				cause: executeError,
 			});
 		}
 
@@ -240,8 +239,6 @@ export function createFfmpegRecorderService(): RecorderService {
 		if (devices.length === 0) {
 			return RecorderServiceErr({
 				message: 'No recording devices found',
-				context: { output },
-				cause: undefined,
 			});
 		}
 
@@ -287,8 +284,6 @@ export function createFfmpegRecorderService(): RecorderService {
 						message: selectedDeviceId
 							? "We couldn't find the selected microphone. Make sure it's connected and try again!"
 							: "We couldn't find any microphones. Make sure they're connected and try again!",
-						context: { selectedDeviceId, deviceIds },
-						cause: undefined,
 					});
 				}
 
@@ -361,8 +356,6 @@ export function createFfmpegRecorderService(): RecorderService {
 				// The spawn function already caught the FFmpeg error and extracted the message
 				return RecorderServiceErr({
 					message: 'Failed to start recording',
-					context: { command },
-					cause: startError,
 				});
 			}
 
@@ -388,7 +381,6 @@ export function createFfmpegRecorderService(): RecorderService {
 			if (!child || !session) {
 				return RecorderServiceErr({
 					message: 'No active recording to stop',
-					cause: undefined,
 				});
 			}
 
@@ -417,7 +409,6 @@ export function createFfmpegRecorderService(): RecorderService {
 				catch: (error) =>
 					RecorderServiceErr({
 						message: `Failed to stop FFmpeg process: ${extractErrorMessage(error)}`,
-						cause: error,
 					}),
 			});
 
@@ -485,7 +476,6 @@ export function createFfmpegRecorderService(): RecorderService {
 			if (readError) {
 				return RecorderServiceErr({
 					message: 'Unable to read recording file',
-					cause: readError,
 				});
 			}
 
@@ -493,8 +483,6 @@ export function createFfmpegRecorderService(): RecorderService {
 			if (!blob || blob.size === 0) {
 				return RecorderServiceErr({
 					message: 'Recording file is empty',
-					context: { blobSize: blob?.size },
-					cause: undefined,
 				});
 			}
 
@@ -530,8 +518,6 @@ export function createFfmpegRecorderService(): RecorderService {
 					catch: (error) =>
 						RecorderServiceErr({
 							message: 'Failed to delete recording file',
-							context: { path: pathToCleanup },
-							cause: error,
 						}),
 				});
 

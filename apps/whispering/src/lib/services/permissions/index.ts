@@ -36,7 +36,6 @@ function createPermissionsService(): PermissionsService {
 					catch: (error) =>
 						PermissionsServiceErr({
 							message: `Failed to check accessibility permissions: ${extractErrorMessage(error)}`,
-							cause: error,
 						}),
 				});
 			},
@@ -54,7 +53,6 @@ function createPermissionsService(): PermissionsService {
 					catch: (error) =>
 						PermissionsServiceErr({
 							message: `Failed to request accessibility permissions: ${extractErrorMessage(error)}`,
-							cause: error,
 						}),
 				});
 			},
@@ -74,7 +72,6 @@ function createPermissionsService(): PermissionsService {
 					catch: (error) =>
 						PermissionsServiceErr({
 							message: `Failed to check microphone permissions: ${extractErrorMessage(error)}`,
-							cause: error,
 						}),
 				});
 			},
@@ -92,7 +89,6 @@ function createPermissionsService(): PermissionsService {
 					catch: (error) =>
 						PermissionsServiceErr({
 							message: `Failed to request microphone permissions: ${extractErrorMessage(error)}`,
-							cause: error,
 						}),
 				});
 			},

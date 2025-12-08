@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import type { AnalyticsService } from './types';
 import { AnalyticsServiceErr } from './types';
@@ -16,9 +17,7 @@ export function createAnalyticsServiceDesktop(): AnalyticsService {
 				},
 				catch: (error) =>
 					AnalyticsServiceErr({
-						message: 'Failed to log analytics event via Tauri',
-						context: { event },
-						cause: error,
+						message: `Failed to log analytics event via Tauri: ${extractErrorMessage(error)}`,
 					}),
 			}),
 	};

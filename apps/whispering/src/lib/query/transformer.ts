@@ -316,8 +316,6 @@ async function runTransformation({
 	if (!input.trim()) {
 		return TransformServiceErr({
 			message: 'Empty input. Please enter some text to transform',
-			cause: undefined,
-			context: { input, transformationId: transformation.id },
 		});
 	}
 
@@ -325,8 +323,6 @@ async function runTransformation({
 		return TransformServiceErr({
 			message:
 				'No steps configured. Please add at least one transformation step',
-			cause: undefined,
-			context: { transformation },
 		});
 	}
 
@@ -340,13 +336,6 @@ async function runTransformation({
 	if (createTransformationRunError)
 		return TransformServiceErr({
 			message: 'Unable to start transformation run',
-			cause: createTransformationRunError,
-			context: {
-				transformationId: transformation.id,
-				recordingId,
-				input,
-				createTransformationRunError,
-			},
 		});
 
 	let currentInput = input;
@@ -363,13 +352,6 @@ async function runTransformation({
 		if (addTransformationStepRunError)
 			return TransformServiceErr({
 				message: 'Unable to initialize transformation step',
-				cause: addTransformationStepRunError,
-				context: {
-					transformationRun,
-					stepId: step.id,
-					input: currentInput,
-					addTransformationStepRunError,
-				},
 			});
 
 		const handleStepResult = await handleStep({
@@ -389,13 +371,6 @@ async function runTransformation({
 			if (markTransformationRunAndRunStepAsFailedError)
 				return TransformServiceErr({
 					message: 'Unable to save failed transformation step result',
-					cause: markTransformationRunAndRunStepAsFailedError,
-					context: {
-						transformationRun,
-						stepId: newTransformationStepRun.id,
-						error: handleStepResult.error,
-						markTransformationRunAndRunStepAsFailedError,
-					},
 				});
 			return Ok(markedFailedTransformationRun);
 		}
@@ -412,13 +387,6 @@ async function runTransformation({
 		if (markTransformationRunStepAsCompletedError)
 			return TransformServiceErr({
 				message: 'Unable to save completed transformation step result',
-				cause: markTransformationRunStepAsCompletedError,
-				context: {
-					transformationRun,
-					stepRunId: newTransformationStepRun.id,
-					output: handleStepOutput,
-					markTransformationRunStepAsCompletedError,
-				},
 			});
 
 		currentInput = handleStepOutput;
@@ -432,12 +400,6 @@ async function runTransformation({
 	if (markTransformationRunAsCompletedError)
 		return TransformServiceErr({
 			message: 'Unable to save completed transformation run',
-			cause: markTransformationRunAsCompletedError,
-			context: {
-				transformationRun,
-				output: currentInput,
-				markTransformationRunAsCompletedError,
-			},
 		});
 	return Ok(markedCompletedTransformationRun);
 }

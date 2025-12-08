@@ -435,8 +435,6 @@ export const commands = {
 			if (validFiles.length === 0) {
 				return DbServiceErr({
 					message: 'No valid audio or video files found.',
-					context: { providedFiles: files.length },
-					cause: undefined,
 				});
 			}
 

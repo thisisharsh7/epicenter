@@ -10,9 +10,25 @@ export type EpicenterOperationError = ReturnType<
 >;
 
 /**
- * Error type for index operations
+ * Context type for index operation errors
+ * Used for structured logging with table/file context
  */
-export const { IndexError, IndexErr } = createTaggedError('IndexError');
+type IndexErrorContext = {
+	tableName?: string;
+	rowId?: string;
+	filename?: string;
+	filePath?: string;
+	directory?: string;
+	operation?: string;
+};
+
+/**
+ * Error type for index operations
+ * Includes optional context for structured logging
+ */
+export const { IndexError, IndexErr } = createTaggedError(
+	'IndexError',
+).withContext<IndexErrorContext | undefined>();
 export type IndexError = ReturnType<typeof IndexError>;
 
 /**

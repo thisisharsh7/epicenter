@@ -22,7 +22,6 @@ export function createFsServiceDesktop(): FsService {
 				catch: (error) =>
 					FsServiceErr({
 						message: `Failed to read file as Blob: ${path}`,
-						cause: error,
 					}),
 			});
 		},
@@ -38,7 +37,6 @@ export function createFsServiceDesktop(): FsService {
 				catch: (error) =>
 					FsServiceErr({
 						message: `Failed to read file as File: ${path}`,
-						cause: error,
 					}),
 			});
 		},
@@ -59,7 +57,6 @@ export function createFsServiceDesktop(): FsService {
 				catch: (error) =>
 					FsServiceErr({
 						message: `Failed to read files: ${paths.join(', ')}`,
-						cause: error,
 					}),
 			});
 		},

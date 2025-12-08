@@ -669,7 +669,6 @@
 					);
 					throw DbServiceErr({
 						message: 'Failed to migrate recordings',
-						cause: error,
 					});
 				},
 			});
@@ -822,7 +821,6 @@
 					);
 					throw DbServiceErr({
 						message: 'Failed to migrate transformations',
-						cause: error,
 					});
 				},
 			});
@@ -978,7 +976,6 @@
 					);
 					throw DbServiceErr({
 						message: 'Failed to migrate transformation runs',
-						cause: error,
 					});
 				},
 			});
@@ -1041,7 +1038,6 @@
 				catch: (error) => {
 					throw DbServiceErr({
 						message: 'Failed to get migration counts',
-						cause: error,
 					});
 				},
 			});
