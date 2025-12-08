@@ -5,8 +5,11 @@
 	import { Skeleton } from '@epicenter/ui/skeleton';
 	import * as Alert from '@epicenter/ui/alert';
 	import * as Empty from '@epicenter/ui/empty';
+	import * as Accordion from '@epicenter/ui/accordion';
+	import { Badge } from '@epicenter/ui/badge';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
+	import AppWindowIcon from '@lucide/svelte/icons/app-window';
 
 	// Get all tabs
 	const tabsQuery = createQuery(rpc.tabs.getAll.options);
@@ -26,6 +29,11 @@
 		}
 		return grouped;
 	});
+
+	// Default all windows to open
+	const defaultOpenWindows = $derived(
+		(windowsQuery.data ?? []).map((w) => String(w.id)),
+	);
 </script>
 
 <div class="flex flex-col">
@@ -62,24 +70,34 @@
 				</Empty.Description>
 			</Empty.Root>
 		{:else}
-			{#each windows as window (window.id)}
-				{@const windowTabs = tabsByWindow.get(window.id!) ?? []}
-				<div class="border-b last:border-b-0">
-					<div class="flex items-center gap-2 px-4 py-2 bg-muted/50">
-						<span class="text-xs font-medium text-muted-foreground">
-							Window {window.focused ? '(focused)' : ''}
-						</span>
-						<span class="text-xs text-muted-foreground">
-							{windowTabs.length} tab{windowTabs.length === 1 ? '' : 's'}
-						</span>
-					</div>
-					<div class="divide-y">
-						{#each windowTabs as tab (tab.id)}
-							<TabItem {tab} />
-						{/each}
-					</div>
-				</div>
-			{/each}
+			<Accordion.Root type="multiple" value={defaultOpenWindows} class="px-2">
+				{#each windows as window (window.id)}
+					{@const windowTabs = tabsByWindow.get(window.id!) ?? []}
+					<Accordion.Item value={String(window.id)}>
+						<Accordion.Trigger class="px-2 py-2 hover:no-underline">
+							<div class="flex items-center gap-2">
+								<AppWindowIcon class="size-4 text-muted-foreground" />
+								<span class="text-sm font-medium">
+									Window
+									{#if window.focused}
+										<Badge variant="secondary" class="ml-1">focused</Badge>
+									{/if}
+								</span>
+								<Badge variant="outline" class="ml-auto">
+									{windowTabs.length}
+								</Badge>
+							</div>
+						</Accordion.Trigger>
+						<Accordion.Content class="pb-0">
+							<div class="divide-y">
+								{#each windowTabs as tab (tab.id)}
+									<TabItem {tab} />
+								{/each}
+							</div>
+						</Accordion.Content>
+					</Accordion.Item>
+				{/each}
+			</Accordion.Root>
 		{/if}
 	{/if}
 </div>
