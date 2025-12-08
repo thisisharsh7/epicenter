@@ -120,25 +120,23 @@
 		{#if latestTransformationRunByRecordingIdQuery.isPending}
 			<Spinner />
 		{:else if latestTransformationRunByRecordingIdQuery.isError}
-			<Tooltip.Provider>
-				<Tooltip.Root>
-					<Tooltip.Trigger>
-						{#snippet child({ props })}
-							<AlertCircleIcon
-								class="text-red-500"
-								{...props}
-								id={getRecordingTransitionId({
-									recordingId,
-									propertyName: 'latestTransformationRunOutput',
-								})}
-							/>
-						{/snippet}
-					</Tooltip.Trigger>
-					<Tooltip.Content class="max-w-xs text-center">
-						Error fetching latest transformation run output
-					</Tooltip.Content>
-				</Tooltip.Root>
-			</Tooltip.Provider>
+			<Tooltip.Root>
+				<Tooltip.Trigger>
+					{#snippet child({ props })}
+						<AlertCircleIcon
+							class="text-red-500"
+							{...props}
+							id={getRecordingTransitionId({
+								recordingId,
+								propertyName: 'latestTransformationRunOutput',
+							})}
+						/>
+					{/snippet}
+				</Tooltip.Trigger>
+				<Tooltip.Content class="max-w-xs text-center">
+					Error fetching latest transformation run output
+				</Tooltip.Content>
+			</Tooltip.Root>
 		{:else}
 			<CopyButton
 				text={latestTransformationRunByRecordingIdQuery.data?.status ===
