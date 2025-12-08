@@ -1,4 +1,3 @@
-import { join } from 'node:path';
 import type { TableBlobStore, WorkspaceBlobs } from './types.js';
 
 /**
@@ -85,6 +84,7 @@ export async function createWorkspaceBlobs<
 
 	// For Node/Bun, construct the workspace-specific storage path
 	// Storage layout: {storageDir}/{workspaceId}/{tableName}/{filename}
+	const { join } = await import('node:path');
 	const workspaceStorageDir = storageDir ? join(storageDir, id) : undefined;
 
 	const tableNames = Object.keys(schema);
