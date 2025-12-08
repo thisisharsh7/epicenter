@@ -4,6 +4,7 @@
 	import EpicenterProvider from '$lib/epicenter/EpicenterProvider.svelte';
 	import TabList from '$lib/components/TabList.svelte';
 	import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools';
+	import { ScrollArea } from '@epicenter/ui/scroll-area';
 </script>
 
 <QueryClientProvider client={queryClient}>
@@ -16,9 +17,9 @@
 			>
 				<h1 class="text-lg font-semibold">Tab Manager</h1>
 			</header>
-			<div class="overflow-y-auto max-h-[calc(600px-60px)]">
+			<ScrollArea class="h-[calc(600px-60px)]">
 				<TabList />
-			</div>
+			</ScrollArea>
 		</main>
 	</EpicenterProvider>
 	<SvelteQueryDevtools client={queryClient} buttonPosition="bottom-right" />

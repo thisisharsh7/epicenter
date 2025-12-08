@@ -2,6 +2,11 @@
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
 	import TabItem from './TabItem.svelte';
+	import { Skeleton } from '@epicenter/ui/skeleton';
+	import * as Alert from '@epicenter/ui/alert';
+	import * as Empty from '@epicenter/ui/empty';
+	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
+	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 
 	// Get all tabs
 	const tabsQuery = createQuery(rpc.tabs.getAll.options);
@@ -25,17 +30,37 @@
 
 <div class="flex flex-col">
 	{#if tabsQuery.isPending}
-		<div class="flex items-center justify-center p-8">
-			<div class="text-sm text-muted-foreground">Loading tabs...</div>
+		<div class="flex flex-col gap-1 p-2">
+			{#each { length: 5 } as _}
+				<div class="flex items-center gap-3 px-4 py-2">
+					<Skeleton class="h-4 w-4 rounded-sm" />
+					<div class="flex-1 space-y-1">
+						<Skeleton class="h-4 w-3/4" />
+						<Skeleton class="h-3 w-1/2" />
+					</div>
+				</div>
+			{/each}
 		</div>
 	{:else if tabsQuery.error}
-		<div class="p-4 text-sm text-destructive">
-			Error loading tabs: {tabsQuery.error.message}
+		<div class="p-4">
+			<Alert.Root variant="destructive">
+				<AlertCircleIcon />
+				<Alert.Title>Error loading tabs</Alert.Title>
+				<Alert.Description>{tabsQuery.error.message}</Alert.Description>
+			</Alert.Root>
 		</div>
 	{:else if tabsQuery.data}
 		{@const windows = windowsQuery.data ?? []}
 		{#if windows.length === 0}
-			<div class="p-4 text-sm text-muted-foreground">No tabs found</div>
+			<Empty.Root class="py-8">
+				<Empty.Media>
+					<FolderOpenIcon class="size-8 text-muted-foreground" />
+				</Empty.Media>
+				<Empty.Title>No tabs found</Empty.Title>
+				<Empty.Description>
+					Open some tabs to see them here
+				</Empty.Description>
+			</Empty.Root>
 		{:else}
 			{#each windows as window (window.id)}
 				{@const windowTabs = tabsByWindow.get(window.id!) ?? []}
