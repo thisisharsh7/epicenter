@@ -1,4 +1,5 @@
 import type { FSWatcher } from 'node:fs';
+import { mkdirSync, watch } from 'node:fs';
 import path from 'node:path';
 import { type } from 'arktype';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
@@ -312,15 +313,12 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 		);
 	}
 
-	// Dynamic import to avoid bundling Node.js modules in browser builds
-	const { mkdirSync, watch } = await import('node:fs');
-
 	// Workspace-specific directory for all index artifacts
 	// Structure: .epicenter/{workspaceId}/{indexId}.{suffix}
 	const workspaceConfigDir = path.join(epicenterDir, id);
 
 	// Create diagnostics manager for tracking validation errors (current state)
-	const diagnostics = await createDiagnosticsManager({
+	const diagnostics = createDiagnosticsManager({
 		diagnosticsPath: path.join(
 			workspaceConfigDir,
 			`${indexId}.diagnostics.json`,
@@ -328,7 +326,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	});
 
 	// Create logger for historical error record (append-only audit trail)
-	const logger = await createIndexLogger({
+	const logger = createIndexLogger({
 		logPath: path.join(workspaceConfigDir, `${indexId}.log`),
 	});
 

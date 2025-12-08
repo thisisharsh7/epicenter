@@ -149,18 +149,11 @@ export type {
 // Core workspace definition
 // Runtime
 export { createWorkspaceClient, defineWorkspace } from './core/workspace';
-export type {
-	MarkdownIndexConfig,
-	TableMarkdownConfig,
-	WithBodyFieldOptions,
-} from './indexes/markdown';
-export {
-	DEFAULT_TABLE_CONFIG,
-	markdownIndex,
-	withBodyField,
-} from './indexes/markdown';
-// Indexes (implementations)
-export { sqliteIndex } from './indexes/sqlite';
+
+// Note: Indexes (markdown, sqlite) are NOT re-exported here to avoid bundling
+// Node.js-only code in browser builds. Import them directly from subpaths:
+//   import { markdownIndex } from '@epicenter/hq/indexes/markdown';
+//   import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 
 // Blob storage
 export {
