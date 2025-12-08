@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createMutation } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
 	import XIcon from '@lucide/svelte/icons/x';
 	import PinIcon from '@lucide/svelte/icons/pin';
@@ -8,57 +9,25 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import { Button } from '@epicenter/ui/button';
+	import { Spinner } from '@epicenter/ui/spinner';
 
 	let { tab }: { tab: Browser.tabs.Tab } = $props();
 
-	async function handleActivate() {
-		if (tab.id) {
-			await rpc.tabs.activate.execute(tab.id);
-		}
-	}
+	const closeMutation = createMutation(rpc.tabs.close.options);
+	const activateMutation = createMutation(rpc.tabs.activate.options);
+	const pinMutation = createMutation(rpc.tabs.pin.options);
+	const unpinMutation = createMutation(rpc.tabs.unpin.options);
+	const muteMutation = createMutation(rpc.tabs.mute.options);
+	const unmuteMutation = createMutation(rpc.tabs.unmute.options);
+	const reloadMutation = createMutation(rpc.tabs.reload.options);
+	const duplicateMutation = createMutation(rpc.tabs.duplicate.options);
 
-	async function handleClose(e: MouseEvent) {
-		e.stopPropagation();
-		if (tab.id) {
-			await rpc.tabs.close.execute(tab.id);
-		}
-	}
-
-	async function handleTogglePin(e: MouseEvent) {
-		e.stopPropagation();
-		if (tab.id) {
-			if (tab.pinned) {
-				await rpc.tabs.unpin.execute(tab.id);
-			} else {
-				await rpc.tabs.pin.execute(tab.id);
-			}
-		}
-	}
-
-	async function handleToggleMute(e: MouseEvent) {
-		e.stopPropagation();
-		if (tab.id) {
-			if (tab.mutedInfo?.muted) {
-				await rpc.tabs.unmute.execute(tab.id);
-			} else {
-				await rpc.tabs.mute.execute(tab.id);
-			}
-		}
-	}
-
-	async function handleReload(e: MouseEvent) {
-		e.stopPropagation();
-		if (tab.id) {
-			await rpc.tabs.reload.execute(tab.id);
-		}
-	}
-
-	async function handleDuplicate(e: MouseEvent) {
-		e.stopPropagation();
-		if (tab.id) {
-			await rpc.tabs.duplicate.execute(tab.id);
-		}
-	}
+	const isPinPending = $derived(
+		pinMutation.isPending || unpinMutation.isPending,
+	);
+	const isMutePending = $derived(
+		muteMutation.isPending || unmuteMutation.isPending,
+	);
 
 	// Extract domain from URL for display
 	const domain = $derived.by(() => {
@@ -77,7 +46,7 @@
 	class="group flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-accent transition-colors {tab.active
 		? 'bg-accent/50'
 		: ''}"
-	onclick={handleActivate}
+	onclick={() => tab.id && activateMutation.mutate(tab.id)}
 >
 	<!-- Favicon -->
 	<div class="flex-shrink-0 w-4 h-4">
@@ -124,10 +93,22 @@
 			variant="ghost"
 			size="icon"
 			class="h-6 w-6"
-			onclick={handleTogglePin}
+			disabled={isPinPending}
+			onclick={(e) => {
+				e.stopPropagation();
+				if (tab.id) {
+					if (tab.pinned) {
+						unpinMutation.mutate(tab.id);
+					} else {
+						pinMutation.mutate(tab.id);
+					}
+				}
+			}}
 			title={tab.pinned ? 'Unpin' : 'Pin'}
 		>
-			{#if tab.pinned}
+			{#if isPinPending}
+				<Spinner class="h-3 w-3" />
+			{:else if tab.pinned}
 				<PinOffIcon class="h-3 w-3" />
 			{:else}
 				<PinIcon class="h-3 w-3" />
@@ -139,10 +120,22 @@
 				variant="ghost"
 				size="icon"
 				class="h-6 w-6"
-				onclick={handleToggleMute}
+				disabled={isMutePending}
+				onclick={(e) => {
+					e.stopPropagation();
+					if (tab.id) {
+						if (tab.mutedInfo?.muted) {
+							unmuteMutation.mutate(tab.id);
+						} else {
+							muteMutation.mutate(tab.id);
+						}
+					}
+				}}
 				title={tab.mutedInfo?.muted ? 'Unmute' : 'Mute'}
 			>
-				{#if tab.mutedInfo?.muted}
+				{#if isMutePending}
+					<Spinner class="h-3 w-3" />
+				{:else if tab.mutedInfo?.muted}
 					<Volume2Icon class="h-3 w-3" />
 				{:else}
 					<VolumeXIcon class="h-3 w-3" />
@@ -154,30 +147,60 @@
 			variant="ghost"
 			size="icon"
 			class="h-6 w-6"
-			onclick={handleReload}
+			disabled={reloadMutation.isPending}
+			onclick={(e) => {
+				e.stopPropagation();
+				if (tab.id) {
+					reloadMutation.mutate(tab.id);
+				}
+			}}
 			title="Reload"
 		>
-			<RefreshCwIcon class="h-3 w-3" />
+			{#if reloadMutation.isPending}
+				<Spinner class="h-3 w-3" />
+			{:else}
+				<RefreshCwIcon class="h-3 w-3" />
+			{/if}
 		</Button>
 
 		<Button
 			variant="ghost"
 			size="icon"
 			class="h-6 w-6"
-			onclick={handleDuplicate}
+			disabled={duplicateMutation.isPending}
+			onclick={(e) => {
+				e.stopPropagation();
+				if (tab.id) {
+					duplicateMutation.mutate(tab.id);
+				}
+			}}
 			title="Duplicate"
 		>
-			<CopyIcon class="h-3 w-3" />
+			{#if duplicateMutation.isPending}
+				<Spinner class="h-3 w-3" />
+			{:else}
+				<CopyIcon class="h-3 w-3" />
+			{/if}
 		</Button>
 
 		<Button
 			variant="ghost"
 			size="icon"
 			class="h-6 w-6 text-destructive hover:text-destructive"
-			onclick={handleClose}
+			disabled={closeMutation.isPending}
+			onclick={(e) => {
+				e.stopPropagation();
+				if (tab.id) {
+					closeMutation.mutate(tab.id);
+				}
+			}}
 			title="Close"
 		>
-			<XIcon class="h-3 w-3" />
+			{#if closeMutation.isPending}
+				<Spinner class="h-3 w-3" />
+			{:else}
+				<XIcon class="h-3 w-3" />
+			{/if}
 		</Button>
 	</div>
 </button>
