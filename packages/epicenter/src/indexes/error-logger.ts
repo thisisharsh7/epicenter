@@ -1,6 +1,7 @@
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import type { TaggedError } from 'wellcrafted/error';
-import { Ok, tryAsync } from 'wellcrafted/result';
+import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 
 /**
  * Error type accepted by the logger.
@@ -122,7 +123,7 @@ type IndexLogger = {
  *
  * @example
  * ```typescript
- * const logger = await createIndexLogger({
+ * const logger = createIndexLogger({
  *   logPath: path.join(storageDir, '.epicenter', 'markdown', `${workspaceId}.log`)
  * });
  *
@@ -136,16 +137,13 @@ type IndexLogger = {
  * await logger.close();
  * ```
  */
-export async function createIndexLogger({
-	logPath,
-}: IndexLoggerConfig): Promise<IndexLogger> {
-	// Dynamic import to avoid bundling Node.js modules in browser builds
-	const { mkdir } = await import('node:fs/promises');
-
+export function createIndexLogger({ logPath }: IndexLoggerConfig): IndexLogger {
 	// Create parent directory if it doesn't exist
 	const logDir = path.dirname(logPath);
-	await tryAsync({
-		try: () => mkdir(logDir, { recursive: true }),
+	trySync({
+		try: () => {
+			mkdirSync(logDir, { recursive: true });
+		},
 		catch: () => Ok(undefined), // Directory might already exist
 	});
 

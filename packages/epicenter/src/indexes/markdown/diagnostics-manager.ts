@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import type { AbsolutePath } from '../../core/types';
 import type { MarkdownIndexError } from './markdown-index';
@@ -204,9 +206,9 @@ type DiagnosticsManagerConfig = {
  * @param config.diagnosticsPath - Path to diagnostics file (relative or absolute, parent directory created if needed)
  * @returns Diagnostics manager instance
  */
-export async function createDiagnosticsManager({
+export function createDiagnosticsManager({
 	diagnosticsPath,
-}: DiagnosticsManagerConfig): Promise<DiagnosticsManager> {
+}: DiagnosticsManagerConfig): DiagnosticsManager {
 	/**
 	 * In-memory map: file path → diagnostic entry
 	 *
@@ -229,6 +231,15 @@ export async function createDiagnosticsManager({
 	 */
 	let writeQueue = Promise.resolve();
 
+	// Create parent directory if it doesn't exist
+	const diagnosticsDir = path.dirname(diagnosticsPath);
+	trySync({
+		try: () => {
+			mkdirSync(diagnosticsDir, { recursive: true });
+		},
+		catch: () => Ok(undefined), // Directory might already exist
+	});
+
 	/**
 	 * Load existing diagnostics from disk on initialization
 	 *
@@ -238,12 +249,12 @@ export async function createDiagnosticsManager({
 	 * Note: This will be replaced by a full scan on startup, but loading the
 	 * existing file first provides a starting point in case the scan fails.
 	 */
-	const { data: existingDiagnostics } = await tryAsync({
-		try: async () => {
+	const { data: existingDiagnostics } = trySync({
+		try: () => {
 			const file = Bun.file(diagnosticsPath);
 			const exists = file.size > 0; // Bun.file.exists is async, use size check
 			if (!exists) return {};
-			const content = await Bun.file(diagnosticsPath).text();
+			const content = Bun.file(diagnosticsPath).text();
 			return JSON.parse(content) as DiagnosticsFile;
 		},
 		catch: () => {

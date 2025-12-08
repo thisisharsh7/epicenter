@@ -56,20 +56,8 @@ export {
 export type { Db, TableHelper } from './core/db/core';
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
-export type {
-	RowAlreadyExistsError,
-	RowNotFoundError,
-	YRow,
-} from './core/db/table-helper';
-export {
-	RowAlreadyExistsErr,
-	RowNotFoundErr,
-} from './core/db/table-helper';
-export type {
-	ActionInfo,
-	EpicenterClient,
-	EpicenterConfig,
-} from './core/epicenter';
+export type { GetResult, RowResult, YRow } from './core/db/table-helper';
+export type { ActionInfo, EpicenterClient, EpicenterConfig } from './core/epicenter';
 // Epicenter - compose multiple workspaces
 export {
 	createEpicenterClient,
@@ -162,19 +150,27 @@ export type {
 // Runtime
 export { createWorkspaceClient, defineWorkspace } from './core/workspace';
 
-// Blob storage is commented out until browser-compatible (blobs use node:path)
-// export {
-// 	BlobErr,
-// 	createTableBlobStore,
-// 	createWorkspaceBlobs,
-// 	validateFilename,
-// } from './core/blobs';
-// export type {
-// 	BlobContext,
-// 	BlobData,
-// 	BlobError,
-// 	BlobErrorCode,
-// 	BlobStoreContext,
-// 	TableBlobStore,
-// 	WorkspaceBlobs,
-// } from './core/blobs';
+// Note: Indexes (markdown, sqlite) are NOT re-exported here to avoid bundling
+// Node.js-only code in browser builds. Import them directly from subpaths:
+//   import { markdownIndex } from '@epicenter/hq/indexes/markdown';
+//   import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
+
+// Blob storage
+export {
+	BlobErr,
+	createTableBlobStore,
+	createWorkspaceBlobs,
+	validateFilename,
+} from './core/blobs';
+export type {
+	BlobContext,
+	BlobData,
+	BlobError,
+	BlobErrorCode,
+	BlobStoreContext,
+	TableBlobStore,
+	WorkspaceBlobs,
+} from './core/blobs';
+
+// Server - expose workspaces as REST API and MCP servers
+export { createServer } from './server';
