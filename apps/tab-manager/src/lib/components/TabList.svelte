@@ -37,7 +37,19 @@
 </script>
 
 <div class="flex flex-col">
-	{#if tabsQuery.isPending}
+	{#if tabsQuery.error || windowsQuery.error}
+		<!-- Error state -->
+		<div class="p-4">
+			<Alert.Root variant="destructive">
+				<AlertCircleIcon />
+				<Alert.Title>Error loading tabs</Alert.Title>
+				<Alert.Description>
+					{tabsQuery.error?.message ?? windowsQuery.error?.message}
+				</Alert.Description>
+			</Alert.Root>
+		</div>
+	{:else if tabsQuery.isPending || windowsQuery.isPending}
+		<!-- Loading state -->
 		<div class="flex flex-col gap-1 p-2">
 			{#each { length: 5 } as _}
 				<div class="flex items-center gap-3 px-4 py-2">
@@ -49,25 +61,16 @@
 				</div>
 			{/each}
 		</div>
-	{:else if tabsQuery.error}
-		<div class="p-4">
-			<Alert.Root variant="destructive">
-				<AlertCircleIcon />
-				<Alert.Title>Error loading tabs</Alert.Title>
-				<Alert.Description>{tabsQuery.error.message}</Alert.Description>
-			</Alert.Root>
-		</div>
-	{:else if tabsQuery.data}
-		{@const windows = windowsQuery.data ?? []}
+	{:else if tabsQuery.data && windowsQuery.data}
+		<!-- Data state -->
+		{@const windows = windowsQuery.data}
 		{#if windows.length === 0}
 			<Empty.Root class="py-8">
 				<Empty.Media>
 					<FolderOpenIcon class="size-8 text-muted-foreground" />
 				</Empty.Media>
 				<Empty.Title>No tabs found</Empty.Title>
-				<Empty.Description>
-					Open some tabs to see them here
-				</Empty.Description>
+				<Empty.Description>Open some tabs to see them here</Empty.Description>
 			</Empty.Root>
 		{:else}
 			<Accordion.Root type="multiple" value={defaultOpenWindows} class="px-2">
@@ -88,12 +91,10 @@
 								</Badge>
 							</div>
 						</Accordion.Trigger>
-						<Accordion.Content class="pb-0">
-							<div class="divide-y">
-								{#each windowTabs as tab (tab.id)}
-									<TabItem {tab} />
-								{/each}
-							</div>
+						<Accordion.Content class="pb-0 divide-y">
+							{#each windowTabs as tab (tab.id)}
+								<TabItem {tab} />
+							{/each}
 						</Accordion.Content>
 					</Accordion.Item>
 				{/each}
