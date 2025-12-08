@@ -38,8 +38,6 @@ export function createNotificationServiceDesktop(): NotificationService {
 				catch: (error) =>
 					NotificationServiceErr({
 						message: 'Unable to retrieve active desktop notifications.',
-						context: { id },
-						cause: error,
 					}),
 			});
 		if (activeNotificationsError) return Err(activeNotificationsError);
@@ -52,8 +50,6 @@ export function createNotificationServiceDesktop(): NotificationService {
 				catch: (error) =>
 					NotificationServiceErr({
 						message: `Unable to remove notification with id ${id}.`,
-						context: { id, matchingActiveNotification },
-						cause: error,
 					}),
 			});
 			if (removeActiveError) return Err(removeActiveError);
@@ -94,12 +90,6 @@ export function createNotificationServiceDesktop(): NotificationService {
 				catch: (error) =>
 					NotificationServiceErr({
 						message: 'Could not send notification',
-						context: {
-							idStringified,
-							title: options.title,
-							description: options.description,
-						},
-						cause: error,
 					}),
 			});
 			if (notifyError) return Err(notifyError);

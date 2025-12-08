@@ -1,5 +1,5 @@
 import { type ArkErrors, type } from 'arktype';
-import { createTaggedError, type TaggedError } from 'wellcrafted/error';
+import { createTaggedError } from 'wellcrafted/error';
 import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import { defineMutation, defineQuery } from '../actions';
@@ -29,15 +29,11 @@ type RowValidationContext = {
 /**
  * Error thrown when a row fails schema validation
  */
-export const { RowValidationError, RowValidationErr } = createTaggedError<
+export const { RowValidationError, RowValidationErr } = createTaggedError(
 	'RowValidationError',
-	RowValidationContext
->('RowValidationError');
+).withContext<RowValidationContext>();
 
-export type RowValidationError = TaggedError<
-	'RowValidationError',
-	RowValidationContext
->;
+export type RowValidationError = ReturnType<typeof RowValidationError>;
 
 /**
  * YJS representation of a row

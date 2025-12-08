@@ -183,17 +183,14 @@ export function createPersistedState<TSchema extends StandardSchemaV1>({
 	};
 }
 
-const { ParseJsonErr } = createTaggedError<'ParseJsonError', { value: string }>(
-	'ParseJsonError',
-);
+const { ParseJsonErr } = createTaggedError('ParseJsonError');
 
 function parseJson(value: string) {
 	return trySync({
 		try: () => JSON.parse(value) as unknown,
 		catch: (e) =>
 			ParseJsonErr({
-				message: `Failed to parse JSON: ${extractErrorMessage(e)}`,
-				context: { value },
+				message: `Failed to parse JSON for value "${value.slice(0, 100)}...": ${extractErrorMessage(e)}`,
 			}),
 	});
 }

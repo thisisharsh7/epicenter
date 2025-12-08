@@ -140,7 +140,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting all recordings from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -157,7 +156,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting latest recording from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -176,7 +174,6 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message:
 								'Error getting transcribing recording ids from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -206,8 +203,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting recording by id from file system',
-							context: { id },
-							cause: error,
 						}),
 				});
 			},
@@ -254,8 +249,6 @@ export function createFileSystemDb(): DbService {
 						catch: (error) =>
 							DbServiceErr({
 								message: 'Error bulk creating recordings in file system',
-								context: { count: params.length },
-								cause: error,
 							}),
 					});
 
@@ -265,8 +258,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error creating recording in file system',
-							context: { recording: params.recording },
-							cause: error,
 						}),
 				});
 			},
@@ -307,8 +298,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error updating recording in file system',
-							context: { recording },
-							cause: error,
 						}),
 				});
 			},
@@ -343,8 +332,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error deleting recordings from file system',
-							context: { recordings },
-							cause: error,
 						}),
 				});
 			},
@@ -370,8 +357,6 @@ export function createFileSystemDb(): DbService {
 							catch: (error) =>
 								DbServiceErr({
 									message: 'Error cleaning up expired recordings',
-									context: { recordingRetentionStrategy, maxRecordingCount },
-									cause: error,
 								}),
 						});
 					}
@@ -402,8 +387,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting audio blob from file system',
-							context: { recordingId },
-							cause: error,
 						}),
 				});
 			},
@@ -430,8 +413,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting audio playback URL from file system',
-							context: { recordingId },
-							cause: error,
 						}),
 				});
 			},
@@ -459,7 +440,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error clearing recordings from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -476,7 +456,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting recordings count from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -519,7 +498,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting all transformations from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -547,8 +525,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting transformation by id from file system',
-							context: { id },
-							cause: error,
 						}),
 				});
 			},
@@ -578,8 +554,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error creating transformation in file system',
-							context: { transformation },
-							cause: error,
 						}),
 				});
 			},
@@ -612,8 +586,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error updating transformation in file system',
-							context: { transformation },
-							cause: error,
 						}),
 				});
 			},
@@ -640,8 +612,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error deleting transformations from file system',
-							context: { transformations },
-							cause: error,
 						}),
 				});
 			},
@@ -659,7 +629,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error clearing transformations from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -674,7 +643,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting transformations count from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -716,7 +684,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error getting all transformation runs from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -747,8 +714,6 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message:
 								'Error getting transformation run by id from file system',
-							context: { id },
-							cause: error,
 						}),
 				});
 			},
@@ -799,8 +764,6 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message:
 								'Error getting transformation runs by transformation id from file system',
-							context: { transformationId },
-							cause: error,
 						}),
 				});
 			},
@@ -851,8 +814,6 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message:
 								'Error getting transformation runs by recording id from file system',
-							context: { recordingId },
-							cause: error,
 						}),
 				});
 			},
@@ -882,8 +843,6 @@ export function createFileSystemDb(): DbService {
 							DbServiceErr({
 								message:
 									'Error bulk creating transformation runs in file system',
-								context: { count: params.length },
-								cause: error,
 							}),
 					});
 				}
@@ -924,8 +883,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error creating transformation run in file system',
-							context: { transformationId, recordingId, input },
-							cause: error,
 						}),
 				});
 			},
@@ -965,8 +922,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error adding step to transformation run in file system',
-							context: { run, step },
-							cause: error,
 						}),
 				});
 			},
@@ -1011,8 +966,6 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message:
 								'Error failing step in transformation run in file system',
-							context: { run, stepRunId, error },
-							cause: error,
 						}),
 				});
 			},
@@ -1054,8 +1007,6 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message:
 								'Error completing step in transformation run in file system',
-							context: { run, stepRunId, output },
-							cause: error,
 						}),
 				});
 			},
@@ -1088,8 +1039,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error completing transformation run in file system',
-							context: { run, output },
-							cause: error,
 						}),
 				});
 			},
@@ -1111,8 +1060,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error deleting transformation runs from file system',
-							context: { runs },
-							cause: error,
 						}),
 				});
 			},
@@ -1130,7 +1077,6 @@ export function createFileSystemDb(): DbService {
 					catch: (error) =>
 						DbServiceErr({
 							message: 'Error clearing transformation runs from file system',
-							cause: error,
 						}),
 				});
 			},
@@ -1146,7 +1092,6 @@ export function createFileSystemDb(): DbService {
 						DbServiceErr({
 							message:
 								'Error getting transformation runs count from file system',
-							cause: error,
 						}),
 				});
 			},

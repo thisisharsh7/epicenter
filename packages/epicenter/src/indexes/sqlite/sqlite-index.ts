@@ -194,8 +194,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					},
 					catch: (e) =>
 						IndexErr({
-							message: `Failed to sync ${rows.length} rows to SQLite: ${extractErrorMessage(e)}`,
-							context: { rowCount: rows.length, tableName: table.name },
+							message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite: ${extractErrorMessage(e)}`,
 						}),
 				});
 
@@ -237,8 +236,6 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					logger.log(
 						IndexError({
 							message: `SQLite index onAdd: validation failed for ${table.name}`,
-							context: result.error.context,
-							cause: result.error,
 						}),
 					);
 					return;
@@ -251,8 +248,6 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					logger.log(
 						IndexError({
 							message: `SQLite index onUpdate: validation failed for ${table.name}`,
-							context: result.error.context,
-							cause: result.error,
 						}),
 					);
 					return;
@@ -290,8 +285,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 				},
 				catch: (e) =>
 					IndexErr({
-						message: `Failed to sync ${rows.length} rows to SQLite during init: ${extractErrorMessage(e)}`,
-						context: { rowCount: rows.length, tableName: table.name },
+						message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite during init: ${extractErrorMessage(e)}`,
 					}),
 			});
 
@@ -330,8 +324,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					try: () => rebuildSqlite(),
 					catch: (error) =>
 						IndexErr({
-							message: `SQLite index pull failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'pull' },
+							message: `SQLite index pull operation failed: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -367,8 +360,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					catch: (error) => {
 						isPushingFromSqlite = false;
 						return IndexErr({
-							message: `SQLite index push failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'push' },
+							message: `SQLite index push operation failed: ${extractErrorMessage(error)}`,
 						});
 					},
 				});

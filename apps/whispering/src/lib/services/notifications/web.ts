@@ -98,8 +98,6 @@ export function createNotificationServiceWeb(): NotificationService {
 				catch: (error) =>
 					NotificationServiceErr({
 						message: 'Failed to send browser notification',
-						context: { notificationId, title: options.title },
-						cause: error,
 					}),
 			});
 

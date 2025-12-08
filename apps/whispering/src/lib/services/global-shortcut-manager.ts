@@ -56,8 +56,6 @@ export function createGlobalShortcutManager() {
 			if (!isValidElectronAccelerator(accelerator)) {
 				return InvalidAcceleratorErr({
 					message: `Invalid accelerator format: '${accelerator}'. Must follow Electron accelerator specification.`,
-					context: { accelerator },
-					cause: undefined,
 				});
 			}
 
@@ -71,8 +69,6 @@ export function createGlobalShortcutManager() {
 				catch: (error) =>
 					GlobalShortcutServiceErr({
 						message: `Failed to register global shortcut '${accelerator}': ${extractErrorMessage(error)}`,
-						context: { accelerator, error },
-						cause: error,
 					}),
 			});
 			/**
@@ -104,11 +100,6 @@ export function createGlobalShortcutManager() {
 				catch: (error) =>
 					GlobalShortcutServiceErr({
 						message: `Failed to unregister global shortcut '${accelerator}': ${extractErrorMessage(error)}`,
-						context: {
-							accelerator,
-							originalError: error,
-						},
-						cause: error,
 					}),
 			});
 			if (unregisterError) return Err(unregisterError);
@@ -126,8 +117,6 @@ export function createGlobalShortcutManager() {
 				catch: (error) =>
 					GlobalShortcutServiceErr({
 						message: `Failed to unregister all global shortcuts: ${extractErrorMessage(error)}`,
-						context: { error },
-						cause: error,
 					}),
 			});
 			if (unregisterAllError) return Err(unregisterAllError);
@@ -191,15 +180,11 @@ export function pressedKeysToTauriAccelerator(
 	if (keyCodes.length === 0) {
 		return InvalidAcceleratorErr({
 			message: 'No valid key code found in pressed keys',
-			context: { pressedKeys },
-			cause: undefined,
 		});
 	}
 	if (keyCodes.length > 1) {
 		return InvalidAcceleratorErr({
 			message: 'Multiple key codes not allowed in accelerator',
-			context: { pressedKeys, keyCodes },
-			cause: undefined,
 		});
 	}
 
@@ -215,8 +200,6 @@ export function pressedKeysToTauriAccelerator(
 	if (!isValidElectronAccelerator(accelerator)) {
 		return InvalidAcceleratorErr({
 			message: `Generated invalid accelerator: ${accelerator}`,
-			context: { pressedKeys, accelerator },
-			cause: undefined,
 		});
 	}
 

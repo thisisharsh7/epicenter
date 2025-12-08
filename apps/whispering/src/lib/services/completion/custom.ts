@@ -13,15 +13,11 @@ export const CustomCompletionServiceLive = createOpenAiCompatibleCompletionServi
 		if (!params.baseUrl) {
 			return CompletionServiceErr({
 				message: 'Custom provider requires a base URL.',
-				context: { status: 400, name: 'MissingBaseUrl' },
-				cause: null,
 			});
 		}
 		if (!params.model) {
 			return CompletionServiceErr({
 				message: 'Custom provider requires a model name.',
-				context: { status: 400, name: 'MissingModel' },
-				cause: null,
 			});
 		}
 		return Ok(undefined);

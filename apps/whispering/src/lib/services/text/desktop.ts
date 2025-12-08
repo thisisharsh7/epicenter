@@ -16,8 +16,6 @@ export function createTextServiceDesktop(): TextService {
 					TextServiceErr({
 						message:
 							'There was an error reading from the clipboard using the Tauri Clipboard Manager API. Please try again.',
-						context: {},
-						cause: error,
 					}),
 			}),
 
@@ -28,8 +26,6 @@ export function createTextServiceDesktop(): TextService {
 					TextServiceErr({
 						message:
 							'There was an error copying to the clipboard using the Tauri Clipboard Manager API. Please try again.',
-						context: { text },
-						cause: error,
 					}),
 			}),
 
@@ -40,8 +36,6 @@ export function createTextServiceDesktop(): TextService {
 					TextServiceErr({
 						message:
 							'There was an error writing the text. Please try pasting manually with Cmd/Ctrl+V.',
-						context: { text },
-						cause: error,
 					}),
 			}),
 
@@ -52,8 +46,6 @@ export function createTextServiceDesktop(): TextService {
 					TextServiceErr({
 						message:
 							'There was an error simulating the Enter keystroke. Please press Enter manually.',
-						context: {},
-						cause: error,
 					}),
 			}),
 	};

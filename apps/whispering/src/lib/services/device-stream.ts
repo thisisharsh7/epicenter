@@ -32,7 +32,6 @@ async function hasExistingAudioPermission(): Promise<boolean> {
 				DeviceStreamServiceErr({
 					message:
 						'We need permission to see your microphones. Check your browser settings and try again.',
-					cause: error,
 				}),
 		});
 		if (!error) return permissionStatus.state === 'granted';
@@ -72,7 +71,6 @@ export async function enumerateDevices(): Promise<
 			DeviceStreamServiceErr({
 				message:
 					'We need permission to see your microphones. Check your browser settings and try again.',
-				cause: error,
 			}),
 	});
 }
@@ -105,11 +103,6 @@ async function getStreamForDeviceIdentifier(
 			DeviceStreamServiceErr({
 				message:
 					'Unable to connect to the selected microphone. This could be because the device is already in use by another application, has been disconnected, or lacks proper permissions. Please check that your microphone is connected, not being used elsewhere, and that you have granted microphone permissions.',
-				context: {
-					deviceIdentifier,
-					hasPermission,
-				},
-				cause: error,
 			}),
 	});
 }
@@ -172,7 +165,6 @@ export async function getRecordingStream({
 			return DeviceStreamServiceErr({
 				message:
 					'Error enumerating recording devices and acquiring first available stream. Please make sure you have given permission to access your audio devices',
-				cause: enumerateDevicesError,
 			});
 
 		for (const device of devices) {
@@ -186,8 +178,6 @@ export async function getRecordingStream({
 
 		return DeviceStreamServiceErr({
 			message: 'Unable to connect to any available microphone',
-			context: { devices },
-			cause: undefined,
 		});
 	};
 
@@ -200,8 +190,6 @@ export async function getRecordingStream({
 			: "Hmm... We couldn't find any microphones to use. Check your connections and try again!";
 		return DeviceStreamServiceErr({
 			message: errorMessage,
-			context: { selectedDeviceId },
-			cause: getFallbackStreamError,
 		});
 	}
 

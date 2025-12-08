@@ -14,8 +14,6 @@ export function createTextServiceWeb(): TextService {
 					TextServiceErr({
 						message:
 							'There was an error reading from the clipboard using the browser Clipboard API. Please try again.',
-						context: {},
-						cause: error,
 					}),
 			}),
 
@@ -26,8 +24,6 @@ export function createTextServiceWeb(): TextService {
 					TextServiceErr({
 						message:
 							'There was an error copying to the clipboard using the browser Clipboard API. Please try again.',
-						context: { text },
-						cause: error,
 					}),
 			});
 
@@ -46,8 +42,6 @@ export function createTextServiceWeb(): TextService {
 			return TextServiceErr({
 				message:
 					'Text copied to clipboard. Automatic paste is not supported in web browsers for security reasons. Please paste manually using Cmd/Ctrl+V.',
-				context: { text },
-				cause: undefined,
 			});
 		},
 
@@ -55,8 +49,6 @@ export function createTextServiceWeb(): TextService {
 			TextServiceErr({
 				message:
 					'Simulating keystrokes is not supported in web browsers for security reasons.',
-				context: {},
-				cause: undefined,
 			}),
 	};
 }

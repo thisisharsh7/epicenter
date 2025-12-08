@@ -6,19 +6,16 @@ export function createFsServiceWeb(): FsService {
 		pathToBlob: async () =>
 			FsServiceErr({
 				message: 'File system access not available in browser',
-				cause: undefined,
 			}),
 
 		pathToFile: async () =>
 			FsServiceErr({
 				message: 'File system access not available in browser',
-				cause: undefined,
 			}),
 
 		pathsToFiles: async () =>
 			FsServiceErr({
 				message: 'File system access not available in browser',
-				cause: undefined,
 			}),
 	};
 }
