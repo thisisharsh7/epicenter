@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import * as Y from 'yjs';
 import type { Provider } from '../../core/provider';
 
@@ -54,7 +53,7 @@ export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
 
 	// Dynamic imports to avoid bundling Node.js modules in browser builds
 	const path = await import('node:path');
-	const { mkdirSync } = await import('node:fs');
+	const { mkdirSync, writeFileSync } = await import('node:fs');
 
 	const filePath = path.join(epicenterDir, `${id}.yjs`);
 
