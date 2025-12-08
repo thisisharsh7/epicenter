@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
+	import EpicenterProvider from '$lib/epicenter/EpicenterProvider.svelte';
 	import TabList from '$lib/components/TabList.svelte';
+	import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools';
 
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -13,12 +15,19 @@
 </script>
 
 <QueryClientProvider client={queryClient}>
-	<main class="w-[400px] min-h-[300px] max-h-[600px] overflow-hidden bg-background text-foreground">
-		<header class="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3">
-			<h1 class="text-lg font-semibold">Tab Manager</h1>
-		</header>
-		<div class="overflow-y-auto max-h-[calc(600px-60px)]">
-			<TabList />
-		</div>
-	</main>
+	<EpicenterProvider>
+		<main
+			class="w-[400px] min-h-[300px] max-h-[600px] overflow-hidden bg-background text-foreground"
+		>
+			<header
+				class="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3"
+			>
+				<h1 class="text-lg font-semibold">Tab Manager</h1>
+			</header>
+			<div class="overflow-y-auto max-h-[calc(600px-60px)]">
+				<TabList />
+			</div>
+		</main>
+	</EpicenterProvider>
+	<SvelteQueryDevtools client={queryClient} buttonPosition="bottom-right" />
 </QueryClientProvider>

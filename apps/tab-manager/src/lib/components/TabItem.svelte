@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { createMutation } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
-	import type { Tab } from '$lib/query/tabs';
 	import XIcon from '@lucide/svelte/icons/x';
 	import PinIcon from '@lucide/svelte/icons/pin';
 	import PinOffIcon from '@lucide/svelte/icons/pin-off';
@@ -11,56 +9,60 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import { Button } from '@epicenter/ui/button';
 
-	let { tab }: { tab: Tab } = $props();
+	let { tab }: { tab: Browser.tabs.Tab } = $props();
 
-	const closeMutation = createMutation(rpc.tabs.close.options);
-	const activateMutation = createMutation(rpc.tabs.activate.options);
-	const pinMutation = createMutation(rpc.tabs.pin.options);
-	const unpinMutation = createMutation(rpc.tabs.unpin.options);
-	const muteMutation = createMutation(rpc.tabs.mute.options);
-	const unmuteMutation = createMutation(rpc.tabs.unmute.options);
-	const reloadMutation = createMutation(rpc.tabs.reload.options);
-	const duplicateMutation = createMutation(rpc.tabs.duplicate.options);
-
-	function handleActivate() {
-		activateMutation.mutate(tab.id);
-	}
-
-	function handleClose(e: MouseEvent) {
-		e.stopPropagation();
-		closeMutation.mutate(tab.id);
-	}
-
-	function handleTogglePin(e: MouseEvent) {
-		e.stopPropagation();
-		if (tab.pinned) {
-			unpinMutation.mutate(tab.id);
-		} else {
-			pinMutation.mutate(tab.id);
+	async function handleActivate() {
+		if (tab.id) {
+			await rpc.tabs.activate.execute(tab.id);
 		}
 	}
 
-	function handleToggleMute(e: MouseEvent) {
+	async function handleClose(e: MouseEvent) {
 		e.stopPropagation();
-		if (tab.mutedInfo?.muted) {
-			unmuteMutation.mutate(tab.id);
-		} else {
-			muteMutation.mutate(tab.id);
+		if (tab.id) {
+			await rpc.tabs.close.execute(tab.id);
 		}
 	}
 
-	function handleReload(e: MouseEvent) {
+	async function handleTogglePin(e: MouseEvent) {
 		e.stopPropagation();
-		reloadMutation.mutate(tab.id);
+		if (tab.id) {
+			if (tab.pinned) {
+				await rpc.tabs.unpin.execute(tab.id);
+			} else {
+				await rpc.tabs.pin.execute(tab.id);
+			}
+		}
 	}
 
-	function handleDuplicate(e: MouseEvent) {
+	async function handleToggleMute(e: MouseEvent) {
 		e.stopPropagation();
-		duplicateMutation.mutate(tab.id);
+		if (tab.id) {
+			if (tab.mutedInfo?.muted) {
+				await rpc.tabs.unmute.execute(tab.id);
+			} else {
+				await rpc.tabs.mute.execute(tab.id);
+			}
+		}
+	}
+
+	async function handleReload(e: MouseEvent) {
+		e.stopPropagation();
+		if (tab.id) {
+			await rpc.tabs.reload.execute(tab.id);
+		}
+	}
+
+	async function handleDuplicate(e: MouseEvent) {
+		e.stopPropagation();
+		if (tab.id) {
+			await rpc.tabs.duplicate.execute(tab.id);
+		}
 	}
 
 	// Extract domain from URL for display
 	const domain = $derived.by(() => {
+		if (!tab.url) return '';
 		try {
 			const url = new URL(tab.url);
 			return url.hostname;
@@ -115,7 +117,9 @@
 	</div>
 
 	<!-- Actions (visible on hover) -->
-	<div class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+	<div
+		class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+	>
 		<Button
 			variant="ghost"
 			size="icon"

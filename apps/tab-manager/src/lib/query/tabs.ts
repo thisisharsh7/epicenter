@@ -1,209 +1,82 @@
-import { Err, Ok } from 'wellcrafted/result';
 import { epicenter } from '$lib/epicenter';
-import { defineMutation, defineQuery, queryClient } from './_client';
+import { tabsKeys } from '$lib/epicenter/tabs.workspace';
+import { defineMutation, defineQuery } from './_client';
 
-/**
- * Query keys for tab-related queries
- */
-export const tabsKeys = {
-	all: ['tabs'] as const,
-	windows: ['windows'] as const,
-	byWindow: (windowId: number) => ['tabs', 'window', windowId] as const,
-};
+// Re-export keys for convenience
+export { tabsKeys };
 
 /**
  * Tab queries and mutations
  *
- * These use the Epicenter client for browser API calls
- * and TanStack Query for reactive state management.
+ * Event-driven architecture: Browser events are the source of truth.
+ * The workspace registers listeners that update the query cache when
+ * tabs change. Mutations simply call browser APIs - no manual cache
+ * updates needed since listeners handle it.
  */
 export const tabs = {
 	// ─────────────────────────────────────────────────────────────────────────
-	// Queries
+	// Queries - Initial data fetch; listeners keep cache updated after
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/**
-	 * Get all tabs across all windows
-	 */
 	getAll: defineQuery({
 		queryKey: tabsKeys.all,
-		resultQueryFn: () => epicenter.client.tabs.getAllTabs({}),
+		resultQueryFn: () => epicenter.client.tabs.getAllTabs(),
 	}),
 
-	/**
-	 * Get all windows
-	 */
 	getAllWindows: defineQuery({
 		queryKey: tabsKeys.windows,
-		resultQueryFn: () => epicenter.client.tabs.getAllWindows({}),
+		resultQueryFn: () => epicenter.client.tabs.getAllWindows(),
 	}),
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Mutations
+	// Mutations - Just call browser APIs; listeners handle cache updates
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/**
-	 * Close a tab
-	 */
 	close: defineMutation({
 		mutationKey: ['tabs', 'close'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.closeTab({ tabId });
-			if (result.error) return Err(result.error);
-
-			// Optimistically remove from cache
-			queryClient.setQueryData(
-				tabsKeys.all,
-				(oldTabs: Browser.tabs.Tab[] | undefined) =>
-					oldTabs?.filter((t) => t.id !== tabId),
-			);
-
-			return Ok(undefined);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.closeTab({ tabId }),
 	}),
 
-	/**
-	 * Activate (focus) a tab
-	 */
 	activate: defineMutation({
 		mutationKey: ['tabs', 'activate'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.activateTab({
-				tabId,
-			});
-			if (result.error) return Err(result.error);
-
-			// Update active state in cache
-			queryClient.setQueryData(
-				tabsKeys.all,
-				(oldTabs: Browser.tabs.Tab[] | undefined) =>
-					oldTabs?.map((t) => ({
-						...t,
-						active:
-							t.id === tabId
-								? true
-								: t.windowId === result.data.windowId
-									? false
-									: t.active,
-					})),
-			);
-
-			return Ok(undefined);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.activateTab({ tabId }),
 	}),
 
-	/**
-	 * Pin a tab
-	 */
 	pin: defineMutation({
 		mutationKey: ['tabs', 'pin'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.pinTab({ tabId });
-			if (result.error) return Err(result.error);
-
-			// Optimistically update cache
-			queryClient.setQueryData(
-				tabsKeys.all,
-				(oldTabs: Browser.tabs.Tab[] | undefined) =>
-					oldTabs?.map((t) => (t.id === tabId ? { ...t, pinned: true } : t)),
-			);
-
-			return Ok(undefined);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.pinTab({ tabId }),
 	}),
 
-	/**
-	 * Unpin a tab
-	 */
 	unpin: defineMutation({
 		mutationKey: ['tabs', 'unpin'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.unpinTab({ tabId });
-			if (result.error) return Err(result.error);
-
-			queryClient.setQueryData(
-				tabsKeys.all,
-				(oldTabs: Browser.tabs.Tab[] | undefined) =>
-					oldTabs?.map((t) => (t.id === tabId ? { ...t, pinned: false } : t)),
-			);
-
-			return Ok(undefined);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.unpinTab({ tabId }),
 	}),
 
-	/**
-	 * Mute a tab
-	 */
 	mute: defineMutation({
 		mutationKey: ['tabs', 'mute'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.muteTab({ tabId });
-			if (result.error) return Err(result.error);
-
-			queryClient.setQueryData(
-				tabsKeys.all,
-				(oldTabs: Browser.tabs.Tab[] | undefined) =>
-					oldTabs?.map((t) =>
-						t.id === tabId
-							? { ...t, mutedInfo: { ...t.mutedInfo, muted: true } }
-							: t,
-					),
-			);
-
-			return Ok(undefined);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.muteTab({ tabId }),
 	}),
 
-	/**
-	 * Unmute a tab
-	 */
 	unmute: defineMutation({
 		mutationKey: ['tabs', 'unmute'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.unmuteTab({ tabId });
-			if (result.error) return Err(result.error);
-
-			queryClient.setQueryData(
-				tabsKeys.all,
-				(oldTabs: Browser.tabs.Tab[] | undefined) =>
-					oldTabs?.map((t) =>
-						t.id === tabId
-							? { ...t, mutedInfo: { ...t.mutedInfo, muted: false } }
-							: t,
-					),
-			);
-
-			return Ok(undefined);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.unmuteTab({ tabId }),
 	}),
 
-	/**
-	 * Reload a tab
-	 */
 	reload: defineMutation({
 		mutationKey: ['tabs', 'reload'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.reloadTab({ tabId });
-			if (result.error) return Err(result.error);
-			return Ok(undefined);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.reloadTab({ tabId }),
 	}),
 
-	/**
-	 * Duplicate a tab
-	 */
 	duplicate: defineMutation({
 		mutationKey: ['tabs', 'duplicate'],
-		resultMutationFn: async (tabId: number) => {
-			const result = await epicenter.client.tabs.duplicateTab({
-				tabId,
-			});
-			if (result.error) return Err(result.error);
-
-			// Refresh tabs after duplicate
-			await queryClient.invalidateQueries({ queryKey: tabsKeys.all });
-
-			return Ok(result.data);
-		},
+		resultMutationFn: (tabId: number) =>
+			epicenter.client.tabs.duplicateTab({ tabId }),
 	}),
 };
