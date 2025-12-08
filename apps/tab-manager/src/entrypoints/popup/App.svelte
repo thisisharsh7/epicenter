@@ -1,17 +1,9 @@
 <script lang="ts">
-	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
+	import { QueryClientProvider } from '@tanstack/svelte-query';
+	import { queryClient } from '$lib/query/_client';
 	import EpicenterProvider from '$lib/epicenter/EpicenterProvider.svelte';
 	import TabList from '$lib/components/TabList.svelte';
 	import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools';
-
-	const queryClient = new QueryClient({
-		defaultOptions: {
-			queries: {
-				staleTime: 1000 * 60, // 1 minute
-				refetchOnWindowFocus: true,
-			},
-		},
-	});
 </script>
 
 <QueryClientProvider client={queryClient}>
