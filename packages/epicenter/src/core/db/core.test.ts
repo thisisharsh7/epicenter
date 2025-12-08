@@ -16,7 +16,7 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create a row
-		doc.posts.insert({
+		doc.posts.upsert({
 			id: '1',
 			title: 'Test Post',
 			view_count: 0,
@@ -25,11 +25,11 @@ describe('createEpicenterDb', () => {
 
 		// Retrieve the row
 		const result = doc.posts.get({ id: '1' });
-		expect(result).not.toBeNull();
-		if (result?.data) {
-			expect(result.data.title).toBe('Test Post');
-			expect(result.data.view_count).toBe(0);
-			expect(result.data.published).toBe(false);
+		expect(result.status).toBe('valid');
+		if (result.status === 'valid') {
+			expect(result.row.title).toBe('Test Post');
+			expect(result.row.view_count).toBe(0);
+			expect(result.row.published).toBe(false);
 		}
 	});
 
@@ -45,24 +45,23 @@ describe('createEpicenterDb', () => {
 		});
 
 		// Create multiple rows
-		const { error: insertError } = doc.posts.insertMany({
+		doc.posts.upsertMany({
 			rows: [
 				{ id: '1', title: 'Post 1', view_count: 10, published: true },
 				{ id: '2', title: 'Post 2', view_count: 20, published: false },
 			],
 		});
-		expect(insertError).toBeNull();
 
 		// Retrieve and verify rows
 		const row1 = doc.posts.get({ id: '1' });
 		const row2 = doc.posts.get({ id: '2' });
-		expect(row1).not.toBeNull();
-		expect(row2).not.toBeNull();
-		if (row1?.data) {
-			expect(row1.data.title).toBe('Post 1');
+		expect(row1.status).toBe('valid');
+		expect(row2.status).toBe('valid');
+		if (row1.status === 'valid') {
+			expect(row1.row.title).toBe('Post 1');
 		}
-		if (row2?.data) {
-			expect(row2.data.title).toBe('Post 2');
+		if (row2.status === 'valid') {
+			expect(row2.row.title).toBe('Post 2');
 		}
 	});
 
@@ -77,7 +76,7 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		doc.posts.insertMany({
+		doc.posts.upsertMany({
 			rows: [
 				{ id: '1', title: 'Post 1', view_count: 10, published: true },
 				{ id: '2', title: 'Post 2', view_count: 20, published: false },
@@ -97,7 +96,7 @@ describe('createEpicenterDb', () => {
 		}
 	});
 
-	test('should return not-found status for non-existent rows', () => {
+	test('should return not_found status for non-existent rows', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createEpicenterDb(ydoc, {
 			posts: {
@@ -110,7 +109,10 @@ describe('createEpicenterDb', () => {
 
 		// Test get() with non-existent id
 		const getResult = doc.posts.get({ id: 'non-existent' });
-		expect(getResult).toBeNull();
+		expect(getResult.status).toBe('not_found');
+		if (getResult.status === 'not_found') {
+			expect(getResult.id).toBe('non-existent');
+		}
 
 		// Test find() with no matches
 		const findResult = doc.posts.find((post) => post.id === 'non-existent');
@@ -127,8 +129,8 @@ describe('createEpicenterDb', () => {
 			},
 		});
 
-		// Insert with plain strings and arrays (the documented API)
-		doc.posts.insert({
+		// Upsert with plain strings and arrays (the documented API)
+		doc.posts.upsert({
 			id: '1',
 			title: 'Hello World',
 			tags: ['typescript', 'javascript'],
@@ -136,27 +138,29 @@ describe('createEpicenterDb', () => {
 
 		// Get returns Y.js objects
 		const result1 = doc.posts.get({ id: '1' });
-		expect(result1).not.toBeNull();
-		if (result1?.data) {
-			expect(result1.data.title).toBeInstanceOf(Y.Text);
-			expect(result1.data.tags).toBeInstanceOf(Y.Array);
-			expect(result1.data.title.toString()).toBe('Hello World');
-			expect(result1.data.tags.toArray()).toEqual(['typescript', 'javascript']);
+		expect(result1.status).toBe('valid');
+		if (result1.status === 'valid') {
+			expect(result1.row.title).toBeInstanceOf(Y.Text);
+			expect(result1.row.tags).toBeInstanceOf(Y.Array);
+			expect(result1.row.title.toString()).toBe('Hello World');
+			expect(result1.row.tags.toArray()).toEqual(['typescript', 'javascript']);
 		}
 
-		// Insert another post
-		doc.posts.insert({
+		// Upsert another post
+		doc.posts.upsert({
 			id: '2',
 			title: 'Second Post',
 			tags: ['python'],
 		});
 
-		// getAll returns Y.js objects
-		const rows = doc.posts.getAll();
+		// getAllValid returns Y.js objects
+		const rows = doc.posts.getAllValid();
 		expect(rows).toHaveLength(2);
-		expect(rows[0].title).toBeInstanceOf(Y.Text);
-		expect(rows[0].tags).toBeInstanceOf(Y.Array);
-		expect(rows[0].title.toString()).toBe('Hello World');
-		expect(rows[1].title.toString()).toBe('Second Post');
+		const firstRow = rows[0]!;
+		const secondRow = rows[1]!;
+		expect(firstRow.title).toBeInstanceOf(Y.Text);
+		expect(firstRow.tags).toBeInstanceOf(Y.Array);
+		expect(firstRow.title.toString()).toBe('Hello World');
+		expect(secondRow.title.toString()).toBe('Second Post');
 	});
 });

@@ -332,7 +332,7 @@ export const gmail = defineWorkspace({
 
 					const emailDate = parseEmailDate(getHeader(headers, 'Date'));
 
-					db.emails.insert({
+					db.emails.upsert({
 						id: generateId(),
 						gmail_id: message.id ?? gmailId,
 						thread_id: message.threadId ?? '',

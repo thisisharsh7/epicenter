@@ -56,20 +56,8 @@ export {
 export type { Db, TableHelper } from './core/db/core';
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
-export type {
-	RowAlreadyExistsError,
-	RowNotFoundError,
-	YRow,
-} from './core/db/table-helper';
-export {
-	RowAlreadyExistsErr,
-	RowNotFoundErr,
-} from './core/db/table-helper';
-export type {
-	ActionInfo,
-	EpicenterClient,
-	EpicenterConfig,
-} from './core/epicenter';
+export type { GetResult, RowResult, YRow } from './core/db/table-helper';
+export type { ActionInfo, EpicenterClient, EpicenterConfig } from './core/epicenter';
 // Epicenter - compose multiple workspaces
 export {
 	createEpicenterClient,
@@ -161,20 +149,35 @@ export type {
 // Core workspace definition
 // Runtime
 export { createWorkspaceClient, defineWorkspace } from './core/workspace';
+export type {
+	MarkdownIndexConfig,
+	TableMarkdownConfig,
+	WithBodyFieldOptions,
+} from './indexes/markdown';
+export {
+	DEFAULT_TABLE_CONFIG,
+	markdownIndex,
+	withBodyField,
+} from './indexes/markdown';
+// Indexes (implementations)
+export { sqliteIndex } from './indexes/sqlite';
 
-// Blob storage is commented out until browser-compatible (blobs use node:path)
-// export {
-// 	BlobErr,
-// 	createTableBlobStore,
-// 	createWorkspaceBlobs,
-// 	validateFilename,
-// } from './core/blobs';
-// export type {
-// 	BlobContext,
-// 	BlobData,
-// 	BlobError,
-// 	BlobErrorCode,
-// 	BlobStoreContext,
-// 	TableBlobStore,
-// 	WorkspaceBlobs,
-// } from './core/blobs';
+// Blob storage
+export {
+	BlobErr,
+	createTableBlobStore,
+	createWorkspaceBlobs,
+	validateFilename,
+} from './core/blobs';
+export type {
+	BlobContext,
+	BlobData,
+	BlobError,
+	BlobErrorCode,
+	BlobStoreContext,
+	TableBlobStore,
+	WorkspaceBlobs,
+} from './core/blobs';
+
+// Server - expose workspaces as REST API and MCP servers
+export { createServer } from './server';

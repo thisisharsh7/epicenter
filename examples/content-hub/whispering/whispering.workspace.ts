@@ -153,7 +153,7 @@ export const whispering = defineWorkspace({
 						};
 
 						if (!dryRun) {
-							db.entries.insert(entry);
+							db.entries.upsert(entry);
 						}
 
 						stats.success++;

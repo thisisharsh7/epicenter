@@ -1,5 +1,5 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
@@ -10,6 +10,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import MicIcon from '@lucide/svelte/icons/mic';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import { Badge } from '@epicenter/ui/badge';
 
 	const combobox = useCombobox();
@@ -60,9 +61,9 @@
 <Popover.Root bind:open={combobox.open}>
 	<Popover.Trigger bind:ref={combobox.triggerRef}>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
-				tooltipContent={isDeviceSelected
+				tooltip={isDeviceSelected
 					? `Recording via ${RECORDING_METHODS[selectedMethod].label} - Change device or method`
 					: `Select recording device (${RECORDING_METHODS[selectedMethod].label} method)`}
 				role="combobox"
@@ -75,7 +76,7 @@
 				{:else}
 					<MicIcon class="size-4 text-amber-500" />
 				{/if}
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="p-0">
@@ -167,12 +168,11 @@
 							getDevicesQuery.refetch();
 						}}
 					>
-						<RefreshCwIcon
-							class={cn(
-								'mr-2 size-4',
-								getDevicesQuery.isRefetching && 'animate-spin',
-							)}
-						/>
+						{#if getDevicesQuery.isRefetching}
+							<Spinner />
+						{:else}
+							<RefreshCwIcon class="size-4" />
+						{/if}
 						Refresh devices
 					</Command.Item>
 				</Command.Group>

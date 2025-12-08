@@ -1,6 +1,7 @@
 <script lang="ts">
-	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
 	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
+	import { CopyButton } from '@epicenter/ui/copy-button';
 	import {
 		CompressionBody,
 		DeepgramApiKeyInput,
@@ -20,7 +21,6 @@
 	import { PARAKEET_MODELS } from '$lib/services/transcription/local/parakeet';
 	import { WHISPER_MODELS } from '$lib/services/transcription/local/whispercpp';
 	import { settings } from '$lib/stores/settings.svelte';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Alert from '@epicenter/ui/alert';
 	import { Badge } from '@epicenter/ui/badge';
@@ -253,15 +253,13 @@
 				</Select.Content>
 			</Select.Root>
 			<Field.Description>
-				You can find more details about Voxtral speech understanding in the <Button
-					variant="link"
-					class="px-0.3 py-0.2 h-fit"
+				You can find more details about Voxtral speech understanding in the <Link
 					href="https://mistral.ai/news/voxtral/"
 					target="_blank"
 					rel="noopener noreferrer"
 				>
 					Mistral docs
-				</Button>.
+				</Link>.
 			</Field.Description>
 		</Field.Field>
 		<MistralApiKeyInput />
@@ -418,19 +416,15 @@
 				The URL where your Speaches server is running (<code>
 					SPEACHES_BASE_URL
 				</code>), typically
-				<CopyToClipboardButton
-					contentDescription="speaches base url"
-					textToCopy="http://localhost:8000"
+				<CopyButton
+					text="http://localhost:8000"
+					copyFn={createCopyFn('speaches base url')}
 					class="bg-muted rounded px-[0.3rem] py-[0.15rem] font-mono text-sm hover:bg-muted/80"
 					variant="ghost"
 					size="sm"
 				>
 					http://localhost:8000
-					{#snippet copiedContent()}
-						http://localhost:8000
-						<CheckIcon class="size-4" />
-					{/snippet}
-				</CopyToClipboardButton>
+				</CopyButton>
 			</Field.Description>
 		</Field.Field>
 
@@ -447,19 +441,15 @@
 			/>
 			<Field.Description>
 				The model you downloaded in step 3 (<code>MODEL_ID</code>), e.g.
-				<CopyToClipboardButton
-					contentDescription="speaches model id"
-					textToCopy="Systran/faster-distil-whisper-small.en"
+				<CopyButton
+					text="Systran/faster-distil-whisper-small.en"
+					copyFn={createCopyFn('speaches model id')}
 					class="bg-muted rounded px-[0.3rem] py-[0.15rem] font-mono text-sm hover:bg-muted/80"
 					variant="ghost"
 					size="sm"
 				>
 					Systran/faster-distil-whisper-small.en
-					{#snippet copiedContent()}
-						Systran/faster-distil-whisper-small.en
-						<CheckIcon class="size-4" />
-					{/snippet}
-				</CopyToClipboardButton>
+				</CopyButton>
 			</Field.Description>
 		</Field.Field>
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'whispercpp'}

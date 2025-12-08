@@ -745,11 +745,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						diagnostics.remove({ filePath });
 
 						// Insert or update the row in YJS
-						if (table.has({ id: row.id })) {
-							table.update(validatedRow);
-						} else {
-							table.insert(validatedRow);
-						}
+						table.upsert(validatedRow);
 					}
 
 					syncCoordination.isProcessingFileChange = false;
@@ -873,8 +869,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 			tracking[table.name] = createBidirectionalMap();
 		}
 
-		// Get all rows from YJS
-		const rows = table.getAll();
+		// Get all valid rows from YJS
+		const rows = table.getAllValid();
 
 		// Serialize each row to extract filename and populate tracking in BOTH directions
 		for (const row of rows) {
@@ -960,8 +956,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								}),
 							);
 
-							// Write all current YJS rows for this table to markdown files
-							const rows = table.getAll();
+							// Write all current valid YJS rows for this table to markdown files
+							const rows = table.getAllValid();
 
 							for (const row of rows) {
 								const serializedRow = row.toJSON();
@@ -1097,17 +1093,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 									// Insert into YJS
 									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to parameter of type SerializedRow<TTableSchema> due to union type from $tables() iteration
-									const insertResult = table.insert(row);
-									if (insertResult.error) {
-										// Log insert errors (operational errors, not validation errors)
-										logger.log(
-											IndexError({
-												message: `pushFromMarkdown: failed to insert ${table.name}/${row.id} into YJS`,
-												context: { tableName: table.name, rowId: row.id },
-												cause: insertResult.error,
-											}),
-										);
-									}
+									table.upsert(row);
 								}),
 							);
 						}

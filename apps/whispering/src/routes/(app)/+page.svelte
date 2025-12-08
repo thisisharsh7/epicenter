@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { commandCallbacks } from '$lib/commands';
 	import NavItems from '$lib/components/NavItems.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
-	import { ClipboardIcon } from '$lib/components/icons';
+	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 	import {
 		CompressionSelector,
 		TranscriptionSelector,
@@ -14,7 +12,6 @@
 	import {
 		RECORDER_STATE_TO_ICON,
 		RECORDING_MODE_OPTIONS,
-		type RecordingMode,
 		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
 	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
@@ -25,18 +22,19 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Button } from '@epicenter/ui/button';
 	import {
 		ACCEPT_AUDIO,
 		ACCEPT_VIDEO,
 		FileDropZone,
 		MEGABYTE,
 	} from '@epicenter/ui/file-drop-zone';
+	import * as Kbd from '@epicenter/ui/kbd';
+	import { Link } from '@epicenter/ui/link';
 	import * as ToggleGroup from '@epicenter/ui/toggle-group';
 	import { createQuery } from '@tanstack/svelte-query';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { onDestroy, onMount } from 'svelte';
-	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
@@ -216,8 +214,8 @@
 	{#if settings.value['recording.mode'] === 'manual'}
 		<!-- Container with relative positioning for the button and absolute selectors -->
 		<div class="relative">
-			<WhisperingButton
-				tooltipContent={getRecorderStateQuery.data === 'IDLE'
+			<Button
+				tooltip={getRecorderStateQuery.data === 'IDLE'
 					? 'Start recording'
 					: 'Stop recording'}
 				onclick={commandCallbacks.toggleManualRecording}
@@ -230,18 +228,18 @@
 				>
 					{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
 				</span>
-			</WhisperingButton>
+			</Button>
 			{#if getRecorderStateQuery.data === 'RECORDING'}
 				<div class="absolute -right-12 bottom-4 flex items-center">
-					<WhisperingButton
-						tooltipContent="Cancel recording"
+					<Button
+						tooltip="Cancel recording"
 						onclick={commandCallbacks.cancelManualRecording}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: cancel-icon;"
 					>
 						🚫
-					</WhisperingButton>
+					</Button>
 				</div>
 			{:else}
 				<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
@@ -255,8 +253,8 @@
 	{:else if settings.value['recording.mode'] === 'vad'}
 		<!-- Container with relative positioning for the button and absolute selectors -->
 		<div class="relative">
-			<WhisperingButton
-				tooltipContent={vadRecorder.state === 'IDLE'
+			<Button
+				tooltip={vadRecorder.state === 'IDLE'
 					? 'Start voice activated session'
 					: 'Stop voice activated session'}
 				onclick={commandCallbacks.toggleVadRecording}
@@ -269,7 +267,7 @@
 				>
 					{VAD_STATE_TO_ICON[vadRecorder.state]}
 				</span>
-			</WhisperingButton>
+			</Button>
 			{#if vadRecorder.state === 'IDLE'}
 				<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
 					<VadDeviceSelector />
@@ -307,38 +305,15 @@
 	{/if}
 
 	<div class="xxs:flex hidden w-full flex-col gap-2">
-		<div class="flex w-full items-center gap-2">
-			<div class="flex-1">
-				<TranscriptDialog
-					recordingId={latestRecording.id}
-					transcribedText={latestRecording.transcriptionStatus ===
-					'TRANSCRIBING'
-						? '...'
-						: latestRecording.transcribedText}
-					rows={1}
-					disabled={latestRecording.transcriptionStatus === 'TRANSCRIBING' ||
-						hasNoTranscribedText}
-				/>
-			</div>
-			<CopyToClipboardButton
-				contentDescription="transcript"
-				textToCopy={latestRecording.transcribedText}
-				viewTransitionName={getRecordingTransitionId({
-					recordingId: latestRecording.id,
-					propertyName: 'transcribedText',
-				})}
-				size="default"
-				variant="secondary"
-				disabled={latestRecording.transcriptionStatus === 'TRANSCRIBING' ||
-					hasNoTranscribedText}
-			>
-				{#if latestRecording.transcriptionStatus === 'TRANSCRIBING'}
-					<Loader2Icon class="size-6 animate-spin" />
-				{:else}
-					<ClipboardIcon class="size-6" />
-				{/if}
-			</CopyToClipboardButton>
-		</div>
+		<TranscriptDialog
+			recordingId={latestRecording.id}
+			transcribedText={latestRecording.transcriptionStatus === 'TRANSCRIBING'
+				? '...'
+				: latestRecording.transcribedText}
+			rows={1}
+			disabled={hasNoTranscribedText}
+			loading={latestRecording.transcriptionStatus === 'TRANSCRIBING'}
+		/>
 
 		{#if blobUrl}
 			<audio
@@ -360,50 +335,37 @@
 	<div class="xs:flex hidden flex-col items-center gap-3">
 		<p class="text-foreground/75 text-center text-sm">
 			Click the microphone or press
-			{' '}<WhisperingButton
-				tooltipContent="Go to local shortcut in settings"
+			{' '}<Link
+				tooltip="Go to local shortcut in settings"
 				href="/settings/shortcuts/local"
-				variant="link"
 			>
-				<kbd
-					class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
-				>
-					{getShortcutDisplayLabel(
-						settings.value['shortcuts.local.toggleManualRecording'],
-					)}
-				</kbd>
-			</WhisperingButton>{' '}
+	<Kbd.Root>{getShortcutDisplayLabel(settings.value['shortcuts.local.toggleManualRecording'])}</Kbd.Root>
+			</Link>{' '}
 			to start recording here.
 		</p>
 		{#if window.__TAURI_INTERNALS__}
 			<p class="text-foreground/75 text-sm">
 				Press
-				{' '}<WhisperingButton
-					tooltipContent="Go to global shortcut in settings"
+				{' '}<Link
+					tooltip="Go to global shortcut in settings"
 					href="/settings/shortcuts/global"
-					variant="link"
 				>
-					<kbd
-						class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
-					>
-						{settings.value['shortcuts.global.toggleManualRecording']}
-					</kbd>
-				</WhisperingButton>{' '}
+	<Kbd.Root>{getShortcutDisplayLabel(settings.value['shortcuts.global.toggleManualRecording'])}</Kbd.Root>
+				</Link>{' '}
 				to start recording anywhere.
 			</p>
 		{/if}
 		<p class="text-muted-foreground text-center text-sm font-light">
 			{#if !window.__TAURI_INTERNALS__}
 				Tired of switching tabs?
-				<WhisperingButton
-					tooltipContent="Get Whispering for desktop"
+				<Link
+					tooltip="Get Whispering for desktop"
 					href="https://epicenter.so/whispering"
 					target="_blank"
 					rel="noopener noreferrer"
-					variant="link"
 				>
 					Get the native desktop app
-				</WhisperingButton>
+				</Link>
 			{/if}
 		</p>
 	</div>
