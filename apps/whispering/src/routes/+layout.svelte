@@ -6,6 +6,7 @@
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster, type ToasterProps } from 'svelte-sonner';
 	import '@epicenter/ui/app.css';
+	import * as Tooltip from '@epicenter/ui/tooltip';
 
 	let { children } = $props();
 
@@ -42,7 +43,9 @@
 </svelte:head>
 
 <QueryClientProvider client={queryClient}>
-	{@render children()}
+	<Tooltip.Provider delayDuration={300} skipDelayDuration={150}>
+		{@render children()}
+	</Tooltip.Provider>
 </QueryClientProvider>
 
 <Toaster

@@ -37,6 +37,11 @@
 		WithElementRef<HTMLAnchorAttributes> & {
 			variant?: ButtonVariant;
 			size?: ButtonSize;
+			/**
+			 * Tooltip text to display on hover.
+			 * Requires a parent `<Tooltip.Provider>` in the component tree.
+			 * Wrap your app root with `<Tooltip.Provider>` to enable tooltip coordination.
+			 */
 			tooltip?: string;
 		};
 </script>
@@ -88,19 +93,21 @@
 	{/if}
 {/snippet}
 
+<!--
+	When using the tooltip prop, this component requires a parent Tooltip.Provider.
+	Wrap your app root with <Tooltip.Provider> to enable tooltip coordination.
+-->
 {#if tooltip}
-	<Tooltip.Provider>
-		<Tooltip.Root>
-			<Tooltip.Trigger>
-				{#snippet child({ props })}
-					{@render buttonContent(props)}
-				{/snippet}
-			</Tooltip.Trigger>
-			<Tooltip.Content class="max-w-xs text-center">
-				{tooltip}
-			</Tooltip.Content>
-		</Tooltip.Root>
-	</Tooltip.Provider>
+	<Tooltip.Root>
+		<Tooltip.Trigger>
+			{#snippet child({ props })}
+				{@render buttonContent(props)}
+			{/snippet}
+		</Tooltip.Trigger>
+		<Tooltip.Content class="max-w-xs text-center">
+			{tooltip}
+		</Tooltip.Content>
+	</Tooltip.Root>
 {:else}
 	{@render buttonContent()}
 {/if}
