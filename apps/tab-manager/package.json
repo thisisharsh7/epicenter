@@ -16,11 +16,12 @@
 	"dependencies": {
 		"@epicenter/ui": "workspace:*",
 		"@lucide/svelte": "catalog:",
-		"@tanstack/svelte-query": "^5.80.7",
-		"wellcrafted": "catalog:",
+		"@tanstack/svelte-query": "catalog:",
+		"@tanstack/svelte-query-devtools": "catalog:",
 		"arktype": "catalog:",
 		"clsx": "catalog:",
-		"tailwind-merge": "catalog:"
+		"tailwind-merge": "catalog:",
+		"wellcrafted": "catalog:"
 	},
 	"devDependencies": {
 		"wxt": "^0.20.8",
