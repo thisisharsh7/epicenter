@@ -248,9 +248,9 @@
 		<!-- Output Options (Primary) -->
 		<div class="rounded-lg border p-4 space-y-3">
 			<div class="flex items-center justify-between">
-				<h5 class="text-sm font-medium">
+				<h5 class="text-sm font-medium flex items-baseline gap-2">
 					<span class="text-primary">Output</span>
-					<span class="text-xs text-muted-foreground font-normal ml-2"
+					<span class="text-xs text-muted-foreground font-normal"
 						>Primary settings</span
 					>
 				</h5>
@@ -394,10 +394,10 @@
 		<!-- Advanced Options (Collapsible) -->
 		<details class="group">
 			<summary
-				class="cursor-pointer select-none rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
+				class="cursor-pointer select-none rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors flex items-baseline gap-2"
 			>
 				<span class="text-sm font-medium">Advanced Options</span>
-				<span class="text-xs text-muted-foreground ml-2"
+				<span class="text-xs text-muted-foreground"
 					>Raw FFmpeg parameters</span
 				>
 			</summary>
