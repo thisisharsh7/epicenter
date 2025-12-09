@@ -14,7 +14,7 @@
 	} = $props();
 
 	// Use vadRecorder.enumerateDevices for VAD (navigator devices only)
-	const getDevicesQuery = createQuery(vadRecorder.enumerateDevices.options);
+	const getDevicesQuery = createQuery(() => vadRecorder.enumerateDevices.options);
 
 	$effect(() => {
 		if (getDevicesQuery.isError) {

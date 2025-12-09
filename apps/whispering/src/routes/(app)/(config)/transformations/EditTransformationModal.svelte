@@ -15,11 +15,11 @@
 	import MarkTransformationActiveButton from './MarkTransformationActiveButton.svelte';
 
 	const updateTransformation = createMutation(
-		rpc.db.transformations.update.options,
+		() => rpc.db.transformations.update.options,
 	);
 
 	const deleteTransformation = createMutation(
-		rpc.db.transformations.delete.options,
+		() => rpc.db.transformations.delete.options,
 	);
 
 	let {

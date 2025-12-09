@@ -13,9 +13,9 @@
 	import { Spinner } from '@epicenter/ui/spinner';
 	import { onDestroy } from 'svelte';
 
-	const updateRecording = createMutation(rpc.db.recordings.update.options);
+	const updateRecording = createMutation(() => rpc.db.recordings.update.options);
 
-	const deleteRecording = createMutation(rpc.db.recordings.delete.options);
+	const deleteRecording = createMutation(() => rpc.db.recordings.delete.options);
 
 	let { recording }: { recording: Recording } = $props();
 
@@ -69,7 +69,7 @@
 	 * Uses accessor pattern for reactive updates.
 	 */
 	const audioPlaybackUrlQuery = createQuery(
-		rpc.db.recordings.getAudioPlaybackUrl(() => recording.id).options,
+		() => rpc.db.recordings.getAudioPlaybackUrl(() => recording.id).options,
 	);
 
 	const audioUrl = $derived(audioPlaybackUrlQuery.data);

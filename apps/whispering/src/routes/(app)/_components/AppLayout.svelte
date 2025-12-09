@@ -34,7 +34,7 @@
 	import { registerOnboarding } from '../_layout-utils/register-onboarding';
 
 	const getRecorderStateQuery = createQuery(
-		rpc.recorder.getRecorderState.options,
+		() => rpc.recorder.getRecorderState.options,
 	);
 
 	let cleanupAccessibilityPermission: (() => void) | undefined;

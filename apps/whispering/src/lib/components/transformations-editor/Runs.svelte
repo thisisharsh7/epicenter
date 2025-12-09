@@ -22,7 +22,7 @@
 
 	let expandedRunId = $state<string | null>(null);
 
-	const deleteRunMutation = createMutation(rpc.db.runs.delete.options);
+	const deleteRunMutation = createMutation(() => rpc.db.runs.delete.options);
 
 	function toggleRunExpanded(runId: string) {
 		expandedRunId = expandedRunId === runId ? null : runId;
