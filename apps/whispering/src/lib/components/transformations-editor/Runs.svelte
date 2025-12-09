@@ -76,7 +76,7 @@
 				}}
 				disabled={deleteRunMutation.isPending}
 			>
-				<Trash2 class="mr-2 size-4" />
+				<Trash2 class="size-4" />
 				{#if deleteRunMutation.isPending}
 					Deleting...
 				{:else}

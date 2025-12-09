@@ -170,7 +170,7 @@
 								class="flex-1"
 								onclick={() => keyRecorder.clear()}
 							>
-								<XIcon class="mr-2 size-3" />
+								<XIcon class="size-3" />
 								Clear
 							</Button>
 						{/if}
@@ -184,7 +184,7 @@
 								keyRecorder.stop();
 							}}
 						>
-							<Pencil class="mr-2 size-3" />
+							<Pencil class="size-3" />
 							Edit manually
 						</Button>
 					</div>

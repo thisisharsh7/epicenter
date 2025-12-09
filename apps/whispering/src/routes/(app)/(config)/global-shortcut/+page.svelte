@@ -25,7 +25,7 @@
 				variant="default"
 				size="lg"
 			>
-				<DesktopIcon class="mr-2 size-6" />
+				<DesktopIcon class="size-6" />
 				Download for Desktop
 			</Button>
 			<Button
@@ -36,7 +36,7 @@
 				variant="outline"
 				size="lg"
 			>
-				<ChromeWebStoreIcon class="mr-2 size-6" />
+				<ChromeWebStoreIcon class="size-6" />
 				Get Chrome Extension
 			</Button>
 		</div>

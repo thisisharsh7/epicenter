@@ -69,7 +69,7 @@
 				popover.open = false;
 			}}
 		>
-			<SettingsIcon class="mr-2 h-4 w-4" />
+			<SettingsIcon class="h-4 w-4" />
 			Configure in transcription settings
 		</Button>
 	</Popover.Content>
