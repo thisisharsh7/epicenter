@@ -64,7 +64,15 @@ export type { Db, TableHelper } from './core/db/core';
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
 
-export type { GetResult, RowResult, YRow } from './core/db/table-helper';
+export type {
+	DeleteManyResult,
+	DeleteResult,
+	GetResult,
+	RowResult,
+	UpdateManyResult,
+	UpdateResult,
+	YRow,
+} from './core/db/table-helper';
 
 // Epicenter types (shared across platforms)
 // Note: EpicenterConfig and defineEpicenter are exported from platform-specific
