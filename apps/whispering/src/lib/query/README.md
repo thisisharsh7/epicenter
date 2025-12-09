@@ -102,7 +102,7 @@ The query layer uses the TanStack Query client to manipulate the cache for optim
 ```typescript
 // From recordings mutations
 createRecording: defineMutation({
-	resultMutationFn: async (recording: Recording) => {
+	mutationFn: async (recording: Recording) => {
 		const { data, error } = await services.db.createRecording(recording);
 		if (error) return Err(error);
 
@@ -121,7 +121,7 @@ The query layer co-locates three key things in one place: (1) the service call, 
 
 ## Error Transformation Pattern
 
-A critical responsibility of the query layer is transforming service-specific errors into `WhisperingError` types that work seamlessly with our toast notification system. This transformation happens inside `resultMutationFn` or `resultQueryFn`, creating a clean boundary between business logic errors and UI presentation.
+A critical responsibility of the query layer is transforming service-specific errors into `WhisperingError` types that work seamlessly with our toast notification system. This transformation happens inside `mutationFn` or `queryFn`, creating a clean boundary between business logic errors and UI presentation.
 
 ### Error Handling Architecture
 
@@ -138,9 +138,9 @@ This pattern ensures consistent error handling and avoids double-wrapping errors
 Services return their own specific error types (e.g., `RecorderServiceError`, `CpalRecorderServiceError`), which contain detailed error information. The query layer transforms these into `WhisperingError` with UI-friendly formatting:
 
 ```typescript
-// From manualRecorder.ts - Error transformation in resultMutationFn
+// From manualRecorder.ts - Error transformation in mutationFn
 startRecording: defineMutation({
-	resultMutationFn: async ({ toastId }: { toastId: string }) => {
+	mutationFn: async ({ toastId }: { toastId: string }) => {
 		const { data: deviceAcquisitionOutcome, error: startRecordingError } =
 			await services.recorder.startRecording(recordingSettings, {
 				sendStatus: (options) =>
@@ -176,7 +176,7 @@ startRecording: defineMutation({
    type RecorderServiceError = TaggedError<'RecorderServiceError'>;
    ```
 
-2. **Query Layer**: Transforms to `WhisperingError` in `resultMutationFn`/`resultQueryFn`
+2. **Query Layer**: Transforms to `WhisperingError` in `mutationFn`/`queryFn`
 
    ```typescript
    if (serviceError) {
@@ -208,7 +208,7 @@ startRecording: defineMutation({
 ```typescript
 // From cpalRecorder.ts
 getRecorderState: defineQuery({
-	resultQueryFn: async () => {
+	queryFn: async () => {
 		const { data: recorderState, error: getRecorderStateError } =
 			await services.cpalRecorder.getRecorderState();
 
@@ -250,7 +250,7 @@ if (getRecorderStateError) {
 // BAD: Query layer should wrap errors, not return raw service errors
 getRecorderState: defineQuery({
 	queryKey: recorderKeys.state,
-	resultQueryFn: () => services.recorder.getRecorderState(), // Missing error wrapping!
+	queryFn: () => services.recorder.getRecorderState(), // Missing error wrapping!
 	initialData: 'IDLE' as WhisperingRecordingState,
 });
 ```
@@ -260,7 +260,7 @@ getRecorderState: defineQuery({
 ```typescript
 // GOOD: Query wraps service errors, UI uses them directly
 getRecorderState: defineQuery({
-	resultQueryFn: async () => {
+	queryFn: async () => {
 		const { data, error } = await services.recorder.getRecorderState();
 		if (error) {
 			return Err(
@@ -682,7 +682,7 @@ These factory functions (`defineQuery` and `defineMutation`) take query options 
 // Your service returns Result<T, E>
 const userQuery = defineQuery({
 	queryKey: ['users', userId],
-	resultQueryFn: () => services.getUser(userId), // Returns Result<User, ApiError>
+	queryFn: () => services.getUser(userId), // Returns Result<User, ApiError>
 });
 
 // ✅ Reactive interface - creates query observer
@@ -703,7 +703,7 @@ const { data, error } = await userQuery.fetch();
 ```typescript
 const createRecording = defineMutation({
 	mutationKey: ['recordings', 'create'],
-	resultMutationFn: async (recording) => {
+	mutationFn: async (recording) => {
 		const result = await services.db.createRecording(recording);
 		if (result.error) return Err(result.error);
 
@@ -738,7 +738,7 @@ const { error } = await createRecording.execute(recording);
 export const recordings = {
 	getAllRecordings: defineQuery({
 		queryKey: ['recordings'],
-		resultQueryFn: () => services.db.getAllRecordings(),
+		queryFn: () => services.db.getAllRecordings(),
 	}),
 };
 ```
@@ -749,7 +749,7 @@ export const recordings = {
 getRecordingById: (id: Accessor<string>) =>
   defineQuery({
     queryKey: ['recordings', id()], // Dynamic key based on ID
-    resultQueryFn: () => services.db.getRecordingById(id()),
+    queryFn: () => services.db.getRecordingById(id()),
   }),
 ```
 
@@ -758,7 +758,7 @@ getRecordingById: (id: Accessor<string>) =>
 ```typescript
 createRecording: defineMutation({
   mutationKey: ['recordings', 'create'],
-  resultMutationFn: async (recording: Recording) => {
+  mutationFn: async (recording: Recording) => {
     const result = await services.db.createRecording(recording);
     if (result.error) return Err(result.error);
 
@@ -789,7 +789,7 @@ function transcribeBlob(blob: Blob) {
 
 ```typescript
 transcribeRecording: defineMutation({
-  resultMutationFn: async (recording) => {
+  mutationFn: async (recording) => {
     // Step 1: Update status
     await recordings.updateRecording.execute({
       ...recording,
@@ -869,7 +869,7 @@ Actions in the query layer always return `Ok` after handling errors. They notify
 
 ```typescript
 const startManualRecording = defineMutation({
-	resultMutationFn: async () => {
+	mutationFn: async () => {
 		const { error } = await recorder.startRecording.execute();
 		if (error) {
 			notify.error.execute(error); // Notify user
@@ -985,7 +985,7 @@ const vadStateQuery = createQuery(() => ({
 
 ```typescript
 defineMutation({
-	resultMutationFn: async (recording) => {
+	mutationFn: async (recording) => {
 		const result = await services.db.createRecording(recording);
 		if (result.error) return Err(result.error);
 
@@ -1043,7 +1043,7 @@ Wraps services with reactivity and caching:
 export const recordings = {
 	getAllRecordings: defineQuery({
 		queryKey: ['recordings'],
-		resultQueryFn: () => services.db.getAllRecordings(), // Calls the service
+		queryFn: () => services.db.getAllRecordings(), // Calls the service
 	}),
 };
 ```

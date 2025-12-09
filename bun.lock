@@ -346,7 +346,7 @@
     "turbo": "^2.6.1",
     "typescript": "^5.9.3",
     "vite": "^7.2.4",
-    "wellcrafted": "^0.28.0",
+    "wellcrafted": "^0.29.0",
     "wrangler": "^4.51.0",
     "yargs": "^18.0.0",
   },
@@ -2461,7 +2461,7 @@
 
     "webidl-conversions": ["webidl-conversions@8.0.0", "", {}, "sha512-n4W4YFyz5JzOfQeA8oN7dUYpR+MBP3PIUsn2jLjWXwK5ASUzt0Jc/A5sAUZoCYFJRGF0FBKJ+1JjN43rNdsQzA=="],
 
-    "wellcrafted": ["wellcrafted@0.28.0", "", {}, "sha512-alZo8qTuQCC7ZWnoXHp2zhD2o0CJzSxm2AizRCc+mjNEEMNNB3f10oCwtzqBxoKU8wDb/LnZ9MtDQTXVa2mbmg=="],
+    "wellcrafted": ["wellcrafted@0.29.0", "", {}, "sha512-A7RveTHJN1yyXBblJjlo4HHE7WTQ2EVi7JyH+uEb0fg8PJp+bv9dJXlnEva9TMhE/1m0ib7WGGuixpuCtNAC7A=="],
 
     "whatwg-encoding": ["whatwg-encoding@3.1.1", "", { "dependencies": { "iconv-lite": "0.6.3" } }, "sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ=="],
 

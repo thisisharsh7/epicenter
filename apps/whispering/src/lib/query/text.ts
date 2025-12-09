@@ -12,16 +12,16 @@ const textKeys = {
 export const text = {
 	readFromClipboard: defineQuery({
 		queryKey: textKeys.readFromClipboard,
-		resultQueryFn: () => services.text.readFromClipboard(),
+		queryFn: () => services.text.readFromClipboard(),
 	}),
 	copyToClipboard: defineMutation({
 		mutationKey: ['text', 'copyToClipboard'],
-		resultMutationFn: ({ text }: { text: string }) =>
+		mutationFn: ({ text }: { text: string }) =>
 			services.text.copyToClipboard(text),
 	}),
 	writeToCursor: defineMutation({
 		mutationKey: ['text', 'writeToCursor'],
-		resultMutationFn: async ({ text }: { text: string }) => {
+		mutationFn: async ({ text }: { text: string }) => {
 			// writeToCursor handles everything internally:
 			// 1. Saves current clipboard
 			// 2. Writes text to clipboard
@@ -32,6 +32,6 @@ export const text = {
 	}),
 	simulateEnterKeystroke: defineMutation({
 		mutationKey: textKeys.simulateEnterKeystroke,
-		resultMutationFn: () => services.text.simulateEnterKeystroke(),
+		mutationFn: () => services.text.simulateEnterKeystroke(),
 	}),
 };

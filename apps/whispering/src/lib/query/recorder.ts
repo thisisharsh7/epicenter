@@ -29,7 +29,7 @@ export const recorder = {
 	// Query that enumerates available recording devices with labels
 	enumerateDevices: defineQuery({
 		queryKey: recorderKeys.devices,
-		resultQueryFn: async () => {
+		queryFn: async () => {
 			const { data, error } = await recorderService().enumerateDevices();
 			if (error) {
 				return fromTaggedErr(error, {
@@ -44,7 +44,7 @@ export const recorder = {
 	// Query that returns the recorder state (IDLE or RECORDING)
 	getRecorderState: defineQuery({
 		queryKey: recorderKeys.recorderState,
-		resultQueryFn: async () => {
+		queryFn: async () => {
 			const { data: state, error: getStateError } =
 				await recorderService().getRecorderState();
 			if (getStateError) {
@@ -60,7 +60,7 @@ export const recorder = {
 
 	startRecording: defineMutation({
 		mutationKey: recorderKeys.startRecording,
-		resultMutationFn: async ({ toastId }: { toastId: string }) => {
+		mutationFn: async ({ toastId }: { toastId: string }) => {
 			// Generate a unique recording ID that will serve as the file name
 			const recordingId = nanoid();
 
@@ -129,7 +129,7 @@ export const recorder = {
 
 	stopRecording: defineMutation({
 		mutationKey: recorderKeys.stopRecording,
-		resultMutationFn: async ({ toastId }: { toastId: string }) => {
+		mutationFn: async ({ toastId }: { toastId: string }) => {
 			const { data: blob, error: stopRecordingError } =
 				await recorderService().stopRecording({
 					sendStatus: (options) =>
@@ -167,7 +167,7 @@ export const recorder = {
 
 	cancelRecording: defineMutation({
 		mutationKey: recorderKeys.cancelRecording,
-		resultMutationFn: async ({ toastId }: { toastId: string }) => {
+		mutationFn: async ({ toastId }: { toastId: string }) => {
 			const { data: cancelResult, error: cancelRecordingError } =
 				await recorderService().cancelRecording({
 					sendStatus: (options) =>

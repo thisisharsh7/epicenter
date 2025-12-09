@@ -41,12 +41,12 @@ export const db = {
 	recordings: {
 		getAll: defineQuery({
 			queryKey: dbKeys.recordings.all,
-			resultQueryFn: () => services.db.recordings.getAll(),
+			queryFn: () => services.db.recordings.getAll(),
 		}),
 
 		getLatest: defineQuery({
 			queryKey: dbKeys.recordings.latest,
-			resultQueryFn: () => services.db.recordings.getLatest(),
+			queryFn: () => services.db.recordings.getLatest(),
 			initialData: () =>
 				queryClient
 					.getQueryData<Recording[]>(dbKeys.recordings.all)
@@ -61,7 +61,7 @@ export const db = {
 		getById: (id: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.recordings.byId(id()),
-				resultQueryFn: () => services.db.recordings.getById(id()),
+				queryFn: () => services.db.recordings.getById(id()),
 				initialData: () =>
 					queryClient
 						.getQueryData<Recording[]>(dbKeys.recordings.all)
@@ -78,13 +78,13 @@ export const db = {
 		getAudioPlaybackUrl: (id: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.recordings.audioPlaybackUrl(id()),
-				resultQueryFn: () =>
+				queryFn: () =>
 					services.db.recordings.ensureAudioPlaybackUrl(id()),
 			}),
 
 		create: defineMutation({
 			mutationKey: ['db', 'recordings', 'create'] as const,
-			resultMutationFn: async (params: {
+			mutationFn: async (params: {
 				recording: Recording;
 				audio: Blob;
 			}) => {
@@ -116,7 +116,7 @@ export const db = {
 
 		update: defineMutation({
 			mutationKey: ['db', 'recordings', 'update'] as const,
-			resultMutationFn: async (recording: Recording) => {
+			mutationFn: async (recording: Recording) => {
 				const { data, error } = await services.db.recordings.update(recording);
 				if (error) return Err(error);
 
@@ -143,7 +143,7 @@ export const db = {
 
 		delete: defineMutation({
 			mutationKey: ['db', 'recordings', 'delete'] as const,
-			resultMutationFn: async (recordings: Recording | Recording[]) => {
+			mutationFn: async (recordings: Recording | Recording[]) => {
 				const recordingsArray = Array.isArray(recordings)
 					? recordings
 					: [recordings];
@@ -184,13 +184,13 @@ export const db = {
 	transformations: {
 		getAll: defineQuery({
 			queryKey: dbKeys.transformations.all,
-			resultQueryFn: () => services.db.transformations.getAll(),
+			queryFn: () => services.db.transformations.getAll(),
 		}),
 
 		getById: (id: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.transformations.byId(id()),
-				resultQueryFn: () => services.db.transformations.getById(id()),
+				queryFn: () => services.db.transformations.getById(id()),
 				initialData: () =>
 					queryClient
 						.getQueryData<Transformation[]>(dbKeys.transformations.all)
@@ -202,7 +202,7 @@ export const db = {
 
 		create: defineMutation({
 			mutationKey: ['db', 'transformations', 'create'] as const,
-			resultMutationFn: async (transformation: Transformation) => {
+			mutationFn: async (transformation: Transformation) => {
 				const { data, error } =
 					await services.db.transformations.create(transformation);
 				if (error) return Err(error);
@@ -225,7 +225,7 @@ export const db = {
 
 		update: defineMutation({
 			mutationKey: ['db', 'transformations', 'update'] as const,
-			resultMutationFn: async (transformation: Transformation) => {
+			mutationFn: async (transformation: Transformation) => {
 				const { data, error } =
 					await services.db.transformations.update(transformation);
 				if (error) return Err(error);
@@ -250,7 +250,7 @@ export const db = {
 
 		delete: defineMutation({
 			mutationKey: ['db', 'transformations', 'delete'] as const,
-			resultMutationFn: async (
+			mutationFn: async (
 				transformations: Transformation | Transformation[],
 			) => {
 				const transformationsArray = Array.isArray(transformations)
@@ -297,25 +297,25 @@ export const db = {
 		getByTransformationId: (id: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.runs.byTransformationId(id()),
-				resultQueryFn: () => services.db.runs.getByTransformationId(id()),
+				queryFn: () => services.db.runs.getByTransformationId(id()),
 			}),
 
 		getByRecordingId: (recordingId: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.runs.byRecordingId(recordingId()),
-				resultQueryFn: () => services.db.runs.getByRecordingId(recordingId()),
+				queryFn: () => services.db.runs.getByRecordingId(recordingId()),
 			}),
 
 		getLatestByRecordingId: (recordingId: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.runs.byRecordingId(recordingId()),
-				resultQueryFn: () => services.db.runs.getByRecordingId(recordingId()),
+				queryFn: () => services.db.runs.getByRecordingId(recordingId()),
 				select: (data) => data.at(0),
 			}),
 
 		delete: defineMutation({
 			mutationKey: ['db', 'runs', 'delete'] as const,
-			resultMutationFn: async (
+			mutationFn: async (
 				runs: TransformationRun | TransformationRun[],
 			) => {
 				const runsArray = Array.isArray(runs) ? runs : [runs];

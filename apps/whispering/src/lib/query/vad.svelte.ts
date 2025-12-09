@@ -46,7 +46,7 @@ function createVadRecorder() {
 		 */
 		enumerateDevices: defineQuery({
 			queryKey: ['vad', 'devices'],
-			resultQueryFn: async () => {
+			queryFn: async () => {
 				const { data, error } = await enumerateDevices();
 				if (error) {
 					return fromTaggedErr(error, {

@@ -5,7 +5,7 @@
 The VAD recorder currently uses TanStack Query's `invalidateQueries` pattern to notify UI components of state changes. This works but is suboptimal because:
 
 1. **Pull vs Push**: `invalidateQueries` marks the query as stale and triggers a refetch. But the state has already changed in the service; we just need to notify consumers.
-2. **Overhead**: Every `invalidateVadState()` call causes TanStack Query to re-execute `resultQueryFn`, even though it's just reading a synchronous getter.
+2. **Overhead**: Every `invalidateVadState()` call causes TanStack Query to re-execute `queryFn`, even though it's just reading a synchronous getter.
 3. **Inconsistency**: Other similar reactive state in the codebase (`createPressedKeys`, `createPersistedState`) uses `createSubscriber` pattern instead.
 
 ## Current Architecture
@@ -43,7 +43,7 @@ const invalidateVadState = () =>
 export const vadRecorder = {
   getVadState: defineQuery({
     queryKey: vadRecorderKeys.state,
-    resultQueryFn: () => {
+    queryFn: () => {
       const vadState = services.vad.getVadState();  // Just reads the getter
       return Ok(vadState);
     },
@@ -51,7 +51,7 @@ export const vadRecorder = {
   }),
 
   startActiveListening: defineMutation({
-    resultMutationFn: async ({ onSpeechStart, onSpeechEnd }) => {
+    mutationFn: async ({ onSpeechStart, onSpeechEnd }) => {
       await services.vad.startActiveListening({
         onSpeechStart: () => {
           invalidateVadState();  // Force refetch
@@ -189,7 +189,7 @@ export const vadRecorder = {
 
   // Mutations stay the same but remove invalidateVadState calls
   startActiveListening: defineMutation({
-    resultMutationFn: async ({ onSpeechStart, onSpeechEnd }) => {
+    mutationFn: async ({ onSpeechStart, onSpeechEnd }) => {
       const { data, error } = await services.vad.startActiveListening({
         deviceId: settings.value['recording.navigator.deviceId'],
         onSpeechStart,  // No invalidation needed

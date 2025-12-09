@@ -45,7 +45,7 @@ let isRecordingOperationBusy = false;
 // Internal mutations for manual recording
 const startManualRecording = defineMutation({
 	mutationKey: ['commands', 'startManualRecording'] as const,
-	resultMutationFn: async () => {
+	mutationFn: async () => {
 		// Prevent concurrent recording operations
 		if (isRecordingOperationBusy) {
 			console.info('Recording operation already in progress, ignoring start');
@@ -130,7 +130,7 @@ const startManualRecording = defineMutation({
 
 const stopManualRecording = defineMutation({
 	mutationKey: ['commands', 'stopManualRecording'] as const,
-	resultMutationFn: async () => {
+	mutationFn: async () => {
 		// Prevent concurrent recording operations
 		if (isRecordingOperationBusy) {
 			console.info('Recording operation already in progress, ignoring stop');
@@ -196,7 +196,7 @@ const stopManualRecording = defineMutation({
 // Internal mutations for VAD recording
 const startVadRecording = defineMutation({
 	mutationKey: ['commands', 'startVadRecording'] as const,
-	resultMutationFn: async () => {
+	mutationFn: async () => {
 		await settings.switchRecordingMode('vad');
 
 		const toastId = nanoid();
@@ -300,7 +300,7 @@ const startVadRecording = defineMutation({
 
 const stopVadRecording = defineMutation({
 	mutationKey: ['commands', 'stopVadRecording'] as const,
-	resultMutationFn: async () => {
+	mutationFn: async () => {
 		const toastId = nanoid();
 		console.info('Stopping voice activated capture');
 		notify.loading.execute({
@@ -332,7 +332,7 @@ export const commands = {
 	// Toggle manual recording
 	toggleManualRecording: defineMutation({
 		mutationKey: ['commands', 'toggleManualRecording'] as const,
-		resultMutationFn: async () => {
+		mutationFn: async () => {
 			const { data: recorderState, error: getRecorderStateError } =
 				await recorder.getRecorderState.fetch();
 			if (getRecorderStateError) {
@@ -349,7 +349,7 @@ export const commands = {
 	// Cancel manual recording
 	cancelManualRecording: defineMutation({
 		mutationKey: ['commands', 'cancelManualRecording'] as const,
-		resultMutationFn: async () => {
+		mutationFn: async () => {
 			// Prevent concurrent recording operations
 			if (isRecordingOperationBusy) {
 				console.info(
@@ -405,7 +405,7 @@ export const commands = {
 	// Toggle VAD recording
 	toggleVadRecording: defineMutation({
 		mutationKey: ['commands', 'toggleVadRecording'] as const,
-		resultMutationFn: async () => {
+		mutationFn: async () => {
 			if (vadRecorder.state === 'LISTENING' || vadRecorder.state === 'SPEECH_DETECTED') {
 				return await stopVadRecording.execute(undefined);
 			}
@@ -416,7 +416,7 @@ export const commands = {
 	// Upload recordings (supports multiple files)
 	uploadRecordings: defineMutation({
 		mutationKey: ['recordings', 'uploadRecordings'] as const,
-		resultMutationFn: async ({ files }: { files: File[] }) => {
+		mutationFn: async ({ files }: { files: File[] }) => {
 			await settings.switchRecordingMode('upload');
 			// Partition files into valid and invalid in a single pass
 			const { valid: validFiles, invalid: invalidFiles } = files.reduce<{
@@ -478,7 +478,7 @@ export const commands = {
 	// Open transformation picker to select a transformation
 	openTransformationPicker: defineMutation({
 		mutationKey: ['commands', 'openTransformationPicker'] as const,
-		resultMutationFn: async () => {
+		mutationFn: async () => {
 			await transformClipboardWindow.toggle();
 			return Ok(undefined);
 		},
@@ -487,7 +487,7 @@ export const commands = {
 	// Run selected transformation on clipboard
 	runTransformationOnClipboard: defineMutation({
 		mutationKey: ['commands', 'runTransformationOnClipboard'] as const,
-		resultMutationFn: async () => {
+		mutationFn: async () => {
 			// Get selected transformation from settings
 			const transformationId =
 				settings.value['transformations.selectedTransformationId'];
