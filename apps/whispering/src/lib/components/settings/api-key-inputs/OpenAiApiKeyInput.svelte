@@ -1,13 +1,29 @@
 <script lang="ts">
+	import { Badge } from '@epicenter/ui/badge';
 	import * as Field from '@epicenter/ui/field';
 	import { Input } from '@epicenter/ui/input';
 	import { Link } from '@epicenter/ui/link';
 	import { settings } from '$lib/stores/settings.svelte';
+
+	type Props = {
+		showBadges?: boolean;
+	};
+
+	let { showBadges = false }: Props = $props();
+
+	const capabilities = ['Transcription', 'Transformation'] as const;
 </script>
 
 <Field.Group>
 	<Field.Field>
-		<Field.Label for="openai-api-key">OpenAI API Key</Field.Label>
+		<Field.Label for="openai-api-key" class="flex items-center gap-2">
+			OpenAI API Key
+			{#if showBadges}
+				{#each capabilities as capability}
+					<Badge variant="secondary" class="text-xs">{capability}</Badge>
+				{/each}
+			{/if}
+		</Field.Label>
 		<Input
 			id="openai-api-key"
 			type="password"

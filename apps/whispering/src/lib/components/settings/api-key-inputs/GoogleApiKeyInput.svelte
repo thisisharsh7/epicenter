@@ -1,12 +1,28 @@
 <script lang="ts">
+	import { Badge } from '@epicenter/ui/badge';
 	import * as Field from '@epicenter/ui/field';
 	import { Input } from '@epicenter/ui/input';
 	import { Link } from '@epicenter/ui/link';
 	import { settings } from '$lib/stores/settings.svelte';
+
+	type Props = {
+		showBadges?: boolean;
+	};
+
+	let { showBadges = false }: Props = $props();
+
+	const capabilities = ['Transformation'] as const;
 </script>
 
 <Field.Field>
-	<Field.Label for="google-api-key">Google API Key</Field.Label>
+	<Field.Label for="google-api-key" class="flex items-center gap-2">
+		Google API Key
+		{#if showBadges}
+			{#each capabilities as capability}
+				<Badge variant="secondary" class="text-xs">{capability}</Badge>
+			{/each}
+		{/if}
+	</Field.Label>
 	<Input
 		id="google-api-key"
 		type="password"
