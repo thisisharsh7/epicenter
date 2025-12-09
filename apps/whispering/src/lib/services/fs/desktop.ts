@@ -17,9 +17,17 @@ async function readFileWithMimeType(path: string): Promise<{
 	bytes: Uint8Array<ArrayBuffer>;
 	mimeType: string;
 }> {
+	// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
 	const bytes = (await readFile(path)) as Uint8Array<ArrayBuffer>;
 	const mimeType = mime.getType(path) ?? 'application/octet-stream';
 	return { bytes, mimeType };
+}
+
+/** Reads a file from disk and creates a File object with the correct MIME type. */
+async function createFileFromPath(path: string): Promise<File> {
+	const { bytes, mimeType } = await readFileWithMimeType(path);
+	const fileName = await basename(path);
+	return new File([bytes], fileName, { type: mimeType });
 }
 
 export function createFsServiceDesktop(): FsService {
@@ -39,11 +47,7 @@ export function createFsServiceDesktop(): FsService {
 
 		pathToFile: async (path: string) => {
 			return tryAsync({
-				try: async () => {
-					const { bytes, mimeType } = await readFileWithMimeType(path);
-					const fileName = await basename(path);
-					return new File([bytes], fileName, { type: mimeType });
-				},
+				try: () => createFileFromPath(path),
 				catch: (error) =>
 					FsServiceErr({
 						message: `Failed to read file as File: ${path}: ${extractErrorMessage(error)}`,
@@ -53,16 +57,7 @@ export function createFsServiceDesktop(): FsService {
 
 		pathsToFiles: async (paths: string[]) => {
 			return tryAsync({
-				try: async () => {
-					const files: File[] = [];
-					for (const path of paths) {
-						const { bytes, mimeType } = await readFileWithMimeType(path);
-						const fileName = await basename(path);
-						const file = new File([bytes], fileName, { type: mimeType });
-						files.push(file);
-					}
-					return files;
-				},
+				try: () => Promise.all(paths.map(createFileFromPath)),
 				catch: (error) =>
 					FsServiceErr({
 						message: `Failed to read files: ${paths.join(', ')}: ${extractErrorMessage(error)}`,
