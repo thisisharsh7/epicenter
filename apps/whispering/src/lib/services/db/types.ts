@@ -85,16 +85,17 @@ export type DbService = {
 		getByRecordingId(
 			recordingId: string,
 		): Promise<Result<TransformationRun[], DbServiceError>>;
-		create(params: {
-			transformationId: string;
-			recordingId: string | null;
-			input: string;
-		}): Promise<Result<TransformationRun, DbServiceError>>;
 		create(
-			params: Array<{
-				run: TransformationRun;
-			}>,
-		): Promise<Result<TransformationRun[], DbServiceError>>;
+			params:
+				| {
+						transformationId: string;
+						recordingId: string | null;
+						input: string;
+				  }
+				| Array<{
+						run: TransformationRun;
+				  }>,
+		): Promise<Result<TransformationRun | TransformationRun[], DbServiceError>>;
 		addStep(
 			run: TransformationRun,
 			step: {

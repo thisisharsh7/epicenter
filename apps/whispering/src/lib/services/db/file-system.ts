@@ -817,7 +817,7 @@ export function createFileSystemDb(): DbService {
 				});
 			},
 
-			create: (async (params) => {
+			async create(params) {
 				// Check if array for bulk insert
 				if (Array.isArray(params)) {
 					return tryAsync({
@@ -883,7 +883,7 @@ export function createFileSystemDb(): DbService {
 							message: `Error creating transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
-			}) as DbService['runs']['create'],
+			},
 
 			async addStep(run, step) {
 				return tryAsync({

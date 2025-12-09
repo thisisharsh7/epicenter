@@ -872,7 +872,7 @@ export function createDbServiceWeb({
 				});
 			},
 
-			create: (async (params) => {
+			create: async (params) => {
 				const now = new Date().toISOString();
 
 				// Check if array for bulk insert
@@ -911,7 +911,7 @@ export function createDbServiceWeb({
 				if (createTransformationRunError)
 					return Err(createTransformationRunError);
 				return Ok(transformationRunWithTimestamps);
-			}) as DbService['runs']['create'],
+			},
 
 			addStep: async (run, step) => {
 				const now = new Date().toISOString();

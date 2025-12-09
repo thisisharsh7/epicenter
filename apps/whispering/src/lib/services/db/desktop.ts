@@ -546,13 +546,10 @@ export function createDbServiceDesktop({
 				return Ok(result);
 			},
 
-			create: ((params) => {
+			create: async (params) => {
 				// SINGLE WRITE: Only to file system
-				if (Array.isArray(params)) {
-					return fileSystemDb.runs.create(params);
-				}
 				return fileSystemDb.runs.create(params);
-			}) as DbService['runs']['create'],
+			},
 
 			addStep: async (run, step) => {
 				// SINGLE WRITE: Only to file system
