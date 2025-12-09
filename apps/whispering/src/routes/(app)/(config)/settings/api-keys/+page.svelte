@@ -10,6 +10,7 @@
 		OpenRouterApiKeyInput,
 		CustomEndpointInput,
 	} from '$lib/components/settings';
+	import * as Field from '@epicenter/ui/field';
 	import { Separator } from '@epicenter/ui/separator';
 </script>
 
@@ -24,15 +25,27 @@
 			Configure your API keys for Whispering.
 		</p>
 	</div>
+
 	<Separator />
 
-	<OpenAiApiKeyInput />
-	<DeepgramApiKeyInput />
-	<OpenRouterApiKeyInput />
-	<CustomEndpointInput />
-	<AnthropicApiKeyInput />
-	<GroqApiKeyInput />
-	<GoogleApiKeyInput />
-	<ElevenLabsApiKeyInput />
-	<MistralApiKeyInput />
+	<Field.Group>
+		<!-- Multi-purpose services (transcription + transformation) -->
+		<OpenAiApiKeyInput />
+		<GroqApiKeyInput />
+		<MistralApiKeyInput />
+
+		<!-- Transcription-focused services -->
+		<DeepgramApiKeyInput />
+		<ElevenLabsApiKeyInput />
+
+		<!-- Transformation-focused services -->
+		<AnthropicApiKeyInput />
+		<OpenRouterApiKeyInput />
+		<GoogleApiKeyInput />
+
+		<Field.Separator />
+
+		<!-- Custom endpoints -->
+		<CustomEndpointInput />
+	</Field.Group>
 </div>
