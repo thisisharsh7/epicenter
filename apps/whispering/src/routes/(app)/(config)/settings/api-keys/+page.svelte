@@ -11,6 +11,7 @@
 		CustomEndpointInput,
 	} from '$lib/components/settings';
 	import * as Field from '@epicenter/ui/field';
+	import * as Tabs from '@epicenter/ui/tabs';
 </script>
 
 <svelte:head>
@@ -19,37 +20,71 @@
 
 <Field.Set>
 	<Field.Legend>API Keys</Field.Legend>
-	<Field.Description>
-		Configure your API keys for Whispering.
-	</Field.Description>
+	<Field.Description>Configure your API keys for Whispering.</Field.Description>
 	<Field.Separator />
-	<Field.Group>
-		<!-- Multi-purpose services (transcription + transformation) -->
-		<OpenAiApiKeyInput />
-		<Field.Separator />
-		<GroqApiKeyInput />
-		<Field.Separator />
-		<MistralApiKeyInput />
 
-		<Field.Separator />
+	<Tabs.Root value="all" class="w-full">
+		<Tabs.List class="grid w-full grid-cols-3">
+			<Tabs.Trigger value="all">All</Tabs.Trigger>
+			<Tabs.Trigger value="transcription">Transcription</Tabs.Trigger>
+			<Tabs.Trigger value="transformation">Transformation</Tabs.Trigger>
+		</Tabs.List>
 
-		<!-- Transcription-focused services -->
-		<DeepgramApiKeyInput />
-		<Field.Separator />
-		<ElevenLabsApiKeyInput />
+		<!-- All Tab -->
+		<Tabs.Content value="all" class="mt-4">
+			<Field.Group>
+				<OpenAiApiKeyInput />
+				<Field.Separator />
+				<GroqApiKeyInput />
+				<Field.Separator />
+				<MistralApiKeyInput />
+				<Field.Separator />
+				<DeepgramApiKeyInput />
+				<Field.Separator />
+				<ElevenLabsApiKeyInput />
+				<Field.Separator />
+				<AnthropicApiKeyInput />
+				<Field.Separator />
+				<OpenRouterApiKeyInput />
+				<Field.Separator />
+				<GoogleApiKeyInput />
+				<Field.Separator />
+				<CustomEndpointInput />
+			</Field.Group>
+		</Tabs.Content>
 
-		<Field.Separator />
+		<!-- Transcription Tab -->
+		<Tabs.Content value="transcription" class="mt-4">
+			<Field.Group>
+				<OpenAiApiKeyInput />
+				<Field.Separator />
+				<GroqApiKeyInput />
+				<Field.Separator />
+				<MistralApiKeyInput />
+				<Field.Separator />
+				<DeepgramApiKeyInput />
+				<Field.Separator />
+				<ElevenLabsApiKeyInput />
+			</Field.Group>
+		</Tabs.Content>
 
-		<!-- Transformation-focused services -->
-		<AnthropicApiKeyInput />
-		<Field.Separator />
-		<OpenRouterApiKeyInput />
-		<Field.Separator />
-		<GoogleApiKeyInput />
-
-		<Field.Separator />
-
-		<!-- Custom endpoints -->
-		<CustomEndpointInput />
-	</Field.Group>
+		<!-- Transformation Tab -->
+		<Tabs.Content value="transformation" class="mt-4">
+			<Field.Group>
+				<OpenAiApiKeyInput />
+				<Field.Separator />
+				<GroqApiKeyInput />
+				<Field.Separator />
+				<MistralApiKeyInput />
+				<Field.Separator />
+				<AnthropicApiKeyInput />
+				<Field.Separator />
+				<OpenRouterApiKeyInput />
+				<Field.Separator />
+				<GoogleApiKeyInput />
+				<Field.Separator />
+				<CustomEndpointInput />
+			</Field.Group>
+		</Tabs.Content>
+	</Tabs.Root>
 </Field.Set>
