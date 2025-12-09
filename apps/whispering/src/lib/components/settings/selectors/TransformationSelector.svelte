@@ -69,7 +69,7 @@
 				{#if selectedTransformation}
 					<SparklesIcon class="size-4 text-green-500" />
 				{:else}
-					<WandIcon class="size-4 text-amber-500" />
+					<WandIcon class="size-4 text-warning" />
 				{/if}
 				{#if !selectedTransformation}
 					<span

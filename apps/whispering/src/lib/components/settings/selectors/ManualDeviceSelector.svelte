@@ -74,7 +74,7 @@
 				{#if isDeviceSelected}
 					<MicIcon class="size-4 text-green-500" />
 				{:else}
-					<MicIcon class="size-4 text-amber-500" />
+					<MicIcon class="size-4 text-warning" />
 				{/if}
 			</Button>
 		{/snippet}

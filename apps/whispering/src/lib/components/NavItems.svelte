@@ -178,7 +178,7 @@
 							<div class="relative size-4">
 								<Database class="size-4" aria-hidden="true" />
 								<span
-									class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+									class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-warning before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-warning/50 before:animate-ping"
 								></span>
 							</div>
 							<span>Database Migration Manager</span>
@@ -245,7 +245,7 @@
 					>
 						<Database class="size-4" aria-hidden="true" />
 						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-warning before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-warning/50 before:animate-ping"
 						></span>
 					</Button>
 				{/snippet}
