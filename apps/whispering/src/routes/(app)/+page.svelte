@@ -20,7 +20,6 @@
 	import * as services from '$lib/services';
 	import type { Recording } from '$lib/services/db';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
 	import { Button } from '@epicenter/ui/button';
 	import {
@@ -49,18 +48,16 @@
 			createdAt: '',
 			updatedAt: '',
 			timestamp: '',
-			blob: new Blob(),
 			transcribedText: '',
 			transcriptionStatus: 'UNPROCESSED',
 		},
 	);
 
-	const blobUrlManager = createBlobUrlManager();
+	const audioPlaybackUrlQuery = createQuery(() =>
+		rpc.db.recordings.getAudioPlaybackUrl(() => latestRecording.id).options,
+	);
 
-	const blobUrl = $derived.by(() => {
-		if (!latestRecording.blob) return undefined;
-		return blobUrlManager.createUrl(latestRecording.blob);
-	});
+	const blobUrl = $derived(audioPlaybackUrlQuery.data);
 
 	const hasNoTranscribedText = $derived(
 		!latestRecording.transcribedText?.trim(),
@@ -168,8 +165,11 @@
 	});
 
 	onDestroy(() => {
-		blobUrlManager.revokeCurrentUrl();
 		unlistenDragDrop?.();
+		// Clean up audio URL when component unmounts to prevent memory leaks
+		if (latestRecording.id) {
+			services.db.recordings.revokeAudioUrl(latestRecording.id);
+		}
 	});
 </script>
 
@@ -319,7 +319,7 @@
 			<audio
 				style="view-transition-name: {getRecordingTransitionId({
 					recordingId: latestRecording.id,
-					propertyName: 'blob',
+					propertyName: 'id',
 				})}"
 				src={blobUrl}
 				controls
