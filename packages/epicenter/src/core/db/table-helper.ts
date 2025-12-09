@@ -497,23 +497,16 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				const deleted: string[] = [];
 				const notFoundLocally: string[] = [];
 
-				// Check which IDs exist before the transaction
-				for (const id of params.ids) {
-					if (ytable.has(id)) {
-						deleted.push(id);
-					} else {
-						notFoundLocally.push(id);
-					}
-				}
-
-				// Only delete the ones that exist
-				if (deleted.length > 0) {
-					ydoc.transact(() => {
-						for (const id of deleted) {
+				ydoc.transact(() => {
+					for (const id of params.ids) {
+						if (ytable.has(id)) {
 							ytable.delete(id);
+							deleted.push(id);
+						} else {
+							notFoundLocally.push(id);
 						}
-					});
-				}
+					}
+				});
 
 				if (notFoundLocally.length === 0) {
 					return { status: 'all_deleted', deleted };
