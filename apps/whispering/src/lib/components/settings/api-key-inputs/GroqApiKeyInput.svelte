@@ -30,7 +30,7 @@
 	</Field.Field>
 
 	<Field.Field>
-		<Field.Label for="groq-base-url">Custom Base URL (Optional)</Field.Label>
+		<Field.Label for="groq-base-url">Groq Base URL</Field.Label>
 		<Input
 			id="groq-base-url"
 			type="url"

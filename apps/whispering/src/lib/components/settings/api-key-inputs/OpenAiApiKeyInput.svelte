@@ -37,7 +37,7 @@
 	</Field.Field>
 
 	<Field.Field>
-		<Field.Label for="openai-base-url">Custom Base URL (Optional)</Field.Label>
+		<Field.Label for="openai-base-url">OpenAI Base URL</Field.Label>
 		<Input
 			id="openai-base-url"
 			type="url"
