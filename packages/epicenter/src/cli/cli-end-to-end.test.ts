@@ -13,10 +13,10 @@ import {
 	generateId,
 	id,
 	integer,
-	markdownIndex,
-	sqliteIndex,
 	text,
-} from '../index';
+} from '../index.node';
+import { markdownIndex } from '../indexes/markdown';
+import { sqliteIndex } from '../indexes/sqlite';
 import { createCLI } from './cli';
 
 /**
