@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Ok } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
-import { fromTaggedErr, WhisperingErr } from '$lib/result';
+import { WhisperingErr } from '$lib/result';
 import * as services from '$lib/services';
 import { getDefaultRecordingsFolder } from '$lib/services/recorder';
 import { settings } from '$lib/stores/settings.svelte';
@@ -32,9 +32,9 @@ export const recorder = {
 		queryFn: async () => {
 			const { data, error } = await recorderService().enumerateDevices();
 			if (error) {
-				return fromTaggedErr(error, {
+				return WhisperingErr({
 					title: '❌ Failed to enumerate devices',
-					action: { type: 'more-details', error },
+					serviceError: error,
 				});
 			}
 			return Ok(data);
@@ -48,9 +48,9 @@ export const recorder = {
 			const { data: state, error: getStateError } =
 				await recorderService().getRecorderState();
 			if (getStateError) {
-				return fromTaggedErr(getStateError, {
+				return WhisperingErr({
 					title: '❌ Failed to get recorder state',
-					action: { type: 'more-details', error: getStateError },
+					serviceError: getStateError,
 				});
 			}
 			return Ok(state);
@@ -117,9 +117,9 @@ export const recorder = {
 				});
 
 			if (startRecordingError) {
-				return fromTaggedErr(startRecordingError, {
+				return WhisperingErr({
 					title: '❌ Failed to start recording',
-					action: { type: 'more-details', error: startRecordingError },
+					serviceError: startRecordingError,
 				});
 			}
 			return Ok(deviceAcquisitionOutcome);
@@ -139,9 +139,9 @@ export const recorder = {
 			if (stopRecordingError) {
 				// Reset recording ID on error
 				currentRecordingId = null;
-				return fromTaggedErr(stopRecordingError, {
+				return WhisperingErr({
 					title: '❌ Failed to stop recording',
-					action: { type: 'more-details', error: stopRecordingError },
+					serviceError: stopRecordingError,
 				});
 			}
 
@@ -178,9 +178,9 @@ export const recorder = {
 			currentRecordingId = null;
 
 			if (cancelRecordingError) {
-				return fromTaggedErr(cancelRecordingError, {
+				return WhisperingErr({
 					title: '❌ Failed to cancel recording',
-					action: { type: 'more-details', error: cancelRecordingError },
+					serviceError: cancelRecordingError,
 				});
 			}
 

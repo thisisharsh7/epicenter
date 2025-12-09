@@ -736,7 +736,7 @@
 			variant={transformation.steps.length === 0 ? 'default' : 'outline'}
 			class="w-full"
 		>
-			<PlusIcon class="mr-2 size-4" />
+			<PlusIcon class="size-4" />
 			{transformation.steps.length === 0
 				? 'Add Your First Step'
 				: 'Add Another Step'}

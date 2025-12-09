@@ -1,11 +1,12 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { readFile, remove } from '@tauri-apps/plugin-fs';
+import { remove } from '@tauri-apps/plugin-fs';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync } from 'wellcrafted/result';
 import type {
 	CancelRecordingResult,
 	WhisperingRecordingState,
 } from '$lib/constants/audio';
+import { FsServiceLive } from '../fs';
 import type { Device, DeviceAcquisitionOutcome } from '../types';
 import { asDeviceIdentifier } from '../types';
 import type {
@@ -236,18 +237,12 @@ export function createCpalRecorderService(): RecorderService {
 				description: 'Loading your recording from disk...',
 			});
 
-			const { data: blob, error: readRecordingFileError } = await tryAsync({
-				try: async () => {
-					const fileBytes = await readFile(filePath);
-					return new Blob([fileBytes], { type: 'audio/wav' });
-				},
-				catch: (error) =>
-					RecorderServiceErr({
-						message: `Unable to read recording file. Please try again: ${extractErrorMessage(error)}`,
-					}),
-			});
-			if (readRecordingFileError) return Err(readRecordingFileError);
-
+			const { data: blob, error: readRecordingFileError } =
+				await FsServiceLive.pathToBlob(filePath);
+			if (readRecordingFileError)
+				return RecorderServiceErr({
+					message: `Unable to read recording file: ${readRecordingFileError.message}`,
+				});
 			// Close the recording session after stopping
 			sendStatus({
 				title: '🔄 Closing Session',

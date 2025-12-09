@@ -8,6 +8,7 @@ export type {
 	TransformationRun,
 	TransformationRunCompleted,
 	TransformationRunFailed,
+	TransformationRunRunning,
 	TransformationStep,
 	TransformationStepRun,
 } from './models';

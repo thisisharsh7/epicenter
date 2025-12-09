@@ -559,7 +559,7 @@
 						)}
 					>
 						Columns <ChevronDownIcon
-							class="ml-2 size-4 transition-transform duration-200"
+							class="size-4 transition-transform duration-200"
 						/>
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content>

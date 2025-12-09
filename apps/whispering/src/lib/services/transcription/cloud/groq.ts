@@ -1,9 +1,12 @@
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import Groq from 'groq-sdk';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import { getExtensionFromAudioBlob } from '$lib/services/_utils';
 import type { Settings } from '$lib/settings';
 
+
+const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 export const GROQ_MODELS = [
 	{
 		name: 'whisper-large-v3',
@@ -112,6 +115,7 @@ export function createGroqTranscriptionService() {
 					new Groq({
 						apiKey: options.apiKey,
 						dangerouslyAllowBrowser: true,
+						fetch: customFetch,
 						...(options.baseURL && { baseURL: options.baseURL }),
 					}).audio.transcriptions.create({
 						file,

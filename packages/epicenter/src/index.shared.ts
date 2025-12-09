@@ -56,14 +56,26 @@ export {
 export type { Db, TableHelper } from './core/db/core';
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
-export type { GetResult, RowResult, YRow } from './core/db/table-helper';
-export type { ActionInfo, EpicenterClient, EpicenterConfig } from './core/epicenter';
-// Epicenter - compose multiple workspaces
-export {
-	createEpicenterClient,
-	defineEpicenter,
-	iterActions,
-} from './core/epicenter';
+
+export type {
+	DeleteManyResult,
+	DeleteResult,
+	GetResult,
+	RowResult,
+	UpdateManyResult,
+	UpdateResult,
+	YRow,
+} from './core/db/table-helper';
+
+// Epicenter types (shared across platforms)
+// Note: EpicenterConfig and defineEpicenter are exported from platform-specific
+// entry points because they have different type signatures (Node adds storageDir)
+export type {
+	ActionInfo,
+	EpicenterClient,
+} from './core/epicenter/client.shared';
+export { iterActions } from './core/epicenter/client.shared';
+
 export type {
 	EpicenterOperationError,
 	IndexError,

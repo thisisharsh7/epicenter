@@ -367,7 +367,7 @@
 			</Button>
 		{:else}
 			<Button size="sm" variant="outline" onclick={downloadModel}>
-				<Download class="size-4 mr-2" />
+				<Download class="size-4" />
 				Download
 			</Button>
 		{/if}

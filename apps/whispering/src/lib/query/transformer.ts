@@ -1,7 +1,7 @@
+import { nanoid } from 'nanoid/non-secure';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, isErr, Ok, type Result } from 'wellcrafted/result';
 import {
-	fromTaggedErr,
 	WhisperingErr,
 	type WhisperingError,
 	type WhisperingResult,
@@ -11,6 +11,7 @@ import type {
 	Transformation,
 	TransformationRunCompleted,
 	TransformationRunFailed,
+	TransformationRunRunning,
 	TransformationStep,
 } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
@@ -49,9 +50,9 @@ export const transformer = {
 					});
 
 				if (transformationRunError)
-					return fromTaggedErr(transformationRunError, {
+					return WhisperingErr({
 						title: '⚠️ Transformation failed',
-						action: { type: 'more-details', error: transformationRunError },
+						serviceError: transformationRunError,
 					});
 
 				if (transformationRun.status === 'failed') {
@@ -118,9 +119,9 @@ export const transformer = {
 				});
 
 			if (transformationRunError)
-				return fromTaggedErr(transformationRunError, {
+				return WhisperingErr({
 					title: '⚠️ Transformation failed',
-					action: { type: 'more-details', error: transformationRunError },
+					serviceError: transformationRunError,
 				});
 
 			queryClient.invalidateQueries({
@@ -326,12 +327,19 @@ async function runTransformation({
 		});
 	}
 
-	const { data: transformationRun, error: createTransformationRunError } =
-		await services.db.runs.create({
-			transformationId: transformation.id,
-			recordingId,
-			input,
-		});
+	const transformationRun = {
+		id: nanoid(),
+		transformationId: transformation.id,
+		recordingId,
+		input,
+		startedAt: new Date().toISOString(),
+		completedAt: null,
+		status: 'running',
+		stepRuns: [],
+	} satisfies TransformationRunRunning;
+
+	const { error: createTransformationRunError } =
+		await services.db.runs.create(transformationRun);
 
 	if (createTransformationRunError)
 		return TransformServiceErr({

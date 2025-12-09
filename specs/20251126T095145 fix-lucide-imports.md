@@ -4,6 +4,8 @@
 
 All lucide imports have been successfully migrated to the correct pattern.
 
+**Update**: If you prefer to keep the ergonomic named import syntax and have the build tool transform it automatically, see [vite-plugin-transform-lucide-imports](../docs/articles/lucide-vite-plugin-transform.md).
+
 ## Problem
 
 The codebase uses inconsistent import patterns for Lucide icons. The correct pattern is individual imports from `@lucide/svelte/icons/icon-name`, but many files use either:

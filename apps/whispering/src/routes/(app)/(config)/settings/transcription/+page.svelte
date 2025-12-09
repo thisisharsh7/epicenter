@@ -30,7 +30,6 @@
 	import { Input } from '@epicenter/ui/input';
 	import { Link } from '@epicenter/ui/link';
 	import * as Select from '@epicenter/ui/select';
-	import { Separator } from '@epicenter/ui/separator';
 	import { Textarea } from '@epicenter/ui/textarea';
 	import { hasNavigatorLocalTranscriptionIssue } from '$routes/(app)/_layout-utils/check-ffmpeg';
 
@@ -122,16 +121,14 @@
 	<title>Transcription Settings - Whispering</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<div>
-		<h3 class="text-lg font-medium">Transcription</h3>
-		<p class="text-muted-foreground text-sm">
-			Configure your Whispering transcription preferences.
-		</p>
-	</div>
-	<Separator />
-
-	<TranscriptionServiceSelect
+<Field.Set>
+	<Field.Legend>Transcription</Field.Legend>
+	<Field.Description>
+		Configure your Whispering transcription preferences.
+	</Field.Description>
+	<Field.Separator />
+	<Field.Group>
+		<TranscriptionServiceSelect
 		id="selected-transcription-service"
 		label="Transcription Service"
 		bind:selected={
@@ -725,7 +722,8 @@
 				: 'Helps transcription service (e.g., Whisper) better recognize specific terms, names, or context during initial transcription. Not for text transformations - use the Transformations tab for post-processing rules.'}
 		</Field.Description>
 	</Field.Field>
-</div>
+	</Field.Group>
+</Field.Set>
 
 {#snippet renderModelOption({
 	item,

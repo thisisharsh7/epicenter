@@ -86,7 +86,7 @@
 			}}
 			class="shrink-0"
 		>
-			<RotateCcw class="mr-2 size-4" />
+			<RotateCcw class="size-4" />
 			Reset to defaults
 		</Button>
 	</div>
@@ -95,7 +95,7 @@
 		<aside class="lg:w-1/6">
 			<SidebarNav />
 		</aside>
-		<main class="flex-1 lg:max-w-3xl">
+		<main class="flex-1 p-1.5 lg:max-w-3xl">
 			{@render children()}
 		</main>
 	</div>
