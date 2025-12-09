@@ -84,11 +84,7 @@
 			<ExternalLink class="h-4 w-4" />
 		</Button>
 	{:else}
-		<Button
-			tooltip={tooltipText}
-			variant="outline"
-			onclick={openFolder}
-		>
+		<Button tooltip={tooltipText} variant="outline" onclick={openFolder}>
 			<ExternalLink class="h-4 w-4 mr-2" />
 			{tooltipText}
 		</Button>

@@ -1,5 +1,5 @@
-import { rpc } from '$lib/query';
 import type { CopyFn } from '@epicenter/ui/copy-button';
+import { rpc } from '$lib/query';
 
 /**
  * Creates a copy function that uses the app's RPC layer with toast notifications.

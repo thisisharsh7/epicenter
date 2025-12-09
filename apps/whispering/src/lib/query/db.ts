@@ -78,16 +78,12 @@ export const db = {
 		getAudioPlaybackUrl: (id: Accessor<string>) =>
 			defineQuery({
 				queryKey: dbKeys.recordings.audioPlaybackUrl(id()),
-				queryFn: () =>
-					services.db.recordings.ensureAudioPlaybackUrl(id()),
+				queryFn: () => services.db.recordings.ensureAudioPlaybackUrl(id()),
 			}),
 
 		create: defineMutation({
 			mutationKey: ['db', 'recordings', 'create'] as const,
-			mutationFn: async (params: {
-				recording: Recording;
-				audio: Blob;
-			}) => {
+			mutationFn: async (params: { recording: Recording; audio: Blob }) => {
 				const { error } = await services.db.recordings.create(params);
 				if (error) return Err(error);
 
@@ -315,9 +311,7 @@ export const db = {
 
 		delete: defineMutation({
 			mutationKey: ['db', 'runs', 'delete'] as const,
-			mutationFn: async (
-				runs: TransformationRun | TransformationRun[],
-			) => {
+			mutationFn: async (runs: TransformationRun | TransformationRun[]) => {
 				const runsArray = Array.isArray(runs) ? runs : [runs];
 				const { error } = await services.db.runs.delete(runsArray);
 				if (error) return Err(error);

@@ -15,7 +15,6 @@ import type {
 import { serializeCellValue } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
-
 /**
  * Context for row validation errors
  */
@@ -29,9 +28,8 @@ type RowValidationContext = {
 /**
  * Error thrown when a row fails schema validation
  */
-export const { RowValidationError, RowValidationErr } = createTaggedError(
-	'RowValidationError',
-).withContext<RowValidationContext>();
+export const { RowValidationError, RowValidationErr } =
+	createTaggedError('RowValidationError').withContext<RowValidationContext>();
 
 export type RowValidationError = ReturnType<typeof RowValidationError>;
 

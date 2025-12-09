@@ -28,7 +28,6 @@
 	let { children } = $props();
 
 	const isMobile = new MediaQuery('(max-width: 640px)');
-
 </script>
 
 <header
@@ -38,12 +37,7 @@
 	)}
 	style="view-transition-name: header"
 >
-	<Button
-		tooltip="Go home"
-		href="/"
-		variant="ghost"
-		class="-ml-4"
-	>
+	<Button tooltip="Go home" href="/" variant="ghost" class="-ml-4">
 		<span class="text-lg font-bold">whispering</span>
 	</Button>
 

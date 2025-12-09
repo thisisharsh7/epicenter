@@ -28,7 +28,7 @@
  * ```
  */
 
-import { existsSync, statSync, rmSync } from 'node:fs';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { createEpicenterClient, generateId } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
@@ -80,10 +80,14 @@ console.log(`Total operations: ${(ROUNDS * OPS_PER_ROUND).toLocaleString()}`);
 console.log('');
 console.log('Operation distribution:');
 console.log(`  Upsert (new):    ${(DISTRIBUTION.upsertNew * 100).toFixed(0)}%`);
-console.log(`  Upsert (update): ${(DISTRIBUTION.upsertUpdate * 100).toFixed(0)}%`);
+console.log(
+	`  Upsert (update): ${(DISTRIBUTION.upsertUpdate * 100).toFixed(0)}%`,
+);
 console.log(`  Delete:          ${(DISTRIBUTION.delete * 100).toFixed(0)}%`);
 console.log(`  Read (getAll):   ${(DISTRIBUTION.readAll * 100).toFixed(0)}%`);
-console.log(`  Read (get):      ${(DISTRIBUTION.readSingle * 100).toFixed(0)}%`);
+console.log(
+	`  Read (get):      ${(DISTRIBUTION.readSingle * 100).toFixed(0)}%`,
+);
 console.log('='.repeat(60));
 console.log('');
 
@@ -186,7 +190,8 @@ for (let round = 1; round <= ROUNDS; round++) {
 		// Upsert update (only if we have existing items)
 		cumulative += DISTRIBUTION.upsertUpdate;
 		if (rand < cumulative && existingIds.length > 0) {
-			const randomId = existingIds[Math.floor(Math.random() * existingIds.length)];
+			const randomId =
+				existingIds[Math.floor(Math.random() * existingIds.length)];
 			tableDb.upsert({
 				id: randomId,
 				name: `Updated Item ${round}-${op}`,
@@ -221,7 +226,8 @@ for (let round = 1; round <= ROUNDS; round++) {
 
 		// Read single (fallback)
 		if (existingIds.length > 0) {
-			const randomId = existingIds[Math.floor(Math.random() * existingIds.length)];
+			const randomId =
+				existingIds[Math.floor(Math.random() * existingIds.length)];
 			tableDb.get({ id: randomId });
 			opCounts.readSingle++;
 			opTimes.readSingle += performance.now() - opStart;
@@ -238,7 +244,7 @@ for (let round = 1; round <= ROUNDS; round++) {
 		round,
 		totalOps: OPS_PER_ROUND,
 		duration: roundDuration,
-		opsPerSec: OPS_PER_ROUND / roundDuration * 1000,
+		opsPerSec: (OPS_PER_ROUND / roundDuration) * 1000,
 		opCounts,
 		opTimes,
 		itemCount: existingIds.length,
@@ -258,7 +264,9 @@ for (let round = 1; round <= ROUNDS; round++) {
 		.map(([op, count]) => `${op.slice(0, 3)}:${count}`)
 		.join(' ');
 
-	console.log(`${roundCol} | ${opsSecCol} | ${itemsCol} | ${sizeCol} | ${breakdown}`);
+	console.log(
+		`${roundCol} | ${opsSecCol} | ${itemsCol} | ${sizeCol} | ${breakdown}`,
+	);
 }
 
 console.log('-'.repeat(70));
@@ -280,7 +288,9 @@ console.log('='.repeat(60));
 console.log(`Total time: ${formatTime(totalElapsed)}`);
 console.log(`Total operations: ${(ROUNDS * OPS_PER_ROUND).toLocaleString()}`);
 console.log(`Final item count: ${existingIds.length.toLocaleString()}`);
-console.log(`Final file size: ${getYjsFileSize() ? formatBytes(getYjsFileSize()!) : 'N/A'}`);
+console.log(
+	`Final file size: ${getYjsFileSize() ? formatBytes(getYjsFileSize()!) : 'N/A'}`,
+);
 console.log('');
 
 // Performance trends
@@ -292,11 +302,16 @@ if (roundMetrics.length >= 2) {
 	console.log(`  First round: ${formatRate(first.totalOps, first.duration)}`);
 	console.log(`  Last round:  ${formatRate(last.totalOps, last.duration)}`);
 
-	const slowdown = ((first.opsPerSec - last.opsPerSec) / first.opsPerSec * 100).toFixed(1);
+	const slowdown = (
+		((first.opsPerSec - last.opsPerSec) / first.opsPerSec) *
+		100
+	).toFixed(1);
 	if (parseFloat(slowdown) > 0) {
 		console.log(`  Slowdown: ${slowdown}% over ${ROUNDS} rounds`);
 	} else {
-		console.log(`  Speedup: ${Math.abs(parseFloat(slowdown))}% over ${ROUNDS} rounds`);
+		console.log(
+			`  Speedup: ${Math.abs(parseFloat(slowdown))}% over ${ROUNDS} rounds`,
+		);
 	}
 }
 
@@ -317,7 +332,9 @@ for (const m of roundMetrics) {
 for (const op of Object.keys(totalOpCounts)) {
 	if (totalOpCounts[op] > 0) {
 		const avgTime = totalOpTimes[op] / totalOpCounts[op];
-		console.log(`  ${op.padEnd(12)}: ${formatTime(avgTime)} (${totalOpCounts[op].toLocaleString()} ops)`);
+		console.log(
+			`  ${op.padEnd(12)}: ${formatTime(avgTime)} (${totalOpCounts[op].toLocaleString()} ops)`,
+		);
 	}
 }
 

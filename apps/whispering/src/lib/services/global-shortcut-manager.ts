@@ -8,6 +8,7 @@ import * as os from '@tauri-apps/plugin-os';
 import type { Brand } from 'wellcrafted/brand';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync } from 'wellcrafted/result';
+import type { ShortcutEventState } from '$lib/commands';
 import {
 	ACCELERATOR_KEY_CODES,
 	ACCELERATOR_MODIFIER_KEYS,
@@ -15,7 +16,6 @@ import {
 	type AcceleratorModifier,
 	type KeyboardEventSupportedKey,
 } from '$lib/constants/keyboard';
-import type { ShortcutEventState } from '$lib/commands';
 
 const { InvalidAcceleratorError, InvalidAcceleratorErr } = createTaggedError(
 	'InvalidAcceleratorError',

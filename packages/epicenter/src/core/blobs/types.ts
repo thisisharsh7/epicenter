@@ -42,7 +42,8 @@ export type BlobContext = {
  * });
  * ```
  */
-export const { BlobError, BlobErr } = createTaggedError('BlobError').withContext<BlobContext>();
+export const { BlobError, BlobErr } =
+	createTaggedError('BlobError').withContext<BlobContext>();
 export type BlobError = ReturnType<typeof BlobError>;
 
 /**

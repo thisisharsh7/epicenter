@@ -1,5 +1,5 @@
-import { Ok, type Result } from 'wellcrafted/result';
 import { type } from 'arktype';
+import { Ok, type Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import type { HttpService } from '$lib/services/http';
 import { HttpServiceLive } from '$lib/services/http';

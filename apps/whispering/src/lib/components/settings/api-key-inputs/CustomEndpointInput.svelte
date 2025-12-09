@@ -13,7 +13,9 @@
 <div class="space-y-4">
 	{#if showBaseUrl}
 		<Field.Field>
-			<Field.Label for="custom-endpoint-base-url">Custom API Base URL</Field.Label>
+			<Field.Label for="custom-endpoint-base-url"
+				>Custom API Base URL</Field.Label
+			>
 			<Input
 				id="custom-endpoint-base-url"
 				placeholder="e.g. http://localhost:11434/v1"

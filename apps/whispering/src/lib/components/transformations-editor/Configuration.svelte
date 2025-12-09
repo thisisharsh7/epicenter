@@ -213,7 +213,9 @@
 							<div class="space-y-6">
 								<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<Field.Field>
-										<Field.Label for="find_replace.findText">Find Text</Field.Label>
+										<Field.Label for="find_replace.findText"
+											>Find Text</Field.Label
+										>
 										<Input
 											id="find_replace.findText"
 											value={step['find_replace.findText']}
@@ -224,7 +226,8 @@
 														i === index
 															? {
 																	...s,
-																	'find_replace.findText': e.currentTarget.value,
+																	'find_replace.findText':
+																		e.currentTarget.value,
 																}
 															: s,
 													),
@@ -234,7 +237,9 @@
 										/>
 									</Field.Field>
 									<Field.Field>
-										<Field.Label for="find_replace.replaceText">Replace Text</Field.Label>
+										<Field.Label for="find_replace.replaceText"
+											>Replace Text</Field.Label
+										>
 										<Input
 											id="find_replace.replaceText"
 											value={step['find_replace.replaceText']}
@@ -281,10 +286,12 @@
 													}}
 												/>
 												<Field.Content>
-													<Field.Label for="find_replace.useRegex">Use Regex</Field.Label>
+													<Field.Label for="find_replace.useRegex"
+														>Use Regex</Field.Label
+													>
 													<Field.Description>
-														Enable advanced pattern matching using regular expressions
-														(for power users)
+														Enable advanced pattern matching using regular
+														expressions (for power users)
 													</Field.Description>
 												</Field.Content>
 											</Field.Field>
@@ -296,7 +303,9 @@
 							<div class="space-y-6">
 								<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<Field.Field>
-										<Field.Label for="prompt_transform.inference.provider">Provider</Field.Label>
+										<Field.Label for="prompt_transform.inference.provider"
+											>Provider</Field.Label
+										>
 										<Select.Root
 											type="single"
 											bind:value={
@@ -309,7 +318,8 @@
 																i === index
 																	? {
 																			...s,
-																			'prompt_transform.inference.provider': value,
+																			'prompt_transform.inference.provider':
+																				value,
 																		}
 																	: s,
 															),
@@ -318,8 +328,13 @@
 												}
 											}
 										>
-											<Select.Trigger id="prompt_transform.inference.provider" class="w-full">
-												{providerLabel(step['prompt_transform.inference.provider']) ?? 'Select a provider'}
+											<Select.Trigger
+												id="prompt_transform.inference.provider"
+												class="w-full"
+											>
+												{providerLabel(
+													step['prompt_transform.inference.provider'],
+												) ?? 'Select a provider'}
 											</Select.Trigger>
 											<Select.Content>
 												{#each INFERENCE_PROVIDER_OPTIONS as item}
@@ -331,7 +346,10 @@
 
 									{#if step['prompt_transform.inference.provider'] === 'OpenAI'}
 										<Field.Field>
-											<Field.Label for="prompt_transform.inference.provider.OpenAI.model">Model</Field.Label>
+											<Field.Label
+												for="prompt_transform.inference.provider.OpenAI.model"
+												>Model</Field.Label
+											>
 											<Select.Root
 												type="single"
 												bind:value={
@@ -357,19 +375,32 @@
 													}
 												}
 											>
-												<Select.Trigger id="prompt_transform.inference.provider.OpenAI.model" class="w-full">
-													{openaiModelLabel(step['prompt_transform.inference.provider.OpenAI.model']) ?? 'Select a model'}
+												<Select.Trigger
+													id="prompt_transform.inference.provider.OpenAI.model"
+													class="w-full"
+												>
+													{openaiModelLabel(
+														step[
+															'prompt_transform.inference.provider.OpenAI.model'
+														],
+													) ?? 'Select a model'}
 												</Select.Trigger>
 												<Select.Content>
 													{#each OPENAI_INFERENCE_MODEL_OPTIONS as item}
-														<Select.Item value={item.value} label={item.label} />
+														<Select.Item
+															value={item.value}
+															label={item.label}
+														/>
 													{/each}
 												</Select.Content>
 											</Select.Root>
 										</Field.Field>
 									{:else if step['prompt_transform.inference.provider'] === 'Groq'}
 										<Field.Field>
-											<Field.Label for="prompt_transform.inference.provider.Groq.model">Model</Field.Label>
+											<Field.Label
+												for="prompt_transform.inference.provider.Groq.model"
+												>Model</Field.Label
+											>
 											<Select.Root
 												type="single"
 												bind:value={
@@ -395,19 +426,32 @@
 													}
 												}
 											>
-												<Select.Trigger id="prompt_transform.inference.provider.Groq.model" class="w-full">
-													{groqModelLabel(step['prompt_transform.inference.provider.Groq.model']) ?? 'Select a model'}
+												<Select.Trigger
+													id="prompt_transform.inference.provider.Groq.model"
+													class="w-full"
+												>
+													{groqModelLabel(
+														step[
+															'prompt_transform.inference.provider.Groq.model'
+														],
+													) ?? 'Select a model'}
 												</Select.Trigger>
 												<Select.Content>
 													{#each GROQ_INFERENCE_MODEL_OPTIONS as item}
-														<Select.Item value={item.value} label={item.label} />
+														<Select.Item
+															value={item.value}
+															label={item.label}
+														/>
 													{/each}
 												</Select.Content>
 											</Select.Root>
 										</Field.Field>
 									{:else if step['prompt_transform.inference.provider'] === 'Anthropic'}
 										<Field.Field>
-											<Field.Label for="prompt_transform.inference.provider.Anthropic.model">Model</Field.Label>
+											<Field.Label
+												for="prompt_transform.inference.provider.Anthropic.model"
+												>Model</Field.Label
+											>
 											<Select.Root
 												type="single"
 												bind:value={
@@ -433,19 +477,32 @@
 													}
 												}
 											>
-												<Select.Trigger id="prompt_transform.inference.provider.Anthropic.model" class="w-full">
-													{anthropicModelLabel(step['prompt_transform.inference.provider.Anthropic.model']) ?? 'Select a model'}
+												<Select.Trigger
+													id="prompt_transform.inference.provider.Anthropic.model"
+													class="w-full"
+												>
+													{anthropicModelLabel(
+														step[
+															'prompt_transform.inference.provider.Anthropic.model'
+														],
+													) ?? 'Select a model'}
 												</Select.Trigger>
 												<Select.Content>
 													{#each ANTHROPIC_INFERENCE_MODEL_OPTIONS as item}
-														<Select.Item value={item.value} label={item.label} />
+														<Select.Item
+															value={item.value}
+															label={item.label}
+														/>
 													{/each}
 												</Select.Content>
 											</Select.Root>
 										</Field.Field>
 									{:else if step['prompt_transform.inference.provider'] === 'Google'}
 										<Field.Field>
-											<Field.Label for="prompt_transform.inference.provider.Google.model">Model</Field.Label>
+											<Field.Label
+												for="prompt_transform.inference.provider.Google.model"
+												>Model</Field.Label
+											>
 											<Select.Root
 												type="single"
 												bind:value={
@@ -471,19 +528,32 @@
 													}
 												}
 											>
-												<Select.Trigger id="prompt_transform.inference.provider.Google.model" class="w-full">
-													{googleModelLabel(step['prompt_transform.inference.provider.Google.model']) ?? 'Select a model'}
+												<Select.Trigger
+													id="prompt_transform.inference.provider.Google.model"
+													class="w-full"
+												>
+													{googleModelLabel(
+														step[
+															'prompt_transform.inference.provider.Google.model'
+														],
+													) ?? 'Select a model'}
 												</Select.Trigger>
 												<Select.Content>
 													{#each GOOGLE_INFERENCE_MODEL_OPTIONS as item}
-														<Select.Item value={item.value} label={item.label} />
+														<Select.Item
+															value={item.value}
+															label={item.label}
+														/>
 													{/each}
 												</Select.Content>
 											</Select.Root>
 										</Field.Field>
 									{:else if step['prompt_transform.inference.provider'] === 'OpenRouter'}
 										<Field.Field>
-											<Field.Label for="prompt_transform.inference.provider.OpenRouter.model">Model</Field.Label>
+											<Field.Label
+												for="prompt_transform.inference.provider.OpenRouter.model"
+												>Model</Field.Label
+											>
 											<Input
 												id="prompt_transform.inference.provider.OpenRouter.model"
 												value={step[
@@ -509,7 +579,10 @@
 									{:else if step['prompt_transform.inference.provider'] === 'Custom'}
 										<div class="space-y-4">
 											<Field.Field>
-												<Field.Label for="prompt_transform.inference.provider.Custom.baseUrl">API Base URL</Field.Label>
+												<Field.Label
+													for="prompt_transform.inference.provider.Custom.baseUrl"
+													>API Base URL</Field.Label
+												>
 												<Input
 													id="prompt_transform.inference.provider.Custom.baseUrl"
 													value={step[
@@ -537,7 +610,10 @@
 												</Field.Description>
 											</Field.Field>
 											<Field.Field>
-												<Field.Label for="prompt_transform.inference.provider.Custom.model">Model</Field.Label>
+												<Field.Label
+													for="prompt_transform.inference.provider.Custom.model"
+													>Model</Field.Label
+												>
 												<Input
 													id="prompt_transform.inference.provider.Custom.model"
 													value={step[
@@ -561,7 +637,9 @@
 												/>
 												<Field.Description>
 													Enter the exact model name as it appears in your local
-													service (e.g., run <code class="bg-muted px-1 rounded">ollama list</code>).
+													service (e.g., run <code class="bg-muted px-1 rounded"
+														>ollama list</code
+													>).
 												</Field.Description>
 											</Field.Field>
 										</div>
@@ -569,7 +647,9 @@
 								</div>
 
 								<Field.Field>
-									<Field.Label for="prompt_transform.systemPromptTemplate">System Prompt Template</Field.Label>
+									<Field.Label for="prompt_transform.systemPromptTemplate"
+										>System Prompt Template</Field.Label
+									>
 									<Textarea
 										id="prompt_transform.systemPromptTemplate"
 										value={step['prompt_transform.systemPromptTemplate']}
@@ -591,7 +671,9 @@
 									/>
 								</Field.Field>
 								<Field.Field>
-									<Field.Label for="prompt_transform.userPromptTemplate">User Prompt Template</Field.Label>
+									<Field.Label for="prompt_transform.userPromptTemplate"
+										>User Prompt Template</Field.Label
+									>
 									<Textarea
 										id="prompt_transform.userPromptTemplate"
 										value={step['prompt_transform.userPromptTemplate']}

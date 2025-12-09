@@ -102,12 +102,7 @@
 <Modal.Root bind:open={isDialogOpen}>
 	<Modal.Trigger>
 		{#snippet child({ props })}
-			<Button
-				tooltip="Edit recording"
-				variant="ghost"
-				size="icon"
-				{...props}
-			>
+			<Button tooltip="Edit recording" variant="ghost" size="icon" {...props}>
 				<EditIcon class="size-4" />
 			</Button>
 		{/snippet}

@@ -42,8 +42,8 @@
 			}
 		/>
 		<Field.Description>
-			Override the default Groq API endpoint. Useful for reverse proxies or Groq-compatible services.
-			Leave empty to use the official Groq API.
+			Override the default Groq API endpoint. Useful for reverse proxies or
+			Groq-compatible services. Leave empty to use the official Groq API.
 		</Field.Description>
 	</Field.Field>
 </Field.Group>

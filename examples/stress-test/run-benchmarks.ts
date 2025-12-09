@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Benchmark Runner
  *
@@ -18,8 +19,8 @@
  * ```
  */
 
-import { spawn } from 'bun';
 import { existsSync, rmSync } from 'node:fs';
+import { spawn } from 'bun';
 
 const BENCHMARKS = [
 	{
@@ -72,9 +73,13 @@ function printHelp() {
 	console.log('');
 	console.log('Examples:');
 	console.log('  bun run run-benchmarks.ts              # Run all');
-	console.log('  bun run run-benchmarks.ts 1 3          # Run benchmarks 1 and 3');
+	console.log(
+		'  bun run run-benchmarks.ts 1 3          # Run benchmarks 1 and 3',
+	);
 	console.log('  bun run run-benchmarks.ts bulk mixed   # Run by name');
-	console.log('  bun run run-benchmarks.ts --clean 1    # Clean and run benchmark 1');
+	console.log(
+		'  bun run run-benchmarks.ts --clean 1    # Clean and run benchmark 1',
+	);
 }
 
 function listBenchmarks() {
@@ -106,7 +111,9 @@ async function runBenchmark(benchmark: (typeof BENCHMARKS)[number]) {
 	const exitCode = await proc.exited;
 
 	if (exitCode !== 0) {
-		console.log(`\n⚠️  Benchmark ${benchmark.name} exited with code ${exitCode}`);
+		console.log(
+			`\n⚠️  Benchmark ${benchmark.name} exited with code ${exitCode}`,
+		);
 	}
 
 	return exitCode;
@@ -148,7 +155,9 @@ if (benchmarkArgs.length === 0) {
 
 		// Try as name (partial match)
 		const found = BENCHMARKS.find(
-			(b) => b.name.includes(arg.toLowerCase()) || b.file.includes(arg.toLowerCase()),
+			(b) =>
+				b.name.includes(arg.toLowerCase()) ||
+				b.file.includes(arg.toLowerCase()),
 		);
 		if (found) {
 			benchmarksToRun.push(found);

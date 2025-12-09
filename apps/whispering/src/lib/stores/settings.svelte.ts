@@ -5,10 +5,10 @@ import { Ok, partitionResults, type Result } from 'wellcrafted/result';
 import { commands } from '$lib/commands';
 import type { RecordingMode } from '$lib/constants/audio';
 import { rpc } from '$lib/query';
-import { vadRecorder } from '$lib/query/vad.svelte';
 import { recorderService } from '$lib/query/recorder';
-import type { RecorderServiceError } from '$lib/services/recorder';
+import { vadRecorder } from '$lib/query/vad.svelte';
 import type { WhisperingError } from '$lib/result';
+import type { RecorderServiceError } from '$lib/services/recorder';
 import {
 	getDefaultSettings,
 	parseStoredSettings,

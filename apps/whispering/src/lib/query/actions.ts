@@ -406,7 +406,10 @@ export const commands = {
 	toggleVadRecording: defineMutation({
 		mutationKey: ['commands', 'toggleVadRecording'] as const,
 		mutationFn: async () => {
-			if (vadRecorder.state === 'LISTENING' || vadRecorder.state === 'SPEECH_DETECTED') {
+			if (
+				vadRecorder.state === 'LISTENING' ||
+				vadRecorder.state === 'SPEECH_DETECTED'
+			) {
 				return await stopVadRecording.execute(undefined);
 			}
 			return await startVadRecording.execute(undefined);
