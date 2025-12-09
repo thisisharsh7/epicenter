@@ -68,10 +68,12 @@
 	import { rpc } from '$lib/query';
 	import * as Alert from '@epicenter/ui/alert';
 	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import { extractErrorMessage } from 'wellcrafted/error';
+	import { marked } from 'marked';
+	import DOMPurify from 'dompurify';
+	import { Link } from '@epicenter/ui/link';
 
 	const GITHUB_RELEASES_URL =
 		'https://github.com/EpicenterHQ/epicenter/releases/tag';
@@ -79,6 +81,11 @@
 	function getGitHubReleaseUrl(version: string) {
 		const tag = version.startsWith('v') ? version : `v${version}`;
 		return `${GITHUB_RELEASES_URL}/${tag}`;
+	}
+
+	function renderMarkdown(markdown: string): string {
+		const html = marked.parse(markdown) as string;
+		return DOMPurify.sanitize(html);
 	}
 
 	async function handleDownloadAndInstall() {
@@ -130,18 +137,26 @@
 			<Dialog.Description>
 				Version {updateDialog.update?.version} is ready to install
 				{#if updateDialog.update?.date}
-					<span class="text-muted-foreground">
-						&middot; {new Date(updateDialog.update.date).toLocaleDateString()}
-					</span>
+					&middot; {new Date(updateDialog.update.date).toLocaleDateString()}
+				{/if}
+				{#if updateDialog.update?.version}
+					&middot;
+					<Link
+						href={getGitHubReleaseUrl(updateDialog.update.version)}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						View release notes
+					</Link>
 				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
 
 		{#if updateDialog.update?.body}
-			<ScrollArea class="max-h-[200px]">
-				<p class="text-sm text-muted-foreground whitespace-pre-line pr-4">
-					{updateDialog.update.body}
-				</p>
+			<ScrollArea class="max-h-[300px]">
+				<div class="prose prose-sm max-w-none pr-4">
+					{@html renderMarkdown(updateDialog.update.body)}
+				</div>
 			</ScrollArea>
 			<Separator />
 		{/if}
@@ -180,42 +195,29 @@
 			</Alert.Root>
 		{/if}
 
-		<Dialog.Footer class="justify-between">
-			{#if updateDialog.update?.version}
+		<Dialog.Footer>
+			<Button
+				variant="outline"
+				onclick={() => updateDialog.close()}
+				disabled={updateDialog.isDownloading}
+			>
+				Later
+			</Button>
+			{#if updateDialog.isDownloadComplete}
+				<Button onclick={() => relaunch()}>Restart Now</Button>
+			{:else}
 				<Button
-					variant="ghost"
-					href={getGitHubReleaseUrl(updateDialog.update.version)}
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					View full release notes
-					<ExternalLinkIcon />
-				</Button>
-			{/if}
-			<div class="flex gap-2">
-				<Button
-					variant="outline"
-					onclick={() => updateDialog.close()}
+					onclick={handleDownloadAndInstall}
 					disabled={updateDialog.isDownloading}
 				>
-					Later
+					{#if updateDialog.isDownloading}
+						Downloading...
+					{:else}
+						<DownloadIcon />
+						Install Update
+					{/if}
 				</Button>
-				{#if updateDialog.isDownloadComplete}
-					<Button onclick={() => relaunch()}>Restart Now</Button>
-				{:else}
-					<Button
-						onclick={handleDownloadAndInstall}
-						disabled={updateDialog.isDownloading}
-					>
-						{#if updateDialog.isDownloading}
-							Downloading...
-						{:else}
-							<DownloadIcon />
-							Install Update
-						{/if}
-					</Button>
-				{/if}
-			</div>
+			{/if}
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
