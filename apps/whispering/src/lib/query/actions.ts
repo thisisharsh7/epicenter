@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid/non-secure';
-import { Err, Ok } from 'wellcrafted/result';
-import { fromTaggedError, WhisperingErr } from '$lib/result';
+import { Ok } from 'wellcrafted/result';
+import { WhisperingErr } from '$lib/result';
 import { DbServiceErr } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
 import * as transformClipboardWindow from '../../routes/transform-clipboard/transformClipboardWindow.tauri';
@@ -512,12 +512,10 @@ export const commands = {
 				await db.transformations.getById(() => transformationId).fetch();
 
 			if (getTransformationError) {
-				return Err(
-					fromTaggedError(getTransformationError, {
-						title: '❌ Failed to get transformation',
-						action: { type: 'more-details', error: getTransformationError },
-					}),
-				);
+				return WhisperingErr({
+					title: '❌ Failed to get transformation',
+					serviceError: getTransformationError,
+				});
 			}
 
 			if (!transformation) {
@@ -539,12 +537,10 @@ export const commands = {
 				await text.readFromClipboard.fetch();
 
 			if (readClipboardError) {
-				return Err(
-					fromTaggedError(readClipboardError, {
-						title: '❌ Failed to read clipboard',
-						action: { type: 'more-details', error: readClipboardError },
-					}),
-				);
+				return WhisperingErr({
+					title: '❌ Failed to read clipboard',
+					serviceError: readClipboardError,
+				});
 			}
 
 			if (!clipboardText?.trim()) {
@@ -696,12 +692,10 @@ async function processRecordingPipeline({
 	const transformationNoLongerExists = !transformation;
 
 	if (getTransformationError) {
-		notify.error.execute(
-			fromTaggedError(getTransformationError, {
-				title: '❌ Failed to get transformation',
-				action: { type: 'more-details', error: getTransformationError },
-			}),
-		);
+		notify.error.execute({
+			title: '❌ Failed to get transformation',
+			serviceError: getTransformationError,
+		});
 		return;
 	}
 
