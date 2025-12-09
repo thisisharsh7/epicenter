@@ -517,7 +517,7 @@ export function createFfmpegRecorderService(): RecorderService {
 					},
 					catch: (error) =>
 						RecorderServiceErr({
-							message: 'Failed to delete recording file',
+							message: `Failed to delete recording file: ${extractErrorMessage(error)}`,
 						}),
 				});
 
