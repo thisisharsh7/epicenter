@@ -25,31 +25,31 @@
 	<Field.Separator />
 	<Field.Group>
 		<!-- Multi-purpose services (transcription + transformation) -->
-		<OpenAiApiKeyInput showBadges />
+		<OpenAiApiKeyInput />
 		<Field.Separator />
-		<GroqApiKeyInput showBadges />
+		<GroqApiKeyInput />
 		<Field.Separator />
-		<MistralApiKeyInput showBadges />
+		<MistralApiKeyInput />
 
 		<Field.Separator />
 
 		<!-- Transcription-focused services -->
-		<DeepgramApiKeyInput showBadges />
+		<DeepgramApiKeyInput />
 		<Field.Separator />
-		<ElevenLabsApiKeyInput showBadges />
+		<ElevenLabsApiKeyInput />
 
 		<Field.Separator />
 
 		<!-- Transformation-focused services -->
-		<AnthropicApiKeyInput showBadges />
+		<AnthropicApiKeyInput />
 		<Field.Separator />
-		<OpenRouterApiKeyInput showBadges />
+		<OpenRouterApiKeyInput />
 		<Field.Separator />
-		<GoogleApiKeyInput showBadges />
+		<GoogleApiKeyInput />
 
 		<Field.Separator />
 
 		<!-- Custom endpoints -->
-		<CustomEndpointInput showBadges />
+		<CustomEndpointInput />
 	</Field.Group>
 </Field.Set>
