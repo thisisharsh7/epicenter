@@ -10,6 +10,7 @@
 		OpenRouterApiKeyInput,
 		CustomEndpointInput,
 	} from '$lib/components/settings';
+	import { Badge } from '@epicenter/ui/badge';
 	import * as Field from '@epicenter/ui/field';
 	import * as Tabs from '@epicenter/ui/tabs';
 </script>
@@ -25,9 +26,18 @@
 
 	<Tabs.Root value="all" class="w-full">
 		<Tabs.List class="grid w-full grid-cols-3">
-			<Tabs.Trigger value="all">All</Tabs.Trigger>
-			<Tabs.Trigger value="transcription">Transcription</Tabs.Trigger>
-			<Tabs.Trigger value="transformation">Transformation</Tabs.Trigger>
+			<Tabs.Trigger value="all" class="gap-1.5">
+				All
+				<Badge variant="secondary" class="text-xs">9</Badge>
+			</Tabs.Trigger>
+			<Tabs.Trigger value="transcription" class="gap-1.5">
+				Transcription
+				<Badge variant="secondary" class="text-xs">5</Badge>
+			</Tabs.Trigger>
+			<Tabs.Trigger value="transformation" class="gap-1.5">
+				Transformation
+				<Badge variant="secondary" class="text-xs">7</Badge>
+			</Tabs.Trigger>
 		</Tabs.List>
 
 		<!-- All Tab -->
