@@ -1,7 +1,10 @@
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import OpenAI from 'openai';
 import { Err, isErr, Ok, type Result, tryAsync } from 'wellcrafted/result';
 import type { CompletionService } from './types';
 import { CompletionServiceErr, type CompletionServiceError } from './types';
+
+const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 
 export type OpenAiCompatibleConfig = {
 	/**
@@ -130,6 +133,7 @@ export function createOpenAiCompatibleCompletionService(
 				baseURL: effectiveBaseUrl,
 				dangerouslyAllowBrowser: true,
 				defaultHeaders: config.defaultHeaders,
+				fetch: customFetch,
 			});
 
 			const { data: completion, error: apiError } = await tryAsync({
