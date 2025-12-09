@@ -5,6 +5,7 @@ import {
 	mkdir,
 	readDir,
 	readTextFile,
+	remove,
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
