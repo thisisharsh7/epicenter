@@ -32,9 +32,19 @@ import {
 /**
  * Error types for markdown index diagnostics
  * Used to track files that fail to process during indexing
+ *
+ * Context is optional since some errors (like read failures) may not
+ * have all the structured data (fileName, id, reason) available.
  */
-export const { MarkdownIndexError, MarkdownIndexErr } =
-	createTaggedError('MarkdownIndexError');
+type MarkdownIndexContext = {
+	fileName: string;
+	id: string;
+	reason: string;
+};
+
+export const { MarkdownIndexError, MarkdownIndexErr } = createTaggedError(
+	'MarkdownIndexError',
+).withContext<MarkdownIndexContext | undefined>();
 export type MarkdownIndexError = ReturnType<typeof MarkdownIndexError>;
 
 /**
@@ -82,7 +92,7 @@ export const DEFAULT_TABLE_CONFIG = {
 		if (result instanceof type.errors) {
 			return MarkdownIndexErr({
 				message: `Failed to validate row ${id}`,
-				context: { filename, id, reason: result.summary },
+				context: { fileName: filename, id, reason: result.summary },
 			});
 		}
 
@@ -493,7 +503,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							IndexError({
 								message: `YJS observer onAdd: validation failed for ${table.name}`,
 								context: result.error.context,
-								cause: result.error,
 							}),
 						);
 						return;
@@ -510,7 +519,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							IndexError({
 								message: `YJS observer onAdd: failed to write ${table.name}/${row.id}`,
 								context: { tableName: table.name, rowId: row.id },
-								cause: error,
 							}),
 						);
 					}
@@ -526,7 +534,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							IndexError({
 								message: `YJS observer onUpdate: validation failed for ${table.name}`,
 								context: result.error.context,
-								cause: result.error,
 							}),
 						);
 						return;
@@ -543,7 +550,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							IndexError({
 								message: `YJS observer onUpdate: failed to write ${table.name}/${row.id}`,
 								context: { tableName: table.name, rowId: row.id },
-								cause: error,
 							}),
 						);
 					}
@@ -575,7 +581,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								IndexError({
 									message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
 									context: { tableName: table.name, rowId: id, filePath },
-									cause: error,
 								}),
 							);
 						}
@@ -659,9 +664,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								tracking[table.name]!.deleteByFilename({ filename });
 							} else {
 								logger.log(
-									MarkdownIndexError({
-										message:
-											'File deleted but row ID not found in tracking map',
+									IndexError({
+										message: `File deleted but row ID not found in tracking map for ${table.name}/${filename}`,
 										context: { tableName: table.name, filename },
 									}),
 								);
@@ -682,8 +686,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							// Track this read error in diagnostics (current state)
 							// Convert MarkdownOperationError to MarkdownIndexError
 							const error = MarkdownIndexError({
-								message: `Failed to read markdown file: ${parseResult.error.message}`,
-								context: { filePath, cause: parseResult.error },
+								message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
 							});
 							diagnostics.add({
 								filePath,
@@ -696,7 +699,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								IndexError({
 									message: `File watcher: failed to read ${table.name}/${filename}`,
 									context: { filePath, tableName: table.name, filename },
-									cause: parseResult.error,
 								}),
 							);
 							syncCoordination.isProcessingFileChange = false;
@@ -728,7 +730,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 								IndexError({
 									message: `File watcher: validation failed for ${table.name}/${filename}`,
 									context: { filePath, tableName: table.name, filename },
-									cause: deserializeError,
 								}),
 							);
 							syncCoordination.isProcessingFileChange = false;
@@ -745,11 +746,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						diagnostics.remove({ filePath });
 
 						// Insert or update the row in YJS
-						if (table.has({ id: row.id })) {
-							table.update(validatedRow);
-						} else {
-							table.insert(validatedRow);
-						}
+						table.upsert(validatedRow);
 					}
 
 					syncCoordination.isProcessingFileChange = false;
@@ -793,8 +790,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 					if (parseResult.error) {
 						// Track read error in diagnostics (current state)
 						const error = MarkdownIndexError({
-							message: `Failed to read markdown file: ${parseResult.error.message}`,
-							context: { filePath, cause: parseResult.error },
+							message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
 						});
 						diagnostics.add({
 							filePath,
@@ -807,7 +803,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							IndexError({
 								message: `${operationPrefix}failed to read ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
-								cause: parseResult.error,
 							}),
 						);
 						return;
@@ -837,7 +832,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 							IndexError({
 								message: `${operationPrefix}validation failed for ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
-								cause: deserializeError,
 							}),
 						);
 					}
@@ -873,8 +867,8 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 			tracking[table.name] = createBidirectionalMap();
 		}
 
-		// Get all rows from YJS
-		const rows = table.getAll();
+		// Get all valid rows from YJS
+		const rows = table.getAllValid();
 
 		// Serialize each row to extract filename and populate tracking in BOTH directions
 		for (const row of rows) {
@@ -953,15 +947,14 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											IndexError({
 												message: `pullToMarkdown: failed to delete ${filePath}`,
 												context: { filePath, tableName: table.name },
-												cause: error,
 											}),
 										);
 									}
 								}),
 							);
 
-							// Write all current YJS rows for this table to markdown files
-							const rows = table.getAll();
+							// Write all current valid YJS rows for this table to markdown files
+							const rows = table.getAllValid();
 
 							for (const row of rows) {
 								const serializedRow = row.toJSON();
@@ -992,7 +985,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 												tableName: table.name,
 												rowId: row.id,
 											},
-											cause: error,
 										}),
 									);
 								}
@@ -1044,8 +1036,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 									if (parseResult.error) {
 										// Track read error in diagnostics (current state)
 										const error = MarkdownIndexError({
-											message: `Failed to read markdown file: ${parseResult.error.message}`,
-											context: { filePath, cause: parseResult.error },
+											message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
 										});
 										diagnostics.add({
 											filePath,
@@ -1058,7 +1049,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											IndexError({
 												message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
 												context: { filePath, tableName: table.name, filename },
-												cause: parseResult.error,
 											}),
 										);
 										return;
@@ -1089,7 +1079,6 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 											IndexError({
 												message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
 												context: { filePath, tableName: table.name, filename },
-												cause: deserializeError,
 											}),
 										);
 										return;
@@ -1097,17 +1086,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 									// Insert into YJS
 									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to parameter of type SerializedRow<TTableSchema> due to union type from $tables() iteration
-									const insertResult = table.insert(row);
-									if (insertResult.error) {
-										// Log insert errors (operational errors, not validation errors)
-										logger.log(
-											IndexError({
-												message: `pushFromMarkdown: failed to insert ${table.name}/${row.id} into YJS`,
-												context: { tableName: table.name, rowId: row.id },
-												cause: insertResult.error,
-											}),
-										);
-									}
+									table.upsert(row);
 								}),
 							);
 						}

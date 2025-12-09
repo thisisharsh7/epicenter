@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { commandCallbacks } from '$lib/commands';
 	import NavItems from '$lib/components/NavItems.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import {
 		RecordingModeSelector,
 		CompressionSelector,
@@ -22,44 +22,38 @@
 	import { MediaQuery } from 'svelte/reactivity';
 
 	const getRecorderStateQuery = createQuery(
-		rpc.recorder.getRecorderState.options,
+		() => rpc.recorder.getRecorderState.options,
 	);
 
 	let { children } = $props();
 
 	const isMobile = new MediaQuery('(max-width: 640px)');
-
 </script>
 
 <header
 	class={cn(
-		'border-border/40 bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 border-b shadow-xs backdrop-blur-sm ',
+		'border-border/40 bg-background/95 supports-backdrop-filter:bg-background/60 z-30 border-b shadow-xs backdrop-blur-sm',
 		'flex h-14 w-full items-center justify-between px-4 sm:px-8',
 	)}
 	style="view-transition-name: header"
 >
-	<WhisperingButton
-		tooltipContent="Go home"
-		href="/"
-		variant="ghost"
-		class="-ml-4"
-	>
+	<Button tooltip="Go home" href="/" variant="ghost" class="-ml-4">
 		<span class="text-lg font-bold">whispering</span>
-	</WhisperingButton>
+	</Button>
 
 	<div class="flex items-center gap-1.5">
 		<div class="flex items-center gap-1.5">
 			{#if settings.value['recording.mode'] === 'manual'}
 				{#if getRecorderStateQuery.data === 'RECORDING'}
-					<WhisperingButton
-						tooltipContent="Cancel recording"
+					<Button
+						tooltip="Cancel recording"
 						onclick={commandCallbacks.cancelManualRecording}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: cancel-icon;"
 					>
 						🚫
-					</WhisperingButton>
+					</Button>
 				{:else}
 					<ManualDeviceSelector />
 					<CompressionSelector />
@@ -67,19 +61,19 @@
 					<TransformationSelector />
 				{/if}
 				{#if getRecorderStateQuery.data === 'RECORDING'}
-					<WhisperingButton
-						tooltipContent="Stop recording"
+					<Button
+						tooltip="Stop recording"
 						onclick={commandCallbacks.toggleManualRecording}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: microphone-icon"
 					>
 						{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
-					</WhisperingButton>
+					</Button>
 				{:else}
 					<div class="flex">
-						<WhisperingButton
-							tooltipContent="Start recording"
+						<Button
+							tooltip="Start recording"
 							onclick={commandCallbacks.toggleManualRecording}
 							variant="ghost"
 							size="icon"
@@ -87,7 +81,7 @@
 							class="rounded-r-none border-r-0"
 						>
 							{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
-						</WhisperingButton>
+						</Button>
 						<RecordingModeSelector class="rounded-l-none" />
 					</div>
 				{/if}
@@ -100,8 +94,8 @@
 				{/if}
 				{#if vadRecorder.state === 'IDLE'}
 					<div class="flex">
-						<WhisperingButton
-							tooltipContent="Start voice activated recording"
+						<Button
+							tooltip="Start voice activated recording"
 							onclick={commandCallbacks.toggleVadRecording}
 							variant="ghost"
 							size="icon"
@@ -109,19 +103,19 @@
 							class="rounded-r-none border-r-0"
 						>
 							{VAD_STATE_TO_ICON[vadRecorder.state]}
-						</WhisperingButton>
+						</Button>
 						<RecordingModeSelector class="rounded-l-none" />
 					</div>
 				{:else}
-					<WhisperingButton
-						tooltipContent="Stop voice activated recording"
+					<Button
+						tooltip="Stop voice activated recording"
 						onclick={commandCallbacks.toggleVadRecording}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: microphone-icon"
 					>
 						{VAD_STATE_TO_ICON[vadRecorder.state]}
-					</WhisperingButton>
+					</Button>
 				{/if}
 			{:else if settings.value['recording.mode'] === 'upload'}
 				<CompressionSelector />
@@ -134,8 +128,8 @@
 				<TranscriptionSelector />
 				<TransformationSelector />
 				<div class="flex">
-					<WhisperingButton
-						tooltipContent="Toggle live recording"
+					<Button
+						tooltip="Toggle live recording"
 						onclick={() => {
 							// TODO: Implement live recording toggle
 							alert('Live recording not yet implemented');
@@ -146,7 +140,7 @@
 						class="rounded-r-none border-r-0"
 					>
 						🎬
-					</WhisperingButton>
+					</Button>
 					<RecordingModeSelector class="rounded-l-none" />
 				</div>
 			{/if}
@@ -157,4 +151,6 @@
 	</div>
 </header>
 
-{@render children()}
+<div class="flex-1 overflow-x-auto">
+	{@render children()}
+</div>

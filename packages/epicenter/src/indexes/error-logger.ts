@@ -4,11 +4,21 @@ import type { TaggedError } from 'wellcrafted/error';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 
 /**
+ * Error type accepted by the logger.
+ * Supports errors with optional context (Record<string, unknown> | undefined).
+ */
+type LoggableError = TaggedError<
+	string,
+	Record<string, unknown> | undefined,
+	undefined
+>;
+
+/**
  * Log entry format: timestamp + full tagged error
  */
 type LogEntry = {
 	timestamp: string;
-} & TaggedError;
+} & LoggableError;
 
 /**
  * Configuration for creating an index logger
@@ -33,9 +43,9 @@ type IndexLogger = {
 	 *
 	 * Safe to call from multiple locations concurrently.
 	 *
-	 * @param error - The tagged error to log
+	 * @param error - The tagged error to log (with optional context)
 	 */
-	log(error: TaggedError): void;
+	log(error: LoggableError): void;
 
 	/**
 	 * Close the logger and flush all pending entries.

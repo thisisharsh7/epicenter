@@ -11,6 +11,7 @@
 
 	let { children } = $props();
 
+	let sidebarOpen = $state(false);
 	let unlistenNavigate: UnlistenFn | null = null;
 
 	$effect(() => {
@@ -38,13 +39,13 @@
 	});
 </script>
 
-<Sidebar.Provider>
+<Sidebar.Provider bind:open={sidebarOpen}>
 	{#if settings.value['ui.layoutMode'] === 'sidebar'}
 		<VerticalNav />
 	{/if}
-	<main class="flex flex-1 flex-col">
+	<Sidebar.Inset>
 		<AppLayout>
 			{@render children()}
 		</AppLayout>
-	</main>
+	</Sidebar.Inset>
 </Sidebar.Provider>

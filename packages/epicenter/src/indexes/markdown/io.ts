@@ -80,7 +80,6 @@ export async function readMarkdownFile(filePath: string): Promise<
 		catch: (error) =>
 			MarkdownOperationErr({
 				message: `Failed to read markdown file ${filePath}: ${extractErrorMessage(error)}`,
-				context: { filePath },
 			}),
 	});
 }
@@ -110,7 +109,6 @@ export async function writeMarkdownFile({
 		catch: (error) =>
 			MarkdownOperationErr({
 				message: `Failed to write markdown file ${filePath}: ${extractErrorMessage(error)}`,
-				context: { filePath },
 			}),
 	});
 }
@@ -130,7 +128,6 @@ export async function deleteMarkdownFile({
 		catch: (error) =>
 			MarkdownOperationErr({
 				message: `Failed to delete markdown file ${filePath}: ${extractErrorMessage(error)}`,
-				context: { filePath },
 			}),
 	});
 }

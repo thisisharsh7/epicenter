@@ -16,7 +16,7 @@
 	const combobox = useCombobox();
 
 	const clipboardQuery = createQuery(() => ({
-		...rpc.text.readFromClipboard.options(),
+		...rpc.text.readFromClipboard.options,
 		refetchInterval: 1000,
 	}));
 

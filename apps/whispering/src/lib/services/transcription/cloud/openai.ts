@@ -1,8 +1,11 @@
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import OpenAI from 'openai';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import { getExtensionFromAudioBlob } from '$lib/services/_utils';
 import type { Settings } from '$lib/settings';
+
+const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 
 export const OPENAI_TRANSCRIPTION_MODELS = [
 	{
@@ -118,6 +121,7 @@ export function createOpenaiTranscriptionService() {
 					new OpenAI({
 						apiKey: options.apiKey,
 						dangerouslyAllowBrowser: true,
+						fetch: customFetch,
 						...(options.baseURL && { baseURL: options.baseURL }),
 					}).audio.transcriptions.create({
 						file,

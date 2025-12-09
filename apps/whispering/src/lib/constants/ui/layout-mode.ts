@@ -13,11 +13,13 @@ export const LAYOUT_MODE_OPTIONS = [
 	{
 		value: 'sidebar' as const,
 		label: 'Sidebar Navigation',
-		description: 'Use the collapsible sidebar on the left. Best for desktop with a larger screen.',
+		description:
+			'Use the collapsible sidebar on the left. Best for desktop with a larger screen.',
 	},
 	{
 		value: 'nav-items' as const,
 		label: 'Header Navigation',
-		description: 'Use navigation items in the header bar. Cleaner look, works well on smaller screens.',
+		description:
+			'Use navigation items in the header bar. Cleaner look, works well on smaller screens.',
 	},
 ] satisfies { value: LayoutMode; label: string; description: string }[];

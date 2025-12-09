@@ -21,8 +21,6 @@ export function createDownloadServiceWeb(): DownloadService {
 					DownloadServiceErr({
 						message:
 							'There was an error saving the recording in your browser. Please try again.',
-						context: { name, blob },
-						cause: error,
 					}),
 			}),
 	};

@@ -297,7 +297,7 @@ ${instructions}`;
 				}).toJSON();
 
 				// Insert into database
-				db.articles.insert({
+				db.articles.upsert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -371,25 +371,34 @@ ${instructions}`;
 				};
 
 				// Dedupe articles (timestamp: saved_at)
-				const articleIds = findDuplicateIds(db.articles.getAll(), 'saved_at');
+				const articleIds = findDuplicateIds(
+					db.articles.getAllValid(),
+					'saved_at',
+				);
 				db.articles.deleteMany({ ids: articleIds });
 				totalDeleted += articleIds.length;
 
 				// Dedupe github_repos (timestamp: added_at)
-				const repoIds = findDuplicateIds(db.github_repos.getAll(), 'added_at');
+				const repoIds = findDuplicateIds(
+					db.github_repos.getAllValid(),
+					'added_at',
+				);
 				db.github_repos.deleteMany({ ids: repoIds });
 				totalDeleted += repoIds.length;
 
 				// Dedupe landing_pages (timestamp: added_at)
 				const landingPageIds = findDuplicateIds(
-					db.landing_pages.getAll(),
+					db.landing_pages.getAllValid(),
 					'added_at',
 				);
 				db.landing_pages.deleteMany({ ids: landingPageIds });
 				totalDeleted += landingPageIds.length;
 
 				// Dedupe doc_sites (timestamp: added_at)
-				const docSiteIds = findDuplicateIds(db.doc_sites.getAll(), 'added_at');
+				const docSiteIds = findDuplicateIds(
+					db.doc_sites.getAllValid(),
+					'added_at',
+				);
 				db.doc_sites.deleteMany({ ids: docSiteIds });
 				totalDeleted += docSiteIds.length;
 
@@ -412,7 +421,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.landing_pages.insert({
+				db.landing_pages.upsert({
 					id: generateId(),
 					url,
 					title,
@@ -493,7 +502,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.github_repos.insert({
+				db.github_repos.upsert({
 					id: generateId(),
 					url,
 					title: finalTitle,
@@ -524,7 +533,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.doc_sites.insert({
+				db.doc_sites.upsert({
 					id: generateId(),
 					url,
 					title,
@@ -551,7 +560,7 @@ ${instructions}`;
 
 				const book_id = generateId();
 
-				db.books.insert({
+				db.books.upsert({
 					id: book_id,
 					title,
 					author,
@@ -587,7 +596,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.book_excerpts.insert({
+				db.book_excerpts.upsert({
 					id: generateId(),
 					book_id,
 					content,
@@ -612,7 +621,7 @@ ${instructions}`;
 			handler: ({ article_id, content, comment }) => {
 				// Verify the article exists
 				const article = db.articles.get({ id: article_id });
-				if (!article) {
+				if (article.status !== 'valid') {
 					return Err({
 						message: 'Article not found',
 						context: { article_id },
@@ -624,7 +633,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.article_excerpts.insert({
+				db.article_excerpts.upsert({
 					id: generateId(),
 					article_id,
 					content,
@@ -686,7 +695,7 @@ ${instructions}`;
 				}).toJSON();
 
 				// Insert into database
-				db.essays.insert({
+				db.essays.upsert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -736,7 +745,7 @@ ${instructions}`;
 
 				const recipe_id = generateId();
 
-				db.recipes.insert({
+				db.recipes.upsert({
 					id: recipe_id,
 					title,
 					description: description ?? null,

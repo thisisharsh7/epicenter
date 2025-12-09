@@ -34,7 +34,7 @@
 	import { registerOnboarding } from '../_layout-utils/register-onboarding';
 
 	const getRecorderStateQuery = createQuery(
-		rpc.recorder.getRecorderState.options,
+		() => rpc.recorder.getRecorderState.options,
 	);
 
 	let cleanupAccessibilityPermission: (() => void) | undefined;
@@ -107,7 +107,7 @@
 	</span>
 </button>
 
-<div class="hidden flex-1 flex-col items-center gap-2 xxs:flex min-w-0 w-full">
+<div class="hidden flex-1 flex-col gap-2 xxs:flex min-w-0 w-full">
 	{@render children()}
 </div>
 
@@ -115,4 +115,3 @@
 <MoreDetailsDialog />
 <NotificationLog />
 <UpdateDialog />
-

@@ -1,7 +1,7 @@
+import { nanoid } from 'nanoid/non-secure';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, isErr, Ok, type Result } from 'wellcrafted/result';
 import {
-	fromTaggedErr,
 	WhisperingErr,
 	type WhisperingError,
 	type WhisperingResult,
@@ -11,6 +11,7 @@ import type {
 	Transformation,
 	TransformationRunCompleted,
 	TransformationRunFailed,
+	TransformationRunRunning,
 	TransformationStep,
 } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
@@ -31,7 +32,7 @@ const transformerKeys = {
 export const transformer = {
 	transformInput: defineMutation({
 		mutationKey: transformerKeys.transformInput,
-		resultMutationFn: async ({
+		mutationFn: async ({
 			input,
 			transformation,
 		}: {
@@ -49,9 +50,9 @@ export const transformer = {
 					});
 
 				if (transformationRunError)
-					return fromTaggedErr(transformationRunError, {
+					return WhisperingErr({
 						title: '⚠️ Transformation failed',
-						action: { type: 'more-details', error: transformationRunError },
+						serviceError: transformationRunError,
 					});
 
 				if (transformationRun.status === 'failed') {
@@ -87,7 +88,7 @@ export const transformer = {
 
 	transformRecording: defineMutation({
 		mutationKey: transformerKeys.transformRecording,
-		resultMutationFn: async ({
+		mutationFn: async ({
 			recordingId,
 			transformation,
 		}: {
@@ -118,9 +119,9 @@ export const transformer = {
 				});
 
 			if (transformationRunError)
-				return fromTaggedErr(transformationRunError, {
+				return WhisperingErr({
 					title: '⚠️ Transformation failed',
-					action: { type: 'more-details', error: transformationRunError },
+					serviceError: transformationRunError,
 				});
 
 			queryClient.invalidateQueries({
@@ -316,8 +317,6 @@ async function runTransformation({
 	if (!input.trim()) {
 		return TransformServiceErr({
 			message: 'Empty input. Please enter some text to transform',
-			cause: undefined,
-			context: { input, transformationId: transformation.id },
 		});
 	}
 
@@ -325,28 +324,26 @@ async function runTransformation({
 		return TransformServiceErr({
 			message:
 				'No steps configured. Please add at least one transformation step',
-			cause: undefined,
-			context: { transformation },
 		});
 	}
 
-	const { data: transformationRun, error: createTransformationRunError } =
-		await services.db.runs.create({
-			transformationId: transformation.id,
-			recordingId,
-			input,
-		});
+	const transformationRun = {
+		id: nanoid(),
+		transformationId: transformation.id,
+		recordingId,
+		input,
+		startedAt: new Date().toISOString(),
+		completedAt: null,
+		status: 'running',
+		stepRuns: [],
+	} satisfies TransformationRunRunning;
+
+	const { error: createTransformationRunError } =
+		await services.db.runs.create(transformationRun);
 
 	if (createTransformationRunError)
 		return TransformServiceErr({
 			message: 'Unable to start transformation run',
-			cause: createTransformationRunError,
-			context: {
-				transformationId: transformation.id,
-				recordingId,
-				input,
-				createTransformationRunError,
-			},
 		});
 
 	let currentInput = input;
@@ -363,13 +360,6 @@ async function runTransformation({
 		if (addTransformationStepRunError)
 			return TransformServiceErr({
 				message: 'Unable to initialize transformation step',
-				cause: addTransformationStepRunError,
-				context: {
-					transformationRun,
-					stepId: step.id,
-					input: currentInput,
-					addTransformationStepRunError,
-				},
 			});
 
 		const handleStepResult = await handleStep({
@@ -389,13 +379,6 @@ async function runTransformation({
 			if (markTransformationRunAndRunStepAsFailedError)
 				return TransformServiceErr({
 					message: 'Unable to save failed transformation step result',
-					cause: markTransformationRunAndRunStepAsFailedError,
-					context: {
-						transformationRun,
-						stepId: newTransformationStepRun.id,
-						error: handleStepResult.error,
-						markTransformationRunAndRunStepAsFailedError,
-					},
 				});
 			return Ok(markedFailedTransformationRun);
 		}
@@ -412,13 +395,6 @@ async function runTransformation({
 		if (markTransformationRunStepAsCompletedError)
 			return TransformServiceErr({
 				message: 'Unable to save completed transformation step result',
-				cause: markTransformationRunStepAsCompletedError,
-				context: {
-					transformationRun,
-					stepRunId: newTransformationStepRun.id,
-					output: handleStepOutput,
-					markTransformationRunStepAsCompletedError,
-				},
 			});
 
 		currentInput = handleStepOutput;
@@ -432,12 +408,6 @@ async function runTransformation({
 	if (markTransformationRunAsCompletedError)
 		return TransformServiceErr({
 			message: 'Unable to save completed transformation run',
-			cause: markTransformationRunAsCompletedError,
-			context: {
-				transformationRun,
-				output: currentInput,
-				markTransformationRunAsCompletedError,
-			},
 		});
 	return Ok(markedCompletedTransformationRun);
 }

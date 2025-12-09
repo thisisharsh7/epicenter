@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
@@ -83,10 +82,10 @@
 <Popover.Root bind:open={combobox.open}>
 	<Popover.Trigger bind:ref={combobox.triggerRef}>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
 				class={cn('relative', className)}
-				tooltipContent={selectedService
+				tooltip={selectedService
 					? `${selectedService.name}${
 							selectedService.location === 'cloud'
 								? ` - ${getSelectedModelNameOrUrl(selectedService)}`
@@ -118,7 +117,7 @@
 						class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
 					></span>
 				{/if}
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="p-0">

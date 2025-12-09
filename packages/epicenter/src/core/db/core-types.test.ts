@@ -22,8 +22,8 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Test insert() - accepts serialized values (strings for ytext, arrays for multi-select)
-		doc.posts.insert({
+		// Test upsert() - accepts serialized values (strings for ytext, arrays for multi-select)
+		doc.posts.upsert({
 			id: '1',
 			title: 'Test Post',
 			content: 'Post content', // string (gets converted to Y.Text internally)
@@ -32,24 +32,21 @@ describe('YjsDoc Type Inference', () => {
 			published: false,
 		});
 
-		// Test get() - returns Result<Row, ArkErrors> | null
+		// Test get() - returns GetResult<Row>
 		const result = doc.posts.get({ id: '1' });
-		expect(result).not.toBeNull();
+		expect(result.status).toBe('valid');
 
-		if (result) {
-			expect(result.data).toBeDefined();
-			if (result.data) {
-				const row = result.data;
-				// Verify property access works
-				expect(row.id).toBe('1');
-				expect(row.title).toBe('Test Post');
-				expect(row.view_count).toBe(0);
-				expect(row.published).toBe(false);
+		if (result.status === 'valid') {
+			const row = result.row;
+			// Verify property access works
+			expect(row.id).toBe('1');
+			expect(row.title).toBe('Test Post');
+			expect(row.view_count).toBe(0);
+			expect(row.published).toBe(false);
 
-				// Verify YJS types are properly inferred
-				expect(row.content).toBeInstanceOf(Y.Text);
-				expect(row.tags).toBeInstanceOf(Y.Array);
-			}
+			// Verify YJS types are properly inferred
+			expect(row.content).toBeInstanceOf(Y.Text);
+			expect(row.tags).toBeInstanceOf(Y.Array);
 		}
 	});
 
@@ -63,15 +60,15 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.products.insertMany({
+		doc.products.upsertMany({
 			rows: [
 				{ id: '1', name: 'Widget', price: 1000, in_stock: true },
 				{ id: '2', name: 'Gadget', price: 2000, in_stock: false },
 			],
 		});
 
-		// getAll() now returns Row[] directly
-		const products = doc.products.getAll();
+		// getAllValid() returns Row[] directly
+		const products = doc.products.getAllValid();
 		// Expected type: Array<{ id: string; name: string; price: number; in_stock: boolean }>
 
 		expect(products).toHaveLength(2);
@@ -87,7 +84,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.tasks.insertMany({
+		doc.tasks.upsertMany({
 			rows: [
 				{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
 				{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
@@ -112,7 +109,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.items.insertMany({
+		doc.items.upsertMany({
 			rows: [
 				{ id: '1', name: 'Item 1', quantity: 5 },
 				{ id: '2', name: 'Item 2', quantity: 0 },
@@ -159,7 +156,7 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		doc.notifications.insert({
+		doc.notifications.upsert({
 			id: '1',
 			message: 'Test notification',
 			read: false,
@@ -182,7 +179,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test with null values
-		doc.articles.insert({
+		doc.articles.upsert({
 			id: '1',
 			title: 'Article without content',
 			description: null,
@@ -190,14 +187,14 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const article1Result = doc.articles.get({ id: '1' });
-		expect(article1Result).not.toBeNull();
-		if (article1Result?.data) {
-			expect(article1Result.data.description).toBeNull();
-			expect(article1Result.data.content).toBeNull();
+		expect(article1Result.status).toBe('valid');
+		if (article1Result.status === 'valid') {
+			expect(article1Result.row.description).toBeNull();
+			expect(article1Result.row.content).toBeNull();
 		}
 
 		// Test with string values (automatically converted to Y.Text internally)
-		doc.articles.insert({
+		doc.articles.upsert({
 			id: '2',
 			title: 'Article with content',
 			description: 'A short description',
@@ -205,9 +202,10 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const article2Result = doc.articles.get({ id: '2' });
-		if (article2Result?.data) {
-			expect(article2Result.data.description).toBeInstanceOf(Y.Text);
-			expect(article2Result.data.content).toBeInstanceOf(Y.Text);
+		expect(article2Result.status).toBe('valid');
+		if (article2Result.status === 'valid') {
+			expect(article2Result.row.description).toBeInstanceOf(Y.Text);
+			expect(article2Result.row.content).toBeInstanceOf(Y.Text);
 		}
 	});
 
@@ -230,17 +228,17 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test authors table - use plain string (converted to Y.Text internally)
-		doc.authors.insert({
+		doc.authors.upsert({
 			id: 'author-1',
 			name: 'John Doe',
 			bio: 'Author bio',
 		});
 
 		const authorResult = doc.authors.get({ id: 'author-1' });
-		// Hover to verify type: Result<{ id: string; name: string; bio: Y.Text | null }, ArkErrors> | null
+		// Hover to verify type: GetResult<{ id: string; name: string; bio: Y.Text | null }>
 
 		// Test books table - use plain array (converted to Y.Array internally)
-		doc.books.insert({
+		doc.books.upsert({
 			id: 'book-1',
 			author_id: 'author-1',
 			title: 'My Book',
@@ -249,19 +247,19 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const bookResult = doc.books.get({ id: 'book-1' });
-		// Hover to verify type: Result<{ id: string; author_id: string; title: string; chapters: Y.Array<string>; published: boolean }, ArkErrors> | null
+		// Hover to verify type: GetResult<{ id: string; author_id: string; title: string; chapters: Y.Array<string>; published: boolean }>
 
-		expect(authorResult).not.toBeNull();
-		expect(bookResult).not.toBeNull();
-		if (authorResult?.data) {
-			expect(authorResult.data.name).toBe('John Doe');
+		expect(authorResult.status).toBe('valid');
+		expect(bookResult.status).toBe('valid');
+		if (authorResult.status === 'valid') {
+			expect(authorResult.row.name).toBe('John Doe');
 		}
-		if (bookResult?.data) {
-			expect(bookResult.data.title).toBe('My Book');
+		if (bookResult.status === 'valid') {
+			expect(bookResult.row.title).toBe('My Book');
 		}
 	});
 
-	test('should properly type insertMany with array of rows', () => {
+	test('should properly type upsertMany with array of rows', () => {
 		const doc = createEpicenterDb(new Y.Doc({ guid: 'test-workspace' }), {
 			comments: {
 				id: id(),
@@ -276,9 +274,9 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		doc.comments.insertMany({ rows: commentsToAdd });
+		doc.comments.upsertMany({ rows: commentsToAdd });
 
-		const comments = doc.comments.getAll();
+		const comments = doc.comments.getAllValid();
 		expect(comments).toHaveLength(2);
 	});
 
@@ -293,8 +291,8 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Insert with plain values (automatically converted to Y.js types internally)
-		doc.documents.insert({
+		// Upsert with plain values (automatically converted to Y.js types internally)
+		doc.documents.upsert({
 			id: 'doc-1',
 			title: 'My Document',
 			body: 'Hello World',
@@ -304,9 +302,10 @@ describe('YjsDoc Type Inference', () => {
 
 		// Test retrieval and mutations
 		const retrievedResult = doc.documents.get({ id: 'doc-1' });
+		expect(retrievedResult.status).toBe('valid');
 
-		if (retrievedResult?.data) {
-			const retrieved = retrievedResult.data;
+		if (retrievedResult.status === 'valid') {
+			const retrieved = retrievedResult.row;
 			// These should all be properly typed
 			expect(retrieved.body).toBeInstanceOf(Y.Text);
 			expect(retrieved.tags).toBeInstanceOf(Y.Array);

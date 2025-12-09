@@ -1,8 +1,14 @@
+/**
+ * Shared epicenter configuration types and validation logic.
+ *
+ * Platform-specific entry points (config.browser.ts, config.node.ts) extend
+ * these base types with platform-appropriate properties.
+ */
+
 import type { AnyWorkspaceConfig } from '../workspace';
 
 /**
- * Epicenter configuration
- * Defines a collection of workspaces that work together
+ * Base epicenter configuration shared across all platforms
  *
  * @example
  * ```typescript
@@ -19,7 +25,7 @@ import type { AnyWorkspaceConfig } from '../workspace';
  * await client.auth.login({ email: 'user@example.com' });
  * ```
  */
-export type EpicenterConfig<
+export type EpicenterConfigBase<
 	TId extends string = string,
 	TWorkspaces extends
 		readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
@@ -31,30 +37,6 @@ export type EpicenterConfig<
 	 * @example 'my-app', 'content-platform', 'analytics-dashboard'
 	 */
 	id: TId;
-
-	/**
-	 * Base directory for all Epicenter storage (databases, markdown files, persistence)
-	 *
-	 * - Defaults to process.cwd() in Node.js (where epicenter commands are run)
-	 * - Ignored in browser environments
-	 * - Can be overridden per-index/provider if needed
-	 *
-	 * @example
-	 * ```typescript
-	 * // Store everything in /data/epicenter
-	 * export default defineEpicenter({
-	 *   storageDir: '/data/epicenter',
-	 *   workspaces: [...]
-	 * });
-	 *
-	 * // Use environment variable
-	 * export default defineEpicenter({
-	 *   storageDir: process.env.EPICENTER_STORAGE_DIR,
-	 *   workspaces: [...]
-	 * });
-	 * ```
-	 */
-	storageDir?: string;
 
 	/**
 	 * Array of workspace configurations to compose
@@ -74,26 +56,15 @@ export type EpicenterConfig<
 };
 
 /**
- * Define an epicenter configuration
- * Validates and returns the epicenter config
+ * Validates an epicenter configuration
+ * Throws descriptive errors for invalid configurations
  *
- * @param config - Epicenter configuration
- * @returns Validated epicenter configuration
- *
- * @example
- * ```typescript
- * export const epicenter = defineEpicenter({
- *   id: 'my-app',
- *   workspaces: [pages, contentHub],
- * });
- * ```
+ * @param config - Epicenter configuration to validate
+ * @throws {Error} If configuration is invalid
  */
-export function defineEpicenter<
-	const TId extends string,
-	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	config: EpicenterConfig<TId, TWorkspaces>,
-): EpicenterConfig<TId, TWorkspaces> {
+export function validateEpicenterConfig(
+	config: EpicenterConfigBase<string, readonly AnyWorkspaceConfig[]>,
+): void {
 	// Validate epicenter ID
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Epicenter must have a valid string ID');
@@ -127,6 +98,4 @@ export function defineEpicenter<
 				`Each workspace must have a unique ID.`,
 		);
 	}
-
-	return config;
 }

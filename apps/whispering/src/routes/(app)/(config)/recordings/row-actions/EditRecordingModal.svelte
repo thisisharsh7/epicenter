@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { Button } from '@epicenter/ui/button';
 	import * as Modal from '@epicenter/ui/modal';
 	import { Input } from '@epicenter/ui/input';
@@ -11,12 +10,12 @@
 	import * as services from '$lib/services';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import EditIcon from '@lucide/svelte/icons/pencil';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import { onDestroy } from 'svelte';
 
-	const updateRecording = createMutation(rpc.db.recordings.update.options);
+	const updateRecording = createMutation(() => rpc.db.recordings.update.options);
 
-	const deleteRecording = createMutation(rpc.db.recordings.delete.options);
+	const deleteRecording = createMutation(() => rpc.db.recordings.delete.options);
 
 	let { recording }: { recording: Recording } = $props();
 
@@ -70,7 +69,7 @@
 	 * Uses accessor pattern for reactive updates.
 	 */
 	const audioPlaybackUrlQuery = createQuery(
-		rpc.db.recordings.getAudioPlaybackUrl(() => recording.id).options,
+		() => rpc.db.recordings.getAudioPlaybackUrl(() => recording.id).options,
 	);
 
 	const audioUrl = $derived(audioPlaybackUrlQuery.data);
@@ -103,14 +102,9 @@
 <Modal.Root bind:open={isDialogOpen}>
 	<Modal.Trigger>
 		{#snippet child({ props })}
-			<WhisperingButton
-				tooltipContent="Edit recording"
-				variant="ghost"
-				size="icon"
-				{...props}
-			>
+			<Button tooltip="Edit recording" variant="ghost" size="icon" {...props}>
 				<EditIcon class="size-4" />
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Modal.Trigger>
 	<Modal.Content
@@ -224,7 +218,7 @@
 				disabled={deleteRecording.isPending}
 			>
 				{#if deleteRecording.isPending}
-					<Loader2Icon class="mr-2 size-4 animate-spin" />
+					<Spinner />
 				{/if}
 				Delete
 			</Button>
@@ -253,7 +247,7 @@
 				disabled={updateRecording.isPending || !isWorkingCopyDirty}
 			>
 				{#if updateRecording.isPending}
-					<Loader2Icon class="mr-2 size-4 animate-spin" />
+					<Spinner />
 				{/if}
 				Save
 			</Button>

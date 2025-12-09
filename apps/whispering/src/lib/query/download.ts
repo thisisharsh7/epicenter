@@ -8,7 +8,7 @@ import { defineMutation } from './_client';
 export const download = {
 	downloadRecording: defineMutation({
 		mutationKey: ['download', 'downloadRecording'] as const,
-		resultMutationFn: async (
+		mutationFn: async (
 			recording: Recording,
 		): Promise<Result<void, WhisperingError | DownloadServiceError>> => {
 			// Fetch audio blob by ID

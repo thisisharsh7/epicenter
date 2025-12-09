@@ -10,7 +10,7 @@
 	import { getDefaultRecordingsFolder } from '$lib/services/recorder';
 	import { join } from '@tauri-apps/api/path';
 	import { nanoid } from 'nanoid/non-secure';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import {
 		buildFfmpegCommand,
@@ -36,7 +36,7 @@
 		outputOptions: string;
 	} = $props();
 
-	const getDevicesQuery = createQuery(rpc.recorder.enumerateDevices.options);
+	const getDevicesQuery = createQuery(() => rpc.recorder.enumerateDevices.options);
 
 	// Get the selected device identifier with proper fallback chain
 	const selectedDeviceId = $derived(
@@ -248,15 +248,15 @@
 		<!-- Output Options (Primary) -->
 		<div class="rounded-lg border p-4 space-y-3">
 			<div class="flex items-center justify-between">
-				<h5 class="text-sm font-medium">
+				<h5 class="text-sm font-medium flex items-baseline gap-2">
 					<span class="text-primary">Output</span>
-					<span class="text-xs text-muted-foreground font-normal ml-2"
+					<span class="text-xs text-muted-foreground font-normal"
 						>Primary settings</span
 					>
 				</h5>
 				{#if selected.format !== DEFAULT.format || selected.sampleRate !== DEFAULT.sampleRate || selected.bitrate !== DEFAULT.bitrate || selected.quality !== DEFAULT.quality || outputOptions !== FFMPEG_DEFAULT_OUTPUT_OPTIONS}
-					<WhisperingButton
-						tooltipContent="Reset output settings"
+					<Button
+						tooltip="Reset output settings"
 						variant="ghost"
 						size="icon"
 						class="h-6 w-6"
@@ -265,7 +265,7 @@
 						}}
 					>
 						<RotateCcw class="h-3 w-3" />
-					</WhisperingButton>
+					</Button>
 				{/if}
 			</div>
 
@@ -394,10 +394,10 @@
 		<!-- Advanced Options (Collapsible) -->
 		<details class="group">
 			<summary
-				class="cursor-pointer select-none rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
+				class="cursor-pointer select-none rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors flex items-baseline gap-2"
 			>
 				<span class="text-sm font-medium">Advanced Options</span>
-				<span class="text-xs text-muted-foreground ml-2"
+				<span class="text-xs text-muted-foreground"
 					>Raw FFmpeg parameters</span
 				>
 			</summary>
@@ -414,15 +414,15 @@
 							class="font-mono text-xs h-8 flex-1"
 						/>
 						{#if globalOptions !== FFMPEG_DEFAULT_GLOBAL_OPTIONS}
-							<WhisperingButton
-								tooltipContent="Reset"
+							<Button
+								tooltip="Reset"
 								variant="ghost"
 								size="icon"
 								class="h-8 w-8"
 								onclick={() => (globalOptions = FFMPEG_DEFAULT_GLOBAL_OPTIONS)}
 							>
 								<RotateCcw class="h-3 w-3" />
-							</WhisperingButton>
+							</Button>
 						{/if}
 					</div>
 					<Field.Description>
@@ -441,15 +441,15 @@
 							class="font-mono text-xs h-8 flex-1"
 						/>
 						{#if inputOptions !== FFMPEG_DEFAULT_INPUT_OPTIONS}
-							<WhisperingButton
-								tooltipContent="Reset to platform default"
+							<Button
+								tooltip="Reset to platform default"
 								variant="ghost"
 								size="icon"
 								class="h-8 w-8"
 								onclick={() => (inputOptions = FFMPEG_DEFAULT_INPUT_OPTIONS)}
 							>
 								<RotateCcw class="h-3 w-3" />
-							</WhisperingButton>
+							</Button>
 						{/if}
 					</div>
 					<Field.Description>
@@ -483,8 +483,8 @@
 							class="font-mono text-xs h-8 flex-1"
 						/>
 						{#if outputOptions !== FFMPEG_DEFAULT_OUTPUT_OPTIONS}
-							<WhisperingButton
-								tooltipContent="Reset to default"
+							<Button
+								tooltip="Reset to default"
 								variant="ghost"
 								size="icon"
 								class="h-8 w-8"
@@ -493,7 +493,7 @@
 								}}
 							>
 								<RotateCcw class="h-3 w-3" />
-							</WhisperingButton>
+							</Button>
 						{/if}
 					</div>
 					<Field.Description>

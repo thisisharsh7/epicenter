@@ -133,7 +133,7 @@ export const commands = {
   // Push to talk command
   pushToTalk: defineMutation({
     mutationKey: ['commands', 'pushToTalk'] as const,
-    resultMutationFn: async () => {
+    mutationFn: async () => {
       const { data: recorderState, error } = 
         await manualRecorder.getRecorderState.fetch();
       
@@ -156,7 +156,7 @@ export const commands = {
   // Toggle manual recording
   toggleManualRecording: defineMutation({
     mutationKey: ['commands', 'toggleManualRecording'] as const,
-    resultMutationFn: async () => {
+    mutationFn: async () => {
       // Similar implementation to pushToTalk
     },
   }),
@@ -164,7 +164,7 @@ export const commands = {
   // Start manual recording (internal command)
   startManualRecording: defineMutation({
     mutationKey: ['commands', 'startManualRecording'] as const,
-    resultMutationFn: async () => {
+    mutationFn: async () => {
       const toastId = nanoid();
       
       notify.loading.execute({
@@ -194,7 +194,7 @@ export const commands = {
   // Stop manual recording (internal command)
   stopManualRecording: defineMutation({
     mutationKey: ['commands', 'stopManualRecording'] as const,
-    resultMutationFn: async () => {
+    mutationFn: async () => {
       const toastId = nanoid();
       
       // ... implementation
@@ -214,7 +214,7 @@ export const commands = {
   // Cancel manual recording
   cancelManualRecording: defineMutation({
     mutationKey: ['commands', 'cancelManualRecording'] as const,
-    resultMutationFn: async () => {
+    mutationFn: async () => {
       // ... implementation
     },
   }),
@@ -222,7 +222,7 @@ export const commands = {
   // Toggle VAD recording
   toggleVadRecording: defineMutation({
     mutationKey: ['commands', 'toggleVadRecording'] as const,
-    resultMutationFn: async () => {
+    mutationFn: async () => {
       // ... implementation
     },
   }),
@@ -231,14 +231,14 @@ export const commands = {
   ...(window.__TAURI_INTERNALS__ ? {
     toggleCpalRecording: defineMutation({
       mutationKey: ['commands', 'toggleCpalRecording'] as const,
-      resultMutationFn: async () => {
+      mutationFn: async () => {
         // ... implementation
       },
     }),
     
     cancelCpalRecording: defineMutation({
       mutationKey: ['commands', 'cancelCpalRecording'] as const,
-      resultMutationFn: async () => {
+      mutationFn: async () => {
         // ... implementation
       },
     }),
@@ -340,7 +340,7 @@ The `uploadRecording` mutation in `recordings.ts` should also use the shared `pr
 ```typescript
 uploadRecording: defineMutation({
   mutationKey: ['recordings', 'uploadRecording'] as const,
-  resultMutationFn: async ({ file }: { file: File }) => {
+  mutationFn: async ({ file }: { file: File }) => {
     // Validate file type
     if (!file.type.startsWith('audio/')) {
       return DbServiceErr({

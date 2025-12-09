@@ -2,7 +2,7 @@ import { MicVAD, utils } from '@ricky0123/vad-web';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync, trySync } from 'wellcrafted/result';
 import type { VadState } from '$lib/constants/audio';
-import { fromTaggedErr, WhisperingErr } from '$lib/result';
+import { WhisperingErr } from '$lib/result';
 import {
 	cleanupRecordingStream,
 	enumerateDevices,
@@ -21,7 +21,7 @@ import { defineQuery } from './_client';
  * - Access state reactively: `vadRecorder.state` (triggers effects when changed)
  * - Start listening: `await vadRecorder.startActiveListening({ onSpeechStart, onSpeechEnd })`
  * - Stop listening: `await vadRecorder.stopActiveListening()`
- * - Enumerate devices: `createQuery(vadRecorder.enumerateDevices.options)`
+ * - Enumerate devices: `createQuery(() => vadRecorder.enumerateDevices.options)`
  */
 function createVadRecorder() {
 	// Private state
@@ -42,16 +42,16 @@ function createVadRecorder() {
 		 * Enumerate available audio input devices.
 		 *
 		 * Usage:
-		 * - With createQuery: `createQuery(vadRecorder.enumerateDevices.options)`
+		 * - With createQuery: `createQuery(() => vadRecorder.enumerateDevices.options)`
 		 */
 		enumerateDevices: defineQuery({
 			queryKey: ['vad', 'devices'],
-			resultQueryFn: async () => {
+			queryFn: async () => {
 				const { data, error } = await enumerateDevices();
 				if (error) {
-					return fromTaggedErr(error, {
+					return WhisperingErr({
 						title: '❌ Failed to enumerate devices',
-						action: { type: 'more-details', error },
+						serviceError: error,
 					});
 				}
 				return Ok(data);
@@ -96,9 +96,9 @@ function createVadRecorder() {
 				});
 
 			if (streamError) {
-				return fromTaggedErr(streamError, {
+				return WhisperingErr({
 					title: '❌ Failed to get recording stream',
-					action: { type: 'more-details', error: streamError },
+					serviceError: streamError,
 				});
 			}
 

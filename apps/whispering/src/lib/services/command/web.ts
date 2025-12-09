@@ -6,12 +6,10 @@ export function createCommandServiceWeb(): CommandService {
 		execute: async (_command: ShellCommand) =>
 			CommandServiceErr({
 				message: 'Command execution is not supported in web environment',
-				cause: undefined,
 			}),
 		spawn: async (_command: ShellCommand) =>
 			CommandServiceErr({
 				message: 'Command execution is not supported in web environment',
-				cause: undefined,
 			}),
 	};
 }

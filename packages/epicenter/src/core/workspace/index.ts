@@ -1,16 +1,8 @@
-// Definition (config side)
+/**
+ * Default workspace exports (Node.js).
+ *
+ * Internal code imports from this file.
+ * These are typically Node-only contexts, so we re-export the node version.
+ */
 
-// Provider types
-export type { Provider, ProviderContext } from '../provider';
-export type {
-	WorkspaceClient,
-	WorkspacesToClients,
-} from './client';
-// Runtime (client side)
-export { createWorkspaceClient } from './client';
-export type {
-	AnyWorkspaceConfig,
-	WorkspaceConfig,
-	WorkspacesToExports,
-} from './config';
-export { defineWorkspace } from './config';
+export * from './index.node';

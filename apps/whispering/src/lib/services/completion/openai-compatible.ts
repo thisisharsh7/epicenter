@@ -1,7 +1,10 @@
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import OpenAI from 'openai';
 import { Err, isErr, Ok, type Result, tryAsync } from 'wellcrafted/result';
 import type { CompletionService } from './types';
 import { CompletionServiceErr, type CompletionServiceError } from './types';
+
+const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 
 export type OpenAiCompatibleConfig = {
 	/**
@@ -130,6 +133,7 @@ export function createOpenAiCompatibleCompletionService(
 				baseURL: effectiveBaseUrl,
 				dangerouslyAllowBrowser: true,
 				defaultHeaders: config.defaultHeaders,
+				fetch: customFetch,
 			});
 
 			const { data: completion, error: apiError } = await tryAsync({
@@ -157,8 +161,6 @@ export function createOpenAiCompatibleCompletionService(
 					if (override) {
 						return CompletionServiceErr({
 							message: override,
-							context: { status, name },
-							cause: apiError,
 						});
 					}
 				}
@@ -168,8 +170,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`Invalid request to ${config.providerLabel} API. ${error?.message ?? ''}`.trim(),
-						context: { status, name },
-						cause: apiError,
 					});
 				}
 
@@ -178,8 +178,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`Your ${config.providerLabel} API key appears to be invalid or expired. Please update your API key in settings.`,
-						context: { status, name },
-						cause: apiError,
 					});
 				}
 
@@ -188,8 +186,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`Your ${config.providerLabel} account doesn't have access to this model or feature.`,
-						context: { status, name },
-						cause: apiError,
 					});
 				}
 
@@ -198,8 +194,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`The requested model was not found on ${config.providerLabel}. Please check the model name.`,
-						context: { status, name },
-						cause: apiError,
 					});
 				}
 
@@ -208,8 +202,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`The request was valid but ${config.providerLabel} cannot process it. Please check your parameters.`,
-						context: { status, name },
-						cause: apiError,
 					});
 				}
 
@@ -218,8 +210,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`${config.providerLabel} rate limit exceeded. Please try again later.`,
-						context: { status, name },
-						cause: apiError,
 					});
 				}
 
@@ -228,8 +218,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`The ${config.providerLabel} service is temporarily unavailable (Error ${status}). Please try again in a few minutes.`,
-						context: { status, name },
-						cause: apiError,
 					});
 				}
 
@@ -238,8 +226,6 @@ export function createOpenAiCompatibleCompletionService(
 						message:
 							message ??
 							`Unable to connect to the ${config.providerLabel} service. This could be a network issue or temporary service interruption.`,
-						context: { name },
-						cause: apiError,
 					});
 				}
 
@@ -247,8 +233,6 @@ export function createOpenAiCompatibleCompletionService(
 					message:
 						message ??
 						`An unexpected error occurred with ${config.providerLabel}. Please try again.`,
-					context: { status, name },
-					cause: apiError,
 				});
 			}
 
@@ -256,8 +240,6 @@ export function createOpenAiCompatibleCompletionService(
 			if (!responseText) {
 				return CompletionServiceErr({
 					message: `${config.providerLabel} API returned an empty response`,
-					context: { model: params.model, completion },
-					cause: undefined,
 				});
 			}
 

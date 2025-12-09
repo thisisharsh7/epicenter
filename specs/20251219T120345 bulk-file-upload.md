@@ -71,7 +71,7 @@ This plan outlines how to add support for uploading multiple audio/video files a
 ```typescript
 uploadMultipleRecordings: defineMutation({
   mutationKey: ['recordings', 'uploadMultiple'] as const,
-  resultMutationFn: async ({ files }: { files: File[] }) => {
+  mutationFn: async ({ files }: { files: File[] }) => {
     const results = [];
     
     for (const file of files) {

@@ -36,7 +36,7 @@ Your core competencies include:
 - You coordinate multiple services within single operations (like the notify API)
 
 **Best Practices You Enforce**
-- Always use `defineMutation` with `resultMutationFn` for proper Result type handling
+- Always use `defineMutation` with `mutationFn` for proper Result type handling
 - Prefer `createMutation` in Svelte files for reactive state, `.execute()` in TypeScript files
 - Pass callbacks as the second argument to `.mutate()` for maximum context access
 - Keep query functions simple - complex logic belongs in services

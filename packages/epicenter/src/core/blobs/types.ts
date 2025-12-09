@@ -1,4 +1,4 @@
-import { createTaggedError, type TaggedError } from 'wellcrafted/error';
+import { createTaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
 
 /**
@@ -43,8 +43,8 @@ export type BlobContext = {
  * ```
  */
 export const { BlobError, BlobErr } =
-	createTaggedError<'BlobError', BlobContext>('BlobError');
-export type BlobError = TaggedError<'BlobError', BlobContext>;
+	createTaggedError('BlobError').withContext<BlobContext>();
+export type BlobError = ReturnType<typeof BlobError>;
 
 /**
  * Blob store for a single table namespace.

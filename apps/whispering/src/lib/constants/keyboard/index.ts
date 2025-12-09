@@ -16,12 +16,9 @@ export {
 	KEYBOARD_EVENT_SUPPORTED_KEYS,
 	type KeyboardEventSupportedKey,
 } from './browser/supported-keys';
-
+export { getShortcutDisplayLabel } from './display-labels';
 export {
 	normalizeOptionKeyCharacter,
 	OPTION_DEAD_KEYS,
 } from './macos-option-key-map';
-
 export { CommandOrAlt, CommandOrControl } from './modifiers';
-
-export { getShortcutDisplayLabel } from './display-labels';

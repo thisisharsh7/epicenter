@@ -13,10 +13,10 @@ import {
 	generateId,
 	id,
 	integer,
-	markdownIndex,
-	sqliteIndex,
 	text,
-} from '../index';
+} from '../index.node';
+import { markdownIndex } from '../indexes/markdown';
+import { sqliteIndex } from '../indexes/sqlite';
 import { createCLI } from './cli';
 
 /**
@@ -82,7 +82,7 @@ describe('CLI End-to-End Tests', () => {
 						category,
 						views: 0,
 					} satisfies typeof db.posts.$inferSerializedRow;
-					db.posts.insert(post);
+					db.posts.upsert(post);
 					return Ok(post);
 				},
 			}),
@@ -94,12 +94,15 @@ describe('CLI End-to-End Tests', () => {
 				}),
 				handler: async ({ id, views }) => {
 					const result = db.posts.get({ id });
-					if (!result?.data) {
+					if (result.status !== 'valid') {
 						return Ok(null);
 					}
 					db.posts.update({ id, views });
 					const updatedResult = db.posts.get({ id });
-					return Ok(updatedResult?.data?.toJSON());
+					if (updatedResult.status !== 'valid') {
+						return Ok(null);
+					}
+					return Ok(updatedResult.row.toJSON());
 				},
 			}),
 		}),

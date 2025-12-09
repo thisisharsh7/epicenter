@@ -1,4 +1,5 @@
 import { init, trackEvent } from '@aptabase/web';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import type { AnalyticsService } from './types';
 import { AnalyticsServiceErr } from './types';
@@ -15,9 +16,7 @@ export function createAnalyticsServiceWeb(): AnalyticsService {
 				},
 				catch: (error) =>
 					AnalyticsServiceErr({
-						message: 'Failed to log analytics event',
-						context: { event },
-						cause: error,
+						message: `Failed to log analytics event: ${extractErrorMessage(error)}`,
 					}),
 			}),
 	};

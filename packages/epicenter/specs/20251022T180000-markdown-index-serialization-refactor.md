@@ -51,7 +51,7 @@ This duplicates what `serializeRow()` already does, with added type assertions.
 Multiple `as any` assertions throughout:
 - `(row as any)[contentField]` (lines 134, 184)
 - `frontmatter as Record<string, any>` (implicit in filtering)
-- `table.insert(convertedRow as any)` (line 457)
+- `table.upsert(convertedRow as any)` (line 457)
 - `table.update({ id: rowId, [columnName]: ... } as any)` (lines 492, 507, 515)
 
 ## Proposed Solution
@@ -303,7 +303,7 @@ All markdown bidirectional sync tests pass:
 ### Remaining Type Assertions
 
 Three `as any` assertions remain in `updateYJSRowFromMarkdown` function:
-- Line 440: `table.insert(convertedRow as any)`
+- Line 440: `table.upsert(convertedRow as any)`
 - Line 475, 490, 498: `table.update({ ... } as any)`
 
 **Why they're necessary:** The table API expects specific typed objects, but we're building them dynamically from the schema. TypeScript's type system can't prove that our dynamically constructed objects match the expected types, even though they do at runtime. These assertions are an acceptable trade-off for generic, schema-driven code.

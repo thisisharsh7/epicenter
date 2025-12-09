@@ -1,15 +1,13 @@
-import { Ok, type Result } from 'wellcrafted/result';
 import { type } from 'arktype';
+import { Ok, type Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import { getExtensionFromAudioBlob } from '$lib/services/_utils';
 import type { HttpService } from '$lib/services/http';
 import type { Settings } from '$lib/settings';
 
-const WhisperApiResponse = type(
-	{ text: 'string' },
-	'|',
-	{ error: { message: 'string' } },
-);
+const WhisperApiResponse = type({ text: 'string' }, '|', {
+	error: { message: 'string' },
+});
 
 export function createSpeachesTranscriptionService({
 	HttpService,
@@ -58,7 +56,7 @@ export function createSpeachesTranscriptionService({
 							title: '🌐 Connection Issue',
 							description:
 								'Unable to connect to the transcription service. This could be a network issue or temporary service interruption. Please try again in a moment.',
-							action: { type: 'more-details', error: postError.cause },
+							action: { type: 'more-details', error: postError },
 						});
 					}
 
@@ -83,7 +81,7 @@ export function createSpeachesTranscriptionService({
 								title: '⛔ Access Restricted',
 								description:
 									"Your account doesn't have access to this feature. This may be due to plan limitations or account restrictions. Please check your account status.",
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -92,7 +90,7 @@ export function createSpeachesTranscriptionService({
 								title: '📦 Audio File Too Large',
 								description:
 									'Your audio file exceeds the maximum size limit (typically 25MB). Try splitting it into smaller segments or reducing the audio quality.',
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -101,7 +99,7 @@ export function createSpeachesTranscriptionService({
 								title: '🎵 Unsupported Format',
 								description:
 									"This audio format isn't supported. Please convert your file to MP3, WAV, M4A, or another common audio format.",
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -122,14 +120,14 @@ export function createSpeachesTranscriptionService({
 							return WhisperingErr({
 								title: '🔧 Service Unavailable',
 								description: `The transcription service is temporarily unavailable (Error ${status}). Please try again in a few minutes.`,
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
 						return WhisperingErr({
 							title: '❌ Request Failed',
 							description: `The request failed with error ${status}. This may be temporary - please try again. If the problem persists, please contact support.`,
-							action: { type: 'more-details', error: postError.cause },
+							action: { type: 'more-details', error: postError },
 						});
 					}
 
@@ -138,7 +136,7 @@ export function createSpeachesTranscriptionService({
 							title: '🔍 Response Error',
 							description:
 								'Received an unexpected response from the transcription service. This is usually temporary - please try again.',
-							action: { type: 'more-details', error: postError.cause },
+							action: { type: 'more-details', error: postError },
 						});
 
 					default:

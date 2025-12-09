@@ -10,7 +10,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 
 	const createTransformation = createMutation(
-		rpc.db.transformations.create.options,
+		() => rpc.db.transformations.create.options,
 	);
 
 	let isDialogOpen = $state(false);
@@ -32,7 +32,7 @@
 	<Dialog.Trigger>
 		{#snippet child({ props })}
 			<Button {...props}>
-				<PlusIcon class="size-4 mr-2" />
+				<PlusIcon class="size-4" />
 				Create Transformation
 			</Button>
 		{/snippet}

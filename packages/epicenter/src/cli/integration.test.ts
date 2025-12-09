@@ -2,13 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
-import {
-	defineMutation,
-	defineWorkspace,
-	id,
-	sqliteIndex,
-	text,
-} from '../index';
+import { defineMutation, defineWorkspace, id, text } from '../index.node';
+import { sqliteIndex } from '../indexes/sqlite';
 import { createCLI } from './cli';
 
 describe('CLI Integration', () => {
@@ -40,7 +35,7 @@ describe('CLI Integration', () => {
 						name,
 						count: String(count),
 					};
-					db.items.insert(item);
+					db.items.upsert(item);
 					return Ok(item);
 				},
 			}),

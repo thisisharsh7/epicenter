@@ -28,8 +28,6 @@ export function createGoogleCompletionService(): CompletionService {
 				catch: (error) =>
 					CompletionServiceErr({
 						message: `Google API Error: ${extractErrorMessage(error)}`,
-						context: { model: modelName, systemPrompt, userPrompt },
-						cause: error,
 					}),
 			});
 
@@ -38,8 +36,6 @@ export function createGoogleCompletionService(): CompletionService {
 			if (!completion) {
 				return CompletionServiceErr({
 					message: 'Google API returned an empty response',
-					context: { model: modelName, systemPrompt, userPrompt },
-					cause: completionError,
 				});
 			}
 

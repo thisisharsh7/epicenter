@@ -1,12 +1,15 @@
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import Groq from 'groq-sdk';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import type { CompletionService } from './types';
 import { CompletionServiceErr } from './types';
 
+
+const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 export function createGroqCompletionService(): CompletionService {
 	return {
 		async complete({ apiKey, model, systemPrompt, userPrompt }) {
-			const client = new Groq({ apiKey, dangerouslyAllowBrowser: true });
+			const client = new Groq({ apiKey, dangerouslyAllowBrowser: true, fetch: customFetch });
 			// Call Groq API
 			const { data: completion, error: groqApiError } = await tryAsync({
 				try: () =>
@@ -38,8 +41,6 @@ export function createGroqCompletionService(): CompletionService {
 						message:
 							message ??
 							`Invalid request to Groq API. ${error?.message ?? ''}`.trim(),
-						context: { status, name },
-						cause: groqApiError,
 					});
 				}
 
@@ -49,8 +50,6 @@ export function createGroqCompletionService(): CompletionService {
 						message:
 							message ??
 							'Your API key appears to be invalid or expired. Please update your API key in settings.',
-						context: { status, name },
-						cause: groqApiError,
 					});
 				}
 
@@ -60,8 +59,6 @@ export function createGroqCompletionService(): CompletionService {
 						message:
 							message ??
 							"Your account doesn't have access to this model or feature.",
-						context: { status, name },
-						cause: groqApiError,
 					});
 				}
 
@@ -71,8 +68,6 @@ export function createGroqCompletionService(): CompletionService {
 						message:
 							message ??
 							'The requested model was not found. Please check the model name.',
-						context: { status, name },
-						cause: groqApiError,
 					});
 				}
 
@@ -82,8 +77,6 @@ export function createGroqCompletionService(): CompletionService {
 						message:
 							message ??
 							'The request was valid but the server cannot process it. Please check your parameters.',
-						context: { status, name },
-						cause: groqApiError,
 					});
 				}
 
@@ -91,8 +84,6 @@ export function createGroqCompletionService(): CompletionService {
 				if (status === 429) {
 					return CompletionServiceErr({
 						message: message ?? 'Too many requests. Please try again later.',
-						context: { status, name },
-						cause: groqApiError,
 					});
 				}
 
@@ -102,8 +93,6 @@ export function createGroqCompletionService(): CompletionService {
 						message:
 							message ??
 							`The Groq service is temporarily unavailable (Error ${status}). Please try again in a few minutes.`,
-						context: { status, name },
-						cause: groqApiError,
 					});
 				}
 
@@ -113,16 +102,12 @@ export function createGroqCompletionService(): CompletionService {
 						message:
 							message ??
 							'Unable to connect to the Groq service. This could be a network issue or temporary service interruption.',
-						context: { name },
-						cause: groqApiError,
 					});
 				}
 
 				// Catch-all for unexpected errors
 				return CompletionServiceErr({
 					message: message ?? 'An unexpected error occurred. Please try again.',
-					context: { status, name },
-					cause: groqApiError,
 				});
 			}
 
@@ -131,8 +116,6 @@ export function createGroqCompletionService(): CompletionService {
 			if (!responseText) {
 				return CompletionServiceErr({
 					message: 'Groq API returned an empty response',
-					context: { model, completion },
-					cause: undefined,
 				});
 			}
 

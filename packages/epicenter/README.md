@@ -89,8 +89,9 @@ const blogWorkspace = defineWorkspace({
         'category?': '"tech" | "personal"',
       }),
       handler: ({ title, category }) => {
-        const result = db.tables.posts.insert({
-          id: generateId(),
+        const id = generateId();
+        db.tables.posts.upsert({
+          id,
           title,
           content: null,
           category: category ?? 'tech',
@@ -99,11 +100,7 @@ const blogWorkspace = defineWorkspace({
           publishedAt: null,
         });
 
-        if (result.error) {
-          return result; // RowAlreadyExistsError
-        }
-
-        return Ok({ id: result.data.id });
+        return Ok({ id });
       }
     }),
 
@@ -181,7 +178,7 @@ schema: {
 At runtime, tables become YJS-backed collections with CRUD operations:
 
 ```typescript
-db.tables.posts.insert({ id: '1', title: 'Hello', ... })
+db.tables.posts.upsert({ id: '1', title: 'Hello', ... })
 db.tables.posts.get({ id: '1' })
 db.tables.posts.update({ id: '1', views: 100 })
 db.tables.posts.delete({ id: '1' })
@@ -244,7 +241,7 @@ exports: ({ db }) => ({
   createPost: defineMutation({
     input: type({ title: 'string' }),
     handler: ({ title }) => {
-      return db.tables.posts.insert({ ... });
+      db.tables.posts.upsert({ ... });
     }
   })
 })
@@ -391,50 +388,23 @@ preferences: json({
 
 All table operations are accessed via `db.tables.{tableName}`.
 
-### Insert Operations
+### Upsert Operations
 
-**`insert(row)`**
+**`upsert(row)`**
 
-Insert a new row. Returns `Result<void, RowAlreadyExistsError>`.
+Insert or update a row. Never fails. This is the primary way to write data.
 
 For Y.js columns (ytext, tags), provide plain values:
 - ytext: provide strings
 - tags: provide arrays
 
 ```typescript
-const result = db.tables.posts.insert({
+db.tables.posts.upsert({
   id: generateId(),
   title: 'Hello World',
   content: 'Post content here', // For ytext column, pass string
   tags: ['tech', 'blog'],       // For tags column, pass array
   published: false,
-});
-
-if (result.error) {
-  console.error('Row already exists:', result.error);
-}
-```
-
-**`insertMany(rows)`**
-
-Insert multiple rows. Returns `Result<void, RowAlreadyExistsError>`.
-
-```typescript
-db.tables.posts.insertMany([
-  { id: '1', title: 'Post 1', ... },
-  { id: '2', title: 'Post 2', ... },
-]);
-```
-
-**`upsert(row)`**
-
-Insert or update a row. Never fails.
-
-```typescript
-db.tables.posts.upsert({
-  id: '1',
-  title: 'Updated Title',
-  ...
 });
 ```
 
@@ -446,55 +416,74 @@ Insert or update multiple rows. Never fails.
 
 **`update(partialRow)`**
 
-Update specific fields. Returns `Result<void, RowNotFoundError>`.
+Update specific fields of an existing row. **If the row doesn't exist locally, this is a no-op.**
+
+This is intentional: Y.js uses Last-Writer-Wins at the key level when setting a Y.Map. Creating a new Y.Map for a missing row could overwrite an existing row from another peer, causing data loss.
 
 For Y.js columns, pass plain values and they'll be synced to existing Y.Text/Y.Array.
 
 ```typescript
-const result = db.tables.posts.update({
+db.tables.posts.update({
   id: '1',
   title: 'New Title',
   tags: ['updated', 'tags'], // Syncs to existing Y.Array
 });
-
-if (result.error) {
-  console.error('Row not found:', result.error);
-}
 ```
 
 **`updateMany(partialRows)`**
 
-Update multiple rows. Returns `Result<void, RowNotFoundError>`.
+Update multiple rows. Rows that don't exist locally are skipped (see `update` for rationale).
 
 ### Read Operations
 
 **`get({ id })`**
 
-Get a row by ID. Returns `Result<Row, ArkErrors> | null`.
+Get a row by ID. Returns a discriminated union with status:
+- `{ status: 'valid', row }` - Row exists and passes validation
+- `{ status: 'invalid', id, error }` - Row exists but fails validation
+- `{ status: 'not_found', id }` - Row doesn't exist
 
 Returns Y.js objects for collaborative editing:
 - ytext columns: Y.Text instances
 - tags columns: Y.Array instances
 
 ```typescript
-const row = db.tables.posts.get({ id: '1' });
-if (row === null) {
-  console.log('Not found');
-} else if (row.error) {
-  console.error('Validation error:', row.error);
-} else {
-  console.log('Row:', row.data);
-  // Access Y.Text directly for collaborative editing
-  const ytext = row.data.content; // Y.Text instance
+const result = db.tables.posts.get({ id: '1' });
+switch (result.status) {
+  case 'valid':
+    console.log('Row:', result.row);
+    const ytext = result.row.content; // Y.Text instance
+    break;
+  case 'invalid':
+    console.error('Validation error:', result.error.context.summary);
+    break;
+  case 'not_found':
+    console.log('Not found:', result.id);
+    break;
 }
 ```
 
 **`getAll()`**
 
+Get all rows with their validation status. Returns `RowResult<Row>[]`.
+
+```typescript
+const results = db.tables.posts.getAll();
+for (const result of results) {
+  if (result.status === 'valid') {
+    console.log(result.row.title);
+  } else {
+    console.log('Invalid row:', result.id);
+  }
+}
+```
+
+**`getAllValid()`**
+
 Get all valid rows. Skips invalid rows that fail validation.
 
 ```typescript
-const posts = db.tables.posts.getAll(); // Row[]
+const posts = db.tables.posts.getAllValid(); // Row[]
 ```
 
 **`getAllInvalid()`**
@@ -502,7 +491,7 @@ const posts = db.tables.posts.getAll(); // Row[]
 Get validation errors for all invalid rows.
 
 ```typescript
-const errors = db.tables.posts.getAllInvalid(); // ArkErrors[]
+const errors = db.tables.posts.getAllInvalid(); // RowValidationError[]
 ```
 
 **`has({ id })`**
@@ -793,12 +782,14 @@ const blogWorkspace = defineWorkspace({
         const allUsers = workspaces.auth.db.tables.users.getAll();
 
         // Create post in local workspace
-        return db.tables.posts.insert({
-          id: generateId(),
+        const id = generateId();
+        db.tables.posts.upsert({
+          id,
           title,
           authorId,
           published: false,
         });
+        return Ok({ id });
       }
     })
   })
@@ -916,11 +907,13 @@ Write operations that modify state. Use HTTP POST when exposed via API/MCP.
 defineMutation({
   input: type({ title: 'string' }),
   handler: ({ title }) => {
-    return db.tables.posts.insert({
-      id: generateId(),
+    const id = generateId();
+    db.tables.posts.upsert({
+      id,
       title,
       published: false,
     });
+    return Ok({ id });
   }
 })
 
@@ -1233,28 +1226,17 @@ Identity function for type inference.
 ### Database Operations
 
 ```typescript
-import {
-  type Db,
-  type TableHelper,
-  RowAlreadyExistsErr,
-  RowNotFoundErr,
-  type RowAlreadyExistsError,
-  type RowNotFoundError,
-} from '@epicenter/hq';
+import { type Db, type TableHelper } from '@epicenter/hq';
 ```
 
 **`TableHelper<TSchema>`** methods:
-- `insert(row)`, `insertMany(rows)`, `upsert(row)`, `upsertMany(rows)`
-- `update(partial)`, `updateMany(partials)`
+- `upsert(row)`, `upsertMany(rows)`: Create or replace entire row (never fails)
+- `update(partial)`, `updateMany(partials)`: Merge fields into existing row (no-op if not found)
 - `get({ id })`, `getAll()`, `getAllInvalid()`
 - `has({ id })`, `count()`
 - `delete({ id })`, `deleteMany({ ids })`, `clear()`
 - `filter(predicate)`, `find(predicate)`
 - `observe({ onAdd?, onUpdate?, onDelete? })`
-
-**Error constructors:**
-- `RowAlreadyExistsErr({ message, context, cause })`: Insert collision
-- `RowNotFoundErr({ message, context, cause })`: Update on missing row
 
 ### Indexes
 

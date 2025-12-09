@@ -18,7 +18,7 @@ export const analytics = {
 	 */
 	logEvent: defineMutation({
 		mutationKey: analyticsKeys.logEvent,
-		resultMutationFn: async (event: Event): Promise<Result<void, never>> => {
+		mutationFn: async (event: Event): Promise<Result<void, never>> => {
 			// Check if analytics is enabled in settings
 			if (!settings.value['analytics.enabled']) {
 				// Analytics disabled, skip anonymous analytics
