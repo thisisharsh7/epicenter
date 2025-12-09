@@ -11,15 +11,22 @@ function getMimeType(filePath: string): string {
 	return mime.getType(filePath) ?? 'application/octet-stream';
 }
 
+/**
+ * Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer.
+ * This wrapper provides the correct type for use with Blob/File constructors.
+ */
+async function readFileBytes(path: string): Promise<Uint8Array<ArrayBuffer>> {
+	return (await readFile(path)) as Uint8Array<ArrayBuffer>;
+}
+
 export function createFsServiceDesktop(): FsService {
 	return {
 		pathToBlob: async (path: string) => {
 			return tryAsync({
 				try: async () => {
-					const fileBytes = await readFile(path);
+					const fileBytes = await readFileBytes(path);
 					const mimeType = getMimeType(path);
-					// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
-					return new Blob([fileBytes as Uint8Array<ArrayBuffer>], { type: mimeType });
+					return new Blob([fileBytes], { type: mimeType });
 				},
 				catch: (error) =>
 					FsServiceErr({
@@ -31,11 +38,10 @@ export function createFsServiceDesktop(): FsService {
 		pathToFile: async (path: string) => {
 			return tryAsync({
 				try: async () => {
-					const fileBytes = await readFile(path);
+					const fileBytes = await readFileBytes(path);
 					const fileName = await basename(path);
 					const mimeType = getMimeType(path);
-					// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
-					return new File([fileBytes as Uint8Array<ArrayBuffer>], fileName, { type: mimeType });
+					return new File([fileBytes], fileName, { type: mimeType });
 				},
 				catch: (error) =>
 					FsServiceErr({
@@ -49,11 +55,10 @@ export function createFsServiceDesktop(): FsService {
 				try: async () => {
 					const files: File[] = [];
 					for (const path of paths) {
-						const fileBytes = await readFile(path);
+						const fileBytes = await readFileBytes(path);
 						const fileName = await basename(path);
 						const mimeType = getMimeType(path);
-						// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
-						const file = new File([fileBytes as Uint8Array<ArrayBuffer>], fileName, { type: mimeType });
+						const file = new File([fileBytes], fileName, { type: mimeType });
 						files.push(file);
 					}
 					return files;
