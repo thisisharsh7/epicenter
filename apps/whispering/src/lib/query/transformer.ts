@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid/non-secure';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, isErr, Ok, type Result } from 'wellcrafted/result';
 import {
@@ -11,6 +12,7 @@ import type {
 	Transformation,
 	TransformationRunCompleted,
 	TransformationRunFailed,
+	TransformationRunRunning,
 	TransformationStep,
 } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
@@ -326,12 +328,19 @@ async function runTransformation({
 		});
 	}
 
-	const { data: transformationRun, error: createTransformationRunError } =
-		await services.db.runs.create({
-			transformationId: transformation.id,
-			recordingId,
-			input,
-		});
+	const transformationRun = {
+		id: nanoid(),
+		transformationId: transformation.id,
+		recordingId,
+		input,
+		startedAt: new Date().toISOString(),
+		completedAt: null,
+		status: 'running',
+		stepRuns: [],
+	} satisfies TransformationRunRunning;
+
+	const { error: createTransformationRunError } =
+		await services.db.runs.create(transformationRun);
 
 	if (createTransformationRunError)
 		return TransformServiceErr({

@@ -415,8 +415,7 @@
 
 				// Bulk insert runs
 				onProgress('Inserting transformation runs into IndexedDB...');
-				const runsParams = runs.map((run) => ({ run }));
-				const { error: runsError } = await db.runs.create(runsParams);
+				const { error: runsError } = await db.runs.create(runs);
 				if (runsError) {
 					throw new Error(
 						`Failed to insert transformation runs: ${runsError.message}`,
@@ -911,11 +910,7 @@
 							}
 
 							// Create in file system
-							const { error: createError } = await fileSystemDb.runs.create({
-								transformationId: run.transformationId,
-								recordingId: run.recordingId,
-								input: run.input,
-							});
+							const { error: createError } = await fileSystemDb.runs.create(run);
 
 							if (createError) {
 								onProgress(

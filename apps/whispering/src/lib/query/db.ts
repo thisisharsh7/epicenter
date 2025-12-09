@@ -252,8 +252,7 @@ export const db = {
 				const transformationsArray = Array.isArray(transformations)
 					? transformations
 					: [transformations];
-				const { error } =
-					await services.db.transformations.delete(transformationsArray);
+				const { error } = await services.db.transformations.delete(transformationsArray);
 				if (error) return Err(error);
 
 				queryClient.setQueryData<Transformation[]>(
