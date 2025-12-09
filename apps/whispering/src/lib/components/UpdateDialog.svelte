@@ -71,7 +71,6 @@
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
 	import DownloadIcon from '@lucide/svelte/icons/download';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { extractErrorMessage } from 'wellcrafted/error';
 
 	const GITHUB_RELEASES_URL =
@@ -127,10 +126,7 @@
 <Dialog.Root bind:open={updateDialog.isOpen}>
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
-			<Dialog.Title class="flex items-center gap-2">
-				<SparklesIcon class="text-primary" />
-				Update Available
-			</Dialog.Title>
+			<Dialog.Title>Update Available</Dialog.Title>
 			<Dialog.Description>
 				Version {updateDialog.update?.version} is ready to install
 				{#if updateDialog.update?.date}
