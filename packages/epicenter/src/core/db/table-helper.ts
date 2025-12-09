@@ -57,6 +57,52 @@ export type RowResult<TRow> =
 	| { status: 'invalid'; id: string; error: RowValidationError };
 
 /**
+ * Result of updating a single row.
+ *
+ * Reflects Yjs semantics: update is a no-op if the row doesn't exist locally.
+ * This is intentional - creating a new Y.Map with partial fields could overwrite
+ * a complete row from another peer via Last-Writer-Wins, causing data loss.
+ */
+export type UpdateResult =
+	| { status: 'applied' }
+	| { status: 'not_found_locally' };
+
+/**
+ * Result of updating multiple rows.
+ *
+ * - `all_applied`: Every row existed locally and was updated
+ * - `partially_applied`: Some rows were updated, others weren't found locally
+ * - `none_applied`: No rows were found locally (nothing was updated)
+ */
+export type UpdateManyResult =
+	| { status: 'all_applied'; applied: string[] }
+	| { status: 'partially_applied'; applied: string[]; notFoundLocally: string[] }
+	| { status: 'none_applied'; notFoundLocally: string[] };
+
+/**
+ * Result of deleting a single row.
+ *
+ * Reflects Yjs semantics: Y.Map.delete() on a non-existent key is a no-op.
+ * No operation is recorded, so the delete won't propagate to other peers.
+ * You cannot "pre-delete" something that hasn't synced yet.
+ */
+export type DeleteResult =
+	| { status: 'deleted' }
+	| { status: 'not_found_locally' };
+
+/**
+ * Result of deleting multiple rows.
+ *
+ * - `all_deleted`: Every row existed locally and was deleted
+ * - `partially_deleted`: Some rows were deleted, others weren't found locally
+ * - `none_deleted`: No rows were found locally (nothing was deleted)
+ */
+export type DeleteManyResult =
+	| { status: 'all_deleted'; deleted: string[] }
+	| { status: 'partially_deleted'; deleted: string[]; notFoundLocally: string[] }
+	| { status: 'none_deleted'; notFoundLocally: string[] };
+
+/**
  * Creates a type-safe collection of table helpers for all tables in a schema.
  *
  * This function maps over the table schemas and creates a TableHelper for each table,
@@ -171,12 +217,12 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		update: defineMutation({
 			input: validators.toPartialStandardSchema(),
 			description: `Update specific fields of an existing row in the ${tableName} table`,
-			handler: (partialSerializedRow) => {
+			handler: (partialSerializedRow): UpdateResult => {
 				const yrow = ytable.get(partialSerializedRow.id);
 				if (!yrow) {
 					// No-op: Creating a new Y.Map here would risk replacing an existing row
 					// from another peer via LWW, causing catastrophic data loss.
-					return;
+					return { status: 'not_found_locally' };
 				}
 
 				ydoc.transact(() => {
@@ -186,6 +232,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						schema,
 					});
 				});
+
+				return { status: 'applied' };
 			},
 		}),
 
@@ -232,22 +280,38 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Update multiple rows.
 		 *
 		 * Rows that don't exist locally are skipped (no-op). See `update` for the rationale.
+		 * Returns a status indicating how many rows were applied vs not found locally.
 		 */
 		updateMany: defineMutation({
 			input: validators.toPartialStandardSchemaArray(),
 			description: `Update multiple rows in the ${tableName} table`,
-			handler: ({ rows }) => {
+			handler: ({ rows }): UpdateManyResult => {
+				const applied: string[] = [];
+				const notFoundLocally: string[] = [];
+
 				ydoc.transact(() => {
 					for (const partialSerializedRow of rows) {
 						const yrow = ytable.get(partialSerializedRow.id);
-						if (!yrow) continue; // No-op for non-existent rows (see update JSDoc)
+						if (!yrow) {
+							notFoundLocally.push(partialSerializedRow.id);
+							continue;
+						}
 						updateYRowFromSerializedRow({
 							yrow,
 							serializedRow: partialSerializedRow,
 							schema,
 						});
+						applied.push(partialSerializedRow.id);
 					}
 				});
+
+				if (notFoundLocally.length === 0) {
+					return { status: 'all_applied', applied };
+				}
+				if (applied.length === 0) {
+					return { status: 'none_applied', notFoundLocally };
+				}
+				return { status: 'partially_applied', applied, notFoundLocally };
 			},
 		}),
 
@@ -397,27 +461,60 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			handler: (params) => ytable.has(params.id),
 		}),
 
-		/** Delete a row by ID */
+		/**
+		 * Delete a row by ID.
+		 *
+		 * Returns status indicating whether the row was deleted or not found locally.
+		 * In Yjs, deleting a non-existent key is a no-op (no operation recorded).
+		 */
 		delete: defineMutation({
 			input: type({ id: 'string' }),
 			description: `Delete a row from the ${tableName} table`,
-			handler: (params) => {
+			handler: (params): DeleteResult => {
+				const exists = ytable.has(params.id);
+				if (!exists) {
+					return { status: 'not_found_locally' };
+				}
+
 				ydoc.transact(() => {
 					ytable.delete(params.id);
 				});
+
+				return { status: 'deleted' };
 			},
 		}),
 
-		/** Delete multiple rows by IDs */
+		/**
+		 * Delete multiple rows by IDs.
+		 *
+		 * Returns status indicating how many rows were deleted vs not found locally.
+		 * In Yjs, deleting non-existent keys is a no-op (no operations recorded).
+		 */
 		deleteMany: defineMutation({
 			input: type({ ids: 'string[]' }),
 			description: `Delete multiple rows from the ${tableName} table`,
-			handler: (params) => {
+			handler: (params): DeleteManyResult => {
+				const deleted: string[] = [];
+				const notFoundLocally: string[] = [];
+
 				ydoc.transact(() => {
 					for (const id of params.ids) {
-						ytable.delete(id);
+						if (ytable.has(id)) {
+							ytable.delete(id);
+							deleted.push(id);
+						} else {
+							notFoundLocally.push(id);
+						}
 					}
 				});
+
+				if (notFoundLocally.length === 0) {
+					return { status: 'all_deleted', deleted };
+				}
+				if (deleted.length === 0) {
+					return { status: 'none_deleted', notFoundLocally };
+				}
+				return { status: 'partially_deleted', deleted, notFoundLocally };
 			},
 		}),
 
