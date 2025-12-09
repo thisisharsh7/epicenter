@@ -43,11 +43,11 @@
 
 	const latestRecording = $derived(latestRecordingQuery.data);
 
-	const audioPlaybackUrlQuery = createQuery(
-		() =>
-			rpc.db.recordings.getAudioPlaybackUrl(() => latestRecording?.id ?? '')
-				.options,
-	);
+	const audioPlaybackUrlQuery = createQuery(() => ({
+		...rpc.db.recordings.getAudioPlaybackUrl(() => latestRecording?.id ?? '')
+			.options,
+		enabled: !!latestRecording?.id,
+	}));
 
 	const blobUrl = $derived(audioPlaybackUrlQuery.data);
 
