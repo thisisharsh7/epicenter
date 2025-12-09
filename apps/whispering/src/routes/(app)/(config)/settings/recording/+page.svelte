@@ -62,6 +62,9 @@
 					'Recommended for Linux. Supports all audio formats with advanced customization options. Helps bypass common audio issues.',
 				windows:
 					'Supports all audio formats with advanced customization options.',
+				android:
+					'Supports all audio formats with advanced customization options.',
+				ios: 'Supports all audio formats with advanced customization options.',
 			}[PLATFORM_TYPE],
 		},
 		{
