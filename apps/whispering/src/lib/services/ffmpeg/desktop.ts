@@ -59,7 +59,7 @@ export function createFfmpegService(): FfmpegService {
 							try: () => services.fs.pathToBlob(inputPath),
 							catch: (error) =>
 								FfmpegServiceErr({
-									message: 'Temp file not accessible',
+									message: `Temp file not accessible: ${extractErrorMessage(error)}`,
 								}),
 						});
 						if (verifyError) throw new Error(verifyError.message);
