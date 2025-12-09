@@ -53,7 +53,9 @@ console.log('='.repeat(60));
 console.log('YJS Read-at-Scale Stress Test');
 console.log('='.repeat(60));
 console.log(`Total items to insert: ${TOTAL_ITEMS.toLocaleString()}`);
-console.log(`Measurement interval: every ${MEASUREMENT_BATCH.toLocaleString()} items`);
+console.log(
+	`Measurement interval: every ${MEASUREMENT_BATCH.toLocaleString()} items`,
+);
 console.log(`Insert batch size: ${INSERT_BATCH_SIZE.toLocaleString()}`);
 console.log('='.repeat(60));
 console.log('');
@@ -101,7 +103,10 @@ while (totalInserted < TOTAL_ITEMS) {
 	);
 
 	while (totalInserted < nextMeasurement) {
-		const batchCount = Math.min(INSERT_BATCH_SIZE, nextMeasurement - totalInserted);
+		const batchCount = Math.min(
+			INSERT_BATCH_SIZE,
+			nextMeasurement - totalInserted,
+		);
 
 		const items = [];
 		for (let i = 0; i < batchCount; i++) {
@@ -149,15 +154,18 @@ while (totalInserted < TOTAL_ITEMS) {
 	metrics.push({
 		itemCount: totalInserted,
 		getAllTime,
-		getAllRate: allRows.length / getAllTime * 1000,
+		getAllRate: (allRows.length / getAllTime) * 1000,
 		getSingleTime: avgGetTime,
-		getSingleRate: 1 / avgGetTime * 1000,
+		getSingleRate: (1 / avgGetTime) * 1000,
 		countTime,
 	});
 
 	// Print row
 	const itemsCol = totalInserted.toLocaleString().padStart(10);
-	const getAllCol = `${formatTime(getAllTime)} (${formatRate(allRows.length, getAllTime)})`.padStart(11);
+	const getAllCol =
+		`${formatTime(getAllTime)} (${formatRate(allRows.length, getAllTime)})`.padStart(
+			11,
+		);
 	const getCol = `${formatTime(avgGetTime)}/ea`.padStart(11);
 	const countCol = formatTime(countTime).padStart(10);
 
@@ -185,16 +193,24 @@ if (metrics.length >= 2) {
 	// getAll scaling
 	const getAllSlowdown = (last.getAllTime / first.getAllTime).toFixed(2);
 	const itemsRatio = (last.itemCount / first.itemCount).toFixed(1);
-	console.log(`  Items grew: ${first.itemCount.toLocaleString()} → ${last.itemCount.toLocaleString()} (${itemsRatio}x)`);
-	console.log(`  getAll() time: ${formatTime(first.getAllTime)} → ${formatTime(last.getAllTime)} (${getAllSlowdown}x slower)`);
+	console.log(
+		`  Items grew: ${first.itemCount.toLocaleString()} → ${last.itemCount.toLocaleString()} (${itemsRatio}x)`,
+	);
+	console.log(
+		`  getAll() time: ${formatTime(first.getAllTime)} → ${formatTime(last.getAllTime)} (${getAllSlowdown}x slower)`,
+	);
 
 	// get() scaling
 	const getSlowdown = (last.getSingleTime / first.getSingleTime).toFixed(2);
-	console.log(`  get() time: ${formatTime(first.getSingleTime)} → ${formatTime(last.getSingleTime)} (${getSlowdown}x slower)`);
+	console.log(
+		`  get() time: ${formatTime(first.getSingleTime)} → ${formatTime(last.getSingleTime)} (${getSlowdown}x slower)`,
+	);
 
 	// count() scaling
 	const countSlowdown = (last.countTime / first.countTime).toFixed(2);
-	console.log(`  count() time: ${formatTime(first.countTime)} → ${formatTime(last.countTime)} (${countSlowdown}x slower)`);
+	console.log(
+		`  count() time: ${formatTime(first.countTime)} → ${formatTime(last.countTime)} (${countSlowdown}x slower)`,
+	);
 
 	// Complexity analysis
 	console.log('');
@@ -202,20 +218,32 @@ if (metrics.length >= 2) {
 
 	const getAllComplexity = parseFloat(getAllSlowdown) / parseFloat(itemsRatio);
 	if (getAllComplexity < 1.2) {
-		console.log(`  getAll(): ~O(n) - linear scaling (${getAllComplexity.toFixed(2)}x per ${itemsRatio}x items)`);
+		console.log(
+			`  getAll(): ~O(n) - linear scaling (${getAllComplexity.toFixed(2)}x per ${itemsRatio}x items)`,
+		);
 	} else if (getAllComplexity < 2) {
-		console.log(`  getAll(): ~O(n log n) - slightly superlinear (${getAllComplexity.toFixed(2)}x per ${itemsRatio}x items)`);
+		console.log(
+			`  getAll(): ~O(n log n) - slightly superlinear (${getAllComplexity.toFixed(2)}x per ${itemsRatio}x items)`,
+		);
 	} else {
-		console.log(`  getAll(): ~O(n²) or worse - concerning (${getAllComplexity.toFixed(2)}x per ${itemsRatio}x items)`);
+		console.log(
+			`  getAll(): ~O(n²) or worse - concerning (${getAllComplexity.toFixed(2)}x per ${itemsRatio}x items)`,
+		);
 	}
 
 	const getComplexity = parseFloat(getSlowdown);
 	if (getComplexity < 1.5) {
-		console.log(`  get(): ~O(1) - constant time (${getSlowdown}x over ${itemsRatio}x items)`);
+		console.log(
+			`  get(): ~O(1) - constant time (${getSlowdown}x over ${itemsRatio}x items)`,
+		);
 	} else if (getComplexity < parseFloat(itemsRatio)) {
-		console.log(`  get(): ~O(log n) - logarithmic (${getSlowdown}x over ${itemsRatio}x items)`);
+		console.log(
+			`  get(): ~O(log n) - logarithmic (${getSlowdown}x over ${itemsRatio}x items)`,
+		);
 	} else {
-		console.log(`  get(): ~O(n) or worse - linear scan (${getSlowdown}x over ${itemsRatio}x items)`);
+		console.log(
+			`  get(): ~O(n) or worse - linear scan (${getSlowdown}x over ${itemsRatio}x items)`,
+		);
 	}
 }
 

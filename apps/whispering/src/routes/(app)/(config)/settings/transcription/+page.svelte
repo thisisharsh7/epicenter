@@ -697,7 +697,8 @@
 			disabled={isPromptAndTemperatureNotSupported}
 			bind:value={
 				() => settings.value['transcription.temperature'],
-				(value) => settings.updateKey('transcription.temperature', String(value))
+				(value) =>
+					settings.updateKey('transcription.temperature', String(value))
 			}
 		/>
 		<Field.Description>

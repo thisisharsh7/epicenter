@@ -424,7 +424,8 @@ export const browser = defineWorkspace({
 				// Need to find which window the tab ended up in
 				const target_window_id =
 					window_id ??
-					db.windows.getAllValid().find((w) => w.browser_id === newTab.windowId)?.id;
+					db.windows.getAllValid().find((w) => w.browser_id === newTab.windowId)
+						?.id;
 
 				if (!target_window_id) {
 					return BrowserResponseErr({

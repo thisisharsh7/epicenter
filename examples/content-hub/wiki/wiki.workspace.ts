@@ -6,18 +6,18 @@ import {
 	defineWorkspace,
 	id,
 	markdownIndex,
-	select,
 	type SerializedRow,
+	select,
 	sqliteIndex,
 	tags,
 	text,
 	withBodyField,
 } from '@epicenter/hq';
-import { QUALITY_OPTIONS } from '../shared/quality';
 import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+import { QUALITY_OPTIONS } from '../shared/quality';
 
 /**
  * Path to the blog's content collection for articles

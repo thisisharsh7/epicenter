@@ -339,7 +339,11 @@
 				tooltip="Go to local shortcut in settings"
 				href="/settings/shortcuts/local"
 			>
-	<Kbd.Root>{getShortcutDisplayLabel(settings.value['shortcuts.local.toggleManualRecording'])}</Kbd.Root>
+				<Kbd.Root
+					>{getShortcutDisplayLabel(
+						settings.value['shortcuts.local.toggleManualRecording'],
+					)}</Kbd.Root
+				>
 			</Link>{' '}
 			to start recording here.
 		</p>
@@ -350,7 +354,11 @@
 					tooltip="Go to global shortcut in settings"
 					href="/settings/shortcuts/global"
 				>
-	<Kbd.Root>{getShortcutDisplayLabel(settings.value['shortcuts.global.toggleManualRecording'])}</Kbd.Root>
+					<Kbd.Root
+						>{getShortcutDisplayLabel(
+							settings.value['shortcuts.global.toggleManualRecording'],
+						)}</Kbd.Root
+					>
 				</Link>{' '}
 				to start recording anywhere.
 			</p>

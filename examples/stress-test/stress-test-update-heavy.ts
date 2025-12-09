@@ -26,7 +26,7 @@
  * ```
  */
 
-import { existsSync, statSync, rmSync } from 'node:fs';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { createEpicenterClient, generateId } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
@@ -48,13 +48,7 @@ const ITEMS_PER_TABLE = Number(process.argv[2]) || 5_000;
 const UPDATE_ROUNDS = Number(process.argv[3]) || 3;
 const BATCH_SIZE = 1_000;
 
-const TABLES = [
-	'items_a',
-	'items_b',
-	'items_c',
-	'items_d',
-	'items_e',
-] as const;
+const TABLES = ['items_a', 'items_b', 'items_c', 'items_d', 'items_e'] as const;
 
 function formatBytes(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
@@ -88,7 +82,9 @@ console.log(`Items per table: ${ITEMS_PER_TABLE.toLocaleString()}`);
 console.log(`Update rounds: ${UPDATE_ROUNDS}`);
 console.log(`Batch size: ${BATCH_SIZE.toLocaleString()}`);
 console.log(`Total tables: ${TABLES.length}`);
-console.log(`Total items: ${(ITEMS_PER_TABLE * TABLES.length).toLocaleString()}`);
+console.log(
+	`Total items: ${(ITEMS_PER_TABLE * TABLES.length).toLocaleString()}`,
+);
 console.log('='.repeat(60));
 console.log('');
 
@@ -135,7 +131,9 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 	const tableStart = performance.now();
 	const tableIds = allIds.get(table)!;
 
-	writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`);
+	writeLine(
+		`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${ITEMS_PER_TABLE.toLocaleString()}`,
+	);
 
 	const now = new Date().toISOString();
 	const tableDb = stress[table];
@@ -160,7 +158,9 @@ for (let tableIndex = 0; tableIndex < TABLES.length; tableIndex++) {
 		inserted += batchCount;
 
 		clearLine();
-		writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()}`);
+		writeLine(
+			`[${tableIndex + 1}/${TABLES.length}] ${table}: ${inserted.toLocaleString()}/${ITEMS_PER_TABLE.toLocaleString()}`,
+		);
 	}
 
 	const tableElapsed = performance.now() - tableStart;
@@ -174,18 +174,22 @@ const phase1Elapsed = performance.now() - phase1Start;
 const phase1Total = ITEMS_PER_TABLE * TABLES.length;
 
 console.log('');
-console.log(`Phase 1 complete: ${phase1Total.toLocaleString()} items in ${formatTime(phase1Elapsed)}`);
+console.log(
+	`Phase 1 complete: ${phase1Total.toLocaleString()} items in ${formatTime(phase1Elapsed)}`,
+);
 
 console.log('Waiting for YJS persistence (2s)...');
 await new Promise((resolve) => setTimeout(resolve, 2000));
 const sizeAfterSetup = getYjsFileSize();
-console.log(`YJS file size after setup: ${sizeAfterSetup ? formatBytes(sizeAfterSetup) : 'N/A'}`);
+console.log(
+	`YJS file size after setup: ${sizeAfterSetup ? formatBytes(sizeAfterSetup) : 'N/A'}`,
+);
 
 metrics.push({
 	phase: 'Initial Setup',
 	duration: phase1Elapsed,
 	itemCount: phase1Total,
-	rate: phase1Total / phase1Elapsed * 1000,
+	rate: (phase1Total / phase1Elapsed) * 1000,
 	fileSize: sizeAfterSetup,
 });
 
@@ -206,7 +210,9 @@ for (let round = 1; round <= UPDATE_ROUNDS; round++) {
 		const tableIds = allIds.get(table)!;
 		const tableDb = stress[table];
 
-		writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${tableIds.length.toLocaleString()}`);
+		writeLine(
+			`[${tableIndex + 1}/${TABLES.length}] ${table}: 0/${tableIds.length.toLocaleString()}`,
+		);
 
 		const now = new Date().toISOString();
 		let updated = 0;
@@ -227,7 +233,9 @@ for (let round = 1; round <= UPDATE_ROUNDS; round++) {
 			updated += batchCount;
 
 			clearLine();
-			writeLine(`[${tableIndex + 1}/${TABLES.length}] ${table}: ${updated.toLocaleString()}/${tableIds.length.toLocaleString()}`);
+			writeLine(
+				`[${tableIndex + 1}/${TABLES.length}] ${table}: ${updated.toLocaleString()}/${tableIds.length.toLocaleString()}`,
+			);
 		}
 
 		const tableElapsed = performance.now() - tableStart;
@@ -241,18 +249,22 @@ for (let round = 1; round <= UPDATE_ROUNDS; round++) {
 	const roundTotal = ITEMS_PER_TABLE * TABLES.length;
 
 	console.log('');
-	console.log(`Round ${round} complete: ${roundTotal.toLocaleString()} updates in ${formatTime(roundElapsed)}`);
+	console.log(
+		`Round ${round} complete: ${roundTotal.toLocaleString()} updates in ${formatTime(roundElapsed)}`,
+	);
 
 	console.log('Waiting for YJS persistence (2s)...');
 	await new Promise((resolve) => setTimeout(resolve, 2000));
 	const sizeAfterRound = getYjsFileSize();
-	console.log(`YJS file size after round ${round}: ${sizeAfterRound ? formatBytes(sizeAfterRound) : 'N/A'}`);
+	console.log(
+		`YJS file size after round ${round}: ${sizeAfterRound ? formatBytes(sizeAfterRound) : 'N/A'}`,
+	);
 
 	metrics.push({
 		phase: `Update Round ${round}`,
 		duration: roundElapsed,
 		itemCount: roundTotal,
-		rate: roundTotal / roundElapsed * 1000,
+		rate: (roundTotal / roundElapsed) * 1000,
 		fileSize: sizeAfterRound,
 	});
 
@@ -279,7 +291,9 @@ for (const m of metrics) {
 	const phase = m.phase.padEnd(22);
 	const items = m.itemCount.toLocaleString().padStart(10);
 	const rate = formatRate(m.itemCount, m.duration).padStart(10);
-	const size = m.fileSize ? formatBytes(m.fileSize).padStart(10) : 'N/A'.padStart(10);
+	const size = m.fileSize
+		? formatBytes(m.fileSize).padStart(10)
+		: 'N/A'.padStart(10);
 	console.log(`${phase} | ${items} | ${rate} | ${size}`);
 }
 
@@ -296,10 +310,15 @@ if (metrics.length >= 2) {
 	console.log(`  Update rate vs initial: ${updateVsSetup}% of setup speed`);
 
 	if (metrics[0].fileSize && metrics[metrics.length - 1].fileSize) {
-		const sizeGrowth = metrics[metrics.length - 1].fileSize - metrics[0].fileSize;
+		const sizeGrowth =
+			metrics[metrics.length - 1].fileSize - metrics[0].fileSize;
 		const growthPercent = ((sizeGrowth / metrics[0].fileSize) * 100).toFixed(1);
-		console.log(`  File size growth: +${formatBytes(sizeGrowth)} (+${growthPercent}%)`);
-		console.log(`  Bytes per update round: ~${formatBytes(sizeGrowth / UPDATE_ROUNDS)}`);
+		console.log(
+			`  File size growth: +${formatBytes(sizeGrowth)} (+${growthPercent}%)`,
+		);
+		console.log(
+			`  Bytes per update round: ~${formatBytes(sizeGrowth / UPDATE_ROUNDS)}`,
+		);
 	}
 }
 

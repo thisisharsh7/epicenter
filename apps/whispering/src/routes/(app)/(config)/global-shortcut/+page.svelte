@@ -40,7 +40,8 @@
 				Get Chrome Extension
 			</Button>
 		</div>
-		<Button onclick={() => window.history.back()} variant="ghost">Go back</Button
+		<Button onclick={() => window.history.back()} variant="ghost"
+			>Go back</Button
 		>
 	</section>
 </main>

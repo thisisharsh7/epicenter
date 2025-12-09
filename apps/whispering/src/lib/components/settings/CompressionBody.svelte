@@ -77,7 +77,10 @@
 			id="compression-enabled"
 			checked={settings.value['transcription.compressionEnabled']}
 			onCheckedChange={(checked) =>
-				settings.updateKey('transcription.compressionEnabled', checked === true)}
+				settings.updateKey(
+					'transcription.compressionEnabled',
+					checked === true,
+				)}
 			disabled={!isFfmpegInstalled}
 		/>
 		<Field.Content>

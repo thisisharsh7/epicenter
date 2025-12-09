@@ -22,14 +22,11 @@
 	let { children, class: className, tooltip, ...rest }: LinkProps = $props();
 </script>
 
-{#snippet linkContent(tooltipProps?: Record<string, unknown>)}
+{#snippet linkContent(tooltipProps?: Record)}
 	<a
 		{...rest}
 		{...tooltipProps}
-		class={cn(
-			'text-primary underline-offset-4 hover:underline',
-			className,
-		)}
+		class={cn('text-primary underline-offset-4 hover:underline', className)}
 	>
 		{@render children?.()}
 	</a>

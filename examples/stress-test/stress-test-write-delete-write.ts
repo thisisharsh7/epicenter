@@ -19,7 +19,7 @@
  * ```
  */
 
-import { existsSync, statSync, rmSync } from 'node:fs';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { createEpicenterClient, generateId } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
@@ -180,7 +180,9 @@ console.log(
 console.log('Waiting for YJS persistence (2s)...');
 await new Promise((resolve) => setTimeout(resolve, 2000));
 const sizeAfterWrite1 = getYjsFileSize();
-console.log(`YJS file size after Phase 1: ${sizeAfterWrite1 ? formatBytes(sizeAfterWrite1) : 'N/A'}`);
+console.log(
+	`YJS file size after Phase 1: ${sizeAfterWrite1 ? formatBytes(sizeAfterWrite1) : 'N/A'}`,
+);
 console.log('');
 
 // ============================================================================
@@ -240,7 +242,9 @@ console.log(
 console.log('Waiting for YJS persistence (2s)...');
 await new Promise((resolve) => setTimeout(resolve, 2000));
 const sizeAfterDelete = getYjsFileSize();
-console.log(`YJS file size after Phase 2: ${sizeAfterDelete ? formatBytes(sizeAfterDelete) : 'N/A'}`);
+console.log(
+	`YJS file size after Phase 2: ${sizeAfterDelete ? formatBytes(sizeAfterDelete) : 'N/A'}`,
+);
 console.log('');
 
 // ============================================================================
@@ -309,7 +313,9 @@ console.log(
 console.log('Waiting for YJS persistence (2s)...');
 await new Promise((resolve) => setTimeout(resolve, 2000));
 const sizeAfterWrite2 = getYjsFileSize();
-console.log(`YJS file size after Phase 3: ${sizeAfterWrite2 ? formatBytes(sizeAfterWrite2) : 'N/A'}`);
+console.log(
+	`YJS file size after Phase 3: ${sizeAfterWrite2 ? formatBytes(sizeAfterWrite2) : 'N/A'}`,
+);
 console.log('');
 
 // ============================================================================
@@ -323,16 +329,28 @@ console.log('='.repeat(60));
 console.log(`Total time: ${formatTime(totalElapsed)}`);
 console.log('');
 console.log('File size progression:');
-console.log(`  After Phase 1 (write):  ${sizeAfterWrite1 ? formatBytes(sizeAfterWrite1) : 'N/A'}`);
-console.log(`  After Phase 2 (delete): ${sizeAfterDelete ? formatBytes(sizeAfterDelete) : 'N/A'}`);
-console.log(`  After Phase 3 (write):  ${sizeAfterWrite2 ? formatBytes(sizeAfterWrite2) : 'N/A'}`);
+console.log(
+	`  After Phase 1 (write):  ${sizeAfterWrite1 ? formatBytes(sizeAfterWrite1) : 'N/A'}`,
+);
+console.log(
+	`  After Phase 2 (delete): ${sizeAfterDelete ? formatBytes(sizeAfterDelete) : 'N/A'}`,
+);
+console.log(
+	`  After Phase 3 (write):  ${sizeAfterWrite2 ? formatBytes(sizeAfterWrite2) : 'N/A'}`,
+);
 
 if (sizeAfterWrite1 && sizeAfterDelete && sizeAfterWrite2) {
 	console.log('');
 	console.log('Size changes:');
-	console.log(`  Delete overhead: +${formatBytes(sizeAfterDelete - sizeAfterWrite1)} (${((sizeAfterDelete / sizeAfterWrite1 - 1) * 100).toFixed(1)}%)`);
-	console.log(`  Final vs initial: +${formatBytes(sizeAfterWrite2 - sizeAfterWrite1)} (${((sizeAfterWrite2 / sizeAfterWrite1 - 1) * 100).toFixed(1)}%)`);
-	console.log(`  Final vs single write (2x data): ${((sizeAfterWrite2 / sizeAfterWrite1)).toFixed(2)}x`);
+	console.log(
+		`  Delete overhead: +${formatBytes(sizeAfterDelete - sizeAfterWrite1)} (${((sizeAfterDelete / sizeAfterWrite1 - 1) * 100).toFixed(1)}%)`,
+	);
+	console.log(
+		`  Final vs initial: +${formatBytes(sizeAfterWrite2 - sizeAfterWrite1)} (${((sizeAfterWrite2 / sizeAfterWrite1 - 1) * 100).toFixed(1)}%)`,
+	);
+	console.log(
+		`  Final vs single write (2x data): ${(sizeAfterWrite2 / sizeAfterWrite1).toFixed(2)}x`,
+	);
 }
 
 console.log('');

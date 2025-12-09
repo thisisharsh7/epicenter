@@ -2,6 +2,7 @@ import { on } from 'svelte/events';
 import type { Brand } from 'wellcrafted/brand';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok, type Result } from 'wellcrafted/result';
+import type { ShortcutEventState } from '$lib/commands';
 import {
 	isSupportedKey,
 	type KeyboardEventPossibleKey,
@@ -9,7 +10,6 @@ import {
 	normalizeOptionKeyCharacter,
 } from '$lib/constants/keyboard';
 import { IS_MACOS } from '$lib/constants/platform';
-import type { ShortcutEventState } from '$lib/commands';
 
 /**
  * Error type for local shortcut service operations.

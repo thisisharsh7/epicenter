@@ -49,8 +49,8 @@
 			}
 		/>
 		<Field.Description>
-			Override the default OpenAI API endpoint. Useful for reverse proxies or OpenAI-compatible
-			services. Leave empty to use the official OpenAI API.
+			Override the default OpenAI API endpoint. Useful for reverse proxies or
+			OpenAI-compatible services. Leave empty to use the official OpenAI API.
 		</Field.Description>
 	</Field.Field>
 </Field.Group>

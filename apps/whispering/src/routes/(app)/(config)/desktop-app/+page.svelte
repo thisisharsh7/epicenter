@@ -87,7 +87,11 @@
 				</Button>
 			</div>
 
-			<Button onclick={() => window.history.back()} variant="ghost" class="mt-2">
+			<Button
+				onclick={() => window.history.back()}
+				variant="ghost"
+				class="mt-2"
+			>
 				Go back
 			</Button>
 		</div>

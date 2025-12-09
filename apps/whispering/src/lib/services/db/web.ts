@@ -14,6 +14,7 @@ import type {
 	RecordingsDbSchemaV4,
 	RecordingsDbSchemaV5,
 	SerializedAudio,
+	Transformation,
 	TransformationRun,
 	TransformationRunCompleted,
 	TransformationRunFailed,
@@ -22,7 +23,6 @@ import type {
 	TransformationStepRunFailed,
 	TransformationStepRunRunning,
 	TransformationStepV2,
-	Transformation,
 	TransformationV1,
 } from './models';
 import type { DbService } from './types';

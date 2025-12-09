@@ -135,7 +135,9 @@
 								class="flex grow items-center gap-1.5 overflow-x-auto pr-2 scrollbar-none"
 							>
 								{#if rawKeyCombination && !keyRecorder.isListening}
-									<Kbd.Root>{getShortcutDisplayLabel(rawKeyCombination)}</Kbd.Root>
+									<Kbd.Root
+										>{getShortcutDisplayLabel(rawKeyCombination)}</Kbd.Root
+									>
 								{:else if !keyRecorder.isListening}
 									<span class="truncate text-muted-foreground"
 										>{placeholder}</span
