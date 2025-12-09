@@ -93,7 +93,10 @@
 							<Command.Item
 								value={`method-${methodKey} ${method.label} ${method.description}`}
 								onSelect={() => {
-									settings.updateKey('recording.method', methodKey);
+									settings.updateKey(
+										'recording.method',
+										methodKey as keyof typeof RECORDING_METHODS,
+									);
 									getDevicesQuery.refetch();
 								}}
 								class="flex items-center gap-3 px-3 py-2"
