@@ -17,7 +17,7 @@ export function createHttpServiceDesktop(): HttpService {
 					}),
 				catch: (error) =>
 					ConnectionErr({
-						message: 'Failed to establish connection',
+						message: `Failed to establish connection: ${extractErrorMessage(error)}`,
 					}),
 			});
 			if (responseError) return Err(responseError);
@@ -42,7 +42,7 @@ export function createHttpServiceDesktop(): HttpService {
 				},
 				catch: (error) =>
 					ParseErr({
-						message: 'Failed to parse response',
+						message: `Failed to parse response: ${extractErrorMessage(error)}`,
 					}),
 			});
 			return parseResult;
