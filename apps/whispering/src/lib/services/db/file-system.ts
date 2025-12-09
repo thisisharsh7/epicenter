@@ -10,6 +10,7 @@ import {
 import { type } from 'arktype';
 import matter from 'gray-matter';
 import mime from 'mime';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
@@ -139,7 +140,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all recordings from file system',
+							message: `Error getting all recordings from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -155,7 +156,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting latest recording from file system',
+							message: `Error getting latest recording from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -172,8 +173,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transcribing recording ids from file system',
+							message: `Error getting transcribing recording ids from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -202,7 +202,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting recording by id from file system',
+							message: `Error getting recording by id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -248,7 +248,7 @@ export function createFileSystemDb(): DbService {
 						},
 						catch: (error) =>
 							DbServiceErr({
-								message: 'Error bulk creating recordings in file system',
+								message: `Error bulk creating recordings in file system: ${extractErrorMessage(error)}`,
 							}),
 					});
 
@@ -257,7 +257,7 @@ export function createFileSystemDb(): DbService {
 					try: () => createSingleRecording(params),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error creating recording in file system',
+							message: `Error creating recording in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -297,7 +297,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating recording in file system',
+							message: `Error updating recording in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -331,7 +331,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting recordings from file system',
+							message: `Error deleting recordings from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -356,7 +356,7 @@ export function createFileSystemDb(): DbService {
 							},
 							catch: (error) =>
 								DbServiceErr({
-									message: 'Error cleaning up expired recordings',
+									message: `Error cleaning up expired recordings: ${extractErrorMessage(error)}`,
 								}),
 						});
 					}
@@ -386,7 +386,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting audio blob from file system',
+							message: `Error getting audio blob from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -412,7 +412,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting audio playback URL from file system',
+							message: `Error getting audio playback URL from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -439,7 +439,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing recordings from file system',
+							message: `Error clearing recordings from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -455,7 +455,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting recordings count from file system',
+							message: `Error getting recordings count from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -497,7 +497,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all transformations from file system',
+							message: `Error getting all transformations from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -524,7 +524,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformation by id from file system',
+							message: `Error getting transformation by id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -553,7 +553,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error creating transformation in file system',
+							message: `Error creating transformation in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -585,7 +585,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating transformation in file system',
+							message: `Error updating transformation in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -611,7 +611,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting transformations from file system',
+							message: `Error deleting transformations from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -628,7 +628,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing transformations from file system',
+							message: `Error clearing transformations from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -642,7 +642,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformations count from file system',
+							message: `Error getting transformations count from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -683,7 +683,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all transformation runs from file system',
+							message: `Error getting all transformation runs from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -712,8 +712,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation run by id from file system',
+							message: `Error getting transformation run by id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -762,8 +761,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs by transformation id from file system',
+							message: `Error getting transformation runs by transformation id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -812,8 +810,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs by recording id from file system',
+							message: `Error getting transformation runs by recording id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -841,8 +838,7 @@ export function createFileSystemDb(): DbService {
 						},
 						catch: (error) =>
 							DbServiceErr({
-								message:
-									'Error bulk creating transformation runs in file system',
+								message: `Error bulk creating transformation runs in file system: ${extractErrorMessage(error)}`,
 							}),
 					});
 				}
@@ -882,7 +878,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error creating transformation run in file system',
+							message: `Error creating transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -921,7 +917,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error adding step to transformation run in file system',
+							message: `Error adding step to transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -962,10 +958,9 @@ export function createFileSystemDb(): DbService {
 
 						return failedRun;
 					},
-					catch: (error) =>
+					catch: (e) =>
 						DbServiceErr({
-							message:
-								'Error failing step in transformation run in file system',
+							message: `Error failing step in transformation run in file system: ${extractErrorMessage(e)}`,
 						}),
 				});
 			},
@@ -1005,8 +1000,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error completing step in transformation run in file system',
+							message: `Error completing step in transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1038,7 +1032,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error completing transformation run in file system',
+							message: `Error completing transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1059,7 +1053,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting transformation runs from file system',
+							message: `Error deleting transformation runs from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1076,7 +1070,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing transformation runs from file system',
+							message: `Error clearing transformation runs from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1090,8 +1084,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs count from file system',
+							message: `Error getting transformation runs count from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},

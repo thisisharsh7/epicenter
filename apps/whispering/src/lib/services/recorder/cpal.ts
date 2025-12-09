@@ -1,5 +1,6 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { readFile, remove } from '@tauri-apps/plugin-fs';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync } from 'wellcrafted/result';
 import type {
 	CancelRecordingResult,
@@ -242,7 +243,7 @@ export function createCpalRecorderService(): RecorderService {
 				},
 				catch: (error) =>
 					RecorderServiceErr({
-						message: 'Unable to read recording file. Please try again.',
+						message: `Unable to read recording file. Please try again: ${extractErrorMessage(error)}`,
 					}),
 			});
 			if (readRecordingFileError) return Err(readRecordingFileError);
@@ -306,7 +307,7 @@ export function createCpalRecorderService(): RecorderService {
 					try: () => remove(filePath),
 					catch: (error) =>
 						RecorderServiceErr({
-							message: 'Failed to delete recording file.',
+							message: `Failed to delete recording file: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (removeError)

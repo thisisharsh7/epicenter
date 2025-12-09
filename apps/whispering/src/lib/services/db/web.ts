@@ -401,7 +401,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all recordings from Dexie',
+							message: `Error getting all recordings from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -420,7 +420,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting latest recording from Dexie',
+							message: `Error getting latest recording from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -434,7 +434,7 @@ export function createDbServiceWeb({
 							.primaryKeys(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transcribing recording ids from Dexie',
+							message: `Error getting transcribing recording ids from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -450,7 +450,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting recording by id from Dexie',
+							message: `Error getting recording by id from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -473,7 +473,7 @@ export function createDbServiceWeb({
 						},
 						catch: (error) =>
 							DbServiceErr({
-								message: 'Error bulk adding recordings to Dexie',
+								message: `Error bulk adding recordings to Dexie: ${extractErrorMessage(error)}`,
 							}),
 					});
 					if (bulkCreateError) return Err(bulkCreateError);
@@ -498,7 +498,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error adding recording to Dexie',
+							message: `Error adding recording to Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (createRecordingError) return Err(createRecordingError);
@@ -528,7 +528,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating recording in Dexie',
+							message: `Error updating recording in Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (updateRecordingError) return Err(updateRecordingError);
@@ -544,7 +544,7 @@ export function createDbServiceWeb({
 					try: () => db.recordings.bulkDelete(ids),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting recordings from Dexie',
+							message: `Error deleting recordings from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (deleteRecordingsError) return Err(deleteRecordingsError);
@@ -574,8 +574,7 @@ export function createDbServiceWeb({
 							try: () => db.recordings.count(),
 							catch: (error) =>
 								DbServiceErr({
-									message:
-										'Unable to get recording count while cleaning up old recordings',
+									message: `Unable to get recording count while cleaning up old recordings: ${extractErrorMessage(error)}`,
 								}),
 						});
 						if (countError) return Err(countError);
@@ -595,7 +594,7 @@ export function createDbServiceWeb({
 							},
 							catch: (error) =>
 								DbServiceErr({
-									message: 'Unable to clean up old recordings',
+									message: `Unable to clean up old recordings: ${extractErrorMessage(error)}`,
 								}),
 						});
 					}
@@ -622,7 +621,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting audio blob from IndexedDB',
+							message: `Error getting audio blob from IndexedDB: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -657,7 +656,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error ensuring audio playback URL from IndexedDB',
+							message: `Error ensuring audio playback URL from IndexedDB: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -675,7 +674,7 @@ export function createDbServiceWeb({
 					try: () => db.recordings.clear(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing recordings from Dexie',
+							message: `Error clearing recordings from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -685,7 +684,7 @@ export function createDbServiceWeb({
 					try: () => db.recordings.count(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting recordings count from Dexie',
+							message: `Error getting recordings count from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -697,7 +696,7 @@ export function createDbServiceWeb({
 					try: () => db.transformations.toArray(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all transformations from Dexie',
+							message: `Error getting all transformations from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -711,7 +710,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformation by id from Dexie',
+							message: `Error getting transformation by id from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -723,7 +722,7 @@ export function createDbServiceWeb({
 						try: () => db.transformations.bulkAdd(transformation),
 						catch: (error) =>
 							DbServiceErr({
-								message: 'Error bulk adding transformations to Dexie',
+								message: `Error bulk adding transformations to Dexie: ${extractErrorMessage(error)}`,
 							}),
 					});
 					if (bulkCreateError) return Err(bulkCreateError);
@@ -735,7 +734,7 @@ export function createDbServiceWeb({
 					try: () => db.transformations.add(transformation),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error adding transformation to Dexie',
+							message: `Error adding transformation to Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (createTransformationError) return Err(createTransformationError);
@@ -752,7 +751,7 @@ export function createDbServiceWeb({
 					try: () => db.transformations.put(transformationWithTimestamp),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating transformation in Dexie',
+							message: `Error updating transformation in Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (updateTransformationError) return Err(updateTransformationError);
@@ -768,7 +767,7 @@ export function createDbServiceWeb({
 					try: () => db.transformations.bulkDelete(ids),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting transformations from Dexie',
+							message: `Error deleting transformations from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (deleteTransformationsError) return Err(deleteTransformationsError);
@@ -780,7 +779,7 @@ export function createDbServiceWeb({
 					try: () => db.transformations.clear(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing transformations from Dexie',
+							message: `Error clearing transformations from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -790,7 +789,7 @@ export function createDbServiceWeb({
 					try: () => db.transformations.count(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformations count from Dexie',
+							message: `Error getting transformations count from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -805,7 +804,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all transformation runs from Dexie',
+							message: `Error getting all transformation runs from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -818,7 +817,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.where('id').equals(id).first(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformation run by id from Dexie',
+							message: `Error getting transformation run by id from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (getTransformationRunByIdError)
@@ -845,8 +844,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs by transformation id from Dexie',
+							message: `Error getting transformation runs by transformation id from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -869,8 +867,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs by recording id from Dexie',
+							message: `Error getting transformation runs by recording id from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -885,7 +882,7 @@ export function createDbServiceWeb({
 						try: () => db.transformationRuns.bulkAdd(runs),
 						catch: (error) =>
 							DbServiceErr({
-								message: 'Error bulk adding transformation runs to Dexie',
+								message: `Error bulk adding transformation runs to Dexie: ${extractErrorMessage(error)}`,
 							}),
 					});
 					if (bulkCreateError) return Err(bulkCreateError);
@@ -908,7 +905,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.add(transformationRunWithTimestamps),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error adding transformation run to Dexie',
+							message: `Error adding transformation run to Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (createTransformationRunError)
@@ -936,7 +933,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.put(updatedRun),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error adding step run to transformation run in Dexie',
+							message: `Error adding step run to transformation run in Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (addStepRunToTransformationRunError)
@@ -972,7 +969,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.put(failedRun),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating transformation run as failed in Dexie',
+							message: `Error updating transformation run as failed in Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (updateTransformationStepRunError)
@@ -1005,7 +1002,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.put(updatedRun),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating transformation step run status in Dexie',
+							message: `Error updating transformation step run status in Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (updateTransformationStepRunError)
@@ -1029,8 +1026,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.put(completedRun),
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error updating transformation run as completed in Dexie',
+							message: `Error updating transformation run as completed in Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (updateTransformationStepRunError)
@@ -1050,7 +1046,7 @@ export function createDbServiceWeb({
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting transformation runs from Dexie',
+							message: `Error deleting transformation runs from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1060,7 +1056,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.clear(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing transformation runs from Dexie',
+							message: `Error clearing transformation runs from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1070,7 +1066,7 @@ export function createDbServiceWeb({
 					try: () => db.transformationRuns.count(),
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformation runs count from Dexie',
+							message: `Error getting transformation runs count from Dexie: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},

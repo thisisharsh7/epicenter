@@ -1,6 +1,7 @@
 import { basename } from '@tauri-apps/api/path';
 import { readFile } from '@tauri-apps/plugin-fs';
 import mime from 'mime';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import type { FsService } from './types';
 import { FsServiceErr } from './types';
@@ -21,7 +22,7 @@ export function createFsServiceDesktop(): FsService {
 				},
 				catch: (error) =>
 					FsServiceErr({
-						message: `Failed to read file as Blob: ${path}`,
+						message: `Failed to read file as Blob: ${path}: ${extractErrorMessage(error)}`,
 					}),
 			});
 		},
@@ -36,7 +37,7 @@ export function createFsServiceDesktop(): FsService {
 				},
 				catch: (error) =>
 					FsServiceErr({
-						message: `Failed to read file as File: ${path}`,
+						message: `Failed to read file as File: ${path}: ${extractErrorMessage(error)}`,
 					}),
 			});
 		},
@@ -56,7 +57,7 @@ export function createFsServiceDesktop(): FsService {
 				},
 				catch: (error) =>
 					FsServiceErr({
-						message: `Failed to read files: ${paths.join(', ')}`,
+						message: `Failed to read files: ${paths.join(', ')}: ${extractErrorMessage(error)}`,
 					}),
 			});
 		},

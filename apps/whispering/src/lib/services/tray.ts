@@ -3,7 +3,7 @@ import { resolveResource } from '@tauri-apps/api/path';
 import { TrayIcon } from '@tauri-apps/api/tray';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { exit } from '@tauri-apps/plugin-process';
-import { createTaggedError } from 'wellcrafted/error';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 // import { commandCallbacks } from '$lib/commands';
 import { type Err, Ok, tryAsync } from 'wellcrafted/result';
 import { goto } from '$app/navigation';
@@ -52,7 +52,7 @@ export function createTrayIconDesktopService(): SetTrayIconService {
 				},
 				catch: (error) =>
 					SetTrayIconServiceErr({
-						message: 'Failed to set tray icon',
+						message: `Failed to set tray icon: ${extractErrorMessage(error)}`,
 					}),
 			}),
 	};
