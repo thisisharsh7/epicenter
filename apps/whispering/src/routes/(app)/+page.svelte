@@ -218,7 +218,7 @@
 				tooltip={getRecorderStateQuery.data === 'IDLE'
 					? 'Start recording'
 					: 'Stop recording'}
-				onclick={commandCallbacks.toggleManualRecording}
+				onclick={() => commandCallbacks.toggleManualRecording()}
 				variant="ghost"
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
@@ -233,7 +233,7 @@
 				<div class="absolute -right-12 bottom-4 flex items-center">
 					<Button
 						tooltip="Cancel recording"
-						onclick={commandCallbacks.cancelManualRecording}
+						onclick={() => commandCallbacks.cancelManualRecording()}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: cancel-icon;"
@@ -257,7 +257,7 @@
 				tooltip={vadRecorder.state === 'IDLE'
 					? 'Start voice activated session'
 					: 'Stop voice activated session'}
-				onclick={commandCallbacks.toggleVadRecording}
+				onclick={() => commandCallbacks.toggleVadRecording()}
 				variant="ghost"
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
