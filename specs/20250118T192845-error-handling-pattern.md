@@ -41,7 +41,7 @@ export function createManualRecorderService() {
 // In query/manual-recorder.ts
 getRecorderState: defineQuery({
     queryKey: recorderKeys.state,
-    resultQueryFn: async () => {
+    queryFn: async () => {
         const { data: recorderState, error: getRecorderStateError } =
             await services.manualRecorder.getRecorderState();
         if (getRecorderStateError) {
@@ -89,7 +89,7 @@ if (getRecorderStateError) {
 // BAD: Query layer should wrap errors, not return raw service errors
 getRecorderState: defineQuery({
     queryKey: recorderKeys.state,
-    resultQueryFn: () => services.manualRecorder.getRecorderState(), // Missing error wrapping!
+    queryFn: () => services.manualRecorder.getRecorderState(), // Missing error wrapping!
     initialData: 'IDLE' as WhisperingRecordingState,
 })
 ```

@@ -22,7 +22,7 @@ export const transcription = {
 	},
 	transcribeRecording: defineMutation({
 		mutationKey: transcriptionKeys.isTranscribing,
-		resultMutationFn: async (
+		mutationFn: async (
 			recording: Recording,
 		): Promise<Result<string, WhisperingError>> => {
 			// Fetch audio blob by ID
@@ -97,7 +97,7 @@ export const transcription = {
 
 	transcribeRecordings: defineMutation({
 		mutationKey: transcriptionKeys.isTranscribing,
-		resultMutationFn: async (recordings: Recording[]) => {
+		mutationFn: async (recordings: Recording[]) => {
 			const results = await Promise.all(
 				recordings.map(async (recording) => {
 					// Fetch audio blob by ID

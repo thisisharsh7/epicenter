@@ -100,7 +100,7 @@ File: `apps/whispering/src/lib/query/commands.ts`
 ```typescript
 transformClipboard: defineMutation({
   mutationKey: ['commands', 'transformClipboard'],
-  resultMutationFn: async (): Promise<WhisperingResult<void>> => {
+  mutationFn: async (): Promise<WhisperingResult<void>> => {
     // 1. Read clipboard
     const { data: clipboardText, error: readError } =
       await rpc.text.readFromClipboard.execute();

@@ -6,7 +6,7 @@ import { defineQuery } from './_client';
 export const ffmpeg = {
 	checkFfmpegInstalled: defineQuery({
 		queryKey: ['ffmpeg.checkInstalled'],
-		resultQueryFn: async () => {
+		queryFn: async () => {
 			const { data, error } = await services.ffmpeg.checkInstalled();
 			if (error) {
 				return fromTaggedErr(error, {

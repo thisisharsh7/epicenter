@@ -11,7 +11,7 @@ const setTrayIconKeys = {
 export const tray = {
 	setTrayIcon: defineMutation({
 		mutationKey: setTrayIconKeys.setTrayIcon,
-		resultMutationFn: async ({
+		mutationFn: async ({
 			icon,
 		}: {
 			icon: WhisperingRecordingState;

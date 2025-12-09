@@ -11,7 +11,7 @@ const createNotifyMutation = (
 ) =>
 	defineMutation({
 		mutationKey: ['notify', variant],
-		resultMutationFn: async (
+		mutationFn: async (
 			options: Omit<UnifiedNotificationOptions, 'variant'>,
 		) => {
 			const fullOptions: UnifiedNotificationOptions = { ...options, variant };

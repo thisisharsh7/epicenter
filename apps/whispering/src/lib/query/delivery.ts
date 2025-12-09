@@ -35,7 +35,7 @@ export const delivery = {
 	 */
 	deliverTranscriptionResult: defineMutation({
 		mutationKey: ['delivery', 'deliverTranscriptionResult'],
-		resultMutationFn: async ({
+		mutationFn: async ({
 			text,
 			toastId,
 		}: {
@@ -223,7 +223,7 @@ export const delivery = {
 	 */
 	deliverTransformationResult: defineMutation({
 		mutationKey: ['delivery', 'deliverTransformationResult'],
-		resultMutationFn: async ({
+		mutationFn: async ({
 			text,
 			toastId,
 		}: {
