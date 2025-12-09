@@ -26,38 +26,38 @@
 
 	<Tabs.Root value="all" class="w-full">
 		<Tabs.List class="grid w-full grid-cols-3">
-			<Tabs.Trigger value="all" class="gap-1.5">
+			<Tabs.Trigger value="all">
 				All
-				<Badge variant="secondary" class="text-xs">9</Badge>
+				<Badge variant="secondary">9</Badge>
 			</Tabs.Trigger>
-			<Tabs.Trigger value="transcription" class="gap-1.5">
+			<Tabs.Trigger value="transcription">
 				Transcription
-				<Badge variant="secondary" class="text-xs">5</Badge>
+				<Badge variant="secondary">5</Badge>
 			</Tabs.Trigger>
-			<Tabs.Trigger value="transformation" class="gap-1.5">
+			<Tabs.Trigger value="transformation">
 				Transformation
-				<Badge variant="secondary" class="text-xs">7</Badge>
+				<Badge variant="secondary">7</Badge>
 			</Tabs.Trigger>
 		</Tabs.List>
 
 		<!-- All Tab -->
 		<Tabs.Content value="all" class="mt-4">
 			<Field.Group>
-				<OpenAiApiKeyInput />
-				<Field.Separator />
 				<GroqApiKeyInput />
 				<Field.Separator />
-				<MistralApiKeyInput />
+				<OpenAiApiKeyInput />
+				<Field.Separator />
+				<ElevenLabsApiKeyInput />
 				<Field.Separator />
 				<DeepgramApiKeyInput />
 				<Field.Separator />
-				<ElevenLabsApiKeyInput />
+				<MistralApiKeyInput />
+				<Field.Separator />
+				<GoogleApiKeyInput />
 				<Field.Separator />
 				<AnthropicApiKeyInput />
 				<Field.Separator />
 				<OpenRouterApiKeyInput />
-				<Field.Separator />
-				<GoogleApiKeyInput />
 				<Field.Separator />
 				<CustomEndpointInput />
 			</Field.Group>
@@ -66,32 +66,32 @@
 		<!-- Transcription Tab -->
 		<Tabs.Content value="transcription" class="mt-4">
 			<Field.Group>
-				<OpenAiApiKeyInput />
-				<Field.Separator />
 				<GroqApiKeyInput />
 				<Field.Separator />
-				<MistralApiKeyInput />
+				<OpenAiApiKeyInput />
+				<Field.Separator />
+				<ElevenLabsApiKeyInput />
 				<Field.Separator />
 				<DeepgramApiKeyInput />
 				<Field.Separator />
-				<ElevenLabsApiKeyInput />
+				<MistralApiKeyInput />
 			</Field.Group>
 		</Tabs.Content>
 
 		<!-- Transformation Tab -->
 		<Tabs.Content value="transformation" class="mt-4">
 			<Field.Group>
+				<GoogleApiKeyInput />
+				<Field.Separator />
+				<AnthropicApiKeyInput />
+				<Field.Separator />
 				<OpenAiApiKeyInput />
 				<Field.Separator />
 				<GroqApiKeyInput />
 				<Field.Separator />
 				<MistralApiKeyInput />
 				<Field.Separator />
-				<AnthropicApiKeyInput />
-				<Field.Separator />
 				<OpenRouterApiKeyInput />
-				<Field.Separator />
-				<GoogleApiKeyInput />
 				<Field.Separator />
 				<CustomEndpointInput />
 			</Field.Group>
