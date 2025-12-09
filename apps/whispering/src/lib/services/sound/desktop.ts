@@ -1,3 +1,4 @@
+import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import type { PlaySoundService } from '.';
 import { audioElements } from './assets';
@@ -12,7 +13,7 @@ export function createPlaySoundServiceDesktop(): PlaySoundService {
 				},
 				catch: (error) =>
 					PlaySoundServiceErr({
-						message: 'Failed to play sound',
+						message: `Failed to play sound: ${extractErrorMessage(error)}`,
 					}),
 			}),
 	};
