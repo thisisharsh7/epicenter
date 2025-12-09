@@ -239,7 +239,8 @@ export function createCpalRecorderService(): RecorderService {
 			const { data: blob, error: readRecordingFileError } = await tryAsync({
 				try: async () => {
 					const fileBytes = await readFile(filePath);
-					return new Blob([fileBytes], { type: 'audio/wav' });
+					// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
+					return new Blob([fileBytes as Uint8Array<ArrayBuffer>], { type: 'audio/wav' });
 				},
 				catch: (error) =>
 					RecorderServiceErr({

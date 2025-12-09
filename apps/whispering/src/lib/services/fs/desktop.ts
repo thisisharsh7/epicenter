@@ -18,7 +18,8 @@ export function createFsServiceDesktop(): FsService {
 				try: async () => {
 					const fileBytes = await readFile(path);
 					const mimeType = getMimeType(path);
-					return new Blob([fileBytes], { type: mimeType });
+					// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
+					return new Blob([fileBytes as Uint8Array<ArrayBuffer>], { type: mimeType });
 				},
 				catch: (error) =>
 					FsServiceErr({
@@ -33,7 +34,8 @@ export function createFsServiceDesktop(): FsService {
 					const fileBytes = await readFile(path);
 					const fileName = await basename(path);
 					const mimeType = getMimeType(path);
-					return new File([fileBytes], fileName, { type: mimeType });
+					// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
+					return new File([fileBytes as Uint8Array<ArrayBuffer>], fileName, { type: mimeType });
 				},
 				catch: (error) =>
 					FsServiceErr({
@@ -50,7 +52,8 @@ export function createFsServiceDesktop(): FsService {
 						const fileBytes = await readFile(path);
 						const fileName = await basename(path);
 						const mimeType = getMimeType(path);
-						const file = new File([fileBytes], fileName, { type: mimeType });
+						// Cast is safe: Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer
+						const file = new File([fileBytes as Uint8Array<ArrayBuffer>], fileName, { type: mimeType });
 						files.push(file);
 					}
 					return files;
