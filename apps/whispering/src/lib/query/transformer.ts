@@ -2,7 +2,6 @@ import { nanoid } from 'nanoid/non-secure';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, isErr, Ok, type Result } from 'wellcrafted/result';
 import {
-	fromTaggedErr,
 	WhisperingErr,
 	type WhisperingError,
 	type WhisperingResult,
@@ -51,9 +50,9 @@ export const transformer = {
 					});
 
 				if (transformationRunError)
-					return fromTaggedErr(transformationRunError, {
+					return WhisperingErr({
 						title: '⚠️ Transformation failed',
-						action: { type: 'more-details', error: transformationRunError },
+						serviceError: transformationRunError,
 					});
 
 				if (transformationRun.status === 'failed') {
@@ -120,9 +119,9 @@ export const transformer = {
 				});
 
 			if (transformationRunError)
-				return fromTaggedErr(transformationRunError, {
+				return WhisperingErr({
 					title: '⚠️ Transformation failed',
-					action: { type: 'more-details', error: transformationRunError },
+					serviceError: transformationRunError,
 				});
 
 			queryClient.invalidateQueries({

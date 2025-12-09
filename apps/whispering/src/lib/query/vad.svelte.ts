@@ -2,7 +2,7 @@ import { MicVAD, utils } from '@ricky0123/vad-web';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync, trySync } from 'wellcrafted/result';
 import type { VadState } from '$lib/constants/audio';
-import { fromTaggedErr, WhisperingErr } from '$lib/result';
+import { WhisperingErr } from '$lib/result';
 import {
 	cleanupRecordingStream,
 	enumerateDevices,
@@ -49,9 +49,9 @@ function createVadRecorder() {
 			queryFn: async () => {
 				const { data, error } = await enumerateDevices();
 				if (error) {
-					return fromTaggedErr(error, {
+					return WhisperingErr({
 						title: '❌ Failed to enumerate devices',
-						action: { type: 'more-details', error },
+						serviceError: error,
 					});
 				}
 				return Ok(data);
@@ -96,9 +96,9 @@ function createVadRecorder() {
 				});
 
 			if (streamError) {
-				return fromTaggedErr(streamError, {
+				return WhisperingErr({
 					title: '❌ Failed to get recording stream',
-					action: { type: 'more-details', error: streamError },
+					serviceError: streamError,
 				});
 			}
 
