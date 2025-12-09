@@ -22,23 +22,23 @@
 	import { nanoid } from 'nanoid/non-secure';
 
 	const transcribeRecording = createMutation(
-		rpc.transcription.transcribeRecording.options,
+		() => rpc.transcription.transcribeRecording.options,
 	);
 
-	const deleteRecording = createMutation(rpc.db.recordings.delete.options);
+	const deleteRecording = createMutation(() => rpc.db.recordings.delete.options);
 
 	const downloadRecording = createMutation(
-		rpc.download.downloadRecording.options,
+		() => rpc.download.downloadRecording.options,
 	);
 
 	let { recordingId }: { recordingId: string } = $props();
 
 	const latestTransformationRunByRecordingIdQuery = createQuery(
-		rpc.db.runs.getLatestByRecordingId(() => recordingId).options,
+		() => rpc.db.runs.getLatestByRecordingId(() => recordingId).options,
 	);
 
 	const recordingQuery = createQuery(
-		rpc.db.recordings.getById(() => recordingId).options,
+		() => rpc.db.recordings.getById(() => recordingId).options,
 	);
 
 	const recording = $derived(recordingQuery.data);

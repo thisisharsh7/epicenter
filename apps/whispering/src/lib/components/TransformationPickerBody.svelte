@@ -10,7 +10,7 @@
 	import { onMount } from 'svelte';
 
 	const transformationsQuery = createQuery(
-		rpc.db.transformations.getAll.options,
+		() => rpc.db.transformations.getAll.options,
 	);
 
 	const transformations = $derived(transformationsQuery.data ?? []);

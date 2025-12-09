@@ -6,7 +6,7 @@ import { settings } from '$lib/stores/settings.svelte';
 
 export function syncWindowAlwaysOnTopWithRecorderState() {
 	const getRecorderStateQuery = createQuery(() => ({
-		...rpc.recorder.getRecorderState.options(),
+		...rpc.recorder.getRecorderState.options,
 		enabled: settings.value['recording.mode'] === 'manual',
 	}));
 

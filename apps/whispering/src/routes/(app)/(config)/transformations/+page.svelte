@@ -42,10 +42,10 @@
 	import { PATHS } from '$lib/constants/paths';
 
 	const transformationsQuery = createQuery(
-		rpc.db.transformations.getAll.options,
+		() => rpc.db.transformations.getAll.options,
 	);
 	const deleteTransformations = createMutation(
-		rpc.db.transformations.delete.options,
+		() => rpc.db.transformations.delete.options,
 	);
 
 	const columns: ColumnDef<Transformation>[] = [
