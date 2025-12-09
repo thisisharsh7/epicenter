@@ -81,7 +81,8 @@ export function createDbServiceDesktop({
 				if (error) return Err(error);
 
 				if (recordings.length === 0) return Ok(null);
-				return Ok(recordings[0]); // Already sorted by timestamp desc
+				// biome-ignore lint/style/noNonNullAssertion: length check above guarantees at least one element
+				return Ok(recordings.at(0)!);
 			},
 
 			getTranscribingIds: async () => {

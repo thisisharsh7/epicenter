@@ -152,7 +152,8 @@ export function createFileSystemDb(): DbService {
 						if (error) throw error;
 
 						if (recordings.length === 0) return null;
-						return recordings[0]; // Already sorted by timestamp desc
+						// biome-ignore lint/style/noNonNullAssertion: length check above guarantees at least one element
+						return recordings.at(0)!;
 					},
 					catch: (error) =>
 						DbServiceErr({
