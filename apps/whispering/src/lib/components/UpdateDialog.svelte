@@ -68,7 +68,6 @@
 	import { rpc } from '$lib/query';
 	import * as Alert from '@epicenter/ui/alert';
 	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
-	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import { extractErrorMessage } from 'wellcrafted/error';
 	import { marked } from 'marked';
@@ -163,21 +162,11 @@
 
 		{#if updateDialog.isDownloading || updateDialog.isDownloadComplete}
 			<div class="space-y-2">
-				<div class="flex items-center justify-between text-sm">
-					{#if updateDialog.isDownloadComplete}
-						<span
-							class="flex items-center gap-2 text-green-600 dark:text-green-400"
-						>
-							<CheckCircleIcon />
-							Download complete
-						</span>
-					{:else}
-						<span class="flex items-center gap-2 text-muted-foreground">
-							<DownloadIcon class="animate-pulse" />
-							Downloading...
-						</span>
-					{/if}
-					<span class="text-muted-foreground tabular-nums">
+				<div class="flex items-center justify-between text-sm text-muted-foreground">
+					<span>
+						{updateDialog.isDownloadComplete ? 'Download complete' : 'Downloading...'}
+					</span>
+					<span class="tabular-nums">
 						{Math.round(updateDialog.progressPercentage)}%
 					</span>
 				</div>
