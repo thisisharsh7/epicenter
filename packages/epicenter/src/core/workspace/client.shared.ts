@@ -1,11 +1,9 @@
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
-import type { WorkspaceIndexMap } from '../indexes';
-import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
+import { createWorkspaceValidators } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
-// import { createWorkspaceBlobs } from '../blobs';
 
 /**
  * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
@@ -87,6 +85,7 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
  *
  * @param workspaceConfigs - Array of workspace configurations to initialize
  * @param storageDir - Absolute storage directory path (Node.js) or undefined (browser)
+ * @param epicenterDir - Absolute path to .epicenter directory (Node.js) or undefined (browser)
  * @returns Object mapping workspace ids to initialized workspace clients
  */
 export async function initializeWorkspaces<
@@ -94,16 +93,8 @@ export async function initializeWorkspaces<
 >(
 	workspaceConfigs: TConfigs,
 	storageDir: StorageDir | undefined,
+	epicenterDir: EpicenterDir | undefined,
 ): Promise<WorkspacesToClients<TConfigs>> {
-	// Compute epicenterDir once from storageDir
-	// This is the `.epicenter` directory where all workspace data is stored
-	let epicenterDir: EpicenterDir | undefined;
-	if (storageDir) {
-		// Dynamic import to avoid bundling node:path in browser builds
-		const path = await import('node:path');
-		epicenterDir = path.join(storageDir, '.epicenter') as EpicenterDir;
-	}
-
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
 	// Register all workspace configs
@@ -441,85 +432,4 @@ export async function initializeWorkspaces<
 	}
 
 	return initializedWorkspaces as WorkspacesToClients<TConfigs>;
-}
-
-/**
- * Creates a workspace client by initializing the workspace and its dependencies.
- *
- * This collects the workspace plus its dependencies, calls `initializeWorkspaces()` to create
- * the full object of clients (`{ workspaceA: clientA, workspaceB: clientB, ... }`), then
- * returns only the specified workspace's client. All dependencies are initialized but not exposed.
- *
- * Contrast with `createEpicenterClient()` which returns the full object of all workspace clients.
- *
- * **Note**: storageDir defaults to process.cwd(). For custom storage paths, wrap the workspace
- * in an epicenter config with defineEpicenter({ storageDir, workspaces: [workspace] }) and use
- * createEpicenterClient() instead.
- */
-export async function createWorkspaceClient<
-	const TDeps extends readonly AnyWorkspaceConfig[],
-	const TId extends string,
-	TWorkspaceSchema extends WorkspaceSchema,
-	const TIndexResults extends WorkspaceIndexMap,
-	TExports extends WorkspaceExports,
->(
-	workspace: WorkspaceConfig<
-		TDeps,
-		TId,
-		TWorkspaceSchema,
-		TIndexResults,
-		TExports
-	>,
-): Promise<WorkspaceClient<TExports>> {
-	// Resolve storageDir with environment detection
-	// In Node.js: resolve to absolute path (defaults to process.cwd())
-	// In browser: undefined (filesystem operations not available)
-	const isNode =
-		typeof process !== 'undefined' &&
-		process.versions != null &&
-		process.versions.node != null;
-
-	let resolvedStorageDir: StorageDir | undefined;
-	if (isNode) {
-		// Dynamic import to avoid bundling node:path in browser builds
-		const path = await import('node:path');
-		resolvedStorageDir = path.resolve(process.cwd()) as StorageDir;
-	}
-
-	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization
-	const allWorkspaceConfigs: WorkspaceConfig[] = [];
-
-	if (workspace.dependencies) {
-		// Add all dependencies first
-		// Dependencies are constrained to AnyWorkspaceConfig at the type level to prevent
-		// infinite recursion, but at runtime they're full WorkspaceConfig objects
-		allWorkspaceConfigs.push(
-			...(workspace.dependencies as unknown as WorkspaceConfig[]),
-		);
-	}
-
-	// Add target workspace last
-	// This cast is safe because WorkspaceConfig<...generics...> is structurally compatible
-	// with WorkspaceConfig (the type with default generics). We use unknown as intermediate
-	// to satisfy TypeScript's strict checking while maintaining runtime safety.
-	allWorkspaceConfigs.push(workspace as unknown as WorkspaceConfig);
-
-	// Use the shared initialization logic with flat dependency array
-	// This initializes ALL workspaces and returns an object keyed by workspace id
-	const clients = await initializeWorkspaces(
-		allWorkspaceConfigs,
-		resolvedStorageDir,
-	);
-
-	// Return the specified workspace's client from the initialized workspaces object
-	const workspaceClient = clients[workspace.id as keyof typeof clients];
-	if (!workspaceClient) {
-		throw new Error(
-			`Internal error: workspace "${workspace.id}" was not initialized`,
-		);
-	}
-
-	// Type assertion is safe because we know the workspace was initialized with the correct exports
-	// and extractActions() was called to filter to just actions
-	return workspaceClient as WorkspaceClient<TExports>;
 }

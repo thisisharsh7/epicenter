@@ -155,22 +155,20 @@ export { createWorkspaceClient, defineWorkspace } from './core/workspace';
 //   import { markdownIndex } from '@epicenter/hq/indexes/markdown';
 //   import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 
-// Blob storage
-export {
-	BlobErr,
-	createTableBlobStore,
-	createWorkspaceBlobs,
-	validateFilename,
-} from './core/blobs';
+// Blob storage (types and utilities only - creation functions are Node.js-only)
+// Note: createTableBlobStore, createWorkspaceBlobs, and createServer are NOT
+// re-exported here to avoid bundling Node.js-only code in browser builds.
+// Import them directly from the package in Node.js environments.
+// IMPORTANT: Import directly from types.ts and utils.ts to avoid the index.ts
+// barrel which dynamically imports Node.js-only code.
+export { BlobErr } from './core/blobs/types';
 export type {
 	BlobContext,
 	BlobData,
 	BlobError,
 	BlobErrorCode,
-	BlobStoreContext,
 	TableBlobStore,
 	WorkspaceBlobs,
-} from './core/blobs';
-
-// Server - expose workspaces as REST API and MCP servers
-export { createServer } from './server';
+} from './core/blobs/types';
+export { validateFilename } from './core/blobs/utils';
+// Note: BlobStoreContext is only used by createWorkspaceBlobs which is Node-only
