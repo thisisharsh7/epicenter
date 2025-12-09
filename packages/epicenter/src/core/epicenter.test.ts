@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Ok } from 'wellcrafted/result';
-import { defineQuery, defineWorkspace, id, sqliteIndex, text } from '../index';
+import { defineQuery, defineWorkspace, id, text } from '../index.node';
+import { sqliteIndex } from '../indexes/sqlite';
 import { createEpicenterClient, defineEpicenter } from './epicenter/index';
 
 /**
