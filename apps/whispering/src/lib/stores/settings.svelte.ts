@@ -214,10 +214,7 @@ async function stopAllRecordingModesExcept(modeToKeep: RecordingMode) {
 	);
 
 	// Execute all stops in parallel
-	const results: Result<
-		Blob | undefined,
-		RecorderServiceError | WhisperingError
-	>[] = await Promise.all(stopPromises);
+	const results = await Promise.all(stopPromises);
 
 	// Partition results into successes and errors
 	const { errs } = partitionResults(results);
