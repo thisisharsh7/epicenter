@@ -21,7 +21,7 @@ import { defineQuery } from './_client';
  * - Access state reactively: `vadRecorder.state` (triggers effects when changed)
  * - Start listening: `await vadRecorder.startActiveListening({ onSpeechStart, onSpeechEnd })`
  * - Stop listening: `await vadRecorder.stopActiveListening()`
- * - Enumerate devices: `createQuery(vadRecorder.enumerateDevices.options)`
+ * - Enumerate devices: `createQuery(() => vadRecorder.enumerateDevices.options)`
  */
 function createVadRecorder() {
 	// Private state
@@ -42,7 +42,7 @@ function createVadRecorder() {
 		 * Enumerate available audio input devices.
 		 *
 		 * Usage:
-		 * - With createQuery: `createQuery(vadRecorder.enumerateDevices.options)`
+		 * - With createQuery: `createQuery(() => vadRecorder.enumerateDevices.options)`
 		 */
 		enumerateDevices: defineQuery({
 			queryKey: ['vad', 'devices'],
