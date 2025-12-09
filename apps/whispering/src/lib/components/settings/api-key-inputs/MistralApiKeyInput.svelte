@@ -1,28 +1,12 @@
 <script lang="ts">
-	import { Badge } from '@epicenter/ui/badge';
 	import * as Field from '@epicenter/ui/field';
 	import { Input } from '@epicenter/ui/input';
 	import { Link } from '@epicenter/ui/link';
 	import { settings } from '$lib/stores/settings.svelte';
-
-	type Props = {
-		showBadges?: boolean;
-	};
-
-	let { showBadges = false }: Props = $props();
-
-	const capabilities = ['Transcription', 'Transformation'] as const;
 </script>
 
 <Field.Field>
-	<Field.Label for="mistral-api-key" class="flex items-center gap-2">
-		Mistral AI API Key
-		{#if showBadges}
-			{#each capabilities as capability}
-				<Badge variant="secondary" class="text-xs">{capability}</Badge>
-			{/each}
-		{/if}
-	</Field.Label>
+	<Field.Label for="mistral-api-key">Mistral AI API Key</Field.Label>
 	<Input
 		id="mistral-api-key"
 		type="password"
