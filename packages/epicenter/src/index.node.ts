@@ -20,4 +20,8 @@ export { createWorkspaceClient } from './core/workspace/client.node';
 export { createServer } from './server';
 
 // Node-only: blob storage creation functions
-export { createTableBlobStore, createWorkspaceBlobs } from './core/blobs';
+export {
+	createTableBlobStore,
+	createWorkspaceBlobs,
+} from './core/blobs/index.node';
+export type { BlobStoreContext } from './core/blobs/index.node';
