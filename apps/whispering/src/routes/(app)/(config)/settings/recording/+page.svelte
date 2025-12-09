@@ -3,7 +3,6 @@
 	import FfmpegCommandBuilder from './FfmpegCommandBuilder.svelte';
 	import * as Field from '@epicenter/ui/field';
 	import * as Select from '@epicenter/ui/select';
-	import { Separator } from '@epicenter/ui/separator';
 	import * as Alert from '@epicenter/ui/alert';
 	import { Link } from '@epicenter/ui/link';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -100,16 +99,14 @@
 	<title>Recording Settings - Whispering</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<div>
-		<h3 class="text-lg font-medium">Recording</h3>
-		<p class="text-muted-foreground text-sm">
-			Configure your Whispering recording preferences.
-		</p>
-	</div>
-	<Separator />
-
-	<Field.Field>
+<Field.Set>
+	<Field.Legend>Recording</Field.Legend>
+	<Field.Description>
+		Configure your Whispering recording preferences.
+	</Field.Description>
+	<Field.Separator />
+	<Field.Group>
+		<Field.Field>
 		<Field.Label for="recording-mode">Recording Mode</Field.Label>
 		<Select.Root
 			type="single"
@@ -412,4 +409,5 @@
 			</div>
 		{/if}
 	{/if}
-</div>
+	</Field.Group>
+</Field.Set>

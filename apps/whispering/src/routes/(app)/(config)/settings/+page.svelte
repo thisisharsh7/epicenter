@@ -2,7 +2,6 @@
 	import * as Field from '@epicenter/ui/field';
 	import * as RadioGroup from '@epicenter/ui/radio-group';
 	import * as Select from '@epicenter/ui/select';
-	import { Separator } from '@epicenter/ui/separator';
 	import { Switch } from '@epicenter/ui/switch';
 	import {
 		ALWAYS_ON_TOP_MODE_OPTIONS,
@@ -47,17 +46,14 @@
 	<title>Settings - Whispering</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<div>
-		<h3 class="text-lg font-medium">General</h3>
-		<p class="text-muted-foreground text-sm">
-			Configure your general Whispering preferences.
-		</p>
-	</div>
-
-	<Separator />
-
-	<Field.Set>
+<Field.Set>
+	<Field.Legend>General</Field.Legend>
+	<Field.Description>
+		Configure your general Whispering preferences.
+	</Field.Description>
+	<Field.Separator />
+	<Field.Group>
+		<Field.Set>
 		<Field.Legend variant="label">Transcription output</Field.Legend>
 		<Field.Description>
 			Applies immediately after an audio transcription finishes.
@@ -108,10 +104,10 @@
 		</Field.Group>
 	</Field.Set>
 
-	<Separator />
+		<Field.Separator />
 
-	<Field.Set>
-		<Field.Legend variant="label">Transformation output</Field.Legend>
+		<Field.Set>
+			<Field.Legend variant="label">Transformation output</Field.Legend>
 		<Field.Description>
 			Applies after you run a saved transformation on a transcription.
 		</Field.Description>
@@ -160,12 +156,12 @@
 				</Field.Field>
 			{/if}
 		</Field.Group>
-	</Field.Set>
+		</Field.Set>
 
-	<Separator />
+		<Field.Separator />
 
-	<Field.Field>
-		<Field.Label for="recording-retention-strategy"
+		<Field.Field>
+			<Field.Label for="recording-retention-strategy"
 			>Auto Delete Recordings</Field.Label
 		>
 		<Select.Root
@@ -227,13 +223,13 @@
 					{/each}
 				</Select.Content>
 			</Select.Root>
-		</Field.Field>
+			</Field.Field>
 	{/if}
 
-	<Separator />
+		<Field.Separator />
 
-	<Field.Set>
-		<Field.Legend variant="label">Navigation Layout</Field.Legend>
+		<Field.Set>
+			<Field.Legend variant="label">Navigation Layout</Field.Legend>
 		<Field.Description>Choose how you navigate the app.</Field.Description>
 		<RadioGroup.Root
 			bind:value={
@@ -253,5 +249,6 @@
 				</Field.Label>
 			{/each}
 		</RadioGroup.Root>
-	</Field.Set>
-</div>
+		</Field.Set>
+	</Field.Group>
+</Field.Set>

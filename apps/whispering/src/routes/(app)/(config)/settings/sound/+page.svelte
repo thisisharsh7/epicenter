@@ -1,6 +1,5 @@
 <script lang="ts">
 	import * as Field from '@epicenter/ui/field';
-	import { Separator } from '@epicenter/ui/separator';
 	import { Switch } from '@epicenter/ui/switch';
 	import { settings } from '$lib/stores/settings.svelte';
 </script>
@@ -9,16 +8,12 @@
 	<title>Sound Settings - Whispering</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<div>
-		<h3 class="text-lg font-medium">Sound</h3>
-		<p class="text-muted-foreground text-sm">
-			Configure your Whispering sound preferences.
-		</p>
-	</div>
-
-	<Separator />
-
+<Field.Set>
+	<Field.Legend>Sound</Field.Legend>
+	<Field.Description>
+		Configure your Whispering sound preferences.
+	</Field.Description>
+	<Field.Separator />
 	<Field.Group>
 		<Field.Set>
 			<Field.Legend variant="label">Manual Recording Sounds</Field.Legend>
@@ -142,7 +137,8 @@
 						id="play-sound-transformation"
 						bind:checked={
 							() => settings.value['sound.playOn.transformationComplete'],
-							(v) => settings.updateKey('sound.playOn.transformationComplete', v)
+							(v) =>
+								settings.updateKey('sound.playOn.transformationComplete', v)
 						}
 					/>
 					<Field.Label for="play-sound-transformation">
@@ -152,4 +148,4 @@
 			</Field.Group>
 		</Field.Set>
 	</Field.Group>
-</div>
+</Field.Set>
