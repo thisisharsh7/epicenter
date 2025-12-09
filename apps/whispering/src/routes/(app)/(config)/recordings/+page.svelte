@@ -76,11 +76,11 @@
 		};
 	}
 
-	const getAllRecordingsQuery = createQuery(rpc.db.recordings.getAll.options);
+	const getAllRecordingsQuery = createQuery(() => rpc.db.recordings.getAll.options);
 	const transcribeRecordings = createMutation(
-		rpc.transcription.transcribeRecordings.options,
+		() => rpc.transcription.transcribeRecordings.options,
 	);
-	const deleteRecordings = createMutation(rpc.db.recordings.delete.options);
+	const deleteRecordings = createMutation(() => rpc.db.recordings.delete.options);
 
 	const DATE_FORMAT = 'PP p'; // e.g., Aug 13, 2025, 10:00 AM
 

@@ -47,7 +47,7 @@
 	} as const;
 
 	const getDevicesQuery = createQuery(() => ({
-		...rpc.recorder.enumerateDevices.options(),
+		...rpc.recorder.enumerateDevices.options,
 		enabled: combobox.open,
 	}));
 

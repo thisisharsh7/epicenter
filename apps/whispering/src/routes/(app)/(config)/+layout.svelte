@@ -22,7 +22,7 @@
 	import { MediaQuery } from 'svelte/reactivity';
 
 	const getRecorderStateQuery = createQuery(
-		rpc.recorder.getRecorderState.options,
+		() => rpc.recorder.getRecorderState.options,
 	);
 
 	let { children } = $props();

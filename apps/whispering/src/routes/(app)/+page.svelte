@@ -37,9 +37,9 @@
 	import { onDestroy, onMount } from 'svelte';
 
 	const getRecorderStateQuery = createQuery(
-		rpc.recorder.getRecorderState.options,
+		() => rpc.recorder.getRecorderState.options,
 	);
-	const latestRecordingQuery = createQuery(rpc.db.recordings.getLatest.options);
+	const latestRecordingQuery = createQuery(() => rpc.db.recordings.getLatest.options);
 
 	const latestRecording = $derived<Recording>(
 		latestRecordingQuery.data ?? {

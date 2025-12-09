@@ -12,7 +12,7 @@
 	const combobox = useCombobox();
 
 	const transformRecording = createMutation(
-		rpc.transformer.transformRecording.options,
+		() => rpc.transformer.transformRecording.options,
 	);
 
 	let { recordingId }: { recordingId: string } = $props();

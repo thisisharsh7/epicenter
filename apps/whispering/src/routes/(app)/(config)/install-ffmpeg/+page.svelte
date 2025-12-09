@@ -22,7 +22,7 @@
 	const platform = services.os.type();
 
 	const ffmpegQuery = createQuery(() => ({
-		...rpc.ffmpeg.checkFfmpegInstalled.options(),
+		...rpc.ffmpeg.checkFfmpegInstalled.options,
 		refetchInterval: (query) => {
 			const isInstalled = query.state.data;
 			return isInstalled ? 30000 : 5000;

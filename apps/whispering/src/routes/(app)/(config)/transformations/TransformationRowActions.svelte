@@ -10,11 +10,11 @@
 	let { transformationId }: { transformationId: string } = $props();
 
 	const deleteTransformation = createMutation(
-		rpc.db.transformations.delete.options,
+		() => rpc.db.transformations.delete.options,
 	);
 
 	const transformationQuery = createQuery(
-		rpc.db.transformations.getById(() => transformationId).options,
+		() => rpc.db.transformations.getById(() => transformationId).options,
 	);
 	const transformation = $derived(transformationQuery.data);
 </script>

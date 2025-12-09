@@ -3,7 +3,7 @@ import { rpc } from '$lib/query';
 
 export function syncIconWithRecorderState() {
 	const getRecorderStateQuery = createQuery(
-		rpc.recorder.getRecorderState.options,
+		() => rpc.recorder.getRecorderState.options,
 	);
 
 	$effect(() => {

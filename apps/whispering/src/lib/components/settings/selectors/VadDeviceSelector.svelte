@@ -23,7 +23,7 @@
 	const isDeviceSelected = $derived(!!selectedDeviceId);
 
 	const getDevicesQuery = createQuery(() => ({
-		...vadRecorder.enumerateDevices.options(),
+		...vadRecorder.enumerateDevices.options,
 		enabled: combobox.open,
 	}));
 

@@ -61,7 +61,7 @@
 	}
 
 	// Check if FFmpeg is installed
-	const ffmpegQuery = createQuery(rpc.ffmpeg.checkFfmpegInstalled.options);
+	const ffmpegQuery = createQuery(() => rpc.ffmpeg.checkFfmpegInstalled.options);
 
 	const isFfmpegInstalled = $derived(ffmpegQuery.data ?? false);
 	const isFfmpegCheckLoading = $derived(ffmpegQuery.isPending);

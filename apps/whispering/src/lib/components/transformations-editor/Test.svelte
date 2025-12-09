@@ -10,7 +10,7 @@
 	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 
-	const transformInput = createMutation(rpc.transformer.transformInput.options);
+	const transformInput = createMutation(() => rpc.transformer.transformInput.options);
 
 	let { transformation }: { transformation: Transformation } = $props();
 
