@@ -45,7 +45,7 @@
 				}}
 				class="shrink-0"
 			>
-				<RotateCcw class="mr-2 size-4" />
+				<RotateCcw class="size-4" />
 				Reset to defaults
 			</Button>
 		</div>

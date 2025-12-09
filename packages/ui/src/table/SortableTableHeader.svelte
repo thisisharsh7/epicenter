@@ -19,10 +19,10 @@
 >
 	{headerText}
 	{#if column.getIsSorted() === 'asc'}
-		<ArrowUpIcon class="ml-2 size-4" />
+		<ArrowUpIcon class="size-4" />
 	{:else if column.getIsSorted() === 'desc'}
-		<ArrowDownIcon class="ml-2 size-4" />
+		<ArrowDownIcon class="size-4" />
 	{:else}
-		<ArrowUpDownIcon class="ml-2 size-4" />
+		<ArrowUpDownIcon class="size-4" />
 	{/if}
 </Button>

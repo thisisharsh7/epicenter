@@ -157,7 +157,7 @@
 					target="_blank"
 					rel="noreferrer"
 				>
-					<ExternalLink class="mr-2 size-4" />
+					<ExternalLink class="size-4" />
 					View documentation
 				</Button>
 			{/if}

@@ -178,7 +178,7 @@
 													size="lg"
 													class="w-full sm:w-auto"
 												>
-													<DownloadIcon class="size-5 mr-2" />
+													<DownloadIcon class="size-5" />
 													Download FFmpeg for Windows
 												</Button>
 											</div>
@@ -297,7 +297,7 @@
 														variant="outline"
 														size="sm"
 													>
-														<ExternalLinkIcon class="size-3 mr-2" />
+														<ExternalLinkIcon class="size-3" />
 														Watch Tutorial Video
 													</Button>
 												</div>
@@ -422,7 +422,7 @@
 			{#if ffmpegQuery.data !== true}
 				<Card.Footer class="flex justify-center">
 					<Button href="/settings/transcription" variant="ghost" size="sm">
-						<ArrowLeftIcon class="size-4 mr-2" />
+						<ArrowLeftIcon class="size-4" />
 						Back to Settings
 					</Button>
 				</Card.Footer>
