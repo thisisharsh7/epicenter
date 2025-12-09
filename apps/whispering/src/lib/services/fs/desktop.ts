@@ -6,17 +6,20 @@ import { tryAsync } from 'wellcrafted/result';
 import type { FsService } from './types';
 import { FsServiceErr } from './types';
 
-/** Get MIME type from file path. The mime library handles path parsing internally. */
-function getMimeType(filePath: string): string {
-	return mime.getType(filePath) ?? 'application/octet-stream';
-}
-
 /**
- * Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer.
- * This wrapper provides the correct type for use with Blob/File constructors.
+ * Reads a file and returns its bytes with the correct type for Blob/File constructors,
+ * along with the inferred MIME type.
+ *
+ * Tauri's readFile always returns ArrayBuffer-backed Uint8Array, never SharedArrayBuffer,
+ * so the cast is safe.
  */
-async function readFileBytes(path: string): Promise<Uint8Array<ArrayBuffer>> {
-	return (await readFile(path)) as Uint8Array<ArrayBuffer>;
+async function readFileWithMimeType(path: string): Promise<{
+	bytes: Uint8Array<ArrayBuffer>;
+	mimeType: string;
+}> {
+	const bytes = (await readFile(path)) as Uint8Array<ArrayBuffer>;
+	const mimeType = mime.getType(path) ?? 'application/octet-stream';
+	return { bytes, mimeType };
 }
 
 export function createFsServiceDesktop(): FsService {
@@ -24,9 +27,8 @@ export function createFsServiceDesktop(): FsService {
 		pathToBlob: async (path: string) => {
 			return tryAsync({
 				try: async () => {
-					const fileBytes = await readFileBytes(path);
-					const mimeType = getMimeType(path);
-					return new Blob([fileBytes], { type: mimeType });
+					const { bytes, mimeType } = await readFileWithMimeType(path);
+					return new Blob([bytes], { type: mimeType });
 				},
 				catch: (error) =>
 					FsServiceErr({
@@ -38,10 +40,9 @@ export function createFsServiceDesktop(): FsService {
 		pathToFile: async (path: string) => {
 			return tryAsync({
 				try: async () => {
-					const fileBytes = await readFileBytes(path);
+					const { bytes, mimeType } = await readFileWithMimeType(path);
 					const fileName = await basename(path);
-					const mimeType = getMimeType(path);
-					return new File([fileBytes], fileName, { type: mimeType });
+					return new File([bytes], fileName, { type: mimeType });
 				},
 				catch: (error) =>
 					FsServiceErr({
@@ -55,10 +56,9 @@ export function createFsServiceDesktop(): FsService {
 				try: async () => {
 					const files: File[] = [];
 					for (const path of paths) {
-						const fileBytes = await readFileBytes(path);
+						const { bytes, mimeType } = await readFileWithMimeType(path);
 						const fileName = await basename(path);
-						const mimeType = getMimeType(path);
-						const file = new File([fileBytes], fileName, { type: mimeType });
+						const file = new File([bytes], fileName, { type: mimeType });
 						files.push(file);
 					}
 					return files;
