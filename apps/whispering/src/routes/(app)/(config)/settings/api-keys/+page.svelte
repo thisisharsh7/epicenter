@@ -26,16 +26,25 @@
 	<Field.Group>
 		<!-- Multi-purpose services (transcription + transformation) -->
 		<OpenAiApiKeyInput showBadges />
+		<Field.Separator />
 		<GroqApiKeyInput showBadges />
+		<Field.Separator />
 		<MistralApiKeyInput showBadges />
+
+		<Field.Separator />
 
 		<!-- Transcription-focused services -->
 		<DeepgramApiKeyInput showBadges />
+		<Field.Separator />
 		<ElevenLabsApiKeyInput showBadges />
+
+		<Field.Separator />
 
 		<!-- Transformation-focused services -->
 		<AnthropicApiKeyInput showBadges />
+		<Field.Separator />
 		<OpenRouterApiKeyInput showBadges />
+		<Field.Separator />
 		<GoogleApiKeyInput showBadges />
 
 		<Field.Separator />

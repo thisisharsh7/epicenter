@@ -53,7 +53,14 @@
 	</Field.Field>
 
 	<Field.Field>
-		<Field.Label for="openai-base-url">Custom Base URL (Optional)</Field.Label>
+		<Field.Label for="openai-base-url" class="flex items-center gap-2">
+			OpenAI Base URL
+			{#if showBadges}
+				{#each capabilities as capability}
+					<Badge variant="secondary" class="text-xs">{capability}</Badge>
+				{/each}
+			{/if}
+		</Field.Label>
 		<Input
 			id="openai-base-url"
 			type="url"

@@ -46,7 +46,14 @@
 	</Field.Field>
 
 	<Field.Field>
-		<Field.Label for="groq-base-url">Custom Base URL (Optional)</Field.Label>
+		<Field.Label for="groq-base-url" class="flex items-center gap-2">
+			Groq Base URL
+			{#if showBadges}
+				{#each capabilities as capability}
+					<Badge variant="secondary" class="text-xs">{capability}</Badge>
+				{/each}
+			{/if}
+		</Field.Label>
 		<Input
 			id="groq-base-url"
 			type="url"
