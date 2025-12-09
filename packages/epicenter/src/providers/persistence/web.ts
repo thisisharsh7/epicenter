@@ -29,7 +29,7 @@ import type { Provider } from '../../core/provider';
  * @example Basic usage in a browser app
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { setupPersistence } from '@epicenter/hq/providers';
+ * import { setupPersistence } from '@epicenter/hq/providers/persistence';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name

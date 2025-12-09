@@ -1,4 +1,5 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import * as Y from 'yjs';
 import type { Provider } from '../../core/provider';
 
@@ -21,7 +22,7 @@ import type { Provider } from '../../core/provider';
  * @example Basic usage
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { setupPersistence } from '@epicenter/hq/providers/desktop';
+ * import { setupPersistence } from '@epicenter/hq/providers/persistence';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',
@@ -51,10 +52,6 @@ export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
 			'Persistence provider requires Node.js environment with filesystem access',
 		);
 	}
-
-	// Dynamic imports to avoid bundling Node.js modules in browser builds
-	const path = await import('node:path');
-	const { mkdirSync } = await import('node:fs');
 
 	const filePath = path.join(epicenterDir, `${id}.yjs`);
 
