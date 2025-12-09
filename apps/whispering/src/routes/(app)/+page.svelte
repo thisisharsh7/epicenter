@@ -18,7 +18,6 @@
 	import { rpc } from '$lib/query';
 	import { vadRecorder } from '$lib/query/vad.svelte';
 	import * as services from '$lib/services';
-	import type { Recording } from '$lib/services/db';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
 	import { Button } from '@epicenter/ui/button';
@@ -38,30 +37,19 @@
 	const getRecorderStateQuery = createQuery(
 		() => rpc.recorder.getRecorderState.options,
 	);
-	const latestRecordingQuery = createQuery(() => rpc.db.recordings.getLatest.options);
-
-	const latestRecording = $derived<Recording>(
-		latestRecordingQuery.data ?? {
-			id: '',
-			title: '',
-			subtitle: '',
-			createdAt: '',
-			updatedAt: '',
-			timestamp: '',
-			transcribedText: '',
-			transcriptionStatus: 'UNPROCESSED',
-		},
+	const latestRecordingQuery = createQuery(
+		() => rpc.db.recordings.getLatest.options,
 	);
 
-	const audioPlaybackUrlQuery = createQuery(() =>
-		rpc.db.recordings.getAudioPlaybackUrl(() => latestRecording.id).options,
+	const latestRecording = $derived(latestRecordingQuery.data);
+
+	const audioPlaybackUrlQuery = createQuery(
+		() =>
+			rpc.db.recordings.getAudioPlaybackUrl(() => latestRecording?.id ?? '')
+				.options,
 	);
 
 	const blobUrl = $derived(audioPlaybackUrlQuery.data);
-
-	const hasNoTranscribedText = $derived(
-		!latestRecording.transcribedText?.trim(),
-	);
 
 	const availableModes = $derived(
 		RECORDING_MODE_OPTIONS.filter((mode) => {
@@ -167,7 +155,7 @@
 	onDestroy(() => {
 		unlistenDragDrop?.();
 		// Clean up audio URL when component unmounts to prevent memory leaks
-		if (latestRecording.id) {
+		if (latestRecording?.id) {
 			services.db.recordings.revokeAudioUrl(latestRecording.id);
 		}
 	});
@@ -304,29 +292,31 @@
 		</div>
 	{/if}
 
-	<div class="xxs:flex hidden w-full flex-col gap-2">
-		<TranscriptDialog
-			recordingId={latestRecording.id}
-			transcribedText={latestRecording.transcriptionStatus === 'TRANSCRIBING'
-				? '...'
-				: latestRecording.transcribedText}
-			rows={1}
-			disabled={hasNoTranscribedText}
-			loading={latestRecording.transcriptionStatus === 'TRANSCRIBING'}
-		/>
+	{#if latestRecording}
+		<div class="xxs:flex hidden w-full flex-col gap-2">
+			<TranscriptDialog
+				recordingId={latestRecording.id}
+				transcribedText={latestRecording.transcriptionStatus === 'TRANSCRIBING'
+					? '...'
+					: latestRecording.transcribedText}
+				rows={1}
+				disabled={!latestRecording.transcribedText.trim()}
+				loading={latestRecording.transcriptionStatus === 'TRANSCRIBING'}
+			/>
 
-		{#if blobUrl}
-			<audio
-				style="view-transition-name: {getRecordingTransitionId({
-					recordingId: latestRecording.id,
-					propertyName: 'id',
-				})}"
-				src={blobUrl}
-				controls
-				class="h-8 w-full"
-			></audio>
-		{/if}
-	</div>
+			{#if blobUrl}
+				<audio
+					style="view-transition-name: {getRecordingTransitionId({
+						recordingId: latestRecording.id,
+						propertyName: 'id',
+					})}"
+					src={blobUrl}
+					controls
+					class="h-8 w-full"
+				></audio>
+			{/if}
+		</div>
+	{/if}
 
 	{#if settings.value['ui.layoutMode'] === 'nav-items'}
 		<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />
