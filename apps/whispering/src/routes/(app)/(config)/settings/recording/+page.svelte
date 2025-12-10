@@ -61,6 +61,9 @@
 					'Recommended for Linux. Supports all audio formats with advanced customization options. Helps bypass common audio issues.',
 				windows:
 					'Supports all audio formats with advanced customization options.',
+				android:
+					'Supports all audio formats with advanced customization options.',
+				ios: 'Supports all audio formats with advanced customization options.',
 			}[PLATFORM_TYPE],
 		},
 		{
@@ -175,9 +178,9 @@
 		</Field.Field>
 
 		{#if IS_MACOS && settings.value['recording.method'] === 'navigator'}
-			<Alert.Root class="border-amber-500/20 bg-amber-500/5">
-				<InfoIcon class="size-4 text-amber-600 dark:text-amber-400" />
-				<Alert.Title class="text-amber-600 dark:text-amber-400">
+			<Alert.Root class="border-warning/20 bg-warning/5">
+				<InfoIcon class="size-4 text-warning dark:text-warning" />
+				<Alert.Title class="text-warning dark:text-warning">
 					Global Shortcuts May Be Unreliable
 				</Alert.Title>
 				<Alert.Description>

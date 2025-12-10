@@ -18,9 +18,7 @@
 	import { rpc } from '$lib/query';
 	import { vadRecorder } from '$lib/query/vad.svelte';
 	import * as services from '$lib/services';
-	import type { Recording } from '$lib/services/db';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
 	import { Button } from '@epicenter/ui/button';
 	import {
@@ -39,32 +37,19 @@
 	const getRecorderStateQuery = createQuery(
 		() => rpc.recorder.getRecorderState.options,
 	);
-	const latestRecordingQuery = createQuery(() => rpc.db.recordings.getLatest.options);
-
-	const latestRecording = $derived<Recording>(
-		latestRecordingQuery.data ?? {
-			id: '',
-			title: '',
-			subtitle: '',
-			createdAt: '',
-			updatedAt: '',
-			timestamp: '',
-			blob: new Blob(),
-			transcribedText: '',
-			transcriptionStatus: 'UNPROCESSED',
-		},
+	const latestRecordingQuery = createQuery(
+		() => rpc.db.recordings.getLatest.options,
 	);
 
-	const blobUrlManager = createBlobUrlManager();
+	const latestRecording = $derived(latestRecordingQuery.data);
 
-	const blobUrl = $derived.by(() => {
-		if (!latestRecording.blob) return undefined;
-		return blobUrlManager.createUrl(latestRecording.blob);
-	});
+	const audioPlaybackUrlQuery = createQuery(() => ({
+		...rpc.db.recordings.getAudioPlaybackUrl(() => latestRecording?.id ?? '')
+			.options,
+		enabled: !!latestRecording?.id,
+	}));
 
-	const hasNoTranscribedText = $derived(
-		!latestRecording.transcribedText?.trim(),
-	);
+	const blobUrl = $derived(audioPlaybackUrlQuery.data);
 
 	const availableModes = $derived(
 		RECORDING_MODE_OPTIONS.filter((mode) => {
@@ -168,8 +153,11 @@
 	});
 
 	onDestroy(() => {
-		blobUrlManager.revokeCurrentUrl();
 		unlistenDragDrop?.();
+		// Clean up audio URL when component unmounts to prevent memory leaks
+		if (latestRecording?.id) {
+			services.db.recordings.revokeAudioUrl(latestRecording.id);
+		}
 	});
 </script>
 
@@ -218,7 +206,7 @@
 				tooltip={getRecorderStateQuery.data === 'IDLE'
 					? 'Start recording'
 					: 'Stop recording'}
-				onclick={commandCallbacks.toggleManualRecording}
+				onclick={() => commandCallbacks.toggleManualRecording()}
 				variant="ghost"
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
@@ -233,7 +221,7 @@
 				<div class="absolute -right-12 bottom-4 flex items-center">
 					<Button
 						tooltip="Cancel recording"
-						onclick={commandCallbacks.cancelManualRecording}
+						onclick={() => commandCallbacks.cancelManualRecording()}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: cancel-icon;"
@@ -257,7 +245,7 @@
 				tooltip={vadRecorder.state === 'IDLE'
 					? 'Start voice activated session'
 					: 'Stop voice activated session'}
-				onclick={commandCallbacks.toggleVadRecording}
+				onclick={() => commandCallbacks.toggleVadRecording()}
 				variant="ghost"
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
@@ -304,29 +292,31 @@
 		</div>
 	{/if}
 
-	<div class="xxs:flex hidden w-full flex-col gap-2">
-		<TranscriptDialog
-			recordingId={latestRecording.id}
-			transcribedText={latestRecording.transcriptionStatus === 'TRANSCRIBING'
-				? '...'
-				: latestRecording.transcribedText}
-			rows={1}
-			disabled={hasNoTranscribedText}
-			loading={latestRecording.transcriptionStatus === 'TRANSCRIBING'}
-		/>
+	{#if latestRecording}
+		<div class="xxs:flex hidden w-full flex-col gap-2">
+			<TranscriptDialog
+				recordingId={latestRecording.id}
+				transcribedText={latestRecording.transcriptionStatus === 'TRANSCRIBING'
+					? '...'
+					: latestRecording.transcribedText}
+				rows={1}
+				disabled={!latestRecording.transcribedText.trim()}
+				loading={latestRecording.transcriptionStatus === 'TRANSCRIBING'}
+			/>
 
-		{#if blobUrl}
-			<audio
-				style="view-transition-name: {getRecordingTransitionId({
-					recordingId: latestRecording.id,
-					propertyName: 'blob',
-				})}"
-				src={blobUrl}
-				controls
-				class="h-8 w-full"
-			></audio>
-		{/if}
-	</div>
+			{#if blobUrl}
+				<audio
+					style="view-transition-name: {getRecordingTransitionId({
+						recordingId: latestRecording.id,
+						propertyName: 'id',
+					})}"
+					src={blobUrl}
+					controls
+					class="h-8 w-full"
+				></audio>
+			{/if}
+		</div>
+	{/if}
 
 	{#if settings.value['ui.layoutMode'] === 'nav-items'}
 		<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />

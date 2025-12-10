@@ -47,7 +47,7 @@
 				{#if getRecorderStateQuery.data === 'RECORDING'}
 					<Button
 						tooltip="Cancel recording"
-						onclick={commandCallbacks.cancelManualRecording}
+						onclick={() => commandCallbacks.cancelManualRecording()}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: cancel-icon;"
@@ -63,7 +63,7 @@
 				{#if getRecorderStateQuery.data === 'RECORDING'}
 					<Button
 						tooltip="Stop recording"
-						onclick={commandCallbacks.toggleManualRecording}
+						onclick={() => commandCallbacks.toggleManualRecording()}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: microphone-icon"
@@ -74,7 +74,7 @@
 					<div class="flex">
 						<Button
 							tooltip="Start recording"
-							onclick={commandCallbacks.toggleManualRecording}
+							onclick={() => commandCallbacks.toggleManualRecording()}
 							variant="ghost"
 							size="icon"
 							style="view-transition-name: microphone-icon"
@@ -96,7 +96,7 @@
 					<div class="flex">
 						<Button
 							tooltip="Start voice activated recording"
-							onclick={commandCallbacks.toggleVadRecording}
+							onclick={() => commandCallbacks.toggleVadRecording()}
 							variant="ghost"
 							size="icon"
 							style="view-transition-name: microphone-icon"
@@ -109,7 +109,7 @@
 				{:else}
 					<Button
 						tooltip="Stop voice activated recording"
-						onclick={commandCallbacks.toggleVadRecording}
+						onclick={() => commandCallbacks.toggleVadRecording()}
 						variant="ghost"
 						size="icon"
 						style="view-transition-name: microphone-icon"
