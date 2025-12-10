@@ -217,18 +217,18 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 
 /**
  * Type alias for the return type of createEpicenterDb.
- * Useful for typing function parameters that accept a database instance.
+ * Useful for typing function parameters that accept a tables instance.
  *
  * @example
  * ```typescript
- * type MyDb = Db<typeof mySchema>;
+ * type MyTables = Tables<typeof mySchema>;
  *
- * function doSomething(db: MyDb) {
- *   db.posts.upsert(...);  // Direct table access
- *   db.$clearAll();        // Utility access
+ * function doSomething(tables: MyTables) {
+ *   tables.posts.upsert(...);  // Direct table access
+ *   tables.$clearAll();        // Utility access
  * }
  * ```
  */
-export type Db<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
+export type Tables<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
 	typeof createEpicenterDb<TWorkspaceSchema>
 >;

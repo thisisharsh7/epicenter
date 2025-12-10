@@ -7,18 +7,18 @@
  * ## Core Concepts
  *
  * - **YJS Document**: Source of truth (CRDT, collaborative)
- * - **Indexes**: Synchronized snapshots for different query patterns
+ * - **Providers**: Extensions that add persistence, sync, and materialized views
  * - **Column Schemas**: Pure JSON definitions (no Drizzle builders)
  *
  * ## Data Flow
  *
- * Write to YJS → Indexes auto-sync → Query indexes
+ * Write to YJS → Providers auto-sync → Query materialized views
  *
  * This file contains all platform-agnostic exports shared between
  * browser and Node.js entry points.
  */
 
-// Re-export commonly used Drizzle utilities for querying indexes
+// Re-export commonly used Drizzle utilities for querying providers
 export {
 	and,
 	asc,
@@ -59,7 +59,7 @@ export {
 	walkActions,
 } from './core/actions';
 
-export type { Db, TableHelper } from './core/db/core';
+export type { Tables, TableHelper } from './core/db/core';
 
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
@@ -97,16 +97,14 @@ export {
 } from './core/errors';
 
 export type {
-	Index,
-	IndexContext,
-	IndexExports,
-	WorkspaceIndexMap,
-} from './core/indexes';
+	Provider,
+	ProviderContext,
+	ProviderExports,
+	WorkspaceProviderMap,
+} from './core/provider';
 
-// Index system
-export { defineIndexExports } from './core/indexes';
-
-export type { Provider, ProviderContext } from './core/provider';
+// Provider system
+export { defineProviderExports } from './core/provider';
 
 export type {
 	BooleanColumnSchema,
@@ -177,7 +175,7 @@ export type {
 } from './core/workspace/config';
 export { defineWorkspace } from './core/workspace/config';
 
-// Note: Indexes (markdown, sqlite) are NOT re-exported here to avoid bundling
+// Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
-//   import { markdownIndex } from '@epicenter/hq/indexes/markdown';
-//   import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
+//   import { markdownProvider } from '@epicenter/hq/indexes/markdown';
+//   import { sqliteProvider } from '@epicenter/hq/indexes/sqlite';

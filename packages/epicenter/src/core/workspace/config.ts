@@ -1,8 +1,11 @@
 import type { WorkspaceExports } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
-import type { Db } from '../db/core';
-import type { Index, WorkspaceIndexMap } from '../indexes';
-import type { Provider } from '../provider';
+import type { Tables } from '../db/core';
+import type {
+	Provider,
+	ProviderExports,
+	WorkspaceProviderMap,
+} from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
 
@@ -31,21 +34,21 @@ import type { EpicenterDir, StorageDir } from '../types';
  *
  * Each workspace is a self-contained module with:
  * - **tables**: Column schemas (pure JSON, no Drizzle)
- * - **indexes**: Synchronized snapshots for querying (SQLite, markdown, vector, etc.)
- * - **exports**: Actions and utilities with access to tables and indexes
+ * - **providers**: Persistence, sync, materializers (SQLite, markdown, vector, etc.)
+ * - **exports**: Actions and utilities with access to tables and providers
  *
  * ## Data Flow
  *
- * **Writes**: Go to YJS document → auto-sync to all indexes
+ * **Writes**: Go to YJS document -> auto-sync to all materializer providers
  * ```typescript
- * db.posts.set({ id: '1', title: 'Hello' });
- * // YJS updated → SQLite synced → Markdown synced → Vector synced
+ * tables.posts.set({ id: '1', title: 'Hello' });
+ * // YJS updated -> SQLite synced -> Markdown synced -> Vector synced
  * ```
  *
- * **Reads**: Query indexes directly
+ * **Reads**: Query provider exports directly
  * ```typescript
- * await indexes.sqlite.posts.select().where(...);
- * await indexes.vector.search('semantic query');
+ * await providers.sqlite.posts.select().where(...);
+ * await providers.vector.search('semantic query');
  * ```
  *
  * @example
@@ -53,7 +56,7 @@ import type { EpicenterDir, StorageDir } from '../types';
  * const blogWorkspace = defineWorkspace({
  *   id: 'blog',
  *
- *   schema: {
+ *   tables: {
  *     posts: {
  *       // id is auto-included, no need to specify
  *       title: text(),
@@ -63,27 +66,18 @@ import type { EpicenterDir, StorageDir } from '../types';
  *     }
  *   },
  *
- *   indexes: {
- *     sqlite: (c) => sqliteIndex(c),
- *     markdown: markdownIndex,  // Uses all defaults! (directory defaults to './blog')
- *     // Or explicit: (context) => markdownIndex(context)
- *     // Or custom directory: (context) => markdownIndex(context, { directory: './data' })
- *     // Or custom serializers: (context) => markdownIndex(context, { serializers: {...} })
+ *   providers: {
+ *     persistence: setupPersistence,
+ *     sqlite: sqliteProvider,
+ *     markdown: markdownProvider,
  *   },
  *
- *   providers: [
- *     ({ ydoc }) => {
- *       // Set up persistence
- *       new IndexeddbPersistence('blog', ydoc);
- *     },
- *   ],
- *
- *   exports: ({ db, indexes }) => ({
+ *   exports: ({ tables, providers }) => ({
  *     getPublishedPosts: defineQuery({
  *       handler: async () => {
- *         return await indexes.sqlite.posts
+ *         return await providers.sqlite.posts
  *           .select()
- *           .where(isNotNull(indexes.sqlite.posts.publishedAt))
+ *           .where(isNotNull(providers.sqlite.posts.publishedAt))
  *       }
  *     }),
  *
@@ -97,7 +91,7 @@ import type { EpicenterDir, StorageDir } from '../types';
  *           category: 'tech',
  *           views: 0,
  *         };
- *         db.posts.set(post);
+ *         tables.posts.set(post);
  *         return post;
  *       }
  *     })
@@ -109,17 +103,17 @@ export function defineWorkspace<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TIndexResults extends WorkspaceIndexMap,
+	const TProviderResults extends WorkspaceProviderMap,
 	TExports extends WorkspaceExports,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
-		TIndexResults,
+		TProviderResults,
 		TExports
 	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TIndexResults, TExports> {
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviderResults, TExports> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -159,7 +153,7 @@ export function defineWorkspace<
  *
  * ## Runtime vs Type-level
  *
- * At runtime, all workspace configs have full properties (schema, indexes, etc.).
+ * At runtime, all workspace configs have full properties (tables, providers, etc.).
  * The minimal constraint is purely for type inference. The flat/hoisted dependency resolution
  * ensures all workspaces are initialized correctly.
  */
@@ -167,44 +161,46 @@ export type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TIndexResults extends WorkspaceIndexMap = WorkspaceIndexMap,
+	TProviderResults extends WorkspaceProviderMap = WorkspaceProviderMap,
 	TExports extends WorkspaceExports = WorkspaceExports,
 > = {
 	id: TId;
-	schema: TWorkspaceSchema;
+	tables: TWorkspaceSchema;
 	dependencies?: TDeps;
-	indexes: {
-		[K in keyof TIndexResults]: Index<TWorkspaceSchema, TIndexResults[K]>;
+	providers: {
+		[K in keyof TProviderResults]: Provider<
+			TWorkspaceSchema,
+			TProviderResults[K] extends ProviderExports ? TProviderResults[K] : ProviderExports
+		>;
 	};
-	providers?: Provider[];
 	/**
 	 * Factory function that creates workspace exports (actions, utilities, etc.)
 	 *
+	 * @param context.tables - The workspace tables for direct table operations
 	 * @param context.schema - The workspace schema (table definitions)
-	 * @param context.db - Epicenter database API for direct table operations
 	 * @param context.validators - Schema validators for runtime validation and arktype composition
-	 * @param context.indexes - Index-specific exports (queries, sync operations, etc.)
+	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
 	 * @param context.workspaces - Exports from dependency workspaces (if any)
 	 * @param context.blobs - Blob storage for binary files, namespaced by table
 	 *
 	 * @example
 	 * ```typescript
-	 * exports: ({ schema, db, validators, indexes, blobs }) => ({
+	 * exports: ({ tables, schema, validators, providers, blobs }) => ({
 	 *   // Expose schema for type inference in external scripts
 	 *   schema,
 	 *
-	 *   // Expose db for direct access
-	 *   db,
+	 *   // Expose tables for direct access
+	 *   tables,
 	 *
 	 *   // Expose validators for external validation (e.g., migration scripts)
 	 *   validators,
 	 *
-	 *   // Define actions using db operations
-	 *   createPost: db.posts.insert,
-	 *   getPost: db.posts.get,
+	 *   // Define actions using table operations
+	 *   createPost: tables.posts.insert,
+	 *   getPost: tables.posts.get,
 	 *
-	 *   // Expose index operations
-	 *   pullToMarkdown: indexes.markdown.pullToMarkdown,
+	 *   // Expose provider operations
+	 *   pullToMarkdown: providers.markdown.pullToMarkdown,
 	 *
 	 *   // Store and retrieve binary files
 	 *   uploadAttachment: (filename, data) => blobs.posts.put(filename, data),
@@ -213,11 +209,11 @@ export type WorkspaceConfig<
 	 * ```
 	 */
 	exports: (context: {
+		tables: Tables<TWorkspaceSchema>;
 		schema: TWorkspaceSchema;
-		db: Db<TWorkspaceSchema>;
 		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToExports<TDeps>;
-		indexes: TIndexResults;
+		providers: TProviderResults;
 		blobs: WorkspaceBlobs<TWorkspaceSchema>;
 		storageDir: StorageDir | undefined;
 		epicenterDir: EpicenterDir | undefined;

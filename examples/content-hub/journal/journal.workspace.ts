@@ -2,9 +2,9 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownIndex,
+	markdownProvider,
 	select,
-	sqliteIndex,
+	sqliteProvider,
 	tags,
 	text,
 	withBodyField,
@@ -18,7 +18,7 @@ import { setupPersistence } from '@epicenter/hq/providers';
 export const journal = defineWorkspace({
 	id: 'journal',
 
-	schema: {
+	tables: {
 		journal: {
 			// Core fields
 			id: id(),
@@ -103,10 +103,11 @@ export const journal = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 		markdown: (c) =>
-			markdownIndex(c, {
+			markdownProvider(c, {
 				tableConfigs: {
 					// Keep null values for proper round-trip (no stripping)
 					journal: withBodyField('content', { stripNulls: false }),
@@ -114,13 +115,11 @@ export const journal = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => ({
-		...db.journal,
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+	exports: ({ tables, providers }) => ({
+		...tables.journal,
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
+		pullToSqlite: providers.sqlite.pullToSqlite,
+		pushFromSqlite: providers.sqlite.pushFromSqlite,
 	}),
 });

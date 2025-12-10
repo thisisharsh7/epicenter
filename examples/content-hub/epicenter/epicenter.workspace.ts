@@ -3,12 +3,12 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownIndex,
+	markdownProvider,
 	type SerializedRow,
 	select,
 	text,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
@@ -22,7 +22,7 @@ import { Ok } from 'wellcrafted/result';
 export const epicenter = defineWorkspace({
 	id: 'epicenter',
 
-	schema: {
+	tables: {
 		pitches: {
 			id: id(),
 			slug: text(),
@@ -34,9 +34,10 @@ export const epicenter = defineWorkspace({
 		},
 	},
 
-	indexes: {
+	providers: {
+		persistence: setupPersistence,
 		markdown: (c) =>
-			markdownIndex(c, {
+			markdownProvider(c, {
 				tableConfigs: {
 					pitches: {
 						serialize: ({ row: { content, slug, ...row }, table }) => ({
@@ -51,7 +52,7 @@ export const epicenter = defineWorkspace({
 								.omit('content', 'slug');
 							const frontmatterParsed = FrontMatter(frontmatter);
 							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for pitch with slug ${slug}`,
 									context: {
 										filename,
@@ -72,11 +73,9 @@ export const epicenter = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => ({
-		...db.pitches,
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+	exports: ({ tables, providers }) => ({
+		...tables.pitches,
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
 	}),
 });

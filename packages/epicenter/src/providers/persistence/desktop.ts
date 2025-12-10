@@ -26,8 +26,11 @@ import type { Provider } from '../../core/provider';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence],  // Auto-saves to {storageDir}/.epicenter/blog.yjs
- *   // ... schema, indexes, actions
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,  // Auto-saves to {storageDir}/.epicenter/blog.yjs
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -36,12 +39,20 @@ import type { Provider } from '../../core/provider';
  * // All workspaces persist to .epicenter/ directory
  * const pages = defineWorkspace({
  *   id: 'pages',
- *   providers: [setupPersistence],  // → {storageDir}/.epicenter/pages.yjs
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,  // → {storageDir}/.epicenter/pages.yjs
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  *
  * const blog = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence],  // → {storageDir}/.epicenter/blog.yjs
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,  // → {storageDir}/.epicenter/blog.yjs
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  */

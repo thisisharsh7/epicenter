@@ -12,14 +12,14 @@ Epicenter uses YJS documents as the single source of truth for all data. YJS pro
 - Built-in undo/redo
 - Efficient binary encoding
 
-**Optional Indexes for Querying and Persistence**
+**Unified Providers for Querying and Persistence**
 
-Indexes are optional sync layers that mirror YJS data:
-- **SQLite Index**: Enables SQL queries via Drizzle ORM
-- **Markdown Index**: Persists data as human-readable markdown files
-- **Custom Indexes**: Build your own (vector search, full-text search, etc.)
+Providers are a unified map of capabilities that can mirror YJS data:
+- **SQLite Provider**: Enables SQL queries via Drizzle ORM
+- **Markdown Provider**: Persists data as human-readable markdown files
+- **Custom Providers**: Build your own (vector search, full-text search, etc.)
 
-Indexes auto-sync bidirectionally with YJS. They're completely optional—you can use just YJS, just SQLite, both, or build custom indexes.
+Providers auto-sync bidirectionally with YJS. They're completely optional—you can use just YJS, just SQLite, both, or build custom providers.
 
 **Pure JSON Column Schemas**
 
@@ -48,8 +48,8 @@ import {
   boolean,
   date,
   select,
-  sqliteIndex,
-  markdownIndex,
+  sqliteProvider,
+  markdownProvider,
 } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
@@ -58,7 +58,7 @@ import { type } from 'arktype';
 const blogWorkspace = defineWorkspace({
   id: 'blog',
 
-  schema: {
+  tables: {
     posts: {
       id: id(),
       title: text(),
@@ -70,19 +70,16 @@ const blogWorkspace = defineWorkspace({
     }
   },
 
-  indexes: {
+  providers: {
+    // Optional: Add YJS persistence (IndexedDB in browser, filesystem in Node.js)
+    persistence: setupPersistence,
     // Optional: Add SQLite for SQL queries
-    sqlite: (c) => sqliteIndex(c),
+    sqlite: (c) => sqliteProvider(c),
     // Optional: Add markdown for file-based persistence
-    markdown: (c) => markdownIndex(c),
+    markdown: (c) => markdownProvider(c),
   },
 
-  providers: [
-    // Optional: Add YJS persistence (IndexedDB in browser, filesystem in Node.js)
-    setupPersistence,
-  ],
-
-  exports: ({ db, indexes }) => ({
+  exports: ({ tables, providers }) => ({
     createPost: defineMutation({
       input: type({
         title: 'string',
@@ -90,7 +87,7 @@ const blogWorkspace = defineWorkspace({
       }),
       handler: ({ title, category }) => {
         const id = generateId();
-        db.tables.posts.upsert({
+        tables.posts.upsert({
           id,
           title,
           content: null,
@@ -106,11 +103,11 @@ const blogWorkspace = defineWorkspace({
 
     getPublishedPosts: defineQuery({
       handler: async () => {
-        // Query the SQLite index with Drizzle
-        return await indexes.sqlite.posts
+        // Query the SQLite provider with Drizzle
+        return await providers.sqlite.posts
           .select()
-          .where(eq(indexes.sqlite.posts.published, true))
-          .orderBy(desc(indexes.sqlite.posts.publishedAt));
+          .where(eq(providers.sqlite.posts.published, true))
+          .orderBy(desc(providers.sqlite.posts.publishedAt));
       }
     }),
   }),
@@ -128,10 +125,10 @@ if (result.error) {
 }
 
 // 4. Query via table operations
-const allPosts = client.db.tables.posts.getAll();
+const allPosts = client.tables.posts.getAll();
 console.log('All posts:', allPosts);
 
-// 5. Query published posts (uses SQLite index)
+// 5. Query published posts (uses SQLite provider)
 const published = await client.getPublishedPosts();
 console.log('Published:', published);
 
@@ -144,9 +141,8 @@ await client.destroy();
 ### Workspaces
 
 A workspace is a self-contained module with:
-- **Schema**: Table definitions with column types
-- **Indexes**: Optional sync layers (SQLite, markdown, custom)
-- **Providers**: YJS document capabilities (persistence, sync, observability)
+- **Tables**: Table definitions with column types
+- **Providers**: Unified map of capabilities including persistence, sync, and materializers (SQLite, markdown, custom)
 - **Exports**: Actions and utilities for interacting with the workspace
 
 Workspaces can depend on other workspaces, creating a graph of interconnected modules.
@@ -165,7 +161,7 @@ Every workspace has a YJS document that stores all table data. The YJS document:
 Tables are defined as column schemas (pure JSON):
 
 ```typescript
-schema: {
+tables: {
   posts: {
     id: id(),                           // Auto-generated ID (always required)
     title: text(),                      // NOT NULL by default
@@ -178,70 +174,68 @@ schema: {
 At runtime, tables become YJS-backed collections with CRUD operations:
 
 ```typescript
-db.tables.posts.upsert({ id: '1', title: 'Hello', ... })
-db.tables.posts.get({ id: '1' })
-db.tables.posts.update({ id: '1', views: 100 })
-db.tables.posts.delete({ id: '1' })
+tables.posts.upsert({ id: '1', title: 'Hello', ... })
+tables.posts.get({ id: '1' })
+tables.posts.update({ id: '1', views: 100 })
+tables.posts.delete({ id: '1' })
 ```
 
-### Indexes
+### Providers
 
-Indexes mirror YJS data for specific use cases:
+Providers are a unified map of capabilities including persistence, sync, and materializers (SQLite, markdown):
 
 ```typescript
-indexes: {
-  sqlite: (c) => sqliteIndex(c),   // SQL queries via Drizzle ORM
-  markdown: (c) => markdownIndex(c), // File-based persistence
+providers: {
+  persistence: setupPersistence,           // YJS persistence
+  sqlite: (c) => sqliteProvider(c),        // SQL queries via Drizzle ORM
+  markdown: (c) => markdownProvider(c),    // File-based persistence
 }
 ```
 
-Indexes automatically sync with YJS:
-- **Write to YJS** → Indexes auto-update
-- **Pull from index** → Replaces YJS data
-- **Push to index** → Replaces index data
+Materializer providers (sqlite, markdown) automatically sync with YJS:
+- **Write to YJS** → Providers auto-update
+- **Pull from provider** → Replaces YJS data
+- **Push to provider** → Replaces provider data
 
-Access index exports in workspace actions:
+Access provider exports in workspace actions:
 
 ```typescript
-exports: ({ indexes }) => ({
+exports: ({ providers }) => ({
   queryPosts: defineQuery({
     handler: async () => {
-      return await indexes.sqlite.posts.select().where(...);
+      return await providers.sqlite.posts.select().where(...);
     }
   })
 })
 ```
 
-### Providers
-
-Providers attach capabilities to YJS documents:
+Provider functions receive a context object with `{ id, ydoc, storageDir, tables }` and can return exports. For example, a custom WebSocket sync provider:
 
 ```typescript
-providers: [
-  setupPersistence,  // Persist to disk/IndexedDB
-  ({ ydoc }) => new HocuspocusProvider({ url: 'ws://...', document: ydoc }),
-]
+providers: {
+  persistence: setupPersistence,
+  sqlite: (c) => sqliteProvider(c),
+  sync: ({ ydoc }) => new HocuspocusProvider({ url: 'ws://...', document: ydoc }),
+}
 ```
-
-Providers receive `{ id, ydoc, storageDir }` and run before table initialization.
 
 ### Actions
 
 Actions are workspace operations defined with `defineQuery` (read) or `defineMutation` (write):
 
 ```typescript
-exports: ({ db }) => ({
+exports: ({ tables }) => ({
   getPost: defineQuery({
     input: type({ id: 'string' }),
     handler: ({ id }) => {
-      return db.tables.posts.get({ id });
+      return tables.posts.get({ id });
     }
   }),
 
   createPost: defineMutation({
     input: type({ title: 'string' }),
     handler: ({ title }) => {
-      db.tables.posts.upsert({ ... });
+      tables.posts.upsert({ ... });
     }
   })
 })
@@ -386,7 +380,7 @@ preferences: json({
 
 ## Table Operations
 
-All table operations are accessed via `db.tables.{tableName}`.
+All table operations are accessed via `tables.{tableName}`.
 
 ### Upsert Operations
 
@@ -399,7 +393,7 @@ For Y.js columns (ytext, tags), provide plain values:
 - tags: provide arrays
 
 ```typescript
-db.tables.posts.upsert({
+tables.posts.upsert({
   id: generateId(),
   title: 'Hello World',
   content: 'Post content here', // For ytext column, pass string
@@ -423,7 +417,7 @@ This is intentional: Y.js uses Last-Writer-Wins at the key level when setting a 
 For Y.js columns, pass plain values and they'll be synced to existing Y.Text/Y.Array.
 
 ```typescript
-db.tables.posts.update({
+tables.posts.update({
   id: '1',
   title: 'New Title',
   tags: ['updated', 'tags'], // Syncs to existing Y.Array
@@ -448,7 +442,7 @@ Returns Y.js objects for collaborative editing:
 - tags columns: Y.Array instances
 
 ```typescript
-const result = db.tables.posts.get({ id: '1' });
+const result = tables.posts.get({ id: '1' });
 switch (result.status) {
   case 'valid':
     console.log('Row:', result.row);
@@ -468,7 +462,7 @@ switch (result.status) {
 Get all rows with their validation status. Returns `RowResult<Row>[]`.
 
 ```typescript
-const results = db.tables.posts.getAll();
+const results = tables.posts.getAll();
 for (const result of results) {
   if (result.status === 'valid') {
     console.log(result.row.title);
@@ -483,7 +477,7 @@ for (const result of results) {
 Get all valid rows. Skips invalid rows that fail validation.
 
 ```typescript
-const posts = db.tables.posts.getAllValid(); // Row[]
+const posts = tables.posts.getAllValid(); // Row[]
 ```
 
 **`getAllInvalid()`**
@@ -491,7 +485,7 @@ const posts = db.tables.posts.getAllValid(); // Row[]
 Get validation errors for all invalid rows.
 
 ```typescript
-const errors = db.tables.posts.getAllInvalid(); // RowValidationError[]
+const errors = tables.posts.getAllInvalid(); // RowValidationError[]
 ```
 
 **`has({ id })`**
@@ -499,7 +493,7 @@ const errors = db.tables.posts.getAllInvalid(); // RowValidationError[]
 Check if a row exists.
 
 ```typescript
-const exists = db.tables.posts.has({ id: '1' }); // boolean
+const exists = tables.posts.has({ id: '1' }); // boolean
 ```
 
 **`count()`**
@@ -507,7 +501,7 @@ const exists = db.tables.posts.has({ id: '1' }); // boolean
 Get total row count.
 
 ```typescript
-const total = db.tables.posts.count(); // number
+const total = tables.posts.count(); // number
 ```
 
 **`filter(predicate)`**
@@ -515,7 +509,7 @@ const total = db.tables.posts.count(); // number
 Filter valid rows by predicate. Invalid rows are skipped.
 
 ```typescript
-const published = db.tables.posts.filter(row => row.published);
+const published = tables.posts.filter(row => row.published);
 ```
 
 **`find(predicate)`**
@@ -523,7 +517,7 @@ const published = db.tables.posts.filter(row => row.published);
 Find first valid row matching predicate. Returns `Row | null`.
 
 ```typescript
-const first = db.tables.posts.find(row => row.published);
+const first = tables.posts.find(row => row.published);
 ```
 
 ### Delete Operations
@@ -533,7 +527,7 @@ const first = db.tables.posts.find(row => row.published);
 Delete a row.
 
 ```typescript
-db.tables.posts.delete({ id: '1' });
+tables.posts.delete({ id: '1' });
 ```
 
 **`deleteMany({ ids })`**
@@ -541,7 +535,7 @@ db.tables.posts.delete({ id: '1' });
 Delete multiple rows.
 
 ```typescript
-db.tables.posts.deleteMany({ ids: ['1', '2', '3'] });
+tables.posts.deleteMany({ ids: ['1', '2', '3'] });
 ```
 
 **`clear()`**
@@ -549,7 +543,7 @@ db.tables.posts.deleteMany({ ids: ['1', '2', '3'] });
 Delete all rows.
 
 ```typescript
-db.tables.posts.clear();
+tables.posts.clear();
 ```
 
 ### Reactive Updates
@@ -561,7 +555,7 @@ Watch for real-time changes. Returns unsubscribe function.
 Callbacks receive `Result` types with validation errors:
 
 ```typescript
-const unsubscribe = db.tables.posts.observe({
+const unsubscribe = tables.posts.observe({
   onAdd: (result) => {
     if (result.error) {
       console.error('Invalid row added:', result.error);
@@ -590,21 +584,21 @@ unsubscribe();
 - `onUpdate`: Fires when any field changes within an existing row (add/modify/delete fields, edit Y.Text, modify Y.Array)
 - `onDelete`: Fires when a row Y.Map is removed from the table
 
-## Index System
+## Provider System
 
-Indexes are optional sync layers that mirror YJS data for specific query patterns.
+Providers are a unified map of capabilities. All workspace capabilities (persistence, sync, materializers like SQLite/markdown) are defined in a single `providers` map.
 
-### SQLite Index
+### SQLite Provider
 
-The SQLite index provides SQL query capabilities via Drizzle ORM.
+The SQLite provider provides SQL query capabilities via Drizzle ORM.
 
 **Setup:**
 
 ```typescript
-import { sqliteIndex } from '@epicenter/hq';
+import { sqliteProvider } from '@epicenter/hq';
 
-indexes: {
-  sqlite: (c) => sqliteIndex(c)
+providers: {
+  sqlite: (c) => sqliteProvider(c)
 }
 ```
 
@@ -616,7 +610,6 @@ indexes: {
 
 ```typescript
 {
-  destroy: () => void,              // Cleanup function
   pullToSqlite: Query,              // Sync YJS → SQLite (replace all)
   pushFromSqlite: Query,            // Sync SQLite → YJS (replace all)
   db: BetterSQLite3Database,       // Drizzle database instance
@@ -629,33 +622,33 @@ indexes: {
 **Usage:**
 
 ```typescript
-exports: ({ indexes }) => ({
+exports: ({ providers }) => ({
   getPublishedPosts: defineQuery({
     handler: async () => {
       // Query with full Drizzle power
-      return await indexes.sqlite.posts
+      return await providers.sqlite.posts
         .select()
-        .where(eq(indexes.sqlite.posts.published, true))
-        .orderBy(desc(indexes.sqlite.posts.publishedAt))
+        .where(eq(providers.sqlite.posts.published, true))
+        .orderBy(desc(providers.sqlite.posts.publishedAt))
         .limit(10);
     }
   }),
 
   getPostStats: defineQuery({
     handler: async () => {
-      return await indexes.sqlite.posts
+      return await providers.sqlite.posts
         .select({
-          category: indexes.sqlite.posts.category,
+          category: providers.sqlite.posts.category,
           total: count(),
-          avgViews: avg(indexes.sqlite.posts.views),
+          avgViews: avg(providers.sqlite.posts.views),
         })
-        .groupBy(indexes.sqlite.posts.category);
+        .groupBy(providers.sqlite.posts.category);
     }
   }),
 
   // Manual sync operations
-  syncToSqlite: indexes.sqlite.pullToSqlite,
-  syncFromSqlite: indexes.sqlite.pushFromSqlite,
+  syncToSqlite: providers.sqlite.pullToSqlite,
+  syncFromSqlite: providers.sqlite.pushFromSqlite,
 })
 ```
 
@@ -666,17 +659,17 @@ exports: ({ indexes }) => ({
 - Logs validation errors without blocking sync
 - Performs full initial sync on startup
 
-### Markdown Index
+### Markdown Provider
 
-The markdown index persists data as human-readable markdown files.
+The markdown provider persists data as human-readable markdown files.
 
 **Setup:**
 
 ```typescript
-import { markdownIndex } from '@epicenter/hq';
+import { markdownProvider } from '@epicenter/hq';
 
-indexes: {
-  markdown: (c) => markdownIndex(c, {
+providers: {
+  markdown: (c) => markdownProvider(c, {
     directory: './data',  // Optional: workspace-level directory
     tableConfigs: {
       posts: {
@@ -705,7 +698,6 @@ indexes: {
 
 ```typescript
 {
-  destroy: () => void,              // Cleanup function
   pullToMarkdown: Query,            // Sync YJS → Markdown files (replace all)
   pushFromMarkdown: Query,          // Sync Markdown files → YJS (replace all)
   scanForErrors: Query,             // Validate all files, rebuild diagnostics
@@ -715,11 +707,11 @@ indexes: {
 **Usage:**
 
 ```typescript
-exports: ({ indexes }) => ({
+exports: ({ providers }) => ({
   // Export markdown sync operations
-  syncToMarkdown: indexes.markdown.pullToMarkdown,
-  syncFromMarkdown: indexes.markdown.pushFromMarkdown,
-  validateFiles: indexes.markdown.scanForErrors,
+  syncToMarkdown: providers.markdown.pullToMarkdown,
+  syncFromMarkdown: providers.markdown.pushFromMarkdown,
+  validateFiles: providers.markdown.scanForErrors,
 })
 ```
 
@@ -750,7 +742,7 @@ serialize: ({ row, table }) => {
 deserialize: ({ frontmatter, body, filename, table }) => {
   // Custom parsing
   const row = { id: '...', ... };
-  return Ok(row); // or Err(MarkdownIndexErr({ ... }))
+  return Ok(row); // or Err(MarkdownProviderErr({ ... }))
 }
 ```
 
@@ -768,7 +760,7 @@ const blogWorkspace = defineWorkspace({
   id: 'blog',
   dependencies: [authWorkspace, storageWorkspace],
 
-  exports: ({ db, workspaces, indexes }) => ({
+  exports: ({ tables, workspaces, providers }) => ({
     createPost: defineMutation({
       input: type({ title: 'string', authorId: 'string' }),
       handler: async ({ title, authorId }) => {
@@ -779,11 +771,11 @@ const blogWorkspace = defineWorkspace({
         }
 
         // Access dependency workspace tables
-        const allUsers = workspaces.auth.db.tables.users.getAll();
+        const allUsers = workspaces.auth.tables.users.getAll();
 
         // Create post in local workspace
         const id = generateId();
-        db.tables.posts.upsert({
+        tables.posts.upsert({
           id,
           title,
           authorId,
@@ -808,12 +800,12 @@ exports: ({ workspaces }) => ({
 
   // Access dependency tables
   anotherAction: () => {
-    const users = workspaces.auth.db.tables.users.getAll();
+    const users = workspaces.auth.tables.users.getAll();
   },
 
-  // Access dependency indexes
+  // Access dependency providers
   yetAnother: async () => {
-    const rows = await workspaces.auth.indexes.sqlite.users
+    const rows = await workspaces.auth.providers.sqlite.users
       .select()
       .where(...);
   }
@@ -999,17 +991,18 @@ Useful for API/MCP mapping. Non-action exports (utilities, constants) are filter
 
 ## Providers
 
-Providers attach capabilities to YJS documents. They run before table initialization.
+Providers are defined as a map and can attach capabilities to YJS documents. They run in parallel during workspace initialization.
 
 **Type:**
 
 ```typescript
-type Provider = (context: ProviderContext) => void | Promise<void>;
+type Provider<TExports> = (context: ProviderContext) => TExports | void | Promise<TExports | void>;
 
 type ProviderContext = {
   id: string;                          // Workspace ID
   ydoc: Y.Doc;                         // YJS document
   storageDir: AbsolutePath | undefined; // Node.js: absolute path, Browser: undefined
+  tables: Tables<TSchema>;             // Access to workspace tables
 };
 ```
 
@@ -1017,38 +1010,37 @@ type ProviderContext = {
 
 ```typescript
 import { setupPersistence } from '@epicenter/hq/providers';
+import { sqliteProvider, markdownProvider } from '@epicenter/hq';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 
-providers: [
+providers: {
   // Filesystem persistence (Node.js) or IndexedDB (browser)
-  setupPersistence,
+  persistence: setupPersistence,
+
+  // SQLite materializer
+  sqlite: (c) => sqliteProvider(c),
+
+  // Markdown materializer
+  markdown: (c) => markdownProvider(c),
 
   // WebSocket sync provider
-  ({ ydoc }) => new HocuspocusProvider({
+  sync: ({ ydoc }) => new HocuspocusProvider({
     url: 'wss://collab.example.com',
     name: 'my-workspace',
     document: ydoc,
   }),
 
   // Custom provider
-  ({ id, ydoc, storageDir }) => {
+  custom: ({ id, ydoc, storageDir }) => {
     console.log(`Setting up workspace: ${id}`);
     // Attach custom capabilities
   },
-]
+}
 ```
 
 **Execution:**
 
-Providers run in parallel before table initialization:
-
-```typescript
-await Promise.all(
-  providers.map(provider => provider({ id, ydoc, storageDir }))
-);
-```
-
-This ensures persisted data is loaded into YJS before tables are created.
+Providers run in parallel during initialization. Providers that return exports make those exports available in the `providers` object passed to the `exports` function.
 
 ## Runtime
 
@@ -1118,11 +1110,11 @@ import {
 } from '@epicenter/hq';
 ```
 
-**`defineWorkspace<TDeps, TId, TSchema, TIndexes, TExports>(config)`**
+**`defineWorkspace<TDeps, TId, TSchema, TProviders, TExports>(config)`**
 
-Define a workspace with tables, indexes, providers, and exports.
+Define a workspace with tables, providers, and exports.
 
-Returns `WorkspaceConfig<TDeps, TId, TSchema, TIndexes, TExports>`.
+Returns `WorkspaceConfig<TDeps, TId, TSchema, TProviders, TExports>`.
 
 ### Runtime Creation
 
@@ -1223,10 +1215,10 @@ Filter workspace exports to just actions.
 
 Identity function for type inference.
 
-### Database Operations
+### Table Operations
 
 ```typescript
-import { type Db, type TableHelper } from '@epicenter/hq';
+import { type Tables, type TableHelper } from '@epicenter/hq';
 ```
 
 **`TableHelper<TSchema>`** methods:
@@ -1238,39 +1230,30 @@ import { type Db, type TableHelper } from '@epicenter/hq';
 - `filter(predicate)`, `find(predicate)`
 - `observe({ onAdd?, onUpdate?, onDelete? })`
 
-### Indexes
-
-```typescript
-import { sqliteIndex } from '@epicenter/hq';
-import { markdownIndex, type MarkdownIndexConfig } from '@epicenter/hq';
-import {
-  defineIndexExports,
-  type Index,
-  type IndexExports,
-  type IndexContext,
-  type WorkspaceIndexMap,
-} from '@epicenter/hq';
-```
-
-**`sqliteIndex(context)`**
-
-Create SQLite index with Drizzle ORM.
-
-**`markdownIndex(context, config?)`**
-
-Create markdown file index.
-
-**`defineIndexExports<T>(exports)`**
-
-Identity function for index export type inference.
-
 ### Providers
 
 ```typescript
+import { sqliteProvider } from '@epicenter/hq';
+import { markdownProvider, type MarkdownProviderConfig } from '@epicenter/hq';
 import {
   type Provider,
   type ProviderContext,
+  type ProviderExports,
+  type WorkspaceProviderMap,
 } from '@epicenter/hq';
+```
+
+**`sqliteProvider(context)`**
+
+Create SQLite provider with Drizzle ORM.
+
+**`markdownProvider(context, config?)`**
+
+Create markdown file provider.
+
+### Persistence Provider
+
+```typescript
 import { setupPersistence } from '@epicenter/hq/providers';
 ```
 
@@ -1349,7 +1332,7 @@ import {
 } from '@epicenter/hq';
 ```
 
-Commonly used Drizzle operators for querying SQLite index.
+Commonly used Drizzle operators for querying SQLite provider.
 
 ### Server
 
@@ -1372,7 +1355,7 @@ Epicenter uses HTTP transport exclusively, not stdio. This is intentional:
 **Why not stdio?**
 
 stdio spawns a new process per AI session, which creates problems:
-- Expensive cold starts (initialize YJS, build indexes, parse files)
+- Expensive cold starts (initialize YJS, build providers, parse files)
 - File system conflicts (multiple watchers, SQLite locks)
 - No shared state (wasted memory, duplicate work)
 
