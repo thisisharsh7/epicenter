@@ -12,7 +12,7 @@
 	import { rpc } from '$lib/query';
 	import { type Transformation } from '$lib/services/db';
 	import { createPersistedState } from '@epicenter/svelte-utils';
-	import { createTransformationViewTransitionName } from '$lib/utils/createTransformationViewTransitionName';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import {
 		FlexRender,
@@ -293,9 +293,7 @@
 				{:else if table.getRowModel().rows?.length}
 					{#each table.getRowModel().rows as row (row.id)}
 						<Table.Row
-							style="view-transition-name: {createTransformationViewTransitionName(
-								{ transformationId: row.id },
-							)}"
+							style="view-transition-name: {viewTransition.transformation(row.id)}"
 						>
 							{#each row.getVisibleCells() as cell}
 								<Table.Cell>
