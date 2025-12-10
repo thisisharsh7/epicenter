@@ -211,7 +211,7 @@
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
 				<span
-					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
+					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition.global.microphone};"
 					class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 				>
 					{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
@@ -224,7 +224,7 @@
 						onclick={() => commandCallbacks.cancelManualRecording()}
 						variant="ghost"
 						size="icon"
-						style="view-transition-name: cancel-icon;"
+						style="view-transition-name: {viewTransition.global.cancel};"
 					>
 						🚫
 					</Button>
@@ -250,7 +250,7 @@
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
 				<span
-					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
+					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition.global.microphone};"
 					class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 				>
 					{VAD_STATE_TO_ICON[vadRecorder.state]}
