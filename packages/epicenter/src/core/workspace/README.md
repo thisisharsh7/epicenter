@@ -20,9 +20,9 @@ epicenter.auth.login(...)       // authWorkspace actions
 ```
 
 Each workspace has:
-- **Schema**: Define your data structure with typed columns
-- **Indexes**: Synchronized snapshots for querying (SQLite, markdown, vector, etc.)
-- **Actions**: Business logic (queries and mutations) with access to db and indexes
+- **Tables**: Define your data structure with typed columns
+- **Providers**: Unified map of capabilities including persistence, sync, and materializers (SQLite, markdown, vector, etc.)
+- **Actions**: Business logic (queries and mutations) with access to tables and providers
 
 ## Workspace Clients
 
@@ -66,16 +66,16 @@ type AnyWorkspaceConfig = {
 type WorkspaceConfig<
   TDeps extends readonly AnyWorkspaceConfig[],
   TSchema extends WorkspaceSchema,
-  TIndexMap extends WorkspaceIndexMap,
+  TProviderMap extends WorkspaceProviderMap,
   TExports extends WorkspaceExports
 > = {
   id: string;
-  schema: TSchema;
+  tables: TSchema;
   dependencies?: TDeps;
-  indexes: (ctx: { db: Db<TSchema> }) => TIndexMap | Promise<TIndexMap>;
+  providers: Record<string, Provider>;
   exports: (ctx: {
-    db: Db<TSchema>;
-    indexes: TIndexMap;
+    tables: Tables<TSchema>;
+    providers: TProviderMap;
     workspaces: DependencyActionsMap<TDeps>;
   }) => TActionMap;
 };
@@ -103,8 +103,8 @@ type DependencyActionsMap<TDeps extends readonly AnyWorkspaceConfig[]> = {
 const connectionPoolWorkspace = defineWorkspace({
   id: 'connection-pool',
   name: 'connectionPool',
-  schema: { /* ... */ },
-  indexes: () => ({ /* ... */ }),
+  tables: { /* ... */ },
+  providers: { /* ... */ },
   exports: () => ({
     getConnection: defineQuery({ /* ... */ })
   })
@@ -113,9 +113,9 @@ const connectionPoolWorkspace = defineWorkspace({
 const databaseWorkspace = defineWorkspace({
   id: 'database',
   name: 'database',
-  schema: { /* ... */ },
+  tables: { /* ... */ },
   dependencies: [connectionPoolWorkspace],
-  indexes: () => ({ /* ... */ }),
+  providers: { /* ... */ },
   exports: ({ workspaces }) => ({
     getUser: defineQuery({
       handler: async () => {
@@ -129,9 +129,9 @@ const databaseWorkspace = defineWorkspace({
 const authWorkspace = defineWorkspace({
   id: 'auth',
   name: 'auth',
-  schema: { /* ... */ },
+  tables: { /* ... */ },
   dependencies: [databaseWorkspace],
-  indexes: () => ({ /* ... */ }),
+  providers: { /* ... */ },
   exports: ({ workspaces }) => ({
     verifyToken: defineQuery({
       handler: async () => {
@@ -146,10 +146,10 @@ const authWorkspace = defineWorkspace({
 const rootWorkspace = defineWorkspace({
   id: 'root',
   name: 'root',
-  schema: { /* ... */ },
+  tables: { /* ... */ },
   // ALL transitive dependencies must be listed here (flat/hoisted)
   dependencies: [authWorkspace, databaseWorkspace, connectionPoolWorkspace],
-  indexes: () => ({ /* ... */ }),
+  providers: { /* ... */ },
   exports: ({ workspaces }) => ({
     login: defineQuery({
       handler: async () => {
@@ -178,31 +178,31 @@ This model:
 
 ## The Three-Stage Dependency Pattern
 
-Workspaces use a three-stage dependency pattern (schema → indexes → actions) that avoids TypeScript's circular inference problem:
+Workspaces use a three-stage dependency pattern (tables → providers → actions) that avoids TypeScript's circular inference problem:
 
 ```typescript
 defineWorkspace({
-  // Stage 1: Schema (base data structure)
-  schema: { posts: { title: text() } },
+  // Stage 1: Tables (base data structure)
+  tables: { posts: { title: text() } },
 
-  // Stage 2: Indexes (depend on schema)
-  indexes: {
-    sqlite: (c) => sqliteIndex(c)
+  // Stage 2: Providers (depend on tables)
+  providers: {
+    sqlite: (c) => sqliteProvider(c)
   },
 
-  // Stage 3: Actions (depend on schema AND indexes)
-  exports: ({ db, indexes, workspaces }) => ({
+  // Stage 3: Actions (depend on tables AND providers)
+  exports: ({ tables, providers, workspaces }) => ({
     getPost: defineQuery({
       handler: async () => {
-        // Full type information for indexes
-        return indexes.sqlite.posts.select().all();
+        // Full type information for providers
+        return providers.sqlite.posts.select().all();
       }
     })
   })
 });
 ```
 
-This works because we **parameterize return values, not function types**. Instead of `TIndexesFn extends () => any` with `ReturnType<TIndexesFn>` (which creates circular inference), we use `TIndexMap` directly and inline the function signature.
+This works because we **parameterize return values, not function types**. Instead of `TProvidersFn extends () => any` with `ReturnType<TProvidersFn>` (which creates circular inference), we use `TProviderMap` directly and inline the function signature.
 
 See `typescript-inference-problem.md` and `inference-test.ts` in this directory for details.
 

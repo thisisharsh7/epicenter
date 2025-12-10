@@ -5,15 +5,15 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownIndex,
+	markdownProvider,
 	type SerializedRow,
 	select,
-	sqliteIndex,
+	sqliteProvider,
 	tags,
 	text,
 	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
@@ -35,7 +35,7 @@ const BLOG_ARTICLES_PATH = '/Users/braden/Code/blog/src/content/articles';
  * Content flow:
  *   wiki.entries (source of truth) → posts.* (distribution)
  *
- * Two markdown indexes:
+ * Two markdown providers:
  *   1. `markdown` - local storage for all wiki content
  *   2. `blog` - syncs entries to Astro blog content collection
  *
@@ -45,7 +45,7 @@ const BLOG_ARTICLES_PATH = '/Users/braden/Code/blog/src/content/articles';
 export const wiki = defineWorkspace({
 	id: 'wiki',
 
-	schema: {
+	tables: {
 		entries: {
 			id: id(),
 			title: text(),
@@ -58,14 +58,15 @@ export const wiki = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 
 		/**
 		 * Local markdown storage for wiki entries
 		 */
 		markdown: (c) =>
-			markdownIndex(c, {
+			markdownProvider(c, {
 				tableConfigs: {
 					entries: withBodyField('content'),
 				},
@@ -79,7 +80,7 @@ export const wiki = defineWorkspace({
 		 * Dates are serialized as Date objects, timezone stored separately.
 		 */
 		blog: (c) =>
-			markdownIndex(c, {
+			markdownProvider(c, {
 				directory: BLOG_ARTICLES_PATH,
 				tableConfigs: {
 					entries: {
@@ -135,7 +136,7 @@ export const wiki = defineWorkspace({
 
 							const parsed = EntryFrontmatter(frontmatter);
 							if (parsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for entry ${rowId}`,
 									context: {
 										filename,
@@ -169,21 +170,19 @@ export const wiki = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => ({
-		...db.entries,
+	exports: ({ tables, providers }) => ({
+		...tables.entries,
 
 		// Local markdown sync
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
 
 		// Blog content collection sync
-		pullToBlog: indexes.blog.pullToMarkdown,
-		pushFromBlog: indexes.blog.pushFromMarkdown,
+		pullToBlog: providers.blog.pullToMarkdown,
+		pushFromBlog: providers.blog.pushFromMarkdown,
 
 		// SQLite sync
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+		pullToSqlite: providers.sqlite.pullToSqlite,
+		pushFromSqlite: providers.sqlite.pushFromSqlite,
 	}),
 });

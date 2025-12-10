@@ -3,7 +3,7 @@ import {
 	defineWorkspace,
 	id,
 	integer,
-	sqliteIndex,
+	sqliteProvider,
 	text,
 } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers';
@@ -16,7 +16,7 @@ import { setupPersistence } from '@epicenter/hq/providers';
 const stressWorkspace = defineWorkspace({
 	id: 'stress',
 
-	schema: {
+	tables: {
 		items_a: {
 			id: id(),
 			name: text(),
@@ -79,15 +79,14 @@ const stressWorkspace = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db }) => ({
+	exports: ({ tables }) => ({
 		// Expose raw table access for bulk inserts
-		...db,
+		...tables,
 	}),
 });
 

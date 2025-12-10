@@ -31,12 +31,13 @@ export type HocuspocusProviderConfig = {
  * ```typescript
  * const workspace = defineWorkspace({
  *   id: 'blog',
- *   // ...
- *   providers: [
- *     createHocuspocusProvider({
+ *   tables: { ... },
+ *   providers: {
+ *     sync: createHocuspocusProvider({
  *       url: 'ws://localhost:1234',
  *     }),
- *   ],
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -44,9 +45,9 @@ export type HocuspocusProviderConfig = {
  * ```typescript
  * const workspace = defineWorkspace({
  *   id: 'blog',
- *   // ...
- *   providers: [
- *     createHocuspocusProvider({
+ *   tables: { ... },
+ *   providers: {
+ *     sync: createHocuspocusProvider({
  *       url: 'ws://localhost:1234',
  *       token: await getAuthToken(),
  *       onAuthenticationFailed: ({ reason }) => {
@@ -54,7 +55,8 @@ export type HocuspocusProviderConfig = {
  *         // Redirect to login or refresh token
  *       },
  *     }),
- *   ],
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -62,9 +64,9 @@ export type HocuspocusProviderConfig = {
  * ```typescript
  * const workspace = defineWorkspace({
  *   id: 'blog',
- *   // ...
- *   providers: [
- *     createHocuspocusProvider({
+ *   tables: { ... },
+ *   providers: {
+ *     sync: createHocuspocusProvider({
  *       url: 'ws://localhost:1234',
  *       onStatus: ({ status }) => {
  *         console.log('Connection status:', status);
@@ -77,7 +79,8 @@ export type HocuspocusProviderConfig = {
  *         console.error('Connection error:', error);
  *       },
  *     }),
- *   ],
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  */

@@ -9,6 +9,7 @@
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
+import type { ProviderExports } from '../provider';
 import { createWorkspaceValidators } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
@@ -25,7 +26,7 @@ import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
 	/**
 	 * Async cleanup method for resource management
-	 * - Destroys all indexes (awaiting any async cleanup)
+	 * - Destroys all providers (awaiting any async cleanup)
 	 * - Destroys the YJS document
 	 *
 	 * Call manually for explicit control:
@@ -277,7 +278,7 @@ export async function initializeWorkspaces<
 	 * All dependencies are guaranteed to be already initialized because we're
 	 * processing workspaces in topological order. This function:
 	 * 1. Injects already-initialized dependency clients
-	 * 2. Creates YDoc, DB, indexes, and actions
+	 * 2. Creates YDoc, tables, providers, and exports
 	 * 3. Returns the initialized workspace client
 	 */
 	const initializeWorkspace = async (
@@ -328,64 +329,51 @@ export async function initializeWorkspaces<
 		// Create YJS document with workspace ID as the document GUID
 		const ydoc = new Y.Doc({ guid: workspaceConfig.id });
 
-		// Set up YDoc providers (persistence, synchronization, observability)
-		// IMPORTANT: This must run BEFORE createEpicenterDb so that persisted data is loaded
-		// into the YDoc before table initialization
-		// Providers can be sync or async, so we await all of them in parallel
-		if (workspaceConfig.providers) {
-			await Promise.all(
-				workspaceConfig.providers.map((provider) =>
-					provider({ id: workspaceConfig.id, ydoc, storageDir, epicenterDir }),
-				),
-			);
-		}
-
-		// Initialize Epicenter database (wraps YJS with table/record API)
-		const db = createEpicenterDb(ydoc, workspaceConfig.schema);
+		// Initialize Epicenter tables (wraps YJS with table/record API)
+		const tables = createEpicenterDb(ydoc, workspaceConfig.tables);
 
 		// Create validators for runtime validation and arktype composition
 		// Exposed via exports context for use in migration scripts, external validation, etc.
-		const validators = createWorkspaceValidators(workspaceConfig.schema);
+		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
-		// Initialize each index by calling its factory function with IndexContext
-		// Each index function receives { id, indexId, schema, db, storageDir, epicenterDir } and returns an index object
-		// Initialize all indexes in parallel for better performance
-		const indexes = Object.fromEntries(
+		// Initialize each provider by calling its factory function with ProviderContext
+		// Each provider receives { id, providerId, ydoc, schema, tables, storageDir, epicenterDir }
+		// and optionally returns an exports object
+		// Initialize all providers in parallel for better performance
+		const providers = Object.fromEntries(
 			await Promise.all(
-				Object.entries(workspaceConfig.indexes).map(
-					async ([indexId, indexFn]) => [
-						indexId,
-						await indexFn({
+				Object.entries(workspaceConfig.providers).map(
+					async ([providerId, providerFn]) => {
+						const result = await providerFn({
 							id: workspaceConfig.id,
-							indexId,
-							schema: workspaceConfig.schema,
-							db,
+							providerId,
+							ydoc,
+							schema: workspaceConfig.tables,
+							tables,
 							storageDir,
 							epicenterDir,
-						}),
-					],
+						});
+						// Providers can return void or exports
+						return [providerId, result ?? {}];
+					},
 				),
 			),
-		) as {
-			[K in keyof typeof workspaceConfig.indexes]: Awaited<
-				ReturnType<(typeof workspaceConfig.indexes)[K]>
-			>;
-		};
+		) as Record<string, ProviderExports>;
 
 		// Call the exports factory to get workspace exports (actions + utilities), passing:
+		// - tables: Epicenter tables API for direct table operations
 		// - schema: The workspace schema (table definitions)
-		// - db: Epicenter database API
 		// - validators: Schema validators for runtime validation and arktype composition
-		// - indexes: exported resources from each index (db, queries, etc.)
+		// - providers: exported resources from each provider (db, queries, etc.)
 		// - workspaces: full clients from dependencies (all exports, not filtered!)
 		// - storageDir: Absolute storage directory path (undefined in browser)
 		// - epicenterDir: Absolute path to .epicenter directory (undefined in browser)
 		// Note: blobs are commented out until browser-compatible implementation exists
 		const exports = workspaceConfig.exports({
-			schema: workspaceConfig.schema,
-			db,
+			tables,
+			schema: workspaceConfig.tables,
 			validators,
-			indexes,
+			providers,
 			workspaces: workspaceClients,
 			// blobs temporarily disabled for browser compatibility
 			blobs: {} as any,
@@ -395,9 +383,10 @@ export async function initializeWorkspaces<
 
 		// Create async cleanup function
 		const cleanup = async () => {
-			// Clean up indexes first, awaiting any async destroy operations
+			// Clean up providers first, awaiting any async destroy operations
+			// Note: destroy is optional for providers
 			await Promise.all(
-				Object.values(indexes).map((index) => index.destroy?.()),
+				Object.values(providers).map((provider) => provider.destroy?.()),
 			);
 
 			// Clean up YDoc (disconnects providers, cleans up observers)

@@ -9,13 +9,13 @@ import {
 	id,
 	integer,
 	isNotNull,
-	markdownIndex,
+	markdownProvider,
 	type SerializedRow,
 	select,
-	sqliteIndex,
+	sqliteProvider,
 	text,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
@@ -28,7 +28,7 @@ import { Ok } from 'wellcrafted/result';
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
 
-	schema: {
+	tables: {
 		posts: {
 			id: id(),
 			title: text(),
@@ -46,10 +46,11 @@ const blogWorkspace = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 		markdown: (context) =>
-			markdownIndex(context, {
+			markdownProvider(context, {
 				tableConfigs: {
 					posts: {
 						serialize: ({ row: { id, content, ...row } }) => ({
@@ -70,7 +71,7 @@ const blogWorkspace = defineWorkspace({
 							const frontmatterParsed = FrontMatter(frontmatter);
 
 							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for post ${id}`,
 									context: {
 										filename,
@@ -107,7 +108,7 @@ const blogWorkspace = defineWorkspace({
 							const frontmatterParsed = FrontMatter(frontmatter);
 
 							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for comment ${id}`,
 									context: { filename, id, reason: frontmatterParsed },
 								});
@@ -126,14 +127,14 @@ const blogWorkspace = defineWorkspace({
 			}),
 	},
 
-	exports: ({ schema, db, indexes }) => ({
+	exports: ({ tables, providers }) => ({
 		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
 			handler: async () => {
-				const posts = await indexes.sqlite.db
+				const posts = await providers.sqlite.db
 					.select()
-					.from(indexes.sqlite.posts)
-					.where(isNotNull(indexes.sqlite.posts.publishedAt));
+					.from(providers.sqlite.posts)
+					.where(isNotNull(providers.sqlite.posts.publishedAt));
 				return Ok(posts);
 			},
 		}),
@@ -142,10 +143,10 @@ const blogWorkspace = defineWorkspace({
 		getPost: defineQuery({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				const post = await indexes.sqlite.db
+				const post = await providers.sqlite.db
 					.select()
-					.from(indexes.sqlite.posts)
-					.where(eq(indexes.sqlite.posts.id, id));
+					.from(providers.sqlite.posts)
+					.where(eq(providers.sqlite.posts.id, id));
 				return Ok(post);
 			},
 		}),
@@ -154,10 +155,10 @@ const blogWorkspace = defineWorkspace({
 		getPostComments: defineQuery({
 			input: type({ postId: 'string' }),
 			handler: async ({ postId }) => {
-				const comments = await indexes.sqlite.db
+				const comments = await providers.sqlite.db
 					.select()
-					.from(indexes.sqlite.comments)
-					.where(eq(indexes.sqlite.comments.postId, postId));
+					.from(providers.sqlite.comments)
+					.where(eq(providers.sqlite.comments.postId, postId));
 				return Ok(comments);
 			},
 		}),
@@ -177,8 +178,8 @@ const blogWorkspace = defineWorkspace({
 					category,
 					views: 0,
 					publishedAt: null,
-				} satisfies typeof db.posts.$inferSerializedRow;
-				db.posts.upsert(post);
+				} satisfies typeof tables.posts.$inferSerializedRow;
+				tables.posts.upsert(post);
 				return Ok(post);
 			},
 		}),
@@ -187,15 +188,15 @@ const blogWorkspace = defineWorkspace({
 		publishPost: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				const { status, row } = db.posts.get({ id });
+				const { status, row } = tables.posts.get({ id });
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
-				db.posts.update({
+				tables.posts.update({
 					id,
 					publishedAt: new Date().toISOString(),
 				});
-				const { row: updatedPost } = db.posts.get({ id });
+				const { row: updatedPost } = tables.posts.get({ id });
 				return Ok(updatedPost);
 			},
 		}),
@@ -214,8 +215,8 @@ const blogWorkspace = defineWorkspace({
 					author,
 					content,
 					createdAt: new Date().toISOString(),
-				} satisfies typeof db.comments.$inferSerializedRow;
-				db.comments.upsert(comment);
+				} satisfies typeof tables.comments.$inferSerializedRow;
+				tables.comments.upsert(comment);
 				return Ok(comment);
 			},
 		}),
@@ -224,23 +225,19 @@ const blogWorkspace = defineWorkspace({
 		incrementViews: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
-				const { status, row } = db.posts.get({ id });
+				const { status, row } = tables.posts.get({ id });
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
-				db.posts.update({
+				tables.posts.update({
 					id,
 					views: row.views + 1,
 				});
-				const { row: updatedPost } = db.posts.get({ id });
+				const { row: updatedPost } = tables.posts.get({ id });
 				return Ok(updatedPost);
 			},
 		}),
 	}),
-
-	// Use isomorphic persistence
-	// Stores YJS document at .epicenter/blog.yjs (auto-resolved)
-	providers: [setupPersistence],
 });
 
 export default defineEpicenter({
