@@ -4,7 +4,7 @@
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
 	import { rpc } from '$lib/query';
 	import type { TransformationRun } from '$lib/services/db';
-	import { getTransformationStepRunTransitionId } from '$lib/utils/getRecordingTransitionId';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import PlayIcon from '@lucide/svelte/icons/play';
@@ -204,10 +204,7 @@
 																</Table.Cell>
 																<Table.Cell>
 																	<TextPreviewDialog
-																		id={getTransformationStepRunTransitionId({
-																			stepRunId: stepRun.id,
-																			propertyName: 'input',
-																		})}
+																		id={viewTransition.stepRun(stepRun.id).input}
 																		title="Step Input"
 																		label="step input"
 																		text={stepRun.input}
@@ -216,20 +213,14 @@
 																<Table.Cell>
 																	{#if stepRun.status === 'completed'}
 																		<TextPreviewDialog
-																			id={getTransformationStepRunTransitionId({
-																				stepRunId: stepRun.id,
-																				propertyName: 'output',
-																			})}
+																			id={viewTransition.stepRun(stepRun.id).output}
 																			title="Step Output"
 																			label="step output"
 																			text={stepRun.output}
 																		/>
 																	{:else if stepRun.status === 'failed'}
 																		<TextPreviewDialog
-																			id={getTransformationStepRunTransitionId({
-																				stepRunId: stepRun.id,
-																				propertyName: 'error',
-																			})}
+																			id={viewTransition.stepRun(stepRun.id).error}
 																			title="Step Error"
 																			label="step error"
 																			text={stepRun.error}

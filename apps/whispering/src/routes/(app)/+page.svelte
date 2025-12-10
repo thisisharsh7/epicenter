@@ -19,7 +19,7 @@
 	import { vadRecorder } from '$lib/query/vad.svelte';
 	import * as services from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { Button } from '@epicenter/ui/button';
 	import {
 		ACCEPT_AUDIO,
@@ -306,10 +306,7 @@
 
 			{#if blobUrl}
 				<audio
-					style="view-transition-name: {getRecordingTransitionId({
-						recordingId: latestRecording.id,
-						propertyName: 'id',
-					})}"
+					style="view-transition-name: {viewTransition.recording(latestRecording.id).audio}"
 					src={blobUrl}
 					controls
 					class="h-8 w-full"

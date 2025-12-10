@@ -1,6 +1,6 @@
 <script lang="ts">
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
-	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 
 	/**
 	 * A domain-specific wrapper around TextPreviewDialog for displaying transcript content.
@@ -45,15 +45,10 @@
 		disabled?: boolean;
 		loading?: boolean;
 	} = $props();
-
-	const id = getRecordingTransitionId({
-		recordingId,
-		propertyName: 'transcribedText',
-	});
 </script>
 
 <TextPreviewDialog
-	{id}
+	id={viewTransition.recording(recordingId).transcript}
 	title="Transcript"
 	label="transcript"
 	text={transcribedText}

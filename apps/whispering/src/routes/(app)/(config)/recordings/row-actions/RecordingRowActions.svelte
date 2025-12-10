@@ -7,7 +7,7 @@
 	import { createCopyFn } from '$lib/utils/createCopyFn';
 	import { Skeleton } from '@epicenter/ui/skeleton';
 	import { rpc } from '$lib/query';
-	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import DownloadIcon from '@lucide/svelte/icons/download';
@@ -111,10 +111,7 @@
 		<CopyButton
 			text={recording.transcribedText}
 			copyFn={createCopyFn('transcript')}
-			style="view-transition-name: {getRecordingTransitionId({
-				recordingId,
-				propertyName: 'transcribedText',
-			})}"
+			style="view-transition-name: {viewTransition.recording(recordingId).transcript}"
 		/>
 
 		{#if latestTransformationRunByRecordingIdQuery.isPending}
@@ -126,10 +123,7 @@
 						<AlertCircleIcon
 							class="text-red-500"
 							{...props}
-							id={getRecordingTransitionId({
-								recordingId,
-								propertyName: 'latestTransformationRunOutput',
-							})}
+							id={viewTransition.recording(recordingId).transformationOutput}
 						/>
 					{/snippet}
 				</Tooltip.Trigger>
@@ -144,10 +138,7 @@
 					? latestTransformationRunByRecordingIdQuery.data.output
 					: ''}
 				copyFn={createCopyFn('latest transformation run output')}
-				style="view-transition-name: {getRecordingTransitionId({
-					recordingId,
-					propertyName: 'latestTransformationRunOutput',
-				})}"
+				style="view-transition-name: {viewTransition.recording(recordingId).transformationOutput}"
 			>
 				{#snippet icon()}
 					<FileStackIcon class="size-4" />
