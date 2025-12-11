@@ -1369,15 +1369,24 @@ A long-running HTTP server models Epicenter's folder-based architecture:
 
 ### Route Handling
 
-Workspace actions are exposed via REST endpoints:
+Workspace actions are exposed via REST endpoints under the `/workspaces` prefix:
 
 **Query Actions** (HTTP GET):
-- Path: `/{workspaceId}/{actionName}`
+- Path: `/workspaces/{workspaceId}/{actionName}`
 - Input: Query string parameters
 
 **Mutation Actions** (HTTP POST):
-- Path: `/{workspaceId}/{actionName}`
+- Path: `/workspaces/{workspaceId}/{actionName}`
 - Input: JSON request body
+
+**URL Hierarchy:**
+```
+/                                    - API root/discovery
+/openapi                             - OpenAPI spec (JSON)
+/scalar                              - Scalar UI documentation
+/mcp                                 - MCP endpoint
+/workspaces/{workspaceId}/{action}   - Workspace actions
+```
 
 ### Setup
 

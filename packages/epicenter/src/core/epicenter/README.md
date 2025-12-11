@@ -42,7 +42,7 @@ const { app, client } = await createServer(config);
 Bun.serve({ fetch: app.fetch, port: 3913 });
 
 // Other processes can now use the HTTP API
-await fetch('http://localhost:3913/pages/createPage', {
+await fetch('http://localhost:3913/workspaces/pages/createPage', {
   method: 'POST',
   body: JSON.stringify({ title: 'New Post', ... }),
 });

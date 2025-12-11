@@ -14,9 +14,16 @@ import type { AnyWorkspaceConfig } from '../core/workspace';
  * Create a unified server with REST, MCP, and API documentation endpoints
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
- * - REST endpoints: GET `/{workspace}/{action}` for queries, POST for mutations
+ * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
  * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
  * - API documentation: `/openapi` (Scalar UI by default)
+ *
+ * URL Hierarchy:
+ * - `/` - API root/discovery
+ * - `/openapi` - OpenAPI spec (JSON)
+ * - `/scalar` - Scalar UI documentation
+ * - `/mcp` - MCP endpoint
+ * - `/workspaces/{workspaceId}/{action}` - Workspace actions
  *
  * The function initializes the Epicenter client, registers REST routes for all workspace actions,
  * and configures an MCP server instance for protocol-based access.
@@ -98,9 +105,9 @@ export async function createServer<
 
 	// Register REST endpoints for each workspace action
 	// Supports nested exports: actionPath like ['users', 'crud', 'create']
-	// becomes route path '/workspace/users/crud/create'
+	// becomes route path '/workspaces/workspace/users/crud/create'
 	for (const { workspaceId, actionPath, action } of iterActions(client)) {
-		const path = `/${workspaceId}/${actionPath.join('/')}`;
+		const path = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
 
 		// Tag with both workspace and operation type for multi-dimensional grouping
 		const operationType = (

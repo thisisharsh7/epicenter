@@ -81,7 +81,7 @@ If you need to run scripts while the server is running, use the HTTP API instead
 }
 
 // ✅ DO: Use the server's HTTP API
-await fetch('http://localhost:3913/pages/createPage', {
+await fetch('http://localhost:3913/workspaces/pages/createPage', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ title: 'New Post', content: '...' }),
@@ -138,8 +138,8 @@ Bun.serve({
 
 Now your actions are available as HTTP endpoints:
 
-- `GET http://localhost:3913/getAllPosts`
-- `POST http://localhost:3913/createPost` with JSON body `{ "title": "My Post" }`
+- `GET http://localhost:3913/workspaces/blog/getAllPosts`
+- `POST http://localhost:3913/workspaces/blog/createPost` with JSON body `{ "title": "My Post" }`
 
 ### Multiple Workspaces (Epicenter)
 
@@ -159,11 +159,20 @@ Bun.serve({
 });
 ```
 
-Actions from each workspace get their own namespace:
+Actions from each workspace get their own namespace under `/workspaces`:
 
-- `GET http://localhost:3913/blog/getAllPosts`
-- `POST http://localhost:3913/auth/login`
-- `GET http://localhost:3913/storage/listFiles`
+- `GET http://localhost:3913/workspaces/blog/getAllPosts`
+- `POST http://localhost:3913/workspaces/auth/login`
+- `GET http://localhost:3913/workspaces/storage/listFiles`
+
+**URL Hierarchy:**
+```
+/                                    - API root/discovery
+/openapi                             - OpenAPI spec (JSON)
+/scalar                              - Scalar UI documentation
+/mcp                                 - MCP endpoint
+/workspaces/{workspaceId}/{action}   - Workspace actions
+```
 
 ## How It Works
 
@@ -303,8 +312,8 @@ console.log('Notes API running at http://localhost:8080');
 
 Now you have a fully functional notes API:
 
-- `POST /createNote` - Create notes
-- `GET /searchNotes?query=important` - Search notes
+- `POST /workspaces/notes/createNote` - Create notes
+- `GET /workspaces/notes/searchNotes?query=important` - Search notes
 - `POST /mcp/tools/call` - Let AI create/search notes
 
 ## When to Use This

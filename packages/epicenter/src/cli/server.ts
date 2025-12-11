@@ -43,7 +43,7 @@ export async function startServer(
 	console.log('📚 REST API Endpoints:\n');
 	for (const { workspaceId, actionPath, action } of iterActions(client)) {
 		const method = ({ query: 'GET', mutation: 'POST' } as const)[action.type];
-		const restPath = `/${workspaceId}/${actionPath.join('/')}`;
+		const restPath = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
 		console.log(`  ${method} http://localhost:${port}${restPath}`);
 	}
 
