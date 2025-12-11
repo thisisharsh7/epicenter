@@ -3,12 +3,13 @@ import {
 	date,
 	defineWorkspace,
 	id,
+	markdownProvider,
 	type SerializedRow,
+	sqliteProvider,
 	tags,
 	text,
 } from '@epicenter/hq';
-import { markdownIndex, MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
-import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
+import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
@@ -22,7 +23,7 @@ import { Ok } from 'wellcrafted/result';
 export const email = defineWorkspace({
 	id: 'email',
 
-	schema: {
+	tables: {
 		emails: {
 			id: id(),
 			subject: text(),
@@ -56,10 +57,11 @@ export const email = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 		markdown: (c) =>
-			markdownIndex(c, {
+			markdownProvider(c, {
 				tableConfigs: {
 					emails: {
 						serialize: ({ row: { body, id, ...row } }) => ({
@@ -75,7 +77,7 @@ export const email = defineWorkspace({
 								.omit('id', 'body');
 							const frontmatterParsed = FrontMatter(frontmatter);
 							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for row ${id}`,
 									context: {
 										fileName: filename,
@@ -101,13 +103,11 @@ export const email = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => ({
-		...db.emails,
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+	exports: ({ tables, providers }) => ({
+		...tables.emails,
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
+		pullToSqlite: providers.sqlite.pullToSqlite,
+		pushFromSqlite: providers.sqlite.pushFromSqlite,
 	}),
 });

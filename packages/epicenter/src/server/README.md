@@ -104,13 +104,13 @@ import { defineWorkspace, createWorkspaceServer } from '@epicenter/hq';
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	name: 'blog',
-	schema: {
-		/* your schema */
+	tables: {
+		/* your tables */
 	},
-	indexes: {
-		/* your indexes */
+	providers: {
+		/* your providers */
 	},
-	exports: ({ db, indexes }) => ({
+	exports: ({ tables, providers }) => ({
 		createPost: defineMutation({
 			input: Type.Object({ title: Type.String() }),
 			handler: async ({ title }) => {
@@ -251,7 +251,7 @@ This lets AI models like Claude discover your actions and call them automaticall
 const notesWorkspace = defineWorkspace({
 	id: 'notes',
 	name: 'notes',
-	schema: {
+	tables: {
 		notes: {
 			id: id(),
 			title: text(),
@@ -259,10 +259,10 @@ const notesWorkspace = defineWorkspace({
 			tags: tags({ options: ['work', 'personal', 'ideas'] }),
 		},
 	},
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		sqlite: (c) => sqliteProvider(c),
 	},
-	exports: ({ db, indexes }) => ({
+	exports: ({ tables, providers }) => ({
 		createNote: defineMutation({
 			input: Type.Object({
 				title: Type.String(),
@@ -271,17 +271,17 @@ const notesWorkspace = defineWorkspace({
 			}),
 			handler: async (input) => {
 				const note = { id: generateId(), ...input };
-				db.tables.notes.upsert(note);
+				tables.notes.upsert(note);
 				return Ok(note);
 			},
 		}),
 		searchNotes: defineQuery({
 			input: Type.Object({ query: Type.String() }),
 			handler: async ({ query }) => {
-				const results = await indexes.sqlite.db
+				const results = await providers.sqlite.db
 					.select()
-					.from(indexes.sqlite.notes)
-					.where(like(indexes.sqlite.notes.title, `%${query}%`))
+					.from(providers.sqlite.notes)
+					.where(like(providers.sqlite.notes.title, `%${query}%`))
 					.all();
 				return Ok(results);
 			},

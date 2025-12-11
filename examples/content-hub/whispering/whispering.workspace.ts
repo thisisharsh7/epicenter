@@ -5,10 +5,10 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
+	markdownProvider,
+	sqliteProvider,
 	text,
 } from '@epicenter/hq';
-import { markdownIndex } from '@epicenter/hq/indexes/markdown';
-import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
@@ -21,7 +21,7 @@ import { Err, Ok, tryAsync } from 'wellcrafted/result';
 export const whispering = defineWorkspace({
 	id: 'whispering',
 
-	schema: {
+	tables: {
 		entries: {
 			id: id(),
 			content: text(),
@@ -29,14 +29,13 @@ export const whispering = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
-		markdown: (c) => markdownIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
+		markdown: (c) => markdownProvider(c),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => {
+	exports: ({ tables, providers }) => {
 		/**
 		 * Determine timezone based on date
 		 * - >= 2025-05-25: America/Los_Angeles
@@ -67,11 +66,11 @@ export const whispering = defineWorkspace({
 		}
 
 		return {
-			...db.entries,
-			pullToMarkdown: indexes.markdown.pullToMarkdown,
-			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-			pullToSqlite: indexes.sqlite.pullToSqlite,
-			pushFromSqlite: indexes.sqlite.pushFromSqlite,
+			...tables.entries,
+			pullToMarkdown: providers.markdown.pullToMarkdown,
+			pushFromMarkdown: providers.markdown.pushFromMarkdown,
+			pullToSqlite: providers.sqlite.pullToSqlite,
+			pushFromSqlite: providers.sqlite.pushFromSqlite,
 
 			/**
 			 * Migrate entries from quick-add.md format
@@ -153,7 +152,7 @@ export const whispering = defineWorkspace({
 						};
 
 						if (!dryRun) {
-							db.entries.upsert(entry);
+							tables.entries.upsert(entry);
 						}
 
 						stats.success++;

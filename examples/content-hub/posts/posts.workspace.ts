@@ -2,11 +2,11 @@ import {
 	date,
 	defineWorkspace,
 	id,
+	markdownProvider,
 	select,
+	sqliteProvider,
 	text,
 } from '@epicenter/hq';
-import { markdownIndex } from '@epicenter/hq/indexes/markdown';
-import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers';
 
 const NICHES = [
@@ -81,7 +81,7 @@ const SHORT_FORM_TEXT_SCHEMA = {
 export const posts = defineWorkspace({
 	id: 'posts',
 
-	schema: {
+	tables: {
 		// Video platforms
 		youtube: SHORT_FORM_VIDEO_SCHEMA,
 		tiktok: SHORT_FORM_VIDEO_SCHEMA,
@@ -102,18 +102,17 @@ export const posts = defineWorkspace({
 		bookface: SHORT_FORM_TEXT_SCHEMA,
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
-		markdown: (c) => markdownIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
+		markdown: (c) => markdownProvider(c),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => ({
-		...db,
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+	exports: ({ tables, providers }) => ({
+		...tables,
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
+		pullToSqlite: providers.sqlite.pullToSqlite,
+		pushFromSqlite: providers.sqlite.pushFromSqlite,
 	}),
 });

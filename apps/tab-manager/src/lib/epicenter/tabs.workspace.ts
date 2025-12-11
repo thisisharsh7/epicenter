@@ -26,14 +26,11 @@ export const tabsKeys = {
 export const tabsWorkspace = defineWorkspace({
 	id: 'tabs',
 
-	// No persistent schema - tabs are ephemeral browser state
-	schema: {},
-
-	// No indexes needed for ephemeral data
-	indexes: {},
+	// No persistent tables - tabs are ephemeral browser state
+	tables: {},
 
 	// No persistence providers - browser manages tab state
-	providers: [],
+	providers: {},
 
 	exports: () => {
 		// ═══════════════════════════════════════════════════════════════════════════

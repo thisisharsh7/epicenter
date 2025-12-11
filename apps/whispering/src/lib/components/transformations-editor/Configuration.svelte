@@ -695,7 +695,7 @@
 									/>
 									{#if step['prompt_transform.userPromptTemplate'] && !step['prompt_transform.userPromptTemplate'].includes('{{input}}')}
 										<Field.Description>
-											<span class="text-amber-500 font-semibold">
+											<span class="text-warning font-semibold">
 												Remember to include {'{{input}}'} in your prompt - this is
 												where your text will be inserted!
 											</span>

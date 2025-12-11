@@ -39,7 +39,9 @@ const usersWorkspace = defineWorkspace({
     }
   },
 
-  exports: (api) => ({
+  providers: {},
+
+  exports: ({ tables }) => ({
     createUser: defineMutation({
       input: type({
         name: 'string>0',
@@ -47,8 +49,8 @@ const usersWorkspace = defineWorkspace({
       }),
       description: 'Create a new user with name and email',
       handler: async ({ name, email }) => {
-        // api.users.users already has all table helpers injected!
-        const { data, error } = await api.users.users.create({
+        // tables.users already has all table helpers injected!
+        const { data, error } = await tables.users.create({
           id: generateId(),
           name,
           email,
@@ -68,7 +70,8 @@ The "epicenter" is just a workspace that lists others as dependencies:
 const epicenter = defineWorkspace({
   id: 'epicenter',
   tables: {}, // No tables of its own
-  exports: (api) => ({
+  providers: {},
+  exports: () => ({
     // Optional: Add app-level orchestration actions
     // Or just return empty object
   }),
@@ -140,7 +143,8 @@ const postsWorkspace = defineWorkspace({
       authorId: text(),
     }
   },
-  exports: (api) => ({
+  providers: {},
+  exports: ({ tables, workspaces }) => ({
     createPost: defineMutation({
       input: Type.Object({
         authorId: Type.String(),
@@ -149,11 +153,11 @@ const postsWorkspace = defineWorkspace({
       description: 'Create a new post for a user',
       handler: async ({ authorId, title }) => {
         // Access dependency's tables
-        const { data: author } = await api.users.users.getById(authorId);
+        const { data: author } = await workspaces.users.tables.users.getById(authorId);
         if (!author) return null;
 
         // Access own tables
-        return api.posts.posts.create({
+        return tables.posts.create({
           id: generateId(),
           title,
           authorId
@@ -195,6 +199,7 @@ const epicenter = defineWorkspace({
   id: 'epicenter',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
+  providers: {},
   exports: () => ({})
 });
 
@@ -218,7 +223,8 @@ export const usersWorkspace = defineWorkspace({
       email: text(),
     }
   },
-  exports: (api) => ({
+  providers: {},
+  exports: ({ tables }) => ({
     createUser: defineMutation({
       input: Type.Object({
         name: Type.String({ minLength: 1 }),
@@ -226,7 +232,7 @@ export const usersWorkspace = defineWorkspace({
       }),
       description: 'Create a new user',
       handler: async ({ name, email }) => {
-        const { data } = await api.users.users.create({
+        const { data } = await tables.users.create({
           id: generateId(),
           name,
           email,
@@ -248,7 +254,8 @@ export const postsWorkspace = defineWorkspace({
       authorId: text(),
     }
   },
-  exports: (api) => ({
+  providers: {},
+  exports: ({ tables, workspaces }) => ({
     createPost: defineMutation({
       input: Type.Object({
         authorId: Type.String(),
@@ -256,10 +263,10 @@ export const postsWorkspace = defineWorkspace({
       }),
       description: 'Create a new post for a user',
       handler: async ({ authorId, title }) => {
-        const { data: author } = await api.users.users.getById(authorId);
+        const { data: author } = await workspaces.users.tables.users.getById(authorId);
         if (!author) return null;
 
-        const { data } = await api.posts.posts.create({
+        const { data } = await tables.posts.create({
           id: generateId(),
           title,
           authorId,
@@ -275,6 +282,7 @@ export default defineWorkspace({
   id: 'app',
   dependencies: [usersWorkspace, postsWorkspace],
   tables: {},
+  providers: {},
   exports: () => ({})
 });
 
@@ -284,7 +292,7 @@ const app = await runWorkspace(config);
 // Everything is available through clean namespaces
 await app.users.createUser('Alice', 'alice@example.com');
 await app.posts.createPost(userId, 'My Post');
-const { data: users } = await app.users.users.getAll();
+const { data: users } = await app.users.tables.users.getAll();
 ```
 
 ## Architecture Benefits

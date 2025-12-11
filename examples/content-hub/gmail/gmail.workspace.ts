@@ -8,11 +8,12 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
+	markdownProvider,
 	type SerializedRow,
+	sqliteProvider,
 	text,
 } from '@epicenter/hq';
-import { markdownIndex, MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
-import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
+import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { google } from 'googleapis';
@@ -91,14 +92,15 @@ const EMAILS_SCHEMA = {
 export const gmail = defineWorkspace({
 	id: 'gmail',
 
-	schema: {
+	tables: {
 		emails: EMAILS_SCHEMA,
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 		markdown: (c) =>
-			markdownIndex(c, {
+			markdownProvider(c, {
 				tableConfigs: {
 					emails: {
 						serialize: ({ row: { body, id, ...row } }) => {
@@ -121,7 +123,7 @@ export const gmail = defineWorkspace({
 							const parsed = FrontMatter(frontmatter);
 
 							if (parsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for row ${rowId}`,
 									context: {
 										fileName: filename,
@@ -144,14 +146,12 @@ export const gmail = defineWorkspace({
 			}),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes, epicenterDir }) => ({
-		...db,
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+	exports: ({ tables, providers, epicenterDir }) => ({
+		...tables,
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
+		pullToSqlite: providers.sqlite.pullToSqlite,
+		pushFromSqlite: providers.sqlite.pushFromSqlite,
 
 		// ─────────────────────────────────────────────────────────────────────────
 		// Authentication
@@ -296,7 +296,7 @@ export const gmail = defineWorkspace({
 
 				for (const gmailId of messageIds) {
 					// Check if already exists
-					const existing = db.emails
+					const existing = tables.emails
 						.getAll()
 						.find((e) => e.gmail_id === gmailId);
 					if (existing) {
@@ -332,7 +332,7 @@ export const gmail = defineWorkspace({
 
 					const emailDate = parseEmailDate(getHeader(headers, 'Date'));
 
-					db.emails.upsert({
+					tables.emails.upsert({
 						id: generateId(),
 						gmail_id: message.id ?? gmailId,
 						thread_id: message.threadId ?? '',
@@ -383,7 +383,7 @@ export const gmail = defineWorkspace({
 				}
 
 				// Find email in local database
-				const email = db.emails.get(emailId);
+				const email = tables.emails.get(emailId);
 				if (!email) {
 					return EmailNotFoundErr({
 						message: 'Email not found in local database',
@@ -420,7 +420,7 @@ export const gmail = defineWorkspace({
 				if (deleteError) return Err(deleteError);
 
 				// Delete from local database
-				db.emails.delete({ id: emailId });
+				tables.emails.delete({ id: emailId });
 
 				return Ok({ message: 'Email permanently deleted' });
 			},
@@ -443,7 +443,7 @@ export const gmail = defineWorkspace({
 				}
 
 				// Find email in local database
-				const email = db.emails.get(emailId);
+				const email = tables.emails.get(emailId);
 				if (!email) {
 					return EmailNotFoundErr({
 						message: 'Email not found in local database',
@@ -483,7 +483,7 @@ export const gmail = defineWorkspace({
 				const currentLabels = email.labels ?? '';
 				const newLabels = currentLabels ? `${currentLabels},TRASH` : 'TRASH';
 
-				db.emails.update({
+				tables.emails.update({
 					id: emailId,
 					labels: newLabels,
 				});

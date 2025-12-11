@@ -162,7 +162,7 @@
 								<Database />
 								<span>Database Migration</span>
 								<span
-									class="absolute right-2 top-2 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+									class="absolute right-2 top-2 size-2 rounded-full bg-warning before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-warning/50 before:animate-ping"
 								></span>
 							</button>
 						{/snippet}

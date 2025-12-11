@@ -69,7 +69,7 @@
 	}: ButtonProps = $props();
 </script>
 
-{#snippet buttonContent(tooltipProps?: Record)}
+{#snippet buttonContent(tooltipProps?: Record<string, unknown>)}
 	{#if href}
 		<a
 			bind:this={ref}

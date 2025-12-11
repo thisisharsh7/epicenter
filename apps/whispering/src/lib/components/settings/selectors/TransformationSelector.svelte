@@ -9,7 +9,7 @@
 	import type { Transformation } from '$lib/services/db';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@epicenter/ui/utils';
-	import { createTransformationViewTransitionName } from '$lib/utils/createTransformationViewTransitionName';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { createQuery } from '@tanstack/svelte-query';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import WandIcon from '@lucide/svelte/icons/wand';
@@ -62,14 +62,12 @@
 				aria-expanded={combobox.open}
 				variant="ghost"
 				size="icon"
-				style="view-transition-name: {createTransformationViewTransitionName({
-					transformationId: selectedTransformation?.id ?? null,
-				})}"
+				style="view-transition-name: {viewTransition.transformation(selectedTransformation?.id ?? null)}"
 			>
 				{#if selectedTransformation}
 					<SparklesIcon class="size-4 text-green-500" />
 				{:else}
-					<WandIcon class="size-4 text-amber-500" />
+					<WandIcon class="size-4 text-warning" />
 				{/if}
 				{#if !selectedTransformation}
 					<span

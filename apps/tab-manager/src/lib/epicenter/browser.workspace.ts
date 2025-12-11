@@ -139,15 +139,16 @@ const WINDOWS_SCHEMA = {
 export const browser = defineWorkspace({
 	id: 'browser',
 
-	schema: {
+	tables: {
 		tabs: TABS_SCHEMA,
 		windows: WINDOWS_SCHEMA,
 	},
-	indexes: {},
 
-	exports: ({ db }) => ({
+	providers: {},
+
+	exports: ({ tables }) => ({
 		// Expose table operations directly for use by background script and server
-		...db,
+		...tables,
 	}),
 });
 

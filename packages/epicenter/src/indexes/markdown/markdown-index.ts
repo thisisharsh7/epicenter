@@ -8,10 +8,10 @@ import { defineQuery } from '../../core/actions';
 import type { TableHelper } from '../../core/db/table-helper';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
-	defineIndexExports,
-	type Index,
-	type IndexContext,
-} from '../../core/indexes';
+	defineProviderExports,
+	type Provider,
+	type ProviderContext,
+} from '../../core/provider';
 import type {
 	Row,
 	SerializedRow,
@@ -237,9 +237,9 @@ type TableConfigs<TSchema extends WorkspaceSchema> = {
 };
 
 /**
- * Markdown index configuration
+ * Markdown provider configuration
  */
-export type MarkdownIndexConfig<
+export type MarkdownProviderConfig<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 > = {
 	/**
@@ -306,11 +306,11 @@ export type MarkdownIndexConfig<
 	tableConfigs?: TableConfigs<TWorkspaceSchema>;
 };
 
-export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
-	context: IndexContext<TSchema>,
-	config: MarkdownIndexConfig<TSchema> = {},
+export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
+	context: ProviderContext<TSchema>,
+	config: MarkdownProviderConfig<TSchema> = {},
 ) => {
-	const { id, indexId, db, storageDir, epicenterDir } = context;
+	const { id, providerId, tables, storageDir, epicenterDir } = context;
 	const { directory = `./${id}` } = config;
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
@@ -319,25 +319,25 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	// Require Node.js environment with filesystem access
 	if (!storageDir || !epicenterDir) {
 		throw new Error(
-			'Markdown index requires Node.js environment with filesystem access',
+			'Markdown provider requires Node.js environment with filesystem access',
 		);
 	}
 
-	// Workspace-specific directory for all index artifacts
-	// Structure: .epicenter/{workspaceId}/{indexId}.{suffix}
+	// Workspace-specific directory for all provider artifacts
+	// Structure: .epicenter/{workspaceId}/{providerId}.{suffix}
 	const workspaceConfigDir = path.join(epicenterDir, id);
 
 	// Create diagnostics manager for tracking validation errors (current state)
 	const diagnostics = createDiagnosticsManager({
 		diagnosticsPath: path.join(
 			workspaceConfigDir,
-			`${indexId}.diagnostics.json`,
+			`${providerId}.diagnostics.json`,
 		),
 	});
 
 	// Create logger for historical error record (append-only audit trail)
 	const logger = createIndexLogger({
-		logPath: path.join(workspaceConfigDir, `${indexId}.log`),
+		logPath: path.join(workspaceConfigDir, `${providerId}.log`),
 	});
 
 	// Resolve workspace directory to absolute path
@@ -395,9 +395,9 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * Merge user overrides with defaults to create fully-populated configs per table
 	 *
 	 * This transforms sparse user configs into resolved configs with all fields guaranteed.
-	 * The resulting `tables` array is used everywhere downstream.
+	 * The resulting `tableWithConfigs` array is used everywhere downstream.
 	 */
-	const tables = db.$tables().map((table) => {
+	const tableWithConfigs = tables.$tables().map((table) => {
 		// undefined when user didn't provide config for this table
 		const userConfig = userTableConfigs[table.name];
 
@@ -430,7 +430,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { table, tableConfig } of tables) {
+		for (const { table, tableConfig } of tableWithConfigs) {
 			// Initialize bidirectional tracking for this table
 			if (!tracking[table.name]) {
 				tracking[table.name] = createBidirectionalMap();
@@ -605,7 +605,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const registerFileWatchers = () => {
 		const watchers: FSWatcher[] = [];
 
-		for (const { table, tableConfig } of tables) {
+		for (const { table, tableConfig } of tableWithConfigs) {
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
 				try: () => {
@@ -777,7 +777,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 
 		diagnostics.clear();
 
-		for (const { table, tableConfig } of tables) {
+		for (const { table, tableConfig } of tableWithConfigs) {
 			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
@@ -861,7 +861,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
 	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
 	 */
-	for (const { table, tableConfig } of tables) {
+	for (const { table, tableConfig } of tableWithConfigs) {
 		// Initialize bidirectional tracking for this table
 		if (!tracking[table.name]) {
 			tracking[table.name] = createBidirectionalMap();
@@ -910,7 +910,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 	const unsubscribers = registerYJSObservers();
 	const watchers = registerFileWatchers();
 
-	return defineIndexExports({
+	return defineProviderExports({
 		async destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
@@ -934,7 +934,7 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingYJSChange = true;
 
 						// Process each table independently
-						for (const { table, tableConfig } of tables) {
+						for (const { table, tableConfig } of tableWithConfigs) {
 							// Delete all existing markdown files in this table's directory
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
@@ -1016,14 +1016,14 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.isProcessingFileChange = true;
 
 						// Clear all YJS tables
-						db.$clearAll();
+						tables.$clearAll();
 
 						// Clear diagnostics at the start of push
 						// Fresh import means fresh validation state
 						diagnostics.clear();
 
 						// Process each table independently
-						for (const { table, tableConfig } of tables) {
+						for (const { table, tableConfig } of tableWithConfigs) {
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 							await Promise.all(
@@ -1140,4 +1140,4 @@ export const markdownIndex = (async <TSchema extends WorkspaceSchema>(
 			},
 		}),
 	});
-}) satisfies Index;
+}) satisfies Provider;

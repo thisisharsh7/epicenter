@@ -17,6 +17,7 @@
 	import { rpc } from '$lib/query';
 	import { vadRecorder } from '$lib/query/vad.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { cn } from '@epicenter/ui/utils';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { MediaQuery } from 'svelte/reactivity';
@@ -35,7 +36,7 @@
 		'border-border/40 bg-background/95 supports-backdrop-filter:bg-background/60 z-30 border-b shadow-xs backdrop-blur-sm',
 		'flex h-14 w-full items-center justify-between px-4 sm:px-8',
 	)}
-	style="view-transition-name: header"
+	style="view-transition-name: {viewTransition.global.header}"
 >
 	<Button tooltip="Go home" href="/" variant="ghost" class="-ml-4">
 		<span class="text-lg font-bold">whispering</span>
@@ -47,10 +48,10 @@
 				{#if getRecorderStateQuery.data === 'RECORDING'}
 					<Button
 						tooltip="Cancel recording"
-						onclick={commandCallbacks.cancelManualRecording}
+						onclick={() => commandCallbacks.cancelManualRecording()}
 						variant="ghost"
 						size="icon"
-						style="view-transition-name: cancel-icon;"
+						style="view-transition-name: {viewTransition.global.cancel};"
 					>
 						🚫
 					</Button>
@@ -63,10 +64,10 @@
 				{#if getRecorderStateQuery.data === 'RECORDING'}
 					<Button
 						tooltip="Stop recording"
-						onclick={commandCallbacks.toggleManualRecording}
+						onclick={() => commandCallbacks.toggleManualRecording()}
 						variant="ghost"
 						size="icon"
-						style="view-transition-name: microphone-icon"
+						style="view-transition-name: {viewTransition.global.microphone}"
 					>
 						{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
 					</Button>
@@ -74,10 +75,10 @@
 					<div class="flex">
 						<Button
 							tooltip="Start recording"
-							onclick={commandCallbacks.toggleManualRecording}
+							onclick={() => commandCallbacks.toggleManualRecording()}
 							variant="ghost"
 							size="icon"
-							style="view-transition-name: microphone-icon"
+							style="view-transition-name: {viewTransition.global.microphone}"
 							class="rounded-r-none border-r-0"
 						>
 							{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
@@ -96,10 +97,10 @@
 					<div class="flex">
 						<Button
 							tooltip="Start voice activated recording"
-							onclick={commandCallbacks.toggleVadRecording}
+							onclick={() => commandCallbacks.toggleVadRecording()}
 							variant="ghost"
 							size="icon"
-							style="view-transition-name: microphone-icon"
+							style="view-transition-name: {viewTransition.global.microphone}"
 							class="rounded-r-none border-r-0"
 						>
 							{VAD_STATE_TO_ICON[vadRecorder.state]}
@@ -109,10 +110,10 @@
 				{:else}
 					<Button
 						tooltip="Stop voice activated recording"
-						onclick={commandCallbacks.toggleVadRecording}
+						onclick={() => commandCallbacks.toggleVadRecording()}
 						variant="ghost"
 						size="icon"
-						style="view-transition-name: microphone-icon"
+						style="view-transition-name: {viewTransition.global.microphone}"
 					>
 						{VAD_STATE_TO_ICON[vadRecorder.state]}
 					</Button>
@@ -136,7 +137,7 @@
 						}}
 						variant="ghost"
 						size="icon"
-						style="view-transition-name: microphone-icon"
+						style="view-transition-name: {viewTransition.global.microphone}"
 						class="rounded-r-none border-r-0"
 					>
 						🎬

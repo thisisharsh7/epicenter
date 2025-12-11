@@ -7,7 +7,7 @@
 
 import path from 'node:path';
 import type { WorkspaceExports } from '../actions';
-import type { WorkspaceIndexMap } from '../indexes';
+import type { WorkspaceProviderMap } from '../provider';
 import type { WorkspaceSchema } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
 import type { WorkspaceClient } from './client.shared';
@@ -31,14 +31,14 @@ export async function createWorkspaceClient<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TIndexResults extends WorkspaceIndexMap,
+	const TProviderResults extends WorkspaceProviderMap,
 	TExports extends WorkspaceExports,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
-		TIndexResults,
+		TProviderResults,
 		TExports
 	>,
 ): Promise<WorkspaceClient<TExports>> {

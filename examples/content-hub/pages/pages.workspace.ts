@@ -7,12 +7,13 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
+	markdownProvider,
 	select,
+	sqliteProvider,
 	tags,
 	text,
 } from '@epicenter/hq';
-import { markdownIndex, readMarkdownFile } from '@epicenter/hq/indexes/markdown';
-import { sqliteIndex } from '@epicenter/hq/indexes/sqlite';
+import { readMarkdownFile } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
@@ -25,7 +26,7 @@ import { Err, Ok, tryAsync } from 'wellcrafted/result';
 export const pages = defineWorkspace({
 	id: 'pages',
 
-	schema: {
+	tables: {
 		pages: {
 			// Core fields
 			id: id(),
@@ -115,14 +116,13 @@ export const pages = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
-		markdown: (c) => markdownIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
+		markdown: (c) => markdownProvider(c),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => {
+	exports: ({ tables, providers }) => {
 		/**
 		 * Transform ISO 8601 date string with timezone to DateWithTimezone format
 		 * Only transforms if BOTH isoDate AND timezone are provided (no defaults)
@@ -144,11 +144,11 @@ export const pages = defineWorkspace({
 		}
 
 		return {
-			...db.pages,
-			pullToMarkdown: indexes.markdown.pullToMarkdown,
-			pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-			pullToSqlite: indexes.sqlite.pullToSqlite,
-			pushFromSqlite: indexes.sqlite.pushFromSqlite,
+			...tables.pages,
+			pullToMarkdown: providers.markdown.pullToMarkdown,
+			pushFromMarkdown: providers.markdown.pushFromMarkdown,
+			pullToSqlite: providers.sqlite.pullToSqlite,
+			pushFromSqlite: providers.sqlite.pushFromSqlite,
 
 			/**
 			 * Migrate pages from EpicenterHQ format
@@ -246,7 +246,7 @@ export const pages = defineWorkspace({
 						};
 
 						if (!dryRun) {
-							db.pages.upsert(page);
+							tables.pages.upsert(page);
 						}
 
 						stats.success++;

@@ -74,7 +74,7 @@
 				{#if isDeviceSelected}
 					<MicIcon class="size-4 text-green-500" />
 				{:else}
-					<MicIcon class="size-4 text-amber-500" />
+					<MicIcon class="size-4 text-warning" />
 				{/if}
 			</Button>
 		{/snippet}
@@ -93,7 +93,10 @@
 							<Command.Item
 								value={`method-${methodKey} ${method.label} ${method.description}`}
 								onSelect={() => {
-									settings.updateKey('recording.method', methodKey);
+									settings.updateKey(
+										'recording.method',
+										methodKey as keyof typeof RECORDING_METHODS,
+									);
 									getDevicesQuery.refetch();
 								}}
 								class="flex items-center gap-3 px-3 py-2"
