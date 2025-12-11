@@ -1,40 +1,28 @@
-import { StreamableHTTPTransport } from '@hono/mcp';
-import { swaggerUI } from '@hono/swagger-ui';
-import { Scalar } from '@scalar/hono-api-reference';
-import { Hono } from 'hono';
-import { describeRoute, openAPIRouteHandler, validator } from 'hono-openapi';
+import { openapi } from '@elysiajs/openapi';
+import { Elysia } from 'elysia';
+// import { mcp } from 'elysia-mcp';
 import { Err, isResult, Ok } from 'wellcrafted/result';
 import {
 	createEpicenterClient,
-	type EpicenterClient,
 	type EpicenterConfig,
 	iterActions,
 } from '../core/epicenter';
-import { ARKTYPE_JSON_SCHEMA_FALLBACK } from '../core/schema/arktype-fallback';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import { createMcpServer } from './mcp';
-
-/** hono-openapi validator options with arktype fallback handlers */
-const HONO_OPENAPI_ARKTYPE_OPTIONS = {
-	options: { fallback: ARKTYPE_JSON_SCHEMA_FALLBACK },
-};
+// import { buildMcpToolRegistry, setupMcpTools } from './mcp';
 
 /**
  * Create a unified server with REST, MCP, and API documentation endpoints
  *
- * This creates a Hono server that exposes workspace actions through multiple interfaces:
+ * This creates an Elysia server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET `/{workspace}/{action}` for queries, POST for mutations
  * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
- * - API documentation: `/swagger-ui` (Swagger UI) and `/scalar` (Scalar)
- * - OpenAPI spec: `/openapi.json`
+ * - API documentation: `/openapi` (Scalar UI by default)
  *
  * The function initializes the Epicenter client, registers REST routes for all workspace actions,
  * and configures an MCP server instance for protocol-based access.
  *
  * @param config - Epicenter configuration with workspaces
- * @returns Object containing the Hono app and Epicenter client
- *
- * @see {@link createMcpServer} in mcp.ts for the MCP server implementation
+ * @returns Object containing the Elysia app and Epicenter client
  *
  * @example
  * ```typescript
@@ -49,31 +37,64 @@ const HONO_OPENAPI_ARKTYPE_OPTIONS = {
  *
  * const { app, client } = await createServer(epicenter);
  *
- * Bun.serve({
- *   fetch: app.fetch,
- *   port: 3913,
- * });
+ * app.listen(3913);
  *
  * // Access at:
- * // - http://localhost:3913/swagger-ui (Swagger UI)
- * // - http://localhost:3913/scalar (Scalar)
+ * // - http://localhost:3913/openapi (Scalar UI)
+ * // - http://localhost:3913/openapi/json (OpenAPI spec)
+ * // - http://localhost:3913/mcp (MCP endpoint)
  * ```
  */
 export async function createServer<
 	TId extends string,
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	config: EpicenterConfig<TId, TWorkspaces>,
-): Promise<{
-	/** Hono web server instance */
-	app: Hono;
-	/** Epicenter client with initialized workspaces and actions */
-	client: EpicenterClient<TWorkspaces>;
-}> {
-	const app = new Hono();
-
+>(config: EpicenterConfig<TId, TWorkspaces>) {
 	// Create client
 	const client = await createEpicenterClient(config);
+
+	// TODO: MCP integration commented out pending custom implementation
+	// The elysia-mcp package only supports Zod schemas, but we use arktype.
+	// See specs/20251206T010000-remove-elysia-mcp.md for the plan.
+	// const toolRegistry = await buildMcpToolRegistry(client);
+
+	// Create Elysia app with plugins
+	const app = new Elysia()
+		// OpenAPI documentation (Scalar UI at /openapi)
+		.use(
+			openapi({
+				// Embed spec directly in HTML to avoid fetch issues
+				embedSpec: true,
+				documentation: {
+					info: {
+						title: `${config.id} API`,
+						version: '1.0.0',
+						description: 'API documentation for Epicenter workspaces',
+					},
+				},
+			}),
+		)
+		// TODO: MCP endpoint at /mcp (commented out pending custom implementation)
+		// .use(
+		// 	mcp({
+		// 		basePath: '/mcp',
+		// 		serverInfo: {
+		// 			name: config.id,
+		// 			version: '1.0.0',
+		// 		},
+		// 		capabilities: {
+		// 			tools: {},
+		// 		},
+		// 		setupServer: (server) => {
+		// 			setupMcpTools(server, toolRegistry);
+		// 		},
+		// 	}),
+		// )
+		// Health check / discovery
+		.get('/', () => ({
+			name: `${config.id} API`,
+			version: '1.0.0',
+			docs: '/openapi',
+		}));
 
 	// Register REST endpoints for each workspace action
 	// Supports nested exports: actionPath like ['users', 'crud', 'create']
@@ -92,36 +113,26 @@ export async function createServer<
 				// Queries use GET with query parameters
 				app.get(
 					path,
-					describeRoute({
-						description: action.description,
-						tags,
-					}),
-					...(action.input
-						? [
-								validator(
-									'query',
-									action.input,
-									undefined,
-									HONO_OPENAPI_ARKTYPE_OPTIONS,
-								),
-							]
-						: []),
-					async (c) => {
-						// Get validated input from middleware (if schema exists)
-						const input = action.input ? c.req.valid('query') : undefined;
-
-						// Execute action - input already validated by middleware
-						const result = await action(input);
+					async ({ query, status }) => {
+						// Execute action with validated input
+						const result = await action(action.input ? query : undefined);
 
 						// Handle both Result types and raw values
 						if (isResult(result)) {
 							const { data, error } = result;
-							if (error) return c.json(Err(error), 500);
-							return c.json(Ok(data));
+							if (error) return status('Internal Server Error', Err(error));
+							return Ok(data);
 						}
 
 						// Raw value from handler that can't fail
-						return c.json(result);
+						return result;
+					},
+					{
+						...(action.input ? { query: action.input } : {}),
+						detail: {
+							description: action.description,
+							tags,
+						},
 					},
 				);
 				break;
@@ -129,78 +140,36 @@ export async function createServer<
 				// Mutations use POST with JSON body
 				app.post(
 					path,
-					describeRoute({
-						description: action.description,
-						tags,
-					}),
-					...(action.input
-						? [
-								validator(
-									'json',
-									action.input,
-									undefined,
-									HONO_OPENAPI_ARKTYPE_OPTIONS,
-								),
-							]
-						: []),
-					async (c) => {
-						// Get validated input from middleware (if schema exists)
-						const input = action.input ? c.req.valid('json') : undefined;
-
-						// Execute action - input already validated by middleware
-						const result = await action(input);
+					async ({ body, status }) => {
+						// Execute action with validated input
+						const result = await action(action.input ? body : undefined);
 
 						// Handle both Result types and raw values
 						if (isResult(result)) {
 							const { data, error } = result;
-							if (error) return c.json(Err(error), 500);
-							return c.json(Ok(data));
+							if (error) return status('Internal Server Error', Err(error));
+							return Ok(data);
 						}
 
 						// Raw value from handler that can't fail
-						return c.json(result);
+						return result;
+					},
+					{
+						...(action.input ? { body: action.input } : {}),
+						detail: {
+							description: action.description,
+							tags,
+						},
 					},
 				);
 				break;
 		}
 	}
 
-	// Create and configure MCP server for /mcp endpoint
-	const mcpServer = await createMcpServer(client, config);
-
-	// Initialize transport once (per @hono/mcp docs, transport should be reused)
-	const transport = new StreamableHTTPTransport();
-
-	// Register MCP endpoint using StreamableHTTPTransport
-	app.all('/mcp', async (c) => {
-		// Only connect if not already connected (connection persists across requests)
-		// Server.transport is set when connect() is called
-		if (mcpServer.transport === undefined) {
-			await mcpServer.connect(transport);
-		}
-		return transport.handleRequest(c);
-	});
-
-	// OpenAPI specification endpoint
-	app.get(
-		'/openapi.json',
-		openAPIRouteHandler(app, {
-			excludeStaticFile: false,
-			documentation: {
-				info: {
-					title: `${config.id} API`,
-					version: '1.0.0',
-					description: 'API documentation for Epicenter workspaces',
-				},
-			},
-		}),
-	);
-
-	// Swagger UI endpoint
-	app.get('/swagger-ui', swaggerUI({ url: '/openapi.json' }));
-
-	// Scalar UI endpoint
-	app.get('/scalar', Scalar({ url: '/openapi.json' }));
-
-	return { app, client };
+	return {
+		/** Elysia web server instance */
+		app,
+		/** Epicenter client with initialized workspaces and actions */
+		client,
+	};
 }
