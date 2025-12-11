@@ -36,7 +36,11 @@
 
 	const { data } = $props();
 
-	const serviceCapabilities = $derived(
+	/**
+	 * Feature capabilities for the currently selected transcription service.
+	 * Used to conditionally disable UI fields that aren't supported by the service.
+	 */
+	const currentServiceCapabilities = $derived(
 		TRANSCRIPTION_SERVICE_CAPABILITIES[
 			settings.value['transcription.selectedTranscriptionService']
 		],
@@ -657,7 +661,7 @@
 				() => settings.value['transcription.outputLanguage'],
 				(v) => settings.updateKey('transcription.outputLanguage', v)
 			}
-			disabled={!serviceCapabilities.supportsLanguage}
+			disabled={!currentServiceCapabilities.supportsLanguage}
 		>
 			<Select.Trigger id="output-language" class="w-full">
 				{outputLanguageLabel ?? 'Select a language'}
@@ -668,7 +672,7 @@
 				{/each}
 			</Select.Content>
 		</Select.Root>
-		{#if !serviceCapabilities.supportsLanguage}
+		{#if !currentServiceCapabilities.supportsLanguage}
 			<Field.Description>
 				Parakeet automatically detects the language
 			</Field.Description>
@@ -685,7 +689,7 @@
 			step="0.1"
 			placeholder="0"
 			autocomplete="off"
-			disabled={!serviceCapabilities.supportsTemperature}
+			disabled={!currentServiceCapabilities.supportsTemperature}
 			bind:value={
 				() => settings.value['transcription.temperature'],
 				(value) =>
@@ -693,7 +697,7 @@
 			}
 		/>
 		<Field.Description>
-			{serviceCapabilities.supportsTemperature
+			{currentServiceCapabilities.supportsTemperature
 				? "Controls randomness in the model's output. 0 is focused and deterministic, 1 is more creative."
 				: 'Temperature is not supported for local models (transcribe-rs)'}
 		</Field.Description>
@@ -704,14 +708,14 @@
 		<Textarea
 			id="transcription-prompt"
 			placeholder="e.g., This is an academic lecture about quantum physics with technical terms like 'eigenvalue' and 'Schrödinger'"
-			disabled={!serviceCapabilities.supportsPrompt}
+			disabled={!currentServiceCapabilities.supportsPrompt}
 			bind:value={
 				() => settings.value['transcription.prompt'],
 				(value) => settings.updateKey('transcription.prompt', value)
 			}
 		/>
 		<Field.Description>
-			{serviceCapabilities.supportsPrompt
+			{currentServiceCapabilities.supportsPrompt
 				? 'Helps transcription service (e.g., Whisper) better recognize specific terms, names, or context during initial transcription. Not for text transformations - use the Transformations tab for post-processing rules.'
 				: 'System prompt is not supported for Parakeet'}
 		</Field.Description>
