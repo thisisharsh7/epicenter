@@ -54,7 +54,7 @@
 	theme={mode.current}
 	{...TOASTER_SETTINGS}
 />
-<ModeWatcher />
+<ModeWatcher defaultMode="dark" track={false} />
 <SvelteQueryDevtools client={queryClient} buttonPosition="bottom-right" />
 
 <style>
