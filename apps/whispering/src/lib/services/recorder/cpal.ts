@@ -1,10 +1,12 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { readFile, remove } from '@tauri-apps/plugin-fs';
+import { remove } from '@tauri-apps/plugin-fs';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync } from 'wellcrafted/result';
 import type {
 	CancelRecordingResult,
 	WhisperingRecordingState,
 } from '$lib/constants/audio';
+import { FsServiceLive } from '../fs';
 import type { Device, DeviceAcquisitionOutcome } from '../types';
 import { asDeviceIdentifier } from '../types';
 import type {
@@ -45,7 +47,6 @@ export function createCpalRecorderService(): RecorderService {
 		if (enumerateRecordingDevicesError) {
 			return RecorderServiceErr({
 				message: 'Failed to enumerate recording devices',
-				cause: enumerateRecordingDevicesError,
 			});
 		}
 		// On desktop, device names serve as both ID and label
@@ -73,8 +74,6 @@ export function createCpalRecorderService(): RecorderService {
 				return RecorderServiceErr({
 					message:
 						'We encountered an issue while getting the recorder state. This could be because your microphone is being used by another app, your microphone permissions are denied, or the selected recording device is disconnected',
-					context: { error: getRecorderStateError },
-					cause: getRecorderStateError,
 				});
 
 			return Ok(recordingId ? 'RECORDING' : 'IDLE');
@@ -119,8 +118,6 @@ export function createCpalRecorderService(): RecorderService {
 						message: selectedDeviceId
 							? "We couldn't find the selected microphone. Make sure it's connected and try again!"
 							: "We couldn't find any microphones. Make sure they're connected and try again!",
-						context: { selectedDeviceId, deviceIds },
-						cause: undefined,
 					});
 				}
 
@@ -188,11 +185,6 @@ export function createCpalRecorderService(): RecorderService {
 				return RecorderServiceErr({
 					message:
 						'We encountered an issue while setting up your recording session. This could be because your microphone is being used by another app, your microphone permissions are denied, or the selected recording device is disconnected',
-					context: {
-						selectedDeviceId,
-						deviceIdentifier,
-					},
-					cause: initRecordingSessionError,
 				});
 
 			sendStatus({
@@ -206,8 +198,6 @@ export function createCpalRecorderService(): RecorderService {
 				return RecorderServiceErr({
 					message:
 						'Unable to start recording. Please check your microphone and try again.',
-					context: { deviceIdentifier, deviceOutcome },
-					cause: startRecordingError,
 				});
 
 			return Ok(deviceOutcome);
@@ -229,8 +219,6 @@ export function createCpalRecorderService(): RecorderService {
 			if (stopRecordingError) {
 				return RecorderServiceErr({
 					message: 'Unable to save your recording. Please try again.',
-					context: { operation: 'stopRecording' },
-					cause: stopRecordingError,
 				});
 			}
 
@@ -239,11 +227,6 @@ export function createCpalRecorderService(): RecorderService {
 			if (!filePath) {
 				return RecorderServiceErr({
 					message: 'Recording file path not provided by method.',
-					context: {
-						operation: 'stopRecording',
-						audioRecording,
-					},
-					cause: undefined,
 				});
 			}
 			// audioRecording is now AudioRecordingWithFile
@@ -254,20 +237,12 @@ export function createCpalRecorderService(): RecorderService {
 				description: 'Loading your recording from disk...',
 			});
 
-			const { data: blob, error: readRecordingFileError } = await tryAsync({
-				try: async () => {
-					const fileBytes = await readFile(filePath);
-					return new Blob([fileBytes], { type: 'audio/wav' });
-				},
-				catch: (error) =>
-					RecorderServiceErr({
-						message: 'Unable to read recording file. Please try again.',
-						context: { audioRecording },
-						cause: error,
-					}),
-			});
-			if (readRecordingFileError) return Err(readRecordingFileError);
-
+			const { data: blob, error: readRecordingFileError } =
+				await FsServiceLive.pathToBlob(filePath);
+			if (readRecordingFileError)
+				return RecorderServiceErr({
+					message: `Unable to read recording file: ${readRecordingFileError.message}`,
+				});
 			// Close the recording session after stopping
 			sendStatus({
 				title: '🔄 Closing Session',
@@ -303,8 +278,6 @@ export function createCpalRecorderService(): RecorderService {
 				return RecorderServiceErr({
 					message:
 						'Unable to check recording state. Please try closing the app and starting again.',
-					context: { operation: 'cancelRecording' },
-					cause: getRecordingIdError,
 				});
 			}
 
@@ -329,9 +302,7 @@ export function createCpalRecorderService(): RecorderService {
 					try: () => remove(filePath),
 					catch: (error) =>
 						RecorderServiceErr({
-							message: 'Failed to delete recording file.',
-							context: { audioRecording },
-							cause: error,
+							message: `Failed to delete recording file: ${extractErrorMessage(error)}`,
 						}),
 				});
 				if (removeError)

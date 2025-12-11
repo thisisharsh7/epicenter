@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import { TrashIcon } from '$lib/components/icons';
 	import { Skeleton } from '@epicenter/ui/skeleton';
 	import { rpc } from '$lib/query';
@@ -10,11 +10,11 @@
 	let { transformationId }: { transformationId: string } = $props();
 
 	const deleteTransformation = createMutation(
-		rpc.db.transformations.delete.options,
+		() => rpc.db.transformations.delete.options,
 	);
 
 	const transformationQuery = createQuery(
-		rpc.db.transformations.getById(() => transformationId).options,
+		() => rpc.db.transformations.getById(() => transformationId).options,
 	);
 	const transformation = $derived(transformationQuery.data);
 </script>
@@ -26,8 +26,8 @@
 	{:else}
 		<EditTransformationModal {transformation} />
 
-		<WhisperingButton
-			tooltipContent="Delete transformation"
+		<Button
+			tooltip="Delete transformation"
 			onclick={() => {
 				confirmationDialog.open({
 					title: 'Delete transformation',
@@ -56,6 +56,6 @@
 			size="icon"
 		>
 			<TrashIcon class="size-4" />
-		</WhisperingButton>
+		</Button>
 	{/if}
 </div>

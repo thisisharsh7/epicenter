@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Ok } from 'wellcrafted/result';
-import { defineQuery, defineWorkspace, id, sqliteIndex, text } from '../index';
+import { defineQuery, defineWorkspace, id, text } from '../index.node';
 import { createEpicenterClient, defineEpicenter } from './epicenter/index';
 
 /**
@@ -16,15 +16,15 @@ describe('Epicenter Error Handling', () => {
 	test('should throw on duplicate workspace IDs', () => {
 		const workspace1 = defineWorkspace({
 			id: 'duplicate',
-			schema: { items: { id: id(), value: text() } },
-			indexes: { sqlite: (db) => sqliteIndex(db, { inMemory: true }) },
+			tables: { items: { id: id(), value: text() } },
+			providers: {},
 			exports: () => ({}),
 		});
 
 		const workspace2 = defineWorkspace({
 			id: 'duplicate',
-			schema: { items: { id: id(), value: text() } },
-			indexes: { sqlite: (db) => sqliteIndex(db, { inMemory: true }) },
+			tables: { items: { id: id(), value: text() } },
+			providers: {},
 			exports: () => ({}),
 		});
 
@@ -45,15 +45,13 @@ describe('Action Exposure and Dependency Resolution', () => {
 		return defineWorkspace({
 			id: workspaceId,
 			dependencies: deps,
-			schema: {
+			tables: {
 				items: {
 					id: id(),
 					value: text(),
 				},
 			},
-			indexes: {
-				sqlite: (db) => sqliteIndex(db, { inMemory: true }),
-			},
+			providers: {},
 			exports: ({ workspaces }) => ({
 				getValue: defineQuery({
 					handler: () => Ok(`value-from-${workspaceId}`),

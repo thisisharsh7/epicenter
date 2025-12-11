@@ -2,6 +2,7 @@ import { createPersistedState } from '@epicenter/svelte-utils';
 import { invoke } from '@tauri-apps/api/core';
 import { join } from '@tauri-apps/api/path';
 import { exists, remove, stat } from '@tauri-apps/plugin-fs';
+import type { OsType } from '@tauri-apps/plugin-os';
 import { Child } from '@tauri-apps/plugin-shell';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
@@ -25,6 +26,28 @@ import type {
 	RecorderServiceError,
 } from './types';
 import { RecorderServiceErr } from './types';
+
+/**
+ * Desktop platforms supported by FFmpeg recording.
+ * Mobile platforms (ios, android) are not supported as FFmpeg
+ * command-line recording requires a desktop environment.
+ */
+type DesktopPlatform = 'macos' | 'windows' | 'linux';
+
+/**
+ * Validates and narrows the platform type to desktop platforms only.
+ * FFmpeg recording is only available on desktop (macOS, Windows, Linux).
+ * @throws Error if called on a mobile platform
+ */
+function getDesktopPlatform(platform: OsType): DesktopPlatform {
+	if (platform === 'ios' || platform === 'android') {
+		throw new Error(`FFmpeg recording is not supported on ${platform}`);
+	}
+	return platform;
+}
+
+// Validate at module load - ensures all platform configs below are safe
+const DESKTOP_PLATFORM = getDesktopPlatform(PLATFORM_TYPE);
 
 /**
  * Default FFmpeg global options.
@@ -98,7 +121,7 @@ export const FFMPEG_DEFAULT_COMPRESSION_OPTIONS =
  * Opus bitrate (16kbps instead of 32kbps).
  */
 export const FFMPEG_SMALLEST_COMPRESSION_OPTIONS =
-	FFMPEG_DEFAULT_COMPRESSION_OPTIONS.replace('-b:a 32k', '-b:a 16k') as const;
+	FFMPEG_DEFAULT_COMPRESSION_OPTIONS.replace('-b:a 32k', '-b:a 16k');
 
 /**
  * Default FFmpeg input options for the current platform.
@@ -120,8 +143,8 @@ export const FFMPEG_DEFAULT_INPUT_OPTIONS = (
 		macos: '-f avfoundation',
 		windows: '-f dshow',
 		linux: '-f alsa',
-	} as const
-)[PLATFORM_TYPE];
+	} as const satisfies Record<DesktopPlatform, string>
+)[DESKTOP_PLATFORM];
 
 /**
  * Platform-specific command to enumerate available audio recording devices.
@@ -144,8 +167,8 @@ export const FFMPEG_ENUMERATE_DEVICES_COMMAND = (
 		macos: 'ffmpeg -f avfoundation -list_devices true -i ""',
 		windows: 'ffmpeg -list_devices true -f dshow -i dummy',
 		linux: 'arecord -l',
-	} as const
-)[PLATFORM_TYPE];
+	} as const satisfies Record<DesktopPlatform, string>
+)[DESKTOP_PLATFORM];
 
 /**
  * Default audio device identifier for the current platform.
@@ -165,11 +188,13 @@ export const FFMPEG_ENUMERATE_DEVICES_COMMAND = (
  * const deviceId = selectedDeviceId ?? FFMPEG_DEFAULT_DEVICE_IDENTIFIER;
  */
 export const FFMPEG_DEFAULT_DEVICE_IDENTIFIER = asDeviceIdentifier(
-	{
-		macos: '0', // Use first audio device index for avfoundation
-		windows: 'default', // Default DirectShow audio capture
-		linux: 'default', // Default ALSA/PulseAudio device
-	}[PLATFORM_TYPE],
+	(
+		{
+			macos: '0', // Use first audio device index for avfoundation
+			windows: 'default', // Default DirectShow audio capture
+			linux: 'default', // Default ALSA/PulseAudio device
+		} as const satisfies Record<DesktopPlatform, string>
+	)[DESKTOP_PLATFORM],
 );
 
 export function createFfmpegRecorderService(): RecorderService {
@@ -228,7 +253,6 @@ export function createFfmpegRecorderService(): RecorderService {
 		if (executeError) {
 			return RecorderServiceErr({
 				message: 'Failed to enumerate recording devices',
-				cause: executeError,
 			});
 		}
 
@@ -240,8 +264,6 @@ export function createFfmpegRecorderService(): RecorderService {
 		if (devices.length === 0) {
 			return RecorderServiceErr({
 				message: 'No recording devices found',
-				context: { output },
-				cause: undefined,
 			});
 		}
 
@@ -287,8 +309,6 @@ export function createFfmpegRecorderService(): RecorderService {
 						message: selectedDeviceId
 							? "We couldn't find the selected microphone. Make sure it's connected and try again!"
 							: "We couldn't find any microphones. Make sure they're connected and try again!",
-						context: { selectedDeviceId, deviceIds },
-						cause: undefined,
 					});
 				}
 
@@ -361,8 +381,6 @@ export function createFfmpegRecorderService(): RecorderService {
 				// The spawn function already caught the FFmpeg error and extracted the message
 				return RecorderServiceErr({
 					message: 'Failed to start recording',
-					context: { command },
-					cause: startError,
 				});
 			}
 
@@ -388,7 +406,6 @@ export function createFfmpegRecorderService(): RecorderService {
 			if (!child || !session) {
 				return RecorderServiceErr({
 					message: 'No active recording to stop',
-					cause: undefined,
 				});
 			}
 
@@ -417,7 +434,6 @@ export function createFfmpegRecorderService(): RecorderService {
 				catch: (error) =>
 					RecorderServiceErr({
 						message: `Failed to stop FFmpeg process: ${extractErrorMessage(error)}`,
-						cause: error,
 					}),
 			});
 
@@ -485,7 +501,6 @@ export function createFfmpegRecorderService(): RecorderService {
 			if (readError) {
 				return RecorderServiceErr({
 					message: 'Unable to read recording file',
-					cause: readError,
 				});
 			}
 
@@ -493,8 +508,6 @@ export function createFfmpegRecorderService(): RecorderService {
 			if (!blob || blob.size === 0) {
 				return RecorderServiceErr({
 					message: 'Recording file is empty',
-					context: { blobSize: blob?.size },
-					cause: undefined,
 				});
 			}
 
@@ -529,9 +542,7 @@ export function createFfmpegRecorderService(): RecorderService {
 					},
 					catch: (error) =>
 						RecorderServiceErr({
-							message: 'Failed to delete recording file',
-							context: { path: pathToCleanup },
-							cause: error,
+							message: `Failed to delete recording file: ${extractErrorMessage(error)}`,
 						}),
 				});
 
@@ -560,38 +571,40 @@ export const FfmpegRecorderServiceLive = createFfmpegRecorderService();
  */
 function parseDevices(output: string): Device[] {
 	// Platform-specific parsing configuration
+	// Note: Regex capture groups are guaranteed to exist when the regex matches,
+	// so we use non-null assertions (!) on match indices.
 	const platformConfig = {
 		macos: {
 			// macOS format: [AVFoundation input device @ 0x...] [0] Built-in Microphone
 			regex: /\[AVFoundation.*?\]\s+\[(\d+)\]\s+(.+)/,
 			extractDevice: (match) => ({
-				id: asDeviceIdentifier(match[2].trim()),
-				label: match[2].trim(),
+				id: asDeviceIdentifier(match[2]!.trim()),
+				label: match[2]!.trim(),
 			}),
 		},
 		windows: {
 			// Windows DirectShow format: "Microphone Name" (audio)
 			regex: /^\s*"(.+?)"\s+\(audio\)/,
 			extractDevice: (match) => ({
-				id: asDeviceIdentifier(match[1]),
-				label: match[1],
+				id: asDeviceIdentifier(match[1]!),
+				label: match[1]!,
 			}),
 		},
 		linux: {
 			// Linux ALSA format: hw:0,0 Device Name
 			regex: /^(hw:\d+,\d+)\s+(.+)/,
 			extractDevice: (match) => ({
-				id: asDeviceIdentifier(match[1]),
-				label: match[2].trim(),
+				id: asDeviceIdentifier(match[1]!),
+				label: match[2]!.trim(),
 			}),
 		},
 	} satisfies Record<
-		string,
+		DesktopPlatform,
 		{ regex: RegExp; extractDevice: (match: RegExpMatchArray) => Device }
 	>;
 
 	// Select configuration based on platform
-	const config = platformConfig[PLATFORM_TYPE];
+	const config = platformConfig[DESKTOP_PLATFORM];
 
 	// Parse all devices
 	const allDevices = output.split('\n').reduce<Device[]>((devices, line) => {

@@ -17,9 +17,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createClient } from '@libsql/client';
 import type { Adapter } from '@epicenter/vault-core';
 import { Vault } from '@epicenter/vault-core';
+import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 

@@ -1,7 +1,7 @@
 /**
- * SQLite index - Syncs YJS changes to SQLite database
+ * SQLite provider - Syncs YJS changes to SQLite database
  *
- * Main entry point for the SQLite index. Exports the sqliteIndex function
+ * Main entry point for the SQLite provider. Exports the sqliteProvider function
  * and utilities for working with Drizzle schemas.
  */
 
@@ -18,5 +18,5 @@ export {
 	tags,
 	text,
 } from './schema';
-// Main index implementation
-export { sqliteIndex } from './sqlite-index';
+// Main provider implementation
+export { sqliteProvider } from './sqlite-index';

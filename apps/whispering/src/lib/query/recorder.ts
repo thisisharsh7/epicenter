@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Ok } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
-import { fromTaggedErr, WhisperingErr } from '$lib/result';
+import { WhisperingErr } from '$lib/result';
 import * as services from '$lib/services';
 import { getDefaultRecordingsFolder } from '$lib/services/recorder';
 import { settings } from '$lib/stores/settings.svelte';
@@ -29,12 +29,12 @@ export const recorder = {
 	// Query that enumerates available recording devices with labels
 	enumerateDevices: defineQuery({
 		queryKey: recorderKeys.devices,
-		resultQueryFn: async () => {
+		queryFn: async () => {
 			const { data, error } = await recorderService().enumerateDevices();
 			if (error) {
-				return fromTaggedErr(error, {
+				return WhisperingErr({
 					title: '❌ Failed to enumerate devices',
-					action: { type: 'more-details', error },
+					serviceError: error,
 				});
 			}
 			return Ok(data);
@@ -44,13 +44,13 @@ export const recorder = {
 	// Query that returns the recorder state (IDLE or RECORDING)
 	getRecorderState: defineQuery({
 		queryKey: recorderKeys.recorderState,
-		resultQueryFn: async () => {
+		queryFn: async () => {
 			const { data: state, error: getStateError } =
 				await recorderService().getRecorderState();
 			if (getStateError) {
-				return fromTaggedErr(getStateError, {
+				return WhisperingErr({
 					title: '❌ Failed to get recorder state',
-					action: { type: 'more-details', error: getStateError },
+					serviceError: getStateError,
 				});
 			}
 			return Ok(state);
@@ -60,7 +60,7 @@ export const recorder = {
 
 	startRecording: defineMutation({
 		mutationKey: recorderKeys.startRecording,
-		resultMutationFn: async ({ toastId }: { toastId: string }) => {
+		mutationFn: async ({ toastId }: { toastId: string }) => {
 			// Generate a unique recording ID that will serve as the file name
 			const recordingId = nanoid();
 
@@ -117,9 +117,9 @@ export const recorder = {
 				});
 
 			if (startRecordingError) {
-				return fromTaggedErr(startRecordingError, {
+				return WhisperingErr({
 					title: '❌ Failed to start recording',
-					action: { type: 'more-details', error: startRecordingError },
+					serviceError: startRecordingError,
 				});
 			}
 			return Ok(deviceAcquisitionOutcome);
@@ -129,7 +129,7 @@ export const recorder = {
 
 	stopRecording: defineMutation({
 		mutationKey: recorderKeys.stopRecording,
-		resultMutationFn: async ({ toastId }: { toastId: string }) => {
+		mutationFn: async ({ toastId }: { toastId: string }) => {
 			const { data: blob, error: stopRecordingError } =
 				await recorderService().stopRecording({
 					sendStatus: (options) =>
@@ -139,9 +139,9 @@ export const recorder = {
 			if (stopRecordingError) {
 				// Reset recording ID on error
 				currentRecordingId = null;
-				return fromTaggedErr(stopRecordingError, {
+				return WhisperingErr({
 					title: '❌ Failed to stop recording',
-					action: { type: 'more-details', error: stopRecordingError },
+					serviceError: stopRecordingError,
 				});
 			}
 
@@ -167,7 +167,7 @@ export const recorder = {
 
 	cancelRecording: defineMutation({
 		mutationKey: recorderKeys.cancelRecording,
-		resultMutationFn: async ({ toastId }: { toastId: string }) => {
+		mutationFn: async ({ toastId }: { toastId: string }) => {
 			const { data: cancelResult, error: cancelRecordingError } =
 				await recorderService().cancelRecording({
 					sendStatus: (options) =>
@@ -178,9 +178,9 @@ export const recorder = {
 			currentRecordingId = null;
 
 			if (cancelRecordingError) {
-				return fromTaggedErr(cancelRecordingError, {
+				return WhisperingErr({
 					title: '❌ Failed to cancel recording',
-					action: { type: 'more-details', error: cancelRecordingError },
+					serviceError: cancelRecordingError,
 				});
 			}
 

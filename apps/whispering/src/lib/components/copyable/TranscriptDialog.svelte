@@ -1,6 +1,6 @@
 <script lang="ts">
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
-	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 
 	/**
 	 * A domain-specific wrapper around TextPreviewDialog for displaying transcript content.
@@ -16,6 +16,16 @@
 	 *   rows={1}
 	 * />
 	 * ```
+	 *
+	 * @example
+	 * ```svelte
+	 * <!-- With loading state -->
+	 * <TranscriptDialog
+	 *   recordingId={recording.id}
+	 *   transcribedText="..."
+	 *   loading={true}
+	 * />
+	 * ```
 	 */
 	let {
 		/** The ID of the recording whose transcript is being displayed */
@@ -26,24 +36,23 @@
 		rows = 2,
 		/** Whether the dialog trigger is disabled */
 		disabled = false,
+		/** Whether to show a loading spinner instead of copy button */
+		loading = false,
 	}: {
 		recordingId: string;
 		transcribedText: string;
 		rows?: number;
 		disabled?: boolean;
+		loading?: boolean;
 	} = $props();
-
-	const id = getRecordingTransitionId({
-		recordingId,
-		propertyName: 'transcribedText',
-	});
 </script>
 
 <TextPreviewDialog
-	{id}
+	id={viewTransition.recording(recordingId).transcript}
 	title="Transcript"
 	label="transcript"
 	text={transcribedText}
 	{rows}
 	{disabled}
+	{loading}
 />

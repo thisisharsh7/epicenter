@@ -23,7 +23,6 @@ export function createFfmpegService(): FfmpegService {
 					catch: (error) =>
 						FfmpegServiceErr({
 							message: `Unable to determine if FFmpeg is installed through shell. ${extractErrorMessage(error)}`,
-							cause: error,
 						}),
 				});
 
@@ -60,8 +59,7 @@ export function createFfmpegService(): FfmpegService {
 							try: () => services.fs.pathToBlob(inputPath),
 							catch: (error) =>
 								FfmpegServiceErr({
-									message: 'Temp file not accessible',
-									cause: error,
+									message: `Temp file not accessible: ${extractErrorMessage(error)}`,
 								}),
 						});
 						if (verifyError) throw new Error(verifyError.message);
@@ -121,8 +119,6 @@ export function createFfmpegService(): FfmpegService {
 				catch: (error) =>
 					FfmpegServiceErr({
 						message: `Audio compression failed: ${extractErrorMessage(error)}`,
-						context: { compressionOptions },
-						cause: error,
 					}),
 			});
 		},

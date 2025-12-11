@@ -1,7 +1,7 @@
 /**
- * Markdown index - Bidirectional sync between YJS and markdown files
+ * Markdown provider - Bidirectional sync between YJS and markdown files
  *
- * Main entry point for the markdown index. Exports the markdownIndex function
+ * Main entry point for the markdown provider. Exports the markdownProvider function
  * and utilities for custom serializers and error handling.
  */
 
@@ -18,11 +18,11 @@ export {
 	writeMarkdownFile,
 } from './io';
 
-// Main index implementation and core exports
-export type { MarkdownIndexConfig } from './markdown-index';
+// Main provider implementation and core exports
+export type { MarkdownProviderConfig } from './markdown-index';
 export {
 	DEFAULT_TABLE_CONFIG,
 	MarkdownIndexErr,
 	MarkdownIndexError,
-	markdownIndex,
+	markdownProvider,
 } from './markdown-index';

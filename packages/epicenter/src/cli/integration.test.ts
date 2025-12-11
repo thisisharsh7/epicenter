@@ -2,20 +2,15 @@ import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
-import {
-	defineMutation,
-	defineWorkspace,
-	id,
-	sqliteIndex,
-	text,
-} from '../index';
+import { defineMutation, defineWorkspace, id, text } from '../index.node';
+import { sqliteProvider } from '../indexes/sqlite';
 import { createCLI } from './cli';
 
 describe('CLI Integration', () => {
 	const testWorkspace = defineWorkspace({
 		id: 'test',
 
-		schema: {
+		tables: {
 			items: {
 				id: id(),
 				name: text(),
@@ -23,11 +18,11 @@ describe('CLI Integration', () => {
 			},
 		},
 
-		indexes: {
-			sqlite: (c) => sqliteIndex(c),
+		providers: {
+			sqlite: (c) => sqliteProvider(c),
 		},
 
-		exports: ({ db }) => ({
+		exports: ({ tables }) => ({
 			createItem: defineMutation({
 				input: type({
 					name: 'string',
@@ -40,7 +35,7 @@ describe('CLI Integration', () => {
 						name,
 						count: String(count),
 					};
-					db.items.insert(item);
+					tables.items.upsert(item);
 					return Ok(item);
 				},
 			}),

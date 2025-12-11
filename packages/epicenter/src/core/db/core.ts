@@ -76,14 +76,14 @@ export type { TableHelper } from './table-helper';
  * });
  *
  * // Tables are accessed directly (no .tables namespace)
- * db.posts.insert({ id: '1', title: 'Hello', published: false });
+ * db.posts.upsert({ id: '1', title: 'Hello', published: false });
  * db.posts.getAll();
  *
  * // Utilities are prefixed with $
  * db.$clearAll();
  * db.$transact(() => {
- *   db.posts.insert({ ... });
- *   db.comments.insert({ ... });
+ *   db.posts.upsert({ ... });
+ *   db.comments.upsert({ ... });
  * });
  * ```
  */
@@ -162,7 +162,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		 * // Cross-table transaction
 		 * db.$transact(() => {
 		 *   db.posts.upsertMany([...]);
-		 *   db.comments.insert({ ... });
+		 *   db.comments.upsert({ ... });
 		 * }, 'bulk-import');
 		 * ```
 		 */
@@ -177,7 +177,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 		 * ```typescript
 		 * // Clear everything before importing fresh data
 		 * db.$clearAll();
-		 * db.posts.insertMany(importedPosts);
+		 * db.posts.upsertMany(importedPosts);
 		 * ```
 		 */
 		$clearAll(): void {
@@ -217,18 +217,18 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 
 /**
  * Type alias for the return type of createEpicenterDb.
- * Useful for typing function parameters that accept a database instance.
+ * Useful for typing function parameters that accept a tables instance.
  *
  * @example
  * ```typescript
- * type MyDb = Db<typeof mySchema>;
+ * type MyTables = Tables<typeof mySchema>;
  *
- * function doSomething(db: MyDb) {
- *   db.posts.insert(...);  // Direct table access
- *   db.$clearAll();        // Utility access
+ * function doSomething(tables: MyTables) {
+ *   tables.posts.upsert(...);  // Direct table access
+ *   tables.$clearAll();        // Utility access
  * }
  * ```
  */
-export type Db<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
+export type Tables<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
 	typeof createEpicenterDb<TWorkspaceSchema>
 >;

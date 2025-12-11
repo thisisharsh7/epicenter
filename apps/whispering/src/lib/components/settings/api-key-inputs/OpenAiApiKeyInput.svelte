@@ -37,7 +37,7 @@
 	</Field.Field>
 
 	<Field.Field>
-		<Field.Label for="openai-base-url">Custom Base URL (Optional)</Field.Label>
+		<Field.Label for="openai-base-url">OpenAI Base URL</Field.Label>
 		<Input
 			id="openai-base-url"
 			type="url"
@@ -49,8 +49,8 @@
 			}
 		/>
 		<Field.Description>
-			Override the default OpenAI API endpoint. Useful for reverse proxies or OpenAI-compatible
-			services. Leave empty to use the official OpenAI API.
+			Override the default OpenAI API endpoint. Useful for reverse proxies or
+			OpenAI-compatible services. Leave empty to use the official OpenAI API.
 		</Field.Description>
 	</Field.Field>
 </Field.Group>

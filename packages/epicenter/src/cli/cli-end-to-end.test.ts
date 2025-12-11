@@ -13,10 +13,10 @@ import {
 	generateId,
 	id,
 	integer,
-	markdownIndex,
-	sqliteIndex,
 	text,
-} from '../index';
+} from '../index.node';
+import { markdownProvider } from '../indexes/markdown';
+import { sqliteProvider } from '../indexes/sqlite';
 import { createCLI } from './cli';
 
 /**
@@ -32,7 +32,7 @@ describe('CLI End-to-End Tests', () => {
 	const testWorkspace = defineWorkspace({
 		id: 'posts',
 
-		schema: {
+		tables: {
 			posts: {
 				id: id(),
 				title: text(),
@@ -42,17 +42,17 @@ describe('CLI End-to-End Tests', () => {
 			},
 		},
 
-		indexes: {
-			sqlite: (c) => sqliteIndex(c),
-			markdown: (c) => markdownIndex(c, { directory: './content' }),
+		providers: {
+			sqlite: (c) => sqliteProvider(c),
+			markdown: (c) => markdownProvider(c, { directory: './content' }),
 		},
 
-		exports: ({ db, indexes }) => ({
+		exports: ({ tables, providers }) => ({
 			listPosts: defineQuery({
 				handler: async () => {
-					const posts = await indexes.sqlite.db
+					const posts = await providers.sqlite.db
 						.select()
-						.from(indexes.sqlite.posts);
+						.from(providers.sqlite.posts);
 					return Ok(posts);
 				},
 			}),
@@ -60,10 +60,10 @@ describe('CLI End-to-End Tests', () => {
 			getPost: defineQuery({
 				input: type({ id: 'string' }),
 				handler: async ({ id }) => {
-					const post = await indexes.sqlite.db
+					const post = await providers.sqlite.db
 						.select()
-						.from(indexes.sqlite.posts)
-						.where(eq(indexes.sqlite.posts.id, id));
+						.from(providers.sqlite.posts)
+						.where(eq(providers.sqlite.posts.id, id));
 					return Ok(post);
 				},
 			}),
@@ -81,8 +81,8 @@ describe('CLI End-to-End Tests', () => {
 						content: content ?? null,
 						category,
 						views: 0,
-					} satisfies typeof db.posts.$inferSerializedRow;
-					db.posts.insert(post);
+					} satisfies typeof tables.posts.$inferSerializedRow;
+					tables.posts.upsert(post);
 					return Ok(post);
 				},
 			}),
@@ -93,13 +93,16 @@ describe('CLI End-to-End Tests', () => {
 					views: 'number',
 				}),
 				handler: async ({ id, views }) => {
-					const result = db.posts.get({ id });
-					if (!result?.data) {
+					const result = tables.posts.get({ id });
+					if (result.status !== 'valid') {
 						return Ok(null);
 					}
-					db.posts.update({ id, views });
-					const updatedResult = db.posts.get({ id });
-					return Ok(updatedResult?.data?.toJSON());
+					tables.posts.update({ id, views });
+					const updatedResult = tables.posts.get({ id });
+					if (updatedResult.status !== 'valid') {
+						return Ok(null);
+					}
+					return Ok(updatedResult.row.toJSON());
 				},
 			}),
 		}),

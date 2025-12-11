@@ -16,9 +16,7 @@ export function createHttpServiceWeb(): HttpService {
 					}),
 				catch: (error) =>
 					ConnectionErr({
-						message: 'Failed to establish connection',
-						context: { url, body, headers },
-						cause: error,
+						message: `Failed to establish connection: ${extractErrorMessage(error)}`,
 					}),
 			});
 			if (responseError) return Err(responseError);
@@ -27,8 +25,6 @@ export function createHttpServiceWeb(): HttpService {
 				return ResponseErr({
 					status: response.status,
 					message: extractErrorMessage(await response.json()),
-					context: { url, body, headers },
-					cause: responseError,
 				});
 			}
 
@@ -45,9 +41,7 @@ export function createHttpServiceWeb(): HttpService {
 				},
 				catch: (error) =>
 					ParseErr({
-						message: 'Failed to parse response',
-						context: { url, body, headers },
-						cause: error,
+						message: `Failed to parse response: ${extractErrorMessage(error)}`,
 					}),
 			});
 			return parseResult;

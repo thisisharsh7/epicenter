@@ -1,5 +1,5 @@
-import { Ok, type Result } from 'wellcrafted/result';
 import { type } from 'arktype';
+import { Ok, type Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import type { HttpService } from '$lib/services/http';
 import { HttpServiceLive } from '$lib/services/http';
@@ -132,7 +132,7 @@ export function createDeepgramTranscriptionService({
 							title: '🌐 Connection Issue',
 							description:
 								'Unable to connect to Deepgram service. Please check your internet connection.',
-							action: { type: 'more-details', error: postError.cause },
+							action: { type: 'more-details', error: postError },
 						});
 					}
 
@@ -145,7 +145,7 @@ export function createDeepgramTranscriptionService({
 								description:
 									message ||
 									'Invalid request parameters. Please check your audio file and settings.',
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -168,7 +168,7 @@ export function createDeepgramTranscriptionService({
 								description:
 									message ||
 									'Your account does not have access to this feature or model.',
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -177,7 +177,7 @@ export function createDeepgramTranscriptionService({
 								title: '📦 Audio File Too Large',
 								description:
 									'Your audio file exceeds the maximum size limit. Try splitting it into smaller segments.',
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -186,7 +186,7 @@ export function createDeepgramTranscriptionService({
 								title: '🎵 Unsupported Format',
 								description:
 									"This audio format isn't supported. Please convert your file to a supported format.",
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -195,7 +195,7 @@ export function createDeepgramTranscriptionService({
 								title: '⏱️ Rate Limit Reached',
 								description:
 									'Too many requests. Please wait before trying again.',
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -203,7 +203,7 @@ export function createDeepgramTranscriptionService({
 							return WhisperingErr({
 								title: '🔧 Service Unavailable',
 								description: `The Deepgram service is temporarily unavailable (Error ${status}). Please try again later.`,
-								action: { type: 'more-details', error: postError.cause },
+								action: { type: 'more-details', error: postError },
 							});
 						}
 
@@ -212,7 +212,7 @@ export function createDeepgramTranscriptionService({
 							description:
 								message ||
 								'An unexpected error occurred during transcription. Please try again.',
-							action: { type: 'more-details', error: postError.cause },
+							action: { type: 'more-details', error: postError },
 						});
 					}
 
@@ -221,7 +221,7 @@ export function createDeepgramTranscriptionService({
 							title: '🔍 Response Error',
 							description:
 								'Received an unexpected response from Deepgram service. Please try again.',
-							action: { type: 'more-details', error: postError.cause },
+							action: { type: 'more-details', error: postError },
 						});
 
 					default:

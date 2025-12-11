@@ -2,14 +2,15 @@
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { rpc } from '$lib/query';
 	import type { TransformationRun } from '$lib/services/db';
-	import { getTransformationStepRunTransitionId } from '$lib/utils/getRecordingTransitionId';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import PlayIcon from '@lucide/svelte/icons/play';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { Badge } from '@epicenter/ui/badge';
+	import * as Empty from '@epicenter/ui/empty';
 	import { Button } from '@epicenter/ui/button';
 	import * as Card from '@epicenter/ui/card';
 	import { Label } from '@epicenter/ui/label';
@@ -21,7 +22,7 @@
 
 	let expandedRunId = $state<string | null>(null);
 
-	const deleteRunMutation = createMutation(rpc.db.runs.delete.options);
+	const deleteRunMutation = createMutation(() => rpc.db.runs.delete.options);
 
 	function toggleRunExpanded(runId: string) {
 		expandedRunId = expandedRunId === runId ? null : runId;
@@ -33,19 +34,17 @@
 </script>
 
 {#if runs.length === 0}
-	<div class="flex h-full items-center justify-center">
-		<div class="flex flex-col items-center gap-4 text-center">
-			<div class="rounded-full bg-muted p-4">
-				<ChevronRight class="size-6 text-muted-foreground" />
-			</div>
-			<div class="space-y-1">
-				<h3 class="text-xl font-semibold">No Runs Yet</h3>
-				<p class="text-muted-foreground">
-					When you run a transformation, the results will appear here.
-				</p>
-			</div>
-		</div>
-	</div>
+	<Empty.Root class="h-full">
+		<Empty.Header>
+			<Empty.Media variant="icon">
+				<PlayIcon />
+			</Empty.Media>
+			<Empty.Title>No runs yet</Empty.Title>
+			<Empty.Description>
+				When you run a transformation, the results will appear here.
+			</Empty.Description>
+		</Empty.Header>
+	</Empty.Root>
 {:else}
 	<div class="space-y-4">
 		<div class="flex justify-end px-2">
@@ -77,7 +76,7 @@
 				}}
 				disabled={deleteRunMutation.isPending}
 			>
-				<Trash2 class="mr-2 size-4" />
+				<Trash2 class="size-4" />
 				{#if deleteRunMutation.isPending}
 					Deleting...
 				{:else}
@@ -125,10 +124,10 @@
 								{run.completedAt ? formatDate(run.completedAt) : '-'}
 							</Table.Cell>
 							<Table.Cell class="text-right">
-								<WhisperingButton
+								<Button
 									variant="ghost"
 									size="icon"
-									tooltipContent="Delete run"
+									tooltip="Delete run"
 									onclick={() => {
 										confirmationDialog.open({
 											title: 'Delete transformation run?',
@@ -156,7 +155,7 @@
 									disabled={deleteRunMutation.isPending}
 								>
 									<Trash2 class="size-4" />
-								</WhisperingButton>
+								</Button>
 							</Table.Cell>
 						</Table.Row>
 
@@ -205,10 +204,7 @@
 																</Table.Cell>
 																<Table.Cell>
 																	<TextPreviewDialog
-																		id={getTransformationStepRunTransitionId({
-																			stepRunId: stepRun.id,
-																			propertyName: 'input',
-																		})}
+																		id={viewTransition.stepRun(stepRun.id).input}
 																		title="Step Input"
 																		label="step input"
 																		text={stepRun.input}
@@ -217,20 +213,14 @@
 																<Table.Cell>
 																	{#if stepRun.status === 'completed'}
 																		<TextPreviewDialog
-																			id={getTransformationStepRunTransitionId({
-																				stepRunId: stepRun.id,
-																				propertyName: 'output',
-																			})}
+																			id={viewTransition.stepRun(stepRun.id).output}
 																			title="Step Output"
 																			label="step output"
 																			text={stepRun.output}
 																		/>
 																	{:else if stepRun.status === 'failed'}
 																		<TextPreviewDialog
-																			id={getTransformationStepRunTransitionId({
-																				stepRunId: stepRun.id,
-																				propertyName: 'error',
-																			})}
+																			id={viewTransition.stepRun(stepRun.id).error}
 																			title="Step Error"
 																			label="step error"
 																			text={stepRun.error}

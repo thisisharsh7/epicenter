@@ -25,7 +25,7 @@ Every workspace has a `Y.Doc` instance. This document:
 const ydoc = new Y.Doc({ guid: 'my-workspace-id' });
 
 // Your table operations update the YDoc:
-db.tables.posts.insert({ id: '1', title: 'Hello' });
+db.tables.posts.upsert({ id: '1', title: 'Hello' });
 // ↓
 // YDoc updated → Indexes notified → Files saved
 ```

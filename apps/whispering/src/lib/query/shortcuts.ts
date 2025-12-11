@@ -9,7 +9,7 @@ import { defineMutation } from './_client';
 export const shortcuts = {
 	registerCommandLocally: defineMutation({
 		mutationKey: ['shortcuts', 'registerCommandLocally'] as const,
-		resultMutationFn: ({
+		mutationFn: ({
 			command,
 			keyCombination,
 		}: {
@@ -26,13 +26,13 @@ export const shortcuts = {
 
 	unregisterCommandLocally: defineMutation({
 		mutationKey: ['shortcuts', 'unregisterCommandLocally'] as const,
-		resultMutationFn: async ({ commandId }: { commandId: CommandId }) =>
+		mutationFn: async ({ commandId }: { commandId: CommandId }) =>
 			services.localShortcutManager.unregister(commandId),
 	}),
 
 	registerCommandGlobally: defineMutation({
 		mutationKey: ['shortcuts', 'registerCommandGlobally'] as const,
-		resultMutationFn: ({
+		mutationFn: ({
 			command,
 			// Parameter renamed to indicate it may contain legacy "CommandOrControl" syntax
 			// Legacy format: "CommandOrControl+Shift+R" → Modern format: "Command+Shift+R" (macOS) or "Control+Shift+R" (Windows/Linux)
@@ -57,14 +57,13 @@ export const shortcuts = {
 
 	unregisterCommandGlobally: defineMutation({
 		mutationKey: ['shortcuts', 'unregisterCommandGlobally'] as const,
-		resultMutationFn: async ({ accelerator }: { accelerator: Accelerator }) => {
+		mutationFn: async ({ accelerator }: { accelerator: Accelerator }) => {
 			return await services.globalShortcutManager.unregister(accelerator);
 		},
 	}),
 
 	unregisterAllGlobalShortcuts: defineMutation({
 		mutationKey: ['shortcuts', 'unregisterAllGlobalShortcuts'] as const,
-		resultMutationFn: async () =>
-			services.globalShortcutManager.unregisterAll(),
+		mutationFn: async () => services.globalShortcutManager.unregisterAll(),
 	}),
 };

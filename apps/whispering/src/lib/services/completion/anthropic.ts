@@ -41,8 +41,6 @@ export function createAnthropicCompletionService(): CompletionService {
 						message:
 							message ??
 							`Invalid request to Anthropic API. ${error?.message ?? ''}`.trim(),
-						context: { status, name },
-						cause: anthropicApiError,
 					});
 				}
 
@@ -52,8 +50,6 @@ export function createAnthropicCompletionService(): CompletionService {
 						message:
 							message ??
 							'Your API key appears to be invalid or expired. Please update your API key in settings.',
-						context: { status, name },
-						cause: anthropicApiError,
 					});
 				}
 
@@ -63,8 +59,6 @@ export function createAnthropicCompletionService(): CompletionService {
 						message:
 							message ??
 							"Your account doesn't have access to this model or feature.",
-						context: { status, name },
-						cause: anthropicApiError,
 					});
 				}
 
@@ -74,8 +68,6 @@ export function createAnthropicCompletionService(): CompletionService {
 						message:
 							message ??
 							'The requested model was not found. Please check the model name.',
-						context: { status, name },
-						cause: anthropicApiError,
 					});
 				}
 
@@ -85,8 +77,6 @@ export function createAnthropicCompletionService(): CompletionService {
 						message:
 							message ??
 							'The request was valid but the server cannot process it. Please check your parameters.',
-						context: { status, name },
-						cause: anthropicApiError,
 					});
 				}
 
@@ -94,8 +84,6 @@ export function createAnthropicCompletionService(): CompletionService {
 				if (status === 429) {
 					return CompletionServiceErr({
 						message: message ?? 'Too many requests. Please try again later.',
-						context: { status, name },
-						cause: anthropicApiError,
 					});
 				}
 
@@ -105,8 +93,6 @@ export function createAnthropicCompletionService(): CompletionService {
 						message:
 							message ??
 							`The Anthropic service is temporarily unavailable (Error ${status}). Please try again in a few minutes.`,
-						context: { status, name },
-						cause: anthropicApiError,
 					});
 				}
 
@@ -116,16 +102,12 @@ export function createAnthropicCompletionService(): CompletionService {
 						message:
 							message ??
 							'Unable to connect to the Anthropic service. This could be a network issue or temporary service interruption.',
-						context: { name },
-						cause: anthropicApiError,
 					});
 				}
 
 				// Catch-all for unexpected errors
 				return CompletionServiceErr({
 					message: message ?? 'An unexpected error occurred. Please try again.',
-					context: { status, name },
-					cause: anthropicApiError,
 				});
 			}
 
@@ -138,8 +120,6 @@ export function createAnthropicCompletionService(): CompletionService {
 			if (!responseText) {
 				return CompletionServiceErr({
 					message: 'Anthropic API returned an empty response',
-					context: { model, completion },
-					cause: undefined,
 				});
 			}
 

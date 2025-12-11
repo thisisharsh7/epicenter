@@ -42,11 +42,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting all recordings from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -86,7 +81,8 @@ export function createDbServiceDesktop({
 				if (error) return Err(error);
 
 				if (recordings.length === 0) return Ok(null);
-				return Ok(recordings[0]); // Already sorted by timestamp desc
+				// biome-ignore lint/style/noNonNullAssertion: length check above guarantees at least one element
+				return Ok(recordings.at(0)!);
 			},
 
 			getTranscribingIds: async () => {
@@ -102,11 +98,6 @@ export function createDbServiceDesktop({
 						name: 'DbServiceError' as const,
 						message:
 							'Error getting transcribing recording ids from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -142,12 +133,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting recording by id from both sources',
-						context: {
-							id,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -155,9 +140,9 @@ export function createDbServiceDesktop({
 				return Ok(null);
 			},
 
-			create: async (params) => {
+			create: async (paramsOrParamsArray) => {
 				// SINGLE WRITE: Only to file system
-				return fileSystemDb.recordings.create(params);
+				return fileSystemDb.recordings.create(paramsOrParamsArray);
 			},
 
 			update: async (recording) => {
@@ -166,28 +151,18 @@ export function createDbServiceDesktop({
 				return fileSystemDb.recordings.update(recording);
 			},
 
-			delete: async (recordings) => {
+			delete: async (recordingOrRecordings) => {
 				// Delete from BOTH sources to ensure complete removal
-				const recordingsArray = Array.isArray(recordings)
-					? recordings
-					: [recordings];
-
 				const [fsResult, idbResult] = await Promise.all([
-					fileSystemDb.recordings.delete(recordingsArray),
-					indexedDb.recordings.delete(recordingsArray),
+					fileSystemDb.recordings.delete(recordingOrRecordings),
+					indexedDb.recordings.delete(recordingOrRecordings),
 				]);
 
 				// If both failed, return an error
 				if (fsResult.error && idbResult.error) {
 					return Err({
 						name: 'DbServiceError' as const,
-						message: 'Error deleting recordings from both sources',
-						context: {
-							recordings,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
+						message: 'Error deleting recording(s) from both sources',
 					});
 				}
 
@@ -207,12 +182,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error cleaning up expired recordings from both sources',
-						context: {
-							...params,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -243,12 +212,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting audio blob from both sources',
-						context: {
-							recordingId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -280,12 +243,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting audio playback URL from both sources',
-						context: {
-							recordingId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -311,11 +268,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error clearing recordings from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -341,11 +293,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting all transformations from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -389,12 +336,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting transformation by id from both sources',
-						context: {
-							id,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -402,9 +343,9 @@ export function createDbServiceDesktop({
 				return Ok(null);
 			},
 
-			create: async (transformation) => {
+			create: async (transformationOrTransformations) => {
 				// SINGLE WRITE: Only to file system
-				return fileSystemDb.transformations.create(transformation);
+				return fileSystemDb.transformations.create(transformationOrTransformations);
 			},
 
 			update: async (transformation) => {
@@ -412,24 +353,18 @@ export function createDbServiceDesktop({
 				return fileSystemDb.transformations.update(transformation);
 			},
 
-			delete: async (transformations) => {
+			delete: async (transformationOrTransformations) => {
 				// Delete from BOTH sources
 				const [fsResult, idbResult] = await Promise.all([
-					fileSystemDb.transformations.delete(transformations),
-					indexedDb.transformations.delete(transformations),
+					fileSystemDb.transformations.delete(transformationOrTransformations),
+					indexedDb.transformations.delete(transformationOrTransformations),
 				]);
 
 				// If both failed, return an error
 				if (fsResult.error && idbResult.error) {
 					return Err({
 						name: 'DbServiceError' as const,
-						message: 'Error deleting transformations from both sources',
-						context: {
-							transformations,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
+						message: 'Error deleting transformation(s) from both sources',
 					});
 				}
 
@@ -449,11 +384,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error clearing transformations from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -480,11 +410,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting all transformation runs from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -528,12 +453,6 @@ export function createDbServiceDesktop({
 					return Err({
 						name: 'DbServiceError' as const,
 						message: 'Error getting transformation run by id from both sources',
-						context: {
-							id,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -554,12 +473,6 @@ export function createDbServiceDesktop({
 						name: 'DbServiceError' as const,
 						message:
 							'Error getting transformation runs by transformation id from both sources',
-						context: {
-							transformationId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -601,12 +514,6 @@ export function createDbServiceDesktop({
 						name: 'DbServiceError' as const,
 						message:
 							'Error getting transformation runs by recording id from both sources',
-						context: {
-							recordingId,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 
@@ -635,9 +542,9 @@ export function createDbServiceDesktop({
 				return Ok(result);
 			},
 
-			create: async (params) => {
+			create: async (runOrRuns) => {
 				// SINGLE WRITE: Only to file system
-				return fileSystemDb.runs.create(params);
+				return fileSystemDb.runs.create(runOrRuns);
 			},
 
 			addStep: async (run, step) => {
@@ -660,23 +567,17 @@ export function createDbServiceDesktop({
 				return fileSystemDb.runs.complete(run, output);
 			},
 
-			delete: async (runs) => {
+			delete: async (runOrRuns) => {
 				// Delete from BOTH sources to ensure complete removal
 				const [fsResult, idbResult] = await Promise.all([
-					fileSystemDb.runs.delete(runs),
-					indexedDb.runs.delete(runs),
+					fileSystemDb.runs.delete(runOrRuns),
+					indexedDb.runs.delete(runOrRuns),
 				]);
 
 				// If both failed, return an error
 				if (fsResult.error && idbResult.error) {
 					return DbServiceErr({
-						message: 'Error deleting transformation runs from both sources',
-						context: {
-							runs,
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
+						message: 'Error deleting transformation run(s) from both sources',
 					});
 				}
 
@@ -695,11 +596,6 @@ export function createDbServiceDesktop({
 				if (fsResult.error && idbResult.error) {
 					return DbServiceErr({
 						message: 'Error clearing transformation runs from both sources',
-						context: {
-							fileSystemError: fsResult.error,
-							indexedDbError: idbResult.error,
-						},
-						cause: fsResult.error,
 					});
 				}
 

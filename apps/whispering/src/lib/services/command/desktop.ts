@@ -30,8 +30,6 @@ export function createCommandServiceDesktop(): CommandService {
 					console.error('[TS] execute: error:', error);
 					return CommandServiceErr({
 						message: 'Failed to execute command',
-						context: { command },
-						cause: error,
 					});
 				},
 			});
@@ -67,8 +65,6 @@ export function createCommandServiceDesktop(): CommandService {
 					console.error('[TS] spawn: error:', error);
 					return CommandServiceErr({
 						message: `Failed to spawn command: ${extractErrorMessage(error)}`,
-						context: { command },
-						cause: error,
 					});
 				},
 			});

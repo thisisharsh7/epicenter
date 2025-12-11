@@ -85,11 +85,11 @@ const BROWSER_KEY_DISPLAY_LABELS: Partial<
  * Gets display label for a full shortcut string.
  *
  * @param shortcut - The shortcut string (e.g., "control+shift+ ", "a")
- * @returns Human-readable display (e.g., "Ctrl+Shift+Space", "A")
+ * @returns Human-readable display (e.g., "Ctrl + Shift + Space", "A")
  *
  * @example
  * getShortcutDisplayLabel(' ')           // 'Space'
- * getShortcutDisplayLabel('control+a')   // 'Ctrl+A'
+ * getShortcutDisplayLabel('control+a')   // 'Ctrl + A'
  * getShortcutDisplayLabel(null)          // ''
  */
 export function getShortcutDisplayLabel(shortcut: string | null): string {
@@ -98,7 +98,7 @@ export function getShortcutDisplayLabel(shortcut: string | null): string {
 	return shortcut
 		.split('+')
 		.map((key) => formatKeyForDisplay(key.toLowerCase()))
-		.join('+');
+		.join(' + ');
 }
 
 /**

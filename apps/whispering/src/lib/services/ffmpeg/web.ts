@@ -36,8 +36,6 @@ export function createFfmpegServiceWeb(): FfmpegService {
 			return FfmpegServiceErr({
 				message:
 					'Audio compression is not available in the web version. FFmpeg is only supported in the desktop application.',
-				context: { compressionOptions },
-				cause: undefined,
 			});
 		},
 	};

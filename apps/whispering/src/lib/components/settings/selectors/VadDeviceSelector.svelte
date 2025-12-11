@@ -1,5 +1,5 @@
 <script lang="ts">
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
+	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
@@ -11,6 +11,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import MicIcon from '@lucide/svelte/icons/mic';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import { Spinner } from '@epicenter/ui/spinner';
 
 	const combobox = useCombobox();
 
@@ -22,7 +23,7 @@
 	const isDeviceSelected = $derived(!!selectedDeviceId);
 
 	const getDevicesQuery = createQuery(() => ({
-		...vadRecorder.enumerateDevices.options(),
+		...vadRecorder.enumerateDevices.options,
 		enabled: combobox.open,
 	}));
 
@@ -36,9 +37,9 @@
 <Popover.Root bind:open={combobox.open}>
 	<Popover.Trigger bind:ref={combobox.triggerRef}>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
-				tooltipContent={isDeviceSelected
+				tooltip={isDeviceSelected
 					? 'Change VAD recording device'
 					: 'Select a VAD recording device'}
 				role="combobox"
@@ -50,9 +51,9 @@
 				{#if isDeviceSelected}
 					<MicIcon class="size-4 text-green-500" />
 				{:else}
-					<MicIcon class="size-4 text-amber-500" />
+					<MicIcon class="size-4 text-warning" />
 				{/if}
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="p-0">
@@ -102,12 +103,11 @@
 						getDevicesQuery.refetch();
 					}}
 				>
-					<RefreshCwIcon
-						class={cn(
-							'mr-2 size-4',
-							getDevicesQuery.isRefetching && 'animate-spin',
-						)}
-					/>
+					{#if getDevicesQuery.isRefetching}
+						<Spinner />
+					{:else}
+						<RefreshCwIcon class="size-4" />
+					{/if}
 					Refresh devices
 				</Command.Item>
 			</Command.Group>

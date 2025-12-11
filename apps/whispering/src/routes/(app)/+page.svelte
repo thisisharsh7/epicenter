@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { commandCallbacks } from '$lib/commands';
 	import NavItems from '$lib/components/NavItems.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
-	import { ClipboardIcon } from '$lib/components/icons';
+	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 	import {
 		CompressionSelector,
 		TranscriptionSelector,
@@ -14,59 +12,44 @@
 	import {
 		RECORDER_STATE_TO_ICON,
 		RECORDING_MODE_OPTIONS,
-		type RecordingMode,
 		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
 	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
 	import { vadRecorder } from '$lib/query/vad.svelte';
 	import * as services from '$lib/services';
-	import type { Recording } from '$lib/services/db';
 	import { settings } from '$lib/stores/settings.svelte';
-	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
-	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { viewTransition } from '$lib/utils/viewTransitions';
+	import { Button } from '@epicenter/ui/button';
 	import {
 		ACCEPT_AUDIO,
 		ACCEPT_VIDEO,
 		FileDropZone,
 		MEGABYTE,
 	} from '@epicenter/ui/file-drop-zone';
+	import * as Kbd from '@epicenter/ui/kbd';
+	import { Link } from '@epicenter/ui/link';
 	import * as ToggleGroup from '@epicenter/ui/toggle-group';
 	import { createQuery } from '@tanstack/svelte-query';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { onDestroy, onMount } from 'svelte';
-	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
 
 	const getRecorderStateQuery = createQuery(
-		rpc.recorder.getRecorderState.options,
+		() => rpc.recorder.getRecorderState.options,
 	);
-	const latestRecordingQuery = createQuery(rpc.db.recordings.getLatest.options);
-
-	const latestRecording = $derived<Recording>(
-		latestRecordingQuery.data ?? {
-			id: '',
-			title: '',
-			subtitle: '',
-			createdAt: '',
-			updatedAt: '',
-			timestamp: '',
-			blob: new Blob(),
-			transcribedText: '',
-			transcriptionStatus: 'UNPROCESSED',
-		},
+	const latestRecordingQuery = createQuery(
+		() => rpc.db.recordings.getLatest.options,
 	);
 
-	const blobUrlManager = createBlobUrlManager();
+	const latestRecording = $derived(latestRecordingQuery.data);
 
-	const blobUrl = $derived.by(() => {
-		if (!latestRecording.blob) return undefined;
-		return blobUrlManager.createUrl(latestRecording.blob);
-	});
+	const audioPlaybackUrlQuery = createQuery(() => ({
+		...rpc.db.recordings.getAudioPlaybackUrl(() => latestRecording?.id ?? '')
+			.options,
+		enabled: !!latestRecording?.id,
+	}));
 
-	const hasNoTranscribedText = $derived(
-		!latestRecording.transcribedText?.trim(),
-	);
+	const blobUrl = $derived(audioPlaybackUrlQuery.data);
 
 	const availableModes = $derived(
 		RECORDING_MODE_OPTIONS.filter((mode) => {
@@ -170,8 +153,11 @@
 	});
 
 	onDestroy(() => {
-		blobUrlManager.revokeCurrentUrl();
 		unlistenDragDrop?.();
+		// Clean up audio URL when component unmounts to prevent memory leaks
+		if (latestRecording?.id) {
+			services.db.recordings.revokeAudioUrl(latestRecording.id);
+		}
 	});
 </script>
 
@@ -216,32 +202,32 @@
 	{#if settings.value['recording.mode'] === 'manual'}
 		<!-- Container with relative positioning for the button and absolute selectors -->
 		<div class="relative">
-			<WhisperingButton
-				tooltipContent={getRecorderStateQuery.data === 'IDLE'
+			<Button
+				tooltip={getRecorderStateQuery.data === 'IDLE'
 					? 'Start recording'
 					: 'Stop recording'}
-				onclick={commandCallbacks.toggleManualRecording}
+				onclick={() => commandCallbacks.toggleManualRecording()}
 				variant="ghost"
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
 				<span
-					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
+					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition.global.microphone};"
 					class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 				>
 					{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
 				</span>
-			</WhisperingButton>
+			</Button>
 			{#if getRecorderStateQuery.data === 'RECORDING'}
 				<div class="absolute -right-12 bottom-4 flex items-center">
-					<WhisperingButton
-						tooltipContent="Cancel recording"
-						onclick={commandCallbacks.cancelManualRecording}
+					<Button
+						tooltip="Cancel recording"
+						onclick={() => commandCallbacks.cancelManualRecording()}
 						variant="ghost"
 						size="icon"
-						style="view-transition-name: cancel-icon;"
+						style="view-transition-name: {viewTransition.global.cancel};"
 					>
 						🚫
-					</WhisperingButton>
+					</Button>
 				</div>
 			{:else}
 				<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
@@ -255,21 +241,21 @@
 	{:else if settings.value['recording.mode'] === 'vad'}
 		<!-- Container with relative positioning for the button and absolute selectors -->
 		<div class="relative">
-			<WhisperingButton
-				tooltipContent={vadRecorder.state === 'IDLE'
+			<Button
+				tooltip={vadRecorder.state === 'IDLE'
 					? 'Start voice activated session'
 					: 'Stop voice activated session'}
-				onclick={commandCallbacks.toggleVadRecording}
+				onclick={() => commandCallbacks.toggleVadRecording()}
 				variant="ghost"
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
 				<span
-					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
+					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition.global.microphone};"
 					class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 				>
 					{VAD_STATE_TO_ICON[vadRecorder.state]}
 				</span>
-			</WhisperingButton>
+			</Button>
 			{#if vadRecorder.state === 'IDLE'}
 				<div class="absolute -right-32 bottom-4 flex items-center gap-0.5">
 					<VadDeviceSelector />
@@ -306,52 +292,28 @@
 		</div>
 	{/if}
 
-	<div class="xxs:flex hidden w-full flex-col gap-2">
-		<div class="flex w-full items-center gap-2">
-			<div class="flex-1">
-				<TranscriptDialog
-					recordingId={latestRecording.id}
-					transcribedText={latestRecording.transcriptionStatus ===
-					'TRANSCRIBING'
-						? '...'
-						: latestRecording.transcribedText}
-					rows={1}
-					disabled={latestRecording.transcriptionStatus === 'TRANSCRIBING' ||
-						hasNoTranscribedText}
-				/>
-			</div>
-			<CopyToClipboardButton
-				contentDescription="transcript"
-				textToCopy={latestRecording.transcribedText}
-				viewTransitionName={getRecordingTransitionId({
-					recordingId: latestRecording.id,
-					propertyName: 'transcribedText',
-				})}
-				size="default"
-				variant="secondary"
-				disabled={latestRecording.transcriptionStatus === 'TRANSCRIBING' ||
-					hasNoTranscribedText}
-			>
-				{#if latestRecording.transcriptionStatus === 'TRANSCRIBING'}
-					<Loader2Icon class="size-6 animate-spin" />
-				{:else}
-					<ClipboardIcon class="size-6" />
-				{/if}
-			</CopyToClipboardButton>
-		</div>
+	{#if latestRecording}
+		<div class="xxs:flex hidden w-full flex-col gap-2">
+			<TranscriptDialog
+				recordingId={latestRecording.id}
+				transcribedText={latestRecording.transcriptionStatus === 'TRANSCRIBING'
+					? '...'
+					: latestRecording.transcribedText}
+				rows={1}
+				disabled={!latestRecording.transcribedText.trim()}
+				loading={latestRecording.transcriptionStatus === 'TRANSCRIBING'}
+			/>
 
-		{#if blobUrl}
-			<audio
-				style="view-transition-name: {getRecordingTransitionId({
-					recordingId: latestRecording.id,
-					propertyName: 'blob',
-				})}"
-				src={blobUrl}
-				controls
-				class="h-8 w-full"
-			></audio>
-		{/if}
-	</div>
+			{#if blobUrl}
+				<audio
+					style="view-transition-name: {viewTransition.recording(latestRecording.id).audio}"
+					src={blobUrl}
+					controls
+					class="h-8 w-full"
+				></audio>
+			{/if}
+		</div>
+	{/if}
 
 	{#if settings.value['ui.layoutMode'] === 'nav-items'}
 		<NavItems class="xs:flex -mb-2.5 -mt-1 hidden" />
@@ -360,50 +322,45 @@
 	<div class="xs:flex hidden flex-col items-center gap-3">
 		<p class="text-foreground/75 text-center text-sm">
 			Click the microphone or press
-			{' '}<WhisperingButton
-				tooltipContent="Go to local shortcut in settings"
+			{' '}<Link
+				tooltip="Go to local shortcut in settings"
 				href="/settings/shortcuts/local"
-				variant="link"
 			>
-				<kbd
-					class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
-				>
-					{getShortcutDisplayLabel(
+				<Kbd.Root
+					>{getShortcutDisplayLabel(
 						settings.value['shortcuts.local.toggleManualRecording'],
-					)}
-				</kbd>
-			</WhisperingButton>{' '}
+					)}</Kbd.Root
+				>
+			</Link>{' '}
 			to start recording here.
 		</p>
 		{#if window.__TAURI_INTERNALS__}
 			<p class="text-foreground/75 text-sm">
 				Press
-				{' '}<WhisperingButton
-					tooltipContent="Go to global shortcut in settings"
+				{' '}<Link
+					tooltip="Go to global shortcut in settings"
 					href="/settings/shortcuts/global"
-					variant="link"
 				>
-					<kbd
-						class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-sm font-semibold"
+					<Kbd.Root
+						>{getShortcutDisplayLabel(
+							settings.value['shortcuts.global.toggleManualRecording'],
+						)}</Kbd.Root
 					>
-						{settings.value['shortcuts.global.toggleManualRecording']}
-					</kbd>
-				</WhisperingButton>{' '}
+				</Link>{' '}
 				to start recording anywhere.
 			</p>
 		{/if}
 		<p class="text-muted-foreground text-center text-sm font-light">
 			{#if !window.__TAURI_INTERNALS__}
 				Tired of switching tabs?
-				<WhisperingButton
-					tooltipContent="Get Whispering for desktop"
+				<Link
+					tooltip="Get Whispering for desktop"
 					href="https://epicenter.so/whispering"
 					target="_blank"
 					rel="noopener noreferrer"
-					variant="link"
 				>
 					Get the native desktop app
-				</WhisperingButton>
+				</Link>
 			{/if}
 		</p>
 	</div>

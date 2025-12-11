@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, buttonVariants } from '@epicenter/ui/button';
+	import * as Kbd from '@epicenter/ui/kbd';
 	import { Link } from '@epicenter/ui/link';
 	import * as Card from '@epicenter/ui/card';
 	import * as Alert from '@epicenter/ui/alert';
@@ -9,7 +10,7 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
 	import XCircleIcon from '@lucide/svelte/icons/x-circle';
-	import LoaderIcon from '@lucide/svelte/icons/loader';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -21,7 +22,7 @@
 	const platform = services.os.type();
 
 	const ffmpegQuery = createQuery(() => ({
-		...rpc.ffmpeg.checkFfmpegInstalled.options(),
+		...rpc.ffmpeg.checkFfmpegInstalled.options,
 		refetchInterval: (query) => {
 			const isInstalled = query.state.data;
 			return isInstalled ? 30000 : 5000;
@@ -51,7 +52,7 @@
 					<div class="flex flex-col items-end gap-3">
 						{#if ffmpegQuery.isPending}
 							<Badge variant="secondary" class="gap-1.5">
-								<LoaderIcon class="size-3 animate-spin" />
+								<Spinner class="size-3" />
 								Checking
 							</Badge>
 						{:else if ffmpegQuery.data === true}
@@ -76,9 +77,11 @@
 							title="Check again"
 							class="size-8"
 						>
-							<RefreshCwIcon
-								class="size-4 {ffmpegQuery.isFetching ? 'animate-spin' : ''}"
-							/>
+							{#if ffmpegQuery.isFetching}
+								<Spinner />
+							{:else}
+								<RefreshCwIcon class="size-4" />
+							{/if}
 						</Button>
 					</div>
 				</div>
@@ -175,7 +178,7 @@
 													size="lg"
 													class="w-full sm:w-auto"
 												>
-													<DownloadIcon class="size-5 mr-2" />
+													<DownloadIcon class="size-5" />
 													Download FFmpeg for Windows
 												</Button>
 											</div>
@@ -230,10 +233,8 @@
 														<li class="flex gap-3">
 															<span class="shrink-0">a.</span>
 															<span
-																>Press <kbd
-																	class="bg-muted px-2 py-1 rounded font-mono text-xs"
-																	>Windows + X</kbd
-																> and select "System"</span
+																>Press <Kbd.Root>Windows + X</Kbd.Root> and select
+																"System"</span
 															>
 														</li>
 														<li class="flex gap-3">
@@ -296,7 +297,7 @@
 														variant="outline"
 														size="sm"
 													>
-														<ExternalLinkIcon class="size-3 mr-2" />
+														<ExternalLinkIcon class="size-3" />
 														Watch Tutorial Video
 													</Button>
 												</div>
@@ -421,7 +422,7 @@
 			{#if ffmpegQuery.data !== true}
 				<Card.Footer class="flex justify-center">
 					<Button href="/settings/transcription" variant="ghost" size="sm">
-						<ArrowLeftIcon class="size-4 mr-2" />
+						<ArrowLeftIcon class="size-4" />
 						Back to Settings
 					</Button>
 				</Card.Footer>
@@ -429,18 +430,3 @@
 		</Card.Root>
 	</div>
 </main>
-
-<style>
-	:global(.animate-spin) {
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
-</style>

@@ -154,7 +154,7 @@ Here's the actual implementation from our codebase:
 getById: (id: Accessor<string>) =>
   defineQuery({
     queryKey: dbKeys.recordings.byId(id()),
-    resultQueryFn: () => services.db.recordings.getById(id()),
+    queryFn: () => services.db.recordings.getById(id()),
   }),
 ```
 
@@ -229,13 +229,13 @@ runs: {
   getByRecordingId: (recordingId: Accessor<string>) =>
     defineQuery({
       queryKey: dbKeys.runs.byRecordingId(recordingId()),
-      resultQueryFn: () => services.db.runs.getByRecordingId(recordingId()),
+      queryFn: () => services.db.runs.getByRecordingId(recordingId()),
     }),
 
   getLatestByRecordingId: (recordingId: Accessor<string>) =>
     defineQuery({
       queryKey: dbKeys.runs.byRecordingId(recordingId()),
-      resultQueryFn: () => services.db.runs.getByRecordingId(recordingId()),
+      queryFn: () => services.db.runs.getByRecordingId(recordingId()),
       select: (data) => data.at(0),
     }),
 },
@@ -257,7 +257,7 @@ const query = createQuery(
 
 // The query is created with:
 // queryKey: ['db', 'recordings', 'abc']
-// resultQueryFn: () => services.db.recordings.getById('abc')
+// queryFn: () => services.db.recordings.getById('abc')
 ```
 
 Later:
@@ -267,7 +267,7 @@ recordingId = 'xyz';  // Signal updates
 
 // But the query STILL has:
 // queryKey: ['db', 'recordings', 'abc']
-// resultQueryFn: () => services.db.recordings.getById('abc')
+// queryFn: () => services.db.recordings.getById('abc')
 
 // Your UI shows old data from recording 'abc'
 // Even though you wanted recording 'xyz'
@@ -287,7 +287,7 @@ const query = createQuery(
 
 // The query is created with:
 // queryKey: ['db', 'recordings', <result of calling accessor>]
-// resultQueryFn: () => services.db.recordings.getById(<result of calling accessor>)
+// queryFn: () => services.db.recordings.getById(<result of calling accessor>)
 ```
 
 Later:

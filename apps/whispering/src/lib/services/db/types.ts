@@ -14,6 +14,8 @@ export const { DbServiceError, DbServiceErr } =
 	createTaggedError('DbServiceError');
 export type DbServiceError = ReturnType<typeof DbServiceError>;
 
+type RecordingWithAudio = { recording: Recording; audio: Blob };
+
 export type DbService = {
 	recordings: {
 		getAll(): Promise<Result<Recording[], DbServiceError>>;
@@ -21,13 +23,11 @@ export type DbService = {
 		getTranscribingIds(): Promise<Result<string[], DbServiceError>>;
 		getById(id: string): Promise<Result<Recording | null, DbServiceError>>;
 		create(
-			params:
-				| { recording: Recording; audio: Blob }
-				| Array<{ recording: Recording; audio: Blob }>,
+			params: RecordingWithAudio | RecordingWithAudio[],
 		): Promise<Result<void, DbServiceError>>;
 		update(recording: Recording): Promise<Result<Recording, DbServiceError>>;
 		delete(
-			recordings: Recording | Recording[],
+			recording: Recording | Recording[],
 		): Promise<Result<void, DbServiceError>>;
 		cleanupExpired(params: {
 			recordingRetentionStrategy: Settings['database.recordingRetentionStrategy'];
@@ -64,12 +64,12 @@ export type DbService = {
 		getById(id: string): Promise<Result<Transformation | null, DbServiceError>>;
 		create(
 			transformation: Transformation | Transformation[],
-		): Promise<Result<Transformation | Transformation[], DbServiceError>>;
+		): Promise<Result<void, DbServiceError>>;
 		update(
 			transformation: Transformation,
 		): Promise<Result<Transformation, DbServiceError>>;
 		delete(
-			transformations: Transformation | Transformation[],
+			transformation: Transformation | Transformation[],
 		): Promise<Result<void, DbServiceError>>;
 		clear(): Promise<Result<void, DbServiceError>>;
 		getCount(): Promise<Result<number, DbServiceError>>;
@@ -86,16 +86,8 @@ export type DbService = {
 			recordingId: string,
 		): Promise<Result<TransformationRun[], DbServiceError>>;
 		create(
-			params:
-				| {
-						transformationId: string;
-						recordingId: string | null;
-						input: string;
-				  }
-				| Array<{
-						run: TransformationRun;
-				  }>,
-		): Promise<Result<TransformationRun | TransformationRun[], DbServiceError>>;
+			run: TransformationRun | TransformationRun[],
+		): Promise<Result<void, DbServiceError>>;
 		addStep(
 			run: TransformationRun,
 			step: {
@@ -118,7 +110,7 @@ export type DbService = {
 			output: string,
 		): Promise<Result<TransformationRunCompleted, DbServiceError>>;
 		delete(
-			runs: TransformationRun | TransformationRun[],
+			run: TransformationRun | TransformationRun[],
 		): Promise<Result<void, DbServiceError>>;
 		clear(): Promise<Result<void, DbServiceError>>;
 		getCount(): Promise<Result<number, DbServiceError>>;

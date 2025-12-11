@@ -9,10 +9,10 @@ import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
-	defineIndexExports,
-	type Index,
-	type IndexContext,
-} from '../../core/indexes';
+	defineProviderExports,
+	type Provider,
+	type ProviderContext,
+} from '../../core/provider';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
 import { createIndexLogger } from '../error-logger';
@@ -20,9 +20,9 @@ import { createIndexLogger } from '../error-logger';
 const DEFAULT_DEBOUNCE_MS = 100;
 
 /**
- * Options for SQLite index
+ * Options for SQLite provider
  */
-type SqliteIndexOptions = {
+type SqliteProviderOptions = {
 	/**
 	 * Debounce interval in milliseconds
 	 *
@@ -38,16 +38,16 @@ type SqliteIndexOptions = {
 };
 
 /**
- * Create a SQLite index
+ * Create a SQLite provider
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface.
  *
- * This index creates internal resources (sqliteDb, drizzleTables) and exports them
- * via defineIndex(). All exported resources become available in your workspace exports
- * via the `indexes` parameter.
+ * This provider creates internal resources (sqliteDb, drizzleTables) and exports them
+ * via defineProviderExports(). All exported resources become available in your workspace exports
+ * via the `providers` parameter.
  *
  * **Storage**:
  * - Database: `.epicenter/{workspaceId}.db`
- * - Logs: `.epicenter/{workspaceId}/{indexId}.log`
+ * - Logs: `.epicenter/{workspaceId}/{providerId}.log`
  *
  * **Sync Strategy**:
  * Changes are debounced (default 100ms), then SQLite is rebuilt from YJS.
@@ -59,42 +59,42 @@ type SqliteIndexOptions = {
  * The rebuild is fast enough for most use cases (<50k items). For very large
  * datasets, consider splitting into multiple workspaces.
  *
- * @param context - Index context with workspace ID, database instance, and storage directory
+ * @param context - Provider context with workspace ID, tables instance, and storage directory
  * @param options - Optional configuration for sync behavior
  *
  * @example
  * ```typescript
  * // In workspace definition:
- * indexes: {
- *   sqlite: (c) => sqliteIndex(c),  // Auto-saves to .epicenter/{id}.db
+ * providers: {
+ *   sqlite: (c) => sqliteProvider(c),  // Auto-saves to .epicenter/{id}.db
  *   // Or with custom debounce:
- *   sqlite: (c) => sqliteIndex(c, { debounceMs: 50 }),
+ *   sqlite: (c) => sqliteProvider(c, { debounceMs: 50 }),
  * },
  *
- * exports: ({ indexes }) => ({
- *   // Access exported resources from the index
+ * exports: ({ providers }) => ({
+ *   // Access exported resources from the provider
  *   getPost: defineQuery({
  *     handler: async ({ id }) => {
- *       // indexes.sqlite.db is the exported Drizzle database instance
- *       // indexes.sqlite.posts is the exported Drizzle table
- *       return await indexes.sqlite.db
+ *       // providers.sqlite.db is the exported Drizzle database instance
+ *       // providers.sqlite.posts is the exported Drizzle table
+ *       return await providers.sqlite.db
  *         .select()
- *         .from(indexes.sqlite.posts)
- *         .where(eq(indexes.sqlite.posts.id, id));
+ *         .from(providers.sqlite.posts)
+ *         .where(eq(providers.sqlite.posts.id, id));
  *     }
  *   })
  * })
  * ```
  */
-export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
-	{ id, indexId, schema, db, epicenterDir }: IndexContext<TSchema>,
-	options: SqliteIndexOptions = {},
+export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
+	{ id, providerId, schema, tables, epicenterDir }: ProviderContext<TSchema>,
+	options: SqliteProviderOptions = {},
 ) => {
 	const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
 	// Require Node.js environment with filesystem access
 	if (!epicenterDir) {
 		throw new Error(
-			'SQLite index requires Node.js environment with filesystem access',
+			'SQLite provider requires Node.js environment with filesystem access',
 		);
 	}
 
@@ -112,10 +112,10 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	client.exec('PRAGMA journal_mode = WAL');
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
-	// Create error logger for this index
-	// Structure: .epicenter/{workspaceId}/{indexId}.log
+	// Create error logger for this provider
+	// Structure: .epicenter/{workspaceId}/{providerId}.log
 	const workspaceConfigDir = path.join(epicenterDir, id);
-	const logPath = path.join(workspaceConfigDir, `${indexId}.log`);
+	const logPath = path.join(workspaceConfigDir, `${providerId}.log`);
 	const logger = createIndexLogger({ logPath });
 
 	// Prevents infinite loop during pushFromSqlite: when we insert into YJS,
@@ -177,13 +177,13 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 		await recreateTables();
 
 		// Insert all valid rows from YJS into SQLite
-		for (const table of db.$tables()) {
+		for (const table of tables.$tables()) {
 			const drizzleTable = drizzleTables[table.name];
 			if (!drizzleTable) {
 				throw new Error(`Drizzle table for "${table.name}" not found`);
 			}
 
-			const rows = table.getAll();
+			const rows = table.getAllValid();
 
 			if (rows.length > 0) {
 				const { error } = await tryAsync({
@@ -194,8 +194,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					},
 					catch: (e) =>
 						IndexErr({
-							message: `Failed to sync ${rows.length} rows to SQLite: ${extractErrorMessage(e)}`,
-							context: { rowCount: rows.length, tableName: table.name },
+							message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite: ${extractErrorMessage(e)}`,
 						}),
 				});
 
@@ -224,7 +223,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	// =========================================================================
 	const unsubscribers: Array<() => void> = [];
 
-	for (const table of db.$tables()) {
+	for (const table of tables.$tables()) {
 		const drizzleTable = drizzleTables[table.name];
 		if (!drizzleTable) {
 			throw new Error(`Drizzle table for "${table.name}" not found`);
@@ -237,8 +236,6 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					logger.log(
 						IndexError({
 							message: `SQLite index onAdd: validation failed for ${table.name}`,
-							context: result.error.context,
-							cause: result.error,
 						}),
 					);
 					return;
@@ -251,8 +248,6 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					logger.log(
 						IndexError({
 							message: `SQLite index onUpdate: validation failed for ${table.name}`,
-							context: result.error.context,
-							cause: result.error,
 						}),
 					);
 					return;
@@ -273,13 +268,13 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	await recreateTables();
 
 	// Insert all valid rows from YJS into SQLite
-	for (const table of db.$tables()) {
+	for (const table of tables.$tables()) {
 		const drizzleTable = drizzleTables[table.name];
 		if (!drizzleTable) {
 			throw new Error(`Drizzle table for "${table.name}" not found`);
 		}
 
-		const rows = table.getAll();
+		const rows = table.getAllValid();
 
 		if (rows.length > 0) {
 			const { error } = await tryAsync({
@@ -290,8 +285,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 				},
 				catch: (e) =>
 					IndexErr({
-						message: `Failed to sync ${rows.length} rows to SQLite during init: ${extractErrorMessage(e)}`,
-						context: { rowCount: rows.length, tableName: table.name },
+						message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite during init: ${extractErrorMessage(e)}`,
 					}),
 			});
 
@@ -302,7 +296,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 	}
 
 	// Return destroy function alongside exported resources (flattened structure)
-	return defineIndexExports({
+	return defineProviderExports({
 		async destroy() {
 			// Clear any pending sync timeout
 			if (syncTimeout) {
@@ -330,8 +324,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					try: () => rebuildSqlite(),
 					catch: (error) =>
 						IndexErr({
-							message: `SQLite index pull failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'pull' },
+							message: `SQLite provider pull operation failed: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -347,9 +340,9 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 				return tryAsync({
 					try: async () => {
 						isPushingFromSqlite = true;
-						db.$clearAll();
+						tables.$clearAll();
 
-						for (const table of db.$tables()) {
+						for (const table of tables.$tables()) {
 							const drizzleTable = drizzleTables[table.name];
 							if (!drizzleTable) {
 								throw new Error(`Drizzle table for "${table.name}" not found`);
@@ -358,21 +351,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 							const rows = await sqliteDb.select().from(drizzleTable);
 							for (const row of rows) {
 								// @ts-expect-error InferSelectModel<DrizzleTable> is not assignable to InferInsertModel<TableHelper<TSchema[string]>> due to union type from $tables() iteration
-								const result = table.insert(row);
-								if (result.error) {
-									// @ts-expect-error row.id exists but TypeScript cannot narrow the union type from $tables() iteration
-									const rowId = row.id;
-									logger.log(
-										IndexError({
-											message: `Failed to insert row ${rowId} from SQLite into YJS table ${table.name}`,
-											context: {
-												rowId,
-												tableName: table.name,
-												cause: result.error,
-											},
-										}),
-									);
-								}
+								table.upsert(row);
 							}
 						}
 
@@ -381,8 +360,7 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 					catch: (error) => {
 						isPushingFromSqlite = false;
 						return IndexErr({
-							message: `SQLite index push failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'push' },
+							message: `SQLite provider push operation failed: ${extractErrorMessage(error)}`,
 						});
 					},
 				});
@@ -392,4 +370,4 @@ export const sqliteIndex = (async <TSchema extends WorkspaceSchema>(
 		db: sqliteDb,
 		...drizzleTables,
 	});
-}) satisfies Index;
+}) satisfies Provider;

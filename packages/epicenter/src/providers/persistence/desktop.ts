@@ -1,4 +1,5 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import * as Y from 'yjs';
 import type { Provider } from '../../core/provider';
 
@@ -21,12 +22,15 @@ import type { Provider } from '../../core/provider';
  * @example Basic usage
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { setupPersistence } from '@epicenter/hq/providers/desktop';
+ * import { setupPersistence } from '@epicenter/hq/providers/persistence';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence],  // Auto-saves to {storageDir}/.epicenter/blog.yjs
- *   // ... schema, indexes, actions
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,  // Auto-saves to {storageDir}/.epicenter/blog.yjs
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -35,12 +39,20 @@ import type { Provider } from '../../core/provider';
  * // All workspaces persist to .epicenter/ directory
  * const pages = defineWorkspace({
  *   id: 'pages',
- *   providers: [setupPersistence],  // → {storageDir}/.epicenter/pages.yjs
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,  // → {storageDir}/.epicenter/pages.yjs
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  *
  * const blog = defineWorkspace({
  *   id: 'blog',
- *   providers: [setupPersistence],  // → {storageDir}/.epicenter/blog.yjs
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,  // → {storageDir}/.epicenter/blog.yjs
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  */
@@ -51,10 +63,6 @@ export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
 			'Persistence provider requires Node.js environment with filesystem access',
 		);
 	}
-
-	// Dynamic imports to avoid bundling Node.js modules in browser builds
-	const path = await import('node:path');
-	const { mkdirSync } = await import('node:fs');
 
 	const filePath = path.join(epicenterDir, `${id}.yjs`);
 

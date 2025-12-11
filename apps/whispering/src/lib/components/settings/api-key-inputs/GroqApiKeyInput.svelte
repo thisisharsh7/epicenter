@@ -30,7 +30,7 @@
 	</Field.Field>
 
 	<Field.Field>
-		<Field.Label for="groq-base-url">Custom Base URL (Optional)</Field.Label>
+		<Field.Label for="groq-base-url">Groq Base URL</Field.Label>
 		<Input
 			id="groq-base-url"
 			type="url"
@@ -42,8 +42,8 @@
 			}
 		/>
 		<Field.Description>
-			Override the default Groq API endpoint. Useful for reverse proxies or Groq-compatible services.
-			Leave empty to use the official Groq API.
+			Override the default Groq API endpoint. Useful for reverse proxies or
+			Groq-compatible services. Leave empty to use the official Groq API.
 		</Field.Description>
 	</Field.Field>
 </Field.Group>

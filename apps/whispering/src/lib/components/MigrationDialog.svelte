@@ -415,8 +415,7 @@
 
 				// Bulk insert runs
 				onProgress('Inserting transformation runs into IndexedDB...');
-				const runsParams = runs.map((run) => ({ run }));
-				const { error: runsError } = await db.runs.create(runsParams);
+				const { error: runsError } = await db.runs.create(runs);
 				if (runsError) {
 					throw new Error(
 						`Failed to insert transformation runs: ${runsError.message}`,
@@ -669,7 +668,6 @@
 					);
 					throw DbServiceErr({
 						message: 'Failed to migrate recordings',
-						cause: error,
 					});
 				},
 			});
@@ -822,7 +820,6 @@
 					);
 					throw DbServiceErr({
 						message: 'Failed to migrate transformations',
-						cause: error,
 					});
 				},
 			});
@@ -913,11 +910,7 @@
 							}
 
 							// Create in file system
-							const { error: createError } = await fileSystemDb.runs.create({
-								transformationId: run.transformationId,
-								recordingId: run.recordingId,
-								input: run.input,
-							});
+							const { error: createError } = await fileSystemDb.runs.create(run);
 
 							if (createError) {
 								onProgress(
@@ -978,7 +971,6 @@
 					);
 					throw DbServiceErr({
 						message: 'Failed to migrate transformation runs',
-						cause: error,
 					});
 				},
 			});
@@ -1041,7 +1033,6 @@
 				catch: (error) => {
 					throw DbServiceErr({
 						message: 'Failed to get migration counts',
-						cause: error,
 					});
 				},
 			});

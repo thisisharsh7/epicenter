@@ -41,8 +41,6 @@ export function createNavigatorRecorderService(): RecorderService {
 			if (error) {
 				return RecorderServiceErr({
 					message: error.message,
-					context: error.context,
-					cause: error,
 				});
 			}
 			return Ok(devices);
@@ -57,8 +55,6 @@ export function createNavigatorRecorderService(): RecorderService {
 				return RecorderServiceErr({
 					message:
 						'A recording is already in progress. Please stop the current recording before starting a new one.',
-					context: { activeRecording },
-					cause: undefined,
 				});
 			}
 
@@ -73,8 +69,6 @@ export function createNavigatorRecorderService(): RecorderService {
 			if (acquireStreamError) {
 				return RecorderServiceErr({
 					message: acquireStreamError.message,
-					context: acquireStreamError.context,
-					cause: acquireStreamError,
 				});
 			}
 
@@ -89,8 +83,6 @@ export function createNavigatorRecorderService(): RecorderService {
 					RecorderServiceErr({
 						message:
 							'Failed to initialize the audio recorder. This could be due to unsupported audio settings, microphone conflicts, or browser limitations. Please check your microphone is working and try adjusting your audio settings.',
-						context: { selectedDeviceId, bitrateKbps },
-						cause: error,
 					}),
 			});
 
@@ -132,8 +124,6 @@ export function createNavigatorRecorderService(): RecorderService {
 				return RecorderServiceErr({
 					message:
 						'Cannot stop recording because no active recording session was found. Make sure you have started recording before attempting to stop it.',
-					context: { activeRecording },
-					cause: undefined,
 				});
 			}
 
@@ -161,12 +151,6 @@ export function createNavigatorRecorderService(): RecorderService {
 					RecorderServiceErr({
 						message:
 							'Failed to properly stop and save the recording. This might be due to corrupted audio data, insufficient storage space, or a browser issue. Your recording data may be lost.',
-						context: {
-							chunksCount: recording.recordedChunks.length,
-							mimeType: recording.mediaRecorder.mimeType,
-							state: recording.mediaRecorder.state,
-						},
-						cause: error,
 					}),
 			});
 

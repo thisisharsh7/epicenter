@@ -134,14 +134,14 @@
 						onclick={() => goto('/')}
 						class="flex-1 text-sm"
 					>
-						<ArrowLeft class="mr-2 size-4" />
+						<ArrowLeft class="size-4" />
 						Back to Home
 					</Button>
 					<Button
 						onclick={() => requestPermissionOrShowGuidance()}
 						class="flex-1 text-sm"
 					>
-						<SettingsIcon class="mr-2 size-4" />
+						<SettingsIcon class="size-4" />
 						Request Permission
 					</Button>
 				</div>
@@ -157,7 +157,7 @@
 							onclick={() => goto('/')}
 							class="flex-1 text-sm"
 						>
-							<ArrowLeft class="mr-2 size-4" />
+							<ArrowLeft class="size-4" />
 							Back to Home
 						</Button>
 						<Button
@@ -165,7 +165,7 @@
 							variant="outline"
 							class="flex-1 text-sm"
 						>
-							<SettingsIcon class="mr-2 size-4" />
+							<SettingsIcon class="size-4" />
 							Open Settings
 						</Button>
 					</div>

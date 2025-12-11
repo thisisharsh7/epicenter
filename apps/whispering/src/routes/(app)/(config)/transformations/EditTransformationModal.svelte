@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { PencilIcon as EditIcon } from '$lib/components/icons';
 	import { Editor } from '$lib/components/transformations-editor';
 	import { Button } from '@epicenter/ui/button';
@@ -10,17 +9,17 @@
 	import type { Transformation } from '$lib/services/db';
 	import { createMutation } from '@tanstack/svelte-query';
 	import HistoryIcon from '@lucide/svelte/icons/history';
-	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import MarkTransformationActiveButton from './MarkTransformationActiveButton.svelte';
 
 	const updateTransformation = createMutation(
-		rpc.db.transformations.update.options,
+		() => rpc.db.transformations.update.options,
 	);
 
 	const deleteTransformation = createMutation(
-		rpc.db.transformations.delete.options,
+		() => rpc.db.transformations.delete.options,
 	);
 
 	let {
@@ -96,16 +95,16 @@
 <Modal.Root bind:open={isDialogOpen}>
 	<Modal.Trigger>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
-				tooltipContent="Edit transformation, test transformation, and view run history"
+				tooltip="Edit transformation, test transformation, and view run history"
 				variant="ghost"
 				class={className}
 			>
 				<EditIcon class="size-4" />
 				<PlayIcon class="size-4" />
 				<HistoryIcon class="size-4" />
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Modal.Trigger>
 
@@ -171,9 +170,9 @@
 				disabled={deleteTransformation.isPending}
 			>
 				{#if deleteTransformation.isPending}
-					<Loader2Icon class="mr-2 size-4 animate-spin" />
+					<Spinner />
 				{:else}
-					<TrashIcon class="size-4 mr-1" />
+					<TrashIcon class="size-4" />
 				{/if}
 				Delete
 			</Button>
@@ -205,7 +204,7 @@
 					disabled={updateTransformation.isPending || !isWorkingCopyDirty}
 				>
 					{#if updateTransformation.isPending}
-						<Loader2Icon class="mr-2 size-4 animate-spin" />
+						<Spinner />
 					{/if}
 					Save
 				</Button>

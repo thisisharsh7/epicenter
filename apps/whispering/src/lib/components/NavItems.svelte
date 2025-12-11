@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import MigrationDialog, {
 		migrationDialog,
 	} from '$lib/components/MigrationDialog.svelte';
 	import { GithubIcon } from '$lib/components/icons';
+	import { Button } from '@epicenter/ui/button';
 	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
 	import { cn } from '@epicenter/ui/utils';
 	import { LogicalSize, getCurrentWindow } from '@tauri-apps/api/window';
@@ -113,15 +113,15 @@
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}
-				<WhisperingButton
-					tooltipContent="Menu"
+				<Button
+					tooltip="Menu"
 					variant="ghost"
 					size="icon"
 					class={className}
 					{...props}
 				>
 					<MoreVerticalIcon class="size-4" aria-hidden="true" />
-				</WhisperingButton>
+				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content align="end" class="w-56">
@@ -178,7 +178,7 @@
 							<div class="relative size-4">
 								<Database class="size-4" aria-hidden="true" />
 								<span
-									class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+									class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-warning before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-warning/50 before:animate-ping"
 								></span>
 							</div>
 							<span>Database Migration Manager</span>
@@ -197,8 +197,8 @@
 			{@const Icon = item.icon}
 			{#if item.type === 'anchor'}
 				{@const isActive = isItemActive(item)}
-				<WhisperingButton
-					tooltipContent={item.label}
+				<Button
+					tooltip={item.label}
 					href={item.href}
 					target={item.external ? '_blank' : undefined}
 					rel={item.external ? 'noopener noreferrer' : undefined}
@@ -207,19 +207,19 @@
 					class={isActive ? 'ring-2 ring-ring/20' : ''}
 				>
 					<Icon class="size-4" aria-hidden="true" />
-				</WhisperingButton>
+				</Button>
 			{:else if item.type === 'button'}
-				<WhisperingButton
-					tooltipContent={item.label}
+				<Button
+					tooltip={item.label}
 					onclick={item.action}
 					variant="ghost"
 					size="icon"
 				>
 					<Icon class="size-4" aria-hidden="true" />
-				</WhisperingButton>
+				</Button>
 			{:else if item.type === 'theme'}
-				<WhisperingButton
-					tooltipContent={item.label}
+				<Button
+					tooltip={item.label}
 					onclick={item.action}
 					variant="ghost"
 					size="icon"
@@ -230,14 +230,14 @@
 					<MoonIcon
 						class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
 					/>
-				</WhisperingButton>
+				</Button>
 			{/if}
 		{/each}
 		{#if shouldShowMigrationButton}
 			<MigrationDialog>
 				{#snippet trigger({ props })}
-					<WhisperingButton
-						tooltipContent="Database Migration Manager"
+					<Button
+						tooltip="Database Migration Manager"
 						variant="ghost"
 						size="icon"
 						class="relative"
@@ -245,9 +245,9 @@
 					>
 						<Database class="size-4" aria-hidden="true" />
 						<span
-							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+							class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-warning before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-warning/50 before:animate-ping"
 						></span>
-					</WhisperingButton>
+					</Button>
 				{/snippet}
 			</MigrationDialog>
 		{/if}

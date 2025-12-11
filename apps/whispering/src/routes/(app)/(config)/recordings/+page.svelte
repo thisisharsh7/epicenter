@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import { ClipboardIcon, TrashIcon } from '$lib/components/icons';
+	import { TrashIcon } from '$lib/components/icons';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
+	import { CopyButton } from '@epicenter/ui/copy-button';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button, buttonVariants } from '@epicenter/ui/button';
+	import * as ButtonGroup from '@epicenter/ui/button-group';
 	import { Card } from '@epicenter/ui/card';
 	import { Checkbox } from '@epicenter/ui/checkbox';
 	import * as Dialog from '@epicenter/ui/dialog';
@@ -35,7 +38,10 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
+	import * as Empty from '@epicenter/ui/empty';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import MicIcon from '@lucide/svelte/icons/mic';
+	import SearchIcon from '@lucide/svelte/icons/search';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import LoadingTranscriptionIcon from '@lucide/svelte/icons/ellipsis';
 	import RetryTranscriptionIcon from '@lucide/svelte/icons/repeat';
@@ -70,12 +76,11 @@
 		};
 	}
 
-	const getAllRecordingsQuery = createQuery(rpc.db.recordings.getAll.options);
+	const getAllRecordingsQuery = createQuery(() => rpc.db.recordings.getAll.options);
 	const transcribeRecordings = createMutation(
-		rpc.transcription.transcribeRecordings.options,
+		() => rpc.transcription.transcribeRecordings.options,
 	);
-	const deleteRecordings = createMutation(rpc.db.recordings.delete.options);
-	const copyToClipboard = createMutation(rpc.text.copyToClipboard.options);
+	const deleteRecordings = createMutation(() => rpc.db.recordings.delete.options);
 
 	const DATE_FORMAT = 'PP p'; // e.g., Aug 13, 2025, 10:00 AM
 
@@ -375,8 +380,8 @@
 			/>
 			<div class="flex w-full items-center justify-between gap-2">
 				{#if selectedRecordingRows.length > 0}
-					<WhisperingButton
-						tooltipContent="Transcribe selected recordings"
+					<Button
+						tooltip="Transcribe selected recordings"
 						variant="outline"
 						size="icon"
 						disabled={transcribeRecordings.isPending}
@@ -442,20 +447,20 @@
 						{:else}
 							<StartTranscriptionIcon class="size-4" />
 						{/if}
-					</WhisperingButton>
+					</Button>
 
 					<Dialog.Root
 						open={isDialogOpen}
 						onOpenChange={(v) => (isDialogOpen = v)}
 					>
 						<Dialog.Trigger>
-							<WhisperingButton
-								tooltipContent="Copy transcripts from selected recordings"
+							<Button
+								tooltip="Copy transcripts from selected recordings"
 								variant="outline"
 								size="icon"
 							>
-								<ClipboardIcon class="size-4" />
-							</WhisperingButton>
+								<CopyIcon class="size-4" />
+							</Button>
 						</Dialog.Trigger>
 						<Dialog.Content>
 							<Dialog.Header>
@@ -490,40 +495,22 @@
 								value={joinedTranscriptionsText}
 							/>
 							<Dialog.Footer>
-								<WhisperingButton
-									tooltipContent="Copy transcriptions"
-									onclick={() => {
-										copyToClipboard.mutate(
-											{ text: joinedTranscriptionsText },
-											{
-												onSuccess: () => {
-													isDialogOpen = false;
-													rpc.notify.success.execute({
-														title: 'Copied transcripts to clipboard!',
-														description: joinedTranscriptionsText,
-													});
-												},
-												onError: (error) => {
-													rpc.notify.error.execute({
-														title:
-															'Error copying transcripts to clipboard',
-														description: error.message,
-														action: { type: 'more-details', error: error },
-													});
-												},
-											},
-										);
+								<CopyButton
+									text={joinedTranscriptionsText}
+									copyFn={createCopyFn('transcripts')}
+									size="default"
+									onCopy={(status) => {
+										if (status === 'success') isDialogOpen = false;
 									}}
-									type="submit"
 								>
 									Copy Transcriptions
-								</WhisperingButton>
+								</CopyButton>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
 
-					<WhisperingButton
-						tooltipContent="Delete selected recordings"
+					<Button
+						tooltip="Delete selected recordings"
 						variant="outline"
 						size="icon"
 						onclick={() => {
@@ -556,7 +543,7 @@
 						}}
 					>
 						<TrashIcon class="size-4" />
-					</WhisperingButton>
+					</Button>
 				{/if}
 
 				<OpenFolderButton
@@ -572,7 +559,7 @@
 						)}
 					>
 						Columns <ChevronDownIcon
-							class="ml-2 size-4 transition-transform duration-200"
+							class="size-4 transition-transform duration-200"
 						/>
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content>
@@ -638,12 +625,32 @@
 						{/each}
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={columns.length} class="h-24 text-center">
-								{#if globalFilter}
-									No recordings found.
-								{:else}
-									No recordings yet. Start recording to add one.
-								{/if}
+							<Table.Cell colspan={columns.length}>
+								<Empty.Root class="py-8">
+									<Empty.Header>
+										<Empty.Media variant="icon">
+											{#if globalFilter}
+												<SearchIcon />
+											{:else}
+												<MicIcon />
+											{/if}
+										</Empty.Media>
+										<Empty.Title>
+											{#if globalFilter}
+												No recordings found
+											{:else}
+												No recordings yet
+											{/if}
+										</Empty.Title>
+										<Empty.Description>
+											{#if globalFilter}
+												Try adjusting your search or filters.
+											{:else}
+												Start recording to add one.
+											{/if}
+										</Empty.Description>
+									</Empty.Header>
+								</Empty.Root>
 							</Table.Cell>
 						</Table.Row>
 					{/if}
@@ -656,7 +663,7 @@
 				{selectedRecordingRows.length} of {table.getFilteredRowModel().rows
 					.length} row(s) selected.
 			</div>
-			<div class="flex items-center space-x-2">
+			<ButtonGroup.Root>
 				<Button
 					variant="outline"
 					size="sm"
@@ -673,7 +680,7 @@
 				>
 					Next
 				</Button>
-			</div>
+			</ButtonGroup.Root>
 		</div>
 	</Card>
 </main>

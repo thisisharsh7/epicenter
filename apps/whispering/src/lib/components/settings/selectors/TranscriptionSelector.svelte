@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
-	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
@@ -83,10 +82,10 @@
 <Popover.Root bind:open={combobox.open}>
 	<Popover.Trigger bind:ref={combobox.triggerRef}>
 		{#snippet child({ props })}
-			<WhisperingButton
+			<Button
 				{...props}
 				class={cn('relative', className)}
-				tooltipContent={selectedService
+				tooltip={selectedService
 					? `${selectedService.name}${
 							selectedService.location === 'cloud'
 								? ` - ${getSelectedModelNameOrUrl(selectedService)}`
@@ -115,10 +114,10 @@
 				{/if}
 				{#if selectedService && !isTranscriptionServiceConfigured(selectedService)}
 					<span
-						class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
+						class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-warning before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-warning/50 before:animate-ping"
 					></span>
 				{/if}
-			</WhisperingButton>
+			</Button>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="p-0">
@@ -160,7 +159,7 @@
 										{modelPath.split('/').pop() || modelPath}
 									</div>
 								{:else if !isConfigured}
-									<span class="text-xs text-amber-600">
+									<span class="text-xs text-warning">
 										Model file required
 									</span>
 								{/if}
@@ -196,7 +195,7 @@
 								<div class="flex items-center gap-2">
 									<span class="font-medium text-sm">{service.name}</span>
 									{#if !isConfigured}
-										<span class="text-xs text-amber-600">
+										<span class="text-xs text-warning">
 											API key required
 										</span>
 									{/if}
@@ -282,7 +281,7 @@
 										{serverUrl}
 									</div>
 								{:else if !isConfigured}
-									<div class="text-xs text-amber-600">Server URL required</div>
+									<div class="text-xs text-warning">Server URL required</div>
 								{/if}
 							</div>
 						</Command.Item>

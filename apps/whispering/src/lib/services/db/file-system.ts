@@ -5,11 +5,13 @@ import {
 	mkdir,
 	readDir,
 	readTextFile,
+	remove,
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
 import matter from 'gray-matter';
 import mime from 'mime';
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { PATHS } from '$lib/constants/paths';
 import * as services from '$lib/services';
@@ -139,8 +141,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all recordings from file system',
-							cause: error,
+							message: `Error getting all recordings from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -152,12 +153,12 @@ export function createFileSystemDb(): DbService {
 						if (error) throw error;
 
 						if (recordings.length === 0) return null;
-						return recordings[0]; // Already sorted by timestamp desc
+						// biome-ignore lint/style/noNonNullAssertion: length check above guarantees at least one element
+						return recordings.at(0)!;
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting latest recording from file system',
-							cause: error,
+							message: `Error getting latest recording from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -174,9 +175,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transcribing recording ids from file system',
-							cause: error,
+							message: `Error getting transcribing recording ids from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -205,68 +204,47 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting recording by id from file system',
-							context: { id },
-							cause: error,
+							message: `Error getting recording by id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
 
-			async create(params) {
-				// Helper function to create a single recording
-				const createSingleRecording = async ({
-					recording,
-					audio,
-				}: {
-					recording: Recording;
-					audio: Blob;
-				}): Promise<void> => {
-					const recordingsPath = await PATHS.DB.RECORDINGS();
-
-					// Ensure directory exists
-					await mkdir(recordingsPath, { recursive: true });
-
-					// 1. Write audio file
-					const extension = mime.getExtension(audio.type) ?? 'bin';
-					const audioPath = await join(
-						recordingsPath,
-						`${recording.id}.${extension}`,
-					);
-					const arrayBuffer = await audio.arrayBuffer();
-					await writeFile(audioPath, new Uint8Array(arrayBuffer));
-
-					// 2. Create .md file with front matter
-					const mdContent = recordingToMarkdown(recording);
-					const mdPath = await join(recordingsPath, `${recording.id}.md`);
-
-					// Write to temp file first, then rename (atomic operation)
-					const tmpPath = `${mdPath}.tmp`;
-					await writeTextFile(tmpPath, mdContent);
-					await rename(tmpPath, mdPath);
-				};
-
-				// Check if array for bulk insert
-				if (Array.isArray(params))
-					return tryAsync({
-						try: async () => {
-							await Promise.all(params.map(createSingleRecording));
-						},
-						catch: (error) =>
-							DbServiceErr({
-								message: 'Error bulk creating recordings in file system',
-								context: { count: params.length },
-								cause: error,
-							}),
-					});
-
-				// Single insert
+			async create(paramsOrParamsArray) {
+				const paramsArray = Array.isArray(paramsOrParamsArray)
+					? paramsOrParamsArray
+					: [paramsOrParamsArray];
 				return tryAsync({
-					try: () => createSingleRecording(params),
+					try: async () => {
+						const recordingsPath = await PATHS.DB.RECORDINGS();
+
+						// Ensure directory exists
+						await mkdir(recordingsPath, { recursive: true });
+
+						await Promise.all(
+							paramsArray.map(async ({ recording, audio }) => {
+								// 1. Write audio file
+								const extension = mime.getExtension(audio.type) ?? 'bin';
+								const audioPath = await join(
+									recordingsPath,
+									`${recording.id}.${extension}`,
+								);
+								const arrayBuffer = await audio.arrayBuffer();
+								await writeFile(audioPath, new Uint8Array(arrayBuffer));
+
+								// 2. Create .md file with front matter
+								const mdContent = recordingToMarkdown(recording);
+								const mdPath = await join(recordingsPath, `${recording.id}.md`);
+
+								// Write to temp file first, then rename (atomic operation)
+								const tmpPath = `${mdPath}.tmp`;
+								await writeTextFile(tmpPath, mdContent);
+								await rename(tmpPath, mdPath);
+							}),
+						);
+					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error creating recording in file system',
-							context: { recording: params.recording },
-							cause: error,
+							message: `Error creating recording(s) in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -306,24 +284,21 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating recording in file system',
-							context: { recording },
-							cause: error,
+							message: `Error updating recording in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
 
-			async delete(recordings) {
-				const recordingsArray = Array.isArray(recordings)
-					? recordings
-					: [recordings];
-
+			async delete(recordingOrRecordings) {
+				const recordings = Array.isArray(recordingOrRecordings)
+					? recordingOrRecordings
+					: [recordingOrRecordings];
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
 
 						// Build a set of IDs to delete for fast lookup
-						const idsToDelete = new Set(recordingsArray.map((r) => r.id));
+						const idsToDelete = new Set(recordings.map((r) => r.id));
 
 						// Read directory once and find all matching files
 						const allFiles = await readDir(recordingsPath);
@@ -342,9 +317,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting recordings from file system',
-							context: { recordings },
-							cause: error,
+							message: `Error deleting recording(s) from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -369,9 +342,7 @@ export function createFileSystemDb(): DbService {
 							},
 							catch: (error) =>
 								DbServiceErr({
-									message: 'Error cleaning up expired recordings',
-									context: { recordingRetentionStrategy, maxRecordingCount },
-									cause: error,
+									message: `Error cleaning up expired recordings: ${extractErrorMessage(error)}`,
 								}),
 						});
 					}
@@ -401,9 +372,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting audio blob from file system',
-							context: { recordingId },
-							cause: error,
+							message: `Error getting audio blob from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -429,9 +398,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting audio playback URL from file system',
-							context: { recordingId },
-							cause: error,
+							message: `Error getting audio playback URL from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -458,8 +425,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing recordings from file system',
-							cause: error,
+							message: `Error clearing recordings from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -475,8 +441,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting recordings count from file system',
-							cause: error,
+							message: `Error getting recordings count from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -518,8 +483,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all transformations from file system',
-							cause: error,
+							message: `Error getting all transformations from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -546,40 +510,35 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformation by id from file system',
-							context: { id },
-							cause: error,
+							message: `Error getting transformation by id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
 
-			async create(transformation: Transformation) {
+			async create(transformationOrTransformations) {
+				const transformations = Array.isArray(transformationOrTransformations)
+					? transformationOrTransformations
+					: [transformationOrTransformations];
 				return tryAsync({
 					try: async () => {
 						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
-
-						// Ensure directory exists
 						await mkdir(transformationsPath, { recursive: true });
-
-						// Create .md file with front matter
-						const mdContent = matter.stringify('', transformation);
-						const mdPath = await join(
-							transformationsPath,
-							`${transformation.id}.md`,
+						await Promise.all(
+							transformations.map(async (transformation) => {
+								const mdContent = matter.stringify('', transformation);
+								const mdPath = await join(
+									transformationsPath,
+									`${transformation.id}.md`,
+								);
+								const tmpPath = `${mdPath}.tmp`;
+								await writeTextFile(tmpPath, mdContent);
+								await rename(tmpPath, mdPath);
+							}),
 						);
-
-						// Atomic write
-						const tmpPath = `${mdPath}.tmp`;
-						await writeTextFile(tmpPath, mdContent);
-						await rename(tmpPath, mdPath);
-
-						return transformation;
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error creating transformation in file system',
-							context: { transformation },
-							cause: error,
+							message: `Error creating transformation(s) in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -611,37 +570,28 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error updating transformation in file system',
-							context: { transformation },
-							cause: error,
+							message: `Error updating transformation in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
 
-			async delete(transformations: Transformation | Transformation[]) {
-				const transformationsArray = Array.isArray(transformations)
-					? transformations
-					: [transformations];
-
+			async delete(transformationOrTransformations) {
+				const transformations = Array.isArray(transformationOrTransformations)
+					? transformationOrTransformations
+					: [transformationOrTransformations];
 				return tryAsync({
 					try: async () => {
 						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
-
-						// Build paths for all transformation files
 						const pathsToDelete = await Promise.all(
-							transformationsArray.map((t) =>
+							transformations.map((t) =>
 								join(transformationsPath, `${t.id}.md`),
 							),
 						);
-
-						// Single FFI call to delete all files in parallel
 						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting transformations from file system',
-							context: { transformations },
-							cause: error,
+							message: `Error deleting transformation(s) from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -658,8 +608,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing transformations from file system',
-							cause: error,
+							message: `Error clearing transformations from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -673,8 +622,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting transformations count from file system',
-							cause: error,
+							message: `Error getting transformations count from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -715,8 +663,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error getting all transformation runs from file system',
-							cause: error,
+							message: `Error getting all transformation runs from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -745,10 +692,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation run by id from file system',
-							context: { id },
-							cause: error,
+							message: `Error getting transformation run by id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -797,10 +741,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs by transformation id from file system',
-							context: { transformationId },
-							cause: error,
+							message: `Error getting transformation runs by transformation id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -849,83 +790,31 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs by recording id from file system',
-							context: { recordingId },
-							cause: error,
+							message: `Error getting transformation runs by recording id from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
 
-			async create(params) {
-				// Check if array for bulk insert
-				if (Array.isArray(params)) {
-					return tryAsync({
-						try: async () => {
-							const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-							await mkdir(runsPath, { recursive: true });
-
-							const runs = await Promise.all(
-								params.map(async ({ run }) => {
-									const mdContent = matter.stringify('', run);
-									const mdPath = await join(runsPath, `${run.id}.md`);
-									const tmpPath = `${mdPath}.tmp`;
-									await writeTextFile(tmpPath, mdContent);
-									await rename(tmpPath, mdPath);
-									return run;
-								}),
-							);
-
-							return runs;
-						},
-						catch: (error) =>
-							DbServiceErr({
-								message:
-									'Error bulk creating transformation runs in file system',
-								context: { count: params.length },
-								cause: error,
-							}),
-					});
-				}
-
-				// Single insert
-				const { transformationId, recordingId, input } = params;
+			async create(runOrRuns) {
+				const runs = Array.isArray(runOrRuns) ? runOrRuns : [runOrRuns];
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-
-						// Ensure directory exists
 						await mkdir(runsPath, { recursive: true });
 
-						const now = new Date().toISOString();
-						const { nanoid } = await import('nanoid/non-secure');
-						const transformationRun = {
-							id: nanoid(),
-							transformationId,
-							recordingId,
-							input,
-							startedAt: now,
-							completedAt: null,
-							status: 'running',
-							stepRuns: [],
-						} as TransformationRun;
-
-						// Create .md file with front matter
-						const mdContent = matter.stringify('', transformationRun);
-						const mdPath = await join(runsPath, `${transformationRun.id}.md`);
-
-						// Atomic write
-						const tmpPath = `${mdPath}.tmp`;
-						await writeTextFile(tmpPath, mdContent);
-						await rename(tmpPath, mdPath);
-
-						return transformationRun;
+						await Promise.all(
+							runs.map(async (run) => {
+								const mdContent = matter.stringify('', run);
+								const mdPath = await join(runsPath, `${run.id}.md`);
+								const tmpPath = `${mdPath}.tmp`;
+								await writeTextFile(tmpPath, mdContent);
+								await rename(tmpPath, mdPath);
+							}),
+						);
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error creating transformation run in file system',
-							context: { transformationId, recordingId, input },
-							cause: error,
+							message: `Error creating transformation run(s) in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -964,9 +853,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error adding step to transformation run in file system',
-							context: { run, step },
-							cause: error,
+							message: `Error adding step to transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1007,12 +894,9 @@ export function createFileSystemDb(): DbService {
 
 						return failedRun;
 					},
-					catch: (error) =>
+					catch: (e) =>
 						DbServiceErr({
-							message:
-								'Error failing step in transformation run in file system',
-							context: { run, stepRunId, error },
-							cause: error,
+							message: `Error failing step in transformation run in file system: ${extractErrorMessage(e)}`,
 						}),
 				});
 			},
@@ -1052,10 +936,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error completing step in transformation run in file system',
-							context: { run, stepRunId, output },
-							cause: error,
+							message: `Error completing step in transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1087,32 +968,24 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error completing transformation run in file system',
-							context: { run, output },
-							cause: error,
+							message: `Error completing transformation run in file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
 
-			async delete(runs) {
+			async delete(runOrRuns) {
+				const runs = Array.isArray(runOrRuns) ? runOrRuns : [runOrRuns];
 				return tryAsync({
 					try: async () => {
 						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-						const runsArray = Array.isArray(runs) ? runs : [runs];
-
-						// Build paths for all run files
 						const pathsToDelete = await Promise.all(
-							runsArray.map((run) => join(runsPath, `${run.id}.md`)),
+							runs.map((run) => join(runsPath, `${run.id}.md`)),
 						);
-
-						// Single FFI call to delete all files in parallel
 						await bulkDeleteFiles(pathsToDelete);
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error deleting transformation runs from file system',
-							context: { runs },
-							cause: error,
+							message: `Error deleting transformation run(s) from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1129,8 +1002,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message: 'Error clearing transformation runs from file system',
-							cause: error,
+							message: `Error clearing transformation runs from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},
@@ -1144,9 +1016,7 @@ export function createFileSystemDb(): DbService {
 					},
 					catch: (error) =>
 						DbServiceErr({
-							message:
-								'Error getting transformation runs count from file system',
-							cause: error,
+							message: `Error getting transformation runs count from file system: ${extractErrorMessage(error)}`,
 						}),
 				});
 			},

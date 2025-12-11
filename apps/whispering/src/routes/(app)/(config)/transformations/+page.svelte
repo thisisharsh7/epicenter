@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import WhisperingButton from '$lib/components/WhisperingButton.svelte';
 	import { TrashIcon } from '$lib/components/icons';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
+	import * as ButtonGroup from '@epicenter/ui/button-group';
 	import { Checkbox } from '@epicenter/ui/checkbox';
 	import { Input } from '@epicenter/ui/input';
 	import { Skeleton } from '@epicenter/ui/skeleton';
@@ -12,7 +12,7 @@
 	import { rpc } from '$lib/query';
 	import { type Transformation } from '$lib/services/db';
 	import { createPersistedState } from '@epicenter/svelte-utils';
-	import { createTransformationViewTransitionName } from '$lib/utils/createTransformationViewTransitionName';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import {
 		FlexRender,
@@ -30,6 +30,9 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
+	import * as Empty from '@epicenter/ui/empty';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
 	import { createRawSnippet } from 'svelte';
 	import { type } from 'arktype';
 	import CreateTransformationButton from './CreateTransformationButton.svelte';
@@ -39,10 +42,10 @@
 	import { PATHS } from '$lib/constants/paths';
 
 	const transformationsQuery = createQuery(
-		rpc.db.transformations.getAll.options,
+		() => rpc.db.transformations.getAll.options,
 	);
 	const deleteTransformations = createMutation(
-		rpc.db.transformations.delete.options,
+		() => rpc.db.transformations.delete.options,
 	);
 
 	const columns: ColumnDef<Transformation>[] = [
@@ -212,8 +215,8 @@
 			bind:value={globalFilter}
 		/>
 		{#if selectedTransformationRows.length > 0}
-			<WhisperingButton
-				tooltipContent="Delete selected transformations"
+			<Button
+				tooltip="Delete selected transformations"
 				variant="outline"
 				size="icon"
 				onclick={() => {
@@ -246,7 +249,7 @@
 				}}
 			>
 				<TrashIcon class="size-4" />
-			</WhisperingButton>
+			</Button>
 		{/if}
 
 		<OpenFolderButton
@@ -290,9 +293,7 @@
 				{:else if table.getRowModel().rows?.length}
 					{#each table.getRowModel().rows as row (row.id)}
 						<Table.Row
-							style="view-transition-name: {createTransformationViewTransitionName(
-								{ transformationId: row.id },
-							)}"
+							style="view-transition-name: {viewTransition.transformation(row.id)}"
 						>
 							{#each row.getVisibleCells() as cell}
 								<Table.Cell>
@@ -306,13 +307,32 @@
 					{/each}
 				{:else}
 					<Table.Row>
-						<Table.Cell colspan={columns.length} class="h-24 text-center">
-							{#if globalFilter}
-								No transformations found.
-							{:else}
-								No transformations yet. Click "Create Transformation" to add
-								one.
-							{/if}
+						<Table.Cell colspan={columns.length}>
+							<Empty.Root class="py-8">
+								<Empty.Header>
+									<Empty.Media variant="icon">
+										{#if globalFilter}
+											<SearchIcon />
+										{:else}
+											<WandSparklesIcon />
+										{/if}
+									</Empty.Media>
+									<Empty.Title>
+										{#if globalFilter}
+											No transformations found
+										{:else}
+											No transformations yet
+										{/if}
+									</Empty.Title>
+									<Empty.Description>
+										{#if globalFilter}
+											Try adjusting your search or filters.
+										{:else}
+											Click "Create Transformation" to add one.
+										{/if}
+									</Empty.Description>
+								</Empty.Header>
+							</Empty.Root>
 						</Table.Cell>
 					</Table.Row>
 				{/if}
@@ -325,7 +345,7 @@
 			{selectedTransformationRows.length} of {table.getFilteredRowModel().rows
 				.length} row(s) selected.
 		</div>
-		<div class="flex items-center space-x-2">
+		<ButtonGroup.Root>
 			<Button
 				variant="outline"
 				size="sm"
@@ -342,6 +362,6 @@
 			>
 				Next
 			</Button>
-		</div>
+		</ButtonGroup.Root>
 	</div>
 </main>

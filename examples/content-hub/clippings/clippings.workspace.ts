@@ -9,13 +9,13 @@ import {
 	generateId,
 	id,
 	integer,
-	markdownIndex,
+	markdownProvider,
 	select,
-	sqliteIndex,
+	sqliteProvider,
 	text,
 	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
 import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { Defuddle } from 'defuddle/node';
@@ -32,7 +32,7 @@ import { QUALITY_OPTIONS } from '../shared/quality';
  */
 export const clippings = defineWorkspace({
 	id: 'clippings',
-	schema: {
+	tables: {
 		articles: {
 			id: id(),
 			url: text(),
@@ -132,10 +132,11 @@ export const clippings = defineWorkspace({
 		},
 	},
 
-	indexes: {
-		sqlite: (c) => sqliteIndex(c),
+	providers: {
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 		markdown: (c) =>
-			markdownIndex(c, {
+			markdownProvider(c, {
 				tableConfigs: {
 					articles: withBodyField('content'),
 					essays: withBodyField('content'),
@@ -194,7 +195,7 @@ ${instructions}`;
 							);
 
 							if (!ingredientsMatch || !instructionsMatch) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Recipe ${rowId} missing required sections`,
 									context: {
 										fileName: filename,
@@ -216,7 +217,7 @@ ${instructions}`;
 							const parsed = FrontMatter(frontmatter);
 
 							if (parsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for recipe ${rowId}`,
 									context: {
 										fileName: filename,
@@ -238,14 +239,12 @@ ${instructions}`;
 			}),
 	},
 
-	providers: [setupPersistence],
-
-	exports: ({ db, indexes }) => ({
-		...db,
-		pullToMarkdown: indexes.markdown.pullToMarkdown,
-		pushFromMarkdown: indexes.markdown.pushFromMarkdown,
-		pullToSqlite: indexes.sqlite.pullToSqlite,
-		pushFromSqlite: indexes.sqlite.pushFromSqlite,
+	exports: ({ tables, providers }) => ({
+		...tables,
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
+		pullToSqlite: providers.sqlite.pullToSqlite,
+		pushFromSqlite: providers.sqlite.pushFromSqlite,
 
 		/**
 		 * Add a clipping from a URL
@@ -297,7 +296,7 @@ ${instructions}`;
 				}).toJSON();
 
 				// Insert into database
-				db.articles.insert({
+				tables.articles.upsert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -371,26 +370,35 @@ ${instructions}`;
 				};
 
 				// Dedupe articles (timestamp: saved_at)
-				const articleIds = findDuplicateIds(db.articles.getAll(), 'saved_at');
-				db.articles.deleteMany({ ids: articleIds });
+				const articleIds = findDuplicateIds(
+					tables.articles.getAllValid(),
+					'saved_at',
+				);
+				tables.articles.deleteMany({ ids: articleIds });
 				totalDeleted += articleIds.length;
 
 				// Dedupe github_repos (timestamp: added_at)
-				const repoIds = findDuplicateIds(db.github_repos.getAll(), 'added_at');
-				db.github_repos.deleteMany({ ids: repoIds });
+				const repoIds = findDuplicateIds(
+					tables.github_repos.getAllValid(),
+					'added_at',
+				);
+				tables.github_repos.deleteMany({ ids: repoIds });
 				totalDeleted += repoIds.length;
 
 				// Dedupe landing_pages (timestamp: added_at)
 				const landingPageIds = findDuplicateIds(
-					db.landing_pages.getAll(),
+					tables.landing_pages.getAllValid(),
 					'added_at',
 				);
-				db.landing_pages.deleteMany({ ids: landingPageIds });
+				tables.landing_pages.deleteMany({ ids: landingPageIds });
 				totalDeleted += landingPageIds.length;
 
 				// Dedupe doc_sites (timestamp: added_at)
-				const docSiteIds = findDuplicateIds(db.doc_sites.getAll(), 'added_at');
-				db.doc_sites.deleteMany({ ids: docSiteIds });
+				const docSiteIds = findDuplicateIds(
+					tables.doc_sites.getAllValid(),
+					'added_at',
+				);
+				tables.doc_sites.deleteMany({ ids: docSiteIds });
 				totalDeleted += docSiteIds.length;
 
 				return Ok({ deletedCount: totalDeleted });
@@ -412,7 +420,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.landing_pages.insert({
+				tables.landing_pages.upsert({
 					id: generateId(),
 					url,
 					title,
@@ -493,7 +501,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.github_repos.insert({
+				tables.github_repos.upsert({
 					id: generateId(),
 					url,
 					title: finalTitle,
@@ -524,7 +532,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.doc_sites.insert({
+				tables.doc_sites.upsert({
 					id: generateId(),
 					url,
 					title,
@@ -542,7 +550,7 @@ ${instructions}`;
 		 * Creates a new book entry. Returns the book ID for use with addBookClipping.
 		 */
 		addBook: defineMutation({
-			input: db.books.validators.toArktype().pick('title', 'author', 'read_at'),
+			input: tables.books.validators.toArktype().pick('title', 'author', 'read_at'),
 			handler: ({ title, author, read_at }) => {
 				const now = DateWithTimezone({
 					date: new Date(),
@@ -551,7 +559,7 @@ ${instructions}`;
 
 				const book_id = generateId();
 
-				db.books.insert({
+				tables.books.upsert({
 					id: book_id,
 					title,
 					author,
@@ -569,12 +577,12 @@ ${instructions}`;
 		 * Creates a new excerpt associated with an existing book.
 		 */
 		addBookExcerpt: defineMutation({
-			input: db.book_excerpts.validators
+			input: tables.book_excerpts.validators
 				.toArktype()
 				.pick('book_id', 'content', 'comment'),
 			handler: ({ book_id, content, comment }) => {
 				// Verify the book exists
-				const book = db.books.get(book_id);
+				const book = tables.books.get(book_id);
 				if (!book) {
 					return Err({
 						message: 'Book not found',
@@ -587,7 +595,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.book_excerpts.insert({
+				tables.book_excerpts.upsert({
 					id: generateId(),
 					book_id,
 					content,
@@ -606,13 +614,13 @@ ${instructions}`;
 		 * Creates a new excerpt associated with an existing article.
 		 */
 		addArticleExcerpt: defineMutation({
-			input: db.article_excerpts.validators
+			input: tables.article_excerpts.validators
 				.toArktype()
 				.pick('article_id', 'content', 'comment'),
 			handler: ({ article_id, content, comment }) => {
 				// Verify the article exists
-				const article = db.articles.get({ id: article_id });
-				if (!article) {
+				const article = tables.articles.get({ id: article_id });
+				if (article.status !== 'valid') {
 					return Err({
 						message: 'Article not found',
 						context: { article_id },
@@ -624,7 +632,7 @@ ${instructions}`;
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				}).toJSON();
 
-				db.article_excerpts.insert({
+				tables.article_excerpts.upsert({
 					id: generateId(),
 					article_id,
 					content,
@@ -686,7 +694,7 @@ ${instructions}`;
 				}).toJSON();
 
 				// Insert into database
-				db.essays.insert({
+				tables.essays.upsert({
 					id: generateId(),
 					url,
 					title: result.title,
@@ -736,7 +744,7 @@ ${instructions}`;
 
 				const recipe_id = generateId();
 
-				db.recipes.insert({
+				tables.recipes.upsert({
 					id: recipe_id,
 					title,
 					description: description ?? null,
@@ -764,12 +772,12 @@ ${instructions}`;
 				rating: type.enumerated(...QUALITY_OPTIONS).or('null'),
 			}),
 			handler: ({ recipe_id, rating }) => {
-				const recipe = db.recipes.get(recipe_id);
+				const recipe = tables.recipes.get(recipe_id);
 				if (!recipe) {
 					return Ok({ found: false });
 				}
 
-				db.recipes.update({
+				tables.recipes.update({
 					id: recipe_id,
 					rating: rating,
 				});

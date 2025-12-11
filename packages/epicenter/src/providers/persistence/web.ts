@@ -29,12 +29,15 @@ import type { Provider } from '../../core/provider';
  * @example Basic usage in a browser app
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { setupPersistence } from '@epicenter/hq/providers';
+ * import { setupPersistence } from '@epicenter/hq/providers/persistence';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
- *   providers: [setupPersistence],
- *   // ... schema, indexes, actions
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -55,12 +58,20 @@ import type { Provider } from '../../core/provider';
  * // Each workspace gets its own IndexedDB database
  * const blog = defineWorkspace({
  *   id: 'blog',  // → IndexedDB database named 'blog'
- *   providers: [setupPersistence],
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  *
  * const notes = defineWorkspace({
  *   id: 'notes',  // → IndexedDB database named 'notes'
- *   providers: [setupPersistence],
+ *   tables: { ... },
+ *   providers: {
+ *     persistence: setupPersistence,
+ *   },
+ *   exports: ({ tables }) => ({ ... }),
  * });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage

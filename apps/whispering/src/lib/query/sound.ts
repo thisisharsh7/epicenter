@@ -13,7 +13,7 @@ const soundKeys = {
 export const sound = {
 	playSoundIfEnabled: defineMutation({
 		mutationKey: soundKeys.playSoundIfEnabled,
-		resultMutationFn: async (
+		mutationFn: async (
 			soundName: WhisperingSoundNames,
 		): Promise<Result<void, PlaySoundServiceError>> => {
 			if (!settings.value[`sound.playOn.${soundName}`]) {

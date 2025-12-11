@@ -204,7 +204,10 @@ export async function buildMcpToolRegistry<
 
 			// Build input schema - MCP requires object type at root
 			if (!action.input) {
-				return [toolName, { action, inputSchema: EMPTY_OBJECT_SCHEMA }] as const;
+				return [
+					toolName,
+					{ action, inputSchema: EMPTY_OBJECT_SCHEMA },
+				] as const;
 			}
 
 			const schema = await safeToJsonSchema(action.input);
