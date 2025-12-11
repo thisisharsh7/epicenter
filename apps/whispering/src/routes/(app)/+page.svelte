@@ -320,35 +320,72 @@
 	{/if}
 
 	<div class="xs:flex hidden flex-col items-center gap-3">
-		<p class="text-foreground/75 text-center text-sm">
-			Click the microphone or press
-			{' '}<Link
-				tooltip="Go to local shortcut in settings"
-				href="/settings/shortcuts/local"
-			>
-				<Kbd.Root
-					>{getShortcutDisplayLabel(
-						settings.value['shortcuts.local.toggleManualRecording'],
-					)}</Kbd.Root
-				>
-			</Link>{' '}
-			to start recording here.
-		</p>
-		{#if window.__TAURI_INTERNALS__}
-			<p class="text-foreground/75 text-sm">
-				Press
+		{#if settings.value['recording.mode'] === 'manual'}
+			<p class="text-foreground/75 text-center text-sm">
+				Click the microphone or press
 				{' '}<Link
-					tooltip="Go to global shortcut in settings"
-					href="/settings/shortcuts/global"
+					tooltip="Go to local shortcut in settings"
+					href="/settings/shortcuts/local"
 				>
 					<Kbd.Root
 						>{getShortcutDisplayLabel(
-							settings.value['shortcuts.global.toggleManualRecording'],
+							settings.value['shortcuts.local.toggleManualRecording'],
 						)}</Kbd.Root
 					>
 				</Link>{' '}
-				to start recording anywhere.
+				to start recording here.
 			</p>
+			{#if window.__TAURI_INTERNALS__}
+				<p class="text-foreground/75 text-sm">
+					Press
+					{' '}<Link
+						tooltip="Go to global shortcut in settings"
+						href="/settings/shortcuts/global"
+					>
+						<Kbd.Root
+							>{getShortcutDisplayLabel(
+								settings.value['shortcuts.global.toggleManualRecording'],
+							)}</Kbd.Root
+						>
+					</Link>{' '}
+					to start recording anywhere.
+				</p>
+			{/if}
+		{:else if settings.value['recording.mode'] === 'vad'}
+			<p class="text-foreground/75 text-center text-sm">
+				Click the microphone or press
+				{' '}<Link
+					tooltip="Go to local shortcut in settings"
+					href="/settings/shortcuts/local"
+				>
+					<Kbd.Root
+						>{getShortcutDisplayLabel(
+							settings.value['shortcuts.local.toggleVadRecording'],
+						)}</Kbd.Root
+					>
+				</Link>{' '}
+				to start a voice activated session.
+			</p>
+		{:else if settings.value['recording.mode'] === 'upload'}
+			<p class="text-foreground/75 text-center text-sm">
+				Drag files here or click to browse.
+			</p>
+			{#if window.__TAURI_INTERNALS__}
+				<p class="text-foreground/75 text-sm">
+					Press
+					{' '}<Link
+						tooltip="Go to global shortcut in settings"
+						href="/settings/shortcuts/global"
+					>
+						<Kbd.Root
+							>{getShortcutDisplayLabel(
+								settings.value['shortcuts.global.toggleManualRecording'],
+							)}</Kbd.Root
+						>
+					</Link>{' '}
+					to start recording instead.
+				</p>
+			{/if}
 		{/if}
 		<p class="text-muted-foreground text-center text-sm font-light">
 			{#if !window.__TAURI_INTERNALS__}
