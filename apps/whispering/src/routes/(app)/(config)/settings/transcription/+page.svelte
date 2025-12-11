@@ -35,12 +35,17 @@
 
 	const { data } = $props();
 
-	// Prompt and temperature are not supported for local models like transcribe-rs (whispercpp/parakeet)
-	const isPromptAndTemperatureNotSupported = $derived(
+	// Temperature is not supported for local models like transcribe-rs (whispercpp/parakeet)
+	const isTemperatureNotSupported = $derived(
 		settings.value['transcription.selectedTranscriptionService'] ===
 			'whispercpp' ||
 			settings.value['transcription.selectedTranscriptionService'] ===
 				'parakeet',
+	);
+
+	// Prompt is not supported for parakeet (but now supported for whispercpp via initial_prompt)
+	const isPromptNotSupported = $derived(
+		settings.value['transcription.selectedTranscriptionService'] === 'parakeet',
 	);
 
 	// Parakeet doesn't support language selection (auto-detect only)
@@ -691,7 +696,7 @@
 			step="0.1"
 			placeholder="0"
 			autocomplete="off"
-			disabled={isPromptAndTemperatureNotSupported}
+			disabled={isTemperatureNotSupported}
 			bind:value={
 				() => settings.value['transcription.temperature'],
 				(value) =>
@@ -699,7 +704,7 @@
 			}
 		/>
 		<Field.Description>
-			{isPromptAndTemperatureNotSupported
+			{isTemperatureNotSupported
 				? 'Temperature is not supported for local models (transcribe-rs)'
 				: "Controls randomness in the model's output. 0 is focused and deterministic, 1 is more creative."}
 		</Field.Description>
@@ -710,15 +715,15 @@
 		<Textarea
 			id="transcription-prompt"
 			placeholder="e.g., This is an academic lecture about quantum physics with technical terms like 'eigenvalue' and 'Schrödinger'"
-			disabled={isPromptAndTemperatureNotSupported}
+			disabled={isPromptNotSupported}
 			bind:value={
 				() => settings.value['transcription.prompt'],
 				(value) => settings.updateKey('transcription.prompt', value)
 			}
 		/>
 		<Field.Description>
-			{isPromptAndTemperatureNotSupported
-				? 'System prompt is not supported for local models (transcribe-rs)'
+			{isPromptNotSupported
+				? 'System prompt is not supported for Parakeet'
 				: 'Helps transcription service (e.g., Whisper) better recognize specific terms, names, or context during initial transcription. Not for text transformations - use the Transformations tab for post-processing rules.'}
 		</Field.Description>
 	</Field.Field>
