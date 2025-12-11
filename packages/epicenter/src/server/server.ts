@@ -1,6 +1,6 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
-import { mcp } from 'elysia-mcp';
+// import { mcp } from 'elysia-mcp';
 import { Err, isResult, Ok } from 'wellcrafted/result';
 import {
 	createEpicenterClient,
@@ -8,7 +8,7 @@ import {
 	iterActions,
 } from '../core/epicenter';
 import type { AnyWorkspaceConfig } from '../core/workspace';
-import { buildMcpToolRegistry, setupMcpTools } from './mcp';
+// import { buildMcpToolRegistry, setupMcpTools } from './mcp';
 
 /**
  * Create a unified server with REST, MCP, and API documentation endpoints
@@ -52,8 +52,10 @@ export async function createServer<
 	// Create client
 	const client = await createEpicenterClient(config);
 
-	// Build tool registry for MCP (needed for setupServer callback)
-	const toolRegistry = await buildMcpToolRegistry(client);
+	// TODO: MCP integration commented out pending custom implementation
+	// The elysia-mcp package only supports Zod schemas, but we use arktype.
+	// See specs/20251206T010000-remove-elysia-mcp.md for the plan.
+	// const toolRegistry = await buildMcpToolRegistry(client);
 
 	// Create Elysia app with plugins
 	const app = new Elysia()
@@ -71,22 +73,22 @@ export async function createServer<
 				},
 			}),
 		)
-		// MCP endpoint at /mcp
-		.use(
-			mcp({
-				basePath: '/mcp',
-				serverInfo: {
-					name: config.id,
-					version: '1.0.0',
-				},
-				capabilities: {
-					tools: {},
-				},
-				setupServer: (server) => {
-					setupMcpTools(server, toolRegistry);
-				},
-			}),
-		)
+		// TODO: MCP endpoint at /mcp (commented out pending custom implementation)
+		// .use(
+		// 	mcp({
+		// 		basePath: '/mcp',
+		// 		serverInfo: {
+		// 			name: config.id,
+		// 			version: '1.0.0',
+		// 		},
+		// 		capabilities: {
+		// 			tools: {},
+		// 		},
+		// 		setupServer: (server) => {
+		// 			setupMcpTools(server, toolRegistry);
+		// 		},
+		// 	}),
+		// )
 		// Health check / discovery
 		.get('/', () => ({
 			name: `${config.id} API`,
