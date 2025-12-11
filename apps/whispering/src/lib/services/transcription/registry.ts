@@ -187,3 +187,24 @@ export const TRANSCRIPTION_SERVICE_OPTIONS = TRANSCRIPTION_SERVICES.map(
 );
 
 export type TranscriptionService = (typeof TRANSCRIPTION_SERVICES)[number];
+
+/**
+ * Feature capabilities for each transcription service.
+ * Used to conditionally enable/disable UI elements based on what each service supports.
+ */
+type ServiceCapabilities = {
+	supportsPrompt: boolean;
+	supportsTemperature: boolean;
+	supportsLanguage: boolean;
+};
+
+export const TRANSCRIPTION_SERVICE_CAPABILITIES = {
+	whispercpp: { supportsPrompt: true, supportsTemperature: false, supportsLanguage: true },
+	parakeet: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
+	Groq: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	OpenAI: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	ElevenLabs: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	Deepgram: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	Mistral: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	speaches: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+} as const satisfies Record<TranscriptionServiceId, ServiceCapabilities>;
