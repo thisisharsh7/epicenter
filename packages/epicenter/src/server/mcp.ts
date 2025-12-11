@@ -1,4 +1,5 @@
-import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
 	CallToolRequestSchema,
 	type CallToolResult,
@@ -10,11 +11,7 @@ import type { JSONSchema7 } from 'json-schema';
 import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
-import {
-	type EpicenterClient,
-	type EpicenterConfig,
-	iterActions,
-} from '../core/epicenter';
+import { type EpicenterClient, iterActions } from '../core/epicenter';
 import { safeToJsonSchema } from '../core/schema/safe-json-schema';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 
@@ -22,7 +19,7 @@ import type { AnyWorkspaceConfig } from '../core/workspace';
  * Pre-computed MCP tool entry with action and its JSON Schema.
  * Schema is computed once during registry build and reused for ListTools.
  */
-type McpToolEntry = {
+export type McpToolEntry = {
 	action: Action;
 	/** Pre-computed JSON Schema for the action's input (guaranteed to be object type) */
 	inputSchema: JSONSchema7;
@@ -32,43 +29,30 @@ type McpToolEntry = {
 const EMPTY_OBJECT_SCHEMA: JSONSchema7 = { type: 'object', properties: {} };
 
 /**
- * Create and configure an MCP server with tool handlers.
+ * Setup MCP tool handlers on an existing MCP server instance.
  *
- * This creates a protocol-level MCP server that can be connected to any transport
- * (HTTP, stdio, etc.). The server exposes all workspace actions as MCP tools using
- * a flat namespace (e.g., `workspace_action`).
+ * This configures the MCP server with ListTools and CallTool handlers
+ * that expose all workspace actions as MCP tools using a flat namespace
+ * (e.g., `workspace_action`).
  *
- * @param client - The hierarchical EpicenterClient with workspace namespaces
- * @param config - Epicenter configuration containing server ID and workspaces
- * @returns Configured MCP server instance ready to connect to a transport
+ * Uses the underlying Server instance (via mcpServer.server) to register
+ * handlers with raw JSON schemas, bypassing McpServer's Zod-based API.
  *
- * @see {@link createServer} for how the MCP server is registered on `/mcp` in the Hono web server.
+ * @param mcpServer - The MCP server instance to configure (from elysia-mcp or similar)
+ * @param toolRegistry - Pre-built registry of MCP tools from buildMcpToolRegistry
+ *
+ * @see {@link buildMcpToolRegistry} for building the tool registry
+ * @see {@link createServer} in server.ts for how this is used with elysia-mcp
  */
-export async function createMcpServer<
-	TId extends string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	client: EpicenterClient<TWorkspaces>,
-	config: EpicenterConfig<TId, TWorkspaces>,
-): Promise<McpServer> {
-	const mcpServer = new McpServer(
-		{
-			name: config.id,
-			version: '1.0.0',
-		},
-		{
-			capabilities: {
-				tools: {
-					listChanged: false,
-				},
-			},
-		},
-	);
-
-	const toolRegistry = await buildMcpToolRegistry(client);
+export function setupMcpTools(
+	mcpServer: McpServer,
+	toolRegistry: Map<string, McpToolEntry>,
+): void {
+	// Access the underlying Server instance for low-level JSON Schema support
+	const server: Server = mcpServer.server;
 
 	// List tools handler - uses pre-computed schemas from registry
-	mcpServer.setRequestHandler(ListToolsRequestSchema, () => {
+	server.setRequestHandler(ListToolsRequestSchema, () => {
 		const tools = Array.from(toolRegistry.entries()).map(
 			([name, { action, inputSchema }]) => ({
 				name,
@@ -81,7 +65,7 @@ export async function createMcpServer<
 	});
 
 	// Call tool handler
-	mcpServer.setRequestHandler(
+	server.setRequestHandler(
 		CallToolRequestSchema,
 		async (request): Promise<CallToolResult> => {
 			const entry = toolRegistry.get(request.params.name);
@@ -195,8 +179,6 @@ export async function createMcpServer<
 			} satisfies CallToolResult;
 		},
 	);
-
-	return mcpServer;
 }
 
 /**
@@ -213,7 +195,7 @@ export async function createMcpServer<
  * // Nested export: { users: { crud: { create: defineMutation(...) } } }
  * // → MCP tool name: "workspace_users_crud_create"
  */
-async function buildMcpToolRegistry<
+export async function buildMcpToolRegistry<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>): Promise<Map<string, McpToolEntry>> {
 	const entries = await Promise.all(
