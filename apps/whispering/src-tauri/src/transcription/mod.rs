@@ -490,6 +490,7 @@ pub async fn transcribe_audio_whisper(
     audio_data: Vec<u8>,
     model_path: String,
     language: Option<String>,
+    initial_prompt: Option<String>,
     model_manager: tauri::State<'_, ModelManager>,
 ) -> Result<String, TranscriptionError> {
     info!(
@@ -527,6 +528,7 @@ pub async fn transcribe_audio_whisper(
     // Configure inference parameters
     let mut params = WhisperInferenceParams::default();
     params.language = language;
+    params.initial_prompt = initial_prompt;
     params.print_special = false;
     params.print_progress = false;
     params.print_realtime = false;

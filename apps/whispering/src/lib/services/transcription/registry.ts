@@ -187,3 +187,50 @@ export const TRANSCRIPTION_SERVICE_OPTIONS = TRANSCRIPTION_SERVICES.map(
 );
 
 export type TranscriptionService = (typeof TRANSCRIPTION_SERVICES)[number];
+
+/**
+ * Feature capabilities for each transcription service.
+ * Used to conditionally enable/disable UI elements based on what each service supports.
+ */
+type ServiceCapabilities = {
+	/**
+	 * Whether the service accepts a system prompt / initial prompt for context.
+	 * Prompts help the model recognize domain-specific terms, names, or style.
+	 * Example: "This is a medical consultation discussing myocardial infarction."
+	 */
+	supportsPrompt: boolean;
+	/**
+	 * Whether the service accepts a temperature parameter (0.0-1.0).
+	 * Temperature controls randomness: 0 is deterministic, 1 is more creative.
+	 * Local models (transcribe-rs) do not support this parameter.
+	 */
+	supportsTemperature: boolean;
+	/**
+	 * Whether the service accepts a target language hint.
+	 * When false, the service auto-detects the language (e.g., Parakeet).
+	 */
+	supportsLanguage: boolean;
+};
+
+/**
+ * Declares what features each transcription service supports.
+ *
+ * Use this to conditionally enable/disable UI elements based on the
+ * currently selected service. Lookup by service ID:
+ *
+ * @example
+ * ```ts
+ * const caps = TRANSCRIPTION_SERVICE_CAPABILITIES[selectedServiceId];
+ * if (caps.supportsPrompt) { ... }
+ * ```
+ */
+export const TRANSCRIPTION_SERVICE_CAPABILITIES = {
+	whispercpp: { supportsPrompt: true, supportsTemperature: false, supportsLanguage: true },
+	parakeet: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
+	Groq: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	OpenAI: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	ElevenLabs: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	Deepgram: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	Mistral: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	speaches: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+} as const satisfies Record<TranscriptionServiceId, ServiceCapabilities>;
