@@ -5,9 +5,10 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import type * as Y from 'yjs';
 
-const messageSync = 0;
-const messageAwareness = 1;
-const messageQueryAwareness = 3;
+/** y-websocket protocol message types */
+const MESSAGE_SYNC = 0;
+const MESSAGE_AWARENESS = 1;
+const MESSAGE_QUERY_AWARENESS = 3;
 
 type SyncPluginConfig = {
 	/** Get Y.Doc for a room. Called when client connects. */
@@ -82,7 +83,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 
 			// Send initial sync step 1 - defer to ensure socket is ready
 			const encoder = encoding.createEncoder();
-			encoding.writeVarUint(encoder, messageSync);
+			encoding.writeVarUint(encoder, MESSAGE_SYNC);
 			syncProtocol.writeSyncStep1(encoder, doc);
 			const syncMessage = encoding.toUint8Array(encoder);
 
@@ -94,7 +95,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				const awarenessStates = awareness.getStates();
 				if (awarenessStates.size > 0) {
 					const awarenessEncoder = encoding.createEncoder();
-					encoding.writeVarUint(awarenessEncoder, messageAwareness);
+					encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
 					encoding.writeVarUint8Array(
 						awarenessEncoder,
 						awarenessProtocol.encodeAwarenessUpdate(
@@ -110,7 +111,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			const updateHandler = (update: Uint8Array, origin: unknown) => {
 				if (origin === ws) return; // Don't echo back
 				const updateEncoder = encoding.createEncoder();
-				encoding.writeVarUint(updateEncoder, messageSync);
+				encoding.writeVarUint(updateEncoder, MESSAGE_SYNC);
 				syncProtocol.writeUpdate(updateEncoder, update);
 				ws.send(encoding.toUint8Array(updateEncoder));
 			};
@@ -140,9 +141,9 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			const messageType = decoding.readVarUint(decoder);
 
 			switch (messageType) {
-				case messageSync: {
+				case MESSAGE_SYNC: {
 					const encoder = encoding.createEncoder();
-					encoding.writeVarUint(encoder, messageSync);
+					encoding.writeVarUint(encoder, MESSAGE_SYNC);
 					syncProtocol.readSyncMessage(
 						decoder,
 						encoder,
@@ -157,7 +158,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					break;
 				}
 
-				case messageAwareness: {
+				case MESSAGE_AWARENESS: {
 					const update = decoding.readVarUint8Array(decoder);
 
 					// Decode the update to track which client IDs this connection controls.
@@ -188,7 +189,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					const conns = rooms.get(room);
 					if (conns) {
 						const awarenessEncoder = encoding.createEncoder();
-						encoding.writeVarUint(awarenessEncoder, messageAwareness);
+						encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
 						encoding.writeVarUint8Array(awarenessEncoder, update);
 						const awarenessMessage = encoding.toUint8Array(awarenessEncoder);
 
@@ -201,12 +202,12 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					break;
 				}
 
-				case messageQueryAwareness: {
+				case MESSAGE_QUERY_AWARENESS: {
 					// Client is requesting current awareness states
 					const awarenessStates = awareness.getStates();
 					if (awarenessStates.size > 0) {
 						const awarenessEncoder = encoding.createEncoder();
-						encoding.writeVarUint(awarenessEncoder, messageAwareness);
+						encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
 						encoding.writeVarUint8Array(
 							awarenessEncoder,
 							awarenessProtocol.encodeAwarenessUpdate(
