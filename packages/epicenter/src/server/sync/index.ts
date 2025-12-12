@@ -1,23 +1,18 @@
 import { Elysia } from 'elysia';
 import * as decoding from 'lib0/decoding';
-import * as encoding from 'lib0/encoding';
-import * as awarenessProtocol from 'y-protocols/awareness';
-import * as syncProtocol from 'y-protocols/sync';
-import type * as Y from 'yjs';
 import { Ok, trySync } from 'wellcrafted/result';
+import * as awarenessProtocol from 'y-protocols/awareness';
+import type * as Y from 'yjs';
 import {
-	MESSAGE_AWARENESS,
-	MESSAGE_QUERY_AWARENESS,
-	MESSAGE_SYNC,
 	encodeAwareness,
 	encodeAwarenessStates,
 	encodeSyncStep1,
 	encodeSyncUpdate,
+	handleSyncMessage,
+	MESSAGE_AWARENESS,
+	MESSAGE_QUERY_AWARENESS,
+	MESSAGE_SYNC,
 } from './protocol';
-
-// Note: decoding/encoding imports are still needed for MESSAGE_SYNC handler
-// because syncProtocol.readSyncMessage() uses a read-and-write pattern
-// that requires an encoder to write its response to.
 
 /** WebSocket close code for room not found (4000-4999 reserved for application use per RFC 6455) */
 const CLOSE_ROOM_NOT_FOUND = 4004;
@@ -80,11 +75,17 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 	>();
 
 	/** Get or create awareness instance for a room. Awareness is lazily created on first connection. */
-	const getAwareness = (room: string, doc: Y.Doc): awarenessProtocol.Awareness => {
+	const getAwareness = ({
+		room,
+		doc,
+	}: {
+		room: string;
+		doc: Y.Doc;
+	}): awarenessProtocol.Awareness => {
 		if (!awarenessMap.has(room)) {
 			awarenessMap.set(room, new awarenessProtocol.Awareness(doc));
 		}
-		// biome-ignore lint/style/noNonNullAssertion: Value guaranteed to exist - we just set it above if it didn't exist
+		// biome-ignore lint/style/noNonNullAssertion: Value guaranteed to exist from above .has() check
 		return awarenessMap.get(room)!;
 	};
 
@@ -102,24 +103,28 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			if (!rooms.has(room)) {
 				rooms.set(room, new Set());
 			}
+			// biome-ignore lint/style/noNonNullAssertion: Value guaranteed to exist from above .has() check
 			rooms.get(room)!.add(ws);
 
 			// Track which client IDs this connection controls (for cleanup on disconnect)
 			const controlledClientIds = new Set<number>();
 
 			// Get awareness for this room
-			const awareness = getAwareness(room, doc);
+			const awareness = getAwareness({ room, doc });
 
 			// Defer send to next tick to ensure WebSocket is fully ready
 			queueMicrotask(() => {
 				// Send initial sync step 1
-				ws.send(encodeSyncStep1(doc));
+				ws.send(encodeSyncStep1({ doc }));
 
 				// Send current awareness states
 				const awarenessStates = awareness.getStates();
 				if (awarenessStates.size > 0) {
 					ws.send(
-						encodeAwarenessStates(awareness, Array.from(awarenessStates.keys())),
+						encodeAwarenessStates({
+							awareness,
+							clients: Array.from(awarenessStates.keys()),
+						}),
 					);
 				}
 			});
@@ -127,7 +132,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			// Listen for doc updates to broadcast to this client
 			const updateHandler = (update: Uint8Array, origin: unknown) => {
 				if (origin === ws) return; // Don't echo back
-				ws.send(encodeSyncUpdate(update));
+				ws.send(encodeSyncUpdate({ update }));
 			};
 			doc.on('update', updateHandler);
 
@@ -156,18 +161,9 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 
 			switch (messageType) {
 				case MESSAGE_SYNC: {
-					const encoder = encoding.createEncoder();
-					encoding.writeVarUint(encoder, MESSAGE_SYNC);
-					syncProtocol.readSyncMessage(
-						decoder,
-						encoder,
-						doc,
-						ws, // origin - so we don't echo back
-					);
-
-					// Send response if there's content (more than just the message type)
-					if (encoding.length(encoder) > 1) {
-						ws.send(encoding.toUint8Array(encoder));
+					const response = handleSyncMessage({ decoder, doc, origin: ws });
+					if (response) {
+						ws.send(response);
 					}
 					break;
 				}
@@ -206,7 +202,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					// Broadcast awareness to other clients in the room
 					const conns = rooms.get(room);
 					if (conns) {
-						const awarenessMessage = encodeAwareness(update);
+						const awarenessMessage = encodeAwareness({ update });
 						for (const conn of conns) {
 							if (conn !== ws) {
 								conn.send(awarenessMessage);
@@ -221,7 +217,10 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					const awarenessStates = awareness.getStates();
 					if (awarenessStates.size > 0) {
 						ws.send(
-							encodeAwarenessStates(awareness, Array.from(awarenessStates.keys())),
+							encodeAwarenessStates({
+								awareness,
+								clients: Array.from(awarenessStates.keys()),
+							}),
 						);
 					}
 					break;
@@ -233,7 +232,8 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			const state = connectionState.get(ws);
 			if (!state) return;
 
-			const { room, doc, updateHandler, awareness, controlledClientIds } = state;
+			const { room, doc, updateHandler, awareness, controlledClientIds } =
+				state;
 
 			// Remove update listener
 			doc.off('update', updateHandler);
