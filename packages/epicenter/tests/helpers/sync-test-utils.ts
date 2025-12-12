@@ -23,10 +23,10 @@ import { MESSAGE_TYPE } from '../../src/server/sync/protocol';
  * This is what a client sends to ask "what updates are you missing?"
  */
 export function buildSyncStep1(doc: Y.Doc): Uint8Array {
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
-	syncProtocol.writeSyncStep1(encoder, doc);
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
+		syncProtocol.writeSyncStep1(encoder, doc);
+	});
 }
 
 /**
@@ -34,27 +34,27 @@ export function buildSyncStep1(doc: Y.Doc): Uint8Array {
  * This is the response to sync step 1.
  */
 export function buildSyncStep2(doc: Y.Doc, stateVector?: Uint8Array): Uint8Array {
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
-	if (stateVector) {
-		// Generate diff based on provided state vector
-		const update = Y.encodeStateAsUpdate(doc, stateVector);
-		syncProtocol.writeUpdate(encoder, update);
-	} else {
-		// Write full document as sync step 2
-		syncProtocol.writeSyncStep2(encoder, doc);
-	}
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
+		if (stateVector) {
+			// Generate diff based on provided state vector
+			const update = Y.encodeStateAsUpdate(doc, stateVector);
+			syncProtocol.writeUpdate(encoder, update);
+		} else {
+			// Write full document as sync step 2
+			syncProtocol.writeSyncStep2(encoder, doc);
+		}
+	});
 }
 
 /**
  * Build a sync update message containing incremental changes.
  */
 export function buildSyncUpdate(update: Uint8Array): Uint8Array {
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
-	syncProtocol.writeUpdate(encoder, update);
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
+		syncProtocol.writeUpdate(encoder, update);
+	});
 }
 
 /**
@@ -66,10 +66,10 @@ export function buildAwarenessUpdate(
 ): Uint8Array {
 	const clients = clientIds ?? Array.from(awareness.getStates().keys());
 	const update = awarenessProtocol.encodeAwarenessUpdate(awareness, clients);
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
-	encoding.writeVarUint8Array(encoder, update);
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
+		encoding.writeVarUint8Array(encoder, update);
+	});
 }
 
 /**
@@ -82,29 +82,29 @@ export function buildRawAwarenessMessage(entries: Array<{
 	state: string | null; // JSON string or null
 }>): Uint8Array {
 	// Build the inner awareness update
-	const innerEncoder = encoding.createEncoder();
-	encoding.writeVarUint(innerEncoder, entries.length);
-	for (const entry of entries) {
-		encoding.writeVarUint(innerEncoder, entry.clientId);
-		encoding.writeVarUint(innerEncoder, entry.clock);
-		encoding.writeVarString(innerEncoder, entry.state ?? 'null');
-	}
-	const innerUpdate = encoding.toUint8Array(innerEncoder);
+	const innerUpdate = encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, entries.length);
+		for (const entry of entries) {
+			encoding.writeVarUint(encoder, entry.clientId);
+			encoding.writeVarUint(encoder, entry.clock);
+			encoding.writeVarString(encoder, entry.state ?? 'null');
+		}
+	});
 
 	// Wrap in message envelope
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
-	encoding.writeVarUint8Array(encoder, innerUpdate);
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
+		encoding.writeVarUint8Array(encoder, innerUpdate);
+	});
 }
 
 /**
  * Build a query awareness message.
  */
 export function buildQueryAwareness(): Uint8Array {
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
+	});
 }
 
 // ============================================================================
@@ -116,19 +116,19 @@ export function buildQueryAwareness(): Uint8Array {
  * Contains only the message type byte with no payload.
  */
 export function buildTruncatedMessage(messageType: number): Uint8Array {
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, messageType);
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, messageType);
+	});
 }
 
 /**
  * Build a message with an unknown message type.
  */
 export function buildUnknownTypeMessage(unknownType: number): Uint8Array {
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, unknownType);
-	encoding.writeVarString(encoder, 'unknown payload');
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, unknownType);
+		encoding.writeVarString(encoder, 'unknown payload');
+	});
 }
 
 /**
@@ -136,17 +136,17 @@ export function buildUnknownTypeMessage(unknownType: number): Uint8Array {
  */
 export function buildMalformedAwarenessMessage(): Uint8Array {
 	// Create a raw awareness update with invalid JSON
-	const innerEncoder = encoding.createEncoder();
-	encoding.writeVarUint(innerEncoder, 1); // 1 entry
-	encoding.writeVarUint(innerEncoder, 12345); // clientId
-	encoding.writeVarUint(innerEncoder, 1); // clock
-	encoding.writeVarString(innerEncoder, '{invalid json}'); // malformed JSON
-	const innerUpdate = encoding.toUint8Array(innerEncoder);
+	const innerUpdate = encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, 1); // 1 entry
+		encoding.writeVarUint(encoder, 12345); // clientId
+		encoding.writeVarUint(encoder, 1); // clock
+		encoding.writeVarString(encoder, '{invalid json}'); // malformed JSON
+	});
 
-	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
-	encoding.writeVarUint8Array(encoder, innerUpdate);
-	return encoding.toUint8Array(encoder);
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
+		encoding.writeVarUint8Array(encoder, innerUpdate);
+	});
 }
 
 /**

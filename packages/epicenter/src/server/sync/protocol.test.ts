@@ -162,9 +162,9 @@ describe('MESSAGE_SYNC', () => {
 			const clientDoc = createDoc();
 
 			// Build client's sync step 1
-			const encoder = encoding.createEncoder();
-			syncProtocol.writeSyncStep1(encoder, clientDoc);
-			const syncStep1Payload = encoding.toUint8Array(encoder);
+			const syncStep1Payload = encoding.encode((encoder) => {
+				syncProtocol.writeSyncStep1(encoder, clientDoc);
+			});
 
 			const decoder = decoding.createDecoder(syncStep1Payload);
 			const response = handleSyncMessage({
@@ -185,9 +185,9 @@ describe('MESSAGE_SYNC', () => {
 			});
 
 			// Build sync step 2 payload
-			const encoder = encoding.createEncoder();
-			syncProtocol.writeSyncStep2(encoder, clientDoc);
-			const syncStep2Payload = encoding.toUint8Array(encoder);
+			const syncStep2Payload = encoding.encode((encoder) => {
+				syncProtocol.writeSyncStep2(encoder, clientDoc);
+			});
 
 			const decoder = decoding.createDecoder(syncStep2Payload);
 			const response = handleSyncMessage({
@@ -205,9 +205,9 @@ describe('MESSAGE_SYNC', () => {
 				createDoc((d) => d.getMap('data').set('key', 'value')),
 			);
 
-			const encoder = encoding.createEncoder();
-			syncProtocol.writeUpdate(encoder, update);
-			const updatePayload = encoding.toUint8Array(encoder);
+			const updatePayload = encoding.encode((encoder) => {
+				syncProtocol.writeUpdate(encoder, update);
+			});
 
 			const decoder = decoding.createDecoder(updatePayload);
 			const response = handleSyncMessage({
@@ -226,9 +226,9 @@ describe('MESSAGE_SYNC', () => {
 			});
 
 			const update = Y.encodeStateAsUpdate(clientDoc);
-			const encoder = encoding.createEncoder();
-			syncProtocol.writeUpdate(encoder, update);
-			const updatePayload = encoding.toUint8Array(encoder);
+			const updatePayload = encoding.encode((encoder) => {
+				syncProtocol.writeUpdate(encoder, update);
+			});
 
 			const decoder = decoding.createDecoder(updatePayload);
 			handleSyncMessage({
@@ -394,9 +394,9 @@ describe('MESSAGE_AWARENESS', () => {
 
 describe('MESSAGE_QUERY_AWARENESS', () => {
 	test('query awareness message is single byte', () => {
-		const encoder = encoding.createEncoder();
-		encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
-		const message = encoding.toUint8Array(encoder);
+		const message = encoding.encode((encoder) => {
+			encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
+		});
 
 		expect(message.length).toBe(1);
 		expect(message[0]).toBe(MESSAGE_TYPE.QUERY_AWARENESS);
@@ -500,9 +500,9 @@ describe('decodeMessageType', () => {
 	});
 
 	test('decodes QUERY_AWARENESS message type', () => {
-		const encoder = encoding.createEncoder();
-		encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
-		const message = encoding.toUint8Array(encoder);
+		const message = encoding.encode((encoder) => {
+			encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
+		});
 		expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.QUERY_AWARENESS);
 	});
 
@@ -527,9 +527,9 @@ describe('full sync protocol', () => {
 		const clientDoc = createDoc();
 
 		// Client sends sync step 1
-		const clientEncoder = encoding.createEncoder();
-		syncProtocol.writeSyncStep1(clientEncoder, clientDoc);
-		const clientSyncStep1 = encoding.toUint8Array(clientEncoder);
+		const clientSyncStep1 = encoding.encode((encoder) => {
+			syncProtocol.writeSyncStep1(encoder, clientDoc);
+		});
 
 		// Server handles and responds with sync step 2
 		const decoder1 = decoding.createDecoder(clientSyncStep1);
