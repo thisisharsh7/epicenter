@@ -114,7 +114,9 @@ const blogWorkspace = defineWorkspace({
 });
 
 // 2. Initialize the workspace client
+// Node.js: async initialization (await required)
 const client = await createWorkspaceClient(blogWorkspace);
+// Browser: sync initialization (no await, use client.whenSynced for deferred sync)
 
 // 3. Use the workspace
 const result = await client.createPost({ title: 'Hello World' });
@@ -1144,10 +1146,24 @@ Providers run in parallel during initialization. Providers that return exports m
 
 ## Runtime
 
+### Browser vs Node.js Initialization
+
+Epicenter has different initialization patterns for browser and Node.js environments:
+
+| Environment | `createWorkspaceClient` / `createEpicenterClient` | `whenSynced` |
+|-------------|---------------------------------------------------|--------------|
+| **Node.js** | Async (returns Promise) | Not needed |
+| **Browser** | Synchronous (returns immediately) | Available on each workspace client |
+
+**Why the difference?** Browser modules can't use top-level await effectively. The client needs to be exportable and importable like any other value. Node.js supports top-level await, so full initialization can happen at the entry point.
+
+See [Synchronous Client Initialization](./docs/articles/sync-client-initialization.md) for the full rationale.
+
 ### Create Workspace Client
 
 Initialize a single workspace:
 
+**Node.js:**
 ```typescript
 import { createWorkspaceClient } from '@epicenter/hq';
 
@@ -1164,12 +1180,27 @@ await client.destroy();
 await using workspace = await createWorkspaceClient(workspace);
 ```
 
+**Browser:**
+```typescript
+import { createWorkspaceClient } from '@epicenter/hq';
+
+// Synchronous - no await needed
+const client = createWorkspaceClient(workspace);
+
+// Client is usable immediately
+client.createPost({ title: 'Hello' });
+
+// Wait for providers to sync if needed
+await client.whenSynced;
+```
+
 **storageDir:** Defaults to `process.cwd()` in Node.js, `undefined` in browser.
 
 ### Create Epicenter Client
 
 Initialize multiple workspaces:
 
+**Node.js:**
 ```typescript
 import { createEpicenterClient, defineEpicenter } from '@epicenter/hq';
 
@@ -1185,12 +1216,26 @@ await client.blog.createPost({ ... });
 await client.auth.login({ ... });
 const files = await client.storage.listFiles();
 
-// Each workspace has destroy() for cleanup
-await client.blog.destroy();
-await client.auth.destroy();
-
-// Or cleanup the entire epicenter client at once
+// Cleanup
 await client.destroy();
+```
+
+**Browser:**
+```typescript
+// Synchronous - no await needed
+const client = createEpicenterClient(epicenter);
+
+// Client is usable immediately
+client.blog.getAllPosts();
+
+// Wait for individual workspace providers to sync
+await client.blog.whenSynced;
+
+// Or wait for all workspaces
+await Promise.all([
+  client.blog.whenSynced,
+  client.auth.whenSynced,
+]);
 ```
 
 **Workspace clients:**
@@ -1198,6 +1243,7 @@ await client.destroy();
 Each workspace in the client object is a `WorkspaceClient<TExports>` with:
 - All exports from the workspace
 - `destroy()` and `Symbol.asyncDispose` for cleanup
+- `whenSynced` (browser only) - Promise that resolves when all providers are synced
 
 ## API Reference
 

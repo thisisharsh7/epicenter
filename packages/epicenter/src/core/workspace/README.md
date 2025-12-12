@@ -45,6 +45,35 @@ const client = await createWorkspaceClient(workspaceC);
 
 Both `createEpicenterClient` and `createWorkspaceClient` use the same initialization logic. They initialize all workspaces, including dependencies. The only difference is what they return: the full object vs. a single workspace client.
 
+### Browser vs Node.js Initialization
+
+Workspace clients have different initialization patterns depending on the environment:
+
+**Browser (synchronous)**:
+```typescript
+// Browser: No await needed - returns immediately
+const client = createWorkspaceClient(workspace);
+
+// Client is usable immediately, but providers may still be syncing
+client.getAllPosts();
+
+// Wait for all providers to sync if needed
+await client.whenSynced;
+```
+
+**Node.js (async)**:
+```typescript
+// Node.js: Await required - fully initializes before returning
+const client = await createWorkspaceClient(workspace);
+
+// Everything is ready, no whenSynced needed
+client.getAllPosts();
+```
+
+Browser clients expose a `whenSynced` promise that resolves when all providers (like IndexedDB persistence) have finished their initial sync. Node clients don't have `whenSynced` because initialization is fully awaited.
+
+See [Synchronous Client Initialization](../../../docs/articles/sync-client-initialization.md) for the rationale behind this pattern.
+
 ---
 
 # Workspace Dependencies

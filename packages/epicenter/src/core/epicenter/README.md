@@ -29,6 +29,33 @@ Create an Epicenter client directly for standalone scripts:
 
 **Important:** When running scripts with `createEpicenterClient`, **ensure no server is running** in the same directory. Multiple clients accessing the same storage context (`.epicenter/` directory) simultaneously will conflict.
 
+### Browser vs Node.js Initialization
+
+Epicenter clients have different initialization patterns depending on the environment:
+
+**Node.js (async)**: `createEpicenterClient` returns a Promise. Providers are fully initialized before the client is returned.
+
+```typescript
+// Node.js: Await required
+const client = await createEpicenterClient(config);
+// Everything is ready to use
+```
+
+**Browser (synchronous)**: `createEpicenterClient` returns immediately. Providers initialize in the background and expose a `whenSynced` promise.
+
+```typescript
+// Browser: No await needed
+const client = createEpicenterClient(config);
+
+// Client is usable immediately
+client.pages.getAllPages();
+
+// Wait for providers to sync if needed (e.g., IndexedDB persistence)
+await client.pages.whenSynced;
+```
+
+This design enables browser clients to be exported and imported like any other value, avoiding the module import constraints that make async initialization problematic in UI frameworks. See [Synchronous Client Initialization](../../../docs/articles/sync-client-initialization.md) for the rationale.
+
 ### 2. As a Server (Web APIs, Long-Running Processes)
 
 The server is just a wrapper around `createEpicenterClient` that:

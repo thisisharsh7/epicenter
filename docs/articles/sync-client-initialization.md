@@ -298,3 +298,154 @@ Not every async operation needs to block construction. When you're building clie
 4. In most cases, wait once at the root and forget about it
 
 This is what Yjs figured out with IndexedDB persistence. It's a pattern worth adopting anywhere you have clients that UI code needs to access.
+
+## How Epicenter Implements This
+
+Epicenter uses this pattern for browser clients, with a twist: it aggregates `whenSynced` promises from all providers.
+
+### Browser: Synchronous Construction with Deferred Sync
+
+In the browser, `createEpicenterClient` and `createWorkspaceClient` are **synchronous**:
+
+```typescript
+// Browser: No await needed
+const client = createEpicenterClient(epicenter);
+
+// Client is immediately usable
+const pages = client.pages.getAllPages();
+
+// But you can wait for providers to sync if needed
+await client.pages.whenSynced;
+```
+
+Why synchronous? Because browser modules can't use top-level await effectively. The client needs to be exportable and importable like any other value.
+
+### Node.js: Async Construction
+
+In Node.js, `createEpicenterClient` and `createWorkspaceClient` are **async**:
+
+```typescript
+// Node.js: Await required
+const client = await createEpicenterClient(epicenter);
+
+// Everything is fully initialized
+const pages = client.pages.getAllPages();
+
+// No whenSynced needed - providers are already synced
+```
+
+Why async? Node.js supports top-level await, and files evaluate top-down. Scripts, CLIs, and servers can simply await initialization at the entry point. There's no module import constraint forcing synchronous construction.
+
+### Provider `whenSynced` Aggregation
+
+Browser workspace clients aggregate `whenSynced` promises from all providers:
+
+```typescript
+// In client.browser.ts
+export function createWorkspaceClient(config) {
+  const ydoc = new Y.Doc();
+  const syncPromises: Promise<void>[] = [];
+
+  // Initialize providers
+  for (const [name, providerFn] of Object.entries(config.providers)) {
+    const exports = providerFn({ ydoc, ...context });
+
+    // Collect whenSynced promises from providers that have them
+    if (exports?.whenSynced) {
+      syncPromises.push(exports.whenSynced);
+    }
+  }
+
+  // Aggregate all sync promises
+  const whenSynced = syncPromises.length > 0
+    ? Promise.all(syncPromises).then(() => {})
+    : Promise.resolve();
+
+  return {
+    ...workspaceExports,
+    whenSynced,
+    destroy,
+  };
+}
+```
+
+This means providers can optionally expose a `whenSynced` promise. The workspace client collects them all and exposes a single `whenSynced` that resolves when every provider has synced.
+
+### Providers That Use `whenSynced`
+
+The IndexedDB persistence provider is the canonical example:
+
+```typescript
+// In persistence/web.ts
+export function createIndexedDBPersistence({ ydoc, id }) {
+  const persistence = new IndexeddbPersistence(id, ydoc);
+
+  return {
+    whenSynced: persistence.whenSynced.then(() => {
+      console.log(`[Persistence] IndexedDB synced for ${id}`);
+    }),
+    destroy: () => persistence.destroy(),
+  };
+}
+```
+
+The y-indexeddb library's `IndexeddbPersistence` class exposes `whenSynced` exactly as described earlier. Epicenter just passes it through.
+
+### The Type Difference
+
+Browser and Node workspace clients have different types to reflect this:
+
+```typescript
+// Browser WorkspaceClient - includes whenSynced
+type WorkspaceClient<TExports> = TExports & {
+  $ydoc: Y.Doc;
+  whenSynced: Promise<void>;  // Present in browser
+  destroy: () => Promise<void>;
+};
+
+// Node WorkspaceClient - no whenSynced needed
+type WorkspaceClient<TExports> = TExports & {
+  $ydoc: Y.Doc;
+  // No whenSynced - fully awaited at construction
+  destroy: () => Promise<void>;
+};
+```
+
+This type difference is intentional. Browser code can rely on `whenSynced` existing; Node code doesn't need it because initialization is already awaited.
+
+### Using It in Svelte
+
+The pattern from earlier works exactly as expected:
+
+```svelte
+<!-- +layout.svelte -->
+<script>
+  import { client } from '$lib/epicenter';
+</script>
+
+{#await client.pages.whenSynced}
+  <LoadingSpinner />
+{:then}
+  {@render children?.()}
+{/await}
+```
+
+Or if you have multiple workspaces:
+
+```svelte
+{#await Promise.all([client.pages.whenSynced, client.auth.whenSynced])}
+  <LoadingSpinner />
+{:then}
+  <App />
+{/await}
+```
+
+### Why Two Implementations?
+
+Epicenter maintains separate browser and Node implementations (`client.browser.ts` and `client.node.ts`) rather than a single polymorphic implementation. This is intentional:
+
+1. **Maximum type safety**: Browser clients have `whenSynced`, Node clients don't. The types reflect reality.
+2. **No runtime polymorphism**: No `if (typeof window !== 'undefined')` checks. Bundlers select the right file via package.json exports.
+3. **Clear mental model**: If you're in the browser, you get browser semantics. If you're in Node, you get Node semantics.
+
+The trade-off is some code duplication, but each file is self-contained and readable top-to-bottom without jumping between shared abstractions.
