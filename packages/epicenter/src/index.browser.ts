@@ -16,4 +16,12 @@ export { defineEpicenter } from './core/epicenter/config.browser';
 export { createEpicenterClient } from './core/epicenter/client.browser';
 export { createWorkspaceClient } from './core/workspace/client.browser';
 
+// Browser-specific: types (browser WorkspaceClient has whenSynced)
+export type {
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './core/workspace/client.browser';
+export type { ActionInfo, EpicenterClient } from './core/epicenter/client.browser';
+export { iterActions } from './core/epicenter/client.browser';
+
 // Note: createServer is NOT exported in browser builds (Node.js only)

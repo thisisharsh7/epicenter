@@ -16,10 +16,62 @@ import type { Provider, ProviderExports } from '../provider';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
-import type { WorkspaceClient, WorkspacesToClients } from './client.shared';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
-export type { WorkspaceClient, WorkspacesToClients } from './client.shared';
+// ═══════════════════════════════════════════════════════════════════════════════
+// NODE-SPECIFIC TYPES
+//
+// Node WorkspaceClient does NOT have `whenSynced`.
+// This is because Node.js initialization is async and fully awaits all providers.
+// By the time you have a client, everything is already synced.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Node.js workspace client (no `whenSynced`).
+ *
+ * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
+ * An Epicenter client is an object of workspace clients: `{ workspaceId: WorkspaceClient }`.
+ *
+ * In Node.js, `createWorkspaceClient` and `createEpicenterClient` are async functions.
+ * Provider factories are fully awaited during initialization, so by the time you have
+ * a client, all providers are already initialized and synced.
+ *
+ * This is different from the browser where construction is sync and providers
+ * load data in the background. In Node.js, you await the client creation instead.
+ *
+ * @example
+ * ```typescript
+ * // Node.js: await the client creation
+ * const client = await createWorkspaceClient(workspace);
+ * // Everything is ready - no need for whenSynced
+ * const data = client.getAllData();
+ * ```
+ */
+export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
+	/** The underlying YJS document for this workspace. */
+	$ydoc: Y.Doc;
+
+	/** Async cleanup method - destroys all providers and the YJS document. */
+	destroy: () => Promise<void>;
+
+	/** Async disposal for `await using` syntax. */
+	[Symbol.asyncDispose]: () => Promise<void>;
+};
+
+/**
+ * Node.js mapping of workspace configs to clients.
+ *
+ * Uses the Node.js `WorkspaceClient` type which does NOT include `whenSynced`.
+ */
+export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
+	[W in WS[number] as W extends { id: infer TId extends string }
+		? TId
+		: never]: W extends {
+		exports: (context: any) => infer TExports extends WorkspaceExports;
+	}
+		? WorkspaceClient<TExports>
+		: never;
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ASYNC INITIALIZATION (Node.js)

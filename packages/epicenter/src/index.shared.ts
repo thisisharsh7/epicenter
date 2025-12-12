@@ -74,14 +74,12 @@ export type {
 	YRow,
 } from './core/db/table-helper';
 
-// Epicenter types (shared across platforms)
-// Note: EpicenterConfig and defineEpicenter are exported from platform-specific
-// entry points because they have different type signatures (Node adds storageDir)
-export type {
-	ActionInfo,
-	EpicenterClient,
-} from './core/epicenter/client.shared';
-export { iterActions } from './core/epicenter/client.shared';
+// Epicenter types and functions
+// NOTE: EpicenterClient, ActionInfo, and iterActions are platform-specific
+// (browser WorkspaceClient has whenSynced, node doesn't)
+// - exported from index.browser.ts / index.node.ts
+// NOTE: EpicenterConfig and defineEpicenter have different type signatures (Node adds storageDir)
+// - exported from index.browser.ts / index.node.ts
 
 export type {
 	EpicenterOperationError,
@@ -165,10 +163,8 @@ export {
 export type { AbsolutePath, EpicenterDir, StorageDir } from './core/types';
 
 // Workspace types (shared across platforms)
-export type {
-	WorkspaceClient,
-	WorkspacesToClients,
-} from './core/workspace/client.shared';
+// NOTE: WorkspaceClient and WorkspacesToClients are platform-specific
+// (browser has whenSynced, node doesn't) - exported from index.browser.ts / index.node.ts
 export type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,

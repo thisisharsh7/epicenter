@@ -7,6 +7,14 @@
  * IMPORTANT: Browser initialization is SYNCHRONOUS because browser providers
  * (IndexedDB persistence, WebSocket sync) handle their async operations internally.
  * This enables immediate client usage without await.
+ *
+ * Browser clients include a `whenSynced` promise that resolves when all providers
+ * have completed their initial sync. This follows the y-indexeddb pattern:
+ * - Construction is synchronous (returns immediately)
+ * - Async work happens in background
+ * - `whenSynced` resolves when ready
+ *
+ * @see https://github.com/yjs/y-indexeddb - Inspiration for the whenSynced pattern
  */
 
 import * as Y from 'yjs';
@@ -15,10 +23,78 @@ import { createEpicenterDb } from '../db/core';
 import type { Provider, ProviderExports } from '../provider';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
-import type { WorkspaceClient, WorkspacesToClients } from './client.shared';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
-export type { WorkspaceClient, WorkspacesToClients } from './client.shared';
+// ═══════════════════════════════════════════════════════════════════════════════
+// BROWSER-SPECIFIC TYPES
+//
+// Browser WorkspaceClient includes `whenSynced` promise.
+// This follows the y-indexeddb pattern: sync construction, deferred sync.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Browser-specific workspace client with `whenSynced` support.
+ *
+ * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
+ * An Epicenter client is an object of workspace clients: `{ workspaceId: WorkspaceClient }`.
+ *
+ * This follows the y-indexeddb pattern:
+ * - Construction is synchronous (returns immediately)
+ * - Async work (IndexedDB load, WebSocket sync) happens in background
+ * - `whenSynced` resolves when all providers are ready
+ *
+ * **Usage in UI (recommended)**: Wait once at the root layout
+ * ```svelte
+ * {#await client.whenSynced}
+ *   <LoadingSpinner />
+ * {:then}
+ *   <App />
+ * {/await}
+ * ```
+ *
+ * **Usage in scripts**: Await before operations that need synced data
+ * ```typescript
+ * await client.whenSynced;
+ * const data = client.getAllData();
+ * ```
+ *
+ * @see https://github.com/yjs/y-indexeddb - Inspiration for this pattern
+ */
+export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
+	/** The underlying YJS document for this workspace. */
+	$ydoc: Y.Doc;
+
+	/**
+	 * Promise that resolves when all providers have completed their initial sync.
+	 *
+	 * Browser providers (IndexedDB, WebSocket) load data asynchronously in the
+	 * background. This promise resolves when all providers report they are synced.
+	 *
+	 * If no providers have `whenSynced`, this resolves immediately.
+	 */
+	whenSynced: Promise<void>;
+
+	/** Async cleanup method - destroys all providers and the YJS document. */
+	destroy: () => Promise<void>;
+
+	/** Async disposal for `await using` syntax. */
+	[Symbol.asyncDispose]: () => Promise<void>;
+};
+
+/**
+ * Browser-specific mapping of workspace configs to clients.
+ *
+ * Uses the browser `WorkspaceClient` type which includes `whenSynced`.
+ */
+export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
+	[W in WS[number] as W extends { id: infer TId extends string }
+		? TId
+		: never]: W extends {
+		exports: (context: any) => infer TExports extends WorkspaceExports;
+	}
+		? WorkspaceClient<TExports>
+		: never;
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SYNCHRONOUS INITIALIZATION (Browser)
@@ -288,9 +364,21 @@ export function initializeWorkspaces<
 		// KEY DIFFERENCE FROM client.node.ts:
 		// We call provider factories WITHOUT await. Browser providers like
 		// IndexedDB persistence and WebSocket sync handle async internally.
-		// If a provider returns a Promise, we ignore it and use empty exports.
+		// If a provider returns a Promise, we track it but don't block.
+		//
+		// We also collect `whenSynced` promises from providers to aggregate them
+		// into a single `whenSynced` promise on the workspace client.
 		// ═══════════════════════════════════════════════════════════════════════
 		const providers: Record<string, ProviderExports> = {};
+
+		/**
+		 * Promises that resolve when providers complete their initial sync.
+		 * Collected from:
+		 * 1. Async provider factories (the promise itself)
+		 * 2. Sync providers that return a `whenSynced` property
+		 */
+		const syncPromises: Promise<void>[] = [];
+
 		for (const [providerId, providerFn] of Object.entries(
 			workspaceConfig.providers,
 		)) {
@@ -305,16 +393,32 @@ export function initializeWorkspaces<
 				epicenterDir: undefined, // No filesystem in browser
 			});
 
-			// If provider returns a promise, we can't wait for it in sync mode
-			// Browser providers should return void or sync exports
 			if (result instanceof Promise) {
-				// Provider is async - browser providers shouldn't be, but handle gracefully
-				// The promise will resolve in the background
-				providers[providerId] = {};
+				// Provider factory is async - track its completion and any whenSynced it returns
+				const trackedPromise = result.then((exports) => {
+					providers[providerId] = exports ?? {};
+					// If the resolved exports have a whenSynced, track that too
+					if (exports?.whenSynced) {
+						return exports.whenSynced;
+					}
+				});
+				syncPromises.push(trackedPromise);
 			} else {
+				// Provider factory is sync - store exports immediately
 				providers[providerId] = result ?? {};
+
+				// If provider returned a whenSynced promise, track it
+				if (result?.whenSynced) {
+					syncPromises.push(result.whenSynced);
+				}
 			}
 		}
+
+		// Aggregate all sync promises into a single whenSynced promise
+		const whenSynced =
+			syncPromises.length > 0
+				? Promise.all(syncPromises).then(() => {})
+				: Promise.resolve();
 
 		// Call the exports factory to get workspace exports (actions + utilities), passing:
 		// - tables: Epicenter tables API for direct table operations
@@ -352,9 +456,11 @@ export function initializeWorkspaces<
 
 		// Create the workspace client with all exports (actions + utilities)
 		// Filtering to just actions happens at the server/MCP level via iterActions()
+		// Browser clients include `whenSynced` for the y-indexeddb pattern
 		const client: WorkspaceClient<any> = {
 			...exports,
 			$ydoc: ydoc,
+			whenSynced,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		};

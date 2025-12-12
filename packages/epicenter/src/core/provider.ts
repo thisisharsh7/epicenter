@@ -53,14 +53,24 @@ export type ProviderContext<
 };
 
 /**
- * Provider exports type - an object with optional cleanup function and any exported resources.
+ * Provider exports type - an object with optional lifecycle hooks and any exported resources.
  *
  * Providers that materialize views (SQLite, markdown, vector, etc.) can return exports
  * that are accessible in the workspace exports factory via `providers.providerName.exportName`.
  *
- * The `destroy()` function is optional and will be called during workspace cleanup if present.
+ * **Lifecycle hooks:**
+ * - `whenSynced`: Optional promise that resolves when the provider has completed initial sync
+ * - `destroy()`: Optional cleanup function called during workspace cleanup
  *
- * @example
+ * @example Browser provider (sync construction, deferred sync)
+ * ```typescript
+ * return defineProviderExports({
+ *   whenSynced: persistence.whenSynced,
+ *   destroy: () => persistence.destroy(),
+ * });
+ * ```
+ *
+ * @example Node provider (async construction)
  * ```typescript
  * return defineProviderExports({
  *   destroy: () => client.close(),
@@ -68,9 +78,34 @@ export type ProviderContext<
  *   posts: postsTable,
  * });
  * ```
+ *
+ * @see https://github.com/yjs/y-indexeddb - Inspiration for the whenSynced pattern
  */
 export type ProviderExports = {
+	/**
+	 * Optional promise that resolves when the provider has completed initial sync.
+	 *
+	 * This follows the y-indexeddb pattern: construction is synchronous,
+	 * but providers may load data asynchronously in the background.
+	 *
+	 * If provided, this will be included in the workspace's aggregated `whenSynced`.
+	 *
+	 * @example
+	 * ```typescript
+	 * const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
+	 * return defineProviderExports({
+	 *   whenSynced: persistence.whenSynced,
+	 *   destroy: () => persistence.destroy(),
+	 * });
+	 * ```
+	 */
+	whenSynced?: Promise<void>;
+
+	/**
+	 * Optional cleanup function called during workspace cleanup.
+	 */
 	destroy?: () => void | Promise<void>;
+
 	[key: string]: unknown;
 };
 

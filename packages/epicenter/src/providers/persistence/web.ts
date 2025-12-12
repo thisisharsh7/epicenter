@@ -91,7 +91,16 @@ import type { Provider } from '../../core/provider';
 export const setupPersistence = (({ ydoc }) => {
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
-	new IndexeddbPersistence(ydoc.guid, ydoc);
+	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
 
 	console.log(`[Persistence] IndexedDB persistence enabled for ${ydoc.guid}`);
+
+	// Return exports with whenSynced for the y-indexeddb pattern
+	// This allows the workspace to know when data has been loaded from IndexedDB
+	return {
+		whenSynced: persistence.whenSynced.then(() => {
+			console.log(`[Persistence] IndexedDB synced for ${ydoc.guid}`);
+		}),
+		destroy: () => persistence.destroy(),
+	};
 }) satisfies Provider;

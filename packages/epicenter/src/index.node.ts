@@ -16,6 +16,14 @@ export { defineEpicenter } from './core/epicenter/config.node';
 export { createEpicenterClient } from './core/epicenter/client.node';
 export { createWorkspaceClient } from './core/workspace/client.node';
 
+// Node-specific: types (node WorkspaceClient does NOT have whenSynced)
+export type {
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './core/workspace/client.node';
+export type { ActionInfo, EpicenterClient } from './core/epicenter/client.node';
+export { iterActions } from './core/epicenter/client.node';
+
 // Node-only: server functionality
 export { createServer } from './server';
 
