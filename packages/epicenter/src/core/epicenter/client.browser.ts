@@ -3,10 +3,14 @@
  *
  * In browser environments, storageDir and epicenterDir are always undefined
  * since filesystem operations are not available.
+ *
+ * IMPORTANT: Browser initialization is SYNCHRONOUS because browser providers
+ * (IndexedDB persistence, WebSocket sync) handle their async operations internally.
+ * This enables immediate client usage without await.
  */
 
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
-import { initializeWorkspaces } from '../workspace/client.shared';
+import { initializeWorkspaces } from '../workspace/client.browser';
 import type { EpicenterClient } from './client.shared';
 import type { EpicenterConfig } from './config.browser';
 
@@ -19,21 +23,26 @@ export { iterActions } from './client.shared';
  *
  * In browser environments, storageDir is always undefined (no filesystem access).
  *
+ * IMPORTANT: This is SYNCHRONOUS in browser - no await needed.
+ *
  * @param config - Epicenter configuration with workspaces to initialize
  * @returns Initialized epicenter client with access to all workspace exports
+ *
+ * @example
+ * ```typescript
+ * // Browser: synchronous initialization
+ * const client = createEpicenterClient(epicenter);
+ *
+ * // Client is immediately usable
+ * const pages = client.pages.getAllPages();
+ * ```
  */
-export async function createEpicenterClient<
+export function createEpicenterClient<
 	const TId extends string,
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	config: EpicenterConfig<TId, TWorkspaces>,
-): Promise<EpicenterClient<TWorkspaces>> {
-	// Browser: no storage directory resolution
-	const clients = await initializeWorkspaces(
-		config.workspaces,
-		undefined, // storageDir is always undefined in browser
-		undefined, // epicenterDir is always undefined in browser
-	);
+>(config: EpicenterConfig<TId, TWorkspaces>): EpicenterClient<TWorkspaces> {
+	// Browser: sync initialization
+	const clients = initializeWorkspaces(config.workspaces);
 
 	const cleanup = async () => {
 		await Promise.all(

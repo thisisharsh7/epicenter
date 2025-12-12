@@ -8,7 +8,7 @@
 import path from 'node:path';
 import type { EpicenterDir, StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
-import { initializeWorkspaces } from '../workspace/client.shared';
+import { initializeWorkspaces } from '../workspace/client.node';
 import type { EpicenterClient } from './client.shared';
 import type { EpicenterConfig } from './config.node';
 
