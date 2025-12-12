@@ -45,16 +45,15 @@ export type { WorkspaceClient, WorkspacesToClients } from './client.shared';
  * Initialization uses topological sort for deterministic, predictable order.
  *
  * @param workspaceConfigs - Array of workspace configurations to initialize
- * @param storageDir - Absolute storage directory path
- * @param epicenterDir - Absolute path to .epicenter directory
+ * @param options.storageDir - Absolute storage directory path
+ * @param options.epicenterDir - Absolute path to .epicenter directory
  * @returns Object mapping workspace ids to initialized workspace clients
  */
 export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
 >(
 	workspaceConfigs: TConfigs,
-	storageDir: StorageDir,
-	epicenterDir: EpicenterDir,
+	{ storageDir, epicenterDir }: { storageDir: StorageDir; epicenterDir: EpicenterDir },
 ): Promise<WorkspacesToClients<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
@@ -425,11 +424,10 @@ export async function createWorkspaceClient<
 		'.epicenter',
 	) as EpicenterDir;
 
-	const clients = await initializeWorkspaces(
-		allWorkspaceConfigs,
-		resolvedStorageDir,
-		resolvedEpicenterDir,
-	);
+	const clients = await initializeWorkspaces(allWorkspaceConfigs, {
+		storageDir: resolvedStorageDir,
+		epicenterDir: resolvedEpicenterDir,
+	});
 
 	const workspaceClient = clients[workspace.id as keyof typeof clients];
 	if (!workspaceClient) {

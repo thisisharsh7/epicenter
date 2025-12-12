@@ -70,11 +70,10 @@ export async function createEpicenterClient<
 	// Initialize workspaces using flat/hoisted resolution model
 	// All transitive dependencies must be explicitly listed in config.workspaces
 	// initializeWorkspaces will validate this and throw if dependencies are missing
-	const clients = await initializeWorkspaces(
-		config.workspaces,
+	const clients = await initializeWorkspaces(config.workspaces, {
 		storageDir,
 		epicenterDir,
-	);
+	});
 
 	const cleanup = async () => {
 		await Promise.all(
