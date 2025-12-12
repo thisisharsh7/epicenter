@@ -209,13 +209,17 @@ exports: ({ providers }) => ({
 })
 ```
 
-Provider functions receive a context object with `{ id, ydoc, storageDir, tables }` and can return exports. For example, a custom WebSocket sync provider:
+Provider functions receive a context object with `{ id, ydoc, storageDir, tables }` and can return exports. For example, sync providers:
 
 ```typescript
 providers: {
   persistence: setupPersistence,
   sqlite: (c) => sqliteProvider(c),
-  sync: ({ ydoc }) => new HocuspocusProvider({ url: 'ws://...', document: ydoc }),
+
+  // WebSocket sync (y-websocket protocol)
+  sync: createWebsocketSyncProvider({
+    url: 'ws://localhost:3913/sync',
+  }),
 }
 ```
 
@@ -746,6 +750,104 @@ deserialize: ({ frontmatter, body, filename, table }) => {
 }
 ```
 
+### WebSocket Sync Provider
+
+The WebSocket sync provider enables real-time Y.Doc synchronization using the y-websocket protocol. This is the recommended sync solution for Epicenter.
+
+**Setup:**
+
+```typescript
+import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
+
+providers: {
+  sync: createWebsocketSyncProvider({
+    url: 'ws://localhost:3913/sync',
+  })
+}
+```
+
+**Server-side sync endpoint:**
+
+The Epicenter server includes a sync endpoint at `/sync/{workspaceId}`:
+
+```typescript
+// In server.ts, sync is automatically included
+const { app, client } = await createServer(config);
+app.listen(3913);
+
+// Clients connect to: ws://localhost:3913/sync/blog
+```
+
+**How it works:**
+
+1. Client opens WebSocket to `/sync/{workspaceId}`
+2. Server sends initial sync state
+3. Client and server exchange updates bidirectionally
+4. Server broadcasts updates to all connected clients
+5. All Y.Docs converge via Yjs CRDTs
+
+**Key properties:**
+- Server is authoritative: REST API always reflects current Y.Doc state
+- Standard protocol: Compatible with any y-websocket client
+- Built-in awareness: User presence/cursors work out of the box
+- No native modules: Pure JS, works with Bun
+
+### Multi-Device Sync Architecture
+
+Epicenter supports a distributed sync architecture where Y.Doc instances can be replicated across multiple devices and servers.
+
+**Define your sync nodes:**
+
+```typescript
+// src/config/sync-nodes.ts
+export const SYNC_NODES = {
+  // Local devices via Tailscale
+  desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync',
+  laptop: 'ws://laptop.my-tailnet.ts.net:3913/sync',
+
+  // Cloud server (optional, always-on)
+  cloud: 'wss://sync.myapp.com/sync',
+
+  // Localhost (for browser connecting to local server)
+  localhost: 'ws://localhost:3913/sync',
+} as const;
+```
+
+**Provider strategy per device:**
+
+| Device | Role | Connects To |
+|--------|------|-------------|
+| Phone browser | Client only | `desktop`, `laptop`, `cloud` |
+| Laptop browser | Client | `localhost` |
+| Desktop browser | Client | `localhost` |
+| Laptop server | Node + Client | `desktop`, `cloud` |
+| Desktop server | Node + Client | `laptop`, `cloud` |
+
+**Multi-provider example (phone):**
+
+```typescript
+// Phone connects to ALL available sync nodes
+providers: {
+  syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
+  syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
+  syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+}
+```
+
+**Server-to-server sync:**
+
+```typescript
+// Desktop server connects to OTHER servers (not itself!)
+providers: {
+  syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
+  syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+}
+```
+
+Yjs supports multiple providers simultaneously. Changes merge automatically via CRDTs regardless of which provider delivers them first.
+
+See [SYNC_ARCHITECTURE.md](./SYNC_ARCHITECTURE.md) for complete multi-device sync documentation.
+
 ## Workspace Dependencies
 
 Workspaces can depend on other workspaces, enabling modular architecture.
@@ -1011,7 +1113,7 @@ type ProviderContext = {
 ```typescript
 import { setupPersistence } from '@epicenter/hq/providers';
 import { sqliteProvider, markdownProvider } from '@epicenter/hq';
-import { HocuspocusProvider } from '@hocuspocus/provider';
+import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
 
 providers: {
   // Filesystem persistence (Node.js) or IndexedDB (browser)
@@ -1023,11 +1125,9 @@ providers: {
   // Markdown materializer
   markdown: (c) => markdownProvider(c),
 
-  // WebSocket sync provider
-  sync: ({ ydoc }) => new HocuspocusProvider({
-    url: 'wss://collab.example.com',
-    name: 'my-workspace',
-    document: ydoc,
+  // WebSocket sync provider (y-websocket protocol)
+  sync: createWebsocketSyncProvider({
+    url: 'ws://localhost:3913/sync',
   }),
 
   // Custom provider
@@ -1369,15 +1469,25 @@ A long-running HTTP server models Epicenter's folder-based architecture:
 
 ### Route Handling
 
-Workspace actions are exposed via REST endpoints:
+Workspace actions are exposed via REST endpoints under the `/workspaces` prefix:
 
 **Query Actions** (HTTP GET):
-- Path: `/{workspaceId}/{actionName}`
+- Path: `/workspaces/{workspaceId}/{actionName}`
 - Input: Query string parameters
 
 **Mutation Actions** (HTTP POST):
-- Path: `/{workspaceId}/{actionName}`
+- Path: `/workspaces/{workspaceId}/{actionName}`
 - Input: JSON request body
+
+**URL Hierarchy:**
+```
+/                                    - API root/discovery
+/openapi                             - OpenAPI spec (JSON)
+/scalar                              - Scalar UI documentation
+/mcp                                 - MCP endpoint
+/signaling                           - WebRTC signaling WebSocket
+/workspaces/{workspaceId}/{action}   - Workspace actions
+```
 
 ### Setup
 

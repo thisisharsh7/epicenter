@@ -87,10 +87,11 @@ export function* iterActions<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
 	for (const [workspaceId, workspaceClient] of Object.entries(
 		workspaceClients,
 	)) {
-		// Extract all exports (excluding cleanup methods from the workspace interface)
+		// Extract all exports (excluding cleanup methods and internal properties from the workspace interface)
 		const {
 			destroy: _workspaceDestroy,
 			[Symbol.asyncDispose]: _workspaceAsyncDispose,
+			$ydoc: _$ydoc,
 			...workspaceExports
 		} = workspaceClient as WorkspaceClient<WorkspaceExports>;
 

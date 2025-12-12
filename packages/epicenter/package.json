@@ -9,7 +9,6 @@
 			"node": "./src/index.node.ts",
 			"default": "./src/index.node.ts"
 		},
-		"./providers/hocuspocus": "./src/providers/hocuspocus.ts",
 		"./providers/persistence": {
 			"browser": "./src/providers/persistence/index.browser.ts",
 			"node": "./src/providers/persistence/index.node.ts",
@@ -18,7 +17,8 @@
 		"./cli": "./src/cli/index.ts",
 		"./indexes/markdown": "./src/indexes/markdown/index.ts",
 		"./indexes/sqlite": "./src/indexes/sqlite/index.ts",
-		"./server": "./src/server/index.ts"
+		"./server": "./src/server/index.ts",
+		"./providers/websocket-sync": "./src/providers/websocket-sync.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
@@ -30,8 +30,6 @@
 	},
 	"dependencies": {
 		"mime": "catalog:",
-		"@hocuspocus/provider": "^3.4.0",
-		"@hocuspocus/server": "^3.4.0",
 		"@elysiajs/openapi": "^1.4.11",
 		"@standard-community/standard-json": "^0.3.5",
 		"@standard-schema/spec": "^1.0.0",
@@ -45,7 +43,9 @@
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"yargs": "catalog:",
-		"yjs": "^13.6.27"
+		"yjs": "^13.6.27",
+		"y-protocols": "^1.0.6",
+		"lib0": "^0.2.99"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",

@@ -2,21 +2,34 @@ import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 // import { mcp } from 'elysia-mcp';
 import { Err, isResult, Ok } from 'wellcrafted/result';
+import type { WorkspaceExports } from '../core/actions';
 import {
 	createEpicenterClient,
 	type EpicenterConfig,
 	iterActions,
 } from '../core/epicenter';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import type {
+	AnyWorkspaceConfig,
+	WorkspaceClient,
+	WorkspacesToClients,
+} from '../core/workspace';
+import { createSyncPlugin } from './sync';
 // import { buildMcpToolRegistry, setupMcpTools } from './mcp';
 
 /**
- * Create a unified server with REST, MCP, and API documentation endpoints
+ * Create a unified server with REST, WebSocket sync, and API documentation endpoints
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
- * - REST endpoints: GET `/{workspace}/{action}` for queries, POST for mutations
- * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
+ * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
+ * - WebSocket sync: `/sync/{workspaceId}` for real-time Y.Doc synchronization
  * - API documentation: `/openapi` (Scalar UI by default)
+ *
+ * URL Hierarchy:
+ * - `/` - API root/discovery
+ * - `/openapi` - OpenAPI spec (JSON)
+ * - `/scalar` - Scalar UI documentation
+ * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
+ * - `/workspaces/{workspaceId}/{action}` - Workspace actions
  *
  * The function initializes the Epicenter client, registers REST routes for all workspace actions,
  * and configures an MCP server instance for protocol-based access.
@@ -89,6 +102,20 @@ export async function createServer<
 		// 		},
 		// 	}),
 		// )
+		// WebSocket sync endpoint at /sync/{workspaceId}
+		.use(
+			createSyncPlugin({
+				getDoc: (room) => {
+					// Room name is the workspace ID
+					// Type assertion needed because TypeScript can't prove the generic
+					// WorkspacesToClients mapping resolves to WorkspaceClient
+					const workspace = client[
+						room as keyof WorkspacesToClients<TWorkspaces>
+					] as WorkspaceClient<WorkspaceExports> | undefined;
+					return workspace?.$ydoc;
+				},
+			}),
+		)
 		// Health check / discovery
 		.get('/', () => ({
 			name: `${config.id} API`,
@@ -98,9 +125,9 @@ export async function createServer<
 
 	// Register REST endpoints for each workspace action
 	// Supports nested exports: actionPath like ['users', 'crud', 'create']
-	// becomes route path '/workspace/users/crud/create'
+	// becomes route path '/workspaces/workspace/users/crud/create'
 	for (const { workspaceId, actionPath, action } of iterActions(client)) {
-		const path = `/${workspaceId}/${actionPath.join('/')}`;
+		const path = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
 
 		// Tag with both workspace and operation type for multi-dimensional grouping
 		const operationType = (

@@ -74,6 +74,7 @@ export function createWhisperCppTranscriptionService() {
 			options: {
 				outputLanguage: Settings['transcription.outputLanguage'];
 				modelPath: string;
+				prompt: Settings['transcription.prompt'];
 			},
 		): Promise<Result<string, WhisperingError>> {
 			// Pre-validation
@@ -137,7 +138,7 @@ export function createWhisperCppTranscriptionService() {
 			const audioData = Array.from(new Uint8Array(arrayBuffer));
 
 			// Call Tauri command to transcribe with whisper-cpp
-			// Note: temperature and prompt are not supported by local models (transcribe-rs)
+			// Note: temperature is not supported by local models (transcribe-rs)
 			const result = await tryAsync({
 				try: () =>
 					invoke<string>('transcribe_audio_whisper', {
@@ -145,6 +146,7 @@ export function createWhisperCppTranscriptionService() {
 						modelPath: options.modelPath,
 						language:
 							options.outputLanguage === 'auto' ? null : options.outputLanguage,
+						initialPrompt: options.prompt || null,
 					}),
 				catch: (unknownError) => {
 					const result = WhisperCppErrorType(unknownError);

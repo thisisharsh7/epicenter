@@ -17,6 +17,21 @@ import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
  */
 export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
 	/**
+	 * The underlying YJS document for this workspace.
+	 *
+	 * Exposed for sync providers and advanced use cases.
+	 * The document's guid matches the workspace ID.
+	 *
+	 * @example
+	 * ```typescript
+	 * const client = await createEpicenterClient(config);
+	 * const ydoc = client.blog.$ydoc;
+	 * ydoc.on('update', (update) => { ... });
+	 * ```
+	 */
+	$ydoc: Y.Doc;
+
+	/**
 	 * Async cleanup method for resource management
 	 * - Destroys all providers (awaiting any async cleanup)
 	 * - Destroys the YJS document
@@ -397,6 +412,7 @@ export async function initializeWorkspaces<
 		// Filtering to just actions happens at the server/MCP level via iterActions()
 		const client: WorkspaceClient<any> = {
 			...exports,
+			$ydoc: ydoc,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		};

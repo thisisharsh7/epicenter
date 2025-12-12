@@ -253,6 +253,7 @@ async function transcribeBlob(
 						{
 							outputLanguage: settings.value['transcription.outputLanguage'],
 							modelPath: settings.value['transcription.whispercpp.modelPath'],
+							prompt: settings.value['transcription.prompt'],
 						},
 					);
 				}

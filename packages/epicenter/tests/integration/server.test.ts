@@ -13,9 +13,9 @@ import {
 	integer,
 	select,
 	text,
-} from '../../src/index';
-import { sqliteIndex } from '../../src/indexes/sqlite';
-import type { createServer } from '../../src/server';
+	createServer,
+} from '../../src/index.node';
+import { sqliteProvider } from '../../src/indexes/sqlite';
 
 // Helper to parse SSE response from MCP endpoint
 async function parseMcpResponse(response: Response): Promise<any> {
@@ -31,7 +31,7 @@ describe('Server Integration Tests', () => {
 	const blogWorkspace = defineWorkspace({
 		id: 'blog',
 
-		schema: {
+		tables: {
 			posts: {
 				id: id(),
 				title: text(),
@@ -44,11 +44,11 @@ describe('Server Integration Tests', () => {
 			},
 		},
 
-		indexes: {
-			sqlite: (c) => sqliteIndex(c),
+		providers: {
+			sqlite: (c) => sqliteProvider(c),
 		},
 
-		exports: ({ db, indexes }) => ({
+		exports: ({ tables, providers }) => ({
 			createPost: defineMutation({
 				input: type({
 					title: 'string >= 1',
@@ -65,7 +65,7 @@ describe('Server Integration Tests', () => {
 						views: 0,
 						published: false,
 					};
-					db.posts.insert(post);
+					tables.posts.upsert(post);
 					return Ok(post);
 				},
 			}),
@@ -73,9 +73,9 @@ describe('Server Integration Tests', () => {
 			getAllPosts: defineQuery({
 				description: 'Get all blog posts',
 				handler: async () => {
-					const posts = await indexes.sqlite.db
+					const posts = await providers.sqlite.db
 						.select()
-						.from(indexes.sqlite.posts);
+						.from(providers.sqlite.posts);
 					return Ok(posts);
 				},
 			}),
@@ -86,10 +86,10 @@ describe('Server Integration Tests', () => {
 				}),
 				description: 'Get posts by category',
 				handler: async ({ category }) => {
-					const posts = await indexes.sqlite.db
+					const posts = await providers.sqlite.db
 						.select()
-						.from(indexes.sqlite.posts)
-						.where(eq(indexes.sqlite.posts.category, category));
+						.from(providers.sqlite.posts)
+						.where(eq(providers.sqlite.posts.category, category));
 					return Ok(posts);
 				},
 			}),
@@ -114,9 +114,9 @@ describe('Server Integration Tests', () => {
 			});
 		});
 
-		test('creates post via POST /blog/createPost', async () => {
+		test('creates post via POST /workspaces/blog/createPost', async () => {
 			const response = await fetch(
-				`http://localhost:${server.port}/blog/createPost`,
+				`http://localhost:${server.port}/workspaces/blog/createPost`,
 				{
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -135,9 +135,9 @@ describe('Server Integration Tests', () => {
 			expect(data.data.category).toBe('tech');
 		});
 
-		test('gets all posts via GET /blog/getAllPosts', async () => {
+		test('gets all posts via GET /workspaces/blog/getAllPosts', async () => {
 			const response = await fetch(
-				`http://localhost:${server.port}/blog/getAllPosts`,
+				`http://localhost:${server.port}/workspaces/blog/getAllPosts`,
 			);
 
 			expect(response.status).toBe(200);
@@ -146,9 +146,9 @@ describe('Server Integration Tests', () => {
 			expect(Array.isArray(data.data)).toBe(true);
 		});
 
-		test('gets posts by category via GET /blog/getPostsByCategory', async () => {
+		test('gets posts by category via GET /workspaces/blog/getPostsByCategory', async () => {
 			const response = await fetch(
-				`http://localhost:${server.port}/blog/getPostsByCategory?category=tech`,
+				`http://localhost:${server.port}/workspaces/blog/getPostsByCategory?category=tech`,
 			);
 
 			expect(response.status).toBe(200);
@@ -236,7 +236,7 @@ describe('Server Integration Tests', () => {
 		const authWorkspace = defineWorkspace({
 			id: 'auth',
 
-			schema: {
+			tables: {
 				users: {
 					id: id(),
 					email: text(),
@@ -244,14 +244,14 @@ describe('Server Integration Tests', () => {
 				},
 			},
 
-			indexes: {
-				sqlite: (db) =>
-					sqliteIndex(db, {
+			providers: {
+				sqlite: (c) =>
+					sqliteProvider(c, {
 						database: ':memory:',
 					}),
 			},
 
-			exports: ({ db }) => ({
+			exports: ({ tables }) => ({
 				createUser: defineMutation({
 					input: type({
 						email: 'string',
@@ -263,7 +263,7 @@ describe('Server Integration Tests', () => {
 							id: generateId(),
 							...input,
 						};
-						db.users.insert(user);
+						tables.users.upsert(user);
 						return Ok(user);
 					},
 				}),
@@ -287,9 +287,9 @@ describe('Server Integration Tests', () => {
 			});
 		});
 
-		test('creates post via POST /blog/createPost', async () => {
+		test('creates post via POST /workspaces/blog/createPost', async () => {
 			const response = await fetch(
-				`http://localhost:${server.port}/blog/createPost`,
+				`http://localhost:${server.port}/workspaces/blog/createPost`,
 				{
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -305,9 +305,9 @@ describe('Server Integration Tests', () => {
 			expect(data.data.title).toBe('Epicenter Test');
 		});
 
-		test('creates user via POST /auth/createUser', async () => {
+		test('creates user via POST /workspaces/auth/createUser', async () => {
 			const response = await fetch(
-				`http://localhost:${server.port}/auth/createUser`,
+				`http://localhost:${server.port}/workspaces/auth/createUser`,
 				{
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
