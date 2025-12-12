@@ -22,17 +22,22 @@ import type * as Y from 'yjs';
 // Message Type Constants
 // ============================================================================
 
-/** Document synchronization messages (sync step 1, 2, or update) */
-export const MESSAGE_SYNC = 0;
+/**
+ * Top-level message types in the y-websocket protocol.
+ * The first varint in any message identifies its type.
+ */
+export const MESSAGE_TYPE = {
+	/** Document synchronization messages (sync step 1, 2, or update) */
+	SYNC: 0,
+	/** User presence/cursor information */
+	AWARENESS: 1,
+	/** Authentication (reserved for future use) */
+	AUTH: 2,
+	/** Request current awareness states from server */
+	QUERY_AWARENESS: 3,
+} as const;
 
-/** User presence/cursor information */
-export const MESSAGE_AWARENESS = 1;
-
-/** Authentication (reserved for future use) */
-export const MESSAGE_AUTH = 2;
-
-/** Request current awareness states from server */
-export const MESSAGE_QUERY_AWARENESS = 3;
+export type MessageType = (typeof MESSAGE_TYPE)[keyof typeof MESSAGE_TYPE];
 
 // ============================================================================
 // Internal Helpers
@@ -65,7 +70,7 @@ function encode(writer: (encoder: encoding.Encoder) => void): Uint8Array {
  */
 export function encodeSyncStep1({ doc }: { doc: Y.Doc }): Uint8Array {
 	return encode((encoder) => {
-		encoding.writeVarUint(encoder, MESSAGE_SYNC);
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 		syncProtocol.writeSyncStep1(encoder, doc);
 	});
 }
@@ -82,7 +87,7 @@ export function encodeSyncStep1({ doc }: { doc: Y.Doc }): Uint8Array {
  */
 export function encodeSyncStep2({ doc }: { doc: Y.Doc }): Uint8Array {
 	return encode((encoder) => {
-		encoding.writeVarUint(encoder, MESSAGE_SYNC);
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 		syncProtocol.writeSyncStep2(encoder, doc);
 	});
 }
@@ -99,7 +104,7 @@ export function encodeSyncStep2({ doc }: { doc: Y.Doc }): Uint8Array {
  */
 export function encodeSyncUpdate({ update }: { update: Uint8Array }): Uint8Array {
 	return encode((encoder) => {
-		encoding.writeVarUint(encoder, MESSAGE_SYNC);
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 		syncProtocol.writeUpdate(encoder, update);
 	});
 }
@@ -120,7 +125,7 @@ export function encodeSyncUpdate({ update }: { update: Uint8Array }): Uint8Array
  */
 export function encodeAwareness({ update }: { update: Uint8Array }): Uint8Array {
 	return encode((encoder) => {
-		encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
 		encoding.writeVarUint8Array(encoder, update);
 	});
 }
@@ -197,7 +202,7 @@ export function handleSyncMessage({
 	origin: unknown;
 }): Uint8Array | null {
 	const encoder = encoding.createEncoder();
-	encoding.writeVarUint(encoder, MESSAGE_SYNC);
+	encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 	syncProtocol.readSyncMessage(decoder, encoder, doc, origin);
 
 	// Only return if there's content beyond the message type byte.

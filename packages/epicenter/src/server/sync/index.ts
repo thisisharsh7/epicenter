@@ -9,9 +9,7 @@ import {
 	encodeSyncStep1,
 	encodeSyncUpdate,
 	handleSyncMessage,
-	MESSAGE_AWARENESS,
-	MESSAGE_QUERY_AWARENESS,
-	MESSAGE_SYNC,
+	MESSAGE_TYPE,
 } from './protocol';
 
 /** WebSocket close code for room not found (4000-4999 reserved for application use per RFC 6455) */
@@ -160,7 +158,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			const messageType = decoding.readVarUint(decoder);
 
 			switch (messageType) {
-				case MESSAGE_SYNC: {
+				case MESSAGE_TYPE.SYNC: {
 					const response = handleSyncMessage({ decoder, doc, origin: ws });
 					if (response) {
 						ws.send(response);
@@ -168,7 +166,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					break;
 				}
 
-				case MESSAGE_AWARENESS: {
+				case MESSAGE_TYPE.AWARENESS: {
 					const update = decoding.readVarUint8Array(decoder);
 
 					// Decode the update to track which client IDs this connection controls.
@@ -212,7 +210,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					break;
 				}
 
-				case MESSAGE_QUERY_AWARENESS: {
+				case MESSAGE_TYPE.QUERY_AWARENESS: {
 					// Client is requesting current awareness states
 					const awarenessStates = awareness.getStates();
 					if (awarenessStates.size > 0) {
