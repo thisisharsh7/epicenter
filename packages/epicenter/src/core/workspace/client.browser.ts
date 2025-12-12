@@ -12,7 +12,7 @@
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
-import type { ProviderExports, WorkspaceProviderMap } from '../provider';
+import type { Provider, ProviderExports } from '../provider';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import type { WorkspaceClient, WorkspacesToClients } from './client.shared';
@@ -396,16 +396,10 @@ export function createWorkspaceClient<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TProviderResults extends WorkspaceProviderMap,
+	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
 	TExports extends WorkspaceExports,
 >(
-	workspace: WorkspaceConfig<
-		TDeps,
-		TId,
-		TWorkspaceSchema,
-		TProviderResults,
-		TExports
-	>,
+	workspace: WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports>,
 ): WorkspaceClient<TExports> {
 	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization
 	const allWorkspaceConfigs: WorkspaceConfig[] = [];

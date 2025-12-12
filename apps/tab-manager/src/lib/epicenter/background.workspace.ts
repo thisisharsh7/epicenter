@@ -342,15 +342,6 @@ export const backgroundWorkspace = defineWorkspace({
 		},
 	},
 	exports: ({ tables, providers }) => {
-		// Type assertions for provider exports
-		// TypeScript can't infer these through the generic chain
-		const persistence = providers.persistence as {
-			whenSynced: Promise<IndexeddbPersistence>;
-		};
-		const chromeSync = providers.chromeSync as {
-			syncAllFromChrome: () => Promise<void>;
-		};
-
 		return {
 			/**
 			 * Get the tables for direct access.
@@ -361,14 +352,14 @@ export const backgroundWorkspace = defineWorkspace({
 			 * Wait for IndexedDB to finish initial sync.
 			 */
 			get whenSynced() {
-				return persistence.whenSynced;
+				return providers.persistence.whenSynced;
 			},
 
 			/**
 			 * Perform a full sync from Chrome to Y.Doc.
 			 * Clears existing data and re-syncs all tabs/windows.
 			 */
-			syncAllFromChrome: chromeSync.syncAllFromChrome,
+			syncAllFromChrome: providers.chromeSync.syncAllFromChrome,
 
 			/**
 			 * Get all tabs sorted by index.

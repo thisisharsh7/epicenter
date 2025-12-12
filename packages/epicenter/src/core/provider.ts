@@ -124,6 +124,31 @@ export type Provider<
 export type WorkspaceProviderMap = Record<string, ProviderExports>;
 
 /**
+ * Infer the exports type from a provider function.
+ *
+ * Extracts the return type from a provider, unwrapping Promise and excluding void.
+ * Returns `Record<string, never>` (empty object) for providers that return void.
+ *
+ * @example
+ * ```typescript
+ * // Provider that returns exports
+ * const myProvider = ({ ydoc }) => defineProviderExports({ db: sqlite });
+ * type Exports = InferProviderExports<typeof myProvider>;
+ * // Exports = { db: typeof sqlite }
+ *
+ * // Provider that returns void (side effects only)
+ * const sideEffectProvider = ({ ydoc }) => { ydoc.on('update', ...); };
+ * type Exports = InferProviderExports<typeof sideEffectProvider>;
+ * // Exports = Record<string, never>
+ * ```
+ */
+export type InferProviderExports<P> = P extends (context: any) => infer R
+	? Awaited<R> extends void | undefined
+		? Record<string, never>
+		: Exclude<Awaited<R>, void | undefined>
+	: Record<string, never>;
+
+/**
  * Define provider exports with type safety (identity function).
  *
  * @example

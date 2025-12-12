@@ -1,11 +1,7 @@
 import type { WorkspaceExports } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
-import type {
-	Provider,
-	ProviderExports,
-	WorkspaceProviderMap,
-} from '../provider';
+import type { InferProviderExports, Provider } from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
 
@@ -103,17 +99,11 @@ export function defineWorkspace<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
-	const TProviderResults extends WorkspaceProviderMap,
+	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
 	TExports extends WorkspaceExports,
 >(
-	workspace: WorkspaceConfig<
-		TDeps,
-		TId,
-		TWorkspaceSchema,
-		TProviderResults,
-		TExports
-	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviderResults, TExports> {
+	workspace: WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports>,
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports> {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
@@ -142,6 +132,14 @@ export function defineWorkspace<
  *
  * Fully-featured workspace configuration used for defining workspaces and their dependencies.
  *
+ * ## Provider Type Inference
+ *
+ * The `TProviders` type parameter captures the actual provider functions you pass.
+ * The `exports` factory receives provider exports derived via `InferProviderExports`:
+ * - Provider returns `{ db: Db }` → exports receives `{ db: Db }`
+ * - Provider returns `void` → exports receives `Record<string, never>` (empty object)
+ * - Provider returns `Promise<{ db: Db }>` → exports receives `{ db: Db }` (unwrapped)
+ *
  * ## Dependency Constraint
  *
  * The `dependencies` field uses `AnyWorkspaceConfig[]` as a minimal constraint.
@@ -161,18 +159,16 @@ export type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
-	TProviderResults extends WorkspaceProviderMap = WorkspaceProviderMap,
+	TProviders extends Record<string, Provider<TWorkspaceSchema>> = Record<
+		string,
+		Provider<TWorkspaceSchema>
+	>,
 	TExports extends WorkspaceExports = WorkspaceExports,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
 	dependencies?: TDeps;
-	providers: {
-		[K in keyof TProviderResults]: Provider<
-			TWorkspaceSchema,
-			TProviderResults[K] extends ProviderExports ? TProviderResults[K] : ProviderExports
-		>;
-	};
+	providers: TProviders;
 	/**
 	 * Factory function that creates workspace exports (actions, utilities, etc.)
 	 *
@@ -213,7 +209,7 @@ export type WorkspaceConfig<
 		schema: TWorkspaceSchema;
 		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToExports<TDeps>;
-		providers: TProviderResults;
+		providers: { [K in keyof TProviders]: InferProviderExports<TProviders[K]> };
 		blobs: WorkspaceBlobs<TWorkspaceSchema>;
 		storageDir: StorageDir | undefined;
 		epicenterDir: EpicenterDir | undefined;

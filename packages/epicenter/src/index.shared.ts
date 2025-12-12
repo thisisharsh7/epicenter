@@ -97,6 +97,7 @@ export {
 } from './core/errors';
 
 export type {
+	InferProviderExports,
 	Provider,
 	ProviderContext,
 	ProviderExports,
