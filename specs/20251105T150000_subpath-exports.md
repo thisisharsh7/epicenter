@@ -15,7 +15,7 @@ Looking at the codebase structure, I see several distinct modules:
 
 1. **Core exports** (already in main barrel): workspace, schema, actions, epicenter, db
 2. **Index implementations**: markdown, sqlite (partially exported)
-3. **Providers**: persistence, hocuspocus (already has `/providers` subpath)
+3. **Providers**: persistence, websocket-sync (already has `/providers` subpath)
 4. **Platform-specific**: cli, desktop, web (already have subpaths)
 5. **Server**: REST API and MCP server (already has subpath indirectly)
 6. **Missing exports**: Helper functions, error types from index implementations

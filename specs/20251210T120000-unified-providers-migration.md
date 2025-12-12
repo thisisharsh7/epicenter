@@ -89,8 +89,7 @@ defineWorkspace({
 - [ ] Update `packages/epicenter/src/providers/persistence/web.ts`
   - Same changes as desktop.ts
 
-- [ ] Update `packages/epicenter/src/providers/hocuspocus.ts` (if exists)
-  - Update to use new `ProviderContext` shape
+- [x] ~~Update `packages/epicenter/src/providers/hocuspocus.ts` (if exists)~~ (removed - replaced by websocket-sync)
 
 ### Phase 4: Index → Provider Migration
 
