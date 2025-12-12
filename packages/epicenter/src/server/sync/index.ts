@@ -4,6 +4,7 @@ import * as encoding from 'lib0/encoding';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import type * as Y from 'yjs';
+import { Ok, trySync } from 'wellcrafted/result';
 
 /** y-websocket protocol message types */
 const MESSAGE_SYNC = 0;
@@ -60,6 +61,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 		if (!awarenessMap.has(room)) {
 			awarenessMap.set(room, new awarenessProtocol.Awareness(doc));
 		}
+		// biome-ignore lint/style/noNonNullAssertion: Value guaranteed to exist - we just set it above if it didn't exist
 		return awarenessMap.get(room)!;
 	};
 
@@ -167,25 +169,29 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 
 					// Decode the update to track which client IDs this connection controls.
 					// The update contains [clientID, clock, state?] entries.
-					// Wrapped in try-catch because malformed messages shouldn't crash the connection.
-					try {
-						const decoder2 = decoding.createDecoder(update);
-						const len = decoding.readVarUint(decoder2);
-						for (let i = 0; i < len; i++) {
-							const clientId = decoding.readVarUint(decoder2);
-							decoding.readVarUint(decoder2); // clock
-							const state = JSON.parse(decoding.readVarString(decoder2));
-							if (state === null) {
-								// Client is removing their awareness state
-								controlledClientIds.delete(clientId);
-							} else {
-								// Client is setting their awareness state
-								controlledClientIds.add(clientId);
+					// Use trySync because malformed messages shouldn't crash the connection.
+					trySync({
+						try: () => {
+							const decoder2 = decoding.createDecoder(update);
+							const len = decoding.readVarUint(decoder2);
+							for (let i = 0; i < len; i++) {
+								const clientId = decoding.readVarUint(decoder2);
+								decoding.readVarUint(decoder2); // clock
+								const state = JSON.parse(decoding.readVarString(decoder2));
+								if (state === null) {
+									// Client is removing their awareness state
+									controlledClientIds.delete(clientId);
+								} else {
+									// Client is setting their awareness state
+									controlledClientIds.add(clientId);
+								}
 							}
-						}
-					} catch {
-						// Malformed awareness update - skip client ID tracking but still apply
-					}
+						},
+						catch: () => {
+							// Malformed awareness update - skip client ID tracking but still apply
+							return Ok(undefined);
+						},
+					});
 
 					awarenessProtocol.applyAwarenessUpdate(awareness, update, ws);
 
