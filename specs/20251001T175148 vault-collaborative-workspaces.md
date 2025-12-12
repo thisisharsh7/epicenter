@@ -41,12 +41,12 @@ export default defineWorkspace({
 
 ### Real-Time Collaboration
 
-Each workspace can be synchronized across multiple users via Yjs and a collaboration provider like Hocuspocus:
+Each workspace can be synchronized across multiple users via Yjs and a WebSocket sync provider:
 
 ```typescript
 import { runPlugin } from '@epicenter/vault';
 import * as Y from 'yjs';
-import { HocuspocusProvider } from '@hocuspocus/provider';
+import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
 
 // Load workspace config
 const workspace = await import('./users/epicenter.config.ts');
@@ -55,11 +55,9 @@ const workspace = await import('./users/epicenter.config.ts');
 const ydoc = new Y.Doc({ guid: workspace.default.id });
 
 // Connect to collaboration server
-const provider = new HocuspocusProvider({
-  url: 'wss://collab.example.com',
-  name: workspace.default.id, // Use workspace ID as document name
-  document: ydoc
-});
+createWebsocketSyncProvider({
+  url: 'wss://collab.example.com/sync',
+})({ ydoc });
 
 // Run plugin with sync enabled
 const api = await runPlugin(workspace.default, {
@@ -144,7 +142,7 @@ Share only specific workspaces:
 - [ ] Add Yjs document support to `runPlugin`
 - [ ] Implement CRDT-based table operations
 - [ ] Add conflict resolution strategies
-- [ ] Create Hocuspocus adapter
+- [x] Create WebSocket sync adapter
 
 ### Phase 3: Collaboration Features (Future)
 - [ ] Real-time presence indicators

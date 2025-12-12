@@ -8,7 +8,7 @@ Expose your Epicenter workspaces as REST APIs and AI-accessible tools.
 
 1. **Creates an Epicenter client** (same initialization as scripts)
 2. **Keeps it alive** (doesn't dispose until you stop the server)
-3. **Maps HTTP endpoints** to each client action (REST, MCP, Hocuspocus)
+3. **Maps HTTP endpoints** to each client action (REST, MCP, WebSocket Sync)
 
 The key difference from running scripts:
 
@@ -60,7 +60,7 @@ Bun.serve({ fetch: app.fetch, port: 3913 });
 
 - Web applications
 - API backends
-- Real-time collaboration (Hocuspocus)
+- Real-time collaboration (WebSocket Sync)
 - Multiple concurrent clients (via HTTP)
 
 **Benefits:**

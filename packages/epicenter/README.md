@@ -216,13 +216,10 @@ providers: {
   persistence: setupPersistence,
   sqlite: (c) => sqliteProvider(c),
 
-  // Option A: WebRTC sync (P2P, server as peer)
-  sync: createWebrtcSyncProvider({
-    signaling: ['ws://localhost:3913/signaling'],
+  // WebSocket sync (y-websocket protocol)
+  sync: createWebsocketSyncProvider({
+    url: 'ws://localhost:3913/sync',
   }),
-
-  // Option B: Hocuspocus WebSocket sync (server as hub)
-  sync: createHocuspocusProvider({ url: 'ws://localhost:3913' }),
 }
 ```
 
@@ -851,24 +848,6 @@ Yjs supports multiple providers simultaneously. Changes merge automatically via 
 
 See [SYNC_ARCHITECTURE.md](./SYNC_ARCHITECTURE.md) for complete multi-device sync documentation.
 
-### Hocuspocus Provider
-
-Alternative WebSocket-based sync using the Hocuspocus server.
-
-**Setup:**
-
-```typescript
-import { createHocuspocusProvider } from '@epicenter/hq';
-
-providers: {
-  sync: createHocuspocusProvider({
-    url: 'ws://localhost:1234',
-  })
-}
-```
-
-See [@hocuspocus/provider documentation](https://tiptap.dev/docs/hocuspocus/provider) for configuration options.
-
 ## Workspace Dependencies
 
 Workspaces can depend on other workspaces, enabling modular architecture.
@@ -1134,7 +1113,7 @@ type ProviderContext = {
 ```typescript
 import { setupPersistence } from '@epicenter/hq/providers';
 import { sqliteProvider, markdownProvider } from '@epicenter/hq';
-import { HocuspocusProvider } from '@hocuspocus/provider';
+import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
 
 providers: {
   // Filesystem persistence (Node.js) or IndexedDB (browser)
@@ -1146,11 +1125,9 @@ providers: {
   // Markdown materializer
   markdown: (c) => markdownProvider(c),
 
-  // WebSocket sync provider
-  sync: ({ ydoc }) => new HocuspocusProvider({
-    url: 'wss://collab.example.com',
-    name: 'my-workspace',
-    document: ydoc,
+  // WebSocket sync provider (y-websocket protocol)
+  sync: createWebsocketSyncProvider({
+    url: 'ws://localhost:3913/sync',
   }),
 
   // Custom provider
