@@ -41,35 +41,42 @@ function syncDocs(doc1: Y.Doc, doc2: Y.Doc): void {
 	Y.applyUpdate(doc2, state1);
 }
 
-/** Assert message has expected type */
-function expectMessageType(data: Uint8Array, expectedType: number): void {
+// ============================================================================
+// Pure Decoders (functional approach - return data, don't assert)
+// ============================================================================
+
+type SyncMessage =
+	| { type: 'step1'; stateVector: Uint8Array }
+	| { type: 'step2'; update: Uint8Array }
+	| { type: 'update'; update: Uint8Array };
+
+/** Decode a sync protocol message into its components */
+function decodeSyncMessage(data: Uint8Array): SyncMessage {
 	const decoder = decoding.createDecoder(data);
-	const actualType = decoding.readVarUint(decoder);
-	expect(actualType).toBe(expectedType);
+	const messageType = decoding.readVarUint(decoder);
+	if (messageType !== MESSAGE_TYPE.SYNC) {
+		throw new Error(`Expected SYNC message (0), got ${messageType}`);
+	}
+
+	const syncType = decoding.readVarUint(decoder);
+	const payload = decoding.readVarUint8Array(decoder);
+
+	switch (syncType) {
+		case syncProtocol.messageYjsSyncStep1:
+			return { type: 'step1', stateVector: payload };
+		case syncProtocol.messageYjsSyncStep2:
+			return { type: 'step2', update: payload };
+		case syncProtocol.messageYjsUpdate:
+			return { type: 'update', update: payload };
+		default:
+			throw new Error(`Unknown sync type: ${syncType}`);
+	}
 }
 
-/** Assert message is sync step 1 */
-function expectSyncStep1(data: Uint8Array): void {
-	expectMessageType(data, MESSAGE_TYPE.SYNC);
+/** Decode any protocol message type */
+function decodeMessageType(data: Uint8Array): number {
 	const decoder = decoding.createDecoder(data);
-	decoding.readVarUint(decoder); // skip message type
-	expect(decoding.readVarUint(decoder)).toBe(syncProtocol.messageYjsSyncStep1);
-}
-
-/** Assert message is sync step 2 */
-function expectSyncStep2(data: Uint8Array): void {
-	expectMessageType(data, MESSAGE_TYPE.SYNC);
-	const decoder = decoding.createDecoder(data);
-	decoding.readVarUint(decoder); // skip message type
-	expect(decoding.readVarUint(decoder)).toBe(syncProtocol.messageYjsSyncStep2);
-}
-
-/** Assert message is sync update */
-function expectSyncUpdate(data: Uint8Array): void {
-	expectMessageType(data, MESSAGE_TYPE.SYNC);
-	const decoder = decoding.createDecoder(data);
-	decoding.readVarUint(decoder); // skip message type
-	expect(decoding.readVarUint(decoder)).toBe(syncProtocol.messageYjsUpdate);
+	return decoding.readVarUint(decoder);
 }
 
 // ============================================================================
@@ -95,8 +102,9 @@ describe('MESSAGE_SYNC', () => {
 		test('encodes empty document', () => {
 			const doc = createDoc();
 			const message = encodeSyncStep1({ doc });
+			const decoded = decodeSyncMessage(message);
 
-			expectSyncStep1(message);
+			expect(decoded.type).toBe('step1');
 		});
 
 		test('encodes document with content', () => {
@@ -104,8 +112,9 @@ describe('MESSAGE_SYNC', () => {
 				d.getMap('data').set('key', 'value');
 			});
 			const message = encodeSyncStep1({ doc });
+			const decoded = decodeSyncMessage(message);
 
-			expectSyncStep1(message);
+			expect(decoded.type).toBe('step1');
 		});
 
 		test('state vector changes after modification', () => {
@@ -124,15 +133,13 @@ describe('MESSAGE_SYNC', () => {
 				d.getMap('test').set('foo', 'bar');
 			});
 			const message = encodeSyncStep1({ doc });
+			const decoded = decodeSyncMessage(message);
 
-			const decoder = decoding.createDecoder(message);
-			expect(decoding.readVarUint(decoder)).toBe(MESSAGE_TYPE.SYNC);
-			expect(decoding.readVarUint(decoder)).toBe(syncProtocol.messageYjsSyncStep1);
-
-			// State vector should be readable
-			const stateVector = decoding.readVarUint8Array(decoder);
-			expect(stateVector).toBeInstanceOf(Uint8Array);
-			expect(stateVector.length).toBeGreaterThan(0);
+			expect(decoded.type).toBe('step1');
+			if (decoded.type === 'step1') {
+				expect(decoded.stateVector).toBeInstanceOf(Uint8Array);
+				expect(decoded.stateVector.length).toBeGreaterThan(0);
+			}
 		});
 	});
 
@@ -142,8 +149,9 @@ describe('MESSAGE_SYNC', () => {
 				d.getMap('data').set('key', 'value');
 			});
 			const message = encodeSyncStep2({ doc });
+			const decoded = decodeSyncMessage(message);
 
-			expectSyncStep2(message);
+			expect(decoded.type).toBe('step2');
 		});
 
 		test('contains update data', () => {
@@ -151,13 +159,12 @@ describe('MESSAGE_SYNC', () => {
 				d.getMap('data').set('key', 'value');
 			});
 			const message = encodeSyncStep2({ doc });
+			const decoded = decodeSyncMessage(message);
 
-			const decoder = decoding.createDecoder(message);
-			decoding.readVarUint(decoder); // message type
-			decoding.readVarUint(decoder); // sync type
-
-			const update = decoding.readVarUint8Array(decoder);
-			expect(update.length).toBeGreaterThan(0);
+			expect(decoded.type).toBe('step2');
+			if (decoded.type === 'step2') {
+				expect(decoded.update.length).toBeGreaterThan(0);
+			}
 		});
 	});
 
@@ -173,14 +180,15 @@ describe('MESSAGE_SYNC', () => {
 
 			expect(capturedUpdate).not.toBeNull();
 			const message = encodeSyncUpdate({ update: capturedUpdate! });
+			const decoded = decodeSyncMessage(message);
 
-			expectSyncUpdate(message);
+			expect(decoded.type).toBe('update');
 		});
 
 		test('handles empty update', () => {
 			const message = encodeSyncUpdate({ update: new Uint8Array(0) });
 
-			expectMessageType(message, MESSAGE_TYPE.SYNC);
+			expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.SYNC);
 		});
 	});
 
@@ -204,7 +212,8 @@ describe('MESSAGE_SYNC', () => {
 			});
 
 			expect(response).not.toBeNull();
-			expectSyncStep2(response!);
+			const decoded = decodeSyncMessage(response!);
+			expect(decoded.type).toBe('step2');
 		});
 
 		test('returns null for sync step 2 (no response needed)', () => {
@@ -309,7 +318,7 @@ describe('MESSAGE_AWARENESS', () => {
 				clients: [awareness.clientID],
 			});
 
-			expectMessageType(message, MESSAGE_TYPE.AWARENESS);
+			expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.AWARENESS);
 		});
 
 		test('encodes complex nested state', () => {
@@ -326,7 +335,7 @@ describe('MESSAGE_AWARENESS', () => {
 				clients: [awareness.clientID],
 			});
 
-			expectMessageType(message, MESSAGE_TYPE.AWARENESS);
+			expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.AWARENESS);
 		});
 
 		test('handles special characters in state', () => {
@@ -343,7 +352,7 @@ describe('MESSAGE_AWARENESS', () => {
 				clients: [awareness.clientID],
 			});
 
-			expectMessageType(message, MESSAGE_TYPE.AWARENESS);
+			expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.AWARENESS);
 		});
 
 		test('handles large awareness state', () => {
@@ -359,7 +368,7 @@ describe('MESSAGE_AWARENESS', () => {
 				clients: [awareness.clientID],
 			});
 
-			expectMessageType(message, MESSAGE_TYPE.AWARENESS);
+			expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.AWARENESS);
 			expect(message.length).toBeGreaterThan(10000);
 		});
 	});
@@ -375,7 +384,7 @@ describe('MESSAGE_AWARENESS', () => {
 			]);
 			const message = encodeAwareness({ update });
 
-			expectMessageType(message, MESSAGE_TYPE.AWARENESS);
+			expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.AWARENESS);
 		});
 	});
 
@@ -526,11 +535,11 @@ describe('edge cases', () => {
 
 		// Sync step 1 contains state vector (compact), not full content
 		const syncStep1 = encodeSyncStep1({ doc });
-		expectSyncStep1(syncStep1);
+		expect(decodeSyncMessage(syncStep1).type).toBe('step1');
 
 		// Sync step 2 contains actual document content
 		const syncStep2 = encodeSyncStep2({ doc });
-		expectSyncStep2(syncStep2);
+		expect(decodeSyncMessage(syncStep2).type).toBe('step2');
 		expect(syncStep2.length).toBeGreaterThan(1000);
 	});
 
@@ -554,16 +563,12 @@ describe('edge cases', () => {
 	test('empty document produces valid sync step 1', () => {
 		const doc = createDoc();
 		const message = encodeSyncStep1({ doc });
+		const decoded = decodeSyncMessage(message);
 
-		expectSyncStep1(message);
-
-		// Even empty docs have a state vector (contains clientID info)
-		const decoder = decoding.createDecoder(message);
-		decoding.readVarUint(decoder); // message type
-		decoding.readVarUint(decoder); // sync type
-		const stateVector = decoding.readVarUint8Array(decoder);
-
-		// State vector exists and is readable
-		expect(stateVector).toBeInstanceOf(Uint8Array);
+		expect(decoded.type).toBe('step1');
+		if (decoded.type === 'step1') {
+			// Even empty docs have a state vector (contains clientID info)
+			expect(decoded.stateVector).toBeInstanceOf(Uint8Array);
+		}
 	});
 });
