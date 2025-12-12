@@ -47,17 +47,26 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 	 */
 	const rooms = new Map<string, Set<{ send: (data: Uint8Array) => void }>>();
 
-	// Track awareness per room
+	/** Track awareness (user presence) per room. */
 	const awarenessMap = new Map<string, awarenessProtocol.Awareness>();
 
-	// Track connection state per WebSocket (type-safe alternative to ws.data mutations)
+	/**
+	 * Store per-connection state using the WebSocket object as key.
+	 * WeakMap ensures automatic cleanup when connections close (no memory leaks).
+	 * @see docs/articles/weakmap-type-safety.md for why we use WeakMap here.
+	 */
 	const connectionState = new WeakMap<
 		object,
 		{
+			/** The room this connection belongs to. */
 			room: string;
+			/** The Yjs document being synced. */
 			doc: Y.Doc;
+			/** Awareness instance for user presence in this room. */
 			awareness: awarenessProtocol.Awareness;
+			/** Handler to broadcast doc updates to this client (stored for cleanup). */
 			updateHandler: (update: Uint8Array, origin: unknown) => void;
+			/** Client IDs this connection controls, for awareness cleanup on disconnect. */
 			controlledClientIds: Set<number>;
 		}
 	>();
