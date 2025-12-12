@@ -10,6 +10,9 @@ const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const MESSAGE_QUERY_AWARENESS = 3;
 
+/** WebSocket close code for room not found (4000-4999 reserved for application use per RFC 6455) */
+const CLOSE_ROOM_NOT_FOUND = 4004;
+
 type SyncPluginConfig = {
 	/** Get Y.Doc for a room. Called when client connects. */
 	getDoc: (room: string) => Y.Doc | undefined;
@@ -52,7 +55,8 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 	// Track connection state per WebSocket (type-safe alternative to ws.data mutations)
 	const connectionState = new WeakMap<object, ConnectionState>();
 
-	const getAwareness = (room: string, doc: Y.Doc) => {
+	/** Get or create awareness instance for a room. Awareness is lazily created on first connection. */
+	const getAwareness = (room: string, doc: Y.Doc): awarenessProtocol.Awareness => {
 		if (!awarenessMap.has(room)) {
 			awarenessMap.set(room, new awarenessProtocol.Awareness(doc));
 		}
@@ -65,7 +69,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			const doc = config.getDoc(room);
 
 			if (!doc) {
-				ws.close(4004, `Room not found: ${room}`);
+				ws.close(CLOSE_ROOM_NOT_FOUND, `Room not found: ${room}`);
 				return;
 			}
 
