@@ -13,17 +13,21 @@
 	import { Spinner } from '@epicenter/ui/spinner';
 	import * as Avatar from '@epicenter/ui/avatar';
 	import * as Tooltip from '@epicenter/ui/tooltip';
+	import type { Tab } from '$lib/epicenter';
 
-	let { tab }: { tab: Browser.tabs.Tab } = $props();
+	let { tab }: { tab: Tab } = $props();
 
-	const closeMutation = createMutation(rpc.tabs.close.options);
-	const activateMutation = createMutation(rpc.tabs.activate.options);
-	const pinMutation = createMutation(rpc.tabs.pin.options);
-	const unpinMutation = createMutation(rpc.tabs.unpin.options);
-	const muteMutation = createMutation(rpc.tabs.mute.options);
-	const unmuteMutation = createMutation(rpc.tabs.unmute.options);
-	const reloadMutation = createMutation(rpc.tabs.reload.options);
-	const duplicateMutation = createMutation(rpc.tabs.duplicate.options);
+	// Convert string ID to number for Chrome API calls
+	const tabId = $derived(Number(tab.id));
+
+	const closeMutation = createMutation(() => rpc.tabs.close.options);
+	const activateMutation = createMutation(() => rpc.tabs.activate.options);
+	const pinMutation = createMutation(() => rpc.tabs.pin.options);
+	const unpinMutation = createMutation(() => rpc.tabs.unpin.options);
+	const muteMutation = createMutation(() => rpc.tabs.mute.options);
+	const unmuteMutation = createMutation(() => rpc.tabs.unmute.options);
+	const reloadMutation = createMutation(() => rpc.tabs.reload.options);
+	const duplicateMutation = createMutation(() => rpc.tabs.duplicate.options);
 
 	const isPinPending = $derived(
 		pinMutation.isPending || unpinMutation.isPending,
@@ -49,11 +53,11 @@
 	class="group flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-accent transition-colors {tab.active
 		? 'bg-accent/50'
 		: ''}"
-	onclick={() => tab.id && activateMutation.mutate(tab.id)}
+	onclick={() => activateMutation.mutate(tabId)}
 >
 	<!-- Favicon -->
 	<Avatar.Root class="size-4 rounded-sm flex-shrink-0">
-		<Avatar.Image src={tab.favIconUrl} alt="" />
+		<Avatar.Image src={tab.fav_icon_url} alt="" />
 		<Avatar.Fallback class="rounded-sm">
 			<GlobeIcon class="size-3 text-muted-foreground" />
 		</Avatar.Fallback>
@@ -65,10 +69,10 @@
 			{#if tab.pinned}
 				<PinIcon class="w-3 h-3 text-muted-foreground flex-shrink-0" />
 			{/if}
-			{#if tab.audible && !tab.mutedInfo?.muted}
+			{#if tab.audible && !tab.muted}
 				<Volume2Icon class="w-3 h-3 text-muted-foreground flex-shrink-0" />
 			{/if}
-			{#if tab.mutedInfo?.muted}
+			{#if tab.muted}
 				<VolumeXIcon class="w-3 h-3 text-muted-foreground flex-shrink-0" />
 			{/if}
 			<span class="truncate text-sm font-medium">
@@ -95,12 +99,10 @@
 						disabled={isPinPending}
 						onclick={(e: MouseEvent) => {
 							e.stopPropagation();
-							if (tab.id) {
-								if (tab.pinned) {
-									unpinMutation.mutate(tab.id);
-								} else {
-									pinMutation.mutate(tab.id);
-								}
+							if (tab.pinned) {
+								unpinMutation.mutate(tabId);
+							} else {
+								pinMutation.mutate(tabId);
 							}
 						}}
 					>
@@ -117,7 +119,7 @@
 			<Tooltip.Content>{tab.pinned ? 'Unpin' : 'Pin'}</Tooltip.Content>
 		</Tooltip.Root>
 
-		{#if tab.audible || tab.mutedInfo?.muted}
+		{#if tab.audible || tab.muted}
 			<Tooltip.Root>
 				<Tooltip.Trigger>
 					{#snippet child({ props })}
@@ -129,18 +131,16 @@
 							disabled={isMutePending}
 							onclick={(e: MouseEvent) => {
 								e.stopPropagation();
-								if (tab.id) {
-									if (tab.mutedInfo?.muted) {
-										unmuteMutation.mutate(tab.id);
-									} else {
-										muteMutation.mutate(tab.id);
-									}
+								if (tab.muted) {
+									unmuteMutation.mutate(tabId);
+								} else {
+									muteMutation.mutate(tabId);
 								}
 							}}
 						>
 							{#if isMutePending}
 								<Spinner class="h-3 w-3" />
-							{:else if tab.mutedInfo?.muted}
+							{:else if tab.muted}
 								<Volume2Icon class="h-3 w-3" />
 							{:else}
 								<VolumeXIcon class="h-3 w-3" />
@@ -149,7 +149,7 @@
 					{/snippet}
 				</Tooltip.Trigger>
 				<Tooltip.Content
-					>{tab.mutedInfo?.muted ? 'Unmute' : 'Mute'}</Tooltip.Content
+					>{tab.muted ? 'Unmute' : 'Mute'}</Tooltip.Content
 				>
 			</Tooltip.Root>
 		{/if}
@@ -165,9 +165,7 @@
 						disabled={reloadMutation.isPending}
 						onclick={(e: MouseEvent) => {
 							e.stopPropagation();
-							if (tab.id) {
-								reloadMutation.mutate(tab.id);
-							}
+							reloadMutation.mutate(tabId);
 						}}
 					>
 						{#if reloadMutation.isPending}
@@ -192,9 +190,7 @@
 						disabled={duplicateMutation.isPending}
 						onclick={(e: MouseEvent) => {
 							e.stopPropagation();
-							if (tab.id) {
-								duplicateMutation.mutate(tab.id);
-							}
+							duplicateMutation.mutate(tabId);
 						}}
 					>
 						{#if duplicateMutation.isPending}
@@ -219,9 +215,7 @@
 						disabled={closeMutation.isPending}
 						onclick={(e: MouseEvent) => {
 							e.stopPropagation();
-							if (tab.id) {
-								closeMutation.mutate(tab.id);
-							}
+							closeMutation.mutate(tabId);
 						}}
 					>
 						{#if closeMutation.isPending}

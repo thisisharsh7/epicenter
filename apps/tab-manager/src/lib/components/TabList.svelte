@@ -10,29 +10,30 @@
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 	import AppWindowIcon from '@lucide/svelte/icons/app-window';
+	import type { Tab } from '$lib/epicenter';
 
-	// Get all tabs
-	const tabsQuery = createQuery(rpc.tabs.getAll.options);
-	const windowsQuery = createQuery(rpc.tabs.getAllWindows.options);
+	// Get all tabs and windows from Y.Doc
+	const tabsQuery = createQuery(() => rpc.tabs.getAll.options);
+	const windowsQuery = createQuery(() => rpc.tabs.getAllWindows.options);
 
 	// Group tabs by window
 	const tabsByWindow = $derived.by(() => {
-		if (!tabsQuery.data || !windowsQuery.data)
-			return new Map<number, Browser.tabs.Tab[]>();
+		if (!tabsQuery.data || !windowsQuery.data) return new Map<string, Tab[]>();
 
-		const grouped = new Map<number, Browser.tabs.Tab[]>();
+		const grouped = new Map<string, Tab[]>();
 		for (const window of windowsQuery.data) {
-			const windowTabs = tabsQuery.data.filter((t) => t.windowId === window.id);
-			// Sort by index
-			windowTabs.sort((a, b) => a.index - b.index);
-			grouped.set(window.id!, windowTabs);
+			const windowTabs = tabsQuery.data.filter(
+				(t) => t.window_id === window.id,
+			);
+			// Already sorted by index from query
+			grouped.set(window.id, windowTabs);
 		}
 		return grouped;
 	});
 
 	// Default all windows to open
 	const defaultOpenWindows = $derived(
-		(windowsQuery.data ?? []).map((w) => String(w.id)),
+		(windowsQuery.data ?? []).map((w) => w.id),
 	);
 </script>
 
@@ -75,8 +76,8 @@
 		{:else}
 			<Accordion.Root type="multiple" value={defaultOpenWindows} class="px-2">
 				{#each windows as window (window.id)}
-					{@const windowTabs = tabsByWindow.get(window.id!) ?? []}
-					<Accordion.Item value={String(window.id)}>
+					{@const windowTabs = tabsByWindow.get(window.id) ?? []}
+					<Accordion.Item value={window.id}>
 						<Accordion.Trigger class="px-2 py-2 hover:no-underline">
 							<div class="flex items-center gap-2">
 								<AppWindowIcon class="size-4 text-muted-foreground" />
