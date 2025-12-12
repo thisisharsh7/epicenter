@@ -1,3 +1,4 @@
+import { WebsocketProvider } from 'y-websocket';
 import type { Provider } from '../core/provider';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -219,11 +220,7 @@ export type WebsocketSyncConfig = {
 export function createWebsocketSyncProvider(
 	config: WebsocketSyncConfig,
 ): Provider {
-	return async ({ ydoc }) => {
-		// Dynamic import to avoid bundling y-websocket on the server
-		// Clients need to install y-websocket separately
-		const { WebsocketProvider } = await import('y-websocket');
-
+	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,
 			ydoc.guid, // Room name is the workspace ID (Y.Doc guid)
