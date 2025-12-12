@@ -51,15 +51,15 @@ export function subscribeToYDocChanges() {
 	unsubscribeFromYDocChanges();
 
 	// Subscribe to tabs changes
-	unsubscribeTabs = epicenter.db.tabs.observe(createInvalidator(tabsKeys.all));
+	unsubscribeTabs = epicenter.tables.tabs.observe(createInvalidator(tabsKeys.all));
 
 	// Subscribe to windows changes
-	unsubscribeWindows = epicenter.db.windows.observe(
+	unsubscribeWindows = epicenter.tables.windows.observe(
 		createInvalidator(tabsKeys.windows),
 	);
 
 	// Subscribe to tab groups changes
-	unsubscribeTabGroups = epicenter.db.tab_groups.observe(
+	unsubscribeTabGroups = epicenter.tables.tab_groups.observe(
 		createInvalidator(tabsKeys.tabGroups),
 	);
 
@@ -119,7 +119,7 @@ export const tabs = {
 	getAllTabGroups: {
 		options: {
 			queryKey: tabsKeys.tabGroups,
-			queryFn: () => epicenter.db.tab_groups.getAllValid(),
+			queryFn: () => epicenter.tables.tab_groups.getAllValid(),
 			staleTime: Infinity,
 		},
 	},
