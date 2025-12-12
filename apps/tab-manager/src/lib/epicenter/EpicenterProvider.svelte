@@ -1,11 +1,16 @@
 <!--
-	EpicenterProvider - Y.Doc subscription lifecycle management.
+	EpicenterProvider - Epicenter client sync and lifecycle management.
 
 	Wraps children and handles:
+	- Waiting for epicenter.whenSynced before rendering children
 	- Subscribing to Y.Doc changes on mount (for TanStack Query cache invalidation)
 	- Unsubscribing and cleanup on destroy
 
-	The epicenter client itself is created in client.ts and can be imported directly.
+	The epicenter client is created synchronously in client.ts (browser pattern),
+	but providers like IndexedDB persistence load data asynchronously.
+	This component waits for that sync to complete before rendering the app.
+
+	@see docs/articles/sync-client-initialization.md
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -28,4 +33,8 @@
 	});
 </script>
 
-{@render children()}
+{#await epicenter.whenSynced}
+	<!-- Loading state while IndexedDB syncs -->
+{:then}
+	{@render children()}
+{/await}
