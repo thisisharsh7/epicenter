@@ -2,18 +2,17 @@
  * Test utilities for y-websocket protocol testing.
  *
  * Provides helpers for building valid and invalid protocol messages,
- * decoders for parsing messages, and utilities for test coordination.
+ * and utilities for test coordination.
+ *
+ * NOTE: For MESSAGE_TYPE, decodeSyncMessage, and decodeMessageType,
+ * import directly from '../../src/server/sync/protocol'.
  */
 
-import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import * as Y from 'yjs';
-
-// Import and re-export MESSAGE_TYPE from protocol.ts (single source of truth)
 import { MESSAGE_TYPE } from '../../src/server/sync/protocol';
-export { MESSAGE_TYPE };
 
 // ============================================================================
 // Valid Message Builders
@@ -155,58 +154,6 @@ export function buildMalformedAwarenessMessage(): Uint8Array {
  */
 export function buildEmptyMessage(): Uint8Array {
 	return new Uint8Array(0);
-}
-
-// ============================================================================
-// Pure Decoders (functional approach - return data, let tests assert)
-// ============================================================================
-
-export type SyncMessage =
-	| { type: 'step1'; stateVector: Uint8Array }
-	| { type: 'step2'; update: Uint8Array }
-	| { type: 'update'; update: Uint8Array };
-
-/**
- * Decode a sync protocol message into its components.
- * Throws if message is not a valid SYNC message.
- */
-export function decodeSyncMessage(data: Uint8Array): SyncMessage {
-	const decoder = decoding.createDecoder(data);
-	const messageType = decoding.readVarUint(decoder);
-	if (messageType !== MESSAGE_TYPE.SYNC) {
-		throw new Error(`Expected SYNC message (0), got ${messageType}`);
-	}
-
-	const syncType = decoding.readVarUint(decoder);
-	const payload = decoding.readVarUint8Array(decoder);
-
-	switch (syncType) {
-		case syncProtocol.messageYjsSyncStep1:
-			return { type: 'step1', stateVector: payload };
-		case syncProtocol.messageYjsSyncStep2:
-			return { type: 'step2', update: payload };
-		case syncProtocol.messageYjsUpdate:
-			return { type: 'update', update: payload };
-		default:
-			throw new Error(`Unknown sync type: ${syncType}`);
-	}
-}
-
-/**
- * Read the top-level message type from data.
- */
-export function decodeMessageType(data: Uint8Array): number {
-	const decoder = decoding.createDecoder(data);
-	return decoding.readVarUint(decoder);
-}
-
-/**
- * Read sync sub-message type from data (after main message type).
- */
-export function decodeSyncSubType(data: Uint8Array): number {
-	const decoder = decoding.createDecoder(data);
-	decoding.readVarUint(decoder); // main message type
-	return decoding.readVarUint(decoder);
 }
 
 // ============================================================================

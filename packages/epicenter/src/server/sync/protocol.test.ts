@@ -14,8 +14,6 @@ import * as Y from 'yjs';
 import {
 	decodeMessageType,
 	decodeSyncMessage,
-} from '../../../tests/helpers/sync-test-utils';
-import {
 	encodeAwareness,
 	encodeAwarenessStates,
 	encodeSyncStep1,
@@ -385,6 +383,118 @@ describe('MESSAGE_QUERY_AWARENESS', () => {
 
 		expect(message.length).toBe(1);
 		expect(message[0]).toBe(MESSAGE_TYPE.QUERY_AWARENESS);
+	});
+});
+
+// ============================================================================
+// Decoder Tests
+// ============================================================================
+
+describe('decodeSyncMessage', () => {
+	test('decodes sync step 1 message', () => {
+		const doc = createDoc((d) => d.getMap('test').set('key', 'value'));
+		const encoded = encodeSyncStep1({ doc });
+		const decoded = decodeSyncMessage(encoded);
+
+		expect(decoded.type).toBe('step1');
+		if (decoded.type === 'step1') {
+			expect(decoded.stateVector).toBeInstanceOf(Uint8Array);
+			expect(decoded.stateVector.length).toBeGreaterThan(0);
+		}
+	});
+
+	test('decodes sync step 2 message', () => {
+		const doc = createDoc((d) => d.getMap('test').set('key', 'value'));
+		const encoded = encodeSyncStep2({ doc });
+		const decoded = decodeSyncMessage(encoded);
+
+		expect(decoded.type).toBe('step2');
+		if (decoded.type === 'step2') {
+			expect(decoded.update).toBeInstanceOf(Uint8Array);
+			expect(decoded.update.length).toBeGreaterThan(0);
+		}
+	});
+
+	test('decodes sync update message', () => {
+		const doc = createDoc();
+		let capturedUpdate: Uint8Array | null = null;
+		doc.on('update', (update: Uint8Array) => {
+			capturedUpdate = update;
+		});
+		doc.getMap('test').set('key', 'value');
+
+		const encoded = encodeSyncUpdate({ update: capturedUpdate! });
+		const decoded = decodeSyncMessage(encoded);
+
+		expect(decoded.type).toBe('update');
+		if (decoded.type === 'update') {
+			expect(decoded.update).toBeInstanceOf(Uint8Array);
+		}
+	});
+
+	test('throws on non-SYNC message type', () => {
+		const doc = createDoc();
+		const awareness = new awarenessProtocol.Awareness(doc);
+		awareness.setLocalState({ name: 'Test' });
+		const awarenessMessage = encodeAwarenessStates({
+			awareness,
+			clients: [awareness.clientID],
+		});
+
+		expect(() => decodeSyncMessage(awarenessMessage)).toThrow(
+			'Expected SYNC message (0), got 1',
+		);
+	});
+
+	test('roundtrip: encode then decode preserves data', () => {
+		const doc = createDoc((d) => {
+			d.getMap('users').set('alice', { name: 'Alice', age: 30 });
+			d.getArray('items').push(['item1', 'item2']);
+		});
+
+		// Test step 1 roundtrip
+		const step1 = encodeSyncStep1({ doc });
+		const decodedStep1 = decodeSyncMessage(step1);
+		expect(decodedStep1.type).toBe('step1');
+
+		// Test step 2 roundtrip
+		const step2 = encodeSyncStep2({ doc });
+		const decodedStep2 = decodeSyncMessage(step2);
+		expect(decodedStep2.type).toBe('step2');
+	});
+});
+
+describe('decodeMessageType', () => {
+	test('decodes SYNC message type', () => {
+		const doc = createDoc();
+		const message = encodeSyncStep1({ doc });
+		expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.SYNC);
+	});
+
+	test('decodes AWARENESS message type', () => {
+		const doc = createDoc();
+		const awareness = new awarenessProtocol.Awareness(doc);
+		awareness.setLocalState({ name: 'Test' });
+		const message = encodeAwarenessStates({
+			awareness,
+			clients: [awareness.clientID],
+		});
+		expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.AWARENESS);
+	});
+
+	test('decodes QUERY_AWARENESS message type', () => {
+		const encoder = encoding.createEncoder();
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
+		const message = encoding.toUint8Array(encoder);
+		expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.QUERY_AWARENESS);
+	});
+
+	test('matches readMessageType behavior', () => {
+		const doc = createDoc();
+		const message = encodeSyncStep1({ doc });
+
+		// Both functions should return the same result
+		expect(decodeMessageType(message)).toBe(readMessageType({ data: message }));
 	});
 });
 

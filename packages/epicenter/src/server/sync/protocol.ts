@@ -1,13 +1,13 @@
 /**
- * Yjs WebSocket Protocol Encoding Utilities
+ * Yjs WebSocket Protocol Encoding/Decoding Utilities
  *
- * Pure functions for encoding y-websocket protocol messages.
- * Separates protocol encoding from transport (WebSocket handling).
+ * Pure functions for encoding and decoding y-websocket protocol messages.
+ * Separates protocol handling from transport (WebSocket handling).
  *
  * Based on patterns from y-redis protocol.js:
  * - Message type constants as first-class exports
- * - Pure encoder functions returning Uint8Array
- * - Single responsibility: encoding only, no transport logic
+ * - Pure encoder/decoder functions
+ * - Single responsibility: protocol only, no transport logic
  *
  * @see https://github.com/yjs/y-redis/blob/main/src/protocol.js
  */
@@ -208,4 +208,62 @@ export function handleSyncMessage({
 	// Only return if there's content beyond the message type byte.
 	// readSyncMessage only writes a response for SyncStep1 messages.
 	return encoding.length(encoder) > 1 ? encoding.toUint8Array(encoder) : null;
+}
+
+// ============================================================================
+// Message Decoders
+// ============================================================================
+
+/**
+ * Decoded sync message - discriminated union of the three sync sub-types.
+ */
+export type DecodedSyncMessage =
+	| { type: 'step1'; stateVector: Uint8Array }
+	| { type: 'step2'; update: Uint8Array }
+	| { type: 'update'; update: Uint8Array };
+
+/**
+ * Decodes a sync protocol message into its components.
+ *
+ * Pure decoder that returns the message type and payload without side effects.
+ * Useful for testing, logging, and protocol inspection.
+ *
+ * @param data - Raw message bytes
+ * @returns Decoded message with type discriminator and payload
+ * @throws Error if message is not a valid SYNC message or has unknown sync type
+ */
+export function decodeSyncMessage(data: Uint8Array): DecodedSyncMessage {
+	const decoder = decoding.createDecoder(data);
+	const messageType = decoding.readVarUint(decoder);
+	if (messageType !== MESSAGE_TYPE.SYNC) {
+		throw new Error(`Expected SYNC message (0), got ${messageType}`);
+	}
+
+	const syncType = decoding.readVarUint(decoder);
+	const payload = decoding.readVarUint8Array(decoder);
+
+	switch (syncType) {
+		case syncProtocol.messageYjsSyncStep1:
+			return { type: 'step1', stateVector: payload };
+		case syncProtocol.messageYjsSyncStep2:
+			return { type: 'step2', update: payload };
+		case syncProtocol.messageYjsUpdate:
+			return { type: 'update', update: payload };
+		default:
+			throw new Error(`Unknown sync type: ${syncType}`);
+	}
+}
+
+/**
+ * Decodes the top-level message type from raw message data.
+ *
+ * Equivalent to readMessageType but follows the decode* naming convention.
+ * Useful for quickly determining message type before full parsing.
+ *
+ * @param data - Raw message bytes
+ * @returns The message type constant (0=SYNC, 1=AWARENESS, etc.)
+ */
+export function decodeMessageType(data: Uint8Array): number {
+	const decoder = decoding.createDecoder(data);
+	return decoding.readVarUint(decoder);
 }
