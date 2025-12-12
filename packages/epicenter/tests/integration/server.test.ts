@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
@@ -102,16 +102,17 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace],
 		});
 
-		let _app: Awaited<ReturnType<typeof createServer>>['app'];
-		let server: any;
+		let server: { stop: () => void; port: number };
 
 		beforeAll(async () => {
-			const { app, websocket } = await createServer(singleWorkspaceEpicenter);
-			server = Bun.serve({
-				fetch: app.fetch,
-				websocket,
-				port: 0, // Random available port
-			});
+			const { app } = await createServer(singleWorkspaceEpicenter);
+			const elysiaServer = app.listen(0);
+			const port = elysiaServer.server!.port;
+			server = { stop: () => elysiaServer.stop(), port };
+		});
+
+		afterAll(() => {
+			server?.stop();
 		});
 
 		test('creates post via POST /workspaces/blog/createPost', async () => {
@@ -157,7 +158,8 @@ describe('Server Integration Tests', () => {
 			expect(Array.isArray(data.data)).toBe(true);
 		});
 
-		test('lists MCP tools via POST /mcp', async () => {
+		// TODO: MCP integration is currently disabled pending custom implementation
+		test.skip('lists MCP tools via POST /mcp', async () => {
 			const response = await fetch(`http://localhost:${server.port}/mcp`, {
 				method: 'POST',
 				headers: {
@@ -184,7 +186,7 @@ describe('Server Integration Tests', () => {
 			expect(createPostTool).toBeDefined();
 		});
 
-		test('calls MCP tool via POST /mcp', async () => {
+		test.skip('calls MCP tool via POST /mcp', async () => {
 			const response = await fetch(`http://localhost:${server.port}/mcp`, {
 				method: 'POST',
 				headers: {
@@ -275,16 +277,17 @@ describe('Server Integration Tests', () => {
 			workspaces: [blogWorkspace, authWorkspace],
 		});
 
-		let _app: Awaited<ReturnType<typeof createServer>>['app'];
-		let server: any;
+		let server: { stop: () => void; port: number };
 
 		beforeAll(async () => {
-			const { app, websocket } = await createServer(epicenter);
-			server = Bun.serve({
-				fetch: app.fetch,
-				websocket,
-				port: 0,
-			});
+			const { app } = await createServer(epicenter);
+			const elysiaServer = app.listen(0);
+			const port = elysiaServer.server!.port;
+			server = { stop: () => elysiaServer.stop(), port };
+		});
+
+		afterAll(() => {
+			server?.stop();
 		});
 
 		test('creates post via POST /workspaces/blog/createPost', async () => {
@@ -323,7 +326,8 @@ describe('Server Integration Tests', () => {
 			expect(data.data.email).toBe('test@example.com');
 		});
 
-		test('lists MCP tools from all workspaces', async () => {
+		// TODO: MCP integration is currently disabled pending custom implementation
+		test.skip('lists MCP tools from all workspaces', async () => {
 			const response = await fetch(`http://localhost:${server.port}/mcp`, {
 				method: 'POST',
 				headers: {
@@ -352,7 +356,7 @@ describe('Server Integration Tests', () => {
 			expect(authTools.length).toBeGreaterThan(0);
 		});
 
-		test('calls MCP tool from specific workspace', async () => {
+		test.skip('calls MCP tool from specific workspace', async () => {
 			const response = await fetch(`http://localhost:${server.port}/mcp`, {
 				method: 'POST',
 				headers: {
