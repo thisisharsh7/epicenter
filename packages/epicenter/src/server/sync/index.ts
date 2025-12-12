@@ -7,6 +7,7 @@ import type * as Y from 'yjs';
 
 const messageSync = 0;
 const messageAwareness = 1;
+const messageQueryAwareness = 3;
 
 type SyncPluginConfig = {
 	/** Get Y.Doc for a room. Called when client connects. */
@@ -19,6 +20,7 @@ type SyncPluginConfig = {
  * This implements the y-websocket server protocol:
  * - messageSync (0): Document synchronization via y-protocols/sync
  * - messageAwareness (1): User presence via y-protocols/awareness
+ * - messageQueryAwareness (3): Request current awareness states
  *
  * Uses Elysia's native WebSocket which leverages Bun's efficient implementation.
  *
@@ -182,6 +184,24 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 								(conn as typeof ws).send(awarenessMessage);
 							}
 						}
+					}
+					break;
+				}
+
+				case messageQueryAwareness: {
+					// Client is requesting current awareness states
+					const awarenessStates = awareness.getStates();
+					if (awarenessStates.size > 0) {
+						const awarenessEncoder = encoding.createEncoder();
+						encoding.writeVarUint(awarenessEncoder, messageAwareness);
+						encoding.writeVarUint8Array(
+							awarenessEncoder,
+							awarenessProtocol.encodeAwarenessUpdate(
+								awareness,
+								Array.from(awarenessStates.keys()),
+							),
+						);
+						ws.send(encoding.toUint8Array(awarenessEncoder));
 					}
 					break;
 				}
