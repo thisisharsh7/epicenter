@@ -19,19 +19,6 @@ type SyncPluginConfig = {
 	getDoc: (room: string) => Y.Doc | undefined;
 };
 
-type ConnectionState = {
-	room: string;
-	doc: Y.Doc;
-	awareness: awarenessProtocol.Awareness;
-	updateHandler: (update: Uint8Array, origin: unknown) => void;
-	controlledClientIds: Set<number>;
-};
-
-/** Minimal interface for WebSocket connections we track in rooms (avoids complex Elysia type) */
-type SyncWebSocket = {
-	send: (data: Uint8Array) => void;
-};
-
 /**
  * Creates an Elysia plugin that provides y-websocket compatible sync.
  *
@@ -54,12 +41,26 @@ type SyncWebSocket = {
  * ```
  */
 export function createSyncPlugin(config: SyncPluginConfig) {
-	// Track connections per room for broadcasting
-	const rooms = new Map<string, Set<SyncWebSocket>>();
+	/**
+	 * Track connections per room for broadcasting.
+	 * Uses minimal interface (just `send`) to avoid coupling to complex Elysia WebSocket type.
+	 */
+	const rooms = new Map<string, Set<{ send: (data: Uint8Array) => void }>>();
+
 	// Track awareness per room
 	const awarenessMap = new Map<string, awarenessProtocol.Awareness>();
+
 	// Track connection state per WebSocket (type-safe alternative to ws.data mutations)
-	const connectionState = new WeakMap<object, ConnectionState>();
+	const connectionState = new WeakMap<
+		object,
+		{
+			room: string;
+			doc: Y.Doc;
+			awareness: awarenessProtocol.Awareness;
+			updateHandler: (update: Uint8Array, origin: unknown) => void;
+			controlledClientIds: Set<number>;
+		}
+	>();
 
 	/** Get or create awareness instance for a room. Awareness is lazily created on first connection. */
 	const getAwareness = (room: string, doc: Y.Doc): awarenessProtocol.Awareness => {
