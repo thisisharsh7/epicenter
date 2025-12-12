@@ -2,27 +2,33 @@ import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 // import { mcp } from 'elysia-mcp';
 import { Err, isResult, Ok } from 'wellcrafted/result';
+import type { WorkspaceExports } from '../core/actions';
 import {
 	createEpicenterClient,
 	type EpicenterConfig,
 	iterActions,
 } from '../core/epicenter';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import type {
+	AnyWorkspaceConfig,
+	WorkspaceClient,
+	WorkspacesToClients,
+} from '../core/workspace';
+import { createSyncPlugin } from './sync';
 // import { buildMcpToolRegistry, setupMcpTools } from './mcp';
 
 /**
- * Create a unified server with REST, MCP, and API documentation endpoints
+ * Create a unified server with REST, WebSocket sync, and API documentation endpoints
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
- * - MCP endpoint: POST `/mcp` for Model Context Protocol clients (using Server-Sent Events)
+ * - WebSocket sync: `/sync/{workspaceId}` for real-time Y.Doc synchronization
  * - API documentation: `/openapi` (Scalar UI by default)
  *
  * URL Hierarchy:
  * - `/` - API root/discovery
  * - `/openapi` - OpenAPI spec (JSON)
  * - `/scalar` - Scalar UI documentation
- * - `/mcp` - MCP endpoint
+ * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
  * - `/workspaces/{workspaceId}/{action}` - Workspace actions
  *
  * The function initializes the Epicenter client, registers REST routes for all workspace actions,
@@ -96,6 +102,20 @@ export async function createServer<
 		// 		},
 		// 	}),
 		// )
+		// WebSocket sync endpoint at /sync/{workspaceId}
+		.use(
+			createSyncPlugin({
+				getDoc: (room) => {
+					// Room name is the workspace ID
+					// Type assertion needed because TypeScript can't prove the generic
+					// WorkspacesToClients mapping resolves to WorkspaceClient
+					const workspace = client[
+						room as keyof WorkspacesToClients<TWorkspaces>
+					] as WorkspaceClient<WorkspaceExports> | undefined;
+					return workspace?.$ydoc;
+				},
+			}),
+		)
 		// Health check / discovery
 		.get('/', () => ({
 			name: `${config.id} API`,
