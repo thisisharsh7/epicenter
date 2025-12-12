@@ -21,7 +21,6 @@ import {
 	id,
 	text,
 } from '../../src/index.node';
-import { wait, waitFor } from '../helpers/sync-test-utils';
 
 describe('y-websocket Client Compatibility', () => {
 	const notesWorkspace = defineWorkspace({
@@ -480,4 +479,24 @@ function createProvider(
 		WebSocketPolyfill: WebSocket,
 		disableBc: true, // BroadcastChannel not available in Node.js/Bun
 	});
+}
+
+/** Wait for a condition to become true */
+async function waitFor(
+	condition: () => boolean,
+	timeout = 5000,
+	interval = 50,
+): Promise<void> {
+	const start = Date.now();
+	while (!condition()) {
+		if (Date.now() - start > timeout) {
+			throw new Error(`Condition not met within ${timeout}ms`);
+		}
+		await new Promise((resolve) => setTimeout(resolve, interval));
+	}
+}
+
+/** Wait for a specific number of milliseconds */
+function wait(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
