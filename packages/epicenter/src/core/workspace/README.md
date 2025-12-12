@@ -72,7 +72,7 @@ client.getAllPosts();
 
 Browser clients expose a `whenSynced` promise that resolves when all providers (like IndexedDB persistence) have finished their initial sync. Node clients don't have `whenSynced` because initialization is fully awaited.
 
-See [Synchronous Client Initialization](../../../docs/articles/sync-client-initialization.md) for the rationale behind this pattern.
+See [Synchronous Client Initialization](/docs/articles/sync-client-initialization.md) for the rationale behind this pattern.
 
 ---
 

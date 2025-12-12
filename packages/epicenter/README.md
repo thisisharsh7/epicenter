@@ -1157,7 +1157,7 @@ Epicenter has different initialization patterns for browser and Node.js environm
 
 **Why the difference?** Browser modules can't use top-level await effectively. The client needs to be exportable and importable like any other value. Node.js supports top-level await, so full initialization can happen at the entry point.
 
-See [Synchronous Client Initialization](./docs/articles/sync-client-initialization.md) for the full rationale.
+See [Synchronous Client Initialization](/docs/articles/sync-client-initialization.md) for the full rationale.
 
 ### Create Workspace Client
 

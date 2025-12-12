@@ -54,7 +54,7 @@ client.pages.getAllPages();
 await client.pages.whenSynced;
 ```
 
-This design enables browser clients to be exported and imported like any other value, avoiding the module import constraints that make async initialization problematic in UI frameworks. See [Synchronous Client Initialization](../../../docs/articles/sync-client-initialization.md) for the rationale.
+This design enables browser clients to be exported and imported like any other value, avoiding the module import constraints that make async initialization problematic in UI frameworks. See [Synchronous Client Initialization](/docs/articles/sync-client-initialization.md) for the rationale.
 
 ### 2. As a Server (Web APIs, Long-Running Processes)
 
