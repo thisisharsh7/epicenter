@@ -5,11 +5,19 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import type * as Y from 'yjs';
 import { Ok, trySync } from 'wellcrafted/result';
+import {
+	MESSAGE_AWARENESS,
+	MESSAGE_QUERY_AWARENESS,
+	MESSAGE_SYNC,
+	encodeAwareness,
+	encodeAwarenessStates,
+	encodeSyncStep1,
+	encodeSyncUpdate,
+} from './protocol';
 
-/** y-websocket protocol message types */
-const MESSAGE_SYNC = 0;
-const MESSAGE_AWARENESS = 1;
-const MESSAGE_QUERY_AWARENESS = 3;
+// Note: decoding/encoding imports are still needed for MESSAGE_SYNC handler
+// because syncProtocol.readSyncMessage() uses a read-and-write pattern
+// that requires an encoder to write its response to.
 
 /** WebSocket close code for room not found (4000-4999 reserved for application use per RFC 6455) */
 const CLOSE_ROOM_NOT_FOUND = 4004;
@@ -102,39 +110,24 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			// Get awareness for this room
 			const awareness = getAwareness(room, doc);
 
-			// Send initial sync step 1 - defer to ensure socket is ready
-			const encoder = encoding.createEncoder();
-			encoding.writeVarUint(encoder, MESSAGE_SYNC);
-			syncProtocol.writeSyncStep1(encoder, doc);
-			const syncMessage = encoding.toUint8Array(encoder);
-
 			// Defer send to next tick to ensure WebSocket is fully ready
 			queueMicrotask(() => {
-				ws.send(syncMessage);
+				// Send initial sync step 1
+				ws.send(encodeSyncStep1(doc));
 
 				// Send current awareness states
 				const awarenessStates = awareness.getStates();
 				if (awarenessStates.size > 0) {
-					const awarenessEncoder = encoding.createEncoder();
-					encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
-					encoding.writeVarUint8Array(
-						awarenessEncoder,
-						awarenessProtocol.encodeAwarenessUpdate(
-							awareness,
-							Array.from(awarenessStates.keys()),
-						),
+					ws.send(
+						encodeAwarenessStates(awareness, Array.from(awarenessStates.keys())),
 					);
-					ws.send(encoding.toUint8Array(awarenessEncoder));
 				}
 			});
 
 			// Listen for doc updates to broadcast to this client
 			const updateHandler = (update: Uint8Array, origin: unknown) => {
 				if (origin === ws) return; // Don't echo back
-				const updateEncoder = encoding.createEncoder();
-				encoding.writeVarUint(updateEncoder, MESSAGE_SYNC);
-				syncProtocol.writeUpdate(updateEncoder, update);
-				ws.send(encoding.toUint8Array(updateEncoder));
+				ws.send(encodeSyncUpdate(update));
 			};
 			doc.on('update', updateHandler);
 
@@ -213,11 +206,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					// Broadcast awareness to other clients in the room
 					const conns = rooms.get(room);
 					if (conns) {
-						const awarenessEncoder = encoding.createEncoder();
-						encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
-						encoding.writeVarUint8Array(awarenessEncoder, update);
-						const awarenessMessage = encoding.toUint8Array(awarenessEncoder);
-
+						const awarenessMessage = encodeAwareness(update);
 						for (const conn of conns) {
 							if (conn !== ws) {
 								conn.send(awarenessMessage);
@@ -231,16 +220,9 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					// Client is requesting current awareness states
 					const awarenessStates = awareness.getStates();
 					if (awarenessStates.size > 0) {
-						const awarenessEncoder = encoding.createEncoder();
-						encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
-						encoding.writeVarUint8Array(
-							awarenessEncoder,
-							awarenessProtocol.encodeAwarenessUpdate(
-								awareness,
-								Array.from(awarenessStates.keys()),
-							),
+						ws.send(
+							encodeAwarenessStates(awareness, Array.from(awarenessStates.keys())),
 						);
-						ws.send(encoding.toUint8Array(awarenessEncoder));
 					}
 					break;
 				}
