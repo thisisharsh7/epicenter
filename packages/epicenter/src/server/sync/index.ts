@@ -14,6 +14,14 @@ type SyncPluginConfig = {
 	getDoc: (room: string) => Y.Doc | undefined;
 };
 
+type ConnectionState = {
+	room: string;
+	doc: Y.Doc;
+	awareness: awarenessProtocol.Awareness;
+	updateHandler: (update: Uint8Array, origin: unknown) => void;
+	controlledClientIds: Set<number>;
+};
+
 /**
  * Creates an Elysia plugin that provides y-websocket compatible sync.
  *
@@ -40,6 +48,8 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 	const rooms = new Map<string, Set<unknown>>();
 	// Track awareness per room
 	const awarenessMap = new Map<string, awarenessProtocol.Awareness>();
+	// Track connection state per WebSocket (type-safe alternative to ws.data mutations)
+	const connectionState = new WeakMap<object, ConnectionState>();
 
 	const getAwareness = (room: string, doc: Y.Doc) => {
 		if (!awarenessMap.has(room)) {
@@ -106,22 +116,21 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			};
 			doc.on('update', updateHandler);
 
-			// Store references for cleanup
-			const wsData = ws.data as Record<string, unknown>;
-			wsData.updateHandler = updateHandler;
-			wsData.doc = doc;
-			wsData.awareness = awareness;
-			wsData.room = room;
-			wsData.controlledClientIds = controlledClientIds;
+			// Store connection state for message/close handlers
+			connectionState.set(ws, {
+				room,
+				doc,
+				awareness,
+				updateHandler,
+				controlledClientIds,
+			});
 		},
 
 		message(ws, message) {
-			const wsData = ws.data as Record<string, unknown>;
-			const room = wsData.room as string;
-			const doc = wsData.doc as Y.Doc;
-			const awareness = wsData.awareness as awarenessProtocol.Awareness;
+			const state = connectionState.get(ws);
+			if (!state) return;
 
-			if (!doc) return;
+			const { room, doc, awareness, controlledClientIds } = state;
 
 			const data =
 				message instanceof ArrayBuffer
@@ -149,7 +158,6 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				}
 
 				case messageAwareness: {
-					const controlledClientIds = wsData.controlledClientIds as Set<number>;
 					const update = decoding.readVarUint8Array(decoder);
 
 					// Decode the update to track which client IDs this connection controls
@@ -209,26 +217,16 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 		},
 
 		close(ws) {
-			const wsData = ws.data as Record<string, unknown>;
-			const room = wsData.room as string;
-			const doc = wsData.doc as Y.Doc | undefined;
-			const updateHandler = wsData.updateHandler as
-				| ((update: Uint8Array, origin: unknown) => void)
-				| undefined;
-			const awareness = wsData.awareness as
-				| awarenessProtocol.Awareness
-				| undefined;
-			const controlledClientIds = wsData.controlledClientIds as
-				| Set<number>
-				| undefined;
+			const state = connectionState.get(ws);
+			if (!state) return;
+
+			const { room, doc, updateHandler, awareness, controlledClientIds } = state;
 
 			// Remove update listener
-			if (doc && updateHandler) {
-				doc.off('update', updateHandler);
-			}
+			doc.off('update', updateHandler);
 
 			// Clean up awareness state for all client IDs this connection controlled
-			if (awareness && controlledClientIds && controlledClientIds.size > 0) {
+			if (controlledClientIds.size > 0) {
 				awarenessProtocol.removeAwarenessStates(
 					awareness,
 					Array.from(controlledClientIds),
@@ -243,6 +241,9 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				// Also clean up awareness for empty rooms
 				awarenessMap.delete(room);
 			}
+
+			// Clean up connection state
+			connectionState.delete(ws);
 		},
 	});
 }
