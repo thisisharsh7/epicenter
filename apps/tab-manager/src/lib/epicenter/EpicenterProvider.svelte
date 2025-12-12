@@ -29,12 +29,18 @@
 
 	onDestroy(() => {
 		unsubscribeFromYDocChanges();
-		epicenter.destroy();
+		// NOTE: We do NOT call epicenter.destroy() here!
+		// The epicenter client is a module-level singleton that persists
+		// across component remounts. Destroying it would make subsequent
+		// reads return empty data.
 	});
 </script>
 
 {#await epicenter.whenSynced}
-	<!-- Loading state while IndexedDB syncs -->
+	<!-- Loading state while background syncs -->
+	<div class="p-4 text-center text-muted-foreground">
+		<p>Waiting for sync with background...</p>
+	</div>
 {:then}
 	{@render children()}
 {/await}

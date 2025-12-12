@@ -62,8 +62,6 @@ export function subscribeToYDocChanges() {
 	unsubscribeTabGroups = epicenter.tables.tab_groups.observe(
 		createInvalidator(tabsKeys.tabGroups),
 	);
-
-	console.log('[Query] Subscribed to Y.Doc changes');
 }
 
 /**

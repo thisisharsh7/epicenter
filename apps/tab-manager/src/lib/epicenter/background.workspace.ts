@@ -109,55 +109,69 @@ export const backgroundWorkspace = defineWorkspace({
 		/**
 		 * Popup sync provider.
 		 *
-		 * Listens for popup connections via chrome.runtime.onConnect and
-		 * syncs Y.Doc state to connected popups.
+		 * Exports a `start()` function to register the popup connection listener.
+		 * This should be called AFTER initial Chrome sync completes to avoid
+		 * serving stale or partial data to popups.
 		 */
-		popupSync: ({ ydoc }) => {
-			browser.runtime.onConnect.addListener((port: Browser.runtime.Port) => {
-				// Only handle yjs-sync connections
-				if (port.name !== 'yjs-sync') return;
+		popupSync: ({ ydoc, tables }) => {
+			/**
+			 * Start accepting popup connections.
+			 * Call this after initial data sync is complete.
+			 */
+			function start() {
+				browser.runtime.onConnect.addListener((port: Browser.runtime.Port) => {
+					// Only handle yjs-sync connections
+					if (port.name !== 'yjs-sync') return;
 
-				console.log('[Background] Popup connected');
+					console.log('[Background] Popup connected');
 
-				// Send full state to popup on connect
-				const state = Y.encodeStateAsUpdate(ydoc);
-				const message: SyncMessage = {
-					type: 'sync-state',
-					state: Array.from(state),
-				};
-				port.postMessage(message);
-
-				// Listen for updates from popup
-				port.onMessage.addListener((msg: SyncMessage) => {
-					if (msg.type === 'update') {
-						// Apply update from popup
-						// Use 'popup' as origin to prevent echoing back
-						Y.applyUpdate(ydoc, new Uint8Array(msg.update), 'popup');
-					}
-				});
-
-				// Forward Y.Doc updates to popup
-				const updateHandler = (update: Uint8Array, origin: unknown) => {
-					// Don't echo back updates that came from this popup
-					if (origin === 'popup') return;
-
+					// Send full state to popup on connect
+					const state = Y.encodeStateAsUpdate(ydoc);
+					console.log('[Background] Sending sync-state to popup:', {
+						stateSize: state.length,
+						tabs: tables.tabs.getAllValid().length,
+						windows: tables.windows.getAllValid().length,
+					});
 					const message: SyncMessage = {
-						type: 'update',
-						update: Array.from(update),
+						type: 'sync-state',
+						state: Array.from(state),
 					};
 					port.postMessage(message);
-				};
 
-				ydoc.on('update', updateHandler);
+					// Listen for updates from popup
+					port.onMessage.addListener((msg: SyncMessage) => {
+						if (msg.type === 'update') {
+							// Apply update from popup
+							// Use 'popup' as origin to prevent echoing back
+							Y.applyUpdate(ydoc, new Uint8Array(msg.update), 'popup');
+						}
+					});
 
-				// Clean up on disconnect
-				port.onDisconnect.addListener(() => {
-					console.log('[Background] Popup disconnected');
-					ydoc.off('update', updateHandler);
+					// Forward Y.Doc updates to popup
+					const updateHandler = (update: Uint8Array, origin: unknown) => {
+						// Don't echo back updates that came from this popup
+						if (origin === 'popup') return;
+
+						const message: SyncMessage = {
+							type: 'update',
+							update: Array.from(update),
+						};
+						port.postMessage(message);
+					};
+
+					ydoc.on('update', updateHandler);
+
+					// Clean up on disconnect
+					port.onDisconnect.addListener(() => {
+						console.log('[Background] Popup disconnected');
+						ydoc.off('update', updateHandler);
+					});
 				});
-			});
 
-			console.log('[Background] Popup sync listener registered');
+				console.log('[Background] Popup sync listener registered');
+			}
+
+			return defineProviderExports({ start });
 		},
 
 		/**
@@ -207,9 +221,11 @@ export const backgroundWorkspace = defineWorkspace({
 					});
 				}
 
-				console.log(
-					`[Background] Synced ${chromeTabs.length} tabs, ${chromeWindows.length} windows`,
-				);
+				console.log('[Background] Synced from Chrome:', {
+					tabs: tables.tabs.getAllValid().length,
+					windows: tables.windows.getAllValid().length,
+					tabGroups: tables.tab_groups.getAllValid().length,
+				});
 			}
 
 			// ═══════════════════════════════════════════════════════════════════════════
@@ -360,6 +376,12 @@ export const backgroundWorkspace = defineWorkspace({
 			 * Clears existing data and re-syncs all tabs/windows.
 			 */
 			syncAllFromChrome: providers.chromeSync.syncAllFromChrome,
+
+			/**
+			 * Start accepting popup connections.
+			 * Call this AFTER initial sync completes to avoid serving stale data.
+			 */
+			startPopupSync: providers.popupSync.start,
 
 			/**
 			 * Get all tabs sorted by index.

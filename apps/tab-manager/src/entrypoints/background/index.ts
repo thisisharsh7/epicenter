@@ -12,33 +12,28 @@ import { backgroundWorkspace } from '$lib/epicenter/background.workspace';
  * 4. Syncs Chrome tabs ↔ Y.Doc
  * 5. (Future) Syncs with server via WebSocket
  */
-export default defineBackground(() => {
+export default defineBackground(async () => {
 	console.log('[Background] Initializing Tab Manager...');
 
 	// Create the workspace client - initializes Y.Doc, providers, and exports
 	const client = createWorkspaceClient(backgroundWorkspace);
 
-	// Initial sync on extension install/update
-	browser.runtime.onInstalled.addListener(async (details) => {
-		console.log('[Background] Extension installed/updated:', details.reason);
+	// Wait for IndexedDB to load persisted state
+	await client.whenSynced;
 
-		// Wait for IndexedDB to sync before doing initial Chrome sync
-		await client.whenSynced;
+	// Always sync from Chrome on every background script initialization.
+	// This is necessary because:
+	// 1. Tab/window IDs change on browser restart
+	// 2. Service worker can be terminated and restarted at any time (MV3)
+	// 3. IndexedDB may have stale data from a previous session
+	await client.syncAllFromChrome();
 
-		// Do initial sync from Chrome
-		await client.syncAllFromChrome();
-	});
-
-	// Also sync on browser startup (tab IDs have changed)
-	browser.runtime.onStartup.addListener(async () => {
-		console.log('[Background] Browser started, syncing tabs...');
-
-		// Wait for IndexedDB to sync
-		await client.whenSynced;
-
-		// Do full sync from Chrome (IDs have changed)
-		await client.syncAllFromChrome();
-	});
+	// NOW start accepting popup connections.
+	// This must happen AFTER Chrome sync to avoid serving stale/partial data.
+	// If we registered the listener earlier, popups could connect during sync
+	// and receive data in an inconsistent state (e.g., after $clearAll but
+	// before tabs/windows are re-added).
+	client.startPopupSync();
 
 	console.log('[Background] Tab Manager initialized');
 });

@@ -25,50 +25,118 @@ export const popupWorkspace = defineWorkspace({
 		 *
 		 * Uses the browser extension messaging API to connect to the background
 		 * and receive Y.Doc updates.
+		 *
+		 * Returns a `whenSynced` promise that resolves when the initial state
+		 * has been received from the background.
 		 */
-		backgroundSync: ({ ydoc }) => {
-			// Connect to background via browser.runtime port
-			const port = browser.runtime.connect({ name: 'yjs-sync' });
+		backgroundSync: ({ ydoc, tables }) => {
+			let currentPort: Browser.runtime.Port | null = null;
+			let updateHandler: ((update: Uint8Array, origin: unknown) => void) | null = null;
+			let resolveWhenSynced: (() => void) | null = null;
+			let isDestroyed = false;
 
-			console.log('[Popup Sync] Connecting to background...');
+			// Create a promise that resolves when we receive the initial state
+			const whenSynced = new Promise<void>((resolve) => {
+				resolveWhenSynced = resolve;
+			});
 
-			// Receive updates from background
-			port.onMessage.addListener((msg: SyncMessage) => {
-				if (msg.type === 'sync-state') {
-					// Initial full state sync
-					console.log('[Popup Sync] Received initial state');
-					Y.applyUpdate(ydoc, new Uint8Array(msg.state), 'background');
-				} else if (msg.type === 'update') {
-					// Incremental update
-					Y.applyUpdate(ydoc, new Uint8Array(msg.update), 'background');
+			/**
+			 * Connect to the background service worker.
+			 * Retries with exponential backoff if initial sync doesn't arrive.
+			 */
+			function connect(attempt = 1) {
+				if (isDestroyed) return;
+
+				const maxAttempts = 5;
+				const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+
+				console.log(`[Popup Sync] Connecting to background (attempt ${attempt})...`);
+
+				// Disconnect previous port if any
+				if (currentPort) {
+					currentPort.disconnect();
 				}
-			});
 
-			// Send local updates to background
-			const updateHandler = (update: Uint8Array, origin: unknown) => {
-				// Don't echo back updates that came from background
-				if (origin === 'background') return;
+				currentPort = browser.runtime.connect({ name: 'yjs-sync' });
 
-				const message: SyncMessage = {
-					type: 'update',
-					update: Array.from(update),
-				};
-				port.postMessage(message);
-			};
+				// Set up timeout to retry if no response
+				const timeoutId = setTimeout(() => {
+					if (attempt < maxAttempts) {
+						console.warn(`[Popup Sync] No response from background, retrying in ${backoffMs}ms...`);
+						connect(attempt + 1);
+					} else {
+						console.error('[Popup Sync] Failed to connect after', maxAttempts, 'attempts');
+					}
+				}, backoffMs);
 
-			ydoc.on('update', updateHandler);
+				// Receive updates from background
+				currentPort.onMessage.addListener((msg: SyncMessage) => {
+					clearTimeout(timeoutId); // Got a response, cancel retry
 
-			// Handle disconnect
-			port.onDisconnect.addListener(() => {
-				console.log('[Popup Sync] Disconnected from background');
-				ydoc.off('update', updateHandler);
-			});
+					if (msg.type === 'sync-state') {
+						// Initial full state sync
+						Y.applyUpdate(ydoc, new Uint8Array(msg.state), 'background');
 
-			// Return cleanup function
-			return {
-				destroy() {
+						console.log('[Popup Sync] Connected! Received initial state:', {
+							tabs: tables.tabs.getAllValid().length,
+							windows: tables.windows.getAllValid().length,
+						});
+
+						// Resolve whenSynced now that we have initial state
+						resolveWhenSynced?.();
+						resolveWhenSynced = null; // Only resolve once
+					} else if (msg.type === 'update') {
+						// Incremental update
+						Y.applyUpdate(ydoc, new Uint8Array(msg.update), 'background');
+					}
+				});
+
+				// Handle disconnect - attempt reconnect
+				currentPort.onDisconnect.addListener(() => {
+					console.log('[Popup Sync] Disconnected from background');
+					clearTimeout(timeoutId);
+
+					if (updateHandler) {
+						ydoc.off('update', updateHandler);
+					}
+
+					// If not destroyed, try to reconnect (background may have restarted)
+					if (!isDestroyed) {
+						console.log('[Popup Sync] Will attempt to reconnect...');
+						setTimeout(() => connect(1), 1000);
+					}
+				});
+
+				// Set up Y.Doc update forwarding (popup → background, currently unused)
+				if (updateHandler) {
 					ydoc.off('update', updateHandler);
-					port.disconnect();
+				}
+				updateHandler = (update: Uint8Array, origin: unknown) => {
+					if (origin === 'background') return;
+					if (!currentPort) return;
+
+					const message: SyncMessage = {
+						type: 'update',
+						update: Array.from(update),
+					};
+					currentPort.postMessage(message);
+				};
+				ydoc.on('update', updateHandler);
+			}
+
+			// Start connecting
+			connect();
+
+			return {
+				whenSynced,
+				destroy() {
+					isDestroyed = true;
+					if (updateHandler) {
+						ydoc.off('update', updateHandler);
+					}
+					if (currentPort) {
+						currentPort.disconnect();
+					}
 				},
 			};
 		},
