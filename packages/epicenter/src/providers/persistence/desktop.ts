@@ -1,23 +1,30 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as Y from 'yjs';
-import type { Provider } from '../../core/provider';
+import { defineProviderExports, type Provider } from '../../core/provider';
+
+/** Debounce delay for filesystem writes (ms) */
+const DEBOUNCE_MS = 100;
 
 /**
  * YJS document persistence provider using the filesystem.
  * Stores the YDoc as a binary file in the `.epicenter` directory.
  *
- * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
+ * **Platform**: Bun/Desktop (Tauri with Bun runtime)
  *
  * **How it works**:
  * 1. Creates `.epicenter` directory if it doesn't exist
  * 2. Loads existing state from `.epicenter/${workspaceId}.yjs` on startup
- * 3. Auto-saves to disk on every YJS update (synchronous to ensure data is persisted before process exits)
+ * 3. Auto-saves to disk on YJS updates (debounced to avoid blocking on frequent updates)
+ * 4. Performs a final async write on cleanup to ensure no data loss
  *
  * **Storage location**: `.epicenter/${workspaceId}.yjs` relative to storageDir from epicenter config
  * - Each workspace gets its own file named after its ID
  * - Binary format (not human-readable)
  * - Should be gitignored (add `.epicenter/` to `.gitignore`)
+ *
+ * **Performance**: Uses debounced async writes (100ms) via `Bun.write()` to avoid
+ * blocking the event loop on every keystroke.
  *
  * @example Basic usage
  * ```typescript
@@ -57,10 +64,9 @@ import type { Provider } from '../../core/provider';
  * ```
  */
 export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
-	// Require Node.js environment with filesystem access
 	if (!epicenterDir) {
 		throw new Error(
-			'Persistence provider requires Node.js environment with filesystem access',
+			'Persistence provider requires Bun environment with filesystem access',
 		);
 	}
 
@@ -69,25 +75,58 @@ export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
 	// Ensure .epicenter directory exists
 	mkdirSync(epicenterDir, { recursive: true });
 
-	// Try to load existing state from disk using Bun.file
-	// No need to check existence first - just try to read and handle failure
-	const file = Bun.file(filePath);
+	// Load existing state from disk
 	try {
-		// Use arrayBuffer() to get a fresh, non-shared buffer for Yjs
-		const savedState = await file.arrayBuffer();
-		// Convert to Uint8Array for Yjs
+		const savedState = await Bun.file(filePath).arrayBuffer();
 		Y.applyUpdate(ydoc, new Uint8Array(savedState));
-		// console.log(`[Persistence] Loaded workspace from ${filePath}`);
 	} catch {
-		// File doesn't exist or couldn't be read - that's fine, we'll create it on first update
-		// console.log(`[Persistence] Creating new workspace at ${filePath}`);
+		// File doesn't exist yet - that's fine, we'll create it on first update
 	}
 
-	// Auto-save on every update using synchronous write
-	// This ensures data is persisted before the process can exit
-	// The performance impact is minimal for typical YJS update sizes
-	ydoc.on('update', () => {
-		const state = Y.encodeStateAsUpdate(ydoc);
-		writeFileSync(filePath, state);
+	/**
+	 * Writes the current YDoc state to disk.
+	 * Uses Bun.write() for async, non-blocking I/O.
+	 */
+	const save = () => Bun.write(filePath, Y.encodeStateAsUpdate(ydoc));
+
+	// Debounce state - the timeout delays writes, but ydoc is the source of truth.
+	// Canceling a timeout doesn't lose data because save() always writes the current ydoc state.
+	let saveTimeout: Timer | null = null;
+	let writeInProgress: Promise<number> | null = null;
+
+	/** Schedules a save after DEBOUNCE_MS of inactivity. Batches rapid updates into single writes. */
+	const debouncedSave = () => {
+		if (saveTimeout) clearTimeout(saveTimeout);
+		saveTimeout = setTimeout(() => {
+			saveTimeout = null;
+			writeInProgress = save();
+		}, DEBOUNCE_MS);
+	};
+
+	ydoc.on('update', debouncedSave);
+
+	return defineProviderExports({
+		/**
+		 * Cleanup and final persistence.
+		 *
+		 * Data safety: Canceling the timeout doesn't lose data because the timeout only
+		 * controls *when* we write, not *what* we write. The ydoc already has all changes
+		 * applied, and the final save() writes the complete current state.
+		 */
+		destroy: async () => {
+			// Cancel any pending debounced save (data is safe - see JSDoc above)
+			if (saveTimeout) {
+				clearTimeout(saveTimeout);
+			}
+
+			// Wait for any in-progress write to complete
+			await writeInProgress;
+
+			// Final save to ensure all data is persisted
+			await save();
+
+			// Unregister listener to prevent memory leaks
+			ydoc.off('update', debouncedSave);
+		},
 	});
 }) satisfies Provider;
