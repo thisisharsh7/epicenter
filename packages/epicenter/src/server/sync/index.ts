@@ -27,6 +27,11 @@ type ConnectionState = {
 	controlledClientIds: Set<number>;
 };
 
+/** Minimal interface for WebSocket connections we track in rooms (avoids complex Elysia type) */
+type SyncWebSocket = {
+	send: (data: Uint8Array) => void;
+};
+
 /**
  * Creates an Elysia plugin that provides y-websocket compatible sync.
  *
@@ -50,7 +55,7 @@ type ConnectionState = {
  */
 export function createSyncPlugin(config: SyncPluginConfig) {
 	// Track connections per room for broadcasting
-	const rooms = new Map<string, Set<unknown>>();
+	const rooms = new Map<string, Set<SyncWebSocket>>();
 	// Track awareness per room
 	const awarenessMap = new Map<string, awarenessProtocol.Awareness>();
 	// Track connection state per WebSocket (type-safe alternative to ws.data mutations)
@@ -205,7 +210,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 
 						for (const conn of conns) {
 							if (conn !== ws) {
-								(conn as typeof ws).send(awarenessMessage);
+								conn.send(awarenessMessage);
 							}
 						}
 					}
