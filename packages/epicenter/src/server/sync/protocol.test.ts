@@ -12,6 +12,10 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import * as Y from 'yjs';
 import {
+	decodeMessageType,
+	decodeSyncMessage,
+} from '../../../tests/helpers/sync-test-utils';
+import {
 	encodeAwareness,
 	encodeAwarenessStates,
 	encodeSyncStep1,
@@ -21,63 +25,6 @@ import {
 	MESSAGE_TYPE,
 	readMessageType,
 } from './protocol';
-
-// ============================================================================
-// Test Utilities (following Yjs test patterns)
-// ============================================================================
-
-/** Create a Y.Doc with optional initial content */
-function createDoc(init?: (doc: Y.Doc) => void): Y.Doc {
-	const doc = new Y.Doc();
-	if (init) init(doc);
-	return doc;
-}
-
-/** Sync two documents bidirectionally (standard Yjs test pattern) */
-function syncDocs(doc1: Y.Doc, doc2: Y.Doc): void {
-	const state1 = Y.encodeStateAsUpdate(doc1);
-	const state2 = Y.encodeStateAsUpdate(doc2);
-	Y.applyUpdate(doc1, state2);
-	Y.applyUpdate(doc2, state1);
-}
-
-// ============================================================================
-// Pure Decoders (functional approach - return data, don't assert)
-// ============================================================================
-
-type SyncMessage =
-	| { type: 'step1'; stateVector: Uint8Array }
-	| { type: 'step2'; update: Uint8Array }
-	| { type: 'update'; update: Uint8Array };
-
-/** Decode a sync protocol message into its components */
-function decodeSyncMessage(data: Uint8Array): SyncMessage {
-	const decoder = decoding.createDecoder(data);
-	const messageType = decoding.readVarUint(decoder);
-	if (messageType !== MESSAGE_TYPE.SYNC) {
-		throw new Error(`Expected SYNC message (0), got ${messageType}`);
-	}
-
-	const syncType = decoding.readVarUint(decoder);
-	const payload = decoding.readVarUint8Array(decoder);
-
-	switch (syncType) {
-		case syncProtocol.messageYjsSyncStep1:
-			return { type: 'step1', stateVector: payload };
-		case syncProtocol.messageYjsSyncStep2:
-			return { type: 'step2', update: payload };
-		case syncProtocol.messageYjsUpdate:
-			return { type: 'update', update: payload };
-		default:
-			throw new Error(`Unknown sync type: ${syncType}`);
-	}
-}
-
-/** Decode any protocol message type */
-function decodeMessageType(data: Uint8Array): number {
-	const decoder = decoding.createDecoder(data);
-	return decoding.readVarUint(decoder);
-}
 
 // ============================================================================
 // MESSAGE_TYPE Constants
@@ -572,3 +519,22 @@ describe('edge cases', () => {
 		}
 	});
 });
+
+// ============================================================================
+// Test Utilities (hoisted - placed at bottom for readability)
+// ============================================================================
+
+/** Create a Y.Doc with optional initial content */
+function createDoc(init?: (doc: Y.Doc) => void): Y.Doc {
+	const doc = new Y.Doc();
+	if (init) init(doc);
+	return doc;
+}
+
+/** Sync two documents bidirectionally (standard Yjs test pattern) */
+function syncDocs(doc1: Y.Doc, doc2: Y.Doc): void {
+	const state1 = Y.encodeStateAsUpdate(doc1);
+	const state2 = Y.encodeStateAsUpdate(doc2);
+	Y.applyUpdate(doc1, state2);
+	Y.applyUpdate(doc2, state1);
+}
