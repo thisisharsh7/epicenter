@@ -62,6 +62,12 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			}
 			rooms.get(room)!.add(ws);
 
+			// Track which client IDs this connection controls (for cleanup on disconnect)
+			const controlledClientIds = new Set<number>();
+
+			// Get awareness for this room
+			const awareness = getAwareness(room, doc);
+
 			// Send initial sync step 1 - defer to ensure socket is ready
 			const encoder = encoding.createEncoder();
 			encoding.writeVarUint(encoder, messageSync);
@@ -73,7 +79,6 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				ws.send(syncMessage);
 
 				// Send current awareness states
-				const awareness = getAwareness(room, doc);
 				const awarenessStates = awareness.getStates();
 				if (awarenessStates.size > 0) {
 					const awarenessEncoder = encoding.createEncoder();
@@ -105,6 +110,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			wsData.doc = doc;
 			wsData.awareness = awareness;
 			wsData.room = room;
+			wsData.controlledClientIds = controlledClientIds;
 		},
 
 		message(ws, message) {
@@ -141,7 +147,26 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				}
 
 				case messageAwareness: {
+					const controlledClientIds = wsData.controlledClientIds as Set<number>;
 					const update = decoding.readVarUint8Array(decoder);
+
+					// Decode the update to track which client IDs this connection controls
+					// The update contains [clientID, clock, state?] entries
+					const decoder2 = decoding.createDecoder(update);
+					const len = decoding.readVarUint(decoder2);
+					for (let i = 0; i < len; i++) {
+						const clientId = decoding.readVarUint(decoder2);
+						decoding.readVarUint(decoder2); // clock
+						const state = JSON.parse(decoding.readVarString(decoder2));
+						if (state === null) {
+							// Client is removing their awareness state
+							controlledClientIds.delete(clientId);
+						} else {
+							// Client is setting their awareness state
+							controlledClientIds.add(clientId);
+						}
+					}
+
 					awarenessProtocol.applyAwarenessUpdate(awareness, update, ws);
 
 					// Broadcast awareness to other clients in the room
@@ -173,10 +198,22 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			const awareness = wsData.awareness as
 				| awarenessProtocol.Awareness
 				| undefined;
+			const controlledClientIds = wsData.controlledClientIds as
+				| Set<number>
+				| undefined;
 
 			// Remove update listener
 			if (doc && updateHandler) {
 				doc.off('update', updateHandler);
+			}
+
+			// Clean up awareness state for all client IDs this connection controlled
+			if (awareness && controlledClientIds && controlledClientIds.size > 0) {
+				awarenessProtocol.removeAwarenessStates(
+					awareness,
+					Array.from(controlledClientIds),
+					null,
+				);
 			}
 
 			// Remove from room
@@ -185,15 +222,6 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				rooms.delete(room);
 				// Also clean up awareness for empty rooms
 				awarenessMap.delete(room);
-			}
-
-			// Clean up awareness state for this client
-			if (awareness && doc) {
-				awarenessProtocol.removeAwarenessStates(
-					awareness,
-					[doc.clientID],
-					null,
-				);
 			}
 		},
 	});
