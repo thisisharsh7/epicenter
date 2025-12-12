@@ -12,11 +12,12 @@ import path from 'node:path';
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
-import type { Provider, ProviderExports } from '../provider';
+import type { Provider } from '../provider.node';
+import type { ProviderExports } from '../provider.shared';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import type { EpicenterDir, StorageDir } from '../types';
-import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
+import type { AnyWorkspaceConfig, WorkspaceConfig } from './config.node';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NODE-SPECIFIC TYPES

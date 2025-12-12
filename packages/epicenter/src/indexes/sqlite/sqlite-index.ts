@@ -8,11 +8,8 @@ import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr, IndexError } from '../../core/errors';
-import {
-	defineProviderExports,
-	type Provider,
-	type ProviderContext,
-} from '../../core/provider';
+import type { Provider, ProviderContext } from '../../core/provider.node';
+import { defineProviderExports } from '../../core/provider.shared';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
 import { createIndexLogger } from '../error-logger';

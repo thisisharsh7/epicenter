@@ -8,6 +8,9 @@
 // All platform-agnostic exports
 export * from './index.shared';
 
+// Node-specific: Provider types (storageDir/epicenterDir are required in context)
+export type { Provider, ProviderContext } from './core/provider.node';
+
 // Node-specific: EpicenterConfig type (has storageDir)
 export type { EpicenterConfig } from './core/epicenter/config.node';
 export { defineEpicenter } from './core/epicenter/config.node';
@@ -33,3 +36,7 @@ export {
 	createWorkspaceBlobs,
 } from './core/blobs/index.node';
 export type { BlobStoreContext } from './core/blobs/index.node';
+
+// Node-specific: workspace config (uses node Provider type)
+export type { WorkspaceConfig } from './core/workspace/config.node';
+export { defineWorkspace } from './core/workspace/config.node';

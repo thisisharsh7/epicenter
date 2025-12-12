@@ -94,16 +94,19 @@ export {
 	ValidationErr,
 } from './core/errors';
 
+// Provider system (shared types)
+// NOTE: Platform-specific Provider and ProviderContext types are also exported
+// from index.browser.ts / index.node.ts for use in actual providers.
+// Shared provider utilities and types
+// NOTE: Provider and ProviderContext types are platform-specific
+// (browser vs node) - exported from index.browser.ts / index.node.ts
 export type {
 	InferProviderExports,
-	Provider,
-	ProviderContext,
 	ProviderExports,
 	WorkspaceProviderMap,
-} from './core/provider';
+} from './core/provider.shared';
 
-// Provider system
-export { defineProviderExports } from './core/provider';
+export { defineProviderExports } from './core/provider.shared';
 
 export type {
 	BooleanColumnSchema,
@@ -162,15 +165,10 @@ export {
 // Core types
 export type { AbsolutePath, EpicenterDir, StorageDir } from './core/types';
 
-// Workspace types (shared across platforms)
-// NOTE: WorkspaceClient and WorkspacesToClients are platform-specific
-// (browser has whenSynced, node doesn't) - exported from index.browser.ts / index.node.ts
-export type {
-	AnyWorkspaceConfig,
-	WorkspaceConfig,
-	WorkspacesToExports,
-} from './core/workspace/config';
-export { defineWorkspace } from './core/workspace/config';
+// Workspace types
+// NOTE: WorkspaceConfig, defineWorkspace, WorkspaceClient, and WorkspacesToClients
+// are platform-specific - exported from index.browser.ts / index.node.ts
+export type { AnyWorkspaceConfig, WorkspacesToExports } from './core/workspace/config.shared';
 
 // Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:

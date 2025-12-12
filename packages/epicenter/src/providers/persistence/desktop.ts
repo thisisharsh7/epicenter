@@ -1,7 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as Y from 'yjs';
-import { defineProviderExports, type Provider } from '../../core/provider';
+import { defineProviderExports } from '../../core/provider.shared';
+import type { Provider } from '../../core/provider.node';
 
 /** Debounce delay for filesystem writes (ms) */
 const DEBOUNCE_MS = 100;

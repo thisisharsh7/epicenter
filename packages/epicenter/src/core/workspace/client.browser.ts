@@ -20,10 +20,11 @@
 import * as Y from 'yjs';
 import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
-import type { Provider, ProviderExports } from '../provider';
+import type { Provider } from '../provider.browser';
+import type { ProviderExports } from '../provider.shared';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
-import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
+import type { AnyWorkspaceConfig, WorkspaceConfig } from './config.browser';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BROWSER-SPECIFIC TYPES
@@ -383,14 +384,13 @@ export function initializeWorkspaces<
 			workspaceConfig.providers,
 		)) {
 			// Call provider without await - browser providers handle async internally
+			// Note: Browser context doesn't include storageDir/epicenterDir (no filesystem)
 			const result = providerFn({
 				id: workspaceConfig.id,
 				providerId,
 				ydoc,
 				schema: workspaceConfig.tables,
 				tables,
-				storageDir: undefined, // No filesystem in browser
-				epicenterDir: undefined, // No filesystem in browser
 			});
 
 			if (result instanceof Promise) {

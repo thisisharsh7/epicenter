@@ -1,55 +1,34 @@
+/**
+ * Shared provider types and utilities.
+ *
+ * Platform-specific entry points (provider.browser.ts, provider.node.ts) extend
+ * these base types with platform-appropriate properties.
+ */
+
 import type * as Y from 'yjs';
 import type { Tables } from './db/core';
 import type { WorkspaceSchema } from './schema';
-import type { EpicenterDir, StorageDir } from './types';
 
 /**
- * Context provided to each provider function.
+ * Base provider context shared across all platforms.
  *
- * Provides workspace metadata, the YJS document, and table access for providers.
- *
- * @property id - The workspace ID (e.g., 'blog', 'content-hub')
- * @property providerId - This provider's key in the providers map (e.g., 'sqlite', 'persistence')
- * @property ydoc - The YJS document that providers can attach to
- * @property schema - The workspace schema (table definitions)
- * @property tables - The Epicenter tables instance for observing/querying data
- * @property storageDir - Absolute storage directory path resolved from epicenter config
- *   - Node.js: Resolved to absolute path (defaults to `process.cwd()` if not specified in config)
- *   - Browser: `undefined` (filesystem operations not available)
- * @property epicenterDir - Absolute path to the `.epicenter` directory
- *   - Computed as `path.join(storageDir, '.epicenter')`
- *   - `undefined` in browser environment
- *
- * @example Persistence provider (uses ydoc only)
- * ```typescript
- * const persistenceProvider: Provider = ({ id, ydoc, epicenterDir }) => {
- *   if (!epicenterDir) throw new Error('Requires Node.js');
- *   const filePath = path.join(epicenterDir, `${id}.yjs`);
- *   // Load/save ydoc state...
- * };
- * ```
- *
- * @example Materializer provider (uses tables)
- * ```typescript
- * const sqliteProvider: Provider<MySchema, SqliteExports> = ({ id, providerId, tables, epicenterDir }) => {
- *   // Observe table changes, sync to SQLite...
- *   return defineProviderExports({
- *     destroy: () => client.close(),
- *     db: sqliteDb,
- *   });
- * };
- * ```
+ * Platform-specific contexts extend this with:
+ * - Browser: No additional fields (no filesystem access)
+ * - Node/Bun: `storageDir` and `epicenterDir` (required, not undefined)
  */
-export type ProviderContext<
+export type ProviderContextBase<
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
 > = {
+	/** The workspace ID (e.g., 'blog', 'content-hub') */
 	id: string;
+	/** This provider's key in the providers map (e.g., 'sqlite', 'persistence') */
 	providerId: string;
+	/** The YJS document that providers can attach to */
 	ydoc: Y.Doc;
+	/** The workspace schema (table definitions) */
 	schema: TSchema;
+	/** The Epicenter tables instance for observing/querying data */
 	tables: Tables<TSchema>;
-	storageDir: StorageDir | undefined;
-	epicenterDir: EpicenterDir | undefined;
 };
 
 /**
@@ -115,47 +94,6 @@ export type ProviderExports = {
 };
 
 /**
- * A provider function that attaches external capabilities to a workspace.
- *
- * Providers can be:
- * - **Persistence**: Save/load YDoc state (filesystem, IndexedDB)
- * - **Synchronization**: Real-time collaboration (WebSocket, WebRTC)
- * - **Materializers**: Sync data to external stores (SQLite, markdown, vector DB)
- * - **Observability**: Logging, debugging, analytics
- *
- * Providers can be synchronous or asynchronous. All providers are awaited during initialization.
- * Providers can optionally return exports that are accessible in the workspace exports factory.
- *
- * @example Persistence provider (no exports)
- * ```typescript
- * const persistenceProvider: Provider = ({ ydoc }) => {
- *   new IndexeddbPersistence('my-db', ydoc);
- * };
- * ```
- *
- * @example Materializer provider (with exports)
- * ```typescript
- * const sqliteProvider: Provider<MySchema, SqliteExports> = async ({ tables, epicenterDir }) => {
- *   const client = new Database(path.join(epicenterDir, 'data.db'));
- *   const sqliteDb = drizzle({ client });
- *
- *   // Set up observers...
- *
- *   return defineProviderExports({
- *     destroy: () => client.close(),
- *     db: sqliteDb,
- *   });
- * };
- * ```
- */
-export type Provider<
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
-	TExports extends ProviderExports = ProviderExports,
-> = (
-	context: ProviderContext<TSchema>,
-) => TExports | void | Promise<TExports | void>;
-
-/**
  * A collection of workspace providers indexed by provider name.
  *
  * Each workspace can have multiple providers (persistence, sync, materializers, etc.)
@@ -206,3 +144,4 @@ export function defineProviderExports<T extends ProviderExports>(
 ): T {
 	return exports;
 }
+

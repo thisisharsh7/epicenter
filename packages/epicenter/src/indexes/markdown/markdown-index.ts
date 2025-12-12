@@ -7,11 +7,8 @@ import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import type { TableHelper } from '../../core/db/table-helper';
 import { IndexErr, IndexError } from '../../core/errors';
-import {
-	defineProviderExports,
-	type Provider,
-	type ProviderContext,
-} from '../../core/provider';
+import { defineProviderExports } from '../../core/provider.shared';
+import type { Provider, ProviderContext } from '../../core/provider.node';
 import type {
 	Row,
 	SerializedRow,
