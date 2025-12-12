@@ -58,20 +58,6 @@ export type SyncMessageType =
 	(typeof SYNC_MESSAGE_TYPE)[keyof typeof SYNC_MESSAGE_TYPE];
 
 // ============================================================================
-// Internal Helpers
-// ============================================================================
-
-/**
- * Helper to create encoded message from a writer function.
- * Equivalent to lib0's encoding.encode() pattern.
- */
-function encode(writer: (encoder: encoding.Encoder) => void): Uint8Array {
-	const encoder = encoding.createEncoder();
-	writer(encoder);
-	return encoding.toUint8Array(encoder);
-}
-
-// ============================================================================
 // Sync Message Encoders
 // ============================================================================
 
@@ -87,7 +73,7 @@ function encode(writer: (encoder: encoding.Encoder) => void): Uint8Array {
  * @returns Encoded message ready to send over WebSocket
  */
 export function encodeSyncStep1({ doc }: { doc: Y.Doc }): Uint8Array {
-	return encode((encoder) => {
+	return encoding.encode((encoder) => {
 		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 		syncProtocol.writeSyncStep1(encoder, doc);
 	});
@@ -104,7 +90,7 @@ export function encodeSyncStep1({ doc }: { doc: Y.Doc }): Uint8Array {
  * @returns Encoded message ready to send over WebSocket
  */
 export function encodeSyncStep2({ doc }: { doc: Y.Doc }): Uint8Array {
-	return encode((encoder) => {
+	return encoding.encode((encoder) => {
 		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 		syncProtocol.writeSyncStep2(encoder, doc);
 	});
@@ -125,7 +111,7 @@ export function encodeSyncUpdate({
 }: {
 	update: Uint8Array;
 }): Uint8Array {
-	return encode((encoder) => {
+	return encoding.encode((encoder) => {
 		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 		syncProtocol.writeUpdate(encoder, update);
 	});
@@ -150,7 +136,7 @@ export function encodeAwareness({
 }: {
 	update: Uint8Array;
 }): Uint8Array {
-	return encode((encoder) => {
+	return encoding.encode((encoder) => {
 		encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
 		encoding.writeVarUint8Array(encoder, update);
 	});
