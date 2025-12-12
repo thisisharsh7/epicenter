@@ -160,21 +160,26 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				case messageAwareness: {
 					const update = decoding.readVarUint8Array(decoder);
 
-					// Decode the update to track which client IDs this connection controls
-					// The update contains [clientID, clock, state?] entries
-					const decoder2 = decoding.createDecoder(update);
-					const len = decoding.readVarUint(decoder2);
-					for (let i = 0; i < len; i++) {
-						const clientId = decoding.readVarUint(decoder2);
-						decoding.readVarUint(decoder2); // clock
-						const state = JSON.parse(decoding.readVarString(decoder2));
-						if (state === null) {
-							// Client is removing their awareness state
-							controlledClientIds.delete(clientId);
-						} else {
-							// Client is setting their awareness state
-							controlledClientIds.add(clientId);
+					// Decode the update to track which client IDs this connection controls.
+					// The update contains [clientID, clock, state?] entries.
+					// Wrapped in try-catch because malformed messages shouldn't crash the connection.
+					try {
+						const decoder2 = decoding.createDecoder(update);
+						const len = decoding.readVarUint(decoder2);
+						for (let i = 0; i < len; i++) {
+							const clientId = decoding.readVarUint(decoder2);
+							decoding.readVarUint(decoder2); // clock
+							const state = JSON.parse(decoding.readVarString(decoder2));
+							if (state === null) {
+								// Client is removing their awareness state
+								controlledClientIds.delete(clientId);
+							} else {
+								// Client is setting their awareness state
+								controlledClientIds.add(clientId);
+							}
 						}
+					} catch {
+						// Malformed awareness update - skip client ID tracking but still apply
 					}
 
 					awarenessProtocol.applyAwarenessUpdate(awareness, update, ws);
