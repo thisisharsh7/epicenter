@@ -16,12 +16,12 @@ import {
 	decodeSyncMessage,
 	encodeAwareness,
 	encodeAwarenessStates,
+	encodeQueryAwareness,
 	encodeSyncStep1,
 	encodeSyncStep2,
 	encodeSyncUpdate,
 	handleSyncMessage,
 	MESSAGE_TYPE,
-	readMessageType,
 	SYNC_MESSAGE_TYPE,
 } from './protocol';
 
@@ -241,27 +241,6 @@ describe('MESSAGE_SYNC', () => {
 		});
 	});
 
-	describe('readMessageType', () => {
-		test('reads sync message type', () => {
-			const doc = createDoc();
-			const message = encodeSyncStep1({ doc });
-
-			expect(readMessageType({ data: message })).toBe(MESSAGE_TYPE.SYNC);
-		});
-
-		test('reads awareness message type', () => {
-			const doc = createDoc();
-			const awareness = new awarenessProtocol.Awareness(doc);
-			awareness.setLocalState({ name: 'Test' });
-
-			const message = encodeAwarenessStates({
-				awareness,
-				clients: [awareness.clientID],
-			});
-
-			expect(readMessageType({ data: message })).toBe(MESSAGE_TYPE.AWARENESS);
-		});
-	});
 });
 
 // ============================================================================
@@ -394,9 +373,7 @@ describe('MESSAGE_AWARENESS', () => {
 
 describe('MESSAGE_QUERY_AWARENESS', () => {
 	test('query awareness message is single byte', () => {
-		const message = encoding.encode((encoder) => {
-			encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
-		});
+		const message = encodeQueryAwareness();
 
 		expect(message.length).toBe(1);
 		expect(message[0]).toBe(MESSAGE_TYPE.QUERY_AWARENESS);
@@ -500,19 +477,10 @@ describe('decodeMessageType', () => {
 	});
 
 	test('decodes QUERY_AWARENESS message type', () => {
-		const message = encoding.encode((encoder) => {
-			encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
-		});
+		const message = encodeQueryAwareness();
 		expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.QUERY_AWARENESS);
 	});
 
-	test('matches readMessageType behavior', () => {
-		const doc = createDoc();
-		const message = encodeSyncStep1({ doc });
-
-		// Both functions should return the same result
-		expect(decodeMessageType(message)).toBe(readMessageType({ data: message }));
-	});
 });
 
 // ============================================================================

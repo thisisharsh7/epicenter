@@ -40,7 +40,7 @@ export const MESSAGE_TYPE = {
 export type MessageType = (typeof MESSAGE_TYPE)[keyof typeof MESSAGE_TYPE];
 
 /**
- * Reads the message type from raw message data.
+ * Decodes the top-level message type from raw message data.
  *
  * The first varint in any y-websocket message is the message type:
  * - 0: MESSAGE_SYNC (document sync)
@@ -48,18 +48,6 @@ export type MessageType = (typeof MESSAGE_TYPE)[keyof typeof MESSAGE_TYPE];
  * - 2: MESSAGE_AUTH (authentication, reserved)
  * - 3: MESSAGE_QUERY_AWARENESS (request awareness states)
  *
- * @param options.data - Raw message bytes received from WebSocket
- * @returns The message type constant
- */
-export function readMessageType({ data }: { data: Uint8Array }): number {
-	const decoder = decoding.createDecoder(data);
-	return decoding.readVarUint(decoder);
-}
-
-/**
- * Decodes the top-level message type from raw message data.
- *
- * Equivalent to readMessageType but follows the decode* naming convention.
  * Useful for quickly determining message type before full parsing.
  *
  * @param data - Raw message bytes
@@ -269,5 +257,19 @@ export function encodeAwarenessStates({
 }): Uint8Array {
 	return encodeAwareness({
 		update: awarenessProtocol.encodeAwarenessUpdate(awareness, clients),
+	});
+}
+
+/**
+ * Encodes a query awareness message.
+ *
+ * This message requests all current awareness states from the server.
+ * Typically sent by clients that need to refresh their view of other users.
+ *
+ * @returns Encoded message ready to send over WebSocket
+ */
+export function encodeQueryAwareness(): Uint8Array {
+	return encoding.encode((encoder) => {
+		encoding.writeVarUint(encoder, MESSAGE_TYPE.QUERY_AWARENESS);
 	});
 }
