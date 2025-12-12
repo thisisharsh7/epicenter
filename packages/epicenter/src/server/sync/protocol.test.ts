@@ -22,6 +22,7 @@ import {
 	handleSyncMessage,
 	MESSAGE_TYPE,
 	readMessageType,
+	SYNC_MESSAGE_TYPE,
 } from './protocol';
 
 // ============================================================================
@@ -35,6 +36,22 @@ describe('MESSAGE_TYPE constants', () => {
 		expect(MESSAGE_TYPE.AWARENESS).toBe(1);
 		expect(MESSAGE_TYPE.AUTH).toBe(2);
 		expect(MESSAGE_TYPE.QUERY_AWARENESS).toBe(3);
+	});
+});
+
+describe('SYNC_MESSAGE_TYPE constants', () => {
+	test('match y-protocols/sync values', () => {
+		// These values are derived from y-protocols and must match
+		expect(SYNC_MESSAGE_TYPE.STEP1).toBe(syncProtocol.messageYjsSyncStep1);
+		expect(SYNC_MESSAGE_TYPE.STEP2).toBe(syncProtocol.messageYjsSyncStep2);
+		expect(SYNC_MESSAGE_TYPE.UPDATE).toBe(syncProtocol.messageYjsUpdate);
+	});
+
+	test('have expected numeric values', () => {
+		// Document the actual values for clarity
+		expect(SYNC_MESSAGE_TYPE.STEP1).toBe(0);
+		expect(SYNC_MESSAGE_TYPE.STEP2).toBe(1);
+		expect(SYNC_MESSAGE_TYPE.UPDATE).toBe(2);
 	});
 });
 

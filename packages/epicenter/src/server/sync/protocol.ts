@@ -39,6 +39,24 @@ export const MESSAGE_TYPE = {
 
 export type MessageType = (typeof MESSAGE_TYPE)[keyof typeof MESSAGE_TYPE];
 
+/**
+ * Sub-message types within SYNC messages.
+ * Derived from y-protocols/sync constants for consistency.
+ *
+ * These are the second varint in a SYNC message, after MESSAGE_TYPE.SYNC.
+ */
+export const SYNC_MESSAGE_TYPE = {
+	/** Initial handshake: "here's my state vector, what am I missing?" */
+	STEP1: syncProtocol.messageYjsSyncStep1,
+	/** Response to STEP1: "here are the updates you're missing" */
+	STEP2: syncProtocol.messageYjsSyncStep2,
+	/** Incremental document update broadcast */
+	UPDATE: syncProtocol.messageYjsUpdate,
+} as const;
+
+export type SyncMessageType =
+	(typeof SYNC_MESSAGE_TYPE)[keyof typeof SYNC_MESSAGE_TYPE];
+
 // ============================================================================
 // Internal Helpers
 // ============================================================================
@@ -102,7 +120,11 @@ export function encodeSyncStep2({ doc }: { doc: Y.Doc }): Uint8Array {
  * @param options.update - The raw Yjs update bytes (from doc.on('update'))
  * @returns Encoded message ready to send over WebSocket
  */
-export function encodeSyncUpdate({ update }: { update: Uint8Array }): Uint8Array {
+export function encodeSyncUpdate({
+	update,
+}: {
+	update: Uint8Array;
+}): Uint8Array {
 	return encode((encoder) => {
 		encoding.writeVarUint(encoder, MESSAGE_TYPE.SYNC);
 		syncProtocol.writeUpdate(encoder, update);
@@ -123,7 +145,11 @@ export function encodeSyncUpdate({ update }: { update: Uint8Array }): Uint8Array
  * @param options.update - Raw awareness update bytes (from awarenessProtocol.encodeAwarenessUpdate)
  * @returns Encoded message ready to send over WebSocket
  */
-export function encodeAwareness({ update }: { update: Uint8Array }): Uint8Array {
+export function encodeAwareness({
+	update,
+}: {
+	update: Uint8Array;
+}): Uint8Array {
 	return encode((encoder) => {
 		encoding.writeVarUint(encoder, MESSAGE_TYPE.AWARENESS);
 		encoding.writeVarUint8Array(encoder, update);
@@ -243,11 +269,11 @@ export function decodeSyncMessage(data: Uint8Array): DecodedSyncMessage {
 	const payload = decoding.readVarUint8Array(decoder);
 
 	switch (syncType) {
-		case syncProtocol.messageYjsSyncStep1:
+		case SYNC_MESSAGE_TYPE.STEP1:
 			return { type: 'step1', stateVector: payload };
-		case syncProtocol.messageYjsSyncStep2:
+		case SYNC_MESSAGE_TYPE.STEP2:
 			return { type: 'step2', update: payload };
-		case syncProtocol.messageYjsUpdate:
+		case SYNC_MESSAGE_TYPE.UPDATE:
 			return { type: 'update', update: payload };
 		default:
 			throw new Error(`Unknown sync type: ${syncType}`);
