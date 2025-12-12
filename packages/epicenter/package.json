@@ -18,7 +18,8 @@
 		"./cli": "./src/cli/index.ts",
 		"./indexes/markdown": "./src/indexes/markdown/index.ts",
 		"./indexes/sqlite": "./src/indexes/sqlite/index.ts",
-		"./server": "./src/server/index.ts"
+		"./server": "./src/server/index.ts",
+		"./providers/websocket-sync": "./src/providers/websocket-sync.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
@@ -45,7 +46,9 @@
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"yargs": "catalog:",
-		"yjs": "^13.6.27"
+		"yjs": "^13.6.27",
+		"y-protocols": "^1.0.6",
+		"lib0": "^0.2.99"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
