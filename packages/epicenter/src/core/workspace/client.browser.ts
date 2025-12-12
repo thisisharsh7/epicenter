@@ -377,7 +377,7 @@ export function initializeWorkspaces<
 		 * 1. Async provider factories (the promise itself)
 		 * 2. Sync providers that return a `whenSynced` property
 		 */
-		const syncPromises: Promise<void>[] = [];
+		const syncPromises: Promise<unknown>[] = [];
 
 		for (const [providerId, providerFn] of Object.entries(
 			workspaceConfig.providers,
@@ -417,7 +417,7 @@ export function initializeWorkspaces<
 		// Aggregate all sync promises into a single whenSynced promise
 		const whenSynced =
 			syncPromises.length > 0
-				? Promise.all(syncPromises).then(() => {})
+				? Promise.all(syncPromises)
 				: Promise.resolve();
 
 		// Call the exports factory to get workspace exports (actions + utilities), passing:

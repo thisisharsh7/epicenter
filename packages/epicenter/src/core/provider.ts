@@ -90,6 +90,11 @@ export type ProviderExports = {
 	 *
 	 * If provided, this will be included in the workspace's aggregated `whenSynced`.
 	 *
+	 * Note: Typed as `Promise<unknown>` because different providers return different
+	 * values. For example, y-indexeddb's `persistence.whenSynced` returns
+	 * `Promise<IndexeddbPersistence>`, not `Promise<void>`. Consumers should only
+	 * await this promise, not rely on its resolved value.
+	 *
 	 * @example
 	 * ```typescript
 	 * const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
@@ -99,7 +104,7 @@ export type ProviderExports = {
 	 * });
 	 * ```
 	 */
-	whenSynced?: Promise<void>;
+	whenSynced?: Promise<unknown>;
 
 	/**
 	 * Optional cleanup function called during workspace cleanup.
