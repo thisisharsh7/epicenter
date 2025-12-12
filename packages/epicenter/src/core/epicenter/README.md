@@ -34,7 +34,7 @@ Create an Epicenter client directly for standalone scripts:
 The server is just a wrapper around `createEpicenterClient` that:
 1. Creates an Epicenter client
 2. Keeps it alive
-3. Maps REST, MCP, and Hocuspocus endpoints to client actions
+3. Maps REST, MCP, and WebSocket Sync endpoints to client actions
 
 ```typescript
 // Server (long-running)
