@@ -1,80 +1,42 @@
 /**
- * Browser workspace definition.
+ * Popup workspace definition.
  *
- * Defines the full workspace with schema, providers, and exports for
- * use in the popup context. The background uses the same schema but
- * doesn't need the sync provider (it IS the authority).
+ * Used in the popup context to sync with the background service worker.
+ * The popup holds a Y.Doc replica that receives updates from the background.
  */
 
-import { defineWorkspace, type Tables } from '@epicenter/hq';
+import { defineWorkspace } from '@epicenter/hq';
 import * as Y from 'yjs';
-import {
-	TABS_SCHEMA,
-	WINDOWS_SCHEMA,
-	TAB_GROUPS_SCHEMA,
-	type Tab,
-	type Window,
-} from './browser.schema';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Schema Composition
-// ─────────────────────────────────────────────────────────────────────────────
+import { type Tab, type Window } from './browser.schema';
+import { BROWSER_SCHEMA, type SyncMessage } from './schema';
 
 /**
- * Composed workspace schema for browser state.
+ * Popup workspace that syncs with the background service worker.
  *
- * Note: Table names use snake_case per Epicenter naming conventions.
+ * The popup connects to the background via chrome.runtime.connect and
+ * receives Y.Doc updates. This is a replica - the background is authoritative.
  */
-export const BROWSER_SCHEMA = {
-	tabs: TABS_SCHEMA,
-	windows: WINDOWS_SCHEMA,
-	tab_groups: TAB_GROUPS_SCHEMA,
-} as const;
-
-/**
- * Type-safe database instance for browser state.
- */
-export type BrowserDb = Tables<typeof BROWSER_SCHEMA>;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Workspace Definition
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Message types for the sync protocol.
- * Must match the types in background/popup-sync.ts
- */
-type SyncMessage =
-	| { type: 'sync-state'; state: number[] }
-	| { type: 'update'; update: number[] };
-
-/**
- * Browser workspace for the popup context.
- *
- * This workspace connects to the background service worker for sync and
- * exposes typed accessors for browser state (tabs, windows, tab groups).
- */
-export const browserWorkspace = defineWorkspace({
+export const popupWorkspace = defineWorkspace({
 	id: 'browser',
 	tables: BROWSER_SCHEMA,
 	providers: {
 		/**
 		 * Provider that syncs the popup's Y.Doc with the background service worker.
 		 *
-		 * This is a browser-specific provider that uses the browser extension
-		 * messaging API to sync with the background context.
+		 * Uses the browser extension messaging API to connect to the background
+		 * and receive Y.Doc updates.
 		 */
 		backgroundSync: ({ ydoc }) => {
 			// Connect to background via browser.runtime port
 			const port = browser.runtime.connect({ name: 'yjs-sync' });
 
-			console.log('[Background Sync] Connecting to background...');
+			console.log('[Popup Sync] Connecting to background...');
 
 			// Receive updates from background
 			port.onMessage.addListener((msg: SyncMessage) => {
 				if (msg.type === 'sync-state') {
 					// Initial full state sync
-					console.log('[Background Sync] Received initial state');
+					console.log('[Popup Sync] Received initial state');
 					Y.applyUpdate(ydoc, new Uint8Array(msg.state), 'background');
 				} else if (msg.type === 'update') {
 					// Incremental update
@@ -98,7 +60,7 @@ export const browserWorkspace = defineWorkspace({
 
 			// Handle disconnect
 			port.onDisconnect.addListener(() => {
-				console.log('[Background Sync] Disconnected from background');
+				console.log('[Popup Sync] Disconnected from background');
 				ydoc.off('update', updateHandler);
 			});
 
@@ -141,3 +103,6 @@ export const browserWorkspace = defineWorkspace({
 		},
 	}),
 });
+
+// Re-export for backwards compatibility
+export { BROWSER_SCHEMA, type BrowserDb } from './schema';

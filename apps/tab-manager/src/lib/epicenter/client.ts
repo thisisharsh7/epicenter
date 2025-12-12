@@ -6,7 +6,7 @@
  */
 
 import { createWorkspaceClient } from '@epicenter/hq';
-import { browserWorkspace } from './browser.workspace';
+import { popupWorkspace } from './browser.workspace';
 
 /**
  * The workspace client with typed access to browser state.
@@ -19,4 +19,4 @@ import { browserWorkspace } from './browser.workspace';
  * - `getTabsByWindow(windowId)`: Get tabs for a specific window
  * - `destroy()`: Clean up resources
  */
-export const epicenter = createWorkspaceClient(browserWorkspace);
+export const epicenter = createWorkspaceClient(popupWorkspace);

@@ -1,8 +1,6 @@
 import { defineBackground } from 'wxt/utils/define-background';
-import * as Y from 'yjs';
-import { IndexeddbPersistence } from 'y-indexeddb';
-import { setupPopupSync } from './popup-sync';
-import { setupChromeSync } from './chrome-sync';
+import { createWorkspaceClient } from '@epicenter/hq';
+import { backgroundWorkspace } from '$lib/epicenter/background.workspace';
 
 /**
  * Background service worker for Tab Manager.
@@ -17,31 +15,18 @@ import { setupChromeSync } from './chrome-sync';
 export default defineBackground(() => {
 	console.log('[Background] Initializing Tab Manager...');
 
-	// Create the Y.Doc - this is the single source of truth
-	const ydoc = new Y.Doc({ guid: 'browser' });
-
-	// Set up IndexedDB persistence
-	const persistence = new IndexeddbPersistence('tab-manager', ydoc);
-
-	persistence.on('synced', () => {
-		console.log('[Background] IndexedDB synced');
-	});
-
-	// Set up Chrome ↔ Y.Doc sync
-	const chromeSync = setupChromeSync(ydoc);
-
-	// Set up popup sync via chrome.runtime.connect
-	setupPopupSync(ydoc);
+	// Create the workspace client - initializes Y.Doc, providers, and exports
+	const client = createWorkspaceClient(backgroundWorkspace);
 
 	// Initial sync on extension install/update
 	browser.runtime.onInstalled.addListener(async (details) => {
 		console.log('[Background] Extension installed/updated:', details.reason);
 
 		// Wait for IndexedDB to sync before doing initial Chrome sync
-		await persistence.whenSynced;
+		await client.whenSynced;
 
 		// Do initial sync from Chrome
-		await chromeSync.syncAllFromChrome();
+		await client.syncAllFromChrome();
 	});
 
 	// Also sync on browser startup (tab IDs have changed)
@@ -49,10 +34,10 @@ export default defineBackground(() => {
 		console.log('[Background] Browser started, syncing tabs...');
 
 		// Wait for IndexedDB to sync
-		await persistence.whenSynced;
+		await client.whenSynced;
 
 		// Do full sync from Chrome (IDs have changed)
-		await chromeSync.syncAllFromChrome();
+		await client.syncAllFromChrome();
 	});
 
 	console.log('[Background] Tab Manager initialized');
