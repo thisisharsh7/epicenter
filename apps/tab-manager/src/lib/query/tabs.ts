@@ -30,6 +30,18 @@ let unsubscribeWindows: (() => void) | null = null;
 let unsubscribeTabGroups: (() => void) | null = null;
 
 /**
+ * Create an observe callback that invalidates queries on any change.
+ */
+function createInvalidator(queryKey: readonly unknown[]) {
+	const invalidate = () => queryClient.invalidateQueries({ queryKey });
+	return {
+		onAdd: invalidate,
+		onUpdate: invalidate,
+		onDelete: invalidate,
+	};
+}
+
+/**
  * Subscribe to Y.Doc changes and invalidate TanStack Query cache.
  *
  * Call this once after EpicenterProvider has initialized.
@@ -39,19 +51,17 @@ export function subscribeToYDocChanges() {
 	unsubscribeFromYDocChanges();
 
 	// Subscribe to tabs changes
-	unsubscribeTabs = epicenter.tabs.observe(() => {
-		queryClient.invalidateQueries({ queryKey: tabsKeys.all });
-	});
+	unsubscribeTabs = epicenter.db.tabs.observe(createInvalidator(tabsKeys.all));
 
 	// Subscribe to windows changes
-	unsubscribeWindows = epicenter.windows.observe(() => {
-		queryClient.invalidateQueries({ queryKey: tabsKeys.windows });
-	});
+	unsubscribeWindows = epicenter.db.windows.observe(
+		createInvalidator(tabsKeys.windows),
+	);
 
 	// Subscribe to tab groups changes
-	unsubscribeTabGroups = epicenter.tabGroups.observe(() => {
-		queryClient.invalidateQueries({ queryKey: tabsKeys.tabGroups });
-	});
+	unsubscribeTabGroups = epicenter.db.tab_groups.observe(
+		createInvalidator(tabsKeys.tabGroups),
+	);
 
 	console.log('[Query] Subscribed to Y.Doc changes');
 }
@@ -109,7 +119,7 @@ export const tabs = {
 	getAllTabGroups: {
 		options: {
 			queryKey: tabsKeys.tabGroups,
-			queryFn: () => epicenter.tabGroups.getAll(),
+			queryFn: () => epicenter.db.tab_groups.getAllValid(),
 			staleTime: Infinity,
 		},
 	},

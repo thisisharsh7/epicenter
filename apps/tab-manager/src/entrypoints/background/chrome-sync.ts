@@ -6,43 +6,13 @@
  * 2. Y.Doc → Chrome: (Future) Observers apply Y.Doc changes to Chrome
  */
 
-import * as Y from 'yjs';
+import { createEpicenterDb } from '@epicenter/hq';
+import type * as Y from 'yjs';
 import type { Tab, Window, TabGroup } from '$lib/epicenter/browser.schema';
+import { BROWSER_SCHEMA } from '$lib/epicenter/browser-db';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Y.Doc Table Access
-// ─────────────────────────────────────────────────────────────────────────────
-
-function getTablesMap(ydoc: Y.Doc): Y.Map<Y.Map<Y.Map<unknown>>> {
-	return ydoc.getMap('tables') as Y.Map<Y.Map<Y.Map<unknown>>>;
-}
-
-function getTabsTable(ydoc: Y.Doc): Y.Map<Y.Map<unknown>> {
-	const tables = getTablesMap(ydoc);
-	if (!tables.has('tabs')) {
-		tables.set('tabs', new Y.Map() as Y.Map<Y.Map<unknown>>);
-	}
-	return tables.get('tabs') as Y.Map<Y.Map<unknown>>;
-}
-
-function getWindowsTable(ydoc: Y.Doc): Y.Map<Y.Map<unknown>> {
-	const tables = getTablesMap(ydoc);
-	if (!tables.has('windows')) {
-		tables.set('windows', new Y.Map() as Y.Map<Y.Map<unknown>>);
-	}
-	return tables.get('windows') as Y.Map<Y.Map<unknown>>;
-}
-
-function getTabGroupsTable(ydoc: Y.Doc): Y.Map<Y.Map<unknown>> {
-	const tables = getTablesMap(ydoc);
-	if (!tables.has('tabGroups')) {
-		tables.set('tabGroups', new Y.Map() as Y.Map<Y.Map<unknown>>);
-	}
-	return tables.get('tabGroups') as Y.Map<Y.Map<unknown>>;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers: Convert Chrome types to Y.Doc rows
+// Helpers: Convert Chrome types to schema rows
 // ─────────────────────────────────────────────────────────────────────────────
 
 function chromeTabToRow(tab: Browser.tabs.Tab): Tab {
@@ -97,53 +67,11 @@ function chromeTabGroupToRow(group: Browser.tabGroups.TabGroup): TabGroup {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers: Y.Doc operations
-// ─────────────────────────────────────────────────────────────────────────────
-
-function setRow(table: Y.Map<Y.Map<unknown>>, id: string, data: Record<string, unknown>) {
-	const row = new Y.Map<unknown>();
-	for (const [key, value] of Object.entries(data)) {
-		row.set(key, value);
-	}
-	table.set(id, row);
-}
-
-function updateRow(table: Y.Map<Y.Map<unknown>>, id: string, updates: Record<string, unknown>) {
-	const row = table.get(id);
-	if (!row) return;
-	for (const [key, value] of Object.entries(updates)) {
-		row.set(key, value);
-	}
-}
-
-function deleteRow(table: Y.Map<Y.Map<unknown>>, id: string) {
-	table.delete(id);
-}
-
-function clearTable(table: Y.Map<Y.Map<unknown>>) {
-	table.clear();
-}
-
-function getAllRows<T>(table: Y.Map<Y.Map<unknown>>): T[] {
-	const rows: T[] = [];
-	for (const row of table.values()) {
-		const obj: Record<string, unknown> = {};
-		for (const [key, value] of row.entries()) {
-			obj[key] = value;
-		}
-		rows.push(obj as T);
-	}
-	return rows;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Chrome Sync Setup
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function setupChromeSync(ydoc: Y.Doc) {
-	const tabsTable = getTabsTable(ydoc);
-	const windowsTable = getWindowsTable(ydoc);
-	const tabGroupsTable = getTabGroupsTable(ydoc);
+	const db = createEpicenterDb(ydoc, BROWSER_SCHEMA);
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// INITIAL SYNC - Destructive sync on startup
@@ -158,34 +86,29 @@ export function setupChromeSync(ydoc: Y.Doc) {
 			browser.windows.getAll(),
 		]);
 
-		ydoc.transact(() => {
+		db.$transact(() => {
 			// Clear existing data
-			clearTable(tabsTable);
-			clearTable(windowsTable);
-			clearTable(tabGroupsTable);
+			db.$clearAll();
 
 			// Sync windows first (tabs reference windows)
 			for (const win of chromeWindows) {
 				if (win.id === undefined) continue;
-				const row = chromeWindowToRow(win);
-				setRow(windowsTable, row.id, row);
+				db.windows.upsert(chromeWindowToRow(win));
 			}
 
 			// Sync tabs
 			for (const tab of chromeTabs) {
 				if (tab.id === undefined) continue;
-				const row = chromeTabToRow(tab);
-				setRow(tabsTable, row.id, row);
+				db.tabs.upsert(chromeTabToRow(tab));
 			}
 		});
 
 		// Sync tab groups (Chrome 88+ only)
 		if (browser.tabGroups) {
 			const chromeGroups = await browser.tabGroups.query({});
-			ydoc.transact(() => {
+			db.$transact(() => {
 				for (const group of chromeGroups) {
-					const row = chromeTabGroupToRow(group);
-					setRow(tabGroupsTable, row.id, row);
+					db.tab_groups.upsert(chromeTabGroupToRow(group));
 				}
 			});
 		}
@@ -203,67 +126,53 @@ export function setupChromeSync(ydoc: Y.Doc) {
 
 	browser.tabs.onCreated.addListener((tab) => {
 		if (tab.id === undefined) return;
-		const row = chromeTabToRow(tab);
-		ydoc.transact(() => {
-			setRow(tabsTable, row.id, row);
-		});
+		db.tabs.upsert(chromeTabToRow(tab));
 	});
 
 	browser.tabs.onRemoved.addListener((tabId) => {
-		ydoc.transact(() => {
-			deleteRow(tabsTable, String(tabId));
-		});
+		db.tabs.delete({ id: String(tabId) });
 	});
 
 	browser.tabs.onUpdated.addListener((_tabId, _changeInfo, tab) => {
 		if (tab.id === undefined) return;
-		const row = chromeTabToRow(tab);
-		ydoc.transact(() => {
-			// Check if tab exists, create if not (can happen with rapid events)
-			if (tabsTable.has(row.id)) {
-				const { id, ...updates } = row;
-				updateRow(tabsTable, id, updates);
-			} else {
-				setRow(tabsTable, row.id, row);
-			}
-		});
+		// upsert handles both create and update
+		db.tabs.upsert(chromeTabToRow(tab));
 	});
 
 	browser.tabs.onActivated.addListener(({ tabId, windowId }) => {
-		ydoc.transact(() => {
+		db.$transact(() => {
 			// Deactivate all tabs in the window
-			const allTabs = getAllRows<Tab>(tabsTable);
-			for (const tab of allTabs) {
-				if (tab.window_id === String(windowId) && tab.active && tab.id !== String(tabId)) {
-					updateRow(tabsTable, tab.id, { active: false });
-				}
+			const windowTabs = db.tabs.filter(
+				(t) => t.window_id === String(windowId) && t.active && t.id !== String(tabId),
+			);
+			for (const tab of windowTabs) {
+				db.tabs.update({ id: tab.id, active: false });
 			}
 			// Activate the new tab
-			updateRow(tabsTable, String(tabId), { active: true });
+			db.tabs.update({ id: String(tabId), active: true });
 		});
 	});
 
 	browser.tabs.onMoved.addListener((tabId, { windowId, fromIndex, toIndex }) => {
-		ydoc.transact(() => {
-			// Get all tabs in the window
-			const allTabs = getAllRows<Tab>(tabsTable);
-			const windowTabs = allTabs
+		db.$transact(() => {
+			// Get all tabs in the window sorted by index
+			const windowTabs = db.tabs
 				.filter((t) => t.window_id === String(windowId))
 				.sort((a, b) => a.index - b.index);
 
 			// Update indices
 			for (const tab of windowTabs) {
 				if (tab.id === String(tabId)) {
-					updateRow(tabsTable, tab.id, { index: toIndex });
+					db.tabs.update({ id: tab.id, index: toIndex });
 				} else if (fromIndex < toIndex) {
 					// Moving right: decrement tabs in between
 					if (tab.index > fromIndex && tab.index <= toIndex) {
-						updateRow(tabsTable, tab.id, { index: tab.index - 1 });
+						db.tabs.update({ id: tab.id, index: tab.index - 1 });
 					}
 				} else {
 					// Moving left: increment tabs in between
 					if (tab.index >= toIndex && tab.index < fromIndex) {
-						updateRow(tabsTable, tab.id, { index: tab.index + 1 });
+						db.tabs.update({ id: tab.id, index: tab.index + 1 });
 					}
 				}
 			}
@@ -271,11 +180,10 @@ export function setupChromeSync(ydoc: Y.Doc) {
 	});
 
 	browser.tabs.onAttached.addListener((tabId, { newWindowId, newPosition }) => {
-		ydoc.transact(() => {
-			updateRow(tabsTable, String(tabId), {
-				window_id: String(newWindowId),
-				index: newPosition,
-			});
+		db.tabs.update({
+			id: String(tabId),
+			window_id: String(newWindowId),
+			index: newPosition,
 		});
 	});
 
@@ -287,31 +195,24 @@ export function setupChromeSync(ydoc: Y.Doc) {
 
 	browser.windows.onCreated.addListener((win) => {
 		if (win.id === undefined) return;
-		const row = chromeWindowToRow(win);
-		ydoc.transact(() => {
-			setRow(windowsTable, row.id, row);
-		});
+		db.windows.upsert(chromeWindowToRow(win));
 	});
 
 	browser.windows.onRemoved.addListener((windowId) => {
-		ydoc.transact(() => {
-			deleteRow(windowsTable, String(windowId));
-			// Note: Tabs are automatically removed by their own onRemoved events
-		});
+		db.windows.delete({ id: String(windowId) });
+		// Note: Tabs are automatically removed by their own onRemoved events
 	});
 
 	browser.windows.onFocusChanged.addListener((windowId) => {
-		ydoc.transact(() => {
+		db.$transact(() => {
 			// Unfocus all windows
-			const allWindows = getAllRows<Window>(windowsTable);
-			for (const win of allWindows) {
-				if (win.focused) {
-					updateRow(windowsTable, win.id, { focused: false });
-				}
+			const focusedWindows = db.windows.filter((w) => w.focused);
+			for (const win of focusedWindows) {
+				db.windows.update({ id: win.id, focused: false });
 			}
 			// Focus the new window (if not WINDOW_ID_NONE)
 			if (windowId !== browser.windows.WINDOW_ID_NONE) {
-				updateRow(windowsTable, String(windowId), { focused: true });
+				db.windows.update({ id: String(windowId), focused: true });
 			}
 		});
 	});
@@ -320,24 +221,15 @@ export function setupChromeSync(ydoc: Y.Doc) {
 
 	if (browser.tabGroups) {
 		browser.tabGroups.onCreated.addListener((group) => {
-			const row = chromeTabGroupToRow(group);
-			ydoc.transact(() => {
-				setRow(tabGroupsTable, row.id, row);
-			});
+			db.tab_groups.upsert(chromeTabGroupToRow(group));
 		});
 
 		browser.tabGroups.onRemoved.addListener((group) => {
-			ydoc.transact(() => {
-				deleteRow(tabGroupsTable, String(group.id));
-			});
+			db.tab_groups.delete({ id: String(group.id) });
 		});
 
 		browser.tabGroups.onUpdated.addListener((group) => {
-			const row = chromeTabGroupToRow(group);
-			ydoc.transact(() => {
-				const { id, ...updates } = row;
-				updateRow(tabGroupsTable, id, updates);
-			});
+			db.tab_groups.upsert(chromeTabGroupToRow(group));
 		});
 	}
 

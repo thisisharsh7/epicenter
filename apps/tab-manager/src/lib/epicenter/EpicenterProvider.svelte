@@ -1,50 +1,20 @@
 <script module lang="ts">
+	import { createEpicenterDb } from '@epicenter/hq';
 	import * as Y from 'yjs';
 	import { connectToBackground } from '$lib/sync/background-sync';
-	import type { Tab, Window, TabGroup } from './browser.schema';
+	import type { Tab, Window } from './browser.schema';
+	import { BROWSER_SCHEMA, type BrowserDb } from './browser-db';
 
-	// The Y.Doc and tables - set during initialization
+	// The Y.Doc and database - set during initialization
 	let ydoc: Y.Doc | null = null;
+	let db: BrowserDb | null = null;
 	let disconnect: (() => void) | null = null;
 
-	// Table accessors
-	function getTablesMap(): Y.Map<Y.Map<Y.Map<unknown>>> {
-		if (!ydoc) throw new Error('Y.Doc not initialized');
-		return ydoc.getMap('tables') as Y.Map<Y.Map<Y.Map<unknown>>>;
-	}
-
-	function getTable<T>(
-		name: string,
-	): { getAll: () => T[]; observe: (callback: () => void) => () => void } {
-		const tables = getTablesMap();
-		if (!tables.has(name)) {
-			tables.set(name, new Y.Map() as Y.Map<Y.Map<unknown>>);
-		}
-		const table = tables.get(name) as Y.Map<Y.Map<unknown>>;
-
-		return {
-			getAll(): T[] {
-				const rows: T[] = [];
-				for (const row of table.values()) {
-					const obj: Record<string, unknown> = {};
-					for (const [key, value] of row.entries()) {
-						obj[key] = value;
-					}
-					rows.push(obj as T);
-				}
-				return rows;
-			},
-			observe(callback: () => void): () => void {
-				table.observeDeep(callback);
-				return () => table.unobserveDeep(callback);
-			},
-		};
-	}
-
 	async function init(): Promise<void> {
-		// Create Y.Doc and connect to background
+		// Create Y.Doc, connect to background, and wrap with typed helpers
 		ydoc = new Y.Doc({ guid: 'browser' });
 		disconnect = connectToBackground(ydoc);
+		db = createEpicenterDb(ydoc, BROWSER_SCHEMA);
 	}
 
 	function destroy(): void {
@@ -56,6 +26,7 @@
 			ydoc.destroy();
 			ydoc = null;
 		}
+		db = null;
 	}
 
 	/**
@@ -73,38 +44,34 @@
 			return ydoc;
 		},
 
-		get tabs() {
-			return getTable<Tab>('tabs');
-		},
-
-		get windows() {
-			return getTable<Window>('windows');
-		},
-
-		get tabGroups() {
-			return getTable<TabGroup>('tabGroups');
+		get db(): BrowserDb {
+			if (!db) {
+				throw new Error(
+					'Epicenter not initialized. Wrap your app in EpicenterProvider.',
+				);
+			}
+			return db;
 		},
 
 		/**
 		 * Get all tabs sorted by index.
 		 */
 		getAllTabs(): Tab[] {
-			return this.tabs.getAll().sort((a, b) => a.index - b.index);
+			return this.db.tabs.getAllValid().sort((a, b) => a.index - b.index);
 		},
 
 		/**
 		 * Get all windows.
 		 */
 		getAllWindows(): Window[] {
-			return this.windows.getAll();
+			return this.db.windows.getAllValid();
 		},
 
 		/**
 		 * Get tabs for a specific window.
 		 */
 		getTabsByWindow(windowId: string): Tab[] {
-			return this.tabs
-				.getAll()
+			return this.db.tabs
 				.filter((t) => t.window_id === windowId)
 				.sort((a, b) => a.index - b.index);
 		},
