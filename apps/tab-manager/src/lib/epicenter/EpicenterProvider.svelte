@@ -1,80 +1,51 @@
 <script module lang="ts">
-	import { createEpicenterDb } from '@epicenter/hq';
-	import * as Y from 'yjs';
-	import { connectToBackground } from '$lib/sync/background-sync';
-	import type { Tab, Window } from './browser.schema';
-	import { BROWSER_SCHEMA, type BrowserDb } from './browser-db';
+	import { createWorkspaceClient, type WorkspaceClient } from '@epicenter/hq';
+	import { browserWorkspace } from './browser.workspace';
 
-	// The Y.Doc and database - set during initialization
-	let ydoc: Y.Doc | null = null;
-	let db: BrowserDb | null = null;
-	let disconnect: (() => void) | null = null;
-
-	async function init(): Promise<void> {
-		// Create Y.Doc, connect to background, and wrap with typed helpers
-		ydoc = new Y.Doc({ guid: 'browser' });
-		disconnect = connectToBackground(ydoc);
-		db = createEpicenterDb(ydoc, BROWSER_SCHEMA);
-	}
-
-	function destroy(): void {
-		if (disconnect) {
-			disconnect();
-			disconnect = null;
-		}
-		if (ydoc) {
-			ydoc.destroy();
-			ydoc = null;
-		}
-		db = null;
-	}
+	// Create the workspace client synchronously on module load
+	// Browser initialization is synchronous - no await needed
+	const client = createWorkspaceClient(browserWorkspace);
 
 	/**
 	 * Epicenter client for the popup.
 	 *
-	 * Provides access to Y.Doc tables with TanStack Query integration.
+	 * Provides access to workspace exports with TanStack Query integration.
+	 * This is a thin wrapper over the workspace client exports.
 	 */
 	export const epicenter = {
-		get ydoc(): Y.Doc {
-			if (!ydoc) {
-				throw new Error(
-					'Epicenter not initialized. Wrap your app in EpicenterProvider.',
-				);
-			}
-			return ydoc;
+		/**
+		 * Direct access to the underlying Y.Doc.
+		 */
+		get $ydoc() {
+			return client.$ydoc;
 		},
 
-		get db(): BrowserDb {
-			if (!db) {
-				throw new Error(
-					'Epicenter not initialized. Wrap your app in EpicenterProvider.',
-				);
-			}
-			return db;
+		/**
+		 * Direct access to the tables for observe/invalidation.
+		 */
+		get db() {
+			return client.tables;
 		},
 
 		/**
 		 * Get all tabs sorted by index.
 		 */
-		getAllTabs(): Tab[] {
-			return this.db.tabs.getAllValid().sort((a, b) => a.index - b.index);
-		},
+		getAllTabs: client.getAllTabs.bind(client),
 
 		/**
 		 * Get all windows.
 		 */
-		getAllWindows(): Window[] {
-			return this.db.windows.getAllValid();
-		},
+		getAllWindows: client.getAllWindows.bind(client),
 
 		/**
 		 * Get tabs for a specific window.
 		 */
-		getTabsByWindow(windowId: string): Tab[] {
-			return this.db.tabs
-				.filter((t) => t.window_id === windowId)
-				.sort((a, b) => a.index - b.index);
-		},
+		getTabsByWindow: client.getTabsByWindow.bind(client),
+
+		/**
+		 * Clean up resources.
+		 */
+		destroy: client.destroy,
 	};
 </script>
 
@@ -87,21 +58,16 @@
 	} from '$lib/query/tabs';
 
 	let { children }: { children: Snippet } = $props();
-	let ready = $state(false);
 
-	onMount(async () => {
-		await init();
+	onMount(() => {
 		// Subscribe to Y.Doc changes to invalidate TanStack Query cache
 		subscribeToYDocChanges();
-		ready = true;
 	});
 
 	onDestroy(() => {
 		unsubscribeFromYDocChanges();
-		destroy();
+		epicenter.destroy();
 	});
 </script>
 
-{#if ready}
-	{@render children()}
-{/if}
+{@render children()}

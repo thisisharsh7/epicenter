@@ -9,7 +9,7 @@
 import { createEpicenterDb } from '@epicenter/hq';
 import type * as Y from 'yjs';
 import type { Tab, Window, TabGroup } from '$lib/epicenter/browser.schema';
-import { BROWSER_SCHEMA } from '$lib/epicenter/browser-db';
+import { BROWSER_SCHEMA } from '$lib/epicenter/browser.workspace';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers: Convert Chrome types to schema rows
