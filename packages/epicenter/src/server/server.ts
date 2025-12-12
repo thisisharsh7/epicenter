@@ -2,6 +2,7 @@ import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 // import { mcp } from 'elysia-mcp';
 import { Err, isResult, Ok } from 'wellcrafted/result';
+import type { WorkspaceExports } from '../core/actions';
 import {
 	createEpicenterClient,
 	type EpicenterConfig,
@@ -9,6 +10,7 @@ import {
 } from '../core/epicenter';
 import type {
 	AnyWorkspaceConfig,
+	WorkspaceClient,
 	WorkspacesToClients,
 } from '../core/workspace';
 import { createSyncPlugin } from './sync';
@@ -105,8 +107,11 @@ export async function createServer<
 			createSyncPlugin({
 				getDoc: (room) => {
 					// Room name is the workspace ID
-					const workspace =
-						client[room as keyof WorkspacesToClients<TWorkspaces>];
+					// Type assertion needed because TypeScript can't prove the generic
+					// WorkspacesToClients mapping resolves to WorkspaceClient
+					const workspace = client[
+						room as keyof WorkspacesToClients<TWorkspaces>
+					] as WorkspaceClient<WorkspaceExports> | undefined;
 					return workspace?.$ydoc;
 				},
 			}),
