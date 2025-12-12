@@ -15,6 +15,17 @@ import {
 /** WebSocket close code for room not found (4000-4999 reserved for application use per RFC 6455) */
 const CLOSE_ROOM_NOT_FOUND = 4004;
 
+/**
+ * Convert Uint8Array to Buffer for WebSocket transmission.
+ *
+ * Elysia's WebSocket (via Bun) serializes Uint8Array to JSON by default,
+ * but sends Buffer as raw binary. This wrapper ensures protocol messages
+ * are transmitted as proper binary data.
+ */
+function toBuffer(data: Uint8Array): Buffer {
+	return Buffer.from(data);
+}
+
 type SyncPluginConfig = {
 	/** Get Y.Doc for a room. Called when client connects. */
 	getDoc: (room: string) => Y.Doc | undefined;
@@ -46,15 +57,19 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 	 * Track connections per room for broadcasting.
 	 * Uses minimal interface (just `send`) to avoid coupling to complex Elysia WebSocket type.
 	 */
-	const rooms = new Map<string, Set<{ send: (data: Uint8Array) => void }>>();
+	const rooms = new Map<string, Set<{ send: (data: Buffer) => void }>>();
 
 	/** Track awareness (user presence) per room. */
 	const awarenessMap = new Map<string, awarenessProtocol.Awareness>();
 
 	/**
-	 * Store per-connection state using the WebSocket object as key.
+	 * Store per-connection state using the underlying raw WebSocket as key.
+	 *
+	 * IMPORTANT: Elysia creates a new wrapper object for each event (open, message, close),
+	 * so `ws` objects are NOT identity-stable across handlers. However, `ws.raw` (the underlying
+	 * Bun ServerWebSocket) IS stable. We use `ws.raw` as the WeakMap key for consistent lookups.
+	 *
 	 * WeakMap ensures automatic cleanup when connections close (no memory leaks).
-	 * @see docs/articles/weakmap-type-safety.md for why we use WeakMap here.
 	 */
 	const connectionState = new WeakMap<
 		object,
@@ -69,6 +84,8 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			updateHandler: (update: Uint8Array, origin: unknown) => void;
 			/** Client IDs this connection controls, for awareness cleanup on disconnect. */
 			controlledClientIds: Set<number>;
+			/** The raw WebSocket, used as origin for Yjs transactions to prevent echo. */
+			rawWs: object;
 		}
 	>();
 
@@ -97,6 +114,9 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				return;
 			}
 
+			// Use ws.raw as stable key - Elysia creates new wrapper objects per event
+			const rawWs = ws.raw;
+
 			// Track connection
 			if (!rooms.has(room)) {
 				rooms.set(room, new Set());
@@ -113,42 +133,47 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			// Defer send to next tick to ensure WebSocket is fully ready
 			queueMicrotask(() => {
 				// Send initial sync step 1
-				ws.send(encodeSyncStep1({ doc }));
+				ws.send(toBuffer(encodeSyncStep1({ doc })));
 
 				// Send current awareness states
 				const awarenessStates = awareness.getStates();
 				if (awarenessStates.size > 0) {
 					ws.send(
-						encodeAwarenessStates({
-							awareness,
-							clients: Array.from(awarenessStates.keys()),
-						}),
+						toBuffer(
+							encodeAwarenessStates({
+								awareness,
+								clients: Array.from(awarenessStates.keys()),
+							}),
+						),
 					);
 				}
 			});
 
 			// Listen for doc updates to broadcast to this client
 			const updateHandler = (update: Uint8Array, origin: unknown) => {
-				if (origin === ws) return; // Don't echo back
-				ws.send(encodeSyncUpdate({ update }));
+				// Use rawWs for origin comparison since that's what we pass as origin
+				if (origin === rawWs) return; // Don't echo back
+				ws.send(toBuffer(encodeSyncUpdate({ update })));
 			};
 			doc.on('update', updateHandler);
 
-			// Store connection state for message/close handlers
-			connectionState.set(ws, {
+			// Store connection state using ws.raw as key for consistent lookup
+			connectionState.set(rawWs, {
 				room,
 				doc,
 				awareness,
 				updateHandler,
 				controlledClientIds,
+				rawWs,
 			});
 		},
 
 		message(ws, message) {
-			const state = connectionState.get(ws);
+			// Use ws.raw for state lookup - wrapper objects differ per event
+			const state = connectionState.get(ws.raw);
 			if (!state) return;
 
-			const { room, doc, awareness, controlledClientIds } = state;
+			const { room, doc, awareness, controlledClientIds, rawWs } = state;
 
 			const data =
 				message instanceof ArrayBuffer
@@ -159,9 +184,10 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 
 			switch (messageType) {
 				case MESSAGE_TYPE.SYNC: {
-					const response = handleSyncMessage({ decoder, doc, origin: ws });
+					// Pass rawWs as origin to match the updateHandler's comparison
+					const response = handleSyncMessage({ decoder, doc, origin: rawWs });
 					if (response) {
-						ws.send(response);
+						ws.send(toBuffer(response));
 					}
 					break;
 				}
@@ -195,12 +221,12 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 						},
 					});
 
-					awarenessProtocol.applyAwarenessUpdate(awareness, update, ws);
+					awarenessProtocol.applyAwarenessUpdate(awareness, update, rawWs);
 
 					// Broadcast awareness to other clients in the room
 					const conns = rooms.get(room);
 					if (conns) {
-						const awarenessMessage = encodeAwareness({ update });
+						const awarenessMessage = toBuffer(encodeAwareness({ update }));
 						for (const conn of conns) {
 							if (conn !== ws) {
 								conn.send(awarenessMessage);
@@ -215,10 +241,12 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 					const awarenessStates = awareness.getStates();
 					if (awarenessStates.size > 0) {
 						ws.send(
-							encodeAwarenessStates({
-								awareness,
-								clients: Array.from(awarenessStates.keys()),
-							}),
+							toBuffer(
+								encodeAwarenessStates({
+									awareness,
+									clients: Array.from(awarenessStates.keys()),
+								}),
+							),
 						);
 					}
 					break;
@@ -227,7 +255,8 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 		},
 
 		close(ws) {
-			const state = connectionState.get(ws);
+			// Use ws.raw for state lookup - wrapper objects differ per event
+			const state = connectionState.get(ws.raw);
 			if (!state) return;
 
 			const { room, doc, updateHandler, awareness, controlledClientIds } =
@@ -245,7 +274,7 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				);
 			}
 
-			// Remove from room
+			// Remove from room (use ws wrapper since that's what we added in open)
 			rooms.get(room)?.delete(ws);
 			if (rooms.get(room)?.size === 0) {
 				rooms.delete(room);
@@ -253,8 +282,8 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 				awarenessMap.delete(room);
 			}
 
-			// Clean up connection state
-			connectionState.delete(ws);
+			// Clean up connection state using raw key
+			connectionState.delete(ws.raw);
 		},
 	});
 }
