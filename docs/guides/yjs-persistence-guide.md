@@ -52,14 +52,16 @@ import { text, ytext } from '@epicenter/hq';
 const blogWorkspace = defineWorkspace({
   id: 'blog',
 
-  // Add the persistence provider
-  providers: [setupPersistence],
-
-  schema: {
+  tables: {
     posts: {
       title: text(),
       content: ytext({ nullable: true }),
     }
+  },
+
+  // Add the persistence provider
+  providers: {
+    persistence: setupPersistence,
   },
 
   // ... rest of your config
@@ -87,14 +89,16 @@ const setupWebPersistence: Provider = async ({ id, ydoc }) => {
 const blogWorkspace = defineWorkspace({
   id: 'blog',
 
-  // Use the web persistence provider
-  providers: [setupWebPersistence],
-
-  schema: {
+  tables: {
     posts: {
       title: text(),
       content: ytext({ nullable: true }),
     }
+  },
+
+  // Use the web persistence provider
+  providers: {
+    persistence: setupWebPersistence,
   },
 
   // ... rest of your config
@@ -138,7 +142,8 @@ import { setupPersistence } from './persistence.web';
 
 const workspace = defineWorkspace({
   id: 'blog',
-  providers: [setupPersistence],
+  tables: { /* ... */ },
+  providers: { persistence: setupPersistence },
   // ... rest of config
 });
 ```
@@ -186,15 +191,15 @@ import { setupPersistence } from '@epicenter/hq/providers/desktop';
 // Workspace A → saves to .epicenter/workspace-a.yjs
 const workspaceA = defineWorkspace({
   id: 'workspace-a',
-  providers: [setupPersistence],
-  // ... schema
+  tables: { /* ... */ },
+  providers: { persistence: setupPersistence },
 });
 
 // Workspace B → saves to .epicenter/workspace-b.yjs
 const workspaceB = defineWorkspace({
   id: 'workspace-b',
-  providers: [setupPersistence],
-  // ... schema
+  tables: { /* ... */ },
+  providers: { persistence: setupPersistence },
 });
 ```
 
@@ -217,12 +222,12 @@ const setupSync: Provider = async ({ id, ydoc }) => {
 
 const workspace = defineWorkspace({
   id: 'blog',
+  tables: { /* ... */ },
   // Combine multiple providers
-  providers: [
-    setupPersistence,  // Saves locally
-    setupSync,         // Syncs with other users
-  ],
-  // ... schema
+  providers: {
+    persistence: setupPersistence,  // Saves locally
+    sync: setupSync,                // Syncs with other users
+  },
 });
 
 // Both work together!
@@ -277,16 +282,16 @@ const isTest = process.env.NODE_ENV === 'test';
 
 const workspace = defineWorkspace({
   id: 'blog',
+  tables: { /* ... */ },
   // Only enable persistence in non-test environments
-  providers: isTest ? [] : [setupPersistence],
-  // ... schema
+  providers: isTest ? {} : { persistence: setupPersistence },
 });
 ```
 
 ## Key Takeaways
 
 1. **YJS is your source of truth** - All data lives in a YJS document
-2. **Use the provider pattern** - Add `setupPersistence` to the `providers` array
+2. **Use the provider pattern** - Add `setupPersistence` to the `providers` object
 3. **Desktop**: Use `@epicenter/hq/providers/desktop` for filesystem persistence
 4. **Web**: Create a custom provider with `y-indexeddb` for IndexedDB persistence
 5. **Cross-platform is easy** - Same provider interface works everywhere

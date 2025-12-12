@@ -379,19 +379,19 @@ To add a new social platform (like LinkedIn), simply add a new table to the post
 1. **Edit `posts/posts.workspace.ts`**:
 
    ```typescript
-   schema: {
+   tables: {
      // ... existing tables
      linkedin: SHORT_FORM_TEXT_SCHEMA,
    },
 
-   exports: ({ db, indexes }) => ({
+   exports: ({ tables, providers }) => ({
      // ... existing exports
      linkedin: {
-       getAll: db.linkedin.getAll,
-       get: db.linkedin.get,
-       create: db.linkedin.insert,
-       update: db.linkedin.update,
-       delete: db.linkedin.delete,
+       getAll: tables.linkedin.getAll,
+       get: tables.linkedin.get,
+       create: tables.linkedin.insert,
+       update: tables.linkedin.update,
+       delete: tables.linkedin.delete,
      },
    }),
    ```
@@ -420,10 +420,12 @@ For content that doesn't fit the posts model, create a new workspace:
 
    export const newWorkspace = defineWorkspace({
      id: 'new-workspace',
-     schema: { items: { /* your schema */ } },
-     indexes: { sqlite: (c) => sqliteIndex(c) },
-     providers: [setupPersistence],
-     exports: ({ db }) => ({
+     tables: { items: { /* your table definitions */ } },
+     providers: {
+       sqlite: (c) => sqliteProvider(c),
+       persistence: setupPersistence,
+     },
+     exports: ({ tables, providers }) => ({
        // Implement actions...
      }),
    });
@@ -449,7 +451,7 @@ For content that doesn't fit the posts model, create a new workspace:
 Each workspace can have custom actions beyond the standard CRUD:
 
 ```typescript
-exports: ({ db, indexes }) => ({
+exports: ({ tables, providers }) => ({
   // Standard actions...
   getPosts: defineQuery({ ... }),
 
@@ -457,10 +459,10 @@ exports: ({ db, indexes }) => ({
   getRecentPosts: defineQuery({
     input: type({ limit: "number" }),
     handler: async ({ limit }) => {
-      const posts = await indexes.sqlite.db
+      const posts = await providers.sqlite.db
         .select()
-        .from(indexes.sqlite.posts)
-        .orderBy(desc(indexes.sqlite.posts.postedAt))
+        .from(providers.sqlite.posts)
+        .orderBy(desc(providers.sqlite.posts.postedAt))
         .limit(limit);
       return Ok(posts);
     },
@@ -473,7 +475,7 @@ exports: ({ db, indexes }) => ({
 1. **Use shared schemas** when multiple workspaces have similar data structures
 2. **Follow naming conventions**: kebab-case for IDs, camelCase for variables and fields
 3. **Add JSDoc comments** to workspaces and actions for better documentation
-4. **Use `satisfies Row<typeof db.$schema.posts>`** for type safety in mutations
+4. **Use `satisfies Row<typeof tables.$schema.posts>`** for type safety in mutations
 5. **Always update `updatedAt`** timestamp when modifying records
 6. **Return `Ok(data)`** from all actions for consistent error handling
 

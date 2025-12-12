@@ -200,14 +200,14 @@ When you dispose a client (automatically with `await using` or manually with `aw
 
 ### Workspace
 A workspace is a self-contained domain module:
-- Defines its own schema (tables)
+- Defines its own tables
 - Defines its own indexes (SQLite, markdown, vector, etc.)
 - Defines its own actions (queries and mutations)
 - Can depend on other workspaces
 
 ### Epicenter
 An epicenter is a composition of workspaces:
-- No schema, indexes, or actions of its own
+- No tables, providers, or actions of its own
 - Simply aggregates multiple workspaces
 - Provides a unified client interface
 - Manages workspace initialization and cleanup
@@ -254,9 +254,9 @@ This ensures scripts run sequentially with no conflicts.
 const pagesWorkspace = defineWorkspace({
   id: 'pages',
   name: 'pages',
-  schema: { /* ... */ },
-  indexes: ({ db }) => ({ /* ... */ }),
-  exports: ({ db, indexes }) => ({
+  tables: { /* ... */ },
+  providers: { /* ... */ },
+  exports: ({ tables, providers }) => ({
     createPage: defineMutation({ /* ... */ }),
     getPages: defineQuery({ /* ... */ }),
   }),
@@ -265,9 +265,9 @@ const pagesWorkspace = defineWorkspace({
 const authWorkspace = defineWorkspace({
   id: 'auth',
   name: 'auth',
-  schema: { /* ... */ },
-  indexes: ({ db }) => ({ /* ... */ }),
-  exports: ({ db, indexes }) => ({
+  tables: { /* ... */ },
+  providers: { /* ... */ },
+  exports: ({ tables, providers }) => ({
     login: defineMutation({ /* ... */ }),
     logout: defineMutation({ /* ... */ }),
   }),
@@ -391,8 +391,8 @@ In other words, **createWorkspaceClient** returns a subset of **createEpicenterC
 ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
 │ Workspace A │ │ Workspace B │ │ Workspace C │
 │             │ │             │ │             │
-│ • Schema    │ │ • Schema    │ │ • Schema    │
-│ • Indexes   │ │ • Indexes   │ │ • Indexes   │
+│ • Tables    │ │ • Tables    │ │ • Tables    │
+│ • Providers │ │ • Providers │ │ • Providers │
 │ • Actions   │ │ • Actions   │ │ • Actions   │
 └─────────────┘ └─────────────┘ └─────────────┘
 ```
@@ -400,7 +400,7 @@ In other words, **createWorkspaceClient** returns a subset of **createEpicenterC
 Each workspace maintains its own:
 - YJS document (collaborative data)
 - Database abstraction (tables API)
-- Indexes (synchronized snapshots)
+- Providers (persistence, indexes, etc.)
 - Actions (business logic)
 
 Epicenter orchestrates initialization and provides a unified interface.
