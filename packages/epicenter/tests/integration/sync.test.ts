@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
-import * as Y from 'yjs';
 import { Ok } from 'wellcrafted/result';
 import {
 	createServer,
@@ -13,33 +12,11 @@ import {
 	text,
 } from '../../src/index.node';
 
-/**
- * Helper to parse WebSocket messages.
- * Handles Bun's behavior of sending binary data as JSON-encoded objects.
- */
-function parseWsMessage(data: unknown): Uint8Array | null {
-	if (data instanceof ArrayBuffer) {
-		return new Uint8Array(data);
-	} else if (data instanceof Uint8Array) {
-		return data;
-	} else if (Buffer.isBuffer(data)) {
-		return new Uint8Array(data);
-	} else if (typeof data === 'string') {
-		try {
-			const parsed = JSON.parse(data);
-			if (typeof parsed === 'object' && parsed !== null) {
-				const keys = Object.keys(parsed).map(Number).sort((a, b) => a - b);
-				const arr = new Uint8Array(keys.length);
-				for (let i = 0; i < keys.length; i++) {
-					arr[i] = parsed[keys[i]];
-				}
-				return arr;
-			}
-		} catch {
-			// Not JSON
-		}
-	}
-	return null;
+/** Convert WebSocket binary data to Uint8Array */
+function toUint8Array(data: ArrayBuffer | Uint8Array | Buffer): Uint8Array {
+	if (data instanceof Uint8Array) return data;
+	if (data instanceof ArrayBuffer) return new Uint8Array(data);
+	return new Uint8Array(data); // Buffer
 }
 
 /**
@@ -81,7 +58,7 @@ describe('WebSocket Sync Integration Tests', () => {
 			getNotes: defineQuery({
 				description: 'Get all notes',
 				handler: async () => {
-					return Ok(tables.notes.findAll());
+					return Ok(tables.notes.getAllValid());
 				},
 			}),
 		}),
@@ -98,16 +75,10 @@ describe('WebSocket Sync Integration Tests', () => {
 
 	beforeAll(async () => {
 		const { app } = await createServer(epicenter);
+		const elysiaServer = app.listen(0);
+		const port = elysiaServer.server!.port;
 
-		// Use Elysia's built-in listen which handles WebSocket setup
-		const elysiaServer = app.listen(0); // 0 = random available port
-		const port = elysiaServer.server.port;
-
-		server = {
-			stop: () => elysiaServer.stop(),
-			port,
-		};
-
+		server = { stop: () => elysiaServer.stop(), port };
 		serverUrl = `http://localhost:${port}`;
 		wsUrl = `ws://localhost:${port}`;
 	});
@@ -130,10 +101,8 @@ describe('WebSocket Sync Integration Tests', () => {
 		const ws = new WebSocket(`${wsUrl}/sync/notes`);
 		ws.binaryType = 'arraybuffer';
 
-		// Set up message handler - handle Bun's JSON-encoded binary data
 		ws.onmessage = (event) => {
-			const msg = parseWsMessage(event.data);
-			if (msg) messages.push(msg);
+			messages.push(toUint8Array(event.data));
 		};
 
 		const connected = await new Promise<boolean>((resolve) => {
@@ -176,8 +145,7 @@ describe('WebSocket Sync Integration Tests', () => {
 		ws1.binaryType = 'arraybuffer';
 		const messages1: Uint8Array[] = [];
 		ws1.onmessage = (event) => {
-			const msg = parseWsMessage(event.data);
-			if (msg) messages1.push(msg);
+			messages1.push(toUint8Array(event.data));
 		};
 
 		const connected1 = await new Promise<boolean>((resolve) => {
@@ -197,8 +165,7 @@ describe('WebSocket Sync Integration Tests', () => {
 		ws2.binaryType = 'arraybuffer';
 		const messages2: Uint8Array[] = [];
 		ws2.onmessage = (event) => {
-			const msg = parseWsMessage(event.data);
-			if (msg) messages2.push(msg);
+			messages2.push(toUint8Array(event.data));
 		};
 
 		const connected2 = await new Promise<boolean>((resolve) => {

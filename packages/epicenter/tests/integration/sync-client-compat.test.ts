@@ -44,7 +44,7 @@ describe('y-websocket Client Compatibility', () => {
 			}),
 			getNotes: defineQuery({
 				description: 'Get all notes',
-				handler: async () => Ok(tables.notes.findAll()),
+				handler: async () => Ok(tables.notes.getAllValid()),
 			}),
 		}),
 	});
@@ -60,13 +60,9 @@ describe('y-websocket Client Compatibility', () => {
 	beforeAll(async () => {
 		const { app } = await createServer(epicenter);
 		const elysiaServer = app.listen(0);
-		const port = elysiaServer.server.port;
+		const port = elysiaServer.server!.port;
 
-		server = {
-			stop: () => elysiaServer.stop(),
-			port,
-		};
-
+		server = { stop: () => elysiaServer.stop(), port };
 		wsUrl = `ws://localhost:${port}/sync`;
 	});
 
