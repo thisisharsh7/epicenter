@@ -898,26 +898,72 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		}
 	}
 
+	// ─────────────────────────────────────────────────────────────────────────────
+	// STARTUP SEQUENCE
+	// ─────────────────────────────────────────────────────────────────────────────
+	//
+	// The startup sequence has 4 phases that MUST run in this exact order:
+	//
+	// ┌─────────────────────────────────────────────────────────────────────────┐
+	// │ PHASE 1: Build Tracking Map (Y.js → Memory)                             │
+	// │                                                                         │
+	// │   For each Y.js row, compute the expected filename via serialize().     │
+	// │   This builds the "source of truth" for what files SHOULD exist.        │
+	// │                                                                         │
+	// │   tracking[tableName] = { rowId ↔ filename } (bidirectional)            │
+	// └─────────────────────────────────────────────────────────────────────────┘
+	//                                    ↓
+	// ┌─────────────────────────────────────────────────────────────────────────┐
+	// │ PHASE 2: Delete Orphan Files (Disk vs Tracking)                         │
+	// │                                                                         │
+	// │   Scan disk files and delete any not in tracking map.                   │
+	// │   These are orphans from crashes, copy-paste, or failed syncs.          │
+	// │                                                                         │
+	// │   if file on disk && file NOT in tracking → DELETE                      │
+	// └─────────────────────────────────────────────────────────────────────────┘
+	//                                    ↓
+	// ┌─────────────────────────────────────────────────────────────────────────┐
+	// │ PHASE 3: Validate Remaining Files (Disk → Diagnostics)                  │
+	// │                                                                         │
+	// │   For each remaining file, deserialize and validate against schema.     │
+	// │   Build diagnostics for any files with validation errors.               │
+	// │                                                                         │
+	// │   This catches files edited externally while server was down.           │
+	// └─────────────────────────────────────────────────────────────────────────┘
+	//                                    ↓
+	// ┌─────────────────────────────────────────────────────────────────────────┐
+	// │ PHASE 4: Start Watchers (Runtime Sync)                                  │
+	// │                                                                         │
+	// │   - Y.js observers: Y.js changes → write/delete markdown files          │
+	// │   - File watchers: Markdown changes → upsert/delete Y.js rows           │
+	// │                                                                         │
+	// │   These maintain sync during runtime. Startup phases ensure clean state.│
+	// └─────────────────────────────────────────────────────────────────────────┘
+	//
+	// WHY THIS ORDER MATTERS:
+	//
+	// - Phase 1 before Phase 2: We need tracking map to know which files are orphans
+	// - Phase 2 before Phase 3: No point validating files we're about to delete
+	// - Phase 3 before Phase 4: Watchers would fire for orphan deletions otherwise
+	// - Phase 4 last: Clean state established, now maintain it
+	//
+	// ─────────────────────────────────────────────────────────────────────────────
+
 	/**
-	 * Initialize filename tracking map on startup
+	 * PHASE 1: Build tracking map from Y.js
 	 *
-	 * This is CRITICAL for correctness after server restart:
+	 * Problem: The tracking map only exists in memory. On restart, Y.js data is
+	 * restored from persistence, but the map is empty. Without this:
 	 *
-	 * Problem: The rowFilenames map only exists in memory. When the server restarts,
-	 * YJS data is restored from persistence, but the map is brand new and empty.
-	 * Without initialization, the sync would break:
-	 *
-	 * 1. User edits a row in the app, triggering onUpdate
+	 * 1. User edits a row → triggers onUpdate
 	 * 2. We compute newFilename = "published.md"
-	 * 3. We look up: oldFilename = map.get(rowId) → undefined (map is empty!)
-	 * 4. We think filename didn't change, so we don't delete old files
-	 * 5. Result: Orphaned old files accumulate on disk
+	 * 3. We look up: oldFilename = map.get(rowId) → undefined (empty map!)
+	 * 4. We think filename didn't change, skip old file cleanup
+	 * 5. Result: Orphaned files accumulate
 	 *
-	 * Solution: Serialize all existing YJS rows on startup to rebuild the map.
-	 * This one-time O(n) cost ensures the map is accurate for all future operations.
+	 * Solution: Serialize all Y.js rows to rebuild the map.
 	 *
-	 * Cost: O(n * serialize) where n = number of rows. Runs synchronously on startup.
-	 * For 10,000 rows, calls serialize() 10,000 times. Usually acceptable.
+	 * Cost: O(n × serialize) where n = row count. ~1ms per 100 rows.
 	 */
 	for (const { table, tableConfig } of tableWithConfigs) {
 		// Initialize bidirectional tracking for this table
@@ -945,20 +991,16 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	}
 
 	/**
-	 * Cleanup orphan files on startup
+	 * PHASE 2: Delete orphan files
 	 *
-	 * This is CRITICAL for cleaning up after crashes or sync issues:
-	 *
-	 * Problem: Files can exist on disk that have no corresponding Y.js row.
-	 * This happens when:
-	 * 1. Server crashes between file creation and Y.js sync
+	 * Problem: Files can exist on disk with no corresponding Y.js row:
+	 * 1. Server crashes between file creation and Y.js persistence
 	 * 2. User copy-pastes files in Finder (creates files with new IDs)
 	 * 3. Browser extension's refetch deletes Y.js rows but file deletion fails
 	 *
-	 * Solution: Compare disk files against the tracking map (built from Y.js).
-	 * Any file not in tracking is an orphan and should be deleted.
+	 * Solution: Compare disk files against tracking map. Delete any not tracked.
 	 *
-	 * Cost: O(n) where n = number of markdown files. Runs once on startup.
+	 * Cost: O(n) where n = file count. ~10ms per 100 files (mostly I/O).
 	 */
 	for (const { table, tableConfig } of tableWithConfigs) {
 		const filePaths = await listMarkdownFiles(tableConfig.directory);
@@ -984,26 +1026,28 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	}
 
 	/**
-	 * Initial scan: Validate all markdown files on startup
+	 * PHASE 3: Validate remaining files
 	 *
-	 * This is CRITICAL for maintaining accurate diagnostics:
+	 * Problem: Files can be edited externally while server is down.
+	 * The diagnostics from last session are stale.
 	 *
-	 * Problem: Files can be edited externally while the server is down.
-	 * If we trusted the existing diagnostics file, we'd miss these changes.
+	 * Solution: Re-validate every file and rebuild diagnostics from scratch.
 	 *
-	 * Solution: Scan and validate every markdown file on startup.
-	 * This rebuilds the diagnostics from scratch, ensuring they're accurate.
-	 *
-	 * Cost: O(n * (read + deserialize)) where n = number of markdown files.
-	 * For 1,000 files, this takes ~1 second. Acceptable for correctness.
-	 *
-	 * This runs BEFORE starting file watchers. Once watchers start, they
-	 * maintain diagnostics accuracy surgically as files change.
+	 * Cost: O(n × (read + deserialize)) where n = file count. ~1s per 1000 files.
 	 */
 	await validateAllMarkdownFiles({ operation: 'Initial scan' });
 
-	// Now start observers and watchers (AFTER initial scan)
-	// Watchers will maintain diagnostics accuracy as files change during runtime
+	/**
+	 * PHASE 4: Start runtime watchers
+	 *
+	 * Now that we have a clean state (tracking built, orphans deleted, files validated),
+	 * start the bidirectional sync watchers:
+	 *
+	 * - Y.js observers: When app changes data → write/update/delete markdown files
+	 * - File watchers: When user edits files → upsert/delete Y.js rows
+	 *
+	 * These maintain sync during runtime. The startup phases ensure we start clean.
+	 */
 	const unsubscribers = registerYJSObservers();
 	const watchers = registerFileWatchers();
 
