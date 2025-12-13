@@ -2,10 +2,10 @@
  * Node.js-specific workspace client entry point.
  *
  * In Node.js environments, storageDir is resolved to an absolute path
- * using node:path. This enables filesystem-based persistence and indexes.
+ * using node:path. This enables filesystem-based persistence.
  *
  * The async nature comes from provider initialization - Node providers like
- * desktop persistence and markdown index perform filesystem I/O during setup.
+ * desktop persistence and markdown provider perform filesystem I/O during setup.
  */
 
 import path from 'node:path';

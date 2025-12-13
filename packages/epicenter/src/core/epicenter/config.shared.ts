@@ -83,7 +83,7 @@ export function validateEpicenterConfig(
 	for (const workspace of config.workspaces) {
 		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
 			throw new Error(
-				'Invalid workspace: workspaces must be workspace configs with id, schema, indexes, and actions',
+				'Invalid workspace: workspaces must be workspace configs with id, schema, providers, and actions',
 			);
 		}
 	}

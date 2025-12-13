@@ -57,7 +57,7 @@ export type StorageDir = AbsolutePath & Brand<'StorageDir'>;
  * This is the absolute path to the `.epicenter` directory where all Epicenter
  * data is stored (YJS documents, SQLite databases, logs, tokens, etc.).
  *
- * Computed once from `storageDir` and passed to providers, indexes, and exports
+ * Computed once from `storageDir` and passed to providers and exports
  * to avoid repeated `path.join(storageDir, '.epicenter')` calls.
  *
  * @example

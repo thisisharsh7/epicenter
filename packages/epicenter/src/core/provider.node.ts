@@ -2,7 +2,7 @@
  * Node/Bun-specific provider types.
  *
  * In Node/Bun environments, providers have access to filesystem paths
- * (`storageDir`, `epicenterDir`) for file-based persistence and indexes.
+ * (`storageDir`, `epicenterDir`) for file-based persistence.
  */
 
 import type { ProviderContextBase, ProviderExports } from './provider.shared';

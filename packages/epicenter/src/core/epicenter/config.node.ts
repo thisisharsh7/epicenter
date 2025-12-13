@@ -2,7 +2,7 @@
  * Node.js-specific epicenter configuration.
  *
  * In Node.js environments, storageDir is available for filesystem-based
- * persistence and indexes.
+ * persistence.
  */
 
 import type { AnyWorkspaceConfig } from '../workspace';

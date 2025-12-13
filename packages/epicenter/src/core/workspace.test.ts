@@ -753,7 +753,7 @@ describe('Workspace Action Handlers', () => {
 			category: 'tech',
 		});
 
-		// Wait for indexes to sync
+		// Wait for providers to sync
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// List all posts
@@ -784,7 +784,7 @@ describe('Workspace Action Handlers', () => {
 		expect(createResult.data).toBeDefined();
 		const postId = createResult.data?.id;
 
-		// Wait for indexes to sync
+		// Wait for providers to sync
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Get the specific post

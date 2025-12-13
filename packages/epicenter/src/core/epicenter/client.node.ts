@@ -2,7 +2,7 @@
  * Node.js-specific epicenter client entry point.
  *
  * In Node.js environments, storageDir is resolved to an absolute path
- * using node:path. This enables filesystem-based persistence and indexes.
+ * using node:path. This enables filesystem-based persistence.
  */
 
 import path from 'node:path';
