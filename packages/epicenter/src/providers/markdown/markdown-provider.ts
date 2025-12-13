@@ -1,6 +1,6 @@
-import type { FSWatcher } from 'node:fs';
-import { mkdirSync, watch } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
+import chokidar, { type FSWatcher } from 'chokidar';
 import { type } from 'arktype';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
@@ -608,9 +608,12 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	/**
 	 * Register file watchers to sync changes from markdown files to YJS
 	 *
-	 * Creates one watcher per table directory to monitor markdown file changes.
-	 * When files are created/modified/deleted, updates the corresponding YJS rows.
-	 * Coordinates with YJS observers through shared state to prevent infinite loops.
+	 * Uses chokidar for robust cross-platform file watching with:
+	 * - awaitWriteFinish: Waits for files to be fully written before processing
+	 * - atomic: Handles editor atomic writes (temp file → rename pattern)
+	 *
+	 * This solves race conditions with bulk operations (20+ files pasted at once)
+	 * by ensuring files are stable before triggering sync events.
 	 */
 	const registerFileWatchers = () => {
 		const watchers: FSWatcher[] = [];
@@ -635,150 +638,158 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				logger.log(mkdirError);
 			}
 
-			// Create watcher for this table's directory
-			console.log(`[Markdown] Registering file watcher for ${tableConfig.directory}`);
-			const watcher = watch(
-				tableConfig.directory,
-				async (eventType, filename) => {
-					console.log(`[Markdown] File event: ${eventType} ${filename}`, {
-						directory: tableConfig.directory,
-						yjsWriteCount: syncCoordination.yjsWriteCount,
-					});
+			// Create chokidar watcher with robust configuration
+			const watcher = chokidar.watch(tableConfig.directory, {
+				// Core settings
+				persistent: true,
+				ignoreInitial: true, // Don't fire events for existing files (we already did initial scan)
+				followSymlinks: true,
+				cwd: tableConfig.directory,
 
-					// Skip if this file change was triggered by a YJS change
-					// (counter > 0 means YJS observers are actively writing files)
-					if (syncCoordination.yjsWriteCount > 0) return;
+				// Performance settings
+				usePolling: false, // Event-based is more efficient on macOS/Linux
+				depth: 0, // Only watch direct children (markdown files in table directory)
 
-					// Skip non-markdown files
-					if (!filename || !filename.endsWith('.md')) return;
+				// Critical for reliability with bulk operations
+				// Waits for files to be fully written before emitting events
+				awaitWriteFinish: {
+					stabilityThreshold: 500, // File must be stable for 500ms
+					pollInterval: 100, // Check every 100ms
+				},
 
-					syncCoordination.isProcessingFileChange = true;
+				// Handle atomic writes (temp file → rename pattern used by many editors)
+				atomic: true,
 
-					const filePath = path.join(
-						tableConfig.directory,
-						filename,
-					) as AbsolutePath;
+				// Ignore non-markdown files and OS artifacts
+				ignored: [
+					/(^|[/\\])\../, // Dotfiles (.DS_Store, .git, etc.)
+					/\.swp$/, // Vim swap files
+					/~$/, // Editor backup files
+					/\.tmp$/, // Temp files
+					// Only watch .md files
+					(filePath: string) => !filePath.endsWith('.md') && !filePath.endsWith(tableConfig.directory),
+				],
+			});
 
-					// Handle file system events
-					if (eventType === 'rename') {
-						// Check if file was deleted or modified
-						const file = Bun.file(filePath);
-						const exists = await file.exists();
+			// Helper: Process file add/change
+			const handleFileAddOrChange = async (filePath: string) => {
+				// Skip if this file change was triggered by a YJS change
+				if (syncCoordination.yjsWriteCount > 0) return;
 
-						if (!exists) {
-							// File was deleted: find and delete the row
-							const rowIdToDelete = tracking[table.name]?.getRowId({
-								filename,
-							});
+				syncCoordination.isProcessingFileChange = true;
 
-							if (rowIdToDelete) {
-								if (table.has({ id: rowIdToDelete })) {
-									console.log(`[Markdown] Deleting row from file deletion:`, {
-										tableName: table.name,
-										filename,
-										rowId: rowIdToDelete,
-									});
-									table.delete({ id: rowIdToDelete });
-								}
+				try {
+					const filename = path.basename(filePath);
+					const absolutePath = path.join(tableConfig.directory, filename) as AbsolutePath;
 
-								// Clean up tracking in both directions
-								// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-								tracking[table.name]!.deleteByFilename({ filename });
-							} else {
-								logger.log(
-									ProviderError({
-										message: `File deleted but row ID not found in tracking map for ${table.name}/${filename}`,
-										context: { tableName: table.name, filename },
-									}),
-								);
-							}
+					// Read markdown file
+					const parseResult = await readMarkdownFile(absolutePath);
 
-							syncCoordination.isProcessingFileChange = false;
-							return;
-						}
-						// File exists: fall through to change handling
-					}
-
-					// Process file modification (works for both 'change' and 'rename' with existing file)
-					if (eventType === 'change' || eventType === 'rename') {
-						// Read markdown file
-						const parseResult = await readMarkdownFile(filePath);
-
-						if (parseResult.error) {
-							// Track this read error in diagnostics (current state)
-							// Convert MarkdownOperationError to MarkdownProviderError
-							const error = MarkdownProviderError({
-								message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
-							});
-							diagnostics.add({
-								filePath,
-								tableName: table.name,
-								filename,
-								error,
-							});
-							// Log to historical record
-							logger.log(
-								ProviderError({
-									message: `File watcher: failed to read ${table.name}/${filename}`,
-									context: { filePath, tableName: table.name, filename },
-								}),
-							);
-							syncCoordination.isProcessingFileChange = false;
-							return;
-						}
-
-						const { data: frontmatter, body } = parseResult.data;
-
-						// Deserialize using the table config
-						const { data: row, error: deserializeError } =
-							tableConfig.deserialize({
-								frontmatter,
-								body,
-								filename,
-								// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
-								table,
-							});
-
-						if (deserializeError) {
-							// Track this validation error in diagnostics (current state)
-							diagnostics.add({
-								filePath,
-								tableName: table.name,
-								filename,
-								error: deserializeError,
-							});
-							// Log to historical record
-							logger.log(
-								ProviderError({
-									message: `File watcher: validation failed for ${table.name}/${filename}`,
-									context: { filePath, tableName: table.name, filename },
-								}),
-							);
-							syncCoordination.isProcessingFileChange = false;
-							return;
-						}
-
-						// At this point, row is SerializedRow<TableSchema> (not null)
-						// Assert once to the workspace-level type
-						const validatedRow = row as SerializedRow<
-							TSchema[keyof TSchema & string]
-						>;
-
-						// Success: remove from diagnostics if it was previously invalid
-						diagnostics.remove({ filePath });
-
-						// Insert or update the row in YJS
-						console.log(`[Markdown] Upserting row from file change:`, {
+					if (parseResult.error) {
+						const error = MarkdownProviderError({
+							message: `Failed to read markdown file at ${absolutePath}: ${parseResult.error.message}`,
+						});
+						diagnostics.add({
+							filePath: absolutePath,
 							tableName: table.name,
 							filename,
-							rowId: validatedRow.id,
+							error,
 						});
-						table.upsert(validatedRow);
+						logger.log(
+							ProviderError({
+								message: `File watcher: failed to read ${table.name}/${filename}`,
+								context: { filePath: absolutePath, tableName: table.name, filename },
+							}),
+						);
+						return;
 					}
 
+					const { data: frontmatter, body } = parseResult.data;
+
+					// Deserialize using the table config
+					const { data: row, error: deserializeError } =
+						tableConfig.deserialize({
+							frontmatter,
+							body,
+							filename,
+							// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
+							table,
+						});
+
+					if (deserializeError) {
+						diagnostics.add({
+							filePath: absolutePath,
+							tableName: table.name,
+							filename,
+							error: deserializeError,
+						});
+						logger.log(
+							ProviderError({
+								message: `File watcher: validation failed for ${table.name}/${filename}`,
+								context: { filePath: absolutePath, tableName: table.name, filename },
+							}),
+						);
+						return;
+					}
+
+					const validatedRow = row as SerializedRow<TSchema[keyof TSchema & string]>;
+
+					// Success: remove from diagnostics if it was previously invalid
+					diagnostics.remove({ filePath: absolutePath });
+
+					table.upsert(validatedRow);
+				} finally {
 					syncCoordination.isProcessingFileChange = false;
-				},
-			);
+				}
+			};
+
+			// Helper: Process file deletion
+			const handleFileUnlink = (filePath: string) => {
+				// Skip if this file change was triggered by a YJS change
+				if (syncCoordination.yjsWriteCount > 0) return;
+
+				syncCoordination.isProcessingFileChange = true;
+
+				try {
+					const filename = path.basename(filePath);
+
+					// Find row ID from tracking map
+					const rowIdToDelete = tracking[table.name]?.getRowId({ filename });
+
+					if (rowIdToDelete) {
+						if (table.has({ id: rowIdToDelete })) {
+							table.delete({ id: rowIdToDelete });
+						}
+
+						// Clean up tracking
+						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+						tracking[table.name]!.deleteByFilename({ filename });
+					} else {
+						logger.log(
+							ProviderError({
+								message: `File deleted but row ID not found in tracking map for ${table.name}/${filename}`,
+								context: { tableName: table.name, filename },
+							}),
+						);
+					}
+				} finally {
+					syncCoordination.isProcessingFileChange = false;
+				}
+			};
+
+			// Register event handlers
+			watcher
+				.on('add', handleFileAddOrChange)
+				.on('change', handleFileAddOrChange)
+				.on('unlink', handleFileUnlink)
+				.on('error', (error) => {
+					logger.log(
+						ProviderError({
+							message: `File watcher error for ${table.name}: ${extractErrorMessage(error)}`,
+							context: { tableName: table.name, directory: tableConfig.directory },
+						}),
+					);
+				});
 
 			watchers.push(watcher);
 		}
@@ -942,9 +953,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			for (const unsub of unsubscribers) {
 				unsub();
 			}
-			for (const watcher of watchers) {
-				watcher.close();
-			}
+			// chokidar's close() is async - wait for all watchers to fully close
+			await Promise.all(watchers.map((watcher) => watcher.close()));
 			// Flush and close logger to ensure all pending logs are written
 			await logger.close();
 		},
