@@ -188,22 +188,60 @@ const backgroundWorkspace = defineWorkspace({
 // Background Service Worker
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default defineBackground(async () => {
+// NOTE: defineBackground callback CANNOT be async (MV3 constraint).
+// Event listeners must be registered synchronously at the top level.
+// We use the "deferred handler" pattern: store initPromise, await it in handlers.
+export default defineBackground(() => {
 	console.log('[Background] Initializing Tab Manager...');
 
 	const client = createWorkspaceClient(backgroundWorkspace);
 
-	// Initial sync: Diff Chrome state into Y.Doc
-	// No persistence needed - Chrome is always the source of truth
-	await client.refetchAll();
+	// ─────────────────────────────────────────────────────────────────────────
+	// Initialization Promise (Deferred Handler Pattern)
+	// All event handlers await this before processing to avoid race conditions.
+	// This ensures Chrome state is synced to Y.Doc before any handler runs.
+	// ─────────────────────────────────────────────────────────────────────────
+
+	const initPromise = client
+		.refetchAll()
+		.then(() => console.log('[Background] Initial refetch complete'))
+		.catch((err) => console.error('[Background] Initial refetch failed:', err));
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Lifecycle Events - Re-sync on explicit browser events
+	// onInstalled: Extension install, update, or Chrome update
+	// onStartup: Browser session start (user profile loads)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	browser.runtime.onInstalled.addListener(async () => {
+		console.log('[Background] onInstalled: re-syncing...');
+		await client
+			.refetchAll()
+			.then(() => console.log('[Background] onInstalled: refetch complete'))
+			.catch((err) =>
+				console.error('[Background] onInstalled: refetch failed:', err),
+			);
+	});
+
+	browser.runtime.onStartup.addListener(async () => {
+		console.log('[Background] onStartup: re-syncing...');
+		await client
+			.refetchAll()
+			.then(() => console.log('[Background] onStartup: refetch complete'))
+			.catch((err) =>
+				console.error('[Background] onStartup: refetch failed:', err),
+			);
+	});
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// Chrome Event Listeners - trigger Y.Doc refetch on changes
 	// Like TanStack Query's invalidateQueries pattern
-	// Skip when we're processing Y.Doc changes to prevent infinite loops
+	// Each handler awaits initPromise first to avoid race conditions.
+	// Skip when we're processing Y.Doc changes to prevent infinite loops.
 	// ─────────────────────────────────────────────────────────────────────────
 
 	const refetchTabsIfNotProcessingYDoc = async () => {
+		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
 		syncCoordination.isRefetching = true;
 		await client.refetchTabs();
@@ -211,6 +249,7 @@ export default defineBackground(async () => {
 	};
 
 	const refetchWindowsIfNotProcessingYDoc = async () => {
+		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
 		syncCoordination.isRefetching = true;
 		await client.refetchWindows();
@@ -218,6 +257,7 @@ export default defineBackground(async () => {
 	};
 
 	const refetchTabGroupsIfNotProcessingYDoc = async () => {
+		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
 		syncCoordination.isRefetching = true;
 		await client.refetchTabGroups();
@@ -252,6 +292,8 @@ export default defineBackground(async () => {
 
 	client.tables.tabs.observe({
 		onAdd: async (result) => {
+			await initPromise;
+
 			console.log('[Background] tabs.onAdd fired:', {
 				isRefetching: syncCoordination.isRefetching,
 				isProcessingYDocChange: syncCoordination.isProcessingYDocChange,
@@ -303,6 +345,8 @@ export default defineBackground(async () => {
 			syncCoordination.isProcessingYDocChange = false;
 		},
 		onDelete: async (id) => {
+			await initPromise;
+
 			console.log('[Background] tabs.onDelete fired:', {
 				id,
 				isRefetching: syncCoordination.isRefetching,
@@ -343,6 +387,8 @@ export default defineBackground(async () => {
 
 	client.tables.windows.observe({
 		onAdd: async (result) => {
+			await initPromise;
+
 			// Skip if we're syncing Chrome → Y.Doc (during refetch)
 			if (syncCoordination.isRefetching) return;
 			if (syncCoordination.isProcessingYDocChange) return;
@@ -369,6 +415,8 @@ export default defineBackground(async () => {
 			syncCoordination.isProcessingYDocChange = false;
 		},
 		onDelete: async (id) => {
+			await initPromise;
+
 			if (syncCoordination.isRefetching) return;
 			if (syncCoordination.isProcessingYDocChange) return;
 
@@ -392,6 +440,8 @@ export default defineBackground(async () => {
 	if (browser.tabGroups) {
 		client.tables.tab_groups.observe({
 			onDelete: async (id) => {
+				await initPromise;
+
 				if (syncCoordination.isRefetching) return;
 				if (syncCoordination.isProcessingYDocChange) return;
 
