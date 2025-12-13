@@ -314,6 +314,21 @@ export type MarkdownProviderConfig<
 	 * ```
 	 */
 	tableConfigs?: TableConfigs<TWorkspaceSchema>;
+
+	/**
+	 * Enable verbose debug logging for troubleshooting file sync issues.
+	 *
+	 * When enabled, logs:
+	 * - Every chokidar event (add, change, unlink)
+	 * - Handler entry/exit with filename
+	 * - Early returns (skipped files, duplicates, validation failures)
+	 * - Sync coordination state (yjsWriteCount, isProcessingFileChange)
+	 *
+	 * Useful for debugging bulk file operations where some files don't sync.
+	 *
+	 * @default false
+	 */
+	debug?: boolean;
 };
 
 export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
@@ -321,7 +336,15 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	config: MarkdownProviderConfig<TSchema> = {},
 ) => {
 	const { id, providerId, tables, storageDir, epicenterDir } = context;
-	const { directory = `./${id}` } = config;
+	const { directory = `./${id}`, debug = false } = config;
+
+	// Debug logger - no-op when debug is disabled
+	const dbg = debug
+		? (tag: string, msg: string, data?: Record<string, unknown>) => {
+				const timestamp = new Date().toISOString().slice(11, 23);
+				console.log(`[MD:${tag}] ${timestamp} ${msg}`, data ?? '');
+			}
+		: () => {};
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
 	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
@@ -673,19 +696,30 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 			// Helper: Process file add/change
 			const handleFileAddOrChange = async (filePath: string) => {
+				const filename = path.basename(filePath);
+				dbg('HANDLER', `START ${table.name}/${filename}`, {
+					yjsWriteCount: syncCoordination.yjsWriteCount,
+					isProcessingFileChange: syncCoordination.isProcessingFileChange,
+				});
+
 				// Skip if this file change was triggered by a YJS change
-				if (syncCoordination.yjsWriteCount > 0) return;
+				if (syncCoordination.yjsWriteCount > 0) {
+					dbg('HANDLER', `SKIP ${table.name}/${filename} (yjsWriteCount > 0)`);
+					return;
+				}
 
 				syncCoordination.isProcessingFileChange = true;
 
 				try {
-					const filename = path.basename(filePath);
 					const absolutePath = path.join(tableConfig.directory, filename) as AbsolutePath;
 
 					// Read markdown file
 					const parseResult = await readMarkdownFile(absolutePath);
 
 					if (parseResult.error) {
+						dbg('HANDLER', `FAIL ${table.name}/${filename} (read error)`, {
+							error: parseResult.error.message,
+						});
 						const error = MarkdownProviderError({
 							message: `Failed to read markdown file at ${absolutePath}: ${parseResult.error.message}`,
 						});
@@ -717,6 +751,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						});
 
 					if (deserializeError) {
+						dbg('HANDLER', `FAIL ${table.name}/${filename} (validation error)`, {
+							error: deserializeError.message,
+						});
 						diagnostics.add({
 							filePath: absolutePath,
 							tableName: table.name,
@@ -744,6 +781,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 					if (existingFilename && existingFilename !== filename) {
 						// This is a duplicate file with the same ID - delete it
+						dbg('HANDLER', `SKIP ${table.name}/${filename} (duplicate of ${existingFilename})`, {
+							rowId: validatedRow.id,
+						});
 						logger.log(
 							ProviderError({
 								message: `Duplicate file detected: ${filename} has same ID as ${existingFilename}, deleting duplicate`,
@@ -758,6 +798,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
 					tracking[table.name]!.set({ rowId: validatedRow.id, filename });
 					table.upsert(validatedRow);
+					dbg('HANDLER', `SUCCESS ${table.name}/${filename}`, { rowId: validatedRow.id });
 				} finally {
 					syncCoordination.isProcessingFileChange = false;
 				}
@@ -797,18 +838,31 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				}
 			};
 
-			// Register event handlers
+			// Register event handlers with debug logging for raw events
 			watcher
-				.on('add', handleFileAddOrChange)
-				.on('change', handleFileAddOrChange)
-				.on('unlink', handleFileUnlink)
+				.on('add', (filePath) => {
+					dbg('CHOKIDAR', `add: ${table.name}/${path.basename(filePath)}`);
+					handleFileAddOrChange(filePath);
+				})
+				.on('change', (filePath) => {
+					dbg('CHOKIDAR', `change: ${table.name}/${path.basename(filePath)}`);
+					handleFileAddOrChange(filePath);
+				})
+				.on('unlink', (filePath) => {
+					dbg('CHOKIDAR', `unlink: ${table.name}/${path.basename(filePath)}`);
+					handleFileUnlink(filePath);
+				})
 				.on('error', (error) => {
+					dbg('CHOKIDAR', `error: ${table.name}`, { error: extractErrorMessage(error) });
 					logger.log(
 						ProviderError({
 							message: `File watcher error for ${table.name}: ${extractErrorMessage(error)}`,
 							context: { tableName: table.name, directory: tableConfig.directory },
 						}),
 					);
+				})
+				.on('ready', () => {
+					dbg('CHOKIDAR', `ready: ${table.name} watching ${tableConfig.directory}`);
 				});
 
 			watchers.push(watcher);
