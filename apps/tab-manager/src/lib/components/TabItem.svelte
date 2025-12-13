@@ -91,7 +91,7 @@
 	>
 		<Button
 			variant="ghost"
-			size="icon"
+			size="icon-xs"
 			disabled={isPinPending}
 			tooltip={tab.pinned ? 'Unpin' : 'Pin'}
 			onclick={(e: MouseEvent) => {
@@ -115,7 +115,7 @@
 		{#if tab.audible || tab.muted}
 			<Button
 				variant="ghost"
-				size="icon"
+				size="icon-xs"
 				disabled={isMutePending}
 				tooltip={tab.muted ? 'Unmute' : 'Mute'}
 				onclick={(e: MouseEvent) => {
@@ -139,7 +139,7 @@
 
 		<Button
 			variant="ghost"
-			size="icon"
+			size="icon-xs"
 			disabled={reloadMutation.isPending}
 			tooltip="Reload"
 			onclick={(e: MouseEvent) => {
@@ -156,7 +156,7 @@
 
 		<Button
 			variant="ghost"
-			size="icon"
+			size="icon-xs"
 			disabled={duplicateMutation.isPending}
 			tooltip="Duplicate"
 			onclick={(e: MouseEvent) => {
@@ -173,7 +173,7 @@
 
 		<Button
 			variant="ghost"
-			size="icon"
+			size="icon-xs"
 			class="text-destructive hover:text-destructive"
 			disabled={closeMutation.isPending}
 			tooltip="Close"
