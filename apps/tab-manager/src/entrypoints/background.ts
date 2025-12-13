@@ -39,13 +39,20 @@ import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
 /**
  * Bidirectional sync coordination state.
  *
- * Prevents infinite loops during two-way synchronization between Chrome and Y.Doc:
- * 1. Y.Doc change → calls Chrome API → triggers Chrome event → refetch → Y.Doc change (loop!)
- * 2. Chrome event → refetch → Y.Doc change → Y.Doc observer tries to call Chrome API (loop!)
+ * Prevents infinite loops during two-way synchronization between Chrome and Y.Doc.
  *
- * Two flags to distinguish sync directions:
+ * Primary mechanism: Y.js transaction `origin` parameter
+ * - Remote changes (from WebSocket): origin !== null (WebSocket provider instance)
+ * - Local changes (our refetch): origin === null (default Y.js behavior)
+ *
+ * The observers check `origin` to distinguish remote vs local changes and only
+ * act on remote changes (when a markdown file changes on the server).
+ *
+ * Flags for secondary coordination:
  * - `isProcessingYDocChange`: Set when calling Chrome APIs from Y.Doc observers
+ *   Prevents Chrome events from triggering refetch during our own API calls.
  * - `isRefetching`: Set when syncing Chrome → Y.Doc (refetch functions)
+ *   Used as a secondary guard in refetch helpers.
  */
 const syncCoordination = {
 	/** True when we're processing a Y.Doc change (calling Chrome APIs) */
@@ -196,6 +203,14 @@ export default defineBackground(() => {
 
 	const client = createWorkspaceClient(backgroundWorkspace);
 
+	// Debug: Listen for all Y.Doc updates to see if we're receiving them
+	client.$ydoc.on('update', (update: Uint8Array, origin: unknown) => {
+		console.log('[Background] Y.Doc update received', {
+			updateSize: update.length,
+			origin: origin === null ? 'local' : 'remote',
+		});
+	});
+
 	// ─────────────────────────────────────────────────────────────────────────
 	// Initialization Promise (Deferred Handler Pattern)
 	// All event handlers await this before processing to avoid race conditions.
@@ -320,23 +335,20 @@ export default defineBackground(() => {
 	// ─────────────────────────────────────────────────────────────────────────
 
 	client.tables.tabs.observe({
-		onAdd: async (result) => {
+		onAdd: async (result, transaction) => {
 			await initPromise;
 
 			console.log('[Background] tabs.onAdd fired:', {
-				isRefetching: syncCoordination.isRefetching,
-				isProcessingYDocChange: syncCoordination.isProcessingYDocChange,
+				origin: transaction.origin,
+				isRemote: transaction.origin !== null,
 				hasError: !!result.error,
 				data: result.error ? String(result.error) : result.data,
 			});
 
-			// Skip if we're syncing Chrome → Y.Doc (during refetch)
-			if (syncCoordination.isRefetching) {
-				console.log('[Background] tabs.onAdd SKIPPED: isRefetching=true');
-				return;
-			}
-			if (syncCoordination.isProcessingYDocChange) {
-				console.log('[Background] tabs.onAdd SKIPPED: isProcessingYDocChange=true');
+			// Only process remote changes (from WebSocket sync)
+			// Local changes (transaction.origin === null) are our own refetch operations
+			if (transaction.origin === null) {
+				console.log('[Background] tabs.onAdd SKIPPED: local origin (our own change)');
 				return;
 			}
 			if (result.error) {
@@ -351,6 +363,7 @@ export default defineBackground(() => {
 			}
 
 			console.log('[Background] tabs.onAdd CREATING tab with URL:', row.url);
+			// Set flag to prevent Chrome events from triggering refetch
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
@@ -373,26 +386,24 @@ export default defineBackground(() => {
 			});
 			syncCoordination.isProcessingYDocChange = false;
 		},
-		onDelete: async (id) => {
+		onDelete: async (id, transaction) => {
 			await initPromise;
 
 			console.log('[Background] tabs.onDelete fired:', {
 				id,
-				isRefetching: syncCoordination.isRefetching,
-				isProcessingYDocChange: syncCoordination.isProcessingYDocChange,
+				origin: transaction.origin,
+				isRemote: transaction.origin !== null,
 			});
 
-			// Skip if this deletion came from our own refetch (downstream sync)
-			if (syncCoordination.isRefetching) {
-				console.log('[Background] tabs.onDelete SKIPPED: isRefetching=true');
-				return;
-			}
-			if (syncCoordination.isProcessingYDocChange) {
-				console.log('[Background] tabs.onDelete SKIPPED: isProcessingYDocChange=true');
+			// Only process remote changes (from WebSocket sync)
+			// Local changes (transaction.origin === null) are our own refetch operations
+			if (transaction.origin === null) {
+				console.log('[Background] tabs.onDelete SKIPPED: local origin (our own change)');
 				return;
 			}
 
 			console.log('[Background] tabs.onDelete REMOVING Chrome tab:', id);
+			// Set flag to prevent Chrome events from triggering refetch
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
@@ -415,12 +426,11 @@ export default defineBackground(() => {
 	});
 
 	client.tables.windows.observe({
-		onAdd: async (result) => {
+		onAdd: async (result, transaction) => {
 			await initPromise;
 
-			// Skip if we're syncing Chrome → Y.Doc (during refetch)
-			if (syncCoordination.isRefetching) return;
-			if (syncCoordination.isProcessingYDocChange) return;
+			// Only process remote changes (from WebSocket sync)
+			if (transaction.origin === null) return;
 			if (result.error) return;
 
 			syncCoordination.isProcessingYDocChange = true;
@@ -443,11 +453,11 @@ export default defineBackground(() => {
 			});
 			syncCoordination.isProcessingYDocChange = false;
 		},
-		onDelete: async (id) => {
+		onDelete: async (id, transaction) => {
 			await initPromise;
 
-			if (syncCoordination.isRefetching) return;
-			if (syncCoordination.isProcessingYDocChange) return;
+			// Only process remote changes (from WebSocket sync)
+			if (transaction.origin === null) return;
 
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
@@ -468,11 +478,11 @@ export default defineBackground(() => {
 
 	if (browser.tabGroups) {
 		client.tables.tab_groups.observe({
-			onDelete: async (id) => {
+			onDelete: async (id, transaction) => {
 				await initPromise;
 
-				if (syncCoordination.isRefetching) return;
-				if (syncCoordination.isProcessingYDocChange) return;
+				// Only process remote changes (from WebSocket sync)
+				if (transaction.origin === null) return;
 
 				syncCoordination.isProcessingYDocChange = true;
 				await tryAsync({

@@ -122,10 +122,23 @@ type SyncCoordination = {
 	isProcessingFileChange: boolean;
 
 	/**
-	 * True when YJS observers are currently processing a change from memory
-	 * File watcher checks this and skips processing to avoid the loop
+	 * Counter for concurrent YJS observers writing to disk.
+	 * File watcher checks this and skips processing when > 0.
+	 *
+	 * We use a counter instead of a boolean because multiple async observers
+	 * can be writing files concurrently. A boolean would cause race conditions:
+	 * - Observer A sets flag = true, awaits write
+	 * - Observer B sets flag = true, awaits write
+	 * - Observer A completes, sets flag = false (BUG! B is still writing)
+	 * - File watcher sees false, processes B's file event, creates loop
+	 *
+	 * With a counter:
+	 * - Observer A increments to 1, awaits write
+	 * - Observer B increments to 2, awaits write
+	 * - Observer A completes, decrements to 1 (still > 0, protected)
+	 * - Observer B completes, decrements to 0
 	 */
-	isProcessingYJSChange: boolean;
+	yjsWriteCount: number;
 };
 
 /**
@@ -349,14 +362,14 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * Coordination state to prevent infinite sync loops
 	 *
 	 * How it works:
-	 * - Before YJS observers write files: set isProcessingYJSChange = true
-	 *   - File watcher checks this and skips processing
+	 * - Before YJS observers write files: increment yjsWriteCount
+	 *   - File watcher checks this and skips processing when > 0
 	 * - Before file watcher updates YJS: set isProcessingFileChange = true
 	 *   - YJS observers check this and skip processing
 	 */
 	const syncCoordination: SyncCoordination = {
 		isProcessingFileChange: false,
-		isProcessingYJSChange: false,
+		yjsWriteCount: 0,
 	};
 
 	/**
@@ -506,9 +519,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					}
 
 					const row = result.data;
-					syncCoordination.isProcessingYJSChange = true;
+					syncCoordination.yjsWriteCount++;
 					const { error } = await writeRowToMarkdown(row);
-					syncCoordination.isProcessingYJSChange = false;
+					syncCoordination.yjsWriteCount--;
 
 					if (error) {
 						// Log I/O errors (operational errors, not validation errors)
@@ -537,9 +550,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					}
 
 					const row = result.data;
-					syncCoordination.isProcessingYJSChange = true;
+					syncCoordination.yjsWriteCount++;
 					const { error } = await writeRowToMarkdown(row);
-					syncCoordination.isProcessingYJSChange = false;
+					syncCoordination.yjsWriteCount--;
 
 					if (error) {
 						// Log I/O errors (operational errors, not validation errors)
@@ -556,7 +569,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					// (prevents markdown -> YJS -> markdown infinite loop)
 					if (syncCoordination.isProcessingFileChange) return;
 
-					syncCoordination.isProcessingYJSChange = true;
+					syncCoordination.yjsWriteCount++;
 
 					// Get filename and delete file if it exists
 					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
@@ -583,7 +596,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						}
 					}
 
-					syncCoordination.isProcessingYJSChange = false;
+					syncCoordination.yjsWriteCount--;
 				},
 			});
 			unsubscribers.push(unsub);
@@ -623,11 +636,18 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			}
 
 			// Create watcher for this table's directory
+			console.log(`[Markdown] Registering file watcher for ${tableConfig.directory}`);
 			const watcher = watch(
 				tableConfig.directory,
 				async (eventType, filename) => {
+					console.log(`[Markdown] File event: ${eventType} ${filename}`, {
+						directory: tableConfig.directory,
+						yjsWriteCount: syncCoordination.yjsWriteCount,
+					});
+
 					// Skip if this file change was triggered by a YJS change
-					if (syncCoordination.isProcessingYJSChange) return;
+					// (counter > 0 means YJS observers are actively writing files)
+					if (syncCoordination.yjsWriteCount > 0) return;
 
 					// Skip non-markdown files
 					if (!filename || !filename.endsWith('.md')) return;
@@ -653,6 +673,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 							if (rowIdToDelete) {
 								if (table.has({ id: rowIdToDelete })) {
+									console.log(`[Markdown] Deleting row from file deletion:`, {
+										tableName: table.name,
+										filename,
+										rowId: rowIdToDelete,
+									});
 									table.delete({ id: rowIdToDelete });
 								}
 
@@ -743,6 +768,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						diagnostics.remove({ filePath });
 
 						// Insert or update the row in YJS
+						console.log(`[Markdown] Upserting row from file change:`, {
+							tableName: table.name,
+							filename,
+							rowId: validatedRow.id,
+						});
 						table.upsert(validatedRow);
 					}
 
@@ -928,7 +958,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			handler: async () => {
 				return tryAsync({
 					try: async () => {
-						syncCoordination.isProcessingYJSChange = true;
+						syncCoordination.yjsWriteCount++;
 
 						// Process each table independently
 						for (const { table, tableConfig } of tableWithConfigs) {
@@ -988,10 +1018,10 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 							}
 						}
 
-						syncCoordination.isProcessingYJSChange = false;
+						syncCoordination.yjsWriteCount--;
 					},
 					catch: (error) => {
-						syncCoordination.isProcessingYJSChange = false;
+						syncCoordination.yjsWriteCount--;
 						return ProviderErr({
 							message: `Markdown provider pull failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'pull' },
