@@ -41,7 +41,7 @@ const WINDOW_STATES = [
 	'locked-fullscreen',
 ] as const;
 
-const WINDOW_TYPES = ['normal', 'popup', 'panel', 'app', 'devtools'] as const;
+const WINDOW_TYPES = ['normal', 'popup', 'panel'] as const;
 
 const TAB_STATUS = ['unloaded', 'loading', 'complete'] as const;
 
