@@ -92,7 +92,6 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-6"
 			disabled={isPinPending}
 			tooltip={tab.pinned ? 'Unpin' : 'Pin'}
 			onclick={(e: MouseEvent) => {
@@ -105,11 +104,11 @@
 			}}
 		>
 			{#if isPinPending}
-				<Spinner class="size-3" />
+				<Spinner />
 			{:else if tab.pinned}
-				<PinOffIcon class="size-3" />
+				<PinOffIcon />
 			{:else}
-				<PinIcon class="size-3" />
+				<PinIcon />
 			{/if}
 		</Button>
 
@@ -117,7 +116,6 @@
 			<Button
 				variant="ghost"
 				size="icon"
-				class="size-6"
 				disabled={isMutePending}
 				tooltip={tab.muted ? 'Unmute' : 'Mute'}
 				onclick={(e: MouseEvent) => {
@@ -130,11 +128,11 @@
 				}}
 			>
 				{#if isMutePending}
-					<Spinner class="size-3" />
+					<Spinner />
 				{:else if tab.muted}
-					<Volume2Icon class="size-3" />
+					<Volume2Icon />
 				{:else}
-					<VolumeXIcon class="size-3" />
+					<VolumeXIcon />
 				{/if}
 			</Button>
 		{/if}
@@ -142,7 +140,6 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-6"
 			disabled={reloadMutation.isPending}
 			tooltip="Reload"
 			onclick={(e: MouseEvent) => {
@@ -151,16 +148,15 @@
 			}}
 		>
 			{#if reloadMutation.isPending}
-				<Spinner class="size-3" />
+				<Spinner />
 			{:else}
-				<RefreshCwIcon class="size-3" />
+				<RefreshCwIcon />
 			{/if}
 		</Button>
 
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-6"
 			disabled={duplicateMutation.isPending}
 			tooltip="Duplicate"
 			onclick={(e: MouseEvent) => {
@@ -169,16 +165,16 @@
 			}}
 		>
 			{#if duplicateMutation.isPending}
-				<Spinner class="size-3" />
+				<Spinner />
 			{:else}
-				<CopyIcon class="size-3" />
+				<CopyIcon />
 			{/if}
 		</Button>
 
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-6 text-destructive hover:text-destructive"
+			class="text-destructive hover:text-destructive"
 			disabled={closeMutation.isPending}
 			tooltip="Close"
 			onclick={(e: MouseEvent) => {
@@ -187,9 +183,9 @@
 			}}
 		>
 			{#if closeMutation.isPending}
-				<Spinner class="size-3" />
+				<Spinner />
 			{:else}
-				<XIcon class="size-3" />
+				<XIcon />
 			{/if}
 		</Button>
 	</div>
