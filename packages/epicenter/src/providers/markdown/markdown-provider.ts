@@ -737,6 +737,26 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					// Success: remove from diagnostics if it was previously invalid
 					diagnostics.remove({ filePath: absolutePath });
 
+					// Check for duplicate files: same row ID but different filename
+					// This happens when users copy-paste markdown files in Finder
+					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+					const existingFilename = tracking[table.name]!.getFilename({ rowId: validatedRow.id });
+
+					if (existingFilename && existingFilename !== filename) {
+						// This is a duplicate file with the same ID - delete it
+						logger.log(
+							ProviderError({
+								message: `Duplicate file detected: ${filename} has same ID as ${existingFilename}, deleting duplicate`,
+								context: { tableName: table.name, filename, rowId: validatedRow.id },
+							}),
+						);
+						await deleteMarkdownFile({ filePath: absolutePath });
+						return;
+					}
+
+					// Update tracking and upsert to Y.js
+					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+					tracking[table.name]!.set({ rowId: validatedRow.id, filename });
 					table.upsert(validatedRow);
 				} finally {
 					syncCoordination.isProcessingFileChange = false;
