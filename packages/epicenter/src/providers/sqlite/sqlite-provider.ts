@@ -7,12 +7,12 @@ import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
-import { IndexErr, IndexError } from '../../core/errors';
+import { ProviderErr, ProviderError } from '../../core/errors';
 import type { Provider, ProviderContext } from '../../core/provider.node';
 import { defineProviderExports } from '../../core/provider.shared';
 import type { WorkspaceSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
-import { createIndexLogger } from '../error-logger';
+import { createProviderLogger } from '../error-logger';
 
 const DEFAULT_DEBOUNCE_MS = 100;
 
@@ -113,7 +113,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	// Structure: .epicenter/{workspaceId}/{providerId}.log
 	const workspaceConfigDir = path.join(epicenterDir, id);
 	const logPath = path.join(workspaceConfigDir, `${providerId}.log`);
-	const logger = createIndexLogger({ logPath });
+	const logger = createProviderLogger({ logPath });
 
 	// Prevents infinite loop during pushFromSqlite: when we insert into YJS,
 	// observers fire and would schedule a sync back to SQLite without this flag
@@ -190,7 +190,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 						await sqliteDb.insert(drizzleTable).values(serializedRows);
 					},
 					catch: (e) =>
-						IndexErr({
+						ProviderErr({
 							message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite: ${extractErrorMessage(e)}`,
 						}),
 				});
@@ -231,8 +231,8 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 				if (isPushingFromSqlite) return;
 				if (result.error) {
 					logger.log(
-						IndexError({
-							message: `SQLite index onAdd: validation failed for ${table.name}`,
+						ProviderError({
+							message: `SQLite provider onAdd: validation failed for ${table.name}`,
 						}),
 					);
 					return;
@@ -243,8 +243,8 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 				if (isPushingFromSqlite) return;
 				if (result.error) {
 					logger.log(
-						IndexError({
-							message: `SQLite index onUpdate: validation failed for ${table.name}`,
+						ProviderError({
+							message: `SQLite provider onUpdate: validation failed for ${table.name}`,
 						}),
 					);
 					return;
@@ -281,7 +281,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 					await sqliteDb.insert(drizzleTable).values(serializedRows);
 				},
 				catch: (e) =>
-					IndexErr({
+					ProviderErr({
 						message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite during init: ${extractErrorMessage(e)}`,
 					}),
 			});
@@ -320,7 +320,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 				return tryAsync({
 					try: () => rebuildSqlite(),
 					catch: (error) =>
-						IndexErr({
+						ProviderErr({
 							message: `SQLite provider pull operation failed: ${extractErrorMessage(error)}`,
 						}),
 				});
@@ -356,7 +356,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 					},
 					catch: (error) => {
 						isPushingFromSqlite = false;
-						return IndexErr({
+						return ProviderErr({
 							message: `SQLite provider push operation failed: ${extractErrorMessage(error)}`,
 						});
 					},

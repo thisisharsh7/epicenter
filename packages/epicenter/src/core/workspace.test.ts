@@ -3,7 +3,7 @@ import path from 'node:path';
 import { type } from 'arktype';
 import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
-import { sqliteProvider } from '../indexes/sqlite';
+import { sqliteProvider } from '../providers/sqlite';
 import { defineMutation, defineQuery } from './actions';
 import { createEpicenterClient, defineEpicenter } from './epicenter';
 import { id, integer, text } from './schema';

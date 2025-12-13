@@ -55,7 +55,7 @@ Each table gets its own directory, and each record becomes a file named after it
 
 ### Bidirectional Sync
 
-The index watches for changes in both directions:
+The provider watches for changes in both directions:
 
 **Database → Files**: When you insert, update, or delete records through your application, the corresponding markdown files are automatically created, updated, or deleted.
 
@@ -73,7 +73,7 @@ Different column types are handled appropriately:
 
 ### Granular Updates
 
-When syncing changes from markdown files back to the database, the index uses granular diff algorithms instead of replacing entire values. This preserves the collaborative editing properties of YJS CRDTs and minimizes conflicts in multi-user scenarios.
+When syncing changes from markdown files back to the database, the provider uses granular diff algorithms instead of replacing entire values. This preserves the collaborative editing properties of YJS CRDTs and minimizes conflicts in multi-user scenarios.
 
 For text fields, character-level diffs are computed. For array fields like multi-select, element-level diffs are computed. This means if you change a single character or add a single tag, only that specific change is applied rather than replacing the entire field.
 

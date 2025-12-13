@@ -14,16 +14,16 @@
  *
  * - `withBodyField(field)`: Common pattern where one field becomes the markdown body.
  *
- * The true default config (`DEFAULT_TABLE_CONFIG`) is defined in `markdown-index.ts`.
+ * The true default config (`DEFAULT_TABLE_CONFIG`) is defined in `markdown-provider.ts`.
  *
  * ## Usage
  *
  * ```typescript
- * import { markdownIndex, withBodyField, DEFAULT_TABLE_CONFIG } from '@epicenter/hq';
+ * import { markdownProvider, withBodyField, DEFAULT_TABLE_CONFIG } from '@epicenter/hq';
  *
- * markdownIndex(c, {
+ * markdownProvider(c, {
  *   tableConfigs: {
- *     // Use the default (all in frontmatter) - imported from markdown-index
+ *     // Use the default (all in frontmatter) - imported from markdown-provider
  *     settings: DEFAULT_TABLE_CONFIG,
  *
  *     // Use a convenience helper (content → body)
@@ -42,7 +42,7 @@ import { type } from 'arktype';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { TableHelper } from '../../core/db/table-helper';
 import type { SerializedRow, TableSchema } from '../../core/schema';
-import { MarkdownIndexErr, type MarkdownIndexError } from './markdown-index';
+import { MarkdownProviderErr, type MarkdownProviderError } from './markdown-provider';
 
 /**
  * Custom serialization/deserialization behavior for a table
@@ -121,7 +121,7 @@ export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 		body: string;
 		filename: string;
 		table: TableHelper<TTableSchema>;
-	}): Result<SerializedRow<TTableSchema>, MarkdownIndexError>;
+	}): Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
 };
 
 /**
@@ -156,7 +156,7 @@ export type WithBodyFieldOptions<
  *
  * @example
  * ```typescript
- * markdownIndex(c, {
+ * markdownProvider(c, {
  *   tableConfigs: {
  *     articles: withBodyField('content'),
  *     posts: withBodyField('markdown'),
@@ -207,7 +207,7 @@ export function withBodyField<TTableSchema extends TableSchema>(
 			const parsed = FrontMatter(frontmatter);
 
 			if (parsed instanceof type.errors) {
-				return MarkdownIndexErr({
+				return MarkdownProviderErr({
 					message: `Invalid frontmatter for row ${rowId}`,
 					context: {
 						fileName: filename,

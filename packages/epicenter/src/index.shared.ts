@@ -84,6 +84,7 @@ export type {
 export type {
 	EpicenterOperationError,
 	IndexError,
+	ProviderError,
 	ValidationError,
 } from './core/errors';
 
@@ -91,6 +92,7 @@ export type {
 export {
 	EpicenterOperationErr,
 	IndexErr,
+	ProviderErr,
 	ValidationErr,
 } from './core/errors';
 
@@ -172,5 +174,5 @@ export type { AnyWorkspaceConfig, WorkspacesToExports } from './core/workspace/c
 
 // Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
-//   import { markdownProvider } from '@epicenter/hq/indexes/markdown';
-//   import { sqliteProvider } from '@epicenter/hq/indexes/sqlite';
+//   import { markdownProvider } from '@epicenter/hq/providers/markdown';
+//   import { sqliteProvider } from '@epicenter/hq/providers/sqlite';

@@ -3,7 +3,7 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { defineEpicenter } from '../core/epicenter';
 import { defineMutation, defineWorkspace, id, text } from '../index.node';
-import { sqliteProvider } from '../indexes/sqlite';
+import { sqliteProvider } from '../providers/sqlite';
 import { createCLI } from './cli';
 
 describe('CLI Integration', () => {

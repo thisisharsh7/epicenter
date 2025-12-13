@@ -6,7 +6,7 @@ import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import type { TableHelper } from '../../core/db/table-helper';
-import { IndexErr, IndexError } from '../../core/errors';
+import { ProviderErr, ProviderError } from '../../core/errors';
 import { defineProviderExports } from '../../core/provider.shared';
 import type { Provider, ProviderContext } from '../../core/provider.node';
 import type {
@@ -16,7 +16,7 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
-import { createIndexLogger } from '../error-logger';
+import { createProviderLogger } from '../error-logger';
 import type { TableMarkdownConfig } from './configs';
 import { createDiagnosticsManager } from './diagnostics-manager';
 import {
@@ -27,22 +27,22 @@ import {
 } from './io';
 
 /**
- * Error types for markdown index diagnostics
+ * Error types for markdown provider diagnostics
  * Used to track files that fail to process during indexing
  *
  * Context is optional since some errors (like read failures) may not
  * have all the structured data (fileName, id, reason) available.
  */
-type MarkdownIndexContext = {
+type MarkdownProviderContext = {
 	fileName: string;
 	id: string;
 	reason: string;
 };
 
-export const { MarkdownIndexError, MarkdownIndexErr } = createTaggedError(
-	'MarkdownIndexError',
-).withContext<MarkdownIndexContext | undefined>();
-export type MarkdownIndexError = ReturnType<typeof MarkdownIndexError>;
+export const { MarkdownProviderError, MarkdownProviderErr } = createTaggedError(
+	'MarkdownProviderError',
+).withContext<MarkdownProviderContext | undefined>();
+export type MarkdownProviderError = ReturnType<typeof MarkdownProviderError>;
 
 /**
  * Default table config
@@ -87,7 +87,7 @@ export const DEFAULT_TABLE_CONFIG = {
 		const validator = table.validators.toArktype();
 		const result = validator(data);
 		if (result instanceof type.errors) {
-			return MarkdownIndexErr({
+			return MarkdownProviderErr({
 				message: `Failed to validate row ${id}`,
 				context: { fileName: filename, id, reason: result.summary },
 			});
@@ -245,7 +245,7 @@ export type MarkdownProviderConfig<
 	 * **Optional**: Defaults to the workspace `id` if not provided
 	 * ```typescript
 	 * // If workspace id is "blog", defaults to "<storageDir>/blog"
-	 * markdownIndex({ id, db, storageDir })
+	 * markdownProvider({ id, db, storageDir })
 	 * ```
 	 *
 	 * **Three ways to specify the path**:
@@ -333,7 +333,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	});
 
 	// Create logger for historical error record (append-only audit trail)
-	const logger = createIndexLogger({
+	const logger = createProviderLogger({
 		logPath: path.join(workspaceConfigDir, `${providerId}.log`),
 	});
 
@@ -497,7 +497,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					if (result.error) {
 						// Handle validation errors with diagnostics + logger
 						logger.log(
-							IndexError({
+							ProviderError({
 								message: `YJS observer onAdd: validation failed for ${table.name}`,
 								context: result.error.context,
 							}),
@@ -513,7 +513,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					if (error) {
 						// Log I/O errors (operational errors, not validation errors)
 						logger.log(
-							IndexError({
+							ProviderError({
 								message: `YJS observer onAdd: failed to write ${table.name}/${row.id}`,
 								context: { tableName: table.name, rowId: row.id },
 							}),
@@ -528,7 +528,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					if (result.error) {
 						// Handle validation errors with diagnostics + logger
 						logger.log(
-							IndexError({
+							ProviderError({
 								message: `YJS observer onUpdate: validation failed for ${table.name}`,
 								context: result.error.context,
 							}),
@@ -544,7 +544,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					if (error) {
 						// Log I/O errors (operational errors, not validation errors)
 						logger.log(
-							IndexError({
+							ProviderError({
 								message: `YJS observer onUpdate: failed to write ${table.name}/${row.id}`,
 								context: { tableName: table.name, rowId: row.id },
 							}),
@@ -575,7 +575,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						if (error) {
 							// Log I/O errors (operational errors, not validation errors)
 							logger.log(
-								IndexError({
+								ProviderError({
 									message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
 									context: { tableName: table.name, rowId: id, filePath },
 								}),
@@ -609,7 +609,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					mkdirSync(tableConfig.directory, { recursive: true });
 				},
 				catch: (error) =>
-					IndexErr({
+					ProviderErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
 						context: {
 							tableName: table.name,
@@ -661,7 +661,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 								tracking[table.name]!.deleteByFilename({ filename });
 							} else {
 								logger.log(
-									IndexError({
+									ProviderError({
 										message: `File deleted but row ID not found in tracking map for ${table.name}/${filename}`,
 										context: { tableName: table.name, filename },
 									}),
@@ -681,8 +681,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 						if (parseResult.error) {
 							// Track this read error in diagnostics (current state)
-							// Convert MarkdownOperationError to MarkdownIndexError
-							const error = MarkdownIndexError({
+							// Convert MarkdownOperationError to MarkdownProviderError
+							const error = MarkdownProviderError({
 								message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
 							});
 							diagnostics.add({
@@ -693,7 +693,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 							});
 							// Log to historical record
 							logger.log(
-								IndexError({
+								ProviderError({
 									message: `File watcher: failed to read ${table.name}/${filename}`,
 									context: { filePath, tableName: table.name, filename },
 								}),
@@ -724,7 +724,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 							});
 							// Log to historical record
 							logger.log(
-								IndexError({
+								ProviderError({
 									message: `File watcher: validation failed for ${table.name}/${filename}`,
 									context: { filePath, tableName: table.name, filename },
 								}),
@@ -786,7 +786,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 					if (parseResult.error) {
 						// Track read error in diagnostics (current state)
-						const error = MarkdownIndexError({
+						const error = MarkdownProviderError({
 							message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
 						});
 						diagnostics.add({
@@ -797,7 +797,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						});
 						// Log to historical record
 						logger.log(
-							IndexError({
+							ProviderError({
 								message: `${operationPrefix}failed to read ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -826,7 +826,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						});
 						// Log to historical record
 						logger.log(
-							IndexError({
+							ProviderError({
 								message: `${operationPrefix}validation failed for ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -941,7 +941,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 									if (error) {
 										// Log I/O errors (operational errors, not validation errors)
 										logger.log(
-											IndexError({
+											ProviderError({
 												message: `pullToMarkdown: failed to delete ${filePath}`,
 												context: { filePath, tableName: table.name },
 											}),
@@ -975,7 +975,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 								if (error) {
 									// Log I/O errors (operational errors, not validation errors)
 									logger.log(
-										IndexError({
+										ProviderError({
 											message: `pullToMarkdown: failed to write ${filePath}`,
 											context: {
 												filePath,
@@ -992,8 +992,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					},
 					catch: (error) => {
 						syncCoordination.isProcessingYJSChange = false;
-						return IndexErr({
-							message: `Markdown index pull failed: ${extractErrorMessage(error)}`,
+						return ProviderErr({
+							message: `Markdown provider pull failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'pull' },
 						});
 					},
@@ -1032,7 +1032,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 									if (parseResult.error) {
 										// Track read error in diagnostics (current state)
-										const error = MarkdownIndexError({
+										const error = MarkdownProviderError({
 											message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
 										});
 										diagnostics.add({
@@ -1043,7 +1043,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 										});
 										// Log to historical record
 										logger.log(
-											IndexError({
+											ProviderError({
 												message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
 												context: { filePath, tableName: table.name, filename },
 											}),
@@ -1073,7 +1073,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 										});
 										// Log to historical record
 										logger.log(
-											IndexError({
+											ProviderError({
 												message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
 												context: { filePath, tableName: table.name, filename },
 											}),
@@ -1092,8 +1092,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					},
 					catch: (error) => {
 						syncCoordination.isProcessingFileChange = false;
-						return IndexErr({
-							message: `Markdown index push failed: ${extractErrorMessage(error)}`,
+						return ProviderErr({
+							message: `Markdown provider push failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'push' },
 						});
 					},
@@ -1128,8 +1128,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						);
 					},
 					catch: (error) => {
-						return IndexErr({
-							message: `Markdown index scan failed: ${extractErrorMessage(error)}`,
+						return ProviderErr({
+							message: `Markdown provider scan failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'scan' },
 						});
 					},

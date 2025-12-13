@@ -21,9 +21,9 @@ type LogEntry = {
 } & LoggableError;
 
 /**
- * Configuration for creating an index logger
+ * Configuration for creating a provider logger
  */
-type IndexLoggerConfig = {
+type ProviderLoggerConfig = {
 	/**
 	 * Absolute path to the log file where errors will be written.
 	 *
@@ -34,9 +34,9 @@ type IndexLoggerConfig = {
 	logPath: string;
 };
 
-type IndexLogger = {
+type ProviderLogger = {
 	/**
-	 * Log an error to the index-specific log file.
+	 * Log an error to the provider-specific log file.
 	 *
 	 * This is synchronous from the caller's perspective. Errors are queued
 	 * internally and written to disk asynchronously in FIFO order.
@@ -60,7 +60,7 @@ type IndexLogger = {
 };
 
 /**
- * Create a logger for index errors
+ * Create a logger for provider errors
  *
  * Each log entry is a single JSON line with ISO timestamp + the full tagged error.
  * This provides a historical record of all errors for debugging and analysis.
@@ -115,20 +115,20 @@ type IndexLogger = {
  * `[ErrorName] message` + context object
  *
  * ```
- * [IndexError] File watcher: validation failed for posts/draft.md { filePath: '...', tableName: 'posts' }
- * [IndexError] YJS observer onAdd: failed to write posts/123 { tableName: 'posts', rowId: '123' }
+ * [ProviderError] File watcher: validation failed for posts/draft.md { filePath: '...', tableName: 'posts' }
+ * [ProviderError] YJS observer onAdd: failed to write posts/123 { tableName: 'posts', rowId: '123' }
  * ```
  *
  * @param config.logPath - Absolute path to the log file (parent directory created if needed)
  *
  * @example
  * ```typescript
- * const logger = createIndexLogger({
+ * const logger = createProviderLogger({
  *   logPath: path.join(storageDir, '.epicenter', 'markdown', `${workspaceId}.log`)
  * });
  *
  * // Synchronous: doesn't block, queues internally
- * logger.log(IndexError({
+ * logger.log(ProviderError({
  *   message: 'File watcher: validation failed',
  *   context: { filePath: '...', tableName: 'posts' }
  * }));
@@ -137,7 +137,7 @@ type IndexLogger = {
  * await logger.close();
  * ```
  */
-export function createIndexLogger({ logPath }: IndexLoggerConfig): IndexLogger {
+export function createProviderLogger({ logPath }: ProviderLoggerConfig): ProviderLogger {
 	// Create parent directory if it doesn't exist
 	const logDir = path.dirname(logPath);
 	trySync({
@@ -242,3 +242,6 @@ export function createIndexLogger({ logPath }: IndexLoggerConfig): IndexLogger {
 		},
 	};
 }
+
+// Legacy alias for backwards compatibility
+export const createIndexLogger = createProviderLogger;

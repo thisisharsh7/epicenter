@@ -19,10 +19,10 @@ export {
 } from './io';
 
 // Main provider implementation and core exports
-export type { MarkdownProviderConfig } from './markdown-index';
+export type { MarkdownProviderConfig } from './markdown-provider';
 export {
 	DEFAULT_TABLE_CONFIG,
-	MarkdownIndexErr,
-	MarkdownIndexError,
+	MarkdownProviderErr,
+	MarkdownProviderError,
 	markdownProvider,
-} from './markdown-index';
+} from './markdown-provider';

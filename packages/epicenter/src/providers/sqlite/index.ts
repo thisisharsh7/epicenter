@@ -19,4 +19,4 @@ export {
 	text,
 } from './schema';
 // Main provider implementation
-export { sqliteProvider } from './sqlite-index';
+export { sqliteProvider } from './sqlite-provider';
