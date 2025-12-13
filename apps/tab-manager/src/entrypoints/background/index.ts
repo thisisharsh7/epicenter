@@ -40,15 +40,18 @@ import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
  * Bidirectional sync coordination state.
  *
  * Prevents infinite loops during two-way synchronization between Chrome and Y.Doc:
- * 1. Y.Doc deletion → calls browser.tabs.remove() → triggers Chrome onRemoved event
- * 2. Chrome onRemoved → calls refetchTabs() → tries to delete from Y.Doc
- * 3. Without coordination: step 2 would fire Y.Doc observer again (infinite loop)
+ * 1. Y.Doc change → calls Chrome API → triggers Chrome event → refetch → Y.Doc change (loop!)
+ * 2. Chrome event → refetch → Y.Doc change → Y.Doc observer tries to call Chrome API (loop!)
  *
- * Solution: Set flags before making changes, check flags before processing events.
+ * Two flags to distinguish sync directions:
+ * - `isProcessingYDocChange`: Set when calling Chrome APIs from Y.Doc observers
+ * - `isRefetching`: Set when syncing Chrome → Y.Doc (refetch functions)
  */
 const syncCoordination = {
 	/** True when we're processing a Y.Doc change (calling Chrome APIs) */
 	isProcessingYDocChange: false,
+	/** True when we're refetching Chrome state into Y.Doc */
+	isRefetching: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,22 +203,25 @@ export default defineBackground(async () => {
 	// Skip when we're processing Y.Doc changes to prevent infinite loops
 	// ─────────────────────────────────────────────────────────────────────────
 
-	const refetchTabsIfNotProcessingYDoc = () => {
-		if (!syncCoordination.isProcessingYDocChange) {
-			client.refetchTabs();
-		}
+	const refetchTabsIfNotProcessingYDoc = async () => {
+		if (syncCoordination.isProcessingYDocChange) return;
+		syncCoordination.isRefetching = true;
+		await client.refetchTabs();
+		syncCoordination.isRefetching = false;
 	};
 
-	const refetchWindowsIfNotProcessingYDoc = () => {
-		if (!syncCoordination.isProcessingYDocChange) {
-			client.refetchWindows();
-		}
+	const refetchWindowsIfNotProcessingYDoc = async () => {
+		if (syncCoordination.isProcessingYDocChange) return;
+		syncCoordination.isRefetching = true;
+		await client.refetchWindows();
+		syncCoordination.isRefetching = false;
 	};
 
-	const refetchTabGroupsIfNotProcessingYDoc = () => {
-		if (!syncCoordination.isProcessingYDocChange) {
-			client.refetchTabGroups();
-		}
+	const refetchTabGroupsIfNotProcessingYDoc = async () => {
+		if (syncCoordination.isProcessingYDocChange) return;
+		syncCoordination.isRefetching = true;
+		await client.refetchTabGroups();
+		syncCoordination.isRefetching = false;
 	};
 
 	// Tab events → refetch tabs
@@ -245,8 +251,38 @@ export default defineBackground(async () => {
 	// ─────────────────────────────────────────────────────────────────────────
 
 	client.tables.tabs.observe({
+		onAdd: async (result) => {
+			// Skip if we're syncing Chrome → Y.Doc (during refetch)
+			if (syncCoordination.isRefetching) return;
+			if (syncCoordination.isProcessingYDocChange) return;
+			if (result.error) return;
+
+			const row = result.data;
+			if (!row.url) return;
+
+			syncCoordination.isProcessingYDocChange = true;
+			await tryAsync({
+				try: async () => {
+					// Create the tab with the URL from the markdown file
+					await browser.tabs.create({ url: row.url });
+
+					// Refetch to clean up - this will:
+					// 1. Add the new Chrome tab (with Chrome's real ID)
+					// 2. Delete the old row (wrong ID from markdown, not in Chrome)
+					syncCoordination.isRefetching = true;
+					await client.refetchTabs();
+					syncCoordination.isRefetching = false;
+				},
+				catch: (error) => {
+					console.log(`[Background] Failed to create tab from ${row.id}:`, error);
+					return Ok(undefined);
+				},
+			});
+			syncCoordination.isProcessingYDocChange = false;
+		},
 		onDelete: async (id) => {
 			// Skip if this deletion came from our own refetch (downstream sync)
+			if (syncCoordination.isRefetching) return;
 			if (syncCoordination.isProcessingYDocChange) return;
 
 			syncCoordination.isProcessingYDocChange = true;
@@ -268,7 +304,34 @@ export default defineBackground(async () => {
 	});
 
 	client.tables.windows.observe({
+		onAdd: async (result) => {
+			// Skip if we're syncing Chrome → Y.Doc (during refetch)
+			if (syncCoordination.isRefetching) return;
+			if (syncCoordination.isProcessingYDocChange) return;
+			if (result.error) return;
+
+			syncCoordination.isProcessingYDocChange = true;
+			await tryAsync({
+				try: async () => {
+					// Create a new window
+					await browser.windows.create({});
+
+					// Refetch to clean up - this will:
+					// 1. Add the new Chrome window (with Chrome's real ID)
+					// 2. Delete the old row (wrong ID from markdown, not in Chrome)
+					syncCoordination.isRefetching = true;
+					await client.refetchWindows();
+					syncCoordination.isRefetching = false;
+				},
+				catch: (error) => {
+					console.log(`[Background] Failed to create window from ${result.data.id}:`, error);
+					return Ok(undefined);
+				},
+			});
+			syncCoordination.isProcessingYDocChange = false;
+		},
 		onDelete: async (id) => {
+			if (syncCoordination.isRefetching) return;
 			if (syncCoordination.isProcessingYDocChange) return;
 
 			syncCoordination.isProcessingYDocChange = true;
@@ -291,6 +354,7 @@ export default defineBackground(async () => {
 	if (browser.tabGroups) {
 		client.tables.tab_groups.observe({
 			onDelete: async (id) => {
+				if (syncCoordination.isRefetching) return;
 				if (syncCoordination.isProcessingYDocChange) return;
 
 				syncCoordination.isProcessingYDocChange = true;
