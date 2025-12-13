@@ -1453,17 +1453,17 @@ Create validators for all tables in a workspace.
 ```typescript
 import {
   EpicenterOperationErr,
-  IndexErr,
+  ProviderErr,
   ValidationErr,
   type EpicenterOperationError,
-  type IndexError,
+  type ProviderError,
   type ValidationError,
 } from '@epicenter/hq';
 ```
 
 **Error constructors:**
 - `EpicenterOperationErr({ message, context, cause })`: General operation errors
-- `IndexErr({ message, context, cause })`: Index sync errors
+- `ProviderErr({ message, context, cause })`: Provider sync errors
 - `ValidationErr({ message, context, cause })`: Schema validation errors
 
 ### Drizzle Re-exports
