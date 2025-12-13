@@ -123,6 +123,33 @@ export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 		filename: string;
 		table: TableHelper<TTableSchema>;
 	}): Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
+
+	/**
+	 * Extract the row ID from a filename.
+	 *
+	 * **Optional**: Used as a fallback when the tracking map doesn't have the
+	 * filename→rowId mapping (e.g., after restart when filenames changed due to
+	 * title updates, or for orphan files created in previous sessions).
+	 *
+	 * **Default behavior**: Strips `.md` extension and returns the result as the ID.
+	 * This works for the default `{id}.md` filename pattern.
+	 *
+	 * **For custom patterns**: Override this to extract the ID from your filename format.
+	 * For example, `withTitleFilename` uses `{title}-{id}.md`, so it extracts the part
+	 * after the last dash.
+	 *
+	 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
+	 * @returns The row ID extracted from the filename, or undefined if extraction fails
+	 *
+	 * @example
+	 * // For pattern: "{title}-{id}.md"
+	 * extractRowIdFromFilename: (filename) => {
+	 *   const basename = path.basename(filename, '.md');
+	 *   const lastDash = basename.lastIndexOf('-');
+	 *   return lastDash === -1 ? basename : basename.substring(lastDash + 1);
+	 * }
+	 */
+	extractRowIdFromFilename?(filename: string): string | undefined;
 };
 
 /**
@@ -175,6 +202,19 @@ export function withTitleFilename<TTableSchema extends TableSchema>(
 ): TableMarkdownConfig<TTableSchema> {
 	const { stripNulls = true, maxTitleLength = 80 } = options;
 
+	/**
+	 * Extract the row ID from a filename with the pattern: "{title}-{id}.md"
+	 * Falls back to treating the entire basename as the ID if no dash is found.
+	 */
+	const extractRowIdFromFilename = (filename: string): string | undefined => {
+		const basename = path.basename(filename, '.md');
+		const lastDashIndex = basename.lastIndexOf('-');
+		// If no dash found, treat entire basename as ID (fallback to default behavior)
+		return lastDashIndex === -1
+			? basename
+			: basename.substring(lastDashIndex + 1);
+	};
+
 	return {
 		serialize: ({ row }) => {
 			const { id, ...rest } = row;
@@ -202,15 +242,8 @@ export function withTitleFilename<TTableSchema extends TableSchema>(
 		},
 
 		deserialize: ({ frontmatter, body: _, filename, table }) => {
-			// Extract ID from filename: "Title Here-{id}.md" → "{id}"
-			const basename = path.basename(filename, '.md');
-			const lastDashIndex = basename.lastIndexOf('-');
-
-			// If no dash found, treat entire basename as ID (fallback to default behavior)
-			const id =
-				lastDashIndex === -1
-					? basename
-					: basename.substring(lastDashIndex + 1);
+			// Extract ID from filename using the shared helper
+			const id = extractRowIdFromFilename(filename) ?? path.basename(filename, '.md');
 
 			// Combine id with frontmatter
 			const data = { id, ...frontmatter };
@@ -232,6 +265,9 @@ export function withTitleFilename<TTableSchema extends TableSchema>(
 
 			return Ok(result as SerializedRow<TTableSchema>);
 		},
+
+		// Expose the extraction function for unlink fallback
+		extractRowIdFromFilename,
 	};
 }
 
@@ -265,6 +301,14 @@ export function withBodyField<TTableSchema extends TableSchema>(
 		filenameField = 'id' as keyof TTableSchema & string,
 	} = options;
 
+	/**
+	 * Extract the row ID from a filename with the pattern: "{id}.md"
+	 * The ID is simply the filename without the .md extension.
+	 */
+	const extractRowIdFromFilename = (filename: string): string | undefined => {
+		return path.basename(filename, '.md');
+	};
+
 	return {
 		serialize: ({ row }) => {
 			// Extract body field, filename field, and the rest
@@ -285,8 +329,9 @@ export function withBodyField<TTableSchema extends TableSchema>(
 		},
 
 		deserialize: ({ frontmatter, body, filename, table }) => {
-			// Extract ID from filename (strip .md extension)
-			const rowId = path.basename(filename, '.md');
+			// Extract ID from filename using the shared helper
+			const rowId =
+				extractRowIdFromFilename(filename) ?? path.basename(filename, '.md');
 
 			// Create validator that omits the body field and filename field
 			// Nullable fields that were stripped during serialize are restored via .default(null)
@@ -317,5 +362,8 @@ export function withBodyField<TTableSchema extends TableSchema>(
 
 			return Ok(row);
 		},
+
+		// Expose the extraction function for unlink fallback
+		extractRowIdFromFilename,
 	};
 }

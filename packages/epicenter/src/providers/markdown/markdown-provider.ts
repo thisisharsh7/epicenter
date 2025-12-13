@@ -95,6 +95,13 @@ export const DEFAULT_TABLE_CONFIG = {
 
 		return Ok(result);
 	},
+	/**
+	 * Default extraction: strip .md extension, the entire basename is the ID.
+	 * Works for the default `{id}.md` filename pattern.
+	 */
+	extractRowIdFromFilename: (filename: string): string | undefined => {
+		return path.basename(filename, '.md');
+	},
 } satisfies TableMarkdownConfig<TableSchema>;
 
 // Re-export config types and functions
@@ -142,102 +149,15 @@ type SyncCoordination = {
 };
 
 /**
- * Bidirectional map API for tracking row ID ↔ filename relationships
- */
-type BidirectionalMap = {
-	/**
-	 * Set or update a mapping in both directions
-	 * @param params.rowId - The row identifier
-	 * @param params.filename - The filename (without path)
-	 */
-	set(params: { rowId: string; filename: string }): void;
-
-	/**
-	 * Removes both the rowId→filename and filename→rowId entries.
-	 * Use when a row is deleted from YJS.
-	 *
-	 * @param params.rowId - The row identifier to remove
-	 */
-	deleteByRowId(params: { rowId: string }): void;
-
-	/**
-	 * Removes both the filename→rowId and rowId→filename entries.
-	 * Use when a file is deleted from disk, or when cleaning up an old
-	 * filename before setting a new one for the same row.
-	 *
-	 * @param params.filename - The filename to remove
-	 *
-	 * @example
-	 * // When a row's filename changes:
-	 * const oldFilename = map.getFilename({ rowId: row.id });
-	 * const needsOldFileCleanup = oldFilename && oldFilename !== newFilename;
-	 * if (needsOldFileCleanup) {
-	 *   await deleteMarkdownFile(path.join(tableConfig.directory, oldFilename));
-	 *   map.deleteByFilename({ filename: oldFilename });
-	 * }
-	 * map.set({ rowId: row.id, filename: newFilename });
-	 */
-	deleteByFilename(params: { filename: string }): void;
-
-	/**
-	 * Get the filename for a given row ID
-	 * @param params.rowId - The row identifier
-	 * @returns The filename, or undefined if not found
-	 */
-	getFilename(params: { rowId: string }): string | undefined;
-
-	/**
-	 * Get the row ID for a given filename
-	 * @param params.filename - The filename to look up
-	 * @returns The row ID, or undefined if not found
-	 */
-	getRowId(params: { filename: string }): string | undefined;
-};
-
-/**
- * Create a bidirectional map for tracking row ID ↔ filename relationships
+ * Unidirectional map from row ID to filename
  *
- * Encapsulates the bidirectional tracking logic in a closure with methods
- * to manipulate the internal state. This consolidates all the repetitive
- * tracking operations into a single reusable abstraction.
+ * Used to track the current filename for each row. This is needed to detect
+ * filename changes when a row is updated (e.g., title change in withTitleFilename).
  *
- * @returns An object with methods to interact with the bidirectional map
+ * The reverse direction (filename → rowId) is handled by extractRowIdFromFilename,
+ * which extracts the row ID directly from the filename string.
  */
-function createBidirectionalMap(): BidirectionalMap {
-	const rowToFile: Record<string, string> = {};
-	const fileToRow: Record<string, string> = {};
-
-	return {
-		set({ rowId, filename }) {
-			rowToFile[rowId] = filename;
-			fileToRow[filename] = rowId;
-		},
-
-		deleteByRowId({ rowId }) {
-			const filename = rowToFile[rowId];
-			if (filename) {
-				delete fileToRow[filename];
-			}
-			delete rowToFile[rowId];
-		},
-
-		deleteByFilename({ filename }) {
-			const rowId = fileToRow[filename];
-			if (rowId) {
-				delete rowToFile[rowId];
-			}
-			delete fileToRow[filename];
-		},
-
-		getFilename({ rowId }) {
-			return rowToFile[rowId];
-		},
-
-		getRowId({ filename }) {
-			return fileToRow[filename];
-		},
-	};
-}
+type RowToFilenameMap = Record<string, string>;
 
 /**
  * User-provided table configs (with optional serialize/deserialize)
@@ -396,33 +316,22 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	};
 
 	/**
-	 * Bidirectional filename tracking: Maps row IDs ↔ filenames for each table
+	 * Filename tracking: Maps row IDs → filenames for each table
 	 *
-	 * Structure: `Record<tableName, BidirectionalMap>`
+	 * Structure: `Record<tableName, Record<rowId, filename>>`
 	 *
-	 * This is critical because the file watcher only knows filenames when files are deleted.
-	 * When a .md file is deleted, we can't read its content to extract the row ID.
-	 * We MUST have a way to look up: "which row owned filename 'post.md'?"
-	 *
-	 * Used for two scenarios:
-	 *
-	 * **Scenario 1: Row Update with Filename Change**
+	 * This is needed to detect filename changes when a row is updated:
 	 * - Row "abc123" previously serialized to "draft.md"
 	 * - Row is updated and now serializes to "published.md"
 	 * - We need to know the OLD filename ("draft.md") so we can delete it
-	 * - Flow: serialize() → get "published.md" → prepareFilenameChange() → delete "draft.md" → set()
 	 * - Without this: orphaned "draft.md" remains on disk
 	 *
-	 * **Scenario 2: File Deletion (the critical case)**
-	 * - User deletes "post.md" from disk
-	 * - File watcher sees deletion event with filename "post.md"
-	 * - File is gone, so we can't read its content to extract the row ID
-	 * - We look up: getRowId("post.md") → "abc123" → delete row "abc123" from YJS
-	 * - Without this: orphaned row "abc123" remains in YJS
-	 *
-	 * Both directions are O(1) lookups using plain object property access.
+	 * The reverse direction (filename → rowId) is handled by extractRowIdFromFilename,
+	 * which extracts the row ID directly from the filename string. This works for:
+	 * - File deletions: Extract ID from filename, delete from Y.js
+	 * - Orphan detection: Extract ID from filename, check if row exists in Y.js
 	 */
-	const tracking: Record<string, BidirectionalMap> = {};
+	const tracking: Record<string, RowToFilenameMap> = {};
 
 	/**
 	 * Merge user overrides with defaults to create fully-populated configs per table
@@ -442,6 +351,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 			// Use user's deserialize if provided, otherwise default (id from filename, frontmatter validated against schema)
 			deserialize: userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
+
+			// Use user's extractRowIdFromFilename if provided, otherwise default (strip .md extension)
+			extractRowIdFromFilename:
+				userConfig?.extractRowIdFromFilename ??
+				DEFAULT_TABLE_CONFIG.extractRowIdFromFilename,
 
 			// Use user's directory if provided, otherwise default to table name (e.g., "posts" → workspace-dir/posts)
 			directory: path.resolve(
@@ -464,9 +378,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		const unsubscribers: Array<() => void> = [];
 
 		for (const { table, tableConfig } of tableWithConfigs) {
-			// Initialize bidirectional tracking for this table
+			// Initialize tracking map for this table
 			if (!tracking[table.name]) {
-				tracking[table.name] = createBidirectionalMap();
+				tracking[table.name] = {};
 			}
 
 			/**
@@ -492,10 +406,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				) as AbsolutePath;
 
 				// Check if we need to clean up an old file before updating tracking
-				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-				const oldFilename = tracking[table.name]!.getFilename({
-					rowId: row.id,
-				});
+				const oldFilename = tracking[table.name]?.[row.id];
 
 				/**
 				 * This is checking if there's an old filename AND if it's different
@@ -509,13 +420,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						oldFilename,
 					) as AbsolutePath;
 					await deleteMarkdownFile({ filePath: oldFilePath });
-					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-					tracking[table.name]!.deleteByFilename({ filename: oldFilename });
 				}
 
-				// Update tracking in both directions
+				// Update tracking (rowId → filename)
 				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-				tracking[table.name]!.set({ rowId: row.id, filename });
+				tracking[table.name]![row.id] = filename;
 
 				return writeMarkdownFile({
 					filePath,
@@ -595,8 +504,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					syncCoordination.yjsWriteCount++;
 
 					// Get filename and delete file if it exists
-					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-					const filename = tracking[table.name]!.getFilename({ rowId: id });
+					const filename = tracking[table.name]?.[id];
 					if (filename) {
 						const filePath = path.join(
 							tableConfig.directory,
@@ -604,9 +512,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						) as AbsolutePath;
 						const { error } = await deleteMarkdownFile({ filePath });
 
-						// Clean up tracking in both directions
+						// Clean up tracking
 						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-						tracking[table.name]!.deleteByRowId({ rowId: id });
+						delete tracking[table.name]![id];
 
 						if (error) {
 							// Log I/O errors (operational errors, not validation errors)
@@ -776,8 +684,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 					// Check for duplicate files: same row ID but different filename
 					// This happens when users copy-paste markdown files in Finder
-					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-					const existingFilename = tracking[table.name]!.getFilename({ rowId: validatedRow.id });
+					const existingFilename = tracking[table.name]?.[validatedRow.id];
 
 					if (existingFilename && existingFilename !== filename) {
 						// This is a duplicate file with the same ID - delete it
@@ -794,9 +701,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						return;
 					}
 
-					// Update tracking and upsert to Y.js
+					// Update tracking (rowId → filename) and upsert to Y.js
 					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-					tracking[table.name]!.set({ rowId: validatedRow.id, filename });
+					tracking[table.name]![validatedRow.id] = filename;
 					table.upsert(validatedRow);
 					dbg('HANDLER', `SUCCESS ${table.name}/${filename}`, { rowId: validatedRow.id });
 				} finally {
@@ -814,21 +721,27 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				try {
 					const filename = path.basename(filePath);
 
-					// Find row ID from tracking map
-					const rowIdToDelete = tracking[table.name]?.getRowId({ filename });
+					// Extract row ID directly from filename (single source of truth)
+					const rowIdToDelete = tableConfig.extractRowIdFromFilename(filename);
+					dbg('HANDLER', `UNLINK ${table.name}/${filename}`, {
+						extractedRowId: rowIdToDelete ?? 'undefined',
+					});
 
 					if (rowIdToDelete) {
 						if (table.has({ id: rowIdToDelete })) {
 							table.delete({ id: rowIdToDelete });
+							dbg('HANDLER', `UNLINK deleted row ${table.name}/${rowIdToDelete}`);
+						} else {
+							dbg('HANDLER', `UNLINK row not in Y.js ${table.name}/${rowIdToDelete}`);
 						}
 
-						// Clean up tracking
+						// Clean up tracking (if it existed)
 						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-						tracking[table.name]!.deleteByFilename({ filename });
+						delete tracking[table.name]![rowIdToDelete];
 					} else {
 						logger.log(
 							ProviderError({
-								message: `File deleted but row ID not found in tracking map for ${table.name}/${filename}`,
+								message: `File deleted but could not extract row ID from ${table.name}/${filename}`,
 								context: { tableName: table.name, filename },
 							}),
 						);
@@ -1011,7 +924,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 *
 	 * 1. User edits a row → triggers onUpdate
 	 * 2. We compute newFilename = "published.md"
-	 * 3. We look up: oldFilename = map.get(rowId) → undefined (empty map!)
+	 * 3. We look up: oldFilename = tracking[tableName][rowId] → undefined (empty map!)
 	 * 4. We think filename didn't change, skip old file cleanup
 	 * 5. Result: Orphaned files accumulate
 	 *
@@ -1020,15 +933,15 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * Cost: O(n × serialize) where n = row count. ~1ms per 100 rows.
 	 */
 	for (const { table, tableConfig } of tableWithConfigs) {
-		// Initialize bidirectional tracking for this table
+		// Initialize tracking map for this table
 		if (!tracking[table.name]) {
-			tracking[table.name] = createBidirectionalMap();
+			tracking[table.name] = {};
 		}
 
 		// Get all valid rows from YJS
 		const rows = table.getAllValid();
 
-		// Serialize each row to extract filename and populate tracking in BOTH directions
+		// Serialize each row to extract filename and populate tracking (rowId → filename)
 		for (const row of rows) {
 			const serializedRow = row.toJSON();
 			const { filename } = tableConfig.serialize({
@@ -1038,9 +951,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				table,
 			});
 
-			// Store both directions for O(1) lookups
+			// Store rowId → filename mapping
 			// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-			tracking[table.name]!.set({ rowId: row.id, filename });
+			tracking[table.name]![row.id] = filename;
 		}
 	}
 
@@ -1052,7 +965,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * 2. User copy-pastes files in Finder (creates files with new IDs)
 	 * 3. Browser extension's refetch deletes Y.js rows but file deletion fails
 	 *
-	 * Solution: Compare disk files against tracking map. Delete any not tracked.
+	 * Solution: Extract row ID from filename, check if row exists in Y.js.
 	 *
 	 * Cost: O(n) where n = file count. ~10ms per 100 files (mostly I/O).
 	 */
@@ -1062,12 +975,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		for (const filePath of filePaths) {
 			const filename = path.basename(filePath);
 
-			// Check if this file is tracked (has a corresponding Y.js row)
-			// biome-ignore lint/style/noNonNullAssertion: tracking is initialized in the loop above
-			const rowId = tracking[table.name]!.getRowId({ filename });
+			// Extract row ID from filename and check if row exists in Y.js
+			const rowId = tableConfig.extractRowIdFromFilename(filename);
 
-			if (!rowId) {
-				// Orphan file: exists on disk but no Y.js row references it
+			if (!rowId || !table.has({ id: rowId })) {
+				// Orphan file: no valid row ID or row doesn't exist in Y.js
 				logger.log(
 					ProviderError({
 						message: `Startup cleanup: deleting orphan file ${table.name}/${filename}`,
