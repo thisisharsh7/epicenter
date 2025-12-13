@@ -54,6 +54,7 @@
 		"@types/yargs": "catalog:",
 		"better-sqlite3": "^12.4.1",
 		"drizzle-kit": "catalog:",
+		"filenamify": "^7.0.1",
 		"typescript": "catalog:"
 	}
 }

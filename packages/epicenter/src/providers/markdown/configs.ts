@@ -39,6 +39,7 @@
 
 import path from 'node:path';
 import { type } from 'arktype';
+import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { TableHelper } from '../../core/db/table-helper';
 import type { SerializedRow, TableSchema } from '../../core/schema';
@@ -145,58 +146,6 @@ export type WithBodyFieldOptions<
 };
 
 /**
- * Sanitize a string to be safe for use as a filename across all operating systems.
- *
- * Handles:
- * - Invalid characters: `< > : " / \ | ? *` and control codes
- * - Windows reserved names: CON, PRN, AUX, NUL, COM1-9, LPT1-9
- * - Leading/trailing dots and spaces
- * - Length limits (truncates to maxLength)
- * - Empty/whitespace-only strings (returns fallback)
- *
- * @param input - The string to sanitize (e.g., a page title)
- * @param options.maxLength - Maximum filename length (default: 100)
- * @param options.fallback - Fallback for empty results (default: 'Untitled')
- * @returns A filesystem-safe string
- */
-export function sanitizeFilename(
-	input: string,
-	options: { maxLength?: number; fallback?: string } = {},
-): string {
-	const { maxLength = 100, fallback = 'Untitled' } = options;
-
-	// Step 1: Remove invalid filename characters
-	// Invalid on Windows: < > : " / \ | ? *
-	// Invalid on Unix: / and null byte
-	// Also remove control characters (0x00-0x1F, 0x7F)
-	let sanitized = input.replace(/[<>:"/\\|?*\x00-\x1F\x7F]/g, '');
-
-	// Step 2: Collapse multiple whitespace to single space
-	sanitized = sanitized.replace(/\s+/g, ' ');
-
-	// Step 3: Trim leading/trailing whitespace and dots
-	sanitized = sanitized.replace(/^[\s.]+|[\s.]+$/g, '');
-
-	// Step 4: Handle reserved names on Windows (case-insensitive)
-	const RESERVED_WINDOWS = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
-	if (RESERVED_WINDOWS.test(sanitized)) {
-		sanitized = `_${sanitized}`;
-	}
-
-	// Step 5: Truncate to max length
-	if (sanitized.length > maxLength) {
-		sanitized = sanitized.slice(0, maxLength).trim();
-	}
-
-	// Step 6: Use fallback if empty
-	if (sanitized === '') {
-		sanitized = fallback;
-	}
-
-	return sanitized;
-}
-
-/**
  * Factory function to create a table config with human-readable filenames.
  *
  * Creates filenames in the format: `{title}-{id}.md`
@@ -229,12 +178,14 @@ export function withTitleFilename<TTableSchema extends TableSchema>(
 	return {
 		serialize: ({ row }) => {
 			const { id, ...rest } = row;
-			const title = (row[titleField] as string) || 'Untitled';
+			const rawTitle = (row[titleField] as string) || '';
 
-			// Sanitize title for filename
-			const sanitizedTitle = sanitizeFilename(title, {
-				maxLength: maxTitleLength,
-			});
+			// Use filenamify for robust cross-platform filename sanitization
+			// Handles Unicode normalization, grapheme-aware truncation, emoji preservation
+			const sanitizedTitle =
+				rawTitle.trim() === ''
+					? 'Untitled'
+					: filenamify(rawTitle, { maxLength: maxTitleLength, replacement: '' });
 
 			// Optionally strip null values for cleaner YAML
 			const frontmatter = stripNulls
