@@ -66,7 +66,7 @@ The server is just a wrapper around `createEpicenterClient` that:
 ```typescript
 // Server (long-running)
 const { app, client } = await createServer(config);
-Bun.serve({ fetch: app.fetch, port: 3913 });
+app.listen(3913);
 
 // Other processes can now use the HTTP API
 await fetch('http://localhost:3913/workspaces/pages/createPage', {

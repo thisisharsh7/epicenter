@@ -21,7 +21,8 @@ Default to Bun instead of Node.js:
 
 ## Bun APIs
 
-- `Bun.serve()` for servers (supports WebSockets, HTTPS, routes). Don't use `express`.
+- For Elysia servers, use `app.listen()` instead of `Bun.serve()` (required for WebSocket support)
+- For raw HTTP servers without Elysia, use `Bun.serve()` (supports WebSockets, HTTPS, routes). Don't use `express`.
 - `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
 - `Bun.redis` for Redis. Don't use `ioredis`.
 - `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.

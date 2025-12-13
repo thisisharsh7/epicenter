@@ -28,10 +28,8 @@ export async function startServer(
 		options.port ??
 		Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
 
-	const server = Bun.serve({
-		fetch: app.fetch,
-		port,
-	});
+	// Note: Must use app.listen() instead of Bun.serve() for Elysia's WebSocket handlers to work
+	const server = app.listen(port);
 
 	console.log('\n🚀 Epicenter HTTP Server Running!\n');
 	console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

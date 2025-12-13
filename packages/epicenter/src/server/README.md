@@ -52,7 +52,7 @@ This means:
 ```typescript
 // Long-running server
 const { app, client } = await createServer(config);
-Bun.serve({ fetch: app.fetch, port: 3913 });
+app.listen(3913);
 // Client stays alive until Ctrl+C
 ```
 
@@ -129,11 +129,8 @@ const blogWorkspace = defineWorkspace({
 // Create the server
 const app = await createWorkspaceServer(blogWorkspace);
 
-// Start it with Bun
-Bun.serve({
-	fetch: app.fetch,
-	port: 3913,
-});
+// Start it (must use app.listen for WebSocket support)
+app.listen(3913);
 ```
 
 Now your actions are available as HTTP endpoints:
@@ -153,10 +150,7 @@ const epicenter = defineEpicenter({
 
 const app = await createHttpServer(epicenter);
 
-Bun.serve({
-	fetch: app.fetch,
-	port: 3913,
-});
+app.listen(3913);
 ```
 
 Actions from each workspace get their own namespace under `/workspaces`:
@@ -301,11 +295,7 @@ const notesWorkspace = defineWorkspace({
 // Expose as server
 const app = await createWorkspaceServer(notesWorkspace);
 
-Bun.serve({
-	fetch: app.fetch,
-	port: 8080,
-	development: process.env.NODE_ENV === 'development',
-});
+app.listen(8080);
 
 console.log('Notes API running at http://localhost:8080');
 ```
@@ -351,13 +341,8 @@ app.use('/admin/*', authMiddleware);
 // Add custom routes
 app.get('/health', (c) => c.text('OK'));
 
-// Configure Bun.serve however you want
-Bun.serve({
-	fetch: app.fetch,
-	port: process.env.PORT ?? 3913,
-	hostname: '0.0.0.0',
-	development: true,
-});
+// Start the server (must use app.listen for WebSocket support)
+app.listen(process.env.PORT ?? 3913);
 ```
 
 ## What's Next

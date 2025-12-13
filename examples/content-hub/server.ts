@@ -1,0 +1,48 @@
+/**
+ * Content Hub Server
+ *
+ * Runs the Epicenter server with all workspaces, including the browser workspace
+ * that syncs with the tab-manager browser extension.
+ *
+ * Usage:
+ *   bun run examples/content-hub/server.ts
+ *
+ * Endpoints:
+ *   - GET  /                         - Health check
+ *   - GET  /openapi                  - Scalar API documentation
+ *   - WS   /sync/{workspaceId}       - Y.Doc WebSocket sync
+ *   - GET  /workspaces/browser/...   - Browser workspace REST API
+ *   - POST /workspaces/browser/...   - Browser workspace mutations
+ */
+
+import { createServer } from '@epicenter/hq/server';
+import config from './epicenter.config';
+
+const PORT = 3913;
+
+console.log('Starting Content Hub server...');
+
+const { app, client } = await createServer(config);
+
+// Log available workspaces
+const workspaceIds = Object.keys(client).filter((k) => !k.startsWith('$'));
+console.log(`Loaded workspaces: ${workspaceIds.join(', ')}`);
+
+// Start the server with WebSocket support
+// Note: Must use app.listen() instead of Bun.serve() for Elysia's WebSocket handlers to work
+app.listen(PORT);
+
+console.log(`
+Content Hub server running at http://localhost:${PORT}
+
+Endpoints:
+  - API docs:     http://localhost:${PORT}/openapi
+  - Health:       http://localhost:${PORT}/
+  - WebSocket:    ws://localhost:${PORT}/sync/{workspaceId}
+
+Browser sync:
+  - The tab-manager extension connects to: ws://localhost:${PORT}/sync/browser
+  - REST API:     http://localhost:${PORT}/workspaces/browser/getAllTabs
+
+Press Ctrl+C to stop.
+`);
