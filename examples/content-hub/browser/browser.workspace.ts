@@ -24,8 +24,9 @@ import {
 	select,
 	text,
 } from '@epicenter/hq';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import { markdownProvider } from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,8 +140,13 @@ export const browser = defineWorkspace({
 	},
 
 	providers: {
-		persistence: setupPersistence,
+		persistence: (c) => setupPersistence(c),
 		sqlite: (c) => sqliteProvider(c),
+		// Markdown provider uses defaults:
+		// - Filename: {id}.md
+		// - All fields except id in frontmatter
+		// - Empty body
+		markdown: (c) => markdownProvider(c),
 	},
 
 	exports: ({ tables, providers }) => ({
@@ -150,6 +156,10 @@ export const browser = defineWorkspace({
 		// SQLite provider operations
 		pullToSqlite: providers.sqlite.pullToSqlite,
 		pushFromSqlite: providers.sqlite.pushFromSqlite,
+
+		// Markdown provider operations
+		pullToMarkdown: providers.markdown.pullToMarkdown,
+		pushFromMarkdown: providers.markdown.pushFromMarkdown,
 
 		// ─────────────────────────────────────────────────────────────────────────
 		// Query Actions
@@ -277,8 +287,7 @@ export const browser = defineWorkspace({
 		 */
 		deleteTabsByUrlPattern: defineMutation({
 			input: type({ pattern: 'string' }),
-			description:
-				'Delete all tabs matching a URL pattern (substring match)',
+			description: 'Delete all tabs matching a URL pattern (substring match)',
 			handler: ({ pattern }) => {
 				const lowerPattern = pattern.toLowerCase();
 				const matching = tables.tabs.filter((t) =>
@@ -302,8 +311,7 @@ export const browser = defineWorkspace({
 		 * Use with caution - this will sync to the extension!
 		 */
 		clearAll: defineMutation({
-			description:
-				'Clear all tabs, windows, and tab groups from the Y.Doc',
+			description: 'Clear all tabs, windows, and tab groups from the Y.Doc',
 			handler: () => {
 				tables.$transact(() => {
 					tables.$clearAll();
