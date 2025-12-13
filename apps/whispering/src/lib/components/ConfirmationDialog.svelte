@@ -183,6 +183,7 @@
 	import * as AlertDialog from '@epicenter/ui/alert-dialog';
 	import { Input } from '@epicenter/ui/input';
 	import { Spinner } from '@epicenter/ui/spinner';
+	import { cn } from '@epicenter/ui/utils';
 </script>
 
 <AlertDialog.Root bind:open={confirmationDialog.isOpen}>
@@ -220,9 +221,10 @@
 				<AlertDialog.Action
 					type="submit"
 					disabled={confirmationDialog.isPending || !confirmationDialog.canConfirm}
-					class={confirmationDialog.options?.confirm?.variant === 'destructive'
-						? 'bg-destructive hover:bg-destructive/90 text-white'
-						: ''}
+					class={cn(
+						confirmationDialog.options?.confirm?.variant === 'destructive' &&
+							'bg-destructive hover:bg-destructive/90 text-white',
+					)}
 				>
 					{#if confirmationDialog.isPending}
 						<Spinner class="size-4" />
