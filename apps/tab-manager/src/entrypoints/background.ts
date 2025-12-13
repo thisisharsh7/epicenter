@@ -252,19 +252,40 @@ export default defineBackground(async () => {
 
 	client.tables.tabs.observe({
 		onAdd: async (result) => {
+			console.log('[Background] tabs.onAdd fired:', {
+				isRefetching: syncCoordination.isRefetching,
+				isProcessingYDocChange: syncCoordination.isProcessingYDocChange,
+				hasError: !!result.error,
+				data: result.error ? String(result.error) : result.data,
+			});
+
 			// Skip if we're syncing Chrome → Y.Doc (during refetch)
-			if (syncCoordination.isRefetching) return;
-			if (syncCoordination.isProcessingYDocChange) return;
-			if (result.error) return;
+			if (syncCoordination.isRefetching) {
+				console.log('[Background] tabs.onAdd SKIPPED: isRefetching=true');
+				return;
+			}
+			if (syncCoordination.isProcessingYDocChange) {
+				console.log('[Background] tabs.onAdd SKIPPED: isProcessingYDocChange=true');
+				return;
+			}
+			if (result.error) {
+				console.log('[Background] tabs.onAdd SKIPPED: result has error');
+				return;
+			}
 
 			const row = result.data;
-			if (!row.url) return;
+			if (!row.url) {
+				console.log('[Background] tabs.onAdd SKIPPED: no URL in row');
+				return;
+			}
 
+			console.log('[Background] tabs.onAdd CREATING tab with URL:', row.url);
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
 					// Create the tab with the URL from the markdown file
 					await browser.tabs.create({ url: row.url });
+					console.log('[Background] tabs.onAdd tab created, now refetching...');
 
 					// Refetch to clean up - this will:
 					// 1. Add the new Chrome tab (with Chrome's real ID)
@@ -272,6 +293,7 @@ export default defineBackground(async () => {
 					syncCoordination.isRefetching = true;
 					await client.refetchTabs();
 					syncCoordination.isRefetching = false;
+					console.log('[Background] tabs.onAdd refetch complete');
 				},
 				catch: (error) => {
 					console.log(`[Background] Failed to create tab from ${row.id}:`, error);
@@ -281,16 +303,32 @@ export default defineBackground(async () => {
 			syncCoordination.isProcessingYDocChange = false;
 		},
 		onDelete: async (id) => {
-			// Skip if this deletion came from our own refetch (downstream sync)
-			if (syncCoordination.isRefetching) return;
-			if (syncCoordination.isProcessingYDocChange) return;
+			console.log('[Background] tabs.onDelete fired:', {
+				id,
+				isRefetching: syncCoordination.isRefetching,
+				isProcessingYDocChange: syncCoordination.isProcessingYDocChange,
+			});
 
+			// Skip if this deletion came from our own refetch (downstream sync)
+			if (syncCoordination.isRefetching) {
+				console.log('[Background] tabs.onDelete SKIPPED: isRefetching=true');
+				return;
+			}
+			if (syncCoordination.isProcessingYDocChange) {
+				console.log('[Background] tabs.onDelete SKIPPED: isProcessingYDocChange=true');
+				return;
+			}
+
+			console.log('[Background] tabs.onDelete REMOVING Chrome tab:', id);
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
 					const tabId = Number.parseInt(id, 10);
 					if (!Number.isNaN(tabId)) {
 						await browser.tabs.remove(tabId);
+						console.log('[Background] tabs.onDelete SUCCESS: removed tab', tabId);
+					} else {
+						console.log('[Background] tabs.onDelete SKIPPED: invalid tab ID (NaN)');
 					}
 				},
 				catch: (error) => {
