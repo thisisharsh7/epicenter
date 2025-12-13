@@ -208,6 +208,35 @@ export default defineBackground(() => {
 		.catch((err) => console.error('[Background] Initial refetch failed:', err));
 
 	// ─────────────────────────────────────────────────────────────────────────
+	// Chrome Keepalive (Chrome MV3 only)
+	// Chrome service workers go dormant after ~30 seconds of inactivity.
+	// We use Chrome Alarms API to wake the service worker periodically,
+	// keeping the WebSocket connection alive for real-time Y.Doc sync.
+	// Firefox doesn't have this limitation (uses Event Pages, not service workers).
+	//
+	// NOTE: WebSocket messages from the server CANNOT wake a dormant service worker.
+	// When dormant, the WebSocket connection is suspended/closed. Only Chrome events
+	// (alarms, tabs, runtime messages, etc.) can wake the worker.
+	// ─────────────────────────────────────────────────────────────────────────
+
+	if (import.meta.env.CHROME && browser.alarms) {
+		const KEEPALIVE_ALARM = 'keepalive';
+		const KEEPALIVE_INTERVAL_MINUTES = 0.4; // ~24 seconds (under 30s threshold)
+
+		// Create the keepalive alarm
+		browser.alarms.create(KEEPALIVE_ALARM, {
+			periodInMinutes: KEEPALIVE_INTERVAL_MINUTES,
+		});
+
+		// Handle alarm - the act of waking the service worker keeps the WebSocket alive
+		browser.alarms.onAlarm.addListener((alarm) => {
+			if (alarm.name === KEEPALIVE_ALARM) {
+				// No-op: just waking the service worker is sufficient
+			}
+		});
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
 	// Lifecycle Events - Re-sync on explicit browser events
 	// onInstalled: Extension install, update, or Chrome update
 	// onStartup: Browser session start (user profile loads)
