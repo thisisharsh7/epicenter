@@ -45,13 +45,14 @@ import type { TableHelper } from '../../core/db/table-helper';
 import type { SerializedRow, TableSchema } from '../../core/schema';
 import { MarkdownProviderErr, type MarkdownProviderError } from './markdown-provider';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper types for TableMarkdownConfig
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Custom serialization/deserialization behavior for a table
- *
- * Defines how rows are converted to markdown files and vice versa.
- * When not provided, uses default behavior.
+ * Common fields that are always optional and independent
  */
-export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
+type TableMarkdownConfigBase<TTableSchema extends TableSchema> = {
 	/**
 	 * Directory for this table's markdown files.
 	 *
@@ -97,60 +98,108 @@ export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 		body: string;
 		filename: string;
 	};
-
-	/**
-	 * Deserialize markdown frontmatter and body back to a full row.
-	 * Returns a complete row (including id) that can be directly inserted/updated in YJS.
-	 * Returns error if the file should be skipped (e.g., invalid data, doesn't match schema).
-	 *
-	 * **Optional**: When not provided, uses default behavior:
-	 * - Extracts id from filename (strips .md extension)
-	 * - Merges id with frontmatter fields
-	 * - Validates against schema using validateUnknown
-	 *
-	 * The deserialize function is responsible for extracting the row ID from whatever source
-	 * makes sense (frontmatter, filename, body content, etc.).
-	 *
-	 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
-	 * @param params.body - Markdown body content (text after frontmatter delimiters)
-	 * @param params.filename - Simple filename only (validated to not contain path separators)
-	 * @param params.table - TableHelper with metadata (name, schema, validators) and type inference helpers
-	 * @returns Result with complete row (with id field), or error to skip this file
-	 */
-	deserialize?(params: {
-		frontmatter: Record<string, unknown>;
-		body: string;
-		filename: string;
-		table: TableHelper<TTableSchema>;
-	}): Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
-
-	/**
-	 * Extract the row ID from a filename.
-	 *
-	 * **Optional**: Used as a fallback when the tracking map doesn't have the
-	 * filename→rowId mapping (e.g., after restart when filenames changed due to
-	 * title updates, or for orphan files created in previous sessions).
-	 *
-	 * **Default behavior**: Strips `.md` extension and returns the result as the ID.
-	 * This works for the default `{id}.md` filename pattern.
-	 *
-	 * **For custom patterns**: Override this to extract the ID from your filename format.
-	 * For example, `withTitleFilename` uses `{title}-{id}.md`, so it extracts the part
-	 * after the last dash.
-	 *
-	 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
-	 * @returns The row ID extracted from the filename, or undefined if extraction fails
-	 *
-	 * @example
-	 * // For pattern: "{title}-{id}.md"
-	 * extractRowIdFromFilename: (filename) => {
-	 *   const basename = path.basename(filename, '.md');
-	 *   const lastDash = basename.lastIndexOf('-');
-	 *   return lastDash === -1 ? basename : basename.substring(lastDash + 1);
-	 * }
-	 */
-	extractRowIdFromFilename?(filename: string): string | undefined;
 };
+
+/**
+ * Deserialize function signature
+ */
+type DeserializeFn<TTableSchema extends TableSchema> = (params: {
+	frontmatter: Record<string, unknown>;
+	body: string;
+	filename: string;
+	table: TableHelper<TTableSchema>;
+}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
+
+/**
+ * Extract row ID from filename function signature
+ */
+type ExtractRowIdFn = (filename: string) => string | undefined;
+
+/**
+ * Custom serialization/deserialization behavior for a table.
+ *
+ * Defines how rows are converted to markdown files and vice versa.
+ * When not provided, uses default behavior.
+ *
+ * ## Type Constraint
+ *
+ * If you provide a custom `deserialize` function, you MUST also provide
+ * `extractRowIdFromFilename`. This ensures consistent ID extraction logic
+ * between deserialization and file operations (deletion, orphan cleanup).
+ *
+ * Valid configurations:
+ * - `{}` - Use all defaults
+ * - `{ serialize }` - Custom serialize, default deserialize
+ * - `{ extractRowIdFromFilename }` - Custom ID extraction, default deserialize
+ * - `{ deserialize, extractRowIdFromFilename }` - Both custom (required pairing)
+ *
+ * Invalid configuration (compile error):
+ * - `{ deserialize }` - Missing extractRowIdFromFilename
+ */
+export type TableMarkdownConfig<TTableSchema extends TableSchema> =
+	TableMarkdownConfigBase<TTableSchema> &
+		(
+			| {
+					/**
+					 * Use default deserialize and extractRowIdFromFilename.
+					 * Default deserialize extracts ID from filename (strips .md extension).
+					 */
+					deserialize?: undefined;
+					extractRowIdFromFilename?: undefined;
+			  }
+			| {
+					/**
+					 * Custom ID extraction with default deserialize.
+					 * Useful when you have a custom filename pattern but default deserialization works.
+					 */
+					deserialize?: undefined;
+					/**
+					 * Extract the row ID from a filename.
+					 *
+					 * Used for file deletions and orphan cleanup where we need to identify
+					 * the Y.js row from just the filename.
+					 *
+					 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
+					 * @returns The row ID extracted from the filename, or undefined if extraction fails
+					 *
+					 * @example
+					 * // For pattern: "{title}-{id}.md"
+					 * extractRowIdFromFilename: (filename) => {
+					 *   const basename = path.basename(filename, '.md');
+					 *   const lastDash = basename.lastIndexOf('-');
+					 *   return lastDash === -1 ? basename : basename.substring(lastDash + 1);
+					 * }
+					 */
+					extractRowIdFromFilename: ExtractRowIdFn;
+			  }
+			| {
+					/**
+					 * Deserialize markdown frontmatter and body back to a full row.
+					 *
+					 * **IMPORTANT**: When providing custom deserialize, you MUST also provide
+					 * extractRowIdFromFilename with matching ID extraction logic.
+					 *
+					 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
+					 * @param params.body - Markdown body content (text after frontmatter delimiters)
+					 * @param params.filename - Simple filename only (validated to not contain path separators)
+					 * @param params.table - TableHelper with metadata (name, schema, validators)
+					 * @returns Result with complete row (with id field), or error to skip this file
+					 */
+					deserialize: DeserializeFn<TTableSchema>;
+					/**
+					 * Extract the row ID from a filename.
+					 *
+					 * **REQUIRED** when providing custom deserialize to ensure consistent
+					 * ID extraction between deserialization and file operations.
+					 *
+					 * This function MUST use the same ID extraction logic as your deserialize function.
+					 *
+					 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
+					 * @returns The row ID extracted from the filename, or undefined if extraction fails
+					 */
+					extractRowIdFromFilename: ExtractRowIdFn;
+			  }
+		);
 
 /**
  * Options for the withBodyField factory function
