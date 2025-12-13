@@ -6,8 +6,13 @@
  *
  * Architecture:
  * - Browser extension (tab-manager): Y.Doc in background service worker
- * - Server (content-hub): Y.Doc in this workspace
+ * - Server (content-hub): Y.Doc in this workspace (in-memory only)
  * - WebSocket: Bidirectional sync via y-websocket protocol at /sync/browser
+ *
+ * Persistence strategy:
+ * - No .yjs file persistence. The browser extension is the source of truth.
+ * - On server restart, Y.Doc starts empty and syncs from the extension.
+ * - This avoids YJS operation history accumulation (which caused 150MB+ files).
  *
  * Data flow:
  * 1. Extension: Chrome events → Y.Doc → WebSocket → Server
@@ -28,7 +33,6 @@ import {
 	markdownProvider,
 	withTitleFilename,
 } from '@epicenter/hq/providers/markdown';
-import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 
@@ -143,7 +147,9 @@ export const browser = defineWorkspace({
 	},
 
 	providers: {
-		persistence: (c) => setupPersistence(c),
+		// Note: No persistence provider. The Y.Doc is in-memory only.
+		// The browser extension is the source of truth and syncs via WebSocket.
+		// This avoids the 150MB+ .yjs file from YJS operation history accumulation.
 		sqlite: (c) => sqliteProvider(c),
 		// Markdown provider with human-readable filenames:
 		// - Tabs: "{title}-{id}.md" (e.g., "GitHub - Pull Requests-abc123.md")

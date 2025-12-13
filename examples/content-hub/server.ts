@@ -29,19 +29,15 @@ const workspaceIds = Object.keys(client).filter((k) => !k.startsWith('$'));
 console.log(`Loaded workspaces: ${workspaceIds.join(', ')}`);
 
 // Log initial Y.Doc state (before WebSocket connections)
+// Note: With no persistence provider, Y.Doc starts empty on server restart.
+// The browser extension will sync its state via WebSocket when it connects.
 const initialTabs = client.browser.tabs.getAllValid();
 const initialWindows = client.browser.windows.getAllValid();
 const initialTabGroups = client.browser.tab_groups.getAllValid();
-console.log(`[Server Startup] Initial Y.Doc state:`);
+console.log(`[Server Startup] Initial Y.Doc state (empty until browser connects):`);
 console.log(`  - Tabs: ${initialTabs.length}`);
 console.log(`  - Windows: ${initialWindows.length}`);
 console.log(`  - Tab Groups: ${initialTabGroups.length}`);
-
-// Initial sync: Pull YJS data to markdown files on startup
-// This ensures markdown files reflect current YJS state after server restart
-console.log('Syncing browser YJS data to markdown files...');
-await client.browser.pullToMarkdown();
-console.log('Markdown sync complete.');
 
 // Start the server with WebSocket support
 // Note: Must use app.listen() instead of Bun.serve() for Elysia's WebSocket handlers to work
