@@ -1,14 +1,16 @@
 /**
  * TanStack Query integration for tabs.
  *
- * Queries read from the Y.Doc replica and subscribe to changes.
- * Mutations call Chrome APIs directly - the background service worker
- * picks up the Chrome events and updates the Y.Doc, which propagates
- * back to the popup via chrome.runtime.connect.
+ * Queries read directly from Chrome APIs - Chrome is the source of truth.
+ * Chrome events (subscribed via chrome-events.ts) invalidate queries for live updates.
+ * Mutations call Chrome APIs directly; changes propagate via Chrome events.
  */
 
-import { epicenter } from '$lib/epicenter';
-import { queryClient } from './_client';
+import {
+	chromeTabToRow,
+	chromeWindowToRow,
+	chromeTabGroupToRow,
+} from '$lib/chrome-helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Query Keys
@@ -22,86 +24,33 @@ export const tabsKeys = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Y.Doc Subscription
-// ─────────────────────────────────────────────────────────────────────────────
-
-let unsubscribeTabs: (() => void) | null = null;
-let unsubscribeWindows: (() => void) | null = null;
-let unsubscribeTabGroups: (() => void) | null = null;
-
-/**
- * Create an observe callback that invalidates queries on any change.
- */
-function createInvalidator(queryKey: readonly unknown[]) {
-	const invalidate = () => queryClient.invalidateQueries({ queryKey });
-	return {
-		onAdd: invalidate,
-		onUpdate: invalidate,
-		onDelete: invalidate,
-	};
-}
-
-/**
- * Subscribe to Y.Doc changes and invalidate TanStack Query cache.
- *
- * Call this once after EpicenterProvider has initialized.
- */
-export function subscribeToYDocChanges() {
-	// Unsubscribe from previous subscriptions
-	unsubscribeFromYDocChanges();
-
-	// Subscribe to tabs changes
-	unsubscribeTabs = epicenter.tables.tabs.observe(createInvalidator(tabsKeys.all));
-
-	// Subscribe to windows changes
-	unsubscribeWindows = epicenter.tables.windows.observe(
-		createInvalidator(tabsKeys.windows),
-	);
-
-	// Subscribe to tab groups changes
-	unsubscribeTabGroups = epicenter.tables.tab_groups.observe(
-		createInvalidator(tabsKeys.tabGroups),
-	);
-}
-
-/**
- * Unsubscribe from Y.Doc changes.
- */
-export function unsubscribeFromYDocChanges() {
-	if (unsubscribeTabs) {
-		unsubscribeTabs();
-		unsubscribeTabs = null;
-	}
-	if (unsubscribeWindows) {
-		unsubscribeWindows();
-		unsubscribeWindows = null;
-	}
-	if (unsubscribeTabGroups) {
-		unsubscribeTabGroups();
-		unsubscribeTabGroups = null;
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Query and Mutation Definitions
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Tab queries and mutations.
  *
- * Uses the `.options` pattern for compatibility with createQuery/createMutation.
- * Mutations call Chrome APIs directly; Chrome events update Y.Doc in background,
- * which propagates to popup and invalidates queries.
+ * Queries hit Chrome APIs directly - no Y.Doc intermediary.
+ * Chrome events invalidate queries for live updates.
+ * Mutations call Chrome APIs directly; changes propagate via Chrome events.
  */
 export const tabs = {
 	// ─────────────────────────────────────────────────────────────────────────
-	// Queries
+	// Queries - Read directly from Chrome APIs
 	// ─────────────────────────────────────────────────────────────────────────
 
 	getAll: {
 		options: {
 			queryKey: tabsKeys.all,
-			queryFn: () => epicenter.getAllTabs(),
+			queryFn: async () => {
+				const chromeTabs = await browser.tabs.query({});
+				return chromeTabs
+					.filter((t) => t.id !== undefined)
+					.map(chromeTabToRow)
+					.sort((a, b) => a.index - b.index);
+			},
+			// Chrome is always fresh. Data is only stale when Chrome events tell us.
+			// Using Infinity means we only refetch on explicit invalidation.
 			staleTime: Infinity,
 		},
 	},
@@ -109,7 +58,12 @@ export const tabs = {
 	getAllWindows: {
 		options: {
 			queryKey: tabsKeys.windows,
-			queryFn: () => epicenter.getAllWindows(),
+			queryFn: async () => {
+				const chromeWindows = await browser.windows.getAll();
+				return chromeWindows
+					.filter((w) => w.id !== undefined)
+					.map(chromeWindowToRow);
+			},
 			staleTime: Infinity,
 		},
 	},
@@ -117,13 +71,20 @@ export const tabs = {
 	getAllTabGroups: {
 		options: {
 			queryKey: tabsKeys.tabGroups,
-			queryFn: () => epicenter.tables.tab_groups.getAllValid(),
+			queryFn: async () => {
+				// Tab groups are Chrome 88+ only
+				if (!browser.tabGroups) {
+					return [];
+				}
+				const chromeGroups = await browser.tabGroups.query({});
+				return chromeGroups.map(chromeTabGroupToRow);
+			},
 			staleTime: Infinity,
 		},
 	},
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Mutations
+	// Mutations - Call Chrome APIs directly
 	// ─────────────────────────────────────────────────────────────────────────
 
 	close: {
@@ -202,4 +163,3 @@ export const tabs = {
 		},
 	},
 };
-

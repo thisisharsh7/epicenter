@@ -1,8 +1,8 @@
 /**
  * Browser state schema composition.
  *
- * Shared between popup and background workspaces.
- * Both contexts use the same data model but different providers.
+ * Used by the background workspace for server sync and persistence.
+ * The popup reads directly from Chrome APIs, not from Y.Doc.
  */
 
 import type { Tables } from '@epicenter/hq';
@@ -23,13 +23,3 @@ export const BROWSER_SCHEMA = {
  * Type-safe database instance for browser state.
  */
 export type BrowserDb = Tables<typeof BROWSER_SCHEMA>;
-
-/**
- * Message types for the sync protocol between background and popup.
- *
- * We use number arrays instead of Uint8Array because chrome.runtime
- * serializes messages to JSON, which doesn't support Uint8Array.
- */
-export type SyncMessage =
-	| { type: 'sync-state'; state: number[] }
-	| { type: 'update'; update: number[] };

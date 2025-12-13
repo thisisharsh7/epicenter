@@ -1,46 +1,28 @@
 <!--
-	EpicenterProvider - Epicenter client sync and lifecycle management.
+	ChromeEventsProvider - Chrome event subscription for live UI updates.
 
-	Wraps children and handles:
-	- Waiting for epicenter.whenSynced before rendering children
-	- Subscribing to Y.Doc changes on mount (for TanStack Query cache invalidation)
-	- Unsubscribing and cleanup on destroy
+	Subscribes to Chrome browser events on mount and invalidates TanStack Query
+	cache when tabs/windows change. No Y.Doc sync needed - Chrome is the source
+	of truth, and queries read directly from Chrome APIs.
 
-	The epicenter client is created synchronously in client.ts (browser pattern),
-	but providers like IndexedDB persistence load data asynchronously.
-	This component waits for that sync to complete before rendering the app.
-
-	@see docs/articles/sync-client-initialization.md
+	The popup renders immediately - no waiting for background sync.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { epicenter } from './client';
-	import {
-		subscribeToYDocChanges,
-		unsubscribeFromYDocChanges,
-	} from '$lib/query/tabs';
+	import { subscribeToChromeBrowserEvents } from '$lib/chrome-events';
 
 	let { children }: { children: Snippet } = $props();
 
+	let unsubscribe: (() => void) | null = null;
+
 	onMount(() => {
-		subscribeToYDocChanges();
+		unsubscribe = subscribeToChromeBrowserEvents();
 	});
 
 	onDestroy(() => {
-		unsubscribeFromYDocChanges();
-		// NOTE: We do NOT call epicenter.destroy() here!
-		// The epicenter client is a module-level singleton that persists
-		// across component remounts. Destroying it would make subsequent
-		// reads return empty data.
+		unsubscribe?.();
 	});
 </script>
 
-{#await epicenter.whenSynced}
-	<!-- Loading state while background syncs -->
-	<div class="p-4 text-center text-muted-foreground">
-		<p>Waiting for sync with background...</p>
-	</div>
-{:then}
-	{@render children()}
-{/await}
+{@render children()}

@@ -5,69 +5,21 @@
  * Y.Doc holder that:
  * - Persists to IndexedDB
  * - Syncs Chrome tabs/windows state to Y.Doc
- * - Serves Y.Doc updates to connected popups
+ * - Syncs with server via WebSocket
+ *
+ * Note: The popup reads directly from Chrome APIs - no Y.Doc sync to popup needed.
  */
 
 import { defineProviderExports, defineWorkspace } from '@epicenter/hq';
+import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
 import { IndexeddbPersistence } from 'y-indexeddb';
-import * as Y from 'yjs';
-import { type Tab, type TabGroup, type Window } from './browser.schema';
-import { BROWSER_SCHEMA, type SyncMessage } from './schema';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers: Convert Chrome types to schema rows
-// ─────────────────────────────────────────────────────────────────────────────
-
-function chromeTabToRow(tab: Browser.tabs.Tab): Tab {
-	return {
-		id: String(tab.id),
-		window_id: String(tab.windowId),
-		url: tab.url ?? '',
-		title: tab.title ?? '',
-		fav_icon_url: tab.favIconUrl ?? null,
-		index: tab.index,
-		pinned: tab.pinned,
-		active: tab.active,
-		highlighted: tab.highlighted,
-		muted: tab.mutedInfo?.muted ?? false,
-		audible: tab.audible ?? false,
-		discarded: tab.discarded,
-		auto_discardable: tab.autoDiscardable ?? true,
-		status: tab.status ?? 'complete',
-		group_id:
-			tab.groupId !== undefined && tab.groupId !== -1
-				? String(tab.groupId)
-				: null,
-		opener_tab_id:
-			tab.openerTabId !== undefined ? String(tab.openerTabId) : null,
-		incognito: tab.incognito ?? false,
-	};
-}
-
-function chromeWindowToRow(win: Browser.windows.Window): Window {
-	return {
-		id: String(win.id),
-		state: win.state ?? 'normal',
-		type: win.type ?? 'normal',
-		focused: win.focused ?? false,
-		always_on_top: win.alwaysOnTop ?? false,
-		incognito: win.incognito ?? false,
-		top: win.top ?? 0,
-		left: win.left ?? 0,
-		width: win.width ?? 800,
-		height: win.height ?? 600,
-	};
-}
-
-function chromeTabGroupToRow(group: Browser.tabGroups.TabGroup): TabGroup {
-	return {
-		id: String(group.id),
-		window_id: String(group.windowId),
-		title: group.title ?? null,
-		color: group.color ?? 'grey',
-		collapsed: group.collapsed ?? false,
-	};
-}
+import {
+	chromeTabToRow,
+	chromeWindowToRow,
+	chromeTabGroupToRow,
+} from '$lib/chrome-helpers';
+import { type Tab, type Window } from './browser.schema';
+import { BROWSER_SCHEMA } from './schema';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Workspace Definition
@@ -78,7 +30,7 @@ function chromeTabGroupToRow(group: Browser.tabGroups.TabGroup): TabGroup {
  *
  * Providers:
  * - `persistence`: IndexedDB persistence via y-indexeddb
- * - `popupSync`: Handles popup connections and syncs Y.Doc to them
+ * - `serverSync`: WebSocket sync with Elysia server
  * - `chromeSync`: Chrome event listeners that update Y.Doc, exports `syncAllFromChrome`
  */
 export const backgroundWorkspace = defineWorkspace({
@@ -107,72 +59,14 @@ export const backgroundWorkspace = defineWorkspace({
 		},
 
 		/**
-		 * Popup sync provider.
+		 * WebSocket sync provider for server connection.
 		 *
-		 * Exports a `start()` function to register the popup connection listener.
-		 * This should be called AFTER initial Chrome sync completes to avoid
-		 * serving stale or partial data to popups.
+		 * Connects to the Elysia server for multi-device sync.
+		 * Falls back gracefully if server is not available.
 		 */
-		popupSync: ({ ydoc, tables }) => {
-			/**
-			 * Start accepting popup connections.
-			 * Call this after initial data sync is complete.
-			 */
-			function start() {
-				browser.runtime.onConnect.addListener((port: Browser.runtime.Port) => {
-					// Only handle yjs-sync connections
-					if (port.name !== 'yjs-sync') return;
-
-					console.log('[Background] Popup connected');
-
-					// Send full state to popup on connect
-					const state = Y.encodeStateAsUpdate(ydoc);
-					console.log('[Background] Sending sync-state to popup:', {
-						stateSize: state.length,
-						tabs: tables.tabs.getAllValid().length,
-						windows: tables.windows.getAllValid().length,
-					});
-					const message: SyncMessage = {
-						type: 'sync-state',
-						state: Array.from(state),
-					};
-					port.postMessage(message);
-
-					// Listen for updates from popup
-					port.onMessage.addListener((msg: SyncMessage) => {
-						if (msg.type === 'update') {
-							// Apply update from popup
-							// Use 'popup' as origin to prevent echoing back
-							Y.applyUpdate(ydoc, new Uint8Array(msg.update), 'popup');
-						}
-					});
-
-					// Forward Y.Doc updates to popup
-					const updateHandler = (update: Uint8Array, origin: unknown) => {
-						// Don't echo back updates that came from this popup
-						if (origin === 'popup') return;
-
-						const message: SyncMessage = {
-							type: 'update',
-							update: Array.from(update),
-						};
-						port.postMessage(message);
-					};
-
-					ydoc.on('update', updateHandler);
-
-					// Clean up on disconnect
-					port.onDisconnect.addListener(() => {
-						console.log('[Background] Popup disconnected');
-						ydoc.off('update', updateHandler);
-					});
-				});
-
-				console.log('[Background] Popup sync listener registered');
-			}
-
-			return defineProviderExports({ start });
-		},
+		serverSync: createWebsocketSyncProvider({
+			url: 'ws://localhost:3913/sync',
+		}),
 
 		/**
 		 * Chrome sync provider.
@@ -182,11 +76,11 @@ export const backgroundWorkspace = defineWorkspace({
 		 */
 		chromeSync: ({ tables }) => {
 			// ═══════════════════════════════════════════════════════════════════════════
-			// INITIAL SYNC - Destructive sync on startup
+			// INITIAL SYNC - Merge strategy (preserves server data)
 			// ═══════════════════════════════════════════════════════════════════════════
 
 			async function syncAllFromChrome() {
-				console.log('[Background] Starting full sync from Chrome...');
+				console.log('[Background] Starting merge sync from Chrome...');
 
 				// Get all windows and tabs from Chrome
 				const [chromeTabs, chromeWindows] = await Promise.all([
@@ -194,14 +88,26 @@ export const backgroundWorkspace = defineWorkspace({
 					browser.windows.getAll(),
 				]);
 
-				tables.$transact(() => {
-					// Clear existing data
-					tables.$clearAll();
+				// Build sets of Chrome IDs for fast lookup
+				const chromeWindowIds = new Set(
+					chromeWindows.filter((w) => w.id !== undefined).map((w) => String(w.id)),
+				);
+				const chromeTabIds = new Set(
+					chromeTabs.filter((t) => t.id !== undefined).map((t) => String(t.id)),
+				);
 
+				tables.$transact(() => {
 					// Sync windows first (tabs reference windows)
 					for (const win of chromeWindows) {
 						if (win.id === undefined) continue;
 						tables.windows.upsert(chromeWindowToRow(win));
+					}
+
+					// Remove windows not in Chrome (closed while offline)
+					for (const existing of tables.windows.getAllValid()) {
+						if (!chromeWindowIds.has(existing.id)) {
+							tables.windows.delete({ id: existing.id });
+						}
 					}
 
 					// Sync tabs
@@ -209,14 +115,30 @@ export const backgroundWorkspace = defineWorkspace({
 						if (tab.id === undefined) continue;
 						tables.tabs.upsert(chromeTabToRow(tab));
 					}
+
+					// Remove tabs not in Chrome (closed while offline)
+					for (const existing of tables.tabs.getAllValid()) {
+						if (!chromeTabIds.has(existing.id)) {
+							tables.tabs.delete({ id: existing.id });
+						}
+					}
 				});
 
 				// Sync tab groups (Chrome 88+ only)
 				if (browser.tabGroups) {
 					const chromeGroups = await browser.tabGroups.query({});
+					const chromeGroupIds = new Set(chromeGroups.map((g) => String(g.id)));
+
 					tables.$transact(() => {
 						for (const group of chromeGroups) {
 							tables.tab_groups.upsert(chromeTabGroupToRow(group));
+						}
+
+						// Remove groups not in Chrome
+						for (const existing of tables.tab_groups.getAllValid()) {
+							if (!chromeGroupIds.has(existing.id)) {
+								tables.tab_groups.delete({ id: existing.id });
+							}
 						}
 					});
 				}
@@ -376,12 +298,6 @@ export const backgroundWorkspace = defineWorkspace({
 			 * Clears existing data and re-syncs all tabs/windows.
 			 */
 			syncAllFromChrome: providers.chromeSync.syncAllFromChrome,
-
-			/**
-			 * Start accepting popup connections.
-			 * Call this AFTER initial sync completes to avoid serving stale data.
-			 */
-			startPopupSync: providers.popupSync.start,
 
 			/**
 			 * Get all tabs sorted by index.
