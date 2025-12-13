@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { Ok, tryAsync } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type { Provider, ProviderContext } from '../../core/provider.node';
 import { defineProviderExports } from '../../core/provider.shared';
@@ -82,12 +83,16 @@ export const setupPersistence = (async <TSchema extends WorkspaceSchema>({
 	mkdirSync(epicenterDir, { recursive: true });
 
 	// Load existing state from disk
-	try {
-		const savedState = await Bun.file(filePath).arrayBuffer();
-		Y.applyUpdate(ydoc, new Uint8Array(savedState));
-	} catch {
-		// File doesn't exist yet - that's fine, we'll create it on first update
-	}
+	await tryAsync({
+		try: async () => {
+			const savedState = await Bun.file(filePath).arrayBuffer();
+			Y.applyUpdate(ydoc, new Uint8Array(savedState));
+		},
+		catch: () => {
+			// File doesn't exist yet - that's fine, we'll create it on first update
+			return Ok(undefined);
+		},
+	});
 
 	/**
 	 * Writes the current YDoc state to disk.

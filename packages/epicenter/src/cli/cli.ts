@@ -1,5 +1,5 @@
 import type { TaggedError } from 'wellcrafted/error';
-import { isResult, type Result } from 'wellcrafted/result';
+import { isResult, Ok, tryAsync, type Result } from 'wellcrafted/result';
 import type { Argv } from 'yargs';
 import yargs from 'yargs';
 import { walkActions } from '../core/actions';
@@ -119,36 +119,40 @@ export async function createCLI({
 						},
 						async (argv) => {
 							// Handler: execute action directly (action reference is captured in closure)
-							try {
-								// Extract input from args (remove yargs metadata)
-								const { _, $0, ...input } = argv;
+							await tryAsync({
+								try: async () => {
+									// Extract input from args (remove yargs metadata)
+									const { _, $0, ...input } = argv;
 
-								// Execute the action (may return Result or raw data)
-								const maybeResult = (await action(input)) as
-									| Result<unknown, TaggedError>
-									| unknown;
+									// Execute the action (may return Result or raw data)
+									const maybeResult = (await action(input)) as
+										| Result<unknown, TaggedError>
+										| unknown;
 
-								// Extract data and error channels using isResult pattern
-								const outputChannel = isResult(maybeResult)
-									? maybeResult.data
-									: maybeResult;
-								const errorChannel = isResult(maybeResult)
-									? (maybeResult.error as TaggedError)
-									: undefined;
+									// Extract data and error channels using isResult pattern
+									const outputChannel = isResult(maybeResult)
+										? maybeResult.data
+										: maybeResult;
+									const errorChannel = isResult(maybeResult)
+										? (maybeResult.error as TaggedError)
+										: undefined;
 
-								// Handle error case
-								if (errorChannel) {
-									console.error('❌ Error:', errorChannel.message);
+									// Handle error case
+									if (errorChannel) {
+										console.error('❌ Error:', errorChannel.message);
+										process.exit(1);
+									}
+
+									// Handle success
+									console.log('✅ Success:');
+									console.log(JSON.stringify(outputChannel, null, 2));
+								},
+								catch: (error) => {
+									console.error('❌ Unexpected error:', error);
 									process.exit(1);
-								}
-
-								// Handle success
-								console.log('✅ Success:');
-								console.log(JSON.stringify(outputChannel, null, 2));
-							} catch (error) {
-								console.error('❌ Unexpected error:', error);
-								process.exit(1);
-							}
+									return Ok(undefined); // never reached due to process.exit
+								},
+							});
 						},
 					);
 				}
@@ -160,13 +164,12 @@ export async function createCLI({
 
 	// Parse and execute the command
 	// Client remains active throughout command execution
-	try {
-		await cli.parse();
-	} finally {
-		// Clean up on normal exit
-		// Remove signal handlers to avoid double-cleanup
-		process.off('SIGINT', cleanup);
-		process.off('SIGTERM', cleanup);
-		await client.destroy();
-	}
+	await tryAsync({
+		try: () => cli.parse(),
+		catch: () => Ok(undefined), // Let any error pass, cleanup still happens
+	});
+	// Cleanup always runs (equivalent to finally)
+	process.off('SIGINT', cleanup);
+	process.off('SIGTERM', cleanup);
+	await client.destroy();
 }

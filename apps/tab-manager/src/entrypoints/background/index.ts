@@ -22,6 +22,7 @@
 
 import { createWorkspaceClient, defineWorkspace } from '@epicenter/hq';
 import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
+import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineBackground } from 'wxt/utils/define-background';
 import {
 	chromeTabGroupToRow,
@@ -249,17 +250,20 @@ export default defineBackground(async () => {
 			if (syncCoordination.isProcessingYDocChange) return;
 
 			syncCoordination.isProcessingYDocChange = true;
-			try {
-				const tabId = Number.parseInt(id, 10);
-				if (!Number.isNaN(tabId)) {
-					await browser.tabs.remove(tabId);
-				}
-			} catch (error) {
-				// Tab may already be closed or not exist
-				console.log(`[Background] Failed to close tab ${id}:`, error);
-			} finally {
-				syncCoordination.isProcessingYDocChange = false;
-			}
+			await tryAsync({
+				try: async () => {
+					const tabId = Number.parseInt(id, 10);
+					if (!Number.isNaN(tabId)) {
+						await browser.tabs.remove(tabId);
+					}
+				},
+				catch: (error) => {
+					// Tab may already be closed or not exist
+					console.log(`[Background] Failed to close tab ${id}:`, error);
+					return Ok(undefined);
+				},
+			});
+			syncCoordination.isProcessingYDocChange = false;
 		},
 	});
 
@@ -268,16 +272,19 @@ export default defineBackground(async () => {
 			if (syncCoordination.isProcessingYDocChange) return;
 
 			syncCoordination.isProcessingYDocChange = true;
-			try {
-				const windowId = Number.parseInt(id, 10);
-				if (!Number.isNaN(windowId)) {
-					await browser.windows.remove(windowId);
-				}
-			} catch (error) {
-				console.log(`[Background] Failed to close window ${id}:`, error);
-			} finally {
-				syncCoordination.isProcessingYDocChange = false;
-			}
+			await tryAsync({
+				try: async () => {
+					const windowId = Number.parseInt(id, 10);
+					if (!Number.isNaN(windowId)) {
+						await browser.windows.remove(windowId);
+					}
+				},
+				catch: (error) => {
+					console.log(`[Background] Failed to close window ${id}:`, error);
+					return Ok(undefined);
+				},
+			});
+			syncCoordination.isProcessingYDocChange = false;
 		},
 	});
 
@@ -287,22 +294,25 @@ export default defineBackground(async () => {
 				if (syncCoordination.isProcessingYDocChange) return;
 
 				syncCoordination.isProcessingYDocChange = true;
-				try {
-					const groupId = Number.parseInt(id, 10);
-					if (!Number.isNaN(groupId)) {
-						// Note: Chrome doesn't have tabGroups.remove(), but we can ungroup tabs
-						const tabs = await browser.tabs.query({ groupId });
-						for (const tab of tabs) {
-							if (tab.id !== undefined) {
-								await browser.tabs.ungroup(tab.id);
+				await tryAsync({
+					try: async () => {
+						const groupId = Number.parseInt(id, 10);
+						if (!Number.isNaN(groupId)) {
+							// Note: Chrome doesn't have tabGroups.remove(), but we can ungroup tabs
+							const tabs = await browser.tabs.query({ groupId });
+							for (const tab of tabs) {
+								if (tab.id !== undefined) {
+									await browser.tabs.ungroup(tab.id);
+								}
 							}
 						}
-					}
-				} catch (error) {
-					console.log(`[Background] Failed to ungroup tab group ${id}:`, error);
-				} finally {
-					syncCoordination.isProcessingYDocChange = false;
-				}
+					},
+					catch: (error) => {
+						console.log(`[Background] Failed to ungroup tab group ${id}:`, error);
+						return Ok(undefined);
+					},
+				});
+				syncCoordination.isProcessingYDocChange = false;
 			},
 		});
 	}

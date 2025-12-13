@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createMutation } from '@tanstack/svelte-query';
+	import { Ok, trySync } from 'wellcrafted/result';
 	import { rpc } from '$lib/query';
 	import XIcon from '@lucide/svelte/icons/x';
 	import PinIcon from '@lucide/svelte/icons/pin';
@@ -39,12 +40,11 @@
 	// Extract domain from URL for display
 	const domain = $derived.by(() => {
 		if (!tab.url) return '';
-		try {
-			const url = new URL(tab.url);
-			return url.hostname;
-		} catch {
-			return tab.url;
-		}
+		const { data } = trySync({
+			try: () => new URL(tab.url).hostname,
+			catch: () => Ok(tab.url),
+		});
+		return data;
 	});
 </script>
 
