@@ -20,6 +20,19 @@
 			text?: string;
 		};
 		/**
+		 * Require user to type a specific phrase to confirm.
+		 * The confirm button is disabled until the input matches.
+		 */
+		input?: {
+			/** The exact text the user must type to confirm */
+			confirmationText: string;
+		};
+		/**
+		 * Skip the dialog entirely and call onConfirm immediately.
+		 * Useful for batch operations where user has already confirmed.
+		 */
+		skipConfirmation?: boolean;
+		/**
 		 * Called when the user confirms. Can be async - the dialog will show
 		 * a loading state and stay open until the promise resolves.
 		 * Throw an error to keep the dialog open (e.g., on failure).
@@ -34,6 +47,7 @@
 	 *
 	 * @example
 	 * ```ts
+	 * // Basic usage
 	 * confirmationDialog.open({
 	 *   title: 'Delete item',
 	 *   description: 'Are you sure you want to delete this item?',
@@ -47,11 +61,29 @@
 	 *     rpc.notify.success.execute({ title: 'Deleted!', description: 'Item deleted.' });
 	 *   },
 	 * });
+	 *
+	 * // With text confirmation (user must type "DELETE" to confirm)
+	 * confirmationDialog.open({
+	 *   title: 'Delete all data',
+	 *   description: 'This will permanently delete all your data.',
+	 *   input: { confirmationText: 'DELETE' },
+	 *   confirm: { text: 'Delete All', variant: 'destructive' },
+	 *   onConfirm: () => deleteAllData(),
+	 * });
+	 *
+	 * // Skip confirmation (useful for batch operations)
+	 * confirmationDialog.open({
+	 *   title: 'Delete items',
+	 *   description: 'Deleting selected items...',
+	 *   skipConfirmation: userAlreadyConfirmed,
+	 *   onConfirm: () => deleteItems(),
+	 * });
 	 * ```
 	 */
 	function createConfirmationDialog() {
 		let isOpen = $state(false);
 		let isPending = $state(false);
+		let inputText = $state('');
 		let options = $state<ConfirmationDialogOptions | null>(null);
 
 		return {
@@ -64,16 +96,29 @@
 			get isPending() {
 				return isPending;
 			},
+			get inputText() {
+				return inputText;
+			},
+			set inputText(value) {
+				inputText = value;
+			},
 			get options() {
 				return options;
 			},
 
 			/**
 			 * Opens the confirmation dialog with the given options.
+			 * If skipConfirmation is true, calls onConfirm immediately without showing the dialog.
 			 */
 			open(opts: ConfirmationDialogOptions) {
+				if (opts.skipConfirmation) {
+					opts.onConfirm();
+					return;
+				}
+
 				options = opts;
 				isPending = false;
+				inputText = '';
 				isOpen = true;
 			},
 
@@ -83,7 +128,17 @@
 			close() {
 				isOpen = false;
 				isPending = false;
+				inputText = '';
 				options = null;
+			},
+
+			/**
+			 * Returns true if the confirm button should be enabled.
+			 * When input confirmation is required, checks if inputText matches.
+			 */
+			get canConfirm() {
+				if (!options?.input) return true;
+				return inputText === options.input.confirmationText;
 			},
 
 			/**
@@ -92,6 +147,7 @@
 			 */
 			async confirm() {
 				if (!options) return;
+				if (options.input && inputText !== options.input.confirmationText) return;
 
 				const result = options.onConfirm();
 
@@ -125,6 +181,7 @@
 
 <script lang="ts">
 	import * as AlertDialog from '@epicenter/ui/alert-dialog';
+	import { Input } from '@epicenter/ui/input';
 	import { Spinner } from '@epicenter/ui/spinner';
 </script>
 
@@ -145,6 +202,13 @@
 				</AlertDialog.Description>
 			</AlertDialog.Header>
 
+			{#if confirmationDialog.options?.input}
+				<Input
+					bind:value={confirmationDialog.inputText}
+					placeholder={`Type "${confirmationDialog.options.input.confirmationText}" to confirm`}
+				/>
+			{/if}
+
 			<AlertDialog.Footer>
 				<AlertDialog.Cancel
 					type="button"
@@ -155,7 +219,7 @@
 				</AlertDialog.Cancel>
 				<AlertDialog.Action
 					type="submit"
-					disabled={confirmationDialog.isPending}
+					disabled={confirmationDialog.isPending || !confirmationDialog.canConfirm}
 					class={confirmationDialog.options?.confirm?.variant === 'destructive'
 						? 'bg-destructive hover:bg-destructive/90 text-white'
 						: ''}
