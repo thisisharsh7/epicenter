@@ -76,7 +76,11 @@ export type UpdateResult =
  */
 export type UpdateManyResult =
 	| { status: 'all_applied'; applied: string[] }
-	| { status: 'partially_applied'; applied: string[]; notFoundLocally: string[] }
+	| {
+			status: 'partially_applied';
+			applied: string[];
+			notFoundLocally: string[];
+	  }
 	| { status: 'none_applied'; notFoundLocally: string[] };
 
 /**
@@ -99,7 +103,11 @@ export type DeleteResult =
  */
 export type DeleteManyResult =
 	| { status: 'all_deleted'; deleted: string[] }
-	| { status: 'partially_deleted'; deleted: string[]; notFoundLocally: string[] }
+	| {
+			status: 'partially_deleted';
+			deleted: string[];
+			notFoundLocally: string[];
+	  }
 	| { status: 'none_deleted'; notFoundLocally: string[] };
 
 /**
@@ -605,21 +613,21 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 *
 		 * @example
 		 * const unsubscribe = table.observe({
-		 *   onAdd: (result) => {
+		 *   onAdd: (result, transaction) => {
 		 *     if (result.error) {
 		 *       console.error('Invalid row:', result.error);
 		 *       return;
 		 *     }
-		 *     console.log('New row:', result.data);
+		 *     console.log('New row:', result.data, 'origin:', transaction.origin);
 		 *   },
-		 *   onUpdate: (result) => {
+		 *   onUpdate: (result, transaction) => {
 		 *     if (result.error) {
 		 *       console.error('Invalid row:', result.error);
 		 *       return;
 		 *     }
-		 *     console.log('Row changed:', result.data);
+		 *     console.log('Row changed:', result.data, 'origin:', transaction.origin);
 		 *   },
-		 *   onDelete: (id) => console.log('Row removed:', id),
+		 *   onDelete: (id, transaction) => console.log('Row removed:', id, 'origin:', transaction.origin),
 		 * });
 		 *
 		 * // Later, stop watching
@@ -729,23 +737,31 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * rather than silently skipping them.
 		 *
 		 * @param callbacks Object with optional callbacks for row lifecycle events
-		 * @param callbacks.onAdd Called when a new row is added (receives Result with row or validation errors)
-		 * @param callbacks.onUpdate Called when any field within an existing row changes (receives Result with row or validation errors)
-		 * @param callbacks.onDelete Called when a row is removed (receives row ID only)
+		 * @param callbacks.onAdd Called when a new row is added (receives Result with row or validation errors, and the Y.Transaction)
+		 * @param callbacks.onUpdate Called when any field within an existing row changes (receives Result with row or validation errors, and the Y.Transaction)
+		 * @param callbacks.onDelete Called when a row is removed (receives row ID and the Y.Transaction)
 		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observe(callbacks: {
 			onAdd?: (
 				result: Result<TRow, RowValidationError>,
+				transaction: Y.Transaction,
 			) => void | Promise<void>;
 			onUpdate?: (
 				result: Result<TRow, RowValidationError>,
+				transaction: Y.Transaction,
 			) => void | Promise<void>;
-			onDelete?: (id: string) => void | Promise<void>;
+			onDelete?: (
+				id: string,
+				transaction: Y.Transaction,
+			) => void | Promise<void>;
 		}): () => void {
 			const yjsValidator = validators.toYjsArktype();
 
-			const observer = (events: Y.YEvent<Y.Map<YRow> | YRow>[]) => {
+			const observer = (
+				events: Y.YEvent<Y.Map<YRow> | YRow>[],
+				transaction: Y.Transaction,
+			) => {
 				for (const event of events) {
 					// Top-level events: row additions/deletions in the table
 					// event.target === getYTable() means the change happened directly on the table Y.Map
@@ -769,14 +785,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 													summary: result.summary,
 												},
 											}),
+											transaction,
 										);
 									} else {
-										callbacks.onAdd?.(Ok(row));
+										callbacks.onAdd?.(Ok(row), transaction);
 									}
 								}
 							} else if (change.action === 'delete') {
 								// A row Y.Map was removed from the table
-								callbacks.onDelete?.(key);
+								callbacks.onDelete?.(key, transaction);
 							}
 							// Note: We intentionally don't handle 'update' here because:
 							// - 'update' only fires if an entire row Y.Map is replaced with another Y.Map
@@ -805,9 +822,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 											summary: result.summary,
 										},
 									}),
+									transaction,
 								);
 							} else {
-								callbacks.onUpdate?.(Ok(row));
+								callbacks.onUpdate?.(Ok(row), transaction);
 							}
 						}
 					}
