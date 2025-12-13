@@ -1,8 +1,9 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as Y from 'yjs';
+import type { Provider, ProviderContext } from '../../core/provider.node';
 import { defineProviderExports } from '../../core/provider.shared';
-import type { Provider } from '../../core/provider.node';
+import type { WorkspaceSchema } from '../../core/schema';
 
 /** Debounce delay for filesystem writes (ms) */
 const DEBOUNCE_MS = 100;
@@ -64,7 +65,11 @@ const DEBOUNCE_MS = 100;
  * });
  * ```
  */
-export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
+export const setupPersistence = (async <TSchema extends WorkspaceSchema>({
+	id,
+	ydoc,
+	epicenterDir,
+}: ProviderContext<TSchema>) => {
 	if (!epicenterDir) {
 		throw new Error(
 			'Persistence provider requires Bun environment with filesystem access',

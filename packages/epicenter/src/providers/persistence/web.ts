@@ -1,5 +1,6 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type { Provider } from '../../core/provider.browser';
+import type { Provider, ProviderContext } from '../../core/provider.browser';
+import type { WorkspaceSchema } from '../../core/schema';
 
 /**
  * YJS document persistence provider using IndexedDB.
@@ -88,7 +89,9 @@ import type { Provider } from '../../core/provider.browser';
  *
  * @see {@link setupPersistence} from `@epicenter/hq/persistence/desktop` for Node.js/filesystem version
  */
-export const setupPersistence = (({ ydoc }) => {
+export const setupPersistence = (<TSchema extends WorkspaceSchema>({
+	ydoc,
+}: ProviderContext<TSchema>) => {
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
 	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
