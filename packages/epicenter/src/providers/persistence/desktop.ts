@@ -21,6 +21,9 @@ const DEBOUNCE_MS = 100;
  * 3. Auto-saves to disk on YJS updates (debounced to avoid blocking on frequent updates)
  * 4. Performs a final async write on cleanup to ensure no data loss
  *
+ * **Garbage Collection**: YJS documents are created with `gc: true`, which automatically
+ * garbage collects deleted content. Each save writes the full state with GC applied.
+ *
  * **Storage location**: `.epicenter/${workspaceId}.yjs` relative to storageDir from epicenter config
  * - Each workspace gets its own file named after its ID
  * - Binary format (not human-readable)

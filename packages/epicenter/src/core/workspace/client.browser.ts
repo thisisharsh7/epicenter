@@ -352,7 +352,8 @@ export function initializeWorkspaces<
 		// Now that all dependencies are ready, initialize this workspace's core components
 
 		// Create YJS document with workspace ID as the document GUID
-		const ydoc = new Y.Doc({ guid: workspaceConfig.id });
+		// gc: true enables garbage collection of deleted content, reducing file size over time
+		const ydoc = new Y.Doc({ guid: workspaceConfig.id, gc: true });
 
 		// Initialize Epicenter tables (wraps YJS with table/record API)
 		const tables = createEpicenterDb(ydoc, workspaceConfig.tables);
