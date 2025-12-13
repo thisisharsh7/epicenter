@@ -7,6 +7,7 @@ import { sqliteProvider } from '../indexes/sqlite';
 import { defineMutation, defineQuery } from './actions';
 import { createEpicenterClient, defineEpicenter } from './epicenter';
 import { id, integer, text } from './schema';
+import { defineProviderExports } from './provider.shared';
 import { createWorkspaceClient, defineWorkspace } from './workspace';
 
 /**
@@ -32,8 +33,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-a');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -48,8 +50,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-b');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -67,8 +70,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-c');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -95,8 +99,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-d');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -111,8 +116,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-a');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -127,8 +133,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-b');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -146,8 +153,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-c');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -179,8 +187,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-x');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -194,8 +203,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-y');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -210,8 +220,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-z');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -286,8 +297,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-a');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -302,8 +314,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-b');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -318,8 +331,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-c');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -334,8 +348,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-d');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -350,8 +365,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-e');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -374,8 +390,9 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: ({ ydoc }) => {
+				tracker: () => {
 					initOrder.push('workspace-f');
+					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),

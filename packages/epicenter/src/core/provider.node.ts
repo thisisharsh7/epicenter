@@ -85,11 +85,19 @@ export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
  * Node/Bun providers are fully awaited during initialization, so they can
  * perform async filesystem operations before returning.
  *
- * @example Persistence provider (no exports)
+ * All providers must explicitly return a `ProviderExports` object, even if empty.
+ * This ensures cleanup responsibilities are always considered.
+ *
+ * @example Persistence provider
  * ```typescript
  * const persistenceProvider: Provider = async ({ id, ydoc, epicenterDir }) => {
  *   const filePath = path.join(epicenterDir, `${id}.yjs`);
- *   // Load and save logic...
+ *   const handler = () => Bun.write(filePath, Y.encodeStateAsUpdate(ydoc));
+ *   ydoc.on('update', handler);
+ *
+ *   return defineProviderExports({
+ *     destroy: () => ydoc.off('update', handler),
+ *   });
  * };
  * ```
  *
@@ -107,10 +115,16 @@ export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
  *   });
  * };
  * ```
+ *
+ * @example Side-effect only provider (no cleanup needed)
+ * ```typescript
+ * const loggingProvider: Provider = ({ ydoc }) => {
+ *   console.log('Workspace initialized:', ydoc.guid);
+ *   return defineProviderExports({});
+ * };
+ * ```
  */
 export type Provider<
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
 	TExports extends ProviderExports = ProviderExports,
-> = (
-	context: ProviderContext<TSchema>,
-) => TExports | void | Promise<TExports | void>;
+> = (context: ProviderContext<TSchema>) => TExports | Promise<TExports>;

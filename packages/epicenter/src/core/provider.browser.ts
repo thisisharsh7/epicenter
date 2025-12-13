@@ -47,6 +47,9 @@ export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
  * Browser providers typically handle async operations internally and return
  * synchronously, using `whenSynced` to signal when data is ready.
  *
+ * All providers must explicitly return a `ProviderExports` object, even if empty.
+ * This ensures cleanup responsibilities are always considered.
+ *
  * @example Persistence provider with whenSynced
  * ```typescript
  * const persistenceProvider: Provider = ({ ydoc }) => {
@@ -57,10 +60,16 @@ export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
  *   });
  * };
  * ```
+ *
+ * @example Side-effect only provider (no cleanup needed)
+ * ```typescript
+ * const loggingProvider: Provider = ({ ydoc }) => {
+ *   console.log('Workspace initialized:', ydoc.guid);
+ *   return defineProviderExports({});
+ * };
+ * ```
  */
 export type Provider<
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
 	TExports extends ProviderExports = ProviderExports,
-> = (
-	context: ProviderContext<TSchema>,
-) => TExports | void | Promise<TExports | void>;
+> = (context: ProviderContext<TSchema>) => TExports | Promise<TExports>;

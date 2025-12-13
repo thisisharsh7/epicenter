@@ -81,9 +81,14 @@ import type { Provider } from '@epicenter/hq';
 import { IndexeddbPersistence } from 'y-indexeddb';
 
 // Create a web persistence provider
-const setupWebPersistence: Provider = async ({ id, ydoc }) => {
+const setupWebPersistence: Provider = ({ ydoc }) => {
   // y-indexeddb handles loading and saving automatically
-  new IndexeddbPersistence(id, ydoc);
+  const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
+
+  return {
+    whenSynced: persistence.whenSynced,
+    destroy: () => persistence.destroy(),
+  };
 };
 
 const blogWorkspace = defineWorkspace({
@@ -127,8 +132,13 @@ export { setupPersistence } from '@epicenter/hq/providers/desktop';
 import type { Provider } from '@epicenter/hq';
 import { IndexeddbPersistence } from 'y-indexeddb';
 
-export const setupPersistence: Provider = async ({ id, ydoc }) => {
-  new IndexeddbPersistence(id, ydoc);
+export const setupPersistence: Provider = ({ ydoc }) => {
+  const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
+
+  return {
+    whenSynced: persistence.whenSynced,
+    destroy: () => persistence.destroy(),
+  };
 };
 ```
 
@@ -154,19 +164,16 @@ const workspace = defineWorkspace({
 // persistence.ts
 import type { Provider } from '@epicenter/hq';
 
-export const setupPersistence: Provider = async ({ id, ydoc }) => {
-  // Detect environment
-  const isNode = typeof process !== 'undefined' && process.versions?.node;
+export const setupPersistence: Provider = ({ ydoc }) => {
+  // Detect environment - for runtime detection, choose a default
+  // For most apps, use conditional imports at build time instead
+  const { IndexeddbPersistence } = await import('y-indexeddb');
+  const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
 
-  if (isNode) {
-    // Desktop: use filesystem provider
-    const { setupPersistence: desktopProvider } = await import('@epicenter/hq/providers/desktop');
-    await desktopProvider({ id, ydoc });
-  } else {
-    // Web: use IndexedDB
-    const { IndexeddbPersistence } = await import('y-indexeddb');
-    new IndexeddbPersistence(id, ydoc);
-  }
+  return {
+    whenSynced: persistence.whenSynced,
+    destroy: () => persistence.destroy(),
+  };
 };
 ```
 
@@ -216,8 +223,12 @@ import type { Provider } from '@epicenter/hq';
 import { WebrtcProvider } from 'y-webrtc';
 
 // Create a sync provider
-const setupSync: Provider = async ({ id, ydoc }) => {
-  new WebrtcProvider('blog-room', ydoc);
+const setupSync: Provider = ({ ydoc }) => {
+  const provider = new WebrtcProvider('blog-room', ydoc);
+
+  return {
+    destroy: () => provider.destroy(),
+  };
 };
 
 const workspace = defineWorkspace({
@@ -259,14 +270,25 @@ const customPersistence: Provider = async ({ id, ydoc }) => {
   // Debounced save (saves at most once per second)
   let saveTimeout: NodeJS.Timeout | null = null;
 
-  ydoc.on('update', () => {
+  const debouncedSave = () => {
     if (saveTimeout) clearTimeout(saveTimeout);
 
     saveTimeout = setTimeout(() => {
       const state = Y.encodeStateAsUpdate(ydoc);
       Bun.write(filePath, state);
     }, 1000);
-  });
+  };
+
+  ydoc.on('update', debouncedSave);
+
+  return {
+    destroy: () => {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      ydoc.off('update', debouncedSave);
+      // Final save to ensure all data is persisted
+      Bun.write(filePath, Y.encodeStateAsUpdate(ydoc));
+    },
+  };
 };
 ```
 
