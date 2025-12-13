@@ -145,6 +145,146 @@ export type WithBodyFieldOptions<
 };
 
 /**
+ * Sanitize a string to be safe for use as a filename across all operating systems.
+ *
+ * Handles:
+ * - Invalid characters: `< > : " / \ | ? *` and control codes
+ * - Windows reserved names: CON, PRN, AUX, NUL, COM1-9, LPT1-9
+ * - Leading/trailing dots and spaces
+ * - Length limits (truncates to maxLength)
+ * - Empty/whitespace-only strings (returns fallback)
+ *
+ * @param input - The string to sanitize (e.g., a page title)
+ * @param options.maxLength - Maximum filename length (default: 100)
+ * @param options.fallback - Fallback for empty results (default: 'Untitled')
+ * @returns A filesystem-safe string
+ */
+export function sanitizeFilename(
+	input: string,
+	options: { maxLength?: number; fallback?: string } = {},
+): string {
+	const { maxLength = 100, fallback = 'Untitled' } = options;
+
+	// Step 1: Remove invalid filename characters
+	// Invalid on Windows: < > : " / \ | ? *
+	// Invalid on Unix: / and null byte
+	// Also remove control characters (0x00-0x1F, 0x7F)
+	let sanitized = input.replace(/[<>:"/\\|?*\x00-\x1F\x7F]/g, '');
+
+	// Step 2: Collapse multiple whitespace to single space
+	sanitized = sanitized.replace(/\s+/g, ' ');
+
+	// Step 3: Trim leading/trailing whitespace and dots
+	sanitized = sanitized.replace(/^[\s.]+|[\s.]+$/g, '');
+
+	// Step 4: Handle reserved names on Windows (case-insensitive)
+	const RESERVED_WINDOWS = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+	if (RESERVED_WINDOWS.test(sanitized)) {
+		sanitized = `_${sanitized}`;
+	}
+
+	// Step 5: Truncate to max length
+	if (sanitized.length > maxLength) {
+		sanitized = sanitized.slice(0, maxLength).trim();
+	}
+
+	// Step 6: Use fallback if empty
+	if (sanitized === '') {
+		sanitized = fallback;
+	}
+
+	return sanitized;
+}
+
+/**
+ * Factory function to create a table config with human-readable filenames.
+ *
+ * Creates filenames in the format: `{title}-{id}.md`
+ *
+ * This pattern provides:
+ * - Readability: Title comes first for easy scanning in file browsers
+ * - Uniqueness: ID suffix guarantees no filename collisions
+ * - Sorting: Files sort alphabetically by title
+ *
+ * @param titleField - The field to use for the readable part of the filename
+ * @param options.stripNulls - Remove null values from frontmatter (default: true)
+ * @param options.maxTitleLength - Max chars for title portion (default: 80)
+ *
+ * @example
+ * ```typescript
+ * markdownProvider(c, {
+ *   tableConfigs: {
+ *     tabs: withTitleFilename('title'),
+ *     notes: withTitleFilename('name', { maxTitleLength: 50 }),
+ *   }
+ * })
+ * ```
+ */
+export function withTitleFilename<TTableSchema extends TableSchema>(
+	titleField: keyof TTableSchema & string,
+	options: { stripNulls?: boolean; maxTitleLength?: number } = {},
+): TableMarkdownConfig<TTableSchema> {
+	const { stripNulls = true, maxTitleLength = 80 } = options;
+
+	return {
+		serialize: ({ row }) => {
+			const { id, ...rest } = row;
+			const title = (row[titleField] as string) || 'Untitled';
+
+			// Sanitize title for filename
+			const sanitizedTitle = sanitizeFilename(title, {
+				maxLength: maxTitleLength,
+			});
+
+			// Optionally strip null values for cleaner YAML
+			const frontmatter = stripNulls
+				? Object.fromEntries(
+						Object.entries(rest).filter(([_, value]) => value !== null),
+					)
+				: rest;
+
+			return {
+				frontmatter,
+				body: '',
+				filename: `${sanitizedTitle}-${id}.md`,
+			};
+		},
+
+		deserialize: ({ frontmatter, body: _, filename, table }) => {
+			// Extract ID from filename: "Title Here-{id}.md" → "{id}"
+			const basename = path.basename(filename, '.md');
+			const lastDashIndex = basename.lastIndexOf('-');
+
+			// If no dash found, treat entire basename as ID (fallback to default behavior)
+			const id =
+				lastDashIndex === -1
+					? basename
+					: basename.substring(lastDashIndex + 1);
+
+			// Combine id with frontmatter
+			const data = { id, ...frontmatter };
+
+			// Validate using direct arktype pattern
+			const validator = table.validators.toArktype();
+			const result = validator(data);
+
+			if (result instanceof type.errors) {
+				return MarkdownProviderErr({
+					message: `Failed to validate row ${id}`,
+					context: {
+						fileName: filename,
+						id,
+						reason: result.summary,
+					},
+				});
+			}
+
+			return Ok(result as SerializedRow<TTableSchema>);
+		},
+	};
+}
+
+/**
  * Factory function to create a table config where a specific field becomes the markdown body.
  *
  * This is a common pattern for tables with a main content field (like `content`, `body`, or `markdown`)

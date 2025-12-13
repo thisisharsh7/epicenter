@@ -24,7 +24,10 @@ import {
 	select,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider } from '@epicenter/hq/providers/markdown';
+import {
+	markdownProvider,
+	withTitleFilename,
+} from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
@@ -142,11 +145,15 @@ export const browser = defineWorkspace({
 	providers: {
 		persistence: (c) => setupPersistence(c),
 		sqlite: (c) => sqliteProvider(c),
-		// Markdown provider uses defaults:
-		// - Filename: {id}.md
-		// - All fields except id in frontmatter
-		// - Empty body
-		markdown: (c) => markdownProvider(c),
+		// Markdown provider with human-readable filenames:
+		// - Tabs: "{title}-{id}.md" (e.g., "GitHub - Pull Requests-abc123.md")
+		// - Windows/TabGroups: "{id}.md" (default)
+		markdown: (c) =>
+			markdownProvider(c, {
+				tableConfigs: {
+					tabs: withTitleFilename('title'),
+				},
+			}),
 	},
 
 	exports: ({ tables, providers }) => ({
