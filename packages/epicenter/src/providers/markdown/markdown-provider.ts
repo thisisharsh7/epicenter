@@ -945,6 +945,45 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	}
 
 	/**
+	 * Cleanup orphan files on startup
+	 *
+	 * This is CRITICAL for cleaning up after crashes or sync issues:
+	 *
+	 * Problem: Files can exist on disk that have no corresponding Y.js row.
+	 * This happens when:
+	 * 1. Server crashes between file creation and Y.js sync
+	 * 2. User copy-pastes files in Finder (creates files with new IDs)
+	 * 3. Browser extension's refetch deletes Y.js rows but file deletion fails
+	 *
+	 * Solution: Compare disk files against the tracking map (built from Y.js).
+	 * Any file not in tracking is an orphan and should be deleted.
+	 *
+	 * Cost: O(n) where n = number of markdown files. Runs once on startup.
+	 */
+	for (const { table, tableConfig } of tableWithConfigs) {
+		const filePaths = await listMarkdownFiles(tableConfig.directory);
+
+		for (const filePath of filePaths) {
+			const filename = path.basename(filePath);
+
+			// Check if this file is tracked (has a corresponding Y.js row)
+			// biome-ignore lint/style/noNonNullAssertion: tracking is initialized in the loop above
+			const rowId = tracking[table.name]!.getRowId({ filename });
+
+			if (!rowId) {
+				// Orphan file: exists on disk but no Y.js row references it
+				logger.log(
+					ProviderError({
+						message: `Startup cleanup: deleting orphan file ${table.name}/${filename}`,
+						context: { tableName: table.name, filename, filePath },
+					}),
+				);
+				await deleteMarkdownFile({ filePath: filePath as AbsolutePath });
+			}
+		}
+	}
+
+	/**
 	 * Initial scan: Validate all markdown files on startup
 	 *
 	 * This is CRITICAL for maintaining accurate diagnostics:
