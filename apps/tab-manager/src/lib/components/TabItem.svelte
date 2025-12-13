@@ -12,7 +12,7 @@
 	import { Button } from '@epicenter/ui/button';
 	import { Spinner } from '@epicenter/ui/spinner';
 	import * as Avatar from '@epicenter/ui/avatar';
-	import * as Tooltip from '@epicenter/ui/tooltip';
+	import { cn } from '@epicenter/ui/utils';
 	import type { Tab } from '$lib/epicenter';
 
 	let { tab }: { tab: Tab } = $props();
@@ -50,13 +50,14 @@
 
 <button
 	type="button"
-	class="group flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-accent transition-colors {tab.active
-		? 'bg-accent/50'
-		: ''}"
+	class={cn(
+		'group flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-accent',
+		tab.active && 'bg-accent/50',
+	)}
 	onclick={() => activateMutation.mutate(tabId)}
 >
 	<!-- Favicon -->
-	<Avatar.Root class="size-4 rounded-sm flex-shrink-0">
+	<Avatar.Root class="size-4 shrink-0 rounded-sm">
 		<Avatar.Image src={tab.fav_icon_url} alt="" />
 		<Avatar.Fallback class="rounded-sm">
 			<GlobeIcon class="size-3 text-muted-foreground" />
@@ -64,16 +65,16 @@
 	</Avatar.Root>
 
 	<!-- Title and URL -->
-	<div class="flex-1 min-w-0">
+	<div class="min-w-0 flex-1">
 		<div class="flex items-center gap-1">
 			{#if tab.pinned}
-				<PinIcon class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+				<PinIcon class="size-3 shrink-0 text-muted-foreground" />
 			{/if}
 			{#if tab.audible && !tab.muted}
-				<Volume2Icon class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+				<Volume2Icon class="size-3 shrink-0 text-muted-foreground" />
 			{/if}
 			{#if tab.muted}
-				<VolumeXIcon class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+				<VolumeXIcon class="size-3 shrink-0 text-muted-foreground" />
 			{/if}
 			<span class="truncate text-sm font-medium">
 				{tab.title || 'Untitled'}
@@ -86,147 +87,110 @@
 
 	<!-- Actions (visible on hover) -->
 	<div
-		class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+		class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
 	>
-		<Tooltip.Root>
-			<Tooltip.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						class="h-6 w-6"
-						disabled={isPinPending}
-						onclick={(e: MouseEvent) => {
-							e.stopPropagation();
-							if (tab.pinned) {
-								unpinMutation.mutate(tabId);
-							} else {
-								pinMutation.mutate(tabId);
-							}
-						}}
-					>
-						{#if isPinPending}
-							<Spinner class="h-3 w-3" />
-						{:else if tab.pinned}
-							<PinOffIcon class="h-3 w-3" />
-						{:else}
-							<PinIcon class="h-3 w-3" />
-						{/if}
-					</Button>
-				{/snippet}
-			</Tooltip.Trigger>
-			<Tooltip.Content>{tab.pinned ? 'Unpin' : 'Pin'}</Tooltip.Content>
-		</Tooltip.Root>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-6"
+			disabled={isPinPending}
+			tooltip={tab.pinned ? 'Unpin' : 'Pin'}
+			onclick={(e: MouseEvent) => {
+				e.stopPropagation();
+				if (tab.pinned) {
+					unpinMutation.mutate(tabId);
+				} else {
+					pinMutation.mutate(tabId);
+				}
+			}}
+		>
+			{#if isPinPending}
+				<Spinner class="size-3" />
+			{:else if tab.pinned}
+				<PinOffIcon class="size-3" />
+			{:else}
+				<PinIcon class="size-3" />
+			{/if}
+		</Button>
 
 		{#if tab.audible || tab.muted}
-			<Tooltip.Root>
-				<Tooltip.Trigger>
-					{#snippet child({ props })}
-						<Button
-							{...props}
-							variant="ghost"
-							size="icon"
-							class="h-6 w-6"
-							disabled={isMutePending}
-							onclick={(e: MouseEvent) => {
-								e.stopPropagation();
-								if (tab.muted) {
-									unmuteMutation.mutate(tabId);
-								} else {
-									muteMutation.mutate(tabId);
-								}
-							}}
-						>
-							{#if isMutePending}
-								<Spinner class="h-3 w-3" />
-							{:else if tab.muted}
-								<Volume2Icon class="h-3 w-3" />
-							{:else}
-								<VolumeXIcon class="h-3 w-3" />
-							{/if}
-						</Button>
-					{/snippet}
-				</Tooltip.Trigger>
-				<Tooltip.Content
-					>{tab.muted ? 'Unmute' : 'Mute'}</Tooltip.Content
-				>
-			</Tooltip.Root>
+			<Button
+				variant="ghost"
+				size="icon"
+				class="size-6"
+				disabled={isMutePending}
+				tooltip={tab.muted ? 'Unmute' : 'Mute'}
+				onclick={(e: MouseEvent) => {
+					e.stopPropagation();
+					if (tab.muted) {
+						unmuteMutation.mutate(tabId);
+					} else {
+						muteMutation.mutate(tabId);
+					}
+				}}
+			>
+				{#if isMutePending}
+					<Spinner class="size-3" />
+				{:else if tab.muted}
+					<Volume2Icon class="size-3" />
+				{:else}
+					<VolumeXIcon class="size-3" />
+				{/if}
+			</Button>
 		{/if}
 
-		<Tooltip.Root>
-			<Tooltip.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						class="h-6 w-6"
-						disabled={reloadMutation.isPending}
-						onclick={(e: MouseEvent) => {
-							e.stopPropagation();
-							reloadMutation.mutate(tabId);
-						}}
-					>
-						{#if reloadMutation.isPending}
-							<Spinner class="h-3 w-3" />
-						{:else}
-							<RefreshCwIcon class="h-3 w-3" />
-						{/if}
-					</Button>
-				{/snippet}
-			</Tooltip.Trigger>
-			<Tooltip.Content>Reload</Tooltip.Content>
-		</Tooltip.Root>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-6"
+			disabled={reloadMutation.isPending}
+			tooltip="Reload"
+			onclick={(e: MouseEvent) => {
+				e.stopPropagation();
+				reloadMutation.mutate(tabId);
+			}}
+		>
+			{#if reloadMutation.isPending}
+				<Spinner class="size-3" />
+			{:else}
+				<RefreshCwIcon class="size-3" />
+			{/if}
+		</Button>
 
-		<Tooltip.Root>
-			<Tooltip.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						class="h-6 w-6"
-						disabled={duplicateMutation.isPending}
-						onclick={(e: MouseEvent) => {
-							e.stopPropagation();
-							duplicateMutation.mutate(tabId);
-						}}
-					>
-						{#if duplicateMutation.isPending}
-							<Spinner class="h-3 w-3" />
-						{:else}
-							<CopyIcon class="h-3 w-3" />
-						{/if}
-					</Button>
-				{/snippet}
-			</Tooltip.Trigger>
-			<Tooltip.Content>Duplicate</Tooltip.Content>
-		</Tooltip.Root>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-6"
+			disabled={duplicateMutation.isPending}
+			tooltip="Duplicate"
+			onclick={(e: MouseEvent) => {
+				e.stopPropagation();
+				duplicateMutation.mutate(tabId);
+			}}
+		>
+			{#if duplicateMutation.isPending}
+				<Spinner class="size-3" />
+			{:else}
+				<CopyIcon class="size-3" />
+			{/if}
+		</Button>
 
-		<Tooltip.Root>
-			<Tooltip.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						class="h-6 w-6 text-destructive hover:text-destructive"
-						disabled={closeMutation.isPending}
-						onclick={(e: MouseEvent) => {
-							e.stopPropagation();
-							closeMutation.mutate(tabId);
-						}}
-					>
-						{#if closeMutation.isPending}
-							<Spinner class="h-3 w-3" />
-						{:else}
-							<XIcon class="h-3 w-3" />
-						{/if}
-					</Button>
-				{/snippet}
-			</Tooltip.Trigger>
-			<Tooltip.Content>Close</Tooltip.Content>
-		</Tooltip.Root>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-6 text-destructive hover:text-destructive"
+			disabled={closeMutation.isPending}
+			tooltip="Close"
+			onclick={(e: MouseEvent) => {
+				e.stopPropagation();
+				closeMutation.mutate(tabId);
+			}}
+		>
+			{#if closeMutation.isPending}
+				<Spinner class="size-3" />
+			{:else}
+				<XIcon class="size-3" />
+			{/if}
+		</Button>
 	</div>
 </button>

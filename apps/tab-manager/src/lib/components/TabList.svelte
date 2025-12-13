@@ -54,7 +54,7 @@
 		<div class="flex flex-col gap-1 p-2">
 			{#each { length: 5 } as _}
 				<div class="flex items-center gap-3 px-4 py-2">
-					<Skeleton class="h-4 w-4 rounded-sm" />
+					<Skeleton class="size-4 rounded-sm" />
 					<div class="flex-1 space-y-1">
 						<Skeleton class="h-4 w-3/4" />
 						<Skeleton class="h-3 w-1/2" />
