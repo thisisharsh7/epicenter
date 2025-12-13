@@ -125,7 +125,6 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 			}
 			// biome-ignore lint/style/noNonNullAssertion: Value guaranteed to exist from above .has() check
 			rooms.get(room)!.add(ws);
-			console.log(`[Sync Server] Room "${room}" now has ${rooms.get(room)?.size ?? 0} client(s)`);
 
 			// Track which client IDs this connection controls (for cleanup on disconnect)
 			const controlledClientIds = new Set<number>();

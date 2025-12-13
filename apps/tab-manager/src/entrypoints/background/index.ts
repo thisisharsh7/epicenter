@@ -3,18 +3,21 @@
  *
  * This is the hub of the extension:
  * 1. Holds the authoritative Y.Doc
- * 2. Syncs Chrome → Y.Doc (Chrome is source of truth)
+ * 2. Syncs Chrome ↔ Y.Doc (bidirectional)
  * 3. Syncs Y.Doc ↔ Server via WebSocket
  *
- * Source of truth: Chrome tab API (always)
+ * Bidirectional sync:
+ * - Downstream (Chrome → Y.Doc): Chrome events trigger refetch functions
+ * - Upstream (Y.Doc → Chrome): Y.Doc observers trigger Chrome APIs
  *
  * Note: No persistence needed. Tab data is ephemeral - Chrome is always
- * the source of truth, and tab IDs change on browser restart.
+ * the source of truth on startup, and tab IDs change on browser restart.
  *
  * Sync strategy:
  * - `refetchTabs()` / `refetchWindows()` / `refetchTabGroups()`: Diff Chrome state into Y.Doc
  * - Chrome events trigger these refetch functions to keep Y.Doc in sync
- * - Like TanStack Query's invalidateQueries, but for Y.Doc
+ * - Y.Doc observers call Chrome APIs (e.g., browser.tabs.remove) for upstream sync
+ * - Coordination flags prevent infinite loops between the two directions
  */
 
 import { createWorkspaceClient, defineWorkspace } from '@epicenter/hq';
@@ -27,6 +30,25 @@ import {
 } from '$lib/chrome-helpers';
 import { type Tab, type Window } from '$lib/epicenter/browser.schema';
 import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync Coordination
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Bidirectional sync coordination state.
+ *
+ * Prevents infinite loops during two-way synchronization between Chrome and Y.Doc:
+ * 1. Y.Doc deletion → calls browser.tabs.remove() → triggers Chrome onRemoved event
+ * 2. Chrome onRemoved → calls refetchTabs() → tries to delete from Y.Doc
+ * 3. Without coordination: step 2 would fire Y.Doc observer again (infinite loop)
+ *
+ * Solution: Set flags before making changes, check flags before processing events.
+ */
+const syncCoordination = {
+	/** True when we're processing a Y.Doc change (calling Chrome APIs) */
+	isProcessingYDocChange: false,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Workspace Definition
@@ -174,27 +196,115 @@ export default defineBackground(async () => {
 	// ─────────────────────────────────────────────────────────────────────────
 	// Chrome Event Listeners - trigger Y.Doc refetch on changes
 	// Like TanStack Query's invalidateQueries pattern
+	// Skip when we're processing Y.Doc changes to prevent infinite loops
 	// ─────────────────────────────────────────────────────────────────────────
 
+	const refetchTabsIfNotProcessingYDoc = () => {
+		if (!syncCoordination.isProcessingYDocChange) {
+			client.refetchTabs();
+		}
+	};
+
+	const refetchWindowsIfNotProcessingYDoc = () => {
+		if (!syncCoordination.isProcessingYDocChange) {
+			client.refetchWindows();
+		}
+	};
+
+	const refetchTabGroupsIfNotProcessingYDoc = () => {
+		if (!syncCoordination.isProcessingYDocChange) {
+			client.refetchTabGroups();
+		}
+	};
+
 	// Tab events → refetch tabs
-	browser.tabs.onCreated.addListener(() => client.refetchTabs());
-	browser.tabs.onRemoved.addListener(() => client.refetchTabs());
-	browser.tabs.onUpdated.addListener(() => client.refetchTabs());
-	browser.tabs.onMoved.addListener(() => client.refetchTabs());
-	browser.tabs.onActivated.addListener(() => client.refetchTabs());
-	browser.tabs.onAttached.addListener(() => client.refetchTabs());
-	browser.tabs.onDetached.addListener(() => client.refetchTabs());
+	browser.tabs.onCreated.addListener(refetchTabsIfNotProcessingYDoc);
+	browser.tabs.onRemoved.addListener(refetchTabsIfNotProcessingYDoc);
+	browser.tabs.onUpdated.addListener(refetchTabsIfNotProcessingYDoc);
+	browser.tabs.onMoved.addListener(refetchTabsIfNotProcessingYDoc);
+	browser.tabs.onActivated.addListener(refetchTabsIfNotProcessingYDoc);
+	browser.tabs.onAttached.addListener(refetchTabsIfNotProcessingYDoc);
+	browser.tabs.onDetached.addListener(refetchTabsIfNotProcessingYDoc);
 
 	// Window events → refetch windows
-	browser.windows.onCreated.addListener(() => client.refetchWindows());
-	browser.windows.onRemoved.addListener(() => client.refetchWindows());
-	browser.windows.onFocusChanged.addListener(() => client.refetchWindows());
+	browser.windows.onCreated.addListener(refetchWindowsIfNotProcessingYDoc);
+	browser.windows.onRemoved.addListener(refetchWindowsIfNotProcessingYDoc);
+	browser.windows.onFocusChanged.addListener(refetchWindowsIfNotProcessingYDoc);
 
 	// Tab group events → refetch tab groups (Chrome 88+ only)
 	if (browser.tabGroups) {
-		browser.tabGroups.onCreated.addListener(() => client.refetchTabGroups());
-		browser.tabGroups.onRemoved.addListener(() => client.refetchTabGroups());
-		browser.tabGroups.onUpdated.addListener(() => client.refetchTabGroups());
+		browser.tabGroups.onCreated.addListener(refetchTabGroupsIfNotProcessingYDoc);
+		browser.tabGroups.onRemoved.addListener(refetchTabGroupsIfNotProcessingYDoc);
+		browser.tabGroups.onUpdated.addListener(refetchTabGroupsIfNotProcessingYDoc);
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Y.Doc Observers - trigger Chrome APIs on upstream changes
+	// These handle changes synced from the server (e.g., markdown file deletions)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	client.tables.tabs.observe({
+		onDelete: async (id) => {
+			// Skip if this deletion came from our own refetch (downstream sync)
+			if (syncCoordination.isProcessingYDocChange) return;
+
+			syncCoordination.isProcessingYDocChange = true;
+			try {
+				const tabId = Number.parseInt(id, 10);
+				if (!Number.isNaN(tabId)) {
+					await browser.tabs.remove(tabId);
+				}
+			} catch (error) {
+				// Tab may already be closed or not exist
+				console.log(`[Background] Failed to close tab ${id}:`, error);
+			} finally {
+				syncCoordination.isProcessingYDocChange = false;
+			}
+		},
+	});
+
+	client.tables.windows.observe({
+		onDelete: async (id) => {
+			if (syncCoordination.isProcessingYDocChange) return;
+
+			syncCoordination.isProcessingYDocChange = true;
+			try {
+				const windowId = Number.parseInt(id, 10);
+				if (!Number.isNaN(windowId)) {
+					await browser.windows.remove(windowId);
+				}
+			} catch (error) {
+				console.log(`[Background] Failed to close window ${id}:`, error);
+			} finally {
+				syncCoordination.isProcessingYDocChange = false;
+			}
+		},
+	});
+
+	if (browser.tabGroups) {
+		client.tables.tab_groups.observe({
+			onDelete: async (id) => {
+				if (syncCoordination.isProcessingYDocChange) return;
+
+				syncCoordination.isProcessingYDocChange = true;
+				try {
+					const groupId = Number.parseInt(id, 10);
+					if (!Number.isNaN(groupId)) {
+						// Note: Chrome doesn't have tabGroups.remove(), but we can ungroup tabs
+						const tabs = await browser.tabs.query({ groupId });
+						for (const tab of tabs) {
+							if (tab.id !== undefined) {
+								await browser.tabs.ungroup(tab.id);
+							}
+						}
+					}
+				} catch (error) {
+					console.log(`[Background] Failed to ungroup tab group ${id}:`, error);
+				} finally {
+					syncCoordination.isProcessingYDocChange = false;
+				}
+			},
+		});
 	}
 
 	console.log('[Background] Tab Manager initialized', {
