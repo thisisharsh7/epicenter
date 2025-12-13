@@ -140,6 +140,8 @@ export const gmail = defineWorkspace({
 
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 				},
 			}),

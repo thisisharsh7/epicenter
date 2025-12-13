@@ -67,6 +67,8 @@ export const epicenter = defineWorkspace({
 							} satisfies SerializedRow<typeof table.schema>;
 							return Ok(row);
 						},
+						// ID is in frontmatter, not filename - file deletion sync won't work
+						extractRowIdFromFilename: () => undefined,
 					},
 				},
 			}),

@@ -6,32 +6,37 @@
  *
  * ## Contract
  *
- * All factory functions return a `TableMarkdownConfig<TTableSchema>` with:
+ * All factory functions return a `TableMarkdownConfig<TTableSchema>` with all three functions:
  * - `serialize`: Converts a row to { frontmatter, body, filename }
  * - `deserialize`: Converts { frontmatter, body, filename } back to a row (with validation)
+ * - `extractRowIdFromFilename`: Extracts the row ID from a filename (for file deletion/orphan cleanup)
+ *
+ * These three functions MUST be provided together or not at all. This ensures consistency
+ * between how files are written and how they're read back.
  *
  * ## Available Factories
  *
  * - `withBodyField(field)`: Common pattern where one field becomes the markdown body.
+ * - `withTitleFilename(field)`: Human-readable filenames like `{title}-{id}.md`.
  *
  * The true default config (`DEFAULT_TABLE_CONFIG`) is defined in `markdown-provider.ts`.
  *
  * ## Usage
  *
  * ```typescript
- * import { markdownProvider, withBodyField, DEFAULT_TABLE_CONFIG } from '@epicenter/hq';
+ * import { markdownProvider, withBodyField, withTitleFilename } from '@epicenter/hq';
  *
  * markdownProvider(c, {
  *   tableConfigs: {
- *     // Use the default (all in frontmatter) - imported from markdown-provider
- *     settings: DEFAULT_TABLE_CONFIG,
+ *     // No config needed - uses defaults (all in frontmatter, {id}.md filename)
+ *     settings: {},
  *
  *     // Use a convenience helper (content → body)
  *     articles: withBodyField('content'),
  *     posts: withBodyField('markdown'),
  *
- *     // With options
- *     journal: withBodyField('content', { stripNulls: false }),
+ *     // Human-readable filenames
+ *     tabs: withTitleFilename('title'),
  *   }
  * })
  * ```
@@ -50,54 +55,15 @@ import { MarkdownProviderErr, type MarkdownProviderError } from './markdown-prov
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Common fields that are always optional and independent
+ * Serialize function signature
  */
-type TableMarkdownConfigBase<TTableSchema extends TableSchema> = {
-	/**
-	 * Directory for this table's markdown files.
-	 *
-	 * **Optional**: Defaults to the table name
-	 *
-	 * **Two ways to specify the path**:
-	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to workspace directory
-	 * ```typescript
-	 * directory: './my-notes'      // → <workspace-dir>/my-notes
-	 * directory: '../shared'       // → <workspace-dir>/../shared
-	 * ```
-	 *
-	 * **Option 2: Absolute paths**: Used as-is, ignores workspace directory
-	 * ```typescript
-	 * directory: '/absolute/path/to/notes'
-	 * ```
-	 *
-	 * @default table name (e.g., "posts" → workspace-dir/posts)
-	 */
-	directory?: string;
-
-	/**
-	 * Serialize a row to markdown frontmatter, body, and filename.
-	 *
-	 * **Optional**: When not provided, uses default behavior:
-	 * - All fields except id go to frontmatter
-	 * - Empty body
-	 * - Filename: `{id}.md`
-	 *
-	 * IMPORTANT: The filename MUST be a simple filename without path separators.
-	 * The table's directory setting determines where the file is written.
-	 *
-	 * @param params.row - Row to serialize (already validated against schema)
-	 * @param params.table - TableHelper with metadata (name, schema, validators) and type inference helpers
-	 * @returns Frontmatter object, markdown body string, and simple filename (without directory path)
-	 */
-	serialize?(params: {
-		row: SerializedRow<TTableSchema>;
-		table: TableHelper<TTableSchema>;
-	}): {
-		frontmatter: Record<string, unknown>;
-		body: string;
-		filename: string;
-	};
+type SerializeFn<TTableSchema extends TableSchema> = (params: {
+	row: SerializedRow<TTableSchema>;
+	table: TableHelper<TTableSchema>;
+}) => {
+	frontmatter: Record<string, unknown>;
+	body: string;
+	filename: string;
 };
 
 /**
@@ -123,83 +89,105 @@ type ExtractRowIdFn = (filename: string) => string | undefined;
  *
  * ## Type Constraint
  *
- * If you provide a custom `deserialize` function, you MUST also provide
- * `extractRowIdFromFilename`. This ensures consistent ID extraction logic
- * between deserialization and file operations (deletion, orphan cleanup).
+ * The three functions (serialize, deserialize, extractRowIdFromFilename) must be
+ * provided together or not at all. This ensures consistency:
+ *
+ * - `serialize` determines the filename format
+ * - `deserialize` must understand that format to extract the row ID
+ * - `extractRowIdFromFilename` must use the same ID extraction logic for file operations
  *
  * Valid configurations:
  * - `{}` - Use all defaults
- * - `{ serialize }` - Custom serialize, default deserialize
- * - `{ extractRowIdFromFilename }` - Custom ID extraction, default deserialize
- * - `{ deserialize, extractRowIdFromFilename }` - Both custom (required pairing)
+ * - `{ directory }` - Custom directory, default serialize/deserialize
+ * - `{ serialize, deserialize, extractRowIdFromFilename }` - All custom (required pairing)
  *
- * Invalid configuration (compile error):
- * - `{ deserialize }` - Missing extractRowIdFromFilename
+ * Invalid configurations (compile error):
+ * - `{ serialize }` - Missing deserialize and extractRowIdFromFilename
+ * - `{ deserialize }` - Missing serialize and extractRowIdFromFilename
+ * - `{ serialize, deserialize }` - Missing extractRowIdFromFilename
  */
-export type TableMarkdownConfig<TTableSchema extends TableSchema> =
-	TableMarkdownConfigBase<TTableSchema> &
-		(
-			| {
-					/**
-					 * Use default deserialize and extractRowIdFromFilename.
-					 * Default deserialize extracts ID from filename (strips .md extension).
-					 */
-					deserialize?: undefined;
-					extractRowIdFromFilename?: undefined;
-			  }
-			| {
-					/**
-					 * Custom ID extraction with default deserialize.
-					 * Useful when you have a custom filename pattern but default deserialization works.
-					 */
-					deserialize?: undefined;
-					/**
-					 * Extract the row ID from a filename.
-					 *
-					 * Used for file deletions and orphan cleanup where we need to identify
-					 * the Y.js row from just the filename.
-					 *
-					 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
-					 * @returns The row ID extracted from the filename, or undefined if extraction fails
-					 *
-					 * @example
-					 * // For pattern: "{title}-{id}.md"
-					 * extractRowIdFromFilename: (filename) => {
-					 *   const basename = path.basename(filename, '.md');
-					 *   const lastDash = basename.lastIndexOf('-');
-					 *   return lastDash === -1 ? basename : basename.substring(lastDash + 1);
-					 * }
-					 */
-					extractRowIdFromFilename: ExtractRowIdFn;
-			  }
-			| {
-					/**
-					 * Deserialize markdown frontmatter and body back to a full row.
-					 *
-					 * **IMPORTANT**: When providing custom deserialize, you MUST also provide
-					 * extractRowIdFromFilename with matching ID extraction logic.
-					 *
-					 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
-					 * @param params.body - Markdown body content (text after frontmatter delimiters)
-					 * @param params.filename - Simple filename only (validated to not contain path separators)
-					 * @param params.table - TableHelper with metadata (name, schema, validators)
-					 * @returns Result with complete row (with id field), or error to skip this file
-					 */
-					deserialize: DeserializeFn<TTableSchema>;
-					/**
-					 * Extract the row ID from a filename.
-					 *
-					 * **REQUIRED** when providing custom deserialize to ensure consistent
-					 * ID extraction between deserialization and file operations.
-					 *
-					 * This function MUST use the same ID extraction logic as your deserialize function.
-					 *
-					 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
-					 * @returns The row ID extracted from the filename, or undefined if extraction fails
-					 */
-					extractRowIdFromFilename: ExtractRowIdFn;
-			  }
-		);
+export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
+	/**
+	 * Directory for this table's markdown files.
+	 *
+	 * **Optional**: Defaults to the table name. Independent of serialize/deserialize.
+	 *
+	 * **Two ways to specify the path**:
+	 *
+	 * **Option 1: Relative paths** (recommended): Resolved relative to workspace directory
+	 * ```typescript
+	 * directory: './my-notes'      // → <workspace-dir>/my-notes
+	 * directory: '../shared'       // → <workspace-dir>/../shared
+	 * ```
+	 *
+	 * **Option 2: Absolute paths**: Used as-is, ignores workspace directory
+	 * ```typescript
+	 * directory: '/absolute/path/to/notes'
+	 * ```
+	 *
+	 * @default table name (e.g., "posts" → workspace-dir/posts)
+	 */
+	directory?: string;
+} & (
+	| {
+			/**
+			 * Use all defaults for serialize/deserialize/extractRowIdFromFilename.
+			 *
+			 * Default behavior:
+			 * - Serialize: All fields except id → frontmatter, empty body, filename "{id}.md"
+			 * - Deserialize: Extract ID from filename (strip .md), validate frontmatter against schema
+			 * - ExtractRowIdFromFilename: Strip .md extension
+			 */
+			serialize?: undefined;
+			deserialize?: undefined;
+			extractRowIdFromFilename?: undefined;
+	  }
+	| {
+			/**
+			 * Serialize a row to markdown frontmatter, body, and filename.
+			 *
+			 * IMPORTANT: The filename MUST be a simple filename without path separators.
+			 * The table's directory setting determines where the file is written.
+			 *
+			 * @param params.row - Row to serialize (already validated against schema)
+			 * @param params.table - TableHelper with metadata (name, schema, validators)
+			 * @returns Frontmatter object, markdown body string, and simple filename
+			 */
+			serialize: SerializeFn<TTableSchema>;
+
+			/**
+			 * Deserialize markdown frontmatter and body back to a full row.
+			 *
+			 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
+			 * @param params.body - Markdown body content (text after frontmatter delimiters)
+			 * @param params.filename - Simple filename only (validated to not contain path separators)
+			 * @param params.table - TableHelper with metadata (name, schema, validators)
+			 * @returns Result with complete row (with id field), or error to skip this file
+			 */
+			deserialize: DeserializeFn<TTableSchema>;
+
+			/**
+			 * Extract the row ID from a filename.
+			 *
+			 * Used for file deletions and orphan cleanup where we need to identify
+			 * the Y.js row from just the filename (file content is gone).
+			 *
+			 * This function MUST use the same ID extraction logic as your deserialize function.
+			 *
+			 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
+			 * @returns The row ID extracted from the filename, or undefined if extraction fails
+			 *
+			 * @example
+			 * // For pattern: "{title}-{id}.md"
+			 * extractRowIdFromFilename: (filename) => {
+			 *   const basename = path.basename(filename, '.md');
+			 *   const lastDash = basename.lastIndexOf('-');
+			 *   return lastDash === -1 ? basename : basename.substring(lastDash + 1);
+			 * }
+			 */
+			extractRowIdFromFilename: ExtractRowIdFn;
+	  }
+);
 
 /**
  * Options for the withBodyField factory function

@@ -97,6 +97,8 @@ export const email = defineWorkspace({
 							} satisfies SerializedRow<typeof table.schema>;
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 				},
 			}),

@@ -89,6 +89,8 @@ const blogWorkspace = defineWorkspace({
 
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 					comments: {
 						serialize: ({ row: { id, ...row } }) => ({
@@ -121,6 +123,8 @@ const blogWorkspace = defineWorkspace({
 
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 				},
 			}),

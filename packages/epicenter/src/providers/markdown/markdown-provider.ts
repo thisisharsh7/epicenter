@@ -106,7 +106,7 @@ export const DEFAULT_TABLE_CONFIG = {
 
 // Re-export config types and functions
 export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
-export { withBodyField } from './configs';
+export { withBodyField, withTitleFilename } from './configs';
 
 /**
  * Bidirectional sync coordination state
