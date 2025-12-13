@@ -5,11 +5,11 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
-	markdownProvider,
-	sqliteProvider,
 	text,
 } from '@epicenter/hq';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { markdownProvider } from '@epicenter/hq/providers/markdown';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';

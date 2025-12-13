@@ -9,11 +9,6 @@
 			"node": "./src/index.node.ts",
 			"default": "./src/index.node.ts"
 		},
-		"./providers": {
-			"browser": "./src/providers/index.browser.ts",
-			"node": "./src/providers/index.node.ts",
-			"default": "./src/providers/index.node.ts"
-		},
 		"./providers/persistence": {
 			"browser": "./src/providers/persistence/index.browser.ts",
 			"node": "./src/providers/persistence/index.node.ts",
@@ -23,8 +18,6 @@
 		"./providers/markdown": "./src/providers/markdown/index.ts",
 		"./providers/sqlite": "./src/providers/sqlite/index.ts",
 		"./cli": "./src/cli/index.ts",
-		"./indexes/markdown": "./src/providers/markdown/index.ts",
-		"./indexes/sqlite": "./src/providers/sqlite/index.ts",
 		"./server": "./src/server/index.ts"
 	},
 	"bin": {

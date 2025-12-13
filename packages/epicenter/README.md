@@ -51,7 +51,7 @@ import {
   sqliteProvider,
   markdownProvider,
 } from '@epicenter/hq';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 
 // 1. Define your workspace
@@ -1113,7 +1113,7 @@ type ProviderContext = {
 **Common providers:**
 
 ```typescript
-import { setupPersistence } from '@epicenter/hq/providers';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { sqliteProvider, markdownProvider } from '@epicenter/hq';
 import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
 
@@ -1400,7 +1400,7 @@ Create markdown file provider.
 ### Persistence Provider
 
 ```typescript
-import { setupPersistence } from '@epicenter/hq/providers';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 ```
 
 **`setupPersistence`**

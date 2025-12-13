@@ -5,16 +5,14 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownProvider,
 	type SerializedRow,
 	select,
-	sqliteProvider,
 	tags,
 	text,
-	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { markdownProvider, MarkdownProviderErr, withBodyField } from '@epicenter/hq/providers/markdown';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { QUALITY_OPTIONS } from '../shared/quality';

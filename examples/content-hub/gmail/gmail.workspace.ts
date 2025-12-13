@@ -8,13 +8,12 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
-	markdownProvider,
 	type SerializedRow,
-	sqliteProvider,
 	text,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { markdownProvider, MarkdownProviderErr } from '@epicenter/hq/providers/markdown';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 import { google } from 'googleapis';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';

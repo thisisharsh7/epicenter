@@ -44,7 +44,7 @@ Move examples to root-level `examples/` directory and use proper package imports
 - To: `import { defineEpicenter } from '@epicenter/hq'`
 
 - From: `import { setupPersistence } from '../../src/core/workspace/providers'`
-- To: `import { setupPersistence } from '@epicenter/hq/providers'`
+- To: `import { setupPersistence } from '@epicenter/hq/providers/persistence'`
 
 ## Review
 

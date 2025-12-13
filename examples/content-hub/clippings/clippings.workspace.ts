@@ -9,14 +9,12 @@ import {
 	generateId,
 	id,
 	integer,
-	markdownProvider,
 	select,
-	sqliteProvider,
 	text,
-	withBodyField,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { markdownProvider, MarkdownProviderErr, withBodyField } from '@epicenter/hq/providers/markdown';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 import { Defuddle } from 'defuddle/node';
 import { JSDOM } from 'jsdom';

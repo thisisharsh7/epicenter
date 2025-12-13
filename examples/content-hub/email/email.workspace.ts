@@ -3,14 +3,13 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownProvider,
 	type SerializedRow,
-	sqliteProvider,
 	tags,
 	text,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { markdownProvider, MarkdownProviderErr } from '@epicenter/hq/providers/markdown';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 

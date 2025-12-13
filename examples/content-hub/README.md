@@ -416,7 +416,7 @@ For content that doesn't fit the posts model, create a new workspace:
 
    ```typescript
    import { defineWorkspace, sqliteIndex, ... } from '@epicenter/hq';
-   import { setupPersistence } from '@epicenter/hq/providers';
+   import { setupPersistence } from '@epicenter/hq/providers/persistence';
 
    export const newWorkspace = defineWorkspace({
      id: 'new-workspace',
