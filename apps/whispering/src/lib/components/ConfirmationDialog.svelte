@@ -38,7 +38,14 @@
 	 *   title: 'Delete item',
 	 *   description: 'Are you sure you want to delete this item?',
 	 *   confirm: { text: 'Delete', variant: 'destructive' },
-	 *   onConfirm: () => deleteMutation.mutate(item),
+	 *   onConfirm: async () => {
+	 *     const { error } = await rpc.db.items.delete.execute(item);
+	 *     if (error) {
+	 *       rpc.notify.error.execute({ title: 'Failed to delete', description: error.message });
+	 *       throw error;
+	 *     }
+	 *     rpc.notify.success.execute({ title: 'Deleted!', description: 'Item deleted.' });
+	 *   },
 	 * });
 	 * ```
 	 */
