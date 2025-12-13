@@ -136,26 +136,12 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 }) {
 	return Object.fromEntries(
 		Object.entries(schema).map(([tableName, tableSchema]) => {
-			// Lazily resolve the Y.Map for this table on each access.
-			//
-			// Why not cache the reference? When providers sync data via Y.applyUpdate(),
-			// Y.js may create new Y.Map structures. A cached reference would point to
-			// stale/empty data while the actual synced data lives in a different Y.Map.
-			const getYTable = (): Y.Map<YRow> => {
-				let ytable = ytables.get(tableName);
-				if (!ytable) {
-					ytable = new Y.Map<YRow>();
-					ytables.set(tableName, ytable);
-				}
-				return ytable;
-			};
-
 			return [
 				tableName,
 				createTableHelper({
 					ydoc,
 					tableName,
-					getYTable,
+					ytables,
 					schema: tableSchema,
 					// biome-ignore lint/style/noNonNullAssertion: validators is created by createWorkspaceValidators which maps over the same schema object, so every key in schema has a corresponding key in validators
 					validators: validators[tableName]!,
@@ -178,7 +164,7 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
  *
  * @param ydoc - The YJS document instance (used for transactions)
  * @param tableName - Name of the table (used in error messages)
- * @param getYTable - Function that returns the YJS Map containing the table's row data
+ * @param ytables - The root YJS Map containing all table data
  * @param schema - The table schema (column definitions only)
  * @param validators - The table validators (validation methods)
  * @returns A TableHelper instance with full CRUD operations
@@ -186,17 +172,33 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 function createTableHelper<TTableSchema extends TableSchema>({
 	ydoc,
 	tableName,
-	getYTable,
+	ytables,
 	schema,
 	validators,
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
-	getYTable: () => Y.Map<YRow>;
+	ytables: Y.Map<Y.Map<YRow>>;
 	schema: TTableSchema;
 	validators: TableValidators<TTableSchema>;
 }) {
 	type TRow = Row<TTableSchema>;
+
+	/**
+	 * Lazily resolve the Y.Map for this table on each access.
+	 *
+	 * Why not cache the reference? When providers sync data via Y.applyUpdate(),
+	 * Y.js may create new Y.Map structures. A cached reference would point to
+	 * stale/empty data while the actual synced data lives in a different Y.Map.
+	 */
+	const getYTable = (): Y.Map<YRow> => {
+		let ytable = ytables.get(tableName);
+		if (!ytable) {
+			ytable = new Y.Map<YRow>();
+			ytables.set(tableName, ytable);
+		}
+		return ytable;
+	};
 
 	return {
 		/**
@@ -758,18 +760,57 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		}): () => void {
 			const yjsValidator = validators.toYjsArktype();
 
+			// ARCHITECTURE: We observe on `ytables` (the root "tables" map) instead of
+			// on individual table Y.Maps. This is CRITICAL for sync reliability.
+			//
+			// WHY: When Y.js syncs with a remote document, if both client and server
+			// created a Y.Map at the same key (e.g., 'tabs'), Y.js uses Last-Writer-Wins
+			// to resolve the conflict. The "losing" Y.Map becomes orphaned.
+			//
+			// If we observed on `getYTable()` directly:
+			// 1. Client creates local Y.Map for 'tabs'
+			// 2. Observer registered on this local Y.Map
+			// 3. Sync brings server's Y.Map, which might "win" via LWW
+			// 4. `ytables.get('tabs')` now returns server's Y.Map
+			// 5. Observer is still on orphaned client Y.Map - events don't fire!
+			//
+			// By observing on `ytables`, we receive ALL events from ALL tables,
+			// then filter for our specific table name using `event.path[0]`.
+			// This ensures we see events regardless of which Y.Map "won" the conflict.
+			//
+			// TRADE-OFF: Each table's observer receives events for ALL tables and filters
+			// by table name. For N tables and M events, this is O(N×M) checks. For small N
+			// (typical: 3-10 tables), the overhead is negligible. If you have many tables
+			// and performance becomes an issue, consider a centralized dispatch pattern.
+
 			const observer = (
-				events: Y.YEvent<Y.Map<YRow> | YRow>[],
+				events: Y.YEvent<Y.Map<Y.Map<YRow>> | Y.Map<YRow> | YRow>[],
 				transaction: Y.Transaction,
 			) => {
 				for (const event of events) {
-					// Top-level events: row additions/deletions in the table
-					// event.target === getYTable() means the change happened directly on the table Y.Map
-					if (event.target === getYTable()) {
-						event.changes.keys.forEach((change, key) => {
+					// Filter events for THIS table only using event.path
+					// path structure:
+					// - [] = change on ytables itself (table added/removed)
+					// - ['tableName'] = row added/removed from table
+					// - ['tableName', 'rowId'] = field changed within row
+					// - ['tableName', 'rowId', ...] = deep field change (Y.Text/Y.Array)
+
+					// Skip events not for this table (fast path - most common case)
+					if (event.path.length > 0 && event.path[0] !== tableName) {
+						continue;
+					}
+
+					// Case 1: Event on ytables itself (table Y.Map added/removed)
+					// We don't expose this to user callbacks since it's rare and internal
+					if (event.target === ytables) {
+						continue;
+					}
+
+					// Case 2: Row added/removed (path = ['tableName'])
+					if (event.path.length === 1) {
+						event.changes.keys.forEach((change, rowId) => {
 							if (change.action === 'add') {
-								// A new row Y.Map was added to the table
-								const yrow = getYTable().get(key);
+								const yrow = getYTable().get(rowId);
 								if (yrow) {
 									const row = buildRowFromYRow(yrow, schema);
 									const result = yjsValidator(row);
@@ -777,10 +818,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 									if (result instanceof type.errors) {
 										callbacks.onAdd?.(
 											RowValidationErr({
-												message: `Row '${key}' in table '${tableName}' failed validation`,
+												message: `Row '${rowId}' in table '${tableName}' failed validation`,
 												context: {
 													tableName,
-													id: key,
+													id: rowId,
 													errors: result,
 													summary: result.summary,
 												},
@@ -792,22 +833,23 @@ function createTableHelper<TTableSchema extends TableSchema>({
 									}
 								}
 							} else if (change.action === 'delete') {
-								// A row Y.Map was removed from the table
-								callbacks.onDelete?.(key, transaction);
+								callbacks.onDelete?.(rowId, transaction);
 							}
-							// Note: We intentionally don't handle 'update' here because:
-							// - 'update' only fires if an entire row Y.Map is replaced with another Y.Map
-							// - We never do this in our codebase; we only mutate fields within rows
-							// - If we ever needed to support this pattern, we would add:
-							//   else if (change.action === 'update') { callbacks.onUpdate?.(...) }
 						});
-					} else if (event.path.length === 1 && event.changes.keys.size > 0) {
-						// Nested events: field modifications within a row
-						// event.path[0] is the row ID, event.target is the row's Y.Map
-						// Any field change (add/update/delete) is treated as a row update
-						const rowId = event.path[0] as string;
+						continue;
+					}
+
+					// Case 3: Field changed within row (path = ['tableName', 'rowId'] or deeper)
+					// This handles both direct field changes (path.length === 2) and
+					// deep nested changes in Y.Text/Y.Array (path.length > 2)
+					if (event.path.length >= 2) {
+						const rowId = event.path[1] as string;
 						const yrow = getYTable().get(rowId);
-						if (yrow) {
+
+						// Fire onUpdate if:
+						// - There are actual key changes (field added/modified/deleted), OR
+						// - It's a deep change (Y.Text/Y.Array modification within a field)
+						if (yrow && (event.changes.keys.size > 0 || event.path.length > 2)) {
 							const row = buildRowFromYRow(yrow, schema);
 							const result = yjsValidator(row);
 
@@ -829,16 +871,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 							}
 						}
 					}
-					// Note: We use event.path.length === 1 to detect row-level changes
-					// If you have Y.Maps/Y.Arrays nested within row fields, those would have
-					// event.path.length > 1. Change to >= 1 if you need to support that.
 				}
 			};
 
-			getYTable().observeDeep(observer);
+			// Observe on ytables (root) to catch all events regardless of Y.Map replacement
+			ytables.observeDeep(observer);
 
 			return () => {
-				getYTable().unobserveDeep(observer);
+				ytables.unobserveDeep(observer);
 			};
 		},
 
