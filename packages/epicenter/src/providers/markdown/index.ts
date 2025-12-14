@@ -8,6 +8,7 @@
 // Table config types and serializer factories
 export type {
 	BodyFieldSerializerOptions,
+	DomainTitleFilenameSerializerOptions,
 	MarkdownSerializer,
 	ParsedFilename,
 	TableMarkdownConfig,
@@ -19,6 +20,7 @@ export {
 	// Pre-built serializer factories
 	bodyFieldSerializer,
 	defaultSerializer,
+	domainTitleFilenameSerializer,
 	titleFilenameSerializer,
 } from './configs';
 

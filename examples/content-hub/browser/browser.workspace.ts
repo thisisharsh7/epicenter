@@ -30,8 +30,8 @@ import {
 	text,
 } from '@epicenter/hq';
 import {
+	domainTitleFilenameSerializer,
 	markdownProvider,
-	titleFilenameSerializer,
 } from '@epicenter/hq/providers/markdown';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
@@ -187,14 +187,14 @@ export const browser = defineWorkspace({
 		// This avoids the 150MB+ .yjs file from YJS operation history accumulation.
 		sqlite: (c) => sqliteProvider(c),
 		// Markdown provider with human-readable filenames:
-		// - Tabs: "{title}-{id}.md" (e.g., "GitHub - Pull Requests-abc123.md")
+		// - Tabs: "{domain} - {title}-{id}.md" (e.g., "github.com - Pull Requests-abc123_456.md")
 		// - Windows/TabGroups: "{id}.md" (default)
 		// Set debug: true to troubleshoot bulk file sync issues
 		markdown: (c) =>
 			markdownProvider(c, {
 				debug: true, // TODO: Remove after debugging bulk file sync
 				tableConfigs: {
-					tabs: { serializer: titleFilenameSerializer('title') },
+					tabs: { serializer: domainTitleFilenameSerializer('url', 'title') },
 				},
 			}),
 	},

@@ -479,6 +479,30 @@ export type TitleFilenameSerializerOptions = {
 };
 
 /**
+ * Options for the domainTitleFilenameSerializer factory function
+ */
+export type DomainTitleFilenameSerializerOptions = {
+	/**
+	 * Strip null values from frontmatter for cleaner YAML output.
+	 * Nullable fields are restored via arktype's .default(null) during deserialization.
+	 * @default true
+	 */
+	stripNulls?: boolean;
+
+	/**
+	 * Maximum characters for the title portion of the filename.
+	 * @default 60
+	 */
+	maxTitleLength?: number;
+
+	/**
+	 * Maximum characters for the domain portion of the filename.
+	 * @default 30
+	 */
+	maxDomainLength?: number;
+};
+
+/**
  * Title filename serializer: `{title}-{id}.md` filename pattern.
  *
  * Creates filenames with the title for readability while maintaining
@@ -545,6 +569,156 @@ export function titleFilenameSerializer<TTableSchema extends TableSchema>(
 				frontmatter,
 				body: '',
 				filename: `${sanitizedTitle}-${id}.md`,
+			};
+		})
+		.deserialize(({ frontmatter, parsed, table }) => {
+			const { id } = parsed;
+
+			// Combine id with frontmatter
+			const data = { id, ...frontmatter };
+
+			// Validate using direct arktype pattern
+			const validator = table.validators.toArktype();
+			const result = validator(data);
+
+			if (result instanceof type.errors) {
+				return MarkdownProviderErr({
+					message: `Failed to validate row ${id}`,
+					context: {
+						fileName: `${id}.md`,
+						id,
+						reason: result.summary,
+					},
+				});
+			}
+
+			return Ok(result as SerializedRow<TTableSchema>);
+		});
+}
+
+/**
+ * Extracts the domain (hostname) from a URL string.
+ * Returns 'unknown' for invalid URLs or non-http(s) protocols.
+ */
+function extractDomain(url: string): string {
+	try {
+		const parsed = new URL(url);
+		// Handle special protocols
+		if (parsed.protocol === 'chrome:' || parsed.protocol === 'chrome-extension:') {
+			return parsed.protocol.replace(':', '');
+		}
+		if (parsed.protocol === 'file:') {
+			return 'file';
+		}
+		if (parsed.protocol === 'about:') {
+			return 'about';
+		}
+		// For http/https, return the hostname
+		return parsed.hostname || 'unknown';
+	} catch {
+		return 'unknown';
+	}
+}
+
+/**
+ * Domain-title filename serializer: `{domain} - {title}-{id}.md` filename pattern.
+ *
+ * Creates filenames with domain and title for maximum readability while maintaining
+ * the ID suffix for uniqueness. Provides:
+ * - Organization: Domain comes first for grouping related tabs when sorted
+ * - Readability: Title provides context for the specific page
+ * - Uniqueness: ID suffix guarantees no filename collisions
+ * - Sorting: Files sort alphabetically by domain, then title
+ *
+ * Filename format: `{domain} - {title}-{id}.md`
+ * Example: `github.com - Pull Requests-abc123_456.md`
+ *
+ * Parsing strategy (for deserialization):
+ * - Last `-` separates id from the rest
+ * - First ` - ` (space-dash-space) separates domain from title
+ * - This works because domains can't contain spaces
+ *
+ * @param urlField - The field containing the URL to extract domain from
+ * @param titleField - The field to use for the title part of the filename
+ * @param options - Optional configuration for null stripping and max lengths
+ *
+ * @example
+ * ```typescript
+ * markdownProvider(c, {
+ *   tableConfigs: {
+ *     tabs: { serializer: domainTitleFilenameSerializer('url', 'title') },
+ *   }
+ * })
+ * ```
+ */
+export function domainTitleFilenameSerializer<TTableSchema extends TableSchema>(
+	urlField: keyof TTableSchema & string,
+	titleField: keyof TTableSchema & string,
+	options: DomainTitleFilenameSerializerOptions = {},
+): MarkdownSerializer<
+	TTableSchema,
+	ParsedFilename & { domainFromFilename: string; titleFromFilename: string }
+> {
+	const { stripNulls = true, maxTitleLength = 60, maxDomainLength = 30 } = options;
+
+	return defineSerializer<TTableSchema>()
+		.parseFilename((filename: `${string} - ${string}-${string}.md`) => {
+			const basename = path.basename(filename, '.md');
+
+			// Find the last dash to extract ID
+			const lastDashIndex = basename.lastIndexOf('-');
+			if (lastDashIndex === -1) {
+				// Fallback: no dash found, treat entire basename as ID
+				return { id: basename, domainFromFilename: '', titleFromFilename: '' };
+			}
+
+			const id = basename.substring(lastDashIndex + 1);
+			const domainAndTitle = basename.substring(0, lastDashIndex);
+
+			// Find the first " - " to separate domain from title
+			const separatorIndex = domainAndTitle.indexOf(' - ');
+			if (separatorIndex === -1) {
+				// Fallback: no separator found, treat as title only (backwards compat with titleFilenameSerializer)
+				return { id, domainFromFilename: '', titleFromFilename: domainAndTitle };
+			}
+
+			const domainFromFilename = domainAndTitle.substring(0, separatorIndex);
+			const titleFromFilename = domainAndTitle.substring(separatorIndex + 3); // Skip " - "
+
+			return { id, domainFromFilename, titleFromFilename };
+		})
+		.serialize(({ row }) => {
+			const { id, ...rest } = row;
+			const rawUrl = (row[urlField] as string) || '';
+			const rawTitle = (row[titleField] as string) || '';
+
+			// Extract domain from URL
+			const domain = extractDomain(rawUrl);
+			const sanitizedDomain = filenamify(domain, {
+				maxLength: maxDomainLength,
+				replacement: '',
+			});
+
+			// Sanitize title
+			const sanitizedTitle =
+				rawTitle.trim() === ''
+					? 'Untitled'
+					: filenamify(rawTitle, {
+							maxLength: maxTitleLength,
+							replacement: '',
+						});
+
+			// Optionally strip null values for cleaner YAML
+			const frontmatter = stripNulls
+				? Object.fromEntries(
+						Object.entries(rest).filter(([_, value]) => value !== null),
+					)
+				: rest;
+
+			return {
+				frontmatter,
+				body: '',
+				filename: `${sanitizedDomain} - ${sanitizedTitle}-${id}.md`,
 			};
 		})
 		.deserialize(({ frontmatter, parsed, table }) => {
