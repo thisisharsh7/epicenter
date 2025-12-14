@@ -152,72 +152,94 @@ export type TableMarkdownConfig<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Step 2: After parser is defined, add serialize/fromContent functions.
+ * Step 2: After parseFilename is defined, add serialize function.
  *
  * Type flow:
  * - `TFilename` from parser input constrains serialize's filename return
- * - `TParsed` from parser output flows to fromContent's parsed parameter
+ * - `TParsed` is captured for use in deserialize step
  */
 type SerializerBuilderWithParser<
 	TTableSchema extends TableSchema,
 	TFilename extends string,
 	TParsed extends ParsedFilename,
 > = {
-	withCodecs(config: {
-		serialize: (params: {
+	/**
+	 * Step 2: Define how to serialize a row to markdown format.
+	 *
+	 * The filename return type is constrained to match the parser's input type.
+	 */
+	serialize(
+		serializeFn: (params: {
 			row: SerializedRow<TTableSchema>;
 			table: TableHelper<TTableSchema>;
 		}) => {
 			frontmatter: Record<string, unknown>;
 			body: string;
 			filename: TFilename;
-		};
-		fromContent: (params: {
+		},
+	): SerializerBuilderWithSerialize<TTableSchema, TFilename, TParsed>;
+};
+
+/**
+ * Step 3: After serialize is defined, add deserialize function.
+ *
+ * Type flow:
+ * - `TParsed` from parser output flows to deserialize's parsed parameter
+ * - `TFilename` is available for the filename parameter
+ */
+type SerializerBuilderWithSerialize<
+	TTableSchema extends TableSchema,
+	TFilename extends string,
+	TParsed extends ParsedFilename,
+> = {
+	/**
+	 * Step 3: Define how to deserialize markdown content back to a row.
+	 *
+	 * The `parsed` parameter contains the data extracted from parseFilename.
+	 */
+	deserialize(
+		deserializeFn: (params: {
 			frontmatter: Record<string, unknown>;
 			body: string;
 			filename: TFilename;
 			parsed: TParsed;
 			table: TableHelper<TTableSchema>;
-		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
-	}): MarkdownSerializer<TTableSchema, TParsed>;
+		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>,
+	): MarkdownSerializer<TTableSchema, TParsed>;
 };
 
 /**
- * Creates a MarkdownSerializer using a builder pattern with full type inference.
+ * Creates a MarkdownSerializer using a fluent builder pattern with full type inference.
  *
- * The builder ensures bidirectional type flow:
- * - `TFilename`: Inferred from parser's input parameter, enforced on serialize's return
- * - `TParsed`: Inferred from parser's return type, provided to fromContent's parsed param
+ * The builder has three steps that flow naturally:
+ * 1. `.parseFilename()` - Define how to extract data from filenames
+ * 2. `.serialize()` - Define how to convert rows to markdown
+ * 3. `.deserialize()` - Define how to reconstruct rows from markdown
  *
- * This provides excellent type safety: the filename format you parse must match
- * the filename format you serialize to, and any extra data you extract from
- * the filename is automatically available in fromContent with the correct type.
+ * Type flow ensures safety:
+ * - `TFilename`: Inferred from parseFilename's input, enforced on serialize's return
+ * - `TParsed`: Inferred from parseFilename's return, provided to deserialize's parsed param
  *
  * @example
  * ```typescript
- * // Basic usage with template literal types
+ * // Basic usage
  * const serializer = defineSerializer<MySchema>()
- *   .withParser((filename: `${string}.md`) => {
+ *   .parseFilename((filename: `${string}.md`) => {
  *     const id = path.basename(filename, '.md');
  *     return { id };
  *   })
- *   .withCodecs({
- *     serialize: ({ row }) => ({
- *       frontmatter: { ...row },
- *       body: '',
- *       filename: `${row.id}.md`,  // Must match parser's TFilename
- *     }),
- *     fromContent: ({ parsed, frontmatter }) => {
- *       // parsed.id is fully typed from parser's return!
- *       return Ok({ id: parsed.id, ...frontmatter });
- *     },
+ *   .serialize(({ row }) => ({
+ *     frontmatter: { ...row },
+ *     body: '',
+ *     filename: `${row.id}.md`,
+ *   }))
+ *   .deserialize(({ parsed, frontmatter }) => {
+ *     return Ok({ id: parsed.id, ...frontmatter });
  *   });
  *
  * // Advanced: Extract extra data from filename
- * type TitleIdFilename = `${string}-${string}.md`;
- *
  * const titleSerializer = defineSerializer<TabSchema>()
- *   .withParser((filename: TitleIdFilename) => {
+ *   .parseFilename((filename: `${string}-${string}.md`) => {
  *     const basename = path.basename(filename, '.md');
  *     const lastDash = basename.lastIndexOf('-');
  *     return {
@@ -225,36 +247,44 @@ type SerializerBuilderWithParser<
  *       titleFromFilename: basename.substring(0, lastDash),
  *     };
  *   })
- *   .withCodecs({
- *     serialize: ({ row }) => ({
- *       frontmatter: {},
- *       body: '',
- *       filename: `${row.title}-${row.id}.md` as TitleIdFilename,
- *     }),
- *     fromContent: ({ parsed }) => {
- *       // parsed.titleFromFilename is typed!
- *       console.log(parsed.titleFromFilename);
- *       return Ok({ id: parsed.id, ... });
- *     },
+ *   .serialize(({ row }) => ({
+ *     frontmatter: {},
+ *     body: '',
+ *     filename: `${row.title}-${row.id}.md`,
+ *   }))
+ *   .deserialize(({ parsed }) => {
+ *     // parsed.titleFromFilename is typed!
+ *     console.log(parsed.titleFromFilename);
+ *     return Ok({ id: parsed.id, ... });
  *   });
  * ```
  */
 export function defineSerializer<TTableSchema extends TableSchema>(): {
-	withParser<TFilename extends string, TParsed extends ParsedFilename>(
-		parseFilename: (filename: TFilename) => TParsed | undefined,
+	/**
+	 * Step 1: Define how to parse filenames to extract structured data.
+	 *
+	 * Must return at least `{ id }`. Can include additional fields that will
+	 * be available in the deserialize step via the `parsed` parameter.
+	 */
+	parseFilename<TFilename extends string, TParsed extends ParsedFilename>(
+		parseFilenameFn: (filename: TFilename) => TParsed | undefined,
 	): SerializerBuilderWithParser<TTableSchema, TFilename, TParsed>;
 } {
 	return {
-		withParser<TFilename extends string, TParsed extends ParsedFilename>(
-			parseFilename: (filename: TFilename) => TParsed | undefined,
+		parseFilename<TFilename extends string, TParsed extends ParsedFilename>(
+			parseFilenameFn: (filename: TFilename) => TParsed | undefined,
 		): SerializerBuilderWithParser<TTableSchema, TFilename, TParsed> {
 			return {
-				withCodecs(config) {
+				serialize(serializeFn) {
 					return {
-						serialize: config.serialize as MarkdownSerializer<TTableSchema, TParsed>['serialize'],
-						deserialize: {
-							parseFilename: parseFilename as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['parseFilename'],
-							fromContent: config.fromContent as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['fromContent'],
+						deserialize(deserializeFn) {
+							return {
+								serialize: serializeFn as MarkdownSerializer<TTableSchema, TParsed>['serialize'],
+								deserialize: {
+									parseFilename: parseFilenameFn as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['parseFilename'],
+									fromContent: deserializeFn as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['fromContent'],
+								},
+							};
 						},
 					};
 				},
@@ -289,36 +319,33 @@ export function defaultSerializer<
 	TTableSchema extends TableSchema = TableSchema,
 >(): MarkdownSerializer<TTableSchema> {
 	return defineSerializer<TTableSchema>()
-		.withParser((filename: `${string}.md`) => {
+		.parseFilename((filename: `${string}.md`) => {
 			const id = path.basename(filename, '.md');
 			return { id };
 		})
-		.withCodecs({
-			serialize: ({ row: { id, ...rest } }) => ({
-				frontmatter: rest,
-				body: '',
-				filename: `${id}.md`,
-			}),
+		.serialize(({ row: { id, ...rest } }) => ({
+			frontmatter: rest,
+			body: '',
+			filename: `${id}.md`,
+		}))
+		.deserialize(({ frontmatter, parsed, table }) => {
+			const { id } = parsed;
 
-			fromContent: ({ frontmatter, parsed, table }) => {
-				const { id } = parsed;
+			// Combine id with frontmatter
+			const data = { id, ...frontmatter };
 
-				// Combine id with frontmatter
-				const data = { id, ...frontmatter };
+			// Validate using direct arktype pattern
+			const validator = table.validators.toArktype();
+			const result = validator(data);
 
-				// Validate using direct arktype pattern
-				const validator = table.validators.toArktype();
-				const result = validator(data);
+			if (result instanceof type.errors) {
+				return MarkdownProviderErr({
+					message: `Failed to validate row ${id}`,
+					context: { fileName: `${id}.md`, id, reason: result.summary },
+				});
+			}
 
-				if (result instanceof type.errors) {
-					return MarkdownProviderErr({
-						message: `Failed to validate row ${id}`,
-						context: { fileName: `${id}.md`, id, reason: result.summary },
-					});
-				}
-
-				return Ok(result as SerializedRow<TTableSchema>);
-			},
+			return Ok(result as SerializedRow<TTableSchema>);
 		});
 }
 
@@ -372,61 +399,58 @@ export function bodyFieldSerializer<TTableSchema extends TableSchema>(
 	} = options;
 
 	return defineSerializer<TTableSchema>()
-		.withParser((filename: `${string}.md`) => {
+		.parseFilename((filename: `${string}.md`) => {
 			const id = path.basename(filename, '.md');
 			return { id };
 		})
-		.withCodecs({
-			serialize: ({ row }) => {
-				// Extract body field, filename field, and the rest
-				const { [bodyField]: body, [filenameField]: filename, ...rest } = row;
+		.serialize(({ row }) => {
+			// Extract body field, filename field, and the rest
+			const { [bodyField]: body, [filenameField]: filename, ...rest } = row;
 
-				// Optionally strip null values for cleaner YAML
-				const frontmatter = stripNulls
-					? Object.fromEntries(
-							Object.entries(rest).filter(([_, value]) => value !== null),
-						)
-					: rest;
+			// Optionally strip null values for cleaner YAML
+			const frontmatter = stripNulls
+				? Object.fromEntries(
+						Object.entries(rest).filter(([_, value]) => value !== null),
+					)
+				: rest;
 
-				return {
-					frontmatter,
-					body: (body as string) ?? '',
-					filename: `${filename}.md`,
-				};
-			},
+			return {
+				frontmatter,
+				body: (body as string) ?? '',
+				filename: `${filename}.md`,
+			};
+		})
+		.deserialize(({ frontmatter, body, parsed, table }) => {
+			const { id: rowId } = parsed;
 
-			fromContent: ({ frontmatter, body, parsed, table }) => {
-				const { id: rowId } = parsed;
+			// Create validator that omits the body field and filename field
+			// Nullable fields that were stripped during serialize are restored via .default(null)
+			const FrontMatter = table.validators
+				.toArktype()
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				.omit(filenameField as any, bodyField as any);
 
-				// Create validator that omits the body field and filename field
-				// Nullable fields that were stripped during serialize are restored via .default(null)
-				const FrontMatter = table.validators
-					.toArktype()
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					.omit(filenameField as any, bodyField as any);
+			const validatedFrontmatter = FrontMatter(frontmatter);
 
-				const validatedFrontmatter = FrontMatter(frontmatter);
+			if (validatedFrontmatter instanceof type.errors) {
+				return MarkdownProviderErr({
+					message: `Invalid frontmatter for row ${rowId}`,
+					context: {
+						fileName: `${rowId}.md`,
+						id: rowId,
+						reason: validatedFrontmatter.summary,
+					},
+				});
+			}
 
-				if (validatedFrontmatter instanceof type.errors) {
-					return MarkdownProviderErr({
-						message: `Invalid frontmatter for row ${rowId}`,
-						context: {
-							fileName: `${rowId}.md`,
-							id: rowId,
-							reason: validatedFrontmatter.summary,
-						},
-					});
-				}
+			// Reconstruct the full row
+			const row = {
+				[filenameField]: rowId,
+				[bodyField]: body,
+				...(validatedFrontmatter as Record<string, unknown>),
+			} as SerializedRow<TTableSchema>;
 
-				// Reconstruct the full row
-				const row = {
-					[filenameField]: rowId,
-					[bodyField]: body,
-					...(validatedFrontmatter as Record<string, unknown>),
-				} as SerializedRow<TTableSchema>;
-
-				return Ok(row);
-			},
+			return Ok(row);
 		});
 }
 
@@ -477,7 +501,7 @@ export function titleFilenameSerializer<TTableSchema extends TableSchema>(
 	const { stripNulls = true, maxTitleLength = 80 } = options;
 
 	return defineSerializer<TTableSchema>()
-		.withParser((filename: `${string}-${string}.md`) => {
+		.parseFilename((filename: `${string}-${string}.md`) => {
 			const basename = path.basename(filename, '.md');
 			const lastDashIndex = basename.lastIndexOf('-');
 			// If no dash found, treat entire basename as ID (fallback to default behavior)
@@ -487,57 +511,54 @@ export function titleFilenameSerializer<TTableSchema extends TableSchema>(
 				lastDashIndex === -1 ? '' : basename.substring(0, lastDashIndex);
 			return { id, titleFromFilename };
 		})
-		.withCodecs({
-			serialize: ({ row }) => {
-				const { id, ...rest } = row;
-				const rawTitle = (row[titleField] as string) || '';
+		.serialize(({ row }) => {
+			const { id, ...rest } = row;
+			const rawTitle = (row[titleField] as string) || '';
 
-				// Use filenamify for robust cross-platform filename sanitization
-				// Handles Unicode normalization, grapheme-aware truncation, emoji preservation
-				const sanitizedTitle =
-					rawTitle.trim() === ''
-						? 'Untitled'
-						: filenamify(rawTitle, {
-								maxLength: maxTitleLength,
-								replacement: '',
-							});
+			// Use filenamify for robust cross-platform filename sanitization
+			// Handles Unicode normalization, grapheme-aware truncation, emoji preservation
+			const sanitizedTitle =
+				rawTitle.trim() === ''
+					? 'Untitled'
+					: filenamify(rawTitle, {
+							maxLength: maxTitleLength,
+							replacement: '',
+						});
 
-				// Optionally strip null values for cleaner YAML
-				const frontmatter = stripNulls
-					? Object.fromEntries(
-							Object.entries(rest).filter(([_, value]) => value !== null),
-						)
-					: rest;
+			// Optionally strip null values for cleaner YAML
+			const frontmatter = stripNulls
+				? Object.fromEntries(
+						Object.entries(rest).filter(([_, value]) => value !== null),
+					)
+				: rest;
 
-				return {
-					frontmatter,
-					body: '',
-					filename: `${sanitizedTitle}-${id}.md`,
-				};
-			},
+			return {
+				frontmatter,
+				body: '',
+				filename: `${sanitizedTitle}-${id}.md`,
+			};
+		})
+		.deserialize(({ frontmatter, parsed, table }) => {
+			const { id } = parsed;
 
-			fromContent: ({ frontmatter, parsed, table }) => {
-				const { id } = parsed;
+			// Combine id with frontmatter
+			const data = { id, ...frontmatter };
 
-				// Combine id with frontmatter
-				const data = { id, ...frontmatter };
+			// Validate using direct arktype pattern
+			const validator = table.validators.toArktype();
+			const result = validator(data);
 
-				// Validate using direct arktype pattern
-				const validator = table.validators.toArktype();
-				const result = validator(data);
+			if (result instanceof type.errors) {
+				return MarkdownProviderErr({
+					message: `Failed to validate row ${id}`,
+					context: {
+						fileName: `${id}.md`,
+						id,
+						reason: result.summary,
+					},
+				});
+			}
 
-				if (result instanceof type.errors) {
-					return MarkdownProviderErr({
-						message: `Failed to validate row ${id}`,
-						context: {
-							fileName: `${id}.md`,
-							id,
-							reason: result.summary,
-						},
-					});
-				}
-
-				return Ok(result as SerializedRow<TTableSchema>);
-			},
+			return Ok(result as SerializedRow<TTableSchema>);
 		});
 }
