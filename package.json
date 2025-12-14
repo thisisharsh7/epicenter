@@ -80,8 +80,5 @@
 		"prettier-plugin-tailwindcss": "^0.6.11",
 		"svelte-eslint-parser": "^1.4.0",
 		"turbo": "catalog:"
-	},
-	"dependencies": {
-		"arktype": "^2.1.27"
 	}
 }
