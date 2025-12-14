@@ -53,7 +53,6 @@ export type {
 	ParsedFilename,
 	TableMarkdownConfig,
 	TitleFilenameSerializerOptions,
-	WithBodyFieldOptions,
 } from './configs';
 export {
 	// Builder for custom serializers with full type inference
@@ -62,10 +61,6 @@ export {
 	bodyFieldSerializer,
 	defaultSerializer,
 	titleFilenameSerializer,
-	// Legacy exports (deprecated)
-	defaultTableConfig,
-	withBodyField,
-	withTitleFilename,
 } from './configs';
 
 /**
