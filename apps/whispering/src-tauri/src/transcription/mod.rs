@@ -10,6 +10,7 @@ use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use transcribe_rs::{
     engines::{
+        moonshine::MoonshineModelParams,
         parakeet::{ParakeetInferenceParams, TimestampGranularity},
         whisper::WhisperInferenceParams,
     },
@@ -659,6 +660,107 @@ pub async fn transcribe_audio_parakeet(
     let transcript = result.text.trim().to_string();
     info!(
         "[Transcription] Parakeet transcription complete: characters={}",
+        transcript.len()
+    );
+    Ok(transcript)
+}
+
+#[tauri::command]
+pub async fn transcribe_audio_moonshine(
+    audio_data: Vec<u8>,
+    model_path: String,
+    variant: String,
+    model_manager: tauri::State<'_, ModelManager>,
+) -> Result<String, TranscriptionError> {
+    info!(
+        "[Transcription] starting Moonshine transcription: audio_bytes={} model_path={} variant={}",
+        audio_data.len(),
+        model_path,
+        variant
+    );
+
+    // Convert audio to 16kHz mono format
+    let wav_data = convert_audio_for_whisper(audio_data)?;
+    debug!(
+        "[Transcription] audio conversion complete: wav_bytes={}",
+        wav_data.len()
+    );
+
+    // Extract samples from WAV
+    let samples = extract_samples_from_wav(wav_data)?;
+    debug!(
+        "[Transcription] extracted {} PCM samples for Moonshine engine",
+        samples.len()
+    );
+
+    // Return early if audio is empty
+    if samples.is_empty() {
+        warn!("[Transcription] no samples extracted, returning empty transcription");
+        return Ok(String::new());
+    }
+
+    // Parse variant string to MoonshineModelParams
+    let model_params = match variant.as_str() {
+        "tiny" | "tiny-en" => MoonshineModelParams::tiny(),
+        "base" | "base-en" => MoonshineModelParams::base(),
+        // For other language variants, use the appropriate base model
+        // Moonshine tiny variants: ar, zh, ja, ko, uk, vi
+        // Moonshine base variants: es
+        v if v.starts_with("tiny-") => MoonshineModelParams::tiny(),
+        v if v.starts_with("base-") => MoonshineModelParams::base(),
+        _ => {
+            warn!(
+                "[Transcription] unknown Moonshine variant '{}', defaulting to tiny",
+                variant
+            );
+            MoonshineModelParams::tiny()
+        }
+    };
+
+    // Get or load the model using the persistent model manager
+    let engine_arc = model_manager
+        .get_or_load_moonshine(PathBuf::from(&model_path), model_params)
+        .map_err(|e| TranscriptionError::ModelLoadError { message: e })?;
+    debug!("[Transcription] Moonshine model ready: {}", model_path);
+
+    // Run transcription with the persistent engine
+    // Use into_inner() to recover from poisoned mutex, but clear state to force fresh reload
+    let result = {
+        let mut engine_guard = engine_arc.lock().unwrap_or_else(|poisoned| {
+            warn!(
+                "[Transcription] Engine mutex was poisoned from previous panic, clearing state to force reload..."
+            );
+            let mut recovered = poisoned.into_inner();
+            *recovered = None; // Clear potentially corrupted state
+            recovered
+        });
+        let engine = engine_guard
+            .as_mut()
+            .ok_or_else(|| TranscriptionError::ModelLoadError {
+                message: "Model not loaded (may have been cleared after previous error). Please try again.".to_string(),
+            })?;
+
+        // Extract the MoonshineEngine from the enum
+        let moonshine_engine = match engine {
+            model_manager::Engine::Moonshine(e) => e,
+            _ => {
+                return Err(TranscriptionError::ModelLoadError {
+                    message: "Expected Moonshine engine but got different type".to_string(),
+                })
+            }
+        };
+
+        // Moonshine doesn't have inference params like Whisper, pass None
+        moonshine_engine
+            .transcribe_samples(samples, None)
+            .map_err(|e| TranscriptionError::TranscriptionError {
+                message: e.to_string(),
+            })?
+    };
+
+    let transcript = result.text.trim().to_string();
+    info!(
+        "[Transcription] Moonshine transcription complete: characters={}",
         transcript.len()
     );
     Ok(transcript)
