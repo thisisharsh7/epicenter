@@ -144,6 +144,8 @@ export default defineBackground(() => {
 				);
 				const existingYDocTabs = tables.tabs.getAllValid();
 
+				const { TabId } = createBrowserConverters(deviceId);
+
 				tables.$transact(() => {
 					// Upsert all browser tabs (with device-scoped IDs)
 					for (const tab of browserTabs) {
@@ -151,10 +153,20 @@ export default defineBackground(() => {
 						tables.tabs.upsert(tabToRow(tab));
 					}
 
-					// Delete only THIS device's tabs that aren't in browser
+					// Delete only THIS device's tabs that aren't in browser OR have malformed IDs
 					for (const existing of existingYDocTabs) {
 						if (existing.device_id !== deviceId) continue; // Skip other devices!
+
+						// Check 1: tab_id doesn't exist in browser
 						if (!tabIds.has(existing.tab_id)) {
+							tables.tabs.delete({ id: existing.id });
+							continue;
+						}
+
+						// Check 2: ID doesn't match expected pattern (e.g., from copied markdown files)
+						// Expected: "${deviceId}_${tabId}", but copied files may have " copy 2" suffix
+						const expectedId = TabId(existing.tab_id);
+						if (existing.id !== expectedId) {
 							tables.tabs.delete({ id: existing.id });
 						}
 					}
@@ -167,7 +179,7 @@ export default defineBackground(() => {
 			 */
 			async refetchWindows() {
 				const deviceId = await deviceIdPromise;
-				const { windowToRow } = createBrowserConverters(deviceId);
+				const { windowToRow, WindowId } = createBrowserConverters(deviceId);
 				const browserWindows = await browser.windows.getAll();
 				const windowIds = new Set(
 					browserWindows.filter((w) => w.id !== undefined).map((w) => w.id!),
@@ -181,10 +193,19 @@ export default defineBackground(() => {
 						tables.windows.upsert(windowToRow(win));
 					}
 
-					// Delete only THIS device's windows that aren't in browser
+					// Delete only THIS device's windows that aren't in browser OR have malformed IDs
 					for (const existing of existingYDocWindows) {
 						if (existing.device_id !== deviceId) continue; // Skip other devices!
+
+						// Check 1: window_id doesn't exist in browser
 						if (!windowIds.has(existing.window_id)) {
+							tables.windows.delete({ id: existing.id });
+							continue;
+						}
+
+						// Check 2: ID doesn't match expected pattern (e.g., from copied markdown files)
+						const expectedId = WindowId(existing.window_id);
+						if (existing.id !== expectedId) {
 							tables.windows.delete({ id: existing.id });
 						}
 					}
@@ -199,7 +220,7 @@ export default defineBackground(() => {
 				if (!browser.tabGroups) return;
 
 				const deviceId = await deviceIdPromise;
-				const { tabGroupToRow } = createBrowserConverters(deviceId);
+				const { tabGroupToRow, GroupId } = createBrowserConverters(deviceId);
 				const browserGroups = await browser.tabGroups.query({});
 				const groupIds = new Set(browserGroups.map((g) => g.id));
 				const existingYDocGroups = tables.tab_groups.getAllValid();
@@ -210,10 +231,19 @@ export default defineBackground(() => {
 						tables.tab_groups.upsert(tabGroupToRow(group));
 					}
 
-					// Delete only THIS device's groups that aren't in browser
+					// Delete only THIS device's groups that aren't in browser OR have malformed IDs
 					for (const existing of existingYDocGroups) {
 						if (existing.device_id !== deviceId) continue; // Skip other devices!
+
+						// Check 1: group_id doesn't exist in browser
 						if (!groupIds.has(existing.group_id)) {
+							tables.tab_groups.delete({ id: existing.id });
+							continue;
+						}
+
+						// Check 2: ID doesn't match expected pattern (e.g., from copied markdown files)
+						const expectedId = GroupId(existing.group_id);
+						if (existing.id !== expectedId) {
 							tables.tab_groups.delete({ id: existing.id });
 						}
 					}
@@ -633,6 +663,21 @@ export default defineBackground(() => {
 
 			if (!row.url) {
 				console.log('[Background] tabs.onAdd SKIPPED: no URL in row');
+				return;
+			}
+
+			// Check if this tab already exists in the browser
+			// This prevents duplicate tab creation when our own changes echo back from WebSocket
+			const existingTab = await tryAsync({
+				try: () => browser.tabs.get(row.tab_id),
+				catch: () => Ok(undefined),
+			});
+
+			if (existingTab.data) {
+				console.log(
+					'[Background] tabs.onAdd SKIPPED: tab already exists in browser',
+					row.tab_id,
+				);
 				return;
 			}
 
