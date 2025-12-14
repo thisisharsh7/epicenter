@@ -1,14 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import chokidar, { type FSWatcher } from 'chokidar';
-import { type } from 'arktype';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
-import { Ok, tryAsync, trySync } from 'wellcrafted/result';
+import { tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
-import type { TableHelper } from '../../core/db/table-helper';
 import { ProviderErr, ProviderError } from '../../core/errors';
-import { defineProviderExports } from '../../core/provider.shared';
 import type { Provider, ProviderContext } from '../../core/provider.node';
+import { defineProviderExports } from '../../core/provider.shared';
 import type {
 	Row,
 	SerializedRow,
@@ -17,11 +15,7 @@ import type {
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createProviderLogger } from '../error-logger';
-import {
-	DEFAULT_TABLE_CONFIG,
-	type ResolvedTableMarkdownConfig,
-	type TableMarkdownConfig,
-} from './configs';
+import { DEFAULT_TABLE_CONFIG, type TableMarkdownConfig } from './configs';
 import { createDiagnosticsManager } from './diagnostics-manager';
 import {
 	deleteMarkdownFile,
@@ -52,6 +46,7 @@ export type MarkdownProviderError = ReturnType<typeof MarkdownProviderError>;
 export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
 export {
 	DEFAULT_TABLE_CONFIG,
+	defaultTableConfig,
 	defineTableConfig,
 	withBodyField,
 	withTitleFilename,
@@ -109,7 +104,8 @@ type SyncCoordination = {
 type RowToFilenameMap = Record<string, string>;
 
 /**
- * User-provided table configs (with optional serialize/deserialize)
+ * Per-table markdown configuration.
+ * Use factory functions like `defaultTableConfig()`, `withBodyField()`, or `withTitleFilename()`.
  */
 type TableConfigs<TSchema extends WorkspaceSchema> = {
 	[K in keyof TSchema]?: TableMarkdownConfig<TSchema[K]>;
@@ -283,30 +279,30 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	const tracking: Record<string, RowToFilenameMap> = {};
 
 	/**
-	 * Merge user overrides with defaults to create fully-populated configs per table
+	 * Build table configs by merging user configs with defaults.
 	 *
-	 * This transforms sparse user configs into resolved configs with all fields guaranteed.
-	 * The resulting `tableWithConfigs` array is used everywhere downstream.
+	 * User configs are created via factory functions (defaultTableConfig, withBodyField, etc.)
+	 * which always provide serialize/parseFilename/deserialize. If no config is provided for
+	 * a table, DEFAULT_TABLE_CONFIG is used.
 	 */
 	const tableWithConfigs = tables.$tables().map((table) => {
-		// undefined when user didn't provide config for this table
 		const userConfig = userTableConfigs[table.name];
 
-		// Resolved config with all fields guaranteed (merged with DEFAULT_TABLE_CONFIG)
-		// Discriminated union: if serialize exists, all three custom functions exist
+		// Use user config or fall back to defaults
+		const baseConfig = userConfig ?? DEFAULT_TABLE_CONFIG;
+
+		// Resolve directory: user config > table name
 		const directory = path.resolve(
 			absoluteWorkspaceDir,
-			userConfig?.directory ?? table.name,
+			baseConfig.directory ?? table.name,
 		) as AbsolutePath;
 
-		const tableConfig = userConfig?.serialize
-			? {
-					serialize: userConfig.serialize,
-					parseFilename: userConfig.parseFilename,
-					deserialize: userConfig.deserialize,
-					directory,
-				}
-			: { ...DEFAULT_TABLE_CONFIG, directory };
+		const tableConfig = {
+			serialize: baseConfig.serialize,
+			parseFilename: baseConfig.parseFilename,
+			deserialize: baseConfig.deserialize,
+			directory,
+		};
 
 		return { table, tableConfig };
 	});

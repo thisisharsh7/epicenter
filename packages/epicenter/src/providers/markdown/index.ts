@@ -7,7 +7,12 @@
 
 // Table config factories and types
 export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
-export { withBodyField, withTitleFilename } from './configs';
+export {
+	defaultTableConfig,
+	defineTableConfig,
+	withBodyField,
+	withTitleFilename,
+} from './configs';
 
 // Markdown file operations
 export type { MarkdownOperationError } from './io';

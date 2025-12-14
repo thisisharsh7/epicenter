@@ -1,65 +1,41 @@
 /**
  * @fileoverview Markdown Table Config Factory Functions
  *
- * This file provides convenience factory functions for creating `TableMarkdownConfig` objects,
+ * This file provides factory functions for creating `TableMarkdownConfig` objects,
  * which define how rows are serialized to markdown files and deserialized back.
  *
  * ## Contract
  *
- * All factory functions return a `TableMarkdownConfig<TTableSchema>` with all three functions:
+ * All configs must provide three functions together:
  * - `serialize`: Converts a row to { frontmatter, body, filename }
  * - `parseFilename`: Parses a filename to extract { id, ...otherFields }
  * - `deserialize`: Converts { frontmatter, body, parsed } back to a row (with validation)
  *
- * These three functions MUST be provided together or not at all. This ensures consistency
- * between how files are written and how they're read back.
- *
- * ## Builder Pattern with Type Inference
- *
- * Use `defineTableConfig()` for proper generic inference with a fluent builder:
- *
- * ```typescript
- * const config = defineTableConfig<MySchema>()
- *   .withParser((filename) => {
- *     const basename = path.basename(filename, '.md');
- *     const lastDash = basename.lastIndexOf('-');
- *     return {
- *       id: basename.substring(lastDash + 1),
- *       titleFromFilename: basename.substring(0, lastDash),
- *     };
- *   })
- *   .withSerializers({
- *     serialize: ({ row }) => ({
- *       frontmatter: { ...row },
- *       body: '',
- *       filename: `${row.title}-${row.id}.md`,
- *     }),
- *     deserialize: ({ parsed, frontmatter, table }) => {
- *       // parsed.id and parsed.titleFromFilename are fully typed!
- *     },
- *   });
- * ```
+ * Use factory functions to create configs - they handle this requirement automatically.
  *
  * ## Available Factories
  *
- * - `withBodyField(field)`: Common pattern where one field becomes the markdown body.
- * - `withTitleFilename(field)`: Human-readable filenames like `{title}-{id}.md`.
- *
- * The true default config (`DEFAULT_TABLE_CONFIG`) is defined in `markdown-provider.ts`.
+ * - `defaultTableConfig()`: Default behavior with optional directory override
+ * - `withBodyField(field)`: One field becomes the markdown body
+ * - `withTitleFilename(field)`: Human-readable `{title}-{id}.md` filenames
+ * - `defineTableConfig().withParser().withSerializers()`: Full custom builder
  *
  * ## Usage
  *
  * ```typescript
- * import { markdownProvider, withBodyField, withTitleFilename } from '@epicenter/hq';
+ * import { markdownProvider, defaultTableConfig, withBodyField, withTitleFilename } from '@epicenter/hq';
  *
  * markdownProvider(c, {
  *   tableConfigs: {
- *     // No config needed - uses defaults (all in frontmatter, {id}.md filename)
- *     settings: {},
+ *     // Default: all in frontmatter, {id}.md filename
+ *     settings: defaultTableConfig(),
  *
- *     // Use a convenience helper (content → body)
+ *     // Custom directory with default behavior
+ *     config: defaultTableConfig({ directory: './app-config' }),
+ *
+ *     // Field becomes markdown body
  *     articles: withBodyField('content'),
- *     posts: withBodyField('markdown'),
+ *     posts: withBodyField('markdown', { directory: './blog' }),
  *
  *     // Human-readable filenames
  *     tabs: withTitleFilename('title'),
@@ -250,127 +226,32 @@ export function defineTableConfig<TTableSchema extends TableSchema>(): {
 }
 
 /**
- * Custom serialization/deserialization behavior for a table.
+ * Configuration for how a table's rows are serialized to markdown files.
  *
- * Defines how rows are converted to markdown files and vice versa.
- * When not provided, uses default behavior.
+ * This is an alias for `ResolvedTableMarkdownConfig`. All configs must provide
+ * the complete set of serialize/parseFilename/deserialize functions.
  *
- * ## Type Parameters
+ * Use one of the factory functions to create configs:
+ * - `defaultTableConfig()` - Default behavior with optional directory
+ * - `withBodyField(field)` - Field becomes markdown body
+ * - `withTitleFilename(field)` - Human-readable `{title}-{id}.md` filenames
+ * - `defineTableConfig().withParser(...).withSerializers(...)` - Full custom
  *
- * - `TTableSchema`: The table's schema type
- * - `TFilename`: The filename format (can be template literal like `` `${string}-${string}.md` ``)
- * - `TParsed`: The structured data extracted from filename (must extend `{ id: string }`)
- *
- * ## Type Constraint
- *
- * The three functions (serialize, parseFilename, deserialize) must be
- * provided together or not at all. This ensures consistency:
- *
- * - `serialize` produces filenames matching `TFilename`
- * - `parseFilename` accepts `TFilename` and extracts `TParsed`
- * - `deserialize` receives `TParsed` from the parser
- *
- * Valid configurations:
- * - `{}` - Use all defaults
- * - `{ directory }` - Custom directory, default serialize/deserialize
- * - `{ serialize, parseFilename, deserialize }` - All custom (required pairing)
- *
- * Invalid configurations (compile error):
- * - `{ serialize }` - Missing parseFilename and deserialize
- * - `{ deserialize }` - Missing serialize and parseFilename
- * - `{ serialize, deserialize }` - Missing parseFilename
+ * @example
+ * ```typescript
+ * markdownProvider(c, {
+ *   tableConfigs: {
+ *     settings: defaultTableConfig(),
+ *     posts: withTitleFilename('title'),
+ *     articles: withBodyField('content'),
+ *   }
+ * })
+ * ```
  */
 export type TableMarkdownConfig<
 	TTableSchema extends TableSchema,
 	TParsed extends ParsedFilename = ParsedFilename,
-> = {
-	/**
-	 * Directory for this table's markdown files.
-	 *
-	 * **Optional**: Defaults to the table name. Independent of serialize/deserialize.
-	 *
-	 * **Two ways to specify the path**:
-	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to workspace directory
-	 * ```typescript
-	 * directory: './my-notes'      // → <workspace-dir>/my-notes
-	 * directory: '../shared'       // → <workspace-dir>/../shared
-	 * ```
-	 *
-	 * **Option 2: Absolute paths**: Used as-is, ignores workspace directory
-	 * ```typescript
-	 * directory: '/absolute/path/to/notes'
-	 * ```
-	 *
-	 * @default table name (e.g., "posts" → workspace-dir/posts)
-	 */
-	directory?: string;
-} & (
-	| {
-			/**
-			 * Use all defaults for serialize/parseFilename/deserialize.
-			 *
-			 * Default behavior:
-			 * - Serialize: All fields except id → frontmatter, empty body, filename "{id}.md"
-			 * - ParseFilename: Strip .md extension, return { id }
-			 * - Deserialize: Validate frontmatter against schema with id from parsed
-			 */
-			serialize?: undefined;
-			parseFilename?: undefined;
-			deserialize?: undefined;
-	  }
-	| {
-			/**
-			 * Serialize a row to markdown frontmatter, body, and filename.
-			 *
-			 * IMPORTANT: The filename MUST be a simple filename without path separators.
-			 * The table's directory setting determines where the file is written.
-			 *
-			 * The returned filename type must match what `parseFilename` accepts.
-			 *
-			 * @param params.row - Row to serialize (already validated against schema)
-			 * @param params.table - TableHelper with metadata (name, schema, validators)
-			 * @returns Frontmatter object, markdown body string, and simple filename
-			 */
-			serialize: SerializeFn<TTableSchema>;
-
-			/**
-			 * Parse a filename to extract structured data including the row ID.
-			 *
-			 * This function defines the bidirectional contract:
-			 * - Its input type (`TFilename`) constrains what `serialize` must return
-			 * - Its output type (`TParsed`) is provided to `deserialize`
-			 *
-			 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
-			 * @returns Parsed data with at least `id`, or undefined if parsing fails
-			 *
-			 * @example
-			 * // For pattern: "{title}-{id}.md"
-			 * parseFilename: (filename) => {
-			 *   const basename = path.basename(filename, '.md');
-			 *   const lastDash = basename.lastIndexOf('-');
-			 *   if (lastDash === -1) return undefined;
-			 *   return {
-			 *     id: basename.substring(lastDash + 1),
-			 *     titleFromFilename: basename.substring(0, lastDash),
-			 *   };
-			 * }
-			 */
-			parseFilename: ParseFilenameFn<TParsed>;
-
-			/**
-			 * Deserialize markdown frontmatter and body back to a full row.
-			 *
-			 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
-			 * @param params.body - Markdown body content (text after frontmatter delimiters)
-			 * @param params.filename - Simple filename only (validated to not contain path separators)
-			 * @param params.parsed - Structured data extracted by parseFilename (includes id)
-			 * @param params.table - TableHelper with metadata (name, schema, validators)
-			 * @returns Result with complete row (with id field), or error to skip this file
-			 */
-			deserialize: DeserializeFn<TTableSchema, TParsed>;
-	  }
-);
+> = ResolvedTableMarkdownConfig<TTableSchema, TParsed>;
 
 /**
  * Default table configuration using the `{id}.md` filename pattern.
@@ -415,6 +296,32 @@ export const DEFAULT_TABLE_CONFIG = defineTableConfig<TableSchema>()
 	});
 
 /**
+ * Creates a default table config with optional directory override.
+ *
+ * Use this when you want default serialization behavior but need a custom directory.
+ *
+ * @param options.directory - Custom directory for this table's markdown files
+ *
+ * @example
+ * ```typescript
+ * markdownProvider(c, {
+ *   tableConfigs: {
+ *     settings: defaultTableConfig(),  // Uses table name as directory
+ *     config: defaultTableConfig({ directory: './app-config' }),
+ *   }
+ * })
+ * ```
+ */
+export function defaultTableConfig<TTableSchema extends TableSchema = TableSchema>(
+	options?: { directory?: string },
+): ResolvedTableMarkdownConfig<TTableSchema> {
+	return {
+		...DEFAULT_TABLE_CONFIG,
+		directory: options?.directory,
+	} as ResolvedTableMarkdownConfig<TTableSchema>;
+}
+
+/**
  * Factory function to create a table config with human-readable filenames.
  *
  * Creates filenames in the format: `{title}-{id}.md`
@@ -427,6 +334,7 @@ export const DEFAULT_TABLE_CONFIG = defineTableConfig<TableSchema>()
  * @param titleField - The field to use for the readable part of the filename
  * @param options.stripNulls - Remove null values from frontmatter (default: true)
  * @param options.maxTitleLength - Max chars for title portion (default: 80)
+ * @param options.directory - Custom directory for this table's markdown files
  *
  * @example
  * ```typescript
@@ -434,15 +342,16 @@ export const DEFAULT_TABLE_CONFIG = defineTableConfig<TableSchema>()
  *   tableConfigs: {
  *     tabs: withTitleFilename('title'),
  *     notes: withTitleFilename('name', { maxTitleLength: 50 }),
+ *     posts: withTitleFilename('title', { directory: './blog-posts' }),
  *   }
  * })
  * ```
  */
 export function withTitleFilename<TTableSchema extends TableSchema>(
 	titleField: keyof TTableSchema & string,
-	options: { stripNulls?: boolean; maxTitleLength?: number } = {},
+	options: { stripNulls?: boolean; maxTitleLength?: number; directory?: string } = {},
 ) {
-	const { stripNulls = true, maxTitleLength = 80 } = options;
+	const { stripNulls = true, maxTitleLength = 80, directory } = options;
 
 	return defineTableConfig<TTableSchema>()
 		.withParser((filename: `${string}-${string}.md`) => {
@@ -507,6 +416,8 @@ export function withTitleFilename<TTableSchema extends TableSchema>(
 
 				return Ok(result as SerializedRow<TTableSchema>);
 			},
+
+			directory,
 		});
 }
 
@@ -528,6 +439,12 @@ export type WithBodyFieldOptions<
 	 * @default 'id'
 	 */
 	filenameField?: keyof TTableSchema & string;
+
+	/**
+	 * Custom directory for this table's markdown files.
+	 * Resolved relative to workspace directory.
+	 */
+	directory?: string;
 };
 
 /**
@@ -558,6 +475,7 @@ export function withBodyField<TTableSchema extends TableSchema>(
 	const {
 		stripNulls = true,
 		filenameField = 'id' as keyof TTableSchema & string,
+		directory,
 	} = options;
 
 	return defineTableConfig<TTableSchema>()
@@ -616,5 +534,7 @@ export function withBodyField<TTableSchema extends TableSchema>(
 
 				return Ok(row);
 			},
+
+			directory,
 		});
 }
