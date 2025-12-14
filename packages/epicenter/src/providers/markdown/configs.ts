@@ -132,7 +132,6 @@ export type MarkdownSerializer<
  */
 export type TableMarkdownConfig<
 	TTableSchema extends TableSchema = TableSchema,
-	TParsed extends ParsedFilename = ParsedFilename,
 > = {
 	/**
 	 * WHERE files go. Resolved relative to workspace directory.
@@ -144,7 +143,8 @@ export type TableMarkdownConfig<
 	 * HOW files are encoded/decoded.
 	 * @default Default serializer (all fields to frontmatter, {id}.md filename)
 	 */
-	serializer?: MarkdownSerializer<TTableSchema, TParsed>;
+	// biome-ignore lint/suspicious/noExplicitAny: TParsed is only needed for internal type flow between parseFilename and fromContent. Consumers do not care about the specific parsed type, so we use any to accept serializers with any TParsed.
+	serializer?: MarkdownSerializer<TTableSchema, any>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,10 +279,16 @@ export function defineSerializer<TTableSchema extends TableSchema>(): {
 					return {
 						deserialize(deserializeFn) {
 							return {
-								serialize: serializeFn as MarkdownSerializer<TTableSchema, TParsed>['serialize'],
+								serialize: serializeFn,
 								deserialize: {
-									parseFilename: parseFilenameFn as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['parseFilename'],
-									fromContent: deserializeFn as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['fromContent'],
+									parseFilename: parseFilenameFn as MarkdownSerializer<
+										TTableSchema,
+										TParsed
+									>['deserialize']['parseFilename'],
+									fromContent: deserializeFn as MarkdownSerializer<
+										TTableSchema,
+										TParsed
+									>['deserialize']['fromContent'],
 								},
 							};
 						},
@@ -497,7 +503,10 @@ export type TitleFilenameSerializerOptions = {
 export function titleFilenameSerializer<TTableSchema extends TableSchema>(
 	titleField: keyof TTableSchema & string,
 	options: TitleFilenameSerializerOptions = {},
-): MarkdownSerializer<TTableSchema, ParsedFilename & { titleFromFilename: string }> {
+): MarkdownSerializer<
+	TTableSchema,
+	ParsedFilename & { titleFromFilename: string }
+> {
 	const { stripNulls = true, maxTitleLength = 80 } = options;
 
 	return defineSerializer<TTableSchema>()
