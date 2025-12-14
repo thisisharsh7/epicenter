@@ -15,7 +15,7 @@ import type {
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createProviderLogger } from '../error-logger';
-import { DEFAULT_TABLE_CONFIG, type TableMarkdownConfig } from './configs';
+import { defaultTableConfig, type TableMarkdownConfig } from './configs';
 import { createDiagnosticsManager } from './diagnostics-manager';
 import {
 	deleteMarkdownFile,
@@ -45,7 +45,6 @@ export type MarkdownProviderError = ReturnType<typeof MarkdownProviderError>;
 // Re-export config types and functions
 export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
 export {
-	DEFAULT_TABLE_CONFIG,
 	defaultTableConfig,
 	defineTableConfig,
 	withBodyField,
@@ -283,10 +282,10 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 *
 	 * User configs are created via factory functions (defaultTableConfig, withBodyField, etc.)
 	 * which always provide serialize/parseFilename/deserialize. If no config is provided for
-	 * a table, DEFAULT_TABLE_CONFIG is used.
+	 * a table, defaultTableConfig() is used.
 	 */
 	const tableWithConfigs = tables.$tables().map((table) => {
-		const baseConfig = userTableConfigs[table.name] ?? DEFAULT_TABLE_CONFIG;
+		const baseConfig = userTableConfigs[table.name] ?? defaultTableConfig();
 		const tableConfig = {
 			...baseConfig,
 			directory: path.resolve(

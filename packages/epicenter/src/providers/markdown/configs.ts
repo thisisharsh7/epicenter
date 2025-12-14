@@ -242,7 +242,7 @@ export function defineTableConfig<TTableSchema extends TableSchema>(): {
 }
 
 /**
- * Default table configuration using the `{id}.md` filename pattern.
+ * Creates a default table config using the `{id}.md` filename pattern.
  *
  * Default behavior:
  * - Serialize: All fields except id → frontmatter, empty body, filename "{id}.md"
@@ -250,43 +250,6 @@ export function defineTableConfig<TTableSchema extends TableSchema>(): {
  * - Deserialize: Validate frontmatter against schema with id from parsed
  *
  * Use this when your table doesn't have a dedicated content/body field.
- */
-export const DEFAULT_TABLE_CONFIG = defineTableConfig<TableSchema>()
-	.withParser((filename: `${string}.md`) => {
-		const id = path.basename(filename, '.md');
-		return { id };
-	})
-	.withSerializers({
-		serialize: ({ row: { id, ...rest } }) => ({
-			frontmatter: rest,
-			body: '',
-			filename: `${id}.md`,
-		}),
-		deserialize: ({ frontmatter, parsed, table }) => {
-			const { id } = parsed;
-
-			// Combine id with frontmatter
-			const data = { id, ...frontmatter };
-
-			// Validate using direct arktype pattern
-			const validator = table.validators.toArktype();
-			const result = validator(data);
-
-			if (result instanceof type.errors) {
-				return MarkdownProviderErr({
-					message: `Failed to validate row ${id}`,
-					context: { fileName: `${id}.md`, id, reason: result.summary },
-				});
-			}
-
-			return Ok(result as SerializedRow<TableSchema>);
-		},
-	});
-
-/**
- * Creates a default table config with optional directory override.
- *
- * Use this when you want default serialization behavior but need a custom directory.
  *
  * @param options.directory - Custom directory for this table's markdown files
  *
@@ -303,10 +266,38 @@ export const DEFAULT_TABLE_CONFIG = defineTableConfig<TableSchema>()
 export function defaultTableConfig<TTableSchema extends TableSchema = TableSchema>(
 	options?: { directory?: string },
 ): TableMarkdownConfig<TTableSchema> {
-	return {
-		...DEFAULT_TABLE_CONFIG,
-		directory: options?.directory,
-	} as TableMarkdownConfig<TTableSchema>;
+	return defineTableConfig<TTableSchema>()
+		.withParser((filename: `${string}.md`) => {
+			const id = path.basename(filename, '.md');
+			return { id };
+		})
+		.withSerializers({
+			serialize: ({ row: { id, ...rest } }) => ({
+				frontmatter: rest,
+				body: '',
+				filename: `${id}.md`,
+			}),
+			deserialize: ({ frontmatter, parsed, table }) => {
+				const { id } = parsed;
+
+				// Combine id with frontmatter
+				const data = { id, ...frontmatter };
+
+				// Validate using direct arktype pattern
+				const validator = table.validators.toArktype();
+				const result = validator(data);
+
+				if (result instanceof type.errors) {
+					return MarkdownProviderErr({
+						message: `Failed to validate row ${id}`,
+						context: { fileName: `${id}.md`, id, reason: result.summary },
+					});
+				}
+
+				return Ok(result as SerializedRow<TTableSchema>);
+			},
+			directory: options?.directory,
+		});
 }
 
 /**

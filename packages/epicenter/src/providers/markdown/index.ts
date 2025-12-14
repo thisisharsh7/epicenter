@@ -26,7 +26,6 @@ export {
 // Main provider implementation and core exports
 export type { MarkdownProviderConfig } from './markdown-provider';
 export {
-	DEFAULT_TABLE_CONFIG,
 	MarkdownProviderErr,
 	MarkdownProviderError,
 	markdownProvider,
