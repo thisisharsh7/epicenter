@@ -6,11 +6,7 @@
  * Mutations call Chrome APIs directly; changes propagate via Chrome events.
  */
 
-import {
-	browserTabToRow,
-	browserWindowToRow,
-	browserTabGroupToRow,
-} from '$lib/browser-helpers';
+import { createBrowserConverters } from '$lib/browser-helpers';
 import { getDeviceId } from '$lib/device-id';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,10 +41,11 @@ export const tabs = {
 			queryKey: tabsKeys.all,
 			queryFn: async () => {
 				const deviceId = await getDeviceId();
+				const { tabToRow } = createBrowserConverters(deviceId);
 				const browserTabs = await browser.tabs.query({});
 				return browserTabs
 					.filter((t) => t.id !== undefined)
-					.map((tab) => browserTabToRow({ tab, deviceId }))
+					.map((tab) => tabToRow(tab))
 					.sort((a, b) => a.index - b.index);
 			},
 			// Browser is always fresh. Data is only stale when browser events tell us.
@@ -62,10 +59,11 @@ export const tabs = {
 			queryKey: tabsKeys.windows,
 			queryFn: async () => {
 				const deviceId = await getDeviceId();
+				const { windowToRow } = createBrowserConverters(deviceId);
 				const browserWindows = await browser.windows.getAll();
 				return browserWindows
 					.filter((w) => w.id !== undefined)
-					.map((window) => browserWindowToRow({ window, deviceId }));
+					.map((window) => windowToRow(window));
 			},
 			staleTime: Infinity,
 		},
@@ -80,10 +78,9 @@ export const tabs = {
 					return [];
 				}
 				const deviceId = await getDeviceId();
+				const { tabGroupToRow } = createBrowserConverters(deviceId);
 				const browserGroups = await browser.tabGroups.query({});
-				return browserGroups.map((group) =>
-					browserTabGroupToRow({ group, deviceId }),
-				);
+				return browserGroups.map((group) => tabGroupToRow(group));
 			},
 			staleTime: Infinity,
 		},

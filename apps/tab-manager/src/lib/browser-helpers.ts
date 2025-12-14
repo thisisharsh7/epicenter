@@ -1,111 +1,104 @@
 /**
  * Browser API type conversion helpers.
  *
- * Converts browser tab/window types to our schema row types.
- * Used by both background (for Y.Doc sync) and popup (for direct browser queries).
+ * Provides a factory that creates deviceId-bound converters for browser
+ * tab/window/group types to our schema row types.
  *
  * All IDs are device-scoped to prevent collisions during multi-device sync.
+ *
+ * @example
+ * const { TabId, tabToRow } = createBrowserConverters(deviceId);
+ * tables.tabs.upsert(tabToRow(tab));
+ * tables.tabs.delete({ id: TabId(123) });
  */
 
 import type { Tab, TabGroup, Window } from './epicenter/browser.schema';
-import { createCompositeIds } from './device-id';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab Conversion
-// ─────────────────────────────────────────────────────────────────────────────
-
-type TabToRowParams = {
-	tab: Browser.tabs.Tab;
-	deviceId: string;
-};
 
 /**
- * Convert a browser tab to our schema row type.
- * IDs are scoped to the device to prevent collisions.
+ * Create deviceId-bound converters and ID constructors.
+ *
+ * Returns both ID constructors (TabId, WindowId, GroupId) and row converters
+ * (tabToRow, windowToRow, tabGroupToRow) all bound to the provided deviceId.
+ *
+ * @example
+ * const deviceId = await getDeviceId();
+ * const { TabId, WindowId, tabToRow, windowToRow } = createBrowserConverters(deviceId);
+ *
+ * // Convert browser objects to rows
+ * tables.tabs.upsert(tabToRow(tab));
+ * tables.windows.upsert(windowToRow(window));
+ *
+ * // Create composite IDs for lookups/deletes
+ * tables.tabs.delete({ id: TabId(123) });
  */
-export function browserTabToRow({ tab, deviceId }: TabToRowParams): Tab {
-	const { TabId, WindowId, GroupId } = createCompositeIds(deviceId);
+export function createBrowserConverters(deviceId: string) {
+	// ID constructors
+	const TabId = (tabId: number) => `${deviceId}_${tabId}` as const;
+	const WindowId = (windowId: number) => `${deviceId}_${windowId}` as const;
+	const GroupId = (groupId: number) => `${deviceId}_${groupId}` as const;
+
 	return {
-		id: TabId(tab.id!),
-		device_id: deviceId,
-		tab_id: tab.id!,
-		window_id: WindowId(tab.windowId!),
-		url: tab.url ?? '',
-		title: tab.title ?? '',
-		fav_icon_url: tab.favIconUrl ?? null,
-		index: tab.index,
-		pinned: tab.pinned,
-		active: tab.active,
-		highlighted: tab.highlighted,
-		muted: tab.mutedInfo?.muted ?? false,
-		audible: tab.audible ?? false,
-		discarded: tab.discarded,
-		auto_discardable: tab.autoDiscardable ?? true,
-		status: tab.status ?? 'complete',
-		group_id:
-			tab.groupId !== undefined && tab.groupId !== -1
-				? GroupId(tab.groupId)
-				: null,
-		opener_tab_id:
-			tab.openerTabId !== undefined ? TabId(tab.openerTabId) : null,
-		incognito: tab.incognito ?? false,
-	};
-}
+		// ID constructors
+		TabId,
+		WindowId,
+		GroupId,
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Window Conversion
-// ─────────────────────────────────────────────────────────────────────────────
+		// Row converters
+		tabToRow(tab: Browser.tabs.Tab): Tab {
+			return {
+				id: TabId(tab.id!),
+				device_id: deviceId,
+				tab_id: tab.id!,
+				window_id: WindowId(tab.windowId!),
+				url: tab.url ?? '',
+				title: tab.title ?? '',
+				fav_icon_url: tab.favIconUrl ?? null,
+				index: tab.index,
+				pinned: tab.pinned,
+				active: tab.active,
+				highlighted: tab.highlighted,
+				muted: tab.mutedInfo?.muted ?? false,
+				audible: tab.audible ?? false,
+				discarded: tab.discarded,
+				auto_discardable: tab.autoDiscardable ?? true,
+				status: tab.status ?? 'complete',
+				group_id:
+					tab.groupId !== undefined && tab.groupId !== -1
+						? GroupId(tab.groupId)
+						: null,
+				opener_tab_id:
+					tab.openerTabId !== undefined ? TabId(tab.openerTabId) : null,
+				incognito: tab.incognito ?? false,
+			};
+		},
 
-type WindowToRowParams = {
-	window: Browser.windows.Window;
-	deviceId: string;
-};
+		windowToRow(window: Browser.windows.Window): Window {
+			return {
+				id: WindowId(window.id!),
+				device_id: deviceId,
+				window_id: window.id!,
+				state: window.state ?? 'normal',
+				type: window.type ?? 'normal',
+				focused: window.focused ?? false,
+				always_on_top: window.alwaysOnTop ?? false,
+				incognito: window.incognito ?? false,
+				top: window.top ?? 0,
+				left: window.left ?? 0,
+				width: window.width ?? 800,
+				height: window.height ?? 600,
+			};
+		},
 
-/**
- * Convert a browser window to our schema row type.
- * IDs are scoped to the device to prevent collisions.
- */
-export function browserWindowToRow({ window, deviceId }: WindowToRowParams): Window {
-	const { WindowId } = createCompositeIds(deviceId);
-	return {
-		id: WindowId(window.id!),
-		device_id: deviceId,
-		window_id: window.id!,
-		state: window.state ?? 'normal',
-		type: window.type ?? 'normal',
-		focused: window.focused ?? false,
-		always_on_top: window.alwaysOnTop ?? false,
-		incognito: window.incognito ?? false,
-		top: window.top ?? 0,
-		left: window.left ?? 0,
-		width: window.width ?? 800,
-		height: window.height ?? 600,
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab Group Conversion
-// ─────────────────────────────────────────────────────────────────────────────
-
-type TabGroupToRowParams = {
-	group: Browser.tabGroups.TabGroup;
-	deviceId: string;
-};
-
-/**
- * Convert a browser tab group to our schema row type.
- * Note: Tab groups are Chrome 88+ only, not supported on Firefox.
- * IDs are scoped to the device to prevent collisions.
- */
-export function browserTabGroupToRow({ group, deviceId }: TabGroupToRowParams): TabGroup {
-	const { WindowId, GroupId } = createCompositeIds(deviceId);
-	return {
-		id: GroupId(group.id),
-		device_id: deviceId,
-		group_id: group.id,
-		window_id: WindowId(group.windowId),
-		title: group.title ?? null,
-		color: group.color ?? 'grey',
-		collapsed: group.collapsed ?? false,
+		tabGroupToRow(group: Browser.tabGroups.TabGroup): TabGroup {
+			return {
+				id: GroupId(group.id),
+				device_id: deviceId,
+				group_id: group.id,
+				window_id: WindowId(group.windowId),
+				title: group.title ?? null,
+				color: group.color ?? 'grey',
+				collapsed: group.collapsed ?? false,
+			};
+		},
 	};
 }

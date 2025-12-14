@@ -73,26 +73,6 @@ export async function generateDefaultDeviceName(): Promise<string> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Composite ID Factory
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Create composite ID constructors bound to a device ID.
- *
- * @example
- * const { TabId, WindowId, GroupId } = createCompositeIds(deviceId);
- * tables.tabs.delete({ id: TabId(123) });
- * tables.windows.delete({ id: WindowId(456) });
- */
-export function createCompositeIds(deviceId: string) {
-	return {
-		TabId: (tabId: number) => `${deviceId}_${tabId}` as const,
-		WindowId: (windowId: number) => `${deviceId}_${windowId}` as const,
-		GroupId: (groupId: number) => `${deviceId}_${groupId}` as const,
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Composite ID Parsers
 // ─────────────────────────────────────────────────────────────────────────────
 
