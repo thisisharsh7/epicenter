@@ -32,11 +32,13 @@ import {
 	browserWindowToRow,
 } from '$lib/browser-helpers';
 import {
-	createCompositeId,
+	createCompositeIds,
 	generateDefaultDeviceName,
 	getBrowserName,
 	getDeviceId,
-	parseCompositeId,
+	parseGroupId,
+	parseTabId,
+	parseWindowId,
 } from '$lib/device-id';
 import { type Tab, type Window } from '$lib/epicenter/browser.schema';
 import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
@@ -395,8 +397,9 @@ export default defineBackground(() => {
 		if (syncCoordination.isProcessingYDocChange) return;
 
 		const deviceId = await deviceIdPromise;
+		const { TabId } = createCompositeIds(deviceId);
 		syncCoordination.isRefetching = true;
-		tables.tabs.delete({ id: createCompositeId({ deviceId, id: tabId }) });
+		tables.tabs.delete({ id: TabId(tabId) });
 		syncCoordination.isRefetching = false;
 	});
 
@@ -430,13 +433,11 @@ export default defineBackground(() => {
 		if (syncCoordination.isProcessingYDocChange) return;
 
 		const deviceId = await deviceIdPromise;
+		const { TabId, WindowId } = createCompositeIds(deviceId);
 		syncCoordination.isRefetching = true;
 
-		const deviceWindowId = createCompositeId({
-			deviceId,
-			id: activeInfo.windowId,
-		});
-		const deviceTabId = createCompositeId({ deviceId, id: activeInfo.tabId });
+		const deviceWindowId = WindowId(activeInfo.windowId);
+		const deviceTabId = TabId(activeInfo.tabId);
 
 		// Find and update the previously active tab in this window (set active: false)
 		const previouslyActiveTabs = tables.tabs
@@ -495,10 +496,9 @@ export default defineBackground(() => {
 		if (syncCoordination.isProcessingYDocChange) return;
 
 		const deviceId = await deviceIdPromise;
+		const { WindowId } = createCompositeIds(deviceId);
 		syncCoordination.isRefetching = true;
-		tables.windows.delete({
-			id: createCompositeId({ deviceId, id: windowId }),
-		});
+		tables.windows.delete({ id: WindowId(windowId) });
 		syncCoordination.isRefetching = false;
 	});
 
@@ -510,9 +510,10 @@ export default defineBackground(() => {
 		if (syncCoordination.isProcessingYDocChange) return;
 
 		const deviceId = await deviceIdPromise;
+		const { WindowId } = createCompositeIds(deviceId);
 		syncCoordination.isRefetching = true;
 
-		const deviceWindowId = createCompositeId({ deviceId, id: windowId });
+		const deviceWindowId = WindowId(windowId);
 
 		// Find and update previously focused windows (set focused: false)
 		const previouslyFocusedWindows = tables.windows
@@ -553,10 +554,9 @@ export default defineBackground(() => {
 			if (syncCoordination.isProcessingYDocChange) return;
 
 			const deviceId = await deviceIdPromise;
+			const { GroupId } = createCompositeIds(deviceId);
 			syncCoordination.isRefetching = true;
-			tables.tab_groups.delete({
-				id: createCompositeId({ deviceId, id: group.id }),
-			});
+			tables.tab_groups.delete({ id: GroupId(group.id) });
 			syncCoordination.isRefetching = false;
 		});
 
@@ -665,7 +665,7 @@ export default defineBackground(() => {
 			}
 
 			const deviceId = await deviceIdPromise;
-			const parsed = parseCompositeId(id);
+			const parsed = parseTabId(id);
 
 			// Only close tabs that belong to THIS device
 			if (!parsed || parsed.deviceId !== deviceId) {
@@ -675,15 +675,15 @@ export default defineBackground(() => {
 				return;
 			}
 
-			console.log('[Background] tabs.onDelete REMOVING Browser tab:', parsed.id);
+			console.log('[Background] tabs.onDelete REMOVING Browser tab:', parsed.tabId);
 			// Set flag to prevent Browser events from triggering refetch
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
-					await browser.tabs.remove(parsed.id);
+					await browser.tabs.remove(parsed.tabId);
 					console.log(
 						'[Background] tabs.onDelete SUCCESS: removed tab',
-						parsed.id,
+						parsed.tabId,
 					);
 				},
 				catch: (error) => {
@@ -737,7 +737,7 @@ export default defineBackground(() => {
 			if (transaction.origin === null) return;
 
 			const deviceId = await deviceIdPromise;
-			const parsed = parseCompositeId(id);
+			const parsed = parseWindowId(id);
 
 			// Only close windows that belong to THIS device
 			if (!parsed || parsed.deviceId !== deviceId) return;
@@ -745,7 +745,7 @@ export default defineBackground(() => {
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
-					await browser.windows.remove(parsed.id);
+					await browser.windows.remove(parsed.windowId);
 				},
 				catch: (error) => {
 					console.log(`[Background] Failed to close window ${id}:`, error);
@@ -765,7 +765,7 @@ export default defineBackground(() => {
 				if (transaction.origin === null) return;
 
 				const deviceId = await deviceIdPromise;
-				const parsed = parseCompositeId(id);
+				const parsed = parseGroupId(id);
 
 				// Only ungroup tabs from THIS device's groups
 				if (!parsed || parsed.deviceId !== deviceId) return;
@@ -774,7 +774,7 @@ export default defineBackground(() => {
 				await tryAsync({
 					try: async () => {
 						// Note: Browser doesn't have tabGroups.remove(), but we can ungroup tabs
-						const tabs = await browser.tabs.query({ groupId: parsed.id });
+						const tabs = await browser.tabs.query({ groupId: parsed.groupId });
 						for (const tab of tabs) {
 							if (tab.id !== undefined) {
 								await browser.tabs.ungroup(tab.id);

@@ -7,8 +7,8 @@
  * All IDs are device-scoped to prevent collisions during multi-device sync.
  */
 
-import { type Tab, type TabGroup, type Window } from './epicenter/browser.schema';
-import { createCompositeId } from './device-id';
+import type { Tab, TabGroup, Window } from './epicenter/browser.schema';
+import { createCompositeIds } from './device-id';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab Conversion
@@ -24,11 +24,12 @@ type TabToRowParams = {
  * IDs are scoped to the device to prevent collisions.
  */
 export function browserTabToRow({ tab, deviceId }: TabToRowParams): Tab {
+	const { TabId, WindowId, GroupId } = createCompositeIds(deviceId);
 	return {
-		id: createCompositeId({ deviceId, id: tab.id! }),
+		id: TabId(tab.id!),
 		device_id: deviceId,
 		tab_id: tab.id!,
-		window_id: createCompositeId({ deviceId, id: tab.windowId! }),
+		window_id: WindowId(tab.windowId!),
 		url: tab.url ?? '',
 		title: tab.title ?? '',
 		fav_icon_url: tab.favIconUrl ?? null,
@@ -43,12 +44,10 @@ export function browserTabToRow({ tab, deviceId }: TabToRowParams): Tab {
 		status: tab.status ?? 'complete',
 		group_id:
 			tab.groupId !== undefined && tab.groupId !== -1
-				? createCompositeId({ deviceId, id: tab.groupId })
+				? GroupId(tab.groupId)
 				: null,
 		opener_tab_id:
-			tab.openerTabId !== undefined
-				? createCompositeId({ deviceId, id: tab.openerTabId })
-				: null,
+			tab.openerTabId !== undefined ? TabId(tab.openerTabId) : null,
 		incognito: tab.incognito ?? false,
 	};
 }
@@ -67,8 +66,9 @@ type WindowToRowParams = {
  * IDs are scoped to the device to prevent collisions.
  */
 export function browserWindowToRow({ window, deviceId }: WindowToRowParams): Window {
+	const { WindowId } = createCompositeIds(deviceId);
 	return {
-		id: createCompositeId({ deviceId, id: window.id! }),
+		id: WindowId(window.id!),
 		device_id: deviceId,
 		window_id: window.id!,
 		state: window.state ?? 'normal',
@@ -98,11 +98,12 @@ type TabGroupToRowParams = {
  * IDs are scoped to the device to prevent collisions.
  */
 export function browserTabGroupToRow({ group, deviceId }: TabGroupToRowParams): TabGroup {
+	const { WindowId, GroupId } = createCompositeIds(deviceId);
 	return {
-		id: createCompositeId({ deviceId, id: group.id }),
+		id: GroupId(group.id),
 		device_id: deviceId,
 		group_id: group.id,
-		window_id: createCompositeId({ deviceId, id: group.windowId }),
+		window_id: WindowId(group.windowId),
 		title: group.title ?? null,
 		color: group.color ?? 'grey',
 		collapsed: group.collapsed ?? false,

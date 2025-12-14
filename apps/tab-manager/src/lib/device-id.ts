@@ -73,42 +73,78 @@ export async function generateDefaultDeviceName(): Promise<string> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Composite ID Utilities
+// Composite ID Factory
 // ─────────────────────────────────────────────────────────────────────────────
 
-type CompositeIdParts = {
-	deviceId: string;
-	id: number | string;
-};
-
 /**
- * Create a composite ID from device ID and browser's tab/window/group ID.
+ * Create composite ID constructors bound to a device ID.
  *
  * @example
- * createCompositeId({ deviceId: 'abc123', id: 456 }) // 'abc123_456'
+ * const { TabId, WindowId, GroupId } = createCompositeIds(deviceId);
+ * tables.tabs.delete({ id: TabId(123) });
+ * tables.windows.delete({ id: WindowId(456) });
  */
-export function createCompositeId({ deviceId, id }: CompositeIdParts): string {
-	return `${deviceId}_${id}`;
+export function createCompositeIds(deviceId: string) {
+	return {
+		TabId: (tabId: number) => `${deviceId}_${tabId}` as const,
+		WindowId: (windowId: number) => `${deviceId}_${windowId}` as const,
+		GroupId: (groupId: number) => `${deviceId}_${groupId}` as const,
+	};
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Composite ID Parsers
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Parse a composite ID into its parts.
- * Returns null if the format is invalid.
- *
- * @example
- * parseCompositeId('abc123_456') // { deviceId: 'abc123', id: 456 }
- * parseCompositeId('invalid') // null
+ * Internal helper to parse a composite ID.
  */
-export function parseCompositeId(
+function parseCompositeIdInternal(
 	compositeId: string,
-): { deviceId: string; id: number } | null {
+): { deviceId: string; nativeId: number } | null {
 	const idx = compositeId.indexOf('_');
 	if (idx === -1) return null;
 
 	const deviceId = compositeId.slice(0, idx);
-	const id = Number.parseInt(compositeId.slice(idx + 1), 10);
+	const nativeId = Number.parseInt(compositeId.slice(idx + 1), 10);
 
-	if (Number.isNaN(id)) return null;
+	if (Number.isNaN(nativeId)) return null;
 
-	return { deviceId, id };
+	return { deviceId, nativeId };
+}
+
+/**
+ * Parse a composite tab ID into its parts.
+ * @example parseTabId('abc123_456') // { deviceId: 'abc123', tabId: 456 }
+ */
+export function parseTabId(
+	compositeId: string,
+): { deviceId: string; tabId: number } | null {
+	const result = parseCompositeIdInternal(compositeId);
+	if (!result) return null;
+	return { deviceId: result.deviceId, tabId: result.nativeId };
+}
+
+/**
+ * Parse a composite window ID into its parts.
+ * @example parseWindowId('abc123_456') // { deviceId: 'abc123', windowId: 456 }
+ */
+export function parseWindowId(
+	compositeId: string,
+): { deviceId: string; windowId: number } | null {
+	const result = parseCompositeIdInternal(compositeId);
+	if (!result) return null;
+	return { deviceId: result.deviceId, windowId: result.nativeId };
+}
+
+/**
+ * Parse a composite group ID into its parts.
+ * @example parseGroupId('abc123_456') // { deviceId: 'abc123', groupId: 456 }
+ */
+export function parseGroupId(
+	compositeId: string,
+): { deviceId: string; groupId: number } | null {
+	const result = parseCompositeIdInternal(compositeId);
+	if (!result) return null;
+	return { deviceId: result.deviceId, groupId: result.nativeId };
 }
