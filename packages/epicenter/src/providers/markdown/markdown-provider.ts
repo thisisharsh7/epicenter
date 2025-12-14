@@ -15,7 +15,11 @@ import type {
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createProviderLogger } from '../error-logger';
-import { defaultTableConfig, type TableMarkdownConfig } from './configs';
+import {
+	defaultSerializer,
+	type MarkdownSerializer,
+	type TableMarkdownConfig,
+} from './configs';
 import { createDiagnosticsManager } from './diagnostics-manager';
 import {
 	deleteMarkdownFile,
@@ -43,10 +47,23 @@ export const { MarkdownProviderError, MarkdownProviderErr } = createTaggedError(
 export type MarkdownProviderError = ReturnType<typeof MarkdownProviderError>;
 
 // Re-export config types and functions
-export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
+export type {
+	BodyFieldSerializerOptions,
+	MarkdownSerializer,
+	ParsedFilename,
+	TableMarkdownConfig,
+	TitleFilenameSerializerOptions,
+	WithBodyFieldOptions,
+} from './configs';
 export {
+	// Builder for custom serializers with full type inference
+	defineSerializer,
+	// Pre-built serializer factories
+	bodyFieldSerializer,
+	defaultSerializer,
+	titleFilenameSerializer,
+	// Legacy exports (deprecated)
 	defaultTableConfig,
-	defineTableConfig,
 	withBodyField,
 	withTitleFilename,
 } from './configs';
@@ -104,10 +121,26 @@ type RowToFilenameMap = Record<string, string>;
 
 /**
  * Per-table markdown configuration.
- * Use factory functions like `defaultTableConfig()`, `withBodyField()`, or `withTitleFilename()`.
+ *
+ * Each table config has two optional fields:
+ * - `directory?`: WHERE files go (defaults to table name)
+ * - `serializer?`: HOW rows are encoded/decoded (defaults to all-frontmatter)
+ *
+ * Use serializer factories like `bodyFieldSerializer()` or `titleFilenameSerializer()`.
  */
 type TableConfigs<TSchema extends WorkspaceSchema> = {
 	[K in keyof TSchema]?: TableMarkdownConfig<TSchema[K]>;
+};
+
+/**
+ * Internal resolved config with all required fields.
+ * This is what the provider uses internally after merging user config with defaults.
+ */
+type ResolvedTableConfig<TTableSchema extends TableSchema> = {
+	directory: AbsolutePath;
+	serialize: MarkdownSerializer<TTableSchema>['serialize'];
+	parseFilename: MarkdownSerializer<TTableSchema>['deserialize']['parseFilename'];
+	deserialize: MarkdownSerializer<TTableSchema>['deserialize']['fromContent'];
 };
 
 /**
@@ -280,19 +313,32 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	/**
 	 * Build table configs by merging user configs with defaults.
 	 *
-	 * User configs are created via factory functions (defaultTableConfig, withBodyField, etc.)
-	 * which always provide serialize/parseFilename/deserialize. If no config is provided for
-	 * a table, defaultTableConfig() is used.
+	 * User configs have two optional fields:
+	 * - `directory?`: WHERE files go (defaults to table name)
+	 * - `serializer?`: HOW rows are encoded/decoded (defaults to all-frontmatter)
+	 *
+	 * We resolve these to a flat internal structure for efficient runtime access.
 	 */
 	const tableWithConfigs = tables.$tables().map((table) => {
-		const baseConfig = userTableConfigs[table.name] ?? defaultTableConfig();
-		const tableConfig = {
-			...baseConfig,
-			directory: path.resolve(
-				absoluteWorkspaceDir,
-				baseConfig.directory ?? table.name,
-			) as AbsolutePath,
+		const userConfig = userTableConfigs[table.name] ?? {};
+
+		// Resolve serializer: user-provided or default
+		const serializer = userConfig.serializer ?? defaultSerializer();
+
+		// Resolve directory: user-provided or table name
+		const directory = path.resolve(
+			absoluteWorkspaceDir,
+			userConfig.directory ?? table.name,
+		) as AbsolutePath;
+
+		// Flatten for internal use
+		const tableConfig: ResolvedTableConfig<TSchema[keyof TSchema & string]> = {
+			directory,
+			serialize: serializer.serialize,
+			parseFilename: serializer.deserialize.parseFilename,
+			deserialize: serializer.deserialize.fromContent,
 		};
+
 		return { table, tableConfig };
 	});
 
@@ -1189,7 +1235,6 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 									}
 
 									// Insert into YJS
-									// @ts-expect-error SerializedRow<TSchema[string]> is not assignable to parameter of type SerializedRow<TTableSchema> due to union type from $tables() iteration
 									table.upsert(row);
 								}),
 							);

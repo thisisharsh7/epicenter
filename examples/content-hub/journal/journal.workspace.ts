@@ -6,7 +6,7 @@ import {
 	tags,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, withBodyField } from '@epicenter/hq/providers/markdown';
+import { markdownProvider, bodyFieldSerializer } from '@epicenter/hq/providers/markdown';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
 
@@ -109,7 +109,7 @@ export const journal = defineWorkspace({
 			markdownProvider(c, {
 				tableConfigs: {
 					// Keep null values for proper round-trip (no stripping)
-					journal: withBodyField('content', { stripNulls: false }),
+					journal: { serializer: bodyFieldSerializer('content', { stripNulls: false }) },
 				},
 			}),
 	},

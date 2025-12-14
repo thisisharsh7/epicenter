@@ -10,7 +10,7 @@ import {
 	tags,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, MarkdownProviderErr, withBodyField } from '@epicenter/hq/providers/markdown';
+import { markdownProvider, MarkdownProviderErr, bodyFieldSerializer } from '@epicenter/hq/providers/markdown';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
@@ -66,7 +66,7 @@ export const wiki = defineWorkspace({
 		markdown: (c) =>
 			markdownProvider(c, {
 				tableConfigs: {
-					entries: withBodyField('content'),
+					entries: { serializer: bodyFieldSerializer('content') },
 				},
 			}),
 
@@ -82,89 +82,96 @@ export const wiki = defineWorkspace({
 				directory: BLOG_ARTICLES_PATH,
 				tableConfigs: {
 					entries: {
-						serialize: ({ row }) => {
-							const {
-								id: rowId,
-								content,
-								title,
-								type,
-								tags,
-								resonance,
-								created_at,
-								updated_at,
-							} = row;
+						serializer: {
+							serialize: ({ row }) => {
+								const {
+									id: rowId,
+									content,
+									title,
+									type,
+									tags,
+									resonance,
+									created_at,
+									updated_at,
+								} = row;
 
-							// Destructure date and timezone from DateWithTimezoneString
-							const { date: createdDate, timezone } =
-								DateWithTimezoneFromString(created_at);
-							const { date: updatedDate } =
-								DateWithTimezoneFromString(updated_at);
+								// Destructure date and timezone from DateWithTimezoneString
+								const { date: createdDate, timezone } =
+									DateWithTimezoneFromString(created_at);
+								const { date: updatedDate } =
+									DateWithTimezoneFromString(updated_at);
 
-							// Build frontmatter with consistent field names
-							const frontmatter = {
-								title,
-								type,
-								tags,
-								resonance,
-								timezone,
-								created_at: createdDate,
-								updated_at: updatedDate,
-							};
+								// Build frontmatter with consistent field names
+								const frontmatter = {
+									title,
+									type,
+									tags,
+									resonance,
+									timezone,
+									created_at: createdDate,
+									updated_at: updatedDate,
+								};
 
-							return {
-								frontmatter,
-								body: content,
-								filename: `${rowId}.md`,
-							};
-						},
+								return {
+									frontmatter,
+									body: content,
+									filename: `${rowId}.md`,
+								};
+							},
 
-						deserialize: ({ frontmatter, body, filename, table }) => {
-							const rowId = path.basename(filename, '.md');
+							deserialize: {
+								parseFilename: (filename) => {
+									const id = path.basename(filename, '.md');
+									return { id };
+								},
 
-							// Parse frontmatter with consistent field names
-							const EntryFrontmatter = type({
-								title: 'string',
-								'type?': 'string[]',
-								'tags?': 'string[]',
-								'resonance?': 'string | null',
-								timezone: 'string',
-								created_at: 'Date',
-								updated_at: 'Date',
-							});
+								fromContent: ({ frontmatter, body, filename, parsed, table }) => {
+									const { id: rowId } = parsed;
 
-							const parsed = EntryFrontmatter(frontmatter);
-							if (parsed instanceof type.errors) {
-								return MarkdownProviderErr({
-									message: `Invalid frontmatter for entry ${rowId}`,
-									context: {
-										filename,
+									// Parse frontmatter with consistent field names
+									const EntryFrontmatter = type({
+										title: 'string',
+										'type?': 'string[]',
+										'tags?': 'string[]',
+										'resonance?': 'string | null',
+										timezone: 'string',
+										created_at: 'Date',
+										updated_at: 'Date',
+									});
+
+									const parsedFrontmatter = EntryFrontmatter(frontmatter);
+									if (parsedFrontmatter instanceof type.errors) {
+										return MarkdownProviderErr({
+											message: `Invalid frontmatter for entry ${rowId}`,
+											context: {
+												fileName: filename,
+												id: rowId,
+												reason: parsedFrontmatter.summary,
+											},
+										});
+									}
+
+									const row = {
 										id: rowId,
-										reason: parsed.summary,
-									},
-								});
-							}
+										title: parsedFrontmatter.title,
+										content: body,
+										type: parsedFrontmatter.type ?? null,
+										tags: parsedFrontmatter.tags ?? null,
+										resonance: parsedFrontmatter.resonance ?? null,
+										created_at: DateWithTimezone({
+											date: parsedFrontmatter.created_at,
+											timezone: parsedFrontmatter.timezone,
+										}).toJSON(),
+										updated_at: DateWithTimezone({
+											date: parsedFrontmatter.updated_at,
+											timezone: parsedFrontmatter.timezone,
+										}).toJSON(),
+									} satisfies SerializedRow<typeof table.schema>;
 
-							const row = {
-								id: rowId,
-								title: parsed.title,
-								content: body,
-								type: parsed.type ?? null,
-								tags: parsed.tags ?? null,
-								resonance: parsed.resonance ?? null,
-								created_at: DateWithTimezone({
-									date: parsed.created_at,
-									timezone: parsed.timezone,
-								}).toJSON(),
-								updated_at: DateWithTimezone({
-									date: parsed.updated_at,
-									timezone: parsed.timezone,
-								}).toJSON(),
-							} satisfies SerializedRow<typeof table.schema>;
-
-							return Ok(row);
+									return Ok(row);
+								},
+							},
 						},
-						extractRowIdFromFilename: (filename) =>
-							path.basename(filename, '.md'),
 					},
 				},
 			}),

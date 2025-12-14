@@ -31,7 +31,7 @@ import {
 } from '@epicenter/hq';
 import {
 	markdownProvider,
-	withTitleFilename,
+	titleFilenameSerializer,
 } from '@epicenter/hq/providers/markdown';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
@@ -159,7 +159,7 @@ export const browser = defineWorkspace({
 			markdownProvider(c, {
 				debug: true, // TODO: Remove after debugging bulk file sync
 				tableConfigs: {
-					tabs: withTitleFilename('title'),
+					tabs: { serializer: titleFilenameSerializer('title') },
 				},
 			}),
 	},

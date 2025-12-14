@@ -12,7 +12,7 @@ import {
 	select,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, MarkdownProviderErr, withBodyField } from '@epicenter/hq/providers/markdown';
+import { markdownProvider, MarkdownProviderErr, bodyFieldSerializer } from '@epicenter/hq/providers/markdown';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
@@ -136,10 +136,10 @@ export const clippings = defineWorkspace({
 		markdown: (c) =>
 			markdownProvider(c, {
 				tableConfigs: {
-					articles: withBodyField('content'),
-					essays: withBodyField('content'),
-					github_repos: withBodyField('content'),
-					article_excerpts: withBodyField('content'),
+					articles: { serializer: bodyFieldSerializer('content') },
+					essays: { serializer: bodyFieldSerializer('content') },
+					github_repos: { serializer: bodyFieldSerializer('content') },
+					article_excerpts: { serializer: bodyFieldSerializer('content') },
 					/**
 					 * Custom markdown config for recipes
 					 *
@@ -157,11 +157,12 @@ export const clippings = defineWorkspace({
 					 * Deserializes by parsing these sections back into separate fields.
 					 */
 					recipes: {
-						serialize: ({ row }) => {
-							const { id: rowId, ingredients, instructions, ...rest } = row;
+						serializer: {
+							serialize: ({ row }) => {
+								const { id: rowId, ingredients, instructions, ...rest } = row;
 
-							// Build body with markdown sections
-							const body = `## Ingredients
+								// Build body with markdown sections
+								const body = `## Ingredients
 
 ${ingredients}
 
@@ -169,68 +170,76 @@ ${ingredients}
 
 ${instructions}`;
 
-							// Strip null values from frontmatter
-							const frontmatter = Object.fromEntries(
-								Object.entries(rest).filter(([_, value]) => value !== null),
-							);
+								// Strip null values from frontmatter
+								const frontmatter = Object.fromEntries(
+									Object.entries(rest).filter(([_, value]) => value !== null),
+								);
 
-							return {
-								frontmatter,
-								body,
-								filename: `${rowId}.md`,
-							};
-						},
+								return {
+									frontmatter,
+									body,
+									filename: `${rowId}.md`,
+								};
+							},
 
-						deserialize: ({ frontmatter, body, filename, table }) => {
-							const rowId = path.basename(filename, '.md');
+							deserialize: {
+								parseFilename: (filename) => {
+									const id = path.basename(filename, '.md');
+									return { id };
+								},
 
-							// Parse sections from body
-							const ingredientsMatch = body.match(
-								/## Ingredients\s*\n([\s\S]*?)(?=\n## Instructions|$)/,
-							);
-							const instructionsMatch = body.match(
-								/## Instructions\s*\n([\s\S]*?)$/,
-							);
+								fromContent: ({ frontmatter, body, filename, parsed, table }) => {
+									const { id: rowId } = parsed;
 
-							if (!ingredientsMatch || !instructionsMatch) {
-								return MarkdownProviderErr({
-									message: `Recipe ${rowId} missing required sections`,
-									context: {
-										fileName: filename,
+									// Parse sections from body
+									const ingredientsMatch = body.match(
+										/## Ingredients\s*\n([\s\S]*?)(?=\n## Instructions|$)/,
+									);
+									const instructionsMatch = body.match(
+										/## Instructions\s*\n([\s\S]*?)$/,
+									);
+
+									if (!ingredientsMatch || !instructionsMatch) {
+										return MarkdownProviderErr({
+											message: `Recipe ${rowId} missing required sections`,
+											context: {
+												fileName: filename,
+												id: rowId,
+												reason:
+													'Body must contain "## Ingredients" and "## Instructions" sections',
+											},
+										});
+									}
+
+									const ingredients = ingredientsMatch[1].trim();
+									const instructions = instructionsMatch[1].trim();
+
+									// Validate frontmatter (omit id, ingredients, instructions)
+									const FrontMatter = table.validators
+										.toArktype()
+										.omit('id', 'ingredients', 'instructions');
+
+									const parsedFrontmatter = FrontMatter(frontmatter);
+
+									if (parsedFrontmatter instanceof type.errors) {
+										return MarkdownProviderErr({
+											message: `Invalid frontmatter for recipe ${rowId}`,
+											context: {
+												fileName: filename,
+												id: rowId,
+												reason: parsedFrontmatter.summary,
+											},
+										});
+									}
+
+									return Ok({
 										id: rowId,
-										reason:
-											'Body must contain "## Ingredients" and "## Instructions" sections',
-									},
-								});
-							}
-
-							const ingredients = ingredientsMatch[1].trim();
-							const instructions = instructionsMatch[1].trim();
-
-							// Validate frontmatter (omit id, ingredients, instructions)
-							const FrontMatter = table.validators
-								.toArktype()
-								.omit('id', 'ingredients', 'instructions');
-
-							const parsed = FrontMatter(frontmatter);
-
-							if (parsed instanceof type.errors) {
-								return MarkdownProviderErr({
-									message: `Invalid frontmatter for recipe ${rowId}`,
-									context: {
-										fileName: filename,
-										id: rowId,
-										reason: parsed.summary,
-									},
-								});
-							}
-
-							return Ok({
-								id: rowId,
-								ingredients,
-								instructions,
-								...parsed,
-							});
+										ingredients,
+										instructions,
+										...parsedFrontmatter,
+									});
+								},
+							},
 						},
 					},
 				},

@@ -1,44 +1,45 @@
 /**
  * @fileoverview Markdown Table Config Factory Functions
  *
- * This file provides factory functions for creating `TableMarkdownConfig` objects,
- * which define how rows are serialized to markdown files and deserialized back.
+ * This file provides types and factory functions for configuring how tables
+ * sync to markdown files.
  *
- * ## Contract
+ * ## API Overview
  *
- * All configs must provide three functions together:
- * - `serialize`: Converts a row to { frontmatter, body, filename }
- * - `parseFilename`: Parses a filename to extract { id, ...otherFields }
- * - `deserialize`: Converts { frontmatter, body, parsed } back to a row (with validation)
+ * Each table config has two concerns:
+ * - `directory?`: WHERE files go (defaults to table name)
+ * - `serializer?`: HOW rows are encoded/decoded (defaults to all-frontmatter)
  *
- * Use factory functions to create configs - they handle this requirement automatically.
+ * ## Available Serializer Factories
  *
- * ## Available Factories
- *
- * - `defaultTableConfig()`: Default behavior with optional directory override
- * - `withBodyField(field)`: One field becomes the markdown body
- * - `withTitleFilename(field)`: Human-readable `{title}-{id}.md` filenames
- * - `defineTableConfig().withParser().withSerializers()`: Full custom builder
+ * - `defaultSerializer()`: All fields in frontmatter, `{id}.md` filename
+ * - `bodyFieldSerializer(field)`: One field becomes the markdown body
+ * - `titleFilenameSerializer(field)`: Human-readable `{title}-{id}.md` filenames
  *
  * ## Usage
  *
  * ```typescript
- * import { markdownProvider, defaultTableConfig, withBodyField, withTitleFilename } from '@epicenter/hq';
+ * import { markdownProvider, bodyFieldSerializer, titleFilenameSerializer } from '@epicenter/hq';
  *
  * markdownProvider(c, {
  *   tableConfigs: {
- *     // Default: all in frontmatter, {id}.md filename
- *     settings: defaultTableConfig(),
+ *     // Both defaults (empty object)
+ *     settings: {},
  *
- *     // Custom directory with default behavior
- *     config: defaultTableConfig({ directory: './app-config' }),
+ *     // Custom directory only
+ *     config: { directory: './app-config' },
  *
- *     // Field becomes markdown body
- *     articles: withBodyField('content'),
- *     posts: withBodyField('markdown', { directory: './blog' }),
+ *     // Custom serializer only
+ *     posts: { serializer: bodyFieldSerializer('content') },
  *
- *     // Human-readable filenames
- *     tabs: withTitleFilename('title'),
+ *     // Both custom
+ *     drafts: {
+ *       directory: './drafts',
+ *       serializer: bodyFieldSerializer('content'),
+ *     },
+ *
+ *     // Title-based filenames
+ *     tabs: { serializer: titleFilenameSerializer('title') },
  *   }
  * })
  * ```
@@ -56,20 +57,8 @@ import {
 } from './markdown-provider';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper types for TableMarkdownConfig
+// Core Types
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Serialize function signature
- */
-type SerializeFn<TTableSchema extends TableSchema> = (params: {
-	row: SerializedRow<TTableSchema>;
-	table: TableHelper<TTableSchema>;
-}) => {
-	frontmatter: Record<string, unknown>;
-	body: string;
-	filename: string;
-};
 
 /**
  * Base parsed result that all parseFilename functions must return.
@@ -78,75 +67,103 @@ type SerializeFn<TTableSchema extends TableSchema> = (params: {
 export type ParsedFilename = { id: string };
 
 /**
- * Parse filename function signature.
- * Extracts structured data from a filename. The returned object must contain `id`,
- * and may include additional fields that will be passed to deserialize.
+ * A serializer defines how to encode rows to markdown files and decode them back.
+ *
+ * @typeParam TTableSchema - The table schema being serialized
+ * @typeParam TParsed - Additional data extracted from filename beyond `id`
  */
-type ParseFilenameFn<TParsed extends ParsedFilename> = (
-	filename: string,
-) => TParsed | undefined;
-
-/**
- * Deserialize function signature.
- * The `parsed` parameter contains whatever parseFilename returned.
- */
-type DeserializeFn<
+export type MarkdownSerializer<
 	TTableSchema extends TableSchema,
 	TParsed extends ParsedFilename = ParsedFilename,
-> = (params: {
-	frontmatter: Record<string, unknown>;
-	body: string;
-	filename: string;
-	parsed: TParsed;
-	table: TableHelper<TTableSchema>;
-}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
+> = {
+	/**
+	 * Encode: Convert a row to markdown file format.
+	 * Returns frontmatter object, body string, and filename.
+	 */
+	serialize: (params: {
+		row: SerializedRow<TTableSchema>;
+		table: TableHelper<TTableSchema>;
+	}) => {
+		frontmatter: Record<string, unknown>;
+		body: string;
+		filename: string;
+	};
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TableMarkdownConfig Type
-// ─────────────────────────────────────────────────────────────────────────────
+	/**
+	 * Decode: Convert markdown file back to a row.
+	 * Two-step process: parse filename first, then parse content.
+	 */
+	deserialize: {
+		/**
+		 * Step 1: Extract structured data from filename.
+		 * Must return at least { id }, can include additional fields.
+		 * Return undefined if filename doesn't match expected pattern.
+		 */
+		parseFilename: (filename: string) => TParsed | undefined;
+
+		/**
+		 * Step 2: Reconstruct the row from frontmatter, body, and parsed filename data.
+		 * Called only if parseFilename succeeded.
+		 */
+		fromContent: (params: {
+			frontmatter: Record<string, unknown>;
+			body: string;
+			filename: string;
+			parsed: TParsed;
+			table: TableHelper<TTableSchema>;
+		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
+	};
+};
 
 /**
- * Configuration for how a table's rows are serialized to markdown files.
- *
- * All configs must provide the complete set of serialize/parseFilename/deserialize functions.
- * Use factory functions to create configs - they handle this requirement automatically.
+ * Configuration for how a table syncs to markdown files.
+ * Both fields are optional with sensible defaults.
  *
  * @example
  * ```typescript
  * markdownProvider(c, {
  *   tableConfigs: {
- *     settings: defaultTableConfig(),
- *     posts: withTitleFilename('title'),
- *     articles: withBodyField('content'),
+ *     settings: {},  // All defaults
+ *     posts: { serializer: bodyFieldSerializer('content') },
+ *     drafts: { directory: './drafts', serializer: bodyFieldSerializer('content') },
  *   }
  * })
  * ```
  */
 export type TableMarkdownConfig<
-	TTableSchema extends TableSchema,
+	TTableSchema extends TableSchema = TableSchema,
 	TParsed extends ParsedFilename = ParsedFilename,
 > = {
+	/**
+	 * WHERE files go. Resolved relative to workspace directory.
+	 * @default table.name (e.g., "posts" table -> "./posts/")
+	 */
 	directory?: string;
-	serialize: SerializeFn<TTableSchema>;
-	parseFilename: ParseFilenameFn<TParsed>;
-	deserialize: DeserializeFn<TTableSchema, TParsed>;
+
+	/**
+	 * HOW files are encoded/decoded.
+	 * @default Default serializer (all fields to frontmatter, {id}.md filename)
+	 */
+	serializer?: MarkdownSerializer<TTableSchema, TParsed>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Builder Pattern for TableMarkdownConfig
+// Builder Pattern for Type-Safe Serializers
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Step 2: After parser is defined, add serializers.
+ * Step 2: After parser is defined, add serialize/fromContent functions.
+ *
+ * Type flow:
  * - `TFilename` from parser input constrains serialize's filename return
- * - `TParsed` from parser output flows to deserialize's parsed parameter
+ * - `TParsed` from parser output flows to fromContent's parsed parameter
  */
-type ConfigBuilderWithParser<
+type SerializerBuilderWithParser<
 	TTableSchema extends TableSchema,
 	TFilename extends string,
 	TParsed extends ParsedFilename,
 > = {
-	withSerializers(config: {
+	withCodecs(config: {
 		serialize: (params: {
 			row: SerializedRow<TTableSchema>;
 			table: TableHelper<TTableSchema>;
@@ -155,28 +172,52 @@ type ConfigBuilderWithParser<
 			body: string;
 			filename: TFilename;
 		};
-		deserialize: (params: {
+		fromContent: (params: {
 			frontmatter: Record<string, unknown>;
 			body: string;
 			filename: TFilename;
 			parsed: TParsed;
 			table: TableHelper<TTableSchema>;
 		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
-		directory?: string;
-	}): TableMarkdownConfig<TTableSchema, TParsed>;
+	}): MarkdownSerializer<TTableSchema, TParsed>;
 };
 
 /**
- * Creates a TableMarkdownConfig using a builder pattern with full type inference.
+ * Creates a MarkdownSerializer using a builder pattern with full type inference.
  *
  * The builder ensures bidirectional type flow:
  * - `TFilename`: Inferred from parser's input parameter, enforced on serialize's return
- * - `TParsed`: Inferred from parser's return type, provided to deserialize's parsed param
+ * - `TParsed`: Inferred from parser's return type, provided to fromContent's parsed param
+ *
+ * This provides excellent type safety: the filename format you parse must match
+ * the filename format you serialize to, and any extra data you extract from
+ * the filename is automatically available in fromContent with the correct type.
  *
  * @example
  * ```typescript
- * const config = defineTableConfig<MySchema>()
- *   .withParser((filename) => {
+ * // Basic usage with template literal types
+ * const serializer = defineSerializer<MySchema>()
+ *   .withParser((filename: `${string}.md`) => {
+ *     const id = path.basename(filename, '.md');
+ *     return { id };
+ *   })
+ *   .withCodecs({
+ *     serialize: ({ row }) => ({
+ *       frontmatter: { ...row },
+ *       body: '',
+ *       filename: `${row.id}.md`,  // Must match parser's TFilename
+ *     }),
+ *     fromContent: ({ parsed, frontmatter }) => {
+ *       // parsed.id is fully typed from parser's return!
+ *       return Ok({ id: parsed.id, ...frontmatter });
+ *     },
+ *   });
+ *
+ * // Advanced: Extract extra data from filename
+ * type TitleIdFilename = `${string}-${string}.md`;
+ *
+ * const titleSerializer = defineSerializer<TabSchema>()
+ *   .withParser((filename: TitleIdFilename) => {
  *     const basename = path.basename(filename, '.md');
  *     const lastDash = basename.lastIndexOf('-');
  *     return {
@@ -184,56 +225,37 @@ type ConfigBuilderWithParser<
  *       titleFromFilename: basename.substring(0, lastDash),
  *     };
  *   })
- *   .withSerializers({
- *     serialize: ({ row }) => ({
- *       frontmatter: { ...row },
- *       body: '',
- *       filename: `${row.title}-${row.id}.md`,
- *     }),
- *     deserialize: ({ parsed, frontmatter, table }) => {
- *       // parsed.id and parsed.titleFromFilename are fully typed!
- *       const { id, titleFromFilename } = parsed;
- *       // ...
- *     },
- *   });
- *
- * // With explicit template literal for stricter filename validation:
- * type TitleIdFilename = `${string}-${string}.md`;
- *
- * const strictConfig = defineTableConfig<MySchema>()
- *   .withParser((filename: TitleIdFilename) => ({
- *     id: extractId(filename),
- *     title: extractTitle(filename),
- *   }))
- *   .withSerializers({
+ *   .withCodecs({
  *     serialize: ({ row }) => ({
  *       frontmatter: {},
  *       body: '',
  *       filename: `${row.title}-${row.id}.md` as TitleIdFilename,
  *     }),
- *     deserialize: ({ parsed }) => { ... },
+ *     fromContent: ({ parsed }) => {
+ *       // parsed.titleFromFilename is typed!
+ *       console.log(parsed.titleFromFilename);
+ *       return Ok({ id: parsed.id, ... });
+ *     },
  *   });
  * ```
  */
-export function defineTableConfig<TTableSchema extends TableSchema>(): {
+export function defineSerializer<TTableSchema extends TableSchema>(): {
 	withParser<TFilename extends string, TParsed extends ParsedFilename>(
 		parseFilename: (filename: TFilename) => TParsed | undefined,
-	): ConfigBuilderWithParser<TTableSchema, TFilename, TParsed>;
+	): SerializerBuilderWithParser<TTableSchema, TFilename, TParsed>;
 } {
 	return {
 		withParser<TFilename extends string, TParsed extends ParsedFilename>(
 			parseFilename: (filename: TFilename) => TParsed | undefined,
-		): ConfigBuilderWithParser<TTableSchema, TFilename, TParsed> {
+		): SerializerBuilderWithParser<TTableSchema, TFilename, TParsed> {
 			return {
-				withSerializers(config) {
+				withCodecs(config) {
 					return {
-						directory: config.directory,
-						serialize: config.serialize as SerializeFn<TTableSchema>,
-						parseFilename: parseFilename as ParseFilenameFn<TParsed>,
-						deserialize: config.deserialize as DeserializeFn<
-							TTableSchema,
-							TParsed
-						>,
+						serialize: config.serialize as MarkdownSerializer<TTableSchema, TParsed>['serialize'],
+						deserialize: {
+							parseFilename: parseFilename as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['parseFilename'],
+							fromContent: config.fromContent as MarkdownSerializer<TTableSchema, TParsed>['deserialize']['fromContent'],
+						},
 					};
 				},
 			};
@@ -241,43 +263,44 @@ export function defineTableConfig<TTableSchema extends TableSchema>(): {
 	};
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Serializer Factories
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Creates a default table config using the `{id}.md` filename pattern.
+ * Default serializer: all fields to frontmatter, `{id}.md` filename.
  *
- * Default behavior:
- * - Serialize: All fields except id → frontmatter, empty body, filename "{id}.md"
+ * Serialization behavior:
+ * - Serialize: All fields except id go to frontmatter, empty body, filename "{id}.md"
  * - ParseFilename: Strip .md extension, return { id }
  * - Deserialize: Validate frontmatter against schema with id from parsed
- *
- * Use this when your table doesn't have a dedicated content/body field.
- *
- * @param options.directory - Custom directory for this table's markdown files
  *
  * @example
  * ```typescript
  * markdownProvider(c, {
  *   tableConfigs: {
- *     settings: defaultTableConfig(),  // Uses table name as directory
- *     config: defaultTableConfig({ directory: './app-config' }),
+ *     settings: {},  // Uses defaultSerializer() implicitly
+ *     config: { serializer: defaultSerializer() },  // Explicit
  *   }
  * })
  * ```
  */
-export function defaultTableConfig<TTableSchema extends TableSchema = TableSchema>(
-	options?: { directory?: string },
-): TableMarkdownConfig<TTableSchema> {
-	return defineTableConfig<TTableSchema>()
+export function defaultSerializer<
+	TTableSchema extends TableSchema = TableSchema,
+>(): MarkdownSerializer<TTableSchema> {
+	return defineSerializer<TTableSchema>()
 		.withParser((filename: `${string}.md`) => {
 			const id = path.basename(filename, '.md');
 			return { id };
 		})
-		.withSerializers({
+		.withCodecs({
 			serialize: ({ row: { id, ...rest } }) => ({
 				frontmatter: rest,
 				body: '',
 				filename: `${id}.md`,
 			}),
-			deserialize: ({ frontmatter, parsed, table }) => {
+
+			fromContent: ({ frontmatter, parsed, table }) => {
 				const { id } = parsed;
 
 				// Combine id with frontmatter
@@ -296,114 +319,13 @@ export function defaultTableConfig<TTableSchema extends TableSchema = TableSchem
 
 				return Ok(result as SerializedRow<TTableSchema>);
 			},
-			directory: options?.directory,
 		});
 }
 
 /**
- * Factory function to create a table config with human-readable filenames.
- *
- * Creates filenames in the format: `{title}-{id}.md`
- *
- * This pattern provides:
- * - Readability: Title comes first for easy scanning in file browsers
- * - Uniqueness: ID suffix guarantees no filename collisions
- * - Sorting: Files sort alphabetically by title
- *
- * @param titleField - The field to use for the readable part of the filename
- * @param options.stripNulls - Remove null values from frontmatter (default: true)
- * @param options.maxTitleLength - Max chars for title portion (default: 80)
- * @param options.directory - Custom directory for this table's markdown files
- *
- * @example
- * ```typescript
- * markdownProvider(c, {
- *   tableConfigs: {
- *     tabs: withTitleFilename('title'),
- *     notes: withTitleFilename('name', { maxTitleLength: 50 }),
- *     posts: withTitleFilename('title', { directory: './blog-posts' }),
- *   }
- * })
- * ```
+ * Options for the bodyFieldSerializer factory function
  */
-export function withTitleFilename<TTableSchema extends TableSchema>(
-	titleField: keyof TTableSchema & string,
-	options: { stripNulls?: boolean; maxTitleLength?: number; directory?: string } = {},
-) {
-	const { stripNulls = true, maxTitleLength = 80, directory } = options;
-
-	return defineTableConfig<TTableSchema>()
-		.withParser((filename: `${string}-${string}.md`) => {
-			const basename = path.basename(filename, '.md');
-			const lastDashIndex = basename.lastIndexOf('-');
-			// If no dash found, treat entire basename as ID (fallback to default behavior)
-			const id =
-				lastDashIndex === -1 ? basename : basename.substring(lastDashIndex + 1);
-			const titleFromFilename =
-				lastDashIndex === -1 ? '' : basename.substring(0, lastDashIndex);
-			return { id, titleFromFilename };
-		})
-		.withSerializers({
-			serialize: ({ row }) => {
-				const { id, ...rest } = row;
-				const rawTitle = (row[titleField] as string) || '';
-
-				// Use filenamify for robust cross-platform filename sanitization
-				// Handles Unicode normalization, grapheme-aware truncation, emoji preservation
-				const sanitizedTitle =
-					rawTitle.trim() === ''
-						? 'Untitled'
-						: filenamify(rawTitle, {
-								maxLength: maxTitleLength,
-								replacement: '',
-							});
-
-				// Optionally strip null values for cleaner YAML
-				const frontmatter = stripNulls
-					? Object.fromEntries(
-							Object.entries(rest).filter(([_, value]) => value !== null),
-						)
-					: rest;
-
-				return {
-					frontmatter,
-					body: '',
-					filename: `${sanitizedTitle}-${id}.md`,
-				};
-			},
-
-			deserialize: ({ frontmatter, parsed, table }) => {
-				const { id } = parsed;
-
-				// Combine id with frontmatter
-				const data = { id, ...frontmatter };
-
-				// Validate using direct arktype pattern
-				const validator = table.validators.toArktype();
-				const result = validator(data);
-
-				if (result instanceof type.errors) {
-					return MarkdownProviderErr({
-						message: `Failed to validate row ${id}`,
-						context: {
-							fileName: `${id}.md`,
-							id,
-							reason: result.summary,
-						},
-					});
-				}
-
-				return Ok(result as SerializedRow<TTableSchema>);
-			},
-
-			directory,
-		});
-}
-
-/**
- * Options for the withBodyField factory function
- */
-export type WithBodyFieldOptions<
+export type BodyFieldSerializerOptions<
 	TTableSchema extends TableSchema = TableSchema,
 > = {
 	/**
@@ -418,51 +340,43 @@ export type WithBodyFieldOptions<
 	 * @default 'id'
 	 */
 	filenameField?: keyof TTableSchema & string;
-
-	/**
-	 * Custom directory for this table's markdown files.
-	 * Resolved relative to workspace directory.
-	 */
-	directory?: string;
 };
 
 /**
- * Factory function to create a table config where a specific field becomes the markdown body.
+ * Body field serializer: one field becomes the markdown body.
  *
- * This is a common pattern for tables with a main content field (like `content`, `body`, or `markdown`)
+ * Use when your table has a main content field (like `content`, `body`, or `markdown`)
  * that should be stored as the markdown body rather than in frontmatter.
  *
  * @param bodyField - The field name that should become the markdown body
  * @param options - Optional configuration for null stripping and filename field
- * @returns A TableMarkdownConfig with serialize/deserialize functions
  *
  * @example
  * ```typescript
  * markdownProvider(c, {
  *   tableConfigs: {
- *     articles: withBodyField('content'),
- *     posts: withBodyField('markdown'),
- *     journal: withBodyField('content', { stripNulls: false }),
+ *     articles: { serializer: bodyFieldSerializer('content') },
+ *     posts: { serializer: bodyFieldSerializer('markdown') },
+ *     journal: { serializer: bodyFieldSerializer('content', { stripNulls: false }) },
  *   }
  * })
  * ```
  */
-export function withBodyField<TTableSchema extends TableSchema>(
+export function bodyFieldSerializer<TTableSchema extends TableSchema>(
 	bodyField: keyof TTableSchema & string,
-	options: WithBodyFieldOptions<TTableSchema> = {},
-) {
+	options: BodyFieldSerializerOptions<TTableSchema> = {},
+): MarkdownSerializer<TTableSchema> {
 	const {
 		stripNulls = true,
 		filenameField = 'id' as keyof TTableSchema & string,
-		directory,
 	} = options;
 
-	return defineTableConfig<TTableSchema>()
+	return defineSerializer<TTableSchema>()
 		.withParser((filename: `${string}.md`) => {
 			const id = path.basename(filename, '.md');
 			return { id };
 		})
-		.withSerializers({
+		.withCodecs({
 			serialize: ({ row }) => {
 				// Extract body field, filename field, and the rest
 				const { [bodyField]: body, [filenameField]: filename, ...rest } = row;
@@ -481,7 +395,7 @@ export function withBodyField<TTableSchema extends TableSchema>(
 				};
 			},
 
-			deserialize: ({ frontmatter, body, parsed, table }) => {
+			fromContent: ({ frontmatter, body, parsed, table }) => {
 				const { id: rowId } = parsed;
 
 				// Create validator that omits the body field and filename field
@@ -513,7 +427,203 @@ export function withBodyField<TTableSchema extends TableSchema>(
 
 				return Ok(row);
 			},
-
-			directory,
 		});
 }
+
+/**
+ * Options for the titleFilenameSerializer factory function
+ */
+export type TitleFilenameSerializerOptions = {
+	/**
+	 * Strip null values from frontmatter for cleaner YAML output.
+	 * Nullable fields are restored via arktype's .default(null) during deserialization.
+	 * @default true
+	 */
+	stripNulls?: boolean;
+
+	/**
+	 * Maximum characters for the title portion of the filename.
+	 * @default 80
+	 */
+	maxTitleLength?: number;
+};
+
+/**
+ * Title filename serializer: `{title}-{id}.md` filename pattern.
+ *
+ * Creates filenames with the title for readability while maintaining
+ * the ID suffix for uniqueness. Provides:
+ * - Readability: Title comes first for easy scanning in file browsers
+ * - Uniqueness: ID suffix guarantees no filename collisions
+ * - Sorting: Files sort alphabetically by title
+ *
+ * @param titleField - The field to use for the readable part of the filename
+ * @param options - Optional configuration for null stripping and max title length
+ *
+ * @example
+ * ```typescript
+ * markdownProvider(c, {
+ *   tableConfigs: {
+ *     tabs: { serializer: titleFilenameSerializer('title') },
+ *     notes: { serializer: titleFilenameSerializer('name', { maxTitleLength: 50 }) },
+ *   }
+ * })
+ * ```
+ */
+export function titleFilenameSerializer<TTableSchema extends TableSchema>(
+	titleField: keyof TTableSchema & string,
+	options: TitleFilenameSerializerOptions = {},
+): MarkdownSerializer<TTableSchema, ParsedFilename & { titleFromFilename: string }> {
+	const { stripNulls = true, maxTitleLength = 80 } = options;
+
+	return defineSerializer<TTableSchema>()
+		.withParser((filename: `${string}-${string}.md`) => {
+			const basename = path.basename(filename, '.md');
+			const lastDashIndex = basename.lastIndexOf('-');
+			// If no dash found, treat entire basename as ID (fallback to default behavior)
+			const id =
+				lastDashIndex === -1 ? basename : basename.substring(lastDashIndex + 1);
+			const titleFromFilename =
+				lastDashIndex === -1 ? '' : basename.substring(0, lastDashIndex);
+			return { id, titleFromFilename };
+		})
+		.withCodecs({
+			serialize: ({ row }) => {
+				const { id, ...rest } = row;
+				const rawTitle = (row[titleField] as string) || '';
+
+				// Use filenamify for robust cross-platform filename sanitization
+				// Handles Unicode normalization, grapheme-aware truncation, emoji preservation
+				const sanitizedTitle =
+					rawTitle.trim() === ''
+						? 'Untitled'
+						: filenamify(rawTitle, {
+								maxLength: maxTitleLength,
+								replacement: '',
+							});
+
+				// Optionally strip null values for cleaner YAML
+				const frontmatter = stripNulls
+					? Object.fromEntries(
+							Object.entries(rest).filter(([_, value]) => value !== null),
+						)
+					: rest;
+
+				return {
+					frontmatter,
+					body: '',
+					filename: `${sanitizedTitle}-${id}.md`,
+				};
+			},
+
+			fromContent: ({ frontmatter, parsed, table }) => {
+				const { id } = parsed;
+
+				// Combine id with frontmatter
+				const data = { id, ...frontmatter };
+
+				// Validate using direct arktype pattern
+				const validator = table.validators.toArktype();
+				const result = validator(data);
+
+				if (result instanceof type.errors) {
+					return MarkdownProviderErr({
+						message: `Failed to validate row ${id}`,
+						context: {
+							fileName: `${id}.md`,
+							id,
+							reason: result.summary,
+						},
+					});
+				}
+
+				return Ok(result as SerializedRow<TTableSchema>);
+			},
+		});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy Exports (Deprecated)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @deprecated Use `{}` (empty object) instead. Will be removed in next major version.
+ *
+ * Creates a default table config.
+ *
+ * Migration:
+ * ```typescript
+ * // Before
+ * settings: defaultTableConfig()
+ * config: defaultTableConfig({ directory: './app-config' })
+ *
+ * // After
+ * settings: {}
+ * config: { directory: './app-config' }
+ * ```
+ */
+export function defaultTableConfig<TTableSchema extends TableSchema = TableSchema>(
+	options?: { directory?: string },
+): TableMarkdownConfig<TTableSchema> {
+	return {
+		directory: options?.directory,
+		serializer: defaultSerializer<TTableSchema>(),
+	};
+}
+
+/**
+ * @deprecated Use `{ serializer: bodyFieldSerializer(field) }` instead. Will be removed in next major version.
+ *
+ * Migration:
+ * ```typescript
+ * // Before
+ * articles: withBodyField('content')
+ * posts: withBodyField('markdown', { directory: './blog' })
+ *
+ * // After
+ * articles: { serializer: bodyFieldSerializer('content') }
+ * posts: { directory: './blog', serializer: bodyFieldSerializer('markdown') }
+ * ```
+ */
+export function withBodyField<TTableSchema extends TableSchema>(
+	bodyField: keyof TTableSchema & string,
+	options: BodyFieldSerializerOptions<TTableSchema> & { directory?: string } = {},
+): TableMarkdownConfig<TTableSchema> {
+	const { directory, ...serializerOptions } = options;
+	return {
+		directory,
+		serializer: bodyFieldSerializer<TTableSchema>(bodyField, serializerOptions),
+	};
+}
+
+/**
+ * @deprecated Use `{ serializer: titleFilenameSerializer(field) }` instead. Will be removed in next major version.
+ *
+ * Migration:
+ * ```typescript
+ * // Before
+ * tabs: withTitleFilename('title')
+ * notes: withTitleFilename('name', { directory: './notes' })
+ *
+ * // After
+ * tabs: { serializer: titleFilenameSerializer('title') }
+ * notes: { directory: './notes', serializer: titleFilenameSerializer('name') }
+ * ```
+ */
+export function withTitleFilename<TTableSchema extends TableSchema>(
+	titleField: keyof TTableSchema & string,
+	options: TitleFilenameSerializerOptions & { directory?: string } = {},
+): TableMarkdownConfig<TTableSchema, ParsedFilename & { titleFromFilename: string }> {
+	const { directory, ...serializerOptions } = options;
+	return {
+		directory,
+		serializer: titleFilenameSerializer<TTableSchema>(titleField, serializerOptions),
+	};
+}
+
+// Legacy type export for backwards compatibility
+/**
+ * @deprecated Use `BodyFieldSerializerOptions` instead. Will be removed in next major version.
+ */
+export type WithBodyFieldOptions<TTableSchema extends TableSchema = TableSchema> =
+	BodyFieldSerializerOptions<TTableSchema> & { directory?: string };

@@ -5,11 +5,24 @@
  * and utilities for custom serializers and error handling.
  */
 
-// Table config factories and types
-export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
+// Table config types and serializer factories
+export type {
+	BodyFieldSerializerOptions,
+	MarkdownSerializer,
+	ParsedFilename,
+	TableMarkdownConfig,
+	TitleFilenameSerializerOptions,
+	WithBodyFieldOptions,
+} from './configs';
 export {
+	// Builder for custom serializers with full type inference
+	defineSerializer,
+	// Pre-built serializer factories
+	bodyFieldSerializer,
+	defaultSerializer,
+	titleFilenameSerializer,
+	// Legacy exports (deprecated)
 	defaultTableConfig,
-	defineTableConfig,
 	withBodyField,
 	withTitleFilename,
 } from './configs';
