@@ -286,24 +286,14 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * a table, DEFAULT_TABLE_CONFIG is used.
 	 */
 	const tableWithConfigs = tables.$tables().map((table) => {
-		const userConfig = userTableConfigs[table.name];
-
-		// Use user config or fall back to defaults
-		const baseConfig = userConfig ?? DEFAULT_TABLE_CONFIG;
-
-		// Resolve directory: user config > table name
-		const directory = path.resolve(
-			absoluteWorkspaceDir,
-			baseConfig.directory ?? table.name,
-		) as AbsolutePath;
-
+		const baseConfig = userTableConfigs[table.name] ?? DEFAULT_TABLE_CONFIG;
 		const tableConfig = {
-			serialize: baseConfig.serialize,
-			parseFilename: baseConfig.parseFilename,
-			deserialize: baseConfig.deserialize,
-			directory,
+			...baseConfig,
+			directory: path.resolve(
+				absoluteWorkspaceDir,
+				baseConfig.directory ?? table.name,
+			) as AbsolutePath,
 		};
-
 		return { table, tableConfig };
 	});
 
