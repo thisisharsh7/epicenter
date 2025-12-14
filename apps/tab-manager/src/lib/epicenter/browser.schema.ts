@@ -78,14 +78,29 @@ export const TAB_GROUP_COLORS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Devices table - tracks browser installations for multi-device sync.
+ *
+ * Each device generates a unique ID on first install, stored in storage.local.
+ * This enables syncing tabs across multiple computers while preventing ID collisions.
+ */
+export const DEVICES_SCHEMA = {
+	id: id(), // NanoID, generated once on install
+	name: text(), // User-editable: "Chrome on macOS", "Firefox on Windows"
+	last_seen: text(), // ISO timestamp, updated on each sync
+	browser: text(), // 'chrome' | 'firefox' | 'safari' | 'edge' | 'opera'
+} as const;
+
+/**
  * Tabs table - shadows browser tab state.
  *
- * The `id` field uses the browser's native tab ID (stringified). This is ephemeral
- * and changes on browser restart, but we do a destructive sync on startup anyway.
+ * The `id` field is a composite key: `${deviceId}_${tabId}`.
+ * This prevents collisions when syncing across multiple devices.
  */
 export const TABS_SCHEMA = {
-	id: id(), // Browser's tab.id (stringified)
-	window_id: text(), // Browser's windowId (stringified)
+	id: id(), // Composite: `${deviceId}_${tabId}`
+	device_id: text(), // Foreign key to devices table
+	tab_id: integer(), // Original browser tab ID for API calls
+	window_id: text(), // Composite: `${deviceId}_${windowId}`
 	url: text(),
 	title: text(),
 	fav_icon_url: text({ nullable: true }),
@@ -106,10 +121,12 @@ export const TABS_SCHEMA = {
 /**
  * Windows table - shadows browser window state.
  *
- * The `id` field uses the browser's native window ID (stringified).
+ * The `id` field is a composite key: `${deviceId}_${windowId}`.
  */
 export const WINDOWS_SCHEMA = {
-	id: id(), // Browser's window.id (stringified)
+	id: id(), // Composite: `${deviceId}_${windowId}`
+	device_id: text(), // Foreign key to devices table
+	window_id: integer(), // Original browser window ID for API calls
 	state: select({ options: WINDOW_STATES, default: 'normal' }),
 	type: select({ options: WINDOW_TYPES, default: 'normal' }),
 	focused: boolean({ default: false }),
@@ -124,11 +141,15 @@ export const WINDOWS_SCHEMA = {
 /**
  * Tab groups table - Chrome 88+ only, not supported on Firefox.
  *
+ * The `id` field is a composite key: `${deviceId}_${groupId}`.
+ *
  * @see https://developer.chrome.com/docs/extensions/reference/api/tabGroups
  */
 export const TAB_GROUPS_SCHEMA = {
-	id: id(), // Browser's group.id (stringified)
-	window_id: text(), // Browser's windowId (stringified)
+	id: id(), // Composite: `${deviceId}_${groupId}`
+	device_id: text(), // Foreign key to devices table
+	group_id: integer(), // Original browser group ID for API calls
+	window_id: text(), // Composite: `${deviceId}_${windowId}`
 	title: text({ nullable: true }),
 	color: select({ options: TAB_GROUP_COLORS, default: 'grey' }),
 	collapsed: boolean({ default: false }),
@@ -138,6 +159,7 @@ export const TAB_GROUPS_SCHEMA = {
 // Type Exports
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type Device = SerializedRow<typeof DEVICES_SCHEMA>;
 export type Tab = SerializedRow<typeof TABS_SCHEMA>;
 export type Window = SerializedRow<typeof WINDOWS_SCHEMA>;
 export type TabGroup = SerializedRow<typeof TAB_GROUPS_SCHEMA>;

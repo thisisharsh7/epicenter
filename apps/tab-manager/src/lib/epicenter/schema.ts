@@ -6,7 +6,12 @@
  */
 
 import type { Tables } from '@epicenter/hq';
-import { TABS_SCHEMA, WINDOWS_SCHEMA, TAB_GROUPS_SCHEMA } from './browser.schema';
+import {
+	DEVICES_SCHEMA,
+	TABS_SCHEMA,
+	WINDOWS_SCHEMA,
+	TAB_GROUPS_SCHEMA,
+} from './browser.schema';
 
 /**
  * Composed workspace schema for browser state.
@@ -14,6 +19,7 @@ import { TABS_SCHEMA, WINDOWS_SCHEMA, TAB_GROUPS_SCHEMA } from './browser.schema
  * Note: Table names use snake_case per Epicenter naming conventions.
  */
 export const BROWSER_SCHEMA = {
+	devices: DEVICES_SCHEMA,
 	tabs: TABS_SCHEMA,
 	windows: WINDOWS_SCHEMA,
 	tab_groups: TAB_GROUPS_SCHEMA,

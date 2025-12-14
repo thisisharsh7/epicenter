@@ -7,10 +7,11 @@
  */
 
 import {
-	chromeTabToRow,
-	chromeWindowToRow,
-	chromeTabGroupToRow,
-} from '$lib/chrome-helpers';
+	browserTabToRow,
+	browserWindowToRow,
+	browserTabGroupToRow,
+} from '$lib/browser-helpers';
+import { getDeviceId } from '$lib/device-id';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Query Keys
@@ -43,13 +44,14 @@ export const tabs = {
 		options: {
 			queryKey: tabsKeys.all,
 			queryFn: async () => {
-				const chromeTabs = await browser.tabs.query({});
-				return chromeTabs
+				const deviceId = await getDeviceId();
+				const browserTabs = await browser.tabs.query({});
+				return browserTabs
 					.filter((t) => t.id !== undefined)
-					.map(chromeTabToRow)
+					.map((tab) => browserTabToRow({ tab, deviceId }))
 					.sort((a, b) => a.index - b.index);
 			},
-			// Chrome is always fresh. Data is only stale when Chrome events tell us.
+			// Browser is always fresh. Data is only stale when browser events tell us.
 			// Using Infinity means we only refetch on explicit invalidation.
 			staleTime: Infinity,
 		},
@@ -59,10 +61,11 @@ export const tabs = {
 		options: {
 			queryKey: tabsKeys.windows,
 			queryFn: async () => {
-				const chromeWindows = await browser.windows.getAll();
-				return chromeWindows
+				const deviceId = await getDeviceId();
+				const browserWindows = await browser.windows.getAll();
+				return browserWindows
 					.filter((w) => w.id !== undefined)
-					.map(chromeWindowToRow);
+					.map((window) => browserWindowToRow({ window, deviceId }));
 			},
 			staleTime: Infinity,
 		},
@@ -76,8 +79,11 @@ export const tabs = {
 				if (!browser.tabGroups) {
 					return [];
 				}
-				const chromeGroups = await browser.tabGroups.query({});
-				return chromeGroups.map(chromeTabGroupToRow);
+				const deviceId = await getDeviceId();
+				const browserGroups = await browser.tabGroups.query({});
+				return browserGroups.map((group) =>
+					browserTabGroupToRow({ group, deviceId }),
+				);
 			},
 			staleTime: Infinity,
 		},

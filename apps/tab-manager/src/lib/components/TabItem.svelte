@@ -18,8 +18,8 @@
 
 	let { tab }: { tab: Tab } = $props();
 
-	// Convert string ID to number for Chrome API calls
-	const tabId = $derived(Number(tab.id));
+	// Use tab_id for browser API calls (native browser tab ID)
+	const tabId = $derived(tab.tab_id);
 
 	const closeMutation = createMutation(() => rpc.tabs.close.options);
 	const activateMutation = createMutation(() => rpc.tabs.activate.options);

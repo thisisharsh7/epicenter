@@ -3,21 +3,22 @@
  *
  * This is the hub of the extension:
  * 1. Holds the authoritative Y.Doc
- * 2. Syncs Chrome ↔ Y.Doc (bidirectional)
+ * 2. Syncs Browser ↔ Y.Doc (bidirectional)
  * 3. Syncs Y.Doc ↔ Server via WebSocket
  *
  * Bidirectional sync:
- * - Downstream (Chrome → Y.Doc): Chrome events trigger incremental updates
- * - Upstream (Y.Doc → Chrome): Y.Doc observers trigger Chrome APIs
+ * - Downstream (Browser → Y.Doc): Browser events trigger incremental updates
+ * - Upstream (Y.Doc → Browser): Y.Doc observers trigger Browser APIs
  *
- * Note: No persistence needed. Tab data is ephemeral - Chrome is always
- * the source of truth on startup, and tab IDs change on browser restart.
+ * Multi-device sync:
+ * - Each device has a unique ID stored in storage.local
+ * - All IDs (tab, window, group) are scoped: `${deviceId}_${nativeId}`
+ * - Each device only manages its own rows, never deleting other devices' data
  *
  * Sync strategy:
- * - Initial sync: `refetchAll()` queries all tabs/windows/groups from Chrome
+ * - Initial sync: `refetchAll()` queries all tabs/windows/groups from Browser
  * - Incremental sync: Event handlers update only the specific tab/window/group that changed
- *   (e.g., onCreated upserts 1 tab, not all 100 tabs)
- * - Y.Doc observers call Chrome APIs (e.g., browser.tabs.remove) for upstream sync
+ * - Y.Doc observers call Browser APIs only for THIS device's data
  * - Coordination flags prevent infinite loops between the two directions
  */
 
@@ -26,10 +27,17 @@ import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-s
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineBackground } from 'wxt/utils/define-background';
 import {
-	chromeTabGroupToRow,
-	chromeTabToRow,
-	chromeWindowToRow,
-} from '$lib/chrome-helpers';
+	browserTabGroupToRow,
+	browserTabToRow,
+	browserWindowToRow,
+} from '$lib/browser-helpers';
+import {
+	createCompositeId,
+	generateDefaultDeviceName,
+	getBrowserName,
+	getDeviceId,
+	parseCompositeId,
+} from '$lib/device-id';
 import { type Tab, type Window } from '$lib/epicenter/browser.schema';
 import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
 
@@ -40,7 +48,7 @@ import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
 /**
  * Bidirectional sync coordination state.
  *
- * Prevents infinite loops during two-way synchronization between Chrome and Y.Doc.
+ * Prevents infinite loops during two-way synchronization between Browser and Y.Doc.
  *
  * Primary mechanism: Y.js transaction `origin` parameter
  * - Remote changes (from WebSocket): origin !== null (WebSocket provider instance)
@@ -50,147 +58,17 @@ import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
  * act on remote changes (when a markdown file changes on the server).
  *
  * Flags for secondary coordination:
- * - `isProcessingYDocChange`: Set when calling Chrome APIs from Y.Doc observers
- *   Prevents Chrome events from triggering refetch during our own API calls.
- * - `isRefetching`: Set when syncing Chrome → Y.Doc (refetch functions)
+ * - `isProcessingYDocChange`: Set when calling Browser APIs from Y.Doc observers
+ *   Prevents Browser events from triggering refetch during our own API calls.
+ * - `isRefetching`: Set when syncing Browser → Y.Doc (refetch functions)
  *   Used as a secondary guard in refetch helpers.
  */
 const syncCoordination = {
-	/** True when we're processing a Y.Doc change (calling Chrome APIs) */
+	/** True when we're processing a Y.Doc change (calling Browser APIs) */
 	isProcessingYDocChange: false,
-	/** True when we're refetching Chrome state into Y.Doc */
+	/** True when we're refetching Browser state into Y.Doc */
 	isRefetching: false,
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Workspace Definition
-// ─────────────────────────────────────────────────────────────────────────────
-
-const backgroundWorkspace = defineWorkspace({
-	id: 'browser',
-	tables: BROWSER_SCHEMA,
-	providers: {
-		/**
-		 * WebSocket sync provider for server connection.
-		 */
-		serverSync: createWebsocketSyncProvider({
-			url: 'ws://localhost:3913/sync',
-		}),
-	},
-	exports: ({ tables }) => ({
-		tables,
-
-		/**
-		 * Refetch tabs from Chrome and diff into Y.Doc.
-		 * Like TanStack Query's invalidateQueries, but for Y.Doc.
-		 */
-		async refetchTabs() {
-			const chromeTabs = await browser.tabs.query({});
-			const chromeTabIds = new Set(
-				chromeTabs.filter((t) => t.id !== undefined).map((t) => String(t.id)),
-			);
-			const existingYDocTabs = tables.tabs.getAllValid();
-
-			tables.$transact(() => {
-				// Upsert all Chrome tabs
-				for (const tab of chromeTabs) {
-					if (tab.id === undefined) continue;
-					tables.tabs.upsert(chromeTabToRow(tab));
-				}
-
-				// Delete Y.Doc tabs not in Chrome
-				for (const existing of existingYDocTabs) {
-					if (!chromeTabIds.has(existing.id)) {
-						tables.tabs.delete({ id: existing.id });
-					}
-				}
-			});
-		},
-
-		/**
-		 * Refetch windows from Chrome and diff into Y.Doc.
-		 */
-		async refetchWindows() {
-			const chromeWindows = await browser.windows.getAll();
-			const chromeWindowIds = new Set(
-				chromeWindows
-					.filter((w) => w.id !== undefined)
-					.map((w) => String(w.id)),
-			);
-			const existingYDocWindows = tables.windows.getAllValid();
-
-			tables.$transact(() => {
-				// Upsert all Chrome windows
-				for (const win of chromeWindows) {
-					if (win.id === undefined) continue;
-					tables.windows.upsert(chromeWindowToRow(win));
-				}
-
-				// Delete Y.Doc windows not in Chrome
-				for (const existing of existingYDocWindows) {
-					if (!chromeWindowIds.has(existing.id)) {
-						tables.windows.delete({ id: existing.id });
-					}
-				}
-			});
-		},
-
-		/**
-		 * Refetch tab groups from Chrome and diff into Y.Doc.
-		 */
-		async refetchTabGroups() {
-			if (!browser.tabGroups) return;
-
-			const chromeGroups = await browser.tabGroups.query({});
-			const chromeGroupIds = new Set(chromeGroups.map((g) => String(g.id)));
-			const existingYDocGroups = tables.tab_groups.getAllValid();
-
-			tables.$transact(() => {
-				// Upsert all Chrome groups
-				for (const group of chromeGroups) {
-					tables.tab_groups.upsert(chromeTabGroupToRow(group));
-				}
-
-				// Delete Y.Doc groups not in Chrome
-				for (const existing of existingYDocGroups) {
-					if (!chromeGroupIds.has(existing.id)) {
-						tables.tab_groups.delete({ id: existing.id });
-					}
-				}
-			});
-		},
-
-		/**
-		 * Refetch all (tabs, windows, tab groups) from Chrome.
-		 */
-		async refetchAll() {
-			// Refetch windows first (tabs reference windows)
-			await this.refetchWindows();
-			await this.refetchTabs();
-			await this.refetchTabGroups();
-
-			console.log('[Background] Refetched all from Chrome:', {
-				tabs: tables.tabs.getAllValid().length,
-				windows: tables.windows.getAllValid().length,
-				tabGroups: tables.tab_groups.getAllValid().length,
-			});
-		},
-
-		getAllTabs(): Tab[] {
-			return tables.tabs.getAllValid().sort((a, b) => a.index - b.index);
-		},
-
-		getAllWindows(): Window[] {
-			return tables.windows.getAllValid();
-		},
-
-		getTabsByWindow(windowId: string): Tab[] {
-			return tables.tabs
-				.filter((t) => t.window_id === windowId)
-				.sort((a, b) => a.index - b.index);
-		},
-	}),
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Background Service Worker
@@ -202,18 +80,179 @@ const backgroundWorkspace = defineWorkspace({
 export default defineBackground(() => {
 	console.log('[Background] Initializing Tab Manager...');
 
+	// Get device ID early (cached after first call)
+	const deviceIdPromise = getDeviceId();
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Workspace Definition (needs deviceId for refetch functions)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	const backgroundWorkspace = defineWorkspace({
+		id: 'browser',
+		tables: BROWSER_SCHEMA,
+		providers: {
+			/**
+			 * WebSocket sync provider for server connection.
+			 */
+			serverSync: createWebsocketSyncProvider({
+				url: 'ws://localhost:3913/sync',
+			}),
+		},
+		exports: ({ tables }) => ({
+			tables,
+
+			/**
+			 * Register this device in the devices table.
+			 */
+			async registerDevice() {
+				const deviceId = await deviceIdPromise;
+				const existingDevice = tables.devices.get({ id: deviceId });
+
+				// Get existing name if valid, otherwise generate default
+				const existingName =
+					existingDevice.status === 'valid' ? existingDevice.row.name : null;
+
+				tables.devices.upsert({
+					id: deviceId,
+					// Keep existing name if set, otherwise generate default
+					name: existingName ?? (await generateDefaultDeviceName()),
+					last_seen: new Date().toISOString(),
+					browser: getBrowserName(),
+				});
+			},
+
+			/**
+			 * Refetch tabs from Browser and diff into Y.Doc.
+			 * Only manages THIS device's tabs - other devices' tabs are untouched.
+			 */
+			async refetchTabs() {
+				const deviceId = await deviceIdPromise;
+				const browserTabs = await browser.tabs.query({});
+				const tabIds = new Set(
+					browserTabs.filter((t) => t.id !== undefined).map((t) => t.id!),
+				);
+				const existingYDocTabs = tables.tabs.getAllValid();
+
+				tables.$transact(() => {
+					// Upsert all browser tabs (with device-scoped IDs)
+					for (const tab of browserTabs) {
+						if (tab.id === undefined) continue;
+						tables.tabs.upsert(browserTabToRow({ tab, deviceId }));
+					}
+
+					// Delete only THIS device's tabs that aren't in browser
+					for (const existing of existingYDocTabs) {
+						if (existing.device_id !== deviceId) continue; // Skip other devices!
+						if (!tabIds.has(existing.tab_id)) {
+							tables.tabs.delete({ id: existing.id });
+						}
+					}
+				});
+			},
+
+			/**
+			 * Refetch windows from Browser and diff into Y.Doc.
+			 * Only manages THIS device's windows - other devices' windows are untouched.
+			 */
+			async refetchWindows() {
+				const deviceId = await deviceIdPromise;
+				const browserWindows = await browser.windows.getAll();
+				const windowIds = new Set(
+					browserWindows.filter((w) => w.id !== undefined).map((w) => w.id!),
+				);
+				const existingYDocWindows = tables.windows.getAllValid();
+
+				tables.$transact(() => {
+					// Upsert all browser windows (with device-scoped IDs)
+					for (const win of browserWindows) {
+						if (win.id === undefined) continue;
+						tables.windows.upsert(browserWindowToRow({ window: win, deviceId }));
+					}
+
+					// Delete only THIS device's windows that aren't in browser
+					for (const existing of existingYDocWindows) {
+						if (existing.device_id !== deviceId) continue; // Skip other devices!
+						if (!windowIds.has(existing.window_id)) {
+							tables.windows.delete({ id: existing.id });
+						}
+					}
+				});
+			},
+
+			/**
+			 * Refetch tab groups from Browser and diff into Y.Doc.
+			 * Only manages THIS device's groups - other devices' groups are untouched.
+			 */
+			async refetchTabGroups() {
+				if (!browser.tabGroups) return;
+
+				const deviceId = await deviceIdPromise;
+				const browserGroups = await browser.tabGroups.query({});
+				const groupIds = new Set(browserGroups.map((g) => g.id));
+				const existingYDocGroups = tables.tab_groups.getAllValid();
+
+				tables.$transact(() => {
+					// Upsert all browser groups (with device-scoped IDs)
+					for (const group of browserGroups) {
+						tables.tab_groups.upsert(browserTabGroupToRow({ group, deviceId }));
+					}
+
+					// Delete only THIS device's groups that aren't in browser
+					for (const existing of existingYDocGroups) {
+						if (existing.device_id !== deviceId) continue; // Skip other devices!
+						if (!groupIds.has(existing.group_id)) {
+							tables.tab_groups.delete({ id: existing.id });
+						}
+					}
+				});
+			},
+
+			/**
+			 * Refetch all (tabs, windows, tab groups) from Browser.
+			 */
+			async refetchAll() {
+				// Register device first
+				await this.registerDevice();
+				// Refetch windows first (tabs reference windows)
+				await this.refetchWindows();
+				await this.refetchTabs();
+				await this.refetchTabGroups();
+
+				console.log('[Background] Refetched all from Browser:', {
+					tabs: tables.tabs.getAllValid().length,
+					windows: tables.windows.getAllValid().length,
+					tabGroups: tables.tab_groups.getAllValid().length,
+				});
+			},
+
+			getAllTabs(): Tab[] {
+				return tables.tabs.getAllValid().sort((a, b) => a.index - b.index);
+			},
+
+			getAllWindows(): Window[] {
+				return tables.windows.getAllValid();
+			},
+
+			getTabsByWindow(windowId: string): Tab[] {
+				return tables.tabs
+					.filter((t) => t.window_id === windowId)
+					.sort((a, b) => a.index - b.index);
+			},
+		}),
+	});
+
 	const client = createWorkspaceClient(backgroundWorkspace);
 
 	// Debug: Listen for all Y.Doc updates to see if we're receiving them
 	client.$ydoc.on('update', (update: Uint8Array, origin: unknown) => {
 		// Get the ytables Y.Map to inspect structure
 		const ytables = client.$ydoc.getMap('tables');
-		const tabsTable = ytables.get('tabs');
+		const tabsTable = ytables.get('tabs') as Map<string, unknown> | undefined;
 
 		// Get entries from tabs table if it's a Y.Map
 		let tabsEntries: string[] = [];
 		if (tabsTable && typeof tabsTable.keys === 'function') {
-			tabsEntries = Array.from((tabsTable as Map<string, unknown>).keys()).slice(0, 5);
+			tabsEntries = Array.from(tabsTable.keys()).slice(0, 5);
 		}
 
 		console.log('[Background] Y.Doc update received', {
@@ -222,7 +261,7 @@ export default defineBackground(() => {
 			ytablesSize: ytables.size,
 			ytablesKeys: Array.from(ytables.keys()),
 			tabsTableExists: !!tabsTable,
-			tabsTableSize: tabsTable && typeof (tabsTable as any).size === 'number' ? (tabsTable as any).size : 'N/A',
+			tabsTableSize: tabsTable?.size ?? 'N/A',
 			tabsFirstFiveKeys: tabsEntries,
 		});
 	});
@@ -230,7 +269,7 @@ export default defineBackground(() => {
 	// ─────────────────────────────────────────────────────────────────────────
 	// Initialization Promise (Deferred Handler Pattern)
 	// All event handlers await this before processing to avoid race conditions.
-	// This ensures Chrome state is synced to Y.Doc before any handler runs.
+	// This ensures Browser state is synced to Y.Doc before any handler runs.
 	// ─────────────────────────────────────────────────────────────────────────
 
 	const initPromise = client
@@ -239,14 +278,14 @@ export default defineBackground(() => {
 		.catch((err) => console.error('[Background] Initial refetch failed:', err));
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Chrome Keepalive (Chrome MV3 only)
+	// Browser Keepalive (Chrome MV3 only)
 	// Chrome service workers go dormant after ~30 seconds of inactivity.
 	// We use Chrome Alarms API to wake the service worker periodically,
 	// keeping the WebSocket connection alive for real-time Y.Doc sync.
 	// Firefox doesn't have this limitation (uses Event Pages, not service workers).
 	//
 	// NOTE: WebSocket messages from the server CANNOT wake a dormant service worker.
-	// When dormant, the WebSocket connection is suspended/closed. Only Chrome events
+	// When dormant, the WebSocket connection is suspended/closed. Only Browser events
 	// (alarms, tabs, runtime messages, etc.) can wake the worker.
 	// ─────────────────────────────────────────────────────────────────────────
 
@@ -269,7 +308,7 @@ export default defineBackground(() => {
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// Lifecycle Events - Re-sync on explicit browser events
-	// onInstalled: Extension install, update, or Chrome update
+	// onInstalled: Extension install, update, or Browser update
 	// onStartup: Browser session start (user profile loads)
 	// ─────────────────────────────────────────────────────────────────────────
 
@@ -294,7 +333,7 @@ export default defineBackground(() => {
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Chrome Event Listeners - Incremental Updates
+	// Browser Event Listeners - Incremental Updates
 	// Instead of refetching ALL tabs on every event, we only update the
 	// specific tab/window/group that changed. This dramatically reduces
 	// YJS operations (from N upserts to 1 upsert per event).
@@ -302,12 +341,13 @@ export default defineBackground(() => {
 
 	const { tables } = client;
 
-	// Helper: Upsert a single tab by querying Chrome (for events that don't provide full tab)
+	// Helper: Upsert a single tab by querying Browser (for events that don't provide full tab)
 	const upsertTabById = async (tabId: number) => {
+		const deviceId = await deviceIdPromise;
 		await tryAsync({
 			try: async () => {
 				const tab = await browser.tabs.get(tabId);
-				tables.tabs.upsert(chromeTabToRow(tab));
+				tables.tabs.upsert(browserTabToRow({ tab, deviceId }));
 			},
 			catch: (error) => {
 				// Tab may have been closed already
@@ -317,12 +357,13 @@ export default defineBackground(() => {
 		});
 	};
 
-	// Helper: Upsert a single window by querying Chrome
+	// Helper: Upsert a single window by querying Browser
 	const upsertWindowById = async (windowId: number) => {
+		const deviceId = await deviceIdPromise;
 		await tryAsync({
 			try: async () => {
 				const window = await browser.windows.get(windowId);
-				tables.windows.upsert(chromeWindowToRow(window));
+				tables.windows.upsert(browserWindowToRow({ window, deviceId }));
 			},
 			catch: (error) => {
 				// Window may have been closed already
@@ -342,8 +383,9 @@ export default defineBackground(() => {
 		if (syncCoordination.isProcessingYDocChange) return;
 		if (tab.id === undefined) return;
 
+		const deviceId = await deviceIdPromise;
 		syncCoordination.isRefetching = true;
-		tables.tabs.upsert(chromeTabToRow(tab));
+		tables.tabs.upsert(browserTabToRow({ tab, deviceId }));
 		syncCoordination.isRefetching = false;
 	});
 
@@ -352,8 +394,9 @@ export default defineBackground(() => {
 		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
 
+		const deviceId = await deviceIdPromise;
 		syncCoordination.isRefetching = true;
-		tables.tabs.delete({ id: String(tabId) });
+		tables.tabs.delete({ id: createCompositeId({ deviceId, id: tabId }) });
 		syncCoordination.isRefetching = false;
 	});
 
@@ -363,12 +406,13 @@ export default defineBackground(() => {
 		if (syncCoordination.isProcessingYDocChange) return;
 		if (tab.id === undefined) return;
 
+		const deviceId = await deviceIdPromise;
 		syncCoordination.isRefetching = true;
-		tables.tabs.upsert(chromeTabToRow(tab));
+		tables.tabs.upsert(browserTabToRow({ tab, deviceId }));
 		syncCoordination.isRefetching = false;
 	});
 
-	// onMoved: Only tabId + moveInfo provided - need to query Chrome
+	// onMoved: Only tabId + moveInfo provided - need to query Browser
 	browser.tabs.onMoved.addListener(async (tabId) => {
 		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
@@ -378,19 +422,26 @@ export default defineBackground(() => {
 		syncCoordination.isRefetching = false;
 	});
 
-	// onActivated: Only activeInfo provided - need to query Chrome
+	// onActivated: Only activeInfo provided - need to query Browser
 	// Note: We need to update BOTH the newly activated tab AND the previously active tab
 	// in the same window (to set active: false on the old one)
 	browser.tabs.onActivated.addListener(async (activeInfo) => {
 		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
 
+		const deviceId = await deviceIdPromise;
 		syncCoordination.isRefetching = true;
+
+		const deviceWindowId = createCompositeId({
+			deviceId,
+			id: activeInfo.windowId,
+		});
+		const deviceTabId = createCompositeId({ deviceId, id: activeInfo.tabId });
 
 		// Find and update the previously active tab in this window (set active: false)
 		const previouslyActiveTabs = tables.tabs
-			.filter((t) => t.window_id === String(activeInfo.windowId) && t.active)
-			.filter((t) => t.id !== String(activeInfo.tabId));
+			.filter((t) => t.window_id === deviceWindowId && t.active)
+			.filter((t) => t.id !== deviceTabId);
 
 		for (const prevTab of previouslyActiveTabs) {
 			tables.tabs.upsert({ ...prevTab, active: false });
@@ -402,7 +453,7 @@ export default defineBackground(() => {
 		syncCoordination.isRefetching = false;
 	});
 
-	// onAttached: Tab moved between windows - need to query Chrome
+	// onAttached: Tab moved between windows - need to query Browser
 	browser.tabs.onAttached.addListener(async (tabId) => {
 		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
@@ -412,7 +463,7 @@ export default defineBackground(() => {
 		syncCoordination.isRefetching = false;
 	});
 
-	// onDetached: Tab detached from window - need to query Chrome
+	// onDetached: Tab detached from window - need to query Browser
 	browser.tabs.onDetached.addListener(async (tabId) => {
 		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
@@ -432,8 +483,9 @@ export default defineBackground(() => {
 		if (syncCoordination.isProcessingYDocChange) return;
 		if (window.id === undefined) return;
 
+		const deviceId = await deviceIdPromise;
 		syncCoordination.isRefetching = true;
-		tables.windows.upsert(chromeWindowToRow(window));
+		tables.windows.upsert(browserWindowToRow({ window, deviceId }));
 		syncCoordination.isRefetching = false;
 	});
 
@@ -442,24 +494,30 @@ export default defineBackground(() => {
 		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
 
+		const deviceId = await deviceIdPromise;
 		syncCoordination.isRefetching = true;
-		tables.windows.delete({ id: String(windowId) });
+		tables.windows.delete({
+			id: createCompositeId({ deviceId, id: windowId }),
+		});
 		syncCoordination.isRefetching = false;
 	});
 
-	// onFocusChanged: Only windowId provided - need to query Chrome
+	// onFocusChanged: Only windowId provided - need to query Browser
 	// Note: windowId can be WINDOW_ID_NONE (-1) when all windows lose focus
 	// We need to update BOTH the newly focused window AND previously focused windows
 	browser.windows.onFocusChanged.addListener(async (windowId) => {
 		await initPromise;
 		if (syncCoordination.isProcessingYDocChange) return;
 
+		const deviceId = await deviceIdPromise;
 		syncCoordination.isRefetching = true;
+
+		const deviceWindowId = createCompositeId({ deviceId, id: windowId });
 
 		// Find and update previously focused windows (set focused: false)
 		const previouslyFocusedWindows = tables.windows
 			.filter((w) => w.focused)
-			.filter((w) => w.id !== String(windowId));
+			.filter((w) => w.id !== deviceWindowId);
 
 		for (const prevWindow of previouslyFocusedWindows) {
 			tables.windows.upsert({ ...prevWindow, focused: false });
@@ -483,8 +541,9 @@ export default defineBackground(() => {
 			await initPromise;
 			if (syncCoordination.isProcessingYDocChange) return;
 
+			const deviceId = await deviceIdPromise;
 			syncCoordination.isRefetching = true;
-			tables.tab_groups.upsert(chromeTabGroupToRow(group));
+			tables.tab_groups.upsert(browserTabGroupToRow({ group, deviceId }));
 			syncCoordination.isRefetching = false;
 		});
 
@@ -493,8 +552,11 @@ export default defineBackground(() => {
 			await initPromise;
 			if (syncCoordination.isProcessingYDocChange) return;
 
+			const deviceId = await deviceIdPromise;
 			syncCoordination.isRefetching = true;
-			tables.tab_groups.delete({ id: String(group.id) });
+			tables.tab_groups.delete({
+				id: createCompositeId({ deviceId, id: group.id }),
+			});
 			syncCoordination.isRefetching = false;
 		});
 
@@ -503,15 +565,17 @@ export default defineBackground(() => {
 			await initPromise;
 			if (syncCoordination.isProcessingYDocChange) return;
 
+			const deviceId = await deviceIdPromise;
 			syncCoordination.isRefetching = true;
-			tables.tab_groups.upsert(chromeTabGroupToRow(group));
+			tables.tab_groups.upsert(browserTabGroupToRow({ group, deviceId }));
 			syncCoordination.isRefetching = false;
 		});
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Y.Doc Observers - trigger Chrome APIs on upstream changes
+	// Y.Doc Observers - trigger Browser APIs on upstream changes
 	// These handle changes synced from the server (e.g., markdown file deletions)
+	// Only process changes for THIS device - other devices manage themselves
 	// ─────────────────────────────────────────────────────────────────────────
 
 	client.tables.tabs.observe({
@@ -526,9 +590,10 @@ export default defineBackground(() => {
 			});
 
 			// Only process remote changes (from WebSocket sync)
-			// Local changes (transaction.origin === null) are our own refetch operations
 			if (transaction.origin === null) {
-				console.log('[Background] tabs.onAdd SKIPPED: local origin (our own change)');
+				console.log(
+					'[Background] tabs.onAdd SKIPPED: local origin (our own change)',
+				);
 				return;
 			}
 			if (result.error) {
@@ -537,30 +602,46 @@ export default defineBackground(() => {
 			}
 
 			const row = result.data;
+			const deviceId = await deviceIdPromise;
+
+			// Only process if this tab is meant for THIS device
+			if (row.device_id !== deviceId) {
+				console.log(
+					'[Background] tabs.onAdd SKIPPED: different device',
+					row.device_id,
+				);
+				return;
+			}
+
 			if (!row.url) {
 				console.log('[Background] tabs.onAdd SKIPPED: no URL in row');
 				return;
 			}
 
 			console.log('[Background] tabs.onAdd CREATING tab with URL:', row.url);
-			// Set flag to prevent Chrome events from triggering refetch
+			// Set flag to prevent Browser events from triggering refetch
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
 					// Create the tab with the URL from the markdown file
 					await browser.tabs.create({ url: row.url });
-					console.log('[Background] tabs.onAdd tab created, now refetching...');
+					console.log(
+						'[Background] tabs.onAdd tab created, now refetching...',
+					);
 
 					// Refetch to clean up - this will:
-					// 1. Add the new Chrome tab (with Chrome's real ID)
-					// 2. Delete the old row (wrong ID from markdown, not in Chrome)
+					// 1. Add the new Browser tab (with Browser's real ID)
+					// 2. Delete the old row (wrong ID from markdown, not in Browser)
 					syncCoordination.isRefetching = true;
 					await client.refetchTabs();
 					syncCoordination.isRefetching = false;
 					console.log('[Background] tabs.onAdd refetch complete');
 				},
 				catch: (error) => {
-					console.log(`[Background] Failed to create tab from ${row.id}:`, error);
+					console.log(
+						`[Background] Failed to create tab from ${row.id}:`,
+						error,
+					);
 					return Ok(undefined);
 				},
 			});
@@ -576,24 +657,34 @@ export default defineBackground(() => {
 			});
 
 			// Only process remote changes (from WebSocket sync)
-			// Local changes (transaction.origin === null) are our own refetch operations
 			if (transaction.origin === null) {
-				console.log('[Background] tabs.onDelete SKIPPED: local origin (our own change)');
+				console.log(
+					'[Background] tabs.onDelete SKIPPED: local origin (our own change)',
+				);
 				return;
 			}
 
-			console.log('[Background] tabs.onDelete REMOVING Chrome tab:', id);
-			// Set flag to prevent Chrome events from triggering refetch
+			const deviceId = await deviceIdPromise;
+			const parsed = parseCompositeId(id);
+
+			// Only close tabs that belong to THIS device
+			if (!parsed || parsed.deviceId !== deviceId) {
+				console.log(
+					'[Background] tabs.onDelete SKIPPED: different device or invalid ID',
+				);
+				return;
+			}
+
+			console.log('[Background] tabs.onDelete REMOVING Browser tab:', parsed.id);
+			// Set flag to prevent Browser events from triggering refetch
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
-					const tabId = Number.parseInt(id, 10);
-					if (!Number.isNaN(tabId)) {
-						await browser.tabs.remove(tabId);
-						console.log('[Background] tabs.onDelete SUCCESS: removed tab', tabId);
-					} else {
-						console.log('[Background] tabs.onDelete SKIPPED: invalid tab ID (NaN)');
-					}
+					await browser.tabs.remove(parsed.id);
+					console.log(
+						'[Background] tabs.onDelete SUCCESS: removed tab',
+						parsed.id,
+					);
 				},
 				catch: (error) => {
 					// Tab may already be closed or not exist
@@ -613,21 +704,27 @@ export default defineBackground(() => {
 			if (transaction.origin === null) return;
 			if (result.error) return;
 
+			const deviceId = await deviceIdPromise;
+
+			// Only process if this window is meant for THIS device
+			if (result.data.device_id !== deviceId) return;
+
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
 					// Create a new window
 					await browser.windows.create({});
 
-					// Refetch to clean up - this will:
-					// 1. Add the new Chrome window (with Chrome's real ID)
-					// 2. Delete the old row (wrong ID from markdown, not in Chrome)
+					// Refetch to clean up
 					syncCoordination.isRefetching = true;
 					await client.refetchWindows();
 					syncCoordination.isRefetching = false;
 				},
 				catch: (error) => {
-					console.log(`[Background] Failed to create window from ${result.data.id}:`, error);
+					console.log(
+						`[Background] Failed to create window from ${result.data.id}:`,
+						error,
+					);
 					return Ok(undefined);
 				},
 			});
@@ -639,13 +736,16 @@ export default defineBackground(() => {
 			// Only process remote changes (from WebSocket sync)
 			if (transaction.origin === null) return;
 
+			const deviceId = await deviceIdPromise;
+			const parsed = parseCompositeId(id);
+
+			// Only close windows that belong to THIS device
+			if (!parsed || parsed.deviceId !== deviceId) return;
+
 			syncCoordination.isProcessingYDocChange = true;
 			await tryAsync({
 				try: async () => {
-					const windowId = Number.parseInt(id, 10);
-					if (!Number.isNaN(windowId)) {
-						await browser.windows.remove(windowId);
-					}
+					await browser.windows.remove(parsed.id);
 				},
 				catch: (error) => {
 					console.log(`[Background] Failed to close window ${id}:`, error);
@@ -664,22 +764,28 @@ export default defineBackground(() => {
 				// Only process remote changes (from WebSocket sync)
 				if (transaction.origin === null) return;
 
+				const deviceId = await deviceIdPromise;
+				const parsed = parseCompositeId(id);
+
+				// Only ungroup tabs from THIS device's groups
+				if (!parsed || parsed.deviceId !== deviceId) return;
+
 				syncCoordination.isProcessingYDocChange = true;
 				await tryAsync({
 					try: async () => {
-						const groupId = Number.parseInt(id, 10);
-						if (!Number.isNaN(groupId)) {
-							// Note: Chrome doesn't have tabGroups.remove(), but we can ungroup tabs
-							const tabs = await browser.tabs.query({ groupId });
-							for (const tab of tabs) {
-								if (tab.id !== undefined) {
-									await browser.tabs.ungroup(tab.id);
-								}
+						// Note: Browser doesn't have tabGroups.remove(), but we can ungroup tabs
+						const tabs = await browser.tabs.query({ groupId: parsed.id });
+						for (const tab of tabs) {
+							if (tab.id !== undefined) {
+								await browser.tabs.ungroup(tab.id);
 							}
 						}
 					},
 					catch: (error) => {
-						console.log(`[Background] Failed to ungroup tab group ${id}:`, error);
+						console.log(
+							`[Background] Failed to ungroup tab group ${id}:`,
+							error,
+						);
 						return Ok(undefined);
 					},
 				});
