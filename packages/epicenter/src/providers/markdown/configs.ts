@@ -102,15 +102,27 @@ type DeserializeFn<
 }) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Builder Pattern for TableMarkdownConfig
+// TableMarkdownConfig Type
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A table config with all functions guaranteed to be defined.
- * This is what the builder pattern returns, and what's used internally after
- * merging user configs with DEFAULT_TABLE_CONFIG.
+ * Configuration for how a table's rows are serialized to markdown files.
+ *
+ * All configs must provide the complete set of serialize/parseFilename/deserialize functions.
+ * Use factory functions to create configs - they handle this requirement automatically.
+ *
+ * @example
+ * ```typescript
+ * markdownProvider(c, {
+ *   tableConfigs: {
+ *     settings: defaultTableConfig(),
+ *     posts: withTitleFilename('title'),
+ *     articles: withBodyField('content'),
+ *   }
+ * })
+ * ```
  */
-export type ResolvedTableMarkdownConfig<
+export type TableMarkdownConfig<
 	TTableSchema extends TableSchema,
 	TParsed extends ParsedFilename = ParsedFilename,
 > = {
@@ -119,6 +131,10 @@ export type ResolvedTableMarkdownConfig<
 	parseFilename: ParseFilenameFn<TParsed>;
 	deserialize: DeserializeFn<TTableSchema, TParsed>;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Builder Pattern for TableMarkdownConfig
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Step 2: After parser is defined, add serializers.
@@ -147,7 +163,7 @@ type ConfigBuilderWithParser<
 			table: TableHelper<TTableSchema>;
 		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
 		directory?: string;
-	}): ResolvedTableMarkdownConfig<TTableSchema, TParsed>;
+	}): TableMarkdownConfig<TTableSchema, TParsed>;
 };
 
 /**
@@ -226,34 +242,6 @@ export function defineTableConfig<TTableSchema extends TableSchema>(): {
 }
 
 /**
- * Configuration for how a table's rows are serialized to markdown files.
- *
- * This is an alias for `ResolvedTableMarkdownConfig`. All configs must provide
- * the complete set of serialize/parseFilename/deserialize functions.
- *
- * Use one of the factory functions to create configs:
- * - `defaultTableConfig()` - Default behavior with optional directory
- * - `withBodyField(field)` - Field becomes markdown body
- * - `withTitleFilename(field)` - Human-readable `{title}-{id}.md` filenames
- * - `defineTableConfig().withParser(...).withSerializers(...)` - Full custom
- *
- * @example
- * ```typescript
- * markdownProvider(c, {
- *   tableConfigs: {
- *     settings: defaultTableConfig(),
- *     posts: withTitleFilename('title'),
- *     articles: withBodyField('content'),
- *   }
- * })
- * ```
- */
-export type TableMarkdownConfig<
-	TTableSchema extends TableSchema,
-	TParsed extends ParsedFilename = ParsedFilename,
-> = ResolvedTableMarkdownConfig<TTableSchema, TParsed>;
-
-/**
  * Default table configuration using the `{id}.md` filename pattern.
  *
  * Default behavior:
@@ -314,11 +302,11 @@ export const DEFAULT_TABLE_CONFIG = defineTableConfig<TableSchema>()
  */
 export function defaultTableConfig<TTableSchema extends TableSchema = TableSchema>(
 	options?: { directory?: string },
-): ResolvedTableMarkdownConfig<TTableSchema> {
+): TableMarkdownConfig<TTableSchema> {
 	return {
 		...DEFAULT_TABLE_CONFIG,
 		directory: options?.directory,
-	} as ResolvedTableMarkdownConfig<TTableSchema>;
+	} as TableMarkdownConfig<TTableSchema>;
 }
 
 /**
