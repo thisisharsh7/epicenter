@@ -130,6 +130,21 @@ type DeserializeFn<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * A table config with all functions guaranteed to be defined.
+ * This is what the builder pattern returns, and what's used internally after
+ * merging user configs with DEFAULT_TABLE_CONFIG.
+ */
+export type ResolvedTableMarkdownConfig<
+	TTableSchema extends TableSchema,
+	TParsed extends ParsedFilename = ParsedFilename,
+> = {
+	directory?: string;
+	serialize: SerializeFn<TTableSchema>;
+	parseFilename: ParseFilenameFn<TParsed>;
+	deserialize: DeserializeFn<TTableSchema, TParsed>;
+};
+
+/**
  * Step 2: After parser is defined, add serializers.
  * - `TFilename` from parser input constrains serialize's filename return
  * - `TParsed` from parser output flows to deserialize's parsed parameter
@@ -156,7 +171,7 @@ type ConfigBuilderWithParser<
 			table: TableHelper<TTableSchema>;
 		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
 		directory?: string;
-	}): TableMarkdownConfig<TTableSchema, TParsed>;
+	}): ResolvedTableMarkdownConfig<TTableSchema, TParsed>;
 };
 
 /**
@@ -561,3 +576,45 @@ export function withBodyField<TTableSchema extends TableSchema>(
 			},
 		});
 }
+
+/**
+ * Default table configuration using the `{id}.md` filename pattern.
+ *
+ * Default behavior:
+ * - Serialize: All fields except id → frontmatter, empty body, filename "{id}.md"
+ * - ParseFilename: Strip .md extension, return { id }
+ * - Deserialize: Validate frontmatter against schema with id from parsed
+ *
+ * Use this when your table doesn't have a dedicated content/body field.
+ */
+export const DEFAULT_TABLE_CONFIG = defineTableConfig<TableSchema>()
+	.withParser((filename: `${string}.md`) => {
+		const id = path.basename(filename, '.md');
+		return { id };
+	})
+	.withSerializers({
+		serialize: ({ row: { id, ...rest } }) => ({
+			frontmatter: rest,
+			body: '',
+			filename: `${id}.md`,
+		}),
+		deserialize: ({ frontmatter, parsed, table }) => {
+			const { id } = parsed;
+
+			// Combine id with frontmatter
+			const data = { id, ...frontmatter };
+
+			// Validate using direct arktype pattern
+			const validator = table.validators.toArktype();
+			const result = validator(data);
+
+			if (result instanceof type.errors) {
+				return MarkdownProviderErr({
+					message: `Failed to validate row ${id}`,
+					context: { fileName: `${id}.md`, id, reason: result.summary },
+				});
+			}
+
+			return Ok(result as SerializedRow<TableSchema>);
+		},
+	});

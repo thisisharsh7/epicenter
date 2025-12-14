@@ -17,7 +17,11 @@ import type {
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createProviderLogger } from '../error-logger';
-import type { TableMarkdownConfig } from './configs';
+import {
+	DEFAULT_TABLE_CONFIG,
+	type ResolvedTableMarkdownConfig,
+	type TableMarkdownConfig,
+} from './configs';
 import { createDiagnosticsManager } from './diagnostics-manager';
 import {
 	deleteMarkdownFile,
@@ -44,69 +48,14 @@ export const { MarkdownProviderError, MarkdownProviderErr } = createTaggedError(
 ).withContext<MarkdownProviderContext | undefined>();
 export type MarkdownProviderError = ReturnType<typeof MarkdownProviderError>;
 
-/**
- * Default table config
- *
- * The true default behavior used when no custom config is provided:
- * - Directory: table name
- * - Serialize: All row fields → frontmatter, empty body, filename "{id}.md"
- * - Deserialize: Extract ID from filename, all frontmatter fields → row with validation
- *
- * Use this when your table doesn't have a dedicated content/body field.
- */
-export const DEFAULT_TABLE_CONFIG = {
-	serialize: ({
-		row: { id, ...row },
-		table: _,
-	}: {
-		row: SerializedRow<TableSchema>;
-		table: TableHelper<TableSchema>;
-	}) => ({
-		frontmatter: row,
-		body: '',
-		filename: `${id}.md`,
-	}),
-	deserialize: ({
-		frontmatter,
-		body: _,
-		filename,
-		table,
-	}: {
-		frontmatter: Record<string, unknown>;
-		body: string;
-		filename: string;
-		table: TableHelper<TableSchema>;
-	}) => {
-		// Extract ID from filename (strip .md extension)
-		const id = path.basename(filename, '.md');
-
-		// Combine id with frontmatter
-		const data = { id, ...frontmatter };
-
-		// Validate using direct arktype pattern
-		const validator = table.validators.toArktype();
-		const result = validator(data);
-		if (result instanceof type.errors) {
-			return MarkdownProviderErr({
-				message: `Failed to validate row ${id}`,
-				context: { fileName: filename, id, reason: result.summary },
-			});
-		}
-
-		return Ok(result);
-	},
-	/**
-	 * Default extraction: strip .md extension, the entire basename is the ID.
-	 * Works for the default `{id}.md` filename pattern.
-	 */
-	extractRowIdFromFilename: (filename: string): string | undefined => {
-		return path.basename(filename, '.md');
-	},
-} satisfies TableMarkdownConfig<TableSchema>;
-
 // Re-export config types and functions
 export type { TableMarkdownConfig, WithBodyFieldOptions } from './configs';
-export { withBodyField, withTitleFilename } from './configs';
+export {
+	DEFAULT_TABLE_CONFIG,
+	defineTableConfig,
+	withBodyField,
+	withTitleFilename,
+} from './configs';
 
 /**
  * Bidirectional sync coordination state
@@ -154,8 +103,8 @@ type SyncCoordination = {
  * Used to track the current filename for each row. This is needed to detect
  * filename changes when a row is updated (e.g., title change in withTitleFilename).
  *
- * The reverse direction (filename → rowId) is handled by extractRowIdFromFilename,
- * which extracts the row ID directly from the filename string.
+ * The reverse direction (filename → rowId) is handled by parseFilename,
+ * which extracts structured data (including the row ID) from the filename string.
  */
 type RowToFilenameMap = Record<string, string>;
 
@@ -326,10 +275,10 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * - We need to know the OLD filename ("draft.md") so we can delete it
 	 * - Without this: orphaned "draft.md" remains on disk
 	 *
-	 * The reverse direction (filename → rowId) is handled by extractRowIdFromFilename,
-	 * which extracts the row ID directly from the filename string. This works for:
-	 * - File deletions: Extract ID from filename, delete from Y.js
-	 * - Orphan detection: Extract ID from filename, check if row exists in Y.js
+	 * The reverse direction (filename → rowId) is handled by parseFilename,
+	 * which extracts structured data (including the row ID) from the filename string. This works for:
+	 * - File deletions: Parse filename to get ID, delete from Y.js
+	 * - Orphan detection: Parse filename to get ID, check if row exists in Y.js
 	 */
 	const tracking: Record<string, RowToFilenameMap> = {};
 
@@ -344,25 +293,20 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		const userConfig = userTableConfigs[table.name];
 
 		// Resolved config with all fields guaranteed (merged with DEFAULT_TABLE_CONFIG)
-		// Each field is optional in TableMarkdownConfig, so we fallback to defaults individually
-		const tableConfig = {
-			// Use user's serialize if provided, otherwise default (all fields → frontmatter, empty body, filename = "{id}.md")
-			serialize: userConfig?.serialize ?? DEFAULT_TABLE_CONFIG.serialize,
+		// Discriminated union: if serialize exists, all three custom functions exist
+		const directory = path.resolve(
+			absoluteWorkspaceDir,
+			userConfig?.directory ?? table.name,
+		) as AbsolutePath;
 
-			// Use user's deserialize if provided, otherwise default (id from filename, frontmatter validated against schema)
-			deserialize: userConfig?.deserialize ?? DEFAULT_TABLE_CONFIG.deserialize,
-
-			// Use user's extractRowIdFromFilename if provided, otherwise default (strip .md extension)
-			extractRowIdFromFilename:
-				userConfig?.extractRowIdFromFilename ??
-				DEFAULT_TABLE_CONFIG.extractRowIdFromFilename,
-
-			// Use user's directory if provided, otherwise default to table name (e.g., "posts" → workspace-dir/posts)
-			directory: path.resolve(
-				absoluteWorkspaceDir,
-				userConfig?.directory ?? table.name,
-			) as AbsolutePath,
-		};
+		const tableConfig = userConfig?.serialize
+			? {
+					serialize: userConfig.serialize,
+					parseFilename: userConfig.parseFilename,
+					deserialize: userConfig.deserialize,
+					directory,
+				}
+			: { ...DEFAULT_TABLE_CONFIG, directory };
 
 		return { table, tableConfig };
 	});
@@ -648,12 +592,35 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 					const { data: frontmatter, body } = parseResult.data;
 
+					// Parse filename to extract structured data
+					const parsed = tableConfig.parseFilename(filename);
+					if (!parsed) {
+						dbg('HANDLER', `FAIL ${table.name}/${filename} (parse error)`);
+						const error = MarkdownProviderError({
+							message: `Failed to parse filename: ${filename}`,
+						});
+						diagnostics.add({
+							filePath: absolutePath,
+							tableName: table.name,
+							filename,
+							error,
+						});
+						logger.log(
+							ProviderError({
+								message: `File watcher: failed to parse filename ${table.name}/${filename}`,
+								context: { filePath: absolutePath, tableName: table.name, filename },
+							}),
+						);
+						return;
+					}
+
 					// Deserialize using the table config
 					const { data: row, error: deserializeError } =
 						tableConfig.deserialize({
 							frontmatter,
 							body,
 							filename,
+							parsed,
 							// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 							table,
 						});
@@ -721,8 +688,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				try {
 					const filename = path.basename(filePath);
 
-					// Extract row ID directly from filename (single source of truth)
-					const rowIdToDelete = tableConfig.extractRowIdFromFilename(filename);
+					// Parse filename to extract row ID (single source of truth)
+					const parsed = tableConfig.parseFilename(filename);
+					const rowIdToDelete = parsed?.id;
 					dbg('HANDLER', `UNLINK ${table.name}/${filename}`, {
 						extractedRowId: rowIdToDelete ?? 'undefined',
 					});
@@ -741,7 +709,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					} else {
 						logger.log(
 							ProviderError({
-								message: `File deleted but could not extract row ID from ${table.name}/${filename}`,
+								message: `File deleted but could not parse row ID from ${table.name}/${filename}`,
 								context: { tableName: table.name, filename },
 							}),
 						);
@@ -835,11 +803,33 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 					const { data: frontmatter, body } = parseResult.data;
 
+					// Parse filename to extract structured data
+					const parsed = tableConfig.parseFilename(filename);
+					if (!parsed) {
+						const error = MarkdownProviderError({
+							message: `Failed to parse filename: ${filename}`,
+						});
+						diagnostics.add({
+							filePath,
+							tableName: table.name,
+							filename,
+							error,
+						});
+						logger.log(
+							ProviderError({
+								message: `${operationPrefix}failed to parse filename ${table.name}/${filename}`,
+								context: { filePath, tableName: table.name, filename },
+							}),
+						);
+						return;
+					}
+
 					// Deserialize using the table config
 					const { error: deserializeError } = tableConfig.deserialize({
 						frontmatter,
 						body,
 						filename,
+						parsed,
 						// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 						table,
 					});
@@ -975,8 +965,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		for (const filePath of filePaths) {
 			const filename = path.basename(filePath);
 
-			// Extract row ID from filename and check if row exists in Y.js
-			const rowId = tableConfig.extractRowIdFromFilename(filename);
+			// Parse filename to extract row ID and check if row exists in Y.js
+			const parsed = tableConfig.parseFilename(filename);
+			const rowId = parsed?.id;
 
 			if (!rowId || !table.has({ id: rowId })) {
 				// Orphan file: no valid row ID or row doesn't exist in Y.js
@@ -1162,12 +1153,34 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 									const { data: frontmatter, body } = parseResult.data;
 
+									// Parse filename to extract structured data
+									const parsed = tableConfig.parseFilename(filename);
+									if (!parsed) {
+										const error = MarkdownProviderError({
+											message: `Failed to parse filename: ${filename}`,
+										});
+										diagnostics.add({
+											filePath,
+											tableName: table.name,
+											filename,
+											error,
+										});
+										logger.log(
+											ProviderError({
+												message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
+												context: { filePath, tableName: table.name, filename },
+											}),
+										);
+										return;
+									}
+
 									// Deserialize using the table config
 									const { data: row, error: deserializeError } =
 										tableConfig.deserialize({
 											frontmatter,
 											body,
 											filename,
+											parsed,
 											// @ts-expect-error TableHelper<TSchema[keyof TSchema]> is not assignable to TableHelper<TSchema[string]> due to union type from $tables() iteration
 											table,
 										});
