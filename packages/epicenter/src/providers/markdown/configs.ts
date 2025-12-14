@@ -8,11 +8,37 @@
  *
  * All factory functions return a `TableMarkdownConfig<TTableSchema>` with all three functions:
  * - `serialize`: Converts a row to { frontmatter, body, filename }
- * - `deserialize`: Converts { frontmatter, body, filename } back to a row (with validation)
- * - `extractRowIdFromFilename`: Extracts the row ID from a filename (for file deletion/orphan cleanup)
+ * - `parseFilename`: Parses a filename to extract { id, ...otherFields }
+ * - `deserialize`: Converts { frontmatter, body, parsed } back to a row (with validation)
  *
  * These three functions MUST be provided together or not at all. This ensures consistency
  * between how files are written and how they're read back.
+ *
+ * ## Builder Pattern with Type Inference
+ *
+ * Use `defineTableConfig()` for proper generic inference with a fluent builder:
+ *
+ * ```typescript
+ * const config = defineTableConfig<MySchema>()
+ *   .withParser((filename) => {
+ *     const basename = path.basename(filename, '.md');
+ *     const lastDash = basename.lastIndexOf('-');
+ *     return {
+ *       id: basename.substring(lastDash + 1),
+ *       titleFromFilename: basename.substring(0, lastDash),
+ *     };
+ *   })
+ *   .withSerializers({
+ *     serialize: ({ row }) => ({
+ *       frontmatter: { ...row },
+ *       body: '',
+ *       filename: `${row.title}-${row.id}.md`,
+ *     }),
+ *     deserialize: ({ parsed, frontmatter, table }) => {
+ *       // parsed.id and parsed.titleFromFilename are fully typed!
+ *     },
+ *   });
+ * ```
  *
  * ## Available Factories
  *
@@ -48,7 +74,10 @@ import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { TableHelper } from '../../core/db/table-helper';
 import type { SerializedRow, TableSchema } from '../../core/schema';
-import { MarkdownProviderErr, type MarkdownProviderError } from './markdown-provider';
+import {
+	MarkdownProviderErr,
+	type MarkdownProviderError,
+} from './markdown-provider';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper types for TableMarkdownConfig
@@ -67,19 +96,143 @@ type SerializeFn<TTableSchema extends TableSchema> = (params: {
 };
 
 /**
- * Deserialize function signature
+ * Base parsed result that all parseFilename functions must return.
+ * Must contain at least `id`, but can include additional fields.
  */
-type DeserializeFn<TTableSchema extends TableSchema> = (params: {
+export type ParsedFilename = { id: string };
+
+/**
+ * Parse filename function signature.
+ * Extracts structured data from a filename. The returned object must contain `id`,
+ * and may include additional fields that will be passed to deserialize.
+ */
+type ParseFilenameFn<TParsed extends ParsedFilename> = (
+	filename: string,
+) => TParsed | undefined;
+
+/**
+ * Deserialize function signature.
+ * The `parsed` parameter contains whatever parseFilename returned.
+ */
+type DeserializeFn<
+	TTableSchema extends TableSchema,
+	TParsed extends ParsedFilename = ParsedFilename,
+> = (params: {
 	frontmatter: Record<string, unknown>;
 	body: string;
 	filename: string;
+	parsed: TParsed;
 	table: TableHelper<TTableSchema>;
 }) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Builder Pattern for TableMarkdownConfig
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Extract row ID from filename function signature
+ * Step 2: After parser is defined, add serializers.
+ * - `TFilename` from parser input constrains serialize's filename return
+ * - `TParsed` from parser output flows to deserialize's parsed parameter
  */
-type ExtractRowIdFn = (filename: string) => string | undefined;
+type ConfigBuilderWithParser<
+	TTableSchema extends TableSchema,
+	TFilename extends string,
+	TParsed extends ParsedFilename,
+> = {
+	withSerializers(config: {
+		serialize: (params: {
+			row: SerializedRow<TTableSchema>;
+			table: TableHelper<TTableSchema>;
+		}) => {
+			frontmatter: Record<string, unknown>;
+			body: string;
+			filename: TFilename;
+		};
+		deserialize: (params: {
+			frontmatter: Record<string, unknown>;
+			body: string;
+			filename: TFilename;
+			parsed: TParsed;
+			table: TableHelper<TTableSchema>;
+		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
+		directory?: string;
+	}): TableMarkdownConfig<TTableSchema, TParsed>;
+};
+
+/**
+ * Creates a TableMarkdownConfig using a builder pattern with full type inference.
+ *
+ * The builder ensures bidirectional type flow:
+ * - `TFilename`: Inferred from parser's input parameter, enforced on serialize's return
+ * - `TParsed`: Inferred from parser's return type, provided to deserialize's parsed param
+ *
+ * @example
+ * ```typescript
+ * const config = defineTableConfig<MySchema>()
+ *   .withParser((filename) => {
+ *     const basename = path.basename(filename, '.md');
+ *     const lastDash = basename.lastIndexOf('-');
+ *     return {
+ *       id: basename.substring(lastDash + 1),
+ *       titleFromFilename: basename.substring(0, lastDash),
+ *     };
+ *   })
+ *   .withSerializers({
+ *     serialize: ({ row }) => ({
+ *       frontmatter: { ...row },
+ *       body: '',
+ *       filename: `${row.title}-${row.id}.md`,
+ *     }),
+ *     deserialize: ({ parsed, frontmatter, table }) => {
+ *       // parsed.id and parsed.titleFromFilename are fully typed!
+ *       const { id, titleFromFilename } = parsed;
+ *       // ...
+ *     },
+ *   });
+ *
+ * // With explicit template literal for stricter filename validation:
+ * type TitleIdFilename = `${string}-${string}.md`;
+ *
+ * const strictConfig = defineTableConfig<MySchema>()
+ *   .withParser((filename: TitleIdFilename) => ({
+ *     id: extractId(filename),
+ *     title: extractTitle(filename),
+ *   }))
+ *   .withSerializers({
+ *     serialize: ({ row }) => ({
+ *       frontmatter: {},
+ *       body: '',
+ *       filename: `${row.title}-${row.id}.md` as TitleIdFilename,
+ *     }),
+ *     deserialize: ({ parsed }) => { ... },
+ *   });
+ * ```
+ */
+export function defineTableConfig<TTableSchema extends TableSchema>(): {
+	withParser<TFilename extends string, TParsed extends ParsedFilename>(
+		parseFilename: (filename: TFilename) => TParsed | undefined,
+	): ConfigBuilderWithParser<TTableSchema, TFilename, TParsed>;
+} {
+	return {
+		withParser<TFilename extends string, TParsed extends ParsedFilename>(
+			parseFilename: (filename: TFilename) => TParsed | undefined,
+		): ConfigBuilderWithParser<TTableSchema, TFilename, TParsed> {
+			return {
+				withSerializers(config) {
+					return {
+						directory: config.directory,
+						serialize: config.serialize as SerializeFn<TTableSchema>,
+						parseFilename: parseFilename as ParseFilenameFn<TParsed>,
+						deserialize: config.deserialize as DeserializeFn<
+							TTableSchema,
+							TParsed
+						>,
+					};
+				},
+			};
+		},
+	};
+}
 
 /**
  * Custom serialization/deserialization behavior for a table.
@@ -87,26 +240,35 @@ type ExtractRowIdFn = (filename: string) => string | undefined;
  * Defines how rows are converted to markdown files and vice versa.
  * When not provided, uses default behavior.
  *
+ * ## Type Parameters
+ *
+ * - `TTableSchema`: The table's schema type
+ * - `TFilename`: The filename format (can be template literal like `` `${string}-${string}.md` ``)
+ * - `TParsed`: The structured data extracted from filename (must extend `{ id: string }`)
+ *
  * ## Type Constraint
  *
- * The three functions (serialize, deserialize, extractRowIdFromFilename) must be
+ * The three functions (serialize, parseFilename, deserialize) must be
  * provided together or not at all. This ensures consistency:
  *
- * - `serialize` determines the filename format
- * - `deserialize` must understand that format to extract the row ID
- * - `extractRowIdFromFilename` must use the same ID extraction logic for file operations
+ * - `serialize` produces filenames matching `TFilename`
+ * - `parseFilename` accepts `TFilename` and extracts `TParsed`
+ * - `deserialize` receives `TParsed` from the parser
  *
  * Valid configurations:
  * - `{}` - Use all defaults
  * - `{ directory }` - Custom directory, default serialize/deserialize
- * - `{ serialize, deserialize, extractRowIdFromFilename }` - All custom (required pairing)
+ * - `{ serialize, parseFilename, deserialize }` - All custom (required pairing)
  *
  * Invalid configurations (compile error):
- * - `{ serialize }` - Missing deserialize and extractRowIdFromFilename
- * - `{ deserialize }` - Missing serialize and extractRowIdFromFilename
- * - `{ serialize, deserialize }` - Missing extractRowIdFromFilename
+ * - `{ serialize }` - Missing parseFilename and deserialize
+ * - `{ deserialize }` - Missing serialize and parseFilename
+ * - `{ serialize, deserialize }` - Missing parseFilename
  */
-export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
+export type TableMarkdownConfig<
+	TTableSchema extends TableSchema,
+	TParsed extends ParsedFilename = ParsedFilename,
+> = {
 	/**
 	 * Directory for this table's markdown files.
 	 *
@@ -131,16 +293,16 @@ export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 } & (
 	| {
 			/**
-			 * Use all defaults for serialize/deserialize/extractRowIdFromFilename.
+			 * Use all defaults for serialize/parseFilename/deserialize.
 			 *
 			 * Default behavior:
 			 * - Serialize: All fields except id → frontmatter, empty body, filename "{id}.md"
-			 * - Deserialize: Extract ID from filename (strip .md), validate frontmatter against schema
-			 * - ExtractRowIdFromFilename: Strip .md extension
+			 * - ParseFilename: Strip .md extension, return { id }
+			 * - Deserialize: Validate frontmatter against schema with id from parsed
 			 */
 			serialize?: undefined;
+			parseFilename?: undefined;
 			deserialize?: undefined;
-			extractRowIdFromFilename?: undefined;
 	  }
 	| {
 			/**
@@ -149,6 +311,8 @@ export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 			 * IMPORTANT: The filename MUST be a simple filename without path separators.
 			 * The table's directory setting determines where the file is written.
 			 *
+			 * The returned filename type must match what `parseFilename` accepts.
+			 *
 			 * @param params.row - Row to serialize (already validated against schema)
 			 * @param params.table - TableHelper with metadata (name, schema, validators)
 			 * @returns Frontmatter object, markdown body string, and simple filename
@@ -156,36 +320,40 @@ export type TableMarkdownConfig<TTableSchema extends TableSchema> = {
 			serialize: SerializeFn<TTableSchema>;
 
 			/**
+			 * Parse a filename to extract structured data including the row ID.
+			 *
+			 * This function defines the bidirectional contract:
+			 * - Its input type (`TFilename`) constrains what `serialize` must return
+			 * - Its output type (`TParsed`) is provided to `deserialize`
+			 *
+			 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
+			 * @returns Parsed data with at least `id`, or undefined if parsing fails
+			 *
+			 * @example
+			 * // For pattern: "{title}-{id}.md"
+			 * parseFilename: (filename) => {
+			 *   const basename = path.basename(filename, '.md');
+			 *   const lastDash = basename.lastIndexOf('-');
+			 *   if (lastDash === -1) return undefined;
+			 *   return {
+			 *     id: basename.substring(lastDash + 1),
+			 *     titleFromFilename: basename.substring(0, lastDash),
+			 *   };
+			 * }
+			 */
+			parseFilename: ParseFilenameFn<TParsed>;
+
+			/**
 			 * Deserialize markdown frontmatter and body back to a full row.
 			 *
 			 * @param params.frontmatter - Parsed YAML frontmatter as a plain object
 			 * @param params.body - Markdown body content (text after frontmatter delimiters)
 			 * @param params.filename - Simple filename only (validated to not contain path separators)
+			 * @param params.parsed - Structured data extracted by parseFilename (includes id)
 			 * @param params.table - TableHelper with metadata (name, schema, validators)
 			 * @returns Result with complete row (with id field), or error to skip this file
 			 */
-			deserialize: DeserializeFn<TTableSchema>;
-
-			/**
-			 * Extract the row ID from a filename.
-			 *
-			 * Used for file deletions and orphan cleanup where we need to identify
-			 * the Y.js row from just the filename (file content is gone).
-			 *
-			 * This function MUST use the same ID extraction logic as your deserialize function.
-			 *
-			 * @param filename - Simple filename (e.g., "My Post Title-abc123.md")
-			 * @returns The row ID extracted from the filename, or undefined if extraction fails
-			 *
-			 * @example
-			 * // For pattern: "{title}-{id}.md"
-			 * extractRowIdFromFilename: (filename) => {
-			 *   const basename = path.basename(filename, '.md');
-			 *   const lastDash = basename.lastIndexOf('-');
-			 *   return lastDash === -1 ? basename : basename.substring(lastDash + 1);
-			 * }
-			 */
-			extractRowIdFromFilename: ExtractRowIdFn;
+			deserialize: DeserializeFn<TTableSchema, TParsed>;
 	  }
 );
 
@@ -236,76 +404,73 @@ export type WithBodyFieldOptions<
 export function withTitleFilename<TTableSchema extends TableSchema>(
 	titleField: keyof TTableSchema & string,
 	options: { stripNulls?: boolean; maxTitleLength?: number } = {},
-): TableMarkdownConfig<TTableSchema> {
+) {
 	const { stripNulls = true, maxTitleLength = 80 } = options;
 
-	/**
-	 * Extract the row ID from a filename with the pattern: "{title}-{id}.md"
-	 * Falls back to treating the entire basename as the ID if no dash is found.
-	 */
-	const extractRowIdFromFilename = (filename: string): string | undefined => {
-		const basename = path.basename(filename, '.md');
-		const lastDashIndex = basename.lastIndexOf('-');
-		// If no dash found, treat entire basename as ID (fallback to default behavior)
-		return lastDashIndex === -1
-			? basename
-			: basename.substring(lastDashIndex + 1);
-	};
+	return defineTableConfig<TTableSchema>()
+		.withParser((filename: `${string}-${string}.md`) => {
+			const basename = path.basename(filename, '.md');
+			const lastDashIndex = basename.lastIndexOf('-');
+			// If no dash found, treat entire basename as ID (fallback to default behavior)
+			const id =
+				lastDashIndex === -1 ? basename : basename.substring(lastDashIndex + 1);
+			const titleFromFilename =
+				lastDashIndex === -1 ? '' : basename.substring(0, lastDashIndex);
+			return { id, titleFromFilename };
+		})
+		.withSerializers({
+			serialize: ({ row }) => {
+				const { id, ...rest } = row;
+				const rawTitle = (row[titleField] as string) || '';
 
-	return {
-		serialize: ({ row }) => {
-			const { id, ...rest } = row;
-			const rawTitle = (row[titleField] as string) || '';
+				// Use filenamify for robust cross-platform filename sanitization
+				// Handles Unicode normalization, grapheme-aware truncation, emoji preservation
+				const sanitizedTitle =
+					rawTitle.trim() === ''
+						? 'Untitled'
+						: filenamify(rawTitle, {
+								maxLength: maxTitleLength,
+								replacement: '',
+							});
 
-			// Use filenamify for robust cross-platform filename sanitization
-			// Handles Unicode normalization, grapheme-aware truncation, emoji preservation
-			const sanitizedTitle =
-				rawTitle.trim() === ''
-					? 'Untitled'
-					: filenamify(rawTitle, { maxLength: maxTitleLength, replacement: '' });
+				// Optionally strip null values for cleaner YAML
+				const frontmatter = stripNulls
+					? Object.fromEntries(
+							Object.entries(rest).filter(([_, value]) => value !== null),
+						)
+					: rest;
 
-			// Optionally strip null values for cleaner YAML
-			const frontmatter = stripNulls
-				? Object.fromEntries(
-						Object.entries(rest).filter(([_, value]) => value !== null),
-					)
-				: rest;
+				return {
+					frontmatter,
+					body: '',
+					filename: `${sanitizedTitle}-${id}.md`,
+				};
+			},
 
-			return {
-				frontmatter,
-				body: '',
-				filename: `${sanitizedTitle}-${id}.md`,
-			};
-		},
+			deserialize: ({ frontmatter, parsed, table }) => {
+				const { id } = parsed;
 
-		deserialize: ({ frontmatter, body: _, filename, table }) => {
-			// Extract ID from filename using the shared helper
-			const id = extractRowIdFromFilename(filename) ?? path.basename(filename, '.md');
+				// Combine id with frontmatter
+				const data = { id, ...frontmatter };
 
-			// Combine id with frontmatter
-			const data = { id, ...frontmatter };
+				// Validate using direct arktype pattern
+				const validator = table.validators.toArktype();
+				const result = validator(data);
 
-			// Validate using direct arktype pattern
-			const validator = table.validators.toArktype();
-			const result = validator(data);
+				if (result instanceof type.errors) {
+					return MarkdownProviderErr({
+						message: `Failed to validate row ${id}`,
+						context: {
+							fileName: `${id}.md`,
+							id,
+							reason: result.summary,
+						},
+					});
+				}
 
-			if (result instanceof type.errors) {
-				return MarkdownProviderErr({
-					message: `Failed to validate row ${id}`,
-					context: {
-						fileName: filename,
-						id,
-						reason: result.summary,
-					},
-				});
-			}
-
-			return Ok(result as SerializedRow<TTableSchema>);
-		},
-
-		// Expose the extraction function for unlink fallback
-		extractRowIdFromFilename,
-	};
+				return Ok(result as SerializedRow<TTableSchema>);
+			},
+		});
 }
 
 /**
@@ -332,75 +497,67 @@ export function withTitleFilename<TTableSchema extends TableSchema>(
 export function withBodyField<TTableSchema extends TableSchema>(
 	bodyField: keyof TTableSchema & string,
 	options: WithBodyFieldOptions<TTableSchema> = {},
-): TableMarkdownConfig<TTableSchema> {
+) {
 	const {
 		stripNulls = true,
 		filenameField = 'id' as keyof TTableSchema & string,
 	} = options;
 
-	/**
-	 * Extract the row ID from a filename with the pattern: "{id}.md"
-	 * The ID is simply the filename without the .md extension.
-	 */
-	const extractRowIdFromFilename = (filename: string): string | undefined => {
-		return path.basename(filename, '.md');
-	};
+	return defineTableConfig<TTableSchema>()
+		.withParser((filename: string) => {
+			const id = path.basename(filename, '.md');
+			return { id };
+		})
+		.withSerializers({
+			serialize: ({ row }) => {
+				// Extract body field, filename field, and the rest
+				const { [bodyField]: body, [filenameField]: filename, ...rest } = row;
 
-	return {
-		serialize: ({ row }) => {
-			// Extract body field, filename field, and the rest
-			const { [bodyField]: body, [filenameField]: filename, ...rest } = row;
+				// Optionally strip null values for cleaner YAML
+				const frontmatter = stripNulls
+					? Object.fromEntries(
+							Object.entries(rest).filter(([_, value]) => value !== null),
+						)
+					: rest;
 
-			// Optionally strip null values for cleaner YAML
-			const frontmatter = stripNulls
-				? Object.fromEntries(
-						Object.entries(rest).filter(([_, value]) => value !== null),
-					)
-				: rest;
+				return {
+					frontmatter,
+					body: (body as string) ?? '',
+					filename: `${filename}.md`,
+				};
+			},
 
-			return {
-				frontmatter,
-				body: (body as string) ?? '',
-				filename: `${filename}.md`,
-			};
-		},
+			deserialize: ({ frontmatter, body, parsed, table }) => {
+				const { id: rowId } = parsed;
 
-		deserialize: ({ frontmatter, body, filename, table }) => {
-			// Extract ID from filename using the shared helper
-			const rowId =
-				extractRowIdFromFilename(filename) ?? path.basename(filename, '.md');
+				// Create validator that omits the body field and filename field
+				// Nullable fields that were stripped during serialize are restored via .default(null)
+				const FrontMatter = table.validators
+					.toArktype()
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					.omit(filenameField as any, bodyField as any);
 
-			// Create validator that omits the body field and filename field
-			// Nullable fields that were stripped during serialize are restored via .default(null)
-			const FrontMatter = table.validators
-				.toArktype()
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				.omit(filenameField as any, bodyField as any);
+				const validatedFrontmatter = FrontMatter(frontmatter);
 
-			const parsed = FrontMatter(frontmatter);
+				if (validatedFrontmatter instanceof type.errors) {
+					return MarkdownProviderErr({
+						message: `Invalid frontmatter for row ${rowId}`,
+						context: {
+							fileName: `${rowId}.md`,
+							id: rowId,
+							reason: validatedFrontmatter.summary,
+						},
+					});
+				}
 
-			if (parsed instanceof type.errors) {
-				return MarkdownProviderErr({
-					message: `Invalid frontmatter for row ${rowId}`,
-					context: {
-						fileName: filename,
-						id: rowId,
-						reason: parsed.summary,
-					},
-				});
-			}
+				// Reconstruct the full row
+				const row = {
+					[filenameField]: rowId,
+					[bodyField]: body,
+					...(validatedFrontmatter as Record<string, unknown>),
+				} as SerializedRow<TTableSchema>;
 
-			// Reconstruct the full row
-			const row = {
-				[filenameField]: rowId,
-				[bodyField]: body,
-				...parsed,
-			} as SerializedRow<TTableSchema>;
-
-			return Ok(row);
-		},
-
-		// Expose the extraction function for unlink fallback
-		extractRowIdFromFilename,
-	};
+				return Ok(row);
+			},
+		});
 }
