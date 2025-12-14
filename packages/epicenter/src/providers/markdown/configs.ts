@@ -373,26 +373,6 @@ export type TableMarkdownConfig<
 );
 
 /**
- * Options for the withBodyField factory function
- */
-export type WithBodyFieldOptions<
-	TTableSchema extends TableSchema = TableSchema,
-> = {
-	/**
-	 * Strip null values from frontmatter for cleaner YAML output.
-	 * Nullable fields are restored via arktype's .default(null) during deserialization.
-	 * @default true
-	 */
-	stripNulls?: boolean;
-
-	/**
-	 * Field to use for the filename (without .md extension).
-	 * @default 'id'
-	 */
-	filenameField?: keyof TTableSchema & string;
-};
-
-/**
  * Default table configuration using the `{id}.md` filename pattern.
  *
  * Default behavior:
@@ -529,6 +509,26 @@ export function withTitleFilename<TTableSchema extends TableSchema>(
 			},
 		});
 }
+
+/**
+ * Options for the withBodyField factory function
+ */
+export type WithBodyFieldOptions<
+	TTableSchema extends TableSchema = TableSchema,
+> = {
+	/**
+	 * Strip null values from frontmatter for cleaner YAML output.
+	 * Nullable fields are restored via arktype's .default(null) during deserialization.
+	 * @default true
+	 */
+	stripNulls?: boolean;
+
+	/**
+	 * Field to use for the filename (without .md extension).
+	 * @default 'id'
+	 */
+	filenameField?: keyof TTableSchema & string;
+};
 
 /**
  * Factory function to create a table config where a specific field becomes the markdown body.
