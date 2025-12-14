@@ -75,30 +75,30 @@ export {
  *
  * The state ensures changes only flow in one direction at a time by tracking
  * which system is currently processing changes.
+ *
+ * Why counters instead of booleans:
+ * Multiple async operations can run concurrently. A boolean causes race conditions:
+ * - Event A sets flag = true, awaits async work
+ * - Event B sets flag = true, awaits async work
+ * - Event A completes, sets flag = false (BUG! B is still working)
+ * - Observer sees false, processes B's side effect, creates infinite loop
+ *
+ * With counters:
+ * - Event A increments to 1, awaits async work
+ * - Event B increments to 2, awaits async work
+ * - Event A completes, decrements to 1 (still > 0, protected)
+ * - Event B completes, decrements to 0
  */
 type SyncCoordination = {
 	/**
-	 * True when the file watcher is currently processing a change from disk
-	 * YJS observers check this and skip processing to avoid the loop
+	 * Counter for concurrent file watcher handlers updating YJS.
+	 * YJS observers check this and skip processing when > 0.
 	 */
-	isProcessingFileChange: boolean;
+	fileChangeCount: number;
 
 	/**
 	 * Counter for concurrent YJS observers writing to disk.
 	 * File watcher checks this and skips processing when > 0.
-	 *
-	 * We use a counter instead of a boolean because multiple async observers
-	 * can be writing files concurrently. A boolean would cause race conditions:
-	 * - Observer A sets flag = true, awaits write
-	 * - Observer B sets flag = true, awaits write
-	 * - Observer A completes, sets flag = false (BUG! B is still writing)
-	 * - File watcher sees false, processes B's file event, creates loop
-	 *
-	 * With a counter:
-	 * - Observer A increments to 1, awaits write
-	 * - Observer B increments to 2, awaits write
-	 * - Observer A completes, decrements to 1 (still > 0, protected)
-	 * - Observer B completes, decrements to 0
 	 */
 	yjsWriteCount: number;
 };
@@ -214,7 +214,7 @@ export type MarkdownProviderConfig<
 	 * - Every chokidar event (add, change, unlink)
 	 * - Handler entry/exit with filename
 	 * - Early returns (skipped files, duplicates, validation failures)
-	 * - Sync coordination state (yjsWriteCount, isProcessingFileChange)
+	 * - Sync coordination state (yjsWriteCount, fileChangeCount)
 	 *
 	 * Useful for debugging bulk file operations where some files don't sync.
 	 *
@@ -279,11 +279,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * How it works:
 	 * - Before YJS observers write files: increment yjsWriteCount
 	 *   - File watcher checks this and skips processing when > 0
-	 * - Before file watcher updates YJS: set isProcessingFileChange = true
-	 *   - YJS observers check this and skip processing
+	 * - Before file watcher updates YJS: increment fileChangeCount
+	 *   - YJS observers check this and skip processing when > 0
 	 */
 	const syncCoordination: SyncCoordination = {
-		isProcessingFileChange: false,
+		fileChangeCount: 0,
 		yjsWriteCount: 0,
 	};
 
@@ -407,7 +407,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				onAdd: async (result) => {
 					// Skip if this YJS change was triggered by a file change we're processing
 					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.isProcessingFileChange) return;
+					if (syncCoordination.fileChangeCount > 0) return;
 
 					if (result.error) {
 						// Handle validation errors with diagnostics + logger
@@ -438,7 +438,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				onUpdate: async (result) => {
 					// Skip if this YJS change was triggered by a file change we're processing
 					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.isProcessingFileChange) return;
+					if (syncCoordination.fileChangeCount > 0) return;
 
 					if (result.error) {
 						// Handle validation errors with diagnostics + logger
@@ -469,7 +469,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				onDelete: async (id) => {
 					// Skip if this YJS change was triggered by a file change we're processing
 					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.isProcessingFileChange) return;
+					if (syncCoordination.fileChangeCount > 0) return;
 
 					syncCoordination.yjsWriteCount++;
 
@@ -577,7 +577,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				const filename = path.basename(filePath);
 				dbg('HANDLER', `START ${table.name}/${filename}`, {
 					yjsWriteCount: syncCoordination.yjsWriteCount,
-					isProcessingFileChange: syncCoordination.isProcessingFileChange,
+					fileChangeCount: syncCoordination.fileChangeCount,
 				});
 
 				// Skip if this file change was triggered by a YJS change
@@ -586,7 +586,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					return;
 				}
 
-				syncCoordination.isProcessingFileChange = true;
+				syncCoordination.fileChangeCount++;
 
 				try {
 					const absolutePath = path.join(tableConfig.directory, filename) as AbsolutePath;
@@ -700,7 +700,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					table.upsert(validatedRow);
 					dbg('HANDLER', `SUCCESS ${table.name}/${filename}`, { rowId: validatedRow.id });
 				} finally {
-					syncCoordination.isProcessingFileChange = false;
+					syncCoordination.fileChangeCount--;
 				}
 			};
 
@@ -709,7 +709,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				// Skip if this file change was triggered by a YJS change
 				if (syncCoordination.yjsWriteCount > 0) return;
 
-				syncCoordination.isProcessingFileChange = true;
+				syncCoordination.fileChangeCount++;
 
 				try {
 					const filename = path.basename(filePath);
@@ -741,7 +741,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						);
 					}
 				} finally {
-					syncCoordination.isProcessingFileChange = false;
+					syncCoordination.fileChangeCount--;
 				}
 			};
 
@@ -1136,7 +1136,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			handler: async () => {
 				return tryAsync({
 					try: async () => {
-						syncCoordination.isProcessingFileChange = true;
+						syncCoordination.fileChangeCount++;
 
 						// Clear all YJS tables
 						tables.$clearAll();
@@ -1235,10 +1235,10 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 							);
 						}
 
-						syncCoordination.isProcessingFileChange = false;
+						syncCoordination.fileChangeCount--;
 					},
 					catch: (error) => {
-						syncCoordination.isProcessingFileChange = false;
+						syncCoordination.fileChangeCount--;
 						return ProviderErr({
 							message: `Markdown provider push failed: ${extractErrorMessage(error)}`,
 							context: { operation: 'push' },

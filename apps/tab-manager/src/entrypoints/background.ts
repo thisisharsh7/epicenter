@@ -59,17 +59,30 @@ import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
  * The observers check `origin` to distinguish remote vs local changes and only
  * act on remote changes (when a markdown file changes on the server).
  *
- * Flags for secondary coordination:
- * - `isProcessingYDocChange`: Set when calling Browser APIs from Y.Doc observers
+ * Counters for secondary coordination (not booleans - see below):
+ * - `yDocChangeCount`: Incremented when calling Browser APIs from Y.Doc observers
  *   Prevents Browser events from triggering refetch during our own API calls.
- * - `isRefetching`: Set when syncing Browser → Y.Doc (refetch functions)
+ * - `refetchCount`: Incremented when syncing Browser → Y.Doc (refetch functions)
  *   Used as a secondary guard in refetch helpers.
+ *
+ * Why counters instead of booleans:
+ * Multiple async operations can run concurrently. A boolean causes race conditions:
+ * - Event A sets flag = true, awaits async work
+ * - Event B sets flag = true, awaits async work
+ * - Event A completes, sets flag = false (BUG! B is still working)
+ * - Observer sees false, processes B's side effect, creates infinite loop
+ *
+ * With counters:
+ * - Event A increments to 1, awaits async work
+ * - Event B increments to 2, awaits async work
+ * - Event A completes, decrements to 1 (still > 0, protected)
+ * - Event B completes, decrements to 0
  */
 const syncCoordination = {
-	/** True when we're processing a Y.Doc change (calling Browser APIs) */
-	isProcessingYDocChange: false,
-	/** True when we're refetching Browser state into Y.Doc */
-	isRefetching: false,
+	/** Count of concurrent Y.Doc change handlers calling Browser APIs */
+	yDocChangeCount: 0,
+	/** Count of concurrent refetch operations (Browser → Y.Doc) */
+	refetchCount: 0,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,47 +395,47 @@ export default defineBackground(() => {
 	// onCreated: Full Tab object provided
 	browser.tabs.onCreated.addListener(async (tab) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 		if (tab.id === undefined) return;
 
 		const deviceId = await deviceIdPromise;
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		tables.tabs.upsert(browserTabToRow({ tab, deviceId }));
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onRemoved: Only tabId provided - delete directly
 	browser.tabs.onRemoved.addListener(async (tabId) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 
 		const deviceId = await deviceIdPromise;
 		const { TabId } = createCompositeIds(deviceId);
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		tables.tabs.delete({ id: TabId(tabId) });
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onUpdated: Full Tab object provided (3rd arg)
 	browser.tabs.onUpdated.addListener(async (_tabId, _changeInfo, tab) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 		if (tab.id === undefined) return;
 
 		const deviceId = await deviceIdPromise;
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		tables.tabs.upsert(browserTabToRow({ tab, deviceId }));
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onMoved: Only tabId + moveInfo provided - need to query Browser
 	browser.tabs.onMoved.addListener(async (tabId) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		await upsertTabById(tabId);
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onActivated: Only activeInfo provided - need to query Browser
@@ -430,11 +443,11 @@ export default defineBackground(() => {
 	// in the same window (to set active: false on the old one)
 	browser.tabs.onActivated.addListener(async (activeInfo) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 
 		const deviceId = await deviceIdPromise;
 		const { TabId, WindowId } = createCompositeIds(deviceId);
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 
 		const deviceWindowId = WindowId(activeInfo.windowId);
 		const deviceTabId = TabId(activeInfo.tabId);
@@ -451,27 +464,27 @@ export default defineBackground(() => {
 		// Update the newly activated tab
 		await upsertTabById(activeInfo.tabId);
 
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onAttached: Tab moved between windows - need to query Browser
 	browser.tabs.onAttached.addListener(async (tabId) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		await upsertTabById(tabId);
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onDetached: Tab detached from window - need to query Browser
 	browser.tabs.onDetached.addListener(async (tabId) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		await upsertTabById(tabId);
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -481,25 +494,25 @@ export default defineBackground(() => {
 	// onCreated: Full Window object provided
 	browser.windows.onCreated.addListener(async (window) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 		if (window.id === undefined) return;
 
 		const deviceId = await deviceIdPromise;
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		tables.windows.upsert(browserWindowToRow({ window, deviceId }));
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onRemoved: Only windowId provided - delete directly
 	browser.windows.onRemoved.addListener(async (windowId) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 
 		const deviceId = await deviceIdPromise;
 		const { WindowId } = createCompositeIds(deviceId);
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 		tables.windows.delete({ id: WindowId(windowId) });
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// onFocusChanged: Only windowId provided - need to query Browser
@@ -507,11 +520,11 @@ export default defineBackground(() => {
 	// We need to update BOTH the newly focused window AND previously focused windows
 	browser.windows.onFocusChanged.addListener(async (windowId) => {
 		await initPromise;
-		if (syncCoordination.isProcessingYDocChange) return;
+		if (syncCoordination.yDocChangeCount > 0) return;
 
 		const deviceId = await deviceIdPromise;
 		const { WindowId } = createCompositeIds(deviceId);
-		syncCoordination.isRefetching = true;
+		syncCoordination.refetchCount++;
 
 		const deviceWindowId = WindowId(windowId);
 
@@ -529,7 +542,7 @@ export default defineBackground(() => {
 			await upsertWindowById(windowId);
 		}
 
-		syncCoordination.isRefetching = false;
+		syncCoordination.refetchCount--;
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -540,35 +553,35 @@ export default defineBackground(() => {
 		// onCreated: Full TabGroup object provided
 		browser.tabGroups.onCreated.addListener(async (group) => {
 			await initPromise;
-			if (syncCoordination.isProcessingYDocChange) return;
+			if (syncCoordination.yDocChangeCount > 0) return;
 
 			const deviceId = await deviceIdPromise;
-			syncCoordination.isRefetching = true;
+			syncCoordination.refetchCount++;
 			tables.tab_groups.upsert(browserTabGroupToRow({ group, deviceId }));
-			syncCoordination.isRefetching = false;
+			syncCoordination.refetchCount--;
 		});
 
 		// onRemoved: Full TabGroup object provided
 		browser.tabGroups.onRemoved.addListener(async (group) => {
 			await initPromise;
-			if (syncCoordination.isProcessingYDocChange) return;
+			if (syncCoordination.yDocChangeCount > 0) return;
 
 			const deviceId = await deviceIdPromise;
 			const { GroupId } = createCompositeIds(deviceId);
-			syncCoordination.isRefetching = true;
+			syncCoordination.refetchCount++;
 			tables.tab_groups.delete({ id: GroupId(group.id) });
-			syncCoordination.isRefetching = false;
+			syncCoordination.refetchCount--;
 		});
 
 		// onUpdated: Full TabGroup object provided
 		browser.tabGroups.onUpdated.addListener(async (group) => {
 			await initPromise;
-			if (syncCoordination.isProcessingYDocChange) return;
+			if (syncCoordination.yDocChangeCount > 0) return;
 
 			const deviceId = await deviceIdPromise;
-			syncCoordination.isRefetching = true;
+			syncCoordination.refetchCount++;
 			tables.tab_groups.upsert(browserTabGroupToRow({ group, deviceId }));
-			syncCoordination.isRefetching = false;
+			syncCoordination.refetchCount--;
 		});
 	}
 
@@ -619,8 +632,8 @@ export default defineBackground(() => {
 			}
 
 			console.log('[Background] tabs.onAdd CREATING tab with URL:', row.url);
-			// Set flag to prevent Browser events from triggering refetch
-			syncCoordination.isProcessingYDocChange = true;
+			// Increment counter to prevent Browser events from triggering refetch
+			syncCoordination.yDocChangeCount++;
 			await tryAsync({
 				try: async () => {
 					// Create the tab with the URL from the markdown file
@@ -632,9 +645,9 @@ export default defineBackground(() => {
 					// Refetch to clean up - this will:
 					// 1. Add the new Browser tab (with Browser's real ID)
 					// 2. Delete the old row (wrong ID from markdown, not in Browser)
-					syncCoordination.isRefetching = true;
+					syncCoordination.refetchCount++;
 					await client.refetchTabs();
-					syncCoordination.isRefetching = false;
+					syncCoordination.refetchCount--;
 					console.log('[Background] tabs.onAdd refetch complete');
 				},
 				catch: (error) => {
@@ -645,7 +658,7 @@ export default defineBackground(() => {
 					return Ok(undefined);
 				},
 			});
-			syncCoordination.isProcessingYDocChange = false;
+			syncCoordination.yDocChangeCount--;
 		},
 		onDelete: async (id, transaction) => {
 			await initPromise;
@@ -676,8 +689,8 @@ export default defineBackground(() => {
 			}
 
 			console.log('[Background] tabs.onDelete REMOVING Browser tab:', parsed.tabId);
-			// Set flag to prevent Browser events from triggering refetch
-			syncCoordination.isProcessingYDocChange = true;
+			// Increment counter to prevent Browser events from triggering refetch
+			syncCoordination.yDocChangeCount++;
 			await tryAsync({
 				try: async () => {
 					await browser.tabs.remove(parsed.tabId);
@@ -692,7 +705,7 @@ export default defineBackground(() => {
 					return Ok(undefined);
 				},
 			});
-			syncCoordination.isProcessingYDocChange = false;
+			syncCoordination.yDocChangeCount--;
 		},
 	});
 
@@ -709,16 +722,16 @@ export default defineBackground(() => {
 			// Only process if this window is meant for THIS device
 			if (result.data.device_id !== deviceId) return;
 
-			syncCoordination.isProcessingYDocChange = true;
+			syncCoordination.yDocChangeCount++;
 			await tryAsync({
 				try: async () => {
 					// Create a new window
 					await browser.windows.create({});
 
 					// Refetch to clean up
-					syncCoordination.isRefetching = true;
+					syncCoordination.refetchCount++;
 					await client.refetchWindows();
-					syncCoordination.isRefetching = false;
+					syncCoordination.refetchCount--;
 				},
 				catch: (error) => {
 					console.log(
@@ -728,7 +741,7 @@ export default defineBackground(() => {
 					return Ok(undefined);
 				},
 			});
-			syncCoordination.isProcessingYDocChange = false;
+			syncCoordination.yDocChangeCount--;
 		},
 		onDelete: async (id, transaction) => {
 			await initPromise;
@@ -742,7 +755,7 @@ export default defineBackground(() => {
 			// Only close windows that belong to THIS device
 			if (!parsed || parsed.deviceId !== deviceId) return;
 
-			syncCoordination.isProcessingYDocChange = true;
+			syncCoordination.yDocChangeCount++;
 			await tryAsync({
 				try: async () => {
 					await browser.windows.remove(parsed.windowId);
@@ -752,7 +765,7 @@ export default defineBackground(() => {
 					return Ok(undefined);
 				},
 			});
-			syncCoordination.isProcessingYDocChange = false;
+			syncCoordination.yDocChangeCount--;
 		},
 	});
 
@@ -770,7 +783,7 @@ export default defineBackground(() => {
 				// Only ungroup tabs from THIS device's groups
 				if (!parsed || parsed.deviceId !== deviceId) return;
 
-				syncCoordination.isProcessingYDocChange = true;
+				syncCoordination.yDocChangeCount++;
 				await tryAsync({
 					try: async () => {
 						// Note: Browser doesn't have tabGroups.remove(), but we can ungroup tabs
@@ -789,7 +802,7 @@ export default defineBackground(() => {
 						return Ok(undefined);
 					},
 				});
-				syncCoordination.isProcessingYDocChange = false;
+				syncCoordination.yDocChangeCount--;
 			},
 		});
 	}
