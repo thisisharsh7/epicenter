@@ -906,29 +906,30 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	// └─────────────────────────────────────────────────────────────────────────┘
 	//                                    ↓
 	// ┌─────────────────────────────────────────────────────────────────────────┐
-	// │ PHASE 3: Validate Remaining Files (Disk → Diagnostics)                  │
-	// │                                                                         │
-	// │   For each remaining file, deserialize and validate against schema.     │
-	// │   Build diagnostics for any files with validation errors.               │
-	// │                                                                         │
-	// │   This catches files edited externally while server was down.           │
-	// └─────────────────────────────────────────────────────────────────────────┘
-	//                                    ↓
-	// ┌─────────────────────────────────────────────────────────────────────────┐
-	// │ PHASE 4: Start Watchers (Runtime Sync)                                  │
+	// │ PHASE 3: Start Watchers IMMEDIATELY (Runtime Sync)                      │
 	// │                                                                         │
 	// │   - Y.js observers: Y.js changes → write/delete markdown files          │
 	// │   - File watchers: Markdown changes → upsert/delete Y.js rows           │
 	// │                                                                         │
-	// │   These maintain sync during runtime. Startup phases ensure clean state.│
+	// │   Start watchers as soon as tracking map is built and orphans deleted.  │
+	// │   This eliminates startup delay - sync begins immediately.              │
+	// └─────────────────────────────────────────────────────────────────────────┘
+	//                                    ↓
+	// ┌─────────────────────────────────────────────────────────────────────────┐
+	// │ PHASE 4: Validate Remaining Files (BACKGROUND/NON-BLOCKING)             │
+	// │                                                                         │
+	// │   For each remaining file, deserialize and validate against schema.     │
+	// │   Build diagnostics for any files with validation errors.               │
+	// │                                                                         │
+	// │   This runs in background - provider is already ready for sync.         │
 	// └─────────────────────────────────────────────────────────────────────────┘
 	//
 	// WHY THIS ORDER MATTERS:
 	//
 	// - Phase 1 before Phase 2: We need tracking map to know which files are orphans
-	// - Phase 2 before Phase 3: No point validating files we're about to delete
-	// - Phase 3 before Phase 4: Watchers would fire for orphan deletions otherwise
-	// - Phase 4 last: Clean state established, now maintain it
+	// - Phase 2 before Phase 3: Orphans must be deleted before watchers start
+	// - Phase 3 before Phase 4: Watchers need tracking map, validation can be deferred
+	// - Phase 4 in background: Diagnostics don't block sync startup
 	//
 	// ─────────────────────────────────────────────────────────────────────────────
 
@@ -1009,30 +1010,35 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	}
 
 	/**
-	 * PHASE 3: Validate remaining files
+	 * PHASE 3: Start runtime watchers IMMEDIATELY
+	 *
+	 * Key insight: YJS observers can start as soon as tracking map is built (Phase 1)
+	 * and orphan files are deleted (Phase 2). We don't need to wait for validation.
+	 *
+	 * This eliminates the startup delay where the provider was blocked during
+	 * file validation, causing tabs to not sync until all files were scanned.
+	 *
+	 * - Y.js observers: When app changes data → write/update/delete markdown files
+	 * - File watchers: When user edits files → upsert/delete Y.js rows
+	 */
+	const unsubscribers = registerYJSObservers();
+	const watchers = registerFileWatchers();
+
+	/**
+	 * PHASE 4: Validate remaining files (DEFERRED/NON-BLOCKING)
 	 *
 	 * Problem: Files can be edited externally while server is down.
 	 * The diagnostics from last session are stale.
 	 *
 	 * Solution: Re-validate every file and rebuild diagnostics from scratch.
+	 * This runs in the background - the provider is already "ready" for sync.
 	 *
 	 * Cost: O(n × (read + deserialize)) where n = file count. ~1s per 1000 files.
+	 * BUT this no longer blocks startup - syncing begins immediately.
 	 */
-	await validateAllMarkdownFiles({ operation: 'Initial scan' });
-
-	/**
-	 * PHASE 4: Start runtime watchers
-	 *
-	 * Now that we have a clean state (tracking built, orphans deleted, files validated),
-	 * start the bidirectional sync watchers:
-	 *
-	 * - Y.js observers: When app changes data → write/update/delete markdown files
-	 * - File watchers: When user edits files → upsert/delete Y.js rows
-	 *
-	 * These maintain sync during runtime. The startup phases ensure we start clean.
-	 */
-	const unsubscribers = registerYJSObservers();
-	const watchers = registerFileWatchers();
+	void validateAllMarkdownFiles({ operation: 'Initial scan' }).catch((err) => {
+		console.error('[MarkdownProvider] Background validation failed:', err);
+	});
 
 	return defineProviderExports({
 		async destroy() {

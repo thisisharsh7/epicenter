@@ -78,6 +78,12 @@ const syncCoordination = {
 	yDocChangeCount: 0,
 	/** Count of concurrent refetch operations (Browser → Y.Doc) */
 	refetchCount: 0,
+	/**
+	 * Set of tab IDs that were recently added by local Browser events.
+	 * Used to detect echoes: if onAdd fires for a tab_id in this set, it's our own echo.
+	 * Entries are removed after a short timeout to prevent memory leaks.
+	 */
+	recentlyAddedTabIds: new Set<number>(),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -430,6 +436,14 @@ export default defineBackground(() => {
 
 		const deviceId = await deviceIdPromise;
 		const { tabToRow } = createBrowserConverters(deviceId);
+
+		// Track this tab as recently added to detect echoes in onAdd observer
+		syncCoordination.recentlyAddedTabIds.add(tab.id);
+		// Remove after 5 seconds to prevent memory leaks
+		setTimeout(() => {
+			syncCoordination.recentlyAddedTabIds.delete(tab.id!);
+		}, 5000);
+
 		syncCoordination.refetchCount++;
 		tables.tabs.upsert(tabToRow(tab));
 		syncCoordination.refetchCount--;
@@ -666,7 +680,17 @@ export default defineBackground(() => {
 				return;
 			}
 
-			// Check if this tab already exists in the browser
+			// Check 1: Was this tab recently added by our own onCreated handler?
+			// This catches echoes that come back from WebSocket before the browser.tabs.get check
+			if (syncCoordination.recentlyAddedTabIds.has(row.tab_id)) {
+				console.log(
+					'[Background] tabs.onAdd SKIPPED: tab was recently added locally (echo)',
+					row.tab_id,
+				);
+				return;
+			}
+
+			// Check 2: Does this tab already exist in the browser?
 			// This prevents duplicate tab creation when our own changes echo back from WebSocket
 			const existingTab = await tryAsync({
 				try: () => browser.tabs.get(row.tab_id),
