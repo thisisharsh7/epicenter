@@ -16,19 +16,16 @@ import {
 const CURRENT_TRANSFORMATION_STEP_VERSION = 2 as const;
 
 // ============================================================================
-// SHARED BASE FIELDS
-// ============================================================================
-// These are shared between V1 and V2. If V3 needs different base fields,
-// create a new base or define V3 from scratch.
+// VERSION 1 (FROZEN)
 // ============================================================================
 
 /**
- * Base fields shared between TransformationStep V1 and V2.
- * FROZEN for V1/V2: Do not modify without considering impact on both versions.
+ * V1: Original schema without Custom provider fields.
+ * Old data has no version field, so we default to 1.
  *
- * Uses arktype's type() directly so we can use .merge() for composition.
+ * FROZEN: Do not modify. This represents the historical V1 schema.
  */
-const TransformationStepBase = type({
+const TransformationStepV1 = type({
 	id: 'string',
 	type: type.enumerated(...TRANSFORMATION_STEP_TYPES),
 	'prompt_transform.inference.provider': type.enumerated(
@@ -53,36 +50,6 @@ const TransformationStepBase = type({
 	'find_replace.findText': 'string',
 	'find_replace.replaceText': 'string',
 	'find_replace.useRegex': 'boolean',
-});
-
-/**
- * Fields for Transformation. These have NOT changed since the initial schema.
- * Only TransformationStep has versioning (V1 → V2 added Custom provider fields).
- *
- * If a future version adds/changes Transformation-level fields (not just steps),
- * introduce versioning at that point.
- *
- * Uses arktype's type() directly so we can use .merge() for composition.
- */
-const TransformationBase = type({
-	id: 'string',
-	title: 'string',
-	description: 'string',
-	createdAt: 'string',
-	updatedAt: 'string',
-});
-
-// ============================================================================
-// VERSION 1 (FROZEN)
-// ============================================================================
-
-/**
- * V1: Original schema without Custom provider fields.
- * Old data has no version field, so we default to 1.
- *
- * FROZEN: Do not modify. This represents the historical V1 schema.
- */
-const TransformationStepV1 = TransformationStepBase.merge({
 	version: '1 = 1',
 });
 
@@ -110,12 +77,13 @@ export type TransformationV1 = {
 
 /**
  * V2: Added Custom provider fields for local LLM endpoints.
+ * Extends V1 with:
  * - Custom.model: Model name for custom endpoints
  * - Custom.baseUrl: Per-step base URL (falls back to global setting)
  *
  * CURRENT VERSION: This is the latest schema.
  */
-const TransformationStepV2 = TransformationStepBase.merge({
+const TransformationStepV2 = TransformationStepV1.merge({
 	version: '2',
 	/** Custom provider for local LLM endpoints (Ollama, LM Studio, llama.cpp, etc.) */
 	'prompt_transform.inference.provider.Custom.model': 'string',
@@ -132,10 +100,15 @@ export type TransformationStepV2 = typeof TransformationStepV2.infer;
 /**
  * Current Transformation schema with V2 steps.
  *
- * Note: The Transformation fields themselves are unchanged from V1;
- * "V2" refers to the step schema version contained within.
+ * The Transformation container fields (id, title, description, createdAt, updatedAt)
+ * have not changed since V1. Only TransformationStep has versioning.
  */
-const TransformationV2 = TransformationBase.merge({
+const TransformationV2 = type({
+	id: 'string',
+	title: 'string',
+	description: 'string',
+	createdAt: 'string',
+	updatedAt: 'string',
 	steps: [TransformationStepV2, '[]'],
 });
 
@@ -180,7 +153,7 @@ export type TransformationStep = TransformationStepV2;
  * Accepts transformations with V1 or V2 steps and migrates all steps to V2.
  * Use this when reading data that might contain old schema versions.
  */
-export const Transformation = TransformationBase.merge({
+export const Transformation = TransformationV2.merge({
 	steps: [TransformationStep, '[]'],
 });
 
