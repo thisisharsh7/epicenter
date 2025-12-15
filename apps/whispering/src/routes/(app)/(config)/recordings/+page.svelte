@@ -59,8 +59,8 @@
 
 	/**
 	 * Returns a cell renderer for a date/time column using date-fns format.
-	 * @param {string} formatString - date-fns format string
-	 * @returns {(args: { getValue: () => string }) => string}
+	 *
+	 * @param formatString - date-fns format string
 	 */
 	function formattedCell(formatString: string) {
 		return ({ getValue }: { getValue: () => string }) => {
