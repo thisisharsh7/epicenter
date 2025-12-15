@@ -122,18 +122,6 @@ export type TransformationV2 = typeof TransformationV2.infer;
 // ============================================================================
 
 /**
- * Migrates a TransformationStep from V1 to V2.
- */
-function migrateStepV1ToV2(step: TransformationStepV1): TransformationStepV2 {
-	return {
-		...step,
-		version: 2,
-		'prompt_transform.inference.provider.Custom.model': '',
-		'prompt_transform.inference.provider.Custom.baseUrl': '',
-	};
-}
-
-/**
  * TransformationStep validator with automatic migration.
  * Accepts V1 or V2 and always outputs V2.
  */
@@ -141,7 +129,12 @@ export const TransformationStep = TransformationStepV1.or(
 	TransformationStepV2,
 ).pipe((step): TransformationStepV2 => {
 	if (step.version === 1) {
-		return migrateStepV1ToV2(step);
+		return {
+			...step,
+			version: 2,
+			'prompt_transform.inference.provider.Custom.model': '',
+			'prompt_transform.inference.provider.Custom.baseUrl': '',
+		};
 	}
 	return step;
 });
