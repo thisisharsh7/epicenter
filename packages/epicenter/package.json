@@ -29,25 +29,25 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"chokidar": "^5.0.0",
-		"mime": "catalog:",
 		"@elysiajs/openapi": "^1.4.11",
 		"@standard-community/standard-json": "^0.3.5",
 		"@standard-schema/spec": "^1.0.0",
 		"@tursodatabase/database": "^0.3.2",
 		"@types/bun": "catalog:",
 		"arktype": "catalog:",
+		"chokidar": "^5.0.0",
 		"diff": "^8.0.2",
 		"drizzle-orm": "catalog:",
 		"elysia": "^1.2.25",
+		"lib0": "^0.2.99",
+		"mime": "catalog:",
 		"nanoid": "catalog:",
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
-		"yargs": "catalog:",
-		"yjs": "^13.6.27",
 		"y-protocols": "^1.0.6",
 		"y-websocket": "^2.1.0",
-		"lib0": "^0.2.99"
+		"yargs": "catalog:",
+		"yjs": "^13.6.27"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
