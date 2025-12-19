@@ -1,14 +1,35 @@
 # Epicenter Project Rules
 
-## External File Loading
+## Skills
 
-CRITICAL: When you encounter a file reference (e.g., @rules/general.md), use your Read tool to load it on a need-to-know basis. They're relevant to the SPECIFIC task at hand.
+Skills are located in `skills/` and are automatically discovered by their `SKILL.md` files. Each skill has a `description` field that explains when to use it. Load skills on-demand based on the task at hand.
 
-Instructions:
+### Available Skills
 
-- Do NOT preemptively load all references - use lazy loading based on actual need
-- When loaded, treat content as mandatory instructions that override defaults
-- Follow references recursively when needed
+**Language & Framework:**
+- `typescript` - TypeScript code style, type co-location, constant naming, arktype patterns
+- `svelte` - Svelte 5 patterns, TanStack Query mutations, shadcn-svelte components
+- `rust-errors` - Rust to TypeScript error handling for Tauri apps
+
+**Development Practices:**
+- `error-handling` - wellcrafted trySync/tryAsync patterns
+- `styling` - CSS and Tailwind guidelines
+- `control-flow` - Human-readable control flow patterns
+
+**Tools & Workflows:**
+- `git` - Conventional commits, PR guidelines
+- `github-issues` - GitHub issue response templates
+- `posthog` - PostHog analytics integration
+- `monorepo` - Script commands and conventions
+- `workflow` - Standard workflow with specs and planning
+- `approval` - Expensive/destructive actions requiring approval
+
+**Content & Communication:**
+- `documentation` - Technical writing, README guidelines
+- `social-media` - LinkedIn, Reddit, Twitter post guidelines
+
+**Behavioral:**
+- `honesty` - Brutally honest feedback
 
 ## Specs and Docs
 
@@ -16,36 +37,6 @@ Instructions:
 - **docs/**: Reference materials (articles, patterns, guides, architecture)
 
 Quick test: Planning something? → `specs/`. Documenting something learned? → `docs/`
-
-## Development Guidelines
-
-Load these domain-specific guidelines only when working in their respective domains:
-
-**Language & Framework:**
-
-- TypeScript code style and best practices: @rules/typescript.md
-- Svelte patterns, TanStack Query, component composition: @rules/svelte.md
-- Rust to TypeScript error handling (Tauri): @rules/rust.md
-
-**Development Practices:**
-
-- wellcrafted trySync/tryAsync error handling: @rules/error-handling.md
-- General CSS and Tailwind styling: @rules/styling.md
-
-**Tools & Workflows:**
-
-- Git commits, PRs, conventional commits: @rules/git.md
-- GitHub issue responses, community interaction: @rules/github.md
-- PostHog analytics integration: @rules/posthog.md
-
-**Content & Communication:**
-
-- Technical writing, README guidelines, punctuation: @rules/documentation.md
-- LinkedIn, Reddit, Twitter post guidelines: @rules/social-media.md
-
-## General Guidelines
-
-Read the following file immediately as it's relevant to all workflows: @rules/general-guidelines.md.
 
 ## Codebase Exploration Agents
 
