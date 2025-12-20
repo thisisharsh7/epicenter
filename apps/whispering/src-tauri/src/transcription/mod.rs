@@ -669,14 +669,12 @@ pub async fn transcribe_audio_parakeet(
 pub async fn transcribe_audio_moonshine(
     audio_data: Vec<u8>,
     model_path: String,
-    variant: String,
     model_manager: tauri::State<'_, ModelManager>,
 ) -> Result<String, TranscriptionError> {
     info!(
-        "[Transcription] starting Moonshine transcription: audio_bytes={} model_path={} variant={}",
+        "[Transcription] starting Moonshine transcription: audio_bytes={} model_path={}",
         audio_data.len(),
-        model_path,
-        variant
+        model_path
     );
 
     // Convert audio to 16kHz mono format
@@ -699,21 +697,33 @@ pub async fn transcribe_audio_moonshine(
         return Ok(String::new());
     }
 
-    // Parse variant string to MoonshineModelParams
-    let model_params = match variant.as_str() {
-        "tiny" | "tiny-en" => MoonshineModelParams::tiny(),
-        "base" | "base-en" => MoonshineModelParams::base(),
-        // For other language variants, use the appropriate base model
-        // Moonshine tiny variants: ar, zh, ja, ko, uk, vi
-        // Moonshine base variants: es
-        v if v.starts_with("tiny-") => MoonshineModelParams::tiny(),
-        v if v.starts_with("base-") => MoonshineModelParams::base(),
-        _ => {
-            warn!(
-                "[Transcription] unknown Moonshine variant '{}', defaulting to tiny",
-                variant
-            );
-            MoonshineModelParams::tiny()
+    // Extract variant from model path directory name
+    // Expected format: moonshine-{variant}-{lang} (e.g., "moonshine-tiny-en", "moonshine-base-en")
+    let model_params = {
+        let dir_name = std::path::Path::new(&model_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+
+        // Parse directory name: moonshine-{variant}-{lang}
+        let parts: Vec<&str> = dir_name.split('-').collect();
+        let variant = parts.get(1).copied().unwrap_or("tiny");
+
+        debug!(
+            "[Transcription] extracted Moonshine variant='{}' from path '{}'",
+            variant, dir_name
+        );
+
+        match variant {
+            "base" => MoonshineModelParams::base(),
+            "tiny" => MoonshineModelParams::tiny(),
+            _ => {
+                warn!(
+                    "[Transcription] unknown Moonshine variant '{}' in path '{}', defaulting to tiny",
+                    variant, dir_name
+                );
+                MoonshineModelParams::tiny()
+            }
         }
     };
 

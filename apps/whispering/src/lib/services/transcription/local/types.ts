@@ -1,4 +1,44 @@
 /**
+ * Supported languages for Moonshine models.
+ * This is the source of truth for:
+ * 1. The `language` field type in MoonshineModelConfig
+ * 2. The regex validation pattern in moonshine.ts
+ *
+ * Moonshine supports 8 languages with varying model availability:
+ * - tiny variants: en, ar, zh, ja, ko, uk, vi (most have only float versions)
+ * - base variants: en, es (most have only float versions)
+ *
+ * Currently only English quantized models are provided as pre-built options.
+ */
+export const MOONSHINE_LANGUAGES = [
+	'en',
+	'ar',
+	'zh',
+	'ja',
+	'ko',
+	'es',
+	'uk',
+	'vi',
+] as const;
+
+/**
+ * Valid language codes for Moonshine models.
+ * Derived from MOONSHINE_LANGUAGES array.
+ */
+export type MoonshineLanguage = (typeof MOONSHINE_LANGUAGES)[number];
+
+/**
+ * Valid variant codes for Moonshine models.
+ * Determines the model architecture (layer count, hidden dimensions).
+ */
+export const MOONSHINE_VARIANTS = ['tiny', 'base'] as const;
+
+/**
+ * Valid variant type for Moonshine models.
+ */
+export type MoonshineVariant = (typeof MOONSHINE_VARIANTS)[number];
+
+/**
  * Base configuration for a local AI model that can be downloaded and used for transcription.
  */
 type BaseModelConfig = {
@@ -71,13 +111,13 @@ export type ParakeetModelConfig = BaseModelConfig & {
 export type MoonshineModelConfig = BaseModelConfig & {
 	engine: 'moonshine';
 	/** Language code for this model variant */
-	language: 'en' | 'ar' | 'zh' | 'ja' | 'ko' | 'es' | 'uk' | 'vi';
+	language: MoonshineLanguage;
 	/**
 	 * Name of the directory where files will be stored.
 	 * Convention: `moonshine-{variant}-{lang}` (e.g., "moonshine-tiny-en")
-	 * The variant is extracted from this name at transcription time via `extractVariantFromPath()`.
+	 * The variant and language are extracted from this name at transcription time.
 	 */
-	directoryName: string;
+	directoryName: `moonshine-${MoonshineVariant}-${MoonshineLanguage}`;
 	/** Array of ONNX files that make up the model */
 	files: Array<{
 		/** URL to download this file from */

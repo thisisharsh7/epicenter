@@ -71,6 +71,7 @@
 		"@tauri-apps/plugin-shell": "^2.3.0",
 		"@tauri-apps/plugin-updater": "^2.9.0",
 		"@types/dompurify": "^3.2.0",
+		"arkregex": "catalog:",
 		"arktype": "catalog:",
 		"audio-recorder-polyfill": "^0.4.1",
 		"bits-ui": "catalog:",

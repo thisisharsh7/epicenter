@@ -718,6 +718,18 @@
 										</span>
 									</li>
 								</ul>
+								<div class="mt-3 rounded border border-amber-500/20 bg-amber-500/5 p-3">
+									<p class="text-xs font-medium text-amber-600 dark:text-amber-400">
+										Directory Naming Requirement
+									</p>
+									<p class="mt-1 text-xs text-muted-foreground">
+										The model directory must be named{' '}
+										<code class="rounded bg-muted px-1 py-0.5 font-mono">moonshine-&#123;variant&#125;-&#123;lang&#125;</code>
+										{' '}(e.g., <code class="rounded bg-muted px-1 py-0.5 font-mono">moonshine-tiny-en</code>,
+										{' '}<code class="rounded bg-muted px-1 py-0.5 font-mono">moonshine-base-en</code>).
+										The variant (tiny/base) determines model architecture.
+									</p>
+								</div>
 							</Card.Content>
 						</Card.Root>
 					{/snippet}
