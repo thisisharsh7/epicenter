@@ -5,7 +5,7 @@ import { walkActions } from '../core/actions';
 import type { EpicenterConfig } from '../core/epicenter';
 import { createEpicenterClient } from '../core/epicenter';
 import { DEFAULT_PORT, startServer } from './server';
-import { standardSchemaToYargs } from './standardschema-to-yargs';
+import { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
 
 /**
  * Create and run CLI from Epicenter config.
@@ -111,7 +111,7 @@ export async function createCLI({
 						action.description || `Execute ${actionName} ${action.type}`,
 						(yargs) => {
 							if (action.input) {
-								return standardSchemaToYargs(action.input, yargs);
+								return standardJsonSchemaToYargs(action.input, yargs);
 							}
 							return yargs;
 						},

@@ -73,7 +73,7 @@ function hasType(
  * ```typescript
  * import { type } from 'arktype';
  * import yargs from 'yargs';
- * import { standardSchemaToYargs } from './standardschema-to-yargs';
+ * import { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
  *
  * const schema = type({
  *   name: "string",
@@ -81,10 +81,10 @@ function hasType(
  *   active: "boolean?"
  * });
  *
- * const cli = standardSchemaToYargs(schema, yargs);
+ * const cli = standardJsonSchemaToYargs(schema, yargs);
  * ```
  */
-export function standardSchemaToYargs(
+export function standardJsonSchemaToYargs(
 	schema: StandardJSONSchemaV1 | undefined,
 	yargs: Argv,
 ): Argv {
