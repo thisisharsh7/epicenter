@@ -29,7 +29,7 @@ const HF_BASE = 'https://huggingface.co/UsefulSensors/moonshine/resolve/main';
  * The Rust side extracts variant from the path to determine model architecture.
  */
 const MOONSHINE_DIR_PATTERN = regex.as<
-	`moonshine-${MoonshineVariant}-${MoonshineLanguage}`,
+	`${string}moonshine-${MoonshineVariant}-${MoonshineLanguage}`,
 	{ captures: [MoonshineVariant, MoonshineLanguage] }
 >(`moonshine-(${MOONSHINE_VARIANTS.join('|')})-(${MOONSHINE_LANGUAGES.join('|')})$`);
 
@@ -121,10 +121,10 @@ export function createMoonshineTranscriptionService() {
 	return {
 		async transcribe(
 			audioBlob: Blob,
-			options: { modelPath: string },
+			{ modelPath }: { modelPath: string },
 		): Promise<Result<string, WhisperingError>> {
 			// Pre-validation
-			if (!options.modelPath) {
+			if (!modelPath) {
 				return WhisperingErr({
 					title: 'Model Directory Required',
 					description: 'Please select a Moonshine model directory in settings.',
@@ -138,14 +138,14 @@ export function createMoonshineTranscriptionService() {
 
 			// Check if model directory exists and is a directory (single I/O call)
 			const { data: stats } = await tryAsync({
-				try: () => stat(options.modelPath),
+				try: () => stat(modelPath),
 				catch: () => Ok(null),
 			});
 
 			if (!stats) {
 				return WhisperingErr({
 					title: 'Model Directory Not Found',
-					description: `The model directory "${options.modelPath}" does not exist.`,
+					description: `The model directory "${modelPath}" does not exist.`,
 					action: {
 						type: 'link',
 						label: 'Select model',
@@ -168,7 +168,7 @@ export function createMoonshineTranscriptionService() {
 			}
 
 			// Validate path ends with moonshine-{variant}-{lang}
-			if (!MOONSHINE_DIR_PATTERN.test(options.modelPath)) {
+			if (!MOONSHINE_DIR_PATTERN.test(modelPath)) {
 				return WhisperingErr({
 					title: 'Invalid Model Directory Name',
 					description: `Model path must end with moonshine-{variant}-{lang} (e.g., "moonshine-tiny-en", "moonshine-base-en")`,
@@ -188,10 +188,7 @@ export function createMoonshineTranscriptionService() {
 			// The Rust side extracts variant from the model path directory name
 			const result = await tryAsync({
 				try: () =>
-					invoke<string>('transcribe_audio_moonshine', {
-						audioData,
-						modelPath: options.modelPath,
-					}),
+					invoke<string>('transcribe_audio_moonshine', { audioData, modelPath }),
 				catch: (unknownError) => {
 					const result = MoonshineErrorType(unknownError);
 					if (result instanceof type.errors) {
