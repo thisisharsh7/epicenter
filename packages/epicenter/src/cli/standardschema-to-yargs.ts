@@ -1,20 +1,71 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type {
-	JSONSchema7,
-	JSONSchema7Definition,
-	JSONSchema7TypeName,
-} from 'json-schema';
+import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
+import type { JsonSchema } from 'arktype';
 import type { Argv } from 'yargs';
 import { safeToJsonSchema } from '../core/schema/safe-json-schema';
 
+// =============================================================================
+// Type Guards for JsonSchema discriminated union
+// =============================================================================
+
+/** Check if schema is an object type with properties */
+function isObjectSchema(
+	schema: JsonSchema,
+): schema is JsonSchema.Object & { properties: Record<string, JsonSchema> } {
+	return (
+		'type' in schema &&
+		schema.type === 'object' &&
+		'properties' in schema &&
+		schema.properties !== undefined
+	);
+}
+
+/** Check if schema has enum values */
+function isEnumSchema(
+	schema: JsonSchema,
+): schema is JsonSchema.Enum {
+	return 'enum' in schema && schema.enum !== undefined;
+}
+
+/** Check if schema is a union (anyOf) */
+function isUnionSchema(
+	schema: JsonSchema,
+): schema is JsonSchema.Union {
+	return 'anyOf' in schema;
+}
+
+/** Check if schema is a oneOf union */
+function isOneOfSchema(
+	schema: JsonSchema,
+): schema is JsonSchema.OneOf {
+	return 'oneOf' in schema;
+}
+
+/** Check if schema has a const value */
+function isConstSchema(
+	schema: JsonSchema,
+): schema is JsonSchema.Const {
+	return 'const' in schema && schema.const !== undefined;
+}
+
+/** Check if schema has a type field */
+function hasType(
+	schema: JsonSchema,
+): schema is JsonSchema.Constrainable & { type: JsonSchema.TypeName | JsonSchema.TypeName[] } {
+	return 'type' in schema && schema.type !== undefined;
+}
+
+// =============================================================================
+// Main conversion function
+// =============================================================================
+
 /**
- * Convert a Standard Schema to yargs CLI options
+ * Convert a Standard JSON Schema to yargs CLI options
  *
- * This function converts Standard Schema (used by ArkType, Zod, Valibot, etc.)
+ * This function converts Standard JSON Schema (used by ArkType, Zod, Valibot, etc.)
  * to yargs CLI options by first converting to JSON Schema, then introspecting
  * the JSON Schema structure.
  *
- * @param schema - Standard Schema V1 instance
+ * @param schema - Standard JSON Schema V1 instance
  * @param yargs - Yargs instance to add options to
  * @returns Modified yargs instance with options added
  *
@@ -30,30 +81,36 @@ import { safeToJsonSchema } from '../core/schema/safe-json-schema';
  *   active: "boolean?"
  * });
  *
- * const cli = await standardSchemaToYargs(schema, yargs);
+ * const cli = standardSchemaToYargs(schema, yargs);
  * ```
  */
-export async function standardSchemaToYargs(
-	schema: StandardSchemaV1 | undefined,
+export function standardSchemaToYargs(
+	schema: StandardJSONSchemaV1 | undefined,
 	yargs: Argv,
-): Promise<Argv> {
+): Argv {
 	if (!schema) return yargs;
 
-	// Convert Standard Schema to JSON Schema
-	const jsonSchema = await safeToJsonSchema(schema);
+	const jsonSchema = safeToJsonSchema(schema);
 
-	// JSON Schema should be an object type with properties
-	if (jsonSchema.type === 'object' && jsonSchema.properties) {
-		const required = new Set(jsonSchema.required ?? []);
+	if (!isObjectSchema(jsonSchema)) return yargs;
 
-		for (const [key, fieldSchema] of Object.entries(jsonSchema.properties)) {
-			const isRequired = required.has(key);
-			addFieldToYargs({ key, fieldSchema, isRequired, yargs });
-		}
+	const required = new Set(jsonSchema.required ?? []);
+
+	for (const [key, fieldSchema] of Object.entries(jsonSchema.properties)) {
+		addFieldToYargs({
+			key,
+			fieldSchema,
+			isRequired: required.has(key),
+			yargs,
+		});
 	}
 
 	return yargs;
 }
+
+// =============================================================================
+// Field processing
+// =============================================================================
 
 /**
  * Add a single JSON Schema field to yargs as an option
@@ -69,22 +126,15 @@ function addFieldToYargs({
 	yargs,
 }: {
 	key: string;
-	fieldSchema: JSONSchema7Definition;
+	fieldSchema: JsonSchema;
 	isRequired: boolean;
 	yargs: Argv;
 }): void {
-	// JSONSchema7 properties can be boolean or JSONSchema7Definition
-	// For boolean schemas (true/false), accept any value (no type specified)
-	if (typeof fieldSchema === 'boolean') {
-		yargs.option(key, {
-			description: 'Any value',
-			demandOption: isRequired,
-		});
-		return;
-	}
+	// description is available on ALL JsonSchema branches (they all extend Meta)
+	const { description } = fieldSchema;
 
 	// Handle explicit enum property
-	if (fieldSchema.enum) {
+	if (isEnumSchema(fieldSchema)) {
 		const choices = fieldSchema.enum.filter(
 			(v): v is string | number =>
 				typeof v === 'string' || typeof v === 'number',
@@ -93,7 +143,7 @@ function addFieldToYargs({
 			yargs.option(key, {
 				type: typeof choices[0] === 'number' ? 'number' : 'string',
 				choices,
-				description: fieldSchema.description,
+				description,
 				demandOption: isRequired,
 			});
 			return;
@@ -101,26 +151,22 @@ function addFieldToYargs({
 	}
 
 	// Handle union types (anyOf, oneOf)
-	if (fieldSchema.anyOf || fieldSchema.oneOf) {
-		const variants = (fieldSchema.anyOf || fieldSchema.oneOf) as JSONSchema7[];
+	if (isUnionSchema(fieldSchema) || isOneOfSchema(fieldSchema)) {
+		const variants = isUnionSchema(fieldSchema)
+			? fieldSchema.anyOf
+			: fieldSchema.oneOf;
 
 		// Check if it's a union of string literals (const values)
 		const stringLiterals = variants
-			.filter(
-				(v): v is JSONSchema7 =>
-					typeof v !== 'boolean' && v.const !== undefined,
-			)
+			.filter(isConstSchema)
 			.map((v) => v.const)
 			.filter((c): c is string => typeof c === 'string');
 
-		if (
-			stringLiterals.length === variants.length &&
-			stringLiterals.length > 0
-		) {
+		if (stringLiterals.length === variants.length && stringLiterals.length > 0) {
 			yargs.option(key, {
 				type: 'string',
 				choices: stringLiterals,
-				description: fieldSchema.description,
+				description,
 				demandOption: isRequired,
 			});
 			return;
@@ -129,24 +175,23 @@ function addFieldToYargs({
 		// For any other union (string | number, string | null, etc),
 		// just accept any value - let Standard Schema validate at runtime
 		yargs.option(key, {
-			description:
-				fieldSchema.description ?? 'Union type (validation at runtime)',
+			description: description ?? 'Union type (validation at runtime)',
 			demandOption: isRequired,
 		});
 		return;
 	}
 
 	// Handle standard types
-	if (fieldSchema.type) {
-		// JSONSchema7TypeName can be a string or array of strings
+	if (hasType(fieldSchema)) {
 		const primaryType = Array.isArray(fieldSchema.type)
 			? fieldSchema.type[0]
 			: fieldSchema.type;
+
 		if (primaryType) {
 			addFieldByType({
 				key,
 				type: primaryType,
-				description: fieldSchema.description,
+				description,
 				isRequired,
 				yargs,
 			});
@@ -157,7 +202,7 @@ function addFieldToYargs({
 	// Ultimate fallback: no type info, but still create the option
 	// Accept any value and let Standard Schema validate when action runs
 	yargs.option(key, {
-		description: fieldSchema.description || 'Any value (validation at runtime)',
+		description: description ?? 'Any value (validation at runtime)',
 		demandOption: isRequired,
 	});
 }
@@ -177,7 +222,7 @@ function addFieldByType({
 	yargs,
 }: {
 	key: string;
-	type: JSONSchema7TypeName;
+	type: JsonSchema.TypeName;
 	description: string | undefined;
 	isRequired: boolean;
 	yargs: Argv;
@@ -215,11 +260,12 @@ function addFieldByType({
 				demandOption: isRequired,
 			});
 			break;
+
 		default:
-			// For complex types, omit 'type' - yargs accepts any value
+			// For complex types (object, null), omit 'type' - yargs accepts any value
 			// Validation happens via Standard Schema at runtime
 			yargs.option(key, {
-				description: description || `${type} type (validation at runtime)`,
+				description: description ?? `${type} type (validation at runtime)`,
 				demandOption: isRequired,
 			});
 			break;
