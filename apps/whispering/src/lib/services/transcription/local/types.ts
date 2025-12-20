@@ -52,10 +52,20 @@ export type ParakeetModelConfig = BaseModelConfig & {
 /**
  * Configuration for Moonshine models, which consist of ONNX encoder/decoder files in a directory.
  * Moonshine is optimized for fast, efficient transcription with support for 8 languages.
+ *
+ * The `variant` field is required because Moonshine's ONNX files don't self-describe their
+ * architecture. Unlike Whisper `.bin` files (which contain model metadata) or Parakeet
+ * directories (which include a `config.json`), Moonshine requires the caller to specify
+ * whether the model is "tiny" or "base" so transcribe-rs knows the layer count and hidden
+ * dimensions needed to properly load and run inference.
  */
 export type MoonshineModelConfig = BaseModelConfig & {
 	engine: 'moonshine';
-	/** Model variant: tiny (~190MB) or base (~400MB) */
+	/**
+	 * Model architecture variant. This is passed to transcribe-rs as `MoonshineModelParams`
+	 * so the engine knows how to interpret the ONNX files. Required because the ONNX format
+	 * doesn't include this metadata.
+	 */
 	variant: 'tiny' | 'base';
 	/** Language code for this model variant */
 	language: 'en' | 'ar' | 'zh' | 'ja' | 'ko' | 'es' | 'uk' | 'vi';

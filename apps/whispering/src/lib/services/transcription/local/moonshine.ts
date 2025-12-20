@@ -18,6 +18,20 @@ const HF_BASE = 'https://huggingface.co/UsefulSensors/moonshine/resolve/main';
  * Pre-built Moonshine models available for download from HuggingFace.
  * These are ONNX models using encoder-decoder architecture with KV caching.
  *
+ * ## Why `variant` is stored separately from `modelPath`
+ *
+ * Unlike Whisper (where the `.bin` file is self-describing) or Parakeet (which
+ * includes a `config.json`), Moonshine's ONNX files don't contain all the metadata
+ * the engine needs. The `variant` tells transcribe-rs about the model architecture
+ * (layer count, hidden dimensions, etc.) so it can properly interpret the ONNX files.
+ *
+ * When transcribing, we pass both:
+ * - `modelPath`: Where the ONNX files are stored
+ * - `variant`: Architecture metadata ("tiny" or "base")
+ *
+ * The Rust command converts the variant string to `MoonshineModelParams::tiny()` or
+ * `MoonshineModelParams::base()`, which the engine needs to correctly load the model.
+ *
  * Note: Language-specific models (ar, zh, ja, ko, uk, vi, es) exist but only
  * have float versions available. We provide quantized English models for now
  * since they offer the best size/performance tradeoff.
