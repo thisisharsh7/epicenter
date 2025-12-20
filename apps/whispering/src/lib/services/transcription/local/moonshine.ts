@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { sep } from '@tauri-apps/api/path';
 import { exists, stat } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
@@ -31,7 +32,7 @@ const HF_BASE = 'https://huggingface.co/UsefulSensors/moonshine/resolve/main';
  * @returns The variant string to pass to transcribe-rs
  */
 export function extractVariantFromPath(modelPath: string): 'tiny' | 'base' {
-	const dirName = modelPath.split('/').pop() ?? '';
+	const dirName = modelPath.split(sep()).pop() ?? '';
 	if (dirName.includes('base')) return 'base';
 	return 'tiny'; // Default to tiny if we can't determine
 }
@@ -65,9 +66,8 @@ export const MOONSHINE_MODELS: readonly MoonshineModelConfig[] = [
 		size: '~30 MB',
 		sizeBytes: 30_166_481, // encoder + decoder + tokenizer
 		engine: 'moonshine',
-		variant: 'tiny',
 		language: 'en',
-		directoryName: 'moonshine-tiny-en',
+		directoryName: 'moonshine-tiny-en', // variant "tiny" extracted at transcription time
 		files: [
 			{
 				url: `${HF_BASE}/onnx/merged/tiny/quantized/encoder_model.onnx`,
@@ -93,9 +93,8 @@ export const MOONSHINE_MODELS: readonly MoonshineModelConfig[] = [
 		size: '~65 MB',
 		sizeBytes: 64_997_467, // encoder + decoder + tokenizer
 		engine: 'moonshine',
-		variant: 'base',
 		language: 'en',
-		directoryName: 'moonshine-base-en',
+		directoryName: 'moonshine-base-en', // variant "base" extracted at transcription time
 		files: [
 			{
 				url: `${HF_BASE}/onnx/merged/base/quantized/encoder_model.onnx`,

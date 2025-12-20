@@ -63,22 +63,19 @@ export type ParakeetModelConfig = BaseModelConfig & {
  * "moonshine-tiny-en", "moonshine-base-en") and extract it at transcription time using
  * `extractVariantFromPath()`. This avoids redundant metadata while keeping our download
  * configs simple.
+ *
+ * Variant architecture:
+ * - "tiny": 6 layers, head_dim=36 (~30 MB quantized)
+ * - "base": 8 layers, head_dim=52 (~65 MB quantized)
  */
 export type MoonshineModelConfig = BaseModelConfig & {
 	engine: 'moonshine';
-	/**
-	 * Model architecture variant used for download configuration.
-	 * At transcription time, variant is extracted from directoryName via `extractVariantFromPath()`.
-	 * - "tiny": 6 layers, head_dim=36 (~30 MB quantized)
-	 * - "base": 8 layers, head_dim=52 (~65 MB quantized)
-	 */
-	variant: 'tiny' | 'base';
 	/** Language code for this model variant */
 	language: 'en' | 'ar' | 'zh' | 'ja' | 'ko' | 'es' | 'uk' | 'vi';
 	/**
 	 * Name of the directory where files will be stored.
 	 * Convention: `moonshine-{variant}-{lang}` (e.g., "moonshine-tiny-en")
-	 * The variant is extracted from this name at transcription time.
+	 * The variant is extracted from this name at transcription time via `extractVariantFromPath()`.
 	 */
 	directoryName: string;
 	/** Array of ONNX files that make up the model */
