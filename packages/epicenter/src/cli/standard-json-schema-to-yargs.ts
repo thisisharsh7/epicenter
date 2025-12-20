@@ -1,7 +1,7 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 import type { JsonSchema } from 'arktype';
 import type { Argv } from 'yargs';
-import { safeToJsonSchema } from '../core/schema/safe-json-schema';
+import { generateJsonSchema } from '../core/schema/generate-json-schema';
 
 // =============================================================================
 // Type Guards for JsonSchema discriminated union
@@ -90,7 +90,7 @@ export function standardJsonSchemaToYargs(
 ): Argv {
 	if (!schema) return yargs;
 
-	const jsonSchema = safeToJsonSchema(schema);
+	const jsonSchema = generateJsonSchema(schema);
 
 	if (!isObjectSchema(jsonSchema)) return yargs;
 

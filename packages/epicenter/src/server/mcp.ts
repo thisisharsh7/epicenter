@@ -12,7 +12,7 @@ import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
 import { type EpicenterClient, iterActions } from '../core/epicenter';
-import { safeToJsonSchema } from '../core/schema/safe-json-schema';
+import { generateJsonSchema } from '../core/schema/generate-json-schema';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
@@ -210,7 +210,7 @@ export function buildMcpToolRegistry<
 				] as const;
 			}
 
-			const schema = safeToJsonSchema(action.input);
+			const schema = generateJsonSchema(action.input);
 			const schemaType = 'type' in schema ? schema.type : undefined;
 			if (schemaType !== 'object' && schemaType !== undefined) {
 				console.warn(

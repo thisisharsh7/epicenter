@@ -33,7 +33,7 @@ import { ARKTYPE_JSON_SCHEMA_FALLBACK } from './arktype-fallback';
  * @param schema - Standard JSON Schema to convert
  * @returns JSON Schema representation, or permissive `{}` on error
  */
-export function safeToJsonSchema(schema: StandardJSONSchemaV1): JsonSchema {
+export function generateJsonSchema(schema: StandardJSONSchemaV1): JsonSchema {
 	const { data } = trySync({
 		try: () =>
 			schema['~standard'].jsonSchema.input({
