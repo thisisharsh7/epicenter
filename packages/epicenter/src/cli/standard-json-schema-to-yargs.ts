@@ -30,14 +30,14 @@ function isEnumSchema(
 function isUnionSchema(
 	schema: JsonSchema,
 ): schema is JsonSchema.Union {
-	return 'anyOf' in schema;
+	return 'anyOf' in schema && schema.anyOf !== undefined;
 }
 
 /** Check if schema is a oneOf union */
 function isOneOfSchema(
 	schema: JsonSchema,
 ): schema is JsonSchema.OneOf {
-	return 'oneOf' in schema;
+	return 'oneOf' in schema && schema.oneOf !== undefined;
 }
 
 /** Check if schema has a const value */
