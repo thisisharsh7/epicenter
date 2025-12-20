@@ -205,6 +205,7 @@ export const Settings = type({
 	),
 	'transcription.whispercpp.modelPath': "string = ''",
 	'transcription.parakeet.modelPath': "string = ''",
+	'transcription.moonshine.modelPath': "string = ''",
 
 	'transformations.selectedTransformationId': 'string | null = null',
 

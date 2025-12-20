@@ -37,6 +37,7 @@ type TranscriptionModel =
 export const TRANSCRIPTION_SERVICE_IDS = [
 	'whispercpp',
 	'parakeet',
+	'moonshine',
 	'Groq',
 	'OpenAI',
 	'ElevenLabs',
@@ -97,6 +98,15 @@ export const TRANSCRIPTION_SERVICES = [
 		invertInDarkMode: false,
 		description: 'NVIDIA NeMo model for fast local transcription',
 		modelPathField: 'transcription.parakeet.modelPath',
+		location: 'local',
+	},
+	{
+		id: 'moonshine',
+		name: 'Moonshine',
+		icon: ggmlIcon, // Using GGML icon as placeholder for ONNX models
+		invertInDarkMode: true,
+		description: 'Efficient ONNX model by UsefulSensors (~30 MB)',
+		modelPathField: 'transcription.moonshine.modelPath',
 		location: 'local',
 	},
 	// Cloud services (API-based)
@@ -227,6 +237,7 @@ type ServiceCapabilities = {
 export const TRANSCRIPTION_SERVICE_CAPABILITIES = {
 	whispercpp: { supportsPrompt: true, supportsTemperature: false, supportsLanguage: true },
 	parakeet: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
+	moonshine: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
 	Groq: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
 	OpenAI: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
 	ElevenLabs: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
