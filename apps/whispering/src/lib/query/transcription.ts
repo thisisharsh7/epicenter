@@ -266,6 +266,16 @@ async function transcribeBlob(
 						{ modelPath: settings.value['transcription.parakeet.modelPath'] },
 					);
 				}
+				case 'moonshine': {
+					// Moonshine uses ONNX Runtime with encoder-decoder architecture
+					return await services.transcriptions.moonshine.transcribe(
+						audioToTranscribe,
+						{
+							modelPath: settings.value['transcription.moonshine.modelPath'],
+							variant: settings.value['transcription.moonshine.variant'],
+						},
+					);
+				}
 				default:
 					return WhisperingErr({
 						title: '⚠️ No transcription service selected',
