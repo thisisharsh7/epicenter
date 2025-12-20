@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { sep } from '@tauri-apps/api/path';
-import { exists, stat } from '@tauri-apps/plugin-fs';
+import { stat } from '@tauri-apps/plugin-fs';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result, tryAsync } from 'wellcrafted/result';
@@ -58,7 +58,7 @@ export function extractVariantFromPath(modelPath: string): 'tiny' | 'base' {
  * have float versions available. We provide quantized English models for now
  * since they offer the best size/performance tradeoff.
  */
-export const MOONSHINE_MODELS: readonly MoonshineModelConfig[] = [
+export const MOONSHINE_MODELS = [
 	{
 		id: 'moonshine-tiny-en',
 		name: 'Moonshine Tiny (English)',
@@ -113,7 +113,7 @@ export const MOONSHINE_MODELS: readonly MoonshineModelConfig[] = [
 			},
 		],
 	},
-] as const;
+] as const satisfies readonly MoonshineModelConfig[];
 
 const MoonshineErrorType = type({
 	name: "'AudioReadError' | 'FfmpegNotFoundError' | 'ModelLoadError' | 'TranscriptionError'",
@@ -139,13 +139,13 @@ export function createMoonshineTranscriptionService() {
 				});
 			}
 
-			// Check if model directory exists
-			const { data: isExists } = await tryAsync({
-				try: () => exists(options.modelPath),
-				catch: () => Ok(false),
+			// Check if model directory exists and is a directory (single I/O call)
+			const { data: stats } = await tryAsync({
+				try: () => stat(options.modelPath),
+				catch: () => Ok(null),
 			});
 
-			if (!isExists) {
+			if (!stats) {
 				return WhisperingErr({
 					title: 'Model Directory Not Found',
 					description: `The model directory "${options.modelPath}" does not exist.`,
@@ -157,13 +157,7 @@ export function createMoonshineTranscriptionService() {
 				});
 			}
 
-			// Check if it's actually a directory
-			const { data: stats } = await tryAsync({
-				try: () => stat(options.modelPath),
-				catch: () => Ok(null),
-			});
-
-			if (!stats || !stats.isDirectory) {
+			if (!stats.isDirectory) {
 				return WhisperingErr({
 					title: 'Invalid Model Path',
 					description:
