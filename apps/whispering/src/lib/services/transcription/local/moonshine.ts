@@ -15,22 +15,43 @@ import type { MoonshineModelConfig } from './types';
 const HF_BASE = 'https://huggingface.co/UsefulSensors/moonshine/resolve/main';
 
 /**
+ * Extracts the model variant ("tiny" or "base") from a model path.
+ *
+ * Moonshine's ONNX files don't self-describe their architecture (unlike Whisper
+ * .bin files which contain metadata, or Parakeet which includes config.json).
+ * The variant tells transcribe-rs the layer count and hidden dimensions needed
+ * to load the model correctly.
+ *
+ * Model paths follow the convention: `.../moonshine-{variant}-{lang}`
+ * Examples:
+ * - `/path/to/moonshine-tiny-en` → "tiny"
+ * - `/path/to/moonshine-base-en` → "base"
+ *
+ * @param modelPath - Full path to the moonshine model directory
+ * @returns The variant string to pass to transcribe-rs
+ */
+export function extractVariantFromPath(modelPath: string): 'tiny' | 'base' {
+	const dirName = modelPath.split('/').pop() ?? '';
+	if (dirName.includes('base')) return 'base';
+	return 'tiny'; // Default to tiny if we can't determine
+}
+
+/**
  * Pre-built Moonshine models available for download from HuggingFace.
  * These are ONNX models using encoder-decoder architecture with KV caching.
  *
- * ## Why `variant` is stored separately from `modelPath`
+ * ## How variant is determined
  *
- * Unlike Whisper (where the `.bin` file is self-describing) or Parakeet (which
- * includes a `config.json`), Moonshine's ONNX files don't contain all the metadata
- * the engine needs. The `variant` tells transcribe-rs about the model architecture
- * (layer count, hidden dimensions, etc.) so it can properly interpret the ONNX files.
+ * The variant ("tiny" or "base") is extracted from the directory name at
+ * transcription time using `extractVariantFromPath()`. This avoids storing
+ * redundant metadata since our directory naming convention already encodes
+ * the architecture information.
  *
- * When transcribing, we pass both:
- * - `modelPath`: Where the ONNX files are stored
- * - `variant`: Architecture metadata ("tiny" or "base")
+ * - "tiny" models: 6 layers, head_dim=36 (~30 MB quantized)
+ * - "base" models: 8 layers, head_dim=52 (~65 MB quantized)
  *
- * The Rust command converts the variant string to `MoonshineModelParams::tiny()` or
- * `MoonshineModelParams::base()`, which the engine needs to correctly load the model.
+ * The Rust command converts this to `MoonshineModelParams::tiny()` or
+ * `MoonshineModelParams::base()` for the engine.
  *
  * Note: Language-specific models (ar, zh, ja, ko, uk, vi, es) exist but only
  * have float versions available. We provide quantized English models for now
@@ -104,7 +125,7 @@ export function createMoonshineTranscriptionService() {
 	return {
 		async transcribe(
 			audioBlob: Blob,
-			options: { modelPath: string; variant: string },
+			options: { modelPath: string },
 		): Promise<Result<string, WhisperingError>> {
 			// Pre-validation
 			if (!options.modelPath) {
@@ -160,6 +181,9 @@ export function createMoonshineTranscriptionService() {
 			const arrayBuffer = await audioBlob.arrayBuffer();
 			const audioData = Array.from(new Uint8Array(arrayBuffer));
 
+			// Extract variant from the model path (e.g., "moonshine-tiny-en" → "tiny")
+			const variant = extractVariantFromPath(options.modelPath);
+
 			// Call Tauri command to transcribe with Moonshine
 			// Note: Moonshine supports limited languages (en, ar, zh, ja, ko, es, uk, vi)
 			const result = await tryAsync({
@@ -167,7 +191,7 @@ export function createMoonshineTranscriptionService() {
 					invoke<string>('transcribe_audio_moonshine', {
 						audioData: audioData,
 						modelPath: options.modelPath,
-						variant: options.variant,
+						variant,
 					}),
 				catch: (unknownError) => {
 					const result = MoonshineErrorType(unknownError);

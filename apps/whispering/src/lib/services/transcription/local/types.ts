@@ -53,23 +53,33 @@ export type ParakeetModelConfig = BaseModelConfig & {
  * Configuration for Moonshine models, which consist of ONNX encoder/decoder files in a directory.
  * Moonshine is optimized for fast, efficient transcription with support for 8 languages.
  *
- * The `variant` field is required because Moonshine's ONNX files don't self-describe their
- * architecture. Unlike Whisper `.bin` files (which contain model metadata) or Parakeet
- * directories (which include a `config.json`), Moonshine requires the caller to specify
- * whether the model is "tiny" or "base" so transcribe-rs knows the layer count and hidden
- * dimensions needed to properly load and run inference.
+ * ## Variant inference from directory name
+ *
+ * Moonshine's ONNX files don't self-describe their architecture (unlike Whisper .bin files
+ * which contain metadata, or Parakeet which includes config.json). The variant ("tiny" or
+ * "base") tells transcribe-rs the layer count and hidden dimensions needed to load the model.
+ *
+ * Rather than storing variant separately, we encode it in the `directoryName` (e.g.,
+ * "moonshine-tiny-en", "moonshine-base-en") and extract it at transcription time using
+ * `extractVariantFromPath()`. This avoids redundant metadata while keeping our download
+ * configs simple.
  */
 export type MoonshineModelConfig = BaseModelConfig & {
 	engine: 'moonshine';
 	/**
-	 * Model architecture variant. This is passed to transcribe-rs as `MoonshineModelParams`
-	 * so the engine knows how to interpret the ONNX files. Required because the ONNX format
-	 * doesn't include this metadata.
+	 * Model architecture variant used for download configuration.
+	 * At transcription time, variant is extracted from directoryName via `extractVariantFromPath()`.
+	 * - "tiny": 6 layers, head_dim=36 (~30 MB quantized)
+	 * - "base": 8 layers, head_dim=52 (~65 MB quantized)
 	 */
 	variant: 'tiny' | 'base';
 	/** Language code for this model variant */
 	language: 'en' | 'ar' | 'zh' | 'ja' | 'ko' | 'es' | 'uk' | 'vi';
-	/** Name of the directory where files will be stored */
+	/**
+	 * Name of the directory where files will be stored.
+	 * Convention: `moonshine-{variant}-{lang}` (e.g., "moonshine-tiny-en")
+	 * The variant is extracted from this name at transcription time.
+	 */
 	directoryName: string;
 	/** Array of ONNX files that make up the model */
 	files: Array<{

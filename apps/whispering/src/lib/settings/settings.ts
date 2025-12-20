@@ -206,9 +206,6 @@ export const Settings = type({
 	'transcription.whispercpp.modelPath': "string = ''",
 	'transcription.parakeet.modelPath': "string = ''",
 	'transcription.moonshine.modelPath': "string = ''",
-	'transcription.moonshine.variant': type
-		.enumerated('tiny', 'base')
-		.default('tiny'),
 
 	'transformations.selectedTransformationId': 'string | null = null',
 
