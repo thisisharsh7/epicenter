@@ -244,19 +244,20 @@ async function transcribeBlob(
 							modelName: settings.value['transcription.mistral.model'],
 						},
 					);
-				case 'whispercpp': {
-					// Pure Rust audio conversion now handles most formats without FFmpeg
-					// Only compressed formats (MP3, M4A) require FFmpeg, which will be
-					// handled automatically as a fallback in the Rust conversion pipeline
-					return await services.transcriptions.whispercpp.transcribe(
-						audioToTranscribe,
-						{
-							outputLanguage: settings.value['transcription.outputLanguage'],
-							modelPath: settings.value['transcription.whispercpp.modelPath'],
-							prompt: settings.value['transcription.prompt'],
-						},
-					);
-				}
+				// case 'whispercpp': {
+				// 	// Temporarily disabled due to upstream build issues
+				// // Pure Rust audio conversion now handles most formats without FFmpeg
+				// // Only compressed formats (MP3, M4A) require FFmpeg, which will be
+				// // handled automatically as a fallback in the Rust conversion pipeline
+				// 	return await services.transcriptions.whispercpp.transcribe(
+				// 		audioToTranscribe,
+				// 		{
+				// 			outputLanguage: settings.value['transcription.outputLanguage'],
+				// 			modelPath: settings.value['transcription.whispercpp.modelPath'],
+				// 			prompt: settings.value['transcription.prompt'],
+				// 		},
+				// 	);
+				// }
 				case 'parakeet': {
 					// Pure Rust audio conversion now handles most formats without FFmpeg
 					// Only compressed formats (MP3, M4A) require FFmpeg, which will be

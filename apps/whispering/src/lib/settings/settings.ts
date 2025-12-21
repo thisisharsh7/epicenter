@@ -170,7 +170,7 @@ export const Settings = type({
 
 	'transcription.selectedTranscriptionService': type
 		.enumerated(...TRANSCRIPTION_SERVICE_IDS)
-		.default('whispercpp'),
+		.default('moonshine'),
 	// Shared settings in transcription
 	'transcription.outputLanguage': type
 		.enumerated(...SUPPORTED_LANGUAGES)
