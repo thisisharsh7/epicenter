@@ -20,7 +20,7 @@
 	import { OPENAI_TRANSCRIPTION_MODELS } from '$lib/services/transcription/cloud/openai';
 	import { MOONSHINE_MODELS } from '$lib/services/transcription/local/moonshine';
 	import { PARAKEET_MODELS } from '$lib/services/transcription/local/parakeet';
-	import { WHISPER_MODELS } from '$lib/services/transcription/local/whispercpp';
+	// import { WHISPER_MODELS } from '$lib/services/transcription/local/whispercpp'; // Temporarily disabled
 	import { TRANSCRIPTION_SERVICE_CAPABILITIES } from '$lib/services/transcription/registry';
 	import { settings } from '$lib/stores/settings.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -448,9 +448,10 @@
 				</CopyButton>
 			</Field.Description>
 		</Field.Field>
-	{:else if settings.value['transcription.selectedTranscriptionService'] === 'whispercpp'}
+	<!-- whispercpp UI temporarily disabled due to upstream build issues -->
+	<!-- {:else if settings.value['transcription.selectedTranscriptionService'] === 'whispercpp'}
 		<div class="space-y-4">
-			<!-- Whisper Model Selector Component -->
+			<! -- Whisper Model Selector Component -- >
 			{#if window.__TAURI_INTERNALS__}
 				<LocalModelSelector
 					models={WHISPER_MODELS}
@@ -541,7 +542,7 @@
 					</Alert.Root>
 				{/if}
 			{/if}
-		</div>
+		</div> -->
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'parakeet'}
 		<div class="space-y-4">
 			<!-- Parakeet Model Selector Component -->

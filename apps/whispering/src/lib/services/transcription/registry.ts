@@ -35,7 +35,7 @@ type TranscriptionModel =
 	| MistralModel;
 
 export const TRANSCRIPTION_SERVICE_IDS = [
-	'whispercpp',
+	// 'whispercpp', // Temporarily disabled due to upstream build issues
 	'parakeet',
 	'moonshine',
 	'Groq',
@@ -82,15 +82,15 @@ type SatisfiedTranscriptionService =
 
 export const TRANSCRIPTION_SERVICES = [
 	// Local services first (truly offline)
-	{
-		id: 'whispercpp',
-		name: 'Whisper C++',
-		icon: ggmlIcon,
-		invertInDarkMode: true,
-		description: 'Fast local transcription with no internet required',
-		modelPathField: 'transcription.whispercpp.modelPath',
-		location: 'local',
-	},
+	// {
+	// 	id: 'whispercpp',
+	// 	name: 'Whisper C++',
+	// 	icon: ggmlIcon,
+	// 	invertInDarkMode: true,
+	// 	description: 'Fast local transcription with no internet required',
+	// 	modelPathField: 'transcription.whispercpp.modelPath',
+	// 	location: 'local',
+	// }, // Temporarily disabled due to upstream build issues
 	{
 		id: 'parakeet',
 		name: 'Parakeet',
@@ -235,7 +235,7 @@ type ServiceCapabilities = {
  * ```
  */
 export const TRANSCRIPTION_SERVICE_CAPABILITIES = {
-	whispercpp: { supportsPrompt: true, supportsTemperature: false, supportsLanguage: true },
+	// whispercpp: { supportsPrompt: true, supportsTemperature: false, supportsLanguage: true }, // Temporarily disabled
 	parakeet: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
 	moonshine: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
 	Groq: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
