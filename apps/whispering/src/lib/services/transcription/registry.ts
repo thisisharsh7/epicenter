@@ -196,6 +196,10 @@ export const TRANSCRIPTION_SERVICE_OPTIONS = TRANSCRIPTION_SERVICES.map(
 	}),
 );
 
+export const TRANSCRIPTION_SERVICE_ID_TO_LABEL = Object.fromEntries(
+	TRANSCRIPTION_SERVICES.map((s) => [s.id, s.name]),
+) as Record<TranscriptionServiceId, string>;
+
 export type TranscriptionService = (typeof TRANSCRIPTION_SERVICES)[number];
 
 /**
