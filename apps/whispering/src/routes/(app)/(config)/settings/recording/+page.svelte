@@ -19,6 +19,7 @@
 		COMPRESSION_RECOMMENDED_MESSAGE,
 		hasNavigatorLocalTranscriptionIssue,
 	} from '$routes/(app)/_layout-utils/check-ffmpeg';
+	import { TRANSCRIPTION_SERVICE_ID_TO_LABEL } from '$lib/services/transcription/registry';
 	import { IS_MACOS, IS_LINUX, PLATFORM_TYPE } from '$lib/constants/platform';
 	import { Button } from '@epicenter/ui/button';
 
@@ -88,15 +89,6 @@
 
 	const isUsingFfmpegMethod = $derived(
 		settings.value['recording.method'] === 'ffmpeg',
-	);
-
-	const localTranscriptionServiceName = $derived(
-		(
-			{
-				parakeet: 'Parakeet',
-				moonshine: 'Moonshine',
-			} as const
-		)[settings.value['transcription.selectedTranscriptionService']],
 	);
 </script>
 
@@ -236,7 +228,7 @@
 					</Alert.Title>
 					<Alert.Description>
 						The Browser API recording method produces compressed audio that
-						requires FFmpeg for local transcription with {localTranscriptionServiceName}.
+						requires FFmpeg for local transcription with {TRANSCRIPTION_SERVICE_ID_TO_LABEL[settings.value['transcription.selectedTranscriptionService']]}.
 						<div class="mt-3 space-y-3">
 							<div class="flex items-center gap-2">
 								<span class="text-sm"><strong>Option 1:</strong></span>
