@@ -3,10 +3,12 @@
 	import * as RadioGroup from '@epicenter/ui/radio-group';
 	import * as Select from '@epicenter/ui/select';
 	import { Switch } from '@epicenter/ui/switch';
+	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import {
 		ALWAYS_ON_TOP_MODE_OPTIONS,
 		LAYOUT_MODE_OPTIONS,
 	} from '$lib/constants/ui';
+	import { rpc } from '$lib/query';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	const retentionItems = [
@@ -39,6 +41,14 @@
 		ALWAYS_ON_TOP_MODE_OPTIONS.find(
 			(i) => i.value === settings.value['system.alwaysOnTop'],
 		)?.label,
+	);
+
+	const autostartQuery = createQuery(() => rpc.autostart.isEnabled.options);
+	const enableAutostartMutation = createMutation(
+		() => rpc.autostart.enable.options,
+	);
+	const disableAutostartMutation = createMutation(
+		() => rpc.autostart.disable.options,
 	);
 </script>
 
@@ -212,6 +222,32 @@
 		{/if}
 
 		{#if window.__TAURI_INTERNALS__}
+			<Field.Field orientation="horizontal">
+				<Field.Content>
+					<Field.Label for="autostart">Launch on Startup</Field.Label>
+					<Field.Description>
+						Automatically open Whispering when you log in
+					</Field.Description>
+				</Field.Content>
+				<Switch
+					id="autostart"
+					checked={autostartQuery.data ?? false}
+					onCheckedChange={(checked) => {
+						if (checked) {
+							enableAutostartMutation.mutate(undefined, {
+								onError: (error) => rpc.notify.error.execute(error),
+							});
+						} else {
+							disableAutostartMutation.mutate(undefined, {
+								onError: (error) => rpc.notify.error.execute(error),
+							});
+						}
+					}}
+					disabled={autostartQuery.isPending ||
+						enableAutostartMutation.isPending ||
+						disableAutostartMutation.isPending}
+				/>
+			</Field.Field>
 			<Field.Field>
 				<Field.Label for="always-on-top">Always On Top</Field.Label>
 				<Select.Root
