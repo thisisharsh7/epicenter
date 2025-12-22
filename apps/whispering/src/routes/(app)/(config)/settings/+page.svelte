@@ -3,13 +3,12 @@
 	import * as RadioGroup from '@epicenter/ui/radio-group';
 	import * as Select from '@epicenter/ui/select';
 	import { Switch } from '@epicenter/ui/switch';
-	import { toast } from 'svelte-sonner';
-	import { isErr } from 'wellcrafted/result';
-	import * as autostart from '$lib/services/autostart';
+	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import {
 		ALWAYS_ON_TOP_MODE_OPTIONS,
 		LAYOUT_MODE_OPTIONS,
 	} from '$lib/constants/ui';
+	import { rpc } from '$lib/query';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	const retentionItems = [
@@ -44,35 +43,13 @@
 		)?.label,
 	);
 
-	let autostartEnabled = $state(false);
-	let autostartLoading = $state(true);
-
-	// Load autostart state on mount
-	$effect(() => {
-		if (window.__TAURI_INTERNALS__) {
-			autostart.isEnabled().then((enabled) => {
-				autostartEnabled = enabled;
-				autostartLoading = false;
-			});
-		} else {
-			autostartLoading = false;
-		}
-	});
-
-	async function toggleAutostart(checked: boolean) {
-		const result = checked
-			? await autostart.enable()
-			: await autostart.disable();
-		if (isErr(result)) {
-			toast.error('Failed to update auto-start setting', {
-				description: result.error.message,
-			});
-			// Revert the UI state
-			autostartEnabled = !checked;
-		} else {
-			autostartEnabled = checked;
-		}
-	}
+	const autostartQuery = createQuery(() => rpc.autostart.isEnabled.options);
+	const enableAutostartMutation = createMutation(
+		() => rpc.autostart.enable.options,
+	);
+	const disableAutostartMutation = createMutation(
+		() => rpc.autostart.disable.options,
+	);
 </script>
 
 <svelte:head>
@@ -254,9 +231,21 @@
 				</Field.Content>
 				<Switch
 					id="autostart"
-					checked={autostartEnabled}
-					onCheckedChange={toggleAutostart}
-					disabled={autostartLoading}
+					checked={autostartQuery.data ?? false}
+					onCheckedChange={(checked) => {
+						if (checked) {
+							enableAutostartMutation.mutate(undefined, {
+								onError: (error) => rpc.notify.error.execute(error),
+							});
+						} else {
+							disableAutostartMutation.mutate(undefined, {
+								onError: (error) => rpc.notify.error.execute(error),
+							});
+						}
+					}}
+					disabled={autostartQuery.isPending ||
+						enableAutostartMutation.isPending ||
+						disableAutostartMutation.isPending}
 				/>
 			</Field.Field>
 			<Field.Field>
