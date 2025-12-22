@@ -11,6 +11,7 @@ import mistralIcon from '$lib/constants/icons/mistral.svg?raw';
 import nvidiaIcon from '$lib/constants/icons/nvidia.svg?raw';
 import openaiIcon from '$lib/constants/icons/openai.svg?raw';
 import speachesIcon from '$lib/constants/icons/speaches.svg?raw';
+import moonshineIcon from '$lib/constants/icons/moonshine.svg?raw';
 import type { Settings } from '$lib/settings';
 import {
 	DEEPGRAM_TRANSCRIPTION_MODELS,
@@ -103,8 +104,8 @@ export const TRANSCRIPTION_SERVICES = [
 	{
 		id: 'moonshine',
 		name: 'Moonshine',
-		icon: ggmlIcon, // Using GGML icon as placeholder for ONNX models
-		invertInDarkMode: true,
+		icon: moonshineIcon,
+		invertInDarkMode: false,
 		description: 'Efficient ONNX model by UsefulSensors (~30 MB)',
 		modelPathField: 'transcription.moonshine.modelPath',
 		location: 'local',
