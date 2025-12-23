@@ -4,7 +4,7 @@ import type { Recording } from '$lib/services';
 import { desktopServices, services } from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
 import { rpc } from '..';
-import { defineMutation, queryClient } from '../_client';
+import { defineMutation, queryClient } from '../client';
 import { db } from './db';
 import { notify } from './notify';
 

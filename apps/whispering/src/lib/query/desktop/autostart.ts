@@ -1,7 +1,7 @@
 import { Ok } from 'wellcrafted/result';
 import { WhisperingErr } from '$lib/result';
 import { desktopServices } from '$lib/services';
-import { defineMutation, defineQuery, queryClient } from '../_client';
+import { defineMutation, defineQuery, queryClient } from '../client';
 
 const autostartKeys = {
 	all: ['autostart'] as const,

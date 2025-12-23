@@ -2,7 +2,7 @@ import { Ok, type Result } from 'wellcrafted/result';
 import { services } from '$lib/services';
 import type { Event } from '$lib/services/isomorphic/analytics/types';
 import { settings } from '$lib/stores/settings.svelte';
-import { defineMutation } from '../_client';
+import { defineMutation } from '../client';
 
 const analyticsKeys = {
 	logEvent: ['analytics', 'logEvent'] as const,

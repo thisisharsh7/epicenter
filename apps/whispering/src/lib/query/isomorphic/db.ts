@@ -7,7 +7,7 @@ import type {
 	TransformationRun,
 } from '$lib/services/isomorphic/db';
 import { settings } from '$lib/stores/settings.svelte';
-import { defineMutation, defineQuery, queryClient } from '../_client';
+import { defineMutation, defineQuery, queryClient } from '../client';
 
 /**
  * Consolidated query keys that mirror the database service structure

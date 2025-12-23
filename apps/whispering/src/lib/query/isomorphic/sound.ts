@@ -3,7 +3,7 @@ import type { WhisperingSoundNames } from '$lib/constants/sounds';
 import { services } from '$lib/services';
 import type { PlaySoundServiceError } from '$lib/services/isomorphic/sound';
 import { settings } from '$lib/stores/settings.svelte';
-import { defineMutation } from '../_client';
+import { defineMutation } from '../client';
 
 const soundKeys = {
 	all: ['sound'] as const,

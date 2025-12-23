@@ -1,7 +1,7 @@
 import { Ok } from 'wellcrafted/result';
 import { WhisperingErr } from '$lib/result';
 import { desktopServices } from '$lib/services';
-import { defineQuery } from '../_client';
+import { defineQuery } from '../client';
 
 export const ffmpeg = {
 	checkFfmpegInstalled: defineQuery({

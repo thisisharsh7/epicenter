@@ -1,7 +1,7 @@
 import { type Command, commandCallbacks } from '$lib/commands';
 import { IS_MACOS } from '$lib/constants/platform';
 import { desktopServices, type Accelerator } from '$lib/services';
-import { defineMutation } from '../_client';
+import { defineMutation } from '../client';
 
 /**
  * Global shortcuts - desktop-only, require Tauri.
