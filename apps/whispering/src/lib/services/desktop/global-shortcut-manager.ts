@@ -12,6 +12,9 @@ import type { ShortcutEventState } from '$lib/commands';
 import {
 	ACCELERATOR_KEY_CODES,
 	ACCELERATOR_MODIFIER_KEYS,
+	ACCELERATOR_MODIFIER_SORT_PRIORITY,
+	ACCELERATOR_PUNCTUATION_KEYS,
+	KEYBOARD_EVENT_SPECIAL_KEY_TO_ACCELERATOR_KEY_CODE_MAP,
 	type AcceleratorKeyCode,
 	type AcceleratorModifier,
 	type KeyboardEventSupportedKey,
@@ -125,7 +128,9 @@ export function createGlobalShortcutManager() {
 	};
 }
 
-export type GlobalShortcutManager = ReturnType<typeof createGlobalShortcutManager>;
+export type GlobalShortcutManager = ReturnType<
+	typeof createGlobalShortcutManager
+>;
 
 export const GlobalShortcutManagerLive = createGlobalShortcutManager();
 
@@ -300,86 +305,18 @@ function convertToKeyCode(
 		return key.toUpperCase() as AcceleratorKeyCode;
 	}
 
-	// Special key mappings
-	const keyMappings: Record<string, AcceleratorKeyCode> = {
-		// Arrow keys
-		arrowup: 'Up',
-		arrowdown: 'Down',
-		arrowleft: 'Left',
-		arrowright: 'Right',
-
-		// Whitespace
-		' ': 'Space',
-		enter: 'Enter',
-		tab: 'Tab',
-
-		// Special keys
-		escape: 'Escape',
-		backspace: 'Backspace',
-		delete: 'Delete',
-		insert: 'Insert',
-		home: 'Home',
-		end: 'End',
-		pageup: 'PageUp',
-		pagedown: 'PageDown',
-		printscreen: 'PrintScreen',
-
-		// Media keys
-		volumeup: 'VolumeUp',
-		volumedown: 'VolumeDown',
-		volumemute: 'VolumeMute',
-		mediaplaypause: 'MediaPlayPause',
-		mediastop: 'MediaStop',
-		mediatracknext: 'MediaNextTrack',
-		mediatrackprevious: 'MediaPreviousTrack',
-
-		// Lock keys (when used as regular keys, not modifiers)
-		capslock: 'Capslock',
-		numlock: 'Numlock',
-		scrolllock: 'Scrolllock',
-	};
-
-	if (keyMappings[key]) {
-		return keyMappings[key];
+	// Special key mappings (arrows, whitespace, media keys, etc.)
+	const mappedKey = KEYBOARD_EVENT_SPECIAL_KEY_TO_ACCELERATOR_KEY_CODE_MAP[key];
+	if (mappedKey) {
+		return mappedKey;
 	}
 
-	// Punctuation and symbols - most are valid as-is
-	const validPunctuation = [
-		')',
-		'!',
-		'@',
-		'#',
-		'$',
-		'%',
-		'^',
-		'&',
-		'*',
-		'(',
-		':',
-		';',
-		'+',
-		'=',
-		'<',
-		',',
-		'_',
-		'-',
-		'>',
-		'.',
-		'?',
-		'/',
-		'~',
-		'`',
-		'{',
-		']',
-		'[',
-		'|',
-		'\\',
-		'}',
-		'"',
-		"'",
-	];
-
-	if (validPunctuation.includes(key)) {
+	// Punctuation and symbols - valid as-is
+	if (
+		ACCELERATOR_PUNCTUATION_KEYS.includes(
+			key as (typeof ACCELERATOR_PUNCTUATION_KEYS)[number],
+		)
+	) {
 		return key as AcceleratorKeyCode;
 	}
 
@@ -394,22 +331,9 @@ function convertToKeyCode(
 function sortModifiers(
 	modifiers: AcceleratorModifier[],
 ): AcceleratorModifier[] {
-	const order: Record<AcceleratorModifier, number> = {
-		Command: 1,
-		Cmd: 1,
-		Control: 1,
-		Ctrl: 1,
-		Alt: 2,
-		Option: 2,
-		AltGr: 3,
-		Shift: 4,
-		Super: 5,
-		Meta: 5,
-	};
-
-	return modifiers.sort((a, b) => {
-		const orderA = order[a] || 99;
-		const orderB = order[b] || 99;
-		return orderA - orderB;
+	return [...modifiers].sort((a, b) => {
+		const priorityA = ACCELERATOR_MODIFIER_SORT_PRIORITY[a] ?? 99;
+		const priorityB = ACCELERATOR_MODIFIER_SORT_PRIORITY[b] ?? 99;
+		return priorityA - priorityB;
 	});
 }
