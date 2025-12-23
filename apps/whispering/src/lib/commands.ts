@@ -25,7 +25,7 @@ type SatisfiedCommand = {
 	 * - ['Pressed', 'Released']: On both press and release
 	 */
 	on: ShortcutEventState[];
-	callback: (state: ShortcutEventState) => void;
+	callback: (state?: ShortcutEventState) => void;
 };
 
 export const commands = [
@@ -33,10 +33,10 @@ export const commands = [
 		id: 'pushToTalk',
 		title: 'Push to talk',
 		on: ['Pressed', 'Released'],
-		callback: (state: ShortcutEventState) => {
+		callback: (state?: ShortcutEventState) => {
 			if (state === 'Pressed') {
 				rpc.commands.startManualRecording.execute(undefined);
-			} else {
+			} else if (state === 'Released') {
 				rpc.commands.stopManualRecording.execute(undefined);
 			}
 		},

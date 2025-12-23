@@ -74,7 +74,7 @@
 				'UNPROCESSED',
 				'FAILED',
 			] as const;
-			const transcriptionStatus = statuses[index % statuses.length];
+			const transcriptionStatus = statuses[index % statuses.length]!;
 
 			// Generate varied transcribed text lengths
 			const textLengths = [
@@ -82,7 +82,7 @@
 				'This is a medium-length recording with a bit more content to transcribe and process.',
 				`This is a longer recording transcript. It contains multiple sentences and paragraphs of content. ${Array(10).fill('Lorem ipsum dolor sit amet, consectetur adipiscing elit.').join(' ')}`,
 			];
-			const transcribedText = textLengths[index % textLengths.length];
+			const transcribedText = textLengths[index % textLengths.length]!;
 
 			const id = nanoid();
 			const now = new Date().toISOString();
@@ -151,7 +151,7 @@
 				},
 			];
 
-			const type = types[index % types.length];
+			const type = types[index % types.length]!;
 
 			transformation.title = `${type.title} ${index + 1}`;
 			transformation.description = type.description;
@@ -191,10 +191,9 @@
 			recordingIds: string[];
 			transformationIds: string[];
 		}): TransformationRun {
-			// Link to existing recordings and transformations
-			const recordingId = recordingIds[index % recordingIds.length];
+			const recordingId = recordingIds[index % recordingIds.length]!;
 			const transformationId =
-				transformationIds[index % transformationIds.length];
+				transformationIds[index % transformationIds.length]!;
 
 			const id = nanoid();
 			const startedAt = new Date(
@@ -1248,7 +1247,7 @@
 
 	let { trigger }: { trigger?: Snippet<[TriggerProps]> } = $props();
 
-	let logsContainer: HTMLDivElement;
+	let logsContainer = $state<HTMLDivElement | null>(null);
 
 	// Auto-scroll logs to bottom
 	$effect(() => {
