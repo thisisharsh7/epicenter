@@ -9,12 +9,14 @@ The database service provides a unified interface for storing and retrieving rec
 ### Intermediate Representation vs Storage Format
 
 **`Recording` type** - The intermediate representation used throughout the application:
+
 - Unified interface for UI components
 - Contains `blob: Blob | undefined` for audio data
 - Same structure whether on desktop or web
 - Defined in `models/recordings.ts`
 
 **Storage formats** - How data is actually persisted:
+
 - **Desktop**: Markdown files (.md) + separate audio files (.webm, .mp3)
 - **Web**: IndexedDB with serialized audio (`RecordingStoredInIndexedDB`)
 
@@ -29,6 +31,7 @@ Web: IndexedDB         →                     →
 ```
 
 Each storage implementation:
+
 1. Reads from its native format
 2. Converts to `Recording` type
 3. Returns to UI/service layer
@@ -38,6 +41,7 @@ Each storage implementation:
 **Location**: `~/.whispering/recordings/` (or platform-specific app data)
 
 **Format**:
+
 ```
 recordings/
   abc123.md          ← Metadata (YAML frontmatter + transcribed text)
@@ -47,6 +51,7 @@ recordings/
 ```
 
 **Metadata file** (`abc123.md`):
+
 ```markdown
 ---
 id: abc123
@@ -64,6 +69,7 @@ This is the transcribed text content.
 **Audio file**: Stored as separate file with same ID
 
 **Implementation**: `file-system.ts`
+
 - Uses `@tauri-apps/plugin-fs` for file operations
 - Uses `gray-matter` to parse YAML frontmatter
 - Converts snake_case (YAML) ↔ camelCase (TypeScript)
@@ -74,6 +80,7 @@ This is the transcribed text content.
 **Database**: `whispering-db`
 
 **Format**: Single object store `recordings` with schema V5:
+
 ```typescript
 {
   id: 'abc123',
@@ -94,6 +101,7 @@ This is the transcribed text content.
 **Why serializedAudio?** IndexedDB can't reliably store Blob objects across browsers, so we serialize to ArrayBuffer + mime type.
 
 **Implementation**: `index-db.ts`
+
 - Uses Dexie.js for IndexedDB operations
 - Serializes blobs to `{ arrayBuffer, blobType }` when storing
 - Deserializes back to Blob when reading
@@ -105,11 +113,13 @@ Desktop uses an automatic migration system with intelligent read optimization:
 ### Migration on Startup
 
 When the desktop DB service is created, three migrations run in parallel in the background:
+
 1. **Recordings migration**: Copies recordings + audio blobs to file system, deletes from IndexedDB
 2. **Transformations migration**: Copies transformations to file system, deletes from IndexedDB
 3. **Transformation runs migration**: Copies runs to file system (keeps in IndexedDB due to no delete interface)
 
 Each migration:
+
 - Is idempotent (safe to run multiple times)
 - Preserves original timestamps and IDs
 - Deletes successfully migrated data from IndexedDB to free storage
@@ -122,22 +132,22 @@ Each read method awaits only its relevant migration before deciding how to read:
 ```typescript
 // Example: recordings.getAll()
 async function getAll() {
-  // Wait for recordings migration to complete
-  const { error: migrationError } = await recordingResultPromise;
+	// Wait for recordings migration to complete
+	const { error: migrationError } = await recordingResultPromise;
 
-  if (!migrationError) {
-    // Fast path: migration succeeded, only read from file system
-    return fileSystem.recordings.getAll();
-  }
+	if (!migrationError) {
+		// Fast path: migration succeeded, only read from file system
+		return fileSystem.recordings.getAll();
+	}
 
-  // Fallback: migration failed, dual read from both sources
-  const [fsResult, idbResult] = await Promise.all([
-    fileSystem.recordings.getAll(),
-    indexedDB.recordings.getAll(),
-  ]);
+	// Fallback: migration failed, dual read from both sources
+	const [fsResult, idbResult] = await Promise.all([
+		fileSystem.recordings.getAll(),
+		indexedDB.recordings.getAll(),
+	]);
 
-  // Merge, preferring file system for duplicates
-  return mergeDeduplicate(fsResult, idbResult);
+	// Merge, preferring file system for duplicates
+	return mergeDeduplicate(fsResult, idbResult);
 }
 ```
 
@@ -148,6 +158,7 @@ async function getAll() {
 ### Granular Migration Tracking
 
 Each table tracks its own migration independently:
+
 - `recordings.*` methods await `recordingResultPromise`
 - `transformations.*` methods await `transformationResultPromise`
 - `runs.*` methods await `runsResultPromise`
@@ -160,8 +171,8 @@ All write operations (create, update, delete) only write to the file system:
 
 ```typescript
 async function create(recording) {
-  // Always write to file system only (never IndexedDB)
-  return fileSystem.create(recording);
+	// Always write to file system only (never IndexedDB)
+	return fileSystem.create(recording);
 }
 ```
 
@@ -170,18 +181,21 @@ This ensures new data goes directly to the target storage format.
 ### Performance Characteristics
 
 **First app launch** (migration in progress):
+
 - Migrations run in background without blocking app startup
 - First read of each table waits for its specific migration (not all migrations)
 - If recordings migrate faster than transformations, recording reads switch to fast-path immediately
 - Dual-read fallback ensures data is accessible even if migration fails
 
 **Subsequent app launches** (after successful migration):
+
 - Migration checks file system and skips already-migrated items (idempotent)
 - Read methods immediately use fast-path (single source, no merge)
 - No IndexedDB overhead for recordings and transformations (deleted after migration)
 - Significantly reduced storage usage (especially from audio blobs)
 
 **Storage savings**:
+
 - Audio blobs: Deleted from IndexedDB after successful migration
 - Recordings metadata: Deleted from IndexedDB
 - Transformations: Deleted from IndexedDB
@@ -193,14 +207,18 @@ All implementations expose the same `DbService` interface:
 
 ```typescript
 type DbService = {
-  recordings: {
-    getAll: () => Promise<Result<Recording[], DbServiceError>>;
-    getById: (id: string) => Promise<Result<Recording | null, DbServiceError>>;
-    create: (recording: Recording) => Promise<Result<Recording, DbServiceError>>;
-    update: (recording: Recording) => Promise<Result<Recording, DbServiceError>>;
-    delete: (id: string) => Promise<Result<void, DbServiceError>>;
-  };
-  // ... other stores
+	recordings: {
+		getAll: () => Promise<Result<Recording[], DbServiceError>>;
+		getById: (id: string) => Promise<Result<Recording | null, DbServiceError>>;
+		create: (
+			recording: Recording,
+		) => Promise<Result<Recording, DbServiceError>>;
+		update: (
+			recording: Recording,
+		) => Promise<Result<Recording, DbServiceError>>;
+		delete: (id: string) => Promise<Result<void, DbServiceError>>;
+	};
+	// ... other stores
 };
 ```
 
@@ -225,18 +243,18 @@ src/lib/services/db/
 ### Creating a recording
 
 ```typescript
-import { db } from '$lib/services/db';
+import { db } from '$lib/services/isomorphic/db';
 
 const { data: recording, error } = await db.recordings.create({
-  id: generateId(),
-  title: 'My Recording',
-  subtitle: 'Quick note',
-  timestamp: new Date().toISOString(),
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  blob: audioBlob, // From MediaRecorder
-  transcribedText: '',
-  transcriptionStatus: 'UNPROCESSED',
+	id: generateId(),
+	title: 'My Recording',
+	subtitle: 'Quick note',
+	timestamp: new Date().toISOString(),
+	createdAt: new Date().toISOString(),
+	updatedAt: new Date().toISOString(),
+	blob: audioBlob, // From MediaRecorder
+	transcribedText: '',
+	transcriptionStatus: 'UNPROCESSED',
 });
 ```
 
@@ -246,14 +264,14 @@ const { data: recording, error } = await db.recordings.create({
 const { data: recordings, error } = await db.recordings.getAll();
 
 // Both platforms return the same Recording type
-recordings.forEach(recording => {
-  console.log(recording.title);
+recordings.forEach((recording) => {
+	console.log(recording.title);
 
-  // Blob is populated on both platforms
-  if (recording.blob) {
-    const url = URL.createObjectURL(recording.blob);
-    // Use url in <audio> element
-  }
+	// Blob is populated on both platforms
+	if (recording.blob) {
+		const url = URL.createObjectURL(recording.blob);
+		// Use url in <audio> element
+	}
 });
 ```
 

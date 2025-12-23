@@ -19,7 +19,7 @@ export type { NotificationService, NotificationServiceError } from './types';
  *
  * ```typescript
  * // ❌ Don't use this service directly
- * import { NotificationServiceLive } from '$lib/services/notifications';
+ * import { NotificationServiceLive } from '$lib/services/isomorphic/notifications';
  * await NotificationServiceLive.notify({ title: 'Hello' });
  *
  * // ✅ Use the notify API instead
