@@ -1,19 +1,17 @@
 import { createPersistedState } from '@epicenter/svelte-utils';
 import { nanoid } from 'nanoid/non-secure';
 import { extractErrorMessage } from 'wellcrafted/error';
-import { Ok, partitionResults, type Result } from 'wellcrafted/result';
+import { Ok, partitionResults } from 'wellcrafted/result';
 import { commands } from '$lib/commands';
 import type { RecordingMode } from '$lib/constants/audio';
 import { rpc } from '$lib/query';
-import { recorderService } from '$lib/query/recorder';
-import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
-import type { WhisperingError } from '$lib/result';
-import type { RecorderServiceError } from '$lib/services/isomorphic/recorder/types';
+import { recorderService } from '$lib/query/isomorphic/recorder';
 import {
 	getDefaultSettings,
 	parseStoredSettings,
 	Settings,
 } from '$lib/settings/settings';
+import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 import {
 	syncGlobalShortcutsWithSettings,
 	syncLocalShortcutsWithSettings,

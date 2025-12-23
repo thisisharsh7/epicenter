@@ -5,7 +5,7 @@
 	import {
 		type Accelerator,
 		pressedKeysToTauriAccelerator,
-	} from '$lib/services/global-shortcut-manager';
+	} from '$lib/services/desktop/global-shortcut-manager';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { type PressedKeys } from '$lib/utils/createPressedKeys.svelte';
 	import KeyboardShortcutRecorder from './KeyboardShortcutRecorder.svelte';

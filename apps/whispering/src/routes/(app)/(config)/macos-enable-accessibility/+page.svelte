@@ -7,7 +7,7 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import { desktopServices } from '$lib/services';
 	import { toast } from 'svelte-sonner';
-	import { asShellCommand } from '$lib/services/command/types';
+	import { asShellCommand } from '$lib/services/desktop/command';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 

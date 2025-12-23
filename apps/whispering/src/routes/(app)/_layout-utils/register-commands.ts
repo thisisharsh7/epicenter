@@ -1,11 +1,11 @@
 import { partitionResults } from 'wellcrafted/result';
 import { commands } from '$lib/commands';
 import { desktopRpc, rpc } from '$lib/query';
-import type { Accelerator } from '$lib/services/global-shortcut-manager';
+import type { Accelerator } from '$lib/services/desktop/global-shortcut-manager';
 import {
 	type CommandId,
 	shortcutStringToArray,
-} from '$lib/services/local-shortcut-manager';
+} from '$lib/services/isomorphic/local-shortcut-manager';
 import { settings } from '$lib/stores/settings.svelte';
 
 /**
