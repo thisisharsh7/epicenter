@@ -25,9 +25,9 @@ import { defineQuery } from '../_client';
  */
 function createVadRecorder() {
 	// Private state
-	let maybeVad: MicVAD | null = null;
+	let _maybeVad: MicVAD | null = null;
 	let _state = $state<VadState>('IDLE');
-	let currentStream: MediaStream | null = null;
+	let _currentStream: MediaStream | null = null;
 
 	return {
 		/**
@@ -74,7 +74,7 @@ function createVadRecorder() {
 			onSpeechRealStart?: () => void;
 		}) {
 			// Prevent starting if already active
-			if (maybeVad) {
+			if (_maybeVad) {
 				return WhisperingErr({
 					title: '⚠️ VAD already active',
 					description: 'Stop the current session before starting a new one.',
@@ -103,7 +103,7 @@ function createVadRecorder() {
 			}
 
 			const { stream, deviceOutcome } = streamResult;
-			currentStream = stream;
+			_currentStream = stream;
 
 			// Create VAD with the validated stream
 			const { data: newVad, error: initializeVadError } = await tryAsync({
@@ -142,7 +142,7 @@ function createVadRecorder() {
 			if (initializeVadError) {
 				// Clean up stream if VAD initialization fails
 				cleanupRecordingStream(stream);
-				currentStream = null;
+				_currentStream = null;
 				return Err(initializeVadError);
 			}
 
@@ -164,12 +164,12 @@ function createVadRecorder() {
 					catch: () => Ok(undefined),
 				});
 				cleanupRecordingStream(stream);
-				maybeVad = null;
-				currentStream = null;
+				_maybeVad = null;
+				_currentStream = null;
 				return Err(startError);
 			}
 
-			maybeVad = newVad;
+			_maybeVad = newVad;
 			_state = 'LISTENING';
 			return Ok(deviceOutcome);
 		},
@@ -179,9 +179,9 @@ function createVadRecorder() {
 		 * Sets `state` back to 'IDLE'.
 		 */
 		async stopActiveListening() {
-			if (!maybeVad) return Ok(undefined);
+			if (!_maybeVad) return Ok(undefined);
 
-			const vadInstance = maybeVad;
+			const vadInstance = _maybeVad;
 			const { error: destroyError } = trySync({
 				try: () => vadInstance.destroy(),
 				catch: (error) =>
@@ -193,13 +193,13 @@ function createVadRecorder() {
 			});
 
 			// Always clean up, even if destroy had an error
-			maybeVad = null;
+			_maybeVad = null;
 			_state = 'IDLE';
 
 			// Clean up our managed stream
-			if (currentStream) {
-				cleanupRecordingStream(currentStream);
-				currentStream = null;
+			if (_currentStream) {
+				cleanupRecordingStream(_currentStream);
+				_currentStream = null;
 			}
 
 			if (destroyError) return Err(destroyError);
