@@ -1,11 +1,12 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Ok } from 'wellcrafted/result';
+import { defineMutation } from '$lib/query/client';
 import { WhisperingErr } from '$lib/result';
 import { DbServiceErr } from '$lib/services/isomorphic/db';
 import { settings } from '$lib/stores/settings.svelte';
+import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 import * as transformClipboardWindow from '$routes/transform-clipboard/transformClipboardWindow.tauri';
 import { rpc } from '..';
-import { defineMutation } from '$lib/query/client';
 import { db } from './db';
 import { delivery } from './delivery';
 import { notify } from './notify';
@@ -14,7 +15,6 @@ import { sound } from './sound';
 import { text } from './text';
 import { transcription } from './transcription';
 import { transformer } from './transformer';
-import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 
 /**
  * Application actions. These are mutations at the UI boundary that can be invoked
@@ -694,7 +694,11 @@ async function processRecordingPipeline({
 	if (getTransformationError) {
 		notify.error.execute({
 			title: '❌ Failed to get transformation',
-			serviceError: getTransformationError,
+			description: getTransformationError.message,
+			action: {
+				type: 'more-details',
+				error: getTransformationError,
+			},
 		});
 		return;
 	}
