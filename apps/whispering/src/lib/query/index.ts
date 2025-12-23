@@ -1,19 +1,19 @@
-// Import all query modules
-import { commands } from './actions';
-import { analytics } from './analytics';
-import { autostart } from './autostart';
-import { db } from './db';
-import { delivery } from './delivery';
-import { download } from './download';
-import { ffmpeg } from './ffmpeg';
-import { notify } from './notify';
-import { recorder } from './recorder';
-import { globalShortcuts, localShortcuts } from './shortcuts';
-import { sound } from './sound';
-import { text } from './text';
-import { transcription } from './transcription';
-import { transformer } from './transformer';
-import { tray } from './tray';
+import { autostart } from './desktop/autostart';
+import { ffmpeg } from './desktop/ffmpeg';
+import { globalShortcuts } from './desktop/shortcuts';
+import { tray } from './desktop/tray';
+import { commands } from './isomorphic/actions';
+import { analytics } from './isomorphic/analytics';
+import { db } from './isomorphic/db';
+import { delivery } from './isomorphic/delivery';
+import { download } from './isomorphic/download';
+import { notify } from './isomorphic/notify';
+import { recorder } from './isomorphic/recorder';
+import { localShortcuts } from './isomorphic/shortcuts';
+import { sound } from './isomorphic/sound';
+import { text } from './isomorphic/text';
+import { transcription } from './isomorphic/transcription';
+import { transformer } from './isomorphic/transformer';
 
 /**
  * Cross-platform RPC namespace.
