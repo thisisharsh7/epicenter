@@ -20,7 +20,7 @@
 		FFMPEG_DEFAULT_GLOBAL_OPTIONS,
 		FFMPEG_DEFAULT_INPUT_OPTIONS,
 		FFMPEG_DEFAULT_OUTPUT_OPTIONS,
-	} from '$lib/services/recorder/ffmpeg';
+	} from '$lib/services/desktop/recorder/ffmpeg';
 
 	// Generate realistic recording ID for preview
 	const SAMPLE_RECORDING_ID = nanoid();
@@ -36,7 +36,9 @@
 		outputOptions: string;
 	} = $props();
 
-	const getDevicesQuery = createQuery(() => rpc.recorder.enumerateDevices.options);
+	const getDevicesQuery = createQuery(
+		() => rpc.recorder.enumerateDevices.options,
+	);
 
 	// Get the selected device identifier with proper fallback chain
 	const selectedDeviceId = $derived(
@@ -397,9 +399,7 @@
 				class="cursor-pointer select-none rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors flex items-baseline gap-2"
 			>
 				<span class="text-sm font-medium">Advanced Options</span>
-				<span class="text-xs text-muted-foreground"
-					>Raw FFmpeg parameters</span
-				>
+				<span class="text-xs text-muted-foreground">Raw FFmpeg parameters</span>
 			</summary>
 
 			<div class="mt-3 space-y-3 rounded-lg border p-4">
