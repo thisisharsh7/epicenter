@@ -14,7 +14,7 @@ import { sound } from './sound';
 import { text } from './text';
 import { transcription } from './transcription';
 import { transformer } from './transformer';
-import { vadRecorder } from './vad.svelte';
+import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 
 /**
  * Application actions. These are mutations at the UI boundary that can be invoked

@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/svelte-query';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { rpc } from '$lib/query';
-import { vadRecorder } from '$lib/query/vad.svelte';
+import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 
 export function syncWindowAlwaysOnTopWithRecorderState() {

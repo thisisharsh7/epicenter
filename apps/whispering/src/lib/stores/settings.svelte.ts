@@ -6,7 +6,7 @@ import { commands } from '$lib/commands';
 import type { RecordingMode } from '$lib/constants/audio';
 import { rpc } from '$lib/query';
 import { recorderService } from '$lib/query/recorder';
-import { vadRecorder } from '$lib/query/vad.svelte';
+import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 import type { WhisperingError } from '$lib/result';
 import type { RecorderServiceError } from '$lib/services';
 import {

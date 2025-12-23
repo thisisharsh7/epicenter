@@ -4,7 +4,7 @@
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
 	import { rpc } from '$lib/query';
-	import { vadRecorder } from '$lib/query/vad.svelte';
+	import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@epicenter/ui/utils';
 	import { createQuery } from '@tanstack/svelte-query';
