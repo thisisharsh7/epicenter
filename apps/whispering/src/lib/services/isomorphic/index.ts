@@ -30,48 +30,10 @@ export const services = {
 	transcriptions,
 } as const;
 
-export type Services = typeof services;
-
-// Re-export types and factory functions that external consumers need
-export type { AnalyticsService, AnalyticsServiceError, Event } from './analytics';
-export type { TextService, TextServiceError } from './text';
-export type {
-	Recording,
-	Transformation,
-	TransformationRun,
-	TransformationRunCompleted,
-	TransformationRunFailed,
-	TransformationRunRunning,
-	TransformationStep,
-	TransformationStepRun,
-	DbService,
-	DbServiceError,
-} from './db';
+// Re-export types and values that external consumers need via $lib/services
+export type { Recording, Transformation, TransformationRun } from './db';
 export { DbServiceErr, generateDefaultTransformation, generateDefaultTransformationStep } from './db';
-export type { DownloadService, DownloadServiceError } from './download';
-export type { NotificationService, NotificationServiceError } from './notifications';
-export type { OsService, OsServiceError } from './os';
 export { OsServiceLive } from './os';
-export type { PlaySoundService, PlaySoundServiceError } from './sound';
-export type { ToastService } from './toast';
-export type { RecorderService, RecorderServiceError } from './recorder/types';
-export { RecorderServiceErr } from './recorder/types';
+export type { RecorderServiceError } from './recorder/types';
 export { getDefaultRecordingsFolder } from './recorder';
-export type {
-	LocalShortcutManager,
-	CommandId,
-} from './local-shortcut-manager';
-export {
-	createLocalShortcutManager,
-	shortcutStringToArray,
-	arrayToShortcutString,
-} from './local-shortcut-manager';
-
-// Re-export completion service types
-export type { CompletionService } from './completion';
-export type { AnthropicCompletionService } from './completion';
-export type { CustomCompletionService } from './completion';
-export type { GoogleCompletionService } from './completion';
-export type { GroqCompletionService } from './completion';
-export type { OpenaiCompletionService } from './completion';
-export type { OpenRouterCompletionService } from './completion';
+export type { CommandId } from './local-shortcut-manager';
