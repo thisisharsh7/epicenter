@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '@epicenter/ui/button';
+	import { PATHS } from '$lib/constants/paths';
 	import { rpc } from '$lib/query';
-	import { getDefaultRecordingsFolder } from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
@@ -14,7 +14,7 @@
 
 	// Initialize the default path asynchronously
 	if (window.__TAURI_INTERNALS__) {
-		getDefaultRecordingsFolder().then((path) => {
+		PATHS.DB.RECORDINGS().then((path) => {
 			defaultRecordingsFolder = path;
 		});
 	}

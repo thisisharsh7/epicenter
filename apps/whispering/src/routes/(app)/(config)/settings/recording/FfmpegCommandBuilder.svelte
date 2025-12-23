@@ -3,11 +3,11 @@
 	import * as Select from '@epicenter/ui/select';
 	import { Input } from '@epicenter/ui/input';
 	import { SAMPLE_RATE_OPTIONS } from '$lib/constants/audio';
+	import { PATHS } from '$lib/constants/paths';
 	import { PLATFORM_TYPE } from '$lib/constants/platform';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { getDefaultRecordingsFolder } from '$lib/services';
 	import { join } from '@tauri-apps/api/path';
 	import { nanoid } from 'nanoid/non-secure';
 	import { Button } from '@epicenter/ui/button';
@@ -172,7 +172,7 @@
 	async function updatePreviewCommand() {
 		const outputFolder =
 			settings.value['recording.cpal.outputFolder'] ??
-			(await getDefaultRecordingsFolder());
+			(await PATHS.DB.RECORDINGS());
 		const ext = AUDIO_FORMATS[selected.format].extension;
 		const outputPath = await join(
 			outputFolder,

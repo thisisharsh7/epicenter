@@ -35,5 +35,4 @@ export type { Recording, Transformation, TransformationRun } from './db';
 export { DbServiceErr, generateDefaultTransformation, generateDefaultTransformationStep } from './db';
 export { OsServiceLive } from './os';
 export type { RecorderServiceError } from './recorder/types';
-export { getDefaultRecordingsFolder } from './recorder';
 export type { CommandId } from './local-shortcut-manager';

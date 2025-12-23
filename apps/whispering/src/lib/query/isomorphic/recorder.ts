@@ -1,11 +1,11 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Ok } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
+import { PATHS } from '$lib/constants/paths';
 import { WhisperingErr } from '$lib/result';
 import { desktopServices, services } from '$lib/services';
-import { getDefaultRecordingsFolder } from '$lib/services/isomorphic/recorder';
 import { settings } from '$lib/stores/settings.svelte';
-import { defineMutation, defineQuery, queryClient } from '../_client';
+import { defineMutation, defineQuery, queryClient } from '../client';
 import { notify } from './notify';
 
 const recorderKeys = {
@@ -75,7 +75,7 @@ export const recorder = {
 			// Resolve the output folder - use default if null
 			const outputFolder = window.__TAURI_INTERNALS__
 				? (settings.value['recording.cpal.outputFolder'] ??
-					(await getDefaultRecordingsFolder()))
+					(await PATHS.DB.RECORDINGS()))
 				: '';
 
 			const paramsMap = {
