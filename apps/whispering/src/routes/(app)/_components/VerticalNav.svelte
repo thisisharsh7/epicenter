@@ -29,9 +29,14 @@
 	// Navigation items
 	const navItems = [
 		{ label: 'Home', href: '/', icon: HomeIcon, exact: true },
-		{ label: 'Recordings', href: '/recordings', icon: ListIcon },
-		{ label: 'Transformations', href: '/transformations', icon: LayersIcon },
-		{ label: 'Settings', href: '/settings', icon: SettingsIcon },
+		{ label: 'Recordings', href: '/recordings', icon: ListIcon, exact: false },
+		{
+			label: 'Transformations',
+			href: '/transformations',
+			icon: LayersIcon,
+			exact: false,
+		},
+		{ label: 'Settings', href: '/settings', icon: SettingsIcon, exact: false },
 	] as const;
 
 	// Check if route is active - uses safer matching that prevents /recordings from matching /recordingsXYZ
@@ -77,10 +82,11 @@
 			<Sidebar.GroupContent>
 				<Sidebar.Menu>
 					{#each navItems as item}
-						{@const active = isActive(item.href, item.exact ?? false)}
+						{@const active = isActive(item.href, item.exact)}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton isActive={active}>
 								{#snippet child({ props })}
+									{@const Icon = item.icon}
 									<a
 										href={item.href}
 										{...props}
@@ -90,7 +96,7 @@
 											}
 										}}
 									>
-										<svelte:component this={item.icon} />
+										<Icon />
 										<span>{item.label}</span>
 									</a>
 								{/snippet}
