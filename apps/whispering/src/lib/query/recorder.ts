@@ -3,6 +3,7 @@ import { Ok } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
 import { WhisperingErr } from '$lib/result';
 import * as services from '$lib/services';
+import { desktopServices } from '$lib/services';
 import { getDefaultRecordingsFolder } from '$lib/services/recorder';
 import { settings } from '$lib/stores/settings.svelte';
 import { defineMutation, defineQuery, queryClient } from './_client';
@@ -199,8 +200,8 @@ export function recorderService() {
 
 	const recorderMap = {
 		navigator: services.navigatorRecorder,
-		ffmpeg: services.ffmpegRecorder,
-		cpal: services.cpalRecorder,
+		ffmpeg: desktopServices.ffmpegRecorder,
+		cpal: desktopServices.cpalRecorder,
 	};
 	return recorderMap[settings.value['recording.method']];
 }

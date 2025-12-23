@@ -6,7 +6,7 @@ import type {
 	CancelRecordingResult,
 	WhisperingRecordingState,
 } from '$lib/constants/audio';
-import { FsServiceLive } from '../fs';
+import { createFsServiceDesktop } from '../fs';
 import type { Device, DeviceAcquisitionOutcome } from '../types';
 import { asDeviceIdentifier } from '../types';
 import type {
@@ -15,6 +15,9 @@ import type {
 	RecorderServiceError,
 } from './types';
 import { RecorderServiceErr } from './types';
+
+// Lazily create the fs service for this desktop-only recorder
+const fsService = createFsServiceDesktop();
 
 /**
  * Audio recording data returned from the Rust method
@@ -226,7 +229,7 @@ export function createCpalRecorderService(): RecorderService {
 			});
 
 			const { data: blob, error: readRecordingFileError } =
-				await FsServiceLive.pathToBlob(filePath);
+				await fsService.pathToBlob(filePath);
 			if (readRecordingFileError)
 				return RecorderServiceErr({
 					message: `Unable to read recording file: ${readRecordingFileError.message}`,

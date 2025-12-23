@@ -31,7 +31,7 @@
 		pressedKeys,
 		onRegister: async (keyCombination: KeyboardEventSupportedKey[]) => {
 			const { error: unregisterError } =
-				await rpc.shortcuts.unregisterCommandLocally.execute({
+				await rpc.localShortcuts.unregisterCommand.execute({
 					commandId: command.id as CommandId,
 				});
 			if (unregisterError) {
@@ -42,7 +42,7 @@
 				});
 			}
 			const { error: registerError } =
-				await rpc.shortcuts.registerCommandLocally.execute({
+				await rpc.localShortcuts.registerCommand.execute({
 					command,
 					keyCombination,
 				});
@@ -68,7 +68,7 @@
 		},
 		onClear: async () => {
 			const { error: unregisterError } =
-				await rpc.shortcuts.unregisterCommandLocally.execute({
+				await rpc.localShortcuts.unregisterCommand.execute({
 					commandId: command.id as CommandId,
 				});
 			if (unregisterError) {

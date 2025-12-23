@@ -1,6 +1,10 @@
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import * as services from '$lib/services';
+import {
+	db as dbService,
+	transcriptions,
+	desktopServices,
+} from '$lib/services';
 import type { Recording } from '$lib/services/db';
 import { settings } from '$lib/stores/settings.svelte';
 import { rpc } from './';
@@ -27,7 +31,7 @@ export const transcription = {
 		): Promise<Result<string, WhisperingError>> => {
 			// Fetch audio blob by ID
 			const { data: audioBlob, error: getAudioBlobError } =
-				await services.db.recordings.getAudioBlob(recording.id);
+				await dbService.recordings.getAudioBlob(recording.id);
 
 			if (getAudioBlobError) {
 				return WhisperingErr({
@@ -102,7 +106,7 @@ export const transcription = {
 				recordings.map(async (recording) => {
 					// Fetch audio blob by ID
 					const { data: audioBlob, error: getAudioBlobError } =
-						await services.db.recordings.getAudioBlob(recording.id);
+						await dbService.recordings.getAudioBlob(recording.id);
 
 					if (getAudioBlobError) {
 						return WhisperingErr({
@@ -137,7 +141,7 @@ async function transcribeBlob(
 	let audioToTranscribe = blob;
 	if (settings.value['transcription.compressionEnabled']) {
 		const { data: compressedBlob, error: compressionError } =
-			await services.ffmpeg.compressAudioBlob(
+			await desktopServices.ffmpeg.compressAudioBlob(
 				blob,
 				settings.value['transcription.compressionOptions'],
 			);
@@ -177,7 +181,7 @@ async function transcribeBlob(
 		await (async () => {
 			switch (selectedService) {
 				case 'OpenAI':
-					return await services.transcriptions.openai.transcribe(
+					return await transcriptions.openai.transcribe(
 						audioToTranscribe,
 						{
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -189,7 +193,7 @@ async function transcribeBlob(
 						},
 					);
 				case 'Groq':
-					return await services.transcriptions.groq.transcribe(
+					return await transcriptions.groq.transcribe(
 						audioToTranscribe,
 						{
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -201,7 +205,7 @@ async function transcribeBlob(
 						},
 					);
 				case 'speaches':
-					return await services.transcriptions.speaches.transcribe(
+					return await transcriptions.speaches.transcribe(
 						audioToTranscribe,
 						{
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -212,7 +216,7 @@ async function transcribeBlob(
 						},
 					);
 				case 'ElevenLabs':
-					return await services.transcriptions.elevenlabs.transcribe(
+					return await transcriptions.elevenlabs.transcribe(
 						audioToTranscribe,
 						{
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -223,7 +227,7 @@ async function transcribeBlob(
 						},
 					);
 				case 'Deepgram':
-					return await services.transcriptions.deepgram.transcribe(
+					return await transcriptions.deepgram.transcribe(
 						audioToTranscribe,
 						{
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -234,7 +238,7 @@ async function transcribeBlob(
 						},
 					);
 				case 'Mistral':
-					return await services.transcriptions.mistral.transcribe(
+					return await transcriptions.mistral.transcribe(
 						audioToTranscribe,
 						{
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -249,7 +253,7 @@ async function transcribeBlob(
 				// // Pure Rust audio conversion now handles most formats without FFmpeg
 				// // Only compressed formats (MP3, M4A) require FFmpeg, which will be
 				// // handled automatically as a fallback in the Rust conversion pipeline
-				// 	return await services.transcriptions.whispercpp.transcribe(
+				// 	return await transcriptions.whispercpp.transcribe(
 				// 		audioToTranscribe,
 				// 		{
 				// 			outputLanguage: settings.value['transcription.outputLanguage'],
@@ -262,7 +266,7 @@ async function transcribeBlob(
 					// Pure Rust audio conversion now handles most formats without FFmpeg
 					// Only compressed formats (MP3, M4A) require FFmpeg, which will be
 					// handled automatically as a fallback in the Rust conversion pipeline
-					return await services.transcriptions.parakeet.transcribe(
+					return await transcriptions.parakeet.transcribe(
 						audioToTranscribe,
 						{ modelPath: settings.value['transcription.parakeet.modelPath'] },
 					);
@@ -270,7 +274,7 @@ async function transcribeBlob(
 				case 'moonshine': {
 					// Moonshine uses ONNX Runtime with encoder-decoder architecture
 					// Variant is extracted from modelPath (e.g., "moonshine-tiny-en" → "tiny")
-					return await services.transcriptions.moonshine.transcribe(
+					return await transcriptions.moonshine.transcribe(
 						audioToTranscribe,
 						{
 							modelPath: settings.value['transcription.moonshine.modelPath'],

@@ -3,10 +3,15 @@ import { exists, remove, writeFile } from '@tauri-apps/plugin-fs';
 import { nanoid } from 'nanoid/non-secure';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import * as services from '$lib/services';
+import { createCommandServiceDesktop } from '../command';
 import { asShellCommand } from '../command/types';
+import { createFsServiceDesktop } from '../fs';
 import { getFileExtensionFromFfmpegOptions } from '../recorder/ffmpeg';
 import { type FfmpegService, FfmpegServiceErr } from './types';
+
+// Lazily create the services for this desktop-only module
+const commandService = createCommandServiceDesktop();
+const fsService = createFsServiceDesktop();
 
 export function createFfmpegService(): FfmpegService {
 	return {
@@ -15,7 +20,7 @@ export function createFfmpegService(): FfmpegService {
 				await tryAsync({
 					try: async () => {
 						const { data: result, error: commandError } =
-							await services.command.execute(asShellCommand('ffmpeg -version'));
+							await commandService.execute(asShellCommand('ffmpeg -version'));
 
 						if (commandError) throw commandError;
 						return result;
@@ -56,7 +61,7 @@ export function createFfmpegService(): FfmpegService {
 
 						// Verify file is accessible (forces OS flush on Windows)
 						const { error: verifyError } = await tryAsync({
-							try: () => services.fs.pathToBlob(inputPath),
+							try: () => fsService.pathToBlob(inputPath),
 							catch: (error) =>
 								FfmpegServiceErr({
 									message: `Temp file not accessible: ${extractErrorMessage(error)}`,
@@ -73,7 +78,7 @@ export function createFfmpegService(): FfmpegService {
 
 						// Execute FFmpeg compression command
 						const { data: result, error: commandError } =
-							await services.command.execute(asShellCommand(command));
+							await commandService.execute(asShellCommand(command));
 						if (commandError) {
 							throw new Error(
 								`FFmpeg compression failed: ${commandError.message}`,
@@ -97,7 +102,7 @@ export function createFfmpegService(): FfmpegService {
 
 						// Read compressed file back as blob
 						const { data: compressedBlob, error: readError } =
-							await services.fs.pathToBlob(outputPath);
+							await fsService.pathToBlob(outputPath);
 						if (readError) {
 							throw new Error(
 								`Failed to read compressed audio file: ${readError.message}`,

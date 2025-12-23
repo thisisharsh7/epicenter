@@ -23,23 +23,6 @@ type SetTrayIconService = {
 	) => Promise<Ok<void> | Err<SetTrayIconServiceError>>;
 };
 
-export function createTrayIconWebService(): SetTrayIconService {
-	return {
-		setTrayIcon: async (_icon: WhisperingRecordingState) => {
-			// const { error: setRecorderStateError } = await extension.setRecorderState(
-			// 	{ recorderState: icon },
-			// );
-			// if (setRecorderStateError)
-			// 	return SetTrayIconServiceErr({
-			// 		message: 'Failed to set recorder state',
-			// 		context: { icon },
-			// 		cause: setRecorderStateError,
-			// 	});
-			return Ok(undefined);
-		},
-	};
-}
-
 export function createTrayIconDesktopService(): SetTrayIconService {
 	const trayPromise = initTray();
 	return {
@@ -125,6 +108,3 @@ async function getIconPath(recorderState: WhisperingRecordingState) {
 	return await resolveResource(iconPaths[recorderState]);
 }
 
-export const TrayIconServiceLive = window.__TAURI_INTERNALS__
-	? createTrayIconDesktopService()
-	: createTrayIconWebService();

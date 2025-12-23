@@ -2,12 +2,17 @@ import { type Command, commandCallbacks } from '$lib/commands';
 import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
 import { IS_MACOS } from '$lib/constants/platform';
 import * as services from '$lib/services';
+import { desktopServices } from '$lib/services';
 import type { Accelerator } from '$lib/services/global-shortcut-manager';
 import type { CommandId } from '$lib/services/local-shortcut-manager';
 import { defineMutation } from './_client';
 
-export const shortcuts = {
-	registerCommandLocally: defineMutation({
+/**
+ * Local shortcuts - cross-platform, work in web and desktop.
+ * These use browser keyboard events.
+ */
+export const localShortcuts = {
+	registerCommand: defineMutation({
 		mutationKey: ['shortcuts', 'registerCommandLocally'] as const,
 		mutationFn: ({
 			command,
@@ -24,13 +29,19 @@ export const shortcuts = {
 			}),
 	}),
 
-	unregisterCommandLocally: defineMutation({
+	unregisterCommand: defineMutation({
 		mutationKey: ['shortcuts', 'unregisterCommandLocally'] as const,
 		mutationFn: async ({ commandId }: { commandId: CommandId }) =>
 			services.localShortcutManager.unregister(commandId),
 	}),
+};
 
-	registerCommandGlobally: defineMutation({
+/**
+ * Global shortcuts - desktop-only, require Tauri.
+ * These use system-level global shortcuts that work even when the app is not focused.
+ */
+export const globalShortcuts = {
+	registerCommand: defineMutation({
 		mutationKey: ['shortcuts', 'registerCommandGlobally'] as const,
 		mutationFn: ({
 			command,
@@ -47,7 +58,7 @@ export const shortcuts = {
 				'CommandOrControl',
 				IS_MACOS ? 'Command' : 'Control',
 			) as Accelerator;
-			return services.globalShortcutManager.register({
+			return desktopServices.globalShortcutManager.register({
 				accelerator,
 				callback: commandCallbacks[command.id],
 				on: command.on,
@@ -55,15 +66,18 @@ export const shortcuts = {
 		},
 	}),
 
-	unregisterCommandGlobally: defineMutation({
+	unregisterCommand: defineMutation({
 		mutationKey: ['shortcuts', 'unregisterCommandGlobally'] as const,
 		mutationFn: async ({ accelerator }: { accelerator: Accelerator }) => {
-			return await services.globalShortcutManager.unregister(accelerator);
+			return await desktopServices.globalShortcutManager.unregister(
+				accelerator,
+			);
 		},
 	}),
 
-	unregisterAllGlobalShortcuts: defineMutation({
+	unregisterAll: defineMutation({
 		mutationKey: ['shortcuts', 'unregisterAllGlobalShortcuts'] as const,
-		mutationFn: async () => services.globalShortcutManager.unregisterAll(),
+		mutationFn: async () =>
+			desktopServices.globalShortcutManager.unregisterAll(),
 	}),
 };

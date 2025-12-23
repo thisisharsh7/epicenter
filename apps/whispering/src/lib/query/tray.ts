@@ -1,7 +1,7 @@
 import { Ok, type Result } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import * as services from '$lib/services';
+import { desktopServices } from '$lib/services';
 import { defineMutation } from './_client';
 
 const setTrayIconKeys = {
@@ -16,7 +16,7 @@ export const tray = {
 		}: {
 			icon: WhisperingRecordingState;
 		}): Promise<Result<void, WhisperingError>> => {
-			const { data, error } = await services.tray.setTrayIcon(icon);
+			const { data, error } = await desktopServices.tray.setTrayIcon(icon);
 
 			if (error) {
 				return WhisperingErr({

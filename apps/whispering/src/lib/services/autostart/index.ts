@@ -1,8 +1,5 @@
-import { createAutostartServiceDesktop } from './desktop';
-import { createAutostartServiceWeb } from './web';
-
 export type { AutostartService, AutostartServiceError } from './types';
+export { createAutostartServiceDesktop } from './desktop';
 
-export const AutostartServiceLive = window.__TAURI_INTERNALS__
-	? createAutostartServiceDesktop()
-	: createAutostartServiceWeb();
+import { createAutostartServiceDesktop } from './desktop';
+export const AutostartServiceLive = createAutostartServiceDesktop();

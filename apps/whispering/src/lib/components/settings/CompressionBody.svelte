@@ -14,7 +14,7 @@
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import { isCompressionRecommended } from '$routes/(app)/_layout-utils/check-ffmpeg';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { rpc } from '$lib/query';
+	import { desktopRpc } from '$lib/query';
 	import * as Alert from '@epicenter/ui/alert';
 	import { Link } from '@epicenter/ui/link';
 
@@ -61,7 +61,7 @@
 	}
 
 	// Check if FFmpeg is installed
-	const ffmpegQuery = createQuery(() => rpc.ffmpeg.checkFfmpegInstalled.options);
+	const ffmpegQuery = createQuery(() => desktopRpc.ffmpeg.checkFfmpegInstalled.options);
 
 	const isFfmpegInstalled = $derived(ffmpegQuery.data ?? false);
 	const isFfmpegCheckLoading = $derived(ffmpegQuery.isPending);

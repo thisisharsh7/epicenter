@@ -409,5 +409,3 @@ function sortModifiers(
 		return orderA - orderB;
 	});
 }
-
-export const GlobalShortcutManagerLive = createGlobalShortcutManager();

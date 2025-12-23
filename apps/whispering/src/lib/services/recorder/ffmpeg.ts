@@ -12,8 +12,9 @@ import type {
 	WhisperingRecordingState,
 } from '$lib/constants/audio';
 import { PLATFORM_TYPE } from '$lib/constants/platform';
-import * as services from '$lib/services';
+import { createCommandServiceDesktop } from '../command';
 import { asShellCommand } from '$lib/services/command';
+import { createFsServiceDesktop } from '../fs';
 import type {
 	Device,
 	DeviceAcquisitionOutcome,
@@ -48,6 +49,10 @@ function getDesktopPlatform(platform: OsType): DesktopPlatform {
 
 // Validate at module load - ensures all platform configs below are safe
 const DESKTOP_PLATFORM = getDesktopPlatform(PLATFORM_TYPE);
+
+// Lazily create the services for this desktop-only module
+const commandService = createCommandServiceDesktop();
+const fsService = createFsServiceDesktop();
 
 /**
  * Default FFmpeg global options.
@@ -249,7 +254,7 @@ export function createFfmpegRecorderService(): RecorderService {
 		const command = asShellCommand(FFMPEG_ENUMERATE_DEVICES_COMMAND);
 
 		const { data: result, error: executeError } =
-			await services.command.execute(command);
+			await commandService.execute(command);
 		if (executeError) {
 			return RecorderServiceErr({
 				message: 'Failed to enumerate recording devices',
@@ -373,7 +378,7 @@ export function createFfmpegRecorderService(): RecorderService {
 
 			// Use command service to spawn FFmpeg process
 			// This will now throw if FFmpeg exits immediately with an error
-			const { data: process, error: startError } = await services.command.spawn(
+			const { data: process, error: startError } = await commandService.spawn(
 				asShellCommand(command),
 			);
 
@@ -496,7 +501,7 @@ export function createFfmpegRecorderService(): RecorderService {
 			});
 
 			const { data: blob, error: readError } =
-				await services.fs.pathToBlob(outputPath);
+				await fsService.pathToBlob(outputPath);
 
 			if (readError) {
 				return RecorderServiceErr({

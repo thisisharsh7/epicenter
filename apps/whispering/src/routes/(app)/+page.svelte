@@ -17,7 +17,7 @@
 	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
 	import { vadRecorder } from '$lib/query/vad.svelte';
-	import * as services from '$lib/services';
+	import { desktopServices, db as dbService } from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { Button } from '@epicenter/ui/button';
@@ -129,7 +129,7 @@
 
 					// Convert file paths to File objects using the fs service
 					const { data: files, error } =
-						await services.fs.pathsToFiles(validPaths);
+						await desktopServices.fs.pathsToFiles(validPaths);
 
 					if (error) {
 						rpc.notify.error.execute({
@@ -156,7 +156,7 @@
 		unlistenDragDrop?.();
 		// Clean up audio URL when component unmounts to prevent memory leaks
 		if (latestRecording?.id) {
-			services.db.recordings.revokeAudioUrl(latestRecording.id);
+			dbService.recordings.revokeAudioUrl(latestRecording.id);
 		}
 	});
 </script>

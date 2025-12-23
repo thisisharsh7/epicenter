@@ -1,6 +1,6 @@
 import { Ok } from 'wellcrafted/result';
 import { WhisperingErr } from '$lib/result';
-import * as services from '$lib/services';
+import { desktopServices } from '$lib/services';
 import { defineMutation, defineQuery, queryClient } from './_client';
 
 const autostartKeys = {
@@ -17,7 +17,7 @@ export const autostart = {
 	isEnabled: defineQuery({
 		queryKey: autostartKeys.isEnabled,
 		queryFn: async () => {
-			const { data, error } = await services.autostart.isEnabled();
+			const { data, error } = await desktopServices.autostart.isEnabled();
 			if (error) {
 				return WhisperingErr({
 					title: '❌ Failed to check autostart status',
@@ -32,7 +32,7 @@ export const autostart = {
 	enable: defineMutation({
 		mutationKey: autostartKeys.enable,
 		mutationFn: async () => {
-			const { data, error } = await services.autostart.enable();
+			const { data, error } = await desktopServices.autostart.enable();
 			if (error) {
 				return WhisperingErr({
 					title: '❌ Failed to enable autostart',
@@ -47,7 +47,7 @@ export const autostart = {
 	disable: defineMutation({
 		mutationKey: autostartKeys.disable,
 		mutationFn: async () => {
-			const { data, error } = await services.autostart.disable();
+			const { data, error } = await desktopServices.autostart.disable();
 			if (error) {
 				return WhisperingErr({
 					title: '❌ Failed to disable autostart',

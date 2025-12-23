@@ -14,11 +14,14 @@ import mime from 'mime';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { PATHS } from '$lib/constants/paths';
-import * as services from '$lib/services';
+import { createFsServiceDesktop } from '../fs';
 import type { Recording } from './models';
 import { Transformation, TransformationRun } from './models';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
+
+// Lazily create the fs service for this desktop-only module
+const fsService = createFsServiceDesktop();
 
 /**
  * Schema validator for Recording front matter (everything except transcribedText)
@@ -363,9 +366,9 @@ export function createFileSystemDb(): DbService {
 
 						const audioPath = await join(recordingsPath, audioFile);
 
-						// Use existing services.fs.pathToBlob utility
+						// Use existing fsService.pathToBlob utility
 						const { data: blob, error } =
-							await services.fs.pathToBlob(audioPath);
+							await fsService.pathToBlob(audioPath);
 						if (error) throw error;
 
 						return blob;

@@ -1,8 +1,5 @@
-import { createFsServiceDesktop } from './desktop';
-import { createFsServiceWeb } from './web';
-
 export type { FsService, FsServiceError } from './types';
+export { createFsServiceDesktop } from './desktop';
 
-export const FsServiceLive = window.__TAURI_INTERNALS__
-	? createFsServiceDesktop()
-	: createFsServiceWeb();
+import { createFsServiceDesktop } from './desktop';
+export const FsServiceLive = createFsServiceDesktop();

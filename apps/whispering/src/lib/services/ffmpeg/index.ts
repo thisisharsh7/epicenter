@@ -1,8 +1,5 @@
-export type { FfmpegService } from './types';
+export type { FfmpegService, FfmpegServiceError } from './types';
+export { createFfmpegService } from './desktop';
 
 import { createFfmpegService } from './desktop';
-import { createFfmpegServiceWeb } from './web';
-
-export const FfmpegServiceLive = window.__TAURI_INTERNALS__
-	? createFfmpegService()
-	: createFfmpegServiceWeb();
+export const FfmpegServiceLive = createFfmpegService();

@@ -17,12 +17,12 @@
 	import * as services from '$lib/services';
 	import { goto } from '$app/navigation';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { rpc } from '$lib/query';
+	import { desktopRpc } from '$lib/query';
 
 	const platform = services.os.type();
 
 	const ffmpegQuery = createQuery(() => ({
-		...rpc.ffmpeg.checkFfmpegInstalled.options,
+		...desktopRpc.ffmpeg.checkFfmpegInstalled.options,
 		refetchInterval: (query) => {
 			const isInstalled = query.state.data;
 			return isInstalled ? 30000 : 5000;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Command } from '$lib/commands';
 	import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
-	import { rpc } from '$lib/query';
+	import { desktopRpc, rpc } from '$lib/query';
 	import {
 		type Accelerator,
 		pressedKeysToTauriAccelerator,
@@ -32,7 +32,7 @@
 		onRegister: async (keyCombination: KeyboardEventSupportedKey[]) => {
 			if (shortcutValue) {
 				const { error: unregisterError } =
-					await rpc.shortcuts.unregisterCommandGlobally.execute({
+					await desktopRpc.globalShortcuts.unregisterCommand.execute({
 						accelerator: shortcutValue as Accelerator,
 					});
 
@@ -59,7 +59,7 @@
 			}
 
 			const { error: registerError } =
-				await rpc.shortcuts.registerCommandGlobally.execute({
+				await desktopRpc.globalShortcuts.registerCommand.execute({
 					command,
 					accelerator,
 				});
@@ -94,14 +94,15 @@
 		},
 		onClear: async () => {
 			const { error: unregisterError } =
-				await rpc.shortcuts.unregisterCommandGlobally.execute({
+				await desktopRpc.globalShortcuts.unregisterCommand.execute({
 					accelerator: shortcutValue as Accelerator,
 				});
 
 			if (unregisterError) {
 				rpc.notify.error.execute({
 					title: 'Error clearing global shortcut',
-					serviceError: unregisterError,
+					description: 'Could not clear the global shortcut.',
+					action: { type: 'more-details', error: unregisterError },
 				});
 			}
 

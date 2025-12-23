@@ -20,7 +20,7 @@ export type PermissionsService = {
 	};
 };
 
-function createPermissionsService(): PermissionsService {
+export function createPermissionsService(): PermissionsService {
 	return {
 		accessibility: {
 			async check() {
