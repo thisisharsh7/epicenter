@@ -5,7 +5,7 @@
 	import * as Dialog from '@epicenter/ui/dialog';
 	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
-	import { generateDefaultTransformation } from '$lib/services';
+	import { generateDefaultTransformation } from '$lib/services/isomorphic/db';
 	import { createMutation } from '@tanstack/svelte-query';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 

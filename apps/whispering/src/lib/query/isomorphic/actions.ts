@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid/non-secure';
 import { Ok } from 'wellcrafted/result';
 import { WhisperingErr } from '$lib/result';
-import { DbServiceErr } from '$lib/services';
+import { DbServiceErr } from '$lib/services/isomorphic/db';
 import { settings } from '$lib/stores/settings.svelte';
 import * as transformClipboardWindow from '$routes/transform-clipboard/transformClipboardWindow.tauri';
 import { rpc } from '..';

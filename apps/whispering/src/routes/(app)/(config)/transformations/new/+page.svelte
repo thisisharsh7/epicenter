@@ -4,7 +4,7 @@
 	import { Button } from '@epicenter/ui/button';
 	import * as Card from '@epicenter/ui/card';
 	import { rpc } from '$lib/query';
-	import { generateDefaultTransformation } from '$lib/services';
+	import { generateDefaultTransformation } from '$lib/services/isomorphic/db';
 	import { createMutation } from '@tanstack/svelte-query';
 
 	const createTransformation = createMutation(

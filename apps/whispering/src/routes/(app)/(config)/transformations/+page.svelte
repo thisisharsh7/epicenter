@@ -10,7 +10,7 @@
 	import { SelectAllPopover, SortableTableHeader } from '@epicenter/ui/table';
 	import * as Table from '@epicenter/ui/table';
 	import { rpc } from '$lib/query';
-	import { type Transformation } from '$lib/services';
+	import { type Transformation } from '$lib/services/isomorphic/db';
 	import { createPersistedState } from '@epicenter/svelte-utils';
 	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { createQuery } from '@tanstack/svelte-query';

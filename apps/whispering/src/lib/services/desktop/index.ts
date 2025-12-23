@@ -23,6 +23,3 @@ export const desktopServices = {
 	cpalRecorder: CpalRecorderServiceLive,
 	ffmpegRecorder: FfmpegRecorderServiceLive,
 } as const;
-
-// Re-export type that is used via $lib/services
-export type { Accelerator } from './global-shortcut-manager';

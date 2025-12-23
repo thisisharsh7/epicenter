@@ -29,10 +29,3 @@ export const services = {
 	sound: PlaySoundServiceLive,
 	transcriptions,
 } as const;
-
-// Re-export types and values that external consumers need via $lib/services
-export type { Recording, Transformation, TransformationRun } from './db';
-export { DbServiceErr, generateDefaultTransformation, generateDefaultTransformationStep } from './db';
-export { OsServiceLive } from './os';
-export type { RecorderServiceError } from './recorder/types';
-export type { CommandId } from './local-shortcut-manager';
