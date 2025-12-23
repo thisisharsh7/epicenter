@@ -16,7 +16,7 @@ import type {
 } from '$lib/services/isomorphic/db';
 import { settings } from '$lib/stores/settings.svelte';
 import { asTemplateString, interpolateTemplate } from '$lib/utils/template';
-import { defineMutation, queryClient } from './_client';
+import { defineMutation, queryClient } from '../_client';
 import { dbKeys } from './db';
 
 const { TransformServiceError, TransformServiceErr } = createTaggedError(

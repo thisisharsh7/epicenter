@@ -2,10 +2,10 @@ import { nanoid } from 'nanoid/non-secure';
 import { Ok } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
 import { WhisperingErr } from '$lib/result';
-import { services, desktopServices } from '$lib/services';
+import { desktopServices, services } from '$lib/services';
 import { getDefaultRecordingsFolder } from '$lib/services/isomorphic/recorder';
 import { settings } from '$lib/stores/settings.svelte';
-import { defineMutation, defineQuery, queryClient } from './_client';
+import { defineMutation, defineQuery, queryClient } from '../_client';
 import { notify } from './notify';
 
 const recorderKeys = {
