@@ -16,6 +16,7 @@
 	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import RepeatIcon from '@lucide/svelte/icons/repeat';
+	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import EditRecordingModal from './EditRecordingModal.svelte';
 	import TransformationPicker from './TransformationPicker.svelte';
 	import ViewTransformationRunsDialog from './ViewTransformationRunsDialog.svelte';
@@ -98,7 +99,7 @@
 			{:else if recording.transcriptionStatus === 'DONE'}
 				<RepeatIcon class="size-4 text-green-500" />
 			{:else if recording.transcriptionStatus === 'FAILED'}
-				<AlertCircleIcon class="size-4 text-red-500" />
+				<RotateCcwIcon class="size-4 text-red-500" />
 			{/if}
 		</Button>
 
