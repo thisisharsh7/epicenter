@@ -1,7 +1,30 @@
-// Re-export everything from desktop and isomorphic subfolders
-// This allows imports like: import { desktopServices, services } from '$lib/services'
-export * from './desktop';
-export * from './isomorphic';
+import { desktopServices } from './desktop';
+import { services } from './isomorphic';
 
-// Re-export shared types from the root types file
-export * from './types';
+export { desktopServices, services };
+
+// Re-export types from desktop
+export type { Accelerator } from './desktop';
+// Re-export types and values from isomorphic
+export type {
+	CommandId,
+	RecorderServiceError,
+	Recording,
+	Transformation,
+	TransformationRun,
+} from './isomorphic';
+export {
+	DbServiceErr,
+	generateDefaultTransformation,
+	generateDefaultTransformationStep,
+	OsServiceLive,
+} from './isomorphic';
+
+// Re-export types and values from shared types
+export type {
+	Device,
+	DeviceAcquisitionOutcome,
+	DeviceIdentifier,
+	UpdateStatusMessageFn,
+} from './types';
+export { asDeviceIdentifier } from './types';
