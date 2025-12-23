@@ -17,7 +17,7 @@ import {
 	type Device,
 	type DeviceAcquisitionOutcome,
 } from '$lib/services/types';
-import { FsServiceLive } from '../fs';
+import { FsServiceLive } from '$lib/services/desktop/fs';
 
 /**
  * Audio recording data returned from the Rust method

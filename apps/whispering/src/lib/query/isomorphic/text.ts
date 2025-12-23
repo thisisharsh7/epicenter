@@ -1,5 +1,5 @@
 import { services } from '$lib/services';
-import { defineMutation, defineQuery } from '../client';
+import { defineMutation, defineQuery } from '$lib/query/client';
 
 const textKeys = {
 	clipboard: ['text', 'clipboard'] as const,

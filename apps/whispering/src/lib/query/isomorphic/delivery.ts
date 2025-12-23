@@ -4,7 +4,7 @@ import type { WhisperingError } from '$lib/result';
 import type { TextServiceError } from '$lib/services/isomorphic/text';
 import { settings } from '$lib/stores/settings.svelte';
 import { rpc } from '..';
-import { defineMutation } from '../client';
+import { defineMutation } from '$lib/query/client';
 
 export const delivery = {
 	/**

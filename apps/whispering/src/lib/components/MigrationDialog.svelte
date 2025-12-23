@@ -9,12 +9,12 @@
 		SerializedAudio,
 		Transformation,
 		TransformationRun,
-	} from '../services/isomorphic/db/models';
+	} from '$lib/services/isomorphic/db/models';
 	import {
 		generateDefaultTransformation,
 		generateDefaultTransformationStep,
-	} from '../services/isomorphic/db/models';
-	import { DownloadServiceLive } from '../services/isomorphic/download';
+	} from '$lib/services/isomorphic/db/models';
+	import { DownloadServiceLive } from '$lib/services/isomorphic/download';
 	import type {
 		DbService,
 		DbServiceError,

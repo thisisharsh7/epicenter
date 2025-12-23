@@ -12,7 +12,7 @@ import {
 	cleanupRecordingStream,
 	enumerateDevices,
 	getRecordingStream,
-} from '../device-stream';
+} from '$lib/services/isomorphic/device-stream';
 import type {
 	NavigatorRecordingParams,
 	RecorderService,

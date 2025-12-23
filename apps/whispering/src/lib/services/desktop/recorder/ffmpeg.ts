@@ -13,6 +13,11 @@ import type {
 } from '$lib/constants/audio';
 import { PLATFORM_TYPE } from '$lib/constants/platform';
 import {
+	asShellCommand,
+	CommandServiceLive,
+} from '$lib/services/desktop/command';
+import { FsServiceLive } from '$lib/services/desktop/fs';
+import {
 	type FfmpegRecordingParams,
 	type RecorderService,
 	RecorderServiceErr,
@@ -24,8 +29,6 @@ import {
 	type DeviceAcquisitionOutcome,
 	type DeviceIdentifier,
 } from '$lib/services/types';
-import { asShellCommand, CommandServiceLive } from '../command';
-import { FsServiceLive } from '../fs';
 
 /**
  * Desktop platforms supported by FFmpeg recording.

@@ -2,7 +2,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import type { DownloadService } from '.';
-import { getAudioExtension } from '../transcription/utils';
+import { getAudioExtension } from '$lib/services/isomorphic/transcription/utils';
 import { DownloadServiceErr } from './types';
 
 export function createDownloadServiceDesktop(): DownloadService {

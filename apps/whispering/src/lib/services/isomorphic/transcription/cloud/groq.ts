@@ -3,8 +3,7 @@ import Groq from 'groq-sdk';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import type { Settings } from '$lib/settings';
-import { getAudioExtension } from '../utils';
-
+import { getAudioExtension } from '$lib/services/isomorphic/transcription/utils';
 
 const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 export const GROQ_MODELS = [

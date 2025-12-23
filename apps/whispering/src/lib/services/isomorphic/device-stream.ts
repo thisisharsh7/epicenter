@@ -6,8 +6,8 @@ import type {
 	DeviceAcquisitionOutcome,
 	DeviceIdentifier,
 	UpdateStatusMessageFn,
-} from '../types';
-import { asDeviceIdentifier } from '../types';
+} from '$lib/services/types';
+import { asDeviceIdentifier } from '$lib/services/types';
 
 const { DeviceStreamServiceError, DeviceStreamServiceErr } = createTaggedError(
 	'DeviceStreamServiceError',

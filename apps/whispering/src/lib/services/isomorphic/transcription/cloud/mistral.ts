@@ -2,7 +2,7 @@ import { Mistral } from '@mistralai/mistralai';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import type { Settings } from '$lib/settings';
-import { getAudioExtension } from '../utils';
+import { getAudioExtension } from '$lib/services/isomorphic/transcription/utils';
 export const MISTRAL_TRANSCRIPTION_MODELS = [
 	{
 		name: 'voxtral-mini-latest',

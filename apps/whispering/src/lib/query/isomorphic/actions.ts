@@ -5,7 +5,7 @@ import { DbServiceErr } from '$lib/services/isomorphic/db';
 import { settings } from '$lib/stores/settings.svelte';
 import * as transformClipboardWindow from '$routes/transform-clipboard/transformClipboardWindow.tauri';
 import { rpc } from '..';
-import { defineMutation } from '../client';
+import { defineMutation } from '$lib/query/client';
 import { db } from './db';
 import { delivery } from './delivery';
 import { notify } from './notify';

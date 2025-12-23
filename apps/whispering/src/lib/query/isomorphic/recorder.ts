@@ -5,7 +5,7 @@ import { PATHS } from '$lib/constants/paths';
 import { WhisperingErr } from '$lib/result';
 import { desktopServices, services } from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
-import { defineMutation, defineQuery, queryClient } from '../client';
+import { defineMutation, defineQuery, queryClient } from '$lib/query/client';
 import { notify } from './notify';
 
 const recorderKeys = {

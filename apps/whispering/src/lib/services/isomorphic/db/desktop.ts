@@ -1,5 +1,5 @@
 import { Err, Ok } from 'wellcrafted/result';
-import type { DownloadService } from '../download';
+import type { DownloadService } from '$lib/services/isomorphic/download';
 import { createFileSystemDb } from './file-system';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';
@@ -345,7 +345,9 @@ export function createDbServiceDesktop({
 
 			create: async (transformationOrTransformations) => {
 				// SINGLE WRITE: Only to file system
-				return fileSystemDb.transformations.create(transformationOrTransformations);
+				return fileSystemDb.transformations.create(
+					transformationOrTransformations,
+				);
 			},
 
 			update: async (transformation) => {

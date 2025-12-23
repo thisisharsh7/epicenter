@@ -8,4 +8,4 @@
 export {
 	RECORDER_STATE_TO_ICON,
 	VAD_STATE_TO_ICON,
-} from '../audio/recording-states';
+} from '$lib/constants/audio/recording-states';
