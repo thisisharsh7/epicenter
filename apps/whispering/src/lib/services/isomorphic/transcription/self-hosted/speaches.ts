@@ -1,9 +1,9 @@
 import { type } from 'arktype';
 import { Ok, type Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import { getExtensionFromAudioBlob } from '../../_utils';
 import type { HttpService } from '../../http';
 import type { Settings } from '$lib/settings';
+import { getAudioExtension } from '../utils';
 
 const WhisperApiResponse = type({ text: 'string' }, '|', {
 	error: { message: 'string' },
@@ -30,7 +30,7 @@ export function createSpeachesTranscriptionService({
 				'file',
 				new File(
 					[audioBlob],
-					`recording.${getExtensionFromAudioBlob(audioBlob)}`,
+					`recording.${getAudioExtension(audioBlob.type)}`,
 					{ type: audioBlob.type },
 				),
 			);

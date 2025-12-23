@@ -1,8 +1,8 @@
 import { Mistral } from '@mistralai/mistralai';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import { getExtensionFromAudioBlob } from '$lib/services/_utils';
 import type { Settings } from '$lib/settings';
+import { getAudioExtension } from '../utils';
 export const MISTRAL_TRANSCRIPTION_MODELS = [
 	{
 		name: 'voxtral-mini-latest',
@@ -61,7 +61,7 @@ export function createMistralTranscriptionService() {
 				try: () =>
 					new File(
 						[audioBlob],
-						`recording.${getExtensionFromAudioBlob(audioBlob)}`,
+						`recording.${getAudioExtension(audioBlob.type)}`,
 						{ type: audioBlob.type },
 					),
 				catch: (error) =>

@@ -223,6 +223,8 @@ export function createFileSystemDb(): DbService {
 						await Promise.all(
 							paramsArray.map(async ({ recording, audio }) => {
 								// 1. Write audio file
+								// Fallback to 'bin' for unknown MIME types - we're just saving raw bytes to disk,
+								// the actual format doesn't matter for storage purposes
 								const extension = mime.getExtension(audio.type) ?? 'bin';
 								const audioPath = await join(
 									recordingsPath,

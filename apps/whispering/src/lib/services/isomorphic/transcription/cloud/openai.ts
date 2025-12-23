@@ -2,8 +2,8 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import OpenAI from 'openai';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import { getExtensionFromAudioBlob } from '$lib/services/_utils';
 import type { Settings } from '$lib/settings';
+import { getAudioExtension } from '../utils';
 
 const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 
@@ -102,7 +102,7 @@ export function createOpenaiTranscriptionService() {
 				try: () =>
 					new File(
 						[audioBlob],
-						`recording.${getExtensionFromAudioBlob(audioBlob)}`,
+						`recording.${getAudioExtension(audioBlob.type)}`,
 						{ type: audioBlob.type },
 					),
 				catch: (_error) =>

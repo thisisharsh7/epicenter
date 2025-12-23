@@ -1,14 +1,14 @@
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import { getExtensionFromAudioBlob } from '$lib/services/_utils';
 import type { DownloadService } from '.';
+import { getAudioExtension } from '../transcription/utils';
 import { DownloadServiceErr } from './types';
 
 export function createDownloadServiceDesktop(): DownloadService {
 	return {
 		downloadBlob: async ({ name, blob }) => {
-			const extension = getExtensionFromAudioBlob(blob);
+			const extension = getAudioExtension(blob.type);
 			const { data: path, error: saveError } = await tryAsync({
 				try: () =>
 					save({
