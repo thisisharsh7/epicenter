@@ -7,7 +7,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { getDefaultRecordingsFolder } from '$lib/services/recorder';
+	import { getDefaultRecordingsFolder } from '$lib/services';
 	import { join } from '@tauri-apps/api/path';
 	import { nanoid } from 'nanoid/non-secure';
 	import { Button } from '@epicenter/ui/button';

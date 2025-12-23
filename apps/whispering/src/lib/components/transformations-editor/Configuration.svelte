@@ -26,8 +26,8 @@
 		INFERENCE_PROVIDER_OPTIONS,
 		OPENAI_INFERENCE_MODEL_OPTIONS,
 	} from '$lib/constants/inference';
-	import type { Transformation } from '$lib/services/db';
-	import { generateDefaultTransformationStep } from '$lib/services/db';
+	import type { Transformation } from '$lib/services';
+	import { generateDefaultTransformationStep } from '$lib/services';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TrashIcon from '@lucide/svelte/icons/trash';

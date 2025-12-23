@@ -1,4 +1,4 @@
-import * as services from '$lib/services/isomorphic';
+import { services } from '$lib/services';
 import { defineMutation, defineQuery } from '../_client';
 
 const textKeys = {

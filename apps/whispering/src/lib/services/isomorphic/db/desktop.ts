@@ -1,5 +1,5 @@
 import { Err, Ok } from 'wellcrafted/result';
-import type { DownloadService } from '$lib/services/download';
+import type { DownloadService } from '../download';
 import { createFileSystemDb } from './file-system';
 import type { DbService } from './types';
 import { DbServiceErr } from './types';

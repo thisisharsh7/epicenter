@@ -1,8 +1,8 @@
 import { type } from 'arktype';
 import { Ok, type Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import type { HttpService } from '$lib/services/http';
-import { HttpServiceLive } from '$lib/services/http';
+import type { HttpService } from '../../http';
+import { HttpServiceLive } from '../../http';
 import type { Settings } from '$lib/settings';
 
 export const DEEPGRAM_TRANSCRIPTION_MODELS = [

@@ -1,6 +1,6 @@
 import type { Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import * as services from '$lib/services/isomorphic';
+import { services } from '$lib/services';
 import type { Recording } from '$lib/services/isomorphic/db';
 import type { DownloadServiceError } from '$lib/services/isomorphic/download';
 import { defineMutation } from '../_client';

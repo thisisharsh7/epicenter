@@ -6,14 +6,14 @@ import {
 	type WhisperingError,
 	type WhisperingResult,
 } from '$lib/result';
-import * as services from '$lib/services';
+import { services } from '$lib/services';
 import type {
 	Transformation,
 	TransformationRunCompleted,
 	TransformationRunFailed,
 	TransformationRunRunning,
 	TransformationStep,
-} from '$lib/services/db';
+} from '$lib/services/isomorphic/db';
 import { settings } from '$lib/stores/settings.svelte';
 import { asTemplateString, interpolateTemplate } from '$lib/utils/template';
 import { defineMutation, queryClient } from './_client';

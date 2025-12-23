@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Resizable from '@epicenter/ui/resizable';
 	import { rpc } from '$lib/query';
-	import type { Transformation } from '$lib/services/db';
+	import type { Transformation } from '$lib/services';
 	import { createQuery } from '@tanstack/svelte-query';
 	import Configuration from './Configuration.svelte';
 	import Runs from './Runs.svelte';

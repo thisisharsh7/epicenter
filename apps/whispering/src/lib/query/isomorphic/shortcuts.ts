@@ -1,7 +1,6 @@
 import { type Command, commandCallbacks } from '$lib/commands';
 import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
-import { localShortcutManager } from '$lib/services/isomorphic';
-import type { CommandId } from '$lib/services/isomorphic';
+import { services, type CommandId } from '$lib/services';
 import { defineMutation } from '../_client';
 
 /**
@@ -18,7 +17,7 @@ export const localShortcuts = {
 			command: Command;
 			keyCombination: KeyboardEventSupportedKey[];
 		}) =>
-			localShortcutManager.register({
+			services.localShortcutManager.register({
 				id: command.id as CommandId,
 				keyCombination,
 				callback: commandCallbacks[command.id],
@@ -29,6 +28,6 @@ export const localShortcuts = {
 	unregisterCommand: defineMutation({
 		mutationKey: ['shortcuts', 'unregisterCommandLocally'] as const,
 		mutationFn: async ({ commandId }: { commandId: CommandId }) =>
-			localShortcutManager.unregister(commandId),
+			services.localShortcutManager.unregister(commandId),
 	}),
 };

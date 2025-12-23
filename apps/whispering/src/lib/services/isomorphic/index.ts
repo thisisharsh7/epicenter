@@ -15,20 +15,22 @@ import * as transcriptions from './transcription';
  * Cross-platform services.
  * These are available on both web and desktop.
  */
-export {
-	AnalyticsServiceLive as analytics,
-	TextServiceLive as text,
+export const services = {
+	analytics: AnalyticsServiceLive,
+	text: TextServiceLive,
 	completions,
-	DbServiceLive as db,
-	DownloadServiceLive as download,
-	LocalShortcutManagerLive as localShortcutManager,
-	NotificationServiceLive as notification,
-	NavigatorRecorderServiceLive as navigatorRecorder,
-	ToastServiceLive as toast,
-	OsServiceLive as os,
-	PlaySoundServiceLive as sound,
+	db: DbServiceLive,
+	download: DownloadServiceLive,
+	localShortcutManager: LocalShortcutManagerLive,
+	notification: NotificationServiceLive,
+	navigatorRecorder: NavigatorRecorderServiceLive,
+	toast: ToastServiceLive,
+	os: OsServiceLive,
+	sound: PlaySoundServiceLive,
 	transcriptions,
-};
+} as const;
+
+export type Services = typeof services;
 
 // Re-export types and factory functions that external consumers need
 export type { AnalyticsService, AnalyticsServiceError, Event } from './analytics';
@@ -49,6 +51,7 @@ export { DbServiceErr, generateDefaultTransformation, generateDefaultTransformat
 export type { DownloadService, DownloadServiceError } from './download';
 export type { NotificationService, NotificationServiceError } from './notifications';
 export type { OsService, OsServiceError } from './os';
+export { OsServiceLive } from './os';
 export type { PlaySoundService, PlaySoundServiceError } from './sound';
 export type { ToastService } from './toast';
 export type { RecorderService, RecorderServiceError } from './recorder/types';

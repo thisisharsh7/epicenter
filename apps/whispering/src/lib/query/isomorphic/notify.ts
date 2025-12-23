@@ -1,7 +1,7 @@
 import { Ok } from 'wellcrafted/result';
 import { dev } from '$app/environment';
 import { notificationLog } from '$lib/components/NotificationLog.svelte';
-import * as services from '$lib/services/isomorphic';
+import { services } from '$lib/services';
 import type { UnifiedNotificationOptions } from '$lib/services/isomorphic/notifications/types';
 import { defineMutation } from '../_client';
 

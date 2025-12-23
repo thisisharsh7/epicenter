@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '@epicenter/ui/button';
 	import { rpc } from '$lib/query';
-	import { getDefaultRecordingsFolder } from '$lib/services/recorder';
+	import { getDefaultRecordingsFolder } from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';

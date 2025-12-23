@@ -1,3 +1,3 @@
-import { OsServiceLive } from '$lib/services/os';
+import { OsServiceLive } from '$lib/services';
 
 export const PLATFORM_TYPE = OsServiceLive.type();

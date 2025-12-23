@@ -8,7 +8,7 @@ import { rpc } from '$lib/query';
 import { recorderService } from '$lib/query/recorder';
 import { vadRecorder } from '$lib/query/vad.svelte';
 import type { WhisperingError } from '$lib/result';
-import type { RecorderServiceError } from '$lib/services/recorder';
+import type { RecorderServiceError } from '$lib/services';
 import {
 	getDefaultSettings,
 	parseStoredSettings,

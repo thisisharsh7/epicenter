@@ -1,7 +1,7 @@
 import { Ok } from 'wellcrafted/result';
 import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app';
 import type { WhisperingError } from '$lib/result';
-import type { TextServiceError } from '$lib/services/text';
+import type { TextServiceError } from '$lib/services/isomorphic/text';
 import { settings } from '$lib/stores/settings.svelte';
 import { defineMutation } from './_client';
 import { rpc } from './index';

@@ -6,7 +6,7 @@
 	import * as Modal from '@epicenter/ui/modal';
 	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
-	import type { Transformation } from '$lib/services/db';
+	import type { Transformation } from '$lib/services';
 	import { createMutation } from '@tanstack/svelte-query';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { Spinner } from '@epicenter/ui/spinner';

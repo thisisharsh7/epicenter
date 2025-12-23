@@ -14,7 +14,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import * as services from '$lib/services';
+	import { services } from '$lib/services';
 	import { goto } from '$app/navigation';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { desktopRpc } from '$lib/query';
