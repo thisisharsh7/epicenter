@@ -5,9 +5,9 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import * as services from '$lib/services';
+	import { desktopServices } from '$lib/services';
 	import { toast } from 'svelte-sonner';
-	import { asShellCommand } from '$lib/services/command/types';
+	import { asShellCommand } from '$lib/services/desktop/command';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -15,7 +15,7 @@
 	const isAccessibilityGranted = $derived(data.isAccessibilityGranted);
 
 	async function requestPermissionOrShowGuidance() {
-		const { error } = await services.permissions.accessibility.request();
+		const { error } = await desktopServices.permissions.accessibility.request();
 
 		if (error) {
 			toast.error('Failed to open accessibility settings', {
@@ -31,7 +31,7 @@
 
 	async function openSystemSettings() {
 		// Try opening System Settings directly (works on macOS 13+)
-		const { error: commandError } = await services.command.execute(
+		const { error: commandError } = await desktopServices.command.execute(
 			asShellCommand(
 				'open x-apple.systemsettings:com.apple.SystemSettings.extension',
 			),

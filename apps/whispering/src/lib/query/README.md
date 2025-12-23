@@ -4,7 +4,7 @@ The query layer is the reactive bridge between your UI components and the isolat
 
 ```typescript
 import { createQueryFactories } from 'wellcrafted/query';
-import { queryClient } from './_client';
+import { queryClient } from './client';
 
 export const { defineQuery, defineMutation } =
 	createQueryFactories(queryClient);
@@ -1093,3 +1093,22 @@ When you need to add new functionality:
 4. **Use in components** via either reactive or imperative patterns
 
 This keeps everything organized and testable while giving you a unified way to access all app functionality.
+
+## Query Layer vs Stores
+
+The query layer follows the **stale-while-revalidate** pattern: data is cached and refreshed in the background. For **live reactive state** that must update immediately (like hardware state or user preferences), use `$lib/stores/` instead.
+
+| Aspect | `$lib/query/` | `$lib/stores/` |
+|--------|---------------|----------------|
+| **Pattern** | Stale-while-revalidate (TanStack Query) | Singleton reactive state |
+| **State Location** | TanStack Query cache | Module-level `$state` runes |
+| **Updates** | Cached with background refresh | Immediate, live |
+| **Use Case** | Data fetching, mutations, cached data | Hardware state, user preferences, live status |
+
+**Examples:**
+- Recording state from API → Query layer (`rpc.recorder.getRecorderState`)
+- VAD hardware state (IDLE/LISTENING/SPEECH_DETECTED) → Store (`vadRecorder.state`)
+- User settings → Store (`settings.value`)
+- Database recordings → Query layer (`rpc.db.recordings.getAll`)
+
+See `$lib/stores/README.md` for the stores documentation.

@@ -15,7 +15,7 @@
 		VAD_STATE_TO_ICON,
 	} from '$lib/constants/audio';
 	import { rpc } from '$lib/query';
-	import { vadRecorder } from '$lib/query/vad.svelte';
+	import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { cn } from '@epicenter/ui/utils';

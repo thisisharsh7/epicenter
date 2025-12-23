@@ -3,11 +3,11 @@
 	import * as Select from '@epicenter/ui/select';
 	import { Input } from '@epicenter/ui/input';
 	import { SAMPLE_RATE_OPTIONS } from '$lib/constants/audio';
+	import { PATHS } from '$lib/constants/paths';
 	import { PLATFORM_TYPE } from '$lib/constants/platform';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { getDefaultRecordingsFolder } from '$lib/services/recorder';
 	import { join } from '@tauri-apps/api/path';
 	import { nanoid } from 'nanoid/non-secure';
 	import { Button } from '@epicenter/ui/button';
@@ -20,7 +20,7 @@
 		FFMPEG_DEFAULT_GLOBAL_OPTIONS,
 		FFMPEG_DEFAULT_INPUT_OPTIONS,
 		FFMPEG_DEFAULT_OUTPUT_OPTIONS,
-	} from '$lib/services/recorder/ffmpeg';
+	} from '$lib/services/desktop/recorder/ffmpeg';
 
 	// Generate realistic recording ID for preview
 	const SAMPLE_RECORDING_ID = nanoid();
@@ -36,7 +36,9 @@
 		outputOptions: string;
 	} = $props();
 
-	const getDevicesQuery = createQuery(() => rpc.recorder.enumerateDevices.options);
+	const getDevicesQuery = createQuery(
+		() => rpc.recorder.enumerateDevices.options,
+	);
 
 	// Get the selected device identifier with proper fallback chain
 	const selectedDeviceId = $derived(
@@ -172,7 +174,7 @@
 	async function updatePreviewCommand() {
 		const outputFolder =
 			settings.value['recording.cpal.outputFolder'] ??
-			(await getDefaultRecordingsFolder());
+			(await PATHS.DB.RECORDINGS());
 		const ext = AUDIO_FORMATS[selected.format].extension;
 		const outputPath = await join(
 			outputFolder,
@@ -397,9 +399,7 @@
 				class="cursor-pointer select-none rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors flex items-baseline gap-2"
 			>
 				<span class="text-sm font-medium">Advanced Options</span>
-				<span class="text-xs text-muted-foreground"
-					>Raw FFmpeg parameters</span
-				>
+				<span class="text-xs text-muted-foreground">Raw FFmpeg parameters</span>
 			</summary>
 
 			<div class="mt-3 space-y-3 rounded-lg border p-4">

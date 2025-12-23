@@ -1,6 +1,6 @@
 <script module lang="ts">
-	import { createFileSystemDb } from '$lib/services/db/file-system';
-	import { createDbServiceWeb } from '$lib/services/db/web';
+	import { createFileSystemDb } from '$lib/services/isomorphic/db/file-system';
+	import { createDbServiceWeb } from '$lib/services/isomorphic/db/web';
 	import { nanoid } from 'nanoid/non-secure';
 	import { Ok, tryAsync, type Result } from 'wellcrafted/result';
 	import type {
@@ -9,14 +9,17 @@
 		SerializedAudio,
 		Transformation,
 		TransformationRun,
-	} from '../services/db/models';
+	} from '$lib/services/isomorphic/db/models';
 	import {
 		generateDefaultTransformation,
 		generateDefaultTransformationStep,
-	} from '../services/db/models';
-	import { DownloadServiceLive } from '../services/download';
-	import type { DbService, DbServiceError } from '$lib/services/db/types';
-	import { DbServiceErr } from '$lib/services/db/types';
+	} from '$lib/services/isomorphic/db/models';
+	import { DownloadServiceLive } from '$lib/services/isomorphic/download';
+	import type {
+		DbService,
+		DbServiceError,
+	} from '$lib/services/isomorphic/db/types';
+	import { DbServiceErr } from '$lib/services/isomorphic/db/types';
 
 	/**
 	 * Result of a migration operation
@@ -910,7 +913,8 @@
 							}
 
 							// Create in file system
-							const { error: createError } = await fileSystemDb.runs.create(run);
+							const { error: createError } =
+								await fileSystemDb.runs.create(run);
 
 							if (createError) {
 								onProgress(
