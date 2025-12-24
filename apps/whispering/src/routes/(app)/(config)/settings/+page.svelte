@@ -8,7 +8,7 @@
 		ALWAYS_ON_TOP_MODE_OPTIONS,
 		LAYOUT_MODE_OPTIONS,
 	} from '$lib/constants/ui';
-	import { rpc } from '$lib/query';
+	import { desktopRpc, rpc } from '$lib/query';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	const retentionItems = [
@@ -43,12 +43,12 @@
 		)?.label,
 	);
 
-	const autostartQuery = createQuery(() => rpc.autostart.isEnabled.options);
+	const autostartQuery = createQuery(() => desktopRpc.autostart.isEnabled.options);
 	const enableAutostartMutation = createMutation(
-		() => rpc.autostart.enable.options,
+		() => desktopRpc.autostart.enable.options,
 	);
 	const disableAutostartMutation = createMutation(
-		() => rpc.autostart.disable.options,
+		() => desktopRpc.autostart.disable.options,
 	);
 </script>
 

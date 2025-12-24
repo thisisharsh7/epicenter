@@ -3,7 +3,7 @@
 	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
 	import { rpc } from '$lib/query';
-	import type { TransformationRun } from '$lib/services/db';
+	import type { TransformationRun } from '$lib/services/isomorphic/db';
 	import { viewTransition } from '$lib/utils/viewTransitions';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';

@@ -18,7 +18,7 @@
 	import * as Table from '@epicenter/ui/table';
 	import { Textarea } from '@epicenter/ui/textarea';
 	import { rpc } from '$lib/query';
-	import type { Recording } from '$lib/services/db';
+	import type { Recording } from '$lib/services/isomorphic/db';
 	import { cn } from '@epicenter/ui/utils';
 	import { createPersistedState } from '@epicenter/svelte-utils';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { LocalModelConfig } from '$lib/services/transcription/local/types';
+	import type { LocalModelConfig } from '$lib/services/isomorphic/transcription/local/types';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
 	import Paperclip from '@lucide/svelte/icons/paperclip';
 	import X from '@lucide/svelte/icons/x';

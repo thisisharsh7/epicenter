@@ -16,8 +16,8 @@
 	} from '$lib/constants/audio';
 	import { getShortcutDisplayLabel } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
-	import { vadRecorder } from '$lib/query/vad.svelte';
-	import * as services from '$lib/services';
+	import { vadRecorder } from '$lib/stores/vad-recorder.svelte';
+	import { desktopServices, services } from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { viewTransition } from '$lib/utils/viewTransitions';
 	import { Button } from '@epicenter/ui/button';
@@ -129,7 +129,7 @@
 
 					// Convert file paths to File objects using the fs service
 					const { data: files, error } =
-						await services.fs.pathsToFiles(validPaths);
+						await desktopServices.fs.pathsToFiles(validPaths);
 
 					if (error) {
 						rpc.notify.error.execute({
@@ -211,7 +211,8 @@
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
 				<span
-					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition.global.microphone};"
+					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition
+						.global.microphone};"
 					class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 				>
 					{RECORDER_STATE_TO_ICON[getRecorderStateQuery.data ?? 'IDLE']}
@@ -250,7 +251,8 @@
 				class="shrink-0 size-32 sm:size-36 lg:size-40 xl:size-44 transform items-center justify-center overflow-hidden duration-300 ease-in-out"
 			>
 				<span
-					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition.global.microphone};"
+					style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: {viewTransition
+						.global.microphone};"
 					class="text-[100px] sm:text-[110px] lg:text-[120px] xl:text-[130px] leading-none"
 				>
 					{VAD_STATE_TO_ICON[vadRecorder.state]}
@@ -306,7 +308,9 @@
 
 			{#if blobUrl}
 				<audio
-					style="view-transition-name: {viewTransition.recording(latestRecording.id).audio}"
+					style="view-transition-name: {viewTransition.recording(
+						latestRecording.id,
+					).audio}"
 					src={blobUrl}
 					controls
 					class="h-8 w-full"

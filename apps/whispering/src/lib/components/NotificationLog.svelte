@@ -28,7 +28,7 @@
 	import * as Alert from '@epicenter/ui/alert';
 	import * as Dialog from '@epicenter/ui/dialog';
 	import * as Empty from '@epicenter/ui/empty';
-	import type { UnifiedNotificationOptions } from '$lib/services/notifications/types';
+	import type { UnifiedNotificationOptions } from '$lib/services/isomorphic/notifications/types';
 	import { ScrollArea } from '@epicenter/ui/scroll-area';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';

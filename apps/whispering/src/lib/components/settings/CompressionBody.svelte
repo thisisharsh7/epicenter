@@ -7,14 +7,14 @@
 	import {
 		FFMPEG_DEFAULT_COMPRESSION_OPTIONS,
 		FFMPEG_SMALLEST_COMPRESSION_OPTIONS,
-	} from '$lib/services/recorder/ffmpeg';
+	} from '$lib/services/desktop/recorder/ffmpeg';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@epicenter/ui/utils';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import { isCompressionRecommended } from '$routes/(app)/_layout-utils/check-ffmpeg';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { rpc } from '$lib/query';
+	import { desktopRpc } from '$lib/query';
 	import * as Alert from '@epicenter/ui/alert';
 	import { Link } from '@epicenter/ui/link';
 
@@ -61,7 +61,9 @@
 	}
 
 	// Check if FFmpeg is installed
-	const ffmpegQuery = createQuery(() => rpc.ffmpeg.checkFfmpegInstalled.options);
+	const ffmpegQuery = createQuery(
+		() => desktopRpc.ffmpeg.checkFfmpegInstalled.options,
+	);
 
 	const isFfmpegInstalled = $derived(ffmpegQuery.data ?? false);
 	const isFfmpegCheckLoading = $derived(ffmpegQuery.isPending);
