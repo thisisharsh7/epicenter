@@ -180,7 +180,7 @@ This keeps help commands instant while deferring real initialization until comma
 - `bin.ts`: Entry point for CLI executable
 - `cli.ts`: Core CLI creation logic
 - `metadata.ts`: Fast metadata extraction using mocks
-- `standardschema-to-yargs.ts`: Schema to CLI flag conversion
+- `standard-json-schema-to-yargs.ts`: Schema to CLI flag conversion
 - `load-config.ts`: Config file discovery and loading
 - `mock-context.ts`: Mock db/indexes/workspaces for introspection
 - `index.ts`: Public API exports for programmatic use
