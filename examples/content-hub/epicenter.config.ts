@@ -1,4 +1,3 @@
-import { defineEpicenter } from '@epicenter/hq';
 import { browser } from './browser/browser.workspace';
 import { clippings } from './clippings/clippings.workspace';
 import { email } from './email/email.workspace';
@@ -24,34 +23,14 @@ import { whispering } from './whispering/whispering.workspace';
  * - Type-safe actions and queries
  * - CLI auto-generation
  */
-export default defineEpicenter({
-	workspaces: [
-		// Central content repository
-		pages,
-
-		// Personal journal entries
-		journal,
-
-		// Quick voice transcriptions
-		whispering,
-
-		// Saved web content (articles, repos, books, recipes, etc.)
-		clippings,
-
-		// Email (static storage)
-		email,
-
-		// Gmail (OAuth2 integration)
-		gmail,
-
-		// Company content
-		epicenter,
-
-		// All social media posts (video, blogs, social platforms)
-		posts,
-
-		// Browser tab/window state (shadow database for extension)
-		browser,
-	],
-	storageDir: '/Users/braden/Code/epicenter-md',
-});
+export default [
+	pages,
+	journal,
+	whispering,
+	clippings,
+	email,
+	gmail,
+	epicenter,
+	posts,
+	browser,
+] as const;
