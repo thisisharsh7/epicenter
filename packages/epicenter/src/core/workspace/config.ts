@@ -21,13 +21,11 @@ import type { EpicenterDir, StorageDir } from '../types';
  * const blogWorkspace = defineWorkspace({ id: 'blog', ... });
  * const authWorkspace = defineWorkspace({ id: 'auth', ... });
  *
- * const epicenter = await createEpicenterClient({
- *   workspaces: [blogWorkspace, authWorkspace]
- * });
+ * const client = await createClient([blogWorkspace, authWorkspace]);
  *
  * // Each workspace is accessible by its id:
- * epicenter.blog.createPost(...)  // blogWorkspace exports
- * epicenter.auth.login(...)       // authWorkspace exports
+ * client.blog.createPost(...)  // blogWorkspace exports
+ * client.auth.login(...)       // authWorkspace exports
  * ```
  *
  * ## Workspace Structure
@@ -170,7 +168,9 @@ export type WorkspaceConfig<
 	providers: {
 		[K in keyof TProviderResults]: Provider<
 			TWorkspaceSchema,
-			TProviderResults[K] extends ProviderExports ? TProviderResults[K] : ProviderExports
+			TProviderResults[K] extends ProviderExports
+				? TProviderResults[K]
+				: ProviderExports
 		>;
 	};
 	/**

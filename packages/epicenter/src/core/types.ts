@@ -25,7 +25,7 @@ export type AbsolutePath = string & Brand<'AbsolutePath'>;
  * Branded type for the storage directory path
  *
  * This is the root directory where Epicenter stores all workspace data.
- * Configured via `storageDir` in `defineEpicenter()` config. In Node.js,
+ * Configured via `storageDir` option in `createClient()`. In Node.js,
  * defaults to `process.cwd()` if not specified.
  *
  * The storage directory contains the `.epicenter` folder where all YJS
@@ -34,10 +34,11 @@ export type AbsolutePath = string & Brand<'AbsolutePath'>;
  * @example
  * ```typescript
  * // In epicenter.config.ts
- * export default defineEpicenter({
- *   id: 'my-app',
- *   workspaces: [...],
- *   storageDir: '/Users/me/my-project' as StorageDir,
+ * export default [workspace1, workspace2] as const;
+ *
+ * // When creating the client with custom storageDir:
+ * const client = await createClient(workspaces, {
+ *   storageDir: '/Users/me/my-project'
  * });
  *
  * // In a provider or index

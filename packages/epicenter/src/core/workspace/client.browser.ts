@@ -1,29 +1,43 @@
 /**
- * Browser-specific workspace client entry point.
+ * Browser workspace client implementation.
  *
- * In browser environments, storageDir and epicenterDir are always undefined
- * since filesystem operations are not available.
+ * Provides createClient for browser environments (web apps, Tauri).
+ * Uses undefined storageDir since browsers use IndexedDB for persistence
+ * rather than filesystem paths.
  */
-
 import type { WorkspaceExports } from '../actions';
 import type { WorkspaceProviderMap } from '../provider';
 import type { WorkspaceSchema } from '../schema';
-import type { WorkspaceClient } from './client.shared';
-import { initializeWorkspaces } from './client.shared';
+import {
+	type EpicenterClient,
+	type WorkspaceClient,
+	initializeWorkspaces,
+	validateWorkspaces,
+} from './client.shared';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
-export type { WorkspaceClient, WorkspacesToClients } from './client.shared';
+export type {
+	EpicenterClient,
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './client.shared';
 
 /**
- * Creates a workspace client by initializing the workspace and its dependencies.
- *
- * This collects the workspace plus its dependencies, calls `initializeWorkspaces()` to create
- * the full object of clients (`{ workspaceA: clientA, workspaceB: clientB, ... }`), then
- * returns only the specified workspace's client. All dependencies are initialized but not exposed.
+ * Create a client for a single workspace (browser version).
+ * Initializes the workspace and its dependencies, returns only the target workspace's client.
  *
  * In browser environments, storageDir is always undefined (no filesystem access).
+ *
+ * @param workspace - Workspace configuration to initialize
+ * @returns Initialized workspace client with access to all workspace exports
+ *
+ * @example
+ * ```typescript
+ * await using client = await createClient(blogWorkspace);
+ * const page = await client.createPage({ title: 'Hello' });
+ * ```
  */
-export async function createWorkspaceClient<
+export async function createClient<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
@@ -37,8 +51,51 @@ export async function createWorkspaceClient<
 		TProviderResults,
 		TExports
 	>,
-): Promise<WorkspaceClient<TExports>> {
-	// Collect all workspace configs (target + dependencies) for flat/hoisted initialization
+): Promise<WorkspaceClient<TExports>>;
+
+/**
+ * Create a client for multiple workspaces (browser version).
+ * Initializes all workspaces in dependency order, returns an object mapping workspace IDs to clients.
+ *
+ * In browser environments, storageDir is always undefined (no filesystem access).
+ *
+ * @param workspaces - Array of workspace configurations to initialize
+ * @returns Initialized client with access to all workspace exports by workspace ID
+ *
+ * @example
+ * ```typescript
+ * await using client = await createClient([blogWorkspace, authWorkspace]);
+ * await client.blog.createPost({ title: 'Hello' });
+ * ```
+ */
+export async function createClient<
+	const TConfigs extends readonly AnyWorkspaceConfig[],
+>(workspaces: TConfigs): Promise<EpicenterClient<TConfigs>>;
+
+export async function createClient(
+	input: AnyWorkspaceConfig | readonly AnyWorkspaceConfig[],
+): Promise<WorkspaceClient<any> | EpicenterClient<any>> {
+	if (Array.isArray(input)) {
+		validateWorkspaces(input);
+
+		const clients = await initializeWorkspaces(input, undefined, undefined);
+
+		const cleanup = async () => {
+			await Promise.all(
+				Object.values(clients).map((workspaceClient: WorkspaceClient<any>) =>
+					workspaceClient.destroy(),
+				),
+			);
+		};
+
+		return {
+			...clients,
+			destroy: cleanup,
+			[Symbol.asyncDispose]: cleanup,
+		} as EpicenterClient<any>;
+	}
+
+	const workspace = input as WorkspaceConfig;
 	const allWorkspaceConfigs: WorkspaceConfig[] = [];
 
 	if (workspace.dependencies) {
@@ -46,14 +103,12 @@ export async function createWorkspaceClient<
 			...(workspace.dependencies as unknown as WorkspaceConfig[]),
 		);
 	}
+	allWorkspaceConfigs.push(workspace);
 
-	allWorkspaceConfigs.push(workspace as unknown as WorkspaceConfig);
-
-	// Browser: no storage directory resolution
 	const clients = await initializeWorkspaces(
 		allWorkspaceConfigs,
-		undefined, // storageDir is always undefined in browser
-		undefined, // epicenterDir is always undefined in browser
+		undefined,
+		undefined,
 	);
 
 	const workspaceClient = clients[workspace.id as keyof typeof clients];
@@ -63,5 +118,5 @@ export async function createWorkspaceClient<
 		);
 	}
 
-	return workspaceClient as WorkspaceClient<TExports>;
+	return workspaceClient as WorkspaceClient<any>;
 }

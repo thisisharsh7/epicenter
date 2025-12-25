@@ -2,15 +2,9 @@
  * Node.js-specific epicenter exports.
  *
  * This file is selected by bundlers when the "node" condition is matched.
+ * After the API consolidation, this module only exports action iteration utilities.
  */
 
-// Runtime - node version
-export { createEpicenterClient } from './client.node';
-// Types from shared (no platform-specific code)
-export type { ActionInfo, EpicenterClient } from './client.shared';
-// Runtime utilities (shared)
+// Action iteration utilities (shared)
+export type { ActionInfo } from './client.shared';
 export { iterActions } from './client.shared';
-
-// Config types and definition (node-specific - includes storageDir)
-export type { EpicenterConfig } from './config.node';
-export { defineEpicenter } from './config.node';

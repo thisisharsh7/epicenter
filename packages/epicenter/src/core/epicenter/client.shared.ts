@@ -1,47 +1,15 @@
 /**
- * Shared epicenter client types and utilities.
+ * Shared epicenter client utilities.
  *
- * Contains platform-agnostic types and utilities for the epicenter client.
- * Platform-specific entry points (client.browser.ts, client.node.ts) provide
- * the createEpicenterClient function with appropriate storage resolution.
+ * Provides platform-agnostic utilities for working with EpicenterClient instances,
+ * specifically for traversing and collecting actions across all workspaces.
+ *
+ * The actual createClient function is in workspace/client.{node,browser}.ts,
+ * which handles both single-workspace and multi-workspace initialization.
  */
-
 import { type Action, type WorkspaceExports, walkActions } from '../actions';
 import type { AnyWorkspaceConfig, WorkspaceClient } from '../workspace';
-import type { WorkspacesToClients } from '../workspace/client.shared';
-
-/**
- * Epicenter client type
- * Maps workspace ids to their exports
- * Provides typed access to all workspace exports
- */
-export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
-	WorkspacesToClients<TWorkspaces> & {
-		/**
-		 * Async cleanup method for resource management
-		 * Destroys all workspaces in this epicenter
-		 *
-		 * Call manually for explicit control:
-		 * ```typescript
-		 * const client = await createEpicenterClient(config);
-		 * // ... use client ...
-		 * await client.destroy();
-		 * ```
-		 */
-		destroy: () => Promise<void>;
-
-		/**
-		 * Async disposal for `await using` syntax (TC39 Explicit Resource Management)
-		 *
-		 * Use for automatic cleanup when scope exits:
-		 * ```typescript
-		 * await using client = await createEpicenterClient(config);
-		 * // ... use client ...
-		 * // cleanup happens automatically when scope exits
-		 * ```
-		 */
-		[Symbol.asyncDispose]: () => Promise<void>;
-	};
+import type { EpicenterClient } from '../workspace/client.shared';
 
 /** Info about an action collected from the client hierarchy */
 export type ActionInfo = {
