@@ -109,7 +109,6 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	const epicenter = defineEpicenter({
-		id: 'cli-e2e-test',
 		storageDir: TEST_DIR,
 		workspaces: [testWorkspace],
 	});

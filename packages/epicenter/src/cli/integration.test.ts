@@ -43,7 +43,6 @@ describe('CLI Integration', () => {
 	});
 
 	const epicenter = defineEpicenter({
-		id: 'test-cli-epicenter',
 		workspaces: [testWorkspace],
 	});
 

@@ -67,12 +67,12 @@ describe('loadEpicenterConfig', () => {
 		const configPath = path.join(testDir, 'epicenter.config.js');
 		await writeFile(
 			configPath,
-			`module.exports = { id: 'test-config', workspaces: [] };`,
+			`module.exports = { workspaces: [{ id: 'test-workspace', exports: () => ({}) }] };`,
 		);
 
 		const result = await loadEpicenterConfig(testDir);
-		expect(result.config.id).toBe('test-config');
 		expect(Array.isArray(result.config.workspaces)).toBe(true);
+		expect(result.config.workspaces[0].id).toBe('test-workspace');
 		expect(result.configPath).toBe(configPath);
 	});
 
@@ -80,24 +80,24 @@ describe('loadEpicenterConfig', () => {
 		const configPath = path.join(testDir, 'epicenter.config.mjs');
 		await writeFile(
 			configPath,
-			`export default { id: 'test-esm-config', workspaces: [] };`,
+			`export default { workspaces: [{ id: 'esm-workspace', exports: () => ({}) }] };`,
 		);
 
 		const result = await loadEpicenterConfig(testDir);
-		expect(result.config.id).toBe('test-esm-config');
+		expect(result.config.workspaces[0].id).toBe('esm-workspace');
 	});
 
 	test('prefers .ts over other extensions when multiple exist', async () => {
 		await writeFile(
 			path.join(testDir, 'epicenter.config.ts'),
-			`module.exports = { id: 'typescript-config', workspaces: [] };`,
+			`module.exports = { workspaces: [{ id: 'ts-workspace', exports: () => ({}) }] };`,
 		);
 		await writeFile(
 			path.join(testDir, 'epicenter.config.js'),
-			`module.exports = { id: 'javascript-config', workspaces: [] };`,
+			`module.exports = { workspaces: [{ id: 'js-workspace', exports: () => ({}) }] };`,
 		);
 
 		const result = await loadEpicenterConfig(testDir);
-		expect(result.config.id).toBe('typescript-config');
+		expect(result.config.workspaces[0].id).toBe('ts-workspace');
 	});
 });

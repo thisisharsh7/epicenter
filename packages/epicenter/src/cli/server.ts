@@ -21,7 +21,7 @@ export async function startServer(
 	config: EpicenterConfig,
 	options: ServeOptions = {},
 ): Promise<void> {
-	console.log(`🔨 Creating HTTP server for app: ${config.id}`);
+	console.log(`🔨 Creating HTTP server for epicenter...`);
 
 	const { app, client } = await createServer(config);
 	const port =
@@ -49,7 +49,7 @@ export async function startServer(
 
 	console.log('\n🔧 Connect to Claude Code:\n');
 	console.log(
-		`  claude mcp add ${config.id} --transport http --scope user http://localhost:${port}/mcp\n`,
+		`  claude mcp add my-epicenter --transport http --scope user http://localhost:${port}/mcp\n`,
 	);
 
 	console.log('📦 Available Tools:\n');

@@ -13,7 +13,6 @@ import type { AnyWorkspaceConfig } from '../workspace';
  * @example
  * ```typescript
  * const epicenter = defineEpicenter({
- *   id: 'my-app',
  *   workspaces: [pages, contentHub, auth],
  * });
  *
@@ -26,18 +25,9 @@ import type { AnyWorkspaceConfig } from '../workspace';
  * ```
  */
 export type EpicenterConfigBase<
-	TId extends string = string,
 	TWorkspaces extends
 		readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 > = {
-	/**
-	 * Unique identifier for this epicenter instance
-	 * Used to distinguish between different epicenter configurations
-	 *
-	 * @example 'my-app', 'content-platform', 'analytics-dashboard'
-	 */
-	id: TId;
-
 	/**
 	 * Array of workspace configurations to compose
 	 * Each workspace will be initialized and made available in the client
@@ -63,13 +53,8 @@ export type EpicenterConfigBase<
  * @throws {Error} If configuration is invalid
  */
 export function validateEpicenterConfig(
-	config: EpicenterConfigBase<string, readonly AnyWorkspaceConfig[]>,
+	config: EpicenterConfigBase<readonly AnyWorkspaceConfig[]>,
 ): void {
-	// Validate epicenter ID
-	if (!config.id || typeof config.id !== 'string') {
-		throw new Error('Epicenter must have a valid string ID');
-	}
-
 	// Validate workspaces array
 	if (!Array.isArray(config.workspaces)) {
 		throw new Error('Workspaces must be an array of workspace configs');

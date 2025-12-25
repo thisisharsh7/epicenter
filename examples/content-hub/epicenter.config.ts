@@ -25,7 +25,6 @@ import { whispering } from './whispering/whispering.workspace';
  * - CLI auto-generation
  */
 export default defineEpicenter({
-	id: 'content-hub',
 	workspaces: [
 		// Central content repository
 		pages,

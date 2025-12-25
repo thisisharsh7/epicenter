@@ -48,7 +48,7 @@ export function generateJsonSchema(schema: StandardJSONSchemaV1): JsonSchema {
 		// permissive empty schema `{}` that accepts any input.
 		catch: (e) => {
 			console.warn(
-				'[safeToJsonSchema] Conversion failure, using permissive fallback:',
+				'[generateJsonSchema] Conversion failure, using permissive fallback:',
 				e,
 			);
 			return Ok({} satisfies JsonSchema);

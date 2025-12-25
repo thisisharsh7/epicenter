@@ -17,10 +17,9 @@ import {
  * Extends base config with storageDir for filesystem-based storage.
  */
 export type EpicenterConfig<
-	TId extends string = string,
 	TWorkspaces extends
 		readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
-> = EpicenterConfigBase<TId, TWorkspaces> & {
+> = EpicenterConfigBase<TWorkspaces> & {
 	/**
 	 * Base directory for all Epicenter storage (databases, markdown files, persistence)
 	 *
@@ -55,18 +54,14 @@ export type EpicenterConfig<
  * @example
  * ```typescript
  * export const epicenter = defineEpicenter({
- *   id: 'my-app',
  *   storageDir: './data',
  *   workspaces: [pages, contentHub],
  * });
  * ```
  */
 export function defineEpicenter<
-	const TId extends string,
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	config: EpicenterConfig<TId, TWorkspaces>,
-): EpicenterConfig<TId, TWorkspaces> {
+>(config: EpicenterConfig<TWorkspaces>): EpicenterConfig<TWorkspaces> {
 	validateEpicenterConfig(config);
 	return config;
 }

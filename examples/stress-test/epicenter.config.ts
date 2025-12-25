@@ -91,6 +91,5 @@ const stressWorkspace = defineWorkspace({
 });
 
 export default defineEpicenter({
-	id: 'stress-test',
 	workspaces: [stressWorkspace],
 });
