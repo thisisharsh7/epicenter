@@ -5,7 +5,6 @@ import { Ok } from 'wellcrafted/result';
 import {
 	boolean,
 	createServer,
-	defineEpicenter,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -97,15 +96,13 @@ describe('Server Integration Tests', () => {
 	});
 
 	describe('Single Workspace Server', () => {
-		const singleWorkspaceEpicenter = defineEpicenter({
-			workspaces: [blogWorkspace],
-		});
+		const workspaces = [blogWorkspace] as const;
 
 		let _app: Awaited<ReturnType<typeof createServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {
-			const { app, websocket } = await createServer(singleWorkspaceEpicenter);
+			const { app, websocket } = await createServer(workspaces);
 			server = Bun.serve({
 				fetch: app.fetch,
 				websocket,
@@ -269,15 +266,13 @@ describe('Server Integration Tests', () => {
 			}),
 		});
 
-		const epicenter = defineEpicenter({
-			workspaces: [blogWorkspace, authWorkspace],
-		});
+		const workspaces = [blogWorkspace, authWorkspace] as const;
 
 		let _app: Awaited<ReturnType<typeof createServer>>['app'];
 		let server: any;
 
 		beforeAll(async () => {
-			const { app, websocket } = await createServer(epicenter);
+			const { app, websocket } = await createServer(workspaces);
 			server = Bun.serve({
 				fetch: app.fetch,
 				websocket,

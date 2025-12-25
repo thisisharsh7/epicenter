@@ -17,7 +17,6 @@ import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 import {
 	createServer,
-	defineEpicenter,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -53,15 +52,13 @@ describe('y-websocket Client Compatibility', () => {
 		}),
 	});
 
-	const epicenter = defineEpicenter({
-		workspaces: [notesWorkspace],
-	});
+	const workspaces = [notesWorkspace] as const;
 
 	let server: { stop: () => void; port: number };
 	let wsUrl: string;
 
 	beforeAll(async () => {
-		const { app } = await createServer(epicenter);
+		const { app } = await createServer(workspaces);
 		const elysiaServer = app.listen(0);
 		const port = elysiaServer.server!.port;
 

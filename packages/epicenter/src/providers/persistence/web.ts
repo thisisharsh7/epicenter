@@ -43,11 +43,11 @@ import type { Provider } from '../../core/provider';
  *
  * @example In a Svelte/React component
  * ```typescript
- * import { createWorkspaceClient } from '@epicenter/hq';
+ * import { createClient } from '@epicenter/hq';
  * import { workspace } from './workspace-config';
  *
  * // Inside component setup/onMount:
- * const client = await createWorkspaceClient(workspace);
+ * const client = await createClient(workspace);
  *
  * // Data persists across page refreshes!
  * // Check DevTools → Application → IndexedDB to see the database

@@ -1,23 +1,21 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
-// import { mcp } from 'elysia-mcp';
 import { Err, isResult, Ok } from 'wellcrafted/result';
 import type { WorkspaceExports } from '../core/actions';
-import {
-	createEpicenterClient,
-	type EpicenterConfig,
-	iterActions,
-} from '../core/epicenter';
+import { iterActions } from '../core/epicenter';
 import type {
 	AnyWorkspaceConfig,
 	WorkspaceClient,
 	WorkspacesToClients,
 } from '../core/workspace';
+import {
+	type CreateClientOptions,
+	createClient,
+} from '../core/workspace/client.node';
 import { createSyncPlugin } from './sync';
-// import { buildMcpToolRegistry, setupMcpTools } from './mcp';
 
 /**
- * Create a unified server with REST, WebSocket sync, and API documentation endpoints
+ * Create a unified server with REST, WebSocket sync, and API documentation endpoints.
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
@@ -31,55 +29,38 @@ import { createSyncPlugin } from './sync';
  * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
  * - `/workspaces/{workspaceId}/{action}` - Workspace actions
  *
- * The function initializes the Epicenter client, registers REST routes for all workspace actions,
- * and configures an MCP server instance for protocol-based access.
- *
- * @param config - Epicenter configuration with workspaces
- * @returns Object containing the Elysia app and Epicenter client
+ * @param workspaces - Array of workspace configurations
+ * @param options - Optional client options (e.g., storageDir)
+ * @returns Object containing the Elysia app and initialized client
  *
  * @example
  * ```typescript
- * import { defineEpicenter } from '@epicenter/core';
- * import { createServer } from '@epicenter/core/server';
+ * import { createServer } from '@epicenter/hq';
  * import { blogWorkspace } from './workspaces/blog';
  *
- * const epicenter = defineEpicenter({
- *   id: 'my-app',
- *   workspaces: [blogWorkspace],
- * });
- *
- * const { app, client } = await createServer(epicenter);
+ * const { app, client } = await createServer([blogWorkspace]);
  *
  * app.listen(3913);
  *
  * // Access at:
  * // - http://localhost:3913/openapi (Scalar UI)
- * // - http://localhost:3913/openapi/json (OpenAPI spec)
- * // - http://localhost:3913/mcp (MCP endpoint)
+ * // - http://localhost:3913/workspaces/blog/createPost (REST)
+ * // - ws://localhost:3913/sync/blog (WebSocket sync)
  * ```
  */
 export async function createServer<
-	TId extends string,
-	TWorkspaces extends readonly AnyWorkspaceConfig[],
->(config: EpicenterConfig<TId, TWorkspaces>) {
-	// Create client
-	const client = await createEpicenterClient(config);
+	const TWorkspaces extends readonly AnyWorkspaceConfig[],
+>(workspaces: TWorkspaces, options?: CreateClientOptions) {
+	const client = await createClient(workspaces, options);
 
-	// TODO: MCP integration commented out pending custom implementation
-	// The elysia-mcp package only supports Zod schemas, but we use arktype.
-	// See specs/20251206T010000-remove-elysia-mcp.md for the plan.
-	// const toolRegistry = await buildMcpToolRegistry(client);
-
-	// Create Elysia app with plugins
 	const app = new Elysia()
-		// OpenAPI documentation (Scalar UI at /openapi)
 		.use(
 			openapi({
 				// Embed spec directly in HTML to avoid fetch issues
 				embedSpec: true,
 				documentation: {
 					info: {
-						title: `${config.id} API`,
+						title: 'Epicenter API',
 						version: '1.0.0',
 						description: 'API documentation for Epicenter workspaces',
 					},
@@ -118,7 +99,7 @@ export async function createServer<
 		)
 		// Health check / discovery
 		.get('/', () => ({
-			name: `${config.id} API`,
+			name: 'Epicenter API',
 			version: '1.0.0',
 			docs: '/openapi',
 		}));
@@ -156,10 +137,7 @@ export async function createServer<
 					},
 					{
 						...(action.input ? { query: action.input } : {}),
-						detail: {
-							description: action.description,
-							tags,
-						},
+						detail: { description: action.description, tags },
 					},
 				);
 				break;
@@ -183,10 +161,7 @@ export async function createServer<
 					},
 					{
 						...(action.input ? { body: action.input } : {}),
-						detail: {
-							description: action.description,
-							tags,
-						},
+						detail: { description: action.description, tags },
 					},
 				);
 				break;

@@ -3,7 +3,6 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import {
 	createServer,
-	defineEpicenter,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -64,16 +63,14 @@ describe('WebSocket Sync Integration Tests', () => {
 		}),
 	});
 
-	const epicenter = defineEpicenter({
-		workspaces: [notesWorkspace],
-	});
+	const workspaces = [notesWorkspace] as const;
 
 	let server: { stop: () => void; port: number };
 	let serverUrl: string;
 	let wsUrl: string;
 
 	beforeAll(async () => {
-		const { app } = await createServer(epicenter);
+		const { app } = await createServer(workspaces);
 		const elysiaServer = app.listen(0);
 		const port = elysiaServer.server!.port;
 
