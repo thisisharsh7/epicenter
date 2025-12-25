@@ -63,9 +63,9 @@
 	 * @param formatString - date-fns format string
 	 */
 	function formattedCell(formatString: string) {
-		return ({ getValue }: { getValue: () => string }) => {
+		return ({ getValue }: { getValue: () => unknown }) => {
 			const value = getValue();
-			if (!value) return '';
+			if (typeof value !== 'string' || !value) return '';
 			const date = new Date(value);
 			if (Number.isNaN(date.getTime())) return value;
 			try {
@@ -514,7 +514,8 @@
 						onclick={() => {
 							confirmationDialog.open({
 								title: 'Delete recordings',
-								description: 'Are you sure you want to delete these recordings?',
+								description:
+									'Are you sure you want to delete these recordings?',
 								confirm: { text: 'Delete', variant: 'destructive' },
 								onConfirm: async () => {
 									const { error } = await rpc.db.recordings.delete.execute(
@@ -530,7 +531,8 @@
 									}
 									rpc.notify.success.execute({
 										title: 'Deleted recordings!',
-										description: 'Your recordings have been deleted successfully.',
+										description:
+											'Your recordings have been deleted successfully.',
 									});
 								},
 							});
