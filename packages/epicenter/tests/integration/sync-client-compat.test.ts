@@ -10,11 +10,12 @@
  * For protocol-level tests, see protocol.test.ts.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { Ok } from 'wellcrafted/result';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
+import { createClient } from '../../src/core/workspace/client.node';
 import {
 	createServer,
 	defineMutation,
@@ -58,7 +59,8 @@ describe('y-websocket Client Compatibility', () => {
 	let wsUrl: string;
 
 	beforeAll(async () => {
-		const { app } = await createServer(workspaces);
+		const client = await createClient(workspaces);
+		const { app } = createServer(client);
 		const elysiaServer = app.listen(0);
 		const port = elysiaServer.server!.port;
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+import { createClient } from '../core/workspace/client.node';
 import { defineMutation, defineWorkspace, id, text } from '../index.node';
 import { sqliteProvider } from '../indexes/sqlite';
 import { createCLI } from './cli';
@@ -44,10 +45,12 @@ describe('CLI Integration', () => {
 	const workspaces = [testWorkspace] as const;
 
 	test('CLI can be created from workspaces array', async () => {
-		await createCLI({ workspaces, argv: ['--help'] });
+		const client = await createClient(workspaces);
+		await createCLI(client).run(['--help']);
 	});
 
 	test('CLI runs workspace command', async () => {
-		await createCLI({ workspaces, argv: ['test', '--help'] });
+		const client = await createClient(workspaces);
+		await createCLI(client).run(['test', '--help']);
 	});
 });

@@ -4,18 +4,21 @@ import { Err, isResult, Ok } from 'wellcrafted/result';
 import type { WorkspaceExports } from '../core/actions';
 import type {
 	AnyWorkspaceConfig,
+	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
 } from '../core/workspace';
 import { iterActions } from '../core/workspace';
-import {
-	type CreateClientOptions,
-	createClient,
-} from '../core/workspace/client.node';
 import { createSyncPlugin } from './sync';
 
+export const DEFAULT_PORT = 3913;
+
+export type StartServerOptions = {
+	port?: number;
+};
+
 /**
- * Create a unified server with REST, WebSocket sync, and API documentation endpoints.
+ * Create a server from an initialized Epicenter client.
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
@@ -29,18 +32,18 @@ import { createSyncPlugin } from './sync';
  * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
  * - `/workspaces/{workspaceId}/{action}` - Workspace actions
  *
- * @param workspaces - Array of workspace configurations
- * @param options - Optional client options (e.g., storageDir)
- * @returns Object containing the Elysia app and initialized client
+ * @param client - Initialized Epicenter client from createClient()
+ * @returns Object with Elysia app and start method
  *
  * @example
  * ```typescript
- * import { createServer } from '@epicenter/hq';
+ * import { createClient, createServer } from '@epicenter/hq';
  * import { blogWorkspace } from './workspaces/blog';
  *
- * const { app, client } = await createServer([blogWorkspace]);
+ * const client = await createClient([blogWorkspace]);
+ * const server = createServer(client);
  *
- * app.listen(3913);
+ * server.start({ port: 3913 });
  *
  * // Access at:
  * // - http://localhost:3913/openapi (Scalar UI)
@@ -48,15 +51,12 @@ import { createSyncPlugin } from './sync';
  * // - ws://localhost:3913/sync/blog (WebSocket sync)
  * ```
  */
-export async function createServer<
+export function createServer<
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(workspaces: TWorkspaces, options?: CreateClientOptions) {
-	const client = await createClient(workspaces, options);
-
+>(client: EpicenterClient<TWorkspaces>) {
 	const app = new Elysia()
 		.use(
 			openapi({
-				// Embed spec directly in HTML to avoid fetch issues
 				embedSpec: true,
 				documentation: {
 					info: {
@@ -67,29 +67,9 @@ export async function createServer<
 				},
 			}),
 		)
-		// TODO: MCP endpoint at /mcp (commented out pending custom implementation)
-		// .use(
-		// 	mcp({
-		// 		basePath: '/mcp',
-		// 		serverInfo: {
-		// 			name: config.id,
-		// 			version: '1.0.0',
-		// 		},
-		// 		capabilities: {
-		// 			tools: {},
-		// 		},
-		// 		setupServer: (server) => {
-		// 			setupMcpTools(server, toolRegistry);
-		// 		},
-		// 	}),
-		// )
-		// WebSocket sync endpoint at /sync/{workspaceId}
 		.use(
 			createSyncPlugin({
 				getDoc: (room) => {
-					// Room name is the workspace ID
-					// Type assertion needed because TypeScript can't prove the generic
-					// WorkspacesToClients mapping resolves to WorkspaceClient
 					const workspace = client[
 						room as keyof WorkspacesToClients<TWorkspaces>
 					] as WorkspaceClient<WorkspaceExports> | undefined;
@@ -97,20 +77,14 @@ export async function createServer<
 				},
 			}),
 		)
-		// Health check / discovery
 		.get('/', () => ({
 			name: 'Epicenter API',
 			version: '1.0.0',
 			docs: '/openapi',
 		}));
 
-	// Register REST endpoints for each workspace action
-	// Supports nested exports: actionPath like ['users', 'crud', 'create']
-	// becomes route path '/workspaces/workspace/users/crud/create'
 	for (const { workspaceId, actionPath, action } of iterActions(client)) {
 		const path = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
-
-		// Tag with both workspace and operation type for multi-dimensional grouping
 		const operationType = (
 			{ query: 'queries', mutation: 'mutations' } as const
 		)[action.type];
@@ -118,21 +92,15 @@ export async function createServer<
 
 		switch (action.type) {
 			case 'query':
-				// Queries use GET with query parameters
 				app.get(
 					path,
 					async ({ query, status }) => {
-						// Execute action with validated input
 						const result = await action(action.input ? query : undefined);
-
-						// Handle both Result types and raw values
 						if (isResult(result)) {
 							const { data, error } = result;
 							if (error) return status('Internal Server Error', Err(error));
 							return Ok(data);
 						}
-
-						// Raw value from handler that can't fail
 						return result;
 					},
 					{
@@ -142,21 +110,15 @@ export async function createServer<
 				);
 				break;
 			case 'mutation':
-				// Mutations use POST with JSON body
 				app.post(
 					path,
 					async ({ body, status }) => {
-						// Execute action with validated input
 						const result = await action(action.input ? body : undefined);
-
-						// Handle both Result types and raw values
 						if (isResult(result)) {
 							const { data, error } = result;
 							if (error) return status('Internal Server Error', Err(error));
 							return Ok(data);
 						}
-
-						// Raw value from handler that can't fail
 						return result;
 					},
 					{
@@ -169,9 +131,78 @@ export async function createServer<
 	}
 
 	return {
-		/** Elysia web server instance */
 		app,
-		/** Epicenter client with initialized workspaces and actions */
-		client,
+
+		start(options: StartServerOptions = {}) {
+			const port =
+				options.port ??
+				Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
+
+			console.log('🔨 Creating HTTP server for epicenter...');
+
+			const server = Bun.serve({
+				fetch: app.fetch,
+				port,
+			});
+
+			console.log('\n🚀 Epicenter HTTP Server Running!\n');
+			console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+			console.log(`📍 Server: http://localhost:${port}`);
+			console.log(`📖 Scalar Docs: http://localhost:${port}/scalar`);
+			console.log(`📄 OpenAPI Spec: http://localhost:${port}/openapi`);
+			console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
+
+			console.log('📚 REST API Endpoints:\n');
+			for (const { workspaceId, actionPath, action } of iterActions(client)) {
+				const method = ({ query: 'GET', mutation: 'POST' } as const)[
+					action.type
+				];
+				const restPath = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
+				console.log(`  ${method} http://localhost:${port}${restPath}`);
+			}
+
+			console.log('\n🔧 Connect to Claude Code:\n');
+			console.log(
+				`  claude mcp add my-epicenter --transport http --scope user http://localhost:${port}/mcp\n`,
+			);
+
+			console.log('📦 Available Tools:\n');
+			const actionsByWorkspace = Object.groupBy(
+				iterActions(client),
+				(info) => info.workspaceId,
+			);
+
+			for (const [workspaceId, actions] of Object.entries(actionsByWorkspace)) {
+				console.log(`  • ${workspaceId}`);
+				for (const { actionPath } of actions ?? []) {
+					const mcpToolName = [workspaceId, ...actionPath].join('_');
+					console.log(`    └─ ${mcpToolName}`);
+				}
+				console.log();
+			}
+
+			console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+			console.log('Server is running. Press Ctrl+C to stop.\n');
+
+			let isShuttingDown = false;
+
+			const shutdown = async (signal: string) => {
+				if (isShuttingDown) return;
+				isShuttingDown = true;
+
+				console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+
+				server.stop();
+				await client.destroy();
+
+				console.log('✅ Server stopped cleanly\n');
+				process.exit(0);
+			};
+
+			process.on('SIGINT', () => shutdown('SIGINT'));
+			process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+			return server;
+		},
 	};
 }

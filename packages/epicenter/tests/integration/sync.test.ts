@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+import { createClient } from '../../src/core/workspace/client.node';
 import {
 	createServer,
 	defineMutation,
@@ -70,7 +71,8 @@ describe('WebSocket Sync Integration Tests', () => {
 	let wsUrl: string;
 
 	beforeAll(async () => {
-		const { app } = await createServer(workspaces);
+		const client = await createClient(workspaces);
+		const { app } = createServer(client);
 		const elysiaServer = app.listen(0);
 		const port = elysiaServer.server!.port;
 
@@ -88,7 +90,7 @@ describe('WebSocket Sync Integration Tests', () => {
 		expect(response.status).toBe(200);
 
 		const data = await response.json();
-		expect(data.name).toBe('sync-test-app API');
+		expect(data.name).toBe('Epicenter API');
 	});
 
 	test('WebSocket sync endpoint connects for valid workspace', async () => {
