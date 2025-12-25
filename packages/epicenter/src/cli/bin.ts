@@ -16,10 +16,13 @@ async function main() {
 			await enableWatchMode();
 
 			// Normal execution (running under bun --watch)
-			const { config } = await loadEpicenterConfig(process.cwd());
+			const { workspaces } = await loadEpicenterConfig(process.cwd());
 
 			// Create and run the CLI
-			await createCLI({ config, argv: hideBin(process.argv) });
+			await createCLI({
+				workspaces,
+				argv: hideBin(process.argv),
+			});
 		},
 		catch: (error) => {
 			if (error instanceof Error) {

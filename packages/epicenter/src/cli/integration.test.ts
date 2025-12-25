@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { defineEpicenter } from '../core/epicenter';
 import { defineMutation, defineWorkspace, id, text } from '../index.node';
 import { sqliteProvider } from '../indexes/sqlite';
 import { createCLI } from './cli';
@@ -42,19 +41,13 @@ describe('CLI Integration', () => {
 		}),
 	});
 
-	const epicenter = defineEpicenter({
-		workspaces: [testWorkspace],
+	const workspaces = [testWorkspace] as const;
+
+	test('CLI can be created from workspaces array', async () => {
+		await createCLI({ workspaces, argv: ['--help'] });
 	});
 
-	test('CLI can be created from epicenter config', async () => {
-		const cli = await createCLI({ config: epicenter, argv: [] });
-		expect(cli).toBeDefined();
-	});
-
-	test('creates CLI with proper command structure', async () => {
-		const cli = await createCLI({ config: epicenter, argv: [] });
-
-		// Verify CLI has basic yargs structure
-		expect(cli.parse).toBeDefined();
+	test('CLI runs workspace command', async () => {
+		await createCLI({ workspaces, argv: ['test', '--help'] });
 	});
 });

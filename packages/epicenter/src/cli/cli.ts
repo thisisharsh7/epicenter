@@ -2,13 +2,19 @@ import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import yargs from 'yargs';
 import { walkActions } from '../core/actions';
-import type { EpicenterConfig } from '../core/epicenter';
-import { createEpicenterClient } from '../core/epicenter';
+import type { AnyWorkspaceConfig } from '../core/workspace';
+import {
+	createClient,
+	type CreateClientOptions,
+	type WorkspaceClient,
+} from '../core/workspace/client.node';
 import { DEFAULT_PORT, startServer } from './server';
 import { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
 
+export type CreateCLIOptions = CreateClientOptions;
+
 /**
- * Create and run CLI from Epicenter config.
+ * Create and run CLI from workspace configurations.
  *
  * This function:
  * 1. Initializes workspaces (with persistence, sync providers)
@@ -17,36 +23,35 @@ import { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
  * 4. Cleans up workspaces after command execution (including on Ctrl+C)
  *
  * The client lifecycle is managed internally to ensure persistence providers
- * remain active throughout command execution. This is critical because:
- * - YJS persistence uses `ydoc.on('update', ...)` observers
- * - Observers are removed when `ydoc.destroy()` is called
- * - Commands that modify data need active observers to persist changes
+ * remain active throughout command execution.
  *
- * @param config - Epicenter configuration
+ * @param workspaces - Array of workspace configurations
  * @param argv - Array of command-line arguments to parse
+ * @param options - Optional client options (e.g., storageDir)
  *
  * @example
  * ```typescript
  * // In production (bin.ts)
  * import { hideBin } from 'yargs/helpers';
- * await createCLI({ config, argv: hideBin(process.argv) });
+ * await createCLI({ workspaces, argv: hideBin(process.argv) });
  *
  * // In tests
- * await createCLI({ config, argv: ['posts', 'createPost', '--title', 'Test'] });
+ * await createCLI({ workspaces, argv: ['posts', 'createPost', '--title', 'Test'] });
  * ```
  */
-export async function createCLI({
-	config,
+export async function createCLI<
+	const TWorkspaces extends readonly AnyWorkspaceConfig[],
+>({
+	workspaces,
 	argv,
+	options,
 }: {
-	config: EpicenterConfig;
+	workspaces: TWorkspaces;
 	argv: string[];
+	options?: CreateCLIOptions;
 }): Promise<void> {
-	// Initialize Epicenter client
-	// Manual cleanup ensures we can handle both normal exit and signal interrupts
-	const client = await createEpicenterClient(config);
+	const client = await createClient(workspaces, options);
 
-	// Handle graceful shutdown on Ctrl+C (SIGINT) and kill (SIGTERM)
 	const cleanup = async () => {
 		await client.destroy();
 		process.exit(0);
@@ -54,7 +59,6 @@ export async function createCLI({
 	process.on('SIGINT', cleanup);
 	process.on('SIGTERM', cleanup);
 
-	// Create yargs instance
 	let cli = yargs(argv)
 		.scriptName('epicenter')
 		.usage('Usage: $0 [command] [options]')
@@ -62,7 +66,6 @@ export async function createCLI({
 		.version()
 		.strict();
 
-	// Default command: start the server
 	cli = cli.command(
 		'$0',
 		'Start HTTP server with REST and MCP endpoints',
@@ -74,19 +77,17 @@ export async function createCLI({
 			});
 		},
 		async (argv) => {
-			await startServer(config, {
-				port: argv.port,
-			});
+			await startServer(workspaces, { ...options, port: argv.port });
 		},
 	);
 
-	// Register each workspace as a command
-	for (const workspaceConfig of config.workspaces) {
+	for (const workspaceConfig of workspaces) {
 		const workspaceId = workspaceConfig.id;
-		// biome-ignore lint/style/noNonNullAssertion: client was created from config.workspaces, so workspaceId exists in client
-		const workspaceClient = client[workspaceId]!;
+		// Cast to indexed access since we know workspaceId exists (client was created from workspaces)
+		const workspaceClient = (client as Record<string, WorkspaceClient<any>>)[
+			workspaceId
+		]!;
 
-		// Extract exports (exclude cleanup methods)
 		const {
 			destroy: _,
 			[Symbol.asyncDispose]: __,
@@ -102,8 +103,6 @@ export async function createCLI({
 					.demandCommand(1, 'You must specify an action')
 					.strict();
 
-				// Register each action as a subcommand (supports nested namespaces)
-				// Nested paths like ['users', 'crud', 'create'] become 'users_crud_create'
 				for (const { path, action } of walkActions(workspaceExports)) {
 					const actionName = path.join('_');
 					workspaceCli = workspaceCli.command(
@@ -116,17 +115,12 @@ export async function createCLI({
 							return yargs;
 						},
 						async (argv) => {
-							// Handler: execute action directly (action reference is captured in closure)
 							try {
-								// Extract input from args (remove yargs metadata)
 								const { _, $0, ...input } = argv;
-
-								// Execute the action (may return Result or raw data)
 								const maybeResult = (await action(input)) as
 									| Result<unknown, TaggedError>
 									| unknown;
 
-								// Extract data and error channels using isResult pattern
 								const outputChannel = isResult(maybeResult)
 									? maybeResult.data
 									: maybeResult;
@@ -134,13 +128,11 @@ export async function createCLI({
 									? (maybeResult.error as TaggedError)
 									: undefined;
 
-								// Handle error case
 								if (errorChannel) {
 									console.error('❌ Error:', errorChannel.message);
 									process.exit(1);
 								}
 
-								// Handle success
 								console.log('✅ Success:');
 								console.log(JSON.stringify(outputChannel, null, 2));
 							} catch (error) {
@@ -156,13 +148,9 @@ export async function createCLI({
 		);
 	}
 
-	// Parse and execute the command
-	// Client remains active throughout command execution
 	try {
 		await cli.parse();
 	} finally {
-		// Clean up on normal exit
-		// Remove signal handlers to avoid double-cleanup
 		process.off('SIGINT', cleanup);
 		process.off('SIGTERM', cleanup);
 		await client.destroy();

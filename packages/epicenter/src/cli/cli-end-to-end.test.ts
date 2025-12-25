@@ -4,7 +4,6 @@ import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { defineEpicenter } from '../core/epicenter';
 import {
 	defineMutation,
 	defineQuery,
@@ -108,10 +107,8 @@ describe('CLI End-to-End Tests', () => {
 		}),
 	});
 
-	const epicenter = defineEpicenter({
-		storageDir: TEST_DIR,
-		workspaces: [testWorkspace],
-	});
+	const workspaces = [testWorkspace] as const;
+	const options = { storageDir: TEST_DIR };
 
 	beforeEach(async () => {
 		// Clean up test data
@@ -131,9 +128,9 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	test('CLI can create a post', async () => {
-		// createCLI parses and executes the command internally
 		await createCLI({
-			config: epicenter,
+			workspaces,
+			options,
 			argv: [
 				'posts',
 				'createPost',
@@ -155,7 +152,8 @@ describe('CLI End-to-End Tests', () => {
 	test('CLI can query posts', async () => {
 		// First create a post
 		await createCLI({
-			config: epicenter,
+			workspaces,
+			options,
 			argv: [
 				'posts',
 				'createPost',
@@ -171,7 +169,8 @@ describe('CLI End-to-End Tests', () => {
 
 		// Now query all posts
 		await createCLI({
-			config: epicenter,
+			workspaces,
+			options,
 			argv: ['posts', 'listPosts'],
 		});
 	});
@@ -179,7 +178,8 @@ describe('CLI End-to-End Tests', () => {
 	test('CLI handles missing required options', async () => {
 		try {
 			await createCLI({
-				config: epicenter,
+				workspaces,
+				options,
 				argv: ['posts', 'createPost', '--title', 'Missing Category'],
 			});
 			expect(false).toBe(true); // Should not reach here
@@ -199,7 +199,8 @@ describe('CLI End-to-End Tests', () => {
 		};
 
 		await createCLI({
-			config: epicenter,
+			workspaces,
+			options,
 			argv: [
 				'posts',
 				'createPost',

@@ -1,29 +1,32 @@
-import { type EpicenterConfig, iterActions } from '../core/epicenter';
+import { iterActions } from '../core/epicenter';
+import type { AnyWorkspaceConfig } from '../core/workspace';
+import type { CreateClientOptions } from '../core/workspace/client.node';
 import { createServer } from '../server/server';
 
 export const DEFAULT_PORT = 3913;
 
 /**
- * Options for the serve command
+ * Options for the serve command.
  */
-export type ServeOptions = {
+export type ServeOptions = CreateClientOptions & {
+	/** Port to run the server on. Defaults to 3913. */
 	port?: number;
 };
 
 /**
- * Start an HTTP server for the Epicenter app
- * Serves REST API endpoints and MCP over HTTP
+ * Start an HTTP server for the Epicenter app.
+ * Serves REST API endpoints and MCP over HTTP.
  *
- * @param config - Epicenter configuration
- * @param options - Server options
+ * @param workspaces - Array of workspace configurations
+ * @param options - Server options including port and storageDir
  */
-export async function startServer(
-	config: EpicenterConfig,
-	options: ServeOptions = {},
-): Promise<void> {
+export async function startServer<
+	const TWorkspaces extends readonly AnyWorkspaceConfig[],
+>(workspaces: TWorkspaces, options: ServeOptions = {}): Promise<void> {
 	console.log(`🔨 Creating HTTP server for epicenter...`);
 
-	const { app, client } = await createServer(config);
+	const { port: _, ...clientOptions } = options;
+	const { app, client } = await createServer(workspaces, clientOptions);
 	const port =
 		options.port ??
 		Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
