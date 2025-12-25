@@ -56,11 +56,8 @@ export { iterActions } from './client.shared';
  * ```
  */
 export async function createEpicenterClient<
-	const TId extends string,
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	config: EpicenterConfig<TId, TWorkspaces>,
-): Promise<EpicenterClient<TWorkspaces>> {
+>(config: EpicenterConfig<TWorkspaces>): Promise<EpicenterClient<TWorkspaces>> {
 	// Node.js: resolve storage directory and epicenter directory
 	const storageDir = path.resolve(
 		config.storageDir ?? process.cwd(),

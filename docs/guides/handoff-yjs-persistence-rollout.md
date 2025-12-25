@@ -7,6 +7,7 @@
 ## Executive Summary
 
 The `basic-workspace` example has been successfully updated with a complete YJS persistence pattern that provides:
+
 - Binary YJS persistence (CRDT source of truth)
 - Markdown index (git-friendly storage)
 - SQLite index (queryable snapshots)
@@ -62,6 +63,7 @@ project-root/
 ```
 
 **How It Works**:
+
 1. Each workspace is created with a unique `id` (e.g., `'blog'`, `'pages'`, `'content-hub'`)
 2. YJS creates a document with that ID as its GUID: `new Y.Doc({ guid: ws.id })`
 3. `setupYDoc` callback uses the workspace ID to create a unique filename: `.epicenter/${id}.yjs`
@@ -109,7 +111,7 @@ project-root/
 
 ```typescript
 const blogWorkspace = defineWorkspace({
-	id: 'blog',  // ← This ID determines the .yjs filename
+	id: 'blog', // ← This ID determines the .yjs filename
 	version: 1,
 	name: 'blog',
 	// ... schema, indexes, actions ...
@@ -123,7 +125,7 @@ const blogWorkspace = defineWorkspace({
 	 */
 	setupYDoc: (ydoc) => {
 		const storagePath = './.epicenter';
-		const filePath = path.join(storagePath, 'blog.yjs');  // ← Use workspace ID here
+		const filePath = path.join(storagePath, 'blog.yjs'); // ← Use workspace ID here
 
 		// Ensure .epicenter directory exists (shared by all workspaces)
 		if (!fs.existsSync(storagePath)) {
@@ -144,28 +146,29 @@ const blogWorkspace = defineWorkspace({
 			const state = Y.encodeStateAsUpdate(ydoc);
 			fs.writeFileSync(filePath, state);
 		});
-	}
+	},
 });
 ```
 
 **Pattern for Multiple Workspaces**:
+
 ```typescript
 // Pages workspace
 const pages = defineWorkspace({
-	id: 'pages',  // → .epicenter/pages.yjs
+	id: 'pages', // → .epicenter/pages.yjs
 	setupYDoc: (ydoc) => {
 		const filePath = path.join('./.epicenter', 'pages.yjs');
 		// ... same persistence logic ...
-	}
+	},
 });
 
 // Content-hub workspace
 const contentHub = defineWorkspace({
-	id: 'content-hub',  // → .epicenter/content-hub.yjs
+	id: 'content-hub', // → .epicenter/content-hub.yjs
 	setupYDoc: (ydoc) => {
 		const filePath = path.join('./.epicenter', 'content-hub.yjs');
 		// ... same persistence logic ...
-	}
+	},
 });
 ```
 
@@ -190,7 +193,6 @@ export default workspaceName;
 
 // After:
 export default defineEpicenter({
-	id: 'workspace-id',
 	workspaces: [workspaceName],
 });
 ```
@@ -231,15 +233,16 @@ Ensure CLI script is available:
 
 ### Current Workspaces
 
-| Workspace Directory | Status | Workspace Name | Notes |
-|-------------------|--------|----------------|-------|
-| `examples/basic-workspace` | ✅ Complete | `blog` | Reference implementation |
-| `examples/content-hub` | ❌ Needs Update | `content-hub`, `pages` | Two workspaces in one file |
-| `examples/e2e-tests` | ❌ Needs Update | `blog` | Comprehensive test workspace |
+| Workspace Directory        | Status          | Workspace Name         | Notes                        |
+| -------------------------- | --------------- | ---------------------- | ---------------------------- |
+| `examples/basic-workspace` | ✅ Complete     | `blog`                 | Reference implementation     |
+| `examples/content-hub`     | ❌ Needs Update | `content-hub`, `pages` | Two workspaces in one file   |
+| `examples/e2e-tests`       | ❌ Needs Update | `blog`                 | Comprehensive test workspace |
 
 ### Workspace Details
 
 #### 1. examples/basic-workspace ✅
+
 - **Status**: Complete (reference implementation)
 - **Workspace**: `blog`
 - **Tables**: `posts`, `comments`
@@ -249,6 +252,7 @@ Ensure CLI script is available:
 - **Test files**: `test-yjs-persistence.ts`, `test-bidirectional-sync.ts`
 
 #### 2. examples/content-hub ❌
+
 - **Status**: Needs YJS persistence
 - **Workspaces**: `pages` (dependency), `content-hub` (main)
 - **Tables**:
@@ -263,6 +267,7 @@ Ensure CLI script is available:
   - No test files or CLI scripts in package.json
 
 #### 3. examples/e2e-tests ❌
+
 - **Status**: Needs YJS persistence
 - **Workspace**: `blog`
 - **Tables**: `posts`, `comments`
@@ -360,7 +365,6 @@ export default workspaceName;
 
 // After:
 export default defineEpicenter({
-	id: '<descriptive-id>',
 	workspaces: [workspaceName],
 });
 ```
@@ -369,7 +373,6 @@ For files with multiple workspaces (like `content-hub`), include all:
 
 ```typescript
 export default defineEpicenter({
-	id: 'content-hub-example',
 	workspaces: [pages, contentHub],
 });
 ```
@@ -404,6 +407,7 @@ If `package.json` doesn't exist or lacks CLI scripts, create/update:
 #### Step 7: Test the Implementation
 
 1. **Test YJS persistence**:
+
    ```bash
    cd examples/<workspace-directory>
 
@@ -418,6 +422,7 @@ If `package.json` doesn't exist or lacks CLI scripts, create/update:
    ```
 
 2. **Test markdown sync**:
+
    ```bash
    # Check markdown files were created
    ls -la test-data/content/<table-name>/
@@ -427,6 +432,7 @@ If `package.json` doesn't exist or lacks CLI scripts, create/update:
    ```
 
 3. **Test multi-session persistence**:
+
    ```bash
    # Session 1: Create data
    bun cli <workspace-name> <mutation-action> --arg value
@@ -443,6 +449,7 @@ If `package.json` doesn't exist or lacks CLI scripts, create/update:
 ### Current State
 
 The `basic-workspace` example uses:
+
 - `test-yjs-persistence.ts` - Programmatic multi-session persistence tests
 - `test-bidirectional-sync.ts` - Markdown bidirectional sync tests
 
@@ -459,11 +466,13 @@ The `basic-workspace` example uses:
 ### When to Use `*.test.ts`
 
 Use `*.test.ts` format ONLY when:
+
 - Using a test runner (vitest, jest, bun test)
 - Writing automated test suites
 - Integrating with CI/CD
 
 **Example**: The `e2e-tests` workspace correctly uses:
+
 - `cli.test.ts` - Automated tests with vitest
 - `server.test.ts` - Automated tests with vitest
 
@@ -515,30 +524,32 @@ Use this checklist for each workspace:
 
 **Issue**: `content-hub` has `pages` as a dependency.
 **Solution**: Each workspace gets its own `setupYDoc` callback and `.yjs` file:
+
 - `pages` → `.epicenter/pages.yjs`
 - `content-hub` → `.epicenter/content-hub.yjs`
 
 Both workspaces are completely isolated. The dependency relationship is at the API level (content-hub can call pages' actions), not at the persistence level. Each maintains its own state.
 
 **Concrete Example**:
+
 ```typescript
 // Pages workspace (dependency)
 const pages = defineWorkspace({
-	id: 'pages',  // → .epicenter/pages.yjs
+	id: 'pages', // → .epicenter/pages.yjs
 	setupYDoc: (ydoc) => {
 		const filePath = path.join('./.epicenter', 'pages.yjs');
 		// ... persistence logic ...
-	}
+	},
 });
 
 // Content-hub workspace (depends on pages)
 const contentHub = defineWorkspace({
-	id: 'content-hub',  // → .epicenter/content-hub.yjs
+	id: 'content-hub', // → .epicenter/content-hub.yjs
 	dependencies: [pages],
 	setupYDoc: (ydoc) => {
 		const filePath = path.join('./.epicenter', 'content-hub.yjs');
 		// ... persistence logic ...
-	}
+	},
 });
 ```
 
@@ -551,12 +562,12 @@ Result: Two `.yjs` files in the same `.epicenter/` directory, each with its own 
 
 ```typescript
 export default defineEpicenter({
-	id: 'content-hub-example',
-	workspaces: [pages, contentHub],  // Both registered
+	workspaces: [pages, contentHub], // Both registered
 });
 ```
 
 When you run CLI commands:
+
 - `bun cli pages createPage` → Uses `.epicenter/pages.yjs`
 - `bun cli content-hub addYoutubeVideo` → Uses `.epicenter/content-hub.yjs`
 
@@ -566,6 +577,7 @@ Both workspaces can run concurrently without conflicts.
 
 **Issue**: `e2e-tests` has existing automated tests.
 **Solution**:
+
 - Add persistence without breaking existing tests
 - Tests should verify persistence works
 - May need to add cleanup logic to prevent test pollution
@@ -575,6 +587,7 @@ Both workspaces can run concurrently without conflicts.
 
 **Issue**: Multiple test runs could conflict with persisted data.
 **Solution**:
+
 - For automated tests: Clean `.epicenter/` directory before/after tests
 - For manual testing: Embrace persistence as expected behavior
 - Document how to reset state: `rm -rf .epicenter/ test-data/`
@@ -583,6 +596,7 @@ Both workspaces can run concurrently without conflicts.
 
 **Issue**: Binary `.yjs` files aren't git-friendly.
 **Solution**: This is by design:
+
 - `.yjs` files → Binary, fast, gitignored (ephemeral state)
 - `.md` files → Text, git-friendly, committed (source of truth for version control)
 - `.db` files → Binary, gitignored (queryable snapshot)
@@ -627,10 +641,7 @@ After updating each workspace, verify:
 9. ✅ Console logs show `[Persistence] Loaded workspace from...` on subsequent runs
 10. ✅ Existing tests pass (if applicable)
 
-**For multi-workspace files**:
-11. ✅ Each workspace creates its own `.yjs` file (e.g., both `pages.yjs` and `content-hub.yjs` exist)
-12. ✅ Workspaces don't interfere with each other (can run CLI commands for different workspaces)
-13. ✅ Each workspace maintains isolated state
+**For multi-workspace files**: 11. ✅ Each workspace creates its own `.yjs` file (e.g., both `pages.yjs` and `content-hub.yjs` exist) 12. ✅ Workspaces don't interfere with each other (can run CLI commands for different workspaces) 13. ✅ Each workspace maintains isolated state
 
 ## Testing Strategy
 
@@ -674,6 +685,7 @@ For workspaces with automated tests (like `e2e-tests`):
 **A**: Yes! This is the intended design. Each workspace uses `.epicenter/${workspaceId}.yjs` for its state. Multiple workspaces = multiple `.yjs` files in the shared `.epicenter/` directory.
 
 Example:
+
 - Workspace `id: 'blog'` → `.epicenter/blog.yjs`
 - Workspace `id: 'pages'` → `.epicenter/pages.yjs`
 - Workspace `id: 'content-hub'` → `.epicenter/content-hub.yjs`
@@ -695,9 +707,11 @@ All workspaces share the same `.epicenter/` directory but have completely isolat
 ### Q: How do I reset a workspace completely?
 
 **A**: Delete all persistence files:
+
 ```bash
 rm -rf .epicenter/ test-data/
 ```
+
 Next run will start fresh.
 
 ### Q: Can multiple processes use the same workspace simultaneously?

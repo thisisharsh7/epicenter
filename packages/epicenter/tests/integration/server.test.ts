@@ -98,7 +98,6 @@ describe('Server Integration Tests', () => {
 
 	describe('Single Workspace Server', () => {
 		const singleWorkspaceEpicenter = defineEpicenter({
-			id: 'single-workspace-test',
 			workspaces: [blogWorkspace],
 		});
 
@@ -271,7 +270,6 @@ describe('Server Integration Tests', () => {
 		});
 
 		const epicenter = defineEpicenter({
-			id: 'test-app',
 			workspaces: [blogWorkspace, authWorkspace],
 		});
 

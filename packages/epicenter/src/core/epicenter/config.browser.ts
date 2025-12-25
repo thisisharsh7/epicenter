@@ -18,10 +18,9 @@ import {
  * in browser environments.
  */
 export type EpicenterConfig<
-	TId extends string = string,
 	TWorkspaces extends
 		readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
-> = EpicenterConfigBase<TId, TWorkspaces>;
+> = EpicenterConfigBase<TWorkspaces>;
 
 /**
  * Define an epicenter configuration (browser version)
@@ -33,17 +32,13 @@ export type EpicenterConfig<
  * @example
  * ```typescript
  * export const epicenter = defineEpicenter({
- *   id: 'my-app',
  *   workspaces: [pages, contentHub],
  * });
  * ```
  */
 export function defineEpicenter<
-	const TId extends string,
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	config: EpicenterConfig<TId, TWorkspaces>,
-): EpicenterConfig<TId, TWorkspaces> {
+>(config: EpicenterConfig<TWorkspaces>): EpicenterConfig<TWorkspaces> {
 	validateEpicenterConfig(config);
 	return config;
 }

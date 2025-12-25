@@ -54,7 +54,6 @@ describe('y-websocket Client Compatibility', () => {
 	});
 
 	const epicenter = defineEpicenter({
-		id: 'y-websocket-compat-test',
 		workspaces: [notesWorkspace],
 	});
 

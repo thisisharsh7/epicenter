@@ -241,6 +241,5 @@ const blogWorkspace = defineWorkspace({
 });
 
 export default defineEpicenter({
-	id: 'basic-workspace-example',
 	workspaces: [blogWorkspace],
 });

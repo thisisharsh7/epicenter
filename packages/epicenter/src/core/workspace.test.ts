@@ -700,7 +700,6 @@ describe('Workspace Action Handlers', () => {
 
 	test('createPost mutation creates a post', async () => {
 		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
@@ -723,7 +722,6 @@ describe('Workspace Action Handlers', () => {
 
 	test('listPosts query returns created posts', async () => {
 		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
@@ -751,7 +749,6 @@ describe('Workspace Action Handlers', () => {
 
 	test('getPost query retrieves specific post', async () => {
 		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
@@ -783,7 +780,6 @@ describe('Workspace Action Handlers', () => {
 
 	test('updateViews mutation updates post view count', async () => {
 		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
@@ -811,7 +807,6 @@ describe('Workspace Action Handlers', () => {
 
 	test('updateViews returns null for non-existent post', async () => {
 		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});
@@ -830,7 +825,6 @@ describe('Workspace Action Handlers', () => {
 
 	test('createPost with optional content field', async () => {
 		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
 			storageDir: TEST_DIR,
 			workspaces: [postsWorkspace],
 		});

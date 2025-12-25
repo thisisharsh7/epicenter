@@ -65,7 +65,6 @@ describe('WebSocket Sync Integration Tests', () => {
 	});
 
 	const epicenter = defineEpicenter({
-		id: 'sync-test-app',
 		workspaces: [notesWorkspace],
 	});
 

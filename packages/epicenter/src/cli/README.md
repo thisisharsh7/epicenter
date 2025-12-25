@@ -22,22 +22,22 @@ Write your workspace actions like you normally would:
 import { type } from 'arktype';
 
 const reddit = defineWorkspace({
-  name: 'reddit',
-  exports: ({ db }) => ({
-    import: defineMutation({
-      input: type({
-        'url': 'string',
-        'count': 'number = 10'
-      }).describe({
-        url: 'Reddit URL to import',
-        count: 'Number of posts'
-      }),
-      handler: async ({ url, count }) => {
-        // Your import logic here
-        return Ok(result);
-      }
-    })
-  })
+	name: 'reddit',
+	exports: ({ db }) => ({
+		import: defineMutation({
+			input: type({
+				url: 'string',
+				count: 'number = 10',
+			}).describe({
+				url: 'Reddit URL to import',
+				count: 'Number of posts',
+			}),
+			handler: async ({ url, count }) => {
+				// Your import logic here
+				return Ok(result);
+			},
+		}),
+	}),
 });
 ```
 
@@ -50,8 +50,7 @@ import { defineEpicenter } from '@epicenter/hq';
 import { reddit, blog } from './workspaces';
 
 export default defineEpicenter({
-  id: 'my-app',
-  workspaces: [reddit, blog],
+	workspaces: [reddit, blog],
 });
 ```
 
@@ -78,6 +77,7 @@ Your action's input schema automatically becomes CLI flags:
 - `.describe({})` → shows descriptions in `--help`
 
 **Array values**: Use spaces to separate multiple values:
+
 ```bash
 epicenter workspace action --tags tech productivity typescript
 ```
@@ -89,11 +89,11 @@ The CLI uses Standard Schema for validation. The `standardSchemaToYargs` functio
 ```typescript
 // Your ArkType schema
 const schema = type({
-  url: 'string',
-  'count?': 'number = 10'
+	url: 'string',
+	'count?': 'number = 10',
 }).describe({
-  url: 'Reddit URL',
-  count: 'Number of posts'
+	url: 'Reddit URL',
+	count: 'Number of posts',
 });
 
 // Automatically converted to yargs options:
@@ -134,8 +134,8 @@ import { createCLI } from '@epicenter/hq/cli';
 
 // createCLI parses and executes the command internally
 await createCLI({
-  config: epicenter,
-  argv: ['reddit', 'import', '--url', 'https://...', '--count', '5']
+	config: epicenter,
+	argv: ['reddit', 'import', '--url', 'https://...', '--count', '5'],
 });
 ```
 
@@ -146,12 +146,14 @@ await createCLI({
 The CLI uses a two-phase approach to balance speed and functionality:
 
 **Phase 1: CLI Setup (Fast - ~10-20ms)**
+
 - Extracts metadata using mock context (no YJS initialization)
 - Builds yargs command hierarchy (workspace → action)
 - Converts Standard Schema definitions to CLI flags
 - Enables fast `--help` commands
 
 **Phase 2: Command Execution (On-Demand)**
+
 - Creates real workspace client with YJS docs
 - Initializes indexes and dependencies
 - Executes action handler
@@ -167,7 +169,7 @@ const actions = workspace.actions(mockContext);
 
 // Extract metadata without executing handlers
 for (const [name, action] of Object.entries(actions)) {
-  console.log(name, action.type, action.input);
+	console.log(name, action.type, action.input);
 }
 ```
 

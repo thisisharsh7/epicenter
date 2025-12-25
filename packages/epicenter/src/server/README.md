@@ -147,7 +147,6 @@ Now your actions are available as HTTP endpoints:
 import { defineEpicenter, createHttpServer } from '@epicenter/hq';
 
 const epicenter = defineEpicenter({
-	id: 'my-app',
 	workspaces: [blogWorkspace, authWorkspace, storageWorkspace],
 });
 
@@ -166,6 +165,7 @@ Actions from each workspace get their own namespace under `/workspaces`:
 - `GET http://localhost:3913/workspaces/storage/listFiles`
 
 **URL Hierarchy:**
+
 ```
 /                                    - API root/discovery
 /openapi                             - OpenAPI spec (JSON)

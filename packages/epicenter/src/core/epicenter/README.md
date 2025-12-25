@@ -32,6 +32,7 @@ Create an Epicenter client directly for standalone scripts:
 ### 2. As a Server (Web APIs, Long-Running Processes)
 
 The server is just a wrapper around `createEpicenterClient` that:
+
 1. Creates an Epicenter client
 2. Keeps it alive
 3. Maps REST, MCP, and WebSocket Sync endpoints to client actions
@@ -131,6 +132,7 @@ When you call `createEpicenterClient(config)` (or `createServer()`, which intern
 ### Storage Context
 
 Each client instance writes to a **storage context** determined by:
+
 - **Directory**: Where the script runs (affects `.epicenter/` path)
 - **Environment**: Browser (IndexedDB) vs Node (filesystem)
 - **Workspace ID**: The specific workspace being accessed
@@ -164,6 +166,7 @@ The `.epicenter` folder contains all Epicenter internal data:
 ```
 
 **Key design decisions:**
+
 - YJS and DB files stay at root level (easy to find, prominent)
 - Index logs/diagnostics go inside workspace folders
 - Simple naming: `{indexId}.{suffix}` (indexId is the key from the indexes object)
@@ -199,20 +202,25 @@ When you dispose a client (automatically with `await using` or manually with `aw
 ## Epicenter vs Workspace
 
 ### Workspace
+
 A workspace is a self-contained domain module:
+
 - Defines its own schema (tables)
 - Defines its own indexes (SQLite, markdown, vector, etc.)
 - Defines its own actions (queries and mutations)
 - Can depend on other workspaces
 
 ### Epicenter
+
 An epicenter is a composition of workspaces:
+
 - No schema, indexes, or actions of its own
 - Simply aggregates multiple workspaces
 - Provides a unified client interface
 - Manages workspace initialization and cleanup
 
 Think of it this way:
+
 - **Workspace**: A module (like a library)
 - **Epicenter**: An application (composed of modules)
 
@@ -223,22 +231,23 @@ Multiple scripts can safely run one after another using the `await using` syntax
 ```typescript
 // Script 1: Import data
 {
-  await using client = await createEpicenterClient(config);
-  const data = await readFile('data.json');
-  await client.pages.createPage(data);
-  // Auto-disposed when block exits
+	await using client = await createEpicenterClient(config);
+	const data = await readFile('data.json');
+	await client.pages.createPage(data);
+	// Auto-disposed when block exits
 }
 
 // Script 2: Generate content (runs after Script 1 completes)
 {
-  await using client = await createEpicenterClient(config);
-  const pages = await client.pages.getAllPages();
-  await generateContent(pages);
-  // Auto-disposed when block exits
+	await using client = await createEpicenterClient(config);
+	const pages = await client.pages.getAllPages();
+	await generateContent(pages);
+	// Auto-disposed when block exits
 }
 ```
 
 Each `await using` block:
+
 1. Creates a fresh client
 2. Loads current state from `.epicenter/`
 3. Runs your code
@@ -252,49 +261,64 @@ This ensures scripts run sequentially with no conflicts.
 ```typescript
 // Define individual workspaces
 const pagesWorkspace = defineWorkspace({
-  id: 'pages',
-  name: 'pages',
-  schema: { /* ... */ },
-  indexes: ({ db }) => ({ /* ... */ }),
-  exports: ({ db, indexes }) => ({
-    createPage: defineMutation({ /* ... */ }),
-    getPages: defineQuery({ /* ... */ }),
-  }),
+	id: 'pages',
+	name: 'pages',
+	schema: {
+		/* ... */
+	},
+	indexes: ({ db }) => ({
+		/* ... */
+	}),
+	exports: ({ db, indexes }) => ({
+		createPage: defineMutation({
+			/* ... */
+		}),
+		getPages: defineQuery({
+			/* ... */
+		}),
+	}),
 });
 
 const authWorkspace = defineWorkspace({
-  id: 'auth',
-  name: 'auth',
-  schema: { /* ... */ },
-  indexes: ({ db }) => ({ /* ... */ }),
-  exports: ({ db, indexes }) => ({
-    login: defineMutation({ /* ... */ }),
-    logout: defineMutation({ /* ... */ }),
-  }),
+	id: 'auth',
+	name: 'auth',
+	schema: {
+		/* ... */
+	},
+	indexes: ({ db }) => ({
+		/* ... */
+	}),
+	exports: ({ db, indexes }) => ({
+		login: defineMutation({
+			/* ... */
+		}),
+		logout: defineMutation({
+			/* ... */
+		}),
+	}),
 });
 
 // Compose them into an epicenter
 const myApp = defineEpicenter({
-  id: 'my-app',
-  workspaces: [pagesWorkspace, authWorkspace],
+	workspaces: [pagesWorkspace, authWorkspace],
 });
 
 // Create a unified client with automatic cleanup
 {
-  await using client = await createEpicenterClient(myApp);
+	await using client = await createEpicenterClient(myApp);
 
-  // Access workspace actions by workspace name
-  await client.auth.login({ email: '...', password: '...' });
-  const { data: pages } = await client.pages.getPages();
+	// Access workspace actions by workspace name
+	await client.auth.login({ email: '...', password: '...' });
+	const { data: pages } = await client.pages.getPages();
 
-  // Automatic cleanup when scope exits
+	// Automatic cleanup when scope exits
 }
 
 // For long-lived servers, use manual cleanup:
 const client = await createEpicenterClient(myApp);
 // ... use client for app lifetime ...
 process.on('SIGTERM', async () => {
-  await client.destroy();
+	await client.destroy();
 });
 ```
 
@@ -306,17 +330,18 @@ Epicenter uses a flat/hoisted dependency model (like VS Code extensions or pnpm)
 // If workspace A depends on B, and B depends on C,
 // then Epicenter's workspaces array must include ALL THREE:
 const epicenter = defineEpicenter({
-  id: 'my-app',
-  workspaces: [workspaceA, workspaceB, workspaceC], // Flat list
+	workspaces: [workspaceA, workspaceB, workspaceC], // Flat list
 });
 ```
 
 This model:
+
 - Makes all dependencies explicit and auditable
 - Prevents "dependency hell" with deeply nested trees
 - Ensures deterministic initialization order (topological sort)
 
 If you forget to include a transitive dependency, you'll get a clear error at runtime:
+
 ```
 Missing dependency: workspace "A" depends on "C",
 but it was not found in workspaces array.
@@ -330,18 +355,17 @@ Epicenter provides full TypeScript inference:
 
 ```typescript
 const epicenter = defineEpicenter({
-  id: 'my-app',
-  workspaces: [pages, auth],
+	workspaces: [pages, auth],
 });
 
 const client = await createEpicenterClient(epicenter);
 
 // TypeScript knows about all workspace actions:
-client.pages.createPage // ✓ Type-safe
-client.pages.getPages   // ✓ Type-safe
-client.auth.login       // ✓ Type-safe
-client.auth.logout      // ✓ Type-safe
-client.invalid.action   // ✗ Compile error
+client.pages.createPage; // ✓ Type-safe
+client.pages.getPages; // ✓ Type-safe
+client.auth.login; // ✓ Type-safe
+client.auth.logout; // ✓ Type-safe
+client.invalid.action; // ✗ Compile error
 ```
 
 The client type is inferred from the workspace configs, so you get full autocomplete and type checking.
@@ -359,6 +383,7 @@ const allClients = initializeWorkspaces([A, B, C]);
 All workspaces are initialized in both cases. **The only difference is what they return.**
 
 - **createEpicenterClient**: Returns the entire object of workspace clients
+
   ```typescript
   const client = await createEpicenterClient({ workspaces: [A, B, C] });
   // Returns: { workspaceA: clientA, workspaceB: clientB, workspaceC: clientC }
@@ -398,6 +423,7 @@ In other words, **createWorkspaceClient** returns a subset of **createEpicenterC
 ```
 
 Each workspace maintains its own:
+
 - YJS document (collaborative data)
 - Database abstraction (tables API)
 - Indexes (synchronized snapshots)
@@ -408,18 +434,23 @@ Epicenter orchestrates initialization and provides a unified interface.
 ## Implementation Details
 
 ### config.ts
+
 Defines `EpicenterConfig` type and `defineEpicenter` function with validation:
+
 - Validates epicenter ID is a non-empty string
 - Validates workspaces is a non-empty array
 - Checks for duplicate workspace names (throws error)
 - Checks for duplicate workspace IDs (throws error)
 
 ### client.ts
+
 Defines `EpicenterClient` type and `createEpicenterClient` function:
+
 - Uses `initializeWorkspaces` from workspace/client for initialization
 - Implements flat/hoisted dependency resolution
 - Provides `destroy()` and `Symbol.asyncDispose` for resource management with `await using` syntax
 - Maps workspace names to their action clients
 
 ### index.ts
+
 Central export point that re-exports from config.ts and client.ts.

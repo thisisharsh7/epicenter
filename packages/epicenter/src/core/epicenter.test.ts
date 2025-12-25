@@ -30,7 +30,6 @@ describe('Epicenter Error Handling', () => {
 
 		expect(() =>
 			defineEpicenter({
-				id: 'test',
 				workspaces: [workspace1, workspace2],
 			}),
 		).toThrow('Duplicate workspace IDs detected');
@@ -77,7 +76,6 @@ describe('Action Exposure and Dependency Resolution', () => {
 		const workspaceB = createTestWorkspace('b', [workspaceA]);
 
 		const epicenter = defineEpicenter({
-			id: 'test',
 			workspaces: [workspaceA, workspaceB],
 		});
 
@@ -107,7 +105,6 @@ describe('Action Exposure and Dependency Resolution', () => {
 
 		// Only include B and C in epicenter, not A (missing dependency)
 		const epicenter = defineEpicenter({
-			id: 'test',
 			workspaces: [workspaceB, workspaceC],
 		});
 
@@ -124,7 +121,6 @@ describe('Action Exposure and Dependency Resolution', () => {
 
 		// Correctly include ALL workspaces (flat/hoisted)
 		const epicenter = defineEpicenter({
-			id: 'test',
 			workspaces: [workspaceA, workspaceB, workspaceC],
 		});
 
@@ -149,7 +145,6 @@ describe('Action Exposure and Dependency Resolution', () => {
 		const workspaceC = createTestWorkspace('c');
 
 		const epicenter = defineEpicenter({
-			id: 'test',
 			workspaces: [workspaceA, workspaceB, workspaceC],
 		});
 

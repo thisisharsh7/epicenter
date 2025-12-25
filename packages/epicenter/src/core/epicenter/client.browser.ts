@@ -23,11 +23,8 @@ export { iterActions } from './client.shared';
  * @returns Initialized epicenter client with access to all workspace exports
  */
 export async function createEpicenterClient<
-	const TId extends string,
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(
-	config: EpicenterConfig<TId, TWorkspaces>,
-): Promise<EpicenterClient<TWorkspaces>> {
+>(config: EpicenterConfig<TWorkspaces>): Promise<EpicenterClient<TWorkspaces>> {
 	// Browser: no storage directory resolution
 	const clients = await initializeWorkspaces(
 		config.workspaces,
