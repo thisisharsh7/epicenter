@@ -15,8 +15,9 @@ export const RECORDING_COMPATIBILITY_MESSAGE =
 function isUsingLocalTranscription(): boolean {
 	const service = settings.value['transcription.selectedTranscriptionService'];
 	return (
-		// service === 'whispercpp' ||
-		service === 'parakeet' || service === 'moonshine'
+		service === 'whispercpp' ||
+		service === 'parakeet' ||
+		service === 'moonshine'
 	);
 }
 
@@ -33,6 +34,8 @@ export function hasNavigatorLocalTranscriptionIssue({
 
 	const isUsingNavigator = settings.value['recording.method'] === 'navigator';
 	const isUsingLocalTranscription =
+		settings.value['transcription.selectedTranscriptionService'] ===
+			'whispercpp' ||
 		settings.value['transcription.selectedTranscriptionService'] ===
 			'parakeet' ||
 		settings.value['transcription.selectedTranscriptionService'] ===
