@@ -54,7 +54,7 @@ export {
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,
 } from './regex';
-export { safeToJsonSchema } from './safe-json-schema';
+export { generateJsonSchema } from './generate-json-schema';
 // ============================================================================
 // Serialization
 // ============================================================================
