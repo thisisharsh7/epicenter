@@ -53,13 +53,11 @@ describe('y-websocket Client Compatibility', () => {
 		}),
 	});
 
-	const workspaces = [notesWorkspace] as const;
-
 	let server: { stop: () => void; port: number };
 	let wsUrl: string;
 
 	beforeAll(async () => {
-		const client = await createClient(workspaces);
+		const client = await createClient([notesWorkspace] as const);
 		const { app } = createServer(client);
 		const elysiaServer = app.listen(0);
 		const port = elysiaServer.server!.port;

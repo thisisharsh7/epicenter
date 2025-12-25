@@ -97,12 +97,10 @@ describe('Server Integration Tests', () => {
 	});
 
 	describe('Single Workspace Server', () => {
-		const workspaces = [blogWorkspace] as const;
-
 		let server: { port: number; stop: () => void };
 
 		beforeAll(async () => {
-			const client = await createClient(workspaces);
+			const client = await createClient([blogWorkspace] as const);
 			const { app } = createServer(client);
 			const elysiaServer = app.listen(0);
 			server = {
@@ -267,12 +265,13 @@ describe('Server Integration Tests', () => {
 			}),
 		});
 
-		const workspaces = [blogWorkspace, authWorkspace] as const;
-
 		let server: { port: number; stop: () => void };
 
 		beforeAll(async () => {
-			const client = await createClient(workspaces);
+			const client = await createClient([
+				blogWorkspace,
+				authWorkspace,
+			] as const);
 			const { app } = createServer(client);
 			const elysiaServer = app.listen(0);
 			server = {
