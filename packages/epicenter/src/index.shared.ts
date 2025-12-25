@@ -74,8 +74,8 @@ export type {
 	YRow,
 } from './core/db/table-helper';
 
-export type { ActionInfo } from './core/epicenter/client.shared';
-export { iterActions } from './core/epicenter/client.shared';
+export type { ActionInfo } from './core/workspace/client.shared';
+export { iterActions } from './core/workspace/client.shared';
 
 export type {
 	EpicenterOperationError,

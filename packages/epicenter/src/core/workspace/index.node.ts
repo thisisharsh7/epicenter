@@ -10,10 +10,12 @@ export type { Provider, ProviderContext } from '../provider';
 export { createClient, type CreateClientOptions } from './client.node';
 // Types from shared (no platform-specific code)
 export type {
+	ActionInfo,
 	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
 } from './client.shared';
+export { iterActions } from './client.shared';
 
 // Config types and definition (shared)
 export type {

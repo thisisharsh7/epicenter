@@ -1,5 +1,4 @@
-import { iterActions } from '../core/epicenter';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import { type AnyWorkspaceConfig, iterActions } from '../core/workspace';
 import type { CreateClientOptions } from '../core/workspace/client.node';
 import { createServer } from '../server/server';
 

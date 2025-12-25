@@ -2,12 +2,12 @@ import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 import { Err, isResult, Ok } from 'wellcrafted/result';
 import type { WorkspaceExports } from '../core/actions';
-import { iterActions } from '../core/epicenter';
 import type {
 	AnyWorkspaceConfig,
 	WorkspaceClient,
 	WorkspacesToClients,
 } from '../core/workspace';
+import { iterActions } from '../core/workspace';
 import {
 	type CreateClientOptions,
 	createClient,
