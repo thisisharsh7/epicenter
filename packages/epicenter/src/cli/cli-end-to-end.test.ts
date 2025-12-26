@@ -47,7 +47,7 @@ describe('CLI End-to-End Tests', () => {
 			markdown: (c) => markdownProvider(c, { directory: './content' }),
 		},
 
-		exports: ({ tables, providers }) => ({
+		actions: ({ tables, providers }) => ({
 			listPosts: defineQuery({
 				handler: async () => {
 					const posts = await providers.sqlite.db

@@ -1,18 +1,14 @@
-import type { WorkspaceExports } from '../actions';
+import type { Actions } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
-import type {
-	Provider,
-	ProviderExports,
-	WorkspaceProviderMap,
-} from '../provider';
+import type { Provider, Providers, WorkspaceProviderMap } from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { EpicenterDir, ProjectDir } from '../types';
 
 /**
- * Filesystem paths available to workspace exports factory.
+ * Filesystem paths available to workspace actions factory.
  *
- * Unlike `ProviderPaths`, this omits `provider` since the exports factory
+ * Unlike `ProviderPaths`, this omits `provider` since the actions factory
  * operates at the workspace level, not the individual provider level.
  */
 export type WorkspacePaths = {
@@ -35,8 +31,8 @@ export type WorkspacePaths = {
  * const client = await createClient([blogWorkspace, authWorkspace]);
  *
  * // Each workspace is accessible by its id:
- * client.blog.createPost(...)  // blogWorkspace exports
- * client.auth.login(...)       // authWorkspace exports
+ * client.blog.createPost(...)  // blogWorkspace actions
+ * client.auth.login(...)       // authWorkspace actions
  * ```
  *
  * ## Workspace Structure
@@ -44,13 +40,13 @@ export type WorkspacePaths = {
  * Each workspace is a self-contained module with:
  * - **tables**: Column schemas (pure JSON, no Drizzle)
  * - **providers**: Persistence, sync, materializers (SQLite, markdown, vector, etc.)
- * - **exports**: Actions and utilities with access to tables and providers
+ * - **actions**: Queries and mutations with access to tables and providers
  *
  * ## Data Flow
  *
  * **Writes**: Go to YJS document -> auto-sync to all materializer providers
  * ```typescript
- * tables.posts.set({ id: '1', title: 'Hello' });
+ * tables.posts.upsert({ id: '1', title: 'Hello' });
  * // YJS updated -> SQLite synced -> Markdown synced -> Vector synced
  * ```
  *
@@ -67,7 +63,7 @@ export type WorkspacePaths = {
  *
  *   tables: {
  *     posts: {
- *       // id is auto-included, no need to specify
+ *       id: id(),
  *       title: text(),
  *       content: ytext({ nullable: true }),
  *       category: select({ options: ['tech', 'personal'] }),
@@ -81,7 +77,7 @@ export type WorkspacePaths = {
  *     markdown: markdownProvider,
  *   },
  *
- *   exports: ({ tables, providers }) => ({
+ *   actions: ({ tables, providers }) => ({
  *     getPublishedPosts: defineQuery({
  *       handler: async () => {
  *         return await providers.sqlite.posts
@@ -91,7 +87,7 @@ export type WorkspacePaths = {
  *     }),
  *
  *     createPost: defineMutation({
- *       input: Type.Object({ title: Type.String() }),
+ *       input: type({ title: 'string' }),
  *       handler: async ({ title }) => {
  *         const post = {
  *           id: generateId(),
@@ -100,7 +96,7 @@ export type WorkspacePaths = {
  *           category: 'tech',
  *           views: 0,
  *         };
- *         tables.posts.set(post);
+ *         tables.posts.upsert(post);
  *         return post;
  *       }
  *     })
@@ -113,22 +109,20 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TExports extends WorkspaceExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TProviderResults,
-		TExports
+		TActions
 	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviderResults, TExports> {
-	// Validate workspace ID
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviderResults, TActions> {
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
 	}
 
-	// Validate dependencies
 	if (workspace.dependencies) {
 		if (!Array.isArray(workspace.dependencies)) {
 			throw new Error('Dependencies must be an array of workspace configs');
@@ -147,7 +141,7 @@ export function defineWorkspace<
 }
 
 /**
- * Workspace configuration
+ * Workspace configuration.
  *
  * Fully-featured workspace configuration used for defining workspaces and their dependencies.
  *
@@ -157,21 +151,22 @@ export function defineWorkspace<
  * This prevents infinite type recursion while providing type information for action access.
  *
  * By using `AnyWorkspaceConfig` (which only includes `id` and `actions`), we stop
- * recursive type inference. Without this constraint, TypeScript would try to infer dependencies
- * of dependencies infinitely, causing "Type instantiation is excessively deep" errors.
+ * recursive type inference. Without this constraint, TypeScript would try to infer
+ * dependencies of dependencies infinitely, causing "Type instantiation is excessively
+ * deep" errors.
  *
  * ## Runtime vs Type-level
  *
  * At runtime, all workspace configs have full properties (tables, providers, etc.).
- * The minimal constraint is purely for type inference. The flat/hoisted dependency resolution
- * ensures all workspaces are initialized correctly.
+ * The minimal constraint is purely for type inference. The flat/hoisted dependency
+ * resolution ensures all workspaces are initialized correctly.
  */
 export type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TProviderResults extends WorkspaceProviderMap = WorkspaceProviderMap,
-	TExports extends WorkspaceExports = WorkspaceExports,
+	TActions extends Actions = Actions,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
@@ -179,60 +174,58 @@ export type WorkspaceConfig<
 	providers: {
 		[K in keyof TProviderResults]: Provider<
 			TWorkspaceSchema,
-			TProviderResults[K] extends ProviderExports
-				? TProviderResults[K]
-				: ProviderExports
+			TProviderResults[K] extends Providers ? TProviderResults[K] : Providers
 		>;
 	};
 	/**
-	 * Factory function that creates workspace exports (actions, utilities, etc.)
+	 * Factory function that creates workspace actions (queries and mutations).
 	 *
-	 * @param context.tables - The workspace tables for direct table operations
-	 * @param context.schema - The workspace schema (table definitions)
-	 * @param context.validators - Schema validators for runtime validation and arktype composition
+	 * Actions are proxyable over HTTP/RPC and are exposed via the server.
+	 * Everything returned from this function should be a Query or Mutation
+	 * (created via defineQuery/defineMutation or from table helpers).
+	 *
+	 * @param context.tables - Workspace tables for direct table operations
+	 * @param context.schema - Workspace schema (table definitions)
+	 * @param context.validators - Schema validators for runtime validation
+	 * @param context.workspaces - Actions from dependency workspaces
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
-	 * @param context.workspaces - Exports from dependency workspaces (if any)
 	 * @param context.blobs - Blob storage for binary files, namespaced by table
+	 * @param context.paths - Filesystem paths (undefined in browser)
 	 *
 	 * @example
 	 * ```typescript
-	 * exports: ({ tables, schema, validators, providers, blobs }) => ({
-	 *   // Expose schema for type inference in external scripts
-	 *   schema,
-	 *
-	 *   // Expose tables for direct access
-	 *   tables,
-	 *
-	 *   // Expose validators for external validation (e.g., migration scripts)
-	 *   validators,
-	 *
-	 *   // Define actions using table operations
-	 *   createPost: tables.posts.insert,
+	 * actions: ({ tables, providers }) => ({
+	 *   // Table CRUD operations (already defined as actions)
+	 *   createPost: tables.posts.upsert,
 	 *   getPost: tables.posts.get,
 	 *
-	 *   // Expose provider operations
-	 *   pullToMarkdown: providers.markdown.pullToMarkdown,
-	 *
-	 *   // Store and retrieve binary files
-	 *   uploadAttachment: (filename, data) => blobs.posts.put(filename, data),
-	 *   getAttachment: (filename) => blobs.posts.get(filename),
+	 *   // Custom actions
+	 *   getPublishedPosts: defineQuery({
+	 *     handler: async () => {
+	 *       return await providers.sqlite.posts
+	 *         .select()
+	 *         .where(isNotNull(providers.sqlite.posts.publishedAt))
+	 *     }
+	 *   }),
 	 * })
 	 * ```
 	 */
-	exports: (context: {
+	actions: (context: {
 		tables: Tables<TWorkspaceSchema>;
 		schema: TWorkspaceSchema;
 		validators: WorkspaceValidators<TWorkspaceSchema>;
-		workspaces: WorkspacesToExports<TDeps>;
+		workspaces: WorkspacesToActions<TDeps>;
 		providers: TProviderResults;
 		blobs: WorkspaceBlobs<TWorkspaceSchema>;
 		paths: WorkspacePaths | undefined;
-	}) => TExports;
+	}) => TActions;
 };
 
 /**
- * Minimal workspace constraint for generic bounds
- * Use this in `extends` clauses to avoid contravariance issues
+ * Minimal workspace constraint for generic bounds.
+ *
+ * Uses only `id` and `actions` to prevent infinite type recursion while still
+ * providing type information for dependency action access.
  *
  * @example
  * ```typescript
@@ -241,37 +234,35 @@ export type WorkspaceConfig<
  */
 export type AnyWorkspaceConfig = {
 	id: string;
-	exports: (context: any) => WorkspaceExports;
+	// biome-ignore lint/suspicious/noExplicitAny: Minimal constraint to prevent infinite type recursion
+	actions: (context: any) => Actions;
 };
 
 /**
- * Maps an array of workspace configs to an object of exports keyed by workspace id.
+ * Maps workspace configs to their actions keyed by workspace id.
  *
- * Takes an array of workspace dependencies and merges them into a single object where:
- * - Each key is a dependency id
- * - Each value is the exports object from that dependency (actions and utilities)
- *
- * This allows accessing dependency exports as `workspaces.dependencyId.exportName()`.
+ * Used to provide type-safe access to dependency workspace actions.
  *
  * @example
  * ```typescript
- * // Given dependency configs:
- * const authWorkspace = defineWorkspace({ id: 'auth', exports: () => ({ login: ..., logout: ..., validateToken: ... }) })
- * const storageWorkspace = defineWorkspace({ id: 'storage', exports: () => ({ upload: ..., download: ..., MAX_FILE_SIZE: ... }) })
+ * // Given dependencies:
+ * const authWorkspace = defineWorkspace({ id: 'auth', actions: () => ({ login, logout }) });
+ * const storageWorkspace = defineWorkspace({ id: 'storage', actions: () => ({ upload, download }) });
  *
- * // WorkspacesToExports<[typeof authWorkspace, typeof storageWorkspace]> produces:
+ * // WorkspacesToActions<[typeof authWorkspace, typeof storageWorkspace]> produces:
  * {
- *   auth: { login: ..., logout: ..., validateToken: ... },
- *   storage: { upload: ..., download: ..., MAX_FILE_SIZE: ... }
+ *   auth: { login: Query, logout: Mutation },
+ *   storage: { upload: Mutation, download: Query }
  * }
  * ```
  */
-export type WorkspacesToExports<WS extends readonly AnyWorkspaceConfig[]> = {
+export type WorkspacesToActions<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		exports: (context: any) => infer TExports extends WorkspaceExports;
+		// biome-ignore lint/suspicious/noExplicitAny: Extracting action return type from generic constraint
+		actions: (context: any) => infer TActions extends Actions;
 	}
-		? TExports
+		? TActions
 		: never;
 };

@@ -4,17 +4,17 @@
  * Uses Node Provider type which includes required filesystem paths.
  */
 
-import type { WorkspaceExports } from '../actions';
+import type { Actions } from '../actions';
 import type { Provider } from '../provider.node';
 import type { WorkspaceSchema } from '../schema';
 import {
 	type AnyWorkspaceConfig,
 	validateWorkspaceConfig,
-	type WorkspaceExportsContext,
+	type ActionsContext,
 } from './config.shared';
 
 // Re-export shared types
-export type { AnyWorkspaceConfig, WorkspacesToExports } from './config.shared';
+export type { AnyWorkspaceConfig, WorkspacesToActions } from './config.shared';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -36,9 +36,9 @@ export type { AnyWorkspaceConfig, WorkspacesToExports } from './config.shared';
  *
  * ## Node/Bun-Specific Notes
  *
- * In Node/Bun environments, providers have access to filesystem paths:
- * - `storageDir`: Absolute path to the storage directory
- * - `epicenterDir`: Absolute path to `.epicenter` directory for provider data
+ * In Node/Bun environments, the exports factory has access to filesystem paths via `paths`:
+ * - `paths.project`: Project root directory
+ * - `paths.epicenter`: The `.epicenter` directory for internal data
  *
  * @see defineWorkspace in config.browser.ts for browser-specific version
  */
@@ -47,16 +47,16 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
-	TExports extends WorkspaceExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TProviders,
-		TExports
+		TActions
 	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports> {
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TActions> {
 	validateWorkspaceConfig(workspace);
 	return workspace;
 }
@@ -64,14 +64,14 @@ export function defineWorkspace<
 /**
  * Node/Bun workspace configuration.
  *
- * Uses Node Provider type - providers have access to filesystem paths:
- * - `storageDir`: Required storage directory path
- * - `epicenterDir`: Required `.epicenter` directory path
+ * Uses Node Provider type - the exports factory has access to filesystem paths via `paths`:
+ * - `paths.project`: Project root directory
+ * - `paths.epicenter`: The `.epicenter` directory for internal data
  *
  * ## Provider Type Inference
  *
  * The `TProviders` type parameter captures the actual provider functions you pass.
- * The `exports` factory receives provider exports derived via `InferProviderExports`:
+ * The `exports` factory receives provider exports derived via `InferProviders`:
  * - Provider returns `{ db: Db }` → exports receives `{ db: Db }`
  * - Provider returns `void` → exports receives `Record<string, never>` (empty object)
  * - Provider returns `Promise<{ db: Db }>` → exports receives `{ db: Db }` (unwrapped)
@@ -84,25 +84,24 @@ export type WorkspaceConfig<
 		string,
 		Provider<TWorkspaceSchema>
 	>,
-	TExports extends WorkspaceExports = WorkspaceExports,
+	TActions extends Actions = Actions,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
 	dependencies?: TDeps;
 	providers: TProviders;
 	/**
-	 * Factory function that creates workspace exports (actions, utilities, etc.)
+	 * Factory function that creates workspace actions (queries, mutations, utilities, etc.)
 	 *
 	 * @param context.tables - The workspace tables for direct table operations
 	 * @param context.schema - The workspace schema (table definitions)
 	 * @param context.validators - Schema validators for runtime validation and arktype composition
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
-	 * @param context.workspaces - Exports from dependency workspaces (if any)
+	 * @param context.workspaces - Actions from dependency workspaces (if any)
 	 * @param context.blobs - Blob storage for binary files, namespaced by table
-	 * @param context.storageDir - Storage directory path (Node/Bun only)
-	 * @param context.epicenterDir - `.epicenter` directory path (Node/Bun only)
+	 * @param context.paths - Filesystem paths (Node/Bun only, undefined in browser)
 	 */
-	exports: (
-		context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>,
-	) => TExports;
+	actions: (
+		context: ActionsContext<TWorkspaceSchema, TDeps, TProviders>,
+	) => TActions;
 };

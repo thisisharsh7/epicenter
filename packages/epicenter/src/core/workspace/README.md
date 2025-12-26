@@ -49,6 +49,7 @@ Both `createClient(workspaces)` and `createClient(workspace)` use the same initi
 Workspace clients have different initialization patterns depending on the environment:
 
 **Browser (synchronous)**:
+
 ```typescript
 // Browser: No await needed - returns immediately
 const client = createWorkspaceClient(workspace);
@@ -61,6 +62,7 @@ await client.whenSynced;
 ```
 
 **Node.js (async)**:
+
 ```typescript
 // Node.js: Await required - fully initializes before returning
 const client = await createWorkspaceClient(workspace);
@@ -87,7 +89,7 @@ Epicenter solves this using a minimal constraint pattern: dependency arrays are 
 // Minimal constraint for dependencies
 type AnyWorkspaceConfig = {
 	id: string;
-	exports: (context: any) => WorkspaceExports;
+	exports: (context: any) => Actions;
 };
 
 // Full workspace config
@@ -95,7 +97,7 @@ type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[],
 	TSchema extends WorkspaceSchema,
 	TProviderMap extends WorkspaceProviderMap,
-	TExports extends WorkspaceExports,
+	TExports extends Actions,
 > = {
 	id: string;
 	tables: TSchema;

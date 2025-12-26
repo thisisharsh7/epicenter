@@ -39,7 +39,7 @@ describe('WebSocket Sync Integration Tests', () => {
 
 		providers: {},
 
-		exports: ({ tables }) => ({
+		actions: ({ tables }) => ({
 			createNote: defineMutation({
 				input: type({
 					content: 'string',

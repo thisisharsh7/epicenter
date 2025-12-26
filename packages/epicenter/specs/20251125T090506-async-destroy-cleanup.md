@@ -12,6 +12,7 @@ There's a type/runtime mismatch in the destroy cleanup API:
 3. **Call site in client.ts** calls `index.destroy?.()` without await (promise dropped!)
 
 This means async cleanup operations (like `await logger.close()`) are fire-and-forget, potentially causing:
+
 - Logs not flushed before process exit
 - Database WAL files not checkpointed
 - Resource leaks in tests
@@ -51,12 +52,12 @@ This means async cleanup operations (like `await logger.close()`) are fire-and-f
 ```typescript
 // Before
 export type IndexExports = {
-  destroy: () => void;
+	destroy: () => void;
 };
 
 // After
 export type IndexExports = {
-  destroy: () => void | Promise<void>;
+	destroy: () => void | Promise<void>;
 };
 ```
 
@@ -64,14 +65,14 @@ export type IndexExports = {
 
 ```typescript
 // Before
-export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
-  [Symbol.dispose]: () => void;
+export type WorkspaceClient<TExports extends ActionExports> = TExports & {
+	[Symbol.dispose]: () => void;
 };
 
 // After
-export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
-  destroy: () => Promise<void>;
-  [Symbol.asyncDispose]: () => Promise<void>;
+export type WorkspaceClient<TExports extends ActionExports> = TExports & {
+	destroy: () => Promise<void>;
+	[Symbol.asyncDispose]: () => Promise<void>;
 };
 ```
 
@@ -80,29 +81,27 @@ export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
 ```typescript
 // Before
 const cleanup = () => {
-  for (const index of Object.values(indexes)) {
-    index.destroy?.();  // Promise dropped!
-  }
-  ydoc.destroy();
+	for (const index of Object.values(indexes)) {
+		index.destroy?.(); // Promise dropped!
+	}
+	ydoc.destroy();
 };
 
 const client: WorkspaceClient<any> = {
-  ...exports,
-  [Symbol.dispose]: cleanup,
+	...exports,
+	[Symbol.dispose]: cleanup,
 };
 
 // After
 const cleanup = async () => {
-  await Promise.all(
-    Object.values(indexes).map(index => index.destroy?.())
-  );
-  ydoc.destroy();
+	await Promise.all(Object.values(indexes).map((index) => index.destroy?.()));
+	ydoc.destroy();
 };
 
 const client: WorkspaceClient<any> = {
-  ...exports,
-  destroy: cleanup,
-  [Symbol.asyncDispose]: cleanup,
+	...exports,
+	destroy: cleanup,
+	[Symbol.asyncDispose]: cleanup,
 };
 ```
 

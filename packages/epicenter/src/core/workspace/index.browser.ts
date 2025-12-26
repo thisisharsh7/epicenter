@@ -23,6 +23,6 @@ export { iterActions } from './client.shared';
 export type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
-	WorkspacesToExports,
+	WorkspacesToActions,
 } from './config';
 export { defineWorkspace } from './config';

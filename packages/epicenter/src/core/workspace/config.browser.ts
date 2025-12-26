@@ -4,17 +4,17 @@
  * Uses browser Provider type which doesn't include filesystem paths.
  */
 
-import type { WorkspaceExports } from '../actions';
+import type { Actions } from '../actions';
 import type { Provider } from '../provider.browser';
 import type { WorkspaceSchema } from '../schema';
 import {
 	type AnyWorkspaceConfig,
 	validateWorkspaceConfig,
-	type WorkspaceExportsContext,
+	type ActionsContext,
 } from './config.shared';
 
 // Re-export shared types
-export type { AnyWorkspaceConfig, WorkspacesToExports } from './config.shared';
+export type { AnyWorkspaceConfig, WorkspacesToActions } from './config.shared';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -46,16 +46,16 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
-	TExports extends WorkspaceExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TProviders,
-		TExports
+		TActions
 	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports> {
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TActions> {
 	validateWorkspaceConfig(workspace);
 	return workspace;
 }
@@ -68,7 +68,7 @@ export function defineWorkspace<
  * ## Provider Type Inference
  *
  * The `TProviders` type parameter captures the actual provider functions you pass.
- * The `exports` factory receives provider exports derived via `InferProviderExports`:
+ * The `exports` factory receives provider exports derived via `InferProviders`:
  * - Provider returns `{ db: Db }` → exports receives `{ db: Db }`
  * - Provider returns `void` → exports receives `Record<string, never>` (empty object)
  * - Provider returns `Promise<{ db: Db }>` → exports receives `{ db: Db }` (unwrapped)
@@ -81,23 +81,23 @@ export type WorkspaceConfig<
 		string,
 		Provider<TWorkspaceSchema>
 	>,
-	TExports extends WorkspaceExports = WorkspaceExports,
+	TActions extends Actions = Actions,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
 	dependencies?: TDeps;
 	providers: TProviders;
 	/**
-	 * Factory function that creates workspace exports (actions, utilities, etc.)
+	 * Factory function that creates workspace actions.
 	 *
 	 * @param context.tables - The workspace tables for direct table operations
 	 * @param context.schema - The workspace schema (table definitions)
 	 * @param context.validators - Schema validators for runtime validation and arktype composition
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
-	 * @param context.workspaces - Exports from dependency workspaces (if any)
+	 * @param context.workspaces - Actions from dependency workspaces (if any)
 	 * @param context.blobs - Blob storage for binary files, namespaced by table
 	 */
-	exports: (
-		context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>,
-	) => TExports;
+	actions: (
+		context: ActionsContext<TWorkspaceSchema, TDeps, TProviders>,
+	) => TActions;
 };

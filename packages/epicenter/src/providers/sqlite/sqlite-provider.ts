@@ -9,7 +9,7 @@ import { tryAsync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
-	defineProviderExports,
+	defineProviders,
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider';
@@ -42,7 +42,7 @@ type SqliteProviderOptions = {
  * Syncs YJS changes to a SQLite database and exposes Drizzle query interface.
  *
  * This provider creates internal resources (sqliteDb, drizzleTables) and exports them
- * via defineProviderExports(). All exported resources become available in your workspace exports
+ * via defineProviders(). All exported resources become available in your workspace exports
  * via the `providers` parameter.
  *
  * **Storage**:
@@ -71,7 +71,7 @@ type SqliteProviderOptions = {
  *   sqlite: (c) => sqliteProvider(c, { debounceMs: 50 }),
  * },
  *
- * exports: ({ providers }) => ({
+ * actions: ({ providers }) => ({
  *   // Access exported resources from the provider
  *   getPost: defineQuery({
  *     handler: async ({ id }) => {
@@ -292,7 +292,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	}
 
 	// Return destroy function alongside exported resources (flattened structure)
-	return defineProviderExports({
+	return defineProviders({
 		async destroy() {
 			// Clear any pending sync timeout
 			if (syncTimeout) {

@@ -8,9 +8,9 @@
  * @see https://github.com/yjs/y-indexeddb
  */
 import * as Y from 'yjs';
-import { type WorkspaceActionMap, type WorkspaceExports } from '../actions';
+import type { Actions } from '../actions';
 import { createEpicenterDb } from '../db/core';
-import type { ProviderExports, WorkspaceProviderMap } from '../provider';
+import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
@@ -21,7 +21,7 @@ import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
  * a `whenSynced` promise for waiting on provider initialization.
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
  */
-export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
+export type WorkspaceClient<TActions extends Actions> = TActions & {
 	/**
 	 * The underlying YJS document for this workspace.
 	 *
@@ -66,9 +66,10 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		exports: (context: any) => infer TExports extends WorkspaceExports;
+		// biome-ignore lint/suspicious/noExplicitAny: Extracting action type from generic constraint
+		actions: (context: any) => infer TActions extends Actions;
 	}
-		? WorkspaceClient<TExports>
+		? WorkspaceClient<TActions>
 		: never;
 };
 
@@ -110,7 +111,7 @@ function validateWorkspaces(workspaces: readonly AnyWorkspaceConfig[]): void {
 	for (const workspace of workspaces) {
 		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
 			throw new Error(
-				'Invalid workspace: workspaces must be workspace configs with id, schema, indexes, and actions',
+				'Invalid workspace: workspaces must be workspace configs with id and actions',
 			);
 		}
 	}
@@ -155,16 +156,16 @@ export function createClient<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TExports extends WorkspaceExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TProviderResults,
-		TExports
+		TActions
 	>,
-): WorkspaceClient<TExports>;
+): WorkspaceClient<TActions>;
 
 /**
  * Create a client for multiple workspaces (browser, SYNCHRONOUS).
@@ -247,6 +248,7 @@ export function createClient(
 		);
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: Type safety enforced by overload signatures
 	return workspaceClient as WorkspaceClient<any>;
 }
 
@@ -317,7 +319,7 @@ function initializeWorkspacesSync<
 				// Verify the dependency exists in registered configs (flat/hoisted model)
 				if (!workspaceConfigsMap.has(dep.id)) {
 					throw new Error(
-						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", but it was not found in rootWorkspaceConfigs.\n\nFix: Add "${dep.id}" to rootWorkspaceConfigs array (flat/hoisted resolution).\nAll transitive dependencies must be declared at the root level.`,
+						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", but it was not found.\n\nFix: Add "${dep.id}" to the workspaces array (flat/hoisted resolution).\nAll transitive dependencies must be declared at the root level.`,
 					);
 				}
 			}
@@ -432,6 +434,7 @@ function initializeWorkspacesSync<
 	 * When initializing workspace B that depends on A, we can safely
 	 * inject clients[A] because A was initialized earlier in the sorted order.
 	 */
+	// biome-ignore lint/suspicious/noExplicitAny: Map holds heterogeneous workspace clients
 	const clients = new Map<string, WorkspaceClient<any>>();
 
 	// Initialize all workspaces in topological order (synchronously)
@@ -439,11 +442,8 @@ function initializeWorkspacesSync<
 		const workspaceConfig = workspaceConfigsMap.get(workspaceId)!;
 
 		// Build the workspaceClients object by injecting already-initialized dependencies
-		// Key: dependency id, Value: full client with all exports (actions + utilities)
-		const workspaceClients: Record<
-			string,
-			WorkspaceClient<WorkspaceExports>
-		> = {};
+		// biome-ignore lint/suspicious/noExplicitAny: Dependency clients are heterogeneous
+		const workspaceClients: Record<string, WorkspaceClient<any>> = {};
 
 		if (
 			workspaceConfig.dependencies &&
@@ -462,13 +462,12 @@ function initializeWorkspacesSync<
 		const tables = createEpicenterDb(ydoc, workspaceConfig.tables);
 
 		// Create validators for runtime validation and arktype composition
-		// Exposed via exports context for use in migration scripts, external validation, etc.
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
 		// Initialize all providers synchronously, collecting deferred sync promises
 		// Browser providers return sync but may load data async via whenSynced
-		const providers: Record<string, ProviderExports> = {};
-		const providerPromises: Promise<ProviderExports>[] = [];
+		const providers: Record<string, Providers> = {};
+		const providerPromises: Promise<Providers>[] = [];
 
 		for (const [providerId, providerFn] of Object.entries(
 			workspaceConfig.providers,
@@ -505,15 +504,16 @@ function initializeWorkspacesSync<
 			)
 			.then(() => {});
 
-		// Create workspace exports by calling the exports factory
-		const exports = workspaceConfig.exports({
+		// Create workspace actions by calling the actions factory
+		const actions = workspaceConfig.actions({
 			tables,
 			schema: workspaceConfig.tables,
 			validators,
 			providers,
-			workspaces: workspaceClients,
+			// biome-ignore lint/suspicious/noExplicitAny: Runtime types are correct, generic constraint too strict
+			workspaces: workspaceClients as any,
 			blobs: {} as any,
-			paths: undefined, // Browser has no filesystem paths
+			paths: undefined,
 		});
 
 		// Create async cleanup function
@@ -527,10 +527,10 @@ function initializeWorkspacesSync<
 			ydoc.destroy();
 		};
 
-		// Create the workspace client with all exports (actions + utilities)
-		// Filtering to just actions happens at the server/MCP level via iterActions()
+		// Create the workspace client with all actions
+		// Filtering to just action types happens at the server/MCP level via iterActions()
 		clients.set(workspaceId, {
-			...exports,
+			...actions,
 			$ydoc: ydoc,
 			whenSynced,
 			destroy: cleanup,
@@ -539,10 +539,7 @@ function initializeWorkspacesSync<
 	}
 
 	// Convert Map to typed object keyed by workspace id
-	const initializedWorkspaces: Record<
-		string,
-		WorkspaceClient<WorkspaceActionMap>
-	> = {};
+	const initializedWorkspaces: Record<string, WorkspaceClient<Actions>> = {};
 	for (const [workspaceId, client] of clients) {
 		initializedWorkspaces[workspaceId] = client;
 	}

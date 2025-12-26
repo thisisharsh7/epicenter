@@ -14,14 +14,14 @@ describe('Epicenter Error Handling', () => {
 			id: 'duplicate',
 			tables: { items: { id: id(), value: text() } },
 			providers: {},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		const workspace2 = defineWorkspace({
 			id: 'duplicate',
 			tables: { items: { id: id(), value: text() } },
 			providers: {},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		expect(() => createClient([workspace1, workspace2])).toThrow(
@@ -42,7 +42,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 				},
 			},
 			providers: {},
-			exports: ({ workspaces }) => ({
+			actions: ({ workspaces }) => ({
 				getValue: defineQuery({
 					handler: () => Ok(`value-from-${workspaceId}`),
 				}),

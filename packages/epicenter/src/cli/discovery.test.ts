@@ -132,7 +132,7 @@ describe('loadWorkspaces', () => {
 		);
 		await writeFile(
 			workspacePath,
-			`export default { id: 'pages', tables: {}, exports: () => ({}) };`,
+			`export default { id: 'pages', tables: {}, actions: () => ({}) };`,
 		);
 
 		const result = await loadWorkspaces(testDir as ProjectDir);
@@ -144,11 +144,11 @@ describe('loadWorkspaces', () => {
 		const workspacesDir = path.join(testDir, '.epicenter', 'workspaces');
 		await writeFile(
 			path.join(workspacesDir, 'pages.workspace.ts'),
-			`export default { id: 'pages', tables: {}, exports: () => ({}) };`,
+			`export default { id: 'pages', tables: {}, actions: () => ({}) };`,
 		);
 		await writeFile(
 			path.join(workspacesDir, 'auth.workspace.ts'),
-			`export default { id: 'auth', tables: {}, exports: () => ({}) };`,
+			`export default { id: 'auth', tables: {}, actions: () => ({}) };`,
 		);
 
 		const result = await loadWorkspaces(testDir as ProjectDir);
@@ -161,7 +161,7 @@ describe('loadWorkspaces', () => {
 		const workspacesDir = path.join(testDir, '.epicenter', 'workspaces');
 		await writeFile(
 			path.join(workspacesDir, 'pages.workspace.ts'),
-			`export default { id: 'pages', tables: {}, exports: () => ({}) };`,
+			`export default { id: 'pages', tables: {}, actions: () => ({}) };`,
 		);
 		await writeFile(
 			path.join(workspacesDir, 'utils.ts'),

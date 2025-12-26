@@ -8,7 +8,7 @@ import { defineQuery } from '../../core/actions';
 import type { TableHelper } from '../../core/db/table-helper';
 import { IndexErr, IndexError } from '../../core/errors';
 import {
-	defineProviderExports,
+	defineProviders,
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider';
@@ -902,7 +902,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	const unsubscribers = registerYJSObservers();
 	const watchers = registerFileWatchers();
 
-	return defineProviderExports({
+	return defineProviders({
 		async destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();

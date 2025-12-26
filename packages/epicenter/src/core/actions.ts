@@ -36,75 +36,46 @@ export type StandardSchemaWithJSONSchema<TInput = unknown, TOutput = TInput> = {
 };
 
 /**
- * Workspace exports - can include actions and any other utilities
+ * The return type of a workspace's `actions()` factory function.
  *
- * Similar to IndexExports, workspaces can export anything.
- * Actions (Query/Mutation) get special treatment:
- * - Auto-mapped to API endpoints
- * - Auto-mapped to MCP tools
+ * Contains only actions (queries/mutations) or nested namespaces of actions.
+ * Everything returned is auto-mapped to API endpoints and MCP tools.
  *
- * Everything else is accessible via client.workspaces.{name}.{export}
- *
- * @example Creating a workspace with mixed exports
+ * @example Flat structure
  * ```typescript
- * const workspace = defineWorkspace({
- *   exports: () => ({
- *     // Actions - these get auto-mapped to API/MCP
- *     getUser: defineQuery({
- *       handler: async () => { ... }
- *     }),
+ * actions: () => ({
+ *   getUser: defineQuery({ ... }),
+ *   createUser: defineMutation({ ... }),
+ * })
+ * ```
  *
- *     createUser: defineMutation({
- *       input: userSchema,
- *       handler: async (input) => { ... }
- *     }),
- *
- *     // Utilities - accessible but not auto-mapped
- *     validateEmail: (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
- *
- *     // Constants
- *     constants: {
- *       MAX_USERS: 1000,
- *       DEFAULT_ROLE: 'user'
- *     },
- *
- *     // Helpers
- *     formatters: {
- *       formatUserName: (user) => `${user.firstName} ${user.lastName}`
- *     }
- *   })
- * });
- *
- * // API/MCP mapper usage
- * const actions = extractActions(workspaceExports);
- * // actions = { getUser, createUser } only
- *
- * // Client usage
- * client.workspaces.users.getUser() // Action
- * client.workspaces.users.validateEmail("test@test.com") // Utility
- * client.workspaces.users.constants.MAX_USERS // Constant
+ * @example Namespaced structure
+ * ```typescript
+ * actions: () => ({
+ *   users: {
+ *     getAll: defineQuery({ ... }),
+ *     create: defineMutation({ ... }),
+ *   },
+ * })
  * ```
  */
-export type WorkspaceExports = Record<string, unknown>;
-
-/**
- * A collection of workspace actions indexed by action name.
+export type Actions = {
+	// biome-ignore lint/suspicious/noExplicitAny: Actions uses `any` for heterogeneous action collections.
+	[key: string]: Action<any, any> | Actions;
+}; /**
+ * Action - a callable function with metadata for cross-boundary invocation.
  *
- * This is a subset of WorkspaceExports containing only the actions (queries and mutations).
- * Use extractActions() to filter WorkspaceExports down to just the actions.
+ * Actions are the unit of work in Epicenter. They have JSON-serializable inputs
+ * and outputs, enabling transparent message passing across process boundaries
+ * (HTTP, WebSocket, IPC). This makes them suitable for:
+ * - REST API endpoints
+ * - MCP tool definitions
+ * - CLI commands
+ * - Cross-workspace dependencies
  *
- * Each workspace exposes its functionality through a set of typed actions
- * that can be called by other workspaces or external consumers via API/MCP.
- */
-// biome-ignore lint/suspicious/noExplicitAny: WorkspaceActionMap is a dynamic collection where each action can have different output and error types. Using `any` here allows flexibility for heterogeneous action collections without forcing users to define complex union types upfront.
-export type WorkspaceActionMap = Record<string, Action<any, any>>;
-
-/**
- * Action type - callable function with metadata properties
- * Can be either a query or mutation
- *
- * Input schemas must implement both StandardSchemaV1 (validation) and
- * StandardJSONSchemaV1 (JSON Schema conversion) for MCP/CLI/OpenAPI support.
+ * Input schemas must implement StandardSchemaV1 (validation) and
+ * StandardJSONSchemaV1 (JSON Schema) for runtime validation and documentation
+ * (MCP/CLI/OpenAPI) support.
  */
 export type Action<
 	TOutput = unknown,
@@ -611,33 +582,6 @@ type ActionConfig = {
 };
 
 /**
- * Type guard: Check if a value is an Action (Query or Mutation)
- *
- * Actions are identified by having a `type` property set to 'query' or 'mutation'.
- * This allows runtime filtering of workspace exports to identify which exports
- * should be mapped to API endpoints and MCP tools.
- *
- * @example
- * ```typescript
- * const exports = {
- *   getUser: defineQuery({ ... }),
- *   validateEmail: (email: string) => { ... }
- * };
- *
- * isAction(exports.getUser) // true
- * isAction(exports.validateEmail) // false
- * ```
- */
-export function isAction(value: unknown): value is Action {
-	return (
-		typeof value === 'function' &&
-		typeof (value as Action).type === 'string' &&
-		((value as Action).type === 'query' ||
-			(value as Action).type === 'mutation')
-	);
-}
-
-/**
  * Type guard: Check if a value is a Query action
  *
  * @example
@@ -670,40 +614,6 @@ export function isMutation(value: unknown): value is Mutation {
 }
 
 /**
- * Extract only the actions from workspace exports
- *
- * Used by API/MCP mappers to identify what to expose as endpoints.
- * Non-action exports are ignored and remain accessible through the client.
- *
- * @example
- * ```typescript
- * const exports = {
- *   getUser: defineQuery({ ... }),
- *   createUser: defineMutation({ ... }),
- *   validateEmail: (email: string) => { ... },
- *   constants: { MAX_USERS: 1000 }
- * };
- *
- * const actions = extractActions(exports);
- * // actions = { getUser, createUser } only
- *
- * // Use in API/MCP mapping
- * for (const [name, action] of Object.entries(actions)) {
- *   if (isQuery(action)) {
- *     app.get(`/api/${name}`, ...);
- *   } else if (isMutation(action)) {
- *     app.post(`/api/${name}`, ...);
- *   }
- * }
- * ```
- */
-export function extractActions(exports: WorkspaceExports): WorkspaceActionMap {
-	return Object.fromEntries(
-		Object.entries(exports).filter(([_, value]) => isAction(value)),
-	) as WorkspaceActionMap;
-}
-
-/**
  * Type guard: Check if a value is a namespace (plain object that might contain actions)
  *
  * A namespace is any plain object that is not an action itself.
@@ -732,19 +642,19 @@ export function isNamespace(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Recursively walk through exports and yield all actions with their paths.
+ * Recursively walk through actions and yield each action with its path.
  *
- * This generator function traverses a nested export structure and yields
+ * This generator function traverses a nested action structure and yields
  * each action along with its path from the root. The path is an array of
  * keys that identifies the action's location in the hierarchy.
  *
- * @param exports - The workspace exports object to walk through
+ * @param actions - The workspace actions object to walk through
  * @param path - Current path array (used internally for recursion)
  * @yields Objects containing the action path and the action itself
  *
  * @example
  * ```typescript
- * const exports = {
+ * const actions = {
  *   users: {
  *     getAll: defineQuery({ ... }),
  *     crud: {
@@ -754,7 +664,7 @@ export function isNamespace(value: unknown): value is Record<string, unknown> {
  *   health: defineQuery({ ... })
  * };
  *
- * for (const { path, action } of walkActions(exports)) {
+ * for (const { path, action } of walkActions(actions)) {
  *   // First: path = ['users', 'getAll'], action = Query
  *   // Second: path = ['users', 'crud', 'create'], action = Mutation
  *   // Third: path = ['health'], action = Query
@@ -762,12 +672,12 @@ export function isNamespace(value: unknown): value is Record<string, unknown> {
  * ```
  */
 export function* walkActions(
-	exports: unknown,
+	actions: unknown,
 	path: string[] = [],
 ): Generator<{ path: string[]; action: Action }> {
-	if (!exports || typeof exports !== 'object') return;
+	if (!actions || typeof actions !== 'object') return;
 
-	for (const [key, value] of Object.entries(exports)) {
+	for (const [key, value] of Object.entries(actions)) {
 		if (isAction(value)) {
 			// Found an action, yield it with its full path
 			yield { path: [...path, key], action: value };
@@ -780,29 +690,23 @@ export function* walkActions(
 }
 
 /**
- * Helper to define workspace exports with full type inference
+ * Helper to define workspace actions with full type inference
  *
- * Identity function similar to defineIndexExports. Provides type safety
- * and better IDE support when defining workspace exports.
+ * Identity function that provides type safety and better IDE support
+ * when defining workspace actions.
  *
  * @example
  * ```typescript
- * const exports = defineWorkspaceExports({
+ * const actions = defineActions({
  *   getUser: defineQuery({ ... }),
  *   createUser: defineMutation({ ... }),
- *   validateEmail: (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
- *   constants: { MAX_USERS: 1000 }
  * });
  * // Type is fully inferred: {
  * //   getUser: Query<...>,
  * //   createUser: Mutation<...>,
- * //   validateEmail: (email: string) => boolean,
- * //   constants: { MAX_USERS: number }
  * // }
  * ```
  */
-export function defineWorkspaceExports<T extends WorkspaceExports>(
-	exports: T,
-): T {
-	return exports;
+export function defineActions<T extends Actions>(actions: T): T {
+	return actions;
 }

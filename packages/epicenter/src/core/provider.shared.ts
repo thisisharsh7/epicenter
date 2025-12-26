@@ -31,21 +31,19 @@ export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
 /**
  * Provider exports - returned values accessible via `providers.{name}`.
  */
-export type ProviderExports = {
+export type Providers = {
 	whenSynced?: Promise<unknown>;
 	destroy?: () => void | Promise<void>;
 	[key: string]: unknown;
 };
 
-export type WorkspaceProviderMap = Record<string, ProviderExports>;
+export type WorkspaceProviderMap = Record<string, Providers>;
 
-export type InferProviderExports<P> = P extends (context: any) => infer R
+export type InferProviders<P> = P extends (context: any) => infer R
 	? Awaited<R>
 	: Record<string, never>;
 
-export function defineProviderExports<T extends ProviderExports>(
-	exports: T,
-): T {
+export function defineProviders<T extends Providers>(exports: T): T {
 	return exports;
 }
 
@@ -54,7 +52,7 @@ export function defineProviderExports<T extends ProviderExports>(
  */
 export type Provider<
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
-	TExports extends ProviderExports = ProviderExports,
+	TExports extends Providers = Providers,
 > = (
 	context: ProviderContext<TSchema>,
 ) => TExports | void | Promise<TExports | void>;
