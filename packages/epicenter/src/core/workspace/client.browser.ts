@@ -465,10 +465,10 @@ function initializeWorkspacesSync<
 		// Exposed via exports context for use in migration scripts, external validation, etc.
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
-		// Initialize each provider synchronously, collecting whenSynced promises
-		// Browser-specific: Providers may return synchronously but load data asynchronously
+		// Initialize all providers synchronously, collecting deferred sync promises
+		// Browser providers return sync but may load data async via whenSynced
 		const providers: Record<string, ProviderExports> = {};
-		const syncPromises: Promise<void>[] = [];
+		const providerPromises: Promise<ProviderExports>[] = [];
 
 		for (const [providerId, providerFn] of Object.entries(
 			workspaceConfig.providers,
@@ -479,32 +479,31 @@ function initializeWorkspacesSync<
 				ydoc,
 				schema: workspaceConfig.tables,
 				tables,
-				paths: undefined, // Browser has no filesystem paths
+				paths: undefined,
 			});
 
-			// Handle both sync and async provider returns
 			if (result instanceof Promise) {
-				// Async provider: track the promise and collect whenSynced when resolved
-				const tracked = result.then((exports) => {
-					providers[providerId] = exports ?? {};
-					return exports?.whenSynced;
-				});
-				syncPromises.push(tracked.then(() => {}));
+				providerPromises.push(
+					result.then((exports) => {
+						providers[providerId] = exports ?? {};
+						return exports ?? {};
+					}),
+				);
 			} else {
-				// Sync provider: store exports immediately, collect whenSynced if present
 				providers[providerId] = result ?? {};
-				const whenSyncedPromise = result?.whenSynced;
-				if (whenSyncedPromise instanceof Promise) {
-					syncPromises.push(whenSyncedPromise.then(() => {}));
-				}
 			}
 		}
 
-		// Aggregate all provider sync promises into a single whenSynced promise
-		const whenSynced =
-			syncPromises.length > 0
-				? Promise.all(syncPromises).then(() => {})
-				: Promise.resolve();
+		// Aggregate whenSynced: wait for async providers, then collect their whenSynced
+		const whenSynced = Promise.all(providerPromises)
+			.then(() =>
+				Promise.all(
+					Object.values(providers)
+						.map((p) => p.whenSynced)
+						.filter((p): p is Promise<unknown> => p instanceof Promise),
+				),
+			)
+			.then(() => {});
 
 		// Create workspace exports by calling the exports factory
 		const exports = workspaceConfig.exports({

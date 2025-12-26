@@ -456,17 +456,10 @@ async function initializeWorkspaces<
 	 */
 	const clients = new Map<string, WorkspaceClient<any>>();
 
-	/**
-	 * Initialize a single workspace (non-recursive).
-	 * All dependencies are guaranteed to be already initialized because we're
-	 * processing workspaces in topological order. This function:
-	 * 1. Injects already-initialized dependency clients
-	 * 2. Creates YDoc, tables, providers, and exports
-	 * 3. Returns the initialized workspace client
-	 */
-	const initializeWorkspace = async (
-		workspaceConfig: WorkspaceConfig,
-	): Promise<WorkspaceClient<any>> => {
+	// Initialize all workspaces in topological order
+	for (const workspaceId of sorted) {
+		const workspaceConfig = workspaceConfigsMap.get(workspaceId)!;
+
 		// Build the workspaceClients object by injecting already-initialized dependencies
 		// Key: dependency id, Value: full client with all exports (actions + utilities)
 		const workspaceClients: Record<
@@ -478,36 +471,11 @@ async function initializeWorkspaces<
 			workspaceConfig.dependencies &&
 			workspaceConfig.dependencies.length > 0
 		) {
-			// Inject dependency clients from the registered configs
-			// Build set of unique dependency IDs
-			const uniqueDepIds = new Set(
-				workspaceConfig.dependencies.map((dep) => dep.id),
-			);
-
-			// Inject dependency clients
-			for (const depId of uniqueDepIds) {
-				// Get the workspace config
-				const depConfig = workspaceConfigsMap.get(depId);
-				if (!depConfig) {
-					throw new Error(
-						`Internal error: dependency "${depId}" not found in registered configs`,
-					);
-				}
-
-				// Get the initialized client
-				const depClient = clients.get(depId);
-				if (!depClient) {
-					throw new Error(
-						`Internal error: dependency "${depId}" should have been initialized before "${workspaceConfig.id}"`,
-					);
-				}
-
-				// Inject using the config's id
-				workspaceClients[depConfig.id] = depClient;
+			for (const dep of workspaceConfig.dependencies) {
+				const depClient = clients.get(dep.id);
+				if (depClient) workspaceClients[dep.id] = depClient;
 			}
 		}
-
-		// Now that all dependencies are ready, initialize this workspace's core components
 
 		// Create YJS document with workspace ID as the document GUID
 		const ydoc = new Y.Doc({ guid: workspaceConfig.id });
@@ -519,10 +487,7 @@ async function initializeWorkspaces<
 		// Exposed via exports context for use in migration scripts, external validation, etc.
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
-		// Initialize each provider by calling its factory function with ProviderContext
-		// Each provider receives { id, providerId, ydoc, schema, tables, paths }
-		// paths.provider is computed per-provider: .epicenter/providers/{providerId}/
-		// Initialize all providers in parallel for better performance
+		// Initialize all providers in parallel
 		const providers = Object.fromEntries(
 			await Promise.all(
 				Object.entries(workspaceConfig.providers).map(
@@ -539,7 +504,6 @@ async function initializeWorkspaces<
 							tables,
 							paths,
 						});
-						// Providers can return void or exports
 						return [providerId, result ?? {}];
 					},
 				),
@@ -565,8 +529,7 @@ async function initializeWorkspaces<
 
 		// Create async cleanup function
 		const cleanup = async () => {
-			// Clean up providers first, awaiting any async destroy operations
-			// Note: destroy is optional for providers
+			// Clean up providers first (destroy is optional for providers)
 			await Promise.all(
 				Object.values(providers).map((provider) => provider.destroy?.()),
 			);
@@ -577,21 +540,12 @@ async function initializeWorkspaces<
 
 		// Create the workspace client with all exports (actions + utilities)
 		// Filtering to just actions happens at the server/MCP level via iterActions()
-		const client: WorkspaceClient<any> = {
+		clients.set(workspaceId, {
 			...exports,
 			$ydoc: ydoc,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
-		};
-
-		return client;
-	};
-
-	// Initialize all workspaces in topological order
-	for (const workspaceId of sorted) {
-		const workspaceConfig = workspaceConfigsMap.get(workspaceId)!;
-		const client = await initializeWorkspace(workspaceConfig);
-		clients.set(workspaceId, client);
+		});
 	}
 
 	// Convert Map to typed object keyed by workspace id
