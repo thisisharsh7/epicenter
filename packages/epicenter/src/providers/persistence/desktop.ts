@@ -5,19 +5,19 @@ import type { Provider } from '../../core/provider';
 
 /**
  * YJS document persistence provider using the filesystem.
- * Stores the YDoc as a binary file in the `.epicenter` directory.
+ * Stores the YDoc as a binary file in the provider's directory.
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
  *
  * **How it works**:
- * 1. Creates `.epicenter` directory if it doesn't exist
- * 2. Loads existing state from `.epicenter/${workspaceId}.yjs` on startup
+ * 1. Creates provider directory if it doesn't exist
+ * 2. Loads existing state from `.epicenter/providers/persistence/${workspaceId}.yjs` on startup
  * 3. Auto-saves to disk on every YJS update (synchronous to ensure data is persisted before process exits)
  *
- * **Storage location**: `.epicenter/${workspaceId}.yjs` relative to storageDir from epicenter config
+ * **Storage location**: `.epicenter/providers/persistence/${workspaceId}.yjs`
  * - Each workspace gets its own file named after its ID
  * - Binary format (not human-readable)
- * - Should be gitignored (add `.epicenter/` to `.gitignore`)
+ * - Should be gitignored (add `.epicenter/providers/` to `.gitignore`)
  *
  * @example Basic usage
  * ```typescript
@@ -28,46 +28,22 @@ import type { Provider } from '../../core/provider';
  *   id: 'blog',
  *   tables: { ... },
  *   providers: {
- *     persistence: setupPersistence,  // Auto-saves to {storageDir}/.epicenter/blog.yjs
- *   },
- *   exports: ({ tables }) => ({ ... }),
- * });
- * ```
- *
- * @example Multi-workspace setup
- * ```typescript
- * // All workspaces persist to .epicenter/ directory
- * const pages = defineWorkspace({
- *   id: 'pages',
- *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,  // → {storageDir}/.epicenter/pages.yjs
- *   },
- *   exports: ({ tables }) => ({ ... }),
- * });
- *
- * const blog = defineWorkspace({
- *   id: 'blog',
- *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,  // → {storageDir}/.epicenter/blog.yjs
+ *     persistence: setupPersistence,  // → .epicenter/providers/persistence/blog.yjs
  *   },
  *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  */
-export const setupPersistence = (async ({ id, ydoc, epicenterDir }) => {
-	// Require Node.js environment with filesystem access
-	if (!epicenterDir) {
+export const setupPersistence = (async ({ id, ydoc, providerDir }) => {
+	if (!providerDir) {
 		throw new Error(
 			'Persistence provider requires Node.js environment with filesystem access',
 		);
 	}
 
-	const filePath = path.join(epicenterDir, `${id}.yjs`);
+	const filePath = path.join(providerDir, `${id}.yjs`);
 
-	// Ensure .epicenter directory exists
-	mkdirSync(epicenterDir, { recursive: true });
+	mkdirSync(providerDir, { recursive: true });
 
 	// Try to load existing state from disk using Bun.file
 	// No need to check existence first - just try to read and handle failure

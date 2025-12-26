@@ -9,6 +9,7 @@ import {
 	generateId,
 	id,
 	markdownProvider,
+	type ProviderContext,
 	type SerializedRow,
 	sqliteProvider,
 	text,
@@ -25,6 +26,33 @@ import {
 	loadTokens,
 	performOAuthLogin,
 } from './auth';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gmail Auth Provider
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Gmail auth provider that manages OAuth2 tokens.
+ *
+ * Stores tokens in the provider's dedicated directory:
+ * `.epicenter/providers/gmailAuth/token.json`
+ */
+function gmailAuthProvider({ providerDir }: ProviderContext) {
+	if (!providerDir) {
+		return {
+			isAvailable: false as const,
+		};
+	}
+
+	return {
+		isAvailable: true as const,
+		providerDir,
+		loadTokens: () => loadTokens(providerDir),
+		deleteTokens: () => deleteTokens(providerDir),
+		getAuthenticatedClient: () => getAuthenticatedClient(providerDir),
+		performOAuthLogin: () => performOAuthLogin(providerDir),
+	};
+}
 import {
 	extractPlainText,
 	getHeader,

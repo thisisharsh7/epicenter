@@ -310,34 +310,26 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	context: ProviderContext<TSchema>,
 	config: MarkdownProviderConfig<TSchema> = {},
 ) => {
-	const { id, providerId, tables, storageDir, epicenterDir } = context;
+	const { id, tables, storageDir, providerDir } = context;
 	const { directory = `./${id}` } = config;
 
-	// User-provided table configs (sparse - only contains overrides, may be empty)
-	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
 	const userTableConfigs: TableConfigs<TSchema> = config.tableConfigs ?? {};
-	// Require Node.js environment with filesystem access
-	if (!storageDir || !epicenterDir) {
+	if (!storageDir || !providerDir) {
 		throw new Error(
 			'Markdown provider requires Node.js environment with filesystem access',
 		);
 	}
 
-	// Workspace-specific directory for all provider artifacts
-	// Structure: .epicenter/{workspaceId}/{providerId}.{suffix}
-	const workspaceConfigDir = path.join(epicenterDir, id);
-
-	// Create diagnostics manager for tracking validation errors (current state)
+	// Provider artifacts: .epicenter/providers/markdown/diagnostics/{workspaceId}.json
+	const diagnosticsDir = path.join(providerDir, 'diagnostics');
 	const diagnostics = createDiagnosticsManager({
-		diagnosticsPath: path.join(
-			workspaceConfigDir,
-			`${providerId}.diagnostics.json`,
-		),
+		diagnosticsPath: path.join(diagnosticsDir, `${id}.json`),
 	});
 
-	// Create logger for historical error record (append-only audit trail)
+	// Logs: .epicenter/providers/markdown/logs/{workspaceId}.log
+	const logsDir = path.join(providerDir, 'logs');
 	const logger = createIndexLogger({
-		logPath: path.join(workspaceConfigDir, `${providerId}.log`),
+		logPath: path.join(logsDir, `${id}.log`),
 	});
 
 	// Resolve workspace directory to absolute path

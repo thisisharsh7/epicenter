@@ -14,9 +14,10 @@ import {
 	walkActions,
 } from '../actions';
 import { createEpicenterDb } from '../db/core';
+import { getProviderDir } from '../paths';
 import type { ProviderExports } from '../provider';
 import { createWorkspaceValidators } from '../schema';
-import type { EpicenterDir, StorageDir } from '../types';
+import type { EpicenterDir, ProviderDir, StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
 /**
@@ -439,13 +440,17 @@ export async function initializeWorkspaces<
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
 		// Initialize each provider by calling its factory function with ProviderContext
-		// Each provider receives { id, providerId, ydoc, schema, tables, storageDir, epicenterDir }
-		// and optionally returns an exports object
+		// Each provider receives { id, providerId, ydoc, schema, tables, storageDir, providerDir }
+		// providerDir is computed per-provider: .epicenter/providers/{providerId}/
 		// Initialize all providers in parallel for better performance
 		const providers = Object.fromEntries(
 			await Promise.all(
 				Object.entries(workspaceConfig.providers).map(
 					async ([providerId, providerFn]) => {
+						const providerDir: ProviderDir | undefined = epicenterDir
+							? getProviderDir(epicenterDir, providerId)
+							: undefined;
+
 						const result = await providerFn({
 							id: workspaceConfig.id,
 							providerId,
@@ -453,7 +458,7 @@ export async function initializeWorkspaces<
 							schema: workspaceConfig.tables,
 							tables,
 							storageDir,
-							epicenterDir,
+							providerDir,
 						});
 						// Providers can return void or exports
 						return [providerId, result ?? {}];
