@@ -258,7 +258,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	const workspaceConfigDir = path.join(epicenterDir, id);
 
 	// Create diagnostics manager for tracking validation errors (current state)
-	const diagnostics = createDiagnosticsManager({
+	const diagnostics = await createDiagnosticsManager({
 		diagnosticsPath: path.join(
 			workspaceConfigDir,
 			`${providerId}.diagnostics.json`,
