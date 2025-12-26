@@ -6,6 +6,7 @@ import type {
 	CancelRecordingResult,
 	WhisperingRecordingState,
 } from '$lib/constants/audio';
+import { FsServiceLive } from '$lib/services/desktop/fs';
 import {
 	type CpalRecordingParams,
 	type RecorderService,
@@ -17,7 +18,6 @@ import {
 	type Device,
 	type DeviceAcquisitionOutcome,
 } from '$lib/services/types';
-import { FsServiceLive } from '$lib/services/desktop/fs';
 
 /**
  * Audio recording data returned from the Rust method

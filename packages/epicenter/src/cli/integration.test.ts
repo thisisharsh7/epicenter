@@ -3,7 +3,7 @@ import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { createClient } from '../core/workspace/client.node';
 import { defineMutation, defineWorkspace, id, text } from '../index.node';
-import { sqliteProvider } from '../indexes/sqlite';
+import { sqliteProvider } from '../providers/sqlite';
 import { createCLI } from './cli';
 
 describe('CLI Integration', () => {

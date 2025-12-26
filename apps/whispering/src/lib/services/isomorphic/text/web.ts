@@ -1,3 +1,4 @@
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import type { TextService } from './types';
 import { TextServiceErr } from './types';
@@ -12,8 +13,7 @@ export function createTextServiceWeb(): TextService {
 				},
 				catch: (error) =>
 					TextServiceErr({
-						message:
-							'There was an error reading from the clipboard using the browser Clipboard API. Please try again.',
+						message: `There was an error reading from the clipboard using the browser Clipboard API. Please try again. ${extractErrorMessage(error)}`,
 					}),
 			}),
 
@@ -22,8 +22,7 @@ export function createTextServiceWeb(): TextService {
 				try: () => navigator.clipboard.writeText(text),
 				catch: (error) =>
 					TextServiceErr({
-						message:
-							'There was an error copying to the clipboard using the browser Clipboard API. Please try again.',
+						message: `There was an error copying to the clipboard using the browser Clipboard API. Please try again. ${extractErrorMessage(error)}`,
 					}),
 			});
 

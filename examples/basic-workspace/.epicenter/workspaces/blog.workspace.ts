@@ -12,9 +12,12 @@ import {
 	select,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
-import { sqliteProvider } from '@epicenter/hq/indexes/sqlite';
-import { setupPersistence } from '@epicenter/hq/providers';
+import {
+	MarkdownProviderErr,
+	markdownProvider,
+} from '@epicenter/hq/providers/markdown';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 
@@ -62,7 +65,7 @@ export default defineWorkspace({
 							const frontmatterParsed = FrontMatter(frontmatter);
 
 							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for post ${id}`,
 									context: {
 										filename,
@@ -80,6 +83,8 @@ export default defineWorkspace({
 
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 					comments: {
 						serialize: ({ row: { id, ...row } }) => ({
@@ -96,7 +101,7 @@ export default defineWorkspace({
 							const frontmatterParsed = FrontMatter(frontmatter);
 
 							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownIndexErr({
+								return MarkdownProviderErr({
 									message: `Invalid frontmatter for comment ${id}`,
 									context: { filename, id, reason: frontmatterParsed },
 								});
@@ -109,6 +114,8 @@ export default defineWorkspace({
 
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 				},
 			}),

@@ -1,9 +1,9 @@
 import type { Result } from 'wellcrafted/result';
+import { defineMutation } from '$lib/query/client';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import { services } from '$lib/services';
 import type { Recording } from '$lib/services/isomorphic/db';
 import type { DownloadServiceError } from '$lib/services/isomorphic/download';
-import { defineMutation } from '$lib/query/client';
 
 export const download = {
 	downloadRecording: defineMutation({

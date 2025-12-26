@@ -2,8 +2,8 @@ import { type } from 'arktype';
 import { Ok, type Result } from 'wellcrafted/result';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import type { HttpService } from '$lib/services/isomorphic/http';
-import type { Settings } from '$lib/settings';
 import { getAudioExtension } from '$lib/services/isomorphic/transcription/utils';
+import type { Settings } from '$lib/settings';
 
 const WhisperApiResponse = type({ text: 'string' }, '|', {
 	error: { message: 'string' },

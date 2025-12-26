@@ -76,7 +76,9 @@
 		};
 	}
 
-	const getAllRecordingsQuery = createQuery(() => rpc.db.recordings.getAll.options);
+	const getAllRecordingsQuery = createQuery(
+		() => rpc.db.recordings.getAll.options,
+	);
 	const transcribeRecordings = createMutation(
 		() => rpc.transcription.transcribeRecordings.options,
 	);

@@ -573,31 +573,31 @@ export const FfmpegRecorderServiceLive = createFfmpegRecorderService();
  */
 function parseDevices(output: string): Device[] {
 	// Platform-specific parsing configuration
-	// Note: Regex capture groups are guaranteed to exist when the regex matches,
-	// so we use non-null assertions (!) on match indices.
+	// Note: Regex capture groups are guaranteed to exist when the regex matches.
+	// We use optional chaining with fallbacks to satisfy the linter.
 	const platformConfig = {
 		macos: {
 			// macOS format: [AVFoundation input device @ 0x...] [0] Built-in Microphone
 			regex: /\[AVFoundation.*?\]\s+\[(\d+)\]\s+(.+)/,
 			extractDevice: (match) => ({
-				id: asDeviceIdentifier(match[2]!.trim()),
-				label: match[2]!.trim(),
+				id: asDeviceIdentifier(match[2]?.trim() ?? ''),
+				label: match[2]?.trim() ?? '',
 			}),
 		},
 		windows: {
 			// Windows DirectShow format: "Microphone Name" (audio)
 			regex: /^\s*"(.+?)"\s+\(audio\)/,
 			extractDevice: (match) => ({
-				id: asDeviceIdentifier(match[1]!),
-				label: match[1]!,
+				id: asDeviceIdentifier(match[1] ?? ''),
+				label: match[1] ?? '',
 			}),
 		},
 		linux: {
 			// Linux ALSA format: hw:0,0 Device Name
 			regex: /^(hw:\d+,\d+)\s+(.+)/,
 			extractDevice: (match) => ({
-				id: asDeviceIdentifier(match[1]!),
-				label: match[2]!.trim(),
+				id: asDeviceIdentifier(match[1] ?? ''),
+				label: match[2]?.trim() ?? '',
 			}),
 		},
 	} satisfies Record<

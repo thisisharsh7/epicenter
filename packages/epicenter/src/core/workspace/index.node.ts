@@ -6,15 +6,17 @@
 
 // Provider types (shared)
 export type { Provider, ProviderContext } from '../provider';
-// Runtime - node version
-export { createClient, type CreateClientOptions } from './client.node';
-// Types from shared (no platform-specific code)
+// Node-specific types (no whenSynced - async initialization)
 export type {
-	ActionInfo,
 	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
-} from './client.shared';
+} from './client.node';
+// Runtime - node version
+export { type CreateClientOptions, createClient } from './client.node';
+
+// Shared utilities
+export type { ActionInfo } from './client.shared';
 export { iterActions } from './client.shared';
 
 // Config types and definition (shared)

@@ -1,3 +1,4 @@
+import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 import type { DownloadService } from '.';
 import { DownloadServiceErr } from './types';
@@ -19,8 +20,7 @@ export function createDownloadServiceWeb(): DownloadService {
 				},
 				catch: (error) =>
 					DownloadServiceErr({
-						message:
-							'There was an error saving the recording in your browser. Please try again.',
+						message: `There was an error saving the recording in your browser. Please try again. ${extractErrorMessage(error)}`,
 					}),
 			}),
 	};

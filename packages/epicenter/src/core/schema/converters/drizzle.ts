@@ -11,7 +11,7 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { date, json, tags } from '../../../indexes/sqlite/schema/builders';
+import { date, json, tags } from '../../../providers/sqlite/schema/builders';
 import type {
 	BooleanColumnSchema,
 	ColumnSchema,

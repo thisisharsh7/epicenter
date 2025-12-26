@@ -8,10 +8,10 @@ import ggmlIcon from '$lib/constants/icons/ggml.svg?raw';
 // Import SVG icons as strings
 import groqIcon from '$lib/constants/icons/groq.svg?raw';
 import mistralIcon from '$lib/constants/icons/mistral.svg?raw';
+import moonshineIcon from '$lib/constants/icons/moonshine.svg?raw';
 import nvidiaIcon from '$lib/constants/icons/nvidia.svg?raw';
 import openaiIcon from '$lib/constants/icons/openai.svg?raw';
 import speachesIcon from '$lib/constants/icons/speaches.svg?raw';
-import moonshineIcon from '$lib/constants/icons/moonshine.svg?raw';
 import type { Settings } from '$lib/settings';
 import {
 	DEEPGRAM_TRANSCRIPTION_MODELS,
@@ -240,13 +240,49 @@ type ServiceCapabilities = {
  * ```
  */
 export const TRANSCRIPTION_SERVICE_CAPABILITIES = {
-	whispercpp: { supportsPrompt: true, supportsTemperature: false, supportsLanguage: true },
-	parakeet: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
-	moonshine: { supportsPrompt: false, supportsTemperature: false, supportsLanguage: false },
-	Groq: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
-	OpenAI: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
-	ElevenLabs: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
-	Deepgram: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
-	Mistral: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
-	speaches: { supportsPrompt: true, supportsTemperature: true, supportsLanguage: true },
+	whispercpp: {
+		supportsPrompt: true,
+		supportsTemperature: false,
+		supportsLanguage: true,
+	},
+	parakeet: {
+		supportsPrompt: false,
+		supportsTemperature: false,
+		supportsLanguage: false,
+	},
+	moonshine: {
+		supportsPrompt: false,
+		supportsTemperature: false,
+		supportsLanguage: false,
+	},
+	Groq: {
+		supportsPrompt: true,
+		supportsTemperature: true,
+		supportsLanguage: true,
+	},
+	OpenAI: {
+		supportsPrompt: true,
+		supportsTemperature: true,
+		supportsLanguage: true,
+	},
+	ElevenLabs: {
+		supportsPrompt: true,
+		supportsTemperature: true,
+		supportsLanguage: true,
+	},
+	Deepgram: {
+		supportsPrompt: true,
+		supportsTemperature: true,
+		supportsLanguage: true,
+	},
+	Mistral: {
+		supportsPrompt: true,
+		supportsTemperature: true,
+		supportsLanguage: true,
+	},
+	speaches: {
+		supportsPrompt: true,
+		supportsTemperature: true,
+		supportsLanguage: true,
+	},
 } as const satisfies Record<TranscriptionServiceId, ServiceCapabilities>;

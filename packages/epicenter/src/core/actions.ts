@@ -1,4 +1,7 @@
-import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
+import type {
+	StandardJSONSchemaV1,
+	StandardSchemaV1,
+} from '@standard-schema/spec';
 import type { TaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
 
@@ -13,9 +16,11 @@ import type { Result } from 'wellcrafted/result';
  *
  * @see https://standardschema.dev/json-schema#what-if-i-want-to-accept-only-schemas-that-implement-both-standardschema-and-standardjsonschema
  */
-type StandardSchemaWithJSONSchemaProps<TInput = unknown, TOutput = TInput> =
-	StandardSchemaV1.Props<TInput, TOutput> &
-		StandardJSONSchemaV1.Props<TInput, TOutput>;
+type StandardSchemaWithJSONSchemaProps<
+	TInput = unknown,
+	TOutput = TInput,
+> = StandardSchemaV1.Props<TInput, TOutput> &
+	StandardJSONSchemaV1.Props<TInput, TOutput>;
 
 /**
  * Schema type that implements both StandardSchema (validation) and StandardJSONSchema (conversion).
@@ -104,7 +109,9 @@ export type WorkspaceActionMap = Record<string, Action<any, any>>;
 export type Action<
 	TOutput = unknown,
 	TError extends TaggedError | never = TaggedError,
-	TInput extends StandardSchemaWithJSONSchema | undefined = StandardSchemaWithJSONSchema | undefined,
+	TInput extends StandardSchemaWithJSONSchema | undefined =
+		| StandardSchemaWithJSONSchema
+		| undefined,
 	TAsync extends boolean = boolean,
 > =
 	| Query<TOutput, TError, TInput, TAsync>
@@ -122,7 +129,9 @@ export type Action<
 export type Query<
 	TOutput = unknown,
 	TError extends TaggedError<string> | never = never,
-	TInput extends StandardSchemaWithJSONSchema | undefined = StandardSchemaWithJSONSchema | undefined,
+	TInput extends StandardSchemaWithJSONSchema | undefined =
+		| StandardSchemaWithJSONSchema
+		| undefined,
 	TAsync extends boolean = boolean,
 > = {
 	/**
@@ -165,7 +174,9 @@ export type Query<
 export type Mutation<
 	TOutput = unknown,
 	TError extends TaggedError<string> | never = never,
-	TInput extends StandardSchemaWithJSONSchema | undefined = StandardSchemaWithJSONSchema | undefined,
+	TInput extends StandardSchemaWithJSONSchema | undefined =
+		| StandardSchemaWithJSONSchema
+		| undefined,
 	TAsync extends boolean = boolean,
 > = {
 	/**
@@ -283,7 +294,10 @@ export function defineQuery<
  * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
  * - ArkType: https://arktype.io/docs/configuration#fallback-codes
  */
-export function defineQuery<TOutput, TInput extends StandardSchemaWithJSONSchema>(config: {
+export function defineQuery<
+	TOutput,
+	TInput extends StandardSchemaWithJSONSchema,
+>(config: {
 	input: TInput;
 	handler: (input: StandardSchemaV1.InferOutput<NoInfer<TInput>>) => TOutput;
 	description?: string;
@@ -310,7 +324,10 @@ export function defineQuery<TOutput, TInput extends StandardSchemaWithJSONSchema
  * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
  * - ArkType: https://arktype.io/docs/configuration#fallback-codes
  */
-export function defineQuery<TOutput, TInput extends StandardSchemaWithJSONSchema>(config: {
+export function defineQuery<
+	TOutput,
+	TInput extends StandardSchemaWithJSONSchema,
+>(config: {
 	input: TInput;
 	handler: (
 		input: StandardSchemaV1.InferOutput<NoInfer<TInput>>,

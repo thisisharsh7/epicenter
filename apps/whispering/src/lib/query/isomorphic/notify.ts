@@ -1,9 +1,9 @@
 import { Ok } from 'wellcrafted/result';
 import { dev } from '$app/environment';
 import { notificationLog } from '$lib/components/NotificationLog.svelte';
+import { defineMutation } from '$lib/query/client';
 import { services } from '$lib/services';
 import type { UnifiedNotificationOptions } from '$lib/services/isomorphic/notifications/types';
-import { defineMutation } from '$lib/query/client';
 
 // Create a mutation for a specific variant
 const createNotifyMutation = (

@@ -1,4 +1,4 @@
-import { createTaggedError } from 'wellcrafted/error';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result, tryAsync } from 'wellcrafted/result';
 import { WHISPER_RECOMMENDED_MEDIA_TRACK_CONSTRAINTS } from '$lib/constants/audio';
 import type {
@@ -30,8 +30,7 @@ async function hasExistingAudioPermission(): Promise<boolean> {
 			},
 			catch: (error) =>
 				DeviceStreamServiceErr({
-					message:
-						'We need permission to see your microphones. Check your browser settings and try again.',
+					message: `We need permission to see your microphones. Check your browser settings and try again. ${extractErrorMessage(error)}`,
 				}),
 		});
 		if (!error) return permissionStatus.state === 'granted';
@@ -69,8 +68,7 @@ export async function enumerateDevices(): Promise<
 		},
 		catch: (error) =>
 			DeviceStreamServiceErr({
-				message:
-					'We need permission to see your microphones. Check your browser settings and try again.',
+				message: `We need permission to see your microphones. Check your browser settings and try again. ${extractErrorMessage(error)}`,
 			}),
 	});
 }
@@ -101,8 +99,7 @@ async function getStreamForDeviceIdentifier(
 		},
 		catch: (error) =>
 			DeviceStreamServiceErr({
-				message:
-					'Unable to connect to the selected microphone. This could be because the device is already in use by another application, has been disconnected, or lacks proper permissions. Please check that your microphone is connected, not being used elsewhere, and that you have granted microphone permissions.',
+				message: `Unable to connect to the selected microphone. This could be because the device is already in use by another application, has been disconnected, or lacks proper permissions. Please check that your microphone is connected, not being used elsewhere, and that you have granted microphone permissions. ${extractErrorMessage(error)}`,
 			}),
 	});
 }

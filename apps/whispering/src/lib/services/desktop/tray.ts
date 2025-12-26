@@ -5,17 +5,14 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { exit } from '@tauri-apps/plugin-process';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 // import { commandCallbacks } from '$lib/commands';
-import { type Err, Ok, tryAsync } from 'wellcrafted/result';
+import { tryAsync } from 'wellcrafted/result';
 import { goto } from '$app/navigation';
 // import { extension } from '@epicenter/extension';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
 
 const TRAY_ID = 'whispering-tray';
 
-const { SetTrayIconServiceError, SetTrayIconServiceErr } = createTaggedError(
-	'SetTrayIconServiceError',
-);
-type SetTrayIconServiceError = ReturnType<typeof SetTrayIconServiceError>;
+const { SetTrayIconServiceErr } = createTaggedError('SetTrayIconServiceError');
 
 export function createTrayIconDesktopService() {
 	const trayPromise = initTray();
