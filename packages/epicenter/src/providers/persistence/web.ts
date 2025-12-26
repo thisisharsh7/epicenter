@@ -38,7 +38,7 @@ import type { WorkspaceSchema } from '../../core/schema';
  *   providers: {
  *     persistence: setupPersistence,
  *   },
- *   exports: ({ tables }) => ({ ... }),
+ *   actions: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -63,7 +63,7 @@ import type { WorkspaceSchema } from '../../core/schema';
  *   providers: {
  *     persistence: setupPersistence,
  *   },
- *   exports: ({ tables }) => ({ ... }),
+ *   actions: ({ tables }) => ({ ... }),
  * });
  *
  * const notes = defineWorkspace({
@@ -72,7 +72,7 @@ import type { WorkspaceSchema } from '../../core/schema';
  *   providers: {
  *     persistence: setupPersistence,
  *   },
- *   exports: ({ tables }) => ({ ... }),
+ *   actions: ({ tables }) => ({ ... }),
  * });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage

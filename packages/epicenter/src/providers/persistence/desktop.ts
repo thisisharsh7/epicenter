@@ -30,7 +30,7 @@ import type { Provider } from '../../core/provider';
  *   providers: {
  *     persistence: setupPersistence,  // → .epicenter/providers/persistence/blog.yjs
  *   },
- *   exports: ({ tables }) => ({ ... }),
+ *   actions: ({ tables }) => ({ ... }),
  * });
  * ```
  */

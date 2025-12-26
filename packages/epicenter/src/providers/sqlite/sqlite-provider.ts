@@ -71,7 +71,7 @@ type SqliteProviderOptions = {
  *   sqlite: (c) => sqliteProvider(c, { debounceMs: 50 }),
  * },
  *
- * exports: ({ providers }) => ({
+ * actions: ({ providers }) => ({
  *   // Access exported resources from the provider
  *   getPost: defineQuery({
  *     handler: async ({ id }) => {

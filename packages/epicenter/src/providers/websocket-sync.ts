@@ -150,7 +150,7 @@ export type WebsocketSyncConfig = {
  *       url: 'ws://localhost:3913/sync',
  *     }),
  *   },
- *   exports: ({ tables }) => ({ ... }),
+ *   actions: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -175,7 +175,7 @@ export type WebsocketSyncConfig = {
  *     syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
  *     syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
  *   },
- *   exports: ({ tables }) => ({ ... }),
+ *   actions: ({ tables }) => ({ ... }),
  * });
  * ```
  *
@@ -199,7 +199,7 @@ export type WebsocketSyncConfig = {
  *     syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
  *     syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
  *   },
- *   exports: ({ tables }) => ({ ... }),
+ *   actions: ({ tables }) => ({ ... }),
  * });
  * ```
  *
