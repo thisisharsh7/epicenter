@@ -1,5 +1,7 @@
-# Epicenter generated files
-.epicenter/
+# Epicenter generated files (runtime data)
+.epicenter/*
+# But track workspace definitions (source code)
+!.epicenter/workspaces/
 
 # Node modules (if any)
 node_modules/

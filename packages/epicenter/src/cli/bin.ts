@@ -4,21 +4,21 @@ import { Ok, tryAsync } from 'wellcrafted/result';
 import { hideBin } from 'yargs/helpers';
 import { createClient } from '../core/workspace/client.node';
 import { createCLI } from './cli';
-import { loadEpicenterConfig } from './load-config';
+import { findProjectDir, loadWorkspaces } from './discovery';
 
-/**
- * CLI entry point
- * Loads the epicenter config and creates the CLI
- */
 async function main() {
 	await tryAsync({
 		try: async () => {
-			// Enable automatic watch mode
 			await enableWatchMode();
 
-			const { workspaces, projectDir } = await loadEpicenterConfig(
-				process.cwd(),
-			);
+			const projectDir = await findProjectDir();
+			if (!projectDir) {
+				console.error('No .epicenter folder found.');
+				console.error('Create one with: mkdir -p .epicenter/workspaces');
+				process.exit(1);
+			}
+
+			const workspaces = await loadWorkspaces(projectDir);
 			const client = await createClient(workspaces, { projectDir });
 			await createCLI(client).run(hideBin(process.argv));
 		},

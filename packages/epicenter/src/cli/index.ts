@@ -1,3 +1,3 @@
 export { createCLI } from './cli';
-export { loadEpicenterConfig } from './load-config';
+export { findProjectDir, loadWorkspaces } from './discovery';
 export { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
