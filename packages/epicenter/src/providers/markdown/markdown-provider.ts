@@ -14,7 +14,7 @@ import type {
 	WorkspaceSchema,
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
-import { createProviderLogger } from '../error-logger';
+import { createIndexLogger } from '../error-logger';
 import {
 	defaultSerializer,
 	type MarkdownSerializer,
@@ -261,7 +261,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	});
 
 	// Create logger for historical error record (append-only audit trail)
-	const logger = createProviderLogger({
+	const logger = createIndexLogger({
 		logPath: path.join(workspaceConfigDir, `${providerId}.log`),
 	});
 
