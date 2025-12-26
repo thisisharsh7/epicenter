@@ -24,8 +24,8 @@ export function createHttpServiceDesktop(): HttpService {
 
 			if (!response.ok) {
 				return ResponseErr({
-					status: response.status,
 					message: extractErrorMessage(await response.json()),
+					context: { status: response.status },
 				});
 			}
 
