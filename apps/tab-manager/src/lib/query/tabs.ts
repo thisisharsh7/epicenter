@@ -6,10 +6,10 @@
  * Mutations call Chrome APIs directly; changes propagate via Chrome events.
  */
 
-import { createBrowserConverters } from '$lib/browser-helpers';
-import { getDeviceId } from '$lib/device-id';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok, tryAsync } from 'wellcrafted/result';
+import { createBrowserConverters } from '$lib/browser-helpers';
+import { getDeviceId } from '$lib/device-id';
 import { defineMutation, defineQuery } from './_client';
 
 // ─────────────────────────────────────────────────────────────────────────────

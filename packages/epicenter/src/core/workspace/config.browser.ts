@@ -9,8 +9,8 @@ import type { Provider } from '../provider.browser';
 import type { WorkspaceSchema } from '../schema';
 import {
 	type AnyWorkspaceConfig,
-	type WorkspaceExportsContext,
 	validateWorkspaceConfig,
+	type WorkspaceExportsContext,
 } from './config.shared';
 
 // Re-export shared types
@@ -48,7 +48,13 @@ export function defineWorkspace<
 	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
 	TExports extends WorkspaceExports,
 >(
-	workspace: WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports>,
+	workspace: WorkspaceConfig<
+		TDeps,
+		TId,
+		TWorkspaceSchema,
+		TProviders,
+		TExports
+	>,
 ): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports> {
 	validateWorkspaceConfig(workspace);
 	return workspace;
@@ -91,5 +97,7 @@ export type WorkspaceConfig<
 	 * @param context.workspaces - Exports from dependency workspaces (if any)
 	 * @param context.blobs - Blob storage for binary files, namespaced by table
 	 */
-	exports: (context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>) => TExports;
+	exports: (
+		context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>,
+	) => TExports;
 };

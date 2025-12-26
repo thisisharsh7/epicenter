@@ -34,7 +34,9 @@ console.log(`Loaded workspaces: ${workspaceIds.join(', ')}`);
 const initialTabs = client.browser.tabs.getAllValid();
 const initialWindows = client.browser.windows.getAllValid();
 const initialTabGroups = client.browser.tab_groups.getAllValid();
-console.log(`[Server Startup] Initial Y.Doc state (empty until browser connects):`);
+console.log(
+	`[Server Startup] Initial Y.Doc state (empty until browser connects):`,
+);
 console.log(`  - Tabs: ${initialTabs.length}`);
 console.log(`  - Windows: ${initialWindows.length}`);
 console.log(`  - Tab Groups: ${initialTabGroups.length}`);

@@ -9,8 +9,8 @@ import type { Provider } from '../provider.node';
 import type { WorkspaceSchema } from '../schema';
 import {
 	type AnyWorkspaceConfig,
-	type WorkspaceExportsContext,
 	validateWorkspaceConfig,
+	type WorkspaceExportsContext,
 } from './config.shared';
 
 // Re-export shared types
@@ -49,7 +49,13 @@ export function defineWorkspace<
 	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
 	TExports extends WorkspaceExports,
 >(
-	workspace: WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports>,
+	workspace: WorkspaceConfig<
+		TDeps,
+		TId,
+		TWorkspaceSchema,
+		TProviders,
+		TExports
+	>,
 ): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports> {
 	validateWorkspaceConfig(workspace);
 	return workspace;
@@ -96,5 +102,7 @@ export type WorkspaceConfig<
 	 * @param context.storageDir - Storage directory path (Node/Bun only)
 	 * @param context.epicenterDir - `.epicenter` directory path (Node/Bun only)
 	 */
-	exports: (context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>) => TExports;
+	exports: (
+		context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>,
+	) => TExports;
 };

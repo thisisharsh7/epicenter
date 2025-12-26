@@ -12,9 +12,13 @@ import {
 	select,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, MarkdownProviderErr, bodyFieldSerializer } from '@epicenter/hq/providers/markdown';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import {
+	bodyFieldSerializer,
+	MarkdownProviderErr,
+	markdownProvider,
+} from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { Defuddle } from 'defuddle/node';
 import { JSDOM } from 'jsdom';
@@ -188,7 +192,13 @@ ${instructions}`;
 									return { id };
 								},
 
-								fromContent: ({ frontmatter, body, filename, parsed, table }) => {
+								fromContent: ({
+									frontmatter,
+									body,
+									filename,
+									parsed,
+									table,
+								}) => {
 									const { id: rowId } = parsed;
 
 									// Parse sections from body
@@ -557,7 +567,9 @@ ${instructions}`;
 		 * Creates a new book entry. Returns the book ID for use with addBookClipping.
 		 */
 		addBook: defineMutation({
-			input: tables.books.validators.toArktype().pick('title', 'author', 'read_at'),
+			input: tables.books.validators
+				.toArktype()
+				.pick('title', 'author', 'read_at'),
 			handler: ({ title, author, read_at }) => {
 				const now = DateWithTimezone({
 					date: new Date(),

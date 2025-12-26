@@ -450,100 +450,100 @@
 					</CopyButton>
 				</Field.Description>
 			</Field.Field>
-	{:else if settings.value['transcription.selectedTranscriptionService'] === 'whispercpp'}
-		<div class="space-y-4">
-			<!-- Whisper Model Selector Component -->
-			{#if window.__TAURI_INTERNALS__}
-				<LocalModelSelector
-					models={WHISPER_MODELS}
-					title="Whisper Model"
-					description="Select a pre-built model or browse for your own. Models run locally for private, offline transcription."
-					fileSelectionMode="file"
-					fileExtensions={['bin', 'gguf', 'ggml']}
-					bind:value={
-						() => settings.value['transcription.whispercpp.modelPath'],
-						(v) => settings.updateKey('transcription.whispercpp.modelPath', v)
-					}
-				>
-					{#snippet prebuiltFooter()}
-						<p class="text-sm text-muted-foreground">
-							Models are downloaded from{' '}
-							<Link
-								href="https://huggingface.co/ggerganov/whisper.cpp"
-								target="_blank"
-								rel="noopener noreferrer"
-							>
-								Hugging Face
-							</Link>
-							{' '}and stored locally in your app data directory. Quantized
-							models offer smaller sizes with minimal quality loss.
-						</p>
-					{/snippet}
-
-					{#snippet manualInstructions()}
-						<div>
-							<p class="text-sm font-medium mb-2">
-								<span class="text-muted-foreground">Step 1:</span> Download a Whisper
-								model
+		{:else if settings.value['transcription.selectedTranscriptionService'] === 'whispercpp'}
+			<div class="space-y-4">
+				<!-- Whisper Model Selector Component -->
+				{#if window.__TAURI_INTERNALS__}
+					<LocalModelSelector
+						models={WHISPER_MODELS}
+						title="Whisper Model"
+						description="Select a pre-built model or browse for your own. Models run locally for private, offline transcription."
+						fileSelectionMode="file"
+						fileExtensions={['bin', 'gguf', 'ggml']}
+						bind:value={
+							() => settings.value['transcription.whispercpp.modelPath'],
+							(v) => settings.updateKey('transcription.whispercpp.modelPath', v)
+						}
+					>
+						{#snippet prebuiltFooter()}
+							<p class="text-sm text-muted-foreground">
+								Models are downloaded from{' '}
+								<Link
+									href="https://huggingface.co/ggerganov/whisper.cpp"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									Hugging Face
+								</Link>
+								{' '}and stored locally in your app data directory. Quantized
+								models offer smaller sizes with minimal quality loss.
 							</p>
-							<ul class="ml-6 mt-2 space-y-2 text-sm text-muted-foreground">
-								<li class="list-disc">
-									Visit the{' '}
-									<Link
-										href="https://huggingface.co/ggerganov/whisper.cpp/tree/main"
-										target="_blank"
-										rel="noopener noreferrer"
-									>
-										model repository
-									</Link>
-								</li>
-								<li class="list-disc">
-									Download any model file (e.g., ggml-base.en.bin for
-									English-only)
-								</li>
-								<li class="list-disc">
-									Quantized models (q5_0, q8_0) offer smaller sizes with minimal
-									quality loss
-								</li>
-							</ul>
-						</div>
-					{/snippet}
-				</LocalModelSelector>
+						{/snippet}
 
-				{#if hasNavigatorLocalTranscriptionIssue( { isFFmpegInstalled: data.ffmpegInstalled ?? false }, )}
-					<Alert.Root class="border-red-500/20 bg-red-500/5">
-						<InfoIcon class="size-4 text-red-600 dark:text-red-400" />
-						<Alert.Title class="text-red-600 dark:text-red-400">
-							Browser API Recording Requires FFmpeg
-						</Alert.Title>
-						<Alert.Description>
-							You're using the Browser API recording method, which produces
-							compressed audio that requires FFmpeg for Whisper C++
-							transcription.
-							<div class="mt-3 space-y-3">
-								<div class="text-sm">
-									<strong>Option 1:</strong>
-									<Link href="/settings/recording"
-										>Switch to CPAL recording</Link
-									>
-									for direct compatibility with local transcription
-								</div>
-								<div class="text-sm">
-									<strong>Option 2:</strong>
-									<Link href="/install-ffmpeg">Install FFmpeg</Link>
-									to keep using Browser API recording
-								</div>
-								<div class="text-sm">
-									<strong>Option 3:</strong>
-									Switch to a cloud transcription service (OpenAI, Groq, Deepgram,
-									etc.) which work with all recording methods
-								</div>
+						{#snippet manualInstructions()}
+							<div>
+								<p class="text-sm font-medium mb-2">
+									<span class="text-muted-foreground">Step 1:</span> Download a Whisper
+									model
+								</p>
+								<ul class="ml-6 mt-2 space-y-2 text-sm text-muted-foreground">
+									<li class="list-disc">
+										Visit the{' '}
+										<Link
+											href="https://huggingface.co/ggerganov/whisper.cpp/tree/main"
+											target="_blank"
+											rel="noopener noreferrer"
+										>
+											model repository
+										</Link>
+									</li>
+									<li class="list-disc">
+										Download any model file (e.g., ggml-base.en.bin for
+										English-only)
+									</li>
+									<li class="list-disc">
+										Quantized models (q5_0, q8_0) offer smaller sizes with
+										minimal quality loss
+									</li>
+								</ul>
 							</div>
-						</Alert.Description>
-					</Alert.Root>
+						{/snippet}
+					</LocalModelSelector>
+
+					{#if hasNavigatorLocalTranscriptionIssue( { isFFmpegInstalled: data.ffmpegInstalled ?? false }, )}
+						<Alert.Root class="border-red-500/20 bg-red-500/5">
+							<InfoIcon class="size-4 text-red-600 dark:text-red-400" />
+							<Alert.Title class="text-red-600 dark:text-red-400">
+								Browser API Recording Requires FFmpeg
+							</Alert.Title>
+							<Alert.Description>
+								You're using the Browser API recording method, which produces
+								compressed audio that requires FFmpeg for Whisper C++
+								transcription.
+								<div class="mt-3 space-y-3">
+									<div class="text-sm">
+										<strong>Option 1:</strong>
+										<Link href="/settings/recording"
+											>Switch to CPAL recording</Link
+										>
+										for direct compatibility with local transcription
+									</div>
+									<div class="text-sm">
+										<strong>Option 2:</strong>
+										<Link href="/install-ffmpeg">Install FFmpeg</Link>
+										to keep using Browser API recording
+									</div>
+									<div class="text-sm">
+										<strong>Option 3:</strong>
+										Switch to a cloud transcription service (OpenAI, Groq, Deepgram,
+										etc.) which work with all recording methods
+									</div>
+								</div>
+							</Alert.Description>
+						</Alert.Root>
+					{/if}
 				{/if}
-			{/if}
-		</div>
+			</div>
 		{:else if settings.value['transcription.selectedTranscriptionService'] === 'parakeet'}
 			<div class="space-y-4">
 				<!-- Parakeet Model Selector Component -->

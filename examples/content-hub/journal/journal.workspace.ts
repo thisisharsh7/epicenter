@@ -1,14 +1,10 @@
+import { date, defineWorkspace, id, select, tags, text } from '@epicenter/hq';
 import {
-	date,
-	defineWorkspace,
-	id,
-	select,
-	tags,
-	text,
-} from '@epicenter/hq';
-import { markdownProvider, bodyFieldSerializer } from '@epicenter/hq/providers/markdown';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+	bodyFieldSerializer,
+	markdownProvider,
+} from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 
 /**
  * Journal workspace
@@ -109,7 +105,9 @@ export const journal = defineWorkspace({
 			markdownProvider(c, {
 				tableConfigs: {
 					// Keep null values for proper round-trip (no stripping)
-					journal: { serializer: bodyFieldSerializer('content', { stripNulls: false }) },
+					journal: {
+						serializer: bodyFieldSerializer('content', { stripNulls: false }),
+					},
 				},
 			}),
 	},

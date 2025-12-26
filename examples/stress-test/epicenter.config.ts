@@ -1,11 +1,6 @@
-import {
-	defineWorkspace,
-	id,
-	integer,
-	text,
-} from '@epicenter/hq';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import { defineWorkspace, id, integer, text } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 
 /**
  * Stress test workspace

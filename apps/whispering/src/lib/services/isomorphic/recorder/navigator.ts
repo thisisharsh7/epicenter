@@ -4,15 +4,15 @@ import {
 	TIMESLICE_MS,
 	type WhisperingRecordingState,
 } from '$lib/constants/audio';
-import type {
-	DeviceAcquisitionOutcome,
-	DeviceIdentifier,
-} from '$lib/services/types';
 import {
 	cleanupRecordingStream,
 	enumerateDevices,
 	getRecordingStream,
 } from '$lib/services/isomorphic/device-stream';
+import type {
+	DeviceAcquisitionOutcome,
+	DeviceIdentifier,
+} from '$lib/services/types';
 import type {
 	NavigatorRecordingParams,
 	RecorderService,

@@ -68,7 +68,10 @@ export type WorkspacesToExports<WS extends readonly AnyWorkspaceConfig[]> = {
 export type WorkspaceExportsContext<
 	TWorkspaceSchema extends WorkspaceSchema,
 	TDeps extends readonly AnyWorkspaceConfig[],
-	TProviders extends Record<string, (context: any) => ProviderExports | void | Promise<ProviderExports | void>>,
+	TProviders extends Record<
+		string,
+		(context: any) => ProviderExports | void | Promise<ProviderExports | void>
+	>,
 > = {
 	tables: Tables<TWorkspaceSchema>;
 	schema: TWorkspaceSchema;
@@ -85,7 +88,10 @@ export type WorkspaceExportsContext<
  *
  * @throws Error if workspace ID is invalid or dependencies are malformed
  */
-export function validateWorkspaceConfig(workspace: { id: unknown; dependencies?: unknown }) {
+export function validateWorkspaceConfig(workspace: {
+	id: unknown;
+	dependencies?: unknown;
+}) {
 	// Validate workspace ID
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');

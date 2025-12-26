@@ -11,9 +11,12 @@ import {
 	tags,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, readMarkdownFile } from '@epicenter/hq/providers/markdown';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import {
+	markdownProvider,
+	readMarkdownFile,
+} from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';

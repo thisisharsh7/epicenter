@@ -849,7 +849,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						// Fire onUpdate if:
 						// - There are actual key changes (field added/modified/deleted), OR
 						// - It's a deep change (Y.Text/Y.Array modification within a field)
-						if (yrow && (event.changes.keys.size > 0 || event.path.length > 2)) {
+						if (
+							yrow &&
+							(event.changes.keys.size > 0 || event.path.length > 2)
+						) {
 							const row = buildRowFromYRow(yrow, schema);
 							const result = yjsValidator(row);
 

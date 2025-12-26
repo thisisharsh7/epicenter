@@ -604,7 +604,10 @@ function extractDomain(url: string): string {
 	try {
 		const parsed = new URL(url);
 		// Handle special protocols
-		if (parsed.protocol === 'chrome:' || parsed.protocol === 'chrome-extension:') {
+		if (
+			parsed.protocol === 'chrome:' ||
+			parsed.protocol === 'chrome-extension:'
+		) {
 			return parsed.protocol.replace(':', '');
 		}
 		if (parsed.protocol === 'file:') {
@@ -659,7 +662,11 @@ export function domainTitleFilenameSerializer<TTableSchema extends TableSchema>(
 	TTableSchema,
 	ParsedFilename & { domainFromFilename: string; titleFromFilename: string }
 > {
-	const { stripNulls = true, maxTitleLength = 60, maxDomainLength = 30 } = options;
+	const {
+		stripNulls = true,
+		maxTitleLength = 60,
+		maxDomainLength = 30,
+	} = options;
 
 	return defineSerializer<TTableSchema>()
 		.parseFilename((filename: `${string} - ${string}-${string}.md`) => {
@@ -679,7 +686,11 @@ export function domainTitleFilenameSerializer<TTableSchema extends TableSchema>(
 			const separatorIndex = domainAndTitle.indexOf(' - ');
 			if (separatorIndex === -1) {
 				// Fallback: no separator found, treat as title only (backwards compat with titleFilenameSerializer)
-				return { id, domainFromFilename: '', titleFromFilename: domainAndTitle };
+				return {
+					id,
+					domainFromFilename: '',
+					titleFromFilename: domainAndTitle,
+				};
 			}
 
 			const domainFromFilename = domainAndTitle.substring(0, separatorIndex);

@@ -15,11 +15,11 @@ export type {
 	TitleFilenameSerializerOptions,
 } from './configs';
 export {
-	// Builder for custom serializers with full type inference
-	defineSerializer,
 	// Pre-built serializer factories
 	bodyFieldSerializer,
 	defaultSerializer,
+	// Builder for custom serializers with full type inference
+	defineSerializer,
 	domainTitleFilenameSerializer,
 	titleFilenameSerializer,
 } from './configs';

@@ -712,9 +712,7 @@ export default defineBackground(() => {
 				try: async () => {
 					// Create the tab with the URL from the markdown file
 					await browser.tabs.create({ url: row.url });
-					console.log(
-						'[Background] tabs.onAdd tab created, now refetching...',
-					);
+					console.log('[Background] tabs.onAdd tab created, now refetching...');
 
 					// Refetch to clean up - this will:
 					// 1. Add the new Browser tab (with Browser's real ID)
@@ -762,7 +760,10 @@ export default defineBackground(() => {
 				return;
 			}
 
-			console.log('[Background] tabs.onDelete REMOVING Browser tab:', parsed.tabId);
+			console.log(
+				'[Background] tabs.onDelete REMOVING Browser tab:',
+				parsed.tabId,
+			);
 			// Increment counter to prevent Browser events from triggering refetch
 			syncCoordination.yDocChangeCount++;
 			await tryAsync({

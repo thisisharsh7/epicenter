@@ -10,9 +10,13 @@ import {
 	tags,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, MarkdownProviderErr, bodyFieldSerializer } from '@epicenter/hq/providers/markdown';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import {
+	bodyFieldSerializer,
+	MarkdownProviderErr,
+	markdownProvider,
+} from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { QUALITY_OPTIONS } from '../shared/quality';
@@ -125,7 +129,13 @@ export const wiki = defineWorkspace({
 									return { id };
 								},
 
-								fromContent: ({ frontmatter, body, filename, parsed, table }) => {
+								fromContent: ({
+									frontmatter,
+									body,
+									filename,
+									parsed,
+									table,
+								}) => {
 									const { id: rowId } = parsed;
 
 									// Parse frontmatter with consistent field names

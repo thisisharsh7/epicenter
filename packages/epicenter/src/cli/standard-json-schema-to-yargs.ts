@@ -20,37 +20,31 @@ function isObjectSchema(
 }
 
 /** Check if schema has enum values */
-function isEnumSchema(
-	schema: JsonSchema,
-): schema is JsonSchema.Enum {
+function isEnumSchema(schema: JsonSchema): schema is JsonSchema.Enum {
 	return 'enum' in schema && schema.enum !== undefined;
 }
 
 /** Check if schema is a union (anyOf) */
-function isUnionSchema(
-	schema: JsonSchema,
-): schema is JsonSchema.Union {
+function isUnionSchema(schema: JsonSchema): schema is JsonSchema.Union {
 	return 'anyOf' in schema && schema.anyOf !== undefined;
 }
 
 /** Check if schema is a oneOf union */
-function isOneOfSchema(
-	schema: JsonSchema,
-): schema is JsonSchema.OneOf {
+function isOneOfSchema(schema: JsonSchema): schema is JsonSchema.OneOf {
 	return 'oneOf' in schema && schema.oneOf !== undefined;
 }
 
 /** Check if schema has a const value */
-function isConstSchema(
-	schema: JsonSchema,
-): schema is JsonSchema.Const {
+function isConstSchema(schema: JsonSchema): schema is JsonSchema.Const {
 	return 'const' in schema && schema.const !== undefined;
 }
 
 /** Check if schema has a type field */
 function hasType(
 	schema: JsonSchema,
-): schema is JsonSchema.Constrainable & { type: JsonSchema.TypeName | JsonSchema.TypeName[] } {
+): schema is JsonSchema.Constrainable & {
+	type: JsonSchema.TypeName | JsonSchema.TypeName[];
+} {
 	return 'type' in schema && schema.type !== undefined;
 }
 
@@ -162,7 +156,10 @@ function addFieldToYargs({
 			.map((v) => v.const)
 			.filter((c): c is string => typeof c === 'string');
 
-		if (stringLiterals.length === variants.length && stringLiterals.length > 0) {
+		if (
+			stringLiterals.length === variants.length &&
+			stringLiterals.length > 0
+		) {
 			yargs.option(key, {
 				type: 'string',
 				choices: stringLiterals,

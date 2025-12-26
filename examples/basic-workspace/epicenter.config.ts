@@ -12,9 +12,12 @@ import {
 	select,
 	text,
 } from '@epicenter/hq';
-import { markdownProvider, MarkdownProviderErr } from '@epicenter/hq/providers/markdown';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+import {
+	MarkdownProviderErr,
+	markdownProvider,
+} from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 

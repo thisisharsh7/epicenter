@@ -8,9 +8,9 @@
 import type { Tables } from '@epicenter/hq';
 import {
 	DEVICES_SCHEMA,
+	TAB_GROUPS_SCHEMA,
 	TABS_SCHEMA,
 	WINDOWS_SCHEMA,
-	TAB_GROUPS_SCHEMA,
 } from './browser.schema';
 
 /**

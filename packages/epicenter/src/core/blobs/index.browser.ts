@@ -5,8 +5,6 @@
  * This file is selected by bundlers when the "browser" condition is matched.
  */
 
-export { createWebTableBlobStore as createTableBlobStore } from './web.js';
-
 // Re-export types and utilities
 export type {
 	BlobContext,
@@ -18,6 +16,7 @@ export type {
 } from './types.js';
 export { BlobErr } from './types.js';
 export { validateFilename } from './utils.js';
+export { createWebTableBlobStore as createTableBlobStore } from './web.js';
 
 // Note: createWorkspaceBlobs is NOT exported in browser builds.
 // It requires filesystem path operations which are Node.js-only.

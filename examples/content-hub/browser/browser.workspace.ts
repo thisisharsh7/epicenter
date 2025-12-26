@@ -53,13 +53,7 @@ const WINDOW_STATES = [
  * @see Browser.windows.WindowType
  * Note: 'panel' and 'app' are deprecated Chrome App types
  */
-const WINDOW_TYPES = [
-	'normal',
-	'popup',
-	'panel',
-	'app',
-	'devtools',
-] as const;
+const WINDOW_TYPES = ['normal', 'popup', 'panel', 'app', 'devtools'] as const;
 
 const TAB_STATUS = ['unloaded', 'loading', 'complete'] as const;
 

@@ -55,11 +55,11 @@ export type {
 	TitleFilenameSerializerOptions,
 } from './configs';
 export {
-	// Builder for custom serializers with full type inference
-	defineSerializer,
 	// Pre-built serializer factories
 	bodyFieldSerializer,
 	defaultSerializer,
+	// Builder for custom serializers with full type inference
+	defineSerializer,
 	titleFilenameSerializer,
 } from './configs';
 
@@ -568,7 +568,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					/~$/, // Editor backup files
 					/\.tmp$/, // Temp files
 					// Only watch .md files
-					(filePath: string) => !filePath.endsWith('.md') && !filePath.endsWith(tableConfig.directory),
+					(filePath: string) =>
+						!filePath.endsWith('.md') &&
+						!filePath.endsWith(tableConfig.directory),
 				],
 			});
 
@@ -589,7 +591,10 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				syncCoordination.fileChangeCount++;
 
 				try {
-					const absolutePath = path.join(tableConfig.directory, filename) as AbsolutePath;
+					const absolutePath = path.join(
+						tableConfig.directory,
+						filename,
+					) as AbsolutePath;
 
 					// Read markdown file
 					const parseResult = await readMarkdownFile(absolutePath);
@@ -610,7 +615,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							ProviderError({
 								message: `File watcher: failed to read ${table.name}/${filename}`,
-								context: { filePath: absolutePath, tableName: table.name, filename },
+								context: {
+									filePath: absolutePath,
+									tableName: table.name,
+									filename,
+								},
 							}),
 						);
 						return;
@@ -634,7 +643,11 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							ProviderError({
 								message: `File watcher: failed to parse filename ${table.name}/${filename}`,
-								context: { filePath: absolutePath, tableName: table.name, filename },
+								context: {
+									filePath: absolutePath,
+									tableName: table.name,
+									filename,
+								},
 							}),
 						);
 						return;
@@ -652,9 +665,13 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						});
 
 					if (deserializeError) {
-						dbg('HANDLER', `FAIL ${table.name}/${filename} (validation error)`, {
-							error: deserializeError.message,
-						});
+						dbg(
+							'HANDLER',
+							`FAIL ${table.name}/${filename} (validation error)`,
+							{
+								error: deserializeError.message,
+							},
+						);
 						diagnostics.add({
 							filePath: absolutePath,
 							tableName: table.name,
@@ -664,13 +681,19 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						logger.log(
 							ProviderError({
 								message: `File watcher: validation failed for ${table.name}/${filename}`,
-								context: { filePath: absolutePath, tableName: table.name, filename },
+								context: {
+									filePath: absolutePath,
+									tableName: table.name,
+									filename,
+								},
 							}),
 						);
 						return;
 					}
 
-					const validatedRow = row as SerializedRow<TSchema[keyof TSchema & string]>;
+					const validatedRow = row as SerializedRow<
+						TSchema[keyof TSchema & string]
+					>;
 
 					// Success: remove from diagnostics if it was previously invalid
 					diagnostics.remove({ filePath: absolutePath });
@@ -681,13 +704,21 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 					if (existingFilename && existingFilename !== filename) {
 						// This is a duplicate file with the same ID - delete it
-						dbg('HANDLER', `SKIP ${table.name}/${filename} (duplicate of ${existingFilename})`, {
-							rowId: validatedRow.id,
-						});
+						dbg(
+							'HANDLER',
+							`SKIP ${table.name}/${filename} (duplicate of ${existingFilename})`,
+							{
+								rowId: validatedRow.id,
+							},
+						);
 						logger.log(
 							ProviderError({
 								message: `Duplicate file detected: ${filename} has same ID as ${existingFilename}, deleting duplicate`,
-								context: { tableName: table.name, filename, rowId: validatedRow.id },
+								context: {
+									tableName: table.name,
+									filename,
+									rowId: validatedRow.id,
+								},
 							}),
 						);
 						await deleteMarkdownFile({ filePath: absolutePath });
@@ -698,7 +729,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
 					tracking[table.name]![validatedRow.id] = filename;
 					table.upsert(validatedRow);
-					dbg('HANDLER', `SUCCESS ${table.name}/${filename}`, { rowId: validatedRow.id });
+					dbg('HANDLER', `SUCCESS ${table.name}/${filename}`, {
+						rowId: validatedRow.id,
+					});
 				} finally {
 					syncCoordination.fileChangeCount--;
 				}
@@ -724,9 +757,15 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					if (rowIdToDelete) {
 						if (table.has({ id: rowIdToDelete })) {
 							table.delete({ id: rowIdToDelete });
-							dbg('HANDLER', `UNLINK deleted row ${table.name}/${rowIdToDelete}`);
+							dbg(
+								'HANDLER',
+								`UNLINK deleted row ${table.name}/${rowIdToDelete}`,
+							);
 						} else {
-							dbg('HANDLER', `UNLINK row not in Y.js ${table.name}/${rowIdToDelete}`);
+							dbg(
+								'HANDLER',
+								`UNLINK row not in Y.js ${table.name}/${rowIdToDelete}`,
+							);
 						}
 
 						// Clean up tracking (if it existed)
@@ -760,16 +799,24 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					handleFileUnlink(filePath);
 				})
 				.on('error', (error) => {
-					dbg('CHOKIDAR', `error: ${table.name}`, { error: extractErrorMessage(error) });
+					dbg('CHOKIDAR', `error: ${table.name}`, {
+						error: extractErrorMessage(error),
+					});
 					logger.log(
 						ProviderError({
 							message: `File watcher error for ${table.name}: ${extractErrorMessage(error)}`,
-							context: { tableName: table.name, directory: tableConfig.directory },
+							context: {
+								tableName: table.name,
+								directory: tableConfig.directory,
+							},
 						}),
 					);
 				})
 				.on('ready', () => {
-					dbg('CHOKIDAR', `ready: ${table.name} watching ${tableConfig.directory}`);
+					dbg(
+						'CHOKIDAR',
+						`ready: ${table.name} watching ${tableConfig.directory}`,
+					);
 				});
 
 			watchers.push(watcher);

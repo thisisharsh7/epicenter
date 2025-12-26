@@ -16,9 +16,9 @@ import {
 	boolean,
 	id,
 	integer,
+	type SerializedRow,
 	select,
 	text,
-	type SerializedRow,
 } from '@epicenter/hq';
 
 // ─────────────────────────────────────────────────────────────────────────────

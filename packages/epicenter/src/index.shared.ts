@@ -59,7 +59,7 @@ export {
 	walkActions,
 } from './core/actions';
 
-export type { Tables, TableHelper } from './core/db/core';
+export type { TableHelper, Tables } from './core/db/core';
 
 // Database utilities
 export { createEpicenterDb } from './core/db/core';
@@ -73,33 +73,25 @@ export type {
 	UpdateResult,
 	YRow,
 } from './core/db/table-helper';
-
-export type { ActionInfo } from './core/workspace/client.shared';
-export { iterActions } from './core/workspace/client.shared';
-
 export type {
 	EpicenterOperationError,
 	IndexError,
 	ValidationError,
 } from './core/errors';
-
 // Error types
 export {
 	EpicenterOperationErr,
 	IndexErr,
 	ValidationErr,
 } from './core/errors';
-
 export type {
 	Provider,
 	ProviderContext,
 	ProviderExports,
 	WorkspaceProviderMap,
 } from './core/provider';
-
 // Provider system
 export { defineProviderExports } from './core/provider';
-
 export type {
 	BooleanColumnSchema,
 	CellValue,
@@ -127,7 +119,6 @@ export type {
 	WorkspaceValidators,
 	YtextColumnSchema,
 } from './core/schema';
-
 // Column schema system
 export {
 	boolean,
@@ -153,9 +144,10 @@ export {
 	text,
 	ytext,
 } from './core/schema';
-
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
+export type { ActionInfo } from './core/workspace/client.shared';
+export { iterActions } from './core/workspace/client.shared';
 
 export type {
 	AnyWorkspaceConfig,
