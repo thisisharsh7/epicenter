@@ -3,13 +3,15 @@ import {
 	date,
 	defineWorkspace,
 	id,
-	markdownProvider,
 	type SerializedRow,
 	select,
 	text,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
-import { setupPersistence } from '@epicenter/hq/providers';
+import {
+	MarkdownProviderErr,
+	markdownProvider,
+} from '@epicenter/hq/providers/markdown';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 
@@ -68,6 +70,8 @@ export const epicenter = defineWorkspace({
 							} satisfies SerializedRow<typeof table.schema>;
 							return Ok(row);
 						},
+						// ID is in frontmatter, not filename - file deletion sync won't work
+						extractRowIdFromFilename: () => undefined,
 					},
 				},
 			}),

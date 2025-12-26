@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { rpc } from '$lib/query';
-	import * as services from '$lib/services';
+	import { services } from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import AppLayout from './_components/AppLayout.svelte';

@@ -1,12 +1,6 @@
-import {
-	defineEpicenter,
-	defineWorkspace,
-	id,
-	integer,
-	sqliteProvider,
-	text,
-} from '@epicenter/hq';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { defineWorkspace, id, integer, text } from '@epicenter/hq';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 
 /**
  * Stress test workspace
@@ -90,7 +84,4 @@ const stressWorkspace = defineWorkspace({
 	}),
 });
 
-export default defineEpicenter({
-	id: 'stress-test',
-	workspaces: [stressWorkspace],
-});
+export default [stressWorkspace] as const;

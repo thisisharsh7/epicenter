@@ -17,6 +17,22 @@ Not every article needs a story arc. Some are just direct statements of practice
 
 ## Technical Writing Voice
 
+### Choosing Your Voice: Narrative vs Instructional
+
+Not every article needs a personal narrative. Choose based on content type:
+
+**Instructional (second person)**: Use for pattern explanations, best practices, guidelines.
+- "When you have related functions, you use a factory pattern"
+- "You can import X directly, but the relationship is implicit"
+- Direct, generalizable, focused on the pattern itself
+
+**Narrative (first person)**: Use for experience reports, lessons learned, project retrospectives.
+- "I was building X and hit this decision"
+- "Here's what I realized after debugging for hours"
+- Personal, story-driven, focused on the journey
+
+Default to instructional for technical patterns. Use narrative when the personal experience adds value.
+
 ### Core Principles
 
 - **Start with the problem or decision**: "I was building X and hit this decision" not "When building applications..."

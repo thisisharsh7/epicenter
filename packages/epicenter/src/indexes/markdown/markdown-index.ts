@@ -247,16 +247,16 @@ export type MarkdownProviderConfig<
 	 *
 	 * **Optional**: Defaults to the workspace `id` if not provided
 	 * ```typescript
-	 * // If workspace id is "blog", defaults to "<storageDir>/blog"
-	 * markdownIndex({ id, db, storageDir })
+	 * // If workspace id is "blog", defaults to "<projectDir>/blog"
+	 * markdownIndex({ id, db, paths })
 	 * ```
 	 *
 	 * **Three ways to specify the path**:
 	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to storageDir from epicenter config
+	 * **Option 1: Relative paths** (recommended): Resolved relative to paths.project from epicenter config
 	 * ```typescript
-	 * directory: './vault'      // → <storageDir>/vault
-	 * directory: '../content'   // → <storageDir>/../content
+	 * directory: './vault'      // → <projectDir>/vault
+	 * directory: '../content'   // → <projectDir>/../content
 	 * ```
 	 *
 	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
@@ -310,41 +310,33 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	context: ProviderContext<TSchema>,
 	config: MarkdownProviderConfig<TSchema> = {},
 ) => {
-	const { id, providerId, tables, storageDir, epicenterDir } = context;
+	const { id, tables, paths } = context;
 	const { directory = `./${id}` } = config;
 
-	// User-provided table configs (sparse - only contains overrides, may be empty)
-	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
 	const userTableConfigs: TableConfigs<TSchema> = config.tableConfigs ?? {};
-	// Require Node.js environment with filesystem access
-	if (!storageDir || !epicenterDir) {
+	if (!paths) {
 		throw new Error(
 			'Markdown provider requires Node.js environment with filesystem access',
 		);
 	}
 
-	// Workspace-specific directory for all provider artifacts
-	// Structure: .epicenter/{workspaceId}/{providerId}.{suffix}
-	const workspaceConfigDir = path.join(epicenterDir, id);
-
-	// Create diagnostics manager for tracking validation errors (current state)
+	// Provider artifacts: .epicenter/providers/markdown/diagnostics/{workspaceId}.json
+	const diagnosticsDir = path.join(paths.provider, 'diagnostics');
 	const diagnostics = createDiagnosticsManager({
-		diagnosticsPath: path.join(
-			workspaceConfigDir,
-			`${providerId}.diagnostics.json`,
-		),
+		diagnosticsPath: path.join(diagnosticsDir, `${id}.json`),
 	});
 
-	// Create logger for historical error record (append-only audit trail)
+	// Logs: .epicenter/providers/markdown/logs/{workspaceId}.log
+	const logsDir = path.join(paths.provider, 'logs');
 	const logger = createIndexLogger({
-		logPath: path.join(workspaceConfigDir, `${providerId}.log`),
+		logPath: path.join(logsDir, `${id}.log`),
 	});
 
 	// Resolve workspace directory to absolute path
-	// If directory is relative, resolve it relative to storageDir
+	// If directory is relative, resolve it relative to projectDir (paths.project)
 	// If directory is absolute, use it as-is
 	const absoluteWorkspaceDir = path.resolve(
-		storageDir,
+		paths.project,
 		directory,
 	) as AbsolutePath;
 

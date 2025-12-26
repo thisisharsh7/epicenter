@@ -45,21 +45,21 @@ describe('loadEpicenterConfig', () => {
 		);
 	});
 
-	test('throws error when config has no id', async () => {
+	test('throws error when config is not an array', async () => {
 		const configPath = path.join(testDir, 'epicenter.config.js');
 		await writeFile(configPath, `module.exports = { workspaces: [] };`);
 
 		await expect(loadEpicenterConfig(testDir)).rejects.toThrow(
-			/must have a valid string id/,
+			/must export an array/,
 		);
 	});
 
-	test('throws error when config has no workspaces array', async () => {
+	test('throws error when config is object instead of array', async () => {
 		const configPath = path.join(testDir, 'epicenter.config.js');
 		await writeFile(configPath, `module.exports = { id: 'test' };`);
 
 		await expect(loadEpicenterConfig(testDir)).rejects.toThrow(
-			/must have a workspaces array/,
+			/must export an array/,
 		);
 	});
 
@@ -67,37 +67,37 @@ describe('loadEpicenterConfig', () => {
 		const configPath = path.join(testDir, 'epicenter.config.js');
 		await writeFile(
 			configPath,
-			`module.exports = { id: 'test-config', workspaces: [] };`,
+			`module.exports = [{ id: 'test-workspace', exports: () => ({}) }];`,
 		);
 
 		const result = await loadEpicenterConfig(testDir);
-		expect(result.config.id).toBe('test-config');
-		expect(Array.isArray(result.config.workspaces)).toBe(true);
-		expect(result.configPath).toBe(configPath);
+		expect(Array.isArray(result.workspaces)).toBe(true);
+		expect(result.workspaces[0]!.id).toBe('test-workspace');
+		expect(result.projectDir as string).toBe(testDir);
 	});
 
 	test('loads config with ES module syntax', async () => {
 		const configPath = path.join(testDir, 'epicenter.config.mjs');
 		await writeFile(
 			configPath,
-			`export default { id: 'test-esm-config', workspaces: [] };`,
+			`export default [{ id: 'esm-workspace', exports: () => ({}) }];`,
 		);
 
 		const result = await loadEpicenterConfig(testDir);
-		expect(result.config.id).toBe('test-esm-config');
+		expect(result.workspaces[0]!.id).toBe('esm-workspace');
 	});
 
 	test('prefers .ts over other extensions when multiple exist', async () => {
 		await writeFile(
 			path.join(testDir, 'epicenter.config.ts'),
-			`module.exports = { id: 'typescript-config', workspaces: [] };`,
+			`module.exports = [{ id: 'ts-workspace', exports: () => ({}) }];`,
 		);
 		await writeFile(
 			path.join(testDir, 'epicenter.config.js'),
-			`module.exports = { id: 'javascript-config', workspaces: [] };`,
+			`module.exports = [{ id: 'js-workspace', exports: () => ({}) }];`,
 		);
 
 		const result = await loadEpicenterConfig(testDir);
-		expect(result.config.id).toBe('typescript-config');
+		expect(result.workspaces[0]!.id).toBe('ts-workspace');
 	});
 });

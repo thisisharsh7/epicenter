@@ -1,5 +1,5 @@
 import { createQuery } from '@tanstack/svelte-query';
-import { rpc } from '$lib/query';
+import { desktopRpc, rpc } from '$lib/query';
 
 export function syncIconWithRecorderState() {
 	const getRecorderStateQuery = createQuery(
@@ -8,7 +8,7 @@ export function syncIconWithRecorderState() {
 
 	$effect(() => {
 		if (getRecorderStateQuery.data) {
-			rpc.tray.setTrayIcon.execute({
+			desktopRpc.tray.setTrayIcon.execute({
 				icon: getRecorderStateQuery.data,
 			});
 		}

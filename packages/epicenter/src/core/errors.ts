@@ -10,10 +10,10 @@ export type EpicenterOperationError = ReturnType<
 >;
 
 /**
- * Context type for index operation errors
+ * Context type for provider operation errors
  * Used for structured logging with table/file context
  */
-type IndexErrorContext = {
+type ProviderErrorContext = {
 	tableName?: string;
 	rowId?: string;
 	filename?: string;
@@ -23,13 +23,18 @@ type IndexErrorContext = {
 };
 
 /**
- * Error type for index operations
+ * Error type for provider operations
  * Includes optional context for structured logging
  */
-export const { IndexError, IndexErr } = createTaggedError(
-	'IndexError',
-).withContext<IndexErrorContext | undefined>();
-export type IndexError = ReturnType<typeof IndexError>;
+export const { ProviderError, ProviderErr } = createTaggedError(
+	'ProviderError',
+).withContext<ProviderErrorContext | undefined>();
+export type ProviderError = ReturnType<typeof ProviderError>;
+
+// Legacy aliases for backwards compatibility
+export const IndexError = ProviderError;
+export const IndexErr = ProviderErr;
+export type IndexError = ProviderError;
 
 /**
  * Error type for validation failures

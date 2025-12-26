@@ -48,6 +48,25 @@ Quick test: Planning something? → `specs/`. Documenting something learned? →
 3. Then either the plan will be explicitly approved or changes to the plan will be requested.
 4. Unless otherwise stated, any approval applies only to the plan directly before it. So any future action will require a new plan with associated approval.
 
+## Git Worktree Handling
+
+CRITICAL: When working in a git worktree (such as `.conductor/` directories), ALL file operations and git commands MUST be performed within that worktree, not the parent repository.
+
+**Detection**: If the working directory contains `.conductor/` in the path, you are in a worktree.
+
+**Rules**:
+
+- Use the working directory path for ALL file reads, writes, and edits
+- Create branches and commits within the worktree's git context
+- Never `cd` to the parent repo or use parent repo paths for edits
+- The worktree has its own branch; changes in parent repo are separate
+
+**Example**:
+
+- Working directory: `/Users/foo/Code/repo/.conductor/riyadh`
+- Correct file path: `/Users/foo/Code/repo/.conductor/riyadh/apps/app/file.ts`
+- WRONG file path: `/Users/foo/Code/repo/apps/app/file.ts`
+
 ## Codebase Exploration Agents
 
 Three "documentarian" agents that describe what exists without critiquing:

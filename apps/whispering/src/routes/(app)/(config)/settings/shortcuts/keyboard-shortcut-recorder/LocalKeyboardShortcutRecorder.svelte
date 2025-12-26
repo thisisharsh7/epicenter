@@ -5,7 +5,7 @@
 	import {
 		type CommandId,
 		arrayToShortcutString,
-	} from '$lib/services/local-shortcut-manager';
+	} from '$lib/services/isomorphic/local-shortcut-manager';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { type PressedKeys } from '$lib/utils/createPressedKeys.svelte';
 	import KeyboardShortcutRecorder from './KeyboardShortcutRecorder.svelte';
@@ -31,7 +31,7 @@
 		pressedKeys,
 		onRegister: async (keyCombination: KeyboardEventSupportedKey[]) => {
 			const { error: unregisterError } =
-				await rpc.shortcuts.unregisterCommandLocally.execute({
+				await rpc.localShortcuts.unregisterCommand.execute({
 					commandId: command.id as CommandId,
 				});
 			if (unregisterError) {
@@ -42,7 +42,7 @@
 				});
 			}
 			const { error: registerError } =
-				await rpc.shortcuts.registerCommandLocally.execute({
+				await rpc.localShortcuts.registerCommand.execute({
 					command,
 					keyCombination,
 				});
@@ -68,7 +68,7 @@
 		},
 		onClear: async () => {
 			const { error: unregisterError } =
-				await rpc.shortcuts.unregisterCommandLocally.execute({
+				await rpc.localShortcuts.unregisterCommand.execute({
 					commandId: command.id as CommandId,
 				});
 			if (unregisterError) {

@@ -6,14 +6,16 @@
 	import { Label } from '@epicenter/ui/label';
 	import { Textarea } from '@epicenter/ui/textarea';
 	import { rpc } from '$lib/query';
-	import type { Recording } from '$lib/services/db';
-	import * as services from '$lib/services';
+	import type { Recording } from '$lib/services/isomorphic/db';
+	import { services } from '$lib/services';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import EditIcon from '@lucide/svelte/icons/pencil';
 	import { Spinner } from '@epicenter/ui/spinner';
 	import { onDestroy } from 'svelte';
 
-	const updateRecording = createMutation(() => rpc.db.recordings.update.options);
+	const updateRecording = createMutation(
+		() => rpc.db.recordings.update.options,
+	);
 
 	let { recording }: { recording: Recording } = $props();
 

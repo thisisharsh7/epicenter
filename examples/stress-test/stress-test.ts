@@ -35,7 +35,7 @@
  */
 
 import { existsSync, statSync } from 'node:fs';
-import { createEpicenterClient, generateId } from '@epicenter/hq';
+import { createClient, generateId } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
 // Configuration - can override via CLI args
@@ -101,7 +101,7 @@ console.log('');
 const totalStart = performance.now();
 
 console.log('Creating client...');
-await using client = await createEpicenterClient(epicenterConfig);
+await using client = await createClient(epicenterConfig);
 console.log('Client created\n');
 
 const stress = client.stress;

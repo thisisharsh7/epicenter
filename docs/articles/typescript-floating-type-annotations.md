@@ -5,7 +5,7 @@ I was reviewing pull requests last week when I noticed something that made me pa
 Here's what I was looking at. Same function, three different type annotation strategies, all perfectly valid TypeScript:
 
 ```typescript
-type Provider = (context: ProviderContext) => void;
+type Provider = (context: ProviderContext) => ProviderExports;
 
 // Developer 1: Post-function annotation
 export const setupPersistence = (async ({ id, ydoc }) => {
@@ -29,6 +29,8 @@ export const setupPersistence = (async ({ id, ydoc }) => {
         const state = Y.encodeStateAsUpdate(ydoc);
         fs.writeFileSync(filePath, state);
     });
+
+    return { destroy: () => {} };
 }) satisfies Provider;
 
 // Developer 2: Variable type annotation
@@ -37,7 +39,7 @@ export const setupPersistence: Provider = async ({ id, ydoc }) => {
 };
 
 // Developer 3: Inline parameter annotation
-export const setupPersistence = async ({ id, ydoc }: ProviderContext): void => {
+export const setupPersistence = async ({ id, ydoc }: ProviderContext): ProviderExports => {
     // same implementation
 };
 ```
@@ -46,7 +48,7 @@ All three compiled. All three worked. And here's the thing that got me: hover ov
 
 This is genuinely weird if you think about it. Most statically typed languages have a canonical place for type annotations. You put types where the language tells you to put them. But TypeScript doesn't care. The type information can live before the function, after the function, or inside the function signature itself. As long as it's somewhere in the vicinity, TypeScript will figure it out.
 
-What's happening under the hood is bidirectional type inference. When you write `satisfies Provider` at the end, TypeScript looks at the Provider type definition, sees it expects `(context: ProviderContext) => void`, and infers that your destructured parameters must match ProviderContext. When you write `const x: Provider`, it does the same thing but from the variable declaration. When you annotate the parameters directly, you're just... telling it explicitly.
+What's happening under the hood is bidirectional type inference. When you write `satisfies Provider` at the end, TypeScript looks at the Provider type definition, sees it expects `(context: ProviderContext) => ProviderExports`, and infers that your destructured parameters must match ProviderContext. When you write `const x: Provider`, it does the same thing but from the variable declaration. When you annotate the parameters directly, you're just... telling it explicitly.
 
 But here's where it gets interesting. These three approaches aren't actually identical. They're subtle variations with different trade-offs.
 

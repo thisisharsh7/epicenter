@@ -162,9 +162,13 @@
 
 		{#if updateDialog.isDownloading || updateDialog.isDownloadComplete}
 			<div class="space-y-2">
-				<div class="flex items-center justify-between text-sm text-muted-foreground">
+				<div
+					class="flex items-center justify-between text-sm text-muted-foreground"
+				>
 					<span>
-						{updateDialog.isDownloadComplete ? 'Download complete' : 'Downloading...'}
+						{updateDialog.isDownloadComplete
+							? 'Download complete'
+							: 'Downloading...'}
 					</span>
 					<span class="tabular-nums">
 						{Math.round(updateDialog.progressPercentage)}%

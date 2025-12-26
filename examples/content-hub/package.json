@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bun cli.ts"
+		"dev": "bun server.ts"
 	},
 	"dependencies": {
 		"@epicenter/hq": "workspace:*",
