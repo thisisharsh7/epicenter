@@ -20,32 +20,30 @@ export const { ConnectionError, ConnectionErr } =
 type ConnectionError = ReturnType<typeof ConnectionError>;
 
 /**
+ * Context for HTTP response errors.
+ * Contains HTTP-specific metadata for debugging and error handling.
+ */
+type ResponseContext = {
+	/** HTTP status code (e.g., 400, 401, 404, 500) */
+	status: number;
+};
+
+/**
  * HTTP response with a non-2xx status code (4xx client errors, 5xx server errors).
  *
  * The server received and processed the request but returned an error status.
- * Check the `status` property and response body for details.
+ * Check the `context.status` property and message for details.
  *
  * @example
  * ```typescript
  * // Bad auth, missing resource, or server error
  * const result = await httpService.post({ url: '/protected-endpoint', ... });
- * // Result: ResponseError with status: 401, 404, 500, etc.
+ * // Result: ResponseError with context.status: 401, 404, 500, etc.
  * ```
  */
-const { ResponseError: ResponseErrorBase, ResponseErr: ResponseErrBase } =
-	createTaggedError('ResponseError');
-export type ResponseError = ReturnType<typeof ResponseErrorBase> & {
-	/** HTTP status code (e.g., 400, 401, 404, 500) */
-	status: number;
-};
-export const ResponseError = (args: Omit<ResponseError, 'name'>) => ({
-	...ResponseErrorBase(args),
-	status: args.status,
-});
-export const ResponseErr = (args: Omit<ResponseError, 'name'>) => ({
-	data: null,
-	error: ResponseError(args),
-});
+export const { ResponseError, ResponseErr } =
+	createTaggedError('ResponseError').withContext<ResponseContext>();
+export type ResponseError = ReturnType<typeof ResponseError>;
 
 /**
  * Failed to parse the response body as valid JSON or validate against the schema.
