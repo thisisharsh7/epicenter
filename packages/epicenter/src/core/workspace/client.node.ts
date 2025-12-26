@@ -7,7 +7,7 @@
  */
 import path from 'node:path';
 import * as Y from 'yjs';
-import { type WorkspaceActionMap, type WorkspaceExports } from '../actions';
+import type { ActionExports } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import { buildProviderPaths, getEpicenterDir } from '../paths';
 import type { ProviderExports, WorkspaceProviderMap } from '../provider';
@@ -20,10 +20,12 @@ import type {
 } from './config';
 
 /**
- * A workspace client contains all workspace exports plus lifecycle management.
+ * A workspace client contains all workspace actions plus lifecycle management.
+ *
+ * Unlike browser clients, Node.js clients are fully initialized before returning.
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
  */
-export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
+export type WorkspaceClient<TActions extends ActionExports> = TActions & {
 	/**
 	 * The underlying YJS document for this workspace.
 	 *
@@ -50,14 +52,16 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		exports: (context: any) => infer TExports extends WorkspaceExports;
+		// biome-ignore lint/suspicious/noExplicitAny: Extracting action type from generic constraint
+		actions: (context: any) => infer TActions extends ActionExports;
 	}
-		? WorkspaceClient<TExports>
+		? WorkspaceClient<TActions>
 		: never;
 };
 
 /**
- * Client for multiple workspaces. Maps workspace IDs to their clients.
+ * Client for multiple workspaces in Node.js environments.
+ * Maps workspace IDs to their clients.
  * Returned by `createClient([...workspaces])`.
  */
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
@@ -88,7 +92,7 @@ function validateWorkspaces(workspaces: readonly AnyWorkspaceConfig[]): void {
 	for (const workspace of workspaces) {
 		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
 			throw new Error(
-				'Invalid workspace: workspaces must be workspace configs with id, schema, indexes, and actions',
+				'Invalid workspace: workspaces must be workspace configs with id and actions',
 			);
 		}
 	}
@@ -141,7 +145,7 @@ export type CreateClientOptions = {
  *
  * @param workspace - Workspace configuration to initialize
  * @param options - Optional client options including projectDir
- * @returns Initialized workspace client with access to all workspace exports
+ * @returns Initialized workspace client with access to all workspace actions
  *
  * @example
  * ```typescript
@@ -169,7 +173,7 @@ export async function createClient<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TExports extends WorkspaceExports,
+	TExports extends ActionExports,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -203,7 +207,7 @@ export async function createClient<
  *   client.auth.login(...);
  *   ```
  * @param options - Optional client options including projectDir
- * @returns Initialized client with access to all workspace exports by workspace ID
+ * @returns Initialized client with access to all workspace actions by workspace ID
  *
  * @example
  * ```typescript
@@ -224,6 +228,7 @@ export async function createClient<
 export async function createClient(
 	input: AnyWorkspaceConfig | readonly AnyWorkspaceConfig[],
 	options?: CreateClientOptions,
+	// biome-ignore lint/suspicious/noExplicitAny: Implementation must be general to support all overload combinations
 ): Promise<WorkspaceClient<any> | EpicenterClient<any>> {
 	const projectDir = path.resolve(
 		options?.projectDir ?? process.cwd(),
@@ -236,6 +241,7 @@ export async function createClient(
 
 		const cleanup = async () => {
 			await Promise.all(
+				// biome-ignore lint/suspicious/noExplicitAny: Runtime iteration over heterogeneous clients
 				Object.values(clients).map((workspaceClient: WorkspaceClient<any>) =>
 					workspaceClient.destroy(),
 				),
@@ -246,6 +252,7 @@ export async function createClient(
 			...clients,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
+			// biome-ignore lint/suspicious/noExplicitAny: Type safety enforced by overload signatures
 		} as EpicenterClient<any>;
 	}
 
@@ -268,14 +275,16 @@ export async function createClient(
 		);
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: Type safety enforced by overload signatures
 	return workspaceClient as WorkspaceClient<any>;
 }
 
 /**
  * Internal function that initializes multiple workspaces with shared dependency resolution.
+ *
  * Uses flat dependency resolution with VS Code-style peer dependency model.
  * All transitive dependencies must be present in the provided workspaces array (flat/hoisted).
- * Initialization uses topological sort for deterministic, predictable order.
+ * Initialization uses topological sort (Kahn's algorithm) for deterministic, predictable order.
  *
  * @param workspaceConfigs - Array of workspace configurations to initialize
  * @param projectDir - Absolute project directory path (Node.js) or undefined (browser)
@@ -319,7 +328,7 @@ async function initializeWorkspaces<
 
 	// Verify all dependencies for ALL registered workspace configs (not just root-level ones)
 	// This ensures the flat/hoisted model is correctly followed at every level:
-	// - If A depends on B and B depends on C, both B and C must be in rootWorkspaceConfigs
+	// - If A depends on B and B depends on C, both B and C must be in workspaceConfigs
 	// - By checking every workspace in the map, we verify the entire dependency tree
 	//
 	// Note: We only check direct dependencies (not recursive) because the flat/hoisted model
@@ -340,7 +349,7 @@ async function initializeWorkspaces<
 				// Verify the dependency exists in registered configs (flat/hoisted model)
 				if (!workspaceConfigsMap.has(dep.id)) {
 					throw new Error(
-						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", but it was not found in rootWorkspaceConfigs.\n\nFix: Add "${dep.id}" to rootWorkspaceConfigs array (flat/hoisted resolution).\nAll transitive dependencies must be declared at the root level.`,
+						`Missing dependency: workspace "${workspaceId}" depends on "${dep.id}", but it was not found.\n\nFix: Add "${dep.id}" to the workspaces array (flat/hoisted resolution).\nAll transitive dependencies must be declared at the root level.`,
 					);
 				}
 			}
@@ -449,11 +458,12 @@ async function initializeWorkspaces<
 
 	/**
 	 * Map of workspace ID to initialized workspace client.
-	 * Each client exposes all workspace exports (actions, utilities, constants).
+	 * Each client exposes all workspace actions.
 	 * Populated as we initialize each workspace in topological order.
 	 * When initializing workspace B that depends on A, we can safely
 	 * inject clients[A] because A was initialized earlier in the sorted order.
 	 */
+	// biome-ignore lint/suspicious/noExplicitAny: Map holds heterogeneous workspace clients
 	const clients = new Map<string, WorkspaceClient<any>>();
 
 	// Initialize all workspaces in topological order
@@ -461,11 +471,8 @@ async function initializeWorkspaces<
 		const workspaceConfig = workspaceConfigsMap.get(workspaceId)!;
 
 		// Build the workspaceClients object by injecting already-initialized dependencies
-		// Key: dependency id, Value: full client with all exports (actions + utilities)
-		const workspaceClients: Record<
-			string,
-			WorkspaceClient<WorkspaceExports>
-		> = {};
+		// biome-ignore lint/suspicious/noExplicitAny: Dependency clients are heterogeneous
+		const workspaceClients: Record<string, WorkspaceClient<any>> = {};
 
 		if (
 			workspaceConfig.dependencies &&
@@ -484,7 +491,6 @@ async function initializeWorkspaces<
 		const tables = createEpicenterDb(ydoc, workspaceConfig.tables);
 
 		// Create validators for runtime validation and arktype composition
-		// Exposed via exports context for use in migration scripts, external validation, etc.
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
 		// Initialize all providers in parallel
@@ -517,12 +523,15 @@ async function initializeWorkspaces<
 				}
 			: undefined;
 
-		const exports = workspaceConfig.exports({
+		// Create workspace actions by calling the actions factory
+		const actions = workspaceConfig.actions({
 			tables,
 			schema: workspaceConfig.tables,
 			validators,
 			providers,
-			workspaces: workspaceClients,
+			// biome-ignore lint/suspicious/noExplicitAny: Runtime types are correct, generic constraint too strict
+			workspaces: workspaceClients as any,
+			// biome-ignore lint/suspicious/noExplicitAny: Blobs type requires workspace schema inference
 			blobs: {} as any,
 			paths: workspacePaths,
 		});
@@ -538,10 +547,10 @@ async function initializeWorkspaces<
 			ydoc.destroy();
 		};
 
-		// Create the workspace client with all exports (actions + utilities)
-		// Filtering to just actions happens at the server/MCP level via iterActions()
+		// Create the workspace client with all actions
+		// Filtering to just action types happens at the server/MCP level via iterActions()
 		clients.set(workspaceId, {
-			...exports,
+			...actions,
 			$ydoc: ydoc,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
@@ -551,7 +560,7 @@ async function initializeWorkspaces<
 	// Convert Map to typed object keyed by workspace id
 	const initializedWorkspaces: Record<
 		string,
-		WorkspaceClient<WorkspaceActionMap>
+		WorkspaceClient<ActionExports>
 	> = {};
 	for (const [workspaceId, client] of clients) {
 		initializedWorkspaces[workspaceId] = client;

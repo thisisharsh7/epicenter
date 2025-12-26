@@ -5,13 +5,13 @@
  * Platform-specific types and initialization are in client.browser.ts and client.node.ts.
  */
 
-import { type Action, type WorkspaceExports, walkActions } from '../actions';
+import { type Action, type ActionExports, walkActions } from '../actions';
 
 /**
  * Base workspace client shape for iterActions compatibility.
  * Platform-specific clients extend this with additional properties.
  */
-type BaseWorkspaceClient = WorkspaceExports & {
+type BaseWorkspaceClient = ActionExports & {
 	$ydoc: unknown;
 	destroy: () => Promise<void>;
 	[Symbol.asyncDispose]: () => Promise<void>;
@@ -41,7 +41,7 @@ export type ActionInfo = {
  * each action with its metadata. The destroy and Symbol.asyncDispose methods
  * at client and workspace levels are automatically excluded.
  *
- * Supports nested exports: actions can be organized in namespaces like
+ * Supports nested actions: actions can be organized in namespaces like
  * `{ users: { getAll: defineQuery(...), crud: { create: defineMutation(...) } } }`
  *
  * @param client - The Epicenter client with workspace namespaces
