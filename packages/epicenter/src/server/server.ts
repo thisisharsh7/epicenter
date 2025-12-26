@@ -1,7 +1,7 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 import { Err, isResult, Ok } from 'wellcrafted/result';
-import type { WorkspaceExports } from '../core/actions';
+import type { ActionExports } from '../core/actions';
 import type {
 	AnyWorkspaceConfig,
 	EpicenterClient,
@@ -72,7 +72,7 @@ export function createServer<
 				getDoc: (room) => {
 					const workspace = client[
 						room as keyof WorkspacesToClients<TWorkspaces>
-					] as WorkspaceClient<WorkspaceExports> | undefined;
+					] as WorkspaceClient<ActionExports> | undefined;
 					return workspace?.$ydoc;
 				},
 			}),
