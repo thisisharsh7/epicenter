@@ -4,13 +4,13 @@
  * Uses Node Provider type which includes required filesystem paths.
  */
 
-import type { WorkspaceExports } from '../actions';
+import type { ActionExports } from '../actions';
 import type { Provider } from '../provider.node';
 import type { WorkspaceSchema } from '../schema';
 import {
 	type AnyWorkspaceConfig,
 	validateWorkspaceConfig,
-	type WorkspaceExportsContext,
+	type ActionsContext,
 } from './config.shared';
 
 // Re-export shared types
@@ -47,16 +47,16 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
-	TExports extends WorkspaceExports,
+	TActions extends ActionExports,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TProviders,
-		TExports
+		TActions
 	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TExports> {
+): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviders, TActions> {
 	validateWorkspaceConfig(workspace);
 	return workspace;
 }
@@ -84,24 +84,24 @@ export type WorkspaceConfig<
 		string,
 		Provider<TWorkspaceSchema>
 	>,
-	TExports extends WorkspaceExports = WorkspaceExports,
+	TActions extends ActionExports = ActionExports,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
 	dependencies?: TDeps;
 	providers: TProviders;
 	/**
-	 * Factory function that creates workspace exports (actions, utilities, etc.)
+	 * Factory function that creates workspace actions (queries, mutations, utilities, etc.)
 	 *
 	 * @param context.tables - The workspace tables for direct table operations
 	 * @param context.schema - The workspace schema (table definitions)
 	 * @param context.validators - Schema validators for runtime validation and arktype composition
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
-	 * @param context.workspaces - Exports from dependency workspaces (if any)
+	 * @param context.workspaces - Actions from dependency workspaces (if any)
 	 * @param context.blobs - Blob storage for binary files, namespaced by table
 	 * @param context.paths - Filesystem paths (Node/Bun only, undefined in browser)
 	 */
-	exports: (
-		context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>,
-	) => TExports;
+	actions: (
+		context: ActionsContext<TWorkspaceSchema, TDeps, TProviders>,
+	) => TActions;
 };

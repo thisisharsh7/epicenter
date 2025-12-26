@@ -5,7 +5,7 @@
  * these with platform-appropriate provider types.
  */
 
-import type { WorkspaceExports } from '../actions';
+import type { ActionExports } from '../actions';
 import type { WorkspaceBlobs } from '../blobs/types';
 import type { Tables } from '../db/core';
 import type { InferProviderExports, ProviderExports } from '../provider.shared';
@@ -23,38 +23,38 @@ import type { WorkspacePaths } from '../types';
  */
 export type AnyWorkspaceConfig = {
 	id: string;
-	exports: (context: any) => WorkspaceExports;
+	actions: (context: any) => ActionExports;
 };
 
 /**
- * Maps an array of workspace configs to an object of exports keyed by workspace id.
+ * Maps an array of workspace configs to an object of actions keyed by workspace id.
  *
  * Takes an array of workspace dependencies and merges them into a single object where:
  * - Each key is a dependency id
- * - Each value is the exports object from that dependency (actions and utilities)
+ * - Each value is the actions object from that dependency (queries, mutations, and utilities)
  *
- * This allows accessing dependency exports as `workspaces.dependencyId.exportName()`.
+ * This allows accessing dependency actions as `workspaces.dependencyId.actionName()`.
  *
  * @example
  * ```typescript
  * // Given dependency configs:
- * const authWorkspace = defineWorkspace({ id: 'auth', exports: () => ({ login: ..., logout: ..., validateToken: ... }) })
- * const storageWorkspace = defineWorkspace({ id: 'storage', exports: () => ({ upload: ..., download: ..., MAX_FILE_SIZE: ... }) })
+ * const authWorkspace = defineWorkspace({ id: 'auth', actions: () => ({ login: ..., logout: ..., validateToken: ... }) })
+ * const storageWorkspace = defineWorkspace({ id: 'storage', actions: () => ({ upload: ..., download: ..., MAX_FILE_SIZE: ... }) })
  *
- * // WorkspacesToExports<[typeof authWorkspace, typeof storageWorkspace]> produces:
+ * // WorkspacesToActions<[typeof authWorkspace, typeof storageWorkspace]> produces:
  * {
  *   auth: { login: ..., logout: ..., validateToken: ... },
  *   storage: { upload: ..., download: ..., MAX_FILE_SIZE: ... }
  * }
  * ```
  */
-export type WorkspacesToExports<WS extends readonly AnyWorkspaceConfig[]> = {
+export type WorkspacesToActions<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		exports: (context: any) => infer TExports extends WorkspaceExports;
+		actions: (context: any) => infer TActions extends ActionExports;
 	}
-		? TExports
+		? TActions
 		: never;
 };
 
@@ -65,7 +65,7 @@ export type WorkspacesToExports<WS extends readonly AnyWorkspaceConfig[]> = {
  * @typeParam TDeps - Array of dependency workspace configs
  * @typeParam TProviders - Record of provider functions
  */
-export type WorkspaceExportsContext<
+export type ActionsContext<
 	TWorkspaceSchema extends WorkspaceSchema,
 	TDeps extends readonly AnyWorkspaceConfig[],
 	TProviders extends Record<
@@ -76,7 +76,7 @@ export type WorkspaceExportsContext<
 	tables: Tables<TWorkspaceSchema>;
 	schema: TWorkspaceSchema;
 	validators: WorkspaceValidators<TWorkspaceSchema>;
-	workspaces: WorkspacesToExports<TDeps>;
+	workspaces: WorkspacesToActions<TDeps>;
 	providers: { [K in keyof TProviders]: InferProviderExports<TProviders[K]> };
 	blobs: WorkspaceBlobs<TWorkspaceSchema>;
 	paths: WorkspacePaths | undefined;
