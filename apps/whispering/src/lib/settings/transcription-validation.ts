@@ -1,5 +1,5 @@
 import {
-	AVAILABLE_TRANSCRIPTION_SERVICES,
+	TRANSCRIPTION_SERVICES,
 	type TranscriptionService,
 } from '$lib/services/isomorphic/transcription/registry';
 import { settings } from '$lib/stores/settings.svelte';
@@ -15,7 +15,7 @@ export function getSelectedTranscriptionService():
 	| undefined {
 	const selectedServiceId =
 		settings.value['transcription.selectedTranscriptionService'];
-	return AVAILABLE_TRANSCRIPTION_SERVICES.find((s) => s.id === selectedServiceId);
+	return TRANSCRIPTION_SERVICES.find((s) => s.id === selectedServiceId);
 }
 
 /**

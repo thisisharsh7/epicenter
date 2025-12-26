@@ -5,7 +5,7 @@
 	import { cn } from '@epicenter/ui/utils';
 	import type { Snippet } from 'svelte';
 	import {
-		AVAILABLE_TRANSCRIPTION_SERVICES,
+		TRANSCRIPTION_SERVICES,
 		type TranscriptionService,
 		TRANSCRIPTION_SERVICE_IDS,
 	} from '$lib/services/isomorphic/transcription/registry';
@@ -31,21 +31,19 @@
 	} = $props();
 
 	const selectedService = $derived(
-		AVAILABLE_TRANSCRIPTION_SERVICES.find((service) => service.id === selected),
+		TRANSCRIPTION_SERVICES.find((service) => service.id === selected),
 	);
 
 	const localServices = $derived(
-		AVAILABLE_TRANSCRIPTION_SERVICES.filter((service) => service.location === 'local'),
+		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'local'),
 	);
 
 	const cloudServices = $derived(
-		AVAILABLE_TRANSCRIPTION_SERVICES.filter((service) => service.location === 'cloud'),
+		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'cloud'),
 	);
 
 	const selfHostedServices = $derived(
-		AVAILABLE_TRANSCRIPTION_SERVICES.filter(
-			(service) => service.location === 'self-hosted',
-		),
+		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'self-hosted'),
 	);
 
 	// Create items array with group information
