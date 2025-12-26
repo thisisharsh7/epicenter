@@ -8,6 +8,7 @@ System architecture documentation for Epicenter's distributed sync system.
 | ----------------------------------------- | ---------------------------------------------------------------- |
 | [Network Topology](./network-topology.md) | Node types (client/server), connection rules, example topologies |
 | [Device Identity](./device-identity.md)   | How devices identify themselves, server URLs, registry entries   |
+| [Action Dispatch](./action-dispatch.md)   | Cross-device action invocation via YJS command mailbox           |
 | [Security](./security.md)                 | Security layers (Tailscale, content-addressing), threat model    |
 
 ## Quick Reference
@@ -22,11 +23,13 @@ System architecture documentation for Epicenter's distributed sync system.
 ### Connection Rules
 
 ```
-Client ──► Server     ✅
-Client ──► Client     ❌
-Server ──► Server     ✅
-Server ──► Client     ❌
+Client ──► Server     ✅  (WebSocket, HTTP)
+Client ──► Client     ✅  (via YJS action dispatch, not direct connection)
+Server ──► Server     ✅  (WebSocket)
+Server ──► Client     ✅  (via YJS action dispatch, not direct connection)
 ```
+
+Note: Direct connections are only possible **to** servers. However, any device can invoke actions on any other device via [action dispatch](./action-dispatch.md) through the shared Y.Doc.
 
 ### Typical Setup
 
