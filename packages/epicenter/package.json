@@ -15,8 +15,14 @@
 			"default": "./src/providers/persistence/index.node.ts"
 		},
 		"./providers/websocket-sync": "./src/providers/websocket-sync.ts",
-		"./providers/markdown": "./src/providers/markdown/index.ts",
-		"./providers/sqlite": "./src/providers/sqlite/index.ts",
+		"./providers/markdown": {
+			"node": "./src/providers/markdown/index.ts",
+			"default": "./src/providers/markdown/index.ts"
+		},
+		"./providers/sqlite": {
+			"node": "./src/providers/sqlite/index.ts",
+			"default": "./src/providers/sqlite/index.ts"
+		},
 		"./cli": "./src/cli/index.ts",
 		"./server": "./src/server/index.ts"
 	},
