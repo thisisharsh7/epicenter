@@ -15,7 +15,6 @@ use transcribe_rs::{
     },
     TranscriptionEngine,
 };
-#[cfg(feature = "whisper")]
 use transcribe_rs::engines::whisper::WhisperInferenceParams;
 
 #[cfg(target_os = "windows")]
@@ -487,7 +486,6 @@ fn extract_samples_from_wav(wav_data: Vec<u8>) -> Result<Vec<f32>, Transcription
     Ok(samples)
 }
 
-#[cfg(feature = "whisper")]
 #[tauri::command]
 pub async fn transcribe_audio_whisper(
     audio_data: Vec<u8>,
@@ -580,20 +578,6 @@ pub async fn transcribe_audio_whisper(
         transcript.len()
     );
     Ok(transcript)
-}
-
-#[cfg(not(feature = "whisper"))]
-#[tauri::command]
-pub async fn transcribe_audio_whisper(
-    _audio_data: Vec<u8>,
-    _model_path: String,
-    _language: Option<String>,
-    _initial_prompt: Option<String>,
-    _model_manager: tauri::State<'_, ModelManager>,
-) -> Result<String, TranscriptionError> {
-    Err(TranscriptionError::TranscriptionError {
-        message: "Whisper C++ is temporarily unavailable due to upstream build issues. Please use Moonshine or Parakeet for local transcription, or a cloud provider.".to_string(),
-    })
 }
 
 #[tauri::command]
