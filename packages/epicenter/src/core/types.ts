@@ -56,25 +56,39 @@ export type StorageDir = AbsolutePath & Brand<'StorageDir'>;
  * Branded type for the `.epicenter` directory path
  *
  * This is the absolute path to the `.epicenter` directory where all Epicenter
- * data is stored (YJS documents, SQLite databases, logs, tokens, etc.).
+ * data is stored. Providers store their data inside `.epicenter/providers/{providerId}/`.
  *
- * Computed once from `storageDir` and passed to providers, indexes, and exports
- * to avoid repeated `path.join(storageDir, '.epicenter')` calls.
+ * Most providers should use `providerDir` instead of `epicenterDir` directly.
+ * This type exists for computing `providerDir` and for rare cases where
+ * direct access to the `.epicenter` root is needed.
+ *
+ * @see ProviderDir - The preferred path for provider artifacts
+ */
+export type EpicenterDir = AbsolutePath & Brand<'EpicenterDir'>;
+
+/**
+ * Branded type for a provider's dedicated directory path
+ *
+ * Each provider gets its own isolated directory at `.epicenter/providers/{providerId}/`.
+ * This is where providers should store all their internal artifacts:
+ * - Databases (e.g., `{workspaceId}.db`)
+ * - Logs (e.g., `logs/{workspaceId}.log`)
+ * - Caches, tokens, and other provider-specific data
+ *
+ * The `providers/` subdirectory is gitignored, keeping provider data separate
+ * from workspace definitions that may be committed.
  *
  * @example
  * ```typescript
- * // In a workspace export
- * exports: ({ epicenterDir }) => ({
- *   login: defineMutation({
- *     handler: async () => {
- *       if (!epicenterDir) {
- *         return Err({ message: 'Requires filesystem access' });
- *       }
- *       const tokenPath = path.join(epicenterDir, 'gmail-token.json');
- *       // ...
- *     }
- *   })
- * })
+ * // In a provider
+ * const sqliteProvider: Provider = ({ providerDir, id }) => {
+ *   if (!providerDir) {
+ *     throw new Error('Requires Node.js environment');
+ *   }
+ *   const dbPath = path.join(providerDir, `${id}.db`);
+ *   const logPath = path.join(providerDir, 'logs', `${id}.log`);
+ *   // ...
+ * };
  * ```
  */
-export type EpicenterDir = AbsolutePath & Brand<'EpicenterDir'>;
+export type ProviderDir = AbsolutePath & Brand<'ProviderDir'>;
