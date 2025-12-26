@@ -5,20 +5,21 @@
  * 2. The regex validation pattern in moonshine.ts
  *
  * Moonshine supports 8 languages with varying model availability:
- * - tiny variants: en, ar, zh, ja, ko, uk, vi (most have only float versions)
- * - base variants: en, es (most have only float versions)
+ * - tiny variants: en, ar, zh, ja, ko, uk, vi (quantized versions available)
+ * - base variants: en, es (quantized versions available)
  *
- * Currently only English quantized models are provided as pre-built options.
+ * Currently only English models are exposed. Other languages can be enabled
+ * by uncommenting below once we're ready to support them.
  */
 export const MOONSHINE_LANGUAGES = [
 	'en',
-	'ar',
-	'zh',
-	'ja',
-	'ko',
-	'es',
-	'uk',
-	'vi',
+	// 'ar',
+	// 'zh',
+	// 'ja',
+	// 'ko',
+	// 'es',
+	// 'uk',
+	// 'vi',
 ] as const;
 
 /**
