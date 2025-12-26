@@ -96,22 +96,18 @@ This prevents embarrassing mistakes where you credit the wrong person. Always ru
 
 ### Merge Strategy
 
-Always use **"Create a merge commit"** when merging pull requests. Never squash.
+When merging PRs, use regular merge commits (NOT squash):
 
-**GitHub UI:**
-- Click "Create a merge commit" (default green button)
-
-**Git CLI:**
 ```bash
-git merge --no-ff <branch>
-```
+gh pr merge --merge  # Correct: preserves commit history
+# NOT: gh pr merge --squash
+# NOT: gh pr merge --rebase
 
-**GitHub CLI:**
-```bash
-gh pr merge <PR-NUMBER> --merge
 # Use --admin flag if needed to bypass branch protections
-gh pr merge <PR-NUMBER> --merge --admin
+gh pr merge --merge --admin
 ```
+
+Preserve individual commits; they tell the story of how the work evolved.
 
 ### Pull Request Body Format
 
