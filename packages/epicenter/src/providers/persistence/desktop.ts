@@ -34,16 +34,16 @@ import type { Provider } from '../../core/provider';
  * });
  * ```
  */
-export const setupPersistence = (async ({ id, ydoc, providerDir }) => {
-	if (!providerDir) {
+export const setupPersistence = (async ({ id, ydoc, paths }) => {
+	if (!paths) {
 		throw new Error(
 			'Persistence provider requires Node.js environment with filesystem access',
 		);
 	}
 
-	const filePath = path.join(providerDir, `${id}.yjs`);
+	const filePath = path.join(paths.provider, `${id}.yjs`);
 
-	mkdirSync(providerDir, { recursive: true });
+	mkdirSync(paths.provider, { recursive: true });
 
 	// Try to load existing state from disk using Bun.file
 	// No need to check existence first - just try to read and handle failure

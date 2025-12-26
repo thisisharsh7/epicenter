@@ -16,10 +16,10 @@ async function main() {
 			// Enable automatic watch mode
 			await enableWatchMode();
 
-			const { workspaces, storageDir } = await loadEpicenterConfig(
+			const { workspaces, projectDir } = await loadEpicenterConfig(
 				process.cwd(),
 			);
-			const client = await createClient(workspaces, { storageDir });
+			const client = await createClient(workspaces, { projectDir });
 			await createCLI(client).run(hideBin(process.argv));
 		},
 		catch: (error) => {

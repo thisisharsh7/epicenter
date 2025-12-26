@@ -13,7 +13,7 @@ export type AbsolutePath = string & Brand<'AbsolutePath'>;
  *
  * This is where user-facing content lives: markdown vaults, config files,
  * and any content that should be version-controlled. Configured via
- * `storageDir` option in `createClient()`. Defaults to `process.cwd()`.
+ * `projectDir` option in `createClient()`. Defaults to `process.cwd()`.
  *
  * @example
  * ```typescript
@@ -138,6 +138,3 @@ export type ProviderPaths = {
 	/** Provider's isolated directory at `.epicenter/providers/{providerId}/`. */
 	provider: ProviderDir;
 };
-
-/** @deprecated Use `ProjectDir` instead */
-export type StorageDir = ProjectDir;

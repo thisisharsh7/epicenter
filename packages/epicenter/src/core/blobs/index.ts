@@ -10,8 +10,8 @@ export type BlobStoreContext<TSchema extends Record<string, unknown>> = {
 	id: string;
 	/** Workspace schema (table names become subdirectories) */
 	schema: TSchema;
-	/** Base storage directory (required for Node/Bun, undefined for browser) */
-	storageDir: string | undefined;
+	/** Project root directory (required for Node/Bun, undefined for browser) */
+	projectDir: string | undefined;
 };
 
 /**
@@ -32,12 +32,12 @@ function isBrowserWithOPFS(): boolean {
  * - Node/Bun (no OPFS) → Filesystem with Bun APIs
  *
  * @param tableName The table name (used as subdirectory)
- * @param storageDir The base storage directory (required for Node/Bun, ignored for browser)
+ * @param projectDir The project root directory (required for Node/Bun, ignored for browser)
  * @returns A TableBlobStore implementation
  */
 export async function createTableBlobStore(
 	tableName: string,
-	storageDir?: string,
+	projectDir?: string,
 ): Promise<TableBlobStore> {
 	if (isBrowserWithOPFS()) {
 		// Browser: use OPFS (Origin Private File System)
@@ -46,11 +46,11 @@ export async function createTableBlobStore(
 	}
 
 	// Node/Bun: use filesystem
-	if (!storageDir) {
-		throw new Error('storageDir is required for Node/Bun blob storage');
+	if (!projectDir) {
+		throw new Error('projectDir is required for Node/Bun blob storage');
 	}
 	const { createNodeTableBlobStore } = await import('./node.js');
-	return createNodeTableBlobStore(storageDir, tableName);
+	return createNodeTableBlobStore(projectDir, tableName);
 }
 
 /**

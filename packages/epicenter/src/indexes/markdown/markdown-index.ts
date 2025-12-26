@@ -310,33 +310,33 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	context: ProviderContext<TSchema>,
 	config: MarkdownProviderConfig<TSchema> = {},
 ) => {
-	const { id, tables, storageDir, providerDir } = context;
+	const { id, tables, paths } = context;
 	const { directory = `./${id}` } = config;
 
 	const userTableConfigs: TableConfigs<TSchema> = config.tableConfigs ?? {};
-	if (!storageDir || !providerDir) {
+	if (!paths) {
 		throw new Error(
 			'Markdown provider requires Node.js environment with filesystem access',
 		);
 	}
 
 	// Provider artifacts: .epicenter/providers/markdown/diagnostics/{workspaceId}.json
-	const diagnosticsDir = path.join(providerDir, 'diagnostics');
+	const diagnosticsDir = path.join(paths.provider, 'diagnostics');
 	const diagnostics = createDiagnosticsManager({
 		diagnosticsPath: path.join(diagnosticsDir, `${id}.json`),
 	});
 
 	// Logs: .epicenter/providers/markdown/logs/{workspaceId}.log
-	const logsDir = path.join(providerDir, 'logs');
+	const logsDir = path.join(paths.provider, 'logs');
 	const logger = createIndexLogger({
 		logPath: path.join(logsDir, `${id}.log`),
 	});
 
 	// Resolve workspace directory to absolute path
-	// If directory is relative, resolve it relative to storageDir
+	// If directory is relative, resolve it relative to projectDir (paths.project)
 	// If directory is absolute, use it as-is
 	const absoluteWorkspaceDir = path.resolve(
-		storageDir,
+		paths.project,
 		directory,
 	) as AbsolutePath;
 

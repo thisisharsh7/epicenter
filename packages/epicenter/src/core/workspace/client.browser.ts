@@ -78,7 +78,7 @@ export async function createClient(
 	if (Array.isArray(input)) {
 		validateWorkspaces(input);
 
-		const clients = await initializeWorkspaces(input, undefined, undefined);
+		const clients = await initializeWorkspaces(input, undefined);
 
 		const cleanup = async () => {
 			await Promise.all(
@@ -105,11 +105,7 @@ export async function createClient(
 	}
 	allWorkspaceConfigs.push(workspace);
 
-	const clients = await initializeWorkspaces(
-		allWorkspaceConfigs,
-		undefined,
-		undefined,
-	);
+	const clients = await initializeWorkspaces(allWorkspaceConfigs, undefined);
 
 	const workspaceClient = clients[workspace.id as keyof typeof clients];
 	if (!workspaceClient) {

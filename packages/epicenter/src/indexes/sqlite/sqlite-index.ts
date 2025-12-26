@@ -87,11 +87,11 @@ type SqliteProviderOptions = {
  * ```
  */
 export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
-	{ id, schema, tables, providerDir }: ProviderContext<TSchema>,
+	{ id, schema, tables, paths }: ProviderContext<TSchema>,
 	options: SqliteProviderOptions = {},
 ) => {
 	const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-	if (!providerDir) {
+	if (!paths) {
 		throw new Error(
 			'SQLite provider requires Node.js environment with filesystem access',
 		);
@@ -100,8 +100,8 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
 	// Storage: .epicenter/providers/sqlite/{workspaceId}.db
-	const databasePath = path.join(providerDir, `${id}.db`);
-	await mkdir(providerDir, { recursive: true });
+	const databasePath = path.join(paths.provider, `${id}.db`);
+	await mkdir(paths.provider, { recursive: true });
 
 	// WAL mode for better concurrent access
 	const client = new Database(databasePath);
@@ -109,7 +109,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	// Logs: .epicenter/providers/sqlite/logs/{workspaceId}.log
-	const logsDir = path.join(providerDir, 'logs');
+	const logsDir = path.join(paths.provider, 'logs');
 	await mkdir(logsDir, { recursive: true });
 	const logPath = path.join(logsDir, `${id}.log`);
 	const logger = createIndexLogger({ logPath });

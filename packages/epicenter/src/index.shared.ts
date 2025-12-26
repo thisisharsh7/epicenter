@@ -155,7 +155,7 @@ export {
 } from './core/schema';
 
 // Core types
-export type { AbsolutePath, EpicenterDir, StorageDir } from './core/types';
+export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 
 // Workspace types (shared across platforms)
 export type {
