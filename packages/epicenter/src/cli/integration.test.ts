@@ -22,7 +22,7 @@ describe('CLI Integration', () => {
 			sqlite: (c) => sqliteProvider(c),
 		},
 
-		exports: ({ tables }) => ({
+		actions: ({ tables }) => ({
 			createItem: defineMutation({
 				input: type({
 					name: 'string',

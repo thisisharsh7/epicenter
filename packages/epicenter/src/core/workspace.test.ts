@@ -36,7 +36,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-a');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
@@ -52,7 +52,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-b');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
@@ -71,7 +71,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-c');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		// Initialize workspace C
@@ -99,7 +99,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-d');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceA = defineWorkspace({
 			id: 'workspace-a',
@@ -115,7 +115,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-a');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
@@ -131,7 +131,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-b');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		// Flat dependency resolution: C must declare ALL transitive dependencies
@@ -150,7 +150,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-c');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		await createClient(workspaceC);
@@ -183,7 +183,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-x');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceY = defineWorkspace({
 			id: 'workspace-y',
@@ -198,7 +198,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-y');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceZ = defineWorkspace({
 			id: 'workspace-z',
@@ -214,7 +214,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-z');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		await createClient(workspaceZ);
@@ -238,7 +238,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: () => ({}),
+			actions: () => ({}),
 		};
 
 		const workspaceB: any = {
@@ -251,7 +251,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: () => ({}),
+			actions: () => ({}),
 		};
 
 		// Create circular reference
@@ -288,7 +288,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-a');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceB = defineWorkspace({
 			id: 'workspace-b',
@@ -304,7 +304,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-b');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceC = defineWorkspace({
 			id: 'workspace-c',
@@ -320,7 +320,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-c');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceD = defineWorkspace({
 			id: 'workspace-d',
@@ -336,7 +336,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-d');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 		const workspaceE = defineWorkspace({
 			id: 'workspace-e',
@@ -352,7 +352,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-e');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		// F must declare ALL transitive dependencies (flat resolution)
@@ -376,7 +376,7 @@ describe('createClient - Topological Sort', () => {
 					initOrder.push('workspace-f');
 				},
 			},
-			exports: () => ({}),
+			actions: () => ({}),
 		});
 
 		await createClient(workspaceF);
@@ -417,7 +417,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: () => ({
+			actions: () => ({
 				getValue: defineQuery({
 					handler: () => {
 						return Ok('value-from-a');
@@ -437,7 +437,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: ({ workspaces }) => ({
+			actions: ({ workspaces }) => ({
 				getValueFromA: defineQuery({
 					handler: async () => {
 						// Access workspace A's action
@@ -465,7 +465,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: () => ({
+			actions: () => ({
 				getValueFromA: defineQuery({
 					handler: () => Ok('value-from-a'),
 				}),
@@ -482,7 +482,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: ({ workspaces }) => ({
+			actions: ({ workspaces }) => ({
 				getValueFromB: defineQuery({
 					handler: () => Ok('value-from-b'),
 				}),
@@ -518,7 +518,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: () => ({
+			actions: () => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-a'),
 				}),
@@ -534,7 +534,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: () => ({
+			actions: () => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-b'),
 				}),
@@ -551,7 +551,7 @@ describe('createClient - Topological Sort', () => {
 				},
 			},
 			providers: {},
-			exports: ({ workspaces }) => ({
+			actions: ({ workspaces }) => ({
 				getValue: defineQuery({
 					handler: () => Ok('value-from-c'),
 				}),
@@ -612,7 +612,7 @@ describe('Workspace Action Handlers', () => {
 			sqlite: (c) => sqliteProvider(c),
 		},
 
-		exports: ({ tables, providers }) => {
+		actions: ({ tables, providers }) => {
 			return {
 				listPosts: defineQuery({
 					handler: async () => {

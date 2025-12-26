@@ -48,7 +48,7 @@ describe('Server Integration Tests', () => {
 			sqlite: (c) => sqliteProvider(c),
 		},
 
-		exports: ({ tables, providers }) => ({
+		actions: ({ tables, providers }) => ({
 			createPost: defineMutation({
 				input: type({
 					title: 'string >= 1',
@@ -246,7 +246,7 @@ describe('Server Integration Tests', () => {
 					}),
 			},
 
-			exports: ({ tables }) => ({
+			actions: ({ tables }) => ({
 				createUser: defineMutation({
 					input: type({
 						email: 'string',

@@ -36,7 +36,7 @@ describe('y-websocket Client Compatibility', () => {
 			},
 		},
 		providers: {},
-		exports: ({ tables }) => ({
+		actions: ({ tables }) => ({
 			createNote: defineMutation({
 				input: type({ content: 'string' }),
 				description: 'Create a new note',
