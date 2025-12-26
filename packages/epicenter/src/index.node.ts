@@ -14,12 +14,12 @@ export {
 	type CreateClientOptions,
 } from './core/workspace/client.node';
 
-// Client types (shared across platforms)
+// Node-specific client types
 export type {
 	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
-} from './core/workspace/client.shared';
+} from './core/workspace/client.node';
 
 // Node-only: server functionality
 export { createServer } from './server';

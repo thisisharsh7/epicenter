@@ -157,12 +157,6 @@ export {
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 
-// Workspace types (shared across platforms)
-export type {
-	EpicenterClient,
-	WorkspaceClient,
-	WorkspacesToClients,
-} from './core/workspace/client.shared';
 export type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,

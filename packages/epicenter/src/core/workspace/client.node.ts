@@ -13,23 +13,96 @@ import { buildProviderPaths, getEpicenterDir } from '../paths';
 import type { ProviderExports, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { ProjectDir, ProviderPaths } from '../types';
-import {
-	type EpicenterClient,
-	validateWorkspaces,
-	type WorkspaceClient,
-	type WorkspacesToClients,
-} from './client.shared';
 import type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
 	WorkspacePaths,
 } from './config';
 
-export type {
-	EpicenterClient,
-	WorkspaceClient,
-	WorkspacesToClients,
-} from './client.shared';
+/**
+ * A workspace client contains all workspace exports plus lifecycle management.
+ * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
+ */
+export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
+	/**
+	 * The underlying YJS document for this workspace.
+	 *
+	 * Exposed for sync providers and advanced use cases.
+	 * The document's guid matches the workspace ID.
+	 */
+	$ydoc: Y.Doc;
+
+	/**
+	 * Async cleanup method for resource management.
+	 */
+	destroy: () => Promise<void>;
+
+	/**
+	 * Async disposal for `await using` syntax.
+	 */
+	[Symbol.asyncDispose]: () => Promise<void>;
+};
+
+/**
+ * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace id.
+ */
+export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
+	[W in WS[number] as W extends { id: infer TId extends string }
+		? TId
+		: never]: W extends {
+		exports: (context: any) => infer TExports extends WorkspaceExports;
+	}
+		? WorkspaceClient<TExports>
+		: never;
+};
+
+/**
+ * Client for multiple workspaces. Maps workspace IDs to their clients.
+ * Returned by `createClient([...workspaces])`.
+ */
+export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
+	WorkspacesToClients<TWorkspaces> & {
+		/**
+		 * Async cleanup method for resource management.
+		 */
+		destroy: () => Promise<void>;
+
+		/**
+		 * Async disposal for `await using` syntax.
+		 */
+		[Symbol.asyncDispose]: () => Promise<void>;
+	};
+
+/**
+ * Validates workspace array configuration.
+ */
+function validateWorkspaces(workspaces: readonly AnyWorkspaceConfig[]): void {
+	if (!Array.isArray(workspaces)) {
+		throw new Error('Workspaces must be an array of workspace configs');
+	}
+
+	if (workspaces.length === 0) {
+		throw new Error('Must have at least one workspace');
+	}
+
+	for (const workspace of workspaces) {
+		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
+			throw new Error(
+				'Invalid workspace: workspaces must be workspace configs with id, schema, indexes, and actions',
+			);
+		}
+	}
+
+	const ids = workspaces.map((ws) => ws.id);
+	const uniqueIds = new Set(ids);
+	if (uniqueIds.size !== ids.length) {
+		const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+		throw new Error(
+			`Duplicate workspace IDs detected: ${duplicates.join(', ')}. ` +
+				`Each workspace must have a unique ID.`,
+		);
+	}
+}
 
 /**
  * Options for creating a client in Node.js environments.
@@ -109,7 +182,7 @@ export async function createClient<
 ): Promise<WorkspaceClient<TExports>>;
 
 /**
- * Create a client for multiple workspaces.
+ * Create a client for multiple workspaces (Node.js, ASYNCHRONOUS).
  * Initializes all workspaces in dependency order, returns an object mapping workspace IDs to clients.
  *
  * Uses flat/hoisted dependency resolution: all transitive dependencies must be
@@ -308,7 +381,7 @@ async function initializeWorkspaces<
 		) {
 			for (const dep of workspaceConfig.dependencies) {
 				// Add edge: dep.id -> id (id depends on dep.id)
-				// Note: Dependencies are already verified in Phase 2
+				// Dependencies already verified in Phase 2
 				dependents.get(dep.id)?.push(id);
 
 				// Increment in-degree for the dependent workspace

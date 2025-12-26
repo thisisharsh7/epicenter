@@ -7,7 +7,7 @@
 
 import type { ProviderContextBase, ProviderExports } from './provider.shared';
 import type { WorkspaceSchema } from './schema';
-import type { EpicenterDir, StorageDir } from './types';
+import type { EpicenterDir, ProjectDir } from './types';
 
 // Re-export shared types
 export type {
@@ -61,14 +61,14 @@ export { defineProviderExports } from './provider.shared';
 export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
 	ProviderContextBase<TSchema> & {
 		/**
-		 * Absolute storage directory path resolved from epicenter config.
+		 * Absolute project directory path resolved from epicenter config.
 		 * Defaults to `process.cwd()` if not specified in config.
 		 */
-		storageDir: StorageDir;
+		projectDir: ProjectDir;
 
 		/**
 		 * Absolute path to the `.epicenter` directory.
-		 * Computed as `path.join(storageDir, '.epicenter')`.
+		 * Computed as `path.join(projectDir, '.epicenter')`.
 		 */
 		epicenterDir: EpicenterDir;
 	};
