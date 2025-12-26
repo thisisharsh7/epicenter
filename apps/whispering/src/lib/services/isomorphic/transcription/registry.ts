@@ -107,15 +107,21 @@ export const TRANSCRIPTION_SERVICES = [
 		modelPathField: 'transcription.parakeet.modelPath',
 		location: 'local',
 	},
-	{
-		id: 'moonshine',
-		name: 'Moonshine',
-		icon: moonshineIcon,
-		invertInDarkMode: false,
-		description: 'Efficient ONNX model by UsefulSensors',
-		modelPathField: 'transcription.moonshine.modelPath',
-		location: 'local',
-	},
+	// Moonshine is not available on Windows due to MSVC runtime library conflicts
+	// between tokenizers/esaxx-rs (static CRT) and ort (dynamic CRT)
+	...(IS_WINDOWS
+		? []
+		: [
+				{
+					id: 'moonshine',
+					name: 'Moonshine',
+					icon: moonshineIcon,
+					invertInDarkMode: false,
+					description: 'Efficient ONNX model by UsefulSensors',
+					modelPathField: 'transcription.moonshine.modelPath',
+					location: 'local',
+				} as const,
+			]),
 	// Cloud services (API-based)
 	{
 		id: 'Groq',
