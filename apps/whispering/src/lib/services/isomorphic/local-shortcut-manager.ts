@@ -17,8 +17,9 @@ import { IS_MACOS } from '$lib/constants/platform';
  * local shortcut operations fail. Uses a tagged error pattern for type safety
  * and better error discrimination in Result types.
  */
-const { LocalShortcutServiceError, LocalShortcutServiceErr } =
-	createTaggedError('LocalShortcutServiceError');
+const { LocalShortcutServiceError } = createTaggedError(
+	'LocalShortcutServiceError',
+);
 type LocalShortcutServiceError = ReturnType<typeof LocalShortcutServiceError>;
 
 export type CommandId = string & Brand<'CommandId'>;
