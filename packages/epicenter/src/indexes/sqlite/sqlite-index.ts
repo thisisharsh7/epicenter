@@ -87,35 +87,31 @@ type SqliteProviderOptions = {
  * ```
  */
 export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
-	{ id, providerId, schema, tables, epicenterDir }: ProviderContext<TSchema>,
+	{ id, schema, tables, paths }: ProviderContext<TSchema>,
 	options: SqliteProviderOptions = {},
 ) => {
 	const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-	// Require Node.js environment with filesystem access
-	if (!epicenterDir) {
+	if (!paths) {
 		throw new Error(
 			'SQLite provider requires Node.js environment with filesystem access',
 		);
 	}
 
-	// Convert table schemas to Drizzle tables
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
-	// Set up storage paths
-	const databasePath = path.join(epicenterDir, `${id}.db`);
-	await mkdir(path.dirname(databasePath), { recursive: true });
+	// Storage: .epicenter/providers/sqlite/{workspaceId}.db
+	const databasePath = path.join(paths.provider, `${id}.db`);
+	await mkdir(paths.provider, { recursive: true });
 
-	// Create database connection with schema for proper type inference
-	// WAL mode is enabled for better concurrent access
-	// Using lazy connection - Database will auto-connect on first query
+	// WAL mode for better concurrent access
 	const client = new Database(databasePath);
 	client.exec('PRAGMA journal_mode = WAL');
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
-	// Create error logger for this provider
-	// Structure: .epicenter/{workspaceId}/{providerId}.log
-	const workspaceConfigDir = path.join(epicenterDir, id);
-	const logPath = path.join(workspaceConfigDir, `${providerId}.log`);
+	// Logs: .epicenter/providers/sqlite/logs/{workspaceId}.log
+	const logsDir = path.join(paths.provider, 'logs');
+	await mkdir(logsDir, { recursive: true });
+	const logPath = path.join(logsDir, `${id}.log`);
 	const logger = createIndexLogger({ logPath });
 
 	// Prevents infinite loop during pushFromSqlite: when we insert into YJS,

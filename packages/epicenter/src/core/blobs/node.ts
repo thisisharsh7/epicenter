@@ -10,15 +10,15 @@ import { validateFilename } from './utils.js';
  * Create a blob store for a table using Bun's filesystem APIs.
  * This implementation is used in Node/Bun environments.
  *
- * @param storageDir The base storage directory (absolute path)
+ * @param projectDir The project root directory (absolute path)
  * @param tableName The table name (used as subdirectory)
  * @returns A TableBlobStore implementation
  */
 export function createNodeTableBlobStore(
-	storageDir: string,
+	projectDir: string,
 	tableName: string,
 ): TableBlobStore {
-	const tableDir = join(storageDir, tableName);
+	const tableDir = join(projectDir, tableName);
 
 	return {
 		async put(filename, data) {

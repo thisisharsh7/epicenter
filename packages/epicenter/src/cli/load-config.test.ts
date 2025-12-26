@@ -73,7 +73,7 @@ describe('loadEpicenterConfig', () => {
 		const result = await loadEpicenterConfig(testDir);
 		expect(Array.isArray(result.workspaces)).toBe(true);
 		expect(result.workspaces[0]!.id).toBe('test-workspace');
-		expect(result.configPath).toBe(configPath);
+		expect(result.projectDir as string).toBe(testDir);
 	});
 
 	test('loads config with ES module syntax', async () => {

@@ -3,7 +3,7 @@
  *
  * This file contains platform-agnostic logic for workspace initialization.
  * Platform-specific entry points (client.browser.ts, client.node.ts) call
- * initializeWorkspaces with the appropriate storageDir/epicenterDir values.
+ * initializeWorkspaces with the appropriate projectDir value.
  */
 
 import * as Y from 'yjs';
@@ -14,10 +14,15 @@ import {
 	walkActions,
 } from '../actions';
 import { createEpicenterDb } from '../db/core';
+import { buildProviderPaths, getEpicenterDir } from '../paths';
 import type { ProviderExports } from '../provider';
 import { createWorkspaceValidators } from '../schema';
-import type { EpicenterDir, StorageDir } from '../types';
-import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
+import type { ProjectDir, ProviderPaths } from '../types';
+import type {
+	AnyWorkspaceConfig,
+	WorkspaceConfig,
+	WorkspacePaths,
+} from './config';
 
 /**
  * Validates workspace array configuration.
@@ -195,16 +200,14 @@ export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
  * Initialization uses topological sort for deterministic, predictable order.
  *
  * @param workspaceConfigs - Array of workspace configurations to initialize
- * @param storageDir - Absolute storage directory path (Node.js) or undefined (browser)
- * @param epicenterDir - Absolute .epicenter directory path (Node.js) or undefined (browser)
+ * @param projectDir - Absolute project directory path (Node.js) or undefined (browser)
  * @returns Object mapping workspace ids to initialized workspace clients
  */
 export async function initializeWorkspaces<
 	const TConfigs extends readonly AnyWorkspaceConfig[],
 >(
 	workspaceConfigs: TConfigs,
-	storageDir: StorageDir | undefined,
-	epicenterDir: EpicenterDir | undefined,
+	projectDir: ProjectDir | undefined,
 ): Promise<WorkspacesToClients<TConfigs>> {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PHASE 1: REGISTRATION
@@ -439,21 +442,24 @@ export async function initializeWorkspaces<
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
 		// Initialize each provider by calling its factory function with ProviderContext
-		// Each provider receives { id, providerId, ydoc, schema, tables, storageDir, epicenterDir }
-		// and optionally returns an exports object
+		// Each provider receives { id, providerId, ydoc, schema, tables, paths }
+		// paths.provider is computed per-provider: .epicenter/providers/{providerId}/
 		// Initialize all providers in parallel for better performance
 		const providers = Object.fromEntries(
 			await Promise.all(
 				Object.entries(workspaceConfig.providers).map(
 					async ([providerId, providerFn]) => {
+						const paths: ProviderPaths | undefined = projectDir
+							? buildProviderPaths(projectDir, providerId)
+							: undefined;
+
 						const result = await providerFn({
 							id: workspaceConfig.id,
 							providerId,
 							ydoc,
 							schema: workspaceConfig.tables,
 							tables,
-							storageDir,
-							epicenterDir,
+							paths,
 						});
 						// Providers can return void or exports
 						return [providerId, result ?? {}];
@@ -462,25 +468,21 @@ export async function initializeWorkspaces<
 			),
 		) as Record<string, ProviderExports>;
 
-		// Call the exports factory to get workspace exports (actions + utilities), passing:
-		// - tables: Epicenter tables API for direct table operations
-		// - schema: The workspace schema (table definitions)
-		// - validators: Schema validators for runtime validation and arktype composition
-		// - providers: exported resources from each provider (db, queries, etc.)
-		// - workspaces: full clients from dependencies (all exports, not filtered!)
-		// - storageDir: Absolute storage directory path (undefined in browser)
-		// - epicenterDir: Absolute path to .epicenter directory (undefined in browser)
-		// Note: blobs are commented out until browser-compatible implementation exists
+		const workspacePaths: WorkspacePaths | undefined = projectDir
+			? {
+					project: projectDir,
+					epicenter: getEpicenterDir(projectDir),
+				}
+			: undefined;
+
 		const exports = workspaceConfig.exports({
 			tables,
 			schema: workspaceConfig.tables,
 			validators,
 			providers,
 			workspaces: workspaceClients,
-			// blobs temporarily disabled for browser compatibility
 			blobs: {} as any,
-			storageDir,
-			epicenterDir,
+			paths: workspacePaths,
 		});
 
 		// Create async cleanup function

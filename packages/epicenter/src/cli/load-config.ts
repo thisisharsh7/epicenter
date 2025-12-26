@@ -1,4 +1,5 @@
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import type { ProjectDir } from '../core/types';
 import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
@@ -8,12 +9,12 @@ import type { AnyWorkspaceConfig } from '../core/workspace';
  * The config file should export an array of workspace configurations.
  *
  * @param configDir - Directory containing epicenter.config.ts
- * @returns Object containing workspaces array and config file path
+ * @returns Object containing workspaces array and project directory
  * @throws Error if no config file is found or if the config is invalid
  */
 export async function loadEpicenterConfig(configDir: string): Promise<{
 	workspaces: readonly AnyWorkspaceConfig[];
-	configPath: string;
+	projectDir: ProjectDir;
 }> {
 	const configFiles = [
 		'epicenter.config.ts',
@@ -49,7 +50,10 @@ export async function loadEpicenterConfig(configDir: string): Promise<{
 			);
 		}
 
-		return { workspaces: config, configPath };
+		return {
+			workspaces: config,
+			projectDir: dirname(configPath) as ProjectDir,
+		};
 	} catch (error) {
 		if (error instanceof Error) {
 			throw new Error(

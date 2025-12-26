@@ -9,7 +9,7 @@ import path from 'node:path';
 import type { WorkspaceExports } from '../actions';
 import type { WorkspaceProviderMap } from '../provider';
 import type { WorkspaceSchema } from '../schema';
-import type { EpicenterDir, StorageDir } from '../types';
+import type { ProjectDir } from '../types';
 import {
 	type EpicenterClient,
 	type WorkspaceClient,
@@ -29,35 +29,38 @@ export type {
  */
 export type CreateClientOptions = {
 	/**
-	 * Base directory for all Epicenter storage (databases, markdown files, persistence).
+	 * Project root directory for all Epicenter storage.
 	 *
-	 * - Defaults to `process.cwd()` in Node.js (where epicenter commands are run)
-	 * - Can be overridden per-index/provider if needed
+	 * This is where:
+	 * - `.epicenter/` folder is created for internal data (databases, YJS files)
+	 * - Markdown vaults and user content are resolved relative to
+	 *
+	 * Defaults to `process.cwd()` in Node.js.
 	 *
 	 * @example
 	 * ```typescript
-	 * // Store everything in /data/epicenter
+	 * // Store everything in /data/myproject
 	 * const client = await createClient(workspaces, {
-	 *   storageDir: '/data/epicenter',
+	 *   projectDir: '/data/myproject',
 	 * });
 	 *
 	 * // Use environment variable
 	 * const client = await createClient(workspaces, {
-	 *   storageDir: process.env.EPICENTER_STORAGE_DIR,
+	 *   projectDir: process.env.EPICENTER_PROJECT_DIR,
 	 * });
 	 * ```
 	 */
-	storageDir?: string;
+	projectDir?: string;
 };
 
 /**
  * Create a client for a single workspace.
  * Initializes the workspace and its dependencies, returns only the target workspace's client.
  *
- * In Node.js environments, storageDir is resolved to an absolute path.
+ * In Node.js environments, projectDir is resolved to an absolute path.
  *
  * @param workspace - Workspace configuration to initialize
- * @param options - Optional client options including storageDir
+ * @param options - Optional client options including projectDir
  * @returns Initialized workspace client with access to all workspace exports
  *
  * @example
@@ -119,7 +122,7 @@ export async function createClient<
  *   client['content-hub'].createPost(...);
  *   client.auth.login(...);
  *   ```
- * @param options - Optional client options including storageDir
+ * @param options - Optional client options including projectDir
  * @returns Initialized client with access to all workspace exports by workspace ID
  *
  * @example
@@ -142,22 +145,14 @@ export async function createClient(
 	input: AnyWorkspaceConfig | readonly AnyWorkspaceConfig[],
 	options?: CreateClientOptions,
 ): Promise<WorkspaceClient<any> | EpicenterClient<any>> {
-	const resolvedStorageDir = path.resolve(
-		options?.storageDir ?? process.cwd(),
-	) as StorageDir;
-	const resolvedEpicenterDir = path.join(
-		resolvedStorageDir,
-		'.epicenter',
-	) as EpicenterDir;
+	const projectDir = path.resolve(
+		options?.projectDir ?? process.cwd(),
+	) as ProjectDir;
 
 	if (Array.isArray(input)) {
 		validateWorkspaces(input);
 
-		const clients = await initializeWorkspaces(
-			input,
-			resolvedStorageDir,
-			resolvedEpicenterDir,
-		);
+		const clients = await initializeWorkspaces(input, projectDir);
 
 		const cleanup = async () => {
 			await Promise.all(
@@ -184,11 +179,7 @@ export async function createClient(
 	}
 	allWorkspaceConfigs.push(workspace);
 
-	const clients = await initializeWorkspaces(
-		allWorkspaceConfigs,
-		resolvedStorageDir,
-		resolvedEpicenterDir,
-	);
+	const clients = await initializeWorkspaces(allWorkspaceConfigs, projectDir);
 
 	const workspaceClient = clients[workspace.id as keyof typeof clients];
 	if (!workspaceClient) {

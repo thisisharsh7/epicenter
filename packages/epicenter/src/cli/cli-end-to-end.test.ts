@@ -109,7 +109,7 @@ describe('CLI End-to-End Tests', () => {
 	});
 
 	const workspaces = [testWorkspace] as const;
-	const options = { storageDir: TEST_DIR };
+	const options = { projectDir: TEST_DIR };
 
 	beforeEach(async () => {
 		// Clean up test data

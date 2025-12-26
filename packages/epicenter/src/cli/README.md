@@ -142,7 +142,7 @@ Test your CLI commands programmatically:
 import { createClient } from '@epicenter/hq';
 import { createCLI } from '@epicenter/hq/cli';
 
-const client = await createClient(workspaces, { storageDir: '...' });
+const client = await createClient(workspaces, { projectDir: '...' });
 await createCLI(client).run([
 	'reddit',
 	'import',

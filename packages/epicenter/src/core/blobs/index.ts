@@ -10,8 +10,8 @@ export type BlobStoreContext<TSchema extends Record<string, unknown>> = {
 	id: string;
 	/** Workspace schema (table names become subdirectories) */
 	schema: TSchema;
-	/** Base storage directory (required for Node/Bun, undefined for browser) */
-	storageDir: string | undefined;
+	/** Project root directory (required for Node/Bun, undefined for browser) */
+	projectDir: string | undefined;
 };
 
 /**
@@ -32,12 +32,12 @@ function isBrowserWithOPFS(): boolean {
  * - Node/Bun (no OPFS) → Filesystem with Bun APIs
  *
  * @param tableName The table name (used as subdirectory)
- * @param storageDir The base storage directory (required for Node/Bun, ignored for browser)
+ * @param projectDir The project root directory (required for Node/Bun, ignored for browser)
  * @returns A TableBlobStore implementation
  */
 export async function createTableBlobStore(
 	tableName: string,
-	storageDir?: string,
+	projectDir?: string,
 ): Promise<TableBlobStore> {
 	if (isBrowserWithOPFS()) {
 		// Browser: use OPFS (Origin Private File System)
@@ -46,11 +46,11 @@ export async function createTableBlobStore(
 	}
 
 	// Node/Bun: use filesystem
-	if (!storageDir) {
-		throw new Error('storageDir is required for Node/Bun blob storage');
+	if (!projectDir) {
+		throw new Error('projectDir is required for Node/Bun blob storage');
 	}
 	const { createNodeTableBlobStore } = await import('./node.js');
-	return createNodeTableBlobStore(storageDir, tableName);
+	return createNodeTableBlobStore(projectDir, tableName);
 }
 
 /**
@@ -65,7 +65,7 @@ export async function createTableBlobStore(
  *     posts: table({ ... }),
  *     users: table({ ... }),
  *   },
- *   storageDir: '/path/to/storage',
+ *   projectDir: '/path/to/project',
  * });
  * // blobs.posts, blobs.users are now available
  *
@@ -75,23 +75,23 @@ export async function createTableBlobStore(
  *
  * @param context.id - Workspace ID (used as parent directory)
  * @param context.schema - The workspace schema object
- * @param context.storageDir - The base storage directory (required for Node/Bun)
+ * @param context.projectDir - The project root directory (required for Node/Bun)
  * @returns WorkspaceBlobs object with stores for each table
  */
 export async function createWorkspaceBlobs<
 	TSchema extends Record<string, unknown>,
 >(context: BlobStoreContext<TSchema>): Promise<WorkspaceBlobs<TSchema>> {
-	const { id, schema, storageDir } = context;
+	const { id, schema, projectDir } = context;
 
 	// For Node/Bun, construct the workspace-specific storage path
-	// Storage layout: {storageDir}/{workspaceId}/{tableName}/{filename}
-	const workspaceStorageDir = storageDir ? join(storageDir, id) : undefined;
+	// Storage layout: {projectDir}/{workspaceId}/{tableName}/{filename}
+	const workspaceProjectDir = projectDir ? join(projectDir, id) : undefined;
 
 	const tableNames = Object.keys(schema);
 	const stores = await Promise.all(
 		tableNames.map(async (tableName) => [
 			tableName,
-			await createTableBlobStore(tableName, workspaceStorageDir),
+			await createTableBlobStore(tableName, workspaceProjectDir),
 		]),
 	);
 	return Object.fromEntries(stores) as WorkspaceBlobs<TSchema>;

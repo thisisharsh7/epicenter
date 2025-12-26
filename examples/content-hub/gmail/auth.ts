@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { EpicenterDir } from '@epicenter/hq';
+import type { ProviderDir } from '@epicenter/hq';
 import { google } from 'googleapis';
 import open from 'open';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
@@ -44,12 +44,12 @@ const SCOPES = [
 // Token Storage
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getTokenPath(epicenterDir: EpicenterDir): string {
-	return path.join(epicenterDir, 'gmail-token.json');
+function getTokenPath(providerDir: ProviderDir): string {
+	return path.join(providerDir, 'token.json');
 }
 
-export async function loadTokens(epicenterDir: EpicenterDir) {
-	const tokenPath = getTokenPath(epicenterDir);
+export async function loadTokens(providerDir: ProviderDir) {
+	const tokenPath = getTokenPath(providerDir);
 	const file = Bun.file(tokenPath);
 
 	const { data: exists, error: existsError } = await tryAsync({
@@ -81,10 +81,10 @@ export async function loadTokens(epicenterDir: EpicenterDir) {
 }
 
 export async function saveTokens(
-	epicenterDir: EpicenterDir,
+	providerDir: ProviderDir,
 	tokens: GmailTokens,
 ) {
-	const tokenPath = getTokenPath(epicenterDir);
+	const tokenPath = getTokenPath(providerDir);
 
 	const { error } = await tryAsync({
 		try: () => Bun.write(tokenPath, JSON.stringify(tokens, null, 2)),
@@ -102,8 +102,8 @@ export async function saveTokens(
 	return Ok(undefined);
 }
 
-export async function deleteTokens(epicenterDir: EpicenterDir) {
-	const tokenPath = getTokenPath(epicenterDir);
+export async function deleteTokens(providerDir: ProviderDir) {
+	const tokenPath = getTokenPath(providerDir);
 	const fs = await import('node:fs/promises');
 
 	const { error } = await tryAsync({
@@ -165,8 +165,8 @@ export function createOAuth2Client(redirectUri?: string) {
 	return Ok(oauth2Client);
 }
 
-export async function getAuthenticatedClient(epicenterDir: EpicenterDir) {
-	const { data: tokens, error: loadError } = await loadTokens(epicenterDir);
+export async function getAuthenticatedClient(providerDir: ProviderDir) {
+	const { data: tokens, error: loadError } = await loadTokens(providerDir);
 	if (loadError) return Err(loadError);
 
 	if (!tokens) {
@@ -191,7 +191,7 @@ export async function getAuthenticatedClient(epicenterDir: EpicenterDir) {
 			refresh_token: newTokens.refresh_token ?? tokens.refresh_token,
 			expiry_date: newTokens.expiry_date ?? tokens.expiry_date,
 		};
-		await saveTokens(epicenterDir, updatedTokens);
+		await saveTokens(providerDir, updatedTokens);
 	});
 
 	return Ok(oauth2Client);
@@ -201,7 +201,7 @@ export async function getAuthenticatedClient(epicenterDir: EpicenterDir) {
 // OAuth2 Login Flow
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function performOAuthLogin(epicenterDir: EpicenterDir) {
+export async function performOAuthLogin(providerDir: ProviderDir) {
 	// Start server on dynamic port
 	let resolveAuth: (code: string) => void;
 	let rejectAuth: (error: Error) => void;
@@ -332,7 +332,7 @@ export async function performOAuthLogin(epicenterDir: EpicenterDir) {
 	};
 
 	// Save tokens
-	const { error: saveError } = await saveTokens(epicenterDir, tokens);
+	const { error: saveError } = await saveTokens(providerDir, tokens);
 	if (saveError) return Err(saveError);
 
 	return Ok(undefined);

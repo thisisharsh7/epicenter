@@ -8,7 +8,7 @@
 // All platform-agnostic exports
 export * from './index.shared';
 
-// Node-specific: client creation with options (storageDir)
+// Node-specific: client creation with options (projectDir)
 export {
 	createClient,
 	type CreateClientOptions,

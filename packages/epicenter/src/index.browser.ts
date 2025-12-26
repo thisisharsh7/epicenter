@@ -8,7 +8,7 @@
 // All platform-agnostic exports
 export * from './index.shared';
 
-// Browser-specific: client creation (no storageDir option)
+// Browser-specific: client creation (no projectDir option)
 export { createClient } from './core/workspace/client.browser';
 
 // Client types (shared across platforms)
