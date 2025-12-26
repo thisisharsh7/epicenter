@@ -37,8 +37,8 @@ import {
  * Stores tokens in the provider's dedicated directory:
  * `.epicenter/providers/gmailAuth/token.json`
  */
-function gmailAuthProvider({ providerDir }: ProviderContext) {
-	if (!providerDir) {
+function gmailAuthProvider({ paths }: ProviderContext) {
+	if (!paths) {
 		return {
 			isAvailable: false as const,
 		};
@@ -46,11 +46,11 @@ function gmailAuthProvider({ providerDir }: ProviderContext) {
 
 	return {
 		isAvailable: true as const,
-		providerDir,
-		loadTokens: () => loadTokens(providerDir),
-		deleteTokens: () => deleteTokens(providerDir),
-		getAuthenticatedClient: () => getAuthenticatedClient(providerDir),
-		performOAuthLogin: () => performOAuthLogin(providerDir),
+		providerDir: paths.provider,
+		loadTokens: () => loadTokens(paths.provider),
+		deleteTokens: () => deleteTokens(paths.provider),
+		getAuthenticatedClient: () => getAuthenticatedClient(paths.provider),
+		performOAuthLogin: () => performOAuthLogin(paths.provider),
 	};
 }
 import {
@@ -127,6 +127,7 @@ export const gmail = defineWorkspace({
 	providers: {
 		persistence: setupPersistence,
 		sqlite: (c) => sqliteProvider(c),
+		gmailAuth: gmailAuthProvider,
 		markdown: (c) =>
 			markdownProvider(c, {
 				tableConfigs: {

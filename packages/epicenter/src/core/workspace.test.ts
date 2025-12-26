@@ -698,7 +698,7 @@ describe('Workspace Action Handlers', () => {
 
 	test('createPost mutation creates a post', async () => {
 		await using client = await createClient(postsWorkspace, {
-			storageDir: TEST_DIR,
+			projectDir: TEST_DIR,
 		});
 
 		const result = await client.createPost({
@@ -717,7 +717,7 @@ describe('Workspace Action Handlers', () => {
 
 	test('listPosts query returns created posts', async () => {
 		await using client = await createClient(postsWorkspace, {
-			storageDir: TEST_DIR,
+			projectDir: TEST_DIR,
 		});
 
 		// Create a post first
@@ -741,7 +741,7 @@ describe('Workspace Action Handlers', () => {
 
 	test('getPost query retrieves specific post', async () => {
 		await using client = await createClient(postsWorkspace, {
-			storageDir: TEST_DIR,
+			projectDir: TEST_DIR,
 		});
 
 		// Create a post
@@ -769,7 +769,7 @@ describe('Workspace Action Handlers', () => {
 
 	test('updateViews mutation updates post view count', async () => {
 		await using client = await createClient(postsWorkspace, {
-			storageDir: TEST_DIR,
+			projectDir: TEST_DIR,
 		});
 
 		// Create a post
@@ -793,7 +793,7 @@ describe('Workspace Action Handlers', () => {
 
 	test('updateViews returns null for non-existent post', async () => {
 		await using client = await createClient(postsWorkspace, {
-			storageDir: TEST_DIR,
+			projectDir: TEST_DIR,
 		});
 
 		// Try to update views on non-existent post
@@ -808,7 +808,7 @@ describe('Workspace Action Handlers', () => {
 
 	test('createPost with optional content field', async () => {
 		await using client = await createClient(postsWorkspace, {
-			storageDir: TEST_DIR,
+			projectDir: TEST_DIR,
 		});
 
 		const result = await client.createPost({

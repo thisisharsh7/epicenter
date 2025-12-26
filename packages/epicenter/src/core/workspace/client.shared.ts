@@ -3,7 +3,7 @@
  *
  * This file contains platform-agnostic logic for workspace initialization.
  * Platform-specific entry points (client.browser.ts, client.node.ts) call
- * initializeWorkspaces with the appropriate storageDir/epicenterDir values.
+ * initializeWorkspaces with the appropriate projectDir value.
  */
 
 import * as Y from 'yjs';

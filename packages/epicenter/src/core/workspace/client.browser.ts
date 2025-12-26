@@ -2,7 +2,7 @@
  * Browser workspace client implementation.
  *
  * Provides createClient for browser environments (web apps, Tauri).
- * Uses undefined storageDir since browsers use IndexedDB for persistence
+ * Uses undefined projectDir since browsers use IndexedDB for persistence
  * rather than filesystem paths.
  */
 import type { WorkspaceExports } from '../actions';
@@ -26,7 +26,7 @@ export type {
  * Create a client for a single workspace (browser version).
  * Initializes the workspace and its dependencies, returns only the target workspace's client.
  *
- * In browser environments, storageDir is always undefined (no filesystem access).
+ * In browser environments, projectDir is always undefined (no filesystem access).
  *
  * @param workspace - Workspace configuration to initialize
  * @returns Initialized workspace client with access to all workspace exports
@@ -57,7 +57,7 @@ export async function createClient<
  * Create a client for multiple workspaces (browser version).
  * Initializes all workspaces in dependency order, returns an object mapping workspace IDs to clients.
  *
- * In browser environments, storageDir is always undefined (no filesystem access).
+ * In browser environments, projectDir is always undefined (no filesystem access).
  *
  * @param workspaces - Array of workspace configurations to initialize
  * @returns Initialized client with access to all workspace exports by workspace ID
