@@ -1,128 +1,279 @@
 # From Dependency Injection to Factory Methods
 
-Refactoring often starts with a feeling of friction. You notice that your function signatures are becoming bloated, your tests are getting harder to write, or your API just doesn't feel "natural" to use. These are signs that your ownership model is backwards.
+Two patterns for cleaning up resource management and making APIs more natural to use.
 
-Here are two patterns for cleaning up resource management and making your APIs more discoverable.
+**Related**: [The Factory Function Pattern](./factory-function-pattern.md) — a deep dive into why and how to create factory functions that wrap external clients.
 
 ## Pattern 1: Invert Control for Resource Dependencies
 
-When a factory function internally creates and manages its own dependencies, it takes on too much responsibility. It becomes a "god function" that needs to know how to configure everything it touches.
+When a factory function internally creates its own dependencies, callers lose control over those dependencies.
 
-### Before: Internal Management
-
-In this version, `createServer` is responsible for creating the client.
+### The Problem
 
 ```typescript
-// createServer internally creates and manages the client
-async function createServer(workspaces, options) {
-	const client = await createClient(workspaces, options);
-	const app = new Elysia();
-	// ... setup routes using client ...
-	return { app, client };
-}
+// createServer internally does this:
+//   1. Creates a client from workspaces + storageDir via `createClient(workspaces, { storageDir: '...' })`
+//   2. Creates the HTTP app using that client
+//   3. Returns both
 
-// Usage: caller has no control over client creation
 const { app, client } = await createServer(workspaces, { storageDir: '...' });
+app.listen(3913);
 ```
 
-This approach has several problems:
+The function signature mixes concerns: `workspaces` and `storageDir` are client configuration, but `createServer` shouldn't care about client creation. It just needs a working client.
 
-- **Messy options**: You have to merge `CreateClientOptions` with `CreateServerOptions`, leading to a giant, confusing settings object.
-- **Hard to test**: You can't easily inject a mock client because the server insists on creating its own.
-- **Inflexible**: You can't reuse an existing client instance across multiple servers or services.
-- **Unclear ownership**: It's not obvious who is responsible for closing or cleaning up the client.
+This coupling creates problems:
 
-### After: Dependency Injection
+- Can't reuse an existing client across server and CLI
+- Can't inject a mock client for testing
+- Can't configure client and server independently
+- Function signature grows whenever client options change
 
-By passing the already-created client into the server, you separate the "how to initialize" from the "how to use."
+### The Solution
 
 ```typescript
-// createServer takes an already-created client
-function createServer(client) {
-	const app = new Elysia();
-	// ... setup routes using client ...
-	return { app };
-}
-
-// Usage: caller controls client lifecycle
+// Caller controls client creation
 const client = await createClient(workspaces, { storageDir: '...' });
-const { app } = createServer(client);
+
+// Server only receives what it actually needs
+const app = createServer(client);
+app.listen(3913);
 ```
 
-The benefits are immediate:
+Now `createServer` has a single responsibility: wrap a client in an HTTP interface. The caller decides how and when to create the client.
 
-- **Single responsibility**: `createClient` handles initialization; `createServer` handles wrapping routes.
-- **Simpler signatures**: No more merging disparate options objects.
-- **Testability**: You can now pass a mock or stub client with zero friction.
-- **Explicit lifecycle**: The caller owns the client, so they decide when it starts and stops.
+### Why This Matters
+
+With the client externalized, you can:
+
+```typescript
+// Share one client between server and CLI
+const client = await createClient(workspaces, { storageDir });
+const app = createServer(client);
+const cli = createCLI(client);
+
+// Inject a mock for testing
+const mockClient = createMockClient();
+const app = createServer(mockClient);
+
+// Configure client independently
+const client = await createClient(workspaces, {
+	storageDir,
+	// other client-specific options
+});
+```
 
 ## Pattern 2: When First Argument is a Resource, Make it a Method
 
-Once you've inverted control, you might find yourself with a "service" object and a set of functions that always take that service as their first argument.
+If a function's first argument is always a specific resource returned by a factory, that function should be a method on the returned object instead.
 
-### Before: The Awkward First Argument
+### Evolution of an API
+
+This pattern often emerges through iteration. Here's how a CLI API might evolve through three stages:
+
+**Stage 1: Everything bundled together**
 
 ```typescript
-function createServer(client) {
-	return { app };
-}
+// runCLI internally does ALL of this:
+//   1. Calls createClient(workspaces, { storageDir }) to create a client
+//   2. Calls createCLI(client) to create a CLI instance
+//   3. Parses argv and executes the appropriate command
+//   4. Returns the result
 
-function startServer(server, options) {
-	Bun.serve({ fetch: server.app.fetch, port: options.port });
-	console.log('Server running...');
-}
-
-// Usage: awkward - startServer takes server as first arg
-const server = createServer(client);
-startServer(server, { port: 3913 });
+await runCLI(workspaces, { storageDir }, argv);
 ```
 
-This feels like C-style procedural code. You have a "struct" (the server) and you're passing it into every function that needs to operate on it.
+The function hides three distinct operations behind one call. You can't share clients between CLI and server, can't inject mocks for testing, and can't configure the client independently. This is the same problem from Pattern 1.
 
-### After: The Factory Method
-
-The insight is simple: if a function's first argument is always a specific resource returned by a factory, that function should be a method on the returned object instead.
+**Stage 2: Separate creation, but awkward calling convention**
 
 ```typescript
-function createServer(client) {
-	const app = new Elysia();
-	// ... setup ...
+// Client creation is now external (good!)
+const client = await createClient(workspaces, { storageDir });
+const cli = createCLI(client);
 
-	return {
-		app,
-		start(options) {
-			Bun.serve({ fetch: app.fetch, port: options.port });
-			console.log('Server running...');
-		},
-	};
-}
+// But we still pass cli to a separate function (awkward)
+await runCLI(cli, argv);
+```
 
-// Usage: natural method call
+Better; client creation is now external, so you can share clients and inject mocks. But `runCLI(cli, ...)` is awkward. The `cli` object exists, yet we pass it to a separate function. If `cli` is always required, why isn't `run` just a method on it?
+
+**Stage 3: Method on the object**
+
+```typescript
+const client = await createClient(workspaces, { storageDir });
+const cli = createCLI(client);
+await cli.run(argv);
+```
+
+Now the relationship is clear: `cli` is an object with capabilities, and `run` is one of them.
+
+### Another Example: Server Start
+
+Before:
+
+```typescript
+const client = createClient();
+startServer(client, { port: 3913 });
+```
+
+After:
+
+```typescript
+const client = createClient();
 const server = createServer(client);
 server.start({ port: 3913 });
 ```
 
-Why this is better:
+### Why Methods Win
 
-- **Discoverable API**: Your IDE's autocomplete will show `.start()` the moment you type `server.`. You don't have to go searching for which `startServer` function to import.
-- **Encapsulation**: The `start` method has direct access to the `app` instance without having to pass it around.
-- **Fluent interface**: It reads like a thought: "Server, start with these options."
+In general, seeing any resource as the first argument of a function and that function NOT being a factory is a code smell.
+
+1. **Discoverability**: Type `server.` and autocomplete shows all available operations
+2. **No import hunting**: You don't need to find and import `startServer` separately
+3. **Clear ownership**: The method lives where it belongs; on the object it operates on
+4. **Encapsulation**: Internal state stays internal; the method accesses what it needs
 
 ## The General Rule
 
-If you find yourself writing:
+When you see a resource as the first argument of a function that isn't a factory, it's usually a sign that concerns are bundled at the wrong level.
+
+### Before and After
+
+The most common case: you create a client, then call a function that takes the client as its first argument.
+
+**Before:**
 
 ```typescript
-doSomething(resource, options);
+const client = createClient();
+doSomething(client, options);
 ```
 
-Ask yourself: "Is `resource` always created by a specific factory?"
-
-If the answer is yes, refactor your factory to return an object where that function is a method:
+**After:**
 
 ```typescript
-const resource = createResource();
-resource.doSomething(options);
+const client = createClient();
+const service = createService(client);
+service.doSomething(options);
 ```
 
-This transition from "functions that take resources" to "resources with methods" is the key to building APIs that feel integrated and easy to navigate. It moves the complexity of "how things work together" inside the factory, leaving the consumer with a clean, object-oriented interface.
+---
+
+Worse is when client creation is hidden inside the function:
+
+**Before:**
+
+```typescript
+// Internally creates client, then does something with it
+doSomething(clientOptions, methodOptions);
+```
+
+**After:**
+
+```typescript
+const client = createClient(clientOptions);
+const service = createService(client);
+service.doSomething(methodOptions);
+```
+
+---
+
+Even worse is when client options get mixed with other options in one blob:
+
+**Before:**
+
+```typescript
+// All options merged together — what belongs where?
+doSomething({
+	// Client config (shouldn't be here!)
+	timeout: 5000,
+	retries: 3,
+	// Method options
+	endpoint: '/users',
+	payload: data,
+});
+
+// Inside doSomething, this mess happens:
+function doSomething(options) {
+	const { timeout, retries, ...methodOptions } = options;
+	const client = createClient({ timeout, retries }); // Client created inside!
+	const service = createService(client); // Service created inside!
+	return service.fetch(methodOptions); // Finally the actual work
+}
+```
+
+**After:**
+
+```typescript
+// Each layer configured at the right level
+const client = createClient({ timeout: 5000, retries: 3 });
+const service = createService(client);
+service.doSomething({ endpoint: '/users', payload: data });
+```
+
+---
+
+Worst is when multiple layers of creation are hidden inside:
+
+**Before:**
+
+```typescript
+// Internally creates client AND service, then calls method
+doSomething(clientOptions, serviceOptions, methodOptions);
+
+// Or with merged options (even harder to untangle):
+doSomething(clientOptions, { ...serviceOptions, ...methodOptions });
+```
+
+**After:**
+
+```typescript
+const client = createClient(clientOptions);
+const service = createService(client, serviceOptions);
+service.doSomething(methodOptions);
+```
+
+---
+
+The more options bundled together, the harder it becomes to test, reuse, or configure each layer independently. Separating them gives you control at each step.
+
+### More Examples
+
+Here are a few more variations to help you recognize the pattern:
+
+```typescript
+// When the service needs options but the client doesn't
+const client = createClient();
+const service = createService(client, serviceOptions);
+service.doSomething(methodOptions);
+```
+
+```typescript
+// When neither client nor service need options
+const client = createClient();
+const service = createService(client);
+service.doSomething(methodOptions);
+```
+
+```typescript
+// Real example: database + user service
+const db = createDbConnection(connectionString);
+const users = createUserService(db);
+users.findById(userId);
+```
+
+### Why This Structure?
+
+The client is typically a general-purpose, low-level resource: a database connection, HTTP client, or API client. It comes from an external library or a different part of your codebase.
+
+The service is a domain-specific object that wraps the client and exposes focused methods. This is exactly what `createServer(client)` and `createCLI(client)` do: they take a general-purpose client and expose domain-specific methods like `server.start()` and `cli.run()`.
+
+**The key insight: client configuration belongs at client creation time.**
+
+Don't pipe `clientOptions` through your service factory. Don't accept `{ ...clientOptions, ...serviceOptions }` as a merged blob. Let the caller create the client with whatever options they need, then hand you the fully-configured client. Your factory doesn't need to know how the client was configured—it just needs a working client.
+
+This is the perfect level of inversion of control. For more on this pattern, see [The Factory Function Pattern](./factory-function-pattern.md).
+
+## Summary
+
+The two patterns work together: Pattern 1 ensures your factory receives explicit dependencies (not creating them internally), and Pattern 2 ensures operations on the result are methods rather than separate functions.
