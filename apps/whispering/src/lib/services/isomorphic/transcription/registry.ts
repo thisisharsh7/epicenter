@@ -2,7 +2,6 @@
  * Transcription service configurations
  */
 
-import { IS_WINDOWS } from '$lib/constants/platform';
 import deepgramIcon from '$lib/constants/icons/deepgram.svg?raw';
 import elevenlabsIcon from '$lib/constants/icons/elevenlabs.svg?raw';
 import ggmlIcon from '$lib/constants/icons/ggml.svg?raw';
@@ -13,6 +12,7 @@ import moonshineIcon from '$lib/constants/icons/moonshine.svg?raw';
 import nvidiaIcon from '$lib/constants/icons/nvidia.svg?raw';
 import openaiIcon from '$lib/constants/icons/openai.svg?raw';
 import speachesIcon from '$lib/constants/icons/speaches.svg?raw';
+import { IS_WINDOWS } from '$lib/constants/platform';
 import type { Settings } from '$lib/settings';
 import {
 	DEEPGRAM_TRANSCRIPTION_MODELS,
@@ -84,15 +84,20 @@ type SatisfiedTranscriptionService =
 
 export const TRANSCRIPTION_SERVICES = [
 	// Local services first (truly offline)
-	{
-		id: 'whispercpp',
-		name: 'Whisper C++',
-		icon: ggmlIcon,
-		invertInDarkMode: true,
-		description: 'Fast local transcription with no internet required',
-		modelPathField: 'transcription.whispercpp.modelPath',
-		location: 'local',
-	},
+	// Whisper C++ is not available on Windows due to upstream whisper-rs limitations and MSVC runtime library conflicts
+	...(IS_WINDOWS
+		? []
+		: [
+				{
+					id: 'whispercpp',
+					name: 'Whisper C++',
+					icon: ggmlIcon,
+					invertInDarkMode: true,
+					description: 'Fast local transcription with no internet required',
+					modelPathField: 'transcription.whispercpp.modelPath',
+					location: 'local',
+				} as const,
+			]),
 	{
 		id: 'parakeet',
 		name: 'Parakeet',
@@ -107,7 +112,7 @@ export const TRANSCRIPTION_SERVICES = [
 		name: 'Moonshine',
 		icon: moonshineIcon,
 		invertInDarkMode: false,
-		description: 'Efficient ONNX model by UsefulSensors (~30 MB)',
+		description: 'Efficient ONNX model by UsefulSensors',
 		modelPathField: 'transcription.moonshine.modelPath',
 		location: 'local',
 	},
@@ -191,15 +196,7 @@ export const TRANSCRIPTION_SERVICES = [
 	// },
 ] as const satisfies SatisfiedTranscriptionService[];
 
-/**
- * Services available on the current platform.
- * Whisper C++ is not available on Windows due to build compatibility issues.
- */
-export const AVAILABLE_TRANSCRIPTION_SERVICES = IS_WINDOWS
-	? TRANSCRIPTION_SERVICES.filter((s) => s.id !== 'whispercpp')
-	: TRANSCRIPTION_SERVICES;
-
-export const TRANSCRIPTION_SERVICE_OPTIONS = AVAILABLE_TRANSCRIPTION_SERVICES.map(
+export const TRANSCRIPTION_SERVICE_OPTIONS = TRANSCRIPTION_SERVICES.map(
 	(service) => ({
 		label: service.name,
 		value: service.id,
