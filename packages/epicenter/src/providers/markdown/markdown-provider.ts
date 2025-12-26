@@ -5,8 +5,11 @@ import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { ProviderErr, ProviderError } from '../../core/errors';
-import type { Provider, ProviderContext } from '../../core/provider.node';
-import { defineProviderExports } from '../../core/provider.shared';
+import {
+	defineProviderExports,
+	type Provider,
+	type ProviderContext,
+} from '../../core/provider.shared';
 import type {
 	Row,
 	SerializedRow,
@@ -149,16 +152,16 @@ export type MarkdownProviderConfig<
 	 *
 	 * **Optional**: Defaults to the workspace `id` if not provided
 	 * ```typescript
-	 * // If workspace id is "blog", defaults to "<storageDir>/blog"
-	 * markdownProvider({ id, db, storageDir })
+	 * // If workspace id is "blog", defaults to "<projectDir>/blog"
+	 * markdownProvider({ id, db, projectDir })
 	 * ```
 	 *
 	 * **Three ways to specify the path**:
 	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to storageDir from epicenter config
+	 * **Option 1: Relative paths** (recommended): Resolved relative to projectDir from epicenter config
 	 * ```typescript
-	 * directory: './vault'      // → <storageDir>/vault
-	 * directory: '../content'   // → <storageDir>/../content
+	 * directory: './vault'      // → <projectDir>/vault
+	 * directory: '../content'   // → <projectDir>/../content
 	 * ```
 	 *
 	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
@@ -227,7 +230,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	context: ProviderContext<TSchema>,
 	config: MarkdownProviderConfig<TSchema> = {},
 ) => {
-	const { id, providerId, tables, storageDir, epicenterDir } = context;
+	const { id, providerId, tables, paths } = context;
 	const { directory = `./${id}`, debug = false } = config;
 
 	// Debug logger - no-op when debug is disabled
@@ -241,12 +244,14 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	// User-provided table configs (sparse - only contains overrides, may be empty)
 	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
 	const userTableConfigs: TableConfigs<TSchema> = config.tableConfigs ?? {};
-	// Require Node.js environment with filesystem access
-	if (!storageDir || !epicenterDir) {
+
+	if (!paths) {
 		throw new Error(
 			'Markdown provider requires Node.js environment with filesystem access',
 		);
 	}
+
+	const { project: projectDir, epicenter: epicenterDir } = paths;
 
 	// Workspace-specific directory for all provider artifacts
 	// Structure: .epicenter/{workspaceId}/{providerId}.{suffix}
@@ -266,10 +271,10 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	});
 
 	// Resolve workspace directory to absolute path
-	// If directory is relative, resolve it relative to storageDir
+	// If directory is relative, resolve it relative to projectDir
 	// If directory is absolute, use it as-is
 	const absoluteWorkspaceDir = path.resolve(
-		storageDir,
+		projectDir,
 		directory,
 	) as AbsolutePath;
 
