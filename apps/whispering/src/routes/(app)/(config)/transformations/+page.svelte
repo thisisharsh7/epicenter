@@ -219,7 +219,8 @@
 				onclick={() => {
 					confirmationDialog.open({
 						title: 'Delete transformations',
-						description: 'Are you sure you want to delete these transformations?',
+						description:
+							'Are you sure you want to delete these transformations?',
 						confirm: { text: 'Delete', variant: 'destructive' },
 						onConfirm: async () => {
 							const { error } = await rpc.db.transformations.delete.execute(
@@ -287,7 +288,9 @@
 				{:else if table.getRowModel().rows?.length}
 					{#each table.getRowModel().rows as row (row.id)}
 						<Table.Row
-							style="view-transition-name: {viewTransition.transformation(row.id)}"
+							style="view-transition-name: {viewTransition.transformation(
+								row.id,
+							)}"
 						>
 							{#each row.getVisibleCells() as cell}
 								<Table.Cell>

@@ -43,7 +43,9 @@
 		)?.label,
 	);
 
-	const autostartQuery = createQuery(() => desktopRpc.autostart.isEnabled.options);
+	const autostartQuery = createQuery(
+		() => desktopRpc.autostart.isEnabled.options,
+	);
 	const enableAutostartMutation = createMutation(
 		() => desktopRpc.autostart.enable.options,
 	);

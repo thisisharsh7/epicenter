@@ -22,7 +22,7 @@
 	let { children, class: className, tooltip, ...rest }: LinkProps = $props();
 </script>
 
-{#snippet linkContent(tooltipProps?: Record<string, unknown>)}
+{#snippet linkContent(tooltipProps?: Record)}
 	<a
 		{...rest}
 		{...tooltipProps}

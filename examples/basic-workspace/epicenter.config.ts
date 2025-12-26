@@ -8,14 +8,16 @@ import {
 	id,
 	integer,
 	isNotNull,
-	markdownProvider,
 	type SerializedRow,
 	select,
-	sqliteProvider,
 	text,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
-import { setupPersistence } from '@epicenter/hq/providers';
+import {
+	MarkdownProviderErr,
+	markdownProvider,
+} from '@epicenter/hq/providers/markdown';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 
@@ -89,6 +91,8 @@ const blogWorkspace = defineWorkspace({
 
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 					comments: {
 						serialize: ({ row: { id, ...row } }) => ({
@@ -121,6 +125,8 @@ const blogWorkspace = defineWorkspace({
 
 							return Ok(row);
 						},
+						extractRowIdFromFilename: (filename) =>
+							path.basename(filename, '.md'),
 					},
 				},
 			}),

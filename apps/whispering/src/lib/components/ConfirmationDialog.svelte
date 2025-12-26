@@ -147,7 +147,8 @@
 			 */
 			async confirm() {
 				if (!options) return;
-				if (options.input && inputText !== options.input.confirmationText) return;
+				if (options.input && inputText !== options.input.confirmationText)
+					return;
 
 				const result = options.onConfirm();
 
@@ -197,7 +198,9 @@
 			class="flex flex-col gap-4"
 		>
 			<AlertDialog.Header>
-				<AlertDialog.Title>{confirmationDialog.options?.title}</AlertDialog.Title>
+				<AlertDialog.Title
+					>{confirmationDialog.options?.title}</AlertDialog.Title
+				>
 				<AlertDialog.Description>
 					{confirmationDialog.options?.description}
 				</AlertDialog.Description>
@@ -220,7 +223,8 @@
 				</AlertDialog.Cancel>
 				<AlertDialog.Action
 					type="submit"
-					disabled={confirmationDialog.isPending || !confirmationDialog.canConfirm}
+					disabled={confirmationDialog.isPending ||
+						!confirmationDialog.canConfirm}
 					class={cn(
 						confirmationDialog.options?.confirm?.variant === 'destructive' &&
 							'bg-destructive hover:bg-destructive/90 text-white',

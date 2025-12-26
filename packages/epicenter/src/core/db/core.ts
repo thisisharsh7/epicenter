@@ -120,15 +120,7 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 	const validators = createWorkspaceValidators(schema);
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
-	// Initialize each table as a Y.Map<id, row> (only if not already present)
-	// When loading from disk or syncing from network, tables may already exist
-	for (const tableName of Object.keys(schema)) {
-		if (!ytables.has(tableName)) {
-			ytables.set(tableName, new Y.Map<YRow>());
-		}
-	}
-
-	// Create table helpers
+	// Create table helpers (tables are created lazily via getYTable - see table-helper.ts)
 	const tableHelpers = createTableHelpers({
 		ydoc,
 		schema,

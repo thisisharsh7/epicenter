@@ -10,8 +10,8 @@
  * For protocol-level tests, see protocol.test.ts.
  */
 
-import { type } from 'arktype';
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';

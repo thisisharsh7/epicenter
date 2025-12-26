@@ -109,7 +109,8 @@
 		<CopyButton
 			text={recording.transcribedText}
 			copyFn={createCopyFn('transcript')}
-			style="view-transition-name: {viewTransition.recording(recordingId).transcript}"
+			style="view-transition-name: {viewTransition.recording(recordingId)
+				.transcript}"
 		/>
 
 		{#if latestTransformationRunByRecordingIdQuery.isPending}
@@ -136,7 +137,8 @@
 					? latestTransformationRunByRecordingIdQuery.data.output
 					: ''}
 				copyFn={createCopyFn('latest transformation run output')}
-				style="view-transition-name: {viewTransition.recording(recordingId).transformationOutput}"
+				style="view-transition-name: {viewTransition.recording(recordingId)
+					.transformationOutput}"
 			>
 				{#snippet icon()}
 					<FileStackIcon class="size-4" />

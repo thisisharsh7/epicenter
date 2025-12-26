@@ -5,17 +5,19 @@
  * It excludes Node.js-specific exports like createServer.
  */
 
-// All platform-agnostic exports
-export * from './index.shared';
-
-// Browser-specific: client creation (no projectDir option)
-export { createClient } from './core/workspace/client.browser';
-
-// Client types (shared across platforms)
+// Browser client types (include whenSynced)
 export type {
 	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
-} from './core/workspace/client.shared';
+} from './core/workspace/client.browser';
+
+// Browser-specific: client creation (sync with whenSynced)
+export {
+	createClient,
+	createWorkspaceClient,
+} from './core/workspace/client.browser';
+// All platform-agnostic exports
+export * from './index.shared';
 
 // Note: createServer is NOT exported in browser builds (Node.js only)

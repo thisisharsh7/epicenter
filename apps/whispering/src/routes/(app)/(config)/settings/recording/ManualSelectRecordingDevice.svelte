@@ -13,7 +13,9 @@
 	} = $props();
 
 	// Use recorder.enumerateDevices for manual recording (includes desktop devices)
-	const getDevicesQuery = createQuery(() => rpc.recorder.enumerateDevices.options);
+	const getDevicesQuery = createQuery(
+		() => rpc.recorder.enumerateDevices.options,
+	);
 
 	$effect(() => {
 		if (getDevicesQuery.isError) {

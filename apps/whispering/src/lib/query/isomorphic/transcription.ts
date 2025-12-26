@@ -1,10 +1,10 @@
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
+import { defineMutation, queryClient } from '$lib/query/client';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
-import type { Recording } from '$lib/services/isomorphic/db';
 import { desktopServices, services } from '$lib/services';
+import type { Recording } from '$lib/services/isomorphic/db';
 import { settings } from '$lib/stores/settings.svelte';
 import { rpc } from '..';
-import { defineMutation, queryClient } from '$lib/query/client';
 import { db } from './db';
 import { notify } from './notify';
 

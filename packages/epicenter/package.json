@@ -14,11 +14,11 @@
 			"node": "./src/providers/persistence/index.node.ts",
 			"default": "./src/providers/persistence/index.node.ts"
 		},
+		"./providers/websocket-sync": "./src/providers/websocket-sync.ts",
+		"./providers/markdown": "./src/providers/markdown/index.ts",
+		"./providers/sqlite": "./src/providers/sqlite/index.ts",
 		"./cli": "./src/cli/index.ts",
-		"./indexes/markdown": "./src/indexes/markdown/index.ts",
-		"./indexes/sqlite": "./src/indexes/sqlite/index.ts",
-		"./server": "./src/server/index.ts",
-		"./providers/websocket-sync": "./src/providers/websocket-sync.ts"
+		"./server": "./src/server/index.ts"
 	},
 	"bin": {
 		"epicenter": "./src/cli/bin.ts"
@@ -29,28 +29,31 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"mime": "catalog:",
 		"@elysiajs/openapi": "^1.4.11",
 		"@standard-schema/spec": "^1.1.0",
 		"@tursodatabase/database": "^0.3.2",
 		"@types/bun": "catalog:",
 		"arktype": "catalog:",
+		"chokidar": "^5.0.0",
 		"diff": "^8.0.2",
 		"drizzle-orm": "catalog:",
 		"elysia": "^1.2.25",
+		"lib0": "^0.2.99",
+		"mime": "catalog:",
 		"nanoid": "catalog:",
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
-		"yargs": "catalog:",
-		"yjs": "^13.6.27",
 		"y-protocols": "^1.0.6",
-		"lib0": "^0.2.99"
+		"y-websocket": "^2.1.0",
+		"yargs": "catalog:",
+		"yjs": "^13.6.27"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
 		"@types/yargs": "catalog:",
 		"better-sqlite3": "^12.4.1",
 		"drizzle-kit": "catalog:",
+		"filenamify": "^7.0.1",
 		"typescript": "catalog:"
 	}
 }

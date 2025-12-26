@@ -1,18 +1,19 @@
+import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 import {
 	type CancelRecordingResult,
 	TIMESLICE_MS,
 	type WhisperingRecordingState,
 } from '$lib/constants/audio';
-import type {
-	DeviceAcquisitionOutcome,
-	DeviceIdentifier,
-} from '$lib/services/types';
 import {
 	cleanupRecordingStream,
 	enumerateDevices,
 	getRecordingStream,
 } from '$lib/services/isomorphic/device-stream';
+import type {
+	DeviceAcquisitionOutcome,
+	DeviceIdentifier,
+} from '$lib/services/types';
 import type {
 	NavigatorRecordingParams,
 	RecorderService,
@@ -84,8 +85,7 @@ export function createNavigatorRecorderService(): RecorderService {
 					}),
 				catch: (error) =>
 					RecorderServiceErr({
-						message:
-							'Failed to initialize the audio recorder. This could be due to unsupported audio settings, microphone conflicts, or browser limitations. Please check your microphone is working and try adjusting your audio settings.',
+						message: `Failed to initialize the audio recorder. This could be due to unsupported audio settings, microphone conflicts, or browser limitations. Please check your microphone is working and try adjusting your audio settings. ${extractErrorMessage(error)}`,
 					}),
 			});
 
@@ -152,8 +152,7 @@ export function createNavigatorRecorderService(): RecorderService {
 					}),
 				catch: (error) =>
 					RecorderServiceErr({
-						message:
-							'Failed to properly stop and save the recording. This might be due to corrupted audio data, insufficient storage space, or a browser issue. Your recording data may be lost.',
+						message: `Failed to properly stop and save the recording. This might be due to corrupted audio data, insufficient storage space, or a browser issue. Your recording data may be lost. ${extractErrorMessage(error)}`,
 					}),
 			});
 

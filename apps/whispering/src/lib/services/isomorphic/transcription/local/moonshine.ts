@@ -31,7 +31,9 @@ const HF_BASE = 'https://huggingface.co/UsefulSensors/moonshine/resolve/main';
 const MOONSHINE_DIR_PATTERN = regex.as<
 	`${string}moonshine-${MoonshineVariant}-${MoonshineLanguage}`,
 	{ captures: [MoonshineVariant, MoonshineLanguage] }
->(`moonshine-(${MOONSHINE_VARIANTS.join('|')})-(${MOONSHINE_LANGUAGES.join('|')})$`);
+>(
+	`moonshine-(${MOONSHINE_VARIANTS.join('|')})-(${MOONSHINE_LANGUAGES.join('|')})$`,
+);
 
 /**
  * Pre-built Moonshine models available for download from HuggingFace.
@@ -188,7 +190,10 @@ export function createMoonshineTranscriptionService() {
 			// The Rust side extracts variant from the model path directory name
 			const result = await tryAsync({
 				try: () =>
-					invoke<string>('transcribe_audio_moonshine', { audioData, modelPath }),
+					invoke<string>('transcribe_audio_moonshine', {
+						audioData,
+						modelPath,
+					}),
 				catch: (unknownError) => {
 					const result = MoonshineErrorType(unknownError);
 					if (result instanceof type.errors) {

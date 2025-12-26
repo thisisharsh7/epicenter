@@ -6,15 +6,17 @@
 
 // Provider types (shared)
 export type { Provider, ProviderContext } from '../provider';
-// Runtime - browser version
-export { createClient } from './client.browser';
-// Types from shared (no platform-specific code)
+// Browser-specific types (with whenSynced)
 export type {
-	ActionInfo,
 	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
-} from './client.shared';
+} from './client.browser';
+// Runtime - browser version
+export { createClient, createWorkspaceClient } from './client.browser';
+
+// Shared utilities
+export type { ActionInfo } from './client.shared';
 export { iterActions } from './client.shared';
 
 // Config types and definition (shared)

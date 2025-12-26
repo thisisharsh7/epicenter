@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import type { AbsolutePath } from '../../core/types';
-import type { MarkdownIndexError } from './markdown-index';
+import type { MarkdownProviderError } from './markdown-provider';
 
 /**
  * Diagnostic entry tracking a markdown file that failed validation
@@ -30,7 +30,7 @@ export type DiagnosticEntry = {
 	/**
 	 * The validation error that occurred
 	 */
-	error: MarkdownIndexError;
+	error: MarkdownProviderError;
 
 	/**
 	 * ISO 8601 timestamp when this error was first recorded
@@ -189,7 +189,7 @@ type DiagnosticsManagerConfig = {
  *   filePath: '/path/to/broken.md',
  *   tableName: 'posts',
  *   filename: 'broken.md',
- *   error: MarkdownIndexError({ ... })
+ *   error: MarkdownProviderError({ ... })
  * });
  *
  * // Non-blocking: returns immediately

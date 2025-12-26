@@ -168,7 +168,7 @@ import { MarkdownIndexErr } from '../../../packages/epicenter/src/indexes/markdo
 
 // After:
 import { isDateWithTimezoneString } from '@epicenter/hq';
-import { MarkdownIndexErr } from '@epicenter/hq/indexes/markdown';
+import { MarkdownIndexErr } from '@epicenter/hq/providers/markdown';
 ```
 
 ## Alternative: Everything in Main Barrel

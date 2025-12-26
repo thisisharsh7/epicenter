@@ -2,6 +2,7 @@ import { MicVAD, utils } from '@ricky0123/vad-web';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync, trySync } from 'wellcrafted/result';
 import type { VadState } from '$lib/constants/audio';
+import { defineQuery } from '$lib/query/client';
 import { WhisperingErr } from '$lib/result';
 import {
 	cleanupRecordingStream,
@@ -9,7 +10,6 @@ import {
 	getRecordingStream,
 } from '$lib/services/isomorphic/device-stream';
 import { settings } from '$lib/stores/settings.svelte';
-import { defineQuery } from '$lib/query/client';
 
 /**
  * Creates a Voice Activity Detection (VAD) recorder with reactive state.
