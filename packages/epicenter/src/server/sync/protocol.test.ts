@@ -240,7 +240,6 @@ describe('MESSAGE_SYNC', () => {
 			expect(serverDoc.getMap('data').get('key')).toBe('value');
 		});
 	});
-
 });
 
 // ============================================================================
@@ -480,7 +479,6 @@ describe('decodeMessageType', () => {
 		const message = encodeQueryAwareness();
 		expect(decodeMessageType(message)).toBe(MESSAGE_TYPE.QUERY_AWARENESS);
 	});
-
 });
 
 // ============================================================================

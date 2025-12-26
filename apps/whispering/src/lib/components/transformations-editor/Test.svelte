@@ -5,12 +5,14 @@
 	import * as SectionHeader from '@epicenter/ui/section-header';
 	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
-	import type { Transformation } from '$lib/services/db';
+	import type { Transformation } from '$lib/services/isomorphic/db';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 
-	const transformInput = createMutation(() => rpc.transformer.transformInput.options);
+	const transformInput = createMutation(
+		() => rpc.transformer.transformInput.options,
+	);
 
 	let { transformation }: { transformation: Transformation } = $props();
 

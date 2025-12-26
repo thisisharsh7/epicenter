@@ -1,56 +1,56 @@
 import type * as Y from 'yjs';
 import type { Tables } from './db/core';
 import type { WorkspaceSchema } from './schema';
-import type { EpicenterDir, StorageDir } from './types';
+import type { ProviderPaths } from './types';
 
 /**
  * Context provided to each provider function.
- *
- * Provides workspace metadata, the YJS document, and table access for providers.
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
  * @property providerId - This provider's key in the providers map (e.g., 'sqlite', 'persistence')
  * @property ydoc - The YJS document that providers can attach to
  * @property schema - The workspace schema (table definitions)
  * @property tables - The Epicenter tables instance for observing/querying data
- * @property storageDir - Absolute storage directory path resolved from epicenter config
- *   - Node.js: Resolved to absolute path (defaults to `process.cwd()` if not specified in config)
- *   - Browser: `undefined` (filesystem operations not available)
- * @property epicenterDir - Absolute path to the `.epicenter` directory
- *   - Computed as `path.join(storageDir, '.epicenter')`
- *   - `undefined` in browser environment
+ * @property paths - Filesystem paths (`undefined` in browser environments)
  *
- * @example Persistence provider (uses ydoc only)
+ * @example Persistence provider
  * ```typescript
- * const persistenceProvider: Provider = ({ id, ydoc, epicenterDir }) => {
- *   if (!epicenterDir) throw new Error('Requires Node.js');
- *   const filePath = path.join(epicenterDir, `${id}.yjs`);
- *   // Load/save ydoc state...
+ * const persistenceProvider: Provider = ({ id, paths, ydoc }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const filePath = path.join(paths.provider, `${id}.yjs`);
+ *   // Load existing YDoc state from disk, set up auto-save on updates...
  * };
  * ```
  *
- * @example Materializer provider (uses tables)
+ * @example Markdown provider (user content + internal logs)
  * ```typescript
- * const sqliteProvider: Provider<MySchema, SqliteExports> = ({ id, providerId, tables, epicenterDir }) => {
- *   // Observe table changes, sync to SQLite...
- *   return defineProviderExports({
- *     destroy: () => client.close(),
- *     db: sqliteDb,
- *   });
+ * const markdownProvider: Provider = ({ id, paths }, config) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   // User content: resolve relative to project root (not gitignored)
+ *   const contentDir = path.resolve(paths.project, config.directory);
+ *   // Internal logs: use provider directory (gitignored)
+ *   const logPath = path.join(paths.provider, 'logs', `${id}.log`);
+ * };
+ * ```
+ *
+ * @example Auth provider (tokens)
+ * ```typescript
+ * const gmailAuthProvider: Provider = ({ paths }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const tokenPath = path.join(paths.provider, 'token.json');
+ *   return { loadTokens: () => Bun.file(tokenPath).json() };
  * };
  * ```
  */
-export type ProviderContext<
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
-> = {
-	id: string;
-	providerId: string;
-	ydoc: Y.Doc;
-	schema: TSchema;
-	tables: Tables<TSchema>;
-	storageDir: StorageDir | undefined;
-	epicenterDir: EpicenterDir | undefined;
-};
+export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
+	{
+		id: string;
+		providerId: string;
+		ydoc: Y.Doc;
+		schema: TSchema;
+		tables: Tables<TSchema>;
+		paths: ProviderPaths | undefined;
+	};
 
 /**
  * Provider exports type - an object with optional cleanup function and any exported resources.
@@ -77,30 +77,22 @@ export type ProviderExports = {
 /**
  * A provider function that attaches external capabilities to a workspace.
  *
- * Providers can be:
+ * Providers handle many workspace capabilities:
  * - **Persistence**: Save/load YDoc state (filesystem, IndexedDB)
  * - **Synchronization**: Real-time collaboration (WebSocket, WebRTC)
  * - **Materializers**: Sync data to external stores (SQLite, markdown, vector DB)
+ * - **Authentication**: OAuth tokens, API keys, credentials storage
  * - **Observability**: Logging, debugging, analytics
  *
  * Providers can be synchronous or asynchronous. All providers are awaited during initialization.
  * Providers can optionally return exports that are accessible in the workspace exports factory.
  *
- * @example Persistence provider (no exports)
- * ```typescript
- * const persistenceProvider: Provider = ({ ydoc }) => {
- *   new IndexeddbPersistence('my-db', ydoc);
- * };
- * ```
- *
  * @example Materializer provider (with exports)
  * ```typescript
- * const sqliteProvider: Provider<MySchema, SqliteExports> = async ({ tables, epicenterDir }) => {
- *   const client = new Database(path.join(epicenterDir, 'data.db'));
+ * const sqliteProvider: Provider<MySchema, SqliteExports> = async ({ id, paths, tables }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const client = new Database(path.join(paths.provider, `${id}.db`));
  *   const sqliteDb = drizzle({ client });
- *
- *   // Set up observers...
- *
  *   return defineProviderExports({
  *     destroy: () => client.close(),
  *     db: sqliteDb,

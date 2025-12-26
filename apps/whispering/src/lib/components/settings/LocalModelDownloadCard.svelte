@@ -3,7 +3,7 @@
 	import {
 		isModelFileSizeValid,
 		type LocalModelConfig,
-	} from '$lib/services/transcription/local/types';
+	} from '$lib/services/isomorphic/transcription/local/types';
 	import { settings } from '$lib/stores/settings.svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import Download from '@lucide/svelte/icons/download';
@@ -310,7 +310,8 @@
 			try: async () => {
 				const path = await ensureModelDestinationPath();
 				if (await exists(path)) {
-					const isDirectory = model.engine === 'parakeet' || model.engine === 'moonshine';
+					const isDirectory =
+						model.engine === 'parakeet' || model.engine === 'moonshine';
 					await remove(path, { recursive: isDirectory });
 				}
 

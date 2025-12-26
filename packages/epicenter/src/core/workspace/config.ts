@@ -7,7 +7,18 @@ import type {
 	WorkspaceProviderMap,
 } from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
-import type { EpicenterDir, StorageDir } from '../types';
+import type { EpicenterDir, ProjectDir } from '../types';
+
+/**
+ * Filesystem paths available to workspace exports factory.
+ *
+ * Unlike `ProviderPaths`, this omits `provider` since the exports factory
+ * operates at the workspace level, not the individual provider level.
+ */
+export type WorkspacePaths = {
+	project: ProjectDir;
+	epicenter: EpicenterDir;
+};
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -21,13 +32,11 @@ import type { EpicenterDir, StorageDir } from '../types';
  * const blogWorkspace = defineWorkspace({ id: 'blog', ... });
  * const authWorkspace = defineWorkspace({ id: 'auth', ... });
  *
- * const epicenter = await createEpicenterClient({
- *   workspaces: [blogWorkspace, authWorkspace]
- * });
+ * const client = await createClient([blogWorkspace, authWorkspace]);
  *
  * // Each workspace is accessible by its id:
- * epicenter.blog.createPost(...)  // blogWorkspace exports
- * epicenter.auth.login(...)       // authWorkspace exports
+ * client.blog.createPost(...)  // blogWorkspace exports
+ * client.auth.login(...)       // authWorkspace exports
  * ```
  *
  * ## Workspace Structure
@@ -170,7 +179,9 @@ export type WorkspaceConfig<
 	providers: {
 		[K in keyof TProviderResults]: Provider<
 			TWorkspaceSchema,
-			TProviderResults[K] extends ProviderExports ? TProviderResults[K] : ProviderExports
+			TProviderResults[K] extends ProviderExports
+				? TProviderResults[K]
+				: ProviderExports
 		>;
 	};
 	/**
@@ -215,8 +226,7 @@ export type WorkspaceConfig<
 		workspaces: WorkspacesToExports<TDeps>;
 		providers: TProviderResults;
 		blobs: WorkspaceBlobs<TWorkspaceSchema>;
-		storageDir: StorageDir | undefined;
-		epicenterDir: EpicenterDir | undefined;
+		paths: WorkspacePaths | undefined;
 	}) => TExports;
 };
 

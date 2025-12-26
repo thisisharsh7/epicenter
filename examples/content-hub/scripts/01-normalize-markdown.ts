@@ -14,7 +14,7 @@ import {
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
-} from '@epicenter/hq/indexes/markdown';
+} from '@epicenter/hq/providers/markdown';
 import { Err, Ok, type Result } from 'wellcrafted/result';
 
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;

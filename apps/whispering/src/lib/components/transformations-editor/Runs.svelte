@@ -3,7 +3,7 @@
 	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
 	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
 	import { rpc } from '$lib/query';
-	import type { TransformationRun } from '$lib/services/db';
+	import type { TransformationRun } from '$lib/services/isomorphic/db';
 	import { viewTransition } from '$lib/utils/viewTransitions';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -191,7 +191,8 @@
 																</Table.Cell>
 																<Table.Cell>
 																	<TextPreviewDialog
-																		id={viewTransition.stepRun(stepRun.id).input}
+																		id={viewTransition.stepRun(stepRun.id)
+																			.input}
 																		title="Step Input"
 																		label="step input"
 																		text={stepRun.input}
@@ -200,14 +201,16 @@
 																<Table.Cell>
 																	{#if stepRun.status === 'completed'}
 																		<TextPreviewDialog
-																			id={viewTransition.stepRun(stepRun.id).output}
+																			id={viewTransition.stepRun(stepRun.id)
+																				.output}
 																			title="Step Output"
 																			label="step output"
 																			text={stepRun.output}
 																		/>
 																	{:else if stepRun.status === 'failed'}
 																		<TextPreviewDialog
-																			id={viewTransition.stepRun(stepRun.id).error}
+																			id={viewTransition.stepRun(stepRun.id)
+																				.error}
 																			title="Step Error"
 																			label="step error"
 																			text={stepRun.error}

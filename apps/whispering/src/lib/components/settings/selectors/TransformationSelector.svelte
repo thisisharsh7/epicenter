@@ -6,7 +6,7 @@
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
 	import { rpc } from '$lib/query';
-	import type { Transformation } from '$lib/services/db';
+	import type { Transformation } from '$lib/services/isomorphic/db';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { cn } from '@epicenter/ui/utils';
 	import { viewTransition } from '$lib/utils/viewTransitions';
@@ -62,7 +62,9 @@
 				aria-expanded={combobox.open}
 				variant="ghost"
 				size="icon"
-				style="view-transition-name: {viewTransition.transformation(selectedTransformation?.id ?? null)}"
+				style="view-transition-name: {viewTransition.transformation(
+					selectedTransformation?.id ?? null,
+				)}"
 			>
 				{#if selectedTransformation}
 					<SparklesIcon class="size-4 text-green-500" />

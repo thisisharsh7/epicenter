@@ -6,6 +6,7 @@
 ## Overview
 
 This specification outlines the implementation of two server creation functions that convert Epicenter and Workspace configurations into:
+
 1. RESTful API servers using Hono
 2. Model Context Protocol (MCP) servers for AI tool integration
 
@@ -16,17 +17,20 @@ Currently, Epicenter provides a client-side API through `createEpicenterClient` 
 ### Current Architecture
 
 **Epicenter Config:**
+
 - Contains multiple workspaces in a `workspaces` array
 - Each workspace has a unique `id`, `version`, and `name`
 - Workspaces define actions via `defineQuery` and `defineMutation`
 
 **Actions:**
+
 - `QueryAction`: Read operations (type: 'query')
 - `MutationAction`: Write operations (type: 'mutation')
 - Each action has: `input` schema (StandardSchemaV1), `handler` function, optional `description`
 - Handlers return `Result<TOutput, EpicenterOperationError>`
 
 **Workspace Client:**
+
 - Creates YJS document, database, and indexes
 - Extracts handler functions from action map
 - Returns object with action handlers keyed by action name
@@ -56,6 +60,7 @@ Currently, Epicenter provides a client-side API through `createEpicenterClient` 
 ### Route Mapping
 
 **Epicenter Routes:**
+
 ```
 GET  /{workspaceName}/{actionName}      - Query actions
 POST /{workspaceName}/{actionName}      - Mutation actions
@@ -64,6 +69,7 @@ POST /mcp/tools/call                    - Call a specific tool (MCP)
 ```
 
 **Workspace Routes:**
+
 ```
 GET  /{actionName}                      - Query actions
 POST /{actionName}                      - Mutation actions
@@ -90,18 +96,19 @@ import { sValidator } from '@hono/standard-validator';
 
 // For queries with input schema
 app.get('/:id', sValidator('query', action.input), async (c) => {
-  const input = c.req.valid('query');
-  // ...
+	const input = c.req.valid('query');
+	// ...
 });
 
 // For mutations with input schema
 app.post('/', sValidator('json', action.input), async (c) => {
-  const input = c.req.valid('json');
-  // ...
+	const input = c.req.valid('json');
+	// ...
 });
 ```
 
 This automatically:
+
 - Validates input against the StandardSchemaV1 schema
 - Returns 400 Bad Request on validation failure
 - Provides type-safe access to validated data via `c.req.valid()`
@@ -109,6 +116,7 @@ This automatically:
 ### Error Handling
 
 Handler functions return `Result<TOutput, EpicenterOperationError>`:
+
 - On success (`Ok`): Return 200 with JSON data
 - On error (`Err`): Return appropriate status code with error details
   - Extract error message and type from `EpicenterOperationError`
@@ -119,10 +127,12 @@ Handler functions return `Result<TOutput, EpicenterOperationError>`:
 Model Context Protocol enables AI models to call these actions as tools:
 
 **MCP Messages:**
+
 - `tools/list` request → Return list of all available tools
 - `tools/call` request → Execute a specific tool and return result
 
 **Tool Definition:**
+
 ```typescript
 {
   name: string,              // e.g., "blog_createPost"
@@ -132,6 +142,7 @@ Model Context Protocol enables AI models to call these actions as tools:
 ```
 
 **Tool Naming Convention:**
+
 - Epicenter: `{workspaceName}_{actionName}`
 - Workspace: `{actionName}`
 
@@ -160,13 +171,14 @@ Model Context Protocol enables AI models to call these actions as tools:
   - Return Hono app instance
 
 **Function Signature:**
+
 ```typescript
 function createEpicenterServer<
-  TId extends string,
-  TWorkspaces extends readonly AnyWorkspaceConfig[]
+	TId extends string,
+	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(
-  config: EpicenterConfig<TId, TWorkspaces>,
-  runtimeConfig?: RuntimeConfig
+	config: EpicenterConfig<TId, TWorkspaces>,
+	runtimeConfig?: RuntimeConfig,
 ): Hono;
 ```
 
@@ -183,18 +195,27 @@ Note: Returns a Hono app directly. User can configure port, hostname, etc. when 
   - Return Hono app instance
 
 **Function Signature:**
+
 ```typescript
 function createWorkspaceServer<
-  TId extends string,
-  TVersion extends number,
-  TName extends string,
-  TWorkspaceSchema extends WorkspaceSchema,
-  TDeps extends readonly AnyWorkspaceConfig[],
-  TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
-  TActionMap extends WorkspaceActionMap
+	TId extends string,
+	TVersion extends number,
+	TName extends string,
+	TWorkspaceSchema extends WorkspaceSchema,
+	TDeps extends readonly AnyWorkspaceConfig[],
+	TIndexes extends WorkspaceIndexMap<TWorkspaceSchema>,
+	TActionMap extends WorkspaceActionMap,
 >(
-  config: WorkspaceConfig<TId, TVersion, TName, TWorkspaceSchema, TDeps, TIndexes, TActionMap>,
-  runtimeConfig?: RuntimeConfig
+	config: WorkspaceConfig<
+		TId,
+		TVersion,
+		TName,
+		TWorkspaceSchema,
+		TDeps,
+		TIndexes,
+		TActionMap
+	>,
+	runtimeConfig?: RuntimeConfig,
 ): Hono;
 ```
 
@@ -212,32 +233,33 @@ function createWorkspaceServer<
   - Follow JSON-RPC 2.0 spec
 
 **MCP Tool Structure:**
+
 ```typescript
 type MCPTool = {
-  name: string;
-  description?: string;
-  inputSchema: {
-    type: 'object';
-    properties: Record<string, any>;
-    required?: string[];
-  };
+	name: string;
+	description?: string;
+	inputSchema: {
+		type: 'object';
+		properties: Record<string, any>;
+		required?: string[];
+	};
 };
 
 type MCPToolsListResponse = {
-  tools: MCPTool[];
+	tools: MCPTool[];
 };
 
 type MCPToolCallRequest = {
-  name: string;
-  arguments: Record<string, any>;
+	name: string;
+	arguments: Record<string, any>;
 };
 
 type MCPToolCallResponse = {
-  content: Array<{
-    type: 'text';
-    text: string;
-  }>;
-  isError?: boolean;
+	content: Array<{
+		type: 'text';
+		text: string;
+	}>;
+	isError?: boolean;
 };
 ```
 
@@ -273,16 +295,15 @@ import { defineEpicenter, createEpicenterServer } from '@epicenter/core';
 import { blogWorkspace, authWorkspace } from './workspaces';
 
 const epicenter = defineEpicenter({
-  id: 'my-app',
-  workspaces: [blogWorkspace, authWorkspace],
+	workspaces: [blogWorkspace, authWorkspace],
 });
 
 const app = createEpicenterServer(epicenter);
 
 // Start the server with Bun
 Bun.serve({
-  fetch: app.fetch,
-  port: 3000,
+	fetch: app.fetch,
+	port: 3000,
 });
 
 console.log('Server running at http://localhost:3000');
@@ -307,8 +328,8 @@ const app = createWorkspaceServer(blogWorkspace);
 
 // Start the server with Bun
 Bun.serve({
-  fetch: app.fetch,
-  port: 3001,
+	fetch: app.fetch,
+	port: 3001,
 });
 
 // REST API calls:
@@ -327,6 +348,7 @@ Bun.serve({
 StandardSchemaV1 works directly with `@hono/standard-validator` via `sValidator`, so no conversion needed for REST endpoints!
 
 For MCP tool definitions, we need to convert StandardSchemaV1 to JSON Schema. Options:
+
 1. Use StandardSchemaV1's built-in JSON Schema export (if available)
 2. Create a simple converter utility
 3. For initial version: use action descriptions without detailed schema (keep it simple)
@@ -334,6 +356,7 @@ For MCP tool definitions, we need to convert StandardSchemaV1 to JSON Schema. Op
 ### Lifecycle Management
 
 Since we return a Hono app, lifecycle is managed by Bun.serve():
+
 - User controls when to start the server
 - User can call `server.stop()` on the Bun server instance
 - Workspace cleanup: We should expose a cleanup function or handle it through dispose patterns
@@ -341,6 +364,7 @@ Since we return a Hono app, lifecycle is managed by Bun.serve():
 ### Resource Cleanup
 
 Since we're creating workspace clients internally, we need to ensure proper cleanup:
+
 - Store references to all workspace clients
 - Call `destroy()` on each client when server stops
 - Clean up YJS documents and indexes
@@ -348,6 +372,7 @@ Since we're creating workspace clients internally, we need to ensure proper clea
 ### Concurrent Request Handling
 
 Multiple requests may access the same workspace concurrently. YJS handles this well, but we should:
+
 - Document any concurrency considerations
 - Consider if we need request queuing or locking
 - Test concurrent write scenarios
@@ -355,13 +380,14 @@ Multiple requests may access the same workspace concurrently. YJS handles this w
 ### Error Responses
 
 Standardize error response format:
+
 ```typescript
 type ErrorResponse = {
-  error: {
-    code: string;           // e.g., "VALIDATION_ERROR"
-    message: string;        // Human-readable message
-    details?: any;          // Additional error context
-  };
+	error: {
+		code: string; // e.g., "VALIDATION_ERROR"
+		message: string; // Human-readable message
+		details?: any; // Additional error context
+	};
 };
 ```
 
@@ -371,10 +397,10 @@ type ErrorResponse = {
 
 ```json
 {
-  "dependencies": {
-    "hono": "^4.x",
-    "@hono/standard-validator": "^0.x"
-  }
+	"dependencies": {
+		"hono": "^4.x",
+		"@hono/standard-validator": "^0.x"
+	}
 }
 ```
 
@@ -423,6 +449,7 @@ Check if these are already in the project, otherwise add them.
 Successfully implemented REST API and MCP server support for Epicenter and Workspace configurations.
 
 **Files Created:**
+
 - `packages/epicenter/src/server/utils.ts` - Request/response utilities and error handling
 - `packages/epicenter/src/server/mcp.ts` - MCP protocol support (tools/list, tools/call)
 - `packages/epicenter/src/server/epicenter.ts` - createEpicenterServer implementation
@@ -431,10 +458,12 @@ Successfully implemented REST API and MCP server support for Epicenter and Works
 - `packages/epicenter/tests/integration/server.test.ts` - Integration tests
 
 **Dependencies Added:**
+
 - `hono` (^4.9.12) - HTTP server framework
 - `@hono/standard-validator` (^0.1.5) - Standard schema validation middleware
 
 **Exports Updated:**
+
 - Added server exports to `packages/epicenter/src/index.ts`
 
 ### Key Decisions
@@ -452,6 +481,7 @@ Successfully implemented REST API and MCP server support for Epicenter and Works
 ### Test Results
 
 All 9 integration tests passing:
+
 - ✓ Workspace server creates posts via POST
 - ✓ Workspace server gets all posts via GET
 - ✓ Workspace server gets posts by category with query params

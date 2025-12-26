@@ -10,11 +10,11 @@
 
 import { unlink } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { createEpicenterClient, type SerializedRow } from '@epicenter/hq';
+import { createClient, type SerializedRow } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,
-} from '@epicenter/hq/indexes/markdown';
+} from '@epicenter/hq/providers/markdown';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, tryAsync } from 'wellcrafted/result';
@@ -36,7 +36,7 @@ if (dryRun) {
 }
 
 // Create epicenter client
-await using client = await createEpicenterClient(epicenterConfig);
+await using client = await createClient(epicenterConfig);
 
 // Frontmatter validator (omits id and content which are handled separately)
 // Nullable fields automatically default to null, required fields must be present

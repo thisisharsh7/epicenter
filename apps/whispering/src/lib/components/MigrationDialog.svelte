@@ -1,6 +1,6 @@
 <script module lang="ts">
-	import { createFileSystemDb } from '$lib/services/db/file-system';
-	import { createDbServiceWeb } from '$lib/services/db/web';
+	import { createFileSystemDb } from '$lib/services/isomorphic/db/file-system';
+	import { createDbServiceWeb } from '$lib/services/isomorphic/db/web';
 	import { nanoid } from 'nanoid/non-secure';
 	import { Ok, tryAsync, type Result } from 'wellcrafted/result';
 	import type {
@@ -9,14 +9,17 @@
 		SerializedAudio,
 		Transformation,
 		TransformationRun,
-	} from '../services/db/models';
+	} from '$lib/services/isomorphic/db/models';
 	import {
 		generateDefaultTransformation,
 		generateDefaultTransformationStep,
-	} from '../services/db/models';
-	import { DownloadServiceLive } from '../services/download';
-	import type { DbService, DbServiceError } from '$lib/services/db/types';
-	import { DbServiceErr } from '$lib/services/db/types';
+	} from '$lib/services/isomorphic/db/models';
+	import { DownloadServiceLive } from '$lib/services/isomorphic/download';
+	import type {
+		DbService,
+		DbServiceError,
+	} from '$lib/services/isomorphic/db/types';
+	import { DbServiceErr } from '$lib/services/isomorphic/db/types';
 
 	/**
 	 * Result of a migration operation
@@ -71,7 +74,7 @@
 				'UNPROCESSED',
 				'FAILED',
 			] as const;
-			const transcriptionStatus = statuses[index % statuses.length];
+			const transcriptionStatus = statuses[index % statuses.length]!;
 
 			// Generate varied transcribed text lengths
 			const textLengths = [
@@ -79,7 +82,7 @@
 				'This is a medium-length recording with a bit more content to transcribe and process.',
 				`This is a longer recording transcript. It contains multiple sentences and paragraphs of content. ${Array(10).fill('Lorem ipsum dolor sit amet, consectetur adipiscing elit.').join(' ')}`,
 			];
-			const transcribedText = textLengths[index % textLengths.length];
+			const transcribedText = textLengths[index % textLengths.length]!;
 
 			const id = nanoid();
 			const now = new Date().toISOString();
@@ -148,7 +151,7 @@
 				},
 			];
 
-			const type = types[index % types.length];
+			const type = types[index % types.length]!;
 
 			transformation.title = `${type.title} ${index + 1}`;
 			transformation.description = type.description;
@@ -188,10 +191,9 @@
 			recordingIds: string[];
 			transformationIds: string[];
 		}): TransformationRun {
-			// Link to existing recordings and transformations
-			const recordingId = recordingIds[index % recordingIds.length];
+			const recordingId = recordingIds[index % recordingIds.length]!;
 			const transformationId =
-				transformationIds[index % transformationIds.length];
+				transformationIds[index % transformationIds.length]!;
 
 			const id = nanoid();
 			const startedAt = new Date(
@@ -910,7 +912,8 @@
 							}
 
 							// Create in file system
-							const { error: createError } = await fileSystemDb.runs.create(run);
+							const { error: createError } =
+								await fileSystemDb.runs.create(run);
 
 							if (createError) {
 								onProgress(
@@ -1244,7 +1247,7 @@
 
 	let { trigger }: { trigger?: Snippet<[TriggerProps]> } = $props();
 
-	let logsContainer: HTMLDivElement;
+	let logsContainer = $state<HTMLDivElement | null>(null);
 
 	// Auto-scroll logs to bottom
 	$effect(() => {

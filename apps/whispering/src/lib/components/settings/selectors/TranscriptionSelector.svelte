@@ -8,7 +8,7 @@
 	import {
 		TRANSCRIPTION_SERVICES,
 		type TranscriptionService,
-	} from '$lib/services/transcription/registry';
+	} from '$lib/services/isomorphic/transcription/registry';
 	import {
 		getSelectedTranscriptionService,
 		isTranscriptionServiceConfigured,
@@ -196,9 +196,7 @@
 								<div class="flex items-center gap-2">
 									<span class="font-medium text-sm">{service.name}</span>
 									{#if !isConfigured}
-										<span class="text-xs text-warning">
-											API key required
-										</span>
+										<span class="text-xs text-warning"> API key required </span>
 									{/if}
 								</div>
 								{#if isSelected && currentSelectedModelName}

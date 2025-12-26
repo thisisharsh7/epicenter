@@ -43,6 +43,25 @@ Load these domain-specific guidelines only when working in their respective doma
 - Technical writing, README guidelines, punctuation: @rules/documentation.md
 - LinkedIn, Reddit, Twitter post guidelines: @rules/social-media.md
 
+## Git Worktree Handling
+
+CRITICAL: When working in a git worktree (such as `.conductor/` directories), ALL file operations and git commands MUST be performed within that worktree, not the parent repository.
+
+**Detection**: If the working directory contains `.conductor/` in the path, you are in a worktree.
+
+**Rules**:
+
+- Use the working directory path for ALL file reads, writes, and edits
+- Create branches and commits within the worktree's git context
+- Never `cd` to the parent repo or use parent repo paths for edits
+- The worktree has its own branch; changes in parent repo are separate
+
+**Example**:
+
+- Working directory: `/Users/foo/Code/repo/.conductor/riyadh`
+- Correct file path: `/Users/foo/Code/repo/.conductor/riyadh/apps/app/file.ts`
+- WRONG file path: `/Users/foo/Code/repo/apps/app/file.ts`
+
 ## General Guidelines
 
 Read the following file immediately as it's relevant to all workflows: @rules/general-guidelines.md.

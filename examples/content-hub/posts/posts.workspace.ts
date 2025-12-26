@@ -1,13 +1,7 @@
-import {
-	date,
-	defineWorkspace,
-	id,
-	markdownProvider,
-	select,
-	sqliteProvider,
-	text,
-} from '@epicenter/hq';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { date, defineWorkspace, id, select, text } from '@epicenter/hq';
+import { markdownProvider } from '@epicenter/hq/providers/markdown';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 
 const NICHES = [
 	'personal',

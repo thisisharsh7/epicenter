@@ -1,18 +1,21 @@
-import { resolve } from 'node:path';
-import type { EpicenterConfig } from '../core/epicenter';
+import { dirname, resolve } from 'node:path';
+import type { ProjectDir } from '../core/types';
+import type { AnyWorkspaceConfig } from '../core/workspace';
 
 /**
- * Load the epicenter configuration from the specified directory
- * Looks for epicenter.config.ts or epicenter.config.js
+ * Load the epicenter configuration from the specified directory.
+ * Looks for epicenter.config.ts or epicenter.config.js.
+ *
+ * The config file should export an array of workspace configurations.
  *
  * @param configDir - Directory containing epicenter.config.ts
- * @returns Object containing the epicenter configuration and config file path
+ * @returns Object containing workspaces array and project directory
  * @throws Error if no config file is found or if the config is invalid
  */
-export async function loadEpicenterConfig(
-	configDir: string,
-): Promise<{ config: EpicenterConfig; configPath: string }> {
-	// Try different config file extensions
+export async function loadEpicenterConfig(configDir: string): Promise<{
+	workspaces: readonly AnyWorkspaceConfig[];
+	projectDir: ProjectDir;
+}> {
 	const configFiles = [
 		'epicenter.config.ts',
 		'epicenter.config.js',
@@ -37,22 +40,20 @@ export async function loadEpicenterConfig(
 		);
 	}
 
-	// Dynamically import the config file
-	// bun --watch will restart process on changes, ensuring fresh import
 	try {
 		const configModule = await import(configPath);
 		const config = configModule.default || configModule;
 
-		// Validate the config has required properties
-		if (!config.id || typeof config.id !== 'string') {
-			throw new Error('Epicenter config must have a valid string id');
+		if (!Array.isArray(config)) {
+			throw new Error(
+				'Epicenter config must export an array of workspace configurations',
+			);
 		}
 
-		if (!Array.isArray(config.workspaces)) {
-			throw new Error('Epicenter config must have a workspaces array');
-		}
-
-		return { config, configPath };
+		return {
+			workspaces: config,
+			projectDir: dirname(configPath) as ProjectDir,
+		};
 	} catch (error) {
 		if (error instanceof Error) {
 			throw new Error(

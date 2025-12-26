@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { createServer } from '@epicenter/hq';
+import { createServer } from '@epicenter/hq/server';
 import epicenterConfig from './epicenter.config';
 
 // Helper to parse SSE response from MCP endpoint
@@ -12,21 +12,19 @@ async function parseMcpResponse(response: Response): Promise<any> {
 }
 
 describe('Server Tests', () => {
-	let server: any;
+	let server: { stop: () => void; port: number };
 	let baseUrl: string;
 
 	beforeAll(async () => {
-		const { app, websocket } = await createServer(epicenterConfig);
-		server = Bun.serve({
-			fetch: app.fetch,
-			websocket,
-			port: 0, // Random available port
-		});
-		baseUrl = `http://localhost:${server.port}`;
+		const { app } = await createServer(epicenterConfig);
+		const elysiaServer = app.listen(0);
+		const port = elysiaServer.server!.port;
+		server = { stop: () => elysiaServer.stop(), port };
+		baseUrl = `http://localhost:${port}`;
 	});
 
 	afterAll(() => {
-		server.stop();
+		server?.stop();
 	});
 
 	describe('REST Endpoints - Basic CRUD', () => {
