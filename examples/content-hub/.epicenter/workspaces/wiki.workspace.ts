@@ -19,7 +19,7 @@ import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
-import { QUALITY_OPTIONS } from '../shared/quality';
+import { QUALITY_OPTIONS } from '../../shared/quality';
 
 /**
  * Path to the blog's content collection for articles

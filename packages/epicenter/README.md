@@ -31,6 +31,82 @@ Column definitions are plain JSON objects, not builder functions. This enables:
 - Runtime introspection
 - Type-safe conversions to validation schemas
 
+## Architecture Overview
+
+### The Y.Doc: Heart of Every Workspace
+
+Every piece of data lives in a `Y.Doc`, which provides conflict-free merging, real-time collaboration, and offline-first operation:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Y.Doc (CRDT)                            │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ Y.Map('tables')                                        │  │
+│  │   ├── posts: Y.Map<id, Y.Map<field, value>>           │  │
+│  │   ├── users: Y.Map<id, Y.Map<field, value>>           │  │
+│  │   └── ...                                              │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Three-Layer Data Flow
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  WRITE FLOW                                                         │
+│                                                                     │
+│  Action Called → Y.Doc Updated → Auto-sync to Providers             │
+│                       │                                             │
+│              ┌────────┼────────┐                                    │
+│              ▼        ▼        ▼                                    │
+│         IndexedDB  SQLite   Markdown                                │
+│         (or .yjs)   (.db)   (files)                                 │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│  READ FLOW                                                          │
+│                                                                     │
+│  Query Called → Read from Provider (SQLite for complex queries)     │
+│                 or directly from Y.Doc (simple lookups)             │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### Multi-Device Sync Topology
+
+Epicenter supports distributed sync where Y.Doc instances replicate across devices via y-websocket:
+
+```
+   PHONE                   LAPTOP                    DESKTOP
+   ┌──────────┐           ┌──────────┐              ┌──────────┐
+   │ Browser  │           │ Browser  │              │ Browser  │
+   │ Y.Doc    │           │ Y.Doc    │              │ Y.Doc    │
+   └────┬─────┘           └────┬─────┘              └────┬─────┘
+        │                      │                         │
+   (no server)            ┌────▼─────┐              ┌────▼─────┐
+        │                 │ Elysia   │◄────────────►│ Elysia   │
+        │                 │ :3913    │  server-to-  │ :3913    │
+        │                 └────┬─────┘    server    └────┬─────┘
+        │                      │                         │
+        └──────────────────────┴─────────────────────────┘
+                           Connect to multiple nodes
+```
+
+Yjs supports multiple providers simultaneously. Phone can connect to desktop, laptop, AND cloud—changes merge automatically via CRDTs.
+
+### How It All Fits Together
+
+1. **Define workspace** with `defineWorkspace({ id, tables, providers, exports })`
+2. **Create client** with `createClient(workspace)` or `createClient([workspace1, workspace2])`
+3. **Y.Doc created** with workspace ID as GUID
+4. **Providers initialize** in parallel (persistence, SQLite, markdown, sync)
+5. **Tables API** wraps Y.Doc with type-safe CRUD
+6. **Exports factory** receives tables + providers + dependencies
+7. **Server** exposes REST/MCP/WebSocket endpoints
+8. **Multi-device sync** via y-websocket to any number of nodes
+9. **CRDTs ensure** eventual consistency across all clients
+
+The architecture is **local-first**: everything works offline, syncs opportunistically, and your data lives in plain files (`.yjs`, SQLite, markdown) that you fully control.
+
 ## Quick Start
 
 ### Installation

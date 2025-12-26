@@ -180,7 +180,7 @@ type DiagnosticsManagerConfig = {
  *
  * **Usage pattern**:
  * ```typescript
- * const diagnostics = createDiagnosticsManager({
+ * const diagnostics = await createDiagnosticsManager({
  *   diagnosticsPath: '/path/to/diagnostics.json'
  * });
  *
@@ -206,9 +206,9 @@ type DiagnosticsManagerConfig = {
  * @param config.diagnosticsPath - Path to diagnostics file (relative or absolute, parent directory created if needed)
  * @returns Diagnostics manager instance
  */
-export function createDiagnosticsManager({
+export async function createDiagnosticsManager({
 	diagnosticsPath,
-}: DiagnosticsManagerConfig): DiagnosticsManager {
+}: DiagnosticsManagerConfig): Promise<DiagnosticsManager> {
 	/**
 	 * In-memory map: file path → diagnostic entry
 	 *
@@ -234,9 +234,7 @@ export function createDiagnosticsManager({
 	// Create parent directory if it doesn't exist
 	const diagnosticsDir = path.dirname(diagnosticsPath);
 	trySync({
-		try: () => {
-			mkdirSync(diagnosticsDir, { recursive: true });
-		},
+		try: () => mkdirSync(diagnosticsDir, { recursive: true }),
 		catch: () => Ok(undefined), // Directory might already exist
 	});
 
@@ -249,12 +247,11 @@ export function createDiagnosticsManager({
 	 * Note: This will be replaced by a full scan on startup, but loading the
 	 * existing file first provides a starting point in case the scan fails.
 	 */
-	const { data: existingDiagnostics } = trySync({
-		try: () => {
+	const { data: existingDiagnostics } = await tryAsync({
+		try: async () => {
 			const file = Bun.file(diagnosticsPath);
-			const exists = file.size > 0; // Bun.file.exists is async, use size check
-			if (!exists) return {};
-			const content = Bun.file(diagnosticsPath).text();
+			if (!(await file.exists())) return {};
+			const content = await file.text();
 			return JSON.parse(content) as DiagnosticsFile;
 		},
 		catch: () => {

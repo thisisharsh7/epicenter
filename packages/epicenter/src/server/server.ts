@@ -23,12 +23,12 @@ export type StartServerOptions = {
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
  * - WebSocket sync: `/sync/{workspaceId}` for real-time Y.Doc synchronization
- * - API documentation: `/openapi` (Scalar UI by default)
+ * - API documentation: `/openapi` (Scalar UI)
  *
  * URL Hierarchy:
  * - `/` - API root/discovery
- * - `/openapi` - OpenAPI spec (JSON)
- * - `/scalar` - Scalar UI documentation
+ * - `/openapi` - Scalar UI documentation
+ * - `/openapi/json` - OpenAPI spec (JSON)
  * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
  * - `/workspaces/{workspaceId}/{action}` - Workspace actions
  *
@@ -148,25 +148,10 @@ export function createServer<
 			console.log('\n🚀 Epicenter HTTP Server Running!\n');
 			console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 			console.log(`📍 Server: http://localhost:${port}`);
-			console.log(`📖 Scalar Docs: http://localhost:${port}/scalar`);
-			console.log(`📄 OpenAPI Spec: http://localhost:${port}/openapi`);
-			console.log(`🔌 MCP Endpoint: http://localhost:${port}/mcp\n`);
+			console.log(`📖 API Docs: http://localhost:${port}/openapi`);
+			console.log(`📄 OpenAPI Spec: http://localhost:${port}/openapi/json\n`);
 
-			console.log('📚 REST API Endpoints:\n');
-			for (const { workspaceId, actionPath, action } of iterActions(client)) {
-				const method = ({ query: 'GET', mutation: 'POST' } as const)[
-					action.type
-				];
-				const restPath = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
-				console.log(`  ${method} http://localhost:${port}${restPath}`);
-			}
-
-			console.log('\n🔧 Connect to Claude Code:\n');
-			console.log(
-				`  claude mcp add my-epicenter --transport http --scope user http://localhost:${port}/mcp\n`,
-			);
-
-			console.log('📦 Available Tools:\n');
+			console.log('📦 Available Workspaces:\n');
 			const actionsByWorkspace = Object.groupBy(
 				iterActions(client),
 				(info) => info.workspaceId,
@@ -174,9 +159,10 @@ export function createServer<
 
 			for (const [workspaceId, actions] of Object.entries(actionsByWorkspace)) {
 				console.log(`  • ${workspaceId}`);
-				for (const { actionPath } of actions ?? []) {
-					const mcpToolName = [workspaceId, ...actionPath].join('_');
-					console.log(`    └─ ${mcpToolName}`);
+				for (const { actionPath, action } of actions ?? []) {
+					const method = action.type === 'query' ? 'GET' : 'POST';
+					const actionName = actionPath.join('/');
+					console.log(`    └─ [${method}] ${actionName}`);
 				}
 				console.log();
 			}

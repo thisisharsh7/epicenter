@@ -2,12 +2,7 @@ import { defineWorkspace, id, integer, text } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 
-/**
- * Stress test workspace
- *
- * 10 identical tables for stress testing YJS persistence with 1 million items.
- */
-const stressWorkspace = defineWorkspace({
+export default defineWorkspace({
 	id: 'stress',
 
 	tables: {
@@ -79,9 +74,6 @@ const stressWorkspace = defineWorkspace({
 	},
 
 	exports: ({ tables }) => ({
-		// Expose raw table access for bulk inserts
 		...tables,
 	}),
 });
-
-export default [stressWorkspace] as const;

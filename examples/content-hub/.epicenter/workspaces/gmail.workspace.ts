@@ -15,8 +15,8 @@ import {
 	text,
 	type WorkspaceSchema,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
-import { setupPersistence } from '@epicenter/hq/providers';
+import { MarkdownProviderErr } from '@epicenter/hq/providers/markdown';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { type } from 'arktype';
 import { google } from 'googleapis';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
@@ -26,7 +26,7 @@ import {
 	getAuthenticatedClient,
 	loadTokens,
 	performOAuthLogin,
-} from './auth';
+} from '../../gmail/auth';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Gmail Auth Provider
@@ -63,7 +63,7 @@ import {
 	hasLabel,
 	labelsToString,
 	parseEmailDate,
-} from './parser';
+} from '../../gmail/parser';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error Types

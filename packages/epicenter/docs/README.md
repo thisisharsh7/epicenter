@@ -9,6 +9,7 @@ docs/
 ├── architecture/       # System architecture
 │   ├── network-topology.md    # Node types, connections
 │   ├── device-identity.md     # Server URLs, identity
+│   ├── action-dispatch.md     # Cross-device RPC via YJS
 │   └── security.md            # Security model
 │
 ├── blobs/              # Blob sync system
@@ -29,6 +30,7 @@ docs/
 
 - **[Network Topology](./architecture/network-topology.md)**: How devices connect (clients, servers, mesh)
 - **[Device Identity](./architecture/device-identity.md)**: Server URLs and identity management
+- **[Action Dispatch](./architecture/action-dispatch.md)**: Cross-device action invocation via YJS command mailbox
 - **[Security](./architecture/security.md)**: Tailscale, content-addressing, threat model
 
 ### Blob System

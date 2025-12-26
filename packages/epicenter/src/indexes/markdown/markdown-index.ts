@@ -322,7 +322,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 	// Provider artifacts: .epicenter/providers/markdown/diagnostics/{workspaceId}.json
 	const diagnosticsDir = path.join(paths.provider, 'diagnostics');
-	const diagnostics = createDiagnosticsManager({
+	const diagnostics = await createDiagnosticsManager({
 		diagnosticsPath: path.join(diagnosticsDir, `${id}.json`),
 	});
 

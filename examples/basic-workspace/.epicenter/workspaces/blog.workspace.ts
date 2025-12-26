@@ -21,12 +21,7 @@ import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 
-/**
- * Example blog workspace
- * Demonstrates the basic structure of an Epicenter workspace
- */
-
-const blogWorkspace = defineWorkspace({
+export default defineWorkspace({
 	id: 'blog',
 
 	tables: {
@@ -36,14 +31,14 @@ const blogWorkspace = defineWorkspace({
 			content: text({ nullable: true }),
 			category: select({ options: ['tech', 'personal', 'tutorial'] }),
 			views: integer({ default: 0 }),
-			publishedAt: text({ nullable: true }),
+			published_at: text({ nullable: true }),
 		},
 		comments: {
 			id: id(),
-			postId: text(),
+			post_id: text(),
 			author: text(),
 			content: text(),
-			createdAt: text(),
+			created_at: text(),
 		},
 	},
 
@@ -62,10 +57,8 @@ const blogWorkspace = defineWorkspace({
 							filename: `${id}.md`,
 						}),
 						deserialize: ({ frontmatter, body, filename, table }) => {
-							// Extract id from filename
 							const id = path.basename(filename, '.md');
 
-							// Validate frontmatter using schema
 							const FrontMatter = table.validators
 								.toArktype()
 								.omit('id', 'content');
@@ -82,7 +75,6 @@ const blogWorkspace = defineWorkspace({
 								});
 							}
 
-							// Construct the full row
 							const row = {
 								id,
 								content: body,
@@ -103,10 +95,8 @@ const blogWorkspace = defineWorkspace({
 							filename: `${id}.md`,
 						}),
 						deserialize: ({ frontmatter, filename, table }) => {
-							// Extract id from filename
 							const id = path.basename(filename, '.md');
 
-							// Validate frontmatter using validators
 							const FrontMatter = table.validators.toArktype().omit('id');
 							const frontmatterParsed = FrontMatter(frontmatter);
 
@@ -117,7 +107,6 @@ const blogWorkspace = defineWorkspace({
 								});
 							}
 
-							// Construct the full row
 							const row = {
 								id,
 								...frontmatterParsed,
@@ -133,18 +122,16 @@ const blogWorkspace = defineWorkspace({
 	},
 
 	exports: ({ tables, providers }) => ({
-		// Query: Get all published posts
 		getPublishedPosts: defineQuery({
 			handler: async () => {
 				const posts = await providers.sqlite.db
 					.select()
 					.from(providers.sqlite.posts)
-					.where(isNotNull(providers.sqlite.posts.publishedAt));
+					.where(isNotNull(providers.sqlite.posts.published_at));
 				return Ok(posts);
 			},
 		}),
 
-		// Query: Get post by ID
 		getPost: defineQuery({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
@@ -156,19 +143,17 @@ const blogWorkspace = defineWorkspace({
 			},
 		}),
 
-		// Query: Get comments for a post
 		getPostComments: defineQuery({
-			input: type({ postId: 'string' }),
-			handler: async ({ postId }) => {
+			input: type({ post_id: 'string' }),
+			handler: async ({ post_id }) => {
 				const comments = await providers.sqlite.db
 					.select()
 					.from(providers.sqlite.comments)
-					.where(eq(providers.sqlite.comments.postId, postId));
+					.where(eq(providers.sqlite.comments.post_id, post_id));
 				return Ok(comments);
 			},
 		}),
 
-		// Mutation: Create a new post
 		createPost: defineMutation({
 			input: type({
 				title: 'string',
@@ -182,14 +167,13 @@ const blogWorkspace = defineWorkspace({
 					content: content ?? '',
 					category,
 					views: 0,
-					publishedAt: null,
+					published_at: null,
 				} satisfies typeof tables.posts.$inferSerializedRow;
 				tables.posts.upsert(post);
 				return Ok(post);
 			},
 		}),
 
-		// Mutation: Publish a post
 		publishPost: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
@@ -199,34 +183,32 @@ const blogWorkspace = defineWorkspace({
 				}
 				tables.posts.update({
 					id,
-					publishedAt: new Date().toISOString(),
+					published_at: new Date().toISOString(),
 				});
 				const { row: updatedPost } = tables.posts.get({ id });
 				return Ok(updatedPost);
 			},
 		}),
 
-		// Mutation: Add a comment
 		addComment: defineMutation({
 			input: type({
-				postId: 'string',
+				post_id: 'string',
 				author: 'string',
 				content: 'string',
 			}),
-			handler: async ({ postId, author, content }) => {
+			handler: async ({ post_id, author, content }) => {
 				const comment = {
 					id: generateId(),
-					postId,
+					post_id,
 					author,
 					content,
-					createdAt: new Date().toISOString(),
+					created_at: new Date().toISOString(),
 				} satisfies typeof tables.comments.$inferSerializedRow;
 				tables.comments.upsert(comment);
 				return Ok(comment);
 			},
 		}),
 
-		// Mutation: Increment post views
 		incrementViews: defineMutation({
 			input: type({ id: 'string' }),
 			handler: async ({ id }) => {
@@ -244,5 +226,3 @@ const blogWorkspace = defineWorkspace({
 		}),
 	}),
 });
-
-export default [blogWorkspace] as const;
