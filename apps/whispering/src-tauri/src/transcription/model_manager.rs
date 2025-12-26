@@ -4,14 +4,12 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use transcribe_rs::engines::moonshine::{MoonshineEngine, MoonshineModelParams};
 use transcribe_rs::engines::parakeet::{ParakeetEngine, ParakeetModelParams};
-#[cfg(feature = "whisper")]
 use transcribe_rs::engines::whisper::WhisperEngine;
 use transcribe_rs::TranscriptionEngine;
 
 /// Engine type for managing different transcription engines
 pub enum Engine {
     Parakeet(ParakeetEngine),
-    #[cfg(feature = "whisper")]
     Whisper(WhisperEngine),
     Moonshine(MoonshineEngine),
 }
@@ -20,7 +18,6 @@ impl Engine {
     fn unload(&mut self) {
         match self {
             Engine::Parakeet(e) => e.unload_model(),
-            #[cfg(feature = "whisper")]
             Engine::Whisper(e) => e.unload_model(),
             Engine::Moonshine(e) => e.unload_model(),
         }
@@ -71,7 +68,6 @@ impl ModelManager {
                 }
                 true
             }
-            #[cfg(feature = "whisper")]
             (Some(Engine::Whisper(_)), _) => {
                 // Wrong engine type, unload and reload
                 if let Some(mut engine) = engine_guard.take() {
@@ -102,7 +98,6 @@ impl ModelManager {
         Ok(self.engine.clone())
     }
 
-    #[cfg(feature = "whisper")]
     pub fn get_or_load_whisper(
         &self,
         model_path: PathBuf,
@@ -160,14 +155,6 @@ impl ModelManager {
         Ok(self.engine.clone())
     }
 
-    #[cfg(not(feature = "whisper"))]
-    pub fn get_or_load_whisper(
-        &self,
-        _model_path: PathBuf,
-    ) -> Result<Arc<Mutex<Option<Engine>>>, String> {
-        Err("Whisper C++ is temporarily unavailable due to upstream build issues. Use Moonshine or Parakeet instead.".to_string())
-    }
-
     pub fn get_or_load_moonshine(
         &self,
         model_path: PathBuf,
@@ -196,7 +183,6 @@ impl ModelManager {
                 }
                 true
             }
-            #[cfg(feature = "whisper")]
             (Some(Engine::Whisper(_)), _) => {
                 // Wrong engine type, unload and reload
                 if let Some(mut engine) = engine_guard.take() {
