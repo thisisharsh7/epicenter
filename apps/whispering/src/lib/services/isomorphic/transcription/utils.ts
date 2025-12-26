@@ -11,5 +11,12 @@ import mime from 'mime';
  * always have valid MIME types like 'audio/webm' or 'audio/mp4'.
  */
 export function getAudioExtension(mimeType: string): string {
-	return mime.getExtension(mimeType) ?? 'mp3';
+	const extension = mime.getExtension(mimeType) ?? 'mp3';
+	// The `mime` library returns technically correct but non-standard extensions
+	// that transcription APIs don't recognize:
+	// - 'weba' for audio/webm (should be 'webm')
+	// - 'oga' for audio/ogg (should be 'ogg')
+	// Groq/OpenAI/Mistral support: flac, mp3, mp4, mpeg, mpga, m4a, ogg, opus, wav, webm
+	const extensionMapping: Record<string, string> = { weba: 'webm', oga: 'ogg' };
+	return extensionMapping[extension] ?? extension;
 }
