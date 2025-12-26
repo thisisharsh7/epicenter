@@ -24,7 +24,7 @@ import { Defuddle } from 'defuddle/node';
 import { JSDOM } from 'jsdom';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
-import { QUALITY_OPTIONS } from '../shared/quality';
+import { QUALITY_OPTIONS } from '../../shared/quality';
 
 /**
  * Clippings workspace

@@ -26,7 +26,7 @@ import {
 	getAuthenticatedClient,
 	loadTokens,
 	performOAuthLogin,
-} from './auth';
+} from '../../gmail/auth';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Gmail Auth Provider
@@ -63,7 +63,7 @@ import {
 	hasLabel,
 	labelsToString,
 	parseEmailDate,
-} from './parser';
+} from '../../gmail/parser';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error Types
