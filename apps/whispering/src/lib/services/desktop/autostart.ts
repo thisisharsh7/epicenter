@@ -1,8 +1,4 @@
-import {
-	disable,
-	enable,
-	isEnabled,
-} from '@tauri-apps/plugin-autostart';
+import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 

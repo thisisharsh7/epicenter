@@ -1,8 +1,8 @@
 import { Ok, type Result } from 'wellcrafted/result';
 import type { WhisperingRecordingState } from '$lib/constants/audio';
+import { defineMutation } from '$lib/query/client';
 import { WhisperingErr, type WhisperingError } from '$lib/result';
 import { desktopServices } from '$lib/services';
-import { defineMutation } from '$lib/query/client';
 
 const setTrayIconKeys = {
 	setTrayIcon: ['setTrayIcon', 'setTrayIcon'] as const,

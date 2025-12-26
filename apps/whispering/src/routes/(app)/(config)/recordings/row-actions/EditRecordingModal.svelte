@@ -13,7 +13,9 @@
 	import { Spinner } from '@epicenter/ui/spinner';
 	import { onDestroy } from 'svelte';
 
-	const updateRecording = createMutation(() => rpc.db.recordings.update.options);
+	const updateRecording = createMutation(
+		() => rpc.db.recordings.update.options,
+	);
 
 	let { recording }: { recording: Recording } = $props();
 

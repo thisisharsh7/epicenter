@@ -4,16 +4,14 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bun cli.ts"
+		"dev": "bunx epicenter"
 	},
 	"dependencies": {
 		"@epicenter/hq": "workspace:*",
 		"arktype": "catalog:",
-		"wellcrafted": "catalog:",
-		"yargs": "catalog:"
+		"wellcrafted": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "catalog:",
-		"@types/yargs": "catalog:"
+		"@types/bun": "catalog:"
 	}
 }

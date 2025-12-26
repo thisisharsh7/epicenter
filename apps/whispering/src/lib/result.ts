@@ -19,7 +19,10 @@ export type WhisperingError = Omit<
  * Input type for creating WhisperingError.
  * Allows either explicit description or serviceError (which auto-extracts .message).
  */
-type WhisperingErrorInput = Omit<WhisperingError, 'name' | 'severity' | 'description'> & {
+type WhisperingErrorInput = Omit<
+	WhisperingError,
+	'name' | 'severity' | 'description'
+> & {
 	/** Explicit description text */
 	description?: string;
 	/** Service-layer error to adapt. If provided, error.message becomes description */
@@ -31,16 +34,20 @@ type WhisperingErrorInput = Omit<WhisperingError, 'name' | 'severity' | 'descrip
  * - If serviceError provided and no description, uses serviceError.message
  * - If action is missing and serviceError provided, adds more-details action
  */
-function normalizeInput(args: WhisperingErrorInput): Omit<WhisperingError, 'name' | 'severity'> {
+function normalizeInput(
+	args: WhisperingErrorInput,
+): Omit<WhisperingError, 'name' | 'severity'> {
 	const { serviceError, ...rest } = args;
 
 	// Derive description from serviceError if not explicitly provided
 	const description = rest.description ?? serviceError?.message ?? '';
 
 	// Auto-add more-details action if serviceError provided and no action specified
-	const action = rest.action ?? (serviceError
-		? { type: 'more-details' as const, error: serviceError }
-		: undefined);
+	const action =
+		rest.action ??
+		(serviceError
+			? { type: 'more-details' as const, error: serviceError }
+			: undefined);
 
 	return { ...rest, description, action };
 }
@@ -67,7 +74,8 @@ const WhisperingError = (args: WhisperingErrorInput): WhisperingError => ({
 /**
  * Creates a Err wrapping a WhisperingError.
  */
-export const WhisperingErr = (args: WhisperingErrorInput) => Err(WhisperingError(args));
+export const WhisperingErr = (args: WhisperingErrorInput) =>
+	Err(WhisperingError(args));
 
 /**
  * Creates a WhisperingError with 'warning' severity.
@@ -81,7 +89,8 @@ const WhisperingWarning = (args: WhisperingErrorInput): WhisperingError => ({
 /**
  * Creates a Err wrapping a WhisperingError with 'warning' severity.
  */
-export const WhisperingWarningErr = (args: WhisperingErrorInput) => Err(WhisperingWarning(args));
+export const WhisperingWarningErr = (args: WhisperingErrorInput) =>
+	Err(WhisperingWarning(args));
 
 /**
  * Result type for Whispering operations that can fail.

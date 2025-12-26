@@ -38,9 +38,9 @@ The numbered prefix indicates the recommended order of operations. Run normalize
 **Why run this first**: Different editors and tools format YAML differently. Normalizing first ensures all subsequent transformations work with consistent formatting, making diffs cleaner and transformations more predictable.
 
 **Primitives used**:
-- `listMarkdownFiles` from `@epicenter/hq/indexes/markdown` - recursively finds all .md files
-- `readMarkdownFile` from `@epicenter/hq/indexes/markdown` - parses markdown with frontmatter
-- `writeMarkdownFile` from `@epicenter/hq/indexes/markdown` - writes markdown with YAML frontmatter
+- `listMarkdownFiles` from `@epicenter/hq/providers/markdown` - recursively finds all .md files
+- `readMarkdownFile` from `@epicenter/hq/providers/markdown` - parses markdown with frontmatter
+- `writeMarkdownFile` from `@epicenter/hq/providers/markdown` - writes markdown with YAML frontmatter
 
 **Usage**:
 ```bash
@@ -65,9 +65,9 @@ bun scripts/01-normalize-markdown.ts
 **Why this transformation**: Instead of storing timezone separately, this embeds it directly in the date fields using a pipe delimiter. This makes date fields self-describing and eliminates the need for a separate timezone field.
 
 **Primitives used**:
-- `listMarkdownFiles` from `@epicenter/hq/indexes/markdown` - recursively finds all .md files
-- `readMarkdownFile` from `@epicenter/hq/indexes/markdown` - parses markdown with frontmatter
-- `writeMarkdownFile` from `@epicenter/hq/indexes/markdown` - writes markdown with YAML frontmatter
+- `listMarkdownFiles` from `@epicenter/hq/providers/markdown` - recursively finds all .md files
+- `readMarkdownFile` from `@epicenter/hq/providers/markdown` - parses markdown with frontmatter
+- `writeMarkdownFile` from `@epicenter/hq/providers/markdown` - writes markdown with YAML frontmatter
 - String concatenation with pipe operator for date transformation
 - `delete` operator to remove obsolete fields
 
@@ -107,7 +107,7 @@ import {
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
-} from '@epicenter/hq/indexes/markdown';
+} from '@epicenter/hq/providers/markdown';
 
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;
 if (!sourcePath) {
@@ -154,7 +154,7 @@ await Promise.all(
 
 ## Key Primitives
 
-All markdown operations are available from `@epicenter/hq/indexes/markdown`:
+All markdown operations are available from `@epicenter/hq/providers/markdown`:
 
 - **listMarkdownFiles(sourcePath)**: Recursively finds all .md files, returns `AbsolutePath[]`
 - **readMarkdownFile(filePath)**: Parses markdown with frontmatter, returns `Result<{ data: object, body: string }>`

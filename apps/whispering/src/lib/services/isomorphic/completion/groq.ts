@@ -4,12 +4,15 @@ import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import type { CompletionService } from './types';
 import { CompletionServiceErr } from './types';
 
-
 const customFetch = window.__TAURI_INTERNALS__ ? tauriFetch : undefined;
 export function createGroqCompletionService(): CompletionService {
 	return {
 		async complete({ apiKey, model, systemPrompt, userPrompt }) {
-			const client = new Groq({ apiKey, dangerouslyAllowBrowser: true, fetch: customFetch });
+			const client = new Groq({
+				apiKey,
+				dangerouslyAllowBrowser: true,
+				fetch: customFetch,
+			});
 			// Call Groq API
 			const { data: completion, error: groqApiError } = await tryAsync({
 				try: () =>

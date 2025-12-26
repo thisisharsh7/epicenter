@@ -38,7 +38,7 @@ The wiki workspace has two markdown indexes for different purposes:
 
 ### 1. Local Storage (`markdown`)
 
-Default storage for all wiki content. Uses the standard `withBodyField('content')` config.
+Default storage for all wiki content. Uses the standard `bodyFieldSerializer('content')` serializer.
 
 ```typescript
 // Sync operations

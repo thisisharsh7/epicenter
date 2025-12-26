@@ -107,9 +107,11 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 	return new Elysia({ prefix: '/sync' }).ws('/:room', {
 		open(ws) {
 			const { room } = ws.data.params;
+			console.log(`[Sync Server] Client connected to room: ${room}`);
 			const doc = config.getDoc(room);
 
 			if (!doc) {
+				console.log(`[Sync Server] Room not found: ${room}`);
 				ws.close(CLOSE_ROOM_NOT_FOUND, `Room not found: ${room}`);
 				return;
 			}
@@ -261,6 +263,8 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 
 			const { room, doc, updateHandler, awareness, controlledClientIds } =
 				state;
+
+			console.log(`[Sync Server] Client disconnected from room: ${room}`);
 
 			// Remove update listener
 			doc.off('update', updateHandler);

@@ -111,7 +111,7 @@ Files to update:
 
 ### Before (Current)
 ```typescript
-import { setupPersistence } from '@epicenter/hq/providers';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 
 const workspace = defineWorkspace({
   id: 'blog',

@@ -1,10 +1,10 @@
 import { Ok } from 'wellcrafted/result';
 import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app';
+import { defineMutation } from '$lib/query/client';
 import type { WhisperingError } from '$lib/result';
 import type { TextServiceError } from '$lib/services/isomorphic/text';
 import { settings } from '$lib/stores/settings.svelte';
 import { rpc } from '..';
-import { defineMutation } from '$lib/query/client';
 
 export const delivery = {
 	/**

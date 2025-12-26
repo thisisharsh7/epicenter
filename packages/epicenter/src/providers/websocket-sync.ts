@@ -1,5 +1,9 @@
 import { WebsocketProvider } from 'y-websocket';
-import type { Provider } from '../core/provider';
+// Uses browser Provider type because this provider only needs minimal context (ydoc, id).
+// Browser context is the "base" context that both browser and node satisfy,
+// so this provider works on both platforms.
+import type { Provider } from '../core/provider.browser';
+import type { WorkspaceSchema } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MULTI-DEVICE SYNC ARCHITECTURE
@@ -217,9 +221,9 @@ export type WebsocketSyncConfig = {
  * providers.forEach(p => p.on('sync', () => console.log('Synced!')));
  * ```
  */
-export function createWebsocketSyncProvider(
+export function createWebsocketSyncProvider<TSchema extends WorkspaceSchema>(
 	config: WebsocketSyncConfig,
-): Provider {
+): Provider<TSchema> {
 	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,

@@ -41,6 +41,7 @@ export {
 	isDateWithTimezoneString,
 	isIsoDateTimeString,
 } from './date-with-timezone';
+export { generateJsonSchema } from './generate-json-schema';
 // ============================================================================
 // Utilities
 // ============================================================================
@@ -54,7 +55,6 @@ export {
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,
 } from './regex';
-export { generateJsonSchema } from './generate-json-schema';
 // ============================================================================
 // Serialization
 // ============================================================================

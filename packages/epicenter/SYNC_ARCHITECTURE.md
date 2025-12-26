@@ -285,7 +285,7 @@ export const blogWorkspace = defineWorkspace({
 Each device should also use local persistence:
 
 ```typescript
-import { setupPersistence } from '@epicenter/hq/providers';
+import { setupPersistence } from '@epicenter/hq/providers/persistence';
 
 const workspace = defineWorkspace({
   id: 'blog',

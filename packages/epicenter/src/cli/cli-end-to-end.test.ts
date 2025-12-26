@@ -15,8 +15,8 @@ import {
 	integer,
 	text,
 } from '../index.node';
-import { markdownProvider } from '../indexes/markdown';
-import { sqliteProvider } from '../indexes/sqlite';
+import { markdownProvider } from '../providers/markdown';
+import { sqliteProvider } from '../providers/sqlite';
 import { createCLI } from './cli';
 
 /**

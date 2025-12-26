@@ -62,7 +62,9 @@
 				aria-expanded={combobox.open}
 				variant="ghost"
 				size="icon"
-				style="view-transition-name: {viewTransition.transformation(selectedTransformation?.id ?? null)}"
+				style="view-transition-name: {viewTransition.transformation(
+					selectedTransformation?.id ?? null,
+				)}"
 			>
 				{#if selectedTransformation}
 					<SparklesIcon class="size-4 text-green-500" />
