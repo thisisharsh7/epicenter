@@ -65,7 +65,7 @@ export async function createTableBlobStore(
  *     posts: table({ ... }),
  *     users: table({ ... }),
  *   },
- *   storageDir: '/path/to/storage',
+ *   projectDir: '/path/to/project',
  * });
  * // blobs.posts, blobs.users are now available
  *
@@ -75,23 +75,23 @@ export async function createTableBlobStore(
  *
  * @param context.id - Workspace ID (used as parent directory)
  * @param context.schema - The workspace schema object
- * @param context.storageDir - The base storage directory (required for Node/Bun)
+ * @param context.projectDir - The project root directory (required for Node/Bun)
  * @returns WorkspaceBlobs object with stores for each table
  */
 export async function createWorkspaceBlobs<
 	TSchema extends Record<string, unknown>,
 >(context: BlobStoreContext<TSchema>): Promise<WorkspaceBlobs<TSchema>> {
-	const { id, schema, storageDir } = context;
+	const { id, schema, projectDir } = context;
 
 	// For Node/Bun, construct the workspace-specific storage path
-	// Storage layout: {storageDir}/{workspaceId}/{tableName}/{filename}
-	const workspaceStorageDir = storageDir ? join(storageDir, id) : undefined;
+	// Storage layout: {projectDir}/{workspaceId}/{tableName}/{filename}
+	const workspaceProjectDir = projectDir ? join(projectDir, id) : undefined;
 
 	const tableNames = Object.keys(schema);
 	const stores = await Promise.all(
 		tableNames.map(async (tableName) => [
 			tableName,
-			await createTableBlobStore(tableName, workspaceStorageDir),
+			await createTableBlobStore(tableName, workspaceProjectDir),
 		]),
 	);
 	return Object.fromEntries(stores) as WorkspaceBlobs<TSchema>;
