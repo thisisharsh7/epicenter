@@ -142,7 +142,7 @@ export { iterActions } from './core/workspace/client.shared';
 export type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
-	WorkspacesToExports,
+	WorkspacesToActions,
 } from './core/workspace/config';
 export { defineWorkspace } from './core/workspace/config';
 

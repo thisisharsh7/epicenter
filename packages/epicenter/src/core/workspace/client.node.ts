@@ -173,17 +173,17 @@ export async function createClient<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TExports extends ActionExports,
+	TActions extends ActionExports,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
 		TProviderResults,
-		TExports
+		TActions
 	>,
 	options?: CreateClientOptions,
-): Promise<WorkspaceClient<TExports>>;
+): Promise<WorkspaceClient<TActions>>;
 
 /**
  * Create a client for multiple workspaces (Node.js, ASYNCHRONOUS).
