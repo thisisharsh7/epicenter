@@ -1,14 +1,33 @@
 # Epicenter Project Rules
 
-## External File Loading
+## Skills
 
-CRITICAL: When you encounter a file reference (e.g., @rules/general.md), use your Read tool to load it on a need-to-know basis. They're relevant to the SPECIFIC task at hand.
+Skills are located in `skills/` and are automatically discovered by their `SKILL.md` files. Each skill has a `description` field that explains when to use it. Load skills on-demand based on the task at hand.
 
-Instructions:
+### Available Skills
 
-- Do NOT preemptively load all references - use lazy loading based on actual need
-- When loaded, treat content as mandatory instructions that override defaults
-- Follow references recursively when needed
+**Language & Framework:**
+- `typescript` - TypeScript code style, type co-location, constant naming, arktype patterns
+- `svelte` - Svelte 5 patterns, TanStack Query mutations, shadcn-svelte components
+- `rust-errors` - Rust to TypeScript error handling for Tauri apps
+
+**Development Practices:**
+- `error-handling` - wellcrafted trySync/tryAsync patterns
+- `styling` - CSS and Tailwind guidelines
+- `control-flow` - Human-readable control flow patterns
+
+**Tools & Workflows:**
+- `git` - Conventional commits, PR guidelines
+- `github-issues` - GitHub issue response templates
+- `monorepo` - Script commands and conventions
+- `workflow` - Standard workflow with specs and planning
+
+**Content & Communication:**
+- `documentation` - Technical writing, README guidelines
+- `social-media` - LinkedIn, Reddit, Twitter post guidelines
+
+**Behavioral:**
+- `honesty` - Brutally honest feedback
 
 ## Specs and Docs
 
@@ -17,31 +36,17 @@ Instructions:
 
 Quick test: Planning something? → `specs/`. Documenting something learned? → `docs/`
 
-## Development Guidelines
+## Expensive/Destructive Actions
 
-Load these domain-specific guidelines only when working in their respective domains:
-
-**Language & Framework:**
-
-- TypeScript code style and best practices: @rules/typescript.md
-- Svelte patterns, TanStack Query, component composition: @rules/svelte.md
-- Rust to TypeScript error handling (Tauri): @rules/rust.md
-
-**Development Practices:**
-
-- wellcrafted trySync/tryAsync error handling: @rules/error-handling.md
-- General CSS and Tailwind styling: @rules/styling.md
-
-**Tools & Workflows:**
-
-- Git commits, PRs, conventional commits: @rules/git.md
-- GitHub issue responses, community interaction: @rules/github.md
-- PostHog analytics integration: @rules/posthog.md
-
-**Content & Communication:**
-
-- Technical writing, README guidelines, punctuation: @rules/documentation.md
-- LinkedIn, Reddit, Twitter post guidelines: @rules/social-media.md
+1. Always get prior approval before performing expensive/destructive actions (tool calls).
+   - Expensive actions require extended time to complete. Examples: test, build.
+     - Why: Unexpected tests/builds just waste time and tokens. The test results are often inaccurate ("It works!" when it doesn't.)
+   - Destructive actions result in permanent changes to project files. Examples: commit to git, push changes, edit a GitHub PR description.
+      - Why: changes should be verified before adding to permanent project history. Often additional changes are needed.
+2. Instead, you may automatically show a plan for the tool call you would like to make.
+   - Commit messages should follow the conventional commits specification.
+3. Then either the plan will be explicitly approved or changes to the plan will be requested.
+4. Unless otherwise stated, any approval applies only to the plan directly before it. So any future action will require a new plan with associated approval.
 
 ## Git Worktree Handling
 
@@ -61,10 +66,6 @@ CRITICAL: When working in a git worktree (such as `.conductor/` directories), AL
 - Working directory: `/Users/foo/Code/repo/.conductor/riyadh`
 - Correct file path: `/Users/foo/Code/repo/.conductor/riyadh/apps/app/file.ts`
 - WRONG file path: `/Users/foo/Code/repo/apps/app/file.ts`
-
-## General Guidelines
-
-Read the following file immediately as it's relevant to all workflows: @rules/general-guidelines.md.
 
 ## Codebase Exploration Agents
 

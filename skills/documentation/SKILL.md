@@ -1,3 +1,8 @@
+---
+name: documentation
+description: Technical writing, README guidelines, and punctuation rules. Use when writing documentation, READMEs, technical articles, or any prose that should avoid AI-generated feel.
+---
+
 # Documentation & README Writing Guidelines
 
 ## Voice Matching Priority
@@ -70,7 +75,7 @@ Default to instructional for technical patterns. Use narrative when the personal
 
 - Emphasize user control and data ownership
 - Highlight transparency benefits (audit the code, no tracking)
-- Focus on direct relationships (user → provider) over middleman models
+- Focus on direct relationships (user -> provider) over middleman models
 - Present honest cost comparisons with specific, real numbers
 - Acknowledge limitations and trade-offs openly
 
@@ -103,8 +108,8 @@ Default to instructional for technical patterns. Use narrative when the personal
 ### The OpenAI Post Pattern (What Works)
 
 ```
-Personal hook → Specific problem → Real numbers → How I solved it →
-What it actually does → Technical details → Genuine question to community
+Personal hook -> Specific problem -> Real numbers -> How I solved it ->
+What it actually does -> Technical details -> Genuine question to community
 ```
 
 ### Paragraph Structure
@@ -139,9 +144,9 @@ The pattern " - " (space-hyphen-space) is a common AI writing artifact that shou
    - Before: `**Bold text** - This explains what it means`
    - After: `**Bold text**: This explains what it means`
 
-3. **Em dash (—)**: Use for dramatic pauses or parenthetical statements where semicolon and colon don't work
+3. **Em dash**: Use for dramatic pauses or parenthetical statements where semicolon and colon don't work
    - Before: `The app is fast - really fast`
-   - After: `The app is fast—really fast`
+   - After: `The app is fast-really fast`
 
 ### Common Patterns
 
@@ -150,7 +155,7 @@ The pattern " - " (space-hyphen-space) is a common AI writing artifact that shou
 - **Examples/Lists**: Use colon
   - `**Examples**: item1, item2, item3`
 - **Dramatic emphasis**: Use em dash
-  - `It's more than fast—it's instant`
+  - `It's more than fast-it's instant`
 - **Related statements**: Use semicolon
   - `The API is simple; the documentation is clear`
 

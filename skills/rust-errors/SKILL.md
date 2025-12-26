@@ -1,3 +1,8 @@
+---
+name: rust-errors
+description: Rust to TypeScript error handling patterns for Tauri apps. Use when defining Rust errors that will be passed to TypeScript, handling Tauri command errors, or creating discriminated union error types.
+---
+
 # Rust to TypeScript Error Handling
 
 ## Discriminated Union Pattern for Errors
@@ -63,7 +68,7 @@ const result = await tryAsync({
 		if (result instanceof type.errors) {
 			// Handle unexpected error shape
 			return WhisperingErr({
-				title: '❌ Unexpected Error',
+				title: 'Unexpected Error',
 				description: extractErrorMessage(unknownError),
 				action: { type: 'more-details', error: unknownError },
 			});
@@ -74,7 +79,7 @@ const result = await tryAsync({
 		switch (error.name) {
 			case 'ModelLoadError':
 				return WhisperingErr({
-					title: '🤖 Model Loading Error',
+					title: 'Model Loading Error',
 					description: error.message,
 					action: {
 						type: 'more-details',
@@ -84,7 +89,7 @@ const result = await tryAsync({
 
 			case 'GpuError':
 				return WhisperingErr({
-					title: '🎮 GPU Error',
+					title: 'GPU Error',
 					description: error.message,
 					action: {
 						type: 'link',

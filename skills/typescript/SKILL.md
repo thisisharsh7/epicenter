@@ -1,3 +1,8 @@
+---
+name: typescript
+description: TypeScript code style, type co-location, constant naming conventions, and arktype patterns. Use when writing TypeScript code, defining types, creating constants, or working with arktype schemas.
+---
+
 # TypeScript Guidelines
 
 ## Core Rules
@@ -85,7 +90,7 @@ export type UserModel = { ... };
 
 ## When to Use Each Pattern
 
-### Pattern 1: Simple Values → Derived Options
+### Pattern 1: Simple Values -> Derived Options
 
 Use when the label can be computed from the value:
 
@@ -129,9 +134,9 @@ export const RECORDING_MODES = ['manual', 'vad', 'upload'] as const;
 export type RecordingMode = (typeof RECORDING_MODES)[number];
 
 export const RECORDING_MODE_OPTIONS = [
-  { label: 'Manual', value: 'manual', icon: '🎙️', desktopOnly: false },
-  { label: 'Voice Activated', value: 'vad', icon: '🎤', desktopOnly: false },
-  { label: 'Upload File', value: 'upload', icon: '📁', desktopOnly: false },
+  { label: 'Manual', value: 'manual', icon: 'mic', desktopOnly: false },
+  { label: 'Voice Activated', value: 'vad', icon: 'mic-voice', desktopOnly: false },
+  { label: 'Upload File', value: 'upload', icon: 'upload', desktopOnly: false },
 ] as const satisfies { label: string; value: RecordingMode; icon: string; desktopOnly: boolean }[];
 
 // Derive IDs for validation if needed
@@ -142,7 +147,7 @@ export const RECORDING_MODE_IDS = RECORDING_MODE_OPTIONS.map(o => o.value);
 
 | Scenario | Pattern |
 |----------|---------|
-| Label = formatted value (e.g., "128 kbps") | Simple Values → Derived |
+| Label = formatted value (e.g., "128 kbps") | Simple Values -> Derived |
 | Label needs separate data (e.g., "16 kHz - Optimized for speech") | Values + Metadata |
 | Options have extra UI fields (icon, description, disabled) | Rich Array |
 | Platform-specific or runtime-conditional content | Keep inline in component |
@@ -160,7 +165,7 @@ export const RECORDING_MODE_IDS = RECORDING_MODE_OPTIONS.map(o => o.value);
 
 ### Label Maps
 - Use **singular** `_TO_LABEL` suffix: `LANGUAGES_TO_LABEL`
-- Describes the operation (id → label), not the container
+- Describes the operation (id -> label), not the container
 - Reads naturally: `LANGUAGES_TO_LABEL[lang]` = "get the label for this language"
 
 ### Constant Casing

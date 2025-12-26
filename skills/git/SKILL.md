@@ -1,3 +1,8 @@
+---
+name: git
+description: Git commit and pull request guidelines using conventional commits. Use when creating commits, writing commit messages, creating PRs, or reviewing PR descriptions.
+---
+
 # Git Commit and Pull Request Guidelines
 
 ## Conventional Commits Format
@@ -200,9 +205,9 @@ This doubles down on Svelte's philosophy of writing less, more intuitive code wh
 
 ## What NOT to Include:
 
-- `🤖 Generated with [Claude Code](https://claude.ai/code)`
+- `Generated with [Claude Code](https://claude.ai/code)`
 - `Co-Authored-By: Claude <noreply@anthropic.com>`
 - Any references to AI assistance
-- `🤖 Generated with [opencode](https://opencode.ai)`
+- `Generated with [opencode](https://opencode.ai)`
 - `Co-Authored-By: opencode <noreply@opencode.ai>`
 - Tool attribution or watermarks
