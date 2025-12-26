@@ -54,9 +54,21 @@ Now `doSomething` has to know about `createClient`'s options. When the client li
 
 Instead of a function that takes a client, create a **factory function** that:
 
-1. Takes the client (dependency) as the first argument
-2. Takes configuration options as the second argument
+1. Takes the dependency (or dependencies) as the first argument
+2. Takes configuration options as the optional second argument
 3. Returns an object with methods
+
+**This signature is universal.** Every factory function you write should follow it:
+
+```typescript
+function createSomething(dependencies, options?) {
+	return {
+		/* methods */
+	};
+}
+```
+
+The first argument is always resources. The second is always configuration. No exceptions.
 
 ```typescript
 function createService(client, options = {}) {
@@ -201,4 +213,7 @@ The same principle applies: each client is configured at its own creation time. 
 
 ## Related Patterns
 
-- [Factory Method Patterns](./factory-method-patterns.md) — covers when to turn functions into methods and how to separate bundled options
+- [The Universal Factory Function Signature](./universal-factory-signature.md) — why every factory uses this signature
+- [Stop Passing Clients as Arguments](./stop-passing-clients-as-arguments.md) — practical guide
+- [Factory Method Patterns](./factory-method-patterns.md) — separating bundled options and method patterns
+- [Factory Function Composition Skill](../../skills/factory-function-composition/SKILL.md) — quick reference

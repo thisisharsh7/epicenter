@@ -274,6 +274,41 @@ Don't pipe `clientOptions` through your service factory. Don't accept `{ ...clie
 
 This is the perfect level of inversion of control. For more on this pattern, see [The Factory Function Pattern](./factory-function-pattern.md).
 
+## The Factory Function Signature
+
+Every factory function follows the same signature:
+
+```typescript
+function createService(dependencies, options?) {
+	return {
+		/* methods */
+	};
+}
+```
+
+**First argument**: The resource or resources. Either a single client:
+
+```typescript
+function createUserService(db, options?) { ... }
+```
+
+Or a destructured object when multiple dependencies are needed:
+
+```typescript
+function createAnalyticsService({ db, cache, http }, options?) { ... }
+```
+
+**Second argument (optional)**: Configuration options specific to this factory. Not client options—those belong at client creation time.
+
+This signature is consistent across all factory functions. Once you internalize it, the pattern becomes second nature.
+
 ## Summary
 
 The two patterns work together: Pattern 1 ensures your factory receives explicit dependencies (not creating them internally), and Pattern 2 ensures operations on the result are methods rather than separate functions.
+
+## Resources
+
+- [The Universal Factory Function Signature](./universal-factory-signature.md) — the signature explained in depth
+- [The Factory Function Pattern](./factory-function-pattern.md) — deep dive into factory functions
+- [Stop Passing Clients as Arguments](./stop-passing-clients-as-arguments.md) — practical guide
+- [Factory Function Composition Skill](../../skills/factory-function-composition/SKILL.md) — quick reference
