@@ -74,17 +74,12 @@ export type {
 	YRow,
 } from './core/db/table-helper';
 
-// Epicenter types and functions
-// NOTE: EpicenterClient, ActionInfo, and iterActions are platform-specific
-// (browser WorkspaceClient has whenSynced, node doesn't)
-// - exported from index.browser.ts / index.node.ts
-// NOTE: EpicenterConfig and defineEpicenter have different type signatures (Node adds storageDir)
-// - exported from index.browser.ts / index.node.ts
+export type { ActionInfo } from './core/workspace/client.shared';
+export { iterActions } from './core/workspace/client.shared';
 
 export type {
 	EpicenterOperationError,
 	IndexError,
-	ProviderError,
 	ValidationError,
 } from './core/errors';
 
@@ -92,23 +87,18 @@ export type {
 export {
 	EpicenterOperationErr,
 	IndexErr,
-	ProviderErr,
 	ValidationErr,
 } from './core/errors';
 
-// Provider system (shared types)
-// NOTE: Platform-specific Provider and ProviderContext types are also exported
-// from index.browser.ts / index.node.ts for use in actual providers.
-// Shared provider utilities and types
-// NOTE: Provider and ProviderContext types are platform-specific
-// (browser vs node) - exported from index.browser.ts / index.node.ts
 export type {
-	InferProviderExports,
+	Provider,
+	ProviderContext,
 	ProviderExports,
 	WorkspaceProviderMap,
-} from './core/provider.shared';
+} from './core/provider';
 
-export { defineProviderExports } from './core/provider.shared';
+// Provider system
+export { defineProviderExports } from './core/provider';
 
 export type {
 	BooleanColumnSchema,
@@ -165,14 +155,22 @@ export {
 } from './core/schema';
 
 // Core types
-export type { AbsolutePath, EpicenterDir, StorageDir } from './core/types';
+export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 
-// Workspace types
-// NOTE: WorkspaceConfig, defineWorkspace, WorkspaceClient, and WorkspacesToClients
-// are platform-specific - exported from index.browser.ts / index.node.ts
-export type { AnyWorkspaceConfig, WorkspacesToExports } from './core/workspace/config.shared';
+// Workspace types (shared across platforms)
+export type {
+	EpicenterClient,
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './core/workspace/client.shared';
+export type {
+	AnyWorkspaceConfig,
+	WorkspaceConfig,
+	WorkspacesToExports,
+} from './core/workspace/config';
+export { defineWorkspace } from './core/workspace/config';
 
 // Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
-//   import { markdownProvider } from '@epicenter/hq/providers/markdown';
-//   import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+//   import { markdownProvider } from '@epicenter/hq/indexes/markdown';
+//   import { sqliteProvider } from '@epicenter/hq/indexes/sqlite';

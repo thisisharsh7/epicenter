@@ -8,35 +8,18 @@
 // All platform-agnostic exports
 export * from './index.shared';
 
-// Node-specific: Provider types (storageDir/epicenterDir are required in context)
-export type { Provider, ProviderContext } from './core/provider.node';
+// Node-specific: client creation with options (projectDir)
+export {
+	createClient,
+	type CreateClientOptions,
+} from './core/workspace/client.node';
 
-// Node-specific: EpicenterConfig type (has storageDir)
-export type { EpicenterConfig } from './core/epicenter/config.node';
-export { defineEpicenter } from './core/epicenter/config.node';
-
-// Node-specific: runtime functions
-export { createEpicenterClient } from './core/epicenter/client.node';
-export { createWorkspaceClient } from './core/workspace/client.node';
-
-// Node-specific: types (node WorkspaceClient does NOT have whenSynced)
+// Client types (shared across platforms)
 export type {
+	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
-} from './core/workspace/client.node';
-export type { ActionInfo, EpicenterClient } from './core/epicenter/client.node';
-export { iterActions } from './core/epicenter/client.node';
+} from './core/workspace/client.shared';
 
 // Node-only: server functionality
 export { createServer } from './server';
-
-// Node-only: blob storage creation functions
-export {
-	createTableBlobStore,
-	createWorkspaceBlobs,
-} from './core/blobs/index.node';
-export type { BlobStoreContext } from './core/blobs/index.node';
-
-// Node-specific: workspace config (uses node Provider type)
-export type { WorkspaceConfig } from './core/workspace/config.node';
-export { defineWorkspace } from './core/workspace/config.node';

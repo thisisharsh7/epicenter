@@ -1,5 +1,4 @@
 import {
-	defineEpicenter,
 	defineWorkspace,
 	id,
 	integer,
@@ -90,7 +89,4 @@ const stressWorkspace = defineWorkspace({
 	}),
 });
 
-export default defineEpicenter({
-	id: 'stress-test',
-	workspaces: [stressWorkspace],
-});
+export default [stressWorkspace] as const;

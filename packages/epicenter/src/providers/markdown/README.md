@@ -127,9 +127,10 @@ The provider ID (`markdown`, `markdownDocs`, etc.) is automatically passed via `
 ### Layer 1: Workspace Configuration
 
 **`directory`** (optional): The workspace-level directory where all markdown files for this workspace are stored.
+
 - Defaults to the workspace `id`
-- Can be a relative path (resolved from `storageDir`) or absolute path
-- Example: If workspace id is "blog", defaults to `<storageDir>/blog`
+- Can be a relative path (resolved from `paths.project`) or absolute path
+- Example: If workspace id is "blog", defaults to `<projectDir>/blog`
 
 **`tableConfigs`** (optional): Per-table configuration object where keys are table names and values define how each table is handled.
 
@@ -138,14 +139,17 @@ The provider ID (`markdown`, `markdownDocs`, etc.) is automatically passed via `
 Each table in `tableConfigs` can have these properties:
 
 **`directory`** (optional): The directory for this specific table's markdown files.
+
 - Defaults to the table name
 - Resolved relative to the workspace directory (unless absolute)
 
 **`serialize()`**: Converts a database row into markdown format.
+
 - Input: `{ row, table }`
 - Output: `{ frontmatter, body, filename }`
 
 **`deserialize()`**: Converts markdown back into a database row.
+
 - Input: `{ frontmatter, body, filename, table }`
 - Output: `Result<SerializedRow, MarkdownProviderError>`
 
@@ -154,7 +158,7 @@ Each table in `tableConfigs` can have these properties:
 With default configuration:
 
 ```
-storageDir/
+projectDir/
 └── blog/                    (workspace.id = "blog")
     ├── posts/               (table name = "posts")
     │   ├── post-1.md
@@ -167,7 +171,7 @@ storageDir/
 With custom paths:
 
 ```
-storageDir/
+projectDir/
 └── content/                 (workspace.directory = "./content")
     ├── blog-posts/          (posts.directory = "./blog-posts")
     │   ├── post-1.md
@@ -187,7 +191,7 @@ When you don't provide custom configuration:
 - **Deserialize**: Extract `id` from filename, validate frontmatter against schema
 
 ```
-storageDir/
+projectDir/
 └── {workspace.id}/
     └── {tableName}/
         └── {rowId}.md
@@ -242,12 +246,12 @@ providers: {
 
 #### Custom Storage Directory
 
-To store files in a different location (relative to storageDir):
+To store files in a different location (relative to project directory):
 
 ```typescript
 providers: {
   markdown: (context) => markdownProvider(context, {
-    directory: './vault',  // → <storageDir>/vault
+    directory: './vault',  // → <projectDir>/vault
   }),
 }
 ```

@@ -28,18 +28,35 @@
 
 	// Navigation items
 	const navItems = [
-		{ label: 'Home', href: '/', icon: HomeIcon, exact: true },
-		{ label: 'Recordings', href: '/recordings', icon: ListIcon },
-		{ label: 'Transformations', href: '/transformations', icon: LayersIcon },
-		{ label: 'Settings', href: '/settings', icon: SettingsIcon },
-	] as const;
-
-	// Check if route is active - uses safer matching that prevents /recordings from matching /recordingsXYZ
-	const isActive = (href: string, exact = false) => {
-		const pathname = page.url.pathname;
-		if (exact) return pathname === href;
-		return pathname === href || pathname.startsWith(`${href}/`);
-	};
+		{
+			label: 'Home',
+			href: '/',
+			icon: HomeIcon,
+			isActive: (pathname: string) => pathname === '/',
+		},
+		{
+			label: 'Recordings',
+			href: '/recordings',
+			icon: ListIcon,
+			isActive: (pathname: string) =>
+				pathname === '/recordings' || pathname.startsWith('/recordings/'),
+		},
+		{
+			label: 'Transformations',
+			href: '/transformations',
+			icon: LayersIcon,
+			isActive: (pathname: string) =>
+				pathname === '/transformations' ||
+				pathname.startsWith('/transformations/'),
+		},
+		{
+			label: 'Settings',
+			href: '/settings',
+			icon: SettingsIcon,
+			isActive: (pathname: string) =>
+				pathname === '/settings' || pathname.startsWith('/settings/'),
+		},
+	];
 </script>
 
 <Sidebar.Root collapsible="icon">
@@ -77,10 +94,10 @@
 			<Sidebar.GroupContent>
 				<Sidebar.Menu>
 					{#each navItems as item}
-						{@const active = isActive(item.href, item.exact ?? false)}
 						<Sidebar.MenuItem>
-							<Sidebar.MenuButton isActive={active}>
+							<Sidebar.MenuButton isActive={item.isActive(page.url.pathname)}>
 								{#snippet child({ props })}
+									{@const Icon = item.icon}
 									<a
 										href={item.href}
 										{...props}
@@ -90,7 +107,7 @@
 											}
 										}}
 									>
-										<svelte:component this={item.icon} />
+										<Icon />
 										<span>{item.label}</span>
 									</a>
 								{/snippet}

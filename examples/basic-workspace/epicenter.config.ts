@@ -1,6 +1,5 @@
 import path from 'node:path';
 import {
-	defineEpicenter,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -243,7 +242,4 @@ const blogWorkspace = defineWorkspace({
 	}),
 });
 
-export default defineEpicenter({
-	id: 'basic-workspace-example',
-	workspaces: [blogWorkspace],
-});
+export default [blogWorkspace] as const;

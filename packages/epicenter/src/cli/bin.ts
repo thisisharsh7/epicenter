@@ -2,6 +2,7 @@
 
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { hideBin } from 'yargs/helpers';
+import { createClient } from '../core/workspace/client.node';
 import { createCLI } from './cli';
 import { loadEpicenterConfig } from './load-config';
 
@@ -15,11 +16,11 @@ async function main() {
 			// Enable automatic watch mode
 			await enableWatchMode();
 
-			// Normal execution (running under bun --watch)
-			const { config } = await loadEpicenterConfig(process.cwd());
-
-			// Create and run the CLI
-			await createCLI({ config, argv: hideBin(process.argv) });
+			const { workspaces, projectDir } = await loadEpicenterConfig(
+				process.cwd(),
+			);
+			const client = await createClient(workspaces, { projectDir });
+			await createCLI(client).run(hideBin(process.argv));
 		},
 		catch: (error) => {
 			if (error instanceof Error) {

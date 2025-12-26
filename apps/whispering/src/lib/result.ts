@@ -1,6 +1,6 @@
 import type { TaggedError } from 'wellcrafted/error';
 import { Err, type Ok } from 'wellcrafted/result';
-import type { UnifiedNotificationOptions } from '$lib/services/notifications/types';
+import type { UnifiedNotificationOptions } from '$lib/services/isomorphic/notifications/types';
 
 /**
  * Custom error type for the Whispering application that combines error information

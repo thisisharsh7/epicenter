@@ -1,36 +1,23 @@
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { Ok, tryAsync } from 'wellcrafted/result';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import * as Y from 'yjs';
-import type { Provider, ProviderContext } from '../../core/provider.node';
-import { defineProviderExports } from '../../core/provider.shared';
-import type { WorkspaceSchema } from '../../core/schema';
-
-/** Debounce delay for filesystem writes (ms) */
-const DEBOUNCE_MS = 100;
+import type { Provider } from '../../core/provider';
 
 /**
  * YJS document persistence provider using the filesystem.
- * Stores the YDoc as a binary file in the `.epicenter` directory.
+ * Stores the YDoc as a binary file in the provider's directory.
  *
- * **Platform**: Bun/Desktop (Tauri with Bun runtime)
+ * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
  *
  * **How it works**:
- * 1. Creates `.epicenter` directory if it doesn't exist
- * 2. Loads existing state from `.epicenter/${workspaceId}.yjs` on startup
- * 3. Auto-saves to disk on YJS updates (debounced to avoid blocking on frequent updates)
- * 4. Performs a final async write on cleanup to ensure no data loss
+ * 1. Creates provider directory if it doesn't exist
+ * 2. Loads existing state from `.epicenter/providers/persistence/${workspaceId}.yjs` on startup
+ * 3. Auto-saves to disk on every YJS update (synchronous to ensure data is persisted before process exits)
  *
- * **Garbage Collection**: YJS documents are created with `gc: true`, which automatically
- * garbage collects deleted content. Each save writes the full state with GC applied.
- *
- * **Storage location**: `.epicenter/${workspaceId}.yjs` relative to storageDir from epicenter config
+ * **Storage location**: `.epicenter/providers/persistence/${workspaceId}.yjs`
  * - Each workspace gets its own file named after its ID
  * - Binary format (not human-readable)
- * - Should be gitignored (add `.epicenter/` to `.gitignore`)
- *
- * **Performance**: Uses debounced async writes (100ms) via `Bun.write()` to avoid
- * blocking the event loop on every keystroke.
+ * - Should be gitignored (add `.epicenter/providers/` to `.gitignore`)
  *
  * @example Basic usage
  * ```typescript
@@ -41,106 +28,42 @@ const DEBOUNCE_MS = 100;
  *   id: 'blog',
  *   tables: { ... },
  *   providers: {
- *     persistence: setupPersistence,  // Auto-saves to {storageDir}/.epicenter/blog.yjs
- *   },
- *   exports: ({ tables }) => ({ ... }),
- * });
- * ```
- *
- * @example Multi-workspace setup
- * ```typescript
- * // All workspaces persist to .epicenter/ directory
- * const pages = defineWorkspace({
- *   id: 'pages',
- *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,  // → {storageDir}/.epicenter/pages.yjs
- *   },
- *   exports: ({ tables }) => ({ ... }),
- * });
- *
- * const blog = defineWorkspace({
- *   id: 'blog',
- *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,  // → {storageDir}/.epicenter/blog.yjs
+ *     persistence: setupPersistence,  // → .epicenter/providers/persistence/blog.yjs
  *   },
  *   exports: ({ tables }) => ({ ... }),
  * });
  * ```
  */
-export const setupPersistence = (async <TSchema extends WorkspaceSchema>({
-	id,
-	ydoc,
-	epicenterDir,
-}: ProviderContext<TSchema>) => {
-	if (!epicenterDir) {
+export const setupPersistence = (async ({ id, ydoc, paths }) => {
+	if (!paths) {
 		throw new Error(
-			'Persistence provider requires Bun environment with filesystem access',
+			'Persistence provider requires Node.js environment with filesystem access',
 		);
 	}
 
-	const filePath = join(epicenterDir, `${id}.yjs`);
+	const filePath = path.join(paths.provider, `${id}.yjs`);
 
-	// Ensure .epicenter directory exists
-	mkdirSync(epicenterDir, { recursive: true });
+	mkdirSync(paths.provider, { recursive: true });
 
-	// Load existing state from disk
-	await tryAsync({
-		try: async () => {
-			const savedState = await Bun.file(filePath).arrayBuffer();
-			Y.applyUpdate(ydoc, new Uint8Array(savedState));
-		},
-		catch: () => {
-			// File doesn't exist yet - that's fine, we'll create it on first update
-			return Ok(undefined);
-		},
-	});
+	// Try to load existing state from disk using Bun.file
+	// No need to check existence first - just try to read and handle failure
+	const file = Bun.file(filePath);
+	try {
+		// Use arrayBuffer() to get a fresh, non-shared buffer for Yjs
+		const savedState = await file.arrayBuffer();
+		// Convert to Uint8Array for Yjs
+		Y.applyUpdate(ydoc, new Uint8Array(savedState));
+		// console.log(`[Persistence] Loaded workspace from ${filePath}`);
+	} catch {
+		// File doesn't exist or couldn't be read - that's fine, we'll create it on first update
+		// console.log(`[Persistence] Creating new workspace at ${filePath}`);
+	}
 
-	/**
-	 * Writes the current YDoc state to disk.
-	 * Uses Bun.write() for async, non-blocking I/O.
-	 */
-	const save = () => Bun.write(filePath, Y.encodeStateAsUpdate(ydoc));
-
-	// Debounce state - the timeout delays writes, but ydoc is the source of truth.
-	// Canceling a timeout doesn't lose data because save() always writes the current ydoc state.
-	let saveTimeout: Timer | null = null;
-	let writeInProgress: Promise<number> | null = null;
-
-	/** Schedules a save after DEBOUNCE_MS of inactivity. Batches rapid updates into single writes. */
-	const debouncedSave = () => {
-		if (saveTimeout) clearTimeout(saveTimeout);
-		saveTimeout = setTimeout(() => {
-			saveTimeout = null;
-			writeInProgress = save();
-		}, DEBOUNCE_MS);
-	};
-
-	ydoc.on('update', debouncedSave);
-
-	return defineProviderExports({
-		/**
-		 * Cleanup and final persistence.
-		 *
-		 * Data safety: Canceling the timeout doesn't lose data because the timeout only
-		 * controls *when* we write, not *what* we write. The ydoc already has all changes
-		 * applied, and the final save() writes the complete current state.
-		 */
-		destroy: async () => {
-			// Cancel any pending debounced save (data is safe - see JSDoc above)
-			if (saveTimeout) {
-				clearTimeout(saveTimeout);
-			}
-
-			// Wait for any in-progress write to complete
-			await writeInProgress;
-
-			// Final save to ensure all data is persisted
-			await save();
-
-			// Unregister listener to prevent memory leaks
-			ydoc.off('update', debouncedSave);
-		},
+	// Auto-save on every update using synchronous write
+	// This ensures data is persisted before the process can exit
+	// The performance impact is minimal for typical YJS update sizes
+	ydoc.on('update', () => {
+		const state = Y.encodeStateAsUpdate(ydoc);
+		writeFileSync(filePath, state);
 	});
 }) satisfies Provider;

@@ -8,12 +8,15 @@ import {
 	defineWorkspace,
 	generateId,
 	id,
+	markdownProvider,
+	type ProviderContext,
 	type SerializedRow,
+	sqliteProvider,
 	text,
+	type WorkspaceSchema,
 } from '@epicenter/hq';
-import { markdownProvider, MarkdownProviderErr } from '@epicenter/hq/providers/markdown';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
-import { setupPersistence } from '@epicenter/hq/providers/persistence';
+import { MarkdownProviderErr } from '@epicenter/hq/indexes/markdown';
+import { setupPersistence } from '@epicenter/hq/providers';
 import { type } from 'arktype';
 import { google } from 'googleapis';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
@@ -24,6 +27,36 @@ import {
 	loadTokens,
 	performOAuthLogin,
 } from './auth';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gmail Auth Provider
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Gmail auth provider that manages OAuth2 tokens.
+ *
+ * Stores tokens in the provider's dedicated directory:
+ * `.epicenter/providers/gmailAuth/token.json`
+ */
+function gmailAuthProvider<TSchema extends WorkspaceSchema>({
+	paths,
+}: ProviderContext<TSchema>) {
+	if (!paths) {
+		return {
+			isAvailable: false as const,
+		};
+	}
+
+	return {
+		isAvailable: true as const,
+		providerDir: paths.provider,
+		loadTokens: () => loadTokens(paths.provider),
+		deleteTokens: () => deleteTokens(paths.provider),
+		getAuthenticatedClient: () => getAuthenticatedClient(paths.provider),
+		performOAuthLogin: () => performOAuthLogin(paths.provider),
+	};
+}
+
 import {
 	extractPlainText,
 	getHeader,
@@ -98,6 +131,7 @@ export const gmail = defineWorkspace({
 	providers: {
 		persistence: setupPersistence,
 		sqlite: (c) => sqliteProvider(c),
+		gmailAuth: gmailAuthProvider,
 		markdown: (c) =>
 			markdownProvider(c, {
 				tableConfigs: {
@@ -140,14 +174,12 @@ export const gmail = defineWorkspace({
 
 							return Ok(row);
 						},
-						extractRowIdFromFilename: (filename) =>
-							path.basename(filename, '.md'),
 					},
 				},
 			}),
 	},
 
-	exports: ({ tables, providers, epicenterDir }) => ({
+	exports: ({ tables, providers }) => ({
 		...tables,
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,
@@ -165,7 +197,7 @@ export const gmail = defineWorkspace({
 		login: defineMutation({
 			description: 'Authenticate with Gmail via OAuth2',
 			handler: async () => {
-				if (!epicenterDir) {
+				if (!providers.gmailAuth.isAvailable) {
 					return GmailApiErr({
 						message: 'Requires filesystem access (browser not supported)',
 						context: {
@@ -175,7 +207,7 @@ export const gmail = defineWorkspace({
 					});
 				}
 
-				const { error } = await performOAuthLogin(epicenterDir);
+				const { error } = await providers.gmailAuth.performOAuthLogin();
 				if (error) return Err(error);
 
 				return Ok({ message: 'Successfully authenticated with Gmail' });
@@ -188,14 +220,14 @@ export const gmail = defineWorkspace({
 		logout: defineMutation({
 			description: 'Remove stored Gmail credentials',
 			handler: async () => {
-				if (!epicenterDir) {
+				if (!providers.gmailAuth.isAvailable) {
 					return GmailApiErr({
 						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'logout' },
 					});
 				}
 
-				const { error } = await deleteTokens(epicenterDir);
+				const { error } = await providers.gmailAuth.deleteTokens();
 				if (error) return Err(error);
 
 				return Ok({ message: 'Successfully logged out of Gmail' });
@@ -208,9 +240,9 @@ export const gmail = defineWorkspace({
 		isAuthenticated: defineQuery({
 			description: 'Check if Gmail credentials exist',
 			handler: async () => {
-				if (!epicenterDir) return false;
+				if (!providers.gmailAuth.isAvailable) return false;
 
-				const { data: tokens, error } = await loadTokens(epicenterDir);
+				const { data: tokens, error } = await providers.gmailAuth.loadTokens();
 				if (error) return false;
 
 				return tokens !== null && !!tokens.refresh_token;
@@ -233,7 +265,7 @@ export const gmail = defineWorkspace({
 			),
 			description: 'Sync emails from Gmail to local database',
 			handler: async ({ query, maxResults = 500 }) => {
-				if (!epicenterDir) {
+				if (!providers.gmailAuth.isAvailable) {
 					return GmailApiErr({
 						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'sync' },
@@ -241,7 +273,7 @@ export const gmail = defineWorkspace({
 				}
 
 				// Get authenticated client
-				const clientResult = await getAuthenticatedClient(epicenterDir);
+				const clientResult = await providers.gmailAuth.getAuthenticatedClient();
 				if (clientResult.error) return Err(clientResult.error);
 
 				const gmailApi = google.gmail({
@@ -376,7 +408,7 @@ export const gmail = defineWorkspace({
 			),
 			description: 'Permanently delete email from Gmail and local database',
 			handler: async ({ emailId }) => {
-				if (!epicenterDir) {
+				if (!providers.gmailAuth.isAvailable) {
 					return GmailApiErr({
 						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'deleteEmail' },
@@ -393,7 +425,7 @@ export const gmail = defineWorkspace({
 				}
 
 				// Get authenticated client
-				const clientResult = await getAuthenticatedClient(epicenterDir);
+				const clientResult = await providers.gmailAuth.getAuthenticatedClient();
 				if (clientResult.error) return Err(clientResult.error);
 
 				const gmailApi = google.gmail({
@@ -436,7 +468,7 @@ export const gmail = defineWorkspace({
 			),
 			description: 'Move email to trash in Gmail',
 			handler: async ({ emailId }) => {
-				if (!epicenterDir) {
+				if (!providers.gmailAuth.isAvailable) {
 					return GmailApiErr({
 						message: 'Requires filesystem access (browser not supported)',
 						context: { operation: 'trashEmail' },
@@ -453,7 +485,7 @@ export const gmail = defineWorkspace({
 				}
 
 				// Get authenticated client
-				const clientResult = await getAuthenticatedClient(epicenterDir);
+				const clientResult = await providers.gmailAuth.getAuthenticatedClient();
 				if (clientResult.error) return Err(clientResult.error);
 
 				const gmailApi = google.gmail({

@@ -4,9 +4,9 @@ Expose your Epicenter workspaces as REST APIs and AI-accessible tools.
 
 ## What This Does
 
-`createServer()` is a thin wrapper around `createEpicenterClient()` that:
+`createServer()` is a thin wrapper around a `client` that:
 
-1. **Creates an Epicenter client** (same initialization as scripts)
+1. **Uses an initialized client** (same initialization as scripts)
 2. **Keeps it alive** (doesn't dispose until you stop the server)
 3. **Maps HTTP endpoints** to each client action (REST, MCP, WebSocket Sync)
 
@@ -29,8 +29,8 @@ This means:
 ```typescript
 // Migration script
 {
-  await using client = await createEpicenterClient(config);
-  await client.pages.createPage({ ... });
+  await using client = await createClient(blogWorkspace);
+  await client.createPost({ ... });
   // Client disposed when block exits
 }
 ```
@@ -51,8 +51,10 @@ This means:
 
 ```typescript
 // Long-running server
-const { app, client } = await createServer(config);
-app.listen(3913);
+const client = await createClient([blogWorkspace]);
+const server = createServer(client);
+
+server.start({ port: 3913 });
 // Client stays alive until Ctrl+C
 ```
 
@@ -76,12 +78,12 @@ If you need to run scripts while the server is running, use the HTTP API instead
 ```typescript
 // ❌ DON'T: Create another client (storage conflict!)
 {
-  await using client = await createEpicenterClient(config);
-  await client.pages.createPage({ ... });
+  await using client = await createClient(blogWorkspace);
+  await client.createPost({ ... });
 }
 
 // ✅ DO: Use the server's HTTP API
-await fetch('http://localhost:3913/workspaces/pages/createPage', {
+await fetch('http://localhost:3913/workspaces/blog/createPost', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ title: 'New Post', content: '...' }),
@@ -96,41 +98,54 @@ The HTTP approach:
 
 ## Quick Start
 
-### Single Workspace Server
-
 ```typescript
-import { defineWorkspace, createWorkspaceServer } from '@epicenter/hq';
+import {
+	defineWorkspace,
+	createClient,
+	createServer,
+	id,
+	text,
+	defineMutation,
+	defineQuery,
+} from '@epicenter/hq';
+import { type } from 'arktype';
 
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
-	name: 'blog',
 	tables: {
-		/* your tables */
+		posts: {
+			id: id(),
+			title: text(),
+		},
 	},
 	providers: {
 		/* your providers */
 	},
-	exports: ({ tables, providers }) => ({
+	exports: ({ tables }) => ({
 		createPost: defineMutation({
-			input: Type.Object({ title: Type.String() }),
+			input: type({ title: 'string' }),
 			handler: async ({ title }) => {
-				// Your logic here
-				return Ok(post);
+				const id = generateId();
+				tables.posts.upsert({ id, title });
+				return Ok({ id });
 			},
 		}),
 		getAllPosts: defineQuery({
 			handler: async () => {
-				return Ok(posts);
+				return Ok(tables.posts.getAllValid());
 			},
 		}),
 	}),
 });
 
-// Create the server
-const app = await createWorkspaceServer(blogWorkspace);
+// 1. Create the client
+const client = await createClient(blogWorkspace);
 
-// Start it (must use app.listen for WebSocket support)
-app.listen(3913);
+// 2. Create the server from the client
+const server = createServer(client);
+
+// 3. Start the server
+server.start({ port: 3913 });
 ```
 
 Now your actions are available as HTTP endpoints:
@@ -138,19 +153,19 @@ Now your actions are available as HTTP endpoints:
 - `GET http://localhost:3913/workspaces/blog/getAllPosts`
 - `POST http://localhost:3913/workspaces/blog/createPost` with JSON body `{ "title": "My Post" }`
 
-### Multiple Workspaces (Epicenter)
+### Multiple Workspaces
 
 ```typescript
-import { defineEpicenter, createHttpServer } from '@epicenter/hq';
+import { createClient, createServer } from '@epicenter/hq';
 
-const epicenter = defineEpicenter({
-	id: 'my-app',
-	workspaces: [blogWorkspace, authWorkspace, storageWorkspace],
-});
+const client = await createClient([
+	blogWorkspace,
+	authWorkspace,
+	storageWorkspace,
+]);
+const server = createServer(client);
 
-const app = await createHttpServer(epicenter);
-
-app.listen(3913);
+server.start({ port: 3913 });
 ```
 
 Actions from each workspace get their own namespace under `/workspaces`:
@@ -160,6 +175,7 @@ Actions from each workspace get their own namespace under `/workspaces`:
 - `GET http://localhost:3913/workspaces/storage/listFiles`
 
 **URL Hierarchy:**
+
 ```
 /                                    - API root/discovery
 /openapi                             - OpenAPI spec (JSON)
@@ -250,10 +266,21 @@ This lets AI models like Claude discover your actions and call them automaticall
 ## Real-World Example
 
 ```typescript
-// Define your workspaces (same as client-side)
+import {
+	defineWorkspace,
+	createClient,
+	createServer,
+	id,
+	text,
+	tags,
+	defineMutation,
+	defineQuery,
+} from '@epicenter/hq';
+import { type } from 'arktype';
+
+// Define your workspace
 const notesWorkspace = defineWorkspace({
 	id: 'notes',
-	name: 'notes',
 	tables: {
 		notes: {
 			id: id(),
@@ -267,35 +294,35 @@ const notesWorkspace = defineWorkspace({
 	},
 	exports: ({ tables, providers }) => ({
 		createNote: defineMutation({
-			input: Type.Object({
-				title: Type.String(),
-				content: Type.String(),
-				tags: Type.Optional(Type.Array(Type.String())),
+			input: type({
+				title: 'string',
+				content: 'string',
+				'tags?': 'string[]',
 			}),
 			handler: async (input) => {
-				const note = { id: generateId(), ...input };
+				const id = generateId();
+				const note = { id, ...input };
 				tables.notes.upsert(note);
 				return Ok(note);
 			},
 		}),
 		searchNotes: defineQuery({
-			input: Type.Object({ query: Type.String() }),
+			input: type({ query: 'string' }),
 			handler: async ({ query }) => {
-				const results = await providers.sqlite.db
+				const results = await providers.sqlite.posts
 					.select()
-					.from(providers.sqlite.notes)
-					.where(like(providers.sqlite.notes.title, `%${query}%`))
-					.all();
+					.where(like(providers.sqlite.posts.title, `%${query}%`));
 				return Ok(results);
 			},
 		}),
 	}),
 });
 
-// Expose as server
-const app = await createWorkspaceServer(notesWorkspace);
+// Initialize client and server
+const client = await createClient(notesWorkspace);
+const server = createServer(client);
 
-app.listen(8080);
+server.start({ port: 8080 });
 
 console.log('Notes API running at http://localhost:8080');
 ```
@@ -323,26 +350,23 @@ Now you have a fully functional notes API:
 
 ## Configuration
 
-Both functions accept an optional `RuntimeConfig` parameter (same as workspace clients):
+The `start` method accepts configuration options:
 
 ```typescript
-const app = await createHttpServer(epicenter, {
-	// Future: persistence options, sync providers, etc.
+server.start({
+	port: 3913,
 });
 ```
 
-The returned Hono app gives you full control:
+The returned server object from `start()` is a Bun server instance. You also have access to the underlying Elysia `app`:
 
 ```typescript
-// Add middleware
-app.use('*', logger());
-app.use('/admin/*', authMiddleware);
+const { app, start } = createServer(client);
 
-// Add custom routes
-app.get('/health', (c) => c.text('OK'));
+// Add custom routes to the app before starting
+app.get('/health', () => 'OK');
 
-// Start the server (must use app.listen for WebSocket support)
-app.listen(process.env.PORT ?? 3913);
+const server = start({ port: 3913 });
 ```
 
 ## What's Next

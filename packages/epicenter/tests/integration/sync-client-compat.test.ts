@@ -10,14 +10,14 @@
  * For protocol-level tests, see protocol.test.ts.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { Ok } from 'wellcrafted/result';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
+import { createClient } from '../../src/core/workspace/client.node';
 import {
 	createServer,
-	defineEpicenter,
 	defineMutation,
 	defineQuery,
 	defineWorkspace,
@@ -53,16 +53,12 @@ describe('y-websocket Client Compatibility', () => {
 		}),
 	});
 
-	const epicenter = defineEpicenter({
-		id: 'y-websocket-compat-test',
-		workspaces: [notesWorkspace],
-	});
-
 	let server: { stop: () => void; port: number };
 	let wsUrl: string;
 
 	beforeAll(async () => {
-		const { app } = await createServer(epicenter);
+		const client = await createClient([notesWorkspace] as const);
+		const { app } = createServer(client);
 		const elysiaServer = app.listen(0);
 		const port = elysiaServer.server!.port;
 

@@ -1,7 +1,7 @@
-import { createEpicenterClient } from '@epicenter/hq';
+import { createClient } from '@epicenter/hq';
 import epicenter from '../../epicenter.config';
 
-await using client = await createEpicenterClient(epicenter);
+await using client = await createClient(epicenter);
 
 // Add GitHub repos and landing pages in parallel
 await Promise.all([

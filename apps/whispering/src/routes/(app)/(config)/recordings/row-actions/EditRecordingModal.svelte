@@ -6,16 +6,14 @@
 	import { Label } from '@epicenter/ui/label';
 	import { Textarea } from '@epicenter/ui/textarea';
 	import { rpc } from '$lib/query';
-	import type { Recording } from '$lib/services/db';
-	import * as services from '$lib/services';
+	import type { Recording } from '$lib/services/isomorphic/db';
+	import { services } from '$lib/services';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
 	import EditIcon from '@lucide/svelte/icons/pencil';
 	import { Spinner } from '@epicenter/ui/spinner';
 	import { onDestroy } from 'svelte';
 
 	const updateRecording = createMutation(() => rpc.db.recordings.update.options);
-
-	const deleteRecording = createMutation(() => rpc.db.recordings.delete.options);
 
 	let { recording }: { recording: Recording } = $props();
 
@@ -82,8 +80,8 @@
 
 		confirmationDialog.open({
 			title: 'Unsaved changes',
-			subtitle: 'You have unsaved changes. Are you sure you want to leave?',
-			confirmText: 'Leave',
+			description: 'You have unsaved changes. Are you sure you want to leave?',
+			confirm: { text: 'Leave' },
 			onConfirm: () => {
 				// Reset working copy and dirty flag
 				workingCopy = recording;
@@ -191,35 +189,30 @@
 				onclick={() => {
 					confirmationDialog.open({
 						title: 'Delete recording',
-						subtitle: 'Are you sure? This action cannot be undone.',
-						confirmText: 'Delete',
-						onConfirm: () => {
-							deleteRecording.mutate($state.snapshot(recording), {
-								onSuccess: () => {
-									isDialogOpen = false;
-									rpc.notify.success.execute({
-										title: 'Deleted recording!',
-										description:
-											'Your recording has been deleted successfully.',
-									});
-								},
-								onError: (error) => {
-									rpc.notify.error.execute({
-										title: 'Failed to delete recording!',
-										description: 'Your recording could not be deleted.',
-										action: { type: 'more-details', error: error },
-									});
-								},
+						description: 'Are you sure? This action cannot be undone.',
+						confirm: { text: 'Delete', variant: 'destructive' },
+						onConfirm: async () => {
+							const { error } = await rpc.db.recordings.delete.execute(
+								$state.snapshot(recording),
+							);
+							if (error) {
+								rpc.notify.error.execute({
+									title: 'Failed to delete recording!',
+									description: 'Your recording could not be deleted.',
+									action: { type: 'more-details', error },
+								});
+								throw error;
+							}
+							isDialogOpen = false;
+							rpc.notify.success.execute({
+								title: 'Deleted recording!',
+								description: 'Your recording has been deleted successfully.',
 							});
 						},
 					});
 				}}
 				variant="destructive"
-				disabled={deleteRecording.isPending}
 			>
-				{#if deleteRecording.isPending}
-					<Spinner />
-				{/if}
 				Delete
 			</Button>
 			<Button variant="outline" onclick={() => promptUserConfirmLeave()}>

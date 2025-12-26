@@ -54,10 +54,7 @@ export {
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,
 } from './regex';
-// NOTE: safeToJsonSchema is intentionally NOT exported here.
-// It depends on @standard-community/standard-json which has optional peer
-// dependencies (effect, zod, etc.) that cause bundler errors in browser builds.
-// Import directly from './safe-json-schema' in Node.js-only code (CLI, server).
+export { generateJsonSchema } from './generate-json-schema';
 // ============================================================================
 // Serialization
 // ============================================================================

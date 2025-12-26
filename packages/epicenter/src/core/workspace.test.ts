@@ -3,18 +3,17 @@ import path from 'node:path';
 import { type } from 'arktype';
 import { eq } from 'drizzle-orm';
 import { Ok } from 'wellcrafted/result';
-import { sqliteProvider } from '../providers/sqlite';
+import { sqliteProvider } from '../indexes/sqlite';
 import { defineMutation, defineQuery } from './actions';
-import { createEpicenterClient, defineEpicenter } from './epicenter';
 import { id, integer, text } from './schema';
-import { defineProviderExports } from './provider.shared';
-import { createWorkspaceClient, defineWorkspace } from './workspace';
+import { defineWorkspace } from './workspace';
+import { createClient } from './workspace/client.node';
 
 /**
  * Test suite for workspace initialization with topological sort
  * Tests various dependency scenarios to ensure correct initialization order
  */
-describe('createWorkspaceClient - Topological Sort', () => {
+describe('createClient - Topological Sort', () => {
 	/**
 	 * Track initialization order to verify topological sorting
 	 */
@@ -33,9 +32,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-a');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -50,9 +48,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-b');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -70,16 +67,15 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-c');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
 		});
 
 		// Initialize workspace C
-		await createWorkspaceClient(workspaceC);
+		await createClient(workspaceC);
 
 		// Verify initialization order: A -> B -> C
 		expect(initOrder).toEqual(['workspace-a', 'workspace-b', 'workspace-c']);
@@ -99,9 +95,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-d');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -116,9 +111,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-a');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -133,9 +127,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-b');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -153,15 +146,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-c');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
 		});
 
-		await createWorkspaceClient(workspaceC);
+		await createClient(workspaceC);
 
 		// D must be initialized first
 		expect(initOrder[0]).toBe('workspace-d');
@@ -187,9 +179,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-x');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -203,9 +194,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-y');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -220,15 +210,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-z');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
 		});
 
-		await createWorkspaceClient(workspaceZ);
+		await createClient(workspaceZ);
 
 		// X and Y can be in any order (both have no dependencies)
 		expect(initOrder.slice(0, 2)).toContain('workspace-x');
@@ -269,9 +258,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		workspaceA.dependencies = [workspaceB];
 
 		// Should throw error about circular dependency
-		expect(() => createWorkspaceClient(workspaceA)).toThrow(
-			/Circular dependency/,
-		);
+		expect(() => createClient(workspaceA)).toThrow(/Circular dependency/);
 	});
 
 	test('complex dependency graph with multiple levels', async () => {
@@ -297,9 +284,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-a');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -314,9 +300,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-b');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -331,9 +316,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-c');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -348,9 +332,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-d');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -365,9 +348,8 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-e');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
@@ -390,15 +372,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 				},
 			},
 			providers: {
-				tracker: () => {
+				tracker: ({ ydoc }) => {
 					initOrder.push('workspace-f');
-					return defineProviderExports({});
 				},
 			},
 			exports: () => ({}),
 		});
 
-		await createWorkspaceClient(workspaceF);
+		await createClient(workspaceF);
 
 		// A must be first (no dependencies)
 		expect(initOrder[0]).toBe('workspace-a');
@@ -467,14 +448,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		await using client = await createWorkspaceClient(workspaceB);
+		await using client = await createClient(workspaceB);
 
 		// Verify that B can call A's action
 		const result = await client.getValueFromA();
 		expect(result.data).toBe('value-from-a');
 	});
 
-	test('createWorkspaceClient returns only the specified workspace', async () => {
+	test('createClient(workspace) returns only the specified workspace', async () => {
 		const workspaceA = defineWorkspace({
 			id: 'a',
 			tables: {
@@ -511,14 +492,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		await using client = await createWorkspaceClient(workspaceB);
+		await using client = await createClient(workspaceB);
 
-		// createWorkspaceClient returns workspace B's actions
+		// createClient(workspace) returns workspace B's actions
 		expect(client.getValueFromB).toBeDefined();
 		expect(typeof client.getValueFromB).toBe('function');
 		expect(client.callA).toBeDefined();
 
-		// All workspaces are initialized, but createWorkspaceClient only returns B's client
+		// All workspaces are initialized, but createClient(workspace) only returns B's client
 		// Dependency workspace A is not accessible on this return value
 		expect((client as any).workspaceA).toBeUndefined();
 
@@ -527,7 +508,7 @@ describe('createWorkspaceClient - Topological Sort', () => {
 		expect(result.data).toBe('value-from-a');
 	});
 
-	test('createWorkspaceClient with multiple dependencies returns only specified workspace', async () => {
+	test('createClient(workspace) with multiple dependencies returns only specified workspace', async () => {
 		const workspaceA = defineWorkspace({
 			id: 'a',
 			tables: {
@@ -583,14 +564,14 @@ describe('createWorkspaceClient - Topological Sort', () => {
 			}),
 		});
 
-		await using client = await createWorkspaceClient(workspaceC);
+		await using client = await createClient(workspaceC);
 
-		// createWorkspaceClient returns only C's actions
+		// createClient(workspace) returns only C's actions
 		expect(client.getValue).toBeDefined();
 		expect(client.getFromA).toBeDefined();
 		expect(client.getFromB).toBeDefined();
 
-		// All workspaces are initialized, but createWorkspaceClient only returns C's client
+		// All workspaces are initialized, but createClient(workspace) only returns C's client
 		// A and B are not accessible on this return value
 		expect((client as any).workspaceA).toBeUndefined();
 		expect((client as any).workspaceB).toBeUndefined();
@@ -660,7 +641,7 @@ describe('Workspace Action Handlers', () => {
 						category: 'string',
 					}),
 					handler: async ({ title, content, category }) => {
-						const { generateId } = require('../index');
+						const { generateId } = require('../index.node');
 						const post = {
 							id: generateId(),
 							title,
@@ -716,13 +697,9 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('createPost mutation creates a post', async () => {
-		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
-			storageDir: TEST_DIR,
-			workspaces: [postsWorkspace],
+		await using client = await createClient(postsWorkspace, {
+			projectDir: TEST_DIR,
 		});
-		await using epicenterClient = await createEpicenterClient(epicenter);
-		const client = epicenterClient['posts-test'];
 
 		const result = await client.createPost({
 			title: 'Test Post',
@@ -739,13 +716,9 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('listPosts query returns created posts', async () => {
-		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
-			storageDir: TEST_DIR,
-			workspaces: [postsWorkspace],
+		await using client = await createClient(postsWorkspace, {
+			projectDir: TEST_DIR,
 		});
-		await using epicenterClient = await createEpicenterClient(epicenter);
-		const client = epicenterClient['posts-test'];
 
 		// Create a post first
 		await client.createPost({
@@ -753,7 +726,7 @@ describe('Workspace Action Handlers', () => {
 			category: 'tech',
 		});
 
-		// Wait for providers to sync
+		// Wait for indexes to sync
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// List all posts
@@ -767,13 +740,9 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('getPost query retrieves specific post', async () => {
-		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
-			storageDir: TEST_DIR,
-			workspaces: [postsWorkspace],
+		await using client = await createClient(postsWorkspace, {
+			projectDir: TEST_DIR,
 		});
-		await using epicenterClient = await createEpicenterClient(epicenter);
-		const client = epicenterClient['posts-test'];
 
 		// Create a post
 		const createResult = await client.createPost({
@@ -784,7 +753,7 @@ describe('Workspace Action Handlers', () => {
 		expect(createResult.data).toBeDefined();
 		const postId = createResult.data?.id;
 
-		// Wait for providers to sync
+		// Wait for indexes to sync
 		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Get the specific post
@@ -799,13 +768,9 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('updateViews mutation updates post view count', async () => {
-		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
-			storageDir: TEST_DIR,
-			workspaces: [postsWorkspace],
+		await using client = await createClient(postsWorkspace, {
+			projectDir: TEST_DIR,
 		});
-		await using epicenterClient = await createEpicenterClient(epicenter);
-		const client = epicenterClient['posts-test'];
 
 		// Create a post
 		const createResult = await client.createPost({
@@ -827,13 +792,9 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('updateViews returns null for non-existent post', async () => {
-		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
-			storageDir: TEST_DIR,
-			workspaces: [postsWorkspace],
+		await using client = await createClient(postsWorkspace, {
+			projectDir: TEST_DIR,
 		});
-		await using epicenterClient = await createEpicenterClient(epicenter);
-		const client = epicenterClient['posts-test'];
 
 		// Try to update views on non-existent post
 		const result = await client.updateViews({
@@ -846,13 +807,9 @@ describe('Workspace Action Handlers', () => {
 	});
 
 	test('createPost with optional content field', async () => {
-		const epicenter = defineEpicenter({
-			id: 'test-epicenter',
-			storageDir: TEST_DIR,
-			workspaces: [postsWorkspace],
+		await using client = await createClient(postsWorkspace, {
+			projectDir: TEST_DIR,
 		});
-		await using epicenterClient = await createEpicenterClient(epicenter);
-		const client = epicenterClient['posts-test'];
 
 		const result = await client.createPost({
 			title: 'No Content Post',

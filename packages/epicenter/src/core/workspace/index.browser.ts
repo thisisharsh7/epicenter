@@ -4,16 +4,23 @@
  * This file is selected by bundlers when the "browser" condition is matched.
  */
 
-// Provider types (browser-specific)
-export type { Provider, ProviderContext } from '../provider.browser';
-// Runtime and types - browser version
-export { createWorkspaceClient } from './client.browser';
-export type { WorkspaceClient, WorkspacesToClients } from './client.browser';
+// Provider types (shared)
+export type { Provider, ProviderContext } from '../provider';
+// Runtime - browser version
+export { createClient } from './client.browser';
+// Types from shared (no platform-specific code)
+export type {
+	ActionInfo,
+	EpicenterClient,
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './client.shared';
+export { iterActions } from './client.shared';
 
-// Config types and definition (browser-specific)
+// Config types and definition (shared)
 export type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
 	WorkspacesToExports,
-} from './config.browser';
-export { defineWorkspace } from './config.browser';
+} from './config';
+export { defineWorkspace } from './config';

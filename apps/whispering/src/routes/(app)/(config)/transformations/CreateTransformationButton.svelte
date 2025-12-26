@@ -5,7 +5,7 @@
 	import * as Dialog from '@epicenter/ui/dialog';
 	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
-	import { generateDefaultTransformation } from '$lib/services/db';
+	import { generateDefaultTransformation } from '$lib/services/isomorphic/db';
 	import { createMutation } from '@tanstack/svelte-query';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 
@@ -19,8 +19,8 @@
 	function promptUserConfirmLeave() {
 		confirmationDialog.open({
 			title: 'Unsaved changes',
-			subtitle: 'You have unsaved changes. Are you sure you want to leave?',
-			confirmText: 'Leave',
+			description: 'You have unsaved changes. Are you sure you want to leave?',
+			confirm: { text: 'Leave' },
 			onConfirm: () => {
 				isDialogOpen = false;
 			},

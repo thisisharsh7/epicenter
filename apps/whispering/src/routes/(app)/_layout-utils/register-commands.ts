@@ -1,11 +1,11 @@
 import { partitionResults } from 'wellcrafted/result';
 import { commands } from '$lib/commands';
-import { rpc } from '$lib/query';
-import type { Accelerator } from '$lib/services/global-shortcut-manager';
+import { desktopRpc, rpc } from '$lib/query';
+import type { Accelerator } from '$lib/services/desktop/global-shortcut-manager';
 import {
 	type CommandId,
 	shortcutStringToArray,
-} from '$lib/services/local-shortcut-manager';
+} from '$lib/services/isomorphic/local-shortcut-manager';
 import { settings } from '$lib/stores/settings.svelte';
 
 /**
@@ -20,11 +20,11 @@ export async function syncLocalShortcutsWithSettings() {
 			.map((command) => {
 				const keyCombination = settings.value[`shortcuts.local.${command.id}`];
 				if (!keyCombination) {
-					return rpc.shortcuts.unregisterCommandLocally.execute({
+					return rpc.localShortcuts.unregisterCommand.execute({
 						commandId: command.id as CommandId,
 					});
 				}
-				return rpc.shortcuts.registerCommandLocally.execute({
+				return rpc.localShortcuts.registerCommand.execute({
 					command,
 					keyCombination: shortcutStringToArray(keyCombination),
 				});
@@ -60,7 +60,7 @@ export async function syncGlobalShortcutsWithSettings() {
 
 	const results = await Promise.all(
 		commandsWithAccelerators.map((item) =>
-			rpc.shortcuts.registerCommandGlobally.execute(item),
+			desktopRpc.globalShortcuts.registerCommand.execute(item),
 		),
 	);
 	const { errs } = partitionResults(results);

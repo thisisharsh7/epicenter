@@ -1,7 +1,7 @@
-import { createEpicenterClient } from '@epicenter/hq';
+import { createClient } from '@epicenter/hq';
 import epicenter from '../../epicenter.config';
 
-await using client = await createEpicenterClient(epicenter);
+await using client = await createClient(epicenter);
 
 // "Writing a good CLAUDE.md" - https://www.humanlayer.dev/blog/writing-a-good-claude-md
 const ARTICLE_ID = '4z659zpoq2l3zi6';

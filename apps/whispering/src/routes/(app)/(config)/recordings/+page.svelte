@@ -18,7 +18,7 @@
 	import * as Table from '@epicenter/ui/table';
 	import { Textarea } from '@epicenter/ui/textarea';
 	import { rpc } from '$lib/query';
-	import type { Recording } from '$lib/services/db';
+	import type { Recording } from '$lib/services/isomorphic/db';
 	import { cn } from '@epicenter/ui/utils';
 	import { createPersistedState } from '@epicenter/svelte-utils';
 	import { createMutation, createQuery } from '@tanstack/svelte-query';
@@ -59,13 +59,13 @@
 
 	/**
 	 * Returns a cell renderer for a date/time column using date-fns format.
-	 * @param {string} formatString - date-fns format string
-	 * @returns {(args: { getValue: () => string }) => string}
+	 *
+	 * @param formatString - date-fns format string
 	 */
 	function formattedCell(formatString: string) {
-		return ({ getValue }: { getValue: () => string }) => {
+		return ({ getValue }: { getValue: () => unknown }) => {
 			const value = getValue();
-			if (!value) return '';
+			if (typeof value !== 'string' || !value) return '';
 			const date = new Date(value);
 			if (Number.isNaN(date.getTime())) return value;
 			try {
@@ -80,8 +80,6 @@
 	const transcribeRecordings = createMutation(
 		() => rpc.transcription.transcribeRecordings.options,
 	);
-	const deleteRecordings = createMutation(() => rpc.db.recordings.delete.options);
-
 	const DATE_FORMAT = 'PP p'; // e.g., Aug 13, 2025, 10:00 AM
 
 	const columns: ColumnDef<Recording>[] = [
@@ -516,28 +514,26 @@
 						onclick={() => {
 							confirmationDialog.open({
 								title: 'Delete recordings',
-								subtitle: 'Are you sure you want to delete these recordings?',
-								confirmText: 'Delete',
-								onConfirm: () => {
-									deleteRecordings.mutate(
+								description:
+									'Are you sure you want to delete these recordings?',
+								confirm: { text: 'Delete', variant: 'destructive' },
+								onConfirm: async () => {
+									const { error } = await rpc.db.recordings.delete.execute(
 										selectedRecordingRows.map(({ original }) => original),
-										{
-											onSuccess: () => {
-												rpc.notify.success.execute({
-													title: 'Deleted recordings!',
-													description:
-														'Your recordings have been deleted successfully.',
-												});
-											},
-											onError: (error) => {
-												rpc.notify.error.execute({
-													title: 'Failed to delete recordings!',
-													description: 'Your recordings could not be deleted.',
-													action: { type: 'more-details', error: error },
-												});
-											},
-										},
 									);
+									if (error) {
+										rpc.notify.error.execute({
+											title: 'Failed to delete recordings!',
+											description: 'Your recordings could not be deleted.',
+											action: { type: 'more-details', error },
+										});
+										throw error;
+									}
+									rpc.notify.success.execute({
+										title: 'Deleted recordings!',
+										description:
+											'Your recordings have been deleted successfully.',
+									});
 								},
 							});
 						}}
