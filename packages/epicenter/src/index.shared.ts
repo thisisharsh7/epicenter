@@ -74,14 +74,8 @@ export type {
 	YRow,
 } from './core/db/table-helper';
 
-// Epicenter types (shared across platforms)
-// Note: EpicenterConfig and defineEpicenter are exported from platform-specific
-// entry points because they have different type signatures (Node adds storageDir)
-export type {
-	ActionInfo,
-	EpicenterClient,
-} from './core/epicenter/client.shared';
-export { iterActions } from './core/epicenter/client.shared';
+export type { ActionInfo } from './core/workspace/client.shared';
+export { iterActions } from './core/workspace/client.shared';
 
 export type {
 	EpicenterOperationError,
@@ -165,6 +159,7 @@ export type { AbsolutePath, EpicenterDir, StorageDir } from './core/types';
 
 // Workspace types (shared across platforms)
 export type {
+	EpicenterClient,
 	WorkspaceClient,
 	WorkspacesToClients,
 } from './core/workspace/client.shared';

@@ -26,7 +26,7 @@
  */
 
 import { existsSync, rmSync } from 'node:fs';
-import { createEpicenterClient, generateId } from '@epicenter/hq';
+import { createClient, generateId } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
 const TOTAL_ITEMS = Number(process.argv[2]) || 50_000;
@@ -68,7 +68,7 @@ if (existsSync(yjsPath)) {
 }
 
 console.log('Creating client...');
-await using client = await createEpicenterClient(epicenterConfig);
+await using client = await createClient(epicenterConfig);
 console.log('Client created\n');
 
 const stress = client.stress;

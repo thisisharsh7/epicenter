@@ -1,2 +1,1 @@
-// Unified server with REST + MCP endpoints (SSE)
-export { createServer } from './server';
+export { createServer, DEFAULT_PORT, type StartServerOptions } from './server';

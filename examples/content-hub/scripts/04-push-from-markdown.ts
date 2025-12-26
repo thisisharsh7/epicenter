@@ -5,12 +5,12 @@
  * This overwrites database content with what's in the markdown files.
  */
 
-import { createEpicenterClient } from '@epicenter/hq';
+import { createClient } from '@epicenter/hq';
 import epicenterConfig from '../epicenter.config';
 
 console.log('🔗 Connecting to pages workspace...');
 
-await using client = await createEpicenterClient(epicenterConfig);
+await using client = await createClient(epicenterConfig);
 
 console.log('📥 Pushing from markdown to database...\n');
 

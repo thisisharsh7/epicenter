@@ -8,12 +8,14 @@
 // All platform-agnostic exports
 export * from './index.shared';
 
-// Browser-specific: EpicenterConfig type (no storageDir)
-export type { EpicenterConfig } from './core/epicenter/config.browser';
-export { defineEpicenter } from './core/epicenter/config.browser';
+// Browser-specific: client creation (no storageDir option)
+export { createClient } from './core/workspace/client.browser';
 
-// Browser-specific: runtime functions
-export { createEpicenterClient } from './core/epicenter/client.browser';
-export { createWorkspaceClient } from './core/workspace/client.browser';
+// Client types (shared across platforms)
+export type {
+	EpicenterClient,
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './core/workspace/client.shared';
 
 // Note: createServer is NOT exported in browser builds (Node.js only)

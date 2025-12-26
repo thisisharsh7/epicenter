@@ -8,13 +8,18 @@
 // All platform-agnostic exports
 export * from './index.shared';
 
-// Node-specific: EpicenterConfig type (has storageDir)
-export type { EpicenterConfig } from './core/epicenter/config.node';
-export { defineEpicenter } from './core/epicenter/config.node';
+// Node-specific: client creation with options (storageDir)
+export {
+	createClient,
+	type CreateClientOptions,
+} from './core/workspace/client.node';
 
-// Node-specific: runtime functions
-export { createEpicenterClient } from './core/epicenter/client.node';
-export { createWorkspaceClient } from './core/workspace/client.node';
+// Client types (shared across platforms)
+export type {
+	EpicenterClient,
+	WorkspaceClient,
+	WorkspacesToClients,
+} from './core/workspace/client.shared';
 
 // Node-only: server functionality
 export { createServer } from './server';

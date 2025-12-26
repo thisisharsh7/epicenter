@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { createEpicenterClient } from '@epicenter/hq';
+import { createClient } from '@epicenter/hq';
 import epicenterConfig from './epicenter.config';
 
 let post1Id: string;
@@ -8,7 +8,7 @@ let post2Id: string;
 
 test('YJS file is created on first session', async () => {
 	console.log('📝 Session 1: Creating initial data...');
-	using client = await createEpicenterClient(epicenterConfig);
+	using client = await createClient(epicenterConfig);
 	const blog = client.blog;
 
 	const { data: post1 } = await blog.createPost({
@@ -46,7 +46,7 @@ test('YJS file is created on first session', async () => {
 
 test('data persists across sessions', async () => {
 	console.log('🔄 Session 2: Loading from persisted state...');
-	using client = await createEpicenterClient(epicenterConfig);
+	using client = await createClient(epicenterConfig);
 	const blog = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));
@@ -69,7 +69,7 @@ test('data persists across sessions', async () => {
 
 test('updates persist across sessions', async () => {
 	console.log('📝 Session 3: Making updates...');
-	using client = await createEpicenterClient(epicenterConfig);
+	using client = await createClient(epicenterConfig);
 	const blog = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));
@@ -82,7 +82,7 @@ test('updates persist across sessions', async () => {
 
 test('updates are persisted after client disposal', async () => {
 	console.log('🔄 Session 4: Verifying updates persisted...');
-	using client = await createEpicenterClient(epicenterConfig);
+	using client = await createClient(epicenterConfig);
 	const blog = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));
@@ -96,7 +96,7 @@ test('updates are persisted after client disposal', async () => {
 
 test('can query all posts after multiple sessions', async () => {
 	console.log('🔍 Session 5: Final verification...');
-	using client = await createEpicenterClient(epicenterConfig);
+	using client = await createClient(epicenterConfig);
 	const blog = client.blog;
 
 	await new Promise((resolve) => setTimeout(resolve, 200));

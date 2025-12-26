@@ -11,9 +11,12 @@ import type { JsonSchema } from 'arktype';
 import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
-import { type EpicenterClient, iterActions } from '../core/epicenter';
 import { generateJsonSchema } from '../core/schema/generate-json-schema';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import {
+	type AnyWorkspaceConfig,
+	type EpicenterClient,
+	iterActions,
+} from '../core/workspace';
 
 /**
  * Pre-computed MCP tool entry with action and its JSON Schema.

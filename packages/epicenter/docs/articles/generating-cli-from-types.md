@@ -23,9 +23,9 @@ import { type } from 'arktype';
 
 // Define schema with ArkType
 const schema = type({
-  name: 'string',
-  age: 'number',
-  role: "'admin' | 'user' | 'guest'"
+	name: 'string',
+	age: 'number',
+	role: "'admin' | 'user' | 'guest'",
 });
 
 // Convert to JSON Schema
@@ -33,9 +33,9 @@ const jsonSchema = await toJsonSchema(schema);
 
 // Now introspect the standardized JSON Schema structure
 if (jsonSchema.type === 'object' && jsonSchema.properties) {
-  for (const [key, propSchema] of Object.entries(jsonSchema.properties)) {
-    // Generate yargs options from JSON Schema
-  }
+	for (const [key, propSchema] of Object.entries(jsonSchema.properties)) {
+		// Generate yargs options from JSON Schema
+	}
 }
 ```
 
@@ -53,7 +53,7 @@ This approach works with **any** Standard Schema library. Switch from ArkType to
 
 ## Implementation
 
-The full implementation in `standardschema-to-yargs.ts`:
+The full implementation in `standard-json-schema-to-yargs.ts`:
 
 1. Convert Standard Schema → JSON Schema via `toJsonSchema()`
 2. Iterate over `properties` to find fields
@@ -73,9 +73,9 @@ For complex types (objects, mixed unions, etc), we still create the CLI option. 
 ```typescript
 // For complex schemas
 yargs.option('data', {
-  description: 'Object type (validation at runtime)',
-  demandOption: true,
-  // No 'type' specified - yargs accepts anything
+	description: 'Object type (validation at runtime)',
+	demandOption: true,
+	// No 'type' specified - yargs accepts anything
 });
 ```
 
@@ -94,16 +94,16 @@ Validation happens when the action runs via Standard Schema. The CLI is permissi
 ```typescript
 import { type } from 'arktype';
 import yargs from 'yargs';
-import { standardSchemaToYargs } from './standardschema-to-yargs';
+import { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
 
 const createPostSchema = type({
-  title: 'string',
-  content: 'string?',
-  category: "'tech' | 'personal' | 'tutorial'"
+	title: 'string',
+	content: 'string?',
+	category: "'tech' | 'personal' | 'tutorial'",
 });
 
 // Generate CLI from schema
-const cli = await standardSchemaToYargs(createPostSchema, yargs());
+const cli = await standardJsonSchemaToYargs(createPostSchema, yargs());
 
 // Results in CLI with:
 // --title (required string)

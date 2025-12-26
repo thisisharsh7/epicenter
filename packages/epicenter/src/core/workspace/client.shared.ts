@@ -7,7 +7,12 @@
  */
 
 import * as Y from 'yjs';
-import type { WorkspaceActionMap, WorkspaceExports } from '../actions';
+import {
+	type Action,
+	type WorkspaceActionMap,
+	type WorkspaceExports,
+	walkActions,
+} from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { ProviderExports } from '../provider';
 import { createWorkspaceValidators } from '../schema';
@@ -15,12 +20,44 @@ import type { EpicenterDir, StorageDir } from '../types';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
 /**
- * A workspace client is not a standalone concept. It's a single workspace extracted from an Epicenter client.
+ * Validates workspace array configuration.
+ * Throws descriptive errors for invalid configurations.
  *
- * An Epicenter client is an object of workspace clients: `{ workspaceId: WorkspaceClient }`.
- * `createEpicenterClient()` returns the full object. `createWorkspaceClient()` returns one workspace from that object.
- *
- * The client contains all workspace exports: actions, utilities, constants, and helpers.
+ * @param workspaces - Array of workspace configs to validate
+ * @throws {Error} If configuration is invalid
+ */
+export function validateWorkspaces(
+	workspaces: readonly AnyWorkspaceConfig[],
+): void {
+	if (!Array.isArray(workspaces)) {
+		throw new Error('Workspaces must be an array of workspace configs');
+	}
+
+	if (workspaces.length === 0) {
+		throw new Error('Must have at least one workspace');
+	}
+
+	for (const workspace of workspaces) {
+		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
+			throw new Error(
+				'Invalid workspace: workspaces must be workspace configs with id, schema, indexes, and actions',
+			);
+		}
+	}
+
+	const ids = workspaces.map((ws) => ws.id);
+	const uniqueIds = new Set(ids);
+	if (uniqueIds.size !== ids.length) {
+		const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+		throw new Error(
+			`Duplicate workspace IDs detected: ${duplicates.join(', ')}. ` +
+				`Each workspace must have a unique ID.`,
+		);
+	}
+}
+
+/**
+ * A workspace client contains all workspace exports plus lifecycle management.
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
  */
 export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
@@ -32,7 +69,7 @@ export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
 	 *
 	 * @example
 	 * ```typescript
-	 * const client = await createEpicenterClient(config);
+	 * const client = await createClient([blogWorkspace]);
 	 * const ydoc = client.blog.$ydoc;
 	 * ydoc.on('update', (update) => { ... });
 	 * ```
@@ -46,9 +83,9 @@ export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
 	 *
 	 * Call manually for explicit control:
 	 * ```typescript
-	 * const workspace = await createWorkspaceClient(config);
-	 * // ... use workspace ...
-	 * await workspace.destroy();
+	 * const client = await createClient(workspace);
+	 * // ... use client ...
+	 * await client.destroy();
 	 * ```
 	 */
 	destroy: () => Promise<void>;
@@ -58,8 +95,8 @@ export type WorkspaceClient<TExports extends WorkspaceExports> = TExports & {
 	 *
 	 * Use for automatic cleanup when scope exits:
 	 * ```typescript
-	 * await using workspace = await createWorkspaceClient(config);
-	 * // ... use workspace ...
+	 * await using client = await createClient(workspace);
+	 * // ... use client ...
 	 * // cleanup happens automatically when scope exits
 	 * ```
 	 */
@@ -100,6 +137,56 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 		? WorkspaceClient<TExports>
 		: never;
 };
+
+/**
+ * Client for multiple workspaces. Maps workspace IDs to their clients.
+ * Returned by `createClient([...workspaces])`.
+ *
+ * @example
+ * ```typescript
+ * // Access workspace actions by workspace id
+ * const page = await client.pages.createPage({
+ *   title: 'My First Post',
+ *   content: 'Hello, world!',
+ *   type: 'blog',
+ *   tags: 'tech',
+ * });
+ *
+ * await client.contentHub.createYouTubePost({
+ *   pageId: page.id,
+ *   title: 'Check out my blog post!',
+ *   description: 'A great post about...',
+ *   niche: ['Coding', 'Productivity'],
+ * });
+ * ```
+ */
+export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
+	WorkspacesToClients<TWorkspaces> & {
+		/**
+		 * Async cleanup method for resource management.
+		 * Destroys all workspaces in this client.
+		 *
+		 * Call manually for explicit control:
+		 * ```typescript
+		 * const client = await createClient(workspaces);
+		 * // ... use client ...
+		 * await client.destroy();
+		 * ```
+		 */
+		destroy: () => Promise<void>;
+
+		/**
+		 * Async disposal for `await using` syntax (TC39 Explicit Resource Management).
+		 *
+		 * Use for automatic cleanup when scope exits:
+		 * ```typescript
+		 * await using client = await createClient(workspaces);
+		 * // ... use client ...
+		 * // cleanup happens automatically when scope exits
+		 * ```
+		 */
+		[Symbol.asyncDispose]: () => Promise<void>;
+	};
 
 /**
  * Internal function that initializes multiple workspaces with shared dependency resolution.
@@ -437,4 +524,80 @@ export async function initializeWorkspaces<
 	}
 
 	return initializedWorkspaces as WorkspacesToClients<TConfigs>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACTION ITERATION UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Info about an action collected from the client hierarchy */
+export type ActionInfo = {
+	workspaceId: string;
+	actionPath: string[];
+	action: Action;
+};
+
+/**
+ * Generator that yields all workspace actions in an Epicenter client.
+ *
+ * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
+ * This generator traverses all layers (including nested namespaces) and yields
+ * each action with its metadata. The destroy and Symbol.asyncDispose methods
+ * at client and workspace levels are automatically excluded.
+ *
+ * Supports nested exports: actions can be organized in namespaces like
+ * `{ users: { getAll: defineQuery(...), crud: { create: defineMutation(...) } } }`
+ *
+ * @param client - The Epicenter client with workspace namespaces
+ * @yields Objects containing workspaceId, actionPath, and action
+ *
+ * @example
+ * ```typescript
+ * // Map over actions directly (Iterator Helpers)
+ * const toolNames = iterActions(client).map(info => info.workspaceId);
+ *
+ * // Group actions by workspace
+ * const byWorkspace = Object.groupBy(
+ *   iterActions(client),
+ *   info => info.workspaceId
+ * );
+ *
+ * // Iterate with early break
+ * for (const { workspaceId, actionPath, action } of iterActions(client)) {
+ *   if (action.type === 'mutation') break;
+ * }
+ * ```
+ */
+export function* iterActions<TWorkspaces extends readonly AnyWorkspaceConfig[]>(
+	client: EpicenterClient<TWorkspaces>,
+): Generator<ActionInfo> {
+	// Extract workspace clients (excluding cleanup methods from the client interface)
+	const {
+		destroy: _destroy,
+		[Symbol.asyncDispose]: _asyncDispose,
+		...workspaceClients
+	} = client;
+
+	// Iterate over each workspace and its actions
+	for (const [workspaceId, workspaceClient] of Object.entries(
+		workspaceClients,
+	)) {
+		// Extract all exports (excluding cleanup methods and internal properties from the workspace interface)
+		const {
+			destroy: _workspaceDestroy,
+			[Symbol.asyncDispose]: _workspaceAsyncDispose,
+			$ydoc: _$ydoc,
+			...workspaceExports
+		} = workspaceClient as WorkspaceClient<WorkspaceExports>;
+
+		// Walk through all actions (including nested namespaces)
+		// and yield each one with its full path
+		for (const { path, action } of walkActions(workspaceExports)) {
+			yield {
+				workspaceId,
+				actionPath: path,
+				action,
+			};
+		}
+	}
 }
