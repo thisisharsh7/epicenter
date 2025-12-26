@@ -2,6 +2,7 @@
  * Transcription service configurations
  */
 
+import { IS_WINDOWS } from '$lib/constants/platform';
 import deepgramIcon from '$lib/constants/icons/deepgram.svg?raw';
 import elevenlabsIcon from '$lib/constants/icons/elevenlabs.svg?raw';
 import ggmlIcon from '$lib/constants/icons/ggml.svg?raw';
@@ -190,7 +191,15 @@ export const TRANSCRIPTION_SERVICES = [
 	// },
 ] as const satisfies SatisfiedTranscriptionService[];
 
-export const TRANSCRIPTION_SERVICE_OPTIONS = TRANSCRIPTION_SERVICES.map(
+/**
+ * Services available on the current platform.
+ * Whisper C++ is not available on Windows due to build compatibility issues.
+ */
+export const AVAILABLE_TRANSCRIPTION_SERVICES = IS_WINDOWS
+	? TRANSCRIPTION_SERVICES.filter((s) => s.id !== 'whispercpp')
+	: TRANSCRIPTION_SERVICES;
+
+export const TRANSCRIPTION_SERVICE_OPTIONS = AVAILABLE_TRANSCRIPTION_SERVICES.map(
 	(service) => ({
 		label: service.name,
 		value: service.id,

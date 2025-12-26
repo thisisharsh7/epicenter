@@ -5,7 +5,7 @@
 	import { cn } from '@epicenter/ui/utils';
 	import type { Snippet } from 'svelte';
 	import {
-		TRANSCRIPTION_SERVICES,
+		AVAILABLE_TRANSCRIPTION_SERVICES,
 		type TranscriptionService,
 		TRANSCRIPTION_SERVICE_IDS,
 	} from '$lib/services/isomorphic/transcription/registry';
@@ -31,19 +31,19 @@
 	} = $props();
 
 	const selectedService = $derived(
-		TRANSCRIPTION_SERVICES.find((service) => service.id === selected),
+		AVAILABLE_TRANSCRIPTION_SERVICES.find((service) => service.id === selected),
 	);
 
 	const localServices = $derived(
-		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'local'),
+		AVAILABLE_TRANSCRIPTION_SERVICES.filter((service) => service.location === 'local'),
 	);
 
 	const cloudServices = $derived(
-		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'cloud'),
+		AVAILABLE_TRANSCRIPTION_SERVICES.filter((service) => service.location === 'cloud'),
 	);
 
 	const selfHostedServices = $derived(
-		TRANSCRIPTION_SERVICES.filter(
+		AVAILABLE_TRANSCRIPTION_SERVICES.filter(
 			(service) => service.location === 'self-hosted',
 		),
 	);

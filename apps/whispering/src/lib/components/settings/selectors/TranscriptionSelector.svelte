@@ -6,7 +6,7 @@
 	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
 	import {
-		TRANSCRIPTION_SERVICES,
+		AVAILABLE_TRANSCRIPTION_SERVICES,
 		type TranscriptionService,
 	} from '$lib/services/isomorphic/transcription/registry';
 	import {
@@ -37,17 +37,17 @@
 	}
 
 	const cloudServices = $derived(
-		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'cloud'),
+		AVAILABLE_TRANSCRIPTION_SERVICES.filter((service) => service.location === 'cloud'),
 	);
 
 	const selfHostedServices = $derived(
-		TRANSCRIPTION_SERVICES.filter(
+		AVAILABLE_TRANSCRIPTION_SERVICES.filter(
 			(service) => service.location === 'self-hosted',
 		),
 	);
 
 	const localServices = $derived(
-		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'local'),
+		AVAILABLE_TRANSCRIPTION_SERVICES.filter((service) => service.location === 'local'),
 	);
 
 	const combobox = useCombobox();
