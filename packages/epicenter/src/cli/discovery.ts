@@ -86,12 +86,12 @@ export async function loadWorkspaces(
 
 	for await (const file of glob.scan({ cwd: workspacesDir, absolute: true })) {
 		const module = await import(file);
-		const workspace = module.default ?? module;
+		const workspace = findWorkspaceConfig(module);
 
-		if (!isWorkspaceConfig(workspace)) {
+		if (!workspace) {
 			throw new Error(
 				`Invalid workspace file: ${file}\n` +
-					`Expected default export to be a workspace config (from defineWorkspace())`,
+					`Expected a workspace config export (from defineWorkspace())`,
 			);
 		}
 
@@ -120,4 +120,20 @@ function isWorkspaceConfig(value: unknown): value is AnyWorkspaceConfig {
 		'tables' in value &&
 		typeof (value as Record<string, unknown>).id === 'string'
 	);
+}
+
+function findWorkspaceConfig(
+	module: Record<string, unknown>,
+): AnyWorkspaceConfig | undefined {
+	if (isWorkspaceConfig(module.default)) {
+		return module.default;
+	}
+
+	for (const value of Object.values(module)) {
+		if (isWorkspaceConfig(value)) {
+			return value;
+		}
+	}
+
+	return undefined;
 }
