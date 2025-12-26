@@ -1569,12 +1569,11 @@ import {
 	isQuery,
 	isMutation,
 	extractActions,
-	defineWorkspaceExports,
+	defineActionExports,
 	type Query,
 	type Mutation,
 	type Action,
-	type WorkspaceActionMap,
-	type WorkspaceExports,
+	type ActionExports,
 } from '@epicenter/hq';
 ```
 
@@ -1596,7 +1595,7 @@ Define a mutation action (write operation).
 
 Filter workspace exports to just actions.
 
-**`defineWorkspaceExports<T>(exports)`**
+**`defineActionExports<T>(exports)`**
 
 Identity function for type inference.
 

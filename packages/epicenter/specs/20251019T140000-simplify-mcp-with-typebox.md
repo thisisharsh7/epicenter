@@ -5,6 +5,7 @@
 ### Current State
 
 The current MCP implementation manually:
+
 1. Defines TypeScript types for MCP structures (MCPTool, MCPToolsListResponse, etc.)
 2. Extracts handler names from client using `Object.keys()` filtering
 3. Creates simple action registry with `{ handler: Function }` objects
@@ -14,6 +15,7 @@ The current MCP implementation manually:
 ### Key Insight
 
 Since all actions use TypeBox schemas via `defineQuery` and `defineMutation`, we can:
+
 1. **Auto-convert TypeBox to JSON Schema** using `@sinclair/typebox`'s built-in `Type.Strict()` or compile to JSON Schema
 2. **Eliminate manual type definitions** since TypeBox already has schema metadata
 3. **Auto-generate MCP tool names and descriptions** from action metadata
@@ -22,6 +24,7 @@ Since all actions use TypeBox schemas via `defineQuery` and `defineMutation`, we
 ### Comparison with Official SDK
 
 The official MCP SDK uses Zod and provides:
+
 - `zodToJsonSchema()` to convert Zod schemas to JSON Schema
 - Automatic validation of tool inputs
 - Type-safe callbacks with inferred parameter types
@@ -64,11 +67,16 @@ const app = await createWorkspaceServer(workspace);
 #### 1. Remove Manual Types
 
 **Before:**
+
 ```typescript
 export type MCPTool = {
-  name: string;
-  description?: string;
-  inputSchema: { type: 'object'; properties?: Record<string, any>; required?: string[] };
+	name: string;
+	description?: string;
+	inputSchema: {
+		type: 'object';
+		properties?: Record<string, any>;
+		required?: string[];
+	};
 };
 ```
 
@@ -78,45 +86,51 @@ Use TypeBox's built-in JSON Schema generation.
 #### 2. Auto-Generate Tool Definitions
 
 **Before:**
+
 ```typescript
-export function createMCPTools(exports: Record<string, { handler: Function }>): MCPTool[] {
-  return Object.entries(actions).map(([name]) => ({
-    name,
-    inputSchema: { type: 'object' },
-  }));
+export function createMCPTools(
+	exports: Record<string, { handler: Function }>,
+): MCPTool[] {
+	return Object.entries(actions).map(([name]) => ({
+		name,
+		inputSchema: { type: 'object' },
+	}));
 }
 ```
 
 **After:**
+
 ```typescript
 import { Type } from 'typebox';
 
 function createMCPTools(exports: WorkspaceActionMap): Tool[] {
-  return Object.entries(actions).map(([name, action]) => ({
-    name,
-    description: action.description,
-    inputSchema: action.input
-      ? typeboxToJsonSchema(action.input)
-      : { type: 'object', properties: {} },
-  }));
+	return Object.entries(actions).map(([name, action]) => ({
+		name,
+		description: action.description,
+		inputSchema: action.input
+			? typeboxToJsonSchema(action.input)
+			: { type: 'object', properties: {} },
+	}));
 }
 ```
 
 #### 3. Type-Safe Tool Execution
 
 **Before:**
+
 ```typescript
 const result = await actionEntry.handler(request.arguments || {});
 ```
 
 **After:**
+
 ```typescript
 // Validate input against TypeBox schema
 if (action.input) {
-  const validation = Value.Check(action.input, request.arguments);
-  if (!validation) {
-    return errorResponse('Invalid input');
-  }
+	const validation = Value.Check(action.input, request.arguments);
+	if (!validation) {
+		return errorResponse('Invalid input');
+	}
 }
 
 // Call with validated input
@@ -151,47 +165,54 @@ const result = await action(request.arguments);
    - Use SDK types directly
 
 4. **Key Pattern: Actions ARE Tools**
+
    ```typescript
    // List tools - direct mapping
    server.setRequestHandler(ListToolsRequestSchema, async () => ({
-     tools: Object.entries(actions).map(([name, action]) => ({
-       name,
-       title: name,
-       description: action.description,
-       inputSchema: action.input || { type: 'object', properties: {} }
-     }))
+   	tools: Object.entries(actions).map(([name, action]) => ({
+   		name,
+   		title: name,
+   		description: action.description,
+   		inputSchema: action.input || { type: 'object', properties: {} },
+   	})),
    }));
 
    // Call tool - validate + execute
    server.setRequestHandler(CallToolRequestSchema, async (request) => {
-     const action = actions[request.params.name];
-     const handler = client[request.params.name];
+   	const action = actions[request.params.name];
+   	const handler = client[request.params.name];
 
-     if (!action || !handler) throw new Error(`Unknown tool: ${request.params.name}`);
+   	if (!action || !handler)
+   		throw new Error(`Unknown tool: ${request.params.name}`);
 
-     const args = request.params.arguments || {};
+   	const args = request.params.arguments || {};
 
-     // TypeBox validation
-     if (action.input && !Value.Check(action.input, args)) {
-       const errors = [...Value.Errors(action.input, args)];
-       throw new Error(`Invalid input: ${JSON.stringify(errors)}`);
-     }
+   	// TypeBox validation
+   	if (action.input && !Value.Check(action.input, args)) {
+   		const errors = [...Value.Errors(action.input, args)];
+   		throw new Error(`Invalid input: ${JSON.stringify(errors)}`);
+   	}
 
-     // Execute handler
-     const result = action.input ? await handler(args) : await handler();
+   	// Execute handler
+   	const result = action.input ? await handler(args) : await handler();
 
-     // Handle Result<T, E>
-     if (result.error) {
-       return {
-         content: [{ type: 'text', text: JSON.stringify({ error: result.error.message }) }],
-         isError: true
-       };
-     }
+   	// Handle Result<T, E>
+   	if (result.error) {
+   		return {
+   			content: [
+   				{
+   					type: 'text',
+   					text: JSON.stringify({ error: result.error.message }),
+   				},
+   			],
+   			isError: true,
+   		};
+   	}
 
-     return {
-       content: [{ type: 'text', text: JSON.stringify(result.data) }],
-       structuredContent: result.data
-     };
+   	return {
+   		content: [{ type: 'text', text: JSON.stringify(result.data) }],
+   		structuredContent: result.data,
+   	};
    });
    ```
 
@@ -207,6 +228,7 @@ const result = await action(request.arguments);
 ### Usage
 
 **HTTP Server (existing):**
+
 ```typescript
 import { createWorkspaceServer } from '@epicenter/server';
 import workspace from './epicenter.config';
@@ -216,6 +238,7 @@ Bun.serve({ fetch: app.fetch, port: 3001 });
 ```
 
 **MCP Server (new):**
+
 ```typescript
 import { createWorkspaceMCPServer } from '@epicenter/server';
 import workspace from './epicenter.config';
@@ -227,35 +250,35 @@ await createWorkspaceMCPServer(workspace);
 
 ```typescript
 import { Type, TSchema } from 'typebox';
-import { TypeCompiler } from '@sinclair/typebox/compiler';
+import { TypeCompiler } from 'typebox/compiler';
 
 /**
  * Convert TypeBox schema to JSON Schema for MCP
  */
 export function typeboxToJsonSchema(schema: TSchema): Record<string, any> {
-  // TypeBox schemas ARE JSON Schema
-  // Just need to serialize properly
-  return JSON.parse(JSON.stringify(schema));
+	// TypeBox schemas ARE JSON Schema
+	// Just need to serialize properly
+	return JSON.parse(JSON.stringify(schema));
 }
 
 /**
  * Validate input against TypeBox schema
  */
 export function validateInput<T extends TSchema>(
-  schema: T,
-  input: unknown
+	schema: T,
+	input: unknown,
 ): { valid: true; data: Static<T> } | { valid: false; errors: string[] } {
-  const compiled = TypeCompiler.Compile(schema);
-  const errors = [...compiled.Errors(input)];
+	const compiled = TypeCompiler.Compile(schema);
+	const errors = [...compiled.Errors(input)];
 
-  if (errors.length > 0) {
-    return {
-      valid: false,
-      errors: errors.map(e => `${e.path}: ${e.message}`)
-    };
-  }
+	if (errors.length > 0) {
+		return {
+			valid: false,
+			errors: errors.map((e) => `${e.path}: ${e.message}`),
+		};
+	}
 
-  return { valid: true, data: input as Static<T> };
+	return { valid: true, data: input as Static<T> };
 }
 ```
 
