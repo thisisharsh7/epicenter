@@ -1,69 +1,44 @@
 import type * as Y from 'yjs';
 import type { Tables } from './db/core';
 import type { WorkspaceSchema } from './schema';
-import type { ProviderDir, StorageDir } from './types';
+import type { ProviderPaths } from './types';
 
 /**
  * Context provided to each provider function.
- *
- * Providers began as data indexes (SQLite, markdown) but have evolved to handle
- * many workspace capabilities: persistence, sync, authentication, and more.
  *
  * @property id - The workspace ID (e.g., 'blog', 'content-hub')
  * @property providerId - This provider's key in the providers map (e.g., 'sqlite', 'persistence')
  * @property ydoc - The YJS document that providers can attach to
  * @property schema - The workspace schema (table definitions)
  * @property tables - The Epicenter tables instance for observing/querying data
- * @property storageDir - Project root directory for user-facing content (e.g., markdown vault)
- * @property providerDir - Provider's dedicated directory for internal artifacts (databases, logs, tokens)
+ * @property paths - Filesystem paths (`undefined` in browser environments)
  *
- * ## Path Context
- *
- * Providers receive two path variables for different purposes:
- *
- * - **`storageDir`**: Project root. Use for user-facing content that lives outside `.epicenter/`.
- *   Example: markdown files in `./vault/`, config files, user-editable content.
- *
- * - **`providerDir`**: Provider's isolated directory at `.epicenter/providers/{providerId}/`.
- *   Use for internal artifacts like databases, logs, caches, and tokens.
- *   This directory is gitignored.
- *
- * Both are `undefined` in browser environments where filesystem access isn't available.
- *
- * @example Persistence provider (stores YJS state)
+ * @example Persistence provider
  * ```typescript
- * const persistenceProvider: Provider = ({ id, providerDir }) => {
- *   if (!providerDir) throw new Error('Requires Node.js');
- *   const filePath = path.join(providerDir, `${id}.yjs`);
- *   // Load/save ydoc state...
- * };
- * ```
- *
- * @example SQLite index (internal artifacts)
- * ```typescript
- * const sqliteProvider: Provider = ({ id, providerDir }) => {
- *   const dbPath = path.join(providerDir, `${id}.db`);
- *   const logPath = path.join(providerDir, 'logs', `${id}.log`);
- *   // ...
+ * const persistenceProvider: Provider = ({ id, paths, ydoc }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const filePath = path.join(paths.provider, `${id}.yjs`);
+ *   // Load existing YDoc state from disk, set up auto-save on updates...
  * };
  * ```
  *
  * @example Markdown provider (user content + internal logs)
  * ```typescript
- * const markdownProvider: Provider = ({ id, storageDir, providerDir }, config) => {
- *   // User content: resolve relative to project root
- *   const contentDir = path.resolve(storageDir, config.directory);
- *
- *   // Internal logs: use provider directory
- *   const logPath = path.join(providerDir, 'logs', `${id}.log`);
+ * const markdownProvider: Provider = ({ id, paths }, config) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   // User content: resolve relative to project root (not gitignored)
+ *   const contentDir = path.resolve(paths.project, config.directory);
+ *   // Internal logs: use provider directory (gitignored)
+ *   const logPath = path.join(paths.provider, 'logs', `${id}.log`);
  * };
  * ```
  *
- * @example Auth provider (tokens and credentials)
+ * @example Auth provider (tokens)
  * ```typescript
- * const gmailProvider: Provider = ({ providerDir }) => {
- *   const tokenPath = path.join(providerDir, 'token.json');
- *   // OAuth tokens stored in provider's isolated directory
+ * const gmailAuthProvider: Provider = ({ paths }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const tokenPath = path.join(paths.provider, 'token.json');
+ *   return { loadTokens: () => Bun.file(tokenPath).json() };
  * };
  * ```
  */
@@ -74,8 +49,7 @@ export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
 		ydoc: Y.Doc;
 		schema: TSchema;
 		tables: Tables<TSchema>;
-		storageDir: StorageDir | undefined;
-		providerDir: ProviderDir | undefined;
+		paths: ProviderPaths | undefined;
 	};
 
 /**
@@ -115,10 +89,10 @@ export type ProviderExports = {
  *
  * @example Materializer provider (with exports)
  * ```typescript
- * const sqliteProvider: Provider<MySchema, SqliteExports> = async ({ id, providerDir, tables }) => {
- *   const client = new Database(path.join(providerDir, `${id}.db`));
+ * const sqliteProvider: Provider<MySchema, SqliteExports> = async ({ id, paths, tables }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const client = new Database(path.join(paths.provider, `${id}.db`));
  *   const sqliteDb = drizzle({ client });
- *   // Set up observers...
  *   return defineProviderExports({
  *     destroy: () => client.close(),
  *     db: sqliteDb,

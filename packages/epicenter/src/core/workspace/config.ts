@@ -7,7 +7,18 @@ import type {
 	WorkspaceProviderMap,
 } from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
-import type { EpicenterDir, StorageDir } from '../types';
+import type { EpicenterDir, ProjectDir } from '../types';
+
+/**
+ * Filesystem paths available to workspace exports factory.
+ *
+ * Unlike `ProviderPaths`, this omits `provider` since the exports factory
+ * operates at the workspace level, not the individual provider level.
+ */
+export type WorkspacePaths = {
+	project: ProjectDir;
+	epicenter: EpicenterDir;
+};
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -215,8 +226,7 @@ export type WorkspaceConfig<
 		workspaces: WorkspacesToExports<TDeps>;
 		providers: TProviderResults;
 		blobs: WorkspaceBlobs<TWorkspaceSchema>;
-		storageDir: StorageDir | undefined;
-		epicenterDir: EpicenterDir | undefined;
+		paths: WorkspacePaths | undefined;
 	}) => TExports;
 };
 

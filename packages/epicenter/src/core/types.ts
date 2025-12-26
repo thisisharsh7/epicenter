@@ -1,94 +1,143 @@
 import type { Brand } from 'wellcrafted/brand';
 
 /**
- * Branded type for absolute filesystem paths
+ * Branded type for absolute filesystem paths.
  *
- * This ensures paths have been resolved to absolute paths at the type level,
+ * Ensures paths have been resolved to absolute paths at the type level,
  * preventing accidental use of relative paths in filesystem operations.
- *
- * @example
- * ```typescript
- * import { resolveAbsolutePath } from './helpers';
- *
- * // Create an absolute path
- * const absolutePath = resolveAbsolutePath('/Users/me/project');
- *
- * // TypeScript enforces that only AbsolutePath can be used
- * function saveFile(path: AbsolutePath) { ... }
- * saveFile(absolutePath); // ✓ OK
- * saveFile('./relative'); // ✗ Type error
- * ```
  */
 export type AbsolutePath = string & Brand<'AbsolutePath'>;
 
 /**
- * Branded type for the storage directory path
+ * Project root directory path.
  *
- * This is the root directory where Epicenter stores all workspace data.
- * Configured via `storageDir` option in `createClient()`. In Node.js,
- * defaults to `process.cwd()` if not specified.
- *
- * The storage directory contains the `.epicenter` folder where all YJS
- * documents, SQLite databases, markdown files, logs, and tokens are stored.
+ * This is where user-facing content lives: markdown vaults, config files,
+ * and any content that should be version-controlled. Configured via
+ * `storageDir` option in `createClient()`. Defaults to `process.cwd()`.
  *
  * @example
  * ```typescript
- * // In epicenter.config.ts
- * export default [workspace1, workspace2] as const;
- *
- * // When creating the client with custom storageDir:
- * const client = await createClient(workspaces, {
- *   storageDir: '/Users/me/my-project'
- * });
- *
- * // In a provider or index
- * const myProvider: Provider = ({ storageDir }) => {
- *   if (!storageDir) {
- *     throw new Error('Requires Node.js environment');
- *   }
- *   // storageDir is typed as StorageDir, not just string
- * };
+ * // Markdown provider stores user content relative to project root
+ * const vaultDir = path.join(paths.project, 'vault');
+ * const postsDir = path.join(paths.project, 'content/posts');
  * ```
  */
-export type StorageDir = AbsolutePath & Brand<'StorageDir'>;
+export type ProjectDir = AbsolutePath & Brand<'ProjectDir'>;
 
 /**
- * Branded type for the `.epicenter` directory path
+ * The `.epicenter` directory path at `{projectDir}/.epicenter`.
  *
- * This is the absolute path to the `.epicenter` directory where all Epicenter
- * data is stored. Providers store their data inside `.epicenter/providers/{providerId}/`.
- *
- * Most providers should use `providerDir` instead of `epicenterDir` directly.
- * This type exists for computing `providerDir` and for rare cases where
- * direct access to the `.epicenter` root is needed.
- *
- * @see ProviderDir - The preferred path for provider artifacts
+ * Contains the `providers/` subdirectory where each provider stores internal
+ * artifacts. Rarely accessed directly; prefer `paths.provider` for provider
+ * data or `paths.project` for user content.
  */
 export type EpicenterDir = AbsolutePath & Brand<'EpicenterDir'>;
 
 /**
- * Branded type for a provider's dedicated directory path
+ * Provider's dedicated directory at `.epicenter/providers/{providerId}/`.
  *
- * Each provider gets its own isolated directory at `.epicenter/providers/{providerId}/`.
- * This is where providers should store all their internal artifacts:
- * - Databases (e.g., `{workspaceId}.db`)
- * - Logs (e.g., `logs/{workspaceId}.log`)
- * - Caches, tokens, and other provider-specific data
+ * Each provider gets isolated storage for internal artifacts. This directory
+ * is gitignored, keeping provider data separate from version-controlled content.
  *
- * The `providers/` subdirectory is gitignored, keeping provider data separate
- * from workspace definitions that may be committed.
+ * ## Storage Conventions
+ *
+ * Providers should follow these naming conventions:
+ *
+ * - **Databases**: `{workspaceId}.db` (e.g., `blog.db`, `auth.db`)
+ * - **YJS persistence**: `{workspaceId}.yjs` (e.g., `blog.yjs`)
+ * - **Logs**: `logs/{workspaceId}.log` (e.g., `logs/blog.log`)
+ * - **Diagnostics**: `diagnostics/{workspaceId}.json`
+ * - **Tokens/credentials**: `token.json`, `credentials.json`
+ * - **Caches**: `cache/{workspaceId}/` subdirectory
+ *
+ * ## Folder Structure Example
+ *
+ * ```
+ * .epicenter/
+ * └── providers/                        # GITIGNORED
+ *     ├── persistence/
+ *     │   ├── blog.yjs
+ *     │   └── auth.yjs
+ *     ├── sqlite/
+ *     │   ├── blog.db
+ *     │   ├── auth.db
+ *     │   └── logs/
+ *     │       └── blog.log
+ *     ├── markdown/
+ *     │   ├── logs/
+ *     │   │   └── blog.log
+ *     │   └── diagnostics/
+ *     │       └── blog.json
+ *     └── gmailAuth/
+ *         └── token.json
+ * ```
  *
  * @example
  * ```typescript
- * // In a provider
- * const sqliteProvider: Provider = ({ providerDir, id }) => {
- *   if (!providerDir) {
- *     throw new Error('Requires Node.js environment');
- *   }
- *   const dbPath = path.join(providerDir, `${id}.db`);
- *   const logPath = path.join(providerDir, 'logs', `${id}.log`);
- *   // ...
+ * const sqliteProvider: Provider = ({ id, paths }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *
+ *   const dbPath = path.join(paths.provider, `${id}.db`);
+ *   const logDir = path.join(paths.provider, 'logs');
+ *   const logPath = path.join(logDir, `${id}.log`);
  * };
  * ```
  */
 export type ProviderDir = AbsolutePath & Brand<'ProviderDir'>;
+
+/**
+ * Filesystem paths available to providers.
+ *
+ * All paths are `undefined` in browser environments where filesystem access
+ * isn't available (providers use IndexedDB instead).
+ *
+ * @example Persistence provider
+ * ```typescript
+ * const persistenceProvider: Provider = ({ id, paths, ydoc }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const filePath = path.join(paths.provider, `${id}.yjs`);
+ *   // Load existing state, set up auto-save...
+ * };
+ * ```
+ *
+ * @example SQLite materializer
+ * ```typescript
+ * const sqliteProvider: Provider = ({ id, paths }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const dbPath = path.join(paths.provider, `${id}.db`);
+ *   const logPath = path.join(paths.provider, 'logs', `${id}.log`);
+ *   // Initialize database, set up observers...
+ * };
+ * ```
+ *
+ * @example Markdown provider (user content + internal logs)
+ * ```typescript
+ * const markdownProvider: Provider = ({ id, paths }, config) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   // User content: resolve relative to project root
+ *   const contentDir = path.resolve(paths.project, config.directory);
+ *   // Internal logs: use provider directory
+ *   const logPath = path.join(paths.provider, 'logs', `${id}.log`);
+ * };
+ * ```
+ *
+ * @example Auth provider (tokens)
+ * ```typescript
+ * const gmailAuthProvider: Provider = ({ paths }) => {
+ *   if (!paths) throw new Error('Requires Node.js');
+ *   const tokenPath = path.join(paths.provider, 'token.json');
+ *   // Load/save OAuth tokens...
+ * };
+ * ```
+ */
+export type ProviderPaths = {
+	/** Project root. Use for user-facing content (markdown vaults, configs). */
+	project: ProjectDir;
+	/** The `.epicenter` directory. Rarely needed; prefer `provider`. */
+	epicenter: EpicenterDir;
+	/** Provider's isolated directory at `.epicenter/providers/{providerId}/`. */
+	provider: ProviderDir;
+};
+
+/** @deprecated Use `ProjectDir` instead */
+export type StorageDir = ProjectDir;
