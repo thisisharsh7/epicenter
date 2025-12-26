@@ -1,3 +1,8 @@
+---
+name: svelte
+description: Svelte 5 patterns including TanStack Query mutations, shadcn-svelte components, and component composition. Use when writing Svelte components, using TanStack Query, or working with shadcn-svelte UI.
+---
+
 # Svelte Guidelines
 
 # Mutation Pattern Preference
@@ -108,7 +113,7 @@ When a handler function only calls `.mutate()`, inline it directly:
 
 # Styling
 
-For general CSS and Tailwind guidelines, see @rules/styling.md.
+For general CSS and Tailwind guidelines, see the `styling` skill.
 
 # shadcn-svelte Best Practices
 

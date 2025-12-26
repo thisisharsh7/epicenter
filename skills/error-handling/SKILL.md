@@ -1,3 +1,8 @@
+---
+name: error-handling
+description: Error handling patterns using wellcrafted trySync and tryAsync. Use when writing error handling code, using try-catch blocks, or working with Result types and graceful error recovery.
+---
+
 # Error Handling with wellcrafted trySync and tryAsync
 
 ## Use trySync/tryAsync Instead of try-catch for Graceful Error Handling

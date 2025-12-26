@@ -1,3 +1,8 @@
+---
+name: github-issues
+description: GitHub issue comment guidelines for community interaction. Use when responding to GitHub issues, bug reports, feature requests, or any GitHub discussion.
+---
+
 # GitHub Issue Comment Guidelines
 
 ## Opening Pattern
@@ -21,7 +26,7 @@ Always start with a personal greeting using the user's GitHub handle:
 When announcing features or fixes:
 
 - "good news!" or "Good news!"
-- Add celebration emoji sparingly: "🎉"
+- Add celebration emoji sparingly
 - Credit contributors: "Thank you for the inspiration" or "Thank you and @user1 and @user2 for the inspiration"
 
 ### 3. Debugging Offers
@@ -62,7 +67,7 @@ End with gratitude:
 ### Feature Implementation Response
 
 ```
-Hey @username, thank you for the issue, and good news! [Whispering v7.1.0](link) now includes the [feature]! Thank you for the inspiration. 🎉
+Hey @username, thank you for the issue, and good news! [Whispering v7.1.0](link) now includes the [feature]! Thank you for the inspiration.
 
 [Brief description of how it works]
 

@@ -1,3 +1,8 @@
+---
+name: styling
+description: CSS and Tailwind styling guidelines. Use when writing styles, creating UI components, reviewing CSS/Tailwind code, or deciding on wrapper element structure.
+---
+
 # Styling Guidelines
 
 ## Minimize Wrapper Elements

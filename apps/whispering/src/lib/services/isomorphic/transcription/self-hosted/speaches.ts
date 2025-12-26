@@ -61,7 +61,10 @@ export function createSpeachesTranscriptionService({
 					}
 
 					case 'ResponseError': {
-						const { status, message } = postError;
+						const {
+							context: { status },
+							message,
+						} = postError;
 
 						if (status === 401) {
 							return WhisperingErr({

@@ -1,3 +1,8 @@
+---
+name: social-media
+description: Social media post guidelines for LinkedIn, Reddit, and Twitter/X. Use when drafting posts, announcements, or sharing technical content on social platforms.
+---
+
 # Social Media Post Guidelines
 
 ## Platform-Specific Brevity
@@ -32,7 +37,7 @@
 ### Good (Actual Human Post)
 
 ```
-Whispering now supports direct file uploads! 🎙️
+Whispering now supports direct file uploads!
 
 Simply drag and drop (or click to browse) your audio files for instant transcription, with your model of choice.
 
@@ -42,18 +47,18 @@ Free open-source app: https://github.com/EpicenterHQ/epicenter
 ### Bad (AI-Generated Feel)
 
 ```
-Excited to announce that Whispering now supports direct file uploads! 🚀
+Excited to announce that Whispering now supports direct file uploads!
 
 This game-changing feature allows you to:
-✅ Drag and drop any audio/video file
-✅ Get instant, accurate transcriptions
-✅ Save time and boost productivity
+- Drag and drop any audio/video file
+- Get instant, accurate transcriptions
+- Save time and boost productivity
 
-Built with the same philosophy of transparency and user control, you pay only actual API costs (just 2¢/hour!) with no hidden fees or subscriptions.
+Built with the same philosophy of transparency and user control, you pay only actual API costs (just 2c/hour!) with no hidden fees or subscriptions.
 
 Ready to revolutionize your workflow? Try it now!
 
-🔗 GitHub: https://github.com/EpicenterHQ/epicenter
+GitHub: https://github.com/EpicenterHQ/epicenter
 
 #OpenSource #Productivity #Innovation #DeveloperTools #Transcription
 ```

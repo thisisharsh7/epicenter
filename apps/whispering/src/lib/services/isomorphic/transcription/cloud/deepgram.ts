@@ -137,7 +137,10 @@ export function createDeepgramTranscriptionService({
 					}
 
 					case 'ResponseError': {
-						const { status, message } = postError;
+						const {
+							context: { status },
+							message,
+						} = postError;
 
 						if (status === 400) {
 							return WhisperingErr({
