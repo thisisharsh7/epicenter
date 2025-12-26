@@ -14,7 +14,7 @@ import {
 } from './config.shared';
 
 // Re-export shared types
-export type { AnyWorkspaceConfig, WorkspacesToExports } from './config.shared';
+export type { AnyWorkspaceConfig, WorkspacesToActions } from './config.shared';
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -36,9 +36,9 @@ export type { AnyWorkspaceConfig, WorkspacesToExports } from './config.shared';
  *
  * ## Node/Bun-Specific Notes
  *
- * In Node/Bun environments, providers have access to filesystem paths:
- * - `storageDir`: Absolute path to the storage directory
- * - `epicenterDir`: Absolute path to `.epicenter` directory for provider data
+ * In Node/Bun environments, the exports factory has access to filesystem paths via `paths`:
+ * - `paths.project`: Project root directory
+ * - `paths.epicenter`: The `.epicenter` directory for internal data
  *
  * @see defineWorkspace in config.browser.ts for browser-specific version
  */
@@ -64,9 +64,9 @@ export function defineWorkspace<
 /**
  * Node/Bun workspace configuration.
  *
- * Uses Node Provider type - providers have access to filesystem paths:
- * - `storageDir`: Required storage directory path
- * - `epicenterDir`: Required `.epicenter` directory path
+ * Uses Node Provider type - the exports factory has access to filesystem paths via `paths`:
+ * - `paths.project`: Project root directory
+ * - `paths.epicenter`: The `.epicenter` directory for internal data
  *
  * ## Provider Type Inference
  *
@@ -99,8 +99,7 @@ export type WorkspaceConfig<
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
 	 * @param context.workspaces - Exports from dependency workspaces (if any)
 	 * @param context.blobs - Blob storage for binary files, namespaced by table
-	 * @param context.storageDir - Storage directory path (Node/Bun only)
-	 * @param context.epicenterDir - `.epicenter` directory path (Node/Bun only)
+	 * @param context.paths - Filesystem paths (Node/Bun only, undefined in browser)
 	 */
 	exports: (
 		context: WorkspaceExportsContext<TWorkspaceSchema, TDeps, TProviders>,

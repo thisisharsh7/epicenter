@@ -10,7 +10,7 @@ import type { WorkspaceBlobs } from '../blobs/types';
 import type { Tables } from '../db/core';
 import type { InferProviderExports, ProviderExports } from '../provider.shared';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
-import type { EpicenterDir, StorageDir } from '../types';
+import type { WorkspacePaths } from '../types';
 
 /**
  * Minimal workspace constraint for generic bounds.
@@ -79,8 +79,7 @@ export type WorkspaceExportsContext<
 	workspaces: WorkspacesToExports<TDeps>;
 	providers: { [K in keyof TProviders]: InferProviderExports<TProviders[K]> };
 	blobs: WorkspaceBlobs<TWorkspaceSchema>;
-	storageDir: StorageDir | undefined;
-	epicenterDir: EpicenterDir | undefined;
+	paths: WorkspacePaths | undefined;
 };
 
 /**

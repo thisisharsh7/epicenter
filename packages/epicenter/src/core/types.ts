@@ -138,3 +138,30 @@ export type ProviderPaths = {
 	/** Provider's isolated directory at `.epicenter/providers/{providerId}/`. */
 	provider: ProviderDir;
 };
+
+/**
+ * Filesystem paths available to workspace exports factory.
+ *
+ * This is a subset of `ProviderPaths` without the `provider` field,
+ * since workspace exports don't have a specific provider context.
+ *
+ * `undefined` in browser environments where filesystem access isn't available.
+ *
+ * @example
+ * ```typescript
+ * defineWorkspace({
+ *   actions: ({ paths }) => {
+ *     if (!paths) throw new Error('Requires Node.js');
+ *     const configPath = path.join(paths.project, 'config.json');
+ *     const dbPath = path.join(paths.epicenter, 'custom.db');
+ *     // ...
+ *   }
+ * });
+ * ```
+ */
+export type WorkspacePaths = {
+	/** Project root. Use for user-facing content (markdown vaults, configs). */
+	project: ProjectDir;
+	/** The `.epicenter` directory at `{projectDir}/.epicenter`. */
+	epicenter: EpicenterDir;
+};
