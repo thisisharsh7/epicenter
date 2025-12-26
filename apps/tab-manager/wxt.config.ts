@@ -1,6 +1,9 @@
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
 	srcDir: 'src',
@@ -16,7 +19,7 @@ export default defineConfig({
 		plugins: [tailwindcss()],
 		resolve: {
 			alias: {
-				$lib: resolve(import.meta.dirname!, 'src/lib'),
+				$lib: resolve(__dirname, 'src/lib'),
 			},
 		},
 	}),

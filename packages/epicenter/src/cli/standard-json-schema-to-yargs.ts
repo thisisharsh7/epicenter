@@ -40,9 +40,7 @@ function isConstSchema(schema: JsonSchema): schema is JsonSchema.Const {
 }
 
 /** Check if schema has a type field */
-function hasType(
-	schema: JsonSchema,
-): schema is JsonSchema.Constrainable & {
+function hasType(schema: JsonSchema): schema is JsonSchema.Constrainable & {
 	type: JsonSchema.TypeName | JsonSchema.TypeName[];
 } {
 	return 'type' in schema && schema.type !== undefined;

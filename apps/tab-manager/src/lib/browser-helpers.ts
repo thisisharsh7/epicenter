@@ -44,12 +44,12 @@ export function createBrowserConverters(deviceId: string) {
 		GroupId,
 
 		// Row converters
-		tabToRow(tab: Browser.tabs.Tab): Tab {
+		tabToRow(tab: Browser.tabs.Tab & { id: number; windowId: number }): Tab {
 			return {
-				id: TabId(tab.id!),
+				id: TabId(tab.id),
 				device_id: deviceId,
-				tab_id: tab.id!,
-				window_id: WindowId(tab.windowId!),
+				tab_id: tab.id,
+				window_id: WindowId(tab.windowId),
 				url: tab.url ?? '',
 				title: tab.title ?? '',
 				fav_icon_url: tab.favIconUrl ?? null,
@@ -72,11 +72,11 @@ export function createBrowserConverters(deviceId: string) {
 			};
 		},
 
-		windowToRow(window: Browser.windows.Window): Window {
+		windowToRow(window: Browser.windows.Window & { id: number }): Window {
 			return {
-				id: WindowId(window.id!),
+				id: WindowId(window.id),
 				device_id: deviceId,
-				window_id: window.id!,
+				window_id: window.id,
 				state: window.state ?? 'normal',
 				type: window.type ?? 'normal',
 				focused: window.focused ?? false,

@@ -35,7 +35,7 @@ import {
 	parseTabId,
 	parseWindowId,
 } from '$lib/device-id';
-import { type Tab, type Window } from '$lib/epicenter/browser.schema';
+import type { Tab, Window } from '$lib/epicenter/browser.schema';
 import { BROWSER_SCHEMA } from '$lib/epicenter/schema';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -146,7 +146,9 @@ export default defineBackground(() => {
 				const { tabToRow } = createBrowserConverters(deviceId);
 				const browserTabs = await browser.tabs.query({});
 				const tabIds = new Set(
-					browserTabs.filter((t) => t.id !== undefined).map((t) => t.id!),
+					browserTabs
+						.filter((t): t is typeof t & { id: number } => t.id !== undefined)
+						.map((t) => t.id),
 				);
 				const existingYDocTabs = tables.tabs.getAllValid();
 
@@ -188,7 +190,9 @@ export default defineBackground(() => {
 				const { windowToRow, WindowId } = createBrowserConverters(deviceId);
 				const browserWindows = await browser.windows.getAll();
 				const windowIds = new Set(
-					browserWindows.filter((w) => w.id !== undefined).map((w) => w.id!),
+					browserWindows
+						.filter((w): w is typeof w & { id: number } => w.id !== undefined)
+						.map((w) => w.id),
 				);
 				const existingYDocWindows = tables.windows.getAllValid();
 
@@ -432,16 +436,17 @@ export default defineBackground(() => {
 	browser.tabs.onCreated.addListener(async (tab) => {
 		await initPromise;
 		if (syncCoordination.yDocChangeCount > 0) return;
-		if (tab.id === undefined) return;
+		const tabId = tab.id;
+		if (tabId === undefined) return;
 
 		const deviceId = await deviceIdPromise;
 		const { tabToRow } = createBrowserConverters(deviceId);
 
 		// Track this tab as recently added to detect echoes in onAdd observer
-		syncCoordination.recentlyAddedTabIds.add(tab.id);
+		syncCoordination.recentlyAddedTabIds.add(tabId);
 		// Remove after 5 seconds to prevent memory leaks
 		setTimeout(() => {
-			syncCoordination.recentlyAddedTabIds.delete(tab.id!);
+			syncCoordination.recentlyAddedTabIds.delete(tabId);
 		}, 5000);
 
 		syncCoordination.refetchCount++;
