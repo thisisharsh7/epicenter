@@ -8,13 +8,13 @@ use std::io::Write;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
+#[cfg(not(target_os = "windows"))]
+use transcribe_rs::engines::moonshine::MoonshineModelParams;
 use transcribe_rs::{
-    engines::{
-        moonshine::MoonshineModelParams,
-        parakeet::{ParakeetInferenceParams, TimestampGranularity},
-    },
+    engines::parakeet::{ParakeetInferenceParams, TimestampGranularity},
     TranscriptionEngine,
 };
+#[cfg(not(target_os = "windows"))]
 use transcribe_rs::engines::whisper::WhisperInferenceParams;
 
 #[cfg(target_os = "windows")]
@@ -486,6 +486,7 @@ fn extract_samples_from_wav(wav_data: Vec<u8>) -> Result<Vec<f32>, Transcription
     Ok(samples)
 }
 
+#[cfg(not(target_os = "windows"))]
 #[tauri::command]
 pub async fn transcribe_audio_whisper(
     audio_data: Vec<u8>,
@@ -580,6 +581,20 @@ pub async fn transcribe_audio_whisper(
     Ok(transcript)
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+pub async fn transcribe_audio_whisper(
+    _audio_data: Vec<u8>,
+    _model_path: String,
+    _language: Option<String>,
+    _initial_prompt: Option<String>,
+    _model_manager: tauri::State<'_, ModelManager>,
+) -> Result<String, TranscriptionError> {
+    Err(TranscriptionError::TranscriptionError {
+        message: "Whisper C++ is not available on Windows due to build compatibility issues. Please use Parakeet for local transcription.".to_string(),
+    })
+}
+
 #[tauri::command]
 pub async fn transcribe_audio_parakeet(
     audio_data: Vec<u8>,
@@ -665,6 +680,7 @@ pub async fn transcribe_audio_parakeet(
     Ok(transcript)
 }
 
+#[cfg(not(target_os = "windows"))]
 #[tauri::command]
 pub async fn transcribe_audio_moonshine(
     audio_data: Vec<u8>,
@@ -774,4 +790,16 @@ pub async fn transcribe_audio_moonshine(
         transcript.len()
     );
     Ok(transcript)
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+pub async fn transcribe_audio_moonshine(
+    _audio_data: Vec<u8>,
+    _model_path: String,
+    _model_manager: tauri::State<'_, ModelManager>,
+) -> Result<String, TranscriptionError> {
+    Err(TranscriptionError::TranscriptionError {
+        message: "Moonshine is not available on Windows due to build compatibility issues. Please use Parakeet for local transcription.".to_string(),
+    })
 }

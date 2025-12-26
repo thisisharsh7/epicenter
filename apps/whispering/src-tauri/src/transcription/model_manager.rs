@@ -2,15 +2,19 @@ use log::error;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
+#[cfg(not(target_os = "windows"))]
 use transcribe_rs::engines::moonshine::{MoonshineEngine, MoonshineModelParams};
 use transcribe_rs::engines::parakeet::{ParakeetEngine, ParakeetModelParams};
+#[cfg(not(target_os = "windows"))]
 use transcribe_rs::engines::whisper::WhisperEngine;
 use transcribe_rs::TranscriptionEngine;
 
 /// Engine type for managing different transcription engines
 pub enum Engine {
-    Parakeet(ParakeetEngine),
+    #[cfg(not(target_os = "windows"))]
     Whisper(WhisperEngine),
+    Parakeet(ParakeetEngine),
+    #[cfg(not(target_os = "windows"))]
     Moonshine(MoonshineEngine),
 }
 
@@ -18,7 +22,9 @@ impl Engine {
     fn unload(&mut self) {
         match self {
             Engine::Parakeet(e) => e.unload_model(),
+            #[cfg(not(target_os = "windows"))]
             Engine::Whisper(e) => e.unload_model(),
+            #[cfg(not(target_os = "windows"))]
             Engine::Moonshine(e) => e.unload_model(),
         }
     }
@@ -68,6 +74,7 @@ impl ModelManager {
                 }
                 true
             }
+            #[cfg(not(target_os = "windows"))]
             (Some(Engine::Whisper(_)), _) => {
                 // Wrong engine type, unload and reload
                 if let Some(mut engine) = engine_guard.take() {
@@ -98,6 +105,7 @@ impl ModelManager {
         Ok(self.engine.clone())
     }
 
+    #[cfg(not(target_os = "windows"))]
     pub fn get_or_load_whisper(
         &self,
         model_path: PathBuf,
@@ -155,6 +163,15 @@ impl ModelManager {
         Ok(self.engine.clone())
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn get_or_load_whisper(
+        &self,
+        _model_path: PathBuf,
+    ) -> Result<Arc<Mutex<Option<Engine>>>, String> {
+        Err("Whisper C++ is not available on Windows due to build compatibility issues. Please use Parakeet for local transcription.".to_string())
+    }
+
+    #[cfg(not(target_os = "windows"))]
     pub fn get_or_load_moonshine(
         &self,
         model_path: PathBuf,
@@ -218,6 +235,15 @@ impl ModelManager {
         *last_activity_guard = SystemTime::now();
 
         Ok(self.engine.clone())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn get_or_load_moonshine(
+        &self,
+        _model_path: PathBuf,
+        _variant: &str,
+    ) -> Result<Arc<Mutex<Option<Engine>>>, String> {
+        Err("Moonshine is not available on Windows due to build compatibility issues. Please use Parakeet for local transcription.".to_string())
     }
 
     pub fn unload_if_idle(&self) {

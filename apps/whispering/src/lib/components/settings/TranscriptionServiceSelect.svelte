@@ -43,9 +43,7 @@
 	);
 
 	const selfHostedServices = $derived(
-		TRANSCRIPTION_SERVICES.filter(
-			(service) => service.location === 'self-hosted',
-		),
+		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'self-hosted'),
 	);
 
 	// Create items array with group information
