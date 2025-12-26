@@ -33,19 +33,19 @@ Here's the key insight: there's a natural boundary where user input becomes inte
 ```typescript
 // User passes plain string
 const epicenter = await createEpicenterClient({
-	storageDir: './my-content', // Relative or absolute both work
+	projectDir: './my-content', // Relative or absolute both work
 	workspaces: [blogWorkspace],
 });
 
 // Inside createEpicenterClient - the resolution boundary
-let storageDir: AbsolutePath | undefined = undefined;
+let projectDir: ProjectDir | undefined = undefined;
 const isNode =
 	typeof process !== 'undefined' &&
 	process.versions != null &&
 	process.versions.node != null;
 if (isNode) {
-	const configuredPath = config.storageDir ?? process.cwd();
-	storageDir = path.resolve(configuredPath) as AbsolutePath;
+	const configuredPath = config.projectDir ?? process.cwd();
+	projectDir = path.resolve(configuredPath) as ProjectDir;
 }
 ```
 
@@ -53,41 +53,41 @@ The cast to `AbsolutePath` is the only place we sidestep the type system. It's s
 
 ## Cascading Guarantees
 
-Once we have that branded `AbsolutePath` at the top level, it cascades down through the entire system:
+Once we have that branded `ProjectDir` at the top level, it cascades down through the entire system:
 
 ```
 User Config (string)
     ↓
 Resolution (path.resolve)
     ↓
-AbsolutePath (branded)
+ProjectDir (branded)
     ↓
-ProviderContext { storageDir: AbsolutePath | undefined }
+ProviderPaths { project: ProjectDir, epicenter: EpicenterDir, provider: ProviderDir }
     ↓
-IndexContext { storageDir: AbsolutePath | undefined }
+ProviderContext { paths: ProviderPaths | undefined }
     ↓
 Internal file operations
 ```
 
-Every layer receives `storageDir: AbsolutePath | undefined`. When indexes need to create file paths, they can trust that `storageDir` is absolute:
+Every layer receives `paths: ProviderPaths | undefined`. When providers need to create file paths, they can trust that all paths are absolute:
 
 ```typescript
-const absoluteRootDir = path.resolve(storageDir, `./${id}`) as AbsolutePath;
+const absoluteRootDir = path.resolve(paths.project, `./${id}`) as AbsolutePath;
 ```
 
 Any time you join an absolute path with a relative path, the result is absolute. The type system enforces this flow: if you need an `AbsolutePath`, you must either receive it from above or create it through resolution.
 
 ## The Browser Case
 
-Not all environments have filesystems. By typing `storageDir` as `AbsolutePath | undefined`, we force every consumer to handle the browser case:
+Not all environments have filesystems. By typing `paths` as `ProviderPaths | undefined`, we force every consumer to handle the browser case:
 
 ```typescript
-function myIndex({ storageDir }: IndexContext) {
-	if (!storageDir) {
-		throw new Error('This index requires Node.js environment');
+function myProvider({ paths }: ProviderContext) {
+	if (!paths) {
+		throw new Error('This provider requires Node.js environment');
 	}
-	// Now TypeScript knows storageDir is AbsolutePath
-	const dbPath = path.join(storageDir, 'data.db');
+	// Now TypeScript knows paths is ProviderPaths
+	const dbPath = path.join(paths.provider, 'data.db');
 }
 ```
 

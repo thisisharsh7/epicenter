@@ -215,7 +215,7 @@ exports: ({ providers }) => ({
 })
 ```
 
-Provider functions receive a context object with `{ id, ydoc, storageDir, tables }` and can return exports. For example, sync providers:
+Provider functions receive a context object with `{ id, providerId, ydoc, schema, tables, paths }` and can return exports. For example, sync providers:
 
 ```typescript
 providers: {
@@ -1124,9 +1124,17 @@ type Provider<TExports> = (
 
 type ProviderContext = {
 	id: string; // Workspace ID
+	providerId: string; // Provider key (e.g., 'sqlite', 'persistence')
 	ydoc: Y.Doc; // YJS document
-	storageDir: AbsolutePath | undefined; // Node.js: absolute path, Browser: undefined
+	schema: TSchema; // Workspace schema (table definitions)
 	tables: Tables<TSchema>; // Access to workspace tables
+	paths: ProviderPaths | undefined; // Filesystem paths (undefined in browser)
+};
+
+type ProviderPaths = {
+	project: ProjectDir; // Project root for user content
+	epicenter: EpicenterDir; // .epicenter directory
+	provider: ProviderDir; // .epicenter/providers/{providerId}/
 };
 ```
 
@@ -1153,7 +1161,7 @@ providers: {
   }),
 
   // Custom provider
-  custom: ({ id, ydoc, storageDir }) => {
+  custom: ({ id, ydoc, paths }) => {
     console.log(`Setting up workspace: ${id}`);
     // Attach custom capabilities
   },
@@ -1188,7 +1196,7 @@ await client.destroy();
 await using client = await createClient(blogWorkspace);
 ```
 
-**storageDir**: Defaults to `process.cwd()` in Node.js, `undefined` in browser.
+**projectDir**: Defaults to `process.cwd()` in Node.js, `undefined` in browser.
 
 ## Architecture & Lifecycle
 
@@ -1405,7 +1413,7 @@ await client.destroy();
 await using client = await createClient(blogWorkspace);
 ```
 
-**storageDir**: Defaults to `process.cwd()` in Node.js, `undefined` in browser.
+**projectDir**: Defaults to `process.cwd()` in Node.js, `undefined` in browser.
 
 ## API Reference
 

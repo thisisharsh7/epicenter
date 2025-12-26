@@ -149,7 +149,7 @@ payments.charge({ amount: 1000, currency: 'usd' });
 **Epicenter Client + Server:**
 
 ```typescript
-const client = createClient(workspaces, { storageDir });
+const client = createClient(workspaces, { projectDir });
 const server = createServer(client, { cors: true });
 server.start({ port: 3913 });
 ```

@@ -247,16 +247,16 @@ export type MarkdownProviderConfig<
 	 *
 	 * **Optional**: Defaults to the workspace `id` if not provided
 	 * ```typescript
-	 * // If workspace id is "blog", defaults to "<storageDir>/blog"
-	 * markdownIndex({ id, db, storageDir })
+	 * // If workspace id is "blog", defaults to "<projectDir>/blog"
+	 * markdownIndex({ id, db, paths })
 	 * ```
 	 *
 	 * **Three ways to specify the path**:
 	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to storageDir from epicenter config
+	 * **Option 1: Relative paths** (recommended): Resolved relative to paths.project from epicenter config
 	 * ```typescript
-	 * directory: './vault'      // → <storageDir>/vault
-	 * directory: '../content'   // → <storageDir>/../content
+	 * directory: './vault'      // → <projectDir>/vault
+	 * directory: '../content'   // → <projectDir>/../content
 	 * ```
 	 *
 	 * **Option 2: Absolute paths**: Used as-is, no resolution needed

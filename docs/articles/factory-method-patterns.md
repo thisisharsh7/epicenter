@@ -12,15 +12,15 @@ When a factory function internally creates its own dependencies, callers lose co
 
 ```typescript
 // createServer internally does this:
-//   1. Creates a client from workspaces + storageDir via `createClient(workspaces, { storageDir: '...' })`
+//   1. Creates a client from workspaces + projectDir via `createClient(workspaces, { projectDir: '...' })`
 //   2. Creates the HTTP app using that client
 //   3. Returns both
 
-const { app, client } = await createServer(workspaces, { storageDir: '...' });
+const { app, client } = await createServer(workspaces, { projectDir: '...' });
 app.listen(3913);
 ```
 
-The function signature mixes concerns: `workspaces` and `storageDir` are client configuration, but `createServer` shouldn't care about client creation. It just needs a working client.
+The function signature mixes concerns: `workspaces` and `projectDir` are client configuration, but `createServer` shouldn't care about client creation. It just needs a working client.
 
 This coupling creates problems:
 
@@ -33,7 +33,7 @@ This coupling creates problems:
 
 ```typescript
 // Caller controls client creation
-const client = await createClient(workspaces, { storageDir: '...' });
+const client = await createClient(workspaces, { projectDir: '...' });
 
 // Server only receives what it actually needs
 const app = createServer(client);
@@ -48,7 +48,7 @@ With the client externalized, you can:
 
 ```typescript
 // Share one client between server and CLI
-const client = await createClient(workspaces, { storageDir });
+const client = await createClient(workspaces, { projectDir });
 const app = createServer(client);
 const cli = createCLI(client);
 
@@ -58,7 +58,7 @@ const app = createServer(mockClient);
 
 // Configure client independently
 const client = await createClient(workspaces, {
-	storageDir,
+	projectDir,
 	// other client-specific options
 });
 ```
@@ -75,12 +75,12 @@ This pattern often emerges through iteration. Here's how a CLI API might evolve 
 
 ```typescript
 // runCLI internally does ALL of this:
-//   1. Calls createClient(workspaces, { storageDir }) to create a client
+//   1. Calls createClient(workspaces, { projectDir }) to create a client
 //   2. Calls createCLI(client) to create a CLI instance
 //   3. Parses argv and executes the appropriate command
 //   4. Returns the result
 
-await runCLI(workspaces, { storageDir }, argv);
+await runCLI(workspaces, { projectDir }, argv);
 ```
 
 The function hides three distinct operations behind one call. You can't share clients between CLI and server, can't inject mocks for testing, and can't configure the client independently. This is the same problem from Pattern 1.
@@ -89,7 +89,7 @@ The function hides three distinct operations behind one call. You can't share cl
 
 ```typescript
 // Client creation is now external (good!)
-const client = await createClient(workspaces, { storageDir });
+const client = await createClient(workspaces, { projectDir });
 const cli = createCLI(client);
 
 // But we still pass cli to a separate function (awkward)
@@ -101,7 +101,7 @@ Better; client creation is now external, so you can share clients and inject moc
 **Stage 3: Method on the object**
 
 ```typescript
-const client = await createClient(workspaces, { storageDir });
+const client = await createClient(workspaces, { projectDir });
 const cli = createCLI(client);
 await cli.run(argv);
 ```
