@@ -1174,19 +1174,6 @@ isQuery(value); // value is Query
 isMutation(value); // value is Mutation
 ```
 
-### Extract Actions
-
-Filter workspace exports to just actions:
-
-```typescript
-import { extractActions } from '@epicenter/hq';
-
-const actions = extractActions(workspaceExports);
-// { actionName: Query | Mutation, ... }
-```
-
-Useful for API/MCP mapping. Non-action exports (utilities, constants) are filtered out.
-
 ## Providers
 
 Providers are defined as a map and can attach capabilities to YJS documents. They run in parallel during workspace initialization.
@@ -1568,12 +1555,11 @@ import {
 	isAction,
 	isQuery,
 	isMutation,
-	extractActions,
-	defineActionExports,
+	defineActions,
 	type Query,
 	type Mutation,
 	type Action,
-	type ActionExports,
+	type Actions,
 } from '@epicenter/hq';
 ```
 
@@ -1591,11 +1577,7 @@ Define a mutation action (write operation).
 - `isQuery(value)`: Check if value is Query
 - `isMutation(value)`: Check if value is Mutation
 
-**`extractActions(exports)`**
-
-Filter workspace exports to just actions.
-
-**`defineActionExports<T>(exports)`**
+**`defineActions<T>(exports)`**
 
 Identity function for type inference.
 
@@ -1623,7 +1605,7 @@ import { markdownProvider, type MarkdownProviderConfig } from '@epicenter/hq';
 import {
 	type Provider,
 	type ProviderContext,
-	type ProviderExports,
+	type Providers,
 	type WorkspaceProviderMap,
 } from '@epicenter/hq';
 ```

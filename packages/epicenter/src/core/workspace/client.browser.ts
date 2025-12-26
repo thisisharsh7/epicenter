@@ -8,9 +8,9 @@
  * @see https://github.com/yjs/y-indexeddb
  */
 import * as Y from 'yjs';
-import type { ActionExports } from '../actions';
+import type { Actions } from '../actions';
 import { createEpicenterDb } from '../db/core';
-import type { ProviderExports, WorkspaceProviderMap } from '../provider';
+import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
@@ -21,7 +21,7 @@ import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
  * a `whenSynced` promise for waiting on provider initialization.
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
  */
-export type WorkspaceClient<TActions extends ActionExports> = TActions & {
+export type WorkspaceClient<TActions extends Actions> = TActions & {
 	/**
 	 * The underlying YJS document for this workspace.
 	 *
@@ -67,7 +67,7 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 		? TId
 		: never]: W extends {
 		// biome-ignore lint/suspicious/noExplicitAny: Extracting action type from generic constraint
-		actions: (context: any) => infer TActions extends ActionExports;
+		actions: (context: any) => infer TActions extends Actions;
 	}
 		? WorkspaceClient<TActions>
 		: never;
@@ -156,7 +156,7 @@ export function createClient<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TActions extends ActionExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -466,8 +466,8 @@ function initializeWorkspacesSync<
 
 		// Initialize all providers synchronously, collecting deferred sync promises
 		// Browser providers return sync but may load data async via whenSynced
-		const providers: Record<string, ProviderExports> = {};
-		const providerPromises: Promise<ProviderExports>[] = [];
+		const providers: Record<string, Providers> = {};
+		const providerPromises: Promise<Providers>[] = [];
 
 		for (const [providerId, providerFn] of Object.entries(
 			workspaceConfig.providers,
@@ -539,10 +539,7 @@ function initializeWorkspacesSync<
 	}
 
 	// Convert Map to typed object keyed by workspace id
-	const initializedWorkspaces: Record<
-		string,
-		WorkspaceClient<ActionExports>
-	> = {};
+	const initializedWorkspaces: Record<string, WorkspaceClient<Actions>> = {};
 	for (const [workspaceId, client] of clients) {
 		initializedWorkspaces[workspaceId] = client;
 	}

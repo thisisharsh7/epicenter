@@ -7,10 +7,10 @@
  */
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { ActionExports } from '../actions';
+import type { Actions } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import { buildProviderPaths, getEpicenterDir } from '../paths';
-import type { ProviderExports, WorkspaceProviderMap } from '../provider';
+import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { ProjectDir, ProviderPaths } from '../types';
 import type {
@@ -25,7 +25,7 @@ import type {
  * Unlike browser clients, Node.js clients are fully initialized before returning.
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
  */
-export type WorkspaceClient<TActions extends ActionExports> = TActions & {
+export type WorkspaceClient<TActions extends Actions> = TActions & {
 	/**
 	 * The underlying YJS document for this workspace.
 	 *
@@ -53,7 +53,7 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 		? TId
 		: never]: W extends {
 		// biome-ignore lint/suspicious/noExplicitAny: Extracting action type from generic constraint
-		actions: (context: any) => infer TActions extends ActionExports;
+		actions: (context: any) => infer TActions extends Actions;
 	}
 		? WorkspaceClient<TActions>
 		: never;
@@ -173,7 +173,7 @@ export async function createClient<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TActions extends ActionExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -514,7 +514,7 @@ async function initializeWorkspaces<
 					},
 				),
 			),
-		) as Record<string, ProviderExports>;
+		) as Record<string, Providers>;
 
 		const workspacePaths: WorkspacePaths | undefined = projectDir
 			? {
@@ -558,10 +558,7 @@ async function initializeWorkspaces<
 	}
 
 	// Convert Map to typed object keyed by workspace id
-	const initializedWorkspaces: Record<
-		string,
-		WorkspaceClient<ActionExports>
-	> = {};
+	const initializedWorkspaces: Record<string, WorkspaceClient<Actions>> = {};
 	for (const [workspaceId, client] of clients) {
 		initializedWorkspaces[workspaceId] = client;
 	}

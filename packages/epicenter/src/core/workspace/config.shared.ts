@@ -5,10 +5,10 @@
  * these with platform-appropriate provider types.
  */
 
-import type { ActionExports } from '../actions';
+import type { Actions } from '../actions';
 import type { WorkspaceBlobs } from '../blobs/types';
 import type { Tables } from '../db/core';
-import type { InferProviderExports, ProviderExports } from '../provider.shared';
+import type { InferProviders, Providers } from '../provider.shared';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { WorkspacePaths } from '../types';
 
@@ -23,7 +23,7 @@ import type { WorkspacePaths } from '../types';
  */
 export type AnyWorkspaceConfig = {
 	id: string;
-	actions: (context: any) => ActionExports;
+	actions: (context: any) => Actions;
 };
 
 /**
@@ -52,7 +52,7 @@ export type WorkspacesToActions<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		actions: (context: any) => infer TActions extends ActionExports;
+		actions: (context: any) => infer TActions extends Actions;
 	}
 		? TActions
 		: never;
@@ -70,14 +70,14 @@ export type ActionsContext<
 	TDeps extends readonly AnyWorkspaceConfig[],
 	TProviders extends Record<
 		string,
-		(context: any) => ProviderExports | void | Promise<ProviderExports | void>
+		(context: any) => Providers | void | Promise<Providers | void>
 	>,
 > = {
 	tables: Tables<TWorkspaceSchema>;
 	schema: TWorkspaceSchema;
 	validators: WorkspaceValidators<TWorkspaceSchema>;
 	workspaces: WorkspacesToActions<TDeps>;
-	providers: { [K in keyof TProviders]: InferProviderExports<TProviders[K]> };
+	providers: { [K in keyof TProviders]: InferProviders<TProviders[K]> };
 	blobs: WorkspaceBlobs<TWorkspaceSchema>;
 	paths: WorkspacePaths | undefined;
 };

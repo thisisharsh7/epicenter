@@ -5,13 +5,13 @@
  * Platform-specific types and initialization are in client.browser.ts and client.node.ts.
  */
 
-import { type Action, type ActionExports, walkActions } from '../actions';
+import { type Action, type Actions, walkActions } from '../actions';
 
 /**
  * Base workspace client shape for iterActions compatibility.
  * Platform-specific clients extend this with additional properties.
  */
-type BaseWorkspaceClient = ActionExports & {
+type BaseWorkspaceClient = Actions & {
 	$ydoc: unknown;
 	destroy: () => Promise<void>;
 	[Symbol.asyncDispose]: () => Promise<void>;
@@ -82,10 +82,10 @@ export function* iterActions(
 			destroy: _workspaceDestroy,
 			[Symbol.asyncDispose]: _workspaceAsyncDispose,
 			$ydoc: _$ydoc,
-			...workspaceExports
+			...workspaceActions
 		} = workspaceClient as BaseWorkspaceClient;
 
-		for (const { path, action } of walkActions(workspaceExports)) {
+		for (const { path, action } of walkActions(workspaceActions)) {
 			yield {
 				workspaceId,
 				actionPath: path,

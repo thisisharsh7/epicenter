@@ -6,7 +6,7 @@ import { tryAsync, trySync } from 'wellcrafted/result';
 import { defineQuery } from '../../core/actions';
 import { ProviderErr, ProviderError } from '../../core/errors';
 import {
-	defineProviderExports,
+	defineProviders,
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider.shared';
@@ -1092,7 +1092,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		console.error('[MarkdownProvider] Background validation failed:', err);
 	});
 
-	return defineProviderExports({
+	return defineProviders({
 		async destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();

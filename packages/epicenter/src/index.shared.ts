@@ -38,14 +38,13 @@ export {
 	sql,
 } from 'drizzle-orm';
 
-export type { Action, Mutation, Query, ActionExports } from './core/actions';
+export type { Action, Mutation, Query, Actions } from './core/actions';
 
 // Action helpers
 export {
 	defineMutation,
 	defineQuery,
-	defineActionExports,
-	extractActions,
+	defineActions,
 	isAction,
 	isMutation,
 	isNamespace,
@@ -77,11 +76,11 @@ export { EpicenterOperationErr, IndexErr, ValidationErr } from './core/errors';
 export type {
 	Provider,
 	ProviderContext,
-	ProviderExports,
+	Providers,
 	WorkspaceProviderMap,
 } from './core/provider';
 // Provider system
-export { defineProviderExports } from './core/provider';
+export { defineProviders } from './core/provider';
 export type {
 	BooleanColumnSchema,
 	CellValue,

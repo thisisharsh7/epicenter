@@ -4,7 +4,7 @@
  * Uses browser Provider type which doesn't include filesystem paths.
  */
 
-import type { ActionExports } from '../actions';
+import type { Actions } from '../actions';
 import type { Provider } from '../provider.browser';
 import type { WorkspaceSchema } from '../schema';
 import {
@@ -46,7 +46,7 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
-	TActions extends ActionExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -68,7 +68,7 @@ export function defineWorkspace<
  * ## Provider Type Inference
  *
  * The `TProviders` type parameter captures the actual provider functions you pass.
- * The `exports` factory receives provider exports derived via `InferProviderExports`:
+ * The `exports` factory receives provider exports derived via `InferProviders`:
  * - Provider returns `{ db: Db }` → exports receives `{ db: Db }`
  * - Provider returns `void` → exports receives `Record<string, never>` (empty object)
  * - Provider returns `Promise<{ db: Db }>` → exports receives `{ db: Db }` (unwrapped)
@@ -81,7 +81,7 @@ export type WorkspaceConfig<
 		string,
 		Provider<TWorkspaceSchema>
 	>,
-	TActions extends ActionExports = ActionExports,
+	TActions extends Actions = Actions,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;

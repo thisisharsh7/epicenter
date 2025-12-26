@@ -89,7 +89,7 @@ Epicenter solves this using a minimal constraint pattern: dependency arrays are 
 // Minimal constraint for dependencies
 type AnyWorkspaceConfig = {
 	id: string;
-	exports: (context: any) => ActionExports;
+	exports: (context: any) => Actions;
 };
 
 // Full workspace config
@@ -97,7 +97,7 @@ type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[],
 	TSchema extends WorkspaceSchema,
 	TProviderMap extends WorkspaceProviderMap,
-	TExports extends ActionExports,
+	TExports extends Actions,
 > = {
 	id: string;
 	tables: TSchema;

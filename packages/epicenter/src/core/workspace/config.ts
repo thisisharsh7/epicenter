@@ -1,11 +1,7 @@
-import type { ActionExports } from '../actions';
+import type { Actions } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
-import type {
-	Provider,
-	ProviderExports,
-	WorkspaceProviderMap,
-} from '../provider';
+import type { Provider, Providers, WorkspaceProviderMap } from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { EpicenterDir, ProjectDir } from '../types';
 
@@ -113,7 +109,7 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TActions extends ActionExports,
+	TActions extends Actions,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -170,7 +166,7 @@ export type WorkspaceConfig<
 	TId extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TProviderResults extends WorkspaceProviderMap = WorkspaceProviderMap,
-	TActions extends ActionExports = ActionExports,
+	TActions extends Actions = Actions,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
@@ -178,9 +174,7 @@ export type WorkspaceConfig<
 	providers: {
 		[K in keyof TProviderResults]: Provider<
 			TWorkspaceSchema,
-			TProviderResults[K] extends ProviderExports
-				? TProviderResults[K]
-				: ProviderExports
+			TProviderResults[K] extends Providers ? TProviderResults[K] : Providers
 		>;
 	};
 	/**
@@ -241,7 +235,7 @@ export type WorkspaceConfig<
 export type AnyWorkspaceConfig = {
 	id: string;
 	// biome-ignore lint/suspicious/noExplicitAny: Minimal constraint to prevent infinite type recursion
-	actions: (context: any) => ActionExports;
+	actions: (context: any) => Actions;
 };
 
 /**
@@ -267,7 +261,7 @@ export type WorkspacesToActions<WS extends readonly AnyWorkspaceConfig[]> = {
 		? TId
 		: never]: W extends {
 		// biome-ignore lint/suspicious/noExplicitAny: Extracting action return type from generic constraint
-		actions: (context: any) => infer TActions extends ActionExports;
+		actions: (context: any) => infer TActions extends Actions;
 	}
 		? TActions
 		: never;

@@ -1,8 +1,8 @@
 export {
-	defineProviderExports,
-	type InferProviderExports,
+	defineProviders,
+	type InferProviders,
 	type Provider,
 	type ProviderContext,
-	type ProviderExports,
+	type Providers,
 	type WorkspaceProviderMap,
 } from './provider.shared';
