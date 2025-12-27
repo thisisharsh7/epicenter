@@ -6,13 +6,14 @@
  * remain in client.browser.ts and client.node.ts.
  */
 
-import * as Y from 'yjs';
-import { type Action, type Actions, walkActions } from '../actions';
+import type * as Y from 'yjs';
+import type { Action, Actions } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
 import type { WorkspaceProviderMap } from '../provider';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { WorkspacePaths } from './config';
+
 /**
  * Internal workspace client properties shared across all platforms.
  *
@@ -121,6 +122,13 @@ export type WorkspaceClientInternals<
 	[Symbol.asyncDispose]: () => Promise<void>;
 };
 
+/** Info about an action collected during client initialization. */
+export type ActionInfo = {
+	workspaceId: string;
+	actionPath: string[];
+	action: Action;
+};
+
 /**
  * Base properties for multi-workspace Epicenter clients.
  *
@@ -128,6 +136,28 @@ export type WorkspaceClientInternals<
  * (e.g., browser adds `whenSynced` for aggregate sync tracking).
  */
 export type EpicenterClientBase = {
+	/**
+	 * Pre-computed registry of all workspace actions.
+	 *
+	 * Built during client initialization by walking all workspace action trees.
+	 * Use this for server/MCP tooling that needs to enumerate available actions.
+	 *
+	 * @example
+	 * ```typescript
+	 * // Iterate all actions
+	 * for (const { workspaceId, actionPath, action } of client.$actions) {
+	 *   console.log(`${workspaceId}/${actionPath.join('/')}: ${action.type}`);
+	 * }
+	 *
+	 * // Group by workspace
+	 * const byWorkspace = Object.groupBy(client.$actions, info => info.workspaceId);
+	 *
+	 * // Filter mutations only
+	 * const mutations = client.$actions.filter(info => info.action.type === 'mutation');
+	 * ```
+	 */
+	$actions: readonly ActionInfo[];
+
 	/**
 	 * Async cleanup method for resource management.
 	 *
@@ -140,102 +170,3 @@ export type EpicenterClientBase = {
 	 */
 	[Symbol.asyncDispose]: () => Promise<void>;
 };
-
-type AsyncDisposable = {
-	destroy: () => Promise<void>;
-	[Symbol.asyncDispose]: () => Promise<void>;
-};
-
-type BaseWorkspaceClient = Actions &
-	AsyncDisposable & {
-		$ydoc: object;
-		$tables: Record<string, unknown>;
-		$providers: Record<string, unknown>;
-		$validators: Record<string, unknown>;
-		$workspaces: Record<string, unknown>;
-		$blobs: Record<string, unknown>;
-		$paths: unknown;
-	};
-
-/**
- * The index signature must include `() => Promise<void>` because `destroy` is
- * a string-keyed property. TypeScript requires index signatures to be supersets
- * of all explicit string-keyed properties.
- */
-type BaseEpicenterClient = AsyncDisposable &
-	Record<string, BaseWorkspaceClient | (() => Promise<void>)>;
-
-/** Info about an action collected from the client hierarchy */
-export type ActionInfo = {
-	workspaceId: string;
-	actionPath: string[];
-	action: Action;
-};
-
-/**
- * Generator that yields all workspace actions in an Epicenter client.
- *
- * Epicenter has a three-layer hierarchy: Client → Workspaces → Actions.
- * This generator traverses all layers (including nested namespaces) and yields
- * each action with its metadata. The destroy and Symbol.asyncDispose methods
- * at client and workspace levels are automatically excluded.
- *
- * Supports nested actions: actions can be organized in namespaces like
- * `{ users: { getAll: defineQuery(...), crud: { create: defineMutation(...) } } }`
- *
- * @param client - The Epicenter client with workspace namespaces
- * @yields Objects containing workspaceId, actionPath, and action
- *
- * @example
- * ```typescript
- * // Map over actions directly (Iterator Helpers)
- * const toolNames = iterActions(client).map(info => info.workspaceId);
- *
- * // Group actions by workspace
- * const byWorkspace = Object.groupBy(
- *   iterActions(client),
- *   info => info.workspaceId
- * );
- *
- * // Iterate with early break
- * for (const { workspaceId, actionPath, action } of iterActions(client)) {
- *   if (action.type === 'mutation') break;
- * }
- * ```
- */
-export function* iterActions(
-	client: BaseEpicenterClient,
-): Generator<ActionInfo> {
-	const {
-		destroy: _destroy,
-		[Symbol.asyncDispose]: _asyncDispose,
-		...workspaceClients
-	} = client;
-
-	for (const [workspaceId, workspaceClient] of Object.entries(
-		workspaceClients,
-	)) {
-		if (typeof workspaceClient === 'function') continue;
-
-		const {
-			destroy: _workspaceDestroy,
-			[Symbol.asyncDispose]: _workspaceAsyncDispose,
-			$ydoc: _$ydoc,
-			$tables: _$tables,
-			$providers: _$providers,
-			$validators: _$validators,
-			$workspaces: _$workspaces,
-			$blobs: _$blobs,
-			$paths: _$paths,
-			...workspaceActions
-		} = workspaceClient as BaseWorkspaceClient;
-
-		for (const { path, action } of walkActions(workspaceActions)) {
-			yield {
-				workspaceId,
-				actionPath: path,
-				action,
-			};
-		}
-	}
-}

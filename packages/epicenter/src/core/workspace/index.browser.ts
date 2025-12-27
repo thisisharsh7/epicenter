@@ -17,7 +17,6 @@ export { createClient } from './client.browser';
 
 // Shared utilities
 export type { ActionInfo } from './client.shared';
-export { iterActions } from './client.shared';
 
 // Config types and definition (shared)
 export type {

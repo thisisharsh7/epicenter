@@ -12,11 +12,7 @@ import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
 import { generateJsonSchema } from '../core/schema/generate-json-schema';
-import {
-	type AnyWorkspaceConfig,
-	type EpicenterClient,
-	iterActions,
-} from '../core/workspace';
+import type { AnyWorkspaceConfig, EpicenterClient } from '../core/workspace';
 
 /**
  * Pre-computed MCP tool entry with action and its JSON Schema.
@@ -201,31 +197,26 @@ export function setupMcpTools(
 export function buildMcpToolRegistry<
 	TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>): Map<string, McpToolEntry> {
-	const entries = iterActions(client).map(
-		({ workspaceId, actionPath, action }) => {
-			const toolName = [workspaceId, ...actionPath].join('_');
+	const entries = client.$actions.map(({ workspaceId, actionPath, action }) => {
+		const toolName = [workspaceId, ...actionPath].join('_');
 
-			// Build input schema - MCP requires object type at root
-			if (!action.input) {
-				return [
-					toolName,
-					{ action, inputSchema: EMPTY_OBJECT_SCHEMA },
-				] as const;
-			}
+		// Build input schema - MCP requires object type at root
+		if (!action.input) {
+			return [toolName, { action, inputSchema: EMPTY_OBJECT_SCHEMA }] as const;
+		}
 
-			const schema = generateJsonSchema(action.input);
-			const schemaType = 'type' in schema ? schema.type : undefined;
-			if (schemaType !== 'object' && schemaType !== undefined) {
-				console.warn(
-					`[MCP] Skipping tool "${toolName}": input has type "${schemaType}" but MCP requires "object". ` +
-						`This action will still work via HTTP and TypeScript clients.`,
-				);
-				return undefined;
-			}
+		const schema = generateJsonSchema(action.input);
+		const schemaType = 'type' in schema ? schema.type : undefined;
+		if (schemaType !== 'object' && schemaType !== undefined) {
+			console.warn(
+				`[MCP] Skipping tool "${toolName}": input has type "${schemaType}" but MCP requires "object". ` +
+					`This action will still work via HTTP and TypeScript clients.`,
+			);
+			return undefined;
+		}
 
-			return [toolName, { action, inputSchema: schema }] as const;
-		},
-	);
+		return [toolName, { action, inputSchema: schema }] as const;
+	});
 
 	return new Map(entries.filter((e) => e !== undefined));
 }

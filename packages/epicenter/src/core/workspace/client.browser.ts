@@ -8,11 +8,12 @@
  * @see https://github.com/yjs/y-indexeddb
  */
 import * as Y from 'yjs';
-import type { Actions } from '../actions';
+import { type Actions, walkActions } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type {
+	ActionInfo,
 	EpicenterClientBase,
 	WorkspaceClientInternals,
 } from './client.shared';
@@ -176,12 +177,32 @@ export function createClient(
 			await Promise.all(Object.values(clients).map((c) => c.destroy()));
 		};
 
+		const actionRegistry: ActionInfo[] = [];
+		for (const [workspaceId, client] of Object.entries(clients)) {
+			const {
+				$ydoc: _,
+				$tables: __,
+				$providers: ___,
+				$validators: ____,
+				$workspaces: _____,
+				$blobs: ______,
+				$paths: _______,
+				whenSynced: ________,
+				destroy: _________,
+				...actions
+			} = client;
+			for (const { path, action } of walkActions(actions)) {
+				actionRegistry.push({ workspaceId, actionPath: path, action });
+			}
+		}
+
 		return {
 			...clients,
+			$actions: actionRegistry,
 			whenSynced: Promise.all(allSyncPromises).then(() => {}),
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
-		} as EpicenterClient<any>;
+		} as unknown as EpicenterClient<any>;
 	}
 
 	const workspace = input as WorkspaceConfig;
@@ -486,7 +507,6 @@ function initializeWorkspacesSync<
 		};
 
 		// Create the workspace client with all actions
-		// Filtering to just action types happens at the server/MCP level via iterActions()
 		clients.set(workspaceId, {
 			...actions,
 			$ydoc: ydoc,

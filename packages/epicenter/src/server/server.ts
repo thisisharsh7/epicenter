@@ -8,7 +8,6 @@ import type {
 	WorkspaceClient,
 	WorkspacesToClients,
 } from '../core/workspace';
-import { iterActions } from '../core/workspace';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';
 
@@ -97,7 +96,7 @@ export function createServer<
 			docs: '/openapi',
 		}));
 
-	for (const { workspaceId, actionPath, action } of iterActions(client)) {
+	for (const { workspaceId, actionPath, action } of client.$actions) {
 		const path = `/workspaces/${workspaceId}/actions/${actionPath.join('/')}`;
 		const operationType = (
 			{ query: 'queries', mutation: 'mutations' } as const
@@ -167,7 +166,7 @@ export function createServer<
 
 			console.log('📦 Available Workspaces:\n');
 			const actionsByWorkspace = Object.groupBy(
-				iterActions(client),
+				client.$actions,
 				(info) => info.workspaceId,
 			);
 

@@ -136,7 +136,6 @@ export {
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type { ActionInfo } from './core/workspace/client.shared';
-export { iterActions } from './core/workspace/client.shared';
 
 export type {
 	AnyWorkspaceConfig,
