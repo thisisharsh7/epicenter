@@ -121,7 +121,7 @@ export default defineWorkspace({
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		getPublishedPosts: defineQuery({
 			handler: async () => {
 				const posts = await providers.sqlite.db

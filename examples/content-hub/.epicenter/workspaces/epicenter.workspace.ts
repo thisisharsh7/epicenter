@@ -77,7 +77,7 @@ export const epicenter = defineWorkspace({
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		...tables.pitches,
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,

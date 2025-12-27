@@ -107,7 +107,7 @@ export const email = defineWorkspace({
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		...tables.emails,
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,

@@ -179,7 +179,7 @@ export const gmail = defineWorkspace({
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		...tables,
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,

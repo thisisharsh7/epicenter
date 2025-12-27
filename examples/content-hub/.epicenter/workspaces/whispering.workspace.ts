@@ -35,7 +35,7 @@ export const whispering = defineWorkspace({
 		markdown: (c) => markdownProvider(c),
 	},
 
-	exports: ({ tables, providers }) => {
+	actions: ({ tables, providers }) => {
 		/**
 		 * Determine timezone based on date
 		 * - >= 2025-05-25: America/Los_Angeles

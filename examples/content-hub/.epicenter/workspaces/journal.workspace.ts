@@ -112,7 +112,7 @@ export const journal = defineWorkspace({
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		...tables.journal,
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,

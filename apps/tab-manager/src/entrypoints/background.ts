@@ -114,7 +114,7 @@ export default defineBackground(() => {
 				url: 'ws://localhost:3913/sync',
 			}),
 		},
-		exports: ({ tables }) => ({
+		actions: ({ tables }) => ({
 			tables,
 
 			/**
