@@ -8,6 +8,7 @@ import {
 	text,
 } from '@epicenter/hq';
 import {
+	defineSerializer,
 	MarkdownProviderErr,
 	markdownProvider,
 } from '@epicenter/hq/providers/markdown';
@@ -42,36 +43,46 @@ export const epicenter = defineWorkspace({
 			markdownProvider(c, {
 				tableConfigs: {
 					pitches: {
-						serialize: ({ row: { content, slug, ...row }, table }) => ({
-							frontmatter: row,
-							body: content,
-							filename: `${slug}.md`,
-						}),
-						deserialize: ({ frontmatter, body, filename, table }) => {
-							const slug = path.basename(filename, '.md');
-							const FrontMatter = table.validators
-								.toArktype()
-								.omit('content', 'slug');
-							const frontmatterParsed = FrontMatter(frontmatter);
-							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownProviderErr({
-									message: `Invalid frontmatter for pitch with slug ${slug}`,
-									context: {
-										filename,
-										slug,
-										reason: frontmatterParsed,
-									},
-								});
-							}
-							const row = {
-								slug,
-								content: body,
-								...frontmatterParsed,
-							} satisfies SerializedRow<typeof table.schema>;
-							return Ok(row);
-						},
-						// ID is in frontmatter, not filename - file deletion sync won't work
-						extractRowIdFromFilename: () => undefined,
+						/**
+						 * Custom serializer using slug-based filenames.
+						 *
+						 * NOTE: ID is stored in frontmatter, not filename.
+						 * File deletion sync won't work correctly since the provider
+						 * can't map filename → row ID. Use push/pull actions instead.
+						 */
+						serializer: defineSerializer<(typeof epicenter)['schema']['pitches']>()
+							.parseFilename((filename) => {
+								const slug = path.basename(filename, '.md');
+								return { id: slug, slug };
+							})
+							.serialize(({ row: { content, slug, ...rest } }) => ({
+								frontmatter: rest,
+								body: content,
+								filename: `${slug}.md`,
+							}))
+							.deserialize(({ frontmatter, body, parsed, table }) => {
+								const { slug } = parsed;
+								const FrontMatter = table.validators
+									.toArktype()
+									.omit('content', 'slug');
+								const frontmatterParsed = FrontMatter(frontmatter);
+								if (frontmatterParsed instanceof type.errors) {
+									return MarkdownProviderErr({
+										message: `Invalid frontmatter for pitch with slug ${slug}`,
+										context: {
+											fileName: `${slug}.md`,
+											id: slug,
+											reason: frontmatterParsed.summary,
+										},
+									});
+								}
+								const row = {
+									slug,
+									content: body,
+									...frontmatterParsed,
+								} satisfies SerializedRow<typeof table.schema>;
+								return Ok(row);
+							}),
 					},
 				},
 			}),

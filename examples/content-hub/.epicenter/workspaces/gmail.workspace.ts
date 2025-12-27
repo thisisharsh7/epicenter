@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
 	boolean,
 	DateWithTimezone,
@@ -10,14 +9,12 @@ import {
 	id,
 	markdownProvider,
 	type ProviderContext,
-	type SerializedRow,
 	sqliteProvider,
 	text,
 	type WorkspaceSchema,
 } from '@epicenter/hq';
-import { MarkdownProviderErr } from '@epicenter/hq/providers/markdown';
+import { bodyFieldSerializer } from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
-import { type } from 'arktype';
 import { google } from 'googleapis';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
@@ -135,46 +132,7 @@ export const gmail = defineWorkspace({
 		markdown: (c) =>
 			markdownProvider(c, {
 				tableConfigs: {
-					emails: {
-						serialize: ({ row: { body, id, ...row } }) => {
-							// Strip null values for cleaner YAML
-							const frontmatter = Object.fromEntries(
-								Object.entries(row).filter(([_, value]) => value !== null),
-							);
-							return {
-								frontmatter,
-								body,
-								filename: `${id}.md`,
-							};
-						},
-						deserialize: ({ frontmatter, body, filename, table }) => {
-							const rowId = path.basename(filename, '.md');
-
-							const FrontMatter = table.validators
-								.toArktype()
-								.omit('id', 'body');
-							const parsed = FrontMatter(frontmatter);
-
-							if (parsed instanceof type.errors) {
-								return MarkdownProviderErr({
-									message: `Invalid frontmatter for row ${rowId}`,
-									context: {
-										fileName: filename,
-										id: rowId,
-										reason: parsed.summary,
-									},
-								});
-							}
-
-							const row = {
-								id: rowId,
-								body,
-								...parsed,
-							} satisfies SerializedRow<typeof table.schema>;
-
-							return Ok(row);
-						},
-					},
+					emails: { serializer: bodyFieldSerializer('body') },
 				},
 			}),
 	},
