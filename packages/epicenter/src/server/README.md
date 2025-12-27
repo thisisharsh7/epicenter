@@ -181,7 +181,10 @@ Actions from each workspace get their own namespace under `/workspaces`:
 /openapi                                       - OpenAPI spec (JSON)
 /scalar                                        - Scalar UI documentation
 /mcp                                           - MCP endpoint
+/sync/{workspaceId}                            - WebSocket sync (y-websocket protocol)
 /workspaces/{workspaceId}/actions/{action}     - Workspace actions
+/workspaces/{workspaceId}/tables/{table}       - RESTful table CRUD
+/workspaces/{workspaceId}/tables/{table}/{id}  - Single row operations
 ```
 
 ## How It Works
@@ -236,6 +239,54 @@ HTTP status codes map to error types:
 - `404` - Not found
 - `409` - Conflicts
 - `500` - Server errors
+
+## RESTful Tables
+
+Tables are automatically exposed as RESTful CRUD endpoints with schema validation.
+
+### Endpoints
+
+| Method   | Path                                          | Description          |
+| -------- | --------------------------------------------- | -------------------- |
+| `GET`    | `/workspaces/{workspace}/tables/{table}`      | List all valid rows  |
+| `GET`    | `/workspaces/{workspace}/tables/{table}/{id}` | Get single row by ID |
+| `POST`   | `/workspaces/{workspace}/tables/{table}`      | Create or upsert row |
+| `PUT`    | `/workspaces/{workspace}/tables/{table}/{id}` | Update row fields    |
+| `DELETE` | `/workspaces/{workspace}/tables/{table}/{id}` | Delete row           |
+
+### Examples
+
+```bash
+# List all posts
+curl http://localhost:3913/workspaces/blog/tables/posts
+
+# Get a single post
+curl http://localhost:3913/workspaces/blog/tables/posts/abc123
+
+# Create a new post
+curl -X POST http://localhost:3913/workspaces/blog/tables/posts \
+  -H "Content-Type: application/json" \
+  -d '{"id": "abc123", "title": "Hello World", "published": false}'
+
+# Update a post
+curl -X PUT http://localhost:3913/workspaces/blog/tables/posts/abc123 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Updated Title"}'
+
+# Delete a post
+curl -X DELETE http://localhost:3913/workspaces/blog/tables/posts/abc123
+```
+
+### Response Codes
+
+- `200` - Success (GET, PUT, DELETE)
+- `200` - Created/upserted (POST returns `{ success: true }`)
+- `404` - Row not found
+- `422` - Row exists but fails schema validation
+
+### Input Validation
+
+POST and PUT requests are validated against the table schema. Invalid requests return a 400 error with validation details.
 
 ## Model Context Protocol (MCP)
 
@@ -373,9 +424,8 @@ const server = start({ port: 3913 });
 
 This is a v1 implementation focused on simplicity. Future enhancements might include:
 
-- Input validation middleware using action schemas
 - Action descriptions in MCP tool definitions
-- Separate GET/POST routing based on query vs mutation types
-- WebSocket support for real-time YJS sync
+- Blob upload/download endpoints
+- Moving sync endpoint under workspace namespace (`/workspaces/{id}/sync`)
 
 The foundation is solid and extensible.

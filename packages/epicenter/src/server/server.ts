@@ -10,6 +10,7 @@ import type {
 } from '../core/workspace';
 import { iterActions } from '../core/workspace';
 import { createSyncPlugin } from './sync';
+import { createTablesPlugin } from './tables';
 
 export const DEFAULT_PORT = 3913;
 
@@ -54,6 +55,12 @@ export type StartServerOptions = {
 export function createServer<
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>) {
+	const {
+		destroy: _destroy,
+		[Symbol.asyncDispose]: _asyncDispose,
+		...workspaceClients
+	} = client;
+
 	const app = new Elysia()
 		.use(
 			openapi({
@@ -76,6 +83,11 @@ export function createServer<
 					return workspace?.$ydoc;
 				},
 			}),
+		)
+		.use(
+			createTablesPlugin(
+				workspaceClients as Record<string, WorkspaceClient<Actions>>,
+			),
 		)
 		.get('/', () => ({
 			name: 'Epicenter API',
