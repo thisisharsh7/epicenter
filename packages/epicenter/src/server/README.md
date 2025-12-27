@@ -181,7 +181,7 @@ Actions from each workspace get their own namespace under `/workspaces`:
 /openapi                                       - OpenAPI spec (JSON)
 /scalar                                        - Scalar UI documentation
 /mcp                                           - MCP endpoint
-/sync/{workspaceId}                            - WebSocket sync (y-websocket protocol)
+/workspaces/{workspaceId}/sync                 - WebSocket sync (y-websocket protocol)
 /workspaces/{workspaceId}/actions/{action}     - Workspace actions
 /workspaces/{workspaceId}/tables/{table}       - RESTful table CRUD
 /workspaces/{workspaceId}/tables/{table}/{id}  - Single row operations
@@ -426,6 +426,5 @@ This is a v1 implementation focused on simplicity. Future enhancements might inc
 
 - Action descriptions in MCP tool definitions
 - Blob upload/download endpoints
-- Moving sync endpoint under workspace namespace (`/workspaces/{id}/sync`)
 
 The foundation is solid and extensible.

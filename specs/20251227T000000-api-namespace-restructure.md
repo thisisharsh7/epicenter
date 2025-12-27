@@ -378,12 +378,12 @@ export function* iterActions(
 - [x] Add proper error handling and status codes
 - [x] Add to `createServer()` composition
 
-### Phase 4: Move Sync Endpoint (Breaking Change)
+### Phase 4: Move Sync Endpoint (Breaking Change) ✅
 
-- [ ] Refactor `createSyncPlugin` to accept workspace-scoped config
-- [ ] Update URL from `/sync/{workspaceId}` to `/workspaces/{workspaceId}/sync`
-- [ ] Update `createWebsocketSyncProvider` to use new URL format
-- [ ] Update documentation
+- [x] Refactor `createSyncPlugin` to accept workspace-scoped config
+- [x] Update URL from `/sync/{workspaceId}` to `/workspaces/{workspaceId}/sync`
+- [ ] Update `createWebsocketSyncProvider` to use new URL format (client-side - separate PR)
+- [x] Update documentation
 
 ### Phase 5: Blob HTTP Endpoints (New Feature)
 

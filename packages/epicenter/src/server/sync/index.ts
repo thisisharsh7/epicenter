@@ -27,8 +27,8 @@ function toBuffer(data: Uint8Array): Buffer {
 }
 
 type SyncPluginConfig = {
-	/** Get Y.Doc for a room. Called when client connects. */
-	getDoc: (room: string) => Y.Doc | undefined;
+	/** Get Y.Doc for a workspace. Called when client connects. */
+	getDoc: (workspaceId: string) => Y.Doc | undefined;
 };
 
 /**
@@ -45,11 +45,11 @@ type SyncPluginConfig = {
  * ```typescript
  * const app = new Elysia()
  *   .use(createSyncPlugin({
- *     getDoc: (room) => workspaces.get(room)?.ydoc,
+ *     getDoc: (workspaceId) => workspaces.get(workspaceId)?.ydoc,
  *   }))
  *   .listen(3913);
  *
- * // Clients connect to: ws://localhost:3913/sync/blog
+ * // Clients connect to: ws://localhost:3913/workspaces/blog/sync
  * ```
  */
 export function createSyncPlugin(config: SyncPluginConfig) {
@@ -104,9 +104,9 @@ export function createSyncPlugin(config: SyncPluginConfig) {
 		return awarenessMap.get(room)!;
 	};
 
-	return new Elysia({ prefix: '/sync' }).ws('/:room', {
+	return new Elysia().ws('/workspaces/:workspaceId/sync', {
 		open(ws) {
-			const { room } = ws.data.params;
+			const room = ws.data.params.workspaceId;
 			console.log(`[Sync Server] Client connected to room: ${room}`);
 			const doc = config.getDoc(room);
 

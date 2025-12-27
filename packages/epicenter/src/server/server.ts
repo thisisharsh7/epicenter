@@ -23,15 +23,17 @@ export type StartServerOptions = {
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
  * - REST endpoints: GET/POST `/workspaces/{workspace}/actions/{action}`
- * - WebSocket sync: `/sync/{workspaceId}` for real-time Y.Doc synchronization
+ * - RESTful tables: CRUD at `/workspaces/{workspace}/tables/{table}`
+ * - WebSocket sync: `/workspaces/{workspaceId}/sync` for real-time Y.Doc synchronization
  * - API documentation: `/openapi` (Scalar UI)
  *
  * URL Hierarchy:
  * - `/` - API root/discovery
  * - `/openapi` - Scalar UI documentation
  * - `/openapi/json` - OpenAPI spec (JSON)
- * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
+ * - `/workspaces/{workspaceId}/sync` - WebSocket sync endpoint (y-websocket protocol)
  * - `/workspaces/{workspaceId}/actions/{action}` - Workspace actions (queries: GET, mutations: POST)
+ * - `/workspaces/{workspaceId}/tables/{table}` - RESTful table CRUD
  *
  * @param client - Initialized Epicenter client from createClient()
  * @returns Object with Elysia app and start method
@@ -49,7 +51,7 @@ export type StartServerOptions = {
  * // Access at:
  * // - http://localhost:3913/openapi (Scalar UI)
  * // - http://localhost:3913/workspaces/blog/actions/createPost (REST)
- * // - ws://localhost:3913/sync/blog (WebSocket sync)
+ * // - ws://localhost:3913/workspaces/blog/sync (WebSocket sync)
  * ```
  */
 export function createServer<
