@@ -17,7 +17,8 @@ import type { WorkspacePaths } from './config';
  * Internal workspace client properties shared across all platforms.
  *
  * These properties are prefixed with `$` to distinguish them from user-defined actions
- * and prevent naming conflicts. Platform-specific files (browser/node) compose this
+ * and mirror the actions context (passed to the `actions` factory in
+ * `defineWorkspace`). Platform-specific files (browser/node) compose this
  * type with their own additions (e.g., browser adds `whenSynced`).
  *
  * @typeParam TSchema - The workspace's table schema

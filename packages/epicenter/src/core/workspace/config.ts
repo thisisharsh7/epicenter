@@ -185,6 +185,9 @@ export type WorkspaceConfig<
 	 * Everything returned from this function should be a Query or Mutation
 	 * (created via defineQuery/defineMutation or from table helpers).
 	 *
+	 * All context properties are exposed on the workspace client with a `$` prefix
+	 * (e.g., `ydoc` here → `client.$ydoc`, `tables` → `client.$tables`).
+	 *
 	 * @param context.ydoc - The underlying YJS document for transactions and advanced ops
 	 * @param context.tables - Workspace tables for direct table operations
 	 * @param context.validators - Schema validators for runtime validation
