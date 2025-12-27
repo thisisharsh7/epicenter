@@ -83,7 +83,7 @@ If you need to run scripts while the server is running, use the HTTP API instead
 }
 
 // ✅ DO: Use the server's HTTP API
-await fetch('http://localhost:3913/workspaces/blog/createPost', {
+await fetch('http://localhost:3913/workspaces/blog/actions/createPost', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ title: 'New Post', content: '...' }),
@@ -150,8 +150,8 @@ server.start({ port: 3913 });
 
 Now your actions are available as HTTP endpoints:
 
-- `GET http://localhost:3913/workspaces/blog/getAllPosts`
-- `POST http://localhost:3913/workspaces/blog/createPost` with JSON body `{ "title": "My Post" }`
+- `GET http://localhost:3913/workspaces/blog/actions/getAllPosts`
+- `POST http://localhost:3913/workspaces/blog/actions/createPost` with JSON body `{ "title": "My Post" }`
 
 ### Multiple Workspaces
 
@@ -170,18 +170,18 @@ server.start({ port: 3913 });
 
 Actions from each workspace get their own namespace under `/workspaces`:
 
-- `GET http://localhost:3913/workspaces/blog/getAllPosts`
-- `POST http://localhost:3913/workspaces/auth/login`
-- `GET http://localhost:3913/workspaces/storage/listFiles`
+- `GET http://localhost:3913/workspaces/blog/actions/getAllPosts`
+- `POST http://localhost:3913/workspaces/auth/actions/login`
+- `GET http://localhost:3913/workspaces/storage/actions/listFiles`
 
 **URL Hierarchy:**
 
 ```
-/                                    - API root/discovery
-/openapi                             - OpenAPI spec (JSON)
-/scalar                              - Scalar UI documentation
-/mcp                                 - MCP endpoint
-/workspaces/{workspaceId}/{action}   - Workspace actions
+/                                              - API root/discovery
+/openapi                                       - OpenAPI spec (JSON)
+/scalar                                        - Scalar UI documentation
+/mcp                                           - MCP endpoint
+/workspaces/{workspaceId}/actions/{action}     - Workspace actions
 ```
 
 ## How It Works
@@ -329,8 +329,8 @@ console.log('Notes API running at http://localhost:8080');
 
 Now you have a fully functional notes API:
 
-- `POST /workspaces/notes/createNote` - Create notes
-- `GET /workspaces/notes/searchNotes?query=important` - Search notes
+- `POST /workspaces/notes/actions/createNote` - Create notes
+- `GET /workspaces/notes/actions/searchNotes?query=important` - Search notes
 - `POST /mcp/tools/call` - Let AI create/search notes
 
 ## When to Use This

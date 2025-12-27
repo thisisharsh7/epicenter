@@ -21,7 +21,7 @@ export type StartServerOptions = {
  * Create a server from an initialized Epicenter client.
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
- * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
+ * - REST endpoints: GET/POST `/workspaces/{workspace}/actions/{action}`
  * - WebSocket sync: `/sync/{workspaceId}` for real-time Y.Doc synchronization
  * - API documentation: `/openapi` (Scalar UI)
  *
@@ -30,7 +30,7 @@ export type StartServerOptions = {
  * - `/openapi` - Scalar UI documentation
  * - `/openapi/json` - OpenAPI spec (JSON)
  * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
- * - `/workspaces/{workspaceId}/{action}` - Workspace actions
+ * - `/workspaces/{workspaceId}/actions/{action}` - Workspace actions (queries: GET, mutations: POST)
  *
  * @param client - Initialized Epicenter client from createClient()
  * @returns Object with Elysia app and start method
@@ -47,7 +47,7 @@ export type StartServerOptions = {
  *
  * // Access at:
  * // - http://localhost:3913/openapi (Scalar UI)
- * // - http://localhost:3913/workspaces/blog/createPost (REST)
+ * // - http://localhost:3913/workspaces/blog/actions/createPost (REST)
  * // - ws://localhost:3913/sync/blog (WebSocket sync)
  * ```
  */
@@ -84,7 +84,7 @@ export function createServer<
 		}));
 
 	for (const { workspaceId, actionPath, action } of iterActions(client)) {
-		const path = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
+		const path = `/workspaces/${workspaceId}/actions/${actionPath.join('/')}`;
 		const operationType = (
 			{ query: 'queries', mutation: 'mutations' } as const
 		)[action.type];
