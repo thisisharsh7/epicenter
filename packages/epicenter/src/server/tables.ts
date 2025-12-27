@@ -1,9 +1,12 @@
 import { Elysia } from 'elysia';
+import { Ok } from 'wellcrafted/result';
 import type { Actions } from '../core/actions';
+import type { SerializedRow, TableSchema } from '../core/schema';
 import type { WorkspaceClient } from '../core/workspace';
 
-
-export function createTablesPlugin(workspaceClients: Record<string, WorkspaceClient<Actions>>) {
+export function createTablesPlugin(
+	workspaceClients: Record<string, WorkspaceClient<Actions>>,
+) {
 	const app = new Elysia();
 
 	for (const [workspaceId, workspaceClient] of Object.entries(
@@ -49,8 +52,8 @@ export function createTablesPlugin(workspaceClients: Record<string, WorkspaceCli
 			app.post(
 				basePath,
 				({ body }) => {
-					tableHelper.upsert(body as Record<string, unknown>);
-					return { success: true };
+					tableHelper.upsert(body as SerializedRow<TableSchema>);
+					return Ok({ id: (body as SerializedRow<TableSchema>).id });
 				},
 				{
 					body: tableHelper.validators.toStandardSchema(),
@@ -63,9 +66,9 @@ export function createTablesPlugin(workspaceClients: Record<string, WorkspaceCli
 				({ params, body }) => {
 					const result = tableHelper.update({
 						id: params.id,
-						...(body as Record<string, unknown>),
+						...(body as Partial<SerializedRow<TableSchema>>),
 					});
-					return result;
+					return Ok(result);
 				},
 				{
 					body: tableHelper.validators.toPartialStandardSchema(),
@@ -77,7 +80,7 @@ export function createTablesPlugin(workspaceClients: Record<string, WorkspaceCli
 				`${basePath}/:id`,
 				({ params }) => {
 					const result = tableHelper.delete({ id: params.id });
-					return result;
+					return Ok(result);
 				},
 				{
 					detail: { description: `Delete ${tableName} by ID`, tags },
