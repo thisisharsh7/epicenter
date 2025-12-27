@@ -7,26 +7,25 @@
 
 import { type Action, type Actions, walkActions } from '../actions';
 
-/**
- * Base workspace client shape for iterActions compatibility.
- * Platform-specific clients extend this with additional properties.
- */
-type BaseWorkspaceClient = Actions & {
-	$ydoc: unknown;
-	$tables: unknown;
-	$providers: unknown;
+type AsyncDisposable = {
 	destroy: () => Promise<void>;
 	[Symbol.asyncDispose]: () => Promise<void>;
 };
 
+type BaseWorkspaceClient = Actions &
+	AsyncDisposable & {
+		$ydoc: object;
+		$tables: Record<string, unknown>;
+		$providers: Record<string, unknown>;
+	};
+
 /**
- * Base Epicenter client shape for iterActions compatibility.
+ * The index signature must include `() => Promise<void>` because `destroy` is
+ * a string-keyed property. TypeScript requires index signatures to be supersets
+ * of all explicit string-keyed properties.
  */
-type BaseEpicenterClient = {
-	destroy: () => Promise<void>;
-	[Symbol.asyncDispose]: () => Promise<void>;
-	[workspaceId: string]: BaseWorkspaceClient | (() => Promise<void>);
-};
+type BaseEpicenterClient = AsyncDisposable &
+	Record<string, BaseWorkspaceClient | (() => Promise<void>)>;
 
 /** Info about an action collected from the client hierarchy */
 export type ActionInfo = {
