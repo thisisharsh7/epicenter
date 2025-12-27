@@ -13,10 +13,7 @@ export type {
 } from './core/workspace/client.browser';
 
 // Browser-specific: client creation (sync with whenSynced)
-export {
-	createClient,
-	createWorkspaceClient,
-} from './core/workspace/client.browser';
+export { createClient } from './core/workspace/client.browser';
 // All platform-agnostic exports
 export * from './index.shared';
 

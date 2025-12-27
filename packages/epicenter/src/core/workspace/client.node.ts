@@ -8,11 +8,15 @@
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { Actions } from '../actions';
-import { createEpicenterDb, type Tables } from '../db/core';
+import { createEpicenterDb } from '../db/core';
 import { buildProviderPaths, getEpicenterDir } from '../paths';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { ProjectDir, ProviderPaths } from '../types';
+import type {
+	EpicenterClientBase,
+	WorkspaceClientInternals,
+} from './client.shared';
 import type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
@@ -22,71 +26,18 @@ import type {
 /**
  * A workspace client contains all workspace actions plus lifecycle management.
  *
- * Unlike browser clients, Node.js clients are fully initialized before returning.
+ * Unlike browser clients, Node.js clients are fully initialized before returning
+ * (no `whenSynced` promise needed).
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
+ *
+ * Inherits `$ydoc`, `$tables`, `$providers`, `destroy`, and `[Symbol.asyncDispose]` from
+ * {@link WorkspaceClientInternals}.
  */
 export type WorkspaceClient<
 	TActions extends Actions,
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
 	TProviders extends WorkspaceProviderMap = WorkspaceProviderMap,
-> = TActions & {
-	/**
-	 * The underlying YJS document for this workspace.
-	 *
-	 * Exposed for sync providers and advanced use cases.
-	 * The document's guid matches the workspace ID.
-	 */
-	$ydoc: Y.Doc;
-
-	/**
-	 * Direct access to workspace tables for advanced operations.
-	 *
-	 * Use this for:
-	 * - Direct table queries bypassing actions
-	 * - Observing real-time changes via `$tables.posts.observe()`
-	 * - Accessing Y.Text/Y.Array instances for collaborative editing
-	 *
-	 * @example
-	 * ```typescript
-	 * // Get a row with live YJS objects
-	 * const result = client.$tables.posts.get({ id: '123' });
-	 * if (result.status === 'valid') {
-	 *   const ytext = result.row.content; // Y.Text for editor binding
-	 * }
-	 *
-	 * // Observe changes
-	 * client.$tables.posts.observe({
-	 *   onAdd: (result) => console.log('New:', result),
-	 *   onUpdate: (result) => console.log('Updated:', result),
-	 * });
-	 * ```
-	 */
-	$tables: Tables<TSchema>;
-
-	/**
-	 * Direct access to workspace providers.
-	 *
-	 * Use this for provider-specific operations like:
-	 * - SQLite queries via `$providers.sqlite`
-	 * - Sync status via `$providers.sync`
-	 *
-	 * @example
-	 * ```typescript
-	 * const results = await client.$providers.sqlite.posts.select().all();
-	 * ```
-	 */
-	$providers: TProviders;
-
-	/**
-	 * Async cleanup method for resource management.
-	 */
-	destroy: () => Promise<void>;
-
-	/**
-	 * Async disposal for `await using` syntax.
-	 */
-	[Symbol.asyncDispose]: () => Promise<void>;
-};
+> = TActions & WorkspaceClientInternals<TSchema, TProviders>;
 
 /**
  * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace id.
@@ -104,52 +55,12 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 
 /**
  * Client for multiple workspaces in Node.js environments.
- * Maps workspace IDs to their clients.
- * Returned by `createClient([...workspaces])`.
+ *
+ * Maps workspace IDs to their clients. Inherits `destroy` and `[Symbol.asyncDispose]`
+ * from {@link EpicenterClientBase}.
  */
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
-	WorkspacesToClients<TWorkspaces> & {
-		/**
-		 * Async cleanup method for resource management.
-		 */
-		destroy: () => Promise<void>;
-
-		/**
-		 * Async disposal for `await using` syntax.
-		 */
-		[Symbol.asyncDispose]: () => Promise<void>;
-	};
-
-/**
- * Validates workspace array configuration.
- */
-function validateWorkspaces(workspaces: readonly AnyWorkspaceConfig[]): void {
-	if (!Array.isArray(workspaces)) {
-		throw new Error('Workspaces must be an array of workspace configs');
-	}
-
-	if (workspaces.length === 0) {
-		throw new Error('Must have at least one workspace');
-	}
-
-	for (const workspace of workspaces) {
-		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
-			throw new Error(
-				'Invalid workspace: workspaces must be workspace configs with id and actions',
-			);
-		}
-	}
-
-	const ids = workspaces.map((ws) => ws.id);
-	const uniqueIds = new Set(ids);
-	if (uniqueIds.size !== ids.length) {
-		const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
-		throw new Error(
-			`Duplicate workspace IDs detected: ${duplicates.join(', ')}. ` +
-				`Each workspace must have a unique ID.`,
-		);
-	}
-}
+	WorkspacesToClients<TWorkspaces> & EpicenterClientBase;
 
 /**
  * Options for creating a client in Node.js environments.
@@ -278,8 +189,6 @@ export async function createClient(
 	) as ProjectDir;
 
 	if (Array.isArray(input)) {
-		validateWorkspaces(input);
-
 		const clients = await initializeWorkspaces(input, projectDir);
 
 		const cleanup = async () => {

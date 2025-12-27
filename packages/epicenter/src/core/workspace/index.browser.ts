@@ -13,7 +13,7 @@ export type {
 	WorkspacesToClients,
 } from './client.browser';
 // Runtime - browser version
-export { createClient, createWorkspaceClient } from './client.browser';
+export { createClient } from './client.browser';
 
 // Shared utilities
 export type { ActionInfo } from './client.shared';
