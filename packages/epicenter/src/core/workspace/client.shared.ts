@@ -13,6 +13,8 @@ import { type Action, type Actions, walkActions } from '../actions';
  */
 type BaseWorkspaceClient = Actions & {
 	$ydoc: unknown;
+	$tables: unknown;
+	$providers: unknown;
 	destroy: () => Promise<void>;
 	[Symbol.asyncDispose]: () => Promise<void>;
 };
@@ -82,6 +84,8 @@ export function* iterActions(
 			destroy: _workspaceDestroy,
 			[Symbol.asyncDispose]: _workspaceAsyncDispose,
 			$ydoc: _$ydoc,
+			$tables: _$tables,
+			$providers: _$providers,
 			...workspaceActions
 		} = workspaceClient as BaseWorkspaceClient;
 

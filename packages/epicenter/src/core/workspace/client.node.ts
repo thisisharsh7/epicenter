@@ -8,7 +8,7 @@
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { Actions } from '../actions';
-import { createEpicenterDb } from '../db/core';
+import { createEpicenterDb, type Tables } from '../db/core';
 import { buildProviderPaths, getEpicenterDir } from '../paths';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
@@ -25,7 +25,11 @@ import type {
  * Unlike browser clients, Node.js clients are fully initialized before returning.
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
  */
-export type WorkspaceClient<TActions extends Actions> = TActions & {
+export type WorkspaceClient<
+	TActions extends Actions,
+	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TProviders extends WorkspaceProviderMap = WorkspaceProviderMap,
+> = TActions & {
 	/**
 	 * The underlying YJS document for this workspace.
 	 *
@@ -33,6 +37,45 @@ export type WorkspaceClient<TActions extends Actions> = TActions & {
 	 * The document's guid matches the workspace ID.
 	 */
 	$ydoc: Y.Doc;
+
+	/**
+	 * Direct access to workspace tables for advanced operations.
+	 *
+	 * Use this for:
+	 * - Direct table queries bypassing actions
+	 * - Observing real-time changes via `$tables.posts.observe()`
+	 * - Accessing Y.Text/Y.Array instances for collaborative editing
+	 *
+	 * @example
+	 * ```typescript
+	 * // Get a row with live YJS objects
+	 * const result = client.$tables.posts.get({ id: '123' });
+	 * if (result.status === 'valid') {
+	 *   const ytext = result.row.content; // Y.Text for editor binding
+	 * }
+	 *
+	 * // Observe changes
+	 * client.$tables.posts.observe({
+	 *   onAdd: (result) => console.log('New:', result),
+	 *   onUpdate: (result) => console.log('Updated:', result),
+	 * });
+	 * ```
+	 */
+	$tables: Tables<TSchema>;
+
+	/**
+	 * Direct access to workspace providers.
+	 *
+	 * Use this for provider-specific operations like:
+	 * - SQLite queries via `$providers.sqlite`
+	 * - Sync status via `$providers.sync`
+	 *
+	 * @example
+	 * ```typescript
+	 * const results = await client.$providers.sqlite.posts.select().all();
+	 * ```
+	 */
+	$providers: TProviders;
 
 	/**
 	 * Async cleanup method for resource management.
@@ -552,6 +595,8 @@ async function initializeWorkspaces<
 		clients.set(workspaceId, {
 			...actions,
 			$ydoc: ydoc,
+			$tables: tables,
+			$providers: providers,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		});
