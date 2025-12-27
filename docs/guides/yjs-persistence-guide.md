@@ -15,6 +15,7 @@ In Epicenter, YJS serves as the **source of truth** for all your data. When you 
 ### The YDoc: Your Database Container
 
 Every workspace has a `Y.Doc` instance. This document:
+
 - Contains all your tables as nested YJS Maps
 - Can be serialized to binary format (for saving to disk)
 - Can sync with other documents (for collaboration)
@@ -37,7 +38,8 @@ Epicenter uses a provider pattern for persisting your YJS document. Providers ar
 ### Desktop Persistence with `setupPersistence`
 
 For desktop applications (Tauri, Electron, Bun), use the built-in `setupPersistence` provider from `@epicenter/hq/providers/desktop`. This provider:
-- Automatically saves to `.epicenter/{workspaceId}.yjs` in your project directory
+
+- Automatically saves to `.epicenter/providers/persistence/{workspaceId}.yjs` in your project directory
 - Loads existing state on startup
 - Auto-saves on every update
 - Works seamlessly with multiple workspaces
@@ -50,24 +52,24 @@ import { setupPersistence } from '@epicenter/hq/providers/desktop';
 import { text, ytext } from '@epicenter/hq';
 
 const blogWorkspace = defineWorkspace({
-  id: 'blog',
+	id: 'blog',
 
-  tables: {
-    posts: {
-      title: text(),
-      content: ytext({ nullable: true }),
-    }
-  },
+	tables: {
+		posts: {
+			title: text(),
+			content: ytext({ nullable: true }),
+		},
+	},
 
-  // Add the persistence provider
-  providers: {
-    persistence: setupPersistence,
-  },
+	// Add the persistence provider
+	providers: {
+		persistence: setupPersistence,
+	},
 
-  // ... rest of your config
+	// ... rest of your config
 });
 
-// That's it! Your workspace now auto-saves to .epicenter/blog.yjs
+// That's it! Your workspace now auto-saves to .epicenter/providers/persistence/blog.yjs
 ```
 
 ### Web Persistence with IndexedDB
@@ -82,31 +84,31 @@ import { IndexeddbPersistence } from 'y-indexeddb';
 
 // Create a web persistence provider
 const setupWebPersistence: Provider = ({ ydoc }) => {
-  // y-indexeddb handles loading and saving automatically
-  const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
+	// y-indexeddb handles loading and saving automatically
+	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
 
-  return {
-    whenSynced: persistence.whenSynced,
-    destroy: () => persistence.destroy(),
-  };
+	return {
+		whenSynced: persistence.whenSynced,
+		destroy: () => persistence.destroy(),
+	};
 };
 
 const blogWorkspace = defineWorkspace({
-  id: 'blog',
+	id: 'blog',
 
-  tables: {
-    posts: {
-      title: text(),
-      content: ytext({ nullable: true }),
-    }
-  },
+	tables: {
+		posts: {
+			title: text(),
+			content: ytext({ nullable: true }),
+		},
+	},
 
-  // Use the web persistence provider
-  providers: {
-    persistence: setupWebPersistence,
-  },
+	// Use the web persistence provider
+	providers: {
+		persistence: setupWebPersistence,
+	},
 
-  // ... rest of your config
+	// ... rest of your config
 });
 ```
 
@@ -133,12 +135,12 @@ import type { Provider } from '@epicenter/hq';
 import { IndexeddbPersistence } from 'y-indexeddb';
 
 export const setupPersistence: Provider = ({ ydoc }) => {
-  const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
+	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
 
-  return {
-    whenSynced: persistence.whenSynced,
-    destroy: () => persistence.destroy(),
-  };
+	return {
+		whenSynced: persistence.whenSynced,
+		destroy: () => persistence.destroy(),
+	};
 };
 ```
 
@@ -151,10 +153,12 @@ import { setupPersistence } from './persistence.desktop';
 import { setupPersistence } from './persistence.web';
 
 const workspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  providers: { persistence: setupPersistence },
-  // ... rest of config
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	providers: { persistence: setupPersistence },
+	// ... rest of config
 });
 ```
 
@@ -165,21 +169,22 @@ const workspace = defineWorkspace({
 import type { Provider } from '@epicenter/hq';
 
 export const setupPersistence: Provider = ({ ydoc }) => {
-  // Detect environment - for runtime detection, choose a default
-  // For most apps, use conditional imports at build time instead
-  const { IndexeddbPersistence } = await import('y-indexeddb');
-  const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
+	// Detect environment - for runtime detection, choose a default
+	// For most apps, use conditional imports at build time instead
+	const { IndexeddbPersistence } = await import('y-indexeddb');
+	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
 
-  return {
-    whenSynced: persistence.whenSynced,
-    destroy: () => persistence.destroy(),
-  };
+	return {
+		whenSynced: persistence.whenSynced,
+		destroy: () => persistence.destroy(),
+	};
 };
 ```
 
 ## Benefits of the Provider Pattern
 
 The provider pattern in Epicenter offers several advantages:
+
 - **Cross-platform**: Same API works on desktop and web
 - **Composable**: Combine multiple providers (persistence + sync)
 - **Type-safe**: Full TypeScript support with the `Provider` interface
@@ -195,22 +200,26 @@ Each workspace gets its own file, automatically named by workspace ID:
 import { defineWorkspace } from '@epicenter/hq';
 import { setupPersistence } from '@epicenter/hq/providers/desktop';
 
-// Workspace A → saves to .epicenter/workspace-a.yjs
+// Workspace A → saves to .epicenter/providers/persistence/workspace-a.yjs
 const workspaceA = defineWorkspace({
-  id: 'workspace-a',
-  tables: { /* ... */ },
-  providers: { persistence: setupPersistence },
+	id: 'workspace-a',
+	tables: {
+		/* ... */
+	},
+	providers: { persistence: setupPersistence },
 });
 
-// Workspace B → saves to .epicenter/workspace-b.yjs
+// Workspace B → saves to .epicenter/providers/persistence/workspace-b.yjs
 const workspaceB = defineWorkspace({
-  id: 'workspace-b',
-  tables: { /* ... */ },
-  providers: { persistence: setupPersistence },
+	id: 'workspace-b',
+	tables: {
+		/* ... */
+	},
+	providers: { persistence: setupPersistence },
 });
 ```
 
-Both workspaces share the `.epicenter/` directory but have completely isolated state.
+Both workspaces share the `.epicenter/providers/persistence/` directory but have completely isolated state.
 
 ### 2. Combining Persistence with Sync
 
@@ -224,21 +233,23 @@ import { WebrtcProvider } from 'y-webrtc';
 
 // Create a sync provider
 const setupSync: Provider = ({ ydoc }) => {
-  const provider = new WebrtcProvider('blog-room', ydoc);
+	const provider = new WebrtcProvider('blog-room', ydoc);
 
-  return {
-    destroy: () => provider.destroy(),
-  };
+	return {
+		destroy: () => provider.destroy(),
+	};
 };
 
 const workspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  // Combine multiple providers
-  providers: {
-    persistence: setupPersistence,  // Saves locally
-    sync: setupSync,                // Syncs with other users
-  },
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	// Combine multiple providers
+	providers: {
+		persistence: setupPersistence, // Saves locally
+		sync: setupSync, // Syncs with other users
+	},
 });
 
 // Both work together!
@@ -254,41 +265,41 @@ import type { Provider } from '@epicenter/hq';
 import * as Y from 'yjs';
 
 const customPersistence: Provider = async ({ id, ydoc }) => {
-  const fs = await import('node:fs');
-  const path = await import('node:path');
+	const fs = await import('node:fs');
+	const path = await import('node:path');
 
-  const filePath = path.join('./.data', `${id}.yjs`);
+	const filePath = path.join('./.data', `${id}.yjs`);
 
-  // Load existing state
-  try {
-    const savedState = fs.readFileSync(filePath);
-    Y.applyUpdate(ydoc, savedState);
-  } catch {
-    console.log('Creating new workspace');
-  }
+	// Load existing state
+	try {
+		const savedState = fs.readFileSync(filePath);
+		Y.applyUpdate(ydoc, savedState);
+	} catch {
+		console.log('Creating new workspace');
+	}
 
-  // Debounced save (saves at most once per second)
-  let saveTimeout: NodeJS.Timeout | null = null;
+	// Debounced save (saves at most once per second)
+	let saveTimeout: NodeJS.Timeout | null = null;
 
-  const debouncedSave = () => {
-    if (saveTimeout) clearTimeout(saveTimeout);
+	const debouncedSave = () => {
+		if (saveTimeout) clearTimeout(saveTimeout);
 
-    saveTimeout = setTimeout(() => {
-      const state = Y.encodeStateAsUpdate(ydoc);
-      Bun.write(filePath, state);
-    }, 1000);
-  };
+		saveTimeout = setTimeout(() => {
+			const state = Y.encodeStateAsUpdate(ydoc);
+			Bun.write(filePath, state);
+		}, 1000);
+	};
 
-  ydoc.on('update', debouncedSave);
+	ydoc.on('update', debouncedSave);
 
-  return {
-    destroy: () => {
-      if (saveTimeout) clearTimeout(saveTimeout);
-      ydoc.off('update', debouncedSave);
-      // Final save to ensure all data is persisted
-      Bun.write(filePath, Y.encodeStateAsUpdate(ydoc));
-    },
-  };
+	return {
+		destroy: () => {
+			if (saveTimeout) clearTimeout(saveTimeout);
+			ydoc.off('update', debouncedSave);
+			// Final save to ensure all data is persisted
+			Bun.write(filePath, Y.encodeStateAsUpdate(ydoc));
+		},
+	};
 };
 ```
 
@@ -303,10 +314,12 @@ import { setupPersistence } from '@epicenter/hq/providers/desktop';
 const isTest = process.env.NODE_ENV === 'test';
 
 const workspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  // Only enable persistence in non-test environments
-  providers: isTest ? {} : { persistence: setupPersistence },
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	// Only enable persistence in non-test environments
+	providers: isTest ? {} : { persistence: setupPersistence },
 });
 ```
 
