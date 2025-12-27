@@ -27,7 +27,7 @@ const reddit = defineWorkspace({
 	tables: {
 		/* ... */
 	},
-	exports: ({ tables }) => ({
+	actions: ({ tables }) => ({
 		import: defineMutation({
 			input: type({
 				url: 'string',

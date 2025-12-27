@@ -73,15 +73,15 @@ new WebsocketProvider('wss://sync.myapp.com/sync', 'blog', doc);
 
 ### Y.Doc Instance Count
 
-| Location | Y.Doc Count | Notes |
-|----------|-------------|-------|
-| Phone browser | 1 | Client only (no local server) |
-| Laptop browser | 1 | Connects to localhost |
-| Desktop browser | 1 | Connects to localhost |
-| Laptop server | 1 | Sync node |
-| Desktop server | 1 | Sync node |
-| Cloud server | 1 | Sync node (optional) |
-| **Total** | **5-6** | All stay in sync via providers |
+| Location        | Y.Doc Count | Notes                          |
+| --------------- | ----------- | ------------------------------ |
+| Phone browser   | 1           | Client only (no local server)  |
+| Laptop browser  | 1           | Connects to localhost          |
+| Desktop browser | 1           | Connects to localhost          |
+| Laptop server   | 1           | Sync node                      |
+| Desktop server  | 1           | Sync node                      |
+| Cloud server    | 1           | Sync node (optional)           |
+| **Total**       | **5-6**     | All stay in sync via providers |
 
 ## Sync Node Configuration
 
@@ -97,15 +97,15 @@ Define your sync nodes as a constant for easy reference:
  * Use Tailscale hostnames for local network devices.
  */
 export const SYNC_NODES = {
-  // Local devices via Tailscale
-  desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync',
-  laptop: 'ws://laptop.my-tailnet.ts.net:3913/sync',
+	// Local devices via Tailscale
+	desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync',
+	laptop: 'ws://laptop.my-tailnet.ts.net:3913/sync',
 
-  // Cloud server (optional, always-on)
-  cloud: 'wss://sync.myapp.com/sync',
+	// Cloud server (optional, always-on)
+	cloud: 'wss://sync.myapp.com/sync',
 
-  // Localhost (for browser connecting to local server)
-  localhost: 'ws://localhost:3913/sync',
+	// Localhost (for browser connecting to local server)
+	localhost: 'ws://localhost:3913/sync',
 } as const;
 
 export type SyncNodeId = keyof typeof SYNC_NODES;
@@ -117,14 +117,14 @@ Different devices need different provider configurations.
 
 ### Quick Reference Table
 
-| Device | Acts As | Providers (Connects To) | Rationale |
-|--------|---------|-------------------------|-----------|
-| **Phone browser** | Client only | `SYNC_NODES.desktop`, `SYNC_NODES.laptop`, `SYNC_NODES.cloud` | No local server; connect to all available nodes |
-| **Laptop browser** | Client | `SYNC_NODES.localhost` | Server handles cross-device sync |
-| **Desktop browser** | Client | `SYNC_NODES.localhost` | Server handles cross-device sync |
-| **Laptop server** | Server + Client | `SYNC_NODES.desktop`, `SYNC_NODES.cloud` | Sync with OTHER servers (not itself) |
-| **Desktop server** | Server + Client | `SYNC_NODES.laptop`, `SYNC_NODES.cloud` | Sync with OTHER servers (not itself) |
-| **Cloud server** | Server only | (none) | Accepts connections; doesn't initiate |
+| Device              | Acts As         | Providers (Connects To)                                       | Rationale                                       |
+| ------------------- | --------------- | ------------------------------------------------------------- | ----------------------------------------------- |
+| **Phone browser**   | Client only     | `SYNC_NODES.desktop`, `SYNC_NODES.laptop`, `SYNC_NODES.cloud` | No local server; connect to all available nodes |
+| **Laptop browser**  | Client          | `SYNC_NODES.localhost`                                        | Server handles cross-device sync                |
+| **Desktop browser** | Client          | `SYNC_NODES.localhost`                                        | Server handles cross-device sync                |
+| **Laptop server**   | Server + Client | `SYNC_NODES.desktop`, `SYNC_NODES.cloud`                      | Sync with OTHER servers (not itself)            |
+| **Desktop server**  | Server + Client | `SYNC_NODES.laptop`, `SYNC_NODES.cloud`                       | Sync with OTHER servers (not itself)            |
+| **Cloud server**    | Server only     | (none)                                                        | Accepts connections; doesn't initiate           |
 
 ### Key Insight
 
@@ -143,15 +143,19 @@ import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-s
 import { SYNC_NODES } from './config/sync-nodes';
 
 export const blogWorkspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  providers: {
-    // Connect to ALL sync nodes for maximum resilience
-    syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
-    syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
-    syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
-  },
-  exports: ({ tables }) => ({ /* ... */ }),
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	providers: {
+		// Connect to ALL sync nodes for maximum resilience
+		syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
+		syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
+		syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+	},
+	actions: ({ tables }) => ({
+		/* ... */
+	}),
 });
 ```
 
@@ -166,20 +170,25 @@ import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-s
 import { SYNC_NODES } from './config/sync-nodes';
 
 export const blogWorkspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  providers: {
-    // Browser only needs to connect to its local server
-    // The server handles syncing with other devices
-    sync: createWebsocketSyncProvider({ url: SYNC_NODES.localhost }),
-  },
-  exports: ({ tables }) => ({ /* ... */ }),
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	providers: {
+		// Browser only needs to connect to its local server
+		// The server handles syncing with other devices
+		sync: createWebsocketSyncProvider({ url: SYNC_NODES.localhost }),
+	},
+	actions: ({ tables }) => ({
+		/* ... */
+	}),
 });
 ```
 
 ### Desktop Server Configuration (Server-to-Server Sync)
 
 The server acts as BOTH:
+
 1. A sync server (accepts connections via `createSyncPlugin`)
 2. A sync client (connects to other servers)
 
@@ -190,15 +199,19 @@ import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-s
 import { SYNC_NODES } from './config/sync-nodes';
 
 export const blogWorkspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  providers: {
-    // Connect to OTHER sync nodes (not itself!)
-    // Desktop connects to: laptop + cloud
-    syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
-    syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
-  },
-  exports: ({ tables }) => ({ /* ... */ }),
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	providers: {
+		// Connect to OTHER sync nodes (not itself!)
+		// Desktop connects to: laptop + cloud
+		syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
+		syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+	},
+	actions: ({ tables }) => ({
+		/* ... */
+	}),
 });
 ```
 
@@ -211,14 +224,18 @@ import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-s
 import { SYNC_NODES } from './config/sync-nodes';
 
 export const blogWorkspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  providers: {
-    // Laptop connects to: desktop + cloud
-    syncToDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
-    syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
-  },
-  exports: ({ tables }) => ({ /* ... */ }),
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	providers: {
+		// Laptop connects to: desktop + cloud
+		syncToDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
+		syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+	},
+	actions: ({ tables }) => ({
+		/* ... */
+	}),
 });
 ```
 
@@ -231,13 +248,17 @@ Cloud server typically only accepts connections (doesn't initiate):
 import { defineWorkspace } from '@epicenter/hq';
 
 export const blogWorkspace = defineWorkspace({
-  id: 'blog',
-  tables: { /* ... */ },
-  providers: {
-    // Cloud server has no outgoing sync providers
-    // It only accepts incoming connections via createSyncPlugin
-  },
-  exports: ({ tables }) => ({ /* ... */ }),
+	id: 'blog',
+	tables: {
+		/* ... */
+	},
+	providers: {
+		// Cloud server has no outgoing sync providers
+		// It only accepts incoming connections via createSyncPlugin
+	},
+	actions: ({ tables }) => ({
+		/* ... */
+	}),
 });
 ```
 
@@ -288,18 +309,19 @@ Each device should also use local persistence:
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
 
 const workspace = defineWorkspace({
-  id: 'blog',
-  providers: {
-    // Local persistence (IndexedDB in browser, filesystem in Node.js)
-    persistence: setupPersistence,
+	id: 'blog',
+	providers: {
+		// Local persistence (IndexedDB in browser, filesystem in Node.js)
+		persistence: setupPersistence,
 
-    // Network sync
-    sync: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
-  },
+		// Network sync
+		sync: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
+	},
 });
 ```
 
 When offline:
+
 1. Changes saved to IndexedDB/filesystem
 2. When back online, Yjs syncs missed updates
 3. CRDTs ensure consistent merge
@@ -315,9 +337,9 @@ When offline:
 ```typescript
 // With Tailscale, use hostnames instead of IPs
 const SYNC_NODES = {
-  desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync',  // Tailscale hostname
-  laptop: 'ws://laptop.my-tailnet.ts.net:3913/sync',    // Tailscale hostname
-  cloud: 'wss://sync.myapp.com/sync',                   // Public domain
+	desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync', // Tailscale hostname
+	laptop: 'ws://laptop.my-tailnet.ts.net:3913/sync', // Tailscale hostname
+	cloud: 'wss://sync.myapp.com/sync', // Public domain
 } as const;
 ```
 
@@ -331,12 +353,12 @@ import { WebsocketProvider } from 'y-websocket';
 const provider = new WebsocketProvider(url, roomId, doc);
 
 provider.on('status', ({ status }) => {
-  console.log(`Connection to ${url}: ${status}`);
-  // 'connecting' | 'connected' | 'disconnected'
+	console.log(`Connection to ${url}: ${status}`);
+	// 'connecting' | 'connected' | 'disconnected'
 });
 
 provider.on('sync', (isSynced) => {
-  console.log(`Synced with ${url}: ${isSynced}`);
+	console.log(`Synced with ${url}: ${isSynced}`);
 });
 ```
 
@@ -355,13 +377,13 @@ console.log(Y.encodeStateVector(doc));
 
 ## Summary
 
-| Component | Purpose |
-|-----------|---------|
-| **SYNC_NODES** | Constant defining all sync endpoints |
-| **createWebsocketSyncProvider** | Creates a provider for one sync node |
-| **Multi-provider** | Connect to multiple nodes simultaneously |
-| **Server-to-server** | Servers sync with each other as clients |
-| **Tailscale** | Private network for device-to-device access |
-| **setupPersistence** | Local persistence for offline support |
+| Component                       | Purpose                                     |
+| ------------------------------- | ------------------------------------------- |
+| **SYNC_NODES**                  | Constant defining all sync endpoints        |
+| **createWebsocketSyncProvider** | Creates a provider for one sync node        |
+| **Multi-provider**              | Connect to multiple nodes simultaneously    |
+| **Server-to-server**            | Servers sync with each other as clients     |
+| **Tailscale**                   | Private network for device-to-device access |
+| **setupPersistence**            | Local persistence for offline support       |
 
 The architecture scales from "just my devices on Tailscale" to "add a cloud server later" without fundamental changes. Start simple and add providers as needed.

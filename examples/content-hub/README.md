@@ -384,8 +384,8 @@ To add a new social platform (like LinkedIn), simply add a new table to the post
      linkedin: SHORT_FORM_TEXT_SCHEMA,
    },
 
-   exports: ({ tables, providers }) => ({
-     // ... existing exports
+   actions: ({ tables, providers }) => ({
+     // ... existing actions
      linkedin: {
        getAll: tables.linkedin.getAll,
        get: tables.linkedin.get,
@@ -425,7 +425,7 @@ For content that doesn't fit the posts model, create a new workspace:
        sqlite: (c) => sqliteProvider(c),
        persistence: setupPersistence,
      },
-     exports: ({ tables, providers }) => ({
+     actions: ({ tables, providers }) => ({
        // Implement actions...
      }),
    });
@@ -451,7 +451,7 @@ For content that doesn't fit the posts model, create a new workspace:
 Each workspace can have custom actions beyond the standard CRUD:
 
 ```typescript
-exports: ({ tables, providers }) => ({
+actions: ({ tables, providers }) => ({
   // Standard actions...
   getPosts: defineQuery({ ... }),
 

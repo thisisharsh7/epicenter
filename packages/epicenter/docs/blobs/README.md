@@ -158,7 +158,7 @@ const workspace = defineWorkspace({
 		blobSync: createBlobSyncProvider({ serverUrl: MY_URL }),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		attachFile: defineMutation({
 			input: type({ postId: 'string' }),
 			handler: async ({ postId }, ctx) => {

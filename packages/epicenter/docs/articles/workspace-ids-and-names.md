@@ -26,9 +26,9 @@ Epicenter workspaces have both an `id` and a `name`:
 
 ```typescript
 const blogWorkspace = defineWorkspace({
-  id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  name: 'blog',
-  // ...
+	id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+	name: 'blog',
+	// ...
 });
 ```
 
@@ -58,21 +58,21 @@ The `name` gives you practical namespacing for your dependency APIs. When you de
 
 ```typescript
 const appWorkspace = defineWorkspace({
-  id: generateId(),
-  name: 'app',
-  dependencies: [blogWorkspace, authWorkspace],
-  exports: ({ workspaces }) => ({
-    publishPost: defineMutation({
-      handler: async ({ postId }) => {
-        // Check auth first
-        const user = await workspaces.auth.getCurrentUser();
-        if (!user) throw new Error('Not authenticated');
+	id: generateId(),
+	name: 'app',
+	dependencies: [blogWorkspace, authWorkspace],
+	actions: ({ workspaces }) => ({
+		publishPost: defineMutation({
+			handler: async ({ postId }) => {
+				// Check auth first
+				const user = await workspaces.auth.getCurrentUser();
+				if (!user) throw new Error('Not authenticated');
 
-        // Publish the post
-        return workspaces.blog.publishPost({ postId });
-      }
-    })
-  })
+				// Publish the post
+				return workspaces.blog.publishPost({ postId });
+			},
+		}),
+	}),
 });
 ```
 
@@ -106,11 +106,13 @@ Epicenter uses this pattern because your workspace might get forked, copied, or 
 ## When to Use Which
 
 Use the **ID** when:
+
 - Creating the YJS document
 - Persisting workspace data
 - Ensuring uniqueness across contexts
 
 Use the **name** when:
+
 - Accessing workspace actions from dependencies
 - Writing code that references other workspaces
 - Thinking about your API surface

@@ -139,7 +139,7 @@ const connectionPoolWorkspace = defineWorkspace({
 	providers: {
 		/* ... */
 	},
-	exports: () => ({
+	actions: () => ({
 		getConnection: defineQuery({
 			/* ... */
 		}),
@@ -156,7 +156,7 @@ const databaseWorkspace = defineWorkspace({
 	providers: {
 		/* ... */
 	},
-	exports: ({ workspaces }) => ({
+	actions: ({ workspaces }) => ({
 		getUser: defineQuery({
 			handler: async () => {
 				// Access dependency actions by name
@@ -176,7 +176,7 @@ const authWorkspace = defineWorkspace({
 	providers: {
 		/* ... */
 	},
-	exports: ({ workspaces }) => ({
+	actions: ({ workspaces }) => ({
 		verifyToken: defineQuery({
 			handler: async () => {
 				// Full type information for direct dependencies
@@ -198,7 +198,7 @@ const rootWorkspace = defineWorkspace({
 	providers: {
 		/* ... */
 	},
-	exports: ({ workspaces }) => ({
+	actions: ({ workspaces }) => ({
 		login: defineQuery({
 			handler: async () => {
 				// Access any dependency by name
@@ -282,7 +282,7 @@ defineWorkspace({
 	},
 
 	// Stage 3: Actions (depend on tables AND providers)
-	exports: ({ tables, providers, workspaces }) => ({
+	actions: ({ tables, providers, workspaces }) => ({
 		getPost: defineQuery({
 			handler: async () => {
 				// Full type information for providers

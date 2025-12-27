@@ -121,7 +121,7 @@ const blogWorkspace = defineWorkspace({
 	providers: {
 		/* your providers */
 	},
-	exports: ({ tables }) => ({
+	actions: ({ tables }) => ({
 		createPost: defineMutation({
 			input: type({ title: 'string' }),
 			handler: async ({ title }) => {
@@ -292,7 +292,7 @@ const notesWorkspace = defineWorkspace({
 	providers: {
 		sqlite: (c) => sqliteProvider(c),
 	},
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		createNote: defineMutation({
 			input: type({
 				title: 'string',
