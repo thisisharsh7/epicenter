@@ -319,7 +319,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 *
 	 * We resolve these to a flat internal structure for efficient runtime access.
 	 */
-	const tableWithConfigs = tables.$tables().map((table) => {
+	const tableWithConfigs = tables.$all().map((table) => {
 		const userConfig = userTableConfigs[table.name] ?? {};
 
 		// Resolve serializer: user-provided or default
@@ -1197,7 +1197,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						syncCoordination.fileChangeCount++;
 
 						// Clear all YJS tables
-						tables.$clearAll();
+						tables.clearAll();
 
 						// Clear diagnostics at the start of push
 						// Fresh import means fresh validation state

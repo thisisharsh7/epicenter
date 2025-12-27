@@ -114,7 +114,7 @@ export default defineBackground(() => {
 				url: 'ws://localhost:3913/sync',
 			}),
 		},
-		actions: ({ tables }) => ({
+		actions: ({ ydoc, tables }) => ({
 			tables,
 
 			/**
@@ -154,7 +154,7 @@ export default defineBackground(() => {
 
 				const { TabId } = createBrowserConverters(deviceId);
 
-				tables.$transact(() => {
+				ydoc.transact(() => {
 					// Upsert all browser tabs (with device-scoped IDs)
 					for (const tab of browserTabs) {
 						if (tab.id === undefined) continue;
@@ -196,7 +196,7 @@ export default defineBackground(() => {
 				);
 				const existingYDocWindows = tables.windows.getAllValid();
 
-				tables.$transact(() => {
+				ydoc.transact(() => {
 					// Upsert all browser windows (with device-scoped IDs)
 					for (const win of browserWindows) {
 						if (win.id === undefined) continue;
@@ -235,7 +235,7 @@ export default defineBackground(() => {
 				const groupIds = new Set(browserGroups.map((g) => g.id));
 				const existingYDocGroups = tables.tab_groups.getAllValid();
 
-				tables.$transact(() => {
+				ydoc.transact(() => {
 					// Upsert all browser groups (with device-scoped IDs)
 					for (const group of browserGroups) {
 						tables.tab_groups.upsert(tabGroupToRow(group));

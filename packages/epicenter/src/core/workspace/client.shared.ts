@@ -8,9 +8,11 @@
 
 import * as Y from 'yjs';
 import { type Action, type Actions, walkActions } from '../actions';
+import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
 import type { WorkspaceProviderMap } from '../provider';
-import type { WorkspaceSchema } from '../schema';
+import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
+import type { WorkspacePaths } from './config';
 /**
  * Internal workspace client properties shared across all platforms.
  *
@@ -83,6 +85,18 @@ export type WorkspaceClientInternals<
 	 */
 	$providers: TProviders;
 
+	/** Schema validators for runtime validation and arktype composition. */
+	$validators: WorkspaceValidators<TSchema>;
+
+	/** Actions from dependency workspaces, keyed by workspace ID. */
+	$workspaces: Record<string, Actions>;
+
+	/** Blob storage for binary files, namespaced by table. */
+	$blobs: WorkspaceBlobs<TSchema>;
+
+	/** Filesystem paths (undefined in browser environments). */
+	$paths: WorkspacePaths | undefined;
+
 	/**
 	 * Async cleanup method for resource management.
 	 *
@@ -136,6 +150,10 @@ type BaseWorkspaceClient = Actions &
 		$ydoc: object;
 		$tables: Record<string, unknown>;
 		$providers: Record<string, unknown>;
+		$validators: Record<string, unknown>;
+		$workspaces: Record<string, unknown>;
+		$blobs: Record<string, unknown>;
+		$paths: unknown;
 	};
 
 /**
@@ -204,6 +222,10 @@ export function* iterActions(
 			$ydoc: _$ydoc,
 			$tables: _$tables,
 			$providers: _$providers,
+			$validators: _$validators,
+			$workspaces: _$workspaces,
+			$blobs: _$blobs,
+			$paths: _$paths,
 			...workspaceActions
 		} = workspaceClient as BaseWorkspaceClient;
 

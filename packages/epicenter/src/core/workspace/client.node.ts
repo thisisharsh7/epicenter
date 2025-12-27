@@ -475,16 +475,18 @@ async function initializeWorkspaces<
 				}
 			: undefined;
 
+		// biome-ignore lint/suspicious/noExplicitAny: Blobs type requires workspace schema inference
+		const blobs = {} as any;
+
 		// Create workspace actions by calling the actions factory
 		const actions = workspaceConfig.actions({
+			ydoc,
 			tables,
-			schema: workspaceConfig.tables,
 			validators,
 			providers,
 			// biome-ignore lint/suspicious/noExplicitAny: Runtime types are correct, generic constraint too strict
 			workspaces: workspaceClients as any,
-			// biome-ignore lint/suspicious/noExplicitAny: Blobs type requires workspace schema inference
-			blobs: {} as any,
+			blobs,
 			paths: workspacePaths,
 		});
 
@@ -506,6 +508,10 @@ async function initializeWorkspaces<
 			$ydoc: ydoc,
 			$tables: tables,
 			$providers: providers,
+			$validators: validators,
+			$workspaces: workspaceClients,
+			$blobs: blobs,
+			$paths: workspacePaths,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		});
