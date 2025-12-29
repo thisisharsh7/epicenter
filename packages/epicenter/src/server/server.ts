@@ -56,12 +56,6 @@ export type StartServerOptions = {
 export function createServer<
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>) {
-	const {
-		destroy: _destroy,
-		[Symbol.asyncDispose]: _asyncDispose,
-		...workspaceClients
-	} = client;
-
 	const app = new Elysia()
 		.use(
 			openapi({
@@ -87,7 +81,7 @@ export function createServer<
 		)
 		.use(
 			createTablesPlugin(
-				workspaceClients as Record<string, WorkspaceClient<Actions>>,
+				client.$workspaces as Record<string, WorkspaceClient<Actions>>,
 			),
 		)
 		.get('/', () => ({

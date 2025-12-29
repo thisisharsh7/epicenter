@@ -209,6 +209,7 @@ export async function createClient(
 		return {
 			...clients,
 			$actions: actionRegistry,
+			$workspaces: clients,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 			// biome-ignore lint/suspicious/noExplicitAny: Type safety enforced by overload signatures

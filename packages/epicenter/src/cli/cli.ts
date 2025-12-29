@@ -48,15 +48,8 @@ export function createCLI<
 		},
 	);
 
-	const {
-		$actions: _actions,
-		destroy: _clientDestroy,
-		[Symbol.asyncDispose]: _clientDispose,
-		...workspaceClients
-	} = client;
-
 	for (const [workspaceId, workspaceClient] of Object.entries(
-		workspaceClients,
+		client.$workspaces,
 	)) {
 		const typedClient = workspaceClient as WorkspaceClient<Actions>;
 

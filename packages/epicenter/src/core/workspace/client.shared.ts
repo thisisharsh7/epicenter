@@ -178,6 +178,28 @@ export type EpicenterClientBase = {
 	$actions: readonly ActionInfo[];
 
 	/**
+	 * Workspace clients keyed by workspace ID.
+	 *
+	 * Use this to iterate over workspace clients without destructuring the
+	 * EpicenterClient. Direct iteration over the client object would include
+	 * non-workspace properties (`$actions`, `destroy`, `[Symbol.asyncDispose]`),
+	 * requiring verbose destructuring to filter them out.
+	 *
+	 * @example
+	 * ```typescript
+	 * // Preferred: Use $workspaces for clean iteration
+	 * for (const [id, workspace] of Object.entries(client.$workspaces)) {
+	 *   console.log(id, workspace.$tables);
+	 * }
+	 *
+	 * // Avoid: Destructuring to filter out non-workspace properties
+	 * const { $actions, destroy, [Symbol.asyncDispose]: _, ...workspaces } = client;
+	 * for (const [id, workspace] of Object.entries(workspaces)) { ... }
+	 * ```
+	 */
+	$workspaces: Record<string, WorkspaceClientInternals>;
+
+	/**
 	 * Async cleanup method for resource management.
 	 *
 	 * Destroys all workspace clients in parallel.

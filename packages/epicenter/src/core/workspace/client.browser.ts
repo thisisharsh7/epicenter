@@ -185,6 +185,7 @@ export function createClient(
 		return {
 			...clients,
 			$actions: actionRegistry,
+			$workspaces: clients,
 			whenSynced: Promise.all(allSyncPromises).then(() => {}),
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
