@@ -7,12 +7,17 @@
  */
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { Actions } from '../actions';
+import { type Actions, walkActions } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import { buildProviderPaths, getEpicenterDir } from '../paths';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type { ProjectDir, ProviderPaths } from '../types';
+import type {
+	ActionInfo,
+	EpicenterClientBase,
+	WorkspaceClientInternals,
+} from './client.shared';
 import type {
 	AnyWorkspaceConfig,
 	WorkspaceConfig,
@@ -22,28 +27,18 @@ import type {
 /**
  * A workspace client contains all workspace actions plus lifecycle management.
  *
- * Unlike browser clients, Node.js clients are fully initialized before returning.
+ * Unlike browser clients, Node.js clients are fully initialized before returning
+ * (no `whenSynced` promise needed).
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
+ *
+ * Inherits `$ydoc`, `$tables`, `$providers`, `destroy`, and `[Symbol.asyncDispose]` from
+ * {@link WorkspaceClientInternals}.
  */
-export type WorkspaceClient<TActions extends Actions> = TActions & {
-	/**
-	 * The underlying YJS document for this workspace.
-	 *
-	 * Exposed for sync providers and advanced use cases.
-	 * The document's guid matches the workspace ID.
-	 */
-	$ydoc: Y.Doc;
-
-	/**
-	 * Async cleanup method for resource management.
-	 */
-	destroy: () => Promise<void>;
-
-	/**
-	 * Async disposal for `await using` syntax.
-	 */
-	[Symbol.asyncDispose]: () => Promise<void>;
-};
+export type WorkspaceClient<
+	TActions extends Actions,
+	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TProviders extends WorkspaceProviderMap = WorkspaceProviderMap,
+> = TActions & WorkspaceClientInternals<TSchema, TProviders>;
 
 /**
  * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace id.
@@ -61,52 +56,12 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 
 /**
  * Client for multiple workspaces in Node.js environments.
- * Maps workspace IDs to their clients.
- * Returned by `createClient([...workspaces])`.
+ *
+ * Maps workspace IDs to their clients. Inherits `destroy` and `[Symbol.asyncDispose]`
+ * from {@link EpicenterClientBase}.
  */
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
-	WorkspacesToClients<TWorkspaces> & {
-		/**
-		 * Async cleanup method for resource management.
-		 */
-		destroy: () => Promise<void>;
-
-		/**
-		 * Async disposal for `await using` syntax.
-		 */
-		[Symbol.asyncDispose]: () => Promise<void>;
-	};
-
-/**
- * Validates workspace array configuration.
- */
-function validateWorkspaces(workspaces: readonly AnyWorkspaceConfig[]): void {
-	if (!Array.isArray(workspaces)) {
-		throw new Error('Workspaces must be an array of workspace configs');
-	}
-
-	if (workspaces.length === 0) {
-		throw new Error('Must have at least one workspace');
-	}
-
-	for (const workspace of workspaces) {
-		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
-			throw new Error(
-				'Invalid workspace: workspaces must be workspace configs with id and actions',
-			);
-		}
-	}
-
-	const ids = workspaces.map((ws) => ws.id);
-	const uniqueIds = new Set(ids);
-	if (uniqueIds.size !== ids.length) {
-		const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
-		throw new Error(
-			`Duplicate workspace IDs detected: ${duplicates.join(', ')}. ` +
-				`Each workspace must have a unique ID.`,
-		);
-	}
-}
+	WorkspacesToClients<TWorkspaces> & EpicenterClientBase;
 
 /**
  * Options for creating a client in Node.js environments.
@@ -235,8 +190,6 @@ export async function createClient(
 	) as ProjectDir;
 
 	if (Array.isArray(input)) {
-		validateWorkspaces(input);
-
 		const clients = await initializeWorkspaces(input, projectDir);
 
 		const cleanup = async () => {
@@ -248,12 +201,19 @@ export async function createClient(
 			);
 		};
 
+		const actionRegistry: ActionInfo[] = [];
+		for (const client of Object.values(clients)) {
+			actionRegistry.push(...client.$actions);
+		}
+
 		return {
 			...clients,
+			$actions: actionRegistry,
+			$workspaces: clients,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 			// biome-ignore lint/suspicious/noExplicitAny: Type safety enforced by overload signatures
-		} as EpicenterClient<any>;
+		} as unknown as EpicenterClient<any>;
 	}
 
 	const workspace = input as WorkspaceConfig;
@@ -523,18 +483,25 @@ async function initializeWorkspaces<
 				}
 			: undefined;
 
+		// biome-ignore lint/suspicious/noExplicitAny: Blobs type requires workspace schema inference
+		const blobs = {} as any;
+
 		// Create workspace actions by calling the actions factory
 		const actions = workspaceConfig.actions({
+			ydoc,
 			tables,
-			schema: workspaceConfig.tables,
 			validators,
 			providers,
 			// biome-ignore lint/suspicious/noExplicitAny: Runtime types are correct, generic constraint too strict
 			workspaces: workspaceClients as any,
-			// biome-ignore lint/suspicious/noExplicitAny: Blobs type requires workspace schema inference
-			blobs: {} as any,
+			blobs,
 			paths: workspacePaths,
 		});
+
+		const actionRegistry: ActionInfo[] = [];
+		for (const { path: actionPath, action } of walkActions(actions)) {
+			actionRegistry.push({ workspaceId, actionPath, action });
+		}
 
 		// Create async cleanup function
 		const cleanup = async () => {
@@ -548,10 +515,16 @@ async function initializeWorkspaces<
 		};
 
 		// Create the workspace client with all actions
-		// Filtering to just action types happens at the server/MCP level via iterActions()
 		clients.set(workspaceId, {
 			...actions,
 			$ydoc: ydoc,
+			$tables: tables,
+			$providers: providers,
+			$validators: validators,
+			$workspaces: workspaceClients,
+			$blobs: blobs,
+			$paths: workspacePaths,
+			$actions: actionRegistry,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		});

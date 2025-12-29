@@ -6,39 +6,44 @@ The epicenter workspace system provides a clean API where actions are directly c
 
 ```typescript
 import { type } from 'arktype';
-import { defineWorkspace, defineQuery, defineMutation, runWorkspace } from '@epicenter/hq';
+import {
+	defineWorkspace,
+	defineQuery,
+	defineMutation,
+	runWorkspace,
+} from '@epicenter/hq';
 
 // Define your workspace
 const todosWorkspace = defineWorkspace({
-  id: 'todos',
-  tables: {
-    todos: {
-      id: id(),
-      title: text(),
-      completed: integer(),
-    },
-  },
-  exports: () => ({
-    getTodos: defineQuery({
-      input: type({}),
-      handler: async () => {
-        // Your logic here
-        return todos;
-      },
-    }),
+	id: 'todos',
+	tables: {
+		todos: {
+			id: id(),
+			title: text(),
+			completed: integer(),
+		},
+	},
+	actions: () => ({
+		getTodos: defineQuery({
+			input: type({}),
+			handler: async () => {
+				// Your logic here
+				return todos;
+			},
+		}),
 
-    createTodo: defineMutation({
-      input: type({
-        title: 'string>0'
-      }),
-      handler: async (input) => {
-        // Input is validated and typed!
-        const newTodo = { id: '...', title: input.title, completed: false };
-        todos.push(newTodo);
-        return newTodo;
-      },
-    }),
-  }),
+		createTodo: defineMutation({
+			input: type({
+				title: 'string>0',
+			}),
+			handler: async (input) => {
+				// Input is validated and typed!
+				const newTodo = { id: '...', title: input.title, completed: false };
+				todos.push(newTodo);
+				return newTodo;
+			},
+		}),
+	}),
 });
 
 // Use your workspace - clean, direct API!
@@ -50,7 +55,7 @@ const allTodos = await todos.getTodos({});
 
 // Actions still have properties for introspection
 console.log(todos.createTodo.type); // 'mutation'
-console.log(todos.getTodos.type);   // 'query'
+console.log(todos.getTodos.type); // 'query'
 ```
 
 ## Key Features
@@ -74,30 +79,32 @@ Actions use the [Standard Schema](https://github.com/standard-schema/standard-sc
 ## Action Types
 
 ### Queries
+
 For read operations that don't modify state:
 
 ```typescript
 defineQuery({
-  input: type({ id: 'string' }),
-  handler: async (input) => {
-    // input.id is typed as string
-    return findById(input.id);
-  },
-})
+	input: type({ id: 'string' }),
+	handler: async (input) => {
+		// input.id is typed as string
+		return findById(input.id);
+	},
+});
 ```
 
 ### Mutations
+
 For operations that modify state:
 
 ```typescript
 defineMutation({
-  input: type({
-    title: 'string',
-    completed: 'boolean'
-  }),
-  handler: async (input) => {
-    // input is fully typed
-    return createItem(input);
-  },
-})
+	input: type({
+		title: 'string',
+		completed: 'boolean',
+	}),
+	handler: async (input) => {
+		// input is fully typed
+		return createItem(input);
+	},
+});
 ```

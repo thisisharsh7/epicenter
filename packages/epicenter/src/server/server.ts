@@ -8,8 +8,8 @@ import type {
 	WorkspaceClient,
 	WorkspacesToClients,
 } from '../core/workspace';
-import { iterActions } from '../core/workspace';
 import { createSyncPlugin } from './sync';
+import { createTablesPlugin } from './tables';
 
 export const DEFAULT_PORT = 3913;
 
@@ -21,16 +21,18 @@ export type StartServerOptions = {
  * Create a server from an initialized Epicenter client.
  *
  * This creates an Elysia server that exposes workspace actions through multiple interfaces:
- * - REST endpoints: GET `/workspaces/{workspace}/{action}` for queries, POST for mutations
- * - WebSocket sync: `/sync/{workspaceId}` for real-time Y.Doc synchronization
+ * - REST endpoints: GET/POST `/workspaces/{workspace}/actions/{action}`
+ * - RESTful tables: CRUD at `/workspaces/{workspace}/tables/{table}`
+ * - WebSocket sync: `/workspaces/{workspaceId}/sync` for real-time Y.Doc synchronization
  * - API documentation: `/openapi` (Scalar UI)
  *
  * URL Hierarchy:
  * - `/` - API root/discovery
  * - `/openapi` - Scalar UI documentation
  * - `/openapi/json` - OpenAPI spec (JSON)
- * - `/sync/{workspaceId}` - WebSocket sync endpoint (y-websocket protocol)
- * - `/workspaces/{workspaceId}/{action}` - Workspace actions
+ * - `/workspaces/{workspaceId}/sync` - WebSocket sync endpoint (y-websocket protocol)
+ * - `/workspaces/{workspaceId}/actions/{action}` - Workspace actions (queries: GET, mutations: POST)
+ * - `/workspaces/{workspaceId}/tables/{table}` - RESTful table CRUD
  *
  * @param client - Initialized Epicenter client from createClient()
  * @returns Object with Elysia app and start method
@@ -47,8 +49,8 @@ export type StartServerOptions = {
  *
  * // Access at:
  * // - http://localhost:3913/openapi (Scalar UI)
- * // - http://localhost:3913/workspaces/blog/createPost (REST)
- * // - ws://localhost:3913/sync/blog (WebSocket sync)
+ * // - http://localhost:3913/workspaces/blog/actions/createPost (REST)
+ * // - ws://localhost:3913/workspaces/blog/sync (WebSocket sync)
  * ```
  */
 export function createServer<
@@ -77,14 +79,19 @@ export function createServer<
 				},
 			}),
 		)
+		.use(
+			createTablesPlugin(
+				client.$workspaces as Record<string, WorkspaceClient<Actions>>,
+			),
+		)
 		.get('/', () => ({
 			name: 'Epicenter API',
 			version: '1.0.0',
 			docs: '/openapi',
 		}));
 
-	for (const { workspaceId, actionPath, action } of iterActions(client)) {
-		const path = `/workspaces/${workspaceId}/${actionPath.join('/')}`;
+	for (const { workspaceId, actionPath, action } of client.$actions) {
+		const path = `/workspaces/${workspaceId}/actions/${actionPath.join('/')}`;
 		const operationType = (
 			{ query: 'queries', mutation: 'mutations' } as const
 		)[action.type];
@@ -153,7 +160,7 @@ export function createServer<
 
 			console.log('📦 Available Workspaces:\n');
 			const actionsByWorkspace = Object.groupBy(
-				iterActions(client),
+				client.$actions,
 				(info) => info.workspaceId,
 			);
 

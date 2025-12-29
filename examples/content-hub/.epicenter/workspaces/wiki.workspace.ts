@@ -187,7 +187,7 @@ export const wiki = defineWorkspace({
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		...tables.entries,
 
 		// Local markdown sync

@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { defineMutation } from '../actions';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import {
@@ -56,13 +57,12 @@ export type { TableHelper } from './table-helper';
  *
  * ## API Design
  *
- * Tables are accessed directly on the db object. Utilities are prefixed with `$`.
- *
- * **Principle**: Everything with `$` is a utility. Everything without `$` is a table.
+ * Tables are accessed directly on the db object. The only non-table property
+ * is `clearAll`, which is a mutation action to clear all tables.
  *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
  * @param schema - Table schema definitions
- * @returns Object with flattened table helpers and `$`-prefixed utilities
+ * @returns Object with flattened table helpers and a clearAll mutation
  *
  * @example
  * ```typescript
@@ -75,16 +75,12 @@ export type { TableHelper } from './table-helper';
  *   }
  * });
  *
- * // Tables are accessed directly (no .tables namespace)
+ * // Tables are accessed directly
  * db.posts.upsert({ id: '1', title: 'Hello', published: false });
  * db.posts.getAll();
  *
- * // Utilities are prefixed with $
- * db.$clearAll();
- * db.$transact(() => {
- *   db.posts.upsert({ ... });
- *   db.comments.upsert({ ... });
- * });
+ * // Clear all tables
+ * db.clearAll();
  * ```
  */
 export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
@@ -129,97 +125,48 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 	});
 
 	return {
-		// Spread table helpers directly onto the object (flattened access)
 		...tableHelpers,
 
 		/**
-		 * The underlying YJS document.
-		 * Exposed for persistence and sync providers.
+		 * Get all table helpers as an array.
 		 *
-		 * **Note**: This is an advanced/internal property. Most users won't need it.
-		 */
-		$ydoc: ydoc,
-
-		/**
-		 * Execute a function within a YJS transaction.
-		 *
-		 * Transactions bundle changes and ensure atomic updates. All changes within
-		 * a transaction are sent as a single update to collaborators.
-		 *
-		 * **Nested Transactions:**
-		 * YJS handles nested $transact() calls safely by reusing the outer transaction.
+		 * Useful for providers and indexes that need to iterate over all tables.
+		 * Returns only the table helpers, excluding utility methods like `clearAll`.
 		 *
 		 * @example
 		 * ```typescript
-		 * // Cross-table transaction
-		 * db.$transact(() => {
-		 *   db.posts.upsertMany([...]);
-		 *   db.comments.upsert({ ... });
-		 * }, 'bulk-import');
-		 * ```
-		 */
-		$transact(fn: () => void, origin?: string): void {
-			ydoc.transact(fn, origin);
-		},
-
-		/**
-		 * Clear all tables in a single transaction.
-		 *
-		 * @example
-		 * ```typescript
-		 * // Clear everything before importing fresh data
-		 * db.$clearAll();
-		 * db.posts.upsertMany(importedPosts);
-		 * ```
-		 */
-		$clearAll(): void {
-			ydoc.transact(() => {
-				for (const tableName of Object.keys(schema)) {
-					tableHelpers[tableName as keyof typeof tableHelpers].clear();
-				}
-			});
-		},
-
-		/**
-		 * Get all table helpers as an array for iteration.
-		 *
-		 * Each table helper includes `name`, `schema`, and `validators` properties,
-		 * plus all CRUD operations (insert, update, get, getAll, etc.).
-		 *
-		 * @example
-		 * ```typescript
-		 * // Iterate over all tables
-		 * for (const table of db.$tables()) {
-		 *   console.log(table.name);
-		 *   const validator = table.validators.toArktype();
-		 *
-		 *   table.observe({
-		 *     onAdd: (result) => console.log(`Added to ${table.name}:`, result),
-		 *   });
+		 * for (const table of tables.$all()) {
+		 *   console.log(table.name, table.count());
 		 * }
+		 *
+		 * const tableWithConfigs = tables.$all().map(table => ({
+		 *   table,
+		 *   config: configs[table.name],
+		 * }));
 		 * ```
 		 */
-		$tables(): TableHelper<TWorkspaceSchema[keyof TWorkspaceSchema]>[] {
+		$all() {
 			return Object.values(tableHelpers) as TableHelper<
 				TWorkspaceSchema[keyof TWorkspaceSchema]
 			>[];
 		},
+
+		clearAll: defineMutation({
+			description: 'Clear all tables in the workspace',
+			handler: () => {
+				ydoc.transact(() => {
+					for (const tableName of Object.keys(schema)) {
+						tableHelpers[tableName as keyof typeof tableHelpers].clear();
+					}
+				});
+			},
+		}),
 	};
 }
 
 /**
  * Type alias for the return type of createEpicenterDb.
  * Useful for typing function parameters that accept a tables instance.
- *
- * @example
- * ```typescript
- * type MyTables = Tables<typeof mySchema>;
- *
- * function doSomething(tables: MyTables) {
- *   tables.posts.upsert(...);  // Direct table access
- *   tables.$clearAll();        // Utility access
- * }
- * ```
  */
 export type Tables<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
 	typeof createEpicenterDb<TWorkspaceSchema>

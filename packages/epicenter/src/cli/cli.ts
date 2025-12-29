@@ -1,7 +1,7 @@
 import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import yargs from 'yargs';
-import { type Actions, walkActions } from '../core/actions';
+import type { Actions } from '../core/actions';
 import type { AnyWorkspaceConfig, EpicenterClient } from '../core/workspace';
 import type { WorkspaceClient } from '../core/workspace/client.node';
 import { createServer, DEFAULT_PORT } from '../server/server';
@@ -48,22 +48,10 @@ export function createCLI<
 		},
 	);
 
-	const {
-		destroy: _clientDestroy,
-		[Symbol.asyncDispose]: _clientDispose,
-		...workspaceClients
-	} = client;
-
 	for (const [workspaceId, workspaceClient] of Object.entries(
-		workspaceClients,
+		client.$workspaces,
 	)) {
 		const typedClient = workspaceClient as WorkspaceClient<Actions>;
-		const {
-			destroy: _,
-			[Symbol.asyncDispose]: __,
-			$ydoc: ___,
-			...workspaceActions
-		} = typedClient;
 
 		cli = cli.command(
 			workspaceId,
@@ -74,8 +62,8 @@ export function createCLI<
 					.demandCommand(1, 'You must specify an action')
 					.strict();
 
-				for (const { path, action } of walkActions(workspaceActions)) {
-					const actionName = path.join('_');
+				for (const { actionPath, action } of typedClient.$actions) {
+					const actionName = actionPath.join('_');
 					workspaceCli = workspaceCli.command(
 						actionName,
 						action.description || `Execute ${actionName} ${action.type}`,

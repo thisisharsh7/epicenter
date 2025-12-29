@@ -25,40 +25,44 @@ const epicenter = defineWorkspace({
 Each workspace defines its tables and actions:
 
 ```typescript
-import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/epicenter';
+import {
+	defineWorkspace,
+	defineQuery,
+	defineMutation,
+} from '@epicenter/epicenter';
 import { type } from 'arktype';
 
 const usersWorkspace = defineWorkspace({
-  id: 'users',
+	id: 'users',
 
-  tables: {
-    users: {
-      id: id(),
-      name: text(),
-      email: text(),
-    }
-  },
+	tables: {
+		users: {
+			id: id(),
+			name: text(),
+			email: text(),
+		},
+	},
 
-  providers: {},
+	providers: {},
 
-  exports: ({ tables }) => ({
-    createUser: defineMutation({
-      input: type({
-        name: 'string>0',
-        email: 'email'
-      }),
-      description: 'Create a new user with name and email',
-      handler: async ({ name, email }) => {
-        // tables.users already has all table helpers injected!
-        const { data, error } = await tables.users.create({
-          id: generateId(),
-          name,
-          email,
-        });
-        return data;
-      }
-    })
-  })
+	actions: ({ tables }) => ({
+		createUser: defineMutation({
+			input: type({
+				name: 'string>0',
+				email: 'email',
+			}),
+			description: 'Create a new user with name and email',
+			handler: async ({ name, email }) => {
+				// tables.users already has all table helpers injected!
+				const { data, error } = await tables.users.create({
+					id: generateId(),
+					name,
+					email,
+				});
+				return data;
+			},
+		}),
+	}),
 });
 ```
 
@@ -68,14 +72,14 @@ The "epicenter" is just a workspace that lists others as dependencies:
 
 ```typescript
 const epicenter = defineWorkspace({
-  id: 'epicenter',
-  tables: {}, // No tables of its own
-  providers: {},
-  exports: () => ({
-    // Optional: Add app-level orchestration actions
-    // Or just return empty object
-  }),
-  dependencies: [usersWorkspace, postsWorkspace, commentsWorkspace],
+	id: 'epicenter',
+	tables: {}, // No tables of its own
+	providers: {},
+	actions: () => ({
+		// Optional: Add app-level orchestration actions
+		// Or just return empty object
+	}),
+	dependencies: [usersWorkspace, postsWorkspace, commentsWorkspace],
 });
 
 // epicenter.config.ts
@@ -89,8 +93,8 @@ The Epicenter CLI provides the database and storage:
 ```typescript
 // The CLI does this internally:
 const app = await runWorkspace(epicenter, {
-  database: './data/app.db',
-  rootDir: './data'
+	database: './data/app.db',
+	rootDir: './data',
 });
 
 // Now you have the full app with all workspaces initialized
@@ -102,111 +106,117 @@ The namespace pattern is: `app.workspaceId.tableName.action()`
 
 ```typescript
 // Table helpers (auto-injected)
-app.users.users.getById(id)       // Result<User | null, Error>
-app.users.users.create(data)      // Result<User, Error>
-app.posts.posts.update(id, data)  // Result<Post | null, Error>
-app.posts.comments.delete(id)     // Result<boolean, Error>
+app.users.users.getById(id); // Result<User | null, Error>
+app.users.users.create(data); // Result<User, Error>
+app.posts.posts.update(id, data); // Result<Post | null, Error>
+app.posts.comments.delete(id); // Result<boolean, Error>
 
 // Workspace actions
-app.users.createUser(name, email)
-app.posts.createPost(authorId, title)
+app.users.createUser(name, email);
+app.posts.createPost(authorId, title);
 
 // Drizzle query builder
-app.posts.posts
-  .select()
-  .where(eq(app.posts.posts.authorId, userId))
-  .all()
+app.posts.posts.select().where(eq(app.posts.posts.authorId, userId)).all();
 ```
 
 ## Key Benefits
 
 ### 1. **Single Concept**
+
 No distinction between "epicenter" and "workspace". Everything is a workspace.
 
 ### 2. **Automatic Table Helpers**
+
 Every table automatically gets:
+
 - `getById()`, `findById()`, `get()`
 - `create()`, `update()`, `delete()`, `upsert()`
 - `getAll()`, `count()`
 - `select()` (Drizzle query builder)
 
 ### 3. **Clean Dependencies**
+
 Workspaces declare dependencies and access them through the api parameter:
 
 ```typescript
 const postsWorkspace = defineWorkspace({
-  id: 'posts',
-  tables: {
-    posts: {
-      id: id(),
-      title: text(),
-      authorId: text(),
-    }
-  },
-  providers: {},
-  exports: ({ tables, workspaces }) => ({
-    createPost: defineMutation({
-      input: Type.Object({
-        authorId: Type.String(),
-        title: Type.String({ minLength: 1 })
-      }),
-      description: 'Create a new post for a user',
-      handler: async ({ authorId, title }) => {
-        // Access dependency's tables
-        const { data: author } = await workspaces.users.tables.users.getById(authorId);
-        if (!author) return null;
+	id: 'posts',
+	tables: {
+		posts: {
+			id: id(),
+			title: text(),
+			authorId: text(),
+		},
+	},
+	providers: {},
+	exports: ({ tables, workspaces }) => ({
+		createPost: defineMutation({
+			input: Type.Object({
+				authorId: Type.String(),
+				title: Type.String({ minLength: 1 }),
+			}),
+			description: 'Create a new post for a user',
+			handler: async ({ authorId, title }) => {
+				// Access dependency's tables
+				const { data: author } =
+					await workspaces.users.tables.users.getById(authorId);
+				if (!author) return null;
 
-        // Access own tables
-        return tables.posts.create({
-          id: generateId(),
-          title,
-          authorId
-        });
-      }
-    })
-  }),
-  dependencies: [usersWorkspace],
+				// Access own tables
+				return tables.posts.create({
+					id: generateId(),
+					title,
+					authorId,
+				});
+			},
+		}),
+	}),
+	dependencies: [usersWorkspace],
 });
 ```
 
 ### 4. **No Initialization Dance**
+
 No more initialization waiting. The runtime handles everything.
 
 ### 5. **True Modularity**
+
 Any workspace can be the root. You could have multiple "epicenters" for different parts of your app.
 
 ## Migration from Old Architecture
 
 ### Before
+
 ```typescript
 import { createEpicenter } from '@epicenter/core';
 
 const epicenter = createEpicenter({
-  path: './data',
-  database: './data.db',
-  workspaces: [usersWorkspace, postsWorkspace]
+	path: './data',
+	database: './data.db',
+	workspaces: [usersWorkspace, postsWorkspace],
 });
 
 await app.ready;
 ```
 
 ### After
+
 ```typescript
 import { defineWorkspace } from '@epicenter/core';
 import { runWorkspace } from '@epicenter/runtime';
 
 const epicenter = defineWorkspace({
-  id: 'epicenter',
-  dependencies: [usersWorkspace, postsWorkspace],
-  tables: {},
-  providers: {},
-  exports: () => ({})
+	id: 'epicenter',
+	dependencies: [usersWorkspace, postsWorkspace],
+	tables: {},
+	providers: {},
+	actions: () => ({}),
 });
 
 // Runtime injection (handled by CLI)
 const app = await runWorkspace(epicenter, {
-  database: './data.db',
-  rootDir: './data'
+	database: './data.db',
+	rootDir: './data',
 });
 ```
 
@@ -215,75 +225,77 @@ const app = await runWorkspace(epicenter, {
 ```typescript
 // workspaces/users.ts
 export const usersWorkspace = defineWorkspace({
-  id: 'users',
-  tables: {
-    users: {
-      id: id(),
-      name: text(),
-      email: text(),
-    }
-  },
-  providers: {},
-  exports: ({ tables }) => ({
-    createUser: defineMutation({
-      input: Type.Object({
-        name: Type.String({ minLength: 1 }),
-        email: Type.String({ format: 'email' })
-      }),
-      description: 'Create a new user',
-      handler: async ({ name, email }) => {
-        const { data } = await tables.users.create({
-          id: generateId(),
-          name,
-          email,
-        });
-        return data;
-      }
-    })
-  })
+	id: 'users',
+	tables: {
+		users: {
+			id: id(),
+			name: text(),
+			email: text(),
+		},
+	},
+	providers: {},
+	actions: ({ tables }) => ({
+		createUser: defineMutation({
+			input: Type.Object({
+				name: Type.String({ minLength: 1 }),
+				email: Type.String({ format: 'email' }),
+			}),
+			description: 'Create a new user',
+			handler: async ({ name, email }) => {
+				const { data } = await tables.users.create({
+					id: generateId(),
+					name,
+					email,
+				});
+				return data;
+			},
+		}),
+	}),
 });
 
 // workspaces/posts.ts
 export const postsWorkspace = defineWorkspace({
-  id: 'posts',
-  dependencies: [usersWorkspace],
-  tables: {
-    posts: {
-      id: id(),
-      title: text(),
-      authorId: text(),
-    }
-  },
-  providers: {},
-  exports: ({ tables, workspaces }) => ({
-    createPost: defineMutation({
-      input: Type.Object({
-        authorId: Type.String(),
-        title: Type.String({ minLength: 1 })
-      }),
-      description: 'Create a new post for a user',
-      handler: async ({ authorId, title }) => {
-        const { data: author } = await workspaces.users.tables.users.getById(authorId);
-        if (!author) return null;
+	id: 'posts',
+	dependencies: [usersWorkspace],
+	tables: {
+		posts: {
+			id: id(),
+			title: text(),
+			authorId: text(),
+		},
+	},
+	providers: {},
+	actions: ({ tables, workspaces }) => ({
+		createPost: defineMutation({
+			input: Type.Object({
+				authorId: Type.String(),
+				title: Type.String({ minLength: 1 }),
+			}),
+			description: 'Create a new post for a user',
+			handler: async ({ authorId, title }) => {
+				// Access dependency's tables
+				const { data: author } =
+					await workspaces.users.tables.users.getById(authorId);
+				if (!author) return null;
 
-        const { data } = await tables.posts.create({
-          id: generateId(),
-          title,
-          authorId,
-        });
-        return data;
-      }
-    })
-  })
+				// Access own tables
+				return tables.posts.create({
+					id: generateId(),
+					title,
+					authorId,
+				});
+			},
+		}),
+	}),
 });
 
 // epicenter.config.ts
 export default defineWorkspace({
-  id: 'app',
-  dependencies: [usersWorkspace, postsWorkspace],
-  tables: {},
-  providers: {},
-  exports: () => ({})
+	id: 'app',
+	dependencies: [usersWorkspace, postsWorkspace],
+	tables: {},
+	providers: {},
+	actions: () => ({}),
 });
 
 // Usage (in your app)

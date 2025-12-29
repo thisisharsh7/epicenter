@@ -173,7 +173,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 		await recreateTables();
 
 		// Insert all valid rows from YJS into SQLite
-		for (const table of tables.$tables()) {
+		for (const table of tables.$all()) {
 			const drizzleTable = drizzleTables[table.name];
 			if (!drizzleTable) {
 				throw new Error(`Drizzle table for "${table.name}" not found`);
@@ -219,7 +219,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	// =========================================================================
 	const unsubscribers: Array<() => void> = [];
 
-	for (const table of tables.$tables()) {
+	for (const table of tables.$all()) {
 		const drizzleTable = drizzleTables[table.name];
 		if (!drizzleTable) {
 			throw new Error(`Drizzle table for "${table.name}" not found`);
@@ -264,7 +264,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	await recreateTables();
 
 	// Insert all valid rows from YJS into SQLite
-	for (const table of tables.$tables()) {
+	for (const table of tables.$all()) {
 		const drizzleTable = drizzleTables[table.name];
 		if (!drizzleTable) {
 			throw new Error(`Drizzle table for "${table.name}" not found`);
@@ -336,9 +336,9 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 				return tryAsync({
 					try: async () => {
 						isPushingFromSqlite = true;
-						tables.$clearAll();
+						tables.clearAll();
 
-						for (const table of tables.$tables()) {
+						for (const table of tables.$all()) {
 							const drizzleTable = drizzleTables[table.name];
 							if (!drizzleTable) {
 								throw new Error(`Drizzle table for "${table.name}" not found`);

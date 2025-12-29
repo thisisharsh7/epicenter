@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { Provider } from '../../core/provider';
+import type { Provider, ProviderContext } from '../../core/provider';
+import type { WorkspaceSchema } from '../../core/schema';
 
 /**
  * YJS document persistence provider using the filesystem.
@@ -34,7 +35,11 @@ import type { Provider } from '../../core/provider';
  * });
  * ```
  */
-export const setupPersistence = (async ({ id, ydoc, paths }) => {
+export const setupPersistence = (async <TSchema extends WorkspaceSchema>({
+	id,
+	ydoc,
+	paths,
+}: ProviderContext<TSchema>) => {
 	if (!paths) {
 		throw new Error(
 			'Persistence provider requires Node.js environment with filesystem access',

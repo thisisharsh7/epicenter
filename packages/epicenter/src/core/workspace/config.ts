@@ -1,3 +1,4 @@
+import type * as Y from 'yjs';
 import type { Actions } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
@@ -184,8 +185,11 @@ export type WorkspaceConfig<
 	 * Everything returned from this function should be a Query or Mutation
 	 * (created via defineQuery/defineMutation or from table helpers).
 	 *
+	 * All context properties are exposed on the workspace client with a `$` prefix
+	 * (e.g., `ydoc` here → `client.$ydoc`, `tables` → `client.$tables`).
+	 *
+	 * @param context.ydoc - The underlying YJS document for transactions and advanced ops
 	 * @param context.tables - Workspace tables for direct table operations
-	 * @param context.schema - Workspace schema (table definitions)
 	 * @param context.validators - Schema validators for runtime validation
 	 * @param context.workspaces - Actions from dependency workspaces
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
@@ -211,8 +215,8 @@ export type WorkspaceConfig<
 	 * ```
 	 */
 	actions: (context: {
+		ydoc: Y.Doc;
 		tables: Tables<TWorkspaceSchema>;
-		schema: TWorkspaceSchema;
 		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToActions<TDeps>;
 		providers: TProviderResults;

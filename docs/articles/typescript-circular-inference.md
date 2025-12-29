@@ -4,20 +4,20 @@ I needed an API where one property's type depends on another property's inferred
 
 ```typescript
 defineWorkspace({
-  tables: {
-    posts: { id: 'string', title: 'string', content: 'string' }
-  },
-  providers: ({ tables }) => ({
-    sqlite: createSqliteProvider(tables),
-    markdown: createMarkdownProvider('./posts')
-  }),
-  exports: ({ providers }) => ({
-    getPost: async (id) => {
-      // I want 'providers.sqlite' to be properly typed here
-      return providers.sqlite.query({ id });  // But sqlite is typed as 'any'!
-    }
-  })
-})
+	tables: {
+		posts: { id: 'string', title: 'string', content: 'string' },
+	},
+	providers: ({ tables }) => ({
+		sqlite: createSqliteProvider(tables),
+		markdown: createMarkdownProvider('./posts'),
+	}),
+	actions: ({ providers }) => ({
+		getPost: async (id) => {
+			// I want 'providers.sqlite' to be properly typed here
+			return providers.sqlite.query({ id }); // But sqlite is typed as 'any'!
+		},
+	}),
+});
 ```
 
 TypeScript should infer the table types into providers, then both into exports. It does—mostly. Table types flow through fine, but provider types get widened to `any` in exports.
@@ -27,17 +27,17 @@ TypeScript should infer the table types into providers, then both into exports. 
 ```typescript
 // ❌ Broken: Parameterizing function types
 type Config<
-  TSchema,
-  TProvidersFn extends (ctx: { tables: Tables<TSchema> }) => any,
-  TExportsFn extends (ctx: {
-    tables: Tables<TSchema>,
-    providers: ReturnType<TProvidersFn>  // Circular! Needs TProvidersFn to be inferred
-  }) => any
+	TSchema,
+	TProvidersFn extends (ctx: { tables: Tables<TSchema> }) => any,
+	TExportsFn extends (ctx: {
+		tables: Tables<TSchema>;
+		providers: ReturnType<TProvidersFn>; // Circular! Needs TProvidersFn to be inferred
+	}) => any,
 > = {
-  tables: TSchema,
-  providers: TProvidersFn,
-  exports: TExportsFn
-}
+	tables: TSchema;
+	providers: TProvidersFn;
+	exports: TExportsFn;
+};
 ```
 
 TypeScript needs `ReturnType<TProvidersFn>` to check `TExportsFn`, but must finish inferring `TProvidersFn` first. Deadlock. It widens to `any` to break the cycle.
@@ -47,14 +47,17 @@ TypeScript needs `ReturnType<TProvidersFn>` to check `TExportsFn`, but must fini
 ```typescript
 // ✅ Works: Parameterizing values
 type Config<
-  TSchema,
-  TProviderMap,  // The value, not the function
-  TExportMap
+	TSchema,
+	TProviderMap, // The value, not the function
+	TExportMap,
 > = {
-  tables: TSchema,
-  providers: (ctx: { tables: Tables<TSchema> }) => TProviderMap,
-  exports: (ctx: { tables: Tables<TSchema>, providers: TProviderMap }) => TExportMap  // No ReturnType needed!
-}
+	tables: TSchema;
+	providers: (ctx: { tables: Tables<TSchema> }) => TProviderMap;
+	exports: (ctx: {
+		tables: Tables<TSchema>;
+		providers: TProviderMap;
+	}) => TExportMap; // No ReturnType needed!
+};
 ```
 
 TypeScript infers `TProviderMap` from the concrete return value. No circular dependency—you're inferring from values, not types-of-types-being-inferred.

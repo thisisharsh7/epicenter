@@ -582,6 +582,29 @@ type ActionConfig = {
 };
 
 /**
+ * Type guard: Check if a value is an Action (Query or Mutation)
+ *
+ * Actions are callable functions with a `type` property of 'query' or 'mutation'.
+ *
+ * @example
+ * ```typescript
+ * const getUser = defineQuery({ ... });
+ * const createUser = defineMutation({ ... });
+ *
+ * isAction(getUser) // true
+ * isAction(createUser) // true
+ * isAction({ foo: 'bar' }) // false
+ * ```
+ */
+export function isAction(value: unknown): value is Action {
+	return (
+		typeof value === 'function' &&
+		'type' in value &&
+		(value.type === 'query' || value.type === 'mutation')
+	);
+}
+
+/**
  * Type guard: Check if a value is a Query action
  *
  * @example

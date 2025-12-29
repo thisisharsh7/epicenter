@@ -1,20 +1,16 @@
-import path from 'node:path';
 import {
 	date,
 	defineWorkspace,
 	id,
-	type SerializedRow,
 	tags,
 	text,
 } from '@epicenter/hq';
 import {
-	MarkdownProviderErr,
+	bodyFieldSerializer,
 	markdownProvider,
 } from '@epicenter/hq/providers/markdown';
 import { setupPersistence } from '@epicenter/hq/providers/persistence';
 import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
-import { type } from 'arktype';
-import { Ok } from 'wellcrafted/result';
 
 /**
  * Email workspace
@@ -65,49 +61,12 @@ export const email = defineWorkspace({
 		markdown: (c) =>
 			markdownProvider(c, {
 				tableConfigs: {
-					emails: {
-						serialize: ({ row: { body, id, ...row } }) => ({
-							frontmatter: row,
-							body,
-							filename: `${id}.md`,
-						}),
-						deserialize: ({ frontmatter, body, filename, table }) => {
-							const id = path.basename(filename, '.md');
-
-							const FrontMatter = table.validators
-								.toArktype()
-								.omit('id', 'body');
-							const frontmatterParsed = FrontMatter(frontmatter);
-							if (frontmatterParsed instanceof type.errors) {
-								return MarkdownProviderErr({
-									message: `Invalid frontmatter for row ${id}`,
-									context: {
-										fileName: filename,
-										id,
-										reason: frontmatterParsed,
-									},
-								});
-							}
-							const row = {
-								id,
-								body,
-								description: frontmatterParsed.description ?? null,
-								tags: frontmatterParsed.tags ?? null,
-								subject: frontmatterParsed.subject,
-								date: frontmatterParsed.date,
-								created_at: frontmatterParsed.created_at,
-								updated_at: frontmatterParsed.updated_at,
-							} satisfies SerializedRow<typeof table.schema>;
-							return Ok(row);
-						},
-						extractRowIdFromFilename: (filename) =>
-							path.basename(filename, '.md'),
-					},
+					emails: { serializer: bodyFieldSerializer('body') },
 				},
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		...tables.emails,
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,

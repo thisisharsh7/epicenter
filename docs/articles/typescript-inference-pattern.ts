@@ -142,34 +142,34 @@ const _multiResult = defineTransformMap({
 // ============================================================================
 
 // This pattern is crucial for multi-stage configurations where:
-// Stage 1 (tables) → Stage 2 (providers) → Stage 3 (exports)
+// Stage 1 (tables) → Stage 2 (providers) → Stage 3 (actions)
 
 type WorkspaceSchema = Record<string, Record<string, unknown>>;
 type WorkspaceProviderMap = Record<string, { type: string }>;
-type WorkspaceExportMap = Record<string, () => unknown>;
+type WorkspaceActionMap = Record<string, () => unknown>;
 
 type Tables<TSchema extends WorkspaceSchema> = {
 	$schema: TSchema;
 };
 
-// ✅ Parameterize the provider map and export map values
+// ✅ Parameterize the provider map and action map values
 type Workspace<
 	TSchema extends WorkspaceSchema,
 	TProviderMap extends WorkspaceProviderMap,
-	TExportMap extends WorkspaceExportMap,
+	TActionMap extends WorkspaceActionMap,
 > = {
 	tables: TSchema;
 	// Inline function signature, parameterize return value
 	providers: (ctx: { tables: Tables<TSchema> }) => TProviderMap;
 	// Use TProviderMap directly, no ReturnType needed
-	exports: (ctx: { tables: Tables<TSchema>; providers: TProviderMap }) => TExportMap;
+	actions: (ctx: { tables: Tables<TSchema>; providers: TProviderMap }) => TActionMap;
 };
 
 function defineWorkspace<
 	TSchema extends WorkspaceSchema,
 	TProviderMap extends WorkspaceProviderMap,
-	TExportMap extends WorkspaceExportMap,
->(config: Workspace<TSchema, TProviderMap, TExportMap>) {
+	TActionMap extends WorkspaceActionMap,
+>(config: Workspace<TSchema, TProviderMap, TActionMap>) {
 	return config;
 }
 
@@ -183,7 +183,7 @@ const _workspace = defineWorkspace({
 		markdown: { type: 'markdown' as const, path: './data' },
 	}),
 
-	exports: ({ providers }) => ({
+	actions: ({ providers }) => ({
 		getPost: () => {
 			// providers.sqlite is properly typed as { type: 'sqlite', tables: ... } ✅
 			return providers.sqlite.type;

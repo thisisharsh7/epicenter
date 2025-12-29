@@ -158,7 +158,7 @@ const blogWorkspace = defineWorkspace({
 		markdown: (c) => markdownProvider(c),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		createPost: defineMutation({
 			input: type({
 				title: 'string',
@@ -282,7 +282,7 @@ Materializer providers (sqlite, markdown) automatically sync with YJS:
 Access provider exports in workspace actions:
 
 ```typescript
-exports: ({ providers }) => ({
+actions: ({ providers }) => ({
   queryPosts: defineQuery({
     handler: async () => {
       return await providers.sqlite.posts.select().where(...);
@@ -310,7 +310,7 @@ providers: {
 Actions are workspace operations defined with `defineQuery` (read) or `defineMutation` (write):
 
 ```typescript
-exports: ({ tables }) => ({
+actions: ({ tables }) => ({
   getPost: defineQuery({
     input: type({ id: 'string' }),
     handler: ({ id }) => {
@@ -695,8 +695,8 @@ providers: {
 
 **Storage:**
 
-- Database: `.epicenter/{workspaceId}.db`
-- Logs: `.epicenter/{workspaceId}/sqlite.log`
+- Database: `.epicenter/providers/sqlite/{workspaceId}.db`
+- Logs: `.epicenter/providers/sqlite/logs/{workspaceId}.log`
 
 **Exports:**
 
@@ -714,7 +714,7 @@ providers: {
 **Usage:**
 
 ```typescript
-exports: ({ providers }) => ({
+actions: ({ providers }) => ({
 	getPublishedPosts: defineQuery({
 		handler: async () => {
 			// Query with full Drizzle power
@@ -786,8 +786,8 @@ providers: {
 **Storage:**
 
 - Markdown files: `./{workspaceId}/{tableName}/*.md` (configurable)
-- Logs: `.epicenter/{workspaceId}/markdown.log`
-- Diagnostics: `.epicenter/{workspaceId}/markdown.diagnostics.json`
+- Logs: `.epicenter/providers/markdown/logs/{workspaceId}.log`
+- Diagnostics: `.epicenter/providers/markdown/diagnostics/{workspaceId}.json`
 
 **Exports:**
 
@@ -802,7 +802,7 @@ providers: {
 **Usage:**
 
 ```typescript
-exports: ({ providers }) => ({
+actions: ({ providers }) => ({
 	// Export markdown sync operations
 	syncToMarkdown: providers.markdown.pullToMarkdown,
 	syncFromMarkdown: providers.markdown.pushFromMarkdown,
@@ -956,7 +956,7 @@ const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	dependencies: [authWorkspace, storageWorkspace],
 
-	exports: ({ tables, workspaces, providers }) => ({
+	actions: ({ tables, workspaces, providers }) => ({
 		createPost: defineMutation({
 			input: type({ title: 'string', authorId: 'string' }),
 			handler: async ({ title, authorId }) => {
@@ -987,7 +987,7 @@ const blogWorkspace = defineWorkspace({
 **Access patterns:**
 
 ```typescript
-exports: ({ workspaces }) => ({
+actions: ({ workspaces }) => ({
   // Call dependency actions
   someAction: async () => {
     const result = await workspaces.auth.login({ ... });
@@ -1347,35 +1347,41 @@ Each client instance writes to a **storage context** determined by:
 Storage Context = Directory + Environment + Workspace ID
 
 Examples:
-  /project-a + Node + pages → /project-a/.epicenter/pages.yjs
-  /project-b + Node + pages → /project-b/.epicenter/pages.yjs (different!)
+  /project-a + Node + pages → /project-a/.epicenter/providers/persistence/pages.yjs
+  /project-b + Node + pages → /project-b/.epicenter/providers/persistence/pages.yjs (different!)
   Browser + pages → IndexedDB:pages (different!)
 ```
 
 ### `.epicenter/` Folder Structure
 
-The `.epicenter` folder contains all internal data:
+The `.epicenter` folder contains all internal data, organized by provider:
 
 ```
 .epicenter/
-├── blog.db                           # SQLite database (per workspace)
-├── blog.yjs                          # YJS persistence (per workspace)
-├── auth.db
-├── auth.yjs
-├── blog/                             # Workspace-specific index artifacts
-│   ├── markdown.log                  # Markdown index sync log
-│   ├── markdown.diagnostics.json
-│   └── sqlite.log                    # SQLite index error log
-└── auth/
-    ├── markdown.log
-    └── sqlite.log
+└── providers/                        # GITIGNORED
+    ├── persistence/                  # YJS persistence provider
+    │   ├── blog.yjs
+    │   └── auth.yjs
+    ├── sqlite/                       # SQLite provider
+    │   ├── blog.db
+    │   ├── auth.db
+    │   └── logs/
+    │       ├── blog.log
+    │       └── auth.log
+    ├── markdown/                     # Markdown provider
+    │   ├── logs/
+    │   │   └── blog.log
+    │   └── diagnostics/
+    │       └── blog.json
+    └── gmailAuth/                    # Custom auth provider example
+        └── token.json
 ```
 
 **Key design decisions:**
 
-- YJS and DB files stay at root level (easy to find, prominent)
-- Index logs/diagnostics go inside workspace folders
-- Simple naming: `{indexId}.{suffix}`
+- Each provider gets isolated storage at `.epicenter/providers/{providerId}/`
+- Provider artifacts are gitignored (add `.epicenter/providers/` to `.gitignore`)
+- Simple naming within providers: `{workspaceId}.{ext}` for data, `logs/{workspaceId}.log` for logs
 - **Rule**: Only one client can access the same storage context at a time.
 
 ### Cleanup Lifecycle

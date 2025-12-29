@@ -193,7 +193,7 @@ export const browser = defineWorkspace({
 			}),
 	},
 
-	exports: ({ tables, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		// Expose table operations directly for scripting
 		...tables,
 

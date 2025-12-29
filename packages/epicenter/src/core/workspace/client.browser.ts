@@ -8,56 +8,51 @@
  * @see https://github.com/yjs/y-indexeddb
  */
 import * as Y from 'yjs';
-import type { Actions } from '../actions';
+import { type Actions, walkActions } from '../actions';
 import { createEpicenterDb } from '../db/core';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
+import type {
+	ActionInfo,
+	EpicenterClientBase,
+	WorkspaceClientInternals,
+} from './client.shared';
 import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
 
 /**
- * A workspace client contains all workspace exports plus lifecycle management.
+ * A workspace client contains all workspace actions plus lifecycle management.
  *
  * Unlike Node.js clients, browser clients return immediately and expose
  * a `whenSynced` promise for waiting on provider initialization.
  * Actions (queries and mutations) are identified at runtime via type guards for API/MCP mapping.
+ *
+ * Inherits `$ydoc`, `$tables`, `$providers`, `destroy`, and `[Symbol.asyncDispose]` from
+ * {@link WorkspaceClientInternals}. Browser-specific: adds `whenSynced` promise.
  */
-export type WorkspaceClient<TActions extends Actions> = TActions & {
-	/**
-	 * The underlying YJS document for this workspace.
-	 *
-	 * Exposed for sync providers and advanced use cases.
-	 * The document's guid matches the workspace ID.
-	 */
-	$ydoc: Y.Doc;
-
-	/**
-	 * Promise that resolves when all providers have completed initial sync.
-	 *
-	 * Browser providers (like IndexedDB persistence) load asynchronously.
-	 * The client is usable immediately, but data may not be fully loaded.
-	 * Await this promise when you need to ensure all data is available.
-	 *
-	 * @example
-	 * ```typescript
-	 * const client = createClient(blogWorkspace);
-	 * // Client is usable immediately, but data may still be loading
-	 * await client.whenSynced;
-	 * // Now all providers have completed their initial sync
-	 * const posts = client.getAllPosts();
-	 * ```
-	 */
-	whenSynced: Promise<void>;
-
-	/**
-	 * Async cleanup method for resource management.
-	 */
-	destroy: () => Promise<void>;
-
-	/**
-	 * Async disposal for `await using` syntax.
-	 */
-	[Symbol.asyncDispose]: () => Promise<void>;
-};
+export type WorkspaceClient<
+	TActions extends Actions,
+	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TProviders extends WorkspaceProviderMap = WorkspaceProviderMap,
+> = TActions &
+	WorkspaceClientInternals<TSchema, TProviders> & {
+		/**
+		 * Promise that resolves when all providers have completed initial sync.
+		 *
+		 * Browser providers (like IndexedDB persistence) load asynchronously.
+		 * The client is usable immediately, but data may not be fully loaded.
+		 * Await this promise when you need to ensure all data is available.
+		 *
+		 * @example
+		 * ```typescript
+		 * const client = createClient(blogWorkspace);
+		 * // Client is usable immediately, but data may still be loading
+		 * await client.whenSynced;
+		 * // Now all providers have completed their initial sync
+		 * const posts = client.getAllPosts();
+		 * ```
+		 */
+		whenSynced: Promise<void>;
+	};
 
 /**
  * Maps an array of workspace configs to an object of WorkspaceClients keyed by workspace id.
@@ -75,57 +70,20 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 
 /**
  * Client for multiple workspaces in browser environments.
- * Maps workspace IDs to their clients.
- * Returned by `createClient([...workspaces])`.
+ *
+ * Maps workspace IDs to their clients. Browser-specific: adds aggregate `whenSynced`
+ * that resolves when all workspaces have completed initial sync.
+ *
+ * Inherits `destroy` and `[Symbol.asyncDispose]` from {@link EpicenterClientBase}.
  */
 export type EpicenterClient<TWorkspaces extends readonly AnyWorkspaceConfig[]> =
-	WorkspacesToClients<TWorkspaces> & {
-		/**
-		 * Promise that resolves when all workspaces have completed initial sync.
-		 */
-		whenSynced: Promise<void>;
-
-		/**
-		 * Async cleanup method for resource management.
-		 */
-		destroy: () => Promise<void>;
-
-		/**
-		 * Async disposal for `await using` syntax.
-		 */
-		[Symbol.asyncDispose]: () => Promise<void>;
-	};
-
-/**
- * Validates workspace array configuration.
- */
-function validateWorkspaces(workspaces: readonly AnyWorkspaceConfig[]): void {
-	if (!Array.isArray(workspaces)) {
-		throw new Error('Workspaces must be an array of workspace configs');
-	}
-
-	if (workspaces.length === 0) {
-		throw new Error('Must have at least one workspace');
-	}
-
-	for (const workspace of workspaces) {
-		if (!workspace || typeof workspace !== 'object' || !workspace.id) {
-			throw new Error(
-				'Invalid workspace: workspaces must be workspace configs with id and actions',
-			);
-		}
-	}
-
-	const ids = workspaces.map((ws) => ws.id);
-	const uniqueIds = new Set(ids);
-	if (uniqueIds.size !== ids.length) {
-		const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
-		throw new Error(
-			`Duplicate workspace IDs detected: ${duplicates.join(', ')}. ` +
-				`Each workspace must have a unique ID.`,
-		);
-	}
-}
+	WorkspacesToClients<TWorkspaces> &
+		EpicenterClientBase & {
+			/**
+			 * Promise that resolves when all workspaces have completed initial sync.
+			 */
+			whenSynced: Promise<void>;
+		};
 
 /**
  * Create a client for a single workspace (browser, SYNCHRONOUS).
@@ -211,8 +169,6 @@ export function createClient(
 	input: AnyWorkspaceConfig | readonly AnyWorkspaceConfig[],
 ): WorkspaceClient<any> | EpicenterClient<any> {
 	if (Array.isArray(input)) {
-		validateWorkspaces(input);
-
 		const clients = initializeWorkspacesSync(input);
 
 		const allSyncPromises = Object.values(clients).map((c) => c.whenSynced);
@@ -221,12 +177,19 @@ export function createClient(
 			await Promise.all(Object.values(clients).map((c) => c.destroy()));
 		};
 
+		const actionRegistry: ActionInfo[] = [];
+		for (const client of Object.values(clients)) {
+			actionRegistry.push(...client.$actions);
+		}
+
 		return {
 			...clients,
+			$actions: actionRegistry,
+			$workspaces: clients,
 			whenSynced: Promise.all(allSyncPromises).then(() => {}),
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
-		} as EpicenterClient<any>;
+		} as unknown as EpicenterClient<any>;
 	}
 
 	const workspace = input as WorkspaceConfig;
@@ -504,17 +467,25 @@ function initializeWorkspacesSync<
 			)
 			.then(() => {});
 
+		// biome-ignore lint/suspicious/noExplicitAny: Blobs type requires workspace schema inference
+		const blobs = {} as any;
+
 		// Create workspace actions by calling the actions factory
 		const actions = workspaceConfig.actions({
+			ydoc,
 			tables,
-			schema: workspaceConfig.tables,
 			validators,
 			providers,
 			// biome-ignore lint/suspicious/noExplicitAny: Runtime types are correct, generic constraint too strict
 			workspaces: workspaceClients as any,
-			blobs: {} as any,
+			blobs,
 			paths: undefined,
 		});
+
+		const actionRegistry: ActionInfo[] = [];
+		for (const { path: actionPath, action } of walkActions(actions)) {
+			actionRegistry.push({ workspaceId, actionPath, action });
+		}
 
 		// Create async cleanup function
 		const cleanup = async () => {
@@ -528,10 +499,16 @@ function initializeWorkspacesSync<
 		};
 
 		// Create the workspace client with all actions
-		// Filtering to just action types happens at the server/MCP level via iterActions()
 		clients.set(workspaceId, {
 			...actions,
 			$ydoc: ydoc,
+			$tables: tables,
+			$providers: providers,
+			$validators: validators,
+			$workspaces: workspaceClients,
+			$blobs: blobs,
+			$paths: undefined,
+			$actions: actionRegistry,
 			whenSynced,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,

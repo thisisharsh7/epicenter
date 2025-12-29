@@ -124,7 +124,7 @@ export const pages = defineWorkspace({
 		markdown: (c) => markdownProvider(c),
 	},
 
-	exports: ({ tables, providers }) => {
+	actions: ({ tables, providers }) => {
 		/**
 		 * Transform ISO 8601 date string with timezone to DateWithTimezone format
 		 * Only transforms if BOTH isoDate AND timezone are provided (no defaults)
