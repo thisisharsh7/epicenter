@@ -12,9 +12,7 @@ export function createTablesPlugin(
 	for (const [workspaceId, workspaceClient] of Object.entries(
 		workspaceClients,
 	)) {
-		const tableHelpers = workspaceClient.$tables.$all();
-
-		for (const tableHelper of tableHelpers) {
+		for (const tableHelper of workspaceClient.$tables.$all()) {
 			const tableName = tableHelper.name;
 			const basePath = `/workspaces/${workspaceId}/tables/${tableName}`;
 			const tags = [workspaceId, 'tables'];
