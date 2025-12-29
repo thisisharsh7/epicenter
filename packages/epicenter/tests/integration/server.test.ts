@@ -15,7 +15,7 @@ import {
 	select,
 	text,
 } from '../../src/index.node';
-import { sqliteProvider } from '../../src/indexes/sqlite';
+import { sqliteProvider } from '../../src/providers/sqlite';
 
 // Helper to parse SSE response from MCP endpoint
 async function parseMcpResponse(response: Response): Promise<any> {
