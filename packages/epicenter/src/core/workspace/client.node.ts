@@ -212,6 +212,7 @@ export async function createClient(
 				$blobs: ______,
 				$paths: _______,
 				destroy: ________,
+				[Symbol.asyncDispose]: _________,
 				...actions
 			} = client;
 			for (const { path: actionPath, action } of walkActions(actions)) {

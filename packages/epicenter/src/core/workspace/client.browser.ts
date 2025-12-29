@@ -189,6 +189,7 @@ export function createClient(
 				$paths: _______,
 				whenSynced: ________,
 				destroy: _________,
+				[Symbol.asyncDispose]: __________,
 				...actions
 			} = client;
 			for (const { path, action } of walkActions(actions)) {

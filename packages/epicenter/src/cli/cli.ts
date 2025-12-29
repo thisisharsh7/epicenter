@@ -49,6 +49,7 @@ export function createCLI<
 	);
 
 	const {
+		$actions: _actions,
 		destroy: _clientDestroy,
 		[Symbol.asyncDispose]: _clientDispose,
 		...workspaceClients
@@ -59,9 +60,15 @@ export function createCLI<
 	)) {
 		const typedClient = workspaceClient as WorkspaceClient<Actions>;
 		const {
-			destroy: _,
-			[Symbol.asyncDispose]: __,
-			$ydoc: ___,
+			$ydoc: _,
+			$tables: __,
+			$providers: ___,
+			$validators: ____,
+			$workspaces: _____,
+			$blobs: ______,
+			$paths: _______,
+			destroy: ________,
+			[Symbol.asyncDispose]: _________,
 			...workspaceActions
 		} = typedClient;
 
