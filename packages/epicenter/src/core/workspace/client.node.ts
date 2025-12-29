@@ -202,22 +202,8 @@ export async function createClient(
 		};
 
 		const actionRegistry: ActionInfo[] = [];
-		for (const [workspaceId, client] of Object.entries(clients)) {
-			const {
-				$ydoc: _,
-				$tables: __,
-				$providers: ___,
-				$validators: ____,
-				$workspaces: _____,
-				$blobs: ______,
-				$paths: _______,
-				destroy: ________,
-				[Symbol.asyncDispose]: _________,
-				...actions
-			} = client;
-			for (const { path: actionPath, action } of walkActions(actions)) {
-				actionRegistry.push({ workspaceId, actionPath, action });
-			}
+		for (const client of Object.values(clients)) {
+			actionRegistry.push(...client.$actions);
 		}
 
 		return {
@@ -511,6 +497,11 @@ async function initializeWorkspaces<
 			paths: workspacePaths,
 		});
 
+		const actionRegistry: ActionInfo[] = [];
+		for (const { path: actionPath, action } of walkActions(actions)) {
+			actionRegistry.push({ workspaceId, actionPath, action });
+		}
+
 		// Create async cleanup function
 		const cleanup = async () => {
 			// Clean up providers first (destroy is optional for providers)
@@ -532,6 +523,7 @@ async function initializeWorkspaces<
 			$workspaces: workspaceClients,
 			$blobs: blobs,
 			$paths: workspacePaths,
+			$actions: actionRegistry,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		});

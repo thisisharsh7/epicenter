@@ -100,6 +100,25 @@ export type WorkspaceClientInternals<
 	$paths: WorkspacePaths | undefined;
 
 	/**
+	 * Pre-computed registry of this workspace's actions.
+	 *
+	 * Built during client initialization by walking the action tree.
+	 * Use this for server/MCP tooling that needs to enumerate available actions.
+	 *
+	 * @example
+	 * ```typescript
+	 * // Iterate all actions in this workspace
+	 * for (const { workspaceId, actionPath, action } of client.$actions) {
+	 *   console.log(`${actionPath.join('/')}: ${action.type}`);
+	 * }
+	 *
+	 * // Filter mutations only
+	 * const mutations = client.$actions.filter(info => info.action.type === 'mutation');
+	 * ```
+	 */
+	$actions: readonly ActionInfo[];
+
+	/**
 	 * Async cleanup method for resource management.
 	 *
 	 * Cleans up providers first (if they have `destroy` methods), then destroys

@@ -496,6 +496,11 @@ function initializeWorkspacesSync<
 			paths: undefined,
 		});
 
+		const actionRegistry: ActionInfo[] = [];
+		for (const { path: actionPath, action } of walkActions(actions)) {
+			actionRegistry.push({ workspaceId, actionPath, action });
+		}
+
 		// Create async cleanup function
 		const cleanup = async () => {
 			// Clean up providers first (destroy is optional for providers)
@@ -517,6 +522,7 @@ function initializeWorkspacesSync<
 			$workspaces: workspaceClients,
 			$blobs: blobs,
 			$paths: undefined,
+			$actions: actionRegistry,
 			whenSynced,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
