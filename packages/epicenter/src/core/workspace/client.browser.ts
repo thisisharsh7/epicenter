@@ -178,23 +178,8 @@ export function createClient(
 		};
 
 		const actionRegistry: ActionInfo[] = [];
-		for (const [workspaceId, client] of Object.entries(clients)) {
-			const {
-				$ydoc: _,
-				$tables: __,
-				$providers: ___,
-				$validators: ____,
-				$workspaces: _____,
-				$blobs: ______,
-				$paths: _______,
-				whenSynced: ________,
-				destroy: _________,
-				[Symbol.asyncDispose]: __________,
-				...actions
-			} = client;
-			for (const { path, action } of walkActions(actions)) {
-				actionRegistry.push({ workspaceId, actionPath: path, action });
-			}
+		for (const client of Object.values(clients)) {
+			actionRegistry.push(...client.$actions);
 		}
 
 		return {
