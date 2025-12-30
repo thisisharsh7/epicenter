@@ -1766,6 +1766,251 @@ public/
 
 ---
 
+## Edge Cases & Error Handling
+
+### BlobErr Factory Pattern
+
+```typescript
+// packages/epicenter/src/core/blobs/errors.ts
+
+import { createTaggedError } from 'wellcrafted';
+
+export type BlobErrorCode =
+	| 'INVALID_HASH_FORMAT'
+	| 'BLOB_NOT_FOUND'
+	| 'HASH_MISMATCH'
+	| 'INVALID_RANGE'
+	| 'RANGE_NOT_SATISFIABLE'
+	| 'INVALID_MIME_TYPE'
+	| 'FILE_TOO_LARGE'
+	| 'UPLOAD_FAILED'
+	| 'NO_SERVERS_AVAILABLE'
+	| 'ALL_SERVERS_FAILED';
+
+export type BlobErrorContext = {
+	code: BlobErrorCode;
+	hash?: string;
+	expected?: string;
+	actual?: string;
+	mimeType?: string;
+	size?: number;
+	maxSize?: number;
+	serverUrl?: string;
+};
+
+export const BlobErr = createTaggedError<'BlobError', BlobErrorContext>('BlobError');
+```
+
+### Service Worker Edge Cases
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  SERVICE WORKER EDGE CASES                       │
+└─────────────────────────────────────────────────────────────────┘
+
+1. SW NOT READY (first page load)
+─────────────────────────────────
+Problem: SW registration is async; images might load before SW ready.
+Solution:
+- First load: images fail or load directly from server (if CORS allows)
+- SW activates via clients.claim()
+- Subsequent loads: SW intercepts all /blobs/ requests
+- NOT a problem in practice (SW registers fast, images usually lazy-loaded)
+
+
+2. SW UPDATE AVAILABLE
+───────────────────────
+Problem: New SW version available but old SW still controlling page.
+Solution:
+- Use skipWaiting() in install event
+- Use clients.claim() in activate event
+- Cache version in CACHE_NAME (e.g., 'epicenter-blobs-v2')
+- Old cache auto-cleaned on version bump
+
+
+3. ALL SERVERS OFFLINE
+───────────────────────
+Problem: SW has no servers to fetch from.
+Solution:
+- Return cached blobs (cache-first strategy already handles this)
+- For cache misses: return 503 Service Unavailable
+- UI should handle 503 gracefully (show placeholder, retry button)
+
+
+4. SERVER RETURNS ERROR
+────────────────────────
+Problem: Server returns 404/500/etc.
+Solution:
+- Try next server in list
+- If all fail: return 404 to browser
+- SW logs failures for debugging
+- DON'T cache error responses
+```
+
+### Offline Behavior
+
+| Scenario | Upload | Display |
+|----------|--------|---------|
+| **Online** | PUT to server, store hash | SW fetches from server, caches |
+| **Offline** | Fails immediately | SW serves from cache (if cached) |
+| **Offline, cache miss** | Fails | Returns 404 (or placeholder) |
+
+**Design decision**: No offline upload queue in v1. Users must be online to upload.
+
+Future consideration: Queue uploads in IndexedDB, sync when online.
+
+### Metadata via HTTP Headers
+
+Since CRDT stores only the hash (no size/mime), metadata comes from HTTP headers:
+
+```typescript
+// Getting metadata without downloading the blob
+const response = await fetch(`/blobs/${hash}`, { method: 'HEAD' });
+const size = parseInt(response.headers.get('Content-Length') || '0', 10);
+const mimeType = response.headers.get('Content-Type') || 'application/octet-stream';
+
+// Or from a GET response
+const blob = await response.blob();
+blob.size;  // Size in bytes
+blob.type;  // MIME type
+```
+
+**Why not store metadata in CRDT?**
+- Adds complexity (what if metadata conflicts?)
+- HTTP headers are the source of truth anyway
+- Content-addressed = immutable = metadata never changes
+
+### Upload Retry Logic
+
+```typescript
+// packages/epicenter/src/client/blob-upload.ts
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+
+async function uploadWithRetry(serverUrl: string, hash: string, data: Blob): Promise<boolean> {
+	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+		const result = await tryAsync(
+			async () => {
+				const response = await fetch(`${serverUrl}/blobs/${hash}`, {
+					method: 'PUT',
+					body: data,
+				});
+				return response.ok;
+			},
+			(error) => ({ message: `Upload attempt ${attempt} failed`, cause: error }),
+		);
+
+		if (result.ok && result.value) {
+			return true;
+		}
+
+		if (attempt < MAX_RETRIES) {
+			await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+		}
+	}
+
+	return false;
+}
+```
+
+---
+
+## Tailscale MagicDNS Integration
+
+### Why Tailscale?
+
+For local-first sync across devices on a home network, Tailscale provides:
+- **Stable hostnames**: `laptop.tailnet.ts.net` instead of changing IPs
+- **Zero config**: No port forwarding, no dynamic DNS
+- **Secure**: WireGuard encryption, no exposed ports
+- **Free tier**: Up to 100 devices
+
+### Server URL Format
+
+```
+http://<device-name>.<tailnet-name>.ts.net:<port>
+
+Examples:
+- http://laptop.tail1234.ts.net:3913
+- http://desktop.tail1234.ts.net:3913
+- http://server.tail1234.ts.net:3913
+```
+
+### Configuration
+
+```typescript
+// Server config
+const serverConfig = {
+	// Use Tailscale hostname for awareness broadcast
+	serverUrl: `http://${hostname}.${tailnet}.ts.net:${port}`,
+};
+
+// Client config (initial connection)
+const clientConfig = {
+	syncUrl: `ws://laptop.tail1234.ts.net:3913/workspaces/blog/sync`,
+	// Other servers discovered automatically via awareness
+};
+```
+
+### Fallback for Non-Tailscale Users
+
+Users without Tailscale can:
+1. Use local IP addresses (works on same LAN)
+2. Use cloud-hosted server with public domain
+3. Use ngrok/cloudflare tunnel for temporary access
+
+---
+
+## Future Considerations (v2+)
+
+### Garbage Collection
+
+```typescript
+// Deferred to v2
+async function garbageCollect(storage: BlobStorage, client: EpicenterClient) {
+	const allHashes = await storage.list();
+	const referencedHashes = getAllBlobRefsFromAllTables(client);
+
+	for (const hash of allHashes) {
+		if (!referencedHashes.has(hash)) {
+			await storage.delete(hash);
+		}
+	}
+}
+```
+
+Considerations:
+- Must coordinate across all servers (can't GC if another server still references)
+- Tombstone records? Or just eventual GC?
+- User-triggered vs automatic?
+
+### Cloud Storage (S3/R2)
+
+Future: Add cloud storage as another "server" type in awareness.
+
+```typescript
+type BlobAwareness =
+	| { type: 'server'; url: string }
+	| { type: 's3'; bucket: string; region: string }
+	| { type: 'r2'; accountId: string; bucket: string };
+```
+
+### Offline Upload Queue
+
+```typescript
+// Future: Queue uploads when offline
+if (!navigator.onLine) {
+	await queueForLaterUpload(hash, data);
+	// Show "pending sync" indicator in UI
+}
+
+// Sync queue when back online
+window.addEventListener('online', syncPendingUploads);
+```
+
+---
+
 ## Review
 
 _To be filled after implementation_
