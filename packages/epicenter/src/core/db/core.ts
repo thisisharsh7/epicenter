@@ -67,7 +67,7 @@ export type { TableHelper } from './table-helper';
  * @example
  * ```typescript
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
- * const db = createEpicenterDb(ydoc, {
+ * const db = createTables(ydoc, {
  *   posts: {
  *     id: id(),
  *     title: text(),
@@ -83,7 +83,7 @@ export type { TableHelper } from './table-helper';
  * db.clearAll();
  * ```
  */
-export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
+export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 	ydoc: Y.Doc,
 	schema: TWorkspaceSchema,
 ) {
@@ -165,9 +165,9 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 }
 
 /**
- * Type alias for the return type of createEpicenterDb.
+ * Type alias for the return type of createTables.
  * Useful for typing function parameters that accept a tables instance.
  */
 export type Tables<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
-	typeof createEpicenterDb<TWorkspaceSchema>
+	typeof createTables<TWorkspaceSchema>
 >;

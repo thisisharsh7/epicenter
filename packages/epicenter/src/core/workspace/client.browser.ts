@@ -9,7 +9,7 @@
  */
 import * as Y from 'yjs';
 import { type Actions, walkActions } from '../actions';
-import { createEpicenterDb } from '../db/core';
+import { createTables } from '../db/core';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type {
@@ -422,7 +422,7 @@ function initializeWorkspacesSync<
 		const ydoc = new Y.Doc({ guid: workspaceConfig.id });
 
 		// Initialize Epicenter tables (wraps YJS with table/record API)
-		const tables = createEpicenterDb(ydoc, workspaceConfig.tables);
+		const tables = createTables(ydoc, workspaceConfig.tables);
 
 		// Create validators for runtime validation and arktype composition
 		const validators = createWorkspaceValidators(workspaceConfig.tables);

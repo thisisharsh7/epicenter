@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
 import { boolean, id, integer, tags, text, ytext } from '../schema';
-import { createEpicenterDb } from './core';
+import { createTables } from './core';
 
-describe('createEpicenterDb', () => {
+describe('createTables', () => {
 	test('should create and retrieve rows correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createEpicenterDb(ydoc, {
+		const doc = createTables(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -35,7 +35,7 @@ describe('createEpicenterDb', () => {
 
 	test('should handle batch operations', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createEpicenterDb(ydoc, {
+		const doc = createTables(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -67,7 +67,7 @@ describe('createEpicenterDb', () => {
 
 	test('should filter and find rows correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createEpicenterDb(ydoc, {
+		const doc = createTables(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -98,7 +98,7 @@ describe('createEpicenterDb', () => {
 
 	test('should return not_found status for non-existent rows', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createEpicenterDb(ydoc, {
+		const doc = createTables(ydoc, {
 			posts: {
 				id: id(),
 				title: text(),
@@ -121,7 +121,7 @@ describe('createEpicenterDb', () => {
 
 	test('should store and retrieve Y.js types correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createEpicenterDb(ydoc, {
+		const doc = createTables(ydoc, {
 			posts: {
 				id: id(),
 				title: ytext(),

@@ -55,7 +55,7 @@ export {
 export type { TableHelper, Tables } from './core/db/core';
 
 // Database utilities
-export { createEpicenterDb } from './core/db/core';
+export { createTables } from './core/db/core';
 
 export type {
 	DeleteManyResult,
