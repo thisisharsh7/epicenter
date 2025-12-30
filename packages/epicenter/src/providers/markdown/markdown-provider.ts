@@ -1240,6 +1240,15 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		 * - Rows in YJS but not in markdown → deleted
 		 * - Rows in both → updated (no-op if content unchanged)
 		 *
+		 * **Deletion safety**: A YJS row is only deleted if no file exists with that ID.
+		 * If a file exists but fails to read or deserialize, the row is preserved and
+		 * a diagnostic is recorded. This prevents data loss when files have temporary
+		 * I/O errors or invalid content that the user can fix.
+		 *
+		 * The distinction:
+		 * - Can't parse ID from filename → file is unidentifiable → row deleted (can't protect what we can't identify)
+		 * - Can parse ID but can't read/deserialize → file exists → row preserved (user can fix the file)
+		 *
 		 * All YJS operations are wrapped in a single transaction for atomicity.
 		 */
 		pushFromMarkdown: defineMutation({
@@ -1255,6 +1264,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						type TableSyncData = {
 							table: (typeof tableWithConfigs)[number]['table'];
 							yjsIds: Set<string>;
+							fileExistsIds: Set<string>;
 							markdownRows: Map<
 								string,
 								SerializedRow<TSchema[keyof TSchema & string]>
@@ -1273,6 +1283,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 									),
 							);
 
+							const fileExistsIds = new Set<string>();
 							const markdownRows = new Map<
 								string,
 								SerializedRow<TSchema[keyof TSchema & string]>
@@ -1281,9 +1292,37 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 							const filePaths = await listMarkdownFiles(tableConfig.directory);
 
+							for (const filePath of filePaths) {
+								const filename = path.basename(filePath);
+								const parsed = tableConfig.parseFilename(filename);
+								if (parsed?.id) {
+									fileExistsIds.add(parsed.id);
+								}
+							}
+
 							await Promise.all(
 								filePaths.map(async (filePath) => {
 									const filename = path.basename(filePath);
+
+									const parsed = tableConfig.parseFilename(filename);
+									if (!parsed) {
+										const error = MarkdownProviderError({
+											message: `Failed to parse filename: ${filename}`,
+										});
+										diagnostics.add({
+											filePath,
+											tableName: table.name,
+											filename,
+											error,
+										});
+										logger.log(
+											ProviderError({
+												message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
+												context: { filePath, tableName: table.name, filename },
+											}),
+										);
+										return;
+									}
 
 									const parseResult = await readMarkdownFile(filePath);
 
@@ -1307,26 +1346,6 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 									}
 
 									const { data: frontmatter, body } = parseResult.data;
-
-									const parsed = tableConfig.parseFilename(filename);
-									if (!parsed) {
-										const error = MarkdownProviderError({
-											message: `Failed to parse filename: ${filename}`,
-										});
-										diagnostics.add({
-											filePath,
-											tableName: table.name,
-											filename,
-											error,
-										});
-										logger.log(
-											ProviderError({
-												message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
-												context: { filePath, tableName: table.name, filename },
-											}),
-										);
-										return;
-									}
 
 									const { data: row, error: deserializeError } =
 										tableConfig.deserialize({
@@ -1362,6 +1381,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 							allTableData.push({
 								table,
 								yjsIds,
+								fileExistsIds,
 								markdownRows,
 								markdownFilenames,
 							});
@@ -1371,13 +1391,12 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 							for (const {
 								table,
 								yjsIds,
+								fileExistsIds,
 								markdownRows,
 								markdownFilenames,
 							} of allTableData) {
-								const markdownIds = new Set(markdownRows.keys());
-
 								for (const id of yjsIds) {
-									if (!markdownIds.has(id)) {
+									if (!fileExistsIds.has(id)) {
 										table.delete({ id });
 										if (tracking[table.name]) {
 											delete tracking[table.name][id];
