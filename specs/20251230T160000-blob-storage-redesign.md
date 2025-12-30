@@ -10,13 +10,13 @@ Redesign the blob storage system to be simpler, content-addressed, and automatic
 
 ## Goals
 
-1. **Simplicity**: Minimal API surface (`put`, `get`, `list`, `has`)
+1. **Simplicity**: Minimal client API (`upload` only; display via URL)
 2. **Content-addressed**: SHA-256 hash as blob ID (deduplication, integrity)
 3. **Flat storage**: No namespacing, blobs shared across all tables
-4. **Automatic sync**: Awareness-based discovery and sync, no manual configuration
-5. **Automatic discovery**: Connect to one server, discover all others via awareness
-6. **Append-only**: No delete sync complexity (GC deferred to v2)
-7. **Isomorphic**: Same API for browser (OPFS) and server (filesystem)
+4. **Automatic discovery**: Connect to one server, discover all others via awareness
+5. **Native caching**: Browser HTTP cache handles storage automatically
+6. **Server-to-server sync**: HTTP polling, no complex coordination
+7. **Append-only**: No delete sync complexity (GC deferred to v2)
 
 ## Non-Goals (v1)
 
@@ -24,40 +24,61 @@ Redesign the blob storage system to be simpler, content-addressed, and automatic
 - Garbage collection (deferred to v2)
 - Blob versioning
 - Cloud storage integration (S3, R2) - will be v2 feature
-- IndexedDB fallback (OPFS is standard in 2025)
+- Browser-side storage management (native HTTP cache handles it)
 - Encryption / Compression
 
 ---
 
 ## Architecture
 
+### High-Level Overview
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    BLOB SYNC ARCHITECTURE                           │
+│                    BLOB STORAGE ARCHITECTURE                         │
 └─────────────────────────────────────────────────────────────────────┘
 
-  TWO SYNC CHANNELS (same WebSocket connection):
+  CLIENT (Browser)                       SERVERS
+  ───────────────                        ───────
 
-  ┌─────────────────────────────────────────────────────────────────┐
-  │                                                                 │
-  │   YJS SYNC (automatic)              BLOB SYNC (automatic)       │
-  │   ────────────────────              ─────────────────────       │
-  │   • Document state                  • Awareness broadcasts      │
-  │   • Row data + blob refs            • Hash list comparison      │
-  │   • CRDT merging                    • HTTP GET/PUT transfer     │
-  │                                     • Server auto-discovery     │
-  │                                                                 │
-  └─────────────────────────────────────────────────────────────────┘
+  <img src="/blobs/sha256-abc">          Server A (laptop.tailnet.ts.net)
+           │                             ┌──────────────────┐
+           ▼                             │ .epicenter/      │
+  ┌────────────────────┐                 │   blobs/         │
+  │   Service Worker   │◄───HTTP────────►│     sha256-abc   │
+  │  (intercepts /blobs)│                │     sha256-def   │
+  └────────────────────┘                 └──────────────────┘
+           │                                      ▲
+           ▼                                      │ HTTP Polling
+  ┌────────────────────┐                          │ (every 30s)
+  │  Browser HTTP Cache│                          ▼
+  │  (Cache-Control:   │                 Server B (desktop.tailnet.ts.net)
+  │   immutable)       │                 ┌──────────────────┐
+  └────────────────────┘                 │ .epicenter/      │
+                                         │   blobs/         │
+                                         │     sha256-ghi   │
+                                         └──────────────────┘
 
-  STORAGE:
-
-  Browser (OPFS)                        Server (Filesystem)
-  ┌─────────────────┐                   ┌─────────────────┐
-  │ /blobs/         │                   │ .epicenter/     │
-  │   sha256-abc... │                   │   blobs/        │
-  │   sha256-def... │                   │     sha256-abc..│
-  └─────────────────┘                   └─────────────────┘
+  KEY INSIGHT: Content-addressed = immutable = cache forever
 ```
+
+### Design Principles
+
+1. **Native HTTP Caching**: Browser's built-in cache handles storage via `Cache-Control: immutable`
+2. **Service Worker for Stable URLs**: `/blobs/:hash` URLs work regardless of which server is available
+3. **Server Discovery via Awareness**: Clients discover server URLs automatically
+4. **Server-to-Server HTTP Sync**: Servers poll each other every 30s, no awareness hash lists
+5. **Upload Once**: Client uploads to ONE best server; servers handle distribution
+
+### Why This Is Simpler
+
+| Old Approach                        | New Approach                          |
+| ----------------------------------- | ------------------------------------- |
+| OPFS storage in browser             | Native HTTP cache (automatic)         |
+| Awareness broadcasts all hash lists | Awareness broadcasts only server URLs |
+| Complex sync state machine          | Service Worker + HTTP polling         |
+| Browser manages blob lifecycle      | Browser cache auto-evicts as needed   |
+| Custom deduplication logic          | HTTP caching handles it               |
 
 ---
 
@@ -94,12 +115,14 @@ Example: sha256-a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd
 
 /**
  * Hash a blob using SHA-256 and return with sha256- prefix.
- * 
+ *
  * This is called BOTH on upload (browser) and verification (server):
  * - Browser: Hash before storing locally + before pushing to server
  * - Server: Hash on PUT to verify integrity
  */
-export async function hashBlob(data: Blob | File | ArrayBuffer): Promise<string> {
+export async function hashBlob(
+	data: Blob | File | ArrayBuffer,
+): Promise<string> {
 	const buffer = data instanceof ArrayBuffer ? data : await data.arrayBuffer();
 
 	const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -113,6 +136,7 @@ export async function hashBlob(data: Blob | File | ArrayBuffer): Promise<string>
 ```
 
 **Key design decision**: Browser hashes BEFORE storing locally. This ensures:
+
 1. Browser stores the blob in OPFS immediately (no waiting for server)
 2. Browser knows the hash to reference in the Y.Doc row
 3. Server can verify integrity when blob is pushed
@@ -122,92 +146,45 @@ export async function hashBlob(data: Blob | File | ArrayBuffer): Promise<string>
 
 ## Storage
 
-### Flat Structure
-
-All blobs stored in single directory, keyed by hash:
+### Storage Model
 
 ```
-# Browser (OPFS)
-/blobs/
-  sha256-a1b2c3d4...
-  sha256-e5f6g7h8...
+┌─────────────────────────────────────────────────────────────────┐
+│                      STORAGE MODEL                               │
+└─────────────────────────────────────────────────────────────────┘
 
-# Server (Filesystem)
-.epicenter/blobs/
-  sha256-a1b2c3d4...
-  sha256-e5f6g7h8...
+BROWSER                                SERVER
+────────                               ───────
+
+No explicit storage!                   Filesystem:
+                                       .epicenter/blobs/
+Browser's native HTTP cache              sha256-a1b2c3d4...
+handles caching automatically            sha256-e5f6g7h8...
+via Cache-Control: immutable
+
+Service Worker manages                 Server manages
+cache hits/misses                      storage + sync
 ```
+
+### Key Design Decision: No Browser Storage
+
+| Old Design (OPFS)      | New Design (HTTP Cache) |
+| ---------------------- | ----------------------- |
+| Manual OPFS management | Browser handles it      |
+| Custom cache eviction  | Browser handles it      |
+| Hash list tracking     | Not needed              |
+| Sync state machine     | Service Worker + HTTP   |
+
+**Why this is better**:
+
+1. Browser cache is battle-tested and efficient
+2. Automatic eviction when disk is full
+3. No custom storage code to maintain
+4. Works with existing HTTP caching infrastructure
 
 ### No Namespacing
 
-Blobs are NOT namespaced by table or column. The same image used in `posts.coverImage` and `users.avatar` is stored once.
-
-### Browser Implementation (OPFS)
-
-```typescript
-// packages/epicenter/src/core/blobs/storage.browser.ts
-
-import { hashBlob } from './hash';
-
-const BLOBS_DIR = 'blobs';
-
-async function getBlobsDir(): Promise<FileSystemDirectoryHandle> {
-	const root = await navigator.storage.getDirectory();
-	return root.getDirectoryHandle(BLOBS_DIR, { create: true });
-}
-
-export const blobStorage = {
-	async put(data: Blob | File | ArrayBuffer): Promise<string> {
-		const hash = await hashBlob(data);
-		const dir = await getBlobsDir();
-		const file = await dir.getFileHandle(hash, { create: true });
-		const writable = await file.createWritable();
-		await writable.write(data);
-		await writable.close();
-		return hash;
-	},
-
-	async get(hash: string): Promise<Blob | null> {
-		try {
-			const dir = await getBlobsDir();
-			const file = await dir.getFileHandle(hash);
-			return await file.getFile();
-		} catch {
-			return null; // Not found
-		}
-	},
-
-	async has(hash: string): Promise<boolean> {
-		try {
-			const dir = await getBlobsDir();
-			await dir.getFileHandle(hash);
-			return true;
-		} catch {
-			return false;
-		}
-	},
-
-	async list(): Promise<string[]> {
-		const dir = await getBlobsDir();
-		const hashes: string[] = [];
-		for await (const [name] of dir.entries()) {
-			if (name.startsWith('sha256-')) {
-				hashes.push(name);
-			}
-		}
-		return hashes;
-	},
-
-	async delete(hash: string): Promise<void> {
-		try {
-			const dir = await getBlobsDir();
-			await dir.removeEntry(hash);
-		} catch {
-			// Ignore if not found
-		}
-	},
-};
-```
+Blobs are NOT namespaced by table or column. The same image used in `posts.coverImage` and `users.avatar` is stored once (deduplication via content addressing).
 
 ### Server Implementation (Bun Filesystem)
 
@@ -270,6 +247,7 @@ export function createBlobStorage(epicenterDir: string) {
 ### The Problem
 
 User has multiple devices on Tailscale network:
+
 - Phone (browser) - No server, just client
 - Laptop (server) - `laptop.tailnet.ts.net:3913`
 - Desktop (server) - `desktop.tailnet.ts.net:3913`
@@ -292,23 +270,22 @@ ws://laptop.tailnet.ts.net:3913/workspaces/blog/sync
 Only ONE URL needed in config!
 
 
-STEP 2: Awareness broadcasts server URLs
-─────────────────────────────────────────
+STEP 2: Awareness broadcasts server URLs (NO hash lists!)
+──────────────────────────────────────────────────────────
 Laptop server awareness state:
 {
   type: 'server',
-  url: 'http://laptop.tailnet.ts.net:3913',  ← HTTP for blob transfers
-  blobHashes: ['sha256-abc...', 'sha256-def...']
+  url: 'http://laptop.tailnet.ts.net:3913'  ← Just the URL, that's it!
 }
 
 Desktop server awareness state (connected to laptop):
 {
   type: 'server',
-  url: 'http://desktop.tailnet.ts.net:3913',
-  blobHashes: ['sha256-ghi...', 'sha256-jkl...']
+  url: 'http://desktop.tailnet.ts.net:3913'
 }
 
 Phone receives BOTH awareness states via WebSocket!
+NO hash lists in awareness = minimal bandwidth.
 
 
 STEP 3: Phone auto-discovers all servers
@@ -318,8 +295,94 @@ Phone's awareness listener sees:
 - desktop.tailnet.ts.net:3913 (discovered via awareness)
 - cloud.mydomain.com:3913 (discovered if desktop is connected to cloud)
 
-Phone now knows ALL blob storage endpoints automatically!
+Service Worker now knows ALL blob storage endpoints automatically!
 
+
+STEP 4: Service Worker handles blob requests
+─────────────────────────────────────────────
+UI renders: <img src="/blobs/sha256-abc">
+
+Service Worker intercepts:
+1. Check browser cache → HIT? Return cached blob
+2. MISS? Try servers in order until one responds
+3. Cache response with Cache-Control: immutable
+4. Return blob to UI
+```
+
+### Key Insight
+
+**Awareness is for DISCOVERY only, not for sync!**
+
+| What Awareness Does      | What Awareness Does NOT Do       |
+| ------------------------ | -------------------------------- |
+| Broadcasts server URLs   | ~~Broadcast blob hash lists~~    |
+| Enables auto-discovery   | ~~Compare hashes between peers~~ |
+| Minimal state (just URL) | ~~Trigger sync operations~~      |
+
+- **WebSocket sync**: Connect to ONE known server (manual config)
+- **Server discovery**: Learn other server URLs via awareness (automatic)
+- **Blob fetching**: Service Worker tries available servers
+- **Server sync**: HTTP polling between servers (separate from awareness)
+
+### Discovery Flow Diagram
+
+```
+Phone                     Laptop Server              Desktop Server
+─────                     ─────────────              ──────────────
+
+Connect WebSocket ────→   Receives connection
+                          Sends awareness:
+                          { type: 'server',
+                            url: 'http://laptop...' }
+
+Receives awareness   ←────
+SW learns: laptop
+                          Desktop is also connected:
+Receives awareness   ←──────────────────────────── { type: 'server',
+SW learns: desktop                                   url: 'http://desktop...' }
+
+Service Worker now knows both servers!
+Can fetch blobs from either.
+```
+
+┌─────────────────────────────────────────────────────────────────┐
+│ DISCOVERY ARCHITECTURE │
+└─────────────────────────────────────────────────────────────────┘
+
+STEP 1: User configures ONE entry point
+────────────────────────────────────────
+Phone browser connects to:
+ws://laptop.tailnet.ts.net:3913/workspaces/blog/sync
+
+Only ONE URL needed in config!
+
+STEP 2: Awareness broadcasts server URLs
+─────────────────────────────────────────
+Laptop server awareness state:
+{
+type: 'server',
+url: 'http://laptop.tailnet.ts.net:3913', ← HTTP for blob transfers
+blobHashes: ['sha256-abc...', 'sha256-def...']
+}
+
+Desktop server awareness state (connected to laptop):
+{
+type: 'server',
+url: 'http://desktop.tailnet.ts.net:3913',
+blobHashes: ['sha256-ghi...', 'sha256-jkl...']
+}
+
+Phone receives BOTH awareness states via WebSocket!
+
+STEP 3: Phone auto-discovers all servers
+─────────────────────────────────────────
+Phone's awareness listener sees:
+
+- laptop.tailnet.ts.net:3913 (connected via WebSocket)
+- desktop.tailnet.ts.net:3913 (discovered via awareness)
+- cloud.mydomain.com:3913 (discovered if desktop is connected to cloud)
+
+Phone now knows ALL blob storage endpoints automatically!
 
 STEP 4: Blob sync uses discovered URLs
 ───────────────────────────────────────
@@ -328,6 +391,7 @@ GET http://desktop.tailnet.ts.net:3913/blobs/sha256-ghi
 
 Phone has unique blob:
 PUT http://laptop.tailnet.ts.net:3913/blobs/sha256-xyz
+
 ```
 
 ### Key Insight
@@ -341,27 +405,29 @@ PUT http://laptop.tailnet.ts.net:3913/blobs/sha256-xyz
 ### Discovery Flow Diagram
 
 ```
-Phone                     Laptop Server              Desktop Server
-─────                     ─────────────              ──────────────
 
-Connect WebSocket ────→   Receives connection
-                          Sends awareness:
-                          { url: 'http://laptop...',
-                            blobHashes: [...] }
-                          
-Receives awareness   ←────
+Phone Laptop Server Desktop Server
+───── ───────────── ──────────────
+
+Connect WebSocket ────→ Receives connection
+Sends awareness:
+{ url: 'http://laptop...',
+blobHashes: [...] }
+
+Receives awareness ←────
 Discovers: laptop
-                          Desktop is also connected:
-Receives awareness   ←──────────────────────────── { url: 'http://desktop...',
-Discovers: desktop                                   blobHashes: [...] }
+Desktop is also connected:
+Receives awareness ←──────────────────────────── { url: 'http://desktop...',
+Discovers: desktop blobHashes: [...] }
 
 Now knows both servers!
 Can GET/PUT to either.
-```
+
+````
 
 ---
 
-## Awareness-Based Sync
+## Awareness State (Simplified)
 
 ### Awareness State Type
 
@@ -369,197 +435,306 @@ Can GET/PUT to either.
 // packages/epicenter/src/core/blobs/types.ts
 
 /**
- * Awareness state for blob synchronization.
- * 
- * Each peer broadcasts this state via YJS awareness protocol.
- * The `url` field enables automatic server discovery.
+ * Awareness state for server discovery.
+ *
+ * IMPORTANT: Awareness is for DISCOVERY only!
+ * - NO blob hash lists (that was the old design)
+ * - Browsers don't broadcast anything for blobs
+ * - Servers broadcast only their HTTP URL
+ *
+ * Server sync happens via HTTP polling, NOT awareness.
  */
-type BlobAwareness =
-	| {
-			type: 'browser';
-			blobHashes: string[]; // All hashes this browser has locally (OPFS)
-	  }
-	| {
-			type: 'server';
-			url: string; // HTTP URL for blob GET/PUT (e.g., 'http://laptop.tailnet:3913')
-			blobHashes: string[]; // All hashes this server has (.epicenter/blobs/)
-	  };
+type BlobAwareness = {
+	type: 'server';
+	url: string; // HTTP URL for blob GET/PUT (e.g., 'http://laptop.tailnet:3913')
+};
+
+// Browsers don't have blob awareness state - they're consumers, not servers
 ```
 
-**Important distinction**:
-- `url` is for **HTTP blob transfers** (GET/PUT requests)
-- WebSocket sync happens separately (already connected)
-- Browsers don't have `url` because they can't serve HTTP
+### Why No Hash Lists in Awareness?
 
-### Sync Protocol
+| Old Design (Complex) | New Design (Simple) |
+|---------------------|---------------------|
+| Every peer broadcasts all hashes | Servers broadcast only URL |
+| O(peers × blobs) awareness size | O(servers) awareness size |
+| Complex diff/sync logic | Service Worker handles fetch |
+| Awareness triggers sync | HTTP polling syncs servers |
 
-```
-1. BROADCAST: Each peer broadcasts their blob hashes via awareness
-   ────────────────────────────────────────────────────────────────
+**Key insight**: Content-addressed storage + HTTP caching = awareness doesn't need to know what blobs exist. The Service Worker just tries to fetch; if it works, great. If not, blob doesn't exist yet.
 
-   Browser: { type: 'browser', blobHashes: ['sha256-aaa', 'sha256-bbb'] }
-   Server:  { type: 'server', url: 'http://server:3913', blobHashes: ['sha256-aaa', 'sha256-ccc'] }
-
-2. COMPARE: Each peer compares their hashes with others
-   ────────────────────────────────────────────────────
-
-   Browser missing: sha256-ccc (server has it)
-   Server missing:  sha256-bbb (browser has it)
-
-3. FETCH: Pull missing blobs from servers (browsers + servers can do this)
-   ────────────────────────────────────────────────────────────────────────
-
-   Browser: GET http://server:3913/blobs/sha256-ccc → store locally in OPFS
-   Desktop Server: GET http://laptop:3913/blobs/sha256-xyz → store locally
-
-4. PUSH: Browsers push their unique blobs to servers (browsers can't serve HTTP)
-   ──────────────────────────────────────────────────────────────────────────────
-
-   Browser: PUT http://server:3913/blobs/sha256-bbb (with blob as body)
-
-5. UPDATE: After storing, update own awareness state
-   ─────────────────────────────────────────────────
-
-   Browser: { type: 'browser', blobHashes: ['sha256-aaa', 'sha256-bbb', 'sha256-ccc'] }
-   Server:  { type: 'server', url: '...', blobHashes: ['sha256-aaa', 'sha256-bbb', 'sha256-ccc'] }
-
-6. CONVERGE: All peers eventually have all blobs
-   ──────────────────────────────────────────────
-
-   YJS awareness ensures eventual convergence via automatic re-broadcasting
-```
-
-### Sync Timing
-
-**No debouncing needed** for blob hash list updates:
-
-- Blob uploads are low-frequency (unlike mouse cursors at 60fps)
-- YJS awareness has built-in change detection (deep equality check)
-- Awareness auto-renews every 15 seconds as heartbeat
-- Each upload = 1 awareness update = totally fine
-
-**Evidence from YJS research**:
-- Awareness immediately broadcasts on `setLocalStateField()`
-- Built-in deep equality prevents redundant `change` events
-- Updates are push-based (no polling)
-
-### Sync Implementation
+### Server Discovery Implementation
 
 ```typescript
-// packages/epicenter/src/core/blobs/sync.ts
+// packages/epicenter/src/client/blob-awareness.ts
 
 import type { Awareness } from 'y-protocols/awareness';
-import type { BlobStorage, BlobAwareness } from './types';
+import { trySync } from 'wellcrafted';
 
 /**
- * Create blob sync using YJS awareness protocol.
- * 
- * This handles:
- * - Broadcasting local blob list via awareness
- * - Detecting missing blobs from other peers
- * - Fetching missing blobs from servers (GET)
- * - Pushing unique blobs to servers (PUT, browsers only)
- * - Automatic server discovery via awareness
+ * Extract server URLs from awareness state.
+ *
+ * Called by Service Worker (via postMessage) to get current server list.
+ * Servers come and go; awareness keeps the list current.
  */
-export function createBlobSync(params: {
-	awareness: Awareness;
-	storage: BlobStorage;
-	localState: BlobAwareness;
-}) {
-	const { awareness, storage, localState } = params;
+export function getServerUrlsFromAwareness(awareness: Awareness): string[] {
+	const urls: string[] = [];
 
-	// Set initial awareness state
-	awareness.setLocalStateField('blobs', localState);
-
-	// Listen for awareness changes (fires on any peer update)
-	awareness.on('change', async () => {
-		const states = awareness.getStates();
-		const myHashes = new Set(await storage.list());
-
-		// Build map: hash → server URLs that have it
-		const serversByHash = new Map<string, string[]>();
-		
-		for (const [, state] of states) {
-			const blobState = state.blobs as BlobAwareness | undefined;
-			if (!blobState) continue;
-
-			for (const hash of blobState.blobHashes) {
-				if (blobState.type === 'server') {
-					const servers = serversByHash.get(hash) || [];
-					servers.push(blobState.url);
-					serversByHash.set(hash, servers);
-				}
-			}
+	for (const [, state] of awareness.getStates()) {
+		const blobState = state.blobs as BlobAwareness | undefined;
+		if (blobState?.type === 'server' && blobState.url) {
+			urls.push(blobState.url);
 		}
+	}
 
-		// Find hashes we're missing
-		const allHashes = new Set(serversByHash.keys());
-		const missing = [...allHashes].filter((h) => !myHashes.has(h));
+	return urls;
+}
 
-		// Fetch missing blobs from servers (works for browsers AND servers)
-		for (const hash of missing) {
-			const servers = serversByHash.get(hash);
-			if (servers && servers.length > 0) {
-				await fetchAndStore(servers[0], hash);
-			}
-		}
+/**
+ * Set up awareness listener to notify Service Worker of server changes.
+ */
+export function setupServerDiscovery(awareness: Awareness) {
+	const notifyServiceWorker = () => {
+		const urls = getServerUrlsFromAwareness(awareness);
+		navigator.serviceWorker.controller?.postMessage({
+			type: 'SERVER_LIST_UPDATE',
+			servers: urls,
+		});
+	};
 
-		// If browser, push unique blobs to servers
-		// (Servers don't need to push; other servers can pull from them)
-		if (localState.type === 'browser') {
-			const serverUrls = getServerUrls(states);
-			const uniqueToMe = [...myHashes].filter((h) => !serversByHash.has(h));
+	// Notify on any awareness change
+	awareness.on('change', notifyServiceWorker);
 
-			for (const hash of uniqueToMe) {
-				for (const serverUrl of serverUrls) {
-					await pushToServer(serverUrl, hash);
-				}
-			}
-		}
+	// Initial notification
+	notifyServiceWorker();
+
+	return () => awareness.off('change', notifyServiceWorker);
+}
+```
+
+### Server Awareness Setup
+
+```typescript
+// packages/epicenter/src/server/awareness-setup.ts
+
+import type { Awareness } from 'y-protocols/awareness';
+
+/**
+ * Server broadcasts its HTTP URL via awareness.
+ *
+ * This is ALL the server needs to do for blob discovery.
+ * Actual blob sync happens via HTTP polling (see server-sync.ts).
+ */
+export function setupServerBlobAwareness(awareness: Awareness, serverUrl: string) {
+	awareness.setLocalStateField('blobs', {
+		type: 'server',
+		url: serverUrl,
 	});
+}
+---
 
-	async function fetchAndStore(serverUrl: string, hash: string) {
-		try {
-			const response = await fetch(`${serverUrl}/blobs/${hash}`);
-			if (response.ok) {
-				const blob = await response.blob();
-				await storage.put(blob); // Stores locally + verifies hash
-				await updateLocalHashes();
-			}
-		} catch (error) {
-			console.warn(`Failed to fetch blob ${hash} from ${serverUrl}:`, error);
+## Service Worker (Browser Blob Handling)
+
+The Service Worker is the key to the simplified architecture. It provides stable `/blobs/:hash` URLs that work regardless of which servers are available.
+
+### Why Service Worker?
+
+| Without SW | With SW |
+|------------|---------|
+| UI must know server URLs | UI uses stable `/blobs/:hash` |
+| UI handles failover logic | SW handles failover transparently |
+| Complex state management | Native HTTP caching |
+| Manual cache invalidation | Immutable content = cache forever |
+
+### Service Worker Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   SERVICE WORKER FLOW                            │
+└─────────────────────────────────────────────────────────────────┘
+
+UI renders:
+<img src="/blobs/sha256-abc123">
+
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     SERVICE WORKER                               │
+│                                                                 │
+│  1. Intercept /blobs/:hash request                              │
+│  2. Check Cache Storage (cache-first)                           │
+│     ├─ HIT → Return cached response (instant!)                  │
+│     └─ MISS → Continue to step 3                                │
+│  3. Try servers in order:                                       │
+│     ├─ GET http://laptop.tailnet:3913/blobs/sha256-abc123       │
+│     ├─ GET http://desktop.tailnet:3913/blobs/sha256-abc123      │
+│     └─ GET http://cloud.example.com:3913/blobs/sha256-abc123    │
+│  4. First 200 response → Cache it → Return to UI                │
+│  5. All fail → Return 404                                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Service Worker Implementation
+
+```typescript
+// public/epicenter-sw.js (or epicenter-blobs-sw.js)
+
+/**
+ * Epicenter Blob Service Worker
+ *
+ * Provides stable /blobs/:hash URLs with cache-first strategy.
+ * Server list is updated via postMessage from main thread.
+ */
+
+const CACHE_NAME = 'epicenter-blobs-v1';
+const BLOB_PATH_REGEX = /^\/blobs\/(sha256-[a-f0-9]{64})$/;
+
+/** @type {string[]} */
+let serverUrls = [];
+
+// Receive server list updates from main thread
+self.addEventListener('message', (event) => {
+	if (event.data?.type === 'SERVER_LIST_UPDATE') {
+		serverUrls = event.data.servers;
+		console.log('[SW] Server list updated:', serverUrls);
+	}
+});
+
+// Intercept fetch requests
+self.addEventListener('fetch', (event) => {
+	const url = new URL(event.request.url);
+	const match = url.pathname.match(BLOB_PATH_REGEX);
+
+	if (!match) return; // Not a blob request, let it through
+
+	const hash = match[1];
+	event.respondWith(handleBlobRequest(hash, event.request));
+});
+
+/**
+ * Handle blob request with cache-first strategy.
+ */
+async function handleBlobRequest(hash: string, request: Request): Promise<Response> {
+	const cache = await caches.open(CACHE_NAME);
+
+	// 1. Check cache first (instant if hit)
+	const cached = await cache.match(`/blobs/${hash}`);
+	if (cached) {
+		console.log(`[SW] Cache HIT: ${hash}`);
+		return cached;
+	}
+
+	// 2. Try servers in order
+	for (const serverUrl of serverUrls) {
+		const result = await tryFetchFromServer(serverUrl, hash);
+		if (result.ok) {
+			// Cache the response (clone because body can only be read once)
+			const responseToCache = result.value.clone();
+
+			// Add immutable cache headers for the cached copy
+			const headers = new Headers(responseToCache.headers);
+			headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+
+			const cachedResponse = new Response(responseToCache.body, {
+				status: responseToCache.status,
+				statusText: responseToCache.statusText,
+				headers,
+			});
+
+			await cache.put(`/blobs/${hash}`, cachedResponse);
+			console.log(`[SW] Cached: ${hash} from ${serverUrl}`);
+
+			return result.value;
 		}
 	}
 
-	async function pushToServer(serverUrl: string, hash: string) {
-		try {
-			const blob = await storage.get(hash);
-			if (blob) {
-				await fetch(`${serverUrl}/blobs/${hash}`, {
-					method: 'PUT',
-					body: blob,
-				});
-			}
-		} catch (error) {
-			console.warn(`Failed to push blob ${hash} to ${serverUrl}:`, error);
+	// 3. All servers failed
+	console.warn(`[SW] Blob not found on any server: ${hash}`);
+	return new Response('Blob not found', { status: 404 });
+}
+
+/**
+ * Try to fetch blob from a single server.
+ * Returns { ok: true, value: Response } or { ok: false }.
+ */
+async function tryFetchFromServer(
+	serverUrl: string,
+	hash: string
+): Promise<{ ok: true; value: Response } | { ok: false }> {
+	try {
+		const response = await fetch(`${serverUrl}/blobs/${hash}`, {
+			// Don't send credentials to third-party servers
+			credentials: 'omit',
+		});
+
+		if (response.ok) {
+			return { ok: true, value: response };
 		}
+
+		return { ok: false };
+	} catch (error) {
+		console.warn(`[SW] Failed to fetch from ${serverUrl}:`, error);
+		return { ok: false };
+	}
+}
+
+// Activate immediately
+self.addEventListener('activate', (event) => {
+	event.waitUntil(self.clients.claim());
+});
+```
+
+### Service Worker Registration
+
+```typescript
+// packages/epicenter/src/client/register-sw.ts
+
+import { tryAsync } from 'wellcrafted';
+
+/**
+ * Register the Epicenter blob service worker.
+ *
+ * Called automatically by createClient() if blobs are enabled.
+ * The SW path can be customized in client config.
+ */
+export async function registerBlobServiceWorker(swPath = '/epicenter-sw.js') {
+	if (!('serviceWorker' in navigator)) {
+		console.warn('[Epicenter] Service Workers not supported; blob caching disabled');
+		return;
 	}
 
-	async function updateLocalHashes() {
-		const hashes = await storage.list();
-		localState.blobHashes = hashes;
-		awareness.setLocalStateField('blobs', localState);
+	const result = await tryAsync(
+		async () => navigator.serviceWorker.register(swPath),
+		(error) => ({ message: 'Failed to register service worker', cause: error }),
+	);
+
+	if (!result.ok) {
+		console.error('[Epicenter] SW registration failed:', result.error);
+		return;
 	}
 
-	function getServerUrls(states: Map<number, any>): string[] {
-		const urls: string[] = [];
-		for (const [, state] of states) {
-			if (state.blobs?.type === 'server') {
-				urls.push(state.blobs.url);
-			}
-		}
-		return urls;
+	console.log('[Epicenter] Blob service worker registered');
+}
+```
+
+### Integration with createClient()
+
+```typescript
+// packages/epicenter/src/client/client.ts
+
+export async function createClient(config: EpicenterConfig) {
+	// ... existing client setup ...
+
+	// Register blob service worker if in browser
+	if (typeof window !== 'undefined' && config.blobs?.enabled !== false) {
+		await registerBlobServiceWorker(config.blobs?.swPath);
+
+		// Set up awareness listener to update SW with server list
+		setupServerDiscovery(awareness);
 	}
+
+	// ... rest of client setup ...
 }
 ```
 
@@ -567,90 +742,136 @@ export function createBlobSync(params: {
 
 ## Server HTTP Endpoints (ElysiaJS)
 
+### Endpoint Overview
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/blobs/:hash` | GET | Retrieve blob with cache headers + range support |
+| `/blobs/:hash` | PUT | Store blob with hash verification |
+| `/blobs` | GET | List all hashes (for server-to-server sync) |
+
+### Implementation
+
 ```typescript
 // packages/epicenter/src/server/blobs.ts
 
 import { Elysia } from 'elysia';
-import { Err, Ok } from 'wellcrafted/result';
+import { Err, Ok } from 'wellcrafted';
 import type { BlobStorage } from '../core/blobs/types';
 import { hashBlob } from '../core/blobs/hash';
 import { BlobErr } from '../core/blobs/errors';
 
 /**
  * Create blob storage HTTP routes for ElysiaJS.
- * 
- * Endpoints:
- * - GET  /blobs/:hash  - Retrieve blob by hash
- * - PUT  /blobs/:hash  - Store blob (with hash verification)
- * - GET  /blobs        - List all hashes (debugging)
+ *
+ * Key features:
+ * - Cache-Control: immutable for content-addressed blobs
+ * - Range request support for audio/video streaming
+ * - GET /blobs list endpoint for server-to-server sync
  */
 export function createBlobRoutes(storage: BlobStorage) {
-	const app = new Elysia({ prefix: '/blobs' });
+	return new Elysia({ prefix: '/blobs' })
+		// GET /blobs/:hash - Retrieve blob with caching + range support
+		.get('/:hash', async ({ params: { hash }, request, set, status }) => {
+			if (!hash.startsWith('sha256-')) {
+				return status(400, Err(BlobErr({
+					message: 'Invalid hash format',
+					context: { code: 'INVALID_HASH_FORMAT', hash },
+				})));
+			}
 
-	// GET /blobs/:hash - Retrieve blob
-	app.get('/:hash', async ({ params: { hash }, status }) => {
-		if (!hash.startsWith('sha256-')) {
-			return status(400, Err(BlobErr({
-				message: 'Invalid hash format',
-				context: { code: 'INVALID_HASH_FORMAT', hash },
-			})));
-		}
+			const blob = await storage.get(hash);
+			if (!blob) {
+				return status(404, Err(BlobErr({
+					message: 'Blob not found',
+					context: { code: 'BLOB_NOT_FOUND', hash },
+				})));
+			}
 
-		const blob = await storage.get(hash);
-		if (!blob) {
-			return status(404, Err(BlobErr({
-				message: 'Blob not found',
-				context: { code: 'BLOB_NOT_FOUND', hash },
-			})));
-		}
+			// Content-addressed = immutable = cache forever
+			set.headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+			set.headers['Content-Type'] = blob.type || 'application/octet-stream';
+			set.headers['Content-Length'] = String(blob.size);
+			set.headers['Accept-Ranges'] = 'bytes';
+			set.headers['ETag'] = `"${hash}"`;
 
-		// Return blob directly (ElysiaJS handles Blob type)
-		return blob;
-	});
+			// Handle range requests for audio/video streaming
+			const rangeHeader = request.headers.get('Range');
+			if (rangeHeader) {
+				return handleRangeRequest(blob, rangeHeader, set, status);
+			}
 
-	// PUT /blobs/:hash - Store blob (verifies hash)
-	app.put('/:hash', async ({ params: { hash }, body, status }) => {
-		const expectedHash = hash;
+			return blob;
+		})
 
-		if (!expectedHash.startsWith('sha256-')) {
-			return status(400, Err(BlobErr({
-				message: 'Invalid hash format',
-				context: { code: 'INVALID_HASH_FORMAT', hash: expectedHash },
-			})));
-		}
+		// PUT /blobs/:hash - Store blob with hash verification
+		.put('/:hash', async ({ params: { hash }, body, status }) => {
+			if (!hash.startsWith('sha256-')) {
+				return status(400, Err(BlobErr({
+					message: 'Invalid hash format',
+					context: { code: 'INVALID_HASH_FORMAT', hash },
+				})));
+			}
 
-		// Body is automatically parsed as Blob for binary content
-		const blob = body as Blob;
-		const actualHash = await hashBlob(blob);
+			const blob = body as Blob;
+			const actualHash = await hashBlob(blob);
 
-		if (actualHash !== expectedHash) {
-			// Log to console for debugging (Option B from discussion)
-			console.warn(
-				`Hash mismatch: expected ${expectedHash}, got ${actualHash}`
-			);
-			
-			return status(400, Err(BlobErr({
-				message: 'Hash mismatch',
-				context: {
-					code: 'HASH_MISMATCH',
-					expected: expectedHash,
-					actual: actualHash,
-				},
-			})));
-		}
+			if (actualHash !== hash) {
+				console.warn(`Hash mismatch: expected ${hash}, got ${actualHash}`);
+				return status(400, Err(BlobErr({
+					message: 'Hash mismatch',
+					context: { code: 'HASH_MISMATCH', expected: hash, actual: actualHash },
+				})));
+			}
 
-		await storage.put(blob);
-		
-		return status(201, Ok({ hash: actualHash }));
-	});
+			await storage.put(blob);
+			return status(201, Ok({ hash: actualHash }));
+		})
 
-	// GET /blobs - List all hashes (debugging/full sync)
-	app.get('/', async () => {
-		const hashes = await storage.list();
-		return Ok({ hashes });
-	});
+		// GET /blobs - List all hashes (for server-to-server sync)
+		.get('/', async () => {
+			const hashes = await storage.list();
+			return Ok({ hashes });
+		});
+}
 
-	return app;
+/**
+ * Handle HTTP Range requests for audio/video streaming.
+ *
+ * Allows seeking in media files without downloading the entire blob.
+ */
+async function handleRangeRequest(
+	blob: Blob,
+	rangeHeader: string,
+	set: any,
+	status: any,
+) {
+	const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+	if (!match) {
+		return status(416, Err(BlobErr({
+			message: 'Invalid range format',
+			context: { code: 'INVALID_RANGE', range: rangeHeader },
+		})));
+	}
+
+	const start = parseInt(match[1], 10);
+	const end = match[2] ? parseInt(match[2], 10) : blob.size - 1;
+
+	if (start >= blob.size || end >= blob.size || start > end) {
+		set.headers['Content-Range'] = `bytes */${blob.size}`;
+		return status(416, Err(BlobErr({
+			message: 'Range not satisfiable',
+			context: { code: 'RANGE_NOT_SATISFIABLE', start, end, size: blob.size },
+		})));
+	}
+
+	const sliced = blob.slice(start, end + 1);
+
+	set.headers['Content-Range'] = `bytes ${start}-${end}/${blob.size}`;
+	set.headers['Content-Length'] = String(sliced.size);
+	set.status = 206; // Partial Content
+
+	return sliced;
 }
 ```
 
@@ -663,54 +884,382 @@ import { Elysia } from 'elysia';
 import { createBlobRoutes } from './blobs';
 import { createBlobStorage } from '../core/blobs';
 
-export function createServer(client) {
+export function createServer(config: ServerConfig) {
+	const storage = createBlobStorage(config.epicenterDir);
+
 	const app = new Elysia()
 		.use(createSyncPlugin({ ... }))
 		.use(createTablesPlugin({ ... }))
-		.use(createBlobRoutes(createBlobStorage())) // ← Add blob routes
+		.use(createBlobRoutes(storage))
 		.get('/', () => ({
 			name: 'Epicenter API',
 			version: '1.0.0',
-			docs: '/openapi',
 		}));
 
-	// ... rest of server setup
+	return app;
 }
 ```
 
-### ElysiaJS Status Helper
+### ElysiaJS Patterns
 
-**Key learnings**:
-- Use `status()` helper function, NOT `set.status` property
-- Access via context destructuring: `({ status }) => ...`
-- Signature: `status(code, response?)` where code is number or string
-- Returns `ElysiaCustomStatusResponse` which framework handles
-- Better type safety than `set.status` approach
+**Use `status()` helper**, not `set.status` for error responses:
 
-**Correct pattern**:
 ```typescript
-// ✅ CORRECT: Use status() helper
-({ status }) => {
-  if (error) {
-    return status(400, Err(error))
-  }
-  return Ok(data)
+// ✅ CORRECT
+({ status }) => status(400, Err(error))
+
+// ❌ INCORRECT
+({ set }) => { set.status = 400; return { error }; }
+```
+
+**Use `set.headers` for response headers** (not returned in body):
+
+```typescript
+// ✅ CORRECT
+({ set }) => {
+	set.headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+	return blob;
+}
+```
+
+---
+
+## Server-to-Server Sync (HTTP Polling)
+
+Servers sync with each other using simple HTTP polling. No awareness hash lists, no complex coordination.
+
+### Why HTTP Polling?
+
+| Alternative | Problem |
+|-------------|---------|
+| Syncthing | 34MB binary, overkill for blob sync |
+| WebRTC | Complex, requires signaling server |
+| Awareness hash lists | O(peers × blobs) state size |
+| **HTTP polling** | Simple, stateless, uses existing endpoints |
+
+### Sync Protocol
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   SERVER-TO-SERVER SYNC                          │
+└─────────────────────────────────────────────────────────────────┘
+
+Every 30 seconds, each server:
+
+1. GET other servers from awareness
+   ────────────────────────────────
+   awareness.getStates() → ['http://laptop:3913', 'http://desktop:3913']
+
+2. For each other server, GET /blobs to list their hashes
+   ──────────────────────────────────────────────────────
+   GET http://laptop:3913/blobs → { hashes: ['sha256-abc', 'sha256-def'] }
+   GET http://desktop:3913/blobs → { hashes: ['sha256-ghi'] }
+
+3. Compare with local hashes, find missing
+   ─────────────────────────────────────────
+   local:  ['sha256-abc']
+   laptop: ['sha256-abc', 'sha256-def']
+   desktop: ['sha256-ghi']
+
+   missing: ['sha256-def', 'sha256-ghi']
+
+4. Fetch missing blobs
+   ─────────────────────
+   GET http://laptop:3913/blobs/sha256-def → store locally
+   GET http://desktop:3913/blobs/sha256-ghi → store locally
+
+5. Done! Wait 30 seconds, repeat.
+```
+
+### Implementation
+
+```typescript
+// packages/epicenter/src/server/blob-sync.ts
+
+import type { Awareness } from 'y-protocols/awareness';
+import { tryAsync } from 'wellcrafted';
+import type { BlobStorage } from '../core/blobs/types';
+
+const SYNC_INTERVAL_MS = 30_000; // 30 seconds
+
+/**
+ * Start server-to-server blob sync via HTTP polling.
+ *
+ * Uses awareness to discover other servers, then polls their
+ * GET /blobs endpoint to find missing blobs.
+ */
+export function startBlobSync(params: {
+	awareness: Awareness;
+	storage: BlobStorage;
+	myUrl: string; // This server's URL (to skip self)
+}) {
+	const { awareness, storage, myUrl } = params;
+	let running = true;
+
+	const sync = async () => {
+		if (!running) return;
+
+		const otherServers = getOtherServerUrls(awareness, myUrl);
+		if (otherServers.length === 0) {
+			return; // No other servers to sync with
+		}
+
+		const localHashes = new Set(await storage.list());
+		const missingBlobs: Array<{ hash: string; serverUrl: string }> = [];
+
+		// 1. Fetch hash lists from all other servers
+		for (const serverUrl of otherServers) {
+			const result = await tryAsync(
+				async () => {
+					const response = await fetch(`${serverUrl}/blobs`);
+					if (!response.ok) return null;
+					const data = await response.json();
+					return data.ok ? data.value.hashes : null;
+				},
+				(error) => ({ message: `Failed to list blobs from ${serverUrl}`, cause: error }),
+			);
+
+			if (!result.ok || !result.value) continue;
+
+			for (const hash of result.value) {
+				if (!localHashes.has(hash)) {
+					missingBlobs.push({ hash, serverUrl });
+				}
+			}
+		}
+
+		// 2. Fetch missing blobs (deduplicated by hash)
+		const seen = new Set<string>();
+		for (const { hash, serverUrl } of missingBlobs) {
+			if (seen.has(hash)) continue;
+			seen.add(hash);
+
+			const result = await tryAsync(
+				async () => {
+					const response = await fetch(`${serverUrl}/blobs/${hash}`);
+					if (!response.ok) return null;
+					return response.blob();
+				},
+				(error) => ({ message: `Failed to fetch ${hash} from ${serverUrl}`, cause: error }),
+			);
+
+			if (result.ok && result.value) {
+				await storage.put(result.value);
+				console.log(`[BlobSync] Synced ${hash} from ${serverUrl}`);
+			}
+		}
+	};
+
+	// Start polling loop
+	const poll = async () => {
+		while (running) {
+			await sync();
+			await new Promise((resolve) => setTimeout(resolve, SYNC_INTERVAL_MS));
+		}
+	};
+
+	poll(); // Fire and forget
+
+	// Return cleanup function
+	return () => {
+		running = false;
+	};
 }
 
-// ❌ INCORRECT: Don't use set.status
-({ set }) => {
-  set.status = 400
-  return { error }
+function getOtherServerUrls(awareness: Awareness, myUrl: string): string[] {
+	const urls: string[] = [];
+	for (const [, state] of awareness.getStates()) {
+		const blobState = state.blobs;
+		if (blobState?.type === 'server' && blobState.url !== myUrl) {
+			urls.push(blobState.url);
+		}
+	}
+	return urls;
 }
+```
+
+### Integration with Server Startup
+
+```typescript
+// packages/epicenter/src/server/server.ts
+
+export function createServer(config: ServerConfig) {
+	const storage = createBlobStorage(config.epicenterDir);
+	const awareness = /* ... from YJS setup ... */;
+
+	// Set up blob awareness (broadcast our URL)
+	setupServerBlobAwareness(awareness, config.serverUrl);
+
+	// Start server-to-server blob sync
+	const stopBlobSync = startBlobSync({
+		awareness,
+		storage,
+		myUrl: config.serverUrl,
+	});
+
+	// ... rest of server setup ...
+
+	return {
+		app,
+		stop: () => {
+			stopBlobSync();
+			// ... other cleanup ...
+		},
+	};
+}
+```
+
+### Sync Characteristics
+
+| Property | Value |
+|----------|-------|
+| Interval | 30 seconds |
+| Direction | Pull-only (servers pull from each other) |
+| Deduplication | By hash (only fetch each blob once) |
+| Failure handling | Skip failed servers, retry next cycle |
+| Bandwidth | Minimal (only hash lists + missing blobs) |
+
+---
+
+## Client Upload Flow
+
+When a browser uploads a blob, it uploads to ONE server. That server will sync to others via HTTP polling.
+
+### Why Upload to ONE Server?
+
+| Upload to ALL | Upload to ONE |
+|---------------|---------------|
+| Upload bandwidth × N servers | Upload bandwidth × 1 |
+| Complex coordination | Simple PUT request |
+| Partial upload failures | Single success/fail |
+| Client must know all servers | Client picks best server |
+
+### Server Selection Strategy
+
+```typescript
+// packages/epicenter/src/client/blob-upload.ts
+
+import type { Awareness } from 'y-protocols/awareness';
+import { tryAsync } from 'wellcrafted';
+import { hashBlob } from '../core/blobs/hash';
+
+/**
+ * Upload blob to the best available server.
+ *
+ * Server selection priority:
+ * 1. First server in awareness list that responds
+ * 2. (Future: latency-based selection, sticky sessions)
+ */
+export async function uploadBlob(params: {
+	awareness: Awareness;
+	data: Blob | File;
+}) {
+	const { awareness, data } = params;
+
+	// 1. Hash the blob
+	const hash = await hashBlob(data);
+
+	// 2. Get available servers
+	const servers = getServerUrlsFromAwareness(awareness);
+	if (servers.length === 0) {
+		return { ok: false, error: { message: 'No servers available' } };
+	}
+
+	// 3. Try servers in order until one succeeds
+	for (const serverUrl of servers) {
+		const result = await tryAsync(
+			async () => {
+				const response = await fetch(`${serverUrl}/blobs/${hash}`, {
+					method: 'PUT',
+					body: data,
+				});
+
+				if (response.status === 201 || response.status === 200) {
+					return { hash, serverUrl };
+				}
+
+				return null;
+			},
+			(error) => ({ message: `Failed to upload to ${serverUrl}`, cause: error }),
+		);
+
+		if (result.ok && result.value) {
+			console.log(`[Blob] Uploaded ${hash} to ${serverUrl}`);
+			return { ok: true, value: result.value };
+		}
+	}
+
+	return { ok: false, error: { message: 'All servers failed' } };
+}
+
+function getServerUrlsFromAwareness(awareness: Awareness): string[] {
+	const urls: string[] = [];
+	for (const [, state] of awareness.getStates()) {
+		if (state.blobs?.type === 'server') {
+			urls.push(state.blobs.url);
+		}
+	}
+	return urls;
+}
+```
+
+### Upload Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      CLIENT UPLOAD FLOW                          │
+└─────────────────────────────────────────────────────────────────┘
+
+User selects file
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. Hash file (SHA-256)                                          │
+│    const hash = await hashBlob(file);                           │
+│    // → "sha256-abc123..."                                      │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. Get servers from awareness                                   │
+│    ['http://laptop:3913', 'http://desktop:3913']                │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. Upload to first server                                       │
+│    PUT http://laptop:3913/blobs/sha256-abc123                   │
+│    Body: <file data>                                            │
+│                                                                 │
+│    Server verifies hash, stores blob, returns 201               │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. Store hash in CRDT                                           │
+│    client.blog.tables.posts.upsert({                            │
+│      id: 'post_123',                                            │
+│      coverImage: hash,  // Just the hash string!                │
+│    });                                                          │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. UI renders                                                   │
+│    <img src="/blobs/sha256-abc123">                             │
+│    Service Worker handles fetch → cache → display               │
+└─────────────────────────────────────────────────────────────────┘
+
+Meanwhile, servers sync via HTTP polling (30s interval)
 ```
 
 ---
 
 ## Complete Sync Flow with Discovery
 
-```typescript
+```
 ┌─────────────────────────────────────────────────────────────────┐
-│        COMPLETE BLOB LIFECYCLE WITH AUTO-DISCOVERY               │
+│     COMPLETE BLOB LIFECYCLE (SIMPLIFIED ARCHITECTURE)            │
 └─────────────────────────────────────────────────────────────────┘
 
 T=0: Phone connects to laptop server (ONLY manual config needed)
@@ -718,122 +1267,90 @@ T=0: Phone connects to laptop server (ONLY manual config needed)
 Phone: WebSocket → ws://laptop.tailnet:3913/workspaces/blog/sync
        YJS sync protocol initializes
        Awareness syncs
+       Service Worker registers
 
 
-T=5ms: Awareness broadcasts (ALL peers)
-───────────────────────────────────────
-Laptop server:
+T=5ms: Awareness broadcasts server URLs (NO hash lists!)
+─────────────────────────────────────────────────────────
+Laptop server awareness:
 {
   type: 'server',
-  url: 'http://laptop.tailnet:3913',
-  blobHashes: ['sha256-abc', 'sha256-def']
+  url: 'http://laptop.tailnet:3913'  // Just the URL!
 }
 
-Desktop server (also connected to laptop via WebSocket):
+Desktop server awareness:
 {
   type: 'server',
-  url: 'http://desktop.tailnet:3913',
-  blobHashes: ['sha256-ghi', 'sha256-jkl']
+  url: 'http://desktop.tailnet:3913'
 }
 
-Phone receives BOTH awareness states automatically!
-
-
-T=10ms: Phone discovers all servers
-────────────────────────────────────
-Phone's awareness listener:
-const servers = [];
-for (const [, state] of awareness.getStates()) {
-  if (state.blobs?.type === 'server') {
-    servers.push(state.blobs.url);
-  }
-}
-// servers = [
-//   'http://laptop.tailnet:3913',
-//   'http://desktop.tailnet:3913'
-// ]
-
-Discovery complete! No manual config beyond first connection!
+Phone's Service Worker learns both server URLs via postMessage.
 
 
 T=100ms: User uploads file on phone
 ────────────────────────────────────
 const file = <user selects image.jpg>;
 
-// Step 1: Hash immediately
+// Step 1: Hash the file
 const hash = await hashBlob(file);
 // → "sha256-xyz789..."
 
-// Step 2: Store in OPFS immediately
-await storage.put(file);  // Uses hash as filename
+// Step 2: Upload to ONE server (first available)
+PUT http://laptop.tailnet:3913/blobs/sha256-xyz789
+Body: <file data>
 
-// Step 3: Update Y.Doc row reference
+// Step 3: Store hash in CRDT
 client.blog.tables.posts.upsert({
   id: 'post_123',
   coverImage: hash,  // Just the hash string!
 });
 
-// Step 4: Update awareness
-awareness.setLocalStateField('blobs', {
-  type: 'browser',
-  blobHashes: ['sha256-xyz789']
-});
+// That's it! No OPFS, no awareness updates needed.
 
 
-T=105ms: Servers detect new blob
-─────────────────────────────────
-Laptop server awareness listener fires:
-- Sees phone has sha256-xyz789
-- Laptop doesn't have it
-- But laptop can't pull from phone (phone can't serve HTTP)
-
-Phone awareness listener fires:
-- Sees laptop server needs sha256-xyz789
-- Phone has it locally (in OPFS)
-- Phone must push to laptop!
-
-
-T=150ms: Phone pushes to laptop
+T=105ms: UI renders immediately
 ────────────────────────────────
-PUT http://laptop.tailnet:3913/blobs/sha256-xyz789
-Body: <blob data>
+<img src="/blobs/sha256-xyz789">
 
-Laptop receives, verifies hash matches, stores to disk
-Laptop updates awareness:
-{
-  type: 'server',
-  url: 'http://laptop.tailnet:3913',
-  blobHashes: ['sha256-abc', 'sha256-def', 'sha256-xyz789']
-}
+Service Worker intercepts:
+1. Cache MISS (first time)
+2. GET http://laptop.tailnet:3913/blobs/sha256-xyz789 → 200
+3. Cache response (immutable)
+4. Return to UI
 
-
-T=155ms: Desktop pulls from laptop (server-to-server)
-──────────────────────────────────────────────────────
-Desktop awareness listener fires:
-- Sees laptop has sha256-xyz789
-- Desktop doesn't have it
-- Desktop CAN pull from laptop (both are servers!)
-
-GET http://laptop.tailnet:3913/blobs/sha256-xyz789
-
-Desktop stores, updates awareness:
-{
-  type: 'server',
-  url: 'http://desktop.tailnet:3913',
-  blobHashes: ['sha256-ghi', 'sha256-jkl', 'sha256-xyz789']
-}
+Image displays!
 
 
-T=200ms: Convergence achieved
-──────────────────────────────
-All peers have sha256-xyz789:
-✓ Phone (OPFS)
-✓ Laptop (.epicenter/blobs/)
-✓ Desktop (.epicenter/blobs/)
+T=30s: Server-to-server sync (HTTP polling)
+───────────────────────────────────────────
+Desktop's sync loop wakes up:
+1. GET http://laptop.tailnet:3913/blobs → { hashes: [..., 'sha256-xyz789'] }
+2. Compares with local hashes: missing sha256-xyz789
+3. GET http://laptop.tailnet:3913/blobs/sha256-xyz789
+4. Stores to .epicenter/blobs/
 
-Total sync time: ~200ms
-Configuration required: ONE WebSocket URL
-Servers discovered: Automatic via awareness
+Desktop now has the blob!
+
+
+T=30s+: Other browser loads the page
+─────────────────────────────────────
+Other browser's Service Worker:
+1. <img src="/blobs/sha256-xyz789">
+2. Cache MISS
+3. Try laptop → 200 (or desktop → 200)
+4. Cache response
+5. Display image
+
+Works regardless of which server has the blob!
+
+
+SUMMARY
+───────
+- No OPFS: Browser uses native HTTP cache
+- No awareness hash lists: Just server URLs
+- Upload once: To ONE server, servers sync among themselves
+- Service Worker: Provides stable /blobs/:hash URLs
+- HTTP polling: Servers sync every 30s via GET /blobs
 ```
 
 ---
@@ -843,8 +1360,8 @@ Servers discovered: Automatic via awareness
 ### Schema Definition
 
 ```typescript
-// The blob() column type provides validation hints
-// The column stores a string (the hash)
+// The blob() column type stores a hash string
+// Optional validation on upload (mimeTypes, maxSize)
 
 import { blob } from 'epicenter';
 
@@ -855,40 +1372,43 @@ const workspace = defineWorkspace({
 			id: id(),
 			title: text(),
 			coverImage: blob({
-				mimeTypes: ['image/*'], // Optional: validate mime type on put
-				maxSize: 10_000_000, // Optional: validate size on put (10MB)
+				mimeTypes: ['image/*'], // Optional: validate mime type on upload
+				maxSize: 10_000_000, // Optional: validate size on upload (10MB)
 			}),
 		},
 	},
 });
 ```
 
-### Blob Operations
+### Blob Operations (Simplified)
 
 ```typescript
-// Put: Hash + store locally + update awareness
-// Hash is computed on the client BEFORE storing
-const hash = await client.blobs.put(file);
-// Returns: "sha256-a1b2c3d4..."
-// Side effects:
-// 1. Hashes the file (SHA-256)
-// 2. Stores in OPFS (browser) or filesystem (server)
-// 3. Updates awareness with new hash in list
-// 4. Returns hash for storing in Y.Doc row
+// Upload: Hash + upload to server
+const result = await client.blobs.upload(file);
+if (result.ok) {
+	const hash = result.value.hash;  // "sha256-a1b2c3d4..."
+}
 
-// Get: Retrieve from local storage
-const blob = await client.blobs.get(hash);
-// Returns: Blob | null
-// Auto-fetched via awareness if missing locally
+// What happens:
+// 1. Hash the file (SHA-256)
+// 2. Upload to first available server (PUT /blobs/:hash)
+// 3. Return hash for storing in CRDT
 
-// List: All local blob hashes
-const hashes = await client.blobs.list();
-// Returns: string[]
-
-// Has: Check if blob exists locally
-const exists = await client.blobs.has(hash);
-// Returns: boolean
+// Display: Just use the hash in URL!
+// NO client.blobs.get() needed - Service Worker handles it
+<img src={`/blobs/${hash}`} />
 ```
+
+### Key Simplification
+
+| Old API | New API |
+|---------|---------|
+| `client.blobs.put(file)` → OPFS | `client.blobs.upload(file)` → server |
+| `client.blobs.get(hash)` → Blob | Not needed! Use `/blobs/:hash` URL |
+| `client.blobs.list()` → hashes | Not needed on client |
+| `client.blobs.has(hash)` → boolean | Not needed on client |
+
+**Why simpler**: Browser doesn't manage blobs; it just uploads and renders URLs.
 
 ### Usage Example
 
@@ -896,28 +1416,56 @@ const exists = await client.blobs.has(hash);
 // Upload an image
 const imageFile = document.getElementById('fileInput').files[0];
 
-// Hash and store locally (browser hashes FIRST!)
-const hash = await client.blobs.put(imageFile);
-// At this point:
-// - Blob is in OPFS with filename sha256-abc...
-// - Awareness has been updated
-// - Other peers will sync automatically
+// Upload to server (hash is computed automatically)
+const result = await client.blobs.upload(imageFile);
+if (!result.ok) {
+	console.error('Upload failed:', result.error);
+	return;
+}
 
-// Store reference in Y.Doc
+const hash = result.value.hash;
+// → "sha256-abc123..."
+
+// Store hash in CRDT
 client.blog.tables.posts.upsert({
 	id: 'post_123',
 	title: 'My Post',
-	coverImage: hash,  // Just the hash string
+	coverImage: hash,  // Just the hash string!
 });
 
-// Later, retrieve the image
-const post = client.blog.tables.posts.get({ id: 'post_123' });
-if (post.coverImage) {
-	const imageBlob = await client.blobs.get(post.coverImage);
-	if (imageBlob) {
-		const url = URL.createObjectURL(imageBlob);
-		// Use url in <img src={url}>
-	}
+// Display the image - Service Worker handles the rest
+// <img src="/blobs/sha256-abc123">
+```
+
+### Svelte Component Example
+
+```svelte
+<script lang="ts">
+	import { client } from '$lib/epicenter';
+
+	let { post } = $props<{ post: Post }>();
+</script>
+
+{#if post.coverImage}
+	<!-- Service Worker intercepts, checks cache, fetches from server if needed -->
+	<img src={`/blobs/${post.coverImage}`} alt={post.title} />
+{/if}
+```
+
+### Upload with Validation
+
+```typescript
+// Validation happens BEFORE upload
+const result = await client.blobs.upload(file, {
+	mimeTypes: ['image/jpeg', 'image/png'],
+	maxSize: 5_000_000, // 5MB
+});
+
+if (!result.ok) {
+	// result.error.context.code might be:
+	// - 'INVALID_MIME_TYPE'
+	// - 'FILE_TOO_LARGE'
+	// - 'UPLOAD_FAILED'
 }
 ```
 
@@ -962,23 +1510,27 @@ async function put(
 		});
 
 		if (!matches) {
-			return Err(BlobErr({
-				message: `Invalid mime type: ${data.type}`,
-				context: { code: 'INVALID_MIME_TYPE', mimeType: data.type },
-			}));
+			return Err(
+				BlobErr({
+					message: `Invalid mime type: ${data.type}`,
+					context: { code: 'INVALID_MIME_TYPE', mimeType: data.type },
+				}),
+			);
 		}
 	}
 
 	// Validate size
 	if (columnOptions?.maxSize && data.size > columnOptions.maxSize) {
-		return Err(BlobErr({
-			message: `File too large: ${data.size} > ${columnOptions.maxSize}`,
-			context: {
-				code: 'FILE_TOO_LARGE',
-				size: data.size,
-				maxSize: columnOptions.maxSize,
-			},
-		}));
+		return Err(
+			BlobErr({
+				message: `File too large: ${data.size} > ${columnOptions.maxSize}`,
+				context: {
+					code: 'FILE_TOO_LARGE',
+					size: data.size,
+					maxSize: columnOptions.maxSize,
+				},
+			}),
+		);
 	}
 
 	// Hash and store
@@ -1070,107 +1622,146 @@ async function gc() {
 ```
 packages/epicenter/src/core/blobs/
 ├── index.ts              # Public API exports
-├── index.browser.ts      # Browser-specific exports (OPFS)
-├── index.node.ts         # Node/Bun-specific exports
-├── types.ts              # Type definitions (BlobAwareness, etc.)
+├── types.ts              # BlobAwareness type (server URL only)
 ├── hash.ts               # SHA-256 hashing with sha256- prefix
-├── storage.browser.ts    # OPFS storage implementation
-├── storage.node.ts       # Filesystem storage implementation
-├── sync.ts               # Awareness-based sync with discovery
+├── storage.node.ts       # Server filesystem storage (Bun)
 ├── validation.ts         # MIME type and size validation
 ├── errors.ts             # Error types (BlobErr, etc.)
 └── README.md             # Comprehensive documentation
 
+packages/epicenter/src/client/
+├── blob-upload.ts        # Client upload helper (hash + PUT to server)
+├── blob-awareness.ts     # Server discovery from awareness
+├── register-sw.ts        # Service Worker registration
+└── ... (existing files)
+
 packages/epicenter/src/server/
 ├── server.ts             # Main server setup
-├── blobs.ts              # Blob HTTP routes (ElysiaJS, NEW)
+├── blobs.ts              # Blob HTTP routes (GET/PUT + range support)
+├── blob-sync.ts          # Server-to-server HTTP polling sync
+├── awareness-setup.ts    # Broadcast server URL in awareness
 ├── sync/index.ts         # WebSocket sync plugin
 └── tables.ts             # Table CRUD routes
+
+public/
+└── epicenter-sw.js       # Service Worker for /blobs/:hash URLs
 ```
+
+### Key Changes from Old Structure
+
+| Removed | Why |
+|---------|-----|
+| `storage.browser.ts` | No OPFS; browser uses HTTP cache |
+| `index.browser.ts` | No browser-specific storage exports |
+| `sync.ts` (old) | No awareness-based hash sync |
+
+| Added | Why |
+|-------|-----|
+| `epicenter-sw.js` | Service Worker for stable blob URLs |
+| `blob-sync.ts` | Server-to-server HTTP polling |
+| `blob-upload.ts` | Client upload to ONE server |
 
 ---
 
 ## Implementation Checklist
 
 ### Core Implementation
+
 - [ ] `hash.ts` - SHA-256 with `sha256-` prefix
-- [ ] `storage.browser.ts` - OPFS implementation
-- [ ] `storage.node.ts` - Bun filesystem implementation
-- [ ] `sync.ts` - Awareness-based sync with discovery
+- [ ] `storage.node.ts` - Server filesystem storage (Bun)
 - [ ] `validation.ts` - MIME type & size validation
-- [ ] `types.ts` - Updated BlobAwareness type
+- [ ] `types.ts` - BlobAwareness type (server URL only)
 - [ ] `errors.ts` - BlobErr and error types
 
+### Service Worker (Browser)
+
+- [ ] `epicenter-sw.js` - Service Worker for `/blobs/:hash` interception
+- [ ] Cache-first strategy with fallback to servers
+- [ ] `postMessage` handler for server list updates
+- [ ] `register-sw.ts` - SW registration helper
+
 ### Server Integration (ElysiaJS)
-- [ ] `blobs.ts` - HTTP routes (GET/PUT /blobs/:hash)
-- [ ] Integrate blob routes into main server
-- [ ] Server awareness setup (broadcast URL in awareness)
-- [ ] Use `status()` helper instead of `set.status`
-- [ ] Use `Err()` from wellcrafted for error responses
+
+- [ ] `blobs.ts` - HTTP routes with range support
+  - [ ] `GET /blobs/:hash` with Cache-Control + Range headers
+  - [ ] `PUT /blobs/:hash` with hash verification
+  - [ ] `GET /blobs` list endpoint for server-to-server sync
+- [ ] `blob-sync.ts` - Server-to-server HTTP polling (30s)
+- [ ] `awareness-setup.ts` - Broadcast server URL in awareness
+- [ ] Integrate blob routes + sync into main server
 
 ### Client API
-- [ ] `client.blobs.put()` - Hash + store + update awareness
-- [ ] `client.blobs.get()` - Retrieve from local storage
-- [ ] `client.blobs.list()` - List all local hashes
-- [ ] `client.blobs.has()` - Check if hash exists
+
+- [ ] `client.blobs.upload()` - Hash + upload to ONE server
+- [ ] `setupServerDiscovery()` - Notify SW of server changes
+- [ ] Integration with `createClient()` for auto SW registration
 
 ### Polish
+
 - [ ] Write comprehensive README
 - [ ] Write tests (unit + integration)
-- [ ] Migration script for existing blobs
-- [ ] Update documentation
+- [ ] Migration script for existing blobs (if any)
 
 ---
 
 ## Resolved Questions
 
 ### Hash Format
+
 ✅ **Decided**: `sha256-` (hyphen, not colon)
+
 - Windows filesystem compatible
 - S3/R2 object key compatible
 - Future-proof for other algorithms
 
-### Discovery Mechanism
-✅ **Decided**: Awareness-based discovery
-- User configures ONE WebSocket URL
-- Servers broadcast their HTTP URLs in awareness
-- Clients auto-discover all servers
-- No manual server list configuration
+### Browser Storage
 
-### Sync Timing
-✅ **Decided**: Immediate awareness updates (no debouncing)
-- Blob uploads are low-frequency
-- YJS has built-in change detection
-- No performance issues expected
+✅ **Decided**: Native HTTP caching (NOT OPFS)
+
+- Browser cache handles storage automatically
+- Cache-Control: immutable for content-addressed blobs
+- No custom OPFS code to maintain
+- Service Worker provides stable URLs
+
+### Awareness State
+
+✅ **Decided**: Server URLs only (NO hash lists)
+
+- Awareness broadcasts only `{ type: 'server', url: '...' }`
+- No blob hash lists in awareness (was O(peers × blobs))
+- Minimal state, minimal bandwidth
 
 ### Server-to-Server Sync
-✅ **Decided**: Yes, servers pull from other servers
-- More resilient network topology
-- Faster convergence
-- Same implementation as browser pulling
 
-### Hash Verification on PUT
-✅ **Decided**: Log to console (Option B)
-- Simple debugging without overengineering
-- No metrics tracking in v1
-- Can add monitoring later if needed
+✅ **Decided**: HTTP polling every 30s
 
-### Browser Hashing
-✅ **Decided**: Browser hashes BEFORE storing locally
-- Enables immediate local storage (no server roundtrip)
-- Browser knows hash to reference in Y.Doc
-- Server verifies on PUT for integrity
-- Deduplication works automatically
+- Servers poll `GET /blobs` from other servers
+- Compare with local hashes, fetch missing
+- Simple, stateless, uses existing endpoints
+- No Syncthing (too heavy at 34MB)
 
-### Collision Handling
-✅ **Decided**: Don't worry about it
-- SHA-256 collisions are virtually impossible
-- Not worth the complexity in v1
+### Client Upload Strategy
+
+✅ **Decided**: Upload to ONE server
+
+- Client picks first available server
+- Servers sync among themselves via HTTP polling
+- Simpler than uploading to all servers
+
+### Range Requests
+
+✅ **Decided**: Support for audio/video streaming
+
+- `Accept-Ranges: bytes` header
+- 206 Partial Content responses
+- Enables seeking without full download
 
 ### ElysiaJS Patterns
+
 ✅ **Decided**: Use `status()` helper and `Err()` from wellcrafted
-- Correct: `status(400, Err(error))`
-- Incorrect: `set.status = 400; return { error }`
+
+- `status(400, Err(error))` for error responses
+- `set.headers` for response headers
 - Better type safety and consistency
 
 ---
@@ -1186,20 +1777,23 @@ _To be filled after implementation_
 From official YJS implementation:
 
 ### Timing Constants
+
 - **Timeout**: 30 seconds (peers marked offline if no update)
 - **Auto-renewal**: 15 seconds (automatic state re-broadcast)
 - **Check interval**: 3 seconds (cleanup and renewal check)
 
 ### Update Behavior
+
 - **Immediate broadcast**: `setLocalStateField()` triggers instant WebSocket send
 - **Built-in change detection**: Deep equality check prevents redundant updates
 - **No rate limiting**: Each state change immediately broadcasts
 - **Push-based**: No polling, pure event-driven
 
 ### Best Practices for Blob Storage
-- Use `setLocalStateField('blobs', state)` for partial updates
-- Keep data small (hash list is minimal)
-- No debouncing needed for low-frequency updates (blob uploads)
-- Awareness automatically handles reconnection and state re-sync
 
-This makes awareness perfect for blob synchronization: automatic, efficient, and requiring zero additional infrastructure.
+- Use `setLocalStateField('blobs', state)` for partial updates
+- Keep data small (just server URL now!)
+- Awareness is for discovery only, not sync coordination
+
+This makes awareness perfect for server discovery: automatic, efficient, minimal state.
+````
