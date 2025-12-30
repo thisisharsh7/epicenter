@@ -601,21 +601,20 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						filename,
 					) as AbsolutePath;
 
-					// Read markdown file
-					const parseResult = await readMarkdownFile(absolutePath);
+					const { data: fileContent, error: readError } =
+						await readMarkdownFile(absolutePath);
 
-					if (parseResult.error) {
+					if (readError) {
 						dbg('HANDLER', `FAIL ${table.name}/${filename} (read error)`, {
-							error: parseResult.error.message,
-						});
-						const error = MarkdownProviderError({
-							message: `Failed to read markdown file at ${absolutePath}: ${parseResult.error.message}`,
+							error: readError.message,
 						});
 						diagnostics.add({
 							filePath: absolutePath,
 							tableName: table.name,
 							filename,
-							error,
+							error: MarkdownProviderError({
+								message: `Failed to read markdown file at ${absolutePath}: ${readError.message}`,
+							}),
 						});
 						logger.log(
 							ProviderError({
@@ -630,7 +629,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						return;
 					}
 
-					const { data: frontmatter, body } = parseResult.data;
+					const { data: frontmatter, body } = fileContent;
 
 					// Parse filename to extract structured data
 					const parsed = tableConfig.parseFilename(filename);
@@ -855,21 +854,18 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				filePaths.map(async (filePath) => {
 					const filename = path.basename(filePath);
 
-					// Read markdown file
-					const parseResult = await readMarkdownFile(filePath);
+					const { data: fileContent, error: readError } =
+						await readMarkdownFile(filePath);
 
-					if (parseResult.error) {
-						// Track read error in diagnostics (current state)
-						const error = MarkdownProviderError({
-							message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
-						});
+					if (readError) {
 						diagnostics.add({
 							filePath,
 							tableName: table.name,
 							filename,
-							error,
+							error: MarkdownProviderError({
+								message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
+							}),
 						});
-						// Log to historical record
 						logger.log(
 							ProviderError({
 								message: `${operationPrefix}failed to read ${table.name}/${filename}`,
@@ -879,7 +875,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 						return;
 					}
 
-					const { data: frontmatter, body } = parseResult.data;
+					const { data: frontmatter, body } = fileContent;
 
 					// Parse filename to extract structured data
 					const parsed = tableConfig.parseFilename(filename);
@@ -1178,13 +1174,13 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 								let shouldWrite = isNewFile || filenameChanged;
 
 								if (!shouldWrite && existingFilePath) {
-									const existingResult =
+									const { data: existingContent, error: readError } =
 										await readMarkdownFile(existingFilePath);
-									if (existingResult.error) {
+									if (readError) {
 										shouldWrite = true;
 									} else {
 										const { data: existingFrontmatter, body: existingBody } =
-											existingResult.data;
+											existingContent;
 										const frontmatterChanged =
 											JSON.stringify(frontmatter) !==
 											JSON.stringify(existingFrontmatter);
@@ -1324,17 +1320,17 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 										return;
 									}
 
-									const parseResult = await readMarkdownFile(filePath);
+									const { data: fileContent, error: readError } =
+										await readMarkdownFile(filePath);
 
-									if (parseResult.error) {
-										const error = MarkdownProviderError({
-											message: `Failed to read markdown file at ${filePath}: ${parseResult.error.message}`,
-										});
+									if (readError) {
 										diagnostics.add({
 											filePath,
 											tableName: table.name,
 											filename,
-											error,
+											error: MarkdownProviderError({
+												message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
+											}),
 										});
 										logger.log(
 											ProviderError({
@@ -1345,7 +1341,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 										return;
 									}
 
-									const { data: frontmatter, body } = parseResult.data;
+									const { data: frontmatter, body } = fileContent;
 
 									const { data: row, error: deserializeError } =
 										tableConfig.deserialize({
