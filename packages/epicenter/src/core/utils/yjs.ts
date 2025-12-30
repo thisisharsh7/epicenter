@@ -193,13 +193,21 @@ export function updateYArrayFromArray<T>(
 /**
  * Updates a YRow (Y.Map) to match a serialized row by converting values and applying minimal diffs.
  *
+ * **No-op optimization**: If the serialized row matches the existing YRow exactly, no YJS
+ * operations are performed. This means no CRDT items created, no observers triggered, and
+ * no sync messages generated. The function compares values before setting:
+ *
+ * - **Y.Text fields**: Character-level diff via `updateYTextFromString()` (no-op if identical)
+ * - **Y.Array fields**: Element-level diff via `updateYArrayFromArray()` (no-op if identical)
+ * - **Primitive fields**: Compared with `===` before calling `yrow.set()` (no-op if identical)
+ * - **null values**: Compared before setting (no-op if already null)
+ *
+ * This makes the function safe to call repeatedly without generating unnecessary YJS traffic.
+ * Use this for sync operations where you want to "upsert" without knowing if changes exist.
+ *
  * This function handles two scenarios:
  * 1. Creating a new YRow: Pass a fresh Y.Map and it will be populated
  * 2. Updating an existing YRow: Pass an existing Y.Map and it will be updated with minimal changes
- *
- * For Y.Text fields: Uses updateYTextFromString() for character-level granular updates
- * For Y.Array fields: Uses updateYArrayFromArray() for element-level granular updates
- * For primitives: Directly overwrites values
  *
  * Extra fields in serializedRow (not in schema) are preserved as-is.
  *
@@ -226,6 +234,14 @@ export function updateYArrayFromArray<T>(
  *   schema: mySchema
  * });
  * // Only 'content' and 'tags' are updated with granular diffs
+ *
+ * // No-op when nothing changed
+ * updateYRowFromSerializedRow({
+ *   yrow,
+ *   serializedRow: { id: '123', content: 'Hello World', tags: ['a', 'b', 'c'] },
+ *   schema: mySchema
+ * });
+ * // Nothing happens - no YJS operations, no observers triggered
  * ```
  */
 export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
@@ -241,15 +257,18 @@ export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
 		for (const [fieldName, value] of Object.entries(serializedRow)) {
 			if (value === undefined) continue;
 
+			const existing = yrow.get(fieldName);
+
 			if (value === null) {
-				yrow.set(fieldName, null);
+				if (existing !== null) {
+					yrow.set(fieldName, null);
+				}
 				continue;
 			}
 
 			const columnSchema = schema[fieldName];
 
 			if (columnSchema?.type === 'ytext' && typeof value === 'string') {
-				const existing = yrow.get(fieldName);
 				const ytext = existing instanceof Y.Text ? existing : new Y.Text();
 				if (!(existing instanceof Y.Text)) {
 					yrow.set(fieldName, ytext);
@@ -259,9 +278,10 @@ export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
 				columnSchema?.type === 'date' &&
 				isDateWithTimezoneString(value)
 			) {
-				yrow.set(fieldName, value);
+				if (existing !== value) {
+					yrow.set(fieldName, value);
+				}
 			} else if (Array.isArray(value)) {
-				const existing = yrow.get(fieldName);
 				const yarray =
 					existing instanceof Y.Array ? existing : new Y.Array<unknown>();
 				if (!(existing instanceof Y.Array)) {
@@ -269,7 +289,9 @@ export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
 				}
 				updateYArrayFromArray(yarray, value);
 			} else {
-				yrow.set(fieldName, value);
+				if (existing !== value) {
+					yrow.set(fieldName, value);
+				}
 			}
 		}
 	});
