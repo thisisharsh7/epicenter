@@ -57,6 +57,9 @@ export type { TableHelper, Tables } from './core/db/core';
 // Database utilities
 export { createTables } from './core/db/core';
 
+export type { Kv, KvHelper } from './core/kv';
+export { createKv } from './core/kv';
+
 export type {
 	DeleteManyResult,
 	DeleteResult,
@@ -93,11 +96,15 @@ export type {
 	IdColumnSchema,
 	IntegerColumnSchema,
 	JsonColumnSchema,
+	KvColumnSchema,
+	KvSchema,
+	KvValue,
 	PartialSerializedRow,
 	RealColumnSchema,
 	Row,
 	SelectColumnSchema,
 	SerializedCellValue,
+	SerializedKvValue,
 	SerializedRow,
 	TableSchema,
 	TableValidators,

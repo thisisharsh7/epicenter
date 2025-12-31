@@ -7,11 +7,13 @@
  */
 
 import type * as Y from 'yjs';
+
 import type { Action, Actions } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
+import type { Kv } from '../kv';
 import type { WorkspaceProviderMap } from '../provider';
-import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
+import type { KvSchema, WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { WorkspacePaths } from './config';
 
 /**
@@ -38,6 +40,7 @@ import type { WorkspacePaths } from './config';
  */
 export type WorkspaceClientInternals<
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TKvSchema extends KvSchema = KvSchema,
 	TProviders extends WorkspaceProviderMap = WorkspaceProviderMap,
 > = {
 	/**
@@ -72,6 +75,26 @@ export type WorkspaceClientInternals<
 	 * ```
 	 */
 	$tables: Tables<TSchema>;
+
+	/**
+	 * KV store for singleton configuration and state values.
+	 *
+	 * Use this for settings, cursors, feature flags, and other singleton values
+	 * that don't fit the table/rows model.
+	 *
+	 * @example
+	 * ```typescript
+	 * // Get and set KV values
+	 * const theme = client.$kv.theme.get();  // → 'light'
+	 * client.$kv.theme.set('dark');
+	 *
+	 * // Observe changes
+	 * client.$kv.theme.observe((value) => {
+	 *   console.log('Theme changed to:', value);
+	 * });
+	 * ```
+	 */
+	$kv: Kv<TKvSchema>;
 
 	/**
 	 * Direct access to workspace providers.

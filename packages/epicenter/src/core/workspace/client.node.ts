@@ -7,8 +7,10 @@
  */
 import path from 'node:path';
 import * as Y from 'yjs';
+
 import { type Actions, walkActions } from '../actions';
 import { createTables } from '../db/core';
+import { createKv } from '../kv';
 import { buildProviderPaths, getEpicenterDir } from '../paths';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
@@ -450,6 +452,11 @@ async function initializeWorkspaces<
 		// Initialize Epicenter tables (wraps YJS with table/record API)
 		const tables = createTables(ydoc, workspaceConfig.tables);
 
+		// Initialize KV store (if schema defined)
+		const kv = workspaceConfig.kv
+			? createKv(ydoc, workspaceConfig.kv)
+			: createKv(ydoc, {});
+
 		// Create validators for runtime validation and arktype composition
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
@@ -490,6 +497,8 @@ async function initializeWorkspaces<
 		const actions = workspaceConfig.actions({
 			ydoc,
 			tables,
+			// biome-ignore lint/suspicious/noExplicitAny: KV type inference requires explicit cast for empty schema case
+			kv: kv as any,
 			validators,
 			providers,
 			// biome-ignore lint/suspicious/noExplicitAny: Runtime types are correct, generic constraint too strict
@@ -519,6 +528,8 @@ async function initializeWorkspaces<
 			...actions,
 			$ydoc: ydoc,
 			$tables: tables,
+			// biome-ignore lint/suspicious/noExplicitAny: KV type requires explicit cast for empty schema case
+			$kv: kv as any,
 			$providers: providers,
 			$validators: validators,
 			$workspaces: workspaceClients,

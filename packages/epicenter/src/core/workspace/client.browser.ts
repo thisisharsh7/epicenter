@@ -8,8 +8,10 @@
  * @see https://github.com/yjs/y-indexeddb
  */
 import * as Y from 'yjs';
+
 import { type Actions, walkActions } from '../actions';
 import { createTables } from '../db/core';
+import { createKv } from '../kv';
 import type { Providers, WorkspaceProviderMap } from '../provider';
 import { createWorkspaceValidators, type WorkspaceSchema } from '../schema';
 import type {
@@ -424,6 +426,11 @@ function initializeWorkspacesSync<
 		// Initialize Epicenter tables (wraps YJS with table/record API)
 		const tables = createTables(ydoc, workspaceConfig.tables);
 
+		// Initialize KV store (if schema defined)
+		const kv = workspaceConfig.kv
+			? createKv(ydoc, workspaceConfig.kv)
+			: createKv(ydoc, {});
+
 		// Create validators for runtime validation and arktype composition
 		const validators = createWorkspaceValidators(workspaceConfig.tables);
 
@@ -474,6 +481,8 @@ function initializeWorkspacesSync<
 		const actions = workspaceConfig.actions({
 			ydoc,
 			tables,
+			// biome-ignore lint/suspicious/noExplicitAny: KV type inference requires explicit cast for empty schema case
+			kv: kv as any,
 			validators,
 			providers,
 			// biome-ignore lint/suspicious/noExplicitAny: Runtime types are correct, generic constraint too strict
@@ -503,6 +512,8 @@ function initializeWorkspacesSync<
 			...actions,
 			$ydoc: ydoc,
 			$tables: tables,
+			// biome-ignore lint/suspicious/noExplicitAny: KV type requires explicit cast for empty schema case
+			$kv: kv as any,
 			$providers: providers,
 			$validators: validators,
 			$workspaces: workspaceClients,
