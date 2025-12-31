@@ -67,7 +67,7 @@ export type { TableHelper } from './table-helper';
  * @example
  * ```typescript
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
- * const db = createEpicenterDb(ydoc, {
+ * const db = createTables(ydoc, {
  *   posts: {
  *     id: id(),
  *     title: text(),
@@ -83,7 +83,7 @@ export type { TableHelper } from './table-helper';
  * db.clearAll();
  * ```
  */
-export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
+export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 	ydoc: Y.Doc,
 	schema: TWorkspaceSchema,
 ) {
@@ -151,6 +151,58 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 			>[];
 		},
 
+		/**
+		 * Zip tables with a configs object, returning type-safe paired entries.
+		 *
+		 * Replaces the error-prone `tables.$all().map()` pattern:
+		 *
+		 * ```typescript
+		 * // BEFORE: Requires @ts-expect-error at every usage
+		 * const tableWithConfigs = tables.$all().map(table => ({
+		 *   table,
+		 *   tableConfig: configs[table.name],
+		 * }));
+		 * for (const { table, tableConfig } of tableWithConfigs) {
+		 *   // @ts-expect-error - TypeScript can't correlate table and config
+		 *   tableConfig.serialize({ row, table });
+		 * }
+		 *
+		 * // AFTER: Type-safe, rename 'paired' at destructure site
+		 * for (const { table, paired: tableConfig } of tables.$zip(configs)) {
+		 *   tableConfig.serialize({ row, table }); // Just works!
+		 * }
+		 * ```
+		 *
+		 * This solves TypeScript's "correlated record types" limitation where
+		 * union types are evaluated independently during iteration.
+		 *
+		 * @see https://github.com/microsoft/TypeScript/issues/35101
+		 * @see docs/articles/encapsulating-type-assertions.md
+		 */
+		$zip<
+			TConfigs extends {
+				[K in keyof TWorkspaceSchema & string]: unknown;
+			},
+		>(configs: TConfigs) {
+			const names = Object.keys(schema) as Array<
+				keyof TWorkspaceSchema & string
+			>;
+
+			return names.map((name) => ({
+				name,
+				table: tableHelpers[name],
+				paired: configs[name],
+			})) as Array<
+				{
+					[K in keyof TWorkspaceSchema & string]: {
+						name: K;
+						table: TableHelper<TWorkspaceSchema[K]>;
+						paired: TConfigs[K];
+					};
+				}[keyof TWorkspaceSchema & string]
+			>;
+		},
+
 		clearAll: defineMutation({
 			description: 'Clear all tables in the workspace',
 			handler: () => {
@@ -165,9 +217,9 @@ export function createEpicenterDb<TWorkspaceSchema extends WorkspaceSchema>(
 }
 
 /**
- * Type alias for the return type of createEpicenterDb.
+ * Type alias for the return type of createTables.
  * Useful for typing function parameters that accept a tables instance.
  */
 export type Tables<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
-	typeof createEpicenterDb<TWorkspaceSchema>
+	typeof createTables<TWorkspaceSchema>
 >;
