@@ -41,7 +41,7 @@ export function createKvPlugin(
 			app.get(
 				keyPath,
 				() => {
-					const value = helper.get.handler(undefined);
+					const value = helper.get();
 					return Ok(value);
 				},
 				{
@@ -53,7 +53,7 @@ export function createKvPlugin(
 				keyPath,
 				({ body }) => {
 					const { value } = body as { value: unknown };
-					helper.set.handler({ value });
+					helper.set({ value });
 					return Ok({ success: true });
 				},
 				{
@@ -64,7 +64,7 @@ export function createKvPlugin(
 			app.delete(
 				keyPath,
 				() => {
-					helper.reset.handler(undefined);
+					helper.reset();
 					return Ok({ success: true });
 				},
 				{

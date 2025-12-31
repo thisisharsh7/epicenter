@@ -40,7 +40,7 @@ export function createKvHelpers<TKvSchema extends KvSchema>({
 	};
 }
 
-function createKvHelper<TColumnSchema extends KvColumnSchema>({
+export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 	ydoc,
 	keyName,
 	ykvMap,
@@ -50,7 +50,7 @@ function createKvHelper<TColumnSchema extends KvColumnSchema>({
 	keyName: string;
 	ykvMap: YKvMap;
 	schema: TColumnSchema;
-}): KvHelper<TColumnSchema> {
+}) {
 	type TValue = KvValue<TColumnSchema>;
 	type TSerializedValue = SerializedKvValue<TColumnSchema>;
 
@@ -150,7 +150,7 @@ function createKvHelper<TColumnSchema extends KvColumnSchema>({
 			},
 		}),
 
-		observe(callback) {
+		observe(callback: (value: TValue) => void) {
 			const handler = (event: Y.YMapEvent<KvValue>) => {
 				if (event.keysChanged.has(keyName)) {
 					callback(getCurrentValue());
@@ -224,15 +224,6 @@ function createInputSchema(schema: KvColumnSchema) {
 	}
 }
 
-export type KvHelper<TColumnSchema extends KvColumnSchema> = {
-	name: string;
-	schema: TColumnSchema;
-	get: ReturnType<typeof defineQuery<undefined, KvValue<TColumnSchema>>>;
-	set: ReturnType<
-		typeof defineMutation<ReturnType<typeof type<{ value: unknown }>>, void>
-	>;
-	observe: (callback: (value: KvValue<TColumnSchema>) => void) => () => void;
-	reset: ReturnType<typeof defineMutation<undefined, void>>;
-	$inferValue: KvValue<TColumnSchema>;
-	$inferSerializedValue: SerializedKvValue<TColumnSchema>;
-};
+export type KvHelper<TColumnSchema extends KvColumnSchema> = ReturnType<
+	typeof createKvHelper<TColumnSchema>
+>;

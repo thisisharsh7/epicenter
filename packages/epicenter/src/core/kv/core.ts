@@ -26,13 +26,6 @@ export function createKv<TKvSchema extends KvSchema>(
 				`KV key "${keyName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "theme", "last_sync", "count2")`,
 			);
 		}
-
-		const columnSchema = schema[keyName];
-		if (columnSchema.type === 'id') {
-			throw new Error(
-				`KV key "${keyName}" uses "id()" column type, which is not allowed in KV schemas. Use text(), integer(), or other value types instead.`,
-			);
-		}
 	}
 
 	const ykvMap = ydoc.getMap<KvValue>('kv') as YKvMap;
@@ -58,7 +51,7 @@ export function createKv<TKvSchema extends KvSchema>(
 					result[keyName] = serializeCellValue(value);
 				} else {
 					const helper = kvHelpers[keyName as keyof typeof kvHelpers];
-					const defaultVal = helper.get.handler(undefined);
+					const defaultVal = helper.get();
 					result[keyName] =
 						defaultVal !== undefined
 							? serializeCellValue(defaultVal as KvValue)
