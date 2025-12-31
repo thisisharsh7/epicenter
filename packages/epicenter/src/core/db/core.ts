@@ -151,6 +151,58 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 			>[];
 		},
 
+		/**
+		 * Get all tables paired with their configs as a type-safe array.
+		 *
+		 * Replaces the error-prone `tables.$all().map()` pattern:
+		 *
+		 * ```typescript
+		 * // BEFORE: Requires @ts-expect-error at every usage
+		 * const tableWithConfigs = tables.$all().map(table => ({
+		 *   table,
+		 *   tableConfig: configs[table.name],
+		 * }));
+		 * for (const { table, tableConfig } of tableWithConfigs) {
+		 *   // @ts-expect-error - TypeScript can't correlate table and config
+		 *   tableConfig.serialize({ row, table });
+		 * }
+		 *
+		 * // AFTER: Type-safe, no assertions needed
+		 * for (const { table, config } of tables.$entries(configs)) {
+		 *   config.serialize({ row, table }); // Just works!
+		 * }
+		 * ```
+		 *
+		 * This solves TypeScript's "correlated record types" limitation where
+		 * union types are evaluated independently during iteration.
+		 *
+		 * @see https://github.com/microsoft/TypeScript/issues/35101
+		 * @see docs/articles/encapsulating-type-assertions.md
+		 */
+		$entries<
+			TConfigs extends {
+				[K in keyof TWorkspaceSchema & string]: unknown;
+			},
+		>(configs: TConfigs) {
+			const names = Object.keys(schema) as Array<
+				keyof TWorkspaceSchema & string
+			>;
+
+			return names.map((name) => ({
+				name,
+				table: tableHelpers[name],
+				config: configs[name],
+			})) as Array<
+				{
+					[K in keyof TWorkspaceSchema & string]: {
+						name: K;
+						table: TableHelper<TWorkspaceSchema[K]>;
+						config: TConfigs[K];
+					};
+				}[keyof TWorkspaceSchema & string]
+			>;
+		},
+
 		clearAll: defineMutation({
 			description: 'Clear all tables in the workspace',
 			handler: () => {

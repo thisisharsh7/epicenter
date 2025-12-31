@@ -173,19 +173,16 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 		await recreateTables();
 
 		// Insert all valid rows from YJS into SQLite
-		for (const table of tables.$all()) {
-			const drizzleTable = drizzleTables[table.name];
-			if (!drizzleTable) {
-				throw new Error(`Drizzle table for "${table.name}" not found`);
-			}
-
+		for (const { table, config: drizzleTable } of tables.$entries(
+			drizzleTables,
+		)) {
 			const rows = table.getAllValid();
 
 			if (rows.length > 0) {
 				const { error } = await tryAsync({
 					try: async () => {
 						const serializedRows = rows.map((row) => row.toJSON());
-						// @ts-expect-error SerializedRow<TSchema[string]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type from $tables() iteration
+						// @ts-expect-error SerializedRow<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
 						await sqliteDb.insert(drizzleTable).values(serializedRows);
 					},
 					catch: (e) =>
@@ -219,12 +216,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	// =========================================================================
 	const unsubscribers: Array<() => void> = [];
 
-	for (const table of tables.$all()) {
-		const drizzleTable = drizzleTables[table.name];
-		if (!drizzleTable) {
-			throw new Error(`Drizzle table for "${table.name}" not found`);
-		}
-
+	for (const { table } of tables.$entries(drizzleTables)) {
 		const unsub = table.observe({
 			onAdd: (result) => {
 				if (isPushingFromSqlite) return;
@@ -264,19 +256,16 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	await recreateTables();
 
 	// Insert all valid rows from YJS into SQLite
-	for (const table of tables.$all()) {
-		const drizzleTable = drizzleTables[table.name];
-		if (!drizzleTable) {
-			throw new Error(`Drizzle table for "${table.name}" not found`);
-		}
-
+	for (const { table, config: drizzleTable } of tables.$entries(
+		drizzleTables,
+	)) {
 		const rows = table.getAllValid();
 
 		if (rows.length > 0) {
 			const { error } = await tryAsync({
 				try: async () => {
 					const serializedRows = rows.map((row) => row.toJSON());
-					// @ts-expect-error SerializedRow<TSchema[string]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type from $tables() iteration
+					// @ts-expect-error SerializedRow<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
 					await sqliteDb.insert(drizzleTable).values(serializedRows);
 				},
 				catch: (e) =>
@@ -338,15 +327,11 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 						isPushingFromSqlite = true;
 						tables.clearAll();
 
-						for (const table of tables.$all()) {
-							const drizzleTable = drizzleTables[table.name];
-							if (!drizzleTable) {
-								throw new Error(`Drizzle table for "${table.name}" not found`);
-							}
-
+						for (const { table, config: drizzleTable } of tables.$entries(
+							drizzleTables,
+						)) {
 							const rows = await sqliteDb.select().from(drizzleTable);
 							for (const row of rows) {
-								// @ts-expect-error InferSelectModel<DrizzleTable> is not assignable to InferInsertModel<TableHelper<TSchema[string]>> due to union type from $tables() iteration
 								table.upsert(row);
 							}
 						}
