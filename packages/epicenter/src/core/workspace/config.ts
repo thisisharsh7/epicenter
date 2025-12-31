@@ -1,9 +1,11 @@
 import type * as Y from 'yjs';
+
 import type { Actions } from '../actions';
 import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
+import type { Kv } from '../kv';
 import type { Provider, Providers, WorkspaceProviderMap } from '../provider';
-import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
+import type { KvSchema, WorkspaceSchema, WorkspaceValidators } from '../schema';
 import type { EpicenterDir, ProjectDir } from '../types';
 
 /**
@@ -109,6 +111,7 @@ export function defineWorkspace<
 	const TDeps extends readonly AnyWorkspaceConfig[],
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
+	TKvSchema extends KvSchema,
 	const TProviderResults extends WorkspaceProviderMap,
 	TActions extends Actions,
 >(
@@ -116,10 +119,18 @@ export function defineWorkspace<
 		TDeps,
 		TId,
 		TWorkspaceSchema,
+		TKvSchema,
 		TProviderResults,
 		TActions
 	>,
-): WorkspaceConfig<TDeps, TId, TWorkspaceSchema, TProviderResults, TActions> {
+): WorkspaceConfig<
+	TDeps,
+	TId,
+	TWorkspaceSchema,
+	TKvSchema,
+	TProviderResults,
+	TActions
+> {
 	if (!workspace.id || typeof workspace.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
 	}
@@ -133,6 +144,16 @@ export function defineWorkspace<
 			if (!dep || typeof dep !== 'object' || !dep.id) {
 				throw new Error(
 					'Invalid dependency: dependencies must be workspace configs with id',
+				);
+			}
+		}
+	}
+
+	if (workspace.kv) {
+		for (const [keyName, columnSchema] of Object.entries(workspace.kv)) {
+			if (columnSchema.type === 'id') {
+				throw new Error(
+					`KV key "${keyName}" uses "id()" column type, which is not allowed in KV schemas. Use text(), integer(), or other value types instead.`,
 				);
 			}
 		}
@@ -166,11 +187,13 @@ export type WorkspaceConfig<
 	TDeps extends readonly AnyWorkspaceConfig[] = readonly AnyWorkspaceConfig[],
 	TId extends string = string,
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
+	TKvSchema extends KvSchema = KvSchema,
 	TProviderResults extends WorkspaceProviderMap = WorkspaceProviderMap,
 	TActions extends Actions = Actions,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
+	kv?: TKvSchema;
 	dependencies?: TDeps;
 	providers: {
 		[K in keyof TProviderResults]: Provider<
@@ -190,6 +213,7 @@ export type WorkspaceConfig<
 	 *
 	 * @param context.ydoc - The underlying YJS document for transactions and advanced ops
 	 * @param context.tables - Workspace tables for direct table operations
+	 * @param context.kv - KV store for singleton values (if defined)
 	 * @param context.validators - Schema validators for runtime validation
 	 * @param context.workspaces - Actions from dependency workspaces
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
@@ -198,10 +222,14 @@ export type WorkspaceConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * actions: ({ tables, providers }) => ({
+	 * actions: ({ tables, kv, providers }) => ({
 	 *   // Table CRUD operations (already defined as actions)
 	 *   createPost: tables.posts.upsert,
 	 *   getPost: tables.posts.get,
+	 *
+	 *   // KV operations
+	 *   getTheme: kv.theme.get,
+	 *   setTheme: kv.theme.set,
 	 *
 	 *   // Custom actions
 	 *   getPublishedPosts: defineQuery({
@@ -217,6 +245,7 @@ export type WorkspaceConfig<
 	actions: (context: {
 		ydoc: Y.Doc;
 		tables: Tables<TWorkspaceSchema>;
+		kv: Kv<TKvSchema>;
 		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToActions<TDeps>;
 		providers: TProviderResults;

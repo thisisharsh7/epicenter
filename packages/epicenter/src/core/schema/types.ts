@@ -380,3 +380,60 @@ export type PartialSerializedRow<
 > = {
 	id: string;
 } & Partial<Omit<SerializedRow<TTableSchema>, 'id'>>;
+
+// ============================================================================
+// KV Schema Types
+// ============================================================================
+
+/**
+ * Column schema types allowed in KV stores.
+ *
+ * KV stores use the same column types as tables, except `id` columns are not
+ * allowed since the key name itself serves as the identifier.
+ */
+export type KvColumnSchema = Exclude<ColumnSchema, IdColumnSchema>;
+
+/**
+ * KV schema - maps key names to their column schemas.
+ *
+ * Unlike tables which require an `id` column, KV schemas map key names directly
+ * to value types. Each key is a singleton value, not a collection of rows.
+ *
+ * @example
+ * ```typescript
+ * const kvSchema = {
+ *   theme: text({ default: 'light' }),
+ *   locale: text({ default: 'en-US' }),
+ *   lastSyncAt: date({ nullable: true }),
+ *   currentDraft: ytext({ nullable: true }),
+ * } satisfies KvSchema;
+ * ```
+ */
+export type KvSchema = Record<string, KvColumnSchema>;
+
+/**
+ * Maps a KvColumnSchema to its value type (Y.js types or primitives).
+ *
+ * This is the same as CellValue but for KV schemas (which exclude id columns).
+ *
+ * @example
+ * ```typescript
+ * type ThemeValue = KvValue<TextColumnSchema<false>>; // string
+ * type DraftValue = KvValue<YtextColumnSchema<true>>; // Y.Text | null
+ * ```
+ */
+export type KvValue<C extends KvColumnSchema = KvColumnSchema> = CellValue<C>;
+
+/**
+ * Maps a KvColumnSchema to its serialized value type.
+ *
+ * This is the same as SerializedCellValue but for KV schemas.
+ *
+ * @example
+ * ```typescript
+ * type ThemeSerialized = SerializedKvValue<TextColumnSchema<false>>; // string
+ * type DraftSerialized = SerializedKvValue<YtextColumnSchema<true>>; // string | null
+ * ```
+ */
+export type SerializedKvValue<C extends KvColumnSchema = KvColumnSchema> =
+	SerializedCellValue<C>;

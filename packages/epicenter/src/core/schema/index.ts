@@ -73,11 +73,16 @@ export type {
 	IdColumnSchema,
 	IntegerColumnSchema,
 	JsonColumnSchema,
+	// KV schema types
+	KvColumnSchema,
+	KvSchema,
+	KvValue,
 	PartialSerializedRow,
 	RealColumnSchema,
 	Row,
 	SelectColumnSchema,
 	SerializedCellValue,
+	SerializedKvValue,
 	SerializedRow,
 	// Table and workspace schemas
 	TableSchema,

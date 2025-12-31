@@ -8,6 +8,7 @@ import type {
 	WorkspaceClient,
 	WorkspacesToClients,
 } from '../core/workspace';
+import { createKvPlugin } from './kv';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';
 
@@ -33,6 +34,7 @@ export type StartServerOptions = {
  * - `/workspaces/{workspaceId}/sync` - WebSocket sync endpoint (y-websocket protocol)
  * - `/workspaces/{workspaceId}/actions/{action}` - Workspace actions (queries: GET, mutations: POST)
  * - `/workspaces/{workspaceId}/tables/{table}` - RESTful table CRUD
+ * - `/workspaces/{workspaceId}/kv` - KV store (GET all, GET/PUT/DELETE individual keys)
  *
  * @param client - Initialized Epicenter client from createClient()
  * @returns Object with Elysia app and start method
@@ -81,6 +83,11 @@ export function createServer<
 		)
 		.use(
 			createTablesPlugin(
+				client.$workspaces as Record<string, WorkspaceClient<Actions>>,
+			),
+		)
+		.use(
+			createKvPlugin(
 				client.$workspaces as Record<string, WorkspaceClient<Actions>>,
 			),
 		)
