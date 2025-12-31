@@ -6,9 +6,11 @@
  * constraints of a database column.
  */
 
-import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { DateWithTimezone } from './date-with-timezone';
-import type { StandardSchemaWithJSONSchema } from './standard-schema';
+import type {
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+} from './standard-schema';
 import type {
 	BooleanColumnSchema,
 	DateColumnSchema,

@@ -11,7 +11,7 @@
  * - Other types remain unchanged (string, number, boolean, etc.)
  */
 
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { StandardSchemaV1 } from '../standard-schema';
 import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import * as Y from 'yjs';

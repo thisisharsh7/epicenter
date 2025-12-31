@@ -12,14 +12,16 @@
  * - Validation types and functions → validation.ts
  */
 
-import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type * as Y from 'yjs';
 import type { YRow } from '../db/table-helper';
 import type {
 	DateWithTimezone,
 	DateWithTimezoneString,
 } from './date-with-timezone';
-import type { StandardSchemaWithJSONSchema } from './standard-schema';
+import type {
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+} from './standard-schema';
 
 // ============================================================================
 // Column Schema Types
@@ -246,8 +248,8 @@ export type CellValue<C extends ColumnSchema = ColumnSchema> =
 											: Y.Array<TOptions[number]>
 										: C extends JsonColumnSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
-												? TSchema['infer'] | null
-												: TSchema['infer']
+												? StandardSchemaV1.InferOutput<TSchema> | null
+												: StandardSchemaV1.InferOutput<TSchema>
 											: never;
 
 /**

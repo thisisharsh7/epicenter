@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { StandardSchemaV1 } from '../standard-schema';
 import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,

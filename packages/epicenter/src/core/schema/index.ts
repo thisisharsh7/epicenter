@@ -62,7 +62,12 @@ export { serializeCellValue } from './serialization';
 // ============================================================================
 // Standard Schema
 // ============================================================================
-export type { StandardSchemaWithJSONSchema } from './standard-schema';
+export type {
+	StandardJSONSchemaV1,
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+	StandardTypedV1,
+} from './standard-schema';
 // ============================================================================
 // Types
 // ============================================================================
