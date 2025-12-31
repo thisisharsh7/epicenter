@@ -13,10 +13,7 @@ docs/
 │   └── security.md            # Security model
 │
 ├── blobs/              # Blob sync system
-│   ├── README.md              # Overview
-│   ├── content-addressing.md  # Chunking, hashing
-│   ├── sync-protocol.md       # Message types, flow
-│   └── registry.md            # Blob discovery
+│   └── README.md              # Comprehensive guide
 │
 └── articles/           # Technical deep-dives
     ├── making-crdts-ergonomic-with-proxies.md
@@ -35,10 +32,7 @@ docs/
 
 ### Blob System
 
-- **[Blob Overview](./blobs/README.md)**: How blobs sync across devices
-- **[Content Addressing](./blobs/content-addressing.md)**: Chunking, SHA-256, storage layout
-- **[Sync Protocol](./blobs/sync-protocol.md)**: WebSocket messages, upload/download flow
-- **[Registry](./blobs/registry.md)**: `_blobRegistry` Y.Map, holder discovery
+- **[Blob System Overview](./blobs/README.md)**: Comprehensive guide to content-addressed storage and sync
 
 ### Technical Articles
 
