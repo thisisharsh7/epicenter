@@ -40,18 +40,18 @@ export function id(): IdColumnSchema {
  */
 export function text(opts: {
 	nullable: true;
-	default?: string | (() => string);
+	default?: string;
 }): TextColumnSchema<true>;
 export function text(opts?: {
 	nullable?: false;
-	default?: string | (() => string);
+	default?: string;
 }): TextColumnSchema<false>;
 export function text({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
-	default?: string | (() => string);
+	default?: string;
 } = {}): TextColumnSchema<boolean> {
 	return {
 		type: 'text',
@@ -107,18 +107,18 @@ export function ytext({
  */
 export function integer(opts: {
 	nullable: true;
-	default?: number | (() => number);
+	default?: number;
 }): IntegerColumnSchema<true>;
 export function integer(opts?: {
 	nullable?: false;
-	default?: number | (() => number);
+	default?: number;
 }): IntegerColumnSchema<false>;
 export function integer({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
-	default?: number | (() => number);
+	default?: number;
 } = {}): IntegerColumnSchema<boolean> {
 	return {
 		type: 'integer',
@@ -135,18 +135,18 @@ export function integer({
  */
 export function real(opts: {
 	nullable: true;
-	default?: number | (() => number);
+	default?: number;
 }): RealColumnSchema<true>;
 export function real(opts?: {
 	nullable?: false;
-	default?: number | (() => number);
+	default?: number;
 }): RealColumnSchema<false>;
 export function real({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
-	default?: number | (() => number);
+	default?: number;
 } = {}): RealColumnSchema<boolean> {
 	return {
 		type: 'real',
@@ -163,18 +163,18 @@ export function real({
  */
 export function boolean(opts: {
 	nullable: true;
-	default?: boolean | (() => boolean);
+	default?: boolean;
 }): BooleanColumnSchema<true>;
 export function boolean(opts?: {
 	nullable?: false;
-	default?: boolean | (() => boolean);
+	default?: boolean;
 }): BooleanColumnSchema<false>;
 export function boolean({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
-	default?: boolean | (() => boolean);
+	default?: boolean;
 } = {}): BooleanColumnSchema<boolean> {
 	return {
 		type: 'boolean',
@@ -188,22 +188,22 @@ export function boolean({
  * @example
  * date() // → { type: 'date', nullable: false }
  * date({ nullable: true })
- * date({ default: () => DateWithTimezone({ date: new Date(), timezone: 'UTC' }) })
+ * date({ default: DateWithTimezone({ date: new Date('2025-01-01'), timezone: 'UTC' }) })
  */
 export function date(opts: {
 	nullable: true;
-	default?: DateWithTimezone | (() => DateWithTimezone);
+	default?: DateWithTimezone;
 }): DateColumnSchema<true>;
 export function date(opts?: {
 	nullable?: false;
-	default?: DateWithTimezone | (() => DateWithTimezone);
+	default?: DateWithTimezone;
 }): DateColumnSchema<false>;
 export function date({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
-	default?: DateWithTimezone | (() => DateWithTimezone);
+	default?: DateWithTimezone;
 } = {}): DateColumnSchema<boolean> {
 	return {
 		type: 'date',
@@ -282,7 +282,7 @@ export function tags<
 }): TagsColumnSchema<TOptions, false>;
 export function tags<
 	TNullable extends boolean = false,
-	TDefault extends string[] | (() => string[]) | undefined = undefined,
+	TDefault extends string[] | undefined = undefined,
 >(opts?: {
 	nullable?: TNullable;
 	default?: TDefault;
@@ -294,7 +294,7 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 }: {
 	options?: TOptions;
 	nullable?: boolean;
-	default?: TOptions[number][] | string[] | (() => string[]);
+	default?: TOptions[number][] | string[];
 } = {}): TagsColumnSchema<TOptions, boolean> {
 	return {
 		type: 'multi-select',

@@ -32,7 +32,7 @@ export type IdColumnSchema = { type: 'id'; nullable: false };
 export type TextColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'text';
 	nullable: TNullable;
-	default?: string | (() => string);
+	default?: string;
 };
 
 export type YtextColumnSchema<TNullable extends boolean = boolean> = {
@@ -43,25 +43,25 @@ export type YtextColumnSchema<TNullable extends boolean = boolean> = {
 export type IntegerColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'integer';
 	nullable: TNullable;
-	default?: number | (() => number);
+	default?: number;
 };
 
 export type RealColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'real';
 	nullable: TNullable;
-	default?: number | (() => number);
+	default?: number;
 };
 
 export type BooleanColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'boolean';
 	nullable: TNullable;
-	default?: boolean | (() => boolean);
+	default?: boolean;
 };
 
 export type DateColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'date';
 	nullable: TNullable;
-	default?: DateWithTimezone | (() => DateWithTimezone);
+	default?: DateWithTimezone;
 };
 
 export type SelectColumnSchema<
@@ -158,7 +158,7 @@ export type JsonColumnSchema<
 	type: 'json';
 	nullable: TNullable;
 	schema: TSchema;
-	default?: TSchema['infer'] | (() => TSchema['infer']);
+	default?: TSchema['infer'];
 };
 
 /**
