@@ -375,8 +375,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			) {
 				const serialized = row.toJSON();
 
-				// Serialize row once
 				const { frontmatter, body, filename } = tableConfig.serialize({
+					// @ts-expect-error: TTableSchema doesn't correlate with tableConfig's schema from outer $zip
 					row: serialized,
 					table,
 				});
