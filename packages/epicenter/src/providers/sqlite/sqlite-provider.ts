@@ -173,9 +173,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 		await recreateTables();
 
 		// Insert all valid rows from YJS into SQLite
-		for (const { table, config: drizzleTable } of tables.$entries(
-			drizzleTables,
-		)) {
+		for (const { table, paired: drizzleTable } of tables.$zip(drizzleTables)) {
 			const rows = table.getAllValid();
 
 			if (rows.length > 0) {
@@ -216,7 +214,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	// =========================================================================
 	const unsubscribers: Array<() => void> = [];
 
-	for (const { table } of tables.$entries(drizzleTables)) {
+	for (const { table } of tables.$zip(drizzleTables)) {
 		const unsub = table.observe({
 			onAdd: (result) => {
 				if (isPushingFromSqlite) return;
@@ -256,9 +254,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 	await recreateTables();
 
 	// Insert all valid rows from YJS into SQLite
-	for (const { table, config: drizzleTable } of tables.$entries(
-		drizzleTables,
-	)) {
+	for (const { table, paired: drizzleTable } of tables.$zip(drizzleTables)) {
 		const rows = table.getAllValid();
 
 		if (rows.length > 0) {
@@ -327,7 +323,7 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 						isPushingFromSqlite = true;
 						tables.clearAll();
 
-						for (const { table, config: drizzleTable } of tables.$entries(
+						for (const { table, paired: drizzleTable } of tables.$zip(
 							drizzleTables,
 						)) {
 							const rows = await sqliteDb.select().from(drizzleTable);

@@ -152,7 +152,7 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		},
 
 		/**
-		 * Get all tables paired with their configs as a type-safe array.
+		 * Zip tables with a configs object, returning type-safe paired entries.
 		 *
 		 * Replaces the error-prone `tables.$all().map()` pattern:
 		 *
@@ -167,9 +167,9 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		 *   tableConfig.serialize({ row, table });
 		 * }
 		 *
-		 * // AFTER: Type-safe, no assertions needed
-		 * for (const { table, config } of tables.$entries(configs)) {
-		 *   config.serialize({ row, table }); // Just works!
+		 * // AFTER: Type-safe, rename 'paired' at destructure site
+		 * for (const { table, paired: tableConfig } of tables.$zip(configs)) {
+		 *   tableConfig.serialize({ row, table }); // Just works!
 		 * }
 		 * ```
 		 *
@@ -179,7 +179,7 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		 * @see https://github.com/microsoft/TypeScript/issues/35101
 		 * @see docs/articles/encapsulating-type-assertions.md
 		 */
-		$entries<
+		$zip<
 			TConfigs extends {
 				[K in keyof TWorkspaceSchema & string]: unknown;
 			},
@@ -191,13 +191,13 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 			return names.map((name) => ({
 				name,
 				table: tableHelpers[name],
-				config: configs[name],
+				paired: configs[name],
 			})) as Array<
 				{
 					[K in keyof TWorkspaceSchema & string]: {
 						name: K;
 						table: TableHelper<TWorkspaceSchema[K]>;
-						config: TConfigs[K];
+						paired: TConfigs[K];
 					};
 				}[keyof TWorkspaceSchema & string]
 			>;

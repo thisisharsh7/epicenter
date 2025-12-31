@@ -320,8 +320,10 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 *
 	 * We resolve these to a flat internal structure for efficient runtime access.
 	 * The result mirrors the tables structure key-for-key, enabling type-safe
-	 * iteration via tables.$entries(resolvedConfigs).
+	 * iteration via tables.$zip(resolvedConfigs).
 	 */
+	// Cast is correct: Object.fromEntries loses key specificity (returns { [k: string]: V }),
+	// but we know keys are exactly keyof TSchema since we iterate tables.$all().
 	const resolvedConfigs = Object.fromEntries(
 		tables.$all().map((table) => {
 			const userConfig = userTableConfigs[table.name] ?? {};
@@ -345,7 +347,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 			return [table.name, config];
 		}),
-	) as {
+	) as unknown as {
 		[K in keyof TSchema & string]: ResolvedTableConfig<TSchema[K]>;
 	};
 
@@ -359,7 +361,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { table, config } of tables.$entries(resolvedConfigs)) {
+		for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
 			// Initialize tracking map for this table
 			if (!tracking[table.name]) {
 				tracking[table.name] = {};
@@ -374,13 +376,16 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				const serialized = row.toJSON();
 
 				// Serialize row once
-				const { frontmatter, body, filename } = config.serialize({
+				const { frontmatter, body, filename } = tableConfig.serialize({
 					row: serialized,
 					table,
 				});
 
 				// Construct file path
-				const filePath = path.join(config.directory, filename) as AbsolutePath;
+				const filePath = path.join(
+					tableConfig.directory,
+					filename,
+				) as AbsolutePath;
 
 				// Check if we need to clean up an old file before updating tracking
 				const oldFilename = tracking[table.name]?.[row.id];
@@ -393,7 +398,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 				const needsOldFileCleanup = oldFilename && oldFilename !== filename;
 				if (needsOldFileCleanup) {
 					const oldFilePath = path.join(
-						config.directory,
+						tableConfig.directory,
 						oldFilename,
 					) as AbsolutePath;
 					await deleteMarkdownFile({ filePath: oldFilePath });
@@ -484,7 +489,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					const filename = tracking[table.name]?.[id];
 					if (filename) {
 						const filePath = path.join(
-							config.directory,
+							tableConfig.directory,
 							filename,
 						) as AbsolutePath;
 						const { error } = await deleteMarkdownFile({ filePath });
@@ -526,18 +531,18 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	const registerFileWatchers = () => {
 		const watchers: FSWatcher[] = [];
 
-		for (const { table, config } of tables.$entries(resolvedConfigs)) {
+		for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
 				try: () => {
-					mkdirSync(config.directory, { recursive: true });
+					mkdirSync(tableConfig.directory, { recursive: true });
 				},
 				catch: (error) =>
 					ProviderErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
 						context: {
 							tableName: table.name,
-							directory: config.directory,
+							directory: tableConfig.directory,
 						},
 					}),
 			});
@@ -547,12 +552,12 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			}
 
 			// Create chokidar watcher with robust configuration
-			const watcher = chokidar.watch(config.directory, {
+			const watcher = chokidar.watch(tableConfig.directory, {
 				// Core settings
 				persistent: true,
 				ignoreInitial: true, // Don't fire events for existing files (we already did initial scan)
 				followSymlinks: true,
-				cwd: config.directory,
+				cwd: tableConfig.directory,
 
 				// Performance settings
 				usePolling: false, // Event-based is more efficient on macOS/Linux
@@ -576,7 +581,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					/\.tmp$/, // Temp files
 					// Only watch .md files
 					(filePath: string) =>
-						!filePath.endsWith('.md') && !filePath.endsWith(config.directory),
+						!filePath.endsWith('.md') &&
+						!filePath.endsWith(tableConfig.directory),
 				],
 			});
 
@@ -598,7 +604,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 				try {
 					const absolutePath = path.join(
-						config.directory,
+						tableConfig.directory,
 						filename,
 					) as AbsolutePath;
 
@@ -633,7 +639,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					const { data: frontmatter, body } = fileContent;
 
 					// Parse filename to extract structured data
-					const parsed = config.parseFilename(filename);
+					const parsed = tableConfig.parseFilename(filename);
 					if (!parsed) {
 						dbg('HANDLER', `FAIL ${table.name}/${filename} (parse error)`);
 						const error = MarkdownProviderError({
@@ -659,13 +665,14 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					}
 
 					// Deserialize using the table config
-					const { data: row, error: deserializeError } = config.deserialize({
-						frontmatter,
-						body,
-						filename,
-						parsed,
-						table,
-					});
+					const { data: row, error: deserializeError } =
+						tableConfig.deserialize({
+							frontmatter,
+							body,
+							filename,
+							parsed,
+							table,
+						});
 
 					if (deserializeError) {
 						dbg(
@@ -751,7 +758,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					const filename = path.basename(filePath);
 
 					// Parse filename to extract row ID (single source of truth)
-					const parsed = config.parseFilename(filename);
+					const parsed = tableConfig.parseFilename(filename);
 					const rowIdToDelete = parsed?.id;
 					dbg('HANDLER', `UNLINK ${table.name}/${filename}`, {
 						extractedRowId: rowIdToDelete ?? 'undefined',
@@ -810,13 +817,16 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 							message: `File watcher error for ${table.name}: ${extractErrorMessage(error)}`,
 							context: {
 								tableName: table.name,
-								directory: config.directory,
+								directory: tableConfig.directory,
 							},
 						}),
 					);
 				})
 				.on('ready', () => {
-					dbg('CHOKIDAR', `ready: ${table.name} watching ${config.directory}`);
+					dbg(
+						'CHOKIDAR',
+						`ready: ${table.name} watching ${tableConfig.directory}`,
+					);
 				});
 
 			watchers.push(watcher);
@@ -843,8 +853,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 		diagnostics.clear();
 
-		for (const { table, config } of tables.$entries(resolvedConfigs)) {
-			const filePaths = await listMarkdownFiles(config.directory);
+		for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
 				filePaths.map(async (filePath) => {
@@ -874,7 +884,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					const { data: frontmatter, body } = fileContent;
 
 					// Parse filename to extract structured data
-					const parsed = config.parseFilename(filename);
+					const parsed = tableConfig.parseFilename(filename);
 					if (!parsed) {
 						const error = MarkdownProviderError({
 							message: `Failed to parse filename: ${filename}`,
@@ -895,7 +905,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					}
 
 					// Deserialize using the table config
-					const { error: deserializeError } = config.deserialize({
+					const { error: deserializeError } = tableConfig.deserialize({
 						frontmatter,
 						body,
 						filename,
@@ -992,7 +1002,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 *
 	 * Cost: O(n × serialize) where n = row count. ~1ms per 100 rows.
 	 */
-	for (const { table, config } of tables.$entries(resolvedConfigs)) {
+	for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
 		// Initialize tracking map for this table
 		if (!tracking[table.name]) {
 			tracking[table.name] = {};
@@ -1004,7 +1014,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		// Serialize each row to extract filename and populate tracking (rowId → filename)
 		for (const row of rows) {
 			const serializedRow = row.toJSON();
-			const { filename } = config.serialize({
+			const { filename } = tableConfig.serialize({
 				row: serializedRow,
 				table,
 			});
@@ -1027,14 +1037,14 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 *
 	 * Cost: O(n) where n = file count. ~10ms per 100 files (mostly I/O).
 	 */
-	for (const { table, config } of tables.$entries(resolvedConfigs)) {
-		const filePaths = await listMarkdownFiles(config.directory);
+	for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+		const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 		for (const filePath of filePaths) {
 			const filename = path.basename(filePath);
 
 			// Parse filename to extract row ID and check if row exists in Y.js
-			const parsed = config.parseFilename(filename);
+			const parsed = tableConfig.parseFilename(filename);
 			const rowId = parsed?.id;
 
 			if (!rowId || !table.has({ id: rowId })) {
@@ -1110,16 +1120,18 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 						await Promise.all(
 							tables
-								.$entries(resolvedConfigs)
-								.map(async ({ table, config }) => {
+								.$zip(resolvedConfigs)
+								.map(async ({ table, paired: tableConfig }) => {
 									const tableTracking = tracking[table.name];
-									const filePaths = await listMarkdownFiles(config.directory);
+									const filePaths = await listMarkdownFiles(
+										tableConfig.directory,
+									);
 
 									const markdownIds = new Map(
 										filePaths
 											.map((filePath) => {
 												const filename = path.basename(filePath);
-												const parsed = config.parseFilename(filename);
+												const parsed = tableConfig.parseFilename(filename);
 												return parsed?.id
 													? ([parsed.id, filePath as AbsolutePath] as const)
 													: null;
@@ -1156,13 +1168,14 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 									await Promise.all(
 										yjsRows.map(async (row) => {
 											const serializedRow = row.toJSON();
-											const { frontmatter, body, filename } = config.serialize({
-												row: serializedRow,
-												table,
-											});
+											const { frontmatter, body, filename } =
+												tableConfig.serialize({
+													row: serializedRow,
+													table,
+												});
 
 											const filePath = path.join(
-												config.directory,
+												tableConfig.directory,
 												filename,
 											) as AbsolutePath;
 
@@ -1281,129 +1294,137 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 						const allTableData = await Promise.all(
 							tables
-								.$entries(resolvedConfigs)
-								.map(async ({ table, config }): Promise<TableSyncData> => {
-									const yjsIds = new Set(
-										table
-											.getAll()
-											.map((result) =>
-												result.status === 'valid' ? result.row.id : result.id,
-											),
-									);
-
-									const filePaths = await listMarkdownFiles(config.directory);
-
-									const fileExistsIds = new Set(
-										filePaths
-											.map(
-												(filePath) =>
-													config.parseFilename(path.basename(filePath))?.id,
-											)
-											.filter((id): id is string => Boolean(id)),
-									);
-
-									const markdownRows = new Map<
-										string,
-										SerializedRow<TSchema[keyof TSchema & string]>
-									>();
-									const markdownFilenames = new Map<string, string>();
-
-									await Promise.all(
-										filePaths.map(async (filePath) => {
-											const filename = path.basename(filePath);
-
-											const parsed = config.parseFilename(filename);
-											if (!parsed) {
-												diagnostics.add({
-													filePath,
-													tableName: table.name,
-													filename,
-													error: MarkdownProviderError({
-														message: `Failed to parse filename: ${filename}`,
-													}),
-												});
-												logger.log(
-													ProviderError({
-														message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
-														context: {
-															filePath,
-															tableName: table.name,
-															filename,
-														},
-													}),
-												);
-												return;
-											}
-
-											const { data: fileContent, error: readError } =
-												await readMarkdownFile(filePath);
-
-											if (readError) {
-												diagnostics.add({
-													filePath,
-													tableName: table.name,
-													filename,
-													error: MarkdownProviderError({
-														message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
-													}),
-												});
-												logger.log(
-													ProviderError({
-														message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
-														context: {
-															filePath,
-															tableName: table.name,
-															filename,
-														},
-													}),
-												);
-												return;
-											}
-
-											const { data: frontmatter, body } = fileContent;
-
-											const { data: row, error: deserializeError } =
-												config.deserialize({
-													frontmatter,
-													body,
-													filename,
-													parsed,
-													table,
-												});
-
-											if (deserializeError) {
-												diagnostics.add({
-													filePath,
-													tableName: table.name,
-													filename,
-													error: deserializeError,
-												});
-												logger.log(
-													ProviderError({
-														message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
-														context: {
-															filePath,
-															tableName: table.name,
-															filename,
-														},
-													}),
-												);
-												return;
-											}
-
-											markdownRows.set(row.id, row);
-											markdownFilenames.set(row.id, filename);
-										}),
-									);
-
-									return {
+								.$zip(resolvedConfigs)
+								.map(
+									async ({
 										table,
-										yjsIds,
-										fileExistsIds,
-										markdownRows,
-										markdownFilenames,
-									};
-								}),
+										paired: tableConfig,
+									}): Promise<TableSyncData> => {
+										const yjsIds = new Set(
+											table
+												.getAll()
+												.map((result) =>
+													result.status === 'valid' ? result.row.id : result.id,
+												),
+										);
+
+										const filePaths = await listMarkdownFiles(
+											tableConfig.directory,
+										);
+
+										const fileExistsIds = new Set(
+											filePaths
+												.map(
+													(filePath) =>
+														tableConfig.parseFilename(path.basename(filePath))
+															?.id,
+												)
+												.filter((id): id is string => Boolean(id)),
+										);
+
+										const markdownRows = new Map<
+											string,
+											SerializedRow<TSchema[keyof TSchema & string]>
+										>();
+										const markdownFilenames = new Map<string, string>();
+
+										await Promise.all(
+											filePaths.map(async (filePath) => {
+												const filename = path.basename(filePath);
+
+												const parsed = tableConfig.parseFilename(filename);
+												if (!parsed) {
+													diagnostics.add({
+														filePath,
+														tableName: table.name,
+														filename,
+														error: MarkdownProviderError({
+															message: `Failed to parse filename: ${filename}`,
+														}),
+													});
+													logger.log(
+														ProviderError({
+															message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
+															context: {
+																filePath,
+																tableName: table.name,
+																filename,
+															},
+														}),
+													);
+													return;
+												}
+
+												const { data: fileContent, error: readError } =
+													await readMarkdownFile(filePath);
+
+												if (readError) {
+													diagnostics.add({
+														filePath,
+														tableName: table.name,
+														filename,
+														error: MarkdownProviderError({
+															message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
+														}),
+													});
+													logger.log(
+														ProviderError({
+															message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
+															context: {
+																filePath,
+																tableName: table.name,
+																filename,
+															},
+														}),
+													);
+													return;
+												}
+
+												const { data: frontmatter, body } = fileContent;
+
+												const { data: row, error: deserializeError } =
+													tableConfig.deserialize({
+														frontmatter,
+														body,
+														filename,
+														parsed,
+														table,
+													});
+
+												if (deserializeError) {
+													diagnostics.add({
+														filePath,
+														tableName: table.name,
+														filename,
+														error: deserializeError,
+													});
+													logger.log(
+														ProviderError({
+															message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
+															context: {
+																filePath,
+																tableName: table.name,
+																filename,
+															},
+														}),
+													);
+													return;
+												}
+
+												markdownRows.set(row.id, row);
+												markdownFilenames.set(row.id, filename);
+											}),
+										);
+
+										return {
+											table,
+											yjsIds,
+											fileExistsIds,
+											markdownRows,
+											markdownFilenames,
+										};
+									},
+								),
 						);
 
 						context.ydoc.transact(() => {
