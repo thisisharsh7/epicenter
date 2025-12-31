@@ -11,6 +11,7 @@
  * - Other types remain unchanged (string, number, boolean, etc.)
  */
 
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import * as Y from 'yjs';
@@ -72,8 +73,8 @@ export type ColumnSchemaToYjsArktypeType<C extends ColumnSchema> =
 											: Type<Y.Array<TOptions[number]>>
 										: C extends JsonColumnSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
-												? Type<TSchema['infer'] | null>
-												: Type<TSchema['infer']>
+												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
+												: Type<StandardSchemaV1.InferOutput<TSchema>>
 											: never;
 
 /**

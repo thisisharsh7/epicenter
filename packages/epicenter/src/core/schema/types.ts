@@ -12,13 +12,14 @@
  * - Validation types and functions → validation.ts
  */
 
-import type { Type } from 'arktype';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type * as Y from 'yjs';
 import type { YRow } from '../db/table-helper';
 import type {
 	DateWithTimezone,
 	DateWithTimezoneString,
 } from './date-with-timezone';
+import type { StandardSchemaWithJSONSchema } from './standard-schema';
 
 // ============================================================================
 // Column Schema Types
@@ -152,13 +153,13 @@ export type TagsColumnSchema<
  * ```
  */
 export type JsonColumnSchema<
-	TSchema extends Type = Type,
+	TSchema extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 	TNullable extends boolean = boolean,
 > = {
 	type: 'json';
 	nullable: TNullable;
 	schema: TSchema;
-	default?: TSchema['infer'];
+	default?: StandardSchemaV1.InferOutput<TSchema>;
 };
 
 /**

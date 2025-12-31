@@ -6,8 +6,9 @@
  * constraints of a database column.
  */
 
-import type { Type } from 'arktype';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { DateWithTimezone } from './date-with-timezone';
+import type { StandardSchemaWithJSONSchema } from './standard-schema';
 import type {
 	BooleanColumnSchema,
 	DateColumnSchema,
@@ -305,25 +306,26 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 }
 
 /**
- * Creates a JSON column schema with Arktype validation.
+ * Creates a JSON column schema with Standard Schema validation.
  *
- * JSON columns store arbitrary JSON-serializable values validated against an Arktype schema.
+ * JSON columns store arbitrary JSON-serializable values validated against any
+ * Standard Schema compliant schema (ArkType, Zod v4.2+, Valibot with adapter).
  * Unlike other column types, the `schema` property is always required.
  *
  * **JSON Schema Compatibility Warning**: When used in action inputs (mutations, queries),
  * these schemas are converted to JSON Schema for MCP/OpenAPI. Only use features that
  * can be represented in JSON Schema:
  * - ✅ Basic types, objects, arrays, enums
- * - ✅ `.matching(regex)` - Converts to JSON Schema pattern
- * - ❌ `.filter(fn)` - Cannot convert to JSON Schema (custom predicates)
- * - ❌ `.narrow()` - Cannot convert to JSON Schema
+ * - ✅ Pattern matching (regex)
+ * - ❌ Custom predicates/refinements
+ * - ❌ Transforms
  *
  * @example
  * ```typescript
  * import { json } from 'epicenter/schema';
  * import { type } from 'arktype';
  *
- * // Simple object
+ * // Simple object (ArkType)
  * const prefs = json({
  *   schema: type({ theme: 'string', darkMode: 'boolean' }),
  * });
@@ -336,24 +338,24 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
  * });
  * ```
  */
-export function json<const TSchema extends Type>(opts: {
+export function json<const TSchema extends StandardSchemaWithJSONSchema>(opts: {
 	schema: TSchema;
 	nullable: true;
-	default?: TSchema['infer'] | (() => TSchema['infer']);
+	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonColumnSchema<TSchema, true>;
-export function json<const TSchema extends Type>(opts: {
+export function json<const TSchema extends StandardSchemaWithJSONSchema>(opts: {
 	schema: TSchema;
 	nullable?: false;
-	default?: TSchema['infer'] | (() => TSchema['infer']);
+	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonColumnSchema<TSchema, false>;
-export function json<const TSchema extends Type>({
+export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	schema,
 	nullable = false,
 	default: defaultValue,
 }: {
 	schema: TSchema;
 	nullable?: boolean;
-	default?: TSchema['infer'] | (() => TSchema['infer']);
+	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonColumnSchema<TSchema, boolean> {
 	return {
 		type: 'json',

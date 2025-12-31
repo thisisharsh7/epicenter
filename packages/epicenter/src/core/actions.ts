@@ -1,39 +1,7 @@
-import type {
-	StandardJSONSchemaV1,
-	StandardSchemaV1,
-} from '@standard-schema/spec';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { TaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
-
-/**
- * Combined props for schemas that implement both StandardSchema and StandardJSONSchema.
- *
- * StandardSchemaV1 and StandardJSONSchemaV1 are orthogonal specs:
- * - StandardSchemaV1: Provides validation via `~standard.validate()`
- * - StandardJSONSchemaV1: Provides JSON Schema conversion via `~standard.jsonSchema`
- *
- * Actions require both: validation for runtime safety, JSON Schema for MCP/CLI/OpenAPI.
- *
- * @see https://standardschema.dev/json-schema#what-if-i-want-to-accept-only-schemas-that-implement-both-standardschema-and-standardjsonschema
- */
-type StandardSchemaWithJSONSchemaProps<
-	TInput = unknown,
-	TOutput = TInput,
-> = StandardSchemaV1.Props<TInput, TOutput> &
-	StandardJSONSchemaV1.Props<TInput, TOutput>;
-
-/**
- * Schema type that implements both StandardSchema (validation) and StandardJSONSchema (conversion).
- *
- * This is required for action inputs because:
- * 1. We need validation at runtime (StandardSchemaV1)
- * 2. We need JSON Schema for MCP tools, CLI args, and OpenAPI docs (StandardJSONSchemaV1)
- *
- * ArkType, Zod (with adapter), and Valibot (with adapter) all implement both specs.
- */
-export type StandardSchemaWithJSONSchema<TInput = unknown, TOutput = TInput> = {
-	'~standard': StandardSchemaWithJSONSchemaProps<TInput, TOutput>;
-};
+import type { StandardSchemaWithJSONSchema } from './schema';
 
 /**
  * The return type of a workspace's `actions()` factory function.
