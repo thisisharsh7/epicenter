@@ -30,6 +30,7 @@
 
 import type { DateWithTimezone } from '../runtime/date-with-timezone';
 import { isDateWithTimezoneString } from '../runtime/date-with-timezone';
+import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
 import type {
 	StandardJSONSchemaV1,
 	StandardSchemaV1,
@@ -359,7 +360,9 @@ export function date({
 		jsonSchema: {
 			'x-component': 'date',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
-			format: 'date',
+			description:
+				'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
+			pattern: DATE_WITH_TIMEZONE_STRING_REGEX.source,
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<string | null> => {

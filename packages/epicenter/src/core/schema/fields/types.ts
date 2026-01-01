@@ -119,13 +119,14 @@ export type BooleanFieldSchema<TNullable extends boolean = boolean> = {
 
 /**
  * Date column schema - timezone-aware dates.
- * Stored as DateWithTimezoneString format: `{iso}[{timezone}]`.
- * Uses JSON Schema format 'date' for validation hint.
+ * Stored as DateWithTimezoneString format: `{iso}|{timezone}`.
+ * Uses `pattern` for JSON Schema validation (not `format: 'date'` which implies RFC 3339).
  */
 export type DateFieldSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'date';
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
-	format: 'date';
+	description: string;
+	pattern: string;
 	default?: DateWithTimezone;
 } & FieldStandard<TNullable extends true ? string | null : string>;
 
