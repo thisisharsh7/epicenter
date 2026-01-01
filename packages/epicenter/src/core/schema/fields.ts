@@ -1,24 +1,24 @@
 /**
- * @fileoverview Column factory functions for schema definitions
+ * @fileoverview Field factory functions for schema definitions
  *
- * Provides factory functions for creating column schemas with type-safe options.
- * Each function returns a column schema object that describes the structure and
- * constraints of a database column, including Standard Schema validation.
+ * Provides factory functions for creating field schemas with type-safe options.
+ * Each function returns a field schema object that describes the structure and
+ * constraints of a database field, including Standard Schema validation.
  *
  * ## Architecture
  *
- * Column schemas are JSON Schema objects with an embedded `~standard` property
- * for Standard Schema compliance. The `createColumnSchema` helper eliminates duplication
+ * Field schemas are JSON Schema objects with an embedded `~standard` property
+ * for Standard Schema compliance. The `createFieldSchema` helper eliminates duplication
  * by deriving the JSON Schema representation from the schema object itself.
  *
- * ## Key Pattern: `createColumnSchema`
+ * ## Key Pattern: `createFieldSchema`
  *
  * Uses two positional arguments for better TypeScript inference:
  * - First arg: JSON schema object (literal types preserved via `const TJSONSchema`)
  * - Second arg: validate function (output type inferred via `TValidate`)
  *
  * ```typescript
- * return createColumnSchema(
+ * return createFieldSchema(
  *   { 'x-component': 'text', type: 'string' },
  *   (value) => {
  *     if (typeof value !== 'string') return { issues: [...] };
@@ -36,20 +36,20 @@ import type {
 	StandardSchemaWithJSONSchema,
 } from './standard-schema';
 import type {
-	BooleanColumnSchema,
-	ColumnComponent,
-	DateColumnSchema,
-	IdColumnSchema,
-	IntegerColumnSchema,
-	JsonColumnSchema,
-	RealColumnSchema,
-	SelectColumnSchema,
-	TagsColumnSchema,
-	TextColumnSchema,
-	YtextColumnSchema,
+	BooleanFieldSchema,
+	FieldComponent,
+	DateFieldSchema,
+	IdFieldSchema,
+	IntegerFieldSchema,
+	JsonFieldSchema,
+	RealFieldSchema,
+	SelectFieldSchema,
+	TagsFieldSchema,
+	TextFieldSchema,
+	YtextFieldSchema,
 } from './types';
 
-type ColumnStandard<T> = {
+type FieldStandard<T> = {
 	'~standard': StandardSchemaV1.Props<T> & StandardJSONSchemaV1.Props<T>;
 };
 
@@ -66,9 +66,9 @@ type ColumnStandard<T> = {
  *
  * @internal Used by all column factory functions
  */
-function createColumnSchema<
+function createFieldSchema<
 	const TJSONSchema extends {
-		'x-component': ColumnComponent;
+		'x-component': FieldComponent;
 		type: string | readonly string[];
 	},
 	TOutput,
@@ -78,7 +78,7 @@ function createColumnSchema<
 }: {
 	jsonSchema: TJSONSchema;
 	validate: (value: unknown) => StandardSchemaV1.Result<TOutput>;
-}): TJSONSchema & ColumnStandard<TOutput> {
+}): TJSONSchema & FieldStandard<TOutput> {
 	return {
 		...jsonSchema,
 		'~standard': {
@@ -89,7 +89,7 @@ function createColumnSchema<
 				input: () => jsonSchema,
 				output: () => jsonSchema,
 			},
-		} satisfies ColumnStandard<TOutput>['~standard'],
+		} satisfies FieldStandard<TOutput>['~standard'],
 	};
 }
 
@@ -102,8 +102,8 @@ function createColumnSchema<
  * id() // → { 'x-component': 'id', type: 'string', ... }
  * ```
  */
-export function id(): IdColumnSchema {
-	return createColumnSchema({
+export function id(): IdFieldSchema {
+	return createFieldSchema({
 		jsonSchema: { 'x-component': 'id', type: 'string' },
 		validate: (value): StandardSchemaV1.Result<string> => {
 			if (typeof value !== 'string') {
@@ -127,19 +127,19 @@ export function id(): IdColumnSchema {
 export function text(opts: {
 	nullable: true;
 	default?: string;
-}): TextColumnSchema<true>;
+}): TextFieldSchema<true>;
 export function text(opts?: {
 	nullable?: false;
 	default?: string;
-}): TextColumnSchema<false>;
+}): TextFieldSchema<false>;
 export function text({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
 	default?: string;
-} = {}): TextColumnSchema<boolean> {
-	return createColumnSchema({
+} = {}): TextFieldSchema<boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'text',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -183,14 +183,14 @@ export function text({
  * comment: ytext({ nullable: true }) // Optional collaborative text
  * ```
  */
-export function ytext(opts: { nullable: true }): YtextColumnSchema<true>;
-export function ytext(opts?: { nullable?: false }): YtextColumnSchema<false>;
+export function ytext(opts: { nullable: true }): YtextFieldSchema<true>;
+export function ytext(opts?: { nullable?: false }): YtextFieldSchema<false>;
 export function ytext({
 	nullable = false,
 }: {
 	nullable?: boolean;
-} = {}): YtextColumnSchema<boolean> {
-	return createColumnSchema({
+} = {}): YtextFieldSchema<boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'ytext',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -218,19 +218,19 @@ export function ytext({
 export function integer(opts: {
 	nullable: true;
 	default?: number;
-}): IntegerColumnSchema<true>;
+}): IntegerFieldSchema<true>;
 export function integer(opts?: {
 	nullable?: false;
 	default?: number;
-}): IntegerColumnSchema<false>;
+}): IntegerFieldSchema<false>;
 export function integer({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
 	default?: number;
-} = {}): IntegerColumnSchema<boolean> {
-	return createColumnSchema({
+} = {}): IntegerFieldSchema<boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'integer',
 			type: nullable ? (['integer', 'null'] as const) : ('integer' as const),
@@ -259,19 +259,19 @@ export function integer({
 export function real(opts: {
 	nullable: true;
 	default?: number;
-}): RealColumnSchema<true>;
+}): RealFieldSchema<true>;
 export function real(opts?: {
 	nullable?: false;
 	default?: number;
-}): RealColumnSchema<false>;
+}): RealFieldSchema<false>;
 export function real({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
 	default?: number;
-} = {}): RealColumnSchema<boolean> {
-	return createColumnSchema({
+} = {}): RealFieldSchema<boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'real',
 			type: nullable ? (['number', 'null'] as const) : ('number' as const),
@@ -300,19 +300,19 @@ export function real({
 export function boolean(opts: {
 	nullable: true;
 	default?: boolean;
-}): BooleanColumnSchema<true>;
+}): BooleanFieldSchema<true>;
 export function boolean(opts?: {
 	nullable?: false;
 	default?: boolean;
-}): BooleanColumnSchema<false>;
+}): BooleanFieldSchema<false>;
 export function boolean({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
 	default?: boolean;
-} = {}): BooleanColumnSchema<boolean> {
-	return createColumnSchema({
+} = {}): BooleanFieldSchema<boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'boolean',
 			type: nullable ? (['boolean', 'null'] as const) : ('boolean' as const),
@@ -343,19 +343,19 @@ export function boolean({
 export function date(opts: {
 	nullable: true;
 	default?: DateWithTimezone;
-}): DateColumnSchema<true>;
+}): DateFieldSchema<true>;
 export function date(opts?: {
 	nullable?: false;
 	default?: DateWithTimezone;
-}): DateColumnSchema<false>;
+}): DateFieldSchema<false>;
 export function date({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
 	default?: DateWithTimezone;
-} = {}): DateColumnSchema<boolean> {
-	return createColumnSchema({
+} = {}): DateFieldSchema<boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'date',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -388,14 +388,14 @@ export function select<
 	options: TOptions;
 	nullable: true;
 	default?: TOptions[number];
-}): SelectColumnSchema<TOptions, true>;
+}): SelectFieldSchema<TOptions, true>;
 export function select<
 	const TOptions extends readonly [string, ...string[]],
 >(opts: {
 	options: TOptions;
 	nullable?: false;
 	default?: TOptions[number];
-}): SelectColumnSchema<TOptions, false>;
+}): SelectFieldSchema<TOptions, false>;
 export function select<const TOptions extends readonly [string, ...string[]]>({
 	options,
 	nullable = false,
@@ -404,8 +404,8 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 	options: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number];
-}): SelectColumnSchema<TOptions, boolean> {
-	return createColumnSchema({
+}): SelectFieldSchema<TOptions, boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'select',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -454,18 +454,18 @@ export function tags<
 	options: TOptions;
 	nullable: true;
 	default?: TOptions[number][];
-}): TagsColumnSchema<TOptions, true>;
+}): TagsFieldSchema<TOptions, true>;
 export function tags<
 	const TOptions extends readonly [string, ...string[]],
 >(opts: {
 	options: TOptions;
 	nullable?: false;
 	default?: TOptions[number][];
-}): TagsColumnSchema<TOptions, false>;
+}): TagsFieldSchema<TOptions, false>;
 export function tags<TNullable extends boolean = false>(opts?: {
 	nullable?: TNullable;
 	default?: string[];
-}): TagsColumnSchema<readonly [string, ...string[]], TNullable>;
+}): TagsFieldSchema<readonly [string, ...string[]], TNullable>;
 export function tags<const TOptions extends readonly [string, ...string[]]>({
 	options,
 	nullable = false,
@@ -474,8 +474,8 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	options?: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number][] | string[];
-} = {}): TagsColumnSchema<TOptions, boolean> {
-	return createColumnSchema({
+} = {}): TagsFieldSchema<TOptions, boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'tags',
 			type: nullable ? (['array', 'null'] as const) : ('array' as const),
@@ -543,12 +543,12 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>(opts: {
 	schema: TSchema;
 	nullable: true;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
-}): JsonColumnSchema<TSchema, true>;
+}): JsonFieldSchema<TSchema, true>;
 export function json<const TSchema extends StandardSchemaWithJSONSchema>(opts: {
 	schema: TSchema;
 	nullable?: false;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
-}): JsonColumnSchema<TSchema, false>;
+}): JsonFieldSchema<TSchema, false>;
 export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	schema,
 	nullable = false,
@@ -557,8 +557,8 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	schema: TSchema;
 	nullable?: boolean;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
-}): JsonColumnSchema<TSchema, boolean> {
-	return createColumnSchema({
+}): JsonFieldSchema<TSchema, boolean> {
+	return createFieldSchema({
 		jsonSchema: {
 			'x-component': 'json',
 			type: nullable ? (['object', 'null'] as const) : ('object' as const),

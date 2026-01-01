@@ -3,14 +3,14 @@ import * as Y from 'yjs';
 
 import { defineMutation, defineQuery } from '../actions';
 import type {
-	KvColumnSchema,
+	KvFieldSchema,
 	KvSchema,
 	KvValue,
 	SerializedKvValue,
 } from '../schema';
 import {
 	isDateWithTimezoneString,
-	isNullableColumnSchema,
+	isNullableFieldSchema,
 	serializeCellValue,
 } from '../schema';
 import { updateYArrayFromArray, updateYTextFromString } from '../utils/yjs';
@@ -47,7 +47,7 @@ export function createKvHelpers<TKvSchema extends KvSchema>({
 	};
 }
 
-export function createKvHelper<TColumnSchema extends KvColumnSchema>({
+export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	ydoc,
 	keyName,
 	ykvMap,
@@ -56,12 +56,12 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 	ydoc: Y.Doc;
 	keyName: string;
 	ykvMap: YKvMap;
-	schema: TColumnSchema;
+	schema: TFieldSchema;
 }) {
-	type TValue = KvValue<TColumnSchema>;
-	type TSerializedValue = SerializedKvValue<TColumnSchema>;
+	type TValue = KvValue<TFieldSchema>;
+	type TSerializedValue = SerializedKvValue<TFieldSchema>;
 
-	const nullable = isNullableColumnSchema(schema);
+	const nullable = isNullableFieldSchema(schema);
 
 	const getOrCreateYjsValue = (): TValue => {
 		const existing = ykvMap.get(keyName);
@@ -191,8 +191,8 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 	};
 }
 
-function createInputSchema(schema: KvColumnSchema) {
-	const nullable = isNullableColumnSchema(schema);
+function createInputSchema(schema: KvFieldSchema) {
+	const nullable = isNullableFieldSchema(schema);
 
 	switch (schema['x-component']) {
 		case 'text':
@@ -234,6 +234,6 @@ function createInputSchema(schema: KvColumnSchema) {
 	}
 }
 
-export type KvHelper<TColumnSchema extends KvColumnSchema> = ReturnType<
-	typeof createKvHelper<TColumnSchema>
+export type KvHelper<TFieldSchema extends KvFieldSchema> = ReturnType<
+	typeof createKvHelper<TFieldSchema>
 >;

@@ -5,7 +5,7 @@
  */
 
 // ============================================================================
-// Column Factories
+// Field Factories
 // ============================================================================
 export {
 	boolean,
@@ -18,11 +18,11 @@ export {
 	tags,
 	text,
 	ytext,
-} from './columns';
+} from './fields';
 // ============================================================================
 // Converters
 // ============================================================================
-export type { ColumnSchemaToArktypeType } from './converters/arktype';
+export type { FieldSchemaToArktypeType } from './converters/arktype';
 export { tableSchemaToArktypeType } from './converters/arktype';
 export type { WorkspaceSchemaToDrizzleTables } from './converters/drizzle';
 export {
@@ -47,7 +47,7 @@ export { generateJsonSchema } from './generate-json-schema';
 // ============================================================================
 export type { Id } from './id';
 export { generateId } from './id';
-export { isNullableColumnSchema } from './nullability';
+export { isNullableFieldSchema } from './nullability';
 // ============================================================================
 // Regex
 // ============================================================================
@@ -73,33 +73,33 @@ export type {
 // Types
 // ============================================================================
 export type {
-	BooleanColumnSchema,
+	BooleanFieldSchema,
 	// Value types
 	CellValue,
-	ColumnComponent,
-	ColumnSchema,
-	DateColumnSchema,
-	// Column schema types
-	IdColumnSchema,
-	IntegerColumnSchema,
-	JsonColumnSchema,
+	FieldComponent,
+	FieldSchema,
+	DateFieldSchema,
+	// Field schema types
+	IdFieldSchema,
+	IntegerFieldSchema,
+	JsonFieldSchema,
 	// KV schema types
-	KvColumnSchema,
+	KvFieldSchema,
 	KvSchema,
 	KvValue,
 	PartialSerializedRow,
-	RealColumnSchema,
+	RealFieldSchema,
 	Row,
-	SelectColumnSchema,
+	SelectFieldSchema,
 	SerializedCellValue,
 	SerializedKvValue,
 	SerializedRow,
 	// Table and workspace schemas
 	TableSchema,
-	TagsColumnSchema,
-	TextColumnSchema,
+	TagsFieldSchema,
+	TextFieldSchema,
 	WorkspaceSchema,
-	YtextColumnSchema,
+	YtextFieldSchema,
 } from './types';
 export type {
 	// Validator types

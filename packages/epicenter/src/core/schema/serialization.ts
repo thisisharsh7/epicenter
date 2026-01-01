@@ -6,7 +6,7 @@
  */
 
 import * as Y from 'yjs';
-import type { CellValue, ColumnSchema, SerializedCellValue } from './types';
+import type { CellValue, FieldSchema, SerializedCellValue } from './types';
 
 /**
  * Serializes a single cell value to its plain JavaScript equivalent.
@@ -32,7 +32,7 @@ import type { CellValue, ColumnSchema, SerializedCellValue } from './types';
  * serializeCellValue('text'); // 'text'
  * ```
  */
-export function serializeCellValue<T extends ColumnSchema>(
+export function serializeCellValue<T extends FieldSchema>(
 	value: CellValue<T>,
 ): SerializedCellValue<T> {
 	if (value instanceof Y.Text) {

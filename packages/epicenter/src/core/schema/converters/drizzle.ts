@@ -14,23 +14,23 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { date, json, tags } from '../../../providers/sqlite/schema/builders';
 import type {
-	BooleanColumnSchema,
-	ColumnSchema,
-	DateColumnSchema,
+	BooleanFieldSchema,
+	FieldSchema,
+	DateFieldSchema,
 	DateWithTimezone,
 	DateWithTimezoneString,
-	IdColumnSchema,
-	IntegerColumnSchema,
-	JsonColumnSchema,
-	RealColumnSchema,
-	SelectColumnSchema,
+	IdFieldSchema,
+	IntegerFieldSchema,
+	JsonFieldSchema,
+	RealFieldSchema,
+	SelectFieldSchema,
 	TableSchema,
-	TagsColumnSchema,
-	TextColumnSchema,
+	TagsFieldSchema,
+	TextFieldSchema,
 	WorkspaceSchema,
-	YtextColumnSchema,
+	YtextFieldSchema,
 } from '../../schema';
-import { isNullableColumnSchema } from '../nullability';
+import { isNullableFieldSchema } from '../nullability';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations.
@@ -114,58 +114,58 @@ export function convertTableSchemaToDrizzle<
 	TTableSchema extends TableSchema,
 >(tableName: TTableName, tableSchema: TTableSchema) {
 	const columns = Object.fromEntries(
-		Object.keys(tableSchema).map((columnName) => [
-			columnName,
-			convertColumnSchemaToDrizzle(
-				columnName,
-				tableSchema[columnName as keyof TTableSchema],
+		Object.keys(tableSchema).map((fieldName) => [
+			fieldName,
+			convertFieldSchemaToDrizzle(
+				fieldName,
+				tableSchema[fieldName as keyof TTableSchema],
 			),
 		]),
-	) as { [Key in keyof TTableSchema]: ColumnToDrizzle<TTableSchema[Key]> };
+	) as { [Key in keyof TTableSchema]: FieldToDrizzle<TTableSchema[Key]> };
 
 	return sqliteTable(tableName, columns);
 }
 
 /**
- * Maps a ColumnSchema to its corresponding Drizzle column builder type.
+ * Maps a FieldSchema to its corresponding Drizzle column builder type.
  *
  * This conditional type chain determines the exact Drizzle type for each
- * column schema variant. It handles:
+ * field schema variant. It handles:
  * - NotNull wrapper when nullable is false
  * - Custom column types for date, tags, and json
  * - Drizzle's built-in types for primitives (text, integer, real, boolean)
  *
  * The type uses nested conditional types to match against each possible
- * column schema type in order: id → text → ytext → integer → real →
- * boolean → date → select → multi-select → json → never
+ * field schema type in order: id → text → ytext → integer → real →
+ * boolean → date → select → tags → json → never
  */
-type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
+type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 	? IsPrimaryKey<
 			NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
 		>
-	: C extends TextColumnSchema<infer TNullable>
+	: C extends TextFieldSchema<infer TNullable>
 		? TNullable extends true
 			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 			: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
-		: C extends YtextColumnSchema<infer TNullable>
+		: C extends YtextFieldSchema<infer TNullable>
 			? TNullable extends true
 				? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 				: NotNull<
 						SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 					>
-			: C extends IntegerColumnSchema<infer TNullable>
+			: C extends IntegerFieldSchema<infer TNullable>
 				? TNullable extends true
 					? SQLiteIntegerBuilderInitial<''>
 					: NotNull<SQLiteIntegerBuilderInitial<''>>
-				: C extends RealColumnSchema<infer TNullable>
+				: C extends RealFieldSchema<infer TNullable>
 					? TNullable extends true
 						? SQLiteRealBuilderInitial<''>
 						: NotNull<SQLiteRealBuilderInitial<''>>
-					: C extends BooleanColumnSchema<infer TNullable>
+					: C extends BooleanFieldSchema<infer TNullable>
 						? TNullable extends true
 							? SQLiteBooleanBuilderInitial<''>
 							: NotNull<SQLiteBooleanBuilderInitial<''>>
-						: C extends DateColumnSchema<infer TNullable>
+						: C extends DateFieldSchema<infer TNullable>
 							? TNullable extends true
 								? SQLiteCustomColumnBuilder<{
 										name: '';
@@ -185,7 +185,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 											enumValues: undefined;
 										}>
 									>
-							: C extends SelectColumnSchema<infer TOptions, infer TNullable>
+							: C extends SelectFieldSchema<infer TOptions, infer TNullable>
 								? TNullable extends true
 									? SQLiteTextBuilderInitial<
 											'',
@@ -199,7 +199,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 												number | undefined
 											>
 										>
-								: C extends TagsColumnSchema<infer TOptions, infer TNullable>
+								: C extends TagsFieldSchema<infer TOptions, infer TNullable>
 									? TNullable extends true
 										? SQLiteCustomColumnBuilder<{
 												name: '';
@@ -219,7 +219,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 													enumValues: undefined;
 												}>
 											>
-									: C extends JsonColumnSchema<infer TSchema, infer TNullable>
+									: C extends JsonFieldSchema<infer TSchema, infer TNullable>
 										? TNullable extends true
 											? SQLiteCustomColumnBuilder<{
 													name: '';
@@ -242,9 +242,9 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 										: never;
 
 /**
- * Convert a ColumnSchema to a Drizzle column builder.
+ * Convert a FieldSchema to a Drizzle column builder.
  *
- * This function uses two distinct patterns depending on column complexity:
+ * This function uses two distinct patterns depending on field complexity:
  *
  * **Pattern 1: Primitive Types (text, integer, real, boolean, select)**
  * Uses Drizzle's built-in column functions from `drizzle-orm/sqlite-core` and
@@ -252,7 +252,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
  * This is necessary because Drizzle's primitives require the column name as
  * the first argument and don't accept a schema object.
  *
- * **Pattern 2: Custom Types (date, multi-select, json)**
+ * **Pattern 2: Custom Types (date, tags, json)**
  * Uses custom builders from `builders.ts` that accept the entire schema object.
  * These builders encapsulate complex serialization logic (timezone handling,
  * JSON array validation, arktype validation) and handle nullable/default internally.
@@ -261,76 +261,76 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
  *
  * @example
  * // Pattern 1: Primitive with explicit chaining
- * let column = text(columnName);
+ * let column = text(fieldName);
  * if (!schema.nullable) column = column.notNull();
  *
  * // Pattern 2: Custom builder with schema object
  * const column = date(schema); // nullable/default handled internally
  */
-function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
-	columnName: string,
+function convertFieldSchemaToDrizzle<C extends FieldSchema>(
+	fieldName: string,
 	schema: C,
-): ColumnToDrizzle<C> {
-	const isNullable = isNullableColumnSchema(schema);
+): FieldToDrizzle<C> {
+	const isNullable = isNullableFieldSchema(schema);
 
 	switch (schema['x-component']) {
 		case 'id':
-			return text(columnName).primaryKey().notNull() as ColumnToDrizzle<C>;
+			return text(fieldName).primaryKey().notNull() as FieldToDrizzle<C>;
 
 		case 'text': {
-			let column = text(columnName);
+			let column = text(fieldName);
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'ytext': {
-			let column = text(columnName);
+			let column = text(fieldName);
 			if (!isNullable) column = column.notNull();
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'integer': {
-			let column = integer(columnName);
+			let column = integer(fieldName);
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'real': {
-			let column = real(columnName);
+			let column = real(fieldName);
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'boolean': {
-			let column = integer(columnName, { mode: 'boolean' });
+			let column = integer(fieldName, { mode: 'boolean' });
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'date': {
 			const column = date({ nullable: isNullable, default: schema.default });
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'select': {
-			let column = text(columnName, { enum: [...schema.enum] });
+			let column = text(fieldName, { enum: [...schema.enum] });
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'tags': {
@@ -339,7 +339,7 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 				nullable: isNullable,
 				default: schema.default,
 			});
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		case 'json': {
@@ -348,12 +348,12 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 				nullable: isNullable,
 				default: schema.default,
 			});
-			return column as ColumnToDrizzle<C>;
+			return column as FieldToDrizzle<C>;
 		}
 
 		default:
 			throw new Error(
-				`Unknown column type: ${(schema as ColumnSchema)['x-component']}`,
+				`Unknown field type: ${(schema as FieldSchema)['x-component']}`,
 			);
 	}
 }
