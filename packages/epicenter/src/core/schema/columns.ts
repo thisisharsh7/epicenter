@@ -4,6 +4,31 @@
  * Provides factory functions for creating column schemas with type-safe options.
  * Each function returns a column schema object that describes the structure and
  * constraints of a database column, including Standard Schema validation.
+ *
+ * ## Architecture
+ *
+ * Column schemas are JSON Schema objects with an embedded `~standard` property
+ * for Standard Schema compliance. The `withStandard` helper eliminates duplication
+ * by deriving the JSON Schema representation from the schema object itself.
+ *
+ * ## Key Pattern: `withStandard`
+ *
+ * The `withStandard` helper takes a single object argument with `jsonSchema` and
+ * `validate` keys. The `const TJSONSchema` generic ensures literal type inference.
+ *
+ * ```typescript
+ * return withStandard({
+ *   jsonSchema: { 'x-component': 'text', type: 'string' },
+ *   validate: (value): { value: string } | { issues: ... } => { ... }
+ * });
+ * ```
+ *
+ * ## Best Practices
+ *
+ * - Never pass explicit generics to `withStandard` - types are inferred
+ * - Never use type assertions after `withStandard` calls
+ * - Use explicit return type annotations on validate functions for proper inference
+ * - The `as const` on type variables is necessary (computed before `withStandard`)
  */
 
 import type { DateWithTimezone } from './date-with-timezone';
@@ -26,30 +51,39 @@ import type {
 } from './types';
 
 /**
- * Creates a Standard Schema validation object for a column type.
+ * Adds Standard Schema compliance to a base schema object.
  *
- * Standard Schema (https://standardschema.dev) provides a unified interface
- * for schema validation across libraries (ArkType, Zod, Valibot, etc.).
- * Each column schema includes `~standard` for runtime validation and
- * JSON Schema generation.
+ * This is the core abstraction for column schema creation. It takes a base schema
+ * object (which IS the JSON Schema representation) and a validate function, then
+ * returns the complete column schema with `~standard` attached.
  *
- * @internal Used by column factory functions
+ * The JSON Schema is derived directly from the base schema, eliminating duplication.
+ *
+ * @param options.jsonSchema - The schema properties (x-component, type, default, etc.)
+ * @param options.validate - Validation function that returns Result<T>
+ * @returns Complete schema with ~standard property
+ *
+ * @internal Used by all column factory functions
  */
-function createStandard<T>(
-	validate: (
-		value: unknown,
-	) => { value: T } | { issues: { message: string; path: never[] }[] },
-	getJsonSchema: () => Record<string, unknown>,
-) {
+function withStandard<T, const TJSONSchema extends Record<string, unknown>>({
+	jsonSchema,
+	validate,
+}: {
+	jsonSchema: TJSONSchema;
+	validate: (value: unknown) => StandardSchemaV1.Result<T>;
+}) {
 	return {
-		version: 1 as const,
-		vendor: 'epicenter',
-		validate,
-		jsonSchema: {
-			input: getJsonSchema,
-			output: getJsonSchema,
-		},
-	} satisfies StandardSchemaWithJSONSchema<T>['~standard'];
+		...jsonSchema,
+		'~standard': {
+			version: 1,
+			vendor: 'epicenter',
+			validate,
+			jsonSchema: {
+				input: () => jsonSchema,
+				output: () => jsonSchema,
+			},
+		} satisfies StandardSchemaWithJSONSchema<T>['~standard'],
+	};
 }
 
 /**
@@ -62,20 +96,17 @@ function createStandard<T>(
  * ```
  */
 export function id(): IdColumnSchema {
-	const schema = {
-		'x-component': 'id' as const,
-		type: 'string' as const,
-		'~standard': createStandard<string>(
-			(value) => {
-				if (typeof value !== 'string') {
-					return { issues: [{ message: 'Expected string', path: [] }] };
-				}
-				return { value };
-			},
-			() => ({ 'x-component': 'id', type: 'string' }),
-		),
-	};
-	return schema;
+	return withStandard({
+		jsonSchema: { 'x-component': 'id', type: 'string' },
+		validate: (
+			value,
+		): { value: string } | { issues: { message: string; path: never[] }[] } => {
+			if (typeof value !== 'string') {
+				return { issues: [{ message: 'Expected string', path: [] }] };
+			}
+			return { value };
+		},
+	});
 }
 
 /**
@@ -103,28 +134,25 @@ export function text({
 	nullable?: boolean;
 	default?: string;
 } = {}): TextColumnSchema<boolean> {
-	const jsonSchemaType = nullable
-		? (['string', 'null'] as const)
-		: ('string' as const);
-	return {
-		'x-component': 'text',
-		type: jsonSchemaType,
-		...(defaultValue !== undefined && { default: defaultValue }),
-		'~standard': createStandard<string | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (typeof value !== 'string') {
-					return { issues: [{ message: 'Expected string', path: [] }] };
-				}
-				return { value };
-			},
-			() => ({
-				'x-component': 'text',
-				type: jsonSchemaType,
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'text',
+			type,
+			...(defaultValue !== undefined && { default: defaultValue }),
+		},
+		validate: (
+			value,
+		):
+			| { value: string | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (typeof value !== 'string') {
+				return { issues: [{ message: 'Expected string', path: [] }] };
+			}
+			return { value };
+		},
+	});
 }
 
 /**
@@ -162,23 +190,21 @@ export function ytext({
 }: {
 	nullable?: boolean;
 } = {}): YtextColumnSchema<boolean> {
-	const jsonSchemaType = nullable
-		? (['string', 'null'] as const)
-		: ('string' as const);
-	return {
-		'x-component': 'ytext',
-		type: jsonSchemaType,
-		'~standard': createStandard<string | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (typeof value !== 'string') {
-					return { issues: [{ message: 'Expected string', path: [] }] };
-				}
-				return { value };
-			},
-			() => ({ 'x-component': 'ytext', type: jsonSchemaType }),
-		),
-	};
+	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
+	return withStandard({
+		jsonSchema: { 'x-component': 'ytext', type },
+		validate: (
+			value,
+		):
+			| { value: string | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (typeof value !== 'string') {
+				return { issues: [{ message: 'Expected string', path: [] }] };
+			}
+			return { value };
+		},
+	});
 }
 
 /**
@@ -206,28 +232,25 @@ export function integer({
 	nullable?: boolean;
 	default?: number;
 } = {}): IntegerColumnSchema<boolean> {
-	const jsonSchemaType = nullable
-		? (['integer', 'null'] as const)
-		: ('integer' as const);
-	return {
-		'x-component': 'integer',
-		type: jsonSchemaType,
-		...(defaultValue !== undefined && { default: defaultValue }),
-		'~standard': createStandard<number | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (typeof value !== 'number' || !Number.isInteger(value)) {
-					return { issues: [{ message: 'Expected integer', path: [] }] };
-				}
-				return { value };
-			},
-			() => ({
-				'x-component': 'integer',
-				type: jsonSchemaType,
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+	const type = nullable ? (['integer', 'null'] as const) : ('integer' as const);
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'integer',
+			type,
+			...(defaultValue !== undefined && { default: defaultValue }),
+		},
+		validate: (
+			value,
+		):
+			| { value: number | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (typeof value !== 'number' || !Number.isInteger(value)) {
+				return { issues: [{ message: 'Expected integer', path: [] }] };
+			}
+			return { value };
+		},
+	});
 }
 
 /**
@@ -255,28 +278,25 @@ export function real({
 	nullable?: boolean;
 	default?: number;
 } = {}): RealColumnSchema<boolean> {
-	const jsonSchemaType = nullable
-		? (['number', 'null'] as const)
-		: ('number' as const);
-	return {
-		'x-component': 'real',
-		type: jsonSchemaType,
-		...(defaultValue !== undefined && { default: defaultValue }),
-		'~standard': createStandard<number | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (typeof value !== 'number') {
-					return { issues: [{ message: 'Expected number', path: [] }] };
-				}
-				return { value };
-			},
-			() => ({
-				'x-component': 'real',
-				type: jsonSchemaType,
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+	const type = nullable ? (['number', 'null'] as const) : ('number' as const);
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'real',
+			type,
+			...(defaultValue !== undefined && { default: defaultValue }),
+		},
+		validate: (
+			value,
+		):
+			| { value: number | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (typeof value !== 'number') {
+				return { issues: [{ message: 'Expected number', path: [] }] };
+			}
+			return { value };
+		},
+	});
 }
 
 /**
@@ -304,28 +324,25 @@ export function boolean({
 	nullable?: boolean;
 	default?: boolean;
 } = {}): BooleanColumnSchema<boolean> {
-	const jsonSchemaType = nullable
-		? (['boolean', 'null'] as const)
-		: ('boolean' as const);
-	return {
-		'x-component': 'boolean',
-		type: jsonSchemaType,
-		...(defaultValue !== undefined && { default: defaultValue }),
-		'~standard': createStandard<boolean | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (typeof value !== 'boolean') {
-					return { issues: [{ message: 'Expected boolean', path: [] }] };
-				}
-				return { value };
-			},
-			() => ({
-				'x-component': 'boolean',
-				type: jsonSchemaType,
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+	const type = nullable ? (['boolean', 'null'] as const) : ('boolean' as const);
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'boolean',
+			type,
+			...(defaultValue !== undefined && { default: defaultValue }),
+		},
+		validate: (
+			value,
+		):
+			| { value: boolean | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (typeof value !== 'boolean') {
+				return { issues: [{ message: 'Expected boolean', path: [] }] };
+			}
+			return { value };
+		},
+	});
 }
 
 /**
@@ -355,30 +372,26 @@ export function date({
 	nullable?: boolean;
 	default?: DateWithTimezone;
 } = {}): DateColumnSchema<boolean> {
-	const jsonSchemaType = nullable
-		? (['string', 'null'] as const)
-		: ('string' as const);
-	return {
-		'x-component': 'date',
-		type: jsonSchemaType,
-		format: 'date',
-		...(defaultValue !== undefined && { default: defaultValue }),
-		'~standard': createStandard<string | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (typeof value !== 'string' || !isDateWithTimezoneString(value)) {
-					return { issues: [{ message: 'Expected date string', path: [] }] };
-				}
-				return { value };
-			},
-			() => ({
-				'x-component': 'date',
-				type: jsonSchemaType,
-				format: 'date',
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'date',
+			type,
+			format: 'date',
+			...(defaultValue !== undefined && { default: defaultValue }),
+		},
+		validate: (
+			value,
+		):
+			| { value: DateWithTimezone | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (typeof value !== 'string' || !isDateWithTimezoneString(value)) {
+				return { issues: [{ message: 'Expected date string', path: [] }] };
+			}
+			return { value };
+		},
+	});
 }
 
 /**
@@ -414,37 +427,33 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number];
 }): SelectColumnSchema<TOptions, boolean> {
-	const jsonSchemaType = nullable
-		? (['string', 'null'] as const)
-		: ('string' as const);
-	return {
-		'x-component': 'select',
-		type: jsonSchemaType,
-		enum: options,
-		...(defaultValue !== undefined && { default: defaultValue }),
-		'~standard': createStandard<TOptions[number] | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (
-					typeof value !== 'string' ||
-					!options.includes(value as TOptions[number])
-				) {
-					return {
-						issues: [
-							{ message: `Expected one of: ${options.join(', ')}`, path: [] },
-						],
-					};
-				}
-				return { value: value as TOptions[number] };
-			},
-			() => ({
-				'x-component': 'select',
-				type: jsonSchemaType,
-				enum: options,
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'select',
+			type,
+			enum: options,
+			...(defaultValue !== undefined && { default: defaultValue }),
+		},
+		validate: (
+			value,
+		):
+			| { value: TOptions[number] | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (
+				typeof value !== 'string' ||
+				!options.includes(value as TOptions[number])
+			) {
+				return {
+					issues: [
+						{ message: `Expected one of: ${options.join(', ')}`, path: [] },
+					],
+				};
+			}
+			return { value: value as TOptions[number] };
+		},
+	});
 }
 
 /**
@@ -493,46 +502,41 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number][] | string[];
 } = {}): TagsColumnSchema<TOptions, boolean> {
-	const jsonSchemaType = nullable
-		? (['array', 'null'] as const)
-		: ('array' as const);
+	const type = nullable ? (['array', 'null'] as const) : ('array' as const);
 	const items = options
 		? { type: 'string' as const, enum: options }
 		: { type: 'string' as const };
-	return {
-		'x-component': 'tags',
-		type: jsonSchemaType,
-		items,
-		uniqueItems: true,
-		...(defaultValue !== undefined && {
-			default: defaultValue as TOptions[number][],
-		}),
-		'~standard': createStandard<TOptions[number][] | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				if (!Array.isArray(value)) {
-					return { issues: [{ message: 'Expected array', path: [] }] };
-				}
-				if (options) {
-					for (const item of value) {
-						if (!options.includes(item as TOptions[number])) {
-							return {
-								issues: [{ message: `Invalid tag: ${item}`, path: [] }],
-							};
-						}
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'tags',
+			type,
+			items,
+			uniqueItems: true,
+			...(defaultValue !== undefined && {
+				default: defaultValue as TOptions[number][],
+			}),
+		},
+		validate: (
+			value,
+		):
+			| { value: TOptions[number][] | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			if (!Array.isArray(value)) {
+				return { issues: [{ message: 'Expected array', path: [] }] };
+			}
+			if (options) {
+				for (const item of value) {
+					if (!options.includes(item as TOptions[number])) {
+						return {
+							issues: [{ message: `Invalid tag: ${item}`, path: [] }],
+						};
 					}
 				}
-				return { value: value as TOptions[number][] };
-			},
-			() => ({
-				'x-component': 'tags',
-				type: jsonSchemaType,
-				items,
-				uniqueItems: true,
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+			}
+			return { value: value as TOptions[number][] };
+		},
+	});
 }
 
 /**
@@ -587,33 +591,30 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	nullable?: boolean;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonColumnSchema<TSchema, boolean> {
-	const jsonSchemaType = nullable
-		? (['object', 'null'] as const)
-		: ('object' as const);
-	return {
-		'x-component': 'json',
-		type: jsonSchemaType,
-		schema,
-		...(defaultValue !== undefined && { default: defaultValue }),
-		'~standard': createStandard<StandardSchemaV1.InferOutput<TSchema> | null>(
-			(value) => {
-				if (nullable && value === null) return { value: null };
-				const result = schema['~standard'].validate(value);
-				if ('issues' in result && result.issues) {
-					return {
-						issues: result.issues as { message: string; path: never[] }[],
-					};
-				}
+	const type = nullable ? (['object', 'null'] as const) : ('object' as const);
+	return withStandard({
+		jsonSchema: {
+			'x-component': 'json',
+			type,
+			schema,
+			...(defaultValue !== undefined && { default: defaultValue }),
+		},
+		validate: (
+			value,
+		):
+			| { value: StandardSchemaV1.InferOutput<TSchema> | null }
+			| { issues: { message: string; path: never[] }[] } => {
+			if (nullable && value === null) return { value: null };
+			const result = schema['~standard'].validate(value);
+			if ('issues' in result && result.issues) {
 				return {
-					value: (result as { value: unknown })
-						.value as StandardSchemaV1.InferOutput<TSchema>,
+					issues: result.issues as { message: string; path: never[] }[],
 				};
-			},
-			() => ({
-				'x-component': 'json',
-				type: jsonSchemaType,
-				...(defaultValue !== undefined && { default: defaultValue }),
-			}),
-		),
-	};
+			}
+			return {
+				value: (result as { value: unknown })
+					.value as StandardSchemaV1.InferOutput<TSchema>,
+			};
+		},
+	});
 }
