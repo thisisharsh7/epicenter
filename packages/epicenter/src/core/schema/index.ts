@@ -41,7 +41,7 @@ export {
 	isDateWithTimezoneString,
 	isIsoDateTimeString,
 } from './date-with-timezone';
-export { generateJsonSchema } from './generate-json-schema';
+export { generateJsonSchema } from './converters/json-schema';
 // ============================================================================
 // Utilities
 // ============================================================================
