@@ -1,4 +1,5 @@
 import type { OsType } from '@tauri-apps/plugin-os';
+import { regex } from 'arkregex';
 import { type } from 'arktype';
 import type { OsService } from '.';
 
@@ -58,6 +59,12 @@ function getPlatformFromClientHints(
 	return platformMap[platform] ?? null;
 }
 
+/** iOS device user agent pattern */
+const IOS_DEVICE_PATTERN = regex('ipad|iphone|ipod');
+
+/** Android user agent pattern */
+const ANDROID_PATTERN = regex('android');
+
 /**
  * Detects platform using traditional user agent string parsing
  * @returns OsType based on user agent detection
@@ -69,14 +76,14 @@ function getPlatformFromUserAgent(navigator: Navigator): OsType {
 	// iOS detection (must be before macOS)
 	// Handles both regular iOS devices and iPadOS in desktop mode
 	if (
-		/ipad|iphone|ipod/.test(userAgent) ||
+		IOS_DEVICE_PATTERN.test(userAgent) ||
 		(platform.includes('mac') && 'ontouchend' in document)
 	) {
 		return 'ios';
 	}
 
 	// Android detection
-	if (/android/.test(userAgent)) {
+	if (ANDROID_PATTERN.test(userAgent)) {
 		return 'android';
 	}
 

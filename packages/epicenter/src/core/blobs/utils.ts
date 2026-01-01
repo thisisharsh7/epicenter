@@ -1,3 +1,4 @@
+import { regex } from 'arkregex';
 import { Ok } from 'wellcrafted/result';
 import { BlobErr } from './types.js';
 
@@ -10,7 +11,7 @@ import { BlobErr } from './types.js';
  * Valid examples: "file.png", "file.tar.gz", "v1.2.3.zip", "my_file-2024.pdf"
  * Invalid examples: ".hidden", "-start.txt", "../traversal.txt"
  */
-const FILENAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z0-9]+$/;
+const FILENAME_PATTERN = regex('^[a-zA-Z0-9][a-zA-Z0-9._-]*\\.[a-zA-Z0-9]+$');
 
 /**
  * Validate a filename for blob storage.

@@ -28,3 +28,4 @@ export {
 	OPTION_DEAD_KEYS,
 } from './macos-option-key-map';
 export { CommandOrAlt, CommandOrControl } from './modifiers';
+export { FUNCTION_KEY_PATTERN } from './patterns';

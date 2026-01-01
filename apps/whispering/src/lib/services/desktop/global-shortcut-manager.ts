@@ -16,6 +16,7 @@ import {
 	ACCELERATOR_PUNCTUATION_KEYS,
 	type AcceleratorKeyCode,
 	type AcceleratorModifier,
+	FUNCTION_KEY_PATTERN,
 	KEYBOARD_EVENT_SPECIAL_KEY_TO_ACCELERATOR_KEY_CODE_MAP,
 	type KeyboardEventSupportedKey,
 } from '$lib/constants/keyboard';
@@ -301,7 +302,7 @@ function convertToKeyCode(
 	}
 
 	// Function keys - convert to uppercase
-	if (key.match(/^f\d{1,2}$/)) {
+	if (FUNCTION_KEY_PATTERN.test(key)) {
 		return key.toUpperCase() as AcceleratorKeyCode;
 	}
 

@@ -1,4 +1,5 @@
 import type { KeyboardEventSupportedKey } from './browser/supported-keys';
+import { FUNCTION_KEY_PATTERN } from './patterns';
 
 /**
  * Display labels for browser keys that need human-readable representation.
@@ -114,7 +115,7 @@ function formatKeyForDisplay(key: string): string {
 	}
 
 	// Function keys: uppercase (f1 -> F1)
-	if (/^f\d{1,2}$/.test(key)) {
+	if (FUNCTION_KEY_PATTERN.test(key)) {
 		return key.toUpperCase();
 	}
 

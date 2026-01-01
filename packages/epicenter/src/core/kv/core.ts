@@ -1,3 +1,4 @@
+import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
 import { defineMutation } from '../actions';
@@ -7,7 +8,7 @@ import { serializeCellValue } from '../schema';
 import type { KvHelper, YKvMap } from './kv-helper';
 import { createKvHelpers } from './kv-helper';
 
-const KV_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
+const KV_KEY_PATTERN = regex('^[a-z][a-z0-9_]*$');
 
 export type { KvHelper } from './kv-helper';
 
