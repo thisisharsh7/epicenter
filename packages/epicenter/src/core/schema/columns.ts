@@ -37,6 +37,7 @@ import type {
 } from './standard-schema';
 import type {
 	BooleanColumnSchema,
+	ColumnComponent,
 	DateColumnSchema,
 	IdColumnSchema,
 	IntegerColumnSchema,
@@ -66,7 +67,10 @@ type ColumnStandard<T> = {
  * @internal Used by all column factory functions
  */
 function createColumnSchema<
-	const TJSONSchema extends Record<string, unknown>,
+	const TJSONSchema extends {
+		'x-component': ColumnComponent;
+		type: string | readonly string[];
+	},
 	TOutput,
 >({
 	jsonSchema,
