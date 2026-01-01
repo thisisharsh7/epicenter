@@ -8,17 +8,17 @@
  * ## Architecture
  *
  * Column schemas are JSON Schema objects with an embedded `~standard` property
- * for Standard Schema compliance. The `withStandard` helper eliminates duplication
+ * for Standard Schema compliance. The `createColumnSchema` helper eliminates duplication
  * by deriving the JSON Schema representation from the schema object itself.
  *
- * ## Key Pattern: `withStandard`
+ * ## Key Pattern: `createColumnSchema`
  *
  * Uses two positional arguments for better TypeScript inference:
  * - First arg: JSON schema object (literal types preserved via `const TJSONSchema`)
  * - Second arg: validate function (output type inferred via `TValidate`)
  *
  * ```typescript
- * return withStandard(
+ * return createColumnSchema(
  *   { 'x-component': 'text', type: 'string' },
  *   (value) => {
  *     if (typeof value !== 'string') return { issues: [...] };
@@ -65,7 +65,7 @@ type ColumnStandard<T> = {
  *
  * @internal Used by all column factory functions
  */
-function withStandard<
+function createColumnSchema<
 	const TJSONSchema extends Record<string, unknown>,
 	TOutput,
 >({
@@ -99,7 +99,7 @@ function withStandard<
  * ```
  */
 export function id(): IdColumnSchema {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: { 'x-component': 'id', type: 'string' },
 		validate: (value): StandardSchemaV1.Result<string> => {
 			if (typeof value !== 'string') {
@@ -135,7 +135,7 @@ export function text({
 	nullable?: boolean;
 	default?: string;
 } = {}): TextColumnSchema<boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'text',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -186,7 +186,7 @@ export function ytext({
 }: {
 	nullable?: boolean;
 } = {}): YtextColumnSchema<boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'ytext',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -226,7 +226,7 @@ export function integer({
 	nullable?: boolean;
 	default?: number;
 } = {}): IntegerColumnSchema<boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'integer',
 			type: nullable ? (['integer', 'null'] as const) : ('integer' as const),
@@ -267,7 +267,7 @@ export function real({
 	nullable?: boolean;
 	default?: number;
 } = {}): RealColumnSchema<boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'real',
 			type: nullable ? (['number', 'null'] as const) : ('number' as const),
@@ -308,7 +308,7 @@ export function boolean({
 	nullable?: boolean;
 	default?: boolean;
 } = {}): BooleanColumnSchema<boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'boolean',
 			type: nullable ? (['boolean', 'null'] as const) : ('boolean' as const),
@@ -351,7 +351,7 @@ export function date({
 	nullable?: boolean;
 	default?: DateWithTimezone;
 } = {}): DateColumnSchema<boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'date',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -401,7 +401,7 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number];
 }): SelectColumnSchema<TOptions, boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'select',
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
@@ -471,7 +471,7 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number][] | string[];
 } = {}): TagsColumnSchema<TOptions, boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'tags',
 			type: nullable ? (['array', 'null'] as const) : ('array' as const),
@@ -554,7 +554,7 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	nullable?: boolean;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonColumnSchema<TSchema, boolean> {
-	return withStandard({
+	return createColumnSchema({
 		jsonSchema: {
 			'x-component': 'json',
 			type: nullable ? (['object', 'null'] as const) : ('object' as const),
