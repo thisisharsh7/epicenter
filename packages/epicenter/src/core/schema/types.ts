@@ -6,14 +6,28 @@
  * - Table and workspace schemas
  * - Row value types (CellValue, SerializedRow, Row)
  *
- * Nullability is encoded in JSON Schema `type` field:
+ * ## Schema Structure
+ *
+ * Each column schema is a JSON Schema object with an `x-component` discriminant:
+ * - `x-component`: UI component hint (e.g., 'text', 'select', 'tags')
+ * - `type`: JSON Schema type, encodes nullability as `['string', 'null']`
+ * - `~standard`: Standard Schema validation and JSON Schema serialization
+ *
+ * ## Nullability
+ *
+ * Nullability is encoded in the JSON Schema `type` field:
  * - Non-nullable: `type: 'string'`
  * - Nullable: `type: ['string', 'null']`
  *
- * Other schema-related types are co-located with their implementations:
- * - Id type and generateId function → id.ts
- * - DateWithTimezone types and functions → date-with-timezone.ts
- * - Validation types and functions → validation.ts
+ * This follows JSON Schema conventions and enables round-trip serialization.
+ *
+ * ## Related Files
+ *
+ * - `columns.ts` - Factory functions for creating column schemas
+ * - `id.ts` - Id type and generateId function
+ * - `date-with-timezone.ts` - DateWithTimezone types and functions
+ * - `validation.ts` - Validation types and functions
+ * - `nullability.ts` - isNullableColumnSchema helper
  */
 
 import type * as Y from 'yjs';
@@ -28,44 +42,86 @@ import type {
 	StandardSchemaWithJSONSchema,
 } from './standard-schema';
 
+// ============================================================================
+// Column Schema Types
+// ============================================================================
+
+/**
+ * Internal type for the `~standard` property on column schemas.
+ * Combines Standard Schema validation with JSON Schema serialization.
+ */
 type ColumnStandard<T> = {
 	'~standard': StandardSchemaV1.Props<T> & StandardJSONSchemaV1.Props<T>;
 };
 
+/**
+ * ID column schema - auto-generated primary key.
+ * Always NOT NULL, always type 'string'.
+ *
+ * @example
+ * ```typescript
+ * { 'x-component': 'id', type: 'string', '~standard': {...} }
+ * ```
+ */
 export type IdColumnSchema = {
 	'x-component': 'id';
 	type: 'string';
 } & ColumnStandard<string>;
 
+/**
+ * Text column schema - single-line string input.
+ * Nullability encoded in `type`: `'string'` or `['string', 'null']`.
+ */
 export type TextColumnSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'text';
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
 	default?: string;
 } & ColumnStandard<TNullable extends true ? string | null : string>;
 
+/**
+ * Y.Text column schema - collaborative text using YJS.
+ * Stored as Y.Text for real-time collaboration, serializes to string.
+ * Ideal for code editors (Monaco, CodeMirror) and rich text (Quill).
+ */
 export type YtextColumnSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'ytext';
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
 } & ColumnStandard<TNullable extends true ? string | null : string>;
 
+/**
+ * Integer column schema - whole numbers.
+ * JSON Schema type is 'integer', not 'number'.
+ */
 export type IntegerColumnSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'integer';
 	type: TNullable extends true ? readonly ['integer', 'null'] : 'integer';
 	default?: number;
 } & ColumnStandard<TNullable extends true ? number | null : number>;
 
+/**
+ * Real/float column schema - decimal numbers.
+ * JSON Schema type is 'number'.
+ */
 export type RealColumnSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'real';
 	type: TNullable extends true ? readonly ['number', 'null'] : 'number';
 	default?: number;
 } & ColumnStandard<TNullable extends true ? number | null : number>;
 
+/**
+ * Boolean column schema - true/false values.
+ */
 export type BooleanColumnSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'boolean';
 	type: TNullable extends true ? readonly ['boolean', 'null'] : 'boolean';
 	default?: boolean;
 } & ColumnStandard<TNullable extends true ? boolean | null : boolean>;
 
+/**
+ * Date column schema - timezone-aware dates.
+ * Stored as DateWithTimezoneString format: `{iso}[{timezone}]`.
+ * Uses JSON Schema format 'date' for validation hint.
+ */
 export type DateColumnSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'date';
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
@@ -73,6 +129,20 @@ export type DateColumnSchema<TNullable extends boolean = boolean> = {
 	default?: DateWithTimezone;
 } & ColumnStandard<TNullable extends true ? string | null : string>;
 
+/**
+ * Select column schema - single choice from predefined options.
+ * Uses JSON Schema `enum` for option validation.
+ *
+ * @example
+ * ```typescript
+ * {
+ *   'x-component': 'select',
+ *   type: 'string',
+ *   enum: ['draft', 'published', 'archived'],
+ *   default: 'draft'
+ * }
+ * ```
+ */
 export type SelectColumnSchema<
 	TOptions extends readonly [string, ...string[]] = readonly [
 		string,
@@ -88,6 +158,33 @@ export type SelectColumnSchema<
 	TNullable extends true ? TOptions[number] | null : TOptions[number]
 >;
 
+/**
+ * Tags column schema - array of strings with optional validation.
+ * Stored as Y.Array for real-time collaboration.
+ *
+ * Two modes:
+ * - With `items.enum`: Only values from options are allowed
+ * - Without `items.enum`: Any string array is allowed
+ *
+ * @example
+ * ```typescript
+ * // Validated tags
+ * {
+ *   'x-component': 'tags',
+ *   type: 'array',
+ *   items: { type: 'string', enum: ['urgent', 'normal', 'low'] },
+ *   uniqueItems: true
+ * }
+ *
+ * // Unconstrained tags
+ * {
+ *   'x-component': 'tags',
+ *   type: 'array',
+ *   items: { type: 'string' },
+ *   uniqueItems: true
+ * }
+ * ```
+ */
 export type TagsColumnSchema<
 	TOptions extends readonly [string, ...string[]] = readonly [
 		string,
@@ -104,6 +201,28 @@ export type TagsColumnSchema<
 	TNullable extends true ? TOptions[number][] | null : TOptions[number][]
 >;
 
+/**
+ * JSON column schema - arbitrary JSON validated by a Standard Schema.
+ *
+ * The `schema` property holds a Standard Schema (ArkType, Zod v4.2+, Valibot)
+ * that validates the JSON value. The schema must support JSON Schema conversion
+ * for MCP/OpenAPI compatibility.
+ *
+ * **Avoid in schema property:**
+ * - Transforms: `.pipe()`, `.transform()`
+ * - Custom validation: `.filter()`, `.refine()`
+ * - Non-JSON types: `bigint`, `symbol`, `Date`, `Map`, `Set`
+ *
+ * @example
+ * ```typescript
+ * {
+ *   'x-component': 'json',
+ *   type: 'object',
+ *   schema: type({ theme: 'string', darkMode: 'boolean' }),
+ *   default: { theme: 'dark', darkMode: true }
+ * }
+ * ```
+ */
 export type JsonColumnSchema<
 	TSchema extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 	TNullable extends boolean = boolean,
@@ -118,6 +237,14 @@ export type JsonColumnSchema<
 		: StandardSchemaV1.InferOutput<TSchema>
 >;
 
+// ============================================================================
+// Discriminated Unions and Utility Types
+// ============================================================================
+
+/**
+ * Discriminated union of all column schema types.
+ * Use `x-component` to narrow to a specific type.
+ */
 export type ColumnSchema =
 	| IdColumnSchema
 	| TextColumnSchema
@@ -130,10 +257,32 @@ export type ColumnSchema =
 	| TagsColumnSchema
 	| JsonColumnSchema;
 
+/**
+ * Extract the component name from a column schema.
+ * One of: 'id', 'text', 'ytext', 'integer', 'real', 'boolean', 'date', 'select', 'tags', 'json'
+ */
 export type ColumnComponent = ColumnSchema['x-component'];
 
+/**
+ * Helper type to check if a JSON Schema type array includes 'null'.
+ * Used internally to derive nullability from the `type` field.
+ */
 type IsNullableType<T> = T extends readonly [unknown, 'null'] ? true : false;
 
+// ============================================================================
+// Value Types
+// ============================================================================
+
+/**
+ * Maps a column schema to its runtime value type (Y.js types or primitives).
+ *
+ * - YtextColumnSchema → Y.Text
+ * - TagsColumnSchema → Y.Array
+ * - DateColumnSchema → DateWithTimezoneString
+ * - Other columns → primitive types
+ *
+ * Nullability is derived from the schema's `type` field.
+ */
 export type CellValue<C extends ColumnSchema = ColumnSchema> =
 	C extends IdColumnSchema
 		? string
@@ -177,6 +326,14 @@ export type CellValue<C extends ColumnSchema = ColumnSchema> =
 												: StandardSchemaV1.InferOutput<TSchema>
 											: never;
 
+/**
+ * Maps a column schema to its JSON-serializable value type.
+ *
+ * Converts Y.js types to plain values:
+ * - Y.Text → string
+ * - Y.Array → array
+ * - DateWithTimezone → DateWithTimezoneString
+ */
 export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
 	CellValue<C> extends infer T
 		? T extends Y.Text
@@ -188,10 +345,50 @@ export type SerializedCellValue<C extends ColumnSchema = ColumnSchema> =
 					: T
 		: never;
 
+// ============================================================================
+// Table and Workspace Schemas
+// ============================================================================
+
+/**
+ * Table schema - maps column names to column schemas.
+ * Must always include an 'id' column with IdColumnSchema.
+ *
+ * @example
+ * ```typescript
+ * const postsSchema = {
+ *   id: id(),
+ *   title: text(),
+ *   status: select({ options: ['draft', 'published'] }),
+ * } satisfies TableSchema;
+ * ```
+ */
 export type TableSchema = { id: IdColumnSchema } & Record<string, ColumnSchema>;
 
+/**
+ * Workspace schema - maps table names to table schemas.
+ *
+ * @example
+ * ```typescript
+ * const blogSchema = {
+ *   posts: postsTableSchema,
+ *   authors: authorsTableSchema,
+ * } satisfies WorkspaceSchema;
+ * ```
+ */
 export type WorkspaceSchema = Record<string, TableSchema>;
 
+// ============================================================================
+// Row Types
+// ============================================================================
+
+/**
+ * Runtime row type with Y.js types and utility methods.
+ *
+ * Properties are readonly and typed according to their column schemas.
+ * Includes:
+ * - `toJSON()`: Serialize to plain JSON (converts Y.js types)
+ * - `$yRow`: Access to the underlying Y.Map
+ */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	readonly [K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 } & {
@@ -199,23 +396,48 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	readonly $yRow: YRow;
 };
 
+/**
+ * JSON-serializable row type.
+ * All values are plain primitives/objects (no Y.js types).
+ */
 export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
 	[K in keyof TTableSchema]: K extends 'id'
 		? string
 		: SerializedCellValue<TTableSchema[K]>;
 };
 
+/**
+ * Partial serialized row for updates.
+ * ID is required, all other fields are optional.
+ */
 export type PartialSerializedRow<
 	TTableSchema extends TableSchema = TableSchema,
 > = {
 	id: string;
 } & Partial<Omit<SerializedRow<TTableSchema>, 'id'>>;
 
+// ============================================================================
+// Key-Value Schema Types
+// ============================================================================
+
+/**
+ * Column schema for KV stores (excludes IdColumnSchema).
+ * KV entries don't have IDs; they're keyed by string.
+ */
 export type KvColumnSchema = Exclude<ColumnSchema, IdColumnSchema>;
 
+/**
+ * KV schema - maps key names to column schemas.
+ */
 export type KvSchema = Record<string, KvColumnSchema>;
 
+/**
+ * Runtime value type for a KV entry.
+ */
 export type KvValue<C extends KvColumnSchema = KvColumnSchema> = CellValue<C>;
 
+/**
+ * Serialized value type for a KV entry.
+ */
 export type SerializedKvValue<C extends KvColumnSchema = KvColumnSchema> =
 	SerializedCellValue<C>;
