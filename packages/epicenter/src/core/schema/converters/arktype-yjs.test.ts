@@ -22,12 +22,12 @@ test('validates Y.Text for ytext columns', () => {
 	};
 
 	const validator = tableSchemaToYjsArktypeType(schema);
-	const ytext = new Y.Text();
-	ytext.insert(0, 'Hello World');
+	const ytextInstance = new Y.Text();
+	ytextInstance.insert(0, 'Hello World');
 
 	const result = validator({
 		id: '123',
-		content: ytext,
+		content: ytextInstance,
 	});
 
 	expect(result instanceof type.errors).toBe(false);
@@ -42,10 +42,10 @@ test('validates Y.Text | null for nullable ytext columns', () => {
 	const validator = tableSchemaToYjsArktypeType(schema);
 
 	// Test with Y.Text
-	const ytext = new Y.Text();
+	const ytextInstance = new Y.Text();
 	const result1 = validator({
 		id: '123',
-		content: ytext,
+		content: ytextInstance,
 	});
 	expect(result1 instanceof type.errors).toBe(false);
 
@@ -79,7 +79,7 @@ test('rejects string for ytext columns', () => {
 test('validates Y.Array for multi-select columns', () => {
 	const schema = {
 		id: id(),
-		tags: tags(['tech', 'blog', 'news']),
+		tags: tags({ options: ['tech', 'blog', 'news'] }),
 	};
 
 	const validator = tableSchemaToYjsArktypeType(schema);
@@ -97,7 +97,7 @@ test('validates Y.Array for multi-select columns', () => {
 test('validates Y.Array | null for nullable multi-select columns', () => {
 	const schema = {
 		id: id(),
-		tags: tags(['tech', 'blog'], { nullable: true }),
+		tags: tags({ options: ['tech', 'blog'], nullable: true }),
 	};
 
 	const validator = tableSchemaToYjsArktypeType(schema);
@@ -121,7 +121,7 @@ test('validates Y.Array | null for nullable multi-select columns', () => {
 test('rejects plain array for multi-select columns', () => {
 	const schema = {
 		id: id(),
-		tags: tags(['tech', 'blog']),
+		tags: tags({ options: ['tech', 'blog'] }),
 	};
 
 	const validator = tableSchemaToYjsArktypeType(schema);
@@ -241,7 +241,7 @@ test('validates date strings for date columns', () => {
 test('validates select options for select columns', () => {
 	const schema = {
 		id: id(),
-		status: select(['draft', 'published', 'archived']),
+		status: select({ options: ['draft', 'published', 'archived'] }),
 	};
 
 	const validator = tableSchemaToYjsArktypeType(schema);
@@ -257,7 +257,7 @@ test('validates select options for select columns', () => {
 test('rejects invalid options for select columns', () => {
 	const schema = {
 		id: id(),
-		status: select(['draft', 'published']),
+		status: select({ options: ['draft', 'published'] }),
 	};
 
 	const validator = tableSchemaToYjsArktypeType(schema);
@@ -317,7 +317,7 @@ test('validates complex Row with YJS types', () => {
 		id: id(),
 		title: text(),
 		content: ytext(),
-		tags: tags(['tech', 'blog']),
+		tags: tags({ options: ['tech', 'blog'] }),
 		published: boolean(),
 		viewCount: integer(),
 		rating: real({ nullable: true }),
@@ -325,15 +325,15 @@ test('validates complex Row with YJS types', () => {
 
 	const validator = tableSchemaToYjsArktypeType(schema);
 
-	const ytext = new Y.Text();
-	ytext.insert(0, 'Content here');
+	const ytextInstance = new Y.Text();
+	ytextInstance.insert(0, 'Content here');
 	const yarray = new Y.Array();
 	yarray.push(['tech']);
 
 	const result = validator({
 		id: '123',
 		title: 'Test Post',
-		content: ytext,
+		content: ytextInstance,
 		tags: yarray,
 		published: true,
 		viewCount: 42,
@@ -353,13 +353,13 @@ test('validates Row with getters (buildRowFromYRow pattern)', () => {
 	const validator = tableSchemaToYjsArktypeType(schema);
 
 	// Simulate buildRowFromYRow pattern with getters
-	const ytext = new Y.Text();
-	ytext.insert(0, 'Content');
+	const ytextInstance = new Y.Text();
+	ytextInstance.insert(0, 'Content');
 
-	const mockYRow = new Map([
+	const mockYRow = new Map<string, string | Y.Text>([
 		['id', '123'],
 		['title', 'Test'],
-		['content', ytext],
+		['content', ytextInstance],
 	]);
 
 	const row: Record<string, unknown> = {};

@@ -5,6 +5,88 @@ description: Technical writing, README guidelines, and punctuation rules. Use wh
 
 # Documentation & README Writing Guidelines
 
+## Technical Article Structure (Deep Dive Articles)
+
+When writing technical articles that explain a concept or pattern, use this structure:
+
+### 1. TL;DR First
+
+Start with a 1-2 sentence summary that a busy reader can skim. Bold the key insight.
+
+```markdown
+**TL;DR**: If you need to know what an API can do without running it, don't wrap definitions in functions. Use static objects for metadata, functions for execution.
+```
+
+### 2. Problem-First Opening
+
+Drop the reader into a scenario where they feel the pain. Don't start with definitions.
+
+```markdown
+❌ "Introspection is the ability to examine an API's capabilities..."
+✅ "You're building a CLI. You want to show --help. You reach for your config and realize you have a problem."
+```
+
+### 3. Name Your Concepts
+
+Give memorable names to problems and patterns. This makes them discussable and searchable.
+
+- "The Introspection Boundary"
+- "The Boot-Loop Trap"
+- "The Accessor Pattern"
+
+### 4. Use ❌/✅ Comparison Blocks
+
+Show bad code, then good code. Label them clearly.
+
+```markdown
+### ❌ The "Function-Wrapped" API
+
+[code that has the problem]
+
+### ✅ The "Static Structure" API
+
+[code that solves it]
+```
+
+### 5. Address Common Misconceptions
+
+If readers often confuse two related concepts, call it out explicitly:
+
+```markdown
+## Type Inference is NOT Introspection
+
+Intermediate developers often confuse these...
+```
+
+### 6. Use One Analogy Consistently
+
+Pick a concrete analogy (restaurant menu, filing cabinet, etc.) and reference it throughout. Don't switch analogies mid-article.
+
+### 7. Include a Trade-offs Table
+
+For pattern comparisons, summarize with a table:
+
+```markdown
+| Approach | Introspectable | Flexible | DI Support |
+| -------- | -------------- | -------- | ---------- |
+| Static   | ✅ Yes         | ❌ No    | ❌ No      |
+| Callback | ❌ No          | ✅ Yes   | ✅ Yes     |
+```
+
+### 8. End with a "Golden Rule"
+
+Distill to one memorable principle:
+
+```markdown
+## The Golden Rule: Metadata Static, Execution Dynamic
+```
+
+### 9. Multiple Concrete Examples
+
+Don't just show one example. Show 2-3 different scenarios where the same principle applies. This helps readers generalize.
+
+---
+
 ## Voice Matching Priority
 
 When the user provides a voice transcript, tone guidance, or example text to match, that takes priority over all other rules below. Match their voice exactly:
@@ -22,11 +104,13 @@ Not every article needs a story arc. Some are just direct statements of practice
 Not every article needs a personal narrative. Choose based on content type:
 
 **Instructional (second person)**: Use for pattern explanations, best practices, guidelines.
+
 - "When you have related functions, you use a factory pattern"
 - "You can import X directly, but the relationship is implicit"
 - Direct, generalizable, focused on the pattern itself
 
 **Narrative (first person)**: Use for experience reports, lessons learned, project retrospectives.
+
 - "I was building X and hit this decision"
 - "Here's what I realized after debugging for hours"
 - Personal, story-driven, focused on the journey
@@ -249,3 +333,86 @@ So I built Whispering to cut out the middleman. You bring your own API key, your
 - Bad: "This was built to..." (corporate)
 - Good: "$0.02/hour" (specific)
 - Bad: "affordable pricing" (vague)
+
+---
+
+## Prompting Document-Writer Agents
+
+When delegating article writing to a `document-writer` subagent, structure your prompt for best results:
+
+### Required Elements
+
+1. **Target audience**: Who is reading? What do they already know?
+
+   ```
+   "Developers intermediate in TypeScript but new to API design trade-offs"
+   ```
+
+2. **Numbered themes**: List 5-8 specific topics to cover
+
+   ```
+   1. What is introspection?
+   2. The fundamental tension (functions vs objects)
+   3. Example 1: Workspace system
+   4. Example 2: Standard Schema
+   ...
+   ```
+
+3. **Code examples in prompt**: Provide ❌/✅ patterns for the agent to expand on
+
+   ```typescript
+   // ❌ Cannot introspect
+   actions: (ctx) => ({ create: { handler: () => ctx.db.insert() } });
+
+   // ✅ Can introspect
+   actions: {
+   	create: {
+   		handler: (input, ctx) => ctx.db.insert();
+   	}
+   }
+   ```
+
+4. **Style constraints**: Word count, TL;DR requirement, analogy suggestions
+
+   ```
+   "~1500-2000 words, include TL;DR at top, use restaurant menu analogy"
+   ```
+
+5. **Exact output path**: No ambiguity
+   ```
+   "Save to: /path/to/docs/articles/my-article.md"
+   ```
+
+### Example Full Prompt
+
+```
+Write a beginner-friendly technical article about [CONCEPT].
+
+**Target audience**: [WHO] who are [SKILL LEVEL] in [TOPIC].
+
+**Title suggestion**: "[CATCHY TITLE]"
+
+**Key themes to cover**:
+1. [THEME 1]
+2. [THEME 2]
+...
+
+**Concrete examples**:
+[CODE BLOCK showing bad approach]
+[CODE BLOCK showing good approach]
+
+**Style**:
+- Use code examples liberally
+- ~1500-2000 words
+- Include TL;DR at top
+- Use [SPECIFIC ANALOGY] throughout
+
+**Output**: /path/to/file.md
+```
+
+### What NOT to Do
+
+- Don't just say "write an article about X" (too vague)
+- Don't skip code examples (agent will make up worse ones)
+- Don't forget the audience (tone will be wrong)
+- Don't omit output path (creates confusion)

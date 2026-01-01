@@ -30,6 +30,7 @@ import type {
 	WorkspaceSchema,
 	YtextColumnSchema,
 } from '../../schema';
+import { isNullableColumnSchema } from '../nullability';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations.
@@ -270,105 +271,89 @@ function convertColumnSchemaToDrizzle<C extends ColumnSchema>(
 	columnName: string,
 	schema: C,
 ): ColumnToDrizzle<C> {
-	switch (schema.type) {
+	const isNullable = isNullableColumnSchema(schema);
+
+	switch (schema['x-component']) {
 		case 'id':
-			// ID is always a primary key text column with auto-generated nano ID
 			return text(columnName).primaryKey().notNull() as ColumnToDrizzle<C>;
 
 		case 'text': {
-			// Pattern 1: Use Drizzle's text() and chain modifiers
 			let column = text(columnName);
-			if (!schema.nullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column =
-					typeof schema.default === 'function'
-						? column.$defaultFn(schema.default)
-						: column.default(schema.default);
-			}
-			return column as ColumnToDrizzle<C>;
-		}
-
-		case 'ytext': {
-			// Y.Text stored as plain text (lossy conversion via toString())
-			// No default support since Y.Text content comes from CRDT
-			let column = text(columnName);
-			if (!schema.nullable) column = column.notNull();
-			return column as ColumnToDrizzle<C>;
-		}
-
-		case 'integer': {
-			let column = integer(columnName);
-			if (!schema.nullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column =
-					typeof schema.default === 'function'
-						? column.$defaultFn(schema.default)
-						: column.default(schema.default);
-			}
-			return column as ColumnToDrizzle<C>;
-		}
-
-		case 'real': {
-			let column = real(columnName);
-			if (!schema.nullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column =
-					typeof schema.default === 'function'
-						? column.$defaultFn(schema.default)
-						: column.default(schema.default);
-			}
-			return column as ColumnToDrizzle<C>;
-		}
-
-		case 'boolean': {
-			// SQLite has no native boolean; stored as INTEGER (0 or 1)
-			let column = integer(columnName, { mode: 'boolean' });
-			if (!schema.nullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column =
-					typeof schema.default === 'function'
-						? column.$defaultFn(schema.default)
-						: column.default(schema.default);
-			}
-			return column as ColumnToDrizzle<C>;
-		}
-
-		case 'date': {
-			// Pattern 2: Custom builder handles timezone serialization internally
-			// Stored as TEXT in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
-			const column = date(schema);
-			return column as ColumnToDrizzle<C>;
-		}
-
-		case 'select': {
-			// Single-value enum stored as TEXT with Drizzle's enum constraint.
-			// Note: SelectColumnSchema only allows static defaults (TOptions[number]),
-			// not function defaults, unlike other column types. This is intentional
-			// since enum values are typically known at schema definition time.
-			let column = text(columnName, { enum: schema.options });
-			if (!schema.nullable) column = column.notNull();
+			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
 			}
 			return column as ColumnToDrizzle<C>;
 		}
 
-		case 'multi-select': {
-			// Pattern 2: Custom builder handles JSON array serialization and validation
-			// Stored as TEXT containing JSON array of strings
-			const column = tags(schema);
+		case 'ytext': {
+			let column = text(columnName);
+			if (!isNullable) column = column.notNull();
+			return column as ColumnToDrizzle<C>;
+		}
+
+		case 'integer': {
+			let column = integer(columnName);
+			if (!isNullable) column = column.notNull();
+			if (schema.default !== undefined) {
+				column = column.default(schema.default);
+			}
+			return column as ColumnToDrizzle<C>;
+		}
+
+		case 'real': {
+			let column = real(columnName);
+			if (!isNullable) column = column.notNull();
+			if (schema.default !== undefined) {
+				column = column.default(schema.default);
+			}
+			return column as ColumnToDrizzle<C>;
+		}
+
+		case 'boolean': {
+			let column = integer(columnName, { mode: 'boolean' });
+			if (!isNullable) column = column.notNull();
+			if (schema.default !== undefined) {
+				column = column.default(schema.default);
+			}
+			return column as ColumnToDrizzle<C>;
+		}
+
+		case 'date': {
+			const column = date({ nullable: isNullable, default: schema.default });
+			return column as ColumnToDrizzle<C>;
+		}
+
+		case 'select': {
+			let column = text(columnName, { enum: [...schema.enum] });
+			if (!isNullable) column = column.notNull();
+			if (schema.default !== undefined) {
+				column = column.default(schema.default);
+			}
+			return column as ColumnToDrizzle<C>;
+		}
+
+		case 'tags': {
+			const column = tags({
+				options: schema.items.enum,
+				nullable: isNullable,
+				default: schema.default,
+			});
 			return column as ColumnToDrizzle<C>;
 		}
 
 		case 'json': {
-			// Pattern 2: Custom builder handles JSON serialization and arktype validation
-			// Stored as TEXT containing validated JSON
-			const column = json(schema);
+			const column = json({
+				schema: schema.schema,
+				nullable: isNullable,
+				default: schema.default,
+			});
 			return column as ColumnToDrizzle<C>;
 		}
 
 		default:
-			// @ts-expect-error - exhaustive check ensures all cases are handled
-			throw new Error(`Unknown column type: ${schema.type}`);
+			throw new Error(
+				`Unknown column type: ${(schema as ColumnSchema)['x-component']}`,
+			);
 	}
 }
