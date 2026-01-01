@@ -118,7 +118,7 @@ describe('tableSchemaToArktypeType', () => {
 					tags: type.string.array(),
 				}),
 			}),
-			status: select({ options: ['draft', 'published'] as const }),
+			status: select({ options: ['draft', 'published'] }),
 		};
 
 		const validator = tableSchemaToArktypeType(schema);
@@ -150,7 +150,7 @@ describe('tableSchemaToArktypeType', () => {
 			subtitle: text({ nullable: true }),
 			count: integer({ nullable: true }),
 			status: select({
-				options: ['draft', 'published'] as const,
+				options: ['draft', 'published'],
 				nullable: true,
 			}),
 		};
