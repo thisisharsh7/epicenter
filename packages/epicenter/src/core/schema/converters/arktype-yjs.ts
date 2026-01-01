@@ -30,6 +30,7 @@ import type {
 	TextColumnSchema,
 	YtextColumnSchema,
 } from '../../schema';
+import { isNullableColumnSchema } from '../nullability';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../regex';
 
 /**
@@ -141,13 +142,12 @@ function columnSchemaToYjsArktypeType<C extends ColumnSchema>(
 ): ColumnSchemaToYjsArktypeType<C> {
 	let baseType: Type;
 
-	switch (columnSchema.type) {
+	switch (columnSchema['x-component']) {
 		case 'id':
 		case 'text':
 			baseType = type.string;
 			break;
 		case 'ytext':
-			// Validate Y.Text instances using instanceof check
 			baseType = type.instanceOf(Y.Text);
 			break;
 		case 'integer':
@@ -167,20 +167,18 @@ function columnSchemaToYjsArktypeType<C extends ColumnSchema>(
 				.matching(DATE_WITH_TIMEZONE_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...columnSchema.options);
+			baseType = type.enumerated(...columnSchema.enum);
 			break;
-		case 'multi-select':
-			// Validate Y.Array instances using instanceof check
+		case 'tags':
 			baseType = type.instanceOf(Y.Array);
 			break;
 		case 'json':
-			// Use the schema directly from the column definition
-			baseType = columnSchema.schema;
+			baseType = columnSchema.schema as unknown as Type<unknown, {}>;
 			break;
 	}
 
-	// Handle nullable columns
+	const isNullable = isNullableColumnSchema(columnSchema);
 	return (
-		columnSchema.nullable ? baseType.or(type.null) : baseType
+		isNullable ? baseType.or(type.null) : baseType
 	) as ColumnSchemaToYjsArktypeType<C>;
 }

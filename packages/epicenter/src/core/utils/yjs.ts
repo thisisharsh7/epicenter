@@ -268,14 +268,17 @@ export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
 
 			const columnSchema = schema[fieldName];
 
-			if (columnSchema?.type === 'ytext' && typeof value === 'string') {
+			if (
+				columnSchema?.['x-component'] === 'ytext' &&
+				typeof value === 'string'
+			) {
 				const ytext = existing instanceof Y.Text ? existing : new Y.Text();
 				if (!(existing instanceof Y.Text)) {
 					yrow.set(fieldName, ytext);
 				}
 				updateYTextFromString(ytext, value);
 			} else if (
-				columnSchema?.type === 'date' &&
+				columnSchema?.['x-component'] === 'date' &&
 				isDateWithTimezoneString(value)
 			) {
 				if (existing !== value) {

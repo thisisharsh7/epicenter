@@ -29,6 +29,7 @@ import type {
 	TextColumnSchema,
 	YtextColumnSchema,
 } from '../../schema';
+import { isNullableColumnSchema } from '../nullability';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../regex';
 
 /**
@@ -143,7 +144,7 @@ function columnSchemaToArktypeType<C extends ColumnSchema>(
 ): ColumnSchemaToArktypeType<C> {
 	let baseType: Type;
 
-	switch (columnSchema.type) {
+	switch (columnSchema['x-component']) {
 		case 'id':
 		case 'text':
 		case 'ytext':
@@ -166,23 +167,20 @@ function columnSchemaToArktypeType<C extends ColumnSchema>(
 				.matching(DATE_WITH_TIMEZONE_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...columnSchema.options);
+			baseType = type.enumerated(...columnSchema.enum);
 			break;
-		case 'multi-select':
-			// If options provided, validate against them; otherwise allow any string array
-			baseType = columnSchema.options
-				? type.enumerated(...columnSchema.options).array()
+		case 'tags':
+			baseType = columnSchema.items.enum
+				? type.enumerated(...columnSchema.items.enum).array()
 				: type.string.array();
 			break;
 		case 'json':
-			// Use the schema directly from the column definition
-			baseType = columnSchema.schema;
+			baseType = columnSchema.schema as unknown as Type<unknown, {}>;
 			break;
 	}
 
-	// Nullable columns: allow null values AND default missing fields to null
-	// This enables serialize to strip nulls while deserialize restores them
+	const isNullable = isNullableColumnSchema(columnSchema);
 	return (
-		columnSchema.nullable ? baseType.or(type.null).default(null) : baseType
+		isNullable ? baseType.or(type.null).default(null) : baseType
 	) as ColumnSchemaToArktypeType<C>;
 }

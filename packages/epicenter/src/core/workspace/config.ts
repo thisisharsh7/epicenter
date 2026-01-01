@@ -151,7 +151,7 @@ export function defineWorkspace<
 
 	if (workspace.kv) {
 		for (const [keyName, columnSchema] of Object.entries(workspace.kv)) {
-			if (columnSchema.type === 'id') {
+			if (columnSchema['x-component'] === 'id') {
 				throw new Error(
 					`KV key "${keyName}" uses "id()" column type, which is not allowed in KV schemas. Use text(), integer(), or other value types instead.`,
 				);

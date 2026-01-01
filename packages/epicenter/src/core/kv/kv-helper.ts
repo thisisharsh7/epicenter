@@ -8,13 +8,20 @@ import type {
 	KvValue,
 	SerializedKvValue,
 } from '../schema';
-import { isDateWithTimezoneString, serializeCellValue } from '../schema';
+import {
+	isDateWithTimezoneString,
+	isNullableColumnSchema,
+	serializeCellValue,
+} from '../schema';
 import { updateYArrayFromArray, updateYTextFromString } from '../utils/yjs';
 
 export type YKvMap = Y.Map<KvValue>;
 
 /**
  * Creates a collection of typed KV helpers for all keys in a schema.
+ *
+ * Each key in the schema gets its own helper with get/set operations
+ * that handle YJS synchronization and type validation.
  */
 export function createKvHelpers<TKvSchema extends KvSchema>({
 	ydoc,
@@ -54,19 +61,21 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 	type TValue = KvValue<TColumnSchema>;
 	type TSerializedValue = SerializedKvValue<TColumnSchema>;
 
+	const nullable = isNullableColumnSchema(schema);
+
 	const getOrCreateYjsValue = (): TValue => {
 		const existing = ykvMap.get(keyName);
 		if (existing !== undefined) {
 			return existing as TValue;
 		}
 
-		if (schema.type === 'ytext') {
+		if (schema['x-component'] === 'ytext') {
 			const ytext = new Y.Text();
 			ykvMap.set(keyName, ytext);
 			return ytext as TValue;
 		}
 
-		if (schema.type === 'multi-select') {
+		if (schema['x-component'] === 'tags') {
 			const yarray = new Y.Array<string>();
 			ykvMap.set(keyName, yarray);
 			return yarray as TValue;
@@ -77,8 +86,7 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 
 	const getDefaultValue = (): TValue | undefined => {
 		if ('default' in schema && schema.default !== undefined) {
-			const def = schema.default;
-			return (typeof def === 'function' ? def() : def) as TValue;
+			return schema.default as TValue;
 		}
 		return undefined;
 	};
@@ -91,12 +99,12 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 			if (defaultVal !== undefined) {
 				return defaultVal;
 			}
-			if (schema.nullable) {
+			if (nullable) {
 				return null as TValue;
 			}
 		}
 
-		if (schema.type === 'ytext' || schema.type === 'multi-select') {
+		if (schema['x-component'] === 'ytext' || schema['x-component'] === 'tags') {
 			return getOrCreateYjsValue();
 		}
 
@@ -110,19 +118,19 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 				return;
 			}
 
-			if (schema.type === 'ytext' && typeof input === 'string') {
+			if (schema['x-component'] === 'ytext' && typeof input === 'string') {
 				const ytext = getOrCreateYjsValue() as Y.Text;
 				updateYTextFromString(ytext, input);
 				return;
 			}
 
-			if (schema.type === 'multi-select' && Array.isArray(input)) {
+			if (schema['x-component'] === 'tags' && Array.isArray(input)) {
 				const yarray = getOrCreateYjsValue() as Y.Array<string>;
 				updateYArrayFromArray(yarray, input);
 				return;
 			}
 
-			if (schema.type === 'date' && isDateWithTimezoneString(input)) {
+			if (schema['x-component'] === 'date' && isDateWithTimezoneString(input)) {
 				ykvMap.set(keyName, input);
 				return;
 			}
@@ -169,7 +177,7 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 						setValueFromSerialized(
 							serializeCellValue(defaultVal) as TSerializedValue,
 						);
-					} else if (schema.nullable) {
+					} else if (nullable) {
 						ykvMap.set(keyName, null);
 					} else {
 						ykvMap.delete(keyName);
@@ -184,37 +192,39 @@ export function createKvHelper<TColumnSchema extends KvColumnSchema>({
 }
 
 function createInputSchema(schema: KvColumnSchema) {
-	switch (schema.type) {
+	const nullable = isNullableColumnSchema(schema);
+
+	switch (schema['x-component']) {
 		case 'text':
-			return schema.nullable
+			return nullable
 				? type({ value: 'string | null' })
 				: type({ value: 'string' });
 		case 'ytext':
-			return schema.nullable
+			return nullable
 				? type({ value: 'string | null' })
 				: type({ value: 'string' });
 		case 'integer':
-			return schema.nullable
+			return nullable
 				? type({ value: 'number | null' })
 				: type({ value: 'number' });
 		case 'real':
-			return schema.nullable
+			return nullable
 				? type({ value: 'number | null' })
 				: type({ value: 'number' });
 		case 'boolean':
-			return schema.nullable
+			return nullable
 				? type({ value: 'boolean | null' })
 				: type({ value: 'boolean' });
 		case 'date':
-			return schema.nullable
+			return nullable
 				? type({ value: 'string | null' })
 				: type({ value: 'string' });
 		case 'select':
-			return schema.nullable
+			return nullable
 				? type({ value: 'string | null' })
 				: type({ value: 'string' });
-		case 'multi-select':
-			return schema.nullable
+		case 'tags':
+			return nullable
 				? type({ value: 'string[] | null' })
 				: type({ value: 'string[]' });
 		case 'json':

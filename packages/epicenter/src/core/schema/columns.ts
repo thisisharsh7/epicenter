@@ -3,10 +3,11 @@
  *
  * Provides factory functions for creating column schemas with type-safe options.
  * Each function returns a column schema object that describes the structure and
- * constraints of a database column.
+ * constraints of a database column, including Standard Schema validation.
  */
 
 import type { DateWithTimezone } from './date-with-timezone';
+import { isDateWithTimezoneString } from './date-with-timezone';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
@@ -25,21 +26,67 @@ import type {
 } from './types';
 
 /**
- * Creates an ID column schema - always primary key with auto-generation
- * IDs are always NOT NULL (cannot be nullable)
- * @example
- * id() // → { type: 'id', nullable: false }
+ * Creates a Standard Schema validation object for a column type.
+ *
+ * Standard Schema (https://standardschema.dev) provides a unified interface
+ * for schema validation across libraries (ArkType, Zod, Valibot, etc.).
+ * Each column schema includes `~standard` for runtime validation and
+ * JSON Schema generation.
+ *
+ * @internal Used by column factory functions
  */
-export function id(): IdColumnSchema {
-	return { type: 'id', nullable: false };
+function createStandard<T>(
+	validate: (
+		value: unknown,
+	) => { value: T } | { issues: { message: string; path: never[] }[] },
+	getJsonSchema: () => Record<string, unknown>,
+) {
+	return {
+		version: 1 as const,
+		vendor: 'epicenter',
+		validate,
+		jsonSchema: {
+			input: getJsonSchema,
+			output: getJsonSchema,
+		},
+	} satisfies StandardSchemaWithJSONSchema<T>['~standard'];
 }
 
 /**
- * Creates a text column schema (NOT NULL by default)
+ * Creates an ID column schema - always primary key with auto-generation.
+ * IDs are always NOT NULL (cannot be nullable).
+ *
  * @example
- * text() // → { type: 'text', nullable: false }
- * text({ nullable: true }) // → { type: 'text', nullable: true }
- * text({ default: 'unnamed' })
+ * ```typescript
+ * id() // → { 'x-component': 'id', type: 'string', ... }
+ * ```
+ */
+export function id(): IdColumnSchema {
+	const schema = {
+		'x-component': 'id' as const,
+		type: 'string' as const,
+		'~standard': createStandard<string>(
+			(value) => {
+				if (typeof value !== 'string') {
+					return { issues: [{ message: 'Expected string', path: [] }] };
+				}
+				return { value };
+			},
+			() => ({ 'x-component': 'id', type: 'string' }),
+		),
+	};
+	return schema;
+}
+
+/**
+ * Creates a text column schema (NOT NULL by default).
+ *
+ * @example
+ * ```typescript
+ * text()                        // NOT NULL text
+ * text({ nullable: true })      // Nullable text
+ * text({ default: 'unnamed' })  // NOT NULL with default
+ * ```
  */
 export function text(opts: {
 	nullable: true;
@@ -56,15 +103,32 @@ export function text({
 	nullable?: boolean;
 	default?: string;
 } = {}): TextColumnSchema<boolean> {
+	const jsonSchemaType = nullable
+		? (['string', 'null'] as const)
+		: ('string' as const);
 	return {
-		type: 'text',
-		nullable,
-		default: defaultValue,
+		'x-component': 'text',
+		type: jsonSchemaType,
+		...(defaultValue !== undefined && { default: defaultValue }),
+		'~standard': createStandard<string | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (typeof value !== 'string') {
+					return { issues: [{ message: 'Expected string', path: [] }] };
+				}
+				return { value };
+			},
+			() => ({
+				'x-component': 'text',
+				type: jsonSchemaType,
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }
 
 /**
- * Collaborative text editor column - stored as Y.Text (YJS shared type)
+ * Collaborative text editor column - stored as Y.Text (YJS shared type).
  *
  * Y.Text is a flat/linear text structure that supports inline formatting.
  * **Primary use case: Code editors** (Monaco, CodeMirror) with syntax highlighting.
@@ -85,9 +149,11 @@ export function text({
  * - Formatted comments or chat messages
  *
  * @example
- * query: ytext() // → Y.Text binded to CodeMirror/Monaco for storing SQL queries
- * snippet: ytext() // → Y.Text binded to CodeMirror for code examples
- * comment: ytext({ nullable: true }) // → Y.Text binded to Quill editor for comments
+ * ```typescript
+ * query: ytext()                  // Y.Text for storing SQL queries
+ * snippet: ytext()                // Y.Text for code examples
+ * comment: ytext({ nullable: true }) // Optional collaborative text
+ * ```
  */
 export function ytext(opts: { nullable: true }): YtextColumnSchema<true>;
 export function ytext(opts?: { nullable?: false }): YtextColumnSchema<false>;
@@ -96,17 +162,34 @@ export function ytext({
 }: {
 	nullable?: boolean;
 } = {}): YtextColumnSchema<boolean> {
+	const jsonSchemaType = nullable
+		? (['string', 'null'] as const)
+		: ('string' as const);
 	return {
-		type: 'ytext',
-		nullable,
+		'x-component': 'ytext',
+		type: jsonSchemaType,
+		'~standard': createStandard<string | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (typeof value !== 'string') {
+					return { issues: [{ message: 'Expected string', path: [] }] };
+				}
+				return { value };
+			},
+			() => ({ 'x-component': 'ytext', type: jsonSchemaType }),
+		),
 	};
 }
 
 /**
- * Creates an integer column schema (NOT NULL by default)
+ * Creates an integer column schema (NOT NULL by default).
+ *
  * @example
- * integer() // → { type: 'integer', nullable: false }
- * integer({ default: 0 })
+ * ```typescript
+ * integer()               // NOT NULL integer
+ * integer({ default: 0 }) // NOT NULL with default
+ * integer({ nullable: true })
+ * ```
  */
 export function integer(opts: {
 	nullable: true;
@@ -123,18 +206,39 @@ export function integer({
 	nullable?: boolean;
 	default?: number;
 } = {}): IntegerColumnSchema<boolean> {
+	const jsonSchemaType = nullable
+		? (['integer', 'null'] as const)
+		: ('integer' as const);
 	return {
-		type: 'integer',
-		nullable,
-		default: defaultValue,
+		'x-component': 'integer',
+		type: jsonSchemaType,
+		...(defaultValue !== undefined && { default: defaultValue }),
+		'~standard': createStandard<number | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (typeof value !== 'number' || !Number.isInteger(value)) {
+					return { issues: [{ message: 'Expected integer', path: [] }] };
+				}
+				return { value };
+			},
+			() => ({
+				'x-component': 'integer',
+				type: jsonSchemaType,
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }
 
 /**
- * Creates a real/float column schema (NOT NULL by default)
+ * Creates a real/float column schema (NOT NULL by default).
+ *
  * @example
- * real() // → { type: 'real', nullable: false }
- * real({ default: 0.0 })
+ * ```typescript
+ * real()                 // NOT NULL float
+ * real({ default: 0.0 }) // NOT NULL with default
+ * real({ nullable: true })
+ * ```
  */
 export function real(opts: {
 	nullable: true;
@@ -151,18 +255,39 @@ export function real({
 	nullable?: boolean;
 	default?: number;
 } = {}): RealColumnSchema<boolean> {
+	const jsonSchemaType = nullable
+		? (['number', 'null'] as const)
+		: ('number' as const);
 	return {
-		type: 'real',
-		nullable,
-		default: defaultValue,
+		'x-component': 'real',
+		type: jsonSchemaType,
+		...(defaultValue !== undefined && { default: defaultValue }),
+		'~standard': createStandard<number | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (typeof value !== 'number') {
+					return { issues: [{ message: 'Expected number', path: [] }] };
+				}
+				return { value };
+			},
+			() => ({
+				'x-component': 'real',
+				type: jsonSchemaType,
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }
 
 /**
- * Creates a boolean column schema (NOT NULL by default)
+ * Creates a boolean column schema (NOT NULL by default).
+ *
  * @example
- * boolean() // → { type: 'boolean', nullable: false }
- * boolean({ default: false })
+ * ```typescript
+ * boolean()                  // NOT NULL boolean
+ * boolean({ default: false }) // NOT NULL with default
+ * boolean({ nullable: true })
+ * ```
  */
 export function boolean(opts: {
 	nullable: true;
@@ -179,19 +304,41 @@ export function boolean({
 	nullable?: boolean;
 	default?: boolean;
 } = {}): BooleanColumnSchema<boolean> {
+	const jsonSchemaType = nullable
+		? (['boolean', 'null'] as const)
+		: ('boolean' as const);
 	return {
-		type: 'boolean',
-		nullable,
-		default: defaultValue,
+		'x-component': 'boolean',
+		type: jsonSchemaType,
+		...(defaultValue !== undefined && { default: defaultValue }),
+		'~standard': createStandard<boolean | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (typeof value !== 'boolean') {
+					return { issues: [{ message: 'Expected boolean', path: [] }] };
+				}
+				return { value };
+			},
+			() => ({
+				'x-component': 'boolean',
+				type: jsonSchemaType,
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }
 
 /**
- * Creates a date with timezone column schema (NOT NULL by default)
+ * Creates a date with timezone column schema (NOT NULL by default).
+ *
+ * Uses DateWithTimezone format for timezone-aware date storage.
+ *
  * @example
- * date() // → { type: 'date', nullable: false }
- * date({ nullable: true })
+ * ```typescript
+ * date()                   // NOT NULL date
+ * date({ nullable: true }) // Nullable date
  * date({ default: DateWithTimezone({ date: new Date('2025-01-01'), timezone: 'UTC' }) })
+ * ```
  */
 export function date(opts: {
 	nullable: true;
@@ -208,18 +355,41 @@ export function date({
 	nullable?: boolean;
 	default?: DateWithTimezone;
 } = {}): DateColumnSchema<boolean> {
+	const jsonSchemaType = nullable
+		? (['string', 'null'] as const)
+		: ('string' as const);
 	return {
-		type: 'date',
-		nullable,
-		default: defaultValue,
+		'x-component': 'date',
+		type: jsonSchemaType,
+		format: 'date',
+		...(defaultValue !== undefined && { default: defaultValue }),
+		'~standard': createStandard<string | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (typeof value !== 'string' || !isDateWithTimezoneString(value)) {
+					return { issues: [{ message: 'Expected date string', path: [] }] };
+				}
+				return { value };
+			},
+			() => ({
+				'x-component': 'date',
+				type: jsonSchemaType,
+				format: 'date',
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }
 
 /**
- * Creates a select (single choice) column schema
+ * Creates a select/enum column schema for single choice from predefined options.
+ *
  * @example
+ * ```typescript
  * select({ options: ['draft', 'published', 'archived'] })
- * select({ options: ['tech', 'personal'], default: 'tech' })
+ * select({ options: ['low', 'medium', 'high'], default: 'medium' })
+ * select({ options: ['public', 'private'], nullable: true })
+ * ```
  */
 export function select<
 	const TOptions extends readonly [string, ...string[]],
@@ -244,11 +414,36 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number];
 }): SelectColumnSchema<TOptions, boolean> {
+	const jsonSchemaType = nullable
+		? (['string', 'null'] as const)
+		: ('string' as const);
 	return {
-		type: 'select',
-		nullable,
-		options,
-		default: defaultValue,
+		'x-component': 'select',
+		type: jsonSchemaType,
+		enum: options,
+		...(defaultValue !== undefined && { default: defaultValue }),
+		'~standard': createStandard<TOptions[number] | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (
+					typeof value !== 'string' ||
+					!options.includes(value as TOptions[number])
+				) {
+					return {
+						issues: [
+							{ message: `Expected one of: ${options.join(', ')}`, path: [] },
+						],
+					};
+				}
+				return { value: value as TOptions[number] };
+			},
+			() => ({
+				'x-component': 'select',
+				type: jsonSchemaType,
+				enum: options,
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }
 
@@ -260,14 +455,16 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
  * 2. Without options (unconstrained): Any string array is allowed
  *
  * @example
+ * ```typescript
  * // Validated tags (with options)
  * tags({ options: ['urgent', 'normal', 'low'] })
  * tags({ options: ['typescript', 'javascript', 'python'], default: ['typescript'] })
  *
  * // Unconstrained tags (without options)
- * tags() // Any string array
+ * tags()                   // Any string array
  * tags({ nullable: true })
  * tags({ default: ['initial', 'tags'] })
+ * ```
  */
 export function tags<
 	const TOptions extends readonly [string, ...string[]],
@@ -283,12 +480,9 @@ export function tags<
 	nullable?: false;
 	default?: TOptions[number][];
 }): TagsColumnSchema<TOptions, false>;
-export function tags<
-	TNullable extends boolean = false,
-	TDefault extends string[] | undefined = undefined,
->(opts?: {
+export function tags<TNullable extends boolean = false>(opts?: {
 	nullable?: TNullable;
-	default?: TDefault;
+	default?: string[];
 }): TagsColumnSchema<readonly [string, ...string[]], TNullable>;
 export function tags<const TOptions extends readonly [string, ...string[]]>({
 	options,
@@ -299,11 +493,45 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number][] | string[];
 } = {}): TagsColumnSchema<TOptions, boolean> {
+	const jsonSchemaType = nullable
+		? (['array', 'null'] as const)
+		: ('array' as const);
+	const items = options
+		? { type: 'string' as const, enum: options }
+		: { type: 'string' as const };
 	return {
-		type: 'multi-select',
-		nullable,
-		options,
-		default: defaultValue as TOptions[number][],
+		'x-component': 'tags',
+		type: jsonSchemaType,
+		items,
+		uniqueItems: true,
+		...(defaultValue !== undefined && {
+			default: defaultValue as TOptions[number][],
+		}),
+		'~standard': createStandard<TOptions[number][] | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				if (!Array.isArray(value)) {
+					return { issues: [{ message: 'Expected array', path: [] }] };
+				}
+				if (options) {
+					for (const item of value) {
+						if (!options.includes(item as TOptions[number])) {
+							return {
+								issues: [{ message: `Invalid tag: ${item}`, path: [] }],
+							};
+						}
+					}
+				}
+				return { value: value as TOptions[number][] };
+			},
+			() => ({
+				'x-component': 'tags',
+				type: jsonSchemaType,
+				items,
+				uniqueItems: true,
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }
 
@@ -312,7 +540,7 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
  *
  * JSON columns store arbitrary JSON-serializable values validated against any
  * Standard Schema compliant schema (ArkType, Zod v4.2+, Valibot with adapter).
- * Unlike other column types, the `schema` property is always required.
+ * The `schema` property is always required.
  *
  * **JSON Schema Compatibility Warning**: When used in action inputs (mutations, queries),
  * these schemas are converted to JSON Schema for MCP/OpenAPI. Only use features that
@@ -324,7 +552,7 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
  *
  * @example
  * ```typescript
- * import { json } from 'epicenter/schema';
+ * import { json } from '@epicenter/hq';
  * import { type } from 'arktype';
  *
  * // Simple object (ArkType)
@@ -359,10 +587,33 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	nullable?: boolean;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonColumnSchema<TSchema, boolean> {
+	const jsonSchemaType = nullable
+		? (['object', 'null'] as const)
+		: ('object' as const);
 	return {
-		type: 'json',
-		nullable,
+		'x-component': 'json',
+		type: jsonSchemaType,
 		schema,
-		default: defaultValue,
+		...(defaultValue !== undefined && { default: defaultValue }),
+		'~standard': createStandard<StandardSchemaV1.InferOutput<TSchema> | null>(
+			(value) => {
+				if (nullable && value === null) return { value: null };
+				const result = schema['~standard'].validate(value);
+				if ('issues' in result && result.issues) {
+					return {
+						issues: result.issues as { message: string; path: never[] }[],
+					};
+				}
+				return {
+					value: (result as { value: unknown })
+						.value as StandardSchemaV1.InferOutput<TSchema>,
+				};
+			},
+			() => ({
+				'x-component': 'json',
+				type: jsonSchemaType,
+				...(defaultValue !== undefined && { default: defaultValue }),
+			}),
+		),
 	};
 }

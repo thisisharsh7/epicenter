@@ -47,6 +47,7 @@ export { generateJsonSchema } from './generate-json-schema';
 // ============================================================================
 export type { Id } from './id';
 export { generateId } from './id';
+export { isNullableColumnSchema } from './nullability';
 // ============================================================================
 // Regex
 // ============================================================================
@@ -75,8 +76,8 @@ export type {
 	BooleanColumnSchema,
 	// Value types
 	CellValue,
+	ColumnComponent,
 	ColumnSchema,
-	ColumnType,
 	DateColumnSchema,
 	// Column schema types
 	IdColumnSchema,

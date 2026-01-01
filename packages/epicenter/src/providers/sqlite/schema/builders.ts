@@ -1,4 +1,7 @@
-import { type ArkErrors, type Type, type } from 'arktype';
+import type {
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+} from '../../../core/schema/standard-schema';
 import type {
 	ColumnBuilderBase,
 	ColumnBuilderBaseConfig,
@@ -362,24 +365,27 @@ export function tags<
 }
 
 /**
- * Creates a JSON column for storing arbitrary JSON-serializable values validated against a Type schema
+ * Creates a JSON column for storing arbitrary JSON-serializable values validated against a Standard Schema
  * (stored as JSON text, NOT NULL by default)
  *
- * Values are validated on read using the provided Type schema. Invalid values in the database
- * will cause reads to throw an error, ensuring data integrity and surfacing corruption immediately.
+ * Values are validated on read using the provided schema's `~standard.validate()` method.
+ * Invalid values in the database will cause reads to throw an error, ensuring data integrity
+ * and surfacing corruption immediately.
+ *
+ * Compatible with any Standard Schema library: ArkType, Zod (v4.2+), Valibot (with adapter).
  *
  * @example
- * // With validation schema
+ * // With ArkType schema
  * json({ schema: type({ name: 'string', age: 'number' }) })
  * json({ schema: userSchema, nullable: true })
  * json({ schema: configSchema, default: { theme: 'dark' } })
  */
 export function json<
-	const TSchema extends Type,
+	const TSchema extends StandardSchemaWithJSONSchema,
 	TNullable extends boolean = false,
 	TDefault extends
-		| TSchema['infer']
-		| (() => TSchema['infer'])
+		| StandardSchemaV1.InferOutput<TSchema>
+		| (() => StandardSchemaV1.InferOutput<TSchema>)
 		| undefined = undefined,
 >({
 	schema,
@@ -390,23 +396,30 @@ export function json<
 	nullable?: TNullable;
 	default?: TDefault;
 }) {
+	type TOutput = StandardSchemaV1.InferOutput<TSchema>;
+
 	const jsonType = customType<{
-		data: TSchema['infer'];
+		data: TOutput;
 		driverData: string;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value: TSchema['infer']): string => JSON.stringify(value),
-		fromDriver: (value: string): TSchema['infer'] => {
-			// Let JSON.parse throw on invalid JSON
+		toDriver: (value: TOutput): string => JSON.stringify(value),
+		fromDriver: (value: string): TOutput => {
 			const parsed = JSON.parse(value);
+			const result = schema['~standard'].validate(parsed);
 
-			// Validate with Arktype
-			const result = schema(parsed) as TSchema['infer'] | ArkErrors;
-			if (result instanceof type.errors) {
-				throw new Error(`JSON validation failed: ${result.summary}`);
+			if (result instanceof Promise) {
+				throw new Error(
+					'Async validation not supported for JSON columns in SQLite',
+				);
 			}
 
-			return result;
+			if (result.issues) {
+				const messages = result.issues.map((i) => i.message).join(', ');
+				throw new Error(`JSON validation failed: ${messages}`);
+			}
+
+			return result.value as TOutput;
 		},
 	});
 
@@ -419,7 +432,7 @@ export function json<
 		column =
 			typeof defaultValue === 'function'
 				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue as any);
+				: column.default(defaultValue as unknown as TOutput);
 	}
 
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
