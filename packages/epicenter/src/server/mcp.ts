@@ -11,7 +11,7 @@ import type { JsonSchema } from 'arktype';
 import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import type { Action } from '../core/actions';
-import { generateJsonSchema } from '../core/schema/generate-json-schema';
+import { generateJsonSchema } from '../core/schema';
 import type { AnyWorkspaceConfig, EpicenterClient } from '../core/workspace';
 
 /**

@@ -7,11 +7,11 @@
  * - Composable arktype schemas (toArktype)
  */
 
-import type { StandardSchemaV1 } from './standard-schema';
+import type { StandardSchemaV1 } from '../standard/types';
 import { type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
-import { tableSchemaToArktypeType } from './converters/arktype';
-import { tableSchemaToYjsArktypeType } from './converters/arktype-yjs';
+import { tableSchemaToArktypeType } from './to-arktype';
+import { tableSchemaToYjsArktypeType } from './to-arktype-yjs';
 import type {
 	PartialSerializedRow,
 	Row,

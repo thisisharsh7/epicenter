@@ -1,7 +1,7 @@
-import type { ColumnSchema } from './types';
+import type { FieldSchema } from './types';
 
 /**
- * Determine whether a column schema accepts `null`.
+ * Determine whether a field schema accepts `null`.
  *
  * Epicenter encodes nullability using native JSON Schema unions:
  * - Non-nullable: `type: 'string'`
@@ -13,15 +13,15 @@ import type { ColumnSchema } from './types';
  *
  * @example
  * ```typescript
- * import { isNullableColumnSchema } from './nullability';
+ * import { isNullableFieldSchema } from './nullability';
  *
- * if (!isNullableColumnSchema(schema)) {
+ * if (!isNullableFieldSchema(schema)) {
  *   column = column.notNull();
  * }
  * ```
  */
-export function isNullableColumnSchema(
-	schema: Pick<ColumnSchema, 'type'>,
+export function isNullableFieldSchema(
+	schema: Pick<FieldSchema, 'type'>,
 ): boolean {
 	const { type } = schema;
 	return Array.isArray(type) && (type as readonly unknown[]).includes('null');

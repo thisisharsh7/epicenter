@@ -1,3 +1,4 @@
+import { regex } from 'arkregex';
 import * as Y from 'yjs';
 import { defineMutation } from '../actions';
 import type { WorkspaceSchema } from '../schema';
@@ -33,7 +34,7 @@ import {
  * **Why not uppercase?** Case-sensitivity varies; lowercase-only is predictable everywhere
  * **Why start with letter?** SQL/JS identifiers starting with numbers need special handling
  */
-const TABLE_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
+const TABLE_NAME_PATTERN = regex('^[a-z][a-z0-9_]*$');
 
 /**
  * Valid column name pattern: same constraints as table names.

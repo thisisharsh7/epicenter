@@ -12,7 +12,7 @@ import {
 	tags,
 	text,
 	ytext,
-} from '../columns';
+} from '../fields';
 import { tableSchemaToYjsArktypeType } from './arktype-yjs';
 
 test('validates Y.Text for ytext columns', () => {

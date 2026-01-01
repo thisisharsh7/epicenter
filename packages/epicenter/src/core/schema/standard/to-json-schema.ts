@@ -1,4 +1,4 @@
-import type { StandardJSONSchemaV1 } from './standard-schema';
+import type { StandardJSONSchemaV1 } from './types';
 import type { JsonSchema } from 'arktype';
 import { Ok, trySync } from 'wellcrafted/result';
 import { ARKTYPE_JSON_SCHEMA_FALLBACK } from './arktype-fallback';
@@ -28,7 +28,7 @@ import { ARKTYPE_JSON_SCHEMA_FALLBACK } from './arktype-fallback';
  *
  * @see https://standardschema.dev/json-schema - Standard JSON Schema spec
  * @see https://arktype.io/docs/json-schema - arktype's toJsonSchema docs
- * @see ARKTYPE_JSON_SCHEMA_FALLBACK in ./arktype-fallback.ts for fallback handlers
+ * @see ARKTYPE_JSON_SCHEMA_FALLBACK in arktype-fallback.ts for fallback handlers
  *
  * @param schema - Standard JSON Schema to convert
  * @returns JSON Schema representation, or permissive `{}` on error

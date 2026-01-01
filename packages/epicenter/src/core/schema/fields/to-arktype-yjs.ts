@@ -1,78 +1,78 @@
 /**
- * @fileoverview Converts ColumnSchema to arktype Type definitions for YJS Row validation
+ * @fileoverview Converts FieldSchema to arktype Type definitions for YJS Row validation
  *
- * This converter transforms epicenter ColumnSchema definitions into arktype types
+ * This converter transforms epicenter FieldSchema definitions into arktype types
  * that validate YJS Row objects (objects with getter properties returning YJS types).
  *
  * Unlike arktype.ts which validates SerializedRow (plain JS types), this validates
  * Row objects where:
- * - ytext columns contain Y.Text instances (not strings)
- * - multi-select columns contain Y.Array instances (not arrays)
+ * - ytext fields contain Y.Text instances (not strings)
+ * - tags fields contain Y.Array instances (not arrays)
  * - Other types remain unchanged (string, number, boolean, etc.)
  */
 
-import type { StandardSchemaV1 } from '../standard-schema';
+import type { StandardSchemaV1 } from '../standard/types';
 import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import * as Y from 'yjs';
 import type {
-	BooleanColumnSchema,
-	ColumnSchema,
-	DateColumnSchema,
-	IdColumnSchema,
-	IntegerColumnSchema,
-	JsonColumnSchema,
-	RealColumnSchema,
+	BooleanFieldSchema,
+	FieldSchema,
+	DateFieldSchema,
+	IdFieldSchema,
+	IntegerFieldSchema,
+	JsonFieldSchema,
+	RealFieldSchema,
 	Row,
-	SelectColumnSchema,
+	SelectFieldSchema,
 	TableSchema,
-	TagsColumnSchema,
-	TextColumnSchema,
-	YtextColumnSchema,
+	TagsFieldSchema,
+	TextFieldSchema,
+	YtextFieldSchema,
 } from '../../schema';
-import { isNullableColumnSchema } from '../nullability';
+import { isNullableFieldSchema } from '../nullability';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../regex';
 
 /**
- * Maps a ColumnSchema to its corresponding YJS cell value arktype Type.
+ * Maps a FieldSchema to its corresponding YJS cell value arktype Type.
  * This validates the actual YJS types present in Row objects.
  */
-export type ColumnSchemaToYjsArktypeType<C extends ColumnSchema> =
-	C extends IdColumnSchema
+export type FieldSchemaToYjsArktypeType<C extends FieldSchema> =
+	C extends IdFieldSchema
 		? Type<string>
-		: C extends TextColumnSchema<infer TNullable>
+		: C extends TextFieldSchema<infer TNullable>
 			? TNullable extends true
 				? Type<string | null>
 				: Type<string>
-			: C extends YtextColumnSchema<infer TNullable>
+			: C extends YtextFieldSchema<infer TNullable>
 				? TNullable extends true
 					? Type<Y.Text | null>
 					: Type<Y.Text>
-				: C extends IntegerColumnSchema<infer TNullable>
+				: C extends IntegerFieldSchema<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>
 						: Type<number>
-					: C extends RealColumnSchema<infer TNullable>
+					: C extends RealFieldSchema<infer TNullable>
 						? TNullable extends true
 							? Type<number | null>
 							: Type<number>
-						: C extends BooleanColumnSchema<infer TNullable>
+						: C extends BooleanFieldSchema<infer TNullable>
 							? TNullable extends true
 								? Type<boolean | null>
 								: Type<boolean>
-							: C extends DateColumnSchema<infer TNullable>
+							: C extends DateFieldSchema<infer TNullable>
 								? TNullable extends true
 									? Type<string | null>
 									: Type<string>
-								: C extends SelectColumnSchema<infer TOptions, infer TNullable>
+								: C extends SelectFieldSchema<infer TOptions, infer TNullable>
 									? TNullable extends true
 										? Type<TOptions[number] | null>
 										: Type<TOptions[number]>
-									: C extends TagsColumnSchema<infer TOptions, infer TNullable>
+									: C extends TagsFieldSchema<infer TOptions, infer TNullable>
 										? TNullable extends true
 											? Type<Y.Array<TOptions[number]> | null>
 											: Type<Y.Array<TOptions[number]>>
-										: C extends JsonColumnSchema<infer TSchema, infer TNullable>
+										: C extends JsonFieldSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
 												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
 												: Type<StandardSchemaV1.InferOutput<TSchema>>
@@ -118,31 +118,31 @@ export function tableSchemaToYjsArktypeType<TSchema extends TableSchema>(
 ): ObjectType<Row<TSchema>> {
 	return type(
 		Object.fromEntries(
-			Object.entries(tableSchema).map(([fieldName, columnSchema]) => [
+			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
 				fieldName,
-				columnSchemaToYjsArktypeType(columnSchema),
+				fieldSchemaToYjsArktypeType(fieldSchema),
 			]),
 		),
 	) as ObjectType<Row<TSchema>>;
 }
 
 /**
- * Converts a single ColumnSchema to a YJS cell value arktype Type.
+ * Converts a single FieldSchema to a YJS cell value arktype Type.
  *
  * Returns arktype Type instances that validate YJS types:
  * - ytext → validates Y.Text instances
- * - multi-select → validates Y.Array instances
+ * - tags → validates Y.Array instances
  * - Other types → same as regular validation (string, number, etc.)
  *
- * @param columnSchema - The column schema to convert
+ * @param fieldSchema - The field schema to convert
  * @returns Arktype Type that validates the YJS cell value
  */
-function columnSchemaToYjsArktypeType<C extends ColumnSchema>(
-	columnSchema: C,
-): ColumnSchemaToYjsArktypeType<C> {
+function fieldSchemaToYjsArktypeType<C extends FieldSchema>(
+	fieldSchema: C,
+): FieldSchemaToYjsArktypeType<C> {
 	let baseType: Type;
 
-	switch (columnSchema['x-component']) {
+	switch (fieldSchema['x-component']) {
 		case 'id':
 		case 'text':
 			baseType = type.string;
@@ -167,18 +167,18 @@ function columnSchemaToYjsArktypeType<C extends ColumnSchema>(
 				.matching(DATE_WITH_TIMEZONE_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...columnSchema.enum);
+			baseType = type.enumerated(...fieldSchema.enum);
 			break;
 		case 'tags':
 			baseType = type.instanceOf(Y.Array);
 			break;
 		case 'json':
-			baseType = columnSchema.schema as unknown as Type<unknown, {}>;
+			baseType = fieldSchema.schema as unknown as Type<unknown, {}>;
 			break;
 	}
 
-	const isNullable = isNullableColumnSchema(columnSchema);
+	const isNullable = isNullableFieldSchema(fieldSchema);
 	return (
 		isNullable ? baseType.or(type.null) : baseType
-	) as ColumnSchemaToYjsArktypeType<C>;
+	) as FieldSchemaToYjsArktypeType<C>;
 }

@@ -1,16 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
-import {
-	createTableValidators,
-	id,
-	integer,
-	json,
-	select,
-	tags,
-	text,
-	ytext,
-} from './index';
+import { createTableValidators } from './validators';
+import { id, integer, json, select, tags, text, ytext } from './factories';
 
 describe('createTableValidators', () => {
 	describe('toArktype() validation', () => {

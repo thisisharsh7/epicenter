@@ -39,6 +39,7 @@
 		"@standard-schema/spec": "^1.1.0",
 		"@tursodatabase/database": "^0.3.2",
 		"@types/bun": "catalog:",
+		"arkregex": "catalog:",
 		"arktype": "catalog:",
 		"chokidar": "^5.0.0",
 		"diff": "^8.0.2",
