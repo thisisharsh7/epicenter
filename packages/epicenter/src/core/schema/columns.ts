@@ -135,11 +135,10 @@ export function text({
 	nullable?: boolean;
 	default?: string;
 } = {}): TextColumnSchema<boolean> {
-	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'text',
-			type,
+			type: nullable ? (['string', 'null'] as const) : ('string' as const),
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<string | null> => {
@@ -187,9 +186,11 @@ export function ytext({
 }: {
 	nullable?: boolean;
 } = {}): YtextColumnSchema<boolean> {
-	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
 	return withStandard({
-		jsonSchema: { 'x-component': 'ytext', type },
+		jsonSchema: {
+			'x-component': 'ytext',
+			type: nullable ? (['string', 'null'] as const) : ('string' as const),
+		},
 		validate: (value): StandardSchemaV1.Result<string | null> => {
 			if (nullable && value === null) return { value: null };
 			if (typeof value !== 'string') {
@@ -225,11 +226,10 @@ export function integer({
 	nullable?: boolean;
 	default?: number;
 } = {}): IntegerColumnSchema<boolean> {
-	const type = nullable ? (['integer', 'null'] as const) : ('integer' as const);
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'integer',
-			type,
+			type: nullable ? (['integer', 'null'] as const) : ('integer' as const),
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<number | null> => {
@@ -267,11 +267,10 @@ export function real({
 	nullable?: boolean;
 	default?: number;
 } = {}): RealColumnSchema<boolean> {
-	const type = nullable ? (['number', 'null'] as const) : ('number' as const);
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'real',
-			type,
+			type: nullable ? (['number', 'null'] as const) : ('number' as const),
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<number | null> => {
@@ -309,11 +308,10 @@ export function boolean({
 	nullable?: boolean;
 	default?: boolean;
 } = {}): BooleanColumnSchema<boolean> {
-	const type = nullable ? (['boolean', 'null'] as const) : ('boolean' as const);
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'boolean',
-			type,
+			type: nullable ? (['boolean', 'null'] as const) : ('boolean' as const),
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<boolean | null> => {
@@ -353,11 +351,10 @@ export function date({
 	nullable?: boolean;
 	default?: DateWithTimezone;
 } = {}): DateColumnSchema<boolean> {
-	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'date',
-			type,
+			type: nullable ? (['string', 'null'] as const) : ('string' as const),
 			format: 'date',
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
@@ -404,11 +401,10 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number];
 }): SelectColumnSchema<TOptions, boolean> {
-	const type = nullable ? (['string', 'null'] as const) : ('string' as const);
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'select',
-			type,
+			type: nullable ? (['string', 'null'] as const) : ('string' as const),
 			enum: options,
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
@@ -475,15 +471,13 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	nullable?: boolean;
 	default?: TOptions[number][] | string[];
 } = {}): TagsColumnSchema<TOptions, boolean> {
-	const type = nullable ? (['array', 'null'] as const) : ('array' as const);
-	const items = options
-		? { type: 'string' as const, enum: options }
-		: { type: 'string' as const };
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'tags',
-			type,
-			items,
+			type: nullable ? (['array', 'null'] as const) : ('array' as const),
+			items: options
+				? { type: 'string' as const, enum: options }
+				: { type: 'string' as const },
 			uniqueItems: true,
 			...(defaultValue !== undefined && {
 				default: defaultValue as TOptions[number][],
@@ -560,11 +554,10 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	nullable?: boolean;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonColumnSchema<TSchema, boolean> {
-	const type = nullable ? (['object', 'null'] as const) : ('object' as const);
 	return withStandard({
 		jsonSchema: {
 			'x-component': 'json',
-			type,
+			type: nullable ? (['object', 'null'] as const) : ('object' as const),
 			schema,
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
