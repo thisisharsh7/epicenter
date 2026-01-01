@@ -142,7 +142,7 @@ export function text({
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<string | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (typeof value !== 'string') {
 				return { issues: [{ message: 'Expected string', path: [] }] };
 			}
@@ -192,7 +192,7 @@ export function ytext({
 			type: nullable ? (['string', 'null'] as const) : ('string' as const),
 		},
 		validate: (value): StandardSchemaV1.Result<string | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (typeof value !== 'string') {
 				return { issues: [{ message: 'Expected string', path: [] }] };
 			}
@@ -233,7 +233,7 @@ export function integer({
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<number | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (typeof value !== 'number' || !Number.isInteger(value)) {
 				return { issues: [{ message: 'Expected integer', path: [] }] };
 			}
@@ -274,7 +274,7 @@ export function real({
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<number | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (typeof value !== 'number') {
 				return { issues: [{ message: 'Expected number', path: [] }] };
 			}
@@ -315,7 +315,7 @@ export function boolean({
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<boolean | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (typeof value !== 'boolean') {
 				return { issues: [{ message: 'Expected boolean', path: [] }] };
 			}
@@ -359,7 +359,7 @@ export function date({
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<string | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (typeof value !== 'string' || !isDateWithTimezoneString(value)) {
 				return { issues: [{ message: 'Expected date string', path: [] }] };
 			}
@@ -409,7 +409,7 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 			...(defaultValue !== undefined && { default: defaultValue }),
 		},
 		validate: (value): StandardSchemaV1.Result<TOptions[number] | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (
 				typeof value !== 'string' ||
 				!options.includes(value as TOptions[number])
@@ -484,7 +484,7 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 			}),
 		},
 		validate: (value): StandardSchemaV1.Result<TOptions[number][] | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			if (!Array.isArray(value)) {
 				return { issues: [{ message: 'Expected array', path: [] }] };
 			}
@@ -564,7 +564,7 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 		validate: (
 			value,
 		): StandardSchemaV1.Result<StandardSchemaV1.InferOutput<TSchema> | null> => {
-			if (nullable && value === null) return { value: null };
+			if (nullable && value === null) return { value };
 			const result = schema['~standard'].validate(value);
 			if ('issues' in result && result.issues) {
 				return {
