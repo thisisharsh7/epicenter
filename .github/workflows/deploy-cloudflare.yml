@@ -25,7 +25,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: "package.json"
+          bun-version-file: 'package.json'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,7 +37,7 @@ jobs:
 
       - name: Run type checking
         run: |
-          bun run --filter @epicenter/whispering check
+          bun run --filter @epicenter/whispering typecheck
           bun run --filter @epicenter/landing astro check || true
 
       - name: Run linting
@@ -77,7 +77,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: "package.json"
+          bun-version-file: 'package.json'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -139,7 +139,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: "package.json"
+          bun-version-file: 'package.json'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

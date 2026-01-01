@@ -14,7 +14,7 @@
 		"format": "echo 'skip format'",
 		"format:check": "echo 'skip format check'",
 		"lint": "echo 'skip lint'",
-		"check": "tsc --noEmit"
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"arktype": "catalog:",
