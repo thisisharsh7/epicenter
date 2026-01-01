@@ -1,12 +1,3 @@
-/**
- * @fileoverview Schema module barrel file
- *
- * Main entry point for the schema system. Exports all public APIs organized by category.
- */
-
-// ============================================================================
-// Field Factories
-// ============================================================================
 export {
 	boolean,
 	date,
@@ -18,72 +9,17 @@ export {
 	tags,
 	text,
 	ytext,
-} from './fields';
-// ============================================================================
-// Converters
-// ============================================================================
-export type { FieldSchemaToArktypeType } from './converters/arktype';
-export { tableSchemaToArktypeType } from './converters/arktype';
-export type { WorkspaceSchemaToDrizzleTables } from './converters/drizzle';
-export {
-	convertTableSchemaToDrizzle,
-	convertWorkspaceSchemaToDrizzle,
-} from './converters/drizzle';
-export type {
-	DateIsoString,
-	DateWithTimezoneString,
-	TimezoneId,
-} from './date-with-timezone';
-export {
-	DateWithTimezone,
-	DateWithTimezoneFromString,
-	isDateWithTimezone,
-	isDateWithTimezoneString,
-	isIsoDateTimeString,
-} from './date-with-timezone';
-export { generateJsonSchema } from './converters/json-schema';
-// ============================================================================
-// Utilities
-// ============================================================================
-export type { Id } from './id';
-export { generateId } from './id';
-export { isNullableFieldSchema } from './nullability';
-// ============================================================================
-// Regex
-// ============================================================================
-export {
-	DATE_WITH_TIMEZONE_STRING_REGEX,
-	ISO_DATETIME_REGEX,
-	TIMEZONE_ID_REGEX,
-} from './regex';
-// ============================================================================
-// Serialization
-// ============================================================================
-export { serializeCellValue } from './serialization';
-// ============================================================================
-// Standard Schema
-// ============================================================================
-export type {
-	StandardJSONSchemaV1,
-	StandardSchemaV1,
-	StandardSchemaWithJSONSchema,
-	StandardTypedV1,
-} from './standard-schema';
-// ============================================================================
-// Types
-// ============================================================================
+} from './fields/factories.js';
+
 export type {
 	BooleanFieldSchema,
-	// Value types
 	CellValue,
+	DateFieldSchema,
 	FieldComponent,
 	FieldSchema,
-	DateFieldSchema,
-	// Field schema types
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
-	// KV schema types
 	KvFieldSchema,
 	KvSchema,
 	KvValue,
@@ -94,22 +30,62 @@ export type {
 	SerializedCellValue,
 	SerializedKvValue,
 	SerializedRow,
-	// Table and workspace schemas
 	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 	WorkspaceSchema,
 	YtextFieldSchema,
-} from './types';
+} from './fields/types.js';
+
+export type { FieldSchemaToArktypeType } from './fields/to-arktype.js';
+export { tableSchemaToArktypeType } from './fields/to-arktype.js';
+
+export type { WorkspaceSchemaToDrizzleTables } from './fields/to-drizzle.js';
+export {
+	convertTableSchemaToDrizzle,
+	convertWorkspaceSchemaToDrizzle,
+} from './fields/to-drizzle.js';
+
+export { isNullableFieldSchema } from './fields/nullability.js';
+
 export type {
-	// Validator types
 	TableValidators,
 	WorkspaceValidators,
-} from './validation';
-// ============================================================================
-// Validation
-// ============================================================================
+} from './fields/validators.js';
 export {
 	createTableValidators,
 	createWorkspaceValidators,
-} from './validation';
+} from './fields/validators.js';
+
+export type {
+	StandardJSONSchemaV1,
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+	StandardTypedV1,
+} from './standard/types.js';
+
+export { generateJsonSchema } from './standard/to-json-schema.js';
+
+export type {
+	DateIsoString,
+	DateWithTimezoneString,
+	TimezoneId,
+} from './runtime/date-with-timezone.js';
+export {
+	DateWithTimezone,
+	DateWithTimezoneFromString,
+	isDateWithTimezone,
+	isDateWithTimezoneString,
+	isIsoDateTimeString,
+} from './runtime/date-with-timezone.js';
+
+export {
+	DATE_WITH_TIMEZONE_STRING_REGEX,
+	ISO_DATETIME_REGEX,
+	TIMEZONE_ID_REGEX,
+} from './runtime/regex.js';
+
+export { serializeCellValue } from './runtime/serialization.js';
+
+export type { Id } from './id.js';
+export { generateId } from './id.js';

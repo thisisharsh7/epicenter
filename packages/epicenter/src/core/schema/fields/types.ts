@@ -31,16 +31,16 @@
  */
 
 import type * as Y from 'yjs';
-import type { YRow } from '../db/table-helper';
+import type { YRow } from '../../db/table-helper';
 import type {
 	DateWithTimezone,
 	DateWithTimezoneString,
-} from './date-with-timezone';
+} from '../runtime/date-with-timezone';
 import type {
 	StandardJSONSchemaV1,
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
-} from './standard-schema';
+} from '../standard/types';
 
 // ============================================================================
 // Column Schema Types

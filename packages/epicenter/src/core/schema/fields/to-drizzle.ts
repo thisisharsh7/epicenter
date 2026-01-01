@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from '../standard-schema';
+import type { StandardSchemaV1 } from '../standard/types';
 import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,
@@ -12,7 +12,7 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { date, json, tags } from '../../../providers/sqlite/schema/builders';
+import { date, json, tags } from '../../../../providers/sqlite/schema/builders';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
@@ -29,8 +29,8 @@ import type {
 	TextFieldSchema,
 	WorkspaceSchema,
 	YtextFieldSchema,
-} from '../../schema';
-import { isNullableFieldSchema } from '../nullability';
+} from './types';
+import { isNullableFieldSchema } from './nullability';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations.

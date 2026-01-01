@@ -6,7 +6,11 @@
  */
 
 import * as Y from 'yjs';
-import type { CellValue, FieldSchema, SerializedCellValue } from './types';
+import type {
+	CellValue,
+	FieldSchema,
+	SerializedCellValue,
+} from '../fields/types';
 
 /**
  * Serializes a single cell value to its plain JavaScript equivalent.

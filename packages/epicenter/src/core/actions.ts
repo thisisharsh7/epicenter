@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from './schema/standard-schema';
+import type { StandardSchemaV1 } from './schema';
 import type { TaggedError } from 'wellcrafted/error';
 import type { Result } from 'wellcrafted/result';
 import type { StandardSchemaWithJSONSchema } from './schema';
