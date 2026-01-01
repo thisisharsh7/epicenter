@@ -8,7 +8,7 @@
 		"./prettier": "./prettier.js"
 	},
 	"scripts": {
-		"check": "tsc --noEmit"
+		"typecheck": "tsc --noEmit"
 	},
 	"peerDependencies": {
 		"eslint": ">=9.0.0",

@@ -24,6 +24,6 @@
 		"vite": "catalog:"
 	},
 	"scripts": {
-		"check": "tsc --noEmit"
+		"typecheck": "tsc --noEmit"
 	}
 }

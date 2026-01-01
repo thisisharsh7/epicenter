@@ -17,7 +17,7 @@
 	},
 	"scripts": {
 		"lint": "eslint .",
-		"check": "svelte-check"
+		"typecheck": "svelte-check"
 	},
 	"dependencies": {
 		"@fontsource-variable/manrope": "^5.2.6",

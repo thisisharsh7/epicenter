@@ -10,7 +10,7 @@
 		"astro": "astro",
 		"deploy": "bun run build && wrangler pages deploy",
 		"lint": "eslint .",
-		"check": "astro check && svelte-check"
+		"typecheck": "astro check && svelte-check"
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.4",
