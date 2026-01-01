@@ -178,6 +178,81 @@ Options arrays should be co-located with their source array in the same file. Av
 
 Exception: Keep options inline when they have platform-specific or runtime-conditional content that would require importing platform constants into the data module.
 
+
+# Parameter Destructuring for Factory Functions
+
+## Prefer Parameter Destructuring Over Body Destructuring
+
+When writing factory functions that take options objects, destructure directly in the function signature instead of in the function body. This is the established pattern in the codebase.
+
+### Bad Pattern (Body Destructuring)
+
+```typescript
+// DON'T: Extra line of ceremony
+function createSomething(opts: { foo: string; bar?: number }) {
+  const { foo, bar = 10 } = opts;  // Unnecessary extra line
+  return { foo, bar };
+}
+```
+
+### Good Pattern (Parameter Destructuring)
+
+```typescript
+// DO: Destructure directly in parameters
+function createSomething({ foo, bar = 10 }: { foo: string; bar?: number }) {
+  return { foo, bar };
+}
+```
+
+### Why This Matters
+
+1. **Fewer lines**: Removes the extra destructuring statement
+2. **Defaults at API boundary**: Users see defaults in the signature, not hidden in the body
+3. **Works with `const` generics**: TypeScript literal inference works correctly:
+   ```typescript
+   function select<const TOptions extends readonly string[]>({
+     options,
+     nullable = false,
+   }: {
+     options: TOptions;
+     nullable?: boolean;
+   }) { ... }
+   ```
+4. **Closures work identically**: Inner functions capture the same variables either way
+
+### When Body Destructuring is Valid
+
+- Need to distinguish "property missing" vs "property is `undefined`" (`'key' in opts`)
+- Complex normalization/validation of the options object
+- Need to pass the entire `opts` object to other functions
+
+### Codebase Examples
+
+```typescript
+// From packages/epicenter/src/core/schema/columns.ts
+export function select<const TOptions extends readonly [string, ...string[]]>({
+  options,
+  nullable = false,
+  default: defaultValue,
+}: {
+  options: TOptions;
+  nullable?: boolean;
+  default?: TOptions[number];
+}): SelectColumnSchema<TOptions, boolean> {
+  return { type: 'select', nullable, options, default: defaultValue };
+}
+
+// From apps/whispering/.../create-key-recorder.svelte.ts
+export function createKeyRecorder({
+  pressedKeys,
+  onRegister,
+  onClear,
+}: {
+  pressedKeys: PressedKeys;
+  onRegister: (keyCombination: KeyboardEventSupportedKey[]) => void;
+  onClear: () => void;
+}) { ... }
+```
 # Arktype Optional Properties
 
 ## Never Use `| undefined` for Optional Properties
