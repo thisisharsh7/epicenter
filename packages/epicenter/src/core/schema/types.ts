@@ -12,13 +12,16 @@
  * - Validation types and functions → validation.ts
  */
 
-import type { Type } from 'arktype';
 import type * as Y from 'yjs';
 import type { YRow } from '../db/table-helper';
 import type {
 	DateWithTimezone,
 	DateWithTimezoneString,
 } from './date-with-timezone';
+import type {
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+} from './standard-schema';
 
 // ============================================================================
 // Column Schema Types
@@ -32,7 +35,7 @@ export type IdColumnSchema = { type: 'id'; nullable: false };
 export type TextColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'text';
 	nullable: TNullable;
-	default?: string | (() => string);
+	default?: string;
 };
 
 export type YtextColumnSchema<TNullable extends boolean = boolean> = {
@@ -43,25 +46,25 @@ export type YtextColumnSchema<TNullable extends boolean = boolean> = {
 export type IntegerColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'integer';
 	nullable: TNullable;
-	default?: number | (() => number);
+	default?: number;
 };
 
 export type RealColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'real';
 	nullable: TNullable;
-	default?: number | (() => number);
+	default?: number;
 };
 
 export type BooleanColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'boolean';
 	nullable: TNullable;
-	default?: boolean | (() => boolean);
+	default?: boolean;
 };
 
 export type DateColumnSchema<TNullable extends boolean = boolean> = {
 	type: 'date';
 	nullable: TNullable;
-	default?: DateWithTimezone | (() => DateWithTimezone);
+	default?: DateWithTimezone;
 };
 
 export type SelectColumnSchema<
@@ -152,13 +155,13 @@ export type TagsColumnSchema<
  * ```
  */
 export type JsonColumnSchema<
-	TSchema extends Type = Type,
+	TSchema extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 	TNullable extends boolean = boolean,
 > = {
 	type: 'json';
 	nullable: TNullable;
 	schema: TSchema;
-	default?: TSchema['infer'] | (() => TSchema['infer']);
+	default?: StandardSchemaV1.InferOutput<TSchema>;
 };
 
 /**
@@ -245,8 +248,8 @@ export type CellValue<C extends ColumnSchema = ColumnSchema> =
 											: Y.Array<TOptions[number]>
 										: C extends JsonColumnSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
-												? TSchema['infer'] | null
-												: TSchema['infer']
+												? StandardSchemaV1.InferOutput<TSchema> | null
+												: StandardSchemaV1.InferOutput<TSchema>
 											: never;
 
 /**

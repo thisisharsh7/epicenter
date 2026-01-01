@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '../standard-schema';
 import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,
@@ -223,7 +224,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 													name: '';
 													dataType: 'custom';
 													columnType: 'SQLiteCustomColumn';
-													data: TSchema['infer'];
+													data: StandardSchemaV1.InferOutput<TSchema>;
 													driverParam: string;
 													enumValues: undefined;
 												}>
@@ -232,7 +233,7 @@ type ColumnToDrizzle<C extends ColumnSchema> = C extends IdColumnSchema
 														name: '';
 														dataType: 'custom';
 														columnType: 'SQLiteCustomColumn';
-														data: TSchema['infer'];
+														data: StandardSchemaV1.InferOutput<TSchema>;
 														driverParam: string;
 														enumValues: undefined;
 													}>
