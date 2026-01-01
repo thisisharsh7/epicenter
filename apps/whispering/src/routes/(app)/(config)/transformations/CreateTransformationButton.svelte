@@ -2,7 +2,7 @@
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { Editor } from '$lib/components/transformations-editor';
 	import { Button } from '@epicenter/ui/button';
-	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Modal from '@epicenter/ui/modal';
 	import { Separator } from '@epicenter/ui/separator';
 	import { rpc } from '$lib/query';
 	import { generateDefaultTransformation } from '$lib/services/isomorphic/db';
@@ -13,7 +13,7 @@
 		() => rpc.db.transformations.create.options,
 	);
 
-	let isDialogOpen = $state(false);
+	let isModalOpen = $state(false);
 	let transformation = $state(generateDefaultTransformation());
 
 	function promptUserConfirmLeave() {
@@ -22,46 +22,46 @@
 			description: 'You have unsaved changes. Are you sure you want to leave?',
 			confirm: { text: 'Leave' },
 			onConfirm: () => {
-				isDialogOpen = false;
+				isModalOpen = false;
 			},
 		});
 	}
 </script>
 
-<Dialog.Root bind:open={isDialogOpen}>
-	<Dialog.Trigger>
+<Modal.Root bind:open={isModalOpen}>
+	<Modal.Trigger>
 		{#snippet child({ props })}
 			<Button {...props}>
 				<PlusIcon class="size-4" />
 				Create Transformation
 			</Button>
 		{/snippet}
-	</Dialog.Trigger>
+	</Modal.Trigger>
 
-	<Dialog.Content
+	<Modal.Content
 		class="max-h-[80vh] sm:max-w-7xl"
 		onEscapeKeydown={(e) => {
 			e.preventDefault();
-			if (isDialogOpen) {
+			if (isModalOpen) {
 				promptUserConfirmLeave();
 			}
 		}}
 		onInteractOutside={(e) => {
 			e.preventDefault();
-			if (isDialogOpen) {
+			if (isModalOpen) {
 				promptUserConfirmLeave();
 			}
 		}}
 	>
-		<Dialog.Header>
-			<Dialog.Title>Create Transformation</Dialog.Title>
+		<Modal.Header>
+			<Modal.Title>Create Transformation</Modal.Title>
 			<Separator />
-		</Dialog.Header>
+		</Modal.Header>
 
 		<Editor bind:transformation />
 
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (isDialogOpen = false)}>
+		<Modal.Footer>
+			<Button variant="outline" onclick={() => (isModalOpen = false)}>
 				Cancel
 			</Button>
 			<Button
@@ -69,7 +69,7 @@
 				onclick={() =>
 					createTransformation.mutate($state.snapshot(transformation), {
 						onSuccess: () => {
-							isDialogOpen = false;
+							isModalOpen = false;
 							transformation = generateDefaultTransformation();
 							rpc.notify.success.execute({
 								title: 'Created transformation!',
@@ -88,6 +88,6 @@
 			>
 				Create
 			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</Modal.Footer>
+	</Modal.Content>
+</Modal.Root>

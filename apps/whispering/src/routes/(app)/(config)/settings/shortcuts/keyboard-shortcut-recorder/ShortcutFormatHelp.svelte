@@ -2,7 +2,7 @@
 	import * as Alert from '@epicenter/ui/alert';
 	import { Button } from '@epicenter/ui/button';
 	import * as Kbd from '@epicenter/ui/kbd';
-	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Modal from '@epicenter/ui/modal';
 	import {
 		ACCELERATOR_SECTIONS,
 		CommandOrAlt,
@@ -54,18 +54,18 @@
 	<span class="sr-only">Shortcut format help</span>
 </Button>
 
-<Dialog.Root bind:open={dialogOpen}>
-	<Dialog.Content class="sm:max-w-3xl">
-		<Dialog.Header>
-			<Dialog.Title>
+<Modal.Root bind:open={dialogOpen}>
+	<Modal.Content class="sm:max-w-3xl">
+		<Modal.Header>
+			<Modal.Title>
 				{isLocal ? 'Local' : 'Global'} Shortcut Format Guide
-			</Dialog.Title>
-			<Dialog.Description>
+			</Modal.Title>
+			<Modal.Description>
 				Learn how to format keyboard shortcuts for {isLocal
 					? 'in-app'
 					: 'system-wide'} use.
-			</Dialog.Description>
-		</Dialog.Header>
+			</Modal.Description>
+		</Modal.Header>
 
 		<div class="flex flex-col gap-4">
 			<!-- Quick format summary -->
@@ -149,7 +149,7 @@
 			{/if}
 		</div>
 
-		<Dialog.Footer>
+		<Modal.Footer>
 			{#if !isLocal}
 				<Button
 					variant="outline"
@@ -162,6 +162,6 @@
 				</Button>
 			{/if}
 			<Button onclick={() => (dialogOpen = false)}>Close</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</Modal.Footer>
+	</Modal.Content>
+</Modal.Root>

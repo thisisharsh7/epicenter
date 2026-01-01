@@ -9,7 +9,7 @@
 	import * as ButtonGroup from '@epicenter/ui/button-group';
 	import { Card } from '@epicenter/ui/card';
 	import { Checkbox } from '@epicenter/ui/checkbox';
-	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Modal from '@epicenter/ui/modal';
 	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
 	import { Input } from '@epicenter/ui/input';
 	import { Label } from '@epicenter/ui/label';
@@ -449,11 +449,11 @@
 						{/if}
 					</Button>
 
-					<Dialog.Root
+					<Modal.Root
 						open={isDialogOpen}
 						onOpenChange={(v) => (isDialogOpen = v)}
 					>
-						<Dialog.Trigger>
+						<Modal.Trigger>
 							<Button
 								tooltip="Copy transcripts from selected recordings"
 								variant="outline"
@@ -461,15 +461,15 @@
 							>
 								<CopyIcon class="size-4" />
 							</Button>
-						</Dialog.Trigger>
-						<Dialog.Content>
-							<Dialog.Header>
-								<Dialog.Title>Copy Transcripts</Dialog.Title>
-								<Dialog.Description>
+						</Modal.Trigger>
+						<Modal.Content>
+							<Modal.Header>
+								<Modal.Title>Copy Transcripts</Modal.Title>
+								<Modal.Description>
 									Make changes to your profile here. Click save when you're
 									done.
-								</Dialog.Description>
-							</Dialog.Header>
+								</Modal.Description>
+							</Modal.Header>
 							<div class="grid gap-4 py-4">
 								<div class="grid grid-cols-4 items-center gap-4">
 									<Label for="template" class="text-right">Template</Label>
@@ -494,7 +494,7 @@
 								class="h-32"
 								value={joinedTranscriptionsText}
 							/>
-							<Dialog.Footer>
+							<Modal.Footer>
 								<CopyButton
 									text={joinedTranscriptionsText}
 									copyFn={createCopyFn('transcripts')}
@@ -505,9 +505,9 @@
 								>
 									Copy Transcriptions
 								</CopyButton>
-							</Dialog.Footer>
-						</Dialog.Content>
-					</Dialog.Root>
+							</Modal.Footer>
+						</Modal.Content>
+					</Modal.Root>
 
 					<Button
 						tooltip="Delete selected recordings"
