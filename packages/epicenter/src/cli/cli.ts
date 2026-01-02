@@ -1,12 +1,80 @@
 import yargs from 'yargs';
-import type { AnyWorkspaceConfig, EpicenterClient } from '../core/workspace';
-import type { WorkspaceClientInternals } from '../core/workspace/client.shared';
+import type { ActionContracts, ActionContract } from '../core/actions';
+import { isActionContract } from '../core/actions';
+import type { StandardJSONSchemaV1 } from '../core/schema';
+import type { BoundWorkspaceClient } from '../core/workspace/contract';
 import { createServer, DEFAULT_PORT } from '../server/server';
 import { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
 
-export function createCLI<
-	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(client: EpicenterClient<TWorkspaces>) {
+type AnyWorkspaceClient = BoundWorkspaceClient<string, ActionContracts>;
+
+type ActionInfo = {
+	workspaceId: string;
+	actionPath: string[];
+	action: ActionContract;
+	handler: (input: unknown) => Promise<unknown>;
+};
+
+function extractActions(
+	contracts: ActionContracts,
+	boundActions: Record<string, unknown>,
+	workspaceId: string,
+	path: string[] = [],
+): ActionInfo[] {
+	const actions: ActionInfo[] = [];
+
+	for (const [key, contractOrNamespace] of Object.entries(contracts)) {
+		const actionPath = [...path, key];
+
+		if (isActionContract(contractOrNamespace)) {
+			const handler = boundActions[key] as (input: unknown) => Promise<unknown>;
+			actions.push({
+				workspaceId,
+				actionPath,
+				action: contractOrNamespace,
+				handler,
+			});
+		} else {
+			actions.push(
+				...extractActions(
+					contractOrNamespace as ActionContracts,
+					boundActions[key] as Record<string, unknown>,
+					workspaceId,
+					actionPath,
+				),
+			);
+		}
+	}
+
+	return actions;
+}
+
+export function createCLI(clients: AnyWorkspaceClient | AnyWorkspaceClient[]) {
+	const clientArray = Array.isArray(clients) ? clients : [clients];
+
+	const workspaces: Record<string, AnyWorkspaceClient> = {};
+	const allActions: ActionInfo[] = [];
+
+	for (const client of clientArray) {
+		const workspaceId = client.$id;
+		workspaces[workspaceId] = client;
+
+		const boundActions: Record<string, unknown> = {};
+		for (const key of Object.keys(client)) {
+			if (
+				!key.startsWith('$') &&
+				key !== 'destroy' &&
+				typeof (client as Record<string, unknown>)[key] === 'function'
+			) {
+				boundActions[key] = (client as Record<string, unknown>)[key];
+			}
+		}
+
+		allActions.push(
+			...extractActions(client.$contracts, boundActions, workspaceId),
+		);
+	}
+
 	let cli = yargs()
 		.scriptName('epicenter')
 		.usage('Usage: $0 [command] [options]')
@@ -25,14 +93,14 @@ export function createCLI<
 			});
 		},
 		(argv) => {
-			createServer(client).start({ port: argv.port });
+			createServer(clientArray, { port: argv.port }).start();
 		},
 	);
 
-	for (const [workspaceId, workspaceClient] of Object.entries(
-		client.$workspaces,
-	)) {
-		const typedClient = workspaceClient as WorkspaceClientInternals;
+	for (const [workspaceId] of Object.entries(workspaces)) {
+		const workspaceActions = allActions.filter(
+			(a) => a.workspaceId === workspaceId,
+		);
 
 		cli = cli.command(
 			workspaceId,
@@ -43,26 +111,24 @@ export function createCLI<
 					.demandCommand(1, 'You must specify an action')
 					.strict();
 
-				for (const { actionPath, action } of typedClient.$actions) {
+				for (const { actionPath, action, handler } of workspaceActions) {
 					const actionName = actionPath.join('_');
 					workspaceCli = workspaceCli.command(
 						actionName,
 						action.description || `Execute ${actionName} ${action.type}`,
 						(yargs) => {
 							if ('input' in action && action.input) {
-								return standardJsonSchemaToYargs(action.input, yargs);
+								return standardJsonSchemaToYargs(
+									action.input as StandardJSONSchemaV1,
+									yargs,
+								);
 							}
 							return yargs;
 						},
-						async () => {
-							console.error(`❌ Action execution not available: ${actionName}`);
-							console.error(
-								'   Handlers are bound via .withHandlers() which is not yet implemented.',
-							);
-							console.error(
-								'   See: specs/20260101T014845-contract-handler-separation.md',
-							);
-							process.exit(1);
+						async (argv) => {
+							const input = action.input ? argv : undefined;
+							const result = await handler(input);
+							console.log(JSON.stringify(result, null, 2));
 						},
 					);
 				}
@@ -75,7 +141,9 @@ export function createCLI<
 	return {
 		async run(argv: string[]) {
 			const cleanup = async () => {
-				await client.destroy();
+				for (const client of clientArray) {
+					await client.destroy();
+				}
 				process.exit(0);
 			};
 			process.on('SIGINT', cleanup);
@@ -86,7 +154,9 @@ export function createCLI<
 			} finally {
 				process.off('SIGINT', cleanup);
 				process.off('SIGTERM', cleanup);
-				await client.destroy();
+				for (const client of clientArray) {
+					await client.destroy();
+				}
 			}
 		},
 	};

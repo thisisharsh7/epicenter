@@ -150,11 +150,20 @@ export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type { ActionInfo } from './core/workspace/client.shared';
 
 export type {
-	AnyWorkspaceConfig,
-	WorkspaceConfig,
-	WorkspacesToActions,
-} from './core/workspace/config';
-export { defineWorkspace } from './core/workspace/config';
+	BoundAction,
+	BoundActions,
+	BoundWorkspaceClient,
+	CreateOptions,
+	HandlerContext,
+	HandlerFn,
+	HandlersForContracts,
+	InferProviderExports,
+	ProviderMap,
+	Workspace,
+	WorkspaceContract,
+	WorkspaceWithProviders,
+} from './core/workspace/contract';
+export { defineWorkspace } from './core/workspace/contract';
 
 // Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:

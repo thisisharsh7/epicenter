@@ -96,7 +96,7 @@ Yjs supports multiple providers simultaneously. Phone can connect to desktop, la
 ### How It All Fits Together
 
 1. **Define workspace** with `defineWorkspace({ id, tables, providers, exports })`
-2. **Create client** with `createClient(workspace)` or `createClient([workspace1, workspace2])`
+2. **Create client** with `createClient(workspace)`
 3. **Y.Doc created** with workspace ID as GUID
 4. **Providers initialize** in parallel (persistence, SQLite, markdown, sync)
 5. **Tables API** wraps Y.Doc with type-safe CRUD
@@ -944,30 +944,29 @@ See [SYNC_ARCHITECTURE.md](./SYNC_ARCHITECTURE.md) for complete multi-device syn
 
 ## Workspace Dependencies
 
-Workspaces can depend on other workspaces, enabling modular architecture.
+Workspaces can depend on other workspaces, enabling modular architecture. For cross-workspace communication, simply import the initialized client of the dependency.
 
-**Define dependencies:**
+**Access pattern (regular imports):**
 
 ```typescript
-import authWorkspace from './auth/auth.workspace';
-import storageWorkspace from './storage/storage.workspace';
+import { authClient } from './auth-client';
+import { storageClient } from './storage-client';
 
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
-	dependencies: [authWorkspace, storageWorkspace],
 
-	actions: ({ tables, workspaces, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		createPost: defineMutation({
 			input: type({ title: 'string', authorId: 'string' }),
 			handler: async ({ title, authorId }) => {
-				// Access dependency workspace actions
-				const user = await workspaces.auth.getUserById({ id: authorId });
+				// Access dependency workspace actions via imported client
+				const user = await authClient.getUserById({ id: authorId });
 				if (!user) {
 					return Err({ message: 'User not found' });
 				}
 
 				// Access dependency workspace tables
-				const allUsers = workspaces.auth.tables.users.getAll();
+				const allUsers = authClient.tables.users.getAll();
 
 				// Create post in local workspace
 				const id = generateId();
@@ -981,45 +980,6 @@ const blogWorkspace = defineWorkspace({
 			},
 		}),
 	}),
-});
-```
-
-**Access patterns:**
-
-```typescript
-actions: ({ workspaces }) => ({
-  // Call dependency actions
-  someAction: async () => {
-    const result = await workspaces.auth.login({ ... });
-    const data = await workspaces.storage.upload({ ... });
-  },
-
-  // Access dependency tables
-  anotherAction: () => {
-    const users = workspaces.auth.tables.users.getAll();
-  },
-
-  // Access dependency providers
-  yetAnother: async () => {
-    const rows = await workspaces.auth.providers.sqlite.users
-      .select()
-      .where(...);
-  }
-})
-```
-
-**Dependency resolution:**
-
-Epicenter uses flat/hoisted dependency resolution:
-
-- All transitive dependencies must be in the root `workspaces` array
-- Dependencies are initialized in topological order
-- Circular dependencies are detected and throw errors
-
-```typescript
-// If A depends on B, and B depends on C:
-const epicenter = await createEpicenterClient({
-	workspaces: [C, B, A], // All must be listed (flat/hoisted)
 });
 ```
 

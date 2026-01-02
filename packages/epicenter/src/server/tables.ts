@@ -1,11 +1,14 @@
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { Actions } from '../core/actions';
+import type { ActionContracts } from '../core/actions';
 import type { SerializedRow, TableSchema } from '../core/schema';
-import type { WorkspaceClient } from '../core/workspace';
+import type { BoundWorkspaceClient } from '../core/workspace/contract';
 
 export function createTablesPlugin(
-	workspaceClients: Record<string, WorkspaceClient<Actions>>,
+	workspaceClients: Record<
+		string,
+		BoundWorkspaceClient<string, ActionContracts>
+	>,
 ) {
 	const app = new Elysia();
 

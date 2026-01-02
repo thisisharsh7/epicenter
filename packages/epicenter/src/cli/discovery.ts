@@ -1,25 +1,11 @@
 import { stat } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
-import { Glob } from 'bun';
-import type { AbsolutePath, ProjectDir } from '../core/types';
-import type { AnyWorkspaceConfig } from '../core/workspace';
+import type { ProjectDir } from '../core/types';
+import type { ActionContracts } from '../core/actions';
+import type { BoundWorkspaceClient } from '../core/workspace/contract';
 
-/**
- * Walks up the directory tree from `startDir` to find a `.epicenter/` folder.
- * Returns the parent directory of `.epicenter/` (the project root), or null if not found.
- *
- * @param startDir - Directory to start searching from (defaults to `process.cwd()`)
- * @returns The project directory containing `.epicenter/`, or null if none found
- *
- * @example
- * ```
- * // Given: ~/projects/blog/.epicenter/workspaces/
- * // Running from: ~/projects/blog/vault/posts/
- *
- * const projectDir = await findProjectDir();
- * // Returns: ~/projects/blog
- * ```
- */
+type AnyWorkspaceClient = BoundWorkspaceClient<string, ActionContracts>;
+
 export async function findProjectDir(
 	startDir: string = process.cwd(),
 ): Promise<ProjectDir | null> {
@@ -27,9 +13,9 @@ export async function findProjectDir(
 	const root = parse(current).root;
 
 	while (current !== root) {
-		const epicenterPath = join(current, '.epicenter');
+		const configPath = join(current, 'epicenter.config.ts');
 
-		if (await directoryExists(epicenterPath)) {
+		if (await fileExists(configPath)) {
 			return current as ProjectDir;
 		}
 
@@ -39,101 +25,57 @@ export async function findProjectDir(
 	return null;
 }
 
-async function directoryExists(path: string): Promise<boolean> {
+async function fileExists(path: string): Promise<boolean> {
 	try {
 		const stats = await stat(path);
-		return stats.isDirectory();
+		return stats.isFile();
 	} catch {
 		return false;
 	}
 }
 
-/**
- * Loads all workspace configurations from `.epicenter/workspaces/*.workspace.ts`.
- * Dynamically imports each file and validates it exports a valid workspace config.
- *
- * @param projectDir - The project root directory (parent of `.epicenter/`)
- * @returns Array of workspace configurations
- * @throws Error if workspaces directory doesn't exist, no workspace files found, or invalid exports
- *
- * @example
- * ```
- * const projectDir = await findProjectDir();
- * if (!projectDir) throw new Error('No .epicenter folder found');
- *
- * const workspaces = await loadWorkspaces(projectDir);
- * // Returns: [{ id: 'pages', tables: {...}, ... }, { id: 'blog', ... }]
- * ```
- */
-export async function loadWorkspaces(
+export async function loadClients(
 	projectDir: ProjectDir,
-): Promise<AnyWorkspaceConfig[]> {
-	const workspacesDir = join(
-		projectDir,
-		'.epicenter',
-		'workspaces',
-	) as AbsolutePath;
+): Promise<AnyWorkspaceClient[]> {
+	const configPath = join(projectDir, 'epicenter.config.ts');
 
-	if (!(await directoryExists(workspacesDir))) {
+	if (!(await fileExists(configPath))) {
 		throw new Error(
-			`No workspaces directory found at ${workspacesDir}\n` +
-				`Create workspace files at .epicenter/workspaces/*.workspace.ts`,
+			`No epicenter.config.ts found at ${configPath}\n` +
+				`Create a config file that exports an array of workspace clients.`,
 		);
 	}
 
-	const glob = new Glob('*.workspace.ts');
-	const workspaces: AnyWorkspaceConfig[] = [];
+	const module = await import(configPath);
+	const clients = module.default;
 
-	for await (const file of glob.scan({ cwd: workspacesDir, absolute: true })) {
-		const module = await import(file);
-		const workspace = findWorkspaceConfig(module);
+	if (!Array.isArray(clients)) {
+		throw new Error(
+			`epicenter.config.ts must export an array of workspace clients as default export.`,
+		);
+	}
 
-		if (!workspace) {
+	if (clients.length === 0) {
+		throw new Error(`epicenter.config.ts exported an empty array of clients.`);
+	}
+
+	for (const client of clients) {
+		if (!isWorkspaceClient(client)) {
 			throw new Error(
-				`Invalid workspace file: ${file}\n` +
-					`Expected a workspace config export (from defineWorkspace())`,
+				`Invalid client in epicenter.config.ts. Expected BoundWorkspaceClient with $id and $contracts.`,
 			);
 		}
-
-		workspaces.push(workspace);
 	}
 
-	if (workspaces.length === 0) {
-		throw new Error(
-			`No workspace files found in ${workspacesDir}\n` +
-				`Expected files matching *.workspace.ts`,
-		);
-	}
-
-	return workspaces;
+	return clients;
 }
 
-/**
- * Type guard to validate an unknown value is a workspace configuration.
- * Checks for required properties: `id` (string) and `tables` (object).
- */
-function isWorkspaceConfig(value: unknown): value is AnyWorkspaceConfig {
+function isWorkspaceClient(value: unknown): value is AnyWorkspaceClient {
 	return (
 		typeof value === 'object' &&
 		value !== null &&
-		'id' in value &&
-		'tables' in value &&
-		typeof (value as Record<string, unknown>).id === 'string'
+		'$id' in value &&
+		'$contracts' in value &&
+		typeof (value as Record<string, unknown>).$id === 'string'
 	);
-}
-
-function findWorkspaceConfig(
-	module: Record<string, unknown>,
-): AnyWorkspaceConfig | undefined {
-	if (isWorkspaceConfig(module.default)) {
-		return module.default;
-	}
-
-	for (const value of Object.values(module)) {
-		if (isWorkspaceConfig(value)) {
-			return value;
-		}
-	}
-
-	return undefined;
 }
