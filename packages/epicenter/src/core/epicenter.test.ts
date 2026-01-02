@@ -1,13 +1,29 @@
 import { describe, expect, test } from 'bun:test';
-import { Ok } from 'wellcrafted/result';
-import {
-	createClient,
-	defineQuery,
-	defineWorkspace,
-	id,
-	text,
-} from '../index.node';
+import { createClient, defineWorkspace, id, text } from '../index.node';
 
+/**
+ * Action Execution Tests
+ *
+ * SKIPPED: Action execution tests require the contract-handler separation migration to be complete.
+ *
+ * The tests use the OLD pattern where `defineQuery` accepts `handler`.
+ * With the new architecture:
+ * - `defineQuery`/`defineMutation` are contract-only (input, output, description)
+ * - Handlers are bound via `.withHandlers()` on the workspace contract
+ *
+ * Re-enable when `.withHandlers()` is implemented.
+ * See: specs/20260101T014845-contract-handler-separation.md
+ */
+describe.skip('Action Execution (PENDING: contract-handler separation)', () => {
+	test('should call workspace actions', () => {});
+});
+
+/**
+ * Epicenter Error Handling Tests
+ *
+ * These tests verify workspace registration and dependency resolution,
+ * which don't require handler execution.
+ */
 describe('Epicenter Error Handling', () => {
 	test('should throw on duplicate workspace IDs', () => {
 		const workspace1 = defineWorkspace({
@@ -30,11 +46,18 @@ describe('Epicenter Error Handling', () => {
 	});
 });
 
-describe('Action Exposure and Dependency Resolution', () => {
-	const createTestWorkspace = (workspaceId: string, deps: any[] = []) => {
+/**
+ * Dependency Resolution Tests
+ *
+ * These tests verify workspace dependency management.
+ * Since they don't execute actions (just check workspace structure),
+ * they work with the contract-only architecture.
+ */
+describe('Dependency Resolution', () => {
+	const createTestWorkspace = (workspaceId: string, deps: unknown[] = []) => {
 		return defineWorkspace({
 			id: workspaceId,
-			dependencies: deps,
+			dependencies: deps as never[],
 			tables: {
 				items: {
 					id: id(),
@@ -42,22 +65,7 @@ describe('Action Exposure and Dependency Resolution', () => {
 				},
 			},
 			providers: {},
-			actions: ({ workspaces }) => ({
-				getValue: defineQuery({
-					handler: () => Ok(`value-from-${workspaceId}`),
-				}),
-				...(deps.length > 0
-					? {
-							getValueFromDependency: defineQuery({
-								handler: async () => {
-									const depId = deps[0].id;
-									const result = await (workspaces as any)[depId].getValue();
-									return result;
-								},
-							}),
-						}
-					: {}),
-			}),
+			actions: () => ({}),
 		});
 	};
 
@@ -69,16 +77,6 @@ describe('Action Exposure and Dependency Resolution', () => {
 
 		expect(client.a).toBeDefined();
 		expect(client.b).toBeDefined();
-
-		expect(client.a?.getValue).toBeDefined();
-		expect(client.b?.getValue).toBeDefined();
-		expect(client.b?.getValueFromDependency).toBeDefined();
-
-		const resultA = await client.a!.getValue();
-		expect(resultA.data).toBe('value-from-a');
-
-		const resultB = await client.b!.getValue();
-		expect(resultB.data).toBe('value-from-b');
 	});
 
 	test('requires all transitive dependencies in workspaces array (flat/hoisted)', () => {
@@ -105,12 +103,6 @@ describe('Action Exposure and Dependency Resolution', () => {
 		expect(client.a).toBeDefined();
 		expect(client.b).toBeDefined();
 		expect(client.c).toBeDefined();
-
-		const resultA = await client.a!.getValue();
-		expect(resultA.data).toBe('value-from-a');
-
-		const resultB = await client.b!.getValueFromDependency!();
-		expect(resultB.data).toBe('value-from-a');
 	});
 
 	test('multiple workspaces with no dependencies - all exposed', async () => {
@@ -127,14 +119,5 @@ describe('Action Exposure and Dependency Resolution', () => {
 		expect(client.a).toBeDefined();
 		expect(client.b).toBeDefined();
 		expect(client.c).toBeDefined();
-
-		const resultA = await client.a!.getValue();
-		expect(resultA.data).toBe('value-from-a');
-
-		const resultB = await client.b!.getValue();
-		expect(resultB.data).toBe('value-from-b');
-
-		const resultC = await client.c!.getValue();
-		expect(resultC.data).toBe('value-from-c');
 	});
 });

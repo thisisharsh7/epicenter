@@ -46,7 +46,7 @@ describe('findProjectDir', () => {
 		await mkdir(path.join(testDir, '.epicenter'));
 
 		const result = await findProjectDir(testDir);
-		expect(result).toBe(testDir);
+		expect(result).toBe(testDir as ProjectDir);
 	});
 
 	test('walks up to find .epicenter in parent', async () => {
@@ -55,7 +55,7 @@ describe('findProjectDir', () => {
 		await mkdir(path.join(testDir, '.epicenter'));
 
 		const result = await findProjectDir(subDir);
-		expect(result).toBe(testDir);
+		expect(result).toBe(testDir as ProjectDir);
 	});
 
 	test('finds closest .epicenter when nested', async () => {
@@ -64,7 +64,7 @@ describe('findProjectDir', () => {
 		await mkdir(path.join(nestedProject, '.epicenter'), { recursive: true });
 
 		const result = await findProjectDir(nestedProject);
-		expect(result).toBe(nestedProject);
+		expect(result).toBe(nestedProject as ProjectDir);
 	});
 });
 

@@ -1,28 +1,9 @@
-import type { TaggedError } from 'wellcrafted/error';
-import { isResult, type Result } from 'wellcrafted/result';
 import yargs from 'yargs';
-import type { ActionContracts } from '../core/actions';
 import type { AnyWorkspaceConfig, EpicenterClient } from '../core/workspace';
-import type { WorkspaceClient } from '../core/workspace/client.node';
+import type { WorkspaceClientInternals } from '../core/workspace/client.shared';
 import { createServer, DEFAULT_PORT } from '../server/server';
 import { standardJsonSchemaToYargs } from './standard-json-schema-to-yargs';
 
-/**
- * Create a CLI from an initialized Epicenter client.
- *
- * @param client - Initialized Epicenter client from createClient()
- * @returns Object with run method to execute CLI
- *
- * @example
- * ```typescript
- * import { createClient } from '@epicenter/hq';
- * import { createCLI } from '@epicenter/hq/cli';
- * import { hideBin } from 'yargs/helpers';
- *
- * const client = await createClient(workspaces, options);
- * await createCLI(client).run(hideBin(process.argv));
- * ```
- */
 export function createCLI<
 	const TWorkspaces extends readonly AnyWorkspaceConfig[],
 >(client: EpicenterClient<TWorkspaces>) {
@@ -51,7 +32,7 @@ export function createCLI<
 	for (const [workspaceId, workspaceClient] of Object.entries(
 		client.$workspaces,
 	)) {
-		const typedClient = workspaceClient as WorkspaceClient<ActionContracts>;
+		const typedClient = workspaceClient as WorkspaceClientInternals;
 
 		cli = cli.command(
 			workspaceId,
@@ -68,36 +49,20 @@ export function createCLI<
 						actionName,
 						action.description || `Execute ${actionName} ${action.type}`,
 						(yargs) => {
-							if (action.input) {
+							if ('input' in action && action.input) {
 								return standardJsonSchemaToYargs(action.input, yargs);
 							}
 							return yargs;
 						},
-						async (argv) => {
-							try {
-								const { _, $0, ...input } = argv;
-								const maybeResult = (await action(input)) as
-									| Result<unknown, TaggedError>
-									| unknown;
-
-								const outputChannel = isResult(maybeResult)
-									? maybeResult.data
-									: maybeResult;
-								const errorChannel = isResult(maybeResult)
-									? (maybeResult.error as TaggedError)
-									: undefined;
-
-								if (errorChannel) {
-									console.error('❌ Error:', errorChannel.message);
-									process.exit(1);
-								}
-
-								console.log('✅ Success:');
-								console.log(JSON.stringify(outputChannel, null, 2));
-							} catch (error) {
-								console.error('❌ Unexpected error:', error);
-								process.exit(1);
-							}
+						async () => {
+							console.error(`❌ Action execution not available: ${actionName}`);
+							console.error(
+								'   Handlers are bound via .withHandlers() which is not yet implemented.',
+							);
+							console.error(
+								'   See: specs/20260101T014845-contract-handler-separation.md',
+							);
+							process.exit(1);
 						},
 					);
 				}

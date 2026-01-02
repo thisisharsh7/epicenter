@@ -119,9 +119,6 @@ describe('updateYTextFromString', () => {
 		// Insert initial text
 		ytext.insert(0, 'Hello World');
 
-		// Get length before sync
-		const _initialLength = ytext.length;
-
 		// Sync to similar string (should preserve some characters)
 		updateYTextFromString(ytext, 'Hello Universe');
 
