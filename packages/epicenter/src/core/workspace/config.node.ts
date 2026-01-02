@@ -4,7 +4,7 @@
  * Uses Node Provider type which includes required filesystem paths.
  */
 
-import type { Actions } from '../actions';
+import type { ActionContracts } from '../actions';
 import type { Provider } from '../provider.node';
 import type { WorkspaceSchema } from '../schema';
 import {
@@ -47,7 +47,7 @@ export function defineWorkspace<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviders extends Record<string, Provider<TWorkspaceSchema>>,
-	TActions extends Actions,
+	TActions extends ActionContracts,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -84,7 +84,7 @@ export type WorkspaceConfig<
 		string,
 		Provider<TWorkspaceSchema>
 	>,
-	TActions extends Actions = Actions,
+	TActions extends ActionContracts = ActionContracts,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;

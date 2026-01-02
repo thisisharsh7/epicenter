@@ -9,7 +9,7 @@
  */
 import * as Y from 'yjs';
 
-import { type Actions, walkActions } from '../actions';
+import { type ActionContracts, walkActionContracts } from '../actions';
 import { createTables } from '../db/core';
 import { createKv } from '../kv';
 import type { Providers, WorkspaceProviderMap } from '../provider';
@@ -32,7 +32,7 @@ import type { AnyWorkspaceConfig, WorkspaceConfig } from './config';
  * {@link WorkspaceClientInternals}. Browser-specific: adds `whenSynced` promise.
  */
 export type WorkspaceClient<
-	TActions extends Actions,
+	TActions extends ActionContracts,
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
 	TProviders extends WorkspaceProviderMap = WorkspaceProviderMap,
 > = TActions &
@@ -64,7 +64,7 @@ export type WorkspacesToClients<WS extends readonly AnyWorkspaceConfig[]> = {
 		? TId
 		: never]: W extends {
 		// biome-ignore lint/suspicious/noExplicitAny: Extracting action type from generic constraint
-		actions: (context: any) => infer TActions extends Actions;
+		actions: (context: any) => infer TActions extends ActionContracts;
 	}
 		? WorkspaceClient<TActions>
 		: never;
@@ -116,7 +116,7 @@ export function createClient<
 	const TId extends string,
 	TWorkspaceSchema extends WorkspaceSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TActions extends Actions,
+	TActions extends ActionContracts,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -488,7 +488,7 @@ function initializeWorkspacesSync<
 		});
 
 		const actionRegistry: ActionInfo[] = [];
-		for (const { path: actionPath, action } of walkActions(actions)) {
+		for (const { path: actionPath, action } of walkActionContracts(actions)) {
 			actionRegistry.push({ workspaceId, actionPath, action });
 		}
 
@@ -522,7 +522,10 @@ function initializeWorkspacesSync<
 	}
 
 	// Convert Map to typed object keyed by workspace id
-	const initializedWorkspaces: Record<string, WorkspaceClient<Actions>> = {};
+	const initializedWorkspaces: Record<
+		string,
+		WorkspaceClient<ActionContracts>
+	> = {};
 	for (const [workspaceId, client] of clients) {
 		initializedWorkspaces[workspaceId] = client;
 	}

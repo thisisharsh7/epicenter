@@ -5,7 +5,7 @@
  * these with platform-appropriate provider types.
  */
 
-import type { Actions } from '../actions';
+import type { ActionContracts } from '../actions';
 import type { Tables } from '../db/core';
 import type { InferProviders, Providers } from '../provider.shared';
 import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
@@ -22,7 +22,7 @@ import type { WorkspacePaths } from '../types';
  */
 export type AnyWorkspaceConfig = {
 	id: string;
-	actions: (context: any) => Actions;
+	actions: (context: any) => ActionContracts;
 };
 
 /**
@@ -51,7 +51,7 @@ export type WorkspacesToActions<WS extends readonly AnyWorkspaceConfig[]> = {
 	[W in WS[number] as W extends { id: infer TId extends string }
 		? TId
 		: never]: W extends {
-		actions: (context: any) => infer TActions extends Actions;
+		actions: (context: any) => infer TActions extends ActionContracts;
 	}
 		? TActions
 		: never;

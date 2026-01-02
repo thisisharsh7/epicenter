@@ -1,7 +1,7 @@
 import type { TaggedError } from 'wellcrafted/error';
 import { isResult, type Result } from 'wellcrafted/result';
 import yargs from 'yargs';
-import type { Actions } from '../core/actions';
+import type { ActionContracts } from '../core/actions';
 import type { AnyWorkspaceConfig, EpicenterClient } from '../core/workspace';
 import type { WorkspaceClient } from '../core/workspace/client.node';
 import { createServer, DEFAULT_PORT } from '../server/server';
@@ -51,7 +51,7 @@ export function createCLI<
 	for (const [workspaceId, workspaceClient] of Object.entries(
 		client.$workspaces,
 	)) {
-		const typedClient = workspaceClient as WorkspaceClient<Actions>;
+		const typedClient = workspaceClient as WorkspaceClient<ActionContracts>;
 
 		cli = cli.command(
 			workspaceId,

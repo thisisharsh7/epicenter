@@ -8,7 +8,7 @@
 
 import type * as Y from 'yjs';
 
-import type { Action, Actions } from '../actions';
+import type { ActionContract, ActionContracts } from '../actions';
 import type { Tables } from '../db/core';
 import type { Kv } from '../kv';
 import type { WorkspaceProviderMap } from '../provider';
@@ -113,7 +113,7 @@ export type WorkspaceClientInternals<
 	$validators: WorkspaceValidators<TSchema>;
 
 	/** Actions from dependency workspaces, keyed by workspace ID. */
-	$workspaces: Record<string, Actions>;
+	$workspaces: Record<string, ActionContracts>;
 
 	/** Filesystem paths (undefined in browser environments). */
 	$paths: WorkspacePaths | undefined;
@@ -164,7 +164,7 @@ export type WorkspaceClientInternals<
 export type ActionInfo = {
 	workspaceId: string;
 	actionPath: string[];
-	action: Action;
+	action: ActionContract;
 };
 
 /**

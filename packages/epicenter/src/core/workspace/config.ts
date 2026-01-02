@@ -1,6 +1,6 @@
 import type * as Y from 'yjs';
 
-import type { Actions } from '../actions';
+import type { ActionContracts } from '../actions';
 import type { Tables } from '../db/core';
 import type { Kv } from '../kv';
 import type { Provider, Providers, WorkspaceProviderMap } from '../provider';
@@ -112,7 +112,7 @@ export function defineWorkspace<
 	TWorkspaceSchema extends WorkspaceSchema,
 	TKvSchema extends KvSchema,
 	const TProviderResults extends WorkspaceProviderMap,
-	TActions extends Actions,
+	TActions extends ActionContracts,
 >(
 	workspace: WorkspaceConfig<
 		TDeps,
@@ -188,7 +188,7 @@ export type WorkspaceConfig<
 	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
 	TKvSchema extends KvSchema = KvSchema,
 	TProviderResults extends WorkspaceProviderMap = WorkspaceProviderMap,
-	TActions extends Actions = Actions,
+	TActions extends ActionContracts = ActionContracts,
 > = {
 	id: TId;
 	tables: TWorkspaceSchema;
@@ -265,7 +265,7 @@ export type WorkspaceConfig<
 export type AnyWorkspaceConfig = {
 	id: string;
 	// biome-ignore lint/suspicious/noExplicitAny: Minimal constraint to prevent infinite type recursion
-	actions: (context: any) => Actions;
+	actions: (context: any) => ActionContracts;
 };
 
 /**
@@ -291,7 +291,7 @@ export type WorkspacesToActions<WS extends readonly AnyWorkspaceConfig[]> = {
 		? TId
 		: never]: W extends {
 		// biome-ignore lint/suspicious/noExplicitAny: Extracting action return type from generic constraint
-		actions: (context: any) => infer TActions extends Actions;
+		actions: (context: any) => infer TActions extends ActionContracts;
 	}
 		? TActions
 		: never;

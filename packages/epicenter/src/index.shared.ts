@@ -38,18 +38,23 @@ export {
 	sql,
 } from 'drizzle-orm';
 
-export type { Action, Mutation, Query, Actions } from './core/actions';
+export type {
+	ActionContract,
+	MutationContract,
+	QueryContract,
+	ActionContracts,
+} from './core/actions';
 
 // Action helpers
 export {
 	defineMutation,
 	defineQuery,
-	defineActions,
-	isAction,
-	isMutation,
+	defineActionContracts,
+	isActionContract,
+	isMutationContract,
 	isNamespace,
-	isQuery,
-	walkActions,
+	isQueryContract,
+	walkActionContracts,
 } from './core/actions';
 
 export type { TableHelper, Tables } from './core/db/core';
