@@ -23,6 +23,76 @@ Each workspace has:
 - **Providers**: Unified map of capabilities including persistence, sync, and materializers (SQLite, markdown, vector, etc.)
 - **Exports**: Business logic (queries and mutations) with access to tables and providers
 
+## Contract/Handler Separation Pattern
+
+For isomorphic workspaces that work in both browser and server environments, use the contract/handler separation pattern:
+
+```typescript
+import { defineWorkspace, defineMutation, defineQuery } from '@epicenter/hq';
+import { type } from 'arktype';
+
+// 1. Define the workspace contract (isomorphic - works everywhere)
+const blogWorkspace = defineWorkspace({
+	id: 'blog',
+	tables: {
+		posts: {
+			id: id(),
+			title: text(),
+			content: text({ nullable: true }),
+		},
+	},
+	// Actions define input/output contracts only (no handlers)
+	actions: {
+		publishPost: defineMutation({
+			input: type({ id: 'string' }),
+			output: type({ success: 'boolean' }),
+		}),
+		getPost: defineQuery({
+			input: type({ id: 'string' }),
+			output: type({
+				id: 'string',
+				title: 'string',
+				'content?': 'string',
+			}),
+		}),
+	},
+});
+
+// 2. Server: Bind handlers and create client locally
+const serverClient = await blogWorkspace
+	.withProviders({ sqlite: sqliteProvider })
+	.withHandlers({
+		publishPost: async (input, ctx) => {
+			ctx.tables.posts.update({ id: input.id, published: true });
+			return { success: true };
+		},
+		getPost: async (input, ctx) => {
+			const result = ctx.tables.posts.get(input.id);
+			if (result.status !== 'valid') throw new Error('Not found');
+			return result.row;
+		},
+	})
+	.createWithHandlers();
+
+// 3. Browser: Create HTTP client (actions proxy to server)
+const browserClient = await blogWorkspace
+	.withProviders({ indexeddb: idbProvider })
+	.createHttpClient('http://localhost:3913');
+
+// Both clients have the same API:
+await serverClient.publishPost({ id: '1' }); // Executes locally
+await browserClient.publishPost({ id: '1' }); // Proxies to server
+```
+
+**Key benefits:**
+
+- **Isomorphic**: Same contract works in browser and server
+- **Type-safe**: Handlers are type-checked against contracts
+- **Flexible**: Mix local execution (server) with HTTP proxying (browser)
+- **Serializable**: Action contracts are JSON-serializable for MCP/OpenAPI
+
+The handler context provides access to `tables`, `schema`, `validators`, `providers`, and `paths`.
+
 ## Workspace Clients
 
 A **workspace client** is not a standalone concept. It's a single workspace extracted from an **Epicenter client**.

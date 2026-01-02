@@ -36,16 +36,17 @@ import {
 const TABLE_NAME_PATTERN = regex('^[a-z][a-z0-9_]*$');
 
 /**
- * Valid column name pattern: same constraints as table names.
+ * Valid column name pattern: camelCase allowed.
  *
- * Column names appear in the same three systems and have identical requirements:
- * - **SQLite**: Valid unquoted column identifier
+ * Column names must satisfy:
+ * - **SQLite**: Valid unquoted column identifier (camelCase works)
  * - **JavaScript**: `row.columnName` dot notation access
  * - **YAML frontmatter**: Markdown index serializes columns to frontmatter keys
  *
- * @see TABLE_NAME_PATTERN for detailed constraint rationale
+ * Unlike table names (which affect file system paths), column names don't need
+ * to be lowercase-only. camelCase is idiomatic JavaScript and works everywhere.
  */
-const COLUMN_NAME_PATTERN = TABLE_NAME_PATTERN;
+const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 
 // Re-export TableHelper for public API
 export type { TableHelper } from './table-helper';
@@ -106,7 +107,7 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		for (const columnName of Object.keys(tableSchema)) {
 			if (!COLUMN_NAME_PATTERN.test(columnName)) {
 				throw new Error(
-					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "title", "created_at", "count2")`,
+					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only letters, numbers, and underscores (e.g., "title", "createdAt", "count2")`,
 				);
 			}
 		}

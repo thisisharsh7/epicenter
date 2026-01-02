@@ -25,3 +25,20 @@ export type {
 	WorkspacesToActions,
 } from './config';
 export { defineWorkspace } from './config';
+
+export type {
+	BoundAction,
+	BoundActions,
+	BoundWorkspaceClient,
+	CreateOptions,
+	HandlerContext,
+	HandlerFn,
+	HandlersForContracts,
+	InferProviderExports,
+	ProviderMap,
+	WorkspaceContract,
+	WorkspaceContractConfig,
+	WorkspaceWithHandlers,
+	WorkspaceWithProviders,
+} from './contract';
+export { defineWorkspace as defineWorkspaceContract } from './contract';
