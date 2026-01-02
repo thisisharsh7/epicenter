@@ -62,8 +62,8 @@ export type ActionContract<
  * Defines the input/output schema for a query without the handler implementation.
  * The handler is bound separately via `.withHandlers()`.
  *
- * Input and output schemas must implement both StandardSchemaV1 (validation) and
- * StandardJSONSchemaV1 (JSON Schema conversion) for MCP/CLI/OpenAPI support.
+ * When TInput is undefined, the `input` key is omitted entirely from the contract.
+ * This allows introspection via `'input' in contract` to determine if input is required.
  */
 export type QueryContract<
 	TInput extends StandardSchemaWithJSONSchema | undefined =
@@ -71,15 +71,10 @@ export type QueryContract<
 		| undefined,
 	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 > = {
-	/** Discriminator for action type */
 	type: 'query';
-	/** Input schema for validation and documentation. Undefined means no input required. */
-	input: TInput;
-	/** Output schema for validation and documentation */
 	output: TOutput;
-	/** Human-readable description for documentation and AI assistants */
 	description?: string;
-};
+} & (TInput extends undefined ? Record<string, never> : { input: TInput });
 
 /**
  * Mutation contract: write operation that modifies state.
@@ -87,8 +82,8 @@ export type QueryContract<
  * Defines the input/output schema for a mutation without the handler implementation.
  * The handler is bound separately via `.withHandlers()`.
  *
- * Input and output schemas must implement both StandardSchemaV1 (validation) and
- * StandardJSONSchemaV1 (JSON Schema conversion) for MCP/CLI/OpenAPI support.
+ * When TInput is undefined, the `input` key is omitted entirely from the contract.
+ * This allows introspection via `'input' in contract` to determine if input is required.
  */
 export type MutationContract<
 	TInput extends StandardSchemaWithJSONSchema | undefined =
@@ -96,15 +91,10 @@ export type MutationContract<
 		| undefined,
 	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 > = {
-	/** Discriminator for action type */
 	type: 'mutation';
-	/** Input schema for validation and documentation. Undefined means no input required. */
-	input: TInput;
-	/** Output schema for validation and documentation */
 	output: TOutput;
-	/** Human-readable description for documentation and AI assistants */
 	description?: string;
-};
+} & (TInput extends undefined ? Record<string, never> : { input: TInput });
 
 /**
  * Define a query contract (read operation with no side effects).
@@ -177,8 +167,8 @@ export function defineQuery(config: {
 	description?: string;
 }): QueryContract {
 	return {
-		type: 'query' as const,
-		input: config.input as StandardSchemaWithJSONSchema | undefined,
+		type: 'query',
+		...(config.input && { input: config.input }),
 		output: config.output,
 		description: config.description,
 	};
@@ -255,8 +245,8 @@ export function defineMutation(config: {
 	description?: string;
 }): MutationContract {
 	return {
-		type: 'mutation' as const,
-		input: config.input as StandardSchemaWithJSONSchema | undefined,
+		type: 'mutation',
+		...(config.input && { input: config.input }),
 		output: config.output,
 		description: config.description,
 	};
