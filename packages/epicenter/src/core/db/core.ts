@@ -1,6 +1,5 @@
 import { regex } from 'arkregex';
 import * as Y from 'yjs';
-import { defineMutation } from '../actions';
 import type { WorkspaceSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import {
@@ -204,16 +203,16 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 			>;
 		},
 
-		clearAll: defineMutation({
-			description: 'Clear all tables in the workspace',
-			handler: () => {
-				ydoc.transact(() => {
-					for (const tableName of Object.keys(schema)) {
-						tableHelpers[tableName as keyof typeof tableHelpers].clear();
-					}
-				});
-			},
-		}),
+		/**
+		 * Clear all tables in the workspace
+		 */
+		clearAll(): void {
+			ydoc.transact(() => {
+				for (const tableName of Object.keys(schema)) {
+					tableHelpers[tableName as keyof typeof tableHelpers].clear();
+				}
+			});
+		},
 	};
 }
 

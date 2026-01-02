@@ -1,7 +1,5 @@
-import { type } from 'arktype';
 import * as Y from 'yjs';
 
-import { defineMutation, defineQuery } from '../actions';
 import type {
 	KvFieldSchema,
 	KvSchema,
@@ -139,25 +137,67 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		});
 	};
 
-	const inputSchema = createInputSchema(schema);
-
 	return {
+		/** The name of this KV key */
 		name: keyName,
+
+		/** The schema definition for this KV field */
 		schema,
 
-		get: defineQuery({
-			description: `Get ${keyName} value`,
-			handler: () => getCurrentValue(),
-		}),
+		/**
+		 * Get the current value for this KV key.
+		 *
+		 * Returns the stored value, or the default value if not set,
+		 * or null if nullable and no default exists.
+		 *
+		 * @returns The current value
+		 *
+		 * @example
+		 * ```typescript
+		 * const theme = kv.theme.get(); // 'dark' | 'light'
+		 * ```
+		 */
+		get(): TValue {
+			return getCurrentValue();
+		},
 
-		set: defineMutation({
-			input: inputSchema,
-			description: `Set ${keyName} value`,
-			handler: (input) => {
-				setValueFromSerialized(input.value as TSerializedValue);
-			},
-		}),
+		/**
+		 * Set the value for this KV key.
+		 *
+		 * For Y.js-backed values (ytext, tags), provide plain JavaScript values
+		 * which will be synced to the underlying Y.Text/Y.Array.
+		 *
+		 * @param value - The value to set
+		 *
+		 * @example
+		 * ```typescript
+		 * kv.theme.set('dark');
+		 * kv.tags.set(['urgent', 'review']);
+		 * ```
+		 */
+		set(value: TSerializedValue): void {
+			setValueFromSerialized(value);
+		},
 
+		/**
+		 * Watch for changes to this KV value.
+		 *
+		 * The callback fires whenever this specific key changes, whether from
+		 * local updates or sync from other peers.
+		 *
+		 * @param callback - Function called with the new value on each change
+		 * @returns Unsubscribe function to stop watching
+		 *
+		 * @example
+		 * ```typescript
+		 * const unsubscribe = kv.theme.observe((value) => {
+		 *   document.body.className = value;
+		 * });
+		 *
+		 * // Later: stop watching
+		 * unsubscribe();
+		 * ```
+		 */
 		observe(callback: (value: TValue) => void) {
 			const handler = (event: Y.YMapEvent<KvValue>) => {
 				if (event.keysChanged.has(keyName)) {
@@ -168,70 +208,39 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			return () => ykvMap.unobserve(handler);
 		},
 
-		reset: defineMutation({
-			description: `Reset ${keyName} to default`,
-			handler: () => {
-				ydoc.transact(() => {
-					const defaultVal = getDefaultValue();
-					if (defaultVal !== undefined) {
-						setValueFromSerialized(
-							serializeCellValue(defaultVal) as TSerializedValue,
-						);
-					} else if (nullable) {
-						ykvMap.set(keyName, null);
-					} else {
-						ykvMap.delete(keyName);
-					}
-				});
-			},
-		}),
+		/**
+		 * Reset this KV key to its default value.
+		 *
+		 * If a default is defined in the schema, sets to that value.
+		 * If nullable with no default, sets to null.
+		 * Otherwise, deletes the key entirely.
+		 *
+		 * @example
+		 * ```typescript
+		 * kv.theme.reset(); // Back to schema default
+		 * ```
+		 */
+		reset(): void {
+			ydoc.transact(() => {
+				const defaultVal = getDefaultValue();
+				if (defaultVal !== undefined) {
+					setValueFromSerialized(
+						serializeCellValue(defaultVal) as TSerializedValue,
+					);
+				} else if (nullable) {
+					ykvMap.set(keyName, null);
+				} else {
+					ykvMap.delete(keyName);
+				}
+			});
+		},
 
+		/** Type inference helper for the runtime value type */
 		$inferValue: null as unknown as TValue,
+
+		/** Type inference helper for the serialized value type */
 		$inferSerializedValue: null as unknown as TSerializedValue,
 	};
-}
-
-function createInputSchema(schema: KvFieldSchema) {
-	const nullable = isNullableFieldSchema(schema);
-
-	switch (schema['x-component']) {
-		case 'text':
-			return nullable
-				? type({ value: 'string | null' })
-				: type({ value: 'string' });
-		case 'ytext':
-			return nullable
-				? type({ value: 'string | null' })
-				: type({ value: 'string' });
-		case 'integer':
-			return nullable
-				? type({ value: 'number | null' })
-				: type({ value: 'number' });
-		case 'real':
-			return nullable
-				? type({ value: 'number | null' })
-				: type({ value: 'number' });
-		case 'boolean':
-			return nullable
-				? type({ value: 'boolean | null' })
-				: type({ value: 'boolean' });
-		case 'date':
-			return nullable
-				? type({ value: 'string | null' })
-				: type({ value: 'string' });
-		case 'select':
-			return nullable
-				? type({ value: 'string | null' })
-				: type({ value: 'string' });
-		case 'tags':
-			return nullable
-				? type({ value: 'string[] | null' })
-				: type({ value: 'string[]' });
-		case 'json':
-			return type({ value: 'unknown' });
-		default:
-			return type({ value: 'unknown' });
-	}
 }
 
 export type KvHelper<TFieldSchema extends KvFieldSchema> = ReturnType<

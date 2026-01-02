@@ -1,7 +1,6 @@
 import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
-import { defineMutation } from '../actions';
 import type { KvSchema, KvValue, SerializedKvValue } from '../schema';
 import { serializeCellValue } from '../schema';
 
@@ -64,16 +63,13 @@ export function createKv<TKvSchema extends KvSchema>(
 			};
 		},
 
-		clearAll: defineMutation({
-			description: 'Clear all KV values in the workspace',
-			handler: () => {
-				ydoc.transact(() => {
-					for (const keyName of Object.keys(schema)) {
-						ykvMap.delete(keyName);
-					}
-				});
-			},
-		}),
+		clearAll(): void {
+			ydoc.transact(() => {
+				for (const keyName of Object.keys(schema)) {
+					ykvMap.delete(keyName);
+				}
+			});
+		},
 	};
 }
 
