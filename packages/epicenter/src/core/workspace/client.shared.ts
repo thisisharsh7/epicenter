@@ -9,7 +9,6 @@
 import type * as Y from 'yjs';
 
 import type { Action, Actions } from '../actions';
-import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
 import type { Kv } from '../kv';
 import type { WorkspaceProviderMap } from '../provider';
@@ -115,9 +114,6 @@ export type WorkspaceClientInternals<
 
 	/** Actions from dependency workspaces, keyed by workspace ID. */
 	$workspaces: Record<string, Actions>;
-
-	/** Blob storage for binary files, namespaced by table. */
-	$blobs: WorkspaceBlobs<TSchema>;
 
 	/** Filesystem paths (undefined in browser environments). */
 	$paths: WorkspacePaths | undefined;
