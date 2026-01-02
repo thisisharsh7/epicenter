@@ -1,7 +1,6 @@
 import type * as Y from 'yjs';
 
 import type { Actions } from '../actions';
-import type { WorkspaceBlobs } from '../blobs';
 import type { Tables } from '../db/core';
 import type { Kv } from '../kv';
 import type { Provider, Providers, WorkspaceProviderMap } from '../provider';
@@ -217,7 +216,6 @@ export type WorkspaceConfig<
 	 * @param context.validators - Schema validators for runtime validation
 	 * @param context.workspaces - Actions from dependency workspaces
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
-	 * @param context.blobs - Blob storage for binary files, namespaced by table
 	 * @param context.paths - Filesystem paths (undefined in browser)
 	 *
 	 * @example
@@ -249,7 +247,6 @@ export type WorkspaceConfig<
 		validators: WorkspaceValidators<TWorkspaceSchema>;
 		workspaces: WorkspacesToActions<TDeps>;
 		providers: TProviderResults;
-		blobs: WorkspaceBlobs<TWorkspaceSchema>;
 		paths: WorkspacePaths | undefined;
 	}) => TActions;
 };

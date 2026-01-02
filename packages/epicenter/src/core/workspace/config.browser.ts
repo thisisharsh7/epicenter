@@ -95,7 +95,6 @@ export type WorkspaceConfig<
 	 * @param context.validators - Schema validators for runtime validation and arktype composition
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
 	 * @param context.workspaces - Actions from dependency workspaces (if any)
-	 * @param context.blobs - Blob storage for binary files, namespaced by table
 	 */
 	actions: (
 		context: ActionsContext<TWorkspaceSchema, TDeps, TProviders>,
