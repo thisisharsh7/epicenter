@@ -5,7 +5,7 @@
 In UI frameworks, we try our best to avoid async client initialization. Even clients whose operations are almost all async will often have their initialization be synchronous:
 
 ```typescript
-const db = drizzle(env.DB);  
+const db = drizzle(env.DB);
 const result = await db.select().from(users).all();
 ```
 
@@ -120,18 +120,18 @@ You wrap the app in a provider that initializes the client, waits for it to be r
 ```typescript
 // db.ts
 function createDatabaseClient() {
-  const initPromise = initializeConnection(); // Kicks off async work immediately
+	const initPromise = initializeConnection(); // Kicks off async work immediately
 
-  return {
-    async save(data: Data) {
-      const db = await initPromise; // Waits for init to complete
-      return db.save(data);
-    },
-    async load(id: string) {
-      const db = await initPromise;
-      return db.load(id);
-    },
-  };
+	return {
+		async save(data: Data) {
+			const db = await initPromise; // Waits for init to complete
+			return db.save(data);
+		},
+		async load(id: string) {
+			const db = await initPromise;
+			return db.load(id);
+		},
+	};
 }
 
 export const client = createDatabaseClient();
@@ -158,7 +158,7 @@ const provider = new IndexeddbPersistence('my-db', doc);
 
 // Constructor returns immediately - you can use it right away
 provider.on('update', () => {
-  // Handle updates
+	// Handle updates
 });
 
 // But if you need to wait for initial sync:
@@ -188,6 +188,36 @@ client.on('update', handleUpdate);
 await client.whenSynced;
 ```
 
+**Browser vs Node Initialization:**
+
+In my .node.ts and .browser.ts files:
+
+The browser `createClient` uses sync creation + `whenSynced` to allow **immediate UI rendering** while data loads in the background. This is intentional:
+
+- Browser providers like y-indexeddb are designed to return synchronously
+- They expose a `whenSynced` promise for tracking when data is loaded
+- This allows your UI to render immediately with loading states, then update when data arrives
+
+Node uses async creation because scripts and servers can just await:
+
+- When `createClient()` returns, everything is ready
+- No `whenSynced` needed because initialization is fully awaited
+- This is simpler for CLI scripts, migrations, and server startup
+
+**Example:**
+
+```typescript
+// Browser: sync creation, deferred sync
+const client = createClient(workspace);
+// UI can render immediately here (maybe with loading state)
+await client.whenSynced;
+// Now all data is loaded
+
+// Node: async creation, everything ready
+const client = await createClient(workspace);
+// Everything is ready, no waiting needed
+```
+
 ## Await Once at the Root
 
 Once you have a client with this structure, the cleanest approach is to await once at the root of your application:
@@ -195,13 +225,13 @@ Once you have a client with this structure, the cleanest approach is to await on
 ```svelte
 <!-- +layout.svelte -->
 <script>
-  import { client } from '$lib/client';
+	import { client } from '$lib/client';
 </script>
 
 {#await client.whenSynced}
-  <LoadingSpinner />
+	<LoadingSpinner />
 {:then}
-  {@render children?.()}
+	{@render children?.()}
 {/await}
 ```
 
@@ -249,21 +279,21 @@ No `await getClient()` everywhere. No wondering if the client is initialized. Ju
 let client: Client | null = null;
 
 export async function getClient() {
-  if (!client) {
-    client = await Client.create();
-  }
-  return client;
+	if (!client) {
+		client = await Client.create();
+	}
+	return client;
 }
 
 // component.svelte
 async function handleSave() {
-  const client = await getClient();
-  await client.save(data);
+	const client = await getClient();
+	await client.save(data);
 }
 
 async function handleLoad() {
-  const client = await getClient();
-  return await client.load(id);
+	const client = await getClient();
+	return await client.load(id);
 }
 ```
 
@@ -343,29 +373,30 @@ Browser workspace clients aggregate `whenSynced` promises from all providers:
 ```typescript
 // In client.browser.ts
 export function createWorkspaceClient(config) {
-  const ydoc = new Y.Doc();
-  const syncPromises: Promise<void>[] = [];
+	const ydoc = new Y.Doc();
+	const syncPromises: Promise<void>[] = [];
 
-  // Initialize providers
-  for (const [name, providerFn] of Object.entries(config.providers)) {
-    const exports = providerFn({ ydoc, ...context });
+	// Initialize providers
+	for (const [name, providerFn] of Object.entries(config.providers)) {
+		const exports = providerFn({ ydoc, ...context });
 
-    // Collect whenSynced promises from providers that have them
-    if (exports?.whenSynced) {
-      syncPromises.push(exports.whenSynced);
-    }
-  }
+		// Collect whenSynced promises from providers that have them
+		if (exports?.whenSynced) {
+			syncPromises.push(exports.whenSynced);
+		}
+	}
 
-  // Aggregate all sync promises
-  const whenSynced = syncPromises.length > 0
-    ? Promise.all(syncPromises).then(() => {})
-    : Promise.resolve();
+	// Aggregate all sync promises
+	const whenSynced =
+		syncPromises.length > 0
+			? Promise.all(syncPromises).then(() => {})
+			: Promise.resolve();
 
-  return {
-    ...workspaceExports,
-    whenSynced,
-    destroy,
-  };
+	return {
+		...workspaceExports,
+		whenSynced,
+		destroy,
+	};
 }
 ```
 
@@ -378,14 +409,14 @@ The IndexedDB persistence provider is the canonical example:
 ```typescript
 // In persistence/web.ts
 export function createIndexedDBPersistence({ ydoc, id }) {
-  const persistence = new IndexeddbPersistence(id, ydoc);
+	const persistence = new IndexeddbPersistence(id, ydoc);
 
-  return {
-    whenSynced: persistence.whenSynced.then(() => {
-      console.log(`[Persistence] IndexedDB synced for ${id}`);
-    }),
-    destroy: () => persistence.destroy(),
-  };
+	return {
+		whenSynced: persistence.whenSynced.then(() => {
+			console.log(`[Persistence] IndexedDB synced for ${id}`);
+		}),
+		destroy: () => persistence.destroy(),
+	};
 }
 ```
 
@@ -398,16 +429,16 @@ Browser and Node workspace clients have different types to reflect this:
 ```typescript
 // Browser WorkspaceClient - includes whenSynced
 type WorkspaceClient<TExports> = TExports & {
-  $ydoc: Y.Doc;
-  whenSynced: Promise<void>;  // Present in browser
-  destroy: () => Promise<void>;
+	$ydoc: Y.Doc;
+	whenSynced: Promise<void>; // Present in browser
+	destroy: () => Promise<void>;
 };
 
 // Node WorkspaceClient - no whenSynced needed
 type WorkspaceClient<TExports> = TExports & {
-  $ydoc: Y.Doc;
-  // No whenSynced - fully awaited at construction
-  destroy: () => Promise<void>;
+	$ydoc: Y.Doc;
+	// No whenSynced - fully awaited at construction
+	destroy: () => Promise<void>;
 };
 ```
 
@@ -420,13 +451,13 @@ The pattern from earlier works exactly as expected:
 ```svelte
 <!-- +layout.svelte -->
 <script>
-  import { client } from '$lib/epicenter';
+	import { client } from '$lib/epicenter';
 </script>
 
 {#await client.pages.whenSynced}
-  <LoadingSpinner />
+	<LoadingSpinner />
 {:then}
-  {@render children?.()}
+	{@render children?.()}
 {/await}
 ```
 
@@ -434,9 +465,9 @@ Or if you have multiple workspaces:
 
 ```svelte
 {#await Promise.all([client.pages.whenSynced, client.auth.whenSynced])}
-  <LoadingSpinner />
+	<LoadingSpinner />
 {:then}
-  <App />
+	<App />
 {/await}
 ```
 
