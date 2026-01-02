@@ -952,7 +952,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @example
 		 * ```typescript
 		 * type Post = typeof db.posts.$inferRow;
-		 * const result = db.posts.get({ id: '1' });
+		 * const result = db.posts.get('1');
 		 * if (result.data) {
 		 *   const post: Post = result.data; // Row with YJS backing
 		 * }

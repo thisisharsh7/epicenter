@@ -12,8 +12,8 @@ import {
 	tags,
 	text,
 	ytext,
-} from '../fields';
-import { tableSchemaToYjsArktypeType } from './arktype-yjs';
+} from './factories';
+import { tableSchemaToYjsArktypeType } from './to-arktype-yjs';
 
 test('validates Y.Text for ytext columns', () => {
 	const schema = {

@@ -31,7 +31,7 @@ export function createTablesPlugin(
 			app.get(
 				`${basePath}/:id`,
 				({ params, status }) => {
-					const result = tableHelper.get({ id: params.id });
+					const result = tableHelper.get(params.id);
 
 					switch (result.status) {
 						case 'valid':
@@ -77,7 +77,7 @@ export function createTablesPlugin(
 			app.delete(
 				`${basePath}/:id`,
 				({ params }) => {
-					const result = tableHelper.delete({ id: params.id });
+					const result = tableHelper.delete(params.id);
 					return Ok(result);
 				},
 				{

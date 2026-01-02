@@ -29,8 +29,8 @@ import type {
 	TextFieldSchema,
 	YtextFieldSchema,
 } from '../../schema';
-import { isNullableFieldSchema } from '../nullability';
-import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../regex';
+import { isNullableFieldSchema } from './nullability';
+import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
 
 /**
  * Maps a FieldSchema to its corresponding arktype Type.

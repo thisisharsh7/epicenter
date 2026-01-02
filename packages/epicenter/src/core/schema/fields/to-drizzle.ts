@@ -12,13 +12,11 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { date, json, tags } from '../../../../providers/sqlite/schema/builders';
+import { date, json, tags } from '../../../providers/sqlite/schema/builders';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
 	DateFieldSchema,
-	DateWithTimezone,
-	DateWithTimezoneString,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -30,6 +28,10 @@ import type {
 	WorkspaceSchema,
 	YtextFieldSchema,
 } from './types';
+import type {
+	DateWithTimezone,
+	DateWithTimezoneString,
+} from '../runtime/date-with-timezone';
 import { isNullableFieldSchema } from './nullability';
 
 /**

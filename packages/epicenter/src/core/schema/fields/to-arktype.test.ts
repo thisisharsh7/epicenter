@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { id, integer, json, select, text } from '../../schema';
-import { tableSchemaToArktypeType } from './arktype';
+import { tableSchemaToArktypeType } from './to-arktype';
 
 describe('tableSchemaToArktypeType', () => {
 	test('returns a complete arktype Type instance', () => {

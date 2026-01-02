@@ -61,7 +61,7 @@ export type WorkspaceClientInternals<
 	 * @example
 	 * ```typescript
 	 * // Get a row with live YJS objects
-	 * const result = client.$tables.posts.get({ id: '123' });
+	 * const result = client.$tables.posts.get('123');
 	 * if (result.status === 'valid') {
 	 *   const ytext = result.row.content; // Y.Text for editor binding
 	 * }
