@@ -29,11 +29,6 @@ export type ActionContracts = {
 };
 
 /**
- * @deprecated Use `ActionContracts` instead. This alias exists for backwards compatibility.
- */
-export type Actions = ActionContracts;
-
-/**
  * Action contract - metadata for cross-boundary invocation.
  *
  * Action contracts define the shape of inputs and outputs without implementations.
@@ -71,10 +66,18 @@ export type QueryContract<
 		| undefined,
 	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 > = {
+	/** Discriminator for action type */
 	type: 'query';
+	/** Output schema for validation and documentation */
 	output: TOutput;
+	/** Human-readable description for documentation and AI assistants */
 	description?: string;
-} & (TInput extends undefined ? Record<string, never> : { input: TInput });
+} & (TInput extends undefined
+	? Record<string, never>
+	: {
+			/** Input schema for validation and documentation */
+			input: TInput;
+		});
 
 /**
  * Mutation contract: write operation that modifies state.
@@ -91,10 +94,18 @@ export type MutationContract<
 		| undefined,
 	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 > = {
+	/** Discriminator for action type */
 	type: 'mutation';
+	/** Output schema for validation and documentation */
 	output: TOutput;
+	/** Human-readable description for documentation and AI assistants */
 	description?: string;
-} & (TInput extends undefined ? Record<string, never> : { input: TInput });
+} & (TInput extends undefined
+	? Record<string, never>
+	: {
+			/** Input schema for validation and documentation */
+			input: TInput;
+		});
 
 /**
  * Define a query contract (read operation with no side effects).
@@ -168,10 +179,10 @@ export function defineQuery(config: {
 }): QueryContract {
 	return {
 		type: 'query',
-		...(config.input && { input: config.input }),
 		output: config.output,
 		description: config.description,
-	};
+		...(config.input && { input: config.input }),
+	} as QueryContract;
 }
 
 /**
@@ -246,10 +257,10 @@ export function defineMutation(config: {
 }): MutationContract {
 	return {
 		type: 'mutation',
-		...(config.input && { input: config.input }),
 		output: config.output,
 		description: config.description,
-	};
+		...(config.input && { input: config.input }),
+	} as MutationContract;
 }
 
 /**
@@ -405,49 +416,6 @@ export function defineActionContracts<T extends ActionContracts>(
 ): T {
 	return contracts;
 }
-
-// =============================================================================
-// Deprecated exports for backwards compatibility
-// =============================================================================
-
-/** @deprecated Use `ActionContract` instead. */
-export type Action<
-	TInput extends StandardSchemaWithJSONSchema | undefined =
-		| StandardSchemaWithJSONSchema
-		| undefined,
-	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
-> = ActionContract<TInput, TOutput>;
-
-/** @deprecated Use `QueryContract` instead. */
-export type Query<
-	TInput extends StandardSchemaWithJSONSchema | undefined =
-		| StandardSchemaWithJSONSchema
-		| undefined,
-	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
-> = QueryContract<TInput, TOutput>;
-
-/** @deprecated Use `MutationContract` instead. */
-export type Mutation<
-	TInput extends StandardSchemaWithJSONSchema | undefined =
-		| StandardSchemaWithJSONSchema
-		| undefined,
-	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
-> = MutationContract<TInput, TOutput>;
-
-/** @deprecated Use `isActionContract` instead. */
-export const isAction = isActionContract;
-
-/** @deprecated Use `isQueryContract` instead. */
-export const isQuery = isQueryContract;
-
-/** @deprecated Use `isMutationContract` instead. */
-export const isMutation = isMutationContract;
-
-/** @deprecated Use `walkActionContracts` instead. */
-export const walkActions = walkActionContracts;
-
-/** @deprecated Use `defineActionContracts` instead. */
-export const defineActions = defineActionContracts;
 
 // =============================================================================
 // Type utilities for handler binding (used by .withHandlers())
