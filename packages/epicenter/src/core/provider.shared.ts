@@ -8,7 +8,7 @@
 
 import type * as Y from 'yjs';
 import type { Tables } from './db/core';
-import type { WorkspaceSchema } from './schema';
+import type { TablesSchema } from './schema';
 import type { ProviderPaths } from './types';
 
 /**
@@ -18,13 +18,13 @@ import type { ProviderPaths } from './types';
  * - Node.js/Bun: `paths` is defined with project, epicenter, and provider directories
  * - Browser: `paths` is undefined (use IndexedDB or other browser APIs)
  */
-export type ProviderContext<TSchema extends WorkspaceSchema = WorkspaceSchema> =
+export type ProviderContext<TTablesSchema extends TablesSchema = TablesSchema> =
 	{
 		id: string;
 		providerId: string;
 		ydoc: Y.Doc;
-		schema: TSchema;
-		tables: Tables<TSchema>;
+		schema: TTablesSchema;
+		tables: Tables<TTablesSchema>;
 		paths: ProviderPaths | undefined;
 	};
 
@@ -51,8 +51,8 @@ export function defineProviders<T extends Providers>(exports: T): T {
  * A provider function that attaches capabilities to a workspace.
  */
 export type Provider<
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TTablesSchema extends TablesSchema = TablesSchema,
 	TExports extends Providers = Providers,
 > = (
-	context: ProviderContext<TSchema>,
+	context: ProviderContext<TTablesSchema>,
 ) => TExports | void | Promise<TExports | void>;

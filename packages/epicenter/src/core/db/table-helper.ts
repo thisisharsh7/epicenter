@@ -9,7 +9,7 @@ import type {
 	SerializedRow,
 	TableSchema,
 	TableValidators,
-	WorkspaceSchema,
+	TablesSchema,
 	WorkspaceValidators,
 } from '../schema';
 import { serializeCellValue } from '../schema';
@@ -123,15 +123,15 @@ export type DeleteManyResult =
  * @param ytables - The root YJS Map containing all table data
  * @returns Object mapping table names to their typed TableHelper instances
  */
-export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
+export function createTableHelpers<TTablesSchema extends TablesSchema>({
 	ydoc,
 	schema,
 	validators,
 	ytables,
 }: {
 	ydoc: Y.Doc;
-	schema: TWorkspaceSchema;
-	validators: WorkspaceValidators<TWorkspaceSchema>;
+	schema: TTablesSchema;
+	validators: WorkspaceValidators<TTablesSchema>;
 	ytables: Y.Map<Y.Map<YRow>>;
 }) {
 	return Object.fromEntries(
@@ -149,9 +149,7 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 			];
 		}),
 	) as {
-		[TTableName in keyof TWorkspaceSchema]: TableHelper<
-			TWorkspaceSchema[TTableName]
-		>;
+		[TTableName in keyof TTablesSchema]: TableHelper<TTablesSchema[TTableName]>;
 	};
 }
 

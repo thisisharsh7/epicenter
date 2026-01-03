@@ -1,6 +1,6 @@
 import { regex } from 'arkregex';
 import * as Y from 'yjs';
-import type { WorkspaceSchema } from '../schema';
+import type { TablesSchema } from '../schema';
 import { createWorkspaceValidators } from '../schema';
 import {
 	createTableHelpers,
@@ -84,9 +84,9 @@ export type { TableHelper } from './table-helper';
  * db.clearAll();
  * ```
  */
-export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
+export function createTables<TTablesSchema extends TablesSchema>(
 	ydoc: Y.Doc,
-	schema: TWorkspaceSchema,
+	schema: TTablesSchema,
 ) {
 	// Validate table names
 	for (const tableName of Object.keys(schema)) {
@@ -148,7 +148,7 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		 */
 		$all() {
 			return Object.values(tableHelpers) as TableHelper<
-				TWorkspaceSchema[keyof TWorkspaceSchema]
+				TTablesSchema[keyof TTablesSchema]
 			>[];
 		},
 
@@ -182,12 +182,10 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		 */
 		$zip<
 			TConfigs extends {
-				[K in keyof TWorkspaceSchema & string]: unknown;
+				[K in keyof TTablesSchema & string]: unknown;
 			},
 		>(configs: TConfigs) {
-			const names = Object.keys(schema) as Array<
-				keyof TWorkspaceSchema & string
-			>;
+			const names = Object.keys(schema) as Array<keyof TTablesSchema & string>;
 
 			return names.map((name) => ({
 				name,
@@ -195,12 +193,12 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 				paired: configs[name],
 			})) as Array<
 				{
-					[K in keyof TWorkspaceSchema & string]: {
+					[K in keyof TTablesSchema & string]: {
 						name: K;
-						table: TableHelper<TWorkspaceSchema[K]>;
+						table: TableHelper<TTablesSchema[K]>;
 						paired: TConfigs[K];
 					};
-				}[keyof TWorkspaceSchema & string]
+				}[keyof TTablesSchema & string]
 			>;
 		},
 
@@ -221,6 +219,6 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
  * Type alias for the return type of createTables.
  * Useful for typing function parameters that accept a tables instance.
  */
-export type Tables<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
-	typeof createTables<TWorkspaceSchema>
+export type Tables<TTablesSchema extends TablesSchema> = ReturnType<
+	typeof createTables<TTablesSchema>
 >;

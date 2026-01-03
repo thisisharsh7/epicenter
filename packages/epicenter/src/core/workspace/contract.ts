@@ -11,7 +11,7 @@ import type { Provider, Providers } from '../provider.shared';
 import {
 	createWorkspaceValidators,
 	type StandardSchemaV1,
-	type WorkspaceSchema,
+	type TablesSchema,
 	type WorkspaceValidators,
 } from '../schema';
 import type { ProviderPaths, WorkspacePaths } from '../types';
@@ -27,11 +27,11 @@ import type { ProviderPaths, WorkspacePaths } from '../types';
  */
 export type WorkspaceContract<
 	TId extends string = string,
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TTablesSchema extends TablesSchema = TablesSchema,
 	TActions extends ActionContracts = ActionContracts,
 > = {
 	id: TId;
-	tables: TSchema;
+	tables: TTablesSchema;
 	actions: TActions;
 	description?: string;
 };
@@ -47,25 +47,29 @@ export type WorkspaceContract<
  */
 export type Workspace<
 	TId extends string = string,
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TTablesSchema extends TablesSchema = TablesSchema,
 	TActions extends ActionContracts = ActionContracts,
-> = WorkspaceContract<TId, TSchema, TActions> & {
+> = WorkspaceContract<TId, TTablesSchema, TActions> & {
 	/**
 	 * Add providers (SQLite, IndexedDB, markdown, etc.) to the workspace.
 	 */
-	withProviders<TProviders extends ProviderMap<TSchema>>(
+	withProviders<TProviders extends ProviderMap<TTablesSchema>>(
 		providers: TProviders,
-	): WorkspaceWithProviders<TId, TSchema, TActions, TProviders>;
+	): WorkspaceWithProviders<TId, TTablesSchema, TActions, TProviders>;
 
 	/**
 	 * Create a client with handlers (no providers).
 	 * Shorthand for `.withProviders({}).createWithHandlers(handlers)`.
 	 */
 	createWithHandlers(
-		handlers: HandlersForContracts<TActions, TSchema, Record<string, never>>,
+		handlers: HandlersForContracts<
+			TActions,
+			TTablesSchema,
+			Record<string, never>
+		>,
 		options?: CreateOptions,
 	): Promise<
-		BoundWorkspaceClient<TId, TActions, TSchema, Record<string, never>>
+		BoundWorkspaceClient<TId, TActions, TTablesSchema, Record<string, never>>
 	>;
 
 	/**
@@ -76,16 +80,16 @@ export type Workspace<
 		url: string,
 		options?: CreateOptions,
 	): Promise<
-		BoundWorkspaceClient<TId, TActions, TSchema, Record<string, never>>
+		BoundWorkspaceClient<TId, TActions, TTablesSchema, Record<string, never>>
 	>;
 };
 
-export type ProviderMap<TSchema extends WorkspaceSchema = WorkspaceSchema> =
-	Record<string, Provider<TSchema>>;
+export type ProviderMap<TTablesSchema extends TablesSchema = TablesSchema> =
+	Record<string, Provider<TTablesSchema>>;
 
 export type InferProviderExports<TProviders> = {
 	[K in keyof TProviders]: TProviders[K] extends Provider<
-		WorkspaceSchema,
+		TablesSchema,
 		infer TExports
 	>
 		? TExports extends Providers
@@ -103,10 +107,10 @@ export type InferProviderExports<TProviders> = {
  */
 export type WorkspaceWithProviders<
 	TId extends string,
-	TSchema extends WorkspaceSchema,
+	TTablesSchema extends TablesSchema,
 	TActions extends ActionContracts,
-	TProviders extends ProviderMap<TSchema>,
-> = WorkspaceContract<TId, TSchema, TActions> & {
+	TProviders extends ProviderMap<TTablesSchema>,
+> = WorkspaceContract<TId, TTablesSchema, TActions> & {
 	$providers: TProviders;
 
 	/**
@@ -127,11 +131,11 @@ export type WorkspaceWithProviders<
 	createWithHandlers(
 		handlers: HandlersForContracts<
 			TActions,
-			TSchema,
+			TTablesSchema,
 			InferProviderExports<TProviders>
 		>,
 		options?: CreateOptions,
-	): Promise<BoundWorkspaceClient<TId, TActions, TSchema, TProviders>>;
+	): Promise<BoundWorkspaceClient<TId, TActions, TTablesSchema, TProviders>>;
 
 	/**
 	 * Create an HTTP client where actions proxy to a server.
@@ -156,19 +160,19 @@ export type WorkspaceWithProviders<
 	createHttpClient(
 		url: string,
 		options?: CreateOptions,
-	): Promise<BoundWorkspaceClient<TId, TActions, TSchema, TProviders>>;
+	): Promise<BoundWorkspaceClient<TId, TActions, TTablesSchema, TProviders>>;
 };
 
 export type HandlerContext<
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TTablesSchema extends TablesSchema = TablesSchema,
 	TProviderExports extends Record<string, Providers> = Record<
 		string,
 		Providers
 	>,
 > = {
-	tables: Tables<TSchema>;
-	schema: TSchema;
-	validators: WorkspaceValidators<TSchema>;
+	tables: Tables<TTablesSchema>;
+	schema: TTablesSchema;
+	validators: WorkspaceValidators<TTablesSchema>;
 	providers: TProviderExports;
 	paths: WorkspacePaths | undefined;
 };
@@ -176,14 +180,14 @@ export type HandlerContext<
 export type HandlerFn<
 	TInput,
 	TOutput,
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
+	TTablesSchema extends TablesSchema = TablesSchema,
 	TProviderExports extends Record<string, Providers> = Record<
 		string,
 		Providers
 	>,
 > = (
 	input: TInput,
-	ctx: HandlerContext<TSchema, TProviderExports>,
+	ctx: HandlerContext<TTablesSchema, TProviderExports>,
 ) => TOutput | Promise<TOutput>;
 
 type InferInput<TInput> = TInput extends StandardSchemaV1
@@ -196,7 +200,7 @@ type InferOutput<TOutput> = TOutput extends StandardSchemaV1
 
 export type HandlersForContracts<
 	TActions extends ActionContracts,
-	TSchema extends WorkspaceSchema,
+	TTablesSchema extends TablesSchema,
 	TProviderExports extends Record<string, Providers>,
 > = {
 	[K in keyof TActions]: TActions[K] extends QueryContract<
@@ -206,18 +210,18 @@ export type HandlersForContracts<
 		? HandlerFn<
 				InferInput<TInput>,
 				InferOutput<TOutput>,
-				TSchema,
+				TTablesSchema,
 				TProviderExports
 			>
 		: TActions[K] extends MutationContract<infer TInput, infer TOutput>
 			? HandlerFn<
 					InferInput<TInput>,
 					InferOutput<TOutput>,
-					TSchema,
+					TTablesSchema,
 					TProviderExports
 				>
 			: TActions[K] extends ActionContracts
-				? HandlersForContracts<TActions[K], TSchema, TProviderExports>
+				? HandlersForContracts<TActions[K], TTablesSchema, TProviderExports>
 				: never;
 };
 
@@ -252,19 +256,19 @@ export type BoundActions<TActions extends ActionContracts> = {
 export type BoundWorkspaceClient<
 	TId extends string = string,
 	TActions extends ActionContracts = ActionContracts,
-	TSchema extends WorkspaceSchema = WorkspaceSchema,
-	TProviders extends ProviderMap<TSchema> = ProviderMap<TSchema>,
+	TTablesSchema extends TablesSchema = TablesSchema,
+	TProviders extends ProviderMap<TTablesSchema> = ProviderMap<TTablesSchema>,
 > = {
 	/** The workspace ID from the contract definition */
 	id: TId;
 	/** The action contracts (for server route registration) */
 	contracts: TActions;
 	/** YJS-backed table operations */
-	tables: Tables<TSchema>;
+	tables: Tables<TTablesSchema>;
 	/** Provider exports (SQLite, markdown, etc.) */
 	providers: InferProviderExports<TProviders>;
 	/** Runtime validators for table schemas */
-	validators: WorkspaceValidators<TSchema>;
+	validators: WorkspaceValidators<TTablesSchema>;
 	/** Filesystem paths (undefined in browser) */
 	paths: WorkspacePaths | undefined;
 	/** The underlying YJS document */
@@ -278,12 +282,12 @@ export type BoundWorkspaceClient<
 };
 
 type InitializedWorkspace<
-	TSchema extends WorkspaceSchema,
-	TProviders extends ProviderMap<TSchema>,
+	TTablesSchema extends TablesSchema,
+	TProviders extends ProviderMap<TTablesSchema>,
 > = {
 	ydoc: Y.Doc;
-	tables: Tables<TSchema>;
-	validators: WorkspaceValidators<TSchema>;
+	tables: Tables<TTablesSchema>;
+	validators: WorkspaceValidators<TTablesSchema>;
 	providerExports: InferProviderExports<TProviders>;
 	paths: WorkspacePaths | undefined;
 	cleanup: () => Promise<void>;
@@ -291,13 +295,13 @@ type InitializedWorkspace<
 
 async function initializeWorkspace<
 	TId extends string,
-	TSchema extends WorkspaceSchema,
-	TProviders extends ProviderMap<TSchema>,
+	TTablesSchema extends TablesSchema,
+	TProviders extends ProviderMap<TTablesSchema>,
 >(
-	config: WorkspaceContract<TId, TSchema, ActionContracts>,
+	config: WorkspaceContract<TId, TTablesSchema, ActionContracts>,
 	providerFactories: TProviders,
 	options?: CreateOptions,
-): Promise<InitializedWorkspace<TSchema, TProviders>> {
+): Promise<InitializedWorkspace<TTablesSchema, TProviders>> {
 	const projectDir =
 		options?.projectDir ??
 		(typeof process !== 'undefined' ? process.cwd() : undefined);
@@ -371,12 +375,12 @@ async function initializeWorkspace<
 
 function bindActionsWithHandlers<
 	TActions extends ActionContracts,
-	TSchema extends WorkspaceSchema,
+	TTablesSchema extends TablesSchema,
 	TProviderExports extends Record<string, Providers>,
 >(
 	contracts: TActions,
-	handlers: HandlersForContracts<TActions, TSchema, TProviderExports>,
-	ctx: HandlerContext<TSchema, TProviderExports>,
+	handlers: HandlersForContracts<TActions, TTablesSchema, TProviderExports>,
+	ctx: HandlerContext<TTablesSchema, TProviderExports>,
 ): BoundActions<TActions> {
 	const bound: Record<string, unknown> = {};
 
@@ -386,7 +390,7 @@ function bindActionsWithHandlers<
 		if (isActionContract(contractOrNamespace)) {
 			const handler = handlerOrNamespace as (
 				input: unknown,
-				ctx: HandlerContext<TSchema, TProviderExports>,
+				ctx: HandlerContext<TTablesSchema, TProviderExports>,
 			) => unknown | Promise<unknown>;
 
 			bound[key] = async (input: unknown) => handler(input, ctx);
@@ -395,7 +399,7 @@ function bindActionsWithHandlers<
 				contractOrNamespace as ActionContracts,
 				handlerOrNamespace as HandlersForContracts<
 					ActionContracts,
-					TSchema,
+					TTablesSchema,
 					TProviderExports
 				>,
 				ctx,
@@ -492,31 +496,33 @@ function bindActionsWithHttp<TActions extends ActionContracts>(
  */
 export function defineWorkspace<
 	const TId extends string,
-	TSchema extends WorkspaceSchema,
+	TTablesSchema extends TablesSchema,
 	TActions extends ActionContracts,
 >(
-	config: WorkspaceContract<TId, TSchema, TActions>,
-): Workspace<TId, TSchema, TActions> {
+	config: WorkspaceContract<TId, TTablesSchema, TActions>,
+): Workspace<TId, TTablesSchema, TActions> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
 	}
 
 	const createClientWithHandlers = async <
-		TProviders extends ProviderMap<TSchema>,
+		TProviders extends ProviderMap<TTablesSchema>,
 	>(
 		providers: TProviders,
 		handlers: HandlersForContracts<
 			TActions,
-			TSchema,
+			TTablesSchema,
 			InferProviderExports<TProviders>
 		>,
 		options?: CreateOptions,
-	): Promise<BoundWorkspaceClient<TId, TActions, TSchema, TProviders>> => {
+	): Promise<
+		BoundWorkspaceClient<TId, TActions, TTablesSchema, TProviders>
+	> => {
 		const { ydoc, tables, validators, providerExports, paths, cleanup } =
 			await initializeWorkspace(config, providers, options);
 
 		const handlerContext: HandlerContext<
-			TSchema,
+			TTablesSchema,
 			InferProviderExports<TProviders>
 		> = {
 			tables,
@@ -546,11 +552,15 @@ export function defineWorkspace<
 		};
 	};
 
-	const createClientWithHttp = async <TProviders extends ProviderMap<TSchema>>(
+	const createClientWithHttp = async <
+		TProviders extends ProviderMap<TTablesSchema>,
+	>(
 		providers: TProviders,
 		url: string,
 		options?: CreateOptions,
-	): Promise<BoundWorkspaceClient<TId, TActions, TSchema, TProviders>> => {
+	): Promise<
+		BoundWorkspaceClient<TId, TActions, TTablesSchema, TProviders>
+	> => {
 		const { ydoc, tables, validators, providerExports, paths, cleanup } =
 			await initializeWorkspace(config, providers, options);
 
@@ -573,9 +583,9 @@ export function defineWorkspace<
 	return {
 		...config,
 
-		withProviders<TProviders extends ProviderMap<TSchema>>(
+		withProviders<TProviders extends ProviderMap<TTablesSchema>>(
 			providers: TProviders,
-		): WorkspaceWithProviders<TId, TSchema, TActions, TProviders> {
+		): WorkspaceWithProviders<TId, TTablesSchema, TActions, TProviders> {
 			return {
 				...config,
 				$providers: providers,
@@ -583,35 +593,43 @@ export function defineWorkspace<
 				createWithHandlers(
 					handlers: HandlersForContracts<
 						TActions,
-						TSchema,
+						TTablesSchema,
 						InferProviderExports<TProviders>
 					>,
 					options?: CreateOptions,
-				): Promise<BoundWorkspaceClient<TId, TActions, TSchema, TProviders>> {
+				): Promise<
+					BoundWorkspaceClient<TId, TActions, TTablesSchema, TProviders>
+				> {
 					return createClientWithHandlers(providers, handlers, options);
 				},
 
 				createHttpClient(
 					url: string,
 					options?: CreateOptions,
-				): Promise<BoundWorkspaceClient<TId, TActions, TSchema, TProviders>> {
+				): Promise<
+					BoundWorkspaceClient<TId, TActions, TTablesSchema, TProviders>
+				> {
 					return createClientWithHttp(providers, url, options);
 				},
 			};
 		},
 
 		createWithHandlers(
-			handlers: HandlersForContracts<TActions, TSchema, Record<string, never>>,
+			handlers: HandlersForContracts<
+				TActions,
+				TTablesSchema,
+				Record<string, never>
+			>,
 			options?: CreateOptions,
 		): Promise<
-			BoundWorkspaceClient<TId, TActions, TSchema, Record<string, never>>
+			BoundWorkspaceClient<TId, TActions, TTablesSchema, Record<string, never>>
 		> {
 			const emptyProviders = {} as Record<string, never>;
 			return createClientWithHandlers(
 				emptyProviders,
 				handlers as HandlersForContracts<
 					TActions,
-					TSchema,
+					TTablesSchema,
 					InferProviderExports<Record<string, never>>
 				>,
 				options,
@@ -622,7 +640,7 @@ export function defineWorkspace<
 			url: string,
 			options?: CreateOptions,
 		): Promise<
-			BoundWorkspaceClient<TId, TActions, TSchema, Record<string, never>>
+			BoundWorkspaceClient<TId, TActions, TTablesSchema, Record<string, never>>
 		> {
 			const emptyProviders = {} as Record<string, never>;
 			return createClientWithHttp(emptyProviders, url, options);
