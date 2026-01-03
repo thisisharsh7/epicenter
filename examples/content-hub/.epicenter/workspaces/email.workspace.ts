@@ -66,8 +66,7 @@ export const email = defineWorkspace({
 			}),
 	},
 
-	actions: ({ tables, providers }) => ({
-		...tables.emails,
+	actions: ({ providers }) => ({
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,
 		pullToSqlite: providers.sqlite.pullToSqlite,

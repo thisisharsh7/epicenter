@@ -1,7 +1,7 @@
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
-} from '../../../core/schema/standard-schema';
+} from '../../../core/schema/standard/types';
 import type {
 	ColumnBuilderBase,
 	ColumnBuilderBaseConfig,
@@ -431,7 +431,7 @@ export function json<
 	if (defaultValue !== undefined) {
 		column =
 			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
+				? column.$defaultFn(defaultValue as () => TOutput)
 				: column.default(defaultValue as unknown as TOutput);
 	}
 

@@ -2,17 +2,15 @@ import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import { defineMutation, defineQuery } from '../actions';
 import type {
 	CellValue,
+	PartialSerializedRow,
 	Row,
 	SerializedRow,
 	TableSchema,
-	TableValidators,
-	WorkspaceSchema,
-	WorkspaceValidators,
+	TablesSchema,
 } from '../schema';
-import { serializeCellValue } from '../schema';
+import { serializeCellValue, tableSchemaToYjsArktype } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
@@ -119,19 +117,16 @@ export type DeleteManyResult =
  *
  * @param ydoc - The YJS document instance
  * @param schema - Raw table schemas (column definitions only)
- * @param validators - Table validators (validation methods)
  * @param ytables - The root YJS Map containing all table data
  * @returns Object mapping table names to their typed TableHelper instances
  */
-export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
+export function createTableHelpers<TTablesSchema extends TablesSchema>({
 	ydoc,
 	schema,
-	validators,
 	ytables,
 }: {
 	ydoc: Y.Doc;
-	schema: TWorkspaceSchema;
-	validators: WorkspaceValidators<TWorkspaceSchema>;
+	schema: TTablesSchema;
 	ytables: Y.Map<Y.Map<YRow>>;
 }) {
 	return Object.fromEntries(
@@ -143,15 +138,11 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
 					tableName,
 					ytables,
 					schema: tableSchema,
-					// biome-ignore lint/style/noNonNullAssertion: validators is created by createWorkspaceValidators which maps over the same schema object, so every key in schema has a corresponding key in validators
-					validators: validators[tableName]!,
 				}),
 			];
 		}),
 	) as {
-		[TTableName in keyof TWorkspaceSchema]: TableHelper<
-			TWorkspaceSchema[TTableName]
-		>;
+		[TTableName in keyof TTablesSchema]: TableHelper<TTablesSchema[TTableName]>;
 	};
 }
 
@@ -166,7 +157,6 @@ export function createTableHelpers<TWorkspaceSchema extends WorkspaceSchema>({
  * @param tableName - Name of the table (used in error messages)
  * @param ytables - The root YJS Map containing all table data
  * @param schema - The table schema (column definitions only)
- * @param validators - The table validators (validation methods)
  * @returns A TableHelper instance with full CRUD operations
  */
 function createTableHelper<TTableSchema extends TableSchema>({
@@ -174,13 +164,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	tableName,
 	ytables,
 	schema,
-	validators,
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
 	ytables: Y.Map<Y.Map<YRow>>;
 	schema: TTableSchema;
-	validators: TableValidators<TTableSchema>;
 }) {
 	type TRow = Row<TTableSchema>;
 
@@ -212,11 +200,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		schema,
 
 		/**
-		 * The validators for this table (runtime validation methods)
-		 */
-		validators,
-
-		/**
 		 * Update specific fields of an existing row.
 		 *
 		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
@@ -234,67 +217,99 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * only partial fields) could completely replace it, destroying all their data. The
 		 * no-op behavior is the safe choice that prevents catastrophic data loss.
 		 */
-		update: defineMutation({
-			input: validators.toPartialStandardSchema(),
-			description: `Update specific fields of an existing row in the ${tableName} table`,
-			handler: (partialSerializedRow): UpdateResult => {
-				const yrow = getYTable().get(partialSerializedRow.id);
-				if (!yrow) {
-					// No-op: Creating a new Y.Map here would risk replacing an existing row
-					// from another peer via LWW, causing catastrophic data loss.
-					return { status: 'not_found_locally' };
-				}
+		update(
+			partialSerializedRow: PartialSerializedRow<TTableSchema>,
+		): UpdateResult {
+			const yrow = getYTable().get(partialSerializedRow.id);
+			if (!yrow) {
+				// No-op: Creating a new Y.Map here would risk replacing an existing row
+				// from another peer via LWW, causing catastrophic data loss.
+				return { status: 'not_found_locally' };
+			}
 
-				ydoc.transact(() => {
-					updateYRowFromSerializedRow({
-						yrow,
-						serializedRow: partialSerializedRow,
-						schema,
-					});
+			ydoc.transact(() => {
+				updateYRowFromSerializedRow({
+					yrow,
+					serializedRow: partialSerializedRow,
+					schema,
 				});
+			});
 
-				return { status: 'applied' };
-			},
-		}),
+			return { status: 'applied' };
+		},
 
 		/**
 		 * Insert or update a row (insert if doesn't exist, update if exists).
 		 *
-		 * For Y.js columns (ytext, tags), provide plain JavaScript values.
-		 * Internally syncs using updateYTextFromString() and updateYArrayFromArray().
+		 * This is the primary write operation for tables. Use it when you have a complete
+		 * row and want to ensure it exists in the table regardless of prior state.
+		 *
+		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
+		 * - ytext columns accept strings (synced via updateYTextFromString)
+		 * - tags columns accept arrays (synced via updateYArrayFromArray)
+		 *
+		 * @param serializedRow - Complete row data with all required fields
+		 *
+		 * @example
+		 * ```typescript
+		 * // Create a new post
+		 * tables.posts.upsert({
+		 *   id: 'post-123',
+		 *   title: 'Hello World',
+		 *   content: 'Post content here',
+		 *   tags: ['tech', 'blog'],
+		 *   published: false,
+		 * });
+		 *
+		 * // Update an existing post (all fields required)
+		 * tables.posts.upsert({
+		 *   id: 'post-123',
+		 *   title: 'Updated Title',
+		 *   content: 'New content',
+		 *   tags: ['tech'],
+		 *   published: true,
+		 * });
+		 * ```
 		 */
-		upsert: defineMutation({
-			input: validators.toStandardSchema(),
-			description: `Insert or update a row in the ${tableName} table`,
-			handler: (serializedRow) => {
-				ydoc.transact(() => {
+		upsert(serializedRow: SerializedRow<TTableSchema>): void {
+			ydoc.transact(() => {
+				let yrow = getYTable().get(serializedRow.id);
+				if (!yrow) {
+					yrow = new Y.Map<CellValue>();
+					getYTable().set(serializedRow.id, yrow);
+				}
+				updateYRowFromSerializedRow({ yrow, serializedRow, schema });
+			});
+		},
+
+		/**
+		 * Insert or update multiple rows in a single transaction.
+		 *
+		 * More efficient than calling `upsert` multiple times as all changes
+		 * are batched into a single Y.js transaction.
+		 *
+		 * @param rows - Array of complete row data to upsert
+		 *
+		 * @example
+		 * ```typescript
+		 * tables.posts.upsertMany([
+		 *   { id: 'post-1', title: 'First', content: '...', tags: [], published: true },
+		 *   { id: 'post-2', title: 'Second', content: '...', tags: [], published: false },
+		 * ]);
+		 * ```
+		 */
+		upsertMany(rows: SerializedRow<TTableSchema>[]): void {
+			ydoc.transact(() => {
+				for (const serializedRow of rows) {
 					let yrow = getYTable().get(serializedRow.id);
 					if (!yrow) {
 						yrow = new Y.Map<CellValue>();
 						getYTable().set(serializedRow.id, yrow);
 					}
 					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-				});
-			},
-		}),
-
-		/** Insert or update multiple rows */
-		upsertMany: defineMutation({
-			input: validators.toStandardSchemaArray(),
-			description: `Insert or update multiple rows in the ${tableName} table`,
-			handler: ({ rows }) => {
-				ydoc.transact(() => {
-					for (const serializedRow of rows) {
-						let yrow = getYTable().get(serializedRow.id);
-						if (!yrow) {
-							yrow = new Y.Map<CellValue>();
-							getYTable().set(serializedRow.id, yrow);
-						}
-						updateYRowFromSerializedRow({ yrow, serializedRow, schema });
-					}
-				});
-			},
-		}),
+				}
+			});
+		},
 
 		/**
 		 * Update multiple rows.
@@ -302,38 +317,34 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Rows that don't exist locally are skipped (no-op). See `update` for the rationale.
 		 * Returns a status indicating how many rows were applied vs not found locally.
 		 */
-		updateMany: defineMutation({
-			input: validators.toPartialStandardSchemaArray(),
-			description: `Update multiple rows in the ${tableName} table`,
-			handler: ({ rows }): UpdateManyResult => {
-				const applied: string[] = [];
-				const notFoundLocally: string[] = [];
+		updateMany(rows: PartialSerializedRow<TTableSchema>[]): UpdateManyResult {
+			const applied: string[] = [];
+			const notFoundLocally: string[] = [];
 
-				ydoc.transact(() => {
-					for (const partialSerializedRow of rows) {
-						const yrow = getYTable().get(partialSerializedRow.id);
-						if (!yrow) {
-							notFoundLocally.push(partialSerializedRow.id);
-							continue;
-						}
-						updateYRowFromSerializedRow({
-							yrow,
-							serializedRow: partialSerializedRow,
-							schema,
-						});
-						applied.push(partialSerializedRow.id);
+			ydoc.transact(() => {
+				for (const partialSerializedRow of rows) {
+					const yrow = getYTable().get(partialSerializedRow.id);
+					if (!yrow) {
+						notFoundLocally.push(partialSerializedRow.id);
+						continue;
 					}
-				});
+					updateYRowFromSerializedRow({
+						yrow,
+						serializedRow: partialSerializedRow,
+						schema,
+					});
+					applied.push(partialSerializedRow.id);
+				}
+			});
 
-				if (notFoundLocally.length === 0) {
-					return { status: 'all_applied', applied };
-				}
-				if (applied.length === 0) {
-					return { status: 'none_applied', notFoundLocally };
-				}
-				return { status: 'partially_applied', applied, notFoundLocally };
-			},
-		}),
+			if (notFoundLocally.length === 0) {
+				return { status: 'all_applied', applied };
+			}
+			if (applied.length === 0) {
+				return { status: 'none_applied', notFoundLocally };
+			}
+			return { status: 'partially_applied', applied, notFoundLocally };
+		},
 
 		/**
 		 * Get a row by ID, returning Y.js objects for collaborative editing.
@@ -343,143 +354,141 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * - `{ status: 'invalid', id, error }` if row exists but fails validation
 		 * - `{ status: 'not_found', id }` if row doesn't exist
 		 */
-		get: defineQuery({
-			input: type({
-				id: 'string',
-			}),
-			description: `Get a row by ID from the ${tableName} table`,
-			handler: (params): GetResult<TRow> => {
-				const yrow = getYTable().get(params.id);
-				if (!yrow) {
-					return { status: 'not_found', id: params.id };
-				}
+		get(id: string): GetResult<TRow> {
+			const yrow = getYTable().get(id);
+			if (!yrow) {
+				return { status: 'not_found', id };
+			}
 
-				const row = buildRowFromYRow(yrow, schema);
-				const yjsValidator = validators.toYjsArktype();
-				const result = yjsValidator(row);
+			const row = buildRowFromYRow(yrow, schema);
+			const yjsValidator = tableSchemaToYjsArktype(schema);
+			const result = yjsValidator(row);
 
-				if (result instanceof type.errors) {
-					return {
-						status: 'invalid',
-						id: params.id,
-						error: RowValidationError({
-							message: `Row '${params.id}' in table '${tableName}' failed validation`,
-							context: {
-								tableName,
-								id: params.id,
-								errors: result,
-								summary: result.summary,
-							},
-						}),
-					};
-				}
+			if (result instanceof type.errors) {
+				return {
+					status: 'invalid',
+					id,
+					error: RowValidationError({
+						message: `Row '${id}' in table '${tableName}' failed validation`,
+						context: {
+							tableName,
+							id,
+							errors: result,
+							summary: result.summary,
+						},
+					}),
+				};
+			}
 
-				return { status: 'valid', row };
-			},
-		}),
+			return { status: 'valid', row };
+		},
 
 		/**
 		 * Get all rows with their validation status.
 		 * Returns both valid and invalid rows as `RowResult<TRow>[]`.
 		 * Use `getAllValid()` for just valid rows, `getAllInvalid()` for just errors.
 		 */
-		getAll: defineQuery({
-			description: `Get all rows from the ${tableName} table with validation status`,
-			handler: (): RowResult<TRow>[] => {
-				const results: RowResult<TRow>[] = [];
-				const yjsValidator = validators.toYjsArktype();
+		getAll(): RowResult<TRow>[] {
+			const results: RowResult<TRow>[] = [];
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
-				for (const [id, yrow] of getYTable().entries()) {
-					const row = buildRowFromYRow(yrow, schema);
-					const result = yjsValidator(row);
+			for (const [id, yrow] of getYTable().entries()) {
+				const row = buildRowFromYRow(yrow, schema);
+				const result = yjsValidator(row);
 
-					if (result instanceof type.errors) {
-						results.push({
-							status: 'invalid',
-							id,
-							error: RowValidationError({
-								message: `Row '${id}' in table '${tableName}' failed validation`,
-								context: {
-									tableName,
-									id,
-									errors: result,
-									summary: result.summary,
-								},
-							}),
-						});
-					} else {
-						results.push({ status: 'valid', row });
-					}
+				if (result instanceof type.errors) {
+					results.push({
+						status: 'invalid',
+						id,
+						error: RowValidationError({
+							message: `Row '${id}' in table '${tableName}' failed validation`,
+							context: {
+								tableName,
+								id,
+								errors: result,
+								summary: result.summary,
+							},
+						}),
+					});
+				} else {
+					results.push({ status: 'valid', row });
 				}
+			}
 
-				return results;
-			},
-		}),
+			return results;
+		},
 
 		/**
 		 * Get all valid rows with Y.js objects for collaborative editing.
 		 * Rows that fail validation are skipped.
 		 * Use `getAllInvalid()` to get validation errors for invalid rows.
 		 */
-		getAllValid: defineQuery({
-			description: `Get all valid rows from the ${tableName} table`,
-			handler: (): TRow[] => {
-				const validRows: TRow[] = [];
-				const yjsValidator = validators.toYjsArktype();
+		getAllValid(): TRow[] {
+			const validRows: TRow[] = [];
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
-				for (const yrow of getYTable().values()) {
-					const row = buildRowFromYRow(yrow, schema);
-					const result = yjsValidator(row);
+			for (const yrow of getYTable().values()) {
+				const row = buildRowFromYRow(yrow, schema);
+				const result = yjsValidator(row);
 
-					if (!(result instanceof type.errors)) {
-						validRows.push(row);
-					}
+				if (!(result instanceof type.errors)) {
+					validRows.push(row);
 				}
+			}
 
-				return validRows;
-			},
-		}),
+			return validRows;
+		},
 
 		/**
 		 * Get validation errors for all invalid rows.
 		 * Returns an array of RowValidationError objects for rows that fail validation.
 		 * Valid rows are skipped.
 		 */
-		getAllInvalid: defineQuery({
-			description: `Get validation errors for invalid rows in the ${tableName} table`,
-			handler: (): RowValidationError[] => {
-				const errors: RowValidationError[] = [];
-				const yjsValidator = validators.toYjsArktype();
+		getAllInvalid(): RowValidationError[] {
+			const errors: RowValidationError[] = [];
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
-				for (const [id, yrow] of getYTable().entries()) {
-					const row = buildRowFromYRow(yrow, schema);
-					const result = yjsValidator(row);
+			for (const [id, yrow] of getYTable().entries()) {
+				const row = buildRowFromYRow(yrow, schema);
+				const result = yjsValidator(row);
 
-					if (result instanceof type.errors) {
-						errors.push(
-							RowValidationError({
-								message: `Row '${id}' in table '${tableName}' failed validation`,
-								context: {
-									tableName,
-									id,
-									errors: result,
-									summary: result.summary,
-								},
-							}),
-						);
-					}
+				if (result instanceof type.errors) {
+					errors.push(
+						RowValidationError({
+							message: `Row '${id}' in table '${tableName}' failed validation`,
+							context: {
+								tableName,
+								id,
+								errors: result,
+								summary: result.summary,
+							},
+						}),
+					);
 				}
+			}
 
-				return errors;
-			},
-		}),
+			return errors;
+		},
 
-		/** Check if a row exists by ID */
-		has: defineQuery({
-			input: type({ id: 'string' }),
-			description: `Check if a row exists in the ${tableName} table`,
-			handler: (params) => getYTable().has(params.id),
-		}),
+		/**
+		 * Check if a row exists by ID.
+		 *
+		 * This is a fast O(1) check that doesn't validate the row's contents.
+		 * Use `get()` if you need the row data or want to check validation status.
+		 *
+		 * @param id - The row ID to check
+		 * @returns `true` if a row with this ID exists, `false` otherwise
+		 *
+		 * @example
+		 * ```typescript
+		 * if (tables.posts.has('post-123')) {
+		 *   console.log('Post exists');
+		 * }
+		 * ```
+		 */
+		has(id: string): boolean {
+			return getYTable().has(id);
+		},
 
 		/**
 		 * Delete a row by ID.
@@ -487,22 +496,18 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Returns status indicating whether the row was deleted or not found locally.
 		 * In Yjs, deleting a non-existent key is a no-op (no operation recorded).
 		 */
-		delete: defineMutation({
-			input: type({ id: 'string' }),
-			description: `Delete a row from the ${tableName} table`,
-			handler: (params): DeleteResult => {
-				const exists = getYTable().has(params.id);
-				if (!exists) {
-					return { status: 'not_found_locally' };
-				}
+		delete(id: string): DeleteResult {
+			const exists = getYTable().has(id);
+			if (!exists) {
+				return { status: 'not_found_locally' };
+			}
 
-				ydoc.transact(() => {
-					getYTable().delete(params.id);
-				});
+			ydoc.transact(() => {
+				getYTable().delete(id);
+			});
 
-				return { status: 'deleted' };
-			},
-		}),
+			return { status: 'deleted' };
+		},
 
 		/**
 		 * Delete multiple rows by IDs.
@@ -510,49 +515,66 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Returns status indicating how many rows were deleted vs not found locally.
 		 * In Yjs, deleting non-existent keys is a no-op (no operations recorded).
 		 */
-		deleteMany: defineMutation({
-			input: type({ ids: 'string[]' }),
-			description: `Delete multiple rows from the ${tableName} table`,
-			handler: (params): DeleteManyResult => {
-				const deleted: string[] = [];
-				const notFoundLocally: string[] = [];
+		deleteMany(ids: string[]): DeleteManyResult {
+			const deleted: string[] = [];
+			const notFoundLocally: string[] = [];
 
-				ydoc.transact(() => {
-					for (const id of params.ids) {
-						if (getYTable().has(id)) {
-							getYTable().delete(id);
-							deleted.push(id);
-						} else {
-							notFoundLocally.push(id);
-						}
+			ydoc.transact(() => {
+				for (const id of ids) {
+					if (getYTable().has(id)) {
+						getYTable().delete(id);
+						deleted.push(id);
+					} else {
+						notFoundLocally.push(id);
 					}
-				});
-
-				if (notFoundLocally.length === 0) {
-					return { status: 'all_deleted', deleted };
 				}
-				if (deleted.length === 0) {
-					return { status: 'none_deleted', notFoundLocally };
-				}
-				return { status: 'partially_deleted', deleted, notFoundLocally };
-			},
-		}),
+			});
 
-		/** Clear all rows from the table */
-		clear: defineMutation({
-			description: `Clear all rows from the ${tableName} table`,
-			handler: () => {
-				ydoc.transact(() => {
-					getYTable().clear();
-				});
-			},
-		}),
+			if (notFoundLocally.length === 0) {
+				return { status: 'all_deleted', deleted };
+			}
+			if (deleted.length === 0) {
+				return { status: 'none_deleted', notFoundLocally };
+			}
+			return { status: 'partially_deleted', deleted, notFoundLocally };
+		},
 
-		/** Get the total number of rows in the table */
-		count: defineQuery({
-			description: `Count rows in the ${tableName} table`,
-			handler: () => getYTable().size,
-		}),
+		/**
+		 * Clear all rows from the table.
+		 *
+		 * This permanently deletes all rows in a single Y.js transaction.
+		 * The deletion syncs to other peers via CRDT.
+		 *
+		 * @example
+		 * ```typescript
+		 * // Reset table to empty state
+		 * tables.posts.clear();
+		 * console.log(tables.posts.count()); // 0
+		 * ```
+		 */
+		clear(): void {
+			ydoc.transact(() => {
+				getYTable().clear();
+			});
+		},
+
+		/**
+		 * Get the total number of rows in the table.
+		 *
+		 * This counts all rows including invalid ones. For just valid rows,
+		 * use `getAllValid().length`.
+		 *
+		 * @returns The number of rows in the table
+		 *
+		 * @example
+		 * ```typescript
+		 * const total = tables.posts.count();
+		 * console.log(`${total} posts in database`);
+		 * ```
+		 */
+		count(): number {
+			return getYTable().size;
+		},
 
 		/**
 		 * Filter rows by predicate, returning only valid rows that match.
@@ -563,7 +585,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 */
 		filter(predicate: (row: TRow) => boolean): TRow[] {
 			const results: TRow[] = [];
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			for (const yrow of getYTable().values()) {
 				const row = buildRowFromYRow(yrow, schema);
@@ -588,7 +610,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @returns The first matching valid row, or `null` if no match found
 		 */
 		find(predicate: (row: TRow) => boolean): TRow | null {
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			for (const yrow of getYTable().values()) {
 				const row = buildRowFromYRow(yrow, schema);
@@ -758,7 +780,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				transaction: Y.Transaction,
 			) => void | Promise<void>;
 		}): () => void {
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			// ARCHITECTURE: We observe on `ytables` (the root "tables" map) instead of
 			// on individual table Y.Maps. This is CRITICAL for sync reliability.
@@ -913,7 +935,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @example
 		 * ```typescript
 		 * type Post = typeof db.posts.$inferRow;
-		 * const result = db.posts.get({ id: '1' });
+		 * const result = db.posts.get('1');
 		 * if (result.data) {
 		 *   const post: Post = result.data; // Row with YJS backing
 		 * }
@@ -944,10 +966,10 @@ export type TableHelper<TTableSchema extends TableSchema> = ReturnType<
  *
  * @internal
  */
-function buildRowFromYRow<TSchema extends TableSchema>(
+function buildRowFromYRow<TTableSchema extends TableSchema>(
 	yrow: YRow,
-	schema: TSchema,
-): Row<TSchema> {
+	schema: TTableSchema,
+): Row<TTableSchema> {
 	const descriptors = Object.fromEntries(
 		Array.from(yrow.keys()).map((key) => [
 			key,
@@ -973,7 +995,7 @@ function buildRowFromYRow<TSchema extends TableSchema>(
 						result[key] = serializeCellValue(value);
 					}
 				}
-				return result as SerializedRow<TSchema>;
+				return result as SerializedRow<TTableSchema>;
 			},
 			enumerable: false,
 			configurable: true,
@@ -985,5 +1007,5 @@ function buildRowFromYRow<TSchema extends TableSchema>(
 		},
 	});
 
-	return row as Row<TSchema>;
+	return row as Row<TTableSchema>;
 }

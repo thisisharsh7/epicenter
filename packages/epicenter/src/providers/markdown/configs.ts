@@ -51,6 +51,7 @@ import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { TableHelper } from '../../core/db/table-helper';
 import type { SerializedRow, TableSchema } from '../../core/schema';
+import { tableSchemaToArktype } from '../../core/schema';
 import {
 	MarkdownProviderErr,
 	type MarkdownProviderError,
@@ -341,7 +342,7 @@ export function defaultSerializer<
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = table.validators.toArktype();
+			const validator = tableSchemaToArktype(table.schema);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -431,8 +432,7 @@ export function bodyFieldSerializer<TTableSchema extends TableSchema>(
 
 			// Create validator that omits the body field and filename field
 			// Nullable fields that were stripped during serialize are restored via .default(null)
-			const FrontMatter = table.validators
-				.toArktype()
+			const FrontMatter = tableSchemaToArktype(table.schema)
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				.omit(filenameField as any, bodyField as any);
 
@@ -578,7 +578,7 @@ export function titleFilenameSerializer<TTableSchema extends TableSchema>(
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = table.validators.toArktype();
+			const validator = tableSchemaToArktype(table.schema);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -739,7 +739,7 @@ export function domainTitleFilenameSerializer<TTableSchema extends TableSchema>(
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = table.validators.toArktype();
+			const validator = tableSchemaToArktype(table.schema);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {

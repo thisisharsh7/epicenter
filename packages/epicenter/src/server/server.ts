@@ -1,63 +1,137 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 import { Err, isResult, Ok } from 'wellcrafted/result';
-import type { Actions } from '../core/actions';
-import type {
-	AnyWorkspaceConfig,
-	EpicenterClient,
-	WorkspaceClient,
-	WorkspacesToClients,
-} from '../core/workspace';
-import { createKvPlugin } from './kv';
+import {
+	type ActionContract,
+	type ActionContracts,
+	isActionContract,
+} from '../core/actions';
+import type { BoundWorkspaceClient } from '../core/workspace/contract';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';
 
 export const DEFAULT_PORT = 3913;
 
-export type StartServerOptions = {
+export type ServerOptions = {
 	port?: number;
 };
 
+type AnyWorkspaceClient = BoundWorkspaceClient<string, ActionContracts>;
+
+type ActionInfo = {
+	workspaceId: string;
+	actionPath: string[];
+	action: ActionContract;
+	handler: (input: unknown) => Promise<unknown>;
+};
+
+function extractActions(
+	contracts: ActionContracts,
+	boundActions: Record<string, unknown>,
+	workspaceId: string,
+	path: string[] = [],
+): ActionInfo[] {
+	const actions: ActionInfo[] = [];
+
+	for (const [key, contractOrNamespace] of Object.entries(contracts)) {
+		const actionPath = [...path, key];
+
+		if (isActionContract(contractOrNamespace)) {
+			const handler = boundActions[key] as (input: unknown) => Promise<unknown>;
+			actions.push({
+				workspaceId,
+				actionPath,
+				action: contractOrNamespace,
+				handler,
+			});
+		} else {
+			actions.push(
+				...extractActions(
+					contractOrNamespace as ActionContracts,
+					boundActions[key] as Record<string, unknown>,
+					workspaceId,
+					actionPath,
+				),
+			);
+		}
+	}
+
+	return actions;
+}
+
 /**
- * Create a server from an initialized Epicenter client.
+ * Create an HTTP server that exposes workspace clients as REST APIs, OpenAPI docs,
+ * and WebSocket sync endpoints.
  *
- * This creates an Elysia server that exposes workspace actions through multiple interfaces:
- * - REST endpoints: GET/POST `/workspaces/{workspace}/actions/{action}`
- * - RESTful tables: CRUD at `/workspaces/{workspace}/tables/{table}`
- * - WebSocket sync: `/workspaces/{workspaceId}/sync` for real-time Y.Doc synchronization
- * - API documentation: `/openapi` (Scalar UI)
+ * The server provides the following URL hierarchy:
+ * - `/` - API root with discovery info (name, version, available workspaces)
+ * - `/openapi` - Interactive API documentation (Scalar UI)
+ * - `/openapi/json` - OpenAPI specification in JSON format
+ * - `/workspaces/{id}/actions/{action}` - Workspace action endpoints (GET for queries, POST for mutations)
+ * - `/workspaces/{id}/tables/{table}` - RESTful table CRUD endpoints
+ * - `/workspaces/{id}/sync` - WebSocket sync endpoint (y-websocket protocol)
  *
- * URL Hierarchy:
- * - `/` - API root/discovery
- * - `/openapi` - Scalar UI documentation
- * - `/openapi/json` - OpenAPI spec (JSON)
- * - `/workspaces/{workspaceId}/sync` - WebSocket sync endpoint (y-websocket protocol)
- * - `/workspaces/{workspaceId}/actions/{action}` - Workspace actions (queries: GET, mutations: POST)
- * - `/workspaces/{workspaceId}/tables/{table}` - RESTful table CRUD
- * - `/workspaces/{workspaceId}/kv` - KV store (GET all, GET/PUT/DELETE individual keys)
- *
- * @param client - Initialized Epicenter client from createClient()
- * @returns Object with Elysia app and start method
+ * @param clientOrClients - A single workspace client or array of clients to expose
+ * @param options - Server configuration options
+ * @param options.port - Port to listen on (default: 3913, or PORT env var)
  *
  * @example
  * ```typescript
- * import { createClient, createServer } from '@epicenter/hq';
- * import { blogWorkspace } from './workspaces/blog';
+ * // Single workspace
+ * const blogClient = await createClient(blogWorkspace);
+ * const server = createServer(blogClient, { port: 3913 });
+ * server.start();
  *
- * const client = await createClient([blogWorkspace]);
- * const server = createServer(client);
+ * // Multiple workspaces
+ * const blogClient = await createClient(blogWorkspace);
+ * const authClient = await createClient(authWorkspace);
+ * const server = createServer([blogClient, authClient]);
+ * server.start();
  *
- * server.start({ port: 3913 });
- *
- * // Access at:
- * // - http://localhost:3913/openapi (Scalar UI)
- * // - http://localhost:3913/workspaces/blog/actions/createPost (REST)
- * // - ws://localhost:3913/workspaces/blog/sync (WebSocket sync)
+ * // Access endpoints:
+ * // GET  http://localhost:3913/workspaces/blog/actions/getAllPosts
+ * // POST http://localhost:3913/workspaces/blog/actions/createPost
+ * // GET  http://localhost:3913/workspaces/auth/actions/getCurrentUser
  * ```
  */
-export function createServer<
-	const TWorkspaces extends readonly AnyWorkspaceConfig[],
->(client: EpicenterClient<TWorkspaces>) {
+function createServer(
+	client: AnyWorkspaceClient,
+	options?: ServerOptions,
+): ReturnType<typeof createServerInternal>;
+function createServer(
+	clients: AnyWorkspaceClient[],
+	options?: ServerOptions,
+): ReturnType<typeof createServerInternal>;
+function createServer(
+	clientOrClients: AnyWorkspaceClient | AnyWorkspaceClient[],
+	options?: ServerOptions,
+): ReturnType<typeof createServerInternal> {
+	const clients = Array.isArray(clientOrClients)
+		? clientOrClients
+		: [clientOrClients];
+	return createServerInternal(clients, options);
+}
+
+function createServerInternal(
+	clients: AnyWorkspaceClient[],
+	options?: ServerOptions,
+) {
+	const workspaces: Record<string, AnyWorkspaceClient> = {};
+	const allActions: ActionInfo[] = [];
+
+	for (const client of clients) {
+		const workspaceId = client.id;
+		workspaces[workspaceId] = client;
+
+		allActions.push(
+			...extractActions(
+				client.contracts,
+				client.actions as Record<string, unknown>,
+				workspaceId,
+			),
+		);
+	}
+
 	const app = new Elysia()
 		.use(
 			openapi({
@@ -73,31 +147,18 @@ export function createServer<
 		)
 		.use(
 			createSyncPlugin({
-				getDoc: (room) => {
-					const workspace = client[
-						room as keyof WorkspacesToClients<TWorkspaces>
-					] as WorkspaceClient<Actions> | undefined;
-					return workspace?.$ydoc;
-				},
+				getDoc: (room) => workspaces[room]?.ydoc,
 			}),
 		)
-		.use(
-			createTablesPlugin(
-				client.$workspaces as Record<string, WorkspaceClient<Actions>>,
-			),
-		)
-		.use(
-			createKvPlugin(
-				client.$workspaces as Record<string, WorkspaceClient<Actions>>,
-			),
-		)
+		.use(createTablesPlugin(workspaces as Record<string, AnyWorkspaceClient>))
 		.get('/', () => ({
 			name: 'Epicenter API',
 			version: '1.0.0',
 			docs: '/openapi',
+			workspaces: Object.keys(workspaces),
 		}));
 
-	for (const { workspaceId, actionPath, action } of client.$actions) {
+	for (const { workspaceId, actionPath, action, handler } of allActions) {
 		const path = `/workspaces/${workspaceId}/actions/${actionPath.join('/')}`;
 		const operationType = (
 			{ query: 'queries', mutation: 'mutations' } as const
@@ -109,7 +170,7 @@ export function createServer<
 				app.get(
 					path,
 					async ({ query, status }) => {
-						const result = await action(action.input ? query : undefined);
+						const result = await handler(action.input ? query : undefined);
 						if (isResult(result)) {
 							const { data, error } = result;
 							if (error) return status('Internal Server Error', Err(error));
@@ -127,7 +188,7 @@ export function createServer<
 				app.post(
 					path,
 					async ({ body, status }) => {
-						const result = await action(action.input ? body : undefined);
+						const result = await handler(action.input ? body : undefined);
 						if (isResult(result)) {
 							const { data, error } = result;
 							if (error) return status('Internal Server Error', Err(error));
@@ -144,15 +205,15 @@ export function createServer<
 		}
 	}
 
+	const port =
+		options?.port ??
+		Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
+
 	return {
 		app,
 
-		start(options: StartServerOptions = {}) {
-			const port =
-				options.port ??
-				Number.parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
-
-			console.log('🔨 Creating HTTP server for epicenter...');
+		start() {
+			console.log('🔨 Creating HTTP server...');
 
 			const server = Bun.serve({
 				fetch: app.fetch,
@@ -167,7 +228,7 @@ export function createServer<
 
 			console.log('📦 Available Workspaces:\n');
 			const actionsByWorkspace = Object.groupBy(
-				client.$actions,
+				allActions,
 				(info) => info.workspaceId,
 			);
 
@@ -190,10 +251,10 @@ export function createServer<
 				if (isShuttingDown) return;
 				isShuttingDown = true;
 
-				console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+				console.log(`\n🛑 Received ${signal}, shutting down...`);
 
 				server.stop();
-				await client.destroy();
+				await Promise.all(clients.map((c) => c.destroy()));
 
 				console.log('✅ Server stopped cleanly\n');
 				process.exit(0);
@@ -204,5 +265,11 @@ export function createServer<
 
 			return server;
 		},
+
+		async destroy() {
+			await Promise.all(clients.map((c) => c.destroy()));
+		},
 	};
 }
+
+export { createServer };

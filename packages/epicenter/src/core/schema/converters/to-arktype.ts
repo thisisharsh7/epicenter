@@ -17,7 +17,6 @@ import type {
 	BooleanFieldSchema,
 	FieldSchema,
 	DateFieldSchema,
-	DateWithTimezoneString,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -28,9 +27,10 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 	YtextFieldSchema,
-} from '../../schema';
-import { isNullableFieldSchema } from '../nullability';
-import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../regex';
+} from '../fields/types';
+import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
+import { isNullableFieldSchema } from '../fields/nullability';
+import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
 
 /**
  * Maps a FieldSchema to its corresponding arktype Type.
@@ -39,7 +39,7 @@ import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../regex';
  * This type mapping ensures proper TypeScript inference when building
  * schema fields, preserving exact key information from TSchema.
  */
-export type FieldSchemaToArktypeType<C extends FieldSchema> =
+export type FieldSchemaToArktype<C extends FieldSchema> =
 	C extends IdFieldSchema
 		? Type<string>
 		: C extends TextFieldSchema<infer TNullable>
@@ -97,7 +97,7 @@ export type FieldSchemaToArktypeType<C extends FieldSchema> =
  *   count: integer({ nullable: true })
  * };
  *
- * const validator = tableSchemaToArktypeType(schema);
+ * const validator = tableSchemaToArktype(schema);
  *
  * // Use immediately for validation
  * const result = validator({ id: '123', title: 'Test', count: 42 });
@@ -107,17 +107,17 @@ export type FieldSchemaToArktypeType<C extends FieldSchema> =
  * const arrayValidator = validator.array();
  * ```
  */
-export function tableSchemaToArktypeType<TSchema extends TableSchema>(
-	tableSchema: TSchema,
-): ObjectType<SerializedRow<TSchema>> {
+export function tableSchemaToArktype<TTableSchema extends TableSchema>(
+	tableSchema: TTableSchema,
+): ObjectType<SerializedRow<TTableSchema>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
 				fieldName,
-				fieldSchemaToArktypeType(fieldSchema),
+				fieldSchemaToArktype(fieldSchema),
 			]),
 		),
-	) as ObjectType<SerializedRow<TSchema>>;
+	) as ObjectType<SerializedRow<TTableSchema>>;
 }
 
 /**
@@ -139,9 +139,9 @@ export function tableSchemaToArktypeType<TSchema extends TableSchema>(
  * @param fieldSchema - The field schema to convert
  * @returns arktype Type suitable for validation and composition
  */
-function fieldSchemaToArktypeType<C extends FieldSchema>(
+export function fieldSchemaToArktype<C extends FieldSchema>(
 	fieldSchema: C,
-): FieldSchemaToArktypeType<C> {
+): FieldSchemaToArktype<C> {
 	let baseType: Type;
 
 	switch (fieldSchema['x-component']) {
@@ -182,5 +182,5 @@ function fieldSchemaToArktypeType<C extends FieldSchema>(
 	const isNullable = isNullableFieldSchema(fieldSchema);
 	return (
 		isNullable ? baseType.or(type.null).default(null) : baseType
-	) as FieldSchemaToArktypeType<C>;
+	) as FieldSchemaToArktype<C>;
 }

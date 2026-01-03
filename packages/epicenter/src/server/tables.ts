@@ -1,18 +1,23 @@
+import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { Actions } from '../core/actions';
+import type { ActionContracts } from '../core/actions';
 import type { SerializedRow, TableSchema } from '../core/schema';
-import type { WorkspaceClient } from '../core/workspace';
+import { tableSchemaToArktype } from '../core/schema';
+import type { BoundWorkspaceClient } from '../core/workspace/contract';
 
 export function createTablesPlugin(
-	workspaceClients: Record<string, WorkspaceClient<Actions>>,
+	workspaceClients: Record<
+		string,
+		BoundWorkspaceClient<string, ActionContracts>
+	>,
 ) {
 	const app = new Elysia();
 
 	for (const [workspaceId, workspaceClient] of Object.entries(
 		workspaceClients,
 	)) {
-		for (const tableHelper of workspaceClient.$tables.$all()) {
+		for (const tableHelper of workspaceClient.tables.$all()) {
 			const tableName = tableHelper.name;
 			const basePath = `/workspaces/${workspaceId}/tables/${tableName}`;
 			const tags = [workspaceId, 'tables'];
@@ -31,7 +36,7 @@ export function createTablesPlugin(
 			app.get(
 				`${basePath}/:id`,
 				({ params, status }) => {
-					const result = tableHelper.get({ id: params.id });
+					const result = tableHelper.get(params.id);
 
 					switch (result.status) {
 						case 'valid':
@@ -54,7 +59,7 @@ export function createTablesPlugin(
 					return Ok({ id: (body as SerializedRow<TableSchema>).id });
 				},
 				{
-					body: tableHelper.validators.toStandardSchema(),
+					body: tableSchemaToArktype(tableHelper.schema),
 					detail: { description: `Create or update ${tableName}`, tags },
 				},
 			);
@@ -69,7 +74,9 @@ export function createTablesPlugin(
 					return Ok(result);
 				},
 				{
-					body: tableHelper.validators.toPartialStandardSchema(),
+					body: tableSchemaToArktype(tableHelper.schema)
+						.partial()
+						.merge({ id: type.string }),
 					detail: { description: `Update ${tableName} by ID`, tags },
 				},
 			);
@@ -77,7 +84,7 @@ export function createTablesPlugin(
 			app.delete(
 				`${basePath}/:id`,
 				({ params }) => {
-					const result = tableHelper.delete({ id: params.id });
+					const result = tableHelper.delete(params.id);
 					return Ok(result);
 				},
 				{

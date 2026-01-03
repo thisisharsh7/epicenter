@@ -38,18 +38,23 @@ export {
 	sql,
 } from 'drizzle-orm';
 
-export type { Action, Mutation, Query, Actions } from './core/actions';
+export type {
+	ActionContract,
+	MutationContract,
+	QueryContract,
+	ActionContracts,
+} from './core/actions';
 
 // Action helpers
 export {
 	defineMutation,
 	defineQuery,
-	defineActions,
-	isAction,
-	isMutation,
+	defineActionContracts,
+	isActionContract,
+	isMutationContract,
 	isNamespace,
-	isQuery,
-	walkActions,
+	isQueryContract,
+	walkActionContracts,
 } from './core/actions';
 
 export type { TableHelper, Tables } from './core/db/core';
@@ -107,19 +112,15 @@ export type {
 	SerializedKvValue,
 	SerializedRow,
 	TableSchema,
-	TableValidators,
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
 	WorkspaceSchema,
-	WorkspaceValidators,
 	YtextFieldSchema,
 } from './core/schema';
 // Column schema system
 export {
 	boolean,
-	createTableValidators,
-	createWorkspaceValidators,
 	DATE_WITH_TIMEZONE_STRING_REGEX,
 	DateWithTimezone,
 	DateWithTimezoneFromString,
@@ -135,6 +136,8 @@ export {
 	real,
 	select,
 	serializeCellValue,
+	tableSchemaToArktype,
+	tableSchemaToYjsArktype,
 	TIMEZONE_ID_REGEX,
 	tags,
 	text,
@@ -145,11 +148,20 @@ export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type { ActionInfo } from './core/workspace/client.shared';
 
 export type {
-	AnyWorkspaceConfig,
-	WorkspaceConfig,
-	WorkspacesToActions,
-} from './core/workspace/config';
-export { defineWorkspace } from './core/workspace/config';
+	BoundAction,
+	BoundActions,
+	BoundWorkspaceClient,
+	CreateOptions,
+	HandlerContext,
+	HandlerFn,
+	HandlersForContracts,
+	InferProviderExports,
+	ProviderMap,
+	Workspace,
+	WorkspaceContract,
+	WorkspaceWithProviders,
+} from './core/workspace/contract';
+export { defineWorkspace } from './core/workspace/contract';
 
 // Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:

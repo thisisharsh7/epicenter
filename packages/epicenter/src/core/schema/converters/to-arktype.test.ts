@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { id, integer, json, select, text } from '../../schema';
-import { tableSchemaToArktypeType } from './arktype';
+import { tableSchemaToArktype } from './to-arktype';
 
-describe('tableSchemaToArktypeType', () => {
+describe('tableSchemaToArktype', () => {
 	test('returns a complete arktype Type instance', () => {
 		const schema = {
 			id: id(),
@@ -11,7 +11,7 @@ describe('tableSchemaToArktypeType', () => {
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 
 		expect(validator).toBeDefined();
 		expect(typeof validator).toBe('function');
@@ -24,7 +24,7 @@ describe('tableSchemaToArktypeType', () => {
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 
 		const valid = validator({
 			id: 'test-123',
@@ -42,7 +42,7 @@ describe('tableSchemaToArktypeType', () => {
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 
 		const invalid = validator({
 			id: 'test-123',
@@ -60,7 +60,7 @@ describe('tableSchemaToArktypeType', () => {
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 		const partialValidator = validator.partial().merge({ id: type.string });
 
 		// Should allow partial objects
@@ -79,7 +79,7 @@ describe('tableSchemaToArktypeType', () => {
 			title: text(),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 		const arrayValidator = validator.array();
 
 		const valid = arrayValidator([
@@ -96,7 +96,7 @@ describe('tableSchemaToArktypeType', () => {
 			title: text(),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 		const merged = validator.merge({ extra: type.boolean });
 
 		const valid = merged({
@@ -121,7 +121,7 @@ describe('tableSchemaToArktypeType', () => {
 			status: select({ options: ['draft', 'published'] }),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 
 		const valid = validator({
 			id: 'post-123',
@@ -155,7 +155,7 @@ describe('tableSchemaToArktypeType', () => {
 			}),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 
 		// Missing nullable fields should default to null
 		const result = validator({
@@ -179,7 +179,7 @@ describe('tableSchemaToArktypeType', () => {
 			subtitle: text({ nullable: true }), // optional, defaults to null
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 
 		// Missing required field should fail validation
 		const invalid = validator({
@@ -198,7 +198,7 @@ describe('tableSchemaToArktypeType', () => {
 			subtitle: text({ nullable: true }),
 		};
 
-		const validator = tableSchemaToArktypeType(schema);
+		const validator = tableSchemaToArktype(schema);
 
 		const result = validator({
 			id: 'test-123',

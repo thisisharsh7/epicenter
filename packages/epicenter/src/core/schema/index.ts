@@ -31,31 +31,32 @@ export type {
 	SerializedKvValue,
 	SerializedRow,
 	TableSchema,
+	TablesSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 	WorkspaceSchema,
 	YtextFieldSchema,
 } from './fields/types.js';
 
-export type { FieldSchemaToArktypeType } from './fields/to-arktype.js';
-export { tableSchemaToArktypeType } from './fields/to-arktype.js';
+export type { FieldSchemaToArktype } from './converters/to-arktype.js';
+export {
+	fieldSchemaToArktype,
+	tableSchemaToArktype,
+} from './converters/to-arktype.js';
 
-export type { WorkspaceSchemaToDrizzleTables } from './fields/to-drizzle.js';
+export type { FieldSchemaToYjsArktype } from './converters/to-arktype-yjs.js';
+export {
+	fieldSchemaToYjsArktype,
+	tableSchemaToYjsArktype,
+} from './converters/to-arktype-yjs.js';
+
+export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js';
 export {
 	convertTableSchemaToDrizzle,
 	convertWorkspaceSchemaToDrizzle,
-} from './fields/to-drizzle.js';
+} from './converters/to-drizzle.js';
 
 export { isNullableFieldSchema } from './fields/nullability.js';
-
-export type {
-	TableValidators,
-	WorkspaceValidators,
-} from './fields/validators.js';
-export {
-	createTableValidators,
-	createWorkspaceValidators,
-} from './fields/validators.js';
 
 export type {
 	StandardJSONSchemaV1,

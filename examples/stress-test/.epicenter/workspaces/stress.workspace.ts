@@ -73,7 +73,5 @@ export default defineWorkspace({
 		sqlite: (c) => sqliteProvider(c),
 	},
 
-	actions: ({ tables }) => ({
-		...tables,
-	}),
+	actions: () => ({}),
 });

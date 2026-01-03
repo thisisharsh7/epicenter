@@ -96,7 +96,7 @@ Yjs supports multiple providers simultaneously. Phone can connect to desktop, la
 ### How It All Fits Together
 
 1. **Define workspace** with `defineWorkspace({ id, tables, providers, exports })`
-2. **Create client** with `createClient(workspace)` or `createClient([workspace1, workspace2])`
+2. **Create client** with `createClient(workspace)`
 3. **Y.Doc created** with workspace ID as GUID
 4. **Providers initialize** in parallel (persistence, SQLite, markdown, sync)
 5. **Tables API** wraps Y.Doc with type-safe CRUD
@@ -196,7 +196,7 @@ const blogWorkspace = defineWorkspace({
 const client = await createClient(blogWorkspace);
 
 // 3. Use the workspace
-const result = await client.createPost({ title: 'Hello World' });
+const result = await client.actions.createPost({ title: 'Hello World' });
 if (result.error) {
 	console.error('Failed to create post:', result.error);
 } else {
@@ -208,7 +208,7 @@ const allPosts = client.tables.posts.getAll();
 console.log('All posts:', allPosts);
 
 // 5. Query published posts (uses SQLite provider)
-const published = await client.getPublishedPosts();
+const published = await client.actions.getPublishedPosts();
 console.log('Published:', published);
 
 // 6. Cleanup when done
@@ -944,30 +944,29 @@ See [SYNC_ARCHITECTURE.md](./SYNC_ARCHITECTURE.md) for complete multi-device syn
 
 ## Workspace Dependencies
 
-Workspaces can depend on other workspaces, enabling modular architecture.
+Workspaces can depend on other workspaces, enabling modular architecture. For cross-workspace communication, simply import the initialized client of the dependency.
 
-**Define dependencies:**
+**Access pattern (regular imports):**
 
 ```typescript
-import authWorkspace from './auth/auth.workspace';
-import storageWorkspace from './storage/storage.workspace';
+import { authClient } from './auth-client';
+import { storageClient } from './storage-client';
 
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
-	dependencies: [authWorkspace, storageWorkspace],
 
-	actions: ({ tables, workspaces, providers }) => ({
+	actions: ({ tables, providers }) => ({
 		createPost: defineMutation({
 			input: type({ title: 'string', authorId: 'string' }),
 			handler: async ({ title, authorId }) => {
-				// Access dependency workspace actions
-				const user = await workspaces.auth.getUserById({ id: authorId });
+				// Access dependency workspace actions via imported client
+				const user = await authClient.getUserById({ id: authorId });
 				if (!user) {
 					return Err({ message: 'User not found' });
 				}
 
 				// Access dependency workspace tables
-				const allUsers = workspaces.auth.tables.users.getAll();
+				const allUsers = authClient.tables.users.getAll();
 
 				// Create post in local workspace
 				const id = generateId();
@@ -981,45 +980,6 @@ const blogWorkspace = defineWorkspace({
 			},
 		}),
 	}),
-});
-```
-
-**Access patterns:**
-
-```typescript
-actions: ({ workspaces }) => ({
-  // Call dependency actions
-  someAction: async () => {
-    const result = await workspaces.auth.login({ ... });
-    const data = await workspaces.storage.upload({ ... });
-  },
-
-  // Access dependency tables
-  anotherAction: () => {
-    const users = workspaces.auth.tables.users.getAll();
-  },
-
-  // Access dependency providers
-  yetAnother: async () => {
-    const rows = await workspaces.auth.providers.sqlite.users
-      .select()
-      .where(...);
-  }
-})
-```
-
-**Dependency resolution:**
-
-Epicenter uses flat/hoisted dependency resolution:
-
-- All transitive dependencies must be in the root `workspaces` array
-- Dependencies are initialized in topological order
-- Circular dependencies are detected and throw errors
-
-```typescript
-// If A depends on B, and B depends on C:
-const epicenter = await createEpicenterClient({
-	workspaces: [C, B, A], // All must be listed (flat/hoisted)
 });
 ```
 
@@ -1233,30 +1193,39 @@ providers: {
 
 **Execution:**
 
-Providers run in parallel during initialization. Providers that return exports make those exports available in the `providers` object passed to the `exports` function.
+Providers run in parallel during initialization. Providers that return exports make those exports available in the `providers` object passed to handlers.
 
 ### Create Client
 
-Initialize a single workspace or multiple workspaces:
+Create a workspace client with handlers:
 
 ```typescript
-import { createClient } from '@epicenter/hq';
+// Create a client with handlers
+const blogClient = await blogWorkspace
+  .withProviders({ sqlite: sqliteProvider })
+  .createWithHandlers({
+    createPost: async (input, ctx) => { ... },
+    getPost: async (input, ctx) => { ... },
+  });
 
-// Single workspace
-const client = await createClient(blogWorkspace);
+// Call actions via the .actions namespace
+await blogClient.actions.createPost({ title: 'Hello' });
+const post = await blogClient.actions.getPost({ id: '123' });
 
-// Multiple workspaces
-const epicenter = await createClient([blogWorkspace, authWorkspace]);
+// Direct table access
+const posts = blogClient.tables.posts.getAllValid();
 
-// Access workspaces by ID
-await epicenter.blog.createPost({ ... });
-await epicenter.auth.login({ ... });
-
-// Cleanup
-await client.destroy();
+// Cleanup when done
+await blogClient.destroy();
 
 // Or use with `await using` for automatic cleanup
-await using client = await createClient(blogWorkspace);
+{
+  await using client = await blogWorkspace
+    .withProviders({ sqlite: sqliteProvider })
+    .createWithHandlers({ ... });
+
+  await client.actions.createPost({ title: 'Hello' });
+}
 ```
 
 **projectDir**: Defaults to `process.cwd()` in Node.js, `undefined` in browser.
@@ -1265,73 +1234,45 @@ await using client = await createClient(blogWorkspace);
 
 ### Client Initialization Lifecycle
 
-When you call `createClient(workspaces)`, here's what happens:
+When you call `.createWithHandlers()`, here's what happens:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. REGISTRATION                                              │
-│    • Collect all workspace configs                           │
-│    • Build workspace registry                                │
+│ 1. CREATE Y.Doc (CRDT data structure)                       │
+│    • Unique document ID = workspace ID                      │
+│    • In-memory collaborative data structure                 │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 2. DEPENDENCY VERIFICATION                                   │
-│    • Check all dependencies exist (flat/hoisted model)       │
-│    • Throw error if any transitive dependencies missing      │
+│ 2. INITIALIZE TABLES                                        │
+│    • Create YJS-backed table operations                     │
+│    • Set up runtime validators from schema                  │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 3. TOPOLOGICAL SORT                                          │
-│    • Build dependency graph                                  │
-│    • Sort workspaces by dependencies                         │
-│    • Ensure deterministic initialization order               │
+│ 3. INITIALIZE PROVIDERS                                     │
+│    • Run provider factories (SQLite, markdown, etc.)        │
+│    • Providers receive YDoc, tables, paths, validators      │
+│    • Loads existing state, starts auto-sync                 │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 4. INITIALIZE EACH WORKSPACE (in sorted order)               │
-│                                                              │
-│    For each workspace:                                       │
-│    ┌─────────────────────────────────────────────────────┐  │
-│    │ a. Create Y.Doc (CRDT data structure)               │  │
-│    │    • Unique document ID = workspace ID               │  │
-│    │    • In-memory collaborative data structure          │  │
-│    └─────────────────────────────────────────────────────┘  │
-│                       │                                      │
-│    ┌─────────────────────────────────────────────────────┐  │
-│    │ b. Set Up Providers                                  │  │
-│    │    • Persistence (IndexedDB or filesystem)           │  │
-│    │    • Loads existing state into Y.Doc                 │  │
-│    │    • Starts auto-save on updates                     │  │
-│    └─────────────────────────────────────────────────────┘  │
-│                       │                                      │
-│    ┌─────────────────────────────────────────────────────┐  │
-│    │ c. Initialize Database (createEpicenterDb)           │  │
-│    │    • Wraps Y.Doc with table API                      │  │
-│    │    • Provides type-safe CRUD operations              │  │
-│    └─────────────────────────────────────────────────────┘  │
-│                       │                                      │
-│    ┌─────────────────────────────────────────────────────┐  │
-│    │ d. Initialize Indexes (SQLite, Markdown, etc.)       │  │
-│    │    • Materializes YJS data into queryable formats    │  │
-│    │    • Sets up observers for auto-sync                 │  │
-│    └─────────────────────────────────────────────────────┘  │
-│                       │                                      │
-│    ┌─────────────────────────────────────────────────────┐  │
-│    │ e. Create Workspace Exports                          │  │
-│    │    • Call exports factory function                   │  │
-│    │    • Inject db, providers, and dependency clients    │  │
-│    │    • Returns callable functions and utilities        │  │
-│    └─────────────────────────────────────────────────────┘  │
+│ 4. BIND ACTION HANDLERS                                     │
+│    • Connect handlers to contracts                          │
+│    • Inject handler context (tables, providers, etc.)       │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 5. RETURN CLIENT                                             │
-│    • Single workspace client or object of clients            │
-│    • Includes destroy() and Symbol.asyncDispose for cleanup  │
+│ 5. RETURN BOUND CLIENT                                      │
+│    • client.id - workspace ID                               │
+│    • client.tables - YJS table operations                   │
+│    • client.actions - bound action methods                  │
+│    • client.contracts - action schemas (for introspection)  │
+│    • client.destroy() - cleanup resources                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1420,7 +1361,7 @@ Create a client directly for standalone scripts. Use `await using` for automatic
 // Script or migration
 {
   await using client = await createClient(blogWorkspace);
-  await client.createPost({ ... });
+  await client.actions.createPost({ ... });
   // Automatic cleanup when block exits
 }
 ```
@@ -1446,74 +1387,62 @@ await fetch('http://localhost:3913/workspaces/blog/createPost', {
 });
 ```
 
-## Epicenter vs Workspace
-
-- **Workspace**: A self-contained domain module (like a library). Defines schema, providers, and exports.
-- **Epicenter**: A composition of workspaces (the application). Aggregates multiple workspaces and provides a unified interface.
-
-Think of it this way:
-
-- **Workspace** = Module
-- **Epicenter** = Application (composed of modules)
-
-## Runtime
-
-### Create Client
-
-Initialize a single workspace or multiple workspaces:
-
-```typescript
-import { createClient } from '@epicenter/hq';
-
-// Single workspace
-const client = await createClient(blogWorkspace);
-
-// Multiple workspaces
-const epicenter = await createClient([blogWorkspace, authWorkspace]);
-
-// Access workspaces by ID
-await epicenter.blog.createPost({ ... });
-await epicenter.auth.login({ ... });
-
-// Cleanup
-await client.destroy();
-
-// Or use with `await using` for automatic cleanup
-await using client = await createClient(blogWorkspace);
-```
-
-**projectDir**: Defaults to `process.cwd()` in Node.js, `undefined` in browser.
-
 ## API Reference
 
 ### Workspace Definition
 
 ```typescript
-import { defineWorkspace, type WorkspaceConfig } from '@epicenter/hq';
+import { defineWorkspace, defineMutation, defineQuery } from '@epicenter/hq';
 ```
 
-**`defineWorkspace<TDeps, TId, TSchema, TProviders, TExports>(config)`**
+**`defineWorkspace({ id, tables, actions })`**
 
-Define a workspace with tables, providers, and exports.
-
-Returns `WorkspaceConfig<TDeps, TId, TSchema, TProviders, TExports>`.
-
-### Runtime Creation
+Define a workspace contract with tables and action contracts.
 
 ```typescript
-import {
-	createClient,
-	type WorkspaceClient,
-	type EpicenterClient,
-} from '@epicenter/hq';
+const blogWorkspace = defineWorkspace({
+	id: 'blog',
+	tables: {
+		posts: { id: id(), title: text() },
+	},
+	actions: {
+		createPost: defineMutation({
+			input: type({ title: 'string' }),
+			output: type({ id: 'string' }),
+		}),
+	},
+});
 ```
 
-**`createClient<...>(workspace | workspaces, options?)`**
+### Client Creation
 
-Initialize one or more workspaces.
+```typescript
+// Create client with handlers
+const client = await blogWorkspace
+	.withProviders({ sqlite: sqliteProvider })
+	.createWithHandlers({
+		createPost: async (input, ctx) => {
+			const id = generateId();
+			ctx.tables.posts.upsert({ id, title: input.title });
+			return { id };
+		},
+	});
+```
 
-- If passed a single `WorkspaceConfig`, returns a `Promise<WorkspaceClient<TExports>>`.
-- If passed an array of `WorkspaceConfig`, returns a `Promise<EpicenterClient<TConfigs>>`.
+### Client Properties
+
+```typescript
+client.id; // Workspace ID ('blog')
+client.tables; // YJS-backed table operations
+client.actions; // Bound action methods
+client.contracts; // Action contracts (for introspection)
+client.providers; // Provider exports
+client.validators; // Runtime validators
+client.ydoc; // Underlying Y.Doc
+client.paths; // Filesystem paths (undefined in browser)
+
+await client.destroy(); // Cleanup resources
+```
 
 ### Column Schemas
 
@@ -1722,17 +1651,25 @@ Commonly used Drizzle operators for querying SQLite provider.
 ### Server
 
 ```typescript
-import { createClient, createServer } from '@epicenter/hq';
+import { createServer } from '@epicenter/hq';
 
-const client = await createClient([blogWorkspace, authWorkspace]);
-const server = createServer(client);
+// Single workspace
+const server = createServer(blogClient, { port: 3913 });
 
-server.start({ port: 3000 });
+// Multiple workspaces (IDs from workspace definitions)
+const server = createServer([blogClient, authClient], { port: 3913 });
+
+server.start();
 ```
 
-**`createServer(client)`**
+**`createServer(client | clients, options?)`**
 
-Create a server from an initialized Epicenter client. Exposes workspaces as REST API, MCP servers, and WebSocket sync endpoints.
+Create an HTTP server from workspace clients. Exposes:
+
+- REST endpoints for actions: `/workspaces/{id}/actions/{action}`
+- Table CRUD: `/workspaces/{id}/tables/{table}`
+- WebSocket sync: `/workspaces/{id}/sync`
+- OpenAPI documentation: `/openapi`
 
 ## MCP Integration
 
@@ -1787,14 +1724,21 @@ Workspace actions are exposed via REST endpoints under the `/workspaces` prefix:
 ### Setup
 
 ```typescript
-import { createClient, createServer } from '@epicenter/hq';
+import { createServer } from '@epicenter/hq';
 
-const client = await createClient([blogWorkspace, authWorkspace]);
-const server = createServer(client);
+// Create clients with handlers
+const blogClient = await blogWorkspace
+  .withProviders({ sqlite: sqliteProvider })
+  .createWithHandlers({ ... });
 
-// Start server
-server.start({ port: 3000 });
-console.log('Server running on http://localhost:3000');
+const authClient = await authWorkspace
+  .withProviders({ sqlite: sqliteProvider })
+  .createWithHandlers({ ... });
+
+// Create and start server
+const server = createServer([blogClient, authClient], { port: 3913 });
+server.start();
+console.log('Server running on http://localhost:3913');
 ```
 
 AI assistants connect via HTTP, with no cold start penalty.

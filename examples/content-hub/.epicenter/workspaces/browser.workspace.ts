@@ -194,9 +194,6 @@ export const browser = defineWorkspace({
 	},
 
 	actions: ({ tables, providers }) => ({
-		// Expose table operations directly for scripting
-		...tables,
-
 		// SQLite provider operations
 		pullToSqlite: providers.sqlite.pullToSqlite,
 		pushFromSqlite: providers.sqlite.pushFromSqlite,

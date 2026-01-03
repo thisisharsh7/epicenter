@@ -112,8 +112,7 @@ export const journal = defineWorkspace({
 			}),
 	},
 
-	actions: ({ tables, providers }) => ({
-		...tables.journal,
+	actions: ({ providers }) => ({
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,
 		pullToSqlite: providers.sqlite.pullToSqlite,

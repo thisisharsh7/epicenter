@@ -6,15 +6,15 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
-import { defineQuery } from '../../core/actions';
+
 import { IndexErr, IndexError } from '../../core/errors';
 import {
 	defineProviders,
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider';
-import type { WorkspaceSchema } from '../../core/schema';
-import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/drizzle';
+import type { SerializedRow, TablesSchema } from '../../core/schema';
+import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
 const DEFAULT_DEBOUNCE_MS = 100;
@@ -86,8 +86,8 @@ type SqliteProviderOptions = {
  * })
  * ```
  */
-export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
-	{ id, schema, tables, paths }: ProviderContext<TSchema>,
+export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
+	{ id, tables, paths }: ProviderContext<TTablesSchema>,
 	options: SqliteProviderOptions = {},
 ) => {
 	const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
@@ -97,6 +97,9 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 		);
 	}
 
+	const schema = Object.fromEntries(
+		tables.$all().map((t) => [t.name, t.schema]),
+	) as unknown as TTablesSchema;
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
 	// Storage: .epicenter/providers/sqlite/{workspaceId}.db
@@ -294,55 +297,46 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 			client.close();
 		},
 
-		/**
-		 * Pull: Sync from YJS to SQLite (replace all SQLite data with current YJS data)
-		 */
-		pullToSqlite: defineQuery({
-			description:
-				'Pull all YJS data to SQLite (deletes existing rows and writes fresh copies)',
-			handler: async () => {
-				return tryAsync({
-					try: () => rebuildSqlite(),
-					catch: (error) =>
-						IndexErr({
-							message: `SQLite provider pull operation failed: ${extractErrorMessage(error)}`,
-						}),
-				});
-			},
-		}),
+		async pullToSqlite() {
+			return tryAsync({
+				try: () => rebuildSqlite(),
+				catch: (error) =>
+					IndexErr({
+						message: `SQLite provider pull operation failed: ${extractErrorMessage(error)}`,
+					}),
+			});
+		},
 
-		/**
-		 * Push: Sync from SQLite to YJS (replace all YJS data with current SQLite data)
-		 */
-		pushFromSqlite: defineQuery({
-			description:
-				'Push all SQLite data into YJS (clears YJS tables and imports from database)',
-			handler: async () => {
-				return tryAsync({
-					try: async () => {
-						isPushingFromSqlite = true;
-						tables.clearAll();
+		async pushFromSqlite() {
+			return tryAsync({
+				try: async () => {
+					isPushingFromSqlite = true;
+					tables.clearAll();
 
-						for (const { table, paired: drizzleTable } of tables.$zip(
-							drizzleTables,
-						)) {
-							const rows = await sqliteDb.select().from(drizzleTable);
-							for (const row of rows) {
-								table.upsert(row);
-							}
+					for (const { table, paired: drizzleTable } of tables.$zip(
+						drizzleTables,
+					)) {
+						const rows = await sqliteDb.select().from(drizzleTable);
+						for (const row of rows) {
+							// Cast is safe: Drizzle schema is derived from workspace schema
+							table.upsert(
+								row as SerializedRow<
+									TTablesSchema[keyof TTablesSchema & string]
+								>,
+							);
 						}
+					}
 
-						isPushingFromSqlite = false;
-					},
-					catch: (error) => {
-						isPushingFromSqlite = false;
-						return IndexErr({
-							message: `SQLite provider push operation failed: ${extractErrorMessage(error)}`,
-						});
-					},
-				});
-			},
-		}),
+					isPushingFromSqlite = false;
+				},
+				catch: (error) => {
+					isPushingFromSqlite = false;
+					return IndexErr({
+						message: `SQLite provider push operation failed: ${extractErrorMessage(error)}`,
+					});
+				},
+			});
+		},
 
 		db: sqliteDb,
 		...drizzleTables,

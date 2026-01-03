@@ -3,7 +3,7 @@ import path from 'node:path';
 import chokidar, { type FSWatcher } from 'chokidar';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync, trySync } from 'wellcrafted/result';
-import { defineMutation, defineQuery } from '../../core/actions';
+
 import { ProviderErr, ProviderError } from '../../core/errors';
 import {
 	defineProviders,
@@ -15,7 +15,7 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
-	WorkspaceSchema,
+	TablesSchema,
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
@@ -127,8 +127,8 @@ type RowToFilenameMap = Record<string, string>;
  *
  * Use serializer factories like `bodyFieldSerializer()` or `titleFilenameSerializer()`.
  */
-type TableConfigs<TSchema extends WorkspaceSchema> = {
-	[K in keyof TSchema]?: TableMarkdownConfig<TSchema[K]>;
+type TableConfigs<TTablesSchema extends TablesSchema> = {
+	[K in keyof TTablesSchema]?: TableMarkdownConfig<TTablesSchema[K]>;
 };
 
 /**
@@ -146,7 +146,7 @@ type ResolvedTableConfig<TTableSchema extends TableSchema> = {
  * Markdown provider configuration
  */
 export type MarkdownProviderConfig<
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
+	TTablesSchema extends TablesSchema = TablesSchema,
 > = {
 	/**
 	 * Workspace-level directory where markdown files should be stored.
@@ -209,7 +209,7 @@ export type MarkdownProviderConfig<
 	 * }
 	 * ```
 	 */
-	configs?: TableConfigs<TWorkspaceSchema>;
+	configs?: TableConfigs<TTablesSchema>;
 
 	/**
 	 * Enable verbose debug logging for troubleshooting file sync issues.
@@ -227,9 +227,9 @@ export type MarkdownProviderConfig<
 	debug?: boolean;
 };
 
-export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
-	context: ProviderContext<TSchema>,
-	config: MarkdownProviderConfig<TSchema> = {},
+export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
+	context: ProviderContext<TTablesSchema>,
+	config: MarkdownProviderConfig<TTablesSchema> = {},
 ) => {
 	const { id, providerId, tables, paths } = context;
 	const { directory = `./${id}`, debug = false } = config;
@@ -244,7 +244,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
 	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
-	const userTableConfigs: TableConfigs<TSchema> = config.configs ?? {};
+	const userTableConfigs: TableConfigs<TTablesSchema> = config.configs ?? {};
 
 	if (!paths) {
 		throw new Error(
@@ -323,7 +323,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * iteration via tables.$zip(resolvedConfigs).
 	 */
 	// Cast is correct: Object.fromEntries loses key specificity (returns { [k: string]: V }),
-	// but we know keys are exactly keyof TSchema since we iterate tables.$all().
+	// but we know keys are exactly keyof TTablesSchema since we iterate tables.$all().
 	const resolvedConfigs = Object.fromEntries(
 		tables.$all().map((table) => {
 			const userConfig = userTableConfigs[table.name] ?? {};
@@ -338,7 +338,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			) as AbsolutePath;
 
 			// Flatten for internal use
-			const config: ResolvedTableConfig<TSchema[keyof TSchema & string]> = {
+			const config: ResolvedTableConfig<
+				TTablesSchema[keyof TTablesSchema & string]
+			> = {
 				directory,
 				serialize: serializer.serialize,
 				parseFilename: serializer.deserialize.parseFilename,
@@ -348,7 +350,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			return [table.name, config];
 		}),
 	) as unknown as {
-		[K in keyof TSchema & string]: ResolvedTableConfig<TSchema[K]>;
+		[K in keyof TTablesSchema & string]: ResolvedTableConfig<TTablesSchema[K]>;
 	};
 
 	/**
@@ -702,7 +704,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					}
 
 					const validatedRow = row as SerializedRow<
-						TSchema[keyof TSchema & string]
+						TTablesSchema[keyof TTablesSchema & string]
 					>;
 
 					// Success: remove from diagnostics if it was previously invalid
@@ -765,8 +767,8 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					});
 
 					if (rowIdToDelete) {
-						if (table.has({ id: rowIdToDelete })) {
-							table.delete({ id: rowIdToDelete });
+						if (table.has(rowIdToDelete)) {
+							table.delete(rowIdToDelete);
 							dbg(
 								'HANDLER',
 								`UNLINK deleted row ${table.name}/${rowIdToDelete}`,
@@ -1047,7 +1049,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			const parsed = tableConfig.parseFilename(filename);
 			const rowId = parsed?.id;
 
-			if (!rowId || !table.has({ id: rowId })) {
+			if (!rowId || !table.has(rowId)) {
 				// Orphan file: no valid row ID or row doesn't exist in Y.js
 				logger.log(
 					ProviderError({
@@ -1110,147 +1112,143 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		 * - Rows in YJS but not in markdown → file created
 		 * - Rows in both → file updated only if content differs
 		 */
-		pullToMarkdown: defineMutation({
-			description:
-				'Pull YJS changes to markdown files (diff-based sync, only applies changes)',
-			handler: async () => {
-				return tryAsync({
-					try: async () => {
-						syncCoordination.yjsWriteCount++;
+		async pullToMarkdown() {
+			return tryAsync({
+				try: async () => {
+					syncCoordination.yjsWriteCount++;
 
-						await Promise.all(
-							tables
-								.$zip(resolvedConfigs)
-								.map(async ({ table, paired: tableConfig }) => {
-									const tableTracking = tracking[table.name];
-									const filePaths = await listMarkdownFiles(
-										tableConfig.directory,
-									);
+					await Promise.all(
+						tables
+							.$zip(resolvedConfigs)
+							.map(async ({ table, paired: tableConfig }) => {
+								const tableTracking = tracking[table.name];
+								const filePaths = await listMarkdownFiles(
+									tableConfig.directory,
+								);
 
-									const markdownIds = new Map(
-										filePaths
-											.map((filePath) => {
-												const filename = path.basename(filePath);
-												const parsed = tableConfig.parseFilename(filename);
-												return parsed?.id
-													? ([parsed.id, filePath as AbsolutePath] as const)
-													: null;
-											})
-											.filter(
-												(entry): entry is [string, AbsolutePath] =>
-													entry !== null,
-											),
-									);
+								const markdownIds = new Map(
+									filePaths
+										.map((filePath) => {
+											const filename = path.basename(filePath);
+											const parsed = tableConfig.parseFilename(filename);
+											return parsed?.id
+												? ([parsed.id, filePath as AbsolutePath] as const)
+												: null;
+										})
+										.filter(
+											(entry): entry is [string, AbsolutePath] =>
+												entry !== null,
+										),
+								);
 
-									const yjsRows = table.getAllValid();
-									const yjsIds = new Set(yjsRows.map((row) => String(row.id)));
+								const yjsRows = table.getAllValid();
+								const yjsIds = new Set(yjsRows.map((row) => String(row.id)));
 
-									const idsToDelete = [...markdownIds.entries()].filter(
-										([id]) => !yjsIds.has(id),
-									);
-									await Promise.all(
-										idsToDelete.map(async ([id, filePath]) => {
-											const { error } = await deleteMarkdownFile({ filePath });
+								const idsToDelete = [...markdownIds.entries()].filter(
+									([id]) => !yjsIds.has(id),
+								);
+								await Promise.all(
+									idsToDelete.map(async ([id, filePath]) => {
+										const { error } = await deleteMarkdownFile({ filePath });
+										if (error) {
+											logger.log(
+												ProviderError({
+													message: `pullToMarkdown: failed to delete ${filePath}`,
+													context: { filePath, tableName: table.name },
+												}),
+											);
+										}
+										if (tableTracking) {
+											delete tableTracking[id];
+										}
+									}),
+								);
+
+								await Promise.all(
+									yjsRows.map(async (row) => {
+										const serializedRow = row.toJSON();
+										const { frontmatter, body, filename } =
+											tableConfig.serialize({
+												row: serializedRow,
+												table,
+											});
+
+										const filePath = path.join(
+											tableConfig.directory,
+											filename,
+										) as AbsolutePath;
+
+										const existingFilePath = markdownIds.get(String(row.id));
+										const isNewFile = !existingFilePath;
+										const filenameChanged =
+											existingFilePath &&
+											path.basename(existingFilePath) !== filename;
+
+										if (filenameChanged && existingFilePath) {
+											await deleteMarkdownFile({
+												filePath: existingFilePath,
+											});
+										}
+
+										let shouldWrite = isNewFile || filenameChanged;
+
+										if (!shouldWrite && existingFilePath) {
+											const { data: existingContent, error: readError } =
+												await readMarkdownFile(existingFilePath);
+											if (readError) {
+												shouldWrite = true;
+											} else {
+												const {
+													data: existingFrontmatter,
+													body: existingBody,
+												} = existingContent;
+												const frontmatterChanged =
+													JSON.stringify(frontmatter) !==
+													JSON.stringify(existingFrontmatter);
+												const bodyChanged = body !== existingBody;
+												shouldWrite = frontmatterChanged || bodyChanged;
+											}
+										}
+
+										if (shouldWrite) {
+											const { error } = await writeMarkdownFile({
+												filePath,
+												frontmatter,
+												body,
+											});
 											if (error) {
 												logger.log(
 													ProviderError({
-														message: `pullToMarkdown: failed to delete ${filePath}`,
-														context: { filePath, tableName: table.name },
+														message: `pullToMarkdown: failed to write ${filePath}`,
+														context: {
+															filePath,
+															tableName: table.name,
+															rowId: row.id,
+														},
 													}),
 												);
 											}
-											if (tableTracking) {
-												delete tableTracking[id];
-											}
-										}),
-									);
+										}
 
-									await Promise.all(
-										yjsRows.map(async (row) => {
-											const serializedRow = row.toJSON();
-											const { frontmatter, body, filename } =
-												tableConfig.serialize({
-													row: serializedRow,
-													table,
-												});
+										if (tableTracking) {
+											tableTracking[String(row.id)] = filename;
+										}
+									}),
+								);
+							}),
+					);
 
-											const filePath = path.join(
-												tableConfig.directory,
-												filename,
-											) as AbsolutePath;
-
-											const existingFilePath = markdownIds.get(String(row.id));
-											const isNewFile = !existingFilePath;
-											const filenameChanged =
-												existingFilePath &&
-												path.basename(existingFilePath) !== filename;
-
-											if (filenameChanged && existingFilePath) {
-												await deleteMarkdownFile({
-													filePath: existingFilePath,
-												});
-											}
-
-											let shouldWrite = isNewFile || filenameChanged;
-
-											if (!shouldWrite && existingFilePath) {
-												const { data: existingContent, error: readError } =
-													await readMarkdownFile(existingFilePath);
-												if (readError) {
-													shouldWrite = true;
-												} else {
-													const {
-														data: existingFrontmatter,
-														body: existingBody,
-													} = existingContent;
-													const frontmatterChanged =
-														JSON.stringify(frontmatter) !==
-														JSON.stringify(existingFrontmatter);
-													const bodyChanged = body !== existingBody;
-													shouldWrite = frontmatterChanged || bodyChanged;
-												}
-											}
-
-											if (shouldWrite) {
-												const { error } = await writeMarkdownFile({
-													filePath,
-													frontmatter,
-													body,
-												});
-												if (error) {
-													logger.log(
-														ProviderError({
-															message: `pullToMarkdown: failed to write ${filePath}`,
-															context: {
-																filePath,
-																tableName: table.name,
-																rowId: row.id,
-															},
-														}),
-													);
-												}
-											}
-
-											if (tableTracking) {
-												tableTracking[String(row.id)] = filename;
-											}
-										}),
-									);
-								}),
-						);
-
-						syncCoordination.yjsWriteCount--;
-					},
-					catch: (error) => {
-						syncCoordination.yjsWriteCount--;
-						return ProviderErr({
-							message: `Markdown provider pull failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'pull' },
-						});
-					},
-				});
-			},
-		}),
+					syncCoordination.yjsWriteCount--;
+				},
+				catch: (error) => {
+					syncCoordination.yjsWriteCount--;
+					return ProviderErr({
+						message: `Markdown provider pull failed: ${extractErrorMessage(error)}`,
+						context: { operation: 'pull' },
+					});
+				},
+			});
+		},
 
 		/**
 		 * Push: Sync from Markdown to YJS using diff-based synchronization.
@@ -1271,204 +1269,200 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		 *
 		 * All YJS operations are wrapped in a single transaction for atomicity.
 		 */
-		pushFromMarkdown: defineMutation({
-			description:
-				'Push markdown file changes to YJS (diff-based sync, only applies changes)',
-			handler: async () => {
-				return tryAsync({
-					try: async () => {
-						syncCoordination.fileChangeCount++;
+		async pushFromMarkdown() {
+			return tryAsync({
+				try: async () => {
+					syncCoordination.fileChangeCount++;
 
-						diagnostics.clear();
+					diagnostics.clear();
 
-						type TableSyncData = {
-							table: TableHelper<TSchema[keyof TSchema]>;
-							yjsIds: Set<string>;
-							fileExistsIds: Set<string>;
-							markdownRows: Map<
-								string,
-								SerializedRow<TSchema[keyof TSchema & string]>
-							>;
-							markdownFilenames: Map<string, string>;
-						};
+					type TableSyncData = {
+						table: TableHelper<TTablesSchema[keyof TTablesSchema]>;
+						yjsIds: Set<string>;
+						fileExistsIds: Set<string>;
+						markdownRows: Map<
+							string,
+							SerializedRow<TTablesSchema[keyof TTablesSchema & string]>
+						>;
+						markdownFilenames: Map<string, string>;
+					};
 
-						const allTableData = await Promise.all(
-							tables
-								.$zip(resolvedConfigs)
-								.map(
-									async ({
-										table,
-										paired: tableConfig,
-									}): Promise<TableSyncData> => {
-										const yjsIds = new Set(
-											table
-												.getAll()
-												.map((result) =>
-													result.status === 'valid' ? result.row.id : result.id,
-												),
-										);
-
-										const filePaths = await listMarkdownFiles(
-											tableConfig.directory,
-										);
-
-										const fileExistsIds = new Set(
-											filePaths
-												.map(
-													(filePath) =>
-														tableConfig.parseFilename(path.basename(filePath))
-															?.id,
-												)
-												.filter((id): id is string => Boolean(id)),
-										);
-
-										const markdownRows = new Map<
-											string,
-											SerializedRow<TSchema[keyof TSchema & string]>
-										>();
-										const markdownFilenames = new Map<string, string>();
-
-										await Promise.all(
-											filePaths.map(async (filePath) => {
-												const filename = path.basename(filePath);
-
-												const parsed = tableConfig.parseFilename(filename);
-												if (!parsed) {
-													diagnostics.add({
-														filePath,
-														tableName: table.name,
-														filename,
-														error: MarkdownProviderError({
-															message: `Failed to parse filename: ${filename}`,
-														}),
-													});
-													logger.log(
-														ProviderError({
-															message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
-															context: {
-																filePath,
-																tableName: table.name,
-																filename,
-															},
-														}),
-													);
-													return;
-												}
-
-												const { data: fileContent, error: readError } =
-													await readMarkdownFile(filePath);
-
-												if (readError) {
-													diagnostics.add({
-														filePath,
-														tableName: table.name,
-														filename,
-														error: MarkdownProviderError({
-															message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
-														}),
-													});
-													logger.log(
-														ProviderError({
-															message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
-															context: {
-																filePath,
-																tableName: table.name,
-																filename,
-															},
-														}),
-													);
-													return;
-												}
-
-												const { data: frontmatter, body } = fileContent;
-
-												const { data: row, error: deserializeError } =
-													tableConfig.deserialize({
-														frontmatter,
-														body,
-														filename,
-														parsed,
-														table,
-													});
-
-												if (deserializeError) {
-													diagnostics.add({
-														filePath,
-														tableName: table.name,
-														filename,
-														error: deserializeError,
-													});
-													logger.log(
-														ProviderError({
-															message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
-															context: {
-																filePath,
-																tableName: table.name,
-																filename,
-															},
-														}),
-													);
-													return;
-												}
-
-												markdownRows.set(row.id, row);
-												markdownFilenames.set(row.id, filename);
-											}),
-										);
-
-										return {
-											table,
-											yjsIds,
-											fileExistsIds,
-											markdownRows,
-											markdownFilenames,
-										};
-									},
-								),
-						);
-
-						context.ydoc.transact(() => {
-							allTableData.forEach(
-								({
+					const allTableData = await Promise.all(
+						tables
+							.$zip(resolvedConfigs)
+							.map(
+								async ({
 									table,
-									yjsIds,
-									fileExistsIds,
-									markdownRows,
-									markdownFilenames,
-								}) => {
-									const tableTracking = tracking[table.name];
-									const idsToDelete = [...yjsIds].filter(
-										(id) => !fileExistsIds.has(id),
+									paired: tableConfig,
+								}): Promise<TableSyncData> => {
+									const yjsIds = new Set(
+										table
+											.getAll()
+											.map((result) =>
+												result.status === 'valid' ? result.row.id : result.id,
+											),
 									);
-									idsToDelete.forEach((id) => {
-										table.delete({ id });
-										if (tableTracking) {
-											delete tableTracking[id];
-										}
-									});
 
-									[...markdownRows.entries()].forEach(([id, row]) => {
-										table.upsert(row);
-										if (tableTracking) {
-											tableTracking[id] = markdownFilenames.get(id) ?? '';
-										}
-									});
+									const filePaths = await listMarkdownFiles(
+										tableConfig.directory,
+									);
+
+									const fileExistsIds = new Set(
+										filePaths
+											.map(
+												(filePath) =>
+													tableConfig.parseFilename(path.basename(filePath))
+														?.id,
+											)
+											.filter((id): id is string => Boolean(id)),
+									);
+
+									const markdownRows = new Map<
+										string,
+										SerializedRow<TTablesSchema[keyof TTablesSchema & string]>
+									>();
+									const markdownFilenames = new Map<string, string>();
+
+									await Promise.all(
+										filePaths.map(async (filePath) => {
+											const filename = path.basename(filePath);
+
+											const parsed = tableConfig.parseFilename(filename);
+											if (!parsed) {
+												diagnostics.add({
+													filePath,
+													tableName: table.name,
+													filename,
+													error: MarkdownProviderError({
+														message: `Failed to parse filename: ${filename}`,
+													}),
+												});
+												logger.log(
+													ProviderError({
+														message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
+														context: {
+															filePath,
+															tableName: table.name,
+															filename,
+														},
+													}),
+												);
+												return;
+											}
+
+											const { data: fileContent, error: readError } =
+												await readMarkdownFile(filePath);
+
+											if (readError) {
+												diagnostics.add({
+													filePath,
+													tableName: table.name,
+													filename,
+													error: MarkdownProviderError({
+														message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
+													}),
+												});
+												logger.log(
+													ProviderError({
+														message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
+														context: {
+															filePath,
+															tableName: table.name,
+															filename,
+														},
+													}),
+												);
+												return;
+											}
+
+											const { data: frontmatter, body } = fileContent;
+
+											const { data: row, error: deserializeError } =
+												tableConfig.deserialize({
+													frontmatter,
+													body,
+													filename,
+													parsed,
+													table,
+												});
+
+											if (deserializeError) {
+												diagnostics.add({
+													filePath,
+													tableName: table.name,
+													filename,
+													error: deserializeError,
+												});
+												logger.log(
+													ProviderError({
+														message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
+														context: {
+															filePath,
+															tableName: table.name,
+															filename,
+														},
+													}),
+												);
+												return;
+											}
+
+											markdownRows.set(row.id, row);
+											markdownFilenames.set(row.id, filename);
+										}),
+									);
+
+									return {
+										table,
+										yjsIds,
+										fileExistsIds,
+										markdownRows,
+										markdownFilenames,
+									};
 								},
-							);
-						});
+							),
+					);
 
-						syncCoordination.fileChangeCount--;
-					},
-					catch: (error) => {
-						syncCoordination.fileChangeCount--;
-						return ProviderErr({
-							message: `Markdown provider push failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'push' },
-						});
-					},
-				});
-			},
-		}),
+					context.ydoc.transact(() => {
+						allTableData.forEach(
+							({
+								table,
+								yjsIds,
+								fileExistsIds,
+								markdownRows,
+								markdownFilenames,
+							}) => {
+								const tableTracking = tracking[table.name];
+								const idsToDelete = [...yjsIds].filter(
+									(id) => !fileExistsIds.has(id),
+								);
+								idsToDelete.forEach((id) => {
+									table.delete(id);
+									if (tableTracking) {
+										delete tableTracking[id];
+									}
+								});
+
+								[...markdownRows.entries()].forEach(([id, row]) => {
+									table.upsert(row);
+									if (tableTracking) {
+										tableTracking[id] = markdownFilenames.get(id) ?? '';
+									}
+								});
+							},
+						);
+					});
+
+					syncCoordination.fileChangeCount--;
+				},
+				catch: (error) => {
+					syncCoordination.fileChangeCount--;
+					return ProviderErr({
+						message: `Markdown provider push failed: ${extractErrorMessage(error)}`,
+						context: { operation: 'push' },
+					});
+				},
+			});
+		},
 
 		/**
 		 * Scan all markdown files and rebuild diagnostics
@@ -1482,28 +1476,24 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 		 * Note: The initial scan on startup serves the same purpose, but this method
 		 * allows re-scanning at any time without restarting the server.
 		 */
-		scanForErrors: defineQuery({
-			description:
-				'Scan all markdown files and rebuild diagnostics (validates every file)',
-			handler: async () => {
-				return tryAsync({
-					try: async () => {
-						await validateAllMarkdownFiles({ operation: 'scanForErrors' });
+		async scanForErrors() {
+			return tryAsync({
+				try: async () => {
+					await validateAllMarkdownFiles({ operation: 'scanForErrors' });
 
-						// Return count of errors found
-						const errorCount = diagnostics.count();
-						console.log(
-							`Scan complete: ${errorCount} markdown file${errorCount === 1 ? '' : 's'} with validation errors`,
-						);
-					},
-					catch: (error) => {
-						return ProviderErr({
-							message: `Markdown provider scan failed: ${extractErrorMessage(error)}`,
-							context: { operation: 'scan' },
-						});
-					},
-				});
-			},
-		}),
+					// Return count of errors found
+					const errorCount = diagnostics.count();
+					console.log(
+						`Scan complete: ${errorCount} markdown file${errorCount === 1 ? '' : 's'} with validation errors`,
+					);
+				},
+				catch: (error) => {
+					return ProviderErr({
+						message: `Markdown provider scan failed: ${extractErrorMessage(error)}`,
+						context: { operation: 'scan' },
+					});
+				},
+			});
+		},
 	});
 }) satisfies Provider;

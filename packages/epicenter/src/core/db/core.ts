@@ -1,8 +1,6 @@
 import { regex } from 'arkregex';
 import * as Y from 'yjs';
-import { defineMutation } from '../actions';
-import type { WorkspaceSchema } from '../schema';
-import { createWorkspaceValidators } from '../schema';
+import type { TablesSchema } from '../schema';
 import {
 	createTableHelpers,
 	type TableHelper,
@@ -37,16 +35,17 @@ import {
 const TABLE_NAME_PATTERN = regex('^[a-z][a-z0-9_]*$');
 
 /**
- * Valid column name pattern: same constraints as table names.
+ * Valid column name pattern: camelCase allowed.
  *
- * Column names appear in the same three systems and have identical requirements:
- * - **SQLite**: Valid unquoted column identifier
+ * Column names must satisfy:
+ * - **SQLite**: Valid unquoted column identifier (camelCase works)
  * - **JavaScript**: `row.columnName` dot notation access
  * - **YAML frontmatter**: Markdown index serializes columns to frontmatter keys
  *
- * @see TABLE_NAME_PATTERN for detailed constraint rationale
+ * Unlike table names (which affect file system paths), column names don't need
+ * to be lowercase-only. camelCase is idiomatic JavaScript and works everywhere.
  */
-const COLUMN_NAME_PATTERN = TABLE_NAME_PATTERN;
+const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 
 // Re-export TableHelper for public API
 export type { TableHelper } from './table-helper';
@@ -84,9 +83,9 @@ export type { TableHelper } from './table-helper';
  * db.clearAll();
  * ```
  */
-export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
+export function createTables<TTablesSchema extends TablesSchema>(
 	ydoc: Y.Doc,
-	schema: TWorkspaceSchema,
+	schema: TTablesSchema,
 ) {
 	// Validate table names
 	for (const tableName of Object.keys(schema)) {
@@ -107,21 +106,18 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		for (const columnName of Object.keys(tableSchema)) {
 			if (!COLUMN_NAME_PATTERN.test(columnName)) {
 				throw new Error(
-					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "title", "created_at", "count2")`,
+					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only letters, numbers, and underscores (e.g., "title", "createdAt", "count2")`,
 				);
 			}
 		}
 	}
 
-	// Create validators for all tables
-	const validators = createWorkspaceValidators(schema);
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
 	// Create table helpers (tables are created lazily via getYTable - see table-helper.ts)
 	const tableHelpers = createTableHelpers({
 		ydoc,
 		schema,
-		validators,
 		ytables,
 	});
 
@@ -148,7 +144,7 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		 */
 		$all() {
 			return Object.values(tableHelpers) as TableHelper<
-				TWorkspaceSchema[keyof TWorkspaceSchema]
+				TTablesSchema[keyof TTablesSchema]
 			>[];
 		},
 
@@ -182,12 +178,10 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 		 */
 		$zip<
 			TConfigs extends {
-				[K in keyof TWorkspaceSchema & string]: unknown;
+				[K in keyof TTablesSchema & string]: unknown;
 			},
 		>(configs: TConfigs) {
-			const names = Object.keys(schema) as Array<
-				keyof TWorkspaceSchema & string
-			>;
+			const names = Object.keys(schema) as Array<keyof TTablesSchema & string>;
 
 			return names.map((name) => ({
 				name,
@@ -195,25 +189,25 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
 				paired: configs[name],
 			})) as Array<
 				{
-					[K in keyof TWorkspaceSchema & string]: {
+					[K in keyof TTablesSchema & string]: {
 						name: K;
-						table: TableHelper<TWorkspaceSchema[K]>;
+						table: TableHelper<TTablesSchema[K]>;
 						paired: TConfigs[K];
 					};
-				}[keyof TWorkspaceSchema & string]
+				}[keyof TTablesSchema & string]
 			>;
 		},
 
-		clearAll: defineMutation({
-			description: 'Clear all tables in the workspace',
-			handler: () => {
-				ydoc.transact(() => {
-					for (const tableName of Object.keys(schema)) {
-						tableHelpers[tableName as keyof typeof tableHelpers].clear();
-					}
-				});
-			},
-		}),
+		/**
+		 * Clear all tables in the workspace
+		 */
+		clearAll(): void {
+			ydoc.transact(() => {
+				for (const tableName of Object.keys(schema)) {
+					tableHelpers[tableName as keyof typeof tableHelpers].clear();
+				}
+			});
+		},
 	};
 }
 
@@ -221,6 +215,6 @@ export function createTables<TWorkspaceSchema extends WorkspaceSchema>(
  * Type alias for the return type of createTables.
  * Useful for typing function parameters that accept a tables instance.
  */
-export type Tables<TWorkspaceSchema extends WorkspaceSchema> = ReturnType<
-	typeof createTables<TWorkspaceSchema>
+export type Tables<TTablesSchema extends TablesSchema> = ReturnType<
+	typeof createTables<TTablesSchema>
 >;

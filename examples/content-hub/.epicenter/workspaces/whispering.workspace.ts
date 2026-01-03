@@ -66,7 +66,6 @@ export const whispering = defineWorkspace({
 		}
 
 		return {
-			...tables.entries,
 			pullToMarkdown: providers.markdown.pullToMarkdown,
 			pushFromMarkdown: providers.markdown.pushFromMarkdown,
 			pullToSqlite: providers.sqlite.pullToSqlite,

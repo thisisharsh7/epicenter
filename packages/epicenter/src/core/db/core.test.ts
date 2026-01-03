@@ -24,7 +24,7 @@ describe('createTables', () => {
 		});
 
 		// Retrieve the row
-		const result = doc.posts.get({ id: '1' });
+		const result = doc.posts.get('1');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.row.title).toBe('Test Post');
@@ -45,16 +45,14 @@ describe('createTables', () => {
 		});
 
 		// Create multiple rows
-		doc.posts.upsertMany({
-			rows: [
-				{ id: '1', title: 'Post 1', view_count: 10, published: true },
-				{ id: '2', title: 'Post 2', view_count: 20, published: false },
-			],
-		});
+		doc.posts.upsertMany([
+			{ id: '1', title: 'Post 1', view_count: 10, published: true },
+			{ id: '2', title: 'Post 2', view_count: 20, published: false },
+		]);
 
 		// Retrieve and verify rows
-		const row1 = doc.posts.get({ id: '1' });
-		const row2 = doc.posts.get({ id: '2' });
+		const row1 = doc.posts.get('1');
+		const row2 = doc.posts.get('2');
 		expect(row1.status).toBe('valid');
 		expect(row2.status).toBe('valid');
 		if (row1.status === 'valid') {
@@ -76,13 +74,11 @@ describe('createTables', () => {
 			},
 		});
 
-		doc.posts.upsertMany({
-			rows: [
-				{ id: '1', title: 'Post 1', view_count: 10, published: true },
-				{ id: '2', title: 'Post 2', view_count: 20, published: false },
-				{ id: '3', title: 'Post 3', view_count: 30, published: true },
-			],
-		});
+		doc.posts.upsertMany([
+			{ id: '1', title: 'Post 1', view_count: 10, published: true },
+			{ id: '2', title: 'Post 2', view_count: 20, published: false },
+			{ id: '3', title: 'Post 3', view_count: 30, published: true },
+		]);
 
 		// Filter published posts
 		const publishedPosts = doc.posts.filter((post) => post.published);
@@ -108,7 +104,7 @@ describe('createTables', () => {
 		});
 
 		// Test get() with non-existent id
-		const getResult = doc.posts.get({ id: 'non-existent' });
+		const getResult = doc.posts.get('non-existent');
 		expect(getResult.status).toBe('not_found');
 		if (getResult.status === 'not_found') {
 			expect(getResult.id).toBe('non-existent');
@@ -137,7 +133,7 @@ describe('createTables', () => {
 		});
 
 		// Get returns Y.js objects
-		const result1 = doc.posts.get({ id: '1' });
+		const result1 = doc.posts.get('1');
 		expect(result1.status).toBe('valid');
 		if (result1.status === 'valid') {
 			expect(result1.row.title).toBeInstanceOf(Y.Text);
