@@ -8,10 +8,12 @@
  *
  * ## Schema Structure
  *
- * Each field schema is a JSON Schema object with an `x-component` discriminant:
+ * Each field schema is a pure JSON Schema object with an `x-component` discriminant:
  * - `x-component`: UI component hint (e.g., 'text', 'select', 'tags')
  * - `type`: JSON Schema type, encodes nullability as `['string', 'null']`
- * - `~standard`: Standard Schema validation and JSON Schema serialization
+ *
+ * Validation is handled by converters (to-arktype, to-standard) rather than
+ * being embedded in the schema itself.
  *
  * ## Nullability
  *
@@ -23,10 +25,8 @@
  *
  * ## Related Files
  *
- * - `fields.ts` - Factory functions for creating field schemas
- * - `id.ts` - Id type and generateId function
- * - `date-with-timezone.ts` - DateWithTimezone types and functions
- * - `validation.ts` - Validation types and functions
+ * - `factories.ts` - Factory functions for creating field schemas
+ * - `../converters/` - Converters for arktype, drizzle, json-schema
  * - `nullability.ts` - isNullableFieldSchema helper
  */
 
@@ -37,7 +37,6 @@ import type {
 	DateWithTimezoneString,
 } from '../runtime/date-with-timezone';
 import type {
-	StandardJSONSchemaV1,
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
 } from '../standard/types';
@@ -47,26 +46,13 @@ import type {
 // ============================================================================
 
 /**
- * Internal type for the `~standard` property on column schemas.
- * Combines Standard Schema validation with JSON Schema serialization.
- */
-type FieldStandard<T> = {
-	'~standard': StandardSchemaV1.Props<T> & StandardJSONSchemaV1.Props<T>;
-};
-
-/**
  * ID column schema - auto-generated primary key.
  * Always NOT NULL, always type 'string'.
- *
- * @example
- * ```typescript
- * { 'x-component': 'id', type: 'string', '~standard': {...} }
- * ```
  */
 export type IdFieldSchema = {
 	'x-component': 'id';
 	type: 'string';
-} & FieldStandard<string>;
+};
 
 /**
  * Text column schema - single-line string input.
@@ -76,7 +62,7 @@ export type TextFieldSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'text';
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
 	default?: string;
-} & FieldStandard<TNullable extends true ? string | null : string>;
+};
 
 /**
  * Y.Text column schema - collaborative text using YJS.
@@ -86,7 +72,7 @@ export type TextFieldSchema<TNullable extends boolean = boolean> = {
 export type YtextFieldSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'ytext';
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
-} & FieldStandard<TNullable extends true ? string | null : string>;
+};
 
 /**
  * Integer column schema - whole numbers.
@@ -96,7 +82,7 @@ export type IntegerFieldSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'integer';
 	type: TNullable extends true ? readonly ['integer', 'null'] : 'integer';
 	default?: number;
-} & FieldStandard<TNullable extends true ? number | null : number>;
+};
 
 /**
  * Real/float column schema - decimal numbers.
@@ -106,7 +92,7 @@ export type RealFieldSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'real';
 	type: TNullable extends true ? readonly ['number', 'null'] : 'number';
 	default?: number;
-} & FieldStandard<TNullable extends true ? number | null : number>;
+};
 
 /**
  * Boolean column schema - true/false values.
@@ -115,7 +101,7 @@ export type BooleanFieldSchema<TNullable extends boolean = boolean> = {
 	'x-component': 'boolean';
 	type: TNullable extends true ? readonly ['boolean', 'null'] : 'boolean';
 	default?: boolean;
-} & FieldStandard<TNullable extends true ? boolean | null : boolean>;
+};
 
 /**
  * Date column schema - timezone-aware dates.
@@ -128,7 +114,7 @@ export type DateFieldSchema<TNullable extends boolean = boolean> = {
 	description: string;
 	pattern: string;
 	default?: DateWithTimezone;
-} & FieldStandard<TNullable extends true ? string | null : string>;
+};
 
 /**
  * Select column schema - single choice from predefined options.
@@ -155,9 +141,7 @@ export type SelectFieldSchema<
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
 	enum: TOptions;
 	default?: TOptions[number];
-} & FieldStandard<
-	TNullable extends true ? TOptions[number] | null : TOptions[number]
->;
+};
 
 /**
  * Tags column schema - array of strings with optional validation.
@@ -198,9 +182,7 @@ export type TagsFieldSchema<
 	items: { type: 'string'; enum?: TOptions };
 	uniqueItems: true;
 	default?: TOptions[number][];
-} & FieldStandard<
-	TNullable extends true ? TOptions[number][] | null : TOptions[number][]
->;
+};
 
 /**
  * JSON column schema - arbitrary JSON validated by a Standard Schema.
@@ -232,11 +214,7 @@ export type JsonFieldSchema<
 	type: TNullable extends true ? readonly ['object', 'null'] : 'object';
 	schema: TSchema;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
-} & FieldStandard<
-	TNullable extends true
-		? StandardSchemaV1.InferOutput<TSchema> | null
-		: StandardSchemaV1.InferOutput<TSchema>
->;
+};
 
 // ============================================================================
 // Discriminated Unions and Utility Types
