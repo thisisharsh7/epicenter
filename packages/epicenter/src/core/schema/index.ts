@@ -65,7 +65,7 @@ export type {
 	StandardTypedV1,
 } from './standard/types.js';
 
-export { generateJsonSchema } from './converters/to-json-schema.js';
+export { generateJsonSchema } from './standard/to-json-schema.js';
 
 export type {
 	DateIsoString,

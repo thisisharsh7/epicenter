@@ -9,7 +9,3 @@ export {
 	convertTableSchemaToDrizzle,
 	convertWorkspaceSchemaToDrizzle,
 } from './to-drizzle';
-
-export { generateJsonSchema } from './to-json-schema';
-
-export { ARKTYPE_JSON_SCHEMA_FALLBACK } from './arktype-fallback';
