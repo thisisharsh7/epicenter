@@ -6,6 +6,7 @@
 	import '@epicenter/ui/app.css';
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import InputDialog from '$lib/components/InputDialog.svelte';
 
 	let { children } = $props();
 
@@ -37,5 +38,6 @@
 	</Sidebar.Provider>
 </QueryClientProvider>
 
+<InputDialog />
 <Toaster offset={16} theme={mode.current} {...TOASTER_SETTINGS} />
 <ModeWatcher defaultMode="dark" track={false} />

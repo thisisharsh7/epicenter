@@ -6,6 +6,7 @@
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import HomeIcon from '@lucide/svelte/icons/home';
+	import { inputDialog } from '$lib/components/InputDialog.svelte';
 
 	const workspaceIds = createQuery(
 		() => rpc.workspaces.listWorkspaceIds.options,
@@ -15,10 +16,15 @@
 	);
 
 	function handleCreateWorkspace() {
-		const name = prompt('Enter workspace name:');
-		if (name) {
-			createWorkspace.mutate({ name });
-		}
+		inputDialog.open({
+			title: 'Create Workspace',
+			description: 'Enter a name for your new workspace.',
+			label: 'Workspace Name',
+			placeholder: 'My Workspace',
+			onConfirm: async (name) => {
+				await createWorkspace.mutateAsync({ name });
+			},
+		});
 	}
 </script>
 

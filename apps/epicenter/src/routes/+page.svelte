@@ -2,6 +2,7 @@
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
 	import { Button } from '@epicenter/ui/button';
+	import { inputDialog } from '$lib/components/InputDialog.svelte';
 
 	const workspaceIds = createQuery(
 		() => rpc.workspaces.listWorkspaceIds.options,
@@ -11,10 +12,15 @@
 	);
 
 	function handleCreate() {
-		const name = prompt('Enter workspace name:');
-		if (name) {
-			createWorkspace.mutate({ name });
-		}
+		inputDialog.open({
+			title: 'Create Workspace',
+			description: 'Enter a name for your new workspace.',
+			label: 'Workspace Name',
+			placeholder: 'My Workspace',
+			onConfirm: async (name) => {
+				await createWorkspace.mutateAsync({ name });
+			},
+		});
 	}
 </script>
 
