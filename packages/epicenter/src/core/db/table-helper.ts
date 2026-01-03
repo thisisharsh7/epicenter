@@ -981,10 +981,10 @@ export type TableHelper<TTableSchema extends TableSchema> = ReturnType<
  *
  * @internal
  */
-function buildRowFromYRow<TSchema extends TableSchema>(
+function buildRowFromYRow<TTableSchema extends TableSchema>(
 	yrow: YRow,
-	schema: TSchema,
-): Row<TSchema> {
+	schema: TTableSchema,
+): Row<TTableSchema> {
 	const descriptors = Object.fromEntries(
 		Array.from(yrow.keys()).map((key) => [
 			key,
@@ -1010,7 +1010,7 @@ function buildRowFromYRow<TSchema extends TableSchema>(
 						result[key] = serializeCellValue(value);
 					}
 				}
-				return result as SerializedRow<TSchema>;
+				return result as SerializedRow<TTableSchema>;
 			},
 			enumerable: false,
 			configurable: true,
@@ -1022,5 +1022,5 @@ function buildRowFromYRow<TSchema extends TableSchema>(
 		},
 	});
 
-	return row as Row<TSchema>;
+	return row as Row<TTableSchema>;
 }

@@ -107,9 +107,9 @@ export type FieldSchemaToArktypeType<C extends FieldSchema> =
  * const arrayValidator = validator.array();
  * ```
  */
-export function tableSchemaToArktypeType<TSchema extends TableSchema>(
-	tableSchema: TSchema,
-): ObjectType<SerializedRow<TSchema>> {
+export function tableSchemaToArktypeType<TTableSchema extends TableSchema>(
+	tableSchema: TTableSchema,
+): ObjectType<SerializedRow<TTableSchema>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
@@ -117,7 +117,7 @@ export function tableSchemaToArktypeType<TSchema extends TableSchema>(
 				fieldSchemaToArktypeType(fieldSchema),
 			]),
 		),
-	) as ObjectType<SerializedRow<TSchema>>;
+	) as ObjectType<SerializedRow<TTableSchema>>;
 }
 
 /**

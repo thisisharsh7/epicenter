@@ -17,7 +17,7 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
-	WorkspaceSchema,
+	TablesSchema,
 } from './types';
 
 /**
@@ -43,7 +43,7 @@ import type {
  * }
  * ```
  */
-export type TableValidators<TSchema extends TableSchema = TableSchema> = {
+export type TableValidators<TTableSchema extends TableSchema = TableSchema> = {
 	/**
 	 * Generates a StandardSchemaV1 for full SerializedRow
 	 *
@@ -65,7 +65,7 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * 2. Action uses it as `input` for validation
 	 * 3. MCP server converts it to JSON Schema via `toJsonSchema(action.input)`
 	 */
-	toStandardSchema(): StandardSchemaV1<SerializedRow<TSchema>>;
+	toStandardSchema(): StandardSchemaV1<SerializedRow<TTableSchema>>;
 
 	/**
 	 * Generates a StandardSchemaV1 for partial SerializedRow (all fields except id are optional)
@@ -74,7 +74,9 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * - Used for update operations where only some fields are provided
 	 * - Example: `update: defineMutation({ input: validators.toPartialStandardSchema() })`
 	 */
-	toPartialStandardSchema(): StandardSchemaV1<PartialSerializedRow<TSchema>>;
+	toPartialStandardSchema(): StandardSchemaV1<
+		PartialSerializedRow<TTableSchema>
+	>;
 
 	/**
 	 * Generates a StandardSchemaV1 for an array of SerializedRows, wrapped in an object
@@ -86,7 +88,9 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * **MCP compatibility**: Returns `{ rows: T[] }` instead of bare `T[]` because
 	 * MCP protocol requires all tool inputSchema to have `type: "object"` at the root.
 	 */
-	toStandardSchemaArray(): StandardSchemaV1<{ rows: SerializedRow<TSchema>[] }>;
+	toStandardSchemaArray(): StandardSchemaV1<{
+		rows: SerializedRow<TTableSchema>[];
+	}>;
 
 	/**
 	 * Generates a StandardSchemaV1 for an array of partial SerializedRows, wrapped in an object
@@ -99,7 +103,7 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * MCP protocol requires all tool inputSchema to have `type: "object"` at the root.
 	 */
 	toPartialStandardSchemaArray(): StandardSchemaV1<{
-		rows: PartialSerializedRow<TSchema>[];
+		rows: PartialSerializedRow<TTableSchema>[];
 	}>;
 
 	/**
@@ -125,7 +129,7 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * - Migration scripts (partial validation with `.omit().partial()`)
 	 * - Any scenario requiring validation of schema subsets
 	 */
-	toArktype(): ObjectType<SerializedRow<TSchema>>;
+	toArktype(): ObjectType<SerializedRow<TTableSchema>>;
 
 	/**
 	 * Generates an Arktype schema for Row objects with YJS types
@@ -155,15 +159,15 @@ export type TableValidators<TSchema extends TableSchema = TableSchema> = {
 	 * - `toArktype()` validates SerializedRow (plain JS: strings, arrays)
 	 * - `toYjsArktype()` validates Row (YJS types: Y.Text, Y.Array)
 	 */
-	toYjsArktype(): ObjectType<Row<TSchema>>;
+	toYjsArktype(): ObjectType<Row<TTableSchema>>;
 };
 
 /**
  * Workspace validators - maps table names to their table validators
  */
-export type WorkspaceValidators<TWorkspaceSchema extends WorkspaceSchema> = {
-	[TTableName in keyof TWorkspaceSchema]: TableValidators<
-		TWorkspaceSchema[TTableName]
+export type WorkspaceValidators<TTablesSchema extends TablesSchema> = {
+	[TTableName in keyof TTablesSchema]: TableValidators<
+		TTablesSchema[TTableName]
 	>;
 };
 
@@ -197,15 +201,15 @@ export type WorkspaceValidators<TWorkspaceSchema extends WorkspaceSchema> = {
  * const PostFrontmatter = validators.posts.toArktype().omit('id', 'content');
  * ```
  */
-export function createWorkspaceValidators<
-	TWorkspaceSchema extends WorkspaceSchema,
->(schema: TWorkspaceSchema): WorkspaceValidators<TWorkspaceSchema> {
+export function createWorkspaceValidators<TTablesSchema extends TablesSchema>(
+	schema: TTablesSchema,
+): WorkspaceValidators<TTablesSchema> {
 	return Object.fromEntries(
 		Object.entries(schema).map(([tableName, tableSchema]) => [
 			tableName,
 			createTableValidators(tableSchema),
 		]),
-	) as WorkspaceValidators<TWorkspaceSchema>;
+	) as WorkspaceValidators<TTablesSchema>;
 }
 
 /**
@@ -265,9 +269,9 @@ export function createWorkspaceValidators<
  * }
  * ```
  */
-export function createTableValidators<TSchema extends TableSchema>(
-	schema: TSchema,
-): TableValidators<TSchema> {
+export function createTableValidators<TTableSchema extends TableSchema>(
+	schema: TTableSchema,
+): TableValidators<TTableSchema> {
 	return {
 		toArktype() {
 			return tableSchemaToArktypeType(schema);
@@ -278,7 +282,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 		},
 
 		toStandardSchema() {
-			return this.toArktype() as StandardSchemaV1<SerializedRow<TSchema>>;
+			return this.toArktype() as StandardSchemaV1<SerializedRow<TTableSchema>>;
 		},
 
 		toPartialStandardSchema() {
@@ -286,14 +290,14 @@ export function createTableValidators<TSchema extends TableSchema>(
 			return this.toArktype()
 				.partial()
 				.merge({ id: 'string' }) as StandardSchemaV1<
-				PartialSerializedRow<TSchema>
+				PartialSerializedRow<TTableSchema>
 			>;
 		},
 
 		toStandardSchemaArray() {
 			// Wrap in object for MCP compatibility (MCP requires type: "object" at root)
 			return type({ rows: this.toArktype().array() }) as StandardSchemaV1<{
-				rows: SerializedRow<TSchema>[];
+				rows: SerializedRow<TTableSchema>[];
 			}>;
 		},
 
@@ -301,7 +305,7 @@ export function createTableValidators<TSchema extends TableSchema>(
 			// Wrap in object for MCP compatibility (MCP requires type: "object" at root)
 			return type({
 				rows: this.toArktype().partial().merge({ id: type.string }).array(),
-			}) as StandardSchemaV1<{ rows: PartialSerializedRow<TSchema>[] }>;
+			}) as StandardSchemaV1<{ rows: PartialSerializedRow<TTableSchema>[] }>;
 		},
 	};
 }

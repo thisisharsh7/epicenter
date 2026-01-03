@@ -113,9 +113,9 @@ export type FieldSchemaToYjsArktypeType<C extends FieldSchema> =
  * }
  * ```
  */
-export function tableSchemaToYjsArktypeType<TSchema extends TableSchema>(
-	tableSchema: TSchema,
-): ObjectType<Row<TSchema>> {
+export function tableSchemaToYjsArktypeType<TTableSchema extends TableSchema>(
+	tableSchema: TTableSchema,
+): ObjectType<Row<TTableSchema>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
@@ -123,7 +123,7 @@ export function tableSchemaToYjsArktypeType<TSchema extends TableSchema>(
 				fieldSchemaToYjsArktypeType(fieldSchema),
 			]),
 		),
-	) as ObjectType<Row<TSchema>>;
+	) as ObjectType<Row<TTableSchema>>;
 }
 
 /**

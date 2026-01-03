@@ -244,14 +244,14 @@ export function updateYArrayFromArray<T>(
  * // Nothing happens - no YJS operations, no observers triggered
  * ```
  */
-export function updateYRowFromSerializedRow<TSchema extends TableSchema>({
+export function updateYRowFromSerializedRow<TTableSchema extends TableSchema>({
 	yrow,
 	serializedRow,
 	schema,
 }: {
 	yrow: YRow;
-	serializedRow: PartialSerializedRow<TSchema>;
-	schema: TSchema;
+	serializedRow: PartialSerializedRow<TTableSchema>;
+	schema: TTableSchema;
 }): void {
 	withTransaction(yrow, () => {
 		for (const [fieldName, value] of Object.entries(serializedRow)) {
