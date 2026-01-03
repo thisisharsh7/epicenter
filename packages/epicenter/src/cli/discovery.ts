@@ -62,7 +62,7 @@ export async function loadClients(
 	for (const client of clients) {
 		if (!isWorkspaceClient(client)) {
 			throw new Error(
-				`Invalid client in epicenter.config.ts. Expected BoundWorkspaceClient with $id and $contracts.`,
+				`Invalid client in epicenter.config.ts. Expected BoundWorkspaceClient with id and contracts properties.`,
 			);
 		}
 	}
@@ -74,8 +74,8 @@ function isWorkspaceClient(value: unknown): value is AnyWorkspaceClient {
 	return (
 		typeof value === 'object' &&
 		value !== null &&
-		'$id' in value &&
-		'$contracts' in value &&
-		typeof (value as Record<string, unknown>).$id === 'string'
+		'id' in value &&
+		'contracts' in value &&
+		typeof (value as Record<string, unknown>).id === 'string'
 	);
 }
