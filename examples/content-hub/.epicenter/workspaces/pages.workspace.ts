@@ -146,7 +146,6 @@ export const pages = defineWorkspace({
 		}
 
 		return {
-			...tables.pages,
 			pullToMarkdown: providers.markdown.pullToMarkdown,
 			pushFromMarkdown: providers.markdown.pushFromMarkdown,
 			pullToSqlite: providers.sqlite.pullToSqlite,

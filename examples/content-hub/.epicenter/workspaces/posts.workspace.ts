@@ -102,8 +102,7 @@ export const posts = defineWorkspace({
 		markdown: (c) => markdownProvider(c),
 	},
 
-	actions: ({ tables, providers }) => ({
-		...tables,
+	actions: ({ providers }) => ({
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,
 		pullToSqlite: providers.sqlite.pullToSqlite,

@@ -257,7 +257,6 @@ ${instructions}`;
 	},
 
 	actions: ({ tables, providers }) => ({
-		...tables,
 		pullToMarkdown: providers.markdown.pullToMarkdown,
 		pushFromMarkdown: providers.markdown.pushFromMarkdown,
 		pullToSqlite: providers.sqlite.pullToSqlite,
