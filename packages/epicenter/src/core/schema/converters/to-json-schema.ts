@@ -1,4 +1,4 @@
-import type { StandardJSONSchemaV1 } from './types';
+import type { StandardJSONSchemaV1 } from '../standard/types';
 import type { JsonSchema } from 'arktype';
 import { Ok, trySync } from 'wellcrafted/result';
 import { ARKTYPE_JSON_SCHEMA_FALLBACK } from './arktype-fallback';

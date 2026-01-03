@@ -27,12 +27,12 @@ import type {
 	TextFieldSchema,
 	WorkspaceSchema,
 	YtextFieldSchema,
-} from './types';
+} from '../fields/types';
 import type {
 	DateWithTimezone,
 	DateWithTimezoneString,
 } from '../runtime/date-with-timezone';
-import { isNullableFieldSchema } from './nullability';
+import { isNullableFieldSchema } from '../fields/nullability';
 
 /**
  * Maps a WorkspaceSchema to its Drizzle table representations.

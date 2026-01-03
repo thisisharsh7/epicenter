@@ -38,14 +38,14 @@ export type {
 	YtextFieldSchema,
 } from './fields/types.js';
 
-export type { FieldSchemaToArktypeType } from './fields/to-arktype.js';
-export { tableSchemaToArktypeType } from './fields/to-arktype.js';
+export type { FieldSchemaToArktypeType } from './converters/to-arktype.js';
+export { tableSchemaToArktypeType } from './converters/to-arktype.js';
 
-export type { WorkspaceSchemaToDrizzleTables } from './fields/to-drizzle.js';
+export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js';
 export {
 	convertTableSchemaToDrizzle,
 	convertWorkspaceSchemaToDrizzle,
-} from './fields/to-drizzle.js';
+} from './converters/to-drizzle.js';
 
 export { isNullableFieldSchema } from './fields/nullability.js';
 
@@ -65,7 +65,7 @@ export type {
 	StandardTypedV1,
 } from './standard/types.js';
 
-export { generateJsonSchema } from './standard/to-json-schema.js';
+export { generateJsonSchema } from './converters/to-json-schema.js';
 
 export type {
 	DateIsoString,

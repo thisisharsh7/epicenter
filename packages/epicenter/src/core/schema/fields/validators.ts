@@ -2,7 +2,7 @@
  * @fileoverview Schema validation functions and validators
  *
  * Provides comprehensive validation for table schemas, including:
- * - Runtime validation of YRow (CRDT) and SerializedRow (plain JS) data
+ * - Runtime validation of SerializedRow (plain JS) data
  * - Schema generation for action inputs (toStandardSchema)
  * - Composable arktype schemas (toArktype)
  */
@@ -10,8 +10,8 @@
 import type { StandardSchemaV1 } from '../standard/types';
 import { type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
-import { tableSchemaToArktypeType } from './to-arktype';
-import { tableSchemaToYjsArktypeType } from './to-arktype-yjs';
+import { tableSchemaToArktypeType } from '../converters/to-arktype';
+import { tableSchemaToYjsArktypeType } from '../converters/to-arktype-yjs';
 import type {
 	PartialSerializedRow,
 	Row,
@@ -138,22 +138,6 @@ export type TableValidators<TTableSchema extends TableSchema = TableSchema> = {
 	 * - Validates Y.Text instances for ytext columns (not plain strings)
 	 * - Validates Y.Array instances for multi-select columns (not plain arrays)
 	 * - Use with `instanceof type.errors` pattern for validation
-	 *
-	 * **Example**:
-	 * ```typescript
-	 * // Build row from YRow
-	 * const row = buildRowFromYRow(yrow, schema);
-	 *
-	 * // Validate the YJS types
-	 * const validator = validators.toYjsArktype();
-	 * const result = validator(row);
-	 * if (result instanceof type.errors) {
-	 *   console.error('YJS validation failed:', result.summary);
-	 *   // Handle schema mismatch
-	 * } else {
-	 *   // Row is valid - has Y.Text, Y.Array, etc.
-	 * }
-	 * ```
 	 *
 	 * **Key difference from toArktype()**:
 	 * - `toArktype()` validates SerializedRow (plain JS: strings, arrays)

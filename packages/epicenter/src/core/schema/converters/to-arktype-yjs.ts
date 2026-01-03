@@ -4,7 +4,7 @@
  * This converter transforms epicenter FieldSchema definitions into arktype types
  * that validate YJS Row objects (objects with getter properties returning YJS types).
  *
- * Unlike arktype.ts which validates SerializedRow (plain JS types), this validates
+ * Unlike to-arktype.ts which validates SerializedRow (plain JS types), this validates
  * Row objects where:
  * - ytext fields contain Y.Text instances (not strings)
  * - tags fields contain Y.Array instances (not arrays)
@@ -29,8 +29,8 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 	YtextFieldSchema,
-} from '../../schema';
-import { isNullableFieldSchema } from './nullability';
+} from '../fields/types';
+import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
 
 /**

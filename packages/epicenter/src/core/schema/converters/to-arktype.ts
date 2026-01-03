@@ -17,7 +17,6 @@ import type {
 	BooleanFieldSchema,
 	FieldSchema,
 	DateFieldSchema,
-	DateWithTimezoneString,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -28,8 +27,9 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 	YtextFieldSchema,
-} from '../../schema';
-import { isNullableFieldSchema } from './nullability';
+} from '../fields/types';
+import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
+import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
 
 /**

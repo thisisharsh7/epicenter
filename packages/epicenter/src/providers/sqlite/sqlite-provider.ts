@@ -14,7 +14,7 @@ import {
 	type ProviderContext,
 } from '../../core/provider';
 import type { SerializedRow, TablesSchema } from '../../core/schema';
-import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/fields/to-drizzle';
+import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
 const DEFAULT_DEBOUNCE_MS = 100;
