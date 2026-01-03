@@ -49,22 +49,19 @@ Generic parameter naming (shorter, concept-focused):
 - `TKv` not `TKvSchema`
 - `TTableSchema` for single table contexts
 
-### Optional vs Required (Option C)
+### Required (Final Decision)
 
-Based on Oracle recommendation, use optional properties with `require.*()` helpers:
+Both `tables` and `kv` are **required** (never undefined):
 
 ```typescript
-type ProviderContext<TTables, TKv> = {
-	tables?: Tables<TTables>; // Optional
-	kv?: Kv<TKv>; // Optional
-	require: {
-		tables(): Tables<TTables>;
-		kv(): Kv<TKv>;
-	};
+type ProviderContext<TTablesSchema, TKvSchema> = {
+	tables: Tables<TTablesSchema>; // Required
+	kv: Kv<TKvSchema>; // Required
+	// ...
 };
 ```
 
-This matches runtime truth and provides clear errors when providers need capabilities that weren't configured.
+This matches runtime reality - every workspace has both. KV can be empty (`{}` schema) if not used. No `require.*()` helpers needed.
 
 ## Detailed Changes
 
@@ -382,4 +379,42 @@ If issues arise:
 
 ## Review
 
-(To be filled after implementation)
+### Phase 1-3 (Schema Naming) - Completed
+
+Commits:
+
+- `bb35e1a03`: Added `TablesSchema` type alias
+- `2bc3c740b`: Renamed `TSchema`/`TWorkspaceSchema` → `TTablesSchema` for workspace-level generics
+- `d3c28d99d`: Renamed `TSchema` → `TTableSchema` for single-table generics
+
+### Phase 4 (ProviderContext + KV) - Completed
+
+**Design Decision Change**: Made both `tables` and `kv` **required** (never undefined) instead of optional with `require.*()` helpers. This matches runtime reality and simplifies provider code.
+
+**Changes Made**:
+
+1. **`provider.shared.ts`**:
+   - Removed `schema` property from `ProviderContext`
+   - Added `kv: Kv<TKvSchema>` property (always present)
+   - Added `TKvSchema` generic to `ProviderContext` and `Provider` types
+
+2. **`contract.ts`**:
+   - Added `kv?: TKvSchema` to `WorkspaceContract` (optional, defaults to `{}`)
+   - Removed `schema` from `HandlerContext`, added `kv`
+   - Added `TKvSchema` generic to all relevant types:
+     - `Workspace`, `WorkspaceWithProviders`, `WorkspaceContract`
+     - `HandlerContext`, `HandlerFn`, `HandlersForContracts`
+     - `ProviderMap`, `BoundWorkspaceClient`, `InitializedWorkspace`
+   - Updated `initializeWorkspace()` to create KV and pass to providers/handlers
+   - Updated `defineWorkspace()` to include KV in all client creation paths
+
+3. **`sqlite-provider.ts`**:
+   - Updated generic from `TSchema extends WorkspaceSchema` to `TTablesSchema extends TablesSchema`
+   - Removed `schema` from context destructuring
+   - Reconstructs schema from tables: `Object.fromEntries(tables.$all().map(t => [t.name, t.schema]))`
+
+4. **`markdown-provider.ts`**:
+   - Updated all `WorkspaceSchema` references to `TablesSchema`
+   - Renamed `TSchema` generic to `TTablesSchema`
+
+**Type Safety**: All changes typecheck successfully with `bun run typecheck`.

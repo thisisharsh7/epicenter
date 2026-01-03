@@ -13,7 +13,7 @@ import {
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider';
-import type { SerializedRow, WorkspaceSchema } from '../../core/schema';
+import type { SerializedRow, TablesSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/fields/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
@@ -86,8 +86,8 @@ type SqliteProviderOptions = {
  * })
  * ```
  */
-export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
-	{ id, schema, tables, paths }: ProviderContext<TSchema>,
+export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
+	{ id, tables, paths }: ProviderContext<TTablesSchema>,
 	options: SqliteProviderOptions = {},
 ) => {
 	const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
@@ -97,6 +97,9 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 		);
 	}
 
+	const schema = Object.fromEntries(
+		tables.$all().map((t) => [t.name, t.schema]),
+	) as unknown as TTablesSchema;
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
 	// Storage: .epicenter/providers/sqlite/{workspaceId}.db
@@ -317,7 +320,9 @@ export const sqliteProvider = (async <TSchema extends WorkspaceSchema>(
 						for (const row of rows) {
 							// Cast is safe: Drizzle schema is derived from workspace schema
 							table.upsert(
-								row as SerializedRow<TSchema[keyof TSchema & string]>,
+								row as SerializedRow<
+									TTablesSchema[keyof TTablesSchema & string]
+								>,
 							);
 						}
 					}

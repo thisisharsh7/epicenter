@@ -8,25 +8,31 @@
 
 import type * as Y from 'yjs';
 import type { Tables } from './db/core';
-import type { TablesSchema } from './schema';
+import type { Kv } from './kv';
+import type { KvSchema, TablesSchema } from './schema';
 import type { ProviderPaths } from './types';
 
 /**
  * Context provided to each provider function.
  *
+ * Both `tables` and `kv` are always present (never undefined). Workspaces that
+ * don't define a KV schema receive an empty KV object with just utility methods.
+ *
  * The `paths` property discriminates between environments:
  * - Node.js/Bun: `paths` is defined with project, epicenter, and provider directories
  * - Browser: `paths` is undefined (use IndexedDB or other browser APIs)
  */
-export type ProviderContext<TTablesSchema extends TablesSchema = TablesSchema> =
-	{
-		id: string;
-		providerId: string;
-		ydoc: Y.Doc;
-		schema: TTablesSchema;
-		tables: Tables<TTablesSchema>;
-		paths: ProviderPaths | undefined;
-	};
+export type ProviderContext<
+	TTablesSchema extends TablesSchema = TablesSchema,
+	TKvSchema extends KvSchema = KvSchema,
+> = {
+	id: string;
+	providerId: string;
+	ydoc: Y.Doc;
+	tables: Tables<TTablesSchema>;
+	kv: Kv<TKvSchema>;
+	paths: ProviderPaths | undefined;
+};
 
 /**
  * Provider exports - returned values accessible via `providers.{name}`.
@@ -52,7 +58,8 @@ export function defineProviders<T extends Providers>(exports: T): T {
  */
 export type Provider<
 	TTablesSchema extends TablesSchema = TablesSchema,
+	TKvSchema extends KvSchema = KvSchema,
 	TExports extends Providers = Providers,
 > = (
-	context: ProviderContext<TTablesSchema>,
+	context: ProviderContext<TTablesSchema, TKvSchema>,
 ) => TExports | void | Promise<TExports | void>;

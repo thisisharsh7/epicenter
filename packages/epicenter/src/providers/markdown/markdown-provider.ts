@@ -15,7 +15,7 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
-	WorkspaceSchema,
+	TablesSchema,
 } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
@@ -127,8 +127,8 @@ type RowToFilenameMap = Record<string, string>;
  *
  * Use serializer factories like `bodyFieldSerializer()` or `titleFilenameSerializer()`.
  */
-type TableConfigs<TSchema extends WorkspaceSchema> = {
-	[K in keyof TSchema]?: TableMarkdownConfig<TSchema[K]>;
+type TableConfigs<TTablesSchema extends TablesSchema> = {
+	[K in keyof TTablesSchema]?: TableMarkdownConfig<TTablesSchema[K]>;
 };
 
 /**
@@ -146,7 +146,7 @@ type ResolvedTableConfig<TTableSchema extends TableSchema> = {
  * Markdown provider configuration
  */
 export type MarkdownProviderConfig<
-	TWorkspaceSchema extends WorkspaceSchema = WorkspaceSchema,
+	TTablesSchema extends TablesSchema = TablesSchema,
 > = {
 	/**
 	 * Workspace-level directory where markdown files should be stored.
@@ -209,7 +209,7 @@ export type MarkdownProviderConfig<
 	 * }
 	 * ```
 	 */
-	configs?: TableConfigs<TWorkspaceSchema>;
+	configs?: TableConfigs<TTablesSchema>;
 
 	/**
 	 * Enable verbose debug logging for troubleshooting file sync issues.
@@ -227,9 +227,9 @@ export type MarkdownProviderConfig<
 	debug?: boolean;
 };
 
-export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
-	context: ProviderContext<TSchema>,
-	config: MarkdownProviderConfig<TSchema> = {},
+export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
+	context: ProviderContext<TTablesSchema>,
+	config: MarkdownProviderConfig<TTablesSchema> = {},
 ) => {
 	const { id, providerId, tables, paths } = context;
 	const { directory = `./${id}`, debug = false } = config;
@@ -244,7 +244,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 	// User-provided table configs (sparse - only contains overrides, may be empty)
 	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
-	const userTableConfigs: TableConfigs<TSchema> = config.configs ?? {};
+	const userTableConfigs: TableConfigs<TTablesSchema> = config.configs ?? {};
 
 	if (!paths) {
 		throw new Error(
@@ -323,7 +323,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 	 * iteration via tables.$zip(resolvedConfigs).
 	 */
 	// Cast is correct: Object.fromEntries loses key specificity (returns { [k: string]: V }),
-	// but we know keys are exactly keyof TSchema since we iterate tables.$all().
+	// but we know keys are exactly keyof TTablesSchema since we iterate tables.$all().
 	const resolvedConfigs = Object.fromEntries(
 		tables.$all().map((table) => {
 			const userConfig = userTableConfigs[table.name] ?? {};
@@ -338,7 +338,9 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			) as AbsolutePath;
 
 			// Flatten for internal use
-			const config: ResolvedTableConfig<TSchema[keyof TSchema & string]> = {
+			const config: ResolvedTableConfig<
+				TTablesSchema[keyof TTablesSchema & string]
+			> = {
 				directory,
 				serialize: serializer.serialize,
 				parseFilename: serializer.deserialize.parseFilename,
@@ -348,7 +350,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 			return [table.name, config];
 		}),
 	) as unknown as {
-		[K in keyof TSchema & string]: ResolvedTableConfig<TSchema[K]>;
+		[K in keyof TTablesSchema & string]: ResolvedTableConfig<TTablesSchema[K]>;
 	};
 
 	/**
@@ -702,7 +704,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					}
 
 					const validatedRow = row as SerializedRow<
-						TSchema[keyof TSchema & string]
+						TTablesSchema[keyof TTablesSchema & string]
 					>;
 
 					// Success: remove from diagnostics if it was previously invalid
@@ -1275,12 +1277,12 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 					diagnostics.clear();
 
 					type TableSyncData = {
-						table: TableHelper<TSchema[keyof TSchema]>;
+						table: TableHelper<TTablesSchema[keyof TTablesSchema]>;
 						yjsIds: Set<string>;
 						fileExistsIds: Set<string>;
 						markdownRows: Map<
 							string,
-							SerializedRow<TSchema[keyof TSchema & string]>
+							SerializedRow<TTablesSchema[keyof TTablesSchema & string]>
 						>;
 						markdownFilenames: Map<string, string>;
 					};
@@ -1317,7 +1319,7 @@ export const markdownProvider = (async <TSchema extends WorkspaceSchema>(
 
 									const markdownRows = new Map<
 										string,
-										SerializedRow<TSchema[keyof TSchema & string]>
+										SerializedRow<TTablesSchema[keyof TTablesSchema & string]>
 									>();
 									const markdownFilenames = new Map<string, string>();
 
