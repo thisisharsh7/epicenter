@@ -31,6 +31,7 @@ export type {
 	SerializedKvValue,
 	SerializedRow,
 	TableSchema,
+	TablesSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 	WorkspaceSchema,

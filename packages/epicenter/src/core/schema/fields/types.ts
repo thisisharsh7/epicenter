@@ -366,17 +366,26 @@ export type SerializedCellValue<C extends FieldSchema = FieldSchema> =
 export type TableSchema = { id: IdFieldSchema } & Record<string, FieldSchema>;
 
 /**
- * Workspace schema - maps table names to table schemas.
+ * Tables schema - maps table names to table schemas.
+ * Represents all tables in a workspace.
  *
  * @example
  * ```typescript
- * const blogSchema = {
+ * const blogTables = {
  *   posts: postsTableSchema,
  *   authors: authorsTableSchema,
- * } satisfies WorkspaceSchema;
+ * } satisfies TablesSchema;
  * ```
  */
-export type WorkspaceSchema = Record<string, TableSchema>;
+export type TablesSchema = Record<string, TableSchema>;
+
+/**
+ * @deprecated Use `TablesSchema` instead. This type will be removed in a future version.
+ *
+ * Previously named "WorkspaceSchema" but renamed to "TablesSchema" for clarity,
+ * since a workspace conceptually includes both tables AND KV storage.
+ */
+export type WorkspaceSchema = TablesSchema;
 
 // ============================================================================
 // Row Types
