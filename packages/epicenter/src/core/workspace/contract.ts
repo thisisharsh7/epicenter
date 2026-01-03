@@ -1,8 +1,8 @@
 import * as Y from 'yjs';
 
 import {
-	isActionContract,
 	type ActionContracts,
+	isActionContract,
 	type MutationContract,
 	type QueryContract,
 } from '../actions';
@@ -245,7 +245,7 @@ export type BoundActions<TActions extends ActionContracts> = {
 /**
  * A bound workspace client with actions, tables, and providers.
  *
- * - Actions are callable methods (either executing locally or via HTTP)
+ * - Actions are namespaced under `.actions` for clarity
  * - Tables provide YJS-backed CRUD operations
  * - Providers expose capabilities like SQLite queries
  */
@@ -254,21 +254,23 @@ export type BoundWorkspaceClient<
 	TActions extends ActionContracts = ActionContracts,
 	TSchema extends WorkspaceSchema = WorkspaceSchema,
 	TProviders extends ProviderMap<TSchema> = ProviderMap<TSchema>,
-> = BoundActions<TActions> & {
+> = {
 	/** The workspace ID from the contract definition */
-	$id: TId;
+	id: TId;
 	/** The action contracts (for server route registration) */
-	$contracts: TActions;
+	contracts: TActions;
 	/** YJS-backed table operations */
-	$tables: Tables<TSchema>;
+	tables: Tables<TSchema>;
 	/** Provider exports (SQLite, markdown, etc.) */
-	$providers: InferProviderExports<TProviders>;
+	providers: InferProviderExports<TProviders>;
 	/** Runtime validators for table schemas */
-	$validators: WorkspaceValidators<TSchema>;
+	validators: WorkspaceValidators<TSchema>;
 	/** Filesystem paths (undefined in browser) */
-	$paths: WorkspacePaths | undefined;
+	paths: WorkspacePaths | undefined;
 	/** The underlying YJS document */
-	$ydoc: Y.Doc;
+	ydoc: Y.Doc;
+	/** Bound action methods */
+	actions: BoundActions<TActions>;
 	/** Clean up resources (providers, YDoc) */
 	destroy(): Promise<void>;
 	/** Async dispose for `await using` syntax */
@@ -531,14 +533,14 @@ export function defineWorkspace<
 		);
 
 		return {
-			...boundActions,
-			$id: config.id,
-			$contracts: config.actions,
-			$ydoc: ydoc,
-			$tables: tables,
-			$providers: providerExports,
-			$validators: validators,
-			$paths: paths,
+			id: config.id,
+			contracts: config.actions,
+			ydoc: ydoc,
+			tables: tables,
+			providers: providerExports,
+			validators: validators,
+			paths: paths,
+			actions: boundActions,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		};
@@ -555,14 +557,14 @@ export function defineWorkspace<
 		const boundActions = bindActionsWithHttp(config.actions, url, config.id);
 
 		return {
-			...boundActions,
-			$id: config.id,
-			$contracts: config.actions,
-			$ydoc: ydoc,
-			$tables: tables,
-			$providers: providerExports,
-			$validators: validators,
-			$paths: paths,
+			id: config.id,
+			contracts: config.actions,
+			ydoc: ydoc,
+			tables: tables,
+			providers: providerExports,
+			validators: validators,
+			paths: paths,
+			actions: boundActions,
 			destroy: cleanup,
 			[Symbol.asyncDispose]: cleanup,
 		};

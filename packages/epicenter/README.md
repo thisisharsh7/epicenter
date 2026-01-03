@@ -196,7 +196,7 @@ const blogWorkspace = defineWorkspace({
 const client = await createClient(blogWorkspace);
 
 // 3. Use the workspace
-const result = await client.createPost({ title: 'Hello World' });
+const result = await client.actions.createPost({ title: 'Hello World' });
 if (result.error) {
 	console.error('Failed to create post:', result.error);
 } else {
@@ -208,7 +208,7 @@ const allPosts = client.tables.posts.getAll();
 console.log('All posts:', allPosts);
 
 // 5. Query published posts (uses SQLite provider)
-const published = await client.getPublishedPosts();
+const published = await client.actions.getPublishedPosts();
 console.log('Published:', published);
 
 // 6. Cleanup when done
@@ -1380,7 +1380,7 @@ Create a client directly for standalone scripts. Use `await using` for automatic
 // Script or migration
 {
   await using client = await createClient(blogWorkspace);
-  await client.createPost({ ... });
+  await client.actions.createPost({ ... });
   // Automatic cleanup when block exits
 }
 ```

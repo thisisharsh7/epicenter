@@ -160,7 +160,7 @@ Routes are namespaced by workspace ID:
     .withProviders({ sqlite: sqliteProvider })
     .createWithHandlers({ ... });
 
-  await client.createPost({ title: 'Hello' });
+  await client.actions.createPost({ title: 'Hello' });
   // Client disposed when block exits
 }
 ```
@@ -191,7 +191,7 @@ Use the HTTP API instead of creating another client:
 // ❌ DON'T: Create another client (storage conflict!)
 {
   await using client = await blogWorkspace...createWithHandlers({ ... });
-  await client.createPost({ ... });
+  await client.actions.createPost({ ... });
 }
 
 // ✅ DO: Use the server's HTTP API

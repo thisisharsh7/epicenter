@@ -56,22 +56,15 @@ export function createCLI(clients: AnyWorkspaceClient | AnyWorkspaceClient[]) {
 	const allActions: ActionInfo[] = [];
 
 	for (const client of clientArray) {
-		const workspaceId = client.$id;
+		const workspaceId = client.id;
 		workspaces[workspaceId] = client;
 
-		const boundActions: Record<string, unknown> = {};
-		for (const key of Object.keys(client)) {
-			if (
-				!key.startsWith('$') &&
-				key !== 'destroy' &&
-				typeof (client as Record<string, unknown>)[key] === 'function'
-			) {
-				boundActions[key] = (client as Record<string, unknown>)[key];
-			}
-		}
-
 		allActions.push(
-			...extractActions(client.$contracts, boundActions, workspaceId),
+			...extractActions(
+				client.contracts,
+				client.actions as Record<string, unknown>,
+				workspaceId,
+			),
 		);
 	}
 

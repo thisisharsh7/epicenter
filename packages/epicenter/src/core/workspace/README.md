@@ -199,13 +199,14 @@ const client = await blogWorkspace
   .withProviders({ sqlite: sqliteProvider })
   .createWithHandlers({ ... });
 
-client.$id;          // 'blog' - workspace ID
-client.$tables;      // YJS-backed table operations
-client.$providers;   // Provider exports
-client.$validators;  // Runtime validators
-client.$paths;       // Filesystem paths (undefined in browser)
-client.$ydoc;        // Underlying YJS document
-client.$contracts;   // Action contracts (for server route registration)
+client.id;           // 'blog' - workspace ID
+client.tables;       // YJS-backed table operations
+client.providers;    // Provider exports
+client.validators;   // Runtime validators
+client.paths;        // Filesystem paths (undefined in browser)
+client.ydoc;         // Underlying YJS document
+client.contracts;    // Action contracts (for server route registration)
+client.actions;      // Bound action methods
 
 await client.destroy();           // Cleanup resources
 await using client = await ...;   // Auto-cleanup with dispose
@@ -222,7 +223,7 @@ Multiple scripts can safely run using `await using`:
     .withProviders({ sqlite: sqliteProvider })
     .createWithHandlers({ ... });
 
-  await client.importData(data);
+  await client.actions.importData(data);
   // Auto-disposed when block exits
 }
 
@@ -232,7 +233,7 @@ Multiple scripts can safely run using `await using`:
     .withProviders({ sqlite: sqliteProvider })
     .createWithHandlers({ ... });
 
-  const posts = client.$tables.posts.getAllValid();
+  const posts = client.tables.posts.getAllValid();
   // Auto-disposed when block exits
 }
 ```
