@@ -1,7 +1,9 @@
+import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
 import type { ActionContracts } from '../core/actions';
 import type { SerializedRow, TableSchema } from '../core/schema';
+import { tableSchemaToArktype } from '../core/schema';
 import type { BoundWorkspaceClient } from '../core/workspace/contract';
 
 export function createTablesPlugin(
@@ -57,7 +59,7 @@ export function createTablesPlugin(
 					return Ok({ id: (body as SerializedRow<TableSchema>).id });
 				},
 				{
-					body: tableHelper.validators.toStandardSchema(),
+					body: tableSchemaToArktype(tableHelper.schema),
 					detail: { description: `Create or update ${tableName}`, tags },
 				},
 			);
@@ -72,7 +74,9 @@ export function createTablesPlugin(
 					return Ok(result);
 				},
 				{
-					body: tableHelper.validators.toPartialStandardSchema(),
+					body: tableSchemaToArktype(tableHelper.schema)
+						.partial()
+						.merge({ id: type.string }),
 					detail: { description: `Update ${tableName} by ID`, tags },
 				},
 			);

@@ -8,11 +8,9 @@ import type {
 	Row,
 	SerializedRow,
 	TableSchema,
-	TableValidators,
 	TablesSchema,
-	WorkspaceValidators,
 } from '../schema';
-import { serializeCellValue } from '../schema';
+import { serializeCellValue, tableSchemaToYjsArktype } from '../schema';
 import { updateYRowFromSerializedRow } from '../utils/yjs';
 
 /**
@@ -119,19 +117,16 @@ export type DeleteManyResult =
  *
  * @param ydoc - The YJS document instance
  * @param schema - Raw table schemas (column definitions only)
- * @param validators - Table validators (validation methods)
  * @param ytables - The root YJS Map containing all table data
  * @returns Object mapping table names to their typed TableHelper instances
  */
 export function createTableHelpers<TTablesSchema extends TablesSchema>({
 	ydoc,
 	schema,
-	validators,
 	ytables,
 }: {
 	ydoc: Y.Doc;
 	schema: TTablesSchema;
-	validators: WorkspaceValidators<TTablesSchema>;
 	ytables: Y.Map<Y.Map<YRow>>;
 }) {
 	return Object.fromEntries(
@@ -143,8 +138,6 @@ export function createTableHelpers<TTablesSchema extends TablesSchema>({
 					tableName,
 					ytables,
 					schema: tableSchema,
-					// biome-ignore lint/style/noNonNullAssertion: validators is created by createWorkspaceValidators which maps over the same schema object, so every key in schema has a corresponding key in validators
-					validators: validators[tableName]!,
 				}),
 			];
 		}),
@@ -164,7 +157,6 @@ export function createTableHelpers<TTablesSchema extends TablesSchema>({
  * @param tableName - Name of the table (used in error messages)
  * @param ytables - The root YJS Map containing all table data
  * @param schema - The table schema (column definitions only)
- * @param validators - The table validators (validation methods)
  * @returns A TableHelper instance with full CRUD operations
  */
 function createTableHelper<TTableSchema extends TableSchema>({
@@ -172,13 +164,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	tableName,
 	ytables,
 	schema,
-	validators,
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
 	ytables: Y.Map<Y.Map<YRow>>;
 	schema: TTableSchema;
-	validators: TableValidators<TTableSchema>;
 }) {
 	type TRow = Row<TTableSchema>;
 
@@ -208,11 +198,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * The schema definition for this table (column definitions)
 		 */
 		schema,
-
-		/**
-		 * The validators for this table (runtime validation methods)
-		 */
-		validators,
 
 		/**
 		 * Update specific fields of an existing row.
@@ -376,7 +361,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			}
 
 			const row = buildRowFromYRow(yrow, schema);
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 			const result = yjsValidator(row);
 
 			if (result instanceof type.errors) {
@@ -405,7 +390,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 */
 		getAll(): RowResult<TRow>[] {
 			const results: RowResult<TRow>[] = [];
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			for (const [id, yrow] of getYTable().entries()) {
 				const row = buildRowFromYRow(yrow, schema);
@@ -440,7 +425,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 */
 		getAllValid(): TRow[] {
 			const validRows: TRow[] = [];
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			for (const yrow of getYTable().values()) {
 				const row = buildRowFromYRow(yrow, schema);
@@ -461,7 +446,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 */
 		getAllInvalid(): RowValidationError[] {
 			const errors: RowValidationError[] = [];
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			for (const [id, yrow] of getYTable().entries()) {
 				const row = buildRowFromYRow(yrow, schema);
@@ -600,7 +585,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 */
 		filter(predicate: (row: TRow) => boolean): TRow[] {
 			const results: TRow[] = [];
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			for (const yrow of getYTable().values()) {
 				const row = buildRowFromYRow(yrow, schema);
@@ -625,7 +610,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * @returns The first matching valid row, or `null` if no match found
 		 */
 		find(predicate: (row: TRow) => boolean): TRow | null {
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			for (const yrow of getYTable().values()) {
 				const row = buildRowFromYRow(yrow, schema);
@@ -795,7 +780,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				transaction: Y.Transaction,
 			) => void | Promise<void>;
 		}): () => void {
-			const yjsValidator = validators.toYjsArktype();
+			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			// ARCHITECTURE: We observe on `ytables` (the root "tables" map) instead of
 			// on individual table Y.Maps. This is CRITICAL for sync reliability.

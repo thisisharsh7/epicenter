@@ -95,7 +95,6 @@ export type WorkspaceConfig<
 	 *
 	 * @param context.tables - The workspace tables for direct table operations
 	 * @param context.schema - The workspace schema (table definitions)
-	 * @param context.validators - Schema validators for runtime validation and arktype composition
 	 * @param context.providers - Provider-specific exports (queries, sync operations, etc.)
 	 * @param context.workspaces - Actions from dependency workspaces (if any)
 	 * @param context.paths - Filesystem paths (Node/Bun only, undefined in browser)

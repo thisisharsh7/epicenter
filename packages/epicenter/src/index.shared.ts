@@ -112,19 +112,15 @@ export type {
 	SerializedKvValue,
 	SerializedRow,
 	TableSchema,
-	TableValidators,
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
 	WorkspaceSchema,
-	WorkspaceValidators,
 	YtextFieldSchema,
 } from './core/schema';
 // Column schema system
 export {
 	boolean,
-	createTableValidators,
-	createWorkspaceValidators,
 	DATE_WITH_TIMEZONE_STRING_REGEX,
 	DateWithTimezone,
 	DateWithTimezoneFromString,
@@ -140,6 +136,8 @@ export {
 	real,
 	select,
 	serializeCellValue,
+	tableSchemaToArktype,
+	tableSchemaToYjsArktype,
 	TIMEZONE_ID_REGEX,
 	tags,
 	text,

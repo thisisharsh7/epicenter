@@ -8,7 +8,7 @@
 import type { ActionContracts } from '../actions';
 import type { Tables } from '../db/core';
 import type { InferProviders, Providers } from '../provider.shared';
-import type { WorkspaceSchema, WorkspaceValidators } from '../schema';
+import type { WorkspaceSchema } from '../schema';
 import type { WorkspacePaths } from '../types';
 
 /**
@@ -74,7 +74,6 @@ export type ActionsContext<
 > = {
 	tables: Tables<TWorkspaceSchema>;
 	schema: TWorkspaceSchema;
-	validators: WorkspaceValidators<TWorkspaceSchema>;
 	workspaces: WorkspacesToActions<TDeps>;
 	providers: { [K in keyof TProviders]: InferProviders<TProviders[K]> };
 	paths: WorkspacePaths | undefined;

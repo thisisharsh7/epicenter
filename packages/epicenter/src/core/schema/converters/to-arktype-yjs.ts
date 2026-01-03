@@ -37,7 +37,7 @@ import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
  * Maps a FieldSchema to its corresponding YJS cell value arktype Type.
  * This validates the actual YJS types present in Row objects.
  */
-export type FieldSchemaToYjsArktypeType<C extends FieldSchema> =
+export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 	C extends IdFieldSchema
 		? Type<string>
 		: C extends TextFieldSchema<infer TNullable>
@@ -113,14 +113,14 @@ export type FieldSchemaToYjsArktypeType<C extends FieldSchema> =
  * }
  * ```
  */
-export function tableSchemaToYjsArktypeType<TTableSchema extends TableSchema>(
+export function tableSchemaToYjsArktype<TTableSchema extends TableSchema>(
 	tableSchema: TTableSchema,
 ): ObjectType<Row<TTableSchema>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
 				fieldName,
-				fieldSchemaToYjsArktypeType(fieldSchema),
+				fieldSchemaToYjsArktype(fieldSchema),
 			]),
 		),
 	) as ObjectType<Row<TTableSchema>>;
@@ -137,9 +137,9 @@ export function tableSchemaToYjsArktypeType<TTableSchema extends TableSchema>(
  * @param fieldSchema - The field schema to convert
  * @returns Arktype Type that validates the YJS cell value
  */
-function fieldSchemaToYjsArktypeType<C extends FieldSchema>(
+export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 	fieldSchema: C,
-): FieldSchemaToYjsArktypeType<C> {
+): FieldSchemaToYjsArktype<C> {
 	let baseType: Type;
 
 	switch (fieldSchema['x-component']) {
@@ -180,5 +180,5 @@ function fieldSchemaToYjsArktypeType<C extends FieldSchema>(
 	const isNullable = isNullableFieldSchema(fieldSchema);
 	return (
 		isNullable ? baseType.or(type.null) : baseType
-	) as FieldSchemaToYjsArktypeType<C>;
+	) as FieldSchemaToYjsArktype<C>;
 }

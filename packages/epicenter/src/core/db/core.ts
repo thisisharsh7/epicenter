@@ -1,7 +1,6 @@
 import { regex } from 'arkregex';
 import * as Y from 'yjs';
 import type { TablesSchema } from '../schema';
-import { createWorkspaceValidators } from '../schema';
 import {
 	createTableHelpers,
 	type TableHelper,
@@ -113,15 +112,12 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		}
 	}
 
-	// Create validators for all tables
-	const validators = createWorkspaceValidators(schema);
 	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
 
 	// Create table helpers (tables are created lazily via getYTable - see table-helper.ts)
 	const tableHelpers = createTableHelpers({
 		ydoc,
 		schema,
-		validators,
 		ytables,
 	});
 

@@ -10,11 +10,9 @@ import { createTables, type Tables } from '../db/core';
 import { createKv, type Kv } from '../kv';
 import type { Provider, Providers } from '../provider.shared';
 import {
-	createWorkspaceValidators,
 	type KvSchema,
 	type StandardSchemaV1,
 	type TablesSchema,
-	type WorkspaceValidators,
 } from '../schema';
 import type { ProviderPaths, WorkspacePaths } from '../types';
 
@@ -206,7 +204,6 @@ export type HandlerContext<
 > = {
 	tables: Tables<TTablesSchema>;
 	kv: Kv<TKvSchema>;
-	validators: WorkspaceValidators<TTablesSchema>;
 	providers: TProviderExports;
 	paths: WorkspacePaths | undefined;
 };
@@ -317,8 +314,6 @@ export type BoundWorkspaceClient<
 	kv: Kv<TKvSchema>;
 	/** Provider exports (SQLite, markdown, etc.) */
 	providers: InferProviderExports<TProviders>;
-	/** Runtime validators for table schemas */
-	validators: WorkspaceValidators<TTablesSchema>;
 	/** Filesystem paths (undefined in browser) */
 	paths: WorkspacePaths | undefined;
 	/** The underlying YJS document */
@@ -339,7 +334,6 @@ type InitializedWorkspace<
 	ydoc: Y.Doc;
 	tables: Tables<TTablesSchema>;
 	kv: Kv<TKvSchema>;
-	validators: WorkspaceValidators<TTablesSchema>;
 	providerExports: InferProviderExports<TProviders>;
 	paths: WorkspacePaths | undefined;
 	cleanup: () => Promise<void>;
@@ -362,7 +356,6 @@ async function initializeWorkspace<
 	const ydoc = new Y.Doc({ guid: config.id });
 	const tables = createTables(ydoc, config.tables);
 	const kv = createKv(ydoc, (config.kv ?? {}) as TKvSchema);
-	const validators = createWorkspaceValidators(config.tables);
 
 	let buildProviderPaths:
 		| ((projectDir: string, providerId: string) => ProviderPaths)
@@ -421,7 +414,6 @@ async function initializeWorkspace<
 		ydoc,
 		tables,
 		kv,
-		validators,
 		providerExports,
 		paths: workspacePaths,
 		cleanup,
@@ -582,7 +574,7 @@ export function defineWorkspace<
 	): Promise<
 		BoundWorkspaceClient<TId, TActions, TTablesSchema, TKvSchema, TProviders>
 	> => {
-		const { ydoc, tables, kv, validators, providerExports, paths, cleanup } =
+		const { ydoc, tables, kv, providerExports, paths, cleanup } =
 			await initializeWorkspace(config, providers, options);
 
 		const handlerContext: HandlerContext<
@@ -592,7 +584,6 @@ export function defineWorkspace<
 		> = {
 			tables,
 			kv,
-			validators,
 			providers: providerExports,
 			paths,
 		};
@@ -610,7 +601,6 @@ export function defineWorkspace<
 			tables: tables,
 			kv: kv,
 			providers: providerExports,
-			validators: validators,
 			paths: paths,
 			actions: boundActions,
 			destroy: cleanup,
@@ -627,7 +617,7 @@ export function defineWorkspace<
 	): Promise<
 		BoundWorkspaceClient<TId, TActions, TTablesSchema, TKvSchema, TProviders>
 	> => {
-		const { ydoc, tables, kv, validators, providerExports, paths, cleanup } =
+		const { ydoc, tables, kv, providerExports, paths, cleanup } =
 			await initializeWorkspace(config, providers, options);
 
 		const boundActions = bindActionsWithHttp(config.actions, url, config.id);
@@ -639,7 +629,6 @@ export function defineWorkspace<
 			tables: tables,
 			kv: kv,
 			providers: providerExports,
-			validators: validators,
 			paths: paths,
 			actions: boundActions,
 			destroy: cleanup,
