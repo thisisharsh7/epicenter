@@ -1,23 +1,14 @@
 import * as Y from 'yjs';
 
-import {
-	type ActionContracts,
-	isActionContract,
-	type MutationContract,
-	type QueryContract,
-} from '../actions';
+import { type Actions, isAction } from '../actions';
 import { createTables, type Tables } from '../db/core';
 import { createKv, type Kv } from '../kv';
 import type { Provider, Providers } from '../provider.shared';
-import {
-	type KvSchema,
-	type StandardSchemaV1,
-	type TablesSchema,
-} from '../schema';
+import type { KvSchema, TablesSchema } from '../schema';
 import type { ProviderPaths, WorkspacePaths } from '../types';
 
 /**
- * A workspace contract defines the pure data shape of a workspace.
+ * A workspace schema defines the pure data shape of a workspace.
  *
  * This type is fully JSON-serializable and contains no methods or runtime behavior.
  * It represents the configuration passed to `defineWorkspace()`.
@@ -25,92 +16,61 @@ import type { ProviderPaths, WorkspacePaths } from '../types';
  * Use `defineWorkspace()` to create a `Workspace` object that adds fluent methods
  * like `.withProviders()` for creating runnable clients.
  */
-export type WorkspaceContract<
+export type WorkspaceSchema<
 	TId extends string = string,
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-	TActions extends ActionContracts = ActionContracts,
 > = {
 	id: TId;
 	tables: TTablesSchema;
 	kv?: TKvSchema;
-	actions: TActions;
 	description?: string;
 };
 
 /**
- * A workspace object returned by `defineWorkspace()`.
+ * JSON-serializable manifest of a workspace for introspection.
  *
- * Extends the JSON-serializable `WorkspaceContract` with fluent methods for
- * creating runnable clients. Use `.withProviders()` to add persistence/sync
- * capabilities, then either:
- * - `.createWithHandlers(handlers)` for server-side execution
- * - `.createHttpClient(url)` for browser-side HTTP proxy
+ * Used by `.toJSON()` to produce a snapshot of the workspace configuration
+ * without any runtime behavior. Useful for:
+ * - Generating OpenAPI documentation
+ * - MCP tool registration
+ * - CLI command discovery
+ * - Debugging and logging
  */
-export type Workspace<
-	TId extends string = string,
-	TTablesSchema extends TablesSchema = TablesSchema,
-	TKvSchema extends KvSchema = KvSchema,
-	TActions extends ActionContracts = ActionContracts,
-> = WorkspaceContract<TId, TTablesSchema, TKvSchema, TActions> & {
-	/**
-	 * Add providers (SQLite, IndexedDB, markdown, etc.) to the workspace.
-	 */
-	withProviders<TProviders extends ProviderMap<TTablesSchema, TKvSchema>>(
-		providers: TProviders,
-	): WorkspaceWithProviders<
-		TId,
-		TTablesSchema,
-		TKvSchema,
-		TActions,
-		TProviders
-	>;
-
-	/**
-	 * Create a client with handlers (no providers).
-	 * Shorthand for `.withProviders({}).createWithHandlers(handlers)`.
-	 */
-	createWithHandlers(
-		handlers: HandlersForContracts<
-			TActions,
-			TTablesSchema,
-			TKvSchema,
-			Record<string, never>
-		>,
-		options?: CreateOptions,
-	): Promise<
-		BoundWorkspaceClient<
-			TId,
-			TActions,
-			TTablesSchema,
-			TKvSchema,
-			Record<string, never>
-		>
-	>;
-
-	/**
-	 * Create an HTTP client (no providers, actions proxy to server).
-	 * Shorthand for `.withProviders({}).createHttpClient(url)`.
-	 */
-	createHttpClient(
-		url: string,
-		options?: CreateOptions,
-	): Promise<
-		BoundWorkspaceClient<
-			TId,
-			TActions,
-			TTablesSchema,
-			TKvSchema,
-			Record<string, never>
-		>
+export type WorkspaceManifest = {
+	id: string;
+	description?: string;
+	tables: TablesSchema;
+	kv?: KvSchema;
+	actions: Record<
+		string,
+		{
+			type: 'query' | 'mutation';
+			description?: string;
+			input?: unknown;
+			output?: unknown;
+		}
 	>;
 };
 
+/**
+ * A map of provider factory functions keyed by provider ID.
+ *
+ * Providers add capabilities to workspaces: persistence, sync, SQL queries, etc.
+ * Each provider receives context and optionally returns exports accessible via
+ * `ctx.providers[providerId]` in action handlers.
+ */
 export type ProviderMap<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = Record<string, Provider<TTablesSchema, TKvSchema>>;
 
+/**
+ * Utility type to infer the exports from a provider map.
+ *
+ * Maps each provider key to its return type (unwrapped from Promise if async).
+ * Providers that return void produce empty objects.
+ */
 export type InferProviderExports<TProviders> = {
 	[K in keyof TProviders]: TProviders[K] extends Provider<
 		TablesSchema,
@@ -124,76 +84,120 @@ export type InferProviderExports<TProviders> = {
 };
 
 /**
- * A workspace with providers attached, ready for client creation.
+ * A workspace object returned by `defineWorkspace()`.
  *
- * Call either:
- * - `.createWithHandlers(handlers)` for server-side execution
- * - `.createHttpClient(url)` for browser-side HTTP proxy
+ * Extends the JSON-serializable schema with fluent methods for building
+ * runnable clients. Use the chaining API:
+ *
+ * ```typescript
+ * const client = await defineWorkspace({ id: 'blog', tables: { ... } })
+ *   .withProviders({ sqlite: sqliteProvider })
+ *   .withActions({ createPost: defineMutation({ ... }) })
+ *   .create();
+ * ```
+ */
+export type Workspace<
+	TId extends string = string,
+	TTablesSchema extends TablesSchema = TablesSchema,
+	TKvSchema extends KvSchema = KvSchema,
+> = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
+	/** Add providers (SQLite, IndexedDB, markdown, sync, etc.) to the workspace. */
+	withProviders<TProviders extends ProviderMap<TTablesSchema, TKvSchema>>(
+		providers: TProviders,
+	): WorkspaceWithProviders<TId, TTablesSchema, TKvSchema, TProviders>;
+
+	/** Get a JSON-serializable manifest of the workspace for introspection. */
+	toJSON(): WorkspaceManifest;
+};
+
+/**
+ * A workspace with providers attached, ready for actions.
+ *
+ * Intermediate state in the chaining API after `.withProviders()`.
+ * Call `.withActions()` to add actions, then `.create()` to get a client.
  */
 export type WorkspaceWithProviders<
 	TId extends string,
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema,
-	TActions extends ActionContracts,
 	TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
-> = WorkspaceContract<TId, TTablesSchema, TKvSchema, TActions> & {
+> = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
+	/** Internal: provider factories (not yet initialized). */
 	$providers: TProviders;
 
-	/**
-	 * Create a client with handlers that execute locally.
-	 *
-	 * @example
-	 * ```typescript
-	 * const client = await blogWorkspace
-	 *   .withProviders({ sqlite: sqliteProvider })
-	 *   .createWithHandlers({
-	 *     publishPost: async (input, ctx) => {
-	 *       ctx.tables.posts.update({ id: input.id, published: true });
-	 *       return { success: true };
-	 *     },
-	 *   });
-	 * ```
-	 */
-	createWithHandlers(
-		handlers: HandlersForContracts<
-			TActions,
-			TTablesSchema,
-			TKvSchema,
-			InferProviderExports<TProviders>
-		>,
-		options?: CreateOptions,
-	): Promise<
-		BoundWorkspaceClient<TId, TActions, TTablesSchema, TKvSchema, TProviders>
-	>;
+	/** Add actions (queries and mutations) to the workspace. */
+	withActions<TActions extends Actions>(
+		actions: TActions,
+	): WorkspaceWithActions<TId, TTablesSchema, TKvSchema, TProviders, TActions>;
 
-	/**
-	 * Create an HTTP client where actions proxy to a server.
-	 *
-	 * Tables and providers are initialized locally (YJS operations work),
-	 * but action calls are sent as HTTP requests to the specified URL.
-	 *
-	 * @example
-	 * ```typescript
-	 * const client = await blogWorkspace
-	 *   .withProviders({ indexeddb: idbProvider })
-	 *   .createHttpClient('http://localhost:3913');
-	 *
-	 * // Tables work locally
-	 * client.$tables.posts.upsert({ ... });
-	 *
-	 * // Actions go over HTTP
-	 * await client.publishPost({ id: '123' });
-	 * // → POST http://localhost:3913/workspaces/blog/actions/publishPost
-	 * ```
-	 */
-	createHttpClient(
-		url: string,
-		options?: CreateOptions,
-	): Promise<
-		BoundWorkspaceClient<TId, TActions, TTablesSchema, TKvSchema, TProviders>
-	>;
+	/** Get a JSON-serializable manifest of the workspace for introspection. */
+	toJSON(): WorkspaceManifest;
 };
 
+/**
+ * A workspace with providers and actions, ready to create a client.
+ *
+ * Final state in the chaining API. Call `.create()` to initialize providers
+ * and get a fully functional workspace client.
+ */
+export type WorkspaceWithActions<
+	TId extends string,
+	TTablesSchema extends TablesSchema,
+	TKvSchema extends KvSchema,
+	TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
+	TActions extends Actions,
+> = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
+	/** Internal: provider factories (not yet initialized). */
+	$providers: TProviders;
+	/** Internal: action definitions (not yet bound to context). */
+	$actions: TActions;
+
+	/**
+	 * Initialize providers and create a workspace client.
+	 *
+	 * This is the final step that:
+	 * 1. Creates a YJS document with the workspace ID as GUID
+	 * 2. Initializes all providers in parallel
+	 * 3. Binds actions to the handler context (tables, kv, providers, paths)
+	 * 4. Returns a client with callable actions and table accessors
+	 */
+	create(
+		options?: CreateOptions,
+	): Promise<
+		BoundWorkspaceClient<TId, TTablesSchema, TKvSchema, TProviders, TActions>
+	>;
+
+	/** Get a JSON-serializable manifest of the workspace for introspection. */
+	toJSON(): WorkspaceManifest;
+};
+
+/**
+ * Context passed to action handlers as the second argument.
+ *
+ * Provides typed access to workspace resources:
+ * - `tables`: YJS-backed table operations (get, upsert, update, delete, etc.)
+ * - `kv`: Key-value store for simple values
+ * - `providers`: Exports from initialized providers (SQLite db, sync operations, etc.)
+ * - `paths`: Filesystem paths (undefined in browser environments)
+ *
+ * @example
+ * ```typescript
+ * const getUser = defineQuery({
+ *   input: type({ id: 'string' }),
+ *   output: type({ id: 'string', name: 'string' }),
+ *   handler: ({ id }, ctx) => {
+ *     // Access tables
+ *     const result = ctx.tables.users.get({ id });
+ *
+ *     // Access provider exports (e.g., SQLite)
+ *     const users = ctx.providers.sqlite.users.select().all();
+ *
+ *     // Access paths (Node.js only)
+ *     console.log(ctx.paths?.project);
+ *   },
+ * });
+ * ```
+ */
 export type HandlerContext<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
@@ -208,121 +212,60 @@ export type HandlerContext<
 	paths: WorkspacePaths | undefined;
 };
 
-export type HandlerFn<
-	TInput,
-	TOutput,
-	TTablesSchema extends TablesSchema = TablesSchema,
-	TKvSchema extends KvSchema = KvSchema,
-	TProviderExports extends Record<string, Providers> = Record<
-		string,
-		Providers
-	>,
-> = (
-	input: TInput,
-	ctx: HandlerContext<TTablesSchema, TKvSchema, TProviderExports>,
-) => TOutput | Promise<TOutput>;
-
-type InferInput<TInput> = TInput extends StandardSchemaV1
-	? StandardSchemaV1.InferOutput<TInput>
-	: undefined;
-
-type InferOutput<TOutput> = TOutput extends StandardSchemaV1
-	? StandardSchemaV1.InferOutput<TOutput>
-	: never;
-
-export type HandlersForContracts<
-	TActions extends ActionContracts,
-	TTablesSchema extends TablesSchema,
-	TKvSchema extends KvSchema,
-	TProviderExports extends Record<string, Providers>,
-> = {
-	[K in keyof TActions]: TActions[K] extends QueryContract<
-		infer TInput,
-		infer TOutput
-	>
-		? HandlerFn<
-				InferInput<TInput>,
-				InferOutput<TOutput>,
-				TTablesSchema,
-				TKvSchema,
-				TProviderExports
-			>
-		: TActions[K] extends MutationContract<infer TInput, infer TOutput>
-			? HandlerFn<
-					InferInput<TInput>,
-					InferOutput<TOutput>,
-					TTablesSchema,
-					TKvSchema,
-					TProviderExports
-				>
-			: TActions[K] extends ActionContracts
-				? HandlersForContracts<
-						TActions[K],
-						TTablesSchema,
-						TKvSchema,
-						TProviderExports
-					>
-				: never;
-};
-
+/**
+ * Options for creating a workspace client.
+ */
 export type CreateOptions = {
+	/**
+	 * Project directory for provider paths.
+	 * Defaults to `process.cwd()` in Node.js, `undefined` in browser.
+	 */
 	projectDir?: string;
 };
 
-export type BoundAction<TInput, TOutput> = TInput extends undefined
-	? () => Promise<TOutput>
-	: (input: TInput) => Promise<TOutput>;
-
-export type BoundActions<TActions extends ActionContracts> = {
-	[K in keyof TActions]: TActions[K] extends QueryContract<
-		infer TInput,
-		infer TOutput
-	>
-		? BoundAction<InferInput<TInput>, InferOutput<TOutput>>
-		: TActions[K] extends MutationContract<infer TInput, infer TOutput>
-			? BoundAction<InferInput<TInput>, InferOutput<TOutput>>
-			: TActions[K] extends ActionContracts
-				? BoundActions<TActions[K]>
-				: never;
-};
-
 /**
- * A bound workspace client with actions, tables, kv, and providers.
+ * A fully initialized workspace client with bound actions.
  *
- * - Actions are namespaced under `.actions` for clarity
- * - Tables provide YJS-backed CRUD operations
- * - KV provides YJS-backed key-value storage
- * - Providers expose capabilities like SQLite queries
+ * This is the main interface for interacting with a workspace:
+ * - Call actions via `client.actions.actionName(input)`
+ * - Access tables via `client.tables.tableName.get/upsert/etc.`
+ * - Access the underlying YJS document via `client.ydoc`
+ *
+ * Supports `await using` for automatic cleanup:
+ * ```typescript
+ * {
+ *   await using client = await workspace.create();
+ *   await client.actions.createPost({ title: 'Hello' });
+ * } // Automatically cleaned up here
+ * ```
  */
 export type BoundWorkspaceClient<
 	TId extends string = string,
-	TActions extends ActionContracts = ActionContracts,
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 	TProviders extends ProviderMap<TTablesSchema, TKvSchema> = ProviderMap<
 		TTablesSchema,
 		TKvSchema
 	>,
+	TActions extends Actions = Actions,
 > = {
-	/** The workspace ID from the contract definition */
+	/** The workspace ID. */
 	id: TId;
-	/** The action contracts (for server route registration) */
-	contracts: TActions;
-	/** YJS-backed table operations */
+	/** YJS-backed table operations. */
 	tables: Tables<TTablesSchema>;
-	/** YJS-backed key-value storage */
+	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
-	/** Provider exports (SQLite, markdown, etc.) */
+	/** Exports from initialized providers. */
 	providers: InferProviderExports<TProviders>;
-	/** Filesystem paths (undefined in browser) */
+	/** Filesystem paths (undefined in browser). */
 	paths: WorkspacePaths | undefined;
-	/** The underlying YJS document */
+	/** The underlying YJS document. */
 	ydoc: Y.Doc;
-	/** Bound action methods */
-	actions: BoundActions<TActions>;
-	/** Clean up resources (providers, YDoc) */
+	/** Bound action methods (queries and mutations). */
+	actions: TActions;
+	/** Clean up resources (close providers, destroy YJS doc). */
 	destroy(): Promise<void>;
-	/** Async dispose for `await using` syntax */
+	/** Symbol.asyncDispose for `await using` support. */
 	[Symbol.asyncDispose](): Promise<void>;
 };
 
@@ -339,13 +282,22 @@ type InitializedWorkspace<
 	cleanup: () => Promise<void>;
 };
 
+/**
+ * Initialize a workspace: create YJS doc, tables, kv, and run provider factories.
+ *
+ * This is an internal function called by `.create()`. It:
+ * 1. Creates a YJS document with the workspace ID as GUID
+ * 2. Creates typed table and kv helpers backed by the YJS doc
+ * 3. Runs all provider factories in parallel
+ * 4. Returns everything needed to construct a BoundWorkspaceClient
+ */
 async function initializeWorkspace<
 	TId extends string,
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema,
 	TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
 >(
-	config: WorkspaceContract<TId, TTablesSchema, TKvSchema, ActionContracts>,
+	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
 	providerFactories: TProviders,
 	options?: CreateOptions,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TProviders>> {
@@ -420,319 +372,214 @@ async function initializeWorkspace<
 	};
 }
 
-function bindActionsWithHandlers<
-	TActions extends ActionContracts,
-	TTablesSchema extends TablesSchema,
-	TKvSchema extends KvSchema,
-	TProviderExports extends Record<string, Providers>,
->(
-	contracts: TActions,
-	handlers: HandlersForContracts<
-		TActions,
-		TTablesSchema,
-		TKvSchema,
-		TProviderExports
-	>,
-	ctx: HandlerContext<TTablesSchema, TKvSchema, TProviderExports>,
-): BoundActions<TActions> {
+/**
+ * Bind actions to a handler context, making them callable.
+ *
+ * Takes unbound actions (which expect context as 2nd argument) and returns
+ * new functions that have context pre-bound. Recursively handles namespaces.
+ * Preserves action metadata (type, input, output, description).
+ */
+function bindActionsWithContext<TActions extends Actions>(
+	actions: TActions,
+	ctx: HandlerContext,
+): TActions {
 	const bound: Record<string, unknown> = {};
 
-	for (const [key, contractOrNamespace] of Object.entries(contracts)) {
-		const handlerOrNamespace = (handlers as Record<string, unknown>)[key];
+	for (const [key, actionOrNamespace] of Object.entries(actions)) {
+		if (isAction(actionOrNamespace)) {
+			const action = actionOrNamespace;
+			const hasInput = 'input' in action && action.input !== undefined;
 
-		if (isActionContract(contractOrNamespace)) {
-			const handler = handlerOrNamespace as (
-				input: unknown,
-				ctx: HandlerContext<TTablesSchema, TKvSchema, TProviderExports>,
-			) => unknown | Promise<unknown>;
+			const boundFn = hasInput
+				? // biome-ignore lint/suspicious/noExplicitAny: Action invocation requires flexibility
+					(input: unknown) => (action as any)(input, ctx)
+				: () => (action as any)(ctx);
 
-			bound[key] = async (input: unknown) => handler(input, ctx);
+			bound[key] = Object.assign(boundFn, {
+				type: action.type,
+				input: action.input,
+				output: action.output,
+				description: action.description,
+			});
 		} else {
-			bound[key] = bindActionsWithHandlers(
-				contractOrNamespace as ActionContracts,
-				handlerOrNamespace as HandlersForContracts<
-					ActionContracts,
-					TTablesSchema,
-					TKvSchema,
-					TProviderExports
-				>,
-				ctx,
-			);
+			bound[key] = bindActionsWithContext(actionOrNamespace as Actions, ctx);
 		}
 	}
 
-	return bound as BoundActions<TActions>;
-}
-
-function bindActionsWithHttp<TActions extends ActionContracts>(
-	contracts: TActions,
-	baseUrl: string,
-	workspaceId: string,
-	path: string[] = [],
-): BoundActions<TActions> {
-	const bound: Record<string, unknown> = {};
-
-	for (const [key, contractOrNamespace] of Object.entries(contracts)) {
-		const actionPath = [...path, key];
-
-		if (isActionContract(contractOrNamespace)) {
-			const contract = contractOrNamespace;
-			const endpoint = `${baseUrl}/workspaces/${workspaceId}/actions/${actionPath.join('/')}`;
-
-			bound[key] = async (input: unknown) => {
-				const method = contract.type === 'query' ? 'GET' : 'POST';
-
-				if (method === 'GET') {
-					const params = input
-						? new URLSearchParams(input as Record<string, string>).toString()
-						: '';
-					const url = params ? `${endpoint}?${params}` : endpoint;
-					const response = await fetch(url);
-					return response.json();
-				}
-
-				const response = await fetch(endpoint, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(input),
-				});
-				return response.json();
-			};
-		} else {
-			bound[key] = bindActionsWithHttp(
-				contractOrNamespace as ActionContracts,
-				baseUrl,
-				workspaceId,
-				actionPath,
-			);
-		}
-	}
-
-	return bound as BoundActions<TActions>;
+	return bound as TActions;
 }
 
 /**
- * Define a workspace from a JSON-serializable contract.
+ * Convert actions to a JSON-serializable manifest format.
  *
- * @param config - A `WorkspaceContract` (JSON-serializable data defining tables and actions)
- * @returns A `Workspace` object with fluent methods (`.withProviders()`, `.createWithHandlers()`, etc.)
+ * Extracts metadata (type, description, input, output) from each action
+ * for introspection purposes. Used by `.toJSON()`.
+ */
+function actionsToManifest(actions: Actions): WorkspaceManifest['actions'] {
+	const manifest: WorkspaceManifest['actions'] = {};
+
+	for (const [key, actionOrNamespace] of Object.entries(actions)) {
+		if (isAction(actionOrNamespace)) {
+			manifest[key] = {
+				type: actionOrNamespace.type,
+				description: actionOrNamespace.description,
+				input: actionOrNamespace.input,
+				output: actionOrNamespace.output,
+			};
+		}
+	}
+
+	return manifest;
+}
+
+/**
+ * Define a collaborative workspace with YJS-first architecture.
+ *
+ * A workspace is a self-contained domain module with tables, providers, and actions.
+ * Use the fluent chaining API to configure and create a client:
  *
  * @example
  * ```typescript
- * const blogWorkspace = defineWorkspace({
+ * const workspace = defineWorkspace({
  *   id: 'blog',
  *   tables: {
  *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
  *   },
- *   actions: {
- *     publishPost: defineMutation({
- *       input: type({ id: 'string' }),
- *       output: type({ success: 'boolean' }),
- *     }),
- *   },
  * });
  *
- * // Server: create client with handlers
- * const client = await blogWorkspace
+ * const client = await workspace
  *   .withProviders({ sqlite: sqliteProvider })
- *   .createWithHandlers({
- *     publishPost: async (input, ctx) => {
- *       ctx.tables.posts.update({ id: input.id, published: true });
- *       return { success: true };
- *     },
- *   });
+ *   .withActions({
+ *     createPost: defineMutation({
+ *       input: type({ title: 'string' }),
+ *       output: type({ id: 'string' }),
+ *       handler: ({ title }, ctx) => {
+ *         const id = generateId();
+ *         ctx.tables.posts.upsert({ id, title, published: false });
+ *         return { id };
+ *       },
+ *     }),
+ *   })
+ *   .create();
  *
- * // Browser: create HTTP client
- * const client = await blogWorkspace
- *   .withProviders({ indexeddb: idbProvider })
- *   .createHttpClient('http://localhost:3913');
+ * // Use the client
+ * const { id } = await client.actions.createPost({ title: 'Hello' });
+ * const posts = client.tables.posts.getAllValid();
+ *
+ * // Clean up
+ * await client.destroy();
  * ```
+ *
+ * @param config - Workspace configuration (id, tables, optional kv and description)
+ * @returns A Workspace object with fluent methods for adding providers and actions
  */
 export function defineWorkspace<
 	const TId extends string,
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema = Record<string, never>,
-	TActions extends ActionContracts = ActionContracts,
 >(
-	config: WorkspaceContract<TId, TTablesSchema, TKvSchema, TActions>,
-): Workspace<TId, TTablesSchema, TKvSchema, TActions> {
+	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
+): Workspace<TId, TTablesSchema, TKvSchema> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
 	}
-
-	const createClientWithHandlers = async <
-		TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
-	>(
-		providers: TProviders,
-		handlers: HandlersForContracts<
-			TActions,
-			TTablesSchema,
-			TKvSchema,
-			InferProviderExports<TProviders>
-		>,
-		options?: CreateOptions,
-	): Promise<
-		BoundWorkspaceClient<TId, TActions, TTablesSchema, TKvSchema, TProviders>
-	> => {
-		const { ydoc, tables, kv, providerExports, paths, cleanup } =
-			await initializeWorkspace(config, providers, options);
-
-		const handlerContext: HandlerContext<
-			TTablesSchema,
-			TKvSchema,
-			InferProviderExports<TProviders>
-		> = {
-			tables,
-			kv,
-			providers: providerExports,
-			paths,
-		};
-
-		const boundActions = bindActionsWithHandlers(
-			config.actions,
-			handlers,
-			handlerContext,
-		);
-
-		return {
-			id: config.id,
-			contracts: config.actions,
-			ydoc: ydoc,
-			tables: tables,
-			kv: kv,
-			providers: providerExports,
-			paths: paths,
-			actions: boundActions,
-			destroy: cleanup,
-			[Symbol.asyncDispose]: cleanup,
-		};
-	};
-
-	const createClientWithHttp = async <
-		TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
-	>(
-		providers: TProviders,
-		url: string,
-		options?: CreateOptions,
-	): Promise<
-		BoundWorkspaceClient<TId, TActions, TTablesSchema, TKvSchema, TProviders>
-	> => {
-		const { ydoc, tables, kv, providerExports, paths, cleanup } =
-			await initializeWorkspace(config, providers, options);
-
-		const boundActions = bindActionsWithHttp(config.actions, url, config.id);
-
-		return {
-			id: config.id,
-			contracts: config.actions,
-			ydoc: ydoc,
-			tables: tables,
-			kv: kv,
-			providers: providerExports,
-			paths: paths,
-			actions: boundActions,
-			destroy: cleanup,
-			[Symbol.asyncDispose]: cleanup,
-		};
-	};
 
 	return {
 		...config,
 
 		withProviders<TProviders extends ProviderMap<TTablesSchema, TKvSchema>>(
 			providers: TProviders,
-		): WorkspaceWithProviders<
-			TId,
-			TTablesSchema,
-			TKvSchema,
-			TActions,
-			TProviders
-		> {
+		): WorkspaceWithProviders<TId, TTablesSchema, TKvSchema, TProviders> {
 			return {
 				...config,
 				$providers: providers,
 
-				createWithHandlers(
-					handlers: HandlersForContracts<
-						TActions,
-						TTablesSchema,
-						TKvSchema,
-						InferProviderExports<TProviders>
-					>,
-					options?: CreateOptions,
-				): Promise<
-					BoundWorkspaceClient<
-						TId,
-						TActions,
-						TTablesSchema,
-						TKvSchema,
-						TProviders
-					>
+				withActions<TActions extends Actions>(
+					actions: TActions,
+				): WorkspaceWithActions<
+					TId,
+					TTablesSchema,
+					TKvSchema,
+					TProviders,
+					TActions
 				> {
-					return createClientWithHandlers(providers, handlers, options);
+					return {
+						...config,
+						$providers: providers,
+						$actions: actions,
+
+						async create(
+							options?: CreateOptions,
+						): Promise<
+							BoundWorkspaceClient<
+								TId,
+								TTablesSchema,
+								TKvSchema,
+								TProviders,
+								TActions
+							>
+						> {
+							const { ydoc, tables, kv, providerExports, paths, cleanup } =
+								await initializeWorkspace(config, providers, options);
+
+							const ctx: HandlerContext<
+								TTablesSchema,
+								TKvSchema,
+								InferProviderExports<TProviders>
+							> = {
+								tables,
+								kv,
+								providers: providerExports,
+								paths,
+							};
+
+							const boundActions = bindActionsWithContext(actions, ctx);
+
+							return {
+								id: config.id,
+								ydoc,
+								tables,
+								kv,
+								providers: providerExports,
+								paths,
+								actions: boundActions,
+								destroy: cleanup,
+								[Symbol.asyncDispose]: cleanup,
+							};
+						},
+
+						toJSON(): WorkspaceManifest {
+							return {
+								id: config.id,
+								description: config.description,
+								tables: config.tables,
+								kv: config.kv,
+								actions: actionsToManifest(actions),
+							};
+						},
+					};
 				},
 
-				createHttpClient(
-					url: string,
-					options?: CreateOptions,
-				): Promise<
-					BoundWorkspaceClient<
-						TId,
-						TActions,
-						TTablesSchema,
-						TKvSchema,
-						TProviders
-					>
-				> {
-					return createClientWithHttp(providers, url, options);
+				toJSON(): WorkspaceManifest {
+					return {
+						id: config.id,
+						description: config.description,
+						tables: config.tables,
+						kv: config.kv,
+						actions: {},
+					};
 				},
 			};
 		},
 
-		createWithHandlers(
-			handlers: HandlersForContracts<
-				TActions,
-				TTablesSchema,
-				TKvSchema,
-				Record<string, never>
-			>,
-			options?: CreateOptions,
-		): Promise<
-			BoundWorkspaceClient<
-				TId,
-				TActions,
-				TTablesSchema,
-				TKvSchema,
-				Record<string, never>
-			>
-		> {
-			const emptyProviders = {} as Record<string, never>;
-			return createClientWithHandlers(
-				emptyProviders,
-				handlers as HandlersForContracts<
-					TActions,
-					TTablesSchema,
-					TKvSchema,
-					InferProviderExports<Record<string, never>>
-				>,
-				options,
-			);
-		},
-
-		createHttpClient(
-			url: string,
-			options?: CreateOptions,
-		): Promise<
-			BoundWorkspaceClient<
-				TId,
-				TActions,
-				TTablesSchema,
-				TKvSchema,
-				Record<string, never>
-			>
-		> {
-			const emptyProviders = {} as Record<string, never>;
-			return createClientWithHttp(emptyProviders, url, options);
+		toJSON(): WorkspaceManifest {
+			return {
+				id: config.id,
+				description: config.description,
+				tables: config.tables,
+				kv: config.kv,
+				actions: {},
+			};
 		},
 	};
 }

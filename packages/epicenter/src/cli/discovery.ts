@@ -1,10 +1,10 @@
 import { stat } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import type { ProjectDir } from '../core/types';
-import type { ActionContracts } from '../core/actions';
+import type { Actions } from '../core/actions';
 import type { BoundWorkspaceClient } from '../core/workspace/contract';
 
-type AnyWorkspaceClient = BoundWorkspaceClient<string, ActionContracts>;
+type AnyWorkspaceClient = BoundWorkspaceClient<string, any, any, any, Actions>;
 
 export async function findProjectDir(
 	startDir: string = process.cwd(),

@@ -1,11 +1,7 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 import { Err, isResult, Ok } from 'wellcrafted/result';
-import {
-	type ActionContract,
-	type ActionContracts,
-	isActionContract,
-} from '../core/actions';
+import { type Action, type Actions, isAction } from '../core/actions';
 import type { BoundWorkspaceClient } from '../core/workspace/contract';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';
@@ -16,39 +12,36 @@ export type ServerOptions = {
 	port?: number;
 };
 
-type AnyWorkspaceClient = BoundWorkspaceClient<string, ActionContracts>;
+type AnyWorkspaceClient = BoundWorkspaceClient<string, any, any, any, Actions>;
 
 type ActionInfo = {
 	workspaceId: string;
 	actionPath: string[];
-	action: ActionContract;
+	action: Action;
 	handler: (input: unknown) => Promise<unknown>;
 };
 
 function extractActions(
-	contracts: ActionContracts,
-	boundActions: Record<string, unknown>,
+	actions: Actions,
 	workspaceId: string,
 	path: string[] = [],
 ): ActionInfo[] {
-	const actions: ActionInfo[] = [];
+	const result: ActionInfo[] = [];
 
-	for (const [key, contractOrNamespace] of Object.entries(contracts)) {
+	for (const [key, actionOrNamespace] of Object.entries(actions)) {
 		const actionPath = [...path, key];
 
-		if (isActionContract(contractOrNamespace)) {
-			const handler = boundActions[key] as (input: unknown) => Promise<unknown>;
-			actions.push({
+		if (isAction(actionOrNamespace)) {
+			result.push({
 				workspaceId,
 				actionPath,
-				action: contractOrNamespace,
-				handler,
+				action: actionOrNamespace,
+				handler: actionOrNamespace as (input: unknown) => Promise<unknown>,
 			});
 		} else {
-			actions.push(
+			result.push(
 				...extractActions(
-					contractOrNamespace as ActionContracts,
-					boundActions[key] as Record<string, unknown>,
+					actionOrNamespace as Actions,
 					workspaceId,
 					actionPath,
 				),
@@ -56,7 +49,7 @@ function extractActions(
 		}
 	}
 
-	return actions;
+	return result;
 }
 
 /**
@@ -123,13 +116,7 @@ function createServerInternal(
 		const workspaceId = client.id;
 		workspaces[workspaceId] = client;
 
-		allActions.push(
-			...extractActions(
-				client.contracts,
-				client.actions as Record<string, unknown>,
-				workspaceId,
-			),
-		);
+		allActions.push(...extractActions(client.actions, workspaceId));
 	}
 
 	const app = new Elysia()

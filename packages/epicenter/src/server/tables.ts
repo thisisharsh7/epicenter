@@ -1,7 +1,7 @@
 import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { ActionContracts } from '../core/actions';
+import type { Actions } from '../core/actions';
 import type { SerializedRow, TableSchema } from '../core/schema';
 import { tableSchemaToArktype } from '../core/schema';
 import type { BoundWorkspaceClient } from '../core/workspace/contract';
@@ -9,7 +9,7 @@ import type { BoundWorkspaceClient } from '../core/workspace/contract';
 export function createTablesPlugin(
 	workspaceClients: Record<
 		string,
-		BoundWorkspaceClient<string, ActionContracts>
+		BoundWorkspaceClient<string, any, any, any, Actions>
 	>,
 ) {
 	const app = new Elysia();
