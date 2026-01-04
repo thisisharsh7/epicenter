@@ -3,12 +3,16 @@
 	import { rpc } from '$lib/query';
 	import { Button } from '@epicenter/ui/button';
 	import { inputDialog } from '$lib/components/InputDialog.svelte';
+	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 
 	const workspaceIds = createQuery(
 		() => rpc.workspaces.listWorkspaceIds.options,
 	);
 	const createWorkspace = createMutation(
 		() => rpc.workspaces.createWorkspace.options,
+	);
+	const openDirectory = createMutation(
+		() => rpc.workspaces.openWorkspacesDirectory.options,
 	);
 
 	function handleCreate() {
@@ -22,14 +26,28 @@
 			},
 		});
 	}
+
+	function handleOpenDirectory() {
+		openDirectory.mutate(undefined);
+	}
 </script>
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold">Workspaces</h1>
-		<Button onclick={handleCreate} disabled={createWorkspace.isPending}>
-			{createWorkspace.isPending ? 'Creating...' : 'Create Workspace'}
-		</Button>
+		<div class="flex gap-2">
+			<Button
+				variant="outline"
+				onclick={handleOpenDirectory}
+				disabled={openDirectory.isPending}
+			>
+				<FolderOpenIcon class="mr-2 size-4" />
+				Open Location
+			</Button>
+			<Button onclick={handleCreate} disabled={createWorkspace.isPending}>
+				{createWorkspace.isPending ? 'Creating...' : 'Create Workspace'}
+			</Button>
+		</div>
 	</div>
 
 	{#if workspaceIds.isPending}

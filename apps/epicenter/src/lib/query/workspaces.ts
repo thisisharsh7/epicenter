@@ -1,10 +1,11 @@
-import { defineQuery, defineMutation, queryClient } from './client';
+import { defineMutation, queryClient } from './client';
 import {
 	workspaceStorage,
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
 import { Ok, Err } from 'wellcrafted/result';
 import { nanoid } from 'nanoid';
+import { defineQuery } from 'wellcrafted/query';
 
 const workspaceKeys = {
 	all: ['workspaces'] as const,
@@ -78,6 +79,17 @@ export const workspaces = {
 			});
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 			return Ok(updated);
+		},
+	}),
+
+	openWorkspacesDirectory: defineMutation({
+		mutationKey: ['workspaces', 'openDirectory'],
+		mutationFn: async () => {
+			const result = await workspaceStorage.openWorkspacesDirectory();
+			if (result.error) {
+				return Err(result.error);
+			}
+			return Ok(undefined);
 		},
 	}),
 };

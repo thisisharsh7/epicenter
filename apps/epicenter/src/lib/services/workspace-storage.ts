@@ -1,12 +1,14 @@
+import { appLocalDataDir } from '@tauri-apps/api/path';
 import {
+	BaseDirectory,
+	exists,
+	mkdir,
+	readDir,
 	readTextFile,
 	writeTextFile,
-	readDir,
-	mkdir,
-	exists,
-	BaseDirectory,
 } from '@tauri-apps/plugin-fs';
-import { Ok, Err, type Result } from 'wellcrafted/result';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { Err, Ok, type Result } from 'wellcrafted/result';
 
 const WORKSPACES_DIR = 'workspaces';
 
@@ -123,10 +125,30 @@ export async function workspaceExists(
 	}
 }
 
+export async function openWorkspacesDirectory(): Promise<
+	Result<void, WorkspaceStorageError>
+> {
+	try {
+		const initResult = await ensureWorkspacesDirectory();
+		if (initResult.error) return initResult;
+
+		const appDataPath = await appLocalDataDir();
+		const workspacesPath = `${appDataPath}${WORKSPACES_DIR}`;
+
+		await revealItemInDir(workspacesPath);
+		return Ok(undefined);
+	} catch (error) {
+		return Err(
+			WorkspaceStorageError('Failed to open workspaces directory', error),
+		);
+	}
+}
+
 export const workspaceStorage = {
 	ensureWorkspacesDirectory,
 	listWorkspaceIds,
 	readWorkspace,
 	writeWorkspace,
 	workspaceExists,
+	openWorkspacesDirectory,
 };
