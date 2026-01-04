@@ -71,19 +71,14 @@ type SqliteProviderOptions = {
  *   sqlite: (c) => sqliteProvider(c, { debounceMs: 50 }),
  * },
  *
- * actions: ({ providers }) => ({
- *   // Access exported resources from the provider
- *   getPost: defineQuery({
- *     handler: async ({ id }) => {
- *       // providers.sqlite.db is the exported Drizzle database instance
- *       // providers.sqlite.posts is the exported Drizzle table
- *       return await providers.sqlite.db
- *         .select()
- *         .from(providers.sqlite.posts)
- *         .where(eq(providers.sqlite.posts.id, id));
- *     }
- *   })
- * })
+ * // After creating the client, query SQLite via providers:
+ * const client = await workspace.withProviders({ sqlite: sqliteProvider }).create();
+ *
+ * // Query with Drizzle:
+ * const posts = await client.providers.sqlite.db
+ *   .select()
+ *   .from(client.providers.sqlite.posts)
+ *   .where(eq(client.providers.sqlite.posts.id, id));
  * ```
  */
 export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(

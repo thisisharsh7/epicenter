@@ -28,11 +28,13 @@ import type { WorkspaceSchema } from '../../core/schema';
  * const workspace = defineWorkspace({
  *   id: 'blog',
  *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,  // → .epicenter/providers/persistence/blog.yjs
- *   },
- *   actions: ({ tables }) => ({ ... }),
  * });
+ *
+ * const client = await workspace
+ *   .withProviders({
+ *     persistence: setupPersistence,  // → .epicenter/providers/persistence/blog.yjs
+ *   })
+ *   .create();
  * ```
  */
 export const setupPersistence = (async <TSchema extends WorkspaceSchema>({

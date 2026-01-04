@@ -142,13 +142,13 @@ export type WebsocketSyncConfig = {
  * const workspace = defineWorkspace({
  *   id: 'blog',
  *   tables: { ... },
- *   providers: {
- *     sync: createWebsocketSyncProvider({
- *       url: 'ws://localhost:3913/sync',
- *     }),
- *   },
- *   actions: ({ tables }) => ({ ... }),
  * });
+ *
+ * const client = await workspace
+ *   .withProviders({
+ *     sync: createWebsocketSyncProvider({ url: 'ws://localhost:3913/sync' }),
+ *   })
+ *   .create();
  * ```
  *
  * @example Multi-provider (phone connecting to all nodes)
@@ -166,14 +166,16 @@ export type WebsocketSyncConfig = {
  * const workspace = defineWorkspace({
  *   id: 'blog',
  *   tables: { ... },
- *   providers: {
+ * });
+ *
+ * const client = await workspace
+ *   .withProviders({
  *     // Create a provider for each sync node
  *     syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
  *     syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
  *     syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
- *   },
- *   actions: ({ tables }) => ({ ... }),
- * });
+ *   })
+ *   .create();
  * ```
  *
  * @example Server-to-server sync (Elysia servers syncing with each other)
@@ -189,15 +191,17 @@ export type WebsocketSyncConfig = {
  * const workspace = defineWorkspace({
  *   id: 'blog',
  *   tables: { ... },
- *   providers: {
+ * });
+ *
+ * const client = await workspace
+ *   .withProviders({
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)
  *     // 2. A sync client connecting to other servers
  *     syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
  *     syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
- *   },
- *   actions: ({ tables }) => ({ ... }),
- * });
+ *   })
+ *   .create();
  * ```
  *
  * @example Direct usage with y-websocket (no Epicenter client)

@@ -38,27 +38,6 @@ export {
 	sql,
 } from 'drizzle-orm';
 
-export type {
-	Action,
-	Actions,
-	Mutation,
-	Query,
-	HandlerContext as ActionHandlerContext,
-	InferActionInput,
-	InferActionOutput,
-} from './core/actions';
-
-export {
-	defineMutation,
-	defineQuery,
-	defineActions,
-	isAction,
-	isMutation,
-	isNamespace,
-	isQuery,
-	walkActions,
-} from './core/actions';
-
 export type { TableHelper, Tables } from './core/db/core';
 
 // Database utilities
@@ -148,15 +127,13 @@ export {
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type {
-	BoundWorkspaceClient,
 	CreateOptions,
-	HandlerContext,
 	InferProviderExports,
 	ProviderMap,
 	Workspace,
+	WorkspaceClient,
 	WorkspaceManifest,
 	WorkspaceSchema,
-	WorkspaceWithActions,
 	WorkspaceWithProviders,
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
