@@ -41,8 +41,8 @@ export default defineWorkspace({
 			created_at: text(),
 		},
 	},
-
-	providers: {
+})
+	.withProviders({
 		persistence: setupPersistence,
 		sqlite: (c) => sqliteProvider(c),
 		markdown: (context) =>
@@ -119,37 +119,59 @@ export default defineWorkspace({
 					},
 				},
 			}),
-	},
-
-	actions: ({ tables, providers }) => ({
+	})
+	.withActions({
 		getPublishedPosts: defineQuery({
-			handler: async () => {
-				const posts = await providers.sqlite.db
+			output: type({
+				id: 'string',
+				title: 'string',
+				'content?': 'string | null',
+				category: "'tech' | 'personal' | 'tutorial'",
+				views: 'number',
+				'published_at?': 'string | null',
+			}).array(),
+			handler: async (ctx) => {
+				const posts = await ctx.providers.sqlite.db
 					.select()
-					.from(providers.sqlite.posts)
-					.where(isNotNull(providers.sqlite.posts.published_at));
+					.from(ctx.providers.sqlite.posts)
+					.where(isNotNull(ctx.providers.sqlite.posts.published_at));
 				return Ok(posts);
 			},
 		}),
 
 		getPost: defineQuery({
 			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				const post = await providers.sqlite.db
+			output: type({
+				id: 'string',
+				title: 'string',
+				'content?': 'string | null',
+				category: "'tech' | 'personal' | 'tutorial'",
+				views: 'number',
+				'published_at?': 'string | null',
+			}).array(),
+			handler: async ({ id }, ctx) => {
+				const post = await ctx.providers.sqlite.db
 					.select()
-					.from(providers.sqlite.posts)
-					.where(eq(providers.sqlite.posts.id, id));
+					.from(ctx.providers.sqlite.posts)
+					.where(eq(ctx.providers.sqlite.posts.id, id));
 				return Ok(post);
 			},
 		}),
 
 		getPostComments: defineQuery({
 			input: type({ post_id: 'string' }),
-			handler: async ({ post_id }) => {
-				const comments = await providers.sqlite.db
+			output: type({
+				id: 'string',
+				post_id: 'string',
+				author: 'string',
+				content: 'string',
+				created_at: 'string',
+			}).array(),
+			handler: async ({ post_id }, ctx) => {
+				const comments = await ctx.providers.sqlite.db
 					.select()
-					.from(providers.sqlite.comments)
-					.where(eq(providers.sqlite.comments.post_id, post_id));
+					.from(ctx.providers.sqlite.comments)
+					.where(eq(ctx.providers.sqlite.comments.post_id, post_id));
 				return Ok(comments);
 			},
 		}),
@@ -160,7 +182,15 @@ export default defineWorkspace({
 				'content?': 'string',
 				category: "'tech' | 'personal' | 'tutorial'",
 			}),
-			handler: async ({ title, content, category }) => {
+			output: type({
+				id: 'string',
+				title: 'string',
+				'content?': 'string | null',
+				category: "'tech' | 'personal' | 'tutorial'",
+				views: 'number',
+				'published_at?': 'string | null',
+			}),
+			handler: async ({ title, content, category }, ctx) => {
 				const post = {
 					id: generateId(),
 					title,
@@ -168,61 +198,83 @@ export default defineWorkspace({
 					category,
 					views: 0,
 					published_at: null,
-				} satisfies typeof tables.posts.$inferSerializedRow;
-				tables.posts.upsert(post);
+				};
+				ctx.tables.posts.upsert(post);
 				return Ok(post);
 			},
 		}),
 
 		publishPost: defineMutation({
 			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				const { status, row } = tables.posts.get({ id });
+			output: type({
+				id: 'string',
+				title: 'string',
+				'content?': 'string | null',
+				category: "'tech' | 'personal' | 'tutorial'",
+				views: 'number',
+				'published_at?': 'string | null',
+			}),
+			handler: async ({ id }, ctx) => {
+				const { status, row } = ctx.tables.posts.get(id);
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
-				tables.posts.update({
+				ctx.tables.posts.update({
 					id,
 					published_at: new Date().toISOString(),
 				});
-				const { row: updatedPost } = tables.posts.get({ id });
+				const { row: updatedPost } = ctx.tables.posts.get(id);
 				return Ok(updatedPost);
 			},
 		}),
 
 		addComment: defineMutation({
 			input: type({
-				post_id: 'string',
+				postId: 'string',
 				author: 'string',
 				content: 'string',
 			}),
-			handler: async ({ post_id, author, content }) => {
+			output: type({
+				id: 'string',
+				post_id: 'string',
+				author: 'string',
+				content: 'string',
+				created_at: 'string',
+			}),
+			handler: async ({ postId, author, content }, ctx) => {
 				const comment = {
 					id: generateId(),
-					post_id,
+					post_id: postId,
 					author,
 					content,
 					created_at: new Date().toISOString(),
-				} satisfies typeof tables.comments.$inferSerializedRow;
-				tables.comments.upsert(comment);
+				};
+				ctx.tables.comments.upsert(comment);
 				return Ok(comment);
 			},
 		}),
 
 		incrementViews: defineMutation({
 			input: type({ id: 'string' }),
-			handler: async ({ id }) => {
-				const { status, row } = tables.posts.get({ id });
+			output: type({
+				id: 'string',
+				title: 'string',
+				'content?': 'string | null',
+				category: "'tech' | 'personal' | 'tutorial'",
+				views: 'number',
+				'published_at?': 'string | null',
+			}),
+			handler: async ({ id }, ctx) => {
+				const { status, row } = ctx.tables.posts.get(id);
 				if (status !== 'valid') {
 					throw new Error(`Post ${id} not found`);
 				}
-				tables.posts.update({
+				ctx.tables.posts.update({
 					id,
 					views: row.views + 1,
 				});
-				const { row: updatedPost } = tables.posts.get({ id });
+				const { row: updatedPost } = ctx.tables.posts.get(id);
 				return Ok(updatedPost);
 			},
 		}),
-	}),
-});
+	});
