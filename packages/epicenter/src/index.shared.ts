@@ -39,22 +39,24 @@ export {
 } from 'drizzle-orm';
 
 export type {
-	ActionContract,
-	MutationContract,
-	QueryContract,
-	ActionContracts,
+	Action,
+	Actions,
+	Mutation,
+	Query,
+	HandlerContext as ActionHandlerContext,
+	InferActionInput,
+	InferActionOutput,
 } from './core/actions';
 
-// Action helpers
 export {
 	defineMutation,
 	defineQuery,
-	defineActionContracts,
-	isActionContract,
-	isMutationContract,
+	defineActions,
+	isAction,
+	isMutation,
 	isNamespace,
-	isQueryContract,
-	walkActionContracts,
+	isQuery,
+	walkActions,
 } from './core/actions';
 
 export type { TableHelper, Tables } from './core/db/core';
@@ -112,10 +114,10 @@ export type {
 	SerializedKvValue,
 	SerializedRow,
 	TableSchema,
+	TablesSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
-	WorkspaceSchema,
 	YtextFieldSchema,
 } from './core/schema';
 // Column schema system
@@ -145,20 +147,16 @@ export {
 } from './core/schema';
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
-export type { ActionInfo } from './core/workspace/client.shared';
-
 export type {
-	BoundAction,
-	BoundActions,
 	BoundWorkspaceClient,
 	CreateOptions,
 	HandlerContext,
-	HandlerFn,
-	HandlersForContracts,
 	InferProviderExports,
 	ProviderMap,
 	Workspace,
-	WorkspaceContract,
+	WorkspaceManifest,
+	WorkspaceSchema,
+	WorkspaceWithActions,
 	WorkspaceWithProviders,
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';

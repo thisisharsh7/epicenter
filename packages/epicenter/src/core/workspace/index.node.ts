@@ -6,20 +6,16 @@
 
 export type { Provider, ProviderContext } from '../provider';
 
-export type { ActionInfo } from './client.shared';
-
 export type {
-	BoundAction,
-	BoundActions,
 	BoundWorkspaceClient,
 	CreateOptions,
 	HandlerContext,
-	HandlerFn,
-	HandlersForContracts,
 	InferProviderExports,
 	ProviderMap,
 	Workspace,
-	WorkspaceContract,
+	WorkspaceManifest,
+	WorkspaceSchema,
+	WorkspaceWithActions,
 	WorkspaceWithProviders,
 } from './contract';
 export { defineWorkspace } from './contract';
