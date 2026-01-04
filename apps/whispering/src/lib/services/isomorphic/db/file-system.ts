@@ -55,7 +55,7 @@ function markdownToRecording({
 }): Recording {
 	return {
 		...frontMatter,
-		transcribedText: body,
+		transcribedText: body.trimEnd(),
 	};
 }
 
