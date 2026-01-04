@@ -1,8 +1,5 @@
 import { WebsocketProvider } from 'y-websocket';
-// Uses browser Provider type because this provider only needs minimal context (ydoc, id).
-// Browser context is the "base" context that both browser and node satisfy,
-// so this provider works on both platforms.
-import type { Provider } from '../core/provider.browser';
+import type { Provider } from '../core/provider';
 import type { WorkspaceSchema } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════

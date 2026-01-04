@@ -1,5 +1,5 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type { Provider, ProviderContext } from '../../core/provider.browser';
+import type { Provider, ProviderContext } from '../../core/provider';
 import type { WorkspaceSchema } from '../../core/schema';
 
 /**

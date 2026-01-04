@@ -1,8 +1,21 @@
 /**
- * Default workspace exports (Node.js).
+ * Workspace exports.
  *
- * Internal code imports from this file.
- * These are typically Node-only contexts, so we re-export the node version.
+ * Single entry point for workspace types and functions.
  */
 
-export * from './index.node';
+export type { Provider, ProviderContext } from '../provider';
+
+export type {
+	BoundWorkspaceClient,
+	CreateOptions,
+	HandlerContext,
+	InferProviderExports,
+	ProviderMap,
+	Workspace,
+	WorkspaceManifest,
+	WorkspaceSchema,
+	WorkspaceWithActions,
+	WorkspaceWithProviders,
+} from './contract';
+export { defineWorkspace } from './contract';
