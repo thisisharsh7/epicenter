@@ -1,11 +1,10 @@
-import { defineMutation, queryClient } from './client';
+import { defineQuery, defineMutation, queryClient } from './client';
 import {
 	workspaceStorage,
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
 import { Ok, Err } from 'wellcrafted/result';
 import { nanoid } from 'nanoid';
-import { defineQuery } from 'wellcrafted/query';
 
 const workspaceKeys = {
 	all: ['workspaces'] as const,
