@@ -43,8 +43,8 @@ export type { TableHelper, Tables } from './core/tables/core';
 // Table utilities
 export { createTables } from './core/tables/core';
 
-export type { Kv, KvHelper } from './core/kv';
-export { createKv } from './core/kv';
+export type { Kv, KvHelper } from './core/kv/core';
+export { createKv } from './core/kv/core';
 
 export type {
 	DeleteManyResult,

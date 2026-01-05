@@ -911,17 +911,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Type inference helper for SerializedRow.
 		 *
 		 * SerializedRow is the plain JavaScript representation of a row,
-		 * used for insert, update, and upsert operations.
+		 * used for upsert and update operations. Y.js types are represented
+		 * as plain values (Y.Text → string, Y.Array → array).
+		 *
+		 * Alternative: `Parameters<typeof tables.posts.upsert>[0]`
 		 *
 		 * @example
 		 * ```typescript
-		 * type Post = typeof db.posts.$inferSerializedRow;
-		 * const post: typeof db.posts.$inferSerializedRow = {
-		 *   id: '1',
-		 *   title: 'Hello',
-		 *   content: 'World',
-		 * };
-		 * db.posts.upsert(post);
+		 * type Post = typeof tables.posts.$inferSerializedRow;
+		 * // { id: string; title: string; content: string; tags: string[] }
 		 * ```
 		 */
 		$inferSerializedRow: null as unknown as SerializedRow<TTableSchema>,
@@ -929,16 +927,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Type inference helper for Row.
 		 *
-		 * Row is the YJS-backed representation returned from get() and getAll().
-		 * It includes the toJSON() method for serialization.
+		 * Row is the Y.js-backed representation returned from get() and getAll().
+		 * Y.js types are live collaborative objects (Y.Text, Y.Array).
+		 *
+		 * Alternative: Extract from GetResult: `Extract<ReturnType<typeof tables.posts.get>, { status: 'valid' }>['row']`
 		 *
 		 * @example
 		 * ```typescript
-		 * type Post = typeof db.posts.$inferRow;
-		 * const result = db.posts.get('1');
-		 * if (result.data) {
-		 *   const post: Post = result.data; // Row with YJS backing
-		 * }
+		 * type Post = typeof tables.posts.$inferRow;
+		 * // { id: string; title: string; content: Y.Text; tags: Y.Array<string> }
 		 * ```
 		 */
 		$inferRow: null as unknown as Row<TTableSchema>,

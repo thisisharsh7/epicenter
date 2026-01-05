@@ -6,11 +6,7 @@ import type {
 	KvValue,
 	SerializedKvValue,
 } from '../schema';
-import {
-	isDateWithTimezoneString,
-	isNullableFieldSchema,
-	serializeCellValue,
-} from '../schema';
+import { isDateWithTimezoneString, isNullableFieldSchema } from '../schema';
 import { updateYArrayFromArray, updateYTextFromString } from '../utils/yjs';
 
 export type YKvMap = Y.Map<KvValue>;
@@ -82,20 +78,12 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		return undefined as unknown as TValue;
 	};
 
-	const getDefaultValue = (): TValue | undefined => {
-		if ('default' in schema && schema.default !== undefined) {
-			return schema.default as TValue;
-		}
-		return undefined;
-	};
-
 	const getCurrentValue = (): TValue => {
 		const value = ykvMap.get(keyName);
 
 		if (value === undefined) {
-			const defaultVal = getDefaultValue();
-			if (defaultVal !== undefined) {
-				return defaultVal;
+			if ('default' in schema && schema.default !== undefined) {
+				return schema.default as TValue;
 			}
 			if (nullable) {
 				return null as TValue;
@@ -162,17 +150,27 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		},
 
 		/**
-		 * Set the value for this KV key.
+		 * Set the value for this KV key from a serialized (plain JS) value.
 		 *
-		 * For Y.js-backed values (ytext, tags), provide plain JavaScript values
-		 * which will be synced to the underlying Y.Text/Y.Array.
+		 * For primitive types (text, select, boolean, integer, real, date),
+		 * use this to update the value directly.
 		 *
-		 * @param value - The value to set
+		 * For Y.js-backed types (ytext, tags), you typically bind `.get()` to
+		 * your UI component (text editor, tag input) and let Y.js handle edits
+		 * directly. This `.set()` method is primarily used by providers when
+		 * loading serialized data from storage (markdown files, SQLite, etc.).
+		 *
+		 * @param value - The serialized value to set
 		 *
 		 * @example
 		 * ```typescript
+		 * // Primitive types: use set() directly
 		 * kv.theme.set('dark');
-		 * kv.tags.set(['urgent', 'review']);
+		 * kv.count.set(42);
+		 *
+		 * // Y.js types: typically bind get() to UI, not set()
+		 * const ytext = kv.notes.get(); // Y.Text instance
+		 * bindToEditor(ytext);          // Editor handles edits via Y.Text API
 		 * ```
 		 */
 		set(value: TSerializedValue): void {
@@ -222,11 +220,9 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 */
 		reset(): void {
 			ydoc.transact(() => {
-				const defaultVal = getDefaultValue();
-				if (defaultVal !== undefined) {
-					setValueFromSerialized(
-						serializeCellValue(defaultVal) as TSerializedValue,
-					);
+				if ('default' in schema && schema.default !== undefined) {
+					const serializedDefault = schema.default as TSerializedValue;
+					setValueFromSerialized(serializedDefault);
 				} else if (nullable) {
 					ykvMap.set(keyName, null);
 				} else {
@@ -235,10 +231,34 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			});
 		},
 
-		/** Type inference helper for the runtime value type */
+		/**
+		 * Type inference helper for the runtime value type.
+		 *
+		 * Use this to extract the type returned by `.get()`. For Y.js-backed
+		 * fields (ytext, tags), this is the Y.js type (Y.Text, Y.Array).
+		 *
+		 * Alternative: `ReturnType<typeof kv.fieldName.get>`
+		 *
+		 * @example
+		 * ```typescript
+		 * type Theme = typeof kv.theme.$inferValue; // 'dark' | 'light'
+		 * type Notes = typeof kv.notes.$inferValue; // Y.Text
+		 * ```
+		 */
 		$inferValue: null as unknown as TValue,
 
-		/** Type inference helper for the serialized value type */
+		/**
+		 * Type inference helper for the serialized value type.
+		 *
+		 * Use this to extract the type accepted by `.set()`. For Y.js-backed
+		 * fields (ytext, tags), this is the plain JS type (string, string[]).
+		 *
+		 * @example
+		 * ```typescript
+		 * type ThemeSerialized = typeof kv.theme.$inferSerializedValue; // 'dark' | 'light'
+		 * type NotesSerialized = typeof kv.notes.$inferSerializedValue; // string
+		 * ```
+		 */
 		$inferSerializedValue: null as unknown as TSerializedValue,
 	};
 }
