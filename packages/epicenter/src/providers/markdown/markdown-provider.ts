@@ -10,7 +10,7 @@ import {
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider.shared';
-import type { TableHelper } from '../../core/db/core';
+import type { TableHelper } from '../../core/tables/core';
 import type {
 	Row,
 	SerializedRow,

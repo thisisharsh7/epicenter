@@ -31,7 +31,7 @@
  */
 
 import type * as Y from 'yjs';
-import type { YRow } from '../../db/table-helper';
+import type { YRow } from '../../tables/table-helper';
 import type {
 	DateWithTimezone,
 	DateWithTimezoneString,

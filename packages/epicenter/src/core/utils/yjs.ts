@@ -2,7 +2,7 @@ import { diffChars } from 'diff';
 import * as Y from 'yjs';
 import type { PartialSerializedRow, TableSchema } from '../../core/schema';
 import { isDateWithTimezoneString } from '../../core/schema';
-import type { YRow } from '../db/table-helper';
+import type { YRow } from '../tables/table-helper';
 
 /**
  * Executes a function within a Yjs transaction if the type is attached to a document.

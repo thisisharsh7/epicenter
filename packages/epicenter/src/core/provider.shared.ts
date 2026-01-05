@@ -7,7 +7,7 @@
  */
 
 import type * as Y from 'yjs';
-import type { Tables } from './db/core';
+import type { Tables } from './tables/core';
 import type { Kv } from './kv';
 import type { KvSchema, TablesSchema } from './schema';
 import type { ProviderPaths } from './types';

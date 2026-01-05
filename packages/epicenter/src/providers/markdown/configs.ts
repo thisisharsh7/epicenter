@@ -49,7 +49,7 @@ import path from 'node:path';
 import { type } from 'arktype';
 import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
-import type { TableHelper } from '../../core/db/table-helper';
+import type { TableHelper } from '../../core/tables/table-helper';
 import type { SerializedRow, TableSchema } from '../../core/schema';
 import { tableSchemaToArktype } from '../../core/schema';
 import {
