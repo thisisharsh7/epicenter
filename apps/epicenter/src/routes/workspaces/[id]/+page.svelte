@@ -3,10 +3,10 @@
 	import { rpc } from '$lib/query';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { params }: PageProps = $props();
 
 	const workspace = createQuery(
-		() => rpc.workspaces.getWorkspace(data.workspaceId).options,
+		() => rpc.workspaces.getWorkspace(params.id).options,
 	);
 </script>
 
@@ -16,7 +16,7 @@
 			Workspaces
 		</a>
 		<span class="text-muted-foreground">/</span>
-		<span class="font-medium">{data.workspaceId}</span>
+		<span class="font-medium">{params.id}</span>
 	</div>
 
 	{#if workspace.isPending}

@@ -65,9 +65,9 @@
 					{:else if workspaceIds.data}
 						{#each workspaceIds.data as id (id)}
 							<Sidebar.MenuItem>
-								<Sidebar.MenuButton isActive={page.params.workspace_id === id}>
+								<Sidebar.MenuButton isActive={page.params.id === id}>
 									{#snippet child({ props })}
-										<a href="/{id}" {...props}>
+										<a href="/workspaces/{id}" {...props}>
 											<FolderIcon />
 											<span>{id}</span>
 										</a>
