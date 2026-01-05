@@ -21,9 +21,10 @@ export type WorkspaceSchema<
 	TKvSchema extends KvSchema = KvSchema,
 > = {
 	id: TId;
+	name: string;
+	description?: string;
 	tables: TTablesSchema;
 	kv?: TKvSchema;
-	description?: string;
 };
 
 /**

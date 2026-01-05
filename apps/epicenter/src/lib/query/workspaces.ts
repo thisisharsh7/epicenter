@@ -49,14 +49,10 @@ export const workspaces = {
 				});
 			}
 
-			const now = new Date().toISOString();
-
 			const workspace: WorkspaceFile = {
 				id: input.id,
 				name: input.name,
 				tables: {},
-				createdAt: now,
-				updatedAt: now,
 			};
 
 			const result = await workspaceStorage.writeWorkspace(workspace);
@@ -72,12 +68,7 @@ export const workspaces = {
 	updateWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'update'],
 		mutationFn: async (workspace: WorkspaceFile) => {
-			const updated: WorkspaceFile = {
-				...workspace,
-				updatedAt: new Date().toISOString(),
-			};
-
-			const result = await workspaceStorage.writeWorkspace(updated);
+			const result = await workspaceStorage.writeWorkspace(workspace);
 			if (result.error) {
 				return Err(result.error);
 			}
@@ -86,7 +77,7 @@ export const workspaces = {
 				queryKey: workspaceKeys.detail(workspace.id),
 			});
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
-			return Ok(updated);
+			return Ok(workspace);
 		},
 	}),
 
