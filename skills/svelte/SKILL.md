@@ -25,9 +25,11 @@ Pass `onSuccess` and `onError` as the second argument to `.mutate()` to get maxi
 	import { createMutation } from '@tanstack/svelte-query';
 	import * as rpc from '$lib/query';
 
-	// Create mutation with just .options (no parentheses!)
+	// Wrap .options in accessor function, no parentheses on .options
 	// Name it after what it does, NOT with a "Mutation" suffix (redundant)
-	const deleteSession = createMutation(rpc.sessions.deleteSession.options);
+	const deleteSession = createMutation(
+		() => rpc.sessions.deleteSession.options,
+	);
 
 	// Local state that we can access in callbacks
 	let isDialogOpen = $state(false);
