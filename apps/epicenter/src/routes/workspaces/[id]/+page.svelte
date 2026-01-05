@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { createQuery } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
-	import type { PageProps } from './$types';
+	import { createQuery } from '@tanstack/svelte-query';
 
-	let { params }: PageProps = $props();
+	let { params } = $props();
 
 	const workspace = createQuery(
 		() => rpc.workspaces.getWorkspace(params.id).options,
