@@ -26,9 +26,8 @@ Pass `onSuccess` and `onError` as the second argument to `.mutate()` to get maxi
 	import * as rpc from '$lib/query';
 
 	// Create mutation with just .options (no parentheses!)
-	const deleteSessionMutation = createMutation(
-		rpc.sessions.deleteSession.options,
-	);
+	// Name it after what it does, NOT with a "Mutation" suffix (redundant)
+	const deleteSession = createMutation(rpc.sessions.deleteSession.options);
 
 	// Local state that we can access in callbacks
 	let isDialogOpen = $state(false);
@@ -37,7 +36,7 @@ Pass `onSuccess` and `onError` as the second argument to `.mutate()` to get maxi
 <Button
 	onclick={() => {
 		// Pass callbacks as second argument to .mutate()
-		deleteSessionMutation.mutate(
+		deleteSession.mutate(
 			{ sessionId },
 			{
 				onSuccess: () => {
@@ -52,9 +51,9 @@ Pass `onSuccess` and `onError` as the second argument to `.mutate()` to get maxi
 			},
 		);
 	}}
-	disabled={deleteSessionMutation.isPending}
+	disabled={deleteSession.isPending}
 >
-	{#if deleteSessionMutation.isPending}
+	{#if deleteSession.isPending}
 		Deleting...
 	{:else}
 		Delete
@@ -102,7 +101,7 @@ Never create functions prefixed with `handle` in the script tag. If the function
 <!-- BAD: Unnecessary wrapper function -->
 <script>
 	function handleShare() {
-		shareMutation.mutate({ id });
+		share.mutate({ id });
 	}
 
 	function handleSelectItem(itemId: string) {
@@ -114,7 +113,7 @@ Never create functions prefixed with `handle` in the script tag. If the function
 <Item onclick={() => handleSelectItem(item.id)} />
 
 <!-- GOOD: Inline the logic directly -->
-<Button onclick={() => shareMutation.mutate({ id })}>Share</Button>
+<Button onclick={() => share.mutate({ id })}>Share</Button>
 <Item onclick={() => goto(`/items/${item.id}`)} />
 ```
 
@@ -222,7 +221,29 @@ Never create a separate `type Props = {...}` declaration. Always inline the type
 </script>
 ```
 
-This reduces boilerplate and keeps the props definition co-located with the destructuring.
+## Children Prop Never Needs Type Annotation
+
+The `children` prop is implicitly typed in Svelte. Never annotate it:
+
+```svelte
+<!-- BAD: Annotating children -->
+<script lang="ts">
+	let { children }: { children: Snippet } = $props();
+</script>
+
+<!-- GOOD: children is implicitly typed -->
+<script lang="ts">
+	let { children } = $props();
+</script>
+
+<!-- GOOD: Other props need types, but children does not -->
+<script lang="ts">
+	let { children, title, onClose }: {
+		title: string;
+		onClose: () => void;
+	} = $props();
+</script>
+```
 
 # Self-Contained Component Pattern
 
@@ -252,8 +273,13 @@ When building interactive components (especially with dialogs/modals), create se
 ```svelte
 <!-- DeleteItemButton.svelte -->
 <script lang="ts">
+	import { createMutation } from '@tanstack/svelte-query';
+	import { rpc } from '$lib/query';
+
 	let { item }: { item: Item } = $props();
 	let open = $state(false);
+
+	const deleteItem = createMutation(() => rpc.items.delete.options);
 </script>
 
 <AlertDialog.Root bind:open>
@@ -261,8 +287,7 @@ When building interactive components (especially with dialogs/modals), create se
 		<Button>Delete</Button>
 	</AlertDialog.Trigger>
 	<AlertDialog.Content>
-		<!-- Dialog content with inline delete logic -->
-		<Button onclick={() => deleteMutation.mutate({ id: item.id })}>
+		<Button onclick={() => deleteItem.mutate({ id: item.id })}>
 			Confirm Delete
 		</Button>
 	</AlertDialog.Content>

@@ -14,7 +14,7 @@
 		$props();
 
 	const workspaces = createQuery(() => rpc.workspaces.listWorkspaces.options);
-	const createWorkspaceMutation = createMutation(
+	const createWorkspace = createMutation(
 		() => rpc.workspaces.createWorkspace.options,
 	);
 
@@ -90,7 +90,7 @@
 					onclick={() =>
 						workspaceCreateDialog.open({
 							onConfirm: async ({ name, id }) => {
-								await createWorkspaceMutation.mutateAsync({ name, id });
+								await createWorkspace.mutateAsync({ name, id });
 								goto(`/workspaces/${id}`);
 							},
 						})}

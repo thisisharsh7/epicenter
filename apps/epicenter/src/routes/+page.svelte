@@ -12,18 +12,6 @@
 	const openDirectory = createMutation(
 		() => rpc.workspaces.openWorkspacesDirectory.options,
 	);
-
-	function handleCreate() {
-		workspaceCreateDialog.open({
-			onConfirm: async ({ name, id }) => {
-				await createWorkspace.mutateAsync({ name, id });
-			},
-		});
-	}
-
-	function handleOpenDirectory() {
-		openDirectory.mutate(undefined);
-	}
 </script>
 
 <div class="space-y-6">
@@ -32,13 +20,21 @@
 		<div class="flex gap-2">
 			<Button
 				variant="outline"
-				onclick={handleOpenDirectory}
+				onclick={() => openDirectory.mutate(undefined)}
 				disabled={openDirectory.isPending}
 			>
 				<FolderOpenIcon class="mr-2 size-4" />
 				Open Location
 			</Button>
-			<Button onclick={handleCreate} disabled={createWorkspace.isPending}>
+			<Button
+				onclick={() =>
+					workspaceCreateDialog.open({
+						onConfirm: async ({ name, id }) => {
+							await createWorkspace.mutateAsync({ name, id });
+						},
+					})}
+				disabled={createWorkspace.isPending}
+			>
 				{createWorkspace.isPending ? 'Creating...' : 'Create Workspace'}
 			</Button>
 		</div>
@@ -51,7 +47,16 @@
 	{:else if workspaces.data?.length === 0}
 		<div class="rounded-lg border border-dashed p-8 text-center">
 			<p class="text-muted-foreground mb-4">No workspaces yet</p>
-			<Button onclick={handleCreate}>Create your first workspace</Button>
+			<Button
+				onclick={() =>
+					workspaceCreateDialog.open({
+						onConfirm: async ({ name, id }) => {
+							await createWorkspace.mutateAsync({ name, id });
+						},
+					})}
+			>
+				Create your first workspace
+			</Button>
 		</div>
 	{:else}
 		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
