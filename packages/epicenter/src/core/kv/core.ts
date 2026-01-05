@@ -51,11 +51,12 @@ export function createKv<TKvSchema extends KvSchema>(
 					result[keyName] = serializeCellValue(value);
 				} else {
 					const helper = kvHelpers[keyName as keyof typeof kvHelpers];
-					const defaultVal = helper.get();
-					result[keyName] =
-						defaultVal !== undefined
-							? serializeCellValue(defaultVal as KvValue)
-							: null;
+					const getResult = helper.get();
+					if (getResult.status === 'valid' && getResult.value !== undefined) {
+						result[keyName] = serializeCellValue(getResult.value as KvValue);
+					} else {
+						result[keyName] = null;
+					}
 				}
 			}
 			return result as {

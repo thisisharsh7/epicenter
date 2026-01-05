@@ -780,6 +780,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				transaction: Y.Transaction,
 			) => void | Promise<void>;
 		}): () => void {
+			// CRITICAL: Ensure the table Y.Map exists before setting up the observer.
+			// When observeDeep is called on ytables, Y.js starts observing all nested
+			// shared types. But if the table Y.Map doesn't exist yet, changes to it
+			// (and rows within it) that occur in the same transaction as its creation
+			// may not be properly observed. By calling getYTable() here, we ensure
+			// the table Y.Map exists and is being observed before any row operations.
+			getYTable();
+
 			const yjsValidator = tableSchemaToYjsArktype(schema);
 
 			// ARCHITECTURE: We observe on `ytables` (the root "tables" map) instead of

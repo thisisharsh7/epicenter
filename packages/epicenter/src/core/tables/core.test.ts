@@ -159,4 +159,218 @@ describe('createTables', () => {
 		expect(firstRow.title.toString()).toBe('Hello World');
 		expect(secondRow.title.toString()).toBe('Second Post');
 	});
+
+	describe('observe', () => {
+		test('onAdd fires when row is added via upsert', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+					published: boolean(),
+				},
+			});
+
+			const addedRows: string[] = [];
+			tables.posts.observe({
+				onAdd: (result) => {
+					if (result.data) {
+						addedRows.push(result.data.id);
+					}
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'First', published: false });
+			tables.posts.upsert({ id: 'post-2', title: 'Second', published: true });
+
+			expect(addedRows).toEqual(['post-1', 'post-2']);
+		});
+
+		test('onUpdate fires when row field is modified', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
+
+			const updates: Array<{ id: string; title: string }> = [];
+			tables.posts.observe({
+				onUpdate: (result) => {
+					if (result.data) {
+						updates.push({ id: result.data.id, title: result.data.title });
+					}
+				},
+			});
+
+			tables.posts.update({ id: 'post-1', title: 'Updated' });
+			tables.posts.update({ id: 'post-1', view_count: 100 });
+
+			expect(updates).toHaveLength(2);
+			expect(updates[0]?.title).toBe('Updated');
+		});
+
+		test('onDelete fires when row is removed', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'First' });
+			tables.posts.upsert({ id: 'post-2', title: 'Second' });
+
+			const deletedIds: string[] = [];
+			tables.posts.observe({
+				onDelete: (rowId) => {
+					deletedIds.push(rowId);
+				},
+			});
+
+			tables.posts.delete('post-1');
+
+			expect(deletedIds).toEqual(['post-1']);
+		});
+
+		test('callbacks receive Result types with validation', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			let receivedResult: { hasData: boolean; hasError: boolean } | null = null;
+			tables.posts.observe({
+				onAdd: (result) => {
+					receivedResult = {
+						hasData: result.data != null,
+						hasError: result.error != null,
+					};
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'Test' });
+
+			expect(receivedResult).not.toBeNull();
+			expect(receivedResult?.hasData).toBe(true);
+			expect(receivedResult?.hasError).toBe(false);
+		});
+
+		test('onUpdate fires for Y.Text content changes', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					content: ytext(),
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', content: 'Initial' });
+
+			let updateCount = 0;
+			tables.posts.observe({
+				onUpdate: () => {
+					updateCount++;
+				},
+			});
+
+			const result = tables.posts.get('post-1');
+			if (result.status === 'valid') {
+				result.row.content.insert(0, 'Prefix: ');
+			}
+
+			expect(updateCount).toBeGreaterThanOrEqual(1);
+		});
+
+		test('onUpdate fires for Y.Array content changes', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					categories: tags(),
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', categories: ['tech'] });
+
+			let updateCount = 0;
+			tables.posts.observe({
+				onUpdate: () => {
+					updateCount++;
+				},
+			});
+
+			const result = tables.posts.get('post-1');
+			if (result.status === 'valid') {
+				result.row.categories.push(['blog']);
+			}
+
+			expect(updateCount).toBeGreaterThanOrEqual(1);
+		});
+
+		test('validation errors are passed to callbacks', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const ytables = ydoc.getMap('tables') as Y.Map<Y.Map<Y.Map<unknown>>>;
+
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					count: integer(),
+				},
+			});
+
+			let receivedError = false;
+			tables.posts.observe({
+				onAdd: (result) => {
+					if (result.error) {
+						receivedError = true;
+					}
+				},
+			});
+
+			const postsMap = ytables.get('posts') ?? new Y.Map();
+			if (!ytables.has('posts')) {
+				ytables.set('posts', postsMap as Y.Map<Y.Map<unknown>>);
+			}
+			const invalidRow = new Y.Map();
+			invalidRow.set('id', 'bad-row');
+			invalidRow.set('count', 'not a number');
+			(postsMap as Y.Map<Y.Map<unknown>>).set('bad-row', invalidRow);
+
+			expect(receivedError).toBe(true);
+		});
+
+		test('unsubscribe stops callbacks', () => {
+			const ydoc = new Y.Doc({ guid: 'test-observe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			const addedIds: string[] = [];
+			const unsubscribe = tables.posts.observe({
+				onAdd: (result) => {
+					if (result.data) {
+						addedIds.push(result.data.id);
+					}
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'First' });
+			unsubscribe();
+			tables.posts.upsert({ id: 'post-2', title: 'Second' });
+
+			expect(addedIds).toEqual(['post-1']);
+		});
+	});
 });
