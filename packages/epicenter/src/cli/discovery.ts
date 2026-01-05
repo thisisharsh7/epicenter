@@ -1,10 +1,9 @@
 import { stat } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import type { ProjectDir } from '../core/types';
-import type { Actions } from '../core/actions';
-import type { BoundWorkspaceClient } from '../core/workspace/contract';
+import type { WorkspaceClient } from '../core/workspace/contract';
 
-type AnyWorkspaceClient = BoundWorkspaceClient<string, any, any, any, Actions>;
+type AnyWorkspaceClient = WorkspaceClient<string, any, any>;
 
 export async function findProjectDir(
 	startDir: string = process.cwd(),
@@ -62,7 +61,7 @@ export async function loadClients(
 	for (const client of clients) {
 		if (!isWorkspaceClient(client)) {
 			throw new Error(
-				`Invalid client in epicenter.config.ts. Expected BoundWorkspaceClient with id and contracts properties.`,
+				`Invalid client in epicenter.config.ts. Expected WorkspaceClient with id and contracts properties.`,
 			);
 		}
 	}

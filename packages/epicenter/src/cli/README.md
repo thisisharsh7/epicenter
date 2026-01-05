@@ -1,47 +1,33 @@
 # Epicenter CLI
 
-Turn your Epicenter workspaces into command-line tools automatically.
+Start your Epicenter server from the command line.
 
 ## What This Does
 
-The CLI system generates command-line interfaces from your Epicenter configuration. Define your workspaces with their actions, and instantly get a typed, validated CLI that you can run from the terminal.
+The CLI starts an HTTP server that exposes your workspace tables via REST API and WebSocket sync.
 
 ```bash
-epicenter <workspace> <action> [flags]
+epicenter [--port 3913]
 ```
 
-That's it. No manual CLI setup, no repetitive argument parsing. Your workspace actions become commands, and your Standard Schema definitions become CLI flags.
+Running `epicenter` without arguments starts the server on the default port (3913).
 
 ## How It Works
 
-### 1. Define Your Workspace Actions
-
-Write your workspace actions like you normally would:
+### 1. Define Your Workspace
 
 ```typescript
-import { type } from 'arktype';
-import { defineWorkspace, defineMutation } from '@epicenter/hq';
+import { defineWorkspace, id, text, boolean } from '@epicenter/hq';
 
-const reddit = defineWorkspace({
-	id: 'reddit',
+const blogWorkspace = defineWorkspace({
+	id: 'blog',
 	tables: {
-		/* ... */
+		posts: {
+			id: id(),
+			title: text(),
+			published: boolean({ default: false }),
+		},
 	},
-	actions: ({ tables }) => ({
-		import: defineMutation({
-			input: type({
-				url: 'string',
-				count: 'number = 10',
-			}).describe({
-				url: 'Reddit URL to import',
-				count: 'Number of posts',
-			}),
-			handler: async ({ url, count }) => {
-				// Your import logic here
-				return Ok(result);
-			},
-		}),
-	}),
 });
 ```
 
@@ -50,119 +36,83 @@ const reddit = defineWorkspace({
 In your project root, create `epicenter.config.ts`:
 
 ```typescript
-import { reddit } from './workspaces/reddit';
-import { blog } from './workspaces/blog';
+import { sqliteProvider } from '@epicenter/hq';
+import { blogWorkspace } from './workspaces/blog';
 
-// Export an array of workspace configurations
-export default [reddit, blog];
+const blogClient = await blogWorkspace
+	.withProviders({ sqlite: sqliteProvider })
+	.create();
+
+export default [blogClient];
 ```
 
-### 3. Run Commands
-
-The CLI automatically discovers your config and exposes your actions:
+### 3. Start the Server
 
 ```bash
-epicenter reddit import --url "https://reddit.com/r/typescript" --count 25
-epicenter blog publish --title "My Post" --tags tech typescript coding
+epicenter
 ```
 
-Running `epicenter` without arguments starts an HTTP server with REST and MCP endpoints.
+This starts the server with:
 
-## Schema-Driven Flags
+- REST API at `/workspaces/{workspace}/tables/{table}`
+- WebSocket sync at `/workspaces/{workspace}/sync`
+- OpenAPI docs at `/openapi`
 
-Your action's input schema automatically becomes CLI flags:
+## CLI Options
 
-- `'string'` → `--flag <value>`
-- `'number'` → `--flag <number>`
-- `'boolean'` → `--flag` (presence = true)
-- `'string[]'` → `--flag item1 item2 item3` (space-separated)
-- `'"a" | "b"'` → `--flag <choice>` (with validation)
-- `'string?'` → flag is optional
-- `'number = 10'` → flag has a default value
-- `.describe({})` → shows descriptions in `--help`
+| Option      | Description               | Default |
+| ----------- | ------------------------- | ------- |
+| `--port`    | Port to run the server on | 3913    |
+| `--help`    | Show help                 |         |
+| `--version` | Show version              |         |
 
-**Array values**: Use spaces to separate multiple values:
+## Writing Custom Actions
 
-```bash
-epicenter workspace action --tags tech productivity typescript
-```
-
-## Standard Schema Conversion
-
-The CLI uses Standard Schema for validation. The `standardJsonSchemaToYargs` function converts Standard Schema definitions to yargs CLI options by introspecting the schema structure:
+The CLI doesn't map actions to commands. Instead, write regular functions that use your client and expose them however you prefer:
 
 ```typescript
-// Your ArkType schema
-const schema = type({
-	url: 'string',
-	'count?': 'number = 10',
-}).describe({
-	url: 'Reddit URL',
-	count: 'Number of posts',
-});
+// actions.ts
+import { blogClient } from './epicenter.config';
 
-// Automatically converted to yargs options:
-// --url <string> (required) - Reddit URL
-// --count <number> (optional, default: 10)
+export function createPost(title: string) {
+	const id = generateId();
+	blogClient.tables.posts.upsert({ id, title, published: false });
+	return { id };
+}
+
+export function publishPost(id: string) {
+	blogClient.tables.posts.update({ id, published: true });
+}
 ```
 
-The converter works by examining the Standard Schema's `~standard` property and converting it to JSON Schema, then mapping that to appropriate yargs option types. This works with any Standard Schema-compliant library (ArkType, Valibot, Zod, etc.).
-
-## Under the Hood
-
-When you run a command:
-
-1. **Config Loading**: Finds `epicenter.config.ts` in your project
-2. **Client Creation**: Initializes the Epicenter client with all workspaces
-3. **Schema Introspection**: Examines action schemas to generate flags
-4. **Action Execution**: Calls the requested action with parsed arguments
-5. **Result Handling**: Displays success data or error messages
-
-The CLI handles Result types from `wellcrafted`, showing errors clearly and exiting with appropriate status codes.
-
-## Watch Mode
-
-The CLI automatically enables watch mode via `bun --watch`. When you modify your config, workspaces, or any imported files, the CLI restarts automatically. No manual restart needed during development.
-
-## Error Handling
-
-The CLI provides helpful error messages:
-
-- **Config not found**: Lists expected file names
-- **Workspace not found**: Shows available workspaces
-- **Action not found**: Lists available actions for that workspace
-- **Invalid arguments**: Shows validation errors from your schema
-- **Action errors**: Displays error details from Result types
-
-## Testing Your CLI
-
-Test your CLI commands programmatically:
+Then expose via HTTP endpoints, MCP server, or your own CLI:
 
 ```typescript
-import { createClient } from '@epicenter/hq';
+// Custom CLI script
+const [command, ...args] = process.argv.slice(2);
+if (command === 'create') createPost(args[0]);
+if (command === 'publish') publishPost(args[0]);
+```
+
+## Testing
+
+Test your configuration programmatically:
+
+```typescript
 import { createCLI } from '@epicenter/hq/cli';
 
-const client = await createClient(workspaces, { projectDir: '...' });
-await createCLI(client).run([
-	'reddit',
-	'import',
-	'--url',
-	'https://...',
-	'--count',
-	'5',
-]);
+const clients = await loadClients();
+const cli = createCLI(clients);
+await cli.run(['--port', '8080']);
 ```
 
 ## File Organization
 
-- `bin.ts`: Entry point for CLI executable (with auto-watch mode)
+- `bin.ts`: Entry point for CLI executable
 - `cli.ts`: Core CLI creation logic
-- `standard-json-schema-to-yargs.ts`: Schema to CLI flag conversion
-- `load-config.ts`: Config file discovery and loading
-- `index.ts`: Public API exports for programmatic use
+- `discovery.ts`: Config file discovery and loading
+- `index.ts`: Public API exports
 
 ## Philosophy
 
-Command-line interfaces should be generated, not hand-written. Your workspace actions already define what arguments they accept and what they do. The CLI just exposes that over the terminal.
-
-No boilerplate. No duplication. Just your actions, accessible from the command line.
+The CLI is intentionally simple: it just starts a server. Business logic belongs in your application code, not in CLI commands. Use the REST API or WebSocket sync to interact with your data.

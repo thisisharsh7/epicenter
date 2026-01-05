@@ -35,20 +35,23 @@ import type { WorkspaceSchema } from '../../core/schema';
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
  *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,
- *   },
- *   actions: ({ tables }) => ({ ... }),
  * });
+ *
+ * const client = await workspace
+ *   .withProviders({
+ *     persistence: setupPersistence,
+ *   })
+ *   .create();
  * ```
  *
  * @example In a Svelte/React component
  * ```typescript
- * import { createClient } from '@epicenter/hq';
  * import { workspace } from './workspace-config';
  *
  * // Inside component setup/onMount:
- * const client = await createClient(workspace);
+ * const client = await workspace
+ *   .withProviders({ persistence: setupPersistence })
+ *   .create();
  *
  * // Data persists across page refreshes!
  * // Check DevTools → Application → IndexedDB to see the database
@@ -60,20 +63,15 @@ import type { WorkspaceSchema } from '../../core/schema';
  * const blog = defineWorkspace({
  *   id: 'blog',  // → IndexedDB database named 'blog'
  *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,
- *   },
- *   actions: ({ tables }) => ({ ... }),
  * });
  *
  * const notes = defineWorkspace({
  *   id: 'notes',  // → IndexedDB database named 'notes'
  *   tables: { ... },
- *   providers: {
- *     persistence: setupPersistence,
- *   },
- *   actions: ({ tables }) => ({ ... }),
  * });
+ *
+ * const blogClient = await blog.withProviders({ persistence: setupPersistence }).create();
+ * const notesClient = await notes.withProviders({ persistence: setupPersistence }).create();
  *
  * // Workspaces are isolated, each with separate IndexedDB storage
  * ```
