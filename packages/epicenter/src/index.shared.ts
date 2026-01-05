@@ -132,7 +132,6 @@ export type {
 	ProviderMap,
 	Workspace,
 	WorkspaceClient,
-	WorkspaceManifest,
 	WorkspaceSchema,
 	WorkspaceWithProviders,
 } from './core/workspace/contract';

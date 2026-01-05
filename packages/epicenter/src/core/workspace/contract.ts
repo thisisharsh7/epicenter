@@ -27,22 +27,6 @@ export type WorkspaceSchema<
 };
 
 /**
- * JSON-serializable manifest of a workspace for introspection.
- *
- * Used by `.toJSON()` to produce a snapshot of the workspace configuration
- * without any runtime behavior. Useful for:
- * - Generating documentation
- * - Debugging and logging
- * - UI display
- */
-export type WorkspaceManifest = {
-	id: string;
-	description?: string;
-	tables: TablesSchema;
-	kv?: KvSchema;
-};
-
-/**
  * A map of provider factory functions keyed by provider ID.
  *
  * Providers add capabilities to workspaces: persistence, sync, SQL queries, etc.
@@ -104,9 +88,6 @@ export type Workspace<
 	withProviders<TProviders extends ProviderMap<TTablesSchema, TKvSchema>>(
 		providers: TProviders,
 	): WorkspaceWithProviders<TId, TTablesSchema, TKvSchema, TProviders>;
-
-	/** Get a JSON-serializable manifest of the workspace for introspection. */
-	toJSON(): WorkspaceManifest;
 };
 
 /**
@@ -134,9 +115,6 @@ export type WorkspaceWithProviders<
 	create(
 		options?: CreateOptions,
 	): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TProviders>>;
-
-	/** Get a JSON-serializable manifest of the workspace for introspection. */
-	toJSON(): WorkspaceManifest;
 };
 
 /**
@@ -394,24 +372,6 @@ export function defineWorkspace<
 						[Symbol.asyncDispose]: cleanup,
 					};
 				},
-
-				toJSON(): WorkspaceManifest {
-					return {
-						id: config.id,
-						description: config.description,
-						tables: config.tables,
-						kv: config.kv,
-					};
-				},
-			};
-		},
-
-		toJSON(): WorkspaceManifest {
-			return {
-				id: config.id,
-				description: config.description,
-				tables: config.tables,
-				kv: config.kv,
 			};
 		},
 	};
