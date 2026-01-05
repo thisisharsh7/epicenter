@@ -142,11 +142,11 @@
 						description: 'Are you sure? This action cannot be undone.',
 						confirm: { text: 'Delete', variant: 'destructive' },
 						onConfirm: async () => {
-							const { error } = await rpc.db.transformations.delete.execute(
+							const { error } = await rpc.db.transformations.delete(
 								$state.snapshot(transformation),
 							);
 							if (error) {
-								rpc.notify.error.execute({
+								rpc.notify.error({
 									title: 'Failed to delete transformation!',
 									description: 'Your transformation could not be deleted.',
 									action: { type: 'more-details', error },
@@ -154,7 +154,7 @@
 								throw error;
 							}
 							isDialogOpen = false;
-							rpc.notify.success.execute({
+							rpc.notify.success({
 								title: 'Deleted transformation!',
 								description:
 									'Your transformation has been deleted successfully.',
@@ -176,7 +176,7 @@
 					onclick={() => {
 						updateTransformation.mutate($state.snapshot(workingCopy), {
 							onSuccess: () => {
-								rpc.notify.success.execute({
+								rpc.notify.success({
 									title: 'Updated transformation!',
 									description:
 										'Your transformation has been updated successfully.',
@@ -184,7 +184,7 @@
 								isDialogOpen = false;
 							},
 							onError: (error) => {
-								rpc.notify.error.execute({
+								rpc.notify.error({
 									title: 'Failed to update transformation!',
 									description: 'Your transformation could not be updated.',
 									action: { type: 'more-details', error },

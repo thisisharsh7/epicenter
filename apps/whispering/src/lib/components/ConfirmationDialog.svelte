@@ -53,12 +53,12 @@
 	 *   description: 'Are you sure you want to delete this item?',
 	 *   confirm: { text: 'Delete', variant: 'destructive' },
 	 *   onConfirm: async () => {
-	 *     const { error } = await rpc.db.items.delete.execute(item);
+	 *     const { error } = await rpc.db.items.delete(item);
 	 *     if (error) {
-	 *       rpc.notify.error.execute({ title: 'Failed to delete', description: error.message });
+	 *       rpc.notify.error({ title: 'Failed to delete', description: error.message });
 	 *       throw error;
 	 *     }
-	 *     rpc.notify.success.execute({ title: 'Deleted!', description: 'Item deleted.' });
+	 *     rpc.notify.success({ title: 'Deleted!', description: 'Item deleted.' });
 	 *   },
 	 * });
 	 *

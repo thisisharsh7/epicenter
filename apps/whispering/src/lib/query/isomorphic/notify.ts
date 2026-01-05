@@ -88,13 +88,13 @@ const createNotifyMutation = (
  *
  * ```typescript
  * // Simple notification - shows both toast and OS notification
- * await notify.success.execute({
+ * await notify.success({
  *   title: 'Recording saved',
  *   description: 'Your recording has been transcribed'
  * });
  *
  * // Loading notification - only shows toast (no OS notification spam)
- * const loadingId = await notify.loading.execute({
+ * const loadingId = await notify.loading({
  *   title: 'Processing...',
  *   description: 'This may take a moment'
  * });

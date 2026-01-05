@@ -8,7 +8,7 @@ export function syncIconWithRecorderState() {
 
 	$effect(() => {
 		if (getRecorderStateQuery.data) {
-			desktopRpc.tray.setTrayIcon.execute({
+			desktopRpc.tray.setTrayIcon({
 				icon: getRecorderStateQuery.data,
 			});
 		}

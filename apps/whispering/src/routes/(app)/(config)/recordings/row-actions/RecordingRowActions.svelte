@@ -60,7 +60,7 @@
 						: 'Transcription failed - click to try again'}
 			onclick={() => {
 				const toastId = nanoid();
-				rpc.notify.loading.execute({
+				rpc.notify.loading({
 					id: toastId,
 					title: '📋 Transcribing...',
 					description: 'Your recording is being transcribed...',
@@ -68,10 +68,10 @@
 				transcribeRecording.mutate(recording, {
 					onError: (error) => {
 						if (error.name === 'WhisperingError') {
-							rpc.notify.error.execute({ id: toastId, ...error });
+							rpc.notify.error({ id: toastId, ...error });
 							return;
 						}
-						rpc.notify.error.execute({
+						rpc.notify.error({
 							id: toastId,
 							title: '❌ Failed to transcribe recording',
 							description: 'Your recording could not be transcribed.',
@@ -79,9 +79,9 @@
 						});
 					},
 					onSuccess: (transcribedText) => {
-						rpc.sound.playSoundIfEnabled.execute('transcriptionComplete');
+						rpc.sound.playSoundIfEnabled('transcriptionComplete');
 
-						rpc.delivery.deliverTranscriptionResult.execute({
+						rpc.delivery.deliverTranscriptionResult({
 							text: transcribedText,
 							toastId,
 						});
@@ -154,17 +154,17 @@
 				downloadRecording.mutate(recording, {
 					onError: (error) => {
 						if (error.name === 'WhisperingError') {
-							rpc.notify.error.execute(error);
+							rpc.notify.error(error);
 							return;
 						}
-						rpc.notify.error.execute({
+						rpc.notify.error({
 							title: 'Failed to download recording!',
 							description: 'Your recording could not be downloaded.',
 							action: { type: 'more-details', error },
 						});
 					},
 					onSuccess: () => {
-						rpc.notify.success.execute({
+						rpc.notify.success({
 							title: 'Recording downloaded!',
 							description: 'Your recording has been downloaded.',
 						});
@@ -188,16 +188,16 @@
 					description: 'Are you sure you want to delete this recording?',
 					confirm: { text: 'Delete', variant: 'destructive' },
 					onConfirm: async () => {
-						const { error } = await rpc.db.recordings.delete.execute(recording);
+						const { error } = await rpc.db.recordings.delete(recording);
 						if (error) {
-							rpc.notify.error.execute({
+							rpc.notify.error({
 								title: 'Failed to delete recording!',
 								description: 'Your recording could not be deleted.',
 								action: { type: 'more-details', error },
 							});
 							throw error;
 						}
-						rpc.notify.success.execute({
+						rpc.notify.success({
 							title: 'Deleted recording!',
 							description: 'Your recording has been deleted.',
 						});

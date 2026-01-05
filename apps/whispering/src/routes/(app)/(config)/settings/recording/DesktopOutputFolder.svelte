@@ -55,7 +55,7 @@
 				await openPath(folderPath);
 			},
 			catch: (error) => {
-				rpc.notify.error.execute({
+				rpc.notify.error({
 					title: 'Failed to open folder',
 					description: error instanceof Error ? error.message : 'Unknown error',
 				});

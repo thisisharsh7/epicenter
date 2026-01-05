@@ -223,18 +223,18 @@
 							'Are you sure you want to delete these transformations?',
 						confirm: { text: 'Delete', variant: 'destructive' },
 						onConfirm: async () => {
-							const { error } = await rpc.db.transformations.delete.execute(
+							const { error } = await rpc.db.transformations.delete(
 								selectedTransformationRows.map(({ original }) => original),
 							);
 							if (error) {
-								rpc.notify.error.execute({
+								rpc.notify.error({
 									title: 'Failed to delete transformations!',
 									description: 'Your transformations could not be deleted.',
 									action: { type: 'more-details', error },
 								});
 								throw error;
 							}
-							rpc.notify.success.execute({
+							rpc.notify.success({
 								title: 'Deleted transformations!',
 								description:
 									'Your transformations have been deleted successfully.',

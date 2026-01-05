@@ -54,15 +54,15 @@
 						description: `This will permanently delete all ${runs.length} run${runs.length !== 1 ? 's' : ''} from this history. This action cannot be undone.`,
 						confirm: { text: 'Delete All', variant: 'destructive' },
 						onConfirm: async () => {
-							const { error } = await rpc.db.runs.delete.execute(runs);
+							const { error } = await rpc.db.runs.delete(runs);
 							if (error) {
-								rpc.notify.error.execute({
+								rpc.notify.error({
 									title: 'Failed to delete runs',
 									description: error.message,
 								});
 								throw error;
 							}
-							rpc.notify.success.execute({
+							rpc.notify.success({
 								title: `${runs.length} run${runs.length !== 1 ? 's' : ''} deleted successfully`,
 								description: 'All transformation runs have been deleted.',
 							});
@@ -124,15 +124,15 @@
 											description: `This will permanently delete the run from ${formatDate(run.startedAt)}. This action cannot be undone.`,
 											confirm: { text: 'Delete', variant: 'destructive' },
 											onConfirm: async () => {
-												const { error } = await rpc.db.runs.delete.execute(run);
+												const { error } = await rpc.db.runs.delete(run);
 												if (error) {
-													rpc.notify.error.execute({
+													rpc.notify.error({
 														title: 'Failed to delete run',
 														description: error.message,
 													});
 													throw error;
 												}
-												rpc.notify.success.execute({
+												rpc.notify.success({
 													title: 'Run deleted successfully',
 													description:
 														'Your transformation run has been deleted.',

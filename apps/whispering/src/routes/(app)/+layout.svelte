@@ -21,7 +21,7 @@
 
 	// Log app started event once on mount
 	$effect(() => {
-		rpc.analytics.logEvent.execute({ type: 'app_started' });
+		rpc.analytics.logEvent({ type: 'app_started' });
 	});
 
 	// Listen for navigation events from other windows

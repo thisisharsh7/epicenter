@@ -36,9 +36,9 @@
 				variant="outline"
 				size="sm"
 				onclick={async () => {
-					await desktopRpc.globalShortcuts.unregisterAll.execute();
+					await desktopRpc.globalShortcuts.unregisterAll();
 					settings.resetGlobalShortcuts();
-					rpc.notify.success.execute({
+					rpc.notify.success({
 						title: 'Shortcuts reset',
 						description: 'All global shortcuts have been reset to defaults.',
 					});

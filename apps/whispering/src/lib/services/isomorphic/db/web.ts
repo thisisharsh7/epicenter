@@ -95,13 +95,13 @@ class WhisperingDatabase extends Dexie {
 										blob,
 									});
 								if (downloadError) {
-									rpc.notify.error.execute({
+									rpc.notify.error({
 										title: 'Failed to download IndexedDB dump!',
 										description: 'Your IndexedDB dump could not be downloaded.',
 										action: { type: 'more-details', error: downloadError },
 									});
 								} else {
-									rpc.notify.success.execute({
+									rpc.notify.success({
 										title: 'IndexedDB dump downloaded!',
 										description: 'Your IndexedDB dump is being downloaded.',
 									});
@@ -115,7 +115,7 @@ class WhisperingDatabase extends Dexie {
 								try {
 									// Delete the database
 									await this.delete();
-									rpc.notify.success.execute({
+									rpc.notify.success({
 										title: 'Database Deleted',
 										description:
 											'The database has been successfully deleted. Please refresh the page.',
@@ -130,7 +130,7 @@ class WhisperingDatabase extends Dexie {
 								} catch (err) {
 									const error = extractErrorMessage(err);
 
-									rpc.notify.error.execute({
+									rpc.notify.error({
 										title: 'Failed to Delete Database',
 										description:
 											'There was an error deleting the database. Please try again.',

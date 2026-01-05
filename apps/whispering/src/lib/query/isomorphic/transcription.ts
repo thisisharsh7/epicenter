@@ -37,12 +37,12 @@ export const transcription = {
 			}
 
 			const { error: setRecordingTranscribingError } =
-				await db.recordings.update.execute({
+				await db.recordings.update({
 					...recording,
 					transcriptionStatus: 'TRANSCRIBING',
 				});
 			if (setRecordingTranscribingError) {
-				notify.warning.execute({
+				notify.warning({
 					title:
 						'⚠️ Unable to set recording transcription status to transcribing',
 					description: 'Continuing with the transcription process...',
@@ -56,12 +56,12 @@ export const transcription = {
 				await transcribeBlob(audioBlob);
 			if (transcribeError) {
 				const { error: setRecordingTranscribingError } =
-					await db.recordings.update.execute({
+					await db.recordings.update({
 						...recording,
 						transcriptionStatus: 'FAILED',
 					});
 				if (setRecordingTranscribingError) {
-					notify.warning.execute({
+					notify.warning({
 						title: '⚠️ Unable to update recording after transcription',
 						description:
 							"Transcription failed but unable to update recording's transcription status in database",
@@ -75,13 +75,13 @@ export const transcription = {
 			}
 
 			const { error: setRecordingTranscribedTextError } =
-				await db.recordings.update.execute({
+				await db.recordings.update({
 					...recording,
 					transcribedText,
 					transcriptionStatus: 'DONE',
 				});
 			if (setRecordingTranscribedTextError) {
-				notify.warning.execute({
+				notify.warning({
 					title: '⚠️ Unable to update recording after transcription',
 					description:
 						"Transcription completed but unable to update recording's transcribed text and status in database",
@@ -128,7 +128,7 @@ async function transcribeBlob(
 
 	// Log transcription request
 	const startTime = Date.now();
-	rpc.analytics.logEvent.execute({
+	rpc.analytics.logEvent({
 		type: 'transcription_requested',
 		provider: selectedService,
 	});
@@ -144,11 +144,11 @@ async function transcribeBlob(
 
 		if (compressionError) {
 			// Notify user of compression failure but continue with original blob
-			notify.warning.execute({
+			notify.warning({
 				title: 'Audio compression failed',
 				description: `${compressionError.message}. Using original audio for transcription.`,
 			});
-			rpc.analytics.logEvent.execute({
+			rpc.analytics.logEvent({
 				type: 'compression_failed',
 				provider: selectedService,
 				error_message: compressionError.message,
@@ -159,11 +159,11 @@ async function transcribeBlob(
 			const compressionRatio = Math.round(
 				(1 - compressedBlob.size / blob.size) * 100,
 			);
-			notify.info.execute({
+			notify.info({
 				title: 'Audio compressed',
 				description: `Reduced file size by ${compressionRatio}%`,
 			});
-			rpc.analytics.logEvent.execute({
+			rpc.analytics.logEvent({
 				type: 'compression_completed',
 				provider: selectedService,
 				original_size: blob.size,
@@ -287,14 +287,14 @@ async function transcribeBlob(
 	// Log transcription result
 	const duration = Date.now() - startTime;
 	if (transcriptionResult.error) {
-		rpc.analytics.logEvent.execute({
+		rpc.analytics.logEvent({
 			type: 'transcription_failed',
 			provider: selectedService,
 			error_title: transcriptionResult.error.title,
 			error_description: transcriptionResult.error.description,
 		});
 	} else {
-		rpc.analytics.logEvent.execute({
+		rpc.analytics.logEvent({
 			type: 'transcription_completed',
 			provider: selectedService,
 			duration,

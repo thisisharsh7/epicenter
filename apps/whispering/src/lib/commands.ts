@@ -35,9 +35,9 @@ export const commands = [
 		on: ['Pressed', 'Released'],
 		callback: (state?: ShortcutEventState) => {
 			if (state === 'Pressed') {
-				rpc.commands.startManualRecording.execute(undefined);
+				rpc.commands.startManualRecording(undefined);
 			} else if (state === 'Released') {
-				rpc.commands.stopManualRecording.execute(undefined);
+				rpc.commands.stopManualRecording(undefined);
 			}
 		},
 	},
@@ -45,56 +45,56 @@ export const commands = [
 		id: 'toggleManualRecording',
 		title: 'Toggle recording',
 		on: ['Pressed'],
-		callback: () => rpc.commands.toggleManualRecording.execute(undefined),
+		callback: () => rpc.commands.toggleManualRecording(undefined),
 	},
 	{
 		id: 'startManualRecording',
 		title: 'Start recording',
 		on: ['Pressed'],
-		callback: () => rpc.commands.startManualRecording.execute(undefined),
+		callback: () => rpc.commands.startManualRecording(undefined),
 	},
 	{
 		id: 'stopManualRecording',
 		title: 'Stop recording',
 		on: ['Pressed'],
-		callback: () => rpc.commands.stopManualRecording.execute(undefined),
+		callback: () => rpc.commands.stopManualRecording(undefined),
 	},
 	{
 		id: 'cancelManualRecording',
 		title: 'Cancel recording',
 		on: ['Pressed'],
-		callback: () => rpc.commands.cancelManualRecording.execute(undefined),
+		callback: () => rpc.commands.cancelManualRecording(undefined),
 	},
 	{
 		id: 'startVadRecording',
 		title: 'Start voice activated recording',
 		on: ['Pressed'],
-		callback: () => rpc.commands.startVadRecording.execute(undefined),
+		callback: () => rpc.commands.startVadRecording(undefined),
 	},
 	{
 		id: 'stopVadRecording',
 		title: 'Stop voice activated recording',
 		on: ['Pressed'],
-		callback: () => rpc.commands.stopVadRecording.execute(undefined),
+		callback: () => rpc.commands.stopVadRecording(undefined),
 	},
 	{
 		id: 'toggleVadRecording',
 		title: 'Toggle voice activated recording',
 		on: ['Pressed'],
-		callback: () => rpc.commands.toggleVadRecording.execute(undefined),
+		callback: () => rpc.commands.toggleVadRecording(undefined),
 	},
 	{
 		id: 'openTransformationPicker',
 		title: 'Open transformation picker',
 		on: ['Pressed'],
-		callback: () => rpc.commands.openTransformationPicker.execute(undefined),
+		callback: () => rpc.commands.openTransformationPicker(undefined),
 	},
 	{
 		id: 'runTransformationOnClipboard',
 		title: 'Run transformation on clipboard',
 		on: ['Pressed'],
 		callback: () =>
-			rpc.commands.runTransformationOnClipboard.execute(undefined),
+			rpc.commands.runTransformationOnClipboard(undefined),
 	},
 ] as const satisfies SatisfiedCommand[];
 

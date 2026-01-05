@@ -23,7 +23,7 @@
 
 	const pressedKeys = createPressedKeys({
 		onUnsupportedKey: (key) => {
-			rpc.notify.warning.execute({
+			rpc.notify.warning({
 				title: 'Unsupported key',
 				description: `The key "${key}" is not supported. Please try a different key.`,
 			});

@@ -194,11 +194,11 @@
 						description: 'Are you sure? This action cannot be undone.',
 						confirm: { text: 'Delete', variant: 'destructive' },
 						onConfirm: async () => {
-							const { error } = await rpc.db.recordings.delete.execute(
+							const { error } = await rpc.db.recordings.delete(
 								$state.snapshot(recording),
 							);
 							if (error) {
-								rpc.notify.error.execute({
+								rpc.notify.error({
 									title: 'Failed to delete recording!',
 									description: 'Your recording could not be deleted.',
 									action: { type: 'more-details', error },
@@ -206,7 +206,7 @@
 								throw error;
 							}
 							isDialogOpen = false;
-							rpc.notify.success.execute({
+							rpc.notify.success({
 								title: 'Deleted recording!',
 								description: 'Your recording has been deleted successfully.',
 							});
@@ -224,14 +224,14 @@
 				onclick={() => {
 					updateRecording.mutate($state.snapshot(workingCopy), {
 						onSuccess: () => {
-							rpc.notify.success.execute({
+							rpc.notify.success({
 								title: 'Updated recording!',
 								description: 'Your recording has been updated successfully.',
 							});
 							isDialogOpen = false;
 						},
 						onError: (error) => {
-							rpc.notify.error.execute({
+							rpc.notify.error({
 								title: 'Failed to update recording!',
 								description: 'Your recording could not be updated.',
 								action: { type: 'more-details', error: error },

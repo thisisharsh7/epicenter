@@ -53,7 +53,7 @@
 
 	$effect(() => {
 		if (getDevicesQuery.isError) {
-			rpc.notify.warning.execute(getDevicesQuery.error);
+			rpc.notify.warning(getDevicesQuery.error);
 		}
 	});
 </script>

@@ -10,7 +10,7 @@ export async function checkForUpdates() {
 	try {
 		const update = await (shouldUseMockUpdates() ? mockCheck() : check());
 		if (update) {
-			await rpc.notify.info.execute({
+			await rpc.notify.info({
 				title: `Update ${update.version} available`,
 				description: 'A new version of Whispering is available.',
 				action: {
@@ -22,7 +22,7 @@ export async function checkForUpdates() {
 			});
 		}
 	} catch (error) {
-		rpc.notify.error.execute({
+		rpc.notify.error({
 			title: 'Failed to check for updates',
 			description: extractErrorMessage(error),
 		});

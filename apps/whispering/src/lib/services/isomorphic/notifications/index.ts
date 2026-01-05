@@ -24,7 +24,7 @@ export type { NotificationService, NotificationServiceError } from './types';
  *
  * // ✅ Use the notify API instead
  * import { notify } from '$lib/query';
- * await notify.success.execute({ title: 'Hello' });
+ * await notify.success({ title: 'Hello' });
  * ```
  *
  * ## Why use `notify` instead?

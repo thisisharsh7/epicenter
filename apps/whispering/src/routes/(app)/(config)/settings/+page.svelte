@@ -237,11 +237,11 @@
 					onCheckedChange={(checked) => {
 						if (checked) {
 							enableAutostartMutation.mutate(undefined, {
-								onError: (error) => rpc.notify.error.execute(error),
+								onError: (error) => rpc.notify.error(error),
 							});
 						} else {
 							disableAutostartMutation.mutate(undefined, {
-								onError: (error) => rpc.notify.error.execute(error),
+								onError: (error) => rpc.notify.error(error),
 							});
 						}
 					}}

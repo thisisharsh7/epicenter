@@ -113,7 +113,7 @@ export const recorder = {
 			const { data: deviceAcquisitionOutcome, error: startRecordingError } =
 				await recorderService().startRecording(params, {
 					sendStatus: (options) =>
-						notify.loading.execute({ id: toastId, ...options }),
+						notify.loading({ id: toastId, ...options }),
 				});
 
 			if (startRecordingError) {
@@ -133,7 +133,7 @@ export const recorder = {
 			const { data: blob, error: stopRecordingError } =
 				await recorderService().stopRecording({
 					sendStatus: (options) =>
-						notify.loading.execute({ id: toastId, ...options }),
+						notify.loading({ id: toastId, ...options }),
 				});
 
 			if (stopRecordingError) {
@@ -171,7 +171,7 @@ export const recorder = {
 			const { data: cancelResult, error: cancelRecordingError } =
 				await recorderService().cancelRecording({
 					sendStatus: (options) =>
-						notify.loading.execute({ id: toastId, ...options }),
+						notify.loading({ id: toastId, ...options }),
 				});
 
 			// Reset recording ID when canceling

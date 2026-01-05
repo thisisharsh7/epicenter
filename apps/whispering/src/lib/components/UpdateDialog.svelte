@@ -107,7 +107,7 @@
 						updateDialog.updateProgress(downloaded, contentLength);
 						break;
 					case 'Finished':
-						rpc.notify.success.execute({
+						rpc.notify.success({
 							title: 'Update installed successfully!',
 							description: 'Restart Whispering to apply the update.',
 							action: {
@@ -121,7 +121,7 @@
 			});
 		} catch (err) {
 			updateDialog.setError(extractErrorMessage(err));
-			rpc.notify.error.execute({
+			rpc.notify.error({
 				title: 'Failed to install update',
 				description: extractErrorMessage(err),
 			});

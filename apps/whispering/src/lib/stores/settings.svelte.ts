@@ -52,13 +52,13 @@ export const settings = (() => {
 			return getDefaultSettings();
 		},
 		onUpdateSuccess: () => {
-			rpc.notify.success.execute({
+			rpc.notify.success({
 				title: 'Settings updated!',
 				description: '',
 			});
 		},
 		onUpdateError: (err) => {
-			rpc.notify.error.execute({
+			rpc.notify.error({
 				title: 'Error updating settings',
 				description: extractErrorMessage(err),
 			});
@@ -144,7 +144,7 @@ export const settings = (() => {
 			if (errs.length > 0) {
 				// Even if stopping fails, we should still switch modes
 				console.error('Failed to stop active recordings:', errs);
-				rpc.notify.warning.execute({
+				rpc.notify.warning({
 					id: toastId,
 					title: '⚠️ Recording may still be active',
 					description:
@@ -160,7 +160,7 @@ export const settings = (() => {
 				};
 
 				// Show success notification
-				rpc.notify.success.execute({
+				rpc.notify.success({
 					id: toastId,
 					title: '✅ Recording mode switched',
 					description: `Switched to ${newMode} recording mode`,
@@ -186,12 +186,12 @@ async function stopAllRecordingModesExcept(modeToKeep: RecordingMode) {
 		{
 			mode: 'manual' as const,
 			isActive: () => recorderState === 'RECORDING',
-			stop: () => rpc.commands.stopManualRecording.execute(),
+			stop: () => rpc.commands.stopManualRecording(),
 		},
 		{
 			mode: 'vad' as const,
 			isActive: () => vadRecorder.state !== 'IDLE',
-			stop: () => rpc.commands.stopVadRecording.execute(),
+			stop: () => rpc.commands.stopVadRecording(),
 		},
 	] satisfies {
 		mode: RecordingMode;

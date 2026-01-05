@@ -77,7 +77,7 @@
 					confirm: { text: 'Reset Settings', variant: 'destructive' },
 					onConfirm: () => {
 						settings.reset();
-						rpc.notify.success.execute({
+						rpc.notify.success({
 							title: 'Settings reset',
 							description: 'All settings have been reset to defaults.',
 						});

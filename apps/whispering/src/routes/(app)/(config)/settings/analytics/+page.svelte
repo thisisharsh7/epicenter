@@ -59,7 +59,7 @@
 
 							// Log the change (will only send if analytics is now enabled)
 							if (checked) {
-								rpc.analytics.logEvent.execute({
+								rpc.analytics.logEvent({
 									type: 'settings_changed',
 									section: 'analytics',
 								});

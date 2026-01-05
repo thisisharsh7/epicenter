@@ -21,7 +21,7 @@ import { transformer } from './transformer';
  * from anywhere: command registry, components, stores, etc.
  *
  * They always return Ok() because there's nowhere left to propagate errors—errors flow
- * sideways through notify.error.execute() instead of up the call stack. Actions are
+ * sideways through notify.error() instead of up the call stack. Actions are
  * the end of the operation chain.
  */
 
@@ -56,26 +56,26 @@ const startManualRecording = defineMutation({
 		await settings.switchRecordingMode('manual');
 
 		const toastId = nanoid();
-		notify.loading.execute({
+		notify.loading({
 			id: toastId,
 			title: '🎙️ Preparing to record...',
 			description: 'Setting up your recording environment...',
 		});
 
 		const { data: deviceAcquisitionOutcome, error: startRecordingError } =
-			await recorder.startRecording.execute({ toastId });
+			await recorder.startRecording({ toastId });
 
 		// Release mutex after the actual start operation completes
 		isRecordingOperationBusy = false;
 
 		if (startRecordingError) {
-			notify.error.execute({ id: toastId, ...startRecordingError });
+			notify.error({ id: toastId, ...startRecordingError });
 			return Ok(undefined);
 		}
 
 		switch (deviceAcquisitionOutcome.outcome) {
 			case 'success': {
-				notify.success.execute({
+				notify.success({
 					id: toastId,
 					title: '🎙️ Whispering is recording...',
 					description: 'Speak now and stop recording when done',
@@ -90,7 +90,7 @@ const startManualRecording = defineMutation({
 				);
 				switch (deviceAcquisitionOutcome.reason) {
 					case 'no-device-selected': {
-						notify.info.execute({
+						notify.info({
 							id: toastId,
 							title: '🎙️ Switched to available microphone',
 							description:
@@ -104,7 +104,7 @@ const startManualRecording = defineMutation({
 						break;
 					}
 					case 'preferred-device-unavailable': {
-						notify.info.execute({
+						notify.info({
 							id: toastId,
 							title: '🎙️ Switched to different microphone',
 							description:
@@ -123,7 +123,7 @@ const startManualRecording = defineMutation({
 		// Track start time for duration calculation
 		manualRecordingStartTime = Date.now();
 		console.info('Recording started');
-		sound.playSoundIfEnabled.execute('manual-start');
+		sound.playSoundIfEnabled('manual-start');
 		return Ok(undefined);
 	},
 });
@@ -139,33 +139,33 @@ const stopManualRecording = defineMutation({
 		isRecordingOperationBusy = true;
 
 		const toastId = nanoid();
-		notify.loading.execute({
+		notify.loading({
 			id: toastId,
 			title: '⏸️ Stopping recording...',
 			description: 'Finalizing your audio capture...',
 		});
 
 		const { data, error: stopRecordingError } =
-			await recorder.stopRecording.execute({ toastId });
+			await recorder.stopRecording({ toastId });
 
 		// Release mutex after the actual stop operation completes
 		// This allows new recordings to start while pipeline runs
 		isRecordingOperationBusy = false;
 
 		if (stopRecordingError) {
-			notify.error.execute({ id: toastId, ...stopRecordingError });
+			notify.error({ id: toastId, ...stopRecordingError });
 			return Ok(undefined);
 		}
 
 		const { blob, recordingId } = data;
 
-		notify.success.execute({
+		notify.success({
 			id: toastId,
 			title: '🎙️ Recording stopped',
 			description: 'Your recording has been saved',
 		});
 		console.info('Recording stopped');
-		sound.playSoundIfEnabled.execute('manual-stop');
+		sound.playSoundIfEnabled('manual-stop');
 
 		// Log manual recording completion
 		let duration: number | undefined;
@@ -173,7 +173,7 @@ const stopManualRecording = defineMutation({
 			duration = Date.now() - manualRecordingStartTime;
 			manualRecordingStartTime = null; // Reset for next recording
 		}
-		rpc.analytics.logEvent.execute({
+		rpc.analytics.logEvent({
 			type: 'manual_recording_completed',
 			blob_size: blob.size,
 			duration,
@@ -201,7 +201,7 @@ const startVadRecording = defineMutation({
 
 		const toastId = nanoid();
 		console.info('Starting voice activated capture');
-		notify.loading.execute({
+		notify.loading({
 			id: toastId,
 			title: '🎙️ Starting voice activated capture',
 			description: 'Your voice activated capture is starting...',
@@ -209,23 +209,23 @@ const startVadRecording = defineMutation({
 		const { data: deviceAcquisitionOutcome, error: startActiveListeningError } =
 			await vadRecorder.startActiveListening({
 				onSpeechStart: () => {
-					notify.success.execute({
+					notify.success({
 						title: '🎙️ Speech started',
 						description: 'Recording started. Speak clearly and loudly.',
 					});
 				},
 				onSpeechEnd: async (blob) => {
 					const toastId = nanoid();
-					notify.success.execute({
+					notify.success({
 						id: toastId,
 						title: '🎙️ Voice activated speech captured',
 						description: 'Your voice activated speech has been captured.',
 					});
 					console.info('Voice activated speech captured');
-					sound.playSoundIfEnabled.execute('vad-capture');
+					sound.playSoundIfEnabled('vad-capture');
 
 					// Log VAD recording completion
-					rpc.analytics.logEvent.execute({
+					rpc.analytics.logEvent({
 						type: 'vad_recording_completed',
 						blob_size: blob.size,
 						// VAD doesn't track duration by default
@@ -241,14 +241,14 @@ const startVadRecording = defineMutation({
 				},
 			});
 		if (startActiveListeningError) {
-			notify.error.execute({ id: toastId, ...startActiveListeningError });
+			notify.error({ id: toastId, ...startActiveListeningError });
 			return Ok(undefined);
 		}
 
 		// Handle device acquisition outcome
 		switch (deviceAcquisitionOutcome.outcome) {
 			case 'success': {
-				notify.success.execute({
+				notify.success({
 					id: toastId,
 					title: '🎙️ Voice activated capture started',
 					description: 'Your voice activated capture has been started.',
@@ -262,7 +262,7 @@ const startVadRecording = defineMutation({
 				);
 				switch (deviceAcquisitionOutcome.reason) {
 					case 'no-device-selected': {
-						notify.info.execute({
+						notify.info({
 							id: toastId,
 							title: '🎙️ VAD started with available microphone',
 							description:
@@ -276,7 +276,7 @@ const startVadRecording = defineMutation({
 						break;
 					}
 					case 'preferred-device-unavailable': {
-						notify.info.execute({
+						notify.info({
 							id: toastId,
 							title: '🎙️ VAD switched to different microphone',
 							description:
@@ -293,7 +293,7 @@ const startVadRecording = defineMutation({
 			}
 		}
 
-		sound.playSoundIfEnabled.execute('vad-start');
+		sound.playSoundIfEnabled('vad-start');
 		return Ok(undefined);
 	},
 });
@@ -303,22 +303,22 @@ const stopVadRecording = defineMutation({
 	mutationFn: async () => {
 		const toastId = nanoid();
 		console.info('Stopping voice activated capture');
-		notify.loading.execute({
+		notify.loading({
 			id: toastId,
 			title: '⏸️ Stopping voice activated capture...',
 			description: 'Finalizing your voice activated capture...',
 		});
 		const { error: stopVadError } = await vadRecorder.stopActiveListening();
 		if (stopVadError) {
-			notify.error.execute({ id: toastId, ...stopVadError });
+			notify.error({ id: toastId, ...stopVadError });
 			return Ok(undefined);
 		}
-		notify.success.execute({
+		notify.success({
 			id: toastId,
 			title: '🎙️ Voice activated capture stopped',
 			description: 'Your voice activated capture has been stopped.',
 		});
-		sound.playSoundIfEnabled.execute('vad-stop');
+		sound.playSoundIfEnabled('vad-stop');
 		return Ok(undefined);
 	},
 });
@@ -336,13 +336,13 @@ export const commands = {
 			const { data: recorderState, error: getRecorderStateError } =
 				await recorder.getRecorderState.fetch();
 			if (getRecorderStateError) {
-				notify.error.execute(getRecorderStateError);
+				notify.error(getRecorderStateError);
 				return Ok(undefined);
 			}
 			if (recorderState === 'RECORDING') {
-				return await stopManualRecording.execute(undefined);
+				return await stopManualRecording(undefined);
 			}
-			return await startManualRecording.execute(undefined);
+			return await startManualRecording(undefined);
 		},
 	}),
 
@@ -360,24 +360,24 @@ export const commands = {
 			isRecordingOperationBusy = true;
 
 			const toastId = nanoid();
-			notify.loading.execute({
+			notify.loading({
 				id: toastId,
 				title: '⏸️ Canceling recording...',
 				description: 'Cleaning up recording session...',
 			});
 			const { data: cancelRecordingResult, error: cancelRecordingError } =
-				await recorder.cancelRecording.execute({ toastId });
+				await recorder.cancelRecording({ toastId });
 
 			// Release mutex after the actual cancel operation completes
 			isRecordingOperationBusy = false;
 
 			if (cancelRecordingError) {
-				notify.error.execute({ id: toastId, ...cancelRecordingError });
+				notify.error({ id: toastId, ...cancelRecordingError });
 				return Ok(undefined);
 			}
 			switch (cancelRecordingResult.status) {
 				case 'no-recording': {
-					notify.info.execute({
+					notify.info({
 						id: toastId,
 						title: 'No active recording',
 						description: 'There is no recording in progress to cancel.',
@@ -388,12 +388,12 @@ export const commands = {
 					// Session cleanup is now handled internally by the recorder service
 					// Reset start time if recording was cancelled
 					manualRecordingStartTime = null;
-					notify.success.execute({
+					notify.success({
 						id: toastId,
 						title: '✅ All Done!',
 						description: 'Recording cancelled successfully',
 					});
-					sound.playSoundIfEnabled.execute('manual-cancel');
+					sound.playSoundIfEnabled('manual-cancel');
 					console.info('Recording cancelled');
 					break;
 				}
@@ -410,9 +410,9 @@ export const commands = {
 				vadRecorder.state === 'LISTENING' ||
 				vadRecorder.state === 'SPEECH_DETECTED'
 			) {
-				return await stopVadRecording.execute(undefined);
+				return await stopVadRecording(undefined);
 			}
-			return await startVadRecording.execute(undefined);
+			return await startVadRecording(undefined);
 		},
 	}),
 
@@ -442,7 +442,7 @@ export const commands = {
 			}
 
 			if (invalidFiles.length > 0) {
-				notify.warning.execute({
+				notify.warning({
 					title: '⚠️ Some files were skipped',
 					description: `${invalidFiles.length} file(s) were not audio or video files`,
 				});
@@ -455,7 +455,7 @@ export const commands = {
 					const audioBlob = new Blob([arrayBuffer], { type: file.type });
 
 					// Log file upload event
-					rpc.analytics.logEvent.execute({
+					rpc.analytics.logEvent({
 						type: 'file_uploaded',
 						blob_size: audioBlob.size,
 					});
@@ -552,26 +552,26 @@ export const commands = {
 
 			// Run transformation
 			const toastId = nanoid();
-			notify.loading.execute({
+			notify.loading({
 				id: toastId,
 				title: '🔄 Running transformation...',
 				description: 'Transforming your clipboard text...',
 			});
 
 			const { data: output, error: transformError } =
-				await transformer.transformInput.execute({
+				await transformer.transformInput({
 					input: clipboardText,
 					transformation,
 				});
 
 			if (transformError) {
-				notify.error.execute({ id: toastId, ...transformError });
+				notify.error({ id: toastId, ...transformError });
 				return Ok(undefined);
 			}
 
-			sound.playSoundIfEnabled.execute('transformationComplete');
+			sound.playSoundIfEnabled('transformationComplete');
 
-			await delivery.deliverTransformationResult.execute({
+			await delivery.deliverTransformationResult({
 				text: output,
 				toastId,
 			});
@@ -579,7 +579,7 @@ export const commands = {
 			return Ok(undefined);
 		},
 		onError: (error) => {
-			notify.error.execute(error);
+			notify.error(error);
 		},
 	}),
 };
@@ -627,13 +627,13 @@ async function processRecordingPipeline({
 		transcriptionStatus: 'UNPROCESSED',
 	} as const;
 
-	const { error: createRecordingError } = await db.recordings.create.execute({
+	const { error: createRecordingError } = await db.recordings.create({
 		recording,
 		audio: blob,
 	});
 
 	if (createRecordingError) {
-		notify.error.execute({
+		notify.error({
 			id: toastId,
 			title:
 				'❌ Your recording was captured but could not be saved to the database.',
@@ -643,28 +643,28 @@ async function processRecordingPipeline({
 		return;
 	}
 
-	notify.success.execute({
+	notify.success({
 		id: toastId,
 		title: completionTitle,
 		description: completionDescription,
 	});
 
 	const transcribeToastId = nanoid();
-	notify.loading.execute({
+	notify.loading({
 		id: transcribeToastId,
 		title: '📋 Transcribing...',
 		description: 'Your recording is being transcribed...',
 	});
 
 	const { data: transcribedText, error: transcribeError } =
-		await transcription.transcribeRecording.execute(recording);
+		await transcription.transcribeRecording(recording);
 
 	if (transcribeError) {
 		if (transcribeError.name === 'WhisperingError') {
-			notify.error.execute({ id: transcribeToastId, ...transcribeError });
+			notify.error({ id: transcribeToastId, ...transcribeError });
 			return;
 		}
-		notify.error.execute({
+		notify.error({
 			id: transcribeToastId,
 			title: '❌ Failed to transcribe recording',
 			description: 'Your recording could not be transcribed.',
@@ -673,9 +673,9 @@ async function processRecordingPipeline({
 		return;
 	}
 
-	sound.playSoundIfEnabled.execute('transcriptionComplete');
+	sound.playSoundIfEnabled('transcriptionComplete');
 
-	await delivery.deliverTranscriptionResult.execute({
+	await delivery.deliverTranscriptionResult({
 		text: transcribedText,
 		toastId: transcribeToastId,
 	});
@@ -692,7 +692,7 @@ async function processRecordingPipeline({
 	const transformationNoLongerExists = !transformation;
 
 	if (getTransformationError) {
-		notify.error.execute({
+		notify.error({
 			title: '❌ Failed to get transformation',
 			description: getTransformationError.message,
 			action: {
@@ -705,7 +705,7 @@ async function processRecordingPipeline({
 
 	if (transformationNoLongerExists) {
 		settings.updateKey('transformations.selectedTransformationId', null);
-		notify.warning.execute({
+		notify.warning({
 			title: '⚠️ No matching transformation found',
 			description:
 				'No matching transformation found. Please select a different transformation.',
@@ -719,24 +719,24 @@ async function processRecordingPipeline({
 	}
 
 	const transformToastId = nanoid();
-	notify.loading.execute({
+	notify.loading({
 		id: transformToastId,
 		title: '🔄 Running transformation...',
 		description:
 			'Applying your selected transformation to the transcribed text...',
 	});
 	const { data: transformationRun, error: transformError } =
-		await transformer.transformRecording.execute({
+		await transformer.transformRecording({
 			recordingId: recording.id,
 			transformation,
 		});
 	if (transformError) {
-		notify.error.execute({ id: transformToastId, ...transformError });
+		notify.error({ id: transformToastId, ...transformError });
 		return;
 	}
 
 	if (transformationRun.status === 'failed') {
-		notify.error.execute({
+		notify.error({
 			id: transformToastId,
 			title: '⚠️ Transformation error',
 			description: transformationRun.error,
@@ -745,9 +745,9 @@ async function processRecordingPipeline({
 		return;
 	}
 
-	sound.playSoundIfEnabled.execute('transformationComplete');
+	sound.playSoundIfEnabled('transformationComplete');
 
-	await delivery.deliverTransformationResult.execute({
+	await delivery.deliverTransformationResult({
 		text: transformationRun.output,
 		toastId: transformToastId,
 	});

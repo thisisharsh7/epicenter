@@ -39,7 +39,7 @@
 				combobox.closeAndFocusTrigger();
 
 				const toastId = nanoid();
-				rpc.notify.loading.execute({
+				rpc.notify.loading({
 					id: toastId,
 					title: '🔄 Running transformation...',
 					description:
@@ -49,10 +49,10 @@
 				transformRecording.mutate(
 					{ recordingId, transformation },
 					{
-						onError: (error) => rpc.notify.error.execute(error),
+						onError: (error) => rpc.notify.error(error),
 						onSuccess: (transformationRun) => {
 							if (transformationRun.status === 'failed') {
-								rpc.notify.error.execute({
+								rpc.notify.error({
 									title: '⚠️ Transformation error',
 									description: transformationRun.error,
 									action: {
@@ -63,9 +63,9 @@
 								return;
 							}
 
-							rpc.sound.playSoundIfEnabled.execute('transformationComplete');
+							rpc.sound.playSoundIfEnabled('transformationComplete');
 
-							rpc.delivery.deliverTransformationResult.execute({
+							rpc.delivery.deliverTransformationResult({
 								text: transformationRun.output,
 								toastId,
 							});

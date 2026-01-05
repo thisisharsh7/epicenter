@@ -31,24 +31,24 @@
 		pressedKeys,
 		onRegister: async (keyCombination: KeyboardEventSupportedKey[]) => {
 			const { error: unregisterError } =
-				await rpc.localShortcuts.unregisterCommand.execute({
+				await rpc.localShortcuts.unregisterCommand({
 					commandId: command.id as CommandId,
 				});
 			if (unregisterError) {
-				rpc.notify.error.execute({
+				rpc.notify.error({
 					title: 'Error unregistering local shortcut',
 					description: unregisterError.message,
 					action: { type: 'more-details', error: unregisterError },
 				});
 			}
 			const { error: registerError } =
-				await rpc.localShortcuts.registerCommand.execute({
+				await rpc.localShortcuts.registerCommand({
 					command,
 					keyCombination,
 				});
 
 			if (registerError) {
-				rpc.notify.error.execute({
+				rpc.notify.error({
 					title: 'Error registering local shortcut',
 					description: registerError.message,
 					action: { type: 'more-details', error: registerError },
@@ -61,18 +61,18 @@
 				arrayToShortcutString(keyCombination),
 			);
 
-			rpc.notify.success.execute({
+			rpc.notify.success({
 				title: `Local shortcut set to ${keyCombination}`,
 				description: `Press the shortcut to trigger "${command.title}"`,
 			});
 		},
 		onClear: async () => {
 			const { error: unregisterError } =
-				await rpc.localShortcuts.unregisterCommand.execute({
+				await rpc.localShortcuts.unregisterCommand({
 					commandId: command.id as CommandId,
 				});
 			if (unregisterError) {
-				rpc.notify.error.execute({
+				rpc.notify.error({
 					title: 'Error clearing local shortcut',
 					description: unregisterError.message,
 					action: { type: 'more-details', error: unregisterError },
@@ -80,7 +80,7 @@
 			}
 			settings.updateKey(`shortcuts.local.${command.id}`, null);
 
-			rpc.notify.success.execute({
+			rpc.notify.success({
 				title: 'Local shortcut cleared',
 				description: `Please set a new shortcut to trigger "${command.title}"`,
 			});

@@ -71,14 +71,14 @@
 						onSuccess: () => {
 							isDialogOpen = false;
 							transformation = generateDefaultTransformation();
-							rpc.notify.success.execute({
+							rpc.notify.success({
 								title: 'Created transformation!',
 								description:
 									'Your transformation has been created successfully.',
 							});
 						},
 						onError: (error) => {
-							rpc.notify.error.execute({
+							rpc.notify.error({
 								title: 'Failed to create transformation!',
 								description: 'Your transformation could not be created.',
 								action: { type: 'more-details', error },

@@ -20,11 +20,11 @@ export async function syncLocalShortcutsWithSettings() {
 			.map((command) => {
 				const keyCombination = settings.value[`shortcuts.local.${command.id}`];
 				if (!keyCombination) {
-					return rpc.localShortcuts.unregisterCommand.execute({
+					return rpc.localShortcuts.unregisterCommand({
 						commandId: command.id as CommandId,
 					});
 				}
-				return rpc.localShortcuts.registerCommand.execute({
+				return rpc.localShortcuts.registerCommand({
 					command,
 					keyCombination: shortcutStringToArray(keyCombination),
 				});
@@ -33,7 +33,7 @@ export async function syncLocalShortcutsWithSettings() {
 	);
 	const { errs } = partitionResults(results);
 	if (errs.length > 0) {
-		rpc.notify.error.execute({
+		rpc.notify.error({
 			title: 'Error registering local commands',
 			description: errs.map((err) => err.error.message).join('\n'),
 			action: { type: 'more-details', error: errs },
@@ -60,12 +60,12 @@ export async function syncGlobalShortcutsWithSettings() {
 
 	const results = await Promise.all(
 		commandsWithAccelerators.map((item) =>
-			desktopRpc.globalShortcuts.registerCommand.execute(item),
+			desktopRpc.globalShortcuts.registerCommand(item),
 		),
 	);
 	const { errs } = partitionResults(results);
 	if (errs.length > 0) {
-		rpc.notify.error.execute({
+		rpc.notify.error({
 			title: 'Error registering global commands',
 			description: errs.map((err) => err.error.message).join('\n'),
 			action: { type: 'more-details', error: errs },
@@ -87,7 +87,7 @@ export function resetLocalShortcutsToDefaultIfDuplicates(): boolean {
 			if (localShortcuts.has(shortcut)) {
 				// If duplicates found, reset all local shortcuts to defaults
 				settings.resetLocalShortcuts();
-				rpc.notify.success.execute({
+				rpc.notify.success({
 					title: 'Shortcuts reset',
 					description:
 						'Duplicate local shortcuts detected. All local shortcuts have been reset to defaults.',
@@ -120,7 +120,7 @@ export function resetGlobalShortcutsToDefaultIfDuplicates(): boolean {
 			if (globalShortcuts.has(shortcut)) {
 				// If duplicates found, reset all global shortcuts to defaults
 				settings.resetGlobalShortcuts();
-				rpc.notify.success.execute({
+				rpc.notify.success({
 					title: 'Shortcuts reset',
 					description:
 						'Duplicate global shortcuts detected. All global shortcuts have been reset to defaults.',

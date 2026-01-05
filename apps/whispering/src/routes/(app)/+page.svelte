@@ -118,7 +118,7 @@
 						.map(({ path }) => path);
 
 					if (validPaths.length === 0) {
-						rpc.notify.warning.execute({
+						rpc.notify.warning({
 							title: '⚠️ No valid files',
 							description: 'Please drop audio or video files',
 						});
@@ -132,7 +132,7 @@
 						await desktopServices.fs.pathsToFiles(validPaths);
 
 					if (error) {
-						rpc.notify.error.execute({
+						rpc.notify.error({
 							title: '❌ Failed to read files',
 							description: error.message,
 						});
@@ -140,12 +140,12 @@
 					}
 
 					if (files.length > 0) {
-						await rpc.commands.uploadRecordings.execute({ files });
+						await rpc.commands.uploadRecordings({ files });
 					}
 				},
 			);
 		} catch (error) {
-			rpc.notify.error.execute({
+			rpc.notify.error({
 				title: '❌ Failed to set up drag drop listener',
 				description: `${error}`,
 			});
@@ -275,11 +275,11 @@
 				maxFileSize={25 * MEGABYTE}
 				onUpload={(files) => {
 					if (files.length > 0) {
-						rpc.commands.uploadRecordings.execute({ files });
+						rpc.commands.uploadRecordings({ files });
 					}
 				}}
 				onFileRejected={({ file, reason }) => {
-					rpc.notify.error.execute({
+					rpc.notify.error({
 						title: '❌ File rejected',
 						description: `${file.name}: ${reason}`,
 					});

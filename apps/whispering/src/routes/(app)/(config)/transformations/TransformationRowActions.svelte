@@ -31,16 +31,16 @@
 					confirm: { text: 'Delete', variant: 'destructive' },
 					onConfirm: async () => {
 						const { error } =
-							await rpc.db.transformations.delete.execute(transformation);
+							await rpc.db.transformations.delete(transformation);
 						if (error) {
-							rpc.notify.error.execute({
+							rpc.notify.error({
 								title: 'Failed to delete transformation!',
 								description: 'Your transformation could not be deleted.',
 								action: { type: 'more-details', error },
 							});
 							throw error;
 						}
-						rpc.notify.success.execute({
+						rpc.notify.success({
 							title: 'Deleted transformation!',
 							description: 'Your transformation has been deleted successfully.',
 						});

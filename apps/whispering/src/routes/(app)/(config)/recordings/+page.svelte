@@ -387,7 +387,7 @@
 						disabled={transcribeRecordings.isPending}
 						onclick={() => {
 							const toastId = nanoid();
-							rpc.notify.loading.execute({
+							rpc.notify.loading({
 								id: toastId,
 								title: 'Transcribing queries.recordings...',
 								description: 'This may take a while.',
@@ -399,7 +399,7 @@
 										const isAllSuccessful = errs.length === 0;
 										if (isAllSuccessful) {
 											const n = oks.length;
-											rpc.notify.success.execute({
+											rpc.notify.success({
 												id: toastId,
 												title: `Transcribed ${n} recording${n === 1 ? '' : 's'}!`,
 												description: `Your ${n} recording${n === 1 ? ' has' : 's have'} been transcribed successfully.`,
@@ -409,7 +409,7 @@
 										const isAllFailed = oks.length === 0;
 										if (isAllFailed) {
 											const n = errs.length;
-											rpc.notify.error.execute({
+											rpc.notify.error({
 												id: toastId,
 												title: `Failed to transcribe ${n} recording${n === 1 ? '' : 's'}`,
 												description:
@@ -421,7 +421,7 @@
 											return;
 										}
 										// Mixed results
-										rpc.notify.warning.execute({
+										rpc.notify.warning({
 											id: toastId,
 											title: `Transcribed ${oks.length} of ${oks.length + errs.length} recordings`,
 											description: `${oks.length} succeeded, ${errs.length} failed.`,
@@ -520,18 +520,18 @@
 									'Are you sure you want to delete these recordings?',
 								confirm: { text: 'Delete', variant: 'destructive' },
 								onConfirm: async () => {
-									const { error } = await rpc.db.recordings.delete.execute(
+									const { error } = await rpc.db.recordings.delete(
 										selectedRecordingRows.map(({ original }) => original),
 									);
 									if (error) {
-										rpc.notify.error.execute({
+										rpc.notify.error({
 											title: 'Failed to delete recordings!',
 											description: 'Your recordings could not be deleted.',
 											action: { type: 'more-details', error },
 										});
 										throw error;
 									}
-									rpc.notify.success.execute({
+									rpc.notify.success({
 										title: 'Deleted recordings!',
 										description:
 											'Your recordings have been deleted successfully.',
