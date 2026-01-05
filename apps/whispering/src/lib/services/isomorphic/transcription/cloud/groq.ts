@@ -25,9 +25,8 @@ export type GroqModel = (typeof GROQ_MODELS)[number];
 
 const MAX_FILE_SIZE_MB = 25 as const;
 
-export function createGroqTranscriptionService() {
-	return {
-		async transcribe(
+export const GroqTranscriptionServiceLive = {
+	async transcribe(
 			audioBlob: Blob,
 			options: {
 				prompt: string;
@@ -252,12 +251,7 @@ export function createGroqTranscriptionService() {
 			}
 
 			return Ok(transcription.text.trim());
-		},
-	};
-}
+	},
+};
 
-export type GroqTranscriptionService = ReturnType<
-	typeof createGroqTranscriptionService
->;
-
-export const GroqTranscriptionServiceLive = createGroqTranscriptionService();
+export type GroqTranscriptionService = typeof GroqTranscriptionServiceLive;

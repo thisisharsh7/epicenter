@@ -41,99 +41,94 @@ type GlobalShortcutServiceError = ReturnType<typeof GlobalShortcutServiceError>;
  */
 export type Accelerator = string & Brand<'Accelerator'>;
 
-export function createGlobalShortcutManager() {
-	return {
-		async register({
-			accelerator,
-			callback,
-			on,
-		}: {
-			accelerator: Accelerator;
-			callback: (state: ShortcutEventState) => void;
-			on: ShortcutEventState[];
-		}): Promise<
-			Result<void, InvalidAcceleratorError | GlobalShortcutServiceError>
-		> {
-			const { error: unregisterError } = await this.unregister(accelerator);
-			if (unregisterError) return Err(unregisterError);
+export const GlobalShortcutManagerLive = {
+	async register({
+		accelerator,
+		callback,
+		on,
+	}: {
+		accelerator: Accelerator;
+		callback: (state: ShortcutEventState) => void;
+		on: ShortcutEventState[];
+	}): Promise<
+		Result<void, InvalidAcceleratorError | GlobalShortcutServiceError>
+	> {
+		const { error: unregisterError } =
+			await GlobalShortcutManagerLive.unregister(accelerator);
+		if (unregisterError) return Err(unregisterError);
 
-			if (!isValidElectronAccelerator(accelerator)) {
-				return InvalidAcceleratorErr({
-					message: `Invalid accelerator format: '${accelerator}'. Must follow Electron accelerator specification.`,
-				});
-			}
-
-			const { error: registerError } = await tryAsync({
-				try: () =>
-					tauriRegister(accelerator, (event) => {
-						if (on.includes(event.state)) {
-							callback(event.state);
-						}
-					}),
-				catch: (error) =>
-					GlobalShortcutServiceErr({
-						message: `Failed to register global shortcut '${accelerator}': ${extractErrorMessage(error)}`,
-					}),
+		if (!isValidElectronAccelerator(accelerator)) {
+			return InvalidAcceleratorErr({
+				message: `Invalid accelerator format: '${accelerator}'. Must follow Electron accelerator specification.`,
 			});
-			/**
-			 * NOTE: We often get "RegisterEventHotKey failed for <key>" errors when
-			 * registering global shortcuts, even though the shortcut was valid and
-			 * registered successfully. This is a known issue with the underlying system
-			 * API on certain platforms. We gracefully return Ok(undefined) in these
-			 * cases to avoid propagating the error as an unnecessary error toast,
-			 * allowing the shortcut system to continue functioning for other valid keys.
-			 */
-			if (registerError) return Ok(undefined);
+		}
 
-			return Ok(undefined);
-		},
-
+		const { error: registerError } = await tryAsync({
+			try: () =>
+				tauriRegister(accelerator, (event) => {
+					if (on.includes(event.state)) {
+						callback(event.state);
+					}
+				}),
+			catch: (error) =>
+				GlobalShortcutServiceErr({
+					message: `Failed to register global shortcut '${accelerator}': ${extractErrorMessage(error)}`,
+				}),
+		});
 		/**
-		 * Unregisters a global shortcut by ID.
-		 * This function is idempotent - it can be safely called even if the shortcut
-		 * with the given ID doesn't exist or has already been unregistered.
+		 * NOTE: We often get "RegisterEventHotKey failed for <key>" errors when
+		 * registering global shortcuts, even though the shortcut was valid and
+		 * registered successfully. This is a known issue with the underlying system
+		 * API on certain platforms. We gracefully return Ok(undefined) in these
+		 * cases to avoid propagating the error as an unnecessary error toast,
+		 * allowing the shortcut system to continue functioning for other valid keys.
 		 */
-		async unregister(
-			accelerator: Accelerator,
-		): Promise<Result<void, GlobalShortcutServiceError>> {
-			const isRegistered = await tauriIsRegistered(accelerator);
-			if (!isRegistered) return Ok(undefined);
+		if (registerError) return Ok(undefined);
 
-			const { error: unregisterError } = await tryAsync({
-				try: () => tauriUnregister(accelerator),
-				catch: (error) =>
-					GlobalShortcutServiceErr({
-						message: `Failed to unregister global shortcut '${accelerator}': ${extractErrorMessage(error)}`,
-					}),
-			});
-			if (unregisterError) return Err(unregisterError);
-			return Ok(undefined);
-		},
+		return Ok(undefined);
+	},
 
-		/**
-		 * Unregisters all global shortcuts.
-		 * This function is idempotent - it can be safely called even if no shortcuts
-		 * are currently registered.
-		 */
-		async unregisterAll(): Promise<Result<void, GlobalShortcutServiceError>> {
-			const { error: unregisterAllError } = await tryAsync({
-				try: () => tauriUnregisterAll(),
-				catch: (error) =>
-					GlobalShortcutServiceErr({
-						message: `Failed to unregister all global shortcuts: ${extractErrorMessage(error)}`,
-					}),
-			});
-			if (unregisterAllError) return Err(unregisterAllError);
-			return Ok(undefined);
-		},
-	};
-}
+	/**
+	 * Unregisters a global shortcut by ID.
+	 * This function is idempotent - it can be safely called even if the shortcut
+	 * with the given ID doesn't exist or has already been unregistered.
+	 */
+	async unregister(
+		accelerator: Accelerator,
+	): Promise<Result<void, GlobalShortcutServiceError>> {
+		const isRegistered = await tauriIsRegistered(accelerator);
+		if (!isRegistered) return Ok(undefined);
 
-export type GlobalShortcutManager = ReturnType<
-	typeof createGlobalShortcutManager
->;
+		const { error: unregisterError } = await tryAsync({
+			try: () => tauriUnregister(accelerator),
+			catch: (error) =>
+				GlobalShortcutServiceErr({
+					message: `Failed to unregister global shortcut '${accelerator}': ${extractErrorMessage(error)}`,
+				}),
+		});
+		if (unregisterError) return Err(unregisterError);
+		return Ok(undefined);
+	},
 
-export const GlobalShortcutManagerLive = createGlobalShortcutManager();
+	/**
+	 * Unregisters all global shortcuts.
+	 * This function is idempotent - it can be safely called even if no shortcuts
+	 * are currently registered.
+	 */
+	async unregisterAll(): Promise<Result<void, GlobalShortcutServiceError>> {
+		const { error: unregisterAllError } = await tryAsync({
+			try: () => tauriUnregisterAll(),
+			catch: (error) =>
+				GlobalShortcutServiceErr({
+					message: `Failed to unregister all global shortcuts: ${extractErrorMessage(error)}`,
+				}),
+		});
+		if (unregisterAllError) return Err(unregisterAllError);
+		return Ok(undefined);
+	},
+};
+
+export type GlobalShortcutManager = typeof GlobalShortcutManagerLive;
 
 /**
  * Validates if a string is a valid Electron accelerator

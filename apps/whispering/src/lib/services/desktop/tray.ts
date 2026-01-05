@@ -14,23 +14,24 @@ const TRAY_ID = 'whispering-tray';
 
 const { SetTrayIconServiceErr } = createTaggedError('SetTrayIconServiceError');
 
-export function createTrayIconDesktopService() {
-	const trayPromise = initTray();
-	return {
-		setTrayIcon: (recorderState: WhisperingRecordingState) =>
-			tryAsync({
-				try: async () => {
-					const iconPath = await getIconPath(recorderState);
-					const tray = await trayPromise;
-					return tray.setIcon(iconPath);
-				},
-				catch: (error) =>
-					SetTrayIconServiceErr({
-						message: `Failed to set tray icon: ${extractErrorMessage(error)}`,
-					}),
-			}),
-	};
-}
+const trayPromise = initTray();
+
+export const TrayIconServiceLive = {
+	setTrayIcon: (recorderState: WhisperingRecordingState) =>
+		tryAsync({
+			try: async () => {
+				const iconPath = await getIconPath(recorderState);
+				const tray = await trayPromise;
+				return tray.setIcon(iconPath);
+			},
+			catch: (error) =>
+				SetTrayIconServiceErr({
+					message: `Failed to set tray icon: ${extractErrorMessage(error)}`,
+				}),
+		}),
+};
+
+export type TrayIconService = typeof TrayIconServiceLive;
 
 async function initTray() {
 	const existingTray = await TrayIcon.getById(TRAY_ID);
@@ -90,10 +91,6 @@ async function initTray() {
 
 	return tray;
 }
-
-export type TrayIconService = ReturnType<typeof createTrayIconDesktopService>;
-
-export const TrayIconServiceLive = createTrayIconDesktopService();
 
 async function getIconPath(recorderState: WhisperingRecordingState) {
 	const iconPaths = {

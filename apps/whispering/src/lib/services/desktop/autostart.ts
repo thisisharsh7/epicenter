@@ -16,40 +16,36 @@ export type AutostartServiceError = ReturnType<typeof AutostartServiceError>;
  * - Windows: Adds registry entry to HKEY_CURRENT_USER\...\Run
  * - Linux: Creates .desktop file in ~/.config/autostart/
  */
-export function createAutostartServiceDesktop() {
-	return {
-		/** Check if autostart is currently enabled for Whispering. */
-		isEnabled: () =>
-			tryAsync({
-				try: () => isEnabled(),
-				catch: (error) =>
-					AutostartServiceErr({
-						message: `Failed to check autostart status: ${extractErrorMessage(error)}`,
-					}),
-			}),
+export const AutostartServiceLive = {
+	/** Check if autostart is currently enabled for Whispering. */
+	isEnabled: () =>
+		tryAsync({
+			try: () => isEnabled(),
+			catch: (error) =>
+				AutostartServiceErr({
+					message: `Failed to check autostart status: ${extractErrorMessage(error)}`,
+				}),
+		}),
 
-		/** Enable autostart so Whispering launches on system login. */
-		enable: () =>
-			tryAsync({
-				try: () => enable(),
-				catch: (error) =>
-					AutostartServiceErr({
-						message: `Failed to enable autostart: ${extractErrorMessage(error)}`,
-					}),
-			}),
+	/** Enable autostart so Whispering launches on system login. */
+	enable: () =>
+		tryAsync({
+			try: () => enable(),
+			catch: (error) =>
+				AutostartServiceErr({
+					message: `Failed to enable autostart: ${extractErrorMessage(error)}`,
+				}),
+		}),
 
-		/** Disable autostart so Whispering does not launch on system login. */
-		disable: () =>
-			tryAsync({
-				try: () => disable(),
-				catch: (error) =>
-					AutostartServiceErr({
-						message: `Failed to disable autostart: ${extractErrorMessage(error)}`,
-					}),
-			}),
-	};
-}
+	/** Disable autostart so Whispering does not launch on system login. */
+	disable: () =>
+		tryAsync({
+			try: () => disable(),
+			catch: (error) =>
+				AutostartServiceErr({
+					message: `Failed to disable autostart: ${extractErrorMessage(error)}`,
+				}),
+		}),
+};
 
-export type AutostartService = ReturnType<typeof createAutostartServiceDesktop>;
-
-export const AutostartServiceLive = createAutostartServiceDesktop();
+export type AutostartService = typeof AutostartServiceLive;
