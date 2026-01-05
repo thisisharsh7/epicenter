@@ -24,7 +24,7 @@ export type WorkspaceSchema<
 	name: string;
 	description?: string;
 	tables: TTablesSchema;
-	kv?: TKvSchema;
+	kv: TKvSchema;
 };
 
 /**
@@ -230,7 +230,7 @@ async function initializeWorkspace<
 
 	const ydoc = new Y.Doc({ guid: config.id });
 	const tables = createTables(ydoc, config.tables);
-	const kv = createKv(ydoc, (config.kv ?? {}) as TKvSchema);
+	const kv = createKv(ydoc, config.kv);
 
 	let buildProviderPaths:
 		| ((projectDir: string, providerId: string) => ProviderPaths)
@@ -305,9 +305,11 @@ async function initializeWorkspace<
  * ```typescript
  * const workspace = defineWorkspace({
  *   id: 'blog',
+ *   name: 'Blog',
  *   tables: {
  *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
  *   },
+ *   kv: {},
  * });
  *
  * const client = await workspace
@@ -332,7 +334,7 @@ async function initializeWorkspace<
  * await client.destroy();
  * ```
  *
- * @param config - Workspace configuration (id, tables, optional kv and description)
+ * @param config - Workspace configuration (id, name, tables, kv, optional description)
  * @returns A Workspace object with fluent methods for adding providers
  */
 export function defineWorkspace<

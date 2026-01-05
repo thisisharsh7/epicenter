@@ -23,6 +23,8 @@ import { Ok } from 'wellcrafted/result';
 
 export default defineWorkspace({
 	id: 'blog',
+	name: 'Blog',
+	kv: {},
 
 	tables: {
 		posts: {
