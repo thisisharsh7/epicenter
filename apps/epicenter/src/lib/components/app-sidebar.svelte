@@ -3,14 +3,20 @@
 	import { rpc } from '$lib/query';
 	import { page } from '$app/state';
 	import * as Sidebar from '@epicenter/ui/sidebar';
+	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import HomeIcon from '@lucide/svelte/icons/home';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { workspaceCreateDialog } from '$lib/components/WorkspaceCreateDialog.svelte';
 
 	const workspaces = createQuery(() => rpc.workspaces.listWorkspaces.options);
 	const createWorkspace = createMutation(
 		() => rpc.workspaces.createWorkspace.options,
+	);
+	const deleteWorkspace = createMutation(
+		() => rpc.workspaces.deleteWorkspace.options,
 	);
 
 	function handleCreateWorkspace() {
@@ -19,6 +25,10 @@
 				await createWorkspace.mutateAsync({ name, id });
 			},
 		});
+	}
+
+	function handleDeleteWorkspace(id: string) {
+		deleteWorkspace.mutate(id);
 	}
 </script>
 
@@ -74,6 +84,25 @@
 										</a>
 									{/snippet}
 								</Sidebar.MenuButton>
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger>
+										{#snippet child({ props })}
+											<Sidebar.MenuAction {...props}>
+												<EllipsisIcon />
+												<span class="sr-only">More options</span>
+											</Sidebar.MenuAction>
+										{/snippet}
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content side="right" align="start">
+										<DropdownMenu.Item
+											class="text-destructive focus:text-destructive"
+											onclick={() => handleDeleteWorkspace(workspace.id)}
+										>
+											<TrashIcon class="mr-2 size-4" />
+											Delete
+										</DropdownMenu.Item>
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
 							</Sidebar.MenuItem>
 						{/each}
 					{/if}

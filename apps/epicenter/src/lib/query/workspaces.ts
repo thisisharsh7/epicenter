@@ -1,6 +1,7 @@
 import { defineQuery, defineMutation, queryClient } from './client';
 import {
 	workspaceStorage,
+	WorkspaceStorageErr,
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
 import { Ok, Err } from 'wellcrafted/result';
@@ -43,8 +44,7 @@ export const workspaces = {
 				return Err(existsResult.error);
 			}
 			if (existsResult.data) {
-				return Err({
-					_tag: 'WorkspaceStorageError' as const,
+				return WorkspaceStorageErr({
 					message: `Workspace with ID "${input.id}" already exists`,
 				});
 			}
@@ -87,6 +87,20 @@ export const workspaces = {
 			});
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 			return Ok(updated);
+		},
+	}),
+
+	deleteWorkspace: defineMutation({
+		mutationKey: ['workspaces', 'delete'],
+		mutationFn: async (id: string) => {
+			const result = await workspaceStorage.deleteWorkspace(id);
+			if (result.error) {
+				return Err(result.error);
+			}
+
+			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
+			queryClient.removeQueries({ queryKey: workspaceKeys.detail(id) });
+			return Ok(undefined);
 		},
 	}),
 

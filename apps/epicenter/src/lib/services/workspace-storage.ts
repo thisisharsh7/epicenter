@@ -5,10 +5,12 @@ import {
 	mkdir,
 	readDir,
 	readTextFile,
+	remove,
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import { Err, Ok, type Result } from 'wellcrafted/result';
+import { createTaggedError } from 'wellcrafted/error';
+import { Ok, type Result } from 'wellcrafted/result';
 
 const WORKSPACES_DIR = 'workspaces';
 
@@ -20,18 +22,10 @@ export type WorkspaceFile = {
 	updatedAt: string;
 };
 
-export type WorkspaceStorageError = {
-	_tag: 'WorkspaceStorageError';
-	message: string;
-	cause?: unknown;
-};
-
-function WorkspaceStorageError(
-	message: string,
-	cause?: unknown,
-): WorkspaceStorageError {
-	return { _tag: 'WorkspaceStorageError', message, cause };
-}
+export const { WorkspaceStorageError, WorkspaceStorageErr } = createTaggedError(
+	'WorkspaceStorageError',
+);
+export type WorkspaceStorageError = ReturnType<typeof WorkspaceStorageError>;
 
 export async function ensureWorkspacesDirectory(): Promise<
 	Result<void, WorkspaceStorageError>
@@ -50,9 +44,10 @@ export async function ensureWorkspacesDirectory(): Promise<
 
 		return Ok(undefined);
 	} catch (error) {
-		return Err(
-			WorkspaceStorageError('Failed to create workspaces directory', error),
-		);
+		return WorkspaceStorageErr({
+			message: 'Failed to create workspaces directory',
+			cause: error,
+		});
 	}
 }
 
@@ -73,7 +68,10 @@ export async function listWorkspaceIds(): Promise<
 
 		return Ok(workspaceIds);
 	} catch (error) {
-		return Err(WorkspaceStorageError('Failed to list workspaces', error));
+		return WorkspaceStorageErr({
+			message: 'Failed to list workspaces',
+			cause: error,
+		});
 	}
 }
 
@@ -101,7 +99,10 @@ export async function listWorkspaces(): Promise<
 
 		return Ok(workspaces);
 	} catch (error) {
-		return Err(WorkspaceStorageError('Failed to list workspaces', error));
+		return WorkspaceStorageErr({
+			message: 'Failed to list workspaces',
+			cause: error,
+		});
 	}
 }
 
@@ -116,7 +117,10 @@ export async function readWorkspace(
 		const workspace = JSON.parse(contents) as WorkspaceFile;
 		return Ok(workspace);
 	} catch (error) {
-		return Err(WorkspaceStorageError(`Failed to read workspace ${id}`, error));
+		return WorkspaceStorageErr({
+			message: `Failed to read workspace ${id}`,
+			cause: error,
+		});
 	}
 }
 
@@ -133,9 +137,10 @@ export async function writeWorkspace(
 		});
 		return Ok(undefined);
 	} catch (error) {
-		return Err(
-			WorkspaceStorageError(`Failed to write workspace ${workspace.id}`, error),
-		);
+		return WorkspaceStorageErr({
+			message: `Failed to write workspace ${workspace.id}`,
+			cause: error,
+		});
 	}
 }
 
@@ -149,7 +154,27 @@ export async function workspaceExists(
 		});
 		return Ok(fileExists);
 	} catch (error) {
-		return Err(WorkspaceStorageError(`Failed to check workspace ${id}`, error));
+		return WorkspaceStorageErr({
+			message: `Failed to check workspace ${id}`,
+			cause: error,
+		});
+	}
+}
+
+export async function deleteWorkspace(
+	id: string,
+): Promise<Result<void, WorkspaceStorageError>> {
+	try {
+		const filename = `${WORKSPACES_DIR}/${id}.json`;
+		await remove(filename, {
+			baseDir: BaseDirectory.AppLocalData,
+		});
+		return Ok(undefined);
+	} catch (error) {
+		return WorkspaceStorageErr({
+			message: `Failed to delete workspace ${id}`,
+			cause: error,
+		});
 	}
 }
 
@@ -166,9 +191,10 @@ export async function openWorkspacesDirectory(): Promise<
 		await revealItemInDir(workspacesPath);
 		return Ok(undefined);
 	} catch (error) {
-		return Err(
-			WorkspaceStorageError('Failed to open workspaces directory', error),
-		);
+		return WorkspaceStorageErr({
+			message: 'Failed to open workspaces directory',
+			cause: error,
+		});
 	}
 }
 
@@ -179,5 +205,6 @@ export const workspaceStorage = {
 	readWorkspace,
 	writeWorkspace,
 	workspaceExists,
+	deleteWorkspace,
 	openWorkspacesDirectory,
 };
