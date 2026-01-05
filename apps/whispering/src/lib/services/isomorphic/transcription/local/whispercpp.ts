@@ -67,173 +67,166 @@ const WhisperCppErrorType = type({
 	message: 'string',
 });
 
-export function createWhisperCppTranscriptionService() {
-	return {
-		async transcribe(
-			audioBlob: Blob,
-			options: {
-				outputLanguage: Settings['transcription.outputLanguage'];
-				modelPath: string;
-				prompt: Settings['transcription.prompt'];
-			},
-		): Promise<Result<string, WhisperingError>> {
-			// Pre-validation
-			if (!options.modelPath) {
-				return WhisperingErr({
-					title: '📁 Model File Required',
-					description: 'Please select a Whisper model file in settings.',
-					action: {
-						type: 'link',
-						label: 'Configure model',
-						href: '/settings/transcription',
-					},
-				});
-			}
-
-			// Check if model file exists
-			const { data: isExists } = await tryAsync({
-				try: () => exists(options.modelPath),
-				catch: () => Ok(false),
-			});
-
-			if (!isExists) {
-				return WhisperingErr({
-					title: '❌ Model File Not Found',
-					description: `The model file "${options.modelPath}" does not exist.`,
-					action: {
-						type: 'link',
-						label: 'Select model',
-						href: '/settings/transcription',
-					},
-				});
-			}
-
-			// Check for corrupted/incomplete model files
-			const modelConfig = WHISPER_MODELS.find((m) =>
-				options.modelPath.endsWith(m.file.filename),
-			);
-			if (modelConfig) {
-				const { data: fileStats } = await tryAsync({
-					try: () => stat(options.modelPath),
-					catch: () => Ok(null),
-				});
-				if (
-					fileStats &&
-					!isModelFileSizeValid(fileStats.size, modelConfig.sizeBytes)
-				) {
-					return WhisperingErr({
-						title: '⚠️ Model File Appears Corrupted',
-						description: `The model file is ${Math.round(fileStats.size / 1000000)}MB but should be ~${Math.round(modelConfig.sizeBytes / 1000000)}MB. This usually happens when a download was interrupted. Please delete and re-download the model.`,
-						action: {
-							type: 'link',
-							label: 'Re-download model',
-							href: '/settings/transcription',
-						},
-					});
-				}
-			}
-
-			// Convert audio blob to byte array
-			const arrayBuffer = await audioBlob.arrayBuffer();
-			const audioData = Array.from(new Uint8Array(arrayBuffer));
-
-			// Call Tauri command to transcribe with whisper-cpp
-			// Note: temperature is not supported by local models (transcribe-rs)
-			const result = await tryAsync({
-				try: () =>
-					invoke<string>('transcribe_audio_whisper', {
-						audioData: audioData,
-						modelPath: options.modelPath,
-						language:
-							options.outputLanguage === 'auto' ? null : options.outputLanguage,
-						initialPrompt: options.prompt || null,
-					}),
-				catch: (unknownError) => {
-					const result = WhisperCppErrorType(unknownError);
-					if (result instanceof type.errors) {
-						return WhisperingErr({
-							title: '❌ Unexpected Whisper C++ Error',
-							description: extractErrorMessage(unknownError),
-							action: { type: 'more-details', error: unknownError },
-						});
-					}
-					const error = result;
-
-					switch (error.name) {
-						case 'ModelLoadError':
-							return WhisperingErr({
-								title: '🤖 Model Loading Error',
-								description: error.message,
-								action: {
-									type: 'more-details',
-									error: new Error(error.message),
-								},
-							});
-
-						case 'GpuError':
-							return WhisperingErr({
-								title: '🎮 GPU Error',
-								description: error.message,
-								action: {
-									type: 'link',
-									label: 'Configure settings',
-									href: '/settings/transcription',
-								},
-							});
-
-						case 'FfmpegNotFoundError':
-							return WhisperingErr({
-								title: '🛠️ FFmpeg Required for This Recording Format',
-								description:
-									'This recording is in a compressed format (webm/ogg/mp4) that requires FFmpeg. Install FFmpeg or switch to CPAL recording (which produces WAV files that work without FFmpeg).',
-								action: {
-									type: 'link',
-									label: 'Install FFmpeg',
-									href: '/install-ffmpeg',
-								},
-							});
-
-						case 'AudioReadError':
-							return WhisperingErr({
-								title: '🔊 Audio Read Error',
-								description: error.message,
-								action: {
-									type: 'more-details',
-									error: new Error(error.message),
-								},
-							});
-
-						case 'TranscriptionError':
-							return WhisperingErr({
-								title: '❌ Transcription Error',
-								description: error.message,
-								action: {
-									type: 'more-details',
-									error: new Error(error.message),
-								},
-							});
-
-						default:
-							return WhisperingErr({
-								title: '❌ Whisper C++ Error',
-								description: 'An unexpected error occurred.',
-								action: {
-									type: 'more-details',
-									error: new Error(String(error)),
-								},
-							});
-					}
+export const WhisperCppTranscriptionServiceLive = {
+	async transcribe(
+		audioBlob: Blob,
+		options: {
+			outputLanguage: Settings['transcription.outputLanguage'];
+			modelPath: string;
+			prompt: Settings['transcription.prompt'];
+		},
+	): Promise<Result<string, WhisperingError>> {
+		// Pre-validation
+		if (!options.modelPath) {
+			return WhisperingErr({
+				title: '📁 Model File Required',
+				description: 'Please select a Whisper model file in settings.',
+				action: {
+					type: 'link',
+					label: 'Configure model',
+					href: '/settings/transcription',
 				},
 			});
+		}
 
-			return result;
-		},
-	};
-}
+		// Check if model file exists
+		const { data: isExists } = await tryAsync({
+			try: () => exists(options.modelPath),
+			catch: () => Ok(false),
+		});
 
-export type WhisperCppTranscriptionService = ReturnType<
-	typeof createWhisperCppTranscriptionService
->;
+		if (!isExists) {
+			return WhisperingErr({
+				title: '❌ Model File Not Found',
+				description: `The model file "${options.modelPath}" does not exist.`,
+				action: {
+					type: 'link',
+					label: 'Select model',
+					href: '/settings/transcription',
+				},
+			});
+		}
 
-export const WhisperCppTranscriptionServiceLive =
-	createWhisperCppTranscriptionService();
+		// Check for corrupted/incomplete model files
+		const modelConfig = WHISPER_MODELS.find((m) =>
+			options.modelPath.endsWith(m.file.filename),
+		);
+		if (modelConfig) {
+			const { data: fileStats } = await tryAsync({
+				try: () => stat(options.modelPath),
+				catch: () => Ok(null),
+			});
+			if (
+				fileStats &&
+				!isModelFileSizeValid(fileStats.size, modelConfig.sizeBytes)
+			) {
+				return WhisperingErr({
+					title: '⚠️ Model File Appears Corrupted',
+					description: `The model file is ${Math.round(fileStats.size / 1000000)}MB but should be ~${Math.round(modelConfig.sizeBytes / 1000000)}MB. This usually happens when a download was interrupted. Please delete and re-download the model.`,
+					action: {
+						type: 'link',
+						label: 'Re-download model',
+						href: '/settings/transcription',
+					},
+				});
+			}
+		}
+
+		// Convert audio blob to byte array
+		const arrayBuffer = await audioBlob.arrayBuffer();
+		const audioData = Array.from(new Uint8Array(arrayBuffer));
+
+		// Call Tauri command to transcribe with whisper-cpp
+		// Note: temperature is not supported by local models (transcribe-rs)
+		const result = await tryAsync({
+			try: () =>
+				invoke<string>('transcribe_audio_whisper', {
+					audioData: audioData,
+					modelPath: options.modelPath,
+					language:
+						options.outputLanguage === 'auto' ? null : options.outputLanguage,
+					initialPrompt: options.prompt || null,
+				}),
+			catch: (unknownError) => {
+				const result = WhisperCppErrorType(unknownError);
+				if (result instanceof type.errors) {
+					return WhisperingErr({
+						title: '❌ Unexpected Whisper C++ Error',
+						description: extractErrorMessage(unknownError),
+						action: { type: 'more-details', error: unknownError },
+					});
+				}
+				const error = result;
+
+				switch (error.name) {
+					case 'ModelLoadError':
+						return WhisperingErr({
+							title: '🤖 Model Loading Error',
+							description: error.message,
+							action: {
+								type: 'more-details',
+								error: new Error(error.message),
+							},
+						});
+
+					case 'GpuError':
+						return WhisperingErr({
+							title: '🎮 GPU Error',
+							description: error.message,
+							action: {
+								type: 'link',
+								label: 'Configure settings',
+								href: '/settings/transcription',
+							},
+						});
+
+					case 'FfmpegNotFoundError':
+						return WhisperingErr({
+							title: '🛠️ FFmpeg Required for This Recording Format',
+							description:
+								'This recording is in a compressed format (webm/ogg/mp4) that requires FFmpeg. Install FFmpeg or switch to CPAL recording (which produces WAV files that work without FFmpeg).',
+							action: {
+								type: 'link',
+								label: 'Install FFmpeg',
+								href: '/install-ffmpeg',
+							},
+						});
+
+					case 'AudioReadError':
+						return WhisperingErr({
+							title: '🔊 Audio Read Error',
+							description: error.message,
+							action: {
+								type: 'more-details',
+								error: new Error(error.message),
+							},
+						});
+
+					case 'TranscriptionError':
+						return WhisperingErr({
+							title: '❌ Transcription Error',
+							description: error.message,
+							action: {
+								type: 'more-details',
+								error: new Error(error.message),
+							},
+						});
+
+					default:
+						return WhisperingErr({
+							title: '❌ Whisper C++ Error',
+							description: 'An unexpected error occurred.',
+							action: {
+								type: 'more-details',
+								error: new Error(String(error)),
+							},
+						});
+				}
+			},
+		});
+
+		return result;
+	},
+};
+
+export type WhisperCppTranscriptionService = typeof WhisperCppTranscriptionServiceLive;

@@ -8,52 +8,48 @@ export const { FsServiceError, FsServiceErr } =
 	createTaggedError('FsServiceError');
 export type FsServiceError = ReturnType<typeof FsServiceError>;
 
-export function createFsServiceDesktop() {
-	return {
-		/**
-		 * Reads a file from disk and creates a Blob with the correct MIME type.
-		 * @param path - The file path to read
-		 */
-		pathToBlob: (path: string) =>
-			tryAsync({
-				try: () => createBlobFromPath(path),
-				catch: (error) =>
-					FsServiceErr({
-						message: `Failed to read file as Blob: ${path}: ${extractErrorMessage(error)}`,
-					}),
-			}),
+export const FsServiceLive = {
+	/**
+	 * Reads a file from disk and creates a Blob with the correct MIME type.
+	 * @param path - The file path to read
+	 */
+	pathToBlob: (path: string) =>
+		tryAsync({
+			try: () => createBlobFromPath(path),
+			catch: (error) =>
+				FsServiceErr({
+					message: `Failed to read file as Blob: ${path}: ${extractErrorMessage(error)}`,
+				}),
+		}),
 
-		/**
-		 * Reads a file from disk and creates a File object with the correct MIME type.
-		 * @param path - The file path to read
-		 */
-		pathToFile: (path: string) =>
-			tryAsync({
-				try: () => createFileFromPath(path),
-				catch: (error) =>
-					FsServiceErr({
-						message: `Failed to read file as File: ${path}: ${extractErrorMessage(error)}`,
-					}),
-			}),
+	/**
+	 * Reads a file from disk and creates a File object with the correct MIME type.
+	 * @param path - The file path to read
+	 */
+	pathToFile: (path: string) =>
+		tryAsync({
+			try: () => createFileFromPath(path),
+			catch: (error) =>
+				FsServiceErr({
+					message: `Failed to read file as File: ${path}: ${extractErrorMessage(error)}`,
+				}),
+		}),
 
-		/**
-		 * Reads multiple files from disk and creates File objects with correct MIME types.
-		 * @param paths - Array of file paths to read
-		 */
-		pathsToFiles: (paths: string[]) =>
-			tryAsync({
-				try: () => Promise.all(paths.map(createFileFromPath)),
-				catch: (error) =>
-					FsServiceErr({
-						message: `Failed to read files: ${paths.join(', ')}: ${extractErrorMessage(error)}`,
-					}),
-			}),
-	};
-}
+	/**
+	 * Reads multiple files from disk and creates File objects with correct MIME types.
+	 * @param paths - Array of file paths to read
+	 */
+	pathsToFiles: (paths: string[]) =>
+		tryAsync({
+			try: () => Promise.all(paths.map(createFileFromPath)),
+			catch: (error) =>
+				FsServiceErr({
+					message: `Failed to read files: ${paths.join(', ')}: ${extractErrorMessage(error)}`,
+				}),
+		}),
+};
 
-export type FsService = ReturnType<typeof createFsServiceDesktop>;
-
-export const FsServiceLive = createFsServiceDesktop();
+export type FsService = typeof FsServiceLive;
 
 /** Reads a file from disk and creates a Blob with the correct MIME type. */
 async function createBlobFromPath(path: string): Promise<Blob> {

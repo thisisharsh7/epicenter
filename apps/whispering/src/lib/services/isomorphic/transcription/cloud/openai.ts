@@ -36,9 +36,8 @@ export type OpenAIModel = (typeof OPENAI_TRANSCRIPTION_MODELS)[number];
 
 const MAX_FILE_SIZE_MB = 25 as const;
 
-export function createOpenaiTranscriptionService() {
-	return {
-		async transcribe(
+export const OpenaiTranscriptionServiceLive = {
+	async transcribe(
 			audioBlob: Blob,
 			options: {
 				prompt: string;
@@ -279,12 +278,6 @@ export function createOpenaiTranscriptionService() {
 			// Success - return the transcription text
 			return Ok(transcription.text.trim());
 		},
-	};
-}
+};
 
-export type OpenaiTranscriptionService = ReturnType<
-	typeof createOpenaiTranscriptionService
->;
-
-export const OpenaiTranscriptionServiceLive =
-	createOpenaiTranscriptionService();
+export type OpenaiTranscriptionService = typeof OpenaiTranscriptionServiceLive;

@@ -119,156 +119,149 @@ const MoonshineErrorType = type({
 	message: 'string',
 });
 
-export function createMoonshineTranscriptionService() {
-	return {
-		async transcribe(
-			audioBlob: Blob,
-			{ modelPath }: { modelPath: string },
-		): Promise<Result<string, WhisperingError>> {
-			// Pre-validation
-			if (!modelPath) {
-				return WhisperingErr({
-					title: 'Model Directory Required',
-					description: 'Please select a Moonshine model directory in settings.',
-					action: {
-						type: 'link',
-						label: 'Configure model',
-						href: '/settings/transcription',
-					},
-				});
-			}
-
-			// Check if model directory exists and is a directory (single I/O call)
-			const { data: stats } = await tryAsync({
-				try: () => stat(modelPath),
-				catch: () => Ok(null),
-			});
-
-			if (!stats) {
-				return WhisperingErr({
-					title: 'Model Directory Not Found',
-					description: `The model directory "${modelPath}" does not exist.`,
-					action: {
-						type: 'link',
-						label: 'Select model',
-						href: '/settings/transcription',
-					},
-				});
-			}
-
-			if (!stats.isDirectory) {
-				return WhisperingErr({
-					title: 'Invalid Model Path',
-					description:
-						'Moonshine models must be directories containing model files.',
-					action: {
-						type: 'link',
-						label: 'Select model directory',
-						href: '/settings/transcription',
-					},
-				});
-			}
-
-			// Validate path ends with moonshine-{variant}-{lang}
-			if (!MOONSHINE_DIR_PATTERN.test(modelPath)) {
-				return WhisperingErr({
-					title: 'Invalid Model Directory Name',
-					description: `Model path must end with moonshine-{variant}-{lang} (e.g., "moonshine-tiny-en", "moonshine-base-en")`,
-					action: {
-						type: 'link',
-						label: 'Select valid model',
-						href: '/settings/transcription',
-					},
-				});
-			}
-
-			// Convert audio blob to byte array
-			const arrayBuffer = await audioBlob.arrayBuffer();
-			const audioData = Array.from(new Uint8Array(arrayBuffer));
-
-			// Call Tauri command to transcribe with Moonshine
-			// The Rust side extracts variant from the model path directory name
-			const result = await tryAsync({
-				try: () =>
-					invoke<string>('transcribe_audio_moonshine', {
-						audioData,
-						modelPath,
-					}),
-				catch: (unknownError) => {
-					const result = MoonshineErrorType(unknownError);
-					if (result instanceof type.errors) {
-						return WhisperingErr({
-							title: 'Unexpected Moonshine Error',
-							description: extractErrorMessage(unknownError),
-							action: { type: 'more-details', error: unknownError },
-						});
-					}
-					const error = result;
-
-					switch (error.name) {
-						case 'ModelLoadError':
-							return WhisperingErr({
-								title: 'Model Loading Error',
-								description: error.message,
-								action: {
-									type: 'more-details',
-									error: new Error(error.message),
-								},
-							});
-
-						case 'FfmpegNotFoundError':
-							return WhisperingErr({
-								title: 'FFmpeg Not Installed',
-								description:
-									'Moonshine requires FFmpeg to convert audio formats. Please install FFmpeg or switch to CPAL recording at 16kHz.',
-								action: {
-									type: 'link',
-									label: 'Install FFmpeg',
-									href: '/install-ffmpeg',
-								},
-							});
-
-						case 'AudioReadError':
-							return WhisperingErr({
-								title: 'Audio Read Error',
-								description: error.message,
-								action: {
-									type: 'more-details',
-									error: new Error(error.message),
-								},
-							});
-
-						case 'TranscriptionError':
-							return WhisperingErr({
-								title: 'Transcription Error',
-								description: error.message,
-								action: {
-									type: 'more-details',
-									error: new Error(error.message),
-								},
-							});
-
-						default:
-							return WhisperingErr({
-								title: 'Moonshine Error',
-								description: 'An unexpected error occurred.',
-								action: {
-									type: 'more-details',
-									error: new Error(String(error)),
-								},
-							});
-					}
+export const MoonshineTranscriptionServiceLive = {
+	async transcribe(
+		audioBlob: Blob,
+		{ modelPath }: { modelPath: string },
+	): Promise<Result<string, WhisperingError>> {
+		// Pre-validation
+		if (!modelPath) {
+			return WhisperingErr({
+				title: 'Model Directory Required',
+				description: 'Please select a Moonshine model directory in settings.',
+				action: {
+					type: 'link',
+					label: 'Configure model',
+					href: '/settings/transcription',
 				},
 			});
+		}
 
-			return result;
-		},
-	};
-}
+		// Check if model directory exists and is a directory (single I/O call)
+		const { data: stats } = await tryAsync({
+			try: () => stat(modelPath),
+			catch: () => Ok(null),
+		});
 
-export type MoonshineTranscriptionService = ReturnType<
-	typeof createMoonshineTranscriptionService
->;
+		if (!stats) {
+			return WhisperingErr({
+				title: 'Model Directory Not Found',
+				description: `The model directory "${modelPath}" does not exist.`,
+				action: {
+					type: 'link',
+					label: 'Select model',
+					href: '/settings/transcription',
+				},
+			});
+		}
 
-export const MoonshineTranscriptionServiceLive =
-	createMoonshineTranscriptionService();
+		if (!stats.isDirectory) {
+			return WhisperingErr({
+				title: 'Invalid Model Path',
+				description:
+					'Moonshine models must be directories containing model files.',
+				action: {
+					type: 'link',
+					label: 'Select model directory',
+					href: '/settings/transcription',
+				},
+			});
+		}
+
+		// Validate path ends with moonshine-{variant}-{lang}
+		if (!MOONSHINE_DIR_PATTERN.test(modelPath)) {
+			return WhisperingErr({
+				title: 'Invalid Model Directory Name',
+				description: `Model path must end with moonshine-{variant}-{lang} (e.g., "moonshine-tiny-en", "moonshine-base-en")`,
+				action: {
+					type: 'link',
+					label: 'Select valid model',
+					href: '/settings/transcription',
+				},
+			});
+		}
+
+		// Convert audio blob to byte array
+		const arrayBuffer = await audioBlob.arrayBuffer();
+		const audioData = Array.from(new Uint8Array(arrayBuffer));
+
+		// Call Tauri command to transcribe with Moonshine
+		// The Rust side extracts variant from the model path directory name
+		const result = await tryAsync({
+			try: () =>
+				invoke<string>('transcribe_audio_moonshine', {
+					audioData,
+					modelPath,
+				}),
+			catch: (unknownError) => {
+				const result = MoonshineErrorType(unknownError);
+				if (result instanceof type.errors) {
+					return WhisperingErr({
+						title: 'Unexpected Moonshine Error',
+						description: extractErrorMessage(unknownError),
+						action: { type: 'more-details', error: unknownError },
+					});
+				}
+				const error = result;
+
+				switch (error.name) {
+					case 'ModelLoadError':
+						return WhisperingErr({
+							title: 'Model Loading Error',
+							description: error.message,
+							action: {
+								type: 'more-details',
+								error: new Error(error.message),
+							},
+						});
+
+					case 'FfmpegNotFoundError':
+						return WhisperingErr({
+							title: 'FFmpeg Not Installed',
+							description:
+								'Moonshine requires FFmpeg to convert audio formats. Please install FFmpeg or switch to CPAL recording at 16kHz.',
+							action: {
+								type: 'link',
+								label: 'Install FFmpeg',
+								href: '/install-ffmpeg',
+							},
+						});
+
+					case 'AudioReadError':
+						return WhisperingErr({
+							title: 'Audio Read Error',
+							description: error.message,
+							action: {
+								type: 'more-details',
+								error: new Error(error.message),
+							},
+						});
+
+					case 'TranscriptionError':
+						return WhisperingErr({
+							title: 'Transcription Error',
+							description: error.message,
+							action: {
+								type: 'more-details',
+								error: new Error(error.message),
+							},
+						});
+
+					default:
+						return WhisperingErr({
+							title: 'Moonshine Error',
+							description: 'An unexpected error occurred.',
+							action: {
+								type: 'more-details',
+								error: new Error(String(error)),
+							},
+						});
+				}
+			},
+		});
+
+		return result;
+	},
+};
+
+export type MoonshineTranscriptionService = typeof MoonshineTranscriptionServiceLive;

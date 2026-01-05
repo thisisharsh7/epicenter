@@ -200,373 +200,368 @@ export const FFMPEG_DEFAULT_DEVICE_IDENTIFIER = asDeviceIdentifier(
 	)[DESKTOP_PLATFORM],
 );
 
-export function createFfmpegRecorderService(): RecorderService {
-	// Persisted state - single source of truth
-	const sessionState = createPersistedState({
-		key: 'whispering-ffmpeg-recording-session',
-		schema: FfmpegSession,
-		onParseError: () => null,
+// Persisted state - single source of truth
+const sessionState = createPersistedState({
+	key: 'whispering-ffmpeg-recording-session',
+	schema: FfmpegSession,
+	onParseError: () => null,
+});
+
+// Helper to get current Child instance lazily from PID
+// Returns null if no session is active
+const getCurrentChild = (): Child | null => {
+	const session = sessionState.value;
+	return session ? new Child(session.pid) : null;
+};
+
+// Helper to clear session and kill any running process
+const clearSession = async (): Promise<void> => {
+	const session = sessionState.value;
+	if (!session) return;
+
+	// Try to kill the process if it exists
+	await tryAsync({
+		try: async () => {
+			const child = new Child(session.pid);
+			await child.kill();
+			console.log(`Killed FFmpeg process (PID: ${session.pid})`);
+		},
+		catch: (e) => {
+			console.log(
+				`Error terminating FFmpeg process (PID: ${session.pid}): ${extractErrorMessage(e)}`,
+			);
+			return Ok(undefined);
+		},
 	});
 
-	// Helper to get current Child instance lazily from PID
-	// Returns null if no session is active
-	const getCurrentChild = (): Child | null => {
-		const session = sessionState.value;
-		return session ? new Child(session.pid) : null;
-	};
+	// Clear the session state
+	sessionState.value = null;
+};
 
-	// Helper to clear session and kill any running process
-	const clearSession = async (): Promise<void> => {
-		const session = sessionState.value;
-		if (!session) return;
+// Clear any orphaned process on initialization
+if (sessionState.value) {
+	console.log('Found orphaned FFmpeg session, cleaning up...');
+	clearSession();
+}
 
-		// Try to kill the process if it exists
-		await tryAsync({
-			try: async () => {
-				const child = new Child(session.pid);
-				await child.kill();
-				console.log(`Killed FFmpeg process (PID: ${session.pid})`);
-			},
-			catch: (e) => {
-				console.log(
-					`Error terminating FFmpeg process (PID: ${session.pid}): ${extractErrorMessage(e)}`,
-				);
-				return Ok(undefined);
-			},
+const enumerateDevices = async (): Promise<
+	Result<Device[], RecorderServiceError>
+> => {
+	// Build platform-specific commands
+	const command = asShellCommand(FFMPEG_ENUMERATE_DEVICES_COMMAND);
+
+	const { data: result, error: executeError } =
+		await CommandServiceLive.execute(command);
+	if (executeError) {
+		return RecorderServiceErr({
+			message: 'Failed to enumerate recording devices',
 		});
-
-		// Clear the session state
-		sessionState.value = null;
-	};
-
-	// Clear any orphaned process on initialization
-	if (sessionState.value) {
-		console.log('Found orphaned FFmpeg session, cleaning up...');
-		clearSession();
 	}
 
-	const enumerateDevices = async (): Promise<
-		Result<Device[], RecorderServiceError>
-	> => {
-		// Build platform-specific commands
-		const command = asShellCommand(FFMPEG_ENUMERATE_DEVICES_COMMAND);
+	// FFmpeg lists devices to stderr, not stdout
+	const output = result.stderr;
 
-		const { data: result, error: executeError } =
-			await CommandServiceLive.execute(command);
-		if (executeError) {
-			return RecorderServiceErr({
-				message: 'Failed to enumerate recording devices',
-			});
-		}
+	const devices = parseDevices(output);
 
-		// FFmpeg lists devices to stderr, not stdout
-		const output = result.stderr;
+	if (devices.length === 0) {
+		return RecorderServiceErr({
+			message: 'No recording devices found',
+		});
+	}
 
-		const devices = parseDevices(output);
-
-		if (devices.length === 0) {
-			return RecorderServiceErr({
-				message: 'No recording devices found',
-			});
-		}
-
-		return Ok(devices);
-	};
-
-	return {
-		getRecorderState: async (): Promise<
-			Result<WhisperingRecordingState, RecorderServiceError>
-		> => {
-			return Ok(sessionState.value ? 'RECORDING' : 'IDLE');
-		},
-
-		enumerateDevices,
-
-		startRecording: async (
-			{
-				selectedDeviceId,
-				outputFolder,
-				recordingId,
-				globalOptions,
-				inputOptions,
-				outputOptions,
-			}: FfmpegRecordingParams,
-			{ sendStatus },
-		): Promise<Result<DeviceAcquisitionOutcome, RecorderServiceError>> => {
-			// Stop any existing recording
-			await clearSession();
-
-			// Enumerate devices to validate selection
-			const { data: devices, error: enumerateError } = await enumerateDevices();
-			if (enumerateError) return Err(enumerateError);
-
-			const acquireDevice = (): Result<
-				DeviceAcquisitionOutcome,
-				RecorderServiceError
-			> => {
-				const deviceIds = devices.map((d) => d.id);
-				const fallbackDeviceId = deviceIds.at(0);
-
-				if (!fallbackDeviceId) {
-					return RecorderServiceErr({
-						message: selectedDeviceId
-							? "We couldn't find the selected microphone. Make sure it's connected and try again!"
-							: "We couldn't find any microphones. Make sure they're connected and try again!",
-					});
-				}
-
-				if (!selectedDeviceId) {
-					sendStatus({
-						title: '🔍 No Device Selected',
-						description:
-							"No worries! We'll find the best microphone for you automatically...",
-					});
-					return Ok({
-						outcome: 'fallback',
-						reason: 'no-device-selected',
-						deviceId: fallbackDeviceId,
-					});
-				}
-
-				const deviceExists = deviceIds.includes(selectedDeviceId);
-
-				if (deviceExists)
-					return Ok({ outcome: 'success', deviceId: selectedDeviceId });
-
-				sendStatus({
-					title: '⚠️ Finding a New Microphone',
-					description:
-						"That microphone isn't available. Let's try finding another one...",
-				});
-
-				return Ok({
-					outcome: 'fallback',
-					reason: 'preferred-device-unavailable',
-					deviceId: fallbackDeviceId,
-				});
-			};
-
-			const { data: deviceOutcome, error: acquireDeviceError } =
-				acquireDevice();
-			if (acquireDeviceError) return Err(acquireDeviceError);
-			const deviceIdentifier = deviceOutcome.deviceId;
-
-			// Determine the file extension from the output options
-			const fileExtension = getFileExtensionFromFfmpegOptions(outputOptions);
-
-			// Construct the output path
-			const outputPath = await join(
-				outputFolder,
-				`${recordingId}.${fileExtension}`,
-			);
-
-			// Build FFmpeg command using the shared function
-			const command = buildFfmpegCommand({
-				globalOptions,
-				inputOptions,
-				deviceIdentifier,
-				outputOptions,
-				outputPath,
-			});
-
-			sendStatus({
-				title: '🎤 Setting Up',
-				description: 'Initializing FFmpeg recording session...',
-			});
-
-			// Use command service to spawn FFmpeg process
-			// This will now throw if FFmpeg exits immediately with an error
-			const { data: process, error: startError } =
-				await CommandServiceLive.spawn(asShellCommand(command));
-
-			if (startError) {
-				// The spawn function already caught the FFmpeg error and extracted the message
-				return RecorderServiceErr({
-					message: 'Failed to start recording',
-				});
-			}
-
-			// Store the PID and session info for recovery after refresh
-			sessionState.value = {
-				pid: process.pid,
-				outputPath,
-			};
-
-			sendStatus({
-				title: '🎙️ Recording',
-				description: 'FFmpeg is now recording audio...',
-			});
-
-			return Ok(deviceOutcome);
-		},
-
-		stopRecording: async ({
-			sendStatus,
-		}): Promise<Result<Blob, RecorderServiceError>> => {
-			const child = getCurrentChild();
-			const session = sessionState.value;
-			if (!child || !session) {
-				return RecorderServiceErr({
-					message: 'No active recording to stop',
-				});
-			}
-
-			sendStatus({
-				title: '⏹️ Stopping',
-				description: 'Stopping FFmpeg recording...',
-			});
-
-			// Send SIGINT for graceful shutdown
-			const { error: killError } = await tryAsync({
-				try: async () => {
-					const signalResult = await sendSigint(session.pid);
-
-					if (!signalResult.success) {
-						// Fall back to SIGKILL if SIGINT fails
-						await child.kill();
-					} else {
-						// Schedule a force kill after 1 second (but don't wait)
-						setTimeout(() => {
-							child.kill().catch(() => {
-								// Process already exited, expected
-							});
-						}, 1000);
-					}
-				},
-				catch: (error) =>
-					RecorderServiceErr({
-						message: `Failed to stop FFmpeg process: ${extractErrorMessage(error)}`,
-					}),
-			});
-
-			if (killError) {
-				sendStatus({
-					title: '❌ Error Stopping Recording',
-					description:
-						"We couldn't stop the recording properly. Attempting to recover your audio...",
-				});
-			}
-
-			const outputPath = session.outputPath;
-
-			// Clear the session
-			sessionState.value = null;
-
-			// Poll for file stabilization
-			const MAX_WAIT_TIME = 3000; // 3 seconds max
-			const POLL_INTERVAL = 100; // Check every 100ms
-			const startTime = Date.now();
-			let lastSize = -1;
-			let stableChecks = 0;
-			const STABLE_THRESHOLD = 2; // File size must be stable for 2 checks
-
-			while (Date.now() - startTime < MAX_WAIT_TIME) {
-				await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-
-				await tryAsync({
-					try: async () => {
-						const fileExists = await exists(outputPath);
-						if (fileExists) {
-							const stats = await stat(outputPath);
-							const currentSize = stats.size;
-
-							// Check if file size has stabilized
-							if (currentSize > 0 && currentSize === lastSize) {
-								stableChecks++;
-								if (stableChecks >= STABLE_THRESHOLD) {
-									// File is stable, FFmpeg has finished
-									return;
-								}
-							} else {
-								// Size changed, reset stability counter
-								stableChecks = 0;
-								lastSize = currentSize;
-							}
-						}
-					},
-					catch: () => Ok(undefined), // File might not exist yet, continue polling
-				});
-
-				// Break if file is stable
-				if (stableChecks >= STABLE_THRESHOLD) break;
-			}
-
-			// Read the recorded file
-			sendStatus({
-				title: '📁 Reading Recording',
-				description: 'Loading your recording from disk...',
-			});
-
-			const { data: blob, error: readError } =
-				await FsServiceLive.pathToBlob(outputPath);
-
-			if (readError) {
-				return RecorderServiceErr({
-					message: 'Unable to read recording file',
-				});
-			}
-
-			// Validate the blob has actual content
-			if (!blob || blob.size === 0) {
-				return RecorderServiceErr({
-					message: 'Recording file is empty',
-				});
-			}
-
-			return Ok(blob);
-		},
-
-		cancelRecording: async ({
-			sendStatus,
-		}): Promise<Result<CancelRecordingResult, RecorderServiceError>> => {
-			const session = sessionState.value;
-			if (!session) {
-				return Ok({ status: 'no-recording' });
-			}
-
-			sendStatus({
-				title: '🛑 Cancelling',
-				description: 'Stopping FFmpeg recording and cleaning up...',
-			});
-
-			// Store the path before clearing the session
-			const pathToCleanup = session.outputPath;
-
-			// Clear the session and kill the process
-			await clearSession();
-
-			// Delete the output file if it exists
-			if (pathToCleanup) {
-				const { error: removeError } = await tryAsync({
-					try: async () => {
-						const fileExists = await exists(pathToCleanup);
-						if (fileExists) await remove(pathToCleanup);
-					},
-					catch: (error) =>
-						RecorderServiceErr({
-							message: `Failed to delete recording file: ${extractErrorMessage(error)}`,
-						}),
-				});
-
-				if (removeError) {
-					sendStatus({
-						title: '❌ Error Deleting Recording File',
-						description:
-							"We couldn't delete the recording file. Continuing with the cancellation process...",
-					});
-				}
-			}
-
-			return Ok({ status: 'cancelled' });
-		},
-	};
-}
+	return Ok(devices);
+};
 
 /**
  * FFmpeg recorder service that uses FFmpeg command-line tool for recording.
  * Only available in desktop environment.
  */
-export const FfmpegRecorderServiceLive = createFfmpegRecorderService();
+export const FfmpegRecorderServiceLive: RecorderService = {
+	getRecorderState: async (): Promise<
+		Result<WhisperingRecordingState, RecorderServiceError>
+	> => {
+		return Ok(sessionState.value ? 'RECORDING' : 'IDLE');
+	},
+
+	enumerateDevices,
+
+	startRecording: async (
+		{
+			selectedDeviceId,
+			outputFolder,
+			recordingId,
+			globalOptions,
+			inputOptions,
+			outputOptions,
+		}: FfmpegRecordingParams,
+		{ sendStatus },
+	): Promise<Result<DeviceAcquisitionOutcome, RecorderServiceError>> => {
+		// Stop any existing recording
+		await clearSession();
+
+		// Enumerate devices to validate selection
+		const { data: devices, error: enumerateError } = await enumerateDevices();
+		if (enumerateError) return Err(enumerateError);
+
+		const acquireDevice = (): Result<
+			DeviceAcquisitionOutcome,
+			RecorderServiceError
+		> => {
+			const deviceIds = devices.map((d) => d.id);
+			const fallbackDeviceId = deviceIds.at(0);
+
+			if (!fallbackDeviceId) {
+				return RecorderServiceErr({
+					message: selectedDeviceId
+						? "We couldn't find the selected microphone. Make sure it's connected and try again!"
+						: "We couldn't find any microphones. Make sure they're connected and try again!",
+				});
+			}
+
+			if (!selectedDeviceId) {
+				sendStatus({
+					title: '🔍 No Device Selected',
+					description:
+						"No worries! We'll find the best microphone for you automatically...",
+				});
+				return Ok({
+					outcome: 'fallback',
+					reason: 'no-device-selected',
+					deviceId: fallbackDeviceId,
+				});
+			}
+
+			const deviceExists = deviceIds.includes(selectedDeviceId);
+
+			if (deviceExists)
+				return Ok({ outcome: 'success', deviceId: selectedDeviceId });
+
+			sendStatus({
+				title: '⚠️ Finding a New Microphone',
+				description:
+					"That microphone isn't available. Let's try finding another one...",
+			});
+
+			return Ok({
+				outcome: 'fallback',
+				reason: 'preferred-device-unavailable',
+				deviceId: fallbackDeviceId,
+			});
+		};
+
+		const { data: deviceOutcome, error: acquireDeviceError } = acquireDevice();
+		if (acquireDeviceError) return Err(acquireDeviceError);
+		const deviceIdentifier = deviceOutcome.deviceId;
+
+		// Determine the file extension from the output options
+		const fileExtension = getFileExtensionFromFfmpegOptions(outputOptions);
+
+		// Construct the output path
+		const outputPath = await join(
+			outputFolder,
+			`${recordingId}.${fileExtension}`,
+		);
+
+		// Build FFmpeg command using the shared function
+		const command = buildFfmpegCommand({
+			globalOptions,
+			inputOptions,
+			deviceIdentifier,
+			outputOptions,
+			outputPath,
+		});
+
+		sendStatus({
+			title: '🎤 Setting Up',
+			description: 'Initializing FFmpeg recording session...',
+		});
+
+		// Use command service to spawn FFmpeg process
+		// This will now throw if FFmpeg exits immediately with an error
+		const { data: process, error: startError } =
+			await CommandServiceLive.spawn(asShellCommand(command));
+
+		if (startError) {
+			// The spawn function already caught the FFmpeg error and extracted the message
+			return RecorderServiceErr({
+				message: 'Failed to start recording',
+			});
+		}
+
+		// Store the PID and session info for recovery after refresh
+		sessionState.value = {
+			pid: process.pid,
+			outputPath,
+		};
+
+		sendStatus({
+			title: '🎙️ Recording',
+			description: 'FFmpeg is now recording audio...',
+		});
+
+		return Ok(deviceOutcome);
+	},
+
+	stopRecording: async ({
+		sendStatus,
+	}): Promise<Result<Blob, RecorderServiceError>> => {
+		const child = getCurrentChild();
+		const session = sessionState.value;
+		if (!child || !session) {
+			return RecorderServiceErr({
+				message: 'No active recording to stop',
+			});
+		}
+
+		sendStatus({
+			title: '⏹️ Stopping',
+			description: 'Stopping FFmpeg recording...',
+		});
+
+		// Send SIGINT for graceful shutdown
+		const { error: killError } = await tryAsync({
+			try: async () => {
+				const signalResult = await sendSigint(session.pid);
+
+				if (!signalResult.success) {
+					// Fall back to SIGKILL if SIGINT fails
+					await child.kill();
+				} else {
+					// Schedule a force kill after 1 second (but don't wait)
+					setTimeout(() => {
+						child.kill().catch(() => {
+							// Process already exited, expected
+						});
+					}, 1000);
+				}
+			},
+			catch: (error) =>
+				RecorderServiceErr({
+					message: `Failed to stop FFmpeg process: ${extractErrorMessage(error)}`,
+				}),
+		});
+
+		if (killError) {
+			sendStatus({
+				title: '❌ Error Stopping Recording',
+				description:
+					"We couldn't stop the recording properly. Attempting to recover your audio...",
+			});
+		}
+
+		const outputPath = session.outputPath;
+
+		// Clear the session
+		sessionState.value = null;
+
+		// Poll for file stabilization
+		const MAX_WAIT_TIME = 3000; // 3 seconds max
+		const POLL_INTERVAL = 100; // Check every 100ms
+		const startTime = Date.now();
+		let lastSize = -1;
+		let stableChecks = 0;
+		const STABLE_THRESHOLD = 2; // File size must be stable for 2 checks
+
+		while (Date.now() - startTime < MAX_WAIT_TIME) {
+			await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+
+			await tryAsync({
+				try: async () => {
+					const fileExists = await exists(outputPath);
+					if (fileExists) {
+						const stats = await stat(outputPath);
+						const currentSize = stats.size;
+
+						// Check if file size has stabilized
+						if (currentSize > 0 && currentSize === lastSize) {
+							stableChecks++;
+							if (stableChecks >= STABLE_THRESHOLD) {
+								// File is stable, FFmpeg has finished
+								return;
+							}
+						} else {
+							// Size changed, reset stability counter
+							stableChecks = 0;
+							lastSize = currentSize;
+						}
+					}
+				},
+				catch: () => Ok(undefined), // File might not exist yet, continue polling
+			});
+
+			// Break if file is stable
+			if (stableChecks >= STABLE_THRESHOLD) break;
+		}
+
+		// Read the recorded file
+		sendStatus({
+			title: '📁 Reading Recording',
+			description: 'Loading your recording from disk...',
+		});
+
+		const { data: blob, error: readError } =
+			await FsServiceLive.pathToBlob(outputPath);
+
+		if (readError) {
+			return RecorderServiceErr({
+				message: 'Unable to read recording file',
+			});
+		}
+
+		// Validate the blob has actual content
+		if (!blob || blob.size === 0) {
+			return RecorderServiceErr({
+				message: 'Recording file is empty',
+			});
+		}
+
+		return Ok(blob);
+	},
+
+	cancelRecording: async ({
+		sendStatus,
+	}): Promise<Result<CancelRecordingResult, RecorderServiceError>> => {
+		const session = sessionState.value;
+		if (!session) {
+			return Ok({ status: 'no-recording' });
+		}
+
+		sendStatus({
+			title: '🛑 Cancelling',
+			description: 'Stopping FFmpeg recording and cleaning up...',
+		});
+
+		// Store the path before clearing the session
+		const pathToCleanup = session.outputPath;
+
+		// Clear the session and kill the process
+		await clearSession();
+
+		// Delete the output file if it exists
+		if (pathToCleanup) {
+			const { error: removeError } = await tryAsync({
+				try: async () => {
+					const fileExists = await exists(pathToCleanup);
+					if (fileExists) await remove(pathToCleanup);
+				},
+				catch: (error) =>
+					RecorderServiceErr({
+						message: `Failed to delete recording file: ${extractErrorMessage(error)}`,
+					}),
+			});
+
+			if (removeError) {
+				sendStatus({
+					title: '❌ Error Deleting Recording File',
+					description:
+						"We couldn't delete the recording file. Continuing with the cancellation process...",
+				});
+			}
+		}
+
+		return Ok({ status: 'cancelled' });
+	},
+};
 
 /**
  * Parse FFmpeg device enumeration output based on platform
