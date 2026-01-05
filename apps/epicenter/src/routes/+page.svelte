@@ -2,12 +2,10 @@
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
 	import { Button } from '@epicenter/ui/button';
-	import { inputDialog } from '$lib/components/InputDialog.svelte';
+	import { workspaceCreateDialog } from '$lib/components/WorkspaceCreateDialog.svelte';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 
-	const workspaceIds = createQuery(
-		() => rpc.workspaces.listWorkspaceIds.options,
-	);
+	const workspaces = createQuery(() => rpc.workspaces.listWorkspaces.options);
 	const createWorkspace = createMutation(
 		() => rpc.workspaces.createWorkspace.options,
 	);
@@ -16,13 +14,9 @@
 	);
 
 	function handleCreate() {
-		inputDialog.open({
-			title: 'Create Workspace',
-			description: 'Enter a name for your new workspace.',
-			label: 'Workspace Name',
-			placeholder: 'My Workspace',
-			onConfirm: async (name) => {
-				await createWorkspace.mutateAsync({ name });
+		workspaceCreateDialog.open({
+			onConfirm: async ({ name, id }) => {
+				await createWorkspace.mutateAsync({ name, id });
 			},
 		});
 	}
@@ -50,24 +44,24 @@
 		</div>
 	</div>
 
-	{#if workspaceIds.isPending}
+	{#if workspaces.isPending}
 		<p class="text-muted-foreground">Loading workspaces...</p>
-	{:else if workspaceIds.error}
-		<p class="text-destructive">Error: {workspaceIds.error.message}</p>
-	{:else if workspaceIds.data?.length === 0}
+	{:else if workspaces.error}
+		<p class="text-destructive">Error: {workspaces.error.message}</p>
+	{:else if workspaces.data?.length === 0}
 		<div class="rounded-lg border border-dashed p-8 text-center">
 			<p class="text-muted-foreground mb-4">No workspaces yet</p>
 			<Button onclick={handleCreate}>Create your first workspace</Button>
 		</div>
 	{:else}
 		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-			{#each workspaceIds.data ?? [] as id (id)}
+			{#each workspaces.data ?? [] as workspace (workspace.id)}
 				<a
-					href="/{id}"
+					href="/workspaces/{workspace.id}"
 					class="hover:bg-accent block rounded-lg border p-4 transition-colors"
 				>
-					<h2 class="font-medium">{id}</h2>
-					<p class="text-muted-foreground text-sm">Click to view workspace</p>
+					<h2 class="font-medium">{workspace.name}</h2>
+					<p class="text-muted-foreground text-sm">{workspace.id}</p>
 				</a>
 			{/each}
 		</div>

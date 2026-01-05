@@ -4,7 +4,6 @@ import {
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
 import { Ok, Err } from 'wellcrafted/result';
-import { nanoid } from 'nanoid';
 
 const workspaceKeys = {
 	all: ['workspaces'] as const,
@@ -13,10 +12,10 @@ const workspaceKeys = {
 };
 
 export const workspaces = {
-	listWorkspaceIds: defineQuery({
+	listWorkspaces: defineQuery({
 		queryKey: workspaceKeys.list(),
 		queryFn: async () => {
-			const result = await workspaceStorage.listWorkspaceIds();
+			const result = await workspaceStorage.listWorkspaces();
 			if (result.error) {
 				return Err(result.error);
 			}
@@ -38,12 +37,22 @@ export const workspaces = {
 
 	createWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'create'],
-		mutationFn: async (input: { name: string }) => {
-			const id = nanoid(15);
+		mutationFn: async (input: { name: string; id: string }) => {
+			const existsResult = await workspaceStorage.workspaceExists(input.id);
+			if (existsResult.error) {
+				return Err(existsResult.error);
+			}
+			if (existsResult.data) {
+				return Err({
+					_tag: 'WorkspaceStorageError' as const,
+					message: `Workspace with ID "${input.id}" already exists`,
+				});
+			}
+
 			const now = new Date().toISOString();
 
 			const workspace: WorkspaceFile = {
-				id,
+				id: input.id,
 				name: input.name,
 				tables: {},
 				createdAt: now,

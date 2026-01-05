@@ -6,23 +6,17 @@
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import HomeIcon from '@lucide/svelte/icons/home';
-	import { inputDialog } from '$lib/components/InputDialog.svelte';
+	import { workspaceCreateDialog } from '$lib/components/WorkspaceCreateDialog.svelte';
 
-	const workspaceIds = createQuery(
-		() => rpc.workspaces.listWorkspaceIds.options,
-	);
+	const workspaces = createQuery(() => rpc.workspaces.listWorkspaces.options);
 	const createWorkspace = createMutation(
 		() => rpc.workspaces.createWorkspace.options,
 	);
 
 	function handleCreateWorkspace() {
-		inputDialog.open({
-			title: 'Create Workspace',
-			description: 'Enter a name for your new workspace.',
-			label: 'Workspace Name',
-			placeholder: 'My Workspace',
-			onConfirm: async (name) => {
-				await createWorkspace.mutateAsync({ name });
+		workspaceCreateDialog.open({
+			onConfirm: async ({ name, id }) => {
+				await createWorkspace.mutateAsync({ name, id });
 			},
 		});
 	}
@@ -56,20 +50,27 @@
 			</Sidebar.GroupAction>
 			<Sidebar.GroupContent>
 				<Sidebar.Menu>
-					{#if workspaceIds.isPending}
+					{#if workspaces.isPending}
 						{#each Array.from({ length: 3 }) as _, i (i)}
 							<Sidebar.MenuItem>
 								<Sidebar.MenuSkeleton />
 							</Sidebar.MenuItem>
 						{/each}
-					{:else if workspaceIds.data}
-						{#each workspaceIds.data as id (id)}
+					{:else if workspaces.data}
+						{#each workspaces.data as workspace (workspace.id)}
 							<Sidebar.MenuItem>
-								<Sidebar.MenuButton isActive={page.params.id === id}>
+								<Sidebar.MenuButton isActive={page.params.id === workspace.id}>
 									{#snippet child({ props })}
-										<a href="/workspaces/{id}" {...props}>
+										<a href="/workspaces/{workspace.id}" {...props}>
 											<FolderIcon />
-											<span>{id}</span>
+											<div class="grid flex-1 text-left text-sm leading-tight">
+												<span class="truncate font-semibold"
+													>{workspace.name}</span
+												>
+												<span class="truncate text-xs text-muted-foreground"
+													>{workspace.id}</span
+												>
+											</div>
 										</a>
 									{/snippet}
 								</Sidebar.MenuButton>

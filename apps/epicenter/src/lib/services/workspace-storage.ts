@@ -77,6 +77,34 @@ export async function listWorkspaceIds(): Promise<
 	}
 }
 
+export type WorkspaceSummary = {
+	id: string;
+	name: string;
+};
+
+export async function listWorkspaces(): Promise<
+	Result<WorkspaceSummary[], WorkspaceStorageError>
+> {
+	try {
+		const idsResult = await listWorkspaceIds();
+		if (idsResult.error) return idsResult;
+
+		const workspaces: WorkspaceSummary[] = [];
+		for (const id of idsResult.data) {
+			const workspaceResult = await readWorkspace(id);
+			if (workspaceResult.error) continue; // Skip corrupted workspaces
+			workspaces.push({
+				id: workspaceResult.data.id,
+				name: workspaceResult.data.name,
+			});
+		}
+
+		return Ok(workspaces);
+	} catch (error) {
+		return Err(WorkspaceStorageError('Failed to list workspaces', error));
+	}
+}
+
 export async function readWorkspace(
 	id: string,
 ): Promise<Result<WorkspaceFile, WorkspaceStorageError>> {
@@ -147,6 +175,7 @@ export async function openWorkspacesDirectory(): Promise<
 export const workspaceStorage = {
 	ensureWorkspacesDirectory,
 	listWorkspaceIds,
+	listWorkspaces,
 	readWorkspace,
 	writeWorkspace,
 	workspaceExists,
