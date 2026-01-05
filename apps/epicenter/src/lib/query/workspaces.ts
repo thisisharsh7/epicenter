@@ -53,6 +53,7 @@ export const workspaces = {
 				id: input.id,
 				name: input.name,
 				tables: {},
+				kv: {},
 			};
 
 			const result = await workspaceStorage.writeWorkspace(workspace);

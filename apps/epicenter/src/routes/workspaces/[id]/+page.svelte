@@ -34,19 +34,15 @@
 
 			<div class="grid gap-4 md:grid-cols-2">
 				<div class="rounded-lg border p-4">
-					<h2 class="mb-2 font-medium">Metadata</h2>
+					<h2 class="mb-2 font-medium">Schema</h2>
 					<dl class="text-sm space-y-1">
-						<div class="flex justify-between">
-							<dt class="text-muted-foreground">Created</dt>
-							<dd>{new Date(workspace.data.createdAt).toLocaleString()}</dd>
-						</div>
-						<div class="flex justify-between">
-							<dt class="text-muted-foreground">Updated</dt>
-							<dd>{new Date(workspace.data.updatedAt).toLocaleString()}</dd>
-						</div>
 						<div class="flex justify-between">
 							<dt class="text-muted-foreground">Tables</dt>
 							<dd>{Object.keys(workspace.data.tables).length}</dd>
+						</div>
+						<div class="flex justify-between">
+							<dt class="text-muted-foreground">KV Entries</dt>
+							<dd>{Object.keys(workspace.data.kv).length}</dd>
 						</div>
 					</dl>
 				</div>
