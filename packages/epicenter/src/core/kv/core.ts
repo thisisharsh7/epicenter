@@ -51,7 +51,7 @@ export function createKv<TKvSchema extends KvSchema>(
 				} else {
 					const helper = kvHelpers[keyName as keyof typeof kvHelpers];
 					const getResult = helper.get();
-					if (getResult.status === 'valid' && getResult.value !== undefined) {
+					if (getResult.status === 'valid') {
 						result[keyName] = getResult.value;
 					} else {
 						result[keyName] = null;
