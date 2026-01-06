@@ -4,14 +4,14 @@ import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type {
 	CellValue,
-	PartialSerializedRow,
+	PartialRowData,
 	Row,
-	SerializedRow,
+	RowData,
 	TableSchema,
 	TablesSchema,
 } from '../schema';
-import { serializeCellValue, tableSchemaToYjsArktype } from '../schema';
-import { updateYRowFromSerializedRow } from '../utils/yjs';
+import { tableSchemaToYjsArktype } from '../schema';
+import { updateYRowFromRowData } from '../utils/yjs';
 
 /**
  * Context for row validation errors
@@ -213,10 +213,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * only partial fields) could completely replace it, destroying all their data. The
 		 * no-op behavior is the safe choice that prevents catastrophic data loss.
 		 */
-		update(
-			partialSerializedRow: PartialSerializedRow<TTableSchema>,
-		): UpdateResult {
-			const yrow = getYTable().get(partialSerializedRow.id);
+		update(partialRowData: PartialRowData<TTableSchema>): UpdateResult {
+			const yrow = getYTable().get(partialRowData.id);
 			if (!yrow) {
 				// No-op: Creating a new Y.Map here would risk replacing an existing row
 				// from another peer via LWW, causing catastrophic data loss.
@@ -224,9 +222,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			}
 
 			ydoc.transact(() => {
-				updateYRowFromSerializedRow({
+				updateYRowFromRowData({
 					yrow,
-					serializedRow: partialSerializedRow,
+					rowData: partialRowData,
 					schema,
 				});
 			});
@@ -243,7 +241,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * For Y.js columns (ytext), provide plain strings.
 		 * For array columns (tags), provide plain arrays.
 		 *
-		 * @param serializedRow - Complete row data with all required fields
+		 * @param rowData - Complete row data with all required fields
 		 *
 		 * @example
 		 * ```typescript
@@ -266,14 +264,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * });
 		 * ```
 		 */
-		upsert(serializedRow: SerializedRow<TTableSchema>): void {
+		upsert(rowData: RowData<TTableSchema>): void {
 			ydoc.transact(() => {
-				let yrow = getYTable().get(serializedRow.id);
+				let yrow = getYTable().get(rowData.id);
 				if (!yrow) {
 					yrow = new Y.Map<CellValue>();
-					getYTable().set(serializedRow.id, yrow);
+					getYTable().set(rowData.id, yrow);
 				}
-				updateYRowFromSerializedRow({ yrow, serializedRow, schema });
+				updateYRowFromRowData({ yrow, rowData, schema });
 			});
 		},
 
@@ -293,15 +291,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * ]);
 		 * ```
 		 */
-		upsertMany(rows: SerializedRow<TTableSchema>[]): void {
+		upsertMany(rows: RowData<TTableSchema>[]): void {
 			ydoc.transact(() => {
-				for (const serializedRow of rows) {
-					let yrow = getYTable().get(serializedRow.id);
+				for (const rowData of rows) {
+					let yrow = getYTable().get(rowData.id);
 					if (!yrow) {
 						yrow = new Y.Map<CellValue>();
-						getYTable().set(serializedRow.id, yrow);
+						getYTable().set(rowData.id, yrow);
 					}
-					updateYRowFromSerializedRow({ yrow, serializedRow, schema });
+					updateYRowFromRowData({ yrow, rowData, schema });
 				}
 			});
 		},
@@ -312,23 +310,23 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Rows that don't exist locally are skipped (no-op). See `update` for the rationale.
 		 * Returns a status indicating how many rows were applied vs not found locally.
 		 */
-		updateMany(rows: PartialSerializedRow<TTableSchema>[]): UpdateManyResult {
+		updateMany(rows: PartialRowData<TTableSchema>[]): UpdateManyResult {
 			const applied: string[] = [];
 			const notFoundLocally: string[] = [];
 
 			ydoc.transact(() => {
-				for (const partialSerializedRow of rows) {
-					const yrow = getYTable().get(partialSerializedRow.id);
+				for (const partialRowData of rows) {
+					const yrow = getYTable().get(partialRowData.id);
 					if (!yrow) {
-						notFoundLocally.push(partialSerializedRow.id);
+						notFoundLocally.push(partialRowData.id);
 						continue;
 					}
-					updateYRowFromSerializedRow({
+					updateYRowFromRowData({
 						yrow,
-						serializedRow: partialSerializedRow,
+						rowData: partialRowData,
 						schema,
 					});
-					applied.push(partialSerializedRow.id);
+					applied.push(partialRowData.id);
 				}
 			});
 
@@ -903,21 +901,20 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		/**
-		 * Type inference helper for SerializedRow.
+		 * Type inference helper for RowData.
 		 *
-		 * SerializedRow is the plain JavaScript representation of a row,
-		 * used for upsert and update operations. Y.js types are represented
-		 * as plain values (Y.Text → string, Y.Array → array).
+		 * RowData is the plain JavaScript representation of a row,
+		 * used for upsert and update operations.
 		 *
 		 * Alternative: `Parameters<typeof tables.posts.upsert>[0]`
 		 *
 		 * @example
 		 * ```typescript
-		 * type Post = typeof tables.posts.$inferSerializedRow;
+		 * type Post = typeof tables.posts.$inferRowData;
 		 * // { id: string; title: string; content: string; tags: string[] }
 		 * ```
 		 */
-		$inferSerializedRow: null as unknown as SerializedRow<TTableSchema>,
+		$inferRowData: null as unknown as RowData<TTableSchema>,
 
 		/**
 		 * Type inference helper for Row.
@@ -976,7 +973,6 @@ function buildRowFromYRow<TTableSchema extends TableSchema>(
 	const row: Record<string, unknown> = {};
 	Object.defineProperties(row, descriptors);
 
-	// Add special properties as non-enumerable
 	Object.defineProperties(row, {
 		toJSON: {
 			value: () => {
@@ -984,10 +980,10 @@ function buildRowFromYRow<TTableSchema extends TableSchema>(
 				for (const key in schema) {
 					const value = yrow.get(key);
 					if (value !== undefined) {
-						result[key] = serializeCellValue(value);
+						result[key] = value;
 					}
 				}
-				return result as SerializedRow<TTableSchema>;
+				return result as RowData<TTableSchema>;
 			},
 			enumerable: false,
 			configurable: true,

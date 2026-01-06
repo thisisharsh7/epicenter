@@ -217,8 +217,8 @@ describe('KV Helpers', () => {
 				date: new Date('2024-01-01T00:00:00.000Z'),
 				timezone: 'America/New_York',
 			});
-			kv.last_sync.set(now);
-			expect(kv.last_sync.get()).toBe(now);
+			kv.last_sync.set(now.toJSON());
+			expect(kv.last_sync.get()).toBe(now.toJSON());
 		});
 
 		test('date field: get() returns default value when not set', () => {
@@ -231,7 +231,7 @@ describe('KV Helpers', () => {
 				last_sync: dateField({ default: defaultDate }),
 			});
 
-			expect(kv.last_sync.get()).toBe(defaultDate);
+			expect(kv.last_sync.get()).toBe(defaultDate.toJSON());
 		});
 
 		test('date field: get() returns null for nullable fields with no default', () => {
@@ -258,11 +258,11 @@ describe('KV Helpers', () => {
 				timezone: 'America/New_York',
 			});
 
-			kv.last_sync.set(date1);
-			expect(kv.last_sync.get()).toBe(date1);
+			kv.last_sync.set(date1.toJSON());
+			expect(kv.last_sync.get()).toBe(date1.toJSON());
 
-			kv.last_sync.set(date2);
-			expect(kv.last_sync.get()).toBe(date2);
+			kv.last_sync.set(date2.toJSON());
+			expect(kv.last_sync.get()).toBe(date2.toJSON());
 		});
 
 		test('date field: reset() restores default value', () => {
@@ -279,9 +279,9 @@ describe('KV Helpers', () => {
 				date: new Date('2024-02-01T00:00:00.000Z'),
 				timezone: 'UTC',
 			});
-			kv.last_sync.set(newDate);
+			kv.last_sync.set(newDate.toJSON());
 			kv.last_sync.reset();
-			expect(kv.last_sync.get()).toBe(defaultDate);
+			expect(kv.last_sync.get()).toBe(defaultDate.toJSON());
 		});
 	});
 
@@ -546,7 +546,7 @@ describe('KV Helpers', () => {
 			expect(kv.username.get()).toBe('alice');
 
 			kv.username.reset();
-			expect(kv.username.get()).toBe(undefined);
+			expect(kv.username.get() as string | undefined).toBe(undefined);
 		});
 
 		test('$all() returns all helpers', () => {

@@ -1,12 +1,7 @@
 import * as Y from 'yjs';
 
-import type {
-	KvFieldSchema,
-	KvSchema,
-	KvValue,
-	SerializedKvValue,
-} from '../schema';
-import { isDateWithTimezoneString, isNullableFieldSchema } from '../schema';
+import type { KvFieldSchema, KvSchema, KvValue } from '../schema';
+import { isNullableFieldSchema } from '../schema';
 
 export type YKvMap = Y.Map<KvValue>;
 
@@ -52,7 +47,6 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	schema: TFieldSchema;
 }) {
 	type TValue = KvValue<TFieldSchema>;
-	type TSerializedValue = SerializedKvValue<TFieldSchema>;
 
 	const nullable = isNullableFieldSchema(schema);
 
@@ -71,7 +65,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		return value as TValue;
 	};
 
-	const setValueFromSerialized = (input: TSerializedValue): void => {
+	const setValueFromSerialized = (input: TValue): void => {
 		ydoc.transact(() => {
 			if (input === null) {
 				ykvMap.set(keyName, null);
@@ -131,7 +125,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * kv.notes.set('rtxt_abc123');
 		 * ```
 		 */
-		set(value: TSerializedValue): void {
+		set(value: TValue): void {
 			setValueFromSerialized(value);
 		},
 
@@ -179,8 +173,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		reset(): void {
 			ydoc.transact(() => {
 				if ('default' in schema && schema.default !== undefined) {
-					const serializedDefault = schema.default as TSerializedValue;
-					setValueFromSerialized(serializedDefault);
+					const defaultValue = schema.default as TValue;
+					setValueFromSerialized(defaultValue);
 				} else if (nullable) {
 					ykvMap.set(keyName, null);
 				} else {
@@ -205,17 +199,18 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		$inferValue: null as unknown as TValue,
 
 		/**
-		 * Type inference helper for the serialized value type.
+		 * Type inference helper for the input value type.
 		 *
 		 * Use this to extract the type accepted by `.set()`.
+		 * Same as `$inferValue` since KvValue is now JSON-serializable.
 		 *
 		 * @example
 		 * ```typescript
-		 * type ThemeSerialized = typeof kv.theme.$inferSerializedValue; // 'dark' | 'light'
-		 * type NotesSerialized = typeof kv.notes.$inferSerializedValue; // string
+		 * type ThemeInput = typeof kv.theme.$inferInputValue; // 'dark' | 'light'
+		 * type NotesInput = typeof kv.notes.$inferInputValue; // string
 		 * ```
 		 */
-		$inferSerializedValue: null as unknown as TSerializedValue,
+		$inferInputValue: null as unknown as TValue,
 	};
 }
 

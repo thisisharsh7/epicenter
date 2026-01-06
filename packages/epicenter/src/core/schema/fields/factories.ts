@@ -201,7 +201,7 @@ export function date({
 		description:
 			'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
 		pattern: DATE_WITH_TIMEZONE_STRING_REGEX.source,
-		...(defaultValue !== undefined && { default: defaultValue }),
+		...(defaultValue !== undefined && { default: defaultValue.toJSON() }),
 	};
 }
 
