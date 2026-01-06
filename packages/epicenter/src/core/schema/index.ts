@@ -73,7 +73,6 @@ export type {
 export { isDateWithTimezoneString } from './runtime/date-with-timezone.js';
 
 export {
-	Temporal,
 	fromDateTimeString,
 	toDateTimeString,
 } from './runtime/datetime.js';

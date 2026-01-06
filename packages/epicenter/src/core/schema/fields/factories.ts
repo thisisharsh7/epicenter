@@ -9,8 +9,9 @@
  * rather than being embedded in the schema.
  */
 
+import type { Temporal } from 'temporal-polyfill';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
-import { type Temporal, toDateTimeString } from '../runtime/datetime';
+import { toDateTimeString } from '../runtime/datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,

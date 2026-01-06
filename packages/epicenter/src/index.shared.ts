@@ -115,7 +115,6 @@ export {
 	tableSchemaToArktype,
 	tableSchemaToYjsArktype,
 	tags,
-	Temporal,
 	text,
 	TIMEZONE_ID_REGEX,
 	toDateTimeString,

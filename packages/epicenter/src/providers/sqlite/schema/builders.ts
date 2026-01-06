@@ -11,11 +11,11 @@ import {
 	real as drizzleReal,
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
+import type { Temporal } from 'temporal-polyfill';
 import type { DateWithTimezoneString } from '../../../core/schema';
 import { generateId } from '../../../core/schema';
 import {
 	fromDateTimeString,
-	type Temporal,
 	toDateTimeString,
 } from '../../../core/schema/runtime/datetime';
 import type {

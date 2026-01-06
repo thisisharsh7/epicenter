@@ -9,8 +9,6 @@ import { Temporal } from 'temporal-polyfill';
 import type { DateWithTimezoneString } from './date-with-timezone';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from './regex';
 
-export { Temporal };
-
 /**
  * Serialize Temporal.ZonedDateTime to storage string.
  *
