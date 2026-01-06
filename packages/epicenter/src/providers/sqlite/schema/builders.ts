@@ -11,13 +11,8 @@ import {
 	real as drizzleReal,
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
-import type { Temporal } from 'temporal-polyfill';
 import type { DateTimeString } from '../../../core/schema';
 import { generateId } from '../../../core/schema';
-import {
-	fromDateTimeString,
-	toDateTimeString,
-} from '../../../core/schema/runtime/datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
@@ -181,14 +176,21 @@ export function boolean<
 }
 
 /**
- * Creates a date column with timezone support using Temporal API.
+ * Creates a date column stored as DateTimeString.
  *
  * Stored as TEXT in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York").
- * Parsed to Temporal.ZonedDateTime on read.
+ * Returns DateTimeString on read - convert to Temporal.ZonedDateTime lazily when needed
+ * using `fromDateTimeString()`.
+ *
+ * **Why no automatic conversion?**
+ * Drizzle's `fromDriver` runs synchronously on every row. For queries returning many rows,
+ * eager Temporal parsing adds unnecessary overhead. Keeping data as strings until the UI
+ * layer (where you actually need date math) is more efficient and consistent with how
+ * YJS stores dates.
  */
 export function date<
 	TNullable extends boolean = false,
-	TDefault extends Temporal.ZonedDateTime | undefined = undefined,
+	TDefault extends DateTimeString | undefined = undefined,
 >({
 	nullable = false as TNullable,
 	default: defaultValue,
@@ -197,13 +199,12 @@ export function date<
 	default?: TDefault;
 } = {}) {
 	const dateTimeType = customType<{
-		data: Temporal.ZonedDateTime;
+		data: DateTimeString;
 		driverParam: DateTimeString;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value): DateTimeString => toDateTimeString(value),
-		fromDriver: (value): Temporal.ZonedDateTime =>
-			fromDateTimeString(value as DateTimeString),
+		toDriver: (value): DateTimeString => value,
+		fromDriver: (value): DateTimeString => value as DateTimeString,
 	});
 
 	let column = dateTimeType();

@@ -12,9 +12,8 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import type { Temporal } from 'temporal-polyfill';
 import { date, json, tags } from '../../../providers/sqlite/schema/builders';
-import { fromDateTimeString } from '../runtime/datetime';
+import type { DateTimeString } from '../runtime/datetime';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
@@ -168,7 +167,7 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 										name: '';
 										dataType: 'custom';
 										columnType: 'SQLiteCustomColumn';
-										data: Temporal.ZonedDateTime;
+										data: DateTimeString;
 										driverParam: string;
 										enumValues: undefined;
 									}>
@@ -177,7 +176,7 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 											name: '';
 											dataType: 'custom';
 											columnType: 'SQLiteCustomColumn';
-											data: Temporal.ZonedDateTime;
+											data: DateTimeString;
 											driverParam: string;
 											enumValues: undefined;
 										}>
@@ -319,9 +318,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		case 'date': {
 			const column = date({
 				nullable: isNullable,
-				default: schema.default
-					? fromDateTimeString(schema.default)
-					: undefined,
+				default: schema.default,
 			});
 			return column as FieldToDrizzle<C>;
 		}
