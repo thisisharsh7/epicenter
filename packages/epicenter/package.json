@@ -42,7 +42,6 @@
 		"arkregex": "catalog:",
 		"arktype": "catalog:",
 		"chokidar": "^5.0.0",
-		"diff": "^8.0.2",
 		"drizzle-orm": "catalog:",
 		"elysia": "^1.2.25",
 		"lib0": "^0.2.99",
