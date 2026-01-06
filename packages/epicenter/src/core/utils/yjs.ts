@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import type { PartialRowData, TableSchema } from '../../core/schema';
-import { isDateWithTimezoneString } from '../../core/schema';
+import { isDateTimeString } from '../../core/schema';
 import type { YRow } from '../tables/table-helper';
 
 /**
@@ -114,10 +114,7 @@ export function updateYRowFromRowData<TTableSchema extends TableSchema>({
 
 			const columnSchema = schema[fieldName];
 
-			if (
-				columnSchema?.['x-component'] === 'date' &&
-				isDateWithTimezoneString(value)
-			) {
+			if (columnSchema?.['x-component'] === 'date' && isDateTimeString(value)) {
 				if (existing !== value) {
 					yrow.set(fieldName, value);
 				}

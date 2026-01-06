@@ -12,7 +12,7 @@ import {
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
 import type { Temporal } from 'temporal-polyfill';
-import type { DateWithTimezoneString } from '../../../core/schema';
+import type { DateTimeString } from '../../../core/schema';
 import { generateId } from '../../../core/schema';
 import {
 	fromDateTimeString,
@@ -198,12 +198,12 @@ export function date<
 } = {}) {
 	const dateTimeType = customType<{
 		data: Temporal.ZonedDateTime;
-		driverParam: DateWithTimezoneString;
+		driverParam: DateTimeString;
 	}>({
 		dataType: () => 'text',
-		toDriver: (value): DateWithTimezoneString => toDateTimeString(value),
+		toDriver: (value): DateTimeString => toDateTimeString(value),
 		fromDriver: (value): Temporal.ZonedDateTime =>
-			fromDateTimeString(value as DateWithTimezoneString),
+			fromDateTimeString(value as DateTimeString),
 	});
 
 	let column = dateTimeType();

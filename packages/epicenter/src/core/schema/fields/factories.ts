@@ -10,7 +10,7 @@
  */
 
 import type { Temporal } from 'temporal-polyfill';
-import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
+import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
 import { toDateTimeString } from '../runtime/datetime';
 import type {
 	StandardSchemaV1,
@@ -198,7 +198,7 @@ export function date({
 		type: nullable ? (['string', 'null'] as const) : ('string' as const),
 		description:
 			'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
-		pattern: DATE_WITH_TIMEZONE_STRING_REGEX.source,
+		pattern: DATE_TIME_STRING_REGEX.source,
 		...(defaultValue !== undefined && {
 			default: toDateTimeString(defaultValue),
 		}),

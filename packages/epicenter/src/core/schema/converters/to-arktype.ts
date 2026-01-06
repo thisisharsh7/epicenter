@@ -28,9 +28,9 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
-import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
+import type { DateTimeString } from '../runtime/date-with-timezone';
 import { isNullableFieldSchema } from '../fields/nullability';
-import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
+import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
 
 /**
  * Maps a FieldSchema to its corresponding arktype Type.
@@ -64,8 +64,8 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
 								: Type<boolean>
 							: C extends DateFieldSchema<infer TNullable>
 								? TNullable extends true
-									? Type<DateWithTimezoneString | null>
-									: Type<DateWithTimezoneString>
+									? Type<DateTimeString | null>
+									: Type<DateTimeString>
 								: C extends SelectFieldSchema<infer TOptions, infer TNullable>
 									? TNullable extends true
 										? Type<TOptions[number] | null>
@@ -128,7 +128,7 @@ export function tableSchemaToArktype<TTableSchema extends TableSchema>(
  * - `integer` → `type.number.divisibleBy(1)`
  * - `real` → `type.number`
  * - `boolean` → `type.boolean`
- * - `date` → `type.string.matching(DATE_WITH_TIMEZONE_STRING_REGEX)`
+ * - `date` → `type.string.matching(DATE_TIME_STRING_REGEX)`
  * - `select` → `type.enumerated(...options)`
  * - `tags` → `type.enumerated(...options).array()`
  * - `json` → uses the schema's arktype definition directly
@@ -164,7 +164,7 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 				.describe(
 					'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
 				)
-				.matching(DATE_WITH_TIMEZONE_STRING_REGEX);
+				.matching(DATE_TIME_STRING_REGEX);
 			break;
 		case 'select':
 			baseType = type.enumerated(...fieldSchema.enum);

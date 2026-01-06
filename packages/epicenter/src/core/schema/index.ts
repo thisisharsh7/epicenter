@@ -67,10 +67,10 @@ export { generateJsonSchema } from './standard/to-json-schema.js';
 
 export type {
 	DateIsoString,
-	DateWithTimezoneString,
+	DateTimeString,
 	TimezoneId,
 } from './runtime/date-with-timezone.js';
-export { isDateWithTimezoneString } from './runtime/date-with-timezone.js';
+export { isDateTimeString } from './runtime/date-with-timezone.js';
 
 export {
 	fromDateTimeString,
@@ -78,7 +78,7 @@ export {
 } from './runtime/datetime.js';
 
 export {
-	DATE_WITH_TIMEZONE_STRING_REGEX,
+	DATE_TIME_STRING_REGEX,
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,
 } from './runtime/regex.js';

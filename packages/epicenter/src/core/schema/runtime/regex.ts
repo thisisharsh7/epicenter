@@ -1,7 +1,7 @@
 /**
  * @fileoverview Regex patterns for datetime and timezone validation.
  *
- * These patterns are used throughout the schema system to validate DateWithTimezoneString values.
+ * These patterns are used throughout the schema system to validate DateTimeString values.
  * Uses arkregex for type-safe regex with inferred capture groups.
  */
 
@@ -62,7 +62,7 @@ export const ISO_UTC_EXACT_REGEX = regex(
 export const TIMEZONE_ID_REGEX = regex('[A-Za-z][A-Za-z0-9_/+-]*');
 
 /**
- * Regex pattern for DateWithTimezoneString validation.
+ * Regex pattern for DateTimeString validation.
  *
  * Format: "YYYY-MM-DDTHH:mm:ss.sssZ|TIMEZONE_ID"
  *
@@ -72,6 +72,6 @@ export const TIMEZONE_ID_REGEX = regex('[A-Za-z][A-Za-z0-9_/+-]*');
  *
  * @example "2024-01-01T20:00:00.000Z|America/New_York"
  */
-export const DATE_WITH_TIMEZONE_STRING_REGEX = regex(
+export const DATE_TIME_STRING_REGEX = regex(
 	`^(${ISO_UTC_EXACT_REGEX.source})\\|(${TIMEZONE_ID_REGEX.source})$`,
 );
