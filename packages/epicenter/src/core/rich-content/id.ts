@@ -16,7 +16,7 @@ import type { Brand } from 'wellcrafted/brand';
  *
  * @see {@link createRichContentId}
  */
-export type RichContentId = string & Brand<'RichContentId'>;
+export type RichContentId = `rtxt_${string}` & Brand<'RichContentId'>;
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 12);
 
