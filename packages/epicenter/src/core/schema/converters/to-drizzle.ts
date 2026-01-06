@@ -148,12 +148,8 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 		? TNullable extends true
 			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 			: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
-		: C extends RichtextFieldSchema<infer TNullable>
-			? TNullable extends true
-				? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-				: NotNull<
-						SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-					>
+		: C extends RichtextFieldSchema
+			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 			: C extends IntegerFieldSchema<infer TNullable>
 				? TNullable extends true
 					? SQLiteIntegerBuilderInitial<''>

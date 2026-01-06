@@ -64,10 +64,13 @@ export type TextFieldSchema<TNullable extends boolean = boolean> = {
  * Rich text reference column - stores ID pointing to separate rich content document.
  * The ID references a separate Y.Doc for collaborative editing.
  * The row itself just stores the string ID (JSON-serializable).
+ *
+ * Always nullable with default null - Y.Docs are created lazily when user first edits.
  */
-export type RichtextFieldSchema<TNullable extends boolean = boolean> = {
+export type RichtextFieldSchema = {
 	'x-component': 'richtext';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
+	type: readonly ['string', 'null'];
+	default: null;
 };
 
 /**

@@ -436,7 +436,7 @@ describe('KV Helpers', () => {
 		test('richtext field: nullable returns null when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: richtext({ nullable: true }),
+				notes: richtext(),
 			});
 
 			const result = kv.notes.get();

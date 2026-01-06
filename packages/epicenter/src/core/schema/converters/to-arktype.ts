@@ -46,10 +46,8 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
 			? TNullable extends true
 				? Type<string | null>
 				: Type<string>
-			: C extends RichtextFieldSchema<infer TNullable>
-				? TNullable extends true
-					? Type<string | null>
-					: Type<string>
+			: C extends RichtextFieldSchema
+				? Type<string | null>
 				: C extends IntegerFieldSchema<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>

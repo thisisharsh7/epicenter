@@ -15,7 +15,7 @@ describe('YjsDoc Type Inference', () => {
 			posts: {
 				id: id(),
 				title: text(),
-				content: richtext({ nullable: true }),
+				content: richtext(),
 				tags: tags({ options: ['tech', 'personal', 'work'] }),
 				view_count: integer(),
 				published: boolean(),
@@ -167,8 +167,8 @@ describe('YjsDoc Type Inference', () => {
 			articles: {
 				id: id(),
 				title: text(),
-				description: richtext({ nullable: true }), // string | null
-				content: richtext({ nullable: true }), // string | null
+				description: richtext(), // string | null
+				content: richtext(), // string | null
 			},
 		});
 
@@ -208,7 +208,7 @@ describe('YjsDoc Type Inference', () => {
 			authors: {
 				id: id(),
 				name: text(),
-				bio: richtext({ nullable: true }),
+				bio: richtext(),
 			},
 			books: {
 				id: id(),
@@ -280,7 +280,7 @@ describe('YjsDoc Type Inference', () => {
 				id: id(),
 				title: text(),
 				body: richtext(),
-				notes: richtext({ nullable: true }),
+				notes: richtext(),
 				tags: tags({ options: ['tag1', 'tag2'] }),
 			},
 		});

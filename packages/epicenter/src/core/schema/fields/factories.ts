@@ -88,18 +88,11 @@ export function text({
  * };
  * ```
  */
-export function richtext(opts: { nullable: true }): RichtextFieldSchema<true>;
-export function richtext(opts?: {
-	nullable?: false;
-}): RichtextFieldSchema<false>;
-export function richtext({
-	nullable = false,
-}: {
-	nullable?: boolean;
-} = {}): RichtextFieldSchema<boolean> {
+export function richtext(): RichtextFieldSchema {
 	return {
 		'x-component': 'richtext',
-		type: nullable ? (['string', 'null'] as const) : ('string' as const),
+		type: ['string', 'null'] as const,
+		default: null,
 	};
 }
 

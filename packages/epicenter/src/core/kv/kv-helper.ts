@@ -82,7 +82,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		const value = ykvMap.get(keyName);
 
 		if (value === undefined) {
-			if ('default' in schema && schema.default !== undefined) {
+			if (schema.default !== undefined) {
 				return schema.default as TValue;
 			}
 			if (nullable) {
@@ -239,7 +239,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		reset(): void {
-			if ('default' in schema && schema.default !== undefined) {
+			if (schema.default !== undefined) {
 				this.set(schema.default as TValue);
 			} else if (nullable) {
 				this.set(null as TValue);
