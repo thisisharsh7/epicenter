@@ -102,11 +102,9 @@ export {
 	DATE_TIME_STRING_REGEX,
 	date,
 	DateTimeString,
-	fromDateTimeString,
 	generateId,
 	id,
 	integer,
-	isDateTimeString,
 	ISO_DATETIME_REGEX,
 	json,
 	real,
@@ -117,7 +115,6 @@ export {
 	tags,
 	text,
 	TIMEZONE_ID_REGEX,
-	toDateTimeString,
 } from './core/schema';
 // Rich content ID generation
 export type { RichContentId } from './core/rich-content/id';

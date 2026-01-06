@@ -91,15 +91,3 @@ export const DateTimeString = {
 		return this.stringify(dt);
 	},
 } as const;
-
-// Legacy exports for backwards compatibility
-// TODO: Remove these after migrating all usages
-
-/** @deprecated Use `DateTimeString.is()` instead */
-export const isDateTimeString = DateTimeString.is;
-
-/** @deprecated Use `DateTimeString.stringify()` instead */
-export const toDateTimeString = DateTimeString.stringify;
-
-/** @deprecated Use `DateTimeString.parse()` instead */
-export const fromDateTimeString = DateTimeString.parse;

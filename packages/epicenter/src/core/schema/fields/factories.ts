@@ -11,7 +11,7 @@
 
 import type { Temporal } from 'temporal-polyfill';
 import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
-import { toDateTimeString } from '../runtime/datetime';
+import { DateTimeString } from '../runtime/datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
@@ -193,7 +193,7 @@ export function date({
 			'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
 		pattern: DATE_TIME_STRING_REGEX.source,
 		...(defaultValue !== undefined && {
-			default: toDateTimeString(defaultValue),
+			default: DateTimeString.stringify(defaultValue),
 		}),
 	};
 }

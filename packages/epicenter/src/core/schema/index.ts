@@ -66,12 +66,7 @@ export type {
 export { generateJsonSchema } from './standard/to-json-schema.js';
 
 export type { DateIsoString, TimezoneId } from './runtime/datetime.js';
-export {
-	DateTimeString,
-	fromDateTimeString,
-	isDateTimeString,
-	toDateTimeString,
-} from './runtime/datetime.js';
+export { DateTimeString } from './runtime/datetime.js';
 
 export {
 	DATE_TIME_STRING_REGEX,

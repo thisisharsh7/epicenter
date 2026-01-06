@@ -4,13 +4,13 @@ import * as Y from 'yjs';
 import {
 	boolean,
 	date as dateField,
+	DateTimeString,
 	integer,
 	real,
 	select,
 	tags,
 	text,
 	richtext,
-	toDateTimeString,
 } from '../schema';
 import { createKv } from './core';
 
@@ -307,7 +307,7 @@ describe('KV Helpers', () => {
 			});
 
 			const now = Temporal.ZonedDateTime.from('2024-01-01T05:00:00.000Z[UTC]');
-			const nowString = toDateTimeString(now);
+			const nowString = DateTimeString.stringify(now);
 			kv.last_sync.set(nowString);
 			const result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
@@ -328,7 +328,7 @@ describe('KV Helpers', () => {
 			const result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBe(toDateTimeString(defaultDate));
+				expect(result.value).toBe(DateTimeString.stringify(defaultDate));
 			}
 		});
 
@@ -357,8 +357,8 @@ describe('KV Helpers', () => {
 			const date2 = Temporal.ZonedDateTime.from(
 				'2024-01-02T05:00:00.000Z[UTC]',
 			);
-			const date1String = toDateTimeString(date1);
-			const date2String = toDateTimeString(date2);
+			const date1String = DateTimeString.stringify(date1);
+			const date2String = DateTimeString.stringify(date2);
 
 			kv.last_sync.set(date1String);
 			let result = kv.last_sync.get();
@@ -387,12 +387,12 @@ describe('KV Helpers', () => {
 			const newDate = Temporal.ZonedDateTime.from(
 				'2024-02-01T00:00:00.000+00:00[UTC]',
 			);
-			kv.last_sync.set(toDateTimeString(newDate));
+			kv.last_sync.set(DateTimeString.stringify(newDate));
 			kv.last_sync.reset();
 			const result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBe(toDateTimeString(defaultDate));
+				expect(result.value).toBe(DateTimeString.stringify(defaultDate));
 			}
 		});
 	});

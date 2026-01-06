@@ -180,7 +180,7 @@ export function boolean<
  *
  * Stored as TEXT in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York").
  * Returns DateTimeString on read - convert to Temporal.ZonedDateTime lazily when needed
- * using `fromDateTimeString()`.
+ * using `DateTimeString.parse()`.
  *
  * **Why no automatic conversion?**
  * Drizzle's `fromDriver` runs synchronously on every row. For queries returning many rows,
@@ -198,22 +198,10 @@ export function date<
 	nullable?: TNullable;
 	default?: TDefault;
 } = {}) {
-	const dateTimeType = customType<{
-		data: DateTimeString;
-		driverParam: DateTimeString;
-	}>({
-		dataType: () => 'text',
-		toDriver: (value): DateTimeString => value,
-		fromDriver: (value): DateTimeString => value as DateTimeString,
-	});
-
-	let column = dateTimeType();
+	let column = drizzleText().$type<DateTimeString>();
 
 	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column = column.default(defaultValue);
-	}
+	if (defaultValue !== undefined) column = column.default(defaultValue);
 
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }

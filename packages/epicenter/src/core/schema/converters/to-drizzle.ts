@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '../standard/types';
-import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
+import type { $Type, IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,
 	real,
@@ -163,23 +163,23 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 							: NotNull<SQLiteBooleanBuilderInitial<''>>
 						: C extends DateFieldSchema<infer TNullable>
 							? TNullable extends true
-								? SQLiteCustomColumnBuilder<{
-										name: '';
-										dataType: 'custom';
-										columnType: 'SQLiteCustomColumn';
-										data: DateTimeString;
-										driverParam: string;
-										enumValues: undefined;
-									}>
+								? $Type<
+										SQLiteTextBuilderInitial<
+											'',
+											[string, ...string[]],
+											undefined
+										>,
+										DateTimeString
+									>
 								: NotNull<
-										SQLiteCustomColumnBuilder<{
-											name: '';
-											dataType: 'custom';
-											columnType: 'SQLiteCustomColumn';
-											data: DateTimeString;
-											driverParam: string;
-											enumValues: undefined;
-										}>
+										$Type<
+											SQLiteTextBuilderInitial<
+												'',
+												[string, ...string[]],
+												undefined
+											>,
+											DateTimeString
+										>
 									>
 							: C extends SelectFieldSchema<infer TOptions, infer TNullable>
 								? TNullable extends true
@@ -320,7 +320,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 				nullable: isNullable,
 				default: schema.default,
 			});
-			return column as FieldToDrizzle<C>;
+			return column as unknown as FieldToDrizzle<C>;
 		}
 
 		case 'select': {
