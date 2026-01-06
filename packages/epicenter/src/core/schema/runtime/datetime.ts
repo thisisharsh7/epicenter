@@ -1,13 +1,32 @@
 /**
- * Temporal API helpers for DateTimeString serialization.
+ * DateTime types and Temporal API helpers.
  *
  * Storage format: "2024-01-01T20:00:00.000Z|America/New_York"
  * Runtime type: Temporal.ZonedDateTime (use directly for all date operations)
  */
 
 import { Temporal } from 'temporal-polyfill';
-import type { DateTimeString } from './date-with-timezone';
+import type { Brand } from 'wellcrafted/brand';
 import { DATE_TIME_STRING_REGEX } from './regex';
+
+/** ISO 8601 UTC datetime string from Date.toISOString() */
+export type DateIsoString = string & Brand<'DateIsoString'>;
+
+/** IANA timezone identifier (e.g., "America/New_York", "UTC") */
+export type TimezoneId = string & Brand<'TimezoneId'>;
+
+/** Database storage format: "ISO_UTC|TIMEZONE" */
+export type DateTimeString = `${DateIsoString}|${TimezoneId}` &
+	Brand<'DateTimeString'>;
+
+/**
+ * Type guard to check if a string is a valid DateTimeString.
+ * Format: "YYYY-MM-DDTHH:mm:ss.sssZ|TIMEZONE" (24 char ISO + pipe + timezone)
+ */
+export function isDateTimeString(value: unknown): value is DateTimeString {
+	if (typeof value !== 'string') return false;
+	return DATE_TIME_STRING_REGEX.test(value);
+}
 
 /**
  * Serialize Temporal.ZonedDateTime to storage string.

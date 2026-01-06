@@ -31,7 +31,7 @@
  */
 
 import type { YRow } from '../../tables/table-helper';
-import type { DateTimeString } from '../runtime/date-with-timezone';
+import type { DateTimeString } from '../runtime/datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,

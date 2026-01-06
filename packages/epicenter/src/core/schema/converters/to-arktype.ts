@@ -28,7 +28,7 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
-import type { DateTimeString } from '../runtime/date-with-timezone';
+import type { DateTimeString } from '../runtime/datetime';
 import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
 

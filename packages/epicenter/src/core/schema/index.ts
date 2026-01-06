@@ -69,11 +69,10 @@ export type {
 	DateIsoString,
 	DateTimeString,
 	TimezoneId,
-} from './runtime/date-with-timezone.js';
-export { isDateTimeString } from './runtime/date-with-timezone.js';
-
+} from './runtime/datetime.js';
 export {
 	fromDateTimeString,
+	isDateTimeString,
 	toDateTimeString,
 } from './runtime/datetime.js';
 
