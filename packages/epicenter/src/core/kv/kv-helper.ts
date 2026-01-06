@@ -7,7 +7,7 @@ import type {
 	SerializedKvValue,
 } from '../schema';
 import { isDateWithTimezoneString, isNullableFieldSchema } from '../schema';
-import { updateYArrayFromArray, updateYTextFromString } from '../utils/yjs';
+import { updateYTextFromString } from '../utils/yjs';
 
 export type YKvMap = Y.Map<KvValue>;
 
@@ -69,12 +69,6 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			return ytext as TValue;
 		}
 
-		if (schema['x-component'] === 'tags') {
-			const yarray = new Y.Array<string>();
-			ykvMap.set(keyName, yarray);
-			return yarray as TValue;
-		}
-
 		return undefined as unknown as TValue;
 	};
 
@@ -90,7 +84,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			}
 		}
 
-		if (schema['x-component'] === 'ytext' || schema['x-component'] === 'tags') {
+		if (schema['x-component'] === 'ytext') {
 			return getOrCreateYjsValue();
 		}
 
@@ -111,8 +105,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			}
 
 			if (schema['x-component'] === 'tags' && Array.isArray(input)) {
-				const yarray = getOrCreateYjsValue() as Y.Array<string>;
-				updateYArrayFromArray(yarray, input);
+				ykvMap.set(keyName, input);
 				return;
 			}
 

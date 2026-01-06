@@ -42,9 +42,6 @@ export function serializeCellValue<T extends FieldSchema>(
 	if (value instanceof Y.Text) {
 		return value.toString() as SerializedCellValue<T>;
 	}
-	if (value instanceof Y.Array) {
-		return value.toArray() as SerializedCellValue<T>;
-	}
 	// Date values are already stored as DateWithTimezoneString in YJS, so return as-is
 	return value as SerializedCellValue<T>;
 }

@@ -70,8 +70,8 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 										: Type<TOptions[number]>
 									: C extends TagsFieldSchema<infer TOptions, infer TNullable>
 										? TNullable extends true
-											? Type<Y.Array<TOptions[number]> | null>
-											: Type<Y.Array<TOptions[number]>>
+											? Type<TOptions[number][] | null>
+											: Type<TOptions[number][]>
 										: C extends JsonFieldSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
 												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
@@ -170,7 +170,9 @@ export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 			baseType = type.enumerated(...fieldSchema.enum);
 			break;
 		case 'tags':
-			baseType = type.instanceOf(Y.Array);
+			baseType = fieldSchema.items.enum
+				? type.enumerated(...fieldSchema.items.enum).array()
+				: type.string.array();
 			break;
 		case 'json':
 			baseType = fieldSchema.schema as unknown as Type<unknown, {}>;

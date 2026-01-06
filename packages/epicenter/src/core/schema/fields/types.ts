@@ -145,7 +145,7 @@ export type SelectFieldSchema<
 
 /**
  * Tags column schema - array of strings with optional validation.
- * Stored as Y.Array for real-time collaboration.
+ * Stored as plain arrays (JSON-serializable).
  *
  * Two modes:
  * - With `items.enum`: Only values from options are allowed
@@ -256,7 +256,7 @@ type IsNullableType<T> = T extends readonly [unknown, 'null'] ? true : false;
  * Maps a field schema to its runtime value type (Y.js types or primitives).
  *
  * - YtextFieldSchema → Y.Text
- * - TagsFieldSchema → Y.Array
+ * - TagsFieldSchema → string[] (plain array)
  * - DateFieldSchema → DateWithTimezoneString
  * - Other fields → primitive types
  *
@@ -295,8 +295,8 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 										: TOptions[number]
 									: C extends TagsFieldSchema<infer TOptions>
 										? IsNullableType<C['type']> extends true
-											? Y.Array<TOptions[number]> | null
-											: Y.Array<TOptions[number]>
+											? TOptions[number][] | null
+											: TOptions[number][]
 										: C extends JsonFieldSchema<
 													infer TSchema extends StandardSchemaWithJSONSchema
 												>

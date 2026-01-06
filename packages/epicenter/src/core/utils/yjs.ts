@@ -96,101 +96,6 @@ export function updateYTextFromString(yText: Y.Text, newString: string): void {
 }
 
 /**
- * Updates a Y.Array object to match a target array by computing and applying the minimal diff.
- *
- * Instead of replacing the entire Y.Array content, this function:
- * 1. Computes the element-level differences between the current state and target array
- * 2. Applies only the necessary insertions and deletions to transform the Y.Array
- * 3. Preserves CRDT element identity where possible for better collaborative editing
- *
- * This function uses a simple diff algorithm that compares arrays element by element.
- * For more complex scenarios (e.g., reordering), it may not produce the absolute minimal diff,
- * but it will always converge to the correct final state.
- *
- * All operations are wrapped in a transaction for efficiency (see {@link withTransaction}).
- *
- * @param yArray - The Y.Array object to update
- * @param newArray - The target array that Y.Array should become
- *
- * @example
- * ```typescript
- * const ydoc = new Y.Doc();
- * const yarray = ydoc.getArray('tags');
- *
- * // Initial state
- * yarray.push(['typescript', 'javascript']);
- *
- * // Update to new array
- * updateYArrayFromArray(yarray, ['typescript', 'svelte', 'javascript']);
- *
- * console.log(yarray.toArray()); // ['typescript', 'svelte', 'javascript']
- * ```
- */
-export function updateYArrayFromArray<T>(
-	yArray: Y.Array<T>,
-	newArray: T[],
-): void {
-	// toArray() returns a new plain JS array (a copy), which we can mutate freely
-	const currentArray = yArray.toArray();
-
-	// Early return if arrays are identical
-	if (
-		currentArray.length === newArray.length &&
-		currentArray.every((item, index) => item === newArray[index])
-	) {
-		return;
-	}
-
-	withTransaction(yArray, () => {
-		// We mutate currentArray to track our position as we apply changes.
-		// This is safe because toArray() already gave us a copy.
-		let currentIndex = 0;
-		let newIndex = 0;
-
-		while (currentIndex < currentArray.length || newIndex < newArray.length) {
-			const currentItem = currentArray[currentIndex];
-			const newItem = newArray[newIndex];
-
-			if (currentItem === newItem) {
-				currentIndex++;
-				newIndex++;
-			} else if (newIndex >= newArray.length) {
-				// We've consumed all new items, delete the rest of current
-				yArray.delete(currentIndex, currentArray.length - currentIndex);
-				break;
-			} else if (currentIndex >= currentArray.length) {
-				// We've consumed all current items, insert the rest of new
-				yArray.insert(currentIndex, newArray.slice(newIndex));
-				break;
-			} else {
-				// Items don't match - check if current item exists later in new array
-				const currentItemIndexInNew = newArray.indexOf(
-					currentItem as T,
-					newIndex,
-				);
-
-				if (currentItemIndexInNew === -1) {
-					// Current item not in new array, delete it
-					yArray.delete(currentIndex, 1);
-					currentArray.splice(currentIndex, 1);
-				} else {
-					// Current item exists later - insert missing items before it
-					const itemsToInsert = newArray.slice(newIndex, currentItemIndexInNew);
-					if (itemsToInsert.length > 0) {
-						yArray.insert(currentIndex, itemsToInsert);
-						currentArray.splice(currentIndex, 0, ...itemsToInsert);
-						currentIndex += itemsToInsert.length;
-						newIndex += itemsToInsert.length;
-					}
-					currentIndex++;
-					newIndex++;
-				}
-			}
-		}
-	});
-}
-
-/**
  * Updates a YRow (Y.Map) to match a serialized row by converting values and applying minimal diffs.
  *
  * **No-op optimization**: If the serialized row matches the existing YRow exactly, no YJS
@@ -198,7 +103,7 @@ export function updateYArrayFromArray<T>(
  * no sync messages generated. The function compares values before setting:
  *
  * - **Y.Text fields**: Character-level diff via `updateYTextFromString()` (no-op if identical)
- * - **Y.Array fields**: Element-level diff via `updateYArrayFromArray()` (no-op if identical)
+ * - **Array fields**: Compared element-by-element before setting (no-op if identical)
  * - **Primitive fields**: Compared with `===` before calling `yrow.set()` (no-op if identical)
  * - **null values**: Compared before setting (no-op if already null)
  *
@@ -227,13 +132,13 @@ export function updateYArrayFromArray<T>(
  *   schema: mySchema
  * });
  *
- * // Update existing YRow with minimal diffs
+ * // Update existing YRow
  * updateYRowFromSerializedRow({
  *   yrow,
  *   serializedRow: { id: '123', content: 'Hello World', tags: ['a', 'b', 'c'] },
  *   schema: mySchema
  * });
- * // Only 'content' and 'tags' are updated with granular diffs
+ * // Only 'content' and 'tags' are updated
  *
  * // No-op when nothing changed
  * updateYRowFromSerializedRow({
@@ -285,12 +190,15 @@ export function updateYRowFromSerializedRow<TTableSchema extends TableSchema>({
 					yrow.set(fieldName, value);
 				}
 			} else if (Array.isArray(value)) {
-				const yarray =
-					existing instanceof Y.Array ? existing : new Y.Array<unknown>();
-				if (!(existing instanceof Y.Array)) {
-					yrow.set(fieldName, yarray);
+				// Store plain array directly - simple equality check
+				const existingArray = existing as unknown[];
+				const arraysEqual =
+					Array.isArray(existing) &&
+					existingArray.length === value.length &&
+					existingArray.every((item, i) => item === value[i]);
+				if (!arraysEqual) {
+					yrow.set(fieldName, value);
 				}
-				updateYArrayFromArray(yarray, value);
 			} else {
 				if (existing !== value) {
 					yrow.set(fieldName, value);
