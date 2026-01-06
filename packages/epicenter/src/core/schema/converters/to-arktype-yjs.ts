@@ -14,7 +14,6 @@
 import type { StandardSchemaV1 } from '../standard/types';
 import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
-import * as Y from 'yjs';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
@@ -23,12 +22,12 @@ import type {
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
+	RichtextFieldSchema,
 	Row,
 	SelectFieldSchema,
 	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
-	YtextFieldSchema,
 } from '../fields/types';
 import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
@@ -44,10 +43,10 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 			? TNullable extends true
 				? Type<string | null>
 				: Type<string>
-			: C extends YtextFieldSchema<infer TNullable>
+			: C extends RichtextFieldSchema<infer TNullable>
 				? TNullable extends true
-					? Type<Y.Text | null>
-					: Type<Y.Text>
+					? Type<string | null>
+					: Type<string>
 				: C extends IntegerFieldSchema<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>
@@ -70,8 +69,8 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 										: Type<TOptions[number]>
 									: C extends TagsFieldSchema<infer TOptions, infer TNullable>
 										? TNullable extends true
-											? Type<Y.Array<TOptions[number]> | null>
-											: Type<Y.Array<TOptions[number]>>
+											? Type<TOptions[number][] | null>
+											: Type<TOptions[number][]>
 										: C extends JsonFieldSchema<infer TSchema, infer TNullable>
 											? TNullable extends true
 												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
@@ -145,10 +144,8 @@ export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 	switch (fieldSchema['x-component']) {
 		case 'id':
 		case 'text':
+		case 'richtext':
 			baseType = type.string;
-			break;
-		case 'ytext':
-			baseType = type.instanceOf(Y.Text);
 			break;
 		case 'integer':
 			baseType = type.number.divisibleBy(1);
@@ -170,7 +167,9 @@ export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 			baseType = type.enumerated(...fieldSchema.enum);
 			break;
 		case 'tags':
-			baseType = type.instanceOf(Y.Array);
+			baseType = fieldSchema.items.enum
+				? type.enumerated(...fieldSchema.items.enum).array()
+				: type.string.array();
 			break;
 		case 'json':
 			baseType = fieldSchema.schema as unknown as Type<unknown, {}>;

@@ -22,10 +22,10 @@ import type {
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
+	RichtextFieldSchema,
 	SelectFieldSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
-	YtextFieldSchema,
 } from './types';
 
 /**
@@ -62,30 +62,42 @@ export function text({
 }
 
 /**
- * Collaborative text editor column - stored as Y.Text (YJS shared type).
+ * Rich text reference column - stores an ID pointing to a separate rich content document.
  *
- * Y.Text is a flat/linear text structure that supports inline formatting.
- * Primary use case: Code editors (Monaco, CodeMirror) with syntax highlighting.
+ * Unlike `text()` which stores plain strings directly, `richtext()` stores a reference ID
+ * (e.g., "rtxt_abc123") that points to a separate Y.Doc for collaborative editing.
  *
- * **What Y.Text supports:**
- * - Inline formatting: bold, italic, underline, links, colors
- * - No block-level structure (no paragraphs, lists, or tables)
+ * **Why ID references?**
+ * - Keeps rows JSON-serializable (no embedded CRDTs)
+ * - Enables proper CRDT conflict resolution for rich text edits
+ * - Allows rich content to be backed by different Y.Doc structures (Y.Text, Y.XmlFragment)
+ * - Makes rows portable across different storage backends
  *
- * **Common editor bindings:**
- * - CodeMirror, Monaco Editor (code editing) - PRIMARY USE CASE
- * - Quill (simple WYSIWYG with inline formatting)
+ * **Usage pattern:**
+ * 1. Generate ID with `createRichContentId()` when creating new content
+ * 2. Store the ID in the row via `richtext()` column
+ * 3. The actual collaborative editing happens in a separate Y.Doc keyed by this ID
  *
- * For block-level rich text (paragraphs, lists, tables), use Y.XmlFragment instead.
+ * @example
+ * ```typescript
+ * const schema = {
+ *   id: id(),
+ *   title: text(),           // Plain string, edited directly
+ *   content: richtext(),     // ID reference to separate Y.Doc for collaborative editing
+ * };
+ * ```
  */
-export function ytext(opts: { nullable: true }): YtextFieldSchema<true>;
-export function ytext(opts?: { nullable?: false }): YtextFieldSchema<false>;
-export function ytext({
+export function richtext(opts: { nullable: true }): RichtextFieldSchema<true>;
+export function richtext(opts?: {
+	nullable?: false;
+}): RichtextFieldSchema<false>;
+export function richtext({
 	nullable = false,
 }: {
 	nullable?: boolean;
-} = {}): YtextFieldSchema<boolean> {
+} = {}): RichtextFieldSchema<boolean> {
 	return {
-		'x-component': 'ytext',
+		'x-component': 'richtext',
 		type: nullable ? (['string', 'null'] as const) : ('string' as const),
 	};
 }
@@ -189,7 +201,7 @@ export function date({
 		description:
 			'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
 		pattern: DATE_WITH_TIMEZONE_STRING_REGEX.source,
-		...(defaultValue !== undefined && { default: defaultValue }),
+		...(defaultValue !== undefined && { default: defaultValue.toJSON() }),
 	};
 }
 

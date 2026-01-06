@@ -1,7 +1,7 @@
 import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { SerializedRow, TableSchema } from '../core/schema';
+import type { RowData, TableSchema } from '../core/schema';
 import { tableSchemaToArktype } from '../core/schema';
 import type { WorkspaceClient } from '../core/workspace/contract';
 
@@ -53,8 +53,8 @@ export function createTablesPlugin(
 			app.post(
 				basePath,
 				({ body }) => {
-					tableHelper.upsert(body as SerializedRow<TableSchema>);
-					return Ok({ id: (body as SerializedRow<TableSchema>).id });
+					tableHelper.upsert(body as RowData<TableSchema>);
+					return Ok({ id: (body as RowData<TableSchema>).id });
 				},
 				{
 					body: tableSchemaToArktype(tableHelper.schema),
@@ -67,7 +67,7 @@ export function createTablesPlugin(
 				({ params, body }) => {
 					const result = tableHelper.update({
 						id: params.id,
-						...(body as Partial<SerializedRow<TableSchema>>),
+						...(body as Partial<RowData<TableSchema>>),
 					});
 					return Ok(result);
 				},

@@ -1,8 +1,7 @@
 import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
-import type { KvSchema, KvValue, SerializedKvValue } from '../schema';
-import { serializeCellValue } from '../schema';
+import type { KvSchema, KvValue } from '../schema';
 
 import type { KvHelper, YKvMap } from './kv-helper';
 import { createKvHelpers } from './kv-helper';
@@ -48,19 +47,19 @@ export function createKv<TKvSchema extends KvSchema>(
 			for (const keyName of Object.keys(schema)) {
 				const value = ykvMap.get(keyName);
 				if (value !== undefined) {
-					result[keyName] = serializeCellValue(value);
+					result[keyName] = value;
 				} else {
 					const helper = kvHelpers[keyName as keyof typeof kvHelpers];
 					const getResult = helper.get();
 					if (getResult.status === 'valid' && getResult.value !== undefined) {
-						result[keyName] = serializeCellValue(getResult.value as KvValue);
+						result[keyName] = getResult.value;
 					} else {
 						result[keyName] = null;
 					}
 				}
 			}
 			return result as {
-				[K in keyof TKvSchema]: SerializedKvValue<TKvSchema[K]>;
+				[K in keyof TKvSchema]: KvValue<TKvSchema[K]>;
 			};
 		},
 

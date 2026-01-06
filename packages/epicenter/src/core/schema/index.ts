@@ -8,7 +8,7 @@ export {
 	select,
 	tags,
 	text,
-	ytext,
+	richtext,
 } from './fields/factories.js';
 
 export type {
@@ -23,19 +23,17 @@ export type {
 	KvFieldSchema,
 	KvSchema,
 	KvValue,
-	PartialSerializedRow,
+	PartialRowData,
 	RealFieldSchema,
+	RichtextFieldSchema,
 	Row,
+	RowData,
 	SelectFieldSchema,
-	SerializedCellValue,
-	SerializedKvValue,
-	SerializedRow,
 	TableSchema,
 	TablesSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 	WorkspaceSchema,
-	YtextFieldSchema,
 } from './fields/types.js';
 
 export type { FieldSchemaToArktype } from './converters/to-arktype.js';
@@ -85,8 +83,6 @@ export {
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,
 } from './runtime/regex.js';
-
-export { serializeCellValue } from './runtime/serialization.js';
 
 export type { Id } from './id.js';
 export { generateId } from './id.js';

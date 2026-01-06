@@ -13,7 +13,7 @@ import {
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider';
-import type { SerializedRow, TablesSchema } from '../../core/schema';
+import type { RowData, TablesSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
@@ -178,7 +178,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 				const { error } = await tryAsync({
 					try: async () => {
 						const serializedRows = rows.map((row) => row.toJSON());
-						// @ts-expect-error SerializedRow<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
+						// @ts-expect-error RowData<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
 						await sqliteDb.insert(drizzleTable).values(serializedRows);
 					},
 					catch: (e) =>
@@ -259,7 +259,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 			const { error } = await tryAsync({
 				try: async () => {
 					const serializedRows = rows.map((row) => row.toJSON());
-					// @ts-expect-error SerializedRow<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
+					// @ts-expect-error RowData<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
 					await sqliteDb.insert(drizzleTable).values(serializedRows);
 				},
 				catch: (e) =>
@@ -315,9 +315,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 						for (const row of rows) {
 							// Cast is safe: Drizzle schema is derived from workspace schema
 							table.upsert(
-								row as SerializedRow<
-									TTablesSchema[keyof TTablesSchema & string]
-								>,
+								row as RowData<TTablesSchema[keyof TTablesSchema & string]>,
 							);
 						}
 					}

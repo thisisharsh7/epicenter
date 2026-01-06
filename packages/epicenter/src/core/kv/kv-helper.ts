@@ -1,21 +1,14 @@
 import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok, type Result } from 'wellcrafted/result';
-import * as Y from 'yjs';
+import type * as Y from 'yjs';
 
-import type {
-	KvFieldSchema,
-	KvSchema,
-	KvValue,
-	SerializedKvValue,
-} from '../schema';
+import type { KvFieldSchema, KvSchema, KvValue } from '../schema';
 import {
 	fieldSchemaToYjsArktype,
 	isDateWithTimezone,
-	isDateWithTimezoneString,
 	isNullableFieldSchema,
 } from '../schema';
-import { updateYArrayFromArray, updateYTextFromString } from '../utils/yjs';
 
 /**
  * Context for KV validation errors
@@ -86,30 +79,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	schema: TFieldSchema;
 }) {
 	type TValue = KvValue<TFieldSchema>;
-	type TSerializedValue = SerializedKvValue<TFieldSchema>;
 
 	const nullable = isNullableFieldSchema(schema);
-
-	const getOrCreateYjsValue = (): TValue => {
-		const existing = ykvMap.get(keyName);
-		if (existing !== undefined) {
-			return existing as TValue;
-		}
-
-		if (schema['x-component'] === 'ytext') {
-			const ytext = new Y.Text();
-			ykvMap.set(keyName, ytext);
-			return ytext as TValue;
-		}
-
-		if (schema['x-component'] === 'tags') {
-			const yarray = new Y.Array<string>();
-			ykvMap.set(keyName, yarray);
-			return yarray as TValue;
-		}
-
-		return undefined as unknown as TValue;
-	};
 
 	const getCurrentValue = (): TValue => {
 		const value = ykvMap.get(keyName);
@@ -127,34 +98,13 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			}
 		}
 
-		if (schema['x-component'] === 'ytext' || schema['x-component'] === 'tags') {
-			return getOrCreateYjsValue();
-		}
-
 		return value as TValue;
 	};
 
-	const setValueFromSerialized = (input: TSerializedValue): void => {
+	const setValueFromSerialized = (input: TValue): void => {
 		ydoc.transact(() => {
 			if (input === null) {
 				ykvMap.set(keyName, null);
-				return;
-			}
-
-			if (schema['x-component'] === 'ytext' && typeof input === 'string') {
-				const ytext = getOrCreateYjsValue() as Y.Text;
-				updateYTextFromString(ytext, input);
-				return;
-			}
-
-			if (schema['x-component'] === 'tags' && Array.isArray(input)) {
-				const yarray = getOrCreateYjsValue() as Y.Array<string>;
-				updateYArrayFromArray(yarray, input);
-				return;
-			}
-
-			if (schema['x-component'] === 'date' && isDateWithTimezoneString(input)) {
-				ykvMap.set(keyName, input);
 				return;
 			}
 
@@ -213,30 +163,31 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		},
 
 		/**
-		 * Set the value for this KV key from a serialized (plain JS) value.
+		 * Set the value for this KV key.
 		 *
-		 * For primitive types (text, select, boolean, integer, real, date),
-		 * use this to update the value directly.
+		 * All field types (text, select, boolean, integer, real, date, richtext, tags)
+		 * accept plain JavaScript values. The value is stored directly in YJS.
 		 *
-		 * For Y.js-backed types (ytext, tags), you typically bind `.get()` to
-		 * your UI component (text editor, tag input) and let Y.js handle edits
-		 * directly. This `.set()` method is primarily used by providers when
-		 * loading serialized data from storage (markdown files, SQLite, etc.).
+		 * For richtext fields, pass the rich content ID (string). The actual
+		 * collaborative content lives in a separate Y.Doc referenced by this ID.
 		 *
-		 * @param value - The serialized value to set
+		 * @param value - The value to set
 		 *
 		 * @example
 		 * ```typescript
-		 * // Primitive types: use set() directly
+		 * // Primitive types
 		 * kv.theme.set('dark');
 		 * kv.count.set(42);
+		 * kv.enabled.set(true);
 		 *
-		 * // Y.js types: typically bind get() to UI, not set()
-		 * const ytext = kv.notes.get(); // Y.Text instance
-		 * bindToEditor(ytext);          // Editor handles edits via Y.Text API
+		 * // Tags (plain array)
+		 * kv.categories.set(['tech', 'blog']);
+		 *
+		 * // Rich text (ID reference)
+		 * kv.notes.set('rtxt_abc123');
 		 * ```
 		 */
-		set(value: TSerializedValue): void {
+		set(value: TValue): void {
 			setValueFromSerialized(value);
 		},
 
@@ -308,10 +259,10 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			ydoc.transact(() => {
 				if ('default' in schema && schema.default !== undefined) {
 					const defaultVal = schema.default;
-					const serializedDefault = isDateWithTimezone(defaultVal)
-						? (defaultVal.toJSON() as TSerializedValue)
-						: (defaultVal as TSerializedValue);
-					setValueFromSerialized(serializedDefault);
+					const defaultValue = isDateWithTimezone(defaultVal)
+						? (defaultVal.toJSON() as TValue)
+						: (defaultVal as TValue);
+					setValueFromSerialized(defaultValue);
 				} else if (nullable) {
 					ykvMap.set(keyName, null);
 				} else {
@@ -323,46 +274,31 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		/**
 		 * Type inference helper for the runtime value type.
 		 *
-		 * Use this to extract the type returned by `.get()`. For Y.js-backed
-		 * fields (ytext, tags), this is the Y.js type (Y.Text, Y.Array).
+		 * Use this to extract the type returned by `.get()`.
 		 *
 		 * Alternative: `ReturnType<typeof kv.fieldName.get>`
 		 *
 		 * @example
 		 * ```typescript
 		 * type Theme = typeof kv.theme.$inferValue; // 'dark' | 'light'
-		 * type Notes = typeof kv.notes.$inferValue; // Y.Text
+		 * type Notes = typeof kv.notes.$inferValue; // string (rich content ID)
 		 * ```
 		 */
 		$inferValue: null as unknown as TValue,
 
 		/**
-		 * Type inference helper for the serialized value type.
+		 * Type inference helper for the input value type.
 		 *
-		 * Use this to extract the type accepted by `.set()`. For Y.js-backed
-		 * fields (ytext, tags), this is the plain JS type (string, string[]).
+		 * Use this to extract the type accepted by `.set()`.
+		 * Same as `$inferValue` since KvValue is now JSON-serializable.
 		 *
 		 * @example
 		 * ```typescript
-		 * type ThemeSerialized = typeof kv.theme.$inferSerializedValue; // 'dark' | 'light'
-		 * type NotesSerialized = typeof kv.notes.$inferSerializedValue; // string
+		 * type ThemeInput = typeof kv.theme.$inferInputValue; // 'dark' | 'light'
+		 * type NotesInput = typeof kv.notes.$inferInputValue; // string
 		 * ```
 		 */
-		$inferSerializedValue: null as unknown as TSerializedValue,
-
-		toJSON(): TSerializedValue | null {
-			const value = getCurrentValue();
-			if (value === undefined) {
-				return null;
-			}
-			if (value instanceof Y.Text) {
-				return value.toString() as TSerializedValue;
-			}
-			if (value instanceof Y.Array) {
-				return value.toArray() as TSerializedValue;
-			}
-			return value as TSerializedValue;
-		},
+		$inferInputValue: null as unknown as TValue,
 	};
 }
 

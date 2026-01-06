@@ -15,18 +15,18 @@ import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import type {
 	BooleanFieldSchema,
-	FieldSchema,
 	DateFieldSchema,
+	FieldSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
+	RichtextFieldSchema,
+	RowData,
 	SelectFieldSchema,
-	SerializedRow,
 	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
-	YtextFieldSchema,
 } from '../fields/types';
 import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
 import { isNullableFieldSchema } from '../fields/nullability';
@@ -46,7 +46,7 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
 			? TNullable extends true
 				? Type<string | null>
 				: Type<string>
-			: C extends YtextFieldSchema<infer TNullable>
+			: C extends RichtextFieldSchema<infer TNullable>
 				? TNullable extends true
 					? Type<string | null>
 					: Type<string>
@@ -109,7 +109,7 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
  */
 export function tableSchemaToArktype<TTableSchema extends TableSchema>(
 	tableSchema: TTableSchema,
-): ObjectType<SerializedRow<TTableSchema>> {
+): ObjectType<RowData<TTableSchema>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
@@ -117,7 +117,7 @@ export function tableSchemaToArktype<TTableSchema extends TableSchema>(
 				fieldSchemaToArktype(fieldSchema),
 			]),
 		),
-	) as ObjectType<SerializedRow<TTableSchema>>;
+	) as ObjectType<RowData<TTableSchema>>;
 }
 
 /**
@@ -147,7 +147,7 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 	switch (fieldSchema['x-component']) {
 		case 'id':
 		case 'text':
-		case 'ytext':
+		case 'richtext':
 			baseType = type.string;
 			break;
 		case 'integer':

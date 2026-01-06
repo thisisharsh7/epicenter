@@ -9,7 +9,7 @@ import {
 	select,
 	tags,
 	text,
-	ytext,
+	richtext,
 } from '../schema';
 import { createKv } from './core';
 
@@ -401,95 +401,56 @@ describe('KV Helpers', () => {
 		});
 	});
 
-	describe('Y.js Types', () => {
-		test('ytext field: get() returns Y.Text instance', () => {
+	describe('Richtext and Tags Fields', () => {
+		test('richtext field: get() returns string (ID reference)', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: ytext(),
+				notes: richtext(),
+			});
+
+			kv.notes.set('rtxt_abc123');
+			const result = kv.notes.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('rtxt_abc123');
+			}
+		});
+
+		test('richtext field: set() updates value correctly', () => {
+			const ydoc = new Y.Doc({ guid: 'test-kv' });
+			const kv = createKv(ydoc, {
+				notes: richtext(),
+			});
+
+			kv.notes.set('rtxt_first');
+			let result = kv.notes.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('rtxt_first');
+			}
+
+			kv.notes.set('rtxt_second');
+			result = kv.notes.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('rtxt_second');
+			}
+		});
+
+		test('richtext field: nullable returns null when not set', () => {
+			const ydoc = new Y.Doc({ guid: 'test-kv' });
+			const kv = createKv(ydoc, {
+				notes: richtext({ nullable: true }),
 			});
 
 			const result = kv.notes.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBeInstanceOf(Y.Text);
+				expect(result.value).toBe(null);
 			}
 		});
 
-		test('ytext field: set() updates via string', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				notes: ytext(),
-			});
-
-			kv.notes.set('Hello World');
-			const result = kv.notes.get();
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.value.toString()).toBe('Hello World');
-			}
-		});
-
-		test('ytext field: set() replaces existing content', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				notes: ytext(),
-			});
-
-			kv.notes.set('First');
-			kv.notes.set('Second');
-			const result = kv.notes.get();
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.value.toString()).toBe('Second');
-			}
-		});
-
-		test('ytext field: Y.Text instance persists across get() calls', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				notes: ytext(),
-			});
-
-			const result1 = kv.notes.get();
-			const result2 = kv.notes.get();
-			expect(result1.status).toBe('valid');
-			expect(result2.status).toBe('valid');
-			if (result1.status === 'valid' && result2.status === 'valid') {
-				expect(result1.value).toBe(result2.value);
-			}
-		});
-
-		test('ytext field: direct Y.Text manipulation works', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				notes: ytext(),
-			});
-
-			const result = kv.notes.get();
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				result.value.insert(0, 'Hello');
-				expect(result.value.toString()).toBe('Hello');
-
-				result.value.insert(5, ' World');
-				expect(result.value.toString()).toBe('Hello World');
-			}
-		});
-
-		test('tags field: get() returns Y.Array instance', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
-			});
-
-			const result = kv.tags.get();
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.value).toBeInstanceOf(Y.Array);
-			}
-		});
-
-		test('tags field: set() updates via array', () => {
+		test('tags field: get() returns plain array', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
@@ -499,7 +460,7 @@ describe('KV Helpers', () => {
 			const result = kv.tags.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value.toArray()).toEqual(['typescript', 'javascript']);
+				expect(result.value).toEqual(['typescript', 'javascript']);
 			}
 		});
 
@@ -514,39 +475,7 @@ describe('KV Helpers', () => {
 			const result = kv.tags.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value.toArray()).toEqual(['python', 'javascript']);
-			}
-		});
-
-		test('tags field: Y.Array instance persists across get() calls', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
-			});
-
-			const result1 = kv.tags.get();
-			const result2 = kv.tags.get();
-			expect(result1.status).toBe('valid');
-			expect(result2.status).toBe('valid');
-			if (result1.status === 'valid' && result2.status === 'valid') {
-				expect(result1.value).toBe(result2.value);
-			}
-		});
-
-		test('tags field: direct Y.Array manipulation works', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
-			});
-
-			const result = kv.tags.get();
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				result.value.push(['typescript']);
-				expect(result.value.toArray()).toEqual(['typescript']);
-
-				result.value.push(['javascript']);
-				expect(result.value.toArray()).toEqual(['typescript', 'javascript']);
+				expect(result.value).toEqual(['python', 'javascript']);
 			}
 		});
 
@@ -560,7 +489,7 @@ describe('KV Helpers', () => {
 			const result = kv.categories.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value.toArray()).toEqual(['anything', 'goes', 'here']);
+				expect(result.value).toEqual(['anything', 'goes', 'here']);
 			}
 		});
 	});
@@ -635,10 +564,10 @@ describe('KV Helpers', () => {
 			expect(values).toEqual([1, 2]);
 		});
 
-		test('observe() fires once when Y.Text is first set', () => {
+		test('observe() fires when richtext is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: ytext(),
+				notes: richtext(),
 			});
 
 			let callCount = 0;
@@ -646,11 +575,11 @@ describe('KV Helpers', () => {
 				callCount++;
 			});
 
-			kv.notes.set('Hello');
+			kv.notes.set('rtxt_abc123');
 			expect(callCount).toBe(1);
 		});
 
-		test('observe() fires once when Y.Array is first set', () => {
+		test('observe() fires when tags array is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				tags: tags({ options: ['a', 'b', 'c'] }),

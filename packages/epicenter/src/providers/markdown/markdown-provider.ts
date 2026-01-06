@@ -13,7 +13,7 @@ import {
 import type { TableHelper } from '../../core/tables/core';
 import type {
 	Row,
-	SerializedRow,
+	RowData,
 	TableSchema,
 	TablesSchema,
 } from '../../core/schema';
@@ -703,7 +703,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						return;
 					}
 
-					const validatedRow = row as SerializedRow<
+					const validatedRow = row as RowData<
 						TTablesSchema[keyof TTablesSchema & string]
 					>;
 
@@ -1282,7 +1282,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						fileExistsIds: Set<string>;
 						markdownRows: Map<
 							string,
-							SerializedRow<TTablesSchema[keyof TTablesSchema & string]>
+							RowData<TTablesSchema[keyof TTablesSchema & string]>
 						>;
 						markdownFilenames: Map<string, string>;
 					};
@@ -1319,7 +1319,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 									const markdownRows = new Map<
 										string,
-										SerializedRow<TTablesSchema[keyof TTablesSchema & string]>
+										RowData<TTablesSchema[keyof TTablesSchema & string]>
 									>();
 									const markdownFilenames = new Map<string, string>();
 
