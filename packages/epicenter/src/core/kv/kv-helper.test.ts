@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { Temporal } from 'temporal-polyfill';
 import * as Y from 'yjs';
 import {
 	boolean,
-	DateWithTimezone,
 	date as dateField,
 	integer,
 	real,
@@ -10,6 +10,7 @@ import {
 	tags,
 	text,
 	richtext,
+	toDateTimeString,
 } from '../schema';
 import { createKv } from './core';
 
@@ -213,25 +214,23 @@ describe('KV Helpers', () => {
 				last_sync: dateField(),
 			});
 
-			const now = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'America/New_York',
-			});
-			kv.last_sync.set(now.toJSON());
-			expect(kv.last_sync.get()).toBe(now.toJSON());
+			const now = Temporal.ZonedDateTime.from(
+				'2024-01-01T00:00:00.000-05:00[America/New_York]',
+			);
+			kv.last_sync.set(toDateTimeString(now));
+			expect(kv.last_sync.get()).toBe(toDateTimeString(now));
 		});
 
 		test('date field: get() returns default value when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const defaultDate = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'UTC',
-			});
+			const defaultDate = Temporal.ZonedDateTime.from(
+				'2024-01-01T00:00:00.000+00:00[UTC]',
+			);
 			const kv = createKv(ydoc, {
 				last_sync: dateField({ default: defaultDate }),
 			});
 
-			expect(kv.last_sync.get()).toBe(defaultDate.toJSON());
+			expect(kv.last_sync.get()).toBe(toDateTimeString(defaultDate));
 		});
 
 		test('date field: get() returns null for nullable fields with no default', () => {
@@ -249,39 +248,35 @@ describe('KV Helpers', () => {
 				last_sync: dateField(),
 			});
 
-			const date1 = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'America/New_York',
-			});
-			const date2 = DateWithTimezone({
-				date: new Date('2024-01-02T00:00:00.000Z'),
-				timezone: 'America/New_York',
-			});
+			const date1 = Temporal.ZonedDateTime.from(
+				'2024-01-01T00:00:00.000-05:00[America/New_York]',
+			);
+			const date2 = Temporal.ZonedDateTime.from(
+				'2024-01-02T00:00:00.000-05:00[America/New_York]',
+			);
 
-			kv.last_sync.set(date1.toJSON());
-			expect(kv.last_sync.get()).toBe(date1.toJSON());
+			kv.last_sync.set(toDateTimeString(date1));
+			expect(kv.last_sync.get()).toBe(toDateTimeString(date1));
 
-			kv.last_sync.set(date2.toJSON());
-			expect(kv.last_sync.get()).toBe(date2.toJSON());
+			kv.last_sync.set(toDateTimeString(date2));
+			expect(kv.last_sync.get()).toBe(toDateTimeString(date2));
 		});
 
 		test('date field: reset() restores default value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const defaultDate = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'UTC',
-			});
+			const defaultDate = Temporal.ZonedDateTime.from(
+				'2024-01-01T00:00:00.000+00:00[UTC]',
+			);
 			const kv = createKv(ydoc, {
 				last_sync: dateField({ default: defaultDate }),
 			});
 
-			const newDate = DateWithTimezone({
-				date: new Date('2024-02-01T00:00:00.000Z'),
-				timezone: 'UTC',
-			});
-			kv.last_sync.set(newDate.toJSON());
+			const newDate = Temporal.ZonedDateTime.from(
+				'2024-02-01T00:00:00.000+00:00[UTC]',
+			);
+			kv.last_sync.set(toDateTimeString(newDate));
 			kv.last_sync.reset();
-			expect(kv.last_sync.get()).toBe(defaultDate.toJSON());
+			expect(kv.last_sync.get()).toBe(toDateTimeString(defaultDate));
 		});
 	});
 

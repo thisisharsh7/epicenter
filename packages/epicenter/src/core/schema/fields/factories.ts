@@ -9,8 +9,8 @@
  * rather than being embedded in the schema.
  */
 
-import type { DateWithTimezone } from '../runtime/date-with-timezone';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
+import { type Temporal, toDateTimeString } from '../runtime/datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
@@ -177,23 +177,20 @@ export function boolean({
 	};
 }
 
-/**
- * Creates a date with timezone column schema (NOT NULL by default).
- */
 export function date(opts: {
 	nullable: true;
-	default?: DateWithTimezone;
+	default?: Temporal.ZonedDateTime;
 }): DateFieldSchema<true>;
 export function date(opts?: {
 	nullable?: false;
-	default?: DateWithTimezone;
+	default?: Temporal.ZonedDateTime;
 }): DateFieldSchema<false>;
 export function date({
 	nullable = false,
 	default: defaultValue,
 }: {
 	nullable?: boolean;
-	default?: DateWithTimezone;
+	default?: Temporal.ZonedDateTime;
 } = {}): DateFieldSchema<boolean> {
 	return {
 		'x-component': 'date',
@@ -201,7 +198,9 @@ export function date({
 		description:
 			'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
 		pattern: DATE_WITH_TIMEZONE_STRING_REGEX.source,
-		...(defaultValue !== undefined && { default: defaultValue.toJSON() }),
+		...(defaultValue !== undefined && {
+			default: toDateTimeString(defaultValue),
+		}),
 	};
 }
 

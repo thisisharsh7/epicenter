@@ -101,16 +101,13 @@ export type {
 export {
 	boolean,
 	DATE_WITH_TIMEZONE_STRING_REGEX,
-	DateWithTimezone,
-	DateWithTimezoneFromString,
 	date,
+	fromDateTimeString,
 	generateId,
-	ISO_DATETIME_REGEX,
 	id,
 	integer,
-	isDateWithTimezone,
 	isDateWithTimezoneString,
-	isIsoDateTimeString,
+	ISO_DATETIME_REGEX,
 	json,
 	real,
 	richtext,
@@ -118,8 +115,10 @@ export {
 	tableSchemaToArktype,
 	tableSchemaToYjsArktype,
 	tags,
+	Temporal,
 	text,
 	TIMEZONE_ID_REGEX,
+	toDateTimeString,
 } from './core/schema';
 // Rich content ID generation
 export type { RichContentId } from './core/rich-content/id';

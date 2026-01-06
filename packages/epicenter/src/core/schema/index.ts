@@ -70,13 +70,7 @@ export type {
 	DateWithTimezoneString,
 	TimezoneId,
 } from './runtime/date-with-timezone.js';
-export {
-	DateWithTimezone,
-	DateWithTimezoneFromString,
-	isDateWithTimezone,
-	isDateWithTimezoneString,
-	isIsoDateTimeString,
-} from './runtime/date-with-timezone.js';
+export { isDateWithTimezoneString } from './runtime/date-with-timezone.js';
 
 export {
 	Temporal,
