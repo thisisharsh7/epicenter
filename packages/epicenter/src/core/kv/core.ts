@@ -50,8 +50,12 @@ export function createKv<TKvSchema extends KvSchema>(
 					result[keyName] = value;
 				} else {
 					const helper = kvHelpers[keyName as keyof typeof kvHelpers];
-					const defaultVal = helper.get();
-					result[keyName] = defaultVal !== undefined ? defaultVal : null;
+					const getResult = helper.get();
+					if (getResult.status === 'valid') {
+						result[keyName] = getResult.value;
+					} else {
+						result[keyName] = null;
+					}
 				}
 			}
 			return result as {

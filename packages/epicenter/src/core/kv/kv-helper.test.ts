@@ -16,14 +16,18 @@ import { createKv } from './core';
 
 describe('KV Helpers', () => {
 	describe('Basic Operations', () => {
-		test('text field: get() returns correct value', () => {
+		test('text field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				username: text(),
 			});
 
 			kv.username.set('alice');
-			expect(kv.username.get()).toBe('alice');
+			const result = kv.username.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('alice');
+			}
 		});
 
 		test('text field: get() returns default value when not set', () => {
@@ -32,7 +36,11 @@ describe('KV Helpers', () => {
 				role: text({ default: 'user' }),
 			});
 
-			expect(kv.role.get()).toBe('user');
+			const result = kv.role.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('user');
+			}
 		});
 
 		test('text field: get() returns null for nullable fields with no default', () => {
@@ -41,7 +49,11 @@ describe('KV Helpers', () => {
 				bio: text({ nullable: true }),
 			});
 
-			expect(kv.bio.get()).toBe(null);
+			const result = kv.bio.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(null);
+			}
 		});
 
 		test('text field: set() updates value correctly', () => {
@@ -51,10 +63,18 @@ describe('KV Helpers', () => {
 			});
 
 			kv.username.set('alice');
-			expect(kv.username.get()).toBe('alice');
+			let result = kv.username.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('alice');
+			}
 
 			kv.username.set('bob');
-			expect(kv.username.get()).toBe('bob');
+			result = kv.username.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('bob');
+			}
 		});
 
 		test('text field: reset() restores default value', () => {
@@ -64,20 +84,32 @@ describe('KV Helpers', () => {
 			});
 
 			kv.role.set('admin');
-			expect(kv.role.get()).toBe('admin');
+			let result = kv.role.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('admin');
+			}
 
 			kv.role.reset();
-			expect(kv.role.get()).toBe('user');
+			result = kv.role.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('user');
+			}
 		});
 
-		test('integer field: get() returns correct value', () => {
+		test('integer field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				count: integer(),
 			});
 
 			kv.count.set(42);
-			expect(kv.count.get()).toBe(42);
+			const result = kv.count.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(42);
+			}
 		});
 
 		test('integer field: get() returns default value when not set', () => {
@@ -86,7 +118,11 @@ describe('KV Helpers', () => {
 				count: integer({ default: 0 }),
 			});
 
-			expect(kv.count.get()).toBe(0);
+			const result = kv.count.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(0);
+			}
 		});
 
 		test('integer field: set() updates value correctly', () => {
@@ -96,10 +132,18 @@ describe('KV Helpers', () => {
 			});
 
 			kv.count.set(10);
-			expect(kv.count.get()).toBe(10);
+			let result = kv.count.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(10);
+			}
 
 			kv.count.set(20);
-			expect(kv.count.get()).toBe(20);
+			result = kv.count.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(20);
+			}
 		});
 
 		test('integer field: reset() restores default value', () => {
@@ -110,17 +154,25 @@ describe('KV Helpers', () => {
 
 			kv.count.set(100);
 			kv.count.reset();
-			expect(kv.count.get()).toBe(0);
+			const result = kv.count.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(0);
+			}
 		});
 
-		test('real field: get() returns correct value', () => {
+		test('real field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				price: real(),
 			});
 
 			kv.price.set(19.99);
-			expect(kv.price.get()).toBe(19.99);
+			const result = kv.price.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(19.99);
+			}
 		});
 
 		test('real field: get() returns default value when not set', () => {
@@ -129,20 +181,32 @@ describe('KV Helpers', () => {
 				price: real({ default: 0.0 }),
 			});
 
-			expect(kv.price.get()).toBe(0.0);
+			const result = kv.price.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(0.0);
+			}
 		});
 
-		test('boolean field: get() returns correct value', () => {
+		test('boolean field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				enabled: boolean(),
 			});
 
 			kv.enabled.set(true);
-			expect(kv.enabled.get()).toBe(true);
+			let result = kv.enabled.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(true);
+			}
 
 			kv.enabled.set(false);
-			expect(kv.enabled.get()).toBe(false);
+			result = kv.enabled.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(false);
+			}
 		});
 
 		test('boolean field: get() returns default value when not set', () => {
@@ -151,7 +215,11 @@ describe('KV Helpers', () => {
 				enabled: boolean({ default: false }),
 			});
 
-			expect(kv.enabled.get()).toBe(false);
+			const result = kv.enabled.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(false);
+			}
 		});
 
 		test('boolean field: reset() restores default value', () => {
@@ -162,17 +230,25 @@ describe('KV Helpers', () => {
 
 			kv.enabled.set(true);
 			kv.enabled.reset();
-			expect(kv.enabled.get()).toBe(false);
+			const result = kv.enabled.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(false);
+			}
 		});
 
-		test('select field: get() returns correct value', () => {
+		test('select field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				theme: select({ options: ['light', 'dark'] }),
 			});
 
 			kv.theme.set('dark');
-			expect(kv.theme.get()).toBe('dark');
+			const result = kv.theme.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('dark');
+			}
 		});
 
 		test('select field: get() returns default value when not set', () => {
@@ -181,7 +257,11 @@ describe('KV Helpers', () => {
 				theme: select({ options: ['light', 'dark'], default: 'light' }),
 			});
 
-			expect(kv.theme.get()).toBe('light');
+			const result = kv.theme.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('light');
+			}
 		});
 
 		test('select field: set() updates value correctly', () => {
@@ -191,10 +271,18 @@ describe('KV Helpers', () => {
 			});
 
 			kv.theme.set('dark');
-			expect(kv.theme.get()).toBe('dark');
+			let result = kv.theme.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('dark');
+			}
 
 			kv.theme.set('light');
-			expect(kv.theme.get()).toBe('light');
+			result = kv.theme.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('light');
+			}
 		});
 
 		test('select field: reset() restores default value', () => {
@@ -205,20 +293,27 @@ describe('KV Helpers', () => {
 
 			kv.theme.set('dark');
 			kv.theme.reset();
-			expect(kv.theme.get()).toBe('light');
+			const result = kv.theme.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('light');
+			}
 		});
 
-		test('date field: get() returns correct value', () => {
+		test('date field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				last_sync: dateField(),
 			});
 
-			const now = Temporal.ZonedDateTime.from(
-				'2024-01-01T00:00:00.000-05:00[America/New_York]',
-			);
-			kv.last_sync.set(toDateTimeString(now));
-			expect(kv.last_sync.get()).toBe(toDateTimeString(now));
+			const now = Temporal.ZonedDateTime.from('2024-01-01T05:00:00.000Z[UTC]');
+			const nowString = toDateTimeString(now);
+			kv.last_sync.set(nowString);
+			const result = kv.last_sync.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(nowString);
+			}
 		});
 
 		test('date field: get() returns default value when not set', () => {
@@ -230,7 +325,11 @@ describe('KV Helpers', () => {
 				last_sync: dateField({ default: defaultDate }),
 			});
 
-			expect(kv.last_sync.get()).toBe(toDateTimeString(defaultDate));
+			const result = kv.last_sync.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(toDateTimeString(defaultDate));
+			}
 		});
 
 		test('date field: get() returns null for nullable fields with no default', () => {
@@ -239,7 +338,11 @@ describe('KV Helpers', () => {
 				last_sync: dateField({ nullable: true }),
 			});
 
-			expect(kv.last_sync.get()).toBe(null);
+			const result = kv.last_sync.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(null);
+			}
 		});
 
 		test('date field: set() updates value correctly', () => {
@@ -249,17 +352,27 @@ describe('KV Helpers', () => {
 			});
 
 			const date1 = Temporal.ZonedDateTime.from(
-				'2024-01-01T00:00:00.000-05:00[America/New_York]',
+				'2024-01-01T05:00:00.000Z[UTC]',
 			);
 			const date2 = Temporal.ZonedDateTime.from(
-				'2024-01-02T00:00:00.000-05:00[America/New_York]',
+				'2024-01-02T05:00:00.000Z[UTC]',
 			);
+			const date1String = toDateTimeString(date1);
+			const date2String = toDateTimeString(date2);
 
-			kv.last_sync.set(toDateTimeString(date1));
-			expect(kv.last_sync.get()).toBe(toDateTimeString(date1));
+			kv.last_sync.set(date1String);
+			let result = kv.last_sync.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(date1String);
+			}
 
-			kv.last_sync.set(toDateTimeString(date2));
-			expect(kv.last_sync.get()).toBe(toDateTimeString(date2));
+			kv.last_sync.set(date2String);
+			result = kv.last_sync.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(date2String);
+			}
 		});
 
 		test('date field: reset() restores default value', () => {
@@ -276,7 +389,11 @@ describe('KV Helpers', () => {
 			);
 			kv.last_sync.set(toDateTimeString(newDate));
 			kv.last_sync.reset();
-			expect(kv.last_sync.get()).toBe(toDateTimeString(defaultDate));
+			const result = kv.last_sync.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(toDateTimeString(defaultDate));
+			}
 		});
 	});
 
@@ -288,7 +405,11 @@ describe('KV Helpers', () => {
 			});
 
 			kv.notes.set('rtxt_abc123');
-			expect(kv.notes.get()).toBe('rtxt_abc123');
+			const result = kv.notes.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('rtxt_abc123');
+			}
 		});
 
 		test('richtext field: set() updates value correctly', () => {
@@ -298,10 +419,18 @@ describe('KV Helpers', () => {
 			});
 
 			kv.notes.set('rtxt_first');
-			expect(kv.notes.get()).toBe('rtxt_first');
+			let result = kv.notes.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('rtxt_first');
+			}
 
 			kv.notes.set('rtxt_second');
-			expect(kv.notes.get()).toBe('rtxt_second');
+			result = kv.notes.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('rtxt_second');
+			}
 		});
 
 		test('richtext field: nullable returns null when not set', () => {
@@ -310,7 +439,11 @@ describe('KV Helpers', () => {
 				notes: richtext({ nullable: true }),
 			});
 
-			expect(kv.notes.get()).toBe(null);
+			const result = kv.notes.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(null);
+			}
 		});
 
 		test('tags field: get() returns plain array', () => {
@@ -320,7 +453,11 @@ describe('KV Helpers', () => {
 			});
 
 			kv.tags.set(['typescript', 'javascript']);
-			expect(kv.tags.get()).toEqual(['typescript', 'javascript']);
+			const result = kv.tags.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toEqual(['typescript', 'javascript']);
+			}
 		});
 
 		test('tags field: set() replaces existing content', () => {
@@ -331,7 +468,11 @@ describe('KV Helpers', () => {
 
 			kv.tags.set(['typescript']);
 			kv.tags.set(['python', 'javascript']);
-			expect(kv.tags.get()).toEqual(['python', 'javascript']);
+			const result = kv.tags.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toEqual(['python', 'javascript']);
+			}
 		});
 
 		test('tags field without options: allows any strings', () => {
@@ -341,20 +482,26 @@ describe('KV Helpers', () => {
 			});
 
 			kv.categories.set(['anything', 'goes', 'here']);
-			expect(kv.categories.get()).toEqual(['anything', 'goes', 'here']);
+			const result = kv.categories.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toEqual(['anything', 'goes', 'here']);
+			}
 		});
 	});
 
 	describe('Observe', () => {
-		test('observe() fires callback when value changes', () => {
+		test('observe() fires callback with Result when value changes', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				theme: select({ options: ['light', 'dark'], default: 'light' }),
 			});
 
 			const values: string[] = [];
-			kv.theme.observe((value) => {
-				values.push(value);
+			kv.theme.observe((result) => {
+				if (result.data) {
+					values.push(result.data);
+				}
 			});
 
 			kv.theme.set('dark');
@@ -371,13 +518,17 @@ describe('KV Helpers', () => {
 			});
 
 			const themeValues: string[] = [];
-			kv.theme.observe((value) => {
-				themeValues.push(value);
+			kv.theme.observe((result) => {
+				if (result.data) {
+					themeValues.push(result.data);
+				}
 			});
 
 			const countValues: number[] = [];
-			kv.count.observe((value) => {
-				countValues.push(value);
+			kv.count.observe((result) => {
+				if (result.data) {
+					countValues.push(result.data);
+				}
 			});
 
 			kv.theme.set('dark');
@@ -395,8 +546,10 @@ describe('KV Helpers', () => {
 			});
 
 			const values: number[] = [];
-			const unsubscribe = kv.count.observe((value) => {
-				values.push(value);
+			const unsubscribe = kv.count.observe((result) => {
+				if (result.data) {
+					values.push(result.data);
+				}
 			});
 
 			kv.count.set(1);
@@ -449,7 +602,11 @@ describe('KV Helpers', () => {
 			kv.count.set(2);
 			kv.count.set(3);
 			kv.count.set(4);
-			expect(kv.count.get()).toBe(4);
+			const result = kv.count.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(4);
+			}
 		});
 
 		test('setting same value twice', () => {
@@ -459,8 +616,10 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv.theme.observe((value) => {
-				values.push(value);
+			kv.theme.observe((result) => {
+				if (result.data) {
+					values.push(result.data);
+				}
 			});
 
 			kv.theme.set('dark');
@@ -482,15 +641,39 @@ describe('KV Helpers', () => {
 			kv.font_size.set(16);
 			kv.show_line_numbers.set(false);
 
-			expect(kv.theme.get()).toBe('dark');
-			expect(kv.font_size.get()).toBe(16);
-			expect(kv.show_line_numbers.get()).toBe(false);
+			const themeResult = kv.theme.get();
+			const fontResult = kv.font_size.get();
+			const lineResult = kv.show_line_numbers.get();
+
+			expect(themeResult.status).toBe('valid');
+			expect(fontResult.status).toBe('valid');
+			expect(lineResult.status).toBe('valid');
+
+			if (themeResult.status === 'valid') {
+				expect(themeResult.value).toBe('dark');
+			}
+			if (fontResult.status === 'valid') {
+				expect(fontResult.value).toBe(16);
+			}
+			if (lineResult.status === 'valid') {
+				expect(lineResult.value).toBe(false);
+			}
 
 			kv.theme.reset();
-			expect(kv.theme.get()).toBe('light');
+			const resetTheme = kv.theme.get();
+			expect(resetTheme.status).toBe('valid');
+			if (resetTheme.status === 'valid') {
+				expect(resetTheme.value).toBe('light');
+			}
 
-			expect(kv.font_size.get()).toBe(16);
-			expect(kv.show_line_numbers.get()).toBe(false);
+			const stillFont = kv.font_size.get();
+			const stillLine = kv.show_line_numbers.get();
+			if (stillFont.status === 'valid') {
+				expect(stillFont.value).toBe(16);
+			}
+			if (stillLine.status === 'valid') {
+				expect(stillLine.value).toBe(false);
+			}
 		});
 
 		test('nullable field: set to null explicitly', () => {
@@ -500,10 +683,18 @@ describe('KV Helpers', () => {
 			});
 
 			kv.bio.set('Hello');
-			expect(kv.bio.get()).toBe('Hello');
+			let result = kv.bio.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('Hello');
+			}
 
 			kv.bio.set(null);
-			expect(kv.bio.get()).toBe(null);
+			result = kv.bio.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(null);
+			}
 		});
 
 		test('nullable field with default: set to null clears default', () => {
@@ -512,10 +703,18 @@ describe('KV Helpers', () => {
 				role: text({ nullable: true, default: 'user' }),
 			});
 
-			expect(kv.role.get()).toBe('user');
+			let result = kv.role.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('user');
+			}
 
 			kv.role.set(null);
-			expect(kv.role.get()).toBe(null);
+			result = kv.role.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(null);
+			}
 		});
 
 		test('reset on nullable field with no default sets to null', () => {
@@ -525,23 +724,36 @@ describe('KV Helpers', () => {
 			});
 
 			kv.bio.set('Hello');
-			expect(kv.bio.get()).toBe('Hello');
+			let result = kv.bio.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('Hello');
+			}
 
 			kv.bio.reset();
-			expect(kv.bio.get()).toBe(null);
+			result = kv.bio.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe(null);
+			}
 		});
 
-		test('reset on non-nullable field with no default deletes the key', () => {
+		test('reset on non-nullable field with no default returns invalid status', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				username: text(),
 			});
 
 			kv.username.set('alice');
-			expect(kv.username.get()).toBe('alice');
+			let result = kv.username.get();
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.value).toBe('alice');
+			}
 
 			kv.username.reset();
-			expect(kv.username.get() as string | undefined).toBe(undefined);
+			result = kv.username.get();
+			expect(result.status).toBe('invalid');
 		});
 
 		test('$all() returns all helpers', () => {
@@ -592,8 +804,57 @@ describe('KV Helpers', () => {
 
 			kv.clearAll();
 
-			expect(kv.theme.get()).toBe('light');
-			expect(kv.count.get()).toBe(0);
+			const themeResult = kv.theme.get();
+			const countResult = kv.count.get();
+			expect(themeResult.status).toBe('valid');
+			expect(countResult.status).toBe('valid');
+			if (themeResult.status === 'valid') {
+				expect(themeResult.value).toBe('light');
+			}
+			if (countResult.status === 'valid') {
+				expect(countResult.value).toBe(0);
+			}
+		});
+	});
+
+	describe('Validation', () => {
+		test('get() returns invalid status when value type mismatches schema', () => {
+			const ydoc = new Y.Doc({ guid: 'test-kv' });
+			const ykvMap = ydoc.getMap('kv');
+
+			ykvMap.set('count', 'not a number' as unknown);
+
+			const kv = createKv(ydoc, {
+				count: integer({ default: 0 }),
+			});
+
+			const result = kv.count.get();
+			expect(result.status).toBe('invalid');
+			if (result.status === 'invalid') {
+				expect(result.key).toBe('count');
+				expect(result.error.context.key).toBe('count');
+			}
+		});
+
+		test('observe() passes error to callback when validation fails', () => {
+			const ydoc = new Y.Doc({ guid: 'test-kv' });
+			const ykvMap = ydoc.getMap('kv');
+
+			const kv = createKv(ydoc, {
+				count: integer({ default: 0 }),
+			});
+
+			let receivedError = false;
+			kv.count.observe((result) => {
+				if (result.error) {
+					receivedError = true;
+					expect(result.error.context.key).toBe('count');
+				}
+			});
+
+			ykvMap.set('count', 'invalid value' as unknown);
+
+			expect(receivedError).toBe(true);
 		});
 	});
 });

@@ -17,6 +17,8 @@
 		"@epicenter/ui": "workspace:*",
 		"@sindresorhus/slugify": "^3.0.0",
 		"@tanstack/svelte-query": "catalog:",
+		"@tanstack/svelte-table": "^8.21.3",
+		"@tanstack/table-core": "^8.21.3",
 		"@tauri-apps/api": "^2.9.0",
 		"@tauri-apps/plugin-fs": "^2.4.1",
 		"@tauri-apps/plugin-opener": "^2.3.1",

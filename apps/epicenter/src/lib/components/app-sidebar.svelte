@@ -4,8 +4,7 @@
 	import * as Collapsible from '@epicenter/ui/collapsible';
 	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
 	import TableIcon from '@lucide/svelte/icons/table-2';
-	import KeyIcon from '@lucide/svelte/icons/key-round';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 
 	const selectedWorkspaceId = $derived(page.params.id);
@@ -16,7 +15,7 @@
 		{ id: 'comments', name: 'comments' },
 	];
 
-	const mockVariables = [
+	const mockSettings = [
 		{ id: 'api-config', name: 'api-config' },
 		{ id: 'feature-flags', name: 'feature-flags' },
 	];
@@ -29,16 +28,11 @@
 
 	<Sidebar.Content>
 		{#if selectedWorkspaceId}
-			<Collapsible.Root open class="group/collapsible">
+			<Collapsible.Root open>
 				<Sidebar.Group>
 					<Sidebar.GroupLabel>
 						{#snippet child({ props })}
-							<Collapsible.Trigger {...props}>
-								Tables
-								<ChevronRightIcon
-									class="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90"
-								/>
-							</Collapsible.Trigger>
+							<Collapsible.Trigger {...props}>Tables</Collapsible.Trigger>
 						{/snippet}
 					</Sidebar.GroupLabel>
 					<Sidebar.GroupAction title="Add Table">
@@ -69,35 +63,30 @@
 				</Sidebar.Group>
 			</Collapsible.Root>
 
-			<Collapsible.Root open class="group/collapsible">
+			<Collapsible.Root open>
 				<Sidebar.Group>
 					<Sidebar.GroupLabel>
 						{#snippet child({ props })}
-							<Collapsible.Trigger {...props}>
-								Variables
-								<ChevronRightIcon
-									class="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90"
-								/>
-							</Collapsible.Trigger>
+							<Collapsible.Trigger {...props}>Settings</Collapsible.Trigger>
 						{/snippet}
 					</Sidebar.GroupLabel>
-					<Sidebar.GroupAction title="Add Variable">
+					<Sidebar.GroupAction title="Add Setting">
 						<PlusIcon />
-						<span class="sr-only">Add Variable</span>
+						<span class="sr-only">Add Setting</span>
 					</Sidebar.GroupAction>
 					<Collapsible.Content>
 						<Sidebar.GroupContent>
 							<Sidebar.Menu>
-								{#each mockVariables as variable (variable.id)}
+								{#each mockSettings as setting (setting.id)}
 									<Sidebar.MenuItem>
 										<Sidebar.MenuButton>
 											{#snippet child({ props })}
 												<a
-													href="/workspaces/{selectedWorkspaceId}/variables/{variable.id}"
+													href="/workspaces/{selectedWorkspaceId}/settings/{setting.id}"
 													{...props}
 												>
-													<KeyIcon />
-													<span>{variable.name}</span>
+													<SettingsIcon />
+													<span>{setting.name}</span>
 												</a>
 											{/snippet}
 										</Sidebar.MenuButton>
@@ -110,7 +99,7 @@
 			</Collapsible.Root>
 		{:else}
 			<div class="p-4 text-sm text-muted-foreground">
-				Select a workspace to view tables and variables.
+				Select a workspace to view tables and settings.
 			</div>
 		{/if}
 	</Sidebar.Content>

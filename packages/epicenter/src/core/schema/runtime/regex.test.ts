@@ -231,10 +231,10 @@ describe('TIMEZONE_ID_REGEX', () => {
 describe('DATE_WITH_TIMEZONE_STRING_REGEX', () => {
 	/**
 	 * Tests that verify the regex matches valid DateWithTimezoneString formats.
-	 * Tests various combinations of ISO datetime formats with IANA timezone identifiers.
+	 * Format must be: "YYYY-MM-DDTHH:mm:ss.sssZ|TIMEZONE_ID" (strict UTC format)
 	 */
 	describe('matches valid DateWithTimezoneString format', () => {
-		test('full ISO datetime with timezone', () => {
+		test('full ISO UTC datetime with timezone', () => {
 			expect(
 				DATE_WITH_TIMEZONE_STRING_REGEX.test(
 					'2024-01-01T20:00:00.000Z|America/New_York',
@@ -242,34 +242,50 @@ describe('DATE_WITH_TIMEZONE_STRING_REGEX', () => {
 			).toBe(true);
 		});
 
-		test('date only with timezone', () => {
-			expect(DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01|UTC')).toBe(true);
+		test('UTC datetime with UTC timezone', () => {
+			expect(
+				DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01T00:00:00.000Z|UTC'),
+			).toBe(true);
 		});
 
-		test('datetime with offset and timezone', () => {
+		test('UTC datetime with simple timezone', () => {
+			expect(
+				DATE_WITH_TIMEZONE_STRING_REGEX.test(
+					'2024-06-15T12:30:45.123Z|Europe/London',
+				),
+			).toBe(true);
+		});
+	});
+
+	describe('rejects invalid DateWithTimezoneString format', () => {
+		test('date-only format (requires full ISO UTC)', () => {
+			expect(DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01|UTC')).toBe(
+				false,
+			);
+		});
+
+		test('datetime with offset instead of Z', () => {
 			expect(
 				DATE_WITH_TIMEZONE_STRING_REGEX.test(
 					'2024-01-01T20:00:00+05:00|Asia/Tokyo',
 				),
-			).toBe(true);
+			).toBe(false);
 		});
 
-		test('minimal valid format', () => {
-			expect(DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01|Z')).toBe(true);
+		test('missing milliseconds', () => {
+			expect(
+				DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01T20:00:00Z|UTC'),
+			).toBe(false);
 		});
-	});
 
-	/**
-	 * Tests that verify the regex correctly rejects invalid DateWithTimezoneString formats.
-	 * These test cases ensure proper validation of the pipe separator and both components.
-	 */
-	describe('rejects invalid DateWithTimezoneString format', () => {
 		test('no timezone (missing pipe)', () => {
 			expect(DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01')).toBe(false);
 		});
 
 		test('empty timezone after pipe', () => {
-			expect(DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01|')).toBe(false);
+			expect(
+				DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01T00:00:00.000Z|'),
+			).toBe(false);
 		});
 
 		test('no datetime (pipe at start)', () => {
@@ -280,7 +296,9 @@ describe('DATE_WITH_TIMEZONE_STRING_REGEX', () => {
 
 		test('space separator instead of pipe', () => {
 			expect(
-				DATE_WITH_TIMEZONE_STRING_REGEX.test('2024-01-01 America/New_York'),
+				DATE_WITH_TIMEZONE_STRING_REGEX.test(
+					'2024-01-01T00:00:00.000Z America/New_York',
+				),
 			).toBe(false);
 		});
 
@@ -295,36 +313,32 @@ describe('DATE_WITH_TIMEZONE_STRING_REGEX', () => {
 		});
 	});
 
-	/**
-	 * Tests that verify the regex correctly extracts datetime and timezone components via capture groups.
-	 * The regex uses two capture groups: [1] for the datetime portion, [2] for the timezone portion.
-	 */
 	describe('extracts datetime and timezone via capture groups', () => {
 		test('extracts datetime and timezone parts', () => {
 			const input = '2024-01-01T20:00:00.000Z|America/New_York';
 			const match = input.match(DATE_WITH_TIMEZONE_STRING_REGEX);
 
 			expect(match).not.toBeNull();
-			expect(match?.[1]).toBe('2024-01-01T20:00:00.000Z'); // datetime
-			expect(match?.[2]).toBe('America/New_York'); // timezone
+			expect(match?.[1]).toBe('2024-01-01T20:00:00.000Z');
+			expect(match?.[2]).toBe('America/New_York');
 		});
 
-		test('extracts minimal format', () => {
-			const input = '2024-01-01|UTC';
+		test('extracts UTC timezone', () => {
+			const input = '2024-06-15T12:00:00.000Z|UTC';
 			const match = input.match(DATE_WITH_TIMEZONE_STRING_REGEX);
 
 			expect(match).not.toBeNull();
-			expect(match?.[1]).toBe('2024-01-01'); // datetime
-			expect(match?.[2]).toBe('UTC'); // timezone
+			expect(match?.[1]).toBe('2024-06-15T12:00:00.000Z');
+			expect(match?.[2]).toBe('UTC');
 		});
 
-		test('extracts datetime with offset', () => {
-			const input = '2024-01-01T20:00:00+05:00|Asia/Tokyo';
+		test('extracts complex timezone path', () => {
+			const input = '2024-01-01T09:00:00.000Z|Asia/Tokyo';
 			const match = input.match(DATE_WITH_TIMEZONE_STRING_REGEX);
 
 			expect(match).not.toBeNull();
-			expect(match?.[1]).toBe('2024-01-01T20:00:00+05:00'); // datetime
-			expect(match?.[2]).toBe('Asia/Tokyo'); // timezone
+			expect(match?.[1]).toBe('2024-01-01T09:00:00.000Z');
+			expect(match?.[2]).toBe('Asia/Tokyo');
 		});
 	});
 

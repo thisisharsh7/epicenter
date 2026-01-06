@@ -1,7 +1,35 @@
-import * as Y from 'yjs';
+import { type ArkErrors, type } from 'arktype';
+import { createTaggedError } from 'wellcrafted/error';
+import { Ok, type Result } from 'wellcrafted/result';
+import type * as Y from 'yjs';
 
 import type { KvFieldSchema, KvSchema, KvValue } from '../schema';
-import { isNullableFieldSchema } from '../schema';
+import { fieldSchemaToYjsArktype, isNullableFieldSchema } from '../schema';
+
+/**
+ * Context for KV validation errors
+ */
+type KvValidationContext = {
+	key: string;
+	errors: ArkErrors;
+	summary: string;
+};
+
+/**
+ * Error thrown when a KV value fails schema validation
+ */
+export const { KvValidationError, KvValidationErr } =
+	createTaggedError('KvValidationError').withContext<KvValidationContext>();
+
+export type KvValidationError = ReturnType<typeof KvValidationError>;
+
+/**
+ * Result of getting a KV value.
+ * Uses a status-based discriminated union for explicit handling of all cases.
+ */
+export type KvGetResult<TValue> =
+	| { status: 'valid'; value: TValue }
+	| { status: 'invalid'; key: string; error: KvValidationError };
 
 export type YKvMap = Y.Map<KvValue>;
 
@@ -54,6 +82,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		const value = ykvMap.get(keyName);
 
 		if (value === undefined) {
+			// Default values are already serialized (e.g., date defaults are DateWithTimezoneString)
 			if ('default' in schema && schema.default !== undefined) {
 				return schema.default as TValue;
 			}
@@ -76,6 +105,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		});
 	};
 
+	const validator = fieldSchemaToYjsArktype(schema);
+
 	return {
 		/** The name of this KV key */
 		name: keyName,
@@ -86,18 +117,42 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		/**
 		 * Get the current value for this KV key.
 		 *
-		 * Returns the stored value, or the default value if not set,
-		 * or null if nullable and no default exists.
+		 * Returns a discriminated union with validation status:
+		 * - `{ status: 'valid', value }` if value exists and passes validation
+		 * - `{ status: 'invalid', key, error }` if value exists but fails validation
 		 *
-		 * @returns The current value
+		 * For unset values: returns default if defined, null if nullable.
 		 *
 		 * @example
 		 * ```typescript
-		 * const theme = kv.theme.get(); // 'dark' | 'light'
+		 * const result = kv.theme.get();
+		 * if (result.status === 'valid') {
+		 *   console.log(result.value); // 'dark' | 'light'
+		 * } else {
+		 *   console.error(result.error.context.summary);
+		 * }
 		 * ```
 		 */
-		get(): TValue {
-			return getCurrentValue();
+		get(): KvGetResult<TValue> {
+			const value = getCurrentValue();
+			const validationResult = validator(value);
+
+			if (validationResult instanceof type.errors) {
+				return {
+					status: 'invalid',
+					key: keyName,
+					error: KvValidationError({
+						message: `KV key '${keyName}' failed validation`,
+						context: {
+							key: keyName,
+							errors: validationResult,
+							summary: validationResult.summary,
+						},
+					}),
+				};
+			}
+
+			return { status: 'valid', value };
 		},
 
 		/**
@@ -133,25 +188,48 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * Watch for changes to this KV value.
 		 *
 		 * The callback fires whenever this specific key changes, whether from
-		 * local updates or sync from other peers.
+		 * local updates or sync from other peers. Receives a Result type that
+		 * may contain validation errors if the value doesn't match the schema.
 		 *
-		 * @param callback - Function called with the new value on each change
+		 * @param callback - Function called with Result on each change
 		 * @returns Unsubscribe function to stop watching
 		 *
 		 * @example
 		 * ```typescript
-		 * const unsubscribe = kv.theme.observe((value) => {
-		 *   document.body.className = value;
+		 * const unsubscribe = kv.theme.observe((result) => {
+		 *   if (result.error) {
+		 *     console.error('Invalid value:', result.error);
+		 *     return;
+		 *   }
+		 *   document.body.className = result.data;
 		 * });
 		 *
 		 * // Later: stop watching
 		 * unsubscribe();
 		 * ```
 		 */
-		observe(callback: (value: TValue) => void) {
+		observe(
+			callback: (result: Result<TValue, KvValidationError>) => void,
+		): () => void {
 			const handler = (event: Y.YMapEvent<KvValue>) => {
 				if (event.keysChanged.has(keyName)) {
-					callback(getCurrentValue());
+					const value = getCurrentValue();
+					const validationResult = validator(value);
+
+					if (validationResult instanceof type.errors) {
+						callback(
+							KvValidationErr({
+								message: `KV key '${keyName}' failed validation`,
+								context: {
+									key: keyName,
+									errors: validationResult,
+									summary: validationResult.summary,
+								},
+							}),
+						);
+					} else {
+						callback(Ok(value));
+					}
 				}
 			};
 			ykvMap.observe(handler);
@@ -173,8 +251,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		reset(): void {
 			ydoc.transact(() => {
 				if ('default' in schema && schema.default !== undefined) {
-					const defaultValue = schema.default as TValue;
-					setValueFromSerialized(defaultValue);
+					setValueFromSerialized(schema.default as TValue);
 				} else if (nullable) {
 					ykvMap.set(keyName, null);
 				} else {
