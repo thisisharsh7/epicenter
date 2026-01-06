@@ -1,6 +1,6 @@
 # Parse at the Edges
 
-**Related PR**: [#1216](https://github.com/EpicenterHQ/epicenter/pull/1216)
+> See [PR #1216](https://github.com/EpicenterHQ/epicenter/pull/1216) for the full context on this pattern.
 
 Keep data in its serialized form throughout the system. Parse to rich objects only at the moment you need them—typically UI binding.
 

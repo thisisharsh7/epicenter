@@ -1,6 +1,6 @@
 # Why I Use DateTimeString as Intermediate Representation
 
-**Related PR**: [#1216](https://github.com/EpicenterHQ/epicenter/pull/1216)
+> See [PR #1216](https://github.com/EpicenterHQ/epicenter/pull/1216) for the full context on this pattern.
 
 Instead of eagerly parsing dates into rich objects at every boundary, I keep them as `DateTimeString` throughout the system and parse to `Temporal.ZonedDateTime` only at the moment they're needed (typically UI binding).
 

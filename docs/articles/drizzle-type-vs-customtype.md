@@ -1,5 +1,7 @@
 # Keep Branded Strings with $type<T>() in Drizzle
 
+> See [PR #1216](https://github.com/EpicenterHQ/epicenter/pull/1216) for the full context on this pattern.
+
 **TL;DR**: Use `$type<T>()` to keep data in its intermediate string representation while still getting type safety. No runtime conversion, no `mapFromDriverValue` overhead.
 
 ## The Goal

@@ -1,5 +1,7 @@
 # Lazy Conversion with Drizzle Custom Types
 
+> See [PR #1216](https://github.com/EpicenterHQ/epicenter/pull/1216) for the full context on this pattern.
+
 **TL;DR**: Drizzle's `toDriver`/`fromDriver` run synchronously on every row. Keep data in its intermediate representation until the very last moment you actually need the rich type.
 
 ## Why This Matters

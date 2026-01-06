@@ -1,5 +1,7 @@
 # Drizzle: Use $type<T>() for Branded Strings
 
+> See [PR #1216](https://github.com/EpicenterHQ/epicenter/pull/1216) for the full context on this pattern.
+
 ## The Pattern
 
 When you need a column with a branded TypeScript type but no actual data transformation, use `$type<T>()` instead of `customType`.
