@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '../standard/types';
-import type { IsPrimaryKey, NotNull } from 'drizzle-orm';
+import type { $Type, IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,
 	real,
@@ -12,7 +12,8 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { json, tags } from '../../../providers/sqlite/schema/builders';
+import { date, json, tags } from '../../../providers/sqlite/schema/builders';
+import type { DateTimeString } from '../runtime/datetime';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
@@ -146,12 +147,8 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 		? TNullable extends true
 			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 			: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
-		: C extends RichtextFieldSchema<infer TNullable>
-			? TNullable extends true
-				? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-				: NotNull<
-						SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-					>
+		: C extends RichtextFieldSchema
+			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 			: C extends IntegerFieldSchema<infer TNullable>
 				? TNullable extends true
 					? SQLiteIntegerBuilderInitial<''>
@@ -166,12 +163,22 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 							: NotNull<SQLiteBooleanBuilderInitial<''>>
 						: C extends DateFieldSchema<infer TNullable>
 							? TNullable extends true
-								? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
-								: NotNull<
+								? $Type<
 										SQLiteTextBuilderInitial<
 											'',
 											[string, ...string[]],
 											undefined
+										>,
+										DateTimeString
+									>
+								: NotNull<
+										$Type<
+											SQLiteTextBuilderInitial<
+												'',
+												[string, ...string[]],
+												undefined
+											>,
+											DateTimeString
 										>
 									>
 							: C extends SelectFieldSchema<infer TOptions, infer TNullable>
@@ -309,12 +316,11 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'date': {
-			let column = text(fieldName);
-			if (!isNullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
-			}
-			return column as FieldToDrizzle<C>;
+			const column = date({
+				nullable: isNullable,
+				default: schema.default,
+			});
+			return column as unknown as FieldToDrizzle<C>;
 		}
 
 		case 'select': {

@@ -309,73 +309,23 @@ describe('createTables', () => {
 				},
 			});
 
-			let receivedResult: { hasData: boolean; hasError: boolean } | null = null;
+			let hasData = false;
+			let hasError = false;
+			let callbackFired = false;
+
 			tables.posts.observe({
 				onAdd: (result) => {
-					receivedResult = {
-						hasData: result.data != null,
-						hasError: result.error != null,
-					};
+					callbackFired = true;
+					hasData = result.data != null;
+					hasError = result.error != null;
 				},
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'Test' });
 
-			expect(receivedResult).not.toBeNull();
-			expect(receivedResult?.hasData).toBe(true);
-			expect(receivedResult?.hasError).toBe(false);
-		});
-
-		test('onUpdate fires for Y.Text content changes', () => {
-			const ydoc = new Y.Doc({ guid: 'test-observe' });
-			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					content: ytext(),
-				},
-			});
-
-			tables.posts.upsert({ id: 'post-1', content: 'Initial' });
-
-			let updateCount = 0;
-			tables.posts.observe({
-				onUpdate: () => {
-					updateCount++;
-				},
-			});
-
-			const result = tables.posts.get('post-1');
-			if (result.status === 'valid') {
-				result.row.content.insert(0, 'Prefix: ');
-			}
-
-			expect(updateCount).toBeGreaterThanOrEqual(1);
-		});
-
-		test('onUpdate fires for Y.Array content changes', () => {
-			const ydoc = new Y.Doc({ guid: 'test-observe' });
-			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					categories: tags(),
-				},
-			});
-
-			tables.posts.upsert({ id: 'post-1', categories: ['tech'] });
-
-			let updateCount = 0;
-			tables.posts.observe({
-				onUpdate: () => {
-					updateCount++;
-				},
-			});
-
-			const result = tables.posts.get('post-1');
-			if (result.status === 'valid') {
-				result.row.categories.push(['blog']);
-			}
-
-			expect(updateCount).toBeGreaterThanOrEqual(1);
+			expect(callbackFired).toBe(true);
+			expect(hasData).toBe(true);
+			expect(hasError).toBe(false);
 		});
 
 		test('validation errors are passed to callbacks', () => {

@@ -4,11 +4,7 @@ import { Ok, type Result } from 'wellcrafted/result';
 import type * as Y from 'yjs';
 
 import type { KvFieldSchema, KvSchema, KvValue } from '../schema';
-import {
-	fieldSchemaToYjsArktype,
-	isDateWithTimezone,
-	isNullableFieldSchema,
-} from '../schema';
+import { fieldSchemaToYjsArktype, isNullableFieldSchema } from '../schema';
 
 /**
  * Context for KV validation errors
@@ -86,12 +82,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		const value = ykvMap.get(keyName);
 
 		if (value === undefined) {
-			if ('default' in schema && schema.default !== undefined) {
-				const defaultVal = schema.default;
-				if (isDateWithTimezone(defaultVal)) {
-					return defaultVal.toJSON() as TValue;
-				}
-				return defaultVal as TValue;
+			if (schema.default !== undefined) {
+				return schema.default as TValue;
 			}
 			if (nullable) {
 				return null as TValue;
@@ -99,17 +91,6 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		}
 
 		return value as TValue;
-	};
-
-	const setValueFromSerialized = (input: TValue): void => {
-		ydoc.transact(() => {
-			if (input === null) {
-				ykvMap.set(keyName, null);
-				return;
-			}
-
-			ykvMap.set(keyName, input as KvValue);
-		});
 	};
 
 	const validator = fieldSchemaToYjsArktype(schema);
@@ -188,7 +169,9 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		set(value: TValue): void {
-			setValueFromSerialized(value);
+			ydoc.transact(() => {
+				ykvMap.set(keyName, value as KvValue);
+			});
 		},
 
 		/**
@@ -256,19 +239,15 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		reset(): void {
-			ydoc.transact(() => {
-				if ('default' in schema && schema.default !== undefined) {
-					const defaultVal = schema.default;
-					const defaultValue = isDateWithTimezone(defaultVal)
-						? (defaultVal.toJSON() as TValue)
-						: (defaultVal as TValue);
-					setValueFromSerialized(defaultValue);
-				} else if (nullable) {
-					ykvMap.set(keyName, null);
-				} else {
+			if (schema.default !== undefined) {
+				this.set(schema.default as TValue);
+			} else if (nullable) {
+				this.set(null as TValue);
+			} else {
+				ydoc.transact(() => {
 					ykvMap.delete(keyName);
-				}
-			});
+				});
+			}
 		},
 
 		/**

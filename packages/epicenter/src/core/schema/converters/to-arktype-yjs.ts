@@ -30,7 +30,7 @@ import type {
 	TextFieldSchema,
 } from '../fields/types';
 import { isNullableFieldSchema } from '../fields/nullability';
-import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
+import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
 
 /**
  * Maps a FieldSchema to its corresponding YJS cell value arktype Type.
@@ -43,10 +43,8 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 			? TNullable extends true
 				? Type<string | null>
 				: Type<string>
-			: C extends RichtextFieldSchema<infer TNullable>
-				? TNullable extends true
-					? Type<string | null>
-					: Type<string>
+			: C extends RichtextFieldSchema
+				? Type<string | null>
 				: C extends IntegerFieldSchema<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>
@@ -161,7 +159,7 @@ export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 				.describe(
 					'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
 				)
-				.matching(DATE_WITH_TIMEZONE_STRING_REGEX);
+				.matching(DATE_TIME_STRING_REGEX);
 			break;
 		case 'select':
 			baseType = type.enumerated(...fieldSchema.enum);

@@ -9,7 +9,7 @@
  * 5. Writes files back
  */
 
-import { isDateWithTimezoneString, isIsoDateTimeString } from '@epicenter/hq';
+import { DateTimeString, ISO_DATETIME_REGEX } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,
@@ -89,10 +89,10 @@ const results: ProcessResult[] = await Promise.all(
 			if (!value) continue;
 
 			// Skip if already transformed
-			if (isDateWithTimezoneString(value)) continue;
+			if (DateTimeString.is(value)) continue;
 
 			// Validate ISO datetime format
-			if (!isIsoDateTimeString(value)) {
+			if (!ISO_DATETIME_REGEX.test(value)) {
 				return {
 					status: 'invalid',
 					file: filePath,

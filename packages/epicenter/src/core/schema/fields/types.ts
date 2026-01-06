@@ -31,7 +31,7 @@
  */
 
 import type { YRow } from '../../tables/table-helper';
-import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
+import type { DateTimeString } from '../runtime/datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
@@ -64,10 +64,13 @@ export type TextFieldSchema<TNullable extends boolean = boolean> = {
  * Rich text reference column - stores ID pointing to separate rich content document.
  * The ID references a separate Y.Doc for collaborative editing.
  * The row itself just stores the string ID (JSON-serializable).
+ *
+ * Always nullable with default null - Y.Docs are created lazily when user first edits.
  */
-export type RichtextFieldSchema<TNullable extends boolean = boolean> = {
+export type RichtextFieldSchema = {
 	'x-component': 'richtext';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
+	type: readonly ['string', 'null'];
+	default: null;
 };
 
 /**
@@ -101,7 +104,7 @@ export type BooleanFieldSchema<TNullable extends boolean = boolean> = {
 
 /**
  * Date column schema - timezone-aware dates.
- * Stored as DateWithTimezoneString format: `{iso}|{timezone}`.
+ * Stored as DateTimeString format: `{iso}|{timezone}`.
  * Uses `pattern` for JSON Schema validation (not `format: 'date'` which implies RFC 3339).
  */
 export type DateFieldSchema<TNullable extends boolean = boolean> = {
@@ -109,7 +112,7 @@ export type DateFieldSchema<TNullable extends boolean = boolean> = {
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
 	description: string;
 	pattern: string;
-	default?: DateWithTimezoneString;
+	default?: DateTimeString;
 };
 
 /**
@@ -253,7 +256,7 @@ type IsNullableType<T> = T extends readonly [unknown, 'null'] ? true : false;
  *
  * - RichtextFieldSchema → string (ID reference)
  * - TagsFieldSchema → string[] (plain array)
- * - DateFieldSchema → DateWithTimezoneString
+ * - DateFieldSchema → DateTimeString
  * - Other fields → primitive types
  *
  * Nullability is derived from the schema's `type` field.
@@ -283,8 +286,8 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 								: boolean
 							: C extends DateFieldSchema
 								? IsNullableType<C['type']> extends true
-									? DateWithTimezoneString | null
-									: DateWithTimezoneString
+									? DateTimeString | null
+									: DateTimeString
 								: C extends SelectFieldSchema<infer TOptions>
 									? IsNullableType<C['type']> extends true
 										? TOptions[number] | null

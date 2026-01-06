@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+import { Temporal } from 'temporal-polyfill';
 import * as Y from 'yjs';
 import {
 	boolean,
-	DateWithTimezone,
 	date as dateField,
+	DateTimeString,
 	integer,
 	real,
 	select,
@@ -305,32 +306,29 @@ describe('KV Helpers', () => {
 				last_sync: dateField(),
 			});
 
-			const now = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'America/New_York',
-			}).toJSON();
-			kv.last_sync.set(now);
+			const now = Temporal.ZonedDateTime.from('2024-01-01T05:00:00.000Z[UTC]');
+			const nowString = DateTimeString.stringify(now);
+			kv.last_sync.set(nowString);
 			const result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBe(now);
+				expect(result.value).toBe(nowString);
 			}
 		});
 
 		test('date field: get() returns default value when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const defaultDateObj = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'UTC',
-			});
+			const defaultDate = Temporal.ZonedDateTime.from(
+				'2024-01-01T00:00:00.000+00:00[UTC]',
+			);
 			const kv = createKv(ydoc, {
-				last_sync: dateField({ default: defaultDateObj }),
+				last_sync: dateField({ default: defaultDate }),
 			});
 
 			const result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBe(defaultDateObj.toJSON());
+				expect(result.value).toBe(DateTimeString.stringify(defaultDate));
 			}
 		});
 
@@ -353,50 +351,48 @@ describe('KV Helpers', () => {
 				last_sync: dateField(),
 			});
 
-			const date1 = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'America/New_York',
-			}).toJSON();
-			const date2 = DateWithTimezone({
-				date: new Date('2024-01-02T00:00:00.000Z'),
-				timezone: 'America/New_York',
-			}).toJSON();
+			const date1 = Temporal.ZonedDateTime.from(
+				'2024-01-01T05:00:00.000Z[UTC]',
+			);
+			const date2 = Temporal.ZonedDateTime.from(
+				'2024-01-02T05:00:00.000Z[UTC]',
+			);
+			const date1String = DateTimeString.stringify(date1);
+			const date2String = DateTimeString.stringify(date2);
 
-			kv.last_sync.set(date1);
+			kv.last_sync.set(date1String);
 			let result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBe(date1);
+				expect(result.value).toBe(date1String);
 			}
 
-			kv.last_sync.set(date2);
+			kv.last_sync.set(date2String);
 			result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBe(date2);
+				expect(result.value).toBe(date2String);
 			}
 		});
 
 		test('date field: reset() restores default value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const defaultDateObj = DateWithTimezone({
-				date: new Date('2024-01-01T00:00:00.000Z'),
-				timezone: 'UTC',
-			});
+			const defaultDate = Temporal.ZonedDateTime.from(
+				'2024-01-01T00:00:00.000+00:00[UTC]',
+			);
 			const kv = createKv(ydoc, {
-				last_sync: dateField({ default: defaultDateObj }),
+				last_sync: dateField({ default: defaultDate }),
 			});
 
-			const newDate = DateWithTimezone({
-				date: new Date('2024-02-01T00:00:00.000Z'),
-				timezone: 'UTC',
-			}).toJSON();
-			kv.last_sync.set(newDate);
+			const newDate = Temporal.ZonedDateTime.from(
+				'2024-02-01T00:00:00.000+00:00[UTC]',
+			);
+			kv.last_sync.set(DateTimeString.stringify(newDate));
 			kv.last_sync.reset();
 			const result = kv.last_sync.get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
-				expect(result.value).toBe(defaultDateObj.toJSON());
+				expect(result.value).toBe(DateTimeString.stringify(defaultDate));
 			}
 		});
 	});
@@ -440,7 +436,7 @@ describe('KV Helpers', () => {
 		test('richtext field: nullable returns null when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: richtext({ nullable: true }),
+				notes: richtext(),
 			});
 
 			const result = kv.notes.get();
