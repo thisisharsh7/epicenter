@@ -23,12 +23,12 @@ import type {
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
+	RichtextFieldSchema,
 	Row,
 	SelectFieldSchema,
 	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
-	YtextFieldSchema,
 } from '../fields/types';
 import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
@@ -44,10 +44,10 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 			? TNullable extends true
 				? Type<string | null>
 				: Type<string>
-			: C extends YtextFieldSchema<infer TNullable>
+			: C extends RichtextFieldSchema<infer TNullable>
 				? TNullable extends true
-					? Type<Y.Text | null>
-					: Type<Y.Text>
+					? Type<string | null>
+					: Type<string>
 				: C extends IntegerFieldSchema<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>
@@ -145,10 +145,8 @@ export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 	switch (fieldSchema['x-component']) {
 		case 'id':
 		case 'text':
+		case 'richtext':
 			baseType = type.string;
-			break;
-		case 'ytext':
-			baseType = type.instanceOf(Y.Text);
 			break;
 		case 'integer':
 			baseType = type.number.divisibleBy(1);

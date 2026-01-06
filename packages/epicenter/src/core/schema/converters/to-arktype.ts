@@ -21,12 +21,12 @@ import type {
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
+	RichtextFieldSchema,
 	SelectFieldSchema,
 	SerializedRow,
 	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
-	YtextFieldSchema,
 } from '../fields/types';
 import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
 import { isNullableFieldSchema } from '../fields/nullability';
@@ -46,7 +46,7 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
 			? TNullable extends true
 				? Type<string | null>
 				: Type<string>
-			: C extends YtextFieldSchema<infer TNullable>
+			: C extends RichtextFieldSchema<infer TNullable>
 				? TNullable extends true
 					? Type<string | null>
 					: Type<string>
@@ -147,7 +147,7 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 	switch (fieldSchema['x-component']) {
 		case 'id':
 		case 'text':
-		case 'ytext':
+		case 'richtext':
 			baseType = type.string;
 			break;
 		case 'integer':

@@ -21,12 +21,12 @@ import type {
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
+	RichtextFieldSchema,
 	SelectFieldSchema,
 	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 	WorkspaceSchema,
-	YtextFieldSchema,
 } from '../fields/types';
 import type {
 	DateWithTimezone,
@@ -149,7 +149,7 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 		? TNullable extends true
 			? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 			: NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
-		: C extends YtextFieldSchema<infer TNullable>
+		: C extends RichtextFieldSchema<infer TNullable>
 			? TNullable extends true
 				? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 				: NotNull<
@@ -288,7 +288,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 			return column as FieldToDrizzle<C>;
 		}
 
-		case 'ytext': {
+		case 'richtext': {
 			let column = text(fieldName);
 			if (!isNullable) column = column.notNull();
 			return column as FieldToDrizzle<C>;

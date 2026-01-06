@@ -8,7 +8,7 @@ export {
 	select,
 	tags,
 	text,
-	ytext,
+	richtext,
 } from './fields/factories.js';
 
 export type {
@@ -35,7 +35,7 @@ export type {
 	TagsFieldSchema,
 	TextFieldSchema,
 	WorkspaceSchema,
-	YtextFieldSchema,
+	RichtextFieldSchema,
 } from './fields/types.js';
 
 export type { FieldSchemaToArktype } from './converters/to-arktype.js';

@@ -97,7 +97,7 @@ export type {
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
-	YtextFieldSchema,
+	RichtextFieldSchema,
 } from './core/schema';
 // Column schema system
 export {
@@ -122,7 +122,7 @@ export {
 	TIMEZONE_ID_REGEX,
 	tags,
 	text,
-	ytext,
+	richtext,
 } from './core/schema';
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
