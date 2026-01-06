@@ -151,4 +151,74 @@ describe('createTables', () => {
 		expect(firstRow.title).toBe('rtxt_hello123');
 		expect(secondRow.title).toBe('rtxt_second456');
 	});
+
+	test('toJSON() returns plain object without methods', () => {
+		const ydoc = new Y.Doc({ guid: 'test-workspace' });
+		const doc = createTables(ydoc, {
+			posts: {
+				id: id(),
+				title: text(),
+				published: boolean(),
+			},
+		});
+
+		doc.posts.upsert({ id: '1', title: 'Test', published: false });
+
+		const result = doc.posts.get('1');
+		expect(result.status).toBe('valid');
+		if (result.status === 'valid') {
+			const row = result.row;
+			const json = row.toJSON();
+
+			expect(json).toEqual({ id: '1', title: 'Test', published: false });
+			expect(typeof (json as any).toJSON).toBe('undefined');
+			expect(typeof (json as any).$yRow).toBe('undefined');
+		}
+	});
+
+	test('JSON.stringify(row) works correctly via toJSON()', () => {
+		const ydoc = new Y.Doc({ guid: 'test-workspace' });
+		const doc = createTables(ydoc, {
+			posts: {
+				id: id(),
+				title: text(),
+				published: boolean(),
+			},
+		});
+
+		doc.posts.upsert({ id: '1', title: 'Test', published: false });
+
+		const result = doc.posts.get('1');
+		expect(result.status).toBe('valid');
+		if (result.status === 'valid') {
+			const row = result.row;
+			const serialized = JSON.stringify(row);
+			const parsed = JSON.parse(serialized);
+
+			expect(parsed).toEqual({ id: '1', title: 'Test', published: false });
+		}
+	});
+
+	test('toJSON() only includes schema-defined fields', () => {
+		const ydoc = new Y.Doc({ guid: 'test-workspace' });
+		const doc = createTables(ydoc, {
+			posts: {
+				id: id(),
+				title: text(),
+			},
+		});
+
+		doc.posts.upsert({ id: '1', title: 'Test' });
+
+		const result = doc.posts.get('1');
+		expect(result.status).toBe('valid');
+		if (result.status === 'valid') {
+			const yrow = result.row.$yRow;
+			yrow.set('extraField', 'should be filtered');
+
+			const json = result.row.toJSON();
+			expect(json).toEqual({ id: '1', title: 'Test' });
+			expect((json as any).extraField).toBeUndefined();
+		}
+	});
 });

@@ -347,26 +347,57 @@ export type WorkspaceSchema = TablesSchema;
 // ============================================================================
 
 /**
- * Runtime row type with Y.js types and utility methods.
+ * Live proxy object for reading table data.
+ *
+ * `Row` is what you get back from read operations (`get`, `getAll`, `find`).
+ * It wraps a Y.Map with getters, providing live access to collaborative data.
  *
  * Properties are readonly and typed according to their column schemas.
- * Includes:
- * - `toJSON()`: Serialize to plain JSON
- * - `$yRow`: Access to the underlying Y.Map
+ *
+ * **Row vs RowData:**
+ * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
+ * - `RowData` = Plain object (input type for writes). Just data, no methods.
+ * - `Row` is a subtype of `RowData`, so you can pass a Row to `upsert()`.
+ *
+ * @example
+ * ```typescript
+ * const row = tables.posts.get({ id: '1' });
+ * if (row.status === 'valid') {
+ *   console.log(row.row.title);        // Access via getter
+ *   const data = row.row.toJSON();     // Convert to plain object
+ *   tables.posts.upsert(row.row);      // Works (Row is subtype of RowData)
+ * }
+ * ```
  */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	readonly [K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 } & {
+	/** Convert to plain RowData object. Only includes schema-defined fields. */
 	toJSON(): RowData<TTableSchema>;
+	/** Access the underlying Y.Map for advanced operations. */
 	readonly $yRow: YRow;
 };
 
 /**
- * Plain JavaScript row data type.
- * All values are primitives/objects that are JSON-serializable.
+ * Plain data object for writing table data (Data Transfer Object).
  *
- * With JSON-serializable rows, this is identical to the Row's property types
- * (no Y.js CRDT types embedded in rows).
+ * `RowData` is what you pass to write operations (`upsert`, `update`).
+ * It's a simple POJO with no methods or Y.js references.
+ *
+ * **RowData vs Row:**
+ * - `RowData` = Plain object (input type for writes). Just data, no methods.
+ * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
+ * - You cannot pass a plain `RowData` where `Row` is expected (missing methods).
+ *
+ * @example
+ * ```typescript
+ * // Pass plain object literals to upsert
+ * tables.posts.upsert({ id: '1', title: 'Hello', published: false });
+ *
+ * // Providers return RowData from deserialization
+ * const data: RowData = JSON.parse(fileContents);
+ * tables.posts.upsert(data);
+ * ```
  */
 export type RowData<TTableSchema extends TableSchema = TableSchema> = {
 	[K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
@@ -375,6 +406,12 @@ export type RowData<TTableSchema extends TableSchema = TableSchema> = {
 /**
  * Partial row data for updates.
  * ID is required, all other fields are optional.
+ *
+ * @example
+ * ```typescript
+ * // Update only the title, leave other fields unchanged
+ * tables.posts.update({ id: '1', title: 'New Title' });
+ * ```
  */
 export type PartialRowData<TTableSchema extends TableSchema = TableSchema> = {
 	id: string;
