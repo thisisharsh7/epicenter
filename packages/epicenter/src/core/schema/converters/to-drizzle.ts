@@ -12,7 +12,9 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { json, tags } from '../../../providers/sqlite/schema/builders';
+import type { Temporal } from 'temporal-polyfill';
+import { date, json, tags } from '../../../providers/sqlite/schema/builders';
+import { fromDateTimeString } from '../runtime/datetime';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
@@ -166,13 +168,23 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 							: NotNull<SQLiteBooleanBuilderInitial<''>>
 						: C extends DateFieldSchema<infer TNullable>
 							? TNullable extends true
-								? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
+								? SQLiteCustomColumnBuilder<{
+										name: '';
+										dataType: 'custom';
+										columnType: 'SQLiteCustomColumn';
+										data: Temporal.ZonedDateTime;
+										driverParam: string;
+										enumValues: undefined;
+									}>
 								: NotNull<
-										SQLiteTextBuilderInitial<
-											'',
-											[string, ...string[]],
-											undefined
-										>
+										SQLiteCustomColumnBuilder<{
+											name: '';
+											dataType: 'custom';
+											columnType: 'SQLiteCustomColumn';
+											data: Temporal.ZonedDateTime;
+											driverParam: string;
+											enumValues: undefined;
+										}>
 									>
 							: C extends SelectFieldSchema<infer TOptions, infer TNullable>
 								? TNullable extends true
@@ -309,11 +321,12 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'date': {
-			let column = text(fieldName);
-			if (!isNullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
-			}
+			const column = date({
+				nullable: isNullable,
+				default: schema.default
+					? fromDateTimeString(schema.default)
+					: undefined,
+			});
 			return column as FieldToDrizzle<C>;
 		}
 

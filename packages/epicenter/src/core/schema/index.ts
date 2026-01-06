@@ -79,6 +79,12 @@ export {
 } from './runtime/date-with-timezone.js';
 
 export {
+	Temporal,
+	fromDateTimeString,
+	toDateTimeString,
+} from './runtime/datetime.js';
+
+export {
 	DATE_WITH_TIMEZONE_STRING_REGEX,
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,

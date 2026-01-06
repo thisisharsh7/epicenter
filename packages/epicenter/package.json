@@ -47,6 +47,7 @@
 		"lib0": "^0.2.99",
 		"mime": "catalog:",
 		"nanoid": "catalog:",
+		"temporal-polyfill": "^0.3.0",
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"y-protocols": "^1.0.6",

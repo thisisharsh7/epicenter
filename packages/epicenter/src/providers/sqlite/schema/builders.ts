@@ -1,8 +1,4 @@
 import type {
-	StandardSchemaV1,
-	StandardSchemaWithJSONSchema,
-} from '../../../core/schema/standard/types';
-import type {
 	ColumnBuilderBase,
 	ColumnBuilderBaseConfig,
 	ColumnDataType,
@@ -16,11 +12,17 @@ import {
 	real as drizzleReal,
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
+import type { DateWithTimezoneString } from '../../../core/schema';
+import { generateId } from '../../../core/schema';
+import {
+	fromDateTimeString,
+	type Temporal,
+	toDateTimeString,
+} from '../../../core/schema/runtime/datetime';
 import type {
-	DateWithTimezoneString,
-	DateWithTimezone as DateWithTimezoneType,
-} from '../../../core/schema';
-import { DateWithTimezone, generateId } from '../../../core/schema';
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+} from '../../../core/schema/standard/types';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options
@@ -192,28 +194,14 @@ export function boolean<
 }
 
 /**
- * Creates a date column with timezone support (stored as text, NOT NULL by default)
+ * Creates a date column with timezone support using Temporal API.
  *
- * Stores dates as DateWithTimezoneString in format "ISO_UTC|TIMEZONE"
- * (e.g., "2024-01-01T20:00:00.000Z|America/New_York")
- *
- * YJS stores dates as strings, so this column works directly with the serialized format.
- * SQLite stores the same string format for maximum compatibility.
- *
- * Note: Only id() columns can be primary keys
- * @example
- * date() // NOT NULL date with timezone
- * date({ nullable: true }) // Nullable date with timezone
- * date({ default: new Date() }) // NOT NULL with system timezone
- * date({ default: () => new Date() }) // NOT NULL with dynamic current date
+ * Stored as TEXT in format "ISO_UTC|TIMEZONE" (e.g., "2024-01-01T20:00:00.000Z|America/New_York").
+ * Parsed to Temporal.ZonedDateTime on read.
  */
 export function date<
 	TNullable extends boolean = false,
-	TDefault extends
-		| Date
-		| DateWithTimezone
-		| (() => Date | DateWithTimezone)
-		| undefined = undefined,
+	TDefault extends Temporal.ZonedDateTime | undefined = undefined,
 >({
 	nullable = false as TNullable,
 	default: defaultValue,
@@ -221,36 +209,22 @@ export function date<
 	nullable?: TNullable;
 	default?: TDefault;
 } = {}) {
-	/**
-	 * Use plain text column since YJS stores DateWithTimezoneString (already serialized)
-	 * No conversion needed - SQLite stores the same string format that YJS uses
-	 */
-	let column = drizzleText();
+	const dateTimeType = customType<{
+		data: Temporal.ZonedDateTime;
+		driverParam: DateWithTimezoneString;
+	}>({
+		dataType: () => 'text',
+		toDriver: (value): DateWithTimezoneString => toDateTimeString(value),
+		fromDriver: (value): Temporal.ZonedDateTime =>
+			fromDateTimeString(value as DateWithTimezoneString),
+	});
 
-	// NOT NULL by default
+	let column = dateTimeType();
+
 	if (!nullable) column = column.notNull();
 
-	/**
-	 * Normalizes Date or DateWithTimezone to DateWithTimezoneString
-	 * This is only used for default values, since YJS already stores strings
-	 */
-	const normalizeToDateWithTimezoneString = (
-		value: Date | DateWithTimezoneType,
-	): DateWithTimezoneString => {
-		if (value instanceof Date) {
-			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-			return DateWithTimezone({ date: value, timezone }).toJSON();
-		}
-		return value.toJSON();
-	};
-
 	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(() =>
-						normalizeToDateWithTimezoneString(defaultValue()),
-					)
-				: column.default(normalizeToDateWithTimezoneString(defaultValue));
+		column = column.default(defaultValue);
 	}
 
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
