@@ -124,6 +124,9 @@ export {
 	text,
 	richtext,
 } from './core/schema';
+// Rich content ID generation
+export type { RichContentId } from './core/rich-content/id';
+export { createRichContentId } from './core/rich-content/id';
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type {
