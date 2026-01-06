@@ -8,7 +8,7 @@
 import { regex } from 'arkregex';
 
 /**
- * Regex pattern for ISO 8601 datetime validation (DateIsoString portion).
+ * Regex pattern for flexible ISO 8601 datetime validation.
  *
  * Supported formats:
  * - YYYY-MM-DD (date only)
@@ -21,10 +21,27 @@ import { regex } from 'arkregex';
  * - ISO 8601: https://en.wikipedia.org/wiki/ISO_8601
  * - Date.parse(): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/parse
  *
+ * @example "2024-01-01"
  * @example "2024-01-01T20:00:00.000Z"
  */
 export const ISO_DATETIME_REGEX = regex(
 	'\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,3})?)?(?:Z|[+-]\\d{2}:\\d{2})?)?',
+);
+
+/**
+ * Regex pattern for exact UTC datetime format from Date.toISOString().
+ *
+ * Format: "YYYY-MM-DDTHH:mm:ss.sssZ" (exactly 24 characters)
+ *
+ * This strict format ensures:
+ * - Consistent storage (always 24 chars)
+ * - Correct SQLite string sorting (UTC-first)
+ * - Cross-platform compatibility (fixed format)
+ *
+ * @example "2024-01-01T20:00:00.000Z"
+ */
+export const ISO_UTC_EXACT_REGEX = regex(
+	'\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z',
 );
 
 /**
@@ -46,15 +63,15 @@ export const TIMEZONE_ID_REGEX = regex('[A-Za-z][A-Za-z0-9_/+-]*');
 
 /**
  * Regex pattern for DateWithTimezoneString validation.
- * Combines ISO 8601 datetime with IANA timezone identifier.
  *
- * Format: ISO_DATETIME|TIMEZONE_ID
+ * Format: "YYYY-MM-DDTHH:mm:ss.sssZ|TIMEZONE_ID"
  *
- * Composed from {@link ISO_DATETIME_REGEX} and {@link TIMEZONE_ID_REGEX}.
- * The parentheses create capture groups for extracting the datetime and timezone parts.
+ * Uses {@link ISO_UTC_EXACT_REGEX} (not the flexible one) to ensure:
+ * - Fixed 24-char UTC prefix for correct SQLite string sorting
+ * - Consistent parsing with hardcoded slice(0, 24)
  *
  * @example "2024-01-01T20:00:00.000Z|America/New_York"
  */
 export const DATE_WITH_TIMEZONE_STRING_REGEX = regex(
-	`^(${ISO_DATETIME_REGEX.source})\\|(${TIMEZONE_ID_REGEX.source})$`,
+	`^(${ISO_UTC_EXACT_REGEX.source})\\|(${TIMEZONE_ID_REGEX.source})$`,
 );
