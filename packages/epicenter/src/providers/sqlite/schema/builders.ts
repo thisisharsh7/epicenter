@@ -3,7 +3,6 @@ import type {
 	ColumnBuilderBaseConfig,
 	ColumnDataType,
 	HasDefault,
-	HasRuntimeDefault,
 	NotNull,
 } from 'drizzle-orm';
 import {
@@ -25,8 +24,8 @@ import type {
 } from '../../../core/schema/standard/types';
 
 /**
- * Type helper that composes Drizzle column modifiers based on options
- * Builds the type step by step for cleaner composition
+ * Type helper that composes Drizzle column modifiers based on options.
+ * Static defaults only - no runtime/lazy defaults.
  */
 type ApplyColumnModifiers<
 	TBase extends ColumnBuilderBase<
@@ -35,17 +34,13 @@ type ApplyColumnModifiers<
 	>,
 	TNullable extends boolean,
 	TDefault,
-> = TDefault extends (...args: any[]) => any
+> = TDefault extends undefined
 	? TNullable extends false
-		? HasRuntimeDefault<HasDefault<NotNull<TBase>>>
-		: HasRuntimeDefault<HasDefault<TBase>>
-	: TDefault extends undefined
-		? TNullable extends false
-			? NotNull<TBase>
-			: TBase
-		: TNullable extends false
-			? HasDefault<NotNull<TBase>>
-			: HasDefault<TBase>;
+		? NotNull<TBase>
+		: TBase
+	: TNullable extends false
+		? HasDefault<NotNull<TBase>>
+		: HasDefault<TBase>;
 
 /**
  * Creates an ID column - always primary key with nano ID generation
@@ -63,17 +58,9 @@ export function id() {
 	);
 }
 
-/**
- * Creates a text column (NOT NULL by default)
- * Note: Only id() columns can be primary keys
- * @example
- * text() // NOT NULL text
- * text({ nullable: true }) // Nullable text
- * text({ default: 'unnamed' }) // NOT NULL with default
- */
 export function text<
 	TNullable extends boolean = false,
-	TDefault extends string | (() => string) | undefined = undefined,
+	TDefault extends string | undefined = undefined,
 >({
 	nullable = false as TNullable,
 	default: defaultValue,
@@ -82,31 +69,14 @@ export function text<
 	default?: TDefault;
 } = {}) {
 	let column = drizzleText();
-
-	// NOT NULL by default
 	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
-	}
-
+	if (defaultValue !== undefined) column = column.default(defaultValue);
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
-/**
- * Creates an integer column (NOT NULL by default)
- * Note: Only id() columns can be primary keys
- * @example
- * integer() // NOT NULL integer
- * integer({ nullable: true }) // Nullable integer
- * integer({ default: 0 }) // NOT NULL with default
- */
 export function integer<
 	TNullable extends boolean = false,
-	TDefault extends number | (() => number) | undefined = undefined,
+	TDefault extends number | undefined = undefined,
 >({
 	nullable = false as TNullable,
 	default: defaultValue,
@@ -115,30 +85,14 @@ export function integer<
 	default?: TDefault;
 } = {}) {
 	let column = drizzleInteger();
-
-	// NOT NULL by default
 	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
-	}
-
+	if (defaultValue !== undefined) column = column.default(defaultValue);
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
-/**
- * Creates a real/float column (NOT NULL by default)
- * @example
- * real() // NOT NULL real
- * real({ nullable: true }) // Nullable real
- * real({ default: 0.0 }) // NOT NULL with default
- */
 export function real<
 	TNullable extends boolean = false,
-	TDefault extends number | (() => number) | undefined = undefined,
+	TDefault extends number | undefined = undefined,
 >({
 	nullable = false as TNullable,
 	default: defaultValue,
@@ -147,30 +101,14 @@ export function real<
 	default?: TDefault;
 } = {}) {
 	let column = drizzleReal();
-
-	// NOT NULL by default
 	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
-	}
-
+	if (defaultValue !== undefined) column = column.default(defaultValue);
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
-/**
- * Creates a boolean column (stored as integer 0/1, NOT NULL by default)
- * @example
- * boolean() // NOT NULL boolean
- * boolean({ nullable: true }) // Nullable boolean
- * boolean({ default: false }) // NOT NULL with default false
- */
 export function boolean<
 	TNullable extends boolean = false,
-	TDefault extends boolean | (() => boolean) | undefined = undefined,
+	TDefault extends boolean | undefined = undefined,
 >({
 	nullable = false as TNullable,
 	default: defaultValue,
@@ -179,17 +117,8 @@ export function boolean<
 	default?: TDefault;
 } = {}) {
 	let column = drizzleInteger({ mode: 'boolean' });
-
-	// NOT NULL by default
 	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue);
-	}
-
+	if (defaultValue !== undefined) column = column.default(defaultValue);
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
@@ -230,48 +159,13 @@ export function date<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
-/**
- * Infers the array type for a tags column based on whether options are provided.
- *
- * - When `TOptions` is a string array: returns a narrowed array type like `('a' | 'b')[]`
- * - When `TOptions` is undefined: returns the generic `string[]` type
- *
- * @example
- * TagsArray<['a', 'b']> // ('a' | 'b')[]
- * TagsArray<undefined>  // string[]
- */
 type TagsArray<TOptions extends readonly string[] | undefined> =
 	TOptions extends readonly string[] ? TOptions[number][] : string[];
 
-/**
- * Creates a tags column for storing arrays of strings (stored as JSON text, NOT NULL by default)
- *
- * Two modes:
- * 1. With options: Types are narrowed to the provided options, validated at read time
- * 2. Without options: Any string array is allowed
- *
- * When options are provided, invalid values in the database will cause reads to throw an error.
- * This ensures data integrity and surfaces corruption immediately.
- *
- * @example
- * // With options (validated against allowed values)
- * tags({ options: ['urgent', 'normal', 'low'] })
- * tags({ options: ['admin', 'user', 'guest'], nullable: true })
- * tags({ options: ['tag1', 'tag2'], default: [] })
- * tags({ options: ['a', 'b'], default: ['a'] })
- *
- * // Without options (any string array)
- * tags() // Any string array
- * tags({ nullable: true })
- * tags({ default: ['initial', 'tags'] })
- */
 export function tags<
 	const TOptions extends readonly string[] | undefined = undefined,
 	TNullable extends boolean = false,
-	TDefault extends
-		| TagsArray<TOptions>
-		| (() => TagsArray<TOptions>)
-		| undefined = undefined,
+	TDefault extends TagsArray<TOptions> | undefined = undefined,
 >({
 	options,
 	nullable = false as TNullable,
@@ -290,76 +184,42 @@ export function tags<
 		dataType: () => 'text',
 		toDriver: (value: TagsArray<TOptions>): string => JSON.stringify(value),
 		fromDriver: (value: string): TagsArray<TOptions> => {
-			// Let JSON.parse throw on invalid JSON (like Drizzle's built-in JSON column)
 			const parsed = JSON.parse(value);
-
 			if (!Array.isArray(parsed)) {
 				throw new Error(`Expected array, got ${typeof parsed}`);
 			}
-
-			// Validate all items are strings
 			const nonStringItems = parsed.filter((item) => typeof item !== 'string');
 			if (nonStringItems.length > 0) {
 				throw new Error(
 					`Tags must be strings, found: ${nonStringItems.map((item) => typeof item).join(', ')}`,
 				);
 			}
-
 			const stringValues = parsed as string[];
-
-			// If options are provided, validate that all values are allowed
 			if (optionsSet) {
 				const invalidValues = stringValues.filter(
 					(item) => !optionsSet.has(item),
 				);
 				if (invalidValues.length > 0) {
 					throw new Error(
-						`Invalid tag values: ${invalidValues.join(', ')}. Allowed values: ${options?.join(', ')}`,
+						`Invalid tag values: ${invalidValues.join(', ')}. Allowed: ${options?.join(', ')}`,
 					);
 				}
 			}
-
 			return stringValues as TagsArray<TOptions>;
 		},
 	});
 
 	let column = tagsType();
-
-	// NOT NULL by default
 	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue)
-				: column.default(defaultValue as any);
-	}
-
+	if (defaultValue !== undefined) column = column.default(defaultValue as any);
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
-/**
- * Creates a JSON column for storing arbitrary JSON-serializable values validated against a Standard Schema
- * (stored as JSON text, NOT NULL by default)
- *
- * Values are validated on read using the provided schema's `~standard.validate()` method.
- * Invalid values in the database will cause reads to throw an error, ensuring data integrity
- * and surfacing corruption immediately.
- *
- * Compatible with any Standard Schema library: ArkType, Zod (v4.2+), Valibot (with adapter).
- *
- * @example
- * // With ArkType schema
- * json({ schema: type({ name: 'string', age: 'number' }) })
- * json({ schema: userSchema, nullable: true })
- * json({ schema: configSchema, default: { theme: 'dark' } })
- */
 export function json<
 	const TSchema extends StandardSchemaWithJSONSchema,
 	TNullable extends boolean = false,
 	TDefault extends
 		| StandardSchemaV1.InferOutput<TSchema>
-		| (() => StandardSchemaV1.InferOutput<TSchema>)
 		| undefined = undefined,
 >({
 	schema,
@@ -381,33 +241,20 @@ export function json<
 		fromDriver: (value: string): TOutput => {
 			const parsed = JSON.parse(value);
 			const result = schema['~standard'].validate(parsed);
-
 			if (result instanceof Promise) {
-				throw new Error(
-					'Async validation not supported for JSON columns in SQLite',
-				);
+				throw new Error('Async validation not supported for JSON columns');
 			}
-
 			if (result.issues) {
 				const messages = result.issues.map((i) => i.message).join(', ');
 				throw new Error(`JSON validation failed: ${messages}`);
 			}
-
 			return result.value as TOutput;
 		},
 	});
 
 	let column = jsonType();
-
-	// NOT NULL by default
 	if (!nullable) column = column.notNull();
-
-	if (defaultValue !== undefined) {
-		column =
-			typeof defaultValue === 'function'
-				? column.$defaultFn(defaultValue as () => TOutput)
-				: column.default(defaultValue as unknown as TOutput);
-	}
-
+	if (defaultValue !== undefined)
+		column = column.default(defaultValue as TOutput);
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
