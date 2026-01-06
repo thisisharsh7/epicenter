@@ -4,7 +4,7 @@
  * Contains the foundational types for the schema system:
  * - Field schema types (IdFieldSchema, TextFieldSchema, etc.)
  * - Table and workspace schemas
- * - Row value types (CellValue, SerializedRow, Row)
+ * - Row value types (CellValue, RowData, Row)
  *
  * ## Schema Structure
  *
@@ -30,12 +30,8 @@
  * - `nullability.ts` - isNullableFieldSchema helper
  */
 
-import type * as Y from 'yjs';
 import type { YRow } from '../../tables/table-helper';
-import type {
-	DateWithTimezone,
-	DateWithTimezoneString,
-} from '../runtime/date-with-timezone';
+import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
@@ -113,7 +109,7 @@ export type DateFieldSchema<TNullable extends boolean = boolean> = {
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
 	description: string;
 	pattern: string;
-	default?: DateWithTimezone;
+	default?: DateWithTimezoneString;
 };
 
 /**
@@ -305,25 +301,6 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 												: StandardSchemaV1.InferOutput<TSchema>
 											: never;
 
-/**
- * Maps a column schema to its JSON-serializable value type.
- *
- * Converts Y.js types to plain values:
- * - Y.Text → string
- * - Y.Array → array
- * - DateWithTimezone → DateWithTimezoneString
- */
-export type SerializedCellValue<C extends FieldSchema = FieldSchema> =
-	CellValue<C> extends infer T
-		? T extends Y.Text
-			? string
-			: T extends Y.Array<infer U>
-				? U[]
-				: T extends DateWithTimezone
-					? DateWithTimezoneString
-					: T
-		: never;
-
 // ============================================================================
 // Table and Workspace Schemas
 // ============================================================================
@@ -370,39 +347,75 @@ export type WorkspaceSchema = TablesSchema;
 // ============================================================================
 
 /**
- * Runtime row type with Y.js types and utility methods.
+ * Live proxy object for reading table data.
+ *
+ * `Row` is what you get back from read operations (`get`, `getAll`, `find`).
+ * It wraps a Y.Map with getters, providing live access to collaborative data.
  *
  * Properties are readonly and typed according to their column schemas.
- * Includes:
- * - `toJSON()`: Serialize to plain JSON (converts Y.js types)
- * - `$yRow`: Access to the underlying Y.Map
+ *
+ * **Row vs RowData:**
+ * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
+ * - `RowData` = Plain object (input type for writes). Just data, no methods.
+ * - `Row` is a subtype of `RowData`, so you can pass a Row to `upsert()`.
+ *
+ * @example
+ * ```typescript
+ * const row = tables.posts.get({ id: '1' });
+ * if (row.status === 'valid') {
+ *   console.log(row.row.title);        // Access via getter
+ *   const data = row.row.toJSON();     // Convert to plain object
+ *   tables.posts.upsert(row.row);      // Works (Row is subtype of RowData)
+ * }
+ * ```
  */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	readonly [K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 } & {
-	toJSON(): SerializedRow<TTableSchema>;
+	/** Convert to plain RowData object. Only includes schema-defined fields. */
+	toJSON(): RowData<TTableSchema>;
+	/** Access the underlying Y.Map for advanced operations. */
 	readonly $yRow: YRow;
 };
 
 /**
- * JSON-serializable row type.
- * All values are plain primitives/objects (no Y.js types).
+ * Plain data object for writing table data (Data Transfer Object).
+ *
+ * `RowData` is what you pass to write operations (`upsert`, `update`).
+ * It's a simple POJO with no methods or Y.js references.
+ *
+ * **RowData vs Row:**
+ * - `RowData` = Plain object (input type for writes). Just data, no methods.
+ * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
+ * - You cannot pass a plain `RowData` where `Row` is expected (missing methods).
+ *
+ * @example
+ * ```typescript
+ * // Pass plain object literals to upsert
+ * tables.posts.upsert({ id: '1', title: 'Hello', published: false });
+ *
+ * // Providers return RowData from deserialization
+ * const data: RowData = JSON.parse(fileContents);
+ * tables.posts.upsert(data);
+ * ```
  */
-export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: K extends 'id'
-		? string
-		: SerializedCellValue<TTableSchema[K]>;
+export type RowData<TTableSchema extends TableSchema = TableSchema> = {
+	[K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 };
 
 /**
- * Partial serialized row for updates.
+ * Partial row data for updates.
  * ID is required, all other fields are optional.
+ *
+ * @example
+ * ```typescript
+ * // Update only the title, leave other fields unchanged
+ * tables.posts.update({ id: '1', title: 'New Title' });
+ * ```
  */
-export type PartialSerializedRow<
-	TTableSchema extends TableSchema = TableSchema,
-> = {
+export type PartialRowData<TTableSchema extends TableSchema = TableSchema> = {
 	id: string;
-} & Partial<Omit<SerializedRow<TTableSchema>, 'id'>>;
+} & Partial<Omit<RowData<TTableSchema>, 'id'>>;
 
 // ============================================================================
 // Key-Value Schema Types
@@ -423,9 +436,3 @@ export type KvSchema = Record<string, KvFieldSchema>;
  * Runtime value type for a KV entry.
  */
 export type KvValue<C extends KvFieldSchema = KvFieldSchema> = CellValue<C>;
-
-/**
- * Serialized value type for a KV entry.
- */
-export type SerializedKvValue<C extends KvFieldSchema = KvFieldSchema> =
-	SerializedCellValue<C>;

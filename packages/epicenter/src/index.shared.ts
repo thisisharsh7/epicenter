@@ -73,11 +73,11 @@ export { defineProviders } from './core/provider';
 export type {
 	BooleanFieldSchema,
 	CellValue,
-	FieldSchema,
-	FieldComponent,
 	DateFieldSchema,
 	DateIsoString,
 	DateWithTimezoneString,
+	FieldComponent,
+	FieldSchema,
 	Id,
 	IdFieldSchema,
 	IntegerFieldSchema,
@@ -85,19 +85,17 @@ export type {
 	KvFieldSchema,
 	KvSchema,
 	KvValue,
-	PartialSerializedRow,
+	PartialRowData,
 	RealFieldSchema,
+	RichtextFieldSchema,
 	Row,
+	RowData,
 	SelectFieldSchema,
-	SerializedCellValue,
-	SerializedKvValue,
-	SerializedRow,
 	TableSchema,
 	TablesSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
-	RichtextFieldSchema,
 } from './core/schema';
 // Column schema system
 export {
@@ -115,14 +113,13 @@ export {
 	isIsoDateTimeString,
 	json,
 	real,
+	richtext,
 	select,
-	serializeCellValue,
 	tableSchemaToArktype,
 	tableSchemaToYjsArktype,
-	TIMEZONE_ID_REGEX,
 	tags,
 	text,
-	richtext,
+	TIMEZONE_ID_REGEX,
 } from './core/schema';
 // Rich content ID generation
 export type { RichContentId } from './core/rich-content/id';

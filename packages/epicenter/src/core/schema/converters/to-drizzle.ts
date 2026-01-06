@@ -12,7 +12,7 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { date, json, tags } from '../../../providers/sqlite/schema/builders';
+import { json, tags } from '../../../providers/sqlite/schema/builders';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
@@ -28,10 +28,7 @@ import type {
 	TextFieldSchema,
 	WorkspaceSchema,
 } from '../fields/types';
-import type {
-	DateWithTimezone,
-	DateWithTimezoneString,
-} from '../runtime/date-with-timezone';
+
 import { isNullableFieldSchema } from '../fields/nullability';
 
 /**
@@ -169,23 +166,13 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 							: NotNull<SQLiteBooleanBuilderInitial<''>>
 						: C extends DateFieldSchema<infer TNullable>
 							? TNullable extends true
-								? SQLiteCustomColumnBuilder<{
-										name: '';
-										dataType: 'custom';
-										columnType: 'SQLiteCustomColumn';
-										data: DateWithTimezone;
-										driverParam: DateWithTimezoneString;
-										enumValues: undefined;
-									}>
+								? SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>
 								: NotNull<
-										SQLiteCustomColumnBuilder<{
-											name: '';
-											dataType: 'custom';
-											columnType: 'SQLiteCustomColumn';
-											data: DateWithTimezone;
-											driverParam: DateWithTimezoneString;
-											enumValues: undefined;
-										}>
+										SQLiteTextBuilderInitial<
+											'',
+											[string, ...string[]],
+											undefined
+										>
 									>
 							: C extends SelectFieldSchema<infer TOptions, infer TNullable>
 								? TNullable extends true
@@ -322,7 +309,11 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'date': {
-			const column = date({ nullable: isNullable, default: schema.default });
+			let column = text(fieldName);
+			if (!isNullable) column = column.notNull();
+			if (schema.default !== undefined) {
+				column = column.default(schema.default);
+			}
 			return column as FieldToDrizzle<C>;
 		}
 

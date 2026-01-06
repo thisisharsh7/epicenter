@@ -15,15 +15,15 @@ import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import type {
 	BooleanFieldSchema,
-	FieldSchema,
 	DateFieldSchema,
+	FieldSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
 	RichtextFieldSchema,
+	RowData,
 	SelectFieldSchema,
-	SerializedRow,
 	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
@@ -109,7 +109,7 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
  */
 export function tableSchemaToArktype<TTableSchema extends TableSchema>(
 	tableSchema: TTableSchema,
-): ObjectType<SerializedRow<TTableSchema>> {
+): ObjectType<RowData<TTableSchema>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
@@ -117,7 +117,7 @@ export function tableSchemaToArktype<TTableSchema extends TableSchema>(
 				fieldSchemaToArktype(fieldSchema),
 			]),
 		),
-	) as ObjectType<SerializedRow<TTableSchema>>;
+	) as ObjectType<RowData<TTableSchema>>;
 }
 
 /**

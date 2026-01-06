@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { PartialSerializedRow, TableSchema } from '../../core/schema';
+import type { PartialRowData, TableSchema } from '../../core/schema';
 import { isDateWithTimezoneString } from '../../core/schema';
 import type { YRow } from '../tables/table-helper';
 
@@ -21,7 +21,7 @@ import type { YRow } from '../tables/table-helper';
  * ## Nested transactions are safe
  *
  * Yjs handles nested `doc.transact()` calls gracefully - it batches everything into
- * the outermost transaction. So if `updateYRowFromSerializedRow` wraps in a transaction
+ * the outermost transaction. So if `updateYRowFromRowData` wraps in a transaction
  * and a caller also wraps, Yjs just uses the outer one. This means each function can
  * safely wrap its own operations without worrying about whether the caller already wrapped.
  *
@@ -39,9 +39,9 @@ function withTransaction(yType: { doc: Y.Doc | null }, fn: () => void): void {
 }
 
 /**
- * Updates a YRow (Y.Map) to match a serialized row by comparing and applying minimal changes.
+ * Updates a YRow (Y.Map) to match row data by comparing and applying minimal changes.
  *
- * **No-op optimization**: If the serialized row matches the existing YRow exactly, no YJS
+ * **No-op optimization**: If the row data matches the existing YRow exactly, no YJS
  * operations are performed. This means no CRDT items created, no observers triggered, and
  * no sync messages generated. The function compares values before setting:
  *
@@ -56,51 +56,51 @@ function withTransaction(yType: { doc: Y.Doc | null }, fn: () => void): void {
  * 1. Creating a new YRow: Pass a fresh Y.Map and it will be populated
  * 2. Updating an existing YRow: Pass an existing Y.Map and it will be updated with minimal changes
  *
- * Extra fields in serializedRow (not in schema) are preserved as-is.
+ * Extra fields in rowData (not in schema) are preserved as-is.
  *
  * All operations are wrapped in a transaction for efficiency (see {@link withTransaction}).
  *
  * @param yrow - The Y.Map to update (can be new or existing)
- * @param serializedRow - Plain JavaScript object with serialized values
+ * @param rowData - Plain JavaScript object with row values
  * @param schema - The table schema for type conversion
  *
  * @example
  * ```typescript
  * // Create new YRow
  * const yrow = new Y.Map();
- * updateYRowFromSerializedRow({
+ * updateYRowFromRowData({
  *   yrow,
- *   serializedRow: { id: '123', title: 'Hello', tags: ['a', 'b'] },
+ *   rowData: { id: '123', title: 'Hello', tags: ['a', 'b'] },
  *   schema: mySchema
  * });
  *
  * // Update existing YRow - only changed fields are updated
- * updateYRowFromSerializedRow({
+ * updateYRowFromRowData({
  *   yrow,
- *   serializedRow: { id: '123', title: 'Hello World', tags: ['a', 'b', 'c'] },
+ *   rowData: { id: '123', title: 'Hello World', tags: ['a', 'b', 'c'] },
  *   schema: mySchema
  * });
  *
  * // No-op when nothing changed
- * updateYRowFromSerializedRow({
+ * updateYRowFromRowData({
  *   yrow,
- *   serializedRow: { id: '123', title: 'Hello World', tags: ['a', 'b', 'c'] },
+ *   rowData: { id: '123', title: 'Hello World', tags: ['a', 'b', 'c'] },
  *   schema: mySchema
  * });
  * // Nothing happens - no YJS operations, no observers triggered
  * ```
  */
-export function updateYRowFromSerializedRow<TTableSchema extends TableSchema>({
+export function updateYRowFromRowData<TTableSchema extends TableSchema>({
 	yrow,
-	serializedRow,
+	rowData,
 	schema,
 }: {
 	yrow: YRow;
-	serializedRow: PartialSerializedRow<TTableSchema>;
+	rowData: PartialRowData<TTableSchema>;
 	schema: TTableSchema;
 }): void {
 	withTransaction(yrow, () => {
-		for (const [fieldName, value] of Object.entries(serializedRow)) {
+		for (const [fieldName, value] of Object.entries(rowData)) {
 			if (value === undefined) continue;
 
 			const existing = yrow.get(fieldName);

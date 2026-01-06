@@ -14,7 +14,6 @@
 import type { StandardSchemaV1 } from '../standard/types';
 import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
-import * as Y from 'yjs';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,

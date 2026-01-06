@@ -50,7 +50,7 @@ import { type } from 'arktype';
 import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { TableHelper } from '../../core/tables/table-helper';
-import type { SerializedRow, TableSchema } from '../../core/schema';
+import type { RowData, TableSchema } from '../../core/schema';
 import { tableSchemaToArktype } from '../../core/schema';
 import {
 	MarkdownProviderErr,
@@ -82,7 +82,7 @@ export type MarkdownSerializer<
 	 * Returns frontmatter object, body string, and filename.
 	 */
 	serialize: (params: {
-		row: SerializedRow<TTableSchema>;
+		row: RowData<TTableSchema>;
 		table: TableHelper<TTableSchema>;
 	}) => {
 		frontmatter: Record<string, unknown>;
@@ -112,7 +112,7 @@ export type MarkdownSerializer<
 			filename: string;
 			parsed: TParsed;
 			table: TableHelper<TTableSchema>;
-		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>;
+		}) => Result<RowData<TTableSchema>, MarkdownProviderError>;
 	};
 };
 
@@ -171,7 +171,7 @@ type SerializerBuilderWithParser<
 	 */
 	serialize(
 		serializeFn: (params: {
-			row: SerializedRow<TTableSchema>;
+			row: RowData<TTableSchema>;
 			table: TableHelper<TTableSchema>;
 		}) => {
 			frontmatter: Record<string, unknown>;
@@ -205,7 +205,7 @@ type SerializerBuilderWithSerialize<
 			filename: TFilename;
 			parsed: TParsed;
 			table: TableHelper<TTableSchema>;
-		}) => Result<SerializedRow<TTableSchema>, MarkdownProviderError>,
+		}) => Result<RowData<TTableSchema>, MarkdownProviderError>,
 	): MarkdownSerializer<TTableSchema, TParsed>;
 };
 
@@ -352,7 +352,7 @@ export function defaultSerializer<
 				});
 			}
 
-			return Ok(result as SerializedRow<TTableSchema>);
+			return Ok(result as RowData<TTableSchema>);
 		});
 }
 
@@ -454,7 +454,7 @@ export function bodyFieldSerializer<TTableSchema extends TableSchema>(
 				[filenameField]: rowId,
 				[bodyField]: body,
 				...(validatedFrontmatter as Record<string, unknown>),
-			} as SerializedRow<TTableSchema>;
+			} as RowData<TTableSchema>;
 
 			return Ok(row);
 		});
@@ -592,7 +592,7 @@ export function titleFilenameSerializer<TTableSchema extends TableSchema>(
 				});
 			}
 
-			return Ok(result as SerializedRow<TTableSchema>);
+			return Ok(result as RowData<TTableSchema>);
 		});
 }
 
@@ -753,6 +753,6 @@ export function domainTitleFilenameSerializer<TTableSchema extends TableSchema>(
 				});
 			}
 
-			return Ok(result as SerializedRow<TTableSchema>);
+			return Ok(result as RowData<TTableSchema>);
 		});
 }
