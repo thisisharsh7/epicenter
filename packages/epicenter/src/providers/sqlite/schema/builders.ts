@@ -58,6 +58,21 @@ export function id() {
 	);
 }
 
+/**
+ * Creates a text column for storing string values.
+ *
+ * Columns are NOT NULL by default. Use `nullable: true` for optional fields.
+ * Note: Only `id()` columns can be primary keys.
+ *
+ * @example
+ * ```typescript
+ * const schema = {
+ *   title: text(),                      // Required string
+ *   bio: text({ nullable: true }),      // Optional string
+ *   role: text({ default: 'user' }),    // Required with default
+ * };
+ * ```
+ */
 export function text<
 	TNullable extends boolean = false,
 	TDefault extends string | undefined = undefined,
@@ -74,6 +89,21 @@ export function text<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
+/**
+ * Creates an integer column for storing whole numbers.
+ *
+ * Columns are NOT NULL by default. Use `nullable: true` for optional fields.
+ * Note: Only `id()` columns can be primary keys.
+ *
+ * @example
+ * ```typescript
+ * const schema = {
+ *   views: integer(),                   // Required integer
+ *   rating: integer({ nullable: true }),// Optional integer
+ *   priority: integer({ default: 0 }),  // Required with default
+ * };
+ * ```
+ */
 export function integer<
 	TNullable extends boolean = false,
 	TDefault extends number | undefined = undefined,
@@ -90,6 +120,20 @@ export function integer<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
+/**
+ * Creates a real/float column for storing decimal numbers.
+ *
+ * Columns are NOT NULL by default. Use `nullable: true` for optional fields.
+ *
+ * @example
+ * ```typescript
+ * const schema = {
+ *   price: real(),                      // Required decimal
+ *   discount: real({ nullable: true }), // Optional decimal
+ *   taxRate: real({ default: 0.0 }),    // Required with default
+ * };
+ * ```
+ */
 export function real<
 	TNullable extends boolean = false,
 	TDefault extends number | undefined = undefined,
@@ -106,6 +150,20 @@ export function real<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
+/**
+ * Creates a boolean column stored as integer 0/1 in SQLite.
+ *
+ * Columns are NOT NULL by default. Use `nullable: true` for optional fields.
+ *
+ * @example
+ * ```typescript
+ * const schema = {
+ *   published: boolean(),                    // Required boolean
+ *   featured: boolean({ nullable: true }),   // Optional boolean
+ *   active: boolean({ default: true }),      // Required with default
+ * };
+ * ```
+ */
 export function boolean<
 	TNullable extends boolean = false,
 	TDefault extends boolean | undefined = undefined,
@@ -159,9 +217,38 @@ export function date<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
+/**
+ * Infers the array type for a tags column based on options.
+ *
+ * - With options: `('a' | 'b')[]` (narrowed union)
+ * - Without options: `string[]` (any strings allowed)
+ */
 type TagsArray<TOptions extends readonly string[] | undefined> =
 	TOptions extends readonly string[] ? TOptions[number][] : string[];
 
+/**
+ * Creates a tags column for storing string arrays (stored as JSON text).
+ *
+ * Supports two modes:
+ * 1. **With options**: Types narrowed to allowed values, validated on read
+ * 2. **Without options**: Any string array allowed
+ *
+ * Invalid values in the database will throw on read, ensuring data integrity.
+ * Columns are NOT NULL by default.
+ *
+ * @example
+ * ```typescript
+ * const schema = {
+ *   // Constrained tags (validated against options)
+ *   priority: tags({ options: ['urgent', 'normal', 'low'] }),
+ *   roles: tags({ options: ['admin', 'user'], default: ['user'] }),
+ *
+ *   // Unconstrained tags (any string array)
+ *   labels: tags(),
+ *   keywords: tags({ nullable: true }),
+ * };
+ * ```
+ */
 export function tags<
 	const TOptions extends readonly string[] | undefined = undefined,
 	TNullable extends boolean = false,
@@ -215,6 +302,32 @@ export function tags<
 	return column as ApplyColumnModifiers<typeof column, TNullable, TDefault>;
 }
 
+/**
+ * Creates a JSON column for storing values validated against a Standard Schema.
+ *
+ * Values are validated on read using `~standard.validate()`. Invalid values
+ * throw immediately, surfacing data corruption. Compatible with any
+ * Standard Schema library: ArkType, Zod (v4.2+), Valibot.
+ *
+ * Columns are NOT NULL by default.
+ *
+ * @example
+ * ```typescript
+ * import { type } from 'arktype';
+ *
+ * const schema = {
+ *   metadata: json({ schema: type({ key: 'string', value: 'string' }) }),
+ *   config: json({
+ *     schema: type({ theme: '"dark" | "light"' }),
+ *     default: { theme: 'dark' },
+ *   }),
+ *   settings: json({
+ *     schema: type({ notifications: 'boolean' }),
+ *     nullable: true,
+ *   }),
+ * };
+ * ```
+ */
 export function json<
 	const TSchema extends StandardSchemaWithJSONSchema,
 	TNullable extends boolean = false,
