@@ -9,7 +9,7 @@ import {
 	select,
 	tags,
 	text,
-	ytext,
+	richtext,
 } from '../schema';
 import { createKv } from './core';
 
@@ -285,84 +285,47 @@ describe('KV Helpers', () => {
 		});
 	});
 
-	describe('Y.js Types', () => {
-		test('ytext field: get() returns Y.Text instance', () => {
+	describe('Richtext and Tags Fields', () => {
+		test('richtext field: get() returns string (ID reference)', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: ytext(),
+				notes: richtext(),
 			});
 
-			const ytextInstance = kv.notes.get();
-			expect(ytextInstance).toBeInstanceOf(Y.Text);
+			kv.notes.set('rtxt_abc123');
+			expect(kv.notes.get()).toBe('rtxt_abc123');
 		});
 
-		test('ytext field: set() updates via string', () => {
+		test('richtext field: set() updates value correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: ytext(),
+				notes: richtext(),
 			});
 
-			kv.notes.set('Hello World');
-			const ytextInstance = kv.notes.get();
-			expect(ytextInstance.toString()).toBe('Hello World');
+			kv.notes.set('rtxt_first');
+			expect(kv.notes.get()).toBe('rtxt_first');
+
+			kv.notes.set('rtxt_second');
+			expect(kv.notes.get()).toBe('rtxt_second');
 		});
 
-		test('ytext field: set() replaces existing content', () => {
+		test('richtext field: nullable returns null when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: ytext(),
+				notes: richtext({ nullable: true }),
 			});
 
-			kv.notes.set('First');
-			kv.notes.set('Second');
-			const ytextInstance = kv.notes.get();
-			expect(ytextInstance.toString()).toBe('Second');
+			expect(kv.notes.get()).toBe(null);
 		});
 
-		test('ytext field: Y.Text instance persists across get() calls', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				notes: ytext(),
-			});
-
-			const ytext1 = kv.notes.get();
-			const ytext2 = kv.notes.get();
-			expect(ytext1).toBe(ytext2);
-		});
-
-		test('ytext field: direct Y.Text manipulation works', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				notes: ytext(),
-			});
-
-			const ytextInstance = kv.notes.get();
-			ytextInstance.insert(0, 'Hello');
-			expect(ytextInstance.toString()).toBe('Hello');
-
-			ytextInstance.insert(5, ' World');
-			expect(ytextInstance.toString()).toBe('Hello World');
-		});
-
-		test('tags field: get() returns Y.Array instance', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
-			});
-
-			const yarrayInstance = kv.tags.get();
-			expect(yarrayInstance).toBeInstanceOf(Y.Array);
-		});
-
-		test('tags field: set() updates via array', () => {
+		test('tags field: get() returns plain array', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			});
 
 			kv.tags.set(['typescript', 'javascript']);
-			const yarrayInstance = kv.tags.get();
-			expect(yarrayInstance.toArray()).toEqual(['typescript', 'javascript']);
+			expect(kv.tags.get()).toEqual(['typescript', 'javascript']);
 		});
 
 		test('tags field: set() replaces existing content', () => {
@@ -373,33 +336,7 @@ describe('KV Helpers', () => {
 
 			kv.tags.set(['typescript']);
 			kv.tags.set(['python', 'javascript']);
-			const yarrayInstance = kv.tags.get();
-			expect(yarrayInstance.toArray()).toEqual(['python', 'javascript']);
-		});
-
-		test('tags field: Y.Array instance persists across get() calls', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
-			});
-
-			const yarray1 = kv.tags.get();
-			const yarray2 = kv.tags.get();
-			expect(yarray1).toBe(yarray2);
-		});
-
-		test('tags field: direct Y.Array manipulation works', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
-			});
-
-			const yarrayInstance = kv.tags.get();
-			yarrayInstance.push(['typescript']);
-			expect(yarrayInstance.toArray()).toEqual(['typescript']);
-
-			yarrayInstance.push(['javascript']);
-			expect(yarrayInstance.toArray()).toEqual(['typescript', 'javascript']);
+			expect(kv.tags.get()).toEqual(['python', 'javascript']);
 		});
 
 		test('tags field without options: allows any strings', () => {
@@ -409,8 +346,7 @@ describe('KV Helpers', () => {
 			});
 
 			kv.categories.set(['anything', 'goes', 'here']);
-			const yarrayInstance = kv.categories.get();
-			expect(yarrayInstance.toArray()).toEqual(['anything', 'goes', 'here']);
+			expect(kv.categories.get()).toEqual(['anything', 'goes', 'here']);
 		});
 	});
 
@@ -476,10 +412,10 @@ describe('KV Helpers', () => {
 			expect(values).toEqual([1, 2]);
 		});
 
-		test('observe() fires once when Y.Text is first set', () => {
+		test('observe() fires when richtext is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: ytext(),
+				notes: richtext(),
 			});
 
 			let callCount = 0;
@@ -487,11 +423,11 @@ describe('KV Helpers', () => {
 				callCount++;
 			});
 
-			kv.notes.set('Hello');
+			kv.notes.set('rtxt_abc123');
 			expect(callCount).toBe(1);
 		});
 
-		test('observe() fires once when Y.Array is first set', () => {
+		test('observe() fires when tags array is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				tags: tags({ options: ['a', 'b', 'c'] }),
