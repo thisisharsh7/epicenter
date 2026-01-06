@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, select, tags, text, ytext } from '../schema';
+import { boolean, id, integer, select, tags, text, richtext } from '../schema';
 import { createTables } from './core';
 
 /**
@@ -15,19 +15,19 @@ describe('YjsDoc Type Inference', () => {
 			posts: {
 				id: id(),
 				title: text(),
-				content: ytext({ nullable: true }),
+				content: richtext({ nullable: true }),
 				tags: tags({ options: ['tech', 'personal', 'work'] }),
 				view_count: integer(),
 				published: boolean(),
 			},
 		});
 
-		// Test upsert() - accepts serialized values (strings for ytext, arrays for multi-select)
+		// Test upsert() - accepts plain values (strings for richtext, arrays for tags)
 		doc.posts.upsert({
 			id: '1',
 			title: 'Test Post',
-			content: 'Post content', // string (gets converted to Y.Text internally)
-			tags: ['tech'], // array (gets converted to Y.Array internally)
+			content: 'rtxt_abc123', // richtext stores ID reference
+			tags: ['tech'], // tags stores plain array
 			view_count: 0,
 			published: false,
 		});
@@ -44,9 +44,9 @@ describe('YjsDoc Type Inference', () => {
 			expect(row.view_count).toBe(0);
 			expect(row.published).toBe(false);
 
-			// Verify YJS types are properly inferred
-			expect(row.content).toBeInstanceOf(Y.Text);
-			expect(row.tags).toBeInstanceOf(Y.Array);
+			// Verify plain types are returned (no embedded CRDTs)
+			expect(row.content).toBe('rtxt_abc123');
+			expect(row.tags).toEqual(['tech']);
 		}
 	});
 
@@ -162,13 +162,13 @@ describe('YjsDoc Type Inference', () => {
 		unsubscribe();
 	});
 
-	test('should handle nullable YJS types correctly', () => {
+	test('should handle nullable richtext types correctly', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
 			articles: {
 				id: id(),
 				title: text(),
-				description: ytext({ nullable: true }), // Y.Text | null
-				content: ytext({ nullable: true }), // Y.Text | null
+				description: richtext({ nullable: true }), // string | null
+				content: richtext({ nullable: true }), // string | null
 			},
 		});
 
@@ -187,19 +187,19 @@ describe('YjsDoc Type Inference', () => {
 			expect(article1Result.row.content).toBeNull();
 		}
 
-		// Test with string values (automatically converted to Y.Text internally)
+		// Test with string ID values
 		doc.articles.upsert({
 			id: '2',
 			title: 'Article with content',
-			description: 'A short description',
-			content: 'Article content',
+			description: 'rtxt_desc123',
+			content: 'rtxt_content456',
 		});
 
 		const article2Result = doc.articles.get('2');
 		expect(article2Result.status).toBe('valid');
 		if (article2Result.status === 'valid') {
-			expect(article2Result.row.description).toBeInstanceOf(Y.Text);
-			expect(article2Result.row.content).toBeInstanceOf(Y.Text);
+			expect(article2Result.row.description).toBe('rtxt_desc123');
+			expect(article2Result.row.content).toBe('rtxt_content456');
 		}
 	});
 
@@ -208,7 +208,7 @@ describe('YjsDoc Type Inference', () => {
 			authors: {
 				id: id(),
 				name: text(),
-				bio: ytext({ nullable: true }),
+				bio: richtext({ nullable: true }),
 			},
 			books: {
 				id: id(),
@@ -221,17 +221,17 @@ describe('YjsDoc Type Inference', () => {
 			},
 		});
 
-		// Test authors table - use plain string (converted to Y.Text internally)
+		// Test authors table - richtext stores ID reference
 		doc.authors.upsert({
 			id: 'author-1',
 			name: 'John Doe',
-			bio: 'Author bio',
+			bio: 'rtxt_bio123',
 		});
 
 		const authorResult = doc.authors.get('author-1');
-		// Hover to verify type: GetResult<{ id: string; name: string; bio: Y.Text | null }>
+		// Hover to verify type: GetResult<{ id: string; name: string; bio: string | null }>
 
-		// Test books table - use plain array (converted to Y.Array internally)
+		// Test books table - tags stores plain array
 		doc.books.upsert({
 			id: 'book-1',
 			author_id: 'author-1',
@@ -241,7 +241,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		const bookResult = doc.books.get('book-1');
-		// Hover to verify type: GetResult<{ id: string; author_id: string; title: string; chapters: Y.Array<string>; published: boolean }>
+		// Hover to verify type: GetResult<{ id: string; author_id: string; title: string; chapters: string[]; published: boolean }>
 
 		expect(authorResult.status).toBe('valid');
 		expect(bookResult.status).toBe('valid');
@@ -274,40 +274,36 @@ describe('YjsDoc Type Inference', () => {
 		expect(comments).toHaveLength(2);
 	});
 
-	test('should handle YJS types in complex scenarios', () => {
+	test('should handle richtext and tags in complex scenarios', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
 			documents: {
 				id: id(),
 				title: text(),
-				body: ytext(),
-				notes: ytext({ nullable: true }),
+				body: richtext(),
+				notes: richtext({ nullable: true }),
 				tags: tags({ options: ['tag1', 'tag2'] }),
 			},
 		});
 
-		// Upsert with plain values (automatically converted to Y.js types internally)
+		// Upsert with plain values (richtext stores ID, tags stores array)
 		doc.documents.upsert({
 			id: 'doc-1',
 			title: 'My Document',
-			body: 'Hello World',
+			body: 'rtxt_body123',
 			notes: null,
 			tags: ['tag1', 'tag2'],
 		});
 
-		// Test retrieval and mutations
+		// Test retrieval
 		const retrievedResult = doc.documents.get('doc-1');
 		expect(retrievedResult.status).toBe('valid');
 
 		if (retrievedResult.status === 'valid') {
 			const retrieved = retrievedResult.row;
-			// These should all be properly typed
-			expect(retrieved.body).toBeInstanceOf(Y.Text);
-			expect(retrieved.tags).toBeInstanceOf(Y.Array);
+			// These should all be plain types (no embedded CRDTs)
+			expect(retrieved.body).toBe('rtxt_body123');
+			expect(retrieved.tags).toEqual(['tag1', 'tag2']);
 			expect(retrieved.notes).toBeNull();
-
-			// Mutations should work because YJS types are passed by reference
-			retrieved.tags.push(['tag1']);
-			expect(retrieved.tags.length).toBe(3);
 		}
 	});
 });

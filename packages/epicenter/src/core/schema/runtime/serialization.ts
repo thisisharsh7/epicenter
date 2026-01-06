@@ -1,11 +1,14 @@
 /**
  * @fileoverview Serialization utilities for converting between CellValue and SerializedCellValue
  *
- * Handles conversion from CRDT types (Y.Text, Y.Array) to plain JavaScript values
- * and validation of serialized values.
+ * With JSON-serializable rows, CellValue and SerializedCellValue are now identical types.
+ * All values stored in YJS rows are plain JavaScript values (no embedded CRDTs).
+ *
+ * - Rich text content is stored as an ID reference (string) pointing to a separate Y.Doc
+ * - Tags are stored as plain arrays (string[])
+ * - All other types are primitives (string, number, boolean, null)
  */
 
-import * as Y from 'yjs';
 import type {
 	CellValue,
 	FieldSchema,
@@ -13,38 +16,28 @@ import type {
 } from '../fields/types';
 
 /**
- * Serializes a single cell value to its plain JavaScript equivalent.
- * - Y.Text → string
- * - Y.Array<T> → T[]
- * - DateWithTimezoneString → returned as-is (already in string format)
- * - Other types → unchanged (primitives, null, undefined)
+ * Serializes a cell value to its JSON-serializable equivalent.
+ *
+ * With JSON-serializable rows, this is now an identity function since
+ * CellValue === SerializedCellValue (no CRDT types embedded in rows).
+ *
+ * All values are already plain JavaScript types:
+ * - string, number, boolean, null for primitives
+ * - string[] for tags
+ * - string (ID reference) for richtext
+ * - DateWithTimezoneString for dates
  *
  * @example
  * ```typescript
- * const ytext = new Y.Text();
- * ytext.insert(0, 'Hello');
- * serializeCellValue(ytext); // 'Hello'
- *
- * const yarray = Y.Array.from(['a', 'b', 'c']);
- * serializeCellValue(yarray); // ['a', 'b', 'c']
- *
- * const date = '2024-01-01T00:00:00.000Z|America/New_York'; // stored as string in YJS
- * serializeCellValue(date); // '2024-01-01T00:00:00.000Z|America/New_York'
- *
- * serializeCellValue(null); // null
- * serializeCellValue(42); // 42
- * serializeCellValue('text'); // 'text'
+ * serializeCellValue('Hello');           // 'Hello'
+ * serializeCellValue(42);                // 42
+ * serializeCellValue(['a', 'b', 'c']);   // ['a', 'b', 'c']
+ * serializeCellValue('rtxt_abc123');     // 'rtxt_abc123' (richtext ID)
+ * serializeCellValue(null);              // null
  * ```
  */
 export function serializeCellValue<T extends FieldSchema>(
 	value: CellValue<T>,
 ): SerializedCellValue<T> {
-	if (value instanceof Y.Text) {
-		return value.toString() as SerializedCellValue<T>;
-	}
-	if (value instanceof Y.Array) {
-		return value.toArray() as SerializedCellValue<T>;
-	}
-	// Date values are already stored as DateWithTimezoneString in YJS, so return as-is
 	return value as SerializedCellValue<T>;
 }

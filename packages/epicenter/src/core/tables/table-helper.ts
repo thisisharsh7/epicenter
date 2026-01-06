@@ -202,12 +202,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Update specific fields of an existing row.
 		 *
-		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
-		 * - ytext columns accept strings
-		 * - tags columns accept arrays
-		 *
-		 * Internally, the existing Y.Text/Y.Array is synced using updateYTextFromString()
-		 * or updateYArrayFromArray() to apply minimal changes while preserving CRDT history.
+		 * For Y.js columns (ytext), provide plain JavaScript values (strings).
+		 * For array columns (tags), provide plain arrays.
 		 *
 		 * Only the fields you include will be updated; others remain unchanged.
 		 *
@@ -244,9 +240,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * This is the primary write operation for tables. Use it when you have a complete
 		 * row and want to ensure it exists in the table regardless of prior state.
 		 *
-		 * For Y.js columns (ytext, tags), provide plain JavaScript values:
-		 * - ytext columns accept strings (synced via updateYTextFromString)
-		 * - tags columns accept arrays (synced via updateYArrayFromArray)
+		 * For Y.js columns (ytext), provide plain strings.
+		 * For array columns (tags), provide plain arrays.
 		 *
 		 * @param serializedRow - Complete row data with all required fields
 		 *

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, tags, text, ytext } from '../schema';
+import { boolean, id, integer, tags, text, richtext } from '../schema';
 import { createTables } from './core';
 
 describe('createTables', () => {
@@ -115,48 +115,40 @@ describe('createTables', () => {
 		expect(findResult).toBeNull();
 	});
 
-	test('should store and retrieve Y.js types correctly', () => {
+	test('should store and retrieve richtext and tags correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: {
 				id: id(),
-				title: ytext(),
+				title: richtext(),
 				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
 			},
 		});
 
-		// Upsert with plain strings and arrays (the documented API)
 		doc.posts.upsert({
 			id: '1',
-			title: 'Hello World',
+			title: 'rtxt_hello123',
 			tags: ['typescript', 'javascript'],
 		});
 
-		// Get returns Y.js objects
 		const result1 = doc.posts.get('1');
 		expect(result1.status).toBe('valid');
 		if (result1.status === 'valid') {
-			expect(result1.row.title).toBeInstanceOf(Y.Text);
-			expect(result1.row.tags).toBeInstanceOf(Y.Array);
-			expect(result1.row.title.toString()).toBe('Hello World');
-			expect(result1.row.tags.toArray()).toEqual(['typescript', 'javascript']);
+			expect(result1.row.title).toBe('rtxt_hello123');
+			expect(result1.row.tags).toEqual(['typescript', 'javascript']);
 		}
 
-		// Upsert another post
 		doc.posts.upsert({
 			id: '2',
-			title: 'Second Post',
+			title: 'rtxt_second456',
 			tags: ['python'],
 		});
 
-		// getAllValid returns Y.js objects
 		const rows = doc.posts.getAllValid();
 		expect(rows).toHaveLength(2);
 		const firstRow = rows[0]!;
 		const secondRow = rows[1]!;
-		expect(firstRow.title).toBeInstanceOf(Y.Text);
-		expect(firstRow.tags).toBeInstanceOf(Y.Array);
-		expect(firstRow.title.toString()).toBe('Hello World');
-		expect(secondRow.title.toString()).toBe('Second Post');
+		expect(firstRow.title).toBe('rtxt_hello123');
+		expect(secondRow.title).toBe('rtxt_second456');
 	});
 });

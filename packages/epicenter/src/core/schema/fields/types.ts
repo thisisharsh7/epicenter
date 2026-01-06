@@ -65,12 +65,12 @@ export type TextFieldSchema<TNullable extends boolean = boolean> = {
 };
 
 /**
- * Y.Text column schema - collaborative text using YJS.
- * Stored as Y.Text for real-time collaboration, serializes to string.
- * Ideal for code editors (Monaco, CodeMirror) and rich text (Quill).
+ * Rich text reference column - stores ID pointing to separate rich content document.
+ * The ID references a separate Y.Doc for collaborative editing.
+ * The row itself just stores the string ID (JSON-serializable).
  */
-export type YtextFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'ytext';
+export type RichtextFieldSchema<TNullable extends boolean = boolean> = {
+	'x-component': 'richtext';
 	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
 };
 
@@ -145,7 +145,7 @@ export type SelectFieldSchema<
 
 /**
  * Tags column schema - array of strings with optional validation.
- * Stored as Y.Array for real-time collaboration.
+ * Stored as plain arrays (JSON-serializable).
  *
  * Two modes:
  * - With `items.enum`: Only values from options are allowed
@@ -227,7 +227,7 @@ export type JsonFieldSchema<
 export type FieldSchema =
 	| IdFieldSchema
 	| TextFieldSchema
-	| YtextFieldSchema
+	| RichtextFieldSchema
 	| IntegerFieldSchema
 	| RealFieldSchema
 	| BooleanFieldSchema
@@ -253,10 +253,10 @@ type IsNullableType<T> = T extends readonly [unknown, 'null'] ? true : false;
 // ============================================================================
 
 /**
- * Maps a field schema to its runtime value type (Y.js types or primitives).
+ * Maps a field schema to its runtime value type.
  *
- * - YtextFieldSchema → Y.Text
- * - TagsFieldSchema → Y.Array
+ * - RichtextFieldSchema → string (ID reference)
+ * - TagsFieldSchema → string[] (plain array)
  * - DateFieldSchema → DateWithTimezoneString
  * - Other fields → primitive types
  *
@@ -269,10 +269,10 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 			? IsNullableType<C['type']> extends true
 				? string | null
 				: string
-			: C extends YtextFieldSchema
+			: C extends RichtextFieldSchema
 				? IsNullableType<C['type']> extends true
-					? Y.Text | null
-					: Y.Text
+					? string | null
+					: string
 				: C extends IntegerFieldSchema
 					? IsNullableType<C['type']> extends true
 						? number | null
@@ -295,8 +295,8 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 										: TOptions[number]
 									: C extends TagsFieldSchema<infer TOptions>
 										? IsNullableType<C['type']> extends true
-											? Y.Array<TOptions[number]> | null
-											: Y.Array<TOptions[number]>
+											? TOptions[number][] | null
+											: TOptions[number][]
 										: C extends JsonFieldSchema<
 													infer TSchema extends StandardSchemaWithJSONSchema
 												>

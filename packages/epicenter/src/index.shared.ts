@@ -97,7 +97,7 @@ export type {
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
-	YtextFieldSchema,
+	RichtextFieldSchema,
 } from './core/schema';
 // Column schema system
 export {
@@ -122,8 +122,11 @@ export {
 	TIMEZONE_ID_REGEX,
 	tags,
 	text,
-	ytext,
+	richtext,
 } from './core/schema';
+// Rich content ID generation
+export type { RichContentId } from './core/rich-content/id';
+export { createRichContentId } from './core/rich-content/id';
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type {
