@@ -111,6 +111,55 @@ describe('Cell-Level CRDT Merging', () => {
 		}
 	});
 
+	test('same-column conflicts: winner varies by client ID (demonstrates unpredictability)', () => {
+		/**
+		 * This test demonstrates that same-column concurrent edits have
+		 * unpredictable winners based on Yjs's internal ordering.
+		 *
+		 * The winner depends on client IDs and CRDT merge order, NOT timestamps.
+		 * This is acceptable because:
+		 * 1. Cell-level CRDTs make same-column conflicts rare
+		 * 2. Both clients always converge to the same value
+		 *
+		 * If predictable "last write wins" is needed, timestamps can be added.
+		 */
+		const winners: string[] = [];
+
+		for (let i = 0; i < 10; i++) {
+			const doc1 = new Y.Doc();
+			const doc2 = new Y.Doc();
+
+			const tables1 = createTables(doc1, {
+				posts: { id: id(), title: text() },
+			});
+			const tables2 = createTables(doc2, {
+				posts: { id: id(), title: text() },
+			});
+
+			tables1.posts.upsert({ id: 'post-1', title: 'Original' });
+			Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
+
+			tables1.posts.update({ id: 'post-1', title: `Iteration ${i} User 1` });
+			tables2.posts.update({ id: 'post-1', title: `Iteration ${i} User 2` });
+
+			Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
+			Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
+
+			const row1 = tables1.posts.get('post-1');
+			const row2 = tables2.posts.get('post-1');
+
+			expect(row1.status).toBe('valid');
+			expect(row2.status).toBe('valid');
+
+			if (row1.status === 'valid' && row2.status === 'valid') {
+				expect(row1.row.title).toBe(row2.row.title);
+				winners.push(row1.row.title.includes('User 1') ? 'User 1' : 'User 2');
+			}
+		}
+
+		console.log('Same-column conflict winners:', winners);
+	});
+
 	test('partial updates preserve unmentioned fields', () => {
 		const ydoc = new Y.Doc({ guid: 'test' });
 		const tables = createTables(ydoc, {
