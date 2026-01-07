@@ -1,5 +1,5 @@
 import { Compile } from 'typebox/compile';
-import type { TLocalizedValidationError as ValidationError } from 'typebox/error';
+import type { TLocalizedValidationError } from 'typebox/error';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToTypebox } from '../schema';
@@ -8,6 +8,26 @@ import {
 	type YKeyValueChange,
 	type YKeyValueChangeHandler,
 } from '../utils/y-keyvalue';
+
+/**
+ * A single validation error from TypeBox schema validation.
+ *
+ * Contains detailed information about why a row field failed validation,
+ * including the JSON path to the invalid field, the expected schema,
+ * and a human-readable error message.
+ *
+ * @example
+ * ```typescript
+ * const result = tables.posts.get({ id: '123' });
+ * if (result.status === 'invalid') {
+ *   for (const error of result.errors) {
+ *     console.log(`${error.path}: ${error.message}`);
+ *     // Output: "/title: Expected string"
+ *   }
+ * }
+ * ```
+ */
+export type ValidationError = TLocalizedValidationError;
 
 export type { YKeyValueChange };
 
