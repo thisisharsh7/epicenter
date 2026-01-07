@@ -43,8 +43,15 @@ const TABLE_NAME_PATTERN = regex('^[a-z][a-z0-9_]*$');
  */
 const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 
-// Re-export TableHelper for public API
-export type { TableHelper } from './table-helper';
+// Re-export types for public API
+export type {
+	TableHelper,
+	TableRowChange,
+	RowResult,
+	ValidRowResult,
+	InvalidRowResult,
+	GetResult,
+} from './table-helper';
 
 /**
  * Create an Epicenter database wrapper with table helpers from an existing Y.Doc.

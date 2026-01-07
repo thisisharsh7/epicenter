@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
 import { boolean, id, integer, select, tags, text, richtext } from '../schema';
-import { createTables } from './core';
+import { createTables } from './create-tables';
 
 /**
  * Type inference test file for YjsDoc
@@ -136,8 +136,8 @@ describe('YjsDoc Type Inference', () => {
 
 		const unsubscribe = doc.notifications.observeChanges((changes) => {
 			for (const [_id, change] of changes) {
-				if (change.action === 'add') {
-					addedNotifications.push(change.newValue);
+				if (change.action === 'add' && change.result.status === 'valid') {
+					addedNotifications.push(change.result.row);
 				}
 			}
 		});

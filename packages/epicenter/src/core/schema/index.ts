@@ -47,6 +47,12 @@ export {
 	tableSchemaToYjsArktype,
 } from './converters/to-arktype-yjs.js';
 
+export type { FieldSchemaToTypebox } from './converters/to-typebox.js';
+export {
+	fieldSchemaToTypebox,
+	tableSchemaToTypebox,
+} from './converters/to-typebox.js';
+
 export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js';
 export {
 	convertTableSchemaToDrizzle,

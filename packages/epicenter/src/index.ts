@@ -35,10 +35,10 @@ export {
 	sql,
 } from 'drizzle-orm';
 
-export type { TableHelper, Tables } from './core/tables/core';
+export type { TableHelper, Tables } from './core/tables/create-tables';
 
 // Table utilities
-export { createTables } from './core/tables/core';
+export { createTables } from './core/tables/create-tables';
 
 export type { Kv, KvHelper } from './core/kv/core';
 export { createKv } from './core/kv/core';
@@ -54,13 +54,9 @@ export type {
 	UpdateResult,
 	ValidRowResult,
 } from './core/tables/table-helper';
-export type {
-	EpicenterOperationError,
-	IndexError,
-	ValidationError,
-} from './core/errors';
+export type { ProviderError } from './core/errors';
 // Error types
-export { EpicenterOperationErr, IndexErr, ValidationErr } from './core/errors';
+export { ProviderErr } from './core/errors';
 export type {
 	Provider,
 	ProviderContext,
