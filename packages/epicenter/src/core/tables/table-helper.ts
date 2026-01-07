@@ -182,7 +182,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		return ykv;
 	};
 
-	const buildRow = (data: Row): TRow => data as TRow;
+	const asTypedRow = (data: Row): TRow => data as TRow;
 
 	return {
 		/**
@@ -315,7 +315,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const data = getYKeyValue().get(id);
 			if (!data) return { status: 'not_found', id };
 
-			const row = buildRow(data);
+			const row = asTypedRow(data);
 			const validator = tableSchemaToYjsArktype(schema);
 			const result = validator(row);
 
@@ -337,7 +337,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			return Array.from(getYKeyValue().map.entries()).map(
 				([id, entry]): RowResult<TRow> => {
-					const row = buildRow(entry.val);
+					const row = asTypedRow(entry.val);
 					const result = validator(row);
 
 					return result instanceof type.errors
@@ -363,7 +363,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const validator = tableSchemaToYjsArktype(schema);
 
 			return Array.from(getYKeyValue().map.values())
-				.map((entry) => buildRow(entry.val))
+				.map((entry) => asTypedRow(entry.val))
 				.filter((row) => !(validator(row) instanceof type.errors));
 		},
 
@@ -372,7 +372,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			return Array.from(getYKeyValue().map.entries())
 				.map(([id, entry]) => {
-					const row = buildRow(entry.val);
+					const row = asTypedRow(entry.val);
 					const result = validator(row);
 					return result instanceof type.errors
 						? {
@@ -504,7 +504,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const validator = tableSchemaToYjsArktype(schema);
 
 			return Array.from(getYKeyValue().map.values())
-				.map((entry) => buildRow(entry.val))
+				.map((entry) => asTypedRow(entry.val))
 				.filter(
 					(row) => !(validator(row) instanceof type.errors) && predicate(row),
 				);
@@ -522,7 +522,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const kv = getYKeyValue();
 
 			for (const entry of kv.map.values()) {
-				const row = buildRow(entry.val);
+				const row = asTypedRow(entry.val);
 				const result = validator(row);
 
 				if (!(result instanceof type.errors) && predicate(row)) {
@@ -610,7 +610,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return () => kv.off('change', handler);
 
 			function validateRow(id: string, data: Row): RowResult<TRow> {
-				const row = buildRow(data);
+				const row = asTypedRow(data);
 				const result = validator(row);
 
 				if (result instanceof type.errors) {
