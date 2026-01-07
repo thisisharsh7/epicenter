@@ -5,6 +5,8 @@ import {
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
 import { Ok, Err } from 'wellcrafted/result';
+import { generateGuid } from '@epicenter/hq';
+import type { IdFieldSchema, TextFieldSchema } from '@epicenter/hq';
 
 const workspaceKeys = {
 	all: ['workspaces'] as const,
@@ -50,6 +52,7 @@ export const workspaces = {
 			}
 
 			const workspace: WorkspaceFile = {
+				guid: generateGuid(),
 				id: input.id,
 				name: input.name,
 				tables: {},
@@ -93,6 +96,138 @@ export const workspaces = {
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 			queryClient.removeQueries({ queryKey: workspaceKeys.detail(id) });
 			return Ok(undefined);
+		},
+	}),
+
+	addTable: defineMutation({
+		mutationKey: ['workspaces', 'addTable'],
+		mutationFn: async (input: { workspaceId: string; tableName: string }) => {
+			const readResult = await workspaceStorage.readWorkspace(
+				input.workspaceId,
+			);
+			if (readResult.error) {
+				return Err(readResult.error);
+			}
+
+			const workspace = readResult.data;
+			if (workspace.tables[input.tableName]) {
+				return WorkspaceStorageErr({
+					message: `Table "${input.tableName}" already exists`,
+				});
+			}
+
+			const idFieldSchema: IdFieldSchema = {
+				'x-component': 'id',
+				type: 'string',
+			};
+			workspace.tables[input.tableName] = { id: idFieldSchema };
+
+			const writeResult = await workspaceStorage.writeWorkspace(workspace);
+			if (writeResult.error) {
+				return Err(writeResult.error);
+			}
+
+			queryClient.invalidateQueries({
+				queryKey: workspaceKeys.detail(input.workspaceId),
+			});
+			return Ok(workspace);
+		},
+	}),
+
+	removeTable: defineMutation({
+		mutationKey: ['workspaces', 'removeTable'],
+		mutationFn: async (input: { workspaceId: string; tableName: string }) => {
+			const readResult = await workspaceStorage.readWorkspace(
+				input.workspaceId,
+			);
+			if (readResult.error) {
+				return Err(readResult.error);
+			}
+
+			const workspace = readResult.data;
+			if (!workspace.tables[input.tableName]) {
+				return WorkspaceStorageErr({
+					message: `Table "${input.tableName}" does not exist`,
+				});
+			}
+
+			delete workspace.tables[input.tableName];
+
+			const writeResult = await workspaceStorage.writeWorkspace(workspace);
+			if (writeResult.error) {
+				return Err(writeResult.error);
+			}
+
+			queryClient.invalidateQueries({
+				queryKey: workspaceKeys.detail(input.workspaceId),
+			});
+			return Ok(workspace);
+		},
+	}),
+
+	addKvEntry: defineMutation({
+		mutationKey: ['workspaces', 'addKvEntry'],
+		mutationFn: async (input: { workspaceId: string; key: string }) => {
+			const readResult = await workspaceStorage.readWorkspace(
+				input.workspaceId,
+			);
+			if (readResult.error) {
+				return Err(readResult.error);
+			}
+
+			const workspace = readResult.data;
+			if (workspace.kv[input.key]) {
+				return WorkspaceStorageErr({
+					message: `Setting "${input.key}" already exists`,
+				});
+			}
+
+			const textFieldSchema: TextFieldSchema = {
+				'x-component': 'text',
+				type: 'string',
+			};
+			workspace.kv[input.key] = textFieldSchema;
+
+			const writeResult = await workspaceStorage.writeWorkspace(workspace);
+			if (writeResult.error) {
+				return Err(writeResult.error);
+			}
+
+			queryClient.invalidateQueries({
+				queryKey: workspaceKeys.detail(input.workspaceId),
+			});
+			return Ok(workspace);
+		},
+	}),
+
+	removeKvEntry: defineMutation({
+		mutationKey: ['workspaces', 'removeKvEntry'],
+		mutationFn: async (input: { workspaceId: string; key: string }) => {
+			const readResult = await workspaceStorage.readWorkspace(
+				input.workspaceId,
+			);
+			if (readResult.error) {
+				return Err(readResult.error);
+			}
+
+			const workspace = readResult.data;
+			if (!workspace.kv[input.key]) {
+				return WorkspaceStorageErr({
+					message: `Setting "${input.key}" does not exist`,
+				});
+			}
+
+			delete workspace.kv[input.key];
+
+			const writeResult = await workspaceStorage.writeWorkspace(workspace);
+			if (writeResult.error) {
+				return Err(writeResult.error);
+			}
+
+			queryClient.invalidateQueries({
+				queryKey: workspaceKeys.detail(input.workspaceId),
+			});
+			return Ok(workspace);
 		},
 	}),
 

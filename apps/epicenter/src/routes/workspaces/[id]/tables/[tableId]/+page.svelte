@@ -2,115 +2,46 @@
 	import { page } from '$app/state';
 	import * as Table from '@epicenter/ui/table';
 	import { Button } from '@epicenter/ui/button';
-	import { Input } from '@epicenter/ui/input';
-	import { Checkbox } from '@epicenter/ui/checkbox';
 	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
 	import * as Empty from '@epicenter/ui/empty';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { Badge } from '@epicenter/ui/badge';
+	import { rpc } from '$lib/query';
+	import { createQuery } from '@tanstack/svelte-query';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
 
 	const workspaceId = $derived(page.params.id);
 	const tableId = $derived(page.params.tableId);
 
-	type TableRow = {
-		id: string;
-		name: string;
-		email: string;
-		role: string;
-		createdAt: string;
-	};
+	const workspace = createQuery(() => ({
+		...rpc.workspaces.getWorkspace(workspaceId ?? '').options,
+		enabled: !!workspaceId,
+	}));
 
-	const mockData: TableRow[] = [
-		{
-			id: '1',
-			name: 'Alice Chen',
-			email: 'alice@example.com',
-			role: 'Admin',
-			createdAt: '2024-01-15',
-		},
-		{
-			id: '2',
-			name: 'Bob Smith',
-			email: 'bob@example.com',
-			role: 'Editor',
-			createdAt: '2024-02-20',
-		},
-		{
-			id: '3',
-			name: 'Charlie Kim',
-			email: 'charlie@example.com',
-			role: 'Viewer',
-			createdAt: '2024-03-10',
-		},
-	];
+	const tableSchema = $derived(workspace.data?.tables[tableId ?? '']);
 
-	let searchQuery = $state('');
-	let selectedRows = $state<Set<string>>(new Set());
-	let sortColumn = $state<keyof TableRow | null>(null);
-	let sortDirection = $state<'asc' | 'desc'>('asc');
-
-	const filteredData = $derived(
-		mockData.filter(
-			(row) =>
-				row.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				row.email.toLowerCase().includes(searchQuery.toLowerCase()),
-		),
-	);
-
-	const sortedData = $derived.by(() => {
-		if (!sortColumn) return filteredData;
-		const column = sortColumn;
-		return [...filteredData].sort((a, b) => {
-			const aVal = a[column];
-			const bVal = b[column];
-			const comparison = aVal.localeCompare(bVal);
-			return sortDirection === 'asc' ? comparison : -comparison;
-		});
-	});
-
-	function toggleSort(column: keyof TableRow) {
-		if (sortColumn === column) {
-			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-		} else {
-			sortColumn = column;
-			sortDirection = 'asc';
-		}
-	}
-
-	function toggleRowSelection(id: string) {
-		const newSet = new Set(selectedRows);
-		if (newSet.has(id)) {
-			newSet.delete(id);
-		} else {
-			newSet.add(id);
-		}
-		selectedRows = newSet;
-	}
-
-	function toggleAllSelection() {
-		if (selectedRows.size === sortedData.length) {
-			selectedRows = new Set();
-		} else {
-			selectedRows = new Set(sortedData.map((row) => row.id));
-		}
-	}
-
-	const allSelected = $derived(
-		sortedData.length > 0 && selectedRows.size === sortedData.length,
-	);
-	const someSelected = $derived(
-		selectedRows.size > 0 && selectedRows.size < sortedData.length,
+	const columns = $derived(
+		tableSchema
+			? Object.entries(
+					tableSchema as Record<
+						string,
+						{
+							'x-component': string;
+							type: string | string[];
+							default?: unknown;
+						}
+					>,
+				)
+			: [],
 	);
 </script>
 
 <div class="space-y-4">
 	<div class="flex items-center gap-2 text-sm">
-		<a href="/" class="text-muted-foreground hover:text-foreground"
-			>Workspaces</a
-		>
+		<a href="/" class="text-muted-foreground hover:text-foreground">
+			Workspaces
+		</a>
 		<span class="text-muted-foreground">/</span>
 		<a
 			href="/workspaces/{workspaceId}"
@@ -124,159 +55,122 @@
 		<span class="font-medium">{tableId}</span>
 	</div>
 
-	<div class="flex items-center justify-between">
-		<div>
-			<h1 class="text-2xl font-semibold">{tableId}</h1>
-			<p class="text-muted-foreground text-sm">
-				{mockData.length} rows
+	{#if workspace.isPending}
+		<div class="text-muted-foreground">Loading...</div>
+	{:else if workspace.error}
+		<div class="rounded-lg border border-destructive bg-destructive/10 p-4">
+			<p class="text-destructive font-medium">Failed to load workspace</p>
+			<p class="text-destructive/80 text-sm">{workspace.error.message}</p>
+		</div>
+	{:else if !tableSchema}
+		<div class="rounded-lg border border-destructive bg-destructive/10 p-4">
+			<p class="text-destructive font-medium">Table not found</p>
+			<p class="text-destructive/80 text-sm">
+				The table "{tableId}" does not exist in this workspace.
 			</p>
 		</div>
-		<Button>
-			<PlusIcon class="mr-2 size-4" />
-			Add Row
-		</Button>
-	</div>
-
-	<div class="flex items-center gap-2">
-		<div class="relative max-w-sm flex-1">
-			<SearchIcon
-				class="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2"
-			/>
-			<Input placeholder="Search..." class="pl-9" bind:value={searchQuery} />
+	{:else}
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-2xl font-semibold">{tableId}</h1>
+				<p class="text-muted-foreground text-sm">
+					{columns.length} column{columns.length === 1 ? '' : 's'}
+				</p>
+			</div>
+			<Button disabled>
+				<PlusIcon class="mr-2 size-4" />
+				Add Column
+			</Button>
 		</div>
-	</div>
 
-	<div class="rounded-md border">
-		<Table.Root>
-			<Table.Header>
-				<Table.Row>
-					<Table.Head class="w-12">
-						<Checkbox
-							checked={allSelected}
-							indeterminate={someSelected}
-							onCheckedChange={toggleAllSelection}
-							aria-label="Select all"
-						/>
-					</Table.Head>
-					<Table.Head>
-						<Button
-							variant="ghost"
-							class="-ml-4"
-							onclick={() => toggleSort('id')}
-						>
-							ID
-							<ArrowUpDownIcon class="ml-2 size-4" />
-						</Button>
-					</Table.Head>
-					<Table.Head>
-						<Button
-							variant="ghost"
-							class="-ml-4"
-							onclick={() => toggleSort('name')}
-						>
-							Name
-							<ArrowUpDownIcon class="ml-2 size-4" />
-						</Button>
-					</Table.Head>
-					<Table.Head>
-						<Button
-							variant="ghost"
-							class="-ml-4"
-							onclick={() => toggleSort('email')}
-						>
-							Email
-							<ArrowUpDownIcon class="ml-2 size-4" />
-						</Button>
-					</Table.Head>
-					<Table.Head>Role</Table.Head>
-					<Table.Head>
-						<Button
-							variant="ghost"
-							class="-ml-4"
-							onclick={() => toggleSort('createdAt')}
-						>
-							Created
-							<ArrowUpDownIcon class="ml-2 size-4" />
-						</Button>
-					</Table.Head>
-					<Table.Head class="w-12"></Table.Head>
-				</Table.Row>
-			</Table.Header>
-			<Table.Body>
-				{#each sortedData as row (row.id)}
-					<Table.Row data-state={selectedRows.has(row.id) && 'selected'}>
-						<Table.Cell>
-							<Checkbox
-								checked={selectedRows.has(row.id)}
-								onCheckedChange={() => toggleRowSelection(row.id)}
-								aria-label="Select row"
-							/>
-						</Table.Cell>
-						<Table.Cell class="font-mono text-xs">{row.id}</Table.Cell>
-						<Table.Cell>{row.name}</Table.Cell>
-						<Table.Cell>{row.email}</Table.Cell>
-						<Table.Cell>{row.role}</Table.Cell>
-						<Table.Cell>{row.createdAt}</Table.Cell>
-						<Table.Cell>
-							<DropdownMenu.Root>
-								<DropdownMenu.Trigger>
-									{#snippet child({ props })}
-										<Button
-											{...props}
-											variant="ghost"
-											size="icon"
-											class="size-8"
-										>
-											<EllipsisIcon class="size-4" />
-											<span class="sr-only">Open menu</span>
-										</Button>
-									{/snippet}
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content align="end">
-									<DropdownMenu.Item
-										onclick={() => console.log('Edit', row.id)}
-									>
-										Edit
-									</DropdownMenu.Item>
-									<DropdownMenu.Item
-										onclick={() => console.log('Duplicate', row.id)}
-									>
-										Duplicate
-									</DropdownMenu.Item>
-									<DropdownMenu.Separator />
-									<DropdownMenu.Item
-										class="text-destructive"
-										onclick={() => console.log('Delete', row.id)}
-									>
-										Delete
-									</DropdownMenu.Item>
-								</DropdownMenu.Content>
-							</DropdownMenu.Root>
-						</Table.Cell>
-					</Table.Row>
-				{:else}
+		<div class="rounded-md border">
+			<Table.Root>
+				<Table.Header>
 					<Table.Row>
-						<Table.Cell colspan={7} class="h-24 text-center">
-							<Empty.Root>
-								<Empty.Title>No data</Empty.Title>
-								<Empty.Description>
-									This table is empty. Add your first row to get started.
-								</Empty.Description>
-							</Empty.Root>
-						</Table.Cell>
+						<Table.Head>Column Name</Table.Head>
+						<Table.Head>Type</Table.Head>
+						<Table.Head>Nullable</Table.Head>
+						<Table.Head>Default</Table.Head>
+						<Table.Head class="w-12"></Table.Head>
 					</Table.Row>
-				{/each}
-			</Table.Body>
-		</Table.Root>
-	</div>
-
-	<div class="flex items-center justify-between">
-		<p class="text-muted-foreground text-sm">
-			{selectedRows.size} of {sortedData.length} row(s) selected.
-		</p>
-		<div class="flex items-center gap-2">
-			<Button variant="outline" size="sm" disabled>Previous</Button>
-			<Button variant="outline" size="sm" disabled>Next</Button>
+				</Table.Header>
+				<Table.Body>
+					{#each columns as [columnName, schema] (columnName)}
+						{@const isNullable =
+							Array.isArray(schema.type) && schema.type.includes('null')}
+						{@const hasDefault = 'default' in schema}
+						<Table.Row>
+							<Table.Cell class="font-mono text-sm">{columnName}</Table.Cell>
+							<Table.Cell>
+								<Badge variant="secondary">{schema['x-component']}</Badge>
+							</Table.Cell>
+							<Table.Cell>
+								{#if isNullable}
+									<Badge variant="outline">nullable</Badge>
+								{:else}
+									<span class="text-muted-foreground text-sm">required</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>
+								{#if hasDefault}
+									<code class="bg-muted rounded px-1.5 py-0.5 text-xs">
+										{JSON.stringify(schema.default)}
+									</code>
+								{:else}
+									<span class="text-muted-foreground text-sm">—</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>
+								{#if columnName !== 'id'}
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button
+													{...props}
+													variant="ghost"
+													size="icon"
+													class="size-8"
+												>
+													<EllipsisIcon class="size-4" />
+													<span class="sr-only">Open menu</span>
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content align="end">
+											<DropdownMenu.Item disabled>Edit</DropdownMenu.Item>
+											<DropdownMenu.Separator />
+											<DropdownMenu.Item class="text-destructive" disabled>
+												<TrashIcon class="mr-2 size-4" />
+												Delete
+											</DropdownMenu.Item>
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
+								{/if}
+							</Table.Cell>
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell colspan={5} class="h-24 text-center">
+								<Empty.Root>
+									<Empty.Title>No columns</Empty.Title>
+									<Empty.Description>
+										This table has no columns defined yet.
+									</Empty.Description>
+								</Empty.Root>
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
 		</div>
-	</div>
+
+		<div class="rounded-lg border p-4">
+			<h2 class="mb-2 font-medium">Raw Schema</h2>
+			<pre class="bg-muted overflow-auto rounded p-4 text-xs">{JSON.stringify(
+					tableSchema,
+					null,
+					2,
+				)}</pre>
+		</div>
+	{/if}
 </div>

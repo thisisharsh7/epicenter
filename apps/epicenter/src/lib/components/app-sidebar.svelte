@@ -3,22 +3,37 @@
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import * as Collapsible from '@epicenter/ui/collapsible';
 	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
+	import { inputDialog } from '$lib/components/InputDialog.svelte';
+	import { rpc } from '$lib/query';
+	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import TableIcon from '@lucide/svelte/icons/table-2';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 
 	const selectedWorkspaceId = $derived(page.params.id);
 
-	const mockTables = [
-		{ id: 'users', name: 'users' },
-		{ id: 'posts', name: 'posts' },
-		{ id: 'comments', name: 'comments' },
-	];
+	const workspace = createQuery(() => ({
+		...rpc.workspaces.getWorkspace(selectedWorkspaceId ?? '').options,
+		enabled: !!selectedWorkspaceId,
+	}));
 
-	const mockSettings = [
-		{ id: 'api-config', name: 'api-config' },
-		{ id: 'feature-flags', name: 'feature-flags' },
-	];
+	const tables = $derived(
+		workspace.data ? Object.keys(workspace.data.tables) : [],
+	);
+	const settings = $derived(
+		workspace.data ? Object.keys(workspace.data.kv) : [],
+	);
+
+	const addTableMutation = createMutation(
+		() => rpc.workspaces.addTable.options,
+	);
+	const addKvEntryMutation = createMutation(
+		() => rpc.workspaces.addKvEntry.options,
+	);
+	const openDirectoryMutation = createMutation(
+		() => rpc.workspaces.openWorkspacesDirectory.options,
+	);
 </script>
 
 <Sidebar.Root>
@@ -35,26 +50,49 @@
 							<Collapsible.Trigger {...props}>Tables</Collapsible.Trigger>
 						{/snippet}
 					</Sidebar.GroupLabel>
-					<Sidebar.GroupAction title="Add Table">
+					<Sidebar.GroupAction
+						title="Add Table"
+						onclick={() => {
+							if (!selectedWorkspaceId) return;
+							inputDialog.open({
+								title: 'Add Table',
+								description: 'Enter a name for the new table.',
+								label: 'Table Name',
+								placeholder: 'e.g., posts, users, comments',
+								onConfirm: async (tableName) => {
+									await addTableMutation.mutateAsync({
+										workspaceId: selectedWorkspaceId,
+										tableName,
+									});
+								},
+							});
+						}}
+					>
 						<PlusIcon />
 						<span class="sr-only">Add Table</span>
 					</Sidebar.GroupAction>
 					<Collapsible.Content>
 						<Sidebar.GroupContent>
 							<Sidebar.Menu>
-								{#each mockTables as table (table.id)}
+								{#each tables as tableName (tableName)}
 									<Sidebar.MenuItem>
 										<Sidebar.MenuButton>
 											{#snippet child({ props })}
 												<a
-													href="/workspaces/{selectedWorkspaceId}/tables/{table.id}"
+													href="/workspaces/{selectedWorkspaceId}/tables/{tableName}"
 													{...props}
 												>
 													<TableIcon />
-													<span>{table.name}</span>
+													<span>{tableName}</span>
 												</a>
 											{/snippet}
 										</Sidebar.MenuButton>
+									</Sidebar.MenuItem>
+								{:else}
+									<Sidebar.MenuItem>
+										<span class="text-muted-foreground px-2 py-1 text-xs">
+											No tables yet
+										</span>
 									</Sidebar.MenuItem>
 								{/each}
 							</Sidebar.Menu>
@@ -70,26 +108,49 @@
 							<Collapsible.Trigger {...props}>Settings</Collapsible.Trigger>
 						{/snippet}
 					</Sidebar.GroupLabel>
-					<Sidebar.GroupAction title="Add Setting">
+					<Sidebar.GroupAction
+						title="Add Setting"
+						onclick={() => {
+							if (!selectedWorkspaceId) return;
+							inputDialog.open({
+								title: 'Add Setting',
+								description: 'Enter a key for the new setting.',
+								label: 'Setting Key',
+								placeholder: 'e.g., api-url, feature-flags',
+								onConfirm: async (key) => {
+									await addKvEntryMutation.mutateAsync({
+										workspaceId: selectedWorkspaceId,
+										key,
+									});
+								},
+							});
+						}}
+					>
 						<PlusIcon />
 						<span class="sr-only">Add Setting</span>
 					</Sidebar.GroupAction>
 					<Collapsible.Content>
 						<Sidebar.GroupContent>
 							<Sidebar.Menu>
-								{#each mockSettings as setting (setting.id)}
+								{#each settings as settingKey (settingKey)}
 									<Sidebar.MenuItem>
 										<Sidebar.MenuButton>
 											{#snippet child({ props })}
 												<a
-													href="/workspaces/{selectedWorkspaceId}/settings/{setting.id}"
+													href="/workspaces/{selectedWorkspaceId}/settings/{settingKey}"
 													{...props}
 												>
 													<SettingsIcon />
-													<span>{setting.name}</span>
+													<span>{settingKey}</span>
 												</a>
 											{/snippet}
 										</Sidebar.MenuButton>
+									</Sidebar.MenuItem>
+								{:else}
+									<Sidebar.MenuItem>
+										<span class="text-muted-foreground px-2 py-1 text-xs">
+											No settings yet
+										</span>
 									</Sidebar.MenuItem>
 								{/each}
 							</Sidebar.Menu>
@@ -103,6 +164,20 @@
 			</div>
 		{/if}
 	</Sidebar.Content>
+
+	<Sidebar.Footer>
+		<Sidebar.Menu>
+			<Sidebar.MenuItem>
+				<Sidebar.MenuButton
+					onclick={() => openDirectoryMutation.mutate(undefined)}
+					disabled={openDirectoryMutation.isPending}
+				>
+					<FolderOpenIcon />
+					<span>Open Data Folder</span>
+				</Sidebar.MenuButton>
+			</Sidebar.MenuItem>
+		</Sidebar.Menu>
+	</Sidebar.Footer>
 
 	<Sidebar.Rail />
 </Sidebar.Root>
