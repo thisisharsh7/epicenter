@@ -1,7 +1,7 @@
 import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { RowData, TableSchema } from '../core/schema';
+import type { Row, TableSchema } from '../core/schema';
 import { tableSchemaToArktype } from '../core/schema';
 import type { WorkspaceClient } from '../core/workspace/contract';
 
@@ -20,16 +20,9 @@ export function createTablesPlugin(
 			const basePath = `/workspaces/${workspaceId}/tables/${tableName}`;
 			const tags = [workspaceId, 'tables'];
 
-			app.get(
-				basePath,
-				() => {
-					const rows = tableHelper.getAllValid();
-					return rows.map((row) => row.toJSON());
-				},
-				{
-					detail: { description: `List all ${tableName}`, tags },
-				},
-			);
+			app.get(basePath, () => tableHelper.getAllValid(), {
+				detail: { description: `List all ${tableName}`, tags },
+			});
 
 			app.get(
 				`${basePath}/:id`,
@@ -38,7 +31,7 @@ export function createTablesPlugin(
 
 					switch (result.status) {
 						case 'valid':
-							return result.row.toJSON();
+							return result.row;
 						case 'invalid':
 							return status(422, { error: result.error.message });
 						case 'not_found':
@@ -53,8 +46,8 @@ export function createTablesPlugin(
 			app.post(
 				basePath,
 				({ body }) => {
-					tableHelper.upsert(body as RowData<TableSchema>);
-					return Ok({ id: (body as RowData<TableSchema>).id });
+					tableHelper.upsert(body as Row<TableSchema>);
+					return Ok({ id: (body as Row<TableSchema>).id });
 				},
 				{
 					body: tableSchemaToArktype(tableHelper.schema),
@@ -67,7 +60,7 @@ export function createTablesPlugin(
 				({ params, body }) => {
 					const result = tableHelper.update({
 						id: params.id,
-						...(body as Partial<RowData<TableSchema>>),
+						...(body as Partial<Row<TableSchema>>),
 					});
 					return Ok(result);
 				},

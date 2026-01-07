@@ -820,9 +820,9 @@ describe('KV Helpers', () => {
 	describe('Validation', () => {
 		test('get() returns invalid status when value type mismatches schema', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const ykvMap = ydoc.getMap('kv');
+			const ykvArray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 
-			ykvMap.set('count', 'not a number' as unknown);
+			ykvArray.push([{ key: 'count', val: 'not a number' }]);
 
 			const kv = createKv(ydoc, {
 				count: integer({ default: 0 }),
@@ -838,7 +838,7 @@ describe('KV Helpers', () => {
 
 		test('observe() passes error to callback when validation fails', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const ykvMap = ydoc.getMap('kv');
+			const ykvArray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 
 			const kv = createKv(ydoc, {
 				count: integer({ default: 0 }),
@@ -852,7 +852,7 @@ describe('KV Helpers', () => {
 				}
 			});
 
-			ykvMap.set('count', 'invalid value' as unknown);
+			ykvArray.push([{ key: 'count', val: 'invalid value' }]);
 
 			expect(receivedError).toBe(true);
 		});

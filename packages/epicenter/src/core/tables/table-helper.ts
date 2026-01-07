@@ -2,13 +2,7 @@ import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import type {
-	PartialRowData,
-	Row,
-	RowData,
-	TableSchema,
-	TablesSchema,
-} from '../schema';
+import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToYjsArktype } from '../schema';
 import { YKeyValue } from '../utils/y-keyvalue';
 
@@ -121,7 +115,7 @@ export function createTableHelpers<TTablesSchema extends TablesSchema>({
 }) {
 	// Y.Map containing Y.Arrays for each table's YKeyValue storage
 	// getMap() creates the map if it doesn't exist (idempotent)
-	const ytables = ydoc.getMap<Y.Array<{ key: string; val: RowData }>>('tables');
+	const ytables = ydoc.getMap<Y.Array<{ key: string; val: Row }>>('tables');
 
 	return Object.fromEntries(
 		Object.entries(schema).map(([tableName, tableSchema]) => {
@@ -172,13 +166,12 @@ function createTableHelper<TTableSchema extends TableSchema>({
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
-	ytables: Y.Map<Y.Array<{ key: string; val: RowData }>>;
+	ytables: Y.Map<Y.Array<{ key: string; val: Row }>>;
 	schema: TTableSchema;
 }) {
 	type TRow = Row<TTableSchema>;
-	type TRowData = RowData<TTableSchema>;
 
-	let ykv: YKeyValue<RowData> | null = null;
+	let ykv: YKeyValue<Row> | null = null;
 
 	/**
 	 * Lazily resolve the YKeyValue for this table on each access.
@@ -186,52 +179,19 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	 * The YKeyValue wraps a Y.Array and maintains an internal Map for O(1) lookups.
 	 * We cache the YKeyValue instance since it maintains state (the lookup map).
 	 */
-	const getYKeyValue = (): YKeyValue<RowData> => {
+	const getYKeyValue = (): YKeyValue<Row> => {
 		if (ykv) return ykv;
 
 		let yarray = ytables.get(tableName);
 		if (!yarray) {
-			yarray = new Y.Array<{ key: string; val: RowData }>();
+			yarray = new Y.Array<{ key: string; val: Row }>();
 			ytables.set(tableName, yarray);
 		}
 		ykv = new YKeyValue(yarray);
 		return ykv;
 	};
 
-	// Precompute schema keys for toJSON optimization
-	const schemaKeys = Object.keys(schema);
-
-	/**
-	 * Creates a Row object from stored row data.
-	 *
-	 * Uses Object.create to attach helper methods to the prototype chain:
-	 * - `toJSON()`: Returns only schema fields (for JSON.stringify)
-	 * - `$rowData`: Access to the underlying stored data
-	 *
-	 * These are on the prototype (not own properties) so they don't appear in:
-	 * - `console.log(row)` output
-	 * - `Object.keys(row)` iteration
-	 * - `JSON.stringify(row)` serialization
-	 * - `{ ...row }` spread operations
-	 *
-	 * This keeps the row clean for debugging while preserving access to internals.
-	 */
-	const buildRow = (data: RowData): TRow =>
-		Object.assign(
-			Object.create({
-				toJSON() {
-					return Object.fromEntries(
-						schemaKeys
-							.filter((key) => data[key] !== undefined)
-							.map((key) => [key, data[key]]),
-					) as TRowData;
-				},
-				get $rowData() {
-					return data;
-				},
-			}),
-			data,
-		) as TRow;
+	const buildRow = (data: Row): TRow => data as TRow;
 
 	return {
 		/**
@@ -257,14 +217,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * all their data. The no-op behavior is the safe choice that prevents catastrophic
 		 * data loss.
 		 */
-		update(partialRowData: PartialRowData<TTableSchema>): UpdateResult {
-			const existing = getYKeyValue().get(partialRowData.id);
+		update(partialRow: PartialRow<TTableSchema>): UpdateResult {
+			const existing = getYKeyValue().get(partialRow.id);
 			if (!existing) {
 				return { status: 'not_found_locally' };
 			}
 
-			const merged = { ...existing, ...partialRowData };
-			getYKeyValue().set(partialRowData.id, merged);
+			const merged = { ...existing, ...partialRow };
+			getYKeyValue().set(partialRow.id, merged);
 
 			return { status: 'applied' };
 		},
@@ -300,7 +260,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * });
 		 * ```
 		 */
-		upsert(rowData: TRowData): void {
+		upsert(rowData: TRow): void {
 			getYKeyValue().set(rowData.id, rowData);
 		},
 
@@ -320,7 +280,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * ]);
 		 * ```
 		 */
-		upsertMany(rows: TRowData[]): void {
+		upsertMany(rows: TRow[]): void {
 			ydoc.transact(() => {
 				for (const rowData of rows) {
 					getYKeyValue().set(rowData.id, rowData);
@@ -334,20 +294,20 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Rows that don't exist locally are skipped (no-op). See `update` for the rationale.
 		 * Returns a status indicating how many rows were applied vs not found locally.
 		 */
-		updateMany(rows: PartialRowData<TTableSchema>[]): UpdateManyResult {
+		updateMany(rows: PartialRow<TTableSchema>[]): UpdateManyResult {
 			const applied: string[] = [];
 			const notFoundLocally: string[] = [];
 
 			ydoc.transact(() => {
-				for (const partialRowData of rows) {
-					const existing = getYKeyValue().get(partialRowData.id);
+				for (const partialRow of rows) {
+					const existing = getYKeyValue().get(partialRow.id);
 					if (!existing) {
-						notFoundLocally.push(partialRowData.id);
+						notFoundLocally.push(partialRow.id);
 						continue;
 					}
-					const merged = { ...existing, ...partialRowData };
-					getYKeyValue().set(partialRowData.id, merged);
-					applied.push(partialRowData.id);
+					const merged = { ...existing, ...partialRow };
+					getYKeyValue().set(partialRow.id, merged);
+					applied.push(partialRow.id);
 				}
 			});
 
@@ -674,13 +634,13 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const handler = (
 				changes: Map<
 					string,
-					| { action: 'add'; newValue: RowData }
+					| { action: 'add'; newValue: Row }
 					| {
 							action: 'update';
-							oldValue: RowData;
-							newValue: RowData;
+							oldValue: Row;
+							newValue: Row;
 					  }
-					| { action: 'delete'; oldValue: RowData }
+					| { action: 'delete'; oldValue: Row }
 				>,
 				transaction: Y.Transaction,
 			) => {
@@ -739,28 +699,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		/**
-		 * Type inference helper for RowData.
-		 *
-		 * RowData is the plain JavaScript representation of a row,
-		 * used for upsert and update operations.
-		 *
-		 * Alternative: `Parameters<typeof tables.posts.upsert>[0]`
-		 *
-		 * @example
-		 * ```typescript
-		 * type Post = typeof tables.posts.$inferRowData;
-		 * // { id: string; title: string; content: string; tags: string[] }
-		 * ```
-		 */
-		$inferRowData: null as unknown as TRowData,
-
-		/**
 		 * Type inference helper for Row.
 		 *
-		 * Row is the representation returned from get() and getAll().
-		 * With YKeyValue, rows are plain objects with getters.
-		 *
-		 * Alternative: Extract from GetResult: `Extract<ReturnType<typeof tables.posts.get>, { status: 'valid' }>['row']`
+		 * Alternative: `Parameters<typeof tables.posts.upsert>[0]`
 		 *
 		 * @example
 		 * ```typescript

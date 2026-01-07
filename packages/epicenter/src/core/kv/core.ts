@@ -2,8 +2,9 @@ import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
 import type { KvSchema, KvValue } from '../schema';
+import { YKeyValue } from '../utils/y-keyvalue';
 
-import type { KvHelper, YKvMap } from './kv-helper';
+import type { KvHelper } from './kv-helper';
 import { createKvHelpers } from './kv-helper';
 
 const KV_KEY_PATTERN = regex('^[a-z][a-z0-9_]*$');
@@ -27,13 +28,10 @@ export function createKv<TKvSchema extends KvSchema>(
 		}
 	}
 
-	const ykvMap = ydoc.getMap<KvValue>('kv') as YKvMap;
+	const ykvArray = ydoc.getArray<{ key: string; val: KvValue }>('kv');
+	const ykv = new YKeyValue(ykvArray);
 
-	const kvHelpers = createKvHelpers({
-		ydoc,
-		schema,
-		ykvMap,
-	});
+	const kvHelpers = createKvHelpers({ ydoc, schema });
 
 	return {
 		...kvHelpers,
@@ -45,17 +43,12 @@ export function createKv<TKvSchema extends KvSchema>(
 		$toJSON() {
 			const result: Record<string, unknown> = {};
 			for (const keyName of Object.keys(schema)) {
-				const value = ykvMap.get(keyName);
-				if (value !== undefined) {
-					result[keyName] = value;
+				const helper = kvHelpers[keyName as keyof typeof kvHelpers];
+				const getResult = helper.get();
+				if (getResult.status === 'valid') {
+					result[keyName] = getResult.value;
 				} else {
-					const helper = kvHelpers[keyName as keyof typeof kvHelpers];
-					const getResult = helper.get();
-					if (getResult.status === 'valid') {
-						result[keyName] = getResult.value;
-					} else {
-						result[keyName] = null;
-					}
+					result[keyName] = null;
 				}
 			}
 			return result as {
@@ -64,11 +57,9 @@ export function createKv<TKvSchema extends KvSchema>(
 		},
 
 		clearAll(): void {
-			ydoc.transact(() => {
-				for (const keyName of Object.keys(schema)) {
-					ykvMap.delete(keyName);
-				}
-			});
+			for (const keyName of Object.keys(schema)) {
+				ykv.delete(keyName);
+			}
 		},
 	};
 }

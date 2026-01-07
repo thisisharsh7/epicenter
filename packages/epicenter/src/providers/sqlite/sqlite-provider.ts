@@ -13,7 +13,7 @@ import {
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider';
-import type { RowData, TablesSchema } from '../../core/schema';
+import type { Row, TablesSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
@@ -177,9 +177,8 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 			if (rows.length > 0) {
 				const { error } = await tryAsync({
 					try: async () => {
-						const serializedRows = rows.map((row) => row.toJSON());
-						// @ts-expect-error RowData<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
-						await sqliteDb.insert(drizzleTable).values(serializedRows);
+						// @ts-expect-error Row<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
+						await sqliteDb.insert(drizzleTable).values(rows);
 					},
 					catch: (e) =>
 						IndexErr({
@@ -258,9 +257,8 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 		if (rows.length > 0) {
 			const { error } = await tryAsync({
 				try: async () => {
-					const serializedRows = rows.map((row) => row.toJSON());
-					// @ts-expect-error RowData<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
-					await sqliteDb.insert(drizzleTable).values(serializedRows);
+					// @ts-expect-error Row<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
+					await sqliteDb.insert(drizzleTable).values(rows);
 				},
 				catch: (e) =>
 					IndexErr({
@@ -315,7 +313,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 						for (const row of rows) {
 							// Cast is safe: Drizzle schema is derived from workspace schema
 							table.upsert(
-								row as RowData<TTablesSchema[keyof TTablesSchema & string]>,
+								row as Row<TTablesSchema[keyof TTablesSchema & string]>,
 							);
 						}
 					}

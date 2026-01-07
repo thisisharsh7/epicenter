@@ -11,12 +11,7 @@ import {
 	type ProviderContext,
 } from '../../core/provider.shared';
 import type { TableHelper } from '../../core/tables/core';
-import type {
-	Row,
-	RowData,
-	TableSchema,
-	TablesSchema,
-} from '../../core/schema';
+import type { Row, TableSchema, TablesSchema } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
 import {
@@ -375,11 +370,9 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 			async function writeRowToMarkdown<TTableSchema extends TableSchema>(
 				row: Row<TTableSchema>,
 			) {
-				const serialized = row.toJSON();
-
 				const { frontmatter, body, filename } = tableConfig.serialize({
 					// @ts-expect-error: TTableSchema doesn't correlate with tableConfig's schema from outer $zip
-					row: serialized,
+					row,
 					table,
 				});
 
@@ -703,7 +696,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						return;
 					}
 
-					const validatedRow = row as RowData<
+					const validatedRow = row as Row<
 						TTablesSchema[keyof TTablesSchema & string]
 					>;
 
@@ -1015,9 +1008,8 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 		// Serialize each row to extract filename and populate tracking (rowId → filename)
 		for (const row of rows) {
-			const serializedRow = row.toJSON();
 			const { filename } = tableConfig.serialize({
-				row: serializedRow,
+				row,
 				table,
 			});
 
@@ -1166,10 +1158,9 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 								await Promise.all(
 									yjsRows.map(async (row) => {
-										const serializedRow = row.toJSON();
 										const { frontmatter, body, filename } =
 											tableConfig.serialize({
-												row: serializedRow,
+												row,
 												table,
 											});
 
@@ -1282,7 +1273,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						fileExistsIds: Set<string>;
 						markdownRows: Map<
 							string,
-							RowData<TTablesSchema[keyof TTablesSchema & string]>
+							Row<TTablesSchema[keyof TTablesSchema & string]>
 						>;
 						markdownFilenames: Map<string, string>;
 					};
@@ -1319,7 +1310,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 									const markdownRows = new Map<
 										string,
-										RowData<TTablesSchema[keyof TTablesSchema & string]>
+										Row<TTablesSchema[keyof TTablesSchema & string]>
 									>();
 									const markdownFilenames = new Map<string, string>();
 

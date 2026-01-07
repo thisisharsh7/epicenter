@@ -22,7 +22,7 @@ import type {
 	JsonFieldSchema,
 	RealFieldSchema,
 	RichtextFieldSchema,
-	RowData,
+	Row,
 	SelectFieldSchema,
 	TableSchema,
 	TagsFieldSchema,
@@ -107,7 +107,7 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
  */
 export function tableSchemaToArktype<TTableSchema extends TableSchema>(
 	tableSchema: TTableSchema,
-): ObjectType<RowData<TTableSchema>> {
+): ObjectType<Row<TTableSchema>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
@@ -115,7 +115,7 @@ export function tableSchemaToArktype<TTableSchema extends TableSchema>(
 				fieldSchemaToArktype(fieldSchema),
 			]),
 		),
-	) as ObjectType<RowData<TTableSchema>>;
+	) as ObjectType<Row<TTableSchema>>;
 }
 
 /**

@@ -5,6 +5,7 @@ import type * as Y from 'yjs';
 
 import type { KvFieldSchema, KvSchema, KvValue } from '../schema';
 import { fieldSchemaToYjsArktype, isNullableFieldSchema } from '../schema';
+import { YKeyValue, type YKeyValueChangeHandler } from '../utils/y-keyvalue';
 
 /**
  * Context for KV validation errors
@@ -31,30 +32,28 @@ export type KvGetResult<TValue> =
 	| { status: 'valid'; value: TValue }
 	| { status: 'invalid'; key: string; error: KvValidationError };
 
-export type YKvMap = Y.Map<KvValue>;
-
 /**
  * Creates a collection of typed KV helpers for all keys in a schema.
  *
- * Each key in the schema gets its own helper with get/set operations
- * that handle YJS synchronization and type validation.
+ * Uses YKeyValue internally for efficient storage. KV data is stored as
+ * `{key, val}` pairs in a Y.Array, avoiding Y.Map's tombstone accumulation.
  */
 export function createKvHelpers<TKvSchema extends KvSchema>({
 	ydoc,
 	schema,
-	ykvMap,
 }: {
 	ydoc: Y.Doc;
 	schema: TKvSchema;
-	ykvMap: YKvMap;
 }) {
+	const ykvArray = ydoc.getArray<{ key: string; val: KvValue }>('kv');
+	const ykv = new YKeyValue(ykvArray);
+
 	return Object.fromEntries(
 		Object.entries(schema).map(([keyName, columnSchema]) => [
 			keyName,
 			createKvHelper({
-				ydoc,
 				keyName,
-				ykvMap,
+				ykv,
 				schema: columnSchema,
 			}),
 		]),
@@ -64,14 +63,12 @@ export function createKvHelpers<TKvSchema extends KvSchema>({
 }
 
 export function createKvHelper<TFieldSchema extends KvFieldSchema>({
-	ydoc,
 	keyName,
-	ykvMap,
+	ykv,
 	schema,
 }: {
-	ydoc: Y.Doc;
 	keyName: string;
-	ykvMap: YKvMap;
+	ykv: YKeyValue<KvValue>;
 	schema: TFieldSchema;
 }) {
 	type TValue = KvValue<TFieldSchema>;
@@ -79,7 +76,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	const nullable = isNullableFieldSchema(schema);
 
 	const getCurrentValue = (): TValue => {
-		const value = ykvMap.get(keyName);
+		const value = ykv.get(keyName);
 
 		if (value === undefined) {
 			if (schema.default !== undefined) {
@@ -169,9 +166,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		set(value: TValue): void {
-			ydoc.transact(() => {
-				ykvMap.set(keyName, value as KvValue);
-			});
+			ykv.set(keyName, value as KvValue);
 		},
 
 		/**
@@ -201,8 +196,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		observe(
 			callback: (result: Result<TValue, KvValidationError>) => void,
 		): () => void {
-			const handler = (event: Y.YMapEvent<KvValue>) => {
-				if (event.keysChanged.has(keyName)) {
+			const handler: YKeyValueChangeHandler<unknown> = (changes) => {
+				if (changes.has(keyName)) {
 					const value = getCurrentValue();
 					const validationResult = validator(value);
 
@@ -222,8 +217,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 					}
 				}
 			};
-			ykvMap.observe(handler);
-			return () => ykvMap.unobserve(handler);
+			ykv.on('change', handler);
+			return () => ykv.off('change', handler);
 		},
 
 		/**
@@ -244,9 +239,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			} else if (nullable) {
 				this.set(null as TValue);
 			} else {
-				ydoc.transact(() => {
-					ykvMap.delete(keyName);
-				});
+				ykv.delete(keyName);
 			}
 		},
 
