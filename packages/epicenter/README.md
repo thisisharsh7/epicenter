@@ -381,22 +381,30 @@ verified: boolean({ nullable: true });
 
 ### `date(options?)`
 
-Date with timezone support using custom `DateWithTimezone` type.
+Date with timezone support using `DateTimeString` (branded string with lazy Temporal parsing).
 
 ```typescript
 createdAt: date();
 publishedAt: date({ nullable: true });
 ```
 
-Create dates with timezone:
+Working with dates:
 
 ```typescript
-import { DateWithTimezone } from '@epicenter/hq';
+import { DateTimeString } from '@epicenter/hq';
 
-const now = DateWithTimezone({
-	date: new Date(),
-	timezone: 'America/New_York',
-});
+// Create current timestamp
+const now = DateTimeString.now(); // Uses system timezone
+const nowNY = DateTimeString.now('America/New_York');
+
+// Storage format: "2024-01-01T20:00:00.000Z|America/New_York"
+
+// Parse to Temporal.ZonedDateTime when you need date math
+const live = DateTimeString.parse(now);
+const nextMonth = live.add({ months: 1 });
+
+// Stringify back for storage
+const stored = DateTimeString.stringify(nextMonth);
 ```
 
 ### `select(options)`
@@ -1567,23 +1575,27 @@ Built-in persistence provider (IndexedDB in browser, filesystem in Node.js).
 
 ```typescript
 import {
-	DateWithTimezone,
-	DateWithTimezoneFromString,
-	isDateWithTimezone,
-	isDateWithTimezoneString,
-	type DateWithTimezoneString,
+	DateTimeString,
 	type DateIsoString,
 	type TimezoneId,
 } from '@epicenter/hq';
 ```
 
-**`DateWithTimezone({ date, timezone })`**
+**`DateTimeString.now(timezone?)`**
 
-Create a date with timezone.
+Create a DateTimeString for the current moment. Uses system timezone if not specified.
 
-**`DateWithTimezoneFromString(str)`**
+**`DateTimeString.parse(str)`**
 
-Parse from string (format: `{iso}[{timezone}]`).
+Parse storage string to `Temporal.ZonedDateTime` for date math and manipulation.
+
+**`DateTimeString.stringify(dt)`**
+
+Convert `Temporal.ZonedDateTime` back to storage format.
+
+**`DateTimeString.is(value)`**
+
+Type guard to check if a value is a valid DateTimeString.
 
 ### Validation
 
