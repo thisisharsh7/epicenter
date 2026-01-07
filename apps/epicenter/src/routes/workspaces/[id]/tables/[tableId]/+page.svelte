@@ -7,6 +7,7 @@
 	import { Badge } from '@epicenter/ui/badge';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
+	import type { FieldSchema, TableSchema } from '@epicenter/hq';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -19,21 +20,13 @@
 		enabled: !!workspaceId,
 	}));
 
-	const tableSchema = $derived(workspace.data?.tables[tableId ?? '']);
+	const tableSchema = $derived.by(() => {
+		if (!tableId || !workspace.data?.tables) return undefined;
+		return workspace.data.tables[tableId] as TableSchema | undefined;
+	});
 
 	const columns = $derived(
-		tableSchema
-			? Object.entries(
-					tableSchema as Record<
-						string,
-						{
-							'x-component': string;
-							type: string | string[];
-							default?: unknown;
-						}
-					>,
-				)
-			: [],
+		tableSchema ? (Object.entries(tableSchema) as [string, FieldSchema][]) : [],
 	);
 </script>
 

@@ -5,6 +5,7 @@
 	import { Button } from '@epicenter/ui/button';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
+	import type { KvFieldSchema } from '@epicenter/hq';
 
 	const workspaceId = $derived(page.params.id);
 	const settingKey = $derived(page.params.key);
@@ -14,11 +15,10 @@
 		enabled: !!workspaceId,
 	}));
 
-	const kvSchema = $derived(
-		workspace.data?.kv[settingKey ?? ''] as
-			| { 'x-component': string; type: string | string[]; default?: unknown }
-			| undefined,
-	);
+	const kvSchema = $derived.by(() => {
+		if (!settingKey || !workspace.data?.kv) return undefined;
+		return workspace.data.kv[settingKey] as KvFieldSchema | undefined;
+	});
 
 	const isNullable = $derived(
 		kvSchema
