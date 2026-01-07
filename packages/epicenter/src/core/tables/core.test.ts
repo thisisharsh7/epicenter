@@ -152,7 +152,7 @@ describe('createTables', () => {
 		expect(secondRow.title).toBe('rtxt_second456');
 	});
 
-	test('toJSON() returns plain object without methods', () => {
+	test('rows are plain JSON-serializable objects', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: {
@@ -168,57 +168,11 @@ describe('createTables', () => {
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			const row = result.row;
-			const json = row.toJSON();
+			expect(row).toEqual({ id: '1', title: 'Test', published: false });
 
-			expect(json).toEqual({ id: '1', title: 'Test', published: false });
-			expect(typeof (json as any).toJSON).toBe('undefined');
-			expect(typeof (json as any).$yRow).toBe('undefined');
-		}
-	});
-
-	test('JSON.stringify(row) works correctly via toJSON()', () => {
-		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-				published: boolean(),
-			},
-		});
-
-		doc.posts.upsert({ id: '1', title: 'Test', published: false });
-
-		const result = doc.posts.get('1');
-		expect(result.status).toBe('valid');
-		if (result.status === 'valid') {
-			const row = result.row;
 			const serialized = JSON.stringify(row);
 			const parsed = JSON.parse(serialized);
-
 			expect(parsed).toEqual({ id: '1', title: 'Test', published: false });
-		}
-	});
-
-	test('toJSON() only includes schema-defined fields', () => {
-		const ydoc = new Y.Doc({ guid: 'test-workspace' });
-		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-			},
-		});
-
-		doc.posts.upsert({ id: '1', title: 'Test' });
-
-		const result = doc.posts.get('1');
-		expect(result.status).toBe('valid');
-		if (result.status === 'valid') {
-			const yrow = result.row.$yRow;
-			yrow.set('extraField', 'should be filtered');
-
-			const json = result.row.toJSON();
-			expect(json).toEqual({ id: '1', title: 'Test' });
-			expect((json as any).extraField).toBeUndefined();
 		}
 	});
 
@@ -234,12 +188,12 @@ describe('createTables', () => {
 			});
 
 			const addedRows: string[] = [];
-			tables.posts.observe({
-				onAdd: (result) => {
-					if (result.data) {
-						addedRows.push(result.data.id);
+			tables.posts.observeChanges((changes) => {
+				for (const [id, change] of changes) {
+					if (change.action === 'add') {
+						addedRows.push(id);
 					}
-				},
+				}
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'First', published: false });
@@ -261,12 +215,15 @@ describe('createTables', () => {
 			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
 
 			const updates: Array<{ id: string; title: string }> = [];
-			tables.posts.observe({
-				onUpdate: (result) => {
-					if (result.data) {
-						updates.push({ id: result.data.id, title: result.data.title });
+			tables.posts.observeChanges((changes) => {
+				for (const [id, change] of changes) {
+					if (change.action === 'update') {
+						updates.push({
+							id,
+							title: change.newValue.title,
+						});
 					}
-				},
+				}
 			});
 
 			tables.posts.update({ id: 'post-1', title: 'Updated' });
@@ -289,10 +246,12 @@ describe('createTables', () => {
 			tables.posts.upsert({ id: 'post-2', title: 'Second' });
 
 			const deletedIds: string[] = [];
-			tables.posts.observe({
-				onDelete: (rowId) => {
-					deletedIds.push(rowId);
-				},
+			tables.posts.observeChanges((changes) => {
+				for (const [id, change] of changes) {
+					if (change.action === 'delete') {
+						deletedIds.push(id);
+					}
+				}
 			});
 
 			tables.posts.delete('post-1');
@@ -300,7 +259,7 @@ describe('createTables', () => {
 			expect(deletedIds).toEqual(['post-1']);
 		});
 
-		test('callbacks receive Result types with validation', () => {
+		test('callbacks receive raw row data', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: {
@@ -309,28 +268,27 @@ describe('createTables', () => {
 				},
 			});
 
-			let hasData = false;
-			let hasError = false;
-			let callbackFired = false;
+			const receivedRows: Array<{ id: string; title: string }> = [];
 
-			tables.posts.observe({
-				onAdd: (result) => {
-					callbackFired = true;
-					hasData = result.data != null;
-					hasError = result.error != null;
-				},
+			tables.posts.observeChanges((changes) => {
+				for (const [id, change] of changes) {
+					if (change.action === 'add') {
+						receivedRows.push({ id, title: change.newValue.title });
+					}
+				}
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'Test' });
 
-			expect(callbackFired).toBe(true);
-			expect(hasData).toBe(true);
-			expect(hasError).toBe(false);
+			expect(receivedRows).toHaveLength(1);
+			expect(receivedRows[0]).toEqual({ id: 'post-1', title: 'Test' });
 		});
 
-		test('validation errors are passed to callbacks', () => {
+		test('raw values passed through even for invalid data', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
-			const ytables = ydoc.getMap('tables') as Y.Map<Y.Map<Y.Map<unknown>>>;
+			const ytableArrays = ydoc.getMap('tables') as Y.Map<
+				Y.Array<{ key: string; val: unknown }>
+			>;
 
 			const tables = createTables(ydoc, {
 				posts: {
@@ -339,25 +297,27 @@ describe('createTables', () => {
 				},
 			});
 
-			let receivedError = false;
-			tables.posts.observe({
-				onAdd: (result) => {
-					if (result.error) {
-						receivedError = true;
+			let receivedRow: unknown = null;
+			tables.posts.observeChanges((changes) => {
+				for (const [_id, change] of changes) {
+					if (change.action === 'add') {
+						receivedRow = change.newValue;
 					}
-				},
+				}
 			});
 
-			const postsMap = ytables.get('posts') ?? new Y.Map();
-			if (!ytables.has('posts')) {
-				ytables.set('posts', postsMap as Y.Map<Y.Map<unknown>>);
+			const postsArray =
+				ytableArrays.get('posts') ??
+				new Y.Array<{ key: string; val: unknown }>();
+			if (!ytableArrays.has('posts')) {
+				ytableArrays.set('posts', postsArray);
 			}
-			const invalidRow = new Y.Map();
-			invalidRow.set('id', 'bad-row');
-			invalidRow.set('count', 'not a number');
-			(postsMap as Y.Map<Y.Map<unknown>>).set('bad-row', invalidRow);
+			postsArray.push([
+				{ key: 'bad-row', val: { id: 'bad-row', count: 'not a number' } },
+			]);
 
-			expect(receivedError).toBe(true);
+			// observeChanges receives raw values without validation
+			expect(receivedRow).toEqual({ id: 'bad-row', count: 'not a number' });
 		});
 
 		test('unsubscribe stops callbacks', () => {
@@ -370,12 +330,12 @@ describe('createTables', () => {
 			});
 
 			const addedIds: string[] = [];
-			const unsubscribe = tables.posts.observe({
-				onAdd: (result) => {
-					if (result.data) {
-						addedIds.push(result.data.id);
+			const unsubscribe = tables.posts.observeChanges((changes) => {
+				for (const [id, change] of changes) {
+					if (change.action === 'add') {
+						addedIds.push(id);
 					}
-				},
+				}
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'First' });

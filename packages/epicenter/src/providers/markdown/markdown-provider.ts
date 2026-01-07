@@ -11,12 +11,7 @@ import {
 	type ProviderContext,
 } from '../../core/provider.shared';
 import type { TableHelper } from '../../core/tables/core';
-import type {
-	Row,
-	RowData,
-	TableSchema,
-	TablesSchema,
-} from '../../core/schema';
+import type { Row, TableSchema, TablesSchema } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
 import {
@@ -375,11 +370,9 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 			async function writeRowToMarkdown<TTableSchema extends TableSchema>(
 				row: Row<TTableSchema>,
 			) {
-				const serialized = row.toJSON();
-
 				const { frontmatter, body, filename } = tableConfig.serialize({
 					// @ts-expect-error: TTableSchema doesn't correlate with tableConfig's schema from outer $zip
-					row: serialized,
+					row,
 					table,
 				});
 
@@ -417,102 +410,76 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 				});
 			}
 
-			const unsub = table.observe({
-				onAdd: async (result) => {
-					// Skip if this YJS change was triggered by a file change we're processing
-					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.fileChangeCount > 0) return;
+			const unsub = table.observeChanges((changes) => {
+				if (syncCoordination.fileChangeCount > 0) return;
 
-					if (result.error) {
-						// Handle validation errors with diagnostics + logger
-						logger.log(
-							ProviderError({
-								message: `YJS observer onAdd: validation failed for ${table.name}`,
-								context: result.error.context,
-							}),
-						);
-						return;
+				for (const [id, change] of changes) {
+					if (change.action === 'delete') {
+						void (async () => {
+							syncCoordination.yjsWriteCount++;
+
+							const filename = tracking[table.name]?.[id];
+							if (filename) {
+								const filePath = path.join(
+									tableConfig.directory,
+									filename,
+								) as AbsolutePath;
+								const { error } = await deleteMarkdownFile({ filePath });
+
+								// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+								delete tracking[table.name]![id];
+
+								if (error) {
+									logger.log(
+										ProviderError({
+											message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
+											context: {
+												tableName: table.name,
+												rowId: id,
+												filePath,
+											},
+										}),
+									);
+								}
+							}
+
+							syncCoordination.yjsWriteCount--;
+						})();
+						continue;
 					}
 
-					const row = result.data;
-					syncCoordination.yjsWriteCount++;
-					const { error } = await writeRowToMarkdown(row);
-					syncCoordination.yjsWriteCount--;
-
-					if (error) {
-						// Log I/O errors (operational errors, not validation errors)
+					const validationResult = table.get(id);
+					if (validationResult.status === 'invalid') {
 						logger.log(
 							ProviderError({
-								message: `YJS observer onAdd: failed to write ${table.name}/${row.id}`,
-								context: { tableName: table.name, rowId: row.id },
+								message: `YJS observer ${change.action}: validation failed for ${table.name}/${id}: ${validationResult.summary}`,
+								context: {
+									tableName: validationResult.tableName,
+									rowId: id,
+								},
 							}),
 						);
-					}
-				},
-				onUpdate: async (result) => {
-					// Skip if this YJS change was triggered by a file change we're processing
-					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.fileChangeCount > 0) return;
-
-					if (result.error) {
-						// Handle validation errors with diagnostics + logger
-						logger.log(
-							ProviderError({
-								message: `YJS observer onUpdate: validation failed for ${table.name}`,
-								context: result.error.context,
-							}),
-						);
-						return;
+						continue;
 					}
 
-					const row = result.data;
-					syncCoordination.yjsWriteCount++;
-					const { error } = await writeRowToMarkdown(row);
-					syncCoordination.yjsWriteCount--;
+					if (validationResult.status === 'not_found') continue;
 
-					if (error) {
-						// Log I/O errors (operational errors, not validation errors)
-						logger.log(
-							ProviderError({
-								message: `YJS observer onUpdate: failed to write ${table.name}/${row.id}`,
-								context: { tableName: table.name, rowId: row.id },
-							}),
-						);
-					}
-				},
-				onDelete: async (id) => {
-					// Skip if this YJS change was triggered by a file change we're processing
-					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.fileChangeCount > 0) return;
-
-					syncCoordination.yjsWriteCount++;
-
-					// Get filename and delete file if it exists
-					const filename = tracking[table.name]?.[id];
-					if (filename) {
-						const filePath = path.join(
-							tableConfig.directory,
-							filename,
-						) as AbsolutePath;
-						const { error } = await deleteMarkdownFile({ filePath });
-
-						// Clean up tracking
-						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-						delete tracking[table.name]![id];
+					const row = validationResult.row;
+					void (async () => {
+						syncCoordination.yjsWriteCount++;
+						const { error } = await writeRowToMarkdown(row);
+						syncCoordination.yjsWriteCount--;
 
 						if (error) {
-							// Log I/O errors (operational errors, not validation errors)
 							logger.log(
 								ProviderError({
-									message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
-									context: { tableName: table.name, rowId: id, filePath },
+									message: `YJS observer ${change.action}: failed to write ${table.name}/${row.id}`,
+									context: { tableName: table.name, rowId: row.id },
 								}),
 							);
 						}
-					}
-
-					syncCoordination.yjsWriteCount--;
-				},
+					})();
+				}
 			});
 			unsubscribers.push(unsub);
 		}
@@ -703,7 +670,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						return;
 					}
 
-					const validatedRow = row as RowData<
+					const validatedRow = row as Row<
 						TTablesSchema[keyof TTablesSchema & string]
 					>;
 
@@ -1015,9 +982,8 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 		// Serialize each row to extract filename and populate tracking (rowId → filename)
 		for (const row of rows) {
-			const serializedRow = row.toJSON();
 			const { filename } = tableConfig.serialize({
-				row: serializedRow,
+				row,
 				table,
 			});
 
@@ -1166,10 +1132,9 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 								await Promise.all(
 									yjsRows.map(async (row) => {
-										const serializedRow = row.toJSON();
 										const { frontmatter, body, filename } =
 											tableConfig.serialize({
-												row: serializedRow,
+												row,
 												table,
 											});
 
@@ -1282,7 +1247,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						fileExistsIds: Set<string>;
 						markdownRows: Map<
 							string,
-							RowData<TTablesSchema[keyof TTablesSchema & string]>
+							Row<TTablesSchema[keyof TTablesSchema & string]>
 						>;
 						markdownFilenames: Map<string, string>;
 					};
@@ -1319,7 +1284,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 									const markdownRows = new Map<
 										string,
-										RowData<TTablesSchema[keyof TTablesSchema & string]>
+										Row<TTablesSchema[keyof TTablesSchema & string]>
 									>();
 									const markdownFilenames = new Map<string, string>();
 

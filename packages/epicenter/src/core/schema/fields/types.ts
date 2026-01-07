@@ -4,7 +4,7 @@
  * Contains the foundational types for the schema system:
  * - Field schema types (IdFieldSchema, TextFieldSchema, etc.)
  * - Table and workspace schemas
- * - Row value types (CellValue, RowData, Row)
+ * - Row value types (CellValue, Row, PartialRow)
  *
  * ## Schema Structure
  *
@@ -30,12 +30,11 @@
  * - `nullability.ts` - isNullableFieldSchema helper
  */
 
-import type { YRow } from '../../tables/table-helper';
-import type { DateTimeString } from './datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
 } from '../standard/types';
+import type { DateTimeString } from './datetime';
 
 // ============================================================================
 // Column Schema Types
@@ -350,75 +349,57 @@ export type WorkspaceSchema = TablesSchema;
 // ============================================================================
 
 /**
- * Live proxy object for reading table data.
+ * Plain object representing a complete table row.
  *
- * `Row` is what you get back from read operations (`get`, `getAll`, `find`).
- * It wraps a Y.Map with getters, providing live access to collaborative data.
- *
- * Properties are readonly and typed according to their column schemas.
- *
- * **Row vs RowData:**
- * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
- * - `RowData` = Plain object (input type for writes). Just data, no methods.
- * - `Row` is a subtype of `RowData`, so you can pass a Row to `upsert()`.
+ * Row is the unified type for both reads and writes. All values are plain
+ * JSON-serializable primitives (no Y.js types, no methods, no proxy behavior).
  *
  * @example
  * ```typescript
- * const row = tables.posts.get({ id: '1' });
- * if (row.status === 'valid') {
- *   console.log(row.row.title);        // Access via getter
- *   const data = row.row.toJSON();     // Convert to plain object
- *   tables.posts.upsert(row.row);      // Works (Row is subtype of RowData)
+ * // Write: pass a Row to upsert
+ * tables.posts.upsert({
+ *   id: generateId(),
+ *   title: 'Hello World',
+ *   published: false,
+ * });
+ *
+ * // Read: get returns a Row (wrapped in RowResult for validation)
+ * const result = tables.posts.get({ id: '1' });
+ * if (result.status === 'valid') {
+ *   const row: Row = result.row;
+ *   console.log(row.title);
  * }
+ *
+ * // Rows are JSON-serializable
+ * const json = JSON.stringify(row);
  * ```
  */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
-	readonly [K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
-} & {
-	/** Convert to plain RowData object. Only includes schema-defined fields. */
-	toJSON(): RowData<TTableSchema>;
-	/** Access the underlying Y.Map for advanced operations. */
-	readonly $yRow: YRow;
-};
-
-/**
- * Plain data object for writing table data (Data Transfer Object).
- *
- * `RowData` is what you pass to write operations (`upsert`, `update`).
- * It's a simple POJO with no methods or Y.js references.
- *
- * **RowData vs Row:**
- * - `RowData` = Plain object (input type for writes). Just data, no methods.
- * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
- * - You cannot pass a plain `RowData` where `Row` is expected (missing methods).
- *
- * @example
- * ```typescript
- * // Pass plain object literals to upsert
- * tables.posts.upsert({ id: '1', title: 'Hello', published: false });
- *
- * // Providers return RowData from deserialization
- * const data: RowData = JSON.parse(fileContents);
- * tables.posts.upsert(data);
- * ```
- */
-export type RowData<TTableSchema extends TableSchema = TableSchema> = {
 	[K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 };
 
 /**
- * Partial row data for updates.
- * ID is required, all other fields are optional.
+ * Partial row for updates. ID is required, all other fields are optional.
+ *
+ * Use PartialRow with `update()` when you only want to change specific fields
+ * without providing the entire row. Fields not included are left unchanged.
  *
  * @example
  * ```typescript
  * // Update only the title, leave other fields unchanged
  * tables.posts.update({ id: '1', title: 'New Title' });
+ *
+ * // Update multiple fields
+ * tables.posts.update({
+ *   id: '1',
+ *   title: 'Updated',
+ *   published: true,
+ * });
  * ```
  */
-export type PartialRowData<TTableSchema extends TableSchema = TableSchema> = {
+export type PartialRow<TTableSchema extends TableSchema = TableSchema> = {
 	id: string;
-} & Partial<Omit<RowData<TTableSchema>, 'id'>>;
+} & Partial<Omit<Row<TTableSchema>, 'id'>>;
 
 // ============================================================================
 // Key-Value Schema Types
