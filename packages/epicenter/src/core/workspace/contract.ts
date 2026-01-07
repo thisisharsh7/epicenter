@@ -20,6 +20,7 @@ export type WorkspaceSchema<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
+	guid: string;
 	id: TId;
 	name: string;
 	description?: string;
@@ -174,9 +175,8 @@ export type WorkspaceClient<
 		TKvSchema
 	>,
 > = {
-	/** The workspace ID. */
+	guid: string;
 	id: TId;
-	/** YJS-backed table operations. */
 	tables: Tables<TTablesSchema>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
@@ -209,7 +209,7 @@ type InitializedWorkspace<
  * Initialize a workspace: create YJS doc, tables, kv, and run provider factories.
  *
  * This is an internal function called by `.create()`. It:
- * 1. Creates a YJS document with the workspace ID as GUID
+ * 1. Creates a YJS document with `{guid}:0` as the doc GUID (epoch 0, reserved for future epoch support)
  * 2. Creates typed table and kv helpers backed by the YJS doc
  * 3. Runs all provider factories in parallel
  * 4. Returns everything needed to construct a WorkspaceClient
@@ -228,7 +228,7 @@ async function initializeWorkspace<
 		options?.projectDir ??
 		(typeof process !== 'undefined' ? process.cwd() : undefined);
 
-	const ydoc = new Y.Doc({ guid: config.id });
+	const ydoc = new Y.Doc({ guid: `${config.guid}:0` });
 	const tables = createTables(ydoc, config.tables);
 	const kv = createKv(ydoc, config.kv);
 
@@ -344,6 +344,9 @@ export function defineWorkspace<
 >(
 	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
 ): Workspace<TId, TTablesSchema, TKvSchema> {
+	if (!config.guid || typeof config.guid !== 'string') {
+		throw new Error('Workspace must have a valid GUID');
+	}
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid string ID');
 	}
@@ -365,6 +368,7 @@ export function defineWorkspace<
 						await initializeWorkspace(config, providers, options);
 
 					return {
+						guid: config.guid,
 						id: config.id,
 						ydoc,
 						tables,

@@ -73,5 +73,5 @@ export {
 	TIMEZONE_ID_REGEX,
 } from './fields/regex.js';
 
-export type { Id } from './fields/id.js';
-export { generateId } from './fields/id.js';
+export type { Guid, Id } from './fields/id.js';
+export { generateGuid, generateId } from './fields/id.js';
