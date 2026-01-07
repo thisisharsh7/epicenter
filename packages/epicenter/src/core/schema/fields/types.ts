@@ -4,7 +4,7 @@
  * Contains the foundational types for the schema system:
  * - Field schema types (IdFieldSchema, TextFieldSchema, etc.)
  * - Table and workspace schemas
- * - Row value types (CellValue, RowData, Row)
+ * - Row value types (CellValue, Row, PartialRow)
  *
  * ## Schema Structure
  *
@@ -348,12 +348,55 @@ export type WorkspaceSchema = TablesSchema;
 // Row Types
 // ============================================================================
 
-/** Plain object representing a table row. Used for both reads and writes. */
+/**
+ * Plain object representing a complete table row.
+ *
+ * Row is the unified type for both reads and writes. All values are plain
+ * JSON-serializable primitives (no Y.js types, no methods, no proxy behavior).
+ *
+ * @example
+ * ```typescript
+ * // Write: pass a Row to upsert
+ * tables.posts.upsert({
+ *   id: generateId(),
+ *   title: 'Hello World',
+ *   published: false,
+ * });
+ *
+ * // Read: get returns a Row (wrapped in RowResult for validation)
+ * const result = tables.posts.get({ id: '1' });
+ * if (result.status === 'valid') {
+ *   const row: Row = result.row;
+ *   console.log(row.title);
+ * }
+ *
+ * // Rows are JSON-serializable
+ * const json = JSON.stringify(row);
+ * ```
+ */
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	[K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 };
 
-/** Partial row for updates. ID is required, all other fields are optional. */
+/**
+ * Partial row for updates. ID is required, all other fields are optional.
+ *
+ * Use PartialRow with `update()` when you only want to change specific fields
+ * without providing the entire row. Fields not included are left unchanged.
+ *
+ * @example
+ * ```typescript
+ * // Update only the title, leave other fields unchanged
+ * tables.posts.update({ id: '1', title: 'New Title' });
+ *
+ * // Update multiple fields
+ * tables.posts.update({
+ *   id: '1',
+ *   title: 'Updated',
+ *   published: true,
+ * });
+ * ```
+ */
 export type PartialRow<TTableSchema extends TableSchema = TableSchema> = {
 	id: string;
 } & Partial<Omit<Row<TTableSchema>, 'id'>>;
