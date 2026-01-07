@@ -10,7 +10,7 @@ import {
 	writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import { createTaggedError } from 'wellcrafted/error';
+import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Ok, type Result } from 'wellcrafted/result';
 
 const WORKSPACES_DIR = 'workspaces';
@@ -45,8 +45,7 @@ export async function ensureWorkspacesDirectory(): Promise<
 		return Ok(undefined);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: 'Failed to create workspaces directory',
-			cause: error,
+			message: `Failed to create workspaces directory: ${extractErrorMessage(error)}`,
 		});
 	}
 }
@@ -69,8 +68,7 @@ export async function listWorkspaceIds(): Promise<
 		return Ok(workspaceIds);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: 'Failed to list workspaces',
-			cause: error,
+			message: `Failed to list workspaces: ${extractErrorMessage(error)}`,
 		});
 	}
 }
@@ -100,8 +98,7 @@ export async function listWorkspaces(): Promise<
 		return Ok(workspaces);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: 'Failed to list workspaces',
-			cause: error,
+			message: `Failed to list workspaces: ${extractErrorMessage(error)}`,
 		});
 	}
 }
@@ -118,8 +115,7 @@ export async function readWorkspace(
 		return Ok(workspace);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: `Failed to read workspace ${id}`,
-			cause: error,
+			message: `Failed to read workspace ${id}: ${extractErrorMessage(error)}`,
 		});
 	}
 }
@@ -138,8 +134,7 @@ export async function writeWorkspace(
 		return Ok(undefined);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: `Failed to write workspace ${workspace.id}`,
-			cause: error,
+			message: `Failed to write workspace ${workspace.id}: ${extractErrorMessage(error)}`,
 		});
 	}
 }
@@ -155,8 +150,7 @@ export async function workspaceExists(
 		return Ok(fileExists);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: `Failed to check workspace ${id}`,
-			cause: error,
+			message: `Failed to check workspace ${id}: ${extractErrorMessage(error)}`,
 		});
 	}
 }
@@ -172,8 +166,7 @@ export async function deleteWorkspace(
 		return Ok(undefined);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: `Failed to delete workspace ${id}`,
-			cause: error,
+			message: `Failed to delete workspace ${id}: ${extractErrorMessage(error)}`,
 		});
 	}
 }
@@ -192,8 +185,7 @@ export async function openWorkspacesDirectory(): Promise<
 		return Ok(undefined);
 	} catch (error) {
 		return WorkspaceStorageErr({
-			message: 'Failed to open workspaces directory',
-			cause: error,
+			message: `Failed to open workspaces directory: ${extractErrorMessage(error)}`,
 		});
 	}
 }
