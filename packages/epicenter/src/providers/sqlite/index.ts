@@ -5,18 +5,15 @@
  * and utilities for working with Drizzle schemas.
  */
 
-// Schema utilities (builders + converter)
-export type { WorkspaceSchemaToDrizzleTables } from './schema';
+// Schema converters (Epicenter → Drizzle)
+export type { WorkspaceSchemaToDrizzleTables } from '../../core/schema/converters/to-drizzle';
 export {
-	boolean,
 	convertTableSchemaToDrizzle,
 	convertWorkspaceSchemaToDrizzle,
-	date,
-	id,
-	integer,
-	real,
-	tags,
-	text,
-} from './schema';
+} from '../../core/schema/converters/to-drizzle';
+
+// Column builders for defining Drizzle schemas
+export { boolean, date, id, integer, real, tags, text } from './builders';
+
 // Main provider implementation
 export { sqliteProvider } from './sqlite-provider';

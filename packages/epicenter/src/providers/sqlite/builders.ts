@@ -11,12 +11,12 @@ import {
 	real as drizzleReal,
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
-import type { DateTimeString } from '../../../core/schema';
-import { generateId } from '../../../core/schema';
+import type { DateTimeString } from '../../core/schema';
+import { generateId } from '../../core/schema';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,
-} from '../../../core/schema/standard/types';
+} from '../../core/schema/standard/types';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options.

@@ -12,8 +12,8 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { date, json, tags } from '../../../providers/sqlite/schema/builders';
-import type { DateTimeString } from '../runtime/datetime';
+import { date, json, tags } from '../../../providers/sqlite/builders';
+import type { DateTimeString } from '../fields/datetime';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
