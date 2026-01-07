@@ -352,5 +352,144 @@ describe('createTables', () => {
 
 			expect(addedIds).toEqual(['post-1']);
 		});
+
+		test('transaction batching: upsertMany fires callback once with all changes', () => {
+			const ydoc = new Y.Doc({ guid: 'test-batch' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			let callbackCount = 0;
+			const allChanges: Map<string, string>[] = [];
+
+			tables.posts.observeChanges((changes) => {
+				callbackCount++;
+				const changeMap = new Map<string, string>();
+				for (const [id, change] of changes) {
+					changeMap.set(id, change.action);
+				}
+				allChanges.push(changeMap);
+			});
+
+			tables.posts.upsertMany([
+				{ id: 'post-1', title: 'First' },
+				{ id: 'post-2', title: 'Second' },
+				{ id: 'post-3', title: 'Third' },
+			]);
+
+			expect(callbackCount).toBe(1);
+			expect(allChanges[0]?.size).toBe(3);
+			expect(allChanges[0]?.get('post-1')).toBe('add');
+			expect(allChanges[0]?.get('post-2')).toBe('add');
+			expect(allChanges[0]?.get('post-3')).toBe('add');
+		});
+
+		test('transaction batching: multiple updates in transact fires callback once', () => {
+			const ydoc = new Y.Doc({ guid: 'test-batch-update' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+				},
+			});
+
+			tables.posts.upsertMany([
+				{ id: 'post-1', title: 'First', view_count: 0 },
+				{ id: 'post-2', title: 'Second', view_count: 0 },
+			]);
+
+			let callbackCount = 0;
+			const allChanges: Map<string, string>[] = [];
+
+			tables.posts.observeChanges((changes) => {
+				callbackCount++;
+				const changeMap = new Map<string, string>();
+				for (const [id, change] of changes) {
+					changeMap.set(id, change.action);
+				}
+				allChanges.push(changeMap);
+			});
+
+			ydoc.transact(() => {
+				tables.posts.update({ id: 'post-1', title: 'Updated First' });
+				tables.posts.update({ id: 'post-2', title: 'Updated Second' });
+			});
+
+			expect(callbackCount).toBe(1);
+			expect(allChanges[0]?.size).toBe(2);
+			expect(allChanges[0]?.get('post-1')).toBe('update');
+			expect(allChanges[0]?.get('post-2')).toBe('update');
+		});
+
+		test('transaction batching: mixed operations in transact fires callback once', () => {
+			const ydoc = new Y.Doc({ guid: 'test-batch-mixed' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'First' });
+
+			let callbackCount = 0;
+			let lastChanges: Map<string, string> = new Map();
+
+			tables.posts.observeChanges((changes) => {
+				callbackCount++;
+				lastChanges = new Map();
+				for (const [id, change] of changes) {
+					lastChanges.set(id, change.action);
+				}
+			});
+
+			ydoc.transact(() => {
+				tables.posts.update({ id: 'post-1', title: 'Updated' });
+				tables.posts.upsert({ id: 'post-2', title: 'New' });
+				tables.posts.delete('post-1');
+			});
+
+			expect(callbackCount).toBe(1);
+			expect(lastChanges.get('post-1')).toBe('delete');
+			expect(lastChanges.get('post-2')).toBe('add');
+		});
+
+		test('transaction batching: deleteMany fires callback once', () => {
+			const ydoc = new Y.Doc({ guid: 'test-batch-delete' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			tables.posts.upsertMany([
+				{ id: 'post-1', title: 'First' },
+				{ id: 'post-2', title: 'Second' },
+				{ id: 'post-3', title: 'Third' },
+			]);
+
+			let callbackCount = 0;
+			let lastChanges: Map<string, string> = new Map();
+
+			tables.posts.observeChanges((changes) => {
+				callbackCount++;
+				lastChanges = new Map();
+				for (const [id, change] of changes) {
+					lastChanges.set(id, change.action);
+				}
+			});
+
+			tables.posts.deleteMany(['post-1', 'post-2']);
+
+			expect(callbackCount).toBe(1);
+			expect(lastChanges.size).toBe(2);
+			expect(lastChanges.get('post-1')).toBe('delete');
+			expect(lastChanges.get('post-2')).toBe('delete');
+		});
 	});
 });

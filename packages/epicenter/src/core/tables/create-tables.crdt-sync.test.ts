@@ -716,4 +716,87 @@ describe('Cell-Level CRDT Merging', () => {
 
 		expect(tables2.posts.count()).toBe(3);
 	});
+
+	test('observer continues working after table deletion', () => {
+		const doc1 = new Y.Doc();
+		const doc2 = new Y.Doc();
+		doc1.clientID = 1;
+		doc2.clientID = 2;
+
+		const schema = {
+			posts: {
+				id: id(),
+				title: text(),
+			},
+		};
+
+		const tables1 = createTables(doc1, schema);
+		const tables2 = createTables(doc2, schema);
+
+		tables1.posts.upsert({ id: 'post-1', title: 'First' });
+		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
+
+		const changes: Array<{ action: string; id: string }> = [];
+		tables2.posts.observeChanges((changeMap) => {
+			for (const [id, change] of changeMap) {
+				changes.push({ action: change.action, id });
+			}
+		});
+
+		const ytables2 = doc2.getMap('tables') as Y.Map<Y.Map<Y.Array<unknown>>>;
+		ytables2.delete('posts');
+
+		expect(changes).toContainEqual({ action: 'delete', id: 'post-1' });
+
+		const postsTable = new Y.Map() as Y.Map<Y.Array<unknown>>;
+		ytables2.set('posts', postsTable);
+
+		const rowArray = new Y.Array<{ key: string; val: unknown }>();
+		postsTable.set('post-new', rowArray);
+		rowArray.push([
+			{ key: 'id', val: 'post-new' },
+			{ key: 'title', val: 'New Post' },
+		]);
+
+		expect(changes).toContainEqual({ action: 'add', id: 'post-new' });
+	});
+
+	test('observer receives updates from synced changes', () => {
+		const doc1 = new Y.Doc();
+		const doc2 = new Y.Doc();
+		doc1.clientID = 1;
+		doc2.clientID = 2;
+
+		const schema = {
+			posts: {
+				id: id(),
+				title: text(),
+				views: integer(),
+			},
+		};
+
+		const tables1 = createTables(doc1, schema);
+		const tables2 = createTables(doc2, schema);
+
+		tables1.posts.upsert({ id: 'post-1', title: 'Original', views: 0 });
+		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
+
+		const changes: Array<{ action: string; id: string }> = [];
+		tables2.posts.observeChanges((changeMap) => {
+			for (const [id, change] of changeMap) {
+				changes.push({ action: change.action, id });
+			}
+		});
+
+		tables1.posts.update({ id: 'post-1', title: 'Updated on Doc1' });
+		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
+
+		expect(changes).toContainEqual({ action: 'update', id: 'post-1' });
+
+		const result = tables2.posts.get('post-1');
+		expect(result.status).toBe('valid');
+		if (result.status === 'valid') {
+			expect(result.row.title).toBe('Updated on Doc1');
+		}
+	});
 });

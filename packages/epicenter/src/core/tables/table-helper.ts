@@ -596,12 +596,31 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Watch for row changes with validation status.
 		 *
-		 * **Why a Map instead of an array?**
-		 * - O(1) lookup when you need to find a specific row's change
-		 * - Automatic deduplication if a row changes multiple times per transaction
-		 * - Mirrors the underlying Yjs event structure
+		 * ## Transaction Batching
 		 *
-		 * @returns Unsubscribe function to stop observing
+		 * Changes are collected during a Yjs transaction and delivered in a single
+		 * callback after the transaction completes. `upsertMany(1000)` fires ONE
+		 * callback with 1000 changes, not 1000 separate callbacks.
+		 *
+		 * ## Deduplication
+		 *
+		 * If a row changes multiple times in one transaction, only the final state
+		 * is reported. The Map key is the row ID, so later changes overwrite earlier
+		 * ones (last-write-wins per row per transaction).
+		 *
+		 * ## Add vs Update Classification
+		 *
+		 * A row is classified as 'add' on its first cell-level change after appearing
+		 * in the table map. Subsequent changes are 'update'. This means 'add' fires
+		 * when data arrives, not when the empty row container is created.
+		 *
+		 * ## Table Replacement (Sync Conflicts)
+		 *
+		 * During sync, the entire table Y.Map can be replaced due to CRDT conflict
+		 * resolution. When this happens, 'delete' events fire for all rows in the old
+		 * table, then 'add' events fire for all rows in the new table.
+		 *
+		 * @returns Unsubscribe function that fully detaches all observers
 		 */
 		observeChanges(
 			callback: (
@@ -609,11 +628,74 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				transaction: Y.Transaction,
 			) => void,
 		): () => void {
+			/**
+			 * Maps rowId → unsubscribe function for that row's cell-level observer.
+			 * Each row has its own YKeyValue wrapper that emits cell changes.
+			 */
 			const rowObservers = new Map<string, () => void>();
+
+			/**
+			 * Tracks rows that were just added to the table map but haven't emitted
+			 * their first cell change yet. The first cell change for a row in this set
+			 * becomes an 'add' event; subsequent changes become 'update' events.
+			 */
 			const pendingAdds = new Set<string>();
+
 			let tableMap = getExistingTableMap();
 			let tableUnobserve: (() => void) | null = null;
 
+			/**
+			 * Transaction batching state. Changes accumulate here during a transaction
+			 * and are delivered once via afterTransaction hook. This is O(1) per change
+			 * and ensures bulk operations fire a single callback.
+			 */
+			let pendingChanges = new Map<string, TableRowChange<TRow>>();
+			let pendingTransaction: Y.Transaction | null = null;
+
+			const afterTransactionHandler = () => {
+				if (pendingChanges.size > 0 && pendingTransaction) {
+					const changesToDeliver = pendingChanges;
+					const transactionToDeliver = pendingTransaction;
+					pendingChanges = new Map();
+					pendingTransaction = null;
+					callback(changesToDeliver, transactionToDeliver);
+				} else {
+					pendingChanges = new Map();
+					pendingTransaction = null;
+				}
+			};
+
+			ydoc.on('afterTransaction', afterTransactionHandler);
+
+			const queueChange = (
+				rowId: string,
+				change: TableRowChange<TRow>,
+				transaction: Y.Transaction,
+			) => {
+				pendingTransaction = transaction;
+				pendingChanges.set(rowId, change);
+			};
+
+			const validateRow = (
+				rowId: string,
+				row: Record<string, unknown>,
+			): RowResult<TRow> => {
+				if (rowValidator.Check(row)) {
+					return { status: 'valid', row: row as TRow };
+				}
+				return {
+					status: 'invalid',
+					id: rowId,
+					tableName,
+					errors: rowValidator.Errors(row),
+					row,
+				};
+			};
+
+			/**
+			 * Attach a cell-level observer to a row. Returns unsubscribe function.
+			 * On each cell change, reconstructs the full row and validates it.
+			 */
 			const observeRow = (rowId: string, rowArray: RowArray) => {
 				const rowKV = ensureRowKV(rowId, rowArray);
 
@@ -621,65 +703,103 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					_cellChanges,
 					transaction,
 				) => {
-					const changes = new Map<string, TableRowChange<TRow>>();
 					const currentRow = reconstructRow(rowKV);
 					const result = validateRow(rowId, currentRow);
 
 					if (pendingAdds.has(rowId)) {
 						pendingAdds.delete(rowId);
-						changes.set(rowId, { action: 'add', result });
+						queueChange(rowId, { action: 'add', result }, transaction);
 					} else {
-						changes.set(rowId, { action: 'update', result });
+						queueChange(rowId, { action: 'update', result }, transaction);
 					}
-					callback(changes, transaction);
 				};
 
 				rowKV.on('change', handler);
 				return () => rowKV.off('change', handler);
 			};
 
+			/**
+			 * Rebind observer for a row whose underlying RowArray was replaced.
+			 * This can happen during sync when LWW resolves conflicting row structures.
+			 */
+			const rebindRowObserver = (
+				rowId: string,
+				newRowArray: RowArray,
+				transaction: Y.Transaction,
+			) => {
+				rowObservers.get(rowId)?.();
+				rowKVCache.delete(rowId);
+				rowObservers.set(rowId, observeRow(rowId, newRowArray));
+
+				const rowKV = ensureRowKV(rowId, newRowArray);
+				const currentRow = reconstructRow(rowKV);
+				const result = validateRow(rowId, currentRow);
+				queueChange(rowId, { action: 'update', result }, transaction);
+			};
+
 			const tableObserver = (event: Y.YMapEvent<RowArray>) => {
-				const changes = new Map<string, TableRowChange<TRow>>();
 				const currentTableMap = event.target;
 
 				event.changes.keys.forEach((change, rowId) => {
 					if (change.action === 'add') {
 						const rowArray = currentTableMap.get(rowId);
 						if (rowArray) {
-							pendingAdds.add(rowId);
 							rowObservers.set(rowId, observeRow(rowId, rowArray));
+
+							const rowKV = ensureRowKV(rowId, rowArray);
+							if (rowKV.map.size > 0) {
+								const currentRow = reconstructRow(rowKV);
+								const result = validateRow(rowId, currentRow);
+								queueChange(
+									rowId,
+									{ action: 'add', result },
+									event.transaction,
+								);
+							} else {
+								pendingAdds.add(rowId);
+							}
+						}
+					} else if (change.action === 'update') {
+						const newRowArray = currentTableMap.get(rowId);
+						if (newRowArray) {
+							rebindRowObserver(rowId, newRowArray, event.transaction);
 						}
 					} else if (change.action === 'delete') {
 						rowObservers.get(rowId)?.();
 						rowObservers.delete(rowId);
 						pendingAdds.delete(rowId);
 						rowKVCache.delete(rowId);
-						changes.set(rowId, { action: 'delete' });
+						queueChange(rowId, { action: 'delete' }, event.transaction);
 					}
 				});
-
-				if (changes.size > 0) callback(changes, event.transaction);
 			};
 
+			const teardownTableObservers = () => {
+				tableUnobserve?.();
+				tableUnobserve = null;
+				for (const unsubscribe of rowObservers.values()) unsubscribe();
+				rowObservers.clear();
+				pendingAdds.clear();
+			};
+
+			/**
+			 * Begin observing a table map. If fireAddForExisting is true, queues 'add'
+			 * events for all existing rows (used when table is created or replaced
+			 * after subscription started).
+			 */
 			const setupTableObserver = (
 				map: TableMap,
 				fireAddForExisting: boolean,
 				transaction?: Y.Transaction,
 			) => {
-				const addChanges = new Map<string, TableRowChange<TRow>>();
-
 				for (const [rowId, rowArray] of map.entries()) {
 					rowObservers.set(rowId, observeRow(rowId, rowArray));
-					if (fireAddForExisting) {
+					if (fireAddForExisting && transaction) {
 						const rowKV = ensureRowKV(rowId, rowArray);
 						const currentRow = reconstructRow(rowKV);
 						const result = validateRow(rowId, currentRow);
-						addChanges.set(rowId, { action: 'add', result });
+						queueChange(rowId, { action: 'add', result }, transaction);
 					}
-				}
-
-				if (fireAddForExisting && addChanges.size > 0 && transaction) {
-					callback(addChanges, transaction);
 				}
 
 				map.observe(tableObserver);
@@ -692,22 +812,41 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			const ytablesObserver = (event: Y.YMapEvent<TableMap>) => {
 				event.changes.keys.forEach((change, key) => {
-					if (key === tableName && change.action === 'add') {
+					if (key !== tableName) return;
+
+					if (change.action === 'add') {
 						const newTableMap = ytables.get(tableName);
 						if (newTableMap && !tableMap) {
 							tableMap = newTableMap;
 							setupTableObserver(newTableMap, true, event.transaction);
 						}
+					} else if (change.action === 'update') {
+						const newTableMap = ytables.get(tableName);
+						if (newTableMap && newTableMap !== tableMap) {
+							for (const rowId of rowObservers.keys()) {
+								queueChange(rowId, { action: 'delete' }, event.transaction);
+							}
+							teardownTableObservers();
+							rowKVCache.clear();
+							tableMap = newTableMap;
+							setupTableObserver(newTableMap, true, event.transaction);
+						}
+					} else if (change.action === 'delete') {
+						for (const rowId of rowObservers.keys()) {
+							queueChange(rowId, { action: 'delete' }, event.transaction);
+						}
+						teardownTableObservers();
+						rowKVCache.clear();
+						tableMap = null;
 					}
 				});
 			};
 			ytables.observe(ytablesObserver);
 
 			return () => {
+				ydoc.off('afterTransaction', afterTransactionHandler);
 				ytables.unobserve(ytablesObserver);
-				tableUnobserve?.();
-				for (const unsubscribe of rowObservers.values()) unsubscribe();
-				rowObservers.clear();
+				teardownTableObservers();
 			};
 		},
 
