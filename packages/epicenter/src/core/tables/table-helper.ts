@@ -361,31 +361,36 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 */
 		getAllValid(): TRow[] {
 			const validator = tableSchemaToYjsArktype(schema);
+			const result: TRow[] = [];
 
-			return Array.from(getYKeyValue().map.values())
-				.map((entry) => asTypedRow(entry.val))
-				.filter((row) => !(validator(row) instanceof type.errors));
+			for (const entry of getYKeyValue().map.values()) {
+				if (!(validator(entry.val) instanceof type.errors)) {
+					result.push(entry.val as TRow);
+				}
+			}
+
+			return result;
 		},
 
 		getAllInvalid(): InvalidRowResult[] {
 			const validator = tableSchemaToYjsArktype(schema);
+			const result: InvalidRowResult[] = [];
 
-			return Array.from(getYKeyValue().map.entries())
-				.map(([id, entry]) => {
-					const row = asTypedRow(entry.val);
-					const result = validator(row);
-					return result instanceof type.errors
-						? {
-								status: 'invalid' as const,
-								id,
-								tableName,
-								errors: result,
-								summary: result.summary,
-								row: row as unknown,
-							}
-						: null;
-				})
-				.filter((r): r is InvalidRowResult => r !== null);
+			for (const [id, entry] of getYKeyValue().map.entries()) {
+				const validationResult = validator(entry.val);
+				if (validationResult instanceof type.errors) {
+					result.push({
+						status: 'invalid',
+						id,
+						tableName,
+						errors: validationResult,
+						summary: validationResult.summary,
+						row: entry.val,
+					});
+				}
+			}
+
+			return result;
 		},
 
 		/**
@@ -502,12 +507,16 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 */
 		filter(predicate: (row: TRow) => boolean): TRow[] {
 			const validator = tableSchemaToYjsArktype(schema);
+			const result: TRow[] = [];
 
-			return Array.from(getYKeyValue().map.values())
-				.map((entry) => asTypedRow(entry.val))
-				.filter(
-					(row) => !(validator(row) instanceof type.errors) && predicate(row),
-				);
+			for (const entry of getYKeyValue().map.values()) {
+				const row = entry.val as TRow;
+				if (!(validator(row) instanceof type.errors) && predicate(row)) {
+					result.push(row);
+				}
+			}
+
+			return result;
 		},
 
 		/**
