@@ -33,7 +33,7 @@ export function createTablesPlugin(
 						case 'valid':
 							return result.row;
 						case 'invalid':
-							return status(422, { error: result.summary });
+							return status(422, { errors: result.errors });
 						case 'not_found':
 							return status(404, { error: 'Not found' });
 					}

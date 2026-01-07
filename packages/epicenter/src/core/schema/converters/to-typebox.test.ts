@@ -610,7 +610,7 @@ describe('Compile (JIT validation)', () => {
 		const errors = [...validator.Errors({ id: '123', count: 'invalid' })];
 
 		expect(errors.length).toBeGreaterThan(0);
-		expect(errors[0].message).toBeDefined();
+		expect(errors.at(0)?.message).toBeDefined();
 	});
 
 	test('compiled validator is reusable', () => {
