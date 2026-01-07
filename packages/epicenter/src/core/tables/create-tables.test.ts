@@ -536,9 +536,11 @@ describe('createTables', () => {
 
 			expect(callbackCount).toBe(1);
 			expect(lastChange).not.toBeNull();
-			expect(lastChange?.action).toBe('update');
-			expect(lastChange?.title).toBe('Second Update');
-			expect(lastChange?.view_count).toBe(100);
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			const change = lastChange!;
+			expect(change.action).toBe('update');
+			expect(change.title).toBe('Second Update');
+			expect(change.view_count).toBe(100);
 		});
 
 		test('empty row deleted before first cell change emits only delete', () => {

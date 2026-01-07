@@ -751,7 +751,7 @@ describe('Cell-Level CRDT Merging', () => {
 		const postsTable = new Y.Map() as Y.Map<Y.Array<unknown>>;
 		ytables2.set('posts', postsTable);
 
-		const rowArray = new Y.Array<{ key: string; val: unknown }>();
+		const rowArray = new Y.Array();
 		postsTable.set('post-new', rowArray);
 		rowArray.push([
 			{ key: 'id', val: 'post-new' },
