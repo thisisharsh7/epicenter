@@ -498,11 +498,9 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv.theme.observeChanges(({ changes }) => {
-				for (const change of changes) {
-					if (change.action !== 'delete') {
-						values.push(change.newValue);
-					}
+			kv.theme.observeChanges((change) => {
+				if (change.action !== 'delete') {
+					values.push(change.newValue);
 				}
 			});
 
@@ -520,20 +518,16 @@ describe('KV Helpers', () => {
 			});
 
 			const themeValues: string[] = [];
-			kv.theme.observeChanges(({ changes }) => {
-				for (const change of changes) {
-					if (change.action !== 'delete') {
-						themeValues.push(change.newValue);
-					}
+			kv.theme.observeChanges((change) => {
+				if (change.action !== 'delete') {
+					themeValues.push(change.newValue);
 				}
 			});
 
 			const countValues: number[] = [];
-			kv.count.observeChanges(({ changes }) => {
-				for (const change of changes) {
-					if (change.action !== 'delete') {
-						countValues.push(change.newValue);
-					}
+			kv.count.observeChanges((change) => {
+				if (change.action !== 'delete') {
+					countValues.push(change.newValue);
 				}
 			});
 
@@ -552,11 +546,9 @@ describe('KV Helpers', () => {
 			});
 
 			const values: number[] = [];
-			const unsubscribe = kv.count.observeChanges(({ changes }) => {
-				for (const change of changes) {
-					if (change.action !== 'delete') {
-						values.push(change.newValue);
-					}
+			const unsubscribe = kv.count.observeChanges((change) => {
+				if (change.action !== 'delete') {
+					values.push(change.newValue);
 				}
 			});
 
@@ -624,11 +616,9 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv.theme.observeChanges(({ changes }) => {
-				for (const change of changes) {
-					if (change.action !== 'delete') {
-						values.push(change.newValue);
-					}
+			kv.theme.observeChanges((change) => {
+				if (change.action !== 'delete') {
+					values.push(change.newValue);
 				}
 			});
 
@@ -858,11 +848,9 @@ describe('KV Helpers', () => {
 			});
 
 			let receivedValue: unknown = null;
-			kv.count.observeChanges(({ changes }) => {
-				for (const change of changes) {
-					if (change.action !== 'delete') {
-						receivedValue = change.newValue;
-					}
+			kv.count.observeChanges((change) => {
+				if (change.action !== 'delete') {
+					receivedValue = change.newValue;
 				}
 			});
 

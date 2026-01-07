@@ -410,15 +410,15 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 				});
 			}
 
-			const unsub = table.observeChanges(({ changes }) => {
+			const unsub = table.observeChanges((changes) => {
 				if (syncCoordination.fileChangeCount > 0) return;
 
-				for (const change of changes) {
+				for (const [id, change] of changes) {
 					if (change.action === 'delete') {
 						void (async () => {
 							syncCoordination.yjsWriteCount++;
 
-							const filename = tracking[table.name]?.[change.id];
+							const filename = tracking[table.name]?.[id];
 							if (filename) {
 								const filePath = path.join(
 									tableConfig.directory,
@@ -427,15 +427,15 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 								const { error } = await deleteMarkdownFile({ filePath });
 
 								// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-								delete tracking[table.name]![change.id];
+								delete tracking[table.name]![id];
 
 								if (error) {
 									logger.log(
 										ProviderError({
-											message: `YJS observer onDelete: failed to delete ${table.name}/${change.id}`,
+											message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
 											context: {
 												tableName: table.name,
-												rowId: change.id,
+												rowId: id,
 												filePath,
 											},
 										}),
@@ -448,14 +448,14 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						continue;
 					}
 
-					const validationResult = table.get(change.id);
+					const validationResult = table.get(id);
 					if (validationResult.status === 'invalid') {
 						logger.log(
 							ProviderError({
-								message: `YJS observer ${change.action}: validation failed for ${table.name}/${change.id}: ${validationResult.summary}`,
+								message: `YJS observer ${change.action}: validation failed for ${table.name}/${id}: ${validationResult.summary}`,
 								context: {
 									tableName: validationResult.tableName,
-									rowId: change.id,
+									rowId: id,
 								},
 							}),
 						);

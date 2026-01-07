@@ -2,20 +2,16 @@ import { type ArkErrors, type } from 'arktype';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToYjsArktype } from '../schema';
-import { YKeyValue, type YKeyValueChange } from '../utils/y-keyvalue';
+import {
+	YKeyValue,
+	type YKeyValueChange,
+	type YKeyValueChangeHandler,
+} from '../utils/y-keyvalue';
+
+export type { YKeyValueChange };
 
 /** A row that passed validation. */
 export type ValidRowResult<TRow> = { status: 'valid'; row: TRow };
-
-export type RowChange<TRow> =
-	| { action: 'add'; id: string; newRow: TRow }
-	| { action: 'update'; id: string; oldRow: TRow; newRow: TRow }
-	| { action: 'delete'; id: string; oldRow: TRow };
-
-export type RowChangeEvent<TRow> = {
-	changes: ReadonlyArray<RowChange<TRow>>;
-	transaction: Y.Transaction;
-};
 
 /** A row that exists but failed validation. */
 export type InvalidRowResult = {
@@ -555,23 +551,24 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		/**
 		 * Watch for changes to the table and get notified when rows are added, updated, or deleted.
 		 *
-		 * This is your reactive hook into the table. Whenever someone (local or remote) adds a row,
-		 * modifies any field in a row, or deletes a row, you'll receive a callback with the batched
-		 * changes for that transaction.
+		 * Callback receives raw changes from YJS - a Map keyed by row ID. Each change has:
+		 * - `action`: 'add' | 'update' | 'delete'
+		 * - `newValue`: the new row data (for add/update)
+		 * - `oldValue`: the previous row data (for update/delete)
 		 *
 		 * @example
 		 * ```typescript
-		 * const unsubscribe = table.observeChanges(({ changes, transaction }) => {
-		 *   for (const change of changes) {
+		 * const unsubscribe = table.observeChanges((changes, transaction) => {
+		 *   for (const [id, change] of changes) {
 		 *     switch (change.action) {
 		 *       case 'add':
-		 *         console.log('New row:', change.newRow);
+		 *         console.log('New row:', id, change.newValue);
 		 *         break;
 		 *       case 'update':
-		 *         console.log('Updated:', change.oldRow, '→', change.newRow);
+		 *         console.log('Updated:', id, change.oldValue, '→', change.newValue);
 		 *         break;
 		 *       case 'delete':
-		 *         console.log('Deleted:', change.id);
+		 *         console.log('Deleted:', id, change.oldValue);
 		 *         break;
 		 *     }
 		 *   }
@@ -579,49 +576,17 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 *
 		 * unsubscribe(); // Stop watching
 		 * ```
-		 *
-		 * @param callback Function called with batched changes and Y.Transaction
-		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observeChanges(
-			callback: (event: RowChangeEvent<TRow>) => void,
+			callback: (
+				changes: Map<string, YKeyValueChange<TRow>>,
+				transaction: Y.Transaction,
+			) => void,
 		): () => void {
 			const kv = getYKeyValue();
-
-			const handler = (
-				changes: Map<string, YKeyValueChange<Row>>,
-				transaction: Y.Transaction,
-			) => {
-				const normalized: RowChange<TRow>[] = [];
-
-				for (const [id, change] of changes) {
-					if (change.action === 'add') {
-						normalized.push({
-							action: 'add',
-							id,
-							newRow: change.newValue as TRow,
-						});
-					} else if (change.action === 'update') {
-						normalized.push({
-							action: 'update',
-							id,
-							oldRow: change.oldValue as TRow,
-							newRow: change.newValue as TRow,
-						});
-					} else {
-						normalized.push({
-							action: 'delete',
-							id,
-							oldRow: change.oldValue as TRow,
-						});
-					}
-				}
-
-				if (normalized.length > 0) {
-					callback({ changes: normalized, transaction });
-				}
+			const handler: YKeyValueChangeHandler<Row> = (changes, transaction) => {
+				callback(changes as Map<string, YKeyValueChange<TRow>>, transaction);
 			};
-
 			kv.on('change', handler);
 			return () => kv.off('change', handler);
 		},

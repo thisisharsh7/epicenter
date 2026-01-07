@@ -212,16 +212,16 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 	const unsubscribers: Array<() => void> = [];
 
 	for (const { table } of tables.$zip(drizzleTables)) {
-		const unsub = table.observeChanges(({ changes }) => {
+		const unsub = table.observeChanges((changes) => {
 			if (isPushingFromSqlite) return;
 
-			for (const change of changes) {
+			for (const [id, change] of changes) {
 				if (change.action === 'delete') {
 					scheduleSync();
 					return;
 				}
 
-				const validationResult = table.get(change.id);
+				const validationResult = table.get(id);
 				if (validationResult.status === 'invalid') {
 					logger.log(
 						IndexError({

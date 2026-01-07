@@ -10,23 +10,7 @@ import {
 	type YKeyValueChangeHandler,
 } from '../utils/y-keyvalue';
 
-/**
- * Change event for a single KV key.
- * Discriminated union with action type and relevant values.
- */
-export type KvChange<TValue> =
-	| { action: 'add'; key: string; newValue: TValue }
-	| { action: 'update'; key: string; oldValue: TValue; newValue: TValue }
-	| { action: 'delete'; key: string; oldValue: TValue };
-
-/**
- * Event payload for observeChanges callback.
- * Contains batched changes for a single transaction.
- */
-export type KvChangeEvent<TValue> = {
-	changes: ReadonlyArray<KvChange<TValue>>;
-	transaction: Y.Transaction;
-};
+export type { YKeyValueChange };
 
 type KvValidationContext = {
 	key: string;
@@ -177,33 +161,32 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		/**
 		 * Watch for changes to this KV value.
 		 *
-		 * The callback fires whenever this specific key changes, whether from
-		 * local updates or sync from other peers. Receives a discriminated union
-		 * with the change action (add/update/delete) and the Y.Transaction.
-		 *
-		 * @param callback - Function called with change event on each change
-		 * @returns Unsubscribe function to stop watching
+		 * Callback receives the raw change from YJS with:
+		 * - `action`: 'add' | 'update' | 'delete'
+		 * - `newValue`: the new value (for add/update)
+		 * - `oldValue`: the previous value (for update/delete)
 		 *
 		 * @example
 		 * ```typescript
-		 * const unsubscribe = kv.theme.observeChanges(({ changes, transaction }) => {
-		 *   for (const change of changes) {
-		 *     switch (change.action) {
-		 *       case 'add':
-		 *       case 'update':
-		 *         document.body.className = String(change.newValue);
-		 *         break;
-		 *       case 'delete':
-		 *         document.body.className = '';
-		 *         break;
-		 *     }
+		 * const unsubscribe = kv.theme.observeChanges((change, transaction) => {
+		 *   switch (change.action) {
+		 *     case 'add':
+		 *     case 'update':
+		 *       document.body.className = String(change.newValue);
+		 *       break;
+		 *     case 'delete':
+		 *       document.body.className = '';
+		 *       break;
 		 *   }
 		 * });
 		 * unsubscribe(); // Stop watching
 		 * ```
 		 */
 		observeChanges(
-			callback: (event: KvChangeEvent<TValue>) => void,
+			callback: (
+				change: YKeyValueChange<TValue>,
+				transaction: Y.Transaction,
+			) => void,
 		): () => void {
 			const handler: YKeyValueChangeHandler<KvValue> = (
 				changes,
@@ -211,28 +194,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			) => {
 				const change = changes.get(keyName);
 				if (!change) return;
-
-				const normalized: KvChange<TValue> =
-					change.action === 'add'
-						? {
-								action: 'add',
-								key: keyName,
-								newValue: change.newValue as TValue,
-							}
-						: change.action === 'update'
-							? {
-									action: 'update',
-									key: keyName,
-									oldValue: change.oldValue as TValue,
-									newValue: change.newValue as TValue,
-								}
-							: {
-									action: 'delete',
-									key: keyName,
-									oldValue: change.oldValue as TValue,
-								};
-
-				callback({ changes: [normalized], transaction });
+				callback(change as YKeyValueChange<TValue>, transaction);
 			};
 			ykv.on('change', handler);
 			return () => ykv.off('change', handler);

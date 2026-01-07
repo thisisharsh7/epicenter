@@ -645,8 +645,8 @@ export default defineBackground(() => {
 	// Only process changes for THIS device - other devices manage themselves
 	// ─────────────────────────────────────────────────────────────────────────
 
-	client.tables.tabs.observeChanges(({ changes, transaction }) => {
-		for (const change of changes) {
+	client.tables.tabs.observeChanges((changes, transaction) => {
+		for (const [id, change] of changes) {
 			if (change.action === 'add') {
 				void (async () => {
 					await initPromise;
@@ -654,7 +654,7 @@ export default defineBackground(() => {
 					console.log('[Background] tabs.onAdd fired:', {
 						origin: transaction.origin,
 						isRemote: transaction.origin !== null,
-						row: change.newRow,
+						row: change.newValue,
 					});
 
 					if (transaction.origin === null) {
@@ -664,7 +664,7 @@ export default defineBackground(() => {
 						return;
 					}
 
-					const row = change.newRow;
+					const row = change.newValue;
 					const deviceId = await deviceIdPromise;
 
 					if (row.device_id !== deviceId) {
@@ -733,7 +733,7 @@ export default defineBackground(() => {
 					await initPromise;
 
 					console.log('[Background] tabs.onDelete fired:', {
-						id: change.id,
+						id,
 						origin: transaction.origin,
 						isRemote: transaction.origin !== null,
 					});
@@ -746,7 +746,7 @@ export default defineBackground(() => {
 					}
 
 					const deviceId = await deviceIdPromise;
-					const parsed = parseTabId(change.id);
+					const parsed = parseTabId(id);
 
 					if (!parsed || parsed.deviceId !== deviceId) {
 						console.log(
@@ -769,10 +769,7 @@ export default defineBackground(() => {
 							);
 						},
 						catch: (error) => {
-							console.log(
-								`[Background] Failed to close tab ${change.id}:`,
-								error,
-							);
+							console.log(`[Background] Failed to close tab ${id}:`, error);
 							return Ok(undefined);
 						},
 					});
@@ -782,8 +779,8 @@ export default defineBackground(() => {
 		}
 	});
 
-	client.tables.windows.observeChanges(({ changes, transaction }) => {
-		for (const change of changes) {
+	client.tables.windows.observeChanges((changes, transaction) => {
+		for (const [id, change] of changes) {
 			if (change.action === 'add') {
 				void (async () => {
 					await initPromise;
@@ -792,7 +789,7 @@ export default defineBackground(() => {
 
 					const deviceId = await deviceIdPromise;
 
-					if (change.newRow.device_id !== deviceId) return;
+					if (change.newValue.device_id !== deviceId) return;
 
 					syncCoordination.yDocChangeCount++;
 					await tryAsync({
@@ -805,7 +802,7 @@ export default defineBackground(() => {
 						},
 						catch: (error) => {
 							console.log(
-								`[Background] Failed to create window from ${change.newRow.id}:`,
+								`[Background] Failed to create window from ${change.newValue.id}:`,
 								error,
 							);
 							return Ok(undefined);
@@ -820,7 +817,7 @@ export default defineBackground(() => {
 					if (transaction.origin === null) return;
 
 					const deviceId = await deviceIdPromise;
-					const parsed = parseWindowId(change.id);
+					const parsed = parseWindowId(id);
 
 					if (!parsed || parsed.deviceId !== deviceId) return;
 
@@ -830,10 +827,7 @@ export default defineBackground(() => {
 							await browser.windows.remove(parsed.windowId);
 						},
 						catch: (error) => {
-							console.log(
-								`[Background] Failed to close window ${change.id}:`,
-								error,
-							);
+							console.log(`[Background] Failed to close window ${id}:`, error);
 							return Ok(undefined);
 						},
 					});
@@ -844,8 +838,8 @@ export default defineBackground(() => {
 	});
 
 	if (browser.tabGroups) {
-		client.tables.tab_groups.observeChanges(({ changes, transaction }) => {
-			for (const change of changes) {
+		client.tables.tab_groups.observeChanges((changes, transaction) => {
+			for (const [id, change] of changes) {
 				if (change.action === 'delete') {
 					void (async () => {
 						await initPromise;
@@ -853,7 +847,7 @@ export default defineBackground(() => {
 						if (transaction.origin === null) return;
 
 						const deviceId = await deviceIdPromise;
-						const parsed = parseGroupId(change.id);
+						const parsed = parseGroupId(id);
 
 						if (!parsed || parsed.deviceId !== deviceId) return;
 
@@ -871,7 +865,7 @@ export default defineBackground(() => {
 							},
 							catch: (error) => {
 								console.log(
-									`[Background] Failed to ungroup tab group ${change.id}:`,
+									`[Background] Failed to ungroup tab group ${id}:`,
 									error,
 								);
 								return Ok(undefined);
