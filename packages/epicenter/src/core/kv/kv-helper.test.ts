@@ -491,16 +491,18 @@ describe('KV Helpers', () => {
 	});
 
 	describe('Observe', () => {
-		test('observe() fires callback with KvGetResult when value changes', () => {
+		test('observeChanges() fires callback with change event when value changes', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				theme: select({ options: ['light', 'dark'], default: 'light' }),
 			});
 
 			const values: string[] = [];
-			kv.theme.observe((result) => {
-				if (result.status === 'valid') {
-					values.push(result.value);
+			kv.theme.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action !== 'delete') {
+						values.push(change.newValue);
+					}
 				}
 			});
 
@@ -510,7 +512,7 @@ describe('KV Helpers', () => {
 			expect(values).toEqual(['dark', 'light']);
 		});
 
-		test('observe() only fires for the specific key, not other keys', () => {
+		test('observeChanges() only fires for the specific key, not other keys', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				theme: select({ options: ['light', 'dark'], default: 'light' }),
@@ -518,16 +520,20 @@ describe('KV Helpers', () => {
 			});
 
 			const themeValues: string[] = [];
-			kv.theme.observe((result) => {
-				if (result.status === 'valid') {
-					themeValues.push(result.value);
+			kv.theme.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action !== 'delete') {
+						themeValues.push(change.newValue);
+					}
 				}
 			});
 
 			const countValues: number[] = [];
-			kv.count.observe((result) => {
-				if (result.status === 'valid') {
-					countValues.push(result.value);
+			kv.count.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action !== 'delete') {
+						countValues.push(change.newValue);
+					}
 				}
 			});
 
@@ -539,16 +545,18 @@ describe('KV Helpers', () => {
 			expect(countValues).toEqual([42]);
 		});
 
-		test('observe() unsubscribe function stops callbacks', () => {
+		test('observeChanges() unsubscribe function stops callbacks', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				count: integer({ default: 0 }),
 			});
 
 			const values: number[] = [];
-			const unsubscribe = kv.count.observe((result) => {
-				if (result.status === 'valid') {
-					values.push(result.value);
+			const unsubscribe = kv.count.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action !== 'delete') {
+						values.push(change.newValue);
+					}
 				}
 			});
 
@@ -560,14 +568,14 @@ describe('KV Helpers', () => {
 			expect(values).toEqual([1, 2]);
 		});
 
-		test('observe() fires when richtext is set', () => {
+		test('observeChanges() fires when richtext is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				notes: richtext(),
 			});
 
 			let callCount = 0;
-			kv.notes.observe(() => {
+			kv.notes.observeChanges(() => {
 				callCount++;
 			});
 
@@ -575,14 +583,14 @@ describe('KV Helpers', () => {
 			expect(callCount).toBe(1);
 		});
 
-		test('observe() fires when tags array is set', () => {
+		test('observeChanges() fires when tags array is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				tags: tags({ options: ['a', 'b', 'c'] }),
 			});
 
 			let callCount = 0;
-			kv.tags.observe(() => {
+			kv.tags.observeChanges(() => {
 				callCount++;
 			});
 
@@ -616,9 +624,11 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv.theme.observe((result) => {
-				if (result.status === 'valid') {
-					values.push(result.value);
+			kv.theme.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action !== 'delete') {
+						values.push(change.newValue);
+					}
 				}
 			});
 
@@ -839,7 +849,7 @@ describe('KV Helpers', () => {
 			}
 		});
 
-		test('observe() passes invalid status to callback when validation fails', () => {
+		test('observeChanges() receives raw values even for invalid data', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const ykvArray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 
@@ -847,17 +857,20 @@ describe('KV Helpers', () => {
 				count: integer({ default: 0 }),
 			});
 
-			let receivedInvalid = false;
-			kv.count.observe((result) => {
-				if (result.status === 'invalid') {
-					receivedInvalid = true;
-					expect(result.error.context.key).toBe('count');
+			let receivedValue: unknown = null;
+			kv.count.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action !== 'delete') {
+						receivedValue = change.newValue;
+					}
 				}
 			});
 
+			// Directly push invalid data to YJS (simulating sync from corrupted peer)
 			ykvArray.push([{ key: 'count', val: 'invalid value' }]);
 
-			expect(receivedInvalid).toBe(true);
+			// observeChanges receives raw values without validation
+			expect(receivedValue).toBe('invalid value');
 		});
 	});
 });

@@ -188,12 +188,12 @@ describe('createTables', () => {
 			});
 
 			const addedRows: string[] = [];
-			tables.posts.observe({
-				onAdd: (result) => {
-					if (result.status === 'valid') {
-						addedRows.push(result.row.id);
+			tables.posts.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action === 'add') {
+						addedRows.push(change.newRow.id);
 					}
-				},
+				}
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'First', published: false });
@@ -215,12 +215,15 @@ describe('createTables', () => {
 			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
 
 			const updates: Array<{ id: string; title: string }> = [];
-			tables.posts.observe({
-				onUpdate: (result) => {
-					if (result.status === 'valid') {
-						updates.push({ id: result.row.id, title: result.row.title });
+			tables.posts.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action === 'update') {
+						updates.push({
+							id: change.newRow.id,
+							title: change.newRow.title,
+						});
 					}
-				},
+				}
 			});
 
 			tables.posts.update({ id: 'post-1', title: 'Updated' });
@@ -243,10 +246,12 @@ describe('createTables', () => {
 			tables.posts.upsert({ id: 'post-2', title: 'Second' });
 
 			const deletedIds: string[] = [];
-			tables.posts.observe({
-				onDelete: (rowId) => {
-					deletedIds.push(rowId);
-				},
+			tables.posts.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action === 'delete') {
+						deletedIds.push(change.id);
+					}
+				}
 			});
 
 			tables.posts.delete('post-1');
@@ -263,23 +268,22 @@ describe('createTables', () => {
 				},
 			});
 
-			let isValid = false;
-			let isInvalid = false;
+			let receivedRow: { id: string; title: string } | null = null;
 			let callbackFired = false;
 
-			tables.posts.observe({
-				onAdd: (result) => {
-					callbackFired = true;
-					isValid = result.status === 'valid';
-					isInvalid = result.status === 'invalid';
-				},
+			tables.posts.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action === 'add') {
+						callbackFired = true;
+						receivedRow = { id: change.newRow.id, title: change.newRow.title };
+					}
+				}
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'Test' });
 
 			expect(callbackFired).toBe(true);
-			expect(isValid).toBe(true);
-			expect(isInvalid).toBe(false);
+			expect(receivedRow).toEqual({ id: 'post-1', title: 'Test' });
 		});
 
 		test('validation errors are passed to callbacks', () => {
@@ -295,13 +299,13 @@ describe('createTables', () => {
 				},
 			});
 
-			let receivedInvalid = false;
-			tables.posts.observe({
-				onAdd: (result) => {
-					if (result.status === 'invalid') {
-						receivedInvalid = true;
+			let receivedRow: unknown = null;
+			tables.posts.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action === 'add') {
+						receivedRow = change.newRow;
 					}
-				},
+				}
 			});
 
 			const postsArray =
@@ -314,7 +318,8 @@ describe('createTables', () => {
 				{ key: 'bad-row', val: { id: 'bad-row', count: 'not a number' } },
 			]);
 
-			expect(receivedInvalid).toBe(true);
+			// observeChanges receives raw values without validation
+			expect(receivedRow).toEqual({ id: 'bad-row', count: 'not a number' });
 		});
 
 		test('unsubscribe stops callbacks', () => {
@@ -327,12 +332,12 @@ describe('createTables', () => {
 			});
 
 			const addedIds: string[] = [];
-			const unsubscribe = tables.posts.observe({
-				onAdd: (result) => {
-					if (result.status === 'valid') {
-						addedIds.push(result.row.id);
+			const unsubscribe = tables.posts.observeChanges(({ changes }) => {
+				for (const change of changes) {
+					if (change.action === 'add') {
+						addedIds.push(change.newRow.id);
 					}
-				},
+				}
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'First' });

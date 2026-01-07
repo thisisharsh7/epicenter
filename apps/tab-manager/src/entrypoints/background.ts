@@ -645,245 +645,242 @@ export default defineBackground(() => {
 	// Only process changes for THIS device - other devices manage themselves
 	// ─────────────────────────────────────────────────────────────────────────
 
-	client.tables.tabs.observe({
-		onAdd: async (result, transaction) => {
-			await initPromise;
+	client.tables.tabs.observeChanges(({ changes, transaction }) => {
+		for (const change of changes) {
+			if (change.action === 'add') {
+				void (async () => {
+					await initPromise;
 
-			console.log('[Background] tabs.onAdd fired:', {
-				origin: transaction.origin,
-				isRemote: transaction.origin !== null,
-				hasError: !!result.error,
-				data: result.error ? String(result.error) : result.data,
-			});
+					console.log('[Background] tabs.onAdd fired:', {
+						origin: transaction.origin,
+						isRemote: transaction.origin !== null,
+						row: change.newRow,
+					});
 
-			// Only process remote changes (from WebSocket sync)
-			if (transaction.origin === null) {
-				console.log(
-					'[Background] tabs.onAdd SKIPPED: local origin (our own change)',
-				);
-				return;
-			}
-			if (result.error) {
-				console.log('[Background] tabs.onAdd SKIPPED: result has error');
-				return;
-			}
+					if (transaction.origin === null) {
+						console.log(
+							'[Background] tabs.onAdd SKIPPED: local origin (our own change)',
+						);
+						return;
+					}
 
-			const row = result.data;
-			const deviceId = await deviceIdPromise;
+					const row = change.newRow;
+					const deviceId = await deviceIdPromise;
 
-			// Only process if this tab is meant for THIS device
-			if (row.device_id !== deviceId) {
-				console.log(
-					'[Background] tabs.onAdd SKIPPED: different device',
-					row.device_id,
-				);
-				return;
-			}
+					if (row.device_id !== deviceId) {
+						console.log(
+							'[Background] tabs.onAdd SKIPPED: different device',
+							row.device_id,
+						);
+						return;
+					}
 
-			if (!row.url) {
-				console.log('[Background] tabs.onAdd SKIPPED: no URL in row');
-				return;
-			}
+					if (!row.url) {
+						console.log('[Background] tabs.onAdd SKIPPED: no URL in row');
+						return;
+					}
 
-			// Check 1: Was this tab recently added by our own onCreated handler?
-			// This catches echoes that come back from WebSocket before the browser.tabs.get check
-			if (syncCoordination.recentlyAddedTabIds.has(row.tab_id)) {
-				console.log(
-					'[Background] tabs.onAdd SKIPPED: tab was recently added locally (echo)',
-					row.tab_id,
-				);
-				return;
-			}
+					if (syncCoordination.recentlyAddedTabIds.has(row.tab_id)) {
+						console.log(
+							'[Background] tabs.onAdd SKIPPED: tab was recently added locally (echo)',
+							row.tab_id,
+						);
+						return;
+					}
 
-			// Check 2: Does this tab already exist in the browser?
-			// This prevents duplicate tab creation when our own changes echo back from WebSocket
-			const existingTab = await tryAsync({
-				try: () => browser.tabs.get(row.tab_id),
-				catch: () => Ok(undefined),
-			});
+					const existingTab = await tryAsync({
+						try: () => browser.tabs.get(row.tab_id),
+						catch: () => Ok(undefined),
+					});
 
-			if (existingTab.data) {
-				console.log(
-					'[Background] tabs.onAdd SKIPPED: tab already exists in browser',
-					row.tab_id,
-				);
-				return;
-			}
+					if (existingTab.data) {
+						console.log(
+							'[Background] tabs.onAdd SKIPPED: tab already exists in browser',
+							row.tab_id,
+						);
+						return;
+					}
 
-			console.log('[Background] tabs.onAdd CREATING tab with URL:', row.url);
-			// Increment counter to prevent Browser events from triggering refetch
-			syncCoordination.yDocChangeCount++;
-			await tryAsync({
-				try: async () => {
-					// Create the tab with the URL from the markdown file
-					await browser.tabs.create({ url: row.url });
-					console.log('[Background] tabs.onAdd tab created, now refetching...');
-
-					// Refetch to clean up - this will:
-					// 1. Add the new Browser tab (with Browser's real ID)
-					// 2. Delete the old row (wrong ID from markdown, not in Browser)
-					syncCoordination.refetchCount++;
-					await client.refetchTabs();
-					syncCoordination.refetchCount--;
-					console.log('[Background] tabs.onAdd refetch complete');
-				},
-				catch: (error) => {
 					console.log(
-						`[Background] Failed to create tab from ${row.id}:`,
-						error,
+						'[Background] tabs.onAdd CREATING tab with URL:',
+						row.url,
 					);
-					return Ok(undefined);
-				},
-			});
-			syncCoordination.yDocChangeCount--;
-		},
-		onDelete: async (id, transaction) => {
-			await initPromise;
+					syncCoordination.yDocChangeCount++;
+					await tryAsync({
+						try: async () => {
+							await browser.tabs.create({ url: row.url });
+							console.log(
+								'[Background] tabs.onAdd tab created, now refetching...',
+							);
 
-			console.log('[Background] tabs.onDelete fired:', {
-				id,
-				origin: transaction.origin,
-				isRemote: transaction.origin !== null,
-			});
+							syncCoordination.refetchCount++;
+							await client.refetchTabs();
+							syncCoordination.refetchCount--;
+							console.log('[Background] tabs.onAdd refetch complete');
+						},
+						catch: (error) => {
+							console.log(
+								`[Background] Failed to create tab from ${row.id}:`,
+								error,
+							);
+							return Ok(undefined);
+						},
+					});
+					syncCoordination.yDocChangeCount--;
+				})();
+			} else if (change.action === 'delete') {
+				void (async () => {
+					await initPromise;
 
-			// Only process remote changes (from WebSocket sync)
-			if (transaction.origin === null) {
-				console.log(
-					'[Background] tabs.onDelete SKIPPED: local origin (our own change)',
-				);
-				return;
-			}
+					console.log('[Background] tabs.onDelete fired:', {
+						id: change.id,
+						origin: transaction.origin,
+						isRemote: transaction.origin !== null,
+					});
 
-			const deviceId = await deviceIdPromise;
-			const parsed = parseTabId(id);
+					if (transaction.origin === null) {
+						console.log(
+							'[Background] tabs.onDelete SKIPPED: local origin (our own change)',
+						);
+						return;
+					}
 
-			// Only close tabs that belong to THIS device
-			if (!parsed || parsed.deviceId !== deviceId) {
-				console.log(
-					'[Background] tabs.onDelete SKIPPED: different device or invalid ID',
-				);
-				return;
-			}
+					const deviceId = await deviceIdPromise;
+					const parsed = parseTabId(change.id);
 
-			console.log(
-				'[Background] tabs.onDelete REMOVING Browser tab:',
-				parsed.tabId,
-			);
-			// Increment counter to prevent Browser events from triggering refetch
-			syncCoordination.yDocChangeCount++;
-			await tryAsync({
-				try: async () => {
-					await browser.tabs.remove(parsed.tabId);
+					if (!parsed || parsed.deviceId !== deviceId) {
+						console.log(
+							'[Background] tabs.onDelete SKIPPED: different device or invalid ID',
+						);
+						return;
+					}
+
 					console.log(
-						'[Background] tabs.onDelete SUCCESS: removed tab',
+						'[Background] tabs.onDelete REMOVING Browser tab:',
 						parsed.tabId,
 					);
-				},
-				catch: (error) => {
-					// Tab may already be closed or not exist
-					console.log(`[Background] Failed to close tab ${id}:`, error);
-					return Ok(undefined);
-				},
-			});
-			syncCoordination.yDocChangeCount--;
-		},
+					syncCoordination.yDocChangeCount++;
+					await tryAsync({
+						try: async () => {
+							await browser.tabs.remove(parsed.tabId);
+							console.log(
+								'[Background] tabs.onDelete SUCCESS: removed tab',
+								parsed.tabId,
+							);
+						},
+						catch: (error) => {
+							console.log(
+								`[Background] Failed to close tab ${change.id}:`,
+								error,
+							);
+							return Ok(undefined);
+						},
+					});
+					syncCoordination.yDocChangeCount--;
+				})();
+			}
+		}
 	});
 
-	client.tables.windows.observe({
-		onAdd: async (result, transaction) => {
-			await initPromise;
+	client.tables.windows.observeChanges(({ changes, transaction }) => {
+		for (const change of changes) {
+			if (change.action === 'add') {
+				void (async () => {
+					await initPromise;
 
-			// Only process remote changes (from WebSocket sync)
-			if (transaction.origin === null) return;
-			if (result.error) return;
+					if (transaction.origin === null) return;
 
-			const deviceId = await deviceIdPromise;
+					const deviceId = await deviceIdPromise;
 
-			// Only process if this window is meant for THIS device
-			if (result.data.device_id !== deviceId) return;
+					if (change.newRow.device_id !== deviceId) return;
 
-			syncCoordination.yDocChangeCount++;
-			await tryAsync({
-				try: async () => {
-					// Create a new window
-					await browser.windows.create({});
+					syncCoordination.yDocChangeCount++;
+					await tryAsync({
+						try: async () => {
+							await browser.windows.create({});
 
-					// Refetch to clean up
-					syncCoordination.refetchCount++;
-					await client.refetchWindows();
-					syncCoordination.refetchCount--;
-				},
-				catch: (error) => {
-					console.log(
-						`[Background] Failed to create window from ${result.data.id}:`,
-						error,
-					);
-					return Ok(undefined);
-				},
-			});
-			syncCoordination.yDocChangeCount--;
-		},
-		onDelete: async (id, transaction) => {
-			await initPromise;
+							syncCoordination.refetchCount++;
+							await client.refetchWindows();
+							syncCoordination.refetchCount--;
+						},
+						catch: (error) => {
+							console.log(
+								`[Background] Failed to create window from ${change.newRow.id}:`,
+								error,
+							);
+							return Ok(undefined);
+						},
+					});
+					syncCoordination.yDocChangeCount--;
+				})();
+			} else if (change.action === 'delete') {
+				void (async () => {
+					await initPromise;
 
-			// Only process remote changes (from WebSocket sync)
-			if (transaction.origin === null) return;
+					if (transaction.origin === null) return;
 
-			const deviceId = await deviceIdPromise;
-			const parsed = parseWindowId(id);
+					const deviceId = await deviceIdPromise;
+					const parsed = parseWindowId(change.id);
 
-			// Only close windows that belong to THIS device
-			if (!parsed || parsed.deviceId !== deviceId) return;
+					if (!parsed || parsed.deviceId !== deviceId) return;
 
-			syncCoordination.yDocChangeCount++;
-			await tryAsync({
-				try: async () => {
-					await browser.windows.remove(parsed.windowId);
-				},
-				catch: (error) => {
-					console.log(`[Background] Failed to close window ${id}:`, error);
-					return Ok(undefined);
-				},
-			});
-			syncCoordination.yDocChangeCount--;
-		},
+					syncCoordination.yDocChangeCount++;
+					await tryAsync({
+						try: async () => {
+							await browser.windows.remove(parsed.windowId);
+						},
+						catch: (error) => {
+							console.log(
+								`[Background] Failed to close window ${change.id}:`,
+								error,
+							);
+							return Ok(undefined);
+						},
+					});
+					syncCoordination.yDocChangeCount--;
+				})();
+			}
+		}
 	});
 
 	if (browser.tabGroups) {
-		client.tables.tab_groups.observe({
-			onDelete: async (id, transaction) => {
-				await initPromise;
+		client.tables.tab_groups.observeChanges(({ changes, transaction }) => {
+			for (const change of changes) {
+				if (change.action === 'delete') {
+					void (async () => {
+						await initPromise;
 
-				// Only process remote changes (from WebSocket sync)
-				if (transaction.origin === null) return;
+						if (transaction.origin === null) return;
 
-				const deviceId = await deviceIdPromise;
-				const parsed = parseGroupId(id);
+						const deviceId = await deviceIdPromise;
+						const parsed = parseGroupId(change.id);
 
-				// Only ungroup tabs from THIS device's groups
-				if (!parsed || parsed.deviceId !== deviceId) return;
+						if (!parsed || parsed.deviceId !== deviceId) return;
 
-				syncCoordination.yDocChangeCount++;
-				await tryAsync({
-					try: async () => {
-						// Note: Browser doesn't have tabGroups.remove(), but we can ungroup tabs
-						const tabs = await browser.tabs.query({ groupId: parsed.groupId });
-						for (const tab of tabs) {
-							if (tab.id !== undefined) {
-								await browser.tabs.ungroup(tab.id);
-							}
-						}
-					},
-					catch: (error) => {
-						console.log(
-							`[Background] Failed to ungroup tab group ${id}:`,
-							error,
-						);
-						return Ok(undefined);
-					},
-				});
-				syncCoordination.yDocChangeCount--;
-			},
+						syncCoordination.yDocChangeCount++;
+						await tryAsync({
+							try: async () => {
+								const tabs = await browser.tabs.query({
+									groupId: parsed.groupId,
+								});
+								for (const tab of tabs) {
+									if (tab.id !== undefined) {
+										await browser.tabs.ungroup(tab.id);
+									}
+								}
+							},
+							catch: (error) => {
+								console.log(
+									`[Background] Failed to ungroup tab group ${change.id}:`,
+									error,
+								);
+								return Ok(undefined);
+							},
+						});
+						syncCoordination.yDocChangeCount--;
+					})();
+				}
+			}
 		});
 	}
 

@@ -2,10 +2,20 @@ import { type ArkErrors, type } from 'arktype';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToYjsArktype } from '../schema';
-import { YKeyValue } from '../utils/y-keyvalue';
+import { YKeyValue, type YKeyValueChange } from '../utils/y-keyvalue';
 
 /** A row that passed validation. */
 export type ValidRowResult<TRow> = { status: 'valid'; row: TRow };
+
+export type RowChange<TRow> =
+	| { action: 'add'; id: string; newRow: TRow }
+	| { action: 'update'; id: string; oldRow: TRow; newRow: TRow }
+	| { action: 'delete'; id: string; oldRow: TRow };
+
+export type RowChangeEvent<TRow> = {
+	changes: ReadonlyArray<RowChange<TRow>>;
+	transaction: Y.Transaction;
+};
 
 /** A row that exists but failed validation. */
 export type InvalidRowResult = {
@@ -546,94 +556,74 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * Watch for changes to the table and get notified when rows are added, updated, or deleted.
 		 *
 		 * This is your reactive hook into the table. Whenever someone (local or remote) adds a row,
-		 * modifies any field in a row, or deletes a row, you'll receive a callback with the relevant
-		 * data. Perfect for keeping UI in sync with database state.
+		 * modifies any field in a row, or deletes a row, you'll receive a callback with the batched
+		 * changes for that transaction.
 		 *
 		 * @example
 		 * ```typescript
-		 * const unsubscribe = table.observe({
-		 *   onAdd: (result, transaction) => {
-		 *     if (result.status === 'invalid') {
-		 *       console.error('Invalid row:', result.error.context.summary);
-		 *       return;
+		 * const unsubscribe = table.observeChanges(({ changes, transaction }) => {
+		 *   for (const change of changes) {
+		 *     switch (change.action) {
+		 *       case 'add':
+		 *         console.log('New row:', change.newRow);
+		 *         break;
+		 *       case 'update':
+		 *         console.log('Updated:', change.oldRow, '→', change.newRow);
+		 *         break;
+		 *       case 'delete':
+		 *         console.log('Deleted:', change.id);
+		 *         break;
 		 *     }
-		 *     console.log('New row:', result.row, 'origin:', transaction.origin);
-		 *   },
-		 *   onUpdate: (result, transaction) => {
-		 *     if (result.status === 'invalid') {
-		 *       console.error('Invalid row:', result.error.context.summary);
-		 *       return;
-		 *     }
-		 *     console.log('Row changed:', result.row, 'origin:', transaction.origin);
-		 *   },
-		 *   onDelete: (id, transaction) => console.log('Row removed:', id),
+		 *   }
 		 * });
 		 *
 		 * unsubscribe(); // Stop watching
 		 * ```
 		 *
-		 * @param callbacks Object with optional callbacks for row lifecycle events
-		 * @param callbacks.onAdd Called when a new row is added (receives RowResult and Y.Transaction)
-		 * @param callbacks.onUpdate Called when any field within an existing row changes (receives RowResult and Y.Transaction)
-		 * @param callbacks.onDelete Called when a row is removed (receives row ID and Y.Transaction)
+		 * @param callback Function called with batched changes and Y.Transaction
 		 * @returns Unsubscribe function to stop observing changes
 		 */
-		observe(callbacks: {
-			onAdd?: (
-				result: RowResult<TRow>,
-				transaction: Y.Transaction,
-			) => void | Promise<void>;
-			onUpdate?: (
-				result: RowResult<TRow>,
-				transaction: Y.Transaction,
-			) => void | Promise<void>;
-			onDelete?: (
-				id: string,
-				transaction: Y.Transaction,
-			) => void | Promise<void>;
-		}): () => void {
+		observeChanges(
+			callback: (event: RowChangeEvent<TRow>) => void,
+		): () => void {
 			const kv = getYKeyValue();
-			const validator = tableSchemaToYjsArktype(schema);
 
 			const handler = (
-				changes: Map<
-					string,
-					| { action: 'add'; newValue: Row }
-					| { action: 'update'; oldValue: Row; newValue: Row }
-					| { action: 'delete'; oldValue: Row }
-				>,
+				changes: Map<string, YKeyValueChange<Row>>,
 				transaction: Y.Transaction,
 			) => {
+				const normalized: RowChange<TRow>[] = [];
+
 				for (const [id, change] of changes) {
 					if (change.action === 'add') {
-						callbacks.onAdd?.(validateRow(id, change.newValue), transaction);
+						normalized.push({
+							action: 'add',
+							id,
+							newRow: change.newValue as TRow,
+						});
 					} else if (change.action === 'update') {
-						callbacks.onUpdate?.(validateRow(id, change.newValue), transaction);
-					} else if (change.action === 'delete') {
-						callbacks.onDelete?.(id, transaction);
+						normalized.push({
+							action: 'update',
+							id,
+							oldRow: change.oldValue as TRow,
+							newRow: change.newValue as TRow,
+						});
+					} else {
+						normalized.push({
+							action: 'delete',
+							id,
+							oldRow: change.oldValue as TRow,
+						});
 					}
+				}
+
+				if (normalized.length > 0) {
+					callback({ changes: normalized, transaction });
 				}
 			};
 
 			kv.on('change', handler);
 			return () => kv.off('change', handler);
-
-			function validateRow(id: string, data: Row): RowResult<TRow> {
-				const row = asTypedRow(data);
-				const result = validator(row);
-
-				if (result instanceof type.errors) {
-					return {
-						status: 'invalid',
-						id,
-						tableName,
-						errors: result,
-						summary: result.summary,
-						row,
-					};
-				}
-				return { status: 'valid', row };
-			}
 		},
 
 		/**

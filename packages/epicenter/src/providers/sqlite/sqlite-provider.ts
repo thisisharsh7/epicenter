@@ -212,35 +212,28 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 	const unsubscribers: Array<() => void> = [];
 
 	for (const { table } of tables.$zip(drizzleTables)) {
-		const unsub = table.observe({
-			onAdd: (result) => {
-				if (isPushingFromSqlite) return;
-				if (result.status === 'invalid') {
-					logger.log(
-						IndexError({
-							message: `SQLite index onAdd: validation failed for ${table.name}`,
-						}),
-					);
+		const unsub = table.observeChanges(({ changes }) => {
+			if (isPushingFromSqlite) return;
+
+			for (const change of changes) {
+				if (change.action === 'delete') {
+					scheduleSync();
 					return;
 				}
-				scheduleSync();
-			},
-			onUpdate: (result) => {
-				if (isPushingFromSqlite) return;
-				if (result.status === 'invalid') {
+
+				const validationResult = table.get(change.id);
+				if (validationResult.status === 'invalid') {
 					logger.log(
 						IndexError({
-							message: `SQLite index onUpdate: validation failed for ${table.name}`,
+							message: `SQLite index ${change.action}: validation failed for ${table.name}`,
 						}),
 					);
-					return;
+					continue;
 				}
+
 				scheduleSync();
-			},
-			onDelete: () => {
-				if (isPushingFromSqlite) return;
-				scheduleSync();
-			},
+				return;
+			}
 		});
 		unsubscribers.push(unsub);
 	}

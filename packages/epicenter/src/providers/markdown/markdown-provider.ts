@@ -410,102 +410,76 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 				});
 			}
 
-			const unsub = table.observe({
-				onAdd: async (result) => {
-					// Skip if this YJS change was triggered by a file change we're processing
-					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.fileChangeCount > 0) return;
+			const unsub = table.observeChanges(({ changes }) => {
+				if (syncCoordination.fileChangeCount > 0) return;
 
-					if (result.status === 'invalid') {
-						// Handle validation errors with diagnostics + logger
-						logger.log(
-							ProviderError({
-								message: `YJS observer onAdd: validation failed for ${table.name}/${result.id}: ${result.summary}`,
-								context: { tableName: result.tableName, rowId: result.id },
-							}),
-						);
-						return;
+				for (const change of changes) {
+					if (change.action === 'delete') {
+						void (async () => {
+							syncCoordination.yjsWriteCount++;
+
+							const filename = tracking[table.name]?.[change.id];
+							if (filename) {
+								const filePath = path.join(
+									tableConfig.directory,
+									filename,
+								) as AbsolutePath;
+								const { error } = await deleteMarkdownFile({ filePath });
+
+								// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
+								delete tracking[table.name]![change.id];
+
+								if (error) {
+									logger.log(
+										ProviderError({
+											message: `YJS observer onDelete: failed to delete ${table.name}/${change.id}`,
+											context: {
+												tableName: table.name,
+												rowId: change.id,
+												filePath,
+											},
+										}),
+									);
+								}
+							}
+
+							syncCoordination.yjsWriteCount--;
+						})();
+						continue;
 					}
 
-					const row = result.row;
-					syncCoordination.yjsWriteCount++;
-					const { error } = await writeRowToMarkdown(row);
-					syncCoordination.yjsWriteCount--;
-
-					if (error) {
-						// Log I/O errors (operational errors, not validation errors)
+					const validationResult = table.get(change.id);
+					if (validationResult.status === 'invalid') {
 						logger.log(
 							ProviderError({
-								message: `YJS observer onAdd: failed to write ${table.name}/${row.id}`,
-								context: { tableName: table.name, rowId: row.id },
+								message: `YJS observer ${change.action}: validation failed for ${table.name}/${change.id}: ${validationResult.summary}`,
+								context: {
+									tableName: validationResult.tableName,
+									rowId: change.id,
+								},
 							}),
 						);
-					}
-				},
-				onUpdate: async (result) => {
-					// Skip if this YJS change was triggered by a file change we're processing
-					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.fileChangeCount > 0) return;
-
-					if (result.status === 'invalid') {
-						// Handle validation errors with diagnostics + logger
-						logger.log(
-							ProviderError({
-								message: `YJS observer onUpdate: validation failed for ${table.name}/${result.id}: ${result.summary}`,
-								context: { tableName: result.tableName, rowId: result.id },
-							}),
-						);
-						return;
+						continue;
 					}
 
-					const row = result.row;
-					syncCoordination.yjsWriteCount++;
-					const { error } = await writeRowToMarkdown(row);
-					syncCoordination.yjsWriteCount--;
+					if (validationResult.status === 'not_found') continue;
 
-					if (error) {
-						// Log I/O errors (operational errors, not validation errors)
-						logger.log(
-							ProviderError({
-								message: `YJS observer onUpdate: failed to write ${table.name}/${row.id}`,
-								context: { tableName: table.name, rowId: row.id },
-							}),
-						);
-					}
-				},
-				onDelete: async (id) => {
-					// Skip if this YJS change was triggered by a file change we're processing
-					// (prevents markdown -> YJS -> markdown infinite loop)
-					if (syncCoordination.fileChangeCount > 0) return;
-
-					syncCoordination.yjsWriteCount++;
-
-					// Get filename and delete file if it exists
-					const filename = tracking[table.name]?.[id];
-					if (filename) {
-						const filePath = path.join(
-							tableConfig.directory,
-							filename,
-						) as AbsolutePath;
-						const { error } = await deleteMarkdownFile({ filePath });
-
-						// Clean up tracking
-						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-						delete tracking[table.name]![id];
+					const row = validationResult.row;
+					void (async () => {
+						syncCoordination.yjsWriteCount++;
+						const { error } = await writeRowToMarkdown(row);
+						syncCoordination.yjsWriteCount--;
 
 						if (error) {
-							// Log I/O errors (operational errors, not validation errors)
 							logger.log(
 								ProviderError({
-									message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
-									context: { tableName: table.name, rowId: id, filePath },
+									message: `YJS observer ${change.action}: failed to write ${table.name}/${row.id}`,
+									context: { tableName: table.name, rowId: row.id },
 								}),
 							);
 						}
-					}
-
-					syncCoordination.yjsWriteCount--;
-				},
+					})();
+				}
 			});
 			unsubscribers.push(unsub);
 		}

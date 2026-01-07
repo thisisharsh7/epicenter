@@ -134,14 +134,12 @@ describe('YjsDoc Type Inference', () => {
 			read: boolean;
 		}> = [];
 
-		const unsubscribe = doc.notifications.observe({
-			onAdd: (result) => {
-				if (result.status === 'valid') {
-					addedNotifications.push(result.row);
+		const unsubscribe = doc.notifications.observeChanges(({ changes }) => {
+			for (const change of changes) {
+				if (change.action === 'add') {
+					addedNotifications.push(change.newRow);
 				}
-			},
-			onUpdate: (_result) => {},
-			onDelete: (_id) => {},
+			}
 		});
 
 		doc.notifications.upsert({
