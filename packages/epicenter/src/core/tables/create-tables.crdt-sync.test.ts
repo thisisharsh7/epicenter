@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
 import { boolean, id, integer, text } from '../schema';
-import { createTables } from './core';
+import { createTables } from './create-tables';
 
 describe('Cell-Level CRDT Merging', () => {
 	test('concurrent edits to different columns merge correctly', () => {

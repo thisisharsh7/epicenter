@@ -10,7 +10,7 @@ import {
 	type Provider,
 	type ProviderContext,
 } from '../../core/provider.shared';
-import type { TableHelper } from '../../core/tables/core';
+import type { TableHelper } from '../../core/tables/create-tables';
 import type { Row, TableSchema, TablesSchema } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';

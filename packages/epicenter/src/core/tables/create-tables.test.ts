@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
 import { boolean, id, integer, tags, text, richtext } from '../schema';
-import { createTables } from './core';
+import { createTables } from './create-tables';
 
 describe('createTables', () => {
 	test('should create and retrieve rows correctly', () => {

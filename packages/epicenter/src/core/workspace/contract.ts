@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 
-import { createTables, type Tables } from '../tables/core';
+import { createTables, type Tables } from '../tables/create-tables';
 import { createKv, type Kv } from '../kv/core';
 import type { Provider, Providers } from '../provider.shared';
 import type { KvSchema, TablesSchema } from '../schema';

@@ -35,10 +35,10 @@ export {
 	sql,
 } from 'drizzle-orm';
 
-export type { TableHelper, Tables } from './core/tables/core';
+export type { TableHelper, Tables } from './core/tables/create-tables';
 
 // Table utilities
-export { createTables } from './core/tables/core';
+export { createTables } from './core/tables/create-tables';
 
 export type { Kv, KvHelper } from './core/kv/core';
 export { createKv } from './core/kv/core';
