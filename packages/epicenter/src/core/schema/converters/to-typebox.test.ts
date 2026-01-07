@@ -450,6 +450,95 @@ describe('tableSchemaToTypebox', () => {
 	});
 });
 
+describe('JSON Schema pass-through for json fields', () => {
+	test('json field produces valid JSON Schema that TypeBox can compile', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			settings: json({
+				schema: type({ theme: '"light" | "dark"', fontSize: 'number' }),
+			}),
+		});
+
+		const validator = Compile(schema);
+		expect(
+			validator.Check({ id: '1', settings: { theme: 'dark', fontSize: 14 } }),
+		).toBe(true);
+		expect(
+			validator.Check({ id: '1', settings: { theme: 'light', fontSize: 16 } }),
+		).toBe(true);
+	});
+
+	test('json field validation errors include path information', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			config: json({ schema: type({ name: 'string', count: 'number' }) }),
+		});
+
+		const validator = Compile(schema);
+		const errors = [
+			...validator.Errors({ id: '1', config: { name: 123, count: 'invalid' } }),
+		];
+
+		expect(errors.length).toBeGreaterThan(0);
+		expect(errors.some((e) => e.instancePath.includes('config'))).toBe(true);
+	});
+
+	test('array composition works with JSON Schema via manual construction', () => {
+		const rowSchema = tableSchemaToTypebox({
+			id: id(),
+			data: json({ schema: type({ value: 'number' }) }),
+		});
+
+		const arraySchema = { type: 'array', items: rowSchema };
+		const validator = Compile(arraySchema);
+
+		expect(
+			validator.Check([
+				{ id: '1', data: { value: 10 } },
+				{ id: '2', data: { value: 20 } },
+			]),
+		).toBe(true);
+
+		expect(validator.Check([{ id: '1', data: { value: 'invalid' } }])).toBe(
+			false,
+		);
+	});
+
+	test('nested json schema validates correctly', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			nested: json({
+				schema: type({
+					user: { name: 'string', email: 'string' },
+					preferences: { notifications: 'boolean' },
+				}),
+			}),
+		});
+
+		const validator = Compile(schema);
+
+		expect(
+			validator.Check({
+				id: '1',
+				nested: {
+					user: { name: 'John', email: 'john@example.com' },
+					preferences: { notifications: true },
+				},
+			}),
+		).toBe(true);
+
+		expect(
+			validator.Check({
+				id: '1',
+				nested: {
+					user: { name: 'John' },
+					preferences: { notifications: true },
+				},
+			}),
+		).toBe(false);
+	});
+});
+
 describe('Compile (JIT validation)', () => {
 	test('compiled validator produces same results as Value.Check', () => {
 		const schema = tableSchemaToTypebox({

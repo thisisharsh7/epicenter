@@ -8,8 +8,16 @@
  * **Key Design Decisions**:
  * - Returns raw TypeBox schemas (TSchema), not compiled validators
  * - Nullable fields use `Type.Union([baseType, Type.Null()])`
- * - JSON fields use `Type.Refine()` to call embedded StandardSchema at runtime
+ * - JSON fields convert StandardSchemaWithJSONSchema to JSON Schema, which TypeBox compiles natively
  * - Select fields use `Type.Union([Type.Literal(...), ...])` for string literals
+ *
+ * **JSON Field Strategy**:
+ * JSON fields require StandardSchemaWithJSONSchema (schemas that implement both validation
+ * and JSON Schema conversion). Instead of using Type.Refine() which bypasses JIT compilation,
+ * we convert the embedded schema to JSON Schema and pass it directly to TypeBox. This gives us:
+ * - Full JIT compilation (no runtime callback overhead)
+ * - Native TypeBox error messages with paths
+ * - Better performance for validation-heavy workloads
  */
 
 import {
@@ -40,6 +48,7 @@ import type {
 } from '../fields/types';
 import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
+import { ARKTYPE_JSON_SCHEMA_FALLBACK } from '../standard/arktype-fallback';
 
 /**
  * Maps a FieldSchema to its corresponding TypeBox TSchema type.
@@ -125,7 +134,7 @@ export function tableSchemaToTypebox<TTableSchema extends TableSchema>(
  * - `date` -> `Type.String({ pattern })`
  * - `select` -> `Type.Union([Type.Literal(...), ...])`
  * - `tags` -> `Type.Array(...)`
- * - `json` -> `Type.Refine(Type.Unknown(), standardSchemaValidate)`
+ * - `json` -> JSON Schema from StandardSchemaWithJSONSchema (fully JIT-compiled)
  */
 export function fieldSchemaToTypebox<C extends FieldSchema>(
 	fieldSchema: C,
@@ -178,15 +187,13 @@ export function fieldSchemaToTypebox<C extends FieldSchema>(
 
 		case 'json': {
 			const standardSchema = fieldSchema.schema;
-			baseType = Type.Refine(
-				Type.Unknown(),
-				(value) => {
-					const result = standardSchema['~standard'].validate(value);
-					if (result instanceof Promise) return false;
-					return !result.issues;
+			const jsonSchema = standardSchema['~standard'].jsonSchema.input({
+				target: 'draft-2020-12',
+				libraryOptions: {
+					fallback: ARKTYPE_JSON_SCHEMA_FALLBACK,
 				},
-				'JSON validation failed against embedded schema',
-			);
+			});
+			baseType = jsonSchema as TSchema;
 			break;
 		}
 	}
