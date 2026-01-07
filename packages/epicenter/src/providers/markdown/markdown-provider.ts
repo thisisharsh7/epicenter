@@ -448,13 +448,18 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						continue;
 					}
 
-					const validationResult = table.get(id);
-					if (validationResult.status === 'invalid') {
+					const { result } = change;
+					if (result.status === 'invalid') {
+						const errorMessages = result.errors
+							.map(
+								(e) => `${(e as { path?: string }).path ?? ''}: ${e.message}`,
+							)
+							.join(', ');
 						logger.log(
 							ProviderError({
-								message: `YJS observer ${change.action}: validation failed for ${table.name}/${id}: ${validationResult.summary}`,
+								message: `YJS observer ${change.action}: validation failed for ${table.name}/${id}: ${errorMessages}`,
 								context: {
-									tableName: validationResult.tableName,
+									tableName: result.tableName,
 									rowId: id,
 								},
 							}),
@@ -462,9 +467,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 						continue;
 					}
 
-					if (validationResult.status === 'not_found') continue;
-
-					const row = validationResult.row;
+					const row = result.row;
 					void (async () => {
 						syncCoordination.yjsWriteCount++;
 						const { error } = await writeRowToMarkdown(row);

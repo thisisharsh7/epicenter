@@ -217,10 +217,10 @@ describe('createTables', () => {
 			const updates: Array<{ id: string; title: string }> = [];
 			tables.posts.observeChanges((changes) => {
 				for (const [id, change] of changes) {
-					if (change.action === 'update') {
+					if (change.action === 'update' && change.result.status === 'valid') {
 						updates.push({
 							id,
-							title: change.newValue.title,
+							title: change.result.row.title,
 						});
 					}
 				}
@@ -272,8 +272,8 @@ describe('createTables', () => {
 
 			tables.posts.observeChanges((changes) => {
 				for (const [id, change] of changes) {
-					if (change.action === 'add') {
-						receivedRows.push({ id, title: change.newValue.title });
+					if (change.action === 'add' && change.result.status === 'valid') {
+						receivedRows.push({ id, title: change.result.row.title });
 					}
 				}
 			});
@@ -300,11 +300,11 @@ describe('createTables', () => {
 				},
 			});
 
-			let receivedRow: unknown = null;
+			let receivedResult: unknown = null;
 			tables.posts.observeChanges((changes) => {
 				for (const [_id, change] of changes) {
 					if (change.action === 'add') {
-						receivedRow = change.newValue;
+						receivedResult = change.result;
 					}
 				}
 			});
@@ -322,7 +322,10 @@ describe('createTables', () => {
 				{ key: 'count', val: 'not a number' },
 			]);
 
-			expect(receivedRow).toEqual({ id: 'bad-row', count: 'not a number' });
+			expect(receivedResult).toMatchObject({
+				status: 'invalid',
+				row: { id: 'bad-row', count: 'not a number' },
+			});
 		});
 
 		test('unsubscribe stops callbacks', () => {

@@ -125,6 +125,15 @@ export type DeleteManyResult =
 	| { status: 'none_deleted'; notFoundLocally: string[] };
 
 /**
+ * Change event for table row observation with validation status.
+ * Consumers receive RowResult so they can handle both valid and invalid rows.
+ */
+export type TableRowChange<TRow> =
+	| { action: 'add'; result: RowResult<TRow> }
+	| { action: 'update'; result: RowResult<TRow> }
+	| { action: 'delete' };
+
+/**
  * Creates a type-safe collection of table helpers for all tables in a schema.
  */
 export function createTableHelpers<TTablesSchema extends TablesSchema>({
@@ -190,7 +199,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 	const typeboxSchema = tableSchemaToTypebox(schema);
 	const rowValidator = Compile(typeboxSchema);
-	const arrayValidator = Compile({ type: 'array', items: typeboxSchema });
 
 	let currentTableRef: TableMap | null = null;
 
@@ -326,22 +334,20 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	};
 
 	/**
-	 * Reconstruct a typed row object from cell-level YKeyValue entries.
+	 * Reconstruct a row object from cell-level YKeyValue entries.
 	 *
-	 * YKeyValue stores each column as a separate entry in the underlying
-	 * Y.Array (for cell-level CRDT merging). This function reassembles
-	 * those entries into a plain object matching the table schema.
-	 *
-	 * This is the inverse of how upsert() stores data—upsert iterates
-	 * Object.entries and calls rowKV.set for each field; reconstructRow
-	 * iterates rowKV.map.entries and builds an object from each field.
+	 * Returns `Record<string, unknown>` because we know it's an object with
+	 * string keys, but values are unvalidated. Use `rowValidator.Check()`
+	 * to narrow to `TRow` after validation passes.
 	 */
-	const reconstructRow = (rowKV: YKeyValue<unknown>): TRow => {
+	const reconstructRow = (
+		rowKV: YKeyValue<unknown>,
+	): Record<string, unknown> => {
 		const row: Record<string, unknown> = {};
 		for (const [key, entry] of rowKV.map.entries()) {
 			row[key] = entry.val;
 		}
-		return row as TRow;
+		return row;
 	};
 
 	return {
@@ -413,7 +419,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const row = reconstructRow(rowKV);
 
 			if (rowValidator.Check(row)) {
-				return { status: 'valid', row };
+				return { status: 'valid', row: row as TRow };
 			}
 
 			return {
@@ -429,28 +435,22 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return [];
 
-			const entries = tableMap.entries().map(([id, rowArray]) => ({
-				id,
-				row: reconstructRow(ensureRowKV(id, rowArray)),
-			}));
-
-			const allRows = entries.map((e) => e.row);
-			if (arrayValidator.Check(allRows)) {
-				return entries.map(({ row }) => ({ status: 'valid', row }));
-			}
-
-			return entries.map(({ id, row }) => {
+			const results: RowResult<TRow>[] = [];
+			for (const [id, rowArray] of tableMap.entries()) {
+				const row = reconstructRow(ensureRowKV(id, rowArray));
 				if (rowValidator.Check(row)) {
-					return { status: 'valid', row };
+					results.push({ status: 'valid', row: row as TRow });
+				} else {
+					results.push({
+						status: 'invalid',
+						id,
+						tableName,
+						errors: rowValidator.Errors(row),
+						row,
+					});
 				}
-				return {
-					status: 'invalid',
-					id,
-					tableName,
-					errors: rowValidator.Errors(row),
-					row,
-				};
-			});
+			}
+			return results;
 		},
 
 		getAllValid(): TRow[] {
@@ -463,7 +463,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				const rowKV = ensureRowKV(id, rowArray);
 				const row = reconstructRow(rowKV);
 				if (rowValidator.Check(row)) {
-					result.push(row);
+					result.push(row as TRow);
 				}
 			}
 
@@ -541,7 +541,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			if (!tableMap) return;
 
 			ydoc.transact(() => {
-				for (const id of Array.from(tableMap.keys())) {
+				for (const id of tableMap.keys()) {
 					tableMap.delete(id);
 					rowKVCache.delete(id);
 				}
@@ -562,8 +562,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			for (const [id, rowArray] of tableMap.entries()) {
 				const rowKV = ensureRowKV(id, rowArray);
 				const row = reconstructRow(rowKV);
-				if (rowValidator.Check(row) && predicate(row)) {
-					result.push(row);
+				if (rowValidator.Check(row)) {
+					const validRow = row as TRow;
+					if (predicate(validRow)) {
+						result.push(validRow);
+					}
 				}
 			}
 
@@ -577,8 +580,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			for (const [id, rowArray] of tableMap.entries()) {
 				const rowKV = ensureRowKV(id, rowArray);
 				const row = reconstructRow(rowKV);
-				if (rowValidator.Check(row) && predicate(row)) {
-					return row;
+				if (rowValidator.Check(row)) {
+					const validRow = row as TRow;
+					if (predicate(validRow)) {
+						return validRow;
+					}
 				}
 			}
 
@@ -586,12 +592,13 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		/**
-		 * Watch for changes. Reports 'add' when cells first populate a new row,
-		 * 'update' for subsequent changes, 'delete' when row is removed.
+		 * Watch for changes with validation status. Reports 'add' when cells
+		 * first populate a new row, 'update' for subsequent changes, 'delete'
+		 * when row is removed. Each change includes RowResult for validation.
 		 */
 		observeChanges(
 			callback: (
-				changes: Map<string, YKeyValueChange<TRow>>,
+				changes: Map<string, TableRowChange<TRow>>,
 				transaction: Y.Transaction,
 			) => void,
 		): () => void {
@@ -600,6 +607,22 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			let tableMap = getExistingTableMap();
 			let tableUnobserve: (() => void) | null = null;
 
+			const validateRow = (
+				id: string,
+				row: Record<string, unknown>,
+			): RowResult<TRow> => {
+				if (rowValidator.Check(row)) {
+					return { status: 'valid', row: row as TRow };
+				}
+				return {
+					status: 'invalid',
+					id,
+					tableName,
+					errors: rowValidator.Errors(row),
+					row,
+				};
+			};
+
 			const observeRow = (rowId: string, rowArray: RowArray) => {
 				const rowKV = ensureRowKV(rowId, rowArray);
 
@@ -607,18 +630,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					_cellChanges,
 					transaction,
 				) => {
-					const changes = new Map<string, YKeyValueChange<TRow>>();
+					const changes = new Map<string, TableRowChange<TRow>>();
 					const currentRow = reconstructRow(rowKV);
+					const result = validateRow(rowId, currentRow);
 
 					if (pendingAdds.has(rowId)) {
 						pendingAdds.delete(rowId);
-						changes.set(rowId, { action: 'add', newValue: currentRow });
+						changes.set(rowId, { action: 'add', result });
 					} else {
-						changes.set(rowId, {
-							action: 'update',
-							oldValue: currentRow,
-							newValue: currentRow,
-						});
+						changes.set(rowId, { action: 'update', result });
 					}
 					callback(changes, transaction);
 				};
@@ -628,7 +648,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			};
 
 			const tableObserver = (event: Y.YMapEvent<RowArray>) => {
-				const changes = new Map<string, YKeyValueChange<TRow>>();
+				const changes = new Map<string, TableRowChange<TRow>>();
 				const currentTableMap = event.target;
 
 				event.changes.keys.forEach((change, rowId) => {
@@ -643,7 +663,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						rowObservers.delete(rowId);
 						pendingAdds.delete(rowId);
 						rowKVCache.delete(rowId);
-						changes.set(rowId, { action: 'delete', oldValue: {} as TRow });
+						changes.set(rowId, { action: 'delete' });
 					}
 				});
 
@@ -655,16 +675,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				fireAddForExisting: boolean,
 				transaction?: Y.Transaction,
 			) => {
-				const addChanges = new Map<string, YKeyValueChange<TRow>>();
+				const addChanges = new Map<string, TableRowChange<TRow>>();
 
 				for (const [rowId, rowArray] of map.entries()) {
 					rowObservers.set(rowId, observeRow(rowId, rowArray));
 					if (fireAddForExisting) {
 						const rowKV = ensureRowKV(rowId, rowArray);
-						addChanges.set(rowId, {
-							action: 'add',
-							newValue: reconstructRow(rowKV),
-						});
+						const currentRow = reconstructRow(rowKV);
+						const result = validateRow(rowId, currentRow);
+						addChanges.set(rowId, { action: 'add', result });
 					}
 				}
 

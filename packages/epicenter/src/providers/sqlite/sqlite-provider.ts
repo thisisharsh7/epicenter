@@ -215,26 +215,17 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 		const unsub = table.observeChanges((changes) => {
 			if (isPushingFromSqlite) return;
 
-			// Log validation errors for debugging
-			for (const [id, change] of changes) {
+			for (const [_id, change] of changes) {
 				if (change.action === 'delete') continue;
-				const result = table.get(id);
-				if (result.status === 'invalid') {
+				if (change.result.status === 'invalid') {
 					logger.log(
 						ProviderError({
 							message: `SQLite index ${change.action}: validation failed for ${table.name}`,
 						}),
 					);
-				} else if (result.status === 'not_found') {
-					logger.log(
-						ProviderError({
-							message: `SQLite index ${change.action}: row not found for ${table.name} (id: ${id})`,
-						}),
-					);
 				}
 			}
 
-			// Sync on any change - getAllValid() handles filtering
 			scheduleSync();
 		});
 		unsubscribers.push(unsub);
