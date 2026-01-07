@@ -54,13 +54,9 @@ export type {
 	UpdateResult,
 	ValidRowResult,
 } from './core/tables/table-helper';
-export type {
-	EpicenterOperationError,
-	IndexError,
-	ValidationError,
-} from './core/errors';
+export type { ProviderError } from './core/errors';
 // Error types
-export { EpicenterOperationErr, IndexErr, ValidationErr } from './core/errors';
+export { ProviderErr } from './core/errors';
 export type {
 	Provider,
 	ProviderContext,

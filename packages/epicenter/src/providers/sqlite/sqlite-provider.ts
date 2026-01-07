@@ -7,7 +7,7 @@ import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 
-import { IndexErr, IndexError } from '../../core/errors';
+import { ProviderErr, ProviderError } from '../../core/errors';
 import {
 	defineProviders,
 	type Provider,
@@ -181,7 +181,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 						await sqliteDb.insert(drizzleTable).values(rows);
 					},
 					catch: (e) =>
-						IndexErr({
+						ProviderErr({
 							message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite: ${extractErrorMessage(e)}`,
 						}),
 				});
@@ -221,13 +221,13 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 				const result = table.get(id);
 				if (result.status === 'invalid') {
 					logger.log(
-						IndexError({
+						ProviderError({
 							message: `SQLite index ${change.action}: validation failed for ${table.name}`,
 						}),
 					);
 				} else if (result.status === 'not_found') {
 					logger.log(
-						IndexError({
+						ProviderError({
 							message: `SQLite index ${change.action}: row not found for ${table.name} (id: ${id})`,
 						}),
 					);
@@ -256,7 +256,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 					await sqliteDb.insert(drizzleTable).values(rows);
 				},
 				catch: (e) =>
-					IndexErr({
+					ProviderErr({
 						message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite during init: ${extractErrorMessage(e)}`,
 					}),
 			});
@@ -289,7 +289,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 			return tryAsync({
 				try: () => rebuildSqlite(),
 				catch: (error) =>
-					IndexErr({
+					ProviderErr({
 						message: `SQLite provider pull operation failed: ${extractErrorMessage(error)}`,
 					}),
 			});
@@ -317,7 +317,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 				},
 				catch: (error) => {
 					isPushingFromSqlite = false;
-					return IndexErr({
+					return ProviderErr({
 						message: `SQLite provider push operation failed: ${extractErrorMessage(error)}`,
 					});
 				},
