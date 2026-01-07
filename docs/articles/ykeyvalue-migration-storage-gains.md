@@ -115,3 +115,6 @@ YKeyValue is a meta structure: a map interface built on array primitives. It's u
 
 - [yjs/y-utility](https://github.com/yjs/y-utility): The canonical implementation
 - [YKeyValue deep dive](./ykeyvalue-meta-data-structure.md): Technical details on how it works
+- [PR #1217: Port YKeyValue to TypeScript](https://github.com/EpicenterHQ/epicenter/pull/1217): Our TypeScript implementation
+
+  > YKeyValue (from yjs/y-utility) solves this by storing {key, val} pairs in a Y.Array. When you set a key, it deletes the old entry and appends a new one. Y.Array tombstones are positional and get cleaned up, while Y.Map tombstones retain per-key metadata forever. We ported YKeyValue to TypeScript with no external dependencies and now use it for both table rows and KV settings.
