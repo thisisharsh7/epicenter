@@ -10,6 +10,18 @@ import {
 
 export type { YKeyValueChange };
 
+/** Storage format for a single cell in a row. Key is column name, val is cell value. */
+type CellEntry = { key: string; val: unknown };
+
+/** Y.Array storing cells for a single row, wrapped by YKeyValue for O(1) lookups. */
+type RowArray = Y.Array<CellEntry>;
+
+/** Y.Map storing rows for a single table, keyed by row ID. */
+type TableMap = Y.Map<RowArray>;
+
+/** Y.Map storing all tables, keyed by table name. */
+type TablesMap = Y.Map<TableMap>;
+
 /** A row that passed validation. */
 export type ValidRowResult<TRow> = { status: 'valid'; row: TRow };
 
@@ -94,14 +106,6 @@ export type DeleteManyResult =
 
 /**
  * Creates a type-safe collection of table helpers for all tables in a schema.
- *
- * This function maps over the table schemas and creates a TableHelper for each table,
- * returning an object where each key is a table name and each value is the corresponding
- * typed helper with full CRUD operations.
- *
- * @param ydoc - The YJS document instance
- * @param schema - Raw table schemas (column definitions only)
- * @returns Object mapping table names to their typed TableHelper instances
  */
 export function createTableHelpers<TTablesSchema extends TablesSchema>({
 	ydoc,
@@ -110,20 +114,13 @@ export function createTableHelpers<TTablesSchema extends TablesSchema>({
 	ydoc: Y.Doc;
 	schema: TTablesSchema;
 }) {
-	// Y.Map containing Y.Arrays for each table's YKeyValue storage
-	// getMap() creates the map if it doesn't exist (idempotent)
-	const ytables = ydoc.getMap<Y.Array<{ key: string; val: Row }>>('tables');
+	const ytables: TablesMap = ydoc.getMap('tables');
 
 	return Object.fromEntries(
 		Object.entries(schema).map(([tableName, tableSchema]) => {
 			return [
 				tableName,
-				createTableHelper({
-					ydoc,
-					tableName,
-					ytables,
-					schema: tableSchema,
-				}),
+				createTableHelper({ ydoc, tableName, ytables, schema: tableSchema }),
 			];
 		}),
 	) as {
@@ -132,28 +129,16 @@ export function createTableHelpers<TTablesSchema extends TablesSchema>({
 }
 
 /**
- * Creates a single table helper with type-safe CRUD operations for a specific table.
+ * Creates a single table helper with type-safe CRUD operations.
  *
- * This is a pure function that wraps a YKeyValue (representing a table) with methods
- * for inserting, updating, deleting, and querying rows. All operations are properly
- * typed based on the table's row type.
+ * ## Storage Architecture (Cell-Level CRDT Merging)
  *
- * ## Storage Architecture (YKeyValue)
+ * Each table is a Y.Map<rowId, RowArray> where each row stores cells separately.
+ * This enables concurrent edits to different columns to merge correctly:
  *
- * Tables use YKeyValue instead of nested Y.Maps for dramatically better storage efficiency.
- * YKeyValue stores rows as `{ key: rowId, val: rowData }` pairs in a Y.Array.
- *
- * Benchmark (100k operations on 10 keys):
- * - YKeyValue: 271 bytes
- * - Y.Map: 524,985 bytes (1935x larger!)
- *
- * This is possible because rows are now JSON-serializable (no nested Y.Text/Y.Array).
- *
- * @param ydoc - The YJS document instance (used for transactions)
- * @param tableName - Name of the table (used in error messages)
- * @param ytableArrays - The root YJS Map containing Y.Arrays for each table
- * @param schema - The table schema (column definitions only)
- * @returns A TableHelper instance with full CRUD operations
+ * ```
+ * User A edits title, User B edits views → After sync: both changes preserved
+ * ```
  */
 function createTableHelper<TTableSchema extends TableSchema>({
 	ydoc,
@@ -163,165 +148,250 @@ function createTableHelper<TTableSchema extends TableSchema>({
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
-	ytables: Y.Map<Y.Array<{ key: string; val: Row }>>;
+	ytables: TablesMap;
 	schema: TTableSchema;
 }) {
 	type TRow = Row<TTableSchema>;
 
-	let ykv: YKeyValue<Row> | null = null;
+	/**
+	 * Cache of YKeyValue instances per row ID.
+	 *
+	 * YKeyValue maintains an internal Map for O(1) lookups by column name.
+	 * Creating a new YKeyValue for the same Y.Array means rebuilding this Map
+	 * by iterating all cells—an O(n) operation per access.
+	 *
+	 * This cache ensures we reuse the same YKeyValue instance per row,
+	 * amortizing the Map construction cost across multiple accesses.
+	 *
+	 * IMPORTANT: Must be invalidated when a row is deleted or when the
+	 * table Y.Map is replaced (due to sync conflict resolution).
+	 */
+	const rowKVCache = new Map<string, YKeyValue<unknown>>();
 
 	/**
-	 * Lazily resolve the YKeyValue for this table on each access.
-	 *
-	 * The YKeyValue wraps a Y.Array and maintains an internal Map for O(1) lookups.
-	 * We cache the YKeyValue instance since it maintains state (the lookup map).
+	 * Track the current table Y.Map reference. When sync causes a conflict,
+	 * YJS might replace our local table with the winner. We detect this and
+	 * invalidate the rowKVCache to prevent stale references.
 	 */
-	const getYKeyValue = (): YKeyValue<Row> => {
-		if (ykv) return ykv;
+	let currentTableRef: TableMap | null = null;
 
-		let yarray = ytables.get(tableName);
-		if (!yarray) {
-			yarray = new Y.Array<{ key: string; val: Row }>();
-			ytables.set(tableName, yarray);
+	ytables.observe((event) => {
+		event.changes.keys.forEach((change, key) => {
+			if (key === tableName && change.action === 'update') {
+				rowKVCache.clear();
+				currentTableRef = ytables.get(tableName) ?? null;
+			}
+		});
+	});
+
+	/**
+	 * Get the Y.Map for this table if it exists, or null if not.
+	 *
+	 * Used by read operations that should NOT create the table if it doesn't exist.
+	 * This is critical for sync: if we create an empty table before sync happens,
+	 * it will conflict with the synced table from another peer.
+	 */
+	const getExistingTableMap = (): TableMap | null => {
+		const tableMap = ytables.get(tableName) ?? null;
+		if (tableMap !== currentTableRef) {
+			rowKVCache.clear();
+			currentTableRef = tableMap;
 		}
-		ykv = new YKeyValue(yarray);
-		return ykv;
+		return tableMap;
 	};
 
-	const asTypedRow = (data: Row): TRow => data as TRow;
+	/**
+	 * Get or lazily create the Y.Map for this table.
+	 *
+	 * Tables are stored as nested Y.Maps: `ytables.get(tableName)` returns
+	 * the table-level Y.Map that holds all rows (keyed by row ID).
+	 *
+	 * ONLY use this in write operations (upsert, delete, clear).
+	 * Read operations should use getExistingTableMap() to avoid
+	 * creating conflicting Y.Maps before sync completes.
+	 */
+	const getOrCreateTableMap = (): TableMap => {
+		let tableMap = ytables.get(tableName);
+		if (!tableMap) {
+			tableMap = new Y.Map() as TableMap;
+			ytables.set(tableName, tableMap);
+		}
+		return tableMap;
+	};
+
+	/**
+	 * Get or create a YKeyValue wrapper for a row, creating the row if needed.
+	 *
+	 * Use this for upsert operations that always need a row to exist.
+	 * Creates the Y.Array and caches the YKeyValue if the row doesn't exist.
+	 *
+	 * This is idempotent—safe to call multiple times for the same row ID.
+	 * Subsequent calls return the cached YKeyValue without creating duplicates.
+	 *
+	 * @example
+	 * ```typescript
+	 * const rowKV = getOrCreateRowKV('post-123');
+	 * rowKV.set('title', 'Hello World'); // Always succeeds
+	 * ```
+	 */
+	const getOrCreateRowKV = (rowId: string): YKeyValue<unknown> => {
+		const cached = rowKVCache.get(rowId);
+		if (cached) return cached;
+
+		const tableMap = getOrCreateTableMap();
+		let rowArray = tableMap.get(rowId);
+		if (!rowArray) {
+			rowArray = new Y.Array() as RowArray;
+			tableMap.set(rowId, rowArray);
+		}
+
+		const kv = new YKeyValue(rowArray);
+		rowKVCache.set(rowId, kv);
+		return kv;
+	};
+
+	/**
+	 * Get the YKeyValue wrapper for an existing row, or null if not found.
+	 *
+	 * Use this for read/update operations that need to handle missing rows.
+	 * Returns null if the row doesn't exist (unlike getOrCreateRowKV).
+	 *
+	 * The caller must handle the null case—typically by returning a
+	 * `not_found` or `not_found_locally` status.
+	 *
+	 * @example
+	 * ```typescript
+	 * const rowKV = getRowKV('post-123');
+	 * if (!rowKV) return { status: 'not_found', id: 'post-123' };
+	 * ```
+	 */
+	const getRowKV = (rowId: string): YKeyValue<unknown> | null => {
+		const tableMap = getExistingTableMap();
+		if (!tableMap) {
+			rowKVCache.delete(rowId);
+			return null;
+		}
+
+		const rowArray = tableMap.get(rowId);
+		if (!rowArray) {
+			rowKVCache.delete(rowId);
+			return null;
+		}
+
+		const cached = rowKVCache.get(rowId);
+		if (cached) {
+			return cached;
+		}
+
+		const kv = new YKeyValue(rowArray);
+		rowKVCache.set(rowId, kv);
+		return kv;
+	};
+
+	/**
+	 * Ensure a YKeyValue wrapper exists for a row during iteration.
+	 *
+	 * Used by getAll/getAllValid/getAllInvalid/filter/find when iterating
+	 * over table entries. Avoids creating duplicate YKeyValue instances
+	 * for rows we've already wrapped.
+	 *
+	 * Unlike getOrCreateRowKV, this doesn't create the row—it assumes
+	 * the rowArray already exists (since we're iterating tableMap entries).
+	 */
+	const ensureRowKV = (id: string, rowArray: RowArray): YKeyValue<unknown> => {
+		const cached = rowKVCache.get(id);
+		if (cached) return cached;
+		const kv = new YKeyValue(rowArray);
+		rowKVCache.set(id, kv);
+		return kv;
+	};
+
+	/**
+	 * Reconstruct a typed row object from cell-level YKeyValue entries.
+	 *
+	 * YKeyValue stores each column as a separate entry in the underlying
+	 * Y.Array (for cell-level CRDT merging). This function reassembles
+	 * those entries into a plain object matching the table schema.
+	 *
+	 * This is the inverse of how upsert() stores data—upsert iterates
+	 * Object.entries and calls rowKV.set for each field; reconstructRow
+	 * iterates rowKV.map.entries and builds an object from each field.
+	 */
+	const reconstructRow = (rowKV: YKeyValue<unknown>): TRow => {
+		const row: Record<string, unknown> = {};
+		for (const [key, entry] of rowKV.map.entries()) {
+			row[key] = entry.val;
+		}
+		return row as TRow;
+	};
 
 	return {
-		/**
-		 * The name of this table
-		 */
 		name: tableName,
-
-		/**
-		 * The schema definition for this table (column definitions)
-		 */
 		schema,
 
-		/**
-		 * Update specific fields of an existing row.
-		 *
-		 * For array columns (tags), provide plain arrays.
-		 *
-		 * Only the fields you include will be updated; others remain unchanged.
-		 *
-		 * **If the row doesn't exist locally, this is a no-op.** This is intentional due to
-		 * Yjs semantics: if another peer has a full row at that ID, creating a row with
-		 * only partial fields could completely replace it via Last-Writer-Wins, destroying
-		 * all their data. The no-op behavior is the safe choice that prevents catastrophic
-		 * data loss.
-		 */
 		update(partialRow: PartialRow<TTableSchema>): UpdateResult {
-			const existing = getYKeyValue().get(partialRow.id);
-			if (!existing) {
-				return { status: 'not_found_locally' };
-			}
+			const rowKV = getRowKV(partialRow.id);
+			if (!rowKV) return { status: 'not_found_locally' };
 
-			const merged = { ...existing, ...partialRow };
-			getYKeyValue().set(partialRow.id, merged);
+			ydoc.transact(() => {
+				for (const [key, value] of Object.entries(partialRow)) {
+					rowKV.set(key, value);
+				}
+			});
 
 			return { status: 'applied' };
 		},
 
-		/**
-		 * Insert or update a row (insert if doesn't exist, update if exists).
-		 *
-		 * This is the primary write operation for tables. Use it when you have a complete
-		 * row and want to ensure it exists in the table regardless of prior state.
-		 *
-		 * For array columns (tags), provide plain arrays.
-		 *
-		 * @param rowData - Complete row data with all required fields
-		 *
-		 * @example
-		 * ```typescript
-		 * // Create a new post
-		 * tables.posts.upsert({
-		 *   id: 'post-123',
-		 *   title: 'Hello World',
-		 *   content: 'rtxt_abc123',  // richtext ID reference
-		 *   tags: ['tech', 'blog'],
-		 *   published: false,
-		 * });
-		 *
-		 * // Update an existing post (all fields required)
-		 * tables.posts.upsert({
-		 *   id: 'post-123',
-		 *   title: 'Updated Title',
-		 *   content: 'rtxt_abc123',
-		 *   tags: ['tech'],
-		 *   published: true,
-		 * });
-		 * ```
-		 */
 		upsert(rowData: TRow): void {
-			getYKeyValue().set(rowData.id, rowData);
-		},
-
-		/**
-		 * Insert or update multiple rows in a single transaction.
-		 *
-		 * More efficient than calling `upsert` multiple times as all changes
-		 * are batched into a single Y.js transaction.
-		 *
-		 * @param rows - Array of complete row data to upsert
-		 *
-		 * @example
-		 * ```typescript
-		 * tables.posts.upsertMany([
-		 *   { id: 'post-1', title: 'First', content: 'rtxt_1', tags: [], published: true },
-		 *   { id: 'post-2', title: 'Second', content: 'rtxt_2', tags: [], published: false },
-		 * ]);
-		 * ```
-		 */
-		upsertMany(rows: TRow[]): void {
+			const rowKV = getOrCreateRowKV(rowData.id);
 			ydoc.transact(() => {
-				for (const rowData of rows) {
-					getYKeyValue().set(rowData.id, rowData);
+				for (const [key, value] of Object.entries(rowData)) {
+					rowKV.set(key, value);
 				}
 			});
 		},
 
-		/**
-		 * Update multiple rows.
-		 *
-		 * Rows that don't exist locally are skipped (no-op). See `update` for the rationale.
-		 * Returns a status indicating how many rows were applied vs not found locally.
-		 */
+		upsertMany(rows: TRow[]): void {
+			ydoc.transact(() => {
+				for (const rowData of rows) {
+					const rowKV = getOrCreateRowKV(rowData.id);
+					for (const [key, value] of Object.entries(rowData)) {
+						rowKV.set(key, value);
+					}
+				}
+			});
+		},
+
 		updateMany(rows: PartialRow<TTableSchema>[]): UpdateManyResult {
 			const applied: string[] = [];
 			const notFoundLocally: string[] = [];
 
 			ydoc.transact(() => {
 				for (const partialRow of rows) {
-					const existing = getYKeyValue().get(partialRow.id);
-					if (!existing) {
+					const rowKV = getRowKV(partialRow.id);
+					if (!rowKV) {
 						notFoundLocally.push(partialRow.id);
 						continue;
 					}
-					const merged = { ...existing, ...partialRow };
-					getYKeyValue().set(partialRow.id, merged);
+					for (const [key, value] of Object.entries(partialRow)) {
+						rowKV.set(key, value);
+					}
 					applied.push(partialRow.id);
 				}
 			});
 
-			if (notFoundLocally.length === 0) {
+			if (notFoundLocally.length === 0)
 				return { status: 'all_applied', applied };
-			}
-			if (applied.length === 0) {
+			if (applied.length === 0)
 				return { status: 'none_applied', notFoundLocally };
-			}
 			return { status: 'partially_applied', applied, notFoundLocally };
 		},
 
 		get(id: string): GetResult<TRow> {
-			const data = getYKeyValue().get(id);
-			if (!data) return { status: 'not_found', id };
+			const rowKV = getRowKV(id);
+			if (!rowKV) return { status: 'not_found', id };
 
-			const row = asTypedRow(data);
+			const row = reconstructRow(rowKV);
 			const validator = tableSchemaToYjsArktype(schema);
 			const result = validator(row);
 
@@ -339,14 +409,19 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		getAll(): RowResult<TRow>[] {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return [];
+
 			const validator = tableSchemaToYjsArktype(schema);
+			const results: RowResult<TRow>[] = [];
 
-			return Array.from(getYKeyValue().map.entries()).map(
-				([id, entry]): RowResult<TRow> => {
-					const row = asTypedRow(entry.val);
-					const result = validator(row);
+			for (const [id, rowArray] of tableMap.entries()) {
+				const rowKV = ensureRowKV(id, rowArray);
+				const row = reconstructRow(rowKV);
+				const result = validator(row);
 
-					return result instanceof type.errors
+				results.push(
+					result instanceof type.errors
 						? {
 								status: 'invalid',
 								id,
@@ -355,23 +430,25 @@ function createTableHelper<TTableSchema extends TableSchema>({
 								summary: result.summary,
 								row,
 							}
-						: { status: 'valid', row };
-				},
-			);
+						: { status: 'valid', row },
+				);
+			}
+
+			return results;
 		},
 
-		/**
-		 * Get all valid rows.
-		 * Rows that fail validation are skipped.
-		 * Use `getAllInvalid()` to get validation errors for invalid rows.
-		 */
 		getAllValid(): TRow[] {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return [];
+
 			const validator = tableSchemaToYjsArktype(schema);
 			const result: TRow[] = [];
 
-			for (const entry of getYKeyValue().map.values()) {
-				if (!(validator(entry.val) instanceof type.errors)) {
-					result.push(entry.val as TRow);
+			for (const [id, rowArray] of tableMap.entries()) {
+				const rowKV = ensureRowKV(id, rowArray);
+				const row = reconstructRow(rowKV);
+				if (!(validator(row) instanceof type.errors)) {
+					result.push(row);
 				}
 			}
 
@@ -379,11 +456,16 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		getAllInvalid(): InvalidRowResult[] {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return [];
+
 			const validator = tableSchemaToYjsArktype(schema);
 			const result: InvalidRowResult[] = [];
 
-			for (const [id, entry] of getYKeyValue().map.entries()) {
-				const validationResult = validator(entry.val);
+			for (const [id, rowArray] of tableMap.entries()) {
+				const rowKV = ensureRowKV(id, rowArray);
+				const row = reconstructRow(rowKV);
+				const validationResult = validator(row);
 				if (validationResult instanceof type.errors) {
 					result.push({
 						status: 'invalid',
@@ -391,7 +473,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						tableName,
 						errors: validationResult,
 						summary: validationResult.summary,
-						row: entry.val,
+						row,
 					});
 				}
 			}
@@ -399,55 +481,35 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return result;
 		},
 
-		/**
-		 * Check if a row exists by ID.
-		 *
-		 * This is a fast O(1) check that doesn't validate the row's contents.
-		 * Use `get()` if you need the row data or want to check validation status.
-		 *
-		 * @param id - The row ID to check
-		 * @returns `true` if a row with this ID exists, `false` otherwise
-		 *
-		 * @example
-		 * ```typescript
-		 * if (tables.posts.has('post-123')) {
-		 *   console.log('Post exists');
-		 * }
-		 * ```
-		 */
 		has(id: string): boolean {
-			return getYKeyValue().has(id);
+			const tableMap = getExistingTableMap();
+			return tableMap?.has(id) ?? false;
 		},
 
-		/**
-		 * Delete a row by ID.
-		 *
-		 * Returns status indicating whether the row was deleted or not found locally.
-		 * In Yjs, deleting a non-existent key is a no-op (no operation recorded).
-		 */
 		delete(id: string): DeleteResult {
-			if (!getYKeyValue().has(id)) {
+			const tableMap = getExistingTableMap();
+			if (!tableMap || !tableMap.has(id))
 				return { status: 'not_found_locally' };
-			}
 
-			getYKeyValue().delete(id);
+			tableMap.delete(id);
+			rowKVCache.delete(id);
 			return { status: 'deleted' };
 		},
 
-		/**
-		 * Delete multiple rows by IDs.
-		 *
-		 * Returns status indicating how many rows were deleted vs not found locally.
-		 * In Yjs, deleting non-existent keys is a no-op (no operations recorded).
-		 */
 		deleteMany(ids: string[]): DeleteManyResult {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) {
+				return { status: 'none_deleted', notFoundLocally: ids };
+			}
+
 			const deleted: string[] = [];
 			const notFoundLocally: string[] = [];
 
 			ydoc.transact(() => {
 				for (const id of ids) {
-					if (getYKeyValue().has(id)) {
-						getYKeyValue().delete(id);
+					if (tableMap.has(id)) {
+						tableMap.delete(id);
+						rowKVCache.delete(id);
 						deleted.push(id);
 					} else {
 						notFoundLocally.push(id);
@@ -455,68 +517,40 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				}
 			});
 
-			if (notFoundLocally.length === 0) {
+			if (notFoundLocally.length === 0)
 				return { status: 'all_deleted', deleted };
-			}
-			if (deleted.length === 0) {
+			if (deleted.length === 0)
 				return { status: 'none_deleted', notFoundLocally };
-			}
 			return { status: 'partially_deleted', deleted, notFoundLocally };
 		},
 
-		/**
-		 * Clear all rows from the table.
-		 *
-		 * This permanently deletes all rows in a single Y.js transaction.
-		 * The deletion syncs to other peers via CRDT.
-		 *
-		 * @example
-		 * ```typescript
-		 * // Reset table to empty state
-		 * tables.posts.clear();
-		 * console.log(tables.posts.count()); // 0
-		 * ```
-		 */
 		clear(): void {
-			const kv = getYKeyValue();
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return;
+
 			ydoc.transact(() => {
-				for (const key of Array.from(kv.map.keys())) {
-					kv.delete(key);
+				for (const id of Array.from(tableMap.keys())) {
+					tableMap.delete(id);
+					rowKVCache.delete(id);
 				}
 			});
 		},
 
-		/**
-		 * Get the total number of rows in the table.
-		 *
-		 * This counts all rows including invalid ones. For just valid rows,
-		 * use `getAllValid().length`.
-		 *
-		 * @returns The number of rows in the table
-		 *
-		 * @example
-		 * ```typescript
-		 * const total = tables.posts.count();
-		 * console.log(`${total} posts in database`);
-		 * ```
-		 */
 		count(): number {
-			return getYKeyValue().map.size;
+			const tableMap = getExistingTableMap();
+			return tableMap?.size ?? 0;
 		},
 
-		/**
-		 * Filter rows by predicate, returning only valid rows that match.
-		 * Invalid rows are skipped (not validated against predicate).
-		 *
-		 * @param predicate Function that returns true for rows to include
-		 * @returns Array of valid rows that match the predicate
-		 */
 		filter(predicate: (row: TRow) => boolean): TRow[] {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return [];
+
 			const validator = tableSchemaToYjsArktype(schema);
 			const result: TRow[] = [];
 
-			for (const entry of getYKeyValue().map.values()) {
-				const row = entry.val as TRow;
+			for (const [id, rowArray] of tableMap.entries()) {
+				const rowKV = ensureRowKV(id, rowArray);
+				const row = reconstructRow(rowKV);
 				if (!(validator(row) instanceof type.errors) && predicate(row)) {
 					result.push(row);
 				}
@@ -525,22 +559,16 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return result;
 		},
 
-		/**
-		 * Find the first row that matches the predicate.
-		 * Invalid rows are skipped (not validated against predicate).
-		 *
-		 * @param predicate Function that returns true for the row to find
-		 * @returns The first matching valid row, or `null` if no match found
-		 */
 		find(predicate: (row: TRow) => boolean): TRow | null {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return null;
+
 			const validator = tableSchemaToYjsArktype(schema);
-			const kv = getYKeyValue();
 
-			for (const entry of kv.map.values()) {
-				const row = asTypedRow(entry.val);
-				const result = validator(row);
-
-				if (!(result instanceof type.errors) && predicate(row)) {
+			for (const [id, rowArray] of tableMap.entries()) {
+				const rowKV = ensureRowKV(id, rowArray);
+				const row = reconstructRow(rowKV);
+				if (!(validator(row) instanceof type.errors) && predicate(row)) {
 					return row;
 				}
 			}
@@ -549,33 +577,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		/**
-		 * Watch for changes to the table and get notified when rows are added, updated, or deleted.
-		 *
-		 * Callback receives raw changes from YJS - a Map keyed by row ID. Each change has:
-		 * - `action`: 'add' | 'update' | 'delete'
-		 * - `newValue`: the new row data (for add/update)
-		 * - `oldValue`: the previous row data (for update/delete)
-		 *
-		 * @example
-		 * ```typescript
-		 * const unsubscribe = table.observeChanges((changes, transaction) => {
-		 *   for (const [id, change] of changes) {
-		 *     switch (change.action) {
-		 *       case 'add':
-		 *         console.log('New row:', id, change.newValue);
-		 *         break;
-		 *       case 'update':
-		 *         console.log('Updated:', id, change.oldValue, '→', change.newValue);
-		 *         break;
-		 *       case 'delete':
-		 *         console.log('Deleted:', id, change.oldValue);
-		 *         break;
-		 *     }
-		 *   }
-		 * });
-		 *
-		 * unsubscribe(); // Stop watching
-		 * ```
+		 * Watch for changes. Reports 'add' when cells first populate a new row,
+		 * 'update' for subsequent changes, 'delete' when row is removed.
 		 */
 		observeChanges(
 			callback: (
@@ -583,39 +586,116 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				transaction: Y.Transaction,
 			) => void,
 		): () => void {
-			const kv = getYKeyValue();
-			const handler: YKeyValueChangeHandler<Row> = (changes, transaction) => {
-				callback(changes as Map<string, YKeyValueChange<TRow>>, transaction);
+			const rowObservers = new Map<string, () => void>();
+			const pendingAdds = new Set<string>();
+			let tableMap = getExistingTableMap();
+			let tableUnobserve: (() => void) | null = null;
+
+			const observeRow = (rowId: string, rowArray: RowArray) => {
+				const rowKV = ensureRowKV(rowId, rowArray);
+
+				const handler: YKeyValueChangeHandler<unknown> = (
+					_cellChanges,
+					transaction,
+				) => {
+					const changes = new Map<string, YKeyValueChange<TRow>>();
+					const currentRow = reconstructRow(rowKV);
+
+					if (pendingAdds.has(rowId)) {
+						pendingAdds.delete(rowId);
+						changes.set(rowId, { action: 'add', newValue: currentRow });
+					} else {
+						changes.set(rowId, {
+							action: 'update',
+							oldValue: currentRow,
+							newValue: currentRow,
+						});
+					}
+					callback(changes, transaction);
+				};
+
+				rowKV.on('change', handler);
+				return () => rowKV.off('change', handler);
 			};
-			kv.on('change', handler);
-			return () => kv.off('change', handler);
+
+			const tableObserver = (event: Y.YMapEvent<RowArray>) => {
+				const changes = new Map<string, YKeyValueChange<TRow>>();
+				const currentTableMap = event.target;
+
+				event.changes.keys.forEach((change, rowId) => {
+					if (change.action === 'add') {
+						const rowArray = currentTableMap.get(rowId);
+						if (rowArray) {
+							pendingAdds.add(rowId);
+							rowObservers.set(rowId, observeRow(rowId, rowArray));
+						}
+					} else if (change.action === 'delete') {
+						rowObservers.get(rowId)?.();
+						rowObservers.delete(rowId);
+						pendingAdds.delete(rowId);
+						rowKVCache.delete(rowId);
+						changes.set(rowId, { action: 'delete', oldValue: {} as TRow });
+					}
+				});
+
+				if (changes.size > 0) callback(changes, event.transaction);
+			};
+
+			const setupTableObserver = (
+				map: TableMap,
+				fireAddForExisting: boolean,
+				transaction?: Y.Transaction,
+			) => {
+				const addChanges = new Map<string, YKeyValueChange<TRow>>();
+
+				for (const [rowId, rowArray] of map.entries()) {
+					rowObservers.set(rowId, observeRow(rowId, rowArray));
+					if (fireAddForExisting) {
+						const rowKV = ensureRowKV(rowId, rowArray);
+						addChanges.set(rowId, {
+							action: 'add',
+							newValue: reconstructRow(rowKV),
+						});
+					}
+				}
+
+				if (fireAddForExisting && addChanges.size > 0 && transaction) {
+					callback(addChanges, transaction);
+				}
+
+				map.observe(tableObserver);
+				tableUnobserve = () => map.unobserve(tableObserver);
+			};
+
+			if (tableMap) {
+				setupTableObserver(tableMap, false);
+			}
+
+			const ytablesObserver = (event: Y.YMapEvent<TableMap>) => {
+				event.changes.keys.forEach((change, key) => {
+					if (key === tableName && change.action === 'add') {
+						const newTableMap = ytables.get(tableName);
+						if (newTableMap && !tableMap) {
+							tableMap = newTableMap;
+							setupTableObserver(newTableMap, true, event.transaction);
+						}
+					}
+				});
+			};
+			ytables.observe(ytablesObserver);
+
+			return () => {
+				ytables.unobserve(ytablesObserver);
+				tableUnobserve?.();
+				for (const unsubscribe of rowObservers.values()) unsubscribe();
+				rowObservers.clear();
+			};
 		},
 
-		/**
-		 * Type inference helper for Row.
-		 *
-		 * Alternative: `Parameters<typeof tables.posts.upsert>[0]`
-		 *
-		 * @example
-		 * ```typescript
-		 * type Post = typeof tables.posts.$inferRow;
-		 * // { id: string; title: string; content: string; tags: string[] }
-		 * ```
-		 */
 		$inferRow: null as unknown as TRow,
 	};
 }
 
-/**
- * Type-safe table helper with operations for a specific table schema.
- *
- * Write methods (all return void, never fail):
- * - upsert/upsertMany: Create or replace entire row (requires all fields, guaranteed valid)
- * - update/updateMany: Merge fields into existing row (no-op if row doesn't exist locally)
- * - delete/deleteMany/clear: Remove rows (no-op if row doesn't exist)
- *
- * Read methods (get, getAll) return null for not-found rather than errors.
- */
 export type TableHelper<TTableSchema extends TableSchema> = ReturnType<
 	typeof createTableHelper<TTableSchema>
 >;

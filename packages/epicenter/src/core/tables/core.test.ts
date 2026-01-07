@@ -286,9 +286,12 @@ describe('createTables', () => {
 
 		test('raw values passed through even for invalid data', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
-			const ytableArrays = ydoc.getMap('tables') as Y.Map<
-				Y.Array<{ key: string; val: unknown }>
-			>;
+			type CellEntry = { key: string; val: unknown };
+			type RowArray = Y.Array<CellEntry>;
+			type TableMap = Y.Map<RowArray>;
+			type TablesMap = Y.Map<TableMap>;
+
+			const ytables: TablesMap = ydoc.getMap('tables');
 
 			const tables = createTables(ydoc, {
 				posts: {
@@ -306,17 +309,19 @@ describe('createTables', () => {
 				}
 			});
 
-			const postsArray =
-				ytableArrays.get('posts') ??
-				new Y.Array<{ key: string; val: unknown }>();
-			if (!ytableArrays.has('posts')) {
-				ytableArrays.set('posts', postsArray);
+			let postsTable = ytables.get('posts');
+			if (!postsTable) {
+				postsTable = new Y.Map() as TableMap;
+				ytables.set('posts', postsTable);
 			}
-			postsArray.push([
-				{ key: 'bad-row', val: { id: 'bad-row', count: 'not a number' } },
+
+			const rowArray = new Y.Array() as RowArray;
+			postsTable.set('bad-row', rowArray);
+			rowArray.push([
+				{ key: 'id', val: 'bad-row' },
+				{ key: 'count', val: 'not a number' },
 			]);
 
-			// observeChanges receives raw values without validation
 			expect(receivedRow).toEqual({ id: 'bad-row', count: 'not a number' });
 		});
 
