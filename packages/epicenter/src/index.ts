@@ -13,9 +13,6 @@
  * ## Data Flow
  *
  * Write to YJS → Providers auto-sync → Query materialized views
- *
- * This file contains all platform-agnostic exports shared between
- * browser and Node.js entry points.
  */
 
 // Re-export commonly used Drizzle utilities for querying providers
