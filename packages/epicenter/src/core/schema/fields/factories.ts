@@ -10,8 +10,8 @@
  */
 
 import type { Temporal } from 'temporal-polyfill';
-import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
-import { DateTimeString } from '../runtime/datetime';
+import { DATE_TIME_STRING_REGEX } from './regex';
+import { DateTimeString } from './datetime';
 import type {
 	StandardSchemaV1,
 	StandardSchemaWithJSONSchema,

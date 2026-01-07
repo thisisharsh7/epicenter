@@ -28,9 +28,9 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
-import type { DateTimeString } from '../runtime/datetime';
+import type { DateTimeString } from '../fields/datetime';
 import { isNullableFieldSchema } from '../fields/nullability';
-import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
+import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 
 /**
  * Maps a FieldSchema to its corresponding arktype Type.

@@ -30,7 +30,7 @@ import type {
 	TextFieldSchema,
 } from '../fields/types';
 import { isNullableFieldSchema } from '../fields/nullability';
-import { DATE_TIME_STRING_REGEX } from '../runtime/regex';
+import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 
 /**
  * Maps a FieldSchema to its corresponding YJS cell value arktype Type.

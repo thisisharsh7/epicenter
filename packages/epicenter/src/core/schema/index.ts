@@ -65,14 +65,14 @@ export type {
 
 export { generateJsonSchema } from './standard/to-json-schema.js';
 
-export type { DateIsoString, TimezoneId } from './runtime/datetime.js';
-export { DateTimeString } from './runtime/datetime.js';
+export type { DateIsoString, TimezoneId } from './fields/datetime.js';
+export { DateTimeString } from './fields/datetime.js';
 
 export {
 	DATE_TIME_STRING_REGEX,
 	ISO_DATETIME_REGEX,
 	TIMEZONE_ID_REGEX,
-} from './runtime/regex.js';
+} from './fields/regex.js';
 
-export type { Id } from './id.js';
-export { generateId } from './id.js';
+export type { Id } from './fields/id.js';
+export { generateId } from './fields/id.js';
