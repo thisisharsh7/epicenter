@@ -1,6 +1,6 @@
 import { WebsocketProvider } from 'y-websocket';
 import type { Provider } from '../core/provider';
-import type { WorkspaceSchema } from '../core/schema';
+import type { TablesSchema } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MULTI-DEVICE SYNC ARCHITECTURE
@@ -222,7 +222,7 @@ export type WebsocketSyncConfig = {
  * providers.forEach(p => p.on('sync', () => console.log('Synced!')));
  * ```
  */
-export function createWebsocketSyncProvider<TSchema extends WorkspaceSchema>(
+export function createWebsocketSyncProvider<TSchema extends TablesSchema>(
 	config: WebsocketSyncConfig,
 ): Provider<TSchema> {
 	return ({ ydoc }) => {

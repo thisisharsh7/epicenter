@@ -1,14 +1,8 @@
 /**
- * @fileoverview Converts FieldSchema to arktype Type definitions for YJS Row validation
+ * Converts FieldSchema to arktype Type definitions for YJS Row validation.
  *
- * This converter transforms epicenter FieldSchema definitions into arktype types
- * that validate YJS Row objects (objects with getter properties returning YJS types).
- *
- * Unlike to-arktype.ts which validates SerializedRow (plain JS types), this validates
- * Row objects where:
- * - ytext fields contain Y.Text instances (not strings)
- * - tags fields contain Y.Array instances (not arrays)
- * - Other types remain unchanged (string, number, boolean, etc.)
+ * Unlike to-arktype.ts which validates SerializedRow, this validates Row objects
+ * where fields may contain YJS types.
  */
 
 import type { StandardSchemaV1 } from '../standard/types';
@@ -17,6 +11,7 @@ import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
+	FieldsSchema,
 	DateFieldSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
@@ -25,7 +20,6 @@ import type {
 	RichtextFieldSchema,
 	Row,
 	SelectFieldSchema,
-	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
@@ -33,8 +27,17 @@ import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 
 /**
- * Maps a FieldSchema to its corresponding YJS cell value arktype Type.
- * This validates the actual YJS types present in Row objects.
+ * Maps a FieldSchema to its corresponding YJS-aware arktype Type.
+ *
+ * Unlike `FieldSchemaToArktype` which validates serialized values, this type
+ * validates Row objects that may contain YJS collaborative types. Use this
+ * when working with live YJS data.
+ *
+ * @example
+ * ```typescript
+ * type TextType = FieldSchemaToYjsArktype<{ type: 'text' }>; // Type<string>
+ * type TagsType = FieldSchemaToYjsArktype<{ type: 'tags', options: ['a', 'b'] }>; // Type<('a' | 'b')[]>
+ * ```
  */
 export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 	C extends IdFieldSchema
@@ -76,15 +79,13 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 											: never;
 
 /**
- * Converts a TableSchema to a fully instantiated arktype Type for YJS Row validation.
+ * Converts a table schema to an arktype Type for YJS Row validation.
  *
- * This validator checks that Row objects (with getter properties) contain the correct
- * YJS types. It validates:
- * - Y.Text instances for ytext columns
- * - Y.Array instances for multi-select columns
- * - Plain JS types for other columns (string, number, boolean, etc.)
+ * Use this validator to check that Row objects (built from Y.Maps) contain
+ * correctly-typed values. Unlike `tableSchemaToArktype`, this is designed
+ * for validating live YJS data before returning it to consumers.
  *
- * @param tableSchema - The table schema to convert
+ * @param fieldsSchema - The table schema to convert
  * @returns Complete arktype Type instance that validates Row objects
  *
  * @example
@@ -92,54 +93,63 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
  * const schema = {
  *   id: id(),
  *   title: text(),
- *   content: ytext(),
- *   tags: tags(['tech', 'blog'])
+ *   tags: tags({ options: ['tech', 'blog'] }),
  * };
  *
- * const validator = tableSchemaToYjsArktypeType(schema);
+ * const validator = tableSchemaToYjsArktype(schema);
  *
- * // Build Row from YRow
+ * // Build Row from Y.Map
  * const row = buildRowFromYRow(yrow, schema);
  *
  * // Validate the Row
  * const result = validator(row);
  * if (result instanceof type.errors) {
  *   console.error('YJS validation failed:', result.summary);
- * } else {
- *   // Row is valid - has Y.Text for content, Y.Array for tags, etc.
  * }
  * ```
  */
-export function tableSchemaToYjsArktype<TTableSchema extends TableSchema>(
-	tableSchema: TTableSchema,
-): ObjectType<Row<TTableSchema>> {
+export function tableSchemaToYjsArktype<TFieldsSchema extends FieldsSchema>(
+	fieldsSchema: TFieldsSchema,
+): ObjectType<Row<TFieldsSchema>> {
 	return type(
 		Object.fromEntries(
-			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
+			Object.entries(fieldsSchema).map(([fieldName, fieldSchema]) => [
 				fieldName,
 				fieldSchemaToYjsArktype(fieldSchema),
 			]),
 		),
-	) as ObjectType<Row<TTableSchema>>;
+	) as ObjectType<Row<TFieldsSchema>>;
 }
 
 /**
- * Converts a single FieldSchema to a YJS cell value arktype Type.
+ * Converts a single FieldSchema to a YJS-aware arktype Type.
  *
- * Returns arktype Type instances that validate YJS types:
- * - ytext → validates Y.Text instances
- * - tags → validates Y.Array instances
- * - Other types → same as regular validation (string, number, etc.)
+ * Returns arktype Type instances that validate YJS cell values. Unlike
+ * `fieldSchemaToArktype`, this validator is designed for Row objects
+ * built from Y.Maps where values have already been extracted.
  *
  * @param fieldSchema - The field schema to convert
  * @returns Arktype Type that validates the YJS cell value
+ *
+ * @example
+ * ```typescript
+ * const textValidator = fieldSchemaToYjsArktype({ type: 'text' });
+ * const tagsValidator = fieldSchemaToYjsArktype({
+ *   type: 'tags',
+ *   options: ['tech', 'blog'],
+ * });
+ *
+ * textValidator('hello'); // 'hello'
+ * tagsValidator(['tech']); // ['tech']
+ * tagsValidator(['invalid']); // type.errors
+ * ```
  */
 export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 	fieldSchema: C,
 ): FieldSchemaToYjsArktype<C> {
 	let baseType: Type;
 
-	switch (fieldSchema['x-component']) {
+	switch (fieldSchema.type) {
 		case 'id':
 		case 'text':
 		case 'richtext':
@@ -162,11 +172,11 @@ export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 				.matching(DATE_TIME_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...fieldSchema.enum);
+			baseType = type.enumerated(...fieldSchema.options);
 			break;
 		case 'tags':
-			baseType = fieldSchema.items.enum
-				? type.enumerated(...fieldSchema.items.enum).array()
+			baseType = fieldSchema.options
+				? type.enumerated(...fieldSchema.options).array()
 				: type.string.array();
 			break;
 		case 'json':

@@ -110,7 +110,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 
 			// Handle undefined: default → null → not_found
 			if (rawValue === undefined) {
-				if (schema.default !== undefined) {
+				if ('default' in schema && schema.default !== undefined) {
 					return { status: 'valid', value: schema.default as TValue };
 				}
 				if (nullable) {
@@ -213,7 +213,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		reset(): void {
-			if (schema.default !== undefined) {
+			if ('default' in schema && schema.default !== undefined) {
 				this.set(schema.default as TValue);
 			} else if (nullable) {
 				this.set(null as TValue);

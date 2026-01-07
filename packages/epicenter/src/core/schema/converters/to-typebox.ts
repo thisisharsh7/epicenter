@@ -1,23 +1,7 @@
 /**
- * @fileoverview Converts FieldSchema to TypeBox TSchema definitions
+ * Converts FieldSchema to TypeBox TSchema definitions for runtime validation.
  *
- * This converter transforms epicenter FieldSchema definitions into TypeBox schemas
- * for runtime validation. TypeBox schemas can be compiled to highly optimized
- * JIT validators using `Compile()` from `typebox/compile`.
- *
- * **Key Design Decisions**:
- * - Returns raw TypeBox schemas (TSchema), not compiled validators
- * - Nullable fields use `Type.Union([baseType, Type.Null()])`
- * - JSON fields convert StandardSchemaWithJSONSchema to JSON Schema, which TypeBox compiles natively
- * - Select fields use `Type.Union([Type.Literal(...), ...])` for string literals
- *
- * **JSON Field Strategy**:
- * JSON fields require StandardSchemaWithJSONSchema (schemas that implement both validation
- * and JSON Schema conversion). Instead of using Type.Refine() which bypasses JIT compilation,
- * we convert the embedded schema to JSON Schema and pass it directly to TypeBox. This gives us:
- * - Full JIT compilation (no runtime callback overhead)
- * - Native TypeBox error messages with paths
- * - Better performance for validation-heavy workloads
+ * TypeBox schemas can be compiled to JIT validators using `Compile()` from `typebox/compile`.
  */
 
 import {
@@ -36,13 +20,13 @@ import type {
 	BooleanFieldSchema,
 	DateFieldSchema,
 	FieldSchema,
+	FieldsSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
 	RichtextFieldSchema,
 	SelectFieldSchema,
-	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
@@ -54,6 +38,15 @@ import { ARKTYPE_JSON_SCHEMA_FALLBACK } from '../standard/arktype-fallback';
  * Maps a FieldSchema to its corresponding TypeBox TSchema type.
  *
  * Use `Static<typeof schema>` to infer the TypeScript type from the returned schema.
+ *
+ * @example
+ * ```typescript
+ * const schema = fieldSchemaToTypebox({ type: 'text' });
+ * type TextValue = Static<typeof schema>; // string
+ *
+ * const nullableSchema = fieldSchemaToTypebox({ type: 'integer', nullable: true });
+ * type NullableInt = Static<typeof nullableSchema>; // number | null
+ * ```
  */
 export type FieldSchemaToTypebox<C extends FieldSchema> =
 	C extends IdFieldSchema
@@ -98,25 +91,38 @@ export type FieldSchemaToTypebox<C extends FieldSchema> =
 											: never;
 
 /**
- * Converts a TableSchema to a TypeBox TObject schema.
+ * Converts a table schema to a TypeBox TObject schema.
+ *
+ * Use this when you need to validate entire row objects. The resulting schema
+ * can be compiled to a JIT validator for high-performance validation.
+ *
+ * @param fieldsSchema - The table schema containing all field definitions
+ * @returns A TypeBox TObject schema representing the table structure
  *
  * @example
  * ```typescript
  * import { Compile } from 'typebox/compile';
  *
- * const schema = { id: id(), title: text(), count: integer({ nullable: true }) };
+ * const schema = {
+ *   id: id(),
+ *   title: text(),
+ *   count: integer({ nullable: true }),
+ * };
+ *
  * const typeboxSchema = tableSchemaToTypebox(schema);
  * const validator = Compile(typeboxSchema);
  *
  * validator.Check({ id: '123', title: 'Test', count: 42 }); // true
+ * validator.Check({ id: '123', title: 'Test', count: null }); // true (nullable)
+ * validator.Check({ id: '123', title: 'Test' }); // false (missing count)
  * ```
  */
-export function tableSchemaToTypebox<TTableSchema extends TableSchema>(
-	tableSchema: TTableSchema,
+export function tableSchemaToTypebox<TFieldsSchema extends FieldsSchema>(
+	fieldsSchema: TFieldsSchema,
 ): TObject {
 	const properties: Record<string, TSchema> = {};
 
-	for (const [fieldName, fieldSchema] of Object.entries(tableSchema)) {
+	for (const [fieldName, fieldSchema] of Object.entries(fieldsSchema)) {
 		properties[fieldName] = fieldSchemaToTypebox(fieldSchema);
 	}
 
@@ -126,22 +132,37 @@ export function tableSchemaToTypebox<TTableSchema extends TableSchema>(
 /**
  * Converts a single FieldSchema to a TypeBox TSchema.
  *
+ * Use this when you need to validate individual field values rather than
+ * complete row objects. The resulting schema is JIT-compilable.
+ *
  * Field type mappings:
- * - `id`, `text`, `richtext` -> `Type.String()`
- * - `integer` -> `Type.Integer()`
- * - `real` -> `Type.Number()`
- * - `boolean` -> `Type.Boolean()`
- * - `date` -> `Type.String({ pattern })`
- * - `select` -> `Type.Union([Type.Literal(...), ...])`
- * - `tags` -> `Type.Array(...)`
- * - `json` -> JSON Schema from StandardSchemaWithJSONSchema (fully JIT-compiled)
+ * - `id`, `text`, `richtext` → `Type.String()`
+ * - `integer` → `Type.Integer()`
+ * - `real` → `Type.Number()`
+ * - `boolean` → `Type.Boolean()`
+ * - `date` → `Type.String({ pattern })` with DateTimeString regex
+ * - `select` → `Type.Union([Type.Literal(...), ...])`
+ * - `tags` → `Type.Array(...)` with uniqueItems constraint
+ * - `json` → JSON Schema from embedded StandardSchema (fully JIT-compiled)
+ *
+ * @param fieldSchema - The field schema to convert
+ * @returns A TypeBox TSchema suitable for validation
+ *
+ * @example
+ * ```typescript
+ * const textSchema = fieldSchemaToTypebox({ type: 'text' });
+ * const selectSchema = fieldSchemaToTypebox({
+ *   type: 'select',
+ *   options: ['draft', 'published'],
+ * });
+ * ```
  */
 export function fieldSchemaToTypebox<C extends FieldSchema>(
 	fieldSchema: C,
 ): FieldSchemaToTypebox<C> {
 	let baseType: TSchema;
 
-	switch (fieldSchema['x-component']) {
+	switch (fieldSchema.type) {
 		case 'id':
 		case 'text':
 		case 'richtext':
@@ -169,15 +190,16 @@ export function fieldSchemaToTypebox<C extends FieldSchema>(
 			break;
 
 		case 'select': {
-			const literals = fieldSchema.enum.map((value) => Type.Literal(value));
+			const literals = fieldSchema.options.map((value) => Type.Literal(value));
 			baseType = Type.Union(literals);
 			break;
 		}
 
 		case 'tags': {
-			const itemsEnum = fieldSchema.items.enum;
-			if (itemsEnum) {
-				const literals = itemsEnum.map((value) => Type.Literal(value));
+			if (fieldSchema.options) {
+				const literals = fieldSchema.options.map((value) =>
+					Type.Literal(value),
+				);
 				baseType = Type.Array(Type.Union(literals), { uniqueItems: true });
 			} else {
 				baseType = Type.Array(Type.String(), { uniqueItems: true });

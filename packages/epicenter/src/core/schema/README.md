@@ -9,38 +9,51 @@ Epicenter schemas are **the** schema definition for your data. They serve multip
 - **Introspection**: JSON Schema export for tooling, documentation, and interop
 - **Persistence**: Database column definitions
 
-The key insight: a schema that knows it will render as a select dropdown can also validate enum constraints and serialize to JSON Schema's `enum` keyword. These aren't separate concerns—they're facets of the same definition.
+The key insight: a schema that knows it will render as a select dropdown can also validate enum constraints and export to JSON Schema's `enum` keyword on demand. These aren't separate concerns—they're facets of the same definition.
 
-## Bidirectional Serialization
+## Schema Format
 
-Every schema can be serialized to JSON Schema and reconstructed back:
+Field schemas use a minimal Notion-like format optimized for user configuration:
 
+```typescript
+// Text field (NOT NULL by default)
+{ type: 'text' }
+
+// Nullable text field
+{ type: 'text', nullable: true }
+
+// Select field with options
+{ type: 'select', options: ['draft', 'published'], default: 'draft' }
+
+// Integer with default
+{ type: 'integer', default: 0 }
 ```
-Schema Definition  ←→  JSON Schema  ←→  Schema Definition
+
+**Key properties:**
+
+- `type`: The discriminant that identifies the field type ('text', 'select', 'integer', etc.)
+- `nullable`: Optional boolean for nullability (default: `false`)
+- Type-specific fields: `options` for select/tags, `schema` for json, etc.
+
+This format is NOT JSON Schema. JSON Schema can be derived on-demand for MCP/OpenAPI export.
+
+## Nullability
+
+Nullability uses a simple `nullable` boolean:
+
+```typescript
+// Non-nullable (default)
+{ type: 'text' }
+{ type: 'text', nullable: false }  // explicit
+
+// Nullable
+{ type: 'text', nullable: true }
 ```
 
-This enables:
+**Special cases:**
 
-- **Storage**: Save schema definitions as JSON
-- **Transfer**: Send schemas over the network
-- **Tooling**: Use any JSON Schema-compatible tool
-- **Versioning**: Track schema changes in version control as data
-
-### What Serializes
-
-| Aspect      | JSON Schema Representation                             |
-| ----------- | ------------------------------------------------------ |
-| Types       | `type: "string"`, `type: "integer"`, etc.              |
-| Constraints | `minLength`, `maxLength`, `minimum`, `maximum`, `enum` |
-| Formats     | `format: "email"`, `format: "uri"`, `format: "date"`   |
-| Nullability | `type: ["string", "null"]`                             |
-| Defaults    | `default: "value"`                                     |
-| UI Hints    | `x-component`, `x-placeholder`, `x-rows`               |
-
-### What Doesn't Serialize (By Design)
-
-- **Handlers**: Business logic lives outside schemas
-- **TypeScript Types**: Runtime JSON has no generics; types are inferred on reconstruction
+- `id`: Never nullable (implicit)
+- `richtext`: Always nullable (implicit, Y.Docs created lazily)
 
 ## Core Constraints
 
@@ -69,16 +82,20 @@ JSON.parse(JSON.stringify(schema)); // Must preserve all information
 
 This means: strings, numbers, booleans, null, arrays, and plain objects only.
 
-## Reconstruction Contract
+## JSON Schema Export
 
-Given a JSON Schema with Epicenter's `x-component` hints, you can rebuild the original schema:
+Field schemas can be converted to JSON Schema on demand for MCP/OpenAPI export:
 
-1. Read `x-component` to determine the component type
-2. Extract constraints from standard JSON Schema keywords
-3. Extract UI hints from `x-*` extension keywords
-4. Reconstruct the schema object with validation function
+```
+Field Schema                →  JSON Schema
+{ type: 'text' }            →  { type: 'string' }
+{ type: 'text',             →  { type: ['string', 'null'] }
+  nullable: true }
+{ type: 'select',           →  { type: 'string',
+  options: ['a', 'b'] }          enum: ['a', 'b'] }
+```
 
-The validation function isn't serialized—it's **derived** from the constraints. Same constraints produce same validation behavior.
+The converters in `./converters/` handle transformations to various formats (ArkType, TypeBox, Drizzle, JSON Schema).
 
 ## Mental Model
 
@@ -86,26 +103,20 @@ Think of schemas as **data that describes data**:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Schema Definition (TypeScript)                     │
+│  Field Schema (TypeScript)                          │
 │  ─────────────────────────────────                  │
-│  select({ options: ['draft', 'published'] })        │
+│  { type: 'select',                                  │
+│    options: ['draft', 'published'] }                │
 └─────────────────────────────────────────────────────┘
-                         ↓ serialize
+                         ↓ convert (on demand)
 ┌─────────────────────────────────────────────────────┐
-│  JSON Schema (portable data)                        │
+│  JSON Schema (for MCP/OpenAPI export)               │
 │  ─────────────────────────────                      │
 │  {                                                  │
 │    "type": "string",                                │
-│    "enum": ["draft", "published"],                  │
-│    "x-component": "select"                          │
+│    "enum": ["draft", "published"]                   │
 │  }                                                  │
-└─────────────────────────────────────────────────────┘
-                         ↓ reconstruct
-┌─────────────────────────────────────────────────────┐
-│  Schema Definition (rebuilt)                        │
-│  ─────────────────────────────                      │
-│  Same validation, same UI, same constraints         │
 └─────────────────────────────────────────────────────┘
 ```
 
-The schema is the schema. JSON Schema is just its portable representation.
+The field schema is the source of truth. Other formats are derived representations.

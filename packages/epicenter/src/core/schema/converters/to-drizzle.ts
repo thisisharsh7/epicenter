@@ -17,6 +17,7 @@ import type { DateTimeString } from '../fields/datetime';
 import type {
 	BooleanFieldSchema,
 	FieldSchema,
+	FieldsSchema,
 	DateFieldSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
@@ -24,30 +25,34 @@ import type {
 	RealFieldSchema,
 	RichtextFieldSchema,
 	SelectFieldSchema,
-	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
-	WorkspaceSchema,
 } from '../fields/types';
 
 import { isNullableFieldSchema } from '../fields/nullability';
 
 /**
- * Maps a WorkspaceSchema to its Drizzle table representations.
+ * Maps a workspace schema to its Drizzle table representations.
  *
- * This type preserves the table names as keys and maps each TableSchema
- * to its corresponding SQLiteTable type with full column type information.
+ * Use this type when you need to reference the return type of
+ * `convertWorkspaceSchemaToDrizzle` in your type definitions.
  *
  * @typeParam TWorkspaceSchema - The workspace schema containing all table definitions
  *
- * @remarks
- * The `& string` intersection is required because TypeScript conservatively types
- * `keyof TWorkspaceSchema` as `string | number | symbol` even though
- * WorkspaceSchema = Record<string, TableSchema>. The intersection narrows
- * the type to satisfy convertTableSchemaToDrizzle's string constraint.
+ * @example
+ * ```typescript
+ * const schema = {
+ *   users: { id: id(), name: text() },
+ *   posts: { id: id(), title: text() },
+ * };
+ *
+ * // Type for the resulting Drizzle tables
+ * type MyTables = WorkspaceSchemaToDrizzleTables<typeof schema>;
+ * // { users: SQLiteTable, posts: SQLiteTable }
+ * ```
  */
 export type WorkspaceSchemaToDrizzleTables<
-	TWorkspaceSchema extends WorkspaceSchema,
+	TWorkspaceSchema extends Record<string, FieldsSchema>,
 > = {
 	[K in keyof TWorkspaceSchema & string]: ReturnType<
 		typeof convertTableSchemaToDrizzle<K, TWorkspaceSchema[K]>
@@ -61,21 +66,31 @@ export type WorkspaceSchemaToDrizzleTables<
  * (which may contain multiple tables) into Drizzle table definitions that
  * can be used for database operations.
  *
+ * Use this when setting up the SQLite provider to create type-safe table
+ * references for Drizzle ORM queries.
+ *
  * @param schema - The workspace schema containing all table definitions
  * @returns A record mapping table names to their Drizzle SQLiteTable representations
  *
  * @example
- * ```ts
+ * ```typescript
  * const schema = {
- *   users: { id: { type: 'id' }, name: { type: 'text' } },
- *   posts: { id: { type: 'id' }, title: { type: 'text' } },
+ *   users: { id: id(), name: text() },
+ *   posts: { id: id(), title: text(), authorId: text() },
  * };
+ *
  * const tables = convertWorkspaceSchemaToDrizzle(schema);
- * // tables.users and tables.posts are now SQLiteTable instances
+ *
+ * // Use with Drizzle queries
+ * const allUsers = await db.select().from(tables.users);
+ * const userPosts = await db
+ *   .select()
+ *   .from(tables.posts)
+ *   .where(eq(tables.posts.authorId, userId));
  * ```
  */
 export function convertWorkspaceSchemaToDrizzle<
-	TWorkspaceSchema extends WorkspaceSchema,
+	TWorkspaceSchema extends Record<string, FieldsSchema>,
 >(schema: TWorkspaceSchema): WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> {
 	const result: Record<string, SQLiteTable> = {};
 
@@ -93,52 +108,46 @@ export function convertWorkspaceSchemaToDrizzle<
 /**
  * Convert a single table schema to a Drizzle SQLiteTable.
  *
- * Takes a table name and its column schema definitions, then creates
- * a Drizzle table with all columns properly typed and configured.
+ * Use this when you need to create a Drizzle table for a single table schema,
+ * rather than an entire workspace. Useful for testing or when working with
+ * individual tables in isolation.
  *
  * @param tableName - The name of the table (used in SQL)
- * @param tableSchema - The schema defining all columns for this table
+ * @param fieldsSchema - The schema defining all columns for this table
  * @returns A Drizzle SQLiteTable with typed columns
  *
  * @example
- * ```ts
+ * ```typescript
  * const usersTable = convertTableSchemaToDrizzle('users', {
- *   id: { type: 'id' },
- *   name: { type: 'text' },
- *   age: { type: 'integer', nullable: true },
+ *   id: id(),
+ *   name: text(),
+ *   age: integer({ nullable: true }),
  * });
+ *
+ * // Use with Drizzle queries
+ * const adults = await db
+ *   .select()
+ *   .from(usersTable)
+ *   .where(gte(usersTable.age, 18));
  * ```
  */
 export function convertTableSchemaToDrizzle<
 	TTableName extends string,
-	TTableSchema extends TableSchema,
->(tableName: TTableName, tableSchema: TTableSchema) {
+	TFieldsSchema extends FieldsSchema,
+>(tableName: TTableName, fieldsSchema: TFieldsSchema) {
 	const columns = Object.fromEntries(
-		Object.keys(tableSchema).map((fieldName) => [
+		Object.keys(fieldsSchema).map((fieldName) => [
 			fieldName,
 			convertFieldSchemaToDrizzle(
 				fieldName,
-				tableSchema[fieldName as keyof TTableSchema],
+				fieldsSchema[fieldName as keyof TFieldsSchema],
 			),
 		]),
-	) as { [Key in keyof TTableSchema]: FieldToDrizzle<TTableSchema[Key]> };
+	) as { [Key in keyof TFieldsSchema]: FieldToDrizzle<TFieldsSchema[Key]> };
 
 	return sqliteTable(tableName, columns);
 }
 
-/**
- * Maps a FieldSchema to its corresponding Drizzle column builder type.
- *
- * This conditional type chain determines the exact Drizzle type for each
- * field schema variant. It handles:
- * - NotNull wrapper when nullable is false
- * - Custom column types for date, tags, and json
- * - Drizzle's built-in types for primitives (text, integer, real, boolean)
- *
- * The type uses nested conditional types to match against each possible
- * field schema type in order: id → text → ytext → integer → real →
- * boolean → date → select → tags → json → never
- */
 type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 	? IsPrimaryKey<
 			NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
@@ -237,39 +246,13 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 												>
 										: never;
 
-/**
- * Convert a FieldSchema to a Drizzle column builder.
- *
- * This function uses two distinct patterns depending on field complexity:
- *
- * **Pattern 1: Primitive Types (text, integer, real, boolean, select)**
- * Uses Drizzle's built-in column functions from `drizzle-orm/sqlite-core` and
- * explicitly chains `.notNull()` and `.default()`/`.$defaultFn()` based on schema.
- * This is necessary because Drizzle's primitives require the column name as
- * the first argument and don't accept a schema object.
- *
- * **Pattern 2: Custom Types (date, tags, json)**
- * Uses custom builders from `builders.ts` that accept the entire schema object.
- * These builders encapsulate complex serialization logic (timezone handling,
- * JSON array validation, arktype validation) and handle nullable/default internally.
- * The schema object is passed directly because it contains all the configuration
- * the builder needs (nullable, default, options, validation schema, etc.).
- *
- * @example
- * // Pattern 1: Primitive with explicit chaining
- * let column = text(fieldName);
- * if (!schema.nullable) column = column.notNull();
- *
- * // Pattern 2: Custom builder with schema object
- * const column = date(schema); // nullable/default handled internally
- */
 function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 	fieldName: string,
 	schema: C,
 ): FieldToDrizzle<C> {
 	const isNullable = isNullableFieldSchema(schema);
 
-	switch (schema['x-component']) {
+	switch (schema.type) {
 		case 'id':
 			return text(fieldName).primaryKey().notNull() as FieldToDrizzle<C>;
 
@@ -324,7 +307,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'select': {
-			let column = text(fieldName, { enum: [...schema.enum] });
+			let column = text(fieldName, { enum: [...schema.options] });
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
@@ -334,7 +317,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 
 		case 'tags': {
 			const column = tags({
-				options: schema.items.enum,
+				options: schema.options,
 				nullable: isNullable,
 				default: schema.default,
 			});
@@ -351,8 +334,6 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		default:
-			throw new Error(
-				`Unknown field type: ${(schema as FieldSchema)['x-component']}`,
-			);
+			throw new Error(`Unknown field type: ${(schema as FieldSchema).type}`);
 	}
 }

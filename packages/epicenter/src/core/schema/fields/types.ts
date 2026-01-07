@@ -8,25 +8,28 @@
  *
  * ## Schema Structure
  *
- * Each field schema is a pure JSON Schema object with an `x-component` discriminant:
- * - `x-component`: UI component hint (e.g., 'text', 'select', 'tags')
- * - `type`: JSON Schema type, encodes nullability as `['string', 'null']`
+ * Each field schema is a minimal object with `type` as the discriminant:
+ * - `type`: Field type ('text', 'select', 'tags', etc.)
+ * - `nullable`: Optional boolean for nullability
+ * - Type-specific fields (e.g., `options` for select/tags)
  *
- * Validation is handled by converters (to-arktype, to-standard) rather than
- * being embedded in the schema itself.
+ * This is a Notion-like format optimized for user configuration and storage.
+ * JSON Schema can be derived on-demand for MCP/OpenAPI export.
  *
  * ## Nullability
  *
- * Nullability is encoded in the JSON Schema `type` field:
- * - Non-nullable: `type: 'string'`
- * - Nullable: `type: ['string', 'null']`
+ * Nullability is encoded in a simple boolean `nullable` field:
+ * - Non-nullable: `nullable` omitted or `false`
+ * - Nullable: `nullable: true`
  *
- * This follows JSON Schema conventions and enables round-trip serialization.
+ * Special cases:
+ * - `id`: Never nullable (implicit)
+ * - `richtext`: Always nullable (implicit)
  *
  * ## Related Files
  *
  * - `factories.ts` - Factory functions for creating field schemas
- * - `../converters/` - Converters for arktype, drizzle, json-schema
+ * - `../converters/` - Converters for arktype, drizzle, typebox
  * - `nullability.ts` - isNullableFieldSchema helper
  */
 
@@ -37,93 +40,83 @@ import type {
 import type { DateTimeString } from './datetime';
 
 // ============================================================================
-// Column Schema Types
+// Field Schema Types
 // ============================================================================
 
 /**
- * ID column schema - auto-generated primary key.
- * Always NOT NULL, always type 'string'.
+ * ID field schema - auto-generated primary key.
+ * Always NOT NULL (implicit, no nullable field needed).
  */
 export type IdFieldSchema = {
-	'x-component': 'id';
-	type: 'string';
+	type: 'id';
 };
 
 /**
- * Text column schema - single-line string input.
- * Nullability encoded in `type`: `'string'` or `['string', 'null']`.
+ * Text field schema - single-line string input.
  */
 export type TextFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'text';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
+	type: 'text';
+	nullable?: TNullable;
 	default?: string;
 };
 
 /**
- * Rich text reference column - stores ID pointing to separate rich content document.
+ * Rich text reference field - stores ID pointing to separate rich content document.
  * The ID references a separate Y.Doc for collaborative editing.
  * The row itself just stores the string ID (JSON-serializable).
  *
- * Always nullable with default null - Y.Docs are created lazily when user first edits.
+ * Always nullable - Y.Docs are created lazily when user first edits.
+ * No need to specify nullable or default; they're implicit.
  */
 export type RichtextFieldSchema = {
-	'x-component': 'richtext';
-	type: readonly ['string', 'null'];
-	default: null;
+	type: 'richtext';
 };
 
 /**
- * Integer column schema - whole numbers.
- * JSON Schema type is 'integer', not 'number'.
+ * Integer field schema - whole numbers.
  */
 export type IntegerFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'integer';
-	type: TNullable extends true ? readonly ['integer', 'null'] : 'integer';
+	type: 'integer';
+	nullable?: TNullable;
 	default?: number;
 };
 
 /**
- * Real/float column schema - decimal numbers.
- * JSON Schema type is 'number'.
+ * Real/float field schema - decimal numbers.
  */
 export type RealFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'real';
-	type: TNullable extends true ? readonly ['number', 'null'] : 'number';
+	type: 'real';
+	nullable?: TNullable;
 	default?: number;
 };
 
 /**
- * Boolean column schema - true/false values.
+ * Boolean field schema - true/false values.
  */
 export type BooleanFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'boolean';
-	type: TNullable extends true ? readonly ['boolean', 'null'] : 'boolean';
+	type: 'boolean';
+	nullable?: TNullable;
 	default?: boolean;
 };
 
 /**
- * Date column schema - timezone-aware dates.
+ * Date field schema - timezone-aware dates.
  * Stored as DateTimeString format: `{iso}|{timezone}`.
- * Uses `pattern` for JSON Schema validation (not `format: 'date'` which implies RFC 3339).
  */
 export type DateFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'date';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
-	description: string;
-	pattern: string;
+	type: 'date';
+	nullable?: TNullable;
 	default?: DateTimeString;
 };
 
 /**
- * Select column schema - single choice from predefined options.
- * Uses JSON Schema `enum` for option validation.
+ * Select field schema - single choice from predefined options.
  *
  * @example
  * ```typescript
  * {
- *   'x-component': 'select',
- *   type: 'string',
- *   enum: ['draft', 'published', 'archived'],
+ *   type: 'select',
+ *   options: ['draft', 'published', 'archived'],
  *   default: 'draft'
  * }
  * ```
@@ -135,37 +128,27 @@ export type SelectFieldSchema<
 	],
 	TNullable extends boolean = boolean,
 > = {
-	'x-component': 'select';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
-	enum: TOptions;
+	type: 'select';
+	options: TOptions;
+	nullable?: TNullable;
 	default?: TOptions[number];
 };
 
 /**
- * Tags column schema - array of strings with optional validation.
+ * Tags field schema - array of strings with optional validation.
  * Stored as plain arrays (JSON-serializable).
  *
  * Two modes:
- * - With `items.enum`: Only values from options are allowed
- * - Without `items.enum`: Any string array is allowed
+ * - With `options`: Only values from options are allowed
+ * - Without `options`: Any string array is allowed
  *
  * @example
  * ```typescript
  * // Validated tags
- * {
- *   'x-component': 'tags',
- *   type: 'array',
- *   items: { type: 'string', enum: ['urgent', 'normal', 'low'] },
- *   uniqueItems: true
- * }
+ * { type: 'tags', options: ['urgent', 'normal', 'low'] }
  *
  * // Unconstrained tags
- * {
- *   'x-component': 'tags',
- *   type: 'array',
- *   items: { type: 'string' },
- *   uniqueItems: true
- * }
+ * { type: 'tags' }
  * ```
  */
 export type TagsFieldSchema<
@@ -175,19 +158,18 @@ export type TagsFieldSchema<
 	],
 	TNullable extends boolean = boolean,
 > = {
-	'x-component': 'tags';
-	type: TNullable extends true ? readonly ['array', 'null'] : 'array';
-	items: { type: 'string'; enum?: TOptions };
-	uniqueItems: true;
+	type: 'tags';
+	options?: TOptions;
+	nullable?: TNullable;
 	default?: TOptions[number][];
 };
 
 /**
- * JSON column schema - arbitrary JSON validated by a Standard Schema.
+ * JSON field schema - arbitrary JSON validated by a Standard Schema.
  *
  * The `schema` property holds a Standard Schema (ArkType, Zod v4.2+, Valibot)
  * that validates the JSON value. The schema must support JSON Schema conversion
- * for MCP/OpenAPI compatibility.
+ * for MCP/OpenAPI compatibility (use StandardSchemaWithJSONSchema).
  *
  * **Avoid in schema property:**
  * - Transforms: `.pipe()`, `.transform()`
@@ -197,8 +179,7 @@ export type TagsFieldSchema<
  * @example
  * ```typescript
  * {
- *   'x-component': 'json',
- *   type: 'object',
+ *   type: 'json',
  *   schema: type({ theme: 'string', darkMode: 'boolean' }),
  *   default: { theme: 'dark', darkMode: true }
  * }
@@ -208,9 +189,9 @@ export type JsonFieldSchema<
 	TSchema extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 	TNullable extends boolean = boolean,
 > = {
-	'x-component': 'json';
-	type: TNullable extends true ? readonly ['object', 'null'] : 'object';
+	type: 'json';
 	schema: TSchema;
+	nullable?: TNullable;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
 };
 
@@ -219,8 +200,8 @@ export type JsonFieldSchema<
 // ============================================================================
 
 /**
- * Discriminated union of all column schema types.
- * Use `x-component` to narrow to a specific type.
+ * Discriminated union of all field schema types.
+ * Use `type` to narrow to a specific type.
  */
 export type FieldSchema =
 	| IdFieldSchema
@@ -235,114 +216,169 @@ export type FieldSchema =
 	| JsonFieldSchema;
 
 /**
- * Extract the component name from a column schema.
- * One of: 'id', 'text', 'ytext', 'integer', 'real', 'boolean', 'date', 'select', 'tags', 'json'
+ * Extract the type name from a field schema.
+ * One of: 'id', 'text', 'richtext', 'integer', 'real', 'boolean', 'date', 'select', 'tags', 'json'
  */
-export type FieldComponent = FieldSchema['x-component'];
-
-/**
- * Helper type to check if a JSON Schema type array includes 'null'.
- * Used internally to derive nullability from the `type` field.
- */
-type IsNullableType<T> = T extends readonly [unknown, 'null'] ? true : false;
+export type FieldType = FieldSchema['type'];
 
 // ============================================================================
 // Value Types
 // ============================================================================
 
 /**
+ * Helper type to check if a field schema is nullable.
+ *
+ * Uses optional property check `{ nullable?: true }` because field schemas
+ * define `nullable?: TNullable` (optional). When `TNullable = true`, the type
+ * is `nullable?: true` which doesn't extend `{ nullable: true }` (required).
+ *
+ * This also correctly handles RichtextFieldSchema (no nullable property)
+ * because optional properties can be absent.
+ */
+type IsNullable<C extends FieldSchema> = C extends { nullable?: true }
+	? true
+	: false;
+
+/**
  * Maps a field schema to its runtime value type.
  *
- * - RichtextFieldSchema → string (ID reference)
+ * - RichtextFieldSchema → string | null (always nullable)
  * - TagsFieldSchema → string[] (plain array)
  * - DateFieldSchema → DateTimeString
  * - Other fields → primitive types
  *
- * Nullability is derived from the schema's `type` field.
+ * Nullability is derived from the schema's `nullable` field.
  */
 export type CellValue<C extends FieldSchema = FieldSchema> =
 	C extends IdFieldSchema
 		? string
 		: C extends TextFieldSchema
-			? IsNullableType<C['type']> extends true
+			? IsNullable<C> extends true
 				? string | null
 				: string
 			: C extends RichtextFieldSchema
-				? IsNullableType<C['type']> extends true
-					? string | null
-					: string
+				? string | null // always nullable
 				: C extends IntegerFieldSchema
-					? IsNullableType<C['type']> extends true
+					? IsNullable<C> extends true
 						? number | null
 						: number
 					: C extends RealFieldSchema
-						? IsNullableType<C['type']> extends true
+						? IsNullable<C> extends true
 							? number | null
 							: number
 						: C extends BooleanFieldSchema
-							? IsNullableType<C['type']> extends true
+							? IsNullable<C> extends true
 								? boolean | null
 								: boolean
 							: C extends DateFieldSchema
-								? IsNullableType<C['type']> extends true
+								? IsNullable<C> extends true
 									? DateTimeString | null
 									: DateTimeString
 								: C extends SelectFieldSchema<infer TOptions>
-									? IsNullableType<C['type']> extends true
+									? IsNullable<C> extends true
 										? TOptions[number] | null
 										: TOptions[number]
 									: C extends TagsFieldSchema<infer TOptions>
-										? IsNullableType<C['type']> extends true
+										? IsNullable<C> extends true
 											? TOptions[number][] | null
 											: TOptions[number][]
 										: C extends JsonFieldSchema<
 													infer TSchema extends StandardSchemaWithJSONSchema
 												>
-											? IsNullableType<C['type']> extends true
+											? IsNullable<C> extends true
 												? StandardSchemaV1.InferOutput<TSchema> | null
 												: StandardSchemaV1.InferOutput<TSchema>
 											: never;
 
 // ============================================================================
-// Table and Workspace Schemas
+// Table Schema Types
 // ============================================================================
 
 /**
- * Table schema - maps field names to field schemas.
+ * Fields schema - maps field names to field schemas.
  * Must always include an 'id' field with IdFieldSchema.
  *
  * @example
  * ```typescript
- * const postsSchema = {
+ * const postsFields = {
  *   id: id(),
  *   title: text(),
  *   status: select({ options: ['draft', 'published'] }),
- * } satisfies TableSchema;
+ * } satisfies FieldsSchema;
  * ```
  */
-export type TableSchema = { id: IdFieldSchema } & Record<string, FieldSchema>;
+export type FieldsSchema = { id: IdFieldSchema } & Record<string, FieldSchema>;
 
 /**
- * Tables schema - maps table names to table schemas.
- * Represents all tables in a workspace.
+ * Table schema - maps field names to field schemas.
+ * Alias for FieldsSchema, used when defining tables.
+ */
+export type TableSchema = FieldsSchema;
+
+/**
+ * Table definition with metadata for UI display.
+ * Use this type for the full table definition including metadata.
+ *
+ * @example
+ * ```typescript
+ * const postsTable: TableDefinition = {
+ *   name: 'Posts',
+ *   emoji: '📝',
+ *   description: 'Blog posts and articles',
+ *   order: 0,
+ *   fields: {
+ *     id: id(),
+ *     title: text(),
+ *     status: select({ options: ['draft', 'published'] }),
+ *   },
+ * };
+ * ```
+ */
+export type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
+	/** Display name shown in UI (e.g., "Blog Posts") */
+	name: string;
+	/** Emoji icon (e.g., "📝") */
+	emoji: string;
+	/** Description shown in tooltips/docs */
+	description: string;
+	/** Explicit ordering for UI (0, 1, 2...) */
+	order: number;
+	/** The field schemas for this table */
+	fields: TFields;
+};
+
+/**
+ * Tables schema - maps table keys to table field schemas.
+ * This is the simple format for defining tables inline.
  *
  * @example
  * ```typescript
  * const blogTables = {
- *   posts: postsTableSchema,
- *   authors: authorsTableSchema,
+ *   posts: { id: id(), title: text() },
+ *   authors: { id: id(), name: text() },
  * } satisfies TablesSchema;
  * ```
  */
 export type TablesSchema = Record<string, TableSchema>;
 
 /**
- * @deprecated Use `TablesSchema` instead. This type will be removed in a future version.
+ * Tables with metadata - maps table keys to full table definitions.
+ * Use this when you need table metadata (name, emoji, description, order).
  *
- * Previously named "WorkspaceSchema" but renamed to "TablesSchema" for clarity,
- * since a workspace conceptually includes both tables AND KV storage.
+ * @example
+ * ```typescript
+ * const blogTables: TablesWithMetadata = {
+ *   posts: {
+ *     name: 'Posts',
+ *     emoji: '📝',
+ *     description: 'Blog posts',
+ *     order: 0,
+ *     fields: { id: id(), title: text() },
+ *   },
+ * };
+ * ```
  */
-export type WorkspaceSchema = TablesSchema;
+export type TablesWithMetadata = Record<string, TableDefinition>;
 
 // ============================================================================
 // Row Types
@@ -374,8 +410,8 @@ export type WorkspaceSchema = TablesSchema;
  * const json = JSON.stringify(row);
  * ```
  */
-export type Row<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
+export type Row<TFieldsSchema extends FieldsSchema = FieldsSchema> = {
+	[K in keyof TFieldsSchema]: CellValue<TFieldsSchema[K]>;
 };
 
 /**
@@ -397,9 +433,9 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
  * });
  * ```
  */
-export type PartialRow<TTableSchema extends TableSchema = TableSchema> = {
+export type PartialRow<TFieldsSchema extends FieldsSchema = FieldsSchema> = {
 	id: string;
-} & Partial<Omit<Row<TTableSchema>, 'id'>>;
+} & Partial<Omit<Row<TFieldsSchema>, 'id'>>;
 
 // ============================================================================
 // Key-Value Schema Types
@@ -412,7 +448,7 @@ export type PartialRow<TTableSchema extends TableSchema = TableSchema> = {
 export type KvFieldSchema = Exclude<FieldSchema, IdFieldSchema>;
 
 /**
- * KV schema - maps key names to column schemas.
+ * KV schema - maps key names to field schemas.
  */
 export type KvSchema = Record<string, KvFieldSchema>;
 

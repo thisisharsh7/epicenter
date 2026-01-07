@@ -1,13 +1,8 @@
 /**
- * @fileoverview Converts FieldSchema to arktype Type definitions
+ * Converts FieldSchema to arktype Type definitions for runtime validation.
  *
- * This converter transforms epicenter FieldSchema definitions into arktype types
- * for runtime validation and schema composition. Unlike raw arktype definitions,
- * this maintains proper TypeScript inference for object methods like .partial() and .merge().
- *
- * **Key Design Decision**: Returns raw arktype definition strings/objects (not Type instances)
- * to enable proper type inference when passed to `type()`. This allows arktype to correctly
- * infer ObjectType with composition methods available.
+ * Returns raw arktype definitions to enable proper type inference for
+ * object methods like .partial() and .merge().
  */
 
 import type { StandardSchemaV1 } from '../standard/types';
@@ -17,6 +12,7 @@ import type {
 	BooleanFieldSchema,
 	DateFieldSchema,
 	FieldSchema,
+	FieldsSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -24,7 +20,6 @@ import type {
 	RichtextFieldSchema,
 	Row,
 	SelectFieldSchema,
-	TableSchema,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
@@ -34,10 +29,15 @@ import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 
 /**
  * Maps a FieldSchema to its corresponding arktype Type.
- * Similar to FieldToDrizzle in drizzle.ts, but for arktype.
  *
  * This type mapping ensures proper TypeScript inference when building
- * schema fields, preserving exact key information from TSchema.
+ * schema validators, preserving exact type information from the schema.
+ *
+ * @example
+ * ```typescript
+ * type TextType = FieldSchemaToArktype<{ type: 'text' }>; // Type<string>
+ * type NullableInt = FieldSchemaToArktype<{ type: 'integer', nullable: true }>; // Type<number | null>
+ * ```
  */
 export type FieldSchemaToArktype<C extends FieldSchema> =
 	C extends IdFieldSchema
@@ -79,12 +79,13 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
 											: never;
 
 /**
- * Converts a TableSchema to a fully instantiated arktype Type.
+ * Converts a table schema to a fully instantiated arktype Type.
  *
- * Returns a ready-to-use arktype Type instance with all composition methods available
- * (.partial(), .merge(), .array(), etc.).
+ * Returns a ready-to-use arktype Type instance with all composition methods
+ * available (.partial(), .merge(), .array(), etc.). Use this for validating
+ * complete row objects.
  *
- * @param tableSchema - The table schema to convert
+ * @param fieldsSchema - The table schema to convert
  * @returns Complete arktype Type instance with composition methods
  *
  * @example
@@ -92,57 +93,74 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
  * const schema = {
  *   id: id(),
  *   title: text(),
- *   count: integer({ nullable: true })
+ *   count: integer({ nullable: true }),
  * };
  *
  * const validator = tableSchemaToArktype(schema);
  *
  * // Use immediately for validation
  * const result = validator({ id: '123', title: 'Test', count: 42 });
+ * if (result instanceof type.errors) {
+ *   console.error('Validation failed:', result.summary);
+ * }
  *
  * // Or compose with other operations
- * const partialValidator = validator.partial().merge({ id: type.string });
+ * const partialValidator = validator.partial();
  * const arrayValidator = validator.array();
  * ```
  */
-export function tableSchemaToArktype<TTableSchema extends TableSchema>(
-	tableSchema: TTableSchema,
-): ObjectType<Row<TTableSchema>> {
+export function tableSchemaToArktype<TFieldsSchema extends FieldsSchema>(
+	fieldsSchema: TFieldsSchema,
+): ObjectType<Row<TFieldsSchema>> {
 	return type(
 		Object.fromEntries(
-			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
+			Object.entries(fieldsSchema).map(([fieldName, fieldSchema]) => [
 				fieldName,
 				fieldSchemaToArktype(fieldSchema),
 			]),
 		),
-	) as ObjectType<Row<TTableSchema>>;
+	) as ObjectType<Row<TFieldsSchema>>;
 }
 
 /**
  * Converts a single FieldSchema to an arktype Type for runtime validation.
  *
- * Each field type maps to its corresponding arktype validator:
- * - `id`, `text`, `ytext` → `type.string`
+ * Use this when you need to validate individual field values. For nullable
+ * fields, automatically wraps with `.or(type.null).default(null)` so that
+ * missing fields are defaulted to `null` during validation.
+ *
+ * Field type mappings:
+ * - `id`, `text`, `richtext` → `type.string`
  * - `integer` → `type.number.divisibleBy(1)`
  * - `real` → `type.number`
  * - `boolean` → `type.boolean`
  * - `date` → `type.string.matching(DATE_TIME_STRING_REGEX)`
  * - `select` → `type.enumerated(...options)`
- * - `tags` → `type.enumerated(...options).array()`
- * - `json` → uses the schema's arktype definition directly
- *
- * For nullable fields, wraps with `.or(type.null).default(null)` so that
- * missing fields are automatically defaulted to `null` during validation.
+ * - `tags` → `type.enumerated(...options).array()` or `type.string.array()`
+ * - `json` → uses the embedded arktype schema directly
  *
  * @param fieldSchema - The field schema to convert
  * @returns arktype Type suitable for validation and composition
+ *
+ * @example
+ * ```typescript
+ * const textValidator = fieldSchemaToArktype({ type: 'text' });
+ * const selectValidator = fieldSchemaToArktype({
+ *   type: 'select',
+ *   options: ['draft', 'published'],
+ * });
+ *
+ * textValidator('hello'); // 'hello'
+ * selectValidator('draft'); // 'draft'
+ * selectValidator('invalid'); // type.errors
+ * ```
  */
 export function fieldSchemaToArktype<C extends FieldSchema>(
 	fieldSchema: C,
 ): FieldSchemaToArktype<C> {
 	let baseType: Type;
 
-	switch (fieldSchema['x-component']) {
+	switch (fieldSchema.type) {
 		case 'id':
 		case 'text':
 		case 'richtext':
@@ -165,11 +183,11 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 				.matching(DATE_TIME_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...fieldSchema.enum);
+			baseType = type.enumerated(...fieldSchema.options);
 			break;
 		case 'tags':
-			baseType = fieldSchema.items.enum
-				? type.enumerated(...fieldSchema.items.enum).array()
+			baseType = fieldSchema.options
+				? type.enumerated(...fieldSchema.options).array()
 				: type.string.array();
 			break;
 		case 'json':

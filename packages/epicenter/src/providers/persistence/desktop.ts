@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { Provider, ProviderContext } from '../../core/provider';
-import type { WorkspaceSchema } from '../../core/schema';
+import type { TablesSchema } from '../../core/schema';
 
 /**
  * YJS document persistence provider using the filesystem.
@@ -37,7 +37,7 @@ import type { WorkspaceSchema } from '../../core/schema';
  *   .create();
  * ```
  */
-export const setupPersistence = (async <TSchema extends WorkspaceSchema>({
+export const setupPersistence = (async <TSchema extends TablesSchema>({
 	id,
 	ydoc,
 	paths,

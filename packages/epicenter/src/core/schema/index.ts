@@ -1,6 +1,7 @@
 export {
 	boolean,
 	date,
+	defineTable,
 	id,
 	integer,
 	json,
@@ -15,8 +16,9 @@ export type {
 	BooleanFieldSchema,
 	CellValue,
 	DateFieldSchema,
-	FieldComponent,
 	FieldSchema,
+	FieldsSchema,
+	FieldType,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -28,11 +30,12 @@ export type {
 	RichtextFieldSchema,
 	Row,
 	SelectFieldSchema,
+	TableDefinition,
 	TableSchema,
 	TablesSchema,
+	TablesWithMetadata,
 	TagsFieldSchema,
 	TextFieldSchema,
-	WorkspaceSchema,
 } from './fields/types.js';
 
 export type { FieldSchemaToArktype } from './converters/to-arktype.js';

@@ -1,4 +1,4 @@
-import type { WorkspaceSchema } from '@epicenter/hq';
+import type { TablesSchema } from '@epicenter/hq';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import {
 	BaseDirectory,
@@ -17,10 +17,10 @@ const WORKSPACES_DIR = 'workspaces';
 
 /**
  * A workspace file stored on disk.
- * Uses the same shape as `WorkspaceSchema` from @epicenter/hq so it can be
+ * Uses the same shape as `TablesSchema` from @epicenter/hq so it can be
  * passed directly to `defineWorkspace()`.
  */
-export type WorkspaceFile = WorkspaceSchema;
+export type WorkspaceFile = TablesSchema;
 
 export const { WorkspaceStorageError, WorkspaceStorageErr } = createTaggedError(
 	'WorkspaceStorageError',
