@@ -1,7 +1,8 @@
-import { type ArkErrors, type } from 'arktype';
+import { Compile, type Validator } from 'typebox/compile';
+import type { TLocalizedValidationError } from 'typebox/error';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
-import { tableSchemaToYjsArktype } from '../schema';
+import { tableSchemaToTypebox } from '../schema';
 import {
 	YKeyValue,
 	type YKeyValueChange,
@@ -30,8 +31,7 @@ export type InvalidRowResult = {
 	status: 'invalid';
 	id: string;
 	tableName: string;
-	errors: ArkErrors;
-	summary: string;
+	errors: TLocalizedValidationError[];
 	row: unknown;
 };
 
@@ -168,11 +168,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	 */
 	const rowKVCache = new Map<string, YKeyValue<unknown>>();
 
-	/**
-	 * Track the current table Y.Map reference. When sync causes a conflict,
-	 * YJS might replace our local table with the winner. We detect this and
-	 * invalidate the rowKVCache to prevent stale references.
-	 */
+	const typeboxSchema = tableSchemaToTypebox(schema);
+	const rowValidator = Compile(typeboxSchema);
+	const arrayValidator = Compile({ type: 'array', items: typeboxSchema });
+
 	let currentTableRef: TableMap | null = null;
 
 	ytables.observe((event) => {
@@ -392,62 +391,58 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			if (!rowKV) return { status: 'not_found', id };
 
 			const row = reconstructRow(rowKV);
-			const validator = tableSchemaToYjsArktype(schema);
-			const result = validator(row);
 
-			if (result instanceof type.errors) {
-				return {
-					status: 'invalid',
-					id,
-					tableName,
-					errors: result,
-					summary: result.summary,
-					row,
-				};
+			if (rowValidator.Check(row)) {
+				return { status: 'valid', row };
 			}
-			return { status: 'valid', row };
+
+			return {
+				status: 'invalid',
+				id,
+				tableName,
+				errors: rowValidator.Errors(row),
+				row,
+			};
 		},
 
 		getAll(): RowResult<TRow>[] {
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return [];
 
-			const validator = tableSchemaToYjsArktype(schema);
-			const results: RowResult<TRow>[] = [];
+			const entries = [...tableMap.entries()].map(([id, rowArray]) => ({
+				id,
+				row: reconstructRow(ensureRowKV(id, rowArray)),
+			}));
 
-			for (const [id, rowArray] of tableMap.entries()) {
-				const rowKV = ensureRowKV(id, rowArray);
-				const row = reconstructRow(rowKV);
-				const result = validator(row);
-
-				results.push(
-					result instanceof type.errors
-						? {
-								status: 'invalid',
-								id,
-								tableName,
-								errors: result,
-								summary: result.summary,
-								row,
-							}
-						: { status: 'valid', row },
-				);
+			const allRows = entries.map((e) => e.row);
+			if (arrayValidator.Check(allRows)) {
+				return entries.map(({ row }) => ({ status: 'valid', row }));
 			}
 
-			return results;
+			return entries.map(({ id, row }) => {
+				if (rowValidator.Check(row)) {
+					return { status: 'valid', row };
+				}
+				return {
+					status: 'invalid',
+					id,
+					tableName,
+					errors: rowValidator.Errors(row),
+					row,
+				};
+			});
 		},
 
 		getAllValid(): TRow[] {
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return [];
 
-			const validator = tableSchemaToYjsArktype(schema);
 			const result: TRow[] = [];
 
 			for (const [id, rowArray] of tableMap.entries()) {
 				const rowKV = ensureRowKV(id, rowArray);
 				const row = reconstructRow(rowKV);
-				if (!(validator(row) instanceof type.errors)) {
+				if (rowValidator.Check(row)) {
 					result.push(row);
 				}
 			}
@@ -459,20 +454,17 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return [];
 
-			const validator = tableSchemaToYjsArktype(schema);
 			const result: InvalidRowResult[] = [];
 
 			for (const [id, rowArray] of tableMap.entries()) {
 				const rowKV = ensureRowKV(id, rowArray);
 				const row = reconstructRow(rowKV);
-				const validationResult = validator(row);
-				if (validationResult instanceof type.errors) {
+				if (!rowValidator.Check(row)) {
 					result.push({
 						status: 'invalid',
 						id,
 						tableName,
-						errors: validationResult,
-						summary: validationResult.summary,
+						errors: rowValidator.Errors(row),
 						row,
 					});
 				}
@@ -545,13 +537,12 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return [];
 
-			const validator = tableSchemaToYjsArktype(schema);
 			const result: TRow[] = [];
 
 			for (const [id, rowArray] of tableMap.entries()) {
 				const rowKV = ensureRowKV(id, rowArray);
 				const row = reconstructRow(rowKV);
-				if (!(validator(row) instanceof type.errors) && predicate(row)) {
+				if (rowValidator.Check(row) && predicate(row)) {
 					result.push(row);
 				}
 			}
@@ -563,12 +554,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return null;
 
-			const validator = tableSchemaToYjsArktype(schema);
-
 			for (const [id, rowArray] of tableMap.entries()) {
 				const rowKV = ensureRowKV(id, rowArray);
 				const row = reconstructRow(rowKV);
-				if (!(validator(row) instanceof type.errors) && predicate(row)) {
+				if (rowValidator.Check(row) && predicate(row)) {
 					return row;
 				}
 			}
