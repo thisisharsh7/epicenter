@@ -1,14 +1,10 @@
 import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
-import { Ok, type Result } from 'wellcrafted/result';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToYjsArktype } from '../schema';
 import { YKeyValue } from '../utils/y-keyvalue';
 
-/**
- * Context for row validation errors
- */
 type RowValidationContext = {
 	tableName: string;
 	id: string;
@@ -16,10 +12,7 @@ type RowValidationContext = {
 	summary: string;
 };
 
-/**
- * Error thrown when a row fails schema validation
- */
-export const { RowValidationError, RowValidationErr } =
+export const { RowValidationError } =
 	createTaggedError('RowValidationError').withContext<RowValidationContext>();
 
 export type RowValidationError = ReturnType<typeof RowValidationError>;
@@ -573,54 +566,41 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		 * data. Perfect for keeping UI in sync with database state.
 		 *
 		 * @example
+		 * ```typescript
 		 * const unsubscribe = table.observe({
 		 *   onAdd: (result, transaction) => {
-		 *     if (result.error) {
-		 *       console.error('Invalid row:', result.error);
+		 *     if (result.status === 'invalid') {
+		 *       console.error('Invalid row:', result.error.context.summary);
 		 *       return;
 		 *     }
-		 *     console.log('New row:', result.data, 'origin:', transaction.origin);
+		 *     console.log('New row:', result.row, 'origin:', transaction.origin);
 		 *   },
 		 *   onUpdate: (result, transaction) => {
-		 *     if (result.error) {
-		 *       console.error('Invalid row:', result.error);
+		 *     if (result.status === 'invalid') {
+		 *       console.error('Invalid row:', result.error.context.summary);
 		 *       return;
 		 *     }
-		 *     console.log('Row changed:', result.data, 'origin:', transaction.origin);
+		 *     console.log('Row changed:', result.row, 'origin:', transaction.origin);
 		 *   },
-		 *   onDelete: (id, transaction) => console.log('Row removed:', id, 'origin:', transaction.origin),
+		 *   onDelete: (id, transaction) => console.log('Row removed:', id),
 		 * });
 		 *
-		 * // Later, stop watching
-		 * unsubscribe();
-		 *
-		 * ## How it works under the hood
-		 *
-		 * Tables are stored using YKeyValue, which uses a Y.Array of `{ key, val }` pairs.
-		 * YKeyValue emits 'change' events with a Map of changes, each having an action:
-		 * - `add`: A new row was inserted
-		 * - `update`: An existing row was modified
-		 * - `delete`: A row was removed
-		 *
-		 * ## Validation and Result types
-		 *
-		 * The onAdd and onUpdate callbacks receive Result types that may contain validation errors.
-		 * This allows you to handle invalid rows according to your needs (log them, track in diagnostics, etc.)
-		 * rather than silently skipping them.
+		 * unsubscribe(); // Stop watching
+		 * ```
 		 *
 		 * @param callbacks Object with optional callbacks for row lifecycle events
-		 * @param callbacks.onAdd Called when a new row is added (receives Result with row or validation errors, and the Y.Transaction)
-		 * @param callbacks.onUpdate Called when any field within an existing row changes (receives Result with row or validation errors, and the Y.Transaction)
-		 * @param callbacks.onDelete Called when a row is removed (receives row ID and the Y.Transaction)
+		 * @param callbacks.onAdd Called when a new row is added (receives RowResult and Y.Transaction)
+		 * @param callbacks.onUpdate Called when any field within an existing row changes (receives RowResult and Y.Transaction)
+		 * @param callbacks.onDelete Called when a row is removed (receives row ID and Y.Transaction)
 		 * @returns Unsubscribe function to stop observing changes
 		 */
 		observe(callbacks: {
 			onAdd?: (
-				result: Result<TRow, RowValidationError>,
+				result: RowResult<TRow>,
 				transaction: Y.Transaction,
 			) => void | Promise<void>;
 			onUpdate?: (
-				result: Result<TRow, RowValidationError>,
+				result: RowResult<TRow>,
 				transaction: Y.Transaction,
 			) => void | Promise<void>;
 			onDelete?: (
@@ -635,56 +615,16 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				changes: Map<
 					string,
 					| { action: 'add'; newValue: Row }
-					| {
-							action: 'update';
-							oldValue: Row;
-							newValue: Row;
-					  }
+					| { action: 'update'; oldValue: Row; newValue: Row }
 					| { action: 'delete'; oldValue: Row }
 				>,
 				transaction: Y.Transaction,
 			) => {
 				for (const [id, change] of changes) {
 					if (change.action === 'add') {
-						const row = buildRow(change.newValue);
-						const validationResult = validator(row);
-
-						if (validationResult instanceof type.errors) {
-							callbacks.onAdd?.(
-								RowValidationErr({
-									message: `Row '${id}' in table '${tableName}' failed validation`,
-									context: {
-										tableName,
-										id,
-										errors: validationResult,
-										summary: validationResult.summary,
-									},
-								}),
-								transaction,
-							);
-						} else {
-							callbacks.onAdd?.(Ok(row), transaction);
-						}
+						callbacks.onAdd?.(validateRow(id, change.newValue), transaction);
 					} else if (change.action === 'update') {
-						const row = buildRow(change.newValue);
-						const validationResult = validator(row);
-
-						if (validationResult instanceof type.errors) {
-							callbacks.onUpdate?.(
-								RowValidationErr({
-									message: `Row '${id}' in table '${tableName}' failed validation`,
-									context: {
-										tableName,
-										id,
-										errors: validationResult,
-										summary: validationResult.summary,
-									},
-								}),
-								transaction,
-							);
-						} else {
-							callbacks.onUpdate?.(Ok(row), transaction);
-						}
+						callbacks.onUpdate?.(validateRow(id, change.newValue), transaction);
 					} else if (change.action === 'delete') {
 						callbacks.onDelete?.(id, transaction);
 					}
@@ -692,10 +632,29 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			};
 
 			kv.on('change', handler);
+			return () => kv.off('change', handler);
 
-			return () => {
-				kv.off('change', handler);
-			};
+			function validateRow(id: string, data: Row): RowResult<TRow> {
+				const row = buildRow(data);
+				const result = validator(row);
+
+				if (result instanceof type.errors) {
+					return {
+						status: 'invalid',
+						id,
+						error: RowValidationError({
+							message: `Row '${id}' in table '${tableName}' failed validation`,
+							context: {
+								tableName,
+								id,
+								errors: result,
+								summary: result.summary,
+							},
+						}),
+					};
+				}
+				return { status: 'valid', row };
+			}
 		},
 
 		/**

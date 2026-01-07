@@ -190,8 +190,8 @@ describe('createTables', () => {
 			const addedRows: string[] = [];
 			tables.posts.observe({
 				onAdd: (result) => {
-					if (result.data) {
-						addedRows.push(result.data.id);
+					if (result.status === 'valid') {
+						addedRows.push(result.row.id);
 					}
 				},
 			});
@@ -217,8 +217,8 @@ describe('createTables', () => {
 			const updates: Array<{ id: string; title: string }> = [];
 			tables.posts.observe({
 				onUpdate: (result) => {
-					if (result.data) {
-						updates.push({ id: result.data.id, title: result.data.title });
+					if (result.status === 'valid') {
+						updates.push({ id: result.row.id, title: result.row.title });
 					}
 				},
 			});
@@ -254,7 +254,7 @@ describe('createTables', () => {
 			expect(deletedIds).toEqual(['post-1']);
 		});
 
-		test('callbacks receive Result types with validation', () => {
+		test('callbacks receive RowResult types with validation', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: {
@@ -263,23 +263,23 @@ describe('createTables', () => {
 				},
 			});
 
-			let hasData = false;
-			let hasError = false;
+			let isValid = false;
+			let isInvalid = false;
 			let callbackFired = false;
 
 			tables.posts.observe({
 				onAdd: (result) => {
 					callbackFired = true;
-					hasData = result.data != null;
-					hasError = result.error != null;
+					isValid = result.status === 'valid';
+					isInvalid = result.status === 'invalid';
 				},
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'Test' });
 
 			expect(callbackFired).toBe(true);
-			expect(hasData).toBe(true);
-			expect(hasError).toBe(false);
+			expect(isValid).toBe(true);
+			expect(isInvalid).toBe(false);
 		});
 
 		test('validation errors are passed to callbacks', () => {
@@ -295,11 +295,11 @@ describe('createTables', () => {
 				},
 			});
 
-			let receivedError = false;
+			let receivedInvalid = false;
 			tables.posts.observe({
 				onAdd: (result) => {
-					if (result.error) {
-						receivedError = true;
+					if (result.status === 'invalid') {
+						receivedInvalid = true;
 					}
 				},
 			});
@@ -314,7 +314,7 @@ describe('createTables', () => {
 				{ key: 'bad-row', val: { id: 'bad-row', count: 'not a number' } },
 			]);
 
-			expect(receivedError).toBe(true);
+			expect(receivedInvalid).toBe(true);
 		});
 
 		test('unsubscribe stops callbacks', () => {
@@ -329,8 +329,8 @@ describe('createTables', () => {
 			const addedIds: string[] = [];
 			const unsubscribe = tables.posts.observe({
 				onAdd: (result) => {
-					if (result.data) {
-						addedIds.push(result.data.id);
+					if (result.status === 'valid') {
+						addedIds.push(result.row.id);
 					}
 				},
 			});

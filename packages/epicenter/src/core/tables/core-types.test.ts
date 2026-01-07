@@ -134,20 +134,14 @@ describe('YjsDoc Type Inference', () => {
 			read: boolean;
 		}> = [];
 
-		// Hover over 'result' parameter to verify inferred type
 		const unsubscribe = doc.notifications.observe({
 			onAdd: (result) => {
-				// result type should be: Result<{ id: string; message: string; read: boolean }, ArkErrors>
-				if (result.data) {
-					addedNotifications.push(result.data);
+				if (result.status === 'valid') {
+					addedNotifications.push(result.row);
 				}
 			},
-			onUpdate: (_result) => {
-				// result type should be: Result<{ id: string; message: string; read: boolean }, ArkErrors>
-			},
-			onDelete: (_id) => {
-				// id type should be: string
-			},
+			onUpdate: (_result) => {},
+			onDelete: (_id) => {},
 		});
 
 		doc.notifications.upsert({

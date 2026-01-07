@@ -491,7 +491,7 @@ describe('KV Helpers', () => {
 	});
 
 	describe('Observe', () => {
-		test('observe() fires callback with Result when value changes', () => {
+		test('observe() fires callback with KvGetResult when value changes', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				theme: select({ options: ['light', 'dark'], default: 'light' }),
@@ -499,8 +499,8 @@ describe('KV Helpers', () => {
 
 			const values: string[] = [];
 			kv.theme.observe((result) => {
-				if (result.data) {
-					values.push(result.data);
+				if (result.status === 'valid') {
+					values.push(result.value);
 				}
 			});
 
@@ -519,15 +519,15 @@ describe('KV Helpers', () => {
 
 			const themeValues: string[] = [];
 			kv.theme.observe((result) => {
-				if (result.data) {
-					themeValues.push(result.data);
+				if (result.status === 'valid') {
+					themeValues.push(result.value);
 				}
 			});
 
 			const countValues: number[] = [];
 			kv.count.observe((result) => {
-				if (result.data) {
-					countValues.push(result.data);
+				if (result.status === 'valid') {
+					countValues.push(result.value);
 				}
 			});
 
@@ -547,8 +547,8 @@ describe('KV Helpers', () => {
 
 			const values: number[] = [];
 			const unsubscribe = kv.count.observe((result) => {
-				if (result.data) {
-					values.push(result.data);
+				if (result.status === 'valid') {
+					values.push(result.value);
 				}
 			});
 
@@ -617,8 +617,8 @@ describe('KV Helpers', () => {
 
 			const values: string[] = [];
 			kv.theme.observe((result) => {
-				if (result.data) {
-					values.push(result.data);
+				if (result.status === 'valid') {
+					values.push(result.value);
 				}
 			});
 
@@ -738,7 +738,7 @@ describe('KV Helpers', () => {
 			}
 		});
 
-		test('reset on non-nullable field with no default returns invalid status', () => {
+		test('reset on non-nullable field with no default returns not_found status', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				username: text(),
@@ -753,7 +753,10 @@ describe('KV Helpers', () => {
 
 			kv.username.reset();
 			result = kv.username.get();
-			expect(result.status).toBe('invalid');
+			expect(result.status).toBe('not_found');
+			if (result.status === 'not_found') {
+				expect(result.key).toBe('username');
+			}
 		});
 
 		test('$all() returns all helpers', () => {
@@ -836,7 +839,7 @@ describe('KV Helpers', () => {
 			}
 		});
 
-		test('observe() passes error to callback when validation fails', () => {
+		test('observe() passes invalid status to callback when validation fails', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const ykvArray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 
@@ -844,17 +847,17 @@ describe('KV Helpers', () => {
 				count: integer({ default: 0 }),
 			});
 
-			let receivedError = false;
+			let receivedInvalid = false;
 			kv.count.observe((result) => {
-				if (result.error) {
-					receivedError = true;
+				if (result.status === 'invalid') {
+					receivedInvalid = true;
 					expect(result.error.context.key).toBe('count');
 				}
 			});
 
 			ykvArray.push([{ key: 'count', val: 'invalid value' }]);
 
-			expect(receivedError).toBe(true);
+			expect(receivedInvalid).toBe(true);
 		});
 	});
 });
