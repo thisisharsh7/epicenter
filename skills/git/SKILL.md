@@ -72,12 +72,51 @@ description: Git commit and pull request guidelines using conventional commits. 
 
 ## Commit Messages Best Practices
 
+### The "Why" is More Important Than the "What"
+
+The commit message subject line describes WHAT changed. The commit body explains WHY.
+
+**Good commit** (explains motivation):
+
+```
+fix(auth): prevent session timeout during file upload
+
+Users were getting logged out mid-upload on large files because the
+session refresh only triggered on navigation, not background activity.
+```
+
+**Bad commit** (only describes what):
+
+```
+fix(auth): add keepalive call to upload handler
+```
+
+The first commit tells future developers WHY the code exists. The second makes them dig through the code to understand the purpose.
+
+### Other Best Practices
+
 - NEVER include Claude Code or opencode watermarks or attribution
 - Each commit should represent a single, atomic change
 - Write commits for future developers (including yourself)
 - If you need more than one line to describe what you did, consider splitting the commit
 
 ## Pull Request Guidelines
+
+### Motivation First
+
+Every PR description MUST start with WHY this change exists. Not what files changed, not how it works—WHY.
+
+**Good PR opening**:
+
+> Users were getting logged out mid-upload on large files. The session refresh only triggered on navigation, not during background activity like uploads.
+
+**Bad PR opening**:
+
+> This PR adds a keepalive call to the upload handler and updates the session refresh logic.
+
+The reader should understand the PROBLEM before they see the SOLUTION.
+
+### Other Guidelines
 
 - NEVER include Claude Code or opencode watermarks or attribution in PR titles/descriptions
 - PR title should follow same conventional commit format as commits
