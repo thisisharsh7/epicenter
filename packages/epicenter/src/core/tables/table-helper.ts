@@ -125,8 +125,15 @@ export type DeleteManyResult =
 	| { status: 'none_deleted'; notFoundLocally: string[] };
 
 /**
- * Change event for table row observation with validation status.
- * Consumers receive RowResult so they can handle both valid and invalid rows.
+ * Change event for a single row during table observation.
+ *
+ * **Why no `id` field?** The row ID is the key in `Map<string, TableRowChange>`,
+ * so including it here would be redundant. Access it via the Map iteration:
+ * `for (const [rowId, change] of changes) { ... }`
+ *
+ * **Why does `delete` have no `result`?** When a row is deleted, the data is
+ * already gone from the Y.Doc by the time the observer fires. We only know
+ * that a row with that ID was removed.
  */
 export type TableRowChange<TRow> =
 	| { action: 'add'; result: RowResult<TRow> }
@@ -337,8 +344,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	 * Reconstruct a row object from cell-level YKeyValue entries.
 	 *
 	 * Returns `Record<string, unknown>` because we know it's an object with
-	 * string keys, but values are unvalidated. Use `rowValidator.Check()`
-	 * to narrow to `TRow` after validation passes.
+	 * string keys, but values are unvalidated. Use `validateRow()` to get
+	 * a typed `RowResult<TRow>` with validation status.
 	 */
 	const reconstructRow = (
 		rowKV: YKeyValue<unknown>,
@@ -348,6 +355,29 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			row[key] = entry.val;
 		}
 		return row;
+	};
+
+	/**
+	 * Validate a reconstructed row against the table schema.
+	 *
+	 * Centralizes validation logic used by get(), getAll(), getAllInvalid(),
+	 * and observeChanges(). Returns a discriminated union so callers can
+	 * handle valid and invalid rows uniformly.
+	 */
+	const validateRow = (
+		id: string,
+		row: Record<string, unknown>,
+	): RowResult<TRow> => {
+		if (rowValidator.Check(row)) {
+			return { status: 'valid', row: row as TRow };
+		}
+		return {
+			status: 'invalid',
+			id,
+			tableName,
+			errors: rowValidator.Errors(row),
+			row,
+		};
 	};
 
 	return {
@@ -415,20 +445,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		get(id: string): GetResult<TRow> {
 			const rowKV = getRowKV(id);
 			if (!rowKV) return { status: 'not_found', id };
-
-			const row = reconstructRow(rowKV);
-
-			if (rowValidator.Check(row)) {
-				return { status: 'valid', row: row as TRow };
-			}
-
-			return {
-				status: 'invalid',
-				id,
-				tableName,
-				errors: rowValidator.Errors(row),
-				row,
-			};
+			return validateRow(id, reconstructRow(rowKV));
 		},
 
 		getAll(): RowResult<TRow>[] {
@@ -437,18 +454,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			const results: RowResult<TRow>[] = [];
 			for (const [id, rowArray] of tableMap.entries()) {
-				const row = reconstructRow(ensureRowKV(id, rowArray));
-				if (rowValidator.Check(row)) {
-					results.push({ status: 'valid', row: row as TRow });
-				} else {
-					results.push({
-						status: 'invalid',
-						id,
-						tableName,
-						errors: rowValidator.Errors(row),
-						row,
-					});
-				}
+				results.push(
+					validateRow(id, reconstructRow(ensureRowKV(id, rowArray))),
+				);
 			}
 			return results;
 		},
@@ -475,21 +483,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			if (!tableMap) return [];
 
 			const result: InvalidRowResult[] = [];
-
 			for (const [id, rowArray] of tableMap.entries()) {
-				const rowKV = ensureRowKV(id, rowArray);
-				const row = reconstructRow(rowKV);
-				if (!rowValidator.Check(row)) {
-					result.push({
-						status: 'invalid',
-						id,
-						tableName,
-						errors: rowValidator.Errors(row),
-						row,
-					});
+				const validated = validateRow(
+					id,
+					reconstructRow(ensureRowKV(id, rowArray)),
+				);
+				if (validated.status === 'invalid') {
+					result.push(validated);
 				}
 			}
-
 			return result;
 		},
 
@@ -592,9 +594,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		/**
-		 * Watch for changes with validation status. Reports 'add' when cells
-		 * first populate a new row, 'update' for subsequent changes, 'delete'
-		 * when row is removed. Each change includes RowResult for validation.
+		 * Watch for row changes with validation status.
+		 *
+		 * **Why a Map instead of an array?**
+		 * - O(1) lookup when you need to find a specific row's change
+		 * - Automatic deduplication if a row changes multiple times per transaction
+		 * - Mirrors the underlying Yjs event structure
+		 *
+		 * @returns Unsubscribe function to stop observing
 		 */
 		observeChanges(
 			callback: (
@@ -606,22 +613,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const pendingAdds = new Set<string>();
 			let tableMap = getExistingTableMap();
 			let tableUnobserve: (() => void) | null = null;
-
-			const validateRow = (
-				id: string,
-				row: Record<string, unknown>,
-			): RowResult<TRow> => {
-				if (rowValidator.Check(row)) {
-					return { status: 'valid', row: row as TRow };
-				}
-				return {
-					status: 'invalid',
-					id,
-					tableName,
-					errors: rowValidator.Errors(row),
-					row,
-				};
-			};
 
 			const observeRow = (rowId: string, rowArray: RowArray) => {
 				const rowKV = ensureRowKV(rowId, rowArray);
