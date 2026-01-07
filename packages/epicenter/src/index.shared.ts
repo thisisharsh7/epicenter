@@ -53,7 +53,6 @@ export type {
 	RowResult,
 	UpdateManyResult,
 	UpdateResult,
-	YRow,
 } from './core/tables/table-helper';
 export type {
 	EpicenterOperationError,

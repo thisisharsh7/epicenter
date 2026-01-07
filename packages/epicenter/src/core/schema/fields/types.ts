@@ -30,7 +30,6 @@
  * - `nullability.ts` - isNullableFieldSchema helper
  */
 
-import type { YRow } from '../../tables/table-helper';
 import type { DateTimeString } from './datetime';
 import type {
 	StandardSchemaV1,
@@ -358,7 +357,7 @@ export type WorkspaceSchema = TablesSchema;
  * Properties are readonly and typed according to their column schemas.
  *
  * **Row vs RowData:**
- * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
+ * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$rowData`.
  * - `RowData` = Plain object (input type for writes). Just data, no methods.
  * - `Row` is a subtype of `RowData`, so you can pass a Row to `upsert()`.
  *
@@ -375,10 +374,8 @@ export type WorkspaceSchema = TablesSchema;
 export type Row<TTableSchema extends TableSchema = TableSchema> = {
 	readonly [K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
 } & {
-	/** Convert to plain RowData object. Only includes schema-defined fields. */
 	toJSON(): RowData<TTableSchema>;
-	/** Access the underlying Y.Map for advanced operations. */
-	readonly $yRow: YRow;
+	readonly $rowData: RowData<TTableSchema>;
 };
 
 /**
@@ -389,7 +386,7 @@ export type Row<TTableSchema extends TableSchema = TableSchema> = {
  *
  * **RowData vs Row:**
  * - `RowData` = Plain object (input type for writes). Just data, no methods.
- * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$yRow`.
+ * - `Row` = Live proxy (output type for reads). Has `toJSON()` and `$rowData`.
  * - You cannot pass a plain `RowData` where `Row` is expected (missing methods).
  *
  * @example

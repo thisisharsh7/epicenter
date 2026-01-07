@@ -1,11 +1,7 @@
 import { regex } from 'arkregex';
-import * as Y from 'yjs';
+import type * as Y from 'yjs';
 import type { TablesSchema } from '../schema';
-import {
-	createTableHelpers,
-	type TableHelper,
-	type YRow,
-} from './table-helper';
+import { createTableHelpers, type TableHelper } from './table-helper';
 
 /**
  * Valid table name pattern: lowercase letters, numbers, and underscores, starting with a letter.
@@ -112,14 +108,7 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		}
 	}
 
-	const ytables = ydoc.getMap<Y.Map<YRow>>('tables');
-
-	// Create table helpers (tables are created lazily via getYTable - see table-helper.ts)
-	const tableHelpers = createTableHelpers({
-		ydoc,
-		schema,
-		ytables,
-	});
+	const tableHelpers = createTableHelpers({ ydoc, schema });
 
 	return {
 		...tableHelpers,

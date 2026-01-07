@@ -172,7 +172,7 @@ describe('createTables', () => {
 
 			expect(json).toEqual({ id: '1', title: 'Test', published: false });
 			expect(typeof (json as any).toJSON).toBe('undefined');
-			expect(typeof (json as any).$yRow).toBe('undefined');
+			expect(typeof (json as any).$rowData).toBe('undefined');
 		}
 	});
 
@@ -213,8 +213,8 @@ describe('createTables', () => {
 		const result = doc.posts.get('1');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
-			const yrow = result.row.$yRow;
-			yrow.set('extraField', 'should be filtered');
+			const rowData = result.row.$rowData;
+			(rowData as Record<string, unknown>).extraField = 'should be filtered';
 
 			const json = result.row.toJSON();
 			expect(json).toEqual({ id: '1', title: 'Test' });
@@ -330,7 +330,9 @@ describe('createTables', () => {
 
 		test('validation errors are passed to callbacks', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
-			const ytables = ydoc.getMap('tables') as Y.Map<Y.Map<Y.Map<unknown>>>;
+			const ytableArrays = ydoc.getMap('tables') as Y.Map<
+				Y.Array<{ key: string; val: unknown }>
+			>;
 
 			const tables = createTables(ydoc, {
 				posts: {
@@ -348,14 +350,15 @@ describe('createTables', () => {
 				},
 			});
 
-			const postsMap = ytables.get('posts') ?? new Y.Map();
-			if (!ytables.has('posts')) {
-				ytables.set('posts', postsMap as Y.Map<Y.Map<unknown>>);
+			const postsArray =
+				ytableArrays.get('posts') ??
+				new Y.Array<{ key: string; val: unknown }>();
+			if (!ytableArrays.has('posts')) {
+				ytableArrays.set('posts', postsArray);
 			}
-			const invalidRow = new Y.Map();
-			invalidRow.set('id', 'bad-row');
-			invalidRow.set('count', 'not a number');
-			(postsMap as Y.Map<Y.Map<unknown>>).set('bad-row', invalidRow);
+			postsArray.push([
+				{ key: 'bad-row', val: { id: 'bad-row', count: 'not a number' } },
+			]);
 
 			expect(receivedError).toBe(true);
 		});
