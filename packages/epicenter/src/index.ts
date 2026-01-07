@@ -118,13 +118,13 @@ export { createRichContentId } from './core/rich-content/id';
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type {
+	CapabilityMap,
 	CreateOptions,
-	InferProviderExports,
-	ProviderMap,
+	InferCapabilityExports,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceSchema,
-	WorkspaceWithProviders,
+	WorkspaceWithCapabilities,
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
 
