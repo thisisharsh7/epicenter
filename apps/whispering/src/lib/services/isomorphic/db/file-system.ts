@@ -1,5 +1,4 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { join } from '@tauri-apps/api/path';
 import {
 	exists,
 	mkdir,
@@ -183,8 +182,7 @@ export function createFileSystemDb(): DbService {
 			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
-						const recordingsPath = await PATHS.DB.RECORDINGS();
-						const mdPath = await join(recordingsPath, `${id}.md`);
+						const mdPath = await PATHS.DB.RECORDING_MD(id);
 
 						const fileExists = await exists(mdPath);
 						if (!fileExists) return null;
@@ -226,16 +224,16 @@ export function createFileSystemDb(): DbService {
 								// Fallback to 'bin' for unknown MIME types - we're just saving raw bytes to disk,
 								// the actual format doesn't matter for storage purposes
 								const extension = mime.getExtension(audio.type) ?? 'bin';
-								const audioPath = await join(
-									recordingsPath,
-									`${recording.id}.${extension}`,
+								const audioPath = await PATHS.DB.RECORDING_AUDIO(
+									recording.id,
+									extension,
 								);
 								const arrayBuffer = await audio.arrayBuffer();
 								await writeFile(audioPath, new Uint8Array(arrayBuffer));
 
 								// 2. Create .md file with front matter
 								const mdContent = recordingToMarkdown(recording);
-								const mdPath = await join(recordingsPath, `${recording.id}.md`);
+								const mdPath = await PATHS.DB.RECORDING_MD(recording.id);
 
 								// Write to temp file first, then rename (atomic operation)
 								const tmpPath = `${mdPath}.tmp`;
@@ -260,8 +258,7 @@ export function createFileSystemDb(): DbService {
 
 				return tryAsync({
 					try: async () => {
-						const recordingsPath = await PATHS.DB.RECORDINGS();
-						const mdPath = await join(recordingsPath, `${recording.id}.md`);
+						const mdPath = await PATHS.DB.RECORDING_MD(recording.id);
 
 						// Check if file exists
 						const fileExists = await exists(mdPath);
@@ -311,7 +308,7 @@ export function createFileSystemDb(): DbService {
 									const id = file.name.split('.')[0] ?? '';
 									return idsToDelete.has(id);
 								})
-								.map((file) => join(recordingsPath, file.name)),
+								.map((file) => PATHS.DB.RECORDING_FILE(file.name)),
 						);
 
 						// Single FFI call to delete all files in parallel
@@ -355,15 +352,18 @@ export function createFileSystemDb(): DbService {
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
-						const audioFile = await findAudioFile(recordingsPath, recordingId);
+						const audioFilename = await findAudioFile(
+							recordingsPath,
+							recordingId,
+						);
 
-						if (!audioFile) {
+						if (!audioFilename) {
 							throw new Error(
 								`Audio file not found for recording ${recordingId}`,
 							);
 						}
 
-						const audioPath = await join(recordingsPath, audioFile);
+						const audioPath = await PATHS.DB.RECORDING_FILE(audioFilename);
 
 						// Use existing fsService.pathToBlob utility
 						const { data: blob, error } =
@@ -383,15 +383,18 @@ export function createFileSystemDb(): DbService {
 				return tryAsync({
 					try: async () => {
 						const recordingsPath = await PATHS.DB.RECORDINGS();
-						const audioFile = await findAudioFile(recordingsPath, recordingId);
+						const audioFilename = await findAudioFile(
+							recordingsPath,
+							recordingId,
+						);
 
-						if (!audioFile) {
+						if (!audioFilename) {
 							throw new Error(
 								`Audio file not found for recording ${recordingId}`,
 							);
 						}
 
-						const audioPath = await join(recordingsPath, audioFile);
+						const audioPath = await PATHS.DB.RECORDING_FILE(audioFilename);
 						const assetUrl = convertFileSrc(audioPath);
 
 						// Return the URL as-is from convertFileSrc()
@@ -419,7 +422,7 @@ export function createFileSystemDb(): DbService {
 						// Get all files and build paths
 						const files = await readDir(recordingsPath);
 						const pathsToDelete = await Promise.all(
-							files.map((file) => join(recordingsPath, file.name)),
+							files.map((file) => PATHS.DB.RECORDING_FILE(file.name)),
 						);
 
 						// Single FFI call to delete all files in parallel
@@ -493,8 +496,7 @@ export function createFileSystemDb(): DbService {
 			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
-						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
-						const mdPath = await join(transformationsPath, `${id}.md`);
+						const mdPath = await PATHS.DB.TRANSFORMATION_MD(id);
 
 						const fileExists = await exists(mdPath);
 						if (!fileExists) return null;
@@ -528,9 +530,8 @@ export function createFileSystemDb(): DbService {
 						await Promise.all(
 							transformations.map(async (transformation) => {
 								const mdContent = matter.stringify('', transformation);
-								const mdPath = await join(
-									transformationsPath,
-									`${transformation.id}.md`,
+								const mdPath = await PATHS.DB.TRANSFORMATION_MD(
+									transformation.id,
 								);
 								const tmpPath = `${mdPath}.tmp`;
 								await writeTextFile(tmpPath, mdContent);
@@ -554,11 +555,7 @@ export function createFileSystemDb(): DbService {
 
 				return tryAsync({
 					try: async () => {
-						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
-						const mdPath = await join(
-							transformationsPath,
-							`${transformation.id}.md`,
-						);
+						const mdPath = await PATHS.DB.TRANSFORMATION_MD(transformation.id);
 
 						// Create .md file with front matter
 						const mdContent = matter.stringify('', transformationWithTimestamp);
@@ -583,11 +580,8 @@ export function createFileSystemDb(): DbService {
 					: [transformationOrTransformations];
 				return tryAsync({
 					try: async () => {
-						const transformationsPath = await PATHS.DB.TRANSFORMATIONS();
 						const pathsToDelete = await Promise.all(
-							transformations.map((t) =>
-								join(transformationsPath, `${t.id}.md`),
-							),
+							transformations.map((t) => PATHS.DB.TRANSFORMATION_MD(t.id)),
 						);
 						await bulkDeleteFiles(pathsToDelete);
 					},
@@ -673,8 +667,7 @@ export function createFileSystemDb(): DbService {
 			async getById(id: string) {
 				return tryAsync({
 					try: async () => {
-						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-						const mdPath = await join(runsPath, `${id}.md`);
+						const mdPath = await PATHS.DB.TRANSFORMATION_RUN_MD(id);
 
 						const fileExists = await exists(mdPath);
 						if (!fileExists) return null;
@@ -807,7 +800,7 @@ export function createFileSystemDb(): DbService {
 						await Promise.all(
 							runs.map(async (run) => {
 								const mdContent = matter.stringify('', run);
-								const mdPath = await join(runsPath, `${run.id}.md`);
+								const mdPath = await PATHS.DB.TRANSFORMATION_RUN_MD(run.id);
 								const tmpPath = `${mdPath}.tmp`;
 								await writeTextFile(tmpPath, mdContent);
 								await rename(tmpPath, mdPath);
@@ -824,8 +817,6 @@ export function createFileSystemDb(): DbService {
 			async addStep(run, step) {
 				return tryAsync({
 					try: async () => {
-						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-
 						const now = new Date().toISOString();
 						const { nanoid } = await import('nanoid/non-secure');
 						const newTransformationStepRun = {
@@ -844,7 +835,7 @@ export function createFileSystemDb(): DbService {
 
 						// Update .md file
 						const mdContent = matter.stringify('', updatedRun);
-						const mdPath = await join(runsPath, `${run.id}.md`);
+						const mdPath = await PATHS.DB.TRANSFORMATION_RUN_MD(run.id);
 
 						// Atomic write
 						const tmpPath = `${mdPath}.tmp`;
@@ -863,8 +854,6 @@ export function createFileSystemDb(): DbService {
 			async failStep(run, stepRunId, error) {
 				return tryAsync({
 					try: async () => {
-						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-
 						const now = new Date().toISOString();
 
 						const failedRun = {
@@ -887,7 +876,7 @@ export function createFileSystemDb(): DbService {
 
 						// Update .md file
 						const mdContent = matter.stringify('', failedRun);
-						const mdPath = await join(runsPath, `${run.id}.md`);
+						const mdPath = await PATHS.DB.TRANSFORMATION_RUN_MD(run.id);
 
 						// Atomic write
 						const tmpPath = `${mdPath}.tmp`;
@@ -906,8 +895,6 @@ export function createFileSystemDb(): DbService {
 			async completeStep(run, stepRunId, output) {
 				return tryAsync({
 					try: async () => {
-						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-
 						const now = new Date().toISOString();
 
 						const updatedRun: TransformationRun = {
@@ -927,7 +914,7 @@ export function createFileSystemDb(): DbService {
 
 						// Update .md file
 						const mdContent = matter.stringify('', updatedRun);
-						const mdPath = await join(runsPath, `${run.id}.md`);
+						const mdPath = await PATHS.DB.TRANSFORMATION_RUN_MD(run.id);
 
 						// Atomic write
 						const tmpPath = `${mdPath}.tmp`;
@@ -946,8 +933,6 @@ export function createFileSystemDb(): DbService {
 			async complete(run, output) {
 				return tryAsync({
 					try: async () => {
-						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
-
 						const now = new Date().toISOString();
 
 						const completedRun = {
@@ -959,7 +944,7 @@ export function createFileSystemDb(): DbService {
 
 						// Update .md file
 						const mdContent = matter.stringify('', completedRun);
-						const mdPath = await join(runsPath, `${run.id}.md`);
+						const mdPath = await PATHS.DB.TRANSFORMATION_RUN_MD(run.id);
 
 						// Atomic write
 						const tmpPath = `${mdPath}.tmp`;
@@ -979,9 +964,8 @@ export function createFileSystemDb(): DbService {
 				const runs = Array.isArray(runOrRuns) ? runOrRuns : [runOrRuns];
 				return tryAsync({
 					try: async () => {
-						const runsPath = await PATHS.DB.TRANSFORMATION_RUNS();
 						const pathsToDelete = await Promise.all(
-							runs.map((run) => join(runsPath, `${run.id}.md`)),
+							runs.map((run) => PATHS.DB.TRANSFORMATION_RUN_MD(run.id)),
 						);
 						await bulkDeleteFiles(pathsToDelete);
 					},
