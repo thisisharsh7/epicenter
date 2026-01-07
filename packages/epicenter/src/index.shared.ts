@@ -50,9 +50,12 @@ export type {
 	DeleteManyResult,
 	DeleteResult,
 	GetResult,
+	InvalidRowResult,
+	NotFoundResult,
 	RowResult,
 	UpdateManyResult,
 	UpdateResult,
+	ValidRowResult,
 } from './core/tables/table-helper';
 export type {
 	EpicenterOperationError,

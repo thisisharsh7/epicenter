@@ -416,18 +416,18 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 					// (prevents markdown -> YJS -> markdown infinite loop)
 					if (syncCoordination.fileChangeCount > 0) return;
 
-					if (result.error) {
+					if (result.status === 'invalid') {
 						// Handle validation errors with diagnostics + logger
 						logger.log(
 							ProviderError({
-								message: `YJS observer onAdd: validation failed for ${table.name}`,
-								context: result.error.context,
+								message: `YJS observer onAdd: validation failed for ${table.name}/${result.id}: ${result.summary}`,
+								context: { tableName: result.tableName, rowId: result.id },
 							}),
 						);
 						return;
 					}
 
-					const row = result.data;
+					const row = result.row;
 					syncCoordination.yjsWriteCount++;
 					const { error } = await writeRowToMarkdown(row);
 					syncCoordination.yjsWriteCount--;
@@ -447,18 +447,18 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 					// (prevents markdown -> YJS -> markdown infinite loop)
 					if (syncCoordination.fileChangeCount > 0) return;
 
-					if (result.error) {
+					if (result.status === 'invalid') {
 						// Handle validation errors with diagnostics + logger
 						logger.log(
 							ProviderError({
-								message: `YJS observer onUpdate: validation failed for ${table.name}`,
-								context: result.error.context,
+								message: `YJS observer onUpdate: validation failed for ${table.name}/${result.id}: ${result.summary}`,
+								context: { tableName: result.tableName, rowId: result.id },
 							}),
 						);
 						return;
 					}
 
-					const row = result.data;
+					const row = result.row;
 					syncCoordination.yjsWriteCount++;
 					const { error } = await writeRowToMarkdown(row);
 					syncCoordination.yjsWriteCount--;

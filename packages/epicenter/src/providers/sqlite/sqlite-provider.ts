@@ -215,7 +215,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 		const unsub = table.observe({
 			onAdd: (result) => {
 				if (isPushingFromSqlite) return;
-				if (result.error) {
+				if (result.status === 'invalid') {
 					logger.log(
 						IndexError({
 							message: `SQLite index onAdd: validation failed for ${table.name}`,
@@ -227,7 +227,7 @@ export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
 			},
 			onUpdate: (result) => {
 				if (isPushingFromSqlite) return;
-				if (result.error) {
+				if (result.status === 'invalid') {
 					logger.log(
 						IndexError({
 							message: `SQLite index onUpdate: validation failed for ${table.name}`,

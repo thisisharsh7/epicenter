@@ -1,38 +1,36 @@
 import { type ArkErrors, type } from 'arktype';
-import { createTaggedError } from 'wellcrafted/error';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToYjsArktype } from '../schema';
 import { YKeyValue } from '../utils/y-keyvalue';
 
-type RowValidationContext = {
-	tableName: string;
+/** A row that passed validation. */
+export type ValidRowResult<TRow> = { status: 'valid'; row: TRow };
+
+/** A row that exists but failed validation. */
+export type InvalidRowResult = {
+	status: 'invalid';
 	id: string;
+	tableName: string;
 	errors: ArkErrors;
 	summary: string;
+	row: unknown;
 };
 
-export const { RowValidationError } =
-	createTaggedError('RowValidationError').withContext<RowValidationContext>();
+/** A row that was not found. */
+export type NotFoundResult = { status: 'not_found'; id: string };
 
-export type RowValidationError = ReturnType<typeof RowValidationError>;
+/**
+ * Result of validating a row.
+ * The shape after parsing a row from storage - either valid or invalid.
+ */
+export type RowResult<TRow> = ValidRowResult<TRow> | InvalidRowResult;
 
 /**
  * Result of getting a single row by ID.
- * Uses a status-based discriminated union for explicit handling of all cases.
+ * Includes not_found since the row may not exist.
  */
-export type GetResult<TRow> =
-	| { status: 'valid'; row: TRow }
-	| { status: 'invalid'; id: string; error: RowValidationError }
-	| { status: 'not_found'; id: string };
-
-/**
- * Result of getting a row from iteration (getAll).
- * Does not include 'not_found' since we're iterating existing rows.
- */
-export type RowResult<TRow> =
-	| { status: 'valid'; row: TRow }
-	| { status: 'invalid'; id: string; error: RowValidationError };
+export type GetResult<TRow> = RowResult<TRow> | NotFoundResult;
 
 /**
  * Result of updating a single row.
@@ -313,14 +311,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			return { status: 'partially_applied', applied, notFoundLocally };
 		},
 
-		/**
-		 * Get a row by ID.
-		 *
-		 * @returns A discriminated union with status:
-		 * - `{ status: 'valid', row }` if row exists and passes validation
-		 * - `{ status: 'invalid', id, error }` if row exists but fails validation
-		 * - `{ status: 'not_found', id }` if row doesn't exist
-		 */
 		get(id: string): GetResult<TRow> {
 			const data = getYKeyValue().get(id);
 			if (!data) return { status: 'not_found', id };
@@ -333,20 +323,15 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				return {
 					status: 'invalid',
 					id,
-					error: RowValidationError({
-						message: `Row '${id}' in table '${tableName}' failed validation`,
-						context: { tableName, id, errors: result, summary: result.summary },
-					}),
+					tableName,
+					errors: result,
+					summary: result.summary,
+					row,
 				};
 			}
 			return { status: 'valid', row };
 		},
 
-		/**
-		 * Get all rows with their validation status.
-		 * Returns both valid and invalid rows as `RowResult<TRow>[]`.
-		 * Use `getAllValid()` for just valid rows, `getAllInvalid()` for just errors.
-		 */
 		getAll(): RowResult<TRow>[] {
 			const validator = tableSchemaToYjsArktype(schema);
 
@@ -359,15 +344,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 						? {
 								status: 'invalid',
 								id,
-								error: RowValidationError({
-									message: `Row '${id}' in table '${tableName}' failed validation`,
-									context: {
-										tableName,
-										id,
-										errors: result,
-										summary: result.summary,
-									},
-								}),
+								tableName,
+								errors: result,
+								summary: result.summary,
+								row,
 							}
 						: { status: 'valid', row };
 				},
@@ -387,30 +367,25 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				.filter((row) => !(validator(row) instanceof type.errors));
 		},
 
-		/**
-		 * Get validation errors for all invalid rows.
-		 * Returns an array of RowValidationError objects for rows that fail validation.
-		 * Valid rows are skipped.
-		 */
-		getAllInvalid(): RowValidationError[] {
+		getAllInvalid(): InvalidRowResult[] {
 			const validator = tableSchemaToYjsArktype(schema);
 
 			return Array.from(getYKeyValue().map.entries())
 				.map(([id, entry]) => {
-					const result = validator(buildRow(entry.val));
+					const row = buildRow(entry.val);
+					const result = validator(row);
 					return result instanceof type.errors
-						? RowValidationError({
-								message: `Row '${id}' in table '${tableName}' failed validation`,
-								context: {
-									tableName,
-									id,
-									errors: result,
-									summary: result.summary,
-								},
-							})
+						? {
+								status: 'invalid' as const,
+								id,
+								tableName,
+								errors: result,
+								summary: result.summary,
+								row: row as unknown,
+							}
 						: null;
 				})
-				.filter((error): error is RowValidationError => error !== null);
+				.filter((r): r is InvalidRowResult => r !== null);
 		},
 
 		/**
@@ -642,15 +617,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 					return {
 						status: 'invalid',
 						id,
-						error: RowValidationError({
-							message: `Row '${id}' in table '${tableName}' failed validation`,
-							context: {
-								tableName,
-								id,
-								errors: result,
-								summary: result.summary,
-							},
-						}),
+						tableName,
+						errors: result,
+						summary: result.summary,
+						row,
 					};
 				}
 				return { status: 'valid', row };
