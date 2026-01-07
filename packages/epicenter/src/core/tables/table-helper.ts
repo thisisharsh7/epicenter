@@ -1,5 +1,5 @@
-import { Compile, type Validator } from 'typebox/compile';
-import type { TLocalizedValidationError } from 'typebox/error';
+import { Compile } from 'typebox/compile';
+import type { TLocalizedValidationError as ValidationError } from 'typebox/error';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToTypebox } from '../schema';
@@ -31,7 +31,7 @@ export type InvalidRowResult = {
 	status: 'invalid';
 	id: string;
 	tableName: string;
-	errors: TLocalizedValidationError[];
+	errors: ValidationError[];
 	row: unknown;
 };
 
@@ -409,7 +409,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return [];
 
-			const entries = [...tableMap.entries()].map(([id, rowArray]) => ({
+			const entries = tableMap.entries().map(([id, rowArray]) => ({
 				id,
 				row: reconstructRow(ensureRowKV(id, rowArray)),
 			}));
