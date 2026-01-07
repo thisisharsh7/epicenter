@@ -799,4 +799,155 @@ describe('Cell-Level CRDT Merging', () => {
 			expect(result.row.title).toBe('Updated on Doc1');
 		}
 	});
+
+	test('table replacement emits delete for old rows and add for new rows', () => {
+		const ydoc = new Y.Doc({ guid: 'test-table-replacement' });
+		type CellEntry = { key: string; val: unknown };
+		type RowArray = Y.Array<CellEntry>;
+		type TableMap = Y.Map<RowArray>;
+		type TablesMap = Y.Map<TableMap>;
+
+		const ytables: TablesMap = ydoc.getMap('tables');
+
+		const tables = createTables(ydoc, {
+			posts: {
+				id: id(),
+				title: text(),
+			},
+		});
+
+		tables.posts.upsertMany([
+			{ id: 'old-1', title: 'Old Post 1' },
+			{ id: 'old-2', title: 'Old Post 2' },
+		]);
+
+		const changes: Array<{ action: string; id: string }> = [];
+		tables.posts.observeChanges((changeMap) => {
+			for (const [rowId, change] of changeMap) {
+				changes.push({ action: change.action, id: rowId });
+			}
+		});
+
+		const newPostsTable = new Y.Map() as TableMap;
+		const newRow1 = new Y.Array() as RowArray;
+		const newRow2 = new Y.Array() as RowArray;
+		newRow1.push([
+			{ key: 'id', val: 'new-1' },
+			{ key: 'title', val: 'New Post 1' },
+		]);
+		newRow2.push([
+			{ key: 'id', val: 'new-2' },
+			{ key: 'title', val: 'New Post 2' },
+		]);
+		newPostsTable.set('new-1', newRow1);
+		newPostsTable.set('new-2', newRow2);
+
+		ytables.set('posts', newPostsTable);
+
+		expect(changes).toContainEqual({ action: 'delete', id: 'old-1' });
+		expect(changes).toContainEqual({ action: 'delete', id: 'old-2' });
+		expect(changes).toContainEqual({ action: 'add', id: 'new-1' });
+		expect(changes).toContainEqual({ action: 'add', id: 'new-2' });
+	});
+
+	test('row replacement emits update and continues observing new row', () => {
+		const ydoc = new Y.Doc({ guid: 'test-row-replacement' });
+		type CellEntry = { key: string; val: unknown };
+		type RowArray = Y.Array<CellEntry>;
+		type TableMap = Y.Map<RowArray>;
+		type TablesMap = Y.Map<TableMap>;
+
+		const ytables: TablesMap = ydoc.getMap('tables');
+
+		const tables = createTables(ydoc, {
+			posts: {
+				id: id(),
+				title: text(),
+			},
+		});
+
+		tables.posts.upsert({ id: 'post-1', title: 'Original' });
+
+		const changes: Array<{ action: string; id: string; title?: string }> = [];
+		tables.posts.observeChanges((changeMap) => {
+			for (const [rowId, change] of changeMap) {
+				const entry: { action: string; id: string; title?: string } = {
+					action: change.action,
+					id: rowId,
+				};
+				if (change.action !== 'delete' && change.result.status === 'valid') {
+					entry.title = change.result.row.title;
+				}
+				changes.push(entry);
+			}
+		});
+
+		const postsTable = ytables.get('posts')!;
+		const replacementRow = new Y.Array() as RowArray;
+		replacementRow.push([
+			{ key: 'id', val: 'post-1' },
+			{ key: 'title', val: 'Replaced Row' },
+		]);
+		postsTable.set('post-1', replacementRow);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			id: 'post-1',
+			title: 'Replaced Row',
+		});
+
+		changes.length = 0;
+
+		replacementRow.delete(1);
+		replacementRow.push([{ key: 'title', val: 'Modified After Replacement' }]);
+
+		expect(
+			changes.some((c) => c.id === 'post-1' && c.action === 'update'),
+		).toBe(true);
+	});
+
+	test('table created after subscription with pre-existing rows emits adds', () => {
+		const ydoc = new Y.Doc({ guid: 'test-late-table' });
+		type CellEntry = { key: string; val: unknown };
+		type RowArray = Y.Array<CellEntry>;
+		type TableMap = Y.Map<RowArray>;
+		type TablesMap = Y.Map<TableMap>;
+
+		const ytables: TablesMap = ydoc.getMap('tables');
+
+		const tables = createTables(ydoc, {
+			posts: {
+				id: id(),
+				title: text(),
+			},
+		});
+
+		const changes: Array<{ action: string; id: string }> = [];
+		tables.posts.observeChanges((changeMap) => {
+			for (const [rowId, change] of changeMap) {
+				changes.push({ action: change.action, id: rowId });
+			}
+		});
+
+		expect(ytables.has('posts')).toBe(false);
+
+		const postsTable = new Y.Map() as TableMap;
+		const row1 = new Y.Array() as RowArray;
+		const row2 = new Y.Array() as RowArray;
+		row1.push([
+			{ key: 'id', val: 'existing-1' },
+			{ key: 'title', val: 'Already Exists 1' },
+		]);
+		row2.push([
+			{ key: 'id', val: 'existing-2' },
+			{ key: 'title', val: 'Already Exists 2' },
+		]);
+		postsTable.set('existing-1', row1);
+		postsTable.set('existing-2', row2);
+
+		ytables.set('posts', postsTable);
+
+		expect(changes).toContainEqual({ action: 'add', id: 'existing-1' });
+		expect(changes).toContainEqual({ action: 'add', id: 'existing-2' });
+	});
 });

@@ -491,5 +491,186 @@ describe('createTables', () => {
 			expect(lastChanges.get('post-1')).toBe('delete');
 			expect(lastChanges.get('post-2')).toBe('delete');
 		});
+
+		test('same-row dedupe: multiple updates in one transaction emits final value', () => {
+			const ydoc = new Y.Doc({ guid: 'test-dedupe' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
+
+			let callbackCount = 0;
+			type ChangeRecord = {
+				action: string;
+				title?: string;
+				view_count?: number;
+			};
+			let lastChange: ChangeRecord | null = null;
+
+			tables.posts.observeChanges((changes) => {
+				callbackCount++;
+				const change = changes.get('post-1');
+				if (
+					change &&
+					change.action === 'update' &&
+					change.result.status === 'valid'
+				) {
+					lastChange = {
+						action: change.action,
+						title: change.result.row.title,
+						view_count: change.result.row.view_count,
+					};
+				}
+			});
+
+			ydoc.transact(() => {
+				tables.posts.update({ id: 'post-1', title: 'First Update' });
+				tables.posts.update({ id: 'post-1', title: 'Second Update' });
+				tables.posts.update({ id: 'post-1', view_count: 100 });
+			});
+
+			expect(callbackCount).toBe(1);
+			expect(lastChange).not.toBeNull();
+			expect(lastChange?.action).toBe('update');
+			expect(lastChange?.title).toBe('Second Update');
+			expect(lastChange?.view_count).toBe(100);
+		});
+
+		test('empty row deleted before first cell change emits only delete', () => {
+			const ydoc = new Y.Doc({ guid: 'test-empty-row-delete' });
+			type CellEntry = { key: string; val: unknown };
+			type RowArray = Y.Array<CellEntry>;
+			type TableMap = Y.Map<RowArray>;
+			type TablesMap = Y.Map<TableMap>;
+
+			const ytables: TablesMap = ydoc.getMap('tables');
+
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			const changes: Array<{ action: string; id: string }> = [];
+			tables.posts.observeChanges((changeMap) => {
+				for (const [rowId, change] of changeMap) {
+					changes.push({ action: change.action, id: rowId });
+				}
+			});
+
+			let postsTable = ytables.get('posts');
+			if (!postsTable) {
+				postsTable = new Y.Map() as TableMap;
+				ytables.set('posts', postsTable);
+			}
+
+			const emptyRowArray = new Y.Array() as RowArray;
+			postsTable.set('empty-row', emptyRowArray);
+
+			postsTable.delete('empty-row');
+
+			expect(changes).toHaveLength(1);
+			expect(changes[0]).toEqual({ action: 'delete', id: 'empty-row' });
+		});
+
+		test('observer isolation: changes in other tables do not trigger callback', () => {
+			const ydoc = new Y.Doc({ guid: 'test-isolation' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+				comments: {
+					id: id(),
+					content: text(),
+				},
+			});
+
+			const postsChanges: string[] = [];
+			tables.posts.observeChanges((changes) => {
+				for (const [rowId] of changes) {
+					postsChanges.push(rowId);
+				}
+			});
+
+			tables.comments.upsert({ id: 'comment-1', content: 'Hello' });
+			tables.comments.update({ id: 'comment-1', content: 'Updated' });
+			tables.comments.delete('comment-1');
+
+			expect(postsChanges).toHaveLength(0);
+
+			tables.posts.upsert({ id: 'post-1', title: 'Test' });
+			expect(postsChanges).toContain('post-1');
+		});
+
+		test('callback fires after transaction completes, not during', () => {
+			const ydoc = new Y.Doc({ guid: 'test-timing' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'Original' });
+
+			let callbackCalled = false;
+
+			tables.posts.observeChanges(() => {
+				callbackCalled = true;
+			});
+
+			ydoc.transact(() => {
+				tables.posts.update({ id: 'post-1', title: 'Updated' });
+				expect(callbackCalled).toBe(false);
+			});
+
+			expect(callbackCalled).toBe(true);
+		});
+
+		test('multiple subscribers receive same changes', () => {
+			const ydoc = new Y.Doc({ guid: 'test-multi-sub' });
+			const tables = createTables(ydoc, {
+				posts: {
+					id: id(),
+					title: text(),
+				},
+			});
+
+			const subscriber1Changes: string[] = [];
+			const subscriber2Changes: string[] = [];
+
+			const unsub1 = tables.posts.observeChanges((changes) => {
+				for (const [rowId] of changes) {
+					subscriber1Changes.push(rowId);
+				}
+			});
+
+			const unsub2 = tables.posts.observeChanges((changes) => {
+				for (const [rowId] of changes) {
+					subscriber2Changes.push(rowId);
+				}
+			});
+
+			tables.posts.upsert({ id: 'post-1', title: 'Test' });
+
+			expect(subscriber1Changes).toEqual(['post-1']);
+			expect(subscriber2Changes).toEqual(['post-1']);
+
+			unsub1();
+
+			tables.posts.upsert({ id: 'post-2', title: 'Second' });
+
+			expect(subscriber1Changes).toEqual(['post-1']);
+			expect(subscriber2Changes).toEqual(['post-1', 'post-2']);
+
+			unsub2();
+		});
 	});
 });
