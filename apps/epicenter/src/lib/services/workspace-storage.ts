@@ -1,5 +1,5 @@
 import type { WorkspaceSchema } from '@epicenter/hq';
-import { appLocalDataDir } from '@tauri-apps/api/path';
+import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import {
 	BaseDirectory,
 	exists,
@@ -186,7 +186,7 @@ export async function openWorkspacesDirectory(): Promise<
 		if (initResult.error) return initResult;
 
 		const appDataPath = await appLocalDataDir();
-		const workspacesPath = `${appDataPath}${WORKSPACES_DIR}`;
+		const workspacesPath = await join(appDataPath, WORKSPACES_DIR);
 
 		await revealItemInDir(workspacesPath);
 		return Ok(undefined);
