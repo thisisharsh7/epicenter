@@ -20,8 +20,29 @@ export type WorkspaceSchema<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
+	/**
+	 * Globally unique identifier for sync coordination.
+	 *
+	 * This is the stable identity that never changes, used for YJS document naming
+	 * and websocket room coordination. Generate with `generateGuid()`.
+	 *
+	 * @example "abc123xyz789012"
+	 */
 	guid: string;
+	/**
+	 * Human-readable slug for URLs, paths, and CLI commands.
+	 *
+	 * Can be renamed without breaking sync (guid handles that).
+	 * Used in routes like `/workspaces/{id}/...`.
+	 *
+	 * @example "blog", "notes", "my-project"
+	 */
 	id: TId;
+	/**
+	 * Display name shown in UI.
+	 *
+	 * @example "My Travel Blog", "Work Notes"
+	 */
 	name: string;
 	description?: string;
 	tables: TTablesSchema;

@@ -77,28 +77,28 @@ Epicenter's epoch mechanism is a **higher-level coordination layer** on top of Y
 Follow existing codebase patterns from `generateId()` and `createRichContentId()`:
 
 ```typescript
-// Existing pattern in id.ts
-const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 15);
+// Row IDs: 10 chars (sufficient for table-scoped uniqueness)
+const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10);
 
-// New: GUID with prefix for visual distinction
-export type Guid = `ws_${string}` & Brand<'Guid'>;
+// GUIDs: 15 chars (sufficient for global uniqueness across millions of workspaces)
+export type Guid = string & Brand<'Guid'>;
 
-const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 12);
+const guidNanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 15);
 
 export function generateGuid(): Guid {
-	return `ws_${nanoid()}` as Guid; // e.g., "ws_abc123xyz789"
+	return guidNanoid() as Guid; // e.g., "abc123xyz789012"
 }
 ```
 
 ### 2. Document Structure
 
-The GUID alone is the coordination document. Numbered suffixes are data epochs:
+The GUID alone is reserved for future coordination document. Numbered suffixes are data epochs:
 
 ```
-ws_abc123xyz789       <- Coordination doc (the stable anchor)
-ws_abc123xyz789:0     <- Data doc, epoch 0
-ws_abc123xyz789:1     <- Data doc, epoch 1
-ws_abc123xyz789:2     <- Data doc, epoch 2
+abc123xyz789012       <- Reserved for future coordination doc
+abc123xyz789012:0     <- Data doc, epoch 0
+abc123xyz789012:1     <- Data doc, epoch 1
+abc123xyz789012:2     <- Data doc, epoch 2
 ```
 
 **Why GUID alone for coordination?**
@@ -141,7 +141,7 @@ export type WorkspaceSchema<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
-	guid: string; // NEW: Stable identity (e.g., "ws_abc123xyz789")
+	guid: string; // NEW: Stable identity (e.g., "abc123xyz789012")
 	id: TId; // Human-readable slug (e.g., "blog")
 	name: string; // Display name (e.g., "My Travel Blog")
 	description?: string;
@@ -156,8 +156,8 @@ export type WorkspaceSchema<
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  COORDINATION DOCUMENT                                       │
-│  GUID: "ws_abc123xyz789"                                    │
+│  COORDINATION DOCUMENT (future)                              │
+│  GUID: "abc123xyz789012"                                     │
 │                                                              │
 │  Y.Map contents:                                            │
 │    epoch: 2                                                 │
@@ -170,7 +170,7 @@ export type WorkspaceSchema<
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  DATA DOCUMENT (current epoch)                              │
-│  GUID: "ws_abc123xyz789:2"                                  │
+│  GUID: "abc123xyz789012:2"                                   │
 │                                                              │
 │  Y.Map contents:                                            │
 │    tables: { posts: {...}, users: {...} }                   │
@@ -185,19 +185,19 @@ export type WorkspaceSchema<
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  1. Client starts with GUID: "ws_abc123xyz789"              │
+│  1. Client starts with GUID: "abc123xyz789012"              │
 │                                                              │
-│  2. Connect to coordination doc: "ws_abc123xyz789"          │
+│  2. Connect to coordination doc: "abc123xyz789012" (future) │
 │     → Read epoch: 2                                         │
 │     → Subscribe to changes                                  │
 │                                                              │
-│  3. Connect to data doc: "ws_abc123xyz789:2"                │
+│  3. Connect to data doc: "abc123xyz789012:2"                │
 │     → Load tables, kv                                       │
 │     → Start syncing                                         │
 │                                                              │
 │  4. If coordination doc changes (epoch → 3):                │
-│     → Disconnect from "ws_abc123xyz789:2"                   │
-│     → Connect to "ws_abc123xyz789:3"                        │
+│     → Disconnect from "abc123xyz789012:2"                   │
+│     → Connect to "abc123xyz789012:3"                        │
 │     → Continue with new data                                │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -252,10 +252,10 @@ The key insight: **Other clients don't copy data.** The initiator seeds the new 
 
 ### Phase 1: Core Types and GUID Generation
 
-- [ ] **1.1** Add `Guid` branded type to `core/schema/fields/id.ts`
-- [ ] **1.2** Add `generateGuid()` function following existing pattern
-- [ ] **1.3** Update `WorkspaceSchema` type to include `guid` field
-- [ ] **1.4** Export new types from `core/schema/index.ts`
+- [x] **1.1** Add `Guid` branded type to `core/schema/fields/id.ts`
+- [x] **1.2** Add `generateGuid()` function (15-char alphanumeric, no prefix)
+- [x] **1.3** Update `WorkspaceSchema` type to include `guid` field
+- [x] **1.4** Export new types from `core/schema/index.ts`
 
 ### Phase 2: Coordination Document
 
@@ -269,21 +269,15 @@ The key insight: **Other clients don't copy data.** The initiator seeds the new 
 
 ### Phase 3: Workspace Client Updates
 
-- [ ] **3.1** Update `initializeWorkspace()` to:
-  - Create/connect to coordination doc first
-  - Read current epoch
-  - Connect to correct data doc
-- [ ] **3.2** Add epoch change observer to handle transitions
-- [ ] **3.3** Update `WorkspaceClient` type to expose:
-  - `guid`: The stable identifier
-  - `epoch`: Current epoch number
-  - `coordinationDoc`: Access to coordination doc (for advanced use)
-- [ ] **3.4** Implement `bumpEpoch()` method on client for initiating transitions
+- [x] **3.1** Update `initializeWorkspace()` to use `{guid}:0` as YJS doc GUID (epoch 0, reserved namespace)
+- [ ] **3.2** Add epoch change observer to handle transitions (deferred)
+- [x] **3.3** Update `WorkspaceClient` type to expose `guid`
+- [ ] **3.4** Implement `bumpEpoch()` method on client for initiating transitions (deferred)
 
 ### Phase 4: defineWorkspace Updates
 
-- [ ] **4.1** Update `defineWorkspace()` to require `guid` in config
-- [ ] **4.2** Add validation: `guid` must match `ws_[a-z0-9]{12}` pattern
+- [x] **4.1** Update `defineWorkspace()` to require `guid` in config
+- [x] **4.2** Add validation: `guid` must be a non-empty string
 - [ ] **4.3** Update all example workspaces with GUIDs
 - [ ] **4.4** Add migration helper for existing workspaces
 
@@ -330,7 +324,7 @@ packages/epicenter/src/
 import { defineWorkspace, generateGuid, id, text } from '@epicenter/hq';
 
 const blogWorkspace = defineWorkspace({
-	guid: 'ws_abc123xyz789', // Stable forever
+	guid: 'abc123xyz789012', // Stable forever (15 chars)
 	id: 'blog', // Can be renamed
 	name: 'My Blog',
 	tables: {
@@ -341,7 +335,7 @@ const blogWorkspace = defineWorkspace({
 
 // Or generate a new GUID
 const newWorkspace = defineWorkspace({
-	guid: generateGuid(), // "ws_k7x9m2p4q8r1"
+	guid: generateGuid(), // "k7x9m2p4q8r1abc"
 	id: 'notes',
 	name: 'My Notes',
 	// ...
@@ -355,8 +349,8 @@ const client = await blogWorkspace
 	.withProviders({ sqlite: sqliteProvider })
 	.create();
 
-console.log(client.guid); // "ws_abc123xyz789"
-console.log(client.epoch); // 0 (initial epoch)
+console.log(client.guid); // "abc123xyz789012"
+console.log(client.epoch); // 0 (initial epoch) - future feature
 ```
 
 ### Bumping Epoch (Fresh Start)
