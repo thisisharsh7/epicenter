@@ -12,8 +12,18 @@
  * - Select fields use `Type.Union([Type.Literal(...), ...])` for string literals
  */
 
-import { Type, type TSchema, type TObject } from 'typebox';
-import type { StandardSchemaV1 } from '../standard/types';
+import {
+	Type,
+	type TSchema,
+	type TObject,
+	type TString,
+	type TInteger,
+	type TNumber,
+	type TBoolean,
+	type TUnion,
+	type TNull,
+	type TArray,
+} from 'typebox';
 import type {
 	BooleanFieldSchema,
 	DateFieldSchema,
@@ -28,57 +38,54 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
-import type { DateTimeString } from '../fields/datetime';
 import { isNullableFieldSchema } from '../fields/nullability';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 
 /**
  * Maps a FieldSchema to its corresponding TypeBox TSchema type.
+ *
+ * Use `Static<typeof schema>` to infer the TypeScript type from the returned schema.
  */
 export type FieldSchemaToTypebox<C extends FieldSchema> =
 	C extends IdFieldSchema
-		? TSchema & { static: string }
+		? TString
 		: C extends TextFieldSchema<infer TNullable>
 			? TNullable extends true
-				? TSchema & { static: string | null }
-				: TSchema & { static: string }
+				? TUnion<[TString, TNull]>
+				: TString
 			: C extends RichtextFieldSchema
-				? TSchema & { static: string | null }
+				? TUnion<[TString, TNull]>
 				: C extends IntegerFieldSchema<infer TNullable>
 					? TNullable extends true
-						? TSchema & { static: number | null }
-						: TSchema & { static: number }
+						? TUnion<[TInteger, TNull]>
+						: TInteger
 					: C extends RealFieldSchema<infer TNullable>
 						? TNullable extends true
-							? TSchema & { static: number | null }
-							: TSchema & { static: number }
+							? TUnion<[TNumber, TNull]>
+							: TNumber
 						: C extends BooleanFieldSchema<infer TNullable>
 							? TNullable extends true
-								? TSchema & { static: boolean | null }
-								: TSchema & { static: boolean }
+								? TUnion<[TBoolean, TNull]>
+								: TBoolean
 							: C extends DateFieldSchema<infer TNullable>
 								? TNullable extends true
-									? TSchema & { static: DateTimeString | null }
-									: TSchema & { static: DateTimeString }
-								: C extends SelectFieldSchema<infer TOptions, infer TNullable>
+									? TUnion<[TString, TNull]>
+									: TString
+								: C extends SelectFieldSchema<infer _TOptions, infer TNullable>
 									? TNullable extends true
-										? TSchema & { static: TOptions[number] | null }
-										: TSchema & { static: TOptions[number] }
-									: C extends TagsFieldSchema<infer TOptions, infer TNullable>
+										? TUnion<TSchema[]>
+										: TUnion<TSchema[]>
+									: C extends TagsFieldSchema<infer _TOptions, infer TNullable>
 										? TNullable extends true
-											? TSchema & { static: TOptions[number][] | null }
-											: TSchema & { static: TOptions[number][] }
+											? TUnion<[TArray, TNull]>
+											: TArray
 										: C extends JsonFieldSchema<
-													infer TStandardSchema,
+													infer _TStandardSchema,
 													infer TNullable
 												>
 											? TNullable extends true
-												? TSchema & {
-														static: StandardSchemaV1.InferOutput<TStandardSchema> | null;
-													}
-												: TSchema & {
-														static: StandardSchemaV1.InferOutput<TStandardSchema>;
-													}
+												? TUnion<[TSchema, TNull]>
+												: TSchema
 											: never;
 
 /**

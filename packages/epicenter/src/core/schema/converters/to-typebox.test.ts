@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Value } from 'typebox/value';
+import { Compile } from 'typebox/compile';
 import { type } from 'arktype';
 import {
 	id,
@@ -446,5 +447,93 @@ describe('tableSchemaToTypebox', () => {
 				count: '42',
 			}),
 		).toBe(false);
+	});
+});
+
+describe('Compile (JIT validation)', () => {
+	test('compiled validator produces same results as Value.Check', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			title: text(),
+			count: integer(),
+		});
+
+		const validator = Compile(schema);
+		const validData = { id: '123', title: 'Test', count: 42 };
+		const invalidData = { id: '123', title: 'Test', count: 'not a number' };
+
+		expect(validator.Check(validData)).toBe(Value.Check(schema, validData));
+		expect(validator.Check(invalidData)).toBe(Value.Check(schema, invalidData));
+	});
+
+	test('compiled validator validates complex schema', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			title: text(),
+			status: select({ options: ['draft', 'published'] }),
+			tags: tags({ options: ['tech', 'news'] }),
+			metadata: json({ schema: type({ author: 'string' }) }),
+		});
+
+		const validator = Compile(schema);
+
+		expect(
+			validator.Check({
+				id: 'post-1',
+				title: 'Hello',
+				status: 'draft',
+				tags: ['tech'],
+				metadata: { author: 'John' },
+			}),
+		).toBe(true);
+
+		expect(
+			validator.Check({
+				id: 'post-1',
+				title: 'Hello',
+				status: 'invalid',
+				tags: ['tech'],
+				metadata: { author: 'John' },
+			}),
+		).toBe(false);
+	});
+
+	test('compiled validator handles nullable fields', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			name: text({ nullable: true }),
+			count: integer({ nullable: true }),
+		});
+
+		const validator = Compile(schema);
+
+		expect(validator.Check({ id: '1', name: null, count: null })).toBe(true);
+		expect(validator.Check({ id: '1', name: 'Test', count: 42 })).toBe(true);
+	});
+
+	test('compiled validator can report errors', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			count: integer(),
+		});
+
+		const validator = Compile(schema);
+		const errors = [...validator.Errors({ id: '123', count: 'invalid' })];
+
+		expect(errors.length).toBeGreaterThan(0);
+		expect(errors[0].message).toBeDefined();
+	});
+
+	test('compiled validator is reusable', () => {
+		const schema = tableSchemaToTypebox({
+			id: id(),
+			value: integer(),
+		});
+
+		const validator = Compile(schema);
+
+		for (let i = 0; i < 100; i++) {
+			expect(validator.Check({ id: `item-${i}`, value: i })).toBe(true);
+		}
 	});
 });
