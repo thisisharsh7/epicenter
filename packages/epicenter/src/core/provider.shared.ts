@@ -2,7 +2,7 @@
  * Capability types and utilities.
  *
  * Single source of truth for capability context. Works across Node.js and browser.
- * - Node.js: `paths` is defined (ProviderPaths)
+ * - Node.js: `paths` is defined (CapabilityPaths)
  * - Browser: `paths` is undefined
  */
 
@@ -10,7 +10,7 @@ import type * as Y from 'yjs';
 import type { Tables } from './tables/create-tables';
 import type { Kv } from './kv/core';
 import type { KvSchema, TablesSchema } from './schema';
-import type { ProviderPaths } from './types';
+import type { CapabilityPaths } from './types';
 
 /**
  * Context provided to each capability function.
@@ -31,7 +31,7 @@ export type CapabilityContext<
 	ydoc: Y.Doc;
 	tables: Tables<TTablesSchema>;
 	kv: Kv<TKvSchema>;
-	paths: ProviderPaths | undefined;
+	paths: CapabilityPaths | undefined;
 };
 
 /**

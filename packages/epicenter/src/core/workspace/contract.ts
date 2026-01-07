@@ -4,7 +4,7 @@ import { createTables, type Tables } from '../tables/create-tables';
 import { createKv, type Kv } from '../kv/core';
 import type { Capabilities, Capability } from '../provider.shared';
 import type { KvSchema, TablesSchema } from '../schema';
-import type { ProviderPaths, WorkspacePaths } from '../types';
+import type { CapabilityPaths, WorkspacePaths } from '../types';
 
 /**
  * A workspace schema defines the pure data shape of a workspace.
@@ -242,15 +242,15 @@ async function initializeWorkspace<
 	const tables = createTables(ydoc, config.tables);
 	const kv = createKv(ydoc, config.kv);
 
-	let buildProviderPaths:
-		| ((projectDir: string, providerId: string) => ProviderPaths)
+	let buildCapabilityPaths:
+		| ((projectDir: string, capabilityId: string) => CapabilityPaths)
 		| undefined;
 	let getEpicenterDir: ((projectDir: string) => string) | undefined;
 
 	if (projectDir) {
 		const pathsModule = await import('../paths');
-		buildProviderPaths = (dir, id) =>
-			pathsModule.buildProviderPaths(dir as WorkspacePaths['project'], id);
+		buildCapabilityPaths = (dir, id) =>
+			pathsModule.buildCapabilityPaths(dir as WorkspacePaths['project'], id);
 		getEpicenterDir = (dir) =>
 			pathsModule.getEpicenterDir(dir as WorkspacePaths['project']);
 	}
@@ -259,9 +259,9 @@ async function initializeWorkspace<
 		await Promise.all(
 			Object.entries(capabilityFactories).map(
 				async ([capabilityId, capabilityFn]) => {
-					const paths: ProviderPaths | undefined =
-						projectDir && buildProviderPaths
-							? buildProviderPaths(projectDir, capabilityId)
+					const paths: CapabilityPaths | undefined =
+						projectDir && buildCapabilityPaths
+							? buildCapabilityPaths(projectDir, capabilityId)
 							: undefined;
 
 					const result = await capabilityFn({
