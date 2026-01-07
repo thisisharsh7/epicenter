@@ -231,16 +231,6 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		$inferValue: null as unknown as TValue,
-
-		/**
-		 * Type inference helper for the input value type.
-		 *
-		 * @example
-		 * ```typescript
-		 * type ThemeInput = typeof kv.theme.$inferInputValue; // 'dark' | 'light'
-		 * ```
-		 */
-		$inferInputValue: null as unknown as TValue,
 	};
 }
 
