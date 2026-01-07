@@ -44,6 +44,7 @@
 		"mime": "catalog:",
 		"nanoid": "catalog:",
 		"temporal-polyfill": "^0.3.0",
+		"typebox": "^1.0.75",
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"y-protocols": "^1.0.6",
