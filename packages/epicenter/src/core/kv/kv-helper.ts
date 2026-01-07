@@ -70,62 +70,6 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	const nullable = isNullableFieldSchema(schema);
 	const validator = fieldSchemaToYjsArktype(schema);
 
-	/**
-	 * Get the current value for this KV key.
-	 *
-	 * Returns a discriminated union with status:
-	 * - `{ status: 'valid', value }` if value exists and passes validation
-	 * - `{ status: 'invalid', key, error }` if value exists but fails validation
-	 * - `{ status: 'not_found', key }` if value is unset (no default, not nullable)
-	 *
-	 * For unset values: returns default if defined, null if nullable.
-	 *
-	 * @example
-	 * ```typescript
-	 * const result = kv.theme.get();
-	 * if (result.status === 'valid') {
-	 *   console.log(result.value); // 'dark' | 'light'
-	 * } else if (result.status === 'invalid') {
-	 *   console.error(result.error.context.summary);
-	 * } else {
-	 *   console.log('Key not set:', result.key);
-	 * }
-	 * ```
-	 */
-	function get(): KvGetResult<TValue> {
-		const rawValue = ykv.get(keyName);
-
-		// Handle undefined: default → null → not_found
-		if (rawValue === undefined) {
-			if (schema.default !== undefined) {
-				return { status: 'valid', value: schema.default as TValue };
-			}
-			if (nullable) {
-				return { status: 'valid', value: null as TValue };
-			}
-			return { status: 'not_found', key: keyName };
-		}
-
-		// Validate existing value
-		const validationResult = validator(rawValue);
-		if (validationResult instanceof type.errors) {
-			return {
-				status: 'invalid',
-				key: keyName,
-				error: KvValidationError({
-					message: `KV key '${keyName}' failed validation`,
-					context: {
-						key: keyName,
-						errors: validationResult,
-						summary: validationResult.summary,
-					},
-				}),
-			};
-		}
-
-		return { status: 'valid', value: rawValue as TValue };
-	}
-
 	return {
 		/** The name of this KV key */
 		name: keyName,
@@ -133,7 +77,61 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		/** The schema definition for this KV field */
 		schema,
 
-		get,
+		/**
+		 * Get the current value for this KV key.
+		 *
+		 * Returns a discriminated union with status:
+		 * - `{ status: 'valid', value }` if value exists and passes validation
+		 * - `{ status: 'invalid', key, error }` if value exists but fails validation
+		 * - `{ status: 'not_found', key }` if value is unset (no default, not nullable)
+		 *
+		 * For unset values: returns default if defined, null if nullable.
+		 *
+		 * @example
+		 * ```typescript
+		 * const result = kv.theme.get();
+		 * if (result.status === 'valid') {
+		 *   console.log(result.value); // 'dark' | 'light'
+		 * } else if (result.status === 'invalid') {
+		 *   console.error(result.error.context.summary);
+		 * } else {
+		 *   console.log('Key not set:', result.key);
+		 * }
+		 * ```
+		 */
+		get(): KvGetResult<TValue> {
+			const rawValue = ykv.get(keyName);
+
+			// Handle undefined: default → null → not_found
+			if (rawValue === undefined) {
+				if (schema.default !== undefined) {
+					return { status: 'valid', value: schema.default as TValue };
+				}
+				if (nullable) {
+					return { status: 'valid', value: null as TValue };
+				}
+				return { status: 'not_found', key: keyName };
+			}
+
+			// Validate existing value
+			const validationResult = validator(rawValue);
+			if (validationResult instanceof type.errors) {
+				return {
+					status: 'invalid',
+					key: keyName,
+					error: KvValidationError({
+						message: `KV key '${keyName}' failed validation`,
+						context: {
+							key: keyName,
+							errors: validationResult,
+							summary: validationResult.summary,
+						},
+					}),
+				};
+			}
+
+			return { status: 'valid', value: rawValue as TValue };
+		},
 
 		/**
 		 * Set the value for this KV key.
@@ -179,7 +177,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		observe(callback: (result: KvGetResult<TValue>) => void): () => void {
 			const handler: YKeyValueChangeHandler<unknown> = (changes) => {
 				if (changes.has(keyName)) {
-					callback(get());
+					callback(this.get());
 				}
 			};
 			ykv.on('change', handler);
