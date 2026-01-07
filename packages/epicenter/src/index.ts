@@ -58,13 +58,13 @@ export type { ProviderError } from './core/errors';
 // Error types
 export { ProviderErr } from './core/errors';
 export type {
-	Provider,
-	ProviderContext,
-	Providers,
-	WorkspaceProviderMap,
+	Capabilities,
+	Capability,
+	CapabilityContext,
+	WorkspaceCapabilityMap,
 } from './core/provider';
-// Provider system
-export { defineProviders } from './core/provider';
+// Capability system
+export { defineCapabilities } from './core/provider';
 export type {
 	BooleanFieldSchema,
 	CellValue,

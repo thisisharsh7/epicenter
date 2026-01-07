@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 
 import { createTables, type Tables } from '../tables/create-tables';
 import { createKv, type Kv } from '../kv/core';
-import type { Provider, Providers } from '../provider.shared';
+import type { Capabilities, Capability } from '../provider.shared';
 import type { KvSchema, TablesSchema } from '../schema';
 import type { ProviderPaths, WorkspacePaths } from '../types';
 
@@ -46,7 +46,7 @@ export type WorkspaceSchema<
 export type CapabilityMap<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-> = Record<string, Provider<TTablesSchema, TKvSchema>>;
+> = Record<string, Capability<TTablesSchema, TKvSchema>>;
 
 /**
  * Utility type to infer the exports from a capability map.
@@ -55,12 +55,12 @@ export type CapabilityMap<
  * Capabilities that return void produce empty objects.
  */
 export type InferCapabilityExports<TCapabilities> = {
-	[K in keyof TCapabilities]: TCapabilities[K] extends Provider<
+	[K in keyof TCapabilities]: TCapabilities[K] extends Capability<
 		TablesSchema,
 		KvSchema,
 		infer TExports
 	>
-		? TExports extends Providers
+		? TExports extends Capabilities
 			? TExports
 			: Record<string, never>
 		: Record<string, never>;
@@ -266,7 +266,7 @@ async function initializeWorkspace<
 
 					const result = await capabilityFn({
 						id: config.id,
-						providerId: capabilityId,
+						capabilityId,
 						ydoc,
 						tables,
 						kv,
@@ -289,7 +289,7 @@ async function initializeWorkspace<
 	const cleanup = async () => {
 		await Promise.all(
 			Object.values(capabilityExports).map((capability) =>
-				(capability as Providers).destroy?.(),
+				(capability as Capabilities).destroy?.(),
 			),
 		);
 		ydoc.destroy();

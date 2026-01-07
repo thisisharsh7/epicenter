@@ -1,4 +1,4 @@
-export type { Provider, ProviderContext } from '../provider';
+export type { Capability, CapabilityContext } from '../provider';
 
 export type {
 	CapabilityMap,
