@@ -6,22 +6,9 @@ import { jsonSchemaToYargsOptions } from './json-schema-to-yargs';
 
 function extractInputFromArgv(
 	argv: Record<string, unknown>,
-	inputSchema: unknown,
+	jsonSchema: Record<string, unknown> | undefined,
 ): Record<string, unknown> {
-	if (!inputSchema) return {};
-
-	const schema = inputSchema as {
-		'~standard': {
-			jsonSchema: {
-				input: (opts: { target: string }) => Record<string, unknown>;
-			};
-		};
-	};
-	const jsonSchema = schema['~standard'].jsonSchema.input({
-		target: 'draft-2020-12',
-	});
-
-	if (jsonSchema.type !== 'object' || !jsonSchema.properties) {
+	if (!jsonSchema || jsonSchema.type !== 'object' || !jsonSchema.properties) {
 		return {};
 	}
 
@@ -37,22 +24,6 @@ function extractInputFromArgv(
 	return input;
 }
 
-/**
- * Build yargs command configurations from an actions tree.
- *
- * Iterates over all actions and creates CommandModule configs that can be
- * registered with yargs. Separates the concern of building command configs
- * from registering them, enabling cleaner CLI construction.
- *
- * @example
- * ```typescript
- * const actions = { posts: { create: defineAction({ ... }) } };
- * const commands = buildActionCommands(actions);
- * for (const cmd of commands) {
- *   cli = cli.command(cmd);
- * }
- * ```
- */
 export function buildActionCommands(actions: Actions): CommandModule[] {
 	return [...iterateActions(actions)].map(([action, path]) => {
 		const commandPath = path.join(' ');
@@ -60,18 +31,18 @@ export function buildActionCommands(actions: Actions): CommandModule[] {
 			action.description ??
 			`${action.type === 'query' ? 'Query' : 'Mutation'}: ${path.join('.')}`;
 
-		const builder = action.input
-			? jsonSchemaToYargsOptions(
-					generateJsonSchema(action.input) as Record<string, unknown>,
-				)
-			: {};
+		const jsonSchema = action.input
+			? (generateJsonSchema(action.input) as Record<string, unknown>)
+			: undefined;
+
+		const builder = jsonSchema ? jsonSchemaToYargsOptions(jsonSchema) : {};
 
 		return {
 			command: commandPath,
 			describe: description,
 			builder,
 			handler: async (argv: Record<string, unknown>) => {
-				const input = extractInputFromArgv(argv, action.input);
+				const input = extractInputFromArgv(argv, jsonSchema);
 
 				if (action.input) {
 					const result = await action.input['~standard'].validate(input);
