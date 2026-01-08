@@ -1,5 +1,23 @@
 # Generators vs Callbacks for Tree Traversal
 
+> **TL;DR**: Use generators (`function*` + `yield`) instead of callbacks for tree traversal when you need to collect, filter, or transform results. You get:
+>
+> - No mutable accumulator variables
+> - Natural `break` for early termination
+> - Composable with `.map()`, `.filter()`, `.find()`
+> - Left-to-right readable code flow
+>
+> ```typescript
+> // Instead of this (callback)
+> const paths: string[] = [];
+> walkActions(actions, (_, path) => paths.push(path.join('/')));
+>
+> // Do this (generator)
+> const paths = [...iterateActions(actions)].map(([_, path]) => path.join('/'));
+> ```
+
+---
+
 I was building the action system for Epicenter and needed to walk a nested object structure. The type looked like this:
 
 ```typescript
