@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import { rpc } from '$lib/query';
@@ -47,6 +47,7 @@
 					createWorkspaceDialog.open({
 						onConfirm: async ({ name, id }) => {
 							await createWorkspace.mutateAsync({ name, id });
+							await invalidateAll();
 							goto(`/workspaces/${id}`);
 						},
 					})}
