@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import slugify from '@sindresorhus/slugify';
+	import * as slugify from '$lib/utils/slugify';
 
 	export type NameIdDialogConfig = {
 		title: string;
@@ -40,7 +40,7 @@
 				name = value;
 				error = null;
 				if (!isIdManuallyEdited) {
-					id = slugify(value, { separator: '_' });
+					id = slugify.toSnakeCase(value);
 				}
 			},
 			get id() {
@@ -82,7 +82,7 @@
 			},
 
 			resetId() {
-				id = slugify(name, { separator: '_' });
+				id = slugify.toSnakeCase(name);
 				error = null;
 				isIdManuallyEdited = false;
 			},

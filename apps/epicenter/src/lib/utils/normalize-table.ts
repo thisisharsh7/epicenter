@@ -56,12 +56,9 @@ export function getTableMetadata(
 		};
 	}
 
-	// Old format - derive metadata from key
+	// Old format - just use the key as-is (snake_case is fine)
 	return {
-		name: tableKey
-			.split(/[_-]/)
-			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-			.join(' '),
+		name: tableKey,
 		icon: null,
 		description: '',
 	};

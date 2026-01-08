@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import slugify from '@sindresorhus/slugify';
+	import * as slugify from '$lib/utils/slugify';
 
 	function createWorkspaceCreateDialog() {
 		let isOpen = $state(false);
@@ -29,7 +29,7 @@
 				name = value;
 				error = null;
 				if (!isSlugManuallyEdited) {
-					slug = slugify(value);
+					slug = slugify.toSnakeCase(value);
 				}
 			},
 			get slug() {
@@ -73,7 +73,7 @@
 			},
 
 			resetSlug() {
-				slug = slugify(name);
+				slug = slugify.toSnakeCase(name);
 				error = null;
 				isSlugManuallyEdited = false;
 			},
@@ -183,7 +183,7 @@
 					<Input
 						id="workspace-slug"
 						bind:value={workspaceCreateDialog.slug}
-						placeholder="my-workspace"
+						placeholder="my_workspace"
 						disabled={workspaceCreateDialog.isPending}
 						class="font-mono text-sm"
 						aria-invalid={!!workspaceCreateDialog.error}
