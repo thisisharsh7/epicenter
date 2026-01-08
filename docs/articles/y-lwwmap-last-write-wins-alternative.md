@@ -131,6 +131,51 @@ y-lwwmap is a drop-in replacement for YKeyValue. Same API, different internals. 
 
 That said, most collaborative apps can live with YKeyValue's behavior. The "random winner" scenario only matters when users actually notice which edit survived—and often they don't.
 
+## Update (2026-01-08): Epoch-Based Compaction Alternative
+
+Before implementing LWW timestamps, consider whether your architecture supports **epoch-based compaction**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  EPOCH-BASED COMPACTION                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  If your system has versioned Y.Doc snapshots (epochs), you get FREE        │
+│  compaction without custom LWW code:                                        │
+│                                                                             │
+│  // Compact by re-encoding current state                                    │
+│  const snapshot = Y.encodeStateAsUpdate(dataDoc);                           │
+│  const freshDoc = new Y.Doc({ guid: dataDoc.guid });                        │
+│  Y.applyUpdate(freshDoc, snapshot);                                         │
+│  // History is gone, storage is minimal                                     │
+│                                                                             │
+│  This works with native Y.Map too, not just YKeyValue.                      │
+│  The question becomes: do you NEED predictable conflict resolution?         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Decision flow**:
+
+```
+Do users complain about "my edit should have won"?
+        │
+   ┌────┴────┐
+   NO        YES
+   │         │
+   ▼         ▼
+Use Y.Map   How often?
+(simpler)        │
+            ┌────┴────┐
+          Rarely    Often
+            │         │
+            ▼         ▼
+        Y.Map is   Consider
+        still fine  LWW timestamps
+```
+
+See [Native Y.Map Storage Architecture](/specs/20260108T084500-ymap-native-storage-architecture.md) for the full analysis of when LWW timestamps are worth the complexity.
+
 ---
 
 ## References

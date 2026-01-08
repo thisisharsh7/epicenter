@@ -109,6 +109,30 @@ Y.Map looks like a map, but it doesn't _behave_ like one under repeated updates.
 
 YKeyValue is a meta structure: a map interface built on array primitives. It's uglier internally, but 271 bytes vs 524,985 bytes isn't a minor optimization. It's the difference between a practical collaborative app and an unusable one.
 
+## Update (2026-01-08): Epoch-Based Compaction Changes the Calculus
+
+Our benchmarks used an extreme case: 100k updates on 10 keys. In realistic scenarios, Y.Map's overhead is often acceptable:
+
+| Scenario           | Updates     | Y.Map Size | Acceptable? |
+| ------------------ | ----------- | ---------- | ----------- |
+| 100 blog posts     | 110 edits   | 59 KB      | Yes         |
+| User settings      | 100 changes | 1.6 KB     | Yes         |
+| Collab spreadsheet | 100 edits   | 3.2 KB     | Yes         |
+
+More importantly, if your architecture includes **epochs** (versioned workspace snapshots), you get free compaction:
+
+```typescript
+// Compact any Y.Doc by re-encoding current state
+const snapshot = Y.encodeStateAsUpdate(dataDoc);
+const freshDoc = new Y.Doc({ guid: dataDoc.guid });
+Y.applyUpdate(freshDoc, snapshot);
+// freshDoc has same content, NO tombstone history
+```
+
+This works for Y.Map too, not just YKeyValue. The 1935x benchmark assumes no compaction ever happens—which isn't true in an epoch-based architecture.
+
+See [Native Y.Map Storage Architecture](/specs/20260108T084500-ymap-native-storage-architecture.md) for the full analysis.
+
 ---
 
 **References:**

@@ -1,5 +1,13 @@
 # Cell-Level CRDT Merging for Table Rows
 
+**Status**: IMPLEMENTED (with architecture update)
+
+> **Update (2026-01-08)**: The implementation described here works correctly. A subsequent decision
+> was made to consider native Y.Map of Y.Maps as an alternative to the YKeyValue-backed approach,
+> with epoch-based compaction handling storage growth. Both approaches achieve cell-level merging;
+> the difference is in conflict resolution semantics and implementation complexity.
+> See `20260108T084500-ymap-native-storage-architecture.md` for details.
+
 ## Problem
 
 Current architecture uses **row-level last-writer-wins (LWW)**. When two users concurrently edit different columns of the same row, one user's changes are lost:

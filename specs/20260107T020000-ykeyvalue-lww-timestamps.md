@@ -1,5 +1,12 @@
 # YKeyValue LWW Timestamps Implementation
 
+**Status**: DEFERRED (see `20260108T084500-ymap-native-storage-architecture.md`)
+
+> **Note**: This spec is deferred, not cancelled. After benchmarking and analysis, we determined
+> that native Y.Map of Y.Maps with epoch-based compaction provides sufficient functionality with
+> far less complexity. This spec should be revisited if users complain about unpredictable
+> conflict resolution in same-cell offline editing scenarios.
+
 ## Summary
 
 Add Last-Write-Wins (LWW) timestamps to YKeyValue so chronologically later edits always win during conflict resolution.

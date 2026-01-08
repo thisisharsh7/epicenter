@@ -1,5 +1,13 @@
 # YKeyValue Conflict Resolution Analysis
 
+**Status**: ANALYSIS COMPLETE
+**Follow-up**: See `20260108T084500-ymap-native-storage-architecture.md` for final decision
+
+> **Outcome**: After this analysis and subsequent benchmarking, we decided to use native Y.Map of
+> Y.Maps with epoch-based compaction instead of implementing LWW timestamps. The unpredictable
+> conflict resolution affects <1% of edits (same-cell offline conflicts are rare), and the epoch
+> system provides free compaction without custom CRDT code.
+
 ## Overview
 
 This spec documents the conflict resolution behavior of YKeyValue and evaluates alternatives for offline-first editing scenarios.
