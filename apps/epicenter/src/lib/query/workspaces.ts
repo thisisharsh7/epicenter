@@ -125,7 +125,7 @@ export const workspaces = {
 
 			workspace.tables[tableId] = {
 				name: input.name,
-				icon: input.icon ?? null,
+				icon: input.icon ? { type: 'emoji', value: input.icon } : null,
 				cover: null,
 				description: input.description ?? '',
 				fields: { id: id() },
