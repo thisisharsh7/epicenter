@@ -4,6 +4,8 @@
 	import * as Collapsible from '@epicenter/ui/collapsible';
 	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
 	import { inputDialog } from '$lib/components/InputDialog.svelte';
+	import { nameIdDialog } from '$lib/components/NameIdDialog.svelte';
+	import { getTableMetadata } from '$lib/utils/normalize-table';
 	import { rpc } from '$lib/query';
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import TableIcon from '@lucide/svelte/icons/table-2';
@@ -18,8 +20,13 @@
 		enabled: !!selectedWorkspaceId,
 	}));
 
-	const tables = $derived(
-		workspace.data ? Object.keys(workspace.data.tables) : [],
+	const tableEntries = $derived(
+		workspace.data
+			? Object.entries(workspace.data.tables).map(([key, table]) => ({
+					key,
+					...getTableMetadata(key, table),
+				}))
+			: [],
 	);
 	const settings = $derived(
 		workspace.data ? Object.keys(workspace.data.kv) : [],
@@ -54,15 +61,20 @@
 						title="Add Table"
 						onclick={() => {
 							if (!selectedWorkspaceId) return;
-							inputDialog.open({
+							nameIdDialog.open({
 								title: 'Add Table',
-								description: 'Enter a name for the new table.',
-								label: 'Table Name',
-								placeholder: 'e.g., posts, users, comments',
-								onConfirm: async (tableName) => {
+								description:
+									'Enter a name for the new table. The ID will be auto-generated from the name.',
+								nameLabel: 'Table Name',
+								namePlaceholder: 'e.g., Blog Posts, Users, Comments',
+								idLabel: 'Table ID',
+								idPlaceholder: 'blog_posts',
+								idDescription: 'Used in code and URLs.',
+								onConfirm: async ({ name, id }) => {
 									await addTableMutation.mutateAsync({
 										workspaceId: selectedWorkspaceId,
-										tableName,
+										name,
+										id,
 									});
 								},
 							});
@@ -74,16 +86,16 @@
 					<Collapsible.Content>
 						<Sidebar.GroupContent>
 							<Sidebar.Menu>
-								{#each tables as tableName (tableName)}
+								{#each tableEntries as table (table.key)}
 									<Sidebar.MenuItem>
 										<Sidebar.MenuButton>
 											{#snippet child({ props })}
 												<a
-													href="/workspaces/{selectedWorkspaceId}/tables/{tableName}"
+													href="/workspaces/{selectedWorkspaceId}/tables/{table.key}"
 													{...props}
 												>
 													<TableIcon />
-													<span>{tableName}</span>
+													<span>{table.name}</span>
 												</a>
 											{/snippet}
 										</Sidebar.MenuButton>

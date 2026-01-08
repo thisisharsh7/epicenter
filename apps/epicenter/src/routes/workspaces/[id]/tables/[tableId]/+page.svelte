@@ -7,11 +7,8 @@
 	import { Badge } from '@epicenter/ui/badge';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
-	import {
-		isNullableFieldSchema,
-		type FieldSchema,
-		type TableSchema,
-	} from '@epicenter/hq';
+	import { isNullableFieldSchema, type FieldSchema } from '@epicenter/hq';
+	import { getTableFields, getTableMetadata } from '$lib/utils/normalize-table';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -24,13 +21,20 @@
 		enabled: !!workspaceId,
 	}));
 
-	const tableSchema = $derived.by(() => {
+	const tableEntry = $derived.by(() => {
 		if (!tableId || !workspace.data?.tables) return undefined;
-		return workspace.data.tables[tableId] as TableSchema | undefined;
+		return workspace.data.tables[tableId];
 	});
 
+	const tableFields = $derived(
+		tableEntry ? getTableFields(tableEntry) : undefined,
+	);
+	const tableMetadata = $derived(
+		tableId && tableEntry ? getTableMetadata(tableId, tableEntry) : undefined,
+	);
+
 	const columns = $derived(
-		tableSchema ? (Object.entries(tableSchema) as [string, FieldSchema][]) : [],
+		tableFields ? (Object.entries(tableFields) as [string, FieldSchema][]) : [],
 	);
 </script>
 
@@ -59,7 +63,7 @@
 			<p class="text-destructive font-medium">Failed to load workspace</p>
 			<p class="text-destructive/80 text-sm">{workspace.error.message}</p>
 		</div>
-	{:else if !tableSchema}
+	{:else if !tableFields}
 		<div class="rounded-lg border border-destructive bg-destructive/10 p-4">
 			<p class="text-destructive font-medium">Table not found</p>
 			<p class="text-destructive/80 text-sm">
@@ -69,7 +73,7 @@
 	{:else}
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-semibold">{tableId}</h1>
+				<h1 class="text-2xl font-semibold">{tableMetadata?.name ?? tableId}</h1>
 				<p class="text-muted-foreground text-sm">
 					{columns.length} column{columns.length === 1 ? '' : 's'}
 				</p>
@@ -163,7 +167,7 @@
 		<div class="rounded-lg border p-4">
 			<h2 class="mb-2 font-medium">Raw Schema</h2>
 			<pre class="bg-muted overflow-auto rounded p-4 text-xs">{JSON.stringify(
-					tableSchema,
+					tableEntry,
 					null,
 					2,
 				)}</pre>

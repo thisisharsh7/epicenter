@@ -119,6 +119,7 @@ export {
 	tags,
 	text,
 	TIMEZONE_ID_REGEX,
+	toSqlIdentifier,
 } from './core/schema';
 // Rich content ID generation
 export type { RichContentId } from './core/rich-content/id';

@@ -5,7 +5,7 @@ import {
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
 import { Ok, Err } from 'wellcrafted/result';
-import { generateGuid, id, text } from '@epicenter/hq';
+import { generateGuid, id, text, toSqlIdentifier } from '@epicenter/hq';
 
 const workspaceKeys = {
 	all: ['workspaces'] as const,
@@ -100,7 +100,12 @@ export const workspaces = {
 
 	addTable: defineMutation({
 		mutationKey: ['workspaces', 'addTable'],
-		mutationFn: async (input: { workspaceId: string; tableName: string }) => {
+		mutationFn: async (input: {
+			workspaceId: string;
+			name: string;
+			id: string;
+			description?: string;
+		}) => {
 			const readResult = await workspaceStorage.readWorkspace(
 				input.workspaceId,
 			);
@@ -109,20 +114,19 @@ export const workspaces = {
 			}
 
 			const workspace = readResult.data;
-			if (workspace.tables[input.tableName]) {
+			const tableId = input.id || toSqlIdentifier(input.name);
+
+			if (workspace.tables[tableId]) {
 				return WorkspaceStorageErr({
-					message: `Table "${input.tableName}" already exists`,
+					message: `Table with ID "${tableId}" already exists`,
 				});
 			}
 
-			workspace.tables[input.tableName] = {
-				name: input.tableName
-					.split(/[_-]/)
-					.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-					.join(' '),
+			workspace.tables[tableId] = {
+				name: input.name,
 				icon: null,
 				cover: null,
-				description: '',
+				description: input.description ?? '',
 				fields: { id: id() },
 			};
 
