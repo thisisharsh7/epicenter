@@ -83,7 +83,7 @@ export type CapabilityContext<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
-	/** Workspace ID (e.g., 'blog', 'notes') */
+	/** Workspace slug - human-readable identifier (e.g., 'blog', 'notes'). Used for storage paths and namespacing. */
 	id: string;
 
 	/**
