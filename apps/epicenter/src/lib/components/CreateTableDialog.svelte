@@ -1,27 +1,20 @@
 <script module lang="ts">
 	import { toSnakeCase } from '$lib/utils/slug';
 
-	export type NameIdDialogConfig = {
-		title: string;
-		description: string;
-		nameLabel?: string;
-		namePlaceholder?: string;
-		idLabel?: string;
-		idPlaceholder?: string;
-		idDescription?: string;
-		confirmText?: string;
-		cancelText?: string;
+	export type CreateTableDialogOptions = {
 		onConfirm: (data: { name: string; id: string }) => void | Promise<unknown>;
 	};
 
-	function createNameIdDialog() {
+	function createTableDialogState() {
 		let isOpen = $state(false);
 		let isPending = $state(false);
 		let name = $state('');
 		let id = $state('');
 		let isIdManuallyEdited = $state(false);
 		let error = $state<string | null>(null);
-		let config = $state<NameIdDialogConfig | null>(null);
+		let onConfirmCallback = $state<
+			CreateTableDialogOptions['onConfirm'] | null
+		>(null);
 
 		return {
 			get isOpen() {
@@ -57,12 +50,9 @@
 			get error() {
 				return error;
 			},
-			get config() {
-				return config;
-			},
 
-			open(opts: NameIdDialogConfig) {
-				config = opts;
+			open(opts: CreateTableDialogOptions) {
+				onConfirmCallback = opts.onConfirm;
 				isPending = false;
 				name = '';
 				id = '';
@@ -78,7 +68,7 @@
 				id = '';
 				error = null;
 				isIdManuallyEdited = false;
-				config = null;
+				onConfirmCallback = null;
 			},
 
 			resetId() {
@@ -92,12 +82,12 @@
 			},
 
 			async confirm() {
-				if (!config) return;
+				if (!onConfirmCallback) return;
 				if (!name.trim() || !id.trim()) return;
 
 				error = null;
 				const finalId = toSnakeCase(id.trim());
-				const result = config.onConfirm({ name: name.trim(), id: finalId });
+				const result = onConfirmCallback({ name: name.trim(), id: finalId });
 
 				if (result instanceof Promise) {
 					isPending = true;
@@ -125,7 +115,7 @@
 		};
 	}
 
-	export const nameIdDialog = createNameIdDialog();
+	export const createTableDialog = createTableDialogState();
 </script>
 
 <script lang="ts">
@@ -137,54 +127,53 @@
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 </script>
 
-<Dialog.Root bind:open={nameIdDialog.isOpen}>
+<Dialog.Root bind:open={createTableDialog.isOpen}>
 	<Dialog.Content class="sm:max-w-md">
 		<form
 			method="POST"
 			onsubmit={(e) => {
 				e.preventDefault();
-				nameIdDialog.confirm();
+				createTableDialog.confirm();
 			}}
 			class="flex flex-col gap-4"
 		>
 			<Dialog.Header>
-				<Dialog.Title>{nameIdDialog.config?.title}</Dialog.Title>
+				<Dialog.Title>Add Table</Dialog.Title>
 				<Dialog.Description>
-					{nameIdDialog.config?.description}
+					Enter a name for the new table. The ID will be auto-generated from the
+					name.
 				</Dialog.Description>
 			</Dialog.Header>
 
 			<div class="grid gap-4">
 				<Field.Field>
-					<Label for="name-id-name">
-						{nameIdDialog.config?.nameLabel ?? 'Name'}
-					</Label>
+					<Label for="table-name">Table Name</Label>
 					<Input
-						id="name-id-name"
-						bind:value={nameIdDialog.name}
-						placeholder={nameIdDialog.config?.namePlaceholder ?? 'Enter name'}
-						disabled={nameIdDialog.isPending}
+						id="table-name"
+						bind:value={createTableDialog.name}
+						placeholder="e.g., Blog Posts, Users, Comments"
+						disabled={createTableDialog.isPending}
 					/>
 				</Field.Field>
 
 				<Field.Field>
 					<div class="flex items-center justify-between">
-						<Label for="name-id-id">
-							{nameIdDialog.config?.idLabel ?? 'ID'}
-							{#if !nameIdDialog.isIdManuallyEdited && nameIdDialog.id}
+						<Label for="table-id">
+							Table ID
+							{#if !createTableDialog.isIdManuallyEdited && createTableDialog.id}
 								<span class="text-muted-foreground ml-2 text-xs font-normal">
 									(auto-generated)
 								</span>
 							{/if}
 						</Label>
-						{#if nameIdDialog.isIdManuallyEdited}
+						{#if createTableDialog.isIdManuallyEdited}
 							<Button
 								type="button"
 								variant="ghost"
 								size="sm"
 								class="h-6 px-2 text-xs"
-								onclick={() => nameIdDialog.resetId()}
-								disabled={nameIdDialog.isPending}
+								onclick={() => createTableDialog.resetId()}
+								disabled={createTableDialog.isPending}
 							>
 								<RotateCcwIcon class="mr-1 size-3" />
 								Reset
@@ -192,19 +181,17 @@
 						{/if}
 					</div>
 					<Input
-						id="name-id-id"
-						bind:value={nameIdDialog.id}
-						placeholder={nameIdDialog.config?.idPlaceholder ?? 'auto-generated'}
-						disabled={nameIdDialog.isPending}
+						id="table-id"
+						bind:value={createTableDialog.id}
+						placeholder="blog_posts"
+						disabled={createTableDialog.isPending}
 						class="font-mono text-sm"
-						aria-invalid={!!nameIdDialog.error}
+						aria-invalid={!!createTableDialog.error}
 					/>
-					{#if nameIdDialog.error}
-						<Field.Error>{nameIdDialog.error}</Field.Error>
-					{:else if nameIdDialog.config?.idDescription}
-						<Field.Description>
-							{nameIdDialog.config.idDescription}
-						</Field.Description>
+					{#if createTableDialog.error}
+						<Field.Error>{createTableDialog.error}</Field.Error>
+					{:else}
+						<Field.Description>Used in code and URLs.</Field.Description>
 					{/if}
 				</Field.Field>
 			</div>
@@ -213,16 +200,17 @@
 				<Button
 					type="button"
 					variant="outline"
-					onclick={() => nameIdDialog.cancel()}
-					disabled={nameIdDialog.isPending}
+					onclick={() => createTableDialog.cancel()}
+					disabled={createTableDialog.isPending}
 				>
-					{nameIdDialog.config?.cancelText ?? 'Cancel'}
+					Cancel
 				</Button>
 				<Button
 					type="submit"
-					disabled={nameIdDialog.isPending || !nameIdDialog.canConfirm}
+					disabled={createTableDialog.isPending ||
+						!createTableDialog.canConfirm}
 				>
-					{nameIdDialog.config?.confirmText ?? 'Create'}
+					Create
 				</Button>
 			</Dialog.Footer>
 		</form>

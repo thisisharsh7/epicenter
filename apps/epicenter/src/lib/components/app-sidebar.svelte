@@ -4,7 +4,7 @@
 	import * as Collapsible from '@epicenter/ui/collapsible';
 	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
 	import { inputDialog } from '$lib/components/InputDialog.svelte';
-	import { nameIdDialog } from '$lib/components/NameIdDialog.svelte';
+	import { createTableDialog } from '$lib/components/CreateTableDialog.svelte';
 	import { getTableMetadata } from '$lib/utils/normalize-table';
 	import { rpc } from '$lib/query';
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
@@ -61,15 +61,7 @@
 						title="Add Table"
 						onclick={() => {
 							if (!selectedWorkspaceId) return;
-							nameIdDialog.open({
-								title: 'Add Table',
-								description:
-									'Enter a name for the new table. The ID will be auto-generated from the name.',
-								nameLabel: 'Table Name',
-								namePlaceholder: 'e.g., Blog Posts, Users, Comments',
-								idLabel: 'Table ID',
-								idPlaceholder: 'blog_posts',
-								idDescription: 'Used in code and URLs.',
+							createTableDialog.open({
 								onConfirm: async ({ name, id }) => {
 									await addTableMutation.mutateAsync({
 										workspaceId: selectedWorkspaceId,
