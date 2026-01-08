@@ -16,8 +16,7 @@ import type { CapabilityPaths, WorkspacePaths } from '../types';
  * This type is fully JSON-serializable and contains no methods or runtime behavior.
  * It represents the configuration passed to `defineWorkspace()`.
  *
- * Use `defineWorkspace()` to create a `Workspace` object that adds fluent methods
- * like `.withCapabilities()` for creating runnable clients.
+ * Use `defineWorkspace()` to create a `Workspace` object with a `.create()` method.
  */
 export type WorkspaceSchema<
 	TId extends string = string,
@@ -41,24 +40,25 @@ export type WorkspaceSchema<
 /**
  * A workspace object returned by `defineWorkspace()`.
  *
- * Extends the JSON-serializable schema with fluent methods for building
- * runnable clients. Use the chaining API:
+ * Contains the schema (tables, kv, id, guid) and a `.create()` method
+ * to instantiate a runtime client.
  *
+ * @example No capabilities (ephemeral, in-memory)
  * ```typescript
- * const client = await defineWorkspace({ id: 'blog', tables: { ... } })
- *   .withCapabilities({ sqlite: sqliteProvider })
- *   .create();
+ * const client = await workspace.create();
+ * ```
  *
- * // Use the client directly
- * client.tables.posts.upsert({ id: '1', title: 'Hello' });
- * const posts = client.tables.posts.getAllValid();
+ * @example With capabilities
+ * ```typescript
+ * const client = await workspace.create({ sqlite, persistence });
+ * ```
  *
- * // Write functions that use the client
- * function createPost(title: string) {
- *   const id = generateId();
- *   client.tables.posts.upsert({ id, title });
- *   return { id };
- * }
+ * @example Capabilities with options
+ * ```typescript
+ * const client = await workspace.create({
+ *   sqlite: sqlite({ debounceMs: 50 }),
+ *   persistence,
+ * });
  * ```
  */
 export type Workspace<
@@ -66,50 +66,35 @@ export type Workspace<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
-	/** Add capabilities (SQLite, IndexedDB, markdown, sync, etc.) to the workspace. */
-	withCapabilities<
-		TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
-	>(
-		capabilities: TCapabilities,
-	): WorkspaceWithCapabilities<TId, TTablesSchema, TKvSchema, TCapabilities>;
-};
-
-/**
- * A workspace with capabilities attached, ready to create a client.
- *
- * Call `.create()` to initialize capabilities and get a fully functional workspace client.
- */
-export type WorkspaceWithCapabilities<
-	TId extends string,
-	TTablesSchema extends TablesSchema,
-	TKvSchema extends KvSchema,
-	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
-> = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
-	/** Internal: capability factories (not yet initialized). */
-	$capabilities: TCapabilities;
-
 	/**
-	 * Initialize capabilities and create a workspace client.
+	 * Create a workspace client.
 	 *
-	 * This is the final step that:
-	 * 1. Creates a YJS document with the workspace ID as GUID
-	 * 2. Initializes all capabilities in parallel
-	 * 3. Returns a client with table/kv accessors and capability exports
+	 * @param capabilities - Optional capability factories to attach.
+	 *   Capabilities add functionality like persistence, sync, or SQL queries.
+	 *   Each capability receives context and can return exports accessible
+	 *   via `client.capabilities.{name}`.
+	 *
+	 * @example No capabilities (ephemeral, in-memory)
+	 * ```typescript
+	 * const client = await workspace.create();
+	 * ```
+	 *
+	 * @example With capabilities
+	 * ```typescript
+	 * const client = await workspace.create({ sqlite, persistence });
+	 * ```
+	 *
+	 * @example Capabilities with options
+	 * ```typescript
+	 * const client = await workspace.create({
+	 *   sqlite: sqlite({ debounceMs: 50 }),
+	 *   persistence,
+	 * });
+	 * ```
 	 */
-	create(
-		options?: CreateOptions,
+	create<TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {}>(
+		capabilities?: TCapabilities,
 	): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>>;
-};
-
-/**
- * Options for creating a workspace client.
- */
-export type CreateOptions = {
-	/**
-	 * Project directory for provider paths.
-	 * Defaults to `process.cwd()` in Node.js, `undefined` in browser.
-	 */
-	projectDir?: string;
 };
 
 /**
@@ -204,11 +189,8 @@ async function initializeWorkspace<
 >(
 	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
 	capabilityFactories: TCapabilities,
-	options?: CreateOptions,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
-	const projectDir =
-		options?.projectDir ??
-		(typeof process !== 'undefined' ? process.cwd() : undefined);
+	const projectDir = typeof process !== 'undefined' ? process.cwd() : undefined;
 
 	const ydoc = new Y.Doc({ guid: `${config.guid}:0` });
 	const tables = createTables(ydoc, config.tables);
@@ -281,43 +263,35 @@ async function initializeWorkspace<
  * Define a collaborative workspace with YJS-first architecture.
  *
  * A workspace is a self-contained domain module with tables and capabilities.
- * Use the fluent chaining API to configure and create a client:
  *
  * @example
  * ```typescript
  * const workspace = defineWorkspace({
  *   id: 'blog',
  *   name: 'Blog',
+ *   guid: generateGuid(),
  *   tables: {
  *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
  *   },
  *   kv: {},
  * });
  *
- * const client = await workspace
- *   .withCapabilities({ sqlite: sqliteProvider })
- *   .create();
+ * // Create client with capabilities
+ * const client = await workspace.create({ sqlite, persistence });
+ *
+ * // Or without capabilities (ephemeral, in-memory)
+ * const client = await workspace.create();
  *
  * // Use the client directly
  * client.tables.posts.upsert({ id: generateId(), title: 'Hello', published: false });
  * const posts = client.tables.posts.getAllValid();
  *
- * // Or write functions that use the client
- * function createPost(title: string) {
- *   const id = generateId();
- *   client.tables.posts.upsert({ id, title, published: false });
- *   return { id };
- * }
- *
- * // Expose via HTTP, MCP, CLI however you want
- * app.post('/posts', (req) => createPost(req.body.title));
- *
  * // Clean up when done
  * await client.destroy();
  * ```
  *
- * @param config - Workspace configuration (id, name, tables, kv, optional description)
- * @returns A Workspace object with fluent methods for adding capabilities
+ * @param config - Workspace configuration (id, name, guid, tables, kv)
+ * @returns A Workspace object with a `.create()` method
  */
 export function defineWorkspace<
 	const TId extends string,
@@ -336,35 +310,27 @@ export function defineWorkspace<
 	return {
 		...config,
 
-		withCapabilities<
-			TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
+		async create<
+			TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {},
 		>(
-			capabilities: TCapabilities,
-		): WorkspaceWithCapabilities<TId, TTablesSchema, TKvSchema, TCapabilities> {
+			capabilities?: TCapabilities,
+		): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>> {
+			const { ydoc, tables, kv, capabilityExports, paths, cleanup } =
+				await initializeWorkspace(
+					config,
+					(capabilities ?? {}) as TCapabilities,
+				);
+
 			return {
-				...config,
-				$capabilities: capabilities,
-
-				async create(
-					options?: CreateOptions,
-				): Promise<
-					WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>
-				> {
-					const { ydoc, tables, kv, capabilityExports, paths, cleanup } =
-						await initializeWorkspace(config, capabilities, options);
-
-					return {
-						guid: config.guid,
-						id: config.id,
-						ydoc,
-						tables,
-						kv,
-						capabilities: capabilityExports,
-						paths,
-						destroy: cleanup,
-						[Symbol.asyncDispose]: cleanup,
-					};
-				},
+				guid: config.guid,
+				id: config.id,
+				ydoc,
+				tables,
+				kv,
+				capabilities: capabilityExports,
+				paths,
+				destroy: cleanup,
+				[Symbol.asyncDispose]: cleanup,
 			};
 		},
 	};

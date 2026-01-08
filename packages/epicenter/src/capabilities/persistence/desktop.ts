@@ -33,13 +33,11 @@ export type PersistenceConfig = {
  * const projectDir = '/my/project';
  * const epicenterDir = join(projectDir, '.epicenter');
  *
- * const client = await workspace
- *   .withCapabilities({
- *     persistence: (ctx) => persistence(ctx, {
- *       filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),
- *     }),
- *   })
- *   .create();
+ * const client = await workspace.create({
+ *   persistence: (ctx) => persistence(ctx, {
+ *     filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),
+ *   }),
+ * });
  * ```
  */
 export const persistence = async <TSchema extends TablesSchema>(

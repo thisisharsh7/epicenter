@@ -144,11 +144,9 @@ export type WebsocketSyncConfig = {
  *   tables: { ... },
  * });
  *
- * const client = await workspace
- *   .withCapabilities({
- *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
- *   })
- *   .create();
+ * const client = await workspace.create({
+ *   sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
+ * });
  * ```
  *
  * @example Multi-capability (phone connecting to all nodes)
@@ -168,14 +166,12 @@ export type WebsocketSyncConfig = {
  *   tables: { ... },
  * });
  *
- * const client = await workspace
- *   .withCapabilities({
- *     // Create a capability for each sync node
- *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
- *     syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
- *     syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
- *   })
- *   .create();
+ * const client = await workspace.create({
+ *   // Create a capability for each sync node
+ *   syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
+ *   syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *   syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
+ * });
  * ```
  *
  * @example Server-to-server sync (Elysia servers syncing with each other)
@@ -193,15 +189,13 @@ export type WebsocketSyncConfig = {
  *   tables: { ... },
  * });
  *
- * const client = await workspace
- *   .withCapabilities({
- *     // Server acts as both:
- *     // 1. A sync server (via createSyncPlugin in server.ts)
- *     // 2. A sync client connecting to other servers
- *     syncToLaptop: websocketSync({ url: SYNC_NODES.laptop }),
- *     syncToCloud: websocketSync({ url: SYNC_NODES.cloud }),
- *   })
- *   .create();
+ * const client = await workspace.create({
+ *   // Server acts as both:
+ *   // 1. A sync server (via createSyncPlugin in server.ts)
+ *   // 2. A sync client connecting to other servers
+ *   syncToLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *   syncToCloud: websocketSync({ url: SYNC_NODES.cloud }),
+ * });
  * ```
  *
  * @example Direct usage with y-websocket (no Epicenter client)
