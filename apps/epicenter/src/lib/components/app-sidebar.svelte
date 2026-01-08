@@ -15,6 +15,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 
 	const selectedWorkspaceId = $derived(page.params.id);
 
@@ -55,6 +56,23 @@
 	</Sidebar.Header>
 
 	<Sidebar.Content>
+		<Sidebar.Group>
+			<Sidebar.GroupContent>
+				<Sidebar.Menu>
+					<Sidebar.MenuItem>
+						<Sidebar.MenuButton>
+							{#snippet child({ props })}
+								<a href="/" {...props}>
+									<LayoutGridIcon />
+									<span>All Workspaces</span>
+								</a>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
+				</Sidebar.Menu>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
 		{#if selectedWorkspaceId}
 			<Collapsible.Root open>
 				<Sidebar.Group>
