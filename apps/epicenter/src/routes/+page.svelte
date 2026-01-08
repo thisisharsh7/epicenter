@@ -2,7 +2,7 @@
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
 	import { Button } from '@epicenter/ui/button';
-	import { workspaceCreateDialog } from '$lib/components/WorkspaceCreateDialog.svelte';
+	import { createWorkspaceDialog } from '$lib/components/CreateWorkspaceDialog.svelte';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 
 	const workspaces = createQuery(() => rpc.workspaces.listWorkspaces.options);
@@ -28,7 +28,7 @@
 			</Button>
 			<Button
 				onclick={() =>
-					workspaceCreateDialog.open({
+					createWorkspaceDialog.open({
 						onConfirm: async ({ name, id }) => {
 							await createWorkspace.mutateAsync({ name, id });
 						},
@@ -49,7 +49,7 @@
 			<p class="text-muted-foreground mb-4">No workspaces yet</p>
 			<Button
 				onclick={() =>
-					workspaceCreateDialog.open({
+					createWorkspaceDialog.open({
 						onConfirm: async ({ name, id }) => {
 							await createWorkspace.mutateAsync({ name, id });
 						},
