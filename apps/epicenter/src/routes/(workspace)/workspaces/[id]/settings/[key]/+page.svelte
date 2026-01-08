@@ -26,23 +26,6 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center gap-2 text-sm">
-		<a href="/" class="text-muted-foreground hover:text-foreground">
-			Workspaces
-		</a>
-		<span class="text-muted-foreground">/</span>
-		<a
-			href="/workspaces/{workspaceId}"
-			class="text-muted-foreground hover:text-foreground"
-		>
-			{workspaceId}
-		</a>
-		<span class="text-muted-foreground">/</span>
-		<span class="text-muted-foreground">Settings</span>
-		<span class="text-muted-foreground">/</span>
-		<span class="font-medium">{settingKey}</span>
-	</div>
-
 	{#if workspace.isPending}
 		<div class="text-muted-foreground">Loading...</div>
 	{:else if workspace.error}

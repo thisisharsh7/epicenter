@@ -1,23 +1,17 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
 
-	let { params } = $props();
+	const workspaceId = $derived(page.params.id);
 
-	const workspace = createQuery(
-		() => rpc.workspaces.getWorkspace(params.id).options,
-	);
+	const workspace = createQuery(() => ({
+		...rpc.workspaces.getWorkspace(workspaceId ?? '').options,
+		enabled: !!workspaceId,
+	}));
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center gap-2">
-		<a href="/" class="text-muted-foreground hover:text-foreground text-sm">
-			Workspaces
-		</a>
-		<span class="text-muted-foreground">/</span>
-		<span class="font-medium">{params.id}</span>
-	</div>
-
 	{#if workspace.isPending}
 		<div class="text-muted-foreground">Loading workspace...</div>
 	{:else if workspace.error}

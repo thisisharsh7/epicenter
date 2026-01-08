@@ -4,9 +4,6 @@
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster, type ToasterProps } from 'svelte-sonner';
 	import '@epicenter/ui/app.css';
-	import * as Sidebar from '@epicenter/ui/sidebar';
-	import AppSidebar from '$lib/components/app-sidebar.svelte';
-	import HeaderBreadcrumbs from '$lib/components/HeaderBreadcrumbs.svelte';
 	import InputDialog from '$lib/components/InputDialog.svelte';
 	import CreateTableDialog from '$lib/components/CreateTableDialog.svelte';
 	import CreateWorkspaceDialog from '$lib/components/CreateWorkspaceDialog.svelte';
@@ -28,18 +25,7 @@
 </svelte:head>
 
 <QueryClientProvider client={queryClient}>
-	<Sidebar.Provider>
-		<AppSidebar />
-		<Sidebar.Inset>
-			<header class="flex h-12 items-center gap-2 border-b px-4">
-				<Sidebar.Trigger />
-				<HeaderBreadcrumbs />
-			</header>
-			<main class="flex-1 p-4">
-				{@render children()}
-			</main>
-		</Sidebar.Inset>
-	</Sidebar.Provider>
+	{@render children()}
 </QueryClientProvider>
 
 <InputDialog />

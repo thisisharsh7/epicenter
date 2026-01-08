@@ -16,7 +16,7 @@
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold">Workspaces</h1>
+		<h1 class="text-2xl font-bold">All Workspaces</h1>
 		<div class="flex gap-2">
 			<Button
 				variant="outline"
