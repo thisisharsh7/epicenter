@@ -4,6 +4,9 @@
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import * as Collapsible from '@epicenter/ui/collapsible';
 	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
+	import * as Popover from '@epicenter/ui/popover';
+	import { Button, buttonVariants } from '@epicenter/ui/button';
+	import { cn } from '@epicenter/ui/utils';
 	import { inputDialog } from '$lib/components/InputDialog.svelte';
 	import { createTableDialog } from '$lib/components/CreateTableDialog.svelte';
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
@@ -16,8 +19,9 @@
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
-	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 
 	const workspaceId = $derived(page.params.id);
 
@@ -51,6 +55,9 @@
 	const removeTableMutation = createMutation(
 		() => rpc.workspaces.removeTable.options,
 	);
+	const deleteWorkspaceMutation = createMutation(
+		() => rpc.workspaces.deleteWorkspace.options,
+	);
 </script>
 
 <Sidebar.Root>
@@ -60,46 +67,84 @@
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
-							<Sidebar.MenuButton
-								size="lg"
-								class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-								{...props}
-							>
+							<Sidebar.MenuButton {...props} class="w-fit px-1.5">
 								<div
-									class="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 items-center justify-center rounded-lg"
+									class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-5 items-center justify-center rounded-md"
 								>
-									<FolderIcon class="size-4" />
+									<FolderIcon class="size-3" />
 								</div>
-								<div class="grid flex-1 text-left text-sm leading-tight">
-									<span class="truncate font-semibold">
-										{workspace.data?.name ?? 'Loading...'}
-									</span>
-									<span class="truncate text-xs text-muted-foreground">
-										{workspaceId}
-									</span>
-								</div>
-								<ChevronsUpDownIcon class="ml-auto" />
+								<span class="truncate font-medium">
+									{workspace.data?.name ?? 'Loading...'}
+								</span>
+								<ChevronDownIcon class="opacity-50" />
 							</Sidebar.MenuButton>
 						{/snippet}
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content
-						class="w-[--bits-dropdown-menu-anchor-width] min-w-56 rounded-lg"
+						class="w-64 rounded-lg"
 						align="start"
 						side="bottom"
 						sideOffset={4}
 					>
 						<DropdownMenu.Label class="text-muted-foreground text-xs">
-							Switch Workspace
+							Workspaces
 						</DropdownMenu.Label>
 						{#if workspaces.data}
 							{#each workspaces.data as ws (ws.id)}
-								<DropdownMenu.Item
-									onclick={() => goto(`/workspaces/${ws.id}`)}
-									class={ws.id === workspaceId ? 'bg-accent' : ''}
-								>
-									<FolderIcon class="mr-2 size-4" />
-									{ws.name}
-								</DropdownMenu.Item>
+								<div class="group relative flex items-center">
+									<DropdownMenu.Item
+										onclick={() => goto(`/workspaces/${ws.id}`)}
+										class={cn(
+											'flex-1 gap-2 p-2',
+											ws.id === workspaceId &&
+												'bg-accent text-accent-foreground',
+										)}
+									>
+										<div
+											class="flex size-6 items-center justify-center rounded-sm border"
+										>
+											<FolderIcon class="size-4 shrink-0" />
+										</div>
+										{ws.name}
+									</DropdownMenu.Item>
+									<Popover.Root>
+										<Popover.Trigger
+											class={cn(
+												buttonVariants({ variant: 'ghost', size: 'icon' }),
+												'absolute right-1 top-1/2 size-6 -translate-y-1/2',
+											)}
+										>
+											<EllipsisIcon class="size-4" />
+										</Popover.Trigger>
+										<Popover.Content
+											class="min-w-32 p-1"
+											align="start"
+											side="right"
+										>
+											<Button
+												variant="ghost"
+												size="sm"
+												class="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+												onclick={() => {
+													confirmationDialog.open({
+														title: 'Delete Workspace',
+														description: `Are you sure you want to delete "${ws.name}"? This will permanently delete all tables and settings in this workspace.`,
+														confirm: { text: 'Delete', variant: 'destructive' },
+														onConfirm: async () => {
+															await deleteWorkspaceMutation.mutateAsync(ws.id);
+															if (workspaceId === ws.id) {
+																await goto('/');
+															}
+														},
+													});
+												}}
+											>
+												<TrashIcon class="size-4" />
+												Delete
+											</Button>
+										</Popover.Content>
+									</Popover.Root>
+								</div>
 							{/each}
 						{/if}
 					</DropdownMenu.Content>
