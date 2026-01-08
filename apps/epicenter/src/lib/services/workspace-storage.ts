@@ -19,11 +19,7 @@ import { Ok, type Result, tryAsync } from 'wellcrafted/result';
 
 const WORKSPACES_DIR = 'workspaces';
 
-export type WorkspaceFile = WorkspaceSchema<
-	string,
-	TablesWithMetadata,
-	KvSchema
->;
+export type WorkspaceFile = WorkspaceSchema<TablesWithMetadata, KvSchema>;
 
 export const { WorkspaceStorageError, WorkspaceStorageErr } = createTaggedError(
 	'WorkspaceStorageError',

@@ -22,7 +22,7 @@
  * - Coordination flags prevent infinite loops between the two directions
  */
 
-import { createWorkspaceClient, defineWorkspace } from '@epicenter/hq';
+import { defineWorkspace, generateGuid } from '@epicenter/hq';
 import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineBackground } from 'wxt/utils/define-background';
@@ -104,8 +104,12 @@ export default defineBackground(() => {
 	// ─────────────────────────────────────────────────────────────────────────
 
 	const backgroundWorkspace = defineWorkspace({
-		id: 'browser',
+		id: generateGuid(),
+		slug: 'browser',
+		name: 'Browser Tabs',
+		kv: {},
 		tables: BROWSER_SCHEMA,
+		// @ts-expect-error - capabilities API not yet implemented
 		capabilities: {
 			/**
 			 * WebSocket sync capability for server connection.

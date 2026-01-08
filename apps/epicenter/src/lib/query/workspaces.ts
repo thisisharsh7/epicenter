@@ -52,8 +52,8 @@ export const workspaces = {
 			}
 
 			const workspace: WorkspaceFile = {
-				guid: generateGuid(),
-				id: input.id,
+				id: generateGuid(),
+				slug: input.id,
 				name: input.name,
 				tables: {},
 				kv: {},
