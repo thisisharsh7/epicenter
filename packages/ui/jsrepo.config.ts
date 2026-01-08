@@ -10,8 +10,5 @@ export default defineConfig({
 		util: 'src/utils',
 		hook: 'src/hooks',
 		hooks: 'src/hooks',
-		$UI$: '#',
-		$COMPONENTS$: '#',
-		$LIB$: '#',
 	},
 });
