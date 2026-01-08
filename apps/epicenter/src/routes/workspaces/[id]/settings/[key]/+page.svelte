@@ -5,7 +5,7 @@
 	import { Button } from '@epicenter/ui/button';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
-	import type { KvFieldSchema } from '@epicenter/hq';
+	import { isNullableFieldSchema, type KvFieldSchema } from '@epicenter/hq';
 
 	const workspaceId = $derived(page.params.id);
 	const settingKey = $derived(page.params.key);
@@ -21,9 +21,7 @@
 	});
 
 	const isNullable = $derived(
-		kvSchema
-			? Array.isArray(kvSchema.type) && kvSchema.type.includes('null')
-			: false,
+		kvSchema ? isNullableFieldSchema(kvSchema) : false,
 	);
 </script>
 
@@ -64,7 +62,7 @@
 			<Card.Header>
 				<div class="flex items-center justify-between">
 					<Card.Title class="text-xl">{settingKey}</Card.Title>
-					<Badge variant="secondary">{kvSchema['x-component']}</Badge>
+					<Badge variant="secondary">{kvSchema.type}</Badge>
 				</div>
 				<Card.Description>KV entry schema definition</Card.Description>
 			</Card.Header>
@@ -77,7 +75,7 @@
 						>
 							Type
 						</p>
-						<p class="font-mono text-sm">{kvSchema['x-component']}</p>
+						<p class="font-mono text-sm">{kvSchema.type}</p>
 					</div>
 
 					<div class="rounded-lg border p-4">

@@ -5,8 +5,7 @@ import {
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
 import { Ok, Err } from 'wellcrafted/result';
-import { generateGuid } from '@epicenter/hq';
-import type { IdFieldSchema, TextFieldSchema } from '@epicenter/hq';
+import { generateGuid, id, text } from '@epicenter/hq';
 
 const workspaceKeys = {
 	all: ['workspaces'] as const,
@@ -55,6 +54,8 @@ export const workspaces = {
 				guid: generateGuid(),
 				id: input.id,
 				name: input.name,
+				emoji: '📁',
+				description: '',
 				tables: {},
 				kv: {},
 			};
@@ -116,11 +117,7 @@ export const workspaces = {
 				});
 			}
 
-			const idFieldSchema: IdFieldSchema = {
-				'x-component': 'id',
-				type: 'string',
-			};
-			workspace.tables[input.tableName] = { id: idFieldSchema };
+			workspace.tables[input.tableName] = { id: id() };
 
 			const writeResult = await workspaceStorage.writeWorkspace(workspace);
 			if (writeResult.error) {
@@ -182,11 +179,7 @@ export const workspaces = {
 				});
 			}
 
-			const textFieldSchema: TextFieldSchema = {
-				'x-component': 'text',
-				type: 'string',
-			};
-			workspace.kv[input.key] = textFieldSchema;
+			workspace.kv[input.key] = text();
 
 			const writeResult = await workspaceStorage.writeWorkspace(workspace);
 			if (writeResult.error) {

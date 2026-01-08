@@ -101,6 +101,7 @@ export {
 	generateId,
 	id,
 	integer,
+	isNullableFieldSchema,
 	ISO_DATETIME_REGEX,
 	json,
 	real,

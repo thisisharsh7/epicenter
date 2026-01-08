@@ -7,7 +7,11 @@
 	import { Badge } from '@epicenter/ui/badge';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
-	import type { FieldSchema, TableSchema } from '@epicenter/hq';
+	import {
+		isNullableFieldSchema,
+		type FieldSchema,
+		type TableSchema,
+	} from '@epicenter/hq';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -89,13 +93,12 @@
 				</Table.Header>
 				<Table.Body>
 					{#each columns as [columnName, schema] (columnName)}
-						{@const isNullable =
-							Array.isArray(schema.type) && schema.type.includes('null')}
+						{@const isNullable = isNullableFieldSchema(schema)}
 						{@const hasDefault = 'default' in schema}
 						<Table.Row>
 							<Table.Cell class="font-mono text-sm">{columnName}</Table.Cell>
 							<Table.Cell>
-								<Badge variant="secondary">{schema['x-component']}</Badge>
+								<Badge variant="secondary">{schema.type}</Badge>
 							</Table.Cell>
 							<Table.Cell>
 								{#if isNullable}
