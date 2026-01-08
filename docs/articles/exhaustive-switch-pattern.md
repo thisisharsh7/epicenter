@@ -18,7 +18,7 @@ switch (action.type) {
 		break;
 	default: {
 		// Gives type warning if not never
-		const _exhaustive: never = action.type;
+		const _exhaustive: never = action;
 		// Gives runtime exception if invariant is violated
 		throw new Error(`Unknown action type: ${_exhaustive}`);
 	}
@@ -98,7 +98,7 @@ Two lines. Compile-time exhaustiveness checking. Runtime safety net. Clear error
 
 ```typescript
 default: {
-    const _exhaustive: never = action.type;
+    const _exhaustive: never = action;
     throw new Error(`Unknown action type: ${_exhaustive}`);
 }
 ```
