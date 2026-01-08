@@ -116,6 +116,54 @@ Every PR description MUST start with WHY this change exists. Not what files chan
 
 The reader should understand the PROBLEM before they see the SOLUTION.
 
+### Code Examples Are Mandatory for API Changes
+
+If the PR introduces or modifies APIs, you MUST include code examples showing how to use them. No exceptions.
+
+**What requires code examples:**
+
+- New functions, types, or exports
+- Changes to function signatures
+- New CLI commands or flags
+- New HTTP endpoints
+- Configuration changes
+
+**Good API PR** (shows the actual usage):
+
+```typescript
+// Define actions once
+const actions = {
+	posts: {
+		create: defineMutation({
+			input: type({ title: 'string' }),
+			handler: ({ title }) => client.tables.posts.create({ title }),
+		}),
+	},
+};
+
+// Pass to adapters - they generate CLI commands and HTTP routes
+const cli = createCLI(client, { actions });
+const server = createServer(client, { actions });
+```
+
+**Bad API PR** (only describes without showing):
+
+> This PR adds an action system that generates CLI commands and HTTP routes from action definitions.
+
+The first version lets reviewers understand the API at a glance. The second forces them to dig through the code to understand the call sites.
+
+### Diagrams for Architecture Changes
+
+For PRs that change how components interact, include ASCII flow diagrams:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Actions   │ ──> │  Adapters   │ ──> │  CLI/HTTP   │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+This immediately communicates the data flow without walls of text.
+
 ### Other Guidelines
 
 - NEVER include Claude Code or opencode watermarks or attribution in PR titles/descriptions
