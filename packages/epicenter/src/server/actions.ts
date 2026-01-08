@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia';
-import type { Action, Actions } from '../core/actions';
+import type { Actions } from '../core/actions';
 import { iterateActions } from '../core/actions';
 
 type ActionsRouterOptions = {
@@ -13,7 +13,6 @@ export function createActionsRouter(options: ActionsRouterOptions) {
 
 	for (const [action, path] of iterateActions(actions)) {
 		const routePath = `/${path.join('/')}`;
-		const handler = createActionHandler(action);
 		const namespaceTags = path.length > 1 ? [path[0] as string] : [];
 		const tags = [...namespaceTags, action.type];
 
@@ -25,10 +24,50 @@ export function createActionsRouter(options: ActionsRouterOptions) {
 
 		switch (action.type) {
 			case 'query':
-				router.get(routePath, handler, { query: action.input, detail });
+				router.get(
+					routePath,
+					async ({ query }) => {
+						if (action.input) {
+							const result = await action.input['~standard'].validate(query);
+							if (result.issues) {
+								return {
+									error: {
+										message: 'Validation failed',
+										issues: result.issues,
+									},
+								};
+							}
+							const output = await action.handler(result.value);
+							return { data: output };
+						}
+						const output = await (action.handler as () => unknown)();
+						return { data: output };
+					},
+					{ query: action.input, detail },
+				);
 				break;
 			case 'mutation':
-				router.post(routePath, handler, { body: action.input, detail });
+				router.post(
+					routePath,
+					async ({ body }) => {
+						if (action.input) {
+							const result = await action.input['~standard'].validate(body);
+							if (result.issues) {
+								return {
+									error: {
+										message: 'Validation failed',
+										issues: result.issues,
+									},
+								};
+							}
+							const output = await action.handler(result.value);
+							return { data: output };
+						}
+						const output = await (action.handler as () => unknown)();
+						return { data: output };
+					},
+					{ body: action.input, detail },
+				);
 				break;
 			default: {
 				const _exhaustive: never = action.type;
@@ -38,29 +77,6 @@ export function createActionsRouter(options: ActionsRouterOptions) {
 	}
 
 	return router;
-}
-
-function createActionHandler(action: Action<any, any>) {
-	return async ({ body, query }: { body?: unknown; query?: unknown }) => {
-		const rawInput = action.type === 'query' ? query : body;
-
-		if (action.input) {
-			const result = await action.input['~standard'].validate(rawInput);
-			if (result.issues) {
-				return {
-					error: {
-						message: 'Validation failed',
-						issues: result.issues,
-					},
-				};
-			}
-			const output = await action.handler(result.value);
-			return { data: output };
-		}
-
-		const output = await (action.handler as () => unknown)();
-		return { data: output };
-	};
 }
 
 export function collectActionPaths(actions: Actions): string[] {
