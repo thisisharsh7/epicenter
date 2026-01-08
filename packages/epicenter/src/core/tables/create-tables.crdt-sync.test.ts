@@ -743,20 +743,20 @@ describe('Cell-Level CRDT Merging', () => {
 			}
 		});
 
-		const ytables2 = doc2.getMap('tables') as Y.Map<Y.Map<Y.Array<unknown>>>;
+		const ytables2 = doc2.getMap('tables') as Y.Map<Y.Map<Y.Map<unknown>>>;
 		ytables2.delete('posts');
 
 		expect(changes).toContainEqual({ action: 'delete', id: 'post-1' });
 
-		const postsTable = new Y.Map() as Y.Map<Y.Array<unknown>>;
+		const postsTable = new Y.Map() as Y.Map<Y.Map<unknown>>;
 		ytables2.set('posts', postsTable);
 
-		const rowArray = new Y.Array();
-		postsTable.set('post-new', rowArray);
-		rowArray.push([
-			{ key: 'id', val: 'post-new' },
-			{ key: 'title', val: 'New Post' },
-		]);
+		const rowMap = new Y.Map() as Y.Map<unknown>;
+		postsTable.set('post-new', rowMap);
+		doc2.transact(() => {
+			rowMap.set('id', 'post-new');
+			rowMap.set('title', 'New Post');
+		});
 
 		expect(changes).toContainEqual({ action: 'add', id: 'post-new' });
 	});
@@ -802,9 +802,8 @@ describe('Cell-Level CRDT Merging', () => {
 
 	test('table replacement emits delete for old rows and add for new rows', () => {
 		const ydoc = new Y.Doc({ guid: 'test-table-replacement' });
-		type CellEntry = { key: string; val: unknown };
-		type RowArray = Y.Array<CellEntry>;
-		type TableMap = Y.Map<RowArray>;
+		type RowMap = Y.Map<unknown>;
+		type TableMap = Y.Map<RowMap>;
 		type TablesMap = Y.Map<TableMap>;
 
 		const ytables: TablesMap = ydoc.getMap('tables');
@@ -829,16 +828,12 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		const newPostsTable = new Y.Map() as TableMap;
-		const newRow1 = new Y.Array() as RowArray;
-		const newRow2 = new Y.Array() as RowArray;
-		newRow1.push([
-			{ key: 'id', val: 'new-1' },
-			{ key: 'title', val: 'New Post 1' },
-		]);
-		newRow2.push([
-			{ key: 'id', val: 'new-2' },
-			{ key: 'title', val: 'New Post 2' },
-		]);
+		const newRow1 = new Y.Map() as RowMap;
+		const newRow2 = new Y.Map() as RowMap;
+		newRow1.set('id', 'new-1');
+		newRow1.set('title', 'New Post 1');
+		newRow2.set('id', 'new-2');
+		newRow2.set('title', 'New Post 2');
 		newPostsTable.set('new-1', newRow1);
 		newPostsTable.set('new-2', newRow2);
 
@@ -852,9 +847,8 @@ describe('Cell-Level CRDT Merging', () => {
 
 	test('row replacement emits update and continues observing new row', () => {
 		const ydoc = new Y.Doc({ guid: 'test-row-replacement' });
-		type CellEntry = { key: string; val: unknown };
-		type RowArray = Y.Array<CellEntry>;
-		type TableMap = Y.Map<RowArray>;
+		type RowMap = Y.Map<unknown>;
+		type TableMap = Y.Map<RowMap>;
 		type TablesMap = Y.Map<TableMap>;
 
 		const ytables: TablesMap = ydoc.getMap('tables');
@@ -883,11 +877,9 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		const postsTable = ytables.get('posts')!;
-		const replacementRow = new Y.Array() as RowArray;
-		replacementRow.push([
-			{ key: 'id', val: 'post-1' },
-			{ key: 'title', val: 'Replaced Row' },
-		]);
+		const replacementRow = new Y.Map() as RowMap;
+		replacementRow.set('id', 'post-1');
+		replacementRow.set('title', 'Replaced Row');
 		postsTable.set('post-1', replacementRow);
 
 		expect(changes).toContainEqual({
@@ -898,8 +890,7 @@ describe('Cell-Level CRDT Merging', () => {
 
 		changes.length = 0;
 
-		replacementRow.delete(1);
-		replacementRow.push([{ key: 'title', val: 'Modified After Replacement' }]);
+		replacementRow.set('title', 'Modified After Replacement');
 
 		expect(
 			changes.some((c) => c.id === 'post-1' && c.action === 'update'),
@@ -908,9 +899,8 @@ describe('Cell-Level CRDT Merging', () => {
 
 	test('table created after subscription with pre-existing rows emits adds', () => {
 		const ydoc = new Y.Doc({ guid: 'test-late-table' });
-		type CellEntry = { key: string; val: unknown };
-		type RowArray = Y.Array<CellEntry>;
-		type TableMap = Y.Map<RowArray>;
+		type RowMap = Y.Map<unknown>;
+		type TableMap = Y.Map<RowMap>;
 		type TablesMap = Y.Map<TableMap>;
 
 		const ytables: TablesMap = ydoc.getMap('tables');
@@ -932,16 +922,12 @@ describe('Cell-Level CRDT Merging', () => {
 		expect(ytables.has('posts')).toBe(false);
 
 		const postsTable = new Y.Map() as TableMap;
-		const row1 = new Y.Array() as RowArray;
-		const row2 = new Y.Array() as RowArray;
-		row1.push([
-			{ key: 'id', val: 'existing-1' },
-			{ key: 'title', val: 'Already Exists 1' },
-		]);
-		row2.push([
-			{ key: 'id', val: 'existing-2' },
-			{ key: 'title', val: 'Already Exists 2' },
-		]);
+		const row1 = new Y.Map() as RowMap;
+		const row2 = new Y.Map() as RowMap;
+		row1.set('id', 'existing-1');
+		row1.set('title', 'Already Exists 1');
+		row2.set('id', 'existing-2');
+		row2.set('title', 'Already Exists 2');
 		postsTable.set('existing-1', row1);
 		postsTable.set('existing-2', row2);
 

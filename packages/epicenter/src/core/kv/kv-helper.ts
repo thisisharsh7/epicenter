@@ -4,13 +4,19 @@ import type * as Y from 'yjs';
 
 import type { KvFieldSchema, KvSchema, KvValue } from '../schema';
 import { fieldSchemaToYjsArktype, isNullableFieldSchema } from '../schema';
-import {
-	YKeyValue,
-	type YKeyValueChange,
-	type YKeyValueChangeHandler,
-} from '../utils/y-keyvalue';
 
-export type { YKeyValueChange };
+/**
+ * Change event for a KV value.
+ *
+ * Matches the same semantics as the old YKeyValue change events:
+ * - `add`: Key was set for the first time
+ * - `update`: Key's value was changed
+ * - `delete`: Key was removed
+ */
+export type KvChange<T> =
+	| { action: 'add'; newValue: T }
+	| { action: 'update'; oldValue: T; newValue: T }
+	| { action: 'delete'; oldValue: T };
 
 type KvValidationContext = {
 	key: string;
@@ -35,8 +41,8 @@ export type KvGetResult<TValue> =
 /**
  * Creates a collection of typed KV helpers for all keys in a schema.
  *
- * Uses YKeyValue internally for efficient storage. KV data is stored as
- * `{key, val}` pairs in a Y.Array, avoiding Y.Map's tombstone accumulation.
+ * Uses native Y.Map for efficient storage. KV data is stored directly
+ * as key-value pairs in the map.
  */
 export function createKvHelpers<TKvSchema extends KvSchema>({
 	ydoc,
@@ -45,15 +51,14 @@ export function createKvHelpers<TKvSchema extends KvSchema>({
 	ydoc: Y.Doc;
 	schema: TKvSchema;
 }) {
-	const ykvArray = ydoc.getArray<{ key: string; val: KvValue }>('kv');
-	const ykv = new YKeyValue(ykvArray);
+	const ykvMap = ydoc.getMap<KvValue>('kv');
 
 	return Object.fromEntries(
 		Object.entries(schema).map(([keyName, columnSchema]) => [
 			keyName,
 			createKvHelper({
 				keyName,
-				ykv,
+				ykvMap,
 				schema: columnSchema,
 			}),
 		]),
@@ -64,11 +69,11 @@ export function createKvHelpers<TKvSchema extends KvSchema>({
 
 export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	keyName,
-	ykv,
+	ykvMap,
 	schema,
 }: {
 	keyName: string;
-	ykv: YKeyValue<KvValue>;
+	ykvMap: Y.Map<KvValue>;
 	schema: TFieldSchema;
 }) {
 	type TValue = KvValue<TFieldSchema>;
@@ -106,7 +111,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		get(): KvGetResult<TValue> {
-			const rawValue = ykv.get(keyName);
+			const rawValue = ykvMap.get(keyName);
 
 			// Handle undefined: default → null → not_found
 			if (rawValue === undefined) {
@@ -155,7 +160,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		set(value: TValue): void {
-			ykv.set(keyName, value as KvValue);
+			ykvMap.set(keyName, value as KvValue);
 		},
 
 		/**
@@ -183,21 +188,38 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		observeChanges(
-			callback: (
-				change: YKeyValueChange<TValue>,
-				transaction: Y.Transaction,
-			) => void,
+			callback: (change: KvChange<TValue>, transaction: Y.Transaction) => void,
 		): () => void {
-			const handler: YKeyValueChangeHandler<KvValue> = (
-				changes,
-				transaction,
+			const handler = (
+				event: Y.YMapEvent<KvValue>,
+				transaction: Y.Transaction,
 			) => {
-				const change = changes.get(keyName);
-				if (!change) return;
-				callback(change as YKeyValueChange<TValue>, transaction);
+				const keyChange = event.changes.keys.get(keyName);
+				if (!keyChange) return;
+
+				const newValue = ykvMap.get(keyName) as TValue;
+
+				if (keyChange.action === 'add') {
+					callback({ action: 'add', newValue }, transaction);
+				} else if (keyChange.action === 'update') {
+					callback(
+						{
+							action: 'update',
+							oldValue: keyChange.oldValue as TValue,
+							newValue,
+						},
+						transaction,
+					);
+				} else if (keyChange.action === 'delete') {
+					callback(
+						{ action: 'delete', oldValue: keyChange.oldValue as TValue },
+						transaction,
+					);
+				}
 			};
-			ykv.on('change', handler);
-			return () => ykv.off('change', handler);
+
+			ykvMap.observe(handler);
+			return () => ykvMap.unobserve(handler);
 		},
 
 		/**
@@ -218,7 +240,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 			} else if (nullable) {
 				this.set(null as TValue);
 			} else {
-				ykv.delete(keyName);
+				ykvMap.delete(keyName);
 			}
 		},
 

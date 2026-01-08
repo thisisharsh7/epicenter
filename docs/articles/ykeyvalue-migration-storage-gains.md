@@ -1,5 +1,11 @@
 # How We Cut Our Yjs Document Size by 1935x
 
+> **Deprecated (2026-01-08)**: We reverted this YKeyValue migration. The 1935x benchmark was
+> a worst-case comparison against uncompacted Y.Map. With epoch-based compaction, native Y.Map
+> is actually ~6% smaller. The dramatic gains didn't materialize in practice, and YKeyValue's
+> unpredictable conflict resolution (earlier edits overwriting later ones) was a footgun.
+> See [PR #1226](https://github.com/EpicenterHQ/epicenter/pull/1226) for the revert.
+
 We were building a collaborative app with Yjs when we hit a wall: documents kept growing. A workspace that should have been a few KB was ballooning to hundreds of KB after normal usage. Users were complaining about slow sync times.
 
 The culprit? Y.Map.
@@ -108,6 +114,30 @@ The migration was straightforward. Our documents went from ballooning after norm
 Y.Map looks like a map, but it doesn't _behave_ like one under repeated updates. Understanding what CRDTs retain internally, what gets tombstoned, what retains metadata, lets you pick structures that match your actual access patterns.
 
 YKeyValue is a meta structure: a map interface built on array primitives. It's uglier internally, but 271 bytes vs 524,985 bytes isn't a minor optimization. It's the difference between a practical collaborative app and an unusable one.
+
+## Update (2026-01-08): Epoch-Based Compaction Changes the Calculus
+
+Our benchmarks used an extreme case: 100k updates on 10 keys. In realistic scenarios, Y.Map's overhead is often acceptable:
+
+| Scenario           | Updates     | Y.Map Size | Acceptable? |
+| ------------------ | ----------- | ---------- | ----------- |
+| 100 blog posts     | 110 edits   | 59 KB      | Yes         |
+| User settings      | 100 changes | 1.6 KB     | Yes         |
+| Collab spreadsheet | 100 edits   | 3.2 KB     | Yes         |
+
+More importantly, if your architecture includes **epochs** (versioned workspace snapshots), you get free compaction:
+
+```typescript
+// Compact any Y.Doc by re-encoding current state
+const snapshot = Y.encodeStateAsUpdate(dataDoc);
+const freshDoc = new Y.Doc({ guid: dataDoc.guid });
+Y.applyUpdate(freshDoc, snapshot);
+// freshDoc has same content, NO tombstone history
+```
+
+This works for Y.Map too, not just YKeyValue. The 1935x benchmark assumes no compaction ever happens—which isn't true in an epoch-based architecture.
+
+See [Native Y.Map Storage Architecture](/specs/20260108T084500-ymap-native-storage-architecture.md) for the full analysis.
 
 ---
 

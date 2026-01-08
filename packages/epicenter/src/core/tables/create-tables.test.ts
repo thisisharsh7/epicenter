@@ -286,9 +286,8 @@ describe('createTables', () => {
 
 		test('raw values passed through even for invalid data', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
-			type CellEntry = { key: string; val: unknown };
-			type RowArray = Y.Array<CellEntry>;
-			type TableMap = Y.Map<RowArray>;
+			type RowMap = Y.Map<unknown>;
+			type TableMap = Y.Map<RowMap>;
 			type TablesMap = Y.Map<TableMap>;
 
 			const ytables: TablesMap = ydoc.getMap('tables');
@@ -315,12 +314,13 @@ describe('createTables', () => {
 				ytables.set('posts', postsTable);
 			}
 
-			const rowArray = new Y.Array() as RowArray;
-			postsTable.set('bad-row', rowArray);
-			rowArray.push([
-				{ key: 'id', val: 'bad-row' },
-				{ key: 'count', val: 'not a number' },
-			]);
+			const rowMap = new Y.Map() as RowMap;
+			postsTable.set('bad-row', rowMap);
+			// Set all values in a transaction so the observer fires once with complete data
+			ydoc.transact(() => {
+				rowMap.set('id', 'bad-row');
+				rowMap.set('count', 'not a number');
+			});
 
 			expect(receivedResult).toMatchObject({
 				status: 'invalid',
@@ -545,9 +545,8 @@ describe('createTables', () => {
 
 		test('empty row deleted before first cell change emits only delete', () => {
 			const ydoc = new Y.Doc({ guid: 'test-empty-row-delete' });
-			type CellEntry = { key: string; val: unknown };
-			type RowArray = Y.Array<CellEntry>;
-			type TableMap = Y.Map<RowArray>;
+			type RowMap = Y.Map<unknown>;
+			type TableMap = Y.Map<RowMap>;
 			type TablesMap = Y.Map<TableMap>;
 
 			const ytables: TablesMap = ydoc.getMap('tables');
@@ -572,8 +571,8 @@ describe('createTables', () => {
 				ytables.set('posts', postsTable);
 			}
 
-			const emptyRowArray = new Y.Array() as RowArray;
-			postsTable.set('empty-row', emptyRowArray);
+			const emptyRowMap = new Y.Map() as RowMap;
+			postsTable.set('empty-row', emptyRowMap);
 
 			postsTable.delete('empty-row');
 

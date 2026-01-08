@@ -1,5 +1,10 @@
 # YKeyValue: The Most Interesting Meta Data Structure in Yjs
 
+> **Deprecated (2026-01-08)**: We reverted YKeyValue in favor of native Y.Map of Y.Maps.
+> The storage gains were dubious in practice (~6% difference with epoch compaction, not 1935x),
+> and the unpredictable LWW conflict resolution was a footgun. Native Y.Map is simpler and
+> more battle-tested. See [PR #1226](https://github.com/EpicenterHQ/epicenter/pull/1226) for details.
+
 YKeyValue is one of the most interesting meta Yjs data structures I've encountered.
 
 I've talked before about how you can build complex data structures with Yjs primitives—often to make them more performant or more memory efficient. Well, this one takes the cake. It's also one of the few that's canonically inside the Yjs organization itself (in [yjs/y-utility](https://github.com/yjs/y-utility)).
@@ -135,6 +140,66 @@ A `Y.Map` at the root (table names rarely change), with `YKeyValue`-backed array
 Not every Yjs data structure maps directly to what you'd reach for in non-collaborative code. `Y.Map` looks like a map, but it doesn't _behave_ like one under repeated updates. Understanding the CRDT's internal tracking—what gets tombstoned, what retains metadata—lets you pick structures that match your actual access patterns.
 
 YKeyValue is a meta structure: a map interface built on array primitives. It's uglier internally, but the results speak for themselves. 271 bytes vs 524,985 bytes isn't a minor optimization—it's the difference between a practical collaborative app and an unusable one.
+
+## Update (2026-01-08): When Y.Map Actually Works Better
+
+After extensive benchmarking, we discovered that Y.Map's storage overhead is often acceptable for **realistic workloads**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  REALISTIC STORAGE NUMBERS (Y.Map of Y.Maps)                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Scenario                    Data              Updates    Size              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  Blog posts                  100 posts         110 edits  59 KB             │
+│  User settings               1 user            100 edits  1.6 KB            │
+│  Collaborative spreadsheet   10 rows           100 edits  3.2 KB            │
+│  Worst case (counter)        1 key             1000 edits 17.5 KB           │
+│                                                                             │
+│  The 1935x benchmark used 100k updates on 10 keys - an extreme case.        │
+│  Most apps won't hit this pattern.                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**The epoch-based compaction insight**: If your architecture includes epochs (versioned Y.Doc snapshots), you get **free compaction** via `Y.encodeStateAsUpdate()`. This strips all tombstone history, resetting storage to current state only.
+
+```typescript
+// Compact a Y.Doc by re-encoding current state
+const snapshot = Y.encodeStateAsUpdate(dataDoc);
+const freshDoc = new Y.Doc({ guid: dataDoc.guid });
+Y.applyUpdate(freshDoc, snapshot);
+// freshDoc has same content, no history overhead
+```
+
+**Decision tree**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  WHEN TO USE WHICH                                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Use Y.Map when:                                                            │
+│  • You have epoch-based compaction (snapshot strips history)                │
+│  • You want zero custom CRDT code                                           │
+│  • Updates are moderate (not 100k+ per key)                                 │
+│  • You trust YJS's battle-tested implementation                             │
+│                                                                             │
+│  Use YKeyValue when:                                                        │
+│  • You have extreme update frequency (counters, real-time data)             │
+│  • You cannot use epoch-based compaction                                    │
+│  • Storage must stay bounded without external intervention                  │
+│                                                                             │
+│  Consider YKeyValue-LWW when:                                               │
+│  • Users complain about "wrong" conflict winners                            │
+│  • Same-cell offline conflicts are common                                   │
+│  • You need auditable "who won and why"                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+See [Native Y.Map Storage Architecture](/specs/20260108T084500-ymap-native-storage-architecture.md) for the full analysis.
 
 ---
 

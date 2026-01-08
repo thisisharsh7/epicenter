@@ -3,11 +3,6 @@ import type { TLocalizedValidationError } from 'typebox/error';
 import * as Y from 'yjs';
 import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
 import { tableSchemaToTypebox } from '../schema';
-import {
-	YKeyValue,
-	type YKeyValueChange,
-	type YKeyValueChangeHandler,
-} from '../utils/y-keyvalue';
 
 /**
  * A single validation error from TypeBox schema validation.
@@ -29,16 +24,11 @@ import {
  */
 export type ValidationError = TLocalizedValidationError;
 
-export type { YKeyValueChange };
-
-/** Storage format for a single cell in a row. Key is column name, val is cell value. */
-type CellEntry = { key: string; val: unknown };
-
-/** Y.Array storing cells for a single row, wrapped by YKeyValue for O(1) lookups. */
-type RowArray = Y.Array<CellEntry>;
+/** Y.Map storing cell values for a single row, keyed by column name. */
+type RowMap = Y.Map<unknown>;
 
 /** Y.Map storing rows for a single table, keyed by row ID. */
-type TableMap = Y.Map<RowArray>;
+type TableMap = Y.Map<RowMap>;
 
 /** Y.Map storing all tables, keyed by table name. */
 type TablesMap = Y.Map<TableMap>;
@@ -169,7 +159,7 @@ export function createTableHelpers<TTablesSchema extends TablesSchema>({
  *
  * ## Storage Architecture (Cell-Level CRDT Merging)
  *
- * Each table is a Y.Map<rowId, RowArray> where each row stores cells separately.
+ * Each table is a Y.Map<rowId, RowMap> where each row is a Y.Map<columnName, value>.
  * This enables concurrent edits to different columns to merge correctly:
  *
  * ```
@@ -189,34 +179,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 }) {
 	type TRow = Row<TTableSchema>;
 
-	/**
-	 * Cache of YKeyValue instances per row ID.
-	 *
-	 * YKeyValue maintains an internal Map for O(1) lookups by column name.
-	 * Creating a new YKeyValue for the same Y.Array means rebuilding this Map
-	 * by iterating all cells—an O(n) operation per access.
-	 *
-	 * This cache ensures we reuse the same YKeyValue instance per row,
-	 * amortizing the Map construction cost across multiple accesses.
-	 *
-	 * IMPORTANT: Must be invalidated when a row is deleted or when the
-	 * table Y.Map is replaced (due to sync conflict resolution).
-	 */
-	const rowKVCache = new Map<string, YKeyValue<unknown>>();
-
 	const typeboxSchema = tableSchemaToTypebox(schema);
 	const rowValidator = Compile(typeboxSchema);
-
-	let currentTableRef: TableMap | null = null;
-
-	ytables.observe((event) => {
-		event.changes.keys.forEach((change, key) => {
-			if (key === tableName && change.action === 'update') {
-				rowKVCache.clear();
-				currentTableRef = ytables.get(tableName) ?? null;
-			}
-		});
-	});
 
 	/**
 	 * Get the Y.Map for this table if it exists, or null if not.
@@ -226,12 +190,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	 * it will conflict with the synced table from another peer.
 	 */
 	const getExistingTableMap = (): TableMap | null => {
-		const tableMap = ytables.get(tableName) ?? null;
-		if (tableMap !== currentTableRef) {
-			rowKVCache.clear();
-			currentTableRef = tableMap;
-		}
-		return tableMap;
+		return ytables.get(tableName) ?? null;
 	};
 
 	/**
@@ -254,105 +213,56 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	};
 
 	/**
-	 * Get or create a YKeyValue wrapper for a row, creating the row if needed.
+	 * Get or create a row Y.Map, creating the row if needed.
 	 *
 	 * Use this for upsert operations that always need a row to exist.
-	 * Creates the Y.Array and caches the YKeyValue if the row doesn't exist.
-	 *
-	 * This is idempotent—safe to call multiple times for the same row ID.
-	 * Subsequent calls return the cached YKeyValue without creating duplicates.
+	 * Creates the row Y.Map if it doesn't exist.
 	 *
 	 * @example
 	 * ```typescript
-	 * const rowKV = getOrCreateRowKV('post-123');
-	 * rowKV.set('title', 'Hello World'); // Always succeeds
+	 * const rowMap = getOrCreateRow('post-123');
+	 * rowMap.set('title', 'Hello World'); // Always succeeds
 	 * ```
 	 */
-	const getOrCreateRowKV = (rowId: string): YKeyValue<unknown> => {
-		const cached = rowKVCache.get(rowId);
-		if (cached) return cached;
-
+	const getOrCreateRow = (rowId: string): RowMap => {
 		const tableMap = getOrCreateTableMap();
-		let rowArray = tableMap.get(rowId);
-		if (!rowArray) {
-			rowArray = new Y.Array() as RowArray;
-			tableMap.set(rowId, rowArray);
+		let rowMap = tableMap.get(rowId);
+		if (!rowMap) {
+			rowMap = new Y.Map() as RowMap;
+			tableMap.set(rowId, rowMap);
 		}
-
-		const kv = new YKeyValue(rowArray);
-		rowKVCache.set(rowId, kv);
-		return kv;
+		return rowMap;
 	};
 
 	/**
-	 * Get the YKeyValue wrapper for an existing row, or null if not found.
+	 * Get the Y.Map for an existing row, or null if not found.
 	 *
 	 * Use this for read/update operations that need to handle missing rows.
-	 * Returns null if the row doesn't exist (unlike getOrCreateRowKV).
-	 *
-	 * The caller must handle the null case—typically by returning a
-	 * `not_found` or `not_found_locally` status.
+	 * Returns null if the row doesn't exist.
 	 *
 	 * @example
 	 * ```typescript
-	 * const rowKV = getRowKV('post-123');
-	 * if (!rowKV) return { status: 'not_found', id: 'post-123' };
+	 * const rowMap = getRow('post-123');
+	 * if (!rowMap) return { status: 'not_found', id: 'post-123' };
 	 * ```
 	 */
-	const getRowKV = (rowId: string): YKeyValue<unknown> | null => {
+	const getRow = (rowId: string): RowMap | null => {
 		const tableMap = getExistingTableMap();
-		if (!tableMap) {
-			rowKVCache.delete(rowId);
-			return null;
-		}
-
-		const rowArray = tableMap.get(rowId);
-		if (!rowArray) {
-			rowKVCache.delete(rowId);
-			return null;
-		}
-
-		const cached = rowKVCache.get(rowId);
-		if (cached) {
-			return cached;
-		}
-
-		const kv = new YKeyValue(rowArray);
-		rowKVCache.set(rowId, kv);
-		return kv;
+		if (!tableMap) return null;
+		return tableMap.get(rowId) ?? null;
 	};
 
 	/**
-	 * Ensure a YKeyValue wrapper exists for a row during iteration.
-	 *
-	 * Used by getAll/getAllValid/getAllInvalid/filter/find when iterating
-	 * over table entries. Avoids creating duplicate YKeyValue instances
-	 * for rows we've already wrapped.
-	 *
-	 * Unlike getOrCreateRowKV, this doesn't create the row—it assumes
-	 * the rowArray already exists (since we're iterating tableMap entries).
-	 */
-	const ensureRowKV = (id: string, rowArray: RowArray): YKeyValue<unknown> => {
-		const cached = rowKVCache.get(id);
-		if (cached) return cached;
-		const kv = new YKeyValue(rowArray);
-		rowKVCache.set(id, kv);
-		return kv;
-	};
-
-	/**
-	 * Reconstruct a row object from cell-level YKeyValue entries.
+	 * Reconstruct a row object from a Y.Map.
 	 *
 	 * Returns `Record<string, unknown>` because we know it's an object with
 	 * string keys, but values are unvalidated. Use `validateRow()` to get
 	 * a typed `RowResult<TRow>` with validation status.
 	 */
-	const reconstructRow = (
-		rowKV: YKeyValue<unknown>,
-	): Record<string, unknown> => {
+	const reconstructRow = (rowMap: RowMap): Record<string, unknown> => {
 		const row: Record<string, unknown> = {};
-		for (const [key, entry] of rowKV.map.entries()) {
-			row[key] = entry.val;
+		for (const [key, value] of rowMap.entries()) {
+			row[key] = value;
 		}
 		return row;
 	};
@@ -385,12 +295,12 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		schema,
 
 		update(partialRow: PartialRow<TTableSchema>): UpdateResult {
-			const rowKV = getRowKV(partialRow.id);
-			if (!rowKV) return { status: 'not_found_locally' };
+			const rowMap = getRow(partialRow.id);
+			if (!rowMap) return { status: 'not_found_locally' };
 
 			ydoc.transact(() => {
 				for (const [key, value] of Object.entries(partialRow)) {
-					rowKV.set(key, value);
+					rowMap.set(key, value);
 				}
 			});
 
@@ -398,10 +308,10 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		upsert(rowData: TRow): void {
-			const rowKV = getOrCreateRowKV(rowData.id);
+			const rowMap = getOrCreateRow(rowData.id);
 			ydoc.transact(() => {
 				for (const [key, value] of Object.entries(rowData)) {
-					rowKV.set(key, value);
+					rowMap.set(key, value);
 				}
 			});
 		},
@@ -409,9 +319,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		upsertMany(rows: TRow[]): void {
 			ydoc.transact(() => {
 				for (const rowData of rows) {
-					const rowKV = getOrCreateRowKV(rowData.id);
+					const rowMap = getOrCreateRow(rowData.id);
 					for (const [key, value] of Object.entries(rowData)) {
-						rowKV.set(key, value);
+						rowMap.set(key, value);
 					}
 				}
 			});
@@ -423,13 +333,13 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			ydoc.transact(() => {
 				for (const partialRow of rows) {
-					const rowKV = getRowKV(partialRow.id);
-					if (!rowKV) {
+					const rowMap = getRow(partialRow.id);
+					if (!rowMap) {
 						notFoundLocally.push(partialRow.id);
 						continue;
 					}
 					for (const [key, value] of Object.entries(partialRow)) {
-						rowKV.set(key, value);
+						rowMap.set(key, value);
 					}
 					applied.push(partialRow.id);
 				}
@@ -443,9 +353,9 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		},
 
 		get(id: string): GetResult<TRow> {
-			const rowKV = getRowKV(id);
-			if (!rowKV) return { status: 'not_found', id };
-			return validateRow(id, reconstructRow(rowKV));
+			const rowMap = getRow(id);
+			if (!rowMap) return { status: 'not_found', id };
+			return validateRow(id, reconstructRow(rowMap));
 		},
 
 		getAll(): RowResult<TRow>[] {
@@ -453,10 +363,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			if (!tableMap) return [];
 
 			const results: RowResult<TRow>[] = [];
-			for (const [id, rowArray] of tableMap.entries()) {
-				results.push(
-					validateRow(id, reconstructRow(ensureRowKV(id, rowArray))),
-				);
+			for (const [id, rowMap] of tableMap.entries()) {
+				results.push(validateRow(id, reconstructRow(rowMap)));
 			}
 			return results;
 		},
@@ -467,9 +375,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			const result: TRow[] = [];
 
-			for (const [id, rowArray] of tableMap.entries()) {
-				const rowKV = ensureRowKV(id, rowArray);
-				const row = reconstructRow(rowKV);
+			for (const [_id, rowMap] of tableMap.entries()) {
+				const row = reconstructRow(rowMap);
 				if (rowValidator.Check(row)) {
 					result.push(row as TRow);
 				}
@@ -483,11 +390,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			if (!tableMap) return [];
 
 			const result: InvalidRowResult[] = [];
-			for (const [id, rowArray] of tableMap.entries()) {
-				const validated = validateRow(
-					id,
-					reconstructRow(ensureRowKV(id, rowArray)),
-				);
+			for (const [id, rowMap] of tableMap.entries()) {
+				const validated = validateRow(id, reconstructRow(rowMap));
 				if (validated.status === 'invalid') {
 					result.push(validated);
 				}
@@ -506,7 +410,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				return { status: 'not_found_locally' };
 
 			tableMap.delete(id);
-			rowKVCache.delete(id);
 			return { status: 'deleted' };
 		},
 
@@ -523,7 +426,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				for (const id of ids) {
 					if (tableMap.has(id)) {
 						tableMap.delete(id);
-						rowKVCache.delete(id);
 						deleted.push(id);
 					} else {
 						notFoundLocally.push(id);
@@ -545,7 +447,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			ydoc.transact(() => {
 				for (const id of tableMap.keys()) {
 					tableMap.delete(id);
-					rowKVCache.delete(id);
 				}
 			});
 		},
@@ -561,9 +462,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 
 			const result: TRow[] = [];
 
-			for (const [id, rowArray] of tableMap.entries()) {
-				const rowKV = ensureRowKV(id, rowArray);
-				const row = reconstructRow(rowKV);
+			for (const [_id, rowMap] of tableMap.entries()) {
+				const row = reconstructRow(rowMap);
 				if (rowValidator.Check(row)) {
 					const validRow = row as TRow;
 					if (predicate(validRow)) {
@@ -579,9 +479,8 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return null;
 
-			for (const [id, rowArray] of tableMap.entries()) {
-				const rowKV = ensureRowKV(id, rowArray);
-				const row = reconstructRow(rowKV);
+			for (const [_id, rowMap] of tableMap.entries()) {
+				const row = reconstructRow(rowMap);
 				if (rowValidator.Check(row)) {
 					const validRow = row as TRow;
 					if (predicate(validRow)) {
@@ -630,7 +529,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		): () => void {
 			/**
 			 * Maps rowId → unsubscribe function for that row's cell-level observer.
-			 * Each row has its own YKeyValue wrapper that emits cell changes.
+			 * Each row has its own Y.Map that emits cell changes.
 			 */
 			const rowObservers = new Map<string, () => void>();
 
@@ -676,7 +575,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				pendingChanges.set(rowId, change);
 			};
 
-			const validateRow = (
+			const localValidateRow = (
 				rowId: string,
 				row: Record<string, unknown>,
 			): RowResult<TRow> => {
@@ -696,60 +595,52 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			 * Attach a cell-level observer to a row. Returns unsubscribe function.
 			 * On each cell change, reconstructs the full row and validates it.
 			 */
-			const observeRow = (rowId: string, rowArray: RowArray) => {
-				const rowKV = ensureRowKV(rowId, rowArray);
-
-				const handler: YKeyValueChangeHandler<unknown> = (
-					_cellChanges,
-					transaction,
-				) => {
-					const currentRow = reconstructRow(rowKV);
-					const result = validateRow(rowId, currentRow);
+			const observeRow = (rowId: string, rowMap: RowMap) => {
+				const handler = (event: Y.YMapEvent<unknown>) => {
+					const currentRow = reconstructRow(rowMap);
+					const result = localValidateRow(rowId, currentRow);
 
 					if (pendingAdds.has(rowId)) {
 						pendingAdds.delete(rowId);
-						queueChange(rowId, { action: 'add', result }, transaction);
+						queueChange(rowId, { action: 'add', result }, event.transaction);
 					} else {
-						queueChange(rowId, { action: 'update', result }, transaction);
+						queueChange(rowId, { action: 'update', result }, event.transaction);
 					}
 				};
 
-				rowKV.on('change', handler);
-				return () => rowKV.off('change', handler);
+				rowMap.observe(handler);
+				return () => rowMap.unobserve(handler);
 			};
 
 			/**
-			 * Rebind observer for a row whose underlying RowArray was replaced.
+			 * Rebind observer for a row whose underlying RowMap was replaced.
 			 * This can happen during sync when LWW resolves conflicting row structures.
 			 */
 			const rebindRowObserver = (
 				rowId: string,
-				newRowArray: RowArray,
+				newRowMap: RowMap,
 				transaction: Y.Transaction,
 			) => {
 				rowObservers.get(rowId)?.();
-				rowKVCache.delete(rowId);
-				rowObservers.set(rowId, observeRow(rowId, newRowArray));
+				rowObservers.set(rowId, observeRow(rowId, newRowMap));
 
-				const rowKV = ensureRowKV(rowId, newRowArray);
-				const currentRow = reconstructRow(rowKV);
-				const result = validateRow(rowId, currentRow);
+				const currentRow = reconstructRow(newRowMap);
+				const result = localValidateRow(rowId, currentRow);
 				queueChange(rowId, { action: 'update', result }, transaction);
 			};
 
-			const tableObserver = (event: Y.YMapEvent<RowArray>) => {
+			const tableObserver = (event: Y.YMapEvent<RowMap>) => {
 				const currentTableMap = event.target;
 
 				event.changes.keys.forEach((change, rowId) => {
 					if (change.action === 'add') {
-						const rowArray = currentTableMap.get(rowId);
-						if (rowArray) {
-							rowObservers.set(rowId, observeRow(rowId, rowArray));
+						const rowMap = currentTableMap.get(rowId);
+						if (rowMap) {
+							rowObservers.set(rowId, observeRow(rowId, rowMap));
 
-							const rowKV = ensureRowKV(rowId, rowArray);
-							if (rowKV.map.size > 0) {
-								const currentRow = reconstructRow(rowKV);
-								const result = validateRow(rowId, currentRow);
+							if (rowMap.size > 0) {
+								const currentRow = reconstructRow(rowMap);
+								const result = localValidateRow(rowId, currentRow);
 								queueChange(
 									rowId,
 									{ action: 'add', result },
@@ -760,15 +651,14 @@ function createTableHelper<TTableSchema extends TableSchema>({
 							}
 						}
 					} else if (change.action === 'update') {
-						const newRowArray = currentTableMap.get(rowId);
-						if (newRowArray) {
-							rebindRowObserver(rowId, newRowArray, event.transaction);
+						const newRowMap = currentTableMap.get(rowId);
+						if (newRowMap) {
+							rebindRowObserver(rowId, newRowMap, event.transaction);
 						}
 					} else if (change.action === 'delete') {
 						rowObservers.get(rowId)?.();
 						rowObservers.delete(rowId);
 						pendingAdds.delete(rowId);
-						rowKVCache.delete(rowId);
 						queueChange(rowId, { action: 'delete' }, event.transaction);
 					}
 				});
@@ -792,12 +682,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 				fireAddForExisting: boolean,
 				transaction?: Y.Transaction,
 			) => {
-				for (const [rowId, rowArray] of map.entries()) {
-					rowObservers.set(rowId, observeRow(rowId, rowArray));
+				for (const [rowId, rowMap] of map.entries()) {
+					rowObservers.set(rowId, observeRow(rowId, rowMap));
 					if (fireAddForExisting && transaction) {
-						const rowKV = ensureRowKV(rowId, rowArray);
-						const currentRow = reconstructRow(rowKV);
-						const result = validateRow(rowId, currentRow);
+						const currentRow = reconstructRow(rowMap);
+						const result = localValidateRow(rowId, currentRow);
 						queueChange(rowId, { action: 'add', result }, transaction);
 					}
 				}
@@ -827,7 +716,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 								queueChange(rowId, { action: 'delete' }, event.transaction);
 							}
 							teardownTableObservers();
-							rowKVCache.clear();
 							tableMap = newTableMap;
 							setupTableObserver(newTableMap, true, event.transaction);
 						}
@@ -836,7 +724,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 							queueChange(rowId, { action: 'delete' }, event.transaction);
 						}
 						teardownTableObservers();
-						rowKVCache.clear();
 						tableMap = null;
 					}
 				});
