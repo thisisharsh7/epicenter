@@ -24,6 +24,22 @@ function extractInputFromArgv(
 	return input;
 }
 
+/**
+ * Build yargs command configurations from an actions tree.
+ *
+ * Iterates over all actions and creates CommandModule configs that can be
+ * registered with yargs. Separates the concern of building command configs
+ * from registering them, enabling cleaner CLI construction.
+ *
+ * @example
+ * ```typescript
+ * const actions = { posts: { create: defineAction({ ... }) } };
+ * const commands = buildActionCommands(actions);
+ * for (const cmd of commands) {
+ *   cli = cli.command(cmd);
+ * }
+ * ```
+ */
 export function buildActionCommands(actions: Actions): CommandModule[] {
 	return [...iterateActions(actions)].map(([action, path]) => {
 		const commandPath = path.join(' ');
