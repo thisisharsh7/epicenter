@@ -70,7 +70,7 @@ export function createActionsRouter(options: ActionsRouterOptions) {
 				);
 				break;
 			default: {
-				const _exhaustive: never = action.type;
+				const _exhaustive: never = action;
 				throw new Error(`Unknown action type: ${_exhaustive}`);
 			}
 		}
