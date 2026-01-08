@@ -30,10 +30,6 @@ export type WorkspaceSchema<
 	id: TId;
 	/** Display name shown in UI. */
 	name: string;
-	/** Emoji icon for the workspace. */
-	emoji: string;
-	/** Description of the workspace. */
-	description: string;
 	/** Table definitions with metadata. */
 	tables: TTablesSchema;
 	/** Key-value store schema. */
