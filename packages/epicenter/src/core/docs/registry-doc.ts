@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 
 /**
- * Registry Y.Doc wrapper - Personal index of workspaces the user has access to.
+ * Create a Registry Y.Doc wrapper for managing a user's workspace list.
  *
  * Each user has one Registry Y.Doc that syncs only across their own devices.
  * It stores a set of workspace IDs (not the workspace data itself).
@@ -13,55 +13,6 @@ import * as Y from 'yjs';
  * Y.Map('workspaces')
  *   └── {workspaceId}: true
  * ```
- */
-export type RegistryDoc = {
-	/** The underlying Y.Doc instance. */
-	ydoc: Y.Doc;
-	/** The registry ID (Y.Doc guid). */
-	registryId: string;
-
-	/**
-	 * Add a workspace to the registry.
-	 *
-	 * This marks that the user has access to this workspace.
-	 * The workspace data itself lives in separate Head and Data Y.Docs.
-	 */
-	addWorkspace(workspaceId: string): void;
-
-	/**
-	 * Remove a workspace from the registry.
-	 *
-	 * This removes the user's local reference to the workspace.
-	 * It does NOT delete the workspace data (that requires auth server action).
-	 */
-	removeWorkspace(workspaceId: string): void;
-
-	/** Check if a workspace is in the registry. */
-	hasWorkspace(workspaceId: string): boolean;
-
-	/** Get all workspace IDs in the registry. */
-	getWorkspaceIds(): string[];
-
-	/** Get the count of workspaces in the registry. */
-	count(): number;
-
-	/**
-	 * Observe changes to the workspace registry.
-	 *
-	 * Fires when workspaces are added or removed.
-	 *
-	 * @returns Unsubscribe function
-	 */
-	observe(
-		callback: (event: { added: string[]; removed: string[] }) => void,
-	): () => void;
-
-	/** Destroy the registry doc and clean up resources. */
-	destroy(): void;
-};
-
-/**
- * Create a Registry Y.Doc wrapper for managing a user's workspace list.
  *
  * @example
  * ```typescript
@@ -89,36 +40,61 @@ export type RegistryDoc = {
 export function createRegistryDoc(options: {
 	registryId: string;
 	ydoc?: Y.Doc;
-}): RegistryDoc {
+}) {
 	const { registryId } = options;
 	const ydoc = options.ydoc ?? new Y.Doc({ guid: registryId });
 	const workspacesMap = ydoc.getMap<true>('workspaces');
 
 	return {
+		/** The underlying Y.Doc instance. */
 		ydoc,
+
+		/** The registry ID (Y.Doc guid). */
 		registryId,
 
-		addWorkspace(workspaceId) {
+		/**
+		 * Add a workspace to the registry.
+		 *
+		 * This marks that the user has access to this workspace.
+		 * The workspace data itself lives in separate Head and Data Y.Docs.
+		 */
+		addWorkspace(workspaceId: string) {
 			workspacesMap.set(workspaceId, true);
 		},
 
-		removeWorkspace(workspaceId) {
+		/**
+		 * Remove a workspace from the registry.
+		 *
+		 * This removes the user's local reference to the workspace.
+		 * It does NOT delete the workspace data (that requires auth server action).
+		 */
+		removeWorkspace(workspaceId: string) {
 			workspacesMap.delete(workspaceId);
 		},
 
-		hasWorkspace(workspaceId) {
+		/** Check if a workspace is in the registry. */
+		hasWorkspace(workspaceId: string) {
 			return workspacesMap.has(workspaceId);
 		},
 
+		/** Get all workspace IDs in the registry. */
 		getWorkspaceIds() {
 			return Array.from(workspacesMap.keys());
 		},
 
+		/** Get the count of workspaces in the registry. */
 		count() {
 			return workspacesMap.size;
 		},
 
-		observe(callback) {
+		/**
+		 * Observe changes to the workspace registry.
+		 *
+		 * Fires when workspaces are added or removed.
+		 *
+		 * @returns Unsubscribe function
+		 */
+		observe(callback: (event: { added: string[]; removed: string[] }) => void) {
 			const handler = (
 				event: Y.YMapEvent<true>,
 				_transaction: Y.Transaction,
@@ -143,8 +119,12 @@ export function createRegistryDoc(options: {
 			return () => workspacesMap.unobserve(handler);
 		},
 
+		/** Destroy the registry doc and clean up resources. */
 		destroy() {
 			ydoc.destroy();
 		},
 	};
 }
+
+/** Registry Y.Doc wrapper type - inferred from factory function. */
+export type RegistryDoc = ReturnType<typeof createRegistryDoc>;

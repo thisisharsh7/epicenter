@@ -6,39 +6,79 @@ import type { FieldSchema } from '../schema/fields/types';
 /**
  * Serialized field schema for Y.Doc storage.
  *
- * This is the JSON representation of a field definition stored in the Y.Doc.
- * It mirrors the FieldSchema type but is guaranteed to be JSON-serializable.
+ * A subset of FieldSchema optimized for storage:
+ * - Omits FieldMetadata (name, description, icon) to save space
+ * - Stores only type, nullable, default, options
+ *
+ * Note: JsonFieldSchema.schema is stored as-is. For full serialization,
+ * convert to JSON Schema before storing.
  */
 export type SerializedFieldSchema = {
 	type: FieldSchema['type'];
 	nullable?: boolean;
 	default?: unknown;
 	options?: readonly string[];
-	schema?: unknown; // JSON schema for json fields
+	schema?: unknown;
 };
 
 /**
- * Schema change event for observeSchemaChanges callback.
+ * Serialize a FieldSchema to storage format.
+ *
+ * Strips FieldMetadata and keeps only data-relevant properties.
  */
-export type SchemaChangeEvent = {
-	tablesAdded: string[];
-	tablesRemoved: string[];
-	fieldsChanged: Array<{
-		table: string;
-		field: string;
-		action: 'add' | 'update' | 'delete';
-	}>;
-};
+function serializeFieldSchema(schema: FieldSchema): SerializedFieldSchema {
+	const serialized: SerializedFieldSchema = {
+		type: schema.type,
+	};
+
+	if ('nullable' in schema && schema.nullable !== undefined) {
+		serialized.nullable = schema.nullable;
+	}
+
+	if ('default' in schema && schema.default !== undefined) {
+		serialized.default = schema.default;
+	}
+
+	if ('options' in schema && schema.options !== undefined) {
+		serialized.options = schema.options as readonly string[];
+	}
+
+	if ('schema' in schema && schema.schema !== undefined) {
+		serialized.schema = schema.schema;
+	}
+
+	return serialized;
+}
 
 /**
- * Data Y.Doc wrapper - Contains all workspace data and schema for a specific epoch.
+ * Shallow equality check for serialized field schemas.
+ */
+function shallowEqual(
+	a: SerializedFieldSchema,
+	b: SerializedFieldSchema,
+): boolean {
+	if (a.type !== b.type) return false;
+	if (a.nullable !== b.nullable) return false;
+	if (a.default !== b.default) return false;
+
+	if (a.options !== b.options) {
+		if (!a.options || !b.options) return false;
+		if (a.options.length !== b.options.length) return false;
+		for (let i = 0; i < a.options.length; i++) {
+			if (a.options[i] !== b.options[i]) return false;
+		}
+	}
+
+	if (a.schema !== b.schema) return false;
+
+	return true;
+}
+
+/**
+ * Create a Data Y.Doc wrapper for managing workspace data and schema.
  *
  * Each workspace+epoch combination has one Data Y.Doc that syncs with all collaborators.
- * It stores:
- * - Schema definitions (tables, fields, kv)
- * - Metadata (workspace name)
- * - Table data
- * - KV data
+ * It stores schema definitions, metadata, table data, and KV data.
  *
  * Y.Doc ID: `{workspaceId}-{epoch}`
  *
@@ -57,213 +97,23 @@ export type SchemaChangeEvent = {
  * Y.Map('kv')
  *   └── {keyName}: value
  * ```
- */
-export type DataDoc = {
-	/** The underlying Y.Doc instance. */
-	ydoc: Y.Doc;
-	/** The workspace ID. */
-	workspaceId: string;
-	/** The epoch number. */
-	epoch: number;
-	/** The full doc ID (`{workspaceId}-{epoch}`). */
-	docId: string;
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Metadata
-	// ─────────────────────────────────────────────────────────────────────────
-
-	/** Get the workspace display name. */
-	getName(): string | undefined;
-	/** Set the workspace display name. */
-	setName(name: string): void;
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Schema Management
-	// ─────────────────────────────────────────────────────────────────────────
-
-	/**
-	 * Check if schema has any tables or kv fields defined.
-	 */
-	hasSchema(): boolean;
-
-	/**
-	 * Merge code-defined schema into Y.Doc schema.
-	 *
-	 * Uses pure merge semantics:
-	 * - If table/field doesn't exist → add it
-	 * - If table/field exists with different value → update it
-	 * - If table/field exists with same value → no-op (CRDT handles)
-	 *
-	 * Call this on every workspace.create(). It's idempotent and safe to call
-	 * multiple times. The CRDT merge ensures eventual consistency across peers.
-	 *
-	 * TypeScript types come from code schema (compile-time).
-	 * Runtime validation uses Y.Doc schema (can diverge if collaboratively edited).
-	 */
-	mergeSchema(tables: TablesSchema, kv: KvSchema): void;
-
-	/** Get the schema for a specific table. */
-	getTableSchema(
-		tableName: string,
-	): Map<string, SerializedFieldSchema> | undefined;
-
-	/** Get all table names that have schema defined. */
-	getTableNames(): string[];
-
-	/** Get the schema for a specific KV key. */
-	getKvSchema(keyName: string): SerializedFieldSchema | undefined;
-
-	/** Get all KV key names that have schema defined. */
-	getKvNames(): string[];
-
-	/**
-	 * Add a new field to a table schema.
-	 *
-	 * This enables collaborative schema editing - multiple users can add fields
-	 * and CRDT will merge them automatically.
-	 */
-	addTableField(
-		tableName: string,
-		fieldName: string,
-		fieldSchema: FieldSchema,
-	): void;
-
-	/** Remove a field from a table schema. */
-	removeTableField(tableName: string, fieldName: string): void;
-
-	/** Add a new KV field schema. */
-	addKvField(keyName: string, fieldSchema: FieldSchema): void;
-
-	/** Remove a KV field schema. */
-	removeKvField(keyName: string): void;
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Raw Y.Map Access (for table operations)
-	// ─────────────────────────────────────────────────────────────────────────
-
-	/**
-	 * Get the raw tables Y.Map.
-	 *
-	 * Structure: `{tableName}: Y.Map<rowId, Y.Map<fieldName, value>>`
-	 */
-	getTablesMap(): Y.Map<Y.Map<Y.Map<unknown>>>;
-
-	/**
-	 * Get the raw KV Y.Map.
-	 *
-	 * Structure: `{keyName}: value`
-	 */
-	getKvMap(): Y.Map<unknown>;
-
-	/** Get the raw schema Y.Map. */
-	getSchemaMap(): Y.Map<Y.Map<unknown>>;
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Schema Observation
-	// ─────────────────────────────────────────────────────────────────────────
-
-	/**
-	 * Observe changes to table schemas.
-	 *
-	 * Fires when tables are added/removed or fields within tables change.
-	 *
-	 * @returns Unsubscribe function
-	 */
-	observeSchemaChanges(
-		callback: (event: SchemaChangeEvent) => void,
-	): () => void;
-
-	/** Destroy the data doc and clean up resources. */
-	destroy(): void;
-};
-
-/**
- * Serialize a FieldSchema to a JSON-safe format for Y.Doc storage.
- */
-function serializeFieldSchema(schema: FieldSchema): SerializedFieldSchema {
-	const serialized: SerializedFieldSchema = {
-		type: schema.type,
-	};
-
-	// Check for nullable (not present on IdFieldSchema, RichtextFieldSchema)
-	if ('nullable' in schema && schema.nullable !== undefined) {
-		serialized.nullable = schema.nullable;
-	}
-
-	// Check for default (not present on IdFieldSchema, RichtextFieldSchema)
-	if ('default' in schema && schema.default !== undefined) {
-		// Functions can't be serialized, so we evaluate them
-		const defaultValue = schema.default;
-		serialized.default =
-			typeof defaultValue === 'function' ? defaultValue() : defaultValue;
-	}
-
-	if ('options' in schema && schema.options !== undefined) {
-		serialized.options = schema.options as readonly string[];
-	}
-
-	if ('schema' in schema && schema.schema !== undefined) {
-		// For JSON fields, store the schema definition
-		// This would need proper JSON Schema conversion in production
-		serialized.schema = schema.schema;
-	}
-
-	return serialized;
-}
-
-/**
- * Shallow equality check for serialized field schemas.
- * Compares top-level keys and array values (for options).
- */
-function shallowEqual(
-	a: SerializedFieldSchema,
-	b: SerializedFieldSchema,
-): boolean {
-	if (a.type !== b.type) return false;
-	if (a.nullable !== b.nullable) return false;
-	if (a.default !== b.default) return false;
-
-	// Compare options arrays
-	if (a.options !== b.options) {
-		if (!a.options || !b.options) return false;
-		if (a.options.length !== b.options.length) return false;
-		for (let i = 0; i < a.options.length; i++) {
-			if (a.options[i] !== b.options[i]) return false;
-		}
-	}
-
-	// For JSON schema, do reference equality (deep comparison would be expensive)
-	if (a.schema !== b.schema) return false;
-
-	return true;
-}
-
-/**
- * Create a Data Y.Doc wrapper for managing workspace data and schema.
  *
  * @example
  * ```typescript
- * const data = createDataDoc({
- *   workspaceId: 'abc123xyz789012',
- *   epoch: 0,
- * });
+ * const data = createDataDoc({ workspaceId: 'abc123xyz789012', epoch: 0 });
  *
  * // Merge code schema into Y.Doc (idempotent, call on every create)
- * data.mergeSchema(workspaceSchema.tables, workspaceSchema.kv);
+ * data.mergeSchema(tables, kv);
  *
  * // Get schema for a table
  * const postsSchema = data.getTableSchema('posts');
- *
- * // Access raw Y.Maps for table operations
- * const tablesMap = data.getTablesMap();
- * const kvMap = data.getKvMap();
  * ```
  */
 export function createDataDoc(options: {
 	workspaceId: string;
 	epoch: number;
 	ydoc?: Y.Doc;
-}): DataDoc {
+}) {
 	const { workspaceId, epoch } = options;
 	const docId = `${workspaceId}-${epoch}`;
 	const ydoc = options.ydoc ?? new Y.Doc({ guid: docId });
@@ -290,20 +140,29 @@ export function createDataDoc(options: {
 	}
 
 	return {
+		/** The underlying Y.Doc instance. */
 		ydoc,
+
+		/** The workspace ID. */
 		workspaceId,
+
+		/** The epoch number. */
 		epoch,
+
+		/** The full doc ID (`{workspaceId}-{epoch}`). */
 		docId,
 
 		// ─────────────────────────────────────────────────────────────────────
 		// Metadata
 		// ─────────────────────────────────────────────────────────────────────
 
+		/** Get the workspace display name. */
 		getName() {
 			return metaMap.get('name');
 		},
 
-		setName(name) {
+		/** Set the workspace display name. */
+		setName(name: string) {
 			metaMap.set('name', name);
 		},
 
@@ -311,16 +170,26 @@ export function createDataDoc(options: {
 		// Schema Management
 		// ─────────────────────────────────────────────────────────────────────
 
+		/** Check if schema has any tables or kv fields defined. */
 		hasSchema() {
 			return getTablesSchemaMap().size > 0 || getKvSchemaMap().size > 0;
 		},
 
-		mergeSchema(tables, kv) {
+		/**
+		 * Merge code-defined schema into Y.Doc schema.
+		 *
+		 * Uses pure merge semantics:
+		 * - If table/field doesn't exist → add it
+		 * - If table/field exists with different value → update it
+		 * - If table/field exists with same value → no-op (CRDT handles)
+		 *
+		 * Call on every workspace.create(). Idempotent and safe for concurrent calls.
+		 */
+		mergeSchema(tables: TablesSchema, kv: KvSchema) {
 			ydoc.transact(() => {
 				const tablesSchemaMap = getTablesSchemaMap();
 				const kvSchemaMap = getKvSchemaMap();
 
-				// Merge table schemas
 				for (const [tableName, tableSchema] of Object.entries(tables)) {
 					let tableMap = tablesSchemaMap.get(tableName);
 					if (!tableMap) {
@@ -332,19 +201,16 @@ export function createDataDoc(options: {
 						const serialized = serializeFieldSchema(fieldSchema);
 						const existing = tableMap.get(fieldName);
 
-						// Only write if different (avoid unnecessary CRDT operations)
 						if (!existing || !shallowEqual(existing, serialized)) {
 							tableMap.set(fieldName, serialized);
 						}
 					}
 				}
 
-				// Merge KV schemas
 				for (const [keyName, fieldSchema] of Object.entries(kv)) {
 					const serialized = serializeFieldSchema(fieldSchema);
 					const existing = kvSchemaMap.get(keyName);
 
-					// Only write if different
 					if (!existing || !shallowEqual(existing, serialized)) {
 						kvSchemaMap.set(keyName, serialized);
 					}
@@ -352,7 +218,8 @@ export function createDataDoc(options: {
 			});
 		},
 
-		getTableSchema(tableName) {
+		/** Get the schema for a specific table. */
+		getTableSchema(tableName: string) {
 			const tableMap = getTablesSchemaMap().get(tableName);
 			if (!tableMap) return undefined;
 
@@ -363,19 +230,32 @@ export function createDataDoc(options: {
 			return result;
 		},
 
+		/** Get all table names that have schema defined. */
 		getTableNames() {
 			return Array.from(getTablesSchemaMap().keys());
 		},
 
-		getKvSchema(keyName) {
+		/** Get the schema for a specific KV key. */
+		getKvSchema(keyName: string) {
 			return getKvSchemaMap().get(keyName);
 		},
 
+		/** Get all KV key names that have schema defined. */
 		getKvNames() {
 			return Array.from(getKvSchemaMap().keys());
 		},
 
-		addTableField(tableName, fieldName, fieldSchema) {
+		/**
+		 * Add a new field to a table schema.
+		 *
+		 * Enables collaborative schema editing - multiple users can add fields
+		 * and CRDT will merge them automatically.
+		 */
+		addTableField(
+			tableName: string,
+			fieldName: string,
+			fieldSchema: FieldSchema,
+		) {
 			const tablesSchemaMap = getTablesSchemaMap();
 
 			let tableMap = tablesSchemaMap.get(tableName);
@@ -387,18 +267,21 @@ export function createDataDoc(options: {
 			tableMap.set(fieldName, serializeFieldSchema(fieldSchema));
 		},
 
-		removeTableField(tableName, fieldName) {
+		/** Remove a field from a table schema. */
+		removeTableField(tableName: string, fieldName: string) {
 			const tableMap = getTablesSchemaMap().get(tableName);
 			if (tableMap) {
 				tableMap.delete(fieldName);
 			}
 		},
 
-		addKvField(keyName, fieldSchema) {
+		/** Add a new KV field schema. */
+		addKvField(keyName: string, fieldSchema: FieldSchema) {
 			getKvSchemaMap().set(keyName, serializeFieldSchema(fieldSchema));
 		},
 
-		removeKvField(keyName) {
+		/** Remove a KV field schema. */
+		removeKvField(keyName: string) {
 			getKvSchemaMap().delete(keyName);
 		},
 
@@ -406,14 +289,25 @@ export function createDataDoc(options: {
 		// Raw Y.Map Access
 		// ─────────────────────────────────────────────────────────────────────
 
+		/**
+		 * Get the raw tables Y.Map.
+		 *
+		 * Structure: `{tableName}: Y.Map<rowId, Y.Map<fieldName, value>>`
+		 */
 		getTablesMap() {
 			return tablesMap;
 		},
 
+		/**
+		 * Get the raw KV Y.Map.
+		 *
+		 * Structure: `{keyName}: value`
+		 */
 		getKvMap() {
 			return kvMap;
 		},
 
+		/** Get the raw schema Y.Map. */
 		getSchemaMap() {
 			return schemaMap;
 		},
@@ -422,7 +316,24 @@ export function createDataDoc(options: {
 		// Schema Observation
 		// ─────────────────────────────────────────────────────────────────────
 
-		observeSchemaChanges(callback) {
+		/**
+		 * Observe changes to table schemas.
+		 *
+		 * Fires when tables are added/removed or fields within tables change.
+		 *
+		 * @returns Unsubscribe function
+		 */
+		observeSchemaChanges(
+			callback: (event: {
+				tablesAdded: string[];
+				tablesRemoved: string[];
+				fieldsChanged: Array<{
+					table: string;
+					field: string;
+					action: 'add' | 'update' | 'delete';
+				}>;
+			}) => void,
+		) {
 			const tablesSchemaMap = getTablesSchemaMap();
 			const fieldHandlers = new Map<
 				string,
@@ -434,7 +345,11 @@ export function createDataDoc(options: {
 				tableMap: Y.Map<SerializedFieldSchema>,
 			) => {
 				const fieldHandler = (event: Y.YMapEvent<SerializedFieldSchema>) => {
-					const fieldsChanged: SchemaChangeEvent['fieldsChanged'] = [];
+					const fieldsChanged: Array<{
+						table: string;
+						field: string;
+						action: 'add' | 'update' | 'delete';
+					}> = [];
 
 					event.changes.keys.forEach((change, key) => {
 						fieldsChanged.push({
@@ -453,7 +368,6 @@ export function createDataDoc(options: {
 				fieldHandlers.set(tableName, fieldHandler);
 			};
 
-			// Track table-level changes
 			const tableHandler = (
 				event: Y.YMapEvent<Y.Map<SerializedFieldSchema>>,
 			) => {
@@ -463,7 +377,6 @@ export function createDataDoc(options: {
 				event.changes.keys.forEach((change, key) => {
 					if (change.action === 'add') {
 						tablesAdded.push(key);
-						// Setup observer for new table
 						const tableMap = tablesSchemaMap.get(key);
 						if (tableMap) {
 							setupFieldObserver(key, tableMap);
@@ -479,7 +392,6 @@ export function createDataDoc(options: {
 				}
 			};
 
-			// Setup observers for existing tables
 			tablesSchemaMap.forEach((tableMap, tableName) => {
 				setupFieldObserver(tableName, tableMap);
 			});
@@ -488,12 +400,20 @@ export function createDataDoc(options: {
 
 			return () => {
 				tablesSchemaMap.unobserve(tableHandler);
-				// Field handlers are implicitly cleaned up when their Y.Maps are garbage collected
 			};
 		},
 
+		/** Destroy the data doc and clean up resources. */
 		destroy() {
 			ydoc.destroy();
 		},
 	};
 }
+
+/** Data Y.Doc wrapper type - inferred from factory function. */
+export type DataDoc = ReturnType<typeof createDataDoc>;
+
+/** Schema change event type for observeSchemaChanges callback. */
+export type SchemaChangeEvent = Parameters<
+	Parameters<DataDoc['observeSchemaChanges']>[0]
+>[0];
