@@ -12,6 +12,8 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import SearchXIcon from '@lucide/svelte/icons/search-x';
 
 	const workspaceId = $derived(page.params.id);
 	const tableId = $derived(page.params.tableId);
@@ -42,17 +44,37 @@
 	{#if workspace.isPending}
 		<div class="text-muted-foreground">Loading...</div>
 	{:else if workspace.error}
-		<div class="rounded-lg border border-destructive bg-destructive/10 p-4">
-			<p class="text-destructive font-medium">Failed to load workspace</p>
-			<p class="text-destructive/80 text-sm">{workspace.error.message}</p>
-		</div>
+		<Empty.Root class="border-destructive/50">
+			<Empty.Header>
+				<Empty.Media variant="icon" class="bg-destructive/10 text-destructive">
+					<TriangleAlertIcon />
+				</Empty.Media>
+				<Empty.Title>Failed to load workspace</Empty.Title>
+				<Empty.Description>{workspace.error.message}</Empty.Description>
+			</Empty.Header>
+			<Empty.Content>
+				<Button variant="outline" onclick={() => workspace.refetch()}>
+					Try again
+				</Button>
+			</Empty.Content>
+		</Empty.Root>
 	{:else if !tableFields}
-		<div class="rounded-lg border border-destructive bg-destructive/10 p-4">
-			<p class="text-destructive font-medium">Table not found</p>
-			<p class="text-destructive/80 text-sm">
-				The table "{tableId}" does not exist in this workspace.
-			</p>
-		</div>
+		<Empty.Root>
+			<Empty.Header>
+				<Empty.Media variant="icon">
+					<SearchXIcon />
+				</Empty.Media>
+				<Empty.Title>Table not found</Empty.Title>
+				<Empty.Description>
+					The table "{tableId}" does not exist in this workspace.
+				</Empty.Description>
+			</Empty.Header>
+			<Empty.Content>
+				<Button variant="outline" href="/workspaces/{workspaceId}">
+					Back to workspace
+				</Button>
+			</Empty.Content>
+		</Empty.Root>
 	{:else}
 		<div class="flex items-center justify-between">
 			<div>

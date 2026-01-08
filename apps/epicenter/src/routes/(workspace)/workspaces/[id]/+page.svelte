@@ -2,6 +2,9 @@
 	import { page } from '$app/state';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
+	import * as Empty from '@epicenter/ui/empty';
+	import { Button } from '@epicenter/ui/button';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
 	const workspaceId = $derived(page.params.id);
 
@@ -15,10 +18,20 @@
 	{#if workspace.isPending}
 		<div class="text-muted-foreground">Loading workspace...</div>
 	{:else if workspace.error}
-		<div class="rounded-lg border border-destructive bg-destructive/10 p-4">
-			<p class="text-destructive font-medium">Failed to load workspace</p>
-			<p class="text-destructive/80 text-sm">{workspace.error.message}</p>
-		</div>
+		<Empty.Root class="border-destructive/50">
+			<Empty.Header>
+				<Empty.Media variant="icon" class="bg-destructive/10 text-destructive">
+					<TriangleAlertIcon />
+				</Empty.Media>
+				<Empty.Title>Failed to load workspace</Empty.Title>
+				<Empty.Description>{workspace.error.message}</Empty.Description>
+			</Empty.Header>
+			<Empty.Content>
+				<Button variant="outline" onclick={() => workspace.refetch()}>
+					Try again
+				</Button>
+			</Empty.Content>
+		</Empty.Root>
 	{:else if workspace.data}
 		<div class="space-y-4">
 			<div>
