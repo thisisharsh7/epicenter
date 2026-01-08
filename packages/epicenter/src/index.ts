@@ -128,7 +128,7 @@ export type {
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
 
-// Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
+// Note: Capabilities (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
-//   import { markdownProvider } from '@epicenter/hq/providers/markdown';
-//   import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+//   import { markdown } from '@epicenter/hq/capabilities/markdown';
+//   import { sqlite } from '@epicenter/hq/capabilities/sqlite';
