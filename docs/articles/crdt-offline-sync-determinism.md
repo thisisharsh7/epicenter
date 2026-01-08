@@ -126,3 +126,9 @@ For most apps, **clientID ordering + good data modeling** (cell-level granularit
 Design your data so conflicts are rare (different cells = no conflict), and trust the CRDT to handle the rare same-cell case deterministically. Don't add timestamp complexity unless users are actually complaining—and even then, understand you're trading guaranteed convergence for intuitive-but-risky ordering.
 
 The goal isn't "fair" conflict resolution. The goal is **every device agreeing on reality**.
+
+---
+
+_Related:_
+
+- [The Surprising Truth About "Last Write Wins" in CRDTs](./crdt-last-write-wins-surprise.md) - Why CRDTs use clientID ordering instead of timestamps

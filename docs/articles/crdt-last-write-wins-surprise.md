@@ -122,6 +122,10 @@ Next time you're building a collaborative feature, remember: the "last" in Last 
 
 ---
 
+_Related:_
+
+- [CRDT Offline Sync: Why Determinism Beats "Fairness"](./crdt-offline-sync-determinism.md) - Concrete scenarios walking through what happens when devices go offline
+
 _Further reading:_
 
 - [Yjs Internals](https://github.com/yjs/yjs/blob/main/INTERNALS.md)
