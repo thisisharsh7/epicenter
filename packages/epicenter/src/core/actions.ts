@@ -181,16 +181,9 @@ export function defineAction<
  *
  * @example
  * ```typescript
- * function walkActions(node: Action | Actions) {
- *   if (isAction(node)) {
- *     // node is Action
- *     console.log(node.type, node.handler);
- *   } else {
- *     // node is Actions (nested structure)
- *     for (const [key, child] of Object.entries(node)) {
- *       walkActions(child);
- *     }
- *   }
+ * for (const [action, path] of iterateActions(actions)) {
+ *   // action is Action<any, any>
+ *   console.log(action.type, path.join('/'));
  * }
  * ```
  */
@@ -238,34 +231,34 @@ export function isMutation(value: unknown): value is Action<any, any> {
 }
 
 /**
- * Walk an action tree and call a visitor function for each action.
+ * Iterate over all actions in a nested action tree.
  *
- * The visitor receives:
- * - `action`: The action object
- * - `path`: Array of keys from root to this action (e.g., ['posts', 'create'])
+ * Yields [action, path] tuples where path is the array of keys from root.
  *
- * @example Generate routes from actions
+ * @example
  * ```typescript
- * walkActions(actions, (action, path) => {
+ * for (const [action, path] of iterateActions(actions)) {
  *   const route = '/' + path.join('/');
  *   const method = action.type === 'query' ? 'GET' : 'POST';
  *   console.log(`${method} ${route}`);
- * });
- * // GET /posts/getAll
- * // POST /posts/create
+ * }
+ * ```
+ *
+ * @example Collect all action paths
+ * ```typescript
+ * const paths = [...iterateActions(actions)].map(([_, path]) => path.join('/'));
  * ```
  */
-export function walkActions(
+export function* iterateActions(
 	actions: Actions,
-	visitor: (action: Action<any, any>, path: string[]) => void,
 	path: string[] = [],
-): void {
+): Generator<[Action<any, any>, string[]]> {
 	for (const [key, value] of Object.entries(actions)) {
 		const currentPath = [...path, key];
 		if (isAction(value)) {
-			visitor(value, currentPath);
+			yield [value, currentPath];
 		} else {
-			walkActions(value, visitor, currentPath);
+			yield* iterateActions(value, currentPath);
 		}
 	}
 }

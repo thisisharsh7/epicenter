@@ -1,6 +1,8 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
+import type { Actions } from '../core/actions';
 import type { WorkspaceClient } from '../core/workspace/contract';
+import { collectActionPaths, createActionsPlugin } from './actions';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';
 
@@ -8,6 +10,7 @@ export const DEFAULT_PORT = 3913;
 
 export type ServerOptions = {
 	port?: number;
+	actions?: Actions;
 };
 
 type AnyWorkspaceClient = WorkspaceClient<string, any, any, any>;
@@ -63,7 +66,11 @@ function createServerInternal(
 		workspaces[client.id] = client;
 	}
 
-	const app = new Elysia()
+	const actionPaths = options?.actions
+		? collectActionPaths(options.actions)
+		: [];
+
+	const baseApp = new Elysia()
 		.use(
 			openapi({
 				embedSpec: true,
@@ -81,13 +88,19 @@ function createServerInternal(
 				getDoc: (room) => workspaces[room]?.ydoc,
 			}),
 		)
-		.use(createTablesPlugin(workspaces))
-		.get('/', () => ({
-			name: 'Epicenter API',
-			version: '1.0.0',
-			docs: '/openapi',
-			workspaces: Object.keys(workspaces),
-		}));
+		.use(createTablesPlugin(workspaces));
+
+	const appWithActions = options?.actions
+		? baseApp.use(createActionsPlugin({ actions: options.actions }))
+		: baseApp;
+
+	const app = appWithActions.get('/', () => ({
+		name: 'Epicenter API',
+		version: '1.0.0',
+		docs: '/openapi',
+		workspaces: Object.keys(workspaces),
+		actions: actionPaths,
+	}));
 
 	const port =
 		options?.port ??
@@ -117,6 +130,14 @@ function createServerInternal(
 					console.log(`    tables/${table.name}`);
 				}
 				console.log(`    sync (WebSocket)`);
+				console.log();
+			}
+
+			if (actionPaths.length > 0) {
+				console.log('Available Actions:\n');
+				for (const actionPath of actionPaths) {
+					console.log(`  /actions/${actionPath}`);
+				}
 				console.log();
 			}
 
