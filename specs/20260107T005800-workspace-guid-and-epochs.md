@@ -96,10 +96,12 @@ The GUID alone is reserved for future coordination document. Numbered suffixes a
 
 ```
 abc123xyz789012       <- Reserved for future coordination doc
-abc123xyz789012:0     <- Data doc, epoch 0
-abc123xyz789012:1     <- Data doc, epoch 1
-abc123xyz789012:2     <- Data doc, epoch 2
+abc123xyz789012-0     <- Data doc, epoch 0
+abc123xyz789012-1     <- Data doc, epoch 1
+abc123xyz789012-2     <- Data doc, epoch 2
 ```
+
+**Note**: Hyphen (`-`) is used as the epoch delimiter because y-sweet only allows alphanumeric characters, hyphens, and underscores in document IDs. Colons are NOT allowed.
 
 **Why GUID alone for coordination?**
 
@@ -170,7 +172,7 @@ export type WorkspaceSchema<
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  DATA DOCUMENT (current epoch)                              │
-│  GUID: "abc123xyz789012:2"                                   │
+│  GUID: "abc123xyz789012-2"                                   │
 │                                                              │
 │  Y.Map contents:                                            │
 │    tables: { posts: {...}, users: {...} }                   │
@@ -191,13 +193,13 @@ export type WorkspaceSchema<
 │     → Read epoch: 2                                         │
 │     → Subscribe to changes                                  │
 │                                                              │
-│  3. Connect to data doc: "abc123xyz789012:2"                │
+│  3. Connect to data doc: "abc123xyz789012-2"                │
 │     → Load tables, kv                                       │
 │     → Start syncing                                         │
 │                                                              │
 │  4. If coordination doc changes (epoch → 3):                │
-│     → Disconnect from "abc123xyz789012:2"                   │
-│     → Connect to "abc123xyz789012:3"                        │
+│     → Disconnect from "abc123xyz789012-2"                   │
+│     → Connect to "abc123xyz789012-3"                        │
 │     → Continue with new data                                │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -220,7 +222,7 @@ Initiator captures current state of epoch N:
 STEP 2: Initiator creates new data doc
 ──────────────────────────────────────
 Initiator creates epoch N+1 with snapshot:
-  const newDataDoc = new Y.Doc({ guid: `${guid}:${epoch + 1}` });
+  const newDataDoc = new Y.Doc({ guid: `${guid}-${epoch + 1}` });
   Y.applyUpdate(newDataDoc, snapshot);
 
 STEP 3: Initiator bumps epoch (THE ATOMIC SWITCH)
@@ -269,7 +271,7 @@ The key insight: **Other clients don't copy data.** The initiator seeds the new 
 
 ### Phase 3: Workspace Client Updates
 
-- [x] **3.1** Update `initializeWorkspace()` to use `{guid}:0` as YJS doc GUID (epoch 0, reserved namespace)
+- [x] **3.1** Update `initializeWorkspace()` to use `{guid}-0` as YJS doc GUID (epoch 0, reserved namespace)
 - [ ] **3.2** Add epoch change observer to handle transitions (deferred)
 - [x] **3.3** Update `WorkspaceClient` type to expose `guid`
 - [ ] **3.4** Implement `bumpEpoch()` method on client for initiating transitions (deferred)
@@ -380,7 +382,7 @@ client.onEpochChange((newEpoch, oldEpoch) => {
 
 1. `defineWorkspace()` with new GUID
 2. Coordination doc created with `epoch: 0`
-3. Data doc `{guid}:0` created empty
+3. Data doc `{guid}-0` created empty
 4. Normal operation proceeds
 
 ### Joining Existing Workspace
@@ -395,7 +397,7 @@ client.onEpochChange((newEpoch, oldEpoch) => {
 1. Client was on epoch 1, goes offline
 2. While offline, epoch bumped to 2
 3. Client comes online, connects to coordination doc
-4. Sees `epoch: 2`, connects to `{guid}:2`
+4. Sees `epoch: 2`, connects to `{guid}-2`
 5. Any local changes from epoch 1 are... lost? (See Open Questions)
 
 ### Multiple Simultaneous Bump Attempts
@@ -415,7 +417,7 @@ client.onEpochChange((newEpoch, oldEpoch) => {
    - **Recommendation**: Accept this as expected behavior; document clearly
 
 2. **Should old epoch data docs be garbage collected?**
-   - `{guid}:0`, `{guid}:1` accumulate over time
+   - `{guid}-0`, `{guid}-1` accumulate over time
    - Options: (a) Keep forever, (b) GC after N epochs, (c) Manual cleanup
    - **Recommendation**: Defer; keep for now, add GC later if needed
 
@@ -435,7 +437,7 @@ client.onEpochChange((newEpoch, oldEpoch) => {
 - [ ] `WorkspaceSchema` includes `guid` field
 - [ ] `generateGuid()` produces valid GUIDs matching pattern
 - [ ] Coordination doc created and synced correctly
-- [ ] Data doc uses `{guid}:{epoch}` format
+- [ ] Data doc uses `{guid}-{epoch}` format
 - [ ] Epoch transitions work with multiple clients
 - [ ] Offline clients reconnect to correct epoch
 - [ ] All existing tests pass with updated schema

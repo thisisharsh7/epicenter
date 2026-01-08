@@ -141,7 +141,7 @@ The epoch system (from `20260108T062000-local-first-workspace-discovery.md`) pro
 │                                                                             │
 │  1. IN-PLACE SNAPSHOT (No epoch bump):                                      │
 │     const snapshot = Y.encodeStateAsUpdate(dataDoc);                        │
-│     const freshDoc = new Y.Doc({ guid: `${guid}:${epoch}` });               │
+│     const freshDoc = new Y.Doc({ guid: `${guid}-${epoch}` });               │
 │     Y.applyUpdate(freshDoc, snapshot);                                      │
 │     // Save freshDoc to file - history is stripped!                         │
 │                                                                             │

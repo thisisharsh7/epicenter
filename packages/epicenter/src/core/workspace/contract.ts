@@ -172,7 +172,7 @@ type InitializedWorkspace<
  * Initialize a workspace: create YJS doc, tables, kv, and run capability factories.
  *
  * This is an internal function called by `.create()`. It:
- * 1. Creates a YJS document with `{guid}:0` as the doc GUID (epoch 0, reserved for future epoch support)
+ * 1. Creates a YJS document with `{guid}-0` as the doc GUID (epoch 0, reserved for future epoch support)
  * 2. Creates typed table and kv helpers backed by the YJS doc
  * 3. Runs all capability factories in parallel
  * 4. Returns everything needed to construct a WorkspaceClient
@@ -186,7 +186,7 @@ async function initializeWorkspace<
 	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
 	capabilityFactories: TCapabilities,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
-	const ydoc = new Y.Doc({ guid: `${config.guid}:0` });
+	const ydoc = new Y.Doc({ guid: `${config.guid}-0` });
 	const tables = createTables(ydoc, config.tables);
 	const kv = createKv(ydoc, config.kv);
 
