@@ -4,7 +4,7 @@ import type { WorkspaceClient } from '../core/workspace/contract';
 import { createServer, DEFAULT_PORT } from '../server/server';
 import { buildActionCommands } from './command-builder';
 
-type AnyWorkspaceClient = WorkspaceClient<string, any, any, any>;
+type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
 
 type CLIOptions = {
 	actions?: Actions;

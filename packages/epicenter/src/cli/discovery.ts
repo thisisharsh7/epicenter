@@ -3,7 +3,7 @@ import { dirname, join, parse, resolve } from 'node:path';
 import type { ProjectDir } from '../core/types';
 import type { WorkspaceClient } from '../core/workspace/contract';
 
-type AnyWorkspaceClient = WorkspaceClient<string, any, any>;
+type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
 
 export async function findProjectDir(
 	startDir: string = process.cwd(),
