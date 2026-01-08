@@ -136,7 +136,7 @@ export type WebsocketSyncConfig = {
  * @example Single capability (browser to local server)
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { createWebsocketSyncProvider } from '@epicenter/hq/capabilities/websocket-sync';
+ * import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
  *
  * // Browser connects to its own local Elysia server
  * const workspace = defineWorkspace({
@@ -146,7 +146,7 @@ export type WebsocketSyncConfig = {
  *
  * const client = await workspace
  *   .withCapabilities({
- *     sync: createWebsocketSyncProvider({ url: 'ws://localhost:3913/sync' }),
+ *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
  *   })
  *   .create();
  * ```
@@ -154,7 +154,7 @@ export type WebsocketSyncConfig = {
  * @example Multi-capability (phone connecting to all nodes)
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { createWebsocketSyncProvider } from '@epicenter/hq/capabilities/websocket-sync';
+ * import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
  *
  * const SYNC_NODES = {
  *   desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync',
@@ -171,9 +171,9 @@ export type WebsocketSyncConfig = {
  * const client = await workspace
  *   .withCapabilities({
  *     // Create a capability for each sync node
- *     syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
- *     syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
- *     syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+ *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
+ *     syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *     syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
  *   })
  *   .create();
  * ```
@@ -198,8 +198,8 @@ export type WebsocketSyncConfig = {
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)
  *     // 2. A sync client connecting to other servers
- *     syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
- *     syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+ *     syncToLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *     syncToCloud: websocketSync({ url: SYNC_NODES.cloud }),
  *   })
  *   .create();
  * ```
@@ -222,7 +222,7 @@ export type WebsocketSyncConfig = {
  * providers.forEach(p => p.on('sync', () => console.log('Synced!')));
  * ```
  */
-export function createWebsocketSyncProvider<TSchema extends TablesSchema>(
+export function websocketSync<TSchema extends TablesSchema>(
 	config: WebsocketSyncConfig,
 ): Capability<TSchema> {
 	return ({ ydoc }) => {

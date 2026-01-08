@@ -23,7 +23,7 @@ import type { TablesSchema } from '../../core/schema';
  * @example Basic usage
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { setupPersistence } from '@epicenter/hq/capabilities/persistence';
+ * import { persistence } from '@epicenter/hq/capabilities/persistence';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',
@@ -32,12 +32,12 @@ import type { TablesSchema } from '../../core/schema';
  *
  * const client = await workspace
  *   .withCapabilities({
- *     persistence: setupPersistence,  // → .epicenter/capabilities/persistence/blog.yjs
+ *     persistence,  // → .epicenter/capabilities/persistence/blog.yjs
  *   })
  *   .create();
  * ```
  */
-export const setupPersistence = (async <TSchema extends TablesSchema>({
+export const persistence = (async <TSchema extends TablesSchema>({
 	id,
 	ydoc,
 	paths,

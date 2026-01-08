@@ -222,7 +222,7 @@ export type MarkdownProviderConfig<
 	debug?: boolean;
 };
 
-export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
+export const markdown = (async <TTablesSchema extends TablesSchema>(
 	context: CapabilityContext<TTablesSchema>,
 	config: MarkdownProviderConfig<TTablesSchema> = {},
 ) => {

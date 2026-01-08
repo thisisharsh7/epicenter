@@ -30,7 +30,7 @@ import type { TablesSchema } from '../../core/schema';
  * @example Basic usage in a browser app
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { setupPersistence } from '@epicenter/hq/capabilities/persistence';
+ * import { persistence } from '@epicenter/hq/capabilities/persistence';
  *
  * const workspace = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
@@ -39,7 +39,7 @@ import type { TablesSchema } from '../../core/schema';
  *
  * const client = await workspace
  *   .withCapabilities({
- *     persistence: setupPersistence,
+ *     persistence,
  *   })
  *   .create();
  * ```
@@ -50,7 +50,7 @@ import type { TablesSchema } from '../../core/schema';
  *
  * // Inside component setup/onMount:
  * const client = await workspace
- *   .withCapabilities({ persistence: setupPersistence })
+ *   .withCapabilities({ persistence })
  *   .create();
  *
  * // Data persists across page refreshes!
@@ -70,8 +70,8 @@ import type { TablesSchema } from '../../core/schema';
  *   tables: { ... },
  * });
  *
- * const blogClient = await blog.withCapabilities({ persistence: setupPersistence }).create();
- * const notesClient = await notes.withCapabilities({ persistence: setupPersistence }).create();
+ * const blogClient = await blog.withCapabilities({ persistence }).create();
+ * const notesClient = await notes.withCapabilities({ persistence }).create();
  *
  * // Workspaces are isolated, each with separate IndexedDB storage
  * ```
@@ -85,9 +85,9 @@ import type { TablesSchema } from '../../core/schema';
  * 5. Click to inspect the stored YJS document
  * ```
  *
- * @see {@link setupPersistence} from `@epicenter/hq/capabilities/persistence/desktop` for Node.js/filesystem version
+ * @see {@link persistence} from `@epicenter/hq/capabilities/persistence/desktop` for Node.js/filesystem version
  */
-export const setupPersistence = (<TSchema extends TablesSchema>({
+export const persistence = (<TSchema extends TablesSchema>({
 	ydoc,
 }: CapabilityContext<TSchema>) => {
 	// y-indexeddb handles both loading and saving automatically

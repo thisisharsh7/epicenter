@@ -66,13 +66,13 @@ type SqliteProviderOptions = {
  * ```typescript
  * // In workspace definition:
  * capabilities: {
- *   sqlite: (c) => sqliteProvider(c),  // Auto-saves to .epicenter/{id}.db
+ *   sqlite: (c) => sqlite(c),  // Auto-saves to .epicenter/{id}.db
  *   // Or with custom debounce:
- *   sqlite: (c) => sqliteProvider(c, { debounceMs: 50 }),
+ *   sqlite: (c) => sqlite(c, { debounceMs: 50 }),
  * },
  *
  * // After creating the client, query SQLite via capabilities:
- * const client = await workspace.withCapabilities({ sqlite: sqliteProvider }).create();
+ * const client = await workspace.withCapabilities({ sqlite }).create();
  *
  * // Query with Drizzle:
  * const posts = await client.capabilities.sqlite.db
@@ -81,7 +81,7 @@ type SqliteProviderOptions = {
  *   .where(eq(client.capabilities.sqlite.posts.id, id));
  * ```
  */
-export const sqliteProvider = (async <TTablesSchema extends TablesSchema>(
+export const sqlite = (async <TTablesSchema extends TablesSchema>(
 	{ id, tables, paths }: CapabilityContext<TTablesSchema>,
 	options: SqliteProviderOptions = {},
 ) => {
