@@ -4,6 +4,7 @@ import {
 	WorkspaceStorageErr,
 	type WorkspaceFile,
 } from '$lib/services/workspace-storage';
+import { toSnakeCase } from '$lib/utils/slug';
 import { Ok, Err } from 'wellcrafted/result';
 import { generateGuid, id, text, toSqlIdentifier } from '@epicenter/hq';
 
@@ -176,7 +177,11 @@ export const workspaces = {
 
 	addKvEntry: defineMutation({
 		mutationKey: ['workspaces', 'addKvEntry'],
-		mutationFn: async (input: { workspaceId: string; key: string }) => {
+		mutationFn: async (input: {
+			workspaceId: string;
+			name: string;
+			key: string;
+		}) => {
 			const readResult = await workspaceStorage.readWorkspace(
 				input.workspaceId,
 			);
@@ -185,13 +190,16 @@ export const workspaces = {
 			}
 
 			const workspace = readResult.data;
-			if (workspace.kv[input.key]) {
+			// Ensure key is always snake_case for KV schema compatibility
+			const kvKey = input.key || toSnakeCase(input.name);
+
+			if (workspace.kv[kvKey]) {
 				return WorkspaceStorageErr({
-					message: `Setting "${input.key}" already exists`,
+					message: `Setting with key "${kvKey}" already exists`,
 				});
 			}
 
-			workspace.kv[input.key] = text();
+			workspace.kv[kvKey] = text();
 
 			const writeResult = await workspaceStorage.writeWorkspace(workspace);
 			if (writeResult.error) {

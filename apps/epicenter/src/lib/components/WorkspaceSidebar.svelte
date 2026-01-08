@@ -7,8 +7,8 @@
 	import * as Popover from '@epicenter/ui/popover';
 	import { Button, buttonVariants } from '@epicenter/ui/button';
 	import { cn } from '@epicenter/ui/utils';
-	import { inputDialog } from '$lib/components/InputDialog.svelte';
 	import { createTableDialog } from '$lib/components/CreateTableDialog.svelte';
+	import { createSettingDialog } from '$lib/components/CreateSettingDialog.svelte';
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { getTableMetadata } from '$lib/utils/normalize-table';
 	import { rpc } from '$lib/query';
@@ -278,14 +278,11 @@
 					title="Add Setting"
 					onclick={() => {
 						if (!workspaceId) return;
-						inputDialog.open({
-							title: 'Add Setting',
-							description: 'Enter a key for the new setting.',
-							label: 'Setting Key',
-							placeholder: 'e.g., api-url, feature-flags',
-							onConfirm: async (key) => {
+						createSettingDialog.open({
+							onConfirm: async ({ name, key }) => {
 								await addKvEntryMutation.mutateAsync({
 									workspaceId,
+									name,
 									key,
 								});
 							},

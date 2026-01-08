@@ -6,6 +6,7 @@
 	import '@epicenter/ui/app.css';
 	import InputDialog from '$lib/components/InputDialog.svelte';
 	import CreateTableDialog from '$lib/components/CreateTableDialog.svelte';
+	import CreateSettingDialog from '$lib/components/CreateSettingDialog.svelte';
 	import CreateWorkspaceDialog from '$lib/components/CreateWorkspaceDialog.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 
@@ -30,6 +31,7 @@
 
 <InputDialog />
 <CreateTableDialog />
+<CreateSettingDialog />
 <CreateWorkspaceDialog />
 <ConfirmationDialog />
 <Toaster offset={16} theme={mode.current} {...TOASTER_SETTINGS} />

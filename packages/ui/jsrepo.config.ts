@@ -6,7 +6,7 @@ export default defineConfig({
 	// configure where stuff goes here
 	paths: {
 		ui: 'src',
-		lib: 'src',
+		lib: 'src/utils',
 		util: 'src/utils',
 		hook: 'src/hooks',
 		hooks: 'src/hooks',
