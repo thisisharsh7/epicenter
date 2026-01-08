@@ -1,7 +1,8 @@
-import * as Y from 'yjs';
+import type * as Y from 'yjs';
 
 import { createTables, type Tables } from '../tables/create-tables';
 import { createKv, type Kv } from '../kv/core';
+import { createDataDoc, type DataDoc } from '../docs';
 import type {
 	CapabilityExports,
 	CapabilityMap,
@@ -161,7 +162,7 @@ type InitializedWorkspace<
 	TKvSchema extends KvSchema,
 	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 > = {
-	ydoc: Y.Doc;
+	dataDoc: DataDoc;
 	tables: Tables<TTablesSchema>;
 	kv: Kv<TKvSchema>;
 	capabilityExports: InferCapabilityExports<TCapabilities>;
@@ -169,13 +170,48 @@ type InitializedWorkspace<
 };
 
 /**
- * Initialize a workspace: create YJS doc, tables, kv, and run capability factories.
+ * Normalize tables schema to plain field schemas (strip table metadata if present).
+ *
+ * Tables can be defined with or without metadata:
+ * - Simple: `{ posts: { id: id(), title: text() } }`
+ * - With metadata: `{ posts: { name: 'Posts', fields: { id: id(), title: text() } } }`
+ *
+ * This function extracts just the field schemas for seeding.
+ */
+function normalizeTablesForSeeding(
+	tables: TablesSchema | TablesWithMetadata,
+): TablesSchema {
+	const result: TablesSchema = {};
+	for (const [tableName, tableValue] of Object.entries(tables)) {
+		// Check if this is a TableDefinition (has 'fields' property with 'id' inside)
+		if (
+			'fields' in tableValue &&
+			typeof tableValue.fields === 'object' &&
+			tableValue.fields !== null &&
+			'id' in tableValue.fields
+		) {
+			result[tableName] = tableValue.fields;
+		} else {
+			// It's already a plain TableSchema
+			result[tableName] = tableValue as TablesSchema[string];
+		}
+	}
+	return result;
+}
+
+/**
+ * Initialize a workspace: create Data Y.Doc, seed schema, tables, kv, and run capability factories.
  *
  * This is an internal function called by `.create()`. It:
- * 1. Creates a YJS document with `{id}-0` as the doc GUID (epoch 0, reserved for future epoch support)
- * 2. Creates typed table and kv helpers backed by the YJS doc
- * 3. Runs all capability factories in parallel
- * 4. Returns everything needed to construct a WorkspaceClient
+ * 1. Creates a Data Y.Doc with `{id}-{epoch}` as the doc GUID (epoch 0 for initial)
+ * 2. Seeds the Y.Doc schema from code-defined schema (if not already seeded)
+ * 3. Creates typed table and kv helpers backed by the Y.Doc
+ * 4. Runs all capability factories in parallel
+ * 5. Returns everything needed to construct a WorkspaceClient
+ *
+ * The Data Y.Doc contains both schema and data. Schema is seeded once from the
+ * code-defined schema, then becomes the runtime source of truth for validation.
+ * TypeScript types always come from the code schema (compile-time).
  */
 async function initializeWorkspace<
 	TTablesSchema extends TablesSchema,
@@ -185,9 +221,24 @@ async function initializeWorkspace<
 	config: WorkspaceSchema<TTablesSchema, TKvSchema>,
 	capabilityFactories: TCapabilities,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
-	const ydoc = new Y.Doc({ guid: `${config.id}-0` });
-	const tables = createTables(ydoc, config.tables);
-	const kv = createKv(ydoc, config.kv);
+	// Create Data Y.Doc (epoch 0 for now, will be read from Head Y.Doc in future)
+	const dataDoc = createDataDoc({
+		workspaceId: config.id,
+		epoch: 0,
+	});
+
+	// Seed workspace name
+	if (!dataDoc.getName()) {
+		dataDoc.setName(config.name);
+	}
+
+	// Seed schema from code definition (no-op if already seeded)
+	const normalizedTables = normalizeTablesForSeeding(config.tables);
+	dataDoc.seedSchema(normalizedTables, config.kv);
+
+	// Create table and kv helpers using the Data Y.Doc
+	const tables = createTables(dataDoc.ydoc, config.tables);
+	const kv = createKv(dataDoc.ydoc, config.kv);
 
 	const capabilityExports = Object.fromEntries(
 		await Promise.all(
@@ -196,7 +247,7 @@ async function initializeWorkspace<
 					const result = await capabilityFn({
 						id: config.slug,
 						capabilityId,
-						ydoc,
+						ydoc: dataDoc.ydoc,
 						tables,
 						kv,
 					});
@@ -212,11 +263,11 @@ async function initializeWorkspace<
 				(capability as CapabilityExports).destroy?.(),
 			),
 		);
-		ydoc.destroy();
+		dataDoc.destroy();
 	};
 
 	return {
-		ydoc,
+		dataDoc,
 		tables,
 		kv,
 		capabilityExports,
@@ -279,7 +330,7 @@ export function defineWorkspace<
 		>(
 			capabilities?: TCapabilities,
 		): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
-			const { ydoc, tables, kv, capabilityExports, cleanup } =
+			const { dataDoc, tables, kv, capabilityExports, cleanup } =
 				await initializeWorkspace(
 					config,
 					(capabilities ?? {}) as TCapabilities,
@@ -288,7 +339,7 @@ export function defineWorkspace<
 			return {
 				id: config.id,
 				slug: config.slug,
-				ydoc,
+				ydoc: dataDoc.ydoc,
 				tables,
 				kv,
 				capabilities: capabilityExports,
