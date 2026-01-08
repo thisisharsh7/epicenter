@@ -1,50 +1,43 @@
-import { Elysia, t, type TSchema } from 'elysia';
+import { Elysia } from 'elysia';
 import type { Action, Actions } from '../core/actions';
 import { iterateActions } from '../core/actions';
-import { generateJsonSchema } from '../core/schema/standard/to-json-schema';
 
-type ActionsPluginOptions = {
+type ActionsRouterOptions = {
 	actions: Actions;
 	basePath?: string;
 };
 
-export function createActionsPlugin(options: ActionsPluginOptions) {
+export function createActionsRouter(options: ActionsRouterOptions) {
 	const { actions, basePath = '/actions' } = options;
-
-	const plugin = new Elysia({ prefix: basePath });
+	const router = new Elysia({ prefix: basePath });
 
 	for (const [action, path] of iterateActions(actions)) {
-		const routePath = '/' + path.join('/');
+		const routePath = `/${path.join('/')}`;
 		const handler = createActionHandler(action);
-		const tags: string[] = path.length > 1 ? [path[0] as string] : [];
+		const namespaceTags = path.length > 1 ? [path[0] as string] : [];
+		const tags = [...namespaceTags, action.type];
 
-		if (action.type === 'query') {
-			plugin.get(routePath, handler, {
-				detail: {
-					summary: path.join('.'),
-					description: action.description,
-					tags,
-				},
-			});
-		} else {
-			const bodySchema = action.input
-				? jsonSchemaToElysia(
-						generateJsonSchema(action.input) as Record<string, unknown>,
-					)
-				: t.Any();
+		const detail = {
+			summary: path.join('.'),
+			description: action.description,
+			tags,
+		};
 
-			plugin.post(routePath, handler, {
-				body: bodySchema,
-				detail: {
-					summary: path.join('.'),
-					description: action.description,
-					tags,
-				},
-			});
+		switch (action.type) {
+			case 'query':
+				router.get(routePath, handler, { query: action.input, detail });
+				break;
+			case 'mutation':
+				router.post(routePath, handler, { body: action.input, detail });
+				break;
+			default: {
+				const _exhaustive: never = action.type;
+				throw new Error(`Unknown action type: ${_exhaustive}`);
+			}
 		}
 	}
 
-	return plugin;
+	return router;
 }
 
 function createActionHandler(action: Action<any, any>) {
@@ -70,56 +63,6 @@ function createActionHandler(action: Action<any, any>) {
 	};
 }
 
-function jsonSchemaToElysia(schema: Record<string, unknown>): TSchema {
-	if (schema.type === 'object' && schema.properties) {
-		const properties = schema.properties as Record<
-			string,
-			Record<string, unknown>
-		>;
-		const required = (schema.required as string[]) ?? [];
-		const shape: Record<string, TSchema> = {};
-
-		for (const [key, propSchema] of Object.entries(properties)) {
-			const isRequired = required.includes(key);
-			shape[key] = jsonSchemaPropertyToElysia(propSchema, isRequired);
-		}
-
-		return t.Object(shape);
-	}
-
-	return t.Any();
-}
-
-function jsonSchemaPropertyToElysia(
-	schema: Record<string, unknown>,
-	isRequired: boolean,
-): TSchema {
-	let elysiaType: TSchema;
-
-	switch (schema.type) {
-		case 'string':
-			elysiaType = t.String();
-			break;
-		case 'number':
-		case 'integer':
-			elysiaType = t.Number();
-			break;
-		case 'boolean':
-			elysiaType = t.Boolean();
-			break;
-		case 'array':
-			elysiaType = t.Array(t.Any());
-			break;
-		case 'object':
-			elysiaType = jsonSchemaToElysia(schema);
-			break;
-		default:
-			elysiaType = t.Any();
-	}
-
-	return isRequired ? elysiaType : t.Optional(elysiaType);
-}
-
 export function collectActionPaths(actions: Actions): string[] {
-	return [...iterateActions(actions)].map(([_, path]) => path.join('/'));
+	return [...iterateActions(actions)].map(([, path]) => path.join('/'));
 }

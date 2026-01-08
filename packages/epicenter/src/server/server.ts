@@ -2,7 +2,7 @@ import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 import type { Actions } from '../core/actions';
 import type { WorkspaceClient } from '../core/workspace/contract';
-import { collectActionPaths, createActionsPlugin } from './actions';
+import { collectActionPaths, createActionsRouter } from './actions';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';
 
@@ -91,7 +91,7 @@ function createServerInternal(
 		.use(createTablesPlugin(workspaces));
 
 	const appWithActions = options?.actions
-		? baseApp.use(createActionsPlugin({ actions: options.actions }))
+		? baseApp.use(createActionsRouter({ actions: options.actions }))
 		: baseApp;
 
 	const app = appWithActions.get('/', () => ({
