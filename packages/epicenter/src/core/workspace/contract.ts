@@ -227,14 +227,14 @@ async function initializeWorkspace<
 		epoch: 0,
 	});
 
-	// Seed workspace name
+	// Set workspace name (only if not already set)
 	if (!dataDoc.getName()) {
 		dataDoc.setName(config.name);
 	}
 
-	// Seed schema from code definition (no-op if already seeded)
+	// Merge code schema into Y.Doc schema (idempotent, CRDT handles conflicts)
 	const normalizedTables = normalizeTablesForSeeding(config.tables);
-	dataDoc.seedSchema(normalizedTables, config.kv);
+	dataDoc.mergeSchema(normalizedTables, config.kv);
 
 	// Create table and kv helpers using the Data Y.Doc
 	const tables = createTables(dataDoc.ydoc, config.tables);

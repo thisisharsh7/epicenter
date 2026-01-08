@@ -82,33 +82,25 @@ export type DataDoc = {
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Check if schema has been seeded.
-	 *
-	 * Returns true if at least one table or kv field is defined in the Y.Doc.
+	 * Check if schema has any tables or kv fields defined.
 	 */
 	hasSchema(): boolean;
 
 	/**
-	 * Check if schema has been marked as seeded.
+	 * Merge code-defined schema into Y.Doc schema.
 	 *
-	 * This is a more reliable check than hasSchema() since it uses an explicit marker.
+	 * Uses pure merge semantics:
+	 * - If table/field doesn't exist → add it
+	 * - If table/field exists with different value → update it
+	 * - If table/field exists with same value → no-op (CRDT handles)
+	 *
+	 * Call this on every workspace.create(). It's idempotent and safe to call
+	 * multiple times. The CRDT merge ensures eventual consistency across peers.
+	 *
+	 * TypeScript types come from code schema (compile-time).
+	 * Runtime validation uses Y.Doc schema (can diverge if collaboratively edited).
 	 */
-	isSchemaSeeded(): boolean;
-
-	/**
-	 * Seed the Y.Doc schema from code-defined schema.
-	 *
-	 * This should be called once when first creating a workspace.
-	 * If the Y.Doc already has schema, this is a no-op.
-	 *
-	 * The code schema is the source of truth for TypeScript types,
-	 * while the Y.Doc schema enables runtime validation and collaborative editing.
-	 */
-	seedSchema(
-		tables: TablesSchema,
-		kv: KvSchema,
-		options?: { force?: boolean },
-	): void;
+	mergeSchema(tables: TablesSchema, kv: KvSchema): void;
 
 	/** Get the schema for a specific table. */
 	getTableSchema(
@@ -220,6 +212,33 @@ function serializeFieldSchema(schema: FieldSchema): SerializedFieldSchema {
 }
 
 /**
+ * Shallow equality check for serialized field schemas.
+ * Compares top-level keys and array values (for options).
+ */
+function shallowEqual(
+	a: SerializedFieldSchema,
+	b: SerializedFieldSchema,
+): boolean {
+	if (a.type !== b.type) return false;
+	if (a.nullable !== b.nullable) return false;
+	if (a.default !== b.default) return false;
+
+	// Compare options arrays
+	if (a.options !== b.options) {
+		if (!a.options || !b.options) return false;
+		if (a.options.length !== b.options.length) return false;
+		for (let i = 0; i < a.options.length; i++) {
+			if (a.options[i] !== b.options[i]) return false;
+		}
+	}
+
+	// For JSON schema, do reference equality (deep comparison would be expensive)
+	if (a.schema !== b.schema) return false;
+
+	return true;
+}
+
+/**
  * Create a Data Y.Doc wrapper for managing workspace data and schema.
  *
  * @example
@@ -229,11 +248,8 @@ function serializeFieldSchema(schema: FieldSchema): SerializedFieldSchema {
  *   epoch: 0,
  * });
  *
- * // Seed schema from code definition
- * data.seedSchema(workspaceSchema.tables, workspaceSchema.kv);
- *
- * // Check if schema is already seeded
- * const hasSchema = data.hasSchema();
+ * // Merge code schema into Y.Doc (idempotent, call on every create)
+ * data.mergeSchema(workspaceSchema.tables, workspaceSchema.kv);
  *
  * // Get schema for a table
  * const postsSchema = data.getTableSchema('posts');
@@ -299,21 +315,12 @@ export function createDataDoc(options: {
 			return getTablesSchemaMap().size > 0 || getKvSchemaMap().size > 0;
 		},
 
-		isSchemaSeeded() {
-			return metaMap.get('schemaSeeded') === 'true';
-		},
-
-		seedSchema(tables, kv, seedOptions = {}) {
-			// Skip if already seeded (unless force)
-			if (metaMap.get('schemaSeeded') === 'true' && !seedOptions.force) {
-				return;
-			}
-
+		mergeSchema(tables, kv) {
 			ydoc.transact(() => {
 				const tablesSchemaMap = getTablesSchemaMap();
 				const kvSchemaMap = getKvSchemaMap();
 
-				// Seed table schemas
+				// Merge table schemas
 				for (const [tableName, tableSchema] of Object.entries(tables)) {
 					let tableMap = tablesSchemaMap.get(tableName);
 					if (!tableMap) {
@@ -322,21 +329,26 @@ export function createDataDoc(options: {
 					}
 
 					for (const [fieldName, fieldSchema] of Object.entries(tableSchema)) {
-						if (!tableMap.has(fieldName) || seedOptions.force) {
-							tableMap.set(fieldName, serializeFieldSchema(fieldSchema));
+						const serialized = serializeFieldSchema(fieldSchema);
+						const existing = tableMap.get(fieldName);
+
+						// Only write if different (avoid unnecessary CRDT operations)
+						if (!existing || !shallowEqual(existing, serialized)) {
+							tableMap.set(fieldName, serialized);
 						}
 					}
 				}
 
-				// Seed KV schemas
+				// Merge KV schemas
 				for (const [keyName, fieldSchema] of Object.entries(kv)) {
-					if (!kvSchemaMap.has(keyName) || seedOptions.force) {
-						kvSchemaMap.set(keyName, serializeFieldSchema(fieldSchema));
+					const serialized = serializeFieldSchema(fieldSchema);
+					const existing = kvSchemaMap.get(keyName);
+
+					// Only write if different
+					if (!existing || !shallowEqual(existing, serialized)) {
+						kvSchemaMap.set(keyName, serialized);
 					}
 				}
-
-				// Mark as seeded
-				metaMap.set('schemaSeeded', 'true');
 			});
 		},
 

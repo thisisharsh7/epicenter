@@ -1,204 +1,93 @@
 # Handoff: Collaborative Workspace Config Y.Doc
 
-**Date**: 2026-01-08
+**Date**: 2026-01-08 (Updated)
 **Parent Spec**: `20260108T133200-collaborative-workspace-config-ydoc.md`
 
-## What Was Implemented
+## Implementation Status
 
-### Terminology Refactor (Complete)
+### Phase 1: Terminology Refactor ✅ COMPLETE
 
-The workspace identifier terminology has been standardized:
+Workspace identifiers standardized:
 
-```typescript
-// OLD API
-const workspace = defineWorkspace({
-  guid: generateGuid(),  // 15-char globally unique
-  id: 'blog',            // human-readable slug
-  name: 'Blog',
-  tables: { ... },
-  kv: {},
-});
+| Old    | New    | Description                        |
+| ------ | ------ | ---------------------------------- |
+| `guid` | `id`   | 15-char globally unique identifier |
+| `id`   | `slug` | Human-readable name for URLs/paths |
 
-// NEW API
-const workspace = defineWorkspace({
-  id: generateWorkspaceId(),  // 15-char globally unique
-  slug: 'blog',               // human-readable slug
-  name: 'Blog',
-  tables: { ... },
-  kv: {},
-});
-```
+### Phase 2: 3-Document Architecture ✅ COMPLETE
 
-**Deprecation aliases provided:**
+Created factory functions for the three Y.Doc types:
 
-- `Guid` type → Use `WorkspaceId`
-- `generateGuid()` → Use `generateWorkspaceId()`
+| Factory                                 | Y.Doc ID                | Purpose                  |
+| --------------------------------------- | ----------------------- | ------------------------ |
+| `createRegistryDoc({ registryId })`     | `{registryId}`          | Personal workspace index |
+| `createHeadDoc({ workspaceId })`        | `{workspaceId}`         | Epoch pointer            |
+| `createDataDoc({ workspaceId, epoch })` | `{workspaceId}-{epoch}` | Schema + data            |
 
-**Y.Doc GUID format:**
+### Phase 3: Schema Storage & Seeding ✅ COMPLETE
 
-- Already uses `{id}-0` (workspace ID + hyphen + epoch)
-- Hyphen delimiter is y-sweet compatible (colons not allowed)
+`workspace.create()` now:
 
-### Files Changed
+1. Creates DataDoc (wraps Y.Doc with schema storage)
+2. Seeds schema from code definition on first run (if not already seeded)
+3. Seeds workspace name to Y.Doc metadata
+
+---
+
+## What's Implemented
+
+### Files Created
 
 ```
-packages/epicenter/src/core/schema/fields/id.ts    # New types + deprecation aliases
-packages/epicenter/src/core/schema/index.ts        # Export new types
-packages/epicenter/src/index.ts                    # Export new types
-packages/epicenter/src/core/workspace/contract.ts  # Core type changes
-packages/epicenter/src/core/capability.ts          # JSDoc clarification
-packages/epicenter/src/cli/cli.ts                  # Generic param update
-packages/epicenter/src/cli/discovery.ts            # Generic param update
-packages/epicenter/src/server/server.ts            # Generic param update
-packages/epicenter/src/server/tables.ts            # Generic param update
-packages/epicenter/scripts/*.ts                    # Use new API
-apps/epicenter/src/**/*.ts                         # Use new API
-apps/tab-manager/src/**/*.ts                       # Use new API
-examples/basic-workspace/epicenter.config.ts       # Use new API
+packages/epicenter/src/core/docs/
+├── index.ts           # Re-exports
+├── registry-doc.ts    # createRegistryDoc factory
+├── head-doc.ts        # createHeadDoc factory
+└── data-doc.ts        # createDataDoc factory with schema seeding
 ```
 
-## What Remains to Implement
+### Files Modified
 
-### 1. Registry Y.Doc (Per User)
-
-**Purpose:** Personal index of workspaces the user has access to.
-
-**Implementation tasks:**
-
-- [ ] Create `RegistryDoc` class to manage user's workspace list
-- [ ] Store as `Y.Map('workspaces')` where keys are workspace IDs, values are `true`
-- [ ] Sync only across user's own devices (not with other users)
-- [ ] Integrate with auth server to get `registryId`
-
-**Data structure:**
-
-```typescript
-// Y.Doc ID: {registryId}
-Y.Map('workspaces')
-  └── {workspaceId}: true
+```
+packages/epicenter/src/core/workspace/contract.ts  # Uses DataDoc, seeds schema
+packages/epicenter/src/index.ts                    # Exports new doc types
 ```
 
-### 2. Head Y.Doc (Per Workspace)
+### Commits (on branch `feat/workspace-id-slug-terminology`)
 
-**Purpose:** Pointer to current data epoch, shared among collaborators.
-
-**Implementation tasks:**
-
-- [ ] Create `HeadDoc` class with epoch pointer
-- [ ] Store as `Y.Map('head')` with `epoch` key
-- [ ] Add `isMigrating` flag for epoch bump coordination
-- [ ] Sync with all workspace collaborators
-
-**Data structure:**
-
-```typescript
-// Y.Doc ID: {workspaceId}
-Y.Map('head')
-  └── epoch: number (currently always 0)
+```
+2f7df8c feat(epicenter): integrate DataDoc with schema seeding into workspace
+d36d4cd feat(epicenter): add collaborative Y.Doc wrappers for 3-document architecture
+e756241 docs(spec): add collaborative workspace config spec and handoff
+059d791 refactor: update apps and examples for workspace id→slug rename
+1915d73 refactor(epicenter): update CLI and server for new workspace terminology
+de01600 feat(workspace): rename workspace guid→id, id→slug in core types
 ```
 
-### 3. Separate Data Y.Doc from Head
-
-**Current state:** Single Y.Doc at `{id}-0` contains all data.
-
-**Target state:**
-
-- Head doc at `{workspaceId}` (no epoch suffix)
-- Data doc at `{workspaceId}-{epoch}`
-
-**Implementation tasks:**
-
-- [ ] On workspace create, first connect to Head doc
-- [ ] Read current epoch from head
-- [ ] Then connect to Data doc at `{workspaceId}-{epoch}`
-- [ ] Subscribe to head changes for epoch bumps
-
-### 4. Schema Storage in Y.Doc
-
-**Purpose:** Enable collaborative schema editing.
-
-**Implementation tasks:**
-
-- [ ] Add `Y.Map('schema')` to Data Y.Doc structure
-- [ ] Nested structure: `schema.tables.{tableName}.{fieldName}` → JSON field definition
-- [ ] On `workspace.create()`:
-  - If Y.Doc schema empty → seed from code schema
-  - If Y.Doc schema exists → use it for runtime validation
-- [ ] TypeScript types always from code schema (compile-time)
-- [ ] Runtime validation uses Y.Doc schema
-
-**Data structure:**
-
-```typescript
-// Y.Doc ID: {workspaceId}-{epoch}
-Y.Map('schema')
-  ├── tables: Y.Map
-  │   └── {tableName}: Y.Map
-  │       └── {fieldName}: { type: 'text', nullable: false, ... }
-  └── kv: Y.Map
-      └── {keyName}: { type: 'text', ... }
-```
-
-### 5. Epoch Bump Flow
-
-**Purpose:** Atomic schema migrations and compaction.
-
-**Implementation tasks:**
-
-- [ ] Implement `bumpEpoch()` function:
-  1. Set `head.isMigrating = true`
-  2. Create new Data Y.Doc at `{workspaceId}-{epoch+1}`
-  3. Migrate data from old epoch
-  4. Update `head.epoch = epoch + 1`
-  5. Clear `head.isMigrating`
-- [ ] All clients observe head changes and reconnect on epoch bump
-- [ ] Consider epoch coordination (single writer vs distributed)
-
-### 6. Auth Server Integration
-
-**Purpose:** Permission management for workspace access.
-
-**Implementation tasks:**
-
-- [ ] Add `permissions` table to auth server
-- [ ] Add `shareLinks` table for invitation tokens
-- [ ] Sync server checks permissions before allowing room join
-- [ ] Store `bootstrapSyncNodes` in user record
-
-## Migration Considerations
-
-### Existing Data
-
-Workspaces created with old API have:
-
-- `guid` field in stored JSON
-- `id` field (slug) in stored JSON
-
-When loading old workspace files:
-
-```typescript
-// Migration layer
-const workspace = defineWorkspace({
-  id: oldData.guid ?? generateWorkspaceId(),  // guid → id
-  slug: oldData.id,                            // id → slug
-  ...
-});
-```
-
-### Y.Doc Persistence
-
-Existing `.yjs` files are named using `{guid}-0` format. This is compatible with new `{id}-0` format since the value hasn't changed, just the property name.
-
-## Testing Checklist
-
-- [ ] Create workspace with new API
-- [ ] Load workspace with deprecation aliases (backward compat)
-- [ ] Verify Y.Doc GUID is `{id}-0` format
-- [ ] Verify capabilities receive `slug` as their `id` context
-- [ ] Multi-device sync still works (same room names)
-- [ ] IndexedDB persistence still works (same DB names)
+---
 
 ## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CODE DEFINITION                                    │
+│  defineWorkspace({ id, slug, name, tables, kv })                            │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           workspace.create()                                 │
+│                                                                              │
+│  1. createDataDoc({ workspaceId: id, epoch: 0 })                            │
+│  2. dataDoc.mergeSchema(tables, kv)  ← Idempotent merge, CRDT handles       │
+│  3. dataDoc.setName(name)            ← Only if not already set              │
+│  4. createTables(dataDoc.ydoc, tables)                                       │
+│  5. createKv(dataDoc.ydoc, kv)                                               │
+│  6. Run capability factories                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Future: Full 3-Document Architecture
 
 ```
                                     AUTH SERVER
@@ -234,6 +123,111 @@ Existing `.yjs` files are named using `{guid}-0` format. This is compatible with
                     │   schema + data       │     all collaborators
                     └───────────────────────┘
 ```
+
+---
+
+## What Remains
+
+### Integration Tasks (Not Yet Implemented)
+
+| Task                          | Status     | Description                                        |
+| ----------------------------- | ---------- | -------------------------------------------------- |
+| **Registry integration**      | ⏳ Pending | Connect RegistryDoc to auth server's `registryId`  |
+| **Head → Data flow**          | ⏳ Pending | Read epoch from HeadDoc before creating DataDoc    |
+| **Epoch bump**                | ⏳ Pending | Implement `bumpEpoch()` for schema migrations      |
+| **Permission checks**         | ⏳ Pending | Sync server validates access before room join      |
+| **Runtime schema validation** | ⏳ Pending | Use Y.Doc schema instead of code schema at runtime |
+
+### Current Simplifications
+
+1. **Epoch hardcoded to 0**: The HeadDoc exists but workspace.create() doesn't read from it yet
+2. **No Registry lookup**: Workspaces are still file-based discovery, not Registry Y.Doc
+3. **Code schema = runtime schema**: Both compile-time and runtime use the code-defined schema
+
+### Next Steps (Priority Order)
+
+1. **Connect HeadDoc to workspace flow**
+   - Create HeadDoc in `workspace.create()`
+   - Read `epoch` from HeadDoc to determine DataDoc ID
+   - Subscribe to epoch changes
+
+2. **Implement epoch bump**
+   - Add `bumpEpoch()` to HeadDoc or DataDoc
+   - Migrate data from old epoch to new epoch
+   - Notify connected clients
+
+3. **Connect RegistryDoc to auth**
+   - Get `registryId` from auth server on login
+   - Use RegistryDoc for workspace discovery
+   - Replace file-based workspace discovery
+
+4. **Add permission layer**
+   - Check permissions before sync room join
+   - Implement share links for invitations
+
+---
+
+## API Reference
+
+### createRegistryDoc
+
+```typescript
+const registry = createRegistryDoc({ registryId: 'xyz789012345abc' });
+
+registry.addWorkspace('workspace-id');
+registry.removeWorkspace('workspace-id');
+registry.hasWorkspace('workspace-id');     // boolean
+registry.getWorkspaceIds();                // string[]
+registry.count();                          // number
+registry.observe(({ added, removed }) => { ... });
+registry.destroy();
+```
+
+### createHeadDoc
+
+```typescript
+const head = createHeadDoc({ workspaceId: 'abc123xyz789012' });
+
+head.getEpoch();           // number (currently 0)
+head.getDataDocId();       // 'abc123xyz789012-0'
+head.isMigrating();        // boolean
+head.startEpochBump();     // returns new epoch number
+head.completeEpochBump(1); // sets epoch to 1, clears isMigrating
+head.cancelEpochBump();    // clears isMigrating without changing epoch
+head.observeEpoch((epoch) => { ... });
+head.observeMigrating((isMigrating) => { ... });
+head.destroy();
+```
+
+### createDataDoc
+
+```typescript
+const data = createDataDoc({ workspaceId: 'abc123xyz789012', epoch: 0 });
+
+// Metadata
+data.getName();
+data.setName('My Workspace');
+
+// Schema (merge semantics - idempotent, call on every create)
+data.hasSchema();                      // boolean
+data.mergeSchema(tables, kv);          // Merge code schema into Y.Doc
+data.getTableSchema('posts');          // Map<fieldName, SerializedFieldSchema>
+data.getTableNames();                  // string[]
+data.getKvSchema('theme');             // SerializedFieldSchema
+data.getKvNames();                     // string[]
+data.addTableField('posts', 'newField', text());
+data.removeTableField('posts', 'oldField');
+data.observeSchemaChanges(({ tablesAdded, tablesRemoved, fieldsChanged }) => { ... });
+
+// Raw Y.Map access
+data.getTablesMap();   // Y.Map for table data
+data.getKvMap();       // Y.Map for kv data
+data.getSchemaMap();   // Y.Map for schema
+
+data.destroy();
+```
+
+---
 
 ## References
 
