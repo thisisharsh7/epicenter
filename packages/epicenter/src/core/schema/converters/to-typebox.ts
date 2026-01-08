@@ -30,7 +30,7 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
-import { isNullableFieldSchema } from '../fields/nullability';
+import { isNullableFieldSchema } from '../fields/helpers';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 import { ARKTYPE_JSON_SCHEMA_FALLBACK } from '../standard/arktype-fallback';
 

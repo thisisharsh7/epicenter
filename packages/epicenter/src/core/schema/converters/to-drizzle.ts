@@ -29,7 +29,7 @@ import type {
 	TextFieldSchema,
 } from '../fields/types';
 
-import { isNullableFieldSchema } from '../fields/nullability';
+import { isNullableFieldSchema } from '../fields/helpers';
 
 /**
  * Maps a workspace schema to its Drizzle table representations.

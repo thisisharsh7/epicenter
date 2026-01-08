@@ -30,7 +30,7 @@
  *
  * - `factories.ts` - Factory functions for creating field schemas
  * - `../converters/` - Converters for arktype, drizzle, typebox
- * - `nullability.ts` - isNullableFieldSchema helper
+ * - `helpers.ts` - isNullableFieldSchema helper
  */
 
 import type {

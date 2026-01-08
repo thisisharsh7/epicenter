@@ -62,7 +62,7 @@ export {
 	convertWorkspaceSchemaToDrizzle,
 } from './converters/to-drizzle.js';
 
-export { isNullableFieldSchema } from './fields/nullability.js';
+export { isNullableFieldSchema } from './fields/helpers.js';
 
 export type {
 	StandardJSONSchemaV1,
