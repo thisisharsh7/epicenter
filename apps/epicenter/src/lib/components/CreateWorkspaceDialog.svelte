@@ -1,7 +1,7 @@
 <script module lang="ts">
-	import slugify from '@sindresorhus/slugify';
+	import { toKebabCase } from '$lib/utils/slug';
 
-	function createWorkspaceCreateDialog() {
+	function createWorkspaceDialogState() {
 		let isOpen = $state(false);
 		let isPending = $state(false);
 		let name = $state('');
@@ -29,7 +29,7 @@
 				name = value;
 				error = null;
 				if (!isSlugManuallyEdited) {
-					slug = slugify(value);
+					slug = toKebabCase(value);
 				}
 			},
 			get slug() {
@@ -73,7 +73,7 @@
 			},
 
 			resetSlug() {
-				slug = slugify(name);
+				slug = toKebabCase(name);
 				error = null;
 				isSlugManuallyEdited = false;
 			},
@@ -87,7 +87,8 @@
 				if (!name.trim() || !slug.trim()) return;
 
 				error = null;
-				const result = onConfirm({ name: name.trim(), id: slug.trim() });
+				const finalId = toKebabCase(slug.trim());
+				const result = onConfirm({ name: name.trim(), id: finalId });
 
 				if (result instanceof Promise) {
 					isPending = true;
@@ -115,7 +116,7 @@
 		};
 	}
 
-	export const workspaceCreateDialog = createWorkspaceCreateDialog();
+	export const createWorkspaceDialog = createWorkspaceDialogState();
 </script>
 
 <script lang="ts">
@@ -127,13 +128,13 @@
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 </script>
 
-<Dialog.Root bind:open={workspaceCreateDialog.isOpen}>
+<Dialog.Root bind:open={createWorkspaceDialog.isOpen}>
 	<Dialog.Content class="sm:max-w-md">
 		<form
 			method="POST"
 			onsubmit={(e) => {
 				e.preventDefault();
-				workspaceCreateDialog.confirm();
+				createWorkspaceDialog.confirm();
 			}}
 			class="flex flex-col gap-4"
 		>
@@ -150,9 +151,9 @@
 					<Label for="workspace-name">Workspace Name</Label>
 					<Input
 						id="workspace-name"
-						bind:value={workspaceCreateDialog.name}
+						bind:value={createWorkspaceDialog.name}
 						placeholder="My Workspace"
-						disabled={workspaceCreateDialog.isPending}
+						disabled={createWorkspaceDialog.isPending}
 					/>
 				</Field.Field>
 
@@ -160,20 +161,20 @@
 					<div class="flex items-center justify-between">
 						<Label for="workspace-slug">
 							Workspace ID
-							{#if !workspaceCreateDialog.isSlugManuallyEdited && workspaceCreateDialog.slug}
+							{#if !createWorkspaceDialog.isSlugManuallyEdited && createWorkspaceDialog.slug}
 								<span class="text-muted-foreground ml-2 text-xs font-normal"
 									>(auto-generated)</span
 								>
 							{/if}
 						</Label>
-						{#if workspaceCreateDialog.isSlugManuallyEdited}
+						{#if createWorkspaceDialog.isSlugManuallyEdited}
 							<Button
 								type="button"
 								variant="ghost"
 								size="sm"
 								class="h-6 px-2 text-xs"
-								onclick={() => workspaceCreateDialog.resetSlug()}
-								disabled={workspaceCreateDialog.isPending}
+								onclick={() => createWorkspaceDialog.resetSlug()}
+								disabled={createWorkspaceDialog.isPending}
 							>
 								<RotateCcwIcon class="mr-1 size-3" />
 								Reset
@@ -182,14 +183,14 @@
 					</div>
 					<Input
 						id="workspace-slug"
-						bind:value={workspaceCreateDialog.slug}
+						bind:value={createWorkspaceDialog.slug}
 						placeholder="my-workspace"
-						disabled={workspaceCreateDialog.isPending}
+						disabled={createWorkspaceDialog.isPending}
 						class="font-mono text-sm"
-						aria-invalid={!!workspaceCreateDialog.error}
+						aria-invalid={!!createWorkspaceDialog.error}
 					/>
-					{#if workspaceCreateDialog.error}
-						<Field.Error>{workspaceCreateDialog.error}</Field.Error>
+					{#if createWorkspaceDialog.error}
+						<Field.Error>{createWorkspaceDialog.error}</Field.Error>
 					{:else}
 						<Field.Description>
 							This will be used in URLs and file names.
@@ -202,15 +203,15 @@
 				<Button
 					type="button"
 					variant="outline"
-					onclick={() => workspaceCreateDialog.cancel()}
-					disabled={workspaceCreateDialog.isPending}
+					onclick={() => createWorkspaceDialog.cancel()}
+					disabled={createWorkspaceDialog.isPending}
 				>
 					Cancel
 				</Button>
 				<Button
 					type="submit"
-					disabled={workspaceCreateDialog.isPending ||
-						!workspaceCreateDialog.canConfirm}
+					disabled={createWorkspaceDialog.isPending ||
+						!createWorkspaceDialog.canConfirm}
 				>
 					Create
 				</Button>

@@ -1,4 +1,8 @@
-import type { WorkspaceSchema } from '@epicenter/hq';
+import type {
+	WorkspaceSchema,
+	TablesWithMetadata,
+	KvSchema,
+} from '@epicenter/hq';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import {
 	BaseDirectory,
@@ -15,7 +19,11 @@ import { Ok, type Result, tryAsync } from 'wellcrafted/result';
 
 const WORKSPACES_DIR = 'workspaces';
 
-export type WorkspaceFile = WorkspaceSchema;
+export type WorkspaceFile = WorkspaceSchema<
+	string,
+	TablesWithMetadata,
+	KvSchema
+>;
 
 export const { WorkspaceStorageError, WorkspaceStorageErr } = createTaggedError(
 	'WorkspaceStorageError',

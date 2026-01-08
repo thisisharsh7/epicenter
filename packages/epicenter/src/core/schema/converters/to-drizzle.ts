@@ -1,3 +1,4 @@
+import slugify from '@sindresorhus/slugify';
 import type { StandardSchemaV1 } from '../standard/types';
 import type { $Type, IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
@@ -30,6 +31,17 @@ import type {
 } from '../fields/types';
 
 import { isNullableFieldSchema } from '../fields/helpers';
+
+function capitalize(str: string): string {
+	return str
+		.split(/[_-]/)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(' ');
+}
+
+export function toSqlIdentifier(displayName: string): string {
+	return slugify(displayName, { separator: '_' });
+}
 
 /**
  * Maps a workspace schema to its Drizzle table representations.
@@ -136,13 +148,12 @@ export function convertTableSchemaToDrizzle<
 	TFieldsSchema extends FieldsSchema,
 >(tableName: TTableName, fieldsSchema: TFieldsSchema) {
 	const columns = Object.fromEntries(
-		Object.keys(fieldsSchema).map((fieldName) => [
-			fieldName,
-			convertFieldSchemaToDrizzle(
-				fieldName,
-				fieldsSchema[fieldName as keyof TFieldsSchema],
-			),
-		]),
+		Object.keys(fieldsSchema).map((fieldKey) => {
+			const schema = fieldsSchema[fieldKey as keyof TFieldsSchema]!;
+			const displayName = schema.name ?? capitalize(fieldKey);
+			const sqlColumnName = toSqlIdentifier(displayName);
+			return [fieldKey, convertFieldSchemaToDrizzle(sqlColumnName, schema)];
+		}),
 	) as { [Key in keyof TFieldsSchema]: FieldToDrizzle<TFieldsSchema[Key]> };
 
 	return sqliteTable(tableName, columns);
@@ -247,17 +258,17 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 										: never;
 
 function convertFieldSchemaToDrizzle<C extends FieldSchema>(
-	fieldName: string,
+	columnName: string,
 	schema: C,
 ): FieldToDrizzle<C> {
 	const isNullable = isNullableFieldSchema(schema);
 
 	switch (schema.type) {
 		case 'id':
-			return text(fieldName).primaryKey().notNull() as FieldToDrizzle<C>;
+			return text(columnName).primaryKey().notNull() as FieldToDrizzle<C>;
 
 		case 'text': {
-			let column = text(fieldName);
+			let column = text(columnName);
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
@@ -266,13 +277,13 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'richtext': {
-			let column = text(fieldName);
+			let column = text(columnName);
 			if (!isNullable) column = column.notNull();
 			return column as FieldToDrizzle<C>;
 		}
 
 		case 'integer': {
-			let column = integer(fieldName);
+			let column = integer(columnName);
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
@@ -281,7 +292,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'real': {
-			let column = real(fieldName);
+			let column = real(columnName);
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
@@ -290,7 +301,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'boolean': {
-			let column = integer(fieldName, { mode: 'boolean' });
+			let column = integer(columnName, { mode: 'boolean' });
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);
@@ -307,7 +318,7 @@ function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 		}
 
 		case 'select': {
-			let column = text(fieldName, { enum: [...schema.options] });
+			let column = text(columnName, { enum: [...schema.options] });
 			if (!isNullable) column = column.notNull();
 			if (schema.default !== undefined) {
 				column = column.default(schema.default);

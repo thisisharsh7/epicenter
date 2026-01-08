@@ -7,7 +7,8 @@
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 	import InputDialog from '$lib/components/InputDialog.svelte';
-	import WorkspaceCreateDialog from '$lib/components/WorkspaceCreateDialog.svelte';
+	import CreateTableDialog from '$lib/components/CreateTableDialog.svelte';
+	import CreateWorkspaceDialog from '$lib/components/CreateWorkspaceDialog.svelte';
 
 	let { children } = $props();
 
@@ -40,6 +41,7 @@
 </QueryClientProvider>
 
 <InputDialog />
-<WorkspaceCreateDialog />
+<CreateTableDialog />
+<CreateWorkspaceDialog />
 <Toaster offset={16} theme={mode.current} {...TOASTER_SETTINGS} />
 <ModeWatcher defaultMode="dark" track={false} />

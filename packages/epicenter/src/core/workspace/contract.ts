@@ -7,7 +7,7 @@ import type {
 	CapabilityMap,
 	InferCapabilityExports,
 } from '../capability';
-import type { KvSchema, TablesSchema } from '../schema';
+import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
 import type { CapabilityPaths, WorkspacePaths } from '../types';
 
 /**
@@ -21,7 +21,9 @@ import type { CapabilityPaths, WorkspacePaths } from '../types';
  */
 export type WorkspaceSchema<
 	TId extends string = string,
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TTablesSchema extends TablesSchema | TablesWithMetadata =
+		| TablesSchema
+		| TablesWithMetadata,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
 	/** Globally unique identifier for sync coordination. Generate with `generateGuid()`. */
@@ -30,10 +32,6 @@ export type WorkspaceSchema<
 	id: TId;
 	/** Display name shown in UI. */
 	name: string;
-	/** Emoji icon for the workspace. */
-	emoji: string;
-	/** Description of the workspace. */
-	description: string;
 	/** Table definitions with metadata. */
 	tables: TTablesSchema;
 	/** Key-value store schema. */

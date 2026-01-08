@@ -8,7 +8,7 @@
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { workspaceCreateDialog } from '$lib/components/WorkspaceCreateDialog.svelte';
+	import { createWorkspaceDialog } from '$lib/components/CreateWorkspaceDialog.svelte';
 
 	let { selectedWorkspaceId }: { selectedWorkspaceId: string | undefined } =
 		$props();
@@ -88,7 +88,7 @@
 				<DropdownMenu.Separator />
 				<DropdownMenu.Item
 					onclick={() =>
-						workspaceCreateDialog.open({
+						createWorkspaceDialog.open({
 							onConfirm: async ({ name, id }) => {
 								await createWorkspace.mutateAsync({ name, id });
 								goto(`/workspaces/${id}`);

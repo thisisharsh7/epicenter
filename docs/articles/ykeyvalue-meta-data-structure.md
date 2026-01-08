@@ -152,3 +152,5 @@ YKeyValue is a meta structure: a map interface built on array primitives. It's u
 ## Related
 
 - [Migrating to YKeyValue: 1935x Storage Reduction](./ykeyvalue-migration-storage-gains.md): How we migrated Epicenter's table storage to YKeyValue
+- [y-lwwmap: A Last-Write-Wins Alternative](./y-lwwmap-last-write-wins-alternative.md): Timestamp-based conflict resolution
+- [Fractional Ordering: User-Controlled Item Order](./fractional-ordering-meta-data-structure.md): Drag-and-drop reordering without delete+insert

@@ -69,11 +69,15 @@ export { defineCapabilities } from './core/capability';
 export type {
 	BooleanFieldSchema,
 	CellValue,
+	CoverDefinition,
 	DateFieldSchema,
 	DateIsoString,
+	FieldMetadata,
 	FieldSchema,
+	FieldsSchema,
 	FieldType,
 	Guid,
+	IconDefinition,
 	Id,
 	IdFieldSchema,
 	IntegerFieldSchema,
@@ -86,8 +90,10 @@ export type {
 	RichtextFieldSchema,
 	Row,
 	SelectFieldSchema,
+	TableDefinition,
 	TableSchema,
 	TablesSchema,
+	TablesWithMetadata,
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
@@ -113,6 +119,7 @@ export {
 	tags,
 	text,
 	TIMEZONE_ID_REGEX,
+	toSqlIdentifier,
 } from './core/schema';
 // Rich content ID generation
 export type { RichContentId } from './core/rich-content/id';
