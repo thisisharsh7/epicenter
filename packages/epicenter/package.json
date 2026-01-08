@@ -5,19 +5,21 @@
 	"types": "./src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
-		"./providers/persistence": {
-			"browser": "./src/providers/persistence/index.browser.ts",
-			"node": "./src/providers/persistence/index.node.ts",
-			"default": "./src/providers/persistence/index.node.ts"
+		"./capabilities/persistence": {
+			"browser": "./src/capabilities/persistence/index.browser.ts",
+			"node": "./src/capabilities/persistence/index.node.ts",
+			"default": "./src/capabilities/persistence/index.node.ts"
 		},
-		"./providers/websocket-sync": "./src/providers/websocket-sync.ts",
-		"./providers/markdown": {
-			"node": "./src/providers/markdown/index.ts",
-			"default": "./src/providers/markdown/index.ts"
+		"./capabilities/persistence/web": "./src/capabilities/persistence/web.ts",
+		"./capabilities/persistence/desktop": "./src/capabilities/persistence/desktop.ts",
+		"./capabilities/websocket-sync": "./src/capabilities/websocket-sync.ts",
+		"./capabilities/markdown": {
+			"node": "./src/capabilities/markdown/index.ts",
+			"default": "./src/capabilities/markdown/index.ts"
 		},
-		"./providers/sqlite": {
-			"node": "./src/providers/sqlite/index.ts",
-			"default": "./src/providers/sqlite/index.ts"
+		"./capabilities/sqlite": {
+			"node": "./src/capabilities/sqlite/index.ts",
+			"default": "./src/capabilities/sqlite/index.ts"
 		},
 		"./cli": "./src/cli/index.ts",
 		"./server": "./src/server/index.ts"

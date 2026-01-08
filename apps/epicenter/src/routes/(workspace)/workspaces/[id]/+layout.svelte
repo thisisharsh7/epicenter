@@ -1,9 +1,14 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import WorkspaceSidebar from '$lib/components/WorkspaceSidebar.svelte';
 	import HeaderBreadcrumbs from '$lib/components/HeaderBreadcrumbs.svelte';
 
-	let { children } = $props();
+	let { data, children } = $props();
+
+	onDestroy(() => {
+		data.client.destroy();
+	});
 </script>
 
 <Sidebar.Provider>
