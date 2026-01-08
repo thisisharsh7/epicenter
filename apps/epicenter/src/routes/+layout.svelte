@@ -4,7 +4,6 @@
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster, type ToasterProps } from 'svelte-sonner';
 	import '@epicenter/ui/app.css';
-	import InputDialog from '$lib/components/InputDialog.svelte';
 	import CreateTableDialog from '$lib/components/CreateTableDialog.svelte';
 	import CreateSettingDialog from '$lib/components/CreateSettingDialog.svelte';
 	import CreateWorkspaceDialog from '$lib/components/CreateWorkspaceDialog.svelte';
@@ -29,7 +28,6 @@
 	{@render children()}
 </QueryClientProvider>
 
-<InputDialog />
 <CreateTableDialog />
 <CreateSettingDialog />
 <CreateWorkspaceDialog />
