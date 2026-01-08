@@ -1,18 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 import yargs from 'yargs';
 import { type } from 'arktype';
-import { defineAction, type Actions } from '../core/actions';
+import { defineMutation, defineQuery, type Actions } from '../core/actions';
 import { buildActionCommands } from './command-builder';
 
 describe('CLI command registration', () => {
 	test('registers flat action commands with yargs', () => {
 		const actions: Actions = {
-			ping: defineAction({
-				type: 'query',
+			ping: defineQuery({
 				handler: () => 'pong',
 			}),
-			sync: defineAction({
-				type: 'mutation',
+			sync: defineMutation({
 				handler: () => {},
 			}),
 		};
@@ -34,8 +32,7 @@ describe('CLI command registration', () => {
 	test('registers nested commands with top-level parent', () => {
 		const actions: Actions = {
 			posts: {
-				list: defineAction({
-					type: 'query',
+				list: defineQuery({
 					handler: () => [],
 				}),
 			},
@@ -56,8 +53,7 @@ describe('CLI command registration', () => {
 
 	test('command handlers are accessible', () => {
 		const actions: Actions = {
-			ping: defineAction({
-				type: 'query',
+			ping: defineQuery({
 				handler: () => 'pong',
 			}),
 		};
@@ -80,8 +76,7 @@ describe('CLI command registration', () => {
 		let capturedArgs: Record<string, unknown> | null = null;
 
 		const actions: Actions = {
-			create: defineAction({
-				type: 'mutation',
+			create: defineMutation({
 				input: type({ title: 'string', 'count?': 'number' }),
 				handler: ({ title, count }) => {
 					capturedArgs = { title, count };
@@ -108,11 +103,10 @@ describe('CLI command registration', () => {
 
 	test('buildActionCommands returns correct command paths', () => {
 		const actions: Actions = {
-			ping: defineAction({ type: 'query', handler: () => 'pong' }),
+			ping: defineQuery({ handler: () => 'pong' }),
 			posts: {
-				list: defineAction({ type: 'query', handler: () => [] }),
-				create: defineAction({
-					type: 'mutation',
+				list: defineQuery({ handler: () => [] }),
+				create: defineMutation({
 					input: type({ title: 'string' }),
 					handler: ({ title }) => ({ title }),
 				}),

@@ -4,31 +4,25 @@
  * Actions are plain objects with handlers and metadata for cross-boundary invocation.
  * They enable REST API endpoints, MCP tool definitions, CLI commands, and OpenAPI docs.
  *
- * Actions are defined AFTER client creation and passed to adapters (server, CLI) explicitly.
- * This separates the internal runtime (capabilities) from external boundary contracts (actions).
- *
  * @example
  * ```typescript
- * // Define actions wrapping client methods
+ * import { defineQuery, defineMutation } from '@epicenter/hq';
+ *
  * const actions = {
  *   posts: {
- *     getAll: defineAction({
- *       type: 'query',
+ *     getAll: defineQuery({
  *       handler: () => client.tables.posts.getAllValid(),
  *     }),
- *     create: defineAction({
- *       type: 'mutation',
+ *     create: defineMutation({
  *       input: type({ title: 'string' }),
  *       handler: ({ title }) => {
- *         const id = generateId();
- *         client.tables.posts.upsert({ id, title });
+ *         client.tables.posts.upsert({ id: generateId(), title });
  *         return { id };
  *       },
  *     }),
  *   },
  * };
  *
- * // Pass to server/CLI
  * const server = createServer(client, { actions });
  * ```
  */
@@ -38,59 +32,13 @@ import type {
 	StandardSchemaWithJSONSchema,
 } from './schema/standard/types';
 
-/**
- * Action: a plain object with handler and metadata for cross-boundary invocation.
- *
- * Actions enable:
- * - REST API endpoints (GET for queries, POST for mutations)
- * - MCP tool definitions
- * - CLI commands
- * - OpenAPI documentation
- *
- * The handler signature is conditional on whether `input` is defined:
- * - With input: `(input: TInput) => TOutput | Promise<TOutput>`
- * - Without input: `() => TOutput | Promise<TOutput>`
- *
- * @template TInput - Input schema (must support JSON Schema generation)
- * @template TOutput - Handler return type (inferred if not specified)
- *
- * @example No input - handler has no arguments
- * ```typescript
- * const getAllPosts = defineAction({
- *   type: 'query',
- *   handler: () => client.tables.posts.getAllValid(),
- * });
- * ```
- *
- * @example With input - handler receives typed input
- * ```typescript
- * const createPost = defineAction({
- *   type: 'mutation',
- *   input: type({ title: 'string' }),
- *   handler: ({ title }) => {
- *     // TypeScript knows: title is string
- *     client.tables.posts.upsert({ id: generateId(), title });
- *   },
- * });
- * ```
- */
-export type Action<
+type ActionConfig<
 	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
 	TOutput = unknown,
 > = {
-	/** 'query' for read operations (GET), 'mutation' for write operations (POST) */
-	type: 'query' | 'mutation';
-
-	/** Human-readable description for docs and MCP tool descriptions */
 	description?: string;
-
-	/** Input schema for validation and JSON Schema generation */
 	input?: TInput;
-
-	/** Output schema for documentation (optional, can be inferred) */
 	output?: StandardSchemaWithJSONSchema;
-
-	/** The handler function. Receives validated input if `input` is defined. */
 	handler: TInput extends StandardSchemaWithJSONSchema
 		? (
 				input: StandardSchemaV1.InferOutput<TInput>,
@@ -98,95 +46,83 @@ export type Action<
 		: () => TOutput | Promise<TOutput>;
 };
 
-/**
- * Actions can nest to any depth.
- * Leaves must be Action objects (have `type` and `handler`).
- *
- * @example Flat structure
- * ```typescript
- * const actions = {
- *   getUser: defineAction({ type: 'query', handler: ... }),
- *   createUser: defineAction({ type: 'mutation', handler: ... }),
- * };
- * ```
- *
- * @example Nested structure
- * ```typescript
- * const actions = {
- *   users: {
- *     getAll: defineAction({ type: 'query', handler: ... }),
- *     create: defineAction({ type: 'mutation', handler: ... }),
- *   },
- *   posts: {
- *     getAll: defineAction({ type: 'query', handler: ... }),
- *   },
- * };
- * ```
- */
+export type Query<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = ActionConfig<TInput, TOutput> & {
+	type: 'query';
+};
+
+export type Mutation<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = ActionConfig<TInput, TOutput> & {
+	type: 'mutation';
+};
+
+export type Action<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = Query<TInput, TOutput> | Mutation<TInput, TOutput>;
+
 export type Actions = {
 	[key: string]: Action<any, any> | Actions;
 };
 
 /**
- * Define an action with full type inference.
+ * Define a query (read operation) with full type inference.
  *
- * This is an identity function that provides type inference for:
- * - TInput: Inferred from the `input` schema
- * - TOutput: Inferred from the handler return type
- * - Handler signature: Conditional based on whether `input` is defined
+ * The `type: 'query'` discriminator is attached automatically.
+ * Queries map to HTTP GET requests when exposed via the server adapter.
  *
- * Without this helper, you'd need `satisfies Action` and lose input type inference.
- *
- * @example No input - handler has no arguments
+ * @example
  * ```typescript
- * const getAllPosts = defineAction({
- *   type: 'query',
+ * const getAllPosts = defineQuery({
  *   handler: () => client.tables.posts.getAllValid(),
  * });
- * ```
  *
- * @example With input - handler receives typed input
- * ```typescript
- * const createPost = defineAction({
- *   type: 'mutation',
- *   input: type({ title: 'string' }),
- *   handler: ({ title }) => {
- *     // TypeScript knows: title is string
- *     client.tables.posts.upsert({ id: generateId(), title });
- *   },
+ * const getPost = defineQuery({
+ *   input: type({ id: 'string' }),
+ *   handler: ({ id }) => client.tables.posts.get({ id }),
  * });
  * ```
+ */
+export function defineQuery<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+>(config: ActionConfig<TInput, TOutput>): Query<TInput, TOutput> {
+	return { type: 'query', ...config } as Query<TInput, TOutput>;
+}
+
+/**
+ * Define a mutation (write operation) with full type inference.
  *
- * @example With description for MCP/docs
+ * The `type: 'mutation'` discriminator is attached automatically.
+ * Mutations map to HTTP POST requests when exposed via the server adapter.
+ *
+ * @example
  * ```typescript
- * const syncMarkdown = defineAction({
- *   type: 'mutation',
+ * const createPost = defineMutation({
+ *   input: type({ title: 'string' }),
+ *   handler: ({ title }) => {
+ *     client.tables.posts.upsert({ id: generateId(), title });
+ *     return { id };
+ *   },
+ * });
+ *
+ * const syncMarkdown = defineMutation({
  *   description: 'Sync markdown files to YJS',
  *   handler: () => client.capabilities.markdown.pullFromMarkdown(),
  * });
  * ```
  */
-export function defineAction<
+export function defineMutation<
 	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
 	TOutput = unknown,
->(action: Action<TInput, TOutput>): Action<TInput, TOutput> {
-	return action;
+>(config: ActionConfig<TInput, TOutput>): Mutation<TInput, TOutput> {
+	return { type: 'mutation', ...config } as Mutation<TInput, TOutput>;
 }
 
-/**
- * Type guard to check if a value is an Action (either query or mutation).
- *
- * Actions are identified by having both `type` ('query' | 'mutation') and `handler` properties.
- * This distinguishes them from nested action groups (which are plain objects).
- *
- * @example
- * ```typescript
- * for (const [action, path] of iterateActions(actions)) {
- *   // action is Action<any, any>
- *   console.log(action.type, path.join('/'));
- * }
- * ```
- */
 export function isAction(value: unknown): value is Action<any, any> {
 	return (
 		typeof value === 'object' &&
@@ -198,57 +134,14 @@ export function isAction(value: unknown): value is Action<any, any> {
 	);
 }
 
-/**
- * Type guard to check if a value is a query action.
- *
- * Query actions represent read operations and map to HTTP GET requests.
- *
- * @example
- * ```typescript
- * if (isQuery(action)) {
- *   // Use GET method for this action
- * }
- * ```
- */
-export function isQuery(value: unknown): value is Action<any, any> {
+export function isQuery(value: unknown): value is Query<any, any> {
 	return isAction(value) && value.type === 'query';
 }
 
-/**
- * Type guard to check if a value is a mutation action.
- *
- * Mutation actions represent write operations and map to HTTP POST requests.
- *
- * @example
- * ```typescript
- * if (isMutation(action)) {
- *   // Use POST method for this action
- * }
- * ```
- */
-export function isMutation(value: unknown): value is Action<any, any> {
+export function isMutation(value: unknown): value is Mutation<any, any> {
 	return isAction(value) && value.type === 'mutation';
 }
 
-/**
- * Iterate over all actions in a nested action tree.
- *
- * Yields [action, path] tuples where path is the array of keys from root.
- *
- * @example
- * ```typescript
- * for (const [action, path] of iterateActions(actions)) {
- *   const route = '/' + path.join('/');
- *   const method = action.type === 'query' ? 'GET' : 'POST';
- *   console.log(`${method} ${route}`);
- * }
- * ```
- *
- * @example Collect all action paths
- * ```typescript
- * const paths = [...iterateActions(actions)].map(([_, path]) => path.join('/'));
- * ```
- */
 export function* iterateActions(
 	actions: Actions,
 	path: string[] = [],

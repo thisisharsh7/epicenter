@@ -4,26 +4,6 @@ import { iterateActions } from '../core/actions';
 import { generateJsonSchema } from '../core/schema/standard/to-json-schema';
 import { jsonSchemaToYargsOptions } from './json-schema-to-yargs';
 
-function extractInputFromArgv(
-	argv: Record<string, unknown>,
-	jsonSchema: Record<string, unknown> | undefined,
-): Record<string, unknown> {
-	if (!jsonSchema || jsonSchema.type !== 'object' || !jsonSchema.properties) {
-		return {};
-	}
-
-	const properties = jsonSchema.properties as Record<string, unknown>;
-	const input: Record<string, unknown> = {};
-
-	for (const key of Object.keys(properties)) {
-		if (key in argv && argv[key] !== undefined) {
-			input[key] = argv[key];
-		}
-	}
-
-	return input;
-}
-
 /**
  * Build yargs command configurations from an actions tree.
  *
@@ -33,7 +13,7 @@ function extractInputFromArgv(
  *
  * @example
  * ```typescript
- * const actions = { posts: { create: defineAction({ ... }) } };
+ * const actions = { posts: { create: defineMutation({ ... }) } };
  * const commands = buildActionCommands(actions);
  * for (const cmd of commands) {
  *   cli = cli.command(cmd);
@@ -80,4 +60,24 @@ export function buildActionCommands(actions: Actions): CommandModule[] {
 			},
 		};
 	});
+}
+
+function extractInputFromArgv(
+	argv: Record<string, unknown>,
+	jsonSchema: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+	if (!jsonSchema || jsonSchema.type !== 'object' || !jsonSchema.properties) {
+		return {};
+	}
+
+	const properties = jsonSchema.properties as Record<string, unknown>;
+	const input: Record<string, unknown> = {};
+
+	for (const key of Object.keys(properties)) {
+		if (key in argv && argv[key] !== undefined) {
+			input[key] = argv[key];
+		}
+	}
+
+	return input;
 }

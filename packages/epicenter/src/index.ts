@@ -133,9 +133,10 @@ export type {
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
 // Action system
-export type { Action, Actions } from './core/actions';
+export type { Action, Actions, Mutation, Query } from './core/actions';
 export {
-	defineAction,
+	defineMutation,
+	defineQuery,
 	isAction,
 	isMutation,
 	isQuery,

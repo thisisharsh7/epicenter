@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
-import { defineAction, type Actions } from '../core/actions';
+import { defineMutation, defineQuery, type Actions } from '../core/actions';
 import { buildActionCommands } from './command-builder';
 
 describe('buildActionCommands', () => {
 	test('builds command from simple action without input', () => {
 		const actions: Actions = {
-			getAll: defineAction({
-				type: 'query',
+			getAll: defineQuery({
 				handler: () => [],
 			}),
 		};
@@ -23,8 +22,7 @@ describe('buildActionCommands', () => {
 
 	test('builds command from action with input schema', () => {
 		const actions: Actions = {
-			create: defineAction({
-				type: 'mutation',
+			create: defineMutation({
 				input: type({ title: 'string' }),
 				handler: ({ title }) => ({ id: '1', title }),
 			}),
@@ -41,12 +39,10 @@ describe('buildActionCommands', () => {
 	test('builds commands from nested actions', () => {
 		const actions: Actions = {
 			posts: {
-				getAll: defineAction({
-					type: 'query',
+				getAll: defineQuery({
 					handler: () => [],
 				}),
-				create: defineAction({
-					type: 'mutation',
+				create: defineMutation({
 					input: type({ title: 'string' }),
 					handler: ({ title }) => ({ id: '1', title }),
 				}),
@@ -67,8 +63,7 @@ describe('buildActionCommands', () => {
 			api: {
 				v1: {
 					posts: {
-						list: defineAction({
-							type: 'query',
+						list: defineQuery({
 							handler: () => [],
 						}),
 					},
@@ -84,8 +79,7 @@ describe('buildActionCommands', () => {
 
 	test('uses description from action when provided', () => {
 		const actions: Actions = {
-			sync: defineAction({
-				type: 'mutation',
+			sync: defineMutation({
 				description: 'Sync data from external source',
 				handler: () => {},
 			}),
@@ -98,8 +92,7 @@ describe('buildActionCommands', () => {
 
 	test('builder contains yargs options for input schema', () => {
 		const actions: Actions = {
-			create: defineAction({
-				type: 'mutation',
+			create: defineMutation({
 				input: type({
 					title: 'string',
 					'count?': 'number',
@@ -122,13 +115,11 @@ describe('buildActionCommands', () => {
 
 	test('handles mixed flat and nested actions', () => {
 		const actions: Actions = {
-			ping: defineAction({
-				type: 'query',
+			ping: defineQuery({
 				handler: () => 'pong',
 			}),
 			users: {
-				list: defineAction({
-					type: 'query',
+				list: defineQuery({
 					handler: () => [],
 				}),
 			},
