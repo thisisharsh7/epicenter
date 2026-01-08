@@ -75,7 +75,7 @@ export type {
 	StandardTypedV1,
 } from './standard/types.js';
 
-export { generateJsonSchema } from './standard/to-json-schema.js';
+export { standardSchemaToJsonSchema } from './standard/to-json-schema.js';
 
 export type { DateIsoString, TimezoneId } from './fields/datetime.js';
 export { DateTimeString } from './fields/datetime.js';

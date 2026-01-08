@@ -1,15 +1,24 @@
 import yargs from 'yargs';
+import type { Actions } from '../core/actions';
 import type { WorkspaceClient } from '../core/workspace/contract';
 import { createServer, DEFAULT_PORT } from '../server/server';
+import { buildActionCommands } from './command-builder';
 
 type AnyWorkspaceClient = WorkspaceClient<string, any, any, any>;
 
-export function createCLI(clients: AnyWorkspaceClient | AnyWorkspaceClient[]) {
+type CLIOptions = {
+	actions?: Actions;
+};
+
+export function createCLI(
+	clients: AnyWorkspaceClient | AnyWorkspaceClient[],
+	options?: CLIOptions,
+) {
 	const clientArray = Array.isArray(clients) ? clients : [clients];
 
-	const cli = yargs()
+	let cli = yargs()
 		.scriptName('epicenter')
-		.usage('Usage: $0 [options]')
+		.usage('Usage: $0 <command> [options]')
 		.help()
 		.version()
 		.strict()
@@ -19,13 +28,23 @@ export function createCLI(clients: AnyWorkspaceClient | AnyWorkspaceClient[]) {
 			default: DEFAULT_PORT,
 		})
 		.command(
-			'$0',
+			'serve',
 			'Start HTTP server with REST and WebSocket sync endpoints',
 			() => {},
 			(argv) => {
-				createServer(clientArray, { port: argv.port }).start();
+				createServer(clientArray, {
+					port: argv.port,
+					actions: options?.actions,
+				}).start();
 			},
 		);
+
+	if (options?.actions) {
+		const commands = buildActionCommands(options.actions);
+		for (const cmd of commands) {
+			cli = cli.command(cmd);
+		}
+	}
 
 	return {
 		async run(argv: string[]) {
