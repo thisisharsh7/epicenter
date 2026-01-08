@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import * as Collapsible from '@epicenter/ui/collapsible';
 	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
 	import { inputDialog } from '$lib/components/InputDialog.svelte';
 	import { createTableDialog } from '$lib/components/CreateTableDialog.svelte';
+	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { getTableMetadata } from '$lib/utils/normalize-table';
 	import { rpc } from '$lib/query';
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
@@ -12,6 +14,7 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
 
 	const selectedWorkspaceId = $derived(page.params.id);
 
@@ -40,6 +43,9 @@
 	);
 	const openDirectoryMutation = createMutation(
 		() => rpc.workspaces.openWorkspacesDirectory.options,
+	);
+	const removeTableMutation = createMutation(
+		() => rpc.workspaces.removeTable.options,
 	);
 </script>
 
@@ -91,6 +97,28 @@
 												</a>
 											{/snippet}
 										</Sidebar.MenuButton>
+										<Sidebar.MenuAction
+											showOnHover
+											title="Delete Table"
+											onclick={() => {
+												if (!selectedWorkspaceId) return;
+												confirmationDialog.open({
+													title: 'Delete Table',
+													description: `Are you sure you want to delete "${table.name}"? This action cannot be undone.`,
+													confirm: { text: 'Delete', variant: 'destructive' },
+													onConfirm: async () => {
+														await removeTableMutation.mutateAsync({
+															workspaceId: selectedWorkspaceId,
+															tableName: table.key,
+														});
+														await goto(`/workspaces/${selectedWorkspaceId}`);
+													},
+												});
+											}}
+										>
+											<TrashIcon class="size-4" />
+											<span class="sr-only">Delete Table</span>
+										</Sidebar.MenuAction>
 									</Sidebar.MenuItem>
 								{:else}
 									<Sidebar.MenuItem>

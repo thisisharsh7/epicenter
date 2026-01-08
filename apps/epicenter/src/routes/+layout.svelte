@@ -9,6 +9,7 @@
 	import InputDialog from '$lib/components/InputDialog.svelte';
 	import CreateTableDialog from '$lib/components/CreateTableDialog.svelte';
 	import CreateWorkspaceDialog from '$lib/components/CreateWorkspaceDialog.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 
 	let { children } = $props();
 
@@ -43,5 +44,6 @@
 <InputDialog />
 <CreateTableDialog />
 <CreateWorkspaceDialog />
+<ConfirmationDialog />
 <Toaster offset={16} theme={mode.current} {...TOASTER_SETTINGS} />
 <ModeWatcher defaultMode="dark" track={false} />
