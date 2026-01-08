@@ -188,11 +188,13 @@
 					onclick={() => {
 						if (!workspaceId) return;
 						createTableDialog.open({
-							onConfirm: async ({ name, id }) => {
+							onConfirm: async ({ name, id, icon, description }) => {
 								await addTableMutation.mutateAsync({
 									workspaceId,
 									name,
 									id,
+									icon,
+									description,
 								});
 							},
 						});
@@ -212,7 +214,19 @@
 												href="/workspaces/{workspaceId}/tables/{table.key}"
 												{...props}
 											>
-												<TableIcon />
+												{#if table.icon?.type === 'emoji'}
+													<span class="text-base leading-none"
+														>{table.icon.value}</span
+													>
+												{:else if table.icon?.type === 'external'}
+													<img
+														src={table.icon.url}
+														alt=""
+														class="size-4 object-contain"
+													/>
+												{:else}
+													<TableIcon />
+												{/if}
 												<span>{table.name}</span>
 											</a>
 										{/snippet}

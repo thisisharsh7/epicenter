@@ -2,7 +2,12 @@
 	import { toSnakeCase } from '$lib/utils/slug';
 
 	export type CreateTableDialogOptions = {
-		onConfirm: (data: { name: string; id: string }) => void | Promise<unknown>;
+		onConfirm: (data: {
+			name: string;
+			id: string;
+			icon: string | null;
+			description: string;
+		}) => void | Promise<unknown>;
 	};
 
 	function createTableDialogState() {
@@ -10,6 +15,8 @@
 		let isPending = $state(false);
 		let name = $state('');
 		let id = $state('');
+		let icon = $state<string | null>(null);
+		let description = $state('');
 		let isIdManuallyEdited = $state(false);
 		let error = $state<string | null>(null);
 		let onConfirmCallback = $state<
@@ -44,6 +51,18 @@
 				error = null;
 				isIdManuallyEdited = true;
 			},
+			get icon() {
+				return icon;
+			},
+			set icon(value) {
+				icon = value;
+			},
+			get description() {
+				return description;
+			},
+			set description(value) {
+				description = value;
+			},
 			get isIdManuallyEdited() {
 				return isIdManuallyEdited;
 			},
@@ -56,6 +75,8 @@
 				isPending = false;
 				name = '';
 				id = '';
+				icon = null;
+				description = '';
 				error = null;
 				isIdManuallyEdited = false;
 				isOpen = true;
@@ -66,6 +87,8 @@
 				isPending = false;
 				name = '';
 				id = '';
+				icon = null;
+				description = '';
 				error = null;
 				isIdManuallyEdited = false;
 				onConfirmCallback = null;
@@ -87,7 +110,12 @@
 
 				error = null;
 				const finalId = toSnakeCase(id.trim());
-				const result = onConfirmCallback({ name: name.trim(), id: finalId });
+				const result = onConfirmCallback({
+					name: name.trim(),
+					id: finalId,
+					icon,
+					description: description.trim(),
+				});
 
 				if (result instanceof Promise) {
 					isPending = true;
@@ -121,10 +149,16 @@
 <script lang="ts">
 	import * as Dialog from '@epicenter/ui/dialog';
 	import * as Field from '@epicenter/ui/field';
+	import * as Popover from '@epicenter/ui/popover';
+	import * as EmojiPicker from '@epicenter/ui/emoji-picker';
 	import { Input } from '@epicenter/ui/input';
+	import { Textarea } from '@epicenter/ui/textarea';
 	import { Button } from '@epicenter/ui/button';
 	import { Label } from '@epicenter/ui/label';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+	import SmileIcon from '@lucide/svelte/icons/smile';
+
+	let isEmojiPickerOpen = $state(false);
 </script>
 
 <Dialog.Root bind:open={createTableDialog.isOpen}>
@@ -146,6 +180,57 @@
 			</Dialog.Header>
 
 			<div class="grid gap-4">
+				<Field.Field>
+					<Label>Icon</Label>
+					<div class="flex items-center gap-2">
+						<Popover.Root bind:open={isEmojiPickerOpen}>
+							<Popover.Trigger>
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									class="size-10 text-lg"
+									disabled={createTableDialog.isPending}
+								>
+									{#if createTableDialog.icon}
+										{createTableDialog.icon}
+									{:else}
+										<SmileIcon class="size-5 text-muted-foreground" />
+									{/if}
+								</Button>
+							</Popover.Trigger>
+							<Popover.Content class="w-auto p-2" align="start">
+								<EmojiPicker.Root
+									onSelect={(emoji) => {
+										createTableDialog.icon = emoji.emoji;
+										isEmojiPickerOpen = false;
+									}}
+								>
+									<EmojiPicker.Search placeholder="Search emoji..." />
+									<EmojiPicker.Viewport>
+										<EmojiPicker.List />
+									</EmojiPicker.Viewport>
+								</EmojiPicker.Root>
+							</Popover.Content>
+						</Popover.Root>
+						{#if createTableDialog.icon}
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								class="h-6 px-2 text-xs"
+								onclick={() => (createTableDialog.icon = null)}
+								disabled={createTableDialog.isPending}
+							>
+								Clear
+							</Button>
+						{/if}
+					</div>
+					<Field.Description
+						>Optional emoji icon for the table.</Field.Description
+					>
+				</Field.Field>
+
 				<Field.Field>
 					<Label for="table-name">Table Name</Label>
 					<Input
@@ -193,6 +278,20 @@
 					{:else}
 						<Field.Description>Used in code and URLs.</Field.Description>
 					{/if}
+				</Field.Field>
+
+				<Field.Field>
+					<Label for="table-description">Description</Label>
+					<Textarea
+						id="table-description"
+						bind:value={createTableDialog.description}
+						placeholder="Optional description of the table..."
+						disabled={createTableDialog.isPending}
+						rows={2}
+					/>
+					<Field.Description
+						>Optional description for the table.</Field.Description
+					>
 				</Field.Field>
 			</div>
 

@@ -104,6 +104,7 @@ export const workspaces = {
 			workspaceId: string;
 			name: string;
 			id: string;
+			icon?: string | null;
 			description?: string;
 		}) => {
 			const readResult = await workspaceStorage.readWorkspace(
@@ -124,7 +125,7 @@ export const workspaces = {
 
 			workspace.tables[tableId] = {
 				name: input.name,
-				icon: null,
+				icon: input.icon ?? null,
 				cover: null,
 				description: input.description ?? '',
 				fields: { id: id() },
