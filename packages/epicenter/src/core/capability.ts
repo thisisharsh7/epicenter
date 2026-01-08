@@ -1,7 +1,7 @@
 /**
  * Capability types and utilities.
  *
- * Single source of truth for capability context. Works across Node.js and browser.
+ * Single source of truth for the capability protocol. Works across Node.js and browser.
  * - Node.js: `paths` is defined (CapabilityPaths)
  * - Browser: `paths` is undefined
  */
@@ -118,23 +118,13 @@ export type CapabilityContext<
 };
 
 /**
- * Capability exports - returned values accessible via `capabilities.{name}`.
+ * Capability exports - returned values accessible via `client.capabilities.{name}`.
  */
-export type Capabilities = {
+export type CapabilityExports = {
 	whenSynced?: Promise<unknown>;
 	destroy?: () => void | Promise<void>;
 	[key: string]: unknown;
 };
-
-export type WorkspaceCapabilityMap = Record<string, Capabilities>;
-
-export type InferCapabilities<P> = P extends (context: any) => infer R
-	? Awaited<R>
-	: Record<string, never>;
-
-export function defineCapabilities<T extends Capabilities>(exports: T): T {
-	return exports;
-}
 
 /**
  * A capability function that attaches functionality to a workspace.
@@ -142,7 +132,44 @@ export function defineCapabilities<T extends Capabilities>(exports: T): T {
 export type Capability<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-	TExports extends Capabilities = Capabilities,
+	TExports extends CapabilityExports = CapabilityExports,
 > = (
 	context: CapabilityContext<TTablesSchema, TKvSchema>,
 ) => TExports | void | Promise<TExports | void>;
+
+/**
+ * A map of capability factory functions keyed by capability ID.
+ *
+ * Capabilities add functionality to workspaces: persistence, sync, SQL queries, etc.
+ * Each capability receives context and optionally returns exports accessible via
+ * `client.capabilities[capabilityId]`.
+ */
+export type CapabilityMap<
+	TTablesSchema extends TablesSchema = TablesSchema,
+	TKvSchema extends KvSchema = KvSchema,
+> = Record<string, Capability<TTablesSchema, TKvSchema>>;
+
+/**
+ * Utility type to infer the exports from a capability map.
+ *
+ * Maps each capability key to its return type (unwrapped from Promise if async).
+ * Capabilities that return void produce empty objects.
+ */
+export type InferCapabilityExports<TCapabilities> = {
+	[K in keyof TCapabilities]: TCapabilities[K] extends Capability<
+		TablesSchema,
+		KvSchema,
+		infer TExports
+	>
+		? TExports extends CapabilityExports
+			? TExports
+			: Record<string, never>
+		: Record<string, never>;
+};
+
+/**
+ * Helper to define capability exports with proper typing.
+ */
+export function defineCapabilities<T extends CapabilityExports>(exports: T): T {
+	return exports;
+}

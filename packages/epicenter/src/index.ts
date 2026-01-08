@@ -58,13 +58,14 @@ export type { ProviderError } from './core/errors';
 // Error types
 export { ProviderErr } from './core/errors';
 export type {
-	Capabilities,
 	Capability,
 	CapabilityContext,
-	WorkspaceCapabilityMap,
-} from './core/provider';
+	CapabilityExports,
+	CapabilityMap,
+	InferCapabilityExports,
+} from './core/capability';
 // Capability system
-export { defineCapabilities } from './core/provider';
+export { defineCapabilities } from './core/capability';
 export type {
 	BooleanFieldSchema,
 	CellValue,
@@ -119,9 +120,7 @@ export { createRichContentId } from './core/rich-content/id';
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type {
-	CapabilityMap,
 	CreateOptions,
-	InferCapabilityExports,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceSchema,

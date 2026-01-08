@@ -1,5 +1,5 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type { Capability, CapabilityContext } from '../../core/provider';
+import type { Capability, CapabilityContext } from '../../core/capability';
 import type { TablesSchema } from '../../core/schema';
 
 /**

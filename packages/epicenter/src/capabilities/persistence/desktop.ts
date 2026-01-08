@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { Capability, CapabilityContext } from '../../core/provider';
+import type { Capability, CapabilityContext } from '../../core/capability';
 import type { TablesSchema } from '../../core/schema';
 
 /**

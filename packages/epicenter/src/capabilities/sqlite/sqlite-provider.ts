@@ -12,7 +12,7 @@ import {
 	defineCapabilities,
 	type Capability,
 	type CapabilityContext,
-} from '../../core/provider';
+} from '../../core/capability';
 import type { Row, TablesSchema } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';

@@ -1,5 +1,5 @@
 import { WebsocketProvider } from 'y-websocket';
-import type { Capability } from '../core/provider';
+import type { Capability } from '../core/capability';
 import type { TablesSchema } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════

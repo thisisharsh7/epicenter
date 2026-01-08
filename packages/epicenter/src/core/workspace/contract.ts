@@ -2,7 +2,11 @@ import * as Y from 'yjs';
 
 import { createTables, type Tables } from '../tables/create-tables';
 import { createKv, type Kv } from '../kv/core';
-import type { Capabilities, Capability } from '../provider.shared';
+import type {
+	CapabilityExports,
+	CapabilityMap,
+	InferCapabilityExports,
+} from '../capability';
 import type { KvSchema, TablesSchema } from '../schema';
 import type { CapabilityPaths, WorkspacePaths } from '../types';
 
@@ -34,36 +38,6 @@ export type WorkspaceSchema<
 	tables: TTablesSchema;
 	/** Key-value store schema. */
 	kv: TKvSchema;
-};
-
-/**
- * A map of capability factory functions keyed by capability ID.
- *
- * Capabilities add functionality to workspaces: persistence, sync, SQL queries, etc.
- * Each capability receives context and optionally returns exports accessible via
- * `client.capabilities[capabilityId]`.
- */
-export type CapabilityMap<
-	TTablesSchema extends TablesSchema = TablesSchema,
-	TKvSchema extends KvSchema = KvSchema,
-> = Record<string, Capability<TTablesSchema, TKvSchema>>;
-
-/**
- * Utility type to infer the exports from a capability map.
- *
- * Maps each capability key to its return type (unwrapped from Promise if async).
- * Capabilities that return void produce empty objects.
- */
-export type InferCapabilityExports<TCapabilities> = {
-	[K in keyof TCapabilities]: TCapabilities[K] extends Capability<
-		TablesSchema,
-		KvSchema,
-		infer TExports
-	>
-		? TExports extends Capabilities
-			? TExports
-			: Record<string, never>
-		: Record<string, never>;
 };
 
 /**
@@ -289,7 +263,7 @@ async function initializeWorkspace<
 	const cleanup = async () => {
 		await Promise.all(
 			Object.values(capabilityExports).map((capability) =>
-				(capability as Capabilities).destroy?.(),
+				(capability as CapabilityExports).destroy?.(),
 			),
 		);
 		ydoc.destroy();

@@ -9,7 +9,7 @@ import {
 	defineCapabilities,
 	type Capability,
 	type CapabilityContext,
-} from '../../core/provider.shared';
+} from '../../core/capability';
 import type { TableHelper } from '../../core/tables/create-tables';
 import type { Row, TableSchema, TablesSchema } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
