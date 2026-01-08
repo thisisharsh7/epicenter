@@ -29,7 +29,7 @@
 				name = value;
 				error = null;
 				if (!isSlugManuallyEdited) {
-					slug = slugify.toSnakeCase(value);
+					slug = slugify.toKebabCase(value);
 				}
 			},
 			get slug() {
@@ -73,7 +73,7 @@
 			},
 
 			resetSlug() {
-				slug = slugify.toSnakeCase(name);
+				slug = slugify.toKebabCase(name);
 				error = null;
 				isSlugManuallyEdited = false;
 			},
@@ -87,7 +87,8 @@
 				if (!name.trim() || !slug.trim()) return;
 
 				error = null;
-				const result = onConfirm({ name: name.trim(), id: slug.trim() });
+				const finalId = slugify.toKebabCase(slug.trim());
+				const result = onConfirm({ name: name.trim(), id: finalId });
 
 				if (result instanceof Promise) {
 					isPending = true;
@@ -183,7 +184,7 @@
 					<Input
 						id="workspace-slug"
 						bind:value={workspaceCreateDialog.slug}
-						placeholder="my_workspace"
+						placeholder="my-workspace"
 						disabled={workspaceCreateDialog.isPending}
 						class="font-mono text-sm"
 						aria-invalid={!!workspaceCreateDialog.error}

@@ -96,7 +96,8 @@
 				if (!name.trim() || !id.trim()) return;
 
 				error = null;
-				const result = config.onConfirm({ name: name.trim(), id: id.trim() });
+				const finalId = slugify.toSnakeCase(id.trim());
+				const result = config.onConfirm({ name: name.trim(), id: finalId });
 
 				if (result instanceof Promise) {
 					isPending = true;
