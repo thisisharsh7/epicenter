@@ -12,7 +12,7 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { date, json, tags } from '../../../providers/sqlite/builders';
+import { date, json, tags } from '../../../capabilities/sqlite/builders';
 import type { DateTimeString } from '../fields/datetime';
 import type {
 	BooleanFieldSchema,
