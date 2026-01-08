@@ -8,7 +8,10 @@
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { createWorkspaceDialog } from '$lib/components/CreateWorkspaceDialog.svelte';
+	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 
 	let { selectedWorkspaceId }: { selectedWorkspaceId: string | undefined } =
 		$props();
@@ -16,6 +19,9 @@
 	const workspaces = createQuery(() => rpc.workspaces.listWorkspaces.options);
 	const createWorkspace = createMutation(
 		() => rpc.workspaces.createWorkspace.options,
+	);
+	const deleteWorkspace = createMutation(
+		() => rpc.workspaces.deleteWorkspace.options,
 	);
 
 	const selectedWorkspace = $derived(
@@ -69,20 +75,51 @@
 					<DropdownMenu.Item disabled>Loading...</DropdownMenu.Item>
 				{:else if workspaces.data}
 					{#each workspaces.data as workspace (workspace.id)}
-						<DropdownMenu.Item
-							onclick={() => goto(`/workspaces/${workspace.id}`)}
-							class="gap-2 p-2"
-						>
-							<div
-								class="flex size-6 items-center justify-center rounded-sm border"
-							>
-								<FolderIcon class="size-4 shrink-0" />
+						<DropdownMenu.Sub>
+							<div class="flex items-center">
+								<DropdownMenu.Item
+									onclick={() => goto(`/workspaces/${workspace.id}`)}
+									class="flex-1"
+								>
+									<div
+										class="flex size-6 items-center justify-center rounded-sm border"
+									>
+										<FolderIcon class="size-4 shrink-0" />
+									</div>
+									{workspace.name}
+									{#if workspace.id === selectedWorkspaceId}
+										<CheckIcon class="ml-auto" />
+									{/if}
+								</DropdownMenu.Item>
+								<DropdownMenu.SubTrigger
+									class="ml-1 size-7 p-0 justify-center [&>svg:last-child]:hidden"
+								>
+									<EllipsisIcon class="size-4" />
+									<span class="sr-only">More options</span>
+								</DropdownMenu.SubTrigger>
 							</div>
-							<span class="flex-1 truncate">{workspace.name}</span>
-							{#if workspace.id === selectedWorkspaceId}
-								<CheckIcon class="size-4 shrink-0" />
-							{/if}
-						</DropdownMenu.Item>
+							<DropdownMenu.SubContent class="min-w-32">
+								<DropdownMenu.Item
+									variant="destructive"
+									onclick={() => {
+										confirmationDialog.open({
+											title: 'Delete Workspace',
+											description: `Are you sure you want to delete "${workspace.name}"? This will permanently delete all tables and settings in this workspace.`,
+											confirm: { text: 'Delete', variant: 'destructive' },
+											onConfirm: async () => {
+												await deleteWorkspace.mutateAsync(workspace.id);
+												if (selectedWorkspaceId === workspace.id) {
+													await goto('/');
+												}
+											},
+										});
+									}}
+								>
+									<TrashIcon class="size-4" />
+									<span>Delete</span>
+								</DropdownMenu.Item>
+							</DropdownMenu.SubContent>
+						</DropdownMenu.Sub>
 					{/each}
 				{/if}
 				<DropdownMenu.Separator />
