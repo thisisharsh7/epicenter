@@ -23,7 +23,7 @@
  */
 
 import { createWorkspaceClient, defineWorkspace } from '@epicenter/hq';
-import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
+import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineBackground } from 'wxt/utils/define-background';
 import { createBrowserConverters } from '$lib/browser-helpers';
@@ -106,11 +106,11 @@ export default defineBackground(() => {
 	const backgroundWorkspace = defineWorkspace({
 		id: 'browser',
 		tables: BROWSER_SCHEMA,
-		providers: {
+		capabilities: {
 			/**
-			 * WebSocket sync provider for server connection.
+			 * WebSocket sync capability for server connection.
 			 */
-			serverSync: createWebsocketSyncProvider({
+			serverSync: websocketSync({
 				url: 'ws://localhost:3913/sync',
 			}),
 		},
