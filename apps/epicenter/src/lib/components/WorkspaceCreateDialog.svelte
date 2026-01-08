@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import * as slugify from '$lib/utils/slugify';
+	import { toKebabCase } from '$lib/utils/slug';
 
 	function createWorkspaceCreateDialog() {
 		let isOpen = $state(false);
@@ -29,7 +29,7 @@
 				name = value;
 				error = null;
 				if (!isSlugManuallyEdited) {
-					slug = slugify.toKebabCase(value);
+					slug = toKebabCase(value);
 				}
 			},
 			get slug() {
@@ -73,7 +73,7 @@
 			},
 
 			resetSlug() {
-				slug = slugify.toKebabCase(name);
+				slug = toKebabCase(name);
 				error = null;
 				isSlugManuallyEdited = false;
 			},
@@ -87,7 +87,7 @@
 				if (!name.trim() || !slug.trim()) return;
 
 				error = null;
-				const finalId = slugify.toKebabCase(slug.trim());
+				const finalId = toKebabCase(slug.trim());
 				const result = onConfirm({ name: name.trim(), id: finalId });
 
 				if (result instanceof Promise) {

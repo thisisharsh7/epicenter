@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import * as slugify from '$lib/utils/slugify';
+	import { toSnakeCase } from '$lib/utils/slug';
 
 	export type NameIdDialogConfig = {
 		title: string;
@@ -40,7 +40,7 @@
 				name = value;
 				error = null;
 				if (!isIdManuallyEdited) {
-					id = slugify.toSnakeCase(value);
+					id = toSnakeCase(value);
 				}
 			},
 			get id() {
@@ -82,7 +82,7 @@
 			},
 
 			resetId() {
-				id = slugify.toSnakeCase(name);
+				id = toSnakeCase(name);
 				error = null;
 				isIdManuallyEdited = false;
 			},
@@ -96,7 +96,7 @@
 				if (!name.trim() || !id.trim()) return;
 
 				error = null;
-				const finalId = slugify.toSnakeCase(id.trim());
+				const finalId = toSnakeCase(id.trim());
 				const result = config.onConfirm({ name: name.trim(), id: finalId });
 
 				if (result instanceof Promise) {
