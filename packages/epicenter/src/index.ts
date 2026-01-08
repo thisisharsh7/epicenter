@@ -130,7 +130,6 @@ export type {
 	Workspace,
 	WorkspaceClient,
 	WorkspaceSchema,
-	WorkspaceWithCapabilities,
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
 
