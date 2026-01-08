@@ -67,16 +67,21 @@
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
-							<Sidebar.MenuButton {...props} class="w-fit px-1.5">
+							<Sidebar.MenuButton {...props} size="lg">
 								<div
-									class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-5 items-center justify-center rounded-md"
+									class="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 items-center justify-center rounded-lg"
 								>
-									<FolderIcon class="size-3" />
+									<FolderIcon class="size-4" />
 								</div>
-								<span class="truncate font-medium">
-									{workspace.data?.name ?? 'Loading...'}
-								</span>
-								<ChevronDownIcon class="opacity-50" />
+								<div class="grid flex-1 text-left text-sm leading-tight">
+									<span class="truncate font-semibold">
+										{workspace.data?.name ?? 'Loading...'}
+									</span>
+									<span class="truncate text-xs text-muted-foreground">
+										{workspaceId}
+									</span>
+								</div>
+								<ChevronDownIcon class="ml-auto opacity-50" />
 							</Sidebar.MenuButton>
 						{/snippet}
 					</DropdownMenu.Trigger>
