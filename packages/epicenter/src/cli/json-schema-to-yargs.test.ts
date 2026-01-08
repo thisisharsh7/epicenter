@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
-import { generateJsonSchema } from '../core/schema/standard/to-json-schema';
+import { standardSchemaToJsonSchema } from '../core/schema/standard/to-json-schema';
 import { jsonSchemaToYargsOptions } from './json-schema-to-yargs';
 
 describe('jsonSchemaToYargsOptions', () => {
 	test('converts string field to string option', () => {
 		const schema = type({ title: 'string' });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.title).toBeDefined();
@@ -16,7 +16,7 @@ describe('jsonSchemaToYargsOptions', () => {
 
 	test('converts number field to number option', () => {
 		const schema = type({ count: 'number' });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.count).toBeDefined();
@@ -26,7 +26,7 @@ describe('jsonSchemaToYargsOptions', () => {
 
 	test('converts integer field to number option', () => {
 		const schema = type({ count: 'number.integer' });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.count).toBeDefined();
@@ -35,7 +35,7 @@ describe('jsonSchemaToYargsOptions', () => {
 
 	test('converts boolean field to boolean option', () => {
 		const schema = type({ published: 'boolean' });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.published).toBeDefined();
@@ -45,7 +45,7 @@ describe('jsonSchemaToYargsOptions', () => {
 
 	test('converts optional field to non-required option', () => {
 		const schema = type({ 'title?': 'string' });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.title).toBeDefined();
@@ -55,7 +55,7 @@ describe('jsonSchemaToYargsOptions', () => {
 
 	test('converts string literal union to choices', () => {
 		const schema = type({ status: "'draft' | 'published' | 'archived'" });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.status).toBeDefined();
@@ -68,7 +68,7 @@ describe('jsonSchemaToYargsOptions', () => {
 
 	test('converts array field to array option', () => {
 		const schema = type({ tags: 'string[]' });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.tags).toBeDefined();
@@ -81,7 +81,7 @@ describe('jsonSchemaToYargsOptions', () => {
 			count: 'number',
 			'published?': 'boolean',
 		});
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(Object.keys(options)).toHaveLength(3);
@@ -100,7 +100,7 @@ describe('jsonSchemaToYargsOptions', () => {
 
 	test('handles schema without descriptions gracefully', () => {
 		const schema = type({ title: 'string' });
-		const jsonSchema = generateJsonSchema(schema);
+		const jsonSchema = standardSchemaToJsonSchema(schema);
 		const options = jsonSchemaToYargsOptions(jsonSchema);
 
 		expect(options.title?.description).toBeUndefined();

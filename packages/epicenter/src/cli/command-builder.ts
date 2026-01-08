@@ -1,7 +1,7 @@
 import type { CommandModule } from 'yargs';
 import type { Actions } from '../core/actions';
 import { iterateActions } from '../core/actions';
-import { generateJsonSchema } from '../core/schema/standard/to-json-schema';
+import { standardSchemaToJsonSchema } from '../core/schema/standard/to-json-schema';
 import { jsonSchemaToYargsOptions } from './json-schema-to-yargs';
 
 /**
@@ -28,7 +28,7 @@ export function buildActionCommands(actions: Actions): CommandModule[] {
 			`${action.type === 'query' ? 'Query' : 'Mutation'}: ${path.join('.')}`;
 
 		const jsonSchema = action.input
-			? (generateJsonSchema(action.input) as Record<string, unknown>)
+			? (standardSchemaToJsonSchema(action.input) as Record<string, unknown>)
 			: undefined;
 
 		const builder = jsonSchema ? jsonSchemaToYargsOptions(jsonSchema) : {};

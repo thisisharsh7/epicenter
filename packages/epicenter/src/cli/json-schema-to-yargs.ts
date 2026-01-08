@@ -155,7 +155,7 @@ function fieldSchemaToYargsOption(
  * @example
  * ```typescript
  * const schema = type({ title: 'string', count: 'number?' });
- * const jsonSchema = generateJsonSchema(schema);
+ * const jsonSchema = standardSchemaToJsonSchema(schema);
  * const options = jsonSchemaToYargsOptions(jsonSchema);
  * // { title: { type: 'string', demandOption: true }, count: { type: 'number', demandOption: false } }
  * ```
