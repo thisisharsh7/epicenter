@@ -132,6 +132,15 @@ export type {
 	WorkspaceSchema,
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
+// Action system
+export type { Action, Actions } from './core/actions';
+export {
+	defineAction,
+	isAction,
+	isMutation,
+	isQuery,
+	iterateActions,
+} from './core/actions';
 
 // Note: Capabilities (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
