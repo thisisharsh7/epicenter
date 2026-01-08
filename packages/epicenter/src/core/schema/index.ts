@@ -18,6 +18,7 @@ export type {
 	CoverDefinition,
 	DateFieldSchema,
 	FieldMetadata,
+	FieldOptions,
 	FieldSchema,
 	FieldsSchema,
 	FieldType,

@@ -73,6 +73,7 @@ export type {
 	DateFieldSchema,
 	DateIsoString,
 	FieldMetadata,
+	FieldOptions,
 	FieldSchema,
 	FieldsSchema,
 	FieldType,

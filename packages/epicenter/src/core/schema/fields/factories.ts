@@ -14,7 +14,7 @@ import type {
 import type {
 	BooleanFieldSchema,
 	DateFieldSchema,
-	FieldMetadata,
+	FieldOptions,
 	FieldsSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
@@ -27,22 +27,27 @@ import type {
 	TextFieldSchema,
 } from './types';
 
-export function id(opts?: FieldMetadata): IdFieldSchema {
+export function id({
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions = {}): IdFieldSchema {
 	return {
 		type: 'id',
-		...(opts?.name && { name: opts.name }),
-		...(opts?.description && { description: opts.description }),
+		name,
+		description,
+		icon,
 	};
 }
 
 export function text(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		nullable: true;
 		default?: string;
 	},
 ): TextFieldSchema<true>;
 export function text(
-	opts?: FieldMetadata & {
+	opts?: FieldOptions & {
 		nullable?: false;
 		default?: string;
 	},
@@ -50,37 +55,44 @@ export function text(
 export function text({
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	nullable?: boolean;
 	default?: string;
 } = {}): TextFieldSchema<boolean> {
 	return {
 		type: 'text',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),
 	};
 }
 
-export function richtext(opts?: FieldMetadata): RichtextFieldSchema {
+export function richtext({
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions = {}): RichtextFieldSchema {
 	return {
 		type: 'richtext',
-		...(opts?.name && { name: opts.name }),
-		...(opts?.description && { description: opts.description }),
+		name,
+		description,
+		icon,
 	};
 }
 
 export function integer(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		nullable: true;
 		default?: number;
 	},
 ): IntegerFieldSchema<true>;
 export function integer(
-	opts?: FieldMetadata & {
+	opts?: FieldOptions & {
 		nullable?: false;
 		default?: number;
 	},
@@ -88,29 +100,31 @@ export function integer(
 export function integer({
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	nullable?: boolean;
 	default?: number;
 } = {}): IntegerFieldSchema<boolean> {
 	return {
 		type: 'integer',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),
 	};
 }
 
 export function real(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		nullable: true;
 		default?: number;
 	},
 ): RealFieldSchema<true>;
 export function real(
-	opts?: FieldMetadata & {
+	opts?: FieldOptions & {
 		nullable?: false;
 		default?: number;
 	},
@@ -118,29 +132,31 @@ export function real(
 export function real({
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	nullable?: boolean;
 	default?: number;
 } = {}): RealFieldSchema<boolean> {
 	return {
 		type: 'real',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),
 	};
 }
 
 export function boolean(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		nullable: true;
 		default?: boolean;
 	},
 ): BooleanFieldSchema<true>;
 export function boolean(
-	opts?: FieldMetadata & {
+	opts?: FieldOptions & {
 		nullable?: false;
 		default?: boolean;
 	},
@@ -148,29 +164,31 @@ export function boolean(
 export function boolean({
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	nullable?: boolean;
 	default?: boolean;
 } = {}): BooleanFieldSchema<boolean> {
 	return {
 		type: 'boolean',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),
 	};
 }
 
 export function date(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		nullable: true;
 		default?: Temporal.ZonedDateTime;
 	},
 ): DateFieldSchema<true>;
 export function date(
-	opts?: FieldMetadata & {
+	opts?: FieldOptions & {
 		nullable?: false;
 		default?: Temporal.ZonedDateTime;
 	},
@@ -178,16 +196,18 @@ export function date(
 export function date({
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	nullable?: boolean;
 	default?: Temporal.ZonedDateTime;
 } = {}): DateFieldSchema<boolean> {
 	return {
 		type: 'date',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && {
 			default: DateTimeString.stringify(defaultValue),
@@ -196,14 +216,14 @@ export function date({
 }
 
 export function select<const TOptions extends readonly [string, ...string[]]>(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		options: TOptions;
 		nullable: true;
 		default?: TOptions[number];
 	},
 ): SelectFieldSchema<TOptions, true>;
 export function select<const TOptions extends readonly [string, ...string[]]>(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		options: TOptions;
 		nullable?: false;
 		default?: TOptions[number];
@@ -213,17 +233,19 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 	options,
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	options: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number];
 }): SelectFieldSchema<TOptions, boolean> {
 	return {
 		type: 'select',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		options,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),
@@ -231,21 +253,21 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 }
 
 export function tags<const TOptions extends readonly [string, ...string[]]>(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		options: TOptions;
 		nullable: true;
 		default?: TOptions[number][];
 	},
 ): TagsFieldSchema<TOptions, true>;
 export function tags<const TOptions extends readonly [string, ...string[]]>(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		options: TOptions;
 		nullable?: false;
 		default?: TOptions[number][];
 	},
 ): TagsFieldSchema<TOptions, false>;
 export function tags<TNullable extends boolean = false>(
-	opts?: FieldMetadata & {
+	opts?: FieldOptions & {
 		nullable?: TNullable;
 		default?: string[];
 	},
@@ -254,17 +276,19 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	options,
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	options?: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number][] | string[];
 } = {}): TagsFieldSchema<TOptions, boolean> {
 	return {
 		type: 'tags',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		...(options && { options }),
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && {
@@ -274,14 +298,14 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 }
 
 export function json<const TSchema extends StandardSchemaWithJSONSchema>(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		schema: TSchema;
 		nullable: true;
 		default?: StandardSchemaV1.InferOutput<TSchema>;
 	},
 ): JsonFieldSchema<TSchema, true>;
 export function json<const TSchema extends StandardSchemaWithJSONSchema>(
-	opts: FieldMetadata & {
+	opts: FieldOptions & {
 		schema: TSchema;
 		nullable?: false;
 		default?: StandardSchemaV1.InferOutput<TSchema>;
@@ -291,17 +315,19 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	schema,
 	nullable = false,
 	default: defaultValue,
-	name,
-	description,
-}: FieldMetadata & {
+	name = '',
+	description = '',
+	icon = null,
+}: FieldOptions & {
 	schema: TSchema;
 	nullable?: boolean;
 	default?: StandardSchemaV1.InferOutput<TSchema>;
 }): JsonFieldSchema<TSchema, boolean> {
 	return {
 		type: 'json',
-		...(name && { name }),
-		...(description && { description }),
+		name,
+		description,
+		icon,
 		schema,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),

@@ -72,18 +72,33 @@ export type IconDefinition =
 export type CoverDefinition = { type: 'external'; url: string };
 
 // ============================================================================
-// Field Metadata (Optional)
+// Field Metadata
 // ============================================================================
 
 /**
- * Optional metadata for field display.
- * When omitted, name is derived from field key and description is empty.
+ * Field metadata for display purposes.
+ * Always present on field schemas (factories provide defaults).
  */
 export type FieldMetadata = {
-	/** Display name shown in UI. If omitted, derived from field key. */
+	/** Display name shown in UI. Empty string if not provided. */
+	name: string;
+	/** Description shown in tooltips/docs. Empty string if not provided. */
+	description: string;
+	/** Icon for the field - emoji or external image URL. */
+	icon: IconDefinition | null;
+};
+
+/**
+ * Options for field factory functions.
+ * All metadata fields are optional; factories provide defaults.
+ */
+export type FieldOptions = {
+	/** Display name shown in UI. Defaults to empty string. */
 	name?: string;
-	/** Description shown in tooltips/docs. */
+	/** Description shown in tooltips/docs. Defaults to empty string. */
 	description?: string;
+	/** Icon for the field. Defaults to null. */
+	icon?: IconDefinition | null;
 };
 
 // ============================================================================
