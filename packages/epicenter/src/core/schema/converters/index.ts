@@ -14,4 +14,5 @@ export type { WorkspaceSchemaToDrizzleTables } from './to-drizzle';
 export {
 	convertTableSchemaToDrizzle,
 	convertWorkspaceSchemaToDrizzle,
+	toSqlIdentifier,
 } from './to-drizzle';
