@@ -1,9 +1,10 @@
 # YKeyValue Conflict Resolution: Understanding the Last-Write-Wins Problem
 
-> **Update (2026-01-08)**: After extensive benchmarking, we decided to defer LWW timestamp implementation
-> in favor of native Y.Map of Y.Maps with epoch-based compaction. The unpredictable conflict resolution
-> affects <1% of edits (same-cell offline conflicts are rare). See the "Current Decision" section below
-> for details.
+> **Update (2026-01-08)**: After extensive benchmarking, we decided to revert YKeyValue entirely
+> in favor of native Y.Map of Y.Maps with epoch-based compaction. The storage gains were dubious
+> (~6% difference, not 1935x), and the unpredictable conflict resolution was a footgun. Implementing
+> proper LWW timestamps would have added too much complexity. Native Y.Map is simpler and battle-tested.
+> See [PR #1226](https://github.com/EpicenterHQ/epicenter/pull/1226) for the full revert.
 
 We discovered a conflict resolution problem in our YKeyValue implementation while researching [y-lwwmap](https://github.com/rozek/y-lwwmap). This article documents the problem, confirms it with tests, and discusses mitigation strategies.
 

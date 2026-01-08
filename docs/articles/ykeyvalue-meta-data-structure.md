@@ -1,5 +1,10 @@
 # YKeyValue: The Most Interesting Meta Data Structure in Yjs
 
+> **Deprecated (2026-01-08)**: We reverted YKeyValue in favor of native Y.Map of Y.Maps.
+> The storage gains were dubious in practice (~6% difference with epoch compaction, not 1935x),
+> and the unpredictable LWW conflict resolution was a footgun. Native Y.Map is simpler and
+> more battle-tested. See [PR #1226](https://github.com/EpicenterHQ/epicenter/pull/1226) for details.
+
 YKeyValue is one of the most interesting meta Yjs data structures I've encountered.
 
 I've talked before about how you can build complex data structures with Yjs primitives—often to make them more performant or more memory efficient. Well, this one takes the cake. It's also one of the few that's canonically inside the Yjs organization itself (in [yjs/y-utility](https://github.com/yjs/y-utility)).

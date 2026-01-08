@@ -1,5 +1,11 @@
 # How We Cut Our Yjs Document Size by 1935x
 
+> **Deprecated (2026-01-08)**: We reverted this YKeyValue migration. The 1935x benchmark was
+> a worst-case comparison against uncompacted Y.Map. With epoch-based compaction, native Y.Map
+> is actually ~6% smaller. The dramatic gains didn't materialize in practice, and YKeyValue's
+> unpredictable conflict resolution (earlier edits overwriting later ones) was a footgun.
+> See [PR #1226](https://github.com/EpicenterHQ/epicenter/pull/1226) for the revert.
+
 We were building a collaborative app with Yjs when we hit a wall: documents kept growing. A workspace that should have been a few KB was ballooning to hundreds of KB after normal usage. Users were complaining about slow sync times.
 
 The culprit? Y.Map.
