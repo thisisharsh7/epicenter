@@ -40,6 +40,53 @@ import type {
 import type { DateTimeString } from './datetime';
 
 // ============================================================================
+// Icon and Cover Definitions (Forward Compatible)
+// ============================================================================
+
+/**
+ * Icon definition - emoji or external image URL.
+ * Uses discriminated union for future extensibility.
+ *
+ * @example
+ * ```typescript
+ * // Emoji icon
+ * { type: 'emoji', value: '📝' }
+ *
+ * // External image
+ * { type: 'external', url: 'https://example.com/icon.png' }
+ * ```
+ */
+export type IconDefinition =
+	| { type: 'emoji'; value: string }
+	| { type: 'external'; url: string };
+
+/**
+ * Cover definition - external image URL for table banners.
+ * Uses discriminated union for future extensibility (gradients, unsplash, etc).
+ *
+ * @example
+ * ```typescript
+ * { type: 'external', url: 'https://example.com/cover.jpg' }
+ * ```
+ */
+export type CoverDefinition = { type: 'external'; url: string };
+
+// ============================================================================
+// Field Metadata (Optional)
+// ============================================================================
+
+/**
+ * Optional metadata for field display.
+ * When omitted, name is derived from field key and description is empty.
+ */
+export type FieldMetadata = {
+	/** Display name shown in UI. If omitted, derived from field key. */
+	name?: string;
+	/** Description shown in tooltips/docs. */
+	description?: string;
+};
+
+// ============================================================================
 // Field Schema Types
 // ============================================================================
 
@@ -47,18 +94,19 @@ import type { DateTimeString } from './datetime';
  * ID field schema - auto-generated primary key.
  * Always NOT NULL (implicit, no nullable field needed).
  */
-export type IdFieldSchema = {
+export type IdFieldSchema = FieldMetadata & {
 	type: 'id';
 };
 
 /**
  * Text field schema - single-line string input.
  */
-export type TextFieldSchema<TNullable extends boolean = boolean> = {
-	type: 'text';
-	nullable?: TNullable;
-	default?: string;
-};
+export type TextFieldSchema<TNullable extends boolean = boolean> =
+	FieldMetadata & {
+		type: 'text';
+		nullable?: TNullable;
+		default?: string;
+	};
 
 /**
  * Rich text reference field - stores ID pointing to separate rich content document.
@@ -68,46 +116,50 @@ export type TextFieldSchema<TNullable extends boolean = boolean> = {
  * Always nullable - Y.Docs are created lazily when user first edits.
  * No need to specify nullable or default; they're implicit.
  */
-export type RichtextFieldSchema = {
+export type RichtextFieldSchema = FieldMetadata & {
 	type: 'richtext';
 };
 
 /**
  * Integer field schema - whole numbers.
  */
-export type IntegerFieldSchema<TNullable extends boolean = boolean> = {
-	type: 'integer';
-	nullable?: TNullable;
-	default?: number;
-};
+export type IntegerFieldSchema<TNullable extends boolean = boolean> =
+	FieldMetadata & {
+		type: 'integer';
+		nullable?: TNullable;
+		default?: number;
+	};
 
 /**
  * Real/float field schema - decimal numbers.
  */
-export type RealFieldSchema<TNullable extends boolean = boolean> = {
-	type: 'real';
-	nullable?: TNullable;
-	default?: number;
-};
+export type RealFieldSchema<TNullable extends boolean = boolean> =
+	FieldMetadata & {
+		type: 'real';
+		nullable?: TNullable;
+		default?: number;
+	};
 
 /**
  * Boolean field schema - true/false values.
  */
-export type BooleanFieldSchema<TNullable extends boolean = boolean> = {
-	type: 'boolean';
-	nullable?: TNullable;
-	default?: boolean;
-};
+export type BooleanFieldSchema<TNullable extends boolean = boolean> =
+	FieldMetadata & {
+		type: 'boolean';
+		nullable?: TNullable;
+		default?: boolean;
+	};
 
 /**
  * Date field schema - timezone-aware dates.
  * Stored as DateTimeString format: `{iso}|{timezone}`.
  */
-export type DateFieldSchema<TNullable extends boolean = boolean> = {
-	type: 'date';
-	nullable?: TNullable;
-	default?: DateTimeString;
-};
+export type DateFieldSchema<TNullable extends boolean = boolean> =
+	FieldMetadata & {
+		type: 'date';
+		nullable?: TNullable;
+		default?: DateTimeString;
+	};
 
 /**
  * Select field schema - single choice from predefined options.
@@ -127,7 +179,7 @@ export type SelectFieldSchema<
 		...string[],
 	],
 	TNullable extends boolean = boolean,
-> = {
+> = FieldMetadata & {
 	type: 'select';
 	options: TOptions;
 	nullable?: TNullable;
@@ -157,7 +209,7 @@ export type TagsFieldSchema<
 		...string[],
 	],
 	TNullable extends boolean = boolean,
-> = {
+> = FieldMetadata & {
 	type: 'tags';
 	options?: TOptions;
 	nullable?: TNullable;
@@ -188,7 +240,7 @@ export type TagsFieldSchema<
 export type JsonFieldSchema<
 	TSchema extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
 	TNullable extends boolean = boolean,
-> = {
+> = FieldMetadata & {
 	type: 'json';
 	schema: TSchema;
 	nullable?: TNullable;
@@ -323,9 +375,9 @@ export type TableSchema = FieldsSchema;
  * ```typescript
  * const postsTable: TableDefinition = {
  *   name: 'Posts',
- *   emoji: '📝',
+ *   icon: { type: 'emoji', value: '📝' },
+ *   cover: null,
  *   description: 'Blog posts and articles',
- *   order: 0,
  *   fields: {
  *     id: id(),
  *     title: text(),
@@ -337,12 +389,12 @@ export type TableSchema = FieldsSchema;
 export type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
 	/** Display name shown in UI (e.g., "Blog Posts") */
 	name: string;
-	/** Emoji icon (e.g., "📝") */
-	emoji: string;
+	/** Icon for the table - emoji or external image URL */
+	icon: IconDefinition | null;
+	/** Cover image for the table banner */
+	cover: CoverDefinition | null;
 	/** Description shown in tooltips/docs */
 	description: string;
-	/** Explicit ordering for UI (0, 1, 2...) */
-	order: number;
 	/** The field schemas for this table */
 	fields: TFields;
 };
@@ -363,16 +415,16 @@ export type TablesSchema = Record<string, TableSchema>;
 
 /**
  * Tables with metadata - maps table keys to full table definitions.
- * Use this when you need table metadata (name, emoji, description, order).
+ * Use this when you need table metadata (name, icon, cover, description).
  *
  * @example
  * ```typescript
  * const blogTables: TablesWithMetadata = {
  *   posts: {
  *     name: 'Posts',
- *     emoji: '📝',
+ *     icon: { type: 'emoji', value: '📝' },
+ *     cover: null,
  *     description: 'Blog posts',
- *     order: 0,
  *     fields: { id: id(), title: text() },
  *   },
  * };
