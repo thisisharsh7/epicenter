@@ -10,7 +10,6 @@ import { tryAsync } from 'wellcrafted/result';
 import { ProviderErr, ProviderError } from '../../core/errors';
 import {
 	defineCapabilities,
-	type Capability,
 	type CapabilityContext,
 } from '../../core/capability';
 import type { Row, TablesSchema } from '../../core/schema';
@@ -20,11 +19,15 @@ import { createIndexLogger } from '../error-logger';
 const DEFAULT_DEBOUNCE_MS = 100;
 
 /**
- * Options for SQLite provider
+ * Configuration for the SQLite capability.
  */
-type SqliteProviderOptions = {
+export type SqliteConfig = {
+	/** Absolute path to the .db file. */
+	dbPath: string;
+	/** Absolute path to logs directory. */
+	logsDir: string;
 	/**
-	 * Debounce interval in milliseconds
+	 * Debounce interval in milliseconds.
 	 *
 	 * Changes are batched and synced after this delay. When the debounce fires,
 	 * SQLite is rebuilt from YJS (all rows deleted, then re-inserted).
@@ -38,16 +41,11 @@ type SqliteProviderOptions = {
 };
 
 /**
- * Create a SQLite capability
- * Syncs YJS changes to a SQLite database and exposes Drizzle query interface.
+ * SQLite capability: syncs YJS changes to SQLite and exposes Drizzle query interface.
  *
  * This capability creates internal resources (sqliteDb, drizzleTables) and exports them
- * via defineCapabilities(). All exported resources become available in your workspace exports
- * via the `capabilities` parameter.
- *
- * **Storage**:
- * - Database: `.epicenter/{workspaceId}.db`
- * - Logs: `.epicenter/{workspaceId}/{capabilityId}.log`
+ * via defineCapabilities(). All exported resources become available in your workspace
+ * via `client.capabilities.sqlite`.
  *
  * **Sync Strategy**:
  * Changes are debounced (default 100ms), then SQLite is rebuilt from YJS.
@@ -59,58 +57,52 @@ type SqliteProviderOptions = {
  * The rebuild is fast enough for most use cases (<50k items). For very large
  * datasets, consider splitting into multiple workspaces.
  *
- * @param context - Capability context with workspace ID, tables instance, and storage directory
- * @param options - Optional configuration for sync behavior
+ * @param context - Capability context with workspace ID and tables instance
+ * @param config - Configuration with paths and optional debounce settings
  *
  * @example
  * ```typescript
- * // In workspace definition:
- * capabilities: {
- *   sqlite: (c) => sqlite(c),  // Auto-saves to .epicenter/{id}.db
- *   // Or with custom debounce:
- *   sqlite: (c) => sqlite(c, { debounceMs: 50 }),
- * },
+ * import { join } from 'node:path';
  *
- * // After creating the client, query SQLite via capabilities:
- * const client = await workspace.withCapabilities({ sqlite }).create();
+ * const projectDir = '/my/project';
+ * const epicenterDir = join(projectDir, '.epicenter');
+ *
+ * const client = await workspace
+ *   .withCapabilities({
+ *     sqlite: (ctx) => sqlite(ctx, {
+ *       dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),
+ *       logsDir: join(epicenterDir, 'sqlite', 'logs'),
+ *     }),
+ *   })
+ *   .create();
  *
  * // Query with Drizzle:
  * const posts = await client.capabilities.sqlite.db
  *   .select()
- *   .from(client.capabilities.sqlite.posts)
- *   .where(eq(client.capabilities.sqlite.posts.id, id));
+ *   .from(client.capabilities.sqlite.posts);
  * ```
  */
-export const sqlite = (async <TTablesSchema extends TablesSchema>(
-	{ id, tables, paths }: CapabilityContext<TTablesSchema>,
-	options: SqliteProviderOptions = {},
+export const sqlite = async <TTablesSchema extends TablesSchema>(
+	{ id, tables }: CapabilityContext<TTablesSchema>,
+	config: SqliteConfig,
 ) => {
-	const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-	if (!paths) {
-		throw new Error(
-			'SQLite capability requires Node.js environment with filesystem access',
-		);
-	}
+	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
 
 	const schema = Object.fromEntries(
 		tables.$all().map((t) => [t.name, t.schema]),
 	) as unknown as TTablesSchema;
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
-	// Storage: .epicenter/capabilities/sqlite/{workspaceId}.db
-	const databasePath = path.join(paths.capability, `${id}.db`);
-	await mkdir(paths.capability, { recursive: true });
+	await mkdir(path.dirname(dbPath), { recursive: true });
+	await mkdir(logsDir, { recursive: true });
 
-	// WAL mode for better concurrent access
-	const client = new Database(databasePath);
+	const client = new Database(dbPath);
 	client.exec('PRAGMA journal_mode = WAL');
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
-	// Logs: .epicenter/capabilities/sqlite/logs/{workspaceId}.log
-	const logsDir = path.join(paths.capability, 'logs');
-	await mkdir(logsDir, { recursive: true });
-	const logPath = path.join(logsDir, `${id}.log`);
-	const logger = createIndexLogger({ logPath });
+	const logger = createIndexLogger({
+		logPath: path.join(logsDir, `${id}.log`),
+	});
 
 	// Prevents infinite loop during pushFromSqlite: when we insert into YJS,
 	// observers fire and would schedule a sync back to SQLite without this flag
@@ -318,4 +310,4 @@ export const sqlite = (async <TTablesSchema extends TablesSchema>(
 		db: sqliteDb,
 		...drizzleTables,
 	});
-}) satisfies Capability;
+};

@@ -7,7 +7,6 @@ import { tryAsync, trySync } from 'wellcrafted/result';
 import { ProviderErr, ProviderError } from '../../core/errors';
 import {
 	defineCapabilities,
-	type Capability,
 	type CapabilityContext,
 } from '../../core/capability';
 import type { TableHelper } from '../../core/tables/create-tables';
@@ -138,73 +137,117 @@ type ResolvedTableConfig<TTableSchema extends TableSchema> = {
 };
 
 /**
- * Markdown provider configuration
+ * Configuration for the markdown capability.
+ *
+ * The markdown capability provides bidirectional sync between YJS and markdown files.
+ * Files are organized as `{directory}/{tableName}/{filename}.md` by default.
+ *
+ * @example
+ * ```typescript
+ * // Basic usage with absolute paths (typically from capability context)
+ * markdown(context, {
+ *   directory: '/absolute/path/to/workspace',
+ *   logsDir: '/absolute/path/to/logs',
+ *   diagnosticsPath: '/absolute/path/to/diagnostics.json',
+ * })
+ *
+ * // With custom table configs
+ * markdown(context, {
+ *   directory: paths.project,
+ *   logsDir: path.join(paths.provider, 'logs'),
+ *   diagnosticsPath: path.join(paths.provider, 'diagnostics.json'),
+ *   tableConfigs: {
+ *     posts: {
+ *       directory: './blog-posts',  // Relative to workspace directory
+ *       serializer: bodyFieldSerializer('content'),
+ *     },
+ *   },
+ * })
+ * ```
  */
 export type MarkdownProviderConfig<
 	TTablesSchema extends TablesSchema = TablesSchema,
 > = {
 	/**
-	 * Workspace-level directory where markdown files should be stored.
+	 * Absolute path to the workspace directory where markdown files are stored.
 	 *
-	 * **Optional**: Defaults to the workspace `id` if not provided
+	 * Each table's files will be stored in a subdirectory of this path:
+	 * `{directory}/{tableName}/` (unless the table config specifies a custom directory).
+	 *
+	 * @example
 	 * ```typescript
-	 * // If workspace id is "blog", defaults to "<projectDir>/blog"
-	 * markdownProvider({ id, db, projectDir })
+	 * // Typical usage: use paths from capability context
+	 * directory: paths.project  // e.g., '/Users/me/projects/blog'
+	 *
+	 * // Files stored at:
+	 * // /Users/me/projects/blog/posts/abc123.md
+	 * // /Users/me/projects/blog/authors/john-doe.md
 	 * ```
-	 *
-	 * **Three ways to specify the path**:
-	 *
-	 * **Option 1: Relative paths** (recommended): Resolved relative to projectDir from epicenter config
-	 * ```typescript
-	 * directory: './vault'      // → <projectDir>/vault
-	 * directory: '../content'   // → <projectDir>/../content
-	 * ```
-	 *
-	 * **Option 2: Absolute paths**: Used as-is, no resolution needed
-	 * ```typescript
-	 * directory: '/absolute/path/to/vault'
-	 * ```
-	 *
-	 * **Option 3: Relative to current file**: Use import.meta.dirname to create absolute path relative to the workspace file
-	 * ```typescript
-	 * // In workspace.ts, places files in ./vault folder next to workspace.ts
-	 * directory: path.join(import.meta.dirname, './vault')
-	 * ```
-	 *
-	 * Each table's directory will be resolved relative to this workspace directory (unless the table uses an absolute path).
-	 *
-	 * @default `./${id}` where id is the workspace ID
 	 */
-	directory?: string;
+	directory: string;
+
+	/**
+	 * Absolute path to the logs directory.
+	 *
+	 * Error logs are written to `{logsDir}/{workspaceId}.log` as an append-only
+	 * historical record of sync errors, validation failures, and other issues.
+	 *
+	 * @example
+	 * ```typescript
+	 * logsDir: path.join(paths.provider, 'logs')
+	 * // Creates: .epicenter/providers/markdown/logs/blog.log
+	 * ```
+	 */
+	logsDir: string;
+
+	/**
+	 * Absolute path to the diagnostics JSON file.
+	 *
+	 * Diagnostics track the current state of files with validation errors.
+	 * Unlike logs (append-only history), diagnostics are updated in real-time
+	 * and files are removed when errors are fixed.
+	 *
+	 * @example
+	 * ```typescript
+	 * diagnosticsPath: path.join(paths.provider, 'diagnostics.json')
+	 * // Creates: .epicenter/providers/markdown/diagnostics.json
+	 * ```
+	 */
+	diagnosticsPath: string;
 
 	/**
 	 * Per-table markdown configuration.
 	 *
-	 * Defines how each table is serialized to markdown files and deserialized back.
-	 * Tables without custom configuration use default behavior:
-	 * - Directory: `{tableName}` (relative to workspace directory)
-	 * - Serialize: all fields in frontmatter, empty body, filename `{id}.md`
-	 * - Deserialize: extract ID from filename, validate all frontmatter fields
+	 * Each table can have custom settings for:
+	 * - `directory`: WHERE files go (defaults to table name, resolved relative to workspace directory)
+	 * - `serializer`: HOW rows are encoded/decoded (defaults to all-frontmatter with `{id}.md` filename)
 	 *
-	 * Example:
+	 * Use serializer factories like `bodyFieldSerializer()` or `titleFilenameSerializer()` for common patterns.
+	 *
+	 * @example
 	 * ```typescript
-	 * {
-	 *   posts: {
-	 *     directory: './blog-posts', // relative to workspace directory
-	 *     serialize: ({ row, table }) => ({
-	 *       frontmatter: { title: row.title, date: row.createdAt },
-	 *       body: row.content,
-	 *       filename: `${row.id}.md`
-	 *     }),
-	 *     deserialize: ({ frontmatter, body, filename, table }) => {
-	 *       const id = path.basename(filename, '.md');
-	 *       return Ok({ id, title: frontmatter.title, content: body });
-	 *     }
-	 *   }
+	 * tableConfigs: {
+	 *   // Use defaults (empty object)
+	 *   settings: {},
+	 *
+	 *   // Custom directory only
+	 *   config: { directory: './app-config' },
+	 *
+	 *   // Custom serializer: put 'content' field in markdown body
+	 *   posts: { serializer: bodyFieldSerializer('content') },
+	 *
+	 *   // Custom serializer: human-readable filenames like 'my-post-title-abc123.md'
+	 *   articles: { serializer: titleFilenameSerializer('title') },
+	 *
+	 *   // Both custom directory and serializer
+	 *   drafts: {
+	 *     directory: './drafts',
+	 *     serializer: bodyFieldSerializer('content'),
+	 *   },
 	 * }
 	 * ```
 	 */
-	configs?: TableConfigs<TTablesSchema>;
+	tableConfigs?: TableConfigs<TTablesSchema>;
 
 	/**
 	 * Enable verbose debug logging for troubleshooting file sync issues.
@@ -222,14 +265,19 @@ export type MarkdownProviderConfig<
 	debug?: boolean;
 };
 
-export const markdown = (async <TTablesSchema extends TablesSchema>(
+export const markdown = async <TTablesSchema extends TablesSchema>(
 	context: CapabilityContext<TTablesSchema>,
-	config: MarkdownProviderConfig<TTablesSchema> = {},
+	config: MarkdownProviderConfig<TTablesSchema>,
 ) => {
-	const { id, capabilityId, tables, paths } = context;
-	const { directory = `./${id}`, debug = false } = config;
+	const { id, tables } = context;
+	const {
+		directory,
+		logsDir,
+		diagnosticsPath,
+		tableConfigs,
+		debug = false,
+	} = config;
 
-	// Debug logger - no-op when debug is disabled
 	const dbg = debug
 		? (tag: string, msg: string, data?: Record<string, unknown>) => {
 				const timestamp = new Date().toISOString().slice(11, 23);
@@ -237,42 +285,16 @@ export const markdown = (async <TTablesSchema extends TablesSchema>(
 			}
 		: () => {};
 
-	// User-provided table configs (sparse - only contains overrides, may be empty)
-	// Access via userTableConfigs[tableName] returns undefined when user didn't provide config
-	const userTableConfigs: TableConfigs<TTablesSchema> = config.configs ?? {};
+	const userTableConfigs: TableConfigs<TTablesSchema> = tableConfigs ?? {};
 
-	if (!paths) {
-		throw new Error(
-			'Markdown capability requires Node.js environment with filesystem access',
-		);
-	}
+	mkdirSync(logsDir, { recursive: true });
 
-	const { project: projectDir, epicenter: epicenterDir } = paths;
-
-	// Workspace-specific directory for all capability artifacts
-	// Structure: .epicenter/{workspaceId}/{capabilityId}.{suffix}
-	const workspaceConfigDir = path.join(epicenterDir, id);
-
-	// Create diagnostics manager for tracking validation errors (current state)
-	const diagnostics = await createDiagnosticsManager({
-		diagnosticsPath: path.join(
-			workspaceConfigDir,
-			`${capabilityId}.diagnostics.json`,
-		),
-	});
-
-	// Create logger for historical error record (append-only audit trail)
+	const diagnostics = await createDiagnosticsManager({ diagnosticsPath });
 	const logger = createIndexLogger({
-		logPath: path.join(workspaceConfigDir, `${capabilityId}.log`),
+		logPath: path.join(logsDir, `${id}.log`),
 	});
 
-	// Resolve workspace directory to absolute path
-	// If directory is relative, resolve it relative to projectDir
-	// If directory is absolute, use it as-is
-	const absoluteWorkspaceDir = path.resolve(
-		projectDir,
-		directory,
-	) as AbsolutePath;
+	const absoluteWorkspaceDir = directory as AbsolutePath;
 
 	/**
 	 * Coordination state to prevent infinite sync loops
@@ -1464,4 +1486,4 @@ export const markdown = (async <TTablesSchema extends TablesSchema>(
 			});
 		},
 	});
-}) satisfies Capability;
+};

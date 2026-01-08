@@ -2,8 +2,7 @@
  * Capability types and utilities.
  *
  * Single source of truth for the capability protocol. Works across Node.js and browser.
- * - Node.js: `paths` is defined (CapabilityPaths)
- * - Browser: `paths` is undefined
+ * Capabilities receive filesystem paths via their config, not through context.
  */
 
 import type * as Y from 'yjs';
@@ -23,24 +22,30 @@ import type { CapabilityPaths } from './types';
  *
  * ### 1. Persist the entire YDoc (storage capability)
  * ```typescript
- * const persistence: Capability = ({ ydoc, paths }) => {
- *   const saved = loadFromDisk(paths.capability);
+ * const persistence: Capability = ({ ydoc }, config) => {
+ *   const saved = loadFromDisk(config.path);
  *   Y.applyUpdate(ydoc, saved);
  *   ydoc.on('update', () => {
- *     saveToDisk(paths.capability, Y.encodeStateAsUpdate(ydoc));
+ *     saveToDisk(config.path, Y.encodeStateAsUpdate(ydoc));
  *   });
  * };
  * ```
  *
  * ### 2. Sync tables to external store (materializer capability)
  * ```typescript
- * const sqlite: Capability = ({ tables, paths }) => {
- *   const db = new Database(paths.capability + '/data.db');
+ * const sqlite: Capability = ({ tables }, config) => {
+ *   const db = new Database(config.dbPath);
  *   for (const table of tables.$all()) {
- *     table.observe({
- *       onAdd: (row) => db.insert(table.name, row),
- *       onUpdate: (row) => db.update(table.name, row),
- *       onDelete: (id) => db.delete(table.name, id),
+ *     table.observeChanges((changes) => {
+ *       for (const [id, change] of changes) {
+ *         if (change.action === 'add' && change.result.status === 'valid') {
+ *           db.insert(table.name, change.result.row);
+ *         } else if (change.action === 'update' && change.result.status === 'valid') {
+ *           db.update(table.name, change.result.row);
+ *         } else if (change.action === 'delete') {
+ *           db.delete(table.name, id);
+ *         }
+ *       }
  *     });
  *   }
  *   return { db, destroy: () => db.close() };
@@ -65,8 +70,8 @@ import type { CapabilityPaths } from './types';
  * ## What Capabilities Can Return
  *
  * Capabilities can return exports accessible via `client.capabilities.{name}`:
- * - `destroy?: () => void | Promise<void>` — Cleanup function called on `client.destroy()`
- * - `whenSynced?: Promise<unknown>` — Resolves when initial sync completes
+ * - `destroy?: () => void | Promise<void>` - Cleanup function called on `client.destroy()`
+ * - `whenSynced?: Promise<unknown>` - Resolves when initial sync completes
  * - Any custom exports (db connections, helper methods, etc.)
  *
  * Capabilities that return `void` simply attach behavior without exports.
@@ -86,7 +91,7 @@ export type CapabilityContext<
 
 	/**
 	 * This capability's key from `.withCapabilities({ key: ... })`.
-	 * Useful for namespacing storage paths.
+	 * Useful for namespacing storage paths or logging.
 	 */
 	capabilityId: string;
 
@@ -98,7 +103,8 @@ export type CapabilityContext<
 
 	/**
 	 * Typed table helpers.
-	 * Use `tables.$all()` to iterate, or `tables.posts.observe()` for specific tables.
+	 * Use `tables.$all()` to iterate over all tables, or access specific tables
+	 * like `tables.posts.observeChanges()` for reactive updates.
 	 */
 	tables: Tables<TTablesSchema>;
 
@@ -110,7 +116,7 @@ export type CapabilityContext<
 
 	/**
 	 * Filesystem paths (undefined in browser).
-	 * - `paths.project`: Project root
+	 * - `paths.project`: Project root for user-facing content
 	 * - `paths.epicenter`: `.epicenter` directory
 	 * - `paths.capability`: `.epicenter/capabilities/{capabilityId}/`
 	 */

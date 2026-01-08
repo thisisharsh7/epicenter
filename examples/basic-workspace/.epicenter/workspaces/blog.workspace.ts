@@ -1,4 +1,4 @@
-import path from 'node:path';
+import path, { join } from 'node:path';
 import {
 	defineMutation,
 	defineQuery,
@@ -20,6 +20,9 @@ import { persistence } from '@epicenter/hq/capabilities/persistence';
 import { sqlite } from '@epicenter/hq/capabilities/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
+
+const projectDir = import.meta.dirname;
+const epicenterDir = join(projectDir, '..');
 
 export default defineWorkspace({
 	id: 'blog',
@@ -45,10 +48,20 @@ export default defineWorkspace({
 	},
 })
 	.withCapabilities({
-		persistence,
-		sqlite: (c) => sqlite(c),
-		markdown: (context) =>
-			markdown(context, {
+		persistence: (ctx) =>
+			persistence(ctx, {
+				filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),
+			}),
+		sqlite: (ctx) =>
+			sqlite(ctx, {
+				dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),
+				logsDir: join(epicenterDir, 'sqlite', 'logs'),
+			}),
+		markdown: (ctx) =>
+			markdown(ctx, {
+				directory: join(projectDir, ctx.id),
+				logsDir: join(epicenterDir, 'markdown', 'logs'),
+				diagnosticsPath: join(epicenterDir, 'markdown', `${ctx.id}.diagnostics.json`),
 				tableConfigs: {
 					posts: {
 						serialize: ({ row: { id, content, ...row } }) => ({

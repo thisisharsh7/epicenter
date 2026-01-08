@@ -1,56 +1,52 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { Capability, CapabilityContext } from '../../core/capability';
+import type { CapabilityContext } from '../../core/capability';
 import type { TablesSchema } from '../../core/schema';
 
 /**
+ * Configuration for the persistence capability.
+ */
+export type PersistenceConfig = {
+	/** Absolute path to the .yjs file for storing YJS state. */
+	filePath: string;
+};
+
+/**
  * YJS document persistence capability using the filesystem.
- * Stores the YDoc as a binary file in the capability's directory.
+ * Stores the YDoc as a binary file.
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
  *
  * **How it works**:
- * 1. Creates capability directory if it doesn't exist
- * 2. Loads existing state from `.epicenter/capabilities/persistence/${workspaceId}.yjs` on startup
+ * 1. Creates parent directory if it doesn't exist
+ * 2. Loads existing state from the specified filePath on startup
  * 3. Auto-saves to disk on every YJS update (synchronous to ensure data is persisted before process exits)
  *
- * **Storage location**: `.epicenter/capabilities/persistence/${workspaceId}.yjs`
- * - Each workspace gets its own file named after its ID
- * - Binary format (not human-readable)
- * - Should be gitignored (add `.epicenter/capabilities/` to `.gitignore`)
- *
- * @example Basic usage
+ * @example
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
  * import { persistence } from '@epicenter/hq/capabilities/persistence';
+ * import { join } from 'node:path';
  *
- * const workspace = defineWorkspace({
- *   id: 'blog',
- *   tables: { ... },
- * });
+ * const projectDir = '/my/project';
+ * const epicenterDir = join(projectDir, '.epicenter');
  *
  * const client = await workspace
  *   .withCapabilities({
- *     persistence,  // → .epicenter/capabilities/persistence/blog.yjs
+ *     persistence: (ctx) => persistence(ctx, {
+ *       filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),
+ *     }),
  *   })
  *   .create();
  * ```
  */
-export const persistence = (async <TSchema extends TablesSchema>({
-	id,
-	ydoc,
-	paths,
-}: CapabilityContext<TSchema>) => {
-	if (!paths) {
-		throw new Error(
-			'Persistence capability requires Node.js environment with filesystem access',
-		);
-	}
-
-	const filePath = path.join(paths.capability, `${id}.yjs`);
-
-	mkdirSync(paths.capability, { recursive: true });
+export const persistence = async <TSchema extends TablesSchema>(
+	{ ydoc }: CapabilityContext<TSchema>,
+	{ filePath }: PersistenceConfig,
+) => {
+	await mkdir(path.dirname(filePath), { recursive: true });
 
 	// Try to load existing state from disk using Bun.file
 	// No need to check existence first - just try to read and handle failure
@@ -73,4 +69,4 @@ export const persistence = (async <TSchema extends TablesSchema>({
 		const state = Y.encodeStateAsUpdate(ydoc);
 		writeFileSync(filePath, state);
 	});
-}) satisfies Capability;
+};
