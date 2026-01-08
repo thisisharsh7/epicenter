@@ -15,10 +15,13 @@ export {
 export type {
 	BooleanFieldSchema,
 	CellValue,
+	CoverDefinition,
 	DateFieldSchema,
+	FieldMetadata,
 	FieldSchema,
 	FieldsSchema,
 	FieldType,
+	IconDefinition,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -60,6 +63,7 @@ export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js'
 export {
 	convertTableSchemaToDrizzle,
 	convertWorkspaceSchemaToDrizzle,
+	toSqlIdentifier,
 } from './converters/to-drizzle.js';
 
 export { isNullableFieldSchema } from './fields/helpers.js';

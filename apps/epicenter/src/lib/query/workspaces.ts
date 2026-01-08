@@ -54,8 +54,6 @@ export const workspaces = {
 				guid: generateGuid(),
 				id: input.id,
 				name: input.name,
-				emoji: '📁',
-				description: '',
 				tables: {},
 				kv: {},
 			};
@@ -117,7 +115,16 @@ export const workspaces = {
 				});
 			}
 
-			workspace.tables[input.tableName] = { id: id() };
+			workspace.tables[input.tableName] = {
+				name: input.tableName
+					.split(/[_-]/)
+					.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+					.join(' '),
+				icon: null,
+				cover: null,
+				description: '',
+				fields: { id: id() },
+			};
 
 			const writeResult = await workspaceStorage.writeWorkspace(workspace);
 			if (writeResult.error) {
