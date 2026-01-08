@@ -4,6 +4,8 @@
 	import { rpc } from '$lib/query';
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
+	import * as Popover from '@epicenter/ui/popover';
+	import { Button, buttonVariants } from '@epicenter/ui/button';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -12,6 +14,7 @@
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { createWorkspaceDialog } from '$lib/components/CreateWorkspaceDialog.svelte';
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
+	import { cn } from '@epicenter/ui/utils';
 
 	let { selectedWorkspaceId }: { selectedWorkspaceId: string | undefined } =
 		$props();
@@ -75,48 +78,57 @@
 					<DropdownMenu.Item disabled>Loading...</DropdownMenu.Item>
 				{:else if workspaces.data}
 					{#each workspaces.data as workspace (workspace.id)}
-						<DropdownMenu.Sub>
-							<div class="flex items-center">
-								<DropdownMenu.Item
-									onclick={() => goto(`/workspaces/${workspace.id}`)}
-									class="flex-1"
-								>
-									<div class="rounded-sm border p-1">
-										<FolderIcon />
-									</div>
-									{workspace.name}
-									{#if workspace.id === selectedWorkspaceId}
-										<CheckIcon class="ml-auto" />
-									{/if}
-								</DropdownMenu.Item>
-								<DropdownMenu.SubTrigger
-									class="p-1.5 [&>svg:last-child]:hidden"
+						<div class="group relative flex items-center">
+							<DropdownMenu.Item
+								onclick={() => goto(`/workspaces/${workspace.id}`)}
+								class="flex-1 pr-8"
+							>
+								<div class="rounded-sm border p-1">
+									<FolderIcon />
+								</div>
+								{workspace.name}
+								{#if workspace.id === selectedWorkspaceId}
+									<CheckIcon class="ml-8" />
+								{/if}
+							</DropdownMenu.Item>
+							<Popover.Root>
+								<Popover.Trigger
+									class={cn(
+										buttonVariants({ variant: 'ghost', size: 'icon' }),
+										'absolute right-1 top-1/2 -translate-y-1/2',
+									)}
 								>
 									<EllipsisIcon />
-								</DropdownMenu.SubTrigger>
-							</div>
-							<DropdownMenu.SubContent class="min-w-32">
-								<DropdownMenu.Item
-									variant="destructive"
-									onclick={() => {
-										confirmationDialog.open({
-											title: 'Delete Workspace',
-											description: `Are you sure you want to delete "${workspace.name}"? This will permanently delete all tables and settings in this workspace.`,
-											confirm: { text: 'Delete', variant: 'destructive' },
-											onConfirm: async () => {
-												await deleteWorkspace.mutateAsync(workspace.id);
-												if (selectedWorkspaceId === workspace.id) {
-													await goto('/');
-												}
-											},
-										});
-									}}
+								</Popover.Trigger>
+								<Popover.Content
+									class="min-w-32 p-1"
+									align="start"
+									side="bottom"
 								>
-									<TrashIcon class="size-4" />
-									<span>Delete</span>
-								</DropdownMenu.Item>
-							</DropdownMenu.SubContent>
-						</DropdownMenu.Sub>
+									<Button
+										variant="ghost"
+										size="sm"
+										class="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+										onclick={() => {
+											confirmationDialog.open({
+												title: 'Delete Workspace',
+												description: `Are you sure you want to delete "${workspace.name}"? This will permanently delete all tables and settings in this workspace.`,
+												confirm: { text: 'Delete', variant: 'destructive' },
+												onConfirm: async () => {
+													await deleteWorkspace.mutateAsync(workspace.id);
+													if (selectedWorkspaceId === workspace.id) {
+														await goto('/');
+													}
+												},
+											});
+										}}
+									>
+										<TrashIcon />
+										Delete
+									</Button>
+								</Popover.Content>
+							</Popover.Root>
+						</div>
 					{/each}
 				{/if}
 				<DropdownMenu.Separator />
