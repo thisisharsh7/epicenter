@@ -102,7 +102,7 @@ describe('createActionsRouter', () => {
 		expect(body).toEqual({ data: { id: '123', title: 'Hello World' } });
 	});
 
-	test('validates input and returns error for invalid data', async () => {
+	test('validates input and returns 422 for invalid data', async () => {
 		const actions: Actions = {
 			create: defineMutation({
 				input: type({ title: 'string', count: 'number' }),
@@ -118,10 +118,8 @@ describe('createActionsRouter', () => {
 				body: JSON.stringify({ title: 'Hello', count: 'not-a-number' }),
 			}),
 		);
-		const body = await response.json();
 
-		expect(body).toHaveProperty('error');
-		expect(body.error.message).toBe('Validation failed');
+		expect(response.status).toBe(422);
 	});
 
 	test('async handlers work correctly', async () => {
