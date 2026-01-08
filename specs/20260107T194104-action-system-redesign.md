@@ -418,30 +418,30 @@ Mixing them creates confusion about what's internal vs external.
 
 ## Implementation Plan
 
-- [ ] **Create `core/actions.ts`** with new types
-  - [ ] `Query` and `Mutation` types with conditional handler signature
-  - [ ] `Action` union type
-  - [ ] `Actions` type for nested structure
-  - [ ] `defineQuery()` and `defineMutation()` helper functions
-  - [ ] `isAction()`, `isQuery()`, `isMutation()` type guards
-- [ ] **Update `server/server.ts`**
-  - [ ] Accept `{ actions }` as second argument to `createServer`
-  - [ ] Walk action tree to generate routes
-  - [ ] Use `action.type` to determine HTTP method (GET vs POST)
-  - [ ] Validate input with `action.input` schema
-- [ ] **Update `cli/cli.ts`**
-  - [ ] Accept `{ actions }` as second argument to `createCLI`
-  - [ ] Walk action tree to generate commands
-  - [ ] Convert `action.input` to CLI flags via JSON Schema
-- [ ] **Update MCP integration**
+- [x] **Create `core/actions.ts`** with new types
+  - [x] `Action` type with conditional handler signature (unified, not separate Query/Mutation)
+  - [x] `Actions` type for nested structure
+  - [x] `defineAction()` helper function (single function, type discriminated by `type` field)
+  - [x] `isAction()`, `isQuery()`, `isMutation()` type guards
+  - [x] `iterateActions()` generator for tree traversal
+- [x] **Update `server/server.ts`**
+  - [x] Accept `{ actions }` as second argument to `createServer`
+  - [x] Walk action tree to generate routes via `createActionsPlugin`
+  - [x] Use `action.type` to determine HTTP method (GET vs POST)
+  - [x] Validate input with `action.input` schema
+- [x] **Update `cli/cli.ts`**
+  - [x] Accept `{ actions }` as second argument to `createCLI`
+  - [x] Walk action tree to generate commands
+  - [x] Convert `action.input` to CLI flags via JSON Schema
+- [ ] **Update MCP integration** (deferred to future work)
   - [ ] Walk action tree to generate tools
   - [ ] Use `action.input` for tool `inputSchema`
   - [ ] Use `action.description` for tool description
-- [ ] **Update exports in `index.ts`**
-  - [ ] Export `Query`, `Mutation`, `Action`, `Actions` types
-  - [ ] Export `defineQuery` and `defineMutation` functions
-  - [ ] Export type guards
-- [ ] **Update documentation**
+- [x] **Update exports in `index.ts`**
+  - [x] Export `Action`, `Actions` types
+  - [x] Export `defineAction` function
+  - [x] Export type guards and `iterateActions`
+- [ ] **Update documentation** (deferred to future work)
   - [ ] `packages/epicenter/README.md`
   - [ ] `packages/epicenter/src/server/README.md`
   - [ ] `packages/epicenter/src/cli/README.md`
@@ -494,4 +494,50 @@ const server = createServer(client, { actions });
 
 ## Review
 
-_To be filled in after implementation_
+### What Was Implemented
+
+The action system was implemented across 4 incremental commits ("waves"):
+
+| Wave | Commit      | Description                                                                                |
+| ---- | ----------- | ------------------------------------------------------------------------------------------ |
+| 1    | `31f480795` | Core types: `Action`, `Actions`, `defineAction()`, type guards, `iterateActions` generator |
+| 2    | `9b47484a4` | Server: `createActionsPlugin` generates REST routes from action tree                       |
+| 3    | `1d8fa0c19` | CLI: Action commands generated from action definitions with flag generation                |
+| 4    | `12d9b426e` | Exports: Public API exports in index.ts                                                    |
+
+### Design Deviations from Original Plan
+
+1. **Single `Action` type instead of separate `Query`/`Mutation` types**
+   - Original plan: Two separate types and `defineQuery`/`defineMutation` functions
+   - Implemented: Single `Action<TInput, TOutput>` type with `type: 'query' | 'mutation'` discriminant
+   - Rationale: Simpler, fewer exports, type field already distinguishes behavior
+
+2. **`iterateActions` generator instead of `walkActions` callback**
+   - Original plan: Callback-based visitor pattern
+   - Implemented: Generator that yields `[action, path]` tuples
+   - Rationale: Cleaner composition, enables `for...of`, spread/map patterns, early termination
+
+3. **MCP integration deferred**
+   - The MCP tool generation was not implemented in this phase
+   - Can be added later using the same `iterateActions` pattern
+
+### Files Changed
+
+| File                                       | Change                                                |
+| ------------------------------------------ | ----------------------------------------------------- |
+| `packages/epicenter/src/core/actions.ts`   | New - types, `defineAction`, guards, `iterateActions` |
+| `packages/epicenter/src/server/actions.ts` | New - `createActionsPlugin` for route generation      |
+| `packages/epicenter/src/server/server.ts`  | Modified - accepts `{ actions }` option               |
+| `packages/epicenter/src/cli/cli.ts`        | Modified - generates commands from actions            |
+| `packages/epicenter/src/index.ts`          | Modified - exports action system                      |
+
+### Lines of Code
+
+- `core/actions.ts`: ~265 lines (vs ~743 in old system)
+- `server/actions.ts`: ~110 lines
+- Total new code: ~375 lines
+
+### Testing Status
+
+- Type-check: Passing
+- Runtime tests: Not yet written (planned)
