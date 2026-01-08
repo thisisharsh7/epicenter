@@ -9,8 +9,6 @@ import type * as Y from 'yjs';
 import type { Tables } from './tables/create-tables';
 import type { Kv } from './kv/core';
 import type { KvSchema, TablesSchema } from './schema';
-import type { CapabilityPaths } from './types';
-
 /**
  * Context provided to each capability function.
  *
@@ -78,9 +76,8 @@ import type { CapabilityPaths } from './types';
  *
  * ## Environment Detection
  *
- * The `paths` property discriminates between environments:
- * - **Node.js/Bun**: `paths` is defined with project, epicenter, and capability directories
- * - **Browser**: `paths` is undefined (use IndexedDB or other browser APIs)
+ * Capabilities that need filesystem paths should accept them via their config parameter.
+ * Use `typeof process !== 'undefined'` to detect Node.js/Bun vs browser environments.
  */
 export type CapabilityContext<
 	TTablesSchema extends TablesSchema = TablesSchema,
@@ -113,14 +110,6 @@ export type CapabilityContext<
 	 * Use for simple key-value storage within the workspace.
 	 */
 	kv: Kv<TKvSchema>;
-
-	/**
-	 * Filesystem paths (undefined in browser).
-	 * - `paths.project`: Project root for user-facing content
-	 * - `paths.epicenter`: `.epicenter` directory
-	 * - `paths.capability`: `.epicenter/capabilities/{capabilityId}/`
-	 */
-	paths: CapabilityPaths | undefined;
 };
 
 /**

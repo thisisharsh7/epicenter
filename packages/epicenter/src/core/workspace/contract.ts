@@ -8,7 +8,6 @@ import type {
 	InferCapabilityExports,
 } from '../capability';
 import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
-import type { CapabilityPaths, WorkspacePaths } from '../types';
 
 /**
  * A workspace schema defines the pure data shape of a workspace.
@@ -149,8 +148,6 @@ export type WorkspaceClient<
 	kv: Kv<TKvSchema>;
 	/** Exports from initialized capabilities. */
 	capabilities: InferCapabilityExports<TCapabilities>;
-	/** Filesystem paths (undefined in browser). */
-	paths: WorkspacePaths | undefined;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
 	/** Clean up resources (close capabilities, destroy YJS doc). */
@@ -168,7 +165,6 @@ type InitializedWorkspace<
 	tables: Tables<TTablesSchema>;
 	kv: Kv<TKvSchema>;
 	capabilityExports: InferCapabilityExports<TCapabilities>;
-	paths: WorkspacePaths | undefined;
 	cleanup: () => Promise<void>;
 };
 
@@ -190,55 +186,26 @@ async function initializeWorkspace<
 	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
 	capabilityFactories: TCapabilities,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
-	const projectDir = typeof process !== 'undefined' ? process.cwd() : undefined;
-
 	const ydoc = new Y.Doc({ guid: `${config.guid}:0` });
 	const tables = createTables(ydoc, config.tables);
 	const kv = createKv(ydoc, config.kv);
-
-	let buildCapabilityPaths:
-		| ((projectDir: string, capabilityId: string) => CapabilityPaths)
-		| undefined;
-	let getEpicenterDir: ((projectDir: string) => string) | undefined;
-
-	if (projectDir) {
-		const pathsModule = await import('../paths');
-		buildCapabilityPaths = (dir, id) =>
-			pathsModule.buildCapabilityPaths(dir as WorkspacePaths['project'], id);
-		getEpicenterDir = (dir) =>
-			pathsModule.getEpicenterDir(dir as WorkspacePaths['project']);
-	}
 
 	const capabilityExports = Object.fromEntries(
 		await Promise.all(
 			Object.entries(capabilityFactories).map(
 				async ([capabilityId, capabilityFn]) => {
-					const paths: CapabilityPaths | undefined =
-						projectDir && buildCapabilityPaths
-							? buildCapabilityPaths(projectDir, capabilityId)
-							: undefined;
-
 					const result = await capabilityFn({
 						id: config.id,
 						capabilityId,
 						ydoc,
 						tables,
 						kv,
-						paths,
 					});
 					return [capabilityId, result ?? {}];
 				},
 			),
 		),
 	) as InferCapabilityExports<TCapabilities>;
-
-	const workspacePaths: WorkspacePaths | undefined =
-		projectDir && getEpicenterDir
-			? {
-					project: projectDir as WorkspacePaths['project'],
-					epicenter: getEpicenterDir(projectDir) as WorkspacePaths['epicenter'],
-				}
-			: undefined;
 
 	const cleanup = async () => {
 		await Promise.all(
@@ -254,7 +221,6 @@ async function initializeWorkspace<
 		tables,
 		kv,
 		capabilityExports,
-		paths: workspacePaths,
 		cleanup,
 	};
 }
@@ -315,7 +281,7 @@ export function defineWorkspace<
 		>(
 			capabilities?: TCapabilities,
 		): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>> {
-			const { ydoc, tables, kv, capabilityExports, paths, cleanup } =
+			const { ydoc, tables, kv, capabilityExports, cleanup } =
 				await initializeWorkspace(
 					config,
 					(capabilities ?? {}) as TCapabilities,
@@ -328,7 +294,6 @@ export function defineWorkspace<
 				tables,
 				kv,
 				capabilities: capabilityExports,
-				paths,
 				destroy: cleanup,
 				[Symbol.asyncDispose]: cleanup,
 			};

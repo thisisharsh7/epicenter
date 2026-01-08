@@ -125,7 +125,7 @@ export {
 export type { RichContentId } from './core/rich-content/id';
 export { createRichContentId } from './core/rich-content/id';
 // Core types
-export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
+export type { AbsolutePath, ProjectDir } from './core/types';
 export type {
 	Workspace,
 	WorkspaceClient,
