@@ -8,7 +8,6 @@
 	import { Button, buttonVariants } from '@epicenter/ui/button';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -81,15 +80,16 @@
 						<div class="group relative flex items-center">
 							<DropdownMenu.Item
 								onclick={() => goto(`/workspaces/${workspace.id}`)}
-								class="flex-1 pr-8"
+								class={cn(
+									'flex-1',
+									workspace.id === selectedWorkspaceId &&
+										'bg-accent text-accent-foreground',
+								)}
 							>
 								<div class="rounded-sm border p-1">
 									<FolderIcon />
 								</div>
 								{workspace.name}
-								{#if workspace.id === selectedWorkspaceId}
-									<CheckIcon class="ml-8" />
-								{/if}
 							</DropdownMenu.Item>
 							<Popover.Root>
 								<Popover.Trigger
