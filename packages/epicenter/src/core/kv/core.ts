@@ -2,7 +2,6 @@ import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
 import type { KvSchema, KvValue } from '../schema';
-import { YKeyValue } from '../utils/y-keyvalue';
 
 import type { KvHelper } from './kv-helper';
 import { createKvHelpers } from './kv-helper';
@@ -28,9 +27,7 @@ export function createKv<TKvSchema extends KvSchema>(
 		}
 	}
 
-	const ykvArray = ydoc.getArray<{ key: string; val: KvValue }>('kv');
-	const ykv = new YKeyValue(ykvArray);
-
+	const ykvMap = ydoc.getMap<KvValue>('kv');
 	const kvHelpers = createKvHelpers({ ydoc, schema });
 
 	return {
@@ -58,7 +55,7 @@ export function createKv<TKvSchema extends KvSchema>(
 
 		clearAll(): void {
 			for (const keyName of Object.keys(schema)) {
-				ykv.delete(keyName);
+				ykvMap.delete(keyName);
 			}
 		},
 	};

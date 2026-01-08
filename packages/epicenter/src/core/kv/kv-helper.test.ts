@@ -823,9 +823,10 @@ describe('KV Helpers', () => {
 	describe('Validation', () => {
 		test('get() returns invalid status when value type mismatches schema', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const ykvArray = ydoc.getArray<{ key: string; val: unknown }>('kv');
+			const ykvMap = ydoc.getMap<unknown>('kv');
 
-			ykvArray.push([{ key: 'count', val: 'not a number' }]);
+			// Directly set invalid data (simulating sync from corrupted peer)
+			ykvMap.set('count', 'not a number');
 
 			const kv = createKv(ydoc, {
 				count: integer({ default: 0 }),
@@ -841,7 +842,7 @@ describe('KV Helpers', () => {
 
 		test('observeChanges() receives raw values even for invalid data', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const ykvArray = ydoc.getArray<{ key: string; val: unknown }>('kv');
+			const ykvMap = ydoc.getMap<unknown>('kv');
 
 			const kv = createKv(ydoc, {
 				count: integer({ default: 0 }),
@@ -854,8 +855,8 @@ describe('KV Helpers', () => {
 				}
 			});
 
-			// Directly push invalid data to YJS (simulating sync from corrupted peer)
-			ykvArray.push([{ key: 'count', val: 'invalid value' }]);
+			// Directly set invalid data to YJS (simulating sync from corrupted peer)
+			ykvMap.set('count', 'invalid value');
 
 			// observeChanges receives raw values without validation
 			expect(receivedValue).toBe('invalid value');
