@@ -144,3 +144,4 @@ That said, most collaborative apps can live with YKeyValue's behavior. The "rand
 
 - [YKeyValue: The Most Interesting Meta Data Structure in Yjs](./ykeyvalue-meta-data-structure.md)
 - [How We Cut Our Yjs Document Size by 1935x](./ykeyvalue-migration-storage-gains.md)
+- [Fractional Ordering: User-Controlled Item Order](./fractional-ordering-meta-data-structure.md): Drag-and-drop reordering without delete+insert
