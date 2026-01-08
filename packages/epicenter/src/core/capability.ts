@@ -90,7 +90,7 @@ export type CapabilityContext<
 	id: string;
 
 	/**
-	 * This capability's key from `.withCapabilities({ key: ... })`.
+	 * This capability's key from `.create({ key: ... })`.
 	 * Useful for namespacing storage paths or logging.
 	 */
 	capabilityId: string;
