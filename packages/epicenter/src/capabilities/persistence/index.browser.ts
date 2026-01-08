@@ -5,4 +5,4 @@
  * This file is selected by bundlers when the "browser" condition is matched
  * in package.json exports.
  */
-export { setupPersistence } from './web.js';
+export { persistence } from './web.js';

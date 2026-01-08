@@ -13,11 +13,11 @@ import {
 	text,
 } from '@epicenter/hq';
 import {
+	markdown,
 	MarkdownProviderErr,
-	markdownProvider,
-} from '@epicenter/hq/providers/markdown';
-import { setupPersistence } from '@epicenter/hq/providers/persistence';
-import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+} from '@epicenter/hq/capabilities/markdown';
+import { persistence } from '@epicenter/hq/capabilities/persistence';
+import { sqlite } from '@epicenter/hq/capabilities/sqlite';
 import { type } from 'arktype';
 import { Ok } from 'wellcrafted/result';
 
@@ -44,11 +44,11 @@ export default defineWorkspace({
 		},
 	},
 })
-	.withProviders({
-		persistence: setupPersistence,
-		sqlite: (c) => sqliteProvider(c),
+	.withCapabilities({
+		persistence,
+		sqlite: (c) => sqlite(c),
 		markdown: (context) =>
-			markdownProvider(context, {
+			markdown(context, {
 				tableConfigs: {
 					posts: {
 						serialize: ({ row: { id, content, ...row } }) => ({
@@ -133,10 +133,10 @@ export default defineWorkspace({
 				'published_at?': 'string | null',
 			}).array(),
 			handler: async (ctx) => {
-				const posts = await ctx.providers.sqlite.db
+				const posts = await ctx.capabilities.sqlite.db
 					.select()
-					.from(ctx.providers.sqlite.posts)
-					.where(isNotNull(ctx.providers.sqlite.posts.published_at));
+					.from(ctx.capabilities.sqlite.posts)
+					.where(isNotNull(ctx.capabilities.sqlite.posts.published_at));
 				return Ok(posts);
 			},
 		}),
@@ -152,10 +152,10 @@ export default defineWorkspace({
 				'published_at?': 'string | null',
 			}).array(),
 			handler: async ({ id }, ctx) => {
-				const post = await ctx.providers.sqlite.db
+				const post = await ctx.capabilities.sqlite.db
 					.select()
-					.from(ctx.providers.sqlite.posts)
-					.where(eq(ctx.providers.sqlite.posts.id, id));
+					.from(ctx.capabilities.sqlite.posts)
+					.where(eq(ctx.capabilities.sqlite.posts.id, id));
 				return Ok(post);
 			},
 		}),
@@ -170,10 +170,10 @@ export default defineWorkspace({
 				created_at: 'string',
 			}).array(),
 			handler: async ({ post_id }, ctx) => {
-				const comments = await ctx.providers.sqlite.db
+				const comments = await ctx.capabilities.sqlite.db
 					.select()
-					.from(ctx.providers.sqlite.comments)
-					.where(eq(ctx.providers.sqlite.comments.post_id, post_id));
+					.from(ctx.capabilities.sqlite.comments)
+					.where(eq(ctx.capabilities.sqlite.comments.post_id, post_id));
 				return Ok(comments);
 			},
 		}),

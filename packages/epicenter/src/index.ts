@@ -58,13 +58,13 @@ export type { ProviderError } from './core/errors';
 // Error types
 export { ProviderErr } from './core/errors';
 export type {
-	Provider,
-	ProviderContext,
-	Providers,
-	WorkspaceProviderMap,
+	Capabilities,
+	Capability,
+	CapabilityContext,
+	WorkspaceCapabilityMap,
 } from './core/provider';
-// Provider system
-export { defineProviders } from './core/provider';
+// Capability system
+export { defineCapabilities } from './core/provider';
 export type {
 	BooleanFieldSchema,
 	CellValue,
@@ -118,17 +118,17 @@ export { createRichContentId } from './core/rich-content/id';
 // Core types
 export type { AbsolutePath, EpicenterDir, ProjectDir } from './core/types';
 export type {
+	CapabilityMap,
 	CreateOptions,
-	InferProviderExports,
-	ProviderMap,
+	InferCapabilityExports,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceSchema,
-	WorkspaceWithProviders,
+	WorkspaceWithCapabilities,
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
 
-// Note: Providers (markdown, sqlite) are NOT re-exported here to avoid bundling
+// Note: Capabilities (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
-//   import { markdownProvider } from '@epicenter/hq/providers/markdown';
-//   import { sqliteProvider } from '@epicenter/hq/providers/sqlite';
+//   import { markdown } from '@epicenter/hq/capabilities/markdown';
+//   import { sqlite } from '@epicenter/hq/capabilities/sqlite';

@@ -1,30 +1,30 @@
 import path from 'node:path';
 import type {
+	CapabilityDir,
+	CapabilityPaths,
 	EpicenterDir,
 	ProjectDir,
-	ProviderDir,
-	ProviderPaths,
 } from './types';
 
 export function getEpicenterDir(projectDir: ProjectDir): EpicenterDir {
 	return path.join(projectDir, '.epicenter') as EpicenterDir;
 }
 
-export function getProviderDir(
+export function getCapabilityDir(
 	epicenterDir: EpicenterDir,
-	providerId: string,
-): ProviderDir {
-	return path.join(epicenterDir, 'providers', providerId) as ProviderDir;
+	capabilityId: string,
+): CapabilityDir {
+	return path.join(epicenterDir, 'capabilities', capabilityId) as CapabilityDir;
 }
 
-export function buildProviderPaths(
+export function buildCapabilityPaths(
 	projectDir: ProjectDir,
-	providerId: string,
-): ProviderPaths {
+	capabilityId: string,
+): CapabilityPaths {
 	const epicenterDir = getEpicenterDir(projectDir);
 	return {
 		project: projectDir,
 		epicenter: epicenterDir,
-		provider: getProviderDir(epicenterDir, providerId),
+		capability: getCapabilityDir(epicenterDir, capabilityId),
 	};
 }

@@ -2,9 +2,9 @@ import * as Y from 'yjs';
 
 import { createTables, type Tables } from '../tables/create-tables';
 import { createKv, type Kv } from '../kv/core';
-import type { Provider, Providers } from '../provider.shared';
+import type { Capabilities, Capability } from '../provider.shared';
 import type { KvSchema, TablesSchema } from '../schema';
-import type { ProviderPaths, WorkspacePaths } from '../types';
+import type { CapabilityPaths, WorkspacePaths } from '../types';
 
 /**
  * A workspace schema defines the pure data shape of a workspace.
@@ -13,7 +13,7 @@ import type { ProviderPaths, WorkspacePaths } from '../types';
  * It represents the configuration passed to `defineWorkspace()`.
  *
  * Use `defineWorkspace()` to create a `Workspace` object that adds fluent methods
- * like `.withProviders()` for creating runnable clients.
+ * like `.withCapabilities()` for creating runnable clients.
  */
 export type WorkspaceSchema<
 	TId extends string = string,
@@ -37,30 +37,30 @@ export type WorkspaceSchema<
 };
 
 /**
- * A map of provider factory functions keyed by provider ID.
+ * A map of capability factory functions keyed by capability ID.
  *
- * Providers add capabilities to workspaces: persistence, sync, SQL queries, etc.
- * Each provider receives context and optionally returns exports accessible via
- * `client.providers[providerId]`.
+ * Capabilities add functionality to workspaces: persistence, sync, SQL queries, etc.
+ * Each capability receives context and optionally returns exports accessible via
+ * `client.capabilities[capabilityId]`.
  */
-export type ProviderMap<
+export type CapabilityMap<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-> = Record<string, Provider<TTablesSchema, TKvSchema>>;
+> = Record<string, Capability<TTablesSchema, TKvSchema>>;
 
 /**
- * Utility type to infer the exports from a provider map.
+ * Utility type to infer the exports from a capability map.
  *
- * Maps each provider key to its return type (unwrapped from Promise if async).
- * Providers that return void produce empty objects.
+ * Maps each capability key to its return type (unwrapped from Promise if async).
+ * Capabilities that return void produce empty objects.
  */
-export type InferProviderExports<TProviders> = {
-	[K in keyof TProviders]: TProviders[K] extends Provider<
+export type InferCapabilityExports<TCapabilities> = {
+	[K in keyof TCapabilities]: TCapabilities[K] extends Capability<
 		TablesSchema,
 		KvSchema,
 		infer TExports
 	>
-		? TExports extends Providers
+		? TExports extends Capabilities
 			? TExports
 			: Record<string, never>
 		: Record<string, never>;
@@ -74,7 +74,7 @@ export type InferProviderExports<TProviders> = {
  *
  * ```typescript
  * const client = await defineWorkspace({ id: 'blog', tables: { ... } })
- *   .withProviders({ sqlite: sqliteProvider })
+ *   .withCapabilities({ sqlite: sqliteProvider })
  *   .create();
  *
  * // Use the client directly
@@ -94,37 +94,39 @@ export type Workspace<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
-	/** Add providers (SQLite, IndexedDB, markdown, sync, etc.) to the workspace. */
-	withProviders<TProviders extends ProviderMap<TTablesSchema, TKvSchema>>(
-		providers: TProviders,
-	): WorkspaceWithProviders<TId, TTablesSchema, TKvSchema, TProviders>;
+	/** Add capabilities (SQLite, IndexedDB, markdown, sync, etc.) to the workspace. */
+	withCapabilities<
+		TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
+	>(
+		capabilities: TCapabilities,
+	): WorkspaceWithCapabilities<TId, TTablesSchema, TKvSchema, TCapabilities>;
 };
 
 /**
- * A workspace with providers attached, ready to create a client.
+ * A workspace with capabilities attached, ready to create a client.
  *
- * Call `.create()` to initialize providers and get a fully functional workspace client.
+ * Call `.create()` to initialize capabilities and get a fully functional workspace client.
  */
-export type WorkspaceWithProviders<
+export type WorkspaceWithCapabilities<
 	TId extends string,
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema,
-	TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
+	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 > = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
-	/** Internal: provider factories (not yet initialized). */
-	$providers: TProviders;
+	/** Internal: capability factories (not yet initialized). */
+	$capabilities: TCapabilities;
 
 	/**
-	 * Initialize providers and create a workspace client.
+	 * Initialize capabilities and create a workspace client.
 	 *
 	 * This is the final step that:
 	 * 1. Creates a YJS document with the workspace ID as GUID
-	 * 2. Initializes all providers in parallel
-	 * 3. Returns a client with table/kv accessors and provider exports
+	 * 2. Initializes all capabilities in parallel
+	 * 3. Returns a client with table/kv accessors and capability exports
 	 */
 	create(
 		options?: CreateOptions,
-	): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TProviders>>;
+	): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>>;
 };
 
 /**
@@ -144,7 +146,7 @@ export type CreateOptions = {
  * This is the main interface for interacting with a workspace:
  * - Access tables via `client.tables.tableName.get/upsert/etc.`
  * - Access kv store via `client.kv.key.get/set/etc.`
- * - Access provider exports via `client.providers.providerId`
+ * - Access capability exports via `client.capabilities.capabilityId`
  * - Access the underlying YJS document via `client.ydoc`
  *
  * Write functions that use the client to compose your own "actions":
@@ -178,7 +180,7 @@ export type WorkspaceClient<
 	TId extends string = string,
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-	TProviders extends ProviderMap<TTablesSchema, TKvSchema> = ProviderMap<
+	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = CapabilityMap<
 		TTablesSchema,
 		TKvSchema
 	>,
@@ -188,13 +190,13 @@ export type WorkspaceClient<
 	tables: Tables<TTablesSchema>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
-	/** Exports from initialized providers. */
-	providers: InferProviderExports<TProviders>;
+	/** Exports from initialized capabilities. */
+	capabilities: InferCapabilityExports<TCapabilities>;
 	/** Filesystem paths (undefined in browser). */
 	paths: WorkspacePaths | undefined;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
-	/** Clean up resources (close providers, destroy YJS doc). */
+	/** Clean up resources (close capabilities, destroy YJS doc). */
 	destroy(): Promise<void>;
 	/** Symbol.asyncDispose for `await using` support. */
 	[Symbol.asyncDispose](): Promise<void>;
@@ -203,35 +205,35 @@ export type WorkspaceClient<
 type InitializedWorkspace<
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema,
-	TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
+	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 > = {
 	ydoc: Y.Doc;
 	tables: Tables<TTablesSchema>;
 	kv: Kv<TKvSchema>;
-	providerExports: InferProviderExports<TProviders>;
+	capabilityExports: InferCapabilityExports<TCapabilities>;
 	paths: WorkspacePaths | undefined;
 	cleanup: () => Promise<void>;
 };
 
 /**
- * Initialize a workspace: create YJS doc, tables, kv, and run provider factories.
+ * Initialize a workspace: create YJS doc, tables, kv, and run capability factories.
  *
  * This is an internal function called by `.create()`. It:
  * 1. Creates a YJS document with `{guid}:0` as the doc GUID (epoch 0, reserved for future epoch support)
  * 2. Creates typed table and kv helpers backed by the YJS doc
- * 3. Runs all provider factories in parallel
+ * 3. Runs all capability factories in parallel
  * 4. Returns everything needed to construct a WorkspaceClient
  */
 async function initializeWorkspace<
 	TId extends string,
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema,
-	TProviders extends ProviderMap<TTablesSchema, TKvSchema>,
+	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 >(
 	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
-	providerFactories: TProviders,
+	capabilityFactories: TCapabilities,
 	options?: CreateOptions,
-): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TProviders>> {
+): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
 	const projectDir =
 		options?.projectDir ??
 		(typeof process !== 'undefined' ? process.cwd() : undefined);
@@ -240,41 +242,41 @@ async function initializeWorkspace<
 	const tables = createTables(ydoc, config.tables);
 	const kv = createKv(ydoc, config.kv);
 
-	let buildProviderPaths:
-		| ((projectDir: string, providerId: string) => ProviderPaths)
+	let buildCapabilityPaths:
+		| ((projectDir: string, capabilityId: string) => CapabilityPaths)
 		| undefined;
 	let getEpicenterDir: ((projectDir: string) => string) | undefined;
 
 	if (projectDir) {
 		const pathsModule = await import('../paths');
-		buildProviderPaths = (dir, id) =>
-			pathsModule.buildProviderPaths(dir as WorkspacePaths['project'], id);
+		buildCapabilityPaths = (dir, id) =>
+			pathsModule.buildCapabilityPaths(dir as WorkspacePaths['project'], id);
 		getEpicenterDir = (dir) =>
 			pathsModule.getEpicenterDir(dir as WorkspacePaths['project']);
 	}
 
-	const providerExports = Object.fromEntries(
+	const capabilityExports = Object.fromEntries(
 		await Promise.all(
-			Object.entries(providerFactories).map(
-				async ([providerId, providerFn]) => {
-					const paths: ProviderPaths | undefined =
-						projectDir && buildProviderPaths
-							? buildProviderPaths(projectDir, providerId)
+			Object.entries(capabilityFactories).map(
+				async ([capabilityId, capabilityFn]) => {
+					const paths: CapabilityPaths | undefined =
+						projectDir && buildCapabilityPaths
+							? buildCapabilityPaths(projectDir, capabilityId)
 							: undefined;
 
-					const result = await providerFn({
+					const result = await capabilityFn({
 						id: config.id,
-						providerId,
+						capabilityId,
 						ydoc,
 						tables,
 						kv,
 						paths,
 					});
-					return [providerId, result ?? {}];
+					return [capabilityId, result ?? {}];
 				},
 			),
 		),
-	) as InferProviderExports<TProviders>;
+	) as InferCapabilityExports<TCapabilities>;
 
 	const workspacePaths: WorkspacePaths | undefined =
 		projectDir && getEpicenterDir
@@ -286,8 +288,8 @@ async function initializeWorkspace<
 
 	const cleanup = async () => {
 		await Promise.all(
-			Object.values(providerExports).map((provider) =>
-				(provider as Providers).destroy?.(),
+			Object.values(capabilityExports).map((capability) =>
+				(capability as Capabilities).destroy?.(),
 			),
 		);
 		ydoc.destroy();
@@ -297,7 +299,7 @@ async function initializeWorkspace<
 		ydoc,
 		tables,
 		kv,
-		providerExports,
+		capabilityExports,
 		paths: workspacePaths,
 		cleanup,
 	};
@@ -306,7 +308,7 @@ async function initializeWorkspace<
 /**
  * Define a collaborative workspace with YJS-first architecture.
  *
- * A workspace is a self-contained domain module with tables and providers.
+ * A workspace is a self-contained domain module with tables and capabilities.
  * Use the fluent chaining API to configure and create a client:
  *
  * @example
@@ -321,7 +323,7 @@ async function initializeWorkspace<
  * });
  *
  * const client = await workspace
- *   .withProviders({ sqlite: sqliteProvider })
+ *   .withCapabilities({ sqlite: sqliteProvider })
  *   .create();
  *
  * // Use the client directly
@@ -343,7 +345,7 @@ async function initializeWorkspace<
  * ```
  *
  * @param config - Workspace configuration (id, name, tables, kv, optional description)
- * @returns A Workspace object with fluent methods for adding providers
+ * @returns A Workspace object with fluent methods for adding capabilities
  */
 export function defineWorkspace<
 	const TId extends string,
@@ -362,18 +364,22 @@ export function defineWorkspace<
 	return {
 		...config,
 
-		withProviders<TProviders extends ProviderMap<TTablesSchema, TKvSchema>>(
-			providers: TProviders,
-		): WorkspaceWithProviders<TId, TTablesSchema, TKvSchema, TProviders> {
+		withCapabilities<
+			TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
+		>(
+			capabilities: TCapabilities,
+		): WorkspaceWithCapabilities<TId, TTablesSchema, TKvSchema, TCapabilities> {
 			return {
 				...config,
-				$providers: providers,
+				$capabilities: capabilities,
 
 				async create(
 					options?: CreateOptions,
-				): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TProviders>> {
-					const { ydoc, tables, kv, providerExports, paths, cleanup } =
-						await initializeWorkspace(config, providers, options);
+				): Promise<
+					WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>
+				> {
+					const { ydoc, tables, kv, capabilityExports, paths, cleanup } =
+						await initializeWorkspace(config, capabilities, options);
 
 					return {
 						guid: config.guid,
@@ -381,7 +387,7 @@ export function defineWorkspace<
 						ydoc,
 						tables,
 						kv,
-						providers: providerExports,
+						capabilities: capabilityExports,
 						paths,
 						destroy: cleanup,
 						[Symbol.asyncDispose]: cleanup,

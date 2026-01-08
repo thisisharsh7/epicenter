@@ -27,21 +27,21 @@ export type ProjectDir = AbsolutePath & Brand<'ProjectDir'>;
 /**
  * The `.epicenter` directory path at `{projectDir}/.epicenter`.
  *
- * Contains the `providers/` subdirectory where each provider stores internal
- * artifacts. Rarely accessed directly; prefer `paths.provider` for provider
+ * Contains the `capabilities/` subdirectory where each capability stores internal
+ * artifacts. Rarely accessed directly; prefer `paths.capability` for capability
  * data or `paths.project` for user content.
  */
 export type EpicenterDir = AbsolutePath & Brand<'EpicenterDir'>;
 
 /**
- * Provider's dedicated directory at `.epicenter/providers/{providerId}/`.
+ * Capability's dedicated directory at `.epicenter/capabilities/{capabilityId}/`.
  *
- * Each provider gets isolated storage for internal artifacts. This directory
- * is gitignored, keeping provider data separate from version-controlled content.
+ * Each capability gets isolated storage for internal artifacts. This directory
+ * is gitignored, keeping capability data separate from version-controlled content.
  *
  * ## Storage Conventions
  *
- * Providers should follow these naming conventions:
+ * Capabilities should follow these naming conventions:
  *
  * - **Databases**: `{workspaceId}.db` (e.g., `blog.db`, `auth.db`)
  * - **YJS persistence**: `{workspaceId}.yjs` (e.g., `blog.yjs`)
@@ -54,7 +54,7 @@ export type EpicenterDir = AbsolutePath & Brand<'EpicenterDir'>;
  *
  * ```
  * .epicenter/
- * └── providers/                        # GITIGNORED
+ * └── capabilities/                        # GITIGNORED
  *     ├── persistence/
  *     │   ├── blog.yjs
  *     │   └── auth.yjs
@@ -74,76 +74,76 @@ export type EpicenterDir = AbsolutePath & Brand<'EpicenterDir'>;
  *
  * @example
  * ```typescript
- * const sqliteProvider: Provider = ({ id, paths }) => {
+ * const sqliteCapability: Capability = ({ id, paths }) => {
  *   if (!paths) throw new Error('Requires Node.js');
  *
- *   const dbPath = path.join(paths.provider, `${id}.db`);
- *   const logDir = path.join(paths.provider, 'logs');
+ *   const dbPath = path.join(paths.capability, `${id}.db`);
+ *   const logDir = path.join(paths.capability, 'logs');
  *   const logPath = path.join(logDir, `${id}.log`);
  * };
  * ```
  */
-export type ProviderDir = AbsolutePath & Brand<'ProviderDir'>;
+export type CapabilityDir = AbsolutePath & Brand<'CapabilityDir'>;
 
 /**
- * Filesystem paths available to providers.
+ * Filesystem paths available to capabilities.
  *
  * All paths are `undefined` in browser environments where filesystem access
- * isn't available (providers use IndexedDB instead).
+ * isn't available (capabilities use IndexedDB instead).
  *
- * @example Persistence provider
+ * @example Persistence capability
  * ```typescript
- * const persistenceProvider: Provider = ({ id, paths, ydoc }) => {
+ * const persistenceCapability: Capability = ({ id, paths, ydoc }) => {
  *   if (!paths) throw new Error('Requires Node.js');
- *   const filePath = path.join(paths.provider, `${id}.yjs`);
+ *   const filePath = path.join(paths.capability, `${id}.yjs`);
  *   // Load existing state, set up auto-save...
  * };
  * ```
  *
  * @example SQLite materializer
  * ```typescript
- * const sqliteProvider: Provider = ({ id, paths }) => {
+ * const sqliteCapability: Capability = ({ id, paths }) => {
  *   if (!paths) throw new Error('Requires Node.js');
- *   const dbPath = path.join(paths.provider, `${id}.db`);
- *   const logPath = path.join(paths.provider, 'logs', `${id}.log`);
+ *   const dbPath = path.join(paths.capability, `${id}.db`);
+ *   const logPath = path.join(paths.capability, 'logs', `${id}.log`);
  *   // Initialize database, set up observers...
  * };
  * ```
  *
- * @example Markdown provider (user content + internal logs)
+ * @example Markdown capability (user content + internal logs)
  * ```typescript
- * const markdownProvider: Provider = ({ id, paths }, config) => {
+ * const markdownCapability: Capability = ({ id, paths }, config) => {
  *   if (!paths) throw new Error('Requires Node.js');
  *   // User content: resolve relative to project root
  *   const contentDir = path.resolve(paths.project, config.directory);
- *   // Internal logs: use provider directory
- *   const logPath = path.join(paths.provider, 'logs', `${id}.log`);
+ *   // Internal logs: use capability directory
+ *   const logPath = path.join(paths.capability, 'logs', `${id}.log`);
  * };
  * ```
  *
- * @example Auth provider (tokens)
+ * @example Auth capability (tokens)
  * ```typescript
- * const gmailAuthProvider: Provider = ({ paths }) => {
+ * const gmailAuthCapability: Capability = ({ paths }) => {
  *   if (!paths) throw new Error('Requires Node.js');
- *   const tokenPath = path.join(paths.provider, 'token.json');
+ *   const tokenPath = path.join(paths.capability, 'token.json');
  *   // Load/save OAuth tokens...
  * };
  * ```
  */
-export type ProviderPaths = {
+export type CapabilityPaths = {
 	/** Project root. Use for user-facing content (markdown vaults, configs). */
 	project: ProjectDir;
-	/** The `.epicenter` directory. Rarely needed; prefer `provider`. */
+	/** The `.epicenter` directory. Rarely needed; prefer `capability`. */
 	epicenter: EpicenterDir;
-	/** Provider's isolated directory at `.epicenter/providers/{providerId}/`. */
-	provider: ProviderDir;
+	/** Capability's isolated directory at `.epicenter/capabilities/{capabilityId}/`. */
+	capability: CapabilityDir;
 };
 
 /**
  * Filesystem paths available to workspace exports factory.
  *
- * This is a subset of `ProviderPaths` without the `provider` field,
- * since workspace exports don't have a specific provider context.
+ * This is a subset of `CapabilityPaths` without the `capability` field,
+ * since workspace exports don't have a specific capability context.
  *
  * `undefined` in browser environments where filesystem access isn't available.
  *

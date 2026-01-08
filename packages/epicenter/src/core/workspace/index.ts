@@ -1,12 +1,12 @@
-export type { Provider, ProviderContext } from '../provider';
+export type { Capability, CapabilityContext } from '../provider';
 
 export type {
+	CapabilityMap,
 	CreateOptions,
-	InferProviderExports,
-	ProviderMap,
+	InferCapabilityExports,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceSchema,
-	WorkspaceWithProviders,
+	WorkspaceWithCapabilities,
 } from './contract';
 export { defineWorkspace } from './contract';

@@ -1,5 +1,5 @@
 import { WebsocketProvider } from 'y-websocket';
-import type { Provider } from '../core/provider';
+import type { Capability } from '../core/provider';
 import type { TablesSchema } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -93,14 +93,14 @@ export type WebsocketSyncConfig = {
 };
 
 /**
- * Creates a WebSocket sync provider for real-time collaboration.
+ * Creates a WebSocket sync capability for real-time collaboration.
  *
- * This provider uses y-websocket to connect to an Epicenter server's
+ * This capability uses y-websocket to connect to an Epicenter server's
  * sync endpoint for document synchronization and awareness.
  *
  * ## Multi-Device Architecture
  *
- * Yjs supports multiple providers simultaneously. Create multiple providers
+ * Yjs supports multiple capabilities simultaneously. Create multiple capabilities
  * to connect to multiple sync nodes for redundancy and resilience:
  *
  * ```typescript
@@ -112,7 +112,7 @@ export type WebsocketSyncConfig = {
  * } as const;
  * ```
  *
- * ## Provider Strategy Per Device
+ * ## Capability Strategy Per Device
  *
  * | Device          | Role            | Connects To                    |
  * |-----------------|-----------------|--------------------------------|
@@ -126,17 +126,17 @@ export type WebsocketSyncConfig = {
  * ## Why This Works
  *
  * - **Yjs CRDTs**: Updates merge automatically regardless of delivery order
- * - **Deduplication**: Same update received from multiple providers is applied once
+ * - **Deduplication**: Same update received from multiple capabilities is applied once
  * - **Eventual consistency**: All Y.Docs converge to identical state
  *
- * **Note**: This provider requires the `y-websocket` package to be installed
+ * **Note**: This capability requires the `y-websocket` package to be installed
  * in your client application. It's not bundled with @epicenter/hq to keep
  * the server package lightweight.
  *
- * @example Single provider (browser to local server)
+ * @example Single capability (browser to local server)
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
+ * import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
  *
  * // Browser connects to its own local Elysia server
  * const workspace = defineWorkspace({
@@ -145,16 +145,16 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = await workspace
- *   .withProviders({
- *     sync: createWebsocketSyncProvider({ url: 'ws://localhost:3913/sync' }),
+ *   .withCapabilities({
+ *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
  *   })
  *   .create();
  * ```
  *
- * @example Multi-provider (phone connecting to all nodes)
+ * @example Multi-capability (phone connecting to all nodes)
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq';
- * import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
+ * import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
  *
  * const SYNC_NODES = {
  *   desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync',
@@ -169,11 +169,11 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = await workspace
- *   .withProviders({
- *     // Create a provider for each sync node
- *     syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
- *     syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
- *     syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+ *   .withCapabilities({
+ *     // Create a capability for each sync node
+ *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
+ *     syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *     syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
  *   })
  *   .create();
  * ```
@@ -194,12 +194,12 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = await workspace
- *   .withProviders({
+ *   .withCapabilities({
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)
  *     // 2. A sync client connecting to other servers
- *     syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
- *     syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+ *     syncToLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *     syncToCloud: websocketSync({ url: SYNC_NODES.cloud }),
  *   })
  *   .create();
  * ```
@@ -218,13 +218,13 @@ export type WebsocketSyncConfig = {
  *   new WebsocketProvider('wss://sync.myapp.com/sync', 'blog', doc),
  * ];
  *
- * // Changes sync through ALL connected providers
+ * // Changes sync through ALL connected capabilities
  * providers.forEach(p => p.on('sync', () => console.log('Synced!')));
  * ```
  */
-export function createWebsocketSyncProvider<TSchema extends TablesSchema>(
+export function websocketSync<TSchema extends TablesSchema>(
 	config: WebsocketSyncConfig,
-): Provider<TSchema> {
+): Capability<TSchema> {
 	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,

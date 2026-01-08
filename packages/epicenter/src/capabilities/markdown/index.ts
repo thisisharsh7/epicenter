@@ -36,7 +36,7 @@ export {
 // Main provider implementation and core exports
 export type { MarkdownProviderConfig } from './markdown-provider';
 export {
+	markdown,
 	MarkdownProviderErr,
 	MarkdownProviderError,
-	markdownProvider,
 } from './markdown-provider';

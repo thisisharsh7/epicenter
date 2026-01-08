@@ -14,7 +14,7 @@ import {
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
-} from '@epicenter/hq/providers/markdown';
+} from '@epicenter/hq/capabilities/markdown';
 
 /**
  * Frontmatter field that contains timezone information.

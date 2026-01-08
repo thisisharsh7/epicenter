@@ -6,9 +6,9 @@ import { tryAsync, trySync } from 'wellcrafted/result';
 
 import { ProviderErr, ProviderError } from '../../core/errors';
 import {
-	defineProviders,
-	type Provider,
-	type ProviderContext,
+	defineCapabilities,
+	type Capability,
+	type CapabilityContext,
 } from '../../core/provider.shared';
 import type { TableHelper } from '../../core/tables/create-tables';
 import type { Row, TableSchema, TablesSchema } from '../../core/schema';
@@ -222,11 +222,11 @@ export type MarkdownProviderConfig<
 	debug?: boolean;
 };
 
-export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
-	context: ProviderContext<TTablesSchema>,
+export const markdown = (async <TTablesSchema extends TablesSchema>(
+	context: CapabilityContext<TTablesSchema>,
 	config: MarkdownProviderConfig<TTablesSchema> = {},
 ) => {
-	const { id, providerId, tables, paths } = context;
+	const { id, capabilityId, tables, paths } = context;
 	const { directory = `./${id}`, debug = false } = config;
 
 	// Debug logger - no-op when debug is disabled
@@ -243,27 +243,27 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 
 	if (!paths) {
 		throw new Error(
-			'Markdown provider requires Node.js environment with filesystem access',
+			'Markdown capability requires Node.js environment with filesystem access',
 		);
 	}
 
 	const { project: projectDir, epicenter: epicenterDir } = paths;
 
-	// Workspace-specific directory for all provider artifacts
-	// Structure: .epicenter/{workspaceId}/{providerId}.{suffix}
+	// Workspace-specific directory for all capability artifacts
+	// Structure: .epicenter/{workspaceId}/{capabilityId}.{suffix}
 	const workspaceConfigDir = path.join(epicenterDir, id);
 
 	// Create diagnostics manager for tracking validation errors (current state)
 	const diagnostics = await createDiagnosticsManager({
 		diagnosticsPath: path.join(
 			workspaceConfigDir,
-			`${providerId}.diagnostics.json`,
+			`${capabilityId}.diagnostics.json`,
 		),
 	});
 
 	// Create logger for historical error record (append-only audit trail)
 	const logger = createIndexLogger({
-		logPath: path.join(workspaceConfigDir, `${providerId}.log`),
+		logPath: path.join(workspaceConfigDir, `${capabilityId}.log`),
 	});
 
 	// Resolve workspace directory to absolute path
@@ -1062,7 +1062,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 		console.error('[MarkdownProvider] Background validation failed:', err);
 	});
 
-	return defineProviders({
+	return defineCapabilities({
 		async destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
@@ -1211,7 +1211,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 				catch: (error) => {
 					syncCoordination.yjsWriteCount--;
 					return ProviderErr({
-						message: `Markdown provider pull failed: ${extractErrorMessage(error)}`,
+						message: `Markdown capability pull failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'pull' },
 					});
 				},
@@ -1425,7 +1425,7 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 				catch: (error) => {
 					syncCoordination.fileChangeCount--;
 					return ProviderErr({
-						message: `Markdown provider push failed: ${extractErrorMessage(error)}`,
+						message: `Markdown capability push failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'push' },
 					});
 				},
@@ -1457,11 +1457,11 @@ export const markdownProvider = (async <TTablesSchema extends TablesSchema>(
 				},
 				catch: (error) => {
 					return ProviderErr({
-						message: `Markdown provider scan failed: ${extractErrorMessage(error)}`,
+						message: `Markdown capability scan failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'scan' },
 					});
 				},
 			});
 		},
 	});
-}) satisfies Provider;
+}) satisfies Capability;
