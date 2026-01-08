@@ -57,7 +57,7 @@ Actions should be defined **after** client creation, **separately** from capabil
 ### Code Example
 
 ```typescript
-import { defineWorkspace, defineAction } from '@epicenter/hq';
+import { defineWorkspace, defineQuery, defineMutation } from '@epicenter/hq';
 import { type } from 'arktype';
 
 // Step 1: Define workspace
@@ -74,12 +74,10 @@ const client = await workspace.create({ sqlite, persistence, markdown });
 // Step 3: Define actions (wrapping client methods)
 const actions = {
 	posts: {
-		getAll: defineAction({
-			type: 'query',
+		getAll: defineQuery({
 			handler: () => client.tables.posts.getAllValid(),
 		}),
-		create: defineAction({
-			type: 'mutation',
+		create: defineMutation({
 			input: type({ title: 'string', content: 'string' }),
 			handler: ({ title, content }) => {
 				const id = generateId();
@@ -87,16 +85,14 @@ const actions = {
 				return { id };
 			},
 		}),
-		get: defineAction({
-			type: 'query',
+		get: defineQuery({
 			input: type({ id: 'string' }),
 			output: type({ id: 'string', title: 'string', content: 'string' }),
 			handler: ({ id }) => client.tables.posts.get({ id }),
 		}),
 	},
 	sync: {
-		markdown: defineAction({
-			type: 'mutation',
+		markdown: defineMutation({
 			description: 'Sync markdown files to YJS',
 			handler: () => client.capabilities.markdown.pullFromMarkdown(),
 		}),
@@ -110,30 +106,18 @@ const cli = createCLI(client, { actions });
 
 ## Type Definitions
 
-### Action Type
+### Action Types
 
 ````typescript
 import type { StandardSchemaV1, StandardSchemaWithJSONSchema } from './schema';
 
 /**
- * Action - a plain object with handler and metadata for cross-boundary invocation.
- *
- * Actions enable:
- * - REST API endpoints (GET for queries, POST for mutations)
- * - MCP tool definitions
- * - CLI commands
- * - OpenAPI documentation
- *
- * @template TInput - Input schema (must support JSON Schema generation)
- * @template TOutput - Handler return type (inferred if not specified)
+ * Base configuration shared by queries and mutations.
  */
-export type Action<
+type ActionConfig<
 	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
 	TOutput = unknown,
 > = {
-	/** 'query' for read operations (GET), 'mutation' for write operations (POST) */
-	type: 'query' | 'mutation';
-
 	/** Human-readable description for docs and MCP tool descriptions */
 	description?: string;
 
@@ -152,14 +136,54 @@ export type Action<
 };
 
 /**
+ * Query - a read operation exposed via GET endpoints.
+ *
+ * Queries enable:
+ * - REST API GET endpoints
+ * - MCP tool definitions (read-only)
+ * - CLI commands
+ * - OpenAPI documentation
+ */
+export type Query<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = ActionConfig<TInput, TOutput> & {
+	/** Discriminator for runtime type checking */
+	type: 'query';
+};
+
+/**
+ * Mutation - a write operation exposed via POST endpoints.
+ *
+ * Mutations enable:
+ * - REST API POST endpoints
+ * - MCP tool definitions (with side effects)
+ * - CLI commands
+ * - OpenAPI documentation
+ */
+export type Mutation<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = ActionConfig<TInput, TOutput> & {
+	/** Discriminator for runtime type checking */
+	type: 'mutation';
+};
+
+/** Union type for any action (query or mutation) */
+export type Action<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = Query<TInput, TOutput> | Mutation<TInput, TOutput>;
+
+/**
  * Actions can nest to any depth.
  * Leaves must be Action objects (have `type` and `handler`).
  *
  * @example Flat structure
  * ```typescript
  * const actions = {
- *   getUser: { type: 'query', handler: ... },
- *   createUser: { type: 'mutation', handler: ... },
+ *   getUser: defineQuery({ handler: ... }),
+ *   createUser: defineMutation({ handler: ... }),
  * };
  * ```
  *
@@ -167,8 +191,8 @@ export type Action<
  * ```typescript
  * const actions = {
  *   users: {
- *     getAll: { type: 'query', handler: ... },
- *     create: { type: 'mutation', handler: ... },
+ *     getAll: defineQuery({ handler: ... }),
+ *     create: defineMutation({ handler: ... }),
  *   },
  * };
  * ```
@@ -178,52 +202,99 @@ export type Actions = {
 };
 ````
 
-### Helper Function
+### Helper Functions
 
 ````typescript
 /**
- * Define an action with full type inference.
+ * Define a query (read operation) with full type inference.
  *
- * This is an identity function that provides type inference for:
- * - TInput: Inferred from the `input` schema
- * - TOutput: Inferred from the handler return type
- * - Handler signature: Conditional based on whether `input` is defined
- *
- * Without this helper, you'd need `satisfies Action` and lose input type inference.
+ * The `type: 'query'` discriminator is attached automatically.
  *
  * @example No input - handler has no arguments
  * ```typescript
- * const getAllPosts = defineAction({
- *   type: 'query',
+ * const getAllPosts = defineQuery({
  *   handler: () => client.tables.posts.getAllValid(),
  * });
  * ```
  *
  * @example With input - handler receives typed input
  * ```typescript
- * const createPost = defineAction({
- *   type: 'mutation',
+ * const getPost = defineQuery({
+ *   input: type({ id: 'string' }),
+ *   handler: ({ id }) => client.tables.posts.get({ id }),
+ * });
+ * ```
+ */
+export function defineQuery<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+>(config: Omit<Query<TInput, TOutput>, 'type'>): Query<TInput, TOutput> {
+	return { type: 'query', ...config };
+}
+
+/**
+ * Define a mutation (write operation) with full type inference.
+ *
+ * The `type: 'mutation'` discriminator is attached automatically.
+ *
+ * @example No input - handler has no arguments
+ * ```typescript
+ * const syncMarkdown = defineMutation({
+ *   description: 'Sync markdown files to YJS',
+ *   handler: () => client.capabilities.markdown.pullFromMarkdown(),
+ * });
+ * ```
+ *
+ * @example With input - handler receives typed input
+ * ```typescript
+ * const createPost = defineMutation({
  *   input: type({ title: 'string' }),
  *   handler: ({ title }) => {
- *     // TypeScript knows: title is string
  *     client.tables.posts.upsert({ id: generateId(), title });
  *   },
  * });
  * ```
  */
-export function defineAction<
+export function defineMutation<
 	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
 	TOutput = unknown,
->(action: Action<TInput, TOutput>): Action<TInput, TOutput> {
-	return action;
+>(config: Omit<Mutation<TInput, TOutput>, 'type'>): Mutation<TInput, TOutput> {
+	return { type: 'mutation', ...config };
 }
 ````
+
+### Why Separate Functions?
+
+Using `defineQuery` and `defineMutation` instead of a single `defineAction({ type: '...' })`:
+
+1. **Industry standard**: Matches TanStack Query, tRPC, RTK Query, GraphQL conventions
+2. **Cleaner call sites**: No redundant `type` field to pass
+3. **Better IDE experience**: Hover shows `defineQuery<...>` vs `defineAction<..., 'query'>`
+4. **Simpler types**: No union type for the `type` field
+
+```typescript
+// ✅ Clean - type is implicit
+const actions = {
+  posts: {
+    getAll: defineQuery({ handler: ... }),
+    create: defineMutation({ handler: ... }),
+  },
+};
+
+// ❌ Redundant - type is explicit
+const actions = {
+  posts: {
+    getAll: defineAction({ type: 'query', handler: ... }),
+    create: defineAction({ type: 'mutation', handler: ... }),
+  },
+};
+```
 
 ### Why No `defineActions`?
 
 A `defineActions` helper is **not necessary** because:
 
-1. Each leaf action is already typed via `defineAction`
+1. Each leaf action is already typed via `defineQuery`/`defineMutation`
 2. TypeScript infers the nested structure automatically from the leaves
 3. It would just be an identity function with no type inference benefit
 
@@ -231,8 +302,8 @@ A `defineActions` helper is **not necessary** because:
 // This works fine - TypeScript infers the full structure
 const actions = {
   posts: {
-    create: defineAction({ ... }), // Already typed
-    getAll: defineAction({ ... }), // Already typed
+    create: defineMutation({ ... }), // Already typed
+    getAll: defineQuery({ ... }), // Already typed
   },
 };
 // actions.posts.create is fully typed ✓
@@ -348,9 +419,10 @@ Mixing them creates confusion about what's internal vs external.
 ## Implementation Plan
 
 - [ ] **Create `core/actions.ts`** with new types
-  - [ ] `Action` type with conditional handler signature
+  - [ ] `Query` and `Mutation` types with conditional handler signature
+  - [ ] `Action` union type
   - [ ] `Actions` type for nested structure
-  - [ ] `defineAction()` helper function
+  - [ ] `defineQuery()` and `defineMutation()` helper functions
   - [ ] `isAction()`, `isQuery()`, `isMutation()` type guards
 - [ ] **Update `server/server.ts`**
   - [ ] Accept `{ actions }` as second argument to `createServer`
@@ -366,8 +438,8 @@ Mixing them creates confusion about what's internal vs external.
   - [ ] Use `action.input` for tool `inputSchema`
   - [ ] Use `action.description` for tool description
 - [ ] **Update exports in `index.ts`**
-  - [ ] Export `Action`, `Actions` types
-  - [ ] Export `defineAction` function
+  - [ ] Export `Query`, `Mutation`, `Action`, `Actions` types
+  - [ ] Export `defineQuery` and `defineMutation` functions
   - [ ] Export type guards
 - [ ] **Update documentation**
   - [ ] `packages/epicenter/README.md`
@@ -400,8 +472,7 @@ app.post('/posts', (req) => createPost(req.body.title));
 const client = await workspace.create({ sqlite });
 const actions = {
   posts: {
-    create: defineAction({
-      type: 'mutation',
+    create: defineMutation({
       input: type({ title: 'string' }),
       handler: ({ title }) => { ... },
     }),
