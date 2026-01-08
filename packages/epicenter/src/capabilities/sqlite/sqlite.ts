@@ -7,7 +7,7 @@ import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 
-import { ProviderErr, ProviderError } from '../../core/errors';
+import { CapabilityErr, CapabilityError } from '../../core/errors';
 import {
 	defineCapabilities,
 	type CapabilityContext,
@@ -173,7 +173,7 @@ export const sqlite = async <TTablesSchema extends TablesSchema>(
 						await sqliteDb.insert(drizzleTable).values(rows);
 					},
 					catch: (e) =>
-						ProviderErr({
+						CapabilityErr({
 							message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite: ${extractErrorMessage(e)}`,
 						}),
 				});
@@ -211,7 +211,7 @@ export const sqlite = async <TTablesSchema extends TablesSchema>(
 				if (change.action === 'delete') continue;
 				if (change.result.status === 'invalid') {
 					logger.log(
-						ProviderError({
+						CapabilityError({
 							message: `SQLite capability ${change.action}: validation failed for ${table.name}`,
 						}),
 					);
@@ -239,7 +239,7 @@ export const sqlite = async <TTablesSchema extends TablesSchema>(
 					await sqliteDb.insert(drizzleTable).values(rows);
 				},
 				catch: (e) =>
-					ProviderErr({
+					CapabilityErr({
 						message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite during init: ${extractErrorMessage(e)}`,
 					}),
 			});
@@ -272,7 +272,7 @@ export const sqlite = async <TTablesSchema extends TablesSchema>(
 			return tryAsync({
 				try: () => rebuildSqlite(),
 				catch: (error) =>
-					ProviderErr({
+					CapabilityErr({
 						message: `SQLite capability pull operation failed: ${extractErrorMessage(error)}`,
 					}),
 			});
@@ -300,7 +300,7 @@ export const sqlite = async <TTablesSchema extends TablesSchema>(
 				},
 				catch: (error) => {
 					isPushingFromSqlite = false;
-					return ProviderErr({
+					return CapabilityErr({
 						message: `SQLite capability push operation failed: ${extractErrorMessage(error)}`,
 					});
 				},

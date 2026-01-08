@@ -1,10 +1,6 @@
 import { createTaggedError } from 'wellcrafted/error';
 
-/**
- * Context type for provider operation errors
- * Used for structured logging with table/file context
- */
-type ProviderErrorContext = {
+type CapabilityErrorContext = {
 	tableName?: string;
 	rowId?: string;
 	filename?: string;
@@ -13,11 +9,7 @@ type ProviderErrorContext = {
 	operation?: string;
 };
 
-/**
- * Error type for provider operations
- * Includes optional context for structured logging
- */
-export const { ProviderError, ProviderErr } = createTaggedError(
-	'ProviderError',
-).withContext<ProviderErrorContext | undefined>();
-export type ProviderError = ReturnType<typeof ProviderError>;
+export const { CapabilityError, CapabilityErr } = createTaggedError(
+	'CapabilityError',
+).withContext<CapabilityErrorContext | undefined>();
+export type CapabilityError = ReturnType<typeof CapabilityError>;

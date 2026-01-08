@@ -53,9 +53,9 @@ import type { TableHelper } from '../../core/tables/table-helper';
 import type { Row, TableSchema } from '../../core/schema';
 import { tableSchemaToArktype } from '../../core/schema';
 import {
-	MarkdownProviderErr,
-	type MarkdownProviderError,
-} from './markdown-provider';
+	MarkdownCapabilityErr,
+	type MarkdownCapabilityError,
+} from './markdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Core Types
@@ -112,7 +112,7 @@ export type MarkdownSerializer<
 			filename: string;
 			parsed: TParsed;
 			table: TableHelper<TTableSchema>;
-		}) => Result<Row<TTableSchema>, MarkdownProviderError>;
+		}) => Result<Row<TTableSchema>, MarkdownCapabilityError>;
 	};
 };
 
@@ -205,7 +205,7 @@ type SerializerBuilderWithSerialize<
 			filename: TFilename;
 			parsed: TParsed;
 			table: TableHelper<TTableSchema>;
-		}) => Result<Row<TTableSchema>, MarkdownProviderError>,
+		}) => Result<Row<TTableSchema>, MarkdownCapabilityError>,
 	): MarkdownSerializer<TTableSchema, TParsed>;
 };
 
@@ -346,7 +346,7 @@ export function defaultSerializer<
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
-				return MarkdownProviderErr({
+				return MarkdownCapabilityErr({
 					message: `Failed to validate row ${id}`,
 					context: { fileName: `${id}.md`, id, reason: result.summary },
 				});
@@ -439,7 +439,7 @@ export function bodyFieldSerializer<TTableSchema extends TableSchema>(
 			const validatedFrontmatter = FrontMatter(frontmatter);
 
 			if (validatedFrontmatter instanceof type.errors) {
-				return MarkdownProviderErr({
+				return MarkdownCapabilityErr({
 					message: `Invalid frontmatter for row ${rowId}`,
 					context: {
 						fileName: `${rowId}.md`,
@@ -582,7 +582,7 @@ export function titleFilenameSerializer<TTableSchema extends TableSchema>(
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
-				return MarkdownProviderErr({
+				return MarkdownCapabilityErr({
 					message: `Failed to validate row ${id}`,
 					context: {
 						fileName: `${id}.md`,
@@ -743,7 +743,7 @@ export function domainTitleFilenameSerializer<TTableSchema extends TableSchema>(
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
-				return MarkdownProviderErr({
+				return MarkdownCapabilityErr({
 					message: `Failed to validate row ${id}`,
 					context: {
 						fileName: `${id}.md`,

@@ -54,9 +54,9 @@ export type {
 	UpdateResult,
 	ValidRowResult,
 } from './core/tables/table-helper';
-export type { ProviderError } from './core/errors';
+export type { CapabilityError } from './core/errors';
 // Error types
-export { ProviderErr } from './core/errors';
+export { CapabilityErr } from './core/errors';
 export type {
 	Capability,
 	CapabilityContext,

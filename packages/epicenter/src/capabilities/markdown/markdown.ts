@@ -4,7 +4,7 @@ import chokidar, { type FSWatcher } from 'chokidar';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync, trySync } from 'wellcrafted/result';
 
-import { ProviderErr, ProviderError } from '../../core/errors';
+import { CapabilityErr, CapabilityError } from '../../core/errors';
 import {
 	defineCapabilities,
 	type CapabilityContext,
@@ -33,16 +33,19 @@ import {
  * Context is optional since some errors (like read failures) may not
  * have all the structured data (fileName, id, reason) available.
  */
-type MarkdownProviderContext = {
+type MarkdownCapabilityContext = {
 	fileName: string;
 	id: string;
 	reason: string;
 };
 
-export const { MarkdownProviderError, MarkdownProviderErr } = createTaggedError(
-	'MarkdownProviderError',
-).withContext<MarkdownProviderContext | undefined>();
-export type MarkdownProviderError = ReturnType<typeof MarkdownProviderError>;
+export const { MarkdownCapabilityError, MarkdownCapabilityErr } =
+	createTaggedError('MarkdownCapabilityError').withContext<
+		MarkdownCapabilityContext | undefined
+	>();
+export type MarkdownCapabilityError = ReturnType<
+	typeof MarkdownCapabilityError
+>;
 
 // Re-export config types and functions
 export type {
@@ -165,7 +168,7 @@ type ResolvedTableConfig<TTableSchema extends TableSchema> = {
  * })
  * ```
  */
-export type MarkdownProviderConfig<
+export type MarkdownCapabilityConfig<
 	TTablesSchema extends TablesSchema = TablesSchema,
 > = {
 	/**
@@ -267,7 +270,7 @@ export type MarkdownProviderConfig<
 
 export const markdown = async <TTablesSchema extends TablesSchema>(
 	context: CapabilityContext<TTablesSchema>,
-	config: MarkdownProviderConfig<TTablesSchema>,
+	config: MarkdownCapabilityConfig<TTablesSchema>,
 ) => {
 	const { id, tables } = context;
 	const {
@@ -453,7 +456,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 
 								if (error) {
 									logger.log(
-										ProviderError({
+										CapabilityError({
 											message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
 											context: {
 												tableName: table.name,
@@ -478,7 +481,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 							)
 							.join(', ');
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `YJS observer ${change.action}: validation failed for ${table.name}/${id}: ${errorMessages}`,
 								context: {
 									tableName: result.tableName,
@@ -497,7 +500,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 
 						if (error) {
 							logger.log(
-								ProviderError({
+								CapabilityError({
 									message: `YJS observer ${change.action}: failed to write ${table.name}/${row.id}`,
 									context: { tableName: table.name, rowId: row.id },
 								}),
@@ -532,7 +535,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 					mkdirSync(tableConfig.directory, { recursive: true });
 				},
 				catch: (error) =>
-					ProviderErr({
+					CapabilityErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
 						context: {
 							tableName: table.name,
@@ -613,12 +616,12 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 							filePath: absolutePath,
 							tableName: table.name,
 							filename,
-							error: MarkdownProviderError({
+							error: MarkdownCapabilityError({
 								message: `Failed to read markdown file at ${absolutePath}: ${readError.message}`,
 							}),
 						});
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `File watcher: failed to read ${table.name}/${filename}`,
 								context: {
 									filePath: absolutePath,
@@ -636,7 +639,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 					const parsed = tableConfig.parseFilename(filename);
 					if (!parsed) {
 						dbg('HANDLER', `FAIL ${table.name}/${filename} (parse error)`);
-						const error = MarkdownProviderError({
+						const error = MarkdownCapabilityError({
 							message: `Failed to parse filename: ${filename}`,
 						});
 						diagnostics.add({
@@ -646,7 +649,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 							error,
 						});
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `File watcher: failed to parse filename ${table.name}/${filename}`,
 								context: {
 									filePath: absolutePath,
@@ -683,7 +686,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 							error: deserializeError,
 						});
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `File watcher: validation failed for ${table.name}/${filename}`,
 								context: {
 									filePath: absolutePath,
@@ -716,7 +719,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 							},
 						);
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `Duplicate file detected: ${filename} has same ID as ${existingFilename}, deleting duplicate`,
 								context: {
 									tableName: table.name,
@@ -777,7 +780,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 						delete tracking[table.name]![rowIdToDelete];
 					} else {
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `File deleted but could not parse row ID from ${table.name}/${filename}`,
 								context: { tableName: table.name, filename },
 							}),
@@ -807,7 +810,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 						error: extractErrorMessage(error),
 					});
 					logger.log(
-						ProviderError({
+						CapabilityError({
 							message: `File watcher error for ${table.name}: ${extractErrorMessage(error)}`,
 							context: {
 								tableName: table.name,
@@ -862,12 +865,12 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 							filePath,
 							tableName: table.name,
 							filename,
-							error: MarkdownProviderError({
+							error: MarkdownCapabilityError({
 								message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
 							}),
 						});
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `${operationPrefix}failed to read ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -880,7 +883,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 					// Parse filename to extract structured data
 					const parsed = tableConfig.parseFilename(filename);
 					if (!parsed) {
-						const error = MarkdownProviderError({
+						const error = MarkdownCapabilityError({
 							message: `Failed to parse filename: ${filename}`,
 						});
 						diagnostics.add({
@@ -890,7 +893,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 							error,
 						});
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `${operationPrefix}failed to parse filename ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -917,7 +920,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 						});
 						// Log to historical record
 						logger.log(
-							ProviderError({
+							CapabilityError({
 								message: `${operationPrefix}validation failed for ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -1043,7 +1046,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 			if (!rowId || !table.has(rowId)) {
 				// Orphan file: no valid row ID or row doesn't exist in Y.js
 				logger.log(
-					ProviderError({
+					CapabilityError({
 						message: `Startup cleanup: deleting orphan file ${table.name}/${filename}`,
 						context: { tableName: table.name, filename, filePath },
 					}),
@@ -1143,7 +1146,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 										const { error } = await deleteMarkdownFile({ filePath });
 										if (error) {
 											logger.log(
-												ProviderError({
+												CapabilityError({
 													message: `pullToMarkdown: failed to delete ${filePath}`,
 													context: { filePath, tableName: table.name },
 												}),
@@ -1208,7 +1211,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 											});
 											if (error) {
 												logger.log(
-													ProviderError({
+													CapabilityError({
 														message: `pullToMarkdown: failed to write ${filePath}`,
 														context: {
 															filePath,
@@ -1232,7 +1235,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 				},
 				catch: (error) => {
 					syncCoordination.yjsWriteCount--;
-					return ProviderErr({
+					return CapabilityErr({
 						message: `Markdown capability pull failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'pull' },
 					});
@@ -1323,12 +1326,12 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 													filePath,
 													tableName: table.name,
 													filename,
-													error: MarkdownProviderError({
+													error: MarkdownCapabilityError({
 														message: `Failed to parse filename: ${filename}`,
 													}),
 												});
 												logger.log(
-													ProviderError({
+													CapabilityError({
 														message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
 														context: {
 															filePath,
@@ -1348,12 +1351,12 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 													filePath,
 													tableName: table.name,
 													filename,
-													error: MarkdownProviderError({
+													error: MarkdownCapabilityError({
 														message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
 													}),
 												});
 												logger.log(
-													ProviderError({
+													CapabilityError({
 														message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
 														context: {
 															filePath,
@@ -1384,7 +1387,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 													error: deserializeError,
 												});
 												logger.log(
-													ProviderError({
+													CapabilityError({
 														message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
 														context: {
 															filePath,
@@ -1446,7 +1449,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 				},
 				catch: (error) => {
 					syncCoordination.fileChangeCount--;
-					return ProviderErr({
+					return CapabilityErr({
 						message: `Markdown capability push failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'push' },
 					});
@@ -1478,7 +1481,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 					);
 				},
 				catch: (error) => {
-					return ProviderErr({
+					return CapabilityErr({
 						message: `Markdown capability scan failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'scan' },
 					});
