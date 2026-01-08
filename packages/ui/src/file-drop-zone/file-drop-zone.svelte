@@ -3,7 +3,7 @@
 -->
 
 <script lang="ts">
-	import { cn } from '#/utils/utils';
+	import { cn } from '#/utils.js';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { useId } from 'bits-ui';
 

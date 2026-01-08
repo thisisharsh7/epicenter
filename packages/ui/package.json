@@ -12,7 +12,7 @@
 	},
 	"exports": {
 		"./*": "./src/*/index.ts",
-		"./utils": "./src/utils/utils.ts",
+		"./utils": "./src/utils.ts",
 		"./app.css": "./src/app.css"
 	},
 	"scripts": {
