@@ -81,10 +81,8 @@
 									onclick={() => goto(`/workspaces/${workspace.id}`)}
 									class="flex-1"
 								>
-									<div
-										class="flex size-6 items-center justify-center rounded-sm border"
-									>
-										<FolderIcon class="size-4 shrink-0" />
+									<div class="rounded-sm border p-1">
+										<FolderIcon />
 									</div>
 									{workspace.name}
 									{#if workspace.id === selectedWorkspaceId}
@@ -92,10 +90,9 @@
 									{/if}
 								</DropdownMenu.Item>
 								<DropdownMenu.SubTrigger
-									class="ml-1 size-7 p-0 justify-center [&>svg:last-child]:hidden"
+									class="p-1.5 [&>svg:last-child]:hidden"
 								>
-									<EllipsisIcon class="size-4" />
-									<span class="sr-only">More options</span>
+									<EllipsisIcon />
 								</DropdownMenu.SubTrigger>
 							</div>
 							<DropdownMenu.SubContent class="min-w-32">
