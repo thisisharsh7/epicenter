@@ -3,12 +3,11 @@
 	import * as Sidebar from '@epicenter/ui/sidebar';
 	import WorkspaceSidebar from '$lib/components/WorkspaceSidebar.svelte';
 	import HeaderBreadcrumbs from '$lib/components/HeaderBreadcrumbs.svelte';
-	import { destroyCurrentWorkspace } from '$lib/workspace-client';
 
 	let { data, children } = $props();
 
 	onDestroy(() => {
-		destroyCurrentWorkspace();
+		data.client.destroy();
 	});
 </script>
 

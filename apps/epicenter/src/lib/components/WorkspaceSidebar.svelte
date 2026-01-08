@@ -11,7 +11,6 @@
 	import { createSettingDialog } from '$lib/components/CreateSettingDialog.svelte';
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { getTableMetadata } from '$lib/utils/normalize-table';
-	import { invalidateWorkspaceClient } from '$lib/workspace-client';
 	import { rpc } from '$lib/query';
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import TableIcon from '@lucide/svelte/icons/table-2';
@@ -197,7 +196,6 @@
 									icon,
 									description,
 								});
-								await invalidateWorkspaceClient();
 								await invalidateAll();
 							},
 						});
@@ -248,7 +246,6 @@
 														workspaceId,
 														tableName: table.key,
 													});
-													await invalidateWorkspaceClient();
 													await invalidateAll();
 													await goto(`/workspaces/${workspaceId}`);
 												},
