@@ -90,9 +90,9 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │    │     icon: IconDefinition | null,                            │
 │    │     cover: CoverDefinition | null,                          │
 │    │     description: string,                                    │
-│    │     fields: Y.Map<fieldName, FieldSchema>                   │
+│    │     fields: Y.Map<fieldName, FieldDefinition>               │
 │    │   }>                                                        │
-│    └── kv: Y.Map<keyName, FieldSchema>                           │
+│    └── kv: Y.Map<keyName, FieldDefinition>                       │
 │                                                                  │
 │  Y.Map('tables')                                                 │
 │    └── {tableName}: Y.Map<rowId, Y.Map<fieldName, value>>        │
@@ -263,10 +263,10 @@ const client = await workspace.create({
 
 ## Schema Storage
 
-The Y.Doc stores the full `FieldSchema` directly - no conversion needed:
+The Y.Doc stores the full `FieldDefinition` directly - no conversion needed:
 
 ```typescript
-// FieldSchema stored as-is in Y.Doc
+// FieldDefinition stored as-is in Y.Doc
 {
   type: 'text',
   name: 'Title',
@@ -278,7 +278,7 @@ The Y.Doc stores the full `FieldSchema` directly - no conversion needed:
 
 **Why this works:**
 
-1. FieldSchema is fully JSON-serializable
+1. FieldDefinition is fully JSON-serializable
 2. Enables Notion-like collaborative schema editing (rename fields, add descriptions, set icons)
 3. Changes sync via CRDT to all collaborators
 4. TypeScript types come from code schema (compile-time safety)
