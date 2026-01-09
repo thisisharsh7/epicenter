@@ -305,9 +305,9 @@ for (const post of oldClient.tables.posts.getAllValid()) {
 // Update Head Doc to point to new epoch
 const head = createHeadDoc({ workspaceId: workspace.id });
 // Use bumpEpoch() for safe concurrent migrations
-// Use setLocalEpoch() to set to a specific epoch (≤ global epoch)
+// Use setOwnEpoch() to set to a specific epoch (≤ global epoch)
 head.bumpEpoch(); // Safe: computes max + 1
-// OR: head.setLocalEpoch(2);  // Sets local epoch to 2 (if ≤ global)
+// OR: head.setOwnEpoch(2);  // Sets own epoch to 2 (if ≤ global)
 
 // Cleanup
 await oldClient.destroy();

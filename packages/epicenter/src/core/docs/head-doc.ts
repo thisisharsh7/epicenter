@@ -117,28 +117,33 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		getEpoch,
 
 		/**
-		 * Get what THIS client has proposed as the epoch.
+		 * Get this client's own epoch value.
 		 *
-		 * This may be lower than `getEpoch()` if other clients have
-		 * proposed higher epochs that we haven't bumped to yet.
+		 * This is the epoch value stored under THIS client's ID in the shared
+		 * Y.Doc. It may be lower than `getEpoch()` if other clients have
+		 * proposed higher epochs.
 		 *
-		 * Useful for UI indicators showing "Your local: epoch 2, Synced: epoch 3".
+		 * Note: "Own" means "belonging to this client instance" (like JS's
+		 * `hasOwnProperty`). The value IS synced in the shared doc; it's just
+		 * scoped to this client's key.
 		 *
-		 * @returns This client's proposed epoch (0 if never set)
+		 * Useful for UI indicators showing "Your epoch: 2, Global: 3".
+		 *
+		 * @returns This client's epoch value (0 if never set)
 		 *
 		 * @example
 		 * ```typescript
 		 * // After another client bumps to 5
-		 * head.getLocalEpoch(); // 0 (we haven't set ours)
-		 * head.getEpoch();      // 5 (max across all clients)
+		 * head.getOwnEpoch(); // 0 (we haven't set ours)
+		 * head.getEpoch();    // 5 (max across all clients)
 		 *
 		 * // After we bump
 		 * head.bumpEpoch();
-		 * head.getLocalEpoch(); // 6
-		 * head.getEpoch();      // 6
+		 * head.getOwnEpoch(); // 6
+		 * head.getEpoch();    // 6
 		 * ```
 		 */
-		getLocalEpoch(): number {
+		getOwnEpoch(): number {
 			return epochsMap.get(ydoc.clientID.toString()) ?? 0;
 		},
 
@@ -177,10 +182,10 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		},
 
 		/**
-		 * Set this client's local epoch to a specific value.
+		 * Set this client's own epoch to a specific value.
 		 *
 		 * Unlike `bumpEpoch()` which increments to create new epochs, this allows
-		 * setting your local epoch to any value **up to** the current global epoch.
+		 * setting your own epoch to any value **up to** the current global epoch.
 		 *
 		 * **Safety constraint**: You cannot set higher than `getEpoch()`. If you try,
 		 * the value is clamped to the current global epoch. This prevents accidental
@@ -194,7 +199,7 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * **After calling this**, recreate your workspace client:
 		 *
 		 * ```typescript
-		 * const actualEpoch = head.setLocalEpoch(2);
+		 * const actualEpoch = head.setOwnEpoch(2);
 		 * await oldClient.destroy();
 		 * const newClient = await workspace.create({ epoch: actualEpoch });
 		 * ```
@@ -207,17 +212,17 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * // Global epoch is 3
 		 *
 		 * // User selects "Epoch 2" from dropdown - valid, sets to 2
-		 * head.setLocalEpoch(2);  // Returns 2
+		 * head.setOwnEpoch(2);  // Returns 2
 		 *
 		 * // User tries to set higher than global - clamped to 3
-		 * head.setLocalEpoch(5);  // Returns 3 (clamped)
+		 * head.setOwnEpoch(5);  // Returns 3 (clamped)
 		 *
 		 * // Recreate client at the actual epoch
-		 * const epoch = head.setLocalEpoch(2);
+		 * const epoch = head.setOwnEpoch(2);
 		 * const client = await workspace.create({ epoch });
 		 * ```
 		 */
-		setLocalEpoch(epoch: number): number {
+		setOwnEpoch(epoch: number): number {
 			const globalEpoch = getEpoch();
 			const clampedEpoch = Math.min(epoch, globalEpoch);
 			epochsMap.set(ydoc.clientID.toString(), clampedEpoch);

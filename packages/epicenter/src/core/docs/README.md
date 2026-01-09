@@ -159,15 +159,15 @@ const head = createHeadDoc({ workspaceId: 'abc123' });
 // Get current epoch (max of all client proposals)
 head.getEpoch(); // 0
 
-// Get THIS client's proposal (may differ from getEpoch())
-head.getLocalEpoch(); // 0
+// Get THIS client's own epoch (may differ from getEpoch())
+head.getOwnEpoch(); // 0
 
 // Bump epoch safely (handles concurrent bumps)
 head.bumpEpoch(); // Returns 1
 
-// Set local epoch (for UI epoch selector, rollbacks)
+// Set own epoch (for UI epoch selector, rollbacks)
 // Clamped to global epoch - can't set higher than getEpoch()
-head.setLocalEpoch(2); // Returns actual epoch set
+head.setOwnEpoch(2); // Returns actual epoch set
 
 // Subscribe to epoch changes
 head.observeEpoch((newEpoch) => {
