@@ -4,7 +4,7 @@ So I'm looking at my codebase and I've got this 20-line function for comparing t
 
 There has to be a better way.
 
-Turns out TypeBox has this `Value.Equal` function that does deep structural equality on any two JavaScript values. Not just TypeBox schemas—any values. Arrays, nested objects, whatever.
+Turns out TypeBox has this [`Value.Equal` function that does deep structural equality on any two JavaScript values](https://sinclairzx81.github.io/typebox/#/docs/value/equal). Not just TypeBox schemas—any values. Arrays, nested objects, whatever.
 
 ```typescript
 import { Value } from 'typebox/value';
