@@ -72,6 +72,7 @@ export type {
 	CoverDefinition,
 	DateFieldSchema,
 	DateIsoString,
+	ExtractTablesSchema,
 	FieldMetadata,
 	FieldOptions,
 	FieldSchema,

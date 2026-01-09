@@ -81,11 +81,17 @@ const emailWorkspace = defineWorkspace({
 	kv: {},
 	tables: {
 		emails: {
-			id: id(),
-			sender: text(),
-			subject: text(),
-			received_at: text(),
-			read: integer({ default: 0 }),
+			name: 'Emails',
+			icon: null,
+			cover: null,
+			description: 'Minimal email records for simulation',
+			fields: {
+				id: id(),
+				sender: text(),
+				subject: text(),
+				received_at: text(),
+				read: integer({ default: 0 }),
+			},
 		},
 	},
 });
