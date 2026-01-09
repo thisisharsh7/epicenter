@@ -3,6 +3,5 @@ export { createHeadDoc, type HeadDoc } from './head-doc';
 export {
 	createDataDoc,
 	type DataDoc,
-	type StoredFieldSchema,
 	type SchemaChangeEvent,
 } from './data-doc';

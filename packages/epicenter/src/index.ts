@@ -139,7 +139,6 @@ export type {
 	RegistryDoc,
 	HeadDoc,
 	DataDoc,
-	StoredFieldSchema,
 	SchemaChangeEvent,
 } from './core/docs';
 export { createRegistryDoc, createHeadDoc, createDataDoc } from './core/docs';

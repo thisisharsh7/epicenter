@@ -1,62 +1,19 @@
 import * as Y from 'yjs';
 
 import type { KvSchema, TablesSchema } from '../schema';
-import type {
-	FieldSchema,
-	FieldType,
-	IconDefinition,
-} from '../schema/fields/types';
+import type { FieldSchema } from '../schema/fields/types';
 
 /**
- * Stored field schema in Y.Doc.
- *
- * Contains all FieldSchema properties. TypeBox schemas (for json fields)
- * are already JSON Schema, so no conversion is needed.
- *
- * This enables collaborative schema editing - users can modify field names,
- * descriptions, and icons, and changes sync via CRDT.
- */
-export type StoredFieldSchema = {
-	/** Field type discriminant */
-	type: FieldType;
-	/** Display name shown in UI */
-	name: string;
-	/** Description shown in tooltips/docs */
-	description: string;
-	/** Icon for the field */
-	icon: IconDefinition | null;
-	/** Whether the field is nullable (not present on id/richtext) */
-	nullable?: boolean;
-	/** Default value */
-	default?: unknown;
-	/** Options for select/tags fields */
-	options?: readonly string[];
-	/** TypeBox schema for json fields (already JSON Schema, no conversion needed) */
-	schema?: unknown;
-};
-
-/**
- * Prepare a FieldSchema for Y.Doc storage.
- *
- * Since TypeBox schemas are already JSON Schema, no conversion is needed.
- * This function just performs a type cast.
- */
-function prepareForStorage(schema: FieldSchema): StoredFieldSchema {
-	return schema as StoredFieldSchema;
-}
-
-/**
- * Deep equality check for stored field schemas.
+ * Deep equality check for field schemas.
  *
  * Compares all properties including metadata (name, description, icon).
+ * Works with FieldSchema directly since TypeBox schemas are JSON-serializable.
  */
-function deepEqual(a: StoredFieldSchema, b: StoredFieldSchema): boolean {
+function deepEqual(a: FieldSchema, b: FieldSchema): boolean {
 	// Type must match
 	if (a.type !== b.type) return false;
 
-	// Compare common optional properties
-	if (a.nullable !== b.nullable) return false;
-	if (a.default !== b.default) return false;
+	// Compare metadata (present on all field types)
 	if (a.name !== b.name) return false;
 	if (a.description !== b.description) return false;
 
@@ -71,21 +28,9 @@ function deepEqual(a: StoredFieldSchema, b: StoredFieldSchema): boolean {
 		}
 	}
 
-	// Compare options array (for select/tags)
-	const aOpts = a.options;
-	const bOpts = b.options;
-	if (aOpts !== bOpts) {
-		if (!aOpts || !bOpts) return false;
-		if (aOpts.length !== bOpts.length) return false;
-		for (let i = 0; i < aOpts.length; i++) {
-			if (aOpts[i] !== bOpts[i]) return false;
-		}
-	}
-
-	// Compare schema (for json fields - compare as JSON strings)
-	if (JSON.stringify(a.schema) !== JSON.stringify(b.schema)) return false;
-
-	return true;
+	// Compare optional properties using JSON serialization for simplicity
+	// This handles nullable, default, options, schema across all field types
+	return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /**
@@ -102,8 +47,8 @@ function deepEqual(a: StoredFieldSchema, b: StoredFieldSchema): boolean {
  *   └── name: string
  *
  * Y.Map('schema')
- *   ├── tables: Y.Map<tableName, Y.Map<fieldName, StoredFieldSchema>>
- *   └── kv: Y.Map<keyName, StoredFieldSchema>
+ *   ├── tables: Y.Map<tableName, Y.Map<fieldName, FieldSchema>>
+ *   └── kv: Y.Map<keyName, FieldSchema>
  *
  * Y.Map('tables')
  *   └── {tableName}: Y.Map<rowId, Y.Map<fieldName, value>>
@@ -145,12 +90,12 @@ export function createDataDoc(options: {
 		schemaMap.set('kv', new Y.Map());
 	}
 
-	function getTablesSchemaMap(): Y.Map<Y.Map<StoredFieldSchema>> {
-		return schemaMap.get('tables') as Y.Map<Y.Map<StoredFieldSchema>>;
+	function getTablesSchemaMap(): Y.Map<Y.Map<FieldSchema>> {
+		return schemaMap.get('tables') as Y.Map<Y.Map<FieldSchema>>;
 	}
 
-	function getKvSchemaMap(): Y.Map<StoredFieldSchema> {
-		return schemaMap.get('kv') as Y.Map<StoredFieldSchema>;
+	function getKvSchemaMap(): Y.Map<FieldSchema> {
+		return schemaMap.get('kv') as Y.Map<FieldSchema>;
 	}
 
 	return {
@@ -215,21 +160,19 @@ export function createDataDoc(options: {
 					}
 
 					for (const [fieldName, fieldSchema] of Object.entries(tableSchema)) {
-						const stored = prepareForStorage(fieldSchema);
 						const existing = tableMap.get(fieldName);
 
-						if (!existing || !deepEqual(existing, stored)) {
-							tableMap.set(fieldName, stored);
+						if (!existing || !deepEqual(existing, fieldSchema)) {
+							tableMap.set(fieldName, fieldSchema);
 						}
 					}
 				}
 
 				for (const [keyName, fieldSchema] of Object.entries(kv)) {
-					const stored = prepareForStorage(fieldSchema);
 					const existing = kvSchemaMap.get(keyName);
 
-					if (!existing || !deepEqual(existing, stored)) {
-						kvSchemaMap.set(keyName, stored);
+					if (!existing || !deepEqual(existing, fieldSchema)) {
+						kvSchemaMap.set(keyName, fieldSchema);
 					}
 				}
 			});
@@ -240,7 +183,7 @@ export function createDataDoc(options: {
 			const tableMap = getTablesSchemaMap().get(tableName);
 			if (!tableMap) return undefined;
 
-			const result = new Map<string, StoredFieldSchema>();
+			const result = new Map<string, FieldSchema>();
 			tableMap.forEach((value, key) => {
 				result.set(key, value);
 			});
@@ -281,7 +224,7 @@ export function createDataDoc(options: {
 				tablesSchemaMap.set(tableName, tableMap);
 			}
 
-			tableMap.set(fieldName, prepareForStorage(fieldSchema));
+			tableMap.set(fieldName, fieldSchema);
 		},
 
 		/** Remove a field from a table schema. */
@@ -294,7 +237,7 @@ export function createDataDoc(options: {
 
 		/** Add a new KV field schema. */
 		addKvField(keyName: string, fieldSchema: FieldSchema) {
-			getKvSchemaMap().set(keyName, prepareForStorage(fieldSchema));
+			getKvSchemaMap().set(keyName, fieldSchema);
 		},
 
 		/** Remove a KV field schema. */
@@ -354,14 +297,14 @@ export function createDataDoc(options: {
 			const tablesSchemaMap = getTablesSchemaMap();
 			const fieldHandlers = new Map<
 				string,
-				(event: Y.YMapEvent<StoredFieldSchema>) => void
+				(event: Y.YMapEvent<FieldSchema>) => void
 			>();
 
 			const setupFieldObserver = (
 				tableName: string,
-				tableMap: Y.Map<StoredFieldSchema>,
+				tableMap: Y.Map<FieldSchema>,
 			) => {
-				const fieldHandler = (event: Y.YMapEvent<StoredFieldSchema>) => {
+				const fieldHandler = (event: Y.YMapEvent<FieldSchema>) => {
 					const fieldsChanged: Array<{
 						table: string;
 						field: string;
@@ -385,7 +328,7 @@ export function createDataDoc(options: {
 				fieldHandlers.set(tableName, fieldHandler);
 			};
 
-			const tableHandler = (event: Y.YMapEvent<Y.Map<StoredFieldSchema>>) => {
+			const tableHandler = (event: Y.YMapEvent<Y.Map<FieldSchema>>) => {
 				const tablesAdded: string[] = [];
 				const tablesRemoved: string[] = [];
 
