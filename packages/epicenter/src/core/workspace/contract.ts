@@ -377,8 +377,9 @@ export function defineWorkspace<
 			>
 		> {
 			// Create Data Y.Doc with deterministic GUID
+			// gc: false is required for revision history snapshots to work
 			const docId = `${config.id}-${epoch}` as const;
-			const ydoc = new Y.Doc({ guid: docId });
+			const ydoc = new Y.Doc({ guid: docId, gc: false });
 
 			// Merge workspace metadata (update if different from config)
 			const metaMap = ydoc.getMap<string>('meta');
