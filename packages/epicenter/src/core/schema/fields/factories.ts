@@ -12,14 +12,12 @@ import type {
 	BooleanFieldSchema,
 	DateFieldSchema,
 	FieldOptions,
-	FieldsSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
 	RichtextFieldSchema,
 	SelectFieldSchema,
-	TableDefinition,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from './types';
@@ -329,28 +327,4 @@ export function json<const T extends TSchema>({
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),
 	};
-}
-
-/**
- * Helper to define a table with metadata.
- *
- * @example
- * ```typescript
- * const posts = defineTable({
- *   name: 'Posts',
- *   icon: { type: 'emoji', value: '📝' },
- *   cover: null,
- *   description: 'Blog posts and articles',
- *   fields: {
- *     id: id(),
- *     title: text({ name: 'Title' }),
- *     status: select({ options: ['draft', 'published'], name: 'Status' }),
- *   },
- * });
- * ```
- */
-export function defineTable<const TFields extends FieldsSchema>(
-	definition: TableDefinition<TFields>,
-): TableDefinition<TFields> {
-	return definition;
 }

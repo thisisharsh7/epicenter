@@ -424,7 +424,7 @@ export type TablesSchema = Record<string, TableSchema>;
 
 /**
  * Tables with metadata - maps table keys to full table definitions.
- * Use this when you need table metadata (name, icon, cover, description).
+ * This is the required format for `defineWorkspace().tables`.
  *
  * @example
  * ```typescript
@@ -440,6 +440,25 @@ export type TablesSchema = Record<string, TableSchema>;
  * ```
  */
 export type TablesWithMetadata = Record<string, TableDefinition>;
+
+/**
+ * Extract the fields schema from a TablesWithMetadata type.
+ *
+ * Used internally to derive `TablesSchema` from user-provided `TablesWithMetadata`.
+ * Capabilities and table helpers work with the extracted fields, not the full metadata.
+ *
+ * @example
+ * ```typescript
+ * type Input = {
+ *   posts: { name: 'Posts', fields: { id: IdFieldSchema, title: TextFieldSchema } }
+ * };
+ * type Output = ExtractTablesSchema<Input>;
+ * // { posts: { id: IdFieldSchema, title: TextFieldSchema } }
+ * ```
+ */
+export type ExtractTablesSchema<T extends TablesWithMetadata> = {
+	[K in keyof T]: T[K]['fields'];
+};
 
 // ============================================================================
 // Row Types

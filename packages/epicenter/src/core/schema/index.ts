@@ -1,7 +1,6 @@
 export {
 	boolean,
 	date,
-	defineTable,
 	id,
 	integer,
 	json,
@@ -17,6 +16,7 @@ export type {
 	CellValue,
 	CoverDefinition,
 	DateFieldSchema,
+	ExtractTablesSchema,
 	FieldMetadata,
 	FieldOptions,
 	FieldSchema,
