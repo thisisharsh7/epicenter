@@ -11,12 +11,10 @@ import {
 	real as drizzleReal,
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
+import type { TSchema, Static } from 'typebox';
+import { Compile } from 'typebox/compile';
 import type { DateTimeString } from '../../core/schema';
 import { generateId } from '../../core/schema';
-import type {
-	StandardSchemaV1,
-	StandardSchemaWithJSONSchema,
-} from '../../core/schema/standard/types';
 
 /**
  * Type helper that composes Drizzle column modifiers based on options.
@@ -302,37 +300,38 @@ export function tags<
  *
  * @example
  * ```typescript
- * import { type } from 'arktype';
+ * import { Type } from 'typebox';
  *
  * const schema = {
- *   metadata: json({ schema: type({ key: 'string', value: 'string' }) }),
+ *   metadata: json({ schema: Type.Object({ key: Type.String(), value: Type.String() }) }),
  *   config: json({
- *     schema: type({ theme: '"dark" | "light"' }),
+ *     schema: Type.Object({ theme: Type.Union([Type.Literal('dark'), Type.Literal('light')]) }),
  *     default: { theme: 'dark' },
  *   }),
  *   settings: json({
- *     schema: type({ notifications: 'boolean' }),
+ *     schema: Type.Object({ notifications: Type.Boolean() }),
  *     nullable: true,
  *   }),
  * };
  * ```
  */
 export function json<
-	const TSchema extends StandardSchemaWithJSONSchema,
+	const T extends TSchema,
 	TNullable extends boolean = false,
-	TDefault extends
-		| StandardSchemaV1.InferOutput<TSchema>
-		| undefined = undefined,
+	TDefault extends Static<T> | undefined = undefined,
 >({
 	schema,
 	nullable = false as TNullable,
 	default: defaultValue,
 }: {
-	schema: TSchema;
+	schema: T;
 	nullable?: TNullable;
 	default?: TDefault;
 }) {
-	type TOutput = StandardSchemaV1.InferOutput<TSchema>;
+	type TOutput = Static<T>;
+
+	// Compile the TypeBox schema for JIT-optimized validation
+	const validator = Compile(schema);
 
 	const jsonType = customType<{
 		data: TOutput;
@@ -342,15 +341,15 @@ export function json<
 		toDriver: (value: TOutput): string => JSON.stringify(value),
 		fromDriver: (value: string): TOutput => {
 			const parsed = JSON.parse(value);
-			const result = schema['~standard'].validate(parsed);
-			if (result instanceof Promise) {
-				throw new Error('Async validation not supported for JSON columns');
-			}
-			if (result.issues) {
-				const messages = result.issues.map((i) => i.message).join(', ');
+			// Use compiled TypeBox validator
+			if (!validator.Check(parsed)) {
+				const errors = [...validator.Errors(parsed)];
+				const messages = errors
+					.map((e) => `${e.instancePath || '/'}: ${e.message}`)
+					.join(', ');
 				throw new Error(`JSON validation failed: ${messages}`);
 			}
-			return result.value as TOutput;
+			return parsed as TOutput;
 		},
 	});
 

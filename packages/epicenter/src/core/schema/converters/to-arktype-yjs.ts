@@ -5,8 +5,8 @@
  * where fields may contain YJS types.
  */
 
-import type { StandardSchemaV1 } from '../standard/types';
 import { type Type, type } from 'arktype';
+import type { TSchema, Static } from 'typebox';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import type {
 	BooleanFieldSchema,
@@ -72,10 +72,13 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
 										? TNullable extends true
 											? Type<TOptions[number][] | null>
 											: Type<TOptions[number][]>
-										: C extends JsonFieldSchema<infer TSchema, infer TNullable>
+										: C extends JsonFieldSchema<
+													infer T extends TSchema,
+													infer TNullable
+												>
 											? TNullable extends true
-												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
-												: Type<StandardSchemaV1.InferOutput<TSchema>>
+												? Type<Static<T> | null>
+												: Type<Static<T>>
 											: never;
 
 /**

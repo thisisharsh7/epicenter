@@ -32,7 +32,6 @@ import type {
 } from '../fields/types';
 import { isNullableFieldSchema } from '../fields/helpers';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
-import { ARKTYPE_JSON_SCHEMA_FALLBACK } from '../standard/arktype-fallback';
 
 /**
  * Maps a FieldSchema to its corresponding TypeBox TSchema type.
@@ -208,14 +207,8 @@ export function fieldSchemaToTypebox<C extends FieldSchema>(
 		}
 
 		case 'json': {
-			const standardSchema = fieldSchema.schema;
-			const jsonSchema = standardSchema['~standard'].jsonSchema.input({
-				target: 'draft-2020-12',
-				libraryOptions: {
-					fallback: ARKTYPE_JSON_SCHEMA_FALLBACK,
-				},
-			});
-			baseType = jsonSchema as TSchema;
+			// TypeBox schemas ARE JSON Schema - use directly
+			baseType = fieldSchema.schema;
 			break;
 		}
 	}

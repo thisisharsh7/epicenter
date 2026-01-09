@@ -5,15 +5,13 @@ import type {
 	FieldSchema,
 	FieldType,
 	IconDefinition,
-	JsonFieldSchema,
 } from '../schema/fields/types';
-import { standardSchemaToJsonSchema } from '../schema/standard/to-json-schema';
 
 /**
  * Stored field schema in Y.Doc.
  *
- * Contains all FieldSchema properties, with json fields having their
- * StandardSchema converted to JSON Schema for serialization.
+ * Contains all FieldSchema properties. TypeBox schemas (for json fields)
+ * are already JSON Schema, so no conversion is needed.
  *
  * This enables collaborative schema editing - users can modify field names,
  * descriptions, and icons, and changes sync via CRDT.
@@ -33,24 +31,17 @@ export type StoredFieldSchema = {
 	default?: unknown;
 	/** Options for select/tags fields */
 	options?: readonly string[];
-	/** JSON Schema for json fields (converted from StandardSchema) */
+	/** TypeBox schema for json fields (already JSON Schema, no conversion needed) */
 	schema?: unknown;
 };
 
 /**
  * Prepare a FieldSchema for Y.Doc storage.
  *
- * For json fields, converts the StandardSchema to JSON Schema.
- * All other fields are stored as-is, preserving metadata (name, description, icon).
+ * Since TypeBox schemas are already JSON Schema, no conversion is needed.
+ * This function just performs a type cast.
  */
 function prepareForStorage(schema: FieldSchema): StoredFieldSchema {
-	if (schema.type === 'json') {
-		const jsonField = schema as JsonFieldSchema;
-		return {
-			...jsonField,
-			schema: standardSchemaToJsonSchema(jsonField.schema),
-		} as StoredFieldSchema;
-	}
 	return schema as StoredFieldSchema;
 }
 
