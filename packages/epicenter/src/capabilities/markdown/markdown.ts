@@ -11,7 +11,7 @@ import {
 } from '../../core/capability';
 import type { TableHelper } from '../../core/tables/create-tables';
 import type {
-	FieldsSchema,
+	FieldDefinitions,
 	KvSchema,
 	Row,
 	TableDefinitionMap,
@@ -139,11 +139,11 @@ type TableConfigs<TTableDefinitionMap extends TableDefinitionMap> = {
  * Internal resolved config with all required fields.
  * This is what the provider uses internally after merging user config with defaults.
  */
-type ResolvedTableConfig<TFieldsSchema extends FieldsSchema> = {
+type ResolvedTableConfig<TFieldDefinitions extends FieldDefinitions> = {
 	directory: AbsolutePath;
-	serialize: MarkdownSerializer<TFieldsSchema>['serialize'];
-	parseFilename: MarkdownSerializer<TFieldsSchema>['deserialize']['parseFilename'];
-	deserialize: MarkdownSerializer<TFieldsSchema>['deserialize']['fromContent'];
+	serialize: MarkdownSerializer<TFieldDefinitions>['serialize'];
+	parseFilename: MarkdownSerializer<TFieldDefinitions>['deserialize']['parseFilename'];
+	deserialize: MarkdownSerializer<TFieldDefinitions>['deserialize']['fromContent'];
 };
 
 /**
@@ -405,9 +405,9 @@ export const markdown = async <
 			/**
 			 * Write a YJS row to markdown file
 			 */
-			async function writeRowToMarkdown<TFieldsSchema extends FieldsSchema>(
-				row: Row<TFieldsSchema>,
-			) {
+			async function writeRowToMarkdown<
+				TFieldDefinitions extends FieldDefinitions,
+			>(row: Row<TFieldDefinitions>) {
 				const { frontmatter, body, filename } = tableConfig.serialize({
 					row,
 					table,

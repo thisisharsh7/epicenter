@@ -1,7 +1,7 @@
 import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
-import type { KvDefinitionMap, KvFieldSchema, KvValue } from '../schema';
+import type { KvDefinitionMap, KvFieldDefinition, KvValue } from '../schema';
 
 import type { KvHelper } from './kv-helper';
 import { createKvHelpers } from './kv-helper';

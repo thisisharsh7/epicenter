@@ -446,7 +446,7 @@ export function defineWorkspace<
  * Type for the inner Y.Map that stores table schema with metadata.
  */
 type TableSchemaMap = Y.Map<
-	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
+	string | IconDefinition | CoverDefinition | null | Y.Map<FieldDefinition>
 >;
 
 /**
@@ -475,7 +475,7 @@ function mergeSchemaIntoYDoc(
 	}
 
 	const tablesSchemaMap = schemaMap.get('tables') as Y.Map<TableSchemaMap>;
-	const kvSchemaMap = schemaMap.get('kv') as Y.Map<FieldSchema>;
+	const kvSchemaMap = schemaMap.get('kv') as Y.Map<FieldDefinition>;
 
 	ydoc.transact(() => {
 		for (const [tableName, tableDefinition] of Object.entries(tables)) {
@@ -483,7 +483,7 @@ function mergeSchemaIntoYDoc(
 			let tableMap = tablesSchemaMap.get(tableName);
 			if (!tableMap) {
 				tableMap = new Y.Map() as TableSchemaMap;
-				tableMap.set('fields', new Y.Map<FieldSchema>());
+				tableMap.set('fields', new Y.Map<FieldDefinition>());
 				tablesSchemaMap.set(tableName, tableMap);
 			}
 
@@ -517,7 +517,9 @@ function mergeSchemaIntoYDoc(
 			}
 
 			// Merge fields
-			let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
+			let fieldsMap = tableMap.get('fields') as
+				| Y.Map<FieldDefinition>
+				| undefined;
 			if (!fieldsMap) {
 				fieldsMap = new Y.Map();
 				tableMap.set('fields', fieldsMap);

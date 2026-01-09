@@ -2,8 +2,8 @@ import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import type * as Y from 'yjs';
 
-import type { KvDefinitionMap, KvFieldSchema, KvValue } from '../schema';
-import { fieldSchemaToYjsArktype, isNullableFieldSchema } from '../schema';
+import type { KvDefinitionMap, KvFieldDefinition, KvValue } from '../schema';
+import { fieldSchemaToYjsArktype, isNullableFieldDefinition } from '../schema';
 
 /**
  * Change event for a KV value.
@@ -67,18 +67,18 @@ export function createKvHelpers<TKvDefinitionMap extends KvDefinitionMap>({
 	};
 }
 
-export function createKvHelper<TFieldSchema extends KvFieldSchema>({
+export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 	keyName,
 	ykvMap,
 	fieldSchema,
 }: {
 	keyName: string;
 	ykvMap: Y.Map<KvValue>;
-	fieldSchema: TFieldSchema;
+	fieldSchema: TFieldDefinition;
 }) {
-	type TValue = KvValue<TFieldSchema>;
+	type TValue = KvValue<TFieldDefinition>;
 
-	const nullable = isNullableFieldSchema(fieldSchema);
+	const nullable = isNullableFieldDefinition(fieldSchema);
 	const validator = fieldSchemaToYjsArktype(fieldSchema);
 
 	return {
@@ -268,6 +268,6 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	};
 }
 
-export type KvHelper<TFieldSchema extends KvFieldSchema> = ReturnType<
-	typeof createKvHelper<TFieldSchema>
+export type KvHelper<TFieldDefinition extends KvFieldDefinition> = ReturnType<
+	typeof createKvHelper<TFieldDefinition>
 >;

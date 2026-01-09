@@ -20,10 +20,10 @@ export type {
 	CellValue,
 	CoverDefinition,
 	DateFieldSchema,
+	FieldDefinition,
+	FieldDefinitions,
 	FieldMetadata,
 	FieldOptions,
-	FieldSchema,
-	FieldsSchema,
 	FieldType,
 	IconDefinition,
 	IdFieldSchema,
@@ -31,7 +31,7 @@ export type {
 	JsonFieldSchema,
 	KvDefinition,
 	KvDefinitionMap,
-	KvFieldSchema,
+	KvFieldDefinition,
 	KvSchema,
 	KvValue,
 	PartialRow,
@@ -45,19 +45,19 @@ export type {
 	TextFieldSchema,
 } from './fields/types.js';
 
-export type { FieldSchemaToArktype } from './converters/to-arktype.js';
+export type { FieldDefinitionToArktype } from './converters/to-arktype.js';
 export {
 	fieldSchemaToArktype,
 	tableSchemaToArktype,
 } from './converters/to-arktype.js';
 
-export type { FieldSchemaToYjsArktype } from './converters/to-arktype-yjs.js';
+export type { FieldDefinitionToYjsArktype } from './converters/to-arktype-yjs.js';
 export {
 	fieldSchemaToYjsArktype,
 	tableSchemaToYjsArktype,
 } from './converters/to-arktype-yjs.js';
 
-export type { FieldSchemaToTypebox } from './converters/to-typebox.js';
+export type { FieldDefinitionToTypebox } from './converters/to-typebox.js';
 export {
 	fieldSchemaToTypebox,
 	fieldsSchemaToTypebox,
@@ -69,7 +69,7 @@ export {
 	toSqlIdentifier,
 } from './converters/to-drizzle.js';
 
-export { isNullableFieldSchema } from './fields/helpers.js';
+export { isNullableFieldDefinition } from './fields/helpers.js';
 
 export type {
 	StandardJSONSchemaV1,

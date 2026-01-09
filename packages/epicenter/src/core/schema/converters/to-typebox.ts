@@ -1,5 +1,5 @@
 /**
- * Converts FieldSchema to TypeBox TSchema definitions for runtime validation.
+ * Converts FieldDefinition to TypeBox TSchema definitions for runtime validation.
  *
  * TypeBox schemas can be compiled to JIT validators using `Compile()` from `typebox/compile`.
  */
@@ -19,8 +19,8 @@ import {
 import type {
 	BooleanFieldSchema,
 	DateFieldSchema,
-	FieldSchema,
-	FieldsSchema,
+	FieldDefinition,
+	FieldDefinitions,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -30,11 +30,11 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
-import { isNullableFieldSchema } from '../fields/helpers';
+import { isNullableFieldDefinition } from '../fields/helpers';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 
 /**
- * Maps a FieldSchema to its corresponding TypeBox TSchema type.
+ * Maps a FieldDefinition to its corresponding TypeBox TSchema type.
  *
  * Use `Static<typeof schema>` to infer the TypeScript type from the returned schema.
  *
@@ -47,7 +47,7 @@ import { DATE_TIME_STRING_REGEX } from '../fields/regex';
  * type NullableInt = Static<typeof nullableSchema>; // number | null
  * ```
  */
-export type FieldSchemaToTypebox<C extends FieldSchema> =
+export type FieldDefinitionToTypebox<C extends FieldDefinition> =
 	C extends IdFieldSchema
 		? TString
 		: C extends TextFieldSchema<infer TNullable>
@@ -116,9 +116,9 @@ export type FieldSchemaToTypebox<C extends FieldSchema> =
  * validator.Check({ id: '123', title: 'Test' }); // false (missing count)
  * ```
  */
-export function fieldsSchemaToTypebox<TFieldsSchema extends FieldsSchema>(
-	fieldsSchema: TFieldsSchema,
-): TObject {
+export function fieldsSchemaToTypebox<
+	TFieldDefinitions extends FieldDefinitions,
+>(fieldsSchema: TFieldDefinitions): TObject {
 	const properties: Record<string, TSchema> = {};
 
 	for (const [fieldName, fieldSchema] of Object.entries(fieldsSchema)) {
@@ -129,7 +129,7 @@ export function fieldsSchemaToTypebox<TFieldsSchema extends FieldsSchema>(
 }
 
 /**
- * Converts a single FieldSchema to a TypeBox TSchema.
+ * Converts a single FieldDefinition to a TypeBox TSchema.
  *
  * Use this when you need to validate individual field values rather than
  * complete row objects. The resulting schema is JIT-compilable.
@@ -156,9 +156,9 @@ export function fieldsSchemaToTypebox<TFieldsSchema extends FieldsSchema>(
  * });
  * ```
  */
-export function fieldSchemaToTypebox<C extends FieldSchema>(
+export function fieldSchemaToTypebox<C extends FieldDefinition>(
 	fieldSchema: C,
-): FieldSchemaToTypebox<C> {
+): FieldDefinitionToTypebox<C> {
 	let baseType: TSchema;
 
 	switch (fieldSchema.type) {
@@ -213,10 +213,10 @@ export function fieldSchemaToTypebox<C extends FieldSchema>(
 		}
 	}
 
-	const isNullable = isNullableFieldSchema(fieldSchema);
+	const isNullable = isNullableFieldDefinition(fieldSchema);
 	if (isNullable) {
 		baseType = Type.Union([baseType, Type.Null()]);
 	}
 
-	return baseType as FieldSchemaToTypebox<C>;
+	return baseType as FieldDefinitionToTypebox<C>;
 }
