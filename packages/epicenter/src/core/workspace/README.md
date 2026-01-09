@@ -63,7 +63,11 @@ Each workspace has:
 
 ## The Epoch Parameter
 
-The `epoch` determines which Data Doc to connect to:
+The `epoch` determines which Data Doc to connect to.
+
+**CRDT Safety**: The Head Doc uses a per-client MAX pattern to handle concurrent
+epoch bumps safely. Each client writes their proposal to their own key; `getEpoch()`
+returns `max()` of all proposals. See `../docs/README.md` for details.
 
 ```typescript
 // New workspace or prototyping (epoch defaults to 0)
@@ -300,7 +304,10 @@ for (const post of oldClient.tables.posts.getAllValid()) {
 
 // Update Head Doc to point to new epoch
 const head = createHeadDoc({ workspaceId: workspace.id });
-head.setEpoch(2);
+// Use bumpEpoch() for safe concurrent migrations
+// Use forceSetEpoch() when you need a specific epoch number
+head.bumpEpoch(); // Safe: computes max + 1
+// OR: head.forceSetEpoch(2);  // Explicit: sets to exactly 2
 
 // Cleanup
 await oldClient.destroy();
