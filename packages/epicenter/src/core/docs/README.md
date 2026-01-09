@@ -159,11 +159,20 @@ const head = createHeadDoc({ workspaceId: 'abc123' });
 // Get current epoch (max of all client proposals)
 head.getEpoch(); // 0
 
+// Get THIS client's proposal (may differ from getEpoch())
+head.getLocalEpoch(); // 0
+
 // Bump epoch safely (handles concurrent bumps)
 head.bumpEpoch(); // Returns 1
 
-// Force set (admin/recovery only)
-head.forceSetEpoch(5);
+// Set local epoch (for UI epoch selector, rollbacks)
+// Clamped to global epoch - can't set higher than getEpoch()
+head.setLocalEpoch(2); // Returns actual epoch set
+
+// Subscribe to epoch changes
+head.observeEpoch((newEpoch) => {
+	// Recreate client at new epoch
+});
 
 // Debug: see all client proposals
 head.getEpochProposals(); // Map { "1090160253" => 1 }
@@ -233,7 +242,7 @@ The Head Doc is the **stable pointer**. Its GUID never changes (`abc123`), but i
 
 1. Create new client at epoch 3: `workspace.create({ epoch: 3 })`
 2. Migrate data from old client to new client
-3. Bump Head Doc: `head.bumpEpoch()` (or `forceSetEpoch(3)` for explicit control)
+3. Bump Head Doc: `head.bumpEpoch()`
 4. All clients observing Head reconnect to the new Data Doc
 
 ## Epoch System

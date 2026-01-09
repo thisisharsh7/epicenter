@@ -122,16 +122,14 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * This may be lower than `getEpoch()` if other clients have
 		 * proposed higher epochs that we haven't bumped to yet.
 		 *
-		 * @returns This client's proposed epoch (0 if never bumped)
+		 * Useful for UI indicators showing "Your local: epoch 2, Synced: epoch 3".
+		 *
+		 * @returns This client's proposed epoch (0 if never set)
 		 *
 		 * @example
 		 * ```typescript
-		 * // Initial state
-		 * head.getLocalEpoch(); // 0
-		 * head.getEpoch();      // 0
-		 *
 		 * // After another client bumps to 5
-		 * head.getLocalEpoch(); // 0 (we haven't bumped)
+		 * head.getLocalEpoch(); // 0 (we haven't set ours)
 		 * head.getEpoch();      // 5 (max across all clients)
 		 *
 		 * // After we bump
@@ -179,25 +177,76 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		},
 
 		/**
-		 * Force set the epoch to a specific value.
+		 * Set this client's local epoch to a specific value.
 		 *
-		 * **Warning**: This bypasses the safe bump mechanism. Use only for:
-		 * - Admin recovery operations
-		 * - Restoring from a known state
-		 * - Testing
+		 * Unlike `bumpEpoch()` which increments to create new epochs, this allows
+		 * setting your local epoch to any value **up to** the current global epoch.
 		 *
-		 * For normal epoch advancement, use `bumpEpoch()` instead.
+		 * **Safety constraint**: You cannot set higher than `getEpoch()`. If you try,
+		 * the value is clamped to the current global epoch. This prevents accidental
+		 * epoch inflation - only `bumpEpoch()` can create new epochs.
 		 *
-		 * @param epoch - The epoch number to set
+		 * Use cases:
+		 * - UI "epoch selector" dropdown where user picks a historical epoch
+		 * - Rollbacks to a previous epoch
+		 * - Catching up to the current global epoch
+		 *
+		 * **After calling this**, recreate your workspace client:
+		 *
+		 * ```typescript
+		 * const actualEpoch = head.setLocalEpoch(2);
+		 * await oldClient.destroy();
+		 * const newClient = await workspace.create({ epoch: actualEpoch });
+		 * ```
+		 *
+		 * @param epoch - The epoch number to set (clamped to current global epoch)
+		 * @returns The actual epoch that was set (may be lower than requested if clamped)
 		 *
 		 * @example
 		 * ```typescript
-		 * // Recovery: force all clients to epoch 5
-		 * head.forceSetEpoch(5);
+		 * // Global epoch is 3
+		 *
+		 * // User selects "Epoch 2" from dropdown - valid, sets to 2
+		 * head.setLocalEpoch(2);  // Returns 2
+		 *
+		 * // User tries to set higher than global - clamped to 3
+		 * head.setLocalEpoch(5);  // Returns 3 (clamped)
+		 *
+		 * // Recreate client at the actual epoch
+		 * const epoch = head.setLocalEpoch(2);
+		 * const client = await workspace.create({ epoch });
 		 * ```
 		 */
-		forceSetEpoch(epoch: number) {
-			epochsMap.set(ydoc.clientID.toString(), epoch);
+		setLocalEpoch(epoch: number): number {
+			const globalEpoch = getEpoch();
+			const clampedEpoch = Math.min(epoch, globalEpoch);
+			epochsMap.set(ydoc.clientID.toString(), clampedEpoch);
+			return clampedEpoch;
+		},
+
+		/**
+		 * Get all client epoch proposals.
+		 *
+		 * Useful for:
+		 * - Admin dashboards showing per-client sync state
+		 * - Debugging sync issues ("Client A is on epoch 3, Client B is on epoch 2")
+		 * - Understanding the epoch distribution across collaborators
+		 *
+		 * @returns Map of clientId to their proposed epoch
+		 *
+		 * @example
+		 * ```typescript
+		 * const proposals = head.getEpochProposals();
+		 * // Map { "1090160253" => 3, "2847291038" => 3 }
+		 *
+		 * // Show in admin UI
+		 * for (const [clientId, epoch] of proposals) {
+		 *   console.log(`Client ${clientId} is on epoch ${epoch}`);
+		 * }
+		 * ```
+		 */
+		getEpochProposals(): Map<string, number> {
+			return new Map(epochsMap.entries());
 		},
 
 		/**
@@ -236,53 +285,6 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 
 			epochsMap.observeDeep(handler);
 			return () => epochsMap.unobserveDeep(handler);
-		},
-
-		/**
-		 * Go to a specific epoch (forward or backward).
-		 *
-		 * Unlike `bumpEpoch()` which always increments, this allows setting
-		 * any epoch value. Use for:
-		 * - Time travel to a previous epoch
-		 * - Rollbacks after a bad migration
-		 * - Catching up to the current epoch
-		 *
-		 * **Note**: This sets YOUR client's proposal. Other clients may have
-		 * different proposals, so `getEpoch()` returns `max()` of all proposals.
-		 *
-		 * @param epoch - The epoch number to go to
-		 *
-		 * @example
-		 * ```typescript
-		 * // Roll back to epoch 2
-		 * head.goToEpoch(2);
-		 *
-		 * // Jump forward to epoch 10
-		 * head.goToEpoch(10);
-		 *
-		 * // Catch up to the current max epoch
-		 * head.goToEpoch(head.getEpoch());
-		 * ```
-		 */
-		goToEpoch(epoch: number) {
-			epochsMap.set(ydoc.clientID.toString(), epoch);
-		},
-
-		/**
-		 * Get all client epoch proposals.
-		 *
-		 * Useful for debugging or understanding the epoch state across clients.
-		 *
-		 * @returns Map of clientId to their proposed epoch
-		 *
-		 * @example
-		 * ```typescript
-		 * const proposals = head.getEpochProposals();
-		 * // Map { "1090160253" => 3, "2847291038" => 3 }
-		 * ```
-		 */
-		getEpochProposals(): Map<string, number> {
-			return new Map(epochsMap.entries());
 		},
 
 		/** Destroy the head doc and clean up resources. */
