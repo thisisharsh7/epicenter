@@ -64,7 +64,7 @@ export type {
  * is `clearAll`, which is a mutation action to clear all tables.
  *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
- * @param schema - Table definition map (includes metadata and fields)
+ * @param tableDefinitions - Table definition map (includes metadata and fields)
  * @returns Object with flattened table helpers and a clearAll mutation
  *
  * @example
@@ -94,10 +94,10 @@ export type {
  */
 export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	ydoc: Y.Doc,
-	schema: TTableDefinitionMap,
+	tableDefinitions: TTableDefinitionMap,
 ) {
 	// Validate table names
-	for (const tableName of Object.keys(schema)) {
+	for (const tableName of Object.keys(tableDefinitions)) {
 		if (tableName.startsWith('$')) {
 			throw new Error(
 				`Table name "${tableName}" is invalid: cannot start with "$" (reserved for utilities)`,
@@ -111,7 +111,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	}
 
 	// Validate column names for each table
-	for (const [tableName, tableDefinition] of Object.entries(schema)) {
+	for (const [tableName, tableDefinition] of Object.entries(tableDefinitions)) {
 		for (const columnName of Object.keys(tableDefinition.fields)) {
 			if (!COLUMN_NAME_PATTERN.test(columnName)) {
 				throw new Error(
@@ -121,7 +121,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		}
 	}
 
-	const tableHelpers = createTableHelpers({ ydoc, schema });
+	const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
 
 	return {
 		...tableHelpers,
@@ -183,7 +183,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 				[K in keyof TTableDefinitionMap & string]: unknown;
 			},
 		>(configs: TConfigs) {
-			const names = Object.keys(schema) as Array<
+			const names = Object.keys(tableDefinitions) as Array<
 				keyof TTableDefinitionMap & string
 			>;
 
@@ -207,7 +207,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 */
 		clearAll(): void {
 			ydoc.transact(() => {
-				for (const tableName of Object.keys(schema)) {
+				for (const tableName of Object.keys(tableDefinitions)) {
 					tableHelpers[tableName as keyof typeof tableHelpers].clear();
 				}
 			});

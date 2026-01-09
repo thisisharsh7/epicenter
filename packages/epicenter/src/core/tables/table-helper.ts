@@ -141,11 +141,17 @@ export type TableRowChange<TRow> =
  */
 export function createTableHelpers<
 	TTableDefinitionMap extends TableDefinitionMap,
->({ ydoc, schema }: { ydoc: Y.Doc; schema: TTableDefinitionMap }) {
+>({
+	ydoc,
+	tableDefinitions,
+}: {
+	ydoc: Y.Doc;
+	tableDefinitions: TTableDefinitionMap;
+}) {
 	const ytables: TablesMap = ydoc.getMap('tables');
 
 	return Object.fromEntries(
-		Object.entries(schema).map(([tableName, tableDefinition]) => {
+		Object.entries(tableDefinitions).map(([tableName, tableDefinition]) => {
 			return [
 				tableName,
 				createTableHelper({ ydoc, tableName, ytables, tableDefinition }),
