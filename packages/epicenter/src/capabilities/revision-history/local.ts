@@ -208,19 +208,6 @@ export async function localRevisionHistory<
 	}
 
 	/**
-	 * Debounced save handler - called on Y.Doc updates.
-	 */
-	function debouncedSave() {
-		if (debounceTimer) {
-			clearTimeout(debounceTimer);
-		}
-		debounceTimer = setTimeout(async () => {
-			await save();
-			debounceTimer = null;
-		}, debounceMs);
-	}
-
-	/**
 	 * Get all saved versions, sorted by timestamp (oldest first).
 	 *
 	 * @returns Array of version entries
@@ -309,7 +296,15 @@ export async function localRevisionHistory<
 
 	// Subscribe to Y.Doc updates for debounced auto-save
 	const updateHandler = () => {
-		debouncedSave();
+		// Reset debounce timer on each update
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+		// Schedule save after debounce interval
+		debounceTimer = setTimeout(async () => {
+			await save();
+			debounceTimer = null;
+		}, debounceMs);
 	};
 	ydoc.on('update', updateHandler);
 
