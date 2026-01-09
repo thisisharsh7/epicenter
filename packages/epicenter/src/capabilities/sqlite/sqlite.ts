@@ -83,7 +83,7 @@ export type SqliteConfig = {
  * ```
  */
 export const sqlite = async <TTablesSchema extends TablesSchema>(
-	{ id, tables }: CapabilityContext<TTablesSchema>,
+	{ slug, tables }: CapabilityContext<TTablesSchema>,
 	config: SqliteConfig,
 ) => {
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
@@ -101,7 +101,7 @@ export const sqlite = async <TTablesSchema extends TablesSchema>(
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	const logger = createIndexLogger({
-		logPath: path.join(logsDir, `${id}.log`),
+		logPath: path.join(logsDir, `${slug}.log`),
 	});
 
 	// Prevents infinite loop during pushFromSqlite: when we insert into YJS,
