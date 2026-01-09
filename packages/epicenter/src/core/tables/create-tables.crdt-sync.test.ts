@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, text } from '../schema';
+import { boolean, id, integer, table, text } from '../schema';
 import { createTables } from './create-tables';
 
 describe('Cell-Level CRDT Merging', () => {
@@ -11,21 +11,27 @@ describe('Cell-Level CRDT Merging', () => {
 		doc2.clientID = 2;
 
 		const tables1 = createTables(doc1, {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		const tables2 = createTables(doc2, {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		tables1.posts.upsert({
@@ -86,10 +92,10 @@ describe('Cell-Level CRDT Merging', () => {
 		doc2.clientID = 2;
 
 		const tables1 = createTables(doc1, {
-			posts: { id: id(), title: text() },
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 		const tables2 = createTables(doc2, {
-			posts: { id: id(), title: text() },
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 
 		tables1.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -130,10 +136,10 @@ describe('Cell-Level CRDT Merging', () => {
 			const doc2 = new Y.Doc();
 
 			const tables1 = createTables(doc1, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 			const tables2 = createTables(doc2, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 
 			tables1.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -163,12 +169,15 @@ describe('Cell-Level CRDT Merging', () => {
 	test('partial updates preserve unmentioned fields', () => {
 		const ydoc = new Y.Doc({ guid: 'test' });
 		const tables = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		tables.posts.upsert({
@@ -197,18 +206,21 @@ describe('Cell-Level CRDT Merging', () => {
 		doc2.clientID = 2;
 		doc3.clientID = 3;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-				published: boolean(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+					published: boolean(),
+				},
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
-		const tables3 = createTables(doc3, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
+		const tables3 = createTables(doc3, tableDefinitions);
 
 		// Initial state
 		tables1.posts.upsert({
@@ -257,17 +269,20 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-				published: boolean(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+					published: boolean(),
+				},
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Initial state
 		tables1.posts.upsert({
@@ -311,16 +326,19 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+				},
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		tables1.posts.upsert({
 			id: 'post-1',
@@ -353,16 +371,19 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+				},
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// No initial sync - docs start empty
 
@@ -402,16 +423,19 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+				},
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create two rows
 		tables1.posts.upsert({ id: 'post-1', title: 'Post 1', views: 0 });
@@ -447,15 +471,12 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+		const tableDefinitions = {
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Set up observer on doc2 BEFORE any sync
 		const addedIds: string[] = [];
@@ -482,16 +503,15 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: { id: id(), title: text(), views: integer() },
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create row and sync
 		tables1.posts.upsert({ id: 'post-1', title: 'Original', views: 0 });
@@ -522,15 +542,12 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+		const tableDefinitions = {
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create row and sync
 		tables1.posts.upsert({ id: 'post-1', title: 'To be deleted' });
@@ -561,16 +578,15 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: { id: id(), title: text(), views: integer() },
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create row on doc1 and sync
 		tables1.posts.upsert({ id: 'post-1', title: 'Original', views: 0 });
@@ -603,17 +619,20 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-				published: boolean(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					views: integer(),
+					published: boolean(),
+				},
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		tables1.posts.upsert({
 			id: 'post-1',
@@ -654,15 +673,12 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+		const tableDefinitions = {
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Doc1 creates multiple rows
 		tables1.posts.upsert({ id: 'post-1', title: 'First' });
@@ -686,15 +702,12 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+		const tableDefinitions = {
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Doc1 creates rows
 		tables1.posts.upsert({ id: 'post-1', title: 'One' });
@@ -723,15 +736,12 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+		const tableDefinitions = {
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		tables1.posts.upsert({ id: 'post-1', title: 'First' });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
@@ -767,16 +777,15 @@ describe('Cell-Level CRDT Merging', () => {
 		doc1.clientID = 1;
 		doc2.clientID = 2;
 
-		const schema = {
-			posts: {
-				id: id(),
-				title: text(),
-				views: integer(),
-			},
+		const tableDefinitions = {
+			posts: table({
+				name: '',
+				fields: { id: id(), title: text(), views: integer() },
+			}),
 		};
 
-		const tables1 = createTables(doc1, schema);
-		const tables2 = createTables(doc2, schema);
+		const tables1 = createTables(doc1, tableDefinitions);
+		const tables2 = createTables(doc2, tableDefinitions);
 
 		tables1.posts.upsert({ id: 'post-1', title: 'Original', views: 0 });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
@@ -809,10 +818,7 @@ describe('Cell-Level CRDT Merging', () => {
 		const ytables: TablesMap = ydoc.getMap('tables');
 
 		const tables = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 
 		tables.posts.upsertMany([
@@ -854,10 +860,7 @@ describe('Cell-Level CRDT Merging', () => {
 		const ytables: TablesMap = ydoc.getMap('tables');
 
 		const tables = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 
 		tables.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -906,10 +909,7 @@ describe('Cell-Level CRDT Merging', () => {
 		const ytables: TablesMap = ydoc.getMap('tables');
 
 		const tables = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-			},
+			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 
 		const changes: Array<{ action: string; id: string }> = [];
