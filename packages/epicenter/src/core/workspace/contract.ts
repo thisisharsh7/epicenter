@@ -370,47 +370,51 @@ async function initializeWorkspace<
 	TKvSchema extends KvSchema,
 	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 >(
-	config: WorkspaceSchema<TTablesSchema, TKvSchema>,
+	{
+		id,
+		slug,
+		name,
+		tables: tablesSchema,
+		kv: kvSchema,
+	}: WorkspaceSchema<TTablesSchema, TKvSchema>,
 	epoch: number,
 	capabilities: TCapabilities,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
 	// Create Data Y.Doc with deterministic GUID
-	const docId = `${config.id}-${epoch}` as const;
+	const docId = `${id}-${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId });
 
 	// Get metadata map for name/slug storage
 	const metaMap = ydoc.getMap<string>('meta');
 
-	// Set workspace metadata (only if not already set by sync)
-	if (!metaMap.get('name')) {
-		metaMap.set('name', config.name);
+	// Merge workspace metadata (update if different from config)
+	if (metaMap.get('name') !== name) {
+		metaMap.set('name', name);
 	}
-	if (!metaMap.get('slug')) {
-		metaMap.set('slug', config.slug);
+	if (metaMap.get('slug') !== slug) {
+		metaMap.set('slug', slug);
 	}
 
 	// Merge code schema into Y.Doc schema (idempotent, CRDT handles conflicts)
-	mergeSchemaIntoYDoc(ydoc, config.tables, config.kv);
+	mergeSchemaIntoYDoc(ydoc, tablesSchema, kvSchema);
 
 	// Create table and kv helpers using the Y.Doc
-	const tables = createTables(ydoc, config.tables);
-	const kv = createKv(ydoc, config.kv);
+	const tables = createTables(ydoc, tablesSchema);
+	const kv = createKv(ydoc, kvSchema);
 
 	// Run capability factories in parallel
 	const capabilityExports = Object.fromEntries(
 		await Promise.all(
-			Object.entries(capabilities).map(
-				async ([capabilityId, capabilityFn]) => {
-					const result = await capabilityFn({
-						id: config.slug,
-						capabilityId,
-						ydoc,
-						tables,
-						kv,
-					});
-					return [capabilityId, result ?? {}];
-				},
-			),
+			Object.entries(capabilities).map(async ([capabilityId, capabilityFn]) => {
+				const result = await capabilityFn({
+					id: slug,
+					capabilityId,
+					ydoc,
+					tables,
+					kv,
+				});
+				return [capabilityId, result ?? {}];
+			}),
 		),
 	) as InferCapabilityExports<TCapabilities>;
 
