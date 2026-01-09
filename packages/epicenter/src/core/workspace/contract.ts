@@ -170,36 +170,6 @@ type InitializedWorkspace<
 };
 
 /**
- * Normalize tables schema to plain field schemas (strip table metadata if present).
- *
- * Tables can be defined with or without metadata:
- * - Simple: `{ posts: { id: id(), title: text() } }`
- * - With metadata: `{ posts: { name: 'Posts', fields: { id: id(), title: text() } } }`
- *
- * This function extracts just the field schemas for seeding.
- */
-function normalizeTablesForSeeding(
-	tables: TablesSchema | TablesWithMetadata,
-): TablesSchema {
-	const result: TablesSchema = {};
-	for (const [tableName, tableValue] of Object.entries(tables)) {
-		// Check if this is a TableDefinition (has 'fields' property with 'id' inside)
-		if (
-			'fields' in tableValue &&
-			typeof tableValue.fields === 'object' &&
-			tableValue.fields !== null &&
-			'id' in tableValue.fields
-		) {
-			result[tableName] = tableValue.fields;
-		} else {
-			// It's already a plain TableSchema
-			result[tableName] = tableValue as TablesSchema[string];
-		}
-	}
-	return result;
-}
-
-/**
  * Initialize a workspace: create Data Y.Doc, seed schema, tables, kv, and run capability factories.
  *
  * This is an internal function called by `.create()`. It:
@@ -227,14 +197,17 @@ async function initializeWorkspace<
 		epoch: 0,
 	});
 
-	// Set workspace name (only if not already set)
+	// Set workspace metadata (only if not already set)
 	if (!dataDoc.getName()) {
 		dataDoc.setName(config.name);
 	}
+	if (!dataDoc.getSlug()) {
+		dataDoc.setSlug(config.slug);
+	}
 
 	// Merge code schema into Y.Doc schema (idempotent, CRDT handles conflicts)
-	const normalizedTables = normalizeTablesForSeeding(config.tables);
-	dataDoc.mergeSchema(normalizedTables, config.kv);
+	// mergeSchema() handles both TablesSchema and TablesWithMetadata formats
+	dataDoc.mergeSchema(config.tables, config.kv);
 
 	// Create table and kv helpers using the Data Y.Doc
 	const tables = createTables(dataDoc.ydoc, config.tables);

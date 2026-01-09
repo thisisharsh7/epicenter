@@ -1,7 +1,12 @@
 import * as Y from 'yjs';
 
-import type { KvSchema, TablesSchema } from '../schema';
-import type { FieldSchema } from '../schema/fields/types';
+import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
+import type {
+	FieldSchema,
+	TableDefinition,
+	IconDefinition,
+	CoverDefinition,
+} from '../schema/fields/types';
 
 /**
  * Deep equality check for field schemas.
@@ -44,10 +49,17 @@ function deepEqual(a: FieldSchema, b: FieldSchema): boolean {
  * Structure:
  * ```
  * Y.Map('meta')
- *   └── name: string
+ *   ├── name: string           # Workspace display name
+ *   └── slug: string           # Human-readable identifier for paths/URLs
  *
  * Y.Map('schema')
- *   ├── tables: Y.Map<tableName, Y.Map<fieldName, FieldSchema>>
+ *   ├── tables: Y.Map<tableName, {
+ *   │     name: string,        # Table display name
+ *   │     icon: IconDefinition | null,
+ *   │     cover: CoverDefinition | null,
+ *   │     description: string,
+ *   │     fields: Y.Map<fieldName, FieldSchema>
+ *   │   }>
  *   └── kv: Y.Map<keyName, FieldSchema>
  *
  * Y.Map('tables')
@@ -90,12 +102,56 @@ export function createDataDoc(options: {
 		schemaMap.set('kv', new Y.Map());
 	}
 
-	function getTablesSchemaMap(): Y.Map<Y.Map<FieldSchema>> {
-		return schemaMap.get('tables') as Y.Map<Y.Map<FieldSchema>>;
+	/**
+	 * Type for the inner Y.Map that stores table schema with metadata.
+	 * Structure: { name, icon, cover, description, fields: Y.Map<FieldSchema> }
+	 */
+	type TableSchemaMap = Y.Map<
+		string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
+	>;
+
+	function getTablesSchemaMap(): Y.Map<TableSchemaMap> {
+		return schemaMap.get('tables') as Y.Map<TableSchemaMap>;
 	}
 
 	function getKvSchemaMap(): Y.Map<FieldSchema> {
 		return schemaMap.get('kv') as Y.Map<FieldSchema>;
+	}
+
+	/**
+	 * Get the fields Y.Map for a specific table.
+	 * Creates the table and fields map if they don't exist.
+	 */
+	function getOrCreateTableFieldsMap(tableName: string): Y.Map<FieldSchema> {
+		const tablesSchemaMap = getTablesSchemaMap();
+		let tableMap = tablesSchemaMap.get(tableName);
+
+		if (!tableMap) {
+			tableMap = new Y.Map() as TableSchemaMap;
+			tableMap.set('name', tableName); // Default name = table key
+			tableMap.set('icon', null);
+			tableMap.set('cover', null);
+			tableMap.set('description', '');
+			tableMap.set('fields', new Y.Map<FieldSchema>());
+			tablesSchemaMap.set(tableName, tableMap);
+		}
+
+		let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
+		if (!fieldsMap) {
+			fieldsMap = new Y.Map<FieldSchema>();
+			tableMap.set('fields', fieldsMap);
+		}
+
+		return fieldsMap;
+	}
+
+	/**
+	 * Check if a table value is a TablesWithMetadata format (has 'fields' property).
+	 */
+	function isTableDefinition(
+		value: Record<string, FieldSchema> | TableDefinition,
+	): value is TableDefinition {
+		return 'fields' in value && typeof value.fields === 'object';
 	}
 
 	return {
@@ -125,6 +181,16 @@ export function createDataDoc(options: {
 			metaMap.set('name', name);
 		},
 
+		/** Get the workspace slug (human-readable identifier for paths/URLs). */
+		getSlug() {
+			return metaMap.get('slug');
+		},
+
+		/** Set the workspace slug. */
+		setSlug(slug: string) {
+			metaMap.set('slug', slug);
+		},
+
 		// ─────────────────────────────────────────────────────────────────────
 		// Schema Management
 		// ─────────────────────────────────────────────────────────────────────
@@ -142,28 +208,90 @@ export function createDataDoc(options: {
 		 * - If table/field exists with different value → update it
 		 * - If table/field exists with same value → no-op (CRDT handles)
 		 *
+		 * Accepts both formats:
+		 * - TablesSchema: Simple `{ tableName: { fieldName: FieldSchema } }`
+		 * - TablesWithMetadata: Full `{ tableName: TableDefinition }` with name, icon, cover, description
+		 *
 		 * Stores full FieldSchema including metadata (name, description, icon)
 		 * to enable collaborative schema editing.
 		 *
 		 * Call on every workspace.create(). Idempotent and safe for concurrent calls.
 		 */
-		mergeSchema(tables: TablesSchema, kv: KvSchema) {
+		mergeSchema(tables: TablesSchema | TablesWithMetadata, kv: KvSchema) {
 			ydoc.transact(() => {
 				const tablesSchemaMap = getTablesSchemaMap();
 				const kvSchemaMap = getKvSchemaMap();
 
-				for (const [tableName, tableSchema] of Object.entries(tables)) {
+				for (const [tableName, tableValue] of Object.entries(tables)) {
+					// Determine if this is TablesWithMetadata or TablesSchema format
+					const tableDefinition: TableDefinition = isTableDefinition(tableValue)
+						? tableValue
+						: {
+								name: tableName,
+								icon: null,
+								cover: null,
+								description: '',
+								fields: tableValue,
+							};
+
+					// Get or create the table schema map
 					let tableMap = tablesSchemaMap.get(tableName);
 					if (!tableMap) {
-						tableMap = new Y.Map();
+						tableMap = new Y.Map() as TableSchemaMap;
+						tableMap.set('fields', new Y.Map<FieldSchema>());
 						tablesSchemaMap.set(tableName, tableMap);
 					}
 
-					for (const [fieldName, fieldSchema] of Object.entries(tableSchema)) {
-						const existing = tableMap.get(fieldName);
+					// Merge table metadata
+					const currentName = tableMap.get('name') as string | undefined;
+					if (currentName !== tableDefinition.name) {
+						tableMap.set('name', tableDefinition.name);
+					}
+
+					const currentIcon = tableMap.get('icon') as
+						| IconDefinition
+						| null
+						| undefined;
+					if (
+						JSON.stringify(currentIcon) !== JSON.stringify(tableDefinition.icon)
+					) {
+						tableMap.set('icon', tableDefinition.icon);
+					}
+
+					const currentCover = tableMap.get('cover') as
+						| CoverDefinition
+						| null
+						| undefined;
+					if (
+						JSON.stringify(currentCover) !==
+						JSON.stringify(tableDefinition.cover)
+					) {
+						tableMap.set('cover', tableDefinition.cover);
+					}
+
+					const currentDescription = tableMap.get('description') as
+						| string
+						| undefined;
+					if (currentDescription !== tableDefinition.description) {
+						tableMap.set('description', tableDefinition.description);
+					}
+
+					// Merge fields
+					let fieldsMap = tableMap.get('fields') as
+						| Y.Map<FieldSchema>
+						| undefined;
+					if (!fieldsMap) {
+						fieldsMap = new Y.Map();
+						tableMap.set('fields', fieldsMap);
+					}
+
+					for (const [fieldName, fieldSchema] of Object.entries(
+						tableDefinition.fields,
+					)) {
+						const existing = fieldsMap.get(fieldName);
 
 						if (!existing || !deepEqual(existing, fieldSchema)) {
-							tableMap.set(fieldName, fieldSchema);
+							fieldsMap.set(fieldName, fieldSchema);
 						}
 					}
 				}
@@ -178,16 +306,97 @@ export function createDataDoc(options: {
 			});
 		},
 
-		/** Get the schema for a specific table. */
+		/**
+		 * Get the field schemas for a specific table.
+		 * Returns a Map of fieldName → FieldSchema.
+		 */
 		getTableSchema(tableName: string) {
 			const tableMap = getTablesSchemaMap().get(tableName);
 			if (!tableMap) return undefined;
 
+			const fieldsMap = tableMap.get('fields') as
+				| Y.Map<FieldSchema>
+				| undefined;
+			if (!fieldsMap) return undefined;
+
 			const result = new Map<string, FieldSchema>();
-			tableMap.forEach((value, key) => {
+			fieldsMap.forEach((value, key) => {
 				result.set(key, value);
 			});
 			return result;
+		},
+
+		/**
+		 * Get the full table definition including metadata and fields.
+		 * Returns the TableDefinition with all metadata (name, icon, cover, description, fields).
+		 *
+		 * Note: Returns a general Record type for fields since we can't guarantee
+		 * at runtime that the Y.Doc contains a valid `id` field. The caller should
+		 * validate the schema if strict typing is needed.
+		 */
+		getTableDefinition(tableName: string):
+			| (Omit<TableDefinition, 'fields'> & {
+					fields: Record<string, FieldSchema>;
+			  })
+			| undefined {
+			const tableMap = getTablesSchemaMap().get(tableName);
+			if (!tableMap) return undefined;
+
+			const fieldsMap = tableMap.get('fields') as
+				| Y.Map<FieldSchema>
+				| undefined;
+			const fields: Record<string, FieldSchema> = {};
+			if (fieldsMap) {
+				fieldsMap.forEach((value, key) => {
+					fields[key] = value;
+				});
+			}
+
+			return {
+				name: (tableMap.get('name') as string) || tableName,
+				icon: (tableMap.get('icon') as IconDefinition | null) ?? null,
+				cover: (tableMap.get('cover') as CoverDefinition | null) ?? null,
+				description: (tableMap.get('description') as string) || '',
+				fields,
+			};
+		},
+
+		/**
+		 * Update table metadata (name, icon, cover, description).
+		 * Does not affect field schemas.
+		 */
+		setTableMetadata(
+			tableName: string,
+			metadata: Partial<Omit<TableDefinition, 'fields'>>,
+		) {
+			const tablesSchemaMap = getTablesSchemaMap();
+			let tableMap = tablesSchemaMap.get(tableName);
+
+			if (!tableMap) {
+				// Create table if it doesn't exist
+				tableMap = new Y.Map() as TableSchemaMap;
+				tableMap.set('name', metadata.name ?? tableName);
+				tableMap.set('icon', metadata.icon ?? null);
+				tableMap.set('cover', metadata.cover ?? null);
+				tableMap.set('description', metadata.description ?? '');
+				tableMap.set('fields', new Y.Map<FieldSchema>());
+				tablesSchemaMap.set(tableName, tableMap);
+				return;
+			}
+
+			// Update only provided fields
+			if (metadata.name !== undefined) {
+				tableMap.set('name', metadata.name);
+			}
+			if (metadata.icon !== undefined) {
+				tableMap.set('icon', metadata.icon);
+			}
+			if (metadata.cover !== undefined) {
+				tableMap.set('cover', metadata.cover);
+			}
+			if (metadata.description !== undefined) {
+				tableMap.set('description', metadata.description);
+			}
 		},
 
 		/** Get all table names that have schema defined. */
@@ -216,22 +425,20 @@ export function createDataDoc(options: {
 			fieldName: string,
 			fieldSchema: FieldSchema,
 		) {
-			const tablesSchemaMap = getTablesSchemaMap();
-
-			let tableMap = tablesSchemaMap.get(tableName);
-			if (!tableMap) {
-				tableMap = new Y.Map();
-				tablesSchemaMap.set(tableName, tableMap);
-			}
-
-			tableMap.set(fieldName, fieldSchema);
+			const fieldsMap = getOrCreateTableFieldsMap(tableName);
+			fieldsMap.set(fieldName, fieldSchema);
 		},
 
 		/** Remove a field from a table schema. */
 		removeTableField(tableName: string, fieldName: string) {
 			const tableMap = getTablesSchemaMap().get(tableName);
 			if (tableMap) {
-				tableMap.delete(fieldName);
+				const fieldsMap = tableMap.get('fields') as
+					| Y.Map<FieldSchema>
+					| undefined;
+				if (fieldsMap) {
+					fieldsMap.delete(fieldName);
+				}
 			}
 		},
 
@@ -302,8 +509,13 @@ export function createDataDoc(options: {
 
 			const setupFieldObserver = (
 				tableName: string,
-				tableMap: Y.Map<FieldSchema>,
+				tableMap: TableSchemaMap,
 			) => {
+				const fieldsMap = tableMap.get('fields') as
+					| Y.Map<FieldSchema>
+					| undefined;
+				if (!fieldsMap) return;
+
 				const fieldHandler = (event: Y.YMapEvent<FieldSchema>) => {
 					const fieldsChanged: Array<{
 						table: string;
@@ -324,11 +536,11 @@ export function createDataDoc(options: {
 					}
 				};
 
-				tableMap.observe(fieldHandler);
+				fieldsMap.observe(fieldHandler);
 				fieldHandlers.set(tableName, fieldHandler);
 			};
 
-			const tableHandler = (event: Y.YMapEvent<Y.Map<FieldSchema>>) => {
+			const tableHandler = (event: Y.YMapEvent<TableSchemaMap>) => {
 				const tablesAdded: string[] = [];
 				const tablesRemoved: string[] = [];
 
