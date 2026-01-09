@@ -117,6 +117,34 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		getEpoch,
 
 		/**
+		 * Get what THIS client has proposed as the epoch.
+		 *
+		 * This may be lower than `getEpoch()` if other clients have
+		 * proposed higher epochs that we haven't bumped to yet.
+		 *
+		 * @returns This client's proposed epoch (0 if never bumped)
+		 *
+		 * @example
+		 * ```typescript
+		 * // Initial state
+		 * head.getLocalEpoch(); // 0
+		 * head.getEpoch();      // 0
+		 *
+		 * // After another client bumps to 5
+		 * head.getLocalEpoch(); // 0 (we haven't bumped)
+		 * head.getEpoch();      // 5 (max across all clients)
+		 *
+		 * // After we bump
+		 * head.bumpEpoch();
+		 * head.getLocalEpoch(); // 6
+		 * head.getEpoch();      // 6
+		 * ```
+		 */
+		getLocalEpoch(): number {
+			return epochsMap.get(ydoc.clientID.toString()) ?? 0;
+		},
+
+		/**
 		 * Bump the epoch to the next version.
 		 *
 		 * This is the **safe** way to increment epochs. It:
@@ -208,6 +236,36 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 
 			epochsMap.observeDeep(handler);
 			return () => epochsMap.unobserveDeep(handler);
+		},
+
+		/**
+		 * Go to a specific epoch (forward or backward).
+		 *
+		 * Unlike `bumpEpoch()` which always increments, this allows setting
+		 * any epoch value. Use for:
+		 * - Time travel to a previous epoch
+		 * - Rollbacks after a bad migration
+		 * - Catching up to the current epoch
+		 *
+		 * **Note**: This sets YOUR client's proposal. Other clients may have
+		 * different proposals, so `getEpoch()` returns `max()` of all proposals.
+		 *
+		 * @param epoch - The epoch number to go to
+		 *
+		 * @example
+		 * ```typescript
+		 * // Roll back to epoch 2
+		 * head.goToEpoch(2);
+		 *
+		 * // Jump forward to epoch 10
+		 * head.goToEpoch(10);
+		 *
+		 * // Catch up to the current max epoch
+		 * head.goToEpoch(head.getEpoch());
+		 * ```
+		 */
+		goToEpoch(epoch: number) {
+			epochsMap.set(ydoc.clientID.toString(), epoch);
 		},
 
 		/**
