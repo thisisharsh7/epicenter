@@ -214,15 +214,23 @@ Epochs enable atomic schema migrations and compaction.
 
 ### Epoch Bump Flow
 
+Epoch bump is an **atomic pointer flip**. No coordination flags needed.
+
 ```
-1. Set head.isMigrating = true (optional: pause writes)
-2. Create new Data Y.Doc: {workspaceId}-{epoch+1}
-3. Migrate data from old → new epoch
-4. Update head.epoch = epoch + 1
-5. Clear head.isMigrating
-6. All clients see epoch change → reconnect to new data doc
-7. (Optional) Delete old epoch doc
+1. Create new Data Y.Doc: {workspaceId}-{epoch+1}
+2. Seed schema into new Data Doc (idempotent)
+3. (Optional) Migrate/copy data from old → new epoch
+4. Update head.epoch = max(head.epoch, epoch + 1)  ← monotonic-max!
+5. All clients see epoch change → reconnect to new data doc
+6. Old epochs remain accessible for historical viewing (read-only in UI)
 ```
+
+**Why no `isMigrating` flag?**
+
+- Yjs CRDTs can't enforce a write lock; any client can write anytime
+- A boolean flag only _requests_ cooperation, doesn't enforce it
+- If the initiator crashes, a flag stays stuck forever
+- Simpler model: old epoch becomes "historical" after bump; orphaned writes are acceptable
 
 ## Code-Defined Schema Integration
 
@@ -382,13 +390,13 @@ currentEpoch = Math.max(...head.epochs.values())
 
 - **Scenario**: User editing schema when epoch changes
 - **Result**: Edits go to old epoch doc, not migrated
-- **Handling**: Add `head.isMigrating` flag; block schema writes during migration
+- **Handling**: Acceptable for MVP; edits to old epoch are orphaned but old epoch remains viewable as history
 
 ### 4. Race Condition on Schema Seeding
 
 - **Scenario**: Two clients both see empty schema, both seed
 - **Result**: If seeding includes non-deterministic data, conflicts occur
-- **Handling**: Make seeding deterministic; add `meta.schemaSeeded = true` marker
+- **Handling**: Make seeding deterministic and idempotent; detect "seeded" via `hasSchema()` (structural check) instead of a boolean flag
 
 ### 5. Corrupted Schema Recovery
 

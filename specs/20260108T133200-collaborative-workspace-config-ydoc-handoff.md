@@ -209,14 +209,12 @@ const head = createHeadDoc({ workspaceId: 'abc123xyz789012' });
 
 head.getEpoch();           // number (currently 0)
 head.getDataDocId();       // 'abc123xyz789012-0'
-head.isMigrating();        // boolean
-head.startEpochBump();     // returns new epoch number
-head.completeEpochBump(1); // sets epoch to 1, clears isMigrating
-head.cancelEpochBump();    // clears isMigrating without changing epoch
+head.bumpEpoch();          // atomically sets epoch = max(current, current+1), returns new epoch
 head.observeEpoch((epoch) => { ... });
-head.observeMigrating((isMigrating) => { ... });
 head.destroy();
 ```
+
+**Note**: The Head Doc is minimal—just stores `epoch: number`. No `isMigrating` flag needed; epoch bump is an atomic pointer flip. Old epochs remain accessible for historical viewing.
 
 ### createDataDoc
 
