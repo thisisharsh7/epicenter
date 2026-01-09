@@ -7,10 +7,11 @@ import {
 	DateTimeString,
 	integer,
 	real,
+	richtext,
 	select,
+	setting,
 	tags,
 	text,
-	richtext,
 } from '../schema';
 import { createKv } from './core';
 
@@ -19,7 +20,7 @@ describe('KV Helpers', () => {
 		test('text field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				username: text(),
+				username: setting({ name: '', field: text() }),
 			});
 
 			kv.username.set('alice');
@@ -33,7 +34,7 @@ describe('KV Helpers', () => {
 		test('text field: get() returns default value when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				role: text({ default: 'user' }),
+				role: setting({ name: '', field: text({ default: 'user' }) }),
 			});
 
 			const result = kv.role.get();
@@ -46,7 +47,7 @@ describe('KV Helpers', () => {
 		test('text field: get() returns null for nullable fields with no default', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				bio: text({ nullable: true }),
+				bio: setting({ name: '', field: text({ nullable: true }) }),
 			});
 
 			const result = kv.bio.get();
@@ -59,7 +60,7 @@ describe('KV Helpers', () => {
 		test('text field: set() updates value correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				username: text(),
+				username: setting({ name: '', field: text() }),
 			});
 
 			kv.username.set('alice');
@@ -80,7 +81,7 @@ describe('KV Helpers', () => {
 		test('text field: reset() restores default value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				role: text({ default: 'user' }),
+				role: setting({ name: '', field: text({ default: 'user' }) }),
 			});
 
 			kv.role.set('admin');
@@ -101,7 +102,7 @@ describe('KV Helpers', () => {
 		test('integer field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				count: integer(),
+				count: setting({ name: '', field: integer() }),
 			});
 
 			kv.count.set(42);
@@ -115,7 +116,7 @@ describe('KV Helpers', () => {
 		test('integer field: get() returns default value when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				count: integer({ default: 0 }),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			const result = kv.count.get();
@@ -128,7 +129,7 @@ describe('KV Helpers', () => {
 		test('integer field: set() updates value correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				count: integer({ default: 0 }),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			kv.count.set(10);
@@ -149,7 +150,7 @@ describe('KV Helpers', () => {
 		test('integer field: reset() restores default value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				count: integer({ default: 0 }),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			kv.count.set(100);
@@ -164,7 +165,7 @@ describe('KV Helpers', () => {
 		test('real field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				price: real(),
+				price: setting({ name: '', field: real() }),
 			});
 
 			kv.price.set(19.99);
@@ -178,7 +179,7 @@ describe('KV Helpers', () => {
 		test('real field: get() returns default value when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				price: real({ default: 0.0 }),
+				price: setting({ name: '', field: real({ default: 0.0 }) }),
 			});
 
 			const result = kv.price.get();
@@ -191,7 +192,7 @@ describe('KV Helpers', () => {
 		test('boolean field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				enabled: boolean(),
+				enabled: setting({ name: '', field: boolean() }),
 			});
 
 			kv.enabled.set(true);
@@ -212,7 +213,7 @@ describe('KV Helpers', () => {
 		test('boolean field: get() returns default value when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				enabled: boolean({ default: false }),
+				enabled: setting({ name: '', field: boolean({ default: false }) }),
 			});
 
 			const result = kv.enabled.get();
@@ -225,7 +226,7 @@ describe('KV Helpers', () => {
 		test('boolean field: reset() restores default value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				enabled: boolean({ default: false }),
+				enabled: setting({ name: '', field: boolean({ default: false }) }),
 			});
 
 			kv.enabled.set(true);
@@ -240,7 +241,10 @@ describe('KV Helpers', () => {
 		test('select field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'] }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'] }),
+				}),
 			});
 
 			kv.theme.set('dark');
@@ -254,7 +258,10 @@ describe('KV Helpers', () => {
 		test('select field: get() returns default value when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
 			});
 
 			const result = kv.theme.get();
@@ -267,7 +274,10 @@ describe('KV Helpers', () => {
 		test('select field: set() updates value correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
 			});
 
 			kv.theme.set('dark');
@@ -288,7 +298,10 @@ describe('KV Helpers', () => {
 		test('select field: reset() restores default value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
 			});
 
 			kv.theme.set('dark');
@@ -303,7 +316,7 @@ describe('KV Helpers', () => {
 		test('date field: get() returns valid result with correct value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				last_sync: dateField(),
+				last_sync: setting({ name: '', field: dateField() }),
 			});
 
 			const now = Temporal.ZonedDateTime.from('2024-01-01T05:00:00.000Z[UTC]');
@@ -322,7 +335,10 @@ describe('KV Helpers', () => {
 				'2024-01-01T00:00:00.000+00:00[UTC]',
 			);
 			const kv = createKv(ydoc, {
-				last_sync: dateField({ default: defaultDate }),
+				last_sync: setting({
+					name: '',
+					field: dateField({ default: defaultDate }),
+				}),
 			});
 
 			const result = kv.last_sync.get();
@@ -335,7 +351,7 @@ describe('KV Helpers', () => {
 		test('date field: get() returns null for nullable fields with no default', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				last_sync: dateField({ nullable: true }),
+				last_sync: setting({ name: '', field: dateField({ nullable: true }) }),
 			});
 
 			const result = kv.last_sync.get();
@@ -348,7 +364,7 @@ describe('KV Helpers', () => {
 		test('date field: set() updates value correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				last_sync: dateField(),
+				last_sync: setting({ name: '', field: dateField() }),
 			});
 
 			const date1 = Temporal.ZonedDateTime.from(
@@ -381,7 +397,10 @@ describe('KV Helpers', () => {
 				'2024-01-01T00:00:00.000+00:00[UTC]',
 			);
 			const kv = createKv(ydoc, {
-				last_sync: dateField({ default: defaultDate }),
+				last_sync: setting({
+					name: '',
+					field: dateField({ default: defaultDate }),
+				}),
 			});
 
 			const newDate = Temporal.ZonedDateTime.from(
@@ -401,7 +420,7 @@ describe('KV Helpers', () => {
 		test('richtext field: get() returns string (ID reference)', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: richtext(),
+				notes: setting({ name: '', field: richtext() }),
 			});
 
 			kv.notes.set('rtxt_abc123');
@@ -415,7 +434,7 @@ describe('KV Helpers', () => {
 		test('richtext field: set() updates value correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: richtext(),
+				notes: setting({ name: '', field: richtext() }),
 			});
 
 			kv.notes.set('rtxt_first');
@@ -436,7 +455,7 @@ describe('KV Helpers', () => {
 		test('richtext field: nullable returns null when not set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: richtext(),
+				notes: setting({ name: '', field: richtext() }),
 			});
 
 			const result = kv.notes.get();
@@ -449,7 +468,10 @@ describe('KV Helpers', () => {
 		test('tags field: get() returns plain array', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
+				tags: setting({
+					name: '',
+					field: tags({ options: ['typescript', 'javascript', 'python'] }),
+				}),
 			});
 
 			kv.tags.set(['typescript', 'javascript']);
@@ -463,7 +485,10 @@ describe('KV Helpers', () => {
 		test('tags field: set() replaces existing content', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
+				tags: setting({
+					name: '',
+					field: tags({ options: ['typescript', 'javascript', 'python'] }),
+				}),
 			});
 
 			kv.tags.set(['typescript']);
@@ -478,7 +503,7 @@ describe('KV Helpers', () => {
 		test('tags field without options: allows any strings', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				categories: tags(),
+				categories: setting({ name: '', field: tags() }),
 			});
 
 			kv.categories.set(['anything', 'goes', 'here']);
@@ -494,7 +519,10 @@ describe('KV Helpers', () => {
 		test('observeChanges() fires callback with change event when value changes', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
 			});
 
 			const values: string[] = [];
@@ -513,8 +541,11 @@ describe('KV Helpers', () => {
 		test('observeChanges() only fires for the specific key, not other keys', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
-				count: integer({ default: 0 }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			const themeValues: string[] = [];
@@ -542,7 +573,7 @@ describe('KV Helpers', () => {
 		test('observeChanges() unsubscribe function stops callbacks', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				count: integer({ default: 0 }),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			const values: number[] = [];
@@ -563,7 +594,7 @@ describe('KV Helpers', () => {
 		test('observeChanges() fires when richtext is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				notes: richtext(),
+				notes: setting({ name: '', field: richtext() }),
 			});
 
 			let callCount = 0;
@@ -578,7 +609,7 @@ describe('KV Helpers', () => {
 		test('observeChanges() fires when tags array is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				tags: tags({ options: ['a', 'b', 'c'] }),
+				tags: setting({ name: '', field: tags({ options: ['a', 'b', 'c'] }) }),
 			});
 
 			let callCount = 0;
@@ -595,7 +626,7 @@ describe('KV Helpers', () => {
 		test('multiple sets in sequence', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				count: integer({ default: 0 }),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			kv.count.set(1);
@@ -612,7 +643,10 @@ describe('KV Helpers', () => {
 		test('setting same value twice', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
 			});
 
 			const values: string[] = [];
@@ -632,9 +666,15 @@ describe('KV Helpers', () => {
 		test('interaction between multiple KV fields', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
-				font_size: integer({ default: 14 }),
-				show_line_numbers: boolean({ default: true }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
+				font_size: setting({ name: '', field: integer({ default: 14 }) }),
+				show_line_numbers: setting({
+					name: '',
+					field: boolean({ default: true }),
+				}),
 			});
 
 			kv.theme.set('dark');
@@ -679,7 +719,7 @@ describe('KV Helpers', () => {
 		test('nullable field: set to null explicitly', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				bio: text({ nullable: true }),
+				bio: setting({ name: '', field: text({ nullable: true }) }),
 			});
 
 			kv.bio.set('Hello');
@@ -700,7 +740,10 @@ describe('KV Helpers', () => {
 		test('nullable field with default: set to null clears default', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				role: text({ nullable: true, default: 'user' }),
+				role: setting({
+					name: '',
+					field: text({ nullable: true, default: 'user' }),
+				}),
 			});
 
 			let result = kv.role.get();
@@ -720,7 +763,7 @@ describe('KV Helpers', () => {
 		test('reset on nullable field with no default sets to null', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				bio: text({ nullable: true }),
+				bio: setting({ name: '', field: text({ nullable: true }) }),
 			});
 
 			kv.bio.set('Hello');
@@ -741,7 +784,7 @@ describe('KV Helpers', () => {
 		test('reset on non-nullable field with no default returns not_found status', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				username: text(),
+				username: setting({ name: '', field: text() }),
 			});
 
 			kv.username.set('alice');
@@ -762,9 +805,12 @@ describe('KV Helpers', () => {
 		test('$all() returns all helpers', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
-				count: integer({ default: 0 }),
-				enabled: boolean({ default: true }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
+				enabled: setting({ name: '', field: boolean({ default: true }) }),
 			});
 
 			const all = kv.$all();
@@ -779,9 +825,12 @@ describe('KV Helpers', () => {
 		test('$toJSON() serializes all values', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
-				count: integer({ default: 0 }),
-				enabled: boolean({ default: true }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
+				enabled: setting({ name: '', field: boolean({ default: true }) }),
 			});
 
 			kv.theme.set('dark');
@@ -798,8 +847,11 @@ describe('KV Helpers', () => {
 		test('clearAll() removes all values', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
-				theme: select({ options: ['light', 'dark'], default: 'light' }),
-				count: integer({ default: 0 }),
+				theme: setting({
+					name: '',
+					field: select({ options: ['light', 'dark'], default: 'light' }),
+				}),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			kv.theme.set('dark');
@@ -829,7 +881,7 @@ describe('KV Helpers', () => {
 			ykvMap.set('count', 'not a number');
 
 			const kv = createKv(ydoc, {
-				count: integer({ default: 0 }),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			const result = kv.count.get();
@@ -845,7 +897,7 @@ describe('KV Helpers', () => {
 			const ykvMap = ydoc.getMap<unknown>('kv');
 
 			const kv = createKv(ydoc, {
-				count: integer({ default: 0 }),
+				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
 			let receivedValue: unknown = null;

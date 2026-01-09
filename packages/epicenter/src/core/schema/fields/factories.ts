@@ -18,6 +18,8 @@ import type {
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
+	KvDefinition,
+	KvFieldSchema,
 	RealFieldSchema,
 	RichtextFieldSchema,
 	SelectFieldSchema,
@@ -61,6 +63,48 @@ export function table<TFields extends FieldsSchema>(options: {
 		cover: options.cover ?? null,
 		description: options.description ?? '',
 		fields: options.fields,
+	};
+}
+
+/**
+ * Factory function to create a KvDefinition (setting) with sensible defaults.
+ *
+ * Requires `name` and `field`; other metadata is optional.
+ * For tests where you don't care about the name, use `name: ''`.
+ *
+ * Conceptually, a KV store is like a single table row where each key is a column.
+ * While TableDefinition wraps a map of fields, KvDefinition wraps a single field.
+ *
+ * @example
+ * ```typescript
+ * import { setting, icon, select, integer } from '@epicenter/hq';
+ *
+ * // Production use - with meaningful metadata
+ * const theme = setting({
+ *   name: 'Theme',
+ *   icon: icon.emoji('🎨'),
+ *   field: select({ options: ['light', 'dark'], default: 'light' }),
+ *   description: 'Application color theme',
+ * });
+ *
+ * // Test use - minimal
+ * const count = setting({
+ *   name: '',
+ *   field: integer({ default: 0 }),
+ * });
+ * ```
+ */
+export function setting<TField extends KvFieldSchema>(options: {
+	name: string;
+	field: TField;
+	icon?: IconDefinition | null;
+	description?: string;
+}): KvDefinition<TField> {
+	return {
+		name: options.name,
+		icon: options.icon ?? null,
+		description: options.description ?? '',
+		field: options.field,
 	};
 }
 

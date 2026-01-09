@@ -499,3 +499,56 @@ export type KvSchema = Record<string, KvFieldSchema>;
  * Runtime value type for a KV entry.
  */
 export type KvValue<C extends KvFieldSchema = KvFieldSchema> = CellValue<C>;
+
+/**
+ * KV entry definition with metadata for UI display.
+ *
+ * Parallel to TableDefinition, but wraps a single field instead of a fields map.
+ * Conceptually, a KV store is like a single row where each key is a column.
+ *
+ * @example
+ * ```typescript
+ * const themeKv: KvDefinition = {
+ *   name: 'Theme',
+ *   icon: { type: 'emoji', value: '🎨' },
+ *   description: 'Application color theme',
+ *   field: select({ options: ['light', 'dark'] }),
+ * };
+ * ```
+ */
+export type KvDefinition<TField extends KvFieldSchema = KvFieldSchema> = {
+	/** Display name shown in UI (e.g., "Theme") */
+	name: string;
+	/** Icon for this KV entry - emoji or external image URL */
+	icon: IconDefinition | null;
+	/** Description shown in tooltips/docs */
+	description: string;
+	/** The field schema for this KV entry */
+	field: TField;
+};
+
+/**
+ * Map of KV key names to their full definitions (metadata + field).
+ *
+ * This is the format for `defineWorkspace().kv` when using the full definition style.
+ * For simpler use cases, you can still use `KvSchema` (just field schemas, no metadata).
+ *
+ * @example
+ * ```typescript
+ * const settingsKv: KvDefinitionMap = {
+ *   theme: {
+ *     name: 'Theme',
+ *     icon: { type: 'emoji', value: '🎨' },
+ *     description: 'Application color theme',
+ *     field: select({ options: ['light', 'dark'], default: 'light' }),
+ *   },
+ *   fontSize: {
+ *     name: 'Font Size',
+ *     icon: { type: 'emoji', value: '🔤' },
+ *     description: 'Editor font size in pixels',
+ *     field: integer({ default: 14 }),
+ *   },
+ * };
+ * ```
+ */
+export type KvDefinitionMap = Record<string, KvDefinition>;

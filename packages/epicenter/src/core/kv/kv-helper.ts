@@ -2,7 +2,7 @@ import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import type * as Y from 'yjs';
 
-import type { KvFieldSchema, KvSchema, KvValue } from '../schema';
+import type { KvDefinitionMap, KvFieldSchema, KvValue } from '../schema';
 import { fieldSchemaToYjsArktype, isNullableFieldSchema } from '../schema';
 
 /**
@@ -39,54 +39,66 @@ export type KvGetResult<TValue> =
 	| { status: 'not_found'; key: string };
 
 /**
- * Creates a collection of typed KV helpers for all keys in a schema.
+ * Creates a collection of typed KV helpers for all keys in a definition map.
  *
  * Uses native Y.Map for efficient storage. KV data is stored directly
  * as key-value pairs in the map.
  */
-export function createKvHelpers<TKvSchema extends KvSchema>({
+export function createKvHelpers<TKvDefinitionMap extends KvDefinitionMap>({
 	ydoc,
-	schema,
+	definitions,
 }: {
 	ydoc: Y.Doc;
-	schema: TKvSchema;
+	definitions: TKvDefinitionMap;
 }) {
 	const ykvMap = ydoc.getMap<KvValue>('kv');
 
 	return Object.fromEntries(
-		Object.entries(schema).map(([keyName, columnSchema]) => [
+		Object.entries(definitions).map(([keyName, definition]) => [
 			keyName,
 			createKvHelper({
 				keyName,
 				ykvMap,
-				schema: columnSchema,
+				fieldSchema: definition.field,
 			}),
 		]),
 	) as {
-		[K in keyof TKvSchema]: KvHelper<TKvSchema[K]>;
+		[K in keyof TKvDefinitionMap]: KvHelper<TKvDefinitionMap[K]['field']>;
 	};
 }
 
 export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	keyName,
 	ykvMap,
-	schema,
+	fieldSchema,
 }: {
 	keyName: string;
 	ykvMap: Y.Map<KvValue>;
-	schema: TFieldSchema;
+	fieldSchema: TFieldSchema;
 }) {
 	type TValue = KvValue<TFieldSchema>;
 
-	const nullable = isNullableFieldSchema(schema);
-	const validator = fieldSchemaToYjsArktype(schema);
+	const nullable = isNullableFieldSchema(fieldSchema);
+	const validator = fieldSchemaToYjsArktype(fieldSchema);
 
 	return {
 		/** The name of this KV key */
 		name: keyName,
 
-		/** The schema definition for this KV field */
-		schema,
+		/**
+		 * The field schema for this KV entry.
+		 *
+		 * Contains the type and constraints (options, default, nullable, etc.)
+		 * for this key's value. Consistent with `KvDefinition.field`.
+		 *
+		 * @example
+		 * ```typescript
+		 * console.log(kv.theme.field.type);    // 'select'
+		 * console.log(kv.theme.field.options); // ['light', 'dark']
+		 * console.log(kv.theme.field.default); // 'light'
+		 * ```
+		 */
+		field: fieldSchema,
 
 		/**
 		 * Get the current value for this KV key.
@@ -115,8 +127,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 
 			// Handle undefined: default → null → not_found
 			if (rawValue === undefined) {
-				if ('default' in schema && schema.default !== undefined) {
-					return { status: 'valid', value: schema.default as TValue };
+				if ('default' in fieldSchema && fieldSchema.default !== undefined) {
+					return { status: 'valid', value: fieldSchema.default as TValue };
 				}
 				if (nullable) {
 					return { status: 'valid', value: null as TValue };
@@ -235,8 +247,8 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * ```
 		 */
 		reset(): void {
-			if ('default' in schema && schema.default !== undefined) {
-				this.set(schema.default as TValue);
+			if ('default' in fieldSchema && fieldSchema.default !== undefined) {
+				this.set(fieldSchema.default as TValue);
 			} else if (nullable) {
 				this.set(null as TValue);
 			} else {
