@@ -6,10 +6,9 @@ import type {
 	InferCapabilityExports,
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
-import type { KvSchema, FieldsSchemaMap, TableDefinitionMap } from '../schema';
+import type { KvSchema, TableDefinitionMap } from '../schema';
 import type {
 	CoverDefinition,
-	ExtractFieldsSchemaMap,
 	FieldSchema,
 	IconDefinition,
 } from '../schema/fields/types';
@@ -133,18 +132,14 @@ export type Workspace<
 	 */
 	create<
 		TCapabilityFactories extends CapabilityFactoryMap<
-			ExtractFieldsSchemaMap<TTableDefinitionMap>,
+			TTableDefinitionMap,
 			TKvSchema
 		> = {},
 	>(options?: {
 		epoch?: number;
 		capabilities?: TCapabilityFactories;
 	}): Promise<
-		WorkspaceClient<
-			ExtractFieldsSchemaMap<TTableDefinitionMap>,
-			TKvSchema,
-			TCapabilityFactories
-		>
+		WorkspaceClient<TTableDefinitionMap, TKvSchema, TCapabilityFactories>
 	>;
 };
 
@@ -185,19 +180,19 @@ export type Workspace<
  * ```
  */
 export type WorkspaceClient<
-	TFieldsSchemaMap extends FieldsSchemaMap = FieldsSchemaMap,
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
 	TCapabilityFactories extends CapabilityFactoryMap<
-		TFieldsSchemaMap,
+		TTableDefinitionMap,
 		TKvSchema
-	> = CapabilityFactoryMap<TFieldsSchemaMap, TKvSchema>,
+	> = CapabilityFactoryMap<TTableDefinitionMap, TKvSchema>,
 > = {
 	/** Globally unique identifier for sync coordination. */
 	id: string;
 	/** Human-readable slug for URLs, paths, and CLI commands. */
 	slug: string;
 	/** Typed table helpers for CRUD operations. */
-	tables: Tables<TFieldsSchemaMap>;
+	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
 	/** Exports from initialized capabilities. */
@@ -361,7 +356,7 @@ export function defineWorkspace<
 		 */
 		async create<
 			TCapabilityFactories extends CapabilityFactoryMap<
-				ExtractFieldsSchemaMap<TTableDefinitionMap>,
+				TTableDefinitionMap,
 				TKvSchema
 			> = {},
 		>({
@@ -371,11 +366,7 @@ export function defineWorkspace<
 			epoch?: number;
 			capabilities?: TCapabilityFactories;
 		} = {}): Promise<
-			WorkspaceClient<
-				ExtractFieldsSchemaMap<TTableDefinitionMap>,
-				TKvSchema,
-				TCapabilityFactories
-			>
+			WorkspaceClient<TTableDefinitionMap, TKvSchema, TCapabilityFactories>
 		> {
 			// Create Data Y.Doc with deterministic GUID
 			const docId = `${config.id}-${epoch}` as const;
@@ -393,13 +384,8 @@ export function defineWorkspace<
 			// Merge full table definitions (with metadata) into Y.Doc schema
 			mergeSchemaIntoYDoc(ydoc, config.tables, config.kv);
 
-			// Extract fields from table definitions for table helpers
-			const extractedFields = Object.fromEntries(
-				Object.entries(config.tables).map(([key, def]) => [key, def.fields]),
-			) as ExtractFieldsSchemaMap<TTableDefinitionMap>;
-
 			// Create table and kv helpers bound to the Y.Doc
-			const tables = createTables(ydoc, extractedFields);
+			const tables = createTables(ydoc, config.tables);
 			const kv = createKv(ydoc, config.kv);
 
 			// Run capability factories in parallel

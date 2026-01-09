@@ -1,6 +1,6 @@
 import { regex } from 'arkregex';
 import type * as Y from 'yjs';
-import type { FieldsSchemaMap } from '../schema';
+import type { TableDefinitionMap } from '../schema';
 import { createTableHelpers, type TableHelper } from './table-helper';
 
 /**
@@ -64,7 +64,7 @@ export type {
  * is `clearAll`, which is a mutation action to clear all tables.
  *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
- * @param schema - Table schema definitions
+ * @param schema - Table definition map (includes metadata and fields)
  * @returns Object with flattened table helpers and a clearAll mutation
  *
  * @example
@@ -72,10 +72,16 @@ export type {
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
  * const db = createTables(ydoc, {
  *   posts: {
- *     id: id(),
- *     title: text(),
- *     published: boolean(),
- *   }
+ *     name: 'Posts',
+ *     icon: null,
+ *     cover: null,
+ *     description: 'Blog posts',
+ *     fields: {
+ *       id: id(),
+ *       title: text(),
+ *       published: boolean(),
+ *     },
+ *   },
  * });
  *
  * // Tables are accessed directly
@@ -86,9 +92,9 @@ export type {
  * db.clearAll();
  * ```
  */
-export function createTables<TFieldsSchemaMap extends FieldsSchemaMap>(
+export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	ydoc: Y.Doc,
-	schema: TFieldsSchemaMap,
+	schema: TTableDefinitionMap,
 ) {
 	// Validate table names
 	for (const tableName of Object.keys(schema)) {
@@ -105,8 +111,8 @@ export function createTables<TFieldsSchemaMap extends FieldsSchemaMap>(
 	}
 
 	// Validate column names for each table
-	for (const [tableName, tableSchema] of Object.entries(schema)) {
-		for (const columnName of Object.keys(tableSchema)) {
+	for (const [tableName, tableDefinition] of Object.entries(schema)) {
+		for (const columnName of Object.keys(tableDefinition.fields)) {
 			if (!COLUMN_NAME_PATTERN.test(columnName)) {
 				throw new Error(
 					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only letters, numbers, and underscores (e.g., "title", "createdAt", "count2")`,
@@ -140,7 +146,7 @@ export function createTables<TFieldsSchemaMap extends FieldsSchemaMap>(
 		 */
 		$all() {
 			return Object.values(tableHelpers) as TableHelper<
-				TFieldsSchemaMap[keyof TFieldsSchemaMap]
+				TTableDefinitionMap[keyof TTableDefinitionMap]
 			>[];
 		},
 
@@ -174,11 +180,11 @@ export function createTables<TFieldsSchemaMap extends FieldsSchemaMap>(
 		 */
 		$zip<
 			TConfigs extends {
-				[K in keyof TFieldsSchemaMap & string]: unknown;
+				[K in keyof TTableDefinitionMap & string]: unknown;
 			},
 		>(configs: TConfigs) {
 			const names = Object.keys(schema) as Array<
-				keyof TFieldsSchemaMap & string
+				keyof TTableDefinitionMap & string
 			>;
 
 			return names.map((name) => ({
@@ -187,12 +193,12 @@ export function createTables<TFieldsSchemaMap extends FieldsSchemaMap>(
 				paired: configs[name],
 			})) as Array<
 				{
-					[K in keyof TFieldsSchemaMap & string]: {
+					[K in keyof TTableDefinitionMap & string]: {
 						name: K;
-						table: TableHelper<TFieldsSchemaMap[K]>;
+						table: TableHelper<TTableDefinitionMap[K]>;
 						paired: TConfigs[K];
 					};
-				}[keyof TFieldsSchemaMap & string]
+				}[keyof TTableDefinitionMap & string]
 			>;
 		},
 
@@ -213,6 +219,6 @@ export function createTables<TFieldsSchemaMap extends FieldsSchemaMap>(
  * Type alias for the return type of createTables.
  * Useful for typing function parameters that accept a tables instance.
  */
-export type Tables<TFieldsSchemaMap extends FieldsSchemaMap> = ReturnType<
-	typeof createTables<TFieldsSchemaMap>
+export type Tables<TTableDefinitionMap extends TableDefinitionMap> = ReturnType<
+	typeof createTables<TTableDefinitionMap>
 >;

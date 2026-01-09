@@ -403,28 +403,10 @@ export type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
 };
 
 /**
- * Map of table names to their field schemas.
- *
- * This is the "fields only" format used internally by capabilities and table helpers.
- * Users typically define tables with full metadata via `TableDefinitionMap`, and
- * `ExtractFieldsSchemaMap` extracts just the fields for runtime operations.
- *
- * @example
- * ```typescript
- * const blogFields: FieldsSchemaMap = {
- *   posts: { id: id(), title: text() },
- *   authors: { id: id(), name: text() },
- * };
- * ```
- */
-export type FieldsSchemaMap = Record<string, FieldsSchema>;
-
-/**
  * Map of table names to their full definitions (metadata + fields).
  *
- * This is the required format for `defineWorkspace().tables`.
- * Each entry is a `TableDefinition` with display metadata (name, icon, description)
- * and the field schemas.
+ * This is the required format for `defineWorkspace().tables` and the type
+ * that flows through the entire system (capabilities, table helpers, etc.).
  *
  * @example
  * ```typescript
@@ -440,25 +422,6 @@ export type FieldsSchemaMap = Record<string, FieldsSchema>;
  * ```
  */
 export type TableDefinitionMap = Record<string, TableDefinition>;
-
-/**
- * Extract the fields schema map from a TableDefinitionMap.
- *
- * Used internally to derive `FieldsSchemaMap` from user-provided `TableDefinitionMap`.
- * Capabilities and table helpers work with the extracted fields, not the full metadata.
- *
- * @example
- * ```typescript
- * type Input = {
- *   posts: { name: 'Posts', fields: { id: IdFieldSchema, title: TextFieldSchema } }
- * };
- * type Output = ExtractFieldsSchemaMap<Input>;
- * // { posts: { id: IdFieldSchema, title: TextFieldSchema } }
- * ```
- */
-export type ExtractFieldsSchemaMap<T extends TableDefinitionMap> = {
-	[K in keyof T]: T[K]['fields'];
-};
 
 // ============================================================================
 // Row Types
