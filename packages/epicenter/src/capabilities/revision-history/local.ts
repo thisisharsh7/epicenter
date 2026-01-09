@@ -272,70 +272,6 @@ export const localRevisionHistory = async <
 	}
 
 	/**
-	 * Get a read-only Y.Doc at a specific version index.
-	 *
-	 * The returned document is a snapshot view and should NOT be modified.
-	 * Use this for previewing historical states.
-	 *
-	 * @param index - Version index (0 = oldest)
-	 * @returns Read-only Y.Doc at that version
-	 */
-	async function view(index: number): Promise<Y.Doc> {
-		const versions = await list();
-
-		if (index < 0 || index >= versions.length) {
-			throw new Error(
-				`[RevisionHistory] Version index ${index} out of range (0-${versions.length - 1})`,
-			);
-		}
-
-		// biome-ignore lint/style/noNonNullAssertion: Safe to use ! here - we've validated index is in bounds
-		const version = versions[index]!;
-		const filePath = path.join(snapshotDir, version.filename);
-
-		const encoded = await Bun.file(filePath).arrayBuffer();
-		const snapshot = Y.decodeSnapshot(new Uint8Array(encoded));
-
-		// Create read-only doc from snapshot
-		return Y.createDocFromSnapshot(ydoc, snapshot);
-	}
-
-	/**
-	 * Restore the document to a specific version.
-	 *
-	 * This creates a new Y.Doc from the snapshot and applies its state
-	 * to the current document. The restoration itself becomes a new
-	 * change that will sync to other clients.
-	 *
-	 * @param index - Version index (0 = oldest)
-	 */
-	async function restore(index: number): Promise<void> {
-		const versions = await list();
-
-		if (index < 0 || index >= versions.length) {
-			throw new Error(
-				`[RevisionHistory] Version index ${index} out of range (0-${versions.length - 1})`,
-			);
-		}
-
-		// biome-ignore lint/style/noNonNullAssertion: Safe to use ! here - we've validated index is in bounds
-		const version = versions[index]!;
-		const filePath = path.join(snapshotDir, version.filename);
-
-		const encoded = await Bun.file(filePath).arrayBuffer();
-		const snapshot = Y.decodeSnapshot(new Uint8Array(encoded));
-
-		// Create a fresh doc from the snapshot
-		const restoredDoc = Y.createDocFromSnapshot(ydoc, snapshot);
-
-		// Get the state as an update and apply to current doc
-		const update = Y.encodeStateAsUpdate(restoredDoc);
-		Y.applyUpdate(ydoc, update);
-
-		console.log(`[RevisionHistory] Restored to version: ${version.timestamp}`);
-	}
-
-	/**
 	 * Delete old versions to stay within maxVersions limit.
 	 */
 	async function pruneOldVersions(): Promise<void> {
@@ -370,14 +306,6 @@ export const localRevisionHistory = async <
 		}
 	}
 
-	/**
-	 * Get the count of saved versions.
-	 */
-	async function count(): Promise<number> {
-		const versions = await list();
-		return versions.length;
-	}
-
 	// Subscribe to Y.Doc updates for debounced auto-save
 	const updateHandler = () => {
 		debouncedSave();
@@ -406,20 +334,77 @@ export const localRevisionHistory = async <
 
 		/**
 		 * Get a read-only Y.Doc at a specific version index.
-		 * Use for previewing historical states.
+		 *
+		 * The returned document is a snapshot view and should NOT be modified.
+		 * Use this for previewing historical states.
+		 *
+		 * @param index - Version index (0 = oldest)
+		 * @returns Read-only Y.Doc at that version
 		 */
-		view,
+		async view(index: number): Promise<Y.Doc> {
+			const versions = await list();
+
+			if (index < 0 || index >= versions.length) {
+				throw new Error(
+					`[RevisionHistory] Version index ${index} out of range (0-${versions.length - 1})`,
+				);
+			}
+
+			// biome-ignore lint/style/noNonNullAssertion: Safe to use ! here - we've validated index is in bounds
+			const version = versions[index]!;
+			const filePath = path.join(snapshotDir, version.filename);
+
+			const encoded = await Bun.file(filePath).arrayBuffer();
+			const snapshot = Y.decodeSnapshot(new Uint8Array(encoded));
+
+			// Create read-only doc from snapshot
+			return Y.createDocFromSnapshot(ydoc, snapshot);
+		},
 
 		/**
 		 * Restore the document to a specific version.
-		 * The restoration syncs to other clients as a new change.
+		 *
+		 * This creates a new Y.Doc from the snapshot and applies its state
+		 * to the current document. The restoration itself becomes a new
+		 * change that will sync to other clients.
+		 *
+		 * @param index - Version index (0 = oldest)
 		 */
-		restore,
+		async restore(index: number): Promise<void> {
+			const versions = await list();
+
+			if (index < 0 || index >= versions.length) {
+				throw new Error(
+					`[RevisionHistory] Version index ${index} out of range (0-${versions.length - 1})`,
+				);
+			}
+
+			// biome-ignore lint/style/noNonNullAssertion: Safe to use ! here - we've validated index is in bounds
+			const version = versions[index]!;
+			const filePath = path.join(snapshotDir, version.filename);
+
+			const encoded = await Bun.file(filePath).arrayBuffer();
+			const snapshot = Y.decodeSnapshot(new Uint8Array(encoded));
+
+			// Create a fresh doc from the snapshot
+			const restoredDoc = Y.createDocFromSnapshot(ydoc, snapshot);
+
+			// Get the state as an update and apply to current doc
+			const update = Y.encodeStateAsUpdate(restoredDoc);
+			Y.applyUpdate(ydoc, update);
+
+			console.log(
+				`[RevisionHistory] Restored to version: ${version.timestamp}`,
+			);
+		},
 
 		/**
 		 * Get the count of saved versions.
 		 */
-		count,
+		async count(): Promise<number> {
+			const versions = await list();
+			return versions.length;
+		},
 
 		/**
 		 * The directory where snapshots are stored.
