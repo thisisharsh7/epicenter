@@ -139,7 +139,11 @@ export type Workspace<
 		epoch?: number;
 		capabilities?: TCapabilityFactories;
 	}): Promise<
-		WorkspaceClient<TTableDefinitionMap, TKvSchema, TCapabilityFactories>
+		WorkspaceClient<
+			TTableDefinitionMap,
+			TKvSchema,
+			InferCapabilityExports<TCapabilityFactories>
+		>
 	>;
 };
 
@@ -182,10 +186,10 @@ export type Workspace<
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
-	TCapabilityFactories extends CapabilityFactoryMap<
-		TTableDefinitionMap,
-		TKvSchema
-	> = CapabilityFactoryMap<TTableDefinitionMap, TKvSchema>,
+	TCapabilityExports extends Record<string, CapabilityExports> = Record<
+		string,
+		CapabilityExports
+	>,
 > = {
 	/** Globally unique identifier for sync coordination. */
 	id: string;
@@ -196,7 +200,7 @@ export type WorkspaceClient<
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
 	/** Exports from initialized capabilities. */
-	capabilities: InferCapabilityExports<TCapabilityFactories>;
+	capabilities: TCapabilityExports;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
 	/** Clean up resources (close capabilities, destroy YJS doc). */
@@ -366,7 +370,11 @@ export function defineWorkspace<
 			epoch?: number;
 			capabilities?: TCapabilityFactories;
 		} = {}): Promise<
-			WorkspaceClient<TTableDefinitionMap, TKvSchema, TCapabilityFactories>
+			WorkspaceClient<
+				TTableDefinitionMap,
+				TKvSchema,
+				InferCapabilityExports<TCapabilityFactories>
+			>
 		> {
 			// Create Data Y.Doc with deterministic GUID
 			const docId = `${config.id}-${epoch}` as const;
