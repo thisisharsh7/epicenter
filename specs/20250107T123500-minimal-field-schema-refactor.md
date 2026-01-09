@@ -3,6 +3,8 @@
 **Created**: 2025-01-07T12:35:00
 **Status**: Complete
 
+> **Note (2026-01-08)**: The `json()` field API in this spec uses `StandardSchemaWithJSONSchema` (arktype/zod). This has been superseded by TypeBox. See `20260108T133200-collaborative-workspace-config-ydoc-handoff.md` Phase 4 for the current API using `Type.Object()` from TypeBox.
+
 ## Summary
 
 Refactor field schemas from JSON Schema hybrid format to a minimal, Notion-like format. Remove redundant `type` field, rename `x-component` to `type`, and add table/workspace metadata (emoji, name, description, order).
