@@ -1,75 +1,98 @@
 import * as Y from 'yjs';
 
 import type { KvSchema, TablesSchema } from '../schema';
-import type { FieldSchema } from '../schema/fields/types';
+import type {
+	FieldSchema,
+	FieldType,
+	IconDefinition,
+	JsonFieldSchema,
+} from '../schema/fields/types';
+import { standardSchemaToJsonSchema } from '../schema/standard/to-json-schema';
 
 /**
- * Serialized field schema for Y.Doc storage.
+ * Stored field schema in Y.Doc.
  *
- * A subset of FieldSchema optimized for storage:
- * - Omits FieldMetadata (name, description, icon) to save space
- * - Stores only type, nullable, default, options
+ * Contains all FieldSchema properties, with json fields having their
+ * StandardSchema converted to JSON Schema for serialization.
  *
- * Note: JsonFieldSchema.schema is stored as-is. For full serialization,
- * convert to JSON Schema before storing.
+ * This enables collaborative schema editing - users can modify field names,
+ * descriptions, and icons, and changes sync via CRDT.
  */
-export type SerializedFieldSchema = {
-	type: FieldSchema['type'];
+export type StoredFieldSchema = {
+	/** Field type discriminant */
+	type: FieldType;
+	/** Display name shown in UI */
+	name: string;
+	/** Description shown in tooltips/docs */
+	description: string;
+	/** Icon for the field */
+	icon: IconDefinition | null;
+	/** Whether the field is nullable (not present on id/richtext) */
 	nullable?: boolean;
+	/** Default value */
 	default?: unknown;
+	/** Options for select/tags fields */
 	options?: readonly string[];
+	/** JSON Schema for json fields (converted from StandardSchema) */
 	schema?: unknown;
 };
 
 /**
- * Serialize a FieldSchema to storage format.
+ * Prepare a FieldSchema for Y.Doc storage.
  *
- * Strips FieldMetadata and keeps only data-relevant properties.
+ * For json fields, converts the StandardSchema to JSON Schema.
+ * All other fields are stored as-is, preserving metadata (name, description, icon).
  */
-function serializeFieldSchema(schema: FieldSchema): SerializedFieldSchema {
-	const serialized: SerializedFieldSchema = {
-		type: schema.type,
-	};
-
-	if ('nullable' in schema && schema.nullable !== undefined) {
-		serialized.nullable = schema.nullable;
+function prepareForStorage(schema: FieldSchema): StoredFieldSchema {
+	if (schema.type === 'json') {
+		const jsonField = schema as JsonFieldSchema;
+		return {
+			...jsonField,
+			schema: standardSchemaToJsonSchema(jsonField.schema),
+		} as StoredFieldSchema;
 	}
-
-	if ('default' in schema && schema.default !== undefined) {
-		serialized.default = schema.default;
-	}
-
-	if ('options' in schema && schema.options !== undefined) {
-		serialized.options = schema.options as readonly string[];
-	}
-
-	if ('schema' in schema && schema.schema !== undefined) {
-		serialized.schema = schema.schema;
-	}
-
-	return serialized;
+	return schema as StoredFieldSchema;
 }
 
 /**
- * Shallow equality check for serialized field schemas.
+ * Deep equality check for stored field schemas.
+ *
+ * Compares all properties including metadata (name, description, icon).
  */
-function shallowEqual(
-	a: SerializedFieldSchema,
-	b: SerializedFieldSchema,
-): boolean {
+function deepEqual(a: StoredFieldSchema, b: StoredFieldSchema): boolean {
+	// Type must match
 	if (a.type !== b.type) return false;
+
+	// Compare common optional properties
 	if (a.nullable !== b.nullable) return false;
 	if (a.default !== b.default) return false;
+	if (a.name !== b.name) return false;
+	if (a.description !== b.description) return false;
 
-	if (a.options !== b.options) {
-		if (!a.options || !b.options) return false;
-		if (a.options.length !== b.options.length) return false;
-		for (let i = 0; i < a.options.length; i++) {
-			if (a.options[i] !== b.options[i]) return false;
+	// Compare icon (can be null or object)
+	if (a.icon !== b.icon) {
+		if (!a.icon || !b.icon) return false;
+		if (a.icon.type !== b.icon.type) return false;
+		if (a.icon.type === 'emoji' && b.icon.type === 'emoji') {
+			if (a.icon.value !== b.icon.value) return false;
+		} else if (a.icon.type === 'external' && b.icon.type === 'external') {
+			if (a.icon.url !== b.icon.url) return false;
 		}
 	}
 
-	if (a.schema !== b.schema) return false;
+	// Compare options array (for select/tags)
+	const aOpts = a.options;
+	const bOpts = b.options;
+	if (aOpts !== bOpts) {
+		if (!aOpts || !bOpts) return false;
+		if (aOpts.length !== bOpts.length) return false;
+		for (let i = 0; i < aOpts.length; i++) {
+			if (aOpts[i] !== bOpts[i]) return false;
+		}
+	}
+
+	// Compare schema (for json fields - compare as JSON strings)
+	if (JSON.stringify(a.schema) !== JSON.stringify(b.schema)) return false;
 
 	return true;
 }
@@ -88,8 +111,8 @@ function shallowEqual(
  *   └── name: string
  *
  * Y.Map('schema')
- *   ├── tables: Y.Map<tableName, Y.Map<fieldName, SerializedFieldSchema>>
- *   └── kv: Y.Map<keyName, SerializedFieldSchema>
+ *   ├── tables: Y.Map<tableName, Y.Map<fieldName, StoredFieldSchema>>
+ *   └── kv: Y.Map<keyName, StoredFieldSchema>
  *
  * Y.Map('tables')
  *   └── {tableName}: Y.Map<rowId, Y.Map<fieldName, value>>
@@ -131,12 +154,12 @@ export function createDataDoc(options: {
 		schemaMap.set('kv', new Y.Map());
 	}
 
-	function getTablesSchemaMap(): Y.Map<Y.Map<SerializedFieldSchema>> {
-		return schemaMap.get('tables') as Y.Map<Y.Map<SerializedFieldSchema>>;
+	function getTablesSchemaMap(): Y.Map<Y.Map<StoredFieldSchema>> {
+		return schemaMap.get('tables') as Y.Map<Y.Map<StoredFieldSchema>>;
 	}
 
-	function getKvSchemaMap(): Y.Map<SerializedFieldSchema> {
-		return schemaMap.get('kv') as Y.Map<SerializedFieldSchema>;
+	function getKvSchemaMap(): Y.Map<StoredFieldSchema> {
+		return schemaMap.get('kv') as Y.Map<StoredFieldSchema>;
 	}
 
 	return {
@@ -183,6 +206,9 @@ export function createDataDoc(options: {
 		 * - If table/field exists with different value → update it
 		 * - If table/field exists with same value → no-op (CRDT handles)
 		 *
+		 * Stores full FieldSchema including metadata (name, description, icon)
+		 * to enable collaborative schema editing.
+		 *
 		 * Call on every workspace.create(). Idempotent and safe for concurrent calls.
 		 */
 		mergeSchema(tables: TablesSchema, kv: KvSchema) {
@@ -198,21 +224,21 @@ export function createDataDoc(options: {
 					}
 
 					for (const [fieldName, fieldSchema] of Object.entries(tableSchema)) {
-						const serialized = serializeFieldSchema(fieldSchema);
+						const stored = prepareForStorage(fieldSchema);
 						const existing = tableMap.get(fieldName);
 
-						if (!existing || !shallowEqual(existing, serialized)) {
-							tableMap.set(fieldName, serialized);
+						if (!existing || !deepEqual(existing, stored)) {
+							tableMap.set(fieldName, stored);
 						}
 					}
 				}
 
 				for (const [keyName, fieldSchema] of Object.entries(kv)) {
-					const serialized = serializeFieldSchema(fieldSchema);
+					const stored = prepareForStorage(fieldSchema);
 					const existing = kvSchemaMap.get(keyName);
 
-					if (!existing || !shallowEqual(existing, serialized)) {
-						kvSchemaMap.set(keyName, serialized);
+					if (!existing || !deepEqual(existing, stored)) {
+						kvSchemaMap.set(keyName, stored);
 					}
 				}
 			});
@@ -223,7 +249,7 @@ export function createDataDoc(options: {
 			const tableMap = getTablesSchemaMap().get(tableName);
 			if (!tableMap) return undefined;
 
-			const result = new Map<string, SerializedFieldSchema>();
+			const result = new Map<string, StoredFieldSchema>();
 			tableMap.forEach((value, key) => {
 				result.set(key, value);
 			});
@@ -264,7 +290,7 @@ export function createDataDoc(options: {
 				tablesSchemaMap.set(tableName, tableMap);
 			}
 
-			tableMap.set(fieldName, serializeFieldSchema(fieldSchema));
+			tableMap.set(fieldName, prepareForStorage(fieldSchema));
 		},
 
 		/** Remove a field from a table schema. */
@@ -277,7 +303,7 @@ export function createDataDoc(options: {
 
 		/** Add a new KV field schema. */
 		addKvField(keyName: string, fieldSchema: FieldSchema) {
-			getKvSchemaMap().set(keyName, serializeFieldSchema(fieldSchema));
+			getKvSchemaMap().set(keyName, prepareForStorage(fieldSchema));
 		},
 
 		/** Remove a KV field schema. */
@@ -337,14 +363,14 @@ export function createDataDoc(options: {
 			const tablesSchemaMap = getTablesSchemaMap();
 			const fieldHandlers = new Map<
 				string,
-				(event: Y.YMapEvent<SerializedFieldSchema>) => void
+				(event: Y.YMapEvent<StoredFieldSchema>) => void
 			>();
 
 			const setupFieldObserver = (
 				tableName: string,
-				tableMap: Y.Map<SerializedFieldSchema>,
+				tableMap: Y.Map<StoredFieldSchema>,
 			) => {
-				const fieldHandler = (event: Y.YMapEvent<SerializedFieldSchema>) => {
+				const fieldHandler = (event: Y.YMapEvent<StoredFieldSchema>) => {
 					const fieldsChanged: Array<{
 						table: string;
 						field: string;
@@ -368,9 +394,7 @@ export function createDataDoc(options: {
 				fieldHandlers.set(tableName, fieldHandler);
 			};
 
-			const tableHandler = (
-				event: Y.YMapEvent<Y.Map<SerializedFieldSchema>>,
-			) => {
+			const tableHandler = (event: Y.YMapEvent<Y.Map<StoredFieldSchema>>) => {
 				const tablesAdded: string[] = [];
 				const tablesRemoved: string[] = [];
 

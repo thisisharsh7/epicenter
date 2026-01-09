@@ -5,6 +5,25 @@
 
 ## Implementation Status
 
+### Phase 4: Schema Type Unification ✅ COMPLETE
+
+Unified schema storage to enable collaborative schema editing:
+
+| Before                                      | After                                         | Rationale                                                         |
+| ------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
+| `SerializedFieldSchema` (stripped metadata) | `StoredFieldSchema` (full FieldSchema)        | Enables collaborative editing of field names, descriptions, icons |
+| Metadata stripped before storage            | Metadata preserved in Y.Doc                   | Users can rename fields, add descriptions, set icons              |
+| No JSON Schema conversion                   | `json` field schemas converted to JSON Schema | StandardSchema objects aren't serializable                        |
+
+**Key insight**: The original design stripped `FieldMetadata` (name, description, icon) because "nobody uses it" — but that was circular reasoning. For Notion-like collaborative schema editing, metadata must be stored in Y.Doc.
+
+**Changes made:**
+
+- Renamed `SerializedFieldSchema` → `StoredFieldSchema`
+- `StoredFieldSchema` now includes all `FieldSchema` properties (type, nullable, default, options, name, description, icon)
+- For `json` fields: `StandardSchema` is converted to JSON Schema via `standardSchemaToJsonSchema()` before storage
+- Updated `deepEqual()` to compare all properties including metadata
+
 ### Phase 1: Terminology Refactor ✅ COMPLETE
 
 Workspace identifiers standardized:
@@ -210,10 +229,10 @@ data.setName('My Workspace');
 
 // Schema (merge semantics - idempotent, call on every create)
 data.hasSchema();                      // boolean
-data.mergeSchema(tables, kv);          // Merge code schema into Y.Doc
-data.getTableSchema('posts');          // Map<fieldName, SerializedFieldSchema>
+data.mergeSchema(tables, kv);          // Merge code schema into Y.Doc (preserves metadata)
+data.getTableSchema('posts');          // Map<fieldName, StoredFieldSchema>
 data.getTableNames();                  // string[]
-data.getKvSchema('theme');             // SerializedFieldSchema
+data.getKvSchema('theme');             // StoredFieldSchema
 data.getKvNames();                     // string[]
 data.addTableField('posts', 'newField', text());
 data.removeTableField('posts', 'oldField');

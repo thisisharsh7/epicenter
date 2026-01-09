@@ -48,8 +48,8 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │    └── name: "My Workspace"                                      │
 │                                                                  │
 │  Y.Map('schema')                                                 │
-│    ├── tables: Y.Map<tableName, Y.Map<fieldName, FieldSchema>>   │
-│    └── kv: Y.Map<keyName, FieldSchema>                           │
+│    ├── tables: Y.Map<tableName, Y.Map<fieldName, StoredFieldSchema>>│
+│    └── kv: Y.Map<keyName, StoredFieldSchema>                     │
 │                                                                  │
 │  Y.Map('tables')                                                 │
 │    └── {tableName}: Y.Map<rowId, Y.Map<fieldName, value>>        │
@@ -141,23 +141,35 @@ This is idempotent and safe for concurrent calls.
 | `head-doc.ts`     | `createHeadDoc()`     | Epoch pointer            |
 | `data-doc.ts`     | `createDataDoc()`     | Schema + data storage    |
 
-## SerializedFieldSchema
+## StoredFieldSchema
 
-The Y.Doc stores a subset of `FieldSchema` to save space:
+The Y.Doc stores the full `FieldSchema` to enable collaborative schema editing:
 
 ```typescript
-// Full FieldSchema (from factories)
-{ type: 'text', name: '', description: '', icon: null, nullable: true }
+// FieldSchema (from factories)
+{ type: 'text', name: 'Title', description: 'Post title', icon: { type: 'emoji', value: '📝' }, nullable: true }
 
-// SerializedFieldSchema (stored in Y.Doc)
-{ type: 'text', nullable: true }
+// StoredFieldSchema (stored in Y.Doc) - same structure, preserved for collaboration
+{ type: 'text', name: 'Title', description: 'Post title', icon: { type: 'emoji', value: '📝' }, nullable: true }
 ```
 
-`FieldMetadata` (name, description, icon) is stripped because:
+**Why store full metadata?**
 
-1. Nobody actually uses it (all call sites pass empty/null)
-2. It would bloat every field in the Y.Doc
-3. TypeScript types come from code schema anyway
+1. Enables Notion-like collaborative schema editing (rename fields, add descriptions, set icons)
+2. Changes sync via CRDT to all collaborators
+3. TypeScript types still come from code schema (compile-time safety)
+
+**Special handling for `json` fields:**
+
+For `json` fields, the `StandardSchema` (arktype/zod) is converted to JSON Schema before storage:
+
+```typescript
+// Code definition
+{ type: 'json', schema: type({ theme: 'string' }) }
+
+// Stored in Y.Doc (StandardSchema → JSON Schema)
+{ type: 'json', schema: { type: 'object', properties: { theme: { type: 'string' } } } }
+```
 
 ## Usage
 
