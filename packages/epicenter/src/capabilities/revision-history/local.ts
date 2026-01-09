@@ -1,4 +1,3 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
@@ -160,7 +159,7 @@ export const localRevisionHistory = async <
 	 * @param description - Optional description for this version
 	 * @returns The version entry if saved, null if no changes
 	 */
-	function save(description?: string): VersionEntry | null {
+	async function save(description?: string): Promise<VersionEntry | null> {
 		const snapshot = Y.snapshot(ydoc);
 
 		// Skip if no changes since last snapshot
@@ -172,9 +171,9 @@ export const localRevisionHistory = async <
 		const filename = `${timestamp}${SNAPSHOT_EXTENSION}`;
 		const filePath = path.join(snapshotDir, filename);
 
-		// Encode and save synchronously to ensure data persists before process exits
+		// Encode and save
 		const encoded = Y.encodeSnapshot(snapshot);
-		writeFileSync(filePath, encoded);
+		await Bun.write(filePath, encoded);
 
 		// Save metadata to sidecar .json file if description provided
 		if (description) {
@@ -183,7 +182,7 @@ export const localRevisionHistory = async <
 				`${timestamp}${METADATA_EXTENSION}`,
 			);
 			const metadata: SnapshotMetadata = { description };
-			writeFileSync(metadataPath, JSON.stringify(metadata));
+			await Bun.write(metadataPath, JSON.stringify(metadata));
 		}
 
 		// Update tracking
@@ -215,8 +214,8 @@ export const localRevisionHistory = async <
 		if (debounceTimer) {
 			clearTimeout(debounceTimer);
 		}
-		debounceTimer = setTimeout(() => {
-			save();
+		debounceTimer = setTimeout(async () => {
+			await save();
 			debounceTimer = null;
 		}, debounceMs);
 	}
@@ -246,10 +245,11 @@ export const localRevisionHistory = async <
 				`${timestamp}${METADATA_EXTENSION}`,
 			);
 			let description: string | undefined;
-			if (existsSync(metadataPath)) {
+			const metadataFile = Bun.file(metadataPath);
+			if (await metadataFile.exists()) {
 				try {
 					const metadata = JSON.parse(
-						readFileSync(metadataPath, 'utf-8'),
+						await metadataFile.text(),
 					) as SnapshotMetadata;
 					description = metadata.description;
 				} catch {
@@ -294,8 +294,9 @@ export const localRevisionHistory = async <
 			try {
 				await Bun.file(snapshotPath).delete();
 				// Also delete metadata file if it exists
-				if (existsSync(metadataPath)) {
-					await Bun.file(metadataPath).delete();
+				const metadataFile = Bun.file(metadataPath);
+				if (await metadataFile.exists()) {
+					await metadataFile.delete();
 				}
 				console.log(
 					`[RevisionHistory] Pruned old version: ${version.timestamp}`,
@@ -313,7 +314,7 @@ export const localRevisionHistory = async <
 	ydoc.on('update', updateHandler);
 
 	// Save initial snapshot to capture state before any edits
-	save();
+	await save();
 
 	console.log(
 		`[RevisionHistory] Initialized with ${debounceMs}ms debounce, saving to ${snapshotDir}`,
